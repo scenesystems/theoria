@@ -6,11 +6,11 @@
  * @since 0.1.0
  */
 import * as Numeric from "@scenesystems/effect-math/Numeric"
-import { Array as Arr, Data, Effect, Option, Ref, Schema } from "effect"
+import { Array as Arr, Data, Effect, Number as Num, Option, Ref, Schema } from "effect"
 import { ModuleParams } from "../../contracts/ModuleParams.js"
-import type { Example } from "../../Example/index.js"
 import { collectModuleParamRefs } from "../../internal/module-params.js"
 import type { Module as DspModule } from "../../Module/model.js"
+import type { MIPROExamples } from "./index.js"
 import { assemblePredictorCandidates, labeledDemos, sortDemos } from "./runtime/anchors.js"
 import { normalizeCount, normalizeSeed } from "./runtime/random.js"
 
@@ -74,6 +74,22 @@ export class PredictorDemoCandidates extends Schema.Class<PredictorDemoCandidate
 }) {}
 
 /**
+ * Ordered Phase 1 candidate sets, one per predictor.
+ *
+ * @since 0.1.0
+ * @category schemas
+ */
+export const PredictorDemoCandidateSets = Schema.Array(PredictorDemoCandidates)
+
+/**
+ * Ordered Phase 1 candidate sets, one per predictor.
+ *
+ * @since 0.1.0
+ * @category type-level
+ */
+export type PredictorDemoCandidateSets = typeof PredictorDemoCandidateSets.Type
+
+/**
  * Configures labeled demonstration selection for every owned predictor.
  *
  * @typeParam I - Input fields accepted by the module tree.
@@ -84,12 +100,14 @@ export class PredictorDemoCandidates extends Schema.Class<PredictorDemoCandidate
  */
 export class GenerateDemoCandidatesOptions<
   I extends Schema.Struct.Fields,
-  O extends Schema.Struct.Fields
+  O extends Schema.Struct.Fields,
+  E = never,
+  R = never
 > extends Data.Class<{
   /** Root whose parameter refs are read without mutation. */
-  readonly module: DspModule<I, O>
+  readonly module: DspModule<I, O, E, R>
   /** Source examples; entries without `output` are excluded from every candidate. */
-  readonly trainset: ReadonlyArray<Example>
+  readonly trainset: MIPROExamples
   /** Total candidates per predictor, normalized to a positive integer. */
   readonly numCandidates: number
   /** Seed used to order shuffled candidates. Defaults to `1` after normalization. */
@@ -120,9 +138,11 @@ export class GenerateDemoCandidatesOptions<
  */
 export const generateDemoCandidates = <
   I extends Schema.Struct.Fields,
-  O extends Schema.Struct.Fields
+  O extends Schema.Struct.Fields,
+  E = never,
+  R = never
 >(
-  options: GenerateDemoCandidatesOptions<I, O>
+  options: GenerateDemoCandidatesOptions<I, O, E, R>
 ) =>
   Effect.gen(function*() {
     const refs = collectModuleParamRefs(options.module)
@@ -131,13 +151,13 @@ export const generateDemoCandidates = <
     const maxLabeledDemos = normalizeCount(
       Option.getOrElse(
         Option.fromNullable(options.maxLabeledDemos),
-        () => Numeric.max(1, Numeric.min(4, allLabeled.length))
+        () => Numeric.max(1, Numeric.min(4, Arr.length(allLabeled)))
       )
     )
     const maxBootstrappedDemos = normalizeCount(
       Option.getOrElse(
         Option.fromNullable(options.maxBootstrappedDemos),
-        () => Numeric.max(1, Numeric.min(4, allLabeled.length))
+        () => Numeric.max(1, Numeric.min(4, Arr.length(allLabeled)))
       )
     )
     const seed = normalizeSeed(Option.getOrElse(Option.fromNullable(options.seed), () => 1))
@@ -152,7 +172,7 @@ export const generateDemoCandidates = <
           requestedCandidates,
           maxLabeledDemos,
           maxBootstrappedDemos,
-          seed: seed + predictorIndex
+          seed: Num.sum(seed, predictorIndex)
         })
 
         return new PredictorDemoCandidates({

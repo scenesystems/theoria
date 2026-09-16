@@ -6,12 +6,11 @@
  * @internal
  */
 import type { Schema } from "effect"
-import { Array as Arr, Data, Effect, identity, Number as Num, Option, Order } from "effect"
+import { Array as Arr, Boolean, Data, Effect, identity, Number as Num, Option, Order, Schema as S } from "effect"
 import { withRollout } from "../../Cache/refs.js"
 import type { MetricResult } from "../../contracts/MetricResult.js"
-import type { RolloutCount } from "../../contracts/RolloutCount.js"
-import type { Signature } from "../../Signature/model.js"
 import type { Module } from "../model.js"
+import type { BestOfNOptions } from "./index.js"
 
 /**
  * Scores one module output in the context of its original input.
@@ -44,10 +43,11 @@ class ScoredCandidate<O> extends Data.Class<{
   readonly rolloutIndex: number
 }> {}
 
-const scoredCandidateOrder: Order.Order<ScoredCandidate<unknown>> = Order.combine(
-  Order.reverse(Order.mapInput(Num.Order, (candidate: ScoredCandidate<unknown>) => candidate.score)),
-  Order.mapInput(Num.Order, (candidate: ScoredCandidate<unknown>) => candidate.rolloutIndex)
-)
+const scoredCandidateOrder = <O>(): Order.Order<ScoredCandidate<O>> =>
+  Order.combine(
+    Order.reverse(Order.mapInput(Num.Order, (candidate: ScoredCandidate<O>) => candidate.score)),
+    Order.mapInput(Num.Order, (candidate: ScoredCandidate<O>) => candidate.rolloutIndex)
+  )
 
 /**
  * Build a typed `forward` function for a best-of-N module.
@@ -57,18 +57,13 @@ const scoredCandidateOrder: Order.Order<ScoredCandidate<unknown>> = Order.combin
  */
 export const makeBestOfNForward = <
   I extends Schema.Struct.Fields,
-  O extends Schema.Struct.Fields
->(options: {
-  readonly moduleName: string
-  readonly signature: Signature<I, O>
-  readonly innerModule: Module<I, O>
-  readonly N: RolloutCount
-  readonly reward: RewardFn<I, O>
-  readonly threshold?: number
-}): Module<I, O>["forward"] => {
+  O extends Schema.Struct.Fields,
+  E,
+  R
+>(options: BestOfNOptions<I, O, E, R>): Module<I, O, E, R>["forward"] => {
   const rolloutIndices: Arr.NonEmptyArray<number> = Arr.makeBy(options.N, identity)
 
-  return Effect.fn(options.moduleName)((input) =>
+  return Effect.fn(options.name)((input) =>
     Effect.gen(function*() {
       const candidates = yield* Effect.forEach(
         rolloutIndices,
@@ -76,26 +71,39 @@ export const makeBestOfNForward = <
           withRollout(
             rolloutIndex,
             Effect.gen(function*() {
-              const output = yield* options.innerModule.forward(input)
+              const output = yield* options.module.forward(input)
               const result = yield* options.reward(input, output)
-              const candidate: ScoredCandidate<Schema.Schema.Type<Schema.Struct<O>>> = {
+              const candidate = new ScoredCandidate<Schema.Schema.Type<Schema.Struct<O>>>({
                 output,
                 score: result.score,
                 rolloutIndex
-              }
+              })
 
               return candidate
             })
           )
       )
 
-      const sorted = Arr.sort(candidates, scoredCandidateOrder)
-      const best = Arr.headNonEmpty(sorted)
+      const sorted = Arr.sort(
+        Arr.filter(candidates, (candidate) => S.is(S.NonNaN)(candidate.score)),
+        scoredCandidateOrder<Schema.Schema.Type<Schema.Struct<O>>>()
+      )
+      const best = Option.getOrElse(
+        Arr.head(sorted),
+        () => Arr.headNonEmpty(candidates)
+      )
 
       return Option.match(Option.fromNullable(options.threshold), {
         onSome: (threshold) =>
           Option.getOrElse(
-            Arr.findFirst(sorted, (candidate) => candidate.score >= threshold),
+            Arr.findFirst(
+              sorted,
+              (candidate) =>
+                Boolean.match(S.is(S.NonNaN)(threshold), {
+                  onTrue: () => Num.greaterThanOrEqualTo(candidate.score, threshold),
+                  onFalse: () => false
+                })
+            ),
             () => best
           ),
         onNone: () => best

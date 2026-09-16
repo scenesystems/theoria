@@ -4,11 +4,18 @@
 import * as LanguageModel from "@effect/ai/LanguageModel"
 import * as Prompt from "@effect/ai/Prompt"
 import * as Response from "@effect/ai/Response"
+import * as Tool from "@effect/ai/Tool"
+import * as Toolkit from "@effect/ai/Toolkit"
 import { describe, expect, it } from "@effect/vitest"
 import { MockLanguageModel } from "@scenesystems/effect-dsp/test"
-import { Array as Arr, Chunk, Effect, Order, Ref, Schema, String } from "effect"
+import { Array as Arr, Chunk, Effect, Order, Ref, Schema, Stream, String } from "effect"
 
 const TextEnvelope = Schema.Struct({ value: Schema.String })
+
+const LookupFacts = Tool.make("LookupFacts", {
+  parameters: { question: Schema.String },
+  success: Schema.String
+})
 
 describe("MockLanguageModel", () => {
   it.effect("normalizes string, Prompt envelope, and iterable inputs for strategies", () =>
@@ -86,6 +93,32 @@ describe("MockLanguageModel", () => {
       expect(invalidSchema._tag).toBe("MalformedOutput")
     }))
 
+  it.effect("rejects lossy object responses instead of manufacturing schema-valid JSON", () =>
+    Effect.gen(function*() {
+      const schema = Schema.Struct({
+        value: Schema.Struct({
+          score: Schema.NullOr(Schema.Number),
+          note: Schema.optional(Schema.String)
+        })
+      })
+      const payloads = Arr.make(
+        { value: { score: Number.POSITIVE_INFINITY } },
+        { value: { score: 7, note: () => "discarded by JSON" } }
+      )
+      const failures = yield* Effect.forEach(payloads, (payload) =>
+        Effect.gen(function*() {
+          const mock = yield* MockLanguageModel.make(MockLanguageModel.fixed(payload))
+          const failure = yield* LanguageModel.generateObject({ prompt: "lossless", schema }).pipe(
+            Effect.provideService(LanguageModel.LanguageModel, mock.service),
+            Effect.flip
+          )
+          expect(Arr.length(yield* Ref.get(mock.calls))).toBe(0)
+          return failure
+        }))
+
+      expect(Arr.map(failures, (failure) => failure._tag)).toEqual(Arr.make("UnknownError", "UnknownError"))
+    }))
+
   it.effect("returns sequence responses in order and repeats the final response", () =>
     Effect.gen(function*() {
       const mock = yield* MockLanguageModel.make(
@@ -160,17 +193,106 @@ describe("MockLanguageModel", () => {
       ).toEqual(Arr.make(undefined, undefined, undefined, undefined, undefined))
     }))
 
-  it.effect("rejects malformed raw provider response arrays", () =>
+  it.effect("rejects every malformed raw provider response array as invalid parts", () =>
+    Effect.gen(function*() {
+      const malformed = Arr.make(
+        Arr.of({ type: "text", text: 42 }),
+        Arr.of({ type: 42, text: "wrong discriminator type" }),
+        Arr.of({ text: "missing discriminator" }),
+        Arr.of(42)
+      )
+      const failures = yield* Effect.forEach(malformed, (payload) =>
+        Effect.gen(function*() {
+          const mock = yield* MockLanguageModel.make(MockLanguageModel.fixed(payload))
+
+          return yield* LanguageModel.generateText({ prompt: "invalid provider output" }).pipe(
+            Effect.provideService(LanguageModel.LanguageModel, mock.service),
+            Effect.flip
+          )
+        }))
+
+      expect(Arr.map(failures, (failure) => failure._tag)).toEqual(
+        Arr.make("UnknownError", "UnknownError", "UnknownError", "UnknownError")
+      )
+      expect(Arr.map(failures, (failure) => failure.description)).toEqual(
+        Arr.make(
+          "MockLanguageModel received invalid provider response parts",
+          "MockLanguageModel received invalid provider response parts",
+          "MockLanguageModel received invalid provider response parts",
+          "MockLanguageModel received invalid provider response parts"
+        )
+      )
+    }))
+
+  it.effect("rejects unsupported and non-finite text values instead of fabricating text", () =>
     Effect.gen(function*() {
       const mock = yield* MockLanguageModel.make(
-        MockLanguageModel.fixed(Arr.of({ type: "text", text: 42 }))
+        MockLanguageModel.fixed({ answer: "not a text response" })
       )
-      const failure = yield* LanguageModel.generateText({ prompt: "invalid provider output" }).pipe(
+      const failure = yield* LanguageModel.generateText({ prompt: "unsupported" }).pipe(
         Effect.provideService(LanguageModel.LanguageModel, mock.service),
         Effect.flip
       )
+      const calls = yield* Ref.get(mock.calls)
 
-      expect(failure._tag).toBe("UnknownError")
+      expect(failure).toMatchObject({
+        _tag: "UnknownError",
+        method: "generateText",
+        description: "MockLanguageModel text responses must be strings, finite numbers, or booleans"
+      })
+      expect(Arr.length(calls)).toBe(0)
+
+      const nonFiniteFailures = yield* Effect.forEach(
+        Arr.make(Number.NaN, Number.POSITIVE_INFINITY, Number.NEGATIVE_INFINITY),
+        (value) =>
+          Effect.gen(function*() {
+            const nonFiniteMock = yield* MockLanguageModel.make(MockLanguageModel.fixed(value))
+
+            return yield* LanguageModel.generateText({ prompt: "non-finite" }).pipe(
+              Effect.provideService(LanguageModel.LanguageModel, nonFiniteMock.service),
+              Effect.flip
+            )
+          })
+      )
+
+      expect(Arr.map(nonFiniteFailures, (nonFiniteFailure) => nonFiniteFailure.description)).toEqual(
+        Arr.make(
+          "MockLanguageModel text responses must be strings, finite numbers, or booleans",
+          "MockLanguageModel text responses must be strings, finite numbers, or booleans",
+          "MockLanguageModel text responses must be strings, finite numbers, or booleans"
+        )
+      )
+    }))
+
+  it.effect("preserves valid native structured and tool-call responses", () =>
+    Effect.gen(function*() {
+      const structuredMock = yield* MockLanguageModel.make(
+        MockLanguageModel.fixed({ value: "structured" })
+      )
+      const structured = yield* LanguageModel.generateObject({
+        prompt: "structured",
+        schema: TextEnvelope
+      }).pipe(Effect.provideService(LanguageModel.LanguageModel, structuredMock.service))
+      const toolCall = Response.toolCallPart({
+        id: "call-1",
+        name: "LookupFacts",
+        params: { question: "Where?" },
+        providerExecuted: false
+      })
+      const toolMock = yield* MockLanguageModel.make(MockLanguageModel.fixed(Arr.of(toolCall)))
+      const tools = Toolkit.make(LookupFacts)
+      const toolkit = yield* tools.pipe(
+        Effect.provide(tools.toLayer({ LookupFacts: ({ question }) => Effect.succeed(question) }))
+      )
+      const toolResponse = yield* LanguageModel.generateText({
+        prompt: "tool",
+        toolkit,
+        disableToolCallResolution: true
+      }).pipe(Effect.provideService(LanguageModel.LanguageModel, toolMock.service))
+
+      expect(structured.value).toEqual({ value: "structured" })
+      expect(toolResponse.toolCalls).toEqual(Arr.of(toolCall))
+      expect(toolResponse.finishReason).toBe("stop")
     }))
 
   it.effect("keeps fromFunction effectful and installable through layer", () =>
@@ -202,5 +324,33 @@ describe("MockLanguageModel", () => {
 
       expect(failingError._tag).toBe("UnknownError")
       expect(emptyError._tag).toBe("UnknownError")
+    }))
+
+  it.effect("fails unsupported streaming through the typed AiError channel", () =>
+    Effect.gen(function*() {
+      const strategies = Arr.make(
+        MockLanguageModel.fixed("unused"),
+        MockLanguageModel.failing("expected strategy failure")
+      )
+      const failures = yield* Effect.forEach(strategies, (strategy) =>
+        Effect.gen(function*() {
+          const mock = yield* MockLanguageModel.make(strategy)
+
+          return yield* LanguageModel.streamText({ prompt: "stream" }).pipe(
+            Stream.runDrain,
+            Effect.provideService(LanguageModel.LanguageModel, mock.service),
+            Effect.flip
+          )
+        }))
+
+      expect(Arr.map(failures, (failure) => failure._tag)).toEqual(
+        Arr.make("UnknownError", "UnknownError")
+      )
+      expect(Arr.map(failures, (failure) => failure.description)).toEqual(
+        Arr.make(
+          "MockLanguageModel does not support streamText",
+          "MockLanguageModel does not support streamText"
+        )
+      )
     }))
 })

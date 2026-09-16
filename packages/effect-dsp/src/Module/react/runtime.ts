@@ -5,6 +5,7 @@
  * @category internal
  * @internal
  */
+import * as Prompt from "@effect/ai/Prompt"
 import type * as Tool from "@effect/ai/Tool"
 import type * as Toolkit from "@effect/ai/Toolkit"
 import type { Record } from "effect"
@@ -15,18 +16,19 @@ import { callLmTextResponse } from "../../internal/lm.js"
 import { parseTextOutput } from "../../internal/parse/decode.js"
 import { buildPrompt } from "../../internal/prompt/render.js"
 import type { Signature } from "../../Signature/model.js"
-import { RegisteredSignature, registerRuntime } from "../discovery/index.js"
+import { RegisteredSignature, registerRuntime, RuntimeRegistrationOptions } from "../discovery/index.js"
 import type { Module } from "../model.js"
-import { tracePayloadFromEncoded } from "../predict/trace.js"
+import { PayloadOptions, tracePayloadFromEncoded } from "../predict/trace.js"
 import {
   appendReactTraceEntry,
-  feedbackFromHistory,
   makeIterationFeedback,
   makeToolObservationFeedback,
-  ReactLoopState
+  ReactLoopState,
+  ReactTraceOptions
 } from "./step.js"
 
-class ReactOptions<
+/** @internal */
+export class ReactRuntimeOptions<
   I extends Schema.Struct.Fields,
   O extends Schema.Struct.Fields,
   Tools extends Record.ReadonlyRecord<string, Tool.Any>
@@ -50,30 +52,39 @@ export const makeReactForward = <
   I extends Schema.Struct.Fields,
   O extends Schema.Struct.Fields,
   Tools extends Record.ReadonlyRecord<string, Tool.Any>
->(options: ReactOptions<I, O, Tools>): Module<I, O>["forward"] => {
+>(options: ReactRuntimeOptions<I, O, Tools>): Module<
+  I,
+  O,
+  Tool.HandlerError<Tools[keyof Tools]>,
+  Tool.Requirements<Tools[keyof Tools]>
+>["forward"] => {
   return Effect.fn(options.moduleName)((input) =>
     Effect.gen(function*() {
-      yield* registerRuntime({
-        moduleName: options.moduleName,
-        params: options.paramsRef,
-        signature: new RegisteredSignature({
-          description: options.signature.description,
-          instructions: options.signature.instructions
-        }),
-        subModuleIds: Arr.empty()
-      })
+      yield* registerRuntime(
+        new RuntimeRegistrationOptions({
+          moduleName: options.moduleName,
+          params: options.paramsRef,
+          signature: new RegisteredSignature({
+            description: options.signature.description,
+            instructions: options.signature.instructions
+          }),
+          subModuleIds: Arr.empty()
+        })
+      )
 
       const params = yield* Ref.get(options.paramsRef)
-      const traceInput = yield* tracePayloadFromEncoded({
-        moduleName: options.moduleName,
-        carrier: "input",
-        schema: options.inputSchema,
-        value: input
-      })
+      const traceInput = yield* tracePayloadFromEncoded(
+        new PayloadOptions({
+          moduleName: options.moduleName,
+          carrier: "input",
+          schema: options.inputSchema,
+          value: input
+        })
+      )
 
       const initialState = new ReactLoopState<Schema.Schema.Type<Schema.Struct<O>>>({
         iteration: 0,
-        feedbackHistory: Arr.empty(),
+        prompt: yield* buildPrompt(options.signature, params, input),
         output: Option.none(),
         lastRawResponse: Option.none(),
         lastDiagnostics: Arr.empty(),
@@ -85,44 +96,39 @@ export const makeReactForward = <
           Boolean.and(Number.lessThan(state.iteration, options.maxIterations), Option.isNone(state.output)),
         body: (state) =>
           Effect.gen(function*() {
-            const prompt = buildPrompt(
-              options.signature,
-              params,
-              input,
-              feedbackFromHistory(state.feedbackHistory)
-            )
+            const prompt = state.prompt
             const startedAt = yield* Clock.currentTimeMillis
             const [response, usage] = yield* callLmTextResponse(
               prompt,
               Boolean.match(state.lastTurnWasToolCall, {
-                onTrue: () => ({}),
-                onFalse: () => ({ toolkit: options.toolkit })
+                onTrue: () => Option.none(),
+                onFalse: () => Option.some(options.toolkit)
               })
             )
             const completedAt = yield* Clock.currentTimeMillis
+            const continuation = Prompt.merge(prompt, Prompt.fromResponseParts(response.content))
 
             return yield* Effect.if(Arr.isNonEmptyReadonlyArray(response.toolCalls), {
               onTrue: () =>
-                appendReactTraceEntry({
-                  moduleName: options.moduleName,
-                  signature: options.signature,
-                  traceInput,
-                  outputSchema: options.outputSchema,
-                  output: Option.none<Schema.Schema.Type<Schema.Struct<O>>>(),
-                  parseError: Option.none(),
-                  prompt,
-                  response,
-                  usage,
-                  startedAt,
-                  completedAt
-                }).pipe(
+                appendReactTraceEntry(
+                  new ReactTraceOptions<I, O, Tools>({
+                    moduleName: options.moduleName,
+                    signature: options.signature,
+                    traceInput,
+                    outputSchema: options.outputSchema,
+                    output: Option.none<Schema.Schema.Type<Schema.Struct<O>>>(),
+                    parseError: Option.none(),
+                    prompt,
+                    response,
+                    usage,
+                    startedAt,
+                    completedAt
+                  })
+                ).pipe(
                   Effect.as(
                     new ReactLoopState({
                       iteration: Number.increment(state.iteration),
-                      feedbackHistory: Arr.append(
-                        state.feedbackHistory,
-                        makeToolObservationFeedback(state.iteration, response)
-                      ),
+                      prompt: Prompt.merge(continuation, makeToolObservationFeedback(state.iteration)),
                       output: Option.none<Schema.Schema.Type<Schema.Struct<O>>>(),
                       lastRawResponse: Option.some(response.text),
                       lastDiagnostics: Arr.empty<ParseFieldDiagnostic>(),
@@ -138,23 +144,25 @@ export const makeReactForward = <
 
                   return yield* Either.match(parsed, {
                     onRight: (output) =>
-                      appendReactTraceEntry({
-                        moduleName: options.moduleName,
-                        signature: options.signature,
-                        traceInput,
-                        outputSchema: options.outputSchema,
-                        output: Option.some(output),
-                        parseError: Option.none(),
-                        prompt,
-                        response,
-                        usage,
-                        startedAt,
-                        completedAt
-                      }).pipe(
+                      appendReactTraceEntry(
+                        new ReactTraceOptions<I, O, Tools>({
+                          moduleName: options.moduleName,
+                          signature: options.signature,
+                          traceInput,
+                          outputSchema: options.outputSchema,
+                          output: Option.some(output),
+                          parseError: Option.none(),
+                          prompt,
+                          response,
+                          usage,
+                          startedAt,
+                          completedAt
+                        })
+                      ).pipe(
                         Effect.as(
                           new ReactLoopState({
                             iteration: Number.increment(state.iteration),
-                            feedbackHistory: state.feedbackHistory,
+                            prompt: continuation,
                             output: Option.some(output),
                             lastRawResponse: Option.some(response.text),
                             lastDiagnostics: Arr.empty<ParseFieldDiagnostic>(),
@@ -163,25 +171,27 @@ export const makeReactForward = <
                         )
                       ),
                     onLeft: (parseError) =>
-                      appendReactTraceEntry({
-                        moduleName: options.moduleName,
-                        signature: options.signature,
-                        traceInput,
-                        outputSchema: options.outputSchema,
-                        output: Option.none<Schema.Schema.Type<Schema.Struct<O>>>(),
-                        parseError: Option.some(parseError.message),
-                        prompt,
-                        response,
-                        usage,
-                        startedAt,
-                        completedAt
-                      }).pipe(
+                      appendReactTraceEntry(
+                        new ReactTraceOptions<I, O, Tools>({
+                          moduleName: options.moduleName,
+                          signature: options.signature,
+                          traceInput,
+                          outputSchema: options.outputSchema,
+                          output: Option.none<Schema.Schema.Type<Schema.Struct<O>>>(),
+                          parseError: Option.some(parseError.message),
+                          prompt,
+                          response,
+                          usage,
+                          startedAt,
+                          completedAt
+                        })
+                      ).pipe(
                         Effect.as(
                           new ReactLoopState({
                             iteration: Number.increment(state.iteration),
-                            feedbackHistory: Arr.append(
-                              state.feedbackHistory,
-                              makeIterationFeedback(state.iteration, response, parseError)
+                            prompt: Prompt.merge(
+                              continuation,
+                              makeIterationFeedback(state.iteration, response.text, parseError)
                             ),
                             output: Option.none<Schema.Schema.Type<Schema.Struct<O>>>(),
                             lastRawResponse: Option.some(response.text),

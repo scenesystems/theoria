@@ -13,26 +13,28 @@ import { parseTextWithRetry, ParseTextWithRetryOptions } from "../../internal/pa
 import { buildPrompt } from "../../internal/prompt/render.js"
 import { promptToTraceText } from "../../internal/prompt/trace.js"
 import { ForwardExecution, type ForwardOptions } from "./model.js"
-import { tracePayloadFromEncoded } from "./trace.js"
+import { PayloadOptions, tracePayloadFromEncoded } from "./trace.js"
 
 const runStructuredForward = <
   I extends Schema.Struct.Fields,
   O extends Schema.Struct.Fields
 >(options: ForwardOptions<I, O>) =>
   Effect.gen(function*() {
-    const prompt = buildPrompt(options.signature, options.params, options.input)
+    const prompt = yield* buildPrompt(options.signature, options.params, options.input)
     const [response, usage] = yield* callLmResponse(prompt, options.outputSchema)
-    const traceOutput = yield* tracePayloadFromEncoded({
-      moduleName: options.moduleName,
-      carrier: "output",
-      schema: options.outputSchema,
-      value: response.value
-    })
+    const traceOutput = yield* tracePayloadFromEncoded(
+      new PayloadOptions({
+        moduleName: options.moduleName,
+        carrier: "output",
+        schema: options.outputSchema,
+        value: response.value
+      })
+    )
 
     return new ForwardExecution({
       output: response.value,
       traceOutput,
-      promptText: promptToTraceText(prompt),
+      promptText: yield* promptToTraceText(prompt),
       rawResponse: response.text,
       usage
     })
@@ -54,7 +56,7 @@ const runTextForward = <
         feedbackTemplate: parsePolicy.feedbackTemplate,
         readText: (feedback) =>
           Effect.gen(function*() {
-            const prompt = buildPrompt(options.signature, options.params, options.input, feedback)
+            const prompt = yield* buildPrompt(options.signature, options.params, options.input, feedback)
             const [response, usage] = yield* callLmTextResponse(prompt)
 
             return Data.struct({ prompt, response, usage })
@@ -63,17 +65,19 @@ const runTextForward = <
       })
     )
 
-    const traceOutput = yield* tracePayloadFromEncoded({
-      moduleName: options.moduleName,
-      carrier: "output",
-      schema: options.outputSchema,
-      value: output
-    })
+    const traceOutput = yield* tracePayloadFromEncoded(
+      new PayloadOptions({
+        moduleName: options.moduleName,
+        carrier: "output",
+        schema: options.outputSchema,
+        value: output
+      })
+    )
 
     return new ForwardExecution({
       output,
       traceOutput,
-      promptText: promptToTraceText(prompt),
+      promptText: yield* promptToTraceText(prompt),
       rawResponse: response.text,
       usage
     })

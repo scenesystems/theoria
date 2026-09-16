@@ -7,7 +7,7 @@
  */
 import type * as LanguageModel from "@effect/ai/LanguageModel"
 import * as Numeric from "@scenesystems/effect-math/Numeric"
-import { Array as Arr, Effect, Option, Ref, Schema } from "effect"
+import { Array as Arr, Boolean as Bool, Data, Effect, Number as Num, Option, Ref, Schema, String as Str } from "effect"
 import type * as Layer from "effect/Layer"
 import { MetricPayload } from "../../../contracts/MetricFn.js"
 import { withModuleParamsDemosAndInstructions } from "../../../contracts/ModuleParams.js"
@@ -17,6 +17,7 @@ import type { Metric } from "../../../Metric/model.js"
 import type { Module } from "../../../Module/model.js"
 import { BootstrapEvent, type BootstrapEvent as BootstrapEventType } from "../../../Optimizer/events/bootstrap.js"
 import { withTracing } from "../../../Trace/index.js"
+import type { BootstrapExamples } from "../index.js"
 import { mergeAcceptedDemos, roundInstructions } from "./demos.js"
 import { BootstrapState, ExampleEvaluation, RoundEvaluation } from "./model.js"
 
@@ -41,6 +42,51 @@ const emptyRoundEvaluation = new RoundEvaluation({
  * @category type-level
  */
 export type BootstrapEventSink = (event: BootstrapEventType) => Effect.Effect<void>
+
+class ScoreAndAcceptanceStats extends Schema.Class<ScoreAndAcceptanceStats>("BootstrapScoreAndAcceptanceStats")({
+  acceptedCount: Schema.Number,
+  rejectedCount: Schema.Number,
+  scoreSum: Schema.Number,
+  bestScoreSeen: Schema.Boolean,
+  bestScore: Schema.Number
+}) {}
+
+class EvaluateExampleOptions<
+  I extends Schema.Struct.Fields,
+  O extends Schema.Struct.Fields,
+  ME,
+  MR,
+  E,
+  R
+> extends Data.Class<{
+  readonly module: Module<I, O, E, R>
+  readonly example: Example
+  readonly metric: Metric<ME, MR>
+  readonly threshold: number
+  readonly emit: BootstrapEventSink
+  readonly teacher: Option.Option<Layer.Layer<LanguageModel.LanguageModel, never, never>>
+}> {}
+
+/** @internal */
+export class BootstrapRoundOptions<
+  I extends Schema.Struct.Fields,
+  O extends Schema.Struct.Fields,
+  ME,
+  MR,
+  E,
+  R
+> extends Data.Class<{
+  readonly state: BootstrapState
+  readonly module: Module<I, O, E, R>
+  readonly trainset: BootstrapExamples
+  readonly metric: Metric<ME, MR>
+  readonly threshold: number
+  readonly emit: BootstrapEventSink
+  readonly teacher: Option.Option<Layer.Layer<LanguageModel.LanguageModel, never, never>>
+  readonly maxBootstrappedDemos: number
+  readonly maxRounds: number
+  readonly initialInstructions: string
+}> {}
 
 const decodeMetricPayload = (payload: unknown) =>
   Schema.decodeUnknown(MetricPayload)(payload).pipe(
@@ -74,15 +120,10 @@ const evaluateExample = <
   I extends Schema.Struct.Fields,
   O extends Schema.Struct.Fields,
   ME,
-  MR
->(options: {
-  readonly module: Module<I, O>
-  readonly example: Example
-  readonly metric: Metric<ME, MR>
-  readonly threshold: number
-  readonly emit: BootstrapEventSink
-  readonly teacher: Option.Option<Layer.Layer<LanguageModel.LanguageModel, never, never>>
-}) =>
+  MR,
+  E,
+  R
+>(options: EvaluateExampleOptions<I, O, ME, MR, E, R>) =>
   Effect.gen(function*() {
     const decodedInput = yield* Schema.decodeUnknown(options.module.signature.inputSchema)(options.example.input)
     const expectedOutput = yield* Option.match(Option.fromNullable(options.example.output), {
@@ -109,7 +150,7 @@ const evaluateExample = <
     )
     const predictionPayload = yield* decodeMetricPayload(traced[0])
     const metricResult = yield* options.metric.score(predictionPayload, expectedPayload)
-    const rootTrace = Arr.last(Arr.filter(traced[1], (entry) => entry.moduleName === options.module.name))
+    const rootTrace = Arr.last(Arr.filter(traced[1], (entry) => Str.Equivalence(entry.moduleName, options.module.name)))
 
     return yield* Option.match(rootTrace, {
       onNone: () =>
@@ -125,41 +166,50 @@ const evaluateExample = <
           )
         ),
       onSome: (traceEntry) =>
-        Effect.if(metricResult.score >= options.threshold, {
-          onTrue: () =>
-            options.emit(
-              BootstrapEvent.TraceAccepted({
-                moduleName: traceEntry.moduleName,
-                score: metricResult.score
-              })
-            ).pipe(
-              Effect.as(
-                new ExampleEvaluation({
-                  demo: Option.some(new Demo({ input: traceEntry.input, output: traceEntry.output })),
-                  traceCount: 1,
-                  accepted: true,
-                  score: metricResult.score
-                })
-              )
-            ),
-          onFalse: () =>
-            options.emit(
-              BootstrapEvent.TraceRejected({
-                moduleName: traceEntry.moduleName,
-                score: metricResult.score,
-                threshold: options.threshold
-              })
-            ).pipe(
-              Effect.as(
-                new ExampleEvaluation({
-                  demo: Option.none(),
-                  traceCount: 1,
-                  accepted: false,
-                  score: metricResult.score
-                })
-              )
+        Effect.if(
+          Bool.and(
+            Schema.is(Schema.NonNaN)(metricResult.score),
+            Bool.and(
+              Schema.is(Schema.NonNaN)(options.threshold),
+              Num.greaterThanOrEqualTo(metricResult.score, options.threshold)
             )
-        })
+          ),
+          {
+            onTrue: () =>
+              options.emit(
+                BootstrapEvent.TraceAccepted({
+                  moduleName: traceEntry.moduleName,
+                  score: metricResult.score
+                })
+              ).pipe(
+                Effect.as(
+                  new ExampleEvaluation({
+                    demo: Option.some(new Demo({ input: traceEntry.input, output: traceEntry.output })),
+                    traceCount: 1,
+                    accepted: true,
+                    score: metricResult.score
+                  })
+                )
+              ),
+            onFalse: () =>
+              options.emit(
+                BootstrapEvent.TraceRejected({
+                  moduleName: traceEntry.moduleName,
+                  score: metricResult.score,
+                  threshold: options.threshold
+                })
+              ).pipe(
+                Effect.as(
+                  new ExampleEvaluation({
+                    demo: Option.none(),
+                    traceCount: 1,
+                    accepted: false,
+                    score: metricResult.score
+                  })
+                )
+              )
+          }
+        )
     })
   })
 
@@ -167,19 +217,10 @@ export const bootstrapRound = <
   I extends Schema.Struct.Fields,
   O extends Schema.Struct.Fields,
   ME,
-  MR
->(options: {
-  readonly state: BootstrapState
-  readonly module: Module<I, O>
-  readonly trainset: ReadonlyArray<Example>
-  readonly metric: Metric<ME, MR>
-  readonly threshold: number
-  readonly emit: BootstrapEventSink
-  readonly teacher: Option.Option<Layer.Layer<LanguageModel.LanguageModel, never, never>>
-  readonly maxBootstrappedDemos: number
-  readonly maxRounds: number
-  readonly initialInstructions: string
-}) =>
+  MR,
+  E,
+  R
+>(options: BootstrapRoundOptions<I, O, ME, MR, E, R>) =>
   Effect.gen(function*() {
     yield* options.emit(BootstrapEvent.RoundStarted({ round: options.state.round, maxRounds: options.maxRounds }))
 
@@ -200,53 +241,72 @@ export const bootstrapRound = <
         Effect.forEach(
           options.trainset,
           (example) =>
-            evaluateExample({
-              module: options.module,
-              example,
-              metric: options.metric,
-              threshold: options.threshold,
-              emit: options.emit,
-              teacher: options.teacher
-            }),
+            evaluateExample(
+              new EvaluateExampleOptions({
+                module: options.module,
+                example,
+                metric: options.metric,
+                threshold: options.threshold,
+                emit: options.emit,
+                teacher: options.teacher
+              })
+            ),
           { concurrency: "inherit" }
         ).pipe(
           Effect.map((evaluations) => {
-            const scoreAndAcceptanceStats = Arr.reduce(
-              evaluations,
-              {
-                acceptedCount: 0,
-                rejectedCount: 0,
-                scoreSum: 0,
-                bestScoreSeen: false,
-                bestScore: 0
-              },
-              (stats, evaluation) => ({
-                acceptedCount: stats.acceptedCount + (evaluation.accepted
-                  ? 1
-                  : 0),
-                rejectedCount: stats.rejectedCount + (evaluation.accepted
-                  ? 0
-                  : 1),
-                scoreSum: stats.scoreSum + evaluation.score,
-                bestScoreSeen: true,
-                bestScore: stats.bestScoreSeen
-                  ? Numeric.max(stats.bestScore, evaluation.score)
-                  : evaluation.score
-              })
-            )
+            return Arr.match(evaluations, {
+              onEmpty: () => emptyRoundEvaluation,
+              onNonEmpty: (nonEmptyEvaluations) => {
+                const scoreAndAcceptanceStats = Arr.reduce(
+                  nonEmptyEvaluations,
+                  new ScoreAndAcceptanceStats({
+                    acceptedCount: 0,
+                    rejectedCount: 0,
+                    scoreSum: 0,
+                    bestScoreSeen: false,
+                    bestScore: 0
+                  }),
+                  (stats, evaluation) =>
+                    new ScoreAndAcceptanceStats({
+                      acceptedCount: Num.sum(
+                        stats.acceptedCount,
+                        Bool.match(evaluation.accepted, {
+                          onFalse: () => 0,
+                          onTrue: () => 1
+                        })
+                      ),
+                      rejectedCount: Num.sum(
+                        stats.rejectedCount,
+                        Bool.match(evaluation.accepted, {
+                          onFalse: () => 1,
+                          onTrue: () => 0
+                        })
+                      ),
+                      scoreSum: Num.sum(stats.scoreSum, evaluation.score),
+                      bestScoreSeen: true,
+                      bestScore: Bool.match(stats.bestScoreSeen, {
+                        onFalse: () => evaluation.score,
+                        onTrue: () => Numeric.max(stats.bestScore, evaluation.score)
+                      })
+                    })
+                )
 
-            return evaluations.length <= 0
-              ? emptyRoundEvaluation
-              : new RoundEvaluation({
-                acceptedDemos: Arr.filterMap(evaluations, (evaluation) => evaluation.demo),
-                traceCount: Arr.reduce(evaluations, 0, (count, evaluation) => count + evaluation.traceCount),
-                acceptedCount: scoreAndAcceptanceStats.acceptedCount,
-                rejectedCount: scoreAndAcceptanceStats.rejectedCount,
-                evaluatedCount: evaluations.length,
-                scoreSum: scoreAndAcceptanceStats.scoreSum,
-                bestScoreSeen: scoreAndAcceptanceStats.bestScoreSeen,
-                bestScore: scoreAndAcceptanceStats.bestScore
-              })
+                return new RoundEvaluation({
+                  acceptedDemos: Arr.filterMap(nonEmptyEvaluations, (evaluation) => evaluation.demo),
+                  traceCount: Arr.reduce(
+                    nonEmptyEvaluations,
+                    0,
+                    (count, evaluation) => Num.sum(count, evaluation.traceCount)
+                  ),
+                  acceptedCount: scoreAndAcceptanceStats.acceptedCount,
+                  rejectedCount: scoreAndAcceptanceStats.rejectedCount,
+                  evaluatedCount: Arr.length(nonEmptyEvaluations),
+                  scoreSum: scoreAndAcceptanceStats.scoreSum,
+                  bestScoreSeen: scoreAndAcceptanceStats.bestScoreSeen,
+                  bestScore: scoreAndAcceptanceStats.bestScore
+                })
+              }
+            })
           })
         ),
       (params) => Ref.set(options.module.params, params)
@@ -264,26 +324,30 @@ export const bootstrapRound = <
     yield* options.emit(
       BootstrapEvent.RoundCompleted({
         round: options.state.round,
-        demosCollected: merged.demos.length
+        demosCollected: Arr.length(merged.demos)
       })
     )
 
     return new BootstrapState({
-      round: options.state.round + 1,
-      roundsAttempted: options.state.roundsAttempted + 1,
+      round: Num.increment(options.state.round),
+      roundsAttempted: Num.increment(options.state.roundsAttempted),
       demos: merged.demos,
-      totalTraces: options.state.totalTraces + roundEvaluation.traceCount,
-      acceptedTraces: options.state.acceptedTraces + roundEvaluation.acceptedCount,
-      rejectedTraces: options.state.rejectedTraces + roundEvaluation.rejectedCount,
-      evaluatedExamples: options.state.evaluatedExamples + roundEvaluation.evaluatedCount,
-      scoreSum: options.state.scoreSum + roundEvaluation.scoreSum,
-      bestScoreSeen: options.state.bestScoreSeen || roundEvaluation.bestScoreSeen,
-      bestScore: options.state.bestScoreSeen && roundEvaluation.bestScoreSeen
-        ? Numeric.max(options.state.bestScore, roundEvaluation.bestScore)
-        : options.state.bestScoreSeen
-        ? options.state.bestScore
-        : roundEvaluation.bestScore,
+      totalTraces: Num.sum(options.state.totalTraces, roundEvaluation.traceCount),
+      acceptedTraces: Num.sum(options.state.acceptedTraces, roundEvaluation.acceptedCount),
+      rejectedTraces: Num.sum(options.state.rejectedTraces, roundEvaluation.rejectedCount),
+      evaluatedExamples: Num.sum(options.state.evaluatedExamples, roundEvaluation.evaluatedCount),
+      scoreSum: Num.sum(options.state.scoreSum, roundEvaluation.scoreSum),
+      bestScoreSeen: Bool.or(options.state.bestScoreSeen, roundEvaluation.bestScoreSeen),
+      bestScore: Bool.match(options.state.bestScoreSeen, {
+        onFalse: () =>
+          roundEvaluation.bestScore,
+        onTrue: () =>
+          Bool.match(roundEvaluation.bestScoreSeen, {
+            onFalse: () => options.state.bestScore,
+            onTrue: () => Numeric.max(options.state.bestScore, roundEvaluation.bestScore)
+          })
+      }),
       fallbackUsed: options.state.fallbackUsed,
-      continue: merged.added > 0
+      continue: Num.greaterThan(merged.added, 0)
     })
   })

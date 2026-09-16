@@ -6,13 +6,17 @@
  * @internal
  */
 import { Sampler as SearchSampler, SearchSpace, Study } from "@scenesystems/effect-search"
-import { Array as Arr, Data, Effect, Match, Option } from "effect"
-import type { Schema } from "effect"
+import { Array as Arr, Data, Effect, Inspectable, Match, Number as Num, Option, Schema, String as Str } from "effect"
 import { AllTrialsFailed } from "../../../Errors/optimizer.js"
-import type { Example } from "../../../Example/index.js"
 import type { Metric } from "../../../Metric/model.js"
 import type { Module as DspModule } from "../../../Module/model.js"
-import { type CandidateState, evaluateCandidate } from "./candidates.js"
+import {
+  type BootstrapRSExamples,
+  CandidateState,
+  type CandidateStates,
+  evaluateCandidate,
+  EvaluateCandidateOptions
+} from "./candidates.js"
 
 /**
  * A candidate paired with its aggregate evaluation score.
@@ -24,7 +28,31 @@ import { type CandidateState, evaluateCandidate } from "./candidates.js"
  * @category models
  * @internal
  */
-export type ScoredCandidate = readonly [CandidateState, number]
+export const ScoredCandidate = Schema.Tuple(CandidateState, Schema.Number)
+
+/** @internal */
+export type ScoredCandidate = typeof ScoredCandidate.Type
+
+/** @internal */
+export const ScoredCandidates = Schema.Array(ScoredCandidate)
+
+/** @internal */
+export type ScoredCandidates = typeof ScoredCandidates.Type
+
+/** @internal */
+export class ScoreCandidatesOptions<
+  I extends Schema.Struct.Fields,
+  O extends Schema.Struct.Fields,
+  ME,
+  MR,
+  E,
+  R
+> extends Data.Class<{
+  readonly module: DspModule<I, O, E, R>
+  readonly candidates: CandidateStates
+  readonly valset: BootstrapRSExamples
+  readonly metric: Metric<ME, MR>
+}> {}
 
 /**
  * Evaluates every candidate sequentially against the validation set and
@@ -41,22 +69,21 @@ export const scoreCandidates = <
   I extends Schema.Struct.Fields,
   O extends Schema.Struct.Fields,
   ME,
-  MR
->(options: {
-  readonly module: DspModule<I, O>
-  readonly candidates: ReadonlyArray<CandidateState>
-  readonly valset: ReadonlyArray<Example>
-  readonly metric: Metric<ME, MR>
-}) =>
+  MR,
+  E,
+  R
+>(options: ScoreCandidatesOptions<I, O, ME, MR, E, R>) =>
   Effect.forEach(
     options.candidates,
     (candidate) =>
-      evaluateCandidate({
-        module: options.module,
-        candidate,
-        valset: options.valset,
-        metric: options.metric
-      }).pipe(
+      evaluateCandidate(
+        new EvaluateCandidateOptions({
+          module: options.module,
+          candidate,
+          valset: options.valset,
+          metric: options.metric
+        })
+      ).pipe(
         Effect.map((score) => Option.some(Data.tuple(candidate, score))),
         // A candidate with zero successful evaluations has no score to rank; every
         // other failure is a fault in the module, metric or model and propagates.
@@ -66,15 +93,6 @@ export const scoreCandidates = <
   ).pipe(
     Effect.map((entries) => Arr.filterMap(entries, (entry) => entry))
   )
-
-const missingCandidateError = (options: {
-  readonly message: string
-  readonly trialCount: number
-}) =>
-  new AllTrialsFailed({
-    message: options.message,
-    trialCount: options.trialCount
-  })
 
 /**
  * Selects the highest-scoring candidate via exhaustive grid search.
@@ -88,10 +106,10 @@ const missingCandidateError = (options: {
  * @category constructors
  * @internal
  */
-export const selectBestCandidate = (scoredCandidates: ReadonlyArray<ScoredCandidate>) =>
+export const selectBestCandidate = (scoredCandidates: ScoredCandidates) =>
   Effect.gen(function*() {
     const searchSpace = yield* SearchSpace.make({
-      candidateIndex: SearchSpace.int(0, scoredCandidates.length - 1)
+      candidateIndex: SearchSpace.int(0, Num.decrement(Arr.length(scoredCandidates)))
     })
 
     const result = yield* Study.maximize({
@@ -101,14 +119,17 @@ export const selectBestCandidate = (scoredCandidates: ReadonlyArray<ScoredCandid
         Option.match(Arr.get(scoredCandidates, candidateIndex), {
           onNone: () =>
             Effect.fail(
-              missingCandidateError({
-                message: `BootstrapRS requested missing candidate index ${candidateIndex}`,
-                trialCount: scoredCandidates.length
+              new AllTrialsFailed({
+                message: Str.concat(
+                  "BootstrapRS requested missing candidate index ",
+                  Inspectable.toStringUnknown(candidateIndex)
+                ),
+                trialCount: Arr.length(scoredCandidates)
               })
             ),
           onSome: (entry) => Effect.succeed(entry[1])
         }),
-      trials: scoredCandidates.length,
+      trials: Arr.length(scoredCandidates),
       concurrency: 1
     })
 
@@ -121,9 +142,12 @@ export const selectBestCandidate = (scoredCandidates: ReadonlyArray<ScoredCandid
     return yield* Option.match(Arr.get(scoredCandidates, selectedIndex), {
       onNone: () =>
         Effect.fail(
-          missingCandidateError({
-            message: `BootstrapRS requested missing candidate index ${selectedIndex}`,
-            trialCount: scoredCandidates.length
+          new AllTrialsFailed({
+            message: Str.concat(
+              "BootstrapRS requested missing candidate index ",
+              Inspectable.toStringUnknown(selectedIndex)
+            ),
+            trialCount: Arr.length(scoredCandidates)
           })
         ),
       onSome: (candidate) => Effect.succeed(candidate[0])

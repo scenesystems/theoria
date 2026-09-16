@@ -6,16 +6,23 @@
  * @module
  */
 import type * as LanguageModel from "@effect/ai/LanguageModel"
-import { Data, Effect, Option } from "effect"
+import { Array as Arr, Data, Effect, Option } from "effect"
 import type { Schema } from "effect"
 import type * as Layer from "effect/Layer"
 import { AllTrialsFailed } from "../../Errors/optimizer.js"
-import type { Example } from "../../Example/index.js"
 import type { Metric } from "../../Metric/model.js"
 import * as Module from "../../Module/index.js"
 import type { Module as DspModule } from "../../Module/model.js"
-import { buildCandidateStates, normalizeNonNegative, resolveSeeds } from "./runtime/candidates.js"
-import { scoreCandidates, selectBestCandidate } from "./runtime/search.js"
+import {
+  type BootstrapRSExamples,
+  type BootstrapRSSeeds,
+  buildCandidateStates,
+  BuildCandidateStatesOptions,
+  normalizeNonNegative,
+  resolveSeeds,
+  ResolveSeedsOptions
+} from "./runtime/candidates.js"
+import { scoreCandidates, ScoreCandidatesOptions, selectBestCandidate } from "./runtime/search.js"
 
 /**
  * Configures seeded bootstrap candidates and their validation comparison.
@@ -32,20 +39,22 @@ export class BootstrapRSOptions<
   I extends Schema.Struct.Fields,
   O extends Schema.Struct.Fields,
   ME = never,
-  MR = never
+  MR = never,
+  E = never,
+  R = never
 > extends Data.Class<{
   /** Module loaded with each candidate in turn, then left in the winning state. */
-  readonly module: DspModule<I, O>
+  readonly module: DspModule<I, O, E, R>
   /** Bootstrap input; each seed deterministically rotates this sequence. */
-  readonly trainset: ReadonlyArray<Example>
+  readonly trainset: BootstrapRSExamples
   /** Candidate-scoring examples. Defaults to `trainset`. */
-  readonly valset?: ReadonlyArray<Example>
+  readonly valset?: BootstrapRSExamples
   /** Metric used by both bootstrapping and candidate evaluation. */
   readonly metric: Metric<ME, MR>
   /** Bootstrap restart count; zero still evaluates uncompiled and labeled baselines. */
   readonly numCandidates: number
   /** Bootstrap seeds; a supplied array shorter than the restart count reduces the candidate count. */
-  readonly seeds?: ReadonlyArray<number>
+  readonly seeds?: BootstrapRSSeeds
   /** Round cap forwarded to each bootstrap restart; defaults to `1`. */
   readonly maxRounds?: number
   /** Trace-demo cap forwarded to each bootstrap restart; defaults to `1`. */
@@ -99,67 +108,77 @@ export const bootstrapRS = <
   I extends Schema.Struct.Fields,
   O extends Schema.Struct.Fields,
   ME = never,
-  MR = never
->(options: BootstrapRSOptions<I, O, ME, MR>) =>
+  MR = never,
+  E = never,
+  R = never
+>(options: BootstrapRSOptions<I, O, ME, MR, E, R>) =>
   Effect.gen(function*() {
-    const seeds = resolveSeeds({
-      numCandidates: normalizeNonNegative(options.numCandidates),
-      ...Option.match(Option.fromNullable(options.seeds), {
-        onNone: () => ({}),
-        onSome: (provided) => ({ seeds: provided })
+    const seeds = resolveSeeds(
+      new ResolveSeedsOptions({
+        numCandidates: normalizeNonNegative(options.numCandidates),
+        ...Option.match(Option.fromNullable(options.seeds), {
+          onNone: () => ({}),
+          onSome: (provided) => ({ seeds: provided })
+        })
       })
-    })
+    )
     const valset = Option.getOrElse(Option.fromNullable(options.valset), () => options.trainset)
     const maxRounds = Option.getOrElse(Option.fromNullable(options.maxRounds), () => 1)
     const maxBootstrappedDemos = Option.getOrElse(Option.fromNullable(options.maxBootstrappedDemos), () => 1)
     const baselineLabeledCount = Option.getOrElse(Option.fromNullable(options.maxLabeledDemos), () => 1)
     const initialState = yield* Module.save(options.module)
 
-    const allCandidates = yield* buildCandidateStates({
-      module: options.module,
-      initialState,
-      trainset: options.trainset,
-      metric: options.metric,
-      seeds,
-      maxRounds,
-      maxBootstrappedDemos,
-      ...Option.match(Option.fromNullable(options.maxLabeledDemos), {
-        onNone: () => ({}),
-        onSome: (maxLabeledDemos) => ({ maxLabeledDemos })
-      }),
-      ...Option.match(Option.fromNullable(options.threshold), {
-        onNone: () => ({}),
-        onSome: (threshold) => ({ threshold })
-      }),
-      ...Option.match(Option.fromNullable(options.teacher), {
-        onNone: () => ({}),
-        onSome: (teacher) => ({ teacher })
-      }),
-      ...Option.match(Option.fromNullable(options.fallbackToLabeledFewShot), {
-        onNone: () => ({}),
-        onSome: (fallbackToLabeledFewShot) => ({ fallbackToLabeledFewShot })
-      }),
-      ...Option.match(Option.fromNullable(options.fallbackLabeledDemoCount), {
-        onNone: () => ({}),
-        onSome: (fallbackLabeledDemoCount) => ({ fallbackLabeledDemoCount })
-      }),
-      baselineLabeledCount
+    const allCandidates = yield* buildCandidateStates(
+      new BuildCandidateStatesOptions({
+        module: options.module,
+        initialState,
+        trainset: options.trainset,
+        metric: options.metric,
+        seeds,
+        maxRounds,
+        maxBootstrappedDemos,
+        ...Option.match(Option.fromNullable(options.maxLabeledDemos), {
+          onNone: () => ({}),
+          onSome: (maxLabeledDemos) => ({ maxLabeledDemos })
+        }),
+        ...Option.match(Option.fromNullable(options.threshold), {
+          onNone: () => ({}),
+          onSome: (threshold) => ({ threshold })
+        }),
+        ...Option.match(Option.fromNullable(options.teacher), {
+          onNone: () => ({}),
+          onSome: (teacher) => ({ teacher })
+        }),
+        ...Option.match(Option.fromNullable(options.fallbackToLabeledFewShot), {
+          onNone: () => ({}),
+          onSome: (fallbackToLabeledFewShot) => ({ fallbackToLabeledFewShot })
+        }),
+        ...Option.match(Option.fromNullable(options.fallbackLabeledDemoCount), {
+          onNone: () => ({}),
+          onSome: (fallbackLabeledDemoCount) => ({ fallbackLabeledDemoCount })
+        }),
+        baselineLabeledCount
+      })
+    )
+
+    yield* Effect.if(Option.isNone(Arr.head(allCandidates)), {
+      onFalse: () => Effect.void,
+      onTrue: noCandidateError
     })
 
-    if (allCandidates.length <= 0) {
-      return yield* noCandidateError()
-    }
+    const scoredCandidates = yield* scoreCandidates(
+      new ScoreCandidatesOptions({
+        module: options.module,
+        candidates: allCandidates,
+        valset,
+        metric: options.metric
+      })
+    )
 
-    const scoredCandidates = yield* scoreCandidates({
-      module: options.module,
-      candidates: allCandidates,
-      valset,
-      metric: options.metric
+    yield* Effect.if(Option.isNone(Arr.head(scoredCandidates)), {
+      onFalse: () => Effect.void,
+      onTrue: noCandidateError
     })
-
-    if (scoredCandidates.length <= 0) {
-      return yield* noCandidateError()
-    }
 
     const selectedCandidate = yield* selectBestCandidate(scoredCandidates)
 

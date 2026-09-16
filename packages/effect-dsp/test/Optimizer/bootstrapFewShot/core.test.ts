@@ -11,7 +11,7 @@ import * as Module from "@scenesystems/effect-dsp/Module"
 import * as Optimizer from "@scenesystems/effect-dsp/Optimizer"
 import * as Signature from "@scenesystems/effect-dsp/Signature"
 import { MockLanguageModel } from "@scenesystems/effect-dsp/test"
-import { Array as Arr, Effect, Either, Layer, Ref, Schema } from "effect"
+import { Array as Arr, Effect, Either, Layer, Ref, Schema, String as Str } from "effect"
 
 const makeQaSignature = () =>
   Signature.make(
@@ -203,5 +203,70 @@ describe("Optimizer.bootstrapFewShot", () => {
           })
         )
       }
+    }))
+
+  it.effect("rejects a NaN metric score even when the threshold is negative infinity", () =>
+    Effect.gen(function*() {
+      const signature = yield* makeQaSignature()
+      const module = yield* Module.predict("qa", signature)
+      const mock = yield* MockLanguageModel.make(MockLanguageModel.fixed({ answer: "Paris" }))
+      const layer = Layer.succeed(LanguageModel.LanguageModel, mock.service)
+      const metric = Metric.make("nan-score", () => new Metric.Result({ score: Number.NaN }))
+
+      const result = yield* Optimizer.bootstrapFewShot(
+        new Optimizer.BootstrapFewShotOptions({
+          module,
+          trainset: Arr.make(
+            new Example({
+              input: { question: "What is the capital of France?" },
+              output: { answer: "Paris" }
+            })
+          ),
+          metric,
+          maxRounds: 1,
+          maxBootstrappedDemos: 1,
+          threshold: Number.NEGATIVE_INFINITY,
+          fallbackToLabeledFewShot: false
+        })
+      ).pipe(Effect.provide(layer), Effect.either)
+      const params = yield* Ref.get(module.params)
+
+      expect(Either.isLeft(result)).toBe(true)
+      expect(Arr.length(params.demos)).toBe(0)
+      expect(
+        Either.match(result, {
+          onLeft: (error) => Str.Equivalence(error._tag, "BootstrapFailed"),
+          onRight: () => false
+        })
+      ).toBe(true)
+    }))
+
+  it.effect("accepts positive infinity at a positive-infinity threshold", () =>
+    Effect.gen(function*() {
+      const signature = yield* makeQaSignature()
+      const module = yield* Module.predict("qa", signature)
+      const mock = yield* MockLanguageModel.make(MockLanguageModel.fixed({ answer: "Paris" }))
+      const layer = Layer.succeed(LanguageModel.LanguageModel, mock.service)
+      const metric = Metric.make("infinite-score", () => new Metric.Result({ score: Number.POSITIVE_INFINITY }))
+
+      const optimized = yield* Optimizer.bootstrapFewShot(
+        new Optimizer.BootstrapFewShotOptions({
+          module,
+          trainset: Arr.make(
+            new Example({
+              input: { question: "What is the capital of France?" },
+              output: { answer: "Paris" }
+            })
+          ),
+          metric,
+          maxRounds: 1,
+          maxBootstrappedDemos: 1,
+          threshold: Number.POSITIVE_INFINITY,
+          fallbackToLabeledFewShot: false
+        })
+      ).pipe(Effect.provide(layer))
+      const params = yield* Ref.get(optimized.params)
+
+      expect(Arr.length(params.demos)).toBe(1)
     }))
 })

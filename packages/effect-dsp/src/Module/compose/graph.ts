@@ -9,12 +9,12 @@
  * and canonical edge/node emission still share one recursion kernel, so they remain
  * co-located until the compose graph surface stabilizes further.
  */
-import { Array as Arr, Data, Effect, HashMap, Option, Order, Record, Schema } from "effect"
+import { Array as Arr, Boolean, Data, Effect, Equivalence, HashMap, Option, Order, Record, Schema, Tuple } from "effect"
 import type { Ref } from "effect"
 import type { ModuleGraph } from "../../contracts/ModuleGraph.js"
 import { makeModuleGraph, ModuleGraphEdge, ModuleGraphNode } from "../../contracts/ModuleGraph.js"
 import { ModuleId } from "../../contracts/ModuleId.js"
-import { makeModuleNodeSignature, type ModuleNode } from "../../contracts/ModuleNode.js"
+import { makeModuleNodeSignature, ModuleNode } from "../../contracts/ModuleNode.js"
 import type { ModuleParams } from "../../contracts/ModuleParams.js"
 import { CompositionError } from "../../Errors/module.js"
 import type { Signature } from "../../Signature/model.js"
@@ -43,30 +43,44 @@ export class ComposableModule extends Data.Class<{
 
 const moduleIdOrder: Order.Order<ModuleId> = Order.mapInput(Order.string, (moduleId: ModuleId) => moduleId)
 
-const aliasOrder: Order.Order<readonly [string, ComposableModule]> = Order.mapInput(
+const moduleIdEquivalence: Equivalence.Equivalence<ModuleId> = Equivalence.string
+
+const moduleIdentity = Equivalence.strict<ComposableModule>()
+
+class AliasedComposableModule extends Data.Class<{
+  readonly alias: string
+  readonly module: ComposableModule
+}> {}
+
+class ResolvedComposableModule extends Data.Class<{
+  readonly moduleId: ModuleId
+  readonly module: ComposableModule
+}> {}
+
+class DeclaredChildNode extends Data.Class<{
+  readonly declaredId: ModuleId
+  readonly childNode: ModuleNode
+}> {}
+
+class ResolvedChildNode extends Data.Class<{
+  readonly moduleId: ModuleId
+  readonly childNode: ModuleNode
+}> {}
+
+const aliasOrder: Order.Order<AliasedComposableModule> = Order.mapInput(
   Order.string,
-  ([alias]) => alias
+  (entry) => entry.alias
 )
 
-const moduleNodeEntryOrder: Order.Order<readonly [ModuleId, ModuleNode]> = Order.mapInput(
+const moduleNodeEntryOrder: Order.Order<DeclaredChildNode> = Order.mapInput(
   moduleIdOrder,
-  ([moduleId]) => moduleId
+  (entry) => entry.declaredId
 )
 
-const uniqueSortedModuleIds = (moduleIds: ReadonlyArray<ModuleId>): ReadonlyArray<ModuleId> => {
-  const sorted = Arr.sort(moduleIds, moduleIdOrder)
+const uniqueSortedModuleIds = (moduleIds: Iterable<ModuleId>): ModuleGraphNode["subModuleIds"] =>
+  Arr.dedupeWith(Arr.sort(Arr.fromIterable(moduleIds), moduleIdOrder), moduleIdEquivalence)
 
-  return Arr.reduce(sorted, Arr.empty<ModuleId>(), (acc, moduleId) =>
-    Option.match(Arr.last(acc), {
-      onNone: () => Arr.make(moduleId),
-      onSome: (last) =>
-        last === moduleId
-          ? acc
-          : Arr.append(acc, moduleId)
-    }))
-}
-
-const edgeKey = (parentId: ModuleId, childId: ModuleId): string => `${parentId}->${childId}`
+const edgeKey = (parentId: ModuleId, childId: ModuleId): string => Arr.join(Arr.make(parentId, "->", childId), "")
 
 class GraphBuildState extends Data.Class<{
   readonly nodeById: HashMap.HashMap<ModuleId, ModuleGraphNode>
@@ -74,11 +88,11 @@ class GraphBuildState extends Data.Class<{
   readonly edgeByKey: HashMap.HashMap<string, ModuleGraphEdge>
 }> {}
 
-const emptyGraphBuildState: GraphBuildState = {
+const emptyGraphBuildState = new GraphBuildState({
   nodeById: HashMap.empty<ModuleId, ModuleGraphNode>(),
   sourceById: HashMap.empty<ModuleId, ComposableModule>(),
   edgeByKey: HashMap.empty<string, ModuleGraphEdge>()
-}
+})
 
 const decodeModuleId = (
   moduleName: string,
@@ -87,7 +101,7 @@ const decodeModuleId = (
   Schema.decodeUnknown(ModuleId)(moduleName).pipe(
     Effect.mapError(() =>
       new CompositionError({
-        message: `Invalid module id '${moduleName}' in ${owner}`,
+        message: Arr.join(Arr.make("Invalid module id '", moduleName, "' in ", owner), ""),
         moduleName
       })
     )
@@ -95,22 +109,28 @@ const decodeModuleId = (
 
 const rootCollisionError = (rootId: ModuleId): CompositionError =>
   new CompositionError({
-    message: `Sub-module id '${rootId}' collides with composed module id`,
+    message: Arr.join(Arr.make("Sub-module id '", rootId, "' collides with composed module id"), ""),
     moduleName: rootId
   })
 
 const cycleError = (
-  stack: ReadonlyArray<ModuleId>,
+  stack: ModuleGraphNode["subModuleIds"],
   moduleId: ModuleId
 ): CompositionError =>
   new CompositionError({
-    message: `Composition cycle detected: ${Arr.join(Arr.append(stack, moduleId), " -> ")}`,
+    message: Arr.join(
+      Arr.make("Composition cycle detected: ", Arr.join(Arr.append(stack, moduleId), " -> ")),
+      ""
+    ),
     moduleName: moduleId
   })
 
 const duplicateIdError = (moduleId: ModuleId): CompositionError =>
   new CompositionError({
-    message: `Multiple module instances share id '${moduleId}' in the same composition graph`,
+    message: Arr.join(
+      Arr.make("Multiple module instances share id '", moduleId, "' in the same composition graph"),
+      ""
+    ),
     moduleName: moduleId
   })
 
@@ -120,54 +140,90 @@ const declaredIdMismatchError = (
   actualId: ModuleId
 ): CompositionError =>
   new CompositionError({
-    message: `Sub-module '${ownerName}' declares child id '${declaredId}' but child module resolves to '${actualId}'`,
+    message: Arr.join(
+      Arr.make(
+        "Sub-module '",
+        ownerName,
+        "' declares child id '",
+        declaredId,
+        "' but child module resolves to '",
+        actualId,
+        "'"
+      ),
+      ""
+    ),
     moduleName: ownerName
   })
 
 const directSubModuleEntries = (
   subModules: ComposeSubModules
-): Effect.Effect<ReadonlyArray<readonly [ModuleId, ComposableModule]>, CompositionError> =>
-  Effect.forEach(
-    Arr.sort(Record.toEntries(subModules), aliasOrder),
-    ([alias, module]) =>
-      decodeModuleId(module.name, `compose sub-module alias '${alias}'`).pipe(
-        Effect.map((moduleId) => Data.tuple(moduleId, module))
-      )
+): Effect.Effect<Iterable<ResolvedComposableModule>, CompositionError> => {
+  const aliasedModules = Arr.map(
+    Record.toEntries(subModules),
+    (entry) =>
+      new AliasedComposableModule({
+        alias: Tuple.getFirst(entry),
+        module: Tuple.getSecond(entry)
+      })
   )
 
+  return Effect.forEach(
+    Arr.sort(aliasedModules, aliasOrder),
+    (entry) =>
+      decodeModuleId(
+        entry.module.name,
+        Arr.join(Arr.make("compose sub-module alias '", entry.alias, "'"), "")
+      ).pipe(
+        Effect.map((moduleId) => new ResolvedComposableModule({ moduleId, module: entry.module }))
+      )
+  )
+}
+
 const directSubModuleMap = (
-  entries: ReadonlyArray<readonly [ModuleId, ComposableModule]>
+  entries: Iterable<ResolvedComposableModule>
 ): Effect.Effect<HashMap.HashMap<ModuleId, ComposableModule>, CompositionError> =>
   Effect.reduce(
     entries,
     HashMap.empty<ModuleId, ComposableModule>(),
-    (current, [moduleId, module]) =>
-      Option.match(HashMap.get(current, moduleId), {
-        onNone: () => Effect.succeed(HashMap.set(current, moduleId, module)),
+    (current, entry) =>
+      Option.match(HashMap.get(current, entry.moduleId), {
+        onNone: () => Effect.succeed(HashMap.set(current, entry.moduleId, entry.module)),
         onSome: (existing) =>
-          existing === module
-            ? Effect.succeed(current)
-            : Effect.fail(duplicateIdError(moduleId))
+          Boolean.match(moduleIdentity(existing, entry.module), {
+            onTrue: () => Effect.succeed(current),
+            onFalse: () => Effect.fail(duplicateIdError(entry.moduleId))
+          })
       })
   )
 
 const childNodeEntries = (
   module: ComposableModule
-): Effect.Effect<ReadonlyArray<readonly [ModuleId, ModuleNode]>, CompositionError> =>
-  Effect.forEach(
-    Arr.sort(
-      Arr.fromIterable(HashMap.toEntries(module.subModules)),
-      moduleNodeEntryOrder
-    ),
-    ([declaredId, childNode]) =>
-      decodeModuleId(childNode.name, `compose sub-module '${module.name}'`).pipe(
+): Effect.Effect<Iterable<ResolvedChildNode>, CompositionError> => {
+  const declaredChildren = Arr.map(
+    HashMap.toEntries(module.subModules),
+    (entry) =>
+      new DeclaredChildNode({
+        declaredId: Tuple.getFirst(entry),
+        childNode: Tuple.getSecond(entry)
+      })
+  )
+
+  return Effect.forEach(
+    Arr.sort(declaredChildren, moduleNodeEntryOrder),
+    (entry) =>
+      decodeModuleId(
+        entry.childNode.name,
+        Arr.join(Arr.make("compose sub-module '", module.name, "'"), "")
+      ).pipe(
         Effect.flatMap((actualId) =>
-          declaredId === actualId
-            ? Effect.succeed(Data.tuple(actualId, childNode))
-            : Effect.fail(declaredIdMismatchError(module.name, declaredId, actualId))
+          Boolean.match(moduleIdEquivalence(entry.declaredId, actualId), {
+            onTrue: () => Effect.succeed(new ResolvedChildNode({ moduleId: actualId, childNode: entry.childNode })),
+            onFalse: () => Effect.fail(declaredIdMismatchError(module.name, entry.declaredId, actualId))
+          })
         )
       )
   )
+}
 
 const registerIdentity = (
   state: GraphBuildState,
@@ -176,58 +232,76 @@ const registerIdentity = (
 ): Effect.Effect<GraphBuildState, CompositionError> =>
   Option.match(HashMap.get(state.sourceById, moduleId), {
     onNone: () =>
-      Effect.succeed({
-        nodeById: state.nodeById,
-        sourceById: HashMap.set(state.sourceById, moduleId, module),
-        edgeByKey: state.edgeByKey
-      }),
+      Effect.succeed(
+        new GraphBuildState({
+          nodeById: state.nodeById,
+          sourceById: HashMap.set(state.sourceById, moduleId, module),
+          edgeByKey: state.edgeByKey
+        })
+      ),
     onSome: (existing) =>
-      existing === module
-        ? Effect.succeed(state)
-        : Effect.fail(duplicateIdError(moduleId))
+      Boolean.match(moduleIdentity(existing, module), {
+        onTrue: () => Effect.succeed(state),
+        onFalse: () => Effect.fail(duplicateIdError(moduleId))
+      })
   })
 
 const addEdges = (
   state: GraphBuildState,
   parentId: ModuleId,
-  childIds: ReadonlyArray<ModuleId>
-): GraphBuildState => ({
-  nodeById: state.nodeById,
-  sourceById: state.sourceById,
-  edgeByKey: Arr.reduce(childIds, state.edgeByKey, (edgeByKey, childId) =>
-    HashMap.set(
-      edgeByKey,
-      edgeKey(parentId, childId),
-      new ModuleGraphEdge({ parentId, childId })
-    ))
-})
+  childIds: Iterable<ModuleId>
+): GraphBuildState =>
+  new GraphBuildState({
+    nodeById: state.nodeById,
+    sourceById: state.sourceById,
+    edgeByKey: Arr.reduce(childIds, state.edgeByKey, (edgeByKey, childId) =>
+      HashMap.set(
+        edgeByKey,
+        edgeKey(parentId, childId),
+        new ModuleGraphEdge({ parentId, childId })
+      ))
+  })
 
-const visitChildNode = (options: {
+class VisitChildNodeOptions extends Data.Class<{
   readonly childNode: ModuleNode
   readonly rootId: ModuleId
-  readonly stack: ReadonlyArray<ModuleId>
+  readonly stack: ModuleGraphNode["subModuleIds"]
   readonly state: GraphBuildState
-}): Effect.Effect<GraphBuildState, CompositionError> =>
+}> {}
+
+const visitChildNode = (options: VisitChildNodeOptions): Effect.Effect<GraphBuildState, CompositionError> =>
   Effect.gen(function*() {
-    const moduleId = yield* decodeModuleId(options.childNode.name, `composed module '${options.childNode.name}'`)
+    const moduleId = yield* decodeModuleId(
+      options.childNode.name,
+      Arr.join(Arr.make("composed module '", options.childNode.name, "'"), "")
+    )
 
-    if (moduleId === options.rootId) {
-      return yield* rootCollisionError(moduleId)
-    }
+    yield* Effect.if(moduleIdEquivalence(moduleId, options.rootId), {
+      onTrue: () => Effect.fail(rootCollisionError(moduleId)),
+      onFalse: () => Effect.void
+    })
 
-    if (options.stack.includes(moduleId)) {
-      return yield* cycleError(options.stack, moduleId)
-    }
+    yield* Effect.if(Arr.containsWith(moduleIdEquivalence)(options.stack, moduleId), {
+      onTrue: () => Effect.fail(cycleError(options.stack, moduleId)),
+      onFalse: () => Effect.void
+    })
 
     return yield* Option.match(HashMap.get(options.state.nodeById, moduleId), {
       onSome: () => Effect.succeed(options.state),
       onNone: () =>
         Effect.gen(function*() {
           const childEntries = Arr.sort(
-            Arr.fromIterable(HashMap.toEntries(options.childNode.subModules)),
+            Arr.map(
+              HashMap.toEntries(options.childNode.subModules),
+              (entry) =>
+                new DeclaredChildNode({
+                  declaredId: Tuple.getFirst(entry),
+                  childNode: Tuple.getSecond(entry)
+                })
+            ),
             moduleNodeEntryOrder
           )
-          const childIds = uniqueSortedModuleIds(Arr.map(childEntries, ([childId]) => childId))
+          const childIds = uniqueSortedModuleIds(Arr.map(childEntries, (entry) => entry.declaredId))
           const node = new ModuleGraphNode({
             moduleId,
             signature: makeModuleNodeSignature(
@@ -236,21 +310,23 @@ const visitChildNode = (options: {
             ),
             subModuleIds: childIds
           })
-          const withNode: GraphBuildState = {
+          const withNode = new GraphBuildState({
             nodeById: HashMap.set(options.state.nodeById, moduleId, node),
             sourceById: options.state.sourceById,
             edgeByKey: options.state.edgeByKey
-          }
+          })
           const withEdges = addEdges(withNode, moduleId, childIds)
           const nextStack = Arr.append(options.stack, moduleId)
 
-          return yield* Effect.reduce(childEntries, withEdges, (state, [, childNode]) =>
-            visitChildNode({
-              childNode,
-              rootId: options.rootId,
-              stack: nextStack,
-              state
-            }))
+          return yield* Effect.reduce(childEntries, withEdges, (state, entry) =>
+            visitChildNode(
+              new VisitChildNodeOptions({
+                childNode: entry.childNode,
+                rootId: options.rootId,
+                stack: nextStack,
+                state
+              })
+            ))
         })
     })
   })
@@ -265,7 +341,7 @@ const visitChildNode = (options: {
  * @since 0.1.0
  * @category models
  */
-export type ComposeSubModules = Readonly<Record<string, ComposableModule>>
+export type ComposeSubModules = Record.ReadonlyRecord<string, ComposableModule>
 
 /**
  * Validated composition graph output containing the root module id,
@@ -277,7 +353,7 @@ export type ComposeSubModules = Readonly<Record<string, ComposableModule>>
  */
 export class CompositionGraph extends Data.Class<{
   readonly rootId: ModuleId
-  readonly rootChildIds: ReadonlyArray<ModuleId>
+  readonly rootChildIds: ModuleGraphNode["subModuleIds"]
   readonly graph: ModuleGraph
   readonly subModuleNodesById: HashMap.HashMap<ModuleId, ModuleNode>
 }> {}
@@ -285,16 +361,32 @@ export class CompositionGraph extends Data.Class<{
 const buildSubModuleNode = (
   module: ComposableModule,
   moduleId: ModuleId
-): ModuleNode => ({
-  moduleId,
-  name: module.name,
-  signature: makeModuleNodeSignature(
-    module.signature.description,
-    module.signature.instructions
-  ),
-  params: module.params,
-  subModules: module.subModules
-})
+): ModuleNode =>
+  new ModuleNode({
+    moduleId,
+    name: module.name,
+    signature: makeModuleNodeSignature(
+      module.signature.description,
+      module.signature.instructions
+    ),
+    params: module.params,
+    subModules: module.subModules
+  })
+
+/**
+ * Declares the root metadata used to validate a composition graph.
+ *
+ * @since 0.1.0
+ * @category models
+ */
+export class ComposeGraphOptions<
+  I extends Schema.Struct.Fields,
+  O extends Schema.Struct.Fields
+> extends Data.Class<{
+  readonly name: string
+  readonly signature: Signature<I, O>
+  readonly subModules: ComposeSubModules
+}> {}
 
 /**
  * Build and validate the canonical module graph for a composed module.
@@ -307,13 +399,12 @@ const buildSubModuleNode = (
 export const buildCompositionGraph = <
   I extends Schema.Struct.Fields,
   O extends Schema.Struct.Fields
->(options: {
-  readonly name: string
-  readonly signature: Signature<I, O>
-  readonly subModules: ComposeSubModules
-}): Effect.Effect<CompositionGraph, CompositionError> =>
+>(options: ComposeGraphOptions<I, O>): Effect.Effect<CompositionGraph, CompositionError> =>
   Effect.gen(function*() {
-    const rootId = yield* decodeModuleId(options.name, `compose root '${options.name}'`)
+    const rootId = yield* decodeModuleId(
+      options.name,
+      Arr.join(Arr.make("compose root '", options.name, "'"), "")
+    )
     const directEntries = yield* directSubModuleEntries(options.subModules)
     const directMap = yield* directSubModuleMap(directEntries)
     const rootChildIds = uniqueSortedModuleIds(Arr.fromIterable(HashMap.keys(directMap)))
@@ -326,47 +417,49 @@ export const buildCompositionGraph = <
       subModuleIds: rootChildIds
     })
     const rootState = addEdges(
-      {
+      new GraphBuildState({
         nodeById: HashMap.set(emptyGraphBuildState.nodeById, rootId, rootNode),
         sourceById: emptyGraphBuildState.sourceById,
         edgeByKey: emptyGraphBuildState.edgeByKey
-      },
+      }),
       rootId,
       rootChildIds
     )
     const discovered = yield* Effect.reduce(
       directEntries,
       rootState,
-      (state, [moduleId, module]) => {
-        const withIdentity = registerIdentity(state, moduleId, module)
+      (state, entry) => {
+        const withIdentity = registerIdentity(state, entry.moduleId, entry.module)
 
         return Effect.flatMap(withIdentity, (identityState) => {
-          const childEntries = childNodeEntries(module)
+          const childEntries = childNodeEntries(entry.module)
 
           return Effect.flatMap(childEntries, (children) => {
-            const childIds = uniqueSortedModuleIds(Arr.map(children, ([childId]) => childId))
+            const childIds = uniqueSortedModuleIds(Arr.map(Arr.fromIterable(children), (child) => child.moduleId))
             const graphNode = new ModuleGraphNode({
-              moduleId,
+              moduleId: entry.moduleId,
               signature: makeModuleNodeSignature(
-                module.signature.description,
-                module.signature.instructions
+                entry.module.signature.description,
+                entry.module.signature.instructions
               ),
               subModuleIds: childIds
             })
-            const withNode: GraphBuildState = {
-              nodeById: HashMap.set(identityState.nodeById, moduleId, graphNode),
+            const withNode = new GraphBuildState({
+              nodeById: HashMap.set(identityState.nodeById, entry.moduleId, graphNode),
               sourceById: identityState.sourceById,
               edgeByKey: identityState.edgeByKey
-            }
-            const withEdges = addEdges(withNode, moduleId, childIds)
+            })
+            const withEdges = addEdges(withNode, entry.moduleId, childIds)
 
-            return Effect.reduce(children, withEdges, (childState, [, childNode]) =>
-              visitChildNode({
-                childNode,
-                rootId,
-                stack: Arr.make(rootId, moduleId),
-                state: childState
-              }))
+            return Effect.reduce(children, withEdges, (childState, child) =>
+              visitChildNode(
+                new VisitChildNodeOptions({
+                  childNode: child.childNode,
+                  rootId,
+                  stack: Arr.make(rootId, entry.moduleId),
+                  state: childState
+                })
+              ))
           })
         })
       }
@@ -410,14 +503,7 @@ export const buildCompositionGraph = <
 export const composeGraph = <
   I extends Schema.Struct.Fields,
   O extends Schema.Struct.Fields
->(options: {
-  /** Root identity encoded into `ModuleGraph.rootId`. */
-  readonly name: string
-  /** Source for the root node's description and instructions. */
-  readonly signature: Signature<I, O>
-  /** Direct child declarations traversed recursively. */
-  readonly subModules: ComposeSubModules
-}): Effect.Effect<ModuleGraph, CompositionError> =>
+>(options: ComposeGraphOptions<I, O>): Effect.Effect<ModuleGraph, CompositionError> =>
   buildCompositionGraph(options).pipe(
     Effect.map((result) => result.graph)
   )

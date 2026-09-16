@@ -24,7 +24,8 @@ const traceCarrierError = (
     moduleName
   })
 
-class PayloadOptions<A, I, R> extends Data.Class<{
+/** @internal */
+export class PayloadOptions<A, I, R> extends Data.Class<{
   readonly moduleName: string
   readonly carrier: typeof TraceCarrier.Type
   readonly schema: Schema.Schema<A, I, R>
@@ -48,7 +49,8 @@ export const tracePayloadFromEncoded = <A, I, R>(options: PayloadOptions<A, I, R
     () => traceCarrierError(options.moduleName, options.carrier)
   )
 
-class TraceOptions<I extends Schema.Struct.Fields, O extends Schema.Struct.Fields> extends Data.Class<{
+/** @internal */
+export class TraceOptions<I extends Schema.Struct.Fields, O extends Schema.Struct.Fields> extends Data.Class<{
   readonly moduleName: string
   readonly signature: Signature<I, O>
   readonly inputSchema: Schema.Struct<I>
@@ -69,12 +71,14 @@ export const appendTraceEntry = <
   O extends Schema.Struct.Fields
 >(options: TraceOptions<I, O>) =>
   Effect.gen(function*() {
-    const traceInput = yield* tracePayloadFromEncoded({
-      moduleName: options.moduleName,
-      carrier: "input",
-      schema: options.inputSchema,
-      value: options.input
-    })
+    const traceInput = yield* tracePayloadFromEncoded(
+      new PayloadOptions({
+        moduleName: options.moduleName,
+        carrier: "input",
+        schema: options.inputSchema,
+        value: options.input
+      })
+    )
 
     const entry = new Entry({
       moduleName: options.moduleName,

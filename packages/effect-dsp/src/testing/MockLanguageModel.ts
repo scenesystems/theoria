@@ -9,6 +9,7 @@ import * as Prompt from "@effect/ai/Prompt"
 import * as Response from "@effect/ai/Response"
 import * as Toolkit from "@effect/ai/Toolkit"
 import { Array as Arr, Data, Effect, Layer, Match, Number, Option, Predicate, Ref, Schema, Stream } from "effect"
+import { FieldValue } from "../contracts/FieldValue.js"
 
 const MethodSchema = Schema.Literal("generateText", "generateObject")
 type Method = typeof MethodSchema.Type
@@ -193,10 +194,23 @@ const resolveStrategyResponse = (
       )
   })(strategy)
 
-const JsonValue = Schema.parseJson(Schema.Unknown)
+const JsonValue = Schema.parseJson(FieldValue)
+const fieldValueEquivalence = Schema.equivalence(FieldValue)
 
 const encodeJson = (response: unknown): Effect.Effect<string, AiError.UnknownError> =>
-  Schema.encode(JsonValue)(response).pipe(
+  Schema.decodeUnknown(FieldValue)(response).pipe(
+    Effect.flatMap((value) =>
+      Schema.encode(JsonValue)(value).pipe(
+        Effect.tap((text) =>
+          Schema.decode(JsonValue)(text).pipe(
+            Effect.filterOrFail(
+              (decoded) => fieldValueEquivalence(value, decoded),
+              () => mockError("generateObject", "MockLanguageModel JSON encoding would lose response information")
+            )
+          )
+        )
+      )
+    ),
     Effect.mapError((cause) =>
       mockError(
         "generateObject",
@@ -217,7 +231,15 @@ const encodeTextResponse = (response: unknown): Effect.Effect<string, AiError.Un
       Schema.encode(Schema.BooleanFromString)(value).pipe(
         Effect.mapError((cause) => mockError("generateText", "Could not encode boolean strategy output", cause))
       )),
-    Match.orElse(() => Effect.succeed("[non-text-response]"))
+    Match.orElse((cause) =>
+      Effect.fail(
+        mockError(
+          "generateText",
+          "MockLanguageModel text responses must be strings, finite numbers, or booleans",
+          cause
+        )
+      )
+    )
   )
 
 const toProviderText = (
@@ -240,7 +262,7 @@ const unknownUsage = (): Response.Usage =>
     cachedInputTokens: undefined
   })
 
-const ProviderResponseCandidate = Schema.Array(Schema.Struct({ type: Schema.String }))
+const ProviderResponseCandidate = Schema.Array(Schema.Unknown)
 
 const encodeProviderParts = (payload: unknown, options: LanguageModel.ProviderOptions) => {
   const parts = Schema.mutable(Schema.Array(Response.Part(Toolkit.make(...options.tools))))
@@ -308,7 +330,13 @@ const makeService = (
 
         return providerResponse
       }),
-    streamText: () => Stream.empty
+    streamText: () =>
+      Stream.fail(
+        mockError(
+          "streamText",
+          "MockLanguageModel does not support streamText"
+        )
+      )
   })
 
 /**
@@ -316,9 +344,10 @@ const makeService = (
  *
  * @remarks
  * Generation is deterministic for deterministic strategy callbacks. The mock
- * does not simulate streaming: `streamText` is empty. Strategy failures,
- * exceptions from `map`, and values that cannot be encoded for object
- * generation fail as `AiError.UnknownError`.
+ * does not simulate streaming: `streamText` fails with `AiError.UnknownError`.
+ * Strategy failures, exceptions from `map`, unsupported text values, and
+ * values that cannot be encoded for object generation also fail as
+ * `AiError.UnknownError`.
  *
  * @since 0.1.0
  * @category constructors

@@ -36,12 +36,14 @@ import { makeRefineForward } from "./runtime.js"
  */
 export class RefineOptions<
   I extends Schema.Struct.Fields,
-  O extends Schema.Struct.Fields
+  O extends Schema.Struct.Fields,
+  E = never,
+  R = never
 > extends Data.Class<{
   /** Identity of the composed module and its forward span. */
   readonly name: string
   /** Module rerun with accumulated feedback; its signature becomes the wrapper signature. */
-  readonly module: Module<I, O>
+  readonly module: Module<I, O, E, R>
   /** Maximum number of attempts; the first attempt always runs. */
   readonly N: RolloutCount
   /** Scores each attempt and may supply feedback for the next attempt. */
@@ -81,10 +83,12 @@ export class RefineOptions<
  */
 export const refine = <
   I extends Schema.Struct.Fields,
-  O extends Schema.Struct.Fields
+  O extends Schema.Struct.Fields,
+  E = never,
+  R = never
 >(
-  options: RefineOptions<I, O>
-): Effect.Effect<Module<I, O>> =>
+  options: RefineOptions<I, O, E, R>
+): Effect.Effect<Module<I, O, E, R>> =>
   Effect.gen(function*() {
     const paramsRef = yield* Ref.make(
       makeDefaultModuleParams(options.module.signature.instructions)
@@ -96,14 +100,6 @@ export const refine = <
       signature: options.module.signature,
       params: paramsRef,
       subModules: HashMap.empty<ModuleId, ModuleNode>(),
-      forward: makeRefineForward({
-        moduleName: options.name,
-        signature: options.module.signature,
-        innerModule: options.module,
-        N: options.N,
-        reward: options.reward,
-        threshold: options.threshold,
-        forwardLock
-      })
+      forward: makeRefineForward(options, forwardLock)
     })
   })

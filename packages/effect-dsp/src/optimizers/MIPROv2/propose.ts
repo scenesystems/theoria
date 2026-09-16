@@ -4,13 +4,13 @@
  * @see {@link https://arxiv.org/abs/2406.11695 | Opsahl-Ong et al., "Optimizing Instructions and Demonstrations for Multi-Stage Language Model Programs", 2024}
  * @since 0.1.0
  */
-import { Array as Arr, Data, Effect, Option, Ref, Schema } from "effect"
+import { Array as Arr, Data, Effect, Number as Num, Option, Ref, Schema, String as Str } from "effect"
 import { InstructionProposalFailed } from "../../Errors/optimizer.js"
-import type { Example } from "../../Example/index.js"
 import { collectModuleParamRefs } from "../../internal/module-params.js"
 import type { Module as DspModule } from "../../Module/model.js"
 import { generateText } from "../../Module/textGeneration.js"
-import type { PredictorDemoCandidates } from "./bootstrap.js"
+import type { PredictorDemoCandidates, PredictorDemoCandidateSets } from "./bootstrap.js"
+import type { MIPROExamples, MIPROTipVocabulary } from "./index.js"
 import {
   proposalIndices,
   proposalMarker,
@@ -67,6 +67,22 @@ export class PredictorInstructionCandidates
 {}
 
 /**
+ * Ordered Phase 2 candidate sets, one per predictor.
+ *
+ * @since 0.1.0
+ * @category schemas
+ */
+export const PredictorInstructionCandidateSets = Schema.Array(PredictorInstructionCandidates)
+
+/**
+ * Ordered Phase 2 candidate sets, one per predictor.
+ *
+ * @since 0.1.0
+ * @category type-level
+ */
+export type PredictorInstructionCandidateSets = typeof PredictorInstructionCandidateSets.Type
+
+/**
  * Configures instruction generation for every owned predictor.
  *
  * @typeParam I - Input fields used to describe the module and prompt examples.
@@ -77,14 +93,16 @@ export class PredictorInstructionCandidates
  */
 export class ProposeInstructionCandidatesOptions<
   I extends Schema.Struct.Fields,
-  O extends Schema.Struct.Fields
+  O extends Schema.Struct.Fields,
+  E = never,
+  R = never
 > extends Data.Class<{
   /** Root whose current instructions become index-zero baselines. */
-  readonly module: DspModule<I, O>
+  readonly module: DspModule<I, O, E, R>
   /** Dataset counts and module description rendered into proposal prompts. */
-  readonly trainset: ReadonlyArray<Example>
+  readonly trainset: MIPROExamples
   /** Phase 1 context matched to predictors by exact name. */
-  readonly demoCandidates: ReadonlyArray<PredictorDemoCandidates>
+  readonly demoCandidates: PredictorDemoCandidateSets
   /** Total candidates per predictor, including the baseline; invalid counts become one. */
   readonly numInstructions: number
   /** Positive integer used for tip selection and prompt markers. Defaults to `1`. */
@@ -92,14 +110,14 @@ export class ProposeInstructionCandidatesOptions<
   /** Numeric prompt text only; this value does not configure the model provider. */
   readonly diversityTemperature?: number
   /** Prompt hints selected cyclically; an empty or omitted array uses the built-in vocabulary. */
-  readonly tipVocabulary?: ReadonlyArray<string>
+  readonly tipVocabulary?: MIPROTipVocabulary
 }> {}
 
 const resolvePredictorCandidates = (
   predictorName: string,
-  candidateSets: ReadonlyArray<PredictorDemoCandidates>
+  candidateSets: PredictorDemoCandidateSets
 ): Option.Option<PredictorDemoCandidates> =>
-  Arr.findFirst(candidateSets, (candidateSet) => candidateSet.predictorName === predictorName)
+  Arr.findFirst(candidateSets, (candidateSet) => Str.Equivalence(candidateSet.predictorName, predictorName))
 
 const baselineCandidate = (predictorName: string, instruction: string): InstructionCandidate =>
   new InstructionCandidate({
@@ -132,9 +150,11 @@ const baselineCandidate = (predictorName: string, instruction: string): Instruct
  */
 export const proposeInstructionCandidates = <
   I extends Schema.Struct.Fields,
-  O extends Schema.Struct.Fields
+  O extends Schema.Struct.Fields,
+  E = never,
+  R = never
 >(
-  options: ProposeInstructionCandidatesOptions<I, O>
+  options: ProposeInstructionCandidatesOptions<I, O, E, R>
 ) =>
   Effect.gen(function*() {
     const refs = collectModuleParamRefs(options.module)
@@ -151,7 +171,7 @@ export const proposeInstructionCandidates = <
           onNone: () =>
             Effect.fail(
               new InstructionProposalFailed({
-                message: `Missing demo candidates for predictor '${ref.name}'`,
+                message: Str.concat(Str.concat("Missing demo candidates for predictor '", ref.name), "'"),
                 predictorIndex
               })
             ),
@@ -161,7 +181,7 @@ export const proposeInstructionCandidates = <
           onNone: () =>
             Effect.fail(
               new InstructionProposalFailed({
-                message: `Demo candidate set for predictor '${ref.name}' is empty`,
+                message: Str.concat(Str.concat("Demo candidate set for predictor '", ref.name), "' is empty"),
                 predictorIndex
               })
             ),
@@ -172,11 +192,11 @@ export const proposeInstructionCandidates = <
           requested,
           (proposalOffset) =>
             Effect.gen(function*() {
-              const proposalIndex = proposalOffset + 1
-              const tip = tipAt(tips, seed + predictorIndex + proposalIndex)
+              const proposalIndex = Num.increment(proposalOffset)
+              const tip = tipAt(tips, Num.sum(Num.sum(seed, predictorIndex), proposalIndex))
               const marker = proposalMarker(ref.name, proposalIndex, seed)
               const candidate = Option.getOrElse(
-                Arr.get(demoSet.candidates, proposalOffset % demoSet.candidates.length),
+                Arr.get(demoSet.candidates, Num.remainder(proposalOffset, Arr.length(demoSet.candidates))),
                 () => firstDemoCandidate
               )
               const prompt = buildProposalPrompt({
@@ -193,7 +213,10 @@ export const proposeInstructionCandidates = <
                 Effect.mapError(
                   () =>
                     new InstructionProposalFailed({
-                      message: `Failed to propose instruction for predictor '${ref.name}'`,
+                      message: Str.concat(
+                        Str.concat("Failed to propose instruction for predictor '", ref.name),
+                        "'"
+                      ),
                       predictorIndex
                     })
                 )

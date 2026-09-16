@@ -9,9 +9,19 @@ import * as Metric from "@scenesystems/effect-dsp/Metric"
 import * as Module from "@scenesystems/effect-dsp/Module"
 import * as Signature from "@scenesystems/effect-dsp/Signature"
 import { MockLanguageModel } from "@scenesystems/effect-dsp/test"
-import { Array as Arr, Effect, Layer, Match, Ref, Schema } from "effect"
+import { Array as Arr, Data, Effect, Equal, Layer, Match, Option, Record as Rec, Ref, Schema } from "effect"
 import { DemoCandidate, PredictorDemoCandidates } from "../../../src/optimizers/MIPROv2/bootstrap.js"
 import { InstructionCandidate, PredictorInstructionCandidates } from "../../../src/optimizers/MIPROv2/propose.js"
+import {
+  evaluateTrial,
+  EvaluateTrialOptions,
+  makePhase3TrialRefs
+} from "../../../src/optimizers/MIPROv2/runtime/evaluate.js"
+import {
+  BestAveragingCandidate,
+  type Phase3Config,
+  type Phase3DimensionIndex
+} from "../../../src/optimizers/MIPROv2/runtime/model.js"
 import { phase3TrialBudget, runPhase3Search } from "../../../src/optimizers/MIPROv2/search.js"
 
 const makeQaSignature = () =>
@@ -208,6 +218,54 @@ describe("MIPROv2 Phase 3", () => {
       expect(result.diagnostics.priorTrialCount).toBe(1)
       expect(result.diagnostics.fullEvalTrialNumbers).toEqual(Arr.make(2, 5))
       expect(result.diagnostics.minibatchTrialNumbers).toEqual(Arr.make(0, 1, 2, 3, 4, 5))
-      expect(Arr.some(result.studyResult.trials, (trial) => trial.prior === true)).toBe(true)
+      expect(Arr.some(result.studyResult.trials, (trial) => Equal.equals(trial.prior, true))).toBe(true)
+    }))
+
+  it.effect("keeps the finite checkpoint candidate when trial zero scores NaN", () =>
+    Effect.gen(function*() {
+      const zeroIndex: Phase3DimensionIndex = 0
+      const oneIndex: Phase3DimensionIndex = 1
+      const baselineConfig = Rec.set(
+        Rec.set(Rec.empty<string, Phase3DimensionIndex>(), "qa__demo", zeroIndex),
+        "qa__instruction",
+        zeroIndex
+      )
+      const nanConfig = Rec.set(
+        Rec.set(Rec.empty<string, Phase3DimensionIndex>(), "qa__demo", oneIndex),
+        "qa__instruction",
+        oneIndex
+      )
+      const refs = yield* makePhase3TrialRefs
+      const seenConfigs = yield* Ref.make(Arr.empty<Phase3Config>())
+      const scores = yield* Ref.make<Schema.Array$<typeof Schema.Number>["Type"]>(Arr.make(Number.NaN, 1))
+
+      yield* Ref.set(
+        refs.bestAveragingRef,
+        Option.some(new BestAveragingCandidate({ config: baselineConfig, score: 1 }))
+      )
+      yield* evaluateTrial(
+        new EvaluateTrialOptions({
+          config: nanConfig,
+          refs,
+          minibatchExamples: trainset,
+          valset: trainset,
+          fullEvalEvery: 1,
+          emit: () => Effect.void,
+          evaluateOn: (config) =>
+            Ref.update(seenConfigs, (seen) => Arr.append(seen, config)).pipe(
+              Effect.zipRight(
+                Ref.modify(scores, (remaining) => Data.tuple(Arr.head(remaining), Arr.drop(remaining, 1))).pipe(
+                  Effect.flatten
+                )
+              )
+            )
+        })
+      )
+
+      const seen = yield* Ref.get(seenConfigs)
+      const checkpointConfig = Option.getOrElse(Arr.last(seen), () => nanConfig)
+
+      expect(Equal.equals(checkpointConfig, baselineConfig)).toBe(true)
+      expect(Arr.length(seen)).toBe(2)
     }))
 })

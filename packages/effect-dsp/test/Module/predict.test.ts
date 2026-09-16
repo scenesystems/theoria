@@ -23,6 +23,27 @@ const makeQaSignature = () =>
   )
 
 describe("Module.predict", () => {
+  it.effect("renders schema-encoded structured inputs without replacing them with placeholders", () =>
+    Effect.gen(function*() {
+      const signature = yield* Signature.make("Render facts", {
+        facts: Schema.Struct({ count: Schema.NumberFromString, countries: Schema.Array(Schema.String) }),
+        empty: Schema.Null
+      }, { answer: Schema.String })
+      const module = yield* Module.predict("encoded-input", signature)
+      const mock = yield* MockLanguageModel.make(MockLanguageModel.fixed({ answer: "France" }))
+      const [result, entries] = yield* Trace.withTracing(module.forward({
+        facts: { count: 17, countries: Arr.make("France", "Japan") },
+        empty: null
+      })).pipe(Effect.provideService(LanguageModel.LanguageModel, mock.service))
+      const call = yield* Ref.get(mock.calls).pipe(Effect.flatMap(Arr.head))
+      const entry = yield* Arr.head(entries)
+      expect(result.answer).toBe("France")
+      expect(call.prompt).toContain("[[ ## facts ## ]]\n{\"count\":\"17\",\"countries\":[\"France\",\"Japan\"]}")
+      expect(call.prompt).toContain("[[ ## empty ## ]]\nnull")
+      expect(entry.prompt).toBe(call.prompt)
+      expect(entry.input).toEqual({ facts: { count: "17", countries: Arr.make("France", "Japan") }, empty: null })
+    }))
+
   it.effect("stops after the default three parse retries and carries diagnostic feedback", () =>
     Effect.gen(function*() {
       const qa = yield* makeQaSignature()

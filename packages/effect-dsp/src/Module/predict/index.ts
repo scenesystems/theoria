@@ -12,7 +12,7 @@ import { ModuleParams } from "../../contracts/ModuleParams.js"
 import type { Signature } from "../../Signature/model.js"
 import { Module } from "../model.js"
 import { makePredictPolicy, PredictPolicyOverrides } from "./policy.js"
-import { makeForward } from "./runtime.js"
+import { makeForward, RuntimeOptions } from "./runtime.js"
 
 const EMPTY_PREDICT_POLICY_OVERRIDES = new PredictPolicyOverrides({})
 
@@ -90,14 +90,16 @@ export const predict = <
       signature,
       params: paramsRef,
       subModules: HashMap.empty<ModuleId, ModuleNode>(),
-      forward: makeForward({
-        moduleName: name,
-        signature,
-        inputSchema: signature.inputSchema,
-        outputSchema: signature.outputSchema,
-        paramsRef,
-        policy
-      })
+      forward: makeForward(
+        new RuntimeOptions({
+          moduleName: name,
+          signature,
+          inputSchema: signature.inputSchema,
+          outputSchema: signature.outputSchema,
+          paramsRef,
+          policy
+        })
+      )
     })
   })
 

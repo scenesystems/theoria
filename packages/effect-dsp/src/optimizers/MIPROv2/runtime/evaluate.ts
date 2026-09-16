@@ -7,11 +7,22 @@
  */
 import * as Numeric from "@scenesystems/effect-math/Numeric"
 import { Study } from "@scenesystems/effect-search"
-import { Array as Arr, Data, Effect, Option, Ref } from "effect"
+import {
+  Array as Arr,
+  Boolean as Bool,
+  Data,
+  Effect,
+  Inspectable,
+  Number as Num,
+  Option,
+  Ref,
+  Schema,
+  String as Str
+} from "effect"
 import { withModuleParamsDemosAndInstructions } from "../../../contracts/ModuleParams.js"
 import { AllTrialsFailed } from "../../../Errors/optimizer.js"
-import type { Example } from "../../../Example/index.js"
 import { MIPROv2Event } from "../events.js"
+import type { MIPROExamples } from "../index.js"
 import type { Phase3EventSink } from "../phase3-model.js"
 import {
   BestAveragingCandidate,
@@ -39,8 +50,39 @@ export class Phase3TrialRefs extends Data.Class<{
   readonly trialCounter: Ref.Ref<number>
   readonly bestScoreRef: Ref.Ref<number>
   readonly bestAveragingRef: Ref.Ref<Option.Option<BestAveragingCandidate>>
-  readonly fullEvalTrialsRef: Ref.Ref<ReadonlyArray<number>>
-  readonly minibatchTrialsRef: Ref.Ref<ReadonlyArray<number>>
+  readonly fullEvalTrialsRef: Ref.Ref<Schema.Array$<typeof Schema.Number>["Type"]>
+  readonly minibatchTrialsRef: Ref.Ref<Schema.Array$<typeof Schema.Number>["Type"]>
+}> {}
+
+/** @internal */
+export class ApplyPhase3ConfigOptions extends Data.Class<{
+  readonly config: Phase3Config
+  readonly bindings: Iterable<PredictorBinding>
+  readonly trialBudget: number
+}> {}
+
+/** @internal */
+export class EvaluateBaselineOptions<E, R> extends Data.Class<{
+  readonly baselineConfig: Phase3Config
+  readonly valset: MIPROExamples
+  readonly refs: Phase3TrialRefs
+  readonly evaluateOn: (config: Phase3Config, examples: MIPROExamples) => Effect.Effect<number, E, R>
+}> {}
+
+/** @internal */
+export class EvaluateTrialOptions<E, R> extends Data.Class<{
+  readonly config: Phase3Config
+  readonly refs: Phase3TrialRefs
+  readonly minibatchExamples: MIPROExamples
+  readonly valset: MIPROExamples
+  readonly fullEvalEvery: number
+  readonly emit: Phase3EventSink
+  readonly evaluateOn: (config: Phase3Config, examples: MIPROExamples) => Effect.Effect<number, E, R>
+}> {}
+
+class BaselineEvaluation extends Data.Class<{
+  readonly baselineObjective: number
+  readonly priorTrial: Study.PriorTrial<Phase3Config>
 }> {}
 
 /**
@@ -58,16 +100,16 @@ export const makePhase3TrialRefs: Effect.Effect<Phase3TrialRefs> = Effect.gen(fu
   const trialCounter = yield* Ref.make(0)
   const bestScoreRef = yield* Ref.make(Number.NEGATIVE_INFINITY)
   const bestAveragingRef = yield* Ref.make<Option.Option<BestAveragingCandidate>>(Option.none())
-  const fullEvalTrialsRef = yield* Ref.make<ReadonlyArray<number>>(Arr.empty<number>())
-  const minibatchTrialsRef = yield* Ref.make<ReadonlyArray<number>>(Arr.empty<number>())
+  const fullEvalTrialsRef = yield* Ref.make<Schema.Array$<typeof Schema.Number>["Type"]>(Arr.empty())
+  const minibatchTrialsRef = yield* Ref.make<Schema.Array$<typeof Schema.Number>["Type"]>(Arr.empty())
 
-  return {
+  return new Phase3TrialRefs({
     trialCounter,
     bestScoreRef,
     bestAveragingRef,
     fullEvalTrialsRef,
     minibatchTrialsRef
-  }
+  })
 })
 
 /**
@@ -83,11 +125,7 @@ export const makePhase3TrialRefs: Effect.Effect<Phase3TrialRefs> = Effect.gen(fu
  * @category combinators
  * @see {@link evaluateTrial} — calls this before scoring
  */
-export const applyPhase3Config = (options: {
-  readonly config: Phase3Config
-  readonly bindings: ReadonlyArray<PredictorBinding>
-  readonly trialBudget: number
-}) =>
+export const applyPhase3Config = (options: ApplyPhase3ConfigOptions) =>
   Effect.forEach(options.bindings, (binding) =>
     Effect.gen(function*() {
       const demoIndex = yield* configIndex(options.config, demoDimensionName(binding.predictorName))
@@ -96,7 +134,10 @@ export const applyPhase3Config = (options: {
         onNone: () =>
           Effect.fail(
             new AllTrialsFailed({
-              message: `Missing demo candidate index ${demoIndex} for predictor '${binding.predictorName}'`,
+              message: Str.concat(
+                Str.concat("Missing demo candidate index ", Inspectable.toStringUnknown(demoIndex)),
+                Str.concat(" for predictor '", Str.concat(binding.predictorName, "'"))
+              ),
               trialCount: options.trialBudget
             })
           ),
@@ -106,8 +147,10 @@ export const applyPhase3Config = (options: {
         onNone: () =>
           Effect.fail(
             new AllTrialsFailed({
-              message:
-                `Missing instruction candidate index ${instructionIndex} for predictor '${binding.predictorName}'`,
+              message: Str.concat(
+                Str.concat("Missing instruction candidate index ", Inspectable.toStringUnknown(instructionIndex)),
+                Str.concat(" for predictor '", Str.concat(binding.predictorName, "'"))
+              ),
               trialCount: options.trialBudget
             })
           ),
@@ -133,12 +176,7 @@ export const applyPhase3Config = (options: {
  * @category combinators
  * @see {@link evaluateTrial} — per-trial counterpart
  */
-export const evaluateBaseline = <E, R>(options: {
-  readonly baselineConfig: Phase3Config
-  readonly valset: ReadonlyArray<Example>
-  readonly refs: Phase3TrialRefs
-  readonly evaluateOn: (config: Phase3Config, examples: ReadonlyArray<Example>) => Effect.Effect<number, E, R>
-}) =>
+export const evaluateBaseline = <E, R>(options: EvaluateBaselineOptions<E, R>) =>
   Effect.gen(function*() {
     const baselineObjective = yield* options.evaluateOn(options.baselineConfig, options.valset)
     const priorTrial = new Study.PriorTrial<Phase3Config>({
@@ -152,10 +190,10 @@ export const evaluateBaseline = <E, R>(options: {
       Option.some(new BestAveragingCandidate({ config: options.baselineConfig, score: baselineObjective }))
     )
 
-    return {
+    return new BaselineEvaluation({
       baselineObjective,
       priorTrial
-    }
+    })
   })
 
 /**
@@ -177,17 +215,9 @@ export const evaluateBaseline = <E, R>(options: {
  * @see {@link evaluateBaseline} — warm-start counterpart
  * @see {@link Phase3TrialRefs} — mutable state consumed here
  */
-export const evaluateTrial = <E, R>(options: {
-  readonly config: Phase3Config
-  readonly refs: Phase3TrialRefs
-  readonly minibatchExamples: ReadonlyArray<Example>
-  readonly valset: ReadonlyArray<Example>
-  readonly fullEvalEvery: number
-  readonly emit: Phase3EventSink
-  readonly evaluateOn: (config: Phase3Config, examples: ReadonlyArray<Example>) => Effect.Effect<number, E, R>
-}) =>
+export const evaluateTrial = <E, R>(options: EvaluateTrialOptions<E, R>) =>
   Effect.gen(function*() {
-    const trial = yield* Ref.modify(options.refs.trialCounter, (count) => Data.tuple(count, count + 1))
+    const trial = yield* Ref.modify(options.refs.trialCounter, (count) => Data.tuple(count, Num.increment(count)))
     const checkpointCandidate = yield* Ref.modify(options.refs.bestAveragingRef, (current) => {
       const next = Option.match(current, {
         onNone: () =>
@@ -207,9 +237,19 @@ export const evaluateTrial = <E, R>(options: {
         onNone: () =>
           Option.some(new BestAveragingCandidate({ config: options.config, score })),
         onSome: (candidate) =>
-          score >= candidate.score
-            ? Option.some(new BestAveragingCandidate({ config: options.config, score }))
-            : Option.some(candidate)
+          Bool.match(
+            Bool.and(
+              Schema.is(Schema.NonNaN)(score),
+              Bool.and(
+                Schema.is(Schema.NonNaN)(candidate.score),
+                Num.greaterThanOrEqualTo(score, candidate.score)
+              )
+            ),
+            {
+              onTrue: () => Option.some(new BestAveragingCandidate({ config: options.config, score })),
+              onFalse: () => Option.some(candidate)
+            }
+          )
       })
 
       return Data.tuple(
@@ -222,7 +262,7 @@ export const evaluateTrial = <E, R>(options: {
     yield* Ref.update(options.refs.minibatchTrialsRef, (trials) => Arr.append(trials, trial))
     yield* options.emit(MIPROv2Event.TrialEvaluated({ trial, score }))
 
-    yield* Effect.if((trial + 1) % options.fullEvalEvery === 0, {
+    yield* Effect.if(Num.Equivalence(Num.remainder(Num.increment(trial), options.fullEvalEvery), 0), {
       onTrue: () =>
         options.evaluateOn(bestCheckpointCandidate.config, options.valset).pipe(
           Effect.flatMap((fullEvalScore) =>

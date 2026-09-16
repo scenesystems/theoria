@@ -4,25 +4,18 @@
  * @since 0.1.0
  */
 import type { Ref } from "effect"
-import { Array as Arr, Data, Option, Order } from "effect"
+import { Array as Arr, Data, Equivalence, Order } from "effect"
+import type { ModuleGraphNode } from "../../contracts/ModuleGraph.js"
 import type { ModuleId } from "../../contracts/ModuleId.js"
 import type { ModuleNodeSignature } from "../../contracts/ModuleNode.js"
 import type { ModuleParams } from "../../contracts/ModuleParams.js"
 
 const moduleIdOrder: Order.Order<ModuleId> = Order.mapInput(Order.string, (moduleId: ModuleId) => moduleId)
 
-const uniqueSortedModuleIds = (moduleIds: ReadonlyArray<ModuleId>): ReadonlyArray<ModuleId> => {
-  const sorted = Arr.sort(moduleIds, moduleIdOrder)
+const moduleIdEquivalence: Equivalence.Equivalence<ModuleId> = Equivalence.string
 
-  return Arr.reduce(sorted, Arr.empty<ModuleId>(), (acc, moduleId) =>
-    Option.match(Arr.last(acc), {
-      onNone: () => Arr.make(moduleId),
-      onSome: (last) =>
-        last === moduleId
-          ? acc
-          : Arr.append(acc, moduleId)
-    }))
-}
+const uniqueSortedModuleIds = (moduleIds: Iterable<ModuleId>): ModuleGraphNode["subModuleIds"] =>
+  Arr.dedupeWith(Arr.sort(Arr.fromIterable(moduleIds), moduleIdOrder), moduleIdEquivalence)
 
 export { ModuleNodeSignature as RegisteredSignature } from "../../contracts/ModuleNode.js"
 
@@ -44,7 +37,7 @@ export class ModuleRegistration extends Data.TaggedClass("ModuleRegistration")<{
   /** Description and baseline instructions captured by registration. */
   readonly signature: ModuleNodeSignature
   /** Sorted, unique identities of direct declared children. */
-  readonly subModuleIds: ReadonlyArray<ModuleId>
+  readonly subModuleIds: ModuleGraphNode["subModuleIds"]
 }> {}
 
 /**
@@ -56,7 +49,7 @@ export class ModuleRegistration extends Data.TaggedClass("ModuleRegistration")<{
  * @since 0.1.0
  * @category combinators
  */
-export const canonicalSubModuleIds = (subModuleIds: ReadonlyArray<ModuleId>): ReadonlyArray<ModuleId> =>
+export const canonicalSubModuleIds = (subModuleIds: Iterable<ModuleId>): ModuleGraphNode["subModuleIds"] =>
   uniqueSortedModuleIds(subModuleIds)
 
 const registrationOrder: Order.Order<ModuleRegistration> = Order.mapInput(
@@ -86,5 +79,5 @@ const canonicalRegistration = (registration: ModuleRegistration): ModuleRegistra
  * @category combinators
  */
 export const canonicalModuleRegistrations = (
-  registrations: ReadonlyArray<ModuleRegistration>
-): ReadonlyArray<ModuleRegistration> => Arr.sort(Arr.map(registrations, canonicalRegistration), registrationOrder)
+  registrations: Iterable<ModuleRegistration>
+) => Arr.sort(Arr.map(Arr.fromIterable(registrations), canonicalRegistration), registrationOrder)

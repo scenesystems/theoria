@@ -8,7 +8,7 @@ import * as Module from "@scenesystems/effect-dsp/Module"
 import * as Signature from "@scenesystems/effect-dsp/Signature"
 import { MockLanguageModel } from "@scenesystems/effect-dsp/test"
 import * as Trace from "@scenesystems/effect-dsp/Trace"
-import { Array as Arr, Effect, HashMap, Layer, Option, Ref, Schema, Tuple } from "effect"
+import { Array as Arr, Effect, HashMap, Layer, Option, Record, Ref, Schema, Tuple } from "effect"
 
 const makeQaSignature = () =>
   Signature.make(
@@ -28,17 +28,21 @@ describe("Module.compose", () => {
     Effect.gen(function*() {
       const signature = yield* makeQaSignature()
       const qa = yield* Module.predict("qa", signature)
-      const pipeline = yield* Module.compose({
-        name: "qa-pipeline",
-        signature,
-        subModules: { qa },
-        forward: ({ input }) => qa.forward(input)
-      })
-      const rootGraph = yield* Module.composeGraph({
-        name: "qa-root",
-        signature,
-        subModules: { pipeline }
-      })
+      const pipeline = yield* Module.compose(
+        new Module.ComposeOptions({
+          name: "qa-pipeline",
+          signature,
+          subModules: Record.singleton("qa", qa),
+          forward: ({ input }) => qa.forward(input)
+        })
+      )
+      const rootGraph = yield* Module.composeGraph(
+        new Module.ComposeGraphOptions({
+          name: "qa-root",
+          signature,
+          subModules: Record.singleton("pipeline", pipeline)
+        })
+      )
       const rootId = yield* decodeModuleId("qa-root")
       const pipelineId = yield* decodeModuleId(pipeline.name)
       const qaId = yield* decodeModuleId(qa.name)
@@ -59,14 +63,13 @@ describe("Module.compose", () => {
       const signature = yield* makeQaSignature()
       const left = yield* Module.predict("qa", signature)
       const right = yield* Module.predict("qa", signature)
-      const error = yield* Effect.flip(Module.composeGraph({
-        name: "qa-root",
-        signature,
-        subModules: {
-          left,
-          right
-        }
-      }))
+      const error = yield* Effect.flip(Module.composeGraph(
+        new Module.ComposeGraphOptions({
+          name: "qa-root",
+          signature,
+          subModules: Record.set(Record.singleton("left", left), "right", right)
+        })
+      ))
 
       expect(error._tag).toBe("CompositionError")
       expect(error.message).toContain("share id 'qa'")
@@ -81,27 +84,27 @@ describe("Module.compose", () => {
         signature.description,
         signature.instructions
       )
-      const loopNode = Contracts.makeModuleNode({
+      const loopNode = new Contracts.ModuleNode({
         moduleId: loopId,
         name: "loop",
         signature: loopSignature,
         params: paramsRef,
         subModules: HashMap.empty()
       })
-      const loopModule = {
+      const loopModule = new Module.Module({
         name: "loop",
-        signature: {
-          description: signature.description,
-          instructions: signature.instructions
-        },
-        params: paramsRef,
-        subModules: HashMap.set(HashMap.empty(), loopId, loopNode)
-      }
-      const error = yield* Effect.flip(Module.composeGraph({
-        name: "qa-root",
         signature,
-        subModules: { loop: loopModule }
-      }))
+        params: paramsRef,
+        subModules: HashMap.set(HashMap.empty(), loopId, loopNode),
+        forward: () => Effect.succeed({ answer: "unreachable" })
+      })
+      const error = yield* Effect.flip(Module.composeGraph(
+        new Module.ComposeGraphOptions({
+          name: "qa-root",
+          signature,
+          subModules: Record.singleton("loop", loopModule)
+        })
+      ))
 
       expect(error._tag).toBe("CompositionError")
       expect(error.message).toContain("cycle detected")
@@ -112,26 +115,27 @@ describe("Module.compose", () => {
       const signature = yield* makeQaSignature()
       const qa = yield* Module.predict("qa", signature)
       const secondary = yield* Module.predict("secondary", signature)
-      const pipeline = yield* Module.compose({
-        name: "qa-pipeline",
-        signature,
-        subModules: { qa },
-        forward: ({ input }) => qa.forward(input)
-      })
-      const root = yield* Module.compose({
-        name: "qa-root",
-        signature,
-        subModules: {
-          pipeline,
-          secondary
-        },
-        forward: ({ input }) =>
-          Effect.gen(function*() {
-            yield* pipeline.forward(input)
+      const pipeline = yield* Module.compose(
+        new Module.ComposeOptions({
+          name: "qa-pipeline",
+          signature,
+          subModules: Record.singleton("qa", qa),
+          forward: ({ input }) => qa.forward(input)
+        })
+      )
+      const root = yield* Module.compose(
+        new Module.ComposeOptions({
+          name: "qa-root",
+          signature,
+          subModules: Record.set(Record.singleton("pipeline", pipeline), "secondary", secondary),
+          forward: ({ input }) =>
+            Effect.gen(function*() {
+              yield* pipeline.forward(input)
 
-            return yield* secondary.forward(input)
-          })
-      })
+              return yield* secondary.forward(input)
+            })
+        })
+      )
       const rootId = yield* decodeModuleId(root.name)
       const pipelineId = yield* decodeModuleId(pipeline.name)
       const qaId = yield* decodeModuleId(qa.name)
@@ -172,26 +176,27 @@ describe("Module.compose", () => {
       const signature = yield* makeQaSignature()
       const qa = yield* Module.predict("qa", signature)
       const secondary = yield* Module.predict("secondary", signature)
-      const pipeline = yield* Module.compose({
-        name: "qa-pipeline",
-        signature,
-        subModules: { qa },
-        forward: ({ input }) => qa.forward(input)
-      })
-      const root = yield* Module.compose({
-        name: "qa-root",
-        signature,
-        subModules: {
-          pipeline,
-          secondary
-        },
-        forward: ({ input }) =>
-          Effect.gen(function*() {
-            yield* pipeline.forward(input)
+      const pipeline = yield* Module.compose(
+        new Module.ComposeOptions({
+          name: "qa-pipeline",
+          signature,
+          subModules: Record.singleton("qa", qa),
+          forward: ({ input }) => qa.forward(input)
+        })
+      )
+      const root = yield* Module.compose(
+        new Module.ComposeOptions({
+          name: "qa-root",
+          signature,
+          subModules: Record.set(Record.singleton("pipeline", pipeline), "secondary", secondary),
+          forward: ({ input }) =>
+            Effect.gen(function*() {
+              yield* pipeline.forward(input)
 
-            return yield* secondary.forward(input)
-          })
-      })
+              return yield* secondary.forward(input)
+            })
+        })
+      )
       const mock = yield* MockLanguageModel.make(
         MockLanguageModel.fixed({ answer: "Paris" })
       )

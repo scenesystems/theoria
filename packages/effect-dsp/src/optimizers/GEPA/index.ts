@@ -7,7 +7,7 @@
  * @module
  */
 import * as Numeric from "@scenesystems/effect-math/Numeric"
-import { Array as Arr, Effect, Match, Option, Ref } from "effect"
+import { Array as Arr, Effect, Match, Number as Num, Option, Ref } from "effect"
 import type { Schema } from "effect"
 import { nextDeterministicSeed, normalizeDeterministicSeed } from "../../contracts/DeterministicSeed.js"
 import { withModuleParamsInstructions } from "../../contracts/ModuleParams.js"
@@ -56,8 +56,15 @@ export { noGEPAEvents }
  * @since 0.1.0
  * @category constructors
  */
-export const gepaWithEvents = <I extends Schema.Struct.Fields, O extends Schema.Struct.Fields, ME = never, MR = never>(
-  options: GEPAOptions<I, O, ME, MR>,
+export const gepaWithEvents = <
+  I extends Schema.Struct.Fields,
+  O extends Schema.Struct.Fields,
+  ME = never,
+  MR = never,
+  E = never,
+  R = never
+>(
+  options: GEPAOptions<I, O, ME, MR, E, R>,
   emit: GEPAEventSink
 ) =>
   Effect.gen(function*() {
@@ -89,7 +96,7 @@ export const gepaWithEvents = <I extends Schema.Struct.Fields, O extends Schema.
     )
 
     yield* Effect.iterate(1, {
-      while: (iteration) => iteration <= normalizeNonNegativeCount(options.maxIterations),
+      while: (iteration) => Num.lessThanOrEqualTo(iteration, normalizeNonNegativeCount(options.maxIterations)),
       body: (iteration) =>
         Effect.gen(function*() {
           const state = yield* Ref.get(stateRef)
@@ -97,7 +104,7 @@ export const gepaWithEvents = <I extends Schema.Struct.Fields, O extends Schema.
           const mutationSeed = nextDeterministicSeed(mergeSeed)
 
           yield* emit(
-            GEPAEvent.IterationStarted({ iteration, frontierSize: state.paretoSnapshot.frontierIndices.length })
+            GEPAEvent.IterationStarted({ iteration, frontierSize: Arr.length(state.paretoSnapshot.frontierIndices) })
           )
 
           const stateAfterMerge = yield* runMergePhase(options, state, iteration, mergeSeed, emit)
@@ -131,11 +138,11 @@ export const gepaWithEvents = <I extends Schema.Struct.Fields, O extends Schema.
             GEPAEvent.IterationCompleted({
               iteration,
               acceptedCandidate: mutationResult.accepted,
-              frontierSize: updatedSnapshot.frontierIndices.length
+              frontierSize: Arr.length(updatedSnapshot.frontierIndices)
             })
           )
 
-          return iteration + 1
+          return Num.increment(iteration)
         })
     })
 
@@ -156,7 +163,7 @@ export const gepaWithEvents = <I extends Schema.Struct.Fields, O extends Schema.
       GEPAEvent.OptimizationCompleted({
         iterations: finalState.iteration,
         bestCandidateId: bestCandidate.candidateId,
-        frontierSize: finalState.paretoSnapshot.frontierIndices.length
+        frontierSize: Arr.length(finalState.paretoSnapshot.frontierIndices)
       })
     )
 
@@ -177,8 +184,15 @@ export const gepaWithEvents = <I extends Schema.Struct.Fields, O extends Schema.
  * @since 0.1.0
  * @category constructors
  */
-export const gepa = <I extends Schema.Struct.Fields, O extends Schema.Struct.Fields, ME = never, MR = never>(
-  options: GEPAOptions<I, O, ME, MR>
+export const gepa = <
+  I extends Schema.Struct.Fields,
+  O extends Schema.Struct.Fields,
+  ME = never,
+  MR = never,
+  E = never,
+  R = never
+>(
+  options: GEPAOptions<I, O, ME, MR, E, R>
 ) => gepaWithEvents(options, noGEPAEvents)
 
 /**
@@ -197,8 +211,15 @@ export const gepa = <I extends Schema.Struct.Fields, O extends Schema.Struct.Fie
  * @since 0.1.0
  * @category constructors
  */
-export const gepaStream = <I extends Schema.Struct.Fields, O extends Schema.Struct.Fields, ME = never, MR = never>(
-  options: GEPAOptions<I, O, ME, MR>
+export const gepaStream = <
+  I extends Schema.Struct.Fields,
+  O extends Schema.Struct.Fields,
+  ME = never,
+  MR = never,
+  E = never,
+  R = never
+>(
+  options: GEPAOptions<I, O, ME, MR, E, R>
 ) => streamGEPAEvents((emit) => gepaWithEvents(options, emit))
 
 export * from "./events.js"

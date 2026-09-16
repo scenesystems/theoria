@@ -9,8 +9,9 @@ import type * as LanguageModel from "@effect/ai/LanguageModel"
 import type * as Prompt from "@effect/ai/Prompt"
 import type * as Response from "@effect/ai/Response"
 import type * as Tool from "@effect/ai/Tool"
+import type * as Toolkit from "@effect/ai/Toolkit"
 import type { Record } from "effect"
-import { Array as Arr, Boolean, Data, Effect, Match, Number, Option, Predicate, Schema, String } from "effect"
+import { Array as Arr, Data, Effect, Number, Option, Schema, String } from "effect"
 import type { FieldRecord } from "../../contracts/FieldValue.js"
 import { projectFieldRecord } from "../../contracts/PayloadProjection.js"
 import type { ParseOutputError } from "../../Errors/module.js"
@@ -19,9 +20,7 @@ import { promptToTraceText } from "../../internal/prompt/trace.js"
 import type { Signature } from "../../Signature/model.js"
 import { append, Entry, noScore } from "../../Trace/index.js"
 import { defaultParseFeedbackTemplate } from "../predict/policy.js"
-import { tracePayloadFromEncoded } from "../predict/trace.js"
-
-const FeedbackHistory = Schema.Array(Schema.String)
+import { PayloadOptions, tracePayloadFromEncoded } from "../predict/trace.js"
 
 /**
  * ReAct loop state model.
@@ -31,63 +30,12 @@ const FeedbackHistory = Schema.Array(Schema.String)
  */
 export class ReactLoopState<A> extends Data.Class<{
   readonly iteration: number
-  readonly feedbackHistory: typeof FeedbackHistory.Type
+  readonly prompt: Prompt.Prompt
   readonly output: Option.Option<A>
   readonly lastRawResponse: Option.Option<string>
   readonly lastDiagnostics: ParseOutputError["fieldDiagnostics"]
   readonly lastTurnWasToolCall: boolean
 }> {}
-
-const renderUnknown = (value: unknown): string =>
-  Match.value(value).pipe(
-    Match.when(Predicate.isString, (text) => text),
-    Match.when(Predicate.isNumber, Schema.encodeSync(Schema.NumberFromString)),
-    Match.when(Predicate.isBoolean, Boolean.match({ onTrue: () => "true", onFalse: () => "false" })),
-    Match.when(Predicate.isNull, () => "null"),
-    Match.orElse(() => "[non-scalar]")
-  )
-
-const renderToolResultObservation = <Tools extends Record.ReadonlyRecord<string, Tool.Any>>(
-  toolResult: LanguageModel.GenerateTextResponse<Tools>["toolResults"][number]
-): string =>
-  Arr.join(
-    Arr.make(
-      "- ",
-      toolResult.name,
-      " (",
-      Boolean.match(toolResult.isFailure, {
-        onTrue: () => "failure",
-        onFalse: () => "success"
-      }),
-      "): ",
-      renderUnknown(toolResult.result)
-    ),
-    ""
-  )
-
-const renderToolObservations = <Tools extends Record.ReadonlyRecord<string, Tool.Any>>(
-  response: LanguageModel.GenerateTextResponse<Tools>
-): string =>
-  Option.match(Arr.head(response.toolResults), {
-    onNone: () => "Tool observations:\n- none",
-    onSome: () =>
-      String.concat(
-        "Tool observations:\n",
-        Arr.join(Arr.map(response.toolResults, renderToolResultObservation<Tools>), "\n")
-      )
-  })
-
-/**
- * Build optional feedback payload from the accumulated iteration history.
- *
- * @since 0.1.0
- * @category combinators
- */
-export const feedbackFromHistory = (history: typeof FeedbackHistory.Type): Option.Option<string> =>
-  Option.match(Arr.head(history), {
-    onNone: () => Option.none<string>(),
-    onSome: () => Option.some(Arr.join(history, "\n\n"))
-  })
 
 /**
  * Render tool-observation feedback for a successful tool-call iteration.
@@ -95,10 +43,7 @@ export const feedbackFromHistory = (history: typeof FeedbackHistory.Type): Optio
  * @since 0.1.0
  * @category combinators
  */
-export const makeToolObservationFeedback = <Tools extends Record.ReadonlyRecord<string, Tool.Any>>(
-  iteration: number,
-  response: LanguageModel.GenerateTextResponse<Tools>
-): string =>
+export const makeToolObservationFeedback = (iteration: number): string =>
   Arr.join(
     Arr.make(
       Arr.join(
@@ -109,8 +54,7 @@ export const makeToolObservationFeedback = <Tools extends Record.ReadonlyRecord<
         ),
         ""
       ),
-      String.concat("Model response:\n", response.text),
-      renderToolObservations(response),
+      "Tool observations: the preceding native tool messages contain the results.",
       "Continue reasoning from these tool observations and return the final answer using the required output field markers."
     ),
     "\n\n"
@@ -122,9 +66,9 @@ export const makeToolObservationFeedback = <Tools extends Record.ReadonlyRecord<
  * @since 0.1.0
  * @category combinators
  */
-export const makeIterationFeedback = <Tools extends Record.ReadonlyRecord<string, Tool.Any>>(
+export const makeIterationFeedback = (
   iteration: number,
-  response: LanguageModel.GenerateTextResponse<Tools>,
+  responseText: string,
   parseError: ParseOutputError
 ): string =>
   Arr.join(
@@ -137,8 +81,7 @@ export const makeIterationFeedback = <Tools extends Record.ReadonlyRecord<string
         ),
         ""
       ),
-      String.concat("Model response:\n", response.text),
-      renderToolObservations(response),
+      String.concat("Model response:\n", responseText),
       String.concat("Parse feedback:\n", defaultParseFeedbackTemplate(parseError)),
       "Respond again using only the required output field markers."
     ),
@@ -151,7 +94,7 @@ const traceProjectionError = (moduleName: string): TraceError =>
     moduleName
   })
 
-class ReactTraceOptions<
+export class ReactTraceOptions<
   I extends Schema.Struct.Fields,
   O extends Schema.Struct.Fields,
   Tools extends Record.ReadonlyRecord<string, Tool.Any>
@@ -163,7 +106,9 @@ class ReactTraceOptions<
   readonly output: Option.Option<Schema.Schema.Type<Schema.Struct<O>>>
   readonly parseError: Option.Option<string>
   readonly prompt: Prompt.RawInput
-  readonly response: LanguageModel.GenerateTextResponse<Tools>
+  readonly response:
+    | LanguageModel.GenerateTextResponse<Tools>
+    | LanguageModel.GenerateTextResponse<Toolkit.Tools<typeof Toolkit.empty>>
   readonly usage: Response.Usage
   readonly startedAt: number
   readonly completedAt: number
@@ -185,12 +130,14 @@ export const appendReactTraceEntry = <
   Effect.gen(function*() {
     const traceOutput = yield* Option.match(options.output, {
       onSome: (output) =>
-        tracePayloadFromEncoded({
-          moduleName: options.moduleName,
-          carrier: "output",
-          schema: options.outputSchema,
-          value: output
-        }),
+        tracePayloadFromEncoded(
+          new PayloadOptions({
+            moduleName: options.moduleName,
+            carrier: "output",
+            schema: options.outputSchema,
+            value: output
+          })
+        ),
       onNone: () =>
         projectFieldRecord(
           {
@@ -208,7 +155,7 @@ export const appendReactTraceEntry = <
       signatureDescription: options.signature.description,
       input: options.traceInput,
       output: traceOutput,
-      prompt: promptToTraceText(options.prompt),
+      prompt: yield* promptToTraceText(options.prompt),
       rawResponse: options.response.text,
       usage: options.usage,
       durationMs: Number.subtract(options.completedAt, options.startedAt),
