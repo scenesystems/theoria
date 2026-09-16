@@ -1,11 +1,11 @@
 import { describe, expect, it } from "@effect/vitest"
 import { Effect, Either, Number as Num, Option, Schedule } from "effect"
 
-import { NoSuccessfulTrials } from "../../src/Errors/index.js"
 import * as Float64 from "../../src/internal/float64.js"
 import * as Sampler from "../../src/Sampler/index.js"
+import { NoSuccessfulTrials } from "../../src/SearchError.js"
 import * as SearchSpace from "../../src/SearchSpace/index.js"
-import * as Study from "../../src/Study/index.js"
+import * as Study from "../../src/Study.js"
 
 const makeSpace = () =>
   SearchSpace.make({
@@ -14,7 +14,7 @@ const makeSpace = () =>
     optimizer: SearchSpace.categorical(["adam", "sgd"])
   })
 
-const asSingleObjective = (result: Study.StudyResult) =>
+const asSingleObjective = (result: Study.Result) =>
   result._tag === "SingleObjective" ? Option.some(result) : Option.none()
 
 const completedValues = (result: Study.SingleObjectiveResult): Array<number> =>

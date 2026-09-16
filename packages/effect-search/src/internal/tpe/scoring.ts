@@ -1,0 +1,37 @@
+/**
+ * TPE scoring — log-probability computation for categorical Parzen density models.
+ *
+ * @since 0.1.0
+ */
+import { Array as Arr, Equal, Match, Number as Num, Option } from "effect"
+
+import type { Choice } from "../../Distribution.js"
+import * as Float64 from "../../internal/float64.js"
+
+/**
+ * Computes the log-probability of a categorical value under a Parzen density
+ * estimate, returning negative infinity for unobserved choices.
+ *
+ * Used to evaluate both the below-distribution l(x) and above-distribution
+ * g(x) densities for each categorical candidate during acquisition scoring.
+ *
+ * @see {@link categoricalCandidateTraceFromRolls} for the primary consumer
+ * @since 0.1.0
+ * @category scoring
+ */
+export const logProbability = (
+  choicesInput: Iterable<Choice>,
+  probabilitiesInput: Iterable<number>,
+  value: Choice
+): number => {
+  const choices = Arr.fromIterable(choicesInput)
+  const probabilities = Arr.fromIterable(probabilitiesInput)
+
+  const index = Arr.findFirstIndex(choices, (choice) => Equal.equals(choice, value)).pipe(Option.getOrElse(() => -1))
+  const probability = Arr.get(probabilities, index).pipe(Option.getOrElse(() => 0))
+
+  return Match.value(Num.lessThanOrEqualTo(probability, 0)).pipe(
+    Match.when(true, () => Number.NEGATIVE_INFINITY),
+    Match.orElse(() => Float64.log(probability))
+  )
+}

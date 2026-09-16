@@ -3,8 +3,11 @@
  * study runtime helper.
  */
 import { describe, expect, it } from "@effect/vitest"
-import { Sampler, SearchSpace, Study } from "@scenesystems/effect-search"
-import { Effect, Number as Num, Ref } from "effect"
+import * as ObjectiveCache from "@scenesystems/effect-search/ObjectiveCache"
+import * as Sampler from "@scenesystems/effect-search/Sampler"
+import * as SearchSpace from "@scenesystems/effect-search/SearchSpace"
+import * as Study from "@scenesystems/effect-search/Study"
+import { Array as Arr, Effect, Match, Number as Num, Ref } from "effect"
 
 const singleChoiceSpace = SearchSpace.make({
   choice: SearchSpace.categorical(["only"])
@@ -25,18 +28,22 @@ describe("examples/trial-cache-contract", () => {
         objective: () => Ref.updateAndGet(invocations, Num.increment)
       }).pipe(
         Effect.provide(
-          Study.StudyObjectiveCacheMemory(
-            Study.studyObjectiveCacheOptions("effect-dsp/examples/trial-cache")
-          )
+          ObjectiveCache.layerMemory(new ObjectiveCache.Options({ scope: "effect-dsp/examples/trial-cache" }))
         )
       )
 
       expect(yield* Ref.get(invocations)).toBe(1)
-      expect(result.trials).toHaveLength(4)
+      expect(Arr.fromIterable(result.trials)).toHaveLength(4)
       expect(
-        result.trials.every(
-          (trial) => trial.state._tag === "Completed" && trial.state.value === 1
-        )
+        Arr.every(Arr.fromIterable(result.trials), (trial) =>
+          Match.value(trial.state).pipe(
+            Match.tag("Completed", ({ value }) =>
+              Match.value(value).pipe(
+                Match.when(Match.number, (score) => Num.Equivalence(score, 1)),
+                Match.orElse(() => false)
+              )),
+            Match.orElse(() => false)
+          ))
       ).toBe(true)
     }))
 

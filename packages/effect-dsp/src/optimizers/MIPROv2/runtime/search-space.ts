@@ -6,8 +6,8 @@
  * @internal
  */
 import * as Numeric from "@scenesystems/effect-math/Numeric"
-import type { Study } from "@scenesystems/effect-search"
-import { SearchSpace } from "@scenesystems/effect-search"
+import * as SearchSpace from "@scenesystems/effect-search/SearchSpace"
+import type * as Study from "@scenesystems/effect-search/Study"
 import { Array as Arr, Effect, Match, Option, Predicate, Record } from "effect"
 import type { Schema } from "effect"
 import { AllTrialsFailed } from "../../../Errors/optimizer.js"
@@ -239,13 +239,13 @@ export const objectiveScore = (value: number | ReadonlyArray<number>) =>
  * @category helpers
  */
 export const resolveBestConfig = (
-  studyResult: Study.StudyResult<Phase3Config>,
+  studyResult: Study.Result<Phase3Config>,
   trialBudget: number
 ): Effect.Effect<Phase3Config, AllTrialsFailed> =>
   Match.value(studyResult).pipe(
     Match.tag("SingleObjective", ({ bestTrial }) => Effect.succeed(bestTrial.config)),
     Match.tag("MultiObjective", ({ paretoFront }) =>
-      Option.match(Arr.head(paretoFront), {
+      Option.match(Arr.head(Arr.fromIterable(paretoFront)), {
         onNone: () =>
           Effect.fail(
             new AllTrialsFailed({

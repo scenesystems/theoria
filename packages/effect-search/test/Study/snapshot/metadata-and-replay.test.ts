@@ -2,7 +2,8 @@ import { describe, expect, it } from "@effect/vitest"
 import { Effect, Schema } from "effect"
 
 import * as Sampler from "../../../src/Sampler/index.js"
-import * as Study from "../../../src/Study/index.js"
+import * as Study from "../../../src/Study.js"
+import * as StudySnapshot from "../../../src/StudySnapshot.js"
 import {
   asMultiObjective,
   asSingleObjective,
@@ -48,7 +49,7 @@ describe("Study snapshot-resume metadata and replay parity", () => {
       expect(snapshot.nextTrialNumber).toBe(6)
       expect(snapshot.completedCount).toBe(6)
 
-      const metadata = yield* Schema.decodeUnknown(Study.SnapshotMetadataSchema)({
+      const metadata = yield* Schema.decodeUnknown(StudySnapshot.Metadata)({
         spaceFingerprint: snapshot.spaceFingerprint,
         objectiveSpec: snapshot.objectiveSpec,
         stopMode: snapshot.stopMode,

@@ -1,18 +1,16 @@
 import { FileSystem, Path } from "@effect/platform"
 import { BunContext } from "@effect/platform-bun"
 import { describe, expect, it } from "@effect/vitest"
+import { PackageVersion, RunId } from "@scenesystems/effect-study/Artifact"
 import { Array as Arr, Effect, Either, Layer, Option, Schema } from "effect"
 
-import {
-  ArtifactSink,
-  EnvelopeContextLive,
-  fileSystemSink,
-  PackageVersion,
-  RunId
-} from "../../../src/contracts/index.js"
-import { ArtifactStorageError, isSearchError } from "../../../src/Errors/index.js"
+import * as ArtifactContext from "../../../src/ArtifactContext.js"
+import * as ArtifactSink from "../../../src/ArtifactSink.js"
 import * as Sampler from "../../../src/Sampler/index.js"
-import * as Study from "../../../src/Study/index.js"
+import { ArtifactStorageError, isSearchError } from "../../../src/SearchError.js"
+import * as Study from "../../../src/Study.js"
+import * as StudySnapshot from "../../../src/StudySnapshot.js"
+import * as StudyStorage from "../../../src/StudyStorage.js"
 import {
   asSingleObjective,
   encodeConfigTrace,
@@ -23,12 +21,12 @@ import {
   singleValueTrace
 } from "../snapshot/helpers.js"
 
-const NoopArtifactSink = Layer.succeed(ArtifactSink, { emit: () => Effect.void })
+const NoopArtifactSink = Layer.succeed(ArtifactSink.ArtifactSink, { emit: () => Effect.void })
 
 const makeTestEnvelopeContextLayer = Effect.gen(function*() {
   const runId = yield* Schema.decode(RunId)("01HZ0000000000000000000000")
   const packageVersion = yield* Schema.decode(PackageVersion)("0.1.0")
-  return EnvelopeContextLive({ packageVersion, runId, studyId: "test-study" })
+  return ArtifactContext.layer(new ArtifactContext.Options({ packageVersion, runId, studyId: "test-study" }))
 }).pipe(Layer.unwrapEffect)
 
 const expectInvalidStudyConfig = (
@@ -57,14 +55,14 @@ const expectInvalidStudyConfig = (
 }
 
 const storageLayerFromReplayTail = (
-  snapshot: Study.StudySnapshot,
-  replayTail: ReadonlyArray<Study.SnapshotTrial>
+  snapshot: StudySnapshot.Snapshot,
+  replayTail: ReadonlyArray<StudySnapshot.Trial>
 ) =>
-  Layer.succeed(Study.StudyStorage, {
+  Layer.succeed(StudyStorage.StudyStorage, {
     appendTrial: (_trial) => Effect.void,
     writeSnapshot: (_snapshot) => Effect.void,
     loadSnapshot: () => Effect.succeedSome(snapshot),
-    loadTrialLog: () => Effect.succeed(Arr.empty<Study.SnapshotTrial>()),
+    loadTrialLog: () => Effect.succeed(Arr.empty<StudySnapshot.Trial>()),
     replayTrialLog: () => Effect.succeed(Arr.fromIterable(replayTail))
   })
 
@@ -75,9 +73,9 @@ describe("recovery crash residue", () => {
     const directory = yield* fileSystem.makeTempDirectoryScoped({
       prefix: "effect-search-recovery-crash-residue-"
     })
-    const storageOptions = Study.studyStorageOptions(directory)
-    const storage = yield* Study.makeStudyStorage(storageOptions).pipe(
-      Effect.provide(Layer.merge(fileSystemSink(directory), makeTestEnvelopeContextLayer))
+    const storageOptions = StudyStorage.options(directory)
+    const storage = yield* StudyStorage.make(storageOptions).pipe(
+      Effect.provide(Layer.merge(ArtifactSink.layerFileSystem(directory), makeTestEnvelopeContextLayer))
     )
 
     const seed = 5519
@@ -104,7 +102,7 @@ describe("recovery crash residue", () => {
 
     const stagedSnapshot = yield* Study.snapshot(staged)
     yield* storage.writeSnapshot(
-      new Study.StudySnapshot({
+      new StudySnapshot.Snapshot({
         ...stagedSnapshot,
         nextTrialNumber: checkpointTrials,
         trials: Arr.take(stagedSnapshot.trials, checkpointTrials),
@@ -125,8 +123,8 @@ describe("recovery crash residue", () => {
       objective: singleObjective
     }).pipe(
       Effect.provide(
-        Study.StudyStorageLive(storageOptions).pipe(
-          Layer.provideMerge(Layer.merge(fileSystemSink(directory), makeTestEnvelopeContextLayer))
+        StudyStorage.layer(storageOptions).pipe(
+          Layer.provideMerge(Layer.merge(ArtifactSink.layerFileSystem(directory), makeTestEnvelopeContextLayer))
         )
       )
     )
@@ -134,7 +132,7 @@ describe("recovery crash residue", () => {
     return {
       baseline,
       totalTrials,
-      envelopePath: path.join(directory, storageOptions.envelopeFileName),
+      envelopePath: path.join(directory, storageOptions.fileName),
       resume
     }
   })
@@ -181,7 +179,7 @@ describe("recovery crash residue", () => {
       const directory = yield* fileSystem.makeTempDirectoryScoped({
         prefix: "effect-search-recovery-missing-snapshot-"
       })
-      const storageOptions = Study.studyStorageOptions(directory)
+      const storageOptions = StudyStorage.options(directory)
 
       const outcome = yield* Effect.either(
         Study.resumeFromStorage({
@@ -192,7 +190,7 @@ describe("recovery crash residue", () => {
           objective: singleObjective
         }).pipe(
           Effect.provide(
-            Study.StudyStorageLive(storageOptions).pipe(
+            StudyStorage.layer(storageOptions).pipe(
               Layer.provideMerge(Layer.merge(NoopArtifactSink, makeTestEnvelopeContextLayer))
             )
           )
@@ -209,8 +207,8 @@ describe("recovery crash residue", () => {
       const directory = yield* fileSystem.makeTempDirectoryScoped({
         prefix: "effect-search-recovery-corrupt-snapshot-"
       })
-      const storageOptions = Study.studyStorageOptions(directory)
-      const envelopePath = path.join(directory, storageOptions.envelopeFileName)
+      const storageOptions = StudyStorage.options(directory)
+      const envelopePath = path.join(directory, storageOptions.fileName)
 
       yield* fileSystem.writeFileString(envelopePath, "{\"snapshotFormatVersion\":")
 
@@ -223,7 +221,7 @@ describe("recovery crash residue", () => {
           objective: singleObjective
         }).pipe(
           Effect.provide(
-            Study.StudyStorageLive(storageOptions).pipe(
+            StudyStorage.layer(storageOptions).pipe(
               Layer.provideMerge(Layer.merge(NoopArtifactSink, makeTestEnvelopeContextLayer))
             )
           )
@@ -260,7 +258,7 @@ describe("recovery crash residue", () => {
         return
       }
 
-      const duplicateReplayTrial: Study.SnapshotTrial = {
+      const duplicateReplayTrial: StudySnapshot.Trial = {
         ...templateTrialOption.value,
         trialNumber: snapshot.nextTrialNumber
       }

@@ -34,21 +34,33 @@ export const program = Effect.gen(function* () {
 
 ## Schemas and persistence
 
-`Trial.makeSchema(config, state)` composes caller-owned input and state schemas. `Trial.Completed(value)` and `Trial.Failed(error)` support structured observations and typed failures. Encoded forms and schema service requirements are preserved.
+`Trial.Trial(config, state)` is the canonical generic trial schema factory. `Trial.Completed(value)` and `Trial.Failed(error)` support structured observations and typed failures, while `Trial.Running` and `Trial.Cancelled` provide the fixed states. Encoded forms and schema service requirements are preserved.
 
-`Artifacts` supplies shared run IDs, artifact IDs, source references, lineage, relations, and envelope schema factories. Origins and payload vocabularies are chosen by the consumer. Envelopes describe provenance; they do not authenticate a producer or verify a content digest.
+`Artifact` supplies `RunId`, `PackageVersion`, `ComponentPath`, `Id`, the open `Source` schema, and generic relations. Compose lineage and envelopes directly from the schemas your application owns:
 
-`Journal.make(schema, directory, fileName)` creates a schema-driven JSON-lines journal. Appends through one journal instance are serialized, including encoding. Reads preserve physical order, skip blank lines, treat missing files as empty, and fail with `JournalError` on malformed or torn records. Decoding errors include the one-based physical line number. Separate instances do not share a lock, and append completion does not promise an fsync or transaction.
+```ts typecheck
+import { Artifact } from "@scenesystems/effect-study"
+import { Schema } from "effect"
 
-## Events and lifecycle
+const Producer = Schema.TaggedStruct("Example", { version: Artifact.PackageVersion })
+const Lineage = Artifact.Lineage(Artifact.Source)
+const Payload = Schema.TaggedStruct("Reading", { payload: Schema.Number })
+export const ReadingEnvelope = Artifact.Envelope(Producer, Lineage, Payload)
+```
 
-`Events.streamFromEmitter` runs a producer in a scoped fiber. Buffered events drain before success, typed failure, or defect reaches the consumer. Ending consumption interrupts the producer and waits for finalization. The mailbox is unbounded; this bridge does not provide backpressure.
+`Artifact.Relation` contains only domain-neutral `Run` and `External` associations; domain packages compose their own relation vocabularies. `ContentDigest` remains owned by `@scenesystems/digest`. Envelopes describe provenance; they do not authenticate a producer or verify a digest.
 
-`Stop` stores requests in a native `Ref`, with deterministic precedence by trial number, then interrupt mode, then reason. Heartbeats are cooperative: they return decisions rather than interrupt fibers. `Lifecycle.canTransitionLifecycle` validates transitions without owning mutable state.
+`Journal.make(schema, directory, fileName)` creates a schema-driven JSON-lines journal. Appends through one journal instance are serialized, including encoding. Reads preserve physical order, skip blank lines, treat missing files as empty, and fail with `Journal.Error` on malformed or torn records. Decoding errors include the one-based physical line number. Separate instances do not share a lock, and append completion does not promise an fsync or transaction.
+
+## Emitters and lifecycle
+
+`Emitter.toStream` runs a producer in a scoped fiber. Buffered events drain before success, typed failure, or defect reaches the consumer. Ending consumption interrupts the producer and waits for finalization. The mailbox is unbounded; this bridge does not provide backpressure.
+
+`Stop` stores requests in a native `Ref`, with deterministic precedence by trial number, then interrupt mode, then reason. Heartbeats are cooperative: they return decisions rather than interrupt fibers. `Lifecycle.canTransition` validates transitions without owning mutable state and supports both receiver-first and pipeable use.
 
 ## Relationship to search and other packages
 
-Existing search entrypoints remain available. `effect-search` specializes these schemas and operations for numeric objectives and retains its snapshot format, producer vocabulary, storage service, and error types. DSP optimizer streams use `Events` directly. Text calibration uses `Evaluation` for fixed-profile evaluation and still uses `effect-search` when fitting profiles.
+`effect-search` can specialize these schemas and operations for numeric objectives while retaining its own snapshot format, producer vocabulary, storage service, and error types. Fixed-input consumers can use `Evaluation` without a search-space abstraction.
 
 Import this package directly for new evaluation or artifact consumers that do not need optimization. No search-space or numeric-objective placeholder is required.
 
@@ -59,6 +71,6 @@ Import this package directly for new evaluation or artifact consumers that do no
 - `History`: ordered trial history and cost accounting.
 - `Lifecycle`: legal phase transitions.
 - `Stop`: deterministic cooperative stop requests.
-- `Events`: scoped producer-to-stream composition.
-- `Artifacts`: identities, provenance, relations, and envelope schemas.
+- `Emitter`: scoped producer-to-stream composition.
+- `Artifact`: identities, provenance, relations, and envelope schemas.
 - `Journal`: schema-driven filesystem persistence.

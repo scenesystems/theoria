@@ -2,8 +2,8 @@ import { describe, expect, it } from "@effect/vitest"
 import { Array as Arr, Effect, Either, Schema } from "effect"
 
 import { makeLogLearningRateSpace, makeRandomTrainingSpace } from "../../src/experimental/scenarios/randomTraining.js"
-import { emptySuggestContext } from "../../src/Sampler/index.js"
-import * as Sampler from "../../src/Sampler/index.js"
+import { emptyContext } from "../../src/Sampler.js"
+import * as Sampler from "../../src/Sampler.js"
 
 const drawConfigs = (seed: number, count: number) => {
   const sampler = Sampler.random({ seed })
@@ -13,7 +13,7 @@ const drawConfigs = (seed: number, count: number) => {
     const space = yield* makeRandomTrainingSpace(64, 1e-3)
     return yield* Effect.forEach(
       draws,
-      (trialNumber) => Sampler.suggest(sampler, space, emptySuggestContext(trialNumber))
+      (trialNumber) => Sampler.suggest(sampler, space, emptyContext(trialNumber))
     )
   })
 }
@@ -64,7 +64,7 @@ describe("Sampler.random", () => {
 
       const candidates = yield* Effect.forEach(
         Arr.makeBy(128, (index) => index),
-        (trialNumber) => Sampler.suggest(sampler, space, emptySuggestContext(trialNumber))
+        (trialNumber) => Sampler.suggest(sampler, space, emptyContext(trialNumber))
       )
 
       candidates.forEach((candidate) => {

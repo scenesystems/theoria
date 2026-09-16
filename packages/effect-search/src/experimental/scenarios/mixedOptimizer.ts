@@ -5,7 +5,7 @@
  */
 import { Schema } from "effect"
 
-import * as SearchSpace from "../../SearchSpace/index.js"
+import * as SearchSpace from "../../SearchSpace.js"
 
 /**
  * Lists the optimizer literals used by the schema and search space.

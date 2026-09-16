@@ -40,9 +40,11 @@ const splitCount = (size: number, gamma: (nCompletedTrials: number) => number): 
   })
 
 export const splitTrials = (
-  trials: ReadonlyArray<CompletedTrialForSplit>,
+  trialsInput: Iterable<CompletedTrialForSplit>,
   gamma = defaultGamma
 ): TrialSplit => {
+  const trials = Arr.fromIterable(trialsInput)
+
   const sortedByScore = Arr.sort(trials, splitOrder)
   const split = splitCount(sortedByScore.length, gamma)
   const below = Arr.take(sortedByScore, split)

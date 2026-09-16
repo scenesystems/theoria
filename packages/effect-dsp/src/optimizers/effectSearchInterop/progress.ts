@@ -3,8 +3,9 @@
  *
  * @since 0.1.0
  */
-import { Study } from "@scenesystems/effect-search"
+import * as Progress from "@scenesystems/effect-search/Progress"
 import type * as SearchSpace from "@scenesystems/effect-search/SearchSpace"
+import * as Study from "@scenesystems/effect-search/Study"
 import { Effect, Option, Stream } from "effect"
 
 import {
@@ -51,7 +52,7 @@ export const eventsWithProgress = <Space extends SearchSpace.SearchSpace, E, R>(
   handle: EffectSearchInteropHandle<Space>,
   onProgress: (line: EffectSearchProgressLine) => Effect.Effect<void, E, R>,
   options?: {
-    readonly renderMode?: Study.TerminalRenderMode
+    readonly renderMode?: Progress.RenderMode
   }
 ): Stream.Stream<EffectSearchInteropEvent, E, R> => {
   const renderMode = Option.fromNullable(options?.renderMode)
@@ -60,8 +61,8 @@ export const eventsWithProgress = <Space extends SearchSpace.SearchSpace, E, R>(
     Stream.tap((event) =>
       Effect.forEach(
         Option.match(renderMode, {
-          onNone: () => Study.formatTerminalProgressEvent(event),
-          onSome: (mode) => Study.formatTerminalProgressEvent(event, { renderMode: mode })
+          onNone: () => Progress.format(event),
+          onSome: (mode) => Progress.format(event, mode)
         }),
         (line) => onProgress(line),
         { discard: true }

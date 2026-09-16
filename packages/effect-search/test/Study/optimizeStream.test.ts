@@ -3,7 +3,7 @@ import { Chunk, Effect, Option, Stream } from "effect"
 
 import * as Sampler from "../../src/Sampler/index.js"
 import * as SearchSpace from "../../src/SearchSpace/index.js"
-import * as Study from "../../src/Study/index.js"
+import * as Study from "../../src/Study.js"
 
 const makeSpace = () =>
   SearchSpace.make({
@@ -34,7 +34,7 @@ describe("Study.optimizeStream", () => {
       expect(tags.filter((tag) => tag === "TrialStarted")).toHaveLength(4)
       expect(tags.filter((tag) => tag === "TrialCompleted")).toHaveLength(4)
       expect(tags).toContain("BestUpdated")
-      expect(tags[tags.length - 1]).toBe("StudyCompleted")
+      expect(tags[tags.length - 1]).toBe("Completed")
     }))
 
   it.live("emits incrementally before the full study completes", () =>

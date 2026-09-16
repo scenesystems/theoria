@@ -1,15 +1,15 @@
 import { describe, expect, it } from "@effect/vitest"
 import { Array as Arr, Effect, Either, Match, Option, Schema } from "effect"
 
-import * as Contracts from "../../src/contracts/index.js"
+import * as Objective from "../../src/Objective.js"
+import { Context, emptyContext, observation } from "../../src/Sampler.js"
+import * as Sampler from "../../src/Sampler.js"
 import {
   InvalidStudyConfig,
   SamplerObjectiveUnsupported,
   SamplerSearchSpaceUnsupported
-} from "../../src/Errors/index.js"
-import { emptySuggestContext, makeSuggestCompletedTrial, SuggestContext } from "../../src/Sampler/index.js"
-import * as Sampler from "../../src/Sampler/index.js"
-import * as SearchSpace from "../../src/SearchSpace/index.js"
+} from "../../src/SearchError.js"
+import * as SearchSpace from "../../src/SearchSpace.js"
 
 const continuousSpace = SearchSpace.make({
   x: SearchSpace.float(-4, 4),
@@ -21,14 +21,14 @@ const categoricalSpace = SearchSpace.make({
   x: SearchSpace.float(-4, 4)
 })
 
-const multiObjectiveContext = (nextTrialNumber: number) =>
-  new SuggestContext({
+const multiContext = (nextTrialNumber: number) =>
+  new Context({
     completed: [
-      makeSuggestCompletedTrial(0, { x: 0, y: 0 }, [1, 2]),
-      makeSuggestCompletedTrial(1, { x: 1, y: 1 }, [0.5, 1.5])
+      observation(0, { x: 0, y: 0 }, [1, 2]),
+      observation(1, { x: 1, y: 1 }, [0.5, 1.5])
     ],
     pending: [],
-    objectiveSpec: Contracts.multiObjectiveSpec(["minimize", "minimize"]),
+    objectiveSpec: Objective.multi(["minimize", "minimize"]),
     nextTrialNumber,
     epsilon: 0
   })
@@ -39,7 +39,7 @@ const drawSequence = (seed: number, count: number) => {
     const space = yield* continuousSpace
     return yield* Effect.forEach(
       Arr.makeBy(count, (index) => index),
-      (trialNumber) => Sampler.suggest(sampler, space, emptySuggestContext(trialNumber))
+      (trialNumber) => Sampler.suggest(sampler, space, emptyContext(trialNumber))
     )
   })
 }
@@ -56,7 +56,7 @@ describe("Sampler.cmaEs", () => {
   it.effect("rejects search spaces containing non-continuous dimensions with typed sampler errors", () =>
     Effect.gen(function*() {
       const outcome = yield* Effect.either(
-        Sampler.suggest(Sampler.cmaEs({ seed: 11 }), yield* categoricalSpace, emptySuggestContext(0))
+        Sampler.suggest(Sampler.cmaEs({ seed: 11 }), yield* categoricalSpace, emptyContext(0))
       )
 
       expect(Either.isLeft(outcome)).toBe(true)
@@ -69,7 +69,7 @@ describe("Sampler.cmaEs", () => {
   it.effect("rejects multi-objective suggestion contexts with typed sampler errors", () =>
     Effect.gen(function*() {
       const outcome = yield* Effect.either(
-        Sampler.suggest(Sampler.cmaEs({ seed: 17 }), yield* continuousSpace, multiObjectiveContext(2))
+        Sampler.suggest(Sampler.cmaEs({ seed: 17 }), yield* continuousSpace, multiContext(2))
       )
 
       expect(Either.isLeft(outcome)).toBe(true)
@@ -84,16 +84,16 @@ describe("Sampler.cmaEs", () => {
       const sampler = Sampler.cmaEs({ seed: 5, sigma: 0.7, populationSize: 10 })
       const checkpoint = yield* Sampler.checkpoint(sampler)
       const corruptCheckpoint = Match.value(checkpoint).pipe(
-        Match.tag("CmaEs", ({ seed, sigma, populationSize }): Sampler.SamplerCheckpoint => ({
+        Match.tag("CmaEs", ({ seed, sigma, populationSize }): Sampler.Checkpoint => ({
           _tag: "CmaEs",
           seed: seed + 1,
           sigma,
           populationSize
         })),
-        Match.orElse((value): Sampler.SamplerCheckpoint => value)
+        Match.orElse((value): Sampler.Checkpoint => value)
       )
 
-      const outcome = yield* Effect.either(Sampler.restoreCheckpoint(sampler, corruptCheckpoint))
+      const outcome = yield* Effect.either(Sampler.restore(sampler, corruptCheckpoint))
       expect(Either.isLeft(outcome)).toBe(true)
 
       if (Either.isLeft(outcome)) {
@@ -108,7 +108,7 @@ describe("Sampler.cmaEs", () => {
       const candidate = yield* Sampler.suggest(
         Sampler.cmaEs({ seed: 13, sigma: 0.4, populationSize: 6 }),
         space,
-        emptySuggestContext(0)
+        emptyContext(0)
       )
       const decoded = decode(candidate)
 
@@ -129,15 +129,15 @@ describe("Sampler.cmaEs", () => {
       const sampler = Sampler.cmaEs({ seed: 37, sigma: 0.5, populationSize: 8 })
       const space = yield* continuousSpace
       const completed = [
-        makeSuggestCompletedTrial(0, { x: -2, y: -1 }, 12),
-        makeSuggestCompletedTrial(1, { x: 1, y: 1 }, 2),
-        makeSuggestCompletedTrial(2, { x: 0.8, y: 0.9 }, 1.8),
-        makeSuggestCompletedTrial(3, { x: 2, y: 1.5 }, 6)
+        observation(0, { x: -2, y: -1 }, 12),
+        observation(1, { x: 1, y: 1 }, 2),
+        observation(2, { x: 0.8, y: 0.9 }, 1.8),
+        observation(3, { x: 2, y: 1.5 }, 6)
       ]
-      const context = new SuggestContext({
+      const context = new Context({
         completed,
         pending: [],
-        objectiveSpec: Contracts.singleObjectiveSpec("minimize"),
+        objectiveSpec: Objective.single("minimize"),
         nextTrialNumber: 4,
         epsilon: 0
       })

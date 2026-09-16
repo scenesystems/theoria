@@ -1,4 +1,4 @@
-import { Array as Arr, Data, Match, Number as Num, Option, Schema } from "effect"
+import { Array as Arr, Boolean as Bool, Data, Match, Number as Num, Option, Schema } from "effect"
 
 import * as Float64 from "../float64.js"
 
@@ -9,10 +9,10 @@ export type ExpectedImprovementScore = Schema.Schema.Type<typeof ExpectedImprove
 export const expectedImprovementScore = (
   logL: number,
   logG: number
-): ExpectedImprovementScore => logL - logG
+): ExpectedImprovementScore => Num.subtract(logL, logG)
 
 const finitePositiveCost = (estimatedCost: number): boolean =>
-  Number.isFinite(estimatedCost) && Num.greaterThan(estimatedCost, 0)
+  Bool.and(Number.isFinite(estimatedCost), Num.greaterThan(estimatedCost, 0))
 
 export const scoreWithEstimatedCost = (
   score: ExpectedImprovementScore,
@@ -22,7 +22,7 @@ export const scoreWithEstimatedCost = (
     Option.filter(finitePositiveCost),
     Option.match({
       onNone: () => score,
-      onSome: (cost) => score - Float64.log(cost)
+      onSome: (cost) => Num.subtract(score, Float64.log(cost))
     })
   )
 
@@ -36,24 +36,30 @@ export const costWeightedExpectedImprovementScore = (
     estimatedCost
   )
 
-export const sumLogDensities = (values: ReadonlyArray<number>): number =>
-  Arr.reduce(values, 0, (sum, value) => Num.sum(sum, value))
+export const sumLogDensities = (values: Iterable<number>): number =>
+  Arr.reduce(Arr.fromIterable(values), 0, (sum, value) => Num.sum(sum, value))
 
 export const jointExpectedImprovementScore = (
-  logLContributions: ReadonlyArray<number>,
-  logGContributions: ReadonlyArray<number>
-): ExpectedImprovementScore =>
-  expectedImprovementScore(sumLogDensities(logLContributions), sumLogDensities(logGContributions))
+  logLContributionsInput: Iterable<number>,
+  logGContributionsInput: Iterable<number>
+): ExpectedImprovementScore => {
+  const logLContributions = Arr.fromIterable(logLContributionsInput)
+  const logGContributions = Arr.fromIterable(logGContributionsInput)
+  return expectedImprovementScore(sumLogDensities(logLContributions), sumLogDensities(logGContributions))
+}
 
 export const costWeightedJointExpectedImprovementScore = (
-  logLContributions: ReadonlyArray<number>,
-  logGContributions: ReadonlyArray<number>,
+  logLContributionsInput: Iterable<number>,
+  logGContributionsInput: Iterable<number>,
   estimatedCost: Option.Option<number>
-): ExpectedImprovementScore =>
-  scoreWithEstimatedCost(
+): ExpectedImprovementScore => {
+  const logLContributions = Arr.fromIterable(logLContributionsInput)
+  const logGContributions = Arr.fromIterable(logGContributionsInput)
+  return scoreWithEstimatedCost(
     jointExpectedImprovementScore(logLContributions, logGContributions),
     estimatedCost
   )
+}
 
 class ArgmaxCandidate extends Data.Class<{
   readonly index: number
@@ -65,9 +71,9 @@ const initialArgmaxCandidate = new ArgmaxCandidate({
   score: Number.NEGATIVE_INFINITY
 })
 
-export const argmax = (scores: ReadonlyArray<ExpectedImprovementScore>): number =>
+export const argmax = (scores: Iterable<ExpectedImprovementScore>): number =>
   Arr.reduce(
-    scores,
+    Arr.fromIterable(scores),
     initialArgmaxCandidate,
     (currentBest, candidateScore, index) =>
       Match.value(Num.greaterThan(candidateScore, currentBest.score)).pipe(

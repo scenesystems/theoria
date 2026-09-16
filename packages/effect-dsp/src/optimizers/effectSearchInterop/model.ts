@@ -3,6 +3,7 @@
  *
  * @since 0.1.0
  */
+import type * as Progress from "@scenesystems/effect-search/Progress"
 import type * as Sampler from "@scenesystems/effect-search/Sampler"
 import type * as SearchSpace from "@scenesystems/effect-search/SearchSpace"
 import type * as Study from "@scenesystems/effect-search/Study"
@@ -87,7 +88,7 @@ export class EffectSearchOpenOptions<Space extends SearchSpace.SearchSpace> exte
   /** Maximum number of reserved trials. */
   readonly trials: number
   /** Objective metadata used by the study contract; ask/tell callers evaluate externally. */
-  readonly objective: Study.ObjectiveFunction<SearchSpace.Type<Space>>
+  readonly objective: Study.Objective<SearchSpace.Type<Space>>
   /** Maximum concurrent objective evaluations recorded in study settings. */
   readonly concurrency?: number
 }> {}
@@ -98,8 +99,9 @@ export class EffectSearchOpenOptions<Space extends SearchSpace.SearchSpace> exte
  * @since 0.1.0
  * @category type-level
  */
-export type EffectSearchInteropHandle<Space extends SearchSpace.SearchSpace = SearchSpace.SearchSpace> =
-  Study.StudyHandle<Space>
+export type EffectSearchInteropHandle<Space extends SearchSpace.SearchSpace = SearchSpace.SearchSpace> = Study.Study<
+  Space
+>
 
 /**
  * Carries a pending trial number and a configuration inferred from its search space.
@@ -115,7 +117,7 @@ export type EffectSearchAskedTrial<Config = unknown> = Study.AskedTrial<Config>
  * @since 0.1.0
  * @category schemas
  */
-export const EffectSearchInteropEventSchema = StudyEvent.StudyEventSchema
+export const EffectSearchInteropEventSchema = StudyEvent.Event
 
 /**
  * Preserves an effect-search lifecycle event at the DSP optimizer boundary.
@@ -124,7 +126,7 @@ export const EffectSearchInteropEventSchema = StudyEvent.StudyEventSchema
  * @since 0.1.0
  * @category type-level
  */
-export type EffectSearchInteropEvent = StudyEvent.StudyEvent
+export type EffectSearchInteropEvent = StudyEvent.Event
 
 /**
  * Preserves the destination stream and text selected by effect-search progress formatting.
@@ -132,7 +134,7 @@ export type EffectSearchInteropEvent = StudyEvent.StudyEvent
  * @since 0.1.0
  * @category type-level
  */
-export type EffectSearchProgressLine = Study.ProgressLine
+export type EffectSearchProgressLine = Progress.Line
 
 /**
  * Distinguishes scalar-incumbent results from Pareto-front results.

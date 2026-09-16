@@ -1,9 +1,9 @@
 import { describe, expect, it } from "@effect/vitest"
 import { Array as Arr, Effect, Ref } from "effect"
 
-import * as Errors from "../../../src/Errors/index.js"
-import * as Study from "../../../src/Study/index.js"
-import * as StudyEvent from "../../../src/StudyEvent/index.js"
+import * as Progress from "../../../src/Progress.js"
+import * as Errors from "../../../src/SearchError.js"
+import * as StudyEvent from "../../../src/StudyEvent.js"
 
 const makeCaptureSink = (supportsAnsi: boolean) =>
   Effect.gen(function*() {
@@ -11,7 +11,7 @@ const makeCaptureSink = (supportsAnsi: boolean) =>
     const stderr = yield* Ref.make<ReadonlyArray<string>>([])
 
     return {
-      sink: Study.makeTerminalSink({
+      sink: Progress.makeSink({
         supportsAnsi: Effect.succeed(supportsAnsi),
         writeStdout: (line) => Ref.update(stdout, (lines) => Arr.append(lines, line)),
         writeStderr: (line) => Ref.update(stderr, (lines) => Arr.append(lines, line))
@@ -24,12 +24,12 @@ const makeCaptureSink = (supportsAnsi: boolean) =>
 describe("terminal reporter tty behavior", () => {
   it.effect("applies ANSI styling only when sink reports TTY support", () =>
     Effect.gen(function*() {
-      const completed = StudyEvent.TrialCompleted({ trialNumber: 3, value: 0.5 })
+      const completed = StudyEvent.trialCompleted({ trialNumber: 3, value: 0.5 })
       const ttyCapture = yield* makeCaptureSink(true)
       const plainCapture = yield* makeCaptureSink(false)
 
-      yield* Study.reportTerminalProgress(completed, { sink: ttyCapture.sink })
-      yield* Study.reportTerminalProgress(completed, { sink: plainCapture.sink })
+      yield* Progress.report(completed, ttyCapture.sink)
+      yield* Progress.report(completed, plainCapture.sink)
 
       const ttyStdout = yield* Ref.get(ttyCapture.stdout)
       const plainStdout = yield* Ref.get(plainCapture.stdout)
@@ -42,7 +42,7 @@ describe("terminal reporter tty behavior", () => {
 
   it.effect("routes failures to stderr while still respecting tty style selection", () =>
     Effect.gen(function*() {
-      const failed = StudyEvent.TrialFailed({
+      const failed = StudyEvent.trialFailed({
         trialNumber: 11,
         error: new Errors.TrialError({
           trialNumber: 11,
@@ -52,7 +52,7 @@ describe("terminal reporter tty behavior", () => {
       })
       const ttyCapture = yield* makeCaptureSink(true)
 
-      yield* Study.reportTerminalProgress(failed, { sink: ttyCapture.sink })
+      yield* Progress.report(failed, ttyCapture.sink)
 
       const stdout = yield* Ref.get(ttyCapture.stdout)
       const stderr = yield* Ref.get(ttyCapture.stderr)

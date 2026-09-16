@@ -1,20 +1,23 @@
 import { describe, expect, it } from "@effect/vitest"
 import { Effect, Either, Match, Option, Schema } from "effect"
 
-import * as Contracts from "../../src/contracts/index.js"
+import { Name } from "../../src/Acquisition.js"
+import * as Objective from "../../src/Objective.js"
+import { Context, emptyContext, observation } from "../../src/Sampler.js"
+import * as Sampler from "../../src/Sampler.js"
 import {
   InvalidStudyConfig,
   SamplerObjectiveUnsupported,
   SamplerSearchSpaceUnsupported
-} from "../../src/Errors/index.js"
-import { emptySuggestContext, makeSuggestCompletedTrial, SuggestContext } from "../../src/Sampler/index.js"
-import * as Sampler from "../../src/Sampler/index.js"
-import * as SearchSpace from "../../src/SearchSpace/index.js"
+} from "../../src/SearchError.js"
+import * as SearchSpace from "../../src/SearchSpace.js"
 
 const continuousSpace = SearchSpace.make({
   learningRate: SearchSpace.float(1e-4, 1e-1, { scale: "log" }),
   dropout: SearchSpace.float(0, 0.6)
 })
+
+const acquisitionNames = Schema.decodeSync(Schema.Array(Name))(["ei", "pi", "thompson"])
 
 const categoricalSpace = SearchSpace.make({
   optimizer: SearchSpace.categorical(["adam", "sgd"]),
@@ -22,26 +25,26 @@ const categoricalSpace = SearchSpace.make({
 })
 
 const completedContext = (nextTrialNumber: number) =>
-  new SuggestContext({
+  new Context({
     completed: [
-      makeSuggestCompletedTrial(0, { learningRate: 0.01, dropout: 0.2 }, 1.4),
-      makeSuggestCompletedTrial(1, { learningRate: 0.02, dropout: 0.1 }, 0.8),
-      makeSuggestCompletedTrial(2, { learningRate: 0.005, dropout: 0.3 }, 1.1)
+      observation(0, { learningRate: 0.01, dropout: 0.2 }, 1.4),
+      observation(1, { learningRate: 0.02, dropout: 0.1 }, 0.8),
+      observation(2, { learningRate: 0.005, dropout: 0.3 }, 1.1)
     ],
     pending: [],
-    objectiveSpec: Contracts.singleObjectiveSpec("minimize"),
+    objectiveSpec: Objective.single("minimize"),
     nextTrialNumber,
     epsilon: 0
   })
 
-const multiObjectiveContext = (nextTrialNumber: number) =>
-  new SuggestContext({
+const multiContext = (nextTrialNumber: number) =>
+  new Context({
     completed: [
-      makeSuggestCompletedTrial(0, { learningRate: 0.01, dropout: 0.2 }, [1.4, 0.8]),
-      makeSuggestCompletedTrial(1, { learningRate: 0.02, dropout: 0.1 }, [0.8, 1.2])
+      observation(0, { learningRate: 0.01, dropout: 0.2 }, [1.4, 0.8]),
+      observation(1, { learningRate: 0.02, dropout: 0.1 }, [0.8, 1.2])
     ],
     pending: [],
-    objectiveSpec: Contracts.multiObjectiveSpec(["minimize", "minimize"]),
+    objectiveSpec: Objective.multi(["minimize", "minimize"]),
     nextTrialNumber,
     epsilon: 0
   })
@@ -62,9 +65,7 @@ describe("Sampler.gpBo", () => {
     Effect.gen(function*() {
       const space = yield* continuousSpace
       const decode = Schema.decodeUnknownEither(space.schema)
-      const acquisitions: ReadonlyArray<Sampler.BuiltInAcquisitionName> = ["ei", "pi", "thompson"]
-
-      const outcomes = yield* Effect.forEach(acquisitions, (acquisition) =>
+      const outcomes = yield* Effect.forEach(acquisitionNames, (acquisition) =>
         Sampler.suggest(
           Sampler.gpBo({ seed: 22, nStartupTrials: 2, nCandidates: 24, acquisition }),
           space,
@@ -80,7 +81,7 @@ describe("Sampler.gpBo", () => {
   it.effect("rejects search spaces containing unsupported dimensions with typed sampler errors", () =>
     Effect.gen(function*() {
       const outcome = yield* Effect.either(
-        Sampler.suggest(Sampler.gpBo({ seed: 3 }), yield* categoricalSpace, emptySuggestContext(0))
+        Sampler.suggest(Sampler.gpBo({ seed: 3 }), yield* categoricalSpace, emptyContext(0))
       )
 
       expect(Either.isLeft(outcome)).toBe(true)
@@ -93,7 +94,7 @@ describe("Sampler.gpBo", () => {
   it.effect("rejects multi-objective suggestion contexts with typed sampler errors", () =>
     Effect.gen(function*() {
       const outcome = yield* Effect.either(
-        Sampler.suggest(Sampler.gpBo({ seed: 3 }), yield* continuousSpace, multiObjectiveContext(2))
+        Sampler.suggest(Sampler.gpBo({ seed: 3 }), yield* continuousSpace, multiContext(2))
       )
 
       expect(Either.isLeft(outcome)).toBe(true)
@@ -108,7 +109,7 @@ describe("Sampler.gpBo", () => {
       const sampler = Sampler.gpBo({ seed: 5, nStartupTrials: 4, nCandidates: 32, lengthScale: 0.2, noise: 0.01 })
       const checkpoint = yield* Sampler.checkpoint(sampler)
       const corruptCheckpoint = Match.value(checkpoint).pipe(
-        Match.tag("GpBo", ({ seed, nStartupTrials, nCandidates, lengthScale, noise }): Sampler.SamplerCheckpoint => ({
+        Match.tag("GpBo", ({ seed, nStartupTrials, nCandidates, lengthScale, noise }): Sampler.Checkpoint => ({
           _tag: "GpBo",
           seed,
           nStartupTrials,
@@ -116,9 +117,9 @@ describe("Sampler.gpBo", () => {
           lengthScale,
           noise
         })),
-        Match.orElse((value): Sampler.SamplerCheckpoint => value)
+        Match.orElse((value): Sampler.Checkpoint => value)
       )
-      const outcome = yield* Effect.either(Sampler.restoreCheckpoint(sampler, corruptCheckpoint))
+      const outcome = yield* Effect.either(Sampler.restore(sampler, corruptCheckpoint))
 
       expect(Either.isLeft(outcome)).toBe(true)
 
@@ -146,7 +147,7 @@ describe("Sampler.gpBo", () => {
         noise: 0.1,
         acquisition: "ei"
       })
-      const outcome = yield* Effect.either(Sampler.restoreCheckpoint(resumedWithDrift, checkpoint))
+      const outcome = yield* Effect.either(Sampler.restore(resumedWithDrift, checkpoint))
 
       expect(Either.isLeft(outcome)).toBe(true)
 

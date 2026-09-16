@@ -1,8 +1,8 @@
 import { describe, expect, it } from "@effect/vitest"
 import { Effect, Match, Ref, Schema } from "effect"
 
-import * as Study from "../../../src/Study/index.js"
-import { makeReportRefs, recordIntermediateReport } from "../../../src/Study/runtime/controls.js"
+import { makeReportRefs, recordReport } from "../../../src/internal/study/runtime/controls.js"
+import * as Pruning from "../../../src/Pruning.js"
 import {
   FixtureRegistryLive,
   loadFixture,
@@ -28,11 +28,11 @@ describe("pruning fixture replay contracts", () => {
             yield* Effect.forEach(
               entry.initialReports,
               (initial) =>
-                recordIntermediateReport(
+                recordReport(
                   runtime,
                   reportRefs,
                   trialNumber,
-                  Study.neverPruningPolicy,
+                  Pruning.never,
                   initial.step,
                   decodeTraceValue(initial.value)
                 ).pipe(Effect.asVoid),
@@ -40,11 +40,11 @@ describe("pruning fixture replay contracts", () => {
             )
 
             const result = yield* Effect.either(
-              recordIntermediateReport(
+              recordReport(
                 runtime,
                 reportRefs,
                 trialNumber,
-                Study.neverPruningPolicy,
+                Pruning.never,
                 entry.reportAttempt.step,
                 decodeTraceValue(entry.reportAttempt.value)
               )
@@ -86,7 +86,7 @@ describe("pruning fixture replay contracts", () => {
         fixture.payload.cases,
         (entry) =>
           Effect.gen(function*() {
-            const context = yield* Schema.decodeUnknown(Study.PercentilePrunerContextSchema)({
+            const context = yield* Schema.decodeUnknown(Pruning.PercentileContext)({
               direction: fixture.payload.direction,
               settings: entry.settings,
               trialNumber: entry.trialNumber,
@@ -101,7 +101,7 @@ describe("pruning fixture replay contracts", () => {
               })),
               currentReports: [{ step: entry.step, value: entry.currentValue }]
             })
-            const shouldPrune = Study.shouldPruneByPercentile(context)
+            const shouldPrune = Pruning.shouldPruneByPercentile(context)
 
             expect(shouldPrune).toBe(entry.expectedShouldPrune)
           }),

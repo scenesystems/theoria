@@ -1,33 +1,28 @@
 import { expect, it } from "@effect/vitest"
+import * as History from "@scenesystems/effect-study/History"
 import { Array as Arr, Deferred, Effect, Either, Fiber, Tuple } from "effect"
 
+import { initializeRuntime, modifyStudyState, readStudyState } from "../../src/internal/study/runtime/runtimeState.js"
 import * as Sampler from "../../src/Sampler/index.js"
 import * as SearchSpace from "../../src/SearchSpace/index.js"
-import * as Study from "../../src/Study/index.js"
-import {
-  initializeRuntime,
-  modifyStudyState,
-  readStudyState,
-  StudyClockLayer
-} from "../../src/Study/runtime/runtimeState.js"
-import { trialsFromState, withReservedTrial } from "../../src/Study/state.js"
-import * as Trial from "../../src/Trial/index.js"
+import * as Study from "../../src/Study.js"
+import * as Trial from "../../src/Trial.js"
 import { makeSettings } from "./machine/helpers.js"
 
 it.scoped("does not publish interrupted mutations and permits the next reservation", () =>
   Effect.gen(function*() {
-    const runtime = yield* initializeRuntime(yield* makeSettings()).pipe(Effect.provide(StudyClockLayer))
+    const runtime = yield* initializeRuntime(yield* makeSettings())
     const entered = yield* Deferred.make<void>()
     const blocked = yield* modifyStudyState(runtime, (state) =>
       Deferred.succeed(entered, undefined).pipe(
         Effect.zipRight(Effect.never),
-        Effect.as(Tuple.make(undefined, withReservedTrial(state, Trial.makeRunning(0, { x: 1, depth: 1 }, 0))))
+        Effect.as(Tuple.make(undefined, History.set(state, Trial.makeRunning(0, { x: 1, depth: 1 }, 0))))
       )).pipe(Effect.forkScoped)
     yield* Deferred.await(entered)
     yield* Fiber.interrupt(blocked)
     yield* modifyStudyState(runtime, (state) =>
-      Effect.succeed(Tuple.make(undefined, withReservedTrial(state, Trial.makeRunning(1, { x: 2, depth: 1 }, 0)))))
-    const records = trialsFromState(yield* readStudyState(runtime))
+      Effect.succeed(Tuple.make(undefined, History.set(state, Trial.makeRunning(1, { x: 2, depth: 1 }, 0)))))
+    const records = History.values(yield* readStudyState(runtime))
     expect(records).toEqual(Arr.of(Trial.makeRunning(1, { x: 2, depth: 1 }, 0)))
   }))
 

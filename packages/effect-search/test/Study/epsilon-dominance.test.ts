@@ -3,7 +3,8 @@ import { Array as Arr, Effect, Match, Option, Order, Schema } from "effect"
 
 import * as Sampler from "../../src/Sampler/index.js"
 import * as SearchSpace from "../../src/SearchSpace/index.js"
-import * as Study from "../../src/Study/index.js"
+import * as Study from "../../src/Study.js"
+import type * as StudySnapshot from "../../src/StudySnapshot.js"
 
 const space = SearchSpace.make({
   variant: SearchSpace.int(0, 2)
@@ -56,7 +57,7 @@ const optimizeWithProfile = (
     }))
 
 const resumeWithProfile = (
-  snapshot: Study.StudySnapshot,
+  snapshot: StudySnapshot.Snapshot,
   profile: ReadonlyArray<ReadonlyArray<number>>,
   epsilon: Option.Option<number> = Option.none()
 ) =>
@@ -75,7 +76,7 @@ const resumeWithProfile = (
     }))
 
 const paretoVariantSignature = (
-  result: Study.StudyResult
+  result: Study.Result
 ): ReadonlyArray<number> =>
   Match.value(result).pipe(
     Match.tag("MultiObjective", ({ paretoFront }) =>

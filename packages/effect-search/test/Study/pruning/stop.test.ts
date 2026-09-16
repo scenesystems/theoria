@@ -1,10 +1,10 @@
 import { expect, it } from "@effect/vitest"
 import { Chunk, Effect, Either, Option, Ref } from "effect"
 
-import { ArtifactStorageError } from "../../../src/Errors/index.js"
-import { EventPublisher, EventRuntime } from "../../../src/Study/events.js"
-import { makeStopRef, requestStudyStop } from "../../../src/Study/runtime/controls.js"
-import type * as StudyEvent from "../../../src/StudyEvent/index.js"
+import { EventPublisher, EventRuntime } from "../../../src/internal/study/events.js"
+import { makeStopRef, requestStudyStop } from "../../../src/internal/study/runtime/controls.js"
+import { ArtifactStorageError } from "../../../src/SearchError.js"
+import type * as StudyEvent from "../../../src/StudyEvent.js"
 
 const makeRuntime = (eventPublisher: EventPublisher): Effect.Effect<EventRuntime> =>
   Effect.all({
@@ -18,7 +18,7 @@ const makeRuntime = (eventPublisher: EventPublisher): Effect.Effect<EventRuntime
 
 it.effect("does not publish a duplicate selected stop request", () =>
   Effect.gen(function*() {
-    const events = yield* Ref.make(Chunk.empty<StudyEvent.StudyEvent>())
+    const events = yield* Ref.make(Chunk.empty<StudyEvent.Event>())
     const runtime = yield* makeRuntime(
       new EventPublisher({
         publish: (event) => Ref.update(events, Chunk.append(event))
@@ -32,7 +32,7 @@ it.effect("does not publish a duplicate selected stop request", () =>
     const published = yield* Ref.get(events)
     expect(Chunk.size(published)).toBe(1)
     expect(Chunk.head(published).pipe(Option.map((event) => event._tag))).toEqual(
-      Option.some("StudyStopRequested")
+      Option.some("StopRequested")
     )
   }))
 

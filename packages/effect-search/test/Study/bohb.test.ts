@@ -1,9 +1,10 @@
 import { describe, expect, it } from "@effect/vitest"
 import { Effect, Either, Match, Option } from "effect"
 
+import type * as Pruning from "../../src/Pruning.js"
 import * as Scheduler from "../../src/Scheduler/index.js"
 import * as SearchSpace from "../../src/SearchSpace/index.js"
-import * as Study from "../../src/Study/index.js"
+import * as Study from "../../src/Study.js"
 
 const space = () =>
   SearchSpace.make({
@@ -13,7 +14,7 @@ const space = () =>
 
 const objective = (
   config: { readonly x: number; readonly budget: number },
-  runtime: Study.ObjectiveTrialRuntime
+  runtime: Pruning.Runtime
 ): Effect.Effect<number> =>
   Effect.gen(function*() {
     const resource = yield* runtime.resource.pipe(Effect.map(Option.getOrElse(() => 1)))
@@ -21,7 +22,7 @@ const objective = (
     return (config.x + 0.35) * (config.x + 0.35) + 1 / resource
   })
 
-const bestValue = <Config>(result: Study.StudyResult<Config>): number =>
+const bestValue = <Config>(result: Study.Result<Config>): number =>
   Match.value(result).pipe(
     Match.tag("SingleObjective", ({ bestTrial }) => bestTrial.state.value),
     Match.tag("MultiObjective", () => Number.POSITIVE_INFINITY),

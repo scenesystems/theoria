@@ -1,99 +1,48 @@
 /**
- * Composes typed parameter spaces with sampling and Effect-based study execution.
+ * Effect-native configuration search, objective evaluation, and study execution.
  *
- * @remarks
- * `SearchSpace` values carry configuration decoders and sampler metadata. A
- * `Sampler` selects candidate configurations, while `Study` owns evaluation,
- * lifecycle events, results, and restoration.
- *
- * @since 0.1.0
+ * @since 0.7.0
  * @module
  */
-
-/**
- * Carries objective definitions and artifact-envelope contracts across package boundaries.
- *
- * @since 0.1.0
- * @category contracts
- */
-export * as Contracts from "./contracts/index.js"
-
-/**
- * Caches schema-encoded values in memory, on a filesystem, or in SQLite-compatible storage.
- *
- * @since 0.1.0
- * @category domains
- */
-export * as Cache from "./Cache/index.js"
-
-/**
- * Identifies expected failures from search-space compilation, sampling, and study execution.
- *
- * @since 0.1.0
- * @category errors
- */
-export * as Errors from "./Errors/index.js"
-
-/**
- * Exposes unstable TPE partitioning and deterministic test scenarios.
- *
- * @since 0.1.0
- * @category experimental
- */
-export * as Experimental from "./experimental/index.js"
-
-/**
- * Compares objective vectors and computes Pareto frontiers and two-dimensional hypervolume.
- *
- * @since 0.1.0
- * @category domains
- */
-export * as Pareto from "./Pareto/index.js"
-
-/**
- * Defines suggestion strategies, per-trial context, and sampler checkpoint contracts.
- *
- * @since 0.1.0
- * @category domains
- */
-export * as Sampler from "./Sampler/index.js"
-
-/**
- * Assigns resource budgets and promotion rounds for successive-halving studies.
- *
- * @since 0.1.0
- * @category domains
- */
-export * as Scheduler from "./Scheduler/index.js"
-
-/**
- * Compiles annotated Effect Schemas into typed spaces used for sampling and decoding.
- *
- * @since 0.1.0
- * @category domains
- */
-export * as SearchSpace from "./SearchSpace/index.js"
-
-/**
- * Runs studies and exposes streaming, ask/tell, snapshot, resume, and persistence APIs.
- *
- * @since 0.1.0
- * @category domains
- */
-export * as Study from "./Study/index.js"
-
-/**
- * Defines the tagged lifecycle events emitted by studies and bracket schedulers.
- *
- * @since 0.1.0
- * @category domains
- */
-export * as StudyEvent from "./StudyEvent/index.js"
-
-/**
- * Tracks evaluated configurations through running and terminal lifecycle states.
- *
- * @since 0.1.0
- * @category domains
- */
-export * as Trial from "./Trial/index.js"
+/** Acquisition scoring policies. @since 0.7.0 @category modules */
+export * as Acquisition from "./Acquisition.js"
+/** Search artifact schemas and provenance. @since 0.7.0 @category modules */
+export * as Artifact from "./Artifact.js"
+/** Run-scoped artifact sequence allocation. @since 0.7.0 @category modules */
+export * as ArtifactContext from "./ArtifactContext.js"
+/** Artifact delivery and persistence. @since 0.7.0 @category modules */
+export * as ArtifactSink from "./ArtifactSink.js"
+/** Schema-encoded caching and canonical identities. @since 0.7.0 @category modules */
+export * as Cache from "./Cache.js"
+/** Objective comparison polarity. @since 0.7.0 @category modules */
+export * as Direction from "./Direction.js"
+/** Sampling distributions and schema annotations. @since 0.7.0 @category modules */
+export * as Distribution from "./Distribution.js"
+/** Objective values and comparison specifications. @since 0.7.0 @category modules */
+export * as Objective from "./Objective.js"
+/** Schema-keyed objective evaluation caching. @since 0.7.0 @category modules */
+export * as ObjectiveCache from "./ObjectiveCache.js"
+/** Pareto dominance, frontiers, and hypervolume. @since 0.7.0 @category modules */
+export * as Pareto from "./Pareto.js"
+/** Terminal study progress reporting. @since 0.7.0 @category modules */
+export * as Progress from "./Progress.js"
+/** Intermediate reporting and pruning policies. @since 0.7.0 @category modules */
+export * as Pruning from "./Pruning.js"
+/** Suggestion strategies and sampler checkpoints. @since 0.7.0 @category modules */
+export * as Sampler from "./Sampler.js"
+/** Resource allocation and promotion schedules. @since 0.7.0 @category modules */
+export * as Scheduler from "./Scheduler.js"
+/** Typed expected search failures. @since 0.7.0 @category modules */
+export * as SearchError from "./SearchError.js"
+/** Typed configuration spaces and conditional branches. @since 0.7.0 @category modules */
+export * as SearchSpace from "./SearchSpace.js"
+/** Optimization and scoped ask/tell execution. @since 0.7.0 @category modules */
+export * as Study from "./Study.js"
+/** Study lifecycle notifications. @since 0.7.0 @category modules */
+export * as StudyEvent from "./StudyEvent.js"
+/** Study checkpoint encoding and recovery. @since 0.7.0 @category modules */
+export * as StudySnapshot from "./StudySnapshot.js"
+/** Durable study logs and snapshots. @since 0.7.0 @category modules */
+export * as StudyStorage from "./StudyStorage.js"
+/** Search trial records and transitions. @since 0.7.0 @category modules */
+export * as Trial from "./Trial.js"

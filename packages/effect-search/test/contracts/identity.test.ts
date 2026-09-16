@@ -1,84 +1,63 @@
 import { describe, expect, it } from "@effect/vitest"
-import { Effect, Schema } from "effect"
+import { Effect, Either, Option, Schema } from "effect"
 
-import * as Contracts from "../../src/contracts/index.js"
+import * as Acquisition from "../../src/Acquisition.js"
+import * as Direction from "../../src/Direction.js"
+import * as Distribution from "../../src/Distribution.js"
+import * as Objective from "../../src/Objective.js"
 
-describe("contracts/identity", () => {
-  it.effect("RunId accepts valid ULID", () =>
-    Effect.gen(function*() {
-      const runId = yield* Schema.decode(Contracts.RunId)("01ARZ3NDEKTSV4RRFFQ69G5FAV")
-      expect(runId).toBe("01ARZ3NDEKTSV4RRFFQ69G5FAV")
+describe("domain schemas", () => {
+  it.effect("defaults absent directions to minimization", () =>
+    Effect.sync(() => {
+      expect(Direction.orDefault(Option.none())).toBe(Direction.minimize)
+      expect(Direction.orDefault(Option.some(Direction.maximize))).toBe(Direction.maximize)
     }))
 
-  it.effect("RunId rejects invalid ULID", () =>
-    Effect.gen(function*() {
-      const result = yield* Schema.decode(Contracts.RunId)("not-a-ulid").pipe(Effect.either)
-      expect(result._tag).toBe("Left")
+  it.effect("validates the closed acquisition vocabulary", () =>
+    Effect.sync(() => {
+      expect(Acquisition.isName("ei")).toBe(true)
+      expect(Acquisition.isName("ucb")).toBe(false)
     }))
 
-  it.effect("PackageVersion accepts valid semver", () =>
-    Effect.gen(function*() {
-      const version = yield* Schema.decode(Contracts.PackageVersion)("1.2.3")
-      expect(version).toBe("1.2.3")
-    }))
-
-  it.effect("PackageVersion rejects non-semver", () =>
-    Effect.gen(function*() {
-      const result = yield* Schema.decode(Contracts.PackageVersion)("abc").pipe(Effect.either)
-      expect(result._tag).toBe("Left")
-    }))
-
-  it.effect("PackageVersion rejects empty string", () =>
-    Effect.gen(function*() {
-      const result = yield* Schema.decode(Contracts.PackageVersion)("").pipe(Effect.either)
-      expect(result._tag).toBe("Left")
-    }))
-
-  it.effect("ArtifactId carries branded RunId and sequence", () =>
-    Effect.gen(function*() {
-      const runId = yield* Schema.decode(Contracts.RunId)("01ARZ3NDEKTSV4RRFFQ69G5FAV")
-      const artifactId = new Contracts.ArtifactId({ runId, sequence: 42 })
-      expect(artifactId.runId).toBe(runId)
-      expect(artifactId.sequence).toBe(42)
-    }))
-
-  it.effect("SourceRef constructs with structured fields", () =>
-    Effect.gen(function*() {
-      const sourceRef = new Contracts.SourceRef({
-        origin: "effect-search",
-        domain: "study",
-        segments: ["trial", "log"]
+  it.effect("round-trips distribution annotations through schema AST", () =>
+    Effect.sync(() => {
+      const distribution: Distribution.Distribution = {
+        type: "float",
+        low: -1,
+        high: 1,
+        scale: "linear"
+      }
+      const annotated = Distribution.annotate(Schema.Number, distribution)
+      const invalid = Schema.Number.annotations({
+        "@scenesystems/effect-search/Distribution": { type: "unknown" }
       })
-      expect(sourceRef.origin).toBe("effect-search")
-      expect(sourceRef.domain).toBe("study")
-      expect(sourceRef.segments).toEqual(["trial", "log"])
+
+      expect(Distribution.fromAST(annotated.ast)).toEqual(Option.some(distribution))
+      expect(Distribution.fromAST(invalid.ast)).toEqual(Option.none())
     }))
 
-  it.effect("SourceRef preserves effect-search's closed origin validation", () =>
+  it.effect("resolves objective options and coordinate semantics", () =>
     Effect.gen(function*() {
-      const result = yield* Schema.decodeUnknown(Contracts.SourceRef)({
-        origin: "caller-owned",
-        domain: "study",
-        segments: ["trial"]
-      }).pipe(Effect.either)
-
-      expect(result._tag).toBe("Left")
-    }))
-
-  it.effect("ContentDigest decodes with algorithm and branded Digest256", () =>
-    Effect.gen(function*() {
-      const validDigest = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopq"
-      const contentDigest = yield* Schema.decodeUnknown(Contracts.ContentDigest)({
-        algorithm: "blake3-256",
-        digest: validDigest
+      const scalar = Objective.fromOptions({})
+      const vector = Objective.fromOptions({
+        direction: "minimize",
+        directions: ["maximize", "minimize"]
       })
-      expect(contentDigest.algorithm).toBe("blake3-256")
-      expect(contentDigest.digest).toBe(validDigest)
+      const decoded = yield* Schema.decode(Objective.Value)([1, Number.POSITIVE_INFINITY])
+
+      expect(Objective.dimensions(scalar)).toBe(1)
+      expect(Objective.dimensions(vector)).toBe(2)
+      expect(Objective.directionAt(vector, 0)).toEqual(Option.some("maximize"))
+      expect(Objective.directionAt(vector, 2)).toEqual(Option.none())
+      expect(Objective.dimensionCount(decoded)).toBe(2)
+      expect(Objective.hasDimensions([])).toBe(false)
+      expect(Objective.isFiniteValue(decoded)).toBe(false)
+      expect(Objective.toVector(3)).toEqual([3])
     }))
 
-  it.effect("ComponentPath accepts non-empty array of non-empty strings", () =>
+  it.effect("rejects unknown directions", () =>
     Effect.gen(function*() {
-      const component = yield* Schema.decode(Contracts.ComponentPath)(["Study", "snapshot"])
-      expect(component).toEqual(["Study", "snapshot"])
+      const result = yield* Schema.decodeUnknown(Direction.Direction)("ascending").pipe(Effect.either)
+      expect(Either.isLeft(result)).toBe(true)
     }))
 })

@@ -3,7 +3,7 @@ import { Effect, Match, Option } from "effect"
 
 import * as Sampler from "../../src/Sampler/index.js"
 import * as SearchSpace from "../../src/SearchSpace/index.js"
-import * as Study from "../../src/Study/index.js"
+import * as Study from "../../src/Study.js"
 
 const makeSpace = () =>
   SearchSpace.make({
@@ -13,7 +13,7 @@ const makeSpace = () =>
 
 const objective = (config: { readonly x: number; readonly depth: number }) => config.x + config.depth
 
-const valueForTrial = (result: Study.StudyResult, trialNumber: number): Option.Option<number> =>
+const valueForTrial = (result: Study.Result, trialNumber: number): Option.Option<number> =>
   Option.fromNullable(result.trials.find((trial) => trial.trialNumber === trialNumber)).pipe(
     Option.flatMap((trial) =>
       Match.value(trial.state).pipe(

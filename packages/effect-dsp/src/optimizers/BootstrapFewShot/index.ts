@@ -6,7 +6,7 @@
  * @module
  */
 import type * as LanguageModel from "@effect/ai/LanguageModel"
-import { streamFromEmitter } from "@scenesystems/effect-study/Events"
+import { toStream } from "@scenesystems/effect-study/Emitter"
 import { Array as Arr, Boolean as Bool, Data, Effect, Number as Num, Option, Predicate, Ref, Schema } from "effect"
 import type * as Layer from "effect/Layer"
 import { withModuleParamsDemosAndInstructions } from "../../contracts/ModuleParams.js"
@@ -324,6 +324,6 @@ export const bootstrapFewShotStream = <
   MR = never
 >(
   options: BootstrapFewShotOptions<I, O, ME, MR>
-) => streamFromEmitter((emit: BootstrapEventSink) => bootstrapFewShotWithEvents(options, emit))
+) => toStream((emit: BootstrapEventSink) => bootstrapFewShotWithEvents(options, emit))
 
 export * from "./progress.js"

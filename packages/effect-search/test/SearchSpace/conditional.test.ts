@@ -1,8 +1,8 @@
 import { describe, expect, it } from "@effect/vitest"
-import { Array as Arr, Effect, Either, Option, Schema } from "effect"
+import { Array as Arr, Chunk, Effect, Either, Option, Schema } from "effect"
 
 import { makeLinearTreeConditionalSpace } from "../../src/experimental/scenarios/conditionalLinearTree.js"
-import * as SearchSpace from "../../src/SearchSpace/index.js"
+import * as SearchSpace from "../../src/SearchSpace.js"
 import {
   ConditionalFilteringFixtureSchema,
   ConditionalGroupDecompositionFixtureSchema,
@@ -28,14 +28,14 @@ const treeStructuredSpace = Effect.gen(function*() {
     {
       depthMode: SearchSpace.categorical(["shallow", "deep"])
     },
-    SearchSpace.switch("depthMode", [SearchSpace.when("shallow", shallow), SearchSpace.when("deep", deep)])
+    SearchSpace.switchOn("depthMode", Chunk.make(SearchSpace.when("shallow", shallow), SearchSpace.when("deep", deep)))
   )
 
   return yield* SearchSpace.makeConditional(
     {
       model: SearchSpace.categorical(["linear", "tree"])
     },
-    SearchSpace.switch("model", [SearchSpace.when("linear", linear), SearchSpace.when("tree", tree)])
+    SearchSpace.switchOn("model", Chunk.make(SearchSpace.when("linear", linear), SearchSpace.when("tree", tree)))
   )
 })
 
@@ -53,7 +53,7 @@ const branchParitySpace = Effect.gen(function*() {
       optimizer: SearchSpace.categorical(["adam", "sgd"]),
       lr: SearchSpace.float(1e-4, 1e-1, { scale: "log" })
     },
-    SearchSpace.switch("optimizer", [SearchSpace.when("adam", adam), SearchSpace.when("sgd", sgd)])
+    SearchSpace.switchOn("optimizer", Chunk.make(SearchSpace.when("adam", adam), SearchSpace.when("sgd", sgd)))
   )
 })
 
@@ -204,14 +204,17 @@ describe("SearchSpace conditional contracts", () => {
           {
             mode: SearchSpace.categorical(["a", "b"])
           },
-          SearchSpace.switch("missing", [
-            SearchSpace.when(
-              "a",
-              yield* SearchSpace.make({
-                alpha: SearchSpace.float(0.01, 1)
-              })
+          SearchSpace.switchOn(
+            "missing",
+            Chunk.make(
+              SearchSpace.when(
+                "a",
+                yield* SearchSpace.make({
+                  alpha: SearchSpace.float(0.01, 1)
+                })
+              )
             )
-          ])
+          )
         )
       )
 
@@ -229,14 +232,17 @@ describe("SearchSpace conditional contracts", () => {
           {
             mode: SearchSpace.categorical(["linear"])
           },
-          SearchSpace.switch("mode", [
-            SearchSpace.when(
-              "tree",
-              yield* SearchSpace.make({
-                maxDepth: SearchSpace.int(1, 4)
-              })
+          SearchSpace.switchOn(
+            "mode",
+            Chunk.make(
+              SearchSpace.when(
+                "tree",
+                yield* SearchSpace.make({
+                  maxDepth: SearchSpace.int(1, 4)
+                })
+              )
             )
-          ])
+          )
         )
       )
 
@@ -254,20 +260,23 @@ describe("SearchSpace conditional contracts", () => {
           {
             mode: SearchSpace.categorical(["a", "b"])
           },
-          SearchSpace.switch("mode", [
-            SearchSpace.when(
-              "a",
-              yield* SearchSpace.make({
-                shared: SearchSpace.float(0.01, 1)
-              })
-            ),
-            SearchSpace.when(
-              "b",
-              yield* SearchSpace.make({
-                shared: SearchSpace.float(0.01, 1)
-              })
+          SearchSpace.switchOn(
+            "mode",
+            Chunk.make(
+              SearchSpace.when(
+                "a",
+                yield* SearchSpace.make({
+                  shared: SearchSpace.float(0.01, 1)
+                })
+              ),
+              SearchSpace.when(
+                "b",
+                yield* SearchSpace.make({
+                  shared: SearchSpace.float(0.01, 1)
+                })
+              )
             )
-          ])
+          )
         )
       )
 

@@ -5,6 +5,7 @@
  * @module
  */
 import { Match, Schema } from "effect"
+import { dual } from "effect/Function"
 
 /**
  * Lifecycle phases independent of an evaluation or search algorithm.
@@ -12,7 +13,7 @@ import { Match, Schema } from "effect"
  * @since 0.1.0
  * @category schemas
  */
-export const StudyLifecycle = Schema.Literal("Created", "Running", "Paused", "Completed", "Failed", "Cancelled")
+export const Lifecycle = Schema.Literal("Created", "Running", "Paused", "Completed", "Failed", "Cancelled")
 
 /**
  * A lifecycle phase decoded by the study schema.
@@ -20,9 +21,9 @@ export const StudyLifecycle = Schema.Literal("Created", "Running", "Paused", "Co
  * @since 0.1.0
  * @category type-level
  */
-export type StudyLifecycle = Schema.Schema.Type<typeof StudyLifecycle>
+export type Lifecycle = typeof Lifecycle.Type
 
-const canTransitionFromCreated = (target: StudyLifecycle): boolean =>
+const canTransitionFromCreated = (target: Lifecycle): boolean =>
   Match.value(target).pipe(
     Match.when("Created", () => false),
     Match.when("Running", () => true),
@@ -33,7 +34,7 @@ const canTransitionFromCreated = (target: StudyLifecycle): boolean =>
     Match.exhaustive
   )
 
-const canTransitionFromRunning = (target: StudyLifecycle): boolean =>
+const canTransitionFromRunning = (target: Lifecycle): boolean =>
   Match.value(target).pipe(
     Match.when("Created", () => false),
     Match.when("Running", () => false),
@@ -44,7 +45,7 @@ const canTransitionFromRunning = (target: StudyLifecycle): boolean =>
     Match.exhaustive
   )
 
-const canTransitionFromPaused = (target: StudyLifecycle): boolean =>
+const canTransitionFromPaused = (target: Lifecycle): boolean =>
   Match.value(target).pipe(
     Match.when("Created", () => false),
     Match.when("Running", () => true),
@@ -61,8 +62,11 @@ const canTransitionFromPaused = (target: StudyLifecycle): boolean =>
  * @since 0.1.0
  * @category utils
  */
-export const canTransitionLifecycle = (current: StudyLifecycle, target: StudyLifecycle): boolean =>
-  Match.value(current).pipe(
+export const canTransition: {
+  (target: Lifecycle): (self: Lifecycle) => boolean
+  (self: Lifecycle, target: Lifecycle): boolean
+} = dual(2, (self: Lifecycle, target: Lifecycle): boolean =>
+  Match.value(self).pipe(
     Match.when("Created", () => canTransitionFromCreated(target)),
     Match.when("Running", () => canTransitionFromRunning(target)),
     Match.when("Paused", () => canTransitionFromPaused(target)),
@@ -70,4 +74,4 @@ export const canTransitionLifecycle = (current: StudyLifecycle, target: StudyLif
     Match.when("Failed", () => false),
     Match.when("Cancelled", () => false),
     Match.exhaustive
-  )
+  ))

@@ -8,6 +8,7 @@ import * as Statement from "@effect/sql/Statement"
 import { expect, it } from "@effect/vitest"
 import {
   Array as Arr,
+  Data,
   Deferred,
   Effect,
   Exit,
@@ -25,10 +26,19 @@ import {
   Tuple
 } from "effect"
 
-import * as Cache from "../../src/Cache/index.js"
+import * as Cache from "../../src/Cache.js"
 
 const Rows = Schema.Array(Schema.Record({ key: Schema.String, value: Schema.Unknown }))
-const descriptor = Cache.makeDescriptor("rows", "v1", Schema.String, Schema.Number)
+const keySpace = new Cache.KeySpace({
+  namespace: "rows",
+  version: "v1",
+  keySchema: Schema.String,
+  valueSchema: Schema.Number
+})
+
+class ComputeFailure extends Data.TaggedError("ComputeFailure")<{
+  readonly detail: string
+}> {}
 
 const makeStore = (
   get: (key: string) => Effect.Effect<Option.Option<string>, PlatformError.PlatformError>,
@@ -44,7 +54,7 @@ const makeStore = (
   })
 
 const makeCache = (store: KeyValueStore.KeyValueStore) =>
-  Cache.makeSchemaCache().pipe(Effect.provideService(KeyValueStore.KeyValueStore, store))
+  Cache.make().pipe(Effect.provideService(KeyValueStore.KeyValueStore, store))
 
 const makeDelayedReadStore = Effect.gen(function*() {
   const backing = yield* Ref.make(Option.some("1"))
@@ -107,16 +117,16 @@ it.scoped.each(Arr.make(
   Tuple.make("present", Arr.of({ value: "42" }), Option.some(42))
 ))("reads a %s persisted SQL cache entry", ([, rows, expected]) =>
   Effect.gen(function*() {
-    const cache = yield* Cache.SchemaCache
-    expect(yield* cache.get(descriptor, "key")).toEqual(expected)
-  }).pipe(Effect.provide(Cache.SchemaCacheSql(sqlRows(rows)))))
+    const cache = yield* Cache.Cache
+    expect(yield* cache.get(keySpace, "key")).toEqual(expected)
+  }).pipe(Effect.provide(Cache.layerSql(sqlRows(rows)))))
 
 it.scoped("classifies a malformed SQL row as a backend failure rather than a corrupt cached value", () =>
   Effect.gen(function*() {
-    const cache = yield* Cache.SchemaCache
-    const error = yield* Effect.flip(cache.get(descriptor, "key"))
+    const cache = yield* Cache.Cache
+    const error = yield* Effect.flip(cache.get(keySpace, "key"))
     expect(error).toMatchObject({ _tag: "effect-search/CacheBackendError", operation: "get" })
-  }).pipe(Effect.provide(Cache.SchemaCacheSql(sqlRows(Arr.of({ value: 42 }))))))
+  }).pipe(Effect.provide(Cache.layerSql(sqlRows(Arr.of({ value: 42 }))))))
 
 it.effect("defers synchronous key encoding until each cache operation executes", () =>
   Effect.gen(function*() {
@@ -129,8 +139,8 @@ it.effect("defers synchronous key encoding until each cache operation executes",
         return Str.toUpperCase(key)
       }
     })
-    const keyed = Cache.makeDescriptor("lazy", "v1", keySchema, Schema.Number)
-    const cache = yield* Cache.SchemaCache
+    const keyed = new Cache.KeySpace({ namespace: "lazy", version: "v1", keySchema, valueSchema: Schema.Number })
+    const cache = yield* Cache.Cache
     const write = cache.set(keyed, "key", 73)
     const read = cache.get(keyed, "key")
     const remove = cache.remove(keyed, "key")
@@ -140,38 +150,59 @@ it.effect("defers synchronous key encoding until each cache operation executes",
     yield* remove
     expect(yield* read).toEqual(Option.none())
     expect(MutableRef.get(encodes)).toBe(4)
-  }).pipe(Effect.provide(Cache.SchemaCacheMemory)))
+  }).pipe(Effect.provide(Cache.layerMemory)))
+
+it.effect("supports native data-first and data-last combinators", () =>
+  Effect.gen(function*() {
+    const cache = yield* Cache.Cache
+    yield* Cache.set(cache, keySpace, "dual", 9)
+    expect(yield* Cache.get(keySpace, "dual")(cache)).toEqual(Option.some(9))
+    yield* Cache.remove(keySpace, "dual")(cache)
+    expect(yield* Cache.get(cache, keySpace, "dual")).toEqual(Option.none())
+  }).pipe(Effect.provide(Cache.layerMemory)))
+
+it.effect("retains computation errors and retries an uncached failure", () =>
+  Effect.gen(function*() {
+    const cache = yield* Cache.Cache
+    const failure = new ComputeFailure({ detail: "objective rejected" })
+    const failed = new Cache.Request({ keySpace, key: "typed-error", compute: Effect.fail(failure) })
+    const retry = new Cache.Request({ keySpace, key: "typed-error", compute: Effect.succeed(17) })
+
+    expect(yield* Effect.flip(cache.resolve(failed))).toEqual(failure)
+    expect(yield* Cache.resolve(retry)(cache)).toEqual(new Cache.Result({ value: 17, resolution: "miss" }))
+    expect(yield* cache.resolve(retry)).toEqual(new Cache.Result({ value: 17, resolution: "hit" }))
+  }).pipe(Effect.provide(Cache.layerMemory)))
 
 it.scoped("serializes a delayed cold get before a set of the same key", () =>
   Effect.gen(function*() {
     const controlled = yield* makeDelayedReadStore
     const cache = yield* makeCache(controlled.store)
-    const reading = yield* Effect.fork(cache.get(descriptor, "key"))
+    const reading = yield* Effect.fork(cache.get(keySpace, "key"))
     yield* Deferred.await(controlled.readCaptured)
-    const setting = yield* Effect.fork(cache.set(descriptor, "key", 2))
+    const setting = yield* Effect.fork(cache.set(keySpace, "key", 2))
     yield* Effect.yieldNow()
 
     expect(yield* Deferred.isDone(controlled.mutationStarted)).toBe(false)
     yield* Deferred.succeed(controlled.readGate, undefined)
     expect(yield* Fiber.join(reading)).toEqual(Option.some(1))
     yield* Fiber.join(setting)
-    expect(yield* cache.get(descriptor, "key")).toEqual(Option.some(2))
+    expect(yield* cache.get(keySpace, "key")).toEqual(Option.some(2))
   }))
 
 it.scoped("serializes a delayed cold get before removal of the same key", () =>
   Effect.gen(function*() {
     const controlled = yield* makeDelayedReadStore
     const cache = yield* makeCache(controlled.store)
-    const reading = yield* Effect.fork(cache.get(descriptor, "key"))
+    const reading = yield* Effect.fork(cache.get(keySpace, "key"))
     yield* Deferred.await(controlled.readCaptured)
-    const removing = yield* Effect.fork(cache.remove(descriptor, "key"))
+    const removing = yield* Effect.fork(cache.remove(keySpace, "key"))
     yield* Effect.yieldNow()
 
     expect(yield* Deferred.isDone(controlled.mutationStarted)).toBe(false)
     yield* Deferred.succeed(controlled.readGate, undefined)
     expect(yield* Fiber.join(reading)).toEqual(Option.some(1))
     yield* Fiber.join(removing)
-    expect(yield* cache.get(descriptor, "key")).toEqual(Option.none())
+    expect(yield* cache.get(keySpace, "key")).toEqual(Option.none())
   }))
 
 it.scoped("invalidates local state when an interrupted set may have committed", () =>
@@ -188,12 +219,12 @@ it.scoped("invalidates local state when an interrupted set may have committed", 
       () => Ref.set(backing, Option.none())
     )
     const cache = yield* makeCache(store)
-    expect(yield* cache.get(descriptor, "key")).toEqual(Option.some(1))
-    const setting = yield* Effect.fork(cache.set(descriptor, "key", 2))
+    expect(yield* cache.get(keySpace, "key")).toEqual(Option.some(1))
+    const setting = yield* Effect.fork(cache.set(keySpace, "key", 2))
     yield* Deferred.await(committed)
 
     expect(yield* Fiber.interrupt(setting)).toSatisfy(Exit.isInterrupted)
-    expect(yield* cache.get(descriptor, "key")).toEqual(Option.some(2))
+    expect(yield* cache.get(keySpace, "key")).toEqual(Option.some(2))
   }))
 
 it.scoped("invalidates local state when an interrupted removal may have committed", () =>
@@ -210,14 +241,14 @@ it.scoped("invalidates local state when an interrupted removal may have committe
         )
     )
     const cache = yield* makeCache(store)
-    expect(yield* cache.get(descriptor, "key")).toEqual(Option.some(1))
-    const removing = yield* Effect.fork(cache.remove(descriptor, "key"))
+    expect(yield* cache.get(keySpace, "key")).toEqual(Option.some(1))
+    const removing = yield* Effect.fork(cache.remove(keySpace, "key"))
     yield* Deferred.await(committed)
 
     expect(yield* Fiber.interrupt(removing)).toSatisfy(Exit.isInterrupted)
-    expect(yield* cache.get(descriptor, "key")).toEqual(Option.none())
-    yield* cache.set(descriptor, "key", 4)
-    expect(yield* cache.get(descriptor, "key")).toEqual(Option.some(4))
+    expect(yield* cache.get(keySpace, "key")).toEqual(Option.none())
+    yield* cache.set(keySpace, "key", 4)
+    expect(yield* cache.get(keySpace, "key")).toEqual(Option.some(4))
   }))
 
 it.scoped("preserves backing mutation failures and discards uncertain cached values", () =>
@@ -229,17 +260,17 @@ it.scoped("preserves backing mutation failures and discards uncertain cached val
       () => Ref.set(backing, Option.none()).pipe(Effect.zipRight(Effect.fail(backendFailure("remove"))))
     )
     const cache = yield* makeCache(store)
-    expect(yield* cache.get(descriptor, "key")).toEqual(Option.some(1))
-    expect(yield* Effect.flip(cache.set(descriptor, "key", 2))).toMatchObject({
+    expect(yield* cache.get(keySpace, "key")).toEqual(Option.some(1))
+    expect(yield* Effect.flip(cache.set(keySpace, "key", 2))).toMatchObject({
       _tag: "effect-search/CacheBackendError",
       operation: "set"
     })
-    expect(yield* cache.get(descriptor, "key")).toEqual(Option.some(2))
-    expect(yield* Effect.flip(cache.remove(descriptor, "key"))).toMatchObject({
+    expect(yield* cache.get(keySpace, "key")).toEqual(Option.some(2))
+    expect(yield* Effect.flip(cache.remove(keySpace, "key"))).toMatchObject({
       _tag: "effect-search/CacheBackendError",
       operation: "remove"
     })
-    expect(yield* cache.get(descriptor, "key")).toEqual(Option.none())
+    expect(yield* cache.get(keySpace, "key")).toEqual(Option.none())
   }))
 
 it.scoped("does not encode or persist a queued write cancelled before acquiring its key", () =>
@@ -254,20 +285,25 @@ it.scoped("does not encode or persist a queued write cancelled before acquiring 
         return value
       }
     })
-    const encodedDescriptor = Cache.makeDescriptor("rows", "v1", Schema.String, valueSchema)
+    const encodedKeySpace = new Cache.KeySpace({
+      namespace: "rows",
+      version: "v1",
+      keySchema: Schema.String,
+      valueSchema
+    })
     const cache = yield* makeCache(controlled.store)
-    const reading = yield* Effect.fork(cache.get(encodedDescriptor, "key"))
+    const reading = yield* Effect.fork(cache.get(encodedKeySpace, "key"))
     yield* Deferred.await(controlled.readCaptured)
-    const setting = yield* Effect.fork(cache.set(encodedDescriptor, "key", 2))
+    const setting = yield* Effect.fork(cache.set(encodedKeySpace, "key", 2))
     yield* Effect.yieldNow()
     expect(MutableRef.get(encodes)).toBe(0)
     expect(yield* Fiber.interrupt(setting)).toSatisfy(Exit.isInterrupted)
     yield* Deferred.succeed(controlled.readGate, undefined)
     expect(yield* Fiber.join(reading)).toEqual(Option.some(1))
     expect(yield* Ref.get(controlled.backing)).toEqual(Option.some("1"))
-    yield* cache.set(encodedDescriptor, "key", 3)
+    yield* cache.set(encodedKeySpace, "key", 3)
     expect(MutableRef.get(encodes)).toBe(1)
-    expect(yield* cache.get(encodedDescriptor, "key")).toEqual(Option.some(3))
+    expect(yield* cache.get(encodedKeySpace, "key")).toEqual(Option.some(3))
   }))
 
 it.scoped("allows a caller queued on a same-key lock to be cancelled", () =>
@@ -290,7 +326,12 @@ it.scoped("allows a caller queued on a same-key lock to be cancelled", () =>
           Effect.as(Str.toUpperCase(key))
         )
     })
-    const queuedDescriptor = Cache.makeDescriptor("queued", "v1", keySchema, Schema.Number)
+    const queuedKeySpace = new Cache.KeySpace({
+      namespace: "queued",
+      version: "v1",
+      keySchema,
+      valueSchema: Schema.Number
+    })
     const store = makeStore(
       () =>
         Deferred.succeed(readStarted, undefined).pipe(
@@ -301,9 +342,9 @@ it.scoped("allows a caller queued on a same-key lock to be cancelled", () =>
       () => Effect.void
     )
     const cache = yield* makeCache(store)
-    const first = yield* Effect.fork(cache.get(queuedDescriptor, "key"))
+    const first = yield* Effect.fork(cache.get(queuedKeySpace, "key"))
     yield* Deferred.await(readStarted)
-    const queued = yield* Effect.fork(cache.get(queuedDescriptor, "key"))
+    const queued = yield* Effect.fork(cache.get(queuedKeySpace, "key"))
     yield* Deferred.await(secondKeyEncoded)
     yield* Effect.yieldNow()
     yield* Fiber.interruptFork(queued)
@@ -317,8 +358,8 @@ it.scoped("allows a caller queued on a same-key lock to be cancelled", () =>
     yield* Deferred.succeed(readGate, undefined)
     expect(Exit.isInterrupted(cancelledExit)).toBe(true)
     expect(yield* Fiber.join(first)).toEqual(Option.some(1))
-    yield* cache.set(queuedDescriptor, "key", 3)
-    expect(yield* cache.get(queuedDescriptor, "key")).toEqual(Option.some(3))
+    yield* cache.set(queuedKeySpace, "key", 3)
+    expect(yield* cache.get(queuedKeySpace, "key")).toEqual(Option.some(3))
   }))
 
 it.scoped("allows a different key to resolve while another key is blocked", () =>
@@ -345,11 +386,11 @@ it.scoped("allows a different key to resolve while another key is blocked", () =
     )
     const cache = yield* makeCache(store)
     const blocked = yield* Effect.fork(
-      cache.resolve(new Cache.SchemaCacheRequest({ descriptor, key: "blocked", compute: Effect.succeed(1) }))
+      cache.resolve(new Cache.Request({ keySpace, key: "blocked", compute: Effect.succeed(1) }))
     )
     yield* Deferred.await(readStarted)
     const progressing = yield* Effect.fork(
-      cache.resolve(new Cache.SchemaCacheRequest({ descriptor, key: "other", compute: Effect.succeed(3) }))
+      cache.resolve(new Cache.Request({ keySpace, key: "other", compute: Effect.succeed(3) }))
     )
     const progressAwait = yield* Fiber.await(progressing).pipe(
       Effect.timeout("1 second"),
@@ -359,9 +400,9 @@ it.scoped("allows a different key to resolve while another key is blocked", () =
     const progress = yield* Fiber.join(progressAwait)
 
     yield* Deferred.succeed(readGate, undefined)
-    expect(progress).toEqual(Exit.succeed(Tuple.make(2, "hit")))
-    expect(yield* Fiber.join(progressing)).toEqual(Tuple.make(2, "hit"))
-    expect(yield* Fiber.join(blocked)).toEqual(Tuple.make(1, "miss"))
+    expect(progress).toEqual(Exit.succeed(new Cache.Result({ value: 2, resolution: "hit" })))
+    expect(yield* Fiber.join(progressing)).toEqual(new Cache.Result({ value: 2, resolution: "hit" }))
+    expect(yield* Fiber.join(blocked)).toEqual(new Cache.Result({ value: 1, resolution: "miss" }))
   }))
 
 it.scoped("computes one miss for concurrent same-key resolutions", () =>
@@ -381,7 +422,7 @@ it.scoped("computes one miss for concurrent same-key resolutions", () =>
       Effect.zipRight(Deferred.await(computeGate)),
       Effect.as(5)
     )
-    const request = new Cache.SchemaCacheRequest({ descriptor, key: "key", compute })
+    const request = new Cache.Request({ keySpace, key: "key", compute })
     const first = yield* Effect.fork(cache.resolve(request))
     yield* Deferred.await(computeStarted)
     const second = yield* Effect.fork(cache.resolve(request))
@@ -389,17 +430,17 @@ it.scoped("computes one miss for concurrent same-key resolutions", () =>
 
     expect(yield* Ref.get(computes)).toBe(1)
     yield* Deferred.succeed(computeGate, undefined)
-    expect(yield* Fiber.join(first)).toEqual(Tuple.make(5, "miss"))
-    expect(yield* Fiber.join(second)).toEqual(Tuple.make(5, "hit"))
+    expect(yield* Fiber.join(first)).toEqual(new Cache.Result({ value: 5, resolution: "miss" }))
+    expect(yield* Fiber.join(second)).toEqual(new Cache.Result({ value: 5, resolution: "hit" }))
     expect(yield* Ref.get(computes)).toBe(1)
   }))
 
 it.scoped("computes one miss when same-key resolutions acquire a cold lock simultaneously", () =>
   Effect.gen(function*() {
     const computes = yield* Ref.make(0)
-    const cache = yield* Cache.SchemaCache
-    const request = new Cache.SchemaCacheRequest({
-      descriptor,
+    const cache = yield* Cache.Cache
+    const request = new Cache.Request({
+      keySpace,
       key: "cold",
       compute: Ref.update(computes, Num.increment).pipe(Effect.zipRight(Effect.sleep("1 second")), Effect.as(41))
     })
@@ -412,10 +453,10 @@ it.scoped("computes one miss when same-key resolutions acquire a cold lock simul
     const results = yield* Fiber.join(resolving)
 
     expect(yield* Ref.get(computes)).toBe(1)
-    expect(Arr.map(results, ([value]) => value)).toEqual(Arr.make(41, 41))
-    expect(Arr.sort(Arr.map(results, ([, resolution]) => resolution), Str.Order)).toEqual(Arr.make("hit", "miss"))
-    expect(yield* cache.get(descriptor, "cold")).toEqual(Option.some(41))
-  }).pipe(Effect.provide(Cache.SchemaCacheMemory)))
+    expect(Arr.map(results, (result) => result.value)).toEqual(Arr.make(41, 41))
+    expect(Arr.sort(Arr.map(results, (result) => result.resolution), Str.Order)).toEqual(Arr.make("hit", "miss"))
+    expect(yield* cache.get(keySpace, "cold")).toEqual(Option.some(41))
+  }).pipe(Effect.provide(Cache.layerMemory)))
 
 it.scoped("retries a failed backing lookup without advancing the clock", () =>
   Effect.gen(function*() {
@@ -435,11 +476,11 @@ it.scoped("retries a failed backing lookup without advancing the clock", () =>
     )
     const cache = yield* makeCache(store)
 
-    expect(yield* Effect.flip(cache.get(descriptor, "key"))).toMatchObject({
+    expect(yield* Effect.flip(cache.get(keySpace, "key"))).toMatchObject({
       _tag: "effect-search/CacheBackendError",
       operation: "get"
     })
-    expect(yield* cache.get(descriptor, "key")).toEqual(Option.some(3))
+    expect(yield* cache.get(keySpace, "key")).toEqual(Option.some(3))
     expect(yield* Ref.get(attempts)).toBe(2)
   }))
 
@@ -454,13 +495,13 @@ it.scoped("encodes the persistence key exactly once during resolve", () =>
         return Str.toUpperCase(key)
       }
     })
-    const keyed = Cache.makeDescriptor("once", "v1", keySchema, Schema.Number)
-    const cache = yield* Cache.SchemaCache
+    const keyed = new Cache.KeySpace({ namespace: "once", version: "v1", keySchema, valueSchema: Schema.Number })
+    const cache = yield* Cache.Cache
 
     expect(
       yield* cache.resolve(
-        new Cache.SchemaCacheRequest({ descriptor: keyed, key: "key", compute: Effect.succeed(8) })
+        new Cache.Request({ keySpace: keyed, key: "key", compute: Effect.succeed(8) })
       )
-    ).toEqual(Tuple.make(8, "miss"))
+    ).toEqual(new Cache.Result({ value: 8, resolution: "miss" }))
     expect(MutableRef.get(encodes)).toBe(1)
-  }).pipe(Effect.provide(Cache.SchemaCacheMemory)))
+  }).pipe(Effect.provide(Cache.layerMemory)))

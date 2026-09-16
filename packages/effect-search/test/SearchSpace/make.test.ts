@@ -1,8 +1,8 @@
 import { describe, expect, it } from "@effect/vitest"
 import { Effect, Either, Option, Schema } from "effect"
 
-import { readDistribution } from "../../src/contracts/Distribution.js"
-import * as SearchSpace from "../../src/SearchSpace/index.js"
+import { fromAST } from "../../src/Distribution.js"
+import * as SearchSpace from "../../src/SearchSpace.js"
 
 const distributionFor = (space: SearchSpace.SearchSpace, name: string) =>
   Option.fromNullable(space.params.find((value) => value.name === name)).pipe(
@@ -16,7 +16,7 @@ const expectOptionValue = <A>(option: Option.Option<A>, expected: A) => {
 }
 
 const expectReadDistribution = (schema: Schema.Schema.AnyNoContext, expected: unknown) => {
-  const distribution = readDistribution(schema.ast)
+  const distribution = fromAST(schema.ast)
   expect(distribution).toEqual(Option.some(expected))
 }
 

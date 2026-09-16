@@ -3,12 +3,13 @@ import { describe, expect, it } from "@effect/vitest"
 import { Array as Arr, Chunk, Effect, Either, Layer, Number as Num, Option, Schedule, Stream } from "effect"
 
 import * as Cache from "../../src/Cache/index.js"
-import { NoSuccessfulTrials, TrialError } from "../../src/Errors/index.js"
 import * as Float64 from "../../src/internal/float64.js"
+import * as ObjectiveCache from "../../src/ObjectiveCache.js"
 import * as Sampler from "../../src/Sampler/index.js"
+import { NoSuccessfulTrials, TrialError } from "../../src/SearchError.js"
 import * as SearchSpace from "../../src/SearchSpace/index.js"
-import * as Study from "../../src/Study/index.js"
-import * as Trial from "../../src/Trial/index.js"
+import * as Study from "../../src/Study.js"
+import * as Trial from "../../src/Trial.js"
 
 const makeSpace = () =>
   SearchSpace.make({
@@ -37,7 +38,7 @@ const completedValues = (trials: Array<Trial.Trial<unknown>>): Array<number> =>
 const failedCount = (trials: Array<Trial.Trial<unknown>>) =>
   trials.filter((trial) => Trial.isState("Failed")(trial.state)).length
 
-const asSingleObjective = (result: Study.StudyResult) =>
+const asSingleObjective = (result: Study.Result) =>
   result._tag === "SingleObjective" ? Option.some(result) : Option.none()
 
 describe("Study.optimize", () => {
@@ -246,8 +247,8 @@ describe("Study.optimize", () => {
         )
       ).pipe(Layer.provide(KeyValueStore.layerMemory))
 
-      const objectiveCacheLayer = Study.StudyObjectiveCacheLive(
-        Study.studyObjectiveCacheOptions("optimize-cache-corrupt")
+      const objectiveCacheLayer = ObjectiveCache.layer(
+        ObjectiveCache.options("optimize-cache-corrupt")
       ).pipe(Layer.provide(failingSchemaCacheLayer))
 
       const result = yield* Stream.runCollect(
@@ -297,8 +298,8 @@ describe("Study.optimize", () => {
         )
       ).pipe(Layer.provide(KeyValueStore.layerMemory))
 
-      const objectiveCacheLayer = Study.StudyObjectiveCacheLive(
-        Study.studyObjectiveCacheOptions("optimize-cache-backend")
+      const objectiveCacheLayer = ObjectiveCache.layer(
+        ObjectiveCache.options("optimize-cache-backend")
       ).pipe(Layer.provide(failingSchemaCacheLayer))
 
       const result = yield* Stream.runCollect(

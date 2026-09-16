@@ -4,16 +4,15 @@ import { Array as Arr, Chunk, Deferred, Effect, Fiber, Stream, String as Str } f
 import {
   initializeRuntime,
   runtimeChanges,
-  setRuntimeLifecycle,
-  StudyClockLayer
-} from "../../src/Study/runtime/runtimeState.js"
+  setRuntimeLifecycle
+} from "../../src/internal/study/runtime/runtimeState.js"
 import { makeSettings } from "./machine/helpers.js"
 
 describe("runtime streaming", () => {
   it.effect("streams every lifecycle transition after subscription", () =>
     Effect.scoped(
       Effect.gen(function*() {
-        const runtime = yield* initializeRuntime(yield* makeSettings()).pipe(Effect.provide(StudyClockLayer))
+        const runtime = yield* initializeRuntime(yield* makeSettings())
         const subscribed = yield* Deferred.make<void>()
 
         const lifecycleFiber = yield* runtimeChanges(runtime).pipe(

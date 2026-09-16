@@ -2,7 +2,7 @@
   "name": "@scenesystems/effect-study",
   "version": "0.0.0",
   "type": "module",
-  "description": "Effect-native trial evaluation, history, and study artifacts",
+  "description": "Effect-native trial evaluation, history, and artifacts",
   "license": "MIT",
   "homepage": "https://github.com/scenesystems/theoria/tree/main/packages/effect-study",
   "repository": {
@@ -26,13 +26,13 @@
   },
   "exports": {
     ".": "./src/index.ts",
+    "./Artifact": "./src/Artifact.ts",
+    "./Emitter": "./src/Emitter.ts",
     "./Trial": "./src/Trial.ts",
     "./History": "./src/History.ts",
     "./Lifecycle": "./src/Lifecycle.ts",
     "./Stop": "./src/Stop.ts",
     "./Evaluation": "./src/Evaluation.ts",
-    "./Events": "./src/Events.ts",
-    "./Artifacts": "./src/Artifacts.ts",
     "./Journal": "./src/Journal.ts",
     "./internal/*": null
   },

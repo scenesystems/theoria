@@ -3,7 +3,7 @@ import { Effect } from "effect"
 
 import * as Sampler from "../../src/Sampler/index.js"
 import * as SearchSpace from "../../src/SearchSpace/index.js"
-import * as Study from "../../src/Study/index.js"
+import * as Study from "../../src/Study.js"
 
 const makeScalarSpace = () =>
   SearchSpace.make({

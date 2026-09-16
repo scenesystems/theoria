@@ -15,12 +15,21 @@ import { Data, Effect, Match, Number as Num, ParseResult, Schema, Stream, String
  * @since 0.1.0
  * @category errors
  */
-export class JournalError extends Schema.TaggedError<JournalError>()("effect-study/JournalError", {
+class JournalError extends Schema.TaggedError<JournalError>()("effect-study/JournalError", {
   operation: Schema.Literal("write", "read"),
   path: Schema.String,
   line: Schema.optional(Schema.Positive.pipe(Schema.int())),
   detail: Schema.String
 }) {}
+
+/**
+ * Public journal failure type. Its `_tag` remains `effect-study/JournalError`
+ * for wire compatibility.
+ *
+ * @since 0.1.0
+ * @category errors
+ */
+export { JournalError as Error }
 
 /**
  * A single append/read capability whose append operations share one serialization lock.
@@ -89,7 +98,7 @@ const readWith = <A, I, R>(
 /**
  * Reads a UTF-8 JSON-lines file in physical line order.
  * Missing files are empty, blank lines are ignored, and every malformed line fails
- * with a {@link JournalError} carrying its one-based physical line number.
+ * with an {@link Error} carrying its one-based physical line number.
  *
  * @since 0.1.0
  * @category readers

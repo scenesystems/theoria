@@ -5,15 +5,18 @@
  * @see {@link https://arxiv.org/abs/2507.19457 | Agrawal et al., "GEPA: Reflective Prompt Evolution Can Outperform Reinforcement Learning", 2025}
  * @since 0.1.0
  */
+import * as Direction from "@scenesystems/effect-search/Direction"
 import {
   dominates,
-  frontierSnapshot,
+  frontier,
+  type Holding,
+  type HoldingWeight,
   maximizeDirections,
   nonDominatedIndices,
   objectiveFrontierHoldings,
   objectiveFrontierWeights
 } from "@scenesystems/effect-search/Pareto"
-import { Array as Arr, Option } from "effect"
+import { Array as Arr, Option, Schema } from "effect"
 
 import {
   type CandidateScoreVector,
@@ -26,28 +29,26 @@ const objectiveCount = (scoreVectors: ReadonlyArray<CandidateScoreVector>): numb
   Arr.head(scoreVectors).pipe(
     Option.match({
       onNone: () => 0,
-      onSome: (scores) => scores.length
+      onSome: Arr.length
     })
   )
 
-const maximizeObjectiveDirections = (scoreVectors: ReadonlyArray<CandidateScoreVector>) =>
-  maximizeDirections(objectiveCount(scoreVectors))
+const maximizeDirectionsForCount = (count: number) =>
+  Schema.decodeUnknownSync(Schema.Array(Direction.Direction))(
+    maximizeDirections(count)
+  )
 
-const toExampleFrontierHolding = (holding: {
-  readonly objectiveIndex: number
-  readonly bestValue: number
-  readonly holders: ReadonlyArray<number>
-}): ExampleFrontierHolding =>
+const maximizeObjectiveDirections = (scoreVectors: ReadonlyArray<CandidateScoreVector>) =>
+  maximizeDirectionsForCount(objectiveCount(scoreVectors))
+
+const toExampleFrontierHolding = (holding: Holding): ExampleFrontierHolding =>
   new ExampleFrontierHolding({
     exampleIndex: holding.objectiveIndex,
     bestScore: holding.bestValue,
     holders: holding.holders
   })
 
-const toParentSelectionWeight = (weight: {
-  readonly candidateIndex: number
-  readonly weight: number
-}): ParentSelectionWeight =>
+const toParentSelectionWeight = (weight: HoldingWeight): ParentSelectionWeight =>
   new ParentSelectionWeight({
     candidateIndex: weight.candidateIndex,
     weight: weight.weight
@@ -75,7 +76,7 @@ export const nonDominatedCandidateIndices = (
 export const dominatesCandidateVector = (
   left: CandidateScoreVector,
   right: CandidateScoreVector
-): boolean => dominates(left, right, maximizeDirections(left.length))
+): boolean => dominates(left, right, maximizeDirectionsForCount(Arr.length(left)))
 
 /**
  * Compute which candidates hold the best score for each validation example.
@@ -113,7 +114,7 @@ export const deriveParetoKernelSnapshot = (
   scoreVectors: ReadonlyArray<CandidateScoreVector>
 ): ParetoKernelSnapshot => {
   const directions = maximizeObjectiveDirections(scoreVectors)
-  const snapshot = frontierSnapshot(scoreVectors, directions)
+  const snapshot = frontier(scoreVectors, directions)
 
   return new ParetoKernelSnapshot({
     frontierIndices: snapshot.frontierIndices,

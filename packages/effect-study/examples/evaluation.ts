@@ -5,7 +5,7 @@ import { Evaluation, Journal, Trial } from "@scenesystems/effect-study"
 import { Array as Arr, Effect, Schema, Stream, String as Str } from "effect"
 
 const Observation = Schema.Struct({ normalized: Schema.String })
-const CompletedTrial = Trial.makeSchema(Schema.String, Trial.Completed(Observation))
+const CompletedTrial = Trial.Trial(Schema.String, Trial.Completed(Observation))
 
 const program = Effect.scoped(
   Effect.gen(function*() {

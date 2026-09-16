@@ -5,7 +5,7 @@
  */
 import { Schema } from "effect"
 
-import * as SearchSpace from "../../SearchSpace/index.js"
+import * as SearchSpace from "../../SearchSpace.js"
 
 /**
  * Decodes an integer slot without enforcing the fixture's sampling range.

@@ -1,10 +1,11 @@
 import { describe, expect, it } from "@effect/vitest"
 import { Array as Arr, Effect } from "effect"
 
-import * as Sampler from "../../src/Sampler/index.js"
+import * as Sampler from "../../src/Sampler.js"
 
-const countSelections = (samples: ReadonlyArray<number>, index: number): number =>
-  Arr.reduce(
+const countSelections = (samplesInput: Iterable<number>, index: number): number => {
+  const samples = Arr.fromIterable(samplesInput)
+  return Arr.reduce(
     samples,
     0,
     (count, selected) =>
@@ -12,6 +13,7 @@ const countSelections = (samples: ReadonlyArray<number>, index: number): number 
         ? count + 1
         : count
   )
+}
 
 describe("Sampler weighted utilities", () => {
   it.effect("falls back to the lowest available index when all weights are non-positive", () =>

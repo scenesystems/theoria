@@ -1,14 +1,11 @@
 import { describe, expect, it } from "@effect/vitest"
 import { Array as Arr, Effect } from "effect"
 
-import type { Direction } from "../../src/contracts/index.js"
+import * as Direction from "../../src/Direction.js"
+import { dominates, nonDominatedIndices, nonDominatedRanks, nonDominatedSort } from "../../src/Pareto.js"
 
-import { dominates, nonDominatedIndices, nonDominatedRanks, nonDominatedSort } from "../../src/internal/pareto.js"
-
-const makeDirections = (...values: ReadonlyArray<Direction>): ReadonlyArray<Direction> => Arr.fromIterable(values)
-
-const MINIMIZE_DIRECTIONS = makeDirections("minimize", "minimize")
-const MIXED_DIRECTIONS = makeDirections("minimize", "maximize")
+const MINIMIZE_DIRECTIONS = Arr.make(Direction.minimize, Direction.minimize)
+const MIXED_DIRECTIONS = Arr.make(Direction.minimize, Direction.maximize)
 const BASE_POINTS = Arr.make(
   Arr.make(1, 4),
   Arr.make(2, 2),

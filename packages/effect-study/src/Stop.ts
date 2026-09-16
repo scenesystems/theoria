@@ -18,6 +18,7 @@ import {
   String as Str,
   Tuple
 } from "effect"
+import { dual } from "effect/Function"
 
 /**
  * `Drain` stops admission while active work finishes. `Interrupt` additionally
@@ -37,20 +38,12 @@ export const Mode = Schema.Literal("Drain", "Interrupt")
 export type Mode = typeof Mode.Type
 
 /**
- * Resolves an omitted mode to draining active work.
- *
- * @since 0.1.0
- * @category constructors
- */
-export const defaultMode = (): Mode => "Drain"
-
-/**
  * Returns the selected mode, defaulting to `Drain`.
  *
  * @since 0.1.0
  * @category constructors
  */
-export const modeOrDefault = (mode: Option.Option<Mode>): Mode => Option.getOrElse(mode, defaultMode)
+export const modeOrDefault = (self: Option.Option<Mode>): Mode => Option.getOrElse(self, () => "Drain")
 
 /**
  * A trial-attributed request to stop admitting work.
@@ -111,7 +104,7 @@ export const {
   /** Asks active work to stop cooperatively. @since 0.1.0 @category constructors */
   Stop,
   /** Matches every cooperative decision tag. @since 0.1.0 @category pattern-matching */
-  $match: matchDecision
+  $match
 } = Decisions
 
 const interruptFirst = (mode: Mode): boolean =>
@@ -154,16 +147,22 @@ export const make: Effect.Effect<Ref> = EffectRef.make<Option.Option<Request>>(O
  * @since 0.1.0
  * @category combinators
  */
-export const request = (ref: Ref, candidate: Request): Effect.Effect<Option.Option<Request>> =>
-  EffectRef.modify(ref, (current) =>
-    Option.match(current, {
-      onNone: () => Tuple.make(Option.some(candidate), Option.some(candidate)),
-      onSome: (existing) => {
-        const selected = preferredRequest(existing, candidate)
-        const changed = Option.liftPredicate(selected, () => Bool.not(Eq.equals(existing, selected)))
-        return Tuple.make(changed, Option.some(selected))
-      }
-    }))
+export const request: {
+  (candidate: Request): (self: Ref) => Effect.Effect<Option.Option<Request>>
+  (self: Ref, candidate: Request): Effect.Effect<Option.Option<Request>>
+} = dual(
+  2,
+  (self: Ref, candidate: Request): Effect.Effect<Option.Option<Request>> =>
+    EffectRef.modify(self, (current) =>
+      Option.match(current, {
+        onNone: () => Tuple.make(Option.some(candidate), Option.some(candidate)),
+        onSome: (existing) => {
+          const selected = preferredRequest(existing, candidate)
+          const changed = Option.liftPredicate(selected, () => Bool.not(Eq.equals(existing, selected)))
+          return Tuple.make(changed, Option.some(selected))
+        }
+      }))
+)
 
 /**
  * Reads the selected request without waiting. Drain mode always continues;
@@ -173,8 +172,11 @@ export const request = (ref: Ref, candidate: Request): Effect.Effect<Option.Opti
  * @since 0.1.0
  * @category combinators
  */
-export const heartbeat = (ref: Ref, mode: Mode): Effect.Effect<Decision> =>
-  EffectRef.get(ref).pipe(
+export const heartbeat: {
+  (mode: Mode): (self: Ref) => Effect.Effect<Decision>
+  (self: Ref, mode: Mode): Effect.Effect<Decision>
+} = dual(2, (self: Ref, mode: Mode): Effect.Effect<Decision> =>
+  EffectRef.get(self).pipe(
     Effect.map(
       Option.match({
         onNone: () => Continue(),
@@ -186,4 +188,4 @@ export const heartbeat = (ref: Ref, mode: Mode): Effect.Effect<Decision> =>
           )
       })
     )
-  )
+  ))

@@ -4,16 +4,15 @@ import { Effect } from "effect"
 import {
   initializeRuntime,
   readRuntimeState,
-  setRuntimeLifecycle,
-  StudyClockLayer
-} from "../../src/Study/runtime/runtimeState.js"
+  setRuntimeLifecycle
+} from "../../src/internal/study/runtime/runtimeState.js"
 import { makeSettings } from "./machine/helpers.js"
 
 describe("machine lifecycle", () => {
   it.effect("transitions created -> running -> paused -> running -> completed and rejects terminal resume", () =>
     Effect.scoped(
       Effect.gen(function*() {
-        const runtime = yield* initializeRuntime(yield* makeSettings()).pipe(Effect.provide(StudyClockLayer))
+        const runtime = yield* initializeRuntime(yield* makeSettings())
 
         const created = yield* readRuntimeState(runtime)
         expect(created.lifecycle).toBe("Created")

@@ -5,6 +5,7 @@
  * @module
  */
 import { Array as Arr, Data, Number as Num, Option, Schema, SortedMap } from "effect"
+import { dual } from "effect/Function"
 
 import type * as Trial from "./Trial.js"
 
@@ -42,19 +43,22 @@ export const empty = <Config, State>(): History<Config, State> =>
  * @since 0.1.0
  * @category combinators
  */
-export const setTrial = <Config, State>(
-  history: History<Config, State>,
-  trial: Trial.Trial<Config, State>
-): History<Config, State> => {
-  const previousCost = SortedMap.get(history.trials, trial.trialNumber).pipe(
+export const set: {
+  <Config, State>(trial: Trial.Trial<Config, State>): (self: History<Config, State>) => History<Config, State>
+  <Config, State>(
+    self: History<Config, State>,
+    trial: Trial.Trial<Config, State>
+  ): History<Config, State>
+} = dual(2, <Config, State>(self: History<Config, State>, trial: Trial.Trial<Config, State>) => {
+  const previousCost = SortedMap.get(self.trials, trial.trialNumber).pipe(
     Option.map(cost),
     Option.getOrElse(() => 0)
   )
   return new History({
-    trials: SortedMap.set(history.trials, trial.trialNumber, trial),
-    cumulativeCost: Num.sum(Num.subtract(history.cumulativeCost, previousCost), cost(trial))
+    trials: SortedMap.set(self.trials, trial.trialNumber, trial),
+    cumulativeCost: Num.sum(Num.subtract(self.cumulativeCost, previousCost), cost(trial))
   })
-}
+})
 
 /**
  * Restores trial history in source order; the last record for a number wins.
@@ -63,7 +67,11 @@ export const setTrial = <Config, State>(
  * @category constructors
  */
 export const fromIterable = <Config, State>(records: Iterable<Trial.Trial<Config, State>>): History<Config, State> =>
-  Arr.reduce(records, empty<Config, State>(), setTrial)
+  Arr.reduce(
+    records,
+    empty<Config, State>(),
+    (self: History<Config, State>, trial: Trial.Trial<Config, State>) => set(self, trial)
+  )
 
 /**
  * Returns all records in ascending trial-number order, independent of finish order.
@@ -71,5 +79,5 @@ export const fromIterable = <Config, State>(records: Iterable<Trial.Trial<Config
  * @since 0.1.0
  * @category getters
  */
-export const trials = <Config, State>(history: History<Config, State>) =>
-  Arr.fromIterable(SortedMap.values(history.trials))
+export const values = <Config, State>(self: History<Config, State>) =>
+  Arr.fromIterable(SortedMap.values(self.trials))

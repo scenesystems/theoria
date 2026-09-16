@@ -6,7 +6,7 @@ import * as Float64 from "../../src/internal/float64.js"
 import { pendingAsZeroImputationPolicy } from "../../src/Sampler/index.js"
 import * as Sampler from "../../src/Sampler/index.js"
 import * as SearchSpace from "../../src/SearchSpace/index.js"
-import * as Study from "../../src/Study/index.js"
+import * as Study from "../../src/Study.js"
 
 const makeSpace = () =>
   SearchSpace.make({
@@ -14,7 +14,7 @@ const makeSpace = () =>
     depth: SearchSpace.int(1, 4)
   })
 
-const asSingleObjective = (result: Study.StudyResult) =>
+const asSingleObjective = (result: Study.Result) =>
   result._tag === "SingleObjective" ? Option.some(result) : Option.none()
 
 describe("Study concurrency", () => {

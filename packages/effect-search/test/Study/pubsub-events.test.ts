@@ -1,21 +1,21 @@
 import { describe, expect, it } from "@effect/vitest"
 import { Array as Arr, Chunk, Effect, Fiber, PubSub, Ref, Stream } from "effect"
 
-import { EventPublisher, eventPublisherFromPubSub, fanoutEventPublisher } from "../../src/Study/events.js"
-import * as StudyEvent from "../../src/StudyEvent/index.js"
+import { EventPublisher, eventPublisherFromPubSub, fanoutEventPublisher } from "../../src/internal/study/events.js"
+import * as StudyEvent from "../../src/StudyEvent.js"
 
 describe("pubsub event fanout", () => {
   it.effect("broadcasts events to pubsub stream and secondary sink", () =>
     Effect.scoped(
       Effect.gen(function*() {
-        const pubsub = yield* PubSub.unbounded<StudyEvent.StudyEvent>()
-        const mirroredRef = yield* Ref.make<ReadonlyArray<StudyEvent.StudyEvent>>(Arr.empty())
+        const pubsub = yield* PubSub.unbounded<StudyEvent.Event>()
+        const mirroredRef = yield* Ref.make<ReadonlyArray<StudyEvent.Event>>(Arr.empty())
         const mirroredPublisher = new EventPublisher({
           publish: (event) => Ref.update(mirroredRef, (events) => Arr.append(events, event))
         })
         const publisher = fanoutEventPublisher(eventPublisherFromPubSub(pubsub), mirroredPublisher)
 
-        const event = StudyEvent.TrialStarted({ trialNumber: 1, config: { x: 0.5 } })
+        const event = StudyEvent.trialStarted({ trialNumber: 1, config: { x: 0.5 } })
         const stream = yield* Stream.fromPubSub(pubsub, { scoped: true })
         const streamFiber = yield* stream.pipe(
           Stream.take(1),

@@ -22,7 +22,7 @@ const CompletedMetadata = Schema.TaggedStruct("Completed", { duration: Schema.Nu
  * @since 0.1.0
  * @category schemas
  */
-export const makeSchema = <Config extends Schema.Schema.All, State extends Schema.Schema.All>(
+export const Trial = <Config extends Schema.Schema.All, State extends Schema.Schema.All>(
   config: Config,
   state: State
 ) =>

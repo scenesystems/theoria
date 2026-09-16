@@ -1,7 +1,7 @@
 import { logStrict, logSumExp } from "@scenesystems/effect-math/Numeric"
 import { Array as Arr, Chunk, Effect, Match, Number as Num } from "effect"
 
-import type { InvalidSamplerConfig } from "../../../Errors/index.js"
+import type { InvalidSamplerConfig } from "../../../SearchError.js"
 import { logPdf as truncatedLogPdf, logPdfEffect as truncatedLogPdfEffect } from "../truncatedNormal.js"
 import type { TruncatedNormalParams } from "../truncatedNormal.js"
 import { samplerMathError } from "./errors.js"
@@ -23,7 +23,7 @@ const kernelLogWeight = (kernel: ContinuousKernel): number =>
 export const logDensity = (parzen: ContinuousParzen, value: number): number => {
   const componentScores = Arr.map(
     parzen.kernels,
-    (kernel) => truncatedLogPdf(value, paramsForKernel(parzen, kernel)) + kernelLogWeight(kernel)
+    (kernel) => Num.sum(truncatedLogPdf(value, paramsForKernel(parzen, kernel)), kernelLogWeight(kernel))
   )
 
   return logSumExp(Chunk.fromIterable(componentScores))
@@ -35,7 +35,7 @@ export const logDensityEffect = (
 ): Effect.Effect<number, InvalidSamplerConfig> =>
   Effect.forEach(parzen.kernels, (kernel) =>
     truncatedLogPdfEffect(value, paramsForKernel(parzen, kernel)).pipe(
-      Effect.map((score) => score + kernelLogWeight(kernel))
+      Effect.map((score) => Num.sum(score, kernelLogWeight(kernel)))
     )).pipe(
       Effect.map((componentScores) => logSumExp(Chunk.fromIterable(componentScores))),
       Effect.mapError((error) => samplerMathError("logDensity", error))

@@ -6,11 +6,11 @@
  * @module
  */
 /** Shared identities, provenance, and envelope schemas. @since 0.1.0 @category modules */
-export * as Artifacts from "./Artifacts.js"
+export * as Artifact from "./Artifact.js"
+/** Scoped producer-to-stream composition. @since 0.1.0 @category modules */
+export * as Emitter from "./Emitter.js"
 /** Evaluation of fixed inputs with typed observations. @since 0.1.0 @category modules */
 export * as Evaluation from "./Evaluation.js"
-/** Scoped producer-to-stream composition. @since 0.1.0 @category modules */
-export * as Events from "./Events.js"
 /** Ordered trial history and replacement-aware cost accounting. @since 0.1.0 @category modules */
 export * as History from "./History.js"
 /** Schema-driven JSON-lines persistence. @since 0.1.0 @category modules */

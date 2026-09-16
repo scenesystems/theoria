@@ -1,13 +1,13 @@
 import { describe, expect, it } from "@effect/vitest"
-import { Effect, Option } from "effect"
+import { Chunk, Effect, Option } from "effect"
 
+import { DimensionScoreTrace } from "../../../src/internal/tpe/dimensions/trace.js"
 import {
   costWeightedExpectedImprovementScore,
   expectedImprovementScore
 } from "../../../src/internal/tpe/expectedImprovement.js"
+import { NamedDimensionScoreTrace, selectBestMixedCandidate } from "../../../src/internal/tpe/mixed.js"
 import { CompletedTrialForSplit } from "../../../src/internal/tpe/splitTrials.js"
-import { DimensionScoreTrace } from "../../../src/samplers/Tpe/dimensions/trace.js"
-import { NamedDimensionScoreTrace, selectBestMixedCandidate } from "../../../src/samplers/Tpe/mixed.js"
 
 describe("tpe cost-aware acquisition", () => {
   it.effect("applies EI / estimated_cost weighting in log-space scoring", () =>
@@ -29,7 +29,7 @@ describe("tpe cost-aware acquisition", () => {
         new NamedDimensionScoreTrace({
           name: "x",
           trace: new DimensionScoreTrace({
-            candidates: [{ x: 0.1 }, { x: 0.9 }],
+            candidates: Chunk.make({ x: 0.1 }, { x: 0.9 }),
             logL: [-0.2, -0.2],
             logG: [-0.7, -0.7],
             scores: [0.5, 0.5]
