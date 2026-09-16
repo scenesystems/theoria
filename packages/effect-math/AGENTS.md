@@ -24,12 +24,12 @@ bun run build        # ESM + CJS + annotate-pure-calls
 All code must be idiomatic Effect. See root `AGENTS.md` for the full banned-patterns table. Key constraints:
 
 - **`Chunk<number>`** is the sole dense carrier — no `Float64Array`, no `ReadonlyArray` in public API
-- **Effect `Number` module** for all arithmetic — `N.sum`, `N.multiply`, `N.subtract`, not `+`, `-`, `*`
+- **Effect `Number` module** for all arithmetic — `Number.sum`, `Number.multiply`, `Number.subtract`, not `+`, `-`, `*`
 - **`Schema.TaggedError`** for all errors — no `throw`, no `new Error()`
 - **`Match.exhaustive`** for all dispatch — no `switch`, no `if/else` chains
 - **`Effect.filterOrFail`** for all validation — no `if` statements
 - **`onExcessProperty: "error"`** on all `Schema.decodeUnknown` boundary calls
-- **`Math.sqrt`** is the only allowed plain JS math function (deterministic IEEE 754 leaf)
+- **No implicit math exceptions.** Deterministic IEEE 754 behavior does not authorize `Math.sqrt` or other JavaScript substitutes. Research Effect's public APIs and ecosystem integrations; obtain explicit authorization for any operation that remains unavailable before introducing a non-Effect implementation.
 
 ## Domain Architecture
 
@@ -50,6 +50,17 @@ Eleven domains, each with the same file structure:
 | Distribution  | provisional | Normal, LogNormal, Exponential, Uniform, Beta, Gamma, StudentT, Categorical, Binomial, Poisson |
 
 Each domain owns: `contract.ts`, `model.ts`, `schema.ts`, `errors.ts`, `operations.ts`, `internal/`, `index.ts`.
+
+## Naming and Vocabulary
+
+- Use Effect's exact public module names: `Array`, `BigDecimal`, `BigInt`, `Boolean`, `Number`, `Record`, and `String`. Do not abbreviate them or prefix them with `Effect`.
+- Resolve overlapping operations with the owning domain namespace: `Numeric.sqrt` and `Complex.sqrt`, not renamed function imports. Direct imports keep their canonical names when there is no collision.
+- Name internal namespaces for their mathematical subject or algorithm: `Arithmetic`, `Trigonometric`, `Integration`, `Ridder`, `Normal`, and `Beta`. Do not add `Kernel`, `Adapter`, `Bridge`, or compatibility suffixes to disambiguate imports.
+- Pure implementations use their operation name, matching the public spelling, without a redundant `Kernel` suffix. Actual algorithm distinctions such as `gammaLanczos` and contracts such as `KernelExecutionError` retain their meaning.
+- Operation forms use the base name, `Validated`, and `WithPolicies`. Precision variants use `Strict` or `Relaxed` only where they name an established policy contract. Distribution suffixes are `Pdf`, `Logpdf`, `Cdf`, `Quantile`, `Pmf`, and `Logpmf`.
+- Keep conventional mathematical symbols for scalar variables and coefficients. These are not module aliases. Models and schemas use PascalCase; operations and values use camelCase; mathematical constants use their established notation or descriptive uppercase names.
+- Apply the same vocabulary to implementation, tests, examples, scripts, and documentation. Upstream Python imports retain canonical names such as `numpy` and `scipy.special`, without shorthand aliases. This naming rule does not authorize a non-Effect implementation.
+- Verify behavior through public APIs. Do not add tests of naming, guidance, inventories, or scaffolding.
 
 ## Three-Tier Operation Pattern
 
@@ -78,15 +89,18 @@ Fixture generation uses [uv](https://docs.astral.sh/uv/) with PEP 723 inline met
 
 - Committed fixture JSON in `test/fixtures/scipy/` is the test source of truth
 - `bun run fixtures:check` schema-decodes every committed fixture through the TS `KnownFixtureSchema` union — catches generator ↔ schema drift
-- `bun run fixtures:generate` regenerates fixtures from the generator script
+- `bun run fixtures:generate` runs the Effect entrypoint `scripts/generate-scipy-fixtures.ts`
 - `bun run fixtures:lock` pins exact Python dependency versions (run after changing PEP 723 deps)
-- Generator is decomposed: `scripts/fixtures/` has one module per domain; `generate-scipy-fixtures.py` is the orchestrator
+- Python is explicitly authorized for SciPy/NumPy reference computation, result conversion, and the JSON stdin/stdout protocol. These dependencies remain Python; this authorization does not extend to TypeScript computation or orchestration.
+- Effect owns discovery, scoped Python processes, bounded concurrency, schema validation, filesystem writes, and manifest construction. `generate-scipy-fixtures.py` evaluates one requested family; `scripts/fixtures/` has one module per domain.
+- `SCIPY_FIXTURE_OUTPUT_DIRECTORY` selects an alternate output directory for review before replacing committed references. `SCIPY_FIXTURE_GENERATED_AT` overrides the reproducible default timestamp `2026-03-23T00:00:00Z`.
+- Provenance records the SciPy, NumPy, and Python versions actually used. Review numerical changes independently; do not weaken tolerances to accept regenerated output.
 
 ### Fixture Architecture
 
 - **Python generators** (`scripts/fixtures/*.py`): one module per domain, each exports `generate(generated_at) -> list[dict]`
-- **TS schemas** (`test/helpers/fixtures/schemas.ts`): typed discriminated unions per domain, `KnownFixtureSchema` union of all 9
-- **TS registry** (`test/helpers/fixtures/registry.ts`): `FixtureRegistry` Context.Tag, `loadFixture` helper, `@effect/platform` + `@effect/platform-bun` for file I/O
+- **TS schemas** (`test/helpers/fixtures/schemas.ts`): discriminated unions per domain; `KnownFixtureSchema` owns the fixture vocabulary, with names derived from its members
+- **TS registry** (`test/helpers/fixtures/registry.ts`): `loadFixture` reads the manifest and schema-decodes the requested document using `@effect/platform` services provided by `BunContext.layer`
 - **Fixture-parity tests** (`test/{Domain}/fixture-parity.test.ts`): load via registry, decode through domain schema, dispatch via `Match.exhaustive`
 
 ### Rules

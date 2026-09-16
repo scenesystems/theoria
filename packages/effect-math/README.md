@@ -9,7 +9,7 @@ Every domain offers its operations in up to three forms. Pure kernels are plain 
 ## Installation
 
 ```sh
-npm install @scenesystems/effect-math effect
+bun add @scenesystems/effect-math effect
 ```
 
 Effect `^3.22.1` is a required peer dependency.
@@ -19,20 +19,18 @@ Effect `^3.22.1` is a required peer dependency.
 The example below uses a pure kernel for an internal calculation and a validated variant where the vectors arrive as untrusted input.
 
 ```ts typecheck
-import { Chunk, Effect } from "effect"
+import { Array, Chunk, Effect } from "effect"
 import { dot, dotValidated } from "@scenesystems/effect-math/LinearAlgebra"
 
-const a = Chunk.fromIterable([1, 2, 3])
-const b = Chunk.fromIterable([4, 5, 6])
+const a = Chunk.make(1, 2, 3)
+const b = Chunk.make(4, 5, 6)
 
 export const direct: number = dot(a, b)
 
-export const checked = dotValidated({ a: [1, 2, 3], b: [4, 5, 6] }).pipe(
-  Effect.catchTags({
-    LinearAlgebraDecodeError: () => Effect.succeed(Number.NaN),
-    ShapeMismatchError: () => Effect.succeed(Number.NaN)
-  })
-)
+export const checked = dotValidated({
+  a: Array.make(1, 2, 3),
+  b: Array.make(4, 5, 6)
+}).pipe(Effect.either)
 ```
 
 Import from a domain subpath such as `@scenesystems/effect-math/LinearAlgebra` to keep imports focused, or from the package root, which exposes every domain as a namespace and re-exports the shared contracts.
@@ -57,23 +55,38 @@ Vectors and matrices are `Chunk<number>` values. A matrix is a row-major chunk a
 
 Shared schemas, policy services, Layers, branded scalars, and cross-domain errors are exported from [`@scenesystems/effect-math/contracts`](./src/contracts/index.ts).
 
+## Naming and vocabulary
+
+Effect imports retain their public module names: `Number.sum`, `Array.map`, `Boolean.match`, `String.concat`, `BigDecimal.multiply`, and `BigInt.gcd`. Domain imports retain their mathematical names. When operations overlap, qualify them with their owning namespace rather than inventing an alias:
+
+```ts typecheck
+import { Complex, Numeric } from "@scenesystems/effect-math"
+
+export const realRoot = Numeric.sqrt(2)
+export const complexRoot = Complex.sqrt(Complex.of(-1, 0))
+```
+
+Internal modules follow the same rule: `Arithmetic`, `Integration`, `Ridder`, and `Normal` name a subject or algorithm, without bridge or implementation suffixes. A pure implementation keeps its operation's spelling, including distribution suffixes such as `Logpdf` and `Logpmf`. Algorithm-specific names such as `gammaLanczos` identify an actual mathematical distinction. Conventional scalar symbols and coefficients remain mathematical notation, not abbreviations for module imports.
+
+These conventions also apply to tests, examples, scripts, and documentation. The operation forms below describe behavior rather than import provenance.
+
 ## Operation forms
 
 Each operation appears under its base name and, where the domain provides them, with `Validated` and `WithPolicies` suffixes.
 
-The pure kernel assumes its documented preconditions and returns a plain value. It never throws for numerical reasons; where IEEE 754 defines a result, such as `-Infinity` for `log(0)`, it returns that result. Some kernels have a `Strict` sibling, such as `logStrict`, that rejects inputs outside the real domain instead.
+The pure kernel assumes its documented preconditions and returns a plain value. Where IEEE 754 defines a result, such as `-Infinity` for `log(0)`, scalar kernels return that result. `logStrict` preserves the established deterministic binary64 series, while `log` uses a range-reduced rational approximation through Effect's native `Number` module; both retain IEEE 754 exceptional-value behavior. Exponential range boundaries use `BigDecimal` to avoid premature overflow and underflow. Use `logValidated` when invalid logarithm input should enter the typed error channel.
 
 The validated variant takes `unknown`, decodes it against the operation's input schema with excess properties rejected, checks structural preconditions such as matching lengths, and runs the kernel. Its errors are a `<Domain>DecodeError` for schema failures plus domain errors such as `ShapeMismatchError`. Use it at API boundaries, on deserialized data, and anywhere a bad input should be a value rather than a crash.
 
-The policy-aware variant takes typed input and reads the runtime-policy services described below. It reports non-finite results as domain violations under a strict precision policy, dispatches to a typed-array backend when one is selected, and emits diagnostics when they are enabled.
+The policy-aware variant takes typed input and reads the runtime-policy services described below. It reports non-finite results as domain violations under a strict precision policy, consults backend preferences where documented, and emits diagnostics when they are enabled.
 
 ```ts typecheck
-import { Chunk, Effect } from "effect"
+import { Chunk, Effect, Number } from "effect"
 import { makeDeterministicRuntimePoliciesLayer, Seed } from "@scenesystems/effect-math/contracts"
 import { bisect, bisectValidated, bisectWithPolicies } from "@scenesystems/effect-math/Optimization"
 import { summaryStatistics, summaryStatisticsWithPolicies } from "@scenesystems/effect-math/Statistics"
 
-const f = (x: number) => x * x - 2
+const f = (x: number) => Number.subtract(Number.multiply(x, x), 2)
 
 export const root: number = bisect(f, 0, 2)
 export const rootFromInput = bisectValidated(f, { a: 0, b: 2 })
@@ -100,11 +113,13 @@ Policy-aware operations declare their configuration as `Context.Tag` services fr
 | Service                    | Values                                           | Effect on policy-aware operations                                                  |
 | -------------------------- | ------------------------------------------------ | ---------------------------------------------------------------------------------- |
 | `PrecisionPolicyService`   | `strict` or `relaxed`                            | Strict turns non-finite results into typed domain violations; relaxed returns them |
-| `BackendPolicyService`     | `scalar` or `typed-array`                        | Selects the execution strategy for operations that consult a backend               |
+| `BackendPolicyService`     | `scalar` or `compensated`                        | Selects the documented backend preference for operations that consult it           |
 | `DiagnosticsPolicyService` | `enabled` or `disabled`                          | Turns timing and diagnostic logging on or off                                      |
 | `RngPolicyService`         | deterministic with a `Seed`, or nondeterministic | Declares how operations that need randomness obtain it                             |
 
 `makeDeterministicRuntimePoliciesLayer` and `makeNondeterministicRuntimePoliciesLayer` build a Layer with all four services. Supply a single service with `Layer.succeed` when an operation needs only part of the set. Policies affect only operations with the `WithPolicies` suffix; pure and validated operations never read them, so a policy Layer cannot change the meaning of code that did not opt in.
+
+For `Numeric.sumWithPolicies`, `compensated` selects Kahan-compensated accumulation over an immutable `Chunk`. The `scalar` policy selects ordinary iteration-order accumulation. This preference does not imply a different algorithm for every operation: `LinearAlgebra.dotWithPolicies`, for example, records the preference in diagnostics while using its documented dot-product algorithm.
 
 ## Public surface
 
@@ -137,6 +152,14 @@ Pure kernels have no error channel. They do what their documentation says for va
 ## Examples
 
 The [examples directory](./examples/) contains one runnable program per domain, each showing the pure, validated, and policy-aware forms side by side: [numeric transforms](./examples/01-numeric-scalar-transforms.ts), [linear algebra](./examples/02-linear-algebra-vectors.ts), [geometry](./examples/03-geometry-distances.ts), [probability](./examples/04-probability-distributions.ts), [statistics](./examples/05-statistics-summary.ts), [special functions](./examples/06-special-functions.ts), [algebra](./examples/07-algebra-polynomials.ts), [calculus](./examples/08-calculus-numerical.ts), [optimization](./examples/09-optimization-solvers.ts), and [distributions](./examples/10-distributions.ts).
+
+## Reference fixtures
+
+Committed SciPy/NumPy fixtures provide independent numerical expectations. From this package directory, run `bun run fixtures:check` to validate them or `bun run fixtures:generate` to regenerate them. Generation requires [uv](https://docs.astral.sh/uv/); `bun run fixtures:lock` updates the Python dependency lock after dependency changes.
+
+The Effect entrypoint discovers reference families, runs Python processes in scopes with bounded concurrency, decodes their JSON responses through the fixture schemas, and writes the fixture files and manifest. Python owns SciPy/NumPy reference computation, result conversion, and JSON input/output. The manifest records the actual SciPy, NumPy, and Python versions used.
+
+Set `SCIPY_FIXTURE_OUTPUT_DIRECTORY` to generate into a separate directory for review before replacing committed references. `SCIPY_FIXTURE_GENERATED_AT` overrides the default reproducible timestamp `2026-03-23T00:00:00Z`. Generator failures and invalid responses fail the command before any fixture files are written. Filesystem write failures can leave partial output, so use a separate output directory when reviewing regenerated references.
 
 ## Status
 

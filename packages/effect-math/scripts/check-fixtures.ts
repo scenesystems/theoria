@@ -1,245 +1,211 @@
 /**
- * Fixture schema-check script — validates every committed fixture JSON
- * against the TypeScript KnownFixtureSchema union.
+ * Validates every committed SciPy fixture against its schema and reports
+ * recursively discovered JSON files that are absent from the manifest.
  *
- * Catches generator ↔ schema drift that the Python verifier cannot detect.
- *
- * Usage: bun run fixtures:check
+ * @since 0.1.0
+ * @module
  */
-import { FileSystem, Path, Url } from "@effect/platform"
+import { FileSystem, Path } from "@effect/platform"
 import { BunContext, BunRuntime } from "@effect/platform-bun"
-import type * as PlatformError from "@effect/platform/Error"
-import { Array as Arr, Console, Data, Effect, Either, Option, Schema } from "effect"
-import type { ParseResult } from "effect"
+import { Array, Boolean, Chunk, Console, Effect, Either, Inspectable, Match, Option, Schema, String } from "effect"
 
-import { FixtureManifestSchema, KnownFixtureSchema } from "../test/helpers/fixtures/schemas.js"
+import { directoryBeside, loadFixtureByEntry, loadManifest } from "../test/helpers/fixtures/io.js"
 
-const FIXTURE_ROOT = "test/fixtures/scipy"
+const FIXTURE_ROOT = "../test/fixtures/scipy/"
 const MANIFEST_FILE = "manifest.json"
 
-class FixtureCheckError extends Data.TaggedError("FixtureCheckError")<{
-  readonly name: string
-  readonly file: string
-  readonly reason: string
-  readonly cause: Option.Option<PlatformError.PlatformError | ParseResult.ParseError>
-}> {
+class FixtureCheckError extends Schema.TaggedError<FixtureCheckError>()("FixtureCheckError", {
+  name: Schema.String,
+  file: Schema.String,
+  reason: Schema.String,
+  cause: Schema.Option(Schema.Unknown)
+}) {
   override get message() {
-    return `${this.name} (${this.file}): ${this.reason}${
-      Option.match(this.cause, {
-        onNone: () => "",
-        onSome: (cause) => `: ${cause.message}`
-      })
-    }`
+    return Array.join(
+      Array.make(
+        this.name,
+        " (",
+        this.file,
+        "): ",
+        this.reason,
+        Option.match(this.cause, {
+          onNone: () => "",
+          onSome: (cause) => String.concat(": ", Inspectable.toStringUnknown(cause, 0))
+        })
+      ),
+      ""
+    )
   }
 }
 
-const readJsonFile = (
-  absolutePath: string
-): Effect.Effect<unknown, FixtureCheckError, FileSystem.FileSystem> =>
-  Effect.gen(function*() {
-    const fs = yield* FileSystem.FileSystem
-    const raw = yield* fs.readFileString(absolutePath).pipe(
-      Effect.mapError((error) =>
-        new FixtureCheckError({
-          name: "manifest",
-          file: absolutePath,
-          reason: "could not read manifest",
-          cause: Option.some(error)
-        })
-      )
-    )
-    return yield* Schema.decodeUnknown(Schema.parseJson(Schema.Unknown))(raw).pipe(
-      Effect.mapError((error) =>
-        new FixtureCheckError({
-          name: "manifest",
-          file: absolutePath,
-          reason: "malformed JSON",
-          cause: Option.some(error)
-        })
-      )
-    )
-  })
-
 const findJsonFiles = (
-  fs: FileSystem.FileSystem,
+  fileSystem: FileSystem.FileSystem,
   pathService: Path.Path,
   root: string,
   prefix: string
-): Effect.Effect<Array<Either.Either<string, FixtureCheckError>>, never> =>
+): Effect.Effect<Chunk.Chunk<Either.Either<string, FixtureCheckError>>> =>
   Effect.gen(function*() {
-    const dir = prefix === "" ? root : pathService.join(root, prefix)
-    const entries = yield* Effect.either(fs.readDirectory(dir))
-    if (Either.isLeft(entries)) {
-      return [Either.left(
-        new FixtureCheckError({
-          name: "scan",
-          file: dir,
-          reason: "could not read directory",
-          cause: Option.some(entries.left)
-        })
-      )]
-    }
+    const directory = Boolean.match(String.isEmpty(prefix), {
+      onFalse: () => pathService.join(root, prefix),
+      onTrue: () => root
+    })
+    const entries = yield* Effect.either(fileSystem.readDirectory(directory))
 
-    const results = yield* Effect.forEach(entries.right, (entry) =>
-      Effect.gen(function*() {
-        const relative = prefix === "" ? entry : `${prefix}/${entry}`
-        const absolute = pathService.join(root, relative)
-        const stat = yield* Effect.either(fs.stat(absolute))
-        if (Either.isLeft(stat)) {
-          return [Either.left(
-            new FixtureCheckError({
-              name: "scan",
-              file: absolute,
-              reason: "could not stat",
-              cause: Option.some(stat.left)
-            })
-          )]
-        }
+    return yield* Either.match(entries, {
+      onLeft: (cause) =>
+        Effect.succeed(
+          Chunk.of(
+            Either.left(
+              new FixtureCheckError({
+                name: "scan",
+                file: directory,
+                reason: "could not read directory",
+                cause: Option.some(cause)
+              })
+            )
+          )
+        ),
+      onRight: (names) =>
+        Effect.map(
+          Effect.forEach(names, (name) =>
+            Effect.gen(function*() {
+              const relative = Boolean.match(String.isEmpty(prefix), {
+                onFalse: () => pathService.join(prefix, name),
+                onTrue: () => name
+              })
+              const absolute = pathService.join(root, relative)
+              const stat = yield* Effect.either(fileSystem.stat(absolute))
 
-        if (stat.right.type === "Directory") {
-          return yield* findJsonFiles(fs, pathService, root, relative)
-        }
-
-        return entry.endsWith(".json") ? [Either.right(relative)] : Arr.empty()
-      }))
-
-    return Arr.flatten(results)
+              return yield* Either.match(stat, {
+                onLeft: (cause) =>
+                  Effect.succeed(
+                    Chunk.of(
+                      Either.left(
+                        new FixtureCheckError({
+                          name: "scan",
+                          file: absolute,
+                          reason: "could not stat filesystem entry",
+                          cause: Option.some(cause)
+                        })
+                      )
+                    )
+                  ),
+                onRight: (info) =>
+                  Match.value(info.type).pipe(
+                    Match.when("Directory", () => findJsonFiles(fileSystem, pathService, root, relative)),
+                    Match.when(
+                      Match.is("File", "SymbolicLink", "BlockDevice", "CharacterDevice", "FIFO", "Socket", "Unknown"),
+                      () =>
+                        Effect.succeed(
+                          Boolean.match(String.endsWith(".json")(name), {
+                            onFalse: () => Chunk.empty<Either.Either<string, FixtureCheckError>>(),
+                            onTrue: () => Chunk.of(Either.right(relative))
+                          })
+                        )
+                    ),
+                    Match.exhaustive
+                  )
+              })
+            })),
+          (entries) => Chunk.flatten(Chunk.fromIterable(entries))
+        )
+    })
   })
 
 const program = Effect.gen(function*() {
-  const fs = yield* FileSystem.FileSystem
-  const path = yield* Path.Path
-  const packageRoot = yield* Url.fromString("../", import.meta.url).pipe(
-    Effect.flatMap((url) => path.fromFileUrl(url)),
-    Effect.orDie
+  const fileSystem = yield* FileSystem.FileSystem
+  const pathService = yield* Path.Path
+  const root = yield* directoryBeside(import.meta.url, FIXTURE_ROOT).pipe(
+    Effect.mapError(
+      (cause) =>
+        new FixtureCheckError({
+          name: "manifest",
+          file: FIXTURE_ROOT,
+          reason: "could not resolve fixture directory",
+          cause: Option.some(cause)
+        })
+    )
   )
-  const root = path.join(packageRoot, FIXTURE_ROOT)
-
-  const manifestPath = path.join(root, MANIFEST_FILE)
-  const manifestJson = yield* readJsonFile(manifestPath)
-  const manifest = yield* Schema.decodeUnknown(FixtureManifestSchema)(manifestJson).pipe(
-    Effect.mapError((error) =>
-      new FixtureCheckError({
-        name: "manifest",
-        file: manifestPath,
-        reason: "manifest schema decode failed",
-        cause: Option.some(error)
-      })
+  const manifest = yield* loadManifest(root, MANIFEST_FILE).pipe(
+    Effect.mapError(
+      (cause) =>
+        new FixtureCheckError({
+          name: "manifest",
+          file: pathService.join(root, MANIFEST_FILE),
+          reason: Match.value(cause).pipe(
+            Match.tag("FixtureManifestReadError", () => "could not read manifest"),
+            Match.tag("FixtureMalformedJsonError", () => "malformed manifest JSON"),
+            Match.tag("FixtureManifestDecodeError", () => "manifest schema decode failed"),
+            Match.exhaustive
+          ),
+          cause: Option.some(cause)
+        })
     )
   )
 
-  yield* Console.log(`Checking ${manifest.fixtures.length} fixtures from manifest...`)
-  yield* Console.log()
-
-  const results = yield* Effect.forEach(
-    manifest.fixtures,
-    (entry) =>
-      Effect.gen(function*() {
-        const filePath = path.join(root, entry.file)
-        const exists = yield* fs.exists(filePath).pipe(
-          Effect.mapError(
-            (error) =>
-              new FixtureCheckError({
-                name: entry.name,
-                file: entry.file,
-                reason: "probe failed",
-                cause: Option.some(error)
-              })
-          )
-        )
-        if (!exists) {
-          return yield* new FixtureCheckError({
+  const fixtureResults = yield* Effect.forEach(manifest.fixtures, (entry) =>
+    loadFixtureByEntry(root, entry).pipe(
+      Effect.as(entry.name),
+      Effect.mapError(
+        (cause) =>
+          new FixtureCheckError({
             name: entry.name,
             file: entry.file,
-            reason: "file does not exist",
-            cause: Option.none()
+            reason: Match.value(cause).pipe(
+              Match.tag("FixtureFileReadError", () => "read failed"),
+              Match.tag("FixtureMalformedJsonError", () => "malformed JSON"),
+              Match.tag(
+                "FixtureSchemaDecodeError",
+                () => "schema decode failed — fixture JSON does not match its declared KnownFixtureSchema variant"
+              ),
+              Match.exhaustive
+            ),
+            cause: Option.some(cause)
           })
-        }
+      ),
+      Effect.either
+    ))
 
-        const raw = yield* fs.readFileString(filePath).pipe(
-          Effect.mapError(
-            (error) =>
-              new FixtureCheckError({
-                name: entry.name,
-                file: entry.file,
-                reason: "read failed",
-                cause: Option.some(error)
-              })
-          )
-        )
-        const json = yield* Schema.decodeUnknown(Schema.parseJson(Schema.Unknown))(raw).pipe(
-          Effect.mapError(
-            (error) =>
-              new FixtureCheckError({
-                name: entry.name,
-                file: entry.file,
-                reason: "malformed JSON",
-                cause: Option.some(error)
-              })
-          )
-        )
-        const fixture = yield* Schema.decodeUnknown(KnownFixtureSchema)(json).pipe(
-          Effect.mapError((error) =>
+  const manifestFiles = Array.map(manifest.fixtures, (entry) => entry.file)
+  const scanned = yield* findJsonFiles(fileSystem, pathService, root, "")
+  const [scanErrors, discoveredFiles] = Array.separate(scanned)
+  const orphanErrors = Array.filterMap(discoveredFiles, (file) => {
+    const normalized = String.replaceAll(pathService.sep, "/")(file)
+    const declared = Array.some(manifestFiles, (manifestFile) => String.Equivalence(manifestFile, normalized))
+    return Boolean.match(
+      Boolean.and(Boolean.not(String.Equivalence(normalized, MANIFEST_FILE)), Boolean.not(declared)),
+      {
+        onFalse: () => Option.none<FixtureCheckError>(),
+        onTrue: () =>
+          Option.some(
             new FixtureCheckError({
-              name: entry.name,
-              file: entry.file,
-              reason: "schema decode failed — fixture JSON does not match any KnownFixtureSchema variant",
-              cause: Option.some(error)
+              name: "orphan",
+              file: normalized,
+              reason: "fixture file exists on disk but is not declared in manifest",
+              cause: Option.none()
             })
           )
-        )
-        if (fixture.fixture !== entry.name) {
-          return yield* new FixtureCheckError({
-            name: entry.name,
-            file: entry.file,
-            reason: `name mismatch: manifest says "${entry.name}" but fixture contains "${fixture.fixture}"`,
-            cause: Option.none()
-          })
-        }
-        return entry.name
-      }).pipe(Effect.either)
-  )
-
-  const manifestFiles = Arr.map(manifest.fixtures, (entry) => entry.file)
-  const allJsonFiles = yield* findJsonFiles(fs, path, root, "")
-  const [scanErrors, discoveredJsonFiles] = Arr.separate(allJsonFiles)
-  const orphans = Arr.filter(
-    discoveredJsonFiles,
-    (file) => file !== MANIFEST_FILE && !Arr.contains(manifestFiles, file)
-  )
-  const orphanErrors = Arr.map(
-    orphans,
-    (file) =>
-      new FixtureCheckError({
-        name: "orphan",
-        file,
-        reason: "fixture file exists on disk but is not declared in manifest",
-        cause: Option.none()
-      })
-  )
-
-  const [errors, passed] = Arr.separate(results)
-
-  const allErrors = [...errors, ...scanErrors, ...orphanErrors]
-
-  yield* Effect.forEach(passed, (name) => Console.log(`✓ ${name}`), { discard: true })
-  yield* Effect.forEach(allErrors, (err) => Console.log(`✗ ${err.message}`), {
-    discard: true
+      }
+    )
   })
+  const [fixtureErrors, passed] = Array.separate(fixtureResults)
+  const allErrors = Array.appendAll(Array.appendAll(fixtureErrors, scanErrors), orphanErrors)
 
+  yield* Console.log("Checking", Array.length(manifest.fixtures), "fixtures from manifest...")
   yield* Console.log()
-  yield* Console.log(`Results: ${passed.length} passed, ${allErrors.length} failed`)
+  yield* Effect.forEach(passed, (name) => Console.log("✓", name), { discard: true })
+  yield* Effect.forEach(allErrors, (error) => Console.log("✗", error.message), { discard: true })
+  yield* Console.log()
+  yield* Console.log("Results:", Array.length(passed), "passed,", Array.length(allErrors), "failed")
 
-  if (Arr.isNonEmptyArray(allErrors)) {
-    return yield* new FixtureCheckError({
+  yield* Effect.fail(
+    new FixtureCheckError({
       name: "summary",
-      file: "",
-      reason: `${allErrors.length} fixture check failure(s)`,
+      file: MANIFEST_FILE,
+      reason: String.concat(Inspectable.toStringUnknown(Array.length(allErrors), 0), " fixture check failure(s)"),
       cause: Option.none()
     })
-  }
+  ).pipe(Effect.when(() => Array.isNonEmptyArray(allErrors)))
 })
 
-const main = program.pipe(Effect.provide(BunContext.layer))
-
-BunRuntime.runMain(main)
+BunRuntime.runMain(program.pipe(Effect.provide(BunContext.layer)))

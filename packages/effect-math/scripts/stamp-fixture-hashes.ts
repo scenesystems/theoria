@@ -1,22 +1,17 @@
 /**
- * Computes canonical BLAKE3-256 hashes for all boundary fixture JSON files
- * using `@scenesystems/digest` and stamps the corresponding manifest files.
+ * Stamps canonical BLAKE3-256 hashes into boundary fixture manifests.
  *
- * The hash is computed via `digest("blake3-256", value)`:
- * JCS canonicalize → UTF-8 encode → BLAKE3-256 → base64url → tagged string.
- *
- * No `JSON.parse` or `JSON.stringify` — all serialization uses Effect Schema.
- *
- * Usage: bun run scripts/stamp-fixture-hashes.ts
+ * @since 0.1.0
+ * @module
  */
 import { FileSystem, Path, Url } from "@effect/platform"
 import { BunContext, BunRuntime } from "@effect/platform-bun"
 import { digest } from "@scenesystems/digest"
-import { Console, Effect, Schema } from "effect"
+import { Array, Boolean, Console, Effect, Schema, String } from "effect"
 
-const FIXTURES_DIR = "test/fixtures"
+const FIXTURES_DIRECTORY = "test/fixtures"
 
-const ManifestSchema = Schema.Struct({
+const FixtureHashManifestSchema = Schema.Struct({
   version: Schema.Number,
   algorithm: Schema.Literal("blake3-256"),
   fixtures: Schema.NonEmptyArray(
@@ -28,56 +23,74 @@ const ManifestSchema = Schema.Struct({
   )
 })
 
-const decodeJsonManifest = Schema.decodeUnknown(Schema.parseJson(ManifestSchema))
-const decodeJsonUnknown = Schema.decodeUnknown(Schema.parseJson(Schema.Unknown))
-const encodeManifestJson = Schema.encode(Schema.parseJson(ManifestSchema))
+const decodeManifest = Schema.decodeUnknown(Schema.parseJson(FixtureHashManifestSchema))
+const decodeJson = Schema.decodeUnknown(Schema.parseJson(Schema.Unknown))
+const encodeManifest = Schema.encode(Schema.parseJson(FixtureHashManifestSchema))
 
 const program = Effect.gen(function*() {
-  const fs = yield* FileSystem.FileSystem
-  const path = yield* Path.Path
-  const packageRoot = yield* Url.fromString("../", import.meta.url).pipe(
-    Effect.flatMap((url) => path.fromFileUrl(url)),
-    Effect.orDie
+  const fileSystem = yield* FileSystem.FileSystem
+  const pathService = yield* Path.Path
+  const packageUrl = yield* Url.fromString("../", import.meta.url)
+  const packageRoot = yield* pathService.fromFileUrl(packageUrl)
+  const fixturesDirectory = pathService.join(packageRoot, FIXTURES_DIRECTORY)
+  const entries = yield* fileSystem.readDirectory(fixturesDirectory)
+  const manifestFiles = Array.filter(
+    entries,
+    String.endsWith(".fixture-manifest.json")
   )
-  const fixturesDir = path.join(packageRoot, FIXTURES_DIR)
 
-  const entries = yield* fs.readDirectory(fixturesDir)
-  const manifestFiles = entries.filter((e) => e.endsWith(".fixture-manifest.json"))
-
-  yield* Console.log(`Found ${manifestFiles.length} manifest files\n`)
+  yield* Console.log("Found", Array.length(manifestFiles), "fixture hash manifest files")
+  yield* Console.log()
 
   yield* Effect.forEach(manifestFiles, (manifestFile) =>
     Effect.gen(function*() {
-      const manifestPath = path.join(fixturesDir, manifestFile)
-      const manifestRaw = yield* fs.readFileString(manifestPath)
-      const manifest = yield* decodeJsonManifest(manifestRaw)
-
+      const manifestPath = pathService.join(fixturesDirectory, manifestFile)
+      const manifestRaw = yield* fileSystem.readFileString(manifestPath)
+      const manifest = yield* decodeManifest(manifestRaw, { onExcessProperty: "error" })
       const stamped = yield* Effect.forEach(manifest.fixtures, (fixture) =>
         Effect.gen(function*() {
-          const fixturePath = path.join(packageRoot, fixture.path)
-          const fixtureRaw = yield* fs.readFileString(fixturePath)
-          const fixtureValue = yield* decodeJsonUnknown(fixtureRaw)
+          const fixturePath = pathService.join(packageRoot, fixture.path)
+          const fixtureRaw = yield* fileSystem.readFileString(fixturePath)
+          const fixtureValue = yield* decodeJson(fixtureRaw, { onExcessProperty: "error" })
           const hash = yield* digest("blake3-256", fixtureValue)
 
-          if (fixture.hash === hash) {
-            yield* Console.log(`  ${fixture.name}: ${hash} (unchanged)`)
-            return fixture
-          }
-          yield* Console.log(`  ${fixture.name}: ${fixture.hash} → ${hash}`)
-          return { ...fixture, hash }
-        }))
-      const updated = stamped.some((fixture, index) => fixture !== manifest.fixtures[index])
+          yield* Console.log(
+            Boolean.match(String.Equivalence(fixture.hash, hash), {
+              onFalse: () => Array.join(Array.make("  ↺ ", fixture.name, ": ", fixture.hash, " → ", hash), ""),
+              onTrue: () => Array.join(Array.make("  ✓ ", fixture.name, ": ", hash, " (unchanged)"), "")
+            })
+          )
 
-      if (updated) {
-        const encoded = yield* encodeManifestJson({ ...manifest, fixtures: stamped })
-        yield* fs.writeFileString(manifestPath, encoded + "\n")
-        yield* Console.log(`  ✓ ${manifestFile} updated\n`)
-      } else {
-        yield* Console.log(`  ✓ ${manifestFile} already canonical\n`)
-      }
+          return Boolean.match(String.Equivalence(fixture.hash, hash), {
+            onFalse: () => ({ name: fixture.name, path: fixture.path, hash }),
+            onTrue: () => fixture
+          })
+        }))
+      const changed = Array.some(
+        Array.zip(stamped, manifest.fixtures),
+        ([current, previous]) => Boolean.not(String.Equivalence(current.hash, previous.hash))
+      )
+
+      yield* Boolean.match(changed, {
+        onFalse: () => Console.log("  Manifest already canonical"),
+        onTrue: () =>
+          Effect.gen(function*() {
+            const encoded = yield* encodeManifest(
+              {
+                version: manifest.version,
+                algorithm: manifest.algorithm,
+                fixtures: stamped
+              },
+              { onExcessProperty: "error" }
+            )
+            yield* fileSystem.writeFileString(manifestPath, String.concat(encoded, "\n"))
+            yield* Console.log("  Manifest updated")
+          })
+      })
+      yield* Console.log()
     }), { discard: true })
 
-  yield* Console.log("Done — all manifests stamped with canonical BLAKE3-256 hashes.")
+  yield* Console.log("Done — all fixture hash manifests are canonical.")
 })
 
 BunRuntime.runMain(program.pipe(Effect.provide(BunContext.layer)))

@@ -65,7 +65,7 @@
     "test": "vitest run --root ../.. packages/effect-math/test",
     "fixtures:check": "bun run scripts/check-fixtures.ts",
     "fixtures:stamp": "bun run scripts/stamp-fixture-hashes.ts",
-    "fixtures:generate": "uv run scripts/generate-scipy-fixtures.py",
+    "fixtures:generate": "bun run scripts/generate-scipy-fixtures.ts",
     "fixtures:lock": "uv lock --script scripts/generate-scipy-fixtures.py",
     "build-esm": "tsc -b tsconfig.build.json",
     "build-annotate": "babel build/esm --plugins annotate-pure-calls --out-dir build/esm --source-maps",
