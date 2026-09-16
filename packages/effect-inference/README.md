@@ -12,7 +12,7 @@ The package separates three things that are often conflated. A desired runtime d
 npm install @scenesystems/effect-inference effect @effect/ai
 ```
 
-Effect `^3.22.1` and `@effect/ai >=0.37.0` are required peer dependencies. The provider adapters for OpenAI, Anthropic, and OpenRouter, and the HTTP client they need, are installed as regular dependencies.
+Effect `^3.22.1` and `@effect/ai >=0.37.0` are required peer dependencies. The provider adapters for OpenAI, Anthropic, Google AI, and OpenRouter, and the HTTP client they need, are installed as regular dependencies. Google AI observation composes with its native client; it does not require or extend the routing runtime.
 
 ## Basic use
 
@@ -41,7 +41,7 @@ Missing or malformed configuration fails the layer with `InvalidRuntimeConfig` w
 
 ```ts typecheck
 import * as LanguageModel from "@effect/ai/LanguageModel"
-import { Config, Effect } from "effect"
+import { Config, Data, Effect } from "effect"
 import { Runtime } from "@scenesystems/effect-inference"
 
 export const program = Effect.gen(function* () {
@@ -55,7 +55,7 @@ export const program = Effect.gen(function* () {
   const response = yield* LanguageModel.generateText({ prompt: "Say hello.", toolChoice: "none" }).pipe(
     Effect.provide(runtime.languageModelLayer)
   )
-  return { model: runtime.model, route: runtime.desired.route, text: response.text }
+  return Data.struct({ model: runtime.model, route: runtime.desired.route, text: response.text })
 })
 ```
 
@@ -89,8 +89,8 @@ Hugging Face serves models through two routes. The routed marketplace forwards a
 
 ```ts typecheck
 import * as LanguageModel from "@effect/ai/LanguageModel"
-import { Effect } from "effect"
-import { HuggingFace, Runtime } from "@scenesystems/effect-inference"
+import { Data, Effect } from "effect"
+import { HuggingFace } from "@scenesystems/effect-inference"
 
 export const program = Effect.gen(function* () {
   const resolution = yield* HuggingFace.resolveLiveRuntimeFromConfig({
@@ -105,15 +105,49 @@ export const program = Effect.gen(function* () {
     toolChoice: "none"
   }).pipe(Effect.provide(languageModelLayer))
 
-  const evidence = Runtime.makeRuntimeEvidence({
-    resolution,
-    resolvedRuntime: { responseModel: resolution.resolvedRoute.providerModel ?? resolution.desired.artifact.modelRef }
-  })
-  return { selectedProvider: evidence.resolvedRoute.selectedProvider, text: response.text }
+  return Data.struct({ route: resolution.resolvedRoute, text: response.text })
 })
 ```
 
 `HUGGINGFACE_ACCESS_TOKEN` supplies the token; `HUGGINGFACE_SERVE_MODE`, `HUGGINGFACE_MODEL`, `HUGGINGFACE_BASE_URL`, `HUGGINGFACE_SELECTION_POLICY`, `HUGGINGFACE_ENDPOINT_ID`, `HUGGINGFACE_DEPLOYMENT_ID`, and `HUGGINGFACE_RUNTIME_FLAVOR` fill in the rest, and explicit options override them. `HuggingFace.languageModelLayer` and `HuggingFace.embeddingModelLayer` extract a layer from the resolution and fail with `CapabilityMismatch` if the route does not offer that capability. `HuggingFace.resolveLiveRuntime` skips configuration and takes every value, including the redacted token, as an argument.
+
+### Embeddings use native Effect HTTP
+
+`HuggingFaceEndpointEmbeddings(options)` and `HuggingFaceRoutedEmbeddings(options)` require `HttpClient.HttpClient`. Both Hub discovery and inference use that client, so applications can inject a gateway client, tracing, or an in-memory test transport. The corresponding `*EmbeddingsLive` constructors and runtime resolutions still provide `FetchHttpClient.layer` for convenience. No Hugging Face SDK code runs on the embedding path.
+
+```ts typecheck
+import * as EmbeddingModel from "@effect/ai/EmbeddingModel"
+import * as FetchHttpClient from "@effect/platform/FetchHttpClient"
+import { Array as Arr, Config, Effect, Layer } from "effect"
+import { HuggingFace } from "@scenesystems/effect-inference"
+
+export const program = Effect.gen(function* () {
+  const accessToken = yield* Config.redacted("HUGGINGFACE_ACCESS_TOKEN")
+  const baseUrl = yield* Config.string("HUGGINGFACE_BASE_URL")
+  const modelLayer = HuggingFace.HuggingFaceEndpointEmbeddings(
+    new HuggingFace.HuggingFaceEmbeddingOptions({
+      model: "sentence-transformers/all-MiniLM-L6-v2",
+      accessToken,
+      route: HuggingFace.makeHuggingFaceEndpointRoute({ baseUrl, authMethod: "hf-token" })
+    })
+  )
+  const transportLayer = FetchHttpClient.layer // Replace with your HttpClient layer.
+  return yield* EmbeddingModel.EmbeddingModel.pipe(
+    Effect.flatMap((model) => model.embedMany(Arr.make("first document", "second document"))),
+    Effect.provide(Layer.provide(modelLayer, transportLayer))
+  )
+})
+```
+
+- **Dedicated endpoints:** POST to the exact `route.baseUrl`, without discovery, with `{ inputs }`. One input is a string; a batch is an array.
+- **Routed providers:** `auto` (or absent policy) selects the first Hub mapping, preserving Hub order. An explicit provider selection must match a mapping. Supported feature-extraction providers are `hf-inference`, `deepinfra`, `scaleway`, and `together`. The provider model ID comes from the mapping; HF's `sentence-similarity` mapping is also accepted for feature extraction. Staging mappings are usable. Unsupported providers, missing mappings, and wrong tasks fail without fallback.
+- **Policies:** `fastest`, `cheapest`, and `preferred` are chat-router policies, not feature-extraction policies. They fail with `MalformedInput` for embeddings. Embedding provider selection belongs in `route.selectionPolicy`, not a model-name suffix.
+- **Authentication and gateways:** HF tokens (`hf_…`) authenticate Hub discovery and routed inference. Other nonempty tokens authenticate the provider's direct API and are never sent to the Hub. Without a token, requests are unauthenticated. Routed inference uses `route.baseUrl` as the router root, removing a trailing `/v1` and slash before adding the provider path. Provider keys use the provider's direct origin instead. A custom client can transform both discovery and inference requests. Credentials remain redacted in configuration and diagnostic HTTP headers; errors do not retain raw platform request causes.
+- **Cache and lifetime:** each constructed model layer owns one five-minute discovery cache entry for its model and credentials. Concurrent misses share the lookup; interruption removes pending work. Failed lookups have zero TTL. Embedding results are not cached. Rebuilding a layer creates a new cache; keep the model layer alive to reuse discovery.
+- **Retries:** discovery and inference retry **only HTTP 503**, twice after 100 ms and 200 ms (three attempts total). Other HTTP failures, transport errors, and malformed output are not retried. Each attempt and body read is scoped, and waiting or in-flight work is interruptible. Retries never switch providers. This deliberately replaces the SDK's unbounded 503 recursion.
+- **Output:** exactly one nonempty, finite, equal-width vector is required per input within each batch. Indexed provider responses must form a complete permutation and are restored to input order; wholly unindexed responses use their array order. Missing, duplicate, mixed, or invalid indices and nested token matrices fail with `MalformedOutput`; the adapter never pools or flattens them. HTTP status/decode failures use native AI HTTP errors. Embedding responses do not establish a response model identity.
+
+Contracts are based on the [official feature-extraction API](https://huggingface.co/docs/inference-providers/tasks/feature-extraction), the [chat-only router distinction](https://huggingface.co/docs/inference-providers/en/index#alternative-openai-compatible-chat-completions-endpoint-chat-only), and the [4.13.28 client transport](https://github.com/huggingface/huggingface.js/blob/8fd765721f5ac9fd7c8ef2ef835dc782f407f51c/packages/inference/src/tasks/nlp/featureExtraction.ts). They are implemented with public `EmbeddingModel.make`, platform HTTP, `Schema`, `Cache`, and `Schedule` APIs.
 
 ## Runtime evidence
 
@@ -141,6 +175,45 @@ export const stored = Schema.encodeSync(Contracts.RuntimeEvidenceSchema)(evidenc
 
 `Contracts.RuntimeEvidenceSchema` is a `Schema`, so evidence can be encoded for logs or storage and decoded later with `Runtime.decodeRuntimeEvidence`. Keep the descriptor honest: populate `resolvedRuntime` from the response, not from the request.
 
+## Observe usage before interpretation
+
+`Usage` decorates the public provider-construction boundary, before native tool handling and structured-output decoding. It does not replace Effect's language-model implementation. Import just the integration you need:
+
+| Public module                                        | Operation                             |
+| ---------------------------------------------------- | ------------------------------------- |
+| `@scenesystems/effect-inference/Usage/Google`        | `observeGoogle(client, observe)`      |
+| `@scenesystems/effect-inference/Usage/OpenAi`        | `observeOpenAi(client, observe)`      |
+| `@scenesystems/effect-inference/Usage/Anthropic`     | `observeAnthropic(client, observe)`   |
+| `@scenesystems/effect-inference/Usage/OpenRouter`    | `observeOpenRouter(client, observe)`  |
+| `@scenesystems/effect-inference/Usage/LanguageModel` | `observeConstructor(params, observe)` |
+
+These operations are also exported by `Usage`. Observations retain native `Response.Usage` alongside the provider's decoded usage report. The canonical five counters are independent: absent values stay absent, explicit zeros stay zero, and totals are never inferred. Google prompt counts already include cached content. Anthropic input counts remain the reported `input_tokens`; its unreported total and reasoning count stay unknown. Raw reports retain additional cache-write, tool-use, pricing, or modality fields.
+
+For OpenAI, Google, and OpenRouter, callbacks receive `(usage, raw)`, where `raw` is `Option<Report>`. Every successful non-streaming client response invokes the callback: absent usage produces all-unknown canonical counters and `None`, while a present report produces `Some(report)`. This distinguishes an observed absence from an uninstrumented model, so DSP cannot replace unknown usage with a native converter's synthesized zero. Stream events without usage are ignored and never erase earlier snapshots. The constructor observer receives canonical usage and the encoded finish part.
+
+Anthropic callbacks receive one `AnthropicUsageObservation`: a `Response`, `MessageStart`, or `MessageDelta` with `{ usage, raw }`. `usage` contains cumulative canonical token counters. `raw` is the exact native report for that event, including `server_tool_use`: `BetaUsage` for responses and starts, and `MessageDeltaUsage` for deltas. Raw start and delta reports are never merged into an invented complete report. Consumers needing provider-specific evidence should retain these tagged observations.
+
+```ts typecheck
+import * as GoogleClient from "@effect/ai-google/GoogleClient"
+import * as GoogleLanguageModel from "@effect/ai-google/GoogleLanguageModel"
+import { observeGoogle } from "@scenesystems/effect-inference/Usage/Google"
+import { Data, Effect } from "effect"
+
+export const model = Effect.gen(function* () {
+  const client = yield* GoogleClient.GoogleClient
+  return yield* GoogleLanguageModel.make({ model: "gemini-2.5-flash" }).pipe(
+    Effect.provideService(
+      GoogleClient.GoogleClient,
+      observeGoogle(client, (usage, raw) => Effect.log(Data.struct({ usage, raw })))
+    )
+  )
+})
+```
+
+Provide your existing client, including Gateway configuration and HTTP middleware, before building the native model. No `Runtime` resolver is required. For DSP, pass `Trace.observeUsage` instead of the logging callback; for Anthropic, use `(observation) => Trace.observeUsage(observation.usage)`. If you own native `LanguageModel.ConstructorParams`, pass `Usage.observeConstructor(params, Trace.observeUsage)` to `LanguageModel.make`; this path consumes canonical finish-part usage directly and supplies the original encoded finish part as the callback's second argument.
+
+Callbacks run in the invoking fiber and have type `Effect<void>`: they introduce no error or service requirements. Streaming callbacks preserve laziness, backpressure, interruption, and resource lifetimes. Multiple snapshots update one invocation's latest observation; they are not extra model calls or charges. A transport failure or missing report remains unknown. An opaque, already-constructed `LanguageModel` still supports returned-response usage, but cannot promise observation before its internal decoding or tool execution. Applications own durable persistence and settlement.
+
 ## Testing
 
 `@scenesystems/effect-inference/Testing` provides layers and fixtures for tests that must not reach a provider. `Testing.staticLanguageModel(text)` is a `LanguageModel` layer that returns a fixed completion, `Testing.staticEmbeddingModel(vector)` returns a fixed embedding for each input, and `Testing.staticRuntimeResolver` serves a prepared resolution. `makeDesiredRuntimeDescriptor`, `makeResolvedRouteDescriptor`, `makeResolvedRuntimeDescriptor`, and `makeRuntimeEvidenceFixture` build descriptor values with sensible defaults.
@@ -154,6 +227,7 @@ Every module is available as a namespace from the package root and as a subpath 
 | [`Runtime`](./src/Runtime/index.ts)                   | Hosted text-provider layers, configuration decoding, resolver service, and evidence assembly |
 | [`OpenAiCompatible`](./src/OpenAiCompatible/index.ts) | Static resolutions and transport layers for OpenAI-compatible servers                        |
 | [`HuggingFace`](./src/HuggingFace/index.ts)           | Routed-marketplace and dedicated-endpoint resolution for text and embeddings                 |
+| [`Usage`](./src/Usage/index.ts)                       | Pre-interpretation usage observation for native provider clients and constructors            |
 | [`Contracts`](./src/contracts/index.ts)               | Desired, resolved-route, resolved-runtime, capability, and evidence schemas                  |
 | [`Testing`](./src/testing/index.ts)                   | Static model layers and descriptor fixtures                                                  |
 | [`Errors`](./src/Errors/index.ts)                     | Configuration, capability, route, and resolver errors                                        |
