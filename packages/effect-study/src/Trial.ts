@@ -4,7 +4,8 @@
  * @since 0.1.0
  * @module
  */
-import { Schema } from "effect"
+import { Data, Number as Num, Schema } from "effect"
+import { dual } from "effect/Function"
 
 const Metadata = Schema.Struct({
   trialNumber: Schema.Number,
@@ -13,6 +14,7 @@ const Metadata = Schema.Struct({
 })
 
 const CompletedMetadata = Schema.TaggedStruct("Completed", { duration: Schema.Number })
+const FailedMetadata = Schema.TaggedStruct("Failed", { duration: Schema.Number })
 
 /**
  * Builds a trial codec without choosing an input domain or outcome vocabulary.
@@ -50,6 +52,9 @@ export type Trial<Config, State> = Schema.Schema.Type<
  */
 export const Running = Schema.TaggedStruct("Running", { startedAt: Schema.Number })
 
+/** A pending evaluation state. @since 0.1.0 @category models */
+export type Running = typeof Running.Type
+
 /**
  * A successful observation and its measured duration in milliseconds.
  * Observations need not be scalar scores or otherwise orderable.
@@ -77,7 +82,12 @@ export type Completed<Value> = Schema.Schema.Type<
  * @category schemas
  */
 export const Failed = <Failure extends Schema.Schema.All>(error: Failure) =>
-  Schema.TaggedStruct("Failed", { error, duration: Schema.Number })
+  Schema.Struct({ ...FailedMetadata.fields, error })
+
+/** A failed evaluation retaining its caller-owned error. @since 0.1.0 @category models */
+export type Failed<Failure> = Schema.Schema.Type<
+  Schema.extend<typeof FailedMetadata, Schema.Struct<{ error: Schema.Schema<Failure> }>>
+>
 
 /**
  * Cancellation without a fabricated observation or failure.
@@ -86,3 +96,51 @@ export const Failed = <Failure extends Schema.Schema.All>(error: Failure) =>
  * @category schemas
  */
 export const Cancelled = Schema.TaggedStruct("Cancelled", { cancelled: Schema.optional(Schema.Literal(true)) })
+
+/** A cancelled evaluation state. @since 0.1.0 @category models */
+export type Cancelled = typeof Cancelled.Type
+
+/** Creates a running trial with no domain-specific outcome metadata. @since 0.1.0 @category constructors */
+export const makeRunning = <Config>(
+  trialNumber: number,
+  config: Config,
+  startedAt: number
+): Trial<Config, Running> =>
+  Data.struct({ trialNumber, config, state: Data.struct<Running>({ _tag: "Running", startedAt }) })
+
+/** Returns elapsed milliseconds for a running state. @since 0.1.0 @category getters */
+export const duration = (state: Running, now: number): number => Num.subtract(now, state.startedAt)
+
+/** Completes a running trial with a caller-owned observation. @since 0.1.0 @category combinators */
+export const complete: {
+  <Value>(value: Value, now: number): <Config>(self: Trial<Config, Running>) => Trial<Config, Completed<Value>>
+  <Config, Value>(self: Trial<Config, Running>, value: Value, now: number): Trial<Config, Completed<Value>>
+} = dual(
+  3,
+  <Config, Value>(self: Trial<Config, Running>, value: Value, now: number) =>
+    Data.struct({
+      ...self,
+      state: Data.struct<Completed<Value>>({ _tag: "Completed", value, duration: duration(self.state, now) })
+    })
+)
+
+/** Records a typed terminal failure for a running trial. @since 0.1.0 @category combinators */
+export const fail: {
+  <Failure>(error: Failure, now: number): <Config>(self: Trial<Config, Running>) => Trial<Config, Failed<Failure>>
+  <Config, Failure>(
+    self: Trial<Config, Running>,
+    error: Failure,
+    now: number
+  ): Trial<Config, Failed<Failure>>
+} = dual(
+  3,
+  <Config, Failure>(self: Trial<Config, Running>, error: Failure, now: number) =>
+    Data.struct({
+      ...self,
+      state: Data.struct<Failed<Failure>>({ _tag: "Failed", error, duration: duration(self.state, now) })
+    })
+)
+
+/** Records cancellation without fabricating an observation or failure. @since 0.1.0 @category combinators */
+export const cancel = <Config, TrialState>(self: Trial<Config, TrialState>): Trial<Config, Cancelled> =>
+  Data.struct({ ...self, state: Data.struct<Cancelled>({ _tag: "Cancelled" }) })

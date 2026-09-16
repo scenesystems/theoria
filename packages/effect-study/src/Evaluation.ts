@@ -4,8 +4,10 @@
  * @since 0.1.0
  * @module
  */
-import { Data, Duration, Effect, Schema } from "effect"
+import { Cause, Data, Duration, Effect, Exit, Match, Schema, Tuple } from "effect"
 
+import * as History from "./History.js"
+import * as Study from "./Study.js"
 import type * as Trial from "./Trial.js"
 
 /**
@@ -35,18 +37,49 @@ export const run = <Config, Value, E, R>(
   evaluate: (config: Config, trialNumber: number) => Effect.Effect<Value, E, R>,
   options: typeof Options.Type = {}
 ) =>
-  Effect.forEach(inputs, (config, trialNumber) =>
-    Effect.suspend(() => evaluate(config, trialNumber)).pipe(
-      Effect.timed,
-      Effect.map(([duration, value]): Trial.Trial<Config, Trial.Completed<Value>> =>
-        Data.struct({
-          trialNumber,
-          config,
-          state: Data.struct<Trial.Completed<Value>>({
-            _tag: "Completed",
-            value,
-            duration: Duration.toMillis(duration)
-          })
-        })
-      )
-    ), options)
+  Effect.scoped(
+    Effect.gen(function*() {
+      const study = yield* Study.make<Config, Trial.Completed<Value>>()
+      yield* Study.transition(study, "Running")
+
+      const evaluations = Effect.forEach(inputs, (config, trialNumber) =>
+        Effect.suspend(() =>
+          evaluate(config, trialNumber)
+        ).pipe(
+          Effect.timed,
+          Effect.map(([duration, value]): Trial.Trial<Config, Trial.Completed<Value>> =>
+            Data.struct({
+              trialNumber,
+              config,
+              state: Data.struct<Trial.Completed<Value>>({
+                _tag: "Completed",
+                value,
+                duration: Duration.toMillis(duration)
+              })
+            })
+          ),
+          Effect.tap((trial) =>
+            Study.modify(study, (state) =>
+              Effect.succeed(Tuple.make(
+                undefined,
+                new Study.State({ lifecycle: state.lifecycle, history: History.set(state.history, trial) })
+              )))
+          )
+        ), options).pipe(
+          Effect.onExit((exit) =>
+            Exit.match(exit, {
+              onFailure: (cause) =>
+                Match.value(Cause.isInterruptedOnly(cause)).pipe(
+                  Match.when(true, () =>
+                    Study.transition(study, "Cancelled")),
+                  Match.orElse(() => Study.transition(study, "Failed"))
+                ),
+              onSuccess: () => Study.transition(study, "Completed")
+            })
+          )
+        )
+
+      yield* evaluations
+      return History.values((yield* Study.read(study)).history)
+    })
+  )

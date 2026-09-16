@@ -5,7 +5,7 @@
  * @module
  */
 import { ContentDigest } from "@scenesystems/digest"
-import { Data, Schema } from "effect"
+import { Data, Effect, ParseResult, Predicate, Record, Schema, type SchemaAST, Tuple } from "effect"
 
 /**
  * Canonical ULID execution identifier.
@@ -13,7 +13,7 @@ import { Data, Schema } from "effect"
  * @since 0.1.0
  * @category schemas
  */
-export const RunId = Schema.ULID.pipe(Schema.brand("RunId"))
+export const RunId = Schema.ULID.pipe(Schema.brand("effect-study/Artifact/RunId"))
 
 /**
  * An execution identifier decoded by {@link RunId}.
@@ -31,7 +31,7 @@ export type RunId = typeof RunId.Type
  */
 export const PackageVersion = Schema.NonEmptyString.pipe(
   Schema.pattern(/^\d+\.\d+\.\d+/),
-  Schema.brand("PackageVersion")
+  Schema.brand("effect-study/Artifact/PackageVersion")
 )
 
 /**
@@ -57,6 +57,61 @@ export const ComponentPath = Schema.NonEmptyArray(Schema.NonEmptyString)
  * @category type-level
  */
 export type ComponentPath = typeof ComponentPath.Type
+
+const payloadArray = Schema.Array(Schema.suspend((): Schema.Schema<Payload> => Payload))
+const payloadRecord = Schema.Record({
+  key: Schema.String,
+  value: Schema.suspend((): Schema.Schema<Payload> => Payload)
+})
+
+/** Recursive payload sequence. @since 0.1.0 @category models */
+export interface PayloadArray extends Schema.Schema.Type<typeof payloadArray> {}
+
+/** Recursive own-key payload record. @since 0.1.0 @category models */
+export interface PayloadRecord extends Schema.Schema.Type<typeof payloadRecord> {}
+
+const recordInput = Schema.declare(Predicate.isRecord)
+const payloadEntries = Schema.Array(Schema.Tuple(payloadRecord.key, payloadRecord.value))
+
+const parseRecord = (input: unknown, options: SchemaAST.ParseOptions) =>
+  ParseResult.decodeUnknown(recordInput)(input, options).pipe(
+    Effect.map(Record.toEntries),
+    Effect.flatMap((entries) => ParseResult.decodeUnknown(payloadEntries)(entries, options)),
+    Effect.map(Record.fromEntries)
+  )
+
+const payloadRecordCodec = Schema.declare<PayloadRecord, PayloadRecord, []>(Tuple.make(), {
+  decode: () => parseRecord,
+  encode: () => parseRecord
+})
+
+const payload = Schema.Union(
+  Schema.String,
+  Schema.Number,
+  Schema.Boolean,
+  Schema.Null,
+  Schema.suspend((): Schema.Schema<PayloadArray> => payloadArray),
+  Schema.suspend((): Schema.Schema<PayloadRecord> => payloadRecordCodec)
+)
+
+/**
+ * Recursive artifact payload made from primitive, array, and own-key record
+ * values. Numeric leaves retain JavaScript's full number behavior outside a
+ * JSON transport.
+ *
+ * @since 0.1.0
+ * @category models
+ */
+export type Payload = typeof payload.Type
+
+/**
+ * Decodes recursive artifact payloads while preserving own keys such as
+ * `__proto__`, `constructor`, and `toString`.
+ *
+ * @since 0.1.0
+ * @category schemas
+ */
+export const Payload: Schema.Schema<Payload> = payload
 
 /**
  * Artifact identity within one run.
@@ -98,8 +153,7 @@ const LineageMetadata = Schema.Struct({
 })
 
 /**
- * Builds artifact lineage around a caller-selected source schema. The wire
- * field remains `sourceRef` so existing envelopes retain their protocol shape.
+ * Builds artifact lineage around a caller-selected source schema.
  *
  * @since 0.1.0
  * @category schema factories
@@ -154,24 +208,7 @@ export const isRelation = Relations.$is
 /** Exhaustively dispatches an association. @since 0.1.0 @category pattern matching */
 export const matchRelation = Relations.$match
 
-/**
- * Version discriminator for canonical artifact envelopes.
- *
- * @since 0.1.0
- * @category schemas
- */
-export const Version = Schema.Literal("artifact-envelope/v1")
-
-/**
- * An artifact envelope version decoded by {@link Version}.
- *
- * @since 0.1.0
- * @category type-level
- */
-export type Version = typeof Version.Type
-
 const EnvelopeMetadata = Schema.Struct({
-  schemaVersion: Version,
   relations: Schema.optional(Schema.Array(Relation))
 })
 

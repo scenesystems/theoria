@@ -27,11 +27,16 @@
   "exports": {
     ".": "./src/index.ts",
     "./Artifact": "./src/Artifact.ts",
+    "./ArtifactContext": "./src/ArtifactContext.ts",
+    "./ArtifactSink": "./src/ArtifactSink.ts",
     "./Emitter": "./src/Emitter.ts",
     "./Trial": "./src/Trial.ts",
     "./History": "./src/History.ts",
     "./Lifecycle": "./src/Lifecycle.ts",
     "./Stop": "./src/Stop.ts",
+    "./Study": "./src/Study.ts",
+    "./StudyEvent": "./src/StudyEvent.ts",
+    "./StudyStorage": "./src/StudyStorage.ts",
     "./Evaluation": "./src/Evaluation.ts",
     "./Journal": "./src/Journal.ts",
     "./internal/*": null

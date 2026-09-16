@@ -1,5 +1,5 @@
 import { describe, expect, it } from "@effect/vitest"
-import { Array as Arr, Context, DateTime, Effect, Schema, String as Str } from "effect"
+import { Array as Arr, Context, DateTime, Effect, Either, Schema, String as Str } from "effect"
 
 import * as Artifact from "@scenesystems/effect-study/Artifact"
 
@@ -32,7 +32,6 @@ describe("Artifact", () => {
       const emittedAt = yield* DateTime.make("2026-09-15T00:00:00Z")
       const value: typeof Envelope.Type = {
         _tag: "Measurement",
-        schemaVersion: "artifact-envelope/v1",
         producer: { _tag: "IndependentProducer", name: "laboratory" },
         lineage: {
           sourceRef: { origin: "laboratory-system", domain: "assay", segments: Arr.of("measurement") },
@@ -83,5 +82,28 @@ describe("Artifact", () => {
       expect(Artifact.isRelation("Run")(external)).toBe(false)
       expect(label(relation)).toBe("01ARZ3NDEKTSV4RRFFQ69G5FAV")
       expect(label(external)).toBe("assay:sample-7")
+    }))
+
+  it.effect("preserves own prototype-named payload keys", () =>
+    Effect.gen(function*() {
+      const json = "[{\"__proto__\":{\"nested\":[true,null]},\"constructor\":\"own\",\"toString\":7}]"
+      const codec = Schema.parseJson(Artifact.Payload)
+      const decoded = yield* Schema.decode(codec)(json)
+
+      expect(yield* Schema.encode(codec)(decoded)).toBe(json)
+    }))
+
+  it.effect("retains numerical leaves outside JSON and rejects unsupported leaves", () =>
+    Effect.gen(function*() {
+      const payload: Artifact.Payload = { values: Arr.make(Number.NaN, Number.POSITIVE_INFINITY, -0) }
+      const roundTrip = yield* Schema.encode(Artifact.Payload)(payload).pipe(
+        Effect.flatMap(Schema.decode(Artifact.Payload))
+      )
+      const invalid = yield* Schema.decodeUnknown(Artifact.Payload)({ nested: Arr.of({ value: undefined }) }).pipe(
+        Effect.either
+      )
+
+      expect(roundTrip).toEqual(payload)
+      expect(Either.isLeft(invalid)).toBe(true)
     }))
 })

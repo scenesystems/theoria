@@ -30,7 +30,7 @@ const canTransitionFromCreated = (target: Lifecycle): boolean =>
     Match.when("Paused", () => false),
     Match.when("Completed", () => false),
     Match.when("Failed", () => false),
-    Match.when("Cancelled", () => false),
+    Match.when("Cancelled", () => true),
     Match.exhaustive
   )
 

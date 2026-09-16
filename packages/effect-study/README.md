@@ -5,7 +5,7 @@ Reusable trial evaluation, history, stopping, event streams, and artifact persis
 ## Installation
 
 ```sh
-npm install @scenesystems/effect-study effect @effect/platform
+bun add @scenesystems/effect-study effect @effect/platform
 ```
 
 Effect `^3.22.1` and `@effect/platform ^0.97.1` are required peers. Filesystem persistence requires platform services; use `@effect/platform-bun` for Bun applications. The package has no dependency on `effect-search`.
@@ -52,11 +52,19 @@ export const ReadingEnvelope = Artifact.Envelope(Producer, Lineage, Payload)
 
 `Journal.make(schema, directory, fileName)` creates a schema-driven JSON-lines journal. Appends through one journal instance are serialized, including encoding. Reads preserve physical order, skip blank lines, treat missing files as empty, and fail with `Journal.Failure` on malformed or torn records. Decoding errors include the one-based physical line number. Separate instances do not share a lock, and append completion does not promise an fsync or transaction.
 
+`ArtifactContext` owns run identity and atomic artifact sequence allocation. `ArtifactSink` owns schema-encoded artifact delivery, including filesystem journals and ordered fanout. These abstractions are generic: producers supply the artifact schema and retain its codec environment.
+
+`StudyStorage` similarly owns generic trial logs and latest snapshots. Both its memory and filesystem implementations schema-encode every write and schema-decode every read, preserving codec service requirements and reporting write and read failures separately. Its journal contains tagged `Trial` and `Snapshot` records with caller-encoded payloads. `effect-search` specializes this service with its optimization schemas.
+
 ## Emitters and lifecycle
 
 `Emitter.toStream` runs a producer in a scoped fiber. Buffered events drain before success, typed failure, or defect reaches the consumer. Ending consumption interrupts the producer and waits for finalization. The mailbox is unbounded; this bridge does not provide backpressure.
 
 `Stop` stores requests in a native `Ref`, with deterministic precedence by trial number, then interrupt mode, then reason. Heartbeats are cooperative: they return decisions rather than interrupt fibers. `Stop.matchDecision` exhaustively handles their `Continue` and `Stop` variants. `Lifecycle.canTransition` validates transitions without owning mutable state and supports both receiver-first and pipeable use.
+
+`Study` owns the lifecycle and trial history as one serialized, observable snapshot. `Study.modify` commits and publishes only a successful complete snapshot; transaction failure or interruption leaves the prior snapshot intact and releases the serializer. A callback that returns an illegal lifecycle change violates a programmer invariant, so `modify` dies with a diagnostic before committing any lifecycle or history change. It does not broaden the typed error channel. Use `Study.transition` for lifecycle requests: invalid requests remain no-ops, terminal studies never reopen, and closing the owning scope cancels a created, running, or paused study.
+
+`StudyEvent` owns domain-generic schema factories for reservations, outcomes, retries, cancellation, cost, stop requests, and completion. Callers provide config, observation, failure, cancellation-reason, and completion-reason schemas rather than inheriting a numeric search vocabulary.
 
 ## Relationship to search and other packages
 
@@ -73,4 +81,9 @@ Import this package directly for new evaluation or artifact consumers that do no
 - `Stop`: deterministic cooperative stop requests.
 - `Emitter`: scoped producer-to-stream composition.
 - `Artifact`: identities, provenance, relations, and envelope schemas.
+- `ArtifactContext`: run provenance and atomic artifact identity allocation.
+- `ArtifactSink`: schema-owned artifact delivery and persistence.
 - `Journal`: schema-driven filesystem persistence.
+- `Study`: scoped transactional lifecycle and history ownership.
+- `StudyEvent`: generic lifecycle event schema factories.
+- `StudyStorage`: schema-parameterized trial logs and snapshots.

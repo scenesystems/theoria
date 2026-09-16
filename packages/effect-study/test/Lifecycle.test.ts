@@ -9,6 +9,7 @@ it.effect("allows only declared non-terminal lifecycle transitions", () =>
   Effect.sync(() => {
     const allowed = Arr.make(
       transition("Created", "Running"),
+      transition("Created", "Cancelled"),
       transition("Running", "Paused"),
       transition("Running", "Completed"),
       transition("Running", "Failed"),
