@@ -3,7 +3,7 @@
  *
  * @since 0.1.0
  */
-import { Boolean, Match, Number, Option, Schema, String, Tuple } from "effect"
+import { Boolean, Chunk, Data, Match, Number, Option, Schema, String, Tuple } from "effect"
 import * as Arr from "effect/Array"
 
 import * as Text from "../Text.js"
@@ -60,16 +60,16 @@ export type TextDirection = typeof TextDirection.Type
 const WhitespaceTokenKind = Schema.Literal("space", "tab")
 
 /** Grouped spaces or one tab emitted for preparation-time measurement. */
-export class WhitespaceToken extends Schema.Class<WhitespaceToken>("effect-text/WhitespaceToken")({
-  kind: WhitespaceTokenKind,
-  text: Schema.String
-}) {}
+export class WhitespaceToken extends Data.Class<{
+  readonly kind: typeof WhitespaceTokenKind.Type
+  readonly text: string
+}> {}
 
 /** One non-empty soft-hyphen-delimited piece and its break ownership. */
-export class SoftHyphenPiece extends Schema.Class<SoftHyphenPiece>("effect-text/SoftHyphenPiece")({
-  breakAfter: Schema.Boolean,
-  text: Schema.String
-}) {}
+export class SoftHyphenPiece extends Data.Class<{
+  readonly breakAfter: boolean
+  readonly text: string
+}> {}
 
 const TextBreakClass = Schema.Literal(
   "alphabetic",
@@ -86,55 +86,40 @@ const TextBreakClass = Schema.Literal(
 )
 type TextBreakClass = typeof TextBreakClass.Type
 
-class TextAtomicToken extends Schema.Class<TextAtomicToken>("effect-text/TextAtomicToken")({
-  breakClass: TextBreakClass,
-  kind: Schema.Literal("text"),
-  text: Schema.String
-}) {}
+type AtomicToken = Data.TaggedEnum<{
+  Text: { readonly breakClass: TextBreakClass; readonly text: string }
+  HardBreak: { readonly text: string }
+  Space: { readonly text: string }
+  Tab: { readonly text: string }
+}>
+const AtomicToken = Data.taggedEnum<AtomicToken>()
+type TextAtomicToken = Data.TaggedEnum.Value<AtomicToken, "Text">
+type AtomicTokens = Chunk.Chunk<AtomicToken>
+type AtomicTokenGroups = Chunk.Chunk<AtomicTokens>
+type TextAtomicTokens = Chunk.Chunk<TextAtomicToken>
+type WhitespaceTokens = Chunk.Chunk<WhitespaceToken>
+type SoftHyphenPieces = Chunk.Chunk<SoftHyphenPiece>
+type SegmentChunk = Chunk.Chunk<Text.Segment>
 
-class HardBreakAtomicToken extends Schema.Class<HardBreakAtomicToken>("effect-text/HardBreakAtomicToken")({
-  kind: Schema.Literal("hard-break"),
-  text: Schema.String
-}) {}
+class GroupedTextAtomicToken extends Data.Class<{
+  readonly group: number
+  readonly token: TextAtomicToken
+}> {}
 
-class SpaceAtomicToken extends Schema.Class<SpaceAtomicToken>("effect-text/SpaceAtomicToken")({
-  kind: Schema.Literal("space"),
-  text: Schema.String
-}) {}
+class TextGroupingCursor extends Data.Class<{
+  readonly group: number
+  readonly index: number
+}> {}
 
-class TabAtomicToken extends Schema.Class<TabAtomicToken>("effect-text/TabAtomicToken")({
-  kind: Schema.Literal("tab"),
-  text: Schema.String
-}) {}
-
-const AtomicToken = Schema.Union(TextAtomicToken, HardBreakAtomicToken, SpaceAtomicToken, TabAtomicToken)
-type AtomicToken = typeof AtomicToken.Type
-const AtomicTokens = Schema.Array(AtomicToken)
-type AtomicTokens = typeof AtomicTokens.Type
-const AtomicTokenGroup = Schema.NonEmptyArray(AtomicToken)
-const AtomicTokenGroups = Schema.Array(AtomicTokenGroup)
-type AtomicTokenGroups = typeof AtomicTokenGroups.Type
-const TextAtomicTokens = Schema.Array(TextAtomicToken)
-type TextAtomicTokens = typeof TextAtomicTokens.Type
-const WhitespaceTokens = Schema.Array(WhitespaceToken)
-type WhitespaceTokens = typeof WhitespaceTokens.Type
-const SoftHyphenPieces = Schema.Array(SoftHyphenPiece)
-type SoftHyphenPieces = typeof SoftHyphenPieces.Type
-
-class GroupedTextAtomicToken extends Schema.Class<GroupedTextAtomicToken>("effect-text/GroupedTextAtomicToken")({
-  group: Schema.Number,
-  token: TextAtomicToken
-}) {}
-
-const WhitespaceAtomicToken = Schema.Union(SpaceAtomicToken, TabAtomicToken)
-const isTextAtomicToken = Schema.is(TextAtomicToken)
-const isWhitespaceAtomicToken = Schema.is(WhitespaceAtomicToken)
+const isTextAtomicToken = AtomicToken.$is("Text")
+const isWhitespaceAtomicToken = (token: AtomicToken): boolean =>
+  Boolean.or(AtomicToken.$is("Space")(token), AtomicToken.$is("Tab")(token))
 
 /** Text after stripping emoji grapheme clusters, plus the number stripped. */
-export class EmojiStripResult extends Schema.Class<EmojiStripResult>("effect-text/EmojiStripResult")({
-  count: Schema.Number,
-  text: Schema.String
-}) {}
+export class EmojiStripResult extends Data.Class<{
+  readonly count: number
+  readonly text: string
+}> {}
 
 const textSegment = (text: string): Text.Segment => ({ kind: "text", text })
 const spaceSegment = (text: string): Text.Segment => ({ kind: "space", text })
@@ -173,18 +158,18 @@ const classifyTextCluster = (text: string): TextBreakClass =>
   )
 
 const textAtomicToken = (text: string): TextAtomicToken =>
-  new TextAtomicToken({ breakClass: classifyTextCluster(text), kind: "text", text })
+  AtomicToken.Text({ breakClass: classifyTextCluster(text), text })
 
 const atomicTokenFor = (cluster: string): AtomicToken =>
   Match.value(cluster).pipe(
-    Match.when(lineFeed, (text) => new HardBreakAtomicToken({ kind: "hard-break", text })),
-    Match.when(tab, (text) => new TabAtomicToken({ kind: "tab", text })),
-    Match.when(isOrdinaryWhitespace, (text) => new SpaceAtomicToken({ kind: "space", text })),
+    Match.when(lineFeed, (text) => AtomicToken.HardBreak({ text })),
+    Match.when(tab, (text) => AtomicToken.Tab({ text })),
+    Match.when(isOrdinaryWhitespace, (text) => AtomicToken.Space({ text })),
     Match.orElse(textAtomicToken)
   )
 
 const tokenizeText = (text: string): AtomicTokens =>
-  Arr.map(graphemeClusters(normalizeLineBreaks(text)), atomicTokenFor)
+  Chunk.map(Chunk.fromIterable(graphemeClusters(normalizeLineBreaks(text))), atomicTokenFor)
 
 const isRunEndpoint = (token: TextAtomicToken): boolean =>
   Match.value(token.breakClass).pipe(
@@ -297,93 +282,103 @@ const shouldMergeTextAtoms = (
       })
   })
 
-const textSegmentsFromAtoms = (atoms: TextAtomicTokens): Text.Segments => {
-  const grouped = Tuple.getSecond(Arr.mapAccum(atoms, 0, (group, token, index) => {
-    const continues = Arr.get(atoms, Number.decrement(index)).pipe(
-      Option.exists((previous) => shouldMergeTextAtoms(previous, token, Arr.get(atoms, Number.increment(index))))
-    )
-    const nextGroup = Boolean.match(continues, { onTrue: () => group, onFalse: () => Number.increment(group) })
-    return Tuple.make(nextGroup, new GroupedTextAtomicToken({ group: nextGroup, token }))
-  }))
-  return Arr.match(grouped, {
-    onEmpty: () => Arr.empty(),
-    onNonEmpty: (nonEmpty) =>
-      Arr.map(
-        Arr.groupWith(nonEmpty, (self, that) => Number.Equivalence(self.group, that.group)),
-        (group) => textSegment(Arr.join(Arr.map(group, (item) => item.token.text), ""))
-      )
+const groupAdjacent = <A>(
+  values: Chunk.Chunk<A>,
+  equivalent: (self: A, that: A) => boolean
+): Chunk.Chunk<Chunk.Chunk<A>> =>
+  Arr.match(Chunk.toReadonlyArray(values), {
+    onEmpty: Chunk.empty<Chunk.Chunk<A>>,
+    onNonEmpty: (nonEmpty) => Chunk.fromIterable(Arr.map(Arr.groupWith(nonEmpty, equivalent), Chunk.fromIterable))
   })
+
+const textSegmentsFromAtoms = (atoms: TextAtomicTokens): SegmentChunk => {
+  const grouped = Tuple.getSecond(Chunk.mapAccum<TextGroupingCursor, TextAtomicToken, GroupedTextAtomicToken>(
+    atoms,
+    new TextGroupingCursor({ group: 0, index: 0 }),
+    (cursor, token) => {
+      const continues = Chunk.get(atoms, Number.decrement(cursor.index)).pipe(
+        Option.exists((previous) =>
+          shouldMergeTextAtoms(previous, token, Chunk.get(atoms, Number.increment(cursor.index)))
+        )
+      )
+      const nextGroup = Boolean.match(continues, {
+        onTrue: () => cursor.group,
+        onFalse: () => Number.increment(cursor.group)
+      })
+      return Tuple.make(
+        new TextGroupingCursor({ group: nextGroup, index: Number.increment(cursor.index) }),
+        new GroupedTextAtomicToken({ group: nextGroup, token })
+      )
+    }
+  ))
+  return Chunk.map(
+    groupAdjacent(grouped, (self, that) => Number.Equivalence(self.group, that.group)),
+    (group) => textSegment(Chunk.join(Chunk.map(group, (item) => item.token.text), ""))
+  )
 }
 
-const spaceSegmentsFromText = (text: string): Text.Segments =>
-  Arr.map(splitWhitespaceTokens(text), (token) => spaceSegment(token.text))
+const spaceSegmentsFromText = (text: string): SegmentChunk =>
+  Chunk.map(splitWhitespaceTokens(text), (token) => spaceSegment(token.text))
 
-const isTextTokenGroup = (group: typeof AtomicTokenGroup.Type): boolean => isTextAtomicToken(Arr.headNonEmpty(group))
+const isTextTokenGroup = (group: AtomicTokens): boolean => Chunk.head(group).pipe(Option.exists(isTextAtomicToken))
 
-const groupTextAndNonTextTokens = (tokens: AtomicTokens) =>
-  Arr.match(tokens, {
-    onEmpty: () => Arr.empty(),
-    onNonEmpty: (nonEmptyTokens) =>
-      Arr.groupWith(
-        nonEmptyTokens,
-        (self, that) => Boolean.Equivalence(isTextAtomicToken(self), isTextAtomicToken(that))
-      )
-  })
+const groupTextAndNonTextTokens = (tokens: AtomicTokens): AtomicTokenGroups =>
+  groupAdjacent(tokens, (self, that) => Boolean.Equivalence(isTextAtomicToken(self), isTextAtomicToken(that)))
 
-const trimNonTextTokenGroups = (groups: AtomicTokenGroups) =>
-  Arr.reverse(
-    Arr.dropWhile(
-      Arr.reverse(Arr.dropWhile(groups, (group) => Boolean.not(isTextTokenGroup(group)))),
+const trimNonTextTokenGroups = (groups: AtomicTokenGroups): AtomicTokenGroups =>
+  Chunk.reverse(
+    Chunk.dropWhile(
+      Chunk.reverse(Chunk.dropWhile(groups, (group) => Boolean.not(isTextTokenGroup(group)))),
       (group) => Boolean.not(isTextTokenGroup(group))
     )
   )
 
-const segmentNormalText = (text: string): Text.Segments =>
-  Arr.flatMap(
+const segmentNormalText = (text: string): SegmentChunk =>
+  Chunk.flatMap(
     trimNonTextTokenGroups(groupTextAndNonTextTokens(tokenizeText(text))),
     (group) =>
       Boolean.match(isTextTokenGroup(group), {
-        onFalse: () => Arr.of(spaceSegment(" ")),
-        onTrue: () => textSegmentsFromAtoms(Arr.filter(group, isTextAtomicToken))
+        onFalse: () => Chunk.of(spaceSegment(" ")),
+        onTrue: () => textSegmentsFromAtoms(Chunk.filter(group, isTextAtomicToken))
       })
   )
 
-const groupPreWrapTokens = (tokens: AtomicTokens) =>
-  Arr.match(tokens, {
-    onEmpty: () => Arr.empty(),
-    onNonEmpty: (nonEmptyTokens) =>
-      Arr.groupWith(nonEmptyTokens, (self, that) =>
-        Boolean.or(
-          String.Equivalence(self.kind, that.kind),
-          Boolean.and(isWhitespaceAtomicToken(self), isWhitespaceAtomicToken(that))
-        ))
-  })
+const groupPreWrapTokens = (tokens: AtomicTokens): AtomicTokenGroups =>
+  groupAdjacent(tokens, (self, that) =>
+    Boolean.or(
+      String.Equivalence(self._tag, that._tag),
+      Boolean.and(isWhitespaceAtomicToken(self), isWhitespaceAtomicToken(that))
+    ))
 
-const segmentPreWrapGroup = (group: typeof AtomicTokenGroup.Type): Text.Segments =>
-  Match.value(Arr.headNonEmpty(group)).pipe(
-    Match.discriminatorsExhaustive("kind")({
-      text: () => textSegmentsFromAtoms(Arr.filter(group, isTextAtomicToken)),
-      "hard-break": () => Arr.map(group, hardBreakSegment),
-      space: () => spaceSegmentsFromText(Arr.join(Arr.map(group, (token) => token.text), "")),
-      tab: () => spaceSegmentsFromText(Arr.join(Arr.map(group, (token) => token.text), ""))
+const segmentPreWrapGroup = (group: AtomicTokens): SegmentChunk =>
+  Chunk.head(group).pipe(
+    Option.match({
+      onNone: Chunk.empty<Text.Segment>,
+      onSome: AtomicToken.$match({
+        Text: () => textSegmentsFromAtoms(Chunk.filter(group, isTextAtomicToken)),
+        HardBreak: () => Chunk.map(group, hardBreakSegment),
+        Space: () => spaceSegmentsFromText(Chunk.join(Chunk.map(group, (token) => token.text), "")),
+        Tab: () => spaceSegmentsFromText(Chunk.join(Chunk.map(group, (token) => token.text), ""))
+      })
     })
   )
 
-const segmentPreWrapText = (text: string): Text.Segments =>
-  Arr.flatMap(groupPreWrapTokens(tokenizeText(text)), segmentPreWrapGroup)
+const segmentPreWrapText = (text: string): SegmentChunk =>
+  Chunk.flatMap(groupPreWrapTokens(tokenizeText(text)), segmentPreWrapGroup)
 
 /** Builds text, space, and hard-break segments from canonical grapheme and break-class analysis. */
 export const segmentText = (text: string, whiteSpace: Text.Whitespace): Text.Segments =>
   Match.value(whiteSpace).pipe(
     Match.when("normal", () => segmentNormalText(text)),
     Match.when("pre-wrap", () => segmentPreWrapText(text)),
-    Match.exhaustive
+    Match.exhaustive,
+    Chunk.toReadonlyArray
   )
 
 /** Detects the first strong text direction present in a string. */
 export const detectTextDirection = (text: string): TextDirection =>
-  Arr.findFirst(
-    Arr.fromIterable(text),
+  Chunk.findFirst(
+    Chunk.fromIterable(text),
     (character) => Boolean.or(isRtlCharacter(character), isStrongCharacter(character))
   ).pipe(
     Option.match({
@@ -423,20 +418,23 @@ export const bidiLevelForDirection = (direction: TextDirection, baseDirection: T
 
 /** Splits whitespace into grouped spaces and single tab tokens for later measurement. */
 export const splitWhitespaceTokens = (text: string): WhitespaceTokens =>
-  Arr.map(Arr.filter(String.split(/(\t)/u)(text), String.isNonEmpty), (part) =>
-    new WhitespaceToken({
-      kind: Boolean.match(String.Equivalence(part, tab), { onFalse: () => "space", onTrue: () => "tab" }),
-      text: part
-    }))
+  Chunk.map(
+    Chunk.filter(Chunk.fromIterable(String.split(/(\t)/u)(text)), String.isNonEmpty),
+    (part) =>
+      new WhitespaceToken({
+        kind: Boolean.match(String.Equivalence(part, tab), { onFalse: () => "space", onTrue: () => "tab" }),
+        text: part
+      })
+  )
 
 /** Splits author-provided soft hyphens into pieces while preserving discretionary break ownership. */
 export const splitSoftHyphenPieces = (text: string): SoftHyphenPieces => {
-  const parts = String.split(softHyphen)(text)
-  return Arr.filter(
-    Arr.map(
+  const parts = Chunk.fromIterable(String.split(softHyphen)(text))
+  return Chunk.filter(
+    Chunk.map(
       parts,
       (part, index) =>
-        new SoftHyphenPiece({ breakAfter: Number.lessThan(index, Number.decrement(Arr.length(parts))), text: part })
+        new SoftHyphenPiece({ breakAfter: Number.lessThan(index, Number.decrement(parts.length)), text: part })
     ),
     (piece) => String.isNonEmpty(piece.text)
   )
@@ -447,8 +445,8 @@ export const containsEmoji = isEmoji
 
 /** Removes emoji grapheme clusters while counting how many clusters were stripped. */
 export const stripEmojiClusters = (text: string): EmojiStripResult =>
-  Arr.reduce(
-    graphemeClusters(text),
+  Chunk.reduce(
+    Chunk.fromIterable(graphemeClusters(text)),
     new EmojiStripResult({ count: 0, text: "" }),
     (state, cluster) =>
       Boolean.match(isEmoji(cluster), {

@@ -1,16 +1,15 @@
 import { describe, expect, it } from "@effect/vitest"
-import { Effect, Layer, Match, MutableRef, Number, Option, Ref, Schema, Stream, String } from "effect"
+import { Data, Effect, Layer, Match, MutableRef, Number, Option, Ref, Stream, String } from "effect"
 import * as Arr from "effect/Array"
 import * as Tuple from "effect/Tuple"
 
 import { Hyphenation, MeasurementCache, Text, TextMeasurer } from "../src/index.js"
 
-class HyphenationCase extends Schema.Class<HyphenationCase>("HyphenationContractCase")({
-  expected: Text.Lines,
-  input: Text.Input,
-  maxWidth: Schema.Number
-}) {}
-const HyphenationCases = Schema.Array(HyphenationCase)
+class HyphenationCase extends Data.Class<{
+  readonly expected: Text.Lines
+  readonly input: Text.Input
+  readonly maxWidth: number
+}> {}
 const emptyWords: Hyphenation.Words = {}
 
 const visualLine = (index: number, text: string, width: number): Text.Line => ({
@@ -123,7 +122,7 @@ const noHyphenationLayer = Layer.mergeAll(
 describe("Text hyphenation contracts", () => {
   it.effect("applies custom dictionary hyphenation for each supported locale", () =>
     Effect.gen(function*() {
-      const cases: typeof HyphenationCases.Type = Arr.make(
+      const cases = Arr.make(
         new HyphenationCase({
           expected: Arr.make(visualLine(0, "hy-", 15), visualLine(1, "phen-", 25), visualLine(2, "ation", 25)),
           input: {
@@ -190,7 +189,7 @@ describe("Text hyphenation contracts", () => {
 
   it.effect("hyphenates words with the bundled English, German, French, and Spanish dictionaries", () =>
     Effect.gen(function*() {
-      const cases: typeof HyphenationCases.Type = Arr.make(
+      const cases = Arr.make(
         new HyphenationCase({
           expected: Arr.make(visualLine(0, "hy-", 15), visualLine(1, "phen-", 25), visualLine(2, "ation", 25)),
           input: {

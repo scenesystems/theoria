@@ -14,50 +14,42 @@ import {
   String as Str
 } from "effect"
 
+import {
+  calibrationServices,
+  canonicalCalibrationCases,
+  canonicalMixedDirectionCase,
+  canonicalSoftHyphenWrapCase,
+  defaultCalibrationProfile,
+  exploratorySearch,
+  fixedSearch
+} from "../../examples/live/calibrationFixtures.js"
 import * as Calibration from "../../src/Calibration.js"
 import * as Hyphenation from "../../src/Hyphenation.js"
 import * as MeasurementCache from "../../src/MeasurementCache.js"
 import * as Text from "../../src/Text.js"
 import * as TextMeasurer from "../../src/TextMeasurer.js"
-import {
-  calibrationServices,
-  canonicalCalibrationCases,
-  defaultCalibrationProfile,
-  exploratorySearch,
-  fixedSearch
-} from "./fixtures.js"
-
-const calibrationCaseAt = (index: number) =>
-  Arr.get(canonicalCalibrationCases, index).pipe(
-    Option.match({
-      onNone: () => Effect.fail("CanonicalCalibrationCaseMissing"),
-      onSome: Effect.succeed
-    })
-  )
 
 describe("Calibration boundary contracts", () => {
   it.effect("evaluate composes on top of prepare and pure layout", () =>
     Effect.gen(function*() {
-      const mixedDirectionCase = yield* calibrationCaseAt(4)
-
       const report = yield* Calibration.evaluate(
         defaultCalibrationProfile,
         Arr.of(
-          mixedDirectionCase
+          canonicalMixedDirectionCase
         )
       ).pipe(
         Effect.provide(calibrationServices)
       )
-      const prepared = yield* Text.prepareWithSegments(mixedDirectionCase.prepare).pipe(
+      const prepared = yield* Text.prepareWithSegments(canonicalMixedDirectionCase.prepare).pipe(
         Effect.provide(calibrationServices)
       )
 
       expect(report.matchedCaseCount).toBe(1)
       expect(Arr.head(report.results).pipe(Option.map((result) => result.actual))).toEqual(
-        Option.some(Text.summary(prepared, mixedDirectionCase.layout))
+        Option.some(Text.summary(prepared, canonicalMixedDirectionCase.layout))
       )
       expect(Arr.head(report.results).pipe(Option.map((result) => result.actualLines))).toEqual(
-        Option.some(Text.lines(prepared, mixedDirectionCase.layout))
+        Option.some(Text.lines(prepared, canonicalMixedDirectionCase.layout))
       )
     }))
 
@@ -88,15 +80,13 @@ describe("Calibration boundary contracts", () => {
         Hyphenation.layer(),
         MeasurementCache.layer.pipe(Layer.provide(countedMeasurerLayer))
       )
-      const softHyphenCase = yield* calibrationCaseAt(1)
-
-      const prepared = yield* Text.prepareWithSegments(softHyphenCase.prepare).pipe(
+      const prepared = yield* Text.prepareWithSegments(canonicalSoftHyphenWrapCase.prepare).pipe(
         Effect.provide(countedServices)
       )
       const beforeOptimize = yield* Ref.get(measurementCount)
 
       yield* Calibration.optimize({
-        cases: Arr.of(softHyphenCase),
+        cases: Arr.of(canonicalSoftHyphenWrapCase),
         services: countedServices,
         trials: 1,
         sampler: Sampler.grid(),
@@ -104,7 +94,7 @@ describe("Calibration boundary contracts", () => {
       })
 
       const afterOptimize = yield* Ref.get(measurementCount)
-      const summary = Text.summary(prepared, softHyphenCase.layout)
+      const summary = Text.summary(prepared, canonicalSoftHyphenWrapCase.layout)
       const afterLayout = yield* Ref.get(measurementCount)
 
       expect(beforeOptimize).toBeGreaterThan(0)

@@ -21,8 +21,6 @@ import {
   Tuple
 } from "effect"
 import * as Arr from "effect/Array"
-import type * as HashMap from "effect/HashMap"
-import type * as MutableRef from "effect/MutableRef"
 
 import * as Hyphenation from "./Hyphenation.js"
 import { segmentText } from "./internal/analysis.js"
@@ -402,32 +400,48 @@ export class DecodeError extends Schema.TaggedError<DecodeError>()("TextLayoutDe
 export type Error = TextMeasurer.Failed | DecodeError
 
 /**
- * Opaque prepared state supporting summary and natural-width projections.
+ * Prepared text supporting pure summary and natural-width projections.
+ * Construction through `prepare` captures private measurement tables in these
+ * operations. Handles have no encoding or content-based equality contract.
  *
  * @since 0.5.0
  * @category models
  */
 export class Text extends Data.Class<{
-  /** @internal */
-  readonly kernel: Prepared.Kernel
-  /** @internal */
-  readonly meta: Prepared.Meta
+  /** Computes aggregate layout geometry without materializing line strings. */
+  readonly summary: (request: Request) => Summary
+  /** Returns the widest hard-break-delimited painted width before wrapping. */
+  readonly naturalWidth: () => number
 }> {}
 
 /**
- * Opaque prepared state retaining the logical surface needed for materialization.
+ * Prepared text with pure visual-line, range, cursor, and stream projections.
+ * `prepareWithSegments` retains the logical surface privately; callers do not
+ * receive mutable cursor hints or depend on the measurement-table representation.
  *
  * @since 0.5.0
  * @category models
  */
 export class WithSegments extends Data.Class<
   Text & {
-    /** @internal */
-    readonly logicalSurface: Prepared.Surface
-    /** @internal */
-    readonly cursorHints: MutableRef.MutableRef<HashMap.HashMap<Prepared.CursorHintKey, number>>
+    /** Materializes lines at a uniform or per-line width. */
+    readonly lines: (request: Request, resolveMaxWidth?: LineWidthResolver) => Lines
+    /** Materializes lines and summary geometry in one walk. */
+    readonly layout: (request: Request) => Layout
+    /** Materializes one line and returns its successor cursor. */
+    readonly nextLine: (request: Request, cursor: Cursor) => Option.Option<LineStep>
+    /** Projects logical bounds at a uniform or per-line width. */
+    readonly ranges: (request: Request, resolveMaxWidth?: LineWidthResolver) => LineRanges
+    /** Lazily unfolds visual lines without remeasurement. */
+    readonly stream: (request: Request) => Stream.Stream<Line>
   }
 > {}
+
+const fromKernel = (kernel: Prepared.Kernel): Text =>
+  new Text({
+    summary: (request) => InternalLayout.summarizeLines(kernel, request),
+    naturalWidth: () => InternalLayout.measureNaturalWidth(kernel)
+  })
 
 const compile = (input: Input): Effect.Effect<Prepared.Compilation, TextMeasurer.Failed, Services> =>
   Effect.gen(function*() {
@@ -445,7 +459,7 @@ const compile = (input: Input): Effect.Effect<Prepared.Compilation, TextMeasurer
  * @category constructors
  */
 export const prepare = (input: Input): Effect.Effect<Text, TextMeasurer.Failed, Services> =>
-  compile(input).pipe(Effect.map((compilation) => compilation.core))
+  compile(input).pipe(Effect.map(({ kernel }) => fromKernel(kernel)))
 
 /**
  * Segments and measures typed input while retaining visual materialization data.
@@ -457,9 +471,18 @@ export const prepareWithSegments = (input: Input): Effect.Effect<WithSegments, T
   compile(input).pipe(
     Effect.map((compilation) =>
       new WithSegments({
-        ...compilation.core,
-        logicalSurface: compilation.surface,
-        cursorHints: compilation.surface.cursorHints
+        ...fromKernel(compilation.kernel),
+        lines: (request, resolveMaxWidth) => InternalLayout.materializeLines(compilation, request, resolveMaxWidth),
+        layout: (request) => InternalLayout.materializeLinesWithSummary(compilation, request),
+        nextLine: (request, cursor) => InternalLayout.materializeLineAtCursor(compilation, request, cursor),
+        ranges: (request, resolveMaxWidth) => InternalLayout.walkLineRanges(compilation, request, resolveMaxWidth),
+        stream: (request) =>
+          Stream.unfold(new StreamState({ cursor: start, lineIndex: 0 }), (state) =>
+            Option.map(
+              InternalLayout.materializeLineAtCursor(compilation, request, state.cursor, Option.some(state.lineIndex)),
+              ([line, cursor]) =>
+                Tuple.make(line, new StreamState({ cursor, lineIndex: Number.increment(state.lineIndex) }))
+            ))
       })
     )
   )
@@ -501,7 +524,7 @@ export const start: Cursor = Cursor.make({ segmentIndex: 0, graphemeIndex: 0 })
 export const summary: {
   (self: Text, request: Request): Summary
   (request: Request): (self: Text) => Summary
-} = Function.dual(2, (self: Text, request: Request): Summary => InternalLayout.summarizeLines(self, request))
+} = Function.dual(2, (self: Text, request: Request): Summary => self.summary(request))
 
 /**
  * Materializes every visual line at the request's uniform width.
@@ -512,7 +535,7 @@ export const summary: {
 export const lines: {
   (self: WithSegments, request: Request): Lines
   (request: Request): (self: WithSegments) => Lines
-} = Function.dual(2, (self: WithSegments, request: Request): Lines => InternalLayout.materializeLines(self, request))
+} = Function.dual(2, (self: WithSegments, request: Request): Lines => self.lines(request))
 
 /**
  * Materializes visual lines using a width resolved for each output index.
@@ -526,7 +549,7 @@ export const linesWith: {
 } = Function.dual(
   3,
   (self: WithSegments, request: Request, resolveMaxWidth: LineWidthResolver): Lines =>
-    InternalLayout.materializeLines(self, request, resolveMaxWidth)
+    self.lines(request, resolveMaxWidth)
 )
 
 /**
@@ -550,11 +573,7 @@ export const ranges: {
     )
   },
   (self: WithSegments, request: Request, resolveMaxWidth?: LineWidthResolver): LineRanges =>
-    InternalLayout.walkLineRanges(
-      self,
-      request,
-      Option.fromNullable(resolveMaxWidth).pipe(Option.getOrElse(() => () => request.maxWidth))
-    )
+    self.ranges(request, resolveMaxWidth)
 )
 
 /**
@@ -563,7 +582,7 @@ export const ranges: {
  * @since 0.5.0
  * @category layout
  */
-export const naturalWidth = (self: Text): number => InternalLayout.measureNaturalWidth(self)
+export const naturalWidth = (self: Text): number => self.naturalWidth()
 
 /**
  * Materializes lines and summary geometry in one walk.
@@ -576,7 +595,7 @@ export const layout: {
   (request: Request): (self: WithSegments) => Layout
 } = Function.dual(
   2,
-  (self: WithSegments, request: Request): Layout => InternalLayout.materializeLinesWithSummary(self, request)
+  (self: WithSegments, request: Request): Layout => self.layout(request)
 )
 
 /**
@@ -590,8 +609,7 @@ export const nextLine: {
   (request: Request, cursor: Cursor): (self: WithSegments) => Option.Option<LineStep>
 } = Function.dual(
   3,
-  (self: WithSegments, request: Request, cursor: Cursor): Option.Option<LineStep> =>
-    InternalLayout.materializeLineAtCursor(self, request, cursor)
+  (self: WithSegments, request: Request, cursor: Cursor): Option.Option<LineStep> => self.nextLine(request, cursor)
 )
 
 class StreamState extends Data.Class<{
@@ -610,12 +628,7 @@ export const stream: {
   (request: Request): (self: WithSegments) => Stream.Stream<Line>
 } = Function.dual(
   2,
-  (self: WithSegments, request: Request): Stream.Stream<Line> =>
-    Stream.unfold(new StreamState({ cursor: start, lineIndex: 0 }), (state) =>
-      Option.map(
-        InternalLayout.materializeLineAtCursor(self, request, state.cursor, Option.some(state.lineIndex)),
-        ([line, cursor]) => Tuple.make(line, new StreamState({ cursor, lineIndex: Number.increment(state.lineIndex) }))
-      ))
+  (self: WithSegments, request: Request): Stream.Stream<Line> => self.stream(request)
 )
 
 /**

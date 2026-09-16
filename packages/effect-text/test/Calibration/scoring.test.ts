@@ -3,8 +3,13 @@ import * as Numeric from "@scenesystems/effect-math/Numeric"
 import { Sampler } from "@scenesystems/effect-search"
 import { Array as Arr, Effect, Number as Num } from "effect"
 
+import {
+  calibrationServices,
+  canonicalCalibrationCases,
+  defaultCalibrationProfile,
+  fixedSearch
+} from "../../examples/live/calibrationFixtures.js"
 import * as Calibration from "../../src/Calibration.js"
-import { calibrationServices, canonicalCalibrationCases, defaultCalibrationProfile, fixedSearch } from "./fixtures.js"
 
 const manualScore = (
   report: Calibration.Report,

@@ -9,11 +9,17 @@ import { enUs } from "./hyphenationPatterns/enUs.js"
 import { es } from "./hyphenationPatterns/es.js"
 import { fr } from "./hyphenationPatterns/fr.js"
 
+/** Canonical preparation-time discretionary break vocabulary. */
+export const BreakOpportunity = Schema.Literal("dictionary-hyphen", "none", "soft-hyphen")
+
+/** Canonical preparation-time discretionary break vocabulary. */
+export type BreakOpportunity = typeof BreakOpportunity.Type
+
 /** A preparation-time slice with its trailing discretionary break. */
-export class HyphenatedPiece extends Schema.Class<HyphenatedPiece>("effect-text/HyphenatedPiece")({
-  breakOpportunity: Schema.Literal("dictionary-hyphen", "none", "soft-hyphen"),
-  text: Schema.String
-}) {}
+export class HyphenatedPiece extends Data.Class<{
+  readonly breakOpportunity: BreakOpportunity
+  readonly text: string
+}> {}
 
 class Pattern extends Data.Class<{ readonly letters: string; readonly points: Hyphenation.BreakPoints }> {}
 class Word extends Data.Class<{
@@ -60,8 +66,8 @@ export const localeCandidates = (locale: string) => {
 }
 
 const normalizeWord = (word: string): Word => {
-  const state = Arr.reduce(
-    graphemeClusters(word),
+  const state = Chunk.reduce(
+    Chunk.fromIterable(graphemeClusters(word)),
     new WordState({
       boundaryMap: Arr.of(0),
       original: word,
@@ -268,14 +274,14 @@ export const shippedDictionaries = (): Record.ReadonlyRecord<string, Hyphenation
 export const splitDictionaryHyphenationPieces = (
   word: string,
   breakPoints: Hyphenation.BreakPoints,
-  finalBreakOpportunity: HyphenatedPiece["breakOpportunity"]
+  finalBreakOpportunity: BreakOpportunity
 ) =>
   Boolean.match(String.isEmpty(word), {
-    onTrue: Arr.empty<HyphenatedPiece>,
+    onTrue: Chunk.empty<HyphenatedPiece>,
     onFalse: () => {
       const length = String.length(word)
-      const boundaries = Arr.append(sanitize(word, breakPoints), length)
-      return Tuple.getSecond(Arr.mapAccum(boundaries, 0, (start, boundary) =>
+      const boundaries = Chunk.append(Chunk.fromIterable(sanitize(word, breakPoints)), length)
+      return Tuple.getSecond(Chunk.mapAccum(boundaries, 0, (start, boundary) =>
         Tuple.make(
           boundary,
           new HyphenatedPiece({

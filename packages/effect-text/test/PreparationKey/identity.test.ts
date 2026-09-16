@@ -18,7 +18,7 @@ const keyFor = (
   engineProfile: Text.Profile = profile.engineProfile,
   supportProfileId: CanvasProfile.Id = profile.id
 ) =>
-  PreparationKey.make(
+  new PreparationKey.PreparationKey(
     new PreparationKey.Options({
       prepare,
       engineProfile,

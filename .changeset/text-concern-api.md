@@ -14,6 +14,10 @@ projections. Supply native Context services and Layers for measurement and
 hyphenation. PreparationKey owns structural preparation identity and font revision
 invalidation. Calibration owns profile evaluation and resumable optimization.
 
+Keep prepared measurement tables and cursor hints private to the handle's
+operations. Construct structural preparation identities directly with
+`new PreparationKey.PreparationKey(...)`; no separate normalization factory is required.
+
 Preserve scoped measurement caching and cancellation semantics, Unicode grapheme
 boundaries, and dictionary hyphenation. Correct canvas emoji compensation for
 graphemes containing combining marks. Migrate examples and the Theoria application

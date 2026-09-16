@@ -2,13 +2,11 @@ import { Array as Arr, Layer } from "effect"
 
 import { type Calibration, Hyphenation, MeasurementCache, Text, TextMeasurer } from "@scenesystems/effect-text"
 
-export const calibrationTextMeasurerLayer = TextMeasurer.layer
-
 export const calibrationServices = Layer.mergeAll(
   Text.layerSegmenter,
   Text.layerProfile,
   Hyphenation.layer(),
-  MeasurementCache.layer.pipe(Layer.provide(calibrationTextMeasurerLayer))
+  MeasurementCache.layer.pipe(Layer.provide(TextMeasurer.layer))
 )
 
 export const defaultCalibrationProfile: Calibration.Profile = {
@@ -22,7 +20,7 @@ export const defaultCalibrationProfile: Calibration.Profile = {
   }
 }
 
-const tabAdvances: Calibration.Case = {
+export const canonicalTabAdvancesCase: Calibration.Case = {
   name: "tab-advances",
   prepare: {
     text: "a\tb",
@@ -37,7 +35,7 @@ const tabAdvances: Calibration.Case = {
   }
 }
 
-const softHyphenWrap: Calibration.Case = {
+export const canonicalSoftHyphenWrapCase: Calibration.Case = {
   name: "soft-hyphen-wrap",
   prepare: {
     text: "alpha\u00adbeta",
@@ -55,7 +53,7 @@ const softHyphenWrap: Calibration.Case = {
   }
 }
 
-const longTokenGraphemeFallback: Calibration.Case = {
+export const canonicalLongTokenGraphemeFallbackCase: Calibration.Case = {
   name: "long-token-grapheme-fallback",
   prepare: {
     text: "https://example.com/a-b?x=1,2",
@@ -79,7 +77,7 @@ const longTokenGraphemeFallback: Calibration.Case = {
   }
 }
 
-const cjkNoSpaceLayout: Calibration.Case = {
+export const canonicalCjkNoSpaceLayoutCase: Calibration.Case = {
   name: "cjk-no-space-layout",
   prepare: {
     text: "你好世界你好",
@@ -98,7 +96,7 @@ const cjkNoSpaceLayout: Calibration.Case = {
   }
 }
 
-const mixedDirectionCase: Calibration.Case = {
+export const canonicalMixedDirectionCase: Calibration.Case = {
   name: "mixed-direction-case",
   prepare: {
     text: "(שלום) hello",
@@ -113,7 +111,7 @@ const mixedDirectionCase: Calibration.Case = {
   }
 }
 
-const dictionaryHyphenation: Calibration.Case = {
+export const canonicalDictionaryHyphenationCase: Calibration.Case = {
   name: "dictionary-hyphenation",
   prepare: {
     text: "hyphenation",
@@ -134,12 +132,12 @@ const dictionaryHyphenation: Calibration.Case = {
 }
 
 export const canonicalCalibrationCases: Calibration.Cases = Arr.make(
-  tabAdvances,
-  softHyphenWrap,
-  longTokenGraphemeFallback,
-  cjkNoSpaceLayout,
-  mixedDirectionCase,
-  dictionaryHyphenation
+  canonicalTabAdvancesCase,
+  canonicalSoftHyphenWrapCase,
+  canonicalLongTokenGraphemeFallbackCase,
+  canonicalCjkNoSpaceLayoutCase,
+  canonicalMixedDirectionCase,
+  canonicalDictionaryHyphenationCase
 )
 
 const LTR_DIRECTION: Text.Direction = "ltr"

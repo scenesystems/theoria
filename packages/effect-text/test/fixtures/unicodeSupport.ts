@@ -1,63 +1,57 @@
-import { Schema } from "effect"
+import { Data } from "effect"
 import * as Arr from "effect/Array"
 
-import { Segment, Whitespace } from "../../src/Text.js"
+import { Segment, type Segments, type Whitespace } from "../../src/Text.js"
 
-class UnicodeSegmentationFixture extends Schema.Class<UnicodeSegmentationFixture>(
-  "effect-text-test/UnicodeSegmentationFixture"
-)({
-  expected: Schema.Array(Segment),
-  name: Schema.String,
-  text: Schema.String,
-  whiteSpace: Whitespace
-}) {}
+class UnicodeSegmentationFixture extends Data.Class<{
+  readonly expected: Segments
+  readonly name: string
+  readonly text: string
+  readonly whiteSpace: Whitespace
+}> {}
 
-class UnicodeOverflowFixture extends Schema.Class<UnicodeOverflowFixture>("effect-text-test/UnicodeOverflowFixture")({
-  maxWidth: Schema.Number,
-  name: Schema.String,
-  text: Schema.String
-}) {}
+class UnicodeOverflowFixture extends Data.Class<{
+  readonly maxWidth: number
+  readonly name: string
+  readonly text: string
+}> {}
 
-const UnicodeSegmentationFixtures = Schema.Array(UnicodeSegmentationFixture)
-const UnicodeOverflowFixtures = Schema.Array(UnicodeOverflowFixture)
-const textSegment = Schema.decodeSync(Segment)
-
-export const unicodeSegmentationFixtures: typeof UnicodeSegmentationFixtures.Type = Arr.make(
+export const unicodeSegmentationFixtures = Arr.make(
   new UnicodeSegmentationFixture({
     expected: Arr.make(
-      textSegment({ kind: "text", text: "no" }),
-      textSegment({ kind: "text", text: "\u00a0" }),
-      textSegment({ kind: "text", text: "break" }),
-      textSegment({ kind: "space", text: " " }),
-      textSegment({ kind: "text", text: "word" }),
-      textSegment({ kind: "text", text: "\u2060" }),
-      textSegment({ kind: "text", text: "join" }),
-      textSegment({ kind: "space", text: " " }),
-      textSegment({ kind: "text", text: "a" }),
-      textSegment({ kind: "text", text: "\u200b" }),
-      textSegment({ kind: "text", text: "b" })
+      Segment.make({ kind: "text", text: "no" }),
+      Segment.make({ kind: "text", text: "\u00a0" }),
+      Segment.make({ kind: "text", text: "break" }),
+      Segment.make({ kind: "space", text: " " }),
+      Segment.make({ kind: "text", text: "word" }),
+      Segment.make({ kind: "text", text: "\u2060" }),
+      Segment.make({ kind: "text", text: "join" }),
+      Segment.make({ kind: "space", text: " " }),
+      Segment.make({ kind: "text", text: "a" }),
+      Segment.make({ kind: "text", text: "\u200b" }),
+      Segment.make({ kind: "text", text: "b" })
     ),
     name: "nbsp-wj-zwsp",
     text: "no\u00a0break word\u2060join a\u200bb",
     whiteSpace: "normal"
   }),
   new UnicodeSegmentationFixture({
-    expected: Arr.of(textSegment({ kind: "text", text: "https://example.com/a-b?x=1,2" })),
+    expected: Arr.of(Segment.make({ kind: "text", text: "https://example.com/a-b?x=1,2" })),
     name: "url-like-run",
     text: "https://example.com/a-b?x=1,2",
     whiteSpace: "normal"
   }),
   new UnicodeSegmentationFixture({
-    expected: Arr.of(textSegment({ kind: "text", text: "1,234.56" })),
+    expected: Arr.of(Segment.make({ kind: "text", text: "1,234.56" })),
     name: "numeric-run",
     text: "1,234.56",
     whiteSpace: "normal"
   }),
   new UnicodeSegmentationFixture({
     expected: Arr.make(
-      textSegment({ kind: "text", text: "(hello)" }),
-      textSegment({ kind: "space", text: " " }),
-      textSegment({ kind: "text", text: "[world]" })
+      Segment.make({ kind: "text", text: "(hello)" }),
+      Segment.make({ kind: "space", text: " " }),
+      Segment.make({ kind: "text", text: "[world]" })
     ),
     name: "opening-and-closing-punctuation",
     text: "(hello) [world]",
@@ -65,9 +59,9 @@ export const unicodeSegmentationFixtures: typeof UnicodeSegmentationFixtures.Typ
   }),
   new UnicodeSegmentationFixture({
     expected: Arr.make(
-      textSegment({ kind: "text", text: "\u300c\u4f60\u597d\u300d" }),
-      textSegment({ kind: "space", text: " " }),
-      textSegment({ kind: "text", text: "\u300e\u4e16\u754c\u300f" })
+      Segment.make({ kind: "text", text: "\u300c\u4f60\u597d\u300d" }),
+      Segment.make({ kind: "space", text: " " }),
+      Segment.make({ kind: "text", text: "\u300e\u4e16\u754c\u300f" })
     ),
     name: "cjk-punctuation-pairs",
     text: "\u300c\u4f60\u597d\u300d \u300e\u4e16\u754c\u300f",
@@ -75,7 +69,7 @@ export const unicodeSegmentationFixtures: typeof UnicodeSegmentationFixtures.Typ
   })
 )
 
-export const unicodeOverflowFixtures: typeof UnicodeOverflowFixtures.Type = Arr.make(
+export const unicodeOverflowFixtures = Arr.make(
   new UnicodeOverflowFixture({
     maxWidth: 25,
     name: "url-like-run",

@@ -5,14 +5,15 @@ import * as Numeric from "@scenesystems/effect-math/Numeric"
 import { Contracts as SearchContracts, Sampler, Study } from "@scenesystems/effect-search"
 import { Array as Arr, Effect, Layer, Number as Num, Option, Schema } from "effect"
 
-import * as Calibration from "../../src/Calibration.js"
 import {
   calibrationServices,
   canonicalCalibrationCases,
+  canonicalTabAdvancesCase,
   defaultCalibrationProfile,
   exploratorySearch,
   fixedSearch
-} from "./fixtures.js"
+} from "../../examples/live/calibrationFixtures.js"
+import * as Calibration from "../../src/Calibration.js"
 
 const manualScore = (
   report: Calibration.Report,
@@ -64,12 +65,6 @@ describe("Calibration reporting contracts", () => {
 
   it.effect("evaluation retains asymmetric signed deltas and distinguishes absent from empty expected lines", () =>
     Effect.gen(function*() {
-      const calibrationCase = yield* Arr.get(canonicalCalibrationCases, 0).pipe(
-        Option.match({
-          onNone: () => Effect.fail("CanonicalCalibrationCaseMissing"),
-          onSome: Effect.succeed
-        })
-      )
       const report = yield* Calibration.evaluate(
         {
           name: "signed-error-boundaries",
@@ -83,19 +78,19 @@ describe("Calibration reporting contracts", () => {
         },
         Arr.make(
           {
-            ...calibrationCase,
+            ...canonicalTabAdvancesCase,
             name: "negative-deltas-without-line-expectations",
             expected: {
-              lineCount: Num.increment(calibrationCase.expected.lineCount),
-              maxLineWidth: Num.sum(calibrationCase.expected.maxLineWidth, 1)
+              lineCount: Num.increment(canonicalTabAdvancesCase.expected.lineCount),
+              maxLineWidth: Num.sum(canonicalTabAdvancesCase.expected.maxLineWidth, 1)
             }
           },
           {
-            ...calibrationCase,
+            ...canonicalTabAdvancesCase,
             name: "positive-deltas-with-empty-line-expectations",
             expected: {
-              lineCount: Num.decrement(calibrationCase.expected.lineCount),
-              maxLineWidth: Num.subtract(calibrationCase.expected.maxLineWidth, 1),
+              lineCount: Num.decrement(canonicalTabAdvancesCase.expected.lineCount),
+              maxLineWidth: Num.subtract(canonicalTabAdvancesCase.expected.maxLineWidth, 1),
               lines: Arr.empty()
             }
           }

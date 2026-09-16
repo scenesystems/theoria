@@ -30,7 +30,7 @@ export const prepareIdentityForTextProjection = (
   { role, text }: TextPrepareRequest,
   fontReadinessRevision: PreparationKey.Revision
 ): PreparationKey.PreparationKey =>
-  PreparationKey.make({
+  new PreparationKey.PreparationKey({
     prepare: prepareInputFor(role, text),
     engineProfile: browserEngineProfile,
     supportProfileId: browserSupportProfileId,

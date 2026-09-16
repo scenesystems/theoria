@@ -48,17 +48,21 @@ The principal data types are `Text.Font`, `Text.Input`, `Text.Whitespace`, `Text
 - `Text.prepareWithSegments` returns `Text.WithSegments`, which also supports line materialization, ranges, cursors, and streams.
 - `Text.prepareUnknown` strictly decodes unknown input before preparing it.
 
-| Function                | Handle                  | Result                                                      |
-| ----------------------- | ----------------------- | ----------------------------------------------------------- |
-| `Text.summary`          | `Text.Text`             | Aggregate geometry without line strings                     |
-| `Text.naturalWidth`     | `Text.Text`             | Widest hard-break-delimited width before wrapping           |
-| `Text.lines`            | `Text.WithSegments`     | All visual-order lines at one width                         |
-| `Text.linesWith`        | `Text.WithSegments`     | Lines using a per-line width resolver                       |
-| `Text.ranges`           | `Text.WithSegments`     | Painted widths and half-open logical cursor ranges          |
-| `Text.layout`           | `Text.WithSegments`     | Lines and summary from one walk                             |
-| `Text.nextLine`         | `Text.WithSegments`     | One line and its successor cursor, wrapped in `Option`      |
-| `Text.stream`           | `Text.WithSegments`     | A lazy `Stream` beginning at the canonical `Text.start`     |
-| `Text.summaryFromLines` | previously made `Lines` | Aggregate geometry using a caller-supplied line height      |
+Prepared handles expose pure projection operations, not their measurement tables
+or mutable cursor hints. They have no encoding or content-based equality contract;
+use `PreparationKey` when an application needs a structural cache identity.
+
+| Function                | Handle                  | Result                                                  |
+| ----------------------- | ----------------------- | ------------------------------------------------------- |
+| `Text.summary`          | `Text.Text`             | Aggregate geometry without line strings                 |
+| `Text.naturalWidth`     | `Text.Text`             | Widest hard-break-delimited width before wrapping       |
+| `Text.lines`            | `Text.WithSegments`     | All visual-order lines at one width                     |
+| `Text.linesWith`        | `Text.WithSegments`     | Lines using a per-line width resolver                   |
+| `Text.ranges`           | `Text.WithSegments`     | Painted widths and half-open logical cursor ranges      |
+| `Text.layout`           | `Text.WithSegments`     | Lines and summary from one walk                         |
+| `Text.nextLine`         | `Text.WithSegments`     | One line and its successor cursor, wrapped in `Option`  |
+| `Text.stream`           | `Text.WithSegments`     | A lazy `Stream` beginning at the canonical `Text.start` |
+| `Text.summaryFromLines` | previously made `Lines` | Aggregate geometry using a caller-supplied line height  |
 
 All layout functions support data-first and pipeable data-last calls. `linesWith` is useful for shaped containers; `nextLine`, `ranges`, and `stream` support incremental or virtualized rendering.
 
@@ -126,28 +130,15 @@ Each acquisition of `MeasurementCache.layer` owns a fresh cache. Reacquire that 
 
 ```ts typecheck
 import { Effect, Layer } from "effect"
-import {
-  CanvasProfile,
-  CanvasTextMeasurer,
-  MeasurementCache,
-  Text
-} from "@scenesystems/effect-text"
+import { CanvasProfile, CanvasTextMeasurer, MeasurementCache, Text } from "@scenesystems/effect-text"
 
-export const layoutOnCanvas = (
-  context: CanvasTextMeasurer.Context,
-  text: string,
-  maxWidth: number
-) => {
+export const layoutOnCanvas = (context: CanvasTextMeasurer.Context, text: string, maxWidth: number) => {
   const profile = CanvasProfile.systemUi
   const services = Layer.mergeAll(
     Text.layerSegmenter,
     Layer.succeed(Text.CurrentProfile, profile.engineProfile),
     MeasurementCache.layer.pipe(
-      Layer.provide(
-        CanvasTextMeasurer.layer(
-          new CanvasTextMeasurer.Options({ context, textBaseline: "alphabetic" })
-        )
-      )
+      Layer.provide(CanvasTextMeasurer.layer(new CanvasTextMeasurer.Options({ context, textBaseline: "alphabetic" })))
     )
   )
 
@@ -162,7 +153,7 @@ export const layoutOnCanvas = (
 }
 ```
 
-Widths from canvas are CSS pixels. The application owns font loading and cache invalidation. `PreparationKey.make` creates a structural application-cache key from `prepare`, `engineProfile`, `supportProfileId`, and `fontReadinessRevision`; `PreparationKey.toInput` recovers its `Text.Input`. `PreparationKey.Revision` validates non-negative integer revisions, which begin at `PreparationKey.initialRevision` and advance with `PreparationKey.nextRevision`.
+Widths from canvas are CSS pixels. The application owns font loading and cache invalidation. `new PreparationKey.PreparationKey(...)` creates a structural application-cache key from `prepare`, `engineProfile`, `supportProfileId`, and `fontReadinessRevision`; its constructor captures nested inputs with Effect Data semantics. `PreparationKey.toInput` recovers its `Text.Input`. `PreparationKey.Revision` validates non-negative integer revisions, which begin at `PreparationKey.initialRevision` and advance with `PreparationKey.nextRevision`.
 
 ## Hyphenation
 
@@ -214,16 +205,16 @@ See [the calibration example](./examples/05-calibration-search.ts) for a seeded 
 
 Every public module is available as a namespace from the package root and as a subpath such as `@scenesystems/effect-text/Text`.
 
-| Module                                                    | Scope                                                              |
-| --------------------------------------------------------- | ------------------------------------------------------------------ |
-| [`Text`](./src/Text.ts)                                   | Inputs, handles, pure projections, preparation services, and layers |
-| [`TextMeasurer`](./src/TextMeasurer.ts)                   | Measurement service, typed failure, and deterministic estimator     |
-| [`MeasurementCache`](./src/MeasurementCache.ts)           | Scoped measurement memoization                                     |
-| [`Hyphenation`](./src/Hyphenation.ts)                     | Dictionary sources, provider, caches, and locale fallback           |
-| [`CanvasTextMeasurer`](./src/CanvasTextMeasurer.ts)       | Serialized canvas-host measurement                                 |
-| [`CanvasProfile`](./src/CanvasProfile.ts)                 | Monospace and system-UI canvas profiles                             |
-| [`PreparationKey`](./src/PreparationKey.ts)               | Structural application cache keys and font-readiness revisions      |
-| [`Calibration`](./src/Calibration.ts)                     | Evaluation, pure scoring, and profile optimization                  |
+| Module                                              | Scope                                                               |
+| --------------------------------------------------- | ------------------------------------------------------------------- |
+| [`Text`](./src/Text.ts)                             | Inputs, handles, pure projections, preparation services, and layers |
+| [`TextMeasurer`](./src/TextMeasurer.ts)             | Measurement service, typed failure, and deterministic estimator     |
+| [`MeasurementCache`](./src/MeasurementCache.ts)     | Scoped measurement memoization                                      |
+| [`Hyphenation`](./src/Hyphenation.ts)               | Dictionary sources, provider, caches, and locale fallback           |
+| [`CanvasTextMeasurer`](./src/CanvasTextMeasurer.ts) | Serialized canvas-host measurement                                  |
+| [`CanvasProfile`](./src/CanvasProfile.ts)           | Monospace and system-UI canvas profiles                             |
+| [`PreparationKey`](./src/PreparationKey.ts)         | Structural application cache keys and font-readiness revisions      |
+| [`Calibration`](./src/Calibration.ts)               | Evaluation, pure scoring, and profile optimization                  |
 
 Paths under `internal` are not exported.
 
@@ -245,6 +236,12 @@ Validate canvas output against every target browser and font. The package guaran
 ## Examples
 
 The [examples directory](./examples/) contains runnable programs for the [quick start](./examples/01-quick-start.ts), [cursors and streams](./examples/02-cursor-and-stream.ts), [explicit services](./examples/03-explicit-services.ts), [canvas measurement](./examples/04-canvas-measurement.ts), [calibration](./examples/05-calibration-search.ts), [synthetic canvas regression artifacts](./examples/06-synthetic-regression-artifacts.ts), and [dictionary hyphenation](./examples/07-dictionary-hyphenation.ts).
+
+Run `bun run packages/effect-text/benchmarks/run.ts` from the repository root to
+measure the public projections and warm-cache preparation. The report is written
+to `.tmp/effect-text-benchmark.json`. It records nanosecond durations, operation
+outputs, and Effect dispatch overhead; timings are host-specific, not conformance
+expectations or comparisons with obsolete implementations.
 
 ## Status
 

@@ -4,11 +4,11 @@
  * @since 0.5.0
  * @module
  */
-import { Effect, Equal, Layer, Match, Number, Option, Schema, String } from "effect"
+import { Chunk, Data, Effect, Equal, Layer, Match, Number, Option, Schema } from "effect"
 import * as Arr from "effect/Array"
 
 import {
-  CanvasProfile,
+  type CanvasProfile,
   CanvasTextMeasurer,
   Hyphenation,
   MeasurementCache,
@@ -28,44 +28,41 @@ export const ScenarioId = Schema.Literal(
 )
 
 /** One resolved synthetic scenario. */
-export class Scenario extends Schema.Class<Scenario>("effect-text/example/CanvasScenario")({
-  id: ScenarioId,
-  prepare: Text.Input,
-  request: Text.Request
-}) {}
+export class Scenario extends Data.Class<{
+  readonly id: typeof ScenarioId.Type
+  readonly prepare: Text.Input
+  readonly request: Text.Request
+}> {}
 
 /** One rendered synthetic scenario. */
-export const ArtifactCase = Schema.Struct({
-  caseId: ScenarioId,
-  prepare: Text.Input,
-  request: Text.Request,
-  summary: Text.Summary,
-  lines: Text.Lines
-})
+export class ArtifactCase extends Data.Class<{
+  readonly caseId: typeof ScenarioId.Type
+  readonly prepare: Text.Input
+  readonly request: Text.Request
+  readonly summary: Text.Summary
+  readonly lines: Text.Lines
+}> {}
 
 /** A deterministic artifact for one canvas profile. */
-export const Artifact = Schema.Struct({
-  profileId: CanvasProfile.Id,
-  fontFamily: Schema.String,
-  fontSelection: Schema.String,
-  fontStack: Schema.NonEmptyArray(Schema.String),
-  cases: Schema.Array(ArtifactCase)
-})
+export class Artifact extends Data.Class<{
+  readonly profileId: CanvasProfile.Id
+  readonly fontFamily: string
+  readonly fontSelection: CanvasProfile.CanvasProfile["fontSelection"]
+  readonly fontStack: CanvasProfile.CanvasProfile["fontStack"]
+  readonly cases: Chunk.Chunk<ArtifactCase>
+}> {}
 
-/** JSON codec for a deterministic canvas artifact. */
-export const ArtifactJson = Schema.parseJson(Artifact)
+class Template extends Data.Class<{
+  readonly id: typeof ScenarioId.Type
+  readonly request: Text.Request
+  readonly text: string
+  readonly whiteSpace: Text.Whitespace
+}> {}
 
-class Template extends Schema.Class<Template>("effect-text/example/CanvasScenarioTemplate")({
-  id: ScenarioId,
-  request: Text.Request,
-  text: Schema.String,
-  whiteSpace: Text.Whitespace
-}) {}
-
-class Override extends Schema.Class<Override>("effect-text/example/CanvasMeasurementOverride")({
-  text: Schema.String,
-  width: Schema.Number.pipe(Schema.finite(), Schema.greaterThanOrEqualTo(0))
-}) {}
+class Override extends Data.Class<{
+  readonly text: string
+  readonly width: number
+}> {}
 
 const baseFontSize = 10
 const templates = Arr.make(
@@ -179,19 +176,15 @@ export const layer = (profile: CanvasProfile.CanvasProfile) =>
     )
   )
 
-/** Repository-relative path of a checked-in synthetic artifact. */
-export const artifactPath = (id: CanvasProfile.Id): string =>
-  String.concat("examples/live/artifacts/", String.concat(id, ".json"))
-
 /** Renders every synthetic scenario through canvas measurement and text layout. */
 export const render = (
   profile: CanvasProfile.CanvasProfile
-): Effect.Effect<typeof Artifact.Type, TextMeasurer.Failed> =>
+): Effect.Effect<Artifact, TextMeasurer.Failed> =>
   Effect.forEach(scenarios(profile), (scenario) =>
     Text.prepareWithSegments(scenario.prepare).pipe(
       Effect.map((prepared) => {
         const result = Text.layout(prepared, scenario.request)
-        return ArtifactCase.make({
+        return new ArtifactCase({
           caseId: scenario.id,
           prepare: scenario.prepare,
           request: scenario.request,
@@ -202,12 +195,12 @@ export const render = (
     )).pipe(
       Effect.provide(layer(profile)),
       Effect.map((cases) =>
-        Artifact.make({
+        new Artifact({
           profileId: profile.id,
           fontFamily: profile.defaultFontFamily,
           fontSelection: profile.fontSelection,
           fontStack: profile.fontStack,
-          cases
+          cases: Chunk.fromIterable(cases)
         })
       )
     )

@@ -1,5 +1,20 @@
 import { describe, expect, it } from "@effect/vitest"
-import { Context, Deferred, Effect, Exit, Fiber, Layer, Match, Number, Option, Ref, Scope, String } from "effect"
+import {
+  Array,
+  Context,
+  Deferred,
+  Effect,
+  Exit,
+  Fiber,
+  FiberStatus,
+  Layer,
+  Match,
+  Number,
+  Option,
+  Ref,
+  Scope,
+  String
+} from "effect"
 
 import { MeasurementCache, TextMeasurer } from "../src/index.js"
 
@@ -82,8 +97,12 @@ describe("Text measurement cache contracts", () => {
       expect(Exit.isInterrupted(yield* Fiber.join(cancelled.interrupting))).toBe(true)
       expect(yield* Ref.get(measurements)).toBe(0)
 
+      // A later reader must still join the original pending lookup, not start another one.
+      const third = yield* Effect.fork(cache.measure(font, "abcd"))
+      yield* Effect.yieldNow()
       yield* Deferred.succeed(gate, undefined)
       expect(yield* Fiber.join(first)).toBe(20)
+      expect(yield* Fiber.join(third)).toBe(20)
       expect(yield* cache.measure(font, "abcd")).toBe(20)
       expect(yield* Ref.get(measurements)).toBe(1)
     }))
@@ -129,6 +148,50 @@ describe("Text measurement cache contracts", () => {
       const cache = Context.get(context, MeasurementCache.MeasurementCache)
 
       expect(Exit.isFailure(yield* Effect.exit(cache.measure(font, "abcd")))).toBe(true)
+      expect(yield* cache.measure(font, "abcd")).toBe(20)
+      expect(yield* Ref.get(attempts)).toBe(2)
+    }))
+
+  it.scoped("failed readers cannot evict a successful retry of their shared measurement", () =>
+    Effect.gen(function*() {
+      const gate = yield* Deferred.make<void>()
+      const attempts = yield* Ref.make(0)
+      const measurerLayer = Layer.succeed(TextMeasurer.TextMeasurer, {
+        measure: (_font, text: string) =>
+          Ref.updateAndGet(attempts, Number.increment).pipe(
+            Effect.flatMap((attempt) =>
+              Match.value(attempt).pipe(
+                Match.when(1, () =>
+                  Deferred.await(gate).pipe(Effect.zipRight(Effect.fail(
+                    new TextMeasurer.Failed({
+                      fontFamily: font.family,
+                      fontSize: font.size,
+                      text,
+                      reason: "not ready"
+                    })
+                  )))),
+                Match.orElse(() => Effect.succeed(Number.multiply(String.length(text), 5)))
+              )
+            )
+          )
+      })
+      const context = yield* Layer.build(MeasurementCache.layer.pipe(Layer.provide(measurerLayer)))
+      const cache = Context.get(context, MeasurementCache.MeasurementCache)
+      const readers = yield* Effect.forEach(Array.range(1, 20), (priority) =>
+        Effect.fork(
+          cache.measure(font, "abcd").pipe(
+            Effect.catchAll(() => cache.measure(font, "abcd")),
+            Effect.withSchedulingPriority(priority),
+            Effect.withMaxOpsBeforeYield(16)
+          )
+        ))
+      yield* Effect.forEach(
+        readers,
+        (reader) => Effect.repeat(Fiber.status(reader), { until: FiberStatus.isSuspended })
+      )
+      yield* Deferred.succeed(gate, undefined)
+
+      expect(yield* Effect.forEach(readers, Fiber.join)).toEqual(Array.replicate(20, 20))
       expect(yield* cache.measure(font, "abcd")).toBe(20)
       expect(yield* Ref.get(attempts)).toBe(2)
     }))

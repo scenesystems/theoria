@@ -8,6 +8,7 @@ import {
   Array as Arr,
   Boolean,
   Chunk,
+  Data,
   Iterable,
   Match,
   Number,
@@ -20,8 +21,8 @@ import {
 } from "effect"
 
 import rawData from "./graphemeData.json" with { type: "json" }
-import type { CodePointRange, Graphemes } from "./graphemeSchema.js"
-import { ConjunctBreak, GraphemeBreak, GraphemeData } from "./graphemeSchema.js"
+import type { CodePointRange, ConjunctBreak, GraphemeBreak, Graphemes } from "./graphemeSchema.js"
+import { GraphemeData } from "./graphemeSchema.js"
 
 const data = Schema.decodeUnknownSync(GraphemeData)(rawData)
 const graphemeRanges = RedBlackTree.fromIterable(
@@ -48,18 +49,17 @@ const rangeAt = <A extends typeof CodePointRange.Type>(
     Option.filter((range) => Number.lessThanOrEqualTo(codePoint, range.end))
   )
 
-const Character = Schema.Struct({
-  text: Schema.String,
-  grapheme: GraphemeBreak,
-  conjunct: ConjunctBreak,
-  pictographic: Schema.Boolean
-})
-type Character = typeof Character.Type
+class Character extends Data.Class<{
+  readonly text: string
+  readonly grapheme: typeof GraphemeBreak.Type
+  readonly conjunct: typeof ConjunctBreak.Type
+  readonly pictographic: boolean
+}> {}
 
 const character = (text: string): Character => {
   // String iteration supplies a non-empty code-point string, including isolated surrogates.
   const codePoint = Option.getOrThrow(String.codePointAt(text, 0))
-  return {
+  return new Character({
     text,
     grapheme: rangeAt(graphemeRanges, codePoint).pipe(
       Option.map((range) => range.value),
@@ -70,27 +70,29 @@ const character = (text: string): Character => {
       Option.getOrElse((): typeof ConjunctBreak.Type => "None")
     ),
     pictographic: Option.isSome(rangeAt(pictographicRanges, codePoint))
-  }
+  })
 }
 
-const Scan = Schema.Struct({
-  completed: Schema.ChunkFromSelf(Schema.String),
-  current: Schema.String,
-  previous: GraphemeBreak,
-  oddRegionalIndicators: Schema.Boolean,
-  emoji: Schema.Literal("none", "pictographic", "zwj"),
-  conjunct: Schema.Literal("none", "consonant", "linked")
-})
-type Scan = typeof Scan.Type
+const EmojiState = Schema.Literal("none", "pictographic", "zwj")
+const ConjunctState = Schema.Literal("none", "consonant", "linked")
 
-const initial: Scan = {
+class Scan extends Data.Class<{
+  readonly completed: Chunk.Chunk<string>
+  readonly current: string
+  readonly previous: typeof GraphemeBreak.Type
+  readonly oddRegionalIndicators: boolean
+  readonly emoji: typeof EmojiState.Type
+  readonly conjunct: typeof ConjunctState.Type
+}> {}
+
+const initial = new Scan({
   completed: Chunk.empty(),
   current: "",
   previous: "Other",
   oddRegionalIndicators: false,
   emoji: "none",
   conjunct: "none"
-}
+})
 
 const joinsPrevious = (state: Scan, next: Character): boolean => {
   const afterControl = Boolean.or(
@@ -210,10 +212,10 @@ const finish = (state: Scan) =>
 
 /** Segments without normalizing or replacing the original UTF-16 text. */
 export const graphemeClusters = (text: string): typeof Graphemes.Type => {
-  const state = Arr.reduce(Arr.fromIterable(text), initial, (current, text): Scan => {
+  const state = Chunk.reduce(Chunk.fromIterable(text), initial, (current, text): Scan => {
     const next = character(text)
     const joined = joinsPrevious(current, next)
-    return {
+    return new Scan({
       completed: Boolean.match(joined, { onTrue: () => current.completed, onFalse: () => finish(current) }),
       current: Boolean.match(joined, { onTrue: () => String.concat(current.current, text), onFalse: () => text }),
       previous: next.grapheme,
@@ -223,7 +225,7 @@ export const graphemeClusters = (text: string): typeof Graphemes.Type => {
       ),
       emoji: nextEmoji(current, next),
       conjunct: nextConjunct(current, next)
-    }
+    })
   })
   return Chunk.toReadonlyArray(finish(state))
 }

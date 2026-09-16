@@ -3,34 +3,23 @@
  *
  * @since 0.1.0
  */
-import { Boolean, Number, Option, Schema, String } from "effect"
-import * as Arr from "effect/Array"
+import { Array, Boolean, Chunk, Data, Number, Option, String } from "effect"
 
 import * as BidiData from "./bidiData.js"
 
-class LevelBounds extends Schema.Class<LevelBounds>("effect-text/BidiLevelBounds")({
-  maxLevel: Schema.Number,
-  minimumOddLevel: Schema.OptionFromSelf(Schema.Number)
-}) {}
+class LevelBounds extends Data.Class<{
+  readonly maxLevel: number
+  readonly minimumOddLevel: Option.Option<number>
+}> {}
 
 /** Internal line-local unit used while deriving visual order from prepared metadata. */
-export class VisualOrderUnit extends Schema.Class<VisualOrderUnit>("effect-text/VisualOrderUnit")({
-  level: Schema.Number,
-  logicalIndex: Schema.Number,
-  mirroredText: Schema.String,
-  text: Schema.String
-}) {}
+export class VisualOrderUnit extends Data.Class<{
+  readonly level: number
+  readonly mirroredText: string
+  readonly text: string
+}> {}
 
-const VisualOrderUnits = Schema.Array(VisualOrderUnit)
-type VisualOrderUnits = typeof VisualOrderUnits.Type
-
-const VisualPermutation = Schema.Array(Schema.Number)
-
-/** Internal visual-order projection for a walked line. */
-export class VisualOrderProjection extends Schema.Class<VisualOrderProjection>("effect-text/VisualOrderProjection")({
-  permutation: VisualPermutation,
-  text: Schema.String
-}) {}
+type VisualOrderUnits = Chunk.Chunk<VisualOrderUnit>
 
 const isOddLevel = (level: number): boolean => Number.Equivalence(Number.remainder(level, 2), 1)
 
@@ -39,8 +28,8 @@ export const mirrorText = (text: string): string =>
   Boolean.match(BidiData.containsMirroredCharacters(text), {
     onFalse: () => text,
     onTrue: () =>
-      Arr.reduce(
-        Arr.fromIterable(text),
+      Chunk.reduce(
+        Chunk.fromIterable(text),
         "",
         (mirrored, character) => String.concat(BidiData.mirrorCharacter(character))(mirrored)
       )
@@ -62,7 +51,7 @@ const minimumOddLevel = (current: Option.Option<number>, level: number): Option.
   })
 
 const scanLevelBounds = (units: VisualOrderUnits): LevelBounds =>
-  Arr.reduce(
+  Chunk.reduce(
     units,
     new LevelBounds({ maxLevel: 0, minimumOddLevel: Option.none() }),
     (bounds, unit) =>
@@ -74,23 +63,32 @@ const scanLevelBounds = (units: VisualOrderUnits): LevelBounds =>
 
 // UAX #9 L2: at each descending level, reverse each contiguous run whose
 // levels meet the threshold. Group membership is a Boolean equivalence.
-const reverseLevelRuns = (units: VisualOrderUnits, level: number): VisualOrderUnits =>
-  Arr.match(units, {
-    onEmpty: Arr.empty<VisualOrderUnit>,
+const levelRuns = (units: VisualOrderUnits, level: number): Chunk.Chunk<VisualOrderUnits> =>
+  Array.match(Chunk.toReadonlyArray(units), {
+    onEmpty: Chunk.empty<VisualOrderUnits>,
     onNonEmpty: (nonEmpty) =>
-      Arr.flatMap(
-        Arr.groupWith(nonEmpty, (left, right) =>
+      Chunk.fromIterable(Array.map(
+        Array.groupWith(nonEmpty, (self, that) =>
           Boolean.Equivalence(
-            Number.greaterThanOrEqualTo(left.level, level),
-            Number.greaterThanOrEqualTo(right.level, level)
+            Number.greaterThanOrEqualTo(self.level, level),
+            Number.greaterThanOrEqualTo(that.level, level)
           )),
-        (run) =>
-          Boolean.match(Number.greaterThanOrEqualTo(Arr.headNonEmpty(run).level, level), {
-            onTrue: () => Arr.reverse(run),
+        Chunk.fromIterable
+      ))
+  })
+
+const reverseLevelRuns = (units: VisualOrderUnits, level: number): VisualOrderUnits =>
+  Chunk.flatMap(levelRuns(units, level), (run) =>
+    Chunk.head(run).pipe(
+      Option.match({
+        onNone: Chunk.empty<VisualOrderUnit>,
+        onSome: (head) =>
+          Boolean.match(Number.greaterThanOrEqualTo(head.level, level), {
+            onTrue: () => Chunk.reverse(run),
             onFalse: () => run
           })
-      )
-  })
+      })
+    ))
 
 const reorderVisualUnits = (units: VisualOrderUnits): VisualOrderUnits => {
   const bounds = scanLevelBounds(units)
@@ -98,8 +96,8 @@ const reorderVisualUnits = (units: VisualOrderUnits): VisualOrderUnits => {
     Option.match({
       onNone: () => units,
       onSome: (minimumOdd) =>
-        Arr.reduceRight(
-          Arr.range(minimumOdd, bounds.maxLevel),
+        Chunk.reduceRight(
+          Chunk.range(minimumOdd, bounds.maxLevel),
           units,
           reverseLevelRuns
         )
@@ -115,14 +113,13 @@ const appendInsertedTextUnits = (
   Boolean.match(String.isEmpty(insertedText), {
     onTrue: () => units,
     onFalse: () =>
-      Arr.appendAll(
+      Chunk.appendAll(
         units,
-        Arr.map(
-          Arr.fromIterable(insertedText),
-          (text, index) =>
+        Chunk.map(
+          Chunk.fromIterable(insertedText),
+          (text) =>
             new VisualOrderUnit({
               level: fallbackLevel,
-              logicalIndex: Number.sum(Arr.length(units), index),
               mirroredText: mirrorText(text),
               text
             })
@@ -131,8 +128,8 @@ const appendInsertedTextUnits = (
   })
 
 const renderVisualText = (units: VisualOrderUnits): string =>
-  Arr.join(
-    Arr.map(units, (unit) =>
+  Chunk.join(
+    Chunk.map(units, (unit) =>
       Boolean.match(isOddLevel(unit.level), {
         onFalse: () => unit.text,
         onTrue: () => unit.mirroredText
@@ -146,12 +143,3 @@ export const projectVisualText = (
   insertedText: string,
   fallbackLevel: number
 ): string => renderVisualText(reorderVisualUnits(appendInsertedTextUnits(units, insertedText, fallbackLevel)))
-
-/** Resolves visual-order text and the logical-to-visual permutation for a line. */
-export const projectVisualOrder = (units: VisualOrderUnits): VisualOrderProjection => {
-  const reordered = reorderVisualUnits(units)
-  return new VisualOrderProjection({
-    permutation: Arr.map(reordered, (unit) => unit.logicalIndex),
-    text: renderVisualText(reordered)
-  })
-}

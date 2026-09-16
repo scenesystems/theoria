@@ -512,20 +512,10 @@ describe("Text edge cases and robustness", () => {
 
       const request = { maxWidth: 25, lineHeight: 12 }
       const directLines = Text.lines(prepared, request)
-
-      const collectCursorLines = (
-        cursor: Text.Cursor
-      ): Text.Lines =>
-        Option.match(Text.nextLine(prepared, request, cursor), {
-          onNone: Arr.empty<Text.Line>,
-          onSome: (step) =>
-            Arr.prepend(
-              collectCursorLines(Tuple.getSecond(step)),
-              Tuple.getFirst(step)
-            )
-        })
-
-      const cursorLines = collectCursorLines(Text.start)
+      const cursorLines = Arr.unfold(
+        Text.start,
+        (cursor) => Text.nextLine(prepared, request, cursor)
+      )
 
       expect(cursorLines).toEqual(directLines)
     }))

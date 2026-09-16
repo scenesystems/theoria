@@ -1,5 +1,5 @@
 import { describe, expect, it } from "@effect/vitest"
-import { Effect, Exit, Option, Schema } from "effect"
+import { Chunk, Effect, Exit, Option, Schema } from "effect"
 import * as Arr from "effect/Array"
 
 import * as CanvasRegression from "../../examples/live/canvasRegression.js"
@@ -54,11 +54,11 @@ describe("canvas and Text composition", () => {
       })
     }))
 
-  it.effect("renders the checked-in scenario expectations through real composition", () =>
+  it.effect("renders profile scenarios through real canvas and layout composition", () =>
     Effect.gen(function*() {
       const artifact = yield* CanvasRegression.render(profile)
       const systemUiArtifact = yield* CanvasRegression.render(CanvasProfile.systemUi)
-      expect(Arr.map(artifact.cases, (entry) => entry.summary)).toEqual(Arr.make(
+      expect(Chunk.toReadonlyArray(Chunk.map(artifact.cases, (entry) => entry.summary))).toEqual(Arr.make(
         { lineCount: 2, height: 24, maxLineWidth: 100 },
         { lineCount: 1, height: 12, maxLineWidth: 110 },
         { lineCount: 2, height: 24, maxLineWidth: 70 },
@@ -67,7 +67,7 @@ describe("canvas and Text composition", () => {
         { lineCount: 1, height: 12, maxLineWidth: 120 },
         { lineCount: 1, height: 12, maxLineWidth: 30 }
       ))
-      expect(Arr.last(systemUiArtifact.cases).pipe(Option.map((entry) => entry.lines))).toEqual(Option.some(Arr.make(
+      expect(Chunk.last(systemUiArtifact.cases).pipe(Option.map((entry) => entry.lines))).toEqual(Option.some(Arr.make(
         { baseDirection: "ltr", index: 0, order: "visual", text: "ff", width: 20 },
         { baseDirection: "ltr", index: 1, order: "visual", text: "i", width: 10 }
       )))

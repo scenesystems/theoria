@@ -59,26 +59,22 @@ export class Options extends Data.Class<{
  *
  * @remarks
  * Equal keys hash alike and can be used directly in `HashMap`. Omitted font
- * weight remains distinct from explicit weight `400`.
+ * weight remains distinct from explicit weight `400`. Construction captures
+ * nested inputs with `Data.struct`; callers need not pre-normalize them.
  *
  * @since 0.5.0
  * @category models
  */
-export class PreparationKey extends Data.Class<Options> {}
-
-/**
- * Captures preparation inputs and generation state as one structural key.
- *
- * @since 0.5.0
- * @category constructors
- */
-export const make = (options: Options): PreparationKey =>
-  new PreparationKey({
-    prepare: Data.struct({ ...options.prepare, font: Data.struct(options.prepare.font) }),
-    engineProfile: Data.struct(options.engineProfile),
-    supportProfileId: options.supportProfileId,
-    fontReadinessRevision: options.fontReadinessRevision
-  })
+export class PreparationKey extends Data.Class<Options> {
+  constructor(options: Options) {
+    super({
+      prepare: Data.struct({ ...options.prepare, font: Data.struct(options.prepare.font) }),
+      engineProfile: Data.struct(options.engineProfile),
+      supportProfileId: options.supportProfileId,
+      fontReadinessRevision: options.fontReadinessRevision
+    })
+  }
+}
 
 /**
  * Recovers the canonical preparation input represented by a key.

@@ -3,13 +3,13 @@
  *
  * @since 0.1.0
  */
-import { Boolean, Data, Effect, Match, Number, Option, Schema, String, Tuple } from "effect"
+import { Boolean, Chunk, Data, Effect, Match, Number, Option, Schema, String, Tuple } from "effect"
 import type { Context } from "effect"
 import * as Arr from "effect/Array"
 
 import type * as Hyphenation from "../Hyphenation.js"
 import type * as MeasurementCache from "../MeasurementCache.js"
-import * as Text from "../Text.js"
+import type * as Text from "../Text.js"
 import type * as TextMeasurer from "../TextMeasurer.js"
 import {
   bidiLevelForDirection,
@@ -25,7 +25,12 @@ import {
   zeroWidthSpace
 } from "./analysis.js"
 import { containsUnsupportedBidiControls, mirrorText } from "./bidi.js"
-import { HyphenatedPiece, normalizeLocale, splitDictionaryHyphenationPieces } from "./hyphenation.js"
+import {
+  type BreakOpportunity,
+  HyphenatedPiece,
+  normalizeLocale,
+  splitDictionaryHyphenationPieces
+} from "./hyphenation.js"
 import * as Prepared from "./prepared.js"
 
 type Measure = (text: string) => Effect.Effect<number, TextMeasurer.Failed>
@@ -33,12 +38,9 @@ type HyphenateWord = (word: string) => Effect.Effect<Hyphenation.BreakPoints>
 
 const WhitespaceSegmentKind = Prepared.SegmentKind.pipe(Schema.pickLiteral("space", "tab"))
 type WhitespaceSegmentKind = typeof WhitespaceSegmentKind.Type
-const HyphenatedPieces = Schema.Array(HyphenatedPiece)
-type HyphenatedPieces = typeof HyphenatedPieces.Type
-const StringValues = Schema.Array(Schema.String)
-type StringValues = typeof StringValues.Type
-const WidthValues = Schema.Array(Schema.Number)
-type WidthValues = typeof WidthValues.Type
+type HyphenatedPieces = Chunk.Chunk<HyphenatedPiece>
+type StringValues = Chunk.Chunk<string>
+type WidthValues = Chunk.Chunk<number>
 
 class PreparationContext extends Data.Class<{
   baseDirection: Text.Direction
@@ -50,32 +52,29 @@ class PreparationContext extends Data.Class<{
   tabStopAdvance: number
 }> {}
 
-class GraphemeMeasurement extends Schema.Class<GraphemeMeasurement>("effect-text/GraphemeMeasurement")({
-  fitPrefixWidths: WidthValues,
-  fitWidth: Schema.Number,
-  graphemeAdvances: WidthValues,
-  graphemes: StringValues,
-  paintWidth: Schema.Number
-}) {}
+class GraphemeMeasurement extends Data.Class<{
+  readonly fitPrefixWidths: WidthValues
+  readonly fitWidth: number
+  readonly graphemeAdvances: WidthValues
+  readonly graphemes: StringValues
+  readonly paintWidth: number
+}> {}
 
-class PreparedBidiGraphemeData extends Schema.Class<PreparedBidiGraphemeData>(
-  "effect-text/PreparedBidiGraphemeData"
-)({
-  graphemeBidiLevels: WidthValues,
-  mirroredGraphemes: StringValues
-}) {}
+class PreparedBidiGraphemeData extends Data.Class<{
+  readonly graphemeBidiLevels: WidthValues
+  readonly mirroredGraphemes: StringValues
+}> {}
 
-class HyphenationRun extends Schema.Class<HyphenationRun>("effect-text/HyphenationRun")({
-  hyphenate: Schema.Boolean,
-  text: Schema.String
-}) {}
+class HyphenationRun extends Data.Class<{
+  readonly hyphenate: boolean
+  readonly text: string
+}> {}
 
-const HyphenationRuns = Schema.Array(HyphenationRun)
-type HyphenationRuns = typeof HyphenationRuns.Type
+type HyphenationRuns = Chunk.Chunk<HyphenationRun>
 
 class PreparedSegmentsCompilation extends Data.Class<{
   readonly kernelRuntime: Prepared.RuntimeTables
-  readonly logicalSurface: Prepared.Surface
+  readonly surface: Prepared.Surface
 }> {}
 
 const isZeroWidthControlText = (text: string): boolean =>
@@ -83,15 +82,21 @@ const isZeroWidthControlText = (text: string): boolean =>
 const isHyphenatableText = Schema.is(Schema.String.pipe(Schema.pattern(/^[\p{Letter}\p{Mark}\u200c\u200d]+$/u)))
 
 const lastWidthOrElse = (values: WidthValues, fallback: number): number =>
-  Arr.last(values).pipe(Option.getOrElse(() => fallback))
+  Chunk.last(values).pipe(Option.getOrElse(() => fallback))
 
 const valueAtOrZero = (values: WidthValues, index: number): number =>
-  Arr.get(values, index).pipe(Option.getOrElse(() => 0))
+  Chunk.get(values, index).pipe(Option.getOrElse(() => 0))
 
 const widthFromPrefixMeasurements = (measuredWidths: WidthValues, index: number): number =>
   Number.subtract(valueAtOrZero(measuredWidths, index), valueAtOrZero(measuredWidths, Number.decrement(index)))
 
-const prefixWidthsFor = (widths: WidthValues): WidthValues => Arr.drop(Arr.scan(widths, 0, Number.sum), 1)
+const prefixWidthsFor = (widths: WidthValues): WidthValues =>
+  Tuple.getSecond(
+    Chunk.mapAccum(widths, 0, (total, width) => {
+      const next = Number.sum(total, width)
+      return Tuple.make(next, next)
+    })
+  )
 
 const resolvedTextDirection = (
   direction: TextDirection,
@@ -132,16 +137,16 @@ const compilePreparedBidiGraphemeData = (
   Boolean.match(containsUnsupportedBidiControls(text), {
     onFalse: () =>
       new PreparedBidiGraphemeData({
-        graphemeBidiLevels: Arr.map(
+        graphemeBidiLevels: Chunk.map(
           graphemes,
           (grapheme) =>
             bidiLevelForDirection(resolvedTextDirection(detectTextDirection(grapheme), segmentDirection), baseDirection)
         ),
-        mirroredGraphemes: Arr.map(graphemes, mirrorText)
+        mirroredGraphemes: Chunk.map(graphemes, mirrorText)
       }),
     onTrue: () =>
       new PreparedBidiGraphemeData({
-        graphemeBidiLevels: Arr.map(graphemes, () => bidiLevelForDirection(segmentDirection, baseDirection)),
+        graphemeBidiLevels: Chunk.map(graphemes, () => bidiLevelForDirection(segmentDirection, baseDirection)),
         mirroredGraphemes: graphemes
       })
   })
@@ -153,7 +158,7 @@ const makeTextSegment = (
   graphemes: StringValues,
   graphemeAdvances: WidthValues,
   fitPrefixWidths: WidthValues,
-  breakOpportunity: HyphenatedPiece["breakOpportunity"],
+  breakOpportunity: BreakOpportunity,
   breakWidth: number,
   baseDirection: Text.Direction
 ): Prepared.Segment => {
@@ -205,11 +210,11 @@ const makeWhitespaceSegment = (
     breakOpportunity: "space",
     breakText: "",
     breakWidth: 0,
-    graphemes: Arr.empty<string>(),
-    graphemeAdvances: Arr.empty<number>(),
-    fitPrefixWidths: Arr.empty<number>(),
-    graphemeBidiLevels: Arr.empty<number>(),
-    mirroredGraphemes: Arr.empty<string>()
+    graphemes: Chunk.empty(),
+    graphemeAdvances: Chunk.empty(),
+    fitPrefixWidths: Chunk.empty(),
+    graphemeBidiLevels: Chunk.empty(),
+    mirroredGraphemes: Chunk.empty()
   })
 
 const makeHardBreakSegment = (baseDirection: Text.Direction): Prepared.Segment =>
@@ -223,20 +228,26 @@ const makeHardBreakSegment = (baseDirection: Text.Direction): Prepared.Segment =
     breakOpportunity: "none",
     breakText: "",
     breakWidth: 0,
-    graphemes: Arr.empty<string>(),
-    graphemeAdvances: Arr.empty<number>(),
-    fitPrefixWidths: Arr.empty<number>(),
-    graphemeBidiLevels: Arr.empty<number>(),
-    mirroredGraphemes: Arr.empty<string>()
+    graphemes: Chunk.empty(),
+    graphemeAdvances: Chunk.empty(),
+    fitPrefixWidths: Chunk.empty(),
+    graphemeBidiLevels: Chunk.empty(),
+    mirroredGraphemes: Chunk.empty()
   })
 
-const cumulativeTexts = (parts: StringValues): StringValues => Arr.drop(Arr.scan(parts, String.empty, String.concat), 1)
+const cumulativeTexts = (parts: StringValues): StringValues =>
+  Tuple.getSecond(
+    Chunk.mapAccum<string, string, string>(parts, String.empty, (prefix, part) => {
+      const next = String.concat(prefix, part)
+      return Tuple.make(next, next)
+    })
+  )
 
 const hyphenationRuns = (text: string): HyphenationRuns =>
   Arr.match(graphemeClusters(text), {
-    onEmpty: Arr.empty<HyphenationRun>,
+    onEmpty: Chunk.empty<HyphenationRun>,
     onNonEmpty: (clusters) =>
-      Arr.map(
+      Chunk.fromIterable(Arr.map(
         Arr.groupWith(clusters, (left, right) =>
           Boolean.Equivalence(isHyphenatableText(left), isHyphenatableText(right))),
         (graphemes) =>
@@ -244,17 +255,17 @@ const hyphenationRuns = (text: string): HyphenationRuns =>
             hyphenate: isHyphenatableText(Arr.headNonEmpty(graphemes)),
             text: Arr.join(graphemes, "")
           })
-      )
+      ))
   })
 
 const hyphenatedRunPieces = (
   run: HyphenationRun,
   hyphenateWord: HyphenateWord,
-  finalBreakOpportunity: HyphenatedPiece["breakOpportunity"]
+  finalBreakOpportunity: BreakOpportunity
 ): Effect.Effect<HyphenatedPieces> =>
   Boolean.match(run.hyphenate, {
     onFalse: () =>
-      Effect.succeed(Arr.of(new HyphenatedPiece({ breakOpportunity: finalBreakOpportunity, text: run.text }))),
+      Effect.succeed(Chunk.of(new HyphenatedPiece({ breakOpportunity: finalBreakOpportunity, text: run.text }))),
     onTrue: () =>
       hyphenateWord(run.text).pipe(
         Effect.map((breakPoints) => splitDictionaryHyphenationPieces(run.text, breakPoints, finalBreakOpportunity))
@@ -268,20 +279,20 @@ const hyphenatedTextPieces = (
 ): Effect.Effect<HyphenatedPieces> =>
   Effect.forEach(splitSoftHyphenPieces(text), (piece) => {
     const runs = Boolean.match(dictionaryHyphenationActive, {
-      onFalse: () => Arr.of(new HyphenationRun({ hyphenate: false, text: piece.text })),
+      onFalse: () => Chunk.of(new HyphenationRun({ hyphenate: false, text: piece.text })),
       onTrue: () => hyphenationRuns(piece.text)
     })
 
-    return Effect.forEach(runs, (run, runIndex) =>
+    return Effect.forEach(Chunk.toReadonlyArray(runs), (run, runIndex) =>
       hyphenatedRunPieces(
         run,
         hyphenateWord,
-        Boolean.match(Boolean.and(piece.breakAfter, Number.Equivalence(runIndex, Number.decrement(Arr.length(runs)))), {
+        Boolean.match(Boolean.and(piece.breakAfter, Number.Equivalence(runIndex, Number.decrement(runs.length))), {
           onFalse: () => "none",
           onTrue: () => "soft-hyphen"
         })
-      )).pipe(Effect.map(Arr.flatten))
-  }).pipe(Effect.map(Arr.flatten))
+      )).pipe(Effect.map((pieces) => Chunk.flatten(Chunk.fromIterable(pieces))))
+  }).pipe(Effect.map((pieces) => Chunk.flatten(Chunk.fromIterable(pieces))))
 
 const measureGraphemeData = (
   text: string,
@@ -289,24 +300,25 @@ const measureGraphemeData = (
   preferPrefixWidthsForBreakableRuns: boolean
 ): Effect.Effect<GraphemeMeasurement, TextMeasurer.Failed> => {
   const zeroWidthMeasurement = new GraphemeMeasurement({
-    fitPrefixWidths: Arr.of(0),
+    fitPrefixWidths: Chunk.of(0),
     fitWidth: 0,
-    graphemeAdvances: Arr.of(0),
-    graphemes: Arr.of(text),
+    graphemeAdvances: Chunk.of(0),
+    graphemes: Chunk.of(text),
     paintWidth: 0
   })
-  const graphemes = graphemeClusters(text)
+  const graphemes = Chunk.fromIterable(graphemeClusters(text))
   const emptyMeasurement = new GraphemeMeasurement({
-    fitPrefixWidths: Arr.empty<number>(),
+    fitPrefixWidths: Chunk.empty(),
     fitWidth: 0,
-    graphemeAdvances: Arr.empty<number>(),
-    graphemes: Arr.empty<string>(),
+    graphemeAdvances: Chunk.empty(),
+    graphemes: Chunk.empty(),
     paintWidth: 0
   })
   const measured = Boolean.match(preferPrefixWidthsForBreakableRuns, {
     onFalse: () =>
-      Effect.forEach(graphemes, measure).pipe(
-        Effect.map((graphemeAdvances) => {
+      Effect.forEach(Chunk.toReadonlyArray(graphemes), measure).pipe(
+        Effect.map((measuredAdvances) => {
+          const graphemeAdvances = Chunk.fromIterable(measuredAdvances)
           const fitPrefixWidths = prefixWidthsFor(graphemeAdvances)
 
           return new GraphemeMeasurement({
@@ -320,8 +332,12 @@ const measureGraphemeData = (
       ),
     onTrue: () =>
       Effect.all({
-        fitPrefixWidths: Effect.forEach(cumulativeTexts(graphemes), measure),
-        graphemeAdvances: Effect.forEach(graphemes, measure)
+        fitPrefixWidths: Effect.forEach(Chunk.toReadonlyArray(cumulativeTexts(graphemes)), measure).pipe(
+          Effect.map(Chunk.fromIterable)
+        ),
+        graphemeAdvances: Effect.forEach(Chunk.toReadonlyArray(graphemes), measure).pipe(
+          Effect.map(Chunk.fromIterable)
+        )
       }).pipe(
         Effect.map(({ fitPrefixWidths, graphemeAdvances }) =>
           new GraphemeMeasurement({
@@ -337,7 +353,7 @@ const measureGraphemeData = (
 
   return Boolean.match(isZeroWidthControlText(text), {
     onFalse: () =>
-      Boolean.match(Arr.isEmptyReadonlyArray(graphemes), {
+      Boolean.match(Chunk.isEmpty(graphemes), {
         onFalse: () => measured,
         onTrue: () => Effect.succeed(emptyMeasurement)
       }),
@@ -348,7 +364,7 @@ const measureGraphemeData = (
 const prepareTextSegment = (
   segment: Text.Segment,
   context: PreparationContext
-): Effect.Effect<typeof Prepared.Segments.Type, TextMeasurer.Failed> =>
+): Effect.Effect<Prepared.Segments, TextMeasurer.Failed> =>
   Effect.gen(function*() {
     const pieces = yield* hyphenatedTextPieces(
       segment.text,
@@ -356,21 +372,24 @@ const prepareTextSegment = (
       context.dictionaryHyphenationActive
     )
 
-    const pieceTexts = Arr.map(pieces, (piece) => piece.text)
+    const pieceTexts = Chunk.map(pieces, (piece) => piece.text)
     const useCumulativeMeasurements = Boolean.and(
-      Number.greaterThan(Arr.length(pieces), 1),
+      Number.greaterThan(pieces.length, 1),
       context.engineProfile.preferPrefixWidthsForBreakableRuns
     )
     const fitMeasurementTexts = Boolean.match(useCumulativeMeasurements, {
       onFalse: () => pieceTexts,
       onTrue: () => cumulativeTexts(pieceTexts)
     })
-    const fitPieceWidths = yield* Effect.forEach(fitMeasurementTexts, context.measure)
+    const fitPieceWidths = yield* Effect.forEach(
+      Chunk.toReadonlyArray(fitMeasurementTexts),
+      context.measure
+    ).pipe(Effect.map(Chunk.fromIterable))
 
-    return yield* Boolean.match(Arr.isEmptyReadonlyArray(pieces), {
+    return yield* Boolean.match(Chunk.isEmpty(pieces), {
       onFalse: () =>
         Effect.forEach(
-          pieces,
+          Chunk.toReadonlyArray(pieces),
           (piece, index) =>
             measureGraphemeData(piece.text, context.measure, context.engineProfile.preferPrefixWidthsForBreakableRuns)
               .pipe(
@@ -397,15 +416,15 @@ const prepareTextSegment = (
                   )
                 })
               )
-        ),
-      onTrue: () => Effect.succeed(Arr.empty<Prepared.Segment>())
+        ).pipe(Effect.map(Chunk.fromIterable)),
+      onTrue: () => Effect.succeed(Chunk.empty<Prepared.Segment>())
     })
   })
 
 const prepareWhitespaceSegment = (
   segment: Text.Segment,
   context: PreparationContext
-): Effect.Effect<typeof Prepared.Segments.Type, TextMeasurer.Failed> =>
+): Effect.Effect<Prepared.Segments, TextMeasurer.Failed> =>
   Effect.forEach(splitWhitespaceTokens(segment.text), (token) =>
     Match.value(token.kind).pipe(
       Match.when("tab", () =>
@@ -417,14 +436,14 @@ const prepareWhitespaceSegment = (
           )
         )),
       Match.exhaustive
-    ))
+    )).pipe(Effect.map(Chunk.fromIterable))
 
 const prepareSegment = (
   segment: Text.Segment,
   context: PreparationContext
-): Effect.Effect<typeof Prepared.Segments.Type, TextMeasurer.Failed> =>
+): Effect.Effect<Prepared.Segments, TextMeasurer.Failed> =>
   Match.value(segment.kind).pipe(
-    Match.when("hard-break", () => Effect.succeed(Arr.make(makeHardBreakSegment(context.baseDirection)))),
+    Match.when("hard-break", () => Effect.succeed(Chunk.of(makeHardBreakSegment(context.baseDirection)))),
     Match.when("space", () => prepareWhitespaceSegment(segment, context)),
     Match.when("text", () => prepareTextSegment(segment, context)),
     Match.exhaustive
@@ -452,23 +471,23 @@ const preparedBreakKindFor = (
 const textWidthsOrEmpty = (segment: Prepared.Segment, values: WidthValues): WidthValues =>
   Match.value(segment.kind).pipe(
     Match.when("text", () => values),
-    Match.when("space", Arr.empty<number>),
-    Match.when("tab", Arr.empty<number>),
-    Match.when("hard-break", Arr.empty<number>),
+    Match.when("space", Chunk.empty<number>),
+    Match.when("tab", Chunk.empty<number>),
+    Match.when("hard-break", Chunk.empty<number>),
     Match.exhaustive
   )
 
 const textStringsOrEmpty = (segment: Prepared.Segment, values: StringValues): StringValues =>
   Match.value(segment.kind).pipe(
     Match.when("text", () => values),
-    Match.when("space", Arr.empty<string>),
-    Match.when("tab", Arr.empty<string>),
-    Match.when("hard-break", Arr.empty<string>),
+    Match.when("space", Chunk.empty<string>),
+    Match.when("tab", Chunk.empty<string>),
+    Match.when("hard-break", Chunk.empty<string>),
     Match.exhaustive
   )
 
-const lineChunksFor = (segments: typeof Prepared.Segments.Type): typeof Prepared.LineChunks.Type => {
-  const hardBreakIndices = Arr.filterMap(
+const lineChunksFor = (segments: Prepared.Segments): Prepared.LineChunks => {
+  const hardBreakIndices = Chunk.filterMap(
     segments,
     (segment, index) =>
       Match.value(segment.kind).pipe(
@@ -480,7 +499,7 @@ const lineChunksFor = (segments: typeof Prepared.Segments.Type): typeof Prepared
         Match.exhaustive
       )
   )
-  const [trailingStartSegmentIndex, hardBreakChunks] = Arr.mapAccum(
+  const [trailingStartSegmentIndex, hardBreakChunks] = Chunk.mapAccum(
     hardBreakIndices,
     0,
     (startSegmentIndex, hardBreakIndex) => {
@@ -493,11 +512,11 @@ const lineChunksFor = (segments: typeof Prepared.Segments.Type): typeof Prepared
     }
   )
 
-  return Arr.append(
+  return Chunk.append(
     hardBreakChunks,
     new Prepared.LineChunk({
       startSegmentIndex: trailingStartSegmentIndex,
-      consumedEndSegmentIndex: Arr.length(segments)
+      consumedEndSegmentIndex: segments.length
     })
   )
 }
@@ -517,13 +536,13 @@ const compileRuntimeSegment = (
   })
 
 const compileKernelRuntime = (
-  segments: typeof Prepared.Segments.Type,
+  segments: Prepared.Segments,
   hyphenWidth: number,
   tabStopAdvance: number,
   whiteSpace: Text.Whitespace
 ): Prepared.RuntimeTables => {
   const chunks = lineChunksFor(segments)
-  const runtimeSegments: typeof Prepared.RuntimeSegments.Type = Arr.map(
+  const runtimeSegments: Prepared.RuntimeSegments = Chunk.map(
     segments,
     (segment) => compileRuntimeSegment(segment, whiteSpace)
   )
@@ -536,8 +555,7 @@ const compileKernelRuntime = (
   })
 }
 
-const retainLogicalSurface = (segments: typeof Prepared.Segments.Type): Prepared.Surface =>
-  new Prepared.Surface({ segments })
+const retainLogicalSurface = (segments: Prepared.Segments): Prepared.Surface => new Prepared.Surface({ segments })
 
 /**
  * Resolves the prepared base direction once from source text and engine defaults.
@@ -596,11 +614,11 @@ export const prepareSegments = (
       tabStopAdvance
     })
     const prepared = yield* Effect.forEach(segments, (segment) => prepareSegment(segment, context))
-    const flattenedSegments = Arr.flatten(prepared)
+    const flattenedSegments = Chunk.flatten(Chunk.fromIterable(prepared))
 
     return new PreparedSegmentsCompilation({
       kernelRuntime: compileKernelRuntime(flattenedSegments, hyphenWidth, tabStopAdvance, whiteSpace),
-      logicalSurface: retainLogicalSurface(flattenedSegments)
+      surface: retainLogicalSurface(flattenedSegments)
     })
   })
 
@@ -646,16 +664,13 @@ export const compile = (
       hyphenationActive
     )
     return new Prepared.Compilation({
-      core: new Text.Text({
-        kernel: new Prepared.Kernel({
-          baseDirection,
-          lineFitEpsilon: profile.lineFitEpsilon,
-          preferEarlySoftHyphenBreak: profile.preferEarlySoftHyphenBreak,
-          runtime: prepared.kernelRuntime,
-          whiteSpace: input.whiteSpace
-        }),
-        meta: new Prepared.Meta({ font: normalizedFont, hyphenationLocale: localeOption, text: input.text })
+      kernel: new Prepared.Kernel({
+        baseDirection,
+        lineFitEpsilon: profile.lineFitEpsilon,
+        preferEarlySoftHyphenBreak: profile.preferEarlySoftHyphenBreak,
+        runtime: prepared.kernelRuntime,
+        whiteSpace: input.whiteSpace
       }),
-      surface: prepared.logicalSurface
+      surface: prepared.surface
     })
   })
