@@ -2,7 +2,7 @@
  * Computes canonical BLAKE3-256 hashes for all boundary fixture JSON files
  * using `@scenesystems/digest` and stamps the corresponding manifest files.
  *
- * The hash is computed via `digest("blake3-256", value)`:
+ * The hash is computed via `ContentDigest.fromUnknown("blake3-256", value)`:
  * JCS canonicalize → UTF-8 encode → BLAKE3-256 → base64url → tagged string.
  *
  * No `JSON.parse` or `JSON.stringify` — all serialization uses Effect Schema.
@@ -11,7 +11,7 @@
  */
 import { FileSystem, Path, Url } from "@effect/platform"
 import { BunContext, BunRuntime } from "@effect/platform-bun"
-import { digest } from "@scenesystems/digest"
+import * as ContentDigest from "@scenesystems/digest/ContentDigest"
 import { Console, Effect, Schema } from "effect"
 
 const FIXTURES_DIR = "test/fixtures"
@@ -57,7 +57,7 @@ const program = Effect.gen(function*() {
           const fixturePath = path.join(packageRoot, fixture.path)
           const fixtureRaw = yield* fs.readFileString(fixturePath)
           const fixtureValue = yield* decodeJsonUnknown(fixtureRaw)
-          const hash = yield* digest("blake3-256", fixtureValue)
+          const hash = ContentDigest.toString(yield* ContentDigest.fromUnknown("blake3-256", fixtureValue))
 
           if (fixture.hash === hash) {
             yield* Console.log(`  ${fixture.name}: ${hash} (unchanged)`)

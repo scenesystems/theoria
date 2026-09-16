@@ -54,9 +54,9 @@ describe("contracts/identity", () => {
       expect(sourceRef.segments).toEqual(["trial", "log"])
     }))
 
-  it.effect("ContentDigest decodes with algorithm and branded Digest256", () =>
+  it.effect("ContentDigest decodes with algorithm and canonical digest value", () =>
     Effect.gen(function*() {
-      const validDigest = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopq"
+      const validDigest = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopo"
       const contentDigest = yield* Schema.decodeUnknown(Contracts.ContentDigest)({
         algorithm: "blake3-256",
         digest: validDigest

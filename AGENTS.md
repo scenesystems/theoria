@@ -19,7 +19,7 @@ Effect-native scientific computing monorepo.
 | @scenesystems/seal   | `packages/seal/`             | `@scenesystems/seal`             | @noble/ciphers, effect                                    |
 | @scenesystems/sign   | `packages/sign/`             | `@scenesystems/sign`             | @noble/curves, @noble/hashes, @noble/post-quantum, effect |
 
-The cryptographic authority packages `@scenesystems/digest`, `@scenesystems/seal`, and `@scenesystems/sign` have a single entrypoint (`.`). The scoped effect packages retain their governed public subpaths. Effect is a required peer dependency. Schema is the single source of truth for all types. Published under `@scenesystems/` scope for cross-ecosystem use. Built on the [Noble](https://paulmillr.com/noble/) audited cryptographic ecosystem (6 audits by Cure53 and Trail of Bits).
+The cryptographic authority packages `@scenesystems/seal` and `@scenesystems/sign` have a single entrypoint (`.`). `@scenesystems/digest` exposes concern namespaces from its root and matching explicit concern subpaths. The scoped effect packages retain their governed public subpaths. Effect is a required peer dependency. Types come from the abstraction that owns their semantics; use Schema for encoded data and validation, not as a universal type source. Published under `@scenesystems/` scope for cross-ecosystem use. Built on the [Noble](https://paulmillr.com/noble/) audited cryptographic ecosystem (6 audits by Cure53 and Trail of Bits).
 
 ---
 
@@ -114,8 +114,9 @@ Enforcement is split by tool, each owning one concern, all wired into `bun run l
 
 ## Conventions
 
-- **Naming**: PascalCase modules, camelCase functions, UPPER_SNAKE constants. Match Effect ecosystem.
+- **Naming**: PascalCase modules, camelCase functions, and owner-defined semantic casing for constants. Match Effect ecosystem rather than imposing one constant style universally.
 - **Single source of truth**: One canonical definition per type, error, constant. Never duplicate.
+- **Representations**: Schema owns validated/encoded data. Data owns structural values without a codec, including `Data.TaggedEnum` for closed variants. Services and generic type relationships do not require serialization schemas.
 - **One concern per file**: `internal/` for implementation, public modules for API surface.
 - **Tests assert behaviour**: Property-based for invariants, golden fixtures for numerical correctness. No smoke tests, and no tests that pin structure (export inventories, literal class strings, `_tag` lists, self-equality) rather than behaviour.
 - **API documentation**: Every public export carries a summary, `@since`, `@category`, and examples where non-obvious. Every entrypoint `index.ts` (and every source file that becomes a docs page) opens with a `/** … @since … @module */` header; `bun run docs:api` fails without it.
@@ -125,10 +126,10 @@ Enforcement is split by tool, each owning one concern, all wired into `bun run l
 ## Governance
 
 - `internal/*` is unreachable from consumers: each `package.json` `exports` map omits it, so the type checker and the runtime resolver both reject deep imports.
-- Reusable cross-module abstractions live in `src/contracts/`. `internal/*` is private.
+- Shared concepts live with their real semantic owner. Use `src/contracts/` only when that contracts area genuinely owns the protocol or domain concept; never move a concept there merely because multiple modules use it. `internal/*` is private.
 - Adding algorithms must not require modifying unrelated internals.
 - Non-cryptographic randomness (sampling, search, fixtures) goes through Effect `Random` with seeded generators so runs replay. Key material, nonces and signing entropy come from the platform CSPRNG through `generateEntropy` in `@scenesystems/sign`; `Random` is never a source of secrets.
-- Cryptographic authority packages (`digest`, `seal`, `sign`): single entrypoint (`.`), Effect required, Schema is sole type source. Scoped effect packages retain their governed public subpaths.
+- Cryptographic authority packages require Effect. `seal` and `sign` have a single entrypoint (`.`); `digest` is organized by concern namespaces and exact matching public subpaths. Each package uses the type source appropriate to the owning abstraction. Scoped effect packages retain their governed public subpaths.
 
 ---
 

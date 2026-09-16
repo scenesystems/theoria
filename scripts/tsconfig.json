@@ -18,7 +18,7 @@
     "resolve-workspace-deps.ts",
     "release.ts",
     "release/**/*.ts",
-    "../packages/digest/scripts/fixture-schemas.ts"
+    "../packages/digest/scripts/fixtures.ts"
   ],
   "references": [
     { "path": "../packages/docs-model/tsconfig.src.json" },

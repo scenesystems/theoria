@@ -1,6 +1,7 @@
 /** Compare prepared package content with the actual npm release, not guessed build inputs. */
 import { Command, FileSystem, HttpClient, HttpClientRequest, Path } from "@effect/platform"
-import { digestCanonicalJsonHex, sha256, toHex } from "@scenesystems/digest"
+import * as CanonicalJson from "@scenesystems/digest/CanonicalJson"
+import * as Digest from "@scenesystems/digest/Digest"
 import {
   Array,
   Boolean,
@@ -69,6 +70,12 @@ const requireSuccess = (status: number) =>
     () => Number.Equivalence(status, 200)
   )
 
+const canonicalSha256Hex = (value: unknown) =>
+  CanonicalJson.encodeBytes(value).pipe(
+    Effect.map((bytes) => Digest.hash("sha256", bytes)),
+    Effect.map(Encoding.encodeHex)
+  )
+
 /** Ordered file-content identity. Root README/changelog and descriptive manifest metadata are not runtime inputs. */
 export const content = (directory: string) =>
   Effect.gen(function*() {
@@ -101,9 +108,13 @@ export const content = (directory: string) =>
                             HashSet.has(HashSet.make("description", "homepage", "repository", "bugs", "keywords"), key)
                           )
                         )),
-                        Effect.flatMap((manifest) => digestCanonicalJsonHex("sha256", manifest))
+                        Effect.flatMap(canonicalSha256Hex)
                       ),
-                    onFalse: () => fs.readFile(file).pipe(Effect.flatMap(sha256), Effect.map(toHex))
+                    onFalse: () =>
+                      fs.readFile(file).pipe(
+                        Effect.map((bytes) => Digest.hash("sha256", bytes)),
+                        Effect.map(Encoding.encodeHex)
+                      )
                   })
                   return Option.some(Tuple.make(name, digest))
                 })
@@ -115,7 +126,7 @@ export const content = (directory: string) =>
           Match.exhaustive
         )
       }), { concurrency: 8 })
-    return yield* digestCanonicalJsonHex("sha256", Array.getSomes(files))
+    return yield* canonicalSha256Hex(Array.getSomes(files))
   })
 
 /** npm's registry-hosted provenance binds the tarball metadata to this repository and publishing workflow. */
