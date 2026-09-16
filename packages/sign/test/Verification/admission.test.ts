@@ -9,7 +9,7 @@ import rsaCorpus from "../fixtures/conformance/rsa-wycheproof.json" with { type:
 const copyBytes = (bytes: Uint8Array) =>
   Schema.encode(Schema.Uint8Array)(bytes).pipe(Effect.flatMap(Schema.decode(Schema.Uint8Array)))
 
-/** Authorized test-only host operation: detach real storage, including an empty buffer. */
+/** Test-only host operation: detach real storage, including an empty buffer. */
 const detachedBytes = (bytes: Uint8Array) =>
   Effect.gen(function*() {
     const buffer = yield* Schema.decodeUnknown(Schema.instanceOf(ArrayBuffer))(bytes.buffer)
@@ -17,7 +17,7 @@ const detachedBytes = (bytes: Uint8Array) =>
     return bytes
   })
 
-/** Authorized test-only Proxy/Reflect boundary: reject copying, or optionally length admission itself. */
+/** Test-only Proxy/Reflect operation: reject copying, or optionally length admission itself. */
 const uncopyableBytes = (bytes: Uint8Array, unreadableLength = false) =>
   Effect.sync(() =>
     new Proxy(bytes, {

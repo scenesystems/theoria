@@ -11,7 +11,7 @@
  */
 import { describe, expect, it } from "@effect/vitest"
 import { Bytes, Entropy, Secp256k1 } from "@scenesystems/sign"
-import { Effect } from "effect"
+import { Array as Arr, Effect, Number as N, Schema } from "effect"
 
 describe("secp256k1 ECDSA — algorithm contracts", () => {
   const message = Bytes.fromString("hello secp256k1")
@@ -43,7 +43,9 @@ describe("secp256k1 ECDSA — algorithm contracts", () => {
     Effect.gen(function*() {
       const kp = yield* Secp256k1.generateEcdsaKeyPair()
       const sig = yield* Secp256k1.signEcdsa(message, kp.secretKey, kp.publicKey)
-      const tampered = Uint8Array.from(sig.signature, (byte, index) => index === 0 ? byte ^ 0xff : byte)
+      const tampered = yield* Schema.decode(Schema.Uint8Array)(
+        Arr.modify(Arr.fromIterable(sig.signature), 0, (byte) => N.remainder(N.increment(byte), 256))
+      )
       const valid = yield* Secp256k1.verifyEcdsa(tampered, message, kp.publicKey)
       expect(valid).toBe(false)
     }).pipe(Effect.provide(Entropy.layer)))
@@ -88,7 +90,9 @@ describe("secp256k1 Schnorr (BIP-340) — algorithm contracts", () => {
     Effect.gen(function*() {
       const kp = yield* Secp256k1.generateSchnorrKeyPair()
       const sig = yield* Secp256k1.signSchnorr(message, kp.secretKey, kp.publicKey)
-      const tampered = Uint8Array.from(sig.signature, (byte, index) => index === 0 ? byte ^ 0xff : byte)
+      const tampered = yield* Schema.decode(Schema.Uint8Array)(
+        Arr.modify(Arr.fromIterable(sig.signature), 0, (byte) => N.remainder(N.increment(byte), 256))
+      )
       const valid = yield* Secp256k1.verifySchnorr(tampered, message, kp.publicKey)
       expect(valid).toBe(false)
     }).pipe(Effect.provide(Entropy.layer)))

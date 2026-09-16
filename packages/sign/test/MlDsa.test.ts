@@ -4,7 +4,7 @@ import { Bytes, Entropy, MlDsa } from "@scenesystems/sign"
 import { Array as Arr, Effect, Number as N, Schema } from "effect"
 
 const message = Bytes.fromString("post-quantum hello")
-const EMPTY_CONTEXT = Bytes.fromString("")
+const emptyContext = Bytes.fromString("")
 
 describe("ML-DSA-44", () => {
   it.effect("signs and verifies with the specified carrier sizes", () =>
@@ -34,7 +34,7 @@ describe("ML-DSA-65", () => {
       const first = yield* MlDsa.sign65Deterministic(message, keys.secretKey, keys.publicKey)
       const second = yield* MlDsa.sign65Deterministic(message, keys.secretKey, keys.publicKey)
       expect(first.signature).toEqual(second.signature)
-      expect(yield* MlDsa.verify65(first.signature, message, keys.publicKey, EMPTY_CONTEXT)).toBe(true)
+      expect(yield* MlDsa.verify65(first.signature, message, keys.publicKey, emptyContext)).toBe(true)
       expect(keys.publicKey.length).toBe(1_952)
       expect(keys.secretKey.length).toBe(4_032)
       expect(first.signature.length).toBe(3_309)
@@ -49,8 +49,8 @@ describe("ML-DSA-65", () => {
       const tampered = yield* Schema.decode(Schema.Uint8Array)(
         Arr.modify(Arr.fromIterable(signed.signature), 0, (byte) => N.subtract(255, byte))
       )
-      expect(yield* MlDsa.verify65(tampered, message, first.publicKey, EMPTY_CONTEXT)).toBe(false)
-      expect(yield* MlDsa.verify65(signed.signature, message, second.publicKey, EMPTY_CONTEXT)).toBe(false)
+      expect(yield* MlDsa.verify65(tampered, message, first.publicKey, emptyContext)).toBe(false)
+      expect(yield* MlDsa.verify65(signed.signature, message, second.publicKey, emptyContext)).toBe(false)
     }).pipe(Effect.provide(Entropy.layer)))
 })
 

@@ -19,6 +19,14 @@ Effect-native signatures, key agreement, encapsulation, and JWT verification.
 - Semantic roles determine casing. Constants are not automatically UPPER_SNAKE_CASE. Use qualified schema identifiers, brands, and service keys; preserve compatibility-sensitive wire tags independently of local names.
 - `index.ts` is maintained with the explicit source export map. The existing build-utils `pack-v3` workflow generates distribution manifests; do not hand-edit those outputs.
 
+## Native Effect implementation
+
+- Consume installed Effect v3 public APIs throughout pure computations, callbacks, private mechanics, tests, examples, and tooling. An Effect return type does not exempt its body.
+- Use native Boolean/Match/Option/Either control flow, Number/BigInt/String operations, and Effect collections rather than native operators, branches, loops, collection methods, or handwritten record/array carriers. This is Theoria policy, not a claim about Effect's internal implementation style.
+- Schema owns validated and encoded data; Data owns structural values without codecs. Construct typed internal values through their constructors and decode untrusted representations at admission boundaries. Derive representations from the canonical schema.
+- Research public signatures, tests, usage, and ecosystem integrations against the installed version before selecting an API. Effect internals and lint exclusions do not authorize substitutes. A remaining external operation needs explicit user approval for that exact gap, not a blanket adapter exception.
+- Hashing is owned by `@scenesystems/digest`; sign composes that API rather than importing a second hashing implementation.
+
 ## Cryptographic contracts
 
 - Preserve standards, strict admission, canonical encodings, context binding, input snapshots, and error-channel distinctions. The strict verifier's 8,192-byte message bound is Theoria resource policy, not an Effect convention or cryptographic standard.

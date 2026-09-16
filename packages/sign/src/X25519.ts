@@ -5,7 +5,7 @@
  * @module
  */
 import { x25519 } from "@noble/curves/ed25519.js"
-import { Effect, Schema } from "effect"
+import { Cause, Effect, Schema } from "effect"
 import * as Entropy from "./Entropy.js"
 import * as KeyPair from "./KeyPair.js"
 
@@ -64,7 +64,7 @@ export const generateKeyPair = (): Effect.Effect<KeyPair.KeyPair, KeyPair.Genera
           const { secretKey, publicKey } = x25519.keygen(seed)
           return new KeyPair.KeyPair({ algorithm: "x25519", publicKey, secretKey })
         },
-        catch: (cause) => new KeyPair.GenerationFailed({ algorithm: "x25519", reason: String(cause) })
+        catch: (cause) => new KeyPair.GenerationFailed({ algorithm: "x25519", reason: Cause.pretty(Cause.fail(cause)) })
       })
     )
   )
@@ -88,5 +88,5 @@ export const deriveSharedSecret = (
         algorithm: "x25519",
         sharedSecret: x25519.getSharedSecret(secretKey, publicKey)
       }),
-    catch: (error) => new AgreementFailed({ algorithm: "x25519", reason: String(error) })
+    catch: (error) => new AgreementFailed({ algorithm: "x25519", reason: Cause.pretty(Cause.fail(error)) })
   })

@@ -1,9 +1,8 @@
 /** Scoped workerd process and HTTP transport shared by verification and measurement. */
 import { Command, FileSystem, HttpClient, HttpClientRequest, HttpClientResponse, Path, Url } from "@effect/platform"
-import { Array as Arr, Config, Effect, Number as N, Option, Schema, Stream, String as Str } from "effect"
+import { Array as Arr, Config, Data, Effect, Number as N, Option, Schema, Stream, String as Str } from "effect"
 
-import type { Request } from "./protocol.js"
-import { Result } from "./protocol.js"
+import { RequestBody, Result } from "./protocol.js"
 
 class WorkerUnavailable extends Schema.TaggedError<WorkerUnavailable>()("WorkerUnavailable", {
   reason: Schema.String
@@ -41,8 +40,8 @@ export const startWorker = Effect.gen(function*() {
   )
   const origin = Str.concat("http://127.0.0.1:", yield* Schema.encode(Schema.NumberFromString)(listening.port))
   const client = yield* HttpClient.HttpClient
-  const request = (body: typeof Request.Encoded) =>
-    HttpClientRequest.bodyJson(HttpClientRequest.post(origin), body).pipe(
+  const request = (body: typeof RequestBody.Type) =>
+    HttpClientRequest.schemaBodyJson(RequestBody)(HttpClientRequest.post(origin), body).pipe(
       Effect.flatMap(client.execute),
       Effect.flatMap(HttpClientResponse.schemaBodyJson(Result))
     )
@@ -60,5 +59,5 @@ export const startWorker = Effect.gen(function*() {
     Effect.flatMap(Effect.forEach((field) => Schema.decode(Schema.NumberFromString)(field))),
     Effect.map(N.sumAll)
   )
-  return { request, cpuTicks, binary }
+  return Data.struct({ request, cpuTicks, binary })
 })

@@ -9,25 +9,30 @@
  */
 import { describe, expect, it } from "@effect/vitest"
 import { Entropy, X25519 } from "@scenesystems/sign"
-import { Effect, Encoding, FastCheck } from "effect"
+import { Array as Arr, Effect, Encoding, FastCheck, Schema, Tuple } from "effect"
 
 describe("X25519 ECDH — algorithm contracts", () => {
-  it.effect.prop("agreement is symmetric for distinct generated scalars", [
-    FastCheck.uint8Array({ minLength: 32, maxLength: 32 }),
-    FastCheck.uint8Array({ minLength: 32, maxLength: 32 })
-  ], ([a, b]) =>
-    Effect.gen(function*() {
-      // Reproducible test-only entropy, never the production Entropy.layer.
-      const alice = yield* X25519.generateKeyPair().pipe(Effect.provideService(Entropy.Entropy, {
-        bytes: () => Effect.succeed(a)
-      }))
-      const bob = yield* X25519.generateKeyPair().pipe(Effect.provideService(Entropy.Entropy, {
-        bytes: () => Effect.succeed(b)
-      }))
-      const ssAB = yield* X25519.deriveSharedSecret(alice.secretKey, bob.publicKey)
-      const ssBA = yield* X25519.deriveSharedSecret(bob.secretKey, alice.publicKey)
-      expect(ssAB.sharedSecret).toEqual(ssBA.sharedSecret)
-    }), { fastCheck: { seed: 7748, numRuns: 30 } })
+  it.effect.prop(
+    "agreement is symmetric for distinct generated scalars",
+    Tuple.make(
+      FastCheck.uint8Array({ minLength: 32, maxLength: 32 }),
+      FastCheck.uint8Array({ minLength: 32, maxLength: 32 })
+    ),
+    ([a, b]) =>
+      Effect.gen(function*() {
+        // Reproducible test-only entropy, never the production Entropy.layer.
+        const alice = yield* X25519.generateKeyPair().pipe(Effect.provideService(Entropy.Entropy, {
+          bytes: () => Effect.succeed(a)
+        }))
+        const bob = yield* X25519.generateKeyPair().pipe(Effect.provideService(Entropy.Entropy, {
+          bytes: () => Effect.succeed(b)
+        }))
+        const ssAB = yield* X25519.deriveSharedSecret(alice.secretKey, bob.publicKey)
+        const ssBA = yield* X25519.deriveSharedSecret(bob.secretKey, alice.publicKey)
+        expect(ssAB.sharedSecret).toEqual(ssBA.sharedSecret)
+      }),
+    { fastCheck: { seed: 7748, numRuns: 30 } }
+  )
 
   it.effect("matches RFC 7748 section 6.1 and rejects an all-zero peer", () =>
     Effect.gen(function*() {
@@ -41,7 +46,8 @@ describe("X25519 ECDH — algorithm contracts", () => {
       const result = yield* X25519.deriveSharedSecret(alice.secretKey, peer)
       expect(Encoding.encodeHex(result.sharedSecret))
         .toBe("4a5d9d5ba4ce2de1728e3bf480350f25e07e21c947d19e3376f09b3c1e161742")
-      const error = yield* Effect.flip(X25519.deriveSharedSecret(alice.secretKey, new Uint8Array(32)))
+      const allZeroPeer = yield* Schema.decode(Schema.Uint8Array)(Arr.replicate(0, 32))
+      const error = yield* Effect.flip(X25519.deriveSharedSecret(alice.secretKey, allZeroPeer))
       expect(error).toBeInstanceOf(X25519.AgreementFailed)
     }))
 

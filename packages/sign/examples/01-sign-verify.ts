@@ -1,11 +1,11 @@
 /**
  * Generates an Ed25519 key pair, signs a message, and verifies both the original
- * and a tampered message through the signature's algorithm tag.
+ * and a tampered message with the Ed25519 suite operations.
  *
  * Run: bun run examples/01-sign-verify.ts
  */
 
-import { BunRuntime } from "@effect/platform-bun"
+import * as BunRuntime from "@effect/platform-bun/BunRuntime"
 import { Bytes, Ed25519, Entropy } from "@scenesystems/sign"
 import { Effect } from "effect"
 
@@ -13,15 +13,15 @@ const program = Effect.gen(function*() {
   const keys = yield* Ed25519.generateKeyPair()
   yield* Effect.log("Key pair", {
     algorithm: keys.algorithm,
-    publicKeyBytes: keys.publicKey.length,
-    secretKeyBytes: keys.secretKey.length
+    publicKeyBytes: keys.publicKey.byteLength,
+    secretKeyBytes: keys.secretKey.byteLength
   })
 
   const message = Bytes.fromString("transfer 100 tokens to Alice")
   const sig = yield* Ed25519.sign(message, keys.secretKey, keys.publicKey)
   yield* Effect.log("Signed", {
     algorithm: sig.algorithm,
-    signatureBytes: sig.signature.length
+    signatureBytes: sig.signature.byteLength
   })
 
   const valid = yield* Ed25519.verify(sig.signature, message, keys.publicKey)

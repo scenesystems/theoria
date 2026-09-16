@@ -2,7 +2,7 @@
 import { Command, FileSystem, Path, Url } from "@effect/platform"
 import * as BunContext from "@effect/platform-bun/BunContext"
 import * as BunRuntime from "@effect/platform-bun/BunRuntime"
-import { Array as Arr, Config, Effect, Number as N, Schema } from "effect"
+import { Array as Arr, Config, Effect, Number as N, Schema, String as Str } from "effect"
 
 class PackageCheckFailed extends Schema.TaggedError<PackageCheckFailed>()("PackageCheckFailed", {
   operation: Schema.String
@@ -22,13 +22,21 @@ const program = Effect.gen(function*() {
   const root = yield* path.fromFileUrl(yield* Url.fromString("../", import.meta.url))
   const repository = path.resolve(root, "../..")
   const temporary = yield* fs.makeTempDirectoryScoped()
-  const tarball = path.join(temporary, "sign.tgz")
-  yield* execute(
-    Command.make("bun", "pm", "pack", "--ignore-scripts", "--quiet", "--filename", tarball).pipe(
-      Command.workingDirectory(path.join(root, "dist"))
-    ),
-    "pack built package"
-  )
+  yield* Effect.forEach(Arr.make("digest", "sign"), (name) =>
+    execute(
+      Command.make(
+        "bun",
+        "pm",
+        "pack",
+        "--ignore-scripts",
+        "--quiet",
+        "--filename",
+        path.join(temporary, Str.concat(name, ".tgz"))
+      ).pipe(
+        Command.workingDirectory(path.join(repository, "packages", name, "dist"))
+      ),
+      Str.concat("pack built ", name)
+    ))
   const versions = yield* fs.readFileString(path.join(repository, "package.json")).pipe(
     Effect.flatMap(Schema.decode(Schema.parseJson(Schema.Struct({
       devDependencies: Schema.Struct({
@@ -54,7 +62,8 @@ const program = Effect.gen(function*() {
       private: true,
       type: "module",
       dependencies: {
-        "@scenesystems/sign": tarball,
+        "@scenesystems/sign": path.join(temporary, "sign.tgz"),
+        "@scenesystems/digest": path.join(temporary, "digest.tgz"),
         effect: versions.devDependencies.effect,
         "@effect/platform": versions.devDependencies["@effect/platform"],
         "@effect/platform-bun": versions.devDependencies["@effect/platform-bun"],
@@ -78,6 +87,7 @@ const program = Effect.gen(function*() {
       "vitest.worker.config.ts",
       "scripts/fixture-contract.ts",
       "scripts/jwt-fixture-contract.ts",
+      "scripts/benchmark.ts",
       "scripts/benchmark-worker.ts",
       "test/fixtures/conformance/rsa-openssl.json",
       "test/fixtures/conformance/jwt-openssl.json",

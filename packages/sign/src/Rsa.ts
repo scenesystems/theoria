@@ -5,8 +5,8 @@
  * @module
  */
 import { pow } from "@noble/curves/abstract/modular.js"
-import { bitLen, bytesToNumberBE, numberToBytesBE } from "@noble/curves/utils.js"
-import { sha256 } from "@noble/hashes/sha2.js"
+import { bitLen, numberToBytesBE } from "@noble/curves/utils.js"
+import { sha256 } from "@scenesystems/digest"
 import {
   Array as Arr,
   BigInt as BI,
@@ -81,7 +81,7 @@ const decodeInteger = (encoded: string) =>
         () => new InvalidPublicKey({})
       )
     )
-    return bytesToNumberBE(bytes)
+    return yield* Schema.decode(Schema.BigInt)(Str.concat("0x", Encoding.encodeHex(bytes)))
   })
 
 /**
@@ -159,7 +159,9 @@ export const verify = (
       N.unsafeDivide(N.subtract(bits, remainingBits), 8),
       B.match(N.Equivalence(remainingBits, 0), { onTrue: () => 0, onFalse: () => 1 })
     )
-    const representative = bytesToNumberBE(detachedSignature)
+    const representative = yield* Schema.decode(Schema.BigInt)(
+      Str.concat("0x", Encoding.encodeHex(detachedSignature))
+    ).pipe(Effect.mapError(() => new Verification.InvalidInput({})))
     yield* Effect.succeed(detachedSignature).pipe(
       Effect.filterOrFail(
         (bytes) => B.and(N.Equivalence(bytes.length, width), BI.lessThan(representative, key.modulus)),
@@ -173,10 +175,9 @@ export const verify = (
       try: () => numberToBytesBE(pow(representative, key.exponent, key.modulus), width),
       catch: () => new Verification.Unavailable({})
     })
-    const digest = yield* Effect.try({
-      try: () => sha256(detachedMessage),
-      catch: () => new Verification.Unavailable({})
-    })
+    const digest = yield* sha256(detachedMessage).pipe(
+      Effect.catchAllDefect(() => Effect.fail(new Verification.Unavailable({})))
+    )
     const expected = yield* Schema.decode(Schema.Uint8Array)(Arr.flatten(Arr.make(
       Arr.make(0, 1),
       Arr.replicate(255, N.subtract(width, 54)),

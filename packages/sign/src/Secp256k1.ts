@@ -5,7 +5,7 @@
  * @module
  */
 import { schnorr, secp256k1 } from "@noble/curves/secp256k1.js"
-import { Effect } from "effect"
+import { Cause, Effect } from "effect"
 import * as Entropy from "./Entropy.js"
 import * as KeyPair from "./KeyPair.js"
 import * as Signature from "./Signature.js"
@@ -31,7 +31,8 @@ export const signEcdsa = (
         signature: secp256k1.sign(message, secretKey),
         publicKey
       }),
-    catch: (error) => new Signature.SigningFailed({ algorithm: "secp256k1-ecdsa", reason: String(error) })
+    catch: (error) =>
+      new Signature.SigningFailed({ algorithm: "secp256k1-ecdsa", reason: Cause.pretty(Cause.fail(error)) })
   })
 
 /**
@@ -51,7 +52,8 @@ export const verifyEcdsa = (
 ): Effect.Effect<boolean, Signature.VerificationFailed> =>
   Effect.try({
     try: () => secp256k1.verify(signature, message, publicKey),
-    catch: (error) => new Signature.VerificationFailed({ algorithm: "secp256k1-ecdsa", reason: String(error) })
+    catch: (error) =>
+      new Signature.VerificationFailed({ algorithm: "secp256k1-ecdsa", reason: Cause.pretty(Cause.fail(error)) })
   })
 
 /**
@@ -78,7 +80,8 @@ export const generateEcdsaKeyPair = (): Effect.Effect<
           const { secretKey, publicKey } = secp256k1.keygen(seed)
           return new KeyPair.KeyPair({ algorithm: "secp256k1-ecdsa", publicKey, secretKey })
         },
-        catch: (cause) => new KeyPair.GenerationFailed({ algorithm: "secp256k1-ecdsa", reason: String(cause) })
+        catch: (cause) =>
+          new KeyPair.GenerationFailed({ algorithm: "secp256k1-ecdsa", reason: Cause.pretty(Cause.fail(cause)) })
       })
     )
   )
@@ -110,7 +113,8 @@ export const signSchnorr = (
             signature: schnorr.sign(message, secretKey, auxRand),
             publicKey
           }),
-        catch: (error) => new Signature.SigningFailed({ algorithm: "secp256k1-schnorr", reason: String(error) })
+        catch: (error) =>
+          new Signature.SigningFailed({ algorithm: "secp256k1-schnorr", reason: Cause.pretty(Cause.fail(error)) })
       })
     )
   )
@@ -131,7 +135,8 @@ export const verifySchnorr = (
 ): Effect.Effect<boolean, Signature.VerificationFailed> =>
   Effect.try({
     try: () => schnorr.verify(signature, message, publicKey),
-    catch: (error) => new Signature.VerificationFailed({ algorithm: "secp256k1-schnorr", reason: String(error) })
+    catch: (error) =>
+      new Signature.VerificationFailed({ algorithm: "secp256k1-schnorr", reason: Cause.pretty(Cause.fail(error)) })
   })
 
 /**
@@ -157,7 +162,8 @@ export const generateSchnorrKeyPair = (): Effect.Effect<
           const { secretKey, publicKey } = schnorr.keygen(seed)
           return new KeyPair.KeyPair({ algorithm: "secp256k1-schnorr", publicKey, secretKey })
         },
-        catch: (cause) => new KeyPair.GenerationFailed({ algorithm: "secp256k1-schnorr", reason: String(cause) })
+        catch: (cause) =>
+          new KeyPair.GenerationFailed({ algorithm: "secp256k1-schnorr", reason: Cause.pretty(Cause.fail(cause)) })
       })
     )
   )

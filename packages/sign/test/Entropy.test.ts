@@ -1,6 +1,11 @@
 import { describe, expect, it } from "@effect/vitest"
 import { Bytes, Ed25519, Entropy, KeyPair, MlDsa, Secp256k1, SlhDsa, X25519, XWing } from "@scenesystems/sign"
-import { Array as Arr, Data, Effect, Encoding, Ref, Tuple } from "effect"
+import { Array as Arr, Chunk, Data, Effect, Encoding, Ref, Schema, Tuple } from "effect"
+
+const deterministicBytes = (byte: number, length: number) =>
+  Schema.decode(Schema.Uint8Array)(Arr.take(Arr.replicate(byte, length), length)).pipe(
+    Effect.mapError(() => new Entropy.GenerationFailed({ length, reason: "invalid deterministic byte fixture" }))
+  )
 
 describe("Entropy", () => {
   it.effect("draws on each execution from the provided service, reconstructing independent RFC 8032 identities", () =>
@@ -12,24 +17,24 @@ describe("Entropy", () => {
         ),
         Encoding.decodeHex
       )
-      const remaining = yield* Ref.make<ReadonlyArray<Uint8Array>>(seeds)
+      const remaining = yield* Ref.make(Chunk.fromIterable(seeds))
       const requests = yield* Ref.make(Arr.empty<number>())
       const generate = Ed25519.generateKeyPair().pipe(Effect.provideService(Entropy.Entropy, {
         bytes: (length) =>
           Ref.update(requests, Arr.append(length)).pipe(
             Effect.zipRight(
-              Ref.modify(remaining, (values) => Tuple.make(Arr.unsafeGet(values, 0), Arr.drop(values, 1)))
+              Ref.modify(remaining, (values) => Tuple.make(Chunk.unsafeHead(values), Chunk.drop(values, 1)))
             )
           )
       }))
-      expect(yield* Ref.get(requests)).toEqual([])
+      expect(yield* Ref.get(requests)).toEqual(Arr.empty())
       const first = yield* generate
       const second = yield* generate
       expect(Encoding.encodeHex(first.publicKey))
         .toBe("d75a980182b10ab7d54bfed3c964073a0ee172f3daa62325af021a68f707511a")
       expect(Encoding.encodeHex(second.publicKey))
         .toBe("3d4017c3e843895a92b70aa74d1b7ebc9c982ccf2ec4968cc0cd55f12af4660c")
-      expect(yield* Ref.get(requests)).toEqual([32, 32])
+      expect(yield* Ref.get(requests)).toEqual(Arr.make(32, 32))
     }))
 
   it.effect("requests each suite's seed width and fails closed when the entropy provider fails", () =>
@@ -61,7 +66,7 @@ describe("Entropy", () => {
           })))
           expect(error).toBeInstanceOf(KeyPair.GenerationFailed)
           expect(error.algorithm).toBe(algorithm)
-          expect(yield* Ref.get(requests)).toEqual([expectedLength])
+          expect(yield* Ref.get(requests)).toEqual(Arr.of(expectedLength))
         })
     ))
 
@@ -81,15 +86,15 @@ describe("Entropy", () => {
         ([generate, sign, verify, expectedLength]) =>
           Effect.gen(function*() {
             const keys = yield* generate().pipe(Effect.provideService(Entropy.Entropy, {
-              bytes: (length) => Effect.succeed(Uint8Array.from(Arr.replicate(0x31, length)))
+              bytes: (length) => deterministicBytes(0x31, length)
             }))
             const signWith = (byte: number) =>
               sign(message, keys.secretKey, keys.publicKey).pipe(
                 Effect.provideService(Entropy.Entropy, {
                   bytes: (length) =>
-                    Effect.sync(() => {
+                    Effect.gen(function*() {
                       expect(length).toBe(expectedLength)
-                      return Uint8Array.from(Arr.replicate(byte, length))
+                      return yield* deterministicBytes(byte, length)
                     })
                 })
               )
@@ -107,15 +112,15 @@ describe("Entropy", () => {
   it.effect("X-Wing uses exactly 64 supplied bytes for reproducible encapsulation", () =>
     Effect.gen(function*() {
       const keys = yield* XWing.generateKeyPair().pipe(Effect.provideService(Entropy.Entropy, {
-        bytes: (length) => Effect.succeed(Uint8Array.from(Arr.replicate(0x31, length)))
+        bytes: (length) => deterministicBytes(0x31, length)
       }))
       const encapsulate = (byte: number) =>
         XWing.encapsulate(keys.publicKey).pipe(
           Effect.provideService(Entropy.Entropy, {
             bytes: (length) =>
-              Effect.sync(() => {
+              Effect.gen(function*() {
                 expect(length).toBe(64)
-                return Uint8Array.from(Arr.replicate(byte, length))
+                return yield* deterministicBytes(byte, length)
               })
           })
         )
@@ -131,6 +136,10 @@ describe("Entropy", () => {
 
   it.effect("produces the explicitly requested number of fresh bytes", () =>
     Effect.gen(function*() {
+      yield* Effect.forEach(Arr.make(0, 1, 65_536), (length) =>
+        Effect.gen(function*() {
+          expect((yield* Entropy.bytes(length)).length).toBe(length)
+        }))
       const first = yield* Entropy.bytes(32)
       const second = yield* Entropy.bytes(32)
       expect(first.length).toBe(32)

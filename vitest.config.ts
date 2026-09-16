@@ -1,9 +1,17 @@
+import { Boolean as B, Config, Effect } from "effect"
 import { defineConfig } from "vitest/config"
+
+const maxWorkers = Effect.runSync(
+  Config.boolean("CI").pipe(
+    Config.withDefault(false),
+    Effect.map(B.match({ onTrue: () => 2, onFalse: () => 4 }))
+  )
+)
 
 export default defineConfig({
   test: {
     pool: "forks",
-    maxWorkers: process.env.CI ? 2 : 4,
+    maxWorkers,
     fileParallelism: true,
     maxConcurrency: 10,
     passWithNoTests: false,

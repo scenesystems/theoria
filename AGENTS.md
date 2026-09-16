@@ -8,16 +8,16 @@ alwaysApply: true
 
 Effect-native scientific computing monorepo.
 
-| Package              | Directory                    | npm                              | Deps                                                      |
-| -------------------- | ---------------------------- | -------------------------------- | --------------------------------------------------------- |
-| effect-search        | `packages/effect-search/`    | `@scenesystems/effect-search`    | effect, @scenesystems/digest                              |
-| effect-dsp           | `packages/effect-dsp/`       | `@scenesystems/effect-dsp`       | @scenesystems/effect-search, @effect/ai (peer)            |
-| effect-text          | `packages/effect-text/`      | `@scenesystems/effect-text`      | effect, @scenesystems/effect-search                       |
-| effect-math          | `packages/effect-math/`      | `@scenesystems/effect-math`      | effect                                                    |
-| effect-inference     | `packages/effect-inference/` | `@scenesystems/effect-inference` | @effect/ai, effect                                        |
-| @scenesystems/digest | `packages/digest/`           | `@scenesystems/digest`           | @noble/hashes, effect                                     |
-| @scenesystems/seal   | `packages/seal/`             | `@scenesystems/seal`             | @noble/ciphers, effect                                    |
-| @scenesystems/sign   | `packages/sign/`             | `@scenesystems/sign`             | @noble/curves, @noble/hashes, @noble/post-quantum, effect |
+| Package              | Directory                    | npm                              | Deps                                                                            |
+| -------------------- | ---------------------------- | -------------------------------- | ------------------------------------------------------------------------------- |
+| effect-search        | `packages/effect-search/`    | `@scenesystems/effect-search`    | effect, @scenesystems/digest                                                    |
+| effect-dsp           | `packages/effect-dsp/`       | `@scenesystems/effect-dsp`       | @scenesystems/effect-search, @effect/ai (peer)                                  |
+| effect-text          | `packages/effect-text/`      | `@scenesystems/effect-text`      | effect, @scenesystems/effect-search                                             |
+| effect-math          | `packages/effect-math/`      | `@scenesystems/effect-math`      | effect                                                                          |
+| effect-inference     | `packages/effect-inference/` | `@scenesystems/effect-inference` | @effect/ai, effect                                                              |
+| @scenesystems/digest | `packages/digest/`           | `@scenesystems/digest`           | @noble/hashes, effect                                                           |
+| @scenesystems/seal   | `packages/seal/`             | `@scenesystems/seal`             | @noble/ciphers, effect                                                          |
+| @scenesystems/sign   | `packages/sign/`             | `@scenesystems/sign`             | @noble/curves, @noble/hashes, @noble/post-quantum, @scenesystems/digest, effect |
 
 `@scenesystems/digest` and `@scenesystems/seal` currently have a single entrypoint (`.`). `@scenesystems/sign` exposes concern namespaces and matching PascalCase subpaths; the scoped effect packages retain their governed public subpaths. Effect is a required peer dependency. Schema owns validated/encoded data; Context owns capabilities, and non-codec values and type-level relationships need not have schemas. Published under `@scenesystems/` scope for cross-ecosystem use. Built on the [Noble](https://paulmillr.com/noble/) cryptographic ecosystem; dependency audits do not cover Theoria's compositions.
 
@@ -71,7 +71,7 @@ See `.vendor/AGENTS.md` for the full package→directory map.
 
 ## Effect-Native Code Only
 
-Every TypeScript file in the repository must be idiomatic Effect — packages, apps, tests, benchmarks, and tooling alike. Only framework configuration files (`*.config.{ts,tsx,mts,cts}`) are exempt. Use `it.effect()` in tests.
+Every TypeScript file in the repository must consume native Effect public APIs — packages, apps, tests, benchmarks, and tooling alike, including pure computations and callbacks. Framework-required configuration syntax is permitted, but configuration logic is not exempt. Use `it.effect()` in tests. Lint coverage is not an authorization boundary: an unavailable native operation requires research and explicit user approval, not an agent-created adapter exception.
 
 Enforcement is split by tool, each owning one concern, all wired into `bun run lint`:
 
@@ -83,32 +83,32 @@ Enforcement is split by tool, each owning one concern, all wired into `bun run l
 - Never import Node builtins (`node:*`, `fs`, `path`, `url`, `crypto`) from TypeScript. Use `@effect/platform`, Bun platform services, or package-owned abstractions instead.
 - Tests must exercise behavior, numerical parity, protocol conformance, lifecycle, interruption, typed failures, persistence, or a real integration boundary. Do not test source structure, file inventories, export-map shape, package metadata, generated distribution layout, or checked-in release snapshots.
 
-| Banned                                                            | Use Instead                                                                                                                                                              |
-| ----------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| `async/await`                                                     | `Effect.gen` with `yield*`                                                                                                                                               |
-| `throw`, `try/catch`                                              | `Data.TaggedError`, `Schema.TaggedError`                                                                                                                                 |
-| `new Error()`                                                     | `Data.TaggedError` or `Schema.TaggedError`                                                                                                                               |
-| `console.*`                                                       | `Effect.log`, `Effect.logError`, `Effect.logWarning`                                                                                                                     |
-| `let`                                                             | `const`. Mutable state: `Ref`                                                                                                                                            |
-| `for`, `while`, `do...while`                                      | `Arr.map`, `Effect.forEach`, `Effect.iterate`                                                                                                                            |
-| `switch`                                                          | `Match` from effect                                                                                                                                                      |
-| `new Map()` / `new Set()`                                         | `HashMap` / `HashSet` from effect                                                                                                                                        |
-| `Date.now()`, `Math.random()`                                     | `Clock.currentTimeMillis`, `Random` from effect                                                                                                                          |
-| `as` assertions, `satisfies`                                      | `Schema.decodeUnknown`, `Schema.is`                                                                                                                                      |
-| `JSON.parse/stringify`                                            | `Schema.decode` / `Schema.encode`                                                                                                                                        |
-| `Object.keys/entries/values`                                      | `Record` module from effect                                                                                                                                              |
-| `Array.push`                                                      | `Arr.append` / `Arr.appendAll`                                                                                                                                           |
-| `Promise.*`, `.then()`, `.catch()`                                | `Effect.all`, `Effect.map`, `Effect.catchAll`                                                                                                                            |
-| `Effect.runPromise/runSync`                                       | `Runtime.runMain` at entry points only                                                                                                                                   |
-| TypeScript `interface`                                            | `Schema.Class`, `Data.TaggedClass`                                                                                                                                       |
-| `Partial<>`, `Pick<>`, `Omit<>`                                   | `Schema.partial`, `Schema.pick`, `Schema.omit`                                                                                                                           |
-| `Readonly<{…}>`, `type X = {…}`, `type X = A & {…}`               | `Schema.Struct` for data; `Data.Class<{…}>` for records that carry functions, Effects, Layers or generics                                                                |
-| `\| null`, `\| undefined`, `=== null`, `typeof x === "undefined"` | `Option<A>`; `Schema.OptionFromNullOr` where JSON carries `null`                                                                                                         |
-| `Option.getOrUndefined/getOrNull`, `onNone: () => undefined`      | Keep the `Option`; spread `Option.match(o, { onNone: () => ({}), onSome: (v) => ({ field: v }) })` into third-party optional fields                                      |
+| Banned                                                            | Use Instead                                                                                                                                                                                 |
+| ----------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `async/await`                                                     | `Effect.gen` with `yield*`                                                                                                                                                                  |
+| `throw`, `try/catch`                                              | `Data.TaggedError`, `Schema.TaggedError`                                                                                                                                                    |
+| `new Error()`                                                     | `Data.TaggedError` or `Schema.TaggedError`                                                                                                                                                  |
+| `console.*`                                                       | `Effect.log`, `Effect.logError`, `Effect.logWarning`                                                                                                                                        |
+| `let`                                                             | `const`. Mutable state: `Ref`                                                                                                                                                               |
+| `for`, `while`, `do...while`                                      | `Arr.map`, `Effect.forEach`, `Effect.iterate`                                                                                                                                               |
+| `switch`                                                          | `Match` from effect                                                                                                                                                                         |
+| `new Map()` / `new Set()`                                         | `HashMap` / `HashSet` from effect                                                                                                                                                           |
+| `Date.now()`, `Math.random()`                                     | `Clock.currentTimeMillis`, `Random` from effect                                                                                                                                             |
+| `as` assertions, `satisfies`                                      | `Schema.decodeUnknown`, `Schema.is`                                                                                                                                                         |
+| `JSON.parse/stringify`                                            | `Schema.decode` / `Schema.encode`                                                                                                                                                           |
+| `Object.keys/entries/values`                                      | `Record` module from effect                                                                                                                                                                 |
+| `Array.push`                                                      | `Arr.append` / `Arr.appendAll`                                                                                                                                                              |
+| `Promise.*`, `.then()`, `.catch()`                                | `Effect.all`, `Effect.map`, `Effect.catchAll`                                                                                                                                               |
+| `Effect.runPromise/runSync`                                       | `Runtime.runMain` at entry points only                                                                                                                                                      |
+| TypeScript `interface`                                            | `Schema.Class`, `Data.TaggedClass`                                                                                                                                                          |
+| `Partial<>`, `Pick<>`, `Omit<>`                                   | `Schema.partial`, `Schema.pick`, `Schema.omit`                                                                                                                                              |
+| `Readonly<{…}>`, `type X = {…}`, `type X = A & {…}`               | `Schema.Struct` for data; `Data.Class<{…}>` for records that carry functions, Effects, Layers or generics                                                                                   |
+| `\| null`, `\| undefined`, `=== null`, `typeof x === "undefined"` | `Option<A>`; `Schema.OptionFromNullOr` where JSON carries `null`                                                                                                                            |
+| `Option.getOrUndefined/getOrNull`, `onNone: () => undefined`      | Keep the `Option`; spread `Option.match(o, { onNone: () => ({}), onSome: (v) => ({ field: v }) })` into third-party optional fields                                                         |
 | `globalThis`, `localStorage`, `Bun.*`, `crypto.*`                 | A service: `@effect/platform-browser` (`BrowserKeyValueStore`, `Clipboard`), `@effect/platform-bun`, `@scenesystems/digest`, `Entropy.bytes` with `Entropy.layer` from `@scenesystems/sign` |
-| `new URL()`, `fetch()`                                            | `Url.fromString`, `HttpClient` from `@effect/platform`                                                                                                                   |
-| `setTimeout/setInterval`, `requestAnimationFrame`, `performance`  | `Effect.sleep`, `Schedule`, `Clock.currentTimeNanos`; the app's `AnimationFrame` service or Motion's `frame`                                                             |
-| `process.*` (every property, including `memoryUsage`, `versions`) | `Config`, `Console`, `Path` + `import.meta.url`, `Clock`, `BunRuntime.runMain` (exit code 1 on failure); what Effect cannot observe is not reported                      |
+| `new URL()`, `fetch()`                                            | `Url.fromString`, `HttpClient` from `@effect/platform`                                                                                                                                      |
+| `setTimeout/setInterval`, `requestAnimationFrame`, `performance`  | `Effect.sleep`, `Schedule`, `Clock.currentTimeNanos`; the app's `AnimationFrame` service or Motion's `frame`                                                                                |
+| `process.*` (every property, including `memoryUsage`, `versions`) | `Config`, `Console`, `Path` + `import.meta.url`, `Clock`, `BunRuntime.runMain` (exit code 1 on failure); what Effect cannot observe is not reported                                         |
 
 ---
 

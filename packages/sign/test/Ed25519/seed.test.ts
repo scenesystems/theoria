@@ -1,6 +1,6 @@
 import { describe, expect, it } from "@effect/vitest"
 import * as Ed25519 from "@scenesystems/sign/Ed25519"
-import { Array as Arr, Effect, Encoding, Schema } from "effect"
+import { Array as Arr, Effect, Encoding, Equivalence, Schema } from "effect"
 
 describe("Ed25519 seed reconstruction", () => {
   it.effect("reconstructs RFC 8032 section 7.1 identities without changing their seed", () =>
@@ -23,7 +23,7 @@ describe("Ed25519 seed reconstruction", () => {
           const keys = yield* Ed25519.keyPairFromSeed(seed)
           expect(Encoding.encodeHex(keys.publicKey)).toBe(vector.publicKey)
           expect(Encoding.encodeHex(keys.secretKey)).toBe(vector.seed)
-          expect(keys.secretKey).not.toBe(seed)
+          expect(Equivalence.strict<Uint8Array>()(keys.secretKey, seed)).toBe(false)
           const message = yield* Encoding.decodeHex(vector.message)
           const signed = yield* Ed25519.sign(message, keys.secretKey, keys.publicKey)
           expect(yield* Ed25519.verify(signed.signature, message, keys.publicKey)).toBe(true)
@@ -33,7 +33,7 @@ describe("Ed25519 seed reconstruction", () => {
   it.effect("rejects seeds on both sides of the exact 32-byte boundary", () =>
     Effect.forEach(Arr.make(0, 31, 33, 64), (length) =>
       Effect.gen(function*() {
-        const seed = yield* Schema.decode(Schema.Uint8Array)(Arr.replicate(0, length))
+        const seed = yield* Schema.decode(Schema.Uint8Array)(Arr.take(Arr.replicate(0, length), length))
         expect(yield* Effect.flip(Ed25519.keyPairFromSeed(seed))).toEqual(new Ed25519.InvalidSeed({}))
       })))
 

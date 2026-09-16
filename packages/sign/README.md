@@ -24,14 +24,14 @@ Choose the suite explicitly. `Ed25519`, `Secp256k1`, `MlDsa`, and `SlhDsa` own s
 
 ```ts typecheck
 import { Bytes, Ed25519, Entropy } from "@scenesystems/sign"
-import { Effect } from "effect"
+import { Data, Effect } from "effect"
 
 export const program = Effect.gen(function* () {
   const keys = yield* Ed25519.generateKeyPair()
   const message = Bytes.fromString("signed content")
   const signed = yield* Ed25519.sign(message, keys.secretKey, keys.publicKey)
   const valid = yield* Ed25519.verify(signed.signature, message, keys.publicKey)
-  return { signed, valid }
+  return Data.struct({ signed, valid })
 }).pipe(Effect.provide(Entropy.layer))
 ```
 
@@ -81,7 +81,7 @@ export const agree = Effect.gen(function* () {
 
 `X25519.SharedSecret` contains the raw 32-byte agreement output. X25519 rejects all-zero shared output from low-order peers. It does not authenticate the peer or bind the transcript.
 
-`XWing.encapsulate(recipientPublicKey)` returns `XWing.Encapsulation`: a 1,120-byte ciphertext to transmit and the sender's 32-byte raw shared secret, which must remain local. `XWing.decapsulate(ciphertext, recipientSecretKey)` recovers the recipient's secret. X-Wing uses a 1,216-byte public key and 32-byte secret seed, combining X25519 and ML-KEM-768. Encapsulation requires 64 fresh entropy bytes. A well-sized modified ciphertext can derive another secret rather than fail; encapsulation does not authenticate the sender or recipient.
+`XWing.encapsulate(recipientPublicKey)` returns `XWing.Encapsulation`: a 1,120-byte ciphertext to transmit and the sender's 32-byte raw shared secret, which must remain local. `XWing.decapsulate(ciphertext, recipientSecretKey)` recovers the recipient's secret. This implements `draft-connolly-cfrg-xwing-kem-06`, not a finalized RFC. X-Wing uses a 1,216-byte public key and 32-byte secret seed, combining X25519 and ML-KEM-768. Encapsulation requires 64 fresh entropy bytes. A well-sized modified ciphertext can derive another secret rather than fail; encapsulation does not authenticate the sender or recipient.
 
 Apply a protocol-bound KDF before using either output as a symmetric key. [`@scenesystems/digest`](../digest/README.md) supplies HKDF and BLAKE3 key derivation; [`@scenesystems/seal`](../seal/README.md) encrypts under derived keys.
 
@@ -105,7 +105,7 @@ Both errors retain no input material, algorithm, key, message, context, or backe
 
 `Rsa.publicKeyFromJwk(unknown)` admits canonical unpadded Base64urlUInt n/e into `Rsa.PublicKey`. Its modulus must be odd and 2048–4096 bits; its exponent odd and 3–2³²−1. Optional alg/use/key_ops must permit RS256 verification. Extra fields, including private material, are discarded. It validates neither prime factorization nor provenance. Rejection is the material-free `Rsa.InvalidPublicKey`. There is no RSA signing, encryption, PSS, or network lookup.
 
-The RSA scheme composes Noble public arithmetic and hashing. **This Theoria composition is not covered by Noble's audits.** Independent OpenSSL fixtures and all 259 cases of a pinned Wycheproof corpus provide conformance evidence, not an audit.
+The RSA scheme composes Noble public arithmetic with SHA-256 from `@scenesystems/digest`. **This Theoria composition is not covered by Noble's audits.** Independent OpenSSL fixtures and all 259 cases of a pinned Wycheproof corpus provide conformance evidence, not an audit.
 
 ## Post-quantum signing keeps context and entropy explicit
 

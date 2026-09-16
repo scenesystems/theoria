@@ -1,4 +1,4 @@
-import { BunContext } from "@effect/platform-bun"
+import * as BunContext from "@effect/platform-bun/BunContext"
 import { describe, expect, it } from "@effect/vitest"
 import { Ed25519, MlDsa, P256 } from "@scenesystems/sign"
 import type { Verification } from "@scenesystems/sign"

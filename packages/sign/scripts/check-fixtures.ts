@@ -5,21 +5,11 @@
  *
  * Usage: bun run fixtures:check
  */
-import { BunContext, BunRuntime } from "@effect/platform-bun"
+import * as BunContext from "@effect/platform-bun/BunContext"
+import * as BunRuntime from "@effect/platform-bun/BunRuntime"
 import * as PlatformError from "@effect/platform/Error"
-import { sha256 } from "@noble/hashes/sha2.js"
-import {
-  Array as Arr,
-  Cause,
-  Console,
-  Effect,
-  Encoding,
-  Match,
-  Option,
-  ParseResult,
-  Schema,
-  String as Str
-} from "effect"
+import { digestBytesHex } from "@scenesystems/digest"
+import { Array as Arr, Cause, Console, Effect, Match, Option, ParseResult, Schema, String as Str } from "effect"
 import type { ConformancePayload } from "./fixture-contract.js"
 import {
   ConformanceManifest,
@@ -87,13 +77,12 @@ const checkPayload = (payload: typeof ConformancePayload.Type) =>
       )
     )
 
-    const actualSha256 = Encoding.encodeHex(sha256(bytes))
-    yield* Effect.succeed(actualSha256).pipe(Effect.filterOrFail(
+    yield* digestBytesHex("sha256", bytes).pipe(Effect.filterOrFail(
       (actual) => Str.Equivalence(actual, payload.sha256),
-      () =>
+      (actual) =>
         new FixtureCheckError({
           file: payload.file,
-          reason: Arr.join(Arr.make("sha256 mismatch: expected ", payload.sha256, ", got ", actualSha256), ""),
+          reason: Arr.join(Arr.make("sha256 mismatch: expected ", payload.sha256, ", got ", actual), ""),
           cause: Option.none()
         })
     ))

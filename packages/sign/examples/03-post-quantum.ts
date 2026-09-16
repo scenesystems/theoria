@@ -5,15 +5,15 @@
  * Run: bun run examples/03-post-quantum.ts
  */
 
-import { BunRuntime } from "@effect/platform-bun"
+import * as BunRuntime from "@effect/platform-bun/BunRuntime"
 import { Bytes, Entropy, MlDsa, XWing } from "@scenesystems/sign"
 import { Effect, Encoding } from "effect"
 
 const program = Effect.gen(function*() {
   const sigKeys = yield* MlDsa.generateKeyPair65()
   yield* Effect.log("ML-DSA-65 key pair", {
-    publicKeyBytes: sigKeys.publicKey.length,
-    secretKeyBytes: sigKeys.secretKey.length
+    publicKeyBytes: sigKeys.publicKey.byteLength,
+    secretKeyBytes: sigKeys.secretKey.byteLength
   })
 
   const message = Bytes.fromString("quantum-resistant document signing")
@@ -22,20 +22,20 @@ const program = Effect.gen(function*() {
   const sig = yield* MlDsa.sign65Hedged(message, sigKeys.secretKey, sigKeys.publicKey, context, entropy32)
   const valid = yield* MlDsa.verify65(sig.signature, message, sigKeys.publicKey, context)
   yield* Effect.log("ML-DSA-65 signature", {
-    signatureBytes: sig.signature.length,
+    signatureBytes: sig.signature.byteLength,
     verified: valid
   })
 
   const recipient = yield* XWing.generateKeyPair()
   yield* Effect.log("XWing key pair", {
-    publicKeyBytes: recipient.publicKey.length,
-    secretKeyBytes: recipient.secretKey.length
+    publicKeyBytes: recipient.publicKey.byteLength,
+    secretKeyBytes: recipient.secretKey.byteLength
   })
 
   const encap = yield* XWing.encapsulate(recipient.publicKey)
   yield* Effect.log("Encapsulated", {
-    ciphertextBytes: encap.ciphertext.length,
-    sharedSecretBytes: encap.sharedSecret.length
+    ciphertextBytes: encap.ciphertext.byteLength,
+    sharedSecretBytes: encap.sharedSecret.byteLength
   })
 
   const decapSecret = yield* XWing.decapsulate(encap.ciphertext, recipient.secretKey)

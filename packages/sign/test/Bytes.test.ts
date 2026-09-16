@@ -1,6 +1,6 @@
 import { describe, expect, it } from "@effect/vitest"
 import * as Bytes from "@scenesystems/sign/Bytes"
-import { Array as Arr, Effect, Schema, Tuple } from "effect"
+import { Array as Arr, Effect, Equivalence, Schema, Tuple } from "effect"
 
 describe("Bytes.fromString", () => {
   it.effect("preserves Unicode scalars, BOM, combining marks, and NUL without normalization", () =>
@@ -28,7 +28,7 @@ describe("Bytes.fromString", () => {
 
       const first = Bytes.fromString("fresh")
       const second = Bytes.fromString("fresh")
-      expect(first).not.toBe(second)
+      expect(Equivalence.strict<Uint8Array>()(first, second)).toBe(false)
     }))
 })
 

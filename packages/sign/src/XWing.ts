@@ -1,11 +1,12 @@
 /**
  * X-Wing hybrid X25519 and ML-KEM-768 encapsulation.
+ * Implements draft-connolly-cfrg-xwing-kem-06, not a finalized RFC.
  *
  * @since 0.5.0
  * @module
  */
 import { ml_kem768_x25519 } from "@noble/post-quantum/hybrid.js"
-import { Effect, Schema } from "effect"
+import { Cause, Effect, Schema } from "effect"
 import * as Entropy from "./Entropy.js"
 import * as KeyPair from "./KeyPair.js"
 
@@ -63,7 +64,7 @@ export const generateKeyPair = (): Effect.Effect<KeyPair.KeyPair, KeyPair.Genera
           const { secretKey, publicKey } = ml_kem768_x25519.keygen(seed)
           return new KeyPair.KeyPair({ algorithm: "xwing", publicKey, secretKey })
         },
-        catch: (cause) => new KeyPair.GenerationFailed({ algorithm: "xwing", reason: String(cause) })
+        catch: (cause) => new KeyPair.GenerationFailed({ algorithm: "xwing", reason: Cause.pretty(Cause.fail(cause)) })
       })
     )
   )
@@ -92,7 +93,7 @@ export const encapsulate = (
             sharedSecret: result.sharedSecret
           })
         },
-        catch: (error) => new Failed({ algorithm: "xwing", reason: String(error) })
+        catch: (error) => new Failed({ algorithm: "xwing", reason: Cause.pretty(Cause.fail(error)) })
       })
     )
   )
@@ -112,5 +113,5 @@ export const decapsulate = (
 ): Effect.Effect<Uint8Array, Failed> =>
   Effect.try({
     try: () => ml_kem768_x25519.decapsulate(ciphertext, secretKey),
-    catch: (error) => new Failed({ algorithm: "xwing", reason: String(error) })
+    catch: (error) => new Failed({ algorithm: "xwing", reason: Cause.pretty(Cause.fail(error)) })
   })
