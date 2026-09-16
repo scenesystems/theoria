@@ -11,7 +11,7 @@ import { Schema } from "effect"
  * `StudySnapshot` after the study ran.
  *
  * @remarks
- * `StudyStorageApi.loadSnapshot` permits absence because external storage may
+ * `StudyStorage.loadSnapshot` permits absence because external storage may
  * evict or delete checkpoints. Calibration needs the checkpoint to build its
  * resumable artifacts, so absence is a typed failure rather than a defect.
  *
