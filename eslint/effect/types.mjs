@@ -1,7 +1,7 @@
 /**
  * Type-level discipline: no assertions, no TypeScript utility types over
- * schema-derived types, no module stubs or tacit composition, and the
- * schema-first modeling rules that only library code carries.
+ * schema-derived types, no module stubs or tacit composition, and native
+ * Schema/Data modeling rules for first-party code.
  *
  * @module eslint/effect/types
  */
@@ -82,12 +82,8 @@ export const TYPE_MODELING_RULES = [
     message:
       "Do not use conditional helper type aliases for runtime contracts. Derive from canonical Schema values instead."
   },
-  {
-    selector:
-      "TSTypeAliasDeclaration[typeAnnotation.type='TSTypeReference'][typeAnnotation.typeName.type='TSQualifiedName'][typeAnnotation.typeName.left.name='Data'][typeAnnotation.typeName.right.name='TaggedEnum']",
-    message:
-      "Do not define event contracts as type aliases over Data.TaggedEnum. Use schema-backed runtime models or tagged class values."
-  },
+  // Data.TaggedEnum plus Data.taggedEnum is Effect's supported structural
+  // variant family. Encoding boundaries still require Schema-owned contracts.
   {
     selector: "TSTypeReference[typeName.name='Readonly'] > TSTypeParameterInstantiation > TSTypeLiteral",
     message:

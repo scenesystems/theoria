@@ -19,7 +19,7 @@ Effect-native scientific computing monorepo.
 | @scenesystems/seal   | `packages/seal/`             | `@scenesystems/seal`             | @noble/ciphers, effect                                    |
 | @scenesystems/sign   | `packages/sign/`             | `@scenesystems/sign`             | @noble/curves, @noble/hashes, @noble/post-quantum, effect |
 
-The cryptographic authority packages `@scenesystems/digest`, `@scenesystems/seal`, and `@scenesystems/sign` have a single entrypoint (`.`). The scoped effect packages retain their governed public subpaths. Effect is a required peer dependency. Schema is the single source of truth for all types. Published under `@scenesystems/` scope for cross-ecosystem use. Built on the [Noble](https://paulmillr.com/noble/) audited cryptographic ecosystem (6 audits by Cure53 and Trail of Bits).
+Effect is a required peer dependency. Schema owns validated and encoded contracts; Data owns structural values without codecs; Context owns capabilities. Derive types from their canonical owner rather than duplicating models. Public package boundaries and entrypoints follow their actual concerns, not historical arrangements. Published under `@scenesystems/` scope for cross-ecosystem use. Built on the [Noble](https://paulmillr.com/noble/) audited cryptographic ecosystem (6 audits by Cure53 and Trail of Bits).
 
 ---
 
@@ -114,7 +114,7 @@ Enforcement is split by tool, each owning one concern, all wired into `bun run l
 
 ## Conventions
 
-- **Naming**: PascalCase modules, camelCase functions, UPPER_SNAKE constants. Match Effect ecosystem.
+- **Naming**: PascalCase public concern modules; camelCase operations, providers, values, and private modules under `internal/`. Preserve established Effect protocol names such as `TypeId`, `Order`, and `Equivalence`. Constants are not automatically UPPER_SNAKE_CASE.
 - **Single source of truth**: One canonical definition per type, error, constant. Never duplicate.
 - **One concern per file**: `internal/` for implementation, public modules for API surface.
 - **Tests assert behaviour**: Property-based for invariants, golden fixtures for numerical correctness. No smoke tests, and no tests that pin structure (export inventories, literal class strings, `_tag` lists, self-equality) rather than behaviour.
@@ -125,10 +125,10 @@ Enforcement is split by tool, each owning one concern, all wired into `bun run l
 ## Governance
 
 - `internal/*` is unreachable from consumers: each `package.json` `exports` map omits it, so the type checker and the runtime resolver both reject deep imports.
-- Reusable cross-module abstractions live in `src/contracts/`. `internal/*` is private.
+- Each concern has one canonical public owner, normally `src/Concern.ts`, with matching root namespace and `/Concern` export. Reuse does not require a generic `contracts/` directory. Substantial private mechanics live under `internal/` and are not exported.
 - Adding algorithms must not require modifying unrelated internals.
 - Non-cryptographic randomness (sampling, search, fixtures) goes through Effect `Random` with seeded generators so runs replay. Key material, nonces and signing entropy come from the platform CSPRNG through `generateEntropy` in `@scenesystems/sign`; `Random` is never a source of secrets.
-- Cryptographic authority packages (`digest`, `seal`, `sign`): single entrypoint (`.`), Effect required, Schema is sole type source. Scoped effect packages retain their governed public subpaths.
+- Model validated data with Schema, structural values and closed in-memory variants with Data, and injectable capabilities with Context. Do not put function-valued capabilities into fictitious serialization schemas. Package entrypoints follow designed public concerns; changes to a published surface require the appropriate changeset.
 
 ---
 
