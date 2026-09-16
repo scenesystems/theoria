@@ -25,7 +25,7 @@ describe.each(Cipher.Algorithm.literals)("Cipher %s", (algorithm) => {
 
   it.effect("supports empty and large messages and generates a nonce on every execution", () =>
     Effect.forEach(
-      [Array.empty<number>(), Array.makeBy(65536, Number.remainder(251))],
+      Array.make(Array.empty<number>(), Array.makeBy(65536, Number.remainder(251))),
       (bytes) =>
         Effect.gen(function*() {
           const message = yield* Schema.decode(Schema.Uint8Array)(bytes)
@@ -46,7 +46,7 @@ describe.each(Cipher.Algorithm.literals)("Cipher %s", (algorithm) => {
         failure
       )
       yield* Effect.forEach(
-        [0, Number.subtract(encrypted.length, 17), Number.decrement(encrypted.length)],
+        Array.make(0, Number.subtract(encrypted.length, 17), Number.decrement(encrypted.length)),
         (index) =>
           Effect.gen(function*() {
             const tampered = yield* Schema.decode(Schema.Uint8Array)(
@@ -56,7 +56,7 @@ describe.each(Cipher.Algorithm.literals)("Cipher %s", (algorithm) => {
           })
       )
       yield* Effect.forEach(
-        [0, 11, 12, 23, 24, Number.decrement(encrypted.length)],
+        Array.make(0, 11, 12, 23, 24, Number.decrement(encrypted.length)),
         (length) =>
           Effect.gen(function*() {
             const truncated = yield* Schema.decode(Schema.Uint8Array)(Array.take(encrypted, length))
@@ -68,7 +68,7 @@ describe.each(Cipher.Algorithm.literals)("Cipher %s", (algorithm) => {
 
   it.effect("validates both sides of the key-length boundary for encryption and decryption", () =>
     Effect.gen(function*() {
-      yield* Effect.forEach([0, 16, 31, 33, 64], (length) =>
+      yield* Effect.forEach(Array.make(0, 16, 31, 33, 64), (length) =>
         Effect.gen(function*() {
           const invalid = yield* Schema.decode(Schema.Uint8Array)(Array.take(Array.replicate(17, 64), length))
           const failure = Exit.fail(
@@ -94,7 +94,7 @@ describe.each(Cipher.Algorithm.literals)("Cipher %s", (algorithm) => {
     }).pipe(Effect.provide(Cipher.layer)))
 
   it.effect("accepts a key with its only nonzero byte at either boundary", () =>
-    Effect.forEach([0, 31], (index) =>
+    Effect.forEach(Array.make(0, 31), (index) =>
       Effect.gen(function*() {
         const sparse = yield* Schema.decode(Schema.Uint8Array)(Array.replace(Array.replicate(0, 32), index, 255))
         const encrypted = yield* Cipher.encrypt(algorithm, sparse, plaintext)

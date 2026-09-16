@@ -3,7 +3,7 @@ import { gcm, gcmsiv } from "@noble/ciphers/aes.js"
 import { xchacha20poly1305 } from "@noble/ciphers/chacha.js"
 import { randomBytes } from "@noble/ciphers/utils.js"
 import type { Context } from "effect"
-import { Array, Data, Effect, Match, Number, Schema } from "effect"
+import { Array, Data, Effect, Match, Number, Schema, Tuple } from "effect"
 import * as Cipher from "../Cipher.js"
 
 const primitive = (algorithm: Cipher.Algorithm) =>
@@ -49,7 +49,7 @@ const secureBytes = (length: number): Effect.Effect<Uint8Array, EntropyFailed> =
     catch: () => new EntropyFailed()
   })
 
-// The entropy adapter is injectable here for known-answer and host-failure tests.
+// The entropy adapter is injectable here for known-answer, validation, and lifecycle tests.
 // It is not a public deterministic-encryption or caller-supplied nonce API.
 export const make = (
   entropy: (length: number) => Effect.Effect<Uint8Array, EntropyFailed> = secureBytes
@@ -81,12 +81,12 @@ export const make = (
       Effect.gen(function*() {
         yield* validateKey(key)
         const [nonce, payload] = Array.splitAt(ciphertext, nonceLength(algorithm))
-        const bytes = yield* Effect.all([
+        const [nonceBytes, payloadBytes] = yield* Effect.all(Tuple.make(
           Schema.decode(Schema.Uint8Array)(nonce),
           Schema.decode(Schema.Uint8Array)(payload)
-        ]).pipe(Effect.mapError(() => new Cipher.DecryptionFailed({ algorithm, reason: "authentication failed" })))
+        )).pipe(Effect.mapError(() => new Cipher.DecryptionFailed({ algorithm, reason: "authentication failed" })))
         return yield* Effect.try({
-          try: () => primitive(algorithm)(key, bytes[0]).decrypt(bytes[1]),
+          try: () => primitive(algorithm)(key, nonceBytes).decrypt(payloadBytes),
           catch: () => new Cipher.DecryptionFailed({ algorithm, reason: "authentication failed" })
         })
       })

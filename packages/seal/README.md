@@ -30,11 +30,11 @@ Only `.`, `/Cipher`, and `/Envelope` are supported. Private mechanics are not pa
 
 ```ts typecheck
 import { Cipher, Envelope } from "@scenesystems/seal"
-import { Effect, Schema } from "effect"
+import { Array, Effect, Schema } from "effect"
 
 export const program = Effect.gen(function* () {
   const key = yield* Cipher.generateKey
-  const plaintext = yield* Schema.decode(Schema.Uint8Array)([0, 1, 2, 127, 128, 255])
+  const plaintext = yield* Schema.decode(Schema.Uint8Array)(Array.make(0, 1, 2, 127, 128, 255))
   const envelope = yield* Envelope.encrypt("xchacha20-poly1305", key, plaintext)
   return yield* Envelope.decrypt(envelope, key)
 }).pipe(Effect.provide(Cipher.layer))
@@ -54,13 +54,17 @@ import * as Envelope from "@scenesystems/seal/Envelope"
 import { Effect, Schema } from "effect"
 
 export const openStored = (key: Uint8Array, stored: unknown) =>
-  Schema.decodeUnknown(Envelope.Envelope)(stored).pipe(
-    Effect.flatMap(Envelope.decrypt(key)),
-    Effect.provide(Cipher.layer)
-  )
+  Schema.decodeUnknown(Envelope.Envelope)(stored).pipe(Effect.flatMap(Envelope.decrypt(key)))
 
 export const encodeJson = Schema.encode(Schema.parseJson(Envelope.Envelope))
+
+// The application entrypoint supplies its key and stored input, then provides the backend.
+declare const key: Uint8Array
+declare const stored: unknown
+export const program = openStored(key, stored).pipe(Effect.provide(Cipher.layer))
 ```
+
+`openStored` retains its `Cipher.Cipher` requirement so callers can compose it with other operations and choose the backend at the host boundary.
 
 `Envelope.decrypt` supports receiver-first `Envelope.decrypt(envelope, key)` and pipeable `Envelope.decrypt(key)` forms.
 

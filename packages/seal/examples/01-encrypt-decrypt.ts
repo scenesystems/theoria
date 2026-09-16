@@ -7,11 +7,11 @@
 
 import { BunRuntime } from "@effect/platform-bun"
 import { Cipher, Envelope } from "@scenesystems/seal"
-import { Effect, Encoding, Schema, String } from "effect"
+import { Array, Effect, Encoding, Schema, String } from "effect"
 
 const program = Effect.gen(function*() {
   const key = yield* Cipher.generateKey
-  const plaintext = yield* Schema.decode(Schema.Uint8Array)([0, 1, 2, 127, 128, 255])
+  const plaintext = yield* Schema.decode(Schema.Uint8Array)(Array.make(0, 1, 2, 127, 128, 255))
 
   const envelope = yield* Envelope.encrypt("xchacha20-poly1305", key, plaintext)
   yield* Effect.log("Sealed", {

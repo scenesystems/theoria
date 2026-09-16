@@ -13,7 +13,7 @@ class Vector extends Data.Class<{
 // Wycheproof fixtures at paulmillr/acvp-vectors@56669e07d50cd6b0c19d81a63be2e987dd5beeee:
 // wycheproof/testvectors_v1/{aes_gcm_test,xchacha20_poly1305_test}.json.gz, tcId 98 and 36.
 // GCM-SIV: RFC 8452 C.2, 8-byte plaintext vector (https://www.rfc-editor.org/rfc/rfc8452#appendix-C.2).
-export const vectors = [
+export const vectors = Array.make(
   new Vector({
     algorithm: "aes-256-gcm",
     key: "3b2458d8176e1621c0cc24c0c0e24c1e80d72f7ee9149a4b166176629616d011",
@@ -35,7 +35,7 @@ export const vectors = [
     plaintext: "540731e4ba3e4e2fd623a1a13233736ee7",
     ciphertext: "0fd7386b41396e0558495c45cdba02906229f601a11f6a1072342c60b631de6085"
   })
-]
+)
 
 export const key = Schema.decodeSync(Schema.Uint8Array)(Array.range(1, 32))
-export const plaintext = Schema.decodeSync(Schema.Uint8Array)([0, 1, 17, 127, 128, 255, 84, 19, 6])
+export const plaintext = Schema.decodeSync(Schema.Uint8Array)(Array.make(0, 1, 17, 127, 128, 255, 84, 19, 6))

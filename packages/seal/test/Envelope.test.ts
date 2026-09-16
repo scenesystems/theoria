@@ -59,7 +59,7 @@ describe.each(Cipher.Algorithm.literals)("Envelope %s", (algorithm) => {
       const envelope = yield* Envelope.encrypt(algorithm, key, plaintext)
       const raw = yield* Envelope.toBytes(envelope)
       const nonce = yield* Encoding.decodeBase64Url(envelope.nonce)
-      yield* Effect.forEach([Number.decrement(nonce.length), Number.increment(nonce.length)], (offset) =>
+      yield* Effect.forEach(Array.make(Number.decrement(nonce.length), Number.increment(nonce.length)), (offset) =>
         Effect.gen(function*() {
           const shiftedNonce = yield* Schema.decode(Schema.Uint8Array)(Array.take(raw, offset))
           const shiftedCiphertext = yield* Schema.decode(Schema.Uint8Array)(Array.drop(raw, offset))
@@ -77,16 +77,19 @@ describe.each(Cipher.Algorithm.literals)("Envelope %s", (algorithm) => {
   it.effect("rejects corrupt encoding in either field and ciphertext shorter than a tag", () =>
     Effect.gen(function*() {
       const envelope = yield* Envelope.encrypt(algorithm, key, plaintext)
-      yield* Effect.forEach([
-        new Envelope.Envelope({ ...envelope, nonce: "*" }),
-        new Envelope.Envelope({ ...envelope, ciphertext: "*" })
-      ], (invalid) =>
-        Effect.gen(function*() {
-          expect(yield* Effect.exit(Envelope.decrypt(invalid, key))).toStrictEqual(
-            Exit.fail(new Cipher.DecryptionFailed({ algorithm, reason: "invalid envelope encoding" }))
-          )
-        }))
-      yield* Effect.forEach([0, 15], (length) =>
+      yield* Effect.forEach(
+        Array.make(
+          new Envelope.Envelope({ ...envelope, nonce: "*" }),
+          new Envelope.Envelope({ ...envelope, ciphertext: "*" })
+        ),
+        (invalid) =>
+          Effect.gen(function*() {
+            expect(yield* Effect.exit(Envelope.decrypt(invalid, key))).toStrictEqual(
+              Exit.fail(new Cipher.DecryptionFailed({ algorithm, reason: "invalid envelope encoding" }))
+            )
+          })
+      )
+      yield* Effect.forEach(Array.make(0, 15), (length) =>
         Effect.gen(function*() {
           const truncated = yield* Schema.decode(Schema.Uint8Array)(Array.take(Array.replicate(0, 15), length))
           const invalid = new Envelope.Envelope({
@@ -97,7 +100,7 @@ describe.each(Cipher.Algorithm.literals)("Envelope %s", (algorithm) => {
             Exit.fail(new Cipher.DecryptionFailed({ algorithm, reason: "authentication failed" }))
           )
         }))
-      const emptyMessage = yield* Schema.decode(Schema.Uint8Array)([])
+      const emptyMessage = yield* Schema.decode(Schema.Uint8Array)(Array.empty<number>())
       const empty = yield* Envelope.encrypt(algorithm, key, emptyMessage)
       expect(yield* Envelope.decrypt(empty, key)).toEqual(emptyMessage)
     }).pipe(Effect.provide(Cipher.layer)))
@@ -137,16 +140,19 @@ it.effect("reads published ciphertext as the existing JSON wire shape", () =>
 
 it.effect("schema admission validates the JSON shape, not authenticity or base64url", () =>
   Effect.gen(function*() {
-    yield* Effect.forEach([
-      { nonce: "AA", ciphertext: "BB" },
-      { algorithm: "aes-256-gcm", ciphertext: "BB" },
-      { algorithm: "aes-256-gcm", nonce: "AA" },
-      { algorithm: "unknown", nonce: "AA", ciphertext: "BB" },
-      { algorithm: "aes-256-gcm", nonce: 5, ciphertext: "BB" }
-    ], (input) =>
-      Effect.gen(function*() {
-        expect(Either.isLeft(yield* Effect.either(Schema.decodeUnknown(Envelope.Envelope)(input)))).toBe(true)
-      }))
+    yield* Effect.forEach(
+      Array.make(
+        { nonce: "AA", ciphertext: "BB" },
+        { algorithm: "aes-256-gcm", ciphertext: "BB" },
+        { algorithm: "aes-256-gcm", nonce: "AA" },
+        { algorithm: "unknown", nonce: "AA", ciphertext: "BB" },
+        { algorithm: "aes-256-gcm", nonce: 5, ciphertext: "BB" }
+      ),
+      (input) =>
+        Effect.gen(function*() {
+          expect(Either.isLeft(yield* Effect.either(Schema.decodeUnknown(Envelope.Envelope)(input)))).toBe(true)
+        })
+    )
     const unauthenticated = yield* Schema.decodeUnknown(Envelope.Envelope)({
       algorithm: "aes-256-gcm",
       nonce: "*",
