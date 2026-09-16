@@ -11,7 +11,7 @@ import * as Module from "@scenesystems/effect-dsp/Module"
 import * as Optimizer from "@scenesystems/effect-dsp/Optimizer"
 import * as Signature from "@scenesystems/effect-dsp/Signature"
 import { MockLanguageModel } from "@scenesystems/effect-dsp/test"
-import { Array as Arr, Effect, Either, Layer, Ref, Schema, String as Str } from "effect"
+import { Array as Arr, Boolean, Effect, Either, Layer, Number as Num, Ref, Schema, String as Str } from "effect"
 
 const makeQaSignature = () =>
   Signature.make(
@@ -31,16 +31,17 @@ describe("Optimizer.bootstrapFewShot", () => {
       const module = yield* Module.predict("qa", signature)
       const mock = yield* MockLanguageModel.make(
         MockLanguageModel.map((prompt) =>
-          prompt.includes("France")
-            ? { answer: "Paris" }
-            : { answer: "Tokyo" }
+          Boolean.match(Str.includes("France")(prompt), {
+            onTrue: () => ({ answer: "Paris" }),
+            onFalse: () => ({ answer: "Tokyo" })
+          })
         )
       )
       const layer = Layer.succeed(LanguageModel.LanguageModel, mock.service)
 
       const optimized = yield* Optimizer.bootstrapFewShot({
         module,
-        trainset: [
+        trainset: Arr.make(
           new Example({
             input: { question: "What is the capital of France?" },
             output: { answer: "Paris" }
@@ -49,7 +50,7 @@ describe("Optimizer.bootstrapFewShot", () => {
             input: { question: "What is the capital of Japan?" },
             output: { answer: "Tokyo" }
           })
-        ],
+        ),
         metric: Metric.exactMatch("answer"),
         maxRounds: 5,
         maxBootstrappedDemos: 2,
@@ -60,10 +61,9 @@ describe("Optimizer.bootstrapFewShot", () => {
       const calls = yield* Ref.get(mock.calls)
 
       expect(params.demos).toHaveLength(2)
-      expect(params.demos[0]?.output).toEqual({ answer: "Paris" })
-      expect(params.demos[1]?.output).toEqual({ answer: "Tokyo" })
+      expect(Arr.map(params.demos, (demo) => demo.output)).toEqual(Arr.make({ answer: "Paris" }, { answer: "Tokyo" }))
       expect(calls).toHaveLength(2)
-      expect(Arr.every(calls, (call) => call.prompt.includes("[bootstrap-round:1]"))).toBe(true)
+      expect(Arr.every(calls, (call) => Str.includes("[bootstrap-round:1]")(call.prompt))).toBe(true)
     }))
 
   it.effect("advances across rounds with unique prompt context markers for cache diversity", () =>
@@ -83,18 +83,21 @@ describe("Optimizer.bootstrapFewShot", () => {
 
       const mock = yield* MockLanguageModel.make(
         MockLanguageModel.map((prompt) =>
-          prompt.includes("What is the capital of Japan?")
-            ? prompt.includes("[bootstrap-round:2]")
-              ? "[[ ## answer ## ]]\nTokyo"
-              : "[[ ## answer ## ]]\nLondon"
-            : "[[ ## answer ## ]]\nParis"
+          Boolean.match(Str.includes("What is the capital of Japan?")(prompt), {
+            onTrue: () =>
+              Boolean.match(Str.includes("[bootstrap-round:2]")(prompt), {
+                onTrue: () => "[[ ## answer ## ]]\nTokyo",
+                onFalse: () => "[[ ## answer ## ]]\nLondon"
+              }),
+            onFalse: () => "[[ ## answer ## ]]\nParis"
+          })
         )
       )
       const layer = Layer.succeed(LanguageModel.LanguageModel, mock.service)
 
       const optimized = yield* Optimizer.bootstrapFewShot({
         module,
-        trainset: [
+        trainset: Arr.make(
           new Example({
             input: { question: "What is the capital of France?" },
             output: { answer: "Paris" }
@@ -103,7 +106,7 @@ describe("Optimizer.bootstrapFewShot", () => {
             input: { question: "What is the capital of Japan?" },
             output: { answer: "Tokyo" }
           })
-        ],
+        ),
         metric: Metric.exactMatch("answer"),
         maxRounds: 4,
         maxBootstrappedDemos: 2,
@@ -112,15 +115,15 @@ describe("Optimizer.bootstrapFewShot", () => {
 
       const params = yield* Ref.get(optimized.params)
       const calls = yield* Ref.get(mock.calls)
-      const japanCalls = Arr.filter(calls, (call) => call.prompt.includes("What is the capital of Japan?"))
+      const japanCalls = Arr.filter(calls, (call) => Str.includes("What is the capital of Japan?")(call.prompt))
 
       expect(params.demos).toHaveLength(2)
       expect(calls).toHaveLength(4)
       expect(japanCalls).toHaveLength(2)
-      expect(Arr.some(calls, (call) => call.prompt.includes("[bootstrap-round:1]"))).toBe(true)
-      expect(Arr.some(calls, (call) => call.prompt.includes("[bootstrap-round:2]"))).toBe(true)
-      expect(Arr.some(japanCalls, (call) => call.prompt.includes("[bootstrap-round:1]"))).toBe(true)
-      expect(Arr.some(japanCalls, (call) => call.prompt.includes("[bootstrap-round:2]"))).toBe(true)
+      expect(Arr.some(calls, (call) => Str.includes("[bootstrap-round:1]")(call.prompt))).toBe(true)
+      expect(Arr.some(calls, (call) => Str.includes("[bootstrap-round:2]")(call.prompt))).toBe(true)
+      expect(Arr.some(japanCalls, (call) => Str.includes("[bootstrap-round:1]")(call.prompt))).toBe(true)
+      expect(Arr.some(japanCalls, (call) => Str.includes("[bootstrap-round:2]")(call.prompt))).toBe(true)
     }))
 
   it.effect("falls back to labeled demos when rounds produce zero accepted demos", () =>
@@ -135,12 +138,12 @@ describe("Optimizer.bootstrapFewShot", () => {
       const result = yield* Effect.either(
         Optimizer.bootstrapFewShot({
           module,
-          trainset: [
+          trainset: Arr.make(
             new Example({
               input: { question: "What is the capital of France?" },
               output: { answer: "Paris" }
             })
-          ],
+          ),
           metric: Metric.exactMatch("answer"),
           maxRounds: 4,
           maxBootstrappedDemos: 2,
@@ -153,7 +156,7 @@ describe("Optimizer.bootstrapFewShot", () => {
       expect(Either.isRight(result)).toBe(true)
       expect(calls).toHaveLength(1)
       expect(params.demos).toHaveLength(1)
-      expect(params.demos[0]?.output).toEqual({ answer: "Paris" })
+      expect(Arr.map(params.demos, (demo) => demo.output)).toEqual(Arr.make({ answer: "Paris" }))
     }))
 
   it.effect("fails with BootstrapFailed when fallback is disabled", () =>
@@ -166,15 +169,15 @@ describe("Optimizer.bootstrapFewShot", () => {
       )
       const layer = Layer.succeed(LanguageModel.LanguageModel, mock.service)
 
-      const result = yield* Effect.either(
+      const result = yield* Effect.flip(
         Optimizer.bootstrapFewShot({
           module,
-          trainset: [
+          trainset: Arr.make(
             new Example({
               input: { question: "What is the capital of France?" },
               output: { answer: "Paris" }
             })
-          ],
+          ),
           metric: Metric.exactMatch("answer"),
           maxRounds: 4,
           maxBootstrappedDemos: 2,
@@ -184,25 +187,22 @@ describe("Optimizer.bootstrapFewShot", () => {
       )
       const calls = yield* Ref.get(mock.calls)
 
-      expect(Either.isLeft(result)).toBe(true)
       expect(calls).toHaveLength(1)
 
-      if (Either.isLeft(result)) {
-        expect(result.left).toEqual(
-          new BootstrapFailed({
-            message: "BootstrapFewShot produced zero accepted demos",
-            roundsAttempted: 1,
-            totalTraces: 1,
-            threshold: 1,
-            acceptedTraces: 0,
-            rejectedTraces: 1,
-            evaluatedExamples: 1,
-            bestScoreSeen: true,
-            bestScore: 0,
-            averageScore: 0
-          })
-        )
-      }
+      expect(result).toEqual(
+        new BootstrapFailed({
+          message: "BootstrapFewShot produced zero accepted demos",
+          roundsAttempted: 1,
+          totalTraces: 1,
+          threshold: 1,
+          acceptedTraces: 0,
+          rejectedTraces: 1,
+          evaluatedExamples: 1,
+          bestScoreSeen: true,
+          bestScore: 0,
+          averageScore: 0
+        })
+      )
     }))
 
   it.effect("rejects a NaN metric score even when the threshold is negative infinity", () =>
@@ -211,7 +211,8 @@ describe("Optimizer.bootstrapFewShot", () => {
       const module = yield* Module.predict("qa", signature)
       const mock = yield* MockLanguageModel.make(MockLanguageModel.fixed({ answer: "Paris" }))
       const layer = Layer.succeed(LanguageModel.LanguageModel, mock.service)
-      const metric = Metric.make("nan-score", () => new Metric.Result({ score: Number.NaN }))
+      const nan = yield* Num.parse("NaN")
+      const metric = Metric.make("nan-score", () => new Metric.Result({ score: nan }))
 
       const result = yield* Optimizer.bootstrapFewShot(
         new Optimizer.BootstrapFewShotOptions({
@@ -225,7 +226,7 @@ describe("Optimizer.bootstrapFewShot", () => {
           metric,
           maxRounds: 1,
           maxBootstrappedDemos: 1,
-          threshold: Number.NEGATIVE_INFINITY,
+          threshold: yield* Num.parse("-Infinity"),
           fallbackToLabeledFewShot: false
         })
       ).pipe(Effect.provide(layer), Effect.either)
@@ -247,7 +248,8 @@ describe("Optimizer.bootstrapFewShot", () => {
       const module = yield* Module.predict("qa", signature)
       const mock = yield* MockLanguageModel.make(MockLanguageModel.fixed({ answer: "Paris" }))
       const layer = Layer.succeed(LanguageModel.LanguageModel, mock.service)
-      const metric = Metric.make("infinite-score", () => new Metric.Result({ score: Number.POSITIVE_INFINITY }))
+      const infinity = yield* Num.parse("Infinity")
+      const metric = Metric.make("infinite-score", () => new Metric.Result({ score: infinity }))
 
       const optimized = yield* Optimizer.bootstrapFewShot(
         new Optimizer.BootstrapFewShotOptions({
@@ -261,7 +263,7 @@ describe("Optimizer.bootstrapFewShot", () => {
           metric,
           maxRounds: 1,
           maxBootstrappedDemos: 1,
-          threshold: Number.POSITIVE_INFINITY,
+          threshold: infinity,
           fallbackToLabeledFewShot: false
         })
       ).pipe(Effect.provide(layer))

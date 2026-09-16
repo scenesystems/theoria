@@ -4,8 +4,10 @@
  * @since 0.1.0
  */
 import type { Effect } from "effect"
-import { Array as Arr, Data, Match, Stream } from "effect"
-import type { BootstrapEvent } from "../../Optimizer/events/bootstrap.js"
+import { Array as Arr, Boolean as Bool, Inspectable, Match, Number as Num, Schema, Stream, String as Str } from "effect"
+import { type BootstrapEvent, BootstrapEventSchema } from "../../Optimizer/events/bootstrap.js"
+
+const BootstrapEventTag = Schema.typeSchema(Schema.pluck(BootstrapEventSchema, "_tag"))
 
 /**
  * Carries all formatted BootstrapFewShot event fields with the original event tag.
@@ -13,35 +15,53 @@ import type { BootstrapEvent } from "../../Optimizer/events/bootstrap.js"
  * @since 0.1.0
  * @category models
  */
-export class BootstrapProgressLine extends Data.Class<{
+export class BootstrapProgressLine extends Schema.Class<BootstrapProgressLine>("BootstrapProgressLine")({
   /** Original event discriminator. */
-  readonly tag: BootstrapEvent["_tag"]
+  tag: BootstrapEventTag,
   /** Space-separated key-value fields selected for display. */
-  readonly details: string
+  details: Schema.String,
   /** Event tag followed by `details` when details are present. */
-  readonly text: string
-}> {}
+  text: Schema.String
+}) {}
 
 const toProgressLine = (
   tag: BootstrapProgressLine["tag"],
   details: string
-): BootstrapProgressLine => ({
-  tag,
-  details,
-  text: details.length > 0
-    ? `${tag} ${details}`
-    : tag
-})
+): BootstrapProgressLine =>
+  new BootstrapProgressLine({
+    tag,
+    details,
+    text: Bool.match(Str.isNonEmpty(details), {
+      onFalse: () => tag,
+      onTrue: () => Str.concat(Str.concat(tag, " "), details)
+    })
+  })
+
+const renderValue = (label: string, value: number): string => Str.concat(label, Inspectable.toStringUnknown(value))
+
+const renderFlag = (label: string, value: boolean): string => Str.concat(label, Inspectable.toStringUnknown(value))
+
+const joinDetails = (details: Iterable<string>): string => Arr.join(Arr.fromIterable(details), " ")
 
 const detailsFromEvent = (event: BootstrapEvent): string =>
   Match.value(event).pipe(
-    Match.tag("RoundStarted", ({ round, maxRounds }) => `round=${round} maxRounds=${maxRounds}`),
-    Match.tag("TraceAccepted", ({ moduleName, score }) => `module=${moduleName} score=${score}`),
+    Match.tag("RoundStarted", ({ round, maxRounds }) =>
+      joinDetails(Arr.make(renderValue("round=", round), renderValue("maxRounds=", maxRounds)))),
+    Match.tag("TraceAccepted", ({ moduleName, score }) =>
+      joinDetails(Arr.make(Str.concat("module=", moduleName), renderValue("score=", score)))),
     Match.tag(
       "TraceRejected",
-      ({ moduleName, score, threshold }) => `module=${moduleName} score=${score} threshold=${threshold}`
+      ({ moduleName, score, threshold }) =>
+        joinDetails(
+          Arr.make(
+            Str.concat("module=", moduleName),
+            renderValue("score=", score),
+            renderValue("threshold=", threshold)
+          )
+        )
     ),
-    Match.tag("RoundCompleted", ({ round, demosCollected }) => `round=${round} demosCollected=${demosCollected}`),
+    Match.tag("RoundCompleted", ({ round, demosCollected }) =>
+      joinDetails(Arr.make(renderValue("round=", round), renderValue("demosCollected=", demosCollected)))),
     Match.tag(
       "BootstrapFallbackActivated",
       ({
@@ -54,17 +74,40 @@ const detailsFromEvent = (event: BootstrapEvent): string =>
         averageScore,
         fallbackLabeledDemoCount
       }) =>
-        `threshold=${threshold} roundsAttempted=${roundsAttempted} acceptedTraces=${acceptedTraces} rejectedTraces=${rejectedTraces} bestScoreSeen=${bestScoreSeen} bestScore=${bestScore} averageScore=${averageScore} fallbackLabeledDemoCount=${fallbackLabeledDemoCount}`
+        joinDetails(
+          Arr.make(
+            renderValue("threshold=", threshold),
+            renderValue("roundsAttempted=", roundsAttempted),
+            renderValue("acceptedTraces=", acceptedTraces),
+            renderValue("rejectedTraces=", rejectedTraces),
+            renderFlag("bestScoreSeen=", bestScoreSeen),
+            renderValue("bestScore=", bestScore),
+            renderValue("averageScore=", averageScore),
+            renderValue("fallbackLabeledDemoCount=", fallbackLabeledDemoCount)
+          )
+        )
     ),
     Match.tag(
       "BootstrapFallbackCompleted",
       ({ fallbackDemosAdded, totalDemos, roundsUsed }) =>
-        `fallbackDemosAdded=${fallbackDemosAdded} totalDemos=${totalDemos} roundsUsed=${roundsUsed}`
+        joinDetails(
+          Arr.make(
+            renderValue("fallbackDemosAdded=", fallbackDemosAdded),
+            renderValue("totalDemos=", totalDemos),
+            renderValue("roundsUsed=", roundsUsed)
+          )
+        )
     ),
     Match.tag(
       "BootstrapCompleted",
       ({ totalDemos, roundsUsed, fallbackUsed }) =>
-        `totalDemos=${totalDemos} roundsUsed=${roundsUsed} fallbackUsed=${fallbackUsed}`
+        joinDetails(
+          Arr.make(
+            renderValue("totalDemos=", totalDemos),
+            renderValue("roundsUsed=", roundsUsed),
+            renderFlag("fallbackUsed=", fallbackUsed)
+          )
+        )
     ),
     Match.exhaustive
   )
@@ -122,32 +165,32 @@ export const tapBootstrapProgress =
  * @since 0.1.0
  * @category models
  */
-export class BootstrapEventSummary extends Data.Class<{
+export class BootstrapEventSummary extends Schema.Class<BootstrapEventSummary>("BootstrapEventSummary")({
   /** Number of input events across all tags. */
-  readonly totalEvents: number
+  totalEvents: Schema.Number,
   /** Number of `RoundStarted` events. */
-  readonly roundsStarted: number
+  roundsStarted: Schema.Number,
   /** Number of `RoundCompleted` events. */
-  readonly roundsCompleted: number
+  roundsCompleted: Schema.Number,
   /** Number of accepted root traces. */
-  readonly traceAcceptedCount: number
+  traceAcceptedCount: Schema.Number,
   /** Number of rejected or missing root traces. */
-  readonly traceRejectedCount: number
+  traceRejectedCount: Schema.Number,
   /** Whether a `BootstrapFallbackActivated` event was observed. */
-  readonly fallbackActivatedSeen: boolean
+  fallbackActivatedSeen: Schema.Boolean,
   /** Whether a `BootstrapFallbackCompleted` event was observed. */
-  readonly fallbackCompletedSeen: boolean
+  fallbackCompletedSeen: Schema.Boolean,
   /** Fallback flag from the most recent completion event. */
-  readonly fallbackUsed: boolean
+  fallbackUsed: Schema.Boolean,
   /** Whether a `BootstrapCompleted` event was observed. */
-  readonly completedSeen: boolean
+  completedSeen: Schema.Boolean,
   /** Demonstration count from the most recent completion event. */
-  readonly totalDemos: number
+  totalDemos: Schema.Number,
   /** Attempted round count from the most recent completion event. */
-  readonly roundsUsed: number
-}> {}
+  roundsUsed: Schema.Number
+}) {}
 
-const EMPTY_BOOTSTRAP_EVENT_SUMMARY: BootstrapEventSummary = {
+const EMPTY_BOOTSTRAP_EVENT_SUMMARY = new BootstrapEventSummary({
   totalEvents: 0,
   roundsStarted: 0,
   roundsCompleted: 0,
@@ -159,49 +202,56 @@ const EMPTY_BOOTSTRAP_EVENT_SUMMARY: BootstrapEventSummary = {
   completedSeen: false,
   totalDemos: 0,
   roundsUsed: 0
-}
+})
 
 const summarizeEvent = (
   summary: BootstrapEventSummary,
   event: BootstrapEvent
 ): BootstrapEventSummary => {
-  const incremented: BootstrapEventSummary = {
+  const incremented = new BootstrapEventSummary({
     ...summary,
-    totalEvents: summary.totalEvents + 1
-  }
+    totalEvents: Num.increment(summary.totalEvents)
+  })
 
   return Match.value(event).pipe(
-    Match.tag("RoundStarted", () => ({
-      ...incremented,
-      roundsStarted: incremented.roundsStarted + 1
-    })),
-    Match.tag("TraceAccepted", () => ({
-      ...incremented,
-      traceAcceptedCount: incremented.traceAcceptedCount + 1
-    })),
-    Match.tag("TraceRejected", () => ({
-      ...incremented,
-      traceRejectedCount: incremented.traceRejectedCount + 1
-    })),
-    Match.tag("RoundCompleted", () => ({
-      ...incremented,
-      roundsCompleted: incremented.roundsCompleted + 1
-    })),
-    Match.tag("BootstrapFallbackActivated", () => ({
-      ...incremented,
-      fallbackActivatedSeen: true
-    })),
-    Match.tag("BootstrapFallbackCompleted", () => ({
-      ...incremented,
-      fallbackCompletedSeen: true
-    })),
-    Match.tag("BootstrapCompleted", ({ totalDemos, roundsUsed, fallbackUsed }) => ({
-      ...incremented,
-      completedSeen: true,
-      totalDemos,
-      roundsUsed,
-      fallbackUsed
-    })),
+    Match.tag("RoundStarted", () =>
+      new BootstrapEventSummary({
+        ...incremented,
+        roundsStarted: Num.increment(incremented.roundsStarted)
+      })),
+    Match.tag("TraceAccepted", () =>
+      new BootstrapEventSummary({
+        ...incremented,
+        traceAcceptedCount: Num.increment(incremented.traceAcceptedCount)
+      })),
+    Match.tag("TraceRejected", () =>
+      new BootstrapEventSummary({
+        ...incremented,
+        traceRejectedCount: Num.increment(incremented.traceRejectedCount)
+      })),
+    Match.tag("RoundCompleted", () =>
+      new BootstrapEventSummary({
+        ...incremented,
+        roundsCompleted: Num.increment(incremented.roundsCompleted)
+      })),
+    Match.tag("BootstrapFallbackActivated", () =>
+      new BootstrapEventSummary({
+        ...incremented,
+        fallbackActivatedSeen: true
+      })),
+    Match.tag("BootstrapFallbackCompleted", () =>
+      new BootstrapEventSummary({
+        ...incremented,
+        fallbackCompletedSeen: true
+      })),
+    Match.tag("BootstrapCompleted", ({ totalDemos, roundsUsed, fallbackUsed }) =>
+      new BootstrapEventSummary({
+        ...incremented,
+        completedSeen: true,
+        totalDemos,
+        roundsUsed,
+        fallbackUsed
+      })),
     Match.exhaustive
   )
 }
@@ -220,5 +270,5 @@ const summarizeEvent = (
  * @category combinators
  */
 export const summarizeBootstrapEvents = (
-  events: ReadonlyArray<BootstrapEvent>
+  events: Schema.Array$<typeof BootstrapEventSchema>["Type"]
 ): BootstrapEventSummary => Arr.reduce(events, EMPTY_BOOTSTRAP_EVENT_SUMMARY, summarizeEvent)

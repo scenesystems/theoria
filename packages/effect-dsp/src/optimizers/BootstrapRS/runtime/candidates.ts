@@ -7,16 +7,30 @@
  */
 import type * as LanguageModel from "@effect/ai/LanguageModel"
 import * as Numeric from "@scenesystems/effect-math/Numeric"
-import { Array as Arr, Data, Effect, Inspectable, Match, Number as Num, Option, Schema, String as Str } from "effect"
+import {
+  Array as Arr,
+  Data,
+  Effect,
+  Inspectable,
+  Match,
+  Number as Num,
+  Option,
+  Ref,
+  Schema,
+  String as Str,
+  Tuple
+} from "effect"
 import type * as Layer from "effect/Layer"
+import { withModuleParamsDemos } from "../../../contracts/ModuleParams.js"
 import { AllTrialsFailed } from "../../../Errors/optimizer.js"
 import * as Evaluate from "../../../Evaluate/index.js"
 import { Example } from "../../../Example/index.js"
+import { collectModuleParamRefs } from "../../../internal/module-params.js"
 import type { Metric } from "../../../Metric/model.js"
 import * as Module from "../../../Module/index.js"
 import type { Module as DspModule } from "../../../Module/model.js"
 import { bootstrapFewShot, BootstrapFewShotOptions } from "../../BootstrapFewShot/index.js"
-import { labeledFewShot, LabeledFewShotOptions } from "../../LabeledFewShot/index.js"
+import { labeledDemos, selectRandomDemos } from "../../LabeledFewShot/internal/sampling.js"
 
 /** @internal */
 export const BootstrapRSExamples = Schema.Array(Example)
@@ -204,9 +218,13 @@ export const evaluateCandidate = <
  *
  * **Candidates produced:**
  * - An uncompiled baseline using the module's initial state
- * - A labeled-few-shot baseline using the first seed
+ * - A destination-aware labeled baseline using the first seed
  * - One bootstrap-few-shot candidate per seed, each trained on a rotated
  *   view of the training set
+ *
+ * Each destination validates all labeled examples before seeded selection;
+ * incompatible examples are omitted for that destination, and a destination
+ * with no compatible labels receives an empty demonstration array.
  *
  * A bootstrap that fails to load, train or save fails candidate generation;
  * the optimizer does not report a winner from a partially built pool.
@@ -226,14 +244,24 @@ export const buildCandidateStates = <
   Effect.gen(function*() {
     const labeledBaseline = yield* Effect.gen(function*() {
       yield* Module.load(options.module, options.initialState)
-      yield* labeledFewShot(
-        new LabeledFewShotOptions({
-          module: options.module,
-          trainset: options.trainset,
-          k: options.baselineLabeledCount,
-          seed: Option.getOrElse(Arr.head(options.seeds), () => 0)
-        })
-      )
+      const seed = Option.getOrElse(Arr.head(options.seeds), () => 0)
+      const labels = labeledDemos(options.trainset)
+      const replacements = yield* Effect.forEach(collectModuleParamRefs(options.module), (entry) =>
+        Effect.forEach(labels, (demo) =>
+          entry.demoContract.decode(demo).pipe(Effect.option)).pipe(
+            Effect.map((compatible) =>
+              Tuple.make(
+                entry.params,
+                selectRandomDemos(Arr.getSomes(compatible), options.baselineLabeledCount, seed)
+              )
+            )
+          ))
+      yield* Effect.forEach(
+        replacements,
+        ([params, demos]) =>
+          Ref.update(params, (current) => withModuleParamsDemos(current, demos)),
+        { discard: true }
+      ).pipe(Effect.uninterruptible)
       const state = yield* Module.save(options.module)
 
       return new CandidateState({
