@@ -1,9 +1,8 @@
-import { isFinite, logStrict } from "@scenesystems/effect-math/Numeric"
+import { exp, isFinite, logStrict } from "@scenesystems/effect-math/Numeric"
 import { Array as Arr, Boolean as Bool, Data, Match, Number as Num, Option } from "effect"
 
 import type { Vector } from "../../Objective.js"
 
-import { exp } from "../exponential.js"
 import { buildContinuousParzen, type ContinuousParzen, logDensity } from "./continuousParzen.js"
 
 const minimumDensityRatio = 1e-12

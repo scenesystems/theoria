@@ -4,7 +4,7 @@
  * @since 0.1.0
  * @module
  */
-import { logStrict } from "@scenesystems/effect-math/Numeric"
+import { exp, logStrict } from "@scenesystems/effect-math/Numeric"
 import {
   Array as Arr,
   Boolean as Bool,
@@ -20,7 +20,6 @@ import {
 } from "effect"
 import { dual } from "effect/Function"
 
-import { exp } from "./internal/exponential.js"
 import {
   expectedImprovementScore,
   scoreWithEstimatedCost,

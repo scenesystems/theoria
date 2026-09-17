@@ -3,12 +3,11 @@
  *
  * @since 0.1.0
  */
-import { logStrict } from "@scenesystems/effect-math/Numeric"
+import { exp, logStrict } from "@scenesystems/effect-math/Numeric"
 import { Array as Arr, Boolean as Bool, Effect, Match, Number as Num, Option } from "effect"
 
 import type { Distribution } from "../../../Distribution.js"
 import { InvalidSamplerConfig } from "../../../SearchError.js"
-import { exp } from "../../exponential.js"
 import * as Rng from "../../rng.js"
 
 const quantize = (value: number, low: number, high: number, step: number): number => {

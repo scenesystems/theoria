@@ -12,10 +12,9 @@ import {
   Tuple
 } from "effect"
 
-import { isFinite, logStrict } from "@scenesystems/effect-math/Numeric"
+import { exp, isFinite, logStrict } from "@scenesystems/effect-math/Numeric"
 import { Choice } from "../../Distribution.js"
 import { InvalidSamplerConfig } from "../../SearchError.js"
-import { exp } from "../exponential.js"
 import { defaultWeights } from "./recencyWeights.js"
 
 export const CategoricalKernelSchema = Schema.Struct({

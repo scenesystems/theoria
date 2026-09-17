@@ -5,9 +5,8 @@
  */
 import { Array as Arr, Boolean as Bool, Chunk, Data, Effect, Match, Number as Num, Option, Tuple } from "effect"
 
-import { logStrict } from "@scenesystems/effect-math/Numeric"
+import { exp, logStrict } from "@scenesystems/effect-math/Numeric"
 import * as Acquisition from "../../../Acquisition.js"
-import { exp } from "../../../internal/exponential.js"
 import type * as Rng from "../../../internal/rng.js"
 import { buildContinuousParzen, sampleFromParzen } from "../../../internal/tpe/continuousParzen.js"
 import { prepareLogDensity } from "../../../internal/tpe/continuousParzen/density.js"

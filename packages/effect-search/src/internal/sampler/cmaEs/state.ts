@@ -3,12 +3,11 @@
  *
  * @since 0.1.0
  */
-import { log, pow, sqrt } from "@scenesystems/effect-math/Numeric"
+import { exp, log, pow, sqrt } from "@scenesystems/effect-math/Numeric"
 import { Array as Arr, Data, Match, Number as Num, Option, Order } from "effect"
 
 import type { Vector } from "../../../Objective.js"
 
-import { exp } from "../../exponential.js"
 import { l2Norm } from "../math.js"
 
 /**

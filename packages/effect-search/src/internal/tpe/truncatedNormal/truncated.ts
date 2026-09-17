@@ -1,7 +1,6 @@
-import { isFinite, log1pStrict, logStrict } from "@scenesystems/effect-math/Numeric"
+import { exp, isFinite, log1pStrict, logStrict } from "@scenesystems/effect-math/Numeric"
 import { Boolean as Bool, Data, Equal, Match, Number as Num, Predicate, Schema } from "effect"
 
-import { exp } from "../../exponential.js"
 import type { TruncatedNormalParams } from "../truncatedNormal.js"
 import { logDiff, logNdtr, logNormPdf, logSum, ndtr, ndtriExp } from "./normal.js"
 import { isValidParams } from "./validation.js"

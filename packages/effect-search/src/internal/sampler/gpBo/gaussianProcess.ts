@@ -9,12 +9,11 @@ import {
   forwardSubstitutionLower,
   transpose
 } from "@scenesystems/effect-math/LinearAlgebra"
-import { floor } from "@scenesystems/effect-math/Numeric"
+import { exp, floor } from "@scenesystems/effect-math/Numeric"
 import { Array as Arr, Chunk, Data, Match, Number as Num, Option } from "effect"
 
 import type { Vector } from "../../../Objective.js"
 
-import { exp } from "../../exponential.js"
 import { dotProduct, squaredDistance } from "../math.js"
 
 /**

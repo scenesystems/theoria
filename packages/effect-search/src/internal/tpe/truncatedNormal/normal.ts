@@ -1,8 +1,16 @@
-import { abs, expm1Strict, isFinite, log1pStrict, logaddexp, logStrict, sqrt } from "@scenesystems/effect-math/Numeric"
+import {
+  abs,
+  exp,
+  expm1Strict,
+  isFinite,
+  log1pStrict,
+  logaddexp,
+  logStrict,
+  sqrt
+} from "@scenesystems/effect-math/Numeric"
 import { erf, erfc } from "@scenesystems/effect-math/Special"
 import { Boolean as Bool, Data, Equal, Match, Number as Num, Predicate, Schema } from "effect"
 
-import { exp } from "../../exponential.js"
 import {
   inverseSqrtTwo,
   logNdtrAsymptoticThreshold,

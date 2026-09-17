@@ -7,11 +7,10 @@ import { Array as Arr, Boolean as Bool, Data, Effect, Equal, Match, Number as Nu
 
 import type { Vector } from "../../../Objective.js"
 
-import { isFinite, logStrict } from "@scenesystems/effect-math/Numeric"
+import { exp, isFinite, logStrict } from "@scenesystems/effect-math/Numeric"
 import { type SamplerConfig, valueFromConfig } from "../../../internal/configAccess.js"
 import type { InvalidSamplerConfig } from "../../../SearchError.js"
 import type * as SearchSpace from "../../../SearchSpace.js"
-import { exp } from "../../exponential.js"
 import { expandedBoundsForStep, normalizeFloat } from "../dimensions/float.js"
 import { invalidConfig } from "../options.js"
 

@@ -3,13 +3,12 @@
  *
  * @since 0.1.0
  */
-import { isFinite, logStrict } from "@scenesystems/effect-math/Numeric"
+import { exp, isFinite, logStrict } from "@scenesystems/effect-math/Numeric"
 import { Array as Arr, Boolean as Bool, Data, Effect, Equal, Match, Number as Num, Option, Predicate } from "effect"
 
 import type { Distribution } from "../../Distribution.js"
 import type { SamplerConfig } from "../../internal/configAccess.js"
 import { valueFromConfig } from "../../internal/configAccess.js"
-import { exp } from "../../internal/exponential.js"
 import { SamplerSearchSpaceUnsupported } from "../../SearchError.js"
 import type * as SearchSpace from "../../SearchSpace.js"
 
