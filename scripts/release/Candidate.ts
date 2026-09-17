@@ -5,7 +5,10 @@ import { Array, Boolean, Effect, Encoding, Option, Order, Schema, String, Struct
 import * as Npm from "./Npm.js"
 import * as Repository from "./Repository.js"
 
-export const Id = Schema.String.pipe(Schema.pattern(/^[1-9][0-9]*$/), Schema.brand("ReleaseId"))
+export const Id = Schema.String.pipe(
+  Schema.pattern(/^[1-9][0-9]*$/),
+  Schema.brand("@theoria/scripts/release/Candidate/ReleaseId")
+)
 export type Id = typeof Id.Type
 const Package = Schema.Struct({
   name: Repository.Package.fields.name,
@@ -48,9 +51,9 @@ const PackedPlan = Schema.Struct({
   })))
 })
 
-export class CandidateError extends Schema.TaggedError<CandidateError>()("CandidateError", {
-  message: Schema.String
-}) {}
+export class CandidateError extends Schema.TaggedError<CandidateError>(
+  "@theoria/scripts/release/Candidate/CandidateError"
+)("CandidateError", { message: Schema.String }) {}
 
 export const read = (file: string) =>
   Effect.flatMap(

@@ -5,7 +5,10 @@ import { Array, Boolean, Effect, HashSet, Number, Option, Order, Record, Schema,
 import * as Jsonc from "./Jsonc.js"
 import * as Process from "./Process.js"
 
-export const Sha = Schema.String.pipe(Schema.pattern(/^[0-9a-f]{40}$/), Schema.brand("ReleaseSha"))
+export const Sha = Schema.String.pipe(
+  Schema.pattern(/^[0-9a-f]{40}$/),
+  Schema.brand("@theoria/scripts/release/Repository/ReleaseSha")
+)
 export type Sha = typeof Sha.Type
 export const Manifest = Schema.Record({ key: Schema.String, value: Schema.Unknown })
 export type Manifest = typeof Manifest.Type
@@ -17,9 +20,9 @@ export const Package = Schema.Struct({
   private: Schema.optionalWith(Schema.Boolean, { default: () => false })
 })
 
-export class RepositoryError extends Schema.TaggedError<RepositoryError>()("RepositoryError", {
-  message: Schema.String
-}) {}
+export class RepositoryError extends Schema.TaggedError<RepositoryError>(
+  "@theoria/scripts/release/Repository/RepositoryError"
+)("RepositoryError", { message: Schema.String }) {}
 
 /** Capture output AND require success: Command.string alone does not check exit status. */
 export const git = (...args: Array.NonEmptyReadonlyArray<string>) => Process.output(Command.make("git", ...args))

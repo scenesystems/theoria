@@ -20,9 +20,9 @@ import {
 import * as Process from "./Process.js"
 import * as Repository from "./Repository.js"
 
-export class PublicationError extends Schema.TaggedError<PublicationError>()("PublicationError", {
-  message: Schema.String
-}) {}
+export class PublicationError extends Schema.TaggedError<PublicationError>(
+  "@theoria/scripts/release/Npm/PublicationError"
+)("PublicationError", { message: Schema.String }) {}
 
 export const Release = Schema.Struct({
   sha: Repository.Sha,

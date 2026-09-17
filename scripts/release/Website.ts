@@ -34,11 +34,9 @@ export const Target = Schema.Literal("staging", "production")
 const Operation = Schema.Literal("deploy", "verify")
 
 /** A typed failure at the website deployment or verification boundary. */
-export class WebsiteReleaseError extends Schema.TaggedError<WebsiteReleaseError>()("WebsiteReleaseError", {
-  operation: Operation,
-  subject: Schema.String,
-  detail: Schema.String
-}) {
+export class WebsiteReleaseError extends Schema.TaggedError<WebsiteReleaseError>(
+  "@theoria/scripts/release/Website/WebsiteReleaseError"
+)("WebsiteReleaseError", { operation: Operation, subject: Schema.String, detail: Schema.String }) {
   override get message(): string {
     return Arr.join(Arr.make(this.operation, " ", this.subject, ": ", this.detail), "")
   }

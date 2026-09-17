@@ -9,7 +9,9 @@ import { FileSystem, Path, Url } from "@effect/platform"
 import { BunContext, BunRuntime } from "@effect/platform-bun"
 import { Array, Boolean, Effect, HashMap, Match, Number, Option, Record, Schema, String, Tuple } from "effect"
 
-class WorkspaceDependencyResolutionError extends Schema.TaggedError<WorkspaceDependencyResolutionError>()(
+class WorkspaceDependencyResolutionError extends Schema.TaggedError<WorkspaceDependencyResolutionError>(
+  "@theoria/scripts/resolve-workspace-deps/WorkspaceDependencyResolutionError"
+)(
   "WorkspaceDependencyResolutionError",
   { message: Schema.String }
 ) {}
