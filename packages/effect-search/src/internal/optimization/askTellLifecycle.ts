@@ -13,7 +13,8 @@ import {
   Option,
   Ref,
   String as Str,
-  SynchronizedRef
+  SynchronizedRef,
+  Tuple
 } from "effect"
 
 import type * as Journal from "@scenesystems/effect-study/Journal"
@@ -23,7 +24,7 @@ import { InvalidOptimizationConfig } from "../../SearchError.js"
 import type * as SearchSpace from "../../SearchSpace.js"
 import type { HandleRuntime } from "./askTellState.js"
 import { appendEvent } from "./events.js"
-import { pendingTrialsFromState, trialCountFromState } from "./history.js"
+import { cancelPendingTrials, freshTrialCountFromState, pendingTrialsFromState } from "./history.js"
 import type { OptimizationRuntime } from "./runtime/bootstrap.js"
 
 /**
@@ -79,7 +80,17 @@ export const publishCompletion = <Space extends SearchSpace.SearchSpace>(
         current,
         () => Option.some(completionReason)
       ))
-    yield* GenericStudy.transition(state.runtime.study, lifecycle)
+    yield* GenericStudy.modify(state.runtime.study, (current) =>
+      Effect.succeed(Tuple.make(
+        undefined,
+        new GenericStudy.State({
+          lifecycle,
+          history: Match.value(lifecycle).pipe(
+            Match.when("Cancelled", () => cancelPendingTrials(current.history)),
+            Match.orElse(() => current.history)
+          )
+        })
+      )))
 
     yield* SynchronizedRef.updateEffect(state.completionPublishedRef, (published) =>
       Effect.if(published, {
@@ -101,7 +112,7 @@ export const completeIfBudgetReached = <Space extends SearchSpace.SearchSpace>(
 ): Effect.Effect<void, Journal.Failure> =>
   Effect.gen(function*() {
     const runtimeState = yield* GenericStudy.read(state.runtime.study)
-    const trialCount = trialCountFromState(runtimeState.history)
+    const trialCount = freshTrialCountFromState(runtimeState.history)
     const pendingTrials = pendingTrialsFromState(runtimeState.history)
     const canComplete = Bool.every(Arr.make(
       Str.Equivalence(runtimeState.lifecycle, "Running"),

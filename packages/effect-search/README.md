@@ -198,7 +198,7 @@ Objective caching is a separate concern. A cache avoids re-running the objective
 
 ## Ask and tell
 
-When another process owns evaluation, such as a job queue or a remote worker, the optimization can hand out configurations instead of running the objective itself. `Optimization.open` creates a scoped handle. `Optimization.ask` reserves the next typed configuration, and `Optimization.tell`, `Optimization.fail`, or `Optimization.cancel` completes that reservation. The handle remains the authority for trial numbers, sampler observations, events, snapshots, and the final `Optimization.result`.
+When another process owns evaluation, such as a job queue or a remote worker, the optimization can hand out configurations instead of running the objective itself. `Optimization.open` creates a scoped handle and acquires its sampler; closing the scope releases it. `Optimization.ask` reserves the next typed configuration, and `Optimization.tell` or `Optimization.fail` completes that reservation. `Optimization.cancel` closes the handle and cancels every pending reservation. Prior observations do not consume the fresh trial budget. The handle remains the authority for trial numbers, sampler observations, events, snapshots, and the final `Optimization.result`.
 
 ```ts typecheck
 import { Effect, Number as Num } from "effect"

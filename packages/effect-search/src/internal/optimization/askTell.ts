@@ -11,6 +11,7 @@ import * as GenericStudy from "@scenesystems/effect-study/Study"
 import type { Value } from "../../Objective.js"
 import * as Optimization from "../../Optimization.js"
 import * as OptimizationEvent from "../../OptimizationEvent.js"
+import * as Sampler from "../../Sampler.js"
 import { type SearchError, TrialError } from "../../SearchError.js"
 import type * as SearchSpace from "../../SearchSpace.js"
 import * as Trial from "../../Trial.js"
@@ -33,8 +34,8 @@ import { reserveNextTrialOrMarkSpaceExhausted } from "./runtime/trialReservation
  * sampler setup fail through `SearchError`.
  *
  * @remarks
- * Closing the scope shuts down the handle's event queue. Callers must finish all
- * use of the handle within that scope.
+ * The sampler is acquired before use. Closing the scope shuts down the handle's
+ * event queue and releases the sampler. Callers must finish all use within that scope.
  *
  * @typeParam Space - Compiled search space that determines asked configuration values.
  *
@@ -54,6 +55,7 @@ export const open = <Space extends SearchSpace.SearchSpace>(
       new RuntimeSeed({ initialTrials: Arr.empty(), startTrialNumber: 0 })
     )
 
+    yield* Effect.acquireRelease(Sampler.acquire(optimizePlan.sampler), () => Sampler.release(optimizePlan.sampler))
     const eventQueue = yield* Mailbox.make<OptimizationEvent.OptimizationEvent>()
     yield* Effect.addFinalizer(() => eventQueue.shutdown)
 
@@ -187,8 +189,8 @@ export const fail = <Space extends SearchSpace.SearchSpace>(
 
 /**
  * Closes a manual handle and its event stream with completion reason
- * `interrupted`. Pending trials remain in the running state in subsequent
- * snapshots or results. Repeated calls do not publish another completion event.
+ * `interrupted`. Pending reservations become cancelled in subsequent snapshots
+ * or results. Repeated calls do not publish another completion event.
  *
  * @typeParam Space - Search space retained by the handle being closed.
  *

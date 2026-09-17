@@ -6,13 +6,14 @@
 import * as History from "@scenesystems/effect-study/History"
 import type * as Lifecycle from "@scenesystems/effect-study/Lifecycle"
 import * as GenericStudy from "@scenesystems/effect-study/Study"
-import { Clock, Effect, Match, Number as Num, Option, SortedMap, Tuple } from "effect"
+import { Clock, Effect, Match, Number as Num, Option, Tuple } from "effect"
 
 import { decodeConfig } from "../../../internal/sampler/decodeConfig.js"
 import * as Sampler from "../../../Sampler.js"
 import { InvalidOptimizationConfig, type SearchError } from "../../../SearchError.js"
 import type * as SearchSpace from "../../../SearchSpace.js"
 import * as Trial from "../../../Trial.js"
+import { freshTrialCountFromState, maxTrialNumberFromState } from "../history.js"
 import type { OptimizePlan, OptimizeSettings } from "../options/plan.js"
 import type { OptimizationRuntime } from "./bootstrap.js"
 import { markSpaceExhausted } from "./completion.js"
@@ -117,8 +118,9 @@ export const reserveNextTrialOrMarkSpaceExhausted = <Space extends SearchSpace.S
   GenericStudy.modify(runtime.study, (runtimeState) =>
     Match.value(runtimeState.lifecycle).pipe(
       Match.when("Running", () => {
-        const trialNumber = SortedMap.size(runtimeState.history.trials)
-        return Match.value(Num.greaterThanOrEqualTo(trialNumber, settings.trials)).pipe(
+        const trialNumber = Num.increment(maxTrialNumberFromState(runtimeState.history))
+        const freshCount = freshTrialCountFromState(runtimeState.history)
+        return Match.value(Num.greaterThanOrEqualTo(freshCount, settings.trials)).pipe(
           Match.when(true, () => Effect.fail(exhaustedBudget())),
           Match.orElse(() =>
             Effect.gen(function*() {

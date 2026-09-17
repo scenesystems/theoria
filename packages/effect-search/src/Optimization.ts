@@ -269,9 +269,9 @@ export const resumeFromStorageStream = <Space extends SearchSpace.SearchSpace>(
 
 /**
  * Opens a manual ask/tell optimization bound to the caller's Scope.
- * The objective callback is retained in the plan but is not invoked; closing
- * the scope shuts down the event queue. Invalid options, prior trials, and
- * sampler setup fail through {@link SearchError}.
+ * Acquires the sampler before use; closing the scope releases it and shuts down
+ * the event queue. The objective callback is retained but is not invoked.
+ * Invalid options, prior trials, and sampler setup fail through {@link SearchError}.
  *
  * @since 0.7.0
  * @category operations
@@ -310,7 +310,7 @@ export const fail = <Space extends SearchSpace.SearchSpace>(
   trialNumber: number,
   cause: unknown
 ) => self.fail(trialNumber, cause)
-/** Cancels a manual optimization and closes its event stream. @since 0.7.0 @category operations */
+/** Cancels pending reservations, closes the manual optimization, and ends its event stream. @since 0.7.0 @category operations */
 export const cancel = <Space extends SearchSpace.SearchSpace>(self: Optimization<Space>) => self.cancel
 /** Streams non-replayed events from the manual handle's shared queue. @since 0.7.0 @category operations */
 export const events: <Space extends SearchSpace.SearchSpace>(

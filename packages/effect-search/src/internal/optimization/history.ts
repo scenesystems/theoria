@@ -1,6 +1,6 @@
 /** Optimization-specific queries over native effect-study history. */
 import * as History from "@scenesystems/effect-study/History"
-import { Array as Arr, Number as Num, Option, SortedMap } from "effect"
+import { Array as Arr, Boolean as Bool, Equal, Match, Number as Num, Option, SortedMap } from "effect"
 
 import * as Trial from "../../Trial.js"
 import { isCompletedTrialWithConfig } from "./best.js"
@@ -28,8 +28,18 @@ export const pendingTrialByNumber = <Config>(
 export const maxTrialNumberFromState = <Config>(state: History.History<Config, Trial.State>): number =>
   Option.match(SortedMap.lastOption(state.trials), {
     onNone: () => Num.negate(1),
-    onSome: ([trialNumber]) => trialNumber
+    onSome: ([trialNumber]) => Num.max(Num.negate(1), trialNumber)
   })
 
-export const trialCountFromState = <Config>(state: History.History<Config, Trial.State>): number =>
-  SortedMap.size(state.trials)
+export const freshTrialCountFromState = <Config>(state: History.History<Config, Trial.State>): number =>
+  Arr.length(Arr.filter(History.values(state), (trial) => Bool.not(Equal.equals(trial.prior, true))))
+
+/** Terminalizes abandoned reservations without changing observations or their identities. */
+export const cancelPendingTrials = <Config>(state: History.History<Config, Trial.State>) =>
+  History.fromIterable(
+    Arr.map(History.values(state), (trial) =>
+      Match.value(Trial.isState("Running")(trial.state)).pipe(
+        Match.when(true, () => Trial.cancel(trial)),
+        Match.orElse(() => trial)
+      ))
+  )
