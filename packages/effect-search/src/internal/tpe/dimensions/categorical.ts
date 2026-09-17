@@ -3,7 +3,7 @@
  *
  * @since 0.1.0
  */
-import { Array as Arr, Chunk, Effect, Match, Option, Record } from "effect"
+import { Array as Arr, Chunk, Effect, Match, Number as Num, Option, Record } from "effect"
 
 import * as Acquisition from "../../../Acquisition.js"
 import { type Choice } from "../../../Distribution.js"
@@ -20,6 +20,8 @@ import { logProbability } from "../scoring.js"
 import { DimensionScoreTrace } from "./trace.js"
 import { primitiveValuesForParameter } from "./values.js"
 
+const maximumJointCategoricalTuples = 65_536
+
 const tupleKeyFromTrial = (
   dimensionsInput: Iterable<Multi.CategoricalDimension>,
   trial: CompletedTrialForSplit
@@ -31,7 +33,10 @@ const tupleKeyFromTrial = (
         Effect.fail(
           invalidConfig(`tpe categorical history trial ${trial.trialNumber} does not match search-space dimensions`)
         ),
-      onSome: (tupleConfig) => Effect.succeed(Multi.tupleKey(tupleConfig))
+      onSome: (tupleConfig) =>
+        Multi.tupleKey(tupleConfig).pipe(
+          Effect.mapError(() => invalidConfig("tpe categorical history contains an unencodable choice"))
+        )
     })
   )
 }
@@ -189,6 +194,8 @@ export const categoricalCandidateTrace = (
  *
  * Flattens multi-dimensional categorical spaces into a single-dimension
  * tuple space so the density estimator captures inter-dimension correlations.
+ * Products above 65,536 tuples fail before allocation; the candidate count
+ * controls draws, not the size of this joint domain.
  *
  * @see {@link categoricalDimensions} for extracting dimension descriptors
  * @see {@link suggestCategoricalParameter} for independent per-dimension suggestion
@@ -205,9 +212,24 @@ export const suggestMultivariateCategorical = (
 ): Effect.Effect<unknown, InvalidSamplerConfig> => {
   const dimensions = Arr.fromIterable(dimensionsInput)
   return Effect.gen(function*() {
+    const tupleCount = Arr.reduce(
+      dimensions,
+      1,
+      (count, dimension) => Num.multiply(count, Arr.length(dimension.choices))
+    )
+    yield* Effect.succeed(tupleCount).pipe(
+      Effect.filterOrFail(
+        Num.lessThanOrEqualTo(maximumJointCategoricalTuples),
+        () => invalidConfig("tpe joint categorical sampling supports at most 65536 tuples")
+      )
+    )
     const tupleDomain = Multi.enumerateChoiceTuples(dimensions)
-    const tupleChoices = Arr.map(tupleDomain, (tupleConfig) => Multi.tupleKey(tupleConfig))
-    const lookup = Multi.tupleLookup(tupleDomain)
+    const tupleChoices = yield* Effect.forEach(tupleDomain, Multi.tupleKey).pipe(
+      Effect.mapError(() => invalidConfig("tpe categorical search space contains an unencodable choice"))
+    )
+    const lookup = yield* Multi.tupleLookup(tupleDomain).pipe(
+      Effect.mapError(() => invalidConfig("tpe categorical search space contains an unencodable choice"))
+    )
     const belowKeys = yield* tupleKeysFromTrials(dimensions, split.below)
     const aboveKeys = yield* tupleKeysFromTrials(dimensions, split.above)
     const belowDensity = yield* buildCategoricalParzen(tupleChoices, belowKeys)

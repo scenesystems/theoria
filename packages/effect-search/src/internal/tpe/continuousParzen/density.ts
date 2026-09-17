@@ -4,15 +4,16 @@ import { Array as Arr, Chunk, Effect, Match, Number as Num } from "effect"
 import type { InvalidSamplerConfig } from "../../../SearchError.js"
 import type { ContinuousKernel, ContinuousParzen } from "../continuousParzen.js"
 import { logPdf as truncatedLogPdf, logPdfEffect as truncatedLogPdfEffect } from "../truncatedNormal.js"
-import type { TruncatedNormalParams } from "../truncatedNormal.js"
+import { TruncatedNormalParams } from "../truncatedNormal.js"
 import { samplerMathError } from "./errors.js"
 
-const paramsForKernel = (parzen: ContinuousParzen, kernel: ContinuousKernel): TruncatedNormalParams => ({
-  mean: kernel.mean,
-  sigma: kernel.sigma,
-  low: parzen.low,
-  high: parzen.high
-})
+const paramsForKernel = (parzen: ContinuousParzen, kernel: ContinuousKernel): TruncatedNormalParams =>
+  new TruncatedNormalParams({
+    mean: kernel.mean,
+    sigma: kernel.sigma,
+    low: parzen.low,
+    high: parzen.high
+  })
 
 const kernelLogWeight = (kernel: ContinuousKernel): number =>
   Match.value(Num.greaterThan(kernel.weight, 0)).pipe(

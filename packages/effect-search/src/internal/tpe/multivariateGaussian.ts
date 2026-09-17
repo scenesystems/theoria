@@ -64,10 +64,7 @@ const componentAt = (
 
 const cumulativeWeights = (weightsInput: Iterable<number>) => {
   const weights = Arr.fromIterable(weightsInput)
-  return Arr.reduce(weights, Arr.empty<number>(), (accumulator, weight) => {
-    const previous = valueAt(accumulator, Num.decrement(Arr.length(accumulator)), 0)
-    return Arr.append(accumulator, Num.sum(previous, weight))
-  })
+  return Arr.tailNonEmpty(Arr.scan(weights, 0, Num.sum))
 }
 
 const uniformWeights = (componentCount: number) =>

@@ -38,10 +38,7 @@ const positive = (value: number): number =>
 
 const cumulativeProbabilities = (weightsInput: Iterable<number>) => {
   const weights = Arr.fromIterable(weightsInput)
-  return Arr.reduce(weights, Arr.empty<number>(), (acc, weight) => {
-    const previousTotal = valueAt(acc, Num.decrement(Arr.length(acc)), 0)
-    return Arr.append(acc, Num.sum(previousTotal, weight))
-  })
+  return Arr.drop(Arr.scan(weights, 0, Num.sum), 1)
 }
 
 const pickByRoll = (

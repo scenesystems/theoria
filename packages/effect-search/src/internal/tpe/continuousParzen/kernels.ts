@@ -110,10 +110,7 @@ const positiveKernelWeight = (kernel: ContinuousKernel): number =>
 
 const cumulativeKernelWeights = (kernelsInput: Iterable<ContinuousKernel>) => {
   const kernels = Arr.fromIterable(kernelsInput)
-  return Arr.reduce(kernels, Arr.empty<number>(), (acc, kernel) => {
-    const last = valueAt(acc, Num.decrement(Arr.length(acc)), 0)
-    return Arr.append(acc, Num.sum(last, positiveKernelWeight(kernel)))
-  })
+  return Arr.tailNonEmpty(Arr.scan(kernels, 0, (total, kernel) => Num.sum(total, positiveKernelWeight(kernel))))
 }
 
 export const chooseKernelIndex = (parzen: ContinuousParzen, roll: number): number => {

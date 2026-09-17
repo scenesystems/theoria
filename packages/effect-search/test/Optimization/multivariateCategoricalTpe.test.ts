@@ -3,6 +3,7 @@ import { Array as Arr, Effect, Equal, Match, Number as Num, Option, Schema } fro
 
 import * as Optimization from "../../src/Optimization.js"
 import * as Sampler from "../../src/Sampler.js"
+import { InvalidSamplerConfig } from "../../src/SearchError.js"
 import * as SearchSpace from "../../src/SearchSpace.js"
 
 const instructionChoices = Arr.make("i0", "i1", "i2", "i3", "i4", "i5")
@@ -71,6 +72,52 @@ const runWith = (sampler: Sampler.Sampler) =>
   })
 
 describe("integration multivariate categorical tpe optimization", () => {
+  it.effect("rejects a categorical product beyond the supported domain before sampling", () =>
+    Effect.gen(function*() {
+      const space = yield* SearchSpace.make({
+        left: SearchSpace.categorical(Arr.range(0, 256)),
+        right: SearchSpace.categorical(Arr.range(0, 255))
+      })
+      const error = yield* Sampler.suggest(
+        Sampler.tpe({ seed: 19, nStartupTrials: 0, nEiCandidates: 1 }),
+        space,
+        Sampler.emptyContext()
+      ).pipe(Effect.flip, Effect.flatMap(Schema.decodeUnknown(InvalidSamplerConfig)))
+
+      expect(error.reason).toBe("tpe joint categorical sampling supports at most 65536 tuples")
+    }))
+
+  it.effect("samples at the joint categorical domain limit", () =>
+    Effect.gen(function*() {
+      const space = yield* SearchSpace.make({
+        left: SearchSpace.categorical(Arr.range(0, 255)),
+        right: SearchSpace.categorical(Arr.range(0, 255))
+      })
+      const result = yield* Sampler.suggest(
+        Sampler.tpe({ seed: 19, nStartupTrials: 0, nEiCandidates: 1 }),
+        space,
+        Sampler.emptyContext()
+      ).pipe(Effect.flatMap(Schema.decodeUnknown(space.schema)))
+
+      expect(result.left).toBeGreaterThanOrEqual(0)
+      expect(result.left).toBeLessThan(256)
+      expect(result.right).toBeGreaterThanOrEqual(0)
+      expect(result.right).toBeLessThan(256)
+    }))
+
+  it.effect("reports unencodable categorical choices as a checked sampler failure", () =>
+    Effect.gen(function*() {
+      const space = yield* SearchSpace.make({ choice: SearchSpace.categorical(Arr.make("valid", "\ud800")) })
+      const error = yield* Sampler.suggest(
+        Sampler.tpe({ seed: 19, nStartupTrials: 0 }),
+        space,
+        Sampler.emptyContext()
+      ).pipe(Effect.flip, Effect.flatMap(Schema.decodeUnknown(InvalidSamplerConfig)))
+
+      expect(error.sampler).toBe("tpe")
+      expect(error.reason).toBe("tpe categorical search space contains an unencodable choice")
+    }))
+
   it.effect("models coupled categorical dimensions and beats seeded random search", () =>
     Effect.gen(function*() {
       const seed = 211

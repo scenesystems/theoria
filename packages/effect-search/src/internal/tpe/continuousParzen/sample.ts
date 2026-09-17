@@ -3,16 +3,17 @@ import { Effect } from "effect"
 import type { InvalidSamplerConfig } from "../../../SearchError.js"
 import type { ContinuousKernel, ContinuousParzen } from "../continuousParzen.js"
 import { sample as sampleTruncated, sampleEffect as sampleTruncatedEffect } from "../truncatedNormal.js"
-import type { TruncatedNormalParams } from "../truncatedNormal.js"
+import { TruncatedNormalParams } from "../truncatedNormal.js"
 import { samplerMathError } from "./errors.js"
 import { chooseKernelIndex, kernelAt } from "./kernels.js"
 
-const paramsForKernel = (parzen: ContinuousParzen, kernel: ContinuousKernel): TruncatedNormalParams => ({
-  mean: kernel.mean,
-  sigma: kernel.sigma,
-  low: parzen.low,
-  high: parzen.high
-})
+const paramsForKernel = (parzen: ContinuousParzen, kernel: ContinuousKernel): TruncatedNormalParams =>
+  new TruncatedNormalParams({
+    mean: kernel.mean,
+    sigma: kernel.sigma,
+    low: parzen.low,
+    high: parzen.high
+  })
 
 export const sampleFromParzen = (parzen: ContinuousParzen, kernelRoll: number, valueRoll: number): number => {
   const kernel = kernelAt(parzen, chooseKernelIndex(parzen, kernelRoll))

@@ -1,4 +1,4 @@
-import { Array as Arr, Equal, Match, Number as Num, Option, Record, Schema, Tuple } from "effect"
+import { Array as Arr, Either, Encoding, Equal, Match, Number as Num, Option, Record, Schema, Tuple } from "effect"
 
 import { Choice } from "../../Distribution.js"
 import { type SamplerConfig, valueFromConfig } from "../configAccess.js"
@@ -30,16 +30,18 @@ export const ChoiceTupleLookupSchema = Schema.Record({
 
 export type ChoiceTupleLookup = Schema.Schema.Type<typeof ChoiceTupleLookupSchema>
 
-const encodeChoice = (choice: Choice): string =>
+const encodeChoice = (choice: Choice): Either.Either<string, Encoding.EncodeException> =>
   Match.value(choice).pipe(
-    Match.when(Match.string, (value) => `s:${encodeURIComponent(value)}`),
-    Match.when(Match.number, (value) => `n:${value}`),
+    Match.when(Match.string, (value) => Encoding.encodeUriComponent(value).pipe(Either.map((key) => `s:${key}`))),
+    Match.when(Match.number, (value) => Either.right(`n:${value}`)),
     Match.when(Match.boolean, (value) =>
-      Match.value(value).pipe(
-        Match.when(true, () => "b:1"),
-        Match.orElse(() => "b:0")
+      Either.right(
+        Match.value(value).pipe(
+          Match.when(true, () => "b:1"),
+          Match.orElse(() => "b:0")
+        )
       )),
-    Match.when(null, () => "z:null"),
+    Match.when(null, () => Either.right("z:null")),
     Match.exhaustive
   )
 
@@ -82,9 +84,9 @@ const appendDimensionChoice = (
   return Arr.append(entries, Tuple.make(dimension.name, choice))
 }
 
-export const tupleKey = (tupleInput: Iterable<Choice>): string => {
+export const tupleKey = (tupleInput: Iterable<Choice>): Either.Either<string, Encoding.EncodeException> => {
   const tuple = Arr.fromIterable(tupleInput)
-  return Arr.join(Arr.map(tuple, encodeChoice), "|")
+  return Either.all(Arr.map(tuple, encodeChoice)).pipe(Either.map(Arr.join("|")))
 }
 
 export const enumerateChoiceTuples = (dimensionsInput: Iterable<CategoricalDimension>) => {
@@ -150,7 +152,11 @@ export const configFromTuple = (
   ).pipe(Option.map((entries) => Record.fromEntries(entries)))
 }
 
-export const tupleLookup = (tuplesInput: Iterable<ChoiceTuple>): ChoiceTupleLookup => {
+export const tupleLookup = (
+  tuplesInput: Iterable<ChoiceTuple>
+): Either.Either<ChoiceTupleLookup, Encoding.EncodeException> => {
   const tuples = Arr.fromIterable(tuplesInput)
-  return Record.fromEntries(Arr.map(tuples, (tuple) => Tuple.make(tupleKey(tuple), tuple)))
+  return Either.all(
+    Arr.map(tuples, (tuple) => tupleKey(tuple).pipe(Either.map((key) => Tuple.make(key, tuple))))
+  ).pipe(Either.map(Record.fromEntries))
 }
