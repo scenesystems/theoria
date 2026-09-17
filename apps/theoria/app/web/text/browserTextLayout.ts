@@ -1,11 +1,9 @@
-import {
-  CanvasProfile,
-  CanvasTextMeasurer,
-  Hyphenation,
-  MeasurementCache,
-  type PreparationKey,
-  Text
-} from "@scenesystems/effect-text"
+import * as CanvasProfile from "@scenesystems/effect-text/CanvasProfile"
+import * as CanvasTextMeasurer from "@scenesystems/effect-text/CanvasTextMeasurer"
+import * as Hyphenation from "@scenesystems/effect-text/Hyphenation"
+import * as MeasurementCache from "@scenesystems/effect-text/MeasurementCache"
+import type * as PreparationKey from "@scenesystems/effect-text/PreparationKey"
+import * as Text from "@scenesystems/effect-text/Text"
 import { Boolean, Context, Effect, Layer, type Scope } from "effect"
 import * as Arr from "effect/Array"
 
@@ -30,7 +28,7 @@ export type BrowserTextLayout = Text.Segmenter | MeasurementCache.MeasurementCac
  * from within. So it tells, and the teller builds it again at the next
  * revision (`fontReadinessRevisionAtom`).
  */
-export class FontReadiness extends Context.Tag("theoria/FontReadiness")<FontReadiness, {
+export class FontReadiness extends Context.Tag("@theoria/app/web/text/FontReadiness")<FontReadiness, {
   /** The generation of the widths this layout's cache keeps; advanced by each arrival told. */
   readonly revision: PreparationKey.Revision
   /** Told when a served face arrives after this layout was built without it; once for each face that does. */

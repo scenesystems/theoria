@@ -70,7 +70,10 @@ const sourceLine = (semantics: TextSemantics): string =>
 /** Defaults sit below utilities so a participant or interactive state still owns its foreground. */
 const roleDefaults = (semantics: TextSemantics): string =>
   `  :where(.st-${semantics.role}) { color: ${
-    semantics.foreground === "inherit" ? "inherit" : `var(--th-${semantics.foreground})`
+    Bool.match(Equal.equals(semantics.foreground, "inherit"), {
+      onTrue: () => "inherit",
+      onFalse: () => `var(--th-${semantics.foreground})`
+    })
   }; text-transform: ${semantics.transform}; }`
 
 export const renderTextTokensCss = (): string =>

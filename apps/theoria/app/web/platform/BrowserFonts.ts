@@ -9,10 +9,15 @@ import * as BrowserDocument from "./BrowserDocument.js"
  *
  * @since 0.2.0
  */
-export class FontLoadFailed extends Schema.TaggedError<FontLoadFailed>()("FontLoadFailed", {
-  font: Schema.String,
-  message: Schema.String
-}) {}
+export class FontLoadFailed
+  extends Schema.TaggedError<FontLoadFailed>("@theoria/app/web/platform/BrowserFonts/FontLoadFailed")(
+    "FontLoadFailed",
+    {
+      font: Schema.String,
+      message: Schema.String
+    }
+  )
+{}
 
 /**
  * The document's font faces, as a service: the one place the app asks after
@@ -26,7 +31,7 @@ export class FontLoadFailed extends Schema.TaggedError<FontLoadFailed>()("FontLo
  *
  * @since 0.2.0
  */
-export class BrowserFonts extends Context.Tag("theoria/BrowserFonts")<BrowserFonts, {
+export class BrowserFonts extends Context.Tag("@theoria/app/web/platform/BrowserFonts")<BrowserFonts, {
   /**
    * Whether text in this font renders now without a face still to come: every
    * declared face is loaded, or none is declared and a system face stands.
@@ -37,7 +42,13 @@ export class BrowserFonts extends Context.Tag("theoria/BrowserFonts")<BrowserFon
 }>() {}
 
 const failure = (font: string) => (cause: unknown): FontLoadFailed =>
-  new FontLoadFailed({ font, message: Predicate.isError(cause) ? cause.message : String(cause) })
+  new FontLoadFailed({
+    font,
+    message: Option.match(Option.liftPredicate(cause, Predicate.isError), {
+      onNone: () => String(cause),
+      onSome: (error) => error.message
+    })
+  })
 
 /**
  * The ambient document's font set. A document without one (a headless test

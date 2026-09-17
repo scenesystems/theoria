@@ -9,7 +9,10 @@ import * as Arr from "effect/Array"
  *
  * @since 0.2.0
  */
-export class BrowserDocument extends Context.Tag("theoria/BrowserDocument")<BrowserDocument, Document>() {}
+export class BrowserDocument extends Context.Tag("@theoria/app/web/platform/BrowserDocument")<
+  BrowserDocument,
+  Document
+>() {}
 
 /** The ambient document. This is the one place the app reads the global. */
 export const layer: Layer.Layer<BrowserDocument> = Layer.sync(BrowserDocument, () => document)
@@ -75,9 +78,14 @@ export const events = <K extends keyof DocumentEventMap>(
  *
  * @since 0.2.0
  */
-export class CanvasUnavailable extends Schema.TaggedError<CanvasUnavailable>()("CanvasUnavailable", {
-  message: Schema.String
-}) {}
+export class CanvasUnavailable
+  extends Schema.TaggedError<CanvasUnavailable>("@theoria/app/web/platform/BrowserDocument/CanvasUnavailable")(
+    "CanvasUnavailable",
+    {
+      message: Schema.String
+    }
+  )
+{}
 
 /** A 2D canvas for text measurement in this document's fonts. */
 export const canvasContext2d: Effect.Effect<CanvasRenderingContext2D, CanvasUnavailable, BrowserDocument> = Effect

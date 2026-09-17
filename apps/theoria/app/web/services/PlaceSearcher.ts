@@ -1,8 +1,10 @@
 import { Worker, type WorkerError } from "@effect/platform"
 import {
+  Boolean as Bool,
   Data,
   Duration,
   Effect,
+  Equal,
   ExecutionStrategy,
   Exit,
   Option,
@@ -28,10 +30,15 @@ import * as PlaceSearchWorker from "../platform/PlaceSearchWorker.js"
  * been reclaimed by the browser says nothing to the page — only a script
  * error is reported — so silence past `after` is how its death is known.
  */
-export class PlaceSearchUnanswered extends Schema.TaggedError<PlaceSearchUnanswered>()("PlaceSearchUnanswered", {
-  request: Schema.String,
-  after: Schema.DurationFromSelf
-}) {}
+export class PlaceSearchUnanswered
+  extends Schema.TaggedError<PlaceSearchUnanswered>("@theoria/app/web/services/PlaceSearcher/Unanswered")(
+    "PlaceSearchUnanswered",
+    {
+      request: Schema.String,
+      after: Schema.DurationFromSelf
+    }
+  )
+{}
 
 /**
  * Why a search could not go on: the search itself refused, the worker
@@ -132,14 +139,15 @@ const make = Effect.gen(function*() {
     SynchronizedRef.updateEffect(
       kept,
       (current) =>
-        Option.exists(current, (found) => found.worker.id === gone.worker.id)
-          ? Effect.as(Scope.close(gone.scope, Exit.void), Option.none())
-          : Effect.succeed(current)
+        Bool.match(Option.exists(current, (found) => Equal.equals(found.worker.id, gone.worker.id)), {
+          onTrue: () => Effect.as(Scope.close(gone.scope, Exit.void), Option.none()),
+          onFalse: () => Effect.succeed(current)
+        })
     )
 
   /** Whether the worker is still the page's: not forgotten, not replaced. */
   const stillKept = (on: Kept): Effect.Effect<boolean> =>
-    Effect.map(SynchronizedRef.get(kept), Option.exists((found) => found.worker.id === on.worker.id))
+    Effect.map(SynchronizedRef.get(kept), Option.exists((found) => Equal.equals(found.worker.id, on.worker.id)))
 
   // Every request is bounded: a worker that never answers is forgotten, as
   // is one that fails or answers in a shape the page does not know. The
@@ -156,7 +164,7 @@ const make = Effect.gen(function*() {
         duration: answerWithin,
         onTimeout: () => new PlaceSearchUnanswered({ request, after: answerWithin })
       }),
-      Effect.tapError((error) => (workerGone(error) ? forget(on) : Effect.void))
+      Effect.tapError((error) => Effect.when(forget(on), () => workerGone(error)))
     )
 
   // Opening a search and promising to close it are one step: nothing can
@@ -205,7 +213,7 @@ const make = Effect.gen(function*() {
  * the platform module; another layer can answer the same requests in the
  * thread.
  */
-export class PlaceSearcher extends Effect.Service<PlaceSearcher>()("theoria/PlaceSearcher", {
+export class PlaceSearcher extends Effect.Service<PlaceSearcher>()("@theoria/app/web/services/PlaceSearcher", {
   scoped: make,
   dependencies: [PlaceSearchWorker.layer]
 }) {}
