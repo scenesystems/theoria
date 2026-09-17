@@ -4,7 +4,7 @@ import * as Arr from "effect/Array"
 import * as Geometry from "@scenesystems/effect-math/Geometry"
 import * as Numeric from "@scenesystems/effect-math/Numeric"
 import * as Statistics from "@scenesystems/effect-math/Statistics"
-import { Text } from "@scenesystems/effect-text"
+import * as Text from "@scenesystems/effect-text/Text"
 
 import { PlaceLine, PlaceMarker } from "../imagined-place-result.js"
 import { ParticipantRole, PlaceFeature } from "../imagined-place.js"
@@ -265,7 +265,7 @@ export const markersBetween = (stage: Stage) => (from: PlaceMarkers, to: PlaceMa
  *
  * @since 0.3.0
  */
-export class PlaceDrawing extends Schema.Class<PlaceDrawing>("PlaceDrawing")({
+export class PlaceDrawing extends Schema.Class<PlaceDrawing>("@theoria/app/contracts/ImaginedPlaceFlow/PlaceDrawing")({
   markers: PlaceMarkers,
   paper: Schema.Number
 }) {}

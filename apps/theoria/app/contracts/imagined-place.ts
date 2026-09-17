@@ -420,7 +420,9 @@ export const placeScenarioRecordings: Record<PlaceScenario, PlaceScenarioRecordi
   }
 }
 
-export class PlaceBuildError extends Schema.TaggedError<PlaceBuildError>()("PlaceBuildError", {
+export class PlaceBuildError extends Schema.TaggedError<PlaceBuildError>(
+  "@theoria/app/contracts/ImaginedPlace/PlaceBuildError"
+)("PlaceBuildError", {
   stage: Schema.Literal("compose", "propose", "identity", "render", "signature", "seal"),
   message: Schema.String
 }) {}

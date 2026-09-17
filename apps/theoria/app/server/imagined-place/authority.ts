@@ -22,7 +22,7 @@ export type ParticipantSet = typeof ParticipantSet.Type
  * process and prove only that this server signed on a participant's behalf;
  * the UI labels every verification "valid for session key".
  */
-export class Participants extends Context.Tag("theoria/imagined-place/Participants")<
+export class Participants extends Context.Tag("@theoria/app/server/imagined-place/Participants")<
   Participants,
   ParticipantSet
 >() {}

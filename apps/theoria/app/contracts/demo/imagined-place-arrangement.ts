@@ -1,5 +1,6 @@
 import { Option, Schema } from "effect"
 import * as Arr from "effect/Array"
+import * as Num from "effect/Number"
 
 import type { Text } from "@scenesystems/effect-text"
 
@@ -109,7 +110,7 @@ export const renderingFor = ({
 }): PlaceRendering => ({
   projection: {
     stageWidth: stage.stageWidth,
-    stageHeight: Math.round(occupiedHeight(stage, arrangement.markers, arrangement.lines) + stage.padding),
+    stageHeight: Num.round(Num.sum(occupiedHeight(stage, arrangement.markers, arrangement.lines), stage.padding), 0),
     padding: stage.padding,
     lineHeight: stage.lineHeight,
     markers: arrangement.markers,

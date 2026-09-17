@@ -44,12 +44,16 @@ const Chroma = Schema.Number.pipe(Schema.nonNegative())
 const Hue = Schema.Number.pipe(Schema.greaterThanOrEqualTo(0), Schema.lessThan(360))
 
 /** A colour in OKLCH: perceptual lightness in `[0, 1]`, chroma, and hue in degrees. */
-export class Oklch extends Schema.Class<Oklch>("Oklch")({ l: Unit, c: Chroma, h: Hue }) {}
+export class Oklch
+  extends Schema.Class<Oklch>("@theoria/app/contracts/Palette/Oklch")({ l: Unit, c: Chroma, h: Hue })
+{}
 
 const Channel = Schema.Number.pipe(Schema.int(), Schema.between(0, 255))
 
 /** A colour as the browser paints it: 8-bit sRGB. */
-export class Srgb extends Schema.Class<Srgb>("Srgb")({ r: Channel, g: Channel, b: Channel }) {}
+export class Srgb
+  extends Schema.Class<Srgb>("@theoria/app/contracts/Palette/Srgb")({ r: Channel, g: Channel, b: Channel })
+{}
 
 // ---------------------------------------------------------------------------
 // Ramps
@@ -165,7 +169,7 @@ const familyRamp = (family: Family, mode: ColorMode): Ramp =>
 export const familyColor = (family: Family, mode: ColorMode, l: number): Oklch => rampColor(familyRamp(family, mode), l)
 
 /** One role's lightness in each mode: the single definition both stylesheets derive from. */
-export class Shade extends Schema.Class<Shade>("Shade")({ light: Unit, dark: Unit }) {}
+export class Shade extends Schema.Class<Shade>("@theoria/app/contracts/Palette/Shade")({ light: Unit, dark: Unit }) {}
 
 const shade = (light: number, dark: number): Shade => new Shade({ light, dark })
 
@@ -180,7 +184,11 @@ const saturate = (color: Oklch, saturation: number): Oklch =>
   new Oklch({ l: color.l, c: Num.multiply(color.c, saturation), h: color.h })
 
 /** A paint: a family, how much of its colour is carried in `[0, 1]`, and a lightness per mode. */
-class Paint extends Schema.Class<Paint>("Paint")({ family: Family, saturation: Unit, shade: Shade }) {}
+class Paint extends Schema.Class<Paint>("@theoria/app/contracts/Palette/Paint")({
+  family: Family,
+  saturation: Unit,
+  shade: Shade
+}) {}
 
 const paintColor = (p: Paint, mode: ColorMode): Oklch =>
   saturate(familyColor(p.family, mode, lightnessIn(p.shade, mode)), p.saturation)
@@ -334,7 +342,7 @@ const toneShade = (role: ToneRole): Shade =>
   )
 
 /** A voice: the family a tone speaks in and how much of its colour it carries, in `[0, 1]` of the ramp's chroma. */
-class Voice extends Schema.Class<Voice>("Voice")({ family: Family, saturation: Unit }) {}
+class Voice extends Schema.Class<Voice>("@theoria/app/contracts/Palette/Voice")({ family: Family, saturation: Unit }) {}
 
 /**
  * Each tone's voice. The ladder's lightness is the same in every tone, so
@@ -689,7 +697,10 @@ export const linearSrgb = (color: Oklch): Chunk.Chunk<number> =>
 const gamutTolerance = 1e-6
 
 export const inSrgbGamut = (color: Oklch): boolean =>
-  Chunk.every(linearSrgb(color), Numeric.between({ minimum: -gamutTolerance, maximum: 1 + gamutTolerance }))
+  Chunk.every(
+    linearSrgb(color),
+    Numeric.between({ minimum: Num.negate(gamutTolerance), maximum: Num.sum(1, gamutTolerance) })
+  )
 
 /** The sRGB transfer function: linear light to the encoded component. */
 const encodeComponent = (linear: number): number =>

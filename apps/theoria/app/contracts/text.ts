@@ -9,7 +9,7 @@ import notoSansMono from "@capsizecss/metrics/notoSansMono"
 import roboto from "@capsizecss/metrics/roboto"
 import robotoMono from "@capsizecss/metrics/robotoMono"
 import segoeUI from "@capsizecss/metrics/segoeUI"
-import { Text } from "@scenesystems/effect-text"
+import * as Text from "@scenesystems/effect-text/Text"
 import { Match, Number as Num, Option, Schema, String as Str, Tuple } from "effect"
 import * as Arr from "effect/Array"
 import * as HashMap from "effect/HashMap"
@@ -134,8 +134,8 @@ export const typefaceFallbackFaces: string = Arr.join(
 export const measuredFont = (family: FontFamily): string =>
   Str.concat("400 16px \"", Str.concat(servedFontFamily(family), "\""))
 
-const fontFamilyStacks = HashMap.make(
-  ...Arr.map(FontFamily.literals, (family) =>
+const fontFamilyStacks = HashMap.fromIterable(
+  Arr.map(FontFamily.literals, (family) =>
     Tuple.make(
       family,
       Str.concat(

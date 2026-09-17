@@ -1,4 +1,5 @@
-import { Clock, Config, Context, Effect, Layer } from "effect"
+import { Boolean as Bool, Clock, Config, Context, Effect, Layer } from "effect"
+import * as Str from "effect/String"
 
 export class RuntimeInfo extends Context.Tag("@theoria/app/server/config/RuntimeInfo")<
   RuntimeInfo,
@@ -8,7 +9,10 @@ export class RuntimeInfo extends Context.Tag("@theoria/app/server/config/Runtime
   }
 >() {}
 
-const nonEmptyOrDefault = (raw: string, fallback: string): string => raw.trim().length > 0 ? raw.trim() : fallback
+const nonEmptyOrDefault = (raw: string, fallback: string): string => {
+  const value = Str.trim(raw)
+  return Bool.match(Str.isNonEmpty(value), { onTrue: () => value, onFalse: () => fallback })
+}
 
 /** `BUILD_SHA` is set by the deployment workflow (`wrangler deploy --var`). */
 const makeRuntimeInfo = Effect.gen(function*() {

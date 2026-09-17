@@ -10,11 +10,14 @@ const urlEntry = (loc: string): string => `  <url><loc>${loc}</loc></url>`
 
 export const docsSitemapPaths = (manifest: DocsManifest): ReadonlyArray<string> =>
   Arr.prepend(
-    Arr.flatMap(manifest.packages, (docsPackage) => [
-      docsPackage.overview.path,
-      ...Arr.map(docsPackage.guides, (guide) => guide.path),
-      ...Arr.map(docsPackage.apiModules, (module) => module.path)
-    ]),
+    Arr.flatMap(manifest.packages, (docsPackage) =>
+      Arr.prepend(
+        Arr.appendAll(
+          Arr.map(docsPackage.guides, (guide) => guide.path),
+          Arr.map(docsPackage.apiModules, (module) => module.path)
+        ),
+        docsPackage.overview.path
+      )),
     "/docs"
   )
 
@@ -23,16 +26,20 @@ export const sitemapRoute = Effect.gen(function*() {
   const docsPaths = docsSitemapPaths(yield* docsManifestStore.manifest)
 
   const urls = Arr.map(
-    ["/", ...docsPaths],
+    Arr.prepend(docsPaths, "/"),
     (path) => urlEntry(fullCanonicalUrl(path))
   )
 
-  const xml = [
-    `<?xml version="1.0" encoding="UTF-8"?>`,
-    `<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">`,
-    ...urls,
-    `</urlset>`
-  ].join("\n")
+  const xml = Arr.join(
+    Arr.append(
+      Arr.prependAll(urls, [
+        `<?xml version="1.0" encoding="UTF-8"?>`,
+        `<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">`
+      ]),
+      `</urlset>`
+    ),
+    "\n"
+  )
 
   return HttpServerResponse.text(xml, {
     status: 200,

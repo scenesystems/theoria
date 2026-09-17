@@ -189,7 +189,11 @@ export const MarkTrigger = Schema.Struct({ triggerId: Schema.String, mark: Place
 export type MarkTrigger = typeof MarkTrigger.Type
 
 /** The single open provenance answer: the mark pressed, from the trigger it was pressed on. */
-export class PlaceAnswer extends Schema.Class<PlaceAnswer>("PlaceAnswer")(MarkTrigger.fields) {}
+export class PlaceAnswer
+  extends Schema.Class<PlaceAnswer>("@theoria/app/contracts/ImaginedPlaceProvenance/PlaceAnswer")(
+    MarkTrigger.fields
+  )
+{}
 
 /** A press on a mark, as the popover reports it: whether it would open, and which mark. */
 export const MarkPress = Schema.Struct({ opening: Schema.Boolean, pressed: MarkTrigger })

@@ -16,9 +16,14 @@ export type Admission =
   | { readonly _tag: "Refused"; readonly retryAfterSeconds: number }
 
 /** The limiter could not decide: its backing store failed. The request is not refused; it is not decided. */
-export class PlaceBuildLimiterError extends Schema.TaggedError<PlaceBuildLimiterError>()("PlaceBuildLimiterError", {
-  detail: Schema.String
-}) {}
+export class PlaceBuildLimiterError
+  extends Schema.TaggedError<PlaceBuildLimiterError>("@theoria/app/server/config/PlaceBuildLimiter/Error")(
+    "PlaceBuildLimiterError",
+    {
+      detail: Schema.String
+    }
+  )
+{}
 
 export class PlaceBuildLimiter extends Context.Tag("@theoria/app/server/config/PlaceBuildLimiter")<
   PlaceBuildLimiter,
