@@ -74,16 +74,14 @@ const isSearchShortcut = (event: KeyboardEvent): boolean =>
 
 /** ⌘K / Ctrl+K opens the docs search while the docs page is mounted. */
 export const docsKeyboardShortcutsAtom: AtomType.Atom<Result.Result<void>> = appRuntime.atom((get) =>
-  BrowserDocument.events("keydown").pipe(
-    Stream.filter(isSearchShortcut),
-    Stream.runForEach((event) =>
+  BrowserDocument.preventedKeydowns(isSearchShortcut).pipe(
+    Stream.runForEach(() =>
       Effect.sync(() => {
-        event.preventDefault()
         get.set(docsSearchOpenAtom, true)
       })
     )
   )
-)
+).pipe(Atom.setIdleTTL(0))
 
 export const setDocsSearchOpenAtom = Atom.fnSync<boolean>()((open, ctx) => {
   ctx.set(docsSearchOpenAtom, open)

@@ -1,4 +1,4 @@
-import { Context, Effect, Layer, Option, Schema, Stream } from "effect"
+import { Boolean, Context, Effect, Function, Layer, Option, Schema, Stream } from "effect"
 import * as Arr from "effect/Array"
 
 /**
@@ -69,6 +69,32 @@ export const events = <K extends keyof DocumentEventMap>(
   Stream.unwrap(
     Effect.map(BrowserDocument, (browserDocument) =>
       Stream.fromEventListener<DocumentEventMap[K]>(browserDocument, type, options))
+  )
+
+/**
+ * Cancels matching keydowns during dispatch, then delivers them to the stream.
+ * The approved docs-shortcut boundary: downstream stream delivery is too late
+ * to guarantee default cancellation. Matching stays with the caller; Effect
+ * owns listener acquisition and removal when the stream is interrupted.
+ */
+export const preventedKeydowns = (
+  matches: (event: KeyboardEvent) => boolean
+): Stream.Stream<KeyboardEvent, never, BrowserDocument> =>
+  Stream.asyncPush<KeyboardEvent, never, BrowserDocument>((emit) =>
+    Effect.flatMap(BrowserDocument, (browserDocument) => {
+      const listener = (event: KeyboardEvent): void =>
+        Boolean.match(matches(event), {
+          onFalse: Function.constVoid,
+          onTrue: () => {
+            event.preventDefault()
+            emit.single(event)
+          }
+        })
+      return Effect.acquireRelease(
+        Effect.sync(() => browserDocument.addEventListener("keydown", listener, { passive: false })),
+        () => Effect.sync(() => browserDocument.removeEventListener("keydown", listener))
+      )
+    })
   )
 
 /**

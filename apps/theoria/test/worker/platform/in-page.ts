@@ -1069,6 +1069,10 @@ export const outlineColour = (element: Element) => getComputedStyle(element).out
 /** The element has keyboard focus. */
 export const isActiveElement = (element: Element) => element === document.activeElement
 
+/** Whether a cancelable keydown still permits its default when synchronous dispatch returns. */
+export const dispatchKeydown = (options: KeyboardEventInit): boolean =>
+  document.dispatchEvent(new KeyboardEvent("keydown", { bubbles: true, cancelable: true, ...options }))
+
 /**
  * What the element's CSS transitions ease and for how long, as computed. A
  * property of `none` is how a transition is switched off: the duration is

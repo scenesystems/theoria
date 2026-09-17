@@ -37,6 +37,7 @@ import {
   backgroundColour,
   boxOf,
   clipboardText,
+  dispatchKeydown,
   greekFaceOpacities,
   horizontalScrollers,
   isActiveElement,
@@ -545,6 +546,44 @@ layer(Layer.merge(SiteLive, BrowserLive), { excludeTestServices: true, timeout: 
         yield* attribute(policyLink, "href", "/docs/effect-math/api/Policy")
         yield* click(policyLink)
         yield* visible(page.getByRole("heading", { level: 1, name: "Policy" }))
+        expect(yield* failures).toEqual([])
+      }))
+
+    it.scoped("search shortcuts cancel synchronously only while docs are mounted", () =>
+      Effect.gen(function*() {
+        const { failures, page } = yield* openPage({ reducedMotion: "reduce" })
+        yield* goto(page, "/docs")
+        yield* visible(page.getByRole("heading", { name: "Packages", level: 1 }))
+        const input = page.getByRole("combobox", { name: "Search" })
+        expect(yield* act(() => page.evaluate(dispatchKeydown, { key: "k" }))).toBe(true)
+        expect(yield* act(() => page.evaluate(dispatchKeydown, { key: "x", ctrlKey: true }))).toBe(true)
+        yield* hidden(input)
+
+        yield* Effect.forEach([{ key: "k", ctrlKey: true }, { key: "K", metaKey: true }], (options) =>
+          Effect.gen(function*() {
+            expect(
+              yield* act(() =>
+                page.evaluate(dispatchKeydown, options)
+              )
+            ).toBe(false)
+            yield* visible(input)
+            yield* until(act(() => input.evaluate(isActiveElement)), (focused) => focused, "search focus")
+            yield* press(page, "Escape")
+            yield* hidden(input)
+          }))
+
+        yield* click(page.getByRole("link", { name: "Theoria home", exact: true }))
+        yield* visible(page.getByRole("heading", { name: "Scientific computing and model programming with Effect" }))
+        yield* until(
+          act(() => page.evaluate(dispatchKeydown, { key: "k", ctrlKey: true })),
+          (allowed) => allowed,
+          "shortcut released on leaving docs"
+        )
+        yield* click(page.getByRole("link", { name: "Browse the packages", exact: true }))
+        yield* visible(page.getByRole("heading", { name: "Packages", level: 1 }))
+        yield* press(page, "Control+k")
+        yield* visible(input)
+        yield* until(act(() => input.evaluate(isActiveElement)), (focused) => focused, "remounted search focus")
         expect(yield* failures).toEqual([])
       }))
 

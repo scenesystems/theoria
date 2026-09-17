@@ -95,6 +95,8 @@ React 19 + effect-atom + Tailwind CSS v4. All state flows through atoms, all ren
 
 The only place the app reads a host global. `BrowserWindow.ts` and `BrowserDocument.ts` acquire `window`/`document` in a `Layer.sync` and expose the operations the app needs (`currentUrl`, `pushState`, `events`, `elementById`, `setTitle`, `canvasContext2d`, …) as Effects over those services; `AnimationFrame.ts` and `ElementSize.ts` wrap `requestAnimationFrame` and `ResizeObserver` the same way; `BrowserCookies.ts` is the `KeyValueStore` over `document.cookie` (so the colour-mode preference reaches the Worker with every request, which serves `<html class="dark">` from it — see `contracts/color-mode.ts`); `browser.ts` composes them with `Clipboard.layer` and `FetchHttpClient.layer` into `BrowserLive`. Tests provide the same tags from happy-dom or stubs. Nothing outside this folder may name `window`, `document`, `globalThis`, `localStorage`, `navigator` or `fetch`; ESLint bans the host globals repo-wide.
 
+**Approved synchronous shortcut exception:** Docs Cmd/Ctrl+K uses `BrowserDocument.preventedKeydowns` to call `preventDefault()` during native event dispatch, before forwarding matching events through `Stream.asyncPush`. Effect owns listener acquisition and cleanup; the docs atom owns matching and search state, with zero idle TTL so leaving docs releases the listener. This approval is limited to that shortcut's dispatch-time cancellation; ordinary event subscriptions continue to use `Stream.fromEventListener`.
+
 ### Services: `services/`
 
 - `ImaginedPlaceClient`: `Effect.Service` with `build`. Encodes the request through `PlaceBuildRequest` and decodes the response through `PlaceBuildEnvelope`.
