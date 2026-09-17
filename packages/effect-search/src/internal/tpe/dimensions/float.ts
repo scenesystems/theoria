@@ -8,8 +8,9 @@ import { Array as Arr, Boolean as Bool, Chunk, Data, Effect, Match, Number as Nu
 import { exp, logStrict } from "@scenesystems/effect-math/Numeric"
 import * as Acquisition from "../../../Acquisition.js"
 import type * as Rng from "../../../internal/rng.js"
-import { buildContinuousParzen, sampleFromParzen } from "../../../internal/tpe/continuousParzen.js"
+import { buildContinuousParzen } from "../../../internal/tpe/continuousParzen.js"
 import { prepareLogDensity } from "../../../internal/tpe/continuousParzen/density.js"
+import { sampleFromParzenBatch } from "../../../internal/tpe/continuousParzen/sample.js"
 import { defaultNoiseBandwidthOptions, type NoiseBandwidthOptions } from "../../../internal/tpe/noiseEstimator.js"
 import type { TrialSplit } from "../../../internal/tpe/splitTrials.js"
 import type { InvalidSamplerConfig } from "../../../SearchError.js"
@@ -220,10 +221,7 @@ export const floatCandidateTraceFromRolls = (
       noiseOptions,
       empiricalVariance
     )
-    const modelCandidates = Arr.map(
-      rolls,
-      ([kernelRoll, valueRoll]) => sampleFromParzen(belowParzen, kernelRoll, valueRoll)
-    )
+    const modelCandidates = sampleFromParzenBatch(belowParzen, rolls)
     const belowLogDensity = prepareLogDensity(belowParzen)
     const aboveLogDensity = prepareLogDensity(aboveParzen)
     const logPairs = Arr.map(

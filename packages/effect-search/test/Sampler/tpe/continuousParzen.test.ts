@@ -1,5 +1,5 @@
 import { describe, expect, it } from "@effect/vitest"
-import { Array as Arr, Boolean as Bool, Effect, Number as Num } from "effect"
+import { Array as Arr, Boolean as Bool, Effect, FastCheck, Number as Num, Tuple } from "effect"
 
 import * as Numeric from "@scenesystems/effect-math/Numeric"
 import {
@@ -10,6 +10,7 @@ import {
   sampleFromParzen
 } from "../../../src/internal/tpe/continuousParzen.js"
 import { prepareLogDensity } from "../../../src/internal/tpe/continuousParzen/density.js"
+import { sampleFromParzenBatch } from "../../../src/internal/tpe/continuousParzen/sample.js"
 import { logPdf as truncatedLogPdf, TruncatedNormalParams } from "../../../src/internal/tpe/truncatedNormal.js"
 
 describe("tpe continuous parzen", () => {
@@ -152,6 +153,46 @@ describe("tpe continuous parzen", () => {
 
       expect(firstKernelSample).toBeLessThan(0.3)
       expect(secondKernelSample).toBeGreaterThan(0.7)
+    }))
+
+  it.effect("batch sampling preserves cumulative-weight ties, zero weights, and roll order", () =>
+    Effect.sync(() => {
+      const model = new ContinuousParzen({
+        low: -4,
+        high: 8,
+        kernels: Arr.make(
+          new ContinuousKernel({ mean: -1, sigma: 0.001, weight: 0 }),
+          new ContinuousKernel({ mean: 2, sigma: 0.001, weight: 0.25 }),
+          new ContinuousKernel({ mean: 5, sigma: 0.001, weight: 0.75 })
+        )
+      })
+      const rolls = Arr.map(Arr.make(1, 0, 0.25, 0.25000000000000006, -1, 0.1), (roll) => Tuple.make(roll, 0.5))
+      const samples = sampleFromParzenBatch(model, rolls)
+      // The truncation lies thousands of standard deviations from each mean:
+      // its median rounds to that mean. A >= / > tie change selects another kernel.
+      expect(samples).toEqual(Arr.make(5, -1, 2, 5, -1, 2))
+      expect(sampleFromParzenBatch(model, Arr.empty())).toEqual(Arr.empty())
+    }))
+
+  it.effect.prop("batch sampling matches individual rolls across changing models and repeated selections", {
+    observations: FastCheck.array(FastCheck.double({ min: -2, max: 3, noNaN: true }), { maxLength: 32 }),
+    rolls: FastCheck.array(
+      FastCheck.tuple(
+        FastCheck.double({ min: 0, max: 1, noNaN: true }),
+        FastCheck.double({ min: 0, max: 1, noNaN: true })
+      ),
+      { minLength: 2, maxLength: 24 }
+    )
+  }, ({ observations, rolls }) =>
+    Effect.sync(() => {
+      const first = buildContinuousParzen(observations, -2, 3)
+      const second = buildContinuousParzen(Arr.empty<number>(), 9, 12)
+      const expected = Arr.map(rolls, ([kernelRoll, valueRoll]) => sampleFromParzen(first, kernelRoll, valueRoll))
+      expect(sampleFromParzenBatch(first, rolls)).toEqual(expected)
+      expect(sampleFromParzenBatch(second, rolls)).toEqual(
+        Arr.map(rolls, ([kernelRoll, valueRoll]) => sampleFromParzen(second, kernelRoll, valueRoll))
+      )
+      expect(sampleFromParzenBatch(first, rolls)).toEqual(expected)
     }))
 
   it.effect("samples stay within configured bounds", () =>

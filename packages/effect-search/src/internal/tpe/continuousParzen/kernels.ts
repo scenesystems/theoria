@@ -113,23 +113,21 @@ const cumulativeKernelWeights = (kernelsInput: Iterable<ContinuousKernel>) => {
   return Arr.tailNonEmpty(Arr.scan(kernels, 0, (total, kernel) => Num.sum(total, positiveKernelWeight(kernel))))
 }
 
-export const chooseKernelIndex = (parzen: ContinuousParzen, roll: number): number => {
+export const prepareChooseKernelIndex = (parzen: ContinuousParzen): (roll: number) => number => {
   const cumulative = cumulativeKernelWeights(parzen.kernels)
   const totalWeight = valueAt(cumulative, Num.decrement(Arr.length(cumulative)), 0)
-  const clampedRoll = Num.clamp(roll, {
-    minimum: 0,
-    maximum: 1
-  })
-  const target = Num.multiply(clampedRoll, totalWeight)
-  const index = Arr.findFirstIndex(cumulative, (value) => Num.greaterThanOrEqualTo(value, target)).pipe(
-    Option.getOrElse(() => Num.negate(1))
-  )
-
-  return Match.value(Num.lessThan(index, 0)).pipe(
-    Match.when(true, () => Num.max(Num.decrement(Arr.length(parzen.kernels)), 0)),
-    Match.orElse(() => index)
-  )
+  const fallback = Num.max(Num.decrement(Arr.length(parzen.kernels)), 0)
+  return (roll) => {
+    const target = Num.multiply(Num.clamp(roll, { minimum: 0, maximum: 1 }), totalWeight)
+    return Option.getOrElse(
+      Arr.findFirstIndex(cumulative, (value) => Num.greaterThanOrEqualTo(value, target)),
+      () => fallback
+    )
+  }
 }
+
+export const chooseKernelIndex = (parzen: ContinuousParzen, roll: number): number =>
+  prepareChooseKernelIndex(parzen)(roll)
 
 const fallbackKernel = (parzen: ContinuousParzen): ContinuousKernel =>
   new ContinuousKernel({

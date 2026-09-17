@@ -11,7 +11,7 @@ import {
   sampleEffect,
   TruncatedNormalParams
 } from "../../../src/internal/tpe/truncatedNormal.js"
-import { prepareLogPdf } from "../../../src/internal/tpe/truncatedNormal/truncated.js"
+import { prepareLogPdf, prepareSample } from "../../../src/internal/tpe/truncatedNormal/truncated.js"
 import { FixtureRegistryLive, loadFixture, TruncatedNormalFixture } from "../../helpers/fixtures/index.js"
 
 const CDF_ABSOLUTE_TOLERANCE = 1e-12
@@ -57,6 +57,7 @@ describe("truncated normal fixture parity", () => {
         (entry) =>
           Effect.gen(function*() {
             const params = toParams(entry)
+            const preparedSample = prepareSample(params)
 
             yield* Effect.forEach(
               entry.sampleQuantiles,
@@ -66,6 +67,8 @@ describe("truncated normal fixture parity", () => {
                   const expected = numberAt(entry.sampleExpected, index)
 
                   assertAbsoluteTolerance(actual, expected, SAMPLE_ABSOLUTE_TOLERANCE)
+                  assertAbsoluteTolerance(preparedSample(quantile), expected, SAMPLE_ABSOLUTE_TOLERANCE)
+                  expect(preparedSample(quantile)).toBe(actual)
                 }),
               { discard: true }
             )
@@ -180,6 +183,40 @@ describe("truncated normal fixture parity", () => {
         expect(Bool.not(Schema.is(Schema.NonNaN)(logPdf(0, invalidParams)))).toBe(true)
         expect(Bool.not(Schema.is(Schema.NonNaN)(cdf(0, invalidParams)))).toBe(true)
         expect(Bool.not(Schema.is(Schema.NonNaN)(sample(0.5, invalidParams)))).toBe(true)
+      })
+    }))
+
+  it.effect("prepared evaluators preserve exceptional rolls and collapsed or overflowed standardized bounds", () =>
+    Effect.sync(() => {
+      Arr.forEach(
+        Arr.make(
+          new TruncatedNormalParams({ mean: 1e20, sigma: 1, low: -1, high: 2 }),
+          new TruncatedNormalParams({ mean: 0, sigma: 5e-324, low: -1, high: 2 }),
+          new TruncatedNormalParams({ mean: 0, sigma: 1, low: 2, high: 2 })
+        ),
+        (params) => {
+          const prepared = prepareSample(params)
+          Arr.forEach(Arr.make(Number.NEGATIVE_INFINITY, -0.1, 0), (roll) => {
+            expect(sample(roll, params)).toBe(params.low)
+            expect(prepared(roll)).toBe(params.low)
+          })
+          Arr.forEach(Arr.make(1, 1.1, Number.POSITIVE_INFINITY), (roll) => {
+            expect(sample(roll, params)).toBe(params.high)
+            expect(prepared(roll)).toBe(params.high)
+          })
+          expect(prepared(Number.NaN)).toBeNaN()
+          expect(prepared(0.4)).toBeNaN()
+          expect(sample(0.4, params)).toBeNaN()
+          expect(prepareLogPdf(params)(Number.NaN)).toBeNaN()
+        }
+      )
+      Arr.forEach(Arr.make(0, -1, Number.NaN, Number.POSITIVE_INFINITY), (sigma) => {
+        const params = new TruncatedNormalParams({ mean: 0, sigma, low: -1, high: 2 })
+        const prepared = prepareSample(params)
+        Arr.forEach(Arr.make(0, 0.4, 1, Number.NaN), (roll) => {
+          expect(prepared(roll)).toBeNaN()
+          expect(sample(roll, params)).toBeNaN()
+        })
       })
     }))
 

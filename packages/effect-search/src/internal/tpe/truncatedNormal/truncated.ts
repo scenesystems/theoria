@@ -37,65 +37,63 @@ const logGaussMass = (a: number, b: number): number => {
 
 const logMachineEpsilon = logStrict(2.220446049250313e-16)
 
-const ppfFinite = (q: number, a: number, b: number): number => {
-  const logMass = logGaussMass(a, b)
-
-  return Match.value(a).pipe(
-    Match.when(Num.lessThan(0), (left) => {
-      const logBase = logNdtr(left)
-      const logIncrement = Num.sum(logStrict(q), logMass)
-      const gap = Num.subtract(logIncrement, logBase)
-      return Match.value(Num.lessThan(gap, logMachineEpsilon)).pipe(
-        Match.when(true, () => left),
-        Match.orElse(() => ndtriExp(logSum(logBase, logIncrement)))
-      )
-    }),
-    Match.orElse(() => {
-      const logBase = logNdtr(Num.negate(b))
-      const logIncrement = Num.sum(log1pStrict(Num.negate(q)), logMass)
-      const gap = Num.subtract(logIncrement, logBase)
-      return Match.value(Num.lessThan(gap, logMachineEpsilon)).pipe(
-        Match.when(true, () => b),
-        Match.orElse(() => Num.negate(ndtriExp(logSum(logBase, logIncrement))))
-      )
-    })
-  )
-}
-
-const ppf = (q: number, a: number, b: number): number =>
-  Match.value({ q, a, b }).pipe(
-    Match.when(({ q: quantile, a: left, b: right }) =>
-      Bool.or(
-        Bool.not(isFinite(quantile)),
-        Bool.or(Bool.not(isFinite(left)), Bool.not(isFinite(right)))
-      ), () => Number.NaN),
-    Match.when(({ q: quantile, a: left, b: right }) =>
-      Bool.or(
-        Equal.equals(left, right),
-        Bool.or(Num.lessThan(quantile, 0), Num.greaterThan(quantile, 1))
-      ), () => Number.NaN),
-    Match.when(({ q: quantile }) => Equal.equals(quantile, 0), ({ a: left }) => left),
-    Match.when(({ q: quantile }) => Equal.equals(quantile, 1), ({ b: right }) => right),
-    Match.orElse(({ q: quantile, a: left, b: right }) => ppfFinite(quantile, left, right))
-  )
+// Only interior quantiles reach this evaluator. Bounds, mass and the tail base
+// belong to the distribution; the Newton solve and its rounding stay unchanged.
+const preparePpf = (a: number, b: number): (q: number) => number =>
+  Bool.match(Bool.or(Bool.not(Bool.and(isFinite(a), isFinite(b))), Equal.equals(a, b)), {
+    onTrue: () => () => Number.NaN,
+    onFalse: () => {
+      const logMass = logGaussMass(a, b)
+      return Bool.match(Num.lessThan(a, 0), {
+        onTrue: () => {
+          const logBase = logNdtr(a)
+          return (q) => {
+            const logIncrement = Num.sum(logStrict(q), logMass)
+            const gap = Num.subtract(logIncrement, logBase)
+            return Bool.match(Num.lessThan(gap, logMachineEpsilon), {
+              onTrue: () => a,
+              onFalse: () => ndtriExp(logSum(logBase, logIncrement))
+            })
+          }
+        },
+        onFalse: () => {
+          const logBase = logNdtr(Num.negate(b))
+          return (q) => {
+            const logIncrement = Num.sum(log1pStrict(Num.negate(q)), logMass)
+            const gap = Num.subtract(logIncrement, logBase)
+            return Bool.match(Num.lessThan(gap, logMachineEpsilon), {
+              onTrue: () => b,
+              onFalse: () => Num.negate(ndtriExp(logSum(logBase, logIncrement)))
+            })
+          }
+        }
+      })
+    }
+  })
 
 const logPdfEvaluator = (
   params: TruncatedNormalParams,
   bounds: StandardizedBounds,
   normalize: (logPdf: number) => number
 ): (x: number) => number =>
-  Match.type<number>().pipe(
-    Match.when(Predicate.not(Schema.is(Schema.NonNaN)), () => Number.NaN),
-    Match.when(() => Equal.equals(bounds.a, bounds.b), () => Number.NaN),
-    Match.when(Predicate.not(isFinite), () => Number.NEGATIVE_INFINITY),
-    Match.orElse((x) => {
-      const standardized = Num.unsafeDivide(Num.subtract(x, params.mean), params.sigma)
-      return Bool.match(Bool.or(Num.lessThan(standardized, bounds.a), Num.greaterThan(standardized, bounds.b)), {
-        onTrue: () => Number.NEGATIVE_INFINITY,
-        onFalse: () => normalize(logNormPdf(standardized))
+  Bool.match(Equal.equals(bounds.a, bounds.b), {
+    onTrue: () => () => Number.NaN,
+    onFalse: () => (x) =>
+      Bool.match(isFinite(x), {
+        onFalse: () =>
+          Bool.match(Num.Equivalence(x, x), {
+            onTrue: () => Number.NEGATIVE_INFINITY,
+            onFalse: () => Number.NaN
+          }),
+        onTrue: () => {
+          const standardized = Num.unsafeDivide(Num.subtract(x, params.mean), params.sigma)
+          return Bool.match(Bool.or(Num.lessThan(standardized, bounds.a), Num.greaterThan(standardized, bounds.b)), {
+            onTrue: () => Number.NEGATIVE_INFINITY,
+            onFalse: () => normalize(logNormPdf(standardized))
+          })
+        }
       })
-    })
-  )
+  })
 
 export const logPdf = (x: number, params: TruncatedNormalParams): number =>
   Bool.match(isValidParams(params), {
@@ -142,45 +140,49 @@ export const cdf = (x: number, params: TruncatedNormalParams): number => {
   )
 }
 
-export const sample = (random: number, params: TruncatedNormalParams): number =>
-  Match.value({ random, params }).pipe(
-    Match.when(
-      ({ random: currentRandom, params: currentParams }) =>
-        Bool.or(Predicate.not(Schema.is(Schema.NonNaN))(currentRandom), Bool.not(isValidParams(currentParams))),
-      () => Number.NaN
-    ),
-    Match.orElse(({ random: currentRandom, params: currentParams }) => {
-      const bounds = standardizeBounds(currentParams)
-      const quantile = clamp(currentRandom, 0, 1)
-      return Match.value(quantile).pipe(
-        Match.when(Num.lessThanOrEqualTo(0), () => currentParams.low),
-        Match.when(Num.greaterThanOrEqualTo(1), () => currentParams.high),
-        Match.orElse((currentQuantile) => {
-          const standardized = ppf(currentQuantile, bounds.a, bounds.b)
-
-          return Match.value(isFinite(standardized)).pipe(
-            Match.when(
-              true,
-              () =>
-                clamp(
-                  Num.sum(Num.multiply(standardized, currentParams.sigma), currentParams.mean),
-                  currentParams.low,
-                  currentParams.high
-                )
-            ),
-            Match.orElse(() =>
-              Match.value(Equal.equals(standardized, Number.NEGATIVE_INFINITY)).pipe(
-                Match.when(true, () => currentParams.low),
-                Match.orElse(() =>
-                  Match.value(Equal.equals(standardized, Number.POSITIVE_INFINITY)).pipe(
-                    Match.when(true, () => currentParams.high),
-                    Match.orElse(() => Number.NaN)
-                  )
-                )
-              )
-            )
-          )
-        })
-      )
+const sampleEvaluator = (
+  params: TruncatedNormalParams,
+  quantile: (random: number) => number
+): (random: number) => number =>
+  Match.type<number>().pipe(
+    Match.when((random) => Bool.not(Num.Equivalence(random, random)), () => Number.NaN),
+    // Return the literal endpoints even if standardized bounds collapse.
+    Match.when(Num.lessThanOrEqualTo(0), () => params.low),
+    Match.when(Num.greaterThanOrEqualTo(1), () => params.high),
+    Match.orElse((random) => {
+      const standardized = quantile(random)
+      return Bool.match(isFinite(standardized), {
+        onTrue: () => clamp(Num.sum(Num.multiply(standardized, params.sigma), params.mean), params.low, params.high),
+        onFalse: () =>
+          Bool.match(Equal.equals(standardized, Number.NEGATIVE_INFINITY), {
+            onTrue: () => params.low,
+            onFalse: () =>
+              Bool.match(Equal.equals(standardized, Number.POSITIVE_INFINITY), {
+                onTrue: () => params.high,
+                onFalse: () => Number.NaN
+              })
+          })
+      })
     })
   )
+
+/** Reuses distribution constants without caching random rolls or sampled values. */
+export const prepareSample = (params: TruncatedNormalParams): (random: number) => number =>
+  Bool.match(isValidParams(params), {
+    onFalse: () => () => Number.NaN,
+    onTrue: () => {
+      const bounds = standardizeBounds(params)
+      return sampleEvaluator(params, preparePpf(bounds.a, bounds.b))
+    }
+  })
+
+export const sample = (random: number, params: TruncatedNormalParams): number =>
+  Bool.match(isValidParams(params), {
+    onFalse: () => Number.NaN,
+    onTrue: () =>
+      sampleEvaluator(params, (q) => {
+        // One-shot endpoint rolls do not need the distribution's normalizer.
+        const bounds = standardizeBounds(params)
+        return preparePpf(bounds.a, bounds.b)(q)
+      })(random)
+  })

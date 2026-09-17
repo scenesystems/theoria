@@ -4,7 +4,7 @@
  * @since 0.1.0
  * @category internal
  */
-import { Boolean, Chunk, Match, Number } from "effect"
+import { Array, Boolean, Chunk, Match, Number } from "effect"
 
 import * as Binary from "./binary.js"
 import { exp, log } from "./transcendental.js"
@@ -13,10 +13,11 @@ import { exp, log } from "./transcendental.js"
 export const logSumExpChunk = Match.type<Chunk.Chunk<number>>().pipe(
   Match.when((values) => Number.Equivalence(Chunk.size(values), 1), (values) => Chunk.unsafeGet(values, 0)),
   Match.orElse((values) => {
+    const elements = Chunk.toReadonlyArray(values)
     // Effect's total Number.Order is not an IEEE unordered comparison, so
     // propagate NaN explicitly while folding exceptional values into this scan.
-    const maximum = Chunk.reduce(
-      values,
+    const maximum = Array.reduce(
+      elements,
       Binary.negativeInfinity,
       (current, value) =>
         Boolean.match(Boolean.or(Binary.isNaN(value), Binary.isNaN(current)), {
@@ -29,7 +30,7 @@ export const logSumExpChunk = Match.type<Chunk.Chunk<number>>().pipe(
       onTrue: () =>
         Number.sum(
           maximum,
-          log(Chunk.reduce(values, 0, (total, value) => Number.sum(total, exp(Number.subtract(value, maximum)))))
+          log(Array.reduce(elements, 0, (total, value) => Number.sum(total, exp(Number.subtract(value, maximum)))))
         )
     })
   })
