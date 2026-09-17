@@ -1,5 +1,5 @@
 import { describe, expect, it } from "@effect/vitest"
-import { Array as Arr, Effect, Either, Match, Number as Num, Schema } from "effect"
+import { Array as Arr, Effect, Either, Match, Number as Num, Ref, Schema } from "effect"
 
 import type { Direction } from "../../src/Direction.js"
 import * as Optimization from "../../src/Optimization.js"
@@ -30,6 +30,44 @@ const expectInvalidOptimizationConfig = (outcome: Either.Either<unknown, unknown
   })
 
 describe("Optimization snapshot-resume validation boundaries", () => {
+  it.effect("rejects duplicate identities and invalid numbering before restoring sampler state", () =>
+    Effect.gen(function*() {
+      const space = yield* snapshotSpace
+      const sampler = Sampler.random({ seed: 19 })
+      const result = yield* Optimization.run({ space, sampler, trials: 1, objective: snapshotSingleObjective })
+      const snapshot = yield* Optimization.snapshot(result)
+      const first = yield* Arr.head(snapshot.trials)
+      const restores = yield* Ref.make(0)
+      const observed = new Sampler.Sampler({ ...sampler, restore: () => Ref.update(restores, Num.increment) })
+      const reject = (corrupt: OptimizationSnapshot.OptimizationSnapshot) =>
+        Effect.gen(function*() {
+          const outcome = yield* Effect.either(Optimization.resume({
+            space,
+            sampler: observed,
+            snapshot: corrupt,
+            trials: 0,
+            objective: snapshotSingleObjective
+          }))
+          yield* expectInvalidOptimizationConfig(outcome, "snapshot")
+          expect(yield* Ref.get(restores)).toBe(0)
+        })
+      yield* reject({ ...snapshot, trials: Arr.make(first, first), completedCount: 2 })
+      yield* Effect.forEach(
+        Arr.make(0.5, -1, NaN, Infinity, 9007199254740992),
+        (trialNumber) =>
+          reject({
+            ...snapshot,
+            trials: Arr.of({ ...first, trialNumber }),
+            nextTrialNumber: Num.increment(trialNumber)
+          })
+      )
+      yield* reject({ ...snapshot, trials: Arr.of({ ...first, prior: true }) })
+      yield* reject({ ...snapshot, nextTrialNumber: 0.5 })
+      yield* reject({ ...snapshot, completedCount: -1 })
+      yield* reject({ ...snapshot, completedCount: 0 })
+      yield* reject({ ...snapshot, trials: Arr.of({ ...first, config: { invalid: true } }) })
+    }))
+
   it.effect("fails resume when snapshot and runtime spaces have different fingerprints", () =>
     Effect.gen(function*() {
       const snapshotResult = yield* Optimization.run({

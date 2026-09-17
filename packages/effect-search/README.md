@@ -164,6 +164,8 @@ export const program = Effect.gen(function* () {
 
 `Optimization.snapshot` captures the trials, the next trial number, the sampler checkpoint, and compatibility metadata from a result or an open handle. `OptimizationSnapshot.OptimizationSnapshot` is the schema, so encode it for storage and decode it later. `Optimization.resume` validates the space and settings against the snapshot before continuing.
 
+Completed results capture the sampler's final state. Interruption cancels outstanding reservations before saving a checkpoint; restoring an open handle's snapshot likewise cancels reservations whose workers no longer exist. Completed observations and trial numbers are retained, and new trials receive new numbers. Restore rejects duplicate or invalid identities, inconsistent counters, and invalid configurations before invoking sampler restoration. `OptimizationSnapshot.decodeUnknown` can normalize stale derived diagnostics, but never repairs trial identities.
+
 ```ts typecheck
 import { Effect, Number as Num, Schema } from "effect"
 import { Optimization, OptimizationSnapshot, Sampler, SearchSpace } from "@scenesystems/effect-search"
@@ -191,6 +193,8 @@ export const program = Effect.gen(function* () {
 ```
 
 For long-running work, import `StudyStorage` from `@scenesystems/effect-study/StudyStorage` and install `OptimizationStorage.layerFileSystem(StudyStorage.fileSystemOptions(directory))`. Generic storage owns the JSON-lines journal and defaults to `study-storage.jsonl`; `OptimizationStorage` supplies the optimization trial and snapshot schemas. `Optimization.resumeFromStorage` or `Optimization.resumeFromStorageStream` continue from that state. `OptimizationStorage.makeFileSystem` is the effectful filesystem constructor. `OptimizationStorage.make` is an Effect that specializes an ambient `StudyStorage`, while `OptimizationStorage.layer` provides that ambient specialization as a `Layer`. Filesystem-backed storage also needs the platform `FileSystem` and `Path` services, which `@effect/platform-bun` or `@effect/platform-node` provide. Optimization persistence does not require an artifact sink or artifact context.
+
+Recovery filters the complete append-only trial log against the exact snapshot it loaded, so a concurrently appended snapshot cannot advance the replay boundary and hide intervening trials. Storage must retain that log; this does not provide distributed ownership of an optimization, so callers must still coordinate which process resumes execution.
 
 Artifacts are independent from checkpoints. Import `ArtifactContext` and `ArtifactSink` from `@scenesystems/effect-study/ArtifactContext` and `@scenesystems/effect-study/ArtifactSink`. `ArtifactContext.Options` takes `packageVersion` and `runId`—not an optimization or study ID. Emit with `sink.emit(schema, artifact)`. For a filesystem sink use `ArtifactSink.layerFileSystem(directory, fileName?)`; `ArtifactSink.makeFileSystem` remains the effectful constructor, while `ArtifactSink.layer` installs an already-created generic sink.
 

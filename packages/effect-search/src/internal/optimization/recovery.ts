@@ -3,7 +3,7 @@
  *
  * @since 0.1.0
  */
-import { Array as Arr, Data, Effect, Option } from "effect"
+import { Array as Arr, Data, Effect, Number as Num, Option } from "effect"
 
 import type * as Optimization from "../../Optimization.js"
 import * as OptimizationSnapshot from "../../OptimizationSnapshot.js"
@@ -80,7 +80,11 @@ const recoveredSnapshotFromStorage = Effect.serviceOption(OptimizationStorage.Op
             onNone: () => Effect.fail(snapshotMissingFailure()),
             onSome: Effect.succeed
           })
-          const replayTail = yield* storage.replayTrialLog()
+          // Pin the replay boundary to this snapshot. Loading a second snapshot
+          // after a concurrent append could discard trials absent from the first.
+          const trialLog = yield* storage.loadTrialLog()
+          const replayTail = Arr.filter(trialLog, (trial) =>
+            Num.greaterThanOrEqualTo(trial.trialNumber, snapshot.nextTrialNumber))
 
           return yield* OptimizationSnapshot.recover(snapshot, replayTail)
         })

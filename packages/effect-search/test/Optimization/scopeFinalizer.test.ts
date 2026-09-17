@@ -1,4 +1,5 @@
 import { describe, expect, it } from "@effect/vitest"
+import * as StudyStorage from "@scenesystems/effect-study/StudyStorage"
 import {
   Array as Arr,
   Data,
@@ -78,6 +79,11 @@ describe("Optimization scoped execution", () => {
   it.live("persists sampler checkpoint through scoped finalization on interruption", () =>
     Effect.gen(function*() {
       const checkpointCallsRef = yield* Ref.make(0)
+      const storage = yield* StudyStorage.makeMemory().pipe(
+        Effect.flatMap((generic) =>
+          OptimizationStorage.make.pipe(Effect.provideService(StudyStorage.StudyStorage, generic))
+        )
+      )
       const interrupted = yield* Optimization.run({
         space: yield* makeSpace(),
         sampler: trackedSampler(trackedRefs(checkpointCallsRef)),
@@ -85,11 +91,16 @@ describe("Optimization scoped execution", () => {
         trials: 40,
         concurrency: 2,
         objective: () => Effect.sleep("20 millis").pipe(Effect.as(1))
-      }).pipe(Effect.timeoutOption("40 millis"))
+      }).pipe(
+        Effect.provideService(OptimizationStorage.OptimizationStorage, storage),
+        Effect.timeoutOption("40 millis")
+      )
       const checkpointCalls = yield* Ref.get(checkpointCallsRef)
+      const snapshot = yield* storage.loadSnapshot().pipe(Effect.flatMap((value) => value))
 
       expect(Option.isNone(interrupted)).toBe(true)
-      expect(checkpointCalls).toBeGreaterThanOrEqual(2)
+      expect(checkpointCalls).toBe(1)
+      expect(snapshot.samplerCheckpoint).toEqual({ _tag: "Random", seed: 1 })
     }))
 
   it.live("runs sampler acquire/release lifecycle in scoped execution", () =>

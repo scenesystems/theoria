@@ -43,7 +43,7 @@ const storageLayerFromReplayTail = (
     appendTrial: (_trial) => Effect.void,
     writeSnapshot: (_snapshot) => Effect.void,
     loadSnapshot: () => Effect.succeedSome(snapshot),
-    loadTrialLog: () => Effect.succeed(Arr.empty<OptimizationSnapshot.Trial>()),
+    loadTrialLog: () => Effect.succeed(Arr.appendAll(snapshot.trials, replayTail)),
     replayTrialLog: () => Effect.succeed(Arr.fromIterable(replayTail))
   })
 

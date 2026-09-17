@@ -5,7 +5,7 @@
  */
 import * as History from "@scenesystems/effect-study/History"
 import * as GenericStudy from "@scenesystems/effect-study/Study"
-import { Array as Arr, Cause, Effect, Match, Number as Num, Option, Queue, Ref } from "effect"
+import { Array as Arr, Cause, Effect, Match, Number as Num, Option, Queue, Ref, Tuple } from "effect"
 import type { Scope } from "effect"
 
 import * as OptimizationEvent from "../../OptimizationEvent.js"
@@ -18,7 +18,7 @@ import type { SearchError } from "../../SearchError.js"
 import type * as SearchSpace from "../../SearchSpace.js"
 import type { EventPublisher } from "./events.js"
 import { appendEvent, noopEventPublisher } from "./events.js"
-import { completedTrialsFromState } from "./history.js"
+import { cancelPendingTrials, completedTrialsFromState } from "./history.js"
 import type { OptimizePlan, OptimizeSettings } from "./options/plan.js"
 import { normalizeSettings, pruningPolicyFromOptions, validateSettings } from "./options/settings.js"
 import { initializeRuntime, type OptimizationRuntime } from "./runtime/bootstrap.js"
@@ -80,10 +80,14 @@ const withRuntimeCheckpoint = <Space extends SearchSpace.SearchSpace, A, E, R>(
   Effect.uninterruptibleMask((restore) =>
     restore(trials).pipe(
       Effect.tapErrorCause((cause) =>
-        GenericStudy.transition(runtime.study, failureLifecycle(cause)).pipe(
-          Effect.zipRight(persistRuntimeCheckpoint(options, settings, runtime, interruptionSnapshotSink)),
-          Effect.mapErrorCause((checkpointCause) => Cause.sequential(cause, checkpointCause))
-        )
+        GenericStudy.modify(runtime.study, (state) =>
+          Effect.succeed(Tuple.make(
+            undefined,
+            new GenericStudy.State({ lifecycle: failureLifecycle(cause), history: cancelPendingTrials(state.history) })
+          ))).pipe(
+            Effect.zipRight(persistRuntimeCheckpoint(options, settings, runtime, interruptionSnapshotSink)),
+            Effect.mapErrorCause((checkpointCause) => Cause.sequential(cause, checkpointCause))
+          )
       )
     )
   )
@@ -168,8 +172,6 @@ export const executeOptimization = <Space extends SearchSpace.SearchSpace>(
             startTrialNumber: seed.startTrialNumber
           })
         )
-        const samplerCheckpoint = yield* Sampler.checkpoint(options.sampler)
-        const snapshotMetadata = snapshotMetadataFromOptions(options, settings, samplerCheckpoint)
 
         const runtime = yield* initializeRuntime(settings, runtimeSeed.initialTrials, eventPublisher)
         yield* GenericStudy.transition(runtime.study, "Running")
@@ -200,6 +202,8 @@ export const executeOptimization = <Space extends SearchSpace.SearchSpace>(
             const completionReasonOverride = yield* Ref.get(runtime.completionReasonRef)
             const trials = History.values(finalState)
             const completionReason = resolveCompletionReason(stopRequest, completionReasonOverride)
+            const samplerCheckpoint = yield* Sampler.checkpoint(options.sampler)
+            const snapshotMetadata = snapshotMetadataFromOptions(options, settings, samplerCheckpoint)
             const completionSnapshot = OptimizationSnapshot.make(trials, snapshotMetadata)
 
             yield* GenericStudy.transition(runtime.study, "Completed")

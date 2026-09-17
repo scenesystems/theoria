@@ -6,7 +6,19 @@
  */
 import * as Stop from "@scenesystems/effect-study/Stop"
 import * as StudyTrial from "@scenesystems/effect-study/Trial"
-import { Array as Arr, Boolean as Bool, Data, Effect, Equal, Match, Number as Num, Option, Order, Schema } from "effect"
+import {
+  Array as Arr,
+  Boolean as Bool,
+  Data,
+  Effect,
+  Equal,
+  HashSet,
+  Match,
+  Number as Num,
+  Option,
+  Order,
+  Schema
+} from "effect"
 
 import { Objective } from "./Objective.js"
 import * as Sampler from "./Sampler.js"
@@ -25,34 +37,8 @@ export const Metadata = Schema.Struct({
 /** Continuation metadata decoded by {@link Metadata}. @since 0.7.0 @category models */
 export type Metadata = typeof Metadata.Type
 
-/** Persisted trial with an opaque encoded configuration. @since 0.7.0 @category schemas */
-export const Trial = StudyTrial.Trial(Schema.Unknown, SearchTrial.State)
-/** Persisted trial decoded by {@link Trial}. @since 0.7.0 @category models */
-export type Trial = typeof Trial.Type
-
-/** Derived diagnostics stored with a snapshot. @since 0.7.0 @category schemas */
-export const Metrics = Schema.Struct({
-  checkpointTag: Schema.String,
-  completedCount: Schema.Number,
-  retryCountTotal: Schema.Number,
-  priorCount: Schema.Number
-})
-/** Snapshot diagnostics decoded by {@link Metrics}. @since 0.7.0 @category models */
-export type Metrics = typeof Metrics.Type
-
-const Fields = {
-  ...Metadata.fields,
-  nextTrialNumber: Schema.Number,
-  trials: Schema.Array(Trial),
-  completedCount: Schema.Number,
-  optimizationDuration: Schema.Number,
-  samplerMetrics: Metrics
-}
-
-/** Persisted optimization state and derived diagnostics. @since 0.7.0 @category schemas */
-export class OptimizationSnapshot extends Schema.Class<OptimizationSnapshot>(
-  "@scenesystems/effect-search/OptimizationSnapshot"
-)(Fields) {}
+const Count = Schema.Int.pipe(Schema.nonNegative())
+const NonNegativeFinite = Schema.NonNegative.pipe(Schema.finite())
 
 const stateDuration = (state: SearchTrial.State): number =>
   SearchTrial.matchState({
@@ -62,6 +48,60 @@ const stateDuration = (state: SearchTrial.State): number =>
     Pruned: ({ duration }) => duration,
     Cancelled: () => 0
   })(state)
+
+/** Persisted trial with an opaque encoded configuration. @since 0.7.0 @category schemas */
+export const Trial = Schema.Struct({
+  ...StudyTrial.Trial(Schema.Unknown, SearchTrial.State).fields,
+  trialNumber: Schema.Int
+}).pipe(
+  Schema.filter((trial) =>
+    Match.value(trial.prior).pipe(
+      Match.when(
+        true,
+        () => Bool.and(Num.lessThan(trial.trialNumber, 0), SearchTrial.isState("Completed")(trial.state))
+      ),
+      Match.orElse(() => Num.greaterThanOrEqualTo(trial.trialNumber, 0))
+    ), { message: () => "Only completed prior trials may have negative trial numbers" }),
+  Schema.filter((trial) => Schema.is(NonNegativeFinite)(stateDuration(trial.state)), {
+    message: () => "Trial durations must be finite and non-negative"
+  }),
+  Schema.annotations({ identifier: "@scenesystems/effect-search/OptimizationSnapshot/Trial" })
+)
+/** Persisted trial decoded by {@link Trial}. @since 0.7.0 @category models */
+export type Trial = typeof Trial.Type
+
+const Trials = Schema.Array(Trial).pipe(Schema.filter(
+  (trials) =>
+    Num.Equivalence(
+      HashSet.size(HashSet.fromIterable(Arr.map(trials, (trial) => trial.trialNumber))),
+      Arr.length(trials)
+    ),
+  { message: () => "Snapshot trial numbers must be unique" }
+))
+const Contents = Schema.Struct({ ...Metadata.fields, trials: Trials })
+
+/** Derived diagnostics stored with a snapshot. @since 0.7.0 @category schemas */
+export const Metrics = Schema.Struct({
+  checkpointTag: Schema.String,
+  completedCount: Count,
+  retryCountTotal: Count,
+  priorCount: Count
+})
+/** Snapshot diagnostics decoded by {@link Metrics}. @since 0.7.0 @category models */
+export type Metrics = typeof Metrics.Type
+
+const Fields = {
+  ...Contents.fields,
+  nextTrialNumber: Count,
+  completedCount: Count,
+  optimizationDuration: NonNegativeFinite,
+  samplerMetrics: Metrics
+}
+
+/** Persisted optimization state and derived diagnostics. @since 0.7.0 @category schemas */
+export class OptimizationSnapshot extends Schema.Class<OptimizationSnapshot>(
+  "@scenesystems/effect-search/OptimizationSnapshot"
+)(Fields) {}
 
 const isCompleted = <Config>(trial: SearchTrial.Trial<Config>): trial is SearchTrial.CompletedTrial<Config> =>
   SearchTrial.isState("Completed")(trial.state)
@@ -86,9 +126,10 @@ const priorCount = (trials: Iterable<Trial>): number =>
       )
   )
 
-const materialize = (metadata: Metadata, trials: Iterable<Trial>, completedCount: number): OptimizationSnapshot => {
+const deriveFields = (metadata: Metadata, trials: Iterable<Trial>) => {
   const orderedTrials = Arr.fromIterable(trials)
-  return new OptimizationSnapshot({
+  const completedCount = Arr.length(Arr.filter(orderedTrials, isCompleted))
+  return {
     ...metadata,
     nextTrialNumber: Num.increment(
       Arr.reduce(orderedTrials, Num.negate(1), (maximum, trial) => Num.max(maximum, trial.trialNumber))
@@ -102,7 +143,7 @@ const materialize = (metadata: Metadata, trials: Iterable<Trial>, completedCount
       retryCountTotal: Arr.reduce(orderedTrials, 0, (total, trial) => Num.sum(total, retryCount(trial))),
       priorCount: priorCount(orderedTrials)
     }
-  })
+  }
 }
 
 /** Converts a runtime trial to its persisted opaque-configuration representation. @since 0.7.0 @category conversions */
@@ -115,23 +156,35 @@ export const toTrial = <Config>(trial: Trial, config: Config): SearchTrial.Trial
 /** Builds a replay snapshot and derives numbering, duration, retry, and prior counters. @since 0.7.0 @category constructors */
 export const make = <Config>(trials: Iterable<SearchTrial.Trial<Config>>, metadata: Metadata): OptimizationSnapshot => {
   const persisted = Arr.map(Arr.fromIterable(trials), (trial) => fromTrial(trial))
-  const completedCount = Arr.reduce(
-    persisted,
-    0,
-    (count, trial) =>
-      Match.value(SearchTrial.isState("Completed")(trial.state)).pipe(
-        Match.when(true, () => Num.increment(count)),
-        Match.orElse(() => count)
-      )
-  )
-  return materialize(metadata, persisted, completedCount)
+  return new OptimizationSnapshot(deriveFields(metadata, persisted))
 }
 
 /** Decodes unknown snapshot input and recomputes derived diagnostics rather than trusting them. @since 0.7.0 @category decoding */
 export const decodeUnknown = (input: unknown) =>
-  Schema.decodeUnknown(OptimizationSnapshot)(input).pipe(
-    Effect.map((snapshot) => materialize(snapshot, snapshot.trials, snapshot.completedCount))
+  Schema.decodeUnknown(Contents)(input).pipe(
+    Effect.flatMap((snapshot) => Schema.decodeUnknown(OptimizationSnapshot)(deriveFields(snapshot, snapshot.trials)))
   )
+
+const invalid = (reason: string) => new InvalidOptimizationConfig({ reason })
+
+const validated = (input: unknown): Effect.Effect<OptimizationSnapshot, InvalidOptimizationConfig> =>
+  Effect.gen(function*() {
+    const persisted = yield* Schema.decodeUnknown(OptimizationSnapshot)(input).pipe(
+      Effect.mapError(() => invalid("Optimization.resume snapshot payload decode failed"))
+    )
+    const decoded = yield* decodeUnknown(persisted).pipe(
+      Effect.mapError(() => invalid("Optimization.resume snapshot diagnostics are invalid"))
+    )
+    yield* Effect.when(
+      Effect.fail(invalid("Optimization.resume snapshot next trial number mismatch")),
+      () => Bool.not(Num.Equivalence(decoded.nextTrialNumber, persisted.nextTrialNumber))
+    )
+    yield* Effect.when(
+      Effect.fail(invalid("Optimization.resume snapshot completed count mismatch")),
+      () => Bool.not(Num.Equivalence(decoded.completedCount, persisted.completedCount))
+    )
+    return decoded
+  })
 
 const duplicateTrialNumber = (trials: Iterable<Trial>): Option.Option<number> => {
   const values = Arr.fromIterable(trials)
@@ -153,8 +206,11 @@ export const recover = (
   replayTail: Iterable<Trial>
 ): Effect.Effect<OptimizationSnapshot, InvalidOptimizationConfig> =>
   Effect.gen(function*() {
-    const tail = Arr.fromIterable(replayTail)
-    const stale = Arr.findFirst(tail, (trial) => Num.lessThan(trial.trialNumber, snapshot.nextTrialNumber))
+    const checkpoint = yield* validated(snapshot)
+    const tail = yield* Schema.decodeUnknown(Schema.Array(Trial))(Arr.fromIterable(replayTail)).pipe(
+      Effect.mapError(() => invalid("Optimization.resumeFromStorage replay tail payload decode failed"))
+    )
+    const stale = Arr.findFirst(tail, (trial) => Num.lessThan(trial.trialNumber, checkpoint.nextTrialNumber))
     yield* Option.match(stale, {
       onNone: () => Effect.void,
       onSome: (trial) =>
@@ -165,7 +221,7 @@ export const recover = (
         )
     })
     const trials = Arr.sort(
-      Arr.appendAll(snapshot.trials, tail),
+      Arr.appendAll(checkpoint.trials, tail),
       Order.mapInput(Num.Order, (trial: Trial) => trial.trialNumber)
     )
     yield* Option.match(duplicateTrialNumber(trials), {
@@ -177,16 +233,9 @@ export const recover = (
           })
         )
     })
-    const completedCount = Arr.reduce(
-      trials,
-      0,
-      (count, trial) =>
-        Match.value(SearchTrial.isState("Completed")(trial.state)).pipe(
-          Match.when(true, () => Num.increment(count)),
-          Match.orElse(() => count)
-        )
+    return yield* decodeUnknown({ ...checkpoint, trials }).pipe(
+      Effect.mapError(() => invalid("Optimization.resumeFromStorage replay diagnostics are invalid"))
     )
-    return materialize(snapshot, trials, completedCount)
   })
 
 /** Validated execution seed recovered from a snapshot. @since 0.7.0 @category models */
@@ -195,12 +244,11 @@ export class Seed<Config> extends Data.Class<{
   readonly startTrialNumber: number
 }> {}
 
-const invalid = (reason: string) => new InvalidOptimizationConfig({ reason })
-
 /**
  * Validates space, objective, stop-mode, and sampler compatibility before replay.
- * Restores the sampler checkpoint and decodes every opaque configuration through
- * the supplied search-space schema; incompatibility fails with {@link InvalidOptimizationConfig}.
+ * Checks identities, counters, and every opaque configuration before restoring the
+ * sampler. Running reservations are cancelled because their workers do not survive
+ * restoration. Incompatibility fails with {@link InvalidOptimizationConfig}.
  *
  * @since 0.7.0
  * @category recovery
@@ -213,10 +261,7 @@ export const restore = <Space extends SearchSpace.SearchSpace>(
   snapshot: OptimizationSnapshot
 ): Effect.Effect<Seed<SearchSpace.Type<Space>>, InvalidOptimizationConfig> =>
   Effect.gen(function*() {
-    const persisted = yield* Schema.decodeUnknown(OptimizationSnapshot)(snapshot).pipe(
-      Effect.mapError(() => invalid("Optimization.resume snapshot payload decode failed"))
-    )
-    const decoded = materialize(persisted, persisted.trials, persisted.completedCount)
+    const decoded = yield* validated(snapshot)
     yield* Effect.when(
       Effect.fail(invalid("Optimization.resume space fingerprint mismatch")),
       () => Bool.not(Equal.equals(decoded.spaceFingerprint, SearchSpace.fingerprint(space)))
@@ -233,25 +278,20 @@ export const restore = <Space extends SearchSpace.SearchSpace>(
       Effect.fail(invalid("Optimization.resume sampler kind mismatch")),
       () => Bool.not(Schema.equivalence(Sampler.Kind)(decoded.samplerKind, sampler.kind))
     )
-    yield* Sampler.restore(sampler, decoded.samplerCheckpoint)
     const initialTrials = yield* Effect.forEach(decoded.trials, (trial) =>
       Schema.decodeUnknown(space.schema)(trial.config).pipe(
-        Effect.map((config) =>
-          toTrial(trial, config)
-        ),
-        Effect.mapError(() => invalid(`Optimization.resume trial ${trial.trialNumber} has an invalid configuration`))
+        Effect.map((config) => {
+          const restored = toTrial(trial, config)
+          return Match.value(SearchTrial.isState("Running")(restored.state)).pipe(
+            Match.when(true, () =>
+              SearchTrial.cancel(restored)),
+            Match.orElse(() => restored)
+          )
+        }),
+        Effect.mapError(() =>
+          invalid(`Optimization.resume snapshot trial ${trial.trialNumber} has an invalid configuration`)
+        )
       ))
-    const computedCompleted = Arr.length(Arr.filter(initialTrials, isCompleted))
-    const computedNext = Num.increment(
-      Arr.reduce(initialTrials, Num.negate(1), (maximum, trial) => Num.max(maximum, trial.trialNumber))
-    )
-    yield* Effect.when(
-      Effect.fail(invalid("Optimization.resume next trial number mismatch")),
-      () => Bool.not(Num.Equivalence(computedNext, persisted.nextTrialNumber))
-    )
-    yield* Effect.when(
-      Effect.fail(invalid("Optimization.resume completed count mismatch")),
-      () => Bool.not(Num.Equivalence(computedCompleted, persisted.completedCount))
-    )
+    yield* Sampler.restore(sampler, decoded.samplerCheckpoint)
     return new Seed({ initialTrials, startTrialNumber: decoded.nextTrialNumber })
   }).pipe(Effect.withSpan("effect-search/OptimizationSnapshot.restore"))
