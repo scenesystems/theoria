@@ -1,5 +1,18 @@
 import { describe, expect, it } from "@effect/vitest"
-import { Boolean as Bool, Effect, Equal, Layer, Number as Num, Option, Schema, String as Str, Tuple } from "effect"
+import {
+  Boolean as Bool,
+  Effect,
+  Equal,
+  FastCheck,
+  Layer,
+  MutableRef,
+  Number as Num,
+  Option,
+  Record,
+  Schema,
+  String as Str,
+  Tuple
+} from "effect"
 import * as Arr from "effect/Array"
 
 import * as Numeric from "@scenesystems/effect-math/Numeric"
@@ -9,11 +22,13 @@ import {
   drawingOnStage,
   drawingScaled,
   flowLines,
+  flowQuality,
   lineWidthFor,
   markerGap,
   markerRadius,
   markersBeside,
   markersBetween,
+  measureFlowQuality,
   minimumLineWidth,
   minimumTouchTarget,
   paperExpected,
@@ -397,6 +412,37 @@ describe("Imagined place geometry contract", () => {
       )
       const markers = placeMarkers(features, contributors, stageFor(640), corner(0))
       expect(Arr.length(Arr.filter(markers, (m) => Equal.equals(m.contributedBy, "neighbor")))).toBe(1)
+    }))
+
+  it.effect.prop("geometry-only scoring preserves every loss term without materializing visual text", {
+    width: FastCheck.integer({ min: 240, max: 900 }),
+    meander: FastCheck.record(Record.map(meanderBounds, ([min, max]) => FastCheck.double({ min, max, noNaN: true }))),
+    text: FastCheck.constantFrom(
+      "",
+      "One short line.",
+      Str.repeat(80)("Uneven substantial words שלום soft\u00adhyphen ")
+    )
+  }, ({ width, meander, text }) =>
+    Effect.gen(function*() {
+      const prepared = yield* Text.prepareWithSegments({
+        text,
+        font: { family: "Mono", size: 10 },
+        whiteSpace: "normal"
+      }).pipe(Effect.provide(fixedWidthText))
+      const stage = stageFor(width)
+      const markers = placeMarkers(features, noContributors, stage, meander)
+      const expected = flowQuality(stage, markers, flowLines(prepared, stage, markers))
+      const materializations = MutableRef.make(0)
+      const measured = new Text.WithSegments({
+        ...prepared,
+        lines: (request, resolveMaxWidth) => {
+          MutableRef.update(materializations, Num.increment)
+          return prepared.lines(request, resolveMaxWidth)
+        }
+      })
+
+      expect(measureFlowQuality(measured, stage, markers)).toEqual(expected)
+      expect(MutableRef.get(materializations)).toBe(0)
     }))
 
   it.effect("the expected paper is whole lines: the prose alone with no features, more for every feature", () =>

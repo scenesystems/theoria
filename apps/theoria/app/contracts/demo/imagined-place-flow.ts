@@ -38,6 +38,9 @@ type OptionalParticipants = typeof OptionalParticipants.Type
 const PlaceLines = Schema.Array(PlaceLine)
 type PlaceLines = typeof PlaceLines.Type
 
+const LineGeometry = Schema.Array(PlaceLine.pipe(Schema.omit("text")))
+type LineGeometry = typeof LineGeometry.Type
+
 const MarkerPair = Schema.Tuple(PlaceMarker, PlaceMarker)
 type MarkerPair = typeof MarkerPair.Type
 
@@ -474,7 +477,7 @@ export type FlowQuality = typeof FlowQuality.Type
 export const flowQuality = (
   stage: Stage,
   markers: PlaceMarkers,
-  lines: PlaceLines
+  lines: LineGeometry
 ): FlowQuality => {
   const w = stage.stageWidth
   const column = Num.subtract(w, Num.multiply(2, stage.padding))
@@ -522,6 +525,29 @@ export const flowQuality = (
   }
 }
 
+/** Scores the canonical line breaks without constructing visual strings for unrendered trials. */
+export const measureFlowQuality = (
+  prepared: Text.WithSegments,
+  stage: Stage,
+  markers: PlaceMarkers
+): FlowQuality => {
+  const widthFor = lineWidthFor(stage, markers)
+  const ranges = Text.ranges(
+    prepared,
+    { maxWidth: Num.subtract(stage.stageWidth, Num.multiply(2, stage.padding)), lineHeight: stage.lineHeight },
+    widthFor
+  )
+  return flowQuality(
+    stage,
+    markers,
+    Arr.map(ranges, (line, index) => ({
+      y: Num.sum(stage.padding, Num.multiply(index, stage.lineHeight)),
+      maxWidth: widthFor(index),
+      width: line.width
+    }))
+  )
+}
+
 /**
  * How much vertical room the arrangement uses. Rewarding compactness is what
  * pulls the markers up into the text so the description has to flow around
@@ -530,7 +556,7 @@ export const flowQuality = (
 export const occupiedHeight = (
   stage: Stage,
   markers: PlaceMarkers,
-  lines: PlaceLines
+  lines: LineGeometry
 ): number => {
   const textBottom = Option.match(Arr.last(lines), {
     onNone: () => stage.padding,
