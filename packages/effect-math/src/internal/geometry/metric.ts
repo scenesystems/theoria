@@ -5,18 +5,15 @@
  * @since 0.1.0
  * @category internal
  */
-import { Boolean, Chunk, Iterable, Number, Option, pipe, Tuple } from "effect"
+import { Array, Boolean, Chunk, Number, Option } from "effect"
 
 import { abs, hypot } from "../../Numeric.js"
 
 const indices = (size: number): Chunk.Chunk<number> =>
-  Chunk.fromIterable(
-    Iterable.unfold(0, (index) =>
-      Boolean.match(Number.lessThan(index, size), {
-        onFalse: Option.none,
-        onTrue: () => Option.some(Tuple.make(index, Number.increment(index)))
-      }))
-  )
+  Boolean.match(Number.greaterThan(size, 0), {
+    onFalse: Chunk.empty,
+    onTrue: () => Chunk.makeBy(size, (index) => index)
+  })
 
 /**
  * Squared Euclidean distance: `Σ (aᵢ − bᵢ)²`. Both chunks must have equal
@@ -26,14 +23,17 @@ const indices = (size: number): Chunk.Chunk<number> =>
  * @since 0.1.0
  * @category internal
  */
-export const squaredEuclideanDistance = (a: Chunk.Chunk<number>, b: Chunk.Chunk<number>): number =>
-  pipe(
-    Chunk.zipWith(a, b, (ai, bi) => {
-      const diff = Number.subtract(ai, bi)
-      return Number.multiply(diff, diff)
-    }),
-    Chunk.reduce(0, Number.sum)
+export const squaredEuclideanDistance = (a: Chunk.Chunk<number>, b: Chunk.Chunk<number>): number => {
+  const transientB = Chunk.toReadonlyArray(b)
+  return Chunk.reduce(
+    Chunk.take(a, Number.min(Chunk.size(a), Chunk.size(b))),
+    0,
+    (sum, ai, index) => {
+      const diff = Number.subtract(ai, Array.unsafeGet(transientB, index))
+      return Number.sum(sum, Number.multiply(diff, diff))
+    }
   )
+}
 
 /**
  * Euclidean distance: `√(Σ (aᵢ − bᵢ)²)`. Both chunks must have equal
@@ -43,8 +43,15 @@ export const squaredEuclideanDistance = (a: Chunk.Chunk<number>, b: Chunk.Chunk<
  * @since 0.1.0
  * @category internal
  */
-export const euclideanDistance = (a: Chunk.Chunk<number>, b: Chunk.Chunk<number>): number =>
-  hypot(Chunk.zipWith(a, b, Number.subtract))
+export const euclideanDistance = (a: Chunk.Chunk<number>, b: Chunk.Chunk<number>): number => {
+  const transientB = Chunk.toReadonlyArray(b)
+  return hypot(
+    Chunk.map(
+      Chunk.take(a, Number.min(Chunk.size(a), Chunk.size(b))),
+      (ai, index) => Number.subtract(ai, Array.unsafeGet(transientB, index))
+    )
+  )
+}
 
 /**
  * Manhattan distance: `Σ |aᵢ − bᵢ|`. Both chunks must have equal length.
@@ -52,11 +59,14 @@ export const euclideanDistance = (a: Chunk.Chunk<number>, b: Chunk.Chunk<number>
  * @since 0.1.0
  * @category internal
  */
-export const manhattanDistance = (a: Chunk.Chunk<number>, b: Chunk.Chunk<number>): number =>
-  pipe(
-    Chunk.zipWith(a, b, (ai, bi) => abs(Number.subtract(ai, bi))),
-    Chunk.reduce(0, Number.sum)
+export const manhattanDistance = (a: Chunk.Chunk<number>, b: Chunk.Chunk<number>): number => {
+  const transientB = Chunk.toReadonlyArray(b)
+  return Chunk.reduce(
+    Chunk.take(a, Number.min(Chunk.size(a), Chunk.size(b))),
+    0,
+    (sum, ai, index) => Number.sum(sum, abs(Number.subtract(ai, Array.unsafeGet(transientB, index))))
   )
+}
 
 /**
  * Chebyshev distance: `max |aᵢ − bᵢ|`. Both chunks must have equal length.
@@ -64,11 +74,14 @@ export const manhattanDistance = (a: Chunk.Chunk<number>, b: Chunk.Chunk<number>
  * @since 0.1.0
  * @category internal
  */
-export const chebyshevDistance = (a: Chunk.Chunk<number>, b: Chunk.Chunk<number>): number =>
-  pipe(
-    Chunk.zipWith(a, b, (ai, bi) => abs(Number.subtract(ai, bi))),
-    Chunk.reduce(0, Number.max)
+export const chebyshevDistance = (a: Chunk.Chunk<number>, b: Chunk.Chunk<number>): number => {
+  const transientB = Chunk.toReadonlyArray(b)
+  return Chunk.reduce(
+    Chunk.take(a, Number.min(Chunk.size(a), Chunk.size(b))),
+    0,
+    (maximum, ai, index) => Number.max(maximum, abs(Number.subtract(ai, Array.unsafeGet(transientB, index))))
   )
+}
 
 /**
  * Elementwise midpoint: `(aᵢ + bᵢ) / 2`. Both chunks must have equal length.
@@ -76,8 +89,13 @@ export const chebyshevDistance = (a: Chunk.Chunk<number>, b: Chunk.Chunk<number>
  * @since 0.1.0
  * @category internal
  */
-export const midpoint = (a: Chunk.Chunk<number>, b: Chunk.Chunk<number>): Chunk.Chunk<number> =>
-  Chunk.zipWith(a, b, (ai, bi) => Number.multiply(Number.sum(ai, bi), 0.5))
+export const midpoint = (a: Chunk.Chunk<number>, b: Chunk.Chunk<number>): Chunk.Chunk<number> => {
+  const transientB = Chunk.toReadonlyArray(b)
+  return Chunk.map(
+    Chunk.take(a, Number.min(Chunk.size(a), Chunk.size(b))),
+    (ai, index) => Number.multiply(Number.sum(ai, Array.unsafeGet(transientB, index)), 0.5)
+  )
+}
 
 /**
  * Centroid (arithmetic mean) of a non-empty collection of points. Each point
@@ -98,7 +116,7 @@ export const centroid = (
       Chunk.reduce(
         points,
         0,
-        (acc, pt) => Number.sum(acc, Option.getOrElse(Chunk.get(pt, j), () => 0))
+        (acc, point) => Number.sum(acc, Option.getOrElse(Chunk.get(point, j), () => 0))
       ),
       Number.unsafeDivide(1, n)
     ))

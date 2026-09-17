@@ -69,6 +69,31 @@ describe("Special / gamma", () => {
     Effect.gen(function*() {
       expectClose(gamma(2), 1, kernelTolerance)
     }))
+
+  it.effect("satisfies the half-integer reflection and recurrence identities", () =>
+    Effect.gen(function*() {
+      const sqrtPi = sqrt(pi)
+
+      expectClose(gamma(-0.5), Number.multiply(-2, sqrtPi), kernelTolerance)
+      expectClose(gamma(-1.5), Number.unsafeDivide(Number.multiply(4, sqrtPi), 3), kernelTolerance)
+    }))
+
+  it.effect("satisfies recurrence on both sides of the reflection boundary", () =>
+    Effect.gen(function*() {
+      const belowBoundary = 0.499999999999
+      const aboveBoundary = 0.500000000001
+
+      expectClose(
+        gamma(belowBoundary),
+        Number.unsafeDivide(gamma(Number.sum(belowBoundary, 1)), belowBoundary),
+        kernelTolerance
+      )
+      expectClose(
+        gamma(aboveBoundary),
+        Number.unsafeDivide(gamma(Number.sum(aboveBoundary, 1)), aboveBoundary),
+        kernelTolerance
+      )
+    }))
 })
 
 // ---------------------------------------------------------------------------

@@ -6,18 +6,72 @@
  * @since 0.1.0
  * @category internal
  */
-import { Boolean, Chunk, Iterable, Number, Option, pipe, Tuple } from "effect"
+import { Array, Boolean, Chunk, Number, type Option } from "effect"
 
-import { hypot } from "../../Numeric.js"
+import { ceil, floor, hypot } from "../../Numeric.js"
 
 const indices = (size: number): Chunk.Chunk<number> =>
-  Chunk.fromIterable(
-    Iterable.unfold(0, (index) =>
-      Boolean.match(Number.lessThan(index, size), {
-        onFalse: Option.none,
-        onTrue: () => Option.some(Tuple.make(index, Number.increment(index)))
-      }))
+  Boolean.match(Number.greaterThan(size, 0), {
+    onFalse: Chunk.empty,
+    onTrue: () => Chunk.makeBy(ceil(size), (index) => index)
+  })
+
+const elementCount = (rows: number, cols: number): number =>
+  Boolean.match(Boolean.and(Number.greaterThan(rows, 0), Number.greaterThan(cols, 0)), {
+    onFalse: () => 0,
+    onTrue: () => Number.multiply(ceil(rows), ceil(cols))
+  })
+
+const transientValueAt = (
+  data: ReadonlyArray<number>,
+  index: number
+): number =>
+  Boolean.match(
+    Boolean.and(
+      Number.greaterThanOrEqualTo(index, 0),
+      Number.lessThan(index, Array.length(data))
+    ),
+    {
+      onFalse: () => 0,
+      onTrue: () => Array.unsafeGet(data, index)
+    }
   )
+
+const hasDenseRegion = (
+  data: ReadonlyArray<number>,
+  rows: number,
+  cols: number,
+  stride: number,
+  offset: number
+): boolean =>
+  Boolean.and(
+    Number.greaterThan(rows, 0),
+    Boolean.and(
+      Number.greaterThan(cols, 0),
+      Boolean.and(
+        Number.greaterThanOrEqualTo(offset, 0),
+        Boolean.and(
+          Number.greaterThanOrEqualTo(stride, cols),
+          Number.lessThanOrEqualTo(
+            Number.sum(
+              offset,
+              Number.sum(Number.multiply(Number.decrement(rows), stride), cols)
+            ),
+            Array.length(data)
+          )
+        )
+      )
+    )
+  )
+
+const transientReader = (
+  data: ReadonlyArray<number>,
+  complete: boolean
+): (index: number) => number =>
+  Boolean.match(complete, {
+    onFalse: () => (index) => transientValueAt(data, index),
+    onTrue: () => (index) => Array.unsafeGet(data, index)
+  })
 
 /**
  * Read element (i, j) from a row-major chunk with stride/offset.
@@ -35,20 +89,6 @@ export const getElement = (
 ): Option.Option<number> => Chunk.get(data, Number.sum(offset, Number.sum(Number.multiply(i, stride), j)))
 
 /**
- * Read element (i, j) from a row-major chunk, defaulting to 0.
- *
- * @since 0.1.0
- * @category internal
- */
-const getOr0 = (
-  data: Chunk.Chunk<number>,
-  stride: number,
-  offset: number,
-  i: number,
-  j: number
-): number => Option.getOrElse(getElement(data, stride, offset, i, j), () => 0)
-
-/**
  * Matrix-vector multiply: y = A * x.
  *
  * @since 0.1.0
@@ -61,17 +101,25 @@ export const matvec = (
   stride: number,
   offset: number,
   x: Chunk.Chunk<number>
-): Chunk.Chunk<number> =>
-  Chunk.map(indices(rows), (i) =>
-    Chunk.reduce(
-      Chunk.map(indices(cols), (j) =>
+): Chunk.Chunk<number> => {
+  const transientData = Chunk.toReadonlyArray(data)
+  const transientX = Chunk.toReadonlyArray(x)
+  const columnIndices = indices(cols)
+  const dataAt = transientReader(transientData, hasDenseRegion(transientData, rows, cols, stride, offset))
+  const xAt = transientReader(
+    transientX,
+    Boolean.and(Number.greaterThan(cols, 0), Number.lessThanOrEqualTo(cols, Array.length(transientX)))
+  )
+  return Chunk.map(indices(rows), (i) =>
+    Chunk.reduce(columnIndices, 0, (sum, j) =>
+      Number.sum(
+        sum,
         Number.multiply(
-          getOr0(data, stride, offset, i, j),
-          Option.getOrElse(Chunk.get(x, j), () => 0)
-        )),
-      0,
-      Number.sum
-    ))
+          dataAt(Number.sum(offset, Number.sum(Number.multiply(i, stride), j))),
+          xAt(j)
+        )
+      )))
+}
 
 /**
  * Matrix transpose: returns new chunk with transposed layout.
@@ -85,11 +133,18 @@ export const transpose = (
   cols: number,
   stride: number,
   offset: number
-): Chunk.Chunk<number> =>
-  pipe(
-    Chunk.map(indices(cols), (j) => Chunk.map(indices(rows), (i) => getOr0(data, stride, offset, i, j))),
-    Chunk.flatMap((row) => row)
-  )
+): Chunk.Chunk<number> => {
+  const transientData = Chunk.toReadonlyArray(data)
+  const dataAt = transientReader(transientData, hasDenseRegion(transientData, rows, cols, stride, offset))
+  const rowCount = ceil(rows)
+  return Chunk.map(indices(elementCount(rows, cols)), (flatIndex) => {
+    const sourceColumn = floor(Number.unsafeDivide(flatIndex, rowCount))
+    const sourceRow = Number.subtract(flatIndex, Number.multiply(sourceColumn, rowCount))
+    return dataAt(
+      Number.sum(offset, Number.sum(Number.multiply(sourceRow, stride), sourceColumn))
+    )
+  })
+}
 
 /**
  * Frobenius norm of a matrix.
@@ -103,10 +158,17 @@ export const frobeniusNorm = (
   cols: number,
   stride: number,
   offset: number
-): number =>
-  hypot(
-    Chunk.flatMap(
-      indices(rows),
-      (i) => Chunk.map(indices(cols), (j) => getOr0(data, stride, offset, i, j))
-    )
+): number => {
+  const transientData = Chunk.toReadonlyArray(data)
+  const dataAt = transientReader(transientData, hasDenseRegion(transientData, rows, cols, stride, offset))
+  const columnCount = ceil(cols)
+  return hypot(
+    Chunk.map(indices(elementCount(rows, cols)), (flatIndex) => {
+      const row = floor(Number.unsafeDivide(flatIndex, columnCount))
+      const column = Number.subtract(flatIndex, Number.multiply(row, columnCount))
+      return dataAt(
+        Number.sum(offset, Number.sum(Number.multiply(row, stride), column))
+      )
+    })
   )
+}

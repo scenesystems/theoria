@@ -117,6 +117,11 @@ describe("LinearAlgebra / scale", () => {
 })
 
 describe("LinearAlgebra / matvec", () => {
+  it.effect("returns an empty result for an empty declared matrix", () =>
+    Effect.gen(function*() {
+      expect(Equal.equals(matvec(Chunk.empty(), 0, 0, Chunk.empty()), Chunk.empty())).toBe(true)
+    }))
+
   it.effect("multiplies identity matrix by vector", () =>
     Effect.gen(function*() {
       const identity = Chunk.make(1, 0, 0, 1)
@@ -135,6 +140,12 @@ describe("LinearAlgebra / matvec", () => {
 })
 
 describe("LinearAlgebra / transpose", () => {
+  it.effect("returns an empty result when either declared dimension is zero", () =>
+    Effect.gen(function*() {
+      expect(Equal.equals(transpose(Chunk.empty(), 0, 3), Chunk.empty())).toBe(true)
+      expect(Equal.equals(transpose(Chunk.empty(), 3, 0), Chunk.empty())).toBe(true)
+    }))
+
   it.effect("transposes a 2x3 matrix", () =>
     Effect.gen(function*() {
       const data = Chunk.make(1, 2, 3, 4, 5, 6)
@@ -209,6 +220,11 @@ describe("LinearAlgebra / forwardSubstitutionLower", () => {
 
       Option.map(solved, (values) => expect(Equal.equals(values, Chunk.make(2, 1.5))).toBe(true))
     }))
+
+  it.effect("returns none for a zero pivot", () =>
+    Effect.gen(function*() {
+      expect(Option.isNone(forwardSubstitutionLower(Chunk.make(0), 1, Chunk.make(1)))).toBe(true)
+    }))
 })
 
 describe("LinearAlgebra / backwardSubstitutionUpper", () => {
@@ -237,10 +253,45 @@ describe("LinearAlgebra / solveSpd", () => {
       })
     }))
 
+  it.effect("solves a nontrivial SPD system generated from an independent lower factor", () =>
+    Effect.gen(function*() {
+      const matrix = Chunk.make(
+        4,
+        2,
+        Number.negate(2),
+        1,
+        2,
+        10,
+        5,
+        Number.negate(5.5),
+        Number.negate(2),
+        5,
+        21,
+        Number.negate(0.5),
+        1,
+        Number.negate(5.5),
+        Number.negate(0.5),
+        30.25
+      )
+      const rhs = Chunk.make(Number.negate(5.5), Number.negate(5.75), 50.75, 25.625)
+      const solved = solveSpd(matrix, 4, rhs)
+
+      expect(Option.isSome(solved)).toBe(true)
+      Option.map(solved, (solution) =>
+        Chunk.forEach(Chunk.zip(solution, Chunk.make(1, Number.negate(2), 3, 0.5)), (pair) =>
+          expect(Tuple.getFirst(pair)).toBeCloseTo(Tuple.getSecond(pair))))
+    }))
+
   it.effect("returns none for invalid matrix shape", () =>
     Effect.gen(function*() {
       const solved = solveSpd(Chunk.make(1, 0, 0), 2, Chunk.make(1, 2))
       expect(Option.isNone(solved)).toStrictEqual(true)
+    }))
+
+  it.effect("returns none for an invalid right-hand-side shape", () =>
+    Effect.gen(function*() {
+      const solved = solveSpd(Chunk.make(2, 1, 1, 2), 2, Chunk.of(1))
+      expect(Option.isNone(solved)).toBe(true)
     }))
 
   it.effect("returns none for non-symmetric matrix", () =>
@@ -312,6 +363,17 @@ describe("LinearAlgebra / matvecValidated", () => {
         x: Array.make(3, 7)
       })
       expect(Equal.equals(result, Chunk.make(3, 7))).toBe(true)
+    }))
+
+  it.effect("uses row-major strides for an asymmetric rectangular matrix", () =>
+    Effect.gen(function*() {
+      const result = yield* matvecValidated({
+        rows: 3,
+        cols: 2,
+        data: Array.make(2, Number.negate(1), 4, 3, Number.negate(2), 5),
+        x: Array.make(3, Number.negate(2))
+      })
+      expect(Equal.equals(result, Chunk.make(8, 6, Number.negate(16)))).toBe(true)
     }))
 
   it.effect("rejects data length mismatch with ShapeMismatchError", () =>

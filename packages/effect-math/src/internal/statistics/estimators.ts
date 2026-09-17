@@ -4,7 +4,7 @@
  * @since 0.1.0
  * @category internal
  */
-import { Boolean, Chunk, Data, Number, Option, pipe, Schema } from "effect"
+import { Array, Boolean, Chunk, Data, Number, Option, Schema } from "effect"
 
 import { abs, sqrt } from "../../Numeric.js"
 import { SummaryStatistics } from "../../Statistics.js"
@@ -17,35 +17,49 @@ class SummaryAccumulator extends Data.Class<{
   readonly sumOfSquaredDistances: number
 }> {}
 
+const isFinite = Schema.is(Schema.Finite)
+
 /** Arithmetic mean in observation order. */
-export const mean = (values: Chunk.Chunk<number>): number =>
-  Boolean.match(Chunk.every(values, Schema.is(Schema.Finite)), {
-    onFalse: () => Number.unsafeDivide(Chunk.reduce(values, 0, Number.sum), Chunk.size(values)),
-    onTrue: () => {
-      const scale = Chunk.reduce(values, 0, (maximum, value) => Number.max(maximum, abs(value)))
-      return Boolean.match(Number.Equivalence(scale, 0), {
-        onTrue: () => Number.unsafeDivide(Chunk.reduce(values, 0, Number.sum), Chunk.size(values)),
+export const mean = (values: Chunk.Chunk<number>): number => {
+  const transientData = Chunk.toReadonlyArray(values)
+  const scale = Array.reduce(
+    transientData,
+    0,
+    (maximum, value) => {
+      const magnitude = abs(value)
+      return Number.sum(
+        Number.max(maximum, magnitude),
+        Number.subtract(magnitude, magnitude)
+      )
+    }
+  )
+  return Boolean.match(isFinite(scale), {
+    onFalse: () => Number.unsafeDivide(Array.reduce(transientData, 0, Number.sum), Array.length(transientData)),
+    onTrue: () =>
+      Boolean.match(Number.Equivalence(scale, 0), {
+        onTrue: () => Number.unsafeDivide(Array.reduce(transientData, 0, Number.sum), Array.length(transientData)),
         onFalse: () =>
           Number.multiply(
             Number.unsafeDivide(
-              Chunk.reduce(values, 0, (sum, value) => Number.sum(sum, Number.unsafeDivide(value, scale))),
-              Chunk.size(values)
+              Array.reduce(transientData, 0, (sum, value) => Number.sum(sum, Number.unsafeDivide(value, scale))),
+              Array.length(transientData)
             ),
             scale
           )
       })
-    }
   })
+}
 
 /** Bessel-corrected sample variance. */
 export const variance = (values: Chunk.Chunk<number>): number => {
+  const transientData = Chunk.toReadonlyArray(values)
   const average = mean(values)
   return Number.unsafeDivide(
-    Chunk.reduce(values, 0, (sum, value) => {
+    Array.reduce(transientData, 0, (sum, value) => {
       const distance = Number.subtract(value, average)
       return Number.sum(sum, Number.multiply(distance, distance))
     }),
-    Number.decrement(Chunk.size(values))
+    Number.decrement(Array.length(transientData))
   )
 }
 
@@ -105,16 +119,21 @@ export const maximum = (values: Chunk.Chunk<number>): Option.Option<number> =>
 
 /** Bessel-corrected covariance over the shared sample prefix. */
 export const covariance = (a: Chunk.Chunk<number>, b: Chunk.Chunk<number>): number => {
+  const transientB = Chunk.toReadonlyArray(b)
   const meanA = mean(a)
   const meanB = mean(b)
   return Number.unsafeDivide(
-    pipe(
-      Chunk.zipWith(
-        a,
-        b,
-        (left, right) => Number.multiply(Number.subtract(left, meanA), Number.subtract(right, meanB))
-      ),
-      Chunk.reduce(0, Number.sum)
+    Chunk.reduce(
+      Chunk.take(a, Number.min(Chunk.size(a), Chunk.size(b))),
+      0,
+      (sum, left, index) =>
+        Number.sum(
+          sum,
+          Number.multiply(
+            Number.subtract(left, meanA),
+            Number.subtract(Array.unsafeGet(transientB, index), meanB)
+          )
+        )
     ),
     Number.decrement(Chunk.size(a))
   )

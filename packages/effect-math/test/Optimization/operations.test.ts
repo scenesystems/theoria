@@ -50,7 +50,7 @@ describe("Optimization / bisect", () => {
   it.effect("returns endpoint roots without evaluating the opposite endpoint", () =>
     Effect.gen(function*() {
       const evaluations = MutableRef.make(0)
-      const root = bisect(
+      const firstRoot = bisect(
         (x) => {
           MutableRef.increment(evaluations)
           return x
@@ -58,15 +58,61 @@ describe("Optimization / bisect", () => {
         0,
         2
       )
-      expect(root).toStrictEqual(0)
+      expect(firstRoot).toStrictEqual(0)
       expect(MutableRef.get(evaluations)).toStrictEqual(1)
+
+      MutableRef.set(evaluations, 0)
+      const secondRoot = bisect(
+        (x) => {
+          MutableRef.increment(evaluations)
+          return Number.subtract(x, 2)
+        },
+        0,
+        2
+      )
+      expect(secondRoot).toStrictEqual(2)
+      expect(MutableRef.get(evaluations)).toStrictEqual(2)
     }))
 
-  it.effect("preserves reversed brackets and iteration-budget boundaries", () =>
+  it.effect("preserves reversed brackets and exact iteration-budget boundaries", () =>
     Effect.gen(function*() {
+      const evaluations = MutableRef.make(0)
       const f = (x: number) => Number.subtract(Number.multiply(x, x), 2)
       expectClose(bisect(f, 2, 0), Numeric.sqrt(2), kernelTolerance)
+
+      const counted = (x: number) => {
+        MutableRef.increment(evaluations)
+        return f(x)
+      }
+      expect(bisect(counted, 0, 2, 1e-30, 0)).toStrictEqual(1)
+      expect(MutableRef.get(evaluations)).toStrictEqual(2)
+
+      MutableRef.set(evaluations, 0)
       expect(bisect(f, 0, 2, 1e-30, 1)).toStrictEqual(1.5)
+      expect(bisect(counted, 0, 2, 1e-30, 1)).toStrictEqual(1.5)
+      expect(MutableRef.get(evaluations)).toStrictEqual(3)
+
+      MutableRef.set(evaluations, 0)
+      expect(bisect(counted, 0, 2, 1e-30, 2)).toStrictEqual(1.25)
+      expect(MutableRef.get(evaluations)).toStrictEqual(4)
+    }))
+
+  it.effect("is stack safe for a large finite nonconverging budget", () =>
+    Effect.gen(function*() {
+      const evaluations = MutableRef.make(0)
+      const maxIterations = 50_000
+      const result = bisect(
+        () => {
+          MutableRef.increment(evaluations)
+          return 1
+        },
+        0,
+        1,
+        -1,
+        maxIterations
+      )
+      expect(result).toStrictEqual(1)
+      expect(MutableRef.get(evaluations)).toStrictEqual(Number.sum(maxIterations, 2))
     }))
 })
 
@@ -98,6 +144,52 @@ describe("Optimization / goldenSection", () => {
       MutableRef.set(evaluations, 0)
       expect(goldenSection(objective, -2, 2, 1e-30, 0)).toStrictEqual(0)
       expect(MutableRef.get(evaluations)).toStrictEqual(2)
+    }))
+
+  it.effect("honors exact iteration-budget callback and interval boundaries", () =>
+    Effect.gen(function*() {
+      const evaluations = MutableRef.make(0)
+      const objective = (_x: number) => {
+        MutableRef.increment(evaluations)
+        return 1
+      }
+      const phi = Number.multiply(0.5, Number.subtract(Numeric.sqrt(5), 1))
+      const complement = Number.subtract(1, phi)
+      const x1 = Number.multiply(complement, 2)
+      const x2 = Number.multiply(phi, 2)
+
+      expect(goldenSection(objective, 0, 2, 1e-30, 0)).toStrictEqual(1)
+      expect(MutableRef.get(evaluations)).toStrictEqual(2)
+
+      MutableRef.set(evaluations, 0)
+      expect(goldenSection(objective, 0, 2, 1e-30, 1)).toStrictEqual(
+        Number.multiply(0.5, Number.sum(x1, 2))
+      )
+      expect(MutableRef.get(evaluations)).toStrictEqual(3)
+
+      MutableRef.set(evaluations, 0)
+      expect(goldenSection(objective, 0, 2, 1e-30, 2)).toStrictEqual(
+        Number.multiply(0.5, Number.sum(x2, 2))
+      )
+      expect(MutableRef.get(evaluations)).toStrictEqual(4)
+    }))
+
+  it.effect("is stack safe for a large finite nonconverging budget", () =>
+    Effect.gen(function*() {
+      const evaluations = MutableRef.make(0)
+      const maxIterations = 50_000
+      const result = goldenSection(
+        () => {
+          MutableRef.increment(evaluations)
+          return 1
+        },
+        0,
+        1,
+        -1,
+        maxIterations
+      )
+      expect(result).toStrictEqual(1)
+      expect(MutableRef.get(evaluations)).toStrictEqual(Number.sum(maxIterations, 2))
     }))
 })
 

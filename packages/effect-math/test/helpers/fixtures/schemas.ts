@@ -51,6 +51,20 @@ export const NumericScalarParityFixtureSchema = Schema.Struct({
   })
 })
 
+export const NumericElementaryParityFixtureSchema = Schema.Struct({
+  fixture: Schema.Literal("numeric.elementary-parity"),
+  metadata: FixtureMetadataSchema,
+  payload: Schema.Struct({
+    cases: Schema.Array(Schema.Struct({
+      id: Schema.String,
+      operation: Schema.Literal("log", "log10", "sqrt", "log1p", "exp", "expm1", "sin", "cos", "atan", "sinh", "cosh"),
+      input: Schema.Struct({ x: Schema.Number }),
+      expected: Schema.Number,
+      tolerance: Schema.Number
+    }))
+  })
+})
+
 // ---------------------------------------------------------------------------
 // LinearAlgebra: vector-parity
 // ---------------------------------------------------------------------------
@@ -1729,6 +1743,7 @@ export const KnownFixtureSchema = Schema.Union(
   ComplexArithmeticParityFixtureSchema,
   DistributionAlgebraParityFixtureSchema,
   NumericScalarParityFixtureSchema,
+  NumericElementaryParityFixtureSchema,
   NumericLogspaceParityFixtureSchema,
   LinalgVectorParityFixtureSchema,
   GeometryDistanceParityFixtureSchema,

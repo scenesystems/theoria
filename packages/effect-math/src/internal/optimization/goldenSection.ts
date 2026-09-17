@@ -4,7 +4,7 @@
  * @since 0.1.0
  * @category internal
  */
-import { Boolean, Data, Iterable, Number, Option, Struct, Tuple } from "effect"
+import { Boolean, Data, Iterable, Number, Option, Tuple } from "effect"
 
 import * as Numeric from "../../Numeric.js"
 
@@ -12,6 +12,7 @@ const phi = Number.multiply(0.5, Number.subtract(Numeric.sqrt(5), 1))
 const complement = Number.subtract(1, phi)
 const defaultTolerance = 1e-12
 const defaultMaxIterations = 100
+const batchIterations = 32
 
 class GoldenSectionState extends Data.Class<{
   readonly a: number
@@ -26,54 +27,97 @@ class GoldenSectionState extends Data.Class<{
 
 const midpoint = (a: number, b: number): number => Number.multiply(0.5, Number.sum(a, b))
 
-const advance = (
+const advanceBatch = (
   f: (x: number) => number,
   tolerance: number,
   maxIterations: number,
-  state: GoldenSectionState
+  a: number,
+  b: number,
+  x1: number,
+  x2: number,
+  f1: number,
+  f2: number,
+  iteration: number,
+  remaining: number
 ): GoldenSectionState => {
   const complete = Boolean.or(
-    Number.lessThan(Numeric.abs(Number.subtract(state.b, state.a)), tolerance),
-    Number.greaterThanOrEqualTo(state.iteration, maxIterations)
+    Number.lessThan(Numeric.abs(Number.subtract(b, a)), tolerance),
+    Number.greaterThanOrEqualTo(iteration, maxIterations)
   )
   return Boolean.match(complete, {
-    onTrue: () =>
-      new GoldenSectionState(
-        Struct.evolve(state, { result: () => Option.some(midpoint(state.a, state.b)) })
-      ),
+    onTrue: () => new GoldenSectionState({ a, b, x1, x2, f1, f2, iteration, result: Option.some(midpoint(a, b)) }),
     onFalse: () =>
-      Boolean.match(Number.lessThan(state.f1, state.f2), {
+      Boolean.match(Number.lessThan(f1, f2), {
         onTrue: () => {
-          const b = state.x2
-          const x1 = Number.sum(state.a, Number.multiply(complement, Number.subtract(b, state.a)))
-          return new GoldenSectionState({
-            a: state.a,
-            b,
+          const nextB = x2
+          const nextX1 = Number.sum(a, Number.multiply(complement, Number.subtract(nextB, a)))
+          const nextF1 = f(nextX1)
+          return continueBatch(
+            f,
+            tolerance,
+            maxIterations,
+            a,
+            nextB,
+            nextX1,
             x1,
-            x2: state.x1,
-            f1: f(x1),
-            f2: state.f1,
-            iteration: Number.increment(state.iteration),
-            result: Option.none()
-          })
+            nextF1,
+            f1,
+            Number.increment(iteration),
+            remaining
+          )
         },
         onFalse: () => {
-          const a = state.x1
-          const x2 = Number.sum(a, Number.multiply(phi, Number.subtract(state.b, a)))
-          return new GoldenSectionState({
-            a,
-            b: state.b,
-            x1: state.x2,
+          const nextA = x1
+          const nextX2 = Number.sum(nextA, Number.multiply(phi, Number.subtract(b, nextA)))
+          const nextF2 = f(nextX2)
+          return continueBatch(
+            f,
+            tolerance,
+            maxIterations,
+            nextA,
+            b,
             x2,
-            f1: state.f2,
-            f2: f(x2),
-            iteration: Number.increment(state.iteration),
-            result: Option.none()
-          })
+            nextX2,
+            f2,
+            nextF2,
+            Number.increment(iteration),
+            remaining
+          )
         }
       })
   })
 }
+
+const continueBatch = (
+  f: (x: number) => number,
+  tolerance: number,
+  maxIterations: number,
+  a: number,
+  b: number,
+  x1: number,
+  x2: number,
+  f1: number,
+  f2: number,
+  iteration: number,
+  remaining: number
+): GoldenSectionState =>
+  Boolean.match(Number.lessThanOrEqualTo(remaining, 1), {
+    onTrue: () => new GoldenSectionState({ a, b, x1, x2, f1, f2, iteration, result: Option.none() }),
+    onFalse: () =>
+      advanceBatch(
+        f,
+        tolerance,
+        maxIterations,
+        a,
+        b,
+        x1,
+        x2,
+        f1,
+        f2,
+        iteration,
+        Number.decrement(remaining)
+      )
+  })
 
 /**
  * Golden-section minimization kernel.
@@ -105,7 +149,19 @@ export const goldenSection = (
       Option.match(state.result, {
         onSome: Option.none,
         onNone: () => {
-          const next = advance(f, tolerance, maxIterations, state)
+          const next = advanceBatch(
+            f,
+            tolerance,
+            maxIterations,
+            state.a,
+            state.b,
+            state.x1,
+            state.x2,
+            state.f1,
+            state.f2,
+            state.iteration,
+            batchIterations
+          )
           return Option.some(Tuple.make(next, next))
         }
       })),

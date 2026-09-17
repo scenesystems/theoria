@@ -4,12 +4,13 @@
  * @since 0.1.0
  * @category internal
  */
-import { Boolean, Data, Iterable, Number, Option, Struct, Tuple } from "effect"
+import { Boolean, Data, Iterable, Number, Option, Tuple } from "effect"
 
 import * as Numeric from "../../Numeric.js"
 
 const defaultTolerance = 1e-12
 const defaultMaxIterations = 100
+const batchIterations = 32
 
 class BisectState extends Data.Class<{
   readonly a: number
@@ -22,48 +23,75 @@ class BisectState extends Data.Class<{
 
 const midpoint = (a: number, b: number): number => Number.multiply(0.5, Number.sum(a, b))
 
-const advance = (
+const advanceBatch = (
   f: (x: number) => number,
   tolerance: number,
   maxIterations: number,
-  state: BisectState
+  a: number,
+  b: number,
+  fa: number,
+  fb: number,
+  iteration: number,
+  remaining: number
 ): BisectState => {
-  const mid = midpoint(state.a, state.b)
+  const mid = midpoint(a, b)
   const complete = Boolean.or(
-    Number.lessThan(Numeric.abs(Number.subtract(state.b, state.a)), tolerance),
-    Number.greaterThanOrEqualTo(state.iteration, maxIterations)
+    Number.lessThan(Numeric.abs(Number.subtract(b, a)), tolerance),
+    Number.greaterThanOrEqualTo(iteration, maxIterations)
   )
   return Boolean.match(complete, {
-    onTrue: () => new BisectState(Struct.evolve(state, { result: () => Option.some(mid) })),
+    onTrue: () => new BisectState({ a, b, fa, fb, iteration, result: Option.some(mid) }),
     onFalse: () => {
       const fmid = f(mid)
       return Boolean.match(Number.Equivalence(fmid, 0), {
-        onTrue: () => new BisectState(Struct.evolve(state, { result: () => Option.some(mid) })),
+        onTrue: () => new BisectState({ a, b, fa, fb, iteration, result: Option.some(mid) }),
         onFalse: () =>
-          Boolean.match(Number.lessThanOrEqualTo(Number.multiply(state.fa, fmid), 0), {
+          Boolean.match(Number.lessThanOrEqualTo(Number.multiply(fa, fmid), 0), {
             onTrue: () =>
-              new BisectState({
-                a: state.a,
-                b: mid,
-                fa: state.fa,
-                fb: fmid,
-                iteration: Number.increment(state.iteration),
-                result: Option.none()
-              }),
+              continueBatch(
+                f,
+                tolerance,
+                maxIterations,
+                a,
+                mid,
+                fa,
+                fmid,
+                Number.increment(iteration),
+                remaining
+              ),
             onFalse: () =>
-              new BisectState({
-                a: mid,
-                b: state.b,
-                fa: fmid,
-                fb: state.fb,
-                iteration: Number.increment(state.iteration),
-                result: Option.none()
-              })
+              continueBatch(
+                f,
+                tolerance,
+                maxIterations,
+                mid,
+                b,
+                fmid,
+                fb,
+                Number.increment(iteration),
+                remaining
+              )
           })
       })
     }
   })
 }
+
+const continueBatch = (
+  f: (x: number) => number,
+  tolerance: number,
+  maxIterations: number,
+  a: number,
+  b: number,
+  fa: number,
+  fb: number,
+  iteration: number,
+  remaining: number
+): BisectState =>
+  Boolean.match(Number.lessThanOrEqualTo(remaining, 1), {
+    onTrue: () => new BisectState({ a, b, fa, fb, iteration, result: Option.none() }),
+    onFalse: () => advanceBatch(f, tolerance, maxIterations, a, b, fa, fb, iteration, Number.decrement(remaining))
+  })
 
 /**
  * Bisection root-finding kernel.
@@ -92,7 +120,17 @@ export const bisect = (
               Option.match(state.result, {
                 onSome: Option.none,
                 onNone: () => {
-                  const next = advance(f, tolerance, maxIterations, state)
+                  const next = advanceBatch(
+                    f,
+                    tolerance,
+                    maxIterations,
+                    state.a,
+                    state.b,
+                    state.fa,
+                    state.fb,
+                    state.iteration,
+                    batchIterations
+                  )
                   return Option.some(Tuple.make(next, next))
                 }
               })),

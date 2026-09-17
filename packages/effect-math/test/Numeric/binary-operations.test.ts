@@ -1,5 +1,5 @@
 import { describe, expect, it } from "@effect/vitest"
-import { BigDecimal, Chunk, Effect, Equal, FastCheck, Iterable, Number, Option } from "effect"
+import { Array, BigDecimal, Boolean, Chunk, Effect, Equal, FastCheck, Iterable, Number, Option } from "effect"
 
 import { abs, ceil, floor, hypot, sqrt, toBigDecimal, toBigInt, truncate } from "../../src/Numeric.js"
 
@@ -23,6 +23,20 @@ describe("Numeric binary64 arithmetic", () => {
       expect(toBigDecimal(infinity)).toEqual(Option.none())
     }))
 
+  it.effect("round-trips both neighbors of every normal power of two through exact decimals", () =>
+    Effect.gen(function*() {
+      const powers = Array.scan(Array.range(1, 2045), 2.2250738585072014e-308, (value) => Number.multiply(value, 2))
+      Array.forEach(powers, (power) =>
+        Array.forEach(
+          Array.make(
+            Number.subtract(power, Number.max(5e-324, Number.multiply(power, 1.1102230246251565e-16))),
+            power,
+            Number.sum(power, Number.multiply(power, 2.220446049250313e-16))
+          ),
+          (value) => expect(BigDecimal.unsafeToNumber(Option.getOrThrow(toBigDecimal(value)))).toBe(value)
+        ))
+    }))
+
   it.effect("converts the exact integer rather than its shortest decimal spelling", () =>
     Effect.gen(function*() {
       // The nearest binary64 value to 10^23 is 2^23 below that decimal integer.
@@ -41,6 +55,7 @@ describe("Numeric binary64 arithmetic", () => {
       // on opposite sides. These expectations do not use the implementation.
       expect(sqrt(1.0000000000000002)).toBe(1)
       expect(sqrt(1.0000000000000004)).toBe(1.0000000000000002)
+      expect(sqrt(3.9999999999999996)).toBe(1.9999999999999998)
       expect(sqrt(2)).toBe(1.4142135623730951)
       expect(sqrt(5e-324)).toBe(2.2227587494850775e-162)
       expect(sqrt(1.7976931348623157e308)).toBe(1.3407807929942596e154)
@@ -51,6 +66,18 @@ describe("Numeric binary64 arithmetic", () => {
   }, ({ root }) =>
     Effect.gen(function*() {
       expect(sqrt(Number.multiply(root, root))).toBe(root)
+    }))
+
+  it.effect.prop("retains midpoint rounding on both sides across binary exponents", {
+    exponent: FastCheck.integer({ min: -500, max: 500 }),
+    above: FastCheck.boolean()
+  }, ({ exponent, above }) =>
+    Effect.gen(function*() {
+      const factor = Boolean.match(Number.lessThan(exponent, 0), { onTrue: () => 0.5, onFalse: () => 2 })
+      const scale = Number.multiplyAll(Iterable.take(Iterable.makeBy(() => factor), abs(exponent)))
+      const input = Boolean.match(above, { onTrue: () => 1.0000000000000004, onFalse: () => 1.0000000000000002 })
+      const root = Boolean.match(above, { onTrue: () => 1.0000000000000002, onFalse: () => 1 })
+      expect(sqrt(Number.multiply(Number.multiply(input, scale), scale))).toBe(Number.multiply(root, scale))
     }))
 
   it.effect("preserves signed zero and dispatches exceptional roots", () =>
@@ -77,6 +104,9 @@ describe("Numeric binary64 arithmetic", () => {
       expect(hypot(Chunk.make(1.5e-323, 2e-323))).toBe(2.5e-323)
       expect(hypot(Chunk.make(2, 3, 6))).toBe(7)
       expect(hypot(Chunk.make(1.7976931348623157e308, 1.7976931348623157e308))).toBe(infinity)
+      // Python Decimal at precision 200, initialized from the exact binary64
+      // operands, places the exact root below the midpoint to the successor.
+      expect(hypot(Chunk.make(5_464.208024978638, 5_104.779699210003))).toBe(7_477.7232576304605)
     }))
 
   it.effect("prioritizes infinite norm components over NaN and canonicalizes zero", () =>
@@ -101,5 +131,11 @@ describe("Numeric binary64 arithmetic", () => {
       expect(floor(-0.25)).toBe(-1)
       expect(ceil(0.25)).toBe(1)
       expect(truncate(0.25)).toBe(0)
+      expect(floor(4_503_599_627_370_495.5)).toBe(4_503_599_627_370_495)
+      expect(ceil(4_503_599_627_370_495.5)).toBe(4_503_599_627_370_496)
+      expect(truncate(-4_503_599_627_370_495.5)).toBe(-4_503_599_627_370_495)
+      expect(floor(infinity)).toBe(infinity)
+      expect(ceil(Number.negate(infinity))).toBe(Number.negate(infinity))
+      expect(truncate(nan)).toBeNaN()
     }))
 })

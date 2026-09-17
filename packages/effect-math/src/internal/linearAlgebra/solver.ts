@@ -4,131 +4,122 @@
  * @since 0.1.0
  * @category internal
  */
-import { Boolean, Chunk, Iterable, Number, Option, Tuple } from "effect"
+import { Array, Boolean, Chunk, Number, Option, Tuple } from "effect"
 
-import { abs, floor, sqrt } from "../../Numeric.js"
-import { transpose } from "./matrix.js"
+import { abs, ceil, sqrt } from "../../Numeric.js"
 
 const solverEpsilon = 1e-12
 
 const indices = (size: number): Chunk.Chunk<number> =>
-  Chunk.fromIterable(
-    Iterable.unfold(0, (index) =>
-      Boolean.match(Number.lessThan(index, size), {
-        onFalse: Option.none,
-        onTrue: () => Option.some(Tuple.make(index, Number.increment(index)))
-      }))
-  )
+  Boolean.match(Number.greaterThan(size, 0), {
+    onFalse: Chunk.empty,
+    onTrue: () => Chunk.makeBy(ceil(size), (index) => index)
+  })
 
 const matrixIndex = (size: number, row: number, column: number): number =>
   Number.sum(Number.multiply(row, size), column)
 
 const matrixValueAt = (
-  matrix: Chunk.Chunk<number>,
+  matrix: ReadonlyArray<number>,
   size: number,
   row: number,
   column: number
-): number => Option.getOrElse(Chunk.get(matrix, matrixIndex(size, row, column)), () => 0)
+): number => Array.unsafeGet(matrix, matrixIndex(size, row, column))
 
-const setMatrixValue = (
-  matrix: Chunk.Chunk<number>,
+const isSymmetricMatrix = (
+  matrix: ReadonlyArray<number>,
   size: number,
-  row: number,
-  column: number,
-  value: number
-): Chunk.Chunk<number> => Chunk.replace(matrix, matrixIndex(size, row, column), value)
-
-const isSymmetricMatrix = (matrix: Chunk.Chunk<number>, size: number): boolean =>
-  Chunk.every(indices(size), (row) =>
-    Chunk.every(
-      Chunk.filter(indices(size), (column) => Number.greaterThan(column, row)),
-      (column) =>
-        Number.lessThanOrEqualTo(
+  allIndices: Chunk.Chunk<number>
+): boolean =>
+  Chunk.every(
+    allIndices,
+    (row) =>
+      Chunk.every(Chunk.drop(allIndices, Number.increment(row)), (column) => {
+        return Number.lessThanOrEqualTo(
           abs(Number.subtract(matrixValueAt(matrix, size, row, column), matrixValueAt(matrix, size, column, row))),
           solverEpsilon
         )
-    ))
-
-const lowerCoordinates = (size: number) =>
-  Chunk.flatMap(indices(size), (row) => Chunk.map(indices(Number.increment(row)), (column) => Tuple.make(row, column)))
-
-const lowerToChunk = (lower: Chunk.Chunk<number>, size: number): Chunk.Chunk<number> =>
-  Chunk.map(indices(Number.multiply(size, size)), (flatIndex) => {
-    const row = floor(Number.unsafeDivide(flatIndex, size))
-    const column = Number.remainder(flatIndex, size)
-    return Boolean.match(Number.lessThanOrEqualTo(column, row), {
-      onFalse: () => 0,
-      onTrue: () => matrixValueAt(lower, size, row, column)
-    })
-  })
+      })
+  )
 
 export const choleskySpd = (
   matrix: Chunk.Chunk<number>,
   size: number
-): Option.Option<Chunk.Chunk<number>> =>
-  Option.liftPredicate(
-    matrix,
-    () =>
-      Boolean.and(
-        Number.greaterThan(size, 0),
-        Boolean.and(
-          Number.Equivalence(Chunk.size(matrix), Number.multiply(size, size)),
-          isSymmetricMatrix(matrix, size)
-        )
-      )
-  ).pipe(
+): Option.Option<Chunk.Chunk<number>> => {
+  const transientMatrix = Chunk.toReadonlyArray(matrix)
+  const allIndices = indices(size)
+  return Option.liftPredicate(matrix, () => Number.greaterThan(size, 0)).pipe(
+    Option.filter(() => Number.Equivalence(Chunk.size(matrix), Number.multiply(size, size))),
+    Option.filter(() => isSymmetricMatrix(transientMatrix, size, allIndices)),
     Option.flatMap(() =>
       Chunk.reduce(
-        lowerCoordinates(size),
-        Option.some(Chunk.map(indices(Number.multiply(size, size)), () => 0)),
-        (lowerOption, coordinate) =>
-          Option.flatMap(lowerOption, (lower) => {
-            const row = Tuple.getFirst(coordinate)
-            const column = Tuple.getSecond(coordinate)
-            const projection = Chunk.reduce(
-              indices(column),
-              0,
-              (sum, shared) =>
-                Number.sum(
-                  sum,
-                  Number.multiply(
-                    matrixValueAt(lower, size, row, shared),
-                    matrixValueAt(lower, size, column, shared)
-                  )
-                )
-            )
-            return Boolean.match(Number.Equivalence(row, column), {
-              onTrue: () =>
-                Option.liftPredicate(
-                  Number.subtract(matrixValueAt(matrix, size, row, row), projection),
-                  Number.greaterThan(solverEpsilon)
-                ).pipe(
-                  Option.map((diagonal) => setMatrixValue(lower, size, row, column, sqrt(diagonal)))
-                ),
-              onFalse: () =>
-                Option.liftPredicate(
-                  matrixValueAt(lower, size, column, column),
-                  (pivot) => Number.greaterThan(abs(pivot), solverEpsilon)
-                ).pipe(
-                  Option.map((pivot) =>
-                    setMatrixValue(
-                      lower,
-                      size,
-                      row,
-                      column,
-                      Number.unsafeDivide(
-                        Number.subtract(matrixValueAt(matrix, size, row, column), projection),
-                        pivot
+        allIndices,
+        Option.some(Chunk.empty<Chunk.Chunk<number>>()),
+        (completedRowsOption, row) =>
+          Option.flatMap(completedRowsOption, (completedRows) => {
+            return Chunk.reduce(
+              Chunk.take(allIndices, Number.increment(row)),
+              Option.some(Chunk.empty<number>()),
+              (partialRowOption, column) =>
+                Option.flatMap(partialRowOption, (partialRow) => {
+                  const projection = Chunk.reduce(
+                    Chunk.take(allIndices, column),
+                    0,
+                    (sum, shared) => {
+                      const columnFactor = Boolean.match(Number.Equivalence(row, column), {
+                        onFalse: () => Chunk.unsafeGet(Chunk.unsafeGet(completedRows, column), shared),
+                        onTrue: () => Chunk.unsafeGet(partialRow, shared)
+                      })
+                      return Number.sum(
+                        sum,
+                        Number.multiply(
+                          Chunk.unsafeGet(partialRow, shared),
+                          columnFactor
+                        )
                       )
-                    )
+                    }
                   )
-                )
-            })
+                  return Boolean.match(Number.Equivalence(row, column), {
+                    onTrue: () =>
+                      Option.liftPredicate(
+                        Number.subtract(matrixValueAt(transientMatrix, size, row, row), projection),
+                        Number.greaterThan(solverEpsilon)
+                      ).pipe(
+                        Option.map((diagonal) => Chunk.append(partialRow, sqrt(diagonal)))
+                      ),
+                    onFalse: () =>
+                      Option.liftPredicate(
+                        Chunk.unsafeGet(Chunk.unsafeGet(completedRows, column), column),
+                        (pivot) => Number.greaterThan(abs(pivot), solverEpsilon)
+                      ).pipe(
+                        Option.map((pivot) =>
+                          Chunk.append(
+                            partialRow,
+                            Number.unsafeDivide(
+                              Number.subtract(matrixValueAt(transientMatrix, size, row, column), projection),
+                              pivot
+                            )
+                          )
+                        )
+                      )
+                  })
+                })
+            ).pipe(
+              Option.map((partialRow) => Chunk.append(completedRows, partialRow))
+            )
           })
+      ).pipe(
+        Option.map((lowerRows) =>
+          Chunk.flatMap(lowerRows, (lowerRow, row) =>
+            Chunk.appendAll(
+              lowerRow,
+              Chunk.map(Chunk.drop(allIndices, Number.increment(row)), () => 0)
+            ))
+        )
       )
-    ),
-    Option.map((lower) => lowerToChunk(lower, size))
+    )
   )
+}
 
 export const forwardSubstituteLower = (
   lower: Chunk.Chunk<number>,
@@ -143,33 +134,36 @@ export const forwardSubstituteLower = (
         Number.Equivalence(Chunk.size(rhs), size)
       )
   ).pipe(
-    Option.flatMap(() =>
-      Chunk.reduce(
-        indices(size),
+    Option.flatMap(() => {
+      const transientLower = Chunk.toReadonlyArray(lower)
+      const transientRhs = Chunk.toReadonlyArray(rhs)
+      const allIndices = indices(size)
+      return Chunk.reduce(
+        allIndices,
         Option.some(Chunk.empty<number>()),
         (solvedOption, index) =>
           Option.flatMap(solvedOption, (solved) => {
             const projection = Chunk.reduce(
-              indices(index),
+              Chunk.take(allIndices, index),
               0,
               (sum, column) =>
                 Number.sum(
                   sum,
                   Number.multiply(
-                    matrixValueAt(lower, size, index, column),
-                    Option.getOrElse(Chunk.get(solved, column), () => 0)
+                    matrixValueAt(transientLower, size, index, column),
+                    Chunk.unsafeGet(solved, column)
                   )
                 )
             )
             return Option.liftPredicate(
-              matrixValueAt(lower, size, index, index),
+              matrixValueAt(transientLower, size, index, index),
               (diagonal) => Number.greaterThan(abs(diagonal), solverEpsilon)
             ).pipe(
               Option.map((diagonal) =>
                 Chunk.append(
                   solved,
                   Number.unsafeDivide(
-                    Number.subtract(Option.getOrElse(Chunk.get(rhs, index), () => 0), projection),
+                    Number.subtract(Array.unsafeGet(transientRhs, index), projection),
                     diagonal
                   )
                 )
@@ -177,8 +171,50 @@ export const forwardSubstituteLower = (
             )
           })
       )
-    )
+    })
   )
+
+const backwardSubstitute = (
+  upper: ReadonlyArray<number>,
+  size: number,
+  rhs: ReadonlyArray<number>,
+  valueAt: (matrix: ReadonlyArray<number>, size: number, row: number, column: number) => number
+): Option.Option<Chunk.Chunk<number>> => {
+  const allIndices = indices(size)
+  return Chunk.reduce(
+    Chunk.reverse(allIndices),
+    Option.some(Chunk.empty<number>()),
+    (solvedOption, index) =>
+      Option.flatMap(solvedOption, (solved) => {
+        const projection = Chunk.reduce(
+          Chunk.drop(allIndices, Number.increment(index)),
+          0,
+          (sum, column, columnOffset) =>
+            Number.sum(
+              sum,
+              Number.multiply(
+                valueAt(upper, size, index, column),
+                Chunk.unsafeGet(solved, columnOffset)
+              )
+            )
+        )
+        return Option.liftPredicate(
+          valueAt(upper, size, index, index),
+          (diagonal) => Number.greaterThan(abs(diagonal), solverEpsilon)
+        ).pipe(
+          Option.map((diagonal) =>
+            Chunk.prepend(
+              solved,
+              Number.unsafeDivide(
+                Number.subtract(Array.unsafeGet(rhs, index), projection),
+                diagonal
+              )
+            )
+          )
+        )
+      })
+  )
+}
 
 export const backwardSubstituteUpper = (
   upper: Chunk.Chunk<number>,
@@ -194,42 +230,21 @@ export const backwardSubstituteUpper = (
       )
   ).pipe(
     Option.flatMap(() =>
-      Chunk.reduce(
-        Chunk.reverse(indices(size)),
-        Option.some(Chunk.map(indices(size), () => 0)),
-        (solvedOption, index) =>
-          Option.flatMap(solvedOption, (solved) => {
-            const projection = Chunk.reduce(
-              Chunk.filter(indices(size), (column) => Number.greaterThan(column, index)),
-              0,
-              (sum, column) =>
-                Number.sum(
-                  sum,
-                  Number.multiply(
-                    matrixValueAt(upper, size, index, column),
-                    Option.getOrElse(Chunk.get(solved, column), () => 0)
-                  )
-                )
-            )
-            return Option.liftPredicate(
-              matrixValueAt(upper, size, index, index),
-              (diagonal) => Number.greaterThan(abs(diagonal), solverEpsilon)
-            ).pipe(
-              Option.map((diagonal) =>
-                Chunk.replace(
-                  solved,
-                  index,
-                  Number.unsafeDivide(
-                    Number.subtract(Option.getOrElse(Chunk.get(rhs, index), () => 0), projection),
-                    diagonal
-                  )
-                )
-              )
-            )
-          })
+      backwardSubstitute(
+        Chunk.toReadonlyArray(upper),
+        size,
+        Chunk.toReadonlyArray(rhs),
+        matrixValueAt
       )
     )
   )
+
+const transposedMatrixValueAt = (
+  matrix: ReadonlyArray<number>,
+  size: number,
+  row: number,
+  column: number
+): number => matrixValueAt(matrix, size, column, row)
 
 export const solveSpd = (
   matrix: Chunk.Chunk<number>,
@@ -239,7 +254,14 @@ export const solveSpd = (
   choleskySpd(matrix, size).pipe(
     Option.flatMap((lower) =>
       forwardSubstituteLower(lower, size, rhs).pipe(
-        Option.flatMap((forward) => backwardSubstituteUpper(transpose(lower, size, size, size, 0), size, forward))
+        Option.flatMap((forward) =>
+          backwardSubstitute(
+            Chunk.toReadonlyArray(lower),
+            size,
+            Chunk.toReadonlyArray(forward),
+            transposedMatrixValueAt
+          )
+        )
       )
     )
   )

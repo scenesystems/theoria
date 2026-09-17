@@ -10,11 +10,12 @@
  * @since 0.1.0
  * @category internal
  */
-import { Boolean, Chunk, Number, Schema } from "effect"
+import { Array, Boolean, Number, Schema } from "effect"
 
 import { abs, exp } from "../../Numeric.js"
 
 const NonNaN = Schema.Number.pipe(Schema.nonNaN())
+const isNonNaN = Schema.is(NonNaN)
 const twoPowNegative28 = 3.725290298461914e-9
 const rightTailThreshold = 6
 const smallRegionBoundary = 0.84375
@@ -24,7 +25,7 @@ const tailRegionBoundary = Number.unsafeDivide(1, 0.35)
 const EFX = 1.28379167095512586316e-01
 const ERX = 8.45062911510467529297e-01
 
-const PP = Chunk.make(
+const PP = Array.make(
   1.28379167095512558561e-01,
   -3.25042107247001499370e-01,
   -2.84817495755985104766e-02,
@@ -32,7 +33,7 @@ const PP = Chunk.make(
   -2.37630166566501626084e-05
 )
 
-const QQ = Chunk.make(
+const QQ = Array.make(
   1,
   3.97917223959155352819e-01,
   6.50222499887672944485e-02,
@@ -41,7 +42,7 @@ const QQ = Chunk.make(
   -3.96022827877536812320e-06
 )
 
-const PA = Chunk.make(
+const PA = Array.make(
   -2.36211856075265944077e-03,
   4.14856118683748331666e-01,
   -3.72207876035701323847e-01,
@@ -51,7 +52,7 @@ const PA = Chunk.make(
   -2.16637559486879084300e-03
 )
 
-const QA = Chunk.make(
+const QA = Array.make(
   1,
   1.06420880400844228286e-01,
   5.40397917702171048937e-01,
@@ -61,7 +62,7 @@ const QA = Chunk.make(
   1.19844998467991074170e-02
 )
 
-const RA = Chunk.make(
+const RA = Array.make(
   -9.86494403484714822705e-03,
   -6.93858572707181764372e-01,
   -1.05586262253232909814e01,
@@ -72,7 +73,7 @@ const RA = Chunk.make(
   -9.81432934416914548592e00
 )
 
-const SA = Chunk.make(
+const SA = Array.make(
   1,
   1.96512716674392571292e01,
   1.37657754143519042600e02,
@@ -84,7 +85,7 @@ const SA = Chunk.make(
   -6.04244152148580987438e-02
 )
 
-const RB = Chunk.make(
+const RB = Array.make(
   -9.86494292470009928597e-03,
   -7.99283237680523006574e-01,
   -1.77579549177547519889e01,
@@ -94,7 +95,7 @@ const RB = Chunk.make(
   -4.83519191608651397019e02
 )
 
-const SB = Chunk.make(
+const SB = Array.make(
   1,
   3.03380607434824582924e01,
   3.25792512996573918826e02,
@@ -105,8 +106,8 @@ const SB = Chunk.make(
   -2.24409524465858183362e01
 )
 
-const polynomial = (coefficients: Chunk.Chunk<number>, x: number): number =>
-  Chunk.reduceRight(
+const polynomial = (coefficients: Array.NonEmptyArray<number>, x: number): number =>
+  Array.reduceRight(
     coefficients,
     0,
     (accumulator, coefficient) => Number.sum(Number.multiply(accumulator, x), coefficient)
@@ -114,8 +115,8 @@ const polynomial = (coefficients: Chunk.Chunk<number>, x: number): number =>
 
 const tailApproximation = (
   x: number,
-  numerator: Chunk.Chunk<number>,
-  denominator: Chunk.Chunk<number>
+  numerator: Array.NonEmptyArray<number>,
+  denominator: Array.NonEmptyArray<number>
 ): number => {
   const reciprocalSquare = Number.unsafeDivide(1, Number.multiply(x, x))
   const correction = Number.unsafeDivide(
@@ -182,7 +183,7 @@ const erfcPositive = (x: number): number =>
  * @category internal
  */
 export const erfCephes = (x: number): number => {
-  return Boolean.match(Schema.is(NonNaN)(x), {
+  return Boolean.match(isNonNaN(x), {
     onFalse: () => NaN,
     onTrue: () =>
       Boolean.match(Number.Equivalence(x, Infinity), {
@@ -214,7 +215,7 @@ export const erfCephes = (x: number): number => {
  * @category internal
  */
 export const erfcCephes = (x: number): number => {
-  return Boolean.match(Schema.is(NonNaN)(x), {
+  return Boolean.match(isNonNaN(x), {
     onFalse: () => NaN,
     onTrue: () =>
       Boolean.match(Number.greaterThanOrEqualTo(x, 0), {

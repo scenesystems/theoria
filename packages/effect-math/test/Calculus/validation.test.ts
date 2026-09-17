@@ -56,8 +56,9 @@ describe("Calculus validation", () => {
 
       expect(first.converged).toStrictEqual(true)
       expect(first.value).toBeCloseTo(0.5, 9)
-      expect(second.converged).toStrictEqual(false)
-      expect(second.value).toBeCloseTo(Number.negate(Numeric.sin(point)), 8)
+      expect(second.converged).toStrictEqual(true)
+      // d²sin(x)/dx² at pi/3 is -sqrt(3)/2, independently of our sin kernel.
+      expect(second.value).toBeCloseTo(-0.8660254037844386, 8)
     }))
 
   it.effect("accepts canonical valid multivariate boundary inputs", () =>

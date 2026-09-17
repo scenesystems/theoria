@@ -367,7 +367,7 @@ export const safeDivideFinite: (dividend: number, divisor: number) => Option.Opt
  * @since 0.4.0
  * @category guards
  */
-export const isFinite: (value: number) => boolean = Schema.is(FiniteScalar)
+export const isFinite: (value: number) => boolean = Binary.isFinite
 
 /**
  * Chooses the smaller ordered number in either direct or data-last form.

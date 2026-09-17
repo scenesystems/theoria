@@ -4,21 +4,28 @@
  * @since 0.1.0
  * @category internal
  */
-import { Chunk, Number, pipe } from "effect"
+import { Array, Chunk, Number } from "effect"
 
 import { abs, hypot } from "../../Numeric.js"
 
 /**
- * Dot product of two equal-length chunks via `Chunk.zipWith` + `Chunk.reduce`.
+ * Dot product over the shared prefix of two chunks.
  *
  * @since 0.1.0
  * @category internal
  */
-export const dot = (a: Chunk.Chunk<number>, b: Chunk.Chunk<number>): number =>
-  pipe(
-    Chunk.zipWith(a, b, Number.multiply),
-    Chunk.reduce(0, Number.sum)
+export const dot = (a: Chunk.Chunk<number>, b: Chunk.Chunk<number>): number => {
+  const transientB = Chunk.toReadonlyArray(b)
+  return Chunk.reduce(
+    Chunk.take(a, Number.min(Chunk.size(a), Chunk.size(b))),
+    0,
+    (sum, value, index) =>
+      Number.sum(
+        sum,
+        Number.multiply(value, Array.unsafeGet(transientB, index))
+      )
   )
+}
 
 /**
  * Euclidean (L2) norm via Numeric's overflow-safe hypot kernel.
