@@ -384,6 +384,18 @@ const sqrtDyadic = (value: Dyadic): number =>
 const newtonRoot = (value: number, estimate: number): number =>
   Number.multiply(0.5, Number.sum(estimate, Number.unsafeDivide(value, estimate)))
 
+// Dekker TwoProduct specialized to a square. Callers exclude under/overflow
+// of the split and its products. Do not reassociate these operations.
+const squareError = (value: number, product: number): number => {
+  const split = Number.multiply(134217729, value)
+  const high = Number.subtract(split, Number.subtract(split, value))
+  const low = Number.subtract(value, high)
+  const error1 = Number.subtract(product, Number.multiply(high, high))
+  const error2 = Number.subtract(error1, Number.multiply(low, high))
+  const error3 = Number.subtract(error2, Number.multiply(high, low))
+  return Number.subtract(Number.multiply(low, low), error3)
+}
+
 const sqrtFinitePositive = (value: number): number => {
   const normalized = normalize(value)
   const exponent = floor(Number.multiply(normalized.exponent, 0.5))
@@ -401,13 +413,7 @@ const sqrtFinitePositive = (value: number): number => {
   // Six steps put g within one spacing u of sqrt(a), 1 <= g <= 2.
   // Dekker TwoProduct: g² = product + error exactly. Do not reassociate.
   const product = Number.multiply(root, root)
-  const split = Number.multiply(134217729, root)
-  const high = Number.subtract(split, Number.subtract(split, root))
-  const low = Number.subtract(root, high)
-  const error1 = Number.subtract(product, Number.multiply(high, high))
-  const error2 = Number.subtract(error1, Number.multiply(low, high))
-  const error3 = Number.subtract(error2, Number.multiply(high, low))
-  const error = Number.subtract(Number.multiply(low, low), error3)
+  const error = squareError(root, product)
   const residual = Number.subtract(Number.subtract(a, product), error)
   const spacing = 2.220446049250313e-16
   const boundary = Number.multiply(root, spacing)
@@ -477,8 +483,7 @@ const addHypotTerm = (state: HypotState, value: number): HypotState =>
       })
   })
 
-/** Exact sum-of-squares before final root rounding; infinity dominates NaN. */
-export const hypot = (values: Chunk.Chunk<number>): number => {
+const hypotExact = (values: Chunk.Chunk<number>): number => {
   const state = Chunk.reduce(
     values,
     new HypotState({ coefficient: 0n, exponent: 0, hasInfinity: false, hasNaN: false }),
@@ -490,6 +495,124 @@ export const hypot = (values: Chunk.Chunk<number>): number => {
       Boolean.match(state.hasNaN, {
         onTrue: () => notANumber,
         onFalse: () => sqrtDyadic(new Dyadic({ coefficient: state.coefficient, exponent: state.exponent }))
+      })
+  })
+}
+
+const normResidual = (sum: readonly [number, number], root: number): number => {
+  const product = Number.multiply(root, root)
+  return Number.sum(Number.subtract(Number.subtract(sum[0], product), squareError(root, product)), sum[1])
+}
+
+const hypotCompensated = (values: Chunk.Chunk<number>, exponent: number): number => {
+  const scale = scaleNormal(1, Number.negate(exponent))
+  const sum = Chunk.reduce(values, Tuple.make(0, 0), (state, value) =>
+    Boolean.match(zero(value), {
+      onTrue: () => state,
+      onFalse: () => {
+        const scaled = Number.multiply(value, scale)
+        // Below 2^-450, a square's low-order product may underflow. Reject
+        // the whole floating calculation; never discard small components.
+        return Boolean.match(Number.lessThan(abs(scaled), 3.4395525670743494e-136), {
+          onTrue: () => Tuple.make(state[0], notANumber),
+          onFalse: () => {
+            const product = Number.multiply(scaled, scaled)
+            const high = Number.sum(state[0], product)
+            // Knuth TwoSum: no input ordering assumption.
+            const virtual = Number.subtract(high, state[0])
+            const error = Number.sum(
+              Number.subtract(state[0], Number.subtract(high, virtual)),
+              Number.subtract(product, virtual)
+            )
+            return Tuple.make(high, Number.sum(Number.sum(state[1], squareError(scaled, product)), error))
+          }
+        })
+      }
+    }))
+  return Boolean.match(isFinite(sum[1]), {
+    onFalse: () => hypotExact(values),
+    onTrue: () => {
+      const initial = sqrt(Number.sum(sum[0], sum[1]))
+      const root = Number.sum(initial, Number.unsafeDivide(normResidual(sum, initial), Number.multiply(2, initial)))
+      const normalized = normalize(root)
+      const gap = scaleNormal(1, Number.subtract(normalized.exponent, 52))
+      const gapDown = Boolean.match(Number.Equivalence(normalized.mantissa, 1), {
+        onTrue: () => Number.multiply(gap, 0.5),
+        onFalse: () => gap
+      })
+      const residual = normResidual(sum, root)
+      const down = Number.sum(residual, Number.multiply(root, gapDown))
+      const up = Number.subtract(Number.multiply(root, gap), residual)
+      // Error-free products/sums follow Ogita–Rump–Oishi (2005), §5.
+      // For n <= 2^16, u = 2^-53, H = sum[0], the absolute sum of
+      // corrections is <= 6*n*u*H; rounding their 2*n additions costs
+      // <= 24*n²*u²*H. The residual's two roundings, midpoint gap²/4,
+      // and boundary comparisons fit within 256*(n+1)²*u²*H, including
+      // rounding this bound. Subtraction H-root² is exact by Sterbenz;
+      // check that premise below rather than trusting the root estimate.
+      const count = Number.increment(Chunk.size(values))
+      const guard = Number.multiply(Number.multiply(Number.multiply(count, count), 3.1554436208840472e-30), sum[0])
+      const product = Number.multiply(root, root)
+      const result = scaleNormal(root, exponent)
+      return Boolean.match(
+        Boolean.every(Array.make(
+          Number.greaterThanOrEqualTo(product, Number.multiply(sum[0], 0.5)),
+          Number.lessThanOrEqualTo(product, Number.multiply(sum[0], 2)),
+          Number.greaterThan(down, guard),
+          Number.greaterThan(up, guard),
+          Number.greaterThanOrEqualTo(result, minimumNormal),
+          isFinite(result)
+        )),
+        {
+          onTrue: () => result,
+          onFalse: () => hypotExact(values)
+        }
+      )
+    }
+  })
+}
+
+/** Correctly rounded norm; uncertain floating results retain exact dyadic rounding. */
+export const hypot = (values: Chunk.Chunk<number>): number => {
+  const largest = Chunk.reduce(values, Tuple.make(0, 0), (state, value) =>
+    Boolean.match(isFinite(value), {
+      onTrue: () => {
+        const magnitude = abs(value)
+        return Boolean.match(Number.greaterThan(magnitude, state[0]), {
+          onTrue: () => Tuple.make(magnitude, state[0]),
+          onFalse: () => Tuple.make(state[0], Number.max(state[1], magnitude))
+        })
+      },
+      onFalse: () => Tuple.make(positiveInfinity, positiveInfinity)
+    }))
+  const maximum = largest[0]
+  return Boolean.match(isFinite(maximum), {
+    onFalse: () => hypotExact(values),
+    onTrue: () =>
+      Boolean.match(zero(maximum), {
+        onTrue: () => 0,
+        onFalse: () => {
+          const count = Chunk.size(values)
+          // If every remaining magnitude <= maximum * 2^-27 / n, their
+          // squares move the root by < maximum * 2^-54, below half the
+          // upward spacing. The margin covers rounding the ratio/threshold;
+          // an underflowed ratio is smaller still. Includes singleton norms.
+          const threshold = Number.unsafeDivide(7.450580596923828e-9, count)
+          return Boolean.match(Number.lessThanOrEqualTo(Number.unsafeDivide(largest[1], maximum), threshold), {
+            onTrue: () => maximum,
+            onFalse: () =>
+              Boolean.match(
+                Boolean.and(
+                  Number.lessThanOrEqualTo(count, 65_536),
+                  Number.greaterThanOrEqualTo(maximum, minimumNormal)
+                ),
+                {
+                  onTrue: () => hypotCompensated(values, normalize(maximum).exponent),
+                  onFalse: () => hypotExact(values)
+                }
+              )
+          })
+        }
       })
   })
 }

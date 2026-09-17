@@ -109,6 +109,48 @@ describe("Numeric binary64 arithmetic", () => {
       expect(hypot(Chunk.make(5_464.208024978638, 5_104.779699210003))).toBe(7_477.7232576304605)
     }))
 
+  it.effect.prop("rounds vector midpoints to even without dropping decisive small squares", {
+    exponent: FastCheck.integer({ min: -900, max: 900 }),
+    reverse: FastCheck.boolean()
+  }, ({ exponent, reverse }) =>
+    Effect.gen(function*() {
+      const factor = Boolean.match(Number.lessThan(exponent, 0), { onTrue: () => 0.5, onFalse: () => 2 })
+      const scale = Number.multiplyAll(Iterable.take(Iterable.makeBy(() => factor), abs(exponent)))
+      const norm = (values: Chunk.Chunk<number>) =>
+        hypot(Chunk.map(
+          Boolean.match(reverse, {
+            onTrue: () => Chunk.reverse(values),
+            onFalse: () => values
+          }),
+          (value) => Number.multiply(value, scale)
+        ))
+      // (1 + 2^-53)^2 = 1 + 2^-52 + 2^-106: an exact tie to even 1.
+      const lowerTie = Chunk.make(1, 1.4901161193847656e-8, 1.1102230246251565e-16)
+      expect(norm(lowerTie)).toBe(scale)
+      expect(norm(Chunk.append(lowerTie, 5.551115123125783e-17))).toBe(Number.multiply(1.0000000000000002, scale))
+      // (1 + 3*2^-53)^2: the lower neighbor is odd, so this tie rounds up.
+      const upperTie = Chunk.make(1, 1.4901161193847656e-8, 1.4901161193847656e-8, 1.4901161193847656e-8)
+      expect(norm(Chunk.append(upperTie, 3.3306690738754696e-16))).toBe(Number.multiply(1.0000000000000004, scale))
+      expect(norm(Chunk.append(upperTie, 3.330669073875469e-16))).toBe(Number.multiply(1.0000000000000002, scale))
+    }))
+
+  it.effect("retains rounding across vector lengths and exponent ranges", () =>
+    Effect.gen(function*() {
+      // Python Decimal, precision 800, initialized from exact binary64 inputs.
+      expect(hypot(Chunk.make(0.1, 0.3, 1.7, -12.9, 2.1))).toBe(13.183702059740277)
+      expect(hypot(Chunk.make(1.7976931348623155e308, 1e300))).toBe(1.7976931348623155e308)
+      expect(hypot(Chunk.make(2.2250738585072014e-308, 1e-310))).toBe(2.2250963295579194e-308)
+      // 2^16 copies of (2^-8)^2 sum to exactly one, in either order.
+      const smallSquares = Chunk.makeBy(65_536, () => 0.00390625)
+      expect(hypot(smallSquares)).toBe(1)
+      expect(hypot(Chunk.prepend(smallSquares, 1))).toBe(1.4142135623730951)
+      expect(hypot(Chunk.append(smallSquares, 1))).toBe(1.4142135623730951)
+      const shorter = Chunk.makeBy(16_384, () => 0.0078125)
+      expect(hypot(Chunk.prepend(shorter, 1))).toBe(1.4142135623730951)
+      expect(hypot(Chunk.append(shorter, 1))).toBe(1.4142135623730951)
+      expect(hypot(Chunk.make(1, 1e-200))).toBe(1)
+    }))
+
   it.effect("prioritizes infinite norm components over NaN and canonicalizes zero", () =>
     Effect.gen(function*() {
       expect(hypot(Chunk.empty())).toBe(0)
