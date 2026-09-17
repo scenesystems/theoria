@@ -40,6 +40,7 @@ const relaxedScalarLayer = Policy.layerDeterministic({
 
 const kernelTolerance = 1e-10
 const digammaTolerance = 1e-11
+const erfBoundaryTolerance = 2e-15
 
 const expectClose = (actual: number, expected: number, tolerance: number) =>
   expect(abs(Number.subtract(actual, expected))).toBeLessThanOrEqual(tolerance)
@@ -123,6 +124,26 @@ describe("Special / erf", () => {
     Effect.gen(function*() {
       expect(abs(Number.subtract(erf(4), 1))).toBeLessThan(1e-7)
     }))
+
+  it.effect("matches SciPy reference values at every approximation boundary", () =>
+    Effect.gen(function*() {
+      const twoPowNegative28 = Number.unsafeDivide(1, 268_435_456)
+      const largeSplit = Number.unsafeDivide(1, 0.35)
+
+      expectClose(erf(twoPowNegative28), 4.203539964167448e-9, erfBoundaryTolerance)
+      expectClose(erf(0.84375), 0.7672256612323416, erfBoundaryTolerance)
+      expectClose(erf(1.25), 0.9229001282564582, erfBoundaryTolerance)
+      expectClose(erf(largeSplit), 0.9999466876886117, erfBoundaryTolerance)
+      expectClose(erf(6), 1, erfBoundaryTolerance)
+    }))
+
+  it.effect("preserves signed zero, NaN, and infinity behavior", () =>
+    Effect.gen(function*() {
+      expect(erf(-0)).toBe(0)
+      expect(erf(Number.unsafeDivide(0, 0))).toBeNaN()
+      expect(erf(Number.unsafeDivide(1, 0))).toBe(1)
+      expect(erf(Number.unsafeDivide(-1, 0))).toBe(-1)
+    }))
 })
 
 describe("Special / erfc", () => {
@@ -134,6 +155,26 @@ describe("Special / erfc", () => {
   it.effect("erf(x) + erfc(x) = 1", () =>
     Effect.gen(function*() {
       expect(abs(Number.subtract(Number.sum(erf(1), erfc(1)), 1))).toBeLessThan(1e-15)
+    }))
+
+  it.effect("matches SciPy reference values at every approximation boundary", () =>
+    Effect.gen(function*() {
+      const twoPowNegative28 = Number.unsafeDivide(1, 268_435_456)
+      const largeSplit = Number.unsafeDivide(1, 0.35)
+
+      expectClose(erfc(twoPowNegative28), 0.99999999579646, erfBoundaryTolerance)
+      expectClose(erfc(0.84375), 0.2327743387676584, erfBoundaryTolerance)
+      expectClose(erfc(1.25), 0.07709987174354177, erfBoundaryTolerance)
+      expectClose(erfc(largeSplit), 5.3312311388322815e-5, erfBoundaryTolerance)
+      expectClose(erfc(6), 2.1519736712498913e-17, 1e-30)
+    }))
+
+  it.effect("preserves signed zero, NaN, and infinity behavior", () =>
+    Effect.gen(function*() {
+      expect(erfc(-0)).toBe(1)
+      expect(erfc(Number.unsafeDivide(0, 0))).toBeNaN()
+      expect(erfc(Number.unsafeDivide(1, 0))).toBe(0)
+      expect(erfc(Number.unsafeDivide(-1, 0))).toBe(2)
     }))
 })
 

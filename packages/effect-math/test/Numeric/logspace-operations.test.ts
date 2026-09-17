@@ -77,12 +77,17 @@ describe("Numeric log-space kernels", () => {
 
   it.effect("handles empty, singleton, shifted, and infinite log-sum-exp inputs", () =>
     Effect.gen(function*() {
+      const negativeInfinity = Number.unsafeDivide(-1, 0)
+      const positiveInfinity = Number.unsafeDivide(1, 0)
+      const nan = Number.unsafeDivide(0, 0)
       expect(logSumExp(Chunk.empty())).toBe(Number.unsafeDivide(-1, 0))
       expect(logSumExp(Chunk.of(42))).toBe(42)
       closeTo(logSumExp(Chunk.make(1, 2, 3)), 3.40760596444438)
       closeTo(logSumExp(Chunk.make(1_000, 999, 998)), 1000.4076059644444)
-      expect(logSumExp(Chunk.make(Number.unsafeDivide(1, 0), 2))).toBe(Number.unsafeDivide(1, 0))
-      expect(logSumExp(Chunk.make(Number.unsafeDivide(1, 0), Number.unsafeDivide(0, 0)))).toBeNaN()
+      expect(logSumExp(Chunk.make(negativeInfinity, negativeInfinity))).toBe(negativeInfinity)
+      expect(logSumExp(Chunk.make(positiveInfinity, 2))).toBe(positiveInfinity)
+      expect(logSumExp(Chunk.make(nan, negativeInfinity))).toBeNaN()
+      expect(logSumExp(Chunk.make(positiveInfinity, nan))).toBeNaN()
     }))
 })
 
@@ -122,9 +127,15 @@ describe("Numeric log-space policy operations", () => {
   it.effect("rejects an infinite result only under strict precision", () =>
     Effect.gen(function*() {
       const infinity = Number.unsafeDivide(1, 0)
-      const error = yield* Effect.flip(logaddexpWithPolicies(infinity, 1).pipe(Effect.provide(strictLayer)))
-      const result = yield* logaddexpWithPolicies(infinity, 1).pipe(Effect.provide(relaxedLayer))
-      expect(Schema.is(DomainViolationError)(error)).toBe(true)
-      expect(result).toBe(infinity)
+      const pairError = yield* Effect.flip(logaddexpWithPolicies(infinity, 1).pipe(Effect.provide(strictLayer)))
+      const vectorError = yield* Effect.flip(
+        logSumExpWithPolicies(Chunk.of(infinity)).pipe(Effect.provide(strictLayer))
+      )
+      const pair = yield* logaddexpWithPolicies(infinity, 1).pipe(Effect.provide(relaxedLayer))
+      const vector = yield* logSumExpWithPolicies(Chunk.of(infinity)).pipe(Effect.provide(relaxedLayer))
+      expect(Schema.is(DomainViolationError)(pairError)).toBe(true)
+      expect(Schema.is(DomainViolationError)(vectorError)).toBe(true)
+      expect(pair).toBe(infinity)
+      expect(vector).toBe(infinity)
     }))
 })

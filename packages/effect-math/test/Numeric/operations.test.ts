@@ -212,6 +212,15 @@ describe("Numeric collection kernels", () => {
       expect(yield* argmaxIndex(Chunk.of(42))).toBe(0)
       expect(Option.isNone(argmaxIndex(Chunk.empty()))).toBe(true)
     }))
+
+  it.effect("orders NaN below ordered values while retaining the first all-NaN index", () =>
+    Effect.gen(function*() {
+      const nan = Number.unsafeDivide(0, 0)
+      expect(yield* argmaxIndex(Chunk.make(nan, 5, 10))).toBe(2)
+      expect(yield* argmaxIndex(Chunk.make(5, nan, 10))).toBe(2)
+      expect(yield* argmaxIndex(Chunk.make(5, nan, 1))).toBe(0)
+      expect(yield* argmaxIndex(Chunk.make(nan, nan))).toBe(0)
+    }))
 })
 
 describe("Numeric validated boundaries", () => {
