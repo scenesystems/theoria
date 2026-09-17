@@ -140,7 +140,10 @@ export class Options extends Data.Class<{
  * @remarks
  * Access is serialized. The approved context state is restored after success,
  * typed failure, or interruption. Optional emoji correction uses a per-font
- * probe cache and does not alter widths that already satisfy its floor.
+ * probe cache and applies once per extended-pictographic, paired
+ * regional-indicator flag, or keycap grapheme. Bare keycap bases and lone
+ * regional indicators are not corrected. Widths already satisfying the floor
+ * are unchanged.
  *
  * @since 0.5.0
  * @category layers

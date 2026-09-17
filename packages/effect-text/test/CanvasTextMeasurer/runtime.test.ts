@@ -36,8 +36,20 @@ class EmojiContext {
         Match.when("🙂", () => 4),
         Match.when("AB", () => 20),
         Match.when("A\u0301B", () => 90),
-        Match.when("A🙂B", () => 22),
-        Match.when("A🙂\u0301B", () => 22),
+        Match.when(
+          Match.is(
+            "A🙂B",
+            "A🙂\u0301B",
+            "A👩‍👩‍👧‍👦B",
+            "A🇺🇸B",
+            "A1⃣B",
+            "A1️⃣B",
+            "A1B",
+            "A🇺B",
+            "A1\u0301B"
+          ),
+          () => 22
+        ),
         Match.orElse((measured) => Number.multiply(String.length(measured), 10))
       )
     }
@@ -183,10 +195,42 @@ describe("CanvasTextMeasurer", () => {
       expect(widths).toEqual({ absent: 22, disabled: 22, defaulted: 32, custom: 44 })
     }))
 
-  it.effect("strips combining marks that belong to emoji grapheme clusters", () =>
+  it.effect("corrects regional-indicator flags and keycaps as complete emoji graphemes", () =>
     Effect.gen(function*() {
-      const width = yield* measure(new EmojiContext(), "A🙂\u0301B", Option.some(true))
-      expect(width).toBe(32)
+      const context = new EmojiContext()
+      const widths = yield* Effect.all({
+        flag: measureEffect("A🇺🇸B"),
+        keycap: measureEffect("A1⃣B"),
+        keycapWithVariationSelector: measureEffect("A1️⃣B")
+      }).pipe(Effect.provide(canvasLayer(context, Option.some(true))))
+
+      expect(widths).toEqual({ flag: 32, keycap: 32, keycapWithVariationSelector: 32 })
+    }))
+
+  it.effect("does not treat emoji-property bases or incomplete sequences as emoji graphemes", () =>
+    Effect.gen(function*() {
+      const context = new EmojiContext()
+      const widths = yield* Effect.all({
+        digit: measureEffect("A1B"),
+        loneRegionalIndicator: measureEffect("A🇺B"),
+        unrelatedCombiningSequence: measureEffect("A1\u0301B")
+      }).pipe(Effect.provide(canvasLayer(context, Option.some(true))))
+
+      expect(widths).toEqual({ digit: 22, loneRegionalIndicator: 22, unrelatedCombiningSequence: 22 })
+    }))
+
+  it.effect("corrects combining and ZWJ emoji clusters once and restores context state", () =>
+    Effect.gen(function*() {
+      const context = new EmojiContext()
+      const widths = yield* Effect.all({
+        combining: measureEffect("A🙂\u0301B"),
+        zwj: measureEffect("A👩‍👩‍👧‍👦B")
+      }).pipe(Effect.provide(canvasLayer(context, Option.some(true))))
+
+      expect(widths).toEqual({ combining: 32, zwj: 32 })
+      expect(context.font).toBe(originalFont)
+      expect(context.direction).toBe("inherit")
+      expect(context.textBaseline).toBe("alphabetic")
     }))
 
   it.effect("evicts a failed emoji probe so the next reader can retry", () => {

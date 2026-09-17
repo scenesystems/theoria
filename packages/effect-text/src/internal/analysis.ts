@@ -30,7 +30,16 @@ const isRtlCharacter = Schema.is(Schema.String.pipe(Schema.pattern(/[\u0590-\u08
 const isStrongCharacter = Schema.is(Schema.String.pipe(Schema.pattern(/\p{Letter}|\p{Number}/u)))
 const isLetter = Schema.is(Schema.String.pipe(Schema.pattern(/\p{Letter}/u)))
 const isNumber = Schema.is(Schema.String.pipe(Schema.pattern(/\p{Number}/u)))
-const isEmoji = Schema.is(Schema.String.pipe(Schema.pattern(/\p{Extended_Pictographic}/u)))
+const isExtendedPictographic = Schema.is(Schema.String.pipe(Schema.pattern(/\p{Extended_Pictographic}/u)))
+const isRegionalIndicatorPair = Schema.is(
+  Schema.String.pipe(Schema.pattern(/^\p{Regional_Indicator}{2}$/u))
+)
+const isKeycapSequence = Schema.is(Schema.String.pipe(Schema.pattern(/^[#*0-9]\uFE0F?\u20E3$/u)))
+const isEmoji = (cluster: string): boolean =>
+  Boolean.or(
+    isExtendedPictographic(cluster),
+    Boolean.or(isRegionalIndicatorPair(cluster), isKeycapSequence(cluster))
+  )
 const isCjkScript = Schema.is(
   Schema.String.pipe(Schema.pattern(/[\p{Script=Han}\p{Script=Hiragana}\p{Script=Katakana}\p{Script=Hangul}]/u))
 )
@@ -440,8 +449,8 @@ export const splitSoftHyphenPieces = (text: string): SoftHyphenPieces => {
   )
 }
 
-/** Detects whether a string contains extended pictographic graphemes. */
-export const containsEmoji = isEmoji
+/** Detects whether a string contains a supported complete emoji grapheme. */
+export const containsEmoji = (text: string): boolean => Arr.some(graphemeClusters(text), isEmoji)
 
 /** Removes emoji grapheme clusters while counting how many clusters were stripped. */
 export const stripEmojiClusters = (text: string): EmojiStripResult =>

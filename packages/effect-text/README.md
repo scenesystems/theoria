@@ -124,7 +124,7 @@ Each acquisition of `MeasurementCache.layer` owns a fresh cache. Reacquire that 
 
 ## Canvas measurement and profiles
 
-`CanvasTextMeasurer.layer` supplies the principal `TextMeasurer` from a caller-owned canvas-like 2D context. Access is serialized, approved context state is restored after success, failure, or interruption, and optional emoji correction applies a configurable minimum advance.
+`CanvasTextMeasurer.layer` supplies the principal `TextMeasurer` from a caller-owned canvas-like 2D context. Access is serialized, approved context state is restored after success, failure, or interruption, and optional emoji correction applies a configurable minimum advance once per extended-pictographic, paired regional-indicator flag, or keycap grapheme. Bare keycap bases and lone regional indicators are not corrected.
 
 `CanvasProfile.monospace` and `CanvasProfile.systemUi` pair font selection with a `Text.Profile`; `CanvasProfile.get()` selects one by id and defaults to monospace.
 
