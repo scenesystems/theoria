@@ -18,16 +18,21 @@ import {
 
 import { SnippetLanguage } from "../typecheck/snippets.js"
 
-export class ReadmeExampleCheckError extends Schema.TaggedError<ReadmeExampleCheckError>()("ReadmeExampleCheckError", {
-  message: Schema.String
-}) {}
+export class ReadmeExampleCheckError
+  extends Schema.TaggedError<ReadmeExampleCheckError>("@theoria/scripts/readme-examples/ReadmeExampleCheckError")(
+    "ReadmeExampleCheckError",
+    {
+      message: Schema.String
+    }
+  )
+{}
 
-export class ReadmeTarget extends Schema.Class<ReadmeTarget>("ReadmeTarget")({
+export class ReadmeTarget extends Schema.Class<ReadmeTarget>("@theoria/scripts/readme-examples/ReadmeTarget")({
   absolutePath: Schema.String,
   relativePath: Schema.String
 }) {}
 
-export class ReadmeSnippet extends Schema.Class<ReadmeSnippet>("ReadmeSnippet")({
+export class ReadmeSnippet extends Schema.Class<ReadmeSnippet>("@theoria/scripts/readme-examples/ReadmeSnippet")({
   readme: ReadmeTarget,
   code: Schema.String,
   language: SnippetLanguage,

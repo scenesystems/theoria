@@ -69,3 +69,12 @@ export const EFFECT_RULES = [
   ...TYPE_MODELING_RULES,
   ...OPTION_DISCIPLINE_RULES
 ]
+
+/**
+ * Configuration modules are synchronous framework entry points. They follow
+ * the complete Effect discipline, with only Effect.runSync allowed to
+ * materialize the framework-owned value at that host boundary.
+ */
+export const CONFIG_HOST_EFFECT_RULES = EFFECT_RULES.filter(
+  ({ selector }) => selector !== "CallExpression[callee.object.name='Effect'][callee.property.name='runSync']"
+)

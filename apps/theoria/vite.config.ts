@@ -1,13 +1,18 @@
 import tailwindcss from "@tailwindcss/vite"
 import react from "@vitejs/plugin-react"
-import { Boolean as Bool, Match, Option } from "effect"
+import { Boolean as Bool, Config, Data, Effect, Match, Option } from "effect"
 import * as Arr from "effect/Array"
 import * as Record from "effect/Record"
 import * as Str from "effect/String"
 import { defineConfig, type HtmlTagDescriptor, type Plugin, type Rollup } from "vite"
 
-const apiPort = Option.getOrElse(Option.fromNullable(process.env.THEORIA_PORT), () => "3876")
+const apiPort = Effect.runSync(Config.string("THEORIA_PORT").pipe(Config.withDefault("3876")))
 const vitePort = 5175
+
+class MissingPreloadedFace extends Data.TaggedError("MissingPreloadedFace")<{
+  readonly face: string
+  readonly message: string
+}> {}
 
 /**
  * The faces the shell preloads: the Latin subsets of the two served
@@ -53,7 +58,11 @@ const preloadTypefaces = (): Plugin => ({
           `/${
             Option.getOrThrowWith(
               emittedFace(emitted, face),
-              () => new Error(`The build emitted no asset for the preloaded face ${face}; is it still declared?`)
+              () =>
+                new MissingPreloadedFace({
+                  face,
+                  message: `The build emitted no asset for the preloaded face ${face}; is it still declared?`
+                })
             ).fileName
           }`
         ))

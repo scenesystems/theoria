@@ -3,10 +3,15 @@ import { Command } from "@effect/platform"
 import { BunContext, BunRuntime } from "@effect/platform-bun"
 import { Array, Console, Effect, Number, Schema, Stream, String } from "effect"
 
-class CommitCheckFailure extends Schema.TaggedError<CommitCheckFailure>()("CommitCheckFailure", {
-  check: Schema.String,
-  exitCode: Schema.Number
-}) {}
+class CommitCheckFailure
+  extends Schema.TaggedError<CommitCheckFailure>("@theoria/scripts/pre-commit/CommitCheckFailure")(
+    "CommitCheckFailure",
+    {
+      check: Schema.String,
+      exitCode: Schema.Number
+    }
+  )
+{}
 
 const check = (name: string, command: Command.Command) =>
   command.pipe(

@@ -14,18 +14,23 @@ export const SnippetLanguage = Schema.Literal("ts", "tsx")
 
 export type SnippetLanguage = typeof SnippetLanguage.Type
 
-export class Snippet extends Schema.Class<Snippet>("Snippet")({
+export class Snippet extends Schema.Class<Snippet>("@theoria/scripts/typecheck/Snippet")({
   directory: Schema.String,
   location: Schema.String,
   language: SnippetLanguage,
   code: Schema.String
 }) {}
 
-export class SnippetTypecheckError extends Schema.TaggedError<SnippetTypecheckError>()("SnippetTypecheckError", {
-  message: Schema.String
-}) {}
+export class SnippetTypecheckError
+  extends Schema.TaggedError<SnippetTypecheckError>("@theoria/scripts/typecheck/SnippetTypecheckError")(
+    "SnippetTypecheckError",
+    {
+      message: Schema.String
+    }
+  )
+{}
 
-class TempSnippet extends Schema.Class<TempSnippet>("TempSnippet")({
+class TempSnippet extends Schema.Class<TempSnippet>("@theoria/scripts/typecheck/TempSnippet")({
   snippet: Snippet,
   tempPath: Schema.String
 }) {}
