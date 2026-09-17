@@ -69,7 +69,7 @@ The same loop drives language model programs. `effect-dsp` replaces prompt strin
 
 `effect-text` prepares text once and lays it out many times as the available width changes. It stands apart from the data pipeline, but its experimental calibration tools use `effect-math` and `effect-search` to fit layout profiles against measured samples.
 
-When a result is kept, `digest` gives its exact content a stable name, `sign` binds it to a key, and `seal` encrypts it. The three cryptography packages share an operating contract: Effect-typed errors that carry no secret material, conformance to published standards, and clear statements of what the application must still provide. Each library chooses public entrypoints from its current consumer concerns.
+When a result is kept, `digest` gives its exact content a stable name, `sign` binds it to a key, and `seal` encrypts it. The cryptography packages use typed Effect failures and published conformance standards, with explicit application responsibilities. Each library chooses public entrypoints from its current consumer concerns. Strict verification failures carry no input material; other failures may include backend diagnostics that need an application disclosure policy.
 
 ## Getting started
 

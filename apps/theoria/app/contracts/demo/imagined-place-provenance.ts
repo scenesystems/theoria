@@ -1,6 +1,6 @@
-import { type Equivalence, type Option, Schema } from "effect"
+import { Boolean as Bool, Equal, type Equivalence, Match, Option, Schema } from "effect"
 import * as Arr from "effect/Array"
-import type * as Record from "effect/Record"
+import * as Str from "effect/String"
 
 import { Id as CardId } from "../id.js"
 import { type PlaceBuild } from "../imagined-place-result.js"
@@ -15,7 +15,7 @@ import { type PlaceBuild } from "../imagined-place-result.js"
  */
 export const PlaceStep = Schema.Literal("compose", "propose", "record", "arrange")
 export type PlaceStep = typeof PlaceStep.Type
-export const placeSteps: ReadonlyArray<PlaceStep> = PlaceStep.literals
+export const placeSteps = PlaceStep.literals
 
 /**
  * The acts of the story as the page lays them out: the arrival, the three
@@ -65,12 +65,13 @@ export const CodeSite = Schema.Struct({
 })
 export type CodeSite = typeof CodeSite.Type
 
-const site = (id: CodeSiteId, step: PlaceStep, match: string, pkg: CardId): CodeSite => ({
-  id,
-  step,
-  match,
-  package: pkg
-})
+const site = (id: CodeSiteId, step: PlaceStep, match: string, pkg: CardId): CodeSite =>
+  CodeSite.make({
+    id,
+    step,
+    match,
+    package: pkg
+  })
 
 /**
  * Every line of the samples that produced something on the page. Each is
@@ -80,7 +81,7 @@ const site = (id: CodeSiteId, step: PlaceStep, match: string, pkg: CardId): Code
 export const composeSite = site("compose", "compose", "composer.forward(", "effect-inference")
 export const inferenceSite = site("inference", "compose", "InferenceTesting.staticLanguageModel(", "effect-inference")
 export const proposalDigestSite = site("proposal-digest", "propose", "ContentDigest.fromSchema(Proposal,", "digest")
-export const proposalSignatureSite = site("proposal-signature", "propose", "ed25519Sign(proposer.secretKey", "sign")
+export const proposalSignatureSite = site("proposal-signature", "propose", "Ed25519.sign(", "sign")
 export const sealSite = site("seal", "propose", "seal(\"xchacha20-poly1305\"", "seal")
 export const originDigestSite = site(
   "origin-digest",
@@ -94,29 +95,29 @@ export const mergedDigestSite = site(
   "ContentDigest.fromSchema(PlaceArtifact, merged,",
   "digest"
 )
-export const versionSignatureSite = site("version-signature", "record", "ed25519Sign(author.secretKey", "sign")
+export const versionSignatureSite = site("version-signature", "record", "Ed25519.sign(", "sign")
 export const layoutSite = site("layout", "arrange", "Text.layoutLinesWith(", "effect-text")
 export const separationSite = site("separation", "arrange", "Statistics.minimum(", "effect-math")
 export const searchSite = site("search", "arrange", "Study.tell(", "effect-search")
 
-const codeSites: Record<CodeSiteId, CodeSite> = {
-  compose: composeSite,
-  inference: inferenceSite,
-  "proposal-digest": proposalDigestSite,
-  "proposal-signature": proposalSignatureSite,
-  seal: sealSite,
-  "origin-digest": originDigestSite,
-  "merged-digest": mergedDigestSite,
-  "version-signature": versionSignatureSite,
-  layout: layoutSite,
-  separation: separationSite,
-  search: searchSite
-}
-
 /** The canonical site named by `id`. */
-export const codeSite = (id: CodeSiteId): CodeSite => codeSites[id]
+export const codeSite = (id: CodeSiteId): CodeSite =>
+  Match.value(id).pipe(
+    Match.when("compose", () => composeSite),
+    Match.when("inference", () => inferenceSite),
+    Match.when("proposal-digest", () => proposalDigestSite),
+    Match.when("proposal-signature", () => proposalSignatureSite),
+    Match.when("seal", () => sealSite),
+    Match.when("origin-digest", () => originDigestSite),
+    Match.when("merged-digest", () => mergedDigestSite),
+    Match.when("version-signature", () => versionSignatureSite),
+    Match.when("layout", () => layoutSite),
+    Match.when("separation", () => separationSite),
+    Match.when("search", () => searchSite),
+    Match.exhaustive
+  )
 
-export const allCodeSites: ReadonlyArray<CodeSite> = Arr.map(CodeSiteId.literals, codeSite)
+export const allCodeSites = Arr.map(CodeSiteId.literals, codeSite)
 
 /**
  * Which build a drawing is of: the content ID of the version being drawn.
@@ -203,15 +204,25 @@ export const decodeMark: (value: unknown) => Option.Option<PlaceMark> = Schema.d
 )
 
 /** The call a site's line makes, by name: `composer.forward(` is `composer.forward`. */
-export const codeSiteCall = (site: CodeSite): string => site.match.slice(0, site.match.indexOf("("))
+export const codeSiteCall = (site: CodeSite): string =>
+  Option.match(Str.indexOf("(")(site.match), {
+    onNone: () => site.match,
+    onSome: (end) => Str.slice(0, end)(site.match)
+  })
 
 /** The code site a code-line mark names, if the sample has such a line. */
 export const codeSiteOf = (step: PlaceStep, match: string): Option.Option<CodeSite> =>
-  Arr.findFirst(allCodeSites, (candidate) => candidate.step === step && candidate.match === match)
+  Arr.findFirst(
+    allCodeSites,
+    (candidate) => Bool.and(Equal.equals(candidate.step, step), Equal.equals(candidate.match, match))
+  )
 
 /** The code site a line of `step`'s sample is, if the line is one that made something on the page. */
 export const codeSiteOnLine = (step: PlaceStep, line: string): Option.Option<CodeSite> =>
-  Arr.findFirst(allCodeSites, (candidate) => candidate.step === step && line.includes(candidate.match))
+  Arr.findFirst(
+    allCodeSites,
+    (candidate) => Bool.and(Equal.equals(candidate.step, step), Str.includes(candidate.match)(line))
+  )
 
 /**
  * What a visitor pointing at a mark is told: what it is, the facts about it

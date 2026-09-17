@@ -1,28 +1,38 @@
 import { describe, expect, it } from "@effect/vitest"
-import { Effect, Option } from "effect"
+import { Effect, Match, Option } from "effect"
 import * as Arr from "effect/Array"
 
+import { codeSiteOnLine } from "../../app/contracts/demo/imagined-place-provenance.js"
 import { placeLiveValues } from "../../app/web/view/home/placeLiveValues.js"
-import { placeReferences, referenceLinks, sourceUrl } from "../../app/web/view/home/placeReferences.js"
-import { placeStepDefinition, placeSteps } from "../../app/web/view/home/placeSteps.js"
+import { referenceLinks, sourceUrl } from "../../app/web/view/home/placeReferences.js"
+import { placeSteps } from "../../app/web/view/home/placeSteps.js"
 import { segmentLine } from "../../app/web/view/primitives/code/codeLinks.js"
 import { highlightCode, makeSyntaxHighlighter } from "../../app/web/view/primitives/code/highlighter.js"
 
 describe("How it's built references", () => {
-  it.effect("every reference is linked at least once in its step's highlighted code", () =>
+  it.effect("links the signing call while keeping proposal and version provenance distinct", () =>
     Effect.scoped(
       Effect.gen(function*() {
         const highlighter = yield* makeSyntaxHighlighter
-        Arr.forEach(placeSteps, (step) => {
-          const lines = highlightCode(highlighter, placeStepDefinition(step).code, "typescript")
+        const line = "const signed = yield* Ed25519.sign(message, secretKey, publicKey)"
+        const proposalSite = yield* codeSiteOnLine("propose", line)
+        const versionSite = yield* codeSiteOnLine("record", line)
+        expect(proposalSite.id).toBe("proposal-signature")
+        expect(versionSite.id).toBe("version-signature")
+        expect(codeSiteOnLine("compose", line)).toEqual(Option.none())
+        Arr.forEach(Arr.make(proposalSite, versionSite), (site) => {
+          const lines = highlightCode(highlighter, line, "typescript")
           const linked = Arr.flatMap(lines, (line) =>
             Arr.filterMap(
-              segmentLine(line, referenceLinks(step)),
-              (segment) => segment._tag === "Link" ? Option.some(segment.link.text) : Option.none()
+              segmentLine(line, referenceLinks(site.step)),
+              (segment) =>
+                Match.value(segment).pipe(
+                  Match.tag("Link", (segment) => Option.some(segment.link.href)),
+                  Match.tag("Tokens", () => Option.none()),
+                  Match.exhaustive
+                )
             ))
-          Arr.forEach(placeReferences(step), (reference) => {
-            expect(linked, `${step}: ${reference.text}`).toContain(reference.text)
-          })
+          expect(linked).toEqual(Arr.of("/docs/sign/api/Ed25519#api-sign"))
         })
       })
     ))
@@ -38,7 +48,7 @@ describe("How it's built references", () => {
   it.effect("shows no values before anything has been built", () =>
     Effect.sync(() => {
       Arr.forEach(placeSteps, (step) => {
-        expect(placeLiveValues(step, Option.none(), Option.none(), Option.none())).toEqual([])
+        expect(placeLiveValues(step, Option.none(), Option.none(), Option.none())).toEqual(Arr.empty())
       })
     }))
 })

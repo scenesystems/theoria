@@ -1,5 +1,5 @@
 /** Verification-only HTTP boundary for the packed package executing inside workerd. */
-import { InvalidRsaPublicKey, InvalidVerificationInput, Jwt, VerificationUnavailable } from "@scenesystems/sign"
+import { Jwt, Rsa, Verification } from "@scenesystems/sign"
 import { Schema } from "effect"
 
 export const Identity = Schema.Struct({ sub: Schema.NonEmptyString, email: Schema.Literal("reader@example.test") })
@@ -18,11 +18,13 @@ export const Request = Schema.Union(
   })
 )
 
+export const RequestBody = Schema.encodedSchema(Request)
+
 export const Result = Schema.Union(
   Schema.Boolean,
   Identity,
   Jwt.Rejected,
-  InvalidRsaPublicKey,
-  InvalidVerificationInput,
-  VerificationUnavailable
+  Rsa.InvalidPublicKey,
+  Verification.InvalidInput,
+  Verification.Unavailable
 )

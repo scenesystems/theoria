@@ -20,13 +20,6 @@ export const PlaceStepDefinition = Schema.Struct({
 })
 export type PlaceStepDefinition = typeof PlaceStepDefinition.Type
 
-const define = (
-  id: PlaceStep,
-  name: string,
-  packages: ReadonlyArray<CardId>,
-  code: string
-): PlaceStepDefinition => ({ id, name, packages, code })
-
 const composeCode = `// A typed program: a brief in, a schema-checked composition out. The output
 // fields are the artifact's own fields, so the two cannot drift apart.
 const signature = yield* Signature.make(
@@ -40,30 +33,34 @@ const composer = yield* Module.predict("theoria-place-composer", signature)
 const composition = yield* composer.forward({ brief }).pipe(
   Effect.provide(InferenceTesting.staticLanguageModel(recorded))
 )
-const origin = { brief, composition, accepted: [] }`
+const origin = PlaceArtifact.make({ schemaVersion: 1, scenario, brief, composition, accepted: Arr.empty() })`
 
 const proposeCode = `// Every proposal is content-addressed and signed by whoever offered it,
 // merged or not. The neighbor's note travels sealed to the author alone.
 const proposalId = yield* ContentDigest.fromSchema(Proposal, proposal, "blake3-256").pipe(
   Effect.map(ContentDigest.toString)
 )
-const signature = yield* ed25519Sign(proposer.secretKey, utf8ToBytes(proposalId))
+const proposalBytes = Bytes.fromString(proposalId)
+const signature = yield* Ed25519.sign(proposalBytes, proposer.secretKey, proposer.publicKey)
 
-const shared = yield* deriveSharedSecret("x25519", neighbor.secretKey, author.publicKey)
+const shared = yield* X25519.deriveSharedSecret(neighbor.secretKey, author.publicKey)
 const key = yield* Hkdf.sha256(shared.sharedSecret, Option.none(), context, 32)
-const envelope = yield* seal("xchacha20-poly1305", key, utf8ToBytes(note))`
+const envelope = yield* seal("xchacha20-poly1305", key, Bytes.fromString(note))`
 
 const recordCode = `// Version 1 is the digest of its content. Version 2 digests version 1's
 // ID as its parent, so the chain cannot be reordered. The author signs each.
 const originId = yield* ContentDigest.fromSchema(PlaceArtifact, origin, "blake3-256").pipe(
   Effect.map(ContentDigest.toString)
 )
-const merged = { ...origin, parent: originId, accepted }
+const merged = PlaceArtifact.make(
+  Record.set(Struct.evolve(origin, { accepted: () => accepted }), "parent", originId)
+)
 const mergedId = yield* ContentDigest.fromSchema(PlaceArtifact, merged, "blake3-256").pipe(
   Effect.map(ContentDigest.toString)
 )
 
-const signed = yield* ed25519Sign(author.secretKey, utf8ToBytes(mergedId))`
+const mergedBytes = Bytes.fromString(mergedId)
+const signed = yield* Ed25519.sign(mergedBytes, author.secretKey, author.publicKey)`
 
 const arrangeCode = `// Drawing happens where the place is shown, with that screen's font metrics.
 // The description flows around the markers, one line width at a time.
@@ -73,11 +70,12 @@ const lines = Text.layoutLinesWith(prepared, { maxWidth, lineHeight }, widthBesi
 // Six numbers describe how the markers meander down the stage. An arrangement
 // costs more when markers crowd or lines get squeezed; lower is better.
 const space = yield* SearchSpace.make({
-  edge: SearchSpace.float(0.5, 0.9), swing: SearchSpace.float(0, 0.3), phase: SearchSpace.float(-Math.PI, Math.PI),
+  edge: SearchSpace.float(0.5, 0.9), swing: SearchSpace.float(0, 0.3),
+  phase: SearchSpace.float(Num.negate(Numeric.pi), Numeric.pi),
   turns: SearchSpace.float(0.5, 2.5), top: SearchSpace.float(0.04, 0.6), step: SearchSpace.float(0.03, 0.24)
 })
 const separation = Statistics.minimum(Chunk.map(pairs, ([a, b]) => Geometry.euclideanDistance(a, b)))
-const raggedness = Statistics.standardDeviation(Chunk.map(lines, (line) => line.width / maxWidth))
+const raggedness = Statistics.standardDeviation(Chunk.map(lines, (line) => Num.unsafeDivide(line.width, maxWidth)))
 
 // The same seeded search runs here and on the server; each trial is one frame.
 const handle = yield* Study.open({ space, sampler: Sampler.tpe({ seed: 42 }), objective, trials: 36 })
@@ -86,17 +84,38 @@ yield* Study.tell(handle, asked.trialNumber, arrange(asked.config).quality.loss)
 
 export const placeStepDefinition = (step: PlaceStep): PlaceStepDefinition =>
   Match.value(step).pipe(
-    Match.when("compose", () => define(step, "Compose", ["effect-dsp", "effect-inference"], composeCode)),
-    Match.when("propose", () => define(step, "Propose", ["sign", "seal"], proposeCode)),
-    Match.when("record", () => define(step, "Record", ["digest", "sign"], recordCode)),
-    Match.when(
-      "arrange",
-      () => define(step, "Arrange", ["effect-text", "effect-math", "effect-search"], arrangeCode)
-    ),
+    Match.when("compose", () =>
+      PlaceStepDefinition.make({
+        id: step,
+        name: "Compose",
+        packages: Arr.make("effect-dsp", "effect-inference"),
+        code: composeCode
+      })),
+    Match.when("propose", () =>
+      PlaceStepDefinition.make({
+        id: step,
+        name: "Propose",
+        packages: Arr.make("sign", "seal"),
+        code: proposeCode
+      })),
+    Match.when("record", () =>
+      PlaceStepDefinition.make({
+        id: step,
+        name: "Record",
+        packages: Arr.make("digest", "sign"),
+        code: recordCode
+      })),
+    Match.when("arrange", () =>
+      PlaceStepDefinition.make({
+        id: step,
+        name: "Arrange",
+        packages: Arr.make("effect-text", "effect-math", "effect-search"),
+        code: arrangeCode
+      })),
     Match.exhaustive
   )
 
-export const placeStepDefinitions: ReadonlyArray<PlaceStepDefinition> = Arr.map(placeSteps, placeStepDefinition)
+export const placeStepDefinitions = Arr.map(placeSteps, placeStepDefinition)
 
 export const placeStepIndex = (step: PlaceStep): number =>
   Option.getOrElse(Arr.findFirstIndex(placeSteps, (candidate) => Equal.equals(candidate, step)), () => 0)

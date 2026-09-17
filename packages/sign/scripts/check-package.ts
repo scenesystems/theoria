@@ -2,11 +2,11 @@
 import { Command, FileSystem, Path, Url } from "@effect/platform"
 import * as BunContext from "@effect/platform-bun/BunContext"
 import * as BunRuntime from "@effect/platform-bun/BunRuntime"
-import { Array as Arr, Config, Effect, Number as N, Schema } from "effect"
+import { Array as Arr, Config, Data, Effect, Number as N, Record, Schema, String as Str } from "effect"
 
-class PackageCheckFailed extends Schema.TaggedError<PackageCheckFailed>()("PackageCheckFailed", {
-  operation: Schema.String
-}) {}
+class PackageCheckFailed extends Data.TaggedError("PackageCheckFailed")<{
+  readonly operation: string
+}> {}
 
 const execute = (command: Command.Command, operation: string) =>
   command.pipe(
@@ -22,13 +22,21 @@ const program = Effect.gen(function*() {
   const root = yield* path.fromFileUrl(yield* Url.fromString("../", import.meta.url))
   const repository = path.resolve(root, "../..")
   const temporary = yield* fs.makeTempDirectoryScoped()
-  const tarball = path.join(temporary, "sign.tgz")
-  yield* execute(
-    Command.make("bun", "pm", "pack", "--ignore-scripts", "--quiet", "--filename", tarball).pipe(
-      Command.workingDirectory(path.join(root, "dist"))
-    ),
-    "pack built package"
-  )
+  yield* Effect.forEach(Arr.make("digest", "sign"), (name) =>
+    execute(
+      Command.make(
+        "bun",
+        "pm",
+        "pack",
+        "--ignore-scripts",
+        "--quiet",
+        "--filename",
+        path.join(temporary, Str.concat(name, ".tgz"))
+      ).pipe(
+        Command.workingDirectory(path.join(repository, "packages", name, "dist"))
+      ),
+      Str.concat("pack built ", name)
+    ))
   const versions = yield* fs.readFileString(path.join(repository, "package.json")).pipe(
     Effect.flatMap(Schema.decode(Schema.parseJson(Schema.Struct({
       devDependencies: Schema.Struct({
@@ -54,14 +62,17 @@ const program = Effect.gen(function*() {
       private: true,
       type: "module",
       dependencies: {
-        "@scenesystems/sign": tarball,
+        "@scenesystems/sign": path.join(temporary, "sign.tgz"),
+        "@scenesystems/digest": path.join(temporary, "digest.tgz"),
         effect: versions.devDependencies.effect,
         "@effect/platform": versions.devDependencies["@effect/platform"],
         "@effect/platform-bun": versions.devDependencies["@effect/platform-bun"],
         "@effect/vitest": versions.devDependencies["@effect/vitest"],
         vitest: vitestVersion
       },
-      overrides: versions.overrides
+      // Resolve sign's transitive digest dependency to the same candidate tarball.
+      // Its not-yet-bumped version may also exist in the public registry.
+      overrides: Record.set(versions.overrides, "@scenesystems/digest", path.join(temporary, "digest.tgz"))
     })
   )
   yield* fs.makeDirectory(path.join(temporary, "scripts/worker"), { recursive: true })
@@ -69,8 +80,8 @@ const program = Effect.gen(function*() {
   yield* fs.makeDirectory(path.join(temporary, "test/worker"))
   yield* Effect.forEach(
     Arr.make(
-      "test/rsa.test.ts",
-      "test/jwt.test.ts",
+      "test/Rsa.test.ts",
+      "test/Jwt.test.ts",
       "scripts/worker/protocol.ts",
       "scripts/worker/entry.ts",
       "scripts/worker/runtime.ts",
@@ -78,6 +89,7 @@ const program = Effect.gen(function*() {
       "vitest.worker.config.ts",
       "scripts/fixture-contract.ts",
       "scripts/jwt-fixture-contract.ts",
+      "scripts/benchmark.ts",
       "scripts/benchmark-worker.ts",
       "test/fixtures/conformance/rsa-openssl.json",
       "test/fixtures/conformance/jwt-openssl.json",
@@ -93,7 +105,7 @@ const program = Effect.gen(function*() {
     "install isolated packed consumer"
   )
   yield* execute(
-    Command.make("bun", "run", "--bun", "vitest", "run", "test/rsa.test.ts", "test/jwt.test.ts").pipe(
+    Command.make("bun", "run", "--bun", "vitest", "run", "test/Rsa.test.ts", "test/Jwt.test.ts").pipe(
       Command.workingDirectory(temporary)
     ),
     "verify packed public API"

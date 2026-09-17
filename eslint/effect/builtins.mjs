@@ -240,7 +240,7 @@ export const HOST_GLOBAL_RULES = [
   {
     selector: "MemberExpression[object.name='crypto']",
     message:
-      "Do not use the 'crypto' global. Use @scenesystems/digest for hashing and generateEntropy from @scenesystems/sign for CSPRNG bytes."
+      "Do not use the 'crypto' global. Use @scenesystems/digest for hashing and Entropy.bytes with Entropy.layer from @scenesystems/sign for CSPRNG bytes."
   },
   {
     selector: "Identifier[name=/^(localStorage|sessionStorage)$/]",
