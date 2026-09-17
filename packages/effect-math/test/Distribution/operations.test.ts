@@ -1,5 +1,5 @@
 import { describe, expect, it } from "@effect/vitest"
-import { Array, Chunk, Effect, FastCheck, Number, Predicate, Schema } from "effect"
+import { Array, Chunk, Effect, FastCheck, Number, Predicate, Schema, Tuple } from "effect"
 
 import {
   betaCdf,
@@ -121,12 +121,46 @@ describe("Distribution / normalCdf", () => {
     Effect.gen(function*() {
       expect(normalCdf(3, 3, 1)).toBeCloseTo(0.5)
     }))
+
+  it.effect("retains representable probabilities far into the lower tail", () =>
+    Effect.gen(function*() {
+      // SciPy special.ndtr, not a quantile/CDF roundtrip sharing a kernel.
+      Array.forEach(
+        Array.make(
+          Tuple.make(-9, 1.1285884059538324e-19),
+          Tuple.make(-20, 2.7536241186061556e-89),
+          Tuple.make(-37, 5.7255712225239266e-300)
+        ),
+        ([input, expected]) => expectRelativeClose(normalCdf(input, 0, 1), expected, 0, 5e-13)
+      )
+    }))
 })
 
 describe("Distribution / normalQuantile", () => {
   it.effect("quantile at 0.5 equals mu", () =>
     Effect.gen(function*() {
       expect(normalQuantile(0.5, 5, 2)).toBeCloseTo(5)
+    }))
+
+  it.effect("resolves finite tail quantiles without rounding their probabilities to endpoints", () =>
+    Effect.gen(function*() {
+      // SciPy special.ndtri evaluated on the supplied binary64 probabilities.
+      Array.forEach(
+        Array.make(
+          Tuple.make(1e-20, -9.262340089798409),
+          Tuple.make(1e-100, -21.273453560965322),
+          Tuple.make(1e-300, -37.0470962993612),
+          Tuple.make(5e-324, -38.467405617144344),
+          Tuple.make(0.9999999999999999, 8.209536151601387)
+        ),
+        ([input, expected]) => expectRelativeClose(normalQuantile(input, 0, 1), expected, 0, 8e-16)
+      )
+      const infinity = Number.unsafeDivide(1, 0)
+      expect(normalQuantile(0, 0, 1)).toBe(Number.negate(infinity))
+      expect(normalQuantile(1, 0, 1)).toBe(infinity)
+      expect(normalQuantile(-5e-324, 0, 1)).toBeNaN()
+      expect(normalQuantile(1.0000000000000002, 0, 1)).toBeNaN()
+      expect(normalQuantile(Number.unsafeDivide(0, 0), 0, 1)).toBeNaN()
     }))
 })
 

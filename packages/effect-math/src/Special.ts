@@ -542,8 +542,8 @@ export const digammaWithPolicies = (x: number) =>
 export const erfinv: (x: number) => number = Erfinv.erfinv
 
 /**
- * Computes inverse complementary error as `erfinv(1 - x)`. It returns
- * infinities at `x = 0` and `x = 2`, and `NaN` outside `[0, 2]`.
+ * Computes inverse complementary error while retaining tiny tail arguments.
+ * It returns infinities at `x = 0` and `x = 2`, and `NaN` outside `[0, 2]`.
  *
  * @since 0.1.0
  * @category operations

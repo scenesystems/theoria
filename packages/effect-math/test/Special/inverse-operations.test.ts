@@ -1,5 +1,5 @@
 import { describe, expect, it } from "@effect/vitest"
-import { Effect, Number } from "effect"
+import { Array, Effect, Number, Tuple } from "effect"
 
 import { abs, exp } from "../../src/Numeric.js"
 import * as Policy from "../../src/Policy.js"
@@ -73,6 +73,35 @@ describe("Special / erfcinv", () => {
   it.effect("erfcinv(0.5) ≈ erfinv(0.5)", () =>
     Effect.gen(function*() {
       expectClose(erfcinv(0.5), erfinv(0.5), kernelTolerance)
+    }))
+
+  it.effect("preserves tiny tail arguments and the representable reflection below two", () =>
+    Effect.gen(function*() {
+      // SciPy special.erfcinv; for the smallest subnormal use
+      // -ndtri_exp(log(x)-log(2))/sqrt(2), avoiding SciPy's x/2 underflow.
+      Array.forEach(
+        Array.make(
+          Tuple.make(1e-20, 6.601580622355143),
+          Tuple.make(1e-100, 15.065574702592647),
+          Tuple.make(1e-300, 26.209469960516124),
+          Tuple.make(1e-320, 27.073153719853046),
+          Tuple.make(5e-324, 27.213293210812946),
+          Tuple.make(1.9999999999999998, -5.805018683193454)
+        ),
+        ([input, expected]) => expectClose(erfcinv(input), expected, Number.multiply(abs(expected), 8e-16))
+      )
+    }))
+
+  it.effect("distinguishes endpoints from out-of-domain and NaN arguments", () =>
+    Effect.gen(function*() {
+      const infinity = Number.unsafeDivide(1, 0)
+      expect(erfcinv(0)).toBe(infinity)
+      expect(erfcinv(-0)).toBe(infinity)
+      expect(erfcinv(2)).toBe(Number.negate(infinity))
+      expect(erfcinv(-5e-324)).toBeNaN()
+      expect(erfcinv(2.0000000000000004)).toBeNaN()
+      expect(erfcinv(infinity)).toBeNaN()
+      expect(erfcinv(Number.unsafeDivide(0, 0))).toBeNaN()
     }))
 })
 

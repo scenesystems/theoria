@@ -10,7 +10,7 @@
 import { Number } from "effect"
 
 import { exp, log, pi, sqrt } from "../../Numeric.js"
-import { erf, erfinv } from "../../Special.js"
+import { erfc, erfcinv } from "../../Special.js"
 
 /**
  * Precomputed √(2π) for the normal PDF denominator.
@@ -57,13 +57,13 @@ export const standardNormalPdf = (x: number): number =>
   )
 
 /**
- * Standard normal CDF: Φ(x) = ½(1 + erf(x / √2)).
+ * Standard normal CDF: Φ(x) = ½ erfc(−x / √2), preserving the lower tail.
  *
  * @since 0.1.0
  * @category internal
  */
 export const standardNormalCdf = (x: number): number =>
-  Number.multiply(0.5, Number.sum(1, erf(Number.unsafeDivide(x, sqrtTwo))))
+  Number.multiply(0.5, erfc(Number.unsafeDivide(Number.negate(x), sqrtTwo)))
 
 /**
  * Finite standard-normal inverse transform with deterministic endpoint clamping.
@@ -71,8 +71,7 @@ export const standardNormalCdf = (x: number): number =>
  * @since 0.1.0
  * @category internal
  */
-export const standardNormalTransform = (roll: number): number =>
-  Number.multiply(sqrtTwo, erfinv(Number.subtract(Number.multiply(2, clampUnitRoll(roll)), 1)))
+export const standardNormalTransform = (roll: number): number => normalQuantile(clampUnitRoll(roll), 0, 1)
 
 /**
  * Normal PDF: φ(x; μ, σ) = (1 / (σ√(2π))) · exp(−½((x − μ) / σ)²).
@@ -109,17 +108,17 @@ export const normalCdf = (x: number, mu: number, sigma: number): number =>
   standardNormalCdf(Number.unsafeDivide(Number.subtract(x, mu), sigma))
 
 /**
- * Normal quantile (inverse CDF): Q(p; μ, σ) = μ + σ√2 · erfinv(2p − 1).
+ * Normal quantile (inverse CDF): Q(p; μ, σ) = μ − σ√2 · erfcinv(2p).
  *
  * @since 0.1.0
  * @category internal
  */
 export const normalQuantile = (p: number, mu: number, sigma: number): number =>
-  Number.sum(
+  Number.subtract(
     mu,
     Number.multiply(
       Number.multiply(sigma, sqrtTwo),
-      erfinv(Number.subtract(Number.multiply(2, p), 1))
+      erfcinv(Number.multiply(2, p))
     )
   )
 

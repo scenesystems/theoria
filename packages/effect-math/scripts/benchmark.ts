@@ -113,6 +113,8 @@ const tiny = Chunk.make(-1e-12, -1e-16, 1e-16, 1e-12, 1e-8, 1e-5)
 const trigOrdinary = Chunk.make(-6.25, -3.125, -0.75, 0.125, 1.25, 3.5, 6.125)
 const trigLargeAngle = Chunk.make(-1e12, -1e8, -1e6, 1_000_000.25, 100_000_000.5, 1_000_000_000_000.75)
 const moderate = Chunk.make(-5, -2.5, -0.5, 0.125, 1.5, 3.25, 5)
+const inverseErrorInputs = Chunk.make(-0.999, -0.8, -0.4, 0.125, 0.55, 0.9, 0.99)
+const probabilities = Chunk.make(0.0001, 0.005, 0.05, 0.25, 0.625, 0.9, 0.999)
 const powers = Chunk.make(0.5, 1.25, 2.5, 10, 31.5, 100)
 const exponents = Chunk.make(-3, -0.5, 0.25, 1.5, 2.25, 3)
 const atanY = Chunk.make(-5, -2, -0.25, 0.25, 2, 5)
@@ -238,8 +240,15 @@ const cases = Chunk.make(
   unaryCase("Special.gamma ordinary", positive, Special.gamma),
   unaryCase("Special.erf ordinary", moderate, Special.erf),
   unaryCase("Special.erfc upper-tail", erfcUpperTail, Special.erfc),
+  unaryCase("Special.erfinv ordinary", inverseErrorInputs, Special.erfinv),
+  unaryCase("Special.erfcinv ordinary", probabilities, Special.erfcinv),
   singleCallCase("Special.gammainc ordinary", () => Special.gammainc(3.75, 2.25)),
   unaryCase("Distribution.normalCdf ordinary", moderate, (value) => Distribution.normalCdf(value, 0.5, 1.75)),
+  unaryCase(
+    "Distribution.normalQuantile ordinary",
+    probabilities,
+    (value) => Distribution.normalQuantile(value, 0.5, 1.75)
+  ),
   singleCallCase("Distribution.betaCdf ordinary", () => Distribution.betaCdf(0.375, 2.5, 4.25)),
   singleCallCase("Distribution.poissonCdf ordinary", () => Distribution.poissonCdf(7, 4.25)),
   singleCallCase("Statistics.variance reduction", () => Statistics.variance(statisticValues)),
