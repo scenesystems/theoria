@@ -1,9 +1,10 @@
 import { Array as Arr } from "effect"
+import * as Str from "effect/String"
 
 import type { ApiExport, ApiPage, DocsApiExportPage, DocsApiModuleIndex } from "@theoria/docs-model"
 
 export const browserApiExportPath = (modulePath: string, anchor: string): string =>
-  `${modulePath.replace(/\.json$/u, "")}/${anchor}.json`
+  `${Str.replace(/\.json$/u, "")(modulePath)}/${anchor}.json`
 
 export const browserApiExportAsset = (
   revision: string,

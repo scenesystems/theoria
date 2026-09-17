@@ -1,7 +1,7 @@
 import { FileSystem, Path } from "@effect/platform"
 import type { PlatformError } from "@effect/platform/Error"
 import * as Digest from "@scenesystems/digest/Digest"
-import { Array as Arr, Context, Effect, Encoding, HashSet, Layer, Ref, Schema } from "effect"
+import { Array as Arr, Boolean as Bool, Context, Effect, Encoding, HashSet, Layer, Match, Ref, Schema } from "effect"
 
 import {
   type ApiPage,
@@ -36,7 +36,7 @@ export const sha256File = (filePath: string) =>
  * watched directory that is immediately recreated loses the watch on the new
  * inode, so files written afterwards are never served until a restart.
  */
-export class GeneratedOutputs extends Context.Tag("@theoria/api-reference/GeneratedOutputs")<
+export class GeneratedOutputs extends Context.Tag("@theoria/scripts/api-reference/GeneratedOutputs")<
   GeneratedOutputs,
   Ref.Ref<HashSet.HashSet<string>>
 >() {}
@@ -83,16 +83,22 @@ const pruneDirectory = (
       Effect.gen(function*() {
         const absolute = path.join(directory, entry)
         const info = yield* fileSystem.stat(absolute)
-        if (info.type === "Directory") {
-          const empty = yield* pruneDirectory(absolute, keep)
-          if (empty) yield* fileSystem.remove(absolute, { recursive: true })
-          return !empty
-        }
-        if (HashSet.has(keep, absolute)) return true
-        yield* fileSystem.remove(absolute)
-        return false
+        return yield* Match.value(info.type).pipe(
+          Match.when("Directory", () =>
+            Effect.gen(function*() {
+              const empty = yield* pruneDirectory(absolute, keep)
+              yield* Effect.when(fileSystem.remove(absolute, { recursive: true }), () => empty)
+              return Bool.not(empty)
+            })),
+          Match.orElse(() =>
+            Effect.if(HashSet.has(keep, absolute), {
+              onTrue: () => Effect.succeed(true),
+              onFalse: () => fileSystem.remove(absolute).pipe(Effect.as(false))
+            })
+          )
+        )
       }))
-    return !Arr.some(kept, (value) => value)
+    return Bool.not(Arr.some(kept, (value) => value))
   })
 
 export const pruneStaleOutputs = (root: string) =>

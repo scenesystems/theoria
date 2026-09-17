@@ -1,4 +1,5 @@
-import { Array as Arr, Option } from "effect"
+import { Array as Arr, Boolean as Bool, Data, Option } from "effect"
+import * as Str from "effect/String"
 
 import {
   type ApiCategory,
@@ -12,16 +13,16 @@ import { type ApiReferenceRoute } from "./model.js"
 export const apiExportAnchor = (name: string): string => `api-${encodeURIComponent(name)}`
 
 export const apiExportId = (packageSlug: string, routeSlug: string, name: string): string =>
-  `${packageSlug}${routeSlug.length === 0 ? "" : `/${routeSlug}`}#${name}`
+  `${packageSlug}${Bool.match(Str.isEmpty(routeSlug), { onTrue: () => "", onFalse: () => `/${routeSlug}` })}#${name}`
 
 const apiModuleId = (packageSlug: string, routeSlug: string): string =>
-  `${packageSlug}${routeSlug.length === 0 ? "" : `/${routeSlug}`}`
+  `${packageSlug}${Bool.match(Str.isEmpty(routeSlug), { onTrue: () => "", onFalse: () => `/${routeSlug}` })}`
 
 const moduleName = (packageName: string, slug: string): string =>
-  slug.length === 0 ? packageName : slug.split("/").at(-1) ?? slug
+  Bool.match(Str.isEmpty(slug), { onTrue: () => packageName, onFalse: () => Arr.lastNonEmpty(Str.split(slug, "/")) })
 
 const qualifiedModuleName = (packageName: string, slug: string): string =>
-  slug.length === 0 ? packageName : `${packageName}/${slug}`
+  Bool.match(Str.isEmpty(slug), { onTrue: () => packageName, onFalse: () => `${packageName}/${slug}` })
 
 const categoriesFor = (
   packageSlug: string,
@@ -30,7 +31,7 @@ const categoriesFor = (
   Arr.map(Arr.dedupe(Arr.map(route.imports, (entry) => entry.category)), (category) => ({
     name: category,
     exportIds: Arr.map(
-      Arr.filter(route.imports, (entry) => entry.category === category),
+      Arr.filter(route.imports, (entry) => Str.Equivalence(entry.category, category)),
       (entry) => apiExportId(packageSlug, route.slug, entry.name)
     )
   }))
@@ -41,17 +42,19 @@ export const categoriesForExports = (
   Arr.map(Arr.dedupe(Arr.map(exports, (entry) => entry.category)), (category) => ({
     name: category,
     exportIds: Arr.map(
-      Arr.filter(exports, (entry) => entry.category === category),
+      Arr.filter(exports, (entry) => Str.Equivalence(entry.category, category)),
       (entry) => entry.id
     )
   }))
 
-const moduleSearchEntry = (input: {
+class ModuleSearchEntryInput extends Data.Class<{
   readonly packageName: string
   readonly packageSlug: string
   readonly route: ApiReferenceRoute
   readonly moduleSummary: string
-}): DocsSearchEntry => ({
+}> {}
+
+const moduleSearchEntry = (input: ModuleSearchEntryInput): DocsSearchEntry => ({
   id: apiModuleId(input.packageSlug, input.route.slug),
   kind: "module",
   package: input.packageName,
@@ -64,12 +67,14 @@ const moduleSearchEntry = (input: {
   anchor: Option.none()
 })
 
-const symbolSearchEntries = (input: {
+class SymbolSearchEntriesInput extends Data.Class<{
   readonly packageName: string
   readonly packageSlug: string
   readonly route: ApiReferenceRoute
   readonly exports: ReadonlyArray<ApiExport>
-}): ReadonlyArray<DocsSearchEntry> =>
+}> {}
+
+const symbolSearchEntries = (input: SymbolSearchEntriesInput): ReadonlyArray<DocsSearchEntry> =>
   Arr.map(input.exports, (apiExport) => ({
     id: apiExport.id,
     kind: "symbol",
@@ -83,7 +88,7 @@ const symbolSearchEntries = (input: {
     anchor: Option.some(apiExport.anchor)
   }))
 
-export const buildApiPresentation = (input: {
+class BuildApiPresentationInput extends Data.Class<{
   readonly packageName: string
   readonly packageVersion: string
   readonly packageSlug: string
@@ -96,9 +101,11 @@ export const buildApiPresentation = (input: {
   readonly canonicalPath: string
   readonly routes: ReadonlyArray<ApiReferenceRoute>
   readonly exportsByRoute: ReadonlyArray<ReadonlyArray<ApiExport>>
-}) => {
+}> {}
+
+export const buildApiPresentation = (input: BuildApiPresentationInput) => {
   const aliases = Arr.map(
-    Arr.filter(input.routes, (route) => !route.canonical),
+    Arr.filter(input.routes, (route) => Bool.not(route.canonical)),
     (route) => route.path
   )
   const pages: ReadonlyArray<ApiPage> = Arr.map(Arr.zip(input.routes, input.exportsByRoute), ([route, exports]) => ({
@@ -130,22 +137,24 @@ export const buildApiPresentation = (input: {
   const searchEntries = Arr.flatMap(
     Arr.zip(input.routes, input.exportsByRoute),
     ([route, exports]): ReadonlyArray<DocsSearchEntry> =>
-      route.canonical ?
-        [
-          moduleSearchEntry({
-            packageName: input.packageName,
-            packageSlug: input.packageSlug,
-            route,
-            moduleSummary: input.moduleSummary
-          }),
-          ...symbolSearchEntries({
-            packageName: input.packageName,
-            packageSlug: input.packageSlug,
-            route,
-            exports
-          })
-        ] :
-        []
+      Bool.match(route.canonical, {
+        onTrue: () =>
+          Arr.prepend(
+            symbolSearchEntries({
+              packageName: input.packageName,
+              packageSlug: input.packageSlug,
+              route,
+              exports
+            }),
+            moduleSearchEntry({
+              packageName: input.packageName,
+              packageSlug: input.packageSlug,
+              route,
+              moduleSummary: input.moduleSummary
+            })
+          ),
+        onFalse: Arr.empty
+      })
   )
 
   return { pages, searchEntries }

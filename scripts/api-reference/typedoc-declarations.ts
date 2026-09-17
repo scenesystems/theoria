@@ -1,5 +1,21 @@
-import { Array as Arr, Effect, Option } from "effect"
-import { type DeclarationReflection, type Reflection, ReflectionKind } from "typedoc"
+import {
+  Array as Arr,
+  Boolean as Bool,
+  Effect,
+  Match,
+  Number as Num,
+  Option,
+  Predicate,
+  Schema,
+  String as Str
+} from "effect"
+import {
+  type DeclarationReflection,
+  type Reflection,
+  ReflectionKind,
+  type ReflectionType,
+  type SomeType
+} from "typedoc"
 
 import { type ApiDocPart, type ApiExport, type ApiFacet, type ApiMember, type ApiSignature } from "@theoria/docs-model"
 import { ApiReferenceGenerationError, type ApiReferenceImport, type ApiReferenceRoute } from "./model.js"
@@ -7,21 +23,34 @@ import { apiExportAnchor, apiExportId } from "./presentation.js"
 import { type ApiDocContext, documentation, typeParameterCode, typeParameters } from "./typedoc-comments.js"
 import { firstSourceUrl, signatureModels } from "./typedoc-signatures.js"
 
+const numberText = Schema.encodeSync(Schema.NumberFromString)
+
 const reflectionKind = (reflection: Reflection): string =>
-  typeof ReflectionKind[reflection.kind] === "string"
-    ? `${ReflectionKind[reflection.kind]}`.replace(/([a-z])([A-Z])/gu, "$1-$2").toLowerCase()
-    : "declaration"
+  Option.fromNullable(ReflectionKind[reflection.kind]).pipe(
+    Option.filter(Predicate.isString),
+    Option.map((kind) => Str.toLowerCase(Str.replace(/([a-z])([A-Z])/gu, "$1-$2")(kind))),
+    Option.getOrElse(() => "declaration")
+  )
 
 const membersOf = (reflection: DeclarationReflection): ReadonlyArray<DeclarationReflection> => {
-  const candidates = (reflection.children?.length ?? 0) > 0 ?
-    reflection.children ?? []
-    : reflection.type?.type === "reflection" ?
-    reflection.type.declaration.children ?? []
-    : []
+  const declarationChildren = Option.fromNullable(reflection.type).pipe(
+    Option.filter((type): type is ReflectionType => Str.Equivalence(type.type, "reflection")),
+    Option.flatMap((type) => Option.fromNullable(type.declaration.children)),
+    Option.getOrElse(Arr.empty)
+  )
+  const candidates = Option.fromNullable(reflection.children).pipe(
+    Option.filter(Arr.isNonEmptyReadonlyArray),
+    Option.getOrElse(() => declarationChildren)
+  )
   return Arr.filter(candidates, (member) =>
-    !member.flags.isPrivate && !member.flags.isProtected && (
-      Option.isSome(firstSourceUrl(member)) || (!member.flags.isInherited && !member.flags.isExternal)
-    ))
+    Bool.every(Arr.make(
+      Bool.not(member.flags.isPrivate),
+      Bool.not(member.flags.isProtected),
+      Bool.or(
+        Option.isSome(firstSourceUrl(member)),
+        Bool.and(Bool.not(member.flags.isInherited), Bool.not(member.flags.isExternal))
+      )
+    )))
 }
 
 const memberModel = (
@@ -33,13 +62,20 @@ const memberModel = (
   const sourceUrl = firstSourceUrl(member)
   const signatures = signatureModels(member, member.name, context, Option.getOrElse(sourceUrl, () => fallbackSourceUrl))
   const type = Option.fromNullable(member.type).pipe(Option.map((value) => value.toString()))
-  const declaration = signatures.length > 0 ?
-    Arr.map(signatures, (signature) => signature.code).join("\n")
-    : `${member.flags.isStatic ? "static " : ""}${member.flags.isReadonly ? "readonly " : ""}${member.name}${
-      member.flags.isOptional ? "?" : ""
-    }${Option.match(type, { onNone: () => "", onSome: (value) => `: ${value}` })}${
-      Option.match(Option.fromNullable(member.defaultValue), { onNone: () => "", onSome: (value) => ` = ${value}` })
-    }`
+  const declaration = Bool.match(Arr.isNonEmptyReadonlyArray(signatures), {
+    onTrue: () => Arr.join(Arr.map(signatures, (signature) => signature.code), "\n"),
+    onFalse: () =>
+      `${Bool.match(member.flags.isStatic, { onTrue: () => "static ", onFalse: () => "" })}${
+        Bool.match(member.flags.isReadonly, { onTrue: () => "readonly ", onFalse: () => "" })
+      }${member.name}${Bool.match(member.flags.isOptional, { onTrue: () => "?", onFalse: () => "" })}${
+        Option.match(type, { onNone: () => "", onSome: (value) => `: ${value}` })
+      }${
+        Option.match(Option.fromNullable(member.defaultValue), {
+          onNone: () => "",
+          onSome: (value) => ` = ${value}`
+        })
+      }`
+  })
 
   return {
     name: member.name,
@@ -61,31 +97,64 @@ const declarationCode = (
   reflection: DeclarationReflection,
   signatures: ReadonlyArray<ApiSignature>
 ): string => {
-  const generics = (reflection.typeParameters?.length ?? 0) === 0 ?
-    ""
-    : `<${Arr.map(reflection.typeParameters ?? [], typeParameterCode).join(", ")}>`
-  const extended = reflection.extendedTypes?.length
-    ? ` extends ${Arr.map(reflection.extendedTypes, (type) => type.toString()).join(", ")}` :
-    ""
-  const implemented = reflection.implementedTypes?.length
-    ? ` implements ${Arr.map(reflection.implementedTypes, (type) => type.toString()).join(", ")}` :
-    ""
-  if (reflection.kindOf(ReflectionKind.Function) || signatures.length > 0) {
-    return Arr.map(signatures, (signature) => signature.code).join("\n")
-  }
-  if (reflection.kindOf(ReflectionKind.Class)) return `class ${reflection.name}${generics}${extended}${implemented}`
-  if (reflection.kindOf(ReflectionKind.Interface)) return `interface ${reflection.name}${generics}${extended}`
-  if (reflection.kindOf(ReflectionKind.TypeAlias)) {
-    return `type ${reflection.name}${generics} = ${reflection.type?.toString() ?? "unknown"}`
-  }
-  if (reflection.kindOf(ReflectionKind.Variable)) {
-    return `${reflection.flags.isConst ? "const" : "let"} ${reflection.name}: ${
-      reflection.type?.toString() ?? "unknown"
-    }`
-  }
-  if (reflection.kindOf(ReflectionKind.Enum)) return `enum ${reflection.name}`
-  if (reflection.kindOf([ReflectionKind.Namespace, ReflectionKind.Module])) return `namespace ${reflection.name}`
-  return `${reflectionKind(reflection)} ${reflection.name}`
+  const typeParameters = Option.fromNullable(reflection.typeParameters).pipe(Option.getOrElse(Arr.empty))
+  const generics = Bool.match(Arr.isEmptyReadonlyArray(typeParameters), {
+    onTrue: () => "",
+    onFalse: () => `<${Arr.join(Arr.map(typeParameters, typeParameterCode), ", ")}>`
+  })
+  const typeList = (keyword: string, types: Option.Option<ReadonlyArray<SomeType>>) =>
+    types.pipe(
+      Option.filter(Arr.isNonEmptyReadonlyArray),
+      Option.match({
+        onNone: () => "",
+        onSome: (values) => `${keyword}${Arr.join(Arr.map(values, (type) => type.toString()), ", ")}`
+      })
+    )
+  const extended = typeList(" extends ", Option.fromNullable(reflection.extendedTypes))
+  const implemented = typeList(" implements ", Option.fromNullable(reflection.implementedTypes))
+  const reflectedType = Option.fromNullable(reflection.type).pipe(
+    Option.map((type) => type.toString()),
+    Option.getOrElse(() => "unknown")
+  )
+
+  return Match.value(true).pipe(
+    Match.when(
+      (matched) =>
+        Bool.and(
+          matched,
+          Bool.or(reflection.kindOf(ReflectionKind.Function), Arr.isNonEmptyReadonlyArray(signatures))
+        ),
+      () => Arr.join(Arr.map(signatures, (signature) => signature.code), "\n")
+    ),
+    Match.when(
+      (matched) => Bool.and(matched, reflection.kindOf(ReflectionKind.Class)),
+      () => `class ${reflection.name}${generics}${extended}${implemented}`
+    ),
+    Match.when(
+      (matched) => Bool.and(matched, reflection.kindOf(ReflectionKind.Interface)),
+      () => `interface ${reflection.name}${generics}${extended}`
+    ),
+    Match.when(
+      (matched) => Bool.and(matched, reflection.kindOf(ReflectionKind.TypeAlias)),
+      () => `type ${reflection.name}${generics} = ${reflectedType}`
+    ),
+    Match.when(
+      (matched) => Bool.and(matched, reflection.kindOf(ReflectionKind.Variable)),
+      () =>
+        `${
+          Bool.match(reflection.flags.isConst, { onTrue: () => "const", onFalse: () => "let" })
+        } ${reflection.name}: ${reflectedType}`
+    ),
+    Match.when(
+      (matched) => Bool.and(matched, reflection.kindOf(ReflectionKind.Enum)),
+      () => `enum ${reflection.name}`
+    ),
+    Match.when(
+      (matched) => Bool.and(matched, reflection.kindOf([ReflectionKind.Namespace, ReflectionKind.Module])),
+      () => `namespace ${reflection.name}`
+    ),
+    Match.orElse(() => `${reflectionKind(reflection)} ${reflection.name}`)
+  )
 }
 
 const facetModel = (
@@ -98,9 +167,19 @@ const facetModel = (
     kind: reflectionKind(reflection),
     declaration: declarationCode(reflection, signatures),
     type: Option.fromNullable(reflection.type).pipe(Option.map((value) => value.toString())),
-    typeParameters: typeParameters(reflection.typeParameters ?? [], Option.fromNullable(reflection.comment), context),
-    extends: Arr.map(reflection.extendedTypes ?? [], (type) => type.toString()),
-    implements: Arr.map(reflection.implementedTypes ?? [], (type) => type.toString()),
+    typeParameters: typeParameters(
+      Option.fromNullable(reflection.typeParameters).pipe(Option.getOrElse(Arr.empty)),
+      Option.fromNullable(reflection.comment),
+      context
+    ),
+    extends: Arr.map(
+      Option.fromNullable(reflection.extendedTypes).pipe(Option.getOrElse(Arr.empty)),
+      (type) => type.toString()
+    ),
+    implements: Arr.map(
+      Option.fromNullable(reflection.implementedTypes).pipe(Option.getOrElse(Arr.empty)),
+      (type) => type.toString()
+    ),
     docs: documentation(Option.fromNullable(reflection.comment), context),
     signatures,
     members: Arr.map(membersOf(reflection), (member) => memberModel(member, reflection.name, context, sourceUrl)),
@@ -108,7 +187,8 @@ const facetModel = (
   }
 }
 
-const summaryText = (parts: ReadonlyArray<ApiDocPart>): string => Arr.map(parts, (part) => part.text).join("").trim()
+const summaryText = (parts: ReadonlyArray<ApiDocPart>): string =>
+  Str.trim(Arr.join(Arr.map(parts, (part) => part.text), ""))
 
 const exportSummary = (
   facets: ReadonlyArray<ApiFacet>,
@@ -123,13 +203,17 @@ const exportSummary = (
 
   return Option.getOrElse(
     Arr.findFirst(
-      [
-        ...Arr.filter(facetSummaries, (summary) => summary !== moduleSummary),
-        ...signatureSummaries,
-        fallback,
-        ...facetSummaries
-      ],
-      (candidate) => candidate.length > 0
+      Arr.appendAll(
+        Arr.append(
+          Arr.appendAll(
+            Arr.filter(facetSummaries, (summary) => Bool.not(Str.Equivalence(summary, moduleSummary))),
+            signatureSummaries
+          ),
+          fallback
+        ),
+        facetSummaries
+      ),
+      Str.isNonEmpty
     ),
     () => fallback
   )
@@ -147,13 +231,16 @@ const exportModel = (
   Effect.map(
     Effect.forEach(entry.reflections, (facet) =>
       Option.match(
-        Arr.findFirst(moduleReflection.children ?? [], (reflection) => reflection.id === facet.reflectionId),
+        Arr.findFirst(
+          Option.fromNullable(moduleReflection.children).pipe(Option.getOrElse(Arr.empty)),
+          (reflection) => Num.Equivalence(reflection.id, facet.reflectionId)
+        ),
         {
           onNone: () =>
             Effect.fail(
               new ApiReferenceGenerationError({
                 packageName,
-                detail: `${route.subpath} export ${entry.name} reflection ${String(facet.reflectionId)} is missing`
+                detail: `${route.subpath} export ${entry.name} reflection ${numberText(facet.reflectionId)} is missing`
               })
             ),
           onSome: (reflection) => Effect.succeed(facetModel(reflection, context, facet.sourceUrl))

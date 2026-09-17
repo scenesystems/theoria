@@ -1,4 +1,4 @@
-import { Array as Arr, Effect, Option } from "effect"
+import { Array as Arr, Data, Effect, Option } from "effect"
 import { type DeclarationReflection } from "typedoc"
 
 import { type ApiDocLink } from "./links.js"
@@ -7,7 +7,7 @@ import { buildApiPresentation } from "./presentation.js"
 import { ApiDocContext, documentation, summaryText, tagText } from "./typedoc-comments.js"
 import { apiExports } from "./typedoc-declarations.js"
 
-export const makeApiPresentation = (input: {
+class MakeApiPresentationInput extends Data.Class<{
   readonly packageName: string
   readonly packageVersion: string
   readonly packageSlug: string
@@ -17,7 +17,9 @@ export const makeApiPresentation = (input: {
   readonly moduleSourceUrl: string
   readonly routes: ReadonlyArray<ApiReferenceRoute>
   readonly links: ReadonlyArray<ApiDocLink>
-}) =>
+}> {}
+
+export const makeApiPresentation = (input: MakeApiPresentationInput) =>
   Effect.gen(function*() {
     const canonicalRoute = yield* Option.match(Arr.findFirst(input.routes, (route) => route.canonical), {
       onNone: () =>
