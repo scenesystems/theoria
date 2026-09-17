@@ -200,6 +200,8 @@ Artifacts are independent from checkpoints. Import `ArtifactContext` and `Artifa
 
 Objective caching is a separate concern. A cache avoids re-running the objective for an input that was already evaluated, keyed by a content digest of that input, while storage preserves the optimization lifecycle. Construct `ObjectiveCache.Options` with a scope and install `ObjectiveCache.layerMemory`, `ObjectiveCache.layerFileSystem`, or `ObjectiveCache.layerSql`. The lower-level `Cache` module owns schema-keyed cache descriptors and backend services; it fingerprints schema-encoded keys with the canonical identity implementation from `@scenesystems/digest`.
 
+When `evaluationsPerTrial` is greater than one, optimization bypasses the objective cache for every sample, including repeated configurations across trials. These independent evaluations produce the reported mean and variance; cached configuration values cannot estimate noise.
+
 ## Ask and tell
 
 When another process owns evaluation, such as a job queue or a remote worker, the optimization can hand out configurations instead of running the objective itself. `Optimization.open` creates a scoped handle and acquires its sampler; closing the scope releases it. `Optimization.ask` reserves the next typed configuration, and `Optimization.tell` or `Optimization.fail` completes that reservation. `Optimization.cancel` closes the handle and cancels every pending reservation. Prior observations do not consume the fresh trial budget. The handle remains the authority for trial numbers, sampler observations, events, snapshots, and the final `Optimization.result`.

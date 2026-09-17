@@ -53,6 +53,24 @@ const singleChoiceSpace = () =>
   })
 
 describe("ObjectiveCache", () => {
+  it.effect("does not reuse cached values between independent noisy samples", () =>
+    Effect.gen(function*() {
+      const invocations = yield* Ref.make(0)
+      const result = yield* Optimization.run({
+        space: yield* singleChoiceSpace(),
+        sampler: Sampler.random({ seed: 31 }),
+        trials: 2,
+        evaluationsPerTrial: 3,
+        objective: () => Ref.updateAndGet(invocations, Num.increment)
+      }).pipe(Effect.provide(ObjectiveCache.layerMemory(new ObjectiveCache.Options({ scope: "noisy" }))))
+      expect(yield* Ref.get(invocations)).toBe(6)
+      const states = Arr.map(Arr.fromIterable(result.trials), (trial) => trial.state)
+      expect(states).toEqual(Arr.make(
+        expect.objectContaining({ _tag: "Completed", value: 2, evaluationCount: 3, variance: Num.unsafeDivide(2, 3) }),
+        expect.objectContaining({ _tag: "Completed", value: 5, evaluationCount: 3, variance: Num.unsafeDivide(2, 3) })
+      ))
+    }))
+
   it.effect("deduplicates repeated objective evaluations when the ObjectiveCache layer is provided", () =>
     Effect.gen(function*() {
       const invocations = yield* Ref.make(0)

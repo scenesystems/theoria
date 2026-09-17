@@ -5,7 +5,7 @@
  */
 import * as History from "@scenesystems/effect-study/History"
 import * as GenericStudy from "@scenesystems/effect-study/Study"
-import { Boolean as Bool, Clock, Effect, Match, Option, Ref, String as Str, Tuple } from "effect"
+import { Boolean as Bool, Clock, Effect, Match, Number as Num, Option, Ref, String as Str, Tuple } from "effect"
 
 import * as Cache from "../../../Cache.js"
 import * as ObjectiveCache from "../../../ObjectiveCache.js"
@@ -80,7 +80,11 @@ const executeReservedTrial = Effect.fn("effect-search/Optimization.executeReserv
         pruningPolicy,
         resource
       })
-      const objectiveCache = yield* Effect.serviceOption(ObjectiveCache.ObjectiveCache)
+      // Repeated evaluations estimate noise and must remain independent, including
+      // across trials. Configuration-only cached values cannot represent samples.
+      const objectiveCache = yield* Effect.serviceOption(ObjectiveCache.ObjectiveCache).pipe(
+        Effect.map(Option.filter(() => Num.Equivalence(settings.evaluationsPerTrial, 1)))
+      )
       const resolveCachedValue: CacheResolveForTrial<Space["schema"]> = Option.match(objectiveCache, {
         onNone: () => (request) =>
           request.compute.pipe(
