@@ -2,7 +2,7 @@
  * Canonical artifact/provenance envelope contract tests.
  */
 import { describe, expect, it } from "@effect/vitest"
-import { Artifact as DspArtifact } from "@scenesystems/effect-dsp/contracts"
+import * as DspArtifact from "@scenesystems/effect-dsp/Artifact"
 import * as Artifact from "@scenesystems/effect-study/Artifact"
 import { Array as Arr, Effect, Schema } from "effect"
 

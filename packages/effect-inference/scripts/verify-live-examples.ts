@@ -1,29 +1,42 @@
 import { BunRuntime } from "@effect/platform-bun"
-import { Config, ConfigError, ConfigProvider, Console, Effect, Match, Option } from "effect"
+import {
+  Array as Arr,
+  Boolean,
+  Config,
+  ConfigError,
+  ConfigProvider,
+  Console,
+  Effect,
+  Inspectable,
+  Match,
+  Option,
+  pipe,
+  Schema,
+  String
+} from "effect"
 
 import { program as huggingFaceRoutedRuntimeProgram } from "../examples/02-hugging-face-routed-runtime.js"
 import { program as runtimeConfigDecodingProgram } from "../examples/03-runtime-config-decoding.js"
 import { program as huggingFaceEndpointRuntimeProgram } from "../examples/04-hugging-face-endpoint-runtime.js"
-import { InvalidRuntimeConfig } from "../src/Errors/Config.js"
+import { InvalidRuntimeConfig } from "../src/InferenceError.js"
 
-type LiveExampleName =
-  | "runtime-config-decoding"
-  | "hugging-face-routed-runtime"
-  | "hugging-face-endpoint-runtime"
-
-const defaultExamples: ReadonlyArray<LiveExampleName> = [
+const LiveExampleName = Schema.Literal(
   "runtime-config-decoding",
   "hugging-face-routed-runtime",
   "hugging-face-endpoint-runtime"
-]
+)
+type LiveExampleName = typeof LiveExampleName.Type
+
+const defaultExamples = LiveExampleName.literals
 
 const defaultConfigProvider = ConfigProvider.fromEnv().pipe(ConfigProvider.constantCase)
 
-const parseSelection = (value: string): Effect.Effect<ReadonlyArray<LiveExampleName>, ConfigError.ConfigError> => {
-  const names = value
-    .split(",")
-    .map((name) => name.trim())
-    .filter((name) => name.length > 0)
+const parseSelection = (value: string) => {
+  const names = pipe(
+    String.split(",")(value),
+    Arr.map(String.trim),
+    Arr.filter(String.isNonEmpty)
+  )
 
   return Effect.forEach(names, (name) =>
     Match.value(name).pipe(
@@ -71,13 +84,15 @@ const runExample = (exampleName: LiveExampleName) =>
   })
 
 const main = exampleConfig.pipe(
-  Effect.mapError((error) => new InvalidRuntimeConfig({ reason: String(error) })),
+  Effect.mapError((error) => new InvalidRuntimeConfig({ reason: Inspectable.toStringUnknown(error) })),
   Effect.flatMap(({ enabled, selectedExamples }) =>
-    enabled
-      ? Effect.forEach(selectedExamples, runExample, { discard: true })
-      : Console.log(
-        "Skipping live example verification. Set EFFECT_INFERENCE_RUN_LIVE_EXAMPLES=true to execute selected live examples."
-      )
+    Boolean.match(enabled, {
+      onTrue: () => Effect.forEach(selectedExamples, runExample, { discard: true }),
+      onFalse: () =>
+        Console.log(
+          "Skipping live example verification. Set EFFECT_INFERENCE_RUN_LIVE_EXAMPLES=true to execute selected live examples."
+        )
+    })
   )
 )
 

@@ -3,15 +3,15 @@
  * schema decode failure surfacing, and typed key composition.
  */
 import { describe, expect, it } from "@effect/vitest"
+import { Cache, Key, layerMemory } from "@scenesystems/effect-dsp/Cache"
 import { Effect, Option, Ref, Schema } from "effect"
-import { DspCache, DspCacheKey, DspCacheMemory } from "../../src/Cache/index.js"
 
-describe("DspCache authority contract", () => {
+describe("Cache authority contract", () => {
   it.effect("resolve returns miss + computed value on first call", () =>
     Effect.gen(function*() {
       const computeCount = yield* Ref.make(0)
 
-      const cache = yield* DspCache
+      const cache = yield* Cache
 
       const { value, resolution } = yield* cache.resolve({
         moduleFingerprint: "qa-module",
@@ -27,13 +27,13 @@ describe("DspCache authority contract", () => {
       expect(value).toEqual({ answer: "4" })
       expect(resolution).toBe("miss")
       expect(yield* Ref.get(computeCount)).toBe(1)
-    }).pipe(Effect.provide(DspCacheMemory)))
+    }).pipe(Effect.provide(layerMemory)))
 
   it.effect("resolve returns hit + cached value on second call, bypassing compute", () =>
     Effect.gen(function*() {
       const computeCount = yield* Ref.make(0)
 
-      const cache = yield* DspCache
+      const cache = yield* Cache
 
       const request = {
         moduleFingerprint: "qa-module",
@@ -52,13 +52,13 @@ describe("DspCache authority contract", () => {
       expect(value).toEqual({ answer: "4" })
       expect(resolution).toBe("hit")
       expect(yield* Ref.get(computeCount)).toBe(1)
-    }).pipe(Effect.provide(DspCacheMemory)))
+    }).pipe(Effect.provide(layerMemory)))
 
   it.effect("different inputs produce different cache keys (miss on each)", () =>
     Effect.gen(function*() {
       const computeCount = yield* Ref.make(0)
 
-      const cache = yield* DspCache
+      const cache = yield* Cache
 
       const makeRequest = (question: string) => ({
         moduleFingerprint: "qa-module",
@@ -77,13 +77,13 @@ describe("DspCache authority contract", () => {
       expect(res1).toBe("miss")
       expect(res2).toBe("miss")
       expect(yield* Ref.get(computeCount)).toBe(2)
-    }).pipe(Effect.provide(DspCacheMemory)))
+    }).pipe(Effect.provide(layerMemory)))
 
   it.effect("different params produce different cache keys", () =>
     Effect.gen(function*() {
       const computeCount = yield* Ref.make(0)
 
-      const cache = yield* DspCache
+      const cache = yield* Cache
 
       const makeRequest = (instructions: string) => ({
         moduleFingerprint: "qa-module",
@@ -102,11 +102,11 @@ describe("DspCache authority contract", () => {
       expect(res1).toBe("miss")
       expect(res2).toBe("miss")
       expect(yield* Ref.get(computeCount)).toBe(2)
-    }).pipe(Effect.provide(DspCacheMemory)))
+    }).pipe(Effect.provide(layerMemory)))
 
-  it.effect("DspCacheKey schema includes all five components", () =>
+  it.effect("Key schema includes all five components", () =>
     Effect.gen(function*() {
-      const key = new DspCacheKey({
+      const key = new Key({
         moduleFingerprint: "qa-module",
         runtimeFingerprint: "runtime-v1",
         inputHash: "abc123",
@@ -121,9 +121,9 @@ describe("DspCache authority contract", () => {
       expect(key.rolloutId).toEqual(Option.some(2))
     }))
 
-  it.effect("DspCacheKey without rollout defaults to Option.none()", () =>
+  it.effect("Key without rollout defaults to Option.none()", () =>
     Effect.gen(function*() {
-      const key = new DspCacheKey({
+      const key = new Key({
         moduleFingerprint: "qa-module",
         runtimeFingerprint: "runtime-v1",
         inputHash: "abc123",
@@ -136,7 +136,7 @@ describe("DspCache authority contract", () => {
 
   it.effect("delegates to effect-search Cache for storage", () =>
     Effect.gen(function*() {
-      const cache = yield* DspCache
+      const cache = yield* Cache
 
       const { value, resolution } = yield* cache.resolve({
         moduleFingerprint: "delegation-test",
@@ -161,5 +161,5 @@ describe("DspCache authority contract", () => {
 
       expect(cached).toEqual({ y: 42 })
       expect(cachedRes).toBe("hit")
-    }).pipe(Effect.provide(DspCacheMemory)))
+    }).pipe(Effect.provide(layerMemory)))
 })

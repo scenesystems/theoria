@@ -4,13 +4,13 @@
  */
 import * as LanguageModel from "@effect/ai/LanguageModel"
 import { describe, expect, it } from "@effect/vitest"
-import { ModuleParams } from "@scenesystems/effect-dsp/contracts"
 import { Example } from "@scenesystems/effect-dsp/Example"
 import * as Metric from "@scenesystems/effect-dsp/Metric"
+import * as MIPROv2 from "@scenesystems/effect-dsp/MIPROv2"
+import * as MockLanguageModel from "@scenesystems/effect-dsp/MockLanguageModel"
 import * as Module from "@scenesystems/effect-dsp/Module"
-import * as Optimizer from "@scenesystems/effect-dsp/Optimizer"
+import { ModuleParameters } from "@scenesystems/effect-dsp/ModuleParameters"
 import * as Signature from "@scenesystems/effect-dsp/Signature"
-import { MockLanguageModel } from "@scenesystems/effect-dsp/test"
 import { Array as Arr, Effect, Layer, Ref, Schema, Stream } from "effect"
 
 const trainset = Arr.make(
@@ -54,7 +54,7 @@ const runMiproTagTrace = Effect.gen(function*() {
 
   yield* Ref.set(
     module.params,
-    new ModuleParams({
+    new ModuleParameters({
       instructions: params.instructions,
       demos: params.demos,
       outputStrategy: "structured"
@@ -67,7 +67,7 @@ const runMiproTagTrace = Effect.gen(function*() {
   const layer = Layer.succeed(LanguageModel.LanguageModel, mock.service)
 
   const tags = yield* Stream.runCollect(
-    Optimizer.miprov2Stream({
+    MIPROv2.stream({
       module,
       trainset,
       valset: trainset,

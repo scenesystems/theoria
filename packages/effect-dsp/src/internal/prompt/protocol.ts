@@ -5,7 +5,16 @@
  * @since 0.1.0
  * @internal
  */
-import { Array as Arr } from "effect"
+import { Array as Arr, Boolean, Schema } from "effect"
+
+/**
+ * Ordered field names shared by marker rendering and parsing.
+ *
+ * @since 0.1.0
+ * @category schemas
+ * @internal
+ */
+export const FieldNames = Schema.Array(Schema.String)
 
 /**
  * Regex that matches the `[[ ## fieldName ## ]]` marker grammar, capturing
@@ -18,7 +27,7 @@ import { Array as Arr } from "effect"
  * @category constants
  * @internal
  */
-export const FIELD_MARKER_REGEX = /\[\[\s*##\s*([^#\]]+)\s*##\s*\]\]/g
+export const fieldMarkerRegex = /\[\[\s*##\s*([^#\]]+)\s*##\s*\]\]/g
 
 /**
  * Produces a single `[[ ## fieldName ## ]]` marker string for the given
@@ -28,9 +37,10 @@ export const FIELD_MARKER_REGEX = /\[\[\s*##\s*([^#\]]+)\s*##\s*\]\]/g
  * @category formatters
  * @internal
  */
-export const renderFieldMarker = (fieldName: string): string => `[[ ## ${fieldName} ## ]]`
+export const renderFieldMarker = (fieldName: string): string => Arr.join(Arr.make("[[ ## ", fieldName, " ## ]]"), "")
 
-const renderOutputTemplateLine = (fieldName: string): string => `${renderFieldMarker(fieldName)}\n<${fieldName}>`
+const renderOutputTemplateLine = (fieldName: string): string =>
+  Arr.join(Arr.make(renderFieldMarker(fieldName), "\n<", fieldName, ">"), "")
 
 /**
  * Renders the output template block that teaches the LLM the expected
@@ -41,7 +51,7 @@ const renderOutputTemplateLine = (fieldName: string): string => `${renderFieldMa
  * @category formatters
  * @internal
  */
-export const renderOutputTemplate = (fieldNames: ReadonlyArray<string>): string =>
+export const renderOutputTemplate = (fieldNames: typeof FieldNames.Type): string =>
   Arr.join(
     Arr.append(Arr.map(fieldNames, renderOutputTemplateLine), renderFieldMarker("completed")),
     "\n\n"
@@ -58,14 +68,21 @@ export const renderOutputTemplate = (fieldNames: ReadonlyArray<string>): string 
  * @category formatters
  * @internal
  */
-export const renderOutputRequirements = (fieldNames: ReadonlyArray<string>): string =>
-  fieldNames.length === 0
-    ? "Respond with the marker `[[ ## completed ## ]]`."
-    : Arr.join(
-      [
-        "Respond with the corresponding output fields, starting with the field ",
-        Arr.join(Arr.map(fieldNames, (fieldName) => `\`${renderFieldMarker(fieldName)}\``), ", then "),
-        `, and then ending with the marker for \`${renderFieldMarker("completed")}\`.`
-      ],
-      ""
-    )
+export const renderOutputRequirements = (fieldNames: typeof FieldNames.Type): string =>
+  Boolean.match(Arr.isEmptyReadonlyArray(fieldNames), {
+    onTrue: () => "Respond with the marker `[[ ## completed ## ]]`.",
+    onFalse: () =>
+      Arr.join(
+        Arr.make(
+          "Respond with the corresponding output fields, starting with the field ",
+          Arr.join(
+            Arr.map(fieldNames, (fieldName) => Arr.join(Arr.make("`", renderFieldMarker(fieldName), "`"), "")),
+            ", then "
+          ),
+          ", and then ending with the marker for `",
+          renderFieldMarker("completed"),
+          "`."
+        ),
+        ""
+      )
+  })

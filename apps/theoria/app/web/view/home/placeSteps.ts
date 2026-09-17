@@ -31,7 +31,7 @@ const composer = yield* Module.predict("theoria-place-composer", signature)
 
 // The model's answer was recorded once; the program still checks it every time.
 const composition = yield* composer.forward({ brief }).pipe(
-  Effect.provide(InferenceTesting.staticLanguageModel(recorded))
+  Effect.provide(InferenceTesting.languageModel(recorded))
 )
 const origin = PlaceArtifact.make({ schemaVersion: 1, scenario, brief, composition, accepted: Arr.empty() })`
 

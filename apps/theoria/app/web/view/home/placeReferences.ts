@@ -29,7 +29,7 @@ const composeReferences = Arr.make(
   ref("effect-dsp", "Signature", "Signature.make", "make"),
   ref("effect-dsp", "Signature", "Signature.describe", "describe"),
   ref("effect-dsp", "Module", "Module.predict", "predict"),
-  ref("effect-inference", "Testing", "InferenceTesting.staticLanguageModel", "staticLanguageModel")
+  ref("effect-inference", "Testing", "InferenceTesting.languageModel", "languageModel")
 )
 
 const proposeReferences = Arr.make(

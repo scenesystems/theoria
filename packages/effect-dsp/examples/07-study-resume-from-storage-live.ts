@@ -17,8 +17,7 @@
  */
 import * as LanguageModel from "@effect/ai/LanguageModel"
 import { BunContext, BunRuntime } from "@effect/platform-bun"
-import { Evaluate, Example, Metric, Module, Signature } from "@scenesystems/effect-dsp"
-import { ModuleParams } from "@scenesystems/effect-dsp/contracts"
+import { Demonstration, Evaluate, Example, Metric, Module, ModuleParameters, Signature } from "@scenesystems/effect-dsp"
 import * as Optimization from "@scenesystems/effect-search/Optimization"
 import * as Sampler from "@scenesystems/effect-search/Sampler"
 import * as SearchSpace from "@scenesystems/effect-search/SearchSpace"
@@ -43,12 +42,12 @@ const italyEvalset = Arr.make(
   })
 )
 
-const franceDemo = new Example.Demo({
+const franceDemo = new Demonstration.Demonstration({
   input: { question: "What is the capital of France?" },
   output: { answer: "Paris" }
 })
 
-const japanDemo = new Example.Demo({
+const japanDemo = new Demonstration.Demonstration({
   input: { question: "What is the capital of Japan?" },
   output: { answer: "Tokyo" }
 })
@@ -103,7 +102,7 @@ const program = Effect.gen(function*() {
 
       yield* Ref.set(
         qa.params,
-        new ModuleParams({
+        new ModuleParameters.ModuleParameters({
           instructions: instructionCandidate(config.instructionIndex),
           demos: demoCandidate(config.demoIndex),
           outputStrategy: "structured"

@@ -6,7 +6,7 @@
  * disk as derived presentation.
  */
 import { FileSystem, Path } from "@effect/platform"
-import { Artifact as DspArtifact } from "@scenesystems/effect-dsp/contracts"
+import * as DspArtifact from "@scenesystems/effect-dsp/Artifact"
 import * as Artifact from "@scenesystems/effect-study/Artifact"
 import * as ArtifactContext from "@scenesystems/effect-study/ArtifactContext"
 import * as ArtifactSink from "@scenesystems/effect-study/ArtifactSink"

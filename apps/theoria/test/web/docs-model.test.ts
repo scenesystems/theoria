@@ -101,6 +101,40 @@ describe("documentation view model", () => {
       expect(packageResult.id).toBe("effect-search")
     }))
 
+  it.effect("normalizes compatibility characters, accents, case, and punctuation", () =>
+    Effect.gen(function*() {
+      const packageEntry = yield* Arr.head(docsSearchIndexFixture.entries)
+      const normalizedIndex = prepareDocsSearchIndex(Arr.of({
+        ...packageEntry,
+        id: "normalized-entry",
+        name: "ＲÉSUMÉ",
+        qualifiedName: "Guides/ＲÉSUMÉ"
+      }))
+      const result = yield* Arr.head(searchDocs(normalizedIndex, "  resume!!!  ", {
+        limit: 20,
+        packageSlug: Option.none()
+      }))
+
+      expect(result.id).toBe("normalized-entry")
+    }))
+
+  it.effect("keeps equal-score results stable and returns no results for an empty index", () =>
+    Effect.gen(function*() {
+      const packageEntry = yield* Arr.head(docsSearchIndexFixture.entries)
+      const stableIndex = prepareDocsSearchIndex(Arr.make(
+        { ...packageEntry, id: "first", path: "/docs/first" },
+        { ...packageEntry, id: "second", path: "/docs/second" }
+      ))
+      const stableResults = searchDocs(stableIndex, "", { limit: 20, packageSlug: Option.none() })
+      const emptyResults = searchDocs(prepareDocsSearchIndex(Arr.empty()), "", {
+        limit: 20,
+        packageSlug: Option.none()
+      })
+
+      expect(Arr.map(stableResults, (entry) => entry.id)).toEqual(Arr.make("first", "second"))
+      expect(emptyResults).toEqual(Arr.empty())
+    }))
+
   it.effect("resolves a selected export from the URL fragment", () =>
     Effect.gen(function*() {
       const selected = yield* apiExportForHash(docsApiModuleIndexFixture, "#api-runStudy")

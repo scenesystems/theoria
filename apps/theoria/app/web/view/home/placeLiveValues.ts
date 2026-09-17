@@ -35,7 +35,7 @@ const composeValues = (build: PlaceBuild) =>
       )
     ),
     annotation(
-      "InferenceTesting.staticLanguageModel(",
+      "InferenceTesting.languageModel(",
       Option.map(
         Arr.findFirst(build.evidence.inference, (evidence) => Equal.equals(evidence.program, "theoria-place-composer")),
         (evidence) => evidence.responseModel

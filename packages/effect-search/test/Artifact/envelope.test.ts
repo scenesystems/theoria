@@ -1,6 +1,6 @@
 import { describe, expect, it } from "@effect/vitest"
 import * as StudyArtifact from "@scenesystems/effect-study/Artifact"
-import { Array as Arr, DateTime, Effect, FastCheck, Schema } from "effect"
+import { Array as Arr, DateTime, Effect, FastCheck, Number as Num, Schema } from "effect"
 
 import * as Artifact from "../../src/Artifact.js"
 import * as OptimizationEvent from "../../src/OptimizationEvent.js"
@@ -31,11 +31,12 @@ const makeMetadata = Effect.gen(function*() {
 describe("Artifact", () => {
   it.effect.prop(
     "round-trips recursive JSON custom payloads",
-    { payload: FastCheck.jsonValue() },
-    ({ payload }) =>
+    { json: FastCheck.json() },
+    ({ json }) =>
       Effect.gen(function*() {
         const metadata = yield* makeMetadata
-        const validated = yield* Schema.decodeUnknown(StudyArtifact.Payload)(payload)
+        // Start at the JSON boundary, where negative zero has already become zero.
+        const validated = yield* Schema.decode(Schema.parseJson(StudyArtifact.Payload))(json)
         const envelope = Artifact.Custom({
           ...metadata,
           payload: validated
@@ -47,6 +48,19 @@ describe("Artifact", () => {
         expect(decoded).toEqual(envelope)
       })
   )
+
+  it.effect("canonicalizes nested negative zero only at the JSON transport boundary", () =>
+    Effect.gen(function*() {
+      const metadata = yield* makeMetadata
+      const envelope = Artifact.Custom({ ...metadata, payload: { nested: { value: Num.negate(0) } } })
+      const direct = yield* Schema.encode(Artifact.Envelope)(envelope)
+      const codec = Schema.parseJson(Artifact.Envelope)
+      const json = yield* Schema.encode(codec)(envelope)
+      const decoded = yield* Schema.decode(codec)(json)
+
+      expect(direct).toMatchObject({ payload: { nested: { value: Num.negate(0) } } })
+      expect(decoded).toEqual({ ...envelope, payload: { nested: { value: 0 } } })
+    }))
 
   it.effect("decodes persisted trial and event payloads with UTC timestamps", () =>
     Effect.gen(function*() {

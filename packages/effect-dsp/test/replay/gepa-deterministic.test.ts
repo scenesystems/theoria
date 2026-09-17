@@ -2,14 +2,16 @@
  * GEPA deterministic replay and fixture-manifest parity contracts.
  */
 import * as LanguageModel from "@effect/ai/LanguageModel"
+import * as Response from "@effect/ai/Response"
 import { describe, expect, it } from "@effect/vitest"
+import * as Utf8 from "@scenesystems/digest/Utf8"
 import { Example } from "@scenesystems/effect-dsp/Example"
+import * as GEPA from "@scenesystems/effect-dsp/GEPA"
 import * as Metric from "@scenesystems/effect-dsp/Metric"
+import * as MockLanguageModel from "@scenesystems/effect-dsp/MockLanguageModel"
 import * as Module from "@scenesystems/effect-dsp/Module"
-import * as Optimizer from "@scenesystems/effect-dsp/Optimizer"
 import * as Signature from "@scenesystems/effect-dsp/Signature"
-import { MockLanguageModel } from "@scenesystems/effect-dsp/test"
-import { Array as Arr, Data, Effect, Layer, Option, Schema, Stream } from "effect"
+import { Array as Arr, Data, Effect, Either, Layer, Match, Option, Schema, Stream, String as Str } from "effect"
 
 import { GepaReplaySeedContractFixtureSchema, loadFixture } from "../helpers/dspy-fixtures/index.js"
 
@@ -26,7 +28,25 @@ const ParetoSnapshotSchema = Schema.Struct({
 })
 const encodeParetoSnapshotJson = Schema.encode(Schema.parseJson(ParetoSnapshotSchema))
 
-class MissingParetoUpdatedEvent extends Data.TaggedError("MissingParetoUpdatedEvent")<Record<never, never>> {}
+class MissingParetoUpdatedEvent extends Data.TaggedError("MissingParetoUpdatedEvent") {}
+
+class AnswerResponse extends Schema.Class<AnswerResponse>("AnswerResponse")({
+  answer: Schema.String
+}) {}
+
+const reflectiveResponse = Arr.of(
+  Response.textPart({
+    text: "```\nAnswer each geography question with the concise, correct capital city.\n```"
+  })
+)
+
+const responseForPrompt = (prompt: string) =>
+  Match.value(prompt).pipe(
+    Match.when(Str.includes("Your task is to write a new instruction"), () => reflectiveResponse),
+    Match.when(Str.includes("France"), () => new AnswerResponse({ answer: "Paris" })),
+    Match.when(Str.includes("Japan"), () => new AnswerResponse({ answer: "Tokyo" })),
+    Match.orElse(() => new AnswerResponse({ answer: "Lyon" }))
+  )
 
 const makeQaSignature = () =>
   Signature.make(
@@ -39,24 +59,19 @@ const makeQaSignature = () =>
     }
   )
 
-const toUtf8Bytes = (value: string): ReadonlyArray<number> => Arr.fromIterable(Buffer.from(value, "utf8"))
+const toUtf8Bytes = (value: string) =>
+  Either.match(Utf8.encode(value), { onLeft: Effect.fail, onRight: (bytes) => Effect.succeed(Arr.fromIterable(bytes)) })
 
 const runSeededReplay = (moduleName: string, seed: number, maxIterations: number) =>
   Effect.gen(function*() {
     const signature = yield* makeQaSignature()
     const module = yield* Module.predict(moduleName, signature)
     const mock = yield* MockLanguageModel.make(
-      MockLanguageModel.map((prompt) =>
-        prompt.includes("France")
-          ? { answer: "Paris" }
-          : prompt.includes("Japan")
-          ? { answer: "Tokyo" }
-          : { answer: "Lyon" }
-      )
+      MockLanguageModel.map(responseForPrompt)
     )
     const layer = Layer.succeed(LanguageModel.LanguageModel, mock.service)
     const events = yield* Stream.runCollect(
-      Optimizer.gepaStream({
+      GEPA.stream({
         module,
         trainset: Arr.make(
           new Example({ input: { question: "What is the capital of France?" }, output: { answer: "Paris" } }),
@@ -69,23 +84,24 @@ const runSeededReplay = (moduleName: string, seed: number, maxIterations: number
       })
     ).pipe(Effect.provide(layer))
     const eventList = Arr.fromIterable(events)
-    const finalPareto = Arr.last(Arr.filter(eventList, Optimizer.GEPAEvent.$is("ParetoUpdated")))
+    const finalPareto = Arr.last(Arr.filter(eventList, GEPA.events.$is("ParetoUpdated")))
     const savedState = yield* Module.save(module)
     const savedStateJson = yield* encodeSavedStateJson(savedState)
 
     return yield* Option.match(finalPareto, {
       onNone: () => Effect.fail(new MissingParetoUpdatedEvent()),
       onSome: (event) =>
-        encodeParetoSnapshotJson({
-          frontierIndices: event.frontierIndices,
-          dominatedIndices: event.dominatedIndices,
-          parentWeights: event.parentWeights
-        }).pipe(
-          Effect.map((paretoJson) => ({
-            savedStateBytes: toUtf8Bytes(savedStateJson),
-            paretoSnapshotBytes: toUtf8Bytes(paretoJson)
-          }))
-        )
+        Effect.gen(function*() {
+          const paretoJson = yield* encodeParetoSnapshotJson({
+            frontierIndices: event.frontierIndices,
+            dominatedIndices: event.dominatedIndices,
+            parentWeights: event.parentWeights
+          })
+          const savedStateBytes = yield* toUtf8Bytes(savedStateJson)
+          const paretoSnapshotBytes = yield* toUtf8Bytes(paretoJson)
+
+          return Data.struct({ savedStateBytes, paretoSnapshotBytes })
+        })
     })
   })
 

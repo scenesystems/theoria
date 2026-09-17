@@ -79,7 +79,7 @@ const site = (id: CodeSiteId, step: PlaceStep, match: string, pkg: CardId): Code
  * line. The order within a step is the order of the lines in the sample.
  */
 export const composeSite = site("compose", "compose", "composer.forward(", "effect-inference")
-export const inferenceSite = site("inference", "compose", "InferenceTesting.staticLanguageModel(", "effect-inference")
+export const inferenceSite = site("inference", "compose", "InferenceTesting.languageModel(", "effect-inference")
 export const proposalDigestSite = site("proposal-digest", "propose", "ContentDigest.fromSchema(Proposal,", "digest")
 export const proposalSignatureSite = site("proposal-signature", "propose", "Ed25519.sign(", "sign")
 export const sealSite = site("seal", "propose", "Envelope.encrypt(\"xchacha20-poly1305\"", "seal")
