@@ -25,7 +25,8 @@ import {
   touchGap,
   touchReach
 } from "../../app/contracts/demo/imagined-place-flow.js"
-import { Meander, meanderBounds } from "../../app/contracts/demo/imagined-place-search.js"
+import { meanderBounds } from "../../app/contracts/demo/imagined-place-optimization.js"
+import { Meander } from "../../app/contracts/demo/imagined-place-search.js"
 import { PlaceMarker } from "../../app/contracts/imagined-place-result.js"
 import { ParticipantRole, PlaceFeature } from "../../app/contracts/imagined-place.js"
 

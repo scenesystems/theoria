@@ -4,7 +4,8 @@ import * as Optimization from "@scenesystems/effect-search/Optimization"
 import type { SearchError } from "@scenesystems/effect-search/SearchError"
 import { Effect, type Scope } from "effect"
 
-import { AskedMeander, meanderSpace, renderSampler, renderTrials } from "../contracts/demo/imagined-place-search.js"
+import { meanderSpace, renderSampler } from "../contracts/demo/imagined-place-optimization.js"
+import { AskedMeander, renderTrials } from "../contracts/demo/imagined-place-search.js"
 import { OpenedStudy, PlaceSearchStudies } from "./services/PlaceSearchStudies.js"
 
 /**

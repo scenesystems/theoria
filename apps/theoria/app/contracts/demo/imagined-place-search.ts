@@ -1,8 +1,4 @@
-import { Number as Num, Record, Schema, Tuple } from "effect"
-
-import * as Numeric from "@scenesystems/effect-math/Numeric"
-import * as Sampler from "@scenesystems/effect-search/Sampler"
-import * as SearchSpace from "@scenesystems/effect-search/SearchSpace"
+import { Schema } from "effect"
 
 /**
  * The arrangement search as driven from another thread. The sampler (TPE,
@@ -31,19 +27,6 @@ export const Meander = Schema.Struct({
 })
 export type Meander = typeof Meander.Type
 
-const Bounds = Schema.Record({ key: Schema.keyof(Meander), value: Schema.Tuple(Schema.Number, Schema.Number) })
-
-export const meanderBounds = Bounds.make({
-  edge: Tuple.make(0.5, 0.9),
-  swing: Tuple.make(0, 0.3),
-  phase: Tuple.make(Num.negate(Numeric.pi), Numeric.pi),
-  turns: Tuple.make(0.5, 2.5),
-  top: Tuple.make(0.04, 0.6),
-  step: Tuple.make(0.03, 0.24)
-})
-
-export const meanderSpace = SearchSpace.make(Record.map(meanderBounds, ([low, high]) => SearchSpace.float(low, high)))
-
 /**
  * Deterministic search settings. The seed is fixed so the same artifact at the
  * same stage width always renders the same way; both values are reported.
@@ -53,47 +36,59 @@ export const meanderSpace = SearchSpace.make(Record.map(meanderBounds, ([low, hi
 export const renderSeed = 42
 export const renderTrials = 36
 
-export const renderSampler = () => Sampler.tpe({ seed: renderSeed })
-
 /** One open search on the worker, of possibly several: a new one for every artifact and every stage width. */
-export const PlaceSearchId = Schema.Number.pipe(Schema.brand("PlaceSearchId"))
+export const PlaceSearchId = Schema.Number.pipe(
+  Schema.brand("@theoria/app/contracts/demo/ImaginedPlaceSearch/PlaceSearchId")
+)
 
 export type PlaceSearchId = typeof PlaceSearchId.Type
 
 /** The search could not do what was asked: an unknown search, a trial told twice, a sampler that gave up. */
-export class PlaceSearchFailed extends Schema.TaggedError<PlaceSearchFailed>()("PlaceSearchFailed", {
+export class PlaceSearchFailed extends Schema.TaggedError<PlaceSearchFailed>(
+  "@theoria/app/contracts/demo/ImaginedPlaceSearch/PlaceSearchFailed"
+)("PlaceSearchFailed", {
   message: Schema.String
 }) {}
 
 /** Opens a search with the render sampler, seed and trial budget the server uses, and names it. */
-export class OpenSearch extends Schema.TaggedRequest<OpenSearch>()("OpenSearch", {
+export class OpenSearch extends Schema.TaggedRequest<OpenSearch>(
+  "@theoria/app/contracts/demo/ImaginedPlaceSearch/OpenSearch"
+)("OpenSearch", {
   failure: PlaceSearchFailed,
   success: PlaceSearchId,
   payload: {}
 }) {}
 
 /** A meander the search proposes, and the trial it is, so its loss can be told back. */
-export class AskedMeander extends Schema.Class<AskedMeander>("AskedMeander")({
-  trial: Schema.Number,
-  meander: Meander
-}) {}
+export class AskedMeander
+  extends Schema.Class<AskedMeander>("@theoria/app/contracts/demo/ImaginedPlaceSearch/AskedMeander")({
+    trial: Schema.Number,
+    meander: Meander
+  })
+{}
 
 /** Asks the search for its next meander to try. */
-export class AskSearch extends Schema.TaggedRequest<AskSearch>()("AskSearch", {
+export class AskSearch extends Schema.TaggedRequest<AskSearch>(
+  "@theoria/app/contracts/demo/ImaginedPlaceSearch/AskSearch"
+)("AskSearch", {
   failure: PlaceSearchFailed,
   success: AskedMeander,
   payload: { search: PlaceSearchId }
 }) {}
 
 /** Tells the search what a trial scored. */
-export class TellSearch extends Schema.TaggedRequest<TellSearch>()("TellSearch", {
+export class TellSearch extends Schema.TaggedRequest<TellSearch>(
+  "@theoria/app/contracts/demo/ImaginedPlaceSearch/TellSearch"
+)("TellSearch", {
   failure: PlaceSearchFailed,
   success: Schema.Void,
   payload: { search: PlaceSearchId, trial: Schema.Number, loss: Schema.Number }
 }) {}
 
 /** Closes a search, letting the worker forget it. */
-export class CloseSearch extends Schema.TaggedRequest<CloseSearch>()("CloseSearch", {
+export class CloseSearch extends Schema.TaggedRequest<CloseSearch>(
+  "@theoria/app/contracts/demo/ImaginedPlaceSearch/CloseSearch"
+)("CloseSearch", {
   failure: PlaceSearchFailed,
   success: Schema.Void,
   payload: { search: PlaceSearchId }
