@@ -22,7 +22,9 @@ import { instructionForPredictor } from "./candidateSelection.js"
  * @since 0.1.0
  * @category models
  */
-export class CandidateEvaluation extends Schema.Class<CandidateEvaluation>("GEPACandidateEvaluation")({
+export class CandidateEvaluation extends Schema.Class<CandidateEvaluation>(
+  "@scenesystems/effect-dsp/internal/gepa/runtime/evaluate/CandidateEvaluation"
+)({
   scores: CandidateScoreVector,
   samples: Schema.Array(ReflectiveDatasetSample)
 }) {}
@@ -34,19 +36,21 @@ export class CandidateEvaluation extends Schema.Class<CandidateEvaluation>("GEPA
  * @since 0.1.0
  * @category models
  */
-export class CandidateEvaluationWindow
-  extends Schema.Class<CandidateEvaluationWindow>("GEPACandidateEvaluationWindow")({
-    startIndex: Schema.Number,
-    rowCount: Schema.OptionFromSelf(Schema.Number)
-  })
-{}
+export class CandidateEvaluationWindow extends Schema.Class<CandidateEvaluationWindow>(
+  "@scenesystems/effect-dsp/internal/gepa/runtime/evaluate/CandidateEvaluationWindow"
+)({
+  startIndex: Schema.Number,
+  rowCount: Schema.OptionFromSelf(Schema.Number)
+}) {}
 
 const FULL_CANDIDATE_EVALUATION_WINDOW = new CandidateEvaluationWindow({
   startIndex: 0,
   rowCount: Option.none()
 })
 
-class CandidateEvaluationRow extends Schema.Class<CandidateEvaluationRow>("GEPACandidateEvaluationRow")({
+class CandidateEvaluationRow extends Schema.Class<CandidateEvaluationRow>(
+  "@scenesystems/effect-dsp/internal/gepa/runtime/evaluate/CandidateEvaluationRow"
+)({
   score: Schema.Number,
   samples: Schema.Array(ReflectiveDatasetSample)
 }) {}

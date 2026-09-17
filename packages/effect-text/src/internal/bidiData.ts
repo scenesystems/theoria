@@ -47,7 +47,9 @@ export const bidiMirrorPairs = Arr.make(
   Tuple.make("｝", "｛")
 )
 
-class CodePointRange extends Schema.Class<CodePointRange>("effect-text/BidiCodePointRange")({
+class CodePointRange extends Schema.Class<CodePointRange>(
+  "@scenesystems/effect-text/internal/bidiData/CodePointRange"
+)({
   end: Schema.Number,
   start: Schema.Number
 }) {}

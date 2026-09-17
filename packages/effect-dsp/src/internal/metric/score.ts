@@ -61,7 +61,9 @@ const tokenCounts = (tokens: Iterable<string>) =>
       )
     ))
 
-class OverlapState extends Schema.Class<OverlapState>("MetricOverlapState")({
+class OverlapState extends Schema.Class<OverlapState>(
+  "@scenesystems/effect-dsp/internal/metric/score/OverlapState"
+)({
   overlap: Schema.Number,
   rightCounts: Schema.Record({ key: Schema.String, value: Schema.Number })
 }) {}

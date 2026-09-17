@@ -7,7 +7,9 @@ import { Effect, Layer, Option, Schema } from "effect"
 
 import { CanvasProfile, CanvasTextMeasurer, Hyphenation, MeasurementCache, Text } from "@scenesystems/effect-text"
 
-export class CanvasLayoutOptions extends Schema.Class<CanvasLayoutOptions>("effect-text/CanvasLayoutOptions")({
+export class CanvasLayoutOptions extends Schema.Class<CanvasLayoutOptions>(
+  "@scenesystems/effect-text/examples/04-canvas-measurement/CanvasLayoutOptions"
+)({
   prepare: Text.Input,
   request: Text.Request,
   profileId: Schema.OptionFromSelf(CanvasProfile.Id),

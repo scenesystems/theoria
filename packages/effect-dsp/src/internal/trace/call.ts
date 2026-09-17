@@ -8,7 +8,7 @@ import { Boolean, Cause, Clock, Context, Data, Effect, Exit, Number, Option, Ref
 import { Call } from "../../Trace.js"
 import { appendCall } from "./append.js"
 
-class InvocationUsage extends Context.Tag("effect-dsp/Trace/InvocationUsage")<
+class InvocationUsage extends Context.Tag("@scenesystems/effect-dsp/internal/trace/call/InvocationUsage")<
   InvocationUsage,
   Ref.Ref<Option.Option<Response.Usage>>
 >() {}

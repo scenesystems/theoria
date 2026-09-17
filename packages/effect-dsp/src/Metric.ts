@@ -24,7 +24,7 @@ import { fromEffect as fromEffectInternal, make as makeInternal } from "./intern
  * @since 0.1.0
  * @category models
  */
-export class Result extends Schema.Class<Result>("effect-dsp/Metric/Result")({
+export class Result extends Schema.Class<Result>("@scenesystems/effect-dsp/Metric/Result")({
   score: Schema.Number,
   feedback: Schema.optional(Schema.String)
 }) {}

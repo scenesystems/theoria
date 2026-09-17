@@ -16,14 +16,18 @@ export const ResolveMergeInputsOptions = Schema.Struct({
 
 export type ResolveMergeInputsOptions = typeof ResolveMergeInputsOptions.Type
 
-export class MergeInputs extends Schema.Class<MergeInputs>("GEPAMergeInputs")({
+export class MergeInputs extends Schema.Class<MergeInputs>(
+  "@scenesystems/effect-dsp/internal/gepa/merge/ancestor/MergeInputs"
+)({
   commonAncestorId: Schema.String,
   ancestor: ProgramCandidate,
   parentA: ProgramCandidate,
   parentB: ProgramCandidate
 }) {}
 
-class AncestorDistance extends Schema.Class<AncestorDistance>("GEPAAncestorDistance")({
+class AncestorDistance extends Schema.Class<AncestorDistance>(
+  "@scenesystems/effect-dsp/internal/gepa/merge/ancestor/AncestorDistance"
+)({
   candidateId: Schema.String,
   distance: Schema.Number
 }) {}
@@ -32,7 +36,9 @@ const AncestorDistances = Schema.Array(AncestorDistance)
 
 type AncestorDistances = typeof AncestorDistances.Type
 
-class CommonAncestorCandidate extends Schema.Class<CommonAncestorCandidate>("GEPACommonAncestorCandidate")({
+class CommonAncestorCandidate extends Schema.Class<CommonAncestorCandidate>(
+  "@scenesystems/effect-dsp/internal/gepa/merge/ancestor/CommonAncestorCandidate"
+)({
   candidateId: Schema.String,
   parentADistance: Schema.Number,
   parentBDistance: Schema.Number

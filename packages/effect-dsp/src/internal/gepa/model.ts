@@ -51,7 +51,9 @@ export type ParentPairIndices = typeof ParentPairIndices.Type
  * @since 0.1.0
  * @category models
  */
-export class MutationAcceptance extends Schema.Class<MutationAcceptance>("GEPAMutationAcceptance")({
+export class MutationAcceptance extends Schema.Class<MutationAcceptance>(
+  "@scenesystems/effect-dsp/internal/gepa/model/MutationAcceptance"
+)({
   previousSubsampleSum: Schema.Number,
   mutatedSubsampleSum: Schema.Number,
   gate1Passed: Schema.Boolean,
@@ -67,7 +69,9 @@ export class MutationAcceptance extends Schema.Class<MutationAcceptance>("GEPAMu
  * @since 0.1.0
  * @category models
  */
-export class MergeAcceptance extends Schema.Class<MergeAcceptance>("GEPAMergeAcceptance")({
+export class MergeAcceptance extends Schema.Class<MergeAcceptance>(
+  "@scenesystems/effect-dsp/internal/gepa/model/MergeAcceptance"
+)({
   mergedSubsampleSum: Schema.Number,
   bestParentSubsampleSum: Schema.Number,
   accepted: Schema.Boolean
@@ -80,7 +84,9 @@ export class MergeAcceptance extends Schema.Class<MergeAcceptance>("GEPAMergeAcc
  * @since 0.1.0
  * @category models
  */
-export class ExampleFrontierHolding extends Schema.Class<ExampleFrontierHolding>("GEPAExampleFrontierHolding")({
+export class ExampleFrontierHolding extends Schema.Class<ExampleFrontierHolding>(
+  "@scenesystems/effect-dsp/internal/gepa/model/ExampleFrontierHolding"
+)({
   exampleIndex: Schema.Number,
   bestScore: Schema.Number,
   holders: Schema.Array(Schema.Number)
@@ -93,7 +99,9 @@ export class ExampleFrontierHolding extends Schema.Class<ExampleFrontierHolding>
  * @since 0.1.0
  * @category models
  */
-export class ParentSelectionWeight extends Schema.Class<ParentSelectionWeight>("GEPAParentSelectionWeight")({
+export class ParentSelectionWeight extends Schema.Class<ParentSelectionWeight>(
+  "@scenesystems/effect-dsp/internal/gepa/model/ParentSelectionWeight"
+)({
   candidateIndex: Schema.Number,
   weight: Schema.Number
 }) {}
@@ -111,7 +119,9 @@ export type ParentSelectionWeights = typeof ParentSelectionWeights.Type
  * @since 0.1.0
  * @category models
  */
-export class ParetoKernelSnapshot extends Schema.Class<ParetoKernelSnapshot>("GEPAParetoKernelSnapshot")({
+export class ParetoKernelSnapshot extends Schema.Class<ParetoKernelSnapshot>(
+  "@scenesystems/effect-dsp/internal/gepa/model/ParetoKernelSnapshot"
+)({
   frontierIndices: CandidateIndices,
   dominatedIndices: CandidateIndices,
   exampleHoldings: Schema.Array(ExampleFrontierHolding),
@@ -128,7 +138,9 @@ export const ReflectiveEvidenceScope = Schema.Literal("predictor-execution", "pr
  * @since 0.1.0
  * @category models
  */
-export class ReflectiveExample extends Schema.Class<ReflectiveExample>("GEPAReflectiveExample")({
+export class ReflectiveExample extends Schema.Class<ReflectiveExample>(
+  "@scenesystems/effect-dsp/internal/gepa/model/ReflectiveExample"
+)({
   exampleId: Schema.String,
   predictorName: Schema.String,
   evidenceScope: Schema.optionalWith(ReflectiveEvidenceScope, {
@@ -149,7 +161,9 @@ export class ReflectiveExample extends Schema.Class<ReflectiveExample>("GEPARefl
  * @since 0.1.0
  * @category models
  */
-export class ReflectiveDatasetSample extends Schema.Class<ReflectiveDatasetSample>("GEPAReflectiveDatasetSample")({
+export class ReflectiveDatasetSample extends Schema.Class<ReflectiveDatasetSample>(
+  "@scenesystems/effect-dsp/internal/gepa/model/ReflectiveDatasetSample"
+)({
   exampleId: Schema.String,
   predictorName: Schema.String,
   evidenceScope: Schema.optionalWith(ReflectiveEvidenceScope, {
@@ -168,7 +182,9 @@ export class ReflectiveDatasetSample extends Schema.Class<ReflectiveDatasetSampl
  * @since 0.1.0
  * @category models
  */
-export class PredictorInstruction extends Schema.Class<PredictorInstruction>("GEPAPredictorInstruction")({
+export class PredictorInstruction extends Schema.Class<PredictorInstruction>(
+  "@scenesystems/effect-dsp/internal/gepa/model/PredictorInstruction"
+)({
   predictorName: Schema.String,
   instruction: Schema.String
 }) {}
@@ -186,7 +202,9 @@ export type PredictorInstructions = typeof PredictorInstructions.Type
  * @since 0.1.0
  * @category models
  */
-export class ProgramCandidate extends Schema.Class<ProgramCandidate>("GEPAProgramCandidate")({
+export class ProgramCandidate extends Schema.Class<ProgramCandidate>(
+  "@scenesystems/effect-dsp/internal/gepa/model/ProgramCandidate"
+)({
   candidateId: Schema.String,
   parentIds: Schema.Array(Schema.String),
   predictorInstructions: PredictorInstructions
@@ -205,7 +223,9 @@ export type ProgramCandidates = typeof ProgramCandidates.Type
  * @since 0.1.0
  * @category models
  */
-export class MergeComparison extends Schema.Class<MergeComparison>("GEPAMergeComparison")({
+export class MergeComparison extends Schema.Class<MergeComparison>(
+  "@scenesystems/effect-dsp/internal/gepa/model/MergeComparison"
+)({
   exampleId: Schema.String,
   parentAScore: Schema.Number,
   parentBScore: Schema.Number
@@ -242,7 +262,7 @@ export type MergeComparisonBucket = typeof MergeComparisonBucket.Type
  * @since 0.1.0
  * @category models
  */
-export class MergeState extends Schema.Class<MergeState>("GEPAMergeState")({
+export class MergeState extends Schema.Class<MergeState>("@scenesystems/effect-dsp/internal/gepa/model/MergeState")({
   candidates: ProgramCandidates,
   mergeBudgetRemaining: Schema.Number
 }) {}
@@ -255,7 +275,7 @@ export class MergeState extends Schema.Class<MergeState>("GEPAMergeState")({
  * @since 0.1.0
  * @category models
  */
-export class GEPAState extends Schema.Class<GEPAState>("GEPAState")({
+export class GEPAState extends Schema.Class<GEPAState>("@scenesystems/effect-dsp/internal/gepa/model/GEPAState")({
   iteration: Schema.Number,
   candidates: ProgramCandidates,
   scoreVectors: CandidateScoreMatrix,

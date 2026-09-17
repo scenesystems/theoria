@@ -111,7 +111,7 @@ export const Dictionary = Data.taggedEnum<Dictionary>()
  * @since 0.5.0
  * @category services
  */
-export class Hyphenation extends Context.Tag("effect-text/Hyphenation")<
+export class Hyphenation extends Context.Tag("@scenesystems/effect-text/Hyphenation")<
   Hyphenation,
   {
     readonly hyphenateWord: (locale: string, word: string) => Effect.Effect<BreakPoints>

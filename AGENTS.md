@@ -125,7 +125,7 @@ Enforcement is split by tool, each owning one concern, all wired into `bun run l
 
 ### Integrated package conventions
 
-`digest`, `effect-math`, `sign`, `seal`, `effect-study`, and `effect-search` share these conventions:
+`digest`, `effect-math`, `sign`, `seal`, `effect-study`, `effect-search`, `effect-inference`, `effect-dsp`, and `effect-text` share these conventions:
 
 - A public `src/Concern.ts` owns the root `Concern` namespace and exact `./Concern` export. Private source paths are camelCase under `src/internal/`. Tests use `test/Concern.test.ts` or `test/Concern/behavior.test.ts`; supporting fixtures are not public concerns.
 - Schema identifiers, brands, Context keys, and registered symbols use `@scenesystems/<package>/<Concern>[/<Member>]`. A concern's principal model or service uses the concern path; other declarations include their member name. Private identities include their private path. Serialized `_tag` and algorithm strings are separate protocol contracts: do not rename them to normalize identifiers.

@@ -19,7 +19,9 @@ export class PredictorDemos extends Data.Class<{
   readonly params: ModuleParameters
 }> {}
 
-export class AcceptedDemo extends Schema.Class<AcceptedDemo>("AcceptedDemo")({
+export class AcceptedDemo extends Schema.Class<AcceptedDemo>(
+  "@scenesystems/effect-dsp/internal/bootstrapFewShot/runtime/model/AcceptedDemo"
+)({
   name: Schema.String,
   demo: Demo
 }) {}

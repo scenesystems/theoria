@@ -68,7 +68,7 @@ const program = Effect.scoped(
     const firstObjectiveVector = yield* askAndTellInteropTrial()
     const secondObjectiveVector = yield* askAndTellInteropTrial()
 
-    const studyResult = yield* Optimization.result(handle)
+    const optimizationResult = yield* Optimization.result(handle)
 
     const progressEvents = yield* Fiber.join(progressFiber)
     const progressLines = yield* Ref.get(progressLinesRef)
@@ -78,7 +78,7 @@ const program = Effect.scoped(
       maximizeDirections
     )
 
-    yield* Match.value(studyResult).pipe(
+    yield* Match.value(optimizationResult).pipe(
       Match.tagsExhaustive({
         SingleObjective: ({ trials }) =>
           Effect.log("effect-search summary", { trialCount: Arr.length(Arr.fromIterable(trials)) }),

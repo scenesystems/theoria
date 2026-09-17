@@ -199,6 +199,9 @@
         "@scenesystems/effect-search": "workspace:^",
         "@scenesystems/effect-study": "workspace:^",
       },
+      "devDependencies": {
+        "@scenesystems/digest": "workspace:^",
+      },
       "peerDependencies": {
         "effect": "^3.22.1",
       },

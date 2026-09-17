@@ -410,7 +410,7 @@ export const objectiveScore = (value: ObjectiveValue) =>
   )
 
 /**
- * Extracts the winning `Phase3Config` from a completed study result.
+ * Extracts the winning `Phase3Config` from a completed optimization result.
  *
  * For single-objective results the best trial is returned directly.
  * For multi-objective results the first entry on the Pareto front is
@@ -420,10 +420,10 @@ export const objectiveScore = (value: ObjectiveValue) =>
  * @category helpers
  */
 export const resolveBestConfig = (
-  studyResult: Optimization.Result<Phase3Config>,
+  optimizationResult: Optimization.Result<Phase3Config>,
   trialBudget: number
 ): Effect.Effect<Phase3Config, AllTrialsFailed> =>
-  Match.value(studyResult).pipe(
+  Match.value(optimizationResult).pipe(
     Match.tag("SingleObjective", ({ bestTrial }) => Effect.succeed(bestTrial.config)),
     Match.tag("MultiObjective", ({ paretoFront }) =>
       Option.match(Arr.head(Arr.fromIterable(paretoFront)), {

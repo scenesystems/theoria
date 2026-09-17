@@ -10,7 +10,9 @@ import { Array as Arr, Schema } from "effect"
  * @since 0.1.0
  * @category errors
  */
-export class SignatureError extends Schema.TaggedError<SignatureError>()(
+export class SignatureError extends Schema.TaggedError<SignatureError>(
+  "@scenesystems/effect-dsp/DspError/SignatureError"
+)(
   "SignatureError",
   {
     reason: Schema.String,
@@ -23,7 +25,7 @@ export class SignatureError extends Schema.TaggedError<SignatureError>()(
  * @category models
  */
 export class ParseFieldDiagnostic
-  extends Schema.Class<ParseFieldDiagnostic>("effect-dsp/DspError/ParseFieldDiagnostic")({
+  extends Schema.Class<ParseFieldDiagnostic>("@scenesystems/effect-dsp/DspError/ParseFieldDiagnostic")({
     field: Schema.String,
     issue: Schema.Literal("missing-field", "unexpected-field", "duplicate-field", "decode-error"),
     message: Schema.String
@@ -34,7 +36,9 @@ export class ParseFieldDiagnostic
  * @since 0.1.0
  * @category errors
  */
-export class ParseOutputError extends Schema.TaggedError<ParseOutputError>()(
+export class ParseOutputError extends Schema.TaggedError<ParseOutputError>(
+  "@scenesystems/effect-dsp/DspError/ParseOutputError"
+)(
   "ParseOutputError",
   {
     message: Schema.String,
@@ -49,7 +53,9 @@ export class ParseOutputError extends Schema.TaggedError<ParseOutputError>()(
  * @since 0.1.0
  * @category errors
  */
-export class CompositionError extends Schema.TaggedError<CompositionError>()(
+export class CompositionError extends Schema.TaggedError<CompositionError>(
+  "@scenesystems/effect-dsp/DspError/CompositionError"
+)(
   "CompositionError",
   {
     message: Schema.String,
@@ -61,7 +67,9 @@ export class CompositionError extends Schema.TaggedError<CompositionError>()(
  * @since 0.1.0
  * @category errors
  */
-export class BootstrapFailed extends Schema.TaggedError<BootstrapFailed>()(
+export class BootstrapFailed extends Schema.TaggedError<BootstrapFailed>(
+  "@scenesystems/effect-dsp/DspError/BootstrapFailed"
+)(
   "BootstrapFailed",
   {
     message: Schema.String,
@@ -81,7 +89,9 @@ export class BootstrapFailed extends Schema.TaggedError<BootstrapFailed>()(
  * @since 0.1.0
  * @category errors
  */
-export class InstructionProposalFailed extends Schema.TaggedError<InstructionProposalFailed>()(
+export class InstructionProposalFailed extends Schema.TaggedError<InstructionProposalFailed>(
+  "@scenesystems/effect-dsp/DspError/InstructionProposalFailed"
+)(
   "InstructionProposalFailed",
   {
     message: Schema.String,
@@ -93,7 +103,9 @@ export class InstructionProposalFailed extends Schema.TaggedError<InstructionPro
  * @since 0.1.0
  * @category errors
  */
-export class AllTrialsFailed extends Schema.TaggedError<AllTrialsFailed>()(
+export class AllTrialsFailed extends Schema.TaggedError<AllTrialsFailed>(
+  "@scenesystems/effect-dsp/DspError/AllTrialsFailed"
+)(
   "AllTrialsFailed",
   {
     message: Schema.String,
@@ -105,7 +117,9 @@ export class AllTrialsFailed extends Schema.TaggedError<AllTrialsFailed>()(
  * @since 0.1.0
  * @category errors
  */
-export class MergeRejected extends Schema.TaggedError<MergeRejected>()(
+export class MergeRejected extends Schema.TaggedError<MergeRejected>(
+  "@scenesystems/effect-dsp/DspError/MergeRejected"
+)(
   "MergeRejected",
   {
     message: Schema.String,
@@ -118,7 +132,9 @@ export class MergeRejected extends Schema.TaggedError<MergeRejected>()(
  * @since 0.1.0
  * @category errors
  */
-export class MetricError extends Schema.TaggedError<MetricError>()(
+export class MetricError extends Schema.TaggedError<MetricError>(
+  "@scenesystems/effect-dsp/DspError/MetricError"
+)(
   "MetricError",
   {
     message: Schema.String,
@@ -130,7 +146,9 @@ export class MetricError extends Schema.TaggedError<MetricError>()(
  * @since 0.1.0
  * @category errors
  */
-export class EvaluationFailed extends Schema.TaggedError<EvaluationFailed>()(
+export class EvaluationFailed extends Schema.TaggedError<EvaluationFailed>(
+  "@scenesystems/effect-dsp/DspError/EvaluationFailed"
+)(
   "EvaluationFailed",
   {
     message: Schema.String,
@@ -142,7 +160,9 @@ export class EvaluationFailed extends Schema.TaggedError<EvaluationFailed>()(
  * @since 0.1.0
  * @category errors
  */
-export class TraceError extends Schema.TaggedError<TraceError>()(
+export class TraceError extends Schema.TaggedError<TraceError>(
+  "@scenesystems/effect-dsp/DspError/TraceError"
+)(
   "TraceError",
   {
     message: Schema.String,
@@ -154,7 +174,9 @@ export class TraceError extends Schema.TaggedError<TraceError>()(
  * @since 0.1.0
  * @category errors
  */
-export class SaveLoadError extends Schema.TaggedError<SaveLoadError>()(
+export class SaveLoadError extends Schema.TaggedError<SaveLoadError>(
+  "@scenesystems/effect-dsp/DspError/SaveLoadError"
+)(
   "SaveLoadError",
   {
     message: Schema.String,

@@ -14,14 +14,17 @@ must remain independent of `@scenesystems/effect-inference`.
 
 Public modules are PascalCase source-root files and matching package subpaths:
 `Signature`, `Module`, `ModuleParameters`, `ModuleGraph`, `Demonstration`,
-`Example`, `Metric`, `Evaluate`, `EvaluationObjective`, `Trace`, `Cache`, `Payload`, `DspError`,
-`OptimizerEvent`, `LabeledFewShot`, `BootstrapFewShot`, `BootstrapRS`,
-`MIPROv2`, `MIPROv2Candidates`, `MIPROv2Search`, `GEPA`, `Ensemble`, and `MockLanguageModel`.
+`Example`, `Metric`, `Evaluate`, `EvaluationObjective`, `Artifact`, `Trace`,
+`Cache`, `Payload`, `DspError`, `OptimizerEvent`, `LabeledFewShot`,
+`BootstrapFewShot`, `BootstrapRS`, `MIPROv2`, `MIPROv2Candidates`,
+`MIPROv2Search`, `GEPA`, `Ensemble`, and `MockLanguageModel`.
 
 Algorithms own their options, lifecycle events, streams, progress formatting,
-and summaries. There is no umbrella Optimizer namespace. Search studies,
-samplers, Pareto operations, deterministic seeds, and artifact envelopes are
-consumed directly from `@scenesystems/effect-search`; DSP does not mirror them.
+and summaries. There is no umbrella Optimizer namespace. Optimization results,
+samplers, Pareto operations, and deterministic seeds are consumed directly from
+`@scenesystems/effect-search`; generic lifecycle, persistence, and artifact
+delivery belong to `@scenesystems/effect-study`. DSP's `Artifact` concern composes
+DSP-specific provenance and envelopes from the study-owned artifact schemas.
 
 Private mechanics live in camelCase paths below `src/internal/`.
 Public MIPROv2 concerns use that exact spelling; private paths use `miprov2`.

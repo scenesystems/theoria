@@ -95,7 +95,7 @@ describe("MIPROv2 orchestration", () => {
     }))
 
   it.effect(
-    "preserves an ArtifactStorageError raised by the Phase 3 study",
+    "preserves an ArtifactStorageError raised by the Phase 3 optimization",
     () =>
       Effect.gen(function*() {
         const module = yield* makeStructuredQaModule

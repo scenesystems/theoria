@@ -63,7 +63,9 @@ export class PredictorBinding extends Data.Class<{
  * @category models
  * @see {@link Phase3Config}
  */
-export class BestAveragingCandidate extends Schema.Class<BestAveragingCandidate>("MIPROv2BestAveragingCandidate")({
+export class BestAveragingCandidate extends Schema.Class<BestAveragingCandidate>(
+  "@scenesystems/effect-dsp/internal/miprov2/runtime/model/BestAveragingCandidate"
+)({
   config: Phase3Config,
   score: Schema.Number
 }) {}

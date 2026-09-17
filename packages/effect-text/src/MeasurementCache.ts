@@ -16,7 +16,7 @@ import * as TextMeasurer from "./TextMeasurer.js"
  * @since 0.5.0
  * @category services
  */
-export class MeasurementCache extends Context.Tag("effect-text/MeasurementCache")<
+export class MeasurementCache extends Context.Tag("@scenesystems/effect-text/MeasurementCache")<
   MeasurementCache,
   Context.Tag.Service<typeof TextMeasurer.TextMeasurer>
 >() {}

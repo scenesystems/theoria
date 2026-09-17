@@ -100,7 +100,7 @@ const nativeLineages = (native: NativeModuleGraph) =>
  * @since 0.1.0
  * @category models
  */
-export class Node extends Schema.Class<Node>("effect-dsp/ModuleGraph/Node")({
+export class Node extends Schema.Class<Node>("@scenesystems/effect-dsp/ModuleGraph/Node")({
   /** Identity used by graph lookup and traversal. */
   moduleId: Schema.suspend(() => Id),
   /** Prompt metadata retained for optimizer inspection. */
@@ -119,7 +119,7 @@ export class Node extends Schema.Class<Node>("effect-dsp/ModuleGraph/Node")({
  * @since 0.1.0
  * @category models
  */
-export class Edge extends Schema.Class<Edge>("effect-dsp/ModuleGraph/Edge")({
+export class Edge extends Schema.Class<Edge>("@scenesystems/effect-dsp/ModuleGraph/Edge")({
   /** Parent endpoint. */
   parentId: Schema.suspend(() => Id),
   /** Child endpoint. */
@@ -137,7 +137,7 @@ export class Edge extends Schema.Class<Edge>("effect-dsp/ModuleGraph/Edge")({
  * @since 0.1.0
  * @category models
  */
-export class ModuleGraph extends Schema.Class<ModuleGraph>("effect-dsp/ModuleGraph/Graph")({
+export class ModuleGraph extends Schema.Class<ModuleGraph>("@scenesystems/effect-dsp/ModuleGraph")({
   /** Identity where traversal begins. */
   rootId: Schema.suspend(() => Id),
   /** Node records used for lookup; duplicate identities resolve to the last node. */
@@ -152,7 +152,7 @@ export class ModuleGraph extends Schema.Class<ModuleGraph>("effect-dsp/ModuleGra
  * @since 0.1.0
  * @category models
  */
-export class Lineage extends Schema.Class<Lineage>("effect-dsp/ModuleGraph/Lineage")({
+export class Lineage extends Schema.Class<Lineage>("@scenesystems/effect-dsp/ModuleGraph/Lineage")({
   /** Requested final identity. */
   targetId: Schema.suspend(() => Id),
   /** Root-first identities including both root and target. */
@@ -238,7 +238,7 @@ export const lineage = (
  * @since 0.1.0
  * @category models
  */
-export class Projection extends Schema.Class<Projection>("effect-dsp/ModuleGraph/Projection")({
+export class Projection extends Schema.Class<Projection>("@scenesystems/effect-dsp/ModuleGraph/Projection")({
   /** Source graph root identity. */
   rootId: Schema.suspend(() => Id),
   /** Pre-order identities returned by {@link traversal}. */

@@ -15,7 +15,9 @@ import type { Example } from "../../../Example.js"
  * @since 0.1.0
  * @category models
  */
-export class ProposalPromptOptions extends Schema.Class<ProposalPromptOptions>("MIPROv2ProposalPromptOptions")({
+export class ProposalPromptOptions extends Schema.Class<ProposalPromptOptions>(
+  "@scenesystems/effect-dsp/internal/miprov2/runtime/prompt/ProposalPromptOptions"
+)({
   marker: Schema.String,
   predictorName: Schema.String,
   moduleDescription: Schema.String,

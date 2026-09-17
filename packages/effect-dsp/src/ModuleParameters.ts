@@ -48,7 +48,7 @@ export const resolveStrategy = (strategy: OutputStrategy, demoCount: number): ty
  * @since 0.1.0
  * @category models
  */
-export class ModuleParameters extends Schema.Class<ModuleParameters>("effect-dsp/ModuleParameters")({
+export class ModuleParameters extends Schema.Class<ModuleParameters>("@scenesystems/effect-dsp/ModuleParameters")({
   /** Instruction text included in the system prompt. */
   instructions: Schema.String,
   /** Ordered few-shot demonstrations rendered into text-mode prompts. */
@@ -133,7 +133,7 @@ export const withInstructions = (
  * @since 0.1.0
  * @category models
  */
-export class Projection extends Schema.Class<Projection>("effect-dsp/ModuleParameters/Projection")({
+export class Projection extends Schema.Class<Projection>("@scenesystems/effect-dsp/ModuleParameters/Projection")({
   instructions: Schema.String,
   demoCount: Schema.Number,
   outputStrategy: OutputStrategy,
@@ -146,7 +146,7 @@ export class Projection extends Schema.Class<Projection>("effect-dsp/ModuleParam
  * @since 0.1.0
  * @category models
  */
-export class Dimension extends Schema.Class<Dimension>("effect-dsp/ModuleParameters/Dimension")({
+export class Dimension extends Schema.Class<Dimension>("@scenesystems/effect-dsp/ModuleParameters/Dimension")({
   name: Schema.String,
   value: Schema.Union(Schema.String, Schema.Number)
 }) {}

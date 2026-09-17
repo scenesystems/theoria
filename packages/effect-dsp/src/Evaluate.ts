@@ -20,7 +20,7 @@ import type { Module } from "./Module.js"
  * @since 0.1.0
  * @category models
  */
-export class Failure extends Schema.Class<Failure>("effect-dsp/Evaluate/Failure")({
+export class Failure extends Schema.Class<Failure>("@scenesystems/effect-dsp/Evaluate/Failure")({
   index: Schema.Number,
   tag: Schema.String,
   message: Schema.String
@@ -30,7 +30,7 @@ export class Failure extends Schema.Class<Failure>("effect-dsp/Evaluate/Failure"
  * @since 0.1.0
  * @category models
  */
-export class ExampleResult extends Schema.Class<ExampleResult>("effect-dsp/Evaluate/ExampleResult")({
+export class ExampleResult extends Schema.Class<ExampleResult>("@scenesystems/effect-dsp/Evaluate/ExampleResult")({
   index: Schema.Number,
   scores: Schema.Record({ key: Schema.String, value: Schema.Number }),
   failure: Schema.OptionFromSelf(Failure),
@@ -41,7 +41,7 @@ export class ExampleResult extends Schema.Class<ExampleResult>("effect-dsp/Evalu
  * @since 0.1.0
  * @category models
  */
-export class Report extends Schema.Class<Report>("effect-dsp/Evaluate/Report")({
+export class Report extends Schema.Class<Report>("@scenesystems/effect-dsp/Evaluate/Report")({
   overallScores: Schema.Record({ key: Schema.String, value: Schema.Number }),
   results: Schema.Array(ExampleResult),
   failures: Schema.Array(Failure),

@@ -132,12 +132,12 @@ describe("MIPROv2/effect-search integration", () => {
         seed: 73
       }).pipe(Effect.provide(layer))
 
-      expect(result.studyResult._tag).toBe("SingleObjective")
-      expect(Arr.length(Arr.fromIterable(result.studyResult.trials))).toBeGreaterThan(0)
+      expect(result.optimizationResult._tag).toBe("SingleObjective")
+      expect(Arr.length(Arr.fromIterable(result.optimizationResult.trials))).toBeGreaterThan(0)
       expect(
         Option.isSome(
           Arr.findFirst(
-            Arr.fromIterable(result.studyResult.trials),
+            Arr.fromIterable(result.optimizationResult.trials),
             (trial) =>
               Schema.is(Schema.Record({ key: Schema.String, value: Schema.Unknown }))(trial.config) &&
               Record.has(trial.config, "qa__demo") &&

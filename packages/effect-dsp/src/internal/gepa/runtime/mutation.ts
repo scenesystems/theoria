@@ -36,7 +36,9 @@ import { CandidateEvaluationWindow, evaluateCandidate } from "./evaluate.js"
  * @since 0.1.0
  * @category models
  */
-export class MutationPhaseResult extends Schema.Class<MutationPhaseResult>("GEPAMutationPhaseResult")({
+export class MutationPhaseResult extends Schema.Class<MutationPhaseResult>(
+  "@scenesystems/effect-dsp/internal/gepa/runtime/mutation/MutationPhaseResult"
+)({
   stateAfterAcceptance: GEPAState,
   accepted: Schema.Boolean
 }) {}

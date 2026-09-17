@@ -19,7 +19,7 @@ const parseJson = Schema.decodeUnknownEither(Schema.parseJson())
  */
 export const Payload = Schema.String.pipe(
   Schema.filter((text) => Either.isRight(parseJson(text)), { description: "a valid JSON document" }),
-  Schema.brand("effect-dsp/Payload")
+  Schema.brand("@scenesystems/effect-dsp/Payload")
 )
 
 /**

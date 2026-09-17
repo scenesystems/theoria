@@ -63,7 +63,7 @@ const Discovery = Schema.Struct({
     Schema.Record({ key: Schema.String, value: MappingDetails })
   )
 })
-class Target extends Schema.Class<Target>("HuggingFaceEmbeddingTarget")({
+class Target extends Schema.Class<Target>("@scenesystems/effect-inference/internal/huggingFaceEmbeddingModel/Target")({
   url: Schema.String,
   model: Schema.String,
   format: Schema.Literal("hf", "openai")

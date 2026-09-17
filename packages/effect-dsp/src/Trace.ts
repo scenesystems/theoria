@@ -39,7 +39,7 @@ export const UnparsedOutput = Schema.Struct({
  * @since 0.1.0
  * @category models
  */
-export class Entry extends Schema.Class<Entry>("effect-dsp/Trace/Entry")({
+export class Entry extends Schema.Class<Entry>("@scenesystems/effect-dsp/Trace/Entry")({
   /** Invoked module name. */
   moduleName: Schema.String,
   /** Description from the module signature. */
@@ -74,7 +74,7 @@ export class Entry extends Schema.Class<Entry>("effect-dsp/Trace/Entry")({
  * @since 0.4.0
  * @category models
  */
-export class Call extends Schema.Class<Call>("effect-dsp/Trace/Call")({
+export class Call extends Schema.Class<Call>("@scenesystems/effect-dsp/Trace/Call")({
   /** Language-model operation observed by the DSP runtime. */
   operation: Schema.Literal("generateObject", "generateText"),
   /** Provider usage when it was observed before the invocation terminated. */
@@ -99,7 +99,7 @@ export const noScore: Option.Option<number> = Option.none()
  * @since 0.1.0
  * @category models
  */
-export class Usage extends Schema.Class<Usage>("effect-dsp/Trace/Usage")({
+export class Usage extends Schema.Class<Usage>("@scenesystems/effect-dsp/Trace/Usage")({
   tokens: Response.Usage,
   callCount: Schema.NonNegativeInt
 }) {}
@@ -175,19 +175,21 @@ export const emptyUsage = new Usage({
  * @since 0.1.0
  * @category models
  */
-export class ObjectiveProjection extends Schema.Class<ObjectiveProjection>("effect-dsp/Trace/ObjectiveProjection")({
-  moduleId: Schema.suspend(() => Id),
-  signatureDescription: Schema.String,
-  input: Payload,
-  prompt: Schema.String,
-  output: Payload,
-  outcome: Entry.fields.outcome,
-  score: Schema.Option(Schema.Number),
-  rawResponse: Schema.String,
-  usage: Response.Usage,
-  durationMs: Schema.Number,
-  timestamp: Schema.Number
-}) {}
+export class ObjectiveProjection
+  extends Schema.Class<ObjectiveProjection>("@scenesystems/effect-dsp/Trace/ObjectiveProjection")({
+    moduleId: Schema.suspend(() => Id),
+    signatureDescription: Schema.String,
+    input: Payload,
+    prompt: Schema.String,
+    output: Payload,
+    outcome: Entry.fields.outcome,
+    score: Schema.Option(Schema.Number),
+    rawResponse: Schema.String,
+    usage: Response.Usage,
+    durationMs: Schema.Number,
+    timestamp: Schema.Number
+  })
+{}
 
 /** Projects a trace entry into validated optimizer evidence.
  * @since 0.1.0

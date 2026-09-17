@@ -1,5 +1,5 @@
 /**
- * Fresh and resumed calibration optimization execution.
+ * Calibration optimization execution for fresh and resumed runs.
  *
  * @internal
  * @since 0.5.0

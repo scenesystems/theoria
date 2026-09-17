@@ -76,7 +76,9 @@ export type MergePreparationEvent = typeof MergePreparationEvent.Type
  * @since 0.1.0
  * @category models
  */
-export class MergePreparation extends Schema.Class<MergePreparation>("GEPAMergePreparation")({
+export class MergePreparation extends Schema.Class<MergePreparation>(
+  "@scenesystems/effect-dsp/internal/gepa/merge/model/MergePreparation"
+)({
   event: MergePreparationEvent,
   candidate: Schema.OptionFromSelf(ProgramCandidate),
   subsample: MergeComparisons,

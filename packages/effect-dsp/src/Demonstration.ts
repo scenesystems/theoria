@@ -12,7 +12,7 @@ import { decode, encode, Payload } from "./Payload.js"
  * @since 0.4.0
  * @category models
  */
-export class Demonstration extends Schema.Class<Demonstration>("effect-dsp/Demonstration")({
+export class Demonstration extends Schema.Class<Demonstration>("@scenesystems/effect-dsp/Demonstration")({
   input: Schema.Record({ key: Schema.String, value: Schema.Unknown }),
   output: Schema.Record({ key: Schema.String, value: Schema.Unknown })
 }) {}

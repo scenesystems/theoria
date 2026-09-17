@@ -33,7 +33,7 @@ const FontSelection = Schema.Literal("named-family", "browser-default-stack")
  * @since 0.5.0
  * @category models
  */
-export class CanvasProfile extends Schema.Class<CanvasProfile>("effect-text/CanvasProfile")({
+export class CanvasProfile extends Schema.Class<CanvasProfile>("@scenesystems/effect-text/CanvasProfile")({
   /** Stable identity used by application preparation caches. */
   id: Id,
   /** Family selected when the caller does not supply another font. */

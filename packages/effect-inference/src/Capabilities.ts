@@ -27,7 +27,7 @@ export const Capabilities = Schema.Struct({
   usageReporting: Schema.Boolean,
   multimodalInput: Schema.Boolean,
   maxContextTokens: Schema.optional(Schema.Number)
-}).annotations({ identifier: "@scenesystems/effect-inference/Capabilities/Capabilities" })
+}).annotations({ identifier: "@scenesystems/effect-inference/Capabilities" })
 /** Resolved runtime capabilities inferred from their schema. @since 0.5.0 @category models */
 export type Capabilities = typeof Capabilities.Type
 

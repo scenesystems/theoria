@@ -147,7 +147,7 @@ export const defaultMaxMergeInvocations = 5
  * @since 0.1.0
  * @category models
  */
-export class ProgressLine extends Schema.Class<ProgressLine>("effect-dsp/GEPA/ProgressLine")({
+export class ProgressLine extends Schema.Class<ProgressLine>("@scenesystems/effect-dsp/GEPA/ProgressLine")({
   tag: Schema.typeSchema(Schema.pluck(Event, "_tag")),
   details: Schema.String,
   text: Schema.String
@@ -244,7 +244,7 @@ export const tapProgress =
  * @since 0.1.0
  * @category models
  */
-export class EventSummary extends Schema.Class<EventSummary>("effect-dsp/GEPA/EventSummary")({
+export class EventSummary extends Schema.Class<EventSummary>("@scenesystems/effect-dsp/GEPA/EventSummary")({
   totalEvents: Schema.Number,
   iterationStartedCount: Schema.Number,
   mergeCheckedCount: Schema.Number,

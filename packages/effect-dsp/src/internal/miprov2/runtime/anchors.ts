@@ -51,7 +51,9 @@ export type Phase1CandidateKind = typeof Phase1CandidateKind.Type
  * @category models
  * @see {@link Phase1CandidateKind}
  */
-export class CandidateAssembly extends Schema.Class<CandidateAssembly>("MIPROv2CandidateAssembly")({
+export class CandidateAssembly extends Schema.Class<CandidateAssembly>(
+  "@scenesystems/effect-dsp/internal/miprov2/runtime/anchors/CandidateAssembly"
+)({
   kind: Phase1CandidateKind,
   params: ModuleParameters
 }) {}

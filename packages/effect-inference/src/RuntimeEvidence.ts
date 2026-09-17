@@ -151,7 +151,7 @@ export const RuntimeEvidence = Schema.Struct({
   route: Route.Resolved,
   response: Response,
   capabilities: Capabilities.Capabilities
-}).annotations({ identifier: "@scenesystems/effect-inference/RuntimeEvidence/RuntimeEvidence" })
+}).annotations({ identifier: "@scenesystems/effect-inference/RuntimeEvidence" })
 /**
  * Persistable inference evidence inferred from its canonical schema.
  *

@@ -32,22 +32,24 @@ export type DemoCandidateKind = typeof DemoCandidateKind.Type
  * @since 0.4.0
  * @category models
  */
-export class DemoCandidate extends Schema.Class<DemoCandidate>("effect-dsp/MIPROv2Candidates/DemoCandidate")({
-  predictorName: Schema.String,
-  kind: DemoCandidateKind,
-  params: ModuleParameters
-}) {}
+export class DemoCandidate
+  extends Schema.Class<DemoCandidate>("@scenesystems/effect-dsp/MIPROv2Candidates/DemoCandidate")({
+    predictorName: Schema.String,
+    kind: DemoCandidateKind,
+    params: ModuleParameters
+  })
+{}
 
 /** Groups the ordered Phase 1 candidates for one predictor.
  * @since 0.4.0
  * @category models
  */
-export class PredictorDemoCandidates
-  extends Schema.Class<PredictorDemoCandidates>("effect-dsp/MIPROv2Candidates/PredictorDemoCandidates")({
-    predictorName: Schema.String,
-    candidates: Schema.Array(DemoCandidate)
-  })
-{}
+export class PredictorDemoCandidates extends Schema.Class<PredictorDemoCandidates>(
+  "@scenesystems/effect-dsp/MIPROv2Candidates/PredictorDemoCandidates"
+)({
+  predictorName: Schema.String,
+  candidates: Schema.Array(DemoCandidate)
+}) {}
 
 /** Ordered Phase 1 candidate sets, one per predictor.
  * @since 0.4.0
@@ -90,7 +92,7 @@ export const generateDemoCandidates = generateDemoCandidatesInternal
  * @category models
  */
 export class InstructionCandidate
-  extends Schema.Class<InstructionCandidate>("effect-dsp/MIPROv2Candidates/InstructionCandidate")({
+  extends Schema.Class<InstructionCandidate>("@scenesystems/effect-dsp/MIPROv2Candidates/InstructionCandidate")({
     predictorName: Schema.String,
     instruction: Schema.String,
     tip: Schema.String,
@@ -105,7 +107,7 @@ export class InstructionCandidate
  * @category models
  */
 export class PredictorInstructionCandidates extends Schema.Class<PredictorInstructionCandidates>(
-  "effect-dsp/MIPROv2Candidates/PredictorInstructionCandidates"
+  "@scenesystems/effect-dsp/MIPROv2Candidates/PredictorInstructionCandidates"
 )({
   predictorName: Schema.String,
   candidates: Schema.Array(InstructionCandidate)

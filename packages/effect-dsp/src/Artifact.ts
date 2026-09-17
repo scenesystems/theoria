@@ -10,7 +10,8 @@ import { Data, Schema } from "effect"
 /** DSP-owned artifact source provenance. @since 0.4.0 @category schemas */
 export const Source = StudyArtifact.Source.pipe(
   Schema.omit("origin"),
-  Schema.extend(Schema.Struct({ origin: Schema.Literal("effect-dsp") }))
+  Schema.extend(Schema.Struct({ origin: Schema.Literal("effect-dsp") })),
+  Schema.annotations({ identifier: "@scenesystems/effect-dsp/Artifact/Source" })
 )
 
 /** DSP-owned artifact source provenance. @since 0.4.0 @category models */
@@ -24,7 +25,7 @@ export const Producer = Schema.TaggedStruct("EffectDsp", {
   optimizer: Schema.String,
   metricName: Schema.String,
   exampleName: Schema.String
-})
+}).annotations({ identifier: "@scenesystems/effect-dsp/Artifact/Producer" })
 
 /** DSP artifact producer metadata. @since 0.4.0 @category models */
 export type Producer = typeof Producer.Type
@@ -33,7 +34,9 @@ export type Producer = typeof Producer.Type
 export const EffectDsp = Data.tagged<Producer>("EffectDsp")
 
 /** DSP artifact lineage. @since 0.4.0 @category schemas */
-export const Lineage = StudyArtifact.Lineage(Source)
+export const Lineage = StudyArtifact.Lineage(Source).annotations({
+  identifier: "@scenesystems/effect-dsp/Artifact/Lineage"
+})
 
 /** DSP artifact lineage. @since 0.4.0 @category models */
 export type Lineage = typeof Lineage.Type
@@ -43,7 +46,7 @@ export const Envelope = StudyArtifact.Envelope(
   Producer,
   Lineage,
   Schema.TaggedStruct("Custom", { payload: StudyArtifact.Payload })
-)
+).annotations({ identifier: "@scenesystems/effect-dsp/Artifact/Envelope" })
 
 /** A DSP custom artifact envelope. @since 0.4.0 @category models */
 export type Envelope = typeof Envelope.Type

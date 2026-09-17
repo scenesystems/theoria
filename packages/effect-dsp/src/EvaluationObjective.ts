@@ -18,7 +18,7 @@ export const Mode = Schema.Literal("single", "multi")
  * @since 0.4.0
  * @category models
  */
-export class MetricScore extends Schema.Class<MetricScore>("effect-dsp/EvaluationObjective/MetricScore")({
+export class MetricScore extends Schema.Class<MetricScore>("@scenesystems/effect-dsp/EvaluationObjective/MetricScore")({
   name: Schema.String,
   score: Schema.Number
 }) {}
@@ -27,7 +27,7 @@ export class MetricScore extends Schema.Class<MetricScore>("effect-dsp/Evaluatio
  * @since 0.4.0
  * @category models
  */
-export class Telemetry extends Schema.Class<Telemetry>("effect-dsp/EvaluationObjective/Telemetry")({
+export class Telemetry extends Schema.Class<Telemetry>("@scenesystems/effect-dsp/EvaluationObjective/Telemetry")({
   metricScores: Schema.Array(MetricScore),
   failures: Schema.Array(Failure),
   totalExamples: Schema.Number,
@@ -40,7 +40,7 @@ export class Telemetry extends Schema.Class<Telemetry>("effect-dsp/EvaluationObj
  * @since 0.4.0
  * @category models
  */
-export class Projection extends Schema.Class<Projection>("effect-dsp/EvaluationObjective/Projection")({
+export class Projection extends Schema.Class<Projection>("@scenesystems/effect-dsp/EvaluationObjective/Projection")({
   objective: Schema.Union(Schema.Number, Schema.Array(Schema.Number)),
   telemetry: Telemetry
 }) {}

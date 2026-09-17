@@ -103,7 +103,7 @@ export const events = Data.taggedEnum<Event>()
  * @since 0.1.0
  * @category models
  */
-export class ProgressLine extends Schema.Class<ProgressLine>("effect-dsp/MIPROv2/ProgressLine")({
+export class ProgressLine extends Schema.Class<ProgressLine>("@scenesystems/effect-dsp/MIPROv2/ProgressLine")({
   tag: Schema.typeSchema(Schema.pluck(Event, "_tag")),
   details: Schema.String,
   text: Schema.String
@@ -163,7 +163,7 @@ export const tapProgress =
  * @since 0.1.0
  * @category models
  */
-export class EventSummary extends Schema.Class<EventSummary>("effect-dsp/MIPROv2/EventSummary")({
+export class EventSummary extends Schema.Class<EventSummary>("@scenesystems/effect-dsp/MIPROv2/EventSummary")({
   totalEvents: Schema.Number,
   demoCandidateCount: Schema.Number,
   instructionProposedCount: Schema.Number,
@@ -239,7 +239,7 @@ export const summarizeEvents = (input: Iterable<Event>): EventSummary =>
  * @category models
  */
 export class OptimizationObservability
-  extends Schema.Class<OptimizationObservability>("effect-dsp/MIPROv2/OptimizationObservability")({
+  extends Schema.Class<OptimizationObservability>("@scenesystems/effect-dsp/MIPROv2/OptimizationObservability")({
     baselineScore: Schema.Number,
     optimizedScore: Schema.Number,
     searchBestScoreSeen: Schema.Boolean,
@@ -322,7 +322,7 @@ export class Options<
   readonly diversityTemperature?: number
   /** Proposal hints selected cyclically. An empty or omitted array uses the built-in vocabulary. */
   readonly tipVocabulary?: TipVocabulary
-  /** Phase 3 study trials; invalid counts become one and omission uses the search-space budget formula. */
+  /** Phase 3 optimization trials; invalid counts become one and omission uses the search-space budget formula. */
   readonly trialBudget?: number
   /** Prefix size of `valset` used for every trial objective. Defaults to `50` and is normalized to a positive integer. */
   readonly minibatchSize?: number
@@ -397,7 +397,7 @@ const totalInstructionCandidates = (
  * Phase 1 snapshots every owned predictor and builds candidates from labeled
  * examples. Phase 2 asks the configured language model for alternatives in
  * predictor order. Phase 3 evaluates a baseline, then runs a single-concurrency
- * TPE study whose trial objective uses the leading validation-set minibatch.
+ * TPE optimization whose trial objective uses the leading validation-set minibatch.
  * Periodic full-set evaluations update diagnostics without changing the TPE
  * objective or selected trial.
  *
@@ -406,7 +406,7 @@ const totalInstructionCandidates = (
  * failure or interruption can leave the most recently applied configuration in
  * place. Instruction generation failures become `InstructionProposalFailed`.
  * Candidate mismatch and an absence of successful trials become
- * `AllTrialsFailed`. Effect-search study failures retain their `SearchError`
+ * `AllTrialsFailed`. Effect-search optimization failures retain their `SearchError`
  * variants. Module, metric, Schema, and language-model failures retain their
  * declared error channels.
  *

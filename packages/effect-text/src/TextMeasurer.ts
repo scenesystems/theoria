@@ -15,12 +15,15 @@ import type * as Text from "./Text.js"
  * @since 0.5.0
  * @category errors
  */
-export class Failed extends Schema.TaggedError<Failed>()("MeasurementFailed", {
-  fontFamily: Schema.String,
-  fontSize: Schema.Number.pipe(Schema.finite()),
-  text: Schema.String,
-  reason: Schema.String
-}) {}
+export class Failed extends Schema.TaggedError<Failed>("@scenesystems/effect-text/TextMeasurer/Failed")(
+  "MeasurementFailed",
+  {
+    fontFamily: Schema.String,
+    fontSize: Schema.Number.pipe(Schema.finite()),
+    text: Schema.String,
+    reason: Schema.String
+  }
+) {}
 
 /**
  * Measures text advances in units consistent with the requested font size.
@@ -29,7 +32,7 @@ export class Failed extends Schema.TaggedError<Failed>()("MeasurementFailed", {
  * @since 0.5.0
  * @category services
  */
-export class TextMeasurer extends Context.Tag("effect-text/TextMeasurer")<
+export class TextMeasurer extends Context.Tag("@scenesystems/effect-text/TextMeasurer")<
   TextMeasurer,
   { readonly measure: (font: Text.Font, text: string) => Effect.Effect<number, Failed> }
 >() {}

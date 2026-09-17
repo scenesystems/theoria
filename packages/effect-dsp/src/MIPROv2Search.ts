@@ -18,7 +18,7 @@ import type { Module as DspModule } from "./Module.js"
  * @since 0.4.0
  * @category models
  */
-export class Diagnostics extends Schema.Class<Diagnostics>("effect-dsp/MIPROv2Search/Diagnostics")({
+export class Diagnostics extends Schema.Class<Diagnostics>("@scenesystems/effect-dsp/MIPROv2Search/Diagnostics")({
   dimensionNames: Schema.Array(Schema.String),
   samplerKind: Schema.Literal("tpe"),
   multivariate: Schema.Boolean,
@@ -70,7 +70,7 @@ export class Options<
   readonly emit?: EventSink<EE, ER>
 }> {}
 
-/** Pairs the mutated module with its raw search result and diagnostics.
+/** Pairs the mutated module with its raw optimization result and diagnostics.
  * @since 0.4.0
  * @category models
  */
@@ -81,7 +81,7 @@ export class Result<
   R = never
 > extends Data.Class<{
   readonly module: DspModule<I, O, E, R>
-  readonly studyResult: Optimization.Result<Phase3Config>
+  readonly optimizationResult: Optimization.Result<Phase3Config>
   readonly diagnostics: Diagnostics
 }> {}
 
@@ -91,7 +91,7 @@ export class Result<
  */
 export const trialBudget = phase3TrialBudgetInternal
 
-/** Evaluates candidate indexes with a single-concurrency multivariate TPE study.
+/** Evaluates candidate indexes with a single-concurrency multivariate TPE optimization.
  * @since 0.4.0
  * @category constructors
  */

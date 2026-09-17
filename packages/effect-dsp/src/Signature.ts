@@ -14,7 +14,7 @@ import { deriveInstruction as deriveInstructionInternal } from "./internal/signa
  * @since 0.1.0
  * @category annotations
  */
-export const FieldDescriptionId: unique symbol = Symbol.for("effect-dsp/FieldDescription")
+export const FieldDescriptionId: unique symbol = Symbol.for("@scenesystems/effect-dsp/Signature/FieldDescriptionId")
 
 /** Attaches descriptive prompt metadata to a signature field.
  * @since 0.1.0
@@ -39,7 +39,7 @@ export const describe: {
  * @since 0.1.0
  * @category models
  */
-export class FieldInfo extends Schema.Class<FieldInfo>("effect-dsp/Signature/FieldInfo")({
+export class FieldInfo extends Schema.Class<FieldInfo>("@scenesystems/effect-dsp/Signature/FieldInfo")({
   /** Property key rendered in the derived instructions. */
   name: Schema.String,
   /** Caller-authored field meaning, when the field schema has a description annotation. */

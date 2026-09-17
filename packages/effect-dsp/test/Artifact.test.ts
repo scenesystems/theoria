@@ -1,5 +1,5 @@
 /**
- * Canonical artifact/provenance envelope contract tests.
+ * Canonical DSP artifact/provenance envelope contract tests.
  */
 import { describe, expect, it } from "@effect/vitest"
 import * as DspArtifact from "@scenesystems/effect-dsp/Artifact"

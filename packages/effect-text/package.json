@@ -59,5 +59,8 @@
     "@scenesystems/effect-math": "workspace:^",
     "@scenesystems/effect-search": "workspace:^",
     "@scenesystems/effect-study": "workspace:^"
+  },
+  "devDependencies": {
+    "@scenesystems/digest": "workspace:^"
   }
 }

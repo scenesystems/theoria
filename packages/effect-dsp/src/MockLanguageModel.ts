@@ -36,7 +36,7 @@ const mockError = (method: string, description: string, cause?: unknown): AiErro
  * @since 0.1.0
  * @category models
  */
-export class Call extends Schema.Class<Call>("effect-dsp/MockLanguageModel/Call")({
+export class Call extends Schema.Class<Call>("@scenesystems/effect-dsp/MockLanguageModel/Call")({
   /** Language-model operation that completed successfully. */
   method: MethodSchema,
   /** Normalized prompt text received by the mock operation. */

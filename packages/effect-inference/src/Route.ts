@@ -73,7 +73,7 @@ export const Route = Schema.Struct({
   gatewayId: Schema.optional(Schema.String),
   selectionPolicy: Schema.optional(SelectionPolicy),
   runtimeFlavorHint: Schema.optional(Flavor)
-}).annotations({ identifier: "@scenesystems/effect-inference/Route/Route" })
+}).annotations({ identifier: "@scenesystems/effect-inference/Route" })
 /** Stable execution route inferred from its schema. @since 0.5.0 @category models */
 export type Route = typeof Route.Type
 

@@ -26,7 +26,7 @@ export type Kind = typeof Kind.Type
  * @since 0.1.0
  * @category models
  */
-export class Envelope extends Schema.Class<Envelope>("effect-dsp/OptimizerEvent/Envelope")({
+export class Envelope extends Schema.Class<Envelope>("@scenesystems/effect-dsp/OptimizerEvent/Envelope")({
   optimizer: Kind,
   eventTag: Schema.String,
   payload: Payload

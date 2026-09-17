@@ -18,7 +18,7 @@ export const Model = Schema.Struct({
   alias: Schema.optional(Schema.String),
   adapter: Schema.optional(Schema.String),
   family: Schema.optional(Schema.String)
-}).annotations({ identifier: "@scenesystems/effect-inference/Model/Model" })
+}).annotations({ identifier: "@scenesystems/effect-inference/Model" })
 
 /**
  * Model identity requested by a caller.

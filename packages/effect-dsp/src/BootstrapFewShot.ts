@@ -119,7 +119,7 @@ export type EventSink<E = never, R = never> = (event: Event) => Effect.Effect<vo
  * @since 0.1.0
  * @category models
  */
-export class ProgressLine extends Schema.Class<ProgressLine>("effect-dsp/BootstrapFewShot/ProgressLine")({
+export class ProgressLine extends Schema.Class<ProgressLine>("@scenesystems/effect-dsp/BootstrapFewShot/ProgressLine")({
   tag: Schema.typeSchema(Schema.pluck(Event, "_tag")),
   details: Schema.String,
   text: Schema.String
@@ -170,7 +170,7 @@ export const tapProgress =
  * @since 0.1.0
  * @category models
  */
-export class EventSummary extends Schema.Class<EventSummary>("effect-dsp/BootstrapFewShot/EventSummary")({
+export class EventSummary extends Schema.Class<EventSummary>("@scenesystems/effect-dsp/BootstrapFewShot/EventSummary")({
   totalEvents: Schema.Number,
   roundsStarted: Schema.Number,
   roundsCompleted: Schema.Number,

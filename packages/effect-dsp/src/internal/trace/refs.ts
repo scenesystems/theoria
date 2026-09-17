@@ -13,7 +13,7 @@ export class EntryCollections extends Data.Class<{
   readonly ancestors: Chunk.Chunk<Ref.Ref<Chunk.Chunk<Entry>>>
 }> {}
 
-export class EntryCollector extends Context.Tag("effect-dsp/Trace/EntryCollector")<
+export class EntryCollector extends Context.Tag("@scenesystems/effect-dsp/internal/trace/refs/EntryCollector")<
   EntryCollector,
   EntryCollections
 >() {}
@@ -23,7 +23,7 @@ export class CallCollections extends Data.Class<{
   readonly ancestors: Chunk.Chunk<Ref.Ref<Chunk.Chunk<Call>>>
 }> {}
 
-export class CallCollector extends Context.Tag("effect-dsp/Trace/CallCollector")<
+export class CallCollector extends Context.Tag("@scenesystems/effect-dsp/internal/trace/refs/CallCollector")<
   CallCollector,
   CallCollections
 >() {}

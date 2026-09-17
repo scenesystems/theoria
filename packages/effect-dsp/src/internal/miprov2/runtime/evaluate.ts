@@ -116,7 +116,7 @@ export const applyPhase3Config = (options: ApplyPhase3ConfigOptions) =>
  * validation set before the Bayesian search begins.
  *
  * Returns the baseline objective score together with a `PriorTrial`
- * suitable for warm-starting the study. Also seeds the running-best
+ * suitable for warm-starting the optimization. Also seeds the running-best
  * refs so that subsequent trials have a meaningful comparison
  * baseline.
  *

@@ -39,33 +39,33 @@ import {
 } from "./runtime/searchSpace.js"
 
 /**
- * Evaluates candidate indexes with a single-concurrency, multivariate TPE study.
+ * Evaluates candidate indexes with a single-concurrency, multivariate TPE optimization.
  *
  * @remarks
  * Every predictor contributes one demonstration dimension and one instruction
  * dimension. Each dimension accepts at most ten candidates. The index-zero
  * configuration is evaluated on the full validation set and supplied to the
- * study as a prior trial. New trial objectives use the same leading validation
- * prefix; the prefix is not reshuffled between trials.
+ * optimization as a prior trial. New trial objectives use the same leading
+ * validation prefix; the prefix is not reshuffled between trials.
  *
  * Full-set checkpoints evaluate the best minibatch candidate seen so far and
  * update `diagnostics.bestScore`. They do not replace the objective reported to
- * TPE. The study's best trial is applied to the supplied module after search.
- * Parameter writes are sequential and are not rolled back after failure or
- * interruption.
+ * TPE. The optimization's best trial is applied to the supplied module after
+ * search. Parameter writes are sequential and are not rolled back after
+ * failure or interruption.
  *
  * Missing candidate sets, unsupported dimension sizes, malformed sampled
  * indexes, and an empty winning result fail with `AllTrialsFailed`. Failures
  * of every example in an evaluation also fail with `AllTrialsFailed`, before
  * report projection; reports with some successful examples remain scoreable.
- * A failed baseline aborts search, and failed study trials cannot beat the
+ * A failed baseline aborts search, and failed optimization trials cannot beat the
  * successful baseline prior, including when all new trials fail. Failures
- * raised inside the effect-search study retain the study's `SearchError`
+ * raised inside effect-search retain the optimization's `SearchError`
  * channel. Baseline evaluation also retains its metric, module, Schema, and
  * language-model error channels.
  *
  * @param options - Module, validation set, candidate sets, metric, and search settings.
- * @returns The supplied module, raw study result, and a diagnostic snapshot.
+ * @returns The supplied module, raw optimization result, and a diagnostic snapshot.
  * @typeParam I - Input fields accepted by the evaluated module.
  * @typeParam O - Output fields scored by the configured metric.
  * @typeParam ME - Expected failure from the configured metric.
@@ -179,7 +179,7 @@ export const runPhase3Search = <
       })
     )
 
-    const studyResult = yield* Optimization.maximize({
+    const optimizationResult = yield* Optimization.maximize({
       space,
       sampler: SearchSampler.tpe({ seed: cadence.seed, multivariate: true }),
       trials: trialBudget,
@@ -199,7 +199,7 @@ export const runPhase3Search = <
       concurrency: 1
     })
 
-    const bestConfig = yield* resolveBestConfig(studyResult, trialBudget)
+    const bestConfig = yield* resolveBestConfig(optimizationResult, trialBudget)
 
     yield* applyPhase3Config(
       new ApplyPhase3ConfigOptions({
@@ -215,7 +215,7 @@ export const runPhase3Search = <
 
     return new Result<I, O, E, R>({
       module: options.module,
-      studyResult,
+      optimizationResult,
       diagnostics: new Diagnostics({
         dimensionNames: Arr.flatMap(
           bindings,

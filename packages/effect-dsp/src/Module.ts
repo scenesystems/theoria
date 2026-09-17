@@ -39,7 +39,7 @@ import type { Signature } from "./Signature.js"
  */
 export const Id = Schema.String.pipe(
   Schema.pattern(/^[a-z][a-z0-9-]*$/),
-  Schema.brand("effect-dsp/Module/Id")
+  Schema.brand("@scenesystems/effect-dsp/Module/Id")
 )
 
 /** Branded module identity.
@@ -54,7 +54,7 @@ export type Id = typeof Id.Type
  */
 export const RolloutCount = Schema.Int.pipe(
   Schema.positive(),
-  Schema.brand("effect-dsp/Module/RolloutCount")
+  Schema.brand("@scenesystems/effect-dsp/Module/RolloutCount")
 )
 
 /** Branded positive rollout count.
@@ -67,7 +67,7 @@ export type RolloutCount = typeof RolloutCount.Type
  * @since 0.1.0
  * @category models
  */
-export class NodeSignature extends Schema.Class<NodeSignature>("effect-dsp/Module/NodeSignature")({
+export class NodeSignature extends Schema.Class<NodeSignature>("@scenesystems/effect-dsp/Module/NodeSignature")({
   description: Schema.String,
   instructions: Schema.String
 }) {}
@@ -171,7 +171,7 @@ export class Registration extends Data.TaggedClass("ModuleRegistration")<{
  * @since 0.1.0
  * @category models
  */
-export class SavedState extends Schema.Class<SavedState>("effect-dsp/Module/SavedState")({
+export class SavedState extends Schema.Class<SavedState>("@scenesystems/effect-dsp/Module/SavedState")({
   /** Envelope format version; only `1` is accepted. */
   version: Schema.Literal(1),
   /** Parameter entries matched to a target module tree by exact name. */

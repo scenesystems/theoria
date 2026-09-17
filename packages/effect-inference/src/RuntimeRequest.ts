@@ -31,7 +31,7 @@ export const RuntimeRequest = Schema.Struct({
   capabilities: Schema.optional(Capabilities.Requirements),
   role: Schema.optional(Role),
   tags: Schema.optional(Schema.Array(Schema.String))
-}).annotations({ identifier: "@scenesystems/effect-inference/RuntimeRequest/RuntimeRequest" })
+}).annotations({ identifier: "@scenesystems/effect-inference/RuntimeRequest" })
 /** Caller-owned runtime request inferred from its schema. @since 0.5.0 @category models */
 export type RuntimeRequest = typeof RuntimeRequest.Type
 

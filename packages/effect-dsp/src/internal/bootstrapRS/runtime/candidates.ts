@@ -45,7 +45,9 @@ export const BootstrapRSSeeds = Schema.Array(Schema.Number)
 export type BootstrapRSSeeds = typeof BootstrapRSSeeds.Type
 
 /** @internal */
-export class ResolveSeedsOptions extends Schema.Class<ResolveSeedsOptions>("BootstrapRSResolveSeedsOptions")({
+export class ResolveSeedsOptions extends Schema.Class<ResolveSeedsOptions>(
+  "@scenesystems/effect-dsp/internal/bootstrapRS/runtime/candidates/ResolveSeedsOptions"
+)({
   numCandidates: Schema.Number,
   seeds: Schema.optional(BootstrapRSSeeds)
 }) {}
@@ -118,7 +120,9 @@ export const resolveSeeds = (options: ResolveSeedsOptions): BootstrapRSSeeds => 
  * @category models
  * @internal
  */
-export class CandidateState extends Schema.Class<CandidateState>("BootstrapRSCandidateState")({
+export class CandidateState extends Schema.Class<CandidateState>(
+  "@scenesystems/effect-dsp/internal/bootstrapRS/runtime/candidates/CandidateState"
+)({
   label: Schema.String,
   state: Module.SavedState
 }) {}

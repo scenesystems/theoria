@@ -446,9 +446,9 @@ describe("MIPROv2 Phase 3", () => {
       expect(result.diagnostics.priorTrialCount).toBe(1)
       expect(result.diagnostics.fullEvalTrialNumbers).toEqual(Arr.make(2, 5))
       expect(result.diagnostics.minibatchTrialNumbers).toEqual(Arr.make(0, 1, 2, 3, 4, 5))
-      expect(Arr.some(Arr.fromIterable(result.studyResult.trials), (trial) => Equal.equals(trial.prior, true))).toBe(
-        true
-      )
+      expect(
+        Arr.some(Arr.fromIterable(result.optimizationResult.trials), (trial) => Equal.equals(trial.prior, true))
+      ).toBe(true)
     }))
 
   it.effect("keeps the finite checkpoint candidate when trial zero scores NaN", () =>

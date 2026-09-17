@@ -17,7 +17,7 @@ import { Schema } from "effect"
  * @since 0.1.0
  * @category models
  */
-export class Example extends Schema.Class<Example>("effect-dsp/Example")({
+export class Example extends Schema.Class<Example>("@scenesystems/effect-dsp/Example")({
   /** Fields passed to the evaluated module. */
   input: Schema.Record({ key: Schema.String, value: Schema.Unknown }),
   /** Expected fields used by metrics; absence marks an input-only example. */

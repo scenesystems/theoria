@@ -86,11 +86,11 @@ Algorithms are independent modules rather than members of an umbrella registry:
 projects evaluation reports into effect-search objectives.
 
 Each event-producing algorithm also owns its event schema, constructors,
-formatters, stream taps, and summaries. MIPROv2 preserves effect-search study
-failures. Candidate validation happens before provider calls or parameter writes;
-failed matching checkpoints evict only the failed candidate and retain historical
-best state. Bootstrap algorithms restore the complete initial parameter graph on
-failure or interruption.
+formatters, stream taps, and summaries. MIPROv2 preserves effect-search
+optimization failures. Candidate validation happens before provider calls or
+parameter writes; failed matching checkpoints evict only the failed candidate
+and retain historical best state. Bootstrap algorithms restore the complete
+initial parameter graph on failure or interruption.
 
 Search primitives are not mirrored. Import optimization, samplers, Pareto
 operations, and deterministic seed operations directly from effect-search.

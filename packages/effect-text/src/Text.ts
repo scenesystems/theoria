@@ -358,7 +358,7 @@ export type Profile = typeof Profile.Type
  * @since 0.5.0
  * @category services
  */
-export class Segmenter extends Context.Tag("effect-text/Segmenter")<
+export class Segmenter extends Context.Tag("@scenesystems/effect-text/Text/Segmenter")<
   Segmenter,
   {
     readonly segment: (text: string, whiteSpace: Whitespace) => Effect.Effect<Segments>
@@ -371,7 +371,10 @@ export class Segmenter extends Context.Tag("effect-text/Segmenter")<
  * @since 0.5.0
  * @category services
  */
-export class CurrentProfile extends Context.Tag("effect-text/CurrentProfile")<CurrentProfile, Profile>() {}
+export class CurrentProfile extends Context.Tag("@scenesystems/effect-text/Text/CurrentProfile")<
+  CurrentProfile,
+  Profile
+>() {}
 
 /**
  * Required environment for text preparation.
@@ -387,9 +390,12 @@ export type Services = Segmenter | MeasurementCache.MeasurementCache | CurrentPr
  * @since 0.5.0
  * @category errors
  */
-export class DecodeError extends Schema.TaggedError<DecodeError>()("TextLayoutDecodeError", {
-  reason: Schema.String
-}) {}
+export class DecodeError extends Schema.TaggedError<DecodeError>("@scenesystems/effect-text/Text/DecodeError")(
+  "TextLayoutDecodeError",
+  {
+    reason: Schema.String
+  }
+) {}
 
 /**
  * Failures produced while decoding or measuring text during preparation.

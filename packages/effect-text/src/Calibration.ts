@@ -13,8 +13,8 @@ import * as Arr from "effect/Array"
 import type * as Layer from "effect/Layer"
 
 import { evaluate as evaluateInternal } from "./internal/calibration/evaluation.js"
+import { runFreshOptimization, runResumedOptimization } from "./internal/calibration/optimization.js"
 import { scoreReport } from "./internal/calibration/scoring.js"
-import { runFreshOptimization, runResumedOptimization } from "./internal/calibration/study.js"
 import type * as MeasurementCache from "./MeasurementCache.js"
 import * as Text from "./Text.js"
 import type * as TextMeasurer from "./TextMeasurer.js"
@@ -554,7 +554,9 @@ export type OptimizationReport = typeof OptimizationReport.Type
  * @since 0.5.0
  * @category errors
  */
-export class OptimizationSnapshotMissing extends Schema.TaggedError<OptimizationSnapshotMissing>()(
+export class OptimizationSnapshotMissing extends Schema.TaggedError<OptimizationSnapshotMissing>(
+  "@scenesystems/effect-text/Calibration/OptimizationSnapshotMissing"
+)(
   "CalibrationSnapshotMissing",
   {
     /** Number of trials the storage still retained in its trial log. */
@@ -569,7 +571,9 @@ export class OptimizationSnapshotMissing extends Schema.TaggedError<Optimization
  * @since 0.5.0
  * @category errors
  */
-export class OptimizationNotSingleObjective extends Schema.TaggedError<OptimizationNotSingleObjective>()(
+export class OptimizationNotSingleObjective extends Schema.TaggedError<OptimizationNotSingleObjective>(
+  "@scenesystems/effect-text/Calibration/OptimizationNotSingleObjective"
+)(
   "CalibrationStudyNotSingleObjective",
   {
     /** Number of trials retained by the multi-objective result. */

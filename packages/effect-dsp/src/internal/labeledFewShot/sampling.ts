@@ -10,12 +10,16 @@ import { Array as Arr, Match, Number as Num, Option, Order, Schema } from "effec
 import { Demonstration as Demo } from "../../Demonstration.js"
 import { Example } from "../../Example.js"
 
-class ScoredDemo extends Schema.Class<ScoredDemo>("LabeledFewShotScoredDemo")({
+class ScoredDemo extends Schema.Class<ScoredDemo>(
+  "@scenesystems/effect-dsp/internal/labeledFewShot/sampling/ScoredDemo"
+)({
   score: Schema.Number,
   demo: Demo
 }) {}
 
-class SamplingState extends Schema.Class<SamplingState>("LabeledFewShotSamplingState")({
+class SamplingState extends Schema.Class<SamplingState>(
+  "@scenesystems/effect-dsp/internal/labeledFewShot/sampling/SamplingState"
+)({
   seed: Schema.Number,
   scored: Schema.Array(ScoredDemo)
 }) {}
