@@ -46,11 +46,13 @@
     "check:tests": "tsc -b tsconfig.test.json",
     "check:examples": "tsc -b tsconfig.examples.json",
     "lint": "cd ../.. && oxlint packages/effect-study && eslint --cache --cache-location node_modules/.cache/eslint/ --max-warnings=0 packages/effect-study && dprint check \"packages/effect-study/**\"",
+    "lint:fix": "cd ../.. && oxlint --fix packages/effect-study && eslint --cache --cache-location node_modules/.cache/eslint/ --max-warnings=0 --fix packages/effect-study && dprint fmt \"packages/effect-study/**\"",
     "test": "vitest run --root ../.. packages/effect-study/test",
     "build-esm": "tsc -b tsconfig.build.json",
     "build-annotate": "babel build/esm --plugins annotate-pure-calls --out-dir build/esm --source-maps",
     "build-cjs": "babel build/esm --plugins @babel/transform-export-namespace-from --plugins @babel/transform-modules-commonjs --out-dir build/cjs --source-maps",
-    "build": "bun run build-esm && bun run build-annotate && bun run build-cjs && build-utils pack-v3"
+    "build": "bun run build-esm && bun run build-annotate && bun run build-cjs && build-utils pack-v3",
+    "clean": "rm -rf build dist .tsbuildinfo"
   },
   "dependencies": {
     "@scenesystems/digest": "workspace:^"

@@ -17,11 +17,11 @@ const ansiRed = "\u001b[31m"
 
 /** Plain or ANSI terminal rendering. @since 0.7.0 @category schemas */
 export const RenderMode = Schema.Literal("plain", "tty")
-/** @since 0.7.0 @category models */
+/** Terminal rendering mode decoded by {@link RenderMode}. @since 0.7.0 @category models */
 export type RenderMode = typeof RenderMode.Type
 
 /** One routed terminal line. @since 0.7.0 @category schemas */
-export class Line extends Schema.Class<Line>("effect-search/Progress/Line")({
+export class Line extends Schema.Class<Line>("@scenesystems/effect-search/Progress/Line")({
   channel: Schema.Literal("stdout", "stderr"),
   text: Schema.String
 }) {}

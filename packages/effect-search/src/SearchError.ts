@@ -10,7 +10,9 @@ import { Schema } from "effect"
 import { Value } from "./Objective.js"
 
 /** Invalid search-space declaration or compilation. @since 0.1.0 @category errors */
-export class InvalidSearchSpace extends Schema.TaggedError<InvalidSearchSpace>()(
+export class InvalidSearchSpace extends Schema.TaggedError<InvalidSearchSpace>(
+  "@scenesystems/effect-search/SearchError/InvalidSearchSpace"
+)(
   "effect-search/InvalidSearchSpace",
   {
     reason: Schema.String,
@@ -19,7 +21,9 @@ export class InvalidSearchSpace extends Schema.TaggedError<InvalidSearchSpace>()
 ) {}
 
 /** Invalid sampler configuration. @since 0.1.0 @category errors */
-export class InvalidSamplerConfig extends Schema.TaggedError<InvalidSamplerConfig>()(
+export class InvalidSamplerConfig extends Schema.TaggedError<InvalidSamplerConfig>(
+  "@scenesystems/effect-search/SearchError/InvalidSamplerConfig"
+)(
   "effect-search/InvalidSamplerConfig",
   {
     reason: Schema.String,
@@ -28,7 +32,9 @@ export class InvalidSamplerConfig extends Schema.TaggedError<InvalidSamplerConfi
 ) {}
 
 /** Exhausted finite sampler. @since 0.1.0 @category errors */
-export class SamplerExhausted extends Schema.TaggedError<SamplerExhausted>()(
+export class SamplerExhausted extends Schema.TaggedError<SamplerExhausted>(
+  "@scenesystems/effect-search/SearchError/SamplerExhausted"
+)(
   "effect-search/SamplerExhausted",
   {
     sampler: Schema.String,
@@ -38,7 +44,9 @@ export class SamplerExhausted extends Schema.TaggedError<SamplerExhausted>()(
 ) {}
 
 /** Grid-incompatible search-space dimension. @since 0.1.0 @category errors */
-export class GridIncompatible extends Schema.TaggedError<GridIncompatible>()(
+export class GridIncompatible extends Schema.TaggedError<GridIncompatible>(
+  "@scenesystems/effect-search/SearchError/GridIncompatible"
+)(
   "effect-search/GridIncompatible",
   {
     dimension: Schema.String,
@@ -47,7 +55,9 @@ export class GridIncompatible extends Schema.TaggedError<GridIncompatible>()(
 ) {}
 
 /** Unsupported sampler search-space shape. @since 0.1.0 @category errors */
-export class SamplerSearchSpaceUnsupported extends Schema.TaggedError<SamplerSearchSpaceUnsupported>()(
+export class SamplerSearchSpaceUnsupported extends Schema.TaggedError<SamplerSearchSpaceUnsupported>(
+  "@scenesystems/effect-search/SearchError/SamplerSearchSpaceUnsupported"
+)(
   "effect-search/SamplerSearchSpaceUnsupported",
   {
     sampler: Schema.String,
@@ -58,7 +68,9 @@ export class SamplerSearchSpaceUnsupported extends Schema.TaggedError<SamplerSea
 ) {}
 
 /** Unsupported sampler objective shape. @since 0.1.0 @category errors */
-export class SamplerObjectiveUnsupported extends Schema.TaggedError<SamplerObjectiveUnsupported>()(
+export class SamplerObjectiveUnsupported extends Schema.TaggedError<SamplerObjectiveUnsupported>(
+  "@scenesystems/effect-search/SearchError/SamplerObjectiveUnsupported"
+)(
   "effect-search/SamplerObjectiveUnsupported",
   {
     sampler: Schema.String,
@@ -68,13 +80,17 @@ export class SamplerObjectiveUnsupported extends Schema.TaggedError<SamplerObjec
 ) {}
 
 /** Invalid optimization configuration or persisted state. @since 0.1.0 @category errors */
-export class InvalidOptimizationConfig extends Schema.TaggedError<InvalidOptimizationConfig>()(
+export class InvalidOptimizationConfig extends Schema.TaggedError<InvalidOptimizationConfig>(
+  "@scenesystems/effect-search/SearchError/InvalidOptimizationConfig"
+)(
   "effect-search/InvalidOptimizationConfig",
   { reason: Schema.String }
 ) {}
 
 /** Invalid completed objective value. @since 0.1.0 @category errors */
-export class InvalidObjectiveValue extends Schema.TaggedError<InvalidObjectiveValue>()(
+export class InvalidObjectiveValue extends Schema.TaggedError<InvalidObjectiveValue>(
+  "@scenesystems/effect-search/SearchError/InvalidObjectiveValue"
+)(
   "effect-search/InvalidObjectiveValue",
   {
     trialNumber: Schema.Number,
@@ -83,7 +99,9 @@ export class InvalidObjectiveValue extends Schema.TaggedError<InvalidObjectiveVa
 ) {}
 
 /** Invalid intermediate objective report. @since 0.1.0 @category errors */
-export class InvalidObjectiveReport extends Schema.TaggedError<InvalidObjectiveReport>()(
+export class InvalidObjectiveReport extends Schema.TaggedError<InvalidObjectiveReport>(
+  "@scenesystems/effect-search/SearchError/InvalidObjectiveReport"
+)(
   "effect-search/InvalidObjectiveReport",
   {
     trialNumber: Schema.Number,
@@ -95,7 +113,7 @@ export class InvalidObjectiveReport extends Schema.TaggedError<InvalidObjectiveR
 ) {}
 
 /** Objective execution failure associated with a trial. @since 0.1.0 @category errors */
-export class TrialError extends Schema.TaggedError<TrialError>()(
+export class TrialError extends Schema.TaggedError<TrialError>("@scenesystems/effect-search/SearchError/TrialError")(
   "effect-search/TrialError",
   {
     trialNumber: Schema.Number,
@@ -105,13 +123,17 @@ export class TrialError extends Schema.TaggedError<TrialError>()(
 ) {}
 
 /** Absence of a successful trial. @since 0.1.0 @category errors */
-export class NoSuccessfulTrials extends Schema.TaggedError<NoSuccessfulTrials>()(
+export class NoSuccessfulTrials extends Schema.TaggedError<NoSuccessfulTrials>(
+  "@scenesystems/effect-search/SearchError/NoSuccessfulTrials"
+)(
   "effect-search/NoSuccessfulTrials",
   { trialCount: Schema.Number }
 ) {}
 
 /** Input outside a numerical helper's domain. @since 0.1.0 @category errors */
-export class InvalidMathInput extends Schema.TaggedError<InvalidMathInput>()(
+export class InvalidMathInput extends Schema.TaggedError<InvalidMathInput>(
+  "@scenesystems/effect-search/SearchError/InvalidMathInput"
+)(
   "effect-search/InvalidMathInput",
   {
     operation: Schema.String,
@@ -120,7 +142,9 @@ export class InvalidMathInput extends Schema.TaggedError<InvalidMathInput>()(
 ) {}
 
 /** Recognized but unavailable execution path. @since 0.1.0 @category errors */
-export class NotImplemented extends Schema.TaggedError<NotImplemented>()(
+export class NotImplemented extends Schema.TaggedError<NotImplemented>(
+  "@scenesystems/effect-search/SearchError/NotImplemented"
+)(
   "effect-search/NotImplemented",
   { feature: Schema.String }
 ) {}

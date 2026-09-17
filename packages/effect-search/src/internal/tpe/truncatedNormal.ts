@@ -1,6 +1,8 @@
 import { Schema } from "effect"
 
-export class TruncatedNormalParams extends Schema.Class<TruncatedNormalParams>("effect-search/TruncatedNormalParams")({
+export class TruncatedNormalParams extends Schema.Class<TruncatedNormalParams>(
+  "@scenesystems/effect-search/internal/tpe/truncatedNormal/TruncatedNormalParams"
+)({
   mean: Schema.Number,
   sigma: Schema.Number,
   low: Schema.Number,

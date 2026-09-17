@@ -20,7 +20,7 @@ const defaultScope = "optimization"
  * @since 0.7.0
  * @category models
  */
-export class Options extends Schema.Class<Options>("effect-search/ObjectiveCache/Options")({
+export class Options extends Schema.Class<Options>("@scenesystems/effect-search/ObjectiveCache/Options")({
   scope: Schema.String
 }) {}
 
@@ -91,7 +91,7 @@ const prepareKey = <Configuration, Encoded>(
  * @since 0.7.0
  * @category services
  */
-export class ObjectiveCache extends Effect.Tag("effect-search/ObjectiveCache")<
+export class ObjectiveCache extends Effect.Tag("@scenesystems/effect-search/ObjectiveCache")<
   ObjectiveCache,
   {
     readonly resolve: <Configuration, Encoded, ComputeError, Requirements>(

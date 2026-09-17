@@ -1,12 +1,16 @@
 import { Schema } from "effect"
 
-export class ContinuousKernel extends Schema.Class<ContinuousKernel>("effect-search/ContinuousKernel")({
+export class ContinuousKernel extends Schema.Class<ContinuousKernel>(
+  "@scenesystems/effect-search/internal/tpe/continuousParzen/ContinuousKernel"
+)({
   mean: Schema.Number,
   sigma: Schema.Number,
   weight: Schema.Number
 }) {}
 
-export class ContinuousParzen extends Schema.Class<ContinuousParzen>("effect-search/ContinuousParzen")({
+export class ContinuousParzen extends Schema.Class<ContinuousParzen>(
+  "@scenesystems/effect-search/internal/tpe/continuousParzen/ContinuousParzen"
+)({
   low: Schema.Number,
   high: Schema.Number,
   kernels: Schema.Array(ContinuousKernel)

@@ -2,17 +2,17 @@ import { Array as Arr, Number as Num, Option, Order, Schema, Tuple } from "effec
 
 import { defaultGamma } from "./gammaSplit.js"
 
-export class CompletedTrialForSplit
-  extends Schema.Class<CompletedTrialForSplit>("effect-search/CompletedTrialForSplit")({
-    trialNumber: Schema.Number,
-    config: Schema.Record({ key: Schema.String, value: Schema.Unknown }),
-    value: Schema.Number,
-    observationWeight: Schema.optional(Schema.Number),
-    cost: Schema.optional(Schema.Number),
-    variance: Schema.optional(Schema.Number),
-    sortStep: Schema.optional(Schema.Number)
-  })
-{}
+export class CompletedTrialForSplit extends Schema.Class<CompletedTrialForSplit>(
+  "@scenesystems/effect-search/internal/tpe/splitTrials/CompletedTrialForSplit"
+)({
+  trialNumber: Schema.Number,
+  config: Schema.Record({ key: Schema.String, value: Schema.Unknown }),
+  value: Schema.Number,
+  observationWeight: Schema.optional(Schema.Number),
+  cost: Schema.optional(Schema.Number),
+  variance: Schema.optional(Schema.Number),
+  sortStep: Schema.optional(Schema.Number)
+}) {}
 
 export const TrialSplitSchema = Schema.Struct({
   below: Schema.Array(CompletedTrialForSplit),

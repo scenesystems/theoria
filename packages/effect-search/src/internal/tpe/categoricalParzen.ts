@@ -26,21 +26,21 @@ export type CategoricalKernel = Schema.Schema.Type<typeof CategoricalKernelSchem
 
 const CategoricalDistanceEvaluatorSchema = Schema.declare(
   Predicate.isFunction,
-  { identifier: "effect-search/CategoricalDistanceEvaluator" }
+  { identifier: "@scenesystems/effect-search/internal/tpe/categoricalParzen/CategoricalDistanceEvaluator" }
 )
 
 export class CategoricalDistanceFunction extends Schema.Class<CategoricalDistanceFunction>(
-  "effect-search/CategoricalDistanceFunction"
+  "@scenesystems/effect-search/internal/tpe/categoricalParzen/CategoricalDistanceFunction"
 )({
   evaluate: CategoricalDistanceEvaluatorSchema
 }) {}
 
-export class CategoricalParzenOptions
-  extends Schema.Class<CategoricalParzenOptions>("effect-search/CategoricalParzenOptions")({
-    priorWeight: Schema.optional(Schema.Number),
-    distance: Schema.optional(CategoricalDistanceFunction)
-  })
-{}
+export class CategoricalParzenOptions extends Schema.Class<CategoricalParzenOptions>(
+  "@scenesystems/effect-search/internal/tpe/categoricalParzen/CategoricalParzenOptions"
+)({
+  priorWeight: Schema.optional(Schema.Number),
+  distance: Schema.optional(CategoricalDistanceFunction)
+}) {}
 
 const CategoricalParzenInputOptionsSchema = Schema.Struct({
   priorWeight: Schema.optional(Schema.Number),

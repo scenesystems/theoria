@@ -18,7 +18,9 @@ import {
 
 const machineEpsilon = 2.220446049250313e-16
 
-class AsymptoticSeriesState extends Schema.Class<AsymptoticSeriesState>("effect-search/AsymptoticSeriesState")({
+class AsymptoticSeriesState extends Schema.Class<AsymptoticSeriesState>(
+  "@scenesystems/effect-search/internal/tpe/truncatedNormal/normal/AsymptoticSeriesState"
+)({
   lastTotal: Schema.Number,
   rightHandSide: Schema.Number,
   numerator: Schema.Number,

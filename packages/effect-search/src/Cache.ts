@@ -74,10 +74,13 @@ export class Result<Value> extends Data.Class<{
  * @since 0.1.0
  * @category errors
  */
-export class Corrupt extends Schema.TaggedError<Corrupt>()("effect-search/CacheCorrupt", {
-  key: Schema.String,
-  reason: Schema.String
-}) {}
+export class Corrupt extends Schema.TaggedError<Corrupt>("@scenesystems/effect-search/Cache/Corrupt")(
+  "effect-search/CacheCorrupt",
+  {
+    key: Schema.String,
+    reason: Schema.String
+  }
+) {}
 
 /**
  * Reports a rejected operation from the configured persistence backend.
@@ -85,10 +88,13 @@ export class Corrupt extends Schema.TaggedError<Corrupt>()("effect-search/CacheC
  * @since 0.1.0
  * @category errors
  */
-export class BackendError extends Schema.TaggedError<BackendError>()("effect-search/CacheBackendError", {
-  operation: Schema.String,
-  reason: Schema.String
-}) {}
+export class BackendError extends Schema.TaggedError<BackendError>("@scenesystems/effect-search/Cache/BackendError")(
+  "effect-search/CacheBackendError",
+  {
+    operation: Schema.String,
+    reason: Schema.String
+  }
+) {}
 
 /** Expected cache failures. @since 0.1.0 @category schemas */
 export const Error = Schema.Union(Corrupt, BackendError)
@@ -99,22 +105,25 @@ export type Error = typeof Error.Type
 type Failure = Error
 
 /** A value reused without computation. @since 0.1.0 @category models */
-export class Hit extends Schema.TaggedClass<Hit>()("Hit", {
+export class Hit extends Schema.TaggedClass<Hit>("@scenesystems/effect-search/Cache/Hit")("Hit", {
   fingerprint: Schema.String,
   scope: Schema.String
 }) {}
 
 /** A value computed after lookup missed. @since 0.1.0 @category models */
-export class Miss extends Schema.TaggedClass<Miss>()("Miss", {
+export class Miss extends Schema.TaggedClass<Miss>("@scenesystems/effect-search/Cache/Miss")("Miss", {
   fingerprint: Schema.String,
   scope: Schema.String
 }) {}
 
 /** An entry explicitly invalidated by an integration. @since 0.1.0 @category models */
-export class Invalidation extends Schema.TaggedClass<Invalidation>()("Invalidation", {
-  fingerprint: Schema.String,
-  scope: Schema.String
-}) {}
+export class Invalidation extends Schema.TaggedClass<Invalidation>("@scenesystems/effect-search/Cache/Invalidation")(
+  "Invalidation",
+  {
+    fingerprint: Schema.String,
+    scope: Schema.String
+  }
+) {}
 
 /** Cache observability events accepted at persistence boundaries. @since 0.1.0 @category schemas */
 export const Event = Schema.Union(Hit, Miss, Invalidation)
@@ -123,7 +132,7 @@ export const Event = Schema.Union(Hit, Miss, Invalidation)
 export type Event = typeof Event.Type
 
 /** Records cache events selected by integrations. @since 0.1.0 @category services */
-export class Observer extends Effect.Tag("effect-search/Cache/Observer")<
+export class Observer extends Effect.Tag("@scenesystems/effect-search/Cache/Observer")<
   Observer,
   {
     readonly record: (event: Event) => Effect.Effect<void>
@@ -136,7 +145,7 @@ export class Observer extends Effect.Tag("effect-search/Cache/Observer")<
  * @since 0.1.0
  * @category services
  */
-export class Cache extends Effect.Tag("effect-search/Cache")<
+export class Cache extends Effect.Tag("@scenesystems/effect-search/Cache")<
   Cache,
   {
     readonly get: <Key, Value, EncodedKey = Key, EncodedValue = Value>(

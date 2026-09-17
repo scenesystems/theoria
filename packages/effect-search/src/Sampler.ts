@@ -109,7 +109,7 @@ export const CmaEs = kinds.CmaEs
 export const GpBo = kinds.GpBo
 /** Narrows a sampler kind. @since 0.7.0 @category guards */
 export const isKind = kinds.$is
-/** Exhaustively matches a sampler kind. @since 0.7.0 @category pattern-matching */
+/** Exhaustively matches a sampler kind. @since 0.7.0 @category pattern matching */
 export const matchKind = kinds.$match
 
 /** Resumable state for every built-in sampler. @since 0.7.0 @category schemas */
@@ -139,7 +139,7 @@ export const Checkpoint = Schema.Union(
 export type Checkpoint = typeof Checkpoint.Type
 
 /** One completed observation supplied to a sampler. @since 0.7.0 @category schemas */
-export class Observation extends Schema.Class<Observation>("effect-search/Sampler/Observation")({
+export class Observation extends Schema.Class<Observation>("@scenesystems/effect-search/Sampler/Observation")({
   trialNumber: Schema.Number,
   config: Schema.Record({ key: Schema.String, value: Schema.Unknown }),
   value: Value,
@@ -150,7 +150,7 @@ export class Observation extends Schema.Class<Observation>("effect-search/Sample
 }) {}
 
 /** One reserved configuration supplied to a sampler. @since 0.7.0 @category schemas */
-export class Pending extends Schema.Class<Pending>("effect-search/Sampler/Pending")({
+export class Pending extends Schema.Class<Pending>("@scenesystems/effect-search/Sampler/Pending")({
   trialNumber: Schema.Number,
   config: Schema.Record({ key: Schema.String, value: Schema.Unknown })
 }) {}
@@ -161,7 +161,7 @@ export type Config = Observation["config"]
 const SuggestionEpsilon = Schema.NonNegative.pipe(Schema.filter(isFinite))
 
 /** Immutable inputs for one suggestion. @since 0.7.0 @category schemas */
-export class Context extends Schema.Class<Context>("effect-search/Sampler/Context")({
+export class Context extends Schema.Class<Context>("@scenesystems/effect-search/Sampler/Context")({
   completed: Schema.Array(Observation),
   pending: Schema.Array(Pending),
   objectiveSpec: Objective,

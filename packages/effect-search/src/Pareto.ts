@@ -20,20 +20,20 @@ const Directions = Schema.Array(Direction)
 type Directions = typeof Directions.Type
 
 /** Best coordinate value and its candidate holders. @since 0.7.0 @category schemas */
-export class Holding extends Schema.Class<Holding>("effect-search/Pareto/Holding")({
+export class Holding extends Schema.Class<Holding>("@scenesystems/effect-search/Pareto/Holding")({
   objectiveIndex: Schema.Number,
   bestValue: Schema.Number,
   holders: Schema.Array(Schema.Number)
 }) {}
 
 /** Number of coordinates held by one candidate. @since 0.7.0 @category schemas */
-export class HoldingWeight extends Schema.Class<HoldingWeight>("effect-search/Pareto/HoldingWeight")({
+export class HoldingWeight extends Schema.Class<HoldingWeight>("@scenesystems/effect-search/Pareto/HoldingWeight")({
   candidateIndex: Schema.Number,
   weight: Schema.Number
 }) {}
 
 /** A complete first-front analysis. @since 0.7.0 @category schemas */
-export class Frontier extends Schema.Class<Frontier>("effect-search/Pareto/Frontier")({
+export class Frontier extends Schema.Class<Frontier>("@scenesystems/effect-search/Pareto/Frontier")({
   frontierIndices: Schema.Array(Schema.Number),
   dominatedIndices: Schema.Array(Schema.Number),
   objectiveHoldings: Schema.Array(Holding),

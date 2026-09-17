@@ -66,7 +66,7 @@ export const Pruned = States.Pruned
 export const Cancelled = States.Cancelled
 /** Narrows a state by tag. @since 0.7.0 @category guards */
 export const isState = States.$is
-/** Exhaustively matches a state. @since 0.7.0 @category pattern-matching */
+/** Exhaustively dispatches a running or terminal trial state by tag. @since 0.7.0 @category pattern matching */
 export const matchState = States.$match
 
 /** A successful terminal state. @since 0.7.0 @category models */

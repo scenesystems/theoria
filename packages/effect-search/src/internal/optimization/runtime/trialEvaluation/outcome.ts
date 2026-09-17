@@ -17,7 +17,9 @@ import type { TrialError } from "../../../../SearchError.js"
  * @since 0.1.0
  * @category models
  */
-export class ObjectiveAttempt extends Schema.Class<ObjectiveAttempt>("ObjectiveAttempt")({
+export class ObjectiveAttempt extends Schema.Class<ObjectiveAttempt>(
+  "@scenesystems/effect-search/internal/optimization/runtime/trialEvaluation/outcome/ObjectiveAttempt"
+)({
   value: Value,
   retryCount: Schema.Number,
   evaluationCount: Schema.Number,
@@ -31,7 +33,9 @@ export class ObjectiveAttempt extends Schema.Class<ObjectiveAttempt>("ObjectiveA
  * @since 0.1.0
  * @category models
  */
-export class ObjectiveSample extends Schema.Class<ObjectiveSample>("ObjectiveSample")({
+export class ObjectiveSample extends Schema.Class<ObjectiveSample>(
+  "@scenesystems/effect-search/internal/optimization/runtime/trialEvaluation/outcome/ObjectiveSample"
+)({
   value: Value,
   retryCount: Schema.Number,
   cost: Schema.optional(Schema.Number)

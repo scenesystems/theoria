@@ -32,7 +32,7 @@ const PersistedRecord = Schema.Union(
   Schema.TaggedStruct("Snapshot", {
     payload: Schema.Unknown
   })
-)
+).annotations({ identifier: "@scenesystems/effect-study/StudyStorage/PersistedRecord" })
 
 type PersistedRecord = typeof PersistedRecord.Type
 
@@ -65,7 +65,7 @@ export const fileSystemOptions = (
  * @since 0.1.0
  * @category services
  */
-export class StudyStorage extends Effect.Tag("effect-study/StudyStorage")<
+export class StudyStorage extends Effect.Tag("@scenesystems/effect-study/StudyStorage")<
   StudyStorage,
   {
     readonly appendTrial: <A, I, R>(schema: Schema.Schema<A, I, R>, trial: A) => Effect.Effect<void, Journal.Failure, R>
@@ -82,7 +82,7 @@ export class StudyStorage extends Effect.Tag("effect-study/StudyStorage")<
   }
 >() {}
 
-/** Generic study storage implementation. @since 0.1.0 @category models */
+/** Generic study storage implementation. @since 0.1.0 @category services */
 export type Service = Context.Tag.Service<typeof StudyStorage>
 
 const codecFailure =
@@ -204,27 +204,27 @@ export const layerFileSystem = (
 /** Installs an existing generic study storage service. @since 0.1.0 @category layers */
 export const layer = (storage: Service): Layer.Layer<StudyStorage> => Layer.succeed(StudyStorage, storage)
 
-/** Appends a trial through ambient generic storage. @since 0.1.0 @category combinators */
+/** Appends a trial through ambient generic storage. @since 0.1.0 @category operations */
 export const appendTrial = <A, I, R>(
   schema: Schema.Schema<A, I, R>,
   trial: A
 ): Effect.Effect<void, Journal.Failure, StudyStorage | R> =>
   StudyStorage.pipe(Effect.flatMap((storage) => storage.appendTrial(schema, trial)))
 
-/** Writes a snapshot through ambient generic storage. @since 0.1.0 @category combinators */
+/** Writes a snapshot through ambient generic storage. @since 0.1.0 @category operations */
 export const writeSnapshot = <A, I, R>(
   schema: Schema.Schema<A, I, R>,
   snapshot: A
 ): Effect.Effect<void, Journal.Failure, StudyStorage | R> =>
   StudyStorage.pipe(Effect.flatMap((storage) => storage.writeSnapshot(schema, snapshot)))
 
-/** Loads the latest snapshot through ambient generic storage. @since 0.1.0 @category combinators */
+/** Loads the latest snapshot through ambient generic storage. @since 0.1.0 @category operations */
 export const loadSnapshot = <A, I, R>(
   schema: Schema.Schema<A, I, R>
 ): Effect.Effect<Option.Option<A>, Journal.Failure, StudyStorage | R> =>
   StudyStorage.pipe(Effect.flatMap((storage) => storage.loadSnapshot(schema)))
 
-/** Loads the complete trial log through ambient generic storage. @since 0.1.0 @category combinators */
+/** Loads the complete trial log through ambient generic storage. @since 0.1.0 @category operations */
 export const loadTrialLog = <A, I, R>(
   schema: Schema.Schema<A, I, R>
 ): Effect.Effect<Schema.Schema.Type<Schema.Array$<Schema.Schema<A>>>, Journal.Failure, StudyStorage | R> =>

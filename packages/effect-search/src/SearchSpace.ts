@@ -34,13 +34,13 @@ export const IntOptions = Schema.Struct({ step: Schema.optional(Schema.Number) }
 export type IntOptions = typeof IntOptions.Type
 
 /** One condition in a parameter activation path. @since 0.7.0 @category schemas */
-export class Condition extends Schema.Class<Condition>("effect-search/SearchSpace/Condition")({
+export class Condition extends Schema.Class<Condition>("@scenesystems/effect-search/SearchSpace/Condition")({
   dimension: Schema.String,
   equals: Choice
 }) {}
 
 /** Sampling metadata for one named parameter. @since 0.7.0 @category schemas */
-export class Parameter extends Schema.Class<Parameter>("effect-search/SearchSpace/Parameter")({
+export class Parameter extends Schema.Class<Parameter>("@scenesystems/effect-search/SearchSpace/Parameter")({
   name: Schema.String,
   distribution: Distribution,
   activeWhen: Schema.Array(Condition)
@@ -101,14 +101,16 @@ const ConditionalTraceParams = Schema.Record({ key: Schema.String, value: Choice
 
 /** Trial identities partitioned by conditional parameter availability. @since 0.7.0 @category models */
 export class ConditionalTracePartition extends Schema.Class<ConditionalTracePartition>(
-  "effect-search/SearchSpace/ConditionalTracePartition"
+  "@scenesystems/effect-search/SearchSpace/ConditionalTracePartition"
 )({
   included: Schema.Array(Schema.Number),
   excluded: Schema.Array(Schema.Number)
 }) {}
 
 /** Independently sampled dimensions in one conditional group. @since 0.7.0 @category models */
-export class ConditionalGroup extends Schema.Class<ConditionalGroup>("effect-search/SearchSpace/ConditionalGroup")({
+export class ConditionalGroup extends Schema.Class<ConditionalGroup>(
+  "@scenesystems/effect-search/SearchSpace/ConditionalGroup"
+)({
   key: Schema.String,
   dimensions: Schema.Array(Schema.String)
 }) {}
@@ -116,10 +118,10 @@ export class ConditionalGroup extends Schema.Class<ConditionalGroup>("effect-sea
 const ConditionalGroupList = Schema.Array(ConditionalGroup)
 type ConditionalGroupList = typeof ConditionalGroupList.Type
 
-/** Decoded configuration type. @since 0.7.0 @category type-level */
+/** Decoded configuration type inferred from a compiled search space. @since 0.7.0 @category models */
 export type Type<Space extends SearchSpace = SearchSpace> = Schema.Schema.Type<Space["schema"]>
 
-/** Encoded configuration type. @since 0.7.0 @category type-level */
+/** Encoded configuration type inferred from a compiled search space. @since 0.7.0 @category models */
 export type Encoded<Space extends SearchSpace = SearchSpace> = Schema.Schema.Encoded<Space["schema"]>
 
 /** Returns active parameter metadata. @since 0.7.0 @category combinators */
@@ -127,7 +129,14 @@ export const activeParameters: {
   (config: unknown): (self: SearchSpace) => SearchSpace["params"]
   (self: SearchSpace, config: unknown): SearchSpace["params"]
 } = dual(2, (self: SearchSpace, config: unknown) => Activity.activeParameters(self, config))
-/** Tests whether one parameter is active. @since 0.7.0 @category predicates */
+/**
+ * Tests every activation condition against a partial or complete configuration.
+ * Missing discriminants and non-record inputs make conditional parameters inactive;
+ * parameters without conditions are always active.
+ *
+ * @since 0.7.0
+ * @category guards
+ */
 export const isParameterActive: {
   (config: unknown): (self: Parameter) => boolean
   (self: Parameter, config: unknown): boolean
@@ -144,7 +153,13 @@ export const makeConditional = <
   dimensions: Dimensions,
   branch: Switch<BranchSchema>
 ) => Compile.makeConditional(dimensions, branch)
-/** Computes the metadata fingerprint. @since 0.7.0 @category encoding */
+/**
+ * Encodes ordered distribution and activation metadata as a replay-compatibility fingerprint.
+ * Executable schema refinements and transformations are intentionally excluded.
+ *
+ * @since 0.7.0
+ * @category identity
+ */
 export const fingerprint = (space: SearchSpace): string => Compile.fingerprint(space)
 /** Extends a search space. @since 0.7.0 @category combinators */
 export const extend: {

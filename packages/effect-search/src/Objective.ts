@@ -33,7 +33,7 @@ export const Multi = objectives.Multi
 /** Narrows an objective specification by tag. @since 0.1.0 @category guards */
 export const is = objectives.$is
 
-/** Exhaustively dispatches an objective specification. @since 0.1.0 @category pattern matching */
+/** Exhaustively dispatches a scalar or vector objective specification. @since 0.1.0 @category pattern matching */
 export const match = objectives.$match
 
 /**

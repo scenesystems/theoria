@@ -18,7 +18,7 @@ import type * as Trial from "./Trial.js"
  */
 export const Options = Schema.Struct({
   concurrency: Schema.optional(Schema.Number.pipe(Schema.int(), Schema.positive()))
-})
+}).annotations({ identifier: "@scenesystems/effect-study/Evaluation/Options" })
 
 /**
  * Evaluates supplied inputs and returns completed trials in input order, numbered
@@ -30,7 +30,7 @@ export const Options = Schema.Struct({
  * History module when an application needs persisted or externally reported outcomes.
  *
  * @since 0.1.0
- * @category execution
+ * @category operations
  */
 export const run = <Config, Value, E, R>(
   inputs: Iterable<Config>,

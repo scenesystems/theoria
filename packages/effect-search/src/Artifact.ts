@@ -54,7 +54,7 @@ export const EffectSearch = producers.EffectSearch
 export const External = producers.External
 /** Narrows producer metadata by tag. @since 0.4.4 @category guards */
 export const isProducer = producers.$is
-/** Exhaustively matches producer metadata. @since 0.4.4 @category pattern-matching */
+/** Exhaustively matches producer metadata. @since 0.4.4 @category pattern matching */
 export const matchProducer = producers.$match
 
 /**
@@ -98,5 +98,5 @@ export const OptimizationEvent = envelopes.OptimizationEvent
 export const Custom = envelopes.Custom
 /** Narrows an envelope by payload tag. @since 0.4.4 @category guards */
 export const is = envelopes.$is
-/** Exhaustively matches an envelope payload. @since 0.4.4 @category pattern-matching */
+/** Exhaustively matches an envelope payload. @since 0.4.4 @category pattern matching */
 export const match = envelopes.$match

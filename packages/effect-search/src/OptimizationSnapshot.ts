@@ -22,12 +22,12 @@ export const Metadata = Schema.Struct({
   samplerKind: Sampler.Kind,
   samplerCheckpoint: Sampler.Checkpoint
 })
-/** @since 0.7.0 @category models */
+/** Continuation metadata decoded by {@link Metadata}. @since 0.7.0 @category models */
 export type Metadata = typeof Metadata.Type
 
 /** Persisted trial with an opaque encoded configuration. @since 0.7.0 @category schemas */
 export const Trial = StudyTrial.Trial(Schema.Unknown, SearchTrial.State)
-/** @since 0.7.0 @category models */
+/** Persisted trial decoded by {@link Trial}. @since 0.7.0 @category models */
 export type Trial = typeof Trial.Type
 
 /** Derived diagnostics stored with a snapshot. @since 0.7.0 @category schemas */
@@ -37,7 +37,7 @@ export const Metrics = Schema.Struct({
   retryCountTotal: Schema.Number,
   priorCount: Schema.Number
 })
-/** @since 0.7.0 @category models */
+/** Snapshot diagnostics decoded by {@link Metrics}. @since 0.7.0 @category models */
 export type Metrics = typeof Metrics.Type
 
 const Fields = {
@@ -50,9 +50,9 @@ const Fields = {
 }
 
 /** Persisted optimization state and derived diagnostics. @since 0.7.0 @category schemas */
-export class OptimizationSnapshot extends Schema.Class<OptimizationSnapshot>("effect-search/OptimizationSnapshot")(
-  Fields
-) {}
+export class OptimizationSnapshot extends Schema.Class<OptimizationSnapshot>(
+  "@scenesystems/effect-search/OptimizationSnapshot"
+)(Fields) {}
 
 const stateDuration = (state: SearchTrial.State): number =>
   SearchTrial.matchState({
@@ -105,14 +105,14 @@ const materialize = (metadata: Metadata, trials: Iterable<Trial>, completedCount
   })
 }
 
-/** Converts a runtime trial to its persisted representation. @since 0.7.0 @category conversions */
+/** Converts a runtime trial to its persisted opaque-configuration representation. @since 0.7.0 @category conversions */
 export const fromTrial = <Config>(trial: SearchTrial.Trial<Config>): Trial => ({ ...trial })
 
-/** Reconstructs a runtime trial after its configuration is decoded. @since 0.7.0 @category conversions */
+/** Reconstructs a runtime trial with a caller-decoded configuration. @since 0.7.0 @category conversions */
 export const toTrial = <Config>(trial: Trial, config: Config): SearchTrial.Trial<Config> =>
   Data.struct({ ...trial, config })
 
-/** Builds a snapshot and derives all counters. @since 0.7.0 @category constructors */
+/** Builds a replay snapshot and derives numbering, duration, retry, and prior counters. @since 0.7.0 @category constructors */
 export const make = <Config>(trials: Iterable<SearchTrial.Trial<Config>>, metadata: Metadata): OptimizationSnapshot => {
   const persisted = Arr.map(Arr.fromIterable(trials), (trial) => fromTrial(trial))
   const completedCount = Arr.reduce(
@@ -127,7 +127,7 @@ export const make = <Config>(trials: Iterable<SearchTrial.Trial<Config>>, metada
   return materialize(metadata, persisted, completedCount)
 }
 
-/** Decodes unknown snapshot input and recomputes derived diagnostics. @since 0.7.0 @category decoders */
+/** Decodes unknown snapshot input and recomputes derived diagnostics rather than trusting them. @since 0.7.0 @category decoding */
 export const decodeUnknown = (input: unknown) =>
   Schema.decodeUnknown(OptimizationSnapshot)(input).pipe(
     Effect.map((snapshot) => materialize(snapshot, snapshot.trials, snapshot.completedCount))
@@ -147,7 +147,7 @@ const duplicateTrialNumber = (trials: Iterable<Trial>): Option.Option<number> =>
   )
 }
 
-/** Merges an append-log tail into a snapshot after validating numbering. @since 0.7.0 @category recovery */
+/** Merges an append-log tail after rejecting stale or duplicate trial numbers. @since 0.7.0 @category recovery */
 export const recover = (
   snapshot: OptimizationSnapshot,
   replayTail: Iterable<Trial>
@@ -197,7 +197,14 @@ export class Seed<Config> extends Data.Class<{
 
 const invalid = (reason: string) => new InvalidOptimizationConfig({ reason })
 
-/** Validates compatibility, restores sampler state, and decodes configurations. @since 0.7.0 @category recovery */
+/**
+ * Validates space, objective, stop-mode, and sampler compatibility before replay.
+ * Restores the sampler checkpoint and decodes every opaque configuration through
+ * the supplied search-space schema; incompatibility fails with {@link InvalidOptimizationConfig}.
+ *
+ * @since 0.7.0
+ * @category recovery
+ */
 export const restore = <Space extends SearchSpace.SearchSpace>(
   space: Space,
   sampler: Sampler.Sampler,

@@ -16,12 +16,15 @@ import { Data, Effect, Match, Number as Num, ParseResult, Schema, Stream, String
  * @since 0.1.0
  * @category errors
  */
-export class Failure extends Schema.TaggedError<Failure>()("effect-study/JournalError", {
-  operation: Schema.Literal("write", "read"),
-  path: Schema.String,
-  line: Schema.optional(Schema.Positive.pipe(Schema.int())),
-  detail: Schema.String
-}) {}
+export class Failure extends Schema.TaggedError<Failure>("@scenesystems/effect-study/Journal/Failure")(
+  "effect-study/JournalError",
+  {
+    operation: Schema.Literal("write", "read"),
+    path: Schema.String,
+    line: Schema.optional(Schema.Positive.pipe(Schema.int())),
+    detail: Schema.String
+  }
+) {}
 
 /**
  * A single append/read capability whose append operations share one serialization lock.
@@ -92,7 +95,7 @@ const readWith = <A, I, R>(
  * with a {@link Failure} carrying its one-based physical line number.
  *
  * @since 0.1.0
- * @category readers
+ * @category operations
  */
 export const read = <A, I, R>(
   schema: Schema.Schema<A, I, R>,

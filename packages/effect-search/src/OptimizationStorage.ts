@@ -15,7 +15,7 @@ import * as OptimizationSnapshot from "./OptimizationSnapshot.js"
 const Trials = Schema.Array(OptimizationSnapshot.Trial)
 
 /** Optimization checkpoint and replay-tail policy. @since 0.7.0 @category services */
-export class OptimizationStorage extends Effect.Tag("effect-search/OptimizationStorage")<
+export class OptimizationStorage extends Effect.Tag("@scenesystems/effect-search/OptimizationStorage")<
   OptimizationStorage,
   {
     readonly appendTrial: (trial: OptimizationSnapshot.Trial) => Effect.Effect<void, Journal.Failure>

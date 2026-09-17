@@ -3,14 +3,16 @@ import { Array as Arr, Match, Number as Num, Option, Schema, Tuple } from "effec
 
 import type { Direction } from "../../Direction.js"
 
-export class PrunedIntermediateValue
-  extends Schema.Class<PrunedIntermediateValue>("effect-search/PrunedIntermediateValue")({
-    step: Schema.Number,
-    value: Schema.Number
-  })
-{}
+export class PrunedIntermediateValue extends Schema.Class<PrunedIntermediateValue>(
+  "@scenesystems/effect-search/internal/tpe/prunedScore/PrunedIntermediateValue"
+)({
+  step: Schema.Number,
+  value: Schema.Number
+}) {}
 
-export class PrunedTrialScore extends Schema.Class<PrunedTrialScore>("effect-search/PrunedTrialScore")({
+export class PrunedTrialScore extends Schema.Class<PrunedTrialScore>(
+  "@scenesystems/effect-search/internal/tpe/prunedScore/PrunedTrialScore"
+)({
   step: Schema.Number,
   value: Schema.Number
 }) {}

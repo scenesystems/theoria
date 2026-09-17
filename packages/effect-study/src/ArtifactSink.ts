@@ -19,14 +19,14 @@ const defaultFileName = "artifacts.jsonl"
  * @since 0.1.0
  * @category services
  */
-export class ArtifactSink extends Effect.Tag("effect-study/ArtifactSink")<
+export class ArtifactSink extends Effect.Tag("@scenesystems/effect-study/ArtifactSink")<
   ArtifactSink,
   {
     readonly emit: <A, I, R>(schema: Schema.Schema<A, I, R>, artifact: A) => Effect.Effect<void, Journal.Failure, R>
   }
 >() {}
 
-/** Artifact sink implementation. @since 0.1.0 @category models */
+/** Artifact sink implementation. @since 0.1.0 @category services */
 export type Service = Context.Tag.Service<typeof ArtifactSink>
 
 const codecFailure = (path: string) => (cause: ParseResult.ParseError): Journal.Failure =>
@@ -72,14 +72,14 @@ export const layerFileSystem = (
  * Reads artifacts in physical journal order with the caller-owned schema.
  *
  * @since 0.1.0
- * @category readers
+ * @category operations
  */
 export const read = <A, I, R>(
   schema: Schema.Schema<A, I, R>,
   path: string
 ): Stream.Stream<A, Journal.Failure, FileSystem.FileSystem | R> => Journal.read(schema, path)
 
-/** Delivers an artifact through the ambient sink. @since 0.1.0 @category combinators */
+/** Delivers an artifact through the ambient sink. @since 0.1.0 @category operations */
 export const emit = <A, I, R>(
   schema: Schema.Schema<A, I, R>,
   artifact: A
@@ -90,7 +90,7 @@ export const emit = <A, I, R>(
  * Delivers to the left sink and only then to the right sink after the left succeeds.
  *
  * @since 0.1.0
- * @category combinators
+ * @category operations
  */
 export const fanout = (left: Service, right: Service): Service => ({
   emit: <A, I, R>(schema: Schema.Schema<A, I, R>, artifact: A): Effect.Effect<void, Journal.Failure, R> =>

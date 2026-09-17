@@ -123,15 +123,15 @@ Enforcement is split by tool, each owning one concern, all wired into `bun run l
 - **Tests assert behaviour**: Property-based for invariants, golden fixtures for numerical correctness. No smoke tests, and no tests that pin structure (export inventories, literal class strings, `_tag` lists, self-equality) rather than behaviour.
 - **API documentation**: Every public export carries a summary, `@since`, `@category`, and examples where non-obvious. Every public source file that becomes a docs page opens with a `/** … @since … @module */` header; `bun run docs:api` fails without it.
 
-### Foundation package conventions
+### Integrated package conventions
 
-`digest`, `effect-math`, `sign`, and `seal` share these conventions:
+`digest`, `effect-math`, `sign`, `seal`, `effect-study`, and `effect-search` share these conventions:
 
 - A public `src/Concern.ts` owns the root `Concern` namespace and exact `./Concern` export. Private source paths are camelCase under `src/internal/`. Tests use `test/Concern.test.ts` or `test/Concern/behavior.test.ts`; supporting fixtures are not public concerns.
 - Schema identifiers, brands, Context keys, and registered symbols use `@scenesystems/<package>/<Concern>[/<Member>]`. A concern's principal model or service uses the concern path; other declarations include their member name. Private identities include their private path. Serialized `_tag` and algorithm strings are separate protocol contracts: do not rename them to normalize identifiers.
 - Choose Schema for validated/encoded models and failures, Data for structural values and failures without codecs, and Context for capabilities. A common naming convention does not require every package to use the same representation or error channel.
 - Docstrings explain purpose, representations, failures, and service requirements where relevant. Use semantic categories such as `models`, `schemas`, `errors`, `services`, and `constructors`, with domain-specific categories for operations. Keep each declaration's truthful package-specific `@since`; integration does not reset it.
-- Published library-to-library workspace dependencies use `workspace:^`; root/private tooling may use `workspace:*`. Keep the common check, lint, test, and build script names; add concern-specific fixture/packed checks where needed. All four use the root Vitest 4 project configuration; workerd tests keep their dedicated runner. Preserve the root Vite 8.2.2 override and regenerate the lockfile from combined manifests without incidental dependency upgrades. Build from clean outputs after module moves or casing changes before checking packed consumers.
+- Published library-to-library workspace dependencies use `workspace:^`; root/private tooling may use `workspace:*`. Keep the common check, lint, test, and build script names; add concern-specific fixture/packed checks where needed. These packages use the root Vitest 4 project configuration; workerd tests keep their dedicated runner. Preserve the root Vite 8.2.2 override and regenerate the lockfile from combined manifests without incidental dependency upgrades. Build from clean outputs after module moves or casing changes before checking packed consumers.
 
 ---
 
@@ -139,6 +139,7 @@ Enforcement is split by tool, each owning one concern, all wired into `bun run l
 
 - Package export maps keep `internal/*` unreachable to package consumers. They do not prohibit implementation modules inside the same package from using relative imports to their own internals.
 - Every shared abstraction has a semantic owner and lives with that concern. Do not create an ownerless `shared` or `contracts` home by default.
+- `effect-study` owns generic evaluation, lifecycle, trial history, event factories, and schema-parameterized persistence and artifact delivery. `effect-search` owns optimization strategies, objective values, samplers, pruning, and their event/snapshot codecs; it composes study capabilities rather than re-exporting them under compatibility aliases.
 - Adding algorithms must not require modifying unrelated internals.
 - Non-cryptographic randomness (sampling, search, fixtures) goes through Effect `Random` with seeded generators so runs replay. Key material and signing entropy use `Entropy.Entropy` from `@scenesystems/sign`; encryption nonces belong to `Cipher.Cipher` from `@scenesystems/seal`. Provide their separate `Entropy.layer` and `Cipher.layer` capabilities at host boundaries; `Random` is never a source of secrets. Noble's internal scalar blinding remains intact.
 - Public entrypoints are chosen per library from current consumer concerns rather than inherited package history. Effect remains required; use Schema for values that cross encoded boundaries and Effect-native types for abstract service and generic relationships.

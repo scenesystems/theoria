@@ -14,7 +14,7 @@ import { Direction } from "./Direction.js"
 import type { InvalidObjectiveReport } from "./SearchError.js"
 
 /** One accepted intermediate objective value. @since 0.7.0 @category schemas */
-export class Report extends Schema.Class<Report>("effect-search/Pruning/Report")({
+export class Report extends Schema.Class<Report>("@scenesystems/effect-search/Pruning/Report")({
   step: Schema.NonNegativeInt,
   value: Schema.JsonNumber
 }) {}
@@ -42,7 +42,7 @@ export const continueEvaluation = Decisions.Continue
 export const prune = Decisions.Prune
 /** Narrows a pruning decision. @since 0.7.0 @category guards */
 export const isDecision = Decisions.$is
-/** Exhaustively matches a pruning decision. @since 0.7.0 @category pattern-matching */
+/** Exhaustively matches a pruning decision. @since 0.7.0 @category pattern matching */
 export const matchDecision = Decisions.$match
 
 /** Inputs supplied to a pruning policy in ascending step order. @since 0.7.0 @category models */
@@ -106,7 +106,9 @@ export class Runtime extends Data.Class<{
 }> {}
 
 /** Settings for percentile pruning. @since 0.7.0 @category schemas */
-export class PercentileOptions extends Schema.Class<PercentileOptions>("effect-search/Pruning/PercentileOptions")({
+export class PercentileOptions extends Schema.Class<PercentileOptions>(
+  "@scenesystems/effect-search/Pruning/PercentileOptions"
+)({
   percentile: Schema.Number,
   startupTrials: Schema.Number,
   warmupSteps: Schema.Number,
@@ -120,7 +122,9 @@ export const PercentileTrialState = Schema.Literal("complete", "pruned", "runnin
 export type PercentileTrialState = typeof PercentileTrialState.Type
 
 /** Historical reports used by percentile pruning. @since 0.7.0 @category schemas */
-export class PercentileTrial extends Schema.Class<PercentileTrial>("effect-search/Pruning/PercentileTrial")({
+export class PercentileTrial extends Schema.Class<PercentileTrial>(
+  "@scenesystems/effect-search/Pruning/PercentileTrial"
+)({
   trialNumber: Schema.Number,
   state: PercentileTrialState,
   reports: Schema.Array(Report)
@@ -129,7 +133,9 @@ export class PercentileTrial extends Schema.Class<PercentileTrial>("effect-searc
 const PercentileTrials = Schema.Array(PercentileTrial)
 
 /** Inputs to one percentile pruning decision. @since 0.7.0 @category schemas */
-export class PercentileContext extends Schema.Class<PercentileContext>("effect-search/Pruning/PercentileContext")({
+export class PercentileContext extends Schema.Class<PercentileContext>(
+  "@scenesystems/effect-search/Pruning/PercentileContext"
+)({
   direction: Direction,
   settings: PercentileOptions,
   trialNumber: Schema.Number,

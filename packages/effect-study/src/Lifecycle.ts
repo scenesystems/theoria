@@ -13,13 +13,20 @@ import { dual } from "effect/Function"
  * @since 0.1.0
  * @category schemas
  */
-export const Lifecycle = Schema.Literal("Created", "Running", "Paused", "Completed", "Failed", "Cancelled")
+export const Lifecycle = Schema.Literal(
+  "Created",
+  "Running",
+  "Paused",
+  "Completed",
+  "Failed",
+  "Cancelled"
+).annotations({ identifier: "@scenesystems/effect-study/Lifecycle" })
 
 /**
  * A lifecycle phase decoded by the study schema.
  *
  * @since 0.1.0
- * @category type-level
+ * @category models
  */
 export type Lifecycle = typeof Lifecycle.Type
 
@@ -60,7 +67,7 @@ const canTransitionFromPaused = (target: Lifecycle): boolean =>
  * Returns whether a lifecycle transition from `current` to `target` is valid.
  *
  * @since 0.1.0
- * @category utils
+ * @category operations
  */
 export const canTransition: {
   (target: Lifecycle): (self: Lifecycle) => boolean

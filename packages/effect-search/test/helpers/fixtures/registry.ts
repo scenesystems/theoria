@@ -7,7 +7,9 @@ import type { FixtureName, KnownFixture } from "./schemas.js"
 const defaultRootDirectory = directoryBeside(import.meta.url, "../../fixtures/optuna/")
 const DEFAULT_MANIFEST_FILE = "manifest.json"
 
-export class FixtureRegistry extends Context.Tag("effect-search/test/helpers/FixtureRegistry")<
+export class FixtureRegistry extends Context.Tag(
+  "@scenesystems/effect-search/test/helpers/fixtures/registry/FixtureRegistry"
+)<
   FixtureRegistry,
   {
     readonly load: (

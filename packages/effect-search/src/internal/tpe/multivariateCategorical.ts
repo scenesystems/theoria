@@ -3,7 +3,9 @@ import { Array as Arr, Equal, Match, Number as Num, Option, Record, Schema, Tupl
 import { Choice } from "../../Distribution.js"
 import { type SamplerConfig, valueFromConfig } from "../configAccess.js"
 
-export class CategoricalDimension extends Schema.Class<CategoricalDimension>("effect-search/CategoricalDimension")({
+export class CategoricalDimension extends Schema.Class<CategoricalDimension>(
+  "@scenesystems/effect-search/internal/tpe/multivariateCategorical/CategoricalDimension"
+)({
   name: Schema.String,
   choices: Schema.Array(Schema.Union(Schema.String, Schema.Number, Schema.Boolean, Schema.Null))
 }) {}

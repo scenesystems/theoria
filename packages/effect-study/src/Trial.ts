@@ -11,10 +11,14 @@ const Metadata = Schema.Struct({
   trialNumber: Schema.Number,
   cost: Schema.optional(Schema.Number),
   prior: Schema.optional(Schema.Literal(true))
-})
+}).annotations({ identifier: "@scenesystems/effect-study/Trial/Metadata" })
 
-const CompletedMetadata = Schema.TaggedStruct("Completed", { duration: Schema.Number })
-const FailedMetadata = Schema.TaggedStruct("Failed", { duration: Schema.Number })
+const CompletedMetadata = Schema.TaggedStruct("Completed", { duration: Schema.Number }).annotations({
+  identifier: "@scenesystems/effect-study/Trial/CompletedMetadata"
+})
+const FailedMetadata = Schema.TaggedStruct("Failed", { duration: Schema.Number }).annotations({
+  identifier: "@scenesystems/effect-study/Trial/FailedMetadata"
+})
 
 /**
  * Builds a trial codec without choosing an input domain or outcome vocabulary.
@@ -32,13 +36,13 @@ export const Trial = <Config extends Schema.Schema.All, State extends Schema.Sch
     ...Metadata.fields,
     config,
     state
-  })
+  }).annotations({ identifier: "@scenesystems/effect-study/Trial" })
 
 /**
  * Decoded trial data, derived from the same factory used for persistence.
  *
  * @since 0.1.0
- * @category type-level
+ * @category models
  */
 export type Trial<Config, State> = Schema.Schema.Type<
   Schema.extend<typeof Metadata, Schema.Struct<{ config: Schema.Schema<Config>; state: Schema.Schema<State> }>>
@@ -50,7 +54,9 @@ export type Trial<Config, State> = Schema.Schema.Type<
  * @since 0.1.0
  * @category schemas
  */
-export const Running = Schema.TaggedStruct("Running", { startedAt: Schema.Number })
+export const Running = Schema.TaggedStruct("Running", { startedAt: Schema.Number }).annotations({
+  identifier: "@scenesystems/effect-study/Trial/Running"
+})
 
 /** A pending evaluation state. @since 0.1.0 @category models */
 export type Running = typeof Running.Type
@@ -63,13 +69,15 @@ export type Running = typeof Running.Type
  * @category schemas
  */
 export const Completed = <Value extends Schema.Schema.All>(value: Value) =>
-  Schema.Struct({ ...CompletedMetadata.fields, value })
+  Schema.Struct({ ...CompletedMetadata.fields, value }).annotations({
+    identifier: "@scenesystems/effect-study/Trial/Completed"
+  })
 
 /**
  * A completed observation with its decoded value type preserved.
  *
  * @since 0.1.0
- * @category type-level
+ * @category models
  */
 export type Completed<Value> = Schema.Schema.Type<
   Schema.extend<typeof CompletedMetadata, Schema.Struct<{ value: Schema.Schema<Value> }>>
@@ -82,7 +90,9 @@ export type Completed<Value> = Schema.Schema.Type<
  * @category schemas
  */
 export const Failed = <Failure extends Schema.Schema.All>(error: Failure) =>
-  Schema.Struct({ ...FailedMetadata.fields, error })
+  Schema.Struct({ ...FailedMetadata.fields, error }).annotations({
+    identifier: "@scenesystems/effect-study/Trial/Failed"
+  })
 
 /** A failed evaluation retaining its caller-owned error. @since 0.1.0 @category models */
 export type Failed<Failure> = Schema.Schema.Type<
@@ -95,7 +105,9 @@ export type Failed<Failure> = Schema.Schema.Type<
  * @since 0.1.0
  * @category schemas
  */
-export const Cancelled = Schema.TaggedStruct("Cancelled", { cancelled: Schema.optional(Schema.Literal(true)) })
+export const Cancelled = Schema.TaggedStruct("Cancelled", {
+  cancelled: Schema.optional(Schema.Literal(true))
+}).annotations({ identifier: "@scenesystems/effect-study/Trial/Cancelled" })
 
 /** A cancelled evaluation state. @since 0.1.0 @category models */
 export type Cancelled = typeof Cancelled.Type
@@ -108,10 +120,10 @@ export const makeRunning = <Config>(
 ): Trial<Config, Running> =>
   Data.struct({ trialNumber, config, state: Data.struct<Running>({ _tag: "Running", startedAt }) })
 
-/** Returns elapsed milliseconds for a running state. @since 0.1.0 @category getters */
+/** Returns elapsed milliseconds for a running state. @since 0.1.0 @category accessors */
 export const duration = (state: Running, now: number): number => Num.subtract(now, state.startedAt)
 
-/** Completes a running trial with a caller-owned observation. @since 0.1.0 @category combinators */
+/** Completes a running trial with a caller-owned observation. @since 0.1.0 @category operations */
 export const complete: {
   <Value>(value: Value, now: number): <Config>(self: Trial<Config, Running>) => Trial<Config, Completed<Value>>
   <Config, Value>(self: Trial<Config, Running>, value: Value, now: number): Trial<Config, Completed<Value>>
@@ -124,7 +136,7 @@ export const complete: {
     })
 )
 
-/** Records a typed terminal failure for a running trial. @since 0.1.0 @category combinators */
+/** Records a typed terminal failure for a running trial. @since 0.1.0 @category operations */
 export const fail: {
   <Failure>(error: Failure, now: number): <Config>(self: Trial<Config, Running>) => Trial<Config, Failed<Failure>>
   <Config, Failure>(
@@ -141,6 +153,6 @@ export const fail: {
     })
 )
 
-/** Records cancellation without fabricating an observation or failure. @since 0.1.0 @category combinators */
+/** Records cancellation without fabricating an observation or failure. @since 0.1.0 @category operations */
 export const cancel = <Config, TrialState>(self: Trial<Config, TrialState>): Trial<Config, Cancelled> =>
   Data.struct({ ...self, state: Data.struct<Cancelled>({ _tag: "Cancelled" }) })

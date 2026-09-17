@@ -41,7 +41,7 @@ export const empty = <Config, State>(): History<Config, State> =>
  * and non-finite costs contribute zero without rejecting the record.
  *
  * @since 0.1.0
- * @category combinators
+ * @category operations
  */
 export const set: {
   <Config, State>(trial: Trial.Trial<Config, State>): (self: History<Config, State>) => History<Config, State>
@@ -77,6 +77,6 @@ export const fromIterable = <Config, State>(records: Iterable<Trial.Trial<Config
  * Returns all records in ascending trial-number order, independent of finish order.
  *
  * @since 0.1.0
- * @category getters
+ * @category accessors
  */
 export const values = <Config, State>(self: History<Config, State>) => Arr.fromIterable(SortedMap.values(self.trials))

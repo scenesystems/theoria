@@ -26,7 +26,7 @@ export class Options extends Data.Class<{
  * @since 0.1.0
  * @category services
  */
-export class ArtifactContext extends Effect.Tag("effect-study/ArtifactContext")<
+export class ArtifactContext extends Effect.Tag("@scenesystems/effect-study/ArtifactContext")<
   ArtifactContext,
   {
     readonly packageVersion: Artifact.PackageVersion

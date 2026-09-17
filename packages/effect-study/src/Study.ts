@@ -64,7 +64,7 @@ export const make = <Config, TrialState>(
  * Reads one atomic snapshot of lifecycle and history.
  *
  * @since 0.1.0
- * @category getters
+ * @category accessors
  */
 export const read = <Config, TrialState>(
   self: Study<Config, TrialState>
@@ -79,7 +79,7 @@ export const read = <Config, TrialState>(
  * committed or published. Use {@link transition} for no-op transition requests.
  *
  * @since 0.1.0
- * @category combinators
+ * @category operations
  */
 export const modify = <Config, TrialState, A, E, R>(
   self: Study<Config, TrialState>,
@@ -119,7 +119,7 @@ export const modify = <Config, TrialState, A, E, R>(
  * Invalid transitions are no-ops, so terminal studies can never reopen.
  *
  * @since 0.1.0
- * @category combinators
+ * @category operations
  */
 export const transition = <Config, TrialState>(
   self: Study<Config, TrialState>,

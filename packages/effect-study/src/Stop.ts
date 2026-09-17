@@ -27,13 +27,15 @@ import { dual } from "effect/Function"
  * @since 0.1.0
  * @category schemas
  */
-export const Mode = Schema.Literal("Drain", "Interrupt")
+export const Mode = Schema.Literal("Drain", "Interrupt").annotations({
+  identifier: "@scenesystems/effect-study/Stop/Mode"
+})
 
 /**
  * Cooperative behavior selected for a study stop request.
  *
  * @since 0.1.0
- * @category type-level
+ * @category models
  */
 export type Mode = typeof Mode.Type
 
@@ -51,7 +53,7 @@ export const modeOrDefault = (self: Option.Option<Mode>): Mode => Option.getOrEl
  * @since 0.1.0
  * @category models
  */
-export class Request extends Schema.Class<Request>("effect-study/Stop/Request")({
+export class Request extends Schema.Class<Request>("@scenesystems/effect-study/Stop/Request")({
   /** Whether active work may finish or should stop at its next poll. */
   mode: Mode,
   /** Caller-owned diagnostic text. */
@@ -64,7 +66,7 @@ export class Request extends Schema.Class<Request>("effect-study/Stop/Request")(
  * Mutable native Effect reference containing the selected request, when present.
  *
  * @since 0.1.0
- * @category type-level
+ * @category models
  */
 export type Ref = EffectRef.Ref<Option.Option<Request>>
 
@@ -80,13 +82,13 @@ export const Decision = Schema.Union(
     mode: Mode,
     reason: Schema.String
   })
-)
+).annotations({ identifier: "@scenesystems/effect-study/Stop/Decision" })
 
 /**
  * A cooperative continue-or-stop decision.
  *
  * @since 0.1.0
- * @category type-level
+ * @category models
  */
 export type Decision = typeof Decision.Type
 
@@ -98,7 +100,7 @@ export const Continue = Decisions.Continue
 /** Asks active work to stop cooperatively. @since 0.1.0 @category constructors */
 export const Stop = Decisions.Stop
 
-/** Matches every cooperative decision tag. @since 0.1.0 @category pattern-matching */
+/** Matches every cooperative decision tag. @since 0.1.0 @category operations */
 export const matchDecision = Decisions.$match
 
 const interruptFirst = (mode: Mode): boolean =>
@@ -121,7 +123,7 @@ const requestOrder: Order.Order<Request> = Order.combine(
  * lower reason. Selection is deterministic and independent of arrival order.
  *
  * @since 0.1.0
- * @category combinators
+ * @category operations
  */
 export const preferredRequest = Order.min(requestOrder)
 
@@ -139,7 +141,7 @@ export const make: Effect.Effect<Ref> = EffectRef.make<Option.Option<Request>>(O
  * boundary-specific events without duplicate notifications.
  *
  * @since 0.1.0
- * @category combinators
+ * @category operations
  */
 export const request: {
   (candidate: Request): (self: Ref) => Effect.Effect<Option.Option<Request>>
@@ -164,7 +166,7 @@ export const request: {
  * polling objective.
  *
  * @since 0.1.0
- * @category combinators
+ * @category operations
  */
 export const heartbeat: {
   (mode: Mode): (self: Ref) => Effect.Effect<Decision>

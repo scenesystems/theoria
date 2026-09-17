@@ -21,7 +21,7 @@ export const CompletionReason = Schema.Literal(
   "convergence",
   "noImprovement"
 )
-/** @since 0.7.0 @category models */
+/** Optimization completion reason decoded by {@link CompletionReason}. @since 0.7.0 @category models */
 export type CompletionReason = typeof CompletionReason.Type
 
 /** All optimization events accepted at persistence boundaries. @since 0.7.0 @category schemas */
@@ -108,7 +108,7 @@ export const BracketCompleted = Events.BracketCompleted
 export const Completed = Events.Completed
 /** Narrows an event by tag. @since 0.7.0 @category guards */
 export const is = Events.$is
-/** Exhaustively matches an event. @since 0.7.0 @category pattern-matching */
+/** Exhaustively dispatches an optimization event by its lifecycle tag. @since 0.7.0 @category pattern matching */
 export const match = Events.$match
 /** Tests whether unknown input is a decoded optimization event. @since 0.7.0 @category guards */
 export const isEvent = Schema.is(OptimizationEvent)

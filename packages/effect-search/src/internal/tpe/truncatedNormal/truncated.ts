@@ -6,7 +6,9 @@ import type { TruncatedNormalParams } from "../truncatedNormal.js"
 import { logDiff, logNdtr, logNormPdf, logSum, ndtr, ndtriExp } from "./normal.js"
 import { isValidParams } from "./validation.js"
 
-class StandardizedBounds extends Schema.Class<StandardizedBounds>("effect-search/StandardizedBounds")({
+class StandardizedBounds extends Schema.Class<StandardizedBounds>(
+  "@scenesystems/effect-search/internal/tpe/truncatedNormal/truncated/StandardizedBounds"
+)({
   a: Schema.Number,
   b: Schema.Number
 }) {}
