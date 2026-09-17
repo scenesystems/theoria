@@ -44,8 +44,9 @@ const dsa87 = makePqOps("ml-dsa-87", ml_dsa87, 32, entropyBytes)
 /**
  * Signs with hedged ML-DSA-44.
  * Requires Entropy.Entropy for 32 bytes; uses an empty context and a 2,560-byte
- * secret key. Returns a 2,420-byte signature and the supplied public key,
- * without copying or pair validation. Failures are Signature.SigningFailed.
+ * secret key. Inputs are copied on each execution before requesting entropy.
+ * Returns a 2,420-byte signature and the captured supplied public key, without
+ * pair validation. Failures are Signature.SigningFailed.
  *
  * @since 0.5.0
  * @category signing
@@ -171,8 +172,9 @@ export const generateKeyPair65 = dsa65.keygen
 /**
  * Signs with hedged ML-DSA-87.
  * Requires Entropy.Entropy for 32 bytes; uses an empty context and a 4,896-byte
- * secret key. Returns a 4,627-byte signature and the supplied public key,
- * without copying or pair validation. Failures are Signature.SigningFailed.
+ * secret key. Inputs are copied on each execution before requesting entropy.
+ * Returns a 4,627-byte signature and the captured supplied public key, without
+ * pair validation. Failures are Signature.SigningFailed.
  *
  * @since 0.5.0
  * @category signing

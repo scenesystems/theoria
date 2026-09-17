@@ -8,6 +8,7 @@
 import { ml_kem768_x25519 } from "@noble/post-quantum/hybrid.js"
 import { Cause, Effect, Schema } from "effect"
 import * as Entropy from "./Entropy.js"
+import { copyBytes } from "./internal/verificationInput.js"
 import * as KeyPair from "./KeyPair.js"
 
 const Algorithm = KeyPair.Algorithm.pipe(Schema.pickLiteral("xwing"))
@@ -73,7 +74,10 @@ export const generateKeyPair = (): Effect.Effect<KeyPair.KeyPair, KeyPair.Genera
  * Encapsulates for an X-Wing public key using explicit entropy.
  * Requires Entropy.Entropy for 64 random bytes and a 1,216-byte recipient key.
  * Returns a 1,120-byte ciphertext and 32-byte raw shared secret. Authenticate
- * the recipient key separately and apply a protocol-bound KDF to the secret.
+ * the recipient key separately and apply a protocol-bound KDF to the secret. The
+ * recipient key is copied on each execution before requesting entropy. Unreadable
+ * input fails as Failed before entropy acquisition; readable malformed keys remain
+ * backend-validated after it.
  *
  * @since 0.5.0
  * @category encapsulation
@@ -81,20 +85,25 @@ export const generateKeyPair = (): Effect.Effect<KeyPair.KeyPair, KeyPair.Genera
 export const encapsulate = (
   publicKey: Uint8Array
 ): Effect.Effect<Encapsulation, Failed, Entropy.Entropy> =>
-  Entropy.bytes(64).pipe(
-    Effect.mapError(() => new Failed({ algorithm: "xwing", reason: "Encapsulation entropy unavailable" })),
-    Effect.flatMap((randomness) =>
-      Effect.try({
-        try: () => {
-          const result = ml_kem768_x25519.encapsulate(publicKey, randomness)
-          return new Encapsulation({
-            algorithm: "xwing",
-            ciphertext: result.cipherText,
-            sharedSecret: result.sharedSecret
+  copyBytes(publicKey, Schema.NonNegativeInt).pipe(
+    Effect.mapError(() => new Failed({ algorithm: "xwing", reason: "invalid input" })),
+    Effect.flatMap((publicKey) =>
+      Entropy.bytes(64).pipe(
+        Effect.mapError(() => new Failed({ algorithm: "xwing", reason: "Encapsulation entropy unavailable" })),
+        Effect.flatMap((randomness) =>
+          Effect.try({
+            try: () => {
+              const result = ml_kem768_x25519.encapsulate(publicKey, randomness)
+              return new Encapsulation({
+                algorithm: "xwing",
+                ciphertext: result.cipherText,
+                sharedSecret: result.sharedSecret
+              })
+            },
+            catch: (error) => new Failed({ algorithm: "xwing", reason: Cause.pretty(Cause.fail(error)) })
           })
-        },
-        catch: (error) => new Failed({ algorithm: "xwing", reason: Cause.pretty(Cause.fail(error)) })
-      })
+        )
+      )
     )
   )
 

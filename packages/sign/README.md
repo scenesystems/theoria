@@ -35,7 +35,7 @@ export const program = Effect.gen(function* () {
 }).pipe(Effect.provide(Entropy.layer))
 ```
 
-Every verifier takes a public key explicitly. Verification proves that bytes match a key, not that the key belongs to an identity. A `Signature.Signature` carries algorithm, signature bytes, and the supplied public key, but is not a trusted identity or self-verifying envelope. Ed25519 signing checks the key pair and snapshots the inputs; the other signers store the supplied public key without proving that it matches the secret key. Bind algorithm, context, and message framing in your protocol.
+Every verifier takes a public key explicitly. Verification proves that bytes match a key, not that the key belongs to an identity. A `Signature.Signature` carries algorithm, signature bytes, and the supplied public key, but is not a trusted identity or self-verifying envelope. Ed25519 signing checks the key pair and snapshots the inputs. Entropy-backed Schnorr, ML-DSA-44/87, and SLH-DSA signers snapshot message and key inputs on every execution before requesting entropy; their result carries the captured public key. Other signers store the supplied public key without proving that it matches the secret key. Bind algorithm, context, and message framing in your protocol.
 
 ### Restore an Ed25519 identity
 
@@ -81,7 +81,7 @@ export const agree = Effect.gen(function* () {
 
 `X25519.SharedSecret` contains the raw 32-byte agreement output. X25519 rejects all-zero shared output from low-order peers. It does not authenticate the peer or bind the transcript.
 
-`XWing.encapsulate(recipientPublicKey)` returns `XWing.Encapsulation`: a 1,120-byte ciphertext to transmit and the sender's 32-byte raw shared secret, which must remain local. `XWing.decapsulate(ciphertext, recipientSecretKey)` recovers the recipient's secret. This implements `draft-connolly-cfrg-xwing-kem-06`, not a finalized RFC. X-Wing uses a 1,216-byte public key and 32-byte secret seed, combining X25519 and ML-KEM-768. Encapsulation requires 64 fresh entropy bytes. A well-sized modified ciphertext can derive another secret rather than fail; encapsulation does not authenticate the sender or recipient.
+`XWing.encapsulate(recipientPublicKey)` returns `XWing.Encapsulation`: a 1,120-byte ciphertext to transmit and the sender's 32-byte raw shared secret, which must remain local. `XWing.decapsulate(ciphertext, recipientSecretKey)` recovers the recipient's secret. This implements `draft-connolly-cfrg-xwing-kem-06`, not a finalized RFC. X-Wing uses a 1,216-byte public key and 32-byte secret seed, combining X25519 and ML-KEM-768. Encapsulation snapshots the recipient key on every execution before requesting 64 fresh entropy bytes. A well-sized modified ciphertext can derive another secret rather than fail; encapsulation does not authenticate the sender or recipient.
 
 Apply a protocol-bound KDF before using either output as a symmetric key. [`@scenesystems/digest`](../digest/README.md) supplies HKDF and BLAKE3 key derivation; [`@scenesystems/seal`](../seal/README.md) encrypts under derived keys.
 

@@ -2,7 +2,8 @@
  * SHA2-based SLH-DSA signature operations.
  * FIPS 205 pure signatures over exact message bytes with an empty context.
  * Signing and key generation require Entropy.Entropy; verification does not.
- * Signers store the supplied public key without copying or pair validation.
+ * Signers copy inputs on each execution before requesting entropy and store the
+ * captured supplied public key without pair validation.
  * Nonmatches return false; exceptions become Signature.SigningFailed or
  * Signature.VerificationFailed with diagnostics. Key failures are
  * KeyPair.GenerationFailed. Primitive execution is synchronous and can be costly.

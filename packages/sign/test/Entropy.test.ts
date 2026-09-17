@@ -18,6 +18,24 @@ const deterministicBytes = (byte: number, length: number) =>
     Effect.mapError(() => new Entropy.GenerationFailed({ length, reason: "invalid deterministic byte fixture" }))
   )
 
+const copyBytes = (bytes: Uint8Array) =>
+  Schema.encode(Schema.Uint8Array)(bytes).pipe(Effect.flatMap(Schema.decode(Schema.Uint8Array)))
+
+const overwriteBytes = (target: Uint8Array, source: Uint8Array) => Effect.sync(() => target.set(source))
+
+const pendingEntropy = (
+  requested: Deferred.Deferred<void>,
+  release: Deferred.Deferred<void>,
+  byte: number
+) =>
+  Entropy.Entropy.of({
+    bytes: (length) =>
+      Deferred.succeed(requested, undefined).pipe(
+        Effect.zipRight(Deferred.await(release)),
+        Effect.zipRight(deterministicBytes(byte, length))
+      )
+  })
+
 describe("Entropy", () => {
   it.effect("draws on each execution from the provided service, reconstructing independent RFC 8032 identities", () =>
     Effect.gen(function*() {
@@ -120,7 +138,8 @@ describe("Entropy", () => {
     Effect.gen(function*() {
       const started = yield* Deferred.make<void>()
       const released = yield* Deferred.make<Exit.Exit<never>>()
-      const fiber = yield* MlDsa.generateKeyPair65().pipe(
+      const empty = Bytes.fromString("")
+      const fiber = yield* MlDsa.sign44(empty, empty, empty).pipe(
         Effect.provideService(Entropy.Entropy, {
           bytes: () =>
             Effect.acquireUseRelease(
@@ -139,10 +158,10 @@ describe("Entropy", () => {
       expect(Exit.match(exit, { onFailure: Cause.isInterruptedOnly, onSuccess: () => false })).toBe(true)
     }))
 
-  it.effect("preserves provider defects rather than relabeling them as expected generation failures", () =>
+  it.effect("preserves provider defects rather than relabeling them as typed operation failures", () =>
     Effect.gen(function*() {
       const defect = new Cause.RuntimeException("entropy provider defect")
-      const exit = yield* Ed25519.generateKeyPair().pipe(
+      const exit = yield* XWing.encapsulate(Bytes.fromString("")).pipe(
         Effect.provideService(Entropy.Entropy, { bytes: () => Effect.die(defect) }),
         Effect.exit
       )
@@ -188,6 +207,64 @@ describe("Entropy", () => {
       )
     }), { timeout: 30_000 })
 
+  it.effect("snapshots Schnorr inputs before pending entropy and again on each execution", () =>
+    Effect.gen(function*() {
+      const originalKeys = yield* Secp256k1.generateSchnorrKeyPair()
+      const mutatedKeys = yield* Secp256k1.generateSchnorrKeyPair()
+      const originalMessage = Bytes.fromString("original message payload")
+      const mutatedMessage = Bytes.fromString("mutated! message payload")
+      const inputMessage = yield* copyBytes(originalMessage)
+      const inputSecretKey = yield* copyBytes(originalKeys.secretKey)
+      const inputPublicKey = yield* copyBytes(originalKeys.publicKey)
+      const requested = yield* Deferred.make<void>()
+      const release = yield* Deferred.make<void>()
+      const signing = Secp256k1.signSchnorr(inputMessage, inputSecretKey, inputPublicKey).pipe(
+        Effect.provideService(Entropy.Entropy, pendingEntropy(requested, release, 0x42))
+      )
+      const fiber = yield* Effect.fork(signing)
+      yield* Deferred.await(requested)
+      yield* overwriteBytes(inputMessage, mutatedMessage)
+      yield* overwriteBytes(inputSecretKey, mutatedKeys.secretKey)
+      yield* overwriteBytes(inputPublicKey, mutatedKeys.publicKey)
+      yield* Deferred.succeed(release, undefined)
+      const first = yield* Fiber.join(fiber)
+      expect(yield* Secp256k1.verifySchnorr(first.signature, originalMessage, originalKeys.publicKey)).toBe(true)
+      expect(first.publicKey).toEqual(originalKeys.publicKey)
+
+      const second = yield* signing
+      expect(yield* Secp256k1.verifySchnorr(second.signature, mutatedMessage, mutatedKeys.publicKey)).toBe(true)
+      expect(second.publicKey).toEqual(mutatedKeys.publicKey)
+    }).pipe(Effect.provide(Entropy.layer)))
+
+  it.effect("snapshots shared post-quantum signing inputs before pending entropy", () =>
+    Effect.gen(function*() {
+      const originalKeys = yield* MlDsa.generateKeyPair44()
+      const mutatedKeys = yield* MlDsa.generateKeyPair44()
+      const originalMessage = Bytes.fromString("original message payload")
+      const mutatedMessage = Bytes.fromString("mutated! message payload")
+      const inputMessage = yield* copyBytes(originalMessage)
+      const inputSecretKey = yield* copyBytes(originalKeys.secretKey)
+      const inputPublicKey = yield* copyBytes(originalKeys.publicKey)
+      const requested = yield* Deferred.make<void>()
+      const release = yield* Deferred.make<void>()
+      const signing = MlDsa.sign44(inputMessage, inputSecretKey, inputPublicKey).pipe(
+        Effect.provideService(Entropy.Entropy, pendingEntropy(requested, release, 0x42))
+      )
+      const fiber = yield* Effect.fork(signing)
+      yield* Deferred.await(requested)
+      yield* overwriteBytes(inputMessage, mutatedMessage)
+      yield* overwriteBytes(inputSecretKey, mutatedKeys.secretKey)
+      yield* overwriteBytes(inputPublicKey, mutatedKeys.publicKey)
+      yield* Deferred.succeed(release, undefined)
+      const first = yield* Fiber.join(fiber)
+      expect(yield* MlDsa.verify44(first.signature, originalMessage, originalKeys.publicKey)).toBe(true)
+      expect(first.publicKey).toEqual(originalKeys.publicKey)
+
+      const second = yield* signing
+      expect(yield* MlDsa.verify44(second.signature, mutatedMessage, mutatedKeys.publicKey)).toBe(true)
+      expect(second.publicKey).toEqual(mutatedKeys.publicKey)
+    }).pipe(Effect.provide(Entropy.layer)), { timeout: 30_000 })
+
   it.effect("X-Wing uses exactly 64 supplied bytes for reproducible encapsulation", () =>
     Effect.gen(function*() {
       const keys = yield* XWing.generateKeyPair().pipe(Effect.provideService(Entropy.Entropy, {
@@ -212,6 +289,27 @@ describe("Entropy", () => {
       expect(changed.sharedSecret).not.toEqual(first.sharedSecret)
       expect(yield* XWing.decapsulate(changed.ciphertext, keys.secretKey)).toEqual(changed.sharedSecret)
     }))
+
+  it.effect("snapshots each X-Wing recipient before pending entropy", () =>
+    Effect.gen(function*() {
+      const originalKeys = yield* XWing.generateKeyPair()
+      const mutatedKeys = yield* XWing.generateKeyPair()
+      const inputPublicKey = yield* copyBytes(originalKeys.publicKey)
+      const requested = yield* Deferred.make<void>()
+      const release = yield* Deferred.make<void>()
+      const encapsulation = XWing.encapsulate(inputPublicKey).pipe(
+        Effect.provideService(Entropy.Entropy, pendingEntropy(requested, release, 0x42))
+      )
+      const fiber = yield* Effect.fork(encapsulation)
+      yield* Deferred.await(requested)
+      yield* overwriteBytes(inputPublicKey, mutatedKeys.publicKey)
+      yield* Deferred.succeed(release, undefined)
+      const first = yield* Fiber.join(fiber)
+      expect(yield* XWing.decapsulate(first.ciphertext, originalKeys.secretKey)).toEqual(first.sharedSecret)
+
+      const second = yield* encapsulation
+      expect(yield* XWing.decapsulate(second.ciphertext, mutatedKeys.secretKey)).toEqual(second.sharedSecret)
+    }).pipe(Effect.provide(Entropy.layer)))
 
   it.effect("produces the explicitly requested number of fresh bytes", () =>
     Effect.gen(function*() {

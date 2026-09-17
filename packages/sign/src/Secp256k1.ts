@@ -5,8 +5,9 @@
  * @module
  */
 import { schnorr, secp256k1 } from "@noble/curves/secp256k1.js"
-import { Cause, Effect } from "effect"
+import { Cause, Effect, Schema } from "effect"
 import * as Entropy from "./Entropy.js"
+import { copyBytes } from "./internal/verificationInput.js"
 import * as KeyPair from "./KeyPair.js"
 import * as Signature from "./Signature.js"
 
@@ -89,9 +90,12 @@ export const generateEcdsaKeyPair = (): Effect.Effect<
 /**
  * Signs exact message bytes with BIP-340 Schnorr and auxiliary entropy.
  * Requires Entropy.Entropy for 32 fresh auxiliary bytes. Produces a 64-byte
- * signature from a 32-byte secret scalar. The supplied x-only public key is
- * stored without copying or pair validation. Message length is unrestricted
- * (BIP-340 variable-length extension); the operation does not prehash or frame it.
+ * signature from a 32-byte secret scalar. Message, secret key, and supplied
+ * x-only public key are copied on each execution before requesting entropy; the
+ * captured public key is stored without pair validation. Message length is
+ * unrestricted (BIP-340 variable-length extension); the operation does not
+ * prehash or frame it. Unreadable inputs fail as Signature.SigningFailed before
+ * entropy acquisition; readable malformed keys remain backend-validated after it.
  *
  * @since 0.5.0
  * @category signing
@@ -101,21 +105,30 @@ export const signSchnorr = (
   secretKey: Uint8Array,
   publicKey: Uint8Array
 ): Effect.Effect<Signature.Signature, Signature.SigningFailed, Entropy.Entropy> =>
-  Entropy.bytes(32).pipe(
-    Effect.mapError(() =>
-      new Signature.SigningFailed({ algorithm: "secp256k1-schnorr", reason: "Signing entropy unavailable" })
-    ),
-    Effect.flatMap((auxRand) =>
-      Effect.try({
-        try: () =>
-          new Signature.Signature({
-            algorithm: "secp256k1-schnorr",
-            signature: schnorr.sign(message, secretKey, auxRand),
-            publicKey
-          }),
-        catch: (error) =>
-          new Signature.SigningFailed({ algorithm: "secp256k1-schnorr", reason: Cause.pretty(Cause.fail(error)) })
-      })
+  Effect.all({
+    message: copyBytes(message, Schema.NonNegativeInt),
+    secretKey: copyBytes(secretKey, Schema.NonNegativeInt),
+    publicKey: copyBytes(publicKey, Schema.NonNegativeInt)
+  }).pipe(
+    Effect.mapError(() => new Signature.SigningFailed({ algorithm: "secp256k1-schnorr", reason: "invalid input" })),
+    Effect.flatMap((input) =>
+      Entropy.bytes(32).pipe(
+        Effect.mapError(() =>
+          new Signature.SigningFailed({ algorithm: "secp256k1-schnorr", reason: "Signing entropy unavailable" })
+        ),
+        Effect.flatMap((auxRand) =>
+          Effect.try({
+            try: () =>
+              new Signature.Signature({
+                algorithm: "secp256k1-schnorr",
+                signature: schnorr.sign(input.message, input.secretKey, auxRand),
+                publicKey: input.publicKey
+              }),
+            catch: (error) =>
+              new Signature.SigningFailed({ algorithm: "secp256k1-schnorr", reason: Cause.pretty(Cause.fail(error)) })
+          })
+        )
+      )
     )
   )
 
