@@ -738,9 +738,9 @@ export const uniformEntropy: (low: number, high: number) => number = Uniform.uni
  * Evaluates a beta density for trusted positive shape parameters.
  *
  * @remarks
- * Values outside the open unit interval return `0`. At either endpoint the
- * implementation returns the finite boundary density only when the
- * corresponding shape parameter equals `1`.
+ * Values outside the unit interval return `0`. At either endpoint the density
+ * is infinite when the corresponding shape is below `1`, finite when it is
+ * exactly `1`, and zero when it is above `1`.
  *
  * @since 0.1.0
  * @category operations
@@ -750,7 +750,9 @@ export const betaPdf: (x: number, alpha: number, beta: number) => number = Beta.
 /**
  * Evaluates the natural logarithm of a beta density.
  *
- * @returns Negative infinity outside the open unit interval, including both endpoints.
+ * @returns Negative infinity outside the unit interval. Endpoint values follow
+ * the corresponding shape: positive infinity below `1`, the finite limiting
+ * log-density at `1`, and negative infinity above `1`.
  *
  * @since 0.1.0
  * @category operations
@@ -768,12 +770,12 @@ export const betaLogpdf: (x: number, alpha: number, beta: number) => number = Be
 export const betaCdf: (x: number, alpha: number, beta: number) => number = Beta.betaCdf
 
 /**
- * Approximates a beta quantile with at most 20 Newton iterations.
+ * Computes a beta quantile with safeguarded Newton refinement.
  *
  * @remarks
- * Iteration starts at `0.5` and clamps each estimate to
- * `[1e-15, 1 - 1e-15]`. It stops when the CDF error is below `1e-12` or
- * the density is below `1e-30`, and returns the last estimate.
+ * Endpoint probabilities return exact support endpoints. Interior estimates
+ * remain inside a monotone bracket, and upper-tail probabilities are evaluated
+ * directly to avoid subtractive cancellation.
  *
  * @since 0.1.0
  * @category operations
@@ -812,8 +814,8 @@ export const betaEntropy: (alpha: number, beta: number) => number = Beta.betaEnt
  * Evaluates a gamma density for trusted positive shape and scale parameters.
  *
  * @remarks
- * Negative `x` values return `0`. At `x = 0`, the implementation returns
- * `1 / scale` when `shape` is `1` and `0` for every other shape.
+ * Negative `x` values return `0`. At zero the density is infinite below shape
+ * `1`, equals `1 / scale` at shape `1`, and is zero above shape `1`.
  *
  * @since 0.1.0
  * @category operations
@@ -823,7 +825,9 @@ export const gammaPdf: (x: number, shape: number, scale: number) => number = Gam
 /**
  * Evaluates the natural logarithm of a gamma density.
  *
- * @returns Negative infinity when `x` is zero or negative.
+ * @returns Negative infinity for negative `x`. At zero the result is positive
+ * infinity below shape `1`, `-log(scale)` at shape `1`, and negative infinity
+ * above shape `1`.
  *
  * @since 0.1.0
  * @category operations
@@ -841,12 +845,12 @@ export const gammaLogpdf: (x: number, shape: number, scale: number) => number = 
 export const gammaCdf: (x: number, shape: number, scale: number) => number = Gamma.gammaCdf
 
 /**
- * Approximates a gamma quantile with at most 50 Newton iterations.
+ * Computes a gamma quantile with safeguarded Newton refinement.
  *
  * @remarks
- * The estimate is lower-bounded by `1e-15`. Iteration stops when the CDF
- * error is below `1e-12` or the density is below `1e-30`, and returns the
- * last estimate.
+ * Probabilities `0` and `1` return `0` and positive infinity respectively.
+ * Interior estimates use a geometrically expanded monotone bracket and direct
+ * upper-tail probabilities to avoid subtractive cancellation.
  *
  * @since 0.1.0
  * @category operations
@@ -1304,7 +1308,7 @@ export const betaCdfValidated = (input: unknown) =>
  * Decodes positive beta shapes and a unit-interval probability before approximating a quantile.
  *
  * @remarks
- * The result uses the same clamped, finite-iteration procedure as {@link betaQuantile}.
+ * The result uses the same safeguarded, bracketed procedure as {@link betaQuantile}.
  *
  * @throws {@link DecodeError} in the Effect error channel when
  * the input has missing, invalid, or excess fields.

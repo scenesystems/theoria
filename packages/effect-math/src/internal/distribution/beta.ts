@@ -7,17 +7,17 @@
  * @since 0.1.0
  * @category internal
  */
-import { Boolean, Iterable, Number, Option, Schema, Tuple } from "effect"
+import { Boolean, Data, Iterable, Match, Number, Option, Schema, Tuple } from "effect"
 
-import { abs, exp, log } from "../../Numeric.js"
+import { exp, isFinite, log } from "../../Numeric.js"
 import { betainc, digamma, lnGamma } from "../../Special.js"
 
-class BetaQuantileState
-  extends Schema.Class<BetaQuantileState>("@scenesystems/effect-math/internal/distribution/beta/QuantileState")({
-    x: Schema.Number,
-    remaining: Schema.Number
-  })
-{}
+class BetaQuantileState extends Data.Class<{
+  readonly lower: number
+  readonly upper: number
+  readonly x: number
+  readonly remaining: number
+}> {}
 
 const isNonNaN = Schema.is(Schema.NonNaN)
 
@@ -36,35 +36,42 @@ export const betaLogNorm = (a: number, b: number): number =>
 /**
  * Beta PDF: x^{α−1}(1−x)^{β−1} / B(α,β) for x ∈ (0,1).
  *
- * Handles boundary cases: x = 0 when α = 1, x = 1 when β = 1.
+ * At either endpoint the density is infinite when the corresponding shape is
+ * below one, finite when it equals one, and zero when it is above one.
  *
  * @since 0.1.0
  * @category internal
  */
 export const betaPdf = (x: number, alpha: number, beta: number): number => {
-  return Boolean.match(
-    Boolean.and(isNonNaN(x), Boolean.or(Number.lessThanOrEqualTo(x, 0), Number.greaterThanOrEqualTo(x, 1))),
-    {
-      onTrue: () =>
-        Boolean.match(Boolean.and(Number.Equivalence(x, 0), Number.Equivalence(alpha, 1)), {
-          onTrue: () => exp(Number.negate(betaLogNorm(alpha, beta))),
-          onFalse: () =>
-            Boolean.match(Boolean.and(Number.Equivalence(x, 1), Number.Equivalence(beta, 1)), {
-              onTrue: () => exp(Number.negate(betaLogNorm(alpha, beta))),
-              onFalse: () => 0
-            })
-        }),
-      onFalse: () =>
-        exp(
-          Number.subtract(
-            Number.sum(
-              Number.multiply(Number.subtract(alpha, 1), log(x)),
-              Number.multiply(Number.subtract(beta, 1), log(Number.subtract(1, x)))
-            ),
-            betaLogNorm(alpha, beta)
-          )
+  return Match.value(x).pipe(
+    Match.when((value) => Boolean.not(isNonNaN(value)), () => NaN),
+    Match.when(Number.lessThan(0), () => 0),
+    Match.when(Number.greaterThan(1), () => 0),
+    Match.when((value) => Number.Equivalence(value, 0), () =>
+      Match.value(Number.Order(alpha, 1)).pipe(
+        Match.when(-1, () => Infinity),
+        Match.when(0, () => exp(Number.negate(betaLogNorm(alpha, beta)))),
+        Match.when(1, () => 0),
+        Match.exhaustive
+      )),
+    Match.when((value) => Number.Equivalence(value, 1), () =>
+      Match.value(Number.Order(beta, 1)).pipe(
+        Match.when(-1, () => Infinity),
+        Match.when(0, () => exp(Number.negate(betaLogNorm(alpha, beta)))),
+        Match.when(1, () => 0),
+        Match.exhaustive
+      )),
+    Match.orElse(() =>
+      exp(
+        Number.subtract(
+          Number.sum(
+            Number.multiply(Number.subtract(alpha, 1), log(x)),
+            Number.multiply(Number.subtract(beta, 1), log(Number.subtract(1, x)))
+          ),
+          betaLogNorm(alpha, beta)
         )
-    }
+      )
+    )
   )
 }
 
@@ -75,19 +82,33 @@ export const betaPdf = (x: number, alpha: number, beta: number): number => {
  * @category internal
  */
 export const betaLogpdf = (x: number, alpha: number, beta: number): number => {
-  return Boolean.match(
-    Boolean.and(isNonNaN(x), Boolean.or(Number.lessThanOrEqualTo(x, 0), Number.greaterThanOrEqualTo(x, 1))),
-    {
-      onTrue: () => -Infinity,
-      onFalse: () =>
-        Number.subtract(
-          Number.sum(
-            Number.multiply(Number.subtract(alpha, 1), log(x)),
-            Number.multiply(Number.subtract(beta, 1), log(Number.subtract(1, x)))
-          ),
-          betaLogNorm(alpha, beta)
-        )
-    }
+  return Match.value(x).pipe(
+    Match.when((value) => Boolean.not(isNonNaN(value)), () => NaN),
+    Match.when(Number.lessThan(0), () => -Infinity),
+    Match.when(Number.greaterThan(1), () => -Infinity),
+    Match.when((value) => Number.Equivalence(value, 0), () =>
+      Match.value(Number.Order(alpha, 1)).pipe(
+        Match.when(-1, () => Infinity),
+        Match.when(0, () => Number.negate(betaLogNorm(alpha, beta))),
+        Match.when(1, () => -Infinity),
+        Match.exhaustive
+      )),
+    Match.when((value) => Number.Equivalence(value, 1), () =>
+      Match.value(Number.Order(beta, 1)).pipe(
+        Match.when(-1, () => Infinity),
+        Match.when(0, () => Number.negate(betaLogNorm(alpha, beta))),
+        Match.when(1, () => -Infinity),
+        Match.exhaustive
+      )),
+    Match.orElse(() =>
+      Number.subtract(
+        Number.sum(
+          Number.multiply(Number.subtract(alpha, 1), log(x)),
+          Number.multiply(Number.subtract(beta, 1), log(Number.subtract(1, x)))
+        ),
+        betaLogNorm(alpha, beta)
+      )
+    )
   )
 }
 
@@ -113,7 +134,7 @@ export const betaCdf = (x: number, alpha: number, beta: number): number => {
 }
 
 /**
- * Schema-state Newton–Raphson iteration for the beta quantile.
+ * Safeguarded Newton iteration inside a monotone beta-CDF bracket.
  *
  * @since 0.1.0
  * @category internal
@@ -122,27 +143,49 @@ const betaQuantileLoop = (
   p: number,
   alpha: number,
   beta: number,
-  x: number,
-  remaining: number
+  initialX: number
 ): number => {
-  const initial = new BetaQuantileState({ x, remaining })
+  const upperTail = Number.greaterThan(p, 0.5)
+  const target = Boolean.match(upperTail, {
+    onTrue: () => Number.subtract(1, p),
+    onFalse: () => p
+  })
+  const probabilityError = (x: number): number =>
+    Boolean.match(upperTail, {
+      onTrue: () => Number.subtract(target, betainc(beta, alpha, Number.subtract(1, x))),
+      onFalse: () => Number.subtract(betainc(alpha, beta, x), target)
+    })
+  const initial = new BetaQuantileState({ lower: 0, upper: 1, x: initialX, remaining: 320 })
   return Iterable.reduce(
     Iterable.unfold(initial, (state) => {
-      const difference = Number.subtract(betaCdf(state.x, alpha, beta), p)
-      const density = betaPdf(state.x, alpha, beta)
+      const width = Number.subtract(state.upper, state.lower)
+      const bracketMidpoint = Number.unsafeDivide(Number.sum(state.lower, state.upper), 2)
+      const exhaustedPrecision = Boolean.or(
+        Number.Equivalence(bracketMidpoint, state.lower),
+        Number.Equivalence(bracketMidpoint, state.upper)
+      )
       return Boolean.match(
         Boolean.or(
           Number.Equivalence(state.remaining, 0),
-          Boolean.or(Number.lessThan(density, 1e-30), Number.lessThan(abs(difference), 1e-12))
+          Boolean.or(Number.lessThanOrEqualTo(width, 5e-324), exhaustedPrecision)
         ),
         {
           onTrue: Option.none,
           onFalse: () => {
+            const difference = probabilityError(state.x)
+            const below = Number.lessThan(difference, 0)
+            const lower = Boolean.match(below, { onTrue: () => state.x, onFalse: () => state.lower })
+            const upper = Boolean.match(below, { onTrue: () => state.upper, onFalse: () => state.x })
+            const midpoint = Number.unsafeDivide(Number.sum(lower, upper), 2)
+            const candidate = Number.subtract(state.x, Number.unsafeDivide(difference, betaPdf(state.x, alpha, beta)))
+            const useCandidate = Boolean.and(
+              isFinite(candidate),
+              Boolean.and(Number.greaterThan(candidate, lower), Number.lessThan(candidate, upper))
+            )
             const next = new BetaQuantileState({
-              x: Number.clamp(Number.subtract(state.x, Number.unsafeDivide(difference, density)), {
-                minimum: 1e-15,
-                maximum: Number.subtract(1, 1e-15)
-              }),
+              lower,
+              upper,
+              x: Boolean.match(useCandidate, { onTrue: () => candidate, onFalse: () => midpoint }),
               remaining: Number.subtract(state.remaining, 1)
             })
             return Option.some(Tuple.make(next.x, next))
@@ -150,21 +193,57 @@ const betaQuantileLoop = (
         }
       )
     }),
-    x,
+    initialX,
     (_x, next) => next
   )
 }
 
 /**
- * Beta quantile (inverse CDF) via Newton–Raphson iteration.
+ * Beta quantile (inverse CDF) via safeguarded, tail-aware Newton iteration.
  *
- * Returns x such that I_x(α,β) ≈ p. Clamped to [1e-15, 1−1e-15].
+ * Exact endpoint probabilities map to the exact support endpoints. Interior
+ * estimates remain bracketed in [0,1], with direct survival-probability
+ * evaluation in the upper tail to avoid cancellation.
  *
  * @since 0.1.0
  * @category internal
  */
 export const betaQuantile = (p: number, alpha: number, beta: number): number =>
-  betaQuantileLoop(p, alpha, beta, 0.5, 20)
+  Match.value(p).pipe(
+    Match.when((value) => Boolean.not(isNonNaN(value)), () => NaN),
+    Match.when(Number.lessThanOrEqualTo(0), () => 0),
+    Match.when(Number.greaterThanOrEqualTo(1), () => 1),
+    Match.orElse((p) => {
+      const upperTail = Number.greaterThan(p, 0.5)
+      const tailProbability = Boolean.match(upperTail, {
+        onTrue: () => Number.subtract(1, p),
+        onFalse: () => p
+      })
+      const tailShape = Boolean.match(upperTail, { onTrue: () => beta, onFalse: () => alpha })
+      const oppositeShape = Boolean.match(upperTail, { onTrue: () => alpha, onFalse: () => beta })
+      const distance = exp(Number.unsafeDivide(
+        Number.sum(
+          Number.sum(log(tailProbability), log(tailShape)),
+          betaLogNorm(tailShape, oppositeShape)
+        ),
+        tailShape
+      ))
+      const estimate = Boolean.match(upperTail, {
+        onTrue: () => Number.subtract(1, distance),
+        onFalse: () => distance
+      })
+      const interior = Boolean.and(Number.greaterThan(estimate, 0), Number.lessThan(estimate, 1))
+      const initial = Boolean.match(interior, {
+        onTrue: () => estimate,
+        onFalse: () => Number.unsafeDivide(alpha, Number.sum(alpha, beta))
+      })
+      // An underflowed tail distance already rounds to its support endpoint.
+      return Boolean.match(Number.Equivalence(distance, 0), {
+        onTrue: () => estimate,
+        onFalse: () => betaQuantileLoop(p, alpha, beta, initial)
+      })
+    })
+  )
 
 /**
  * Beta mean: α / (α + β).

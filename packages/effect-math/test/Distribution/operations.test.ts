@@ -5,10 +5,16 @@ import {
   betaCdf,
   betaCdfValidated,
   betaCdfWithPolicies,
+  betaLogpdf,
   betaPdf,
+  betaQuantile,
   categoricalPmf,
   categoricalPmfValidated,
   exponentialPdf,
+  gammaCdf,
+  gammaLogpdf,
+  gammaPdf,
+  gammaQuantile,
   normalCdf,
   normalCdfValidated,
   normalCdfWithPolicies,
@@ -29,7 +35,7 @@ import {
   uniformPdfValidated,
   uniformPdfWithPolicies
 } from "../../src/Distribution.js"
-import { isFinite, pi, sqrt } from "../../src/Numeric.js"
+import { abs, isFinite, pi, sqrt } from "../../src/Numeric.js"
 import * as Policy from "../../src/Policy.js"
 
 const strictLayer = Policy.layerDeterministic({
@@ -47,6 +53,11 @@ const relaxedLayer = Policy.layerDeterministic({
 })
 
 const isNaN = Predicate.not(Schema.is(Schema.NonNaN))
+
+const expectRelativeClose = (actual: number, expected: number, absolute: number, relative: number) =>
+  expect(abs(Number.subtract(actual, expected))).toBeLessThanOrEqual(
+    Number.max(absolute, Number.multiply(abs(expected), relative))
+  )
 
 // ---------------------------------------------------------------------------
 // Pure kernel operations — Normal
@@ -156,6 +167,106 @@ describe("Distribution / betaCdf", () => {
       expect(isNaN(betaPdf(NaN, 2, 2))).toStrictEqual(true)
       expect(isNaN(betaCdf(NaN, 2, 2))).toStrictEqual(true)
     }))
+})
+
+describe("Distribution / beta boundaries and quantiles", () => {
+  it.effect("matches SciPy endpoint densities and log-densities", () =>
+    Effect.gen(function*() {
+      expect(betaPdf(0, 0.5, 2)).toBe(Infinity)
+      expect(betaLogpdf(0, 0.5, 2)).toBe(Infinity)
+      expect(betaPdf(0, 1, 2)).toBeCloseTo(2, 14)
+      expect(betaLogpdf(0, 1, 2)).toBeCloseTo(0.6931471805599453, 14)
+      expect(betaPdf(0, 2, 2)).toBe(0)
+      expect(betaLogpdf(0, 2, 2)).toBe(-Infinity)
+      expect(betaPdf(1, 2, 0.5)).toBe(Infinity)
+      expect(betaLogpdf(1, 2, 0.5)).toBe(Infinity)
+      expect(betaPdf(1, 2, 1)).toBeCloseTo(2, 14)
+      expect(betaLogpdf(1, 2, 1)).toBeCloseTo(0.6931471805599453, 14)
+      expect(betaPdf(1, 2, 2)).toBe(0)
+      expect(betaLogpdf(1, 2, 2)).toBe(-Infinity)
+    }))
+
+  it.effect("returns exact support endpoints", () =>
+    Effect.gen(function*() {
+      expect(betaQuantile(0, 0.25, 7)).toBe(0)
+      expect(betaQuantile(1, 0.25, 7)).toBe(1)
+      expect(isNaN(betaQuantile(NaN, 0.25, 7))).toBe(true)
+    }))
+
+  it.effect("matches independent SciPy asymmetric-tail quantiles", () =>
+    Effect.gen(function*() {
+      // scipy.stats.beta.ppf references, independently regenerated with SciPy 1.17.1.
+      expect(betaQuantile(1e-100, 0.25, 7)).toBe(0)
+      expectRelativeClose(betaQuantile(1e-12, 0.25, 7), 1.0179194531881778e-49, 1e-60, 2e-10)
+      expectRelativeClose(betaQuantile(1e-9, 8, 0.4), 0.09635597439355893, 1e-13, 2e-10)
+      expectRelativeClose(betaQuantile(0.999999, 2, 40), 0.33785169555360606, 1e-13, 2e-10)
+      expectRelativeClose(betaQuantile(0.25, 40, 2), 0.9356681378061018, 1e-13, 2e-10)
+      expectRelativeClose(betaQuantile(0.999999999, 0.4, 8), 0.9036440259447015, 1e-13, 2e-9)
+    }))
+
+  it.effect.prop(
+    "round-trips seeded interior probabilities for asymmetric shapes",
+    {
+      p: FastCheck.double({ min: 1e-5, max: Number.subtract(1, 1e-5), noNaN: true }),
+      alpha: FastCheck.double({ min: 0.5, max: 20, noNaN: true }),
+      beta: FastCheck.double({ min: 0.5, max: 20, noNaN: true })
+    },
+    ({ alpha, beta, p }) =>
+      Effect.sync(() => {
+        expect(abs(Number.subtract(betaCdf(betaQuantile(p, alpha, beta), alpha, beta), p))).toBeLessThanOrEqual(1e-9)
+      }),
+    { fastCheck: { numRuns: 100, seed: 2903 } }
+  )
+})
+
+describe("Distribution / gamma boundaries and quantiles", () => {
+  it.effect("matches SciPy zero densities and log-densities", () =>
+    Effect.gen(function*() {
+      expect(gammaPdf(0, 0.5, 2)).toBe(Infinity)
+      expect(gammaLogpdf(0, 0.5, 2)).toBe(Infinity)
+      expect(gammaPdf(0, 1, 2)).toBe(0.5)
+      expect(gammaLogpdf(0, 1, 2)).toBeCloseTo(-0.6931471805599453, 14)
+      expect(gammaPdf(0, 2, 2)).toBe(0)
+      expect(gammaLogpdf(0, 2, 2)).toBe(-Infinity)
+    }))
+
+  it.effect("returns exact support endpoints", () =>
+    Effect.gen(function*() {
+      expect(gammaQuantile(0, 2, 3)).toBe(0)
+      expect(gammaQuantile(1, 2, 3)).toBe(Infinity)
+      expect(gammaPdf(Infinity, 2, 3)).toBe(0)
+      expect(gammaLogpdf(Infinity, 2, 3)).toBe(-Infinity)
+      expect(gammaCdf(Infinity, 2, 3)).toBe(1)
+      expect(isNaN(gammaQuantile(NaN, 2, 3))).toBe(true)
+    }))
+
+  it.effect("matches independent SciPy lower and upper-tail quantiles", () =>
+    Effect.gen(function*() {
+      // scipy.stats.gamma.ppf references, independently regenerated with SciPy 1.17.1.
+      expect(gammaQuantile(1e-100, 0.25, 3)).toBe(0)
+      // P(a,x) ~ x^a / Gamma(a+1): scaling preserves this otherwise underflowed tail.
+      expectRelativeClose(gammaQuantile(1e-100, 0.25, 3e100), 2.0249093679335282e-300, 0, 2e-12)
+      expectRelativeClose(gammaQuantile(1e-9, 100, 1), 51.14330222883741, 1e-11, 2e-11)
+      expectRelativeClose(gammaQuantile(1e-12, 0.25, 3), 2.0249093679335282e-48, 1e-59, 2e-10)
+      expectRelativeClose(gammaQuantile(0.999999, 2, 3), 50.06526237248832, 1e-10, 2e-10)
+      expectRelativeClose(gammaQuantile(0.999999999, 40, 0.2), 18.048015832241045, 1e-10, 2e-9)
+      expectRelativeClose(gammaQuantile(0.25, 80, 4), 295.1975963980082, 1e-10, 2e-10)
+    }))
+
+  it.effect.prop(
+    "round-trips seeded interior probabilities across shape and scale",
+    {
+      p: FastCheck.double({ min: 1e-8, max: Number.subtract(1, 1e-8), noNaN: true }),
+      scale: FastCheck.double({ min: 0.1, max: 10, noNaN: true }),
+      shape: FastCheck.double({ min: 0.2, max: 100, noNaN: true })
+    },
+    ({ p, scale, shape }) =>
+      Effect.sync(() => {
+        expect(abs(Number.subtract(gammaCdf(gammaQuantile(p, shape, scale), shape, scale), p)))
+          .toBeLessThanOrEqual(2e-10)
+      }),
+    { fastCheck: { numRuns: 100, seed: 2909 } }
+  )
 })
 
 describe("Distribution / support checks", () => {
