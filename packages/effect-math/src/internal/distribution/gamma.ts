@@ -188,22 +188,29 @@ const gammaQuantileLoop = (
           onTrue: Option.none,
           onFalse: () => {
             const difference = probabilityError(state.x)
-            const below = Number.lessThan(difference, 0)
-            const lower = Boolean.match(below, { onTrue: () => state.x, onFalse: () => state.lower })
-            const nextUpper = Boolean.match(below, { onTrue: () => state.upper, onFalse: () => state.x })
-            const midpoint = Number.unsafeDivide(Number.sum(lower, nextUpper), 2)
-            const candidate = Number.subtract(state.x, Number.unsafeDivide(difference, gammaPdf(state.x, shape, 1)))
-            const useCandidate = Boolean.and(
-              isFinite(candidate),
-              Boolean.and(Number.greaterThan(candidate, lower), Number.lessThan(candidate, nextUpper))
-            )
-            const next = new GammaQuantileState({
-              lower,
-              upper: nextUpper,
-              x: Boolean.match(useCandidate, { onTrue: () => candidate, onFalse: () => midpoint }),
-              remaining: Number.subtract(state.remaining, 1)
+            // Preserve a zero CDF residual rather than rejecting the zero
+            // Newton step at the bracket endpoint and bisecting again.
+            return Boolean.match(Number.Equivalence(difference, 0), {
+              onTrue: Option.none,
+              onFalse: () => {
+                const below = Number.lessThan(difference, 0)
+                const lower = Boolean.match(below, { onTrue: () => state.x, onFalse: () => state.lower })
+                const nextUpper = Boolean.match(below, { onTrue: () => state.upper, onFalse: () => state.x })
+                const midpoint = Number.unsafeDivide(Number.sum(lower, nextUpper), 2)
+                const candidate = Number.subtract(state.x, Number.unsafeDivide(difference, gammaPdf(state.x, shape, 1)))
+                const useCandidate = Boolean.and(
+                  isFinite(candidate),
+                  Boolean.and(Number.greaterThan(candidate, lower), Number.lessThan(candidate, nextUpper))
+                )
+                const next = new GammaQuantileState({
+                  lower,
+                  upper: nextUpper,
+                  x: Boolean.match(useCandidate, { onTrue: () => candidate, onFalse: () => midpoint }),
+                  remaining: Number.subtract(state.remaining, 1)
+                })
+                return Option.some(Tuple.make(next.x, next))
+              }
             })
-            return Option.some(Tuple.make(next.x, next))
           }
         }
       )

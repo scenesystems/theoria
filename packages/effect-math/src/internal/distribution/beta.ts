@@ -173,22 +173,32 @@ const betaQuantileLoop = (
           onTrue: Option.none,
           onFalse: () => {
             const difference = probabilityError(state.x)
-            const below = Number.lessThan(difference, 0)
-            const lower = Boolean.match(below, { onTrue: () => state.x, onFalse: () => state.lower })
-            const upper = Boolean.match(below, { onTrue: () => state.upper, onFalse: () => state.x })
-            const midpoint = Number.unsafeDivide(Number.sum(lower, upper), 2)
-            const candidate = Number.subtract(state.x, Number.unsafeDivide(difference, betaPdf(state.x, alpha, beta)))
-            const useCandidate = Boolean.and(
-              isFinite(candidate),
-              Boolean.and(Number.greaterThan(candidate, lower), Number.lessThan(candidate, upper))
-            )
-            const next = new BetaQuantileState({
-              lower,
-              upper,
-              x: Boolean.match(useCandidate, { onTrue: () => candidate, onFalse: () => midpoint }),
-              remaining: Number.subtract(state.remaining, 1)
+            // A zero residual is already a root of the evaluated CDF. Do not
+            // reject its zero Newton step and restart bisection away from it.
+            return Boolean.match(Number.Equivalence(difference, 0), {
+              onTrue: Option.none,
+              onFalse: () => {
+                const below = Number.lessThan(difference, 0)
+                const lower = Boolean.match(below, { onTrue: () => state.x, onFalse: () => state.lower })
+                const upper = Boolean.match(below, { onTrue: () => state.upper, onFalse: () => state.x })
+                const midpoint = Number.unsafeDivide(Number.sum(lower, upper), 2)
+                const candidate = Number.subtract(
+                  state.x,
+                  Number.unsafeDivide(difference, betaPdf(state.x, alpha, beta))
+                )
+                const useCandidate = Boolean.and(
+                  isFinite(candidate),
+                  Boolean.and(Number.greaterThan(candidate, lower), Number.lessThan(candidate, upper))
+                )
+                const next = new BetaQuantileState({
+                  lower,
+                  upper,
+                  x: Boolean.match(useCandidate, { onTrue: () => candidate, onFalse: () => midpoint }),
+                  remaining: Number.subtract(state.remaining, 1)
+                })
+                return Option.some(Tuple.make(next.x, next))
+              }
             })
-            return Option.some(Tuple.make(next.x, next))
           }
         }
       )

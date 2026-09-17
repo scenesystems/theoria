@@ -35,7 +35,7 @@ import {
   uniformPdfValidated,
   uniformPdfWithPolicies
 } from "../../src/Distribution.js"
-import { abs, isFinite, pi, sqrt } from "../../src/Numeric.js"
+import { abs, isFinite, log1p, pi, sqrt } from "../../src/Numeric.js"
 import * as Policy from "../../src/Policy.js"
 
 const strictLayer = Policy.layerDeterministic({
@@ -238,6 +238,14 @@ describe("Distribution / beta boundaries and quantiles", () => {
       expectRelativeClose(betaQuantile(0.999999999, 0.4, 8), 0.9036440259447015, 1e-13, 2e-9)
     }))
 
+  it.effect.prop("agrees with the uniform quantile when both shapes are one", {
+    p: FastCheck.double({ min: 1e-14, max: Number.subtract(1, 1e-14), noNaN: true })
+  }, ({ p }) =>
+    Effect.gen(function*() {
+      // Beta(1,1) is uniform: its inverse CDF is the probability itself.
+      expectRelativeClose(betaQuantile(p, 1, 1), p, 0, 1e-13)
+    }))
+
   it.effect.prop(
     "round-trips seeded interior probabilities for asymmetric shapes",
     {
@@ -285,6 +293,16 @@ describe("Distribution / gamma boundaries and quantiles", () => {
       expectRelativeClose(gammaQuantile(0.999999, 2, 3), 50.06526237248832, 1e-10, 2e-10)
       expectRelativeClose(gammaQuantile(0.999999999, 40, 0.2), 18.048015832241045, 1e-10, 2e-9)
       expectRelativeClose(gammaQuantile(0.25, 80, 4), 295.1975963980082, 1e-10, 2e-10)
+    }))
+
+  it.effect.prop("agrees with the exponential quantile at shape one", {
+    p: FastCheck.double({ min: 1e-14, max: Number.subtract(1, 1e-14), noNaN: true }),
+    scale: FastCheck.double({ min: 0.01, max: 100, noNaN: true })
+  }, ({ p, scale }) =>
+    Effect.gen(function*() {
+      // Gamma(1,scale) has inverse CDF -scale*log(1-p); no CDF roundtrip.
+      const expected = Number.multiply(scale, Number.negate(log1p(Number.negate(p))))
+      expectRelativeClose(gammaQuantile(p, 1, scale), expected, 0, 1e-13)
     }))
 
   it.effect.prop(
