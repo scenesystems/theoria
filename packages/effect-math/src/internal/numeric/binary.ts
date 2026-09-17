@@ -172,13 +172,7 @@ const withSign = (magnitude: number, value: number): number =>
     onFalse: () => magnitude
   })
 
-/**
- * Scales a scalar by `2^exponent` for integer exponents in `[-1075, 1024]`.
- * Finite nonzero inputs are normalized before scaling, and subnormal results
- * incur exactly one final binary64 rounding. Signed zero and IEEE exceptional
- * values pass through unchanged.
- */
-export const scalePow2 = (value: number, exponent: number): number =>
+const scalePow2Extreme = (value: number, exponent: number): number =>
   Boolean.match(Boolean.or(Boolean.not(isFinite(value)), zero(value)), {
     onTrue: () => value,
     onFalse: () => {
@@ -204,6 +198,19 @@ export const scalePow2 = (value: number, exponent: number): number =>
           })
       })
     }
+  })
+
+/**
+ * Scales a scalar by `2^exponent` for integer exponents in `[-1075, 1024]`.
+ * One multiplication or division by a finite exact power of two rounds only
+ * once, even for subnormal inputs/results. Beyond that factor range, retain
+ * normalized staging so an intermediate cannot introduce double rounding.
+ * Signed zero and IEEE exceptional values pass through unchanged.
+ */
+export const scalePow2 = (value: number, exponent: number): number =>
+  Boolean.match(Boolean.and(Number.greaterThanOrEqualTo(exponent, -1023), Number.lessThanOrEqualTo(exponent, 1023)), {
+    onTrue: () => scaleNormal(value, exponent),
+    onFalse: () => scalePow2Extreme(value, exponent)
   })
 
 /** Converts a dyadic value to an exact decimal, without decimal input rounding. */

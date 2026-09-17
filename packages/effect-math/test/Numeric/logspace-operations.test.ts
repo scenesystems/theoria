@@ -1,5 +1,5 @@
 import { describe, expect, it } from "@effect/vitest"
-import { Array, Chunk, Effect, Number, Schema } from "effect"
+import { Array, Chunk, Effect, FastCheck, Number, Schema } from "effect"
 
 import {
   abs,
@@ -82,12 +82,26 @@ describe("Numeric log-space kernels", () => {
       const nan = Number.unsafeDivide(0, 0)
       expect(logSumExp(Chunk.empty())).toBe(Number.unsafeDivide(-1, 0))
       expect(logSumExp(Chunk.of(42))).toBe(42)
+      expect(logSumExp(Chunk.of(-0))).toBe(-0)
       closeTo(logSumExp(Chunk.make(1, 2, 3)), 3.40760596444438)
       closeTo(logSumExp(Chunk.make(1_000, 999, 998)), 1000.4076059644444)
       expect(logSumExp(Chunk.make(negativeInfinity, negativeInfinity))).toBe(negativeInfinity)
       expect(logSumExp(Chunk.make(positiveInfinity, 2))).toBe(positiveInfinity)
       expect(logSumExp(Chunk.make(nan, negativeInfinity))).toBeNaN()
       expect(logSumExp(Chunk.make(positiveInfinity, nan))).toBeNaN()
+    }))
+
+  it.effect.prop("retains NaN priority regardless of position in concatenated chunks", {
+    prefix: FastCheck.array(FastCheck.double({ noNaN: true, noDefaultInfinity: true }), { maxLength: 64 }),
+    sentinels: FastCheck.shuffledSubarray(
+      Array.make(Number.unsafeDivide(1, 0), Number.unsafeDivide(0, 0), Number.unsafeDivide(-1, 0), 3),
+      { minLength: 4, maxLength: 4 }
+    )
+  }, ({ prefix, sentinels }) =>
+    Effect.sync(() => {
+      const joined = Chunk.appendAll(Chunk.fromIterable(prefix), Chunk.fromIterable(sentinels))
+      expect(logSumExp(joined)).toBeNaN()
+      expect(logSumExp(Chunk.reverse(joined))).toBeNaN()
     }))
 })
 

@@ -1,8 +1,8 @@
-import { Array as Arr, Number as Num, Option } from "effect"
+import { Array as Arr, Boolean as Bool, Number as Num, Option } from "effect"
 
 import { ContinuousKernel, ContinuousParzen } from "../continuousParzen.js"
 import {
-  adjustBandwidthForNoise,
+  bandwidthScaleFromNoiseEstimate,
   defaultNoiseBandwidthOptions,
   estimateNoise,
   type NoiseBandwidthOptions
@@ -20,7 +20,14 @@ export const buildContinuousParzen = (
 
   const nKernels = Num.increment(Arr.length(observations))
   const priorMean = Num.unsafeDivide(Num.sum(low, high), 2)
-  const noiseEstimate = estimateNoise(observations, low, high, empiricalObservationVariance)
+  const bandwidthScale = Bool.match(noiseOptions.noiseAware, {
+    onFalse: () => 1,
+    onTrue: () =>
+      bandwidthScaleFromNoiseEstimate(
+        estimateNoise(observations, low, high, empiricalObservationVariance),
+        noiseOptions
+      )
+  })
   const baselineObservationSigmas = Arr.map(
     observationSigmas(observations, low, high),
     (sigma) => clipSigma(sigma, low, high, nKernels)
@@ -29,7 +36,7 @@ export const buildContinuousParzen = (
     baselineObservationSigmas,
     (sigma) =>
       clipSigma(
-        adjustBandwidthForNoise(sigma, noiseEstimate, noiseOptions),
+        Num.multiply(sigma, bandwidthScale),
         low,
         high,
         nKernels
@@ -39,7 +46,7 @@ export const buildContinuousParzen = (
   const sigmas = Arr.append(
     clippedObservationSigmas,
     clipSigma(
-      adjustBandwidthForNoise(Num.subtract(high, low), noiseEstimate, noiseOptions),
+      Num.multiply(Num.subtract(high, low), bandwidthScale),
       low,
       high,
       nKernels

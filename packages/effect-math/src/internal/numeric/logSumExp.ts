@@ -4,42 +4,33 @@
  * @since 0.1.0
  * @category internal
  */
-import { Chunk, Match, Number } from "effect"
+import { Boolean, Chunk, Match, Number } from "effect"
 
 import * as Binary from "./binary.js"
 import { exp, log } from "./transcendental.js"
 
 /** Returns `log(Σ exp(xᵢ))`, or negative infinity for an empty chunk. */
-export const logSumExpChunk = (values: Chunk.Chunk<number>): number =>
-  Match.value(values).pipe(
-    Match.when((values) => Chunk.some(values, Binary.isNaN), () => Binary.notANumber),
-    Match.when(
-      (values) => Chunk.some(values, (value) => Number.Equivalence(value, Binary.positiveInfinity)),
-      () => Binary.positiveInfinity
-    ),
-    Match.orElse((values) =>
-      Match.value(Chunk.size(values)).pipe(
-        Match.when(0, () => Binary.negativeInfinity),
-        Match.when(1, () => Chunk.unsafeGet(values, 0)),
-        Match.orElse(() => {
-          const maximum = Chunk.reduce(values, Binary.negativeInfinity, Number.max)
-          return Match.value(maximum).pipe(
-            Match.when(
-              (maximum) => Number.Equivalence(maximum, Binary.negativeInfinity),
-              () => Binary.negativeInfinity
-            ),
-            Match.orElse((maximum) =>
-              Number.sum(
-                maximum,
-                log(Chunk.reduce(
-                  values,
-                  0,
-                  (total, value) => Number.sum(total, exp(Number.subtract(value, maximum)))
-                ))
-              )
-            )
-          )
+export const logSumExpChunk = Match.type<Chunk.Chunk<number>>().pipe(
+  Match.when((values) => Number.Equivalence(Chunk.size(values), 1), (values) => Chunk.unsafeGet(values, 0)),
+  Match.orElse((values) => {
+    // Effect's total Number.Order is not an IEEE unordered comparison, so
+    // propagate NaN explicitly while folding exceptional values into this scan.
+    const maximum = Chunk.reduce(
+      values,
+      Binary.negativeInfinity,
+      (current, value) =>
+        Boolean.match(Boolean.or(Binary.isNaN(value), Binary.isNaN(current)), {
+          onTrue: () => Binary.notANumber,
+          onFalse: () => Number.max(current, value)
         })
-      )
     )
-  )
+    return Boolean.match(Binary.isFinite(maximum), {
+      onFalse: () => maximum,
+      onTrue: () =>
+        Number.sum(
+          maximum,
+          log(Chunk.reduce(values, 0, (total, value) => Number.sum(total, exp(Number.subtract(value, maximum)))))
+        )
+    })
+  })
+)

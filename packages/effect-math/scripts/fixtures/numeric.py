@@ -69,6 +69,10 @@ def _elementary_cases() -> list[dict[str, Any]]:
     angles += [-x for x in angles]
     exponential = list(rng.uniform(-745, 709.78, 96)) + signed
     exponential += [709.782712893384, -745.1332191019411, 700.0, -700.0, 1.0]
+    # Both sides of the scale-back fast-path boundaries and gradual underflow.
+    # Half-integer multiples select adjacent integer exponents during reduction.
+    scale_boundaries = [(k + 0.5) * numpy.log(2.0) for k in [-1075, -1074, -1024, -1023, -1022, 1022, 1023]]
+    exponential += [float(numpy.nextafter(x, direction)) for x in scale_boundaries for direction in [-numpy.inf, numpy.inf]]
     reductions = [0.34657359027997264, 1.0397207708399179, -0.2928934097290039, 0.4142136573791504, 0.5]
     reductions = [float(numpy.nextafter(x, direction)) for x in reductions for direction in [-numpy.inf, numpy.inf]]
     inputs = {
