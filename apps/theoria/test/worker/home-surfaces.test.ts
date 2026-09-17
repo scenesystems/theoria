@@ -130,6 +130,8 @@ layer(Layer.merge(SiteLive, BrowserLive), { excludeTestServices: true, timeout: 
           searchSettlesWithin
         )
         expect(after.join(" ")).not.toBe(before.join(" "))
+        // Prose changes during the search; new feature controls arrive only after its drawing settles.
+        yield* drawn(page)
         yield* visible(page.getByRole("button", { name: /^Ship's bell, added by proposer program/u }))
         const markers = page.locator("[data-place-marker]")
         const overlay = page.locator("[data-place-provenance]")
