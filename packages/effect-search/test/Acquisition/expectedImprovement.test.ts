@@ -21,6 +21,12 @@ describe("tpe expected improvement", () => {
       expect(argmax(scores)).toBe(2)
     }))
 
+  it.effect("ignores unordered scores without discarding ordered candidates", () =>
+    Effect.sync(() => {
+      expect(argmax(Arr.make(Number.NaN, 0.4, Number.NaN, 1.2))).toBe(3)
+      expect(argmax(Arr.make(Number.NaN, Number.NaN))).toBe(0)
+    }))
+
   it.effect.prop(
     "never emits NaN scores for finite inputs",
     Tuple.make(

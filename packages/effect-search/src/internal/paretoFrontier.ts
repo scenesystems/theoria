@@ -15,6 +15,8 @@ import { dominatesNormalized, normalizeMatrix, validateRectangular } from "./par
 const Fronts = Schema.Array(Schema.Array(Schema.Number))
 type Fronts = typeof Fronts.Type
 
+const isNonNaN = Schema.is(Schema.NonNaN)
+
 const buildIndices = (count: number) =>
   Match.value(Num.lessThanOrEqualTo(count, 0)).pipe(
     Match.when(true, () => Arr.empty<number>()),
@@ -54,10 +56,13 @@ const normalizedAt = (normalizedInput: Iterable<Vector>, index: number): Vector 
 }
 
 const isBetter = (a: number, b: number, d: Direction): boolean =>
-  Match.value(d).pipe(
-    Match.when("maximize", () => Num.greaterThan(a, b)),
-    Match.when("minimize", () => Num.lessThan(a, b)),
-    Match.exhaustive
+  Bool.and(
+    Bool.and(isNonNaN(a), isNonNaN(b)),
+    Match.value(d).pipe(
+      Match.when("maximize", () => Num.greaterThan(a, b)),
+      Match.when("minimize", () => Num.lessThan(a, b)),
+      Match.exhaustive
+    )
   )
 
 /**

@@ -1,5 +1,5 @@
 import { isFinite, logStrict } from "@scenesystems/effect-math/Numeric"
-import { Array as Arr, Boolean as Bool, Data, Match, Number as Num, Option, Schema } from "effect"
+import { Array as Arr, Boolean as Bool, Data, Number as Num, Option, Schema } from "effect"
 
 export const ExpectedImprovementScoreSchema = Schema.Number
 
@@ -65,18 +65,22 @@ class ArgmaxCandidate extends Data.Class<{
   readonly score: number
 }> {}
 
-const initialArgmaxCandidate = new ArgmaxCandidate({
-  index: 0,
-  score: Number.NEGATIVE_INFINITY
-})
+const isNonNaN = Schema.is(Schema.NonNaN)
 
 export const argmax = (scores: Iterable<ExpectedImprovementScore>): number =>
   Arr.reduce(
     Arr.fromIterable(scores),
-    initialArgmaxCandidate,
+    Option.none<ArgmaxCandidate>(),
     (currentBest, candidateScore, index) =>
-      Match.value(Num.greaterThan(candidateScore, currentBest.score)).pipe(
-        Match.when(true, () => new ArgmaxCandidate({ index, score: candidateScore })),
-        Match.orElse(() => currentBest)
-      )
-  ).index
+      Bool.match(isNonNaN(candidateScore), {
+        onFalse: () => currentBest,
+        onTrue: () =>
+          currentBest.pipe(
+            Option.filter((current) => Num.greaterThanOrEqualTo(current.score, candidateScore)),
+            Option.orElse(() => Option.some(new ArgmaxCandidate({ index, score: candidateScore })))
+          )
+      })
+  ).pipe(
+    Option.map((candidate) => candidate.index),
+    Option.getOrElse(() => 0)
+  )

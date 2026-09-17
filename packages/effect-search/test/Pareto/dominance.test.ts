@@ -2,6 +2,7 @@ import { describe, expect, it } from "@effect/vitest"
 import { Array as Arr, Effect } from "effect"
 
 import * as Direction from "../../src/Direction.js"
+import { dominatesNormalized, normalizePoint } from "../../src/internal/paretoDominance.js"
 import { dominates, nonDominatedIndices, nonDominatedRanks, nonDominatedSort } from "../../src/Pareto.js"
 
 const MINIMIZE_DIRECTIONS = Arr.make(Direction.minimize, Direction.minimize)
@@ -62,5 +63,33 @@ describe("pareto kernel", () => {
       expect(dominates(incumbent, nearTie, MINIMIZE_DIRECTIONS)).toBe(true)
       expect(dominates(incumbent, nearTie, MINIMIZE_DIRECTIONS, 0.1)).toBe(false)
       expect(dominates(incumbent, clearlyDominated, MIXED_DIRECTIONS, 0.1)).toBe(true)
+    }))
+
+  it.effect("treats NaN in either normalized operand as unordered", () =>
+    Effect.sync(() => {
+      const nan = Arr.make(Number.NaN)
+      const finite = Arr.make(1)
+
+      expect(dominatesNormalized(nan, finite)).toBe(false)
+      expect(dominatesNormalized(finite, nan)).toBe(false)
+      expect(dominatesNormalized(nan, finite, 0.1)).toBe(false)
+      expect(dominatesNormalized(finite, nan, 0.1)).toBe(false)
+    }))
+
+  it.effect("does not derive an epsilon improvement from equal infinities", () =>
+    Effect.sync(() => {
+      expect(dominatesNormalized(Arr.make(Number.POSITIVE_INFINITY), Arr.make(Number.POSITIVE_INFINITY), 0.1))
+        .toBe(false)
+      expect(dominatesNormalized(Arr.make(Number.NEGATIVE_INFINITY), Arr.make(Number.NEGATIVE_INFINITY), 0.1))
+        .toBe(false)
+    }))
+
+  it.effect("preserves non-finite normalization before direction conversion", () =>
+    Effect.sync(() => {
+      const point = Arr.make(Number.NaN, Number.POSITIVE_INFINITY, Number.NEGATIVE_INFINITY)
+
+      expect(normalizePoint(point, Arr.make(Direction.minimize, Direction.maximize, Direction.minimize))).toEqual(
+        Arr.make(Number.POSITIVE_INFINITY, Number.NEGATIVE_INFINITY, Number.POSITIVE_INFINITY)
+      )
     }))
 })

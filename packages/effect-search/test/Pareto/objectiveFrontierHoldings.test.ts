@@ -62,6 +62,33 @@ describe("Pareto objective frontier holdings", () => {
       ))
     }))
 
+  it.effect("does not promote unordered maximize coordinates", () =>
+    Effect.sync(() => {
+      const holdings = Pareto.objectiveFrontierHoldings(
+        Arr.make(Arr.make(1), Arr.make(Number.NaN), Arr.make(0)),
+        Arr.make(Direction.maximize)
+      )
+      const unorderedOnly = Pareto.objectiveFrontierHoldings(
+        Arr.make(Arr.make(Number.NaN)),
+        Arr.make(Direction.maximize)
+      )
+
+      expect(holdings).toEqual(Arr.make(
+        new Pareto.Holding({
+          objectiveIndex: 0,
+          bestValue: 1,
+          holders: Arr.make(0)
+        })
+      ))
+      expect(unorderedOnly).toEqual(Arr.make(
+        new Pareto.Holding({
+          objectiveIndex: 0,
+          bestValue: Number.NEGATIVE_INFINITY,
+          holders: Arr.empty<number>()
+        })
+      ))
+    }))
+
   it.effect("returns an empty holdings vector for an empty point set", () =>
     Effect.sync(() => {
       expect(Pareto.objectiveFrontierHoldings(Arr.empty<Vector>())).toEqual(Arr.empty())

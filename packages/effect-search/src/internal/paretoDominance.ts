@@ -5,10 +5,21 @@
  */
 
 import { isFinite } from "@scenesystems/effect-math/Numeric"
-import { Array as Arr, Boolean as Bool, Equal, Match, Number as Num, Option } from "effect"
+import { Array as Arr, Boolean as Bool, Equal, Match, Number as Num, Option, Schema } from "effect"
 
 import type { Direction } from "../Direction.js"
 import type { Vector } from "../Objective.js"
+
+const isNonNaN = Schema.is(Schema.NonNaN)
+
+const lessThanWhenOrdered = (left: number, right: number): boolean =>
+  Bool.and(Bool.and(isNonNaN(left), isNonNaN(right)), Num.lessThan(left, right))
+
+const lessThanOrEqualToWhenOrdered = (left: number, right: number): boolean =>
+  Bool.and(Bool.and(isNonNaN(left), isNonNaN(right)), Num.lessThanOrEqualTo(left, right))
+
+const greaterThanOrEqualToWhenOrdered = (left: number, right: number): boolean =>
+  Bool.and(Bool.and(isNonNaN(left), isNonNaN(right)), Num.greaterThanOrEqualTo(left, right))
 
 const minimize = (): Direction => "minimize"
 
@@ -95,11 +106,11 @@ const dominatesExactly = (
 ): boolean => {
   const noWorse = Arr.every(
     normalizedLeft,
-    (value, index) => Num.lessThanOrEqualTo(value, rawValueAt(normalizedRight, index))
+    (value, index) => lessThanOrEqualToWhenOrdered(value, rawValueAt(normalizedRight, index))
   )
   const strictlyBetter = Arr.some(
     normalizedLeft,
-    (value, index) => Num.lessThan(value, rawValueAt(normalizedRight, index))
+    (value, index) => lessThanWhenOrdered(value, rawValueAt(normalizedRight, index))
   )
 
   return Bool.and(noWorse, strictlyBetter)
@@ -112,7 +123,7 @@ const dominatesWithEpsilon = (
 ): boolean =>
   Arr.every(
     normalizedLeft,
-    (value, index) => Num.greaterThanOrEqualTo(Num.subtract(rawValueAt(normalizedRight, index), value), epsilon)
+    (value, index) => greaterThanOrEqualToWhenOrdered(Num.subtract(rawValueAt(normalizedRight, index), value), epsilon)
   )
 
 /**
