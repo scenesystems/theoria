@@ -39,6 +39,7 @@ import {
   clipboardText,
   greekFaceOpacities,
   horizontalScrollers,
+  isActiveElement,
   presence,
   resolvedChrome,
   scrollAffordance,
@@ -254,6 +255,52 @@ layer(Layer.merge(SiteLive, BrowserLive), { excludeTestServices: true, timeout: 
                   }))
               }))
           }))
+        expect(yield* failures).toEqual([])
+      }))
+
+    it.scoped("a delayed docs renderer loads on demand and preserves navigation focus", () =>
+      Effect.gen(function*() {
+        const { failures, page } = yield* openPage({ reducedMotion: "reduce" })
+        const runtime = yield* Effect.runtime<never>()
+        const gate = yield* Deferred.make<void>()
+        const modules = yield* observeRequests(page, (request) => Str.includes("/assets/DocsPage-")(request.url))
+        yield* act(() =>
+          page.route("**/assets/DocsPage-*.js", (route) =>
+            Runtime.runPromise(runtime)(Deferred.await(gate).pipe(Effect.andThen(act(() => route.continue())))))
+        )
+        yield* goto(page, "/")
+        const browse = page.getByRole("link", { name: "Browse the packages", exact: true })
+        yield* visible(browse)
+        expect(yield* modules).toHaveLength(0)
+        yield* click(browse)
+        yield* visible(page.locator("[data-docs-skeleton=\"index\"]"))
+        yield* Deferred.succeed(gate, undefined)
+        yield* visible(page.getByRole("heading", { level: 1, name: "Packages" }))
+        yield* until(
+          act(() =>
+            page.locator("main").evaluate(isActiveElement)
+          ),
+          (focused) => focused,
+          "loaded route focus"
+        )
+        expect(yield* modules).toHaveLength(1)
+        expect(yield* failures).toEqual([])
+      }))
+
+    it.scoped("a failed docs renderer can be retried after the network recovers", () =>
+      Effect.gen(function*() {
+        const { failures, page } = yield* openPage({ reducedMotion: "reduce" })
+        yield* act(() => page.route("**/assets/DocsPage-*.js", (route) => route.abort("failed"), { times: 1 }))
+        yield* goto(page, "/")
+        yield* click(page.getByRole("link", { name: "Browse the packages", exact: true }))
+        yield* visible(page.getByRole("heading", { level: 1, name: "Documentation unavailable" }))
+        yield* until(act(() => page.locator("main").evaluate(isActiveElement)), (focused) =>
+          focused, "failed route focus")
+        const networkFailures = yield* failures
+        expect(networkFailures).not.toHaveLength(0)
+        expect(Arr.every(networkFailures, Str.includes("net::ERR_FAILED"))).toBe(true)
+        yield* click(page.getByRole("button", { name: "Try again", exact: true }))
+        yield* visible(page.getByRole("heading", { level: 1, name: "Packages" }))
         expect(yield* failures).toEqual([])
       }))
 

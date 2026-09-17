@@ -158,7 +158,11 @@ export const DocsPage = ({ route }: { readonly route: DocsRoute }) => {
     ),
     onFailure: () => (
       <Layer className={appTheme.root}>
-        <Main className={`mx-auto ${measureClassName("reading")} px-5 py-20`}>
+        <Main
+          className={`mx-auto ${measureClassName("reading")} px-5 py-20 ${workbenchTheme.routeFocus}`}
+          data-route-focus
+          tabIndex={-1}
+        >
           <DocsStatus retry={refresh} state="failure" />
         </Main>
       </Layer>
