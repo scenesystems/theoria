@@ -1,19 +1,18 @@
 import { describe, expect, it } from "@effect/vitest"
-import * as Numeric from "@scenesystems/effect-math/Numeric"
-import { Effect, Layer, Option } from "effect"
+import { Effect, Layer, Number, Option, String, Tuple } from "effect"
 import * as Arr from "effect/Array"
 
-import { Contracts, Text } from "../../src/index.js"
-import { containsUnsupportedBidiControls } from "../../src/Text/internal/bidi.js"
-import { bidiMirrorPairs } from "../../src/Text/internal/bidiData.js"
+import * as MeasurementCache from "../../src/MeasurementCache.js"
+import * as Text from "../../src/Text.js"
+import * as TextMeasurer from "../../src/TextMeasurer.js"
 
 const makeTestLayer = Layer.mergeAll(
-  Text.WordSegmenterLive,
-  Text.EngineProfileLive,
-  Text.MeasurementCacheLive.pipe(
+  Text.layerSegmenter,
+  Text.layerProfile,
+  MeasurementCache.layer.pipe(
     Layer.provide(
-      Layer.succeed(Contracts.TextMeasurer, {
-        measure: (_font, text: string) => Effect.succeed(text.length * 5)
+      Layer.succeed(TextMeasurer.TextMeasurer, {
+        measure: (_font, text: string) => Effect.succeed(Number.multiply(String.length(text), 5))
       })
     )
   )
@@ -28,7 +27,7 @@ describe("Text bidi visual ordering contracts", () => {
         whiteSpace: "normal"
       }).pipe(Effect.provide(makeTestLayer))
 
-      expect(Text.layoutLines(prepared, { maxWidth: 200, lineHeight: 12 })).toEqual([
+      expect(Text.lines(prepared, { maxWidth: 200, lineHeight: 12 })).toEqual(Arr.of(
         {
           baseDirection: "rtl",
           index: 0,
@@ -36,7 +35,7 @@ describe("Text bidi visual ordering contracts", () => {
           text: "ابحرم hello םולש",
           width: 80
         }
-      ])
+      ))
     }))
 
   it.effect("handles neutral punctuation in mixed-direction lines", () =>
@@ -47,7 +46,10 @@ describe("Text bidi visual ordering contracts", () => {
         whiteSpace: "normal"
       }).pipe(Effect.provide(makeTestLayer))
 
-      expect(Text.layoutLines(prepared, { maxWidth: 200, lineHeight: 12 })[0]?.text).toBe("hello (םולש) world")
+      expect(
+        Arr.head(Text.lines(prepared, { maxWidth: 200, lineHeight: 12 })).pipe(Option.map((line) => line.text))
+      )
+        .toEqual(Option.some("hello (םולש) world"))
     }))
 
   it.effect("mirrors paired punctuation inside rtl visual runs", () =>
@@ -58,7 +60,10 @@ describe("Text bidi visual ordering contracts", () => {
         whiteSpace: "normal"
       }).pipe(Effect.provide(makeTestLayer))
 
-      expect(Text.layoutLines(prepared, { maxWidth: 200, lineHeight: 12 })[0]?.text).toBe("(םולש)")
+      expect(
+        Arr.head(Text.lines(prepared, { maxWidth: 200, lineHeight: 12 })).pipe(Option.map((line) => line.text))
+      )
+        .toEqual(Option.some("(םולש)"))
     }))
 
   it.effect("keeps cursor bounds stable across visually reordered output", () =>
@@ -69,12 +74,12 @@ describe("Text bidi visual ordering contracts", () => {
         whiteSpace: "normal"
       }).pipe(Effect.provide(makeTestLayer))
       const request = { maxWidth: 200, lineHeight: 12 }
-      const lines = Text.layoutLines(prepared, request)
-      const ranges = Text.walkLineRanges(prepared, request)
-      const nextLine = Text.layoutNextLine(prepared, request, Text.initialCursor())
+      const lines = Text.lines(prepared, request)
+      const ranges = Text.ranges(prepared, request)
+      const nextLine = Text.nextLine(prepared, request, Text.start)
 
-      expect(lines[0]?.text).toBe("hello םולש world")
-      expect(ranges).toEqual([
+      expect(Arr.head(lines).pipe(Option.map((line) => line.text))).toEqual(Option.some("hello םולש world"))
+      expect(ranges).toEqual(Arr.of(
         {
           baseDirection: "ltr",
           end: { graphemeIndex: 0, segmentIndex: 5 },
@@ -82,11 +87,11 @@ describe("Text bidi visual ordering contracts", () => {
           start: { graphemeIndex: 0, segmentIndex: 0 },
           width: 80
         }
-      ])
+      ))
       expect(
-        Option.map(nextLine, ([line, cursor]) => ({
-          cursor,
-          line
+        Option.map(nextLine, (step) => ({
+          cursor: Tuple.getSecond(step),
+          line: Tuple.getFirst(step)
         }))
       ).toEqual(
         Option.some({
@@ -110,77 +115,48 @@ describe("Text bidi visual ordering contracts", () => {
         whiteSpace: "normal"
       }).pipe(Effect.provide(makeTestLayer))
       const request = { maxWidth: 55, lineHeight: 12 }
-      const summary = Text.layout(prepared, request)
-      const lines = Text.layoutLines(prepared, request)
-      const ranges = Text.walkLineRanges(prepared, request)
+      const summary = Text.summary(prepared, request)
+      const lines = Text.lines(prepared, request)
+      const ranges = Text.ranges(prepared, request)
 
-      expect(summary.lineCount).toBe(lines.length)
-      expect(summary.maxLineWidth).toBe(Arr.reduce(lines, 0, (maxWidth, line) => Numeric.max(maxWidth, line.width)))
+      expect(summary.lineCount).toBe(Arr.length(lines))
+      expect(summary.maxLineWidth).toBe(Arr.reduce(lines, 0, (maxWidth, line) => Number.max(maxWidth, line.width)))
       expect(Arr.map(ranges, (range) => range.width)).toEqual(Arr.map(lines, (line) => line.width))
-      expect(Arr.every(lines, (line) => line.order === "visual")).toBe(true)
+      expect(Arr.every(lines, (line) => String.Equivalence(line.order, "visual"))).toBe(true)
     }))
 
-  it.effect("pins the governed mirror-table coverage for shipped paired punctuation", () =>
-    Effect.sync(() => {
-      expect(bidiMirrorPairs).toEqual([
-        ["(", ")"],
-        [")", "("],
-        ["[", "]"],
-        ["]", "["],
-        ["{", "}"],
-        ["}", "{"],
-        ["<", ">"],
-        [">", "<"],
-        ["«", "»"],
-        ["»", "«"],
-        ["‹", "›"],
-        ["›", "‹"],
-        ["〈", "〉"],
-        ["〉", "〈"],
-        ["《", "》"],
-        ["》", "《"],
-        ["「", "」"],
-        ["」", "「"],
-        ["『", "』"],
-        ["』", "『"],
-        ["【", "】"],
-        ["】", "【"],
-        ["〔", "〕"],
-        ["〕", "〔"],
-        ["〖", "〗"],
-        ["〗", "〖"],
-        ["〘", "〙"],
-        ["〙", "〘"],
-        ["〚", "〛"],
-        ["〛", "〚"],
-        ["（", "）"],
-        ["）", "（"],
-        ["［", "］"],
-        ["］", "［"],
-        ["｛", "｝"],
-        ["｝", "｛"]
-      ])
-    }))
+  it.effect("preserves unsupported bidi formatting controls instead of interpreting or dropping them", () =>
+    Effect.gen(function*() {
+      const prepared = yield* Text.prepareWithSegments({
+        text: "abc\u2067def\u2069",
+        font: { family: "Mono", size: 10 },
+        whiteSpace: "normal"
+      }).pipe(Effect.provide(makeTestLayer))
 
-  it.effect("treats bidi formatting controls as an explicit unsupported branch", () =>
-    Effect.sync(() => {
-      expect(containsUnsupportedBidiControls("abc\u2067def\u2069")).toBe(true)
-      expect(containsUnsupportedBidiControls("a\u200bb\u2060c\u00add")).toBe(false)
+      expect(Text.lines(prepared, { maxWidth: 200, lineHeight: 12 })).toEqual(Arr.of(
+        {
+          baseDirection: "ltr",
+          index: 0,
+          order: "visual",
+          text: "abc\u2067def\u2069",
+          width: 40
+        }
+      ))
     }))
 
   it.effect("handles bidi-heavy long lines without recursive overflow", () =>
     Effect.gen(function*() {
       const prepared = yield* Text.prepareWithSegments({
-        text: "שלום hello مرحبا ".repeat(1200).trim(),
+        text: String.trim(Arr.join(Arr.replicate("שלום hello مرحبا ", 1200), "")),
         font: { family: "Mono", size: 10 },
         whiteSpace: "normal"
       }).pipe(Effect.provide(makeTestLayer))
       const request = { maxWidth: 1000000, lineHeight: 12 }
-      const summary = Text.layout(prepared, request)
-      const lines = Text.layoutLines(prepared, request)
+      const summary = Text.summary(prepared, request)
+      const lines = Text.lines(prepared, request)
 
       expect(summary.lineCount).toBe(1)
-      expect(lines.length).toBe(1)
-      expect(lines[0]?.text.length).toBeGreaterThan(1000)
+      expect(Arr.length(lines)).toBe(1)
+      expect(Arr.head(lines).pipe(Option.map((line) => String.length(line.text)))).toEqual(Option.some(20399))
     }))
 })

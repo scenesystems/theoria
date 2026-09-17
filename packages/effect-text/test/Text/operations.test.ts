@@ -1,16 +1,18 @@
 import { describe, expect, it } from "@effect/vitest"
-import { Effect, Layer, Match, Option, Ref, Stream } from "effect"
+import { Effect, Layer, Match, Number, Option, pipe, Ref, Stream, String, Tuple } from "effect"
 import * as Arr from "effect/Array"
 
-import { Browser, Contracts, Errors, Text } from "../../src/index.js"
-import { preparedTextCore, preparedTextWithSegmentsCore } from "../../src/Text/model.js"
+import * as CanvasTextMeasurer from "../../src/CanvasTextMeasurer.js"
+import * as MeasurementCache from "../../src/MeasurementCache.js"
+import * as Text from "../../src/Text.js"
+import * as TextMeasurer from "../../src/TextMeasurer.js"
 
 const visualLine = (
   index: number,
   text: string,
   width: number,
-  baseDirection: Text.BaseTextDirectionType = "ltr"
-): Text.LayoutLineType => ({
+  baseDirection: Text.Direction = "ltr"
+): Text.Line => ({
   baseDirection,
   index,
   order: "visual",
@@ -20,32 +22,33 @@ const visualLine = (
 
 const makeTestContext = Effect.gen(function*() {
   const measurements = yield* Ref.make(0)
-  const measurerLayer = Layer.succeed(Contracts.TextMeasurer, {
-    measure: (_font, text: string) => Ref.update(measurements, (count) => count + 1).pipe(Effect.as(text.length * 5))
+  const measurerLayer = Layer.succeed(TextMeasurer.TextMeasurer, {
+    measure: (_font, text: string) =>
+      Ref.update(measurements, Number.increment).pipe(Effect.as(Number.multiply(String.length(text), 5)))
   })
 
   return {
     measurements,
     layer: Layer.mergeAll(
-      Text.WordSegmenterLive,
-      Text.EngineProfileLive,
-      Text.MeasurementCacheLive.pipe(Layer.provide(measurerLayer))
+      Text.layerSegmenter,
+      Text.layerProfile,
+      MeasurementCache.layer.pipe(Layer.provide(measurerLayer))
     )
   }
 })
 
 class EmojiCanvasContext {
-  direction: "inherit" = "inherit"
+  direction: CanvasTextMeasurer.Direction = "inherit"
   font = "10px sans-serif"
-  textBaseline: "alphabetic" = "alphabetic"
+  textBaseline: CanvasTextMeasurer.Baseline = "alphabetic"
 
-  measureText(text: string): { readonly width: number } {
+  measureText(text: string): CanvasTextMeasurer.Metrics {
     return {
       width: Match.value(text).pipe(
         Match.when("🙂", () => 4),
         Match.when("AB", () => 20),
         Match.when("A🙂B", () => 22),
-        Match.orElse((value) => value.length * 10)
+        Match.orElse((value) => Number.multiply(String.length(value), 10))
       )
     }
   }
@@ -64,8 +67,8 @@ describe("Text operations", () => {
       const afterPrepare = yield* Ref.get(measurements)
       expect(afterPrepare).toBeGreaterThan(1)
 
-      const narrow = Text.layout(prepared, { maxWidth: 40, lineHeight: 12 })
-      const wide = Text.layout(prepared, { maxWidth: 100, lineHeight: 12 })
+      const narrow = Text.summary(prepared, { maxWidth: 40, lineHeight: 12 })
+      const wide = Text.summary(prepared, { maxWidth: 100, lineHeight: 12 })
       const afterLayout = yield* Ref.get(measurements)
 
       expect(afterLayout).toBe(afterPrepare)
@@ -78,20 +81,20 @@ describe("Text operations", () => {
       const { measurements, layer } = yield* makeTestContext
       const text = "\uD800 unpaired"
       const font = { family: "Mono \uDC00", size: 10 }
-      const browserLayer = Browser.BrowserMeasurementCacheLive().pipe(
-        Layer.provide(Layer.succeed(Contracts.TextMeasurer, {
+      const browserLayer = MeasurementCache.layer.pipe(
+        Layer.provide(Layer.succeed(TextMeasurer.TextMeasurer, {
           measure: (_font, measured: string) =>
-            Ref.update(measurements, (count) => count + 1).pipe(Effect.as(measured.length * 5))
+            Ref.update(measurements, Number.increment).pipe(Effect.as(Number.multiply(String.length(measured), 5)))
         }))
       )
 
-      const measure = (cacheLayer: Layer.Layer<Contracts.MeasurementCache>) =>
+      const measure = (cacheLayer: Layer.Layer<MeasurementCache.MeasurementCache>) =>
         Effect.gen(function*() {
-          const cache = yield* Contracts.MeasurementCache
+          const cache = yield* MeasurementCache.MeasurementCache
           const omittedWeight = yield* cache.measure(font, text)
           const explicitWeight = yield* cache.measure({ ...font, weight: 400 }, text)
 
-          expect(omittedWeight).toBe(text.length * 5)
+          expect(omittedWeight).toBe(Number.multiply(String.length(text), 5))
           expect(explicitWeight).toBe(omittedWeight)
         }).pipe(Effect.provide(cacheLayer))
 
@@ -113,20 +116,22 @@ describe("Text operations", () => {
         }).pipe(Effect.provide(layer))
       )
 
-      expect(error).toBeInstanceOf(Errors.TextLayoutDecodeError)
+      expect(error).toBeInstanceOf(Text.DecodeError)
     }))
 
   it.effect("supports a canvas-backed measurer with optional emoji correction", () =>
     Effect.gen(function*() {
       const layer = Layer.mergeAll(
-        Text.WordSegmenterLive,
-        Text.EngineProfileLive,
-        Text.MeasurementCacheLive.pipe(
+        Text.layerSegmenter,
+        Text.layerProfile,
+        MeasurementCache.layer.pipe(
           Layer.provide(
-            Browser.CanvasTextMeasurerLive({
-              context: new EmojiCanvasContext(),
-              emojiCorrection: true
-            })
+            CanvasTextMeasurer.layer(
+              new CanvasTextMeasurer.Options({
+                context: new EmojiCanvasContext(),
+                emojiCorrection: true
+              })
+            )
           )
         )
       )
@@ -137,7 +142,7 @@ describe("Text operations", () => {
         whiteSpace: "normal"
       }).pipe(Effect.provide(layer))
 
-      expect(Text.layout(prepared, { maxWidth: 100, lineHeight: 12 }).maxLineWidth).toBe(32)
+      expect(Text.summary(prepared, { maxWidth: 100, lineHeight: 12 }).maxLineWidth).toBe(32)
     }))
 
   it.effect("breaks on prepared soft hyphens without making layout effectful", () =>
@@ -149,10 +154,45 @@ describe("Text operations", () => {
         whiteSpace: "normal"
       }).pipe(Effect.provide(layer))
 
-      expect(Text.layoutLines(prepared, { maxWidth: 30, lineHeight: 12 })).toEqual([
+      expect(Text.lines(prepared, { maxWidth: 30, lineHeight: 12 })).toEqual(Arr.make(
         visualLine(0, "alpha-", 30),
         visualLine(1, "beta", 20)
-      ])
+      ))
+    }))
+
+  it.effect("honors early and late soft-hyphen preference without changing preparation seams", () =>
+    Effect.gen(function*() {
+      const measurerLayer = Layer.succeed(TextMeasurer.TextMeasurer, {
+        measure: (_font, text: string) => Effect.succeed(Number.multiply(String.length(text), 5))
+      })
+      const prepareWithPreference = (preferEarlySoftHyphenBreak: boolean) =>
+        Text.prepareWithSegments({
+          text: "ab\u00adcd\u00adef",
+          font: { family: "Mono", size: 10 },
+          whiteSpace: "normal"
+        }).pipe(
+          Effect.provide(Layer.mergeAll(
+            Text.layerSegmenter,
+            Layer.succeed(Text.CurrentProfile, {
+              defaultDirection: "ltr",
+              lineFitEpsilon: 0.005,
+              preferEarlySoftHyphenBreak,
+              preferPrefixWidthsForBreakableRuns: true,
+              tabWidth: 4
+            }),
+            MeasurementCache.layer.pipe(Layer.provide(measurerLayer))
+          ))
+        )
+      const early = yield* prepareWithPreference(true)
+      const late = yield* prepareWithPreference(false)
+      const request = { maxWidth: 25, lineHeight: 12 }
+
+      expect(Arr.head(Text.lines(early, request)).pipe(Option.map((line) => line.text))).toEqual(
+        Option.some("ab-")
+      )
+      expect(Arr.head(Text.lines(late, request)).pipe(Option.map((line) => line.text))).toEqual(
+        Option.some("abcd-")
+      )
     }))
 
   it.effect("treats tabs as pure layout-time advances derived from prepared metadata", () =>
@@ -164,70 +204,30 @@ describe("Text operations", () => {
         whiteSpace: "pre-wrap"
       }).pipe(Effect.provide(layer))
 
-      expect(Text.layoutLines(prepared, { maxWidth: 100, lineHeight: 12 })).toEqual([
+      expect(Text.lines(prepared, { maxWidth: 100, lineHeight: 12 })).toEqual(Arr.of(
         visualLine(0, "a\tb", 25)
-      ])
+      ))
     }))
 
-  it.effect("stores base direction and per-segment bidi metadata during prepare", () =>
+  it.effect("accepts rich handles for summaries while reserving materialization for rich handles", () =>
     Effect.gen(function*() {
       const { layer } = yield* makeTestContext
-      const prepared = yield* Text.prepareWithSegments({
-        text: "שלום hello",
-        font: { family: "Mono", size: 10 },
-        whiteSpace: "normal"
-      }).pipe(Effect.provide(layer))
-
-      const core = preparedTextWithSegmentsCore(prepared)
-
-      expect(core.kernel.baseDirection).toBe("rtl")
-      expect(
-        Arr.map(
-          Arr.filter(core.logicalSurface.segments, (segment) => segment.kind === "text"),
-          (segment) => segment.direction
-        )
-      ).toEqual(["rtl", "ltr"])
-    }))
-
-  it.effect("compiles walker runtime tables alongside the prepared manual surface", () =>
-    Effect.gen(function*() {
-      const { layer } = yield* makeTestContext
-      const prepared = yield* Text.prepareWithSegments({
-        text: "alpha\nbeta",
-        font: { family: "Mono", size: 10 },
-        whiteSpace: "pre-wrap"
-      }).pipe(Effect.provide(layer))
-
-      const core = preparedTextWithSegmentsCore(prepared)
-
-      expect(core.kernel.runtime.breakKinds.length).toBe(core.logicalSurface.segments.length)
-      expect(core.kernel.runtime.fitAdvances.length).toBe(core.logicalSurface.segments.length)
-      expect(core.kernel.runtime.paintAdvances.length).toBe(core.logicalSurface.segments.length)
-      expect(core.kernel.runtime.breakablePrefixWidths.length).toBe(core.logicalSurface.segments.length)
-      expect(core.kernel.runtime.graphemeBidiLevels.length).toBe(core.logicalSurface.segments.length)
-      expect(core.kernel.runtime.mirroredGraphemes.length).toBe(core.logicalSurface.segments.length)
-      expect(core.kernel.runtime.chunkStartIndices).toEqual([0, 2])
-      expect(core.kernel.runtime.chunkConsumedEndIndices).toEqual([2, 3])
-      expect(core.kernel.runtime.tabStopAdvance).toBe(0)
-    }))
-
-  it.effect("keeps summary handles storage-distinct from materializing handles", () =>
-    Effect.gen(function*() {
-      const { layer } = yield* makeTestContext
-      const input: Text.PrepareInputType = {
+      const input: Text.Input = {
         text: "alpha beta gamma",
         font: { family: "Mono", size: 10 },
         whiteSpace: "normal"
       }
       const summaryPrepared = yield* Text.prepare(input).pipe(Effect.provide(layer))
       const materializedPrepared = yield* Text.prepareWithSegments(input).pipe(Effect.provide(layer))
-      const summaryCore = preparedTextCore(summaryPrepared)
-      const materializedCore = preparedTextWithSegmentsCore(materializedPrepared)
       const request = { maxWidth: 40, lineHeight: 12 }
+      const layout = Text.layout(materializedPrepared, request)
 
-      expect(Object.prototype.hasOwnProperty.call(summaryCore, "logicalSurface")).toBe(false)
-      expect(Object.prototype.hasOwnProperty.call(materializedCore, "logicalSurface")).toBe(true)
-      expect(Text.layout(summaryPrepared, request)).toEqual(Text.layout(materializedPrepared, request))
+      expect(Text.summary(summaryPrepared, request)).toEqual(Text.summary(materializedPrepared, request))
+      expect(pipe(materializedPrepared, Text.lines(request))).toEqual(layout.lines)
+      expect(Text.summaryFromLines(layout.lines, request.lineHeight)).toEqual(layout.summary)
+      expect(Arr.map(layout.lines, (line) => line.text)).toEqual(
+        Arr.make("alpha", "beta", "gamma")
+      )
     }))
 })
 
@@ -241,13 +241,13 @@ describe("Text edge cases and robustness", () => {
         whiteSpace: "normal"
       }).pipe(Effect.provide(layer))
 
-      const summary = Text.layout(prepared, { maxWidth: 300, lineHeight: 12 })
-      const lines = Text.layoutLines(prepared, { maxWidth: 300, lineHeight: 12 })
+      const summary = Text.summary(prepared, { maxWidth: 300, lineHeight: 12 })
+      const lines = Text.lines(prepared, { maxWidth: 300, lineHeight: 12 })
 
       expect(summary.lineCount).toBe(0)
       expect(summary.height).toBe(0)
       expect(summary.maxLineWidth).toBe(0)
-      expect(lines).toEqual([])
+      expect(lines).toEqual(Arr.empty())
     }))
 
   it.effect("handles single-character input", () =>
@@ -259,8 +259,8 @@ describe("Text edge cases and robustness", () => {
         whiteSpace: "normal"
       }).pipe(Effect.provide(layer))
 
-      const lines = Text.layoutLines(prepared, { maxWidth: 300, lineHeight: 12 })
-      expect(lines).toEqual([visualLine(0, "x", 5)])
+      const lines = Text.lines(prepared, { maxWidth: 300, lineHeight: 12 })
+      expect(lines).toEqual(Arr.of(visualLine(0, "x", 5)))
     }))
 
   it.effect("handles whitespace-only input in normal mode", () =>
@@ -272,8 +272,8 @@ describe("Text edge cases and robustness", () => {
         whiteSpace: "normal"
       }).pipe(Effect.provide(layer))
 
-      const lines = Text.layoutLines(prepared, { maxWidth: 300, lineHeight: 12 })
-      expect(lines).toEqual([])
+      const lines = Text.lines(prepared, { maxWidth: 300, lineHeight: 12 })
+      expect(lines).toEqual(Arr.empty())
     }))
 
   it.effect("handles very narrow maxWidth forcing one word per line", () =>
@@ -285,9 +285,9 @@ describe("Text edge cases and robustness", () => {
         whiteSpace: "normal"
       }).pipe(Effect.provide(layer))
 
-      const lines = Text.layoutLines(prepared, { maxWidth: 11, lineHeight: 12 })
-      expect(lines.length).toBe(3)
-      expect(Arr.map(lines, (line) => line.text)).toEqual(["ab", "cd", "ef"])
+      const lines = Text.lines(prepared, { maxWidth: 11, lineHeight: 12 })
+      expect(Arr.length(lines)).toBe(3)
+      expect(Arr.map(lines, (line) => line.text)).toEqual(Arr.make("ab", "cd", "ef"))
     }))
 
   it.effect("handles text that exactly fills the line width", () =>
@@ -299,8 +299,8 @@ describe("Text edge cases and robustness", () => {
         whiteSpace: "normal"
       }).pipe(Effect.provide(layer))
 
-      const lines = Text.layoutLines(prepared, { maxWidth: 45, lineHeight: 12 })
-      expect(Arr.map(lines, (line) => line.text)).toEqual(["abcd efgh"])
+      const lines = Text.lines(prepared, { maxWidth: 45, lineHeight: 12 })
+      expect(Arr.map(lines, (line) => line.text)).toEqual(Arr.of("abcd efgh"))
     }))
 
   it.effect("handles multiple consecutive spaces in pre-wrap mode", () =>
@@ -312,8 +312,8 @@ describe("Text edge cases and robustness", () => {
         whiteSpace: "pre-wrap"
       }).pipe(Effect.provide(layer))
 
-      const lines = Text.layoutLines(prepared, { maxWidth: 200, lineHeight: 12 })
-      expect(Arr.map(lines, (line) => line.text)).toEqual(["a   b"])
+      const lines = Text.lines(prepared, { maxWidth: 200, lineHeight: 12 })
+      expect(Arr.map(lines, (line) => line.text)).toEqual(Arr.of("a   b"))
     }))
 
   it.effect("handles multiple newlines in pre-wrap mode", () =>
@@ -325,35 +325,9 @@ describe("Text edge cases and robustness", () => {
         whiteSpace: "pre-wrap"
       }).pipe(Effect.provide(layer))
 
-      const lines = Text.layoutLines(prepared, { maxWidth: 200, lineHeight: 12 })
-      expect(lines.length).toBe(3)
-      expect(Arr.map(lines, (line) => line.text)).toEqual(["a", "", "b"])
-    }))
-
-  it.effect("font weight defaults to 400 when omitted", () =>
-    Effect.gen(function*() {
-      const { layer } = yield* makeTestContext
-      const prepared = yield* Text.prepareWithSegments({
-        text: "hello",
-        font: { family: "Mono", size: 10 },
-        whiteSpace: "normal"
-      }).pipe(Effect.provide(layer))
-
-      const core = preparedTextWithSegmentsCore(prepared)
-      expect(core.meta.font.weight).toBe(400)
-    }))
-
-  it.effect("accepts explicit font weight in prepare input", () =>
-    Effect.gen(function*() {
-      const { layer } = yield* makeTestContext
-      const prepared = yield* Text.prepareWithSegments({
-        text: "hello",
-        font: { family: "Mono", size: 10, weight: 700 },
-        whiteSpace: "normal"
-      }).pipe(Effect.provide(layer))
-
-      const core = preparedTextWithSegmentsCore(prepared)
-      expect(core.meta.font.weight).toBe(700)
+      const lines = Text.lines(prepared, { maxWidth: 200, lineHeight: 12 })
+      expect(Arr.length(lines)).toBe(3)
+      expect(Arr.map(lines, (line) => line.text)).toEqual(Arr.make("a", "", "b"))
     }))
 
   it.effect("layout is idempotent across repeated calls", () =>
@@ -366,9 +340,9 @@ describe("Text edge cases and robustness", () => {
       }).pipe(Effect.provide(layer))
 
       const request = { maxWidth: 80, lineHeight: 14 }
-      const a = Text.layoutLines(prepared, request)
-      const b = Text.layoutLines(prepared, request)
-      const c = Text.layoutLines(prepared, request)
+      const a = Text.lines(prepared, request)
+      const b = Text.lines(prepared, request)
+      const c = Text.lines(prepared, request)
 
       expect(a).toEqual(b)
       expect(b).toEqual(c)
@@ -384,10 +358,10 @@ describe("Text edge cases and robustness", () => {
       }).pipe(Effect.provide(layer))
 
       const request = { maxWidth: 60, lineHeight: 14 }
-      const lines = Text.layoutLines(prepared, request)
+      const lines = Text.lines(prepared, request)
 
       Arr.forEach(lines, (line) => {
-        expect(line.width).toBeLessThanOrEqual(request.maxWidth + 0.01)
+        expect(line.width).toBeLessThanOrEqual(Number.sum(request.maxWidth, 0.01))
       })
     }))
 
@@ -406,17 +380,17 @@ describe("Text edge cases and robustness", () => {
           Match.when(0, () => request.maxWidth),
           Match.orElse(() => 40)
         )
-      const projected = Text.layoutLinesWith(
+      const projected = Text.linesWith(
         prepared,
         request,
         maxWidthAtLine
       )
-      const uniform = Text.layoutLines(prepared, request)
+      const uniform = Text.lines(prepared, request)
 
-      expect(projected.length).toBeGreaterThan(uniform.length)
+      expect(Arr.length(projected)).toBeGreaterThan(Arr.length(uniform))
       Arr.forEach(projected, (line) => {
         const maxWidth = maxWidthAtLine(line.index)
-        expect(line.width).toBeLessThanOrEqual(maxWidth + 0.01)
+        expect(line.width).toBeLessThanOrEqual(Number.sum(maxWidth, 0.01))
       })
     }))
 
@@ -429,12 +403,12 @@ describe("Text edge cases and robustness", () => {
         whiteSpace: "normal"
       }).pipe(Effect.provide(layer))
 
-      const lines = Text.layoutLines(prepared, { maxWidth: 35, lineHeight: 12 })
+      const lines = Text.lines(prepared, { maxWidth: 35, lineHeight: 12 })
 
-      expect(Arr.map(lines, (line) => line.text)).toEqual(["alpha", "beta", "gamma"])
+      expect(Arr.map(lines, (line) => line.text)).toEqual(Arr.make("alpha", "beta", "gamma"))
     }))
 
-  it.effect("walkLineRanges matches the widths produced by layoutLines", () =>
+  it.effect("ranges matches the widths produced by lines", () =>
     Effect.gen(function*() {
       const { layer } = yield* makeTestContext
       const prepared = yield* Text.prepareWithSegments({
@@ -444,14 +418,41 @@ describe("Text edge cases and robustness", () => {
       }).pipe(Effect.provide(layer))
 
       const request = { maxWidth: 40, lineHeight: 12 }
-      const ranges = Text.walkLineRanges(prepared, request)
-      const lines = Text.layoutLines(prepared, request)
+      const ranges = Text.ranges(prepared, request)
+      const lines = Text.lines(prepared, request)
 
-      expect(ranges[0]?.start).toEqual(Text.initialCursor())
+      expect(Arr.head(ranges).pipe(Option.map((range) => range.start))).toEqual(Option.some(Text.start))
       expect(Arr.map(ranges, (range) => range.width)).toEqual(Arr.map(lines, (line) => line.width))
     }))
 
-  it.effect("measureNaturalWidth returns the widest forced line width", () =>
+  it.effect("supports data-first and data-last ranges with optional per-line widths", () =>
+    Effect.gen(function*() {
+      const { layer } = yield* makeTestContext
+      const prepared = yield* Text.prepareWithSegments({
+        text: "alpha beta gamma delta",
+        font: { family: "Mono", size: 10 },
+        whiteSpace: "normal"
+      }).pipe(Effect.provide(layer))
+      const request = { maxWidth: 40, lineHeight: 12 }
+      const resolveMaxWidth = (lineIndex: number): number =>
+        Match.value(lineIndex).pipe(
+          Match.when(0, () => 55),
+          Match.orElse(() => 30)
+        )
+
+      const uniformDataFirst = Text.ranges(prepared, request)
+      const uniformDataLast = pipe(prepared, Text.ranges(request))
+      const variableDataFirst = Text.ranges(prepared, request, resolveMaxWidth)
+      const variableDataLast = pipe(prepared, Text.ranges(request, resolveMaxWidth))
+
+      expect(uniformDataLast).toEqual(uniformDataFirst)
+      expect(variableDataLast).toEqual(variableDataFirst)
+      expect(Arr.map(variableDataFirst, (range) => range.width)).not.toEqual(
+        Arr.map(uniformDataFirst, (range) => range.width)
+      )
+    }))
+
+  it.effect("naturalWidth returns the widest forced line width", () =>
     Effect.gen(function*() {
       const { layer } = yield* makeTestContext
       const prepared = yield* Text.prepareWithSegments({
@@ -460,10 +461,10 @@ describe("Text edge cases and robustness", () => {
         whiteSpace: "pre-wrap"
       }).pipe(Effect.provide(layer))
 
-      expect(Text.measureNaturalWidth(prepared)).toBe(25)
+      expect(Text.naturalWidth(prepared)).toBe(25)
     }))
 
-  it.effect("stream produces the same lines as layoutLines", () =>
+  it.effect("stream produces the same values as lines", () =>
     Effect.gen(function*() {
       const { layer } = yield* makeTestContext
       const prepared = yield* Text.prepareWithSegments({
@@ -473,13 +474,13 @@ describe("Text edge cases and robustness", () => {
       }).pipe(Effect.provide(layer))
 
       const request = { maxWidth: 40, lineHeight: 12 }
-      const directLines = Text.layoutLines(prepared, request)
-      const streamedLines = yield* Stream.runCollect(Text.streamLines(prepared, request))
+      const directLines = Text.lines(prepared, request)
+      const streamedLines = yield* Stream.runCollect(Text.stream(prepared, request))
 
       expect(Arr.fromIterable(streamedLines)).toEqual(directLines)
     }))
 
-  it.effect("cursor optimization hints do not leak through spread and do not change layout", () =>
+  it.effect("cursor hints remain width-specific when a cursor is reused at another width", () =>
     Effect.gen(function*() {
       const { layer } = yield* makeTestContext
       const prepared = yield* Text.prepareWithSegments({
@@ -489,22 +490,15 @@ describe("Text edge cases and robustness", () => {
       }).pipe(Effect.provide(layer))
       const narrowRequest = { maxWidth: 35, lineHeight: 12 }
       const wideRequest = { maxWidth: 80, lineHeight: 12 }
-      const first = Text.layoutNextLine(prepared, narrowRequest, Text.initialCursor())
+      const first = Text.nextLine(prepared, narrowRequest, Text.start)
       const hintedCursor = Option.match(first, {
-        onNone: Text.initialCursor,
-        onSome: ([, cursor]) => cursor
+        onNone: () => Text.start,
+        onSome: Tuple.getSecond
       })
-      const plainCursor = {
-        graphemeIndex: hintedCursor.graphemeIndex,
-        segmentIndex: hintedCursor.segmentIndex
-      }
-
-      expect({ ...hintedCursor }).toEqual(plainCursor)
-      expect(
-        Option.map(Text.layoutNextLine(prepared, wideRequest, hintedCursor), ([line]) => line.index)
-      ).toEqual(
-        Option.map(Text.layoutNextLine(prepared, wideRequest, plainCursor), ([line]) => line.index)
-      )
+      expect(Option.map(Text.nextLine(prepared, wideRequest, hintedCursor), (step) => Tuple.getFirst(step).index))
+        .toEqual(
+          Option.some(0)
+        )
     }))
 
   it.effect("cursor-based iteration covers all lines", () =>
@@ -517,17 +511,11 @@ describe("Text edge cases and robustness", () => {
       }).pipe(Effect.provide(layer))
 
       const request = { maxWidth: 25, lineHeight: 12 }
-      const directLines = Text.layoutLines(prepared, request)
-
-      const collectCursorLines = (
-        cursor: Text.LayoutCursorType
-      ): ReadonlyArray<Text.LayoutLineType> =>
-        Option.match(Text.layoutNextLine(prepared, request, cursor), {
-          onNone: () => [],
-          onSome: ([line, nextCursor]) => [line, ...collectCursorLines(nextCursor)]
-        })
-
-      const cursorLines = collectCursorLines(Text.initialCursor())
+      const directLines = Text.lines(prepared, request)
+      const cursorLines = Arr.unfold(
+        Text.start,
+        (cursor) => Text.nextLine(prepared, request, cursor)
+      )
 
       expect(cursorLines).toEqual(directLines)
     }))
@@ -535,16 +523,16 @@ describe("Text edge cases and robustness", () => {
   it.effect("walks many hard-break chunks without recursive overflow", () =>
     Effect.gen(function*() {
       const { layer } = yield* makeTestContext
-      const text = Arr.makeBy(1500, (index) => `line-${index}`).join("\n")
+      const text = Arr.join(Arr.makeBy(1500, (index) => `line-${index}`), "\n")
       const prepared = yield* Text.prepareWithSegments({
         text,
         font: { family: "Mono", size: 10 },
         whiteSpace: "pre-wrap"
       }).pipe(Effect.provide(layer))
-      const lines = Text.layoutLines(prepared, { maxWidth: 300, lineHeight: 12 })
+      const lines = Text.lines(prepared, { maxWidth: 300, lineHeight: 12 })
 
-      expect(lines.length).toBe(1500)
-      expect(lines[0]?.text).toBe("line-0")
-      expect(lines[1499]?.text).toBe("line-1499")
+      expect(Arr.length(lines)).toBe(1500)
+      expect(Arr.head(lines).pipe(Option.map((line) => line.text))).toEqual(Option.some("line-0"))
+      expect(Arr.last(lines).pipe(Option.map((line) => line.text))).toEqual(Option.some("line-1499"))
     }))
 })

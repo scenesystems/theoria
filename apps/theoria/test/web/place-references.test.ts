@@ -4,12 +4,35 @@ import * as Arr from "effect/Array"
 
 import { codeSiteOnLine } from "../../app/contracts/demo/imagined-place-provenance.js"
 import { placeLiveValues } from "../../app/web/view/home/placeLiveValues.js"
-import { referenceLinks, sourceUrl } from "../../app/web/view/home/placeReferences.js"
-import { placeSteps } from "../../app/web/view/home/placeSteps.js"
+import { placeReferences, referenceLinks, sourceUrl } from "../../app/web/view/home/placeReferences.js"
+import { placeStepDefinition, placeSteps } from "../../app/web/view/home/placeSteps.js"
 import { segmentLine } from "../../app/web/view/primitives/code/codeLinks.js"
 import { highlightCode, makeSyntaxHighlighter } from "../../app/web/view/primitives/code/highlighter.js"
 
 describe("How it's built references", () => {
+  it.effect("links every reference from the displayed code that uses it", () =>
+    Effect.scoped(
+      Effect.gen(function*() {
+        const highlighter = yield* makeSyntaxHighlighter
+        Arr.forEach(placeSteps, (step) => {
+          const lines = highlightCode(highlighter, placeStepDefinition(step).code, "typescript")
+          const linked = Arr.flatMap(lines, (line) =>
+            Arr.filterMap(
+              segmentLine(line, referenceLinks(step)),
+              (segment) =>
+                Match.value(segment).pipe(
+                  Match.tag("Link", ({ link }) => Option.some(link.text)),
+                  Match.tag("Tokens", () => Option.none()),
+                  Match.exhaustive
+                )
+            ))
+          Arr.forEach(placeReferences(step), (reference) => {
+            expect(linked, `${step}: ${reference.text}`).toContain(reference.text)
+          })
+        })
+      })
+    ))
+
   it.effect("links the signing call while keeping proposal and version provenance distinct", () =>
     Effect.scoped(
       Effect.gen(function*() {

@@ -4,8 +4,16 @@ import * as Num from "effect/Number"
 import * as Tuple from "effect/Tuple"
 
 import {
+  composeSite,
+  inferenceSite,
+  layoutSite,
+  mergedDigestSite,
+  originDigestSite,
+  proposalDigestSite,
   proposalSignatureSite,
   sealSite,
+  searchSite,
+  separationSite,
   versionSignatureSite
 } from "../../../contracts/demo/imagined-place-provenance.js"
 import { renderTrials } from "../../../contracts/demo/imagined-place-search.js"
@@ -27,7 +35,7 @@ const annotation = (match: string, text: Option.Option<string>): Option.Option<C
 const composeValues = (build: PlaceBuild) =>
   Arr.getSomes(Arr.make(
     annotation(
-      "composer.forward(",
+      composeSite.match,
       Option.some(
         `“${build.artifact.composition.title}” · ${
           Inspectable.toStringUnknown(Arr.length(build.artifact.composition.features))
@@ -35,7 +43,7 @@ const composeValues = (build: PlaceBuild) =>
       )
     ),
     annotation(
-      "InferenceTesting.languageModel(",
+      inferenceSite.match,
       Option.map(
         Arr.findFirst(build.evidence.inference, (evidence) => Equal.equals(evidence.program, "theoria-place-composer")),
         (evidence) => evidence.responseModel
@@ -48,7 +56,7 @@ const proposeValues = (build: PlaceBuild) => {
   const note = build.evidence.sealedNote
   return Arr.getSomes(Arr.make(
     annotation(
-      "ContentDigest.fromSchema(Proposal,",
+      proposalDigestSite.match,
       Option.map(neighbor, (record) => `neighbor's proposal · ${shortId(record.contentId)}`)
     ),
     annotation(proposalSignatureSite.match, Option.map(neighbor, (record) => signatureLabel(record.signature))),
@@ -63,11 +71,11 @@ const recordValues = (build: PlaceBuild) => {
   const lineage = build.evidence.lineage
   return Arr.getSomes(Arr.make(
     annotation(
-      "ContentDigest.fromSchema(PlaceArtifact, origin,",
+      originDigestSite.match,
       Option.map(Arr.head(lineage), (version) => `v1 · ${shortId(version.contentId)}`)
     ),
     annotation(
-      "ContentDigest.fromSchema(PlaceArtifact, merged,",
+      mergedDigestSite.match,
       Option.map(Arr.get(lineage, 1), (version) => `v2 · ${shortId(version.contentId)}`)
     ),
     annotation(
@@ -89,19 +97,19 @@ const arrangeValues = (search: PlaceSearch, shown: ShownGeometry) => {
   const { evidence } = search.best
   return Arr.make(
     CodeAnnotation.make({
-      match: "Text.layoutLinesWith(",
+      match: layoutSite.match,
       text: `${Inspectable.toStringUnknown(shown.lineCount)} lines at ${
         Inspectable.toStringUnknown(shown.stageWidth)
       } px`
     }),
     CodeAnnotation.make({
-      match: "Statistics.minimum(",
+      match: separationSite.match,
       text: `closest markers ${
         Inspectable.toStringUnknown(Num.round(Num.multiply(shown.minimumSeparation, 100), 0))
       }% of width apart`
     }),
     CodeAnnotation.make({
-      match: "Optimization.tell(",
+      match: searchSite.match,
       text: Bool.match(searching(search), {
         onTrue: () =>
           `trial ${Inspectable.toStringUnknown(Arr.length(search.tried))} of ${

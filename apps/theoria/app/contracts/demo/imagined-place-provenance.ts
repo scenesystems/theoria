@@ -96,7 +96,7 @@ export const mergedDigestSite = site(
   "digest"
 )
 export const versionSignatureSite = site("version-signature", "record", "Ed25519.sign(", "sign")
-export const layoutSite = site("layout", "arrange", "Text.layoutLinesWith(", "effect-text")
+export const layoutSite = site("layout", "arrange", "Text.linesWith(", "effect-text")
 export const separationSite = site("separation", "arrange", "Statistics.minimum(", "effect-math")
 export const searchSite = site("search", "arrange", "Optimization.tell(", "effect-search")
 

@@ -25,7 +25,12 @@ const composeCode = `// A typed program: a brief in, a schema-checked compositio
 const signature = yield* Signature.make(
   "Turn a short brief for an imagined place into a structured composition.",
   { brief: Signature.describe(Schema.String, "The place, in its author's words.") },
-  { title: PlaceComposition.fields.title, features: PlaceComposition.fields.features }
+  {
+    title: PlaceComposition.fields.title,
+    summary: PlaceComposition.fields.summary,
+    atmosphere: PlaceComposition.fields.atmosphere,
+    features: PlaceComposition.fields.features
+  }
 )
 const composer = yield* Module.predict("theoria-place-composer", signature)
 
@@ -66,7 +71,7 @@ const signed = yield* Ed25519.sign(mergedBytes, author.secretKey, author.publicK
 const arrangeCode = `// Drawing happens where the place is shown, with that screen's font metrics.
 // The description flows around the markers, one line width at a time.
 const prepared = yield* Text.prepareWithSegments(descriptionInput(merged))
-const lines = Text.layoutLinesWith(prepared, { maxWidth, lineHeight }, widthBesideMarkers)
+const lines = Text.linesWith(prepared, { maxWidth, lineHeight }, widthBesideMarkers)
 
 // Six numbers describe how the markers meander down the stage. An arrangement
 // costs more when markers crowd or lines get squeezed; lower is better.

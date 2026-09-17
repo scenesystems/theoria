@@ -84,7 +84,7 @@ describe("place live values", () => {
         Option.some(search),
         Option.some(shownGeometry(showingTrial))
       )
-      expect(valueOf(values, "Text.layoutLinesWith(")).toEqual(
+      expect(valueOf(values, "Text.linesWith(")).toEqual(
         Option.some(
           `${Inspectable.toStringUnknown(trial.evidence.lineCount)} lines at ${
             Inspectable.toStringUnknown(trial.projection.stageWidth)
@@ -115,7 +115,7 @@ describe("place live values", () => {
         { build: Option.some(build), shown: Option.some(showingTrial) }
       )
       const lines = yield* Option.map(shown, (geometry) => geometry.lineCount)
-      expect(valueOf(values, "Text.layoutLinesWith(")).toEqual(
+      expect(valueOf(values, "Text.linesWith(")).toEqual(
         Option.some(
           `${Inspectable.toStringUnknown(lines)} lines at ${
             Inspectable.toStringUnknown(showingTrial.rendering.projection.stageWidth)

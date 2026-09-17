@@ -1,4 +1,4 @@
-import { Array as Arr, Effect, Inspectable, Match, Schema } from "effect"
+import { Array as Arr, Effect, Inspectable, Match, Schema, String as Str } from "effect"
 
 import * as Optimization from "@scenesystems/effect-search/Optimization"
 import { Text } from "@scenesystems/effect-text"
@@ -33,9 +33,11 @@ export const render = (artifact: PlaceArtifact, stageWidth: number): Effect.Effe
     })
     const best = yield* Match.value(result).pipe(
       Match.tag("SingleObjective", (single) => Effect.succeed(single)),
-      Match.orElse((other) =>
-        Effect.fail(new PlaceBuildError({ stage: "render", message: `unexpected study result ${other._tag}` }))
-      )
+      Match.tag("MultiObjective", (multi) =>
+        Effect.fail(
+          new PlaceBuildError({ stage: "render", message: Str.concat("unexpected study result ", multi._tag) })
+        )),
+      Match.exhaustive
     )
 
     return renderingFor({
@@ -45,7 +47,7 @@ export const render = (artifact: PlaceArtifact, stageWidth: number): Effect.Effe
       trials: Arr.length(Arr.fromIterable(best.trials))
     })
   }).pipe(
-    Effect.provide(Text.TextLayoutLive),
+    Effect.provide(Text.layer),
     Effect.mapError((cause) =>
       Match.value(cause).pipe(
         Match.when(Schema.is(PlaceBuildError), (error) => error),

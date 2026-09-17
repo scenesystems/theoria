@@ -1,10 +1,8 @@
 # @scenesystems/effect-text
 
-`@scenesystems/effect-text` lays out text into lines without a browser layout engine. Use it when you need line breaks, line widths, and total height for a string at a given width, and you need them repeatedly: in a canvas renderer, a virtualized list, a resize handler, or an animation that changes the available width every frame.
+`@scenesystems/effect-text` prepares measured text once and then performs pure, greedy multiline layout at any number of widths. It is intended for canvas renderers, virtualized views, diagrams, and other applications that need deterministic line geometry without invoking a browser layout engine.
 
-The package splits the work in two. Preparation is an Effect: it segments the text, measures its runs through a `TextMeasurer` service, consults an `EngineProfile` and optional hyphenation dictionary, and compiles the results into a prepared handle. Layout is a pure function of that handle and a width. Prepare once, then lay out at as many widths as you like with no measurement, no services, and no error channel.
-
-The experimental calibration surface tunes engine profiles against measured layouts with [`@scenesystems/effect-search`](../effect-search/README.md) and scores them with [`@scenesystems/effect-math`](../effect-math/README.md). The preparation and layout path does not depend on either.
+Preparation is an `Effect`: it segments text, measures runs, optionally applies dictionary hyphenation, and captures a text-engine profile. Every projection after preparation is synchronous and pure.
 
 ## Installation
 
@@ -14,9 +12,9 @@ npm install @scenesystems/effect-text effect
 
 Effect `^3.22.1` is a required peer dependency.
 
-## Basic use
+## Quick start
 
-`Text.prepareWithSegments` prepares a string once. `Text.layout` returns the line count, height, and widest line for a width; `Text.layoutLines` returns the lines themselves.
+The default `Text.layer` combines the Unicode-aware segmenter, default profile, bundled hyphenation dictionaries, deterministic estimator, and layer-owned measurement cache.
 
 ```ts typecheck
 import { Effect } from "effect"
@@ -30,73 +28,86 @@ export const program = Effect.gen(function* () {
   })
 
   return {
-    compact: Text.layout(prepared, { maxWidth: 120, lineHeight: 20 }),
-    wide: Text.layoutLines(prepared, { maxWidth: 240, lineHeight: 20 })
+    compact: Text.summary(prepared, { maxWidth: 120, lineHeight: 20 }),
+    wide: Text.lines(prepared, { maxWidth: 240, lineHeight: 20 }),
+    complete: Text.layout(prepared, { maxWidth: 180, lineHeight: 20 })
   }
-}).pipe(Effect.provide(Text.TextLayoutLive))
+}).pipe(Effect.provide(Text.layer))
 ```
 
-`Text.TextLayoutLive` bundles the default services: an `Intl`-based word segmenter, a deterministic width estimator, an in-memory measurement cache, the default engine profile, and the bundled hyphenation dictionaries. It is enough for tests, servers, and any place where estimated widths are acceptable. Browser applications replace the measurer with a canvas-backed one, described below.
+`Text.summary` returns only `lineCount`, `height`, and `maxLineWidth`. `Text.lines` materializes visual-order lines. `Text.layout` returns both `lines` and `summary` from one walk.
 
-## Preparation and layout
+## Inputs, handles, and projections
 
-`PrepareInput` has three required fields and one optional one. `text` is the string. `font` names the family, size, and optional weight that the measurer will use. `whiteSpace` is `normal`, which collapses runs of whitespace, or `pre-wrap`, which preserves spaces, tabs, and hard breaks. `hyphenationLocale` opts a string into dictionary hyphenation.
+The principal data types are `Text.Font`, `Text.Input`, `Text.Whitespace`, `Text.Request`, `Text.Cursor`, `Text.Line`, `Text.Lines`, `Text.Summary`, and `Text.Layout`.
 
-Two preparation functions return different handles. `Text.prepare` returns a `PreparedText` that supports summaries and `Text.measureNaturalWidth`, the width of the widest unbroken chunk. `Text.prepareWithSegments` returns a `PreparedTextWithSegments` that also retains the logical segments needed to materialize lines, step cursors, and vary the width per line. Choose the smaller handle when you only need geometry. `Text.prepareUnknown` decodes untrusted input against the schema before preparing it.
+- `Text.Input` contains `text`, `font`, `whiteSpace`, and an optional `hyphenationLocale`.
+- `whiteSpace: "normal"` collapses whitespace; `"pre-wrap"` preserves spaces, tabs, and hard breaks.
+- `Text.Request` contains positive `maxWidth` and `lineHeight` values in the measurer's units.
+- `Text.prepare` returns `Text.Text`, the smaller handle for `summary` and `naturalWidth`.
+- `Text.prepareWithSegments` returns `Text.WithSegments`, which also supports line materialization, ranges, cursors, and streams.
+- `Text.prepareUnknown` strictly decodes unknown input before preparing it.
 
-Layout functions take a handle and a `LayoutRequest` with a positive `maxWidth` and `lineHeight`:
+Prepared handles expose pure projection operations, not their measurement tables
+or mutable cursor hints. They have no encoding or content-based equality contract;
+use `PreparationKey` when an application needs a structural cache identity.
 
-| Function                      | Handle        | Returns                                                           |
-| ----------------------------- | ------------- | ----------------------------------------------------------------- |
-| `Text.layout`                 | either        | `lineCount`, `height`, and `maxLineWidth`                         |
-| `Text.layoutLines`            | with segments | The visual lines with their text and painted width                |
-| `Text.layoutLinesWithSummary` | with segments | Lines and summary from one walk                                   |
-| `Text.layoutLinesWith`        | with segments | Lines where a resolver supplies the width for each line index     |
-| `Text.layoutNextLine`         | with segments | One line and the cursor for the next, or `Option.none` at the end |
-| `Text.streamLines`            | with segments | A `Stream` of lines that computes only as far as it is pulled     |
+| Function                | Handle                  | Result                                                  |
+| ----------------------- | ----------------------- | ------------------------------------------------------- |
+| `Text.summary`          | `Text.Text`             | Aggregate geometry without line strings                 |
+| `Text.naturalWidth`     | `Text.Text`             | Widest hard-break-delimited width before wrapping       |
+| `Text.lines`            | `Text.WithSegments`     | All visual-order lines at one width                     |
+| `Text.linesWith`        | `Text.WithSegments`     | Lines using a per-line width resolver                   |
+| `Text.ranges`           | `Text.WithSegments`     | Painted widths and half-open logical cursor ranges      |
+| `Text.layout`           | `Text.WithSegments`     | Lines and summary from one walk                         |
+| `Text.nextLine`         | `Text.WithSegments`     | One line and its successor cursor, wrapped in `Option`  |
+| `Text.stream`           | `Text.WithSegments`     | A lazy `Stream` beginning at the canonical `Text.start` |
+| `Text.summaryFromLines` | previously made `Lines` | Aggregate geometry using a caller-supplied line height  |
 
-`Text.layoutLinesWith` is how text flows around obstacles or into a shaped container: return a different `maxWidth` for each line. `Text.layoutNextLine` with `Text.initialCursor()` and `Text.streamLines` serve virtualized rendering, where only the first visible lines are needed.
+All layout functions support data-first and pipeable data-last calls. `linesWith` is useful for shaped containers; `nextLine`, `ranges`, and `stream` support incremental or virtualized rendering.
 
 ```ts typecheck
-import { Chunk, Effect, Stream } from "effect"
+import { Effect, Number, Stream } from "effect"
 import { Text } from "@scenesystems/effect-text"
 
 export const program = Effect.gen(function* () {
   const prepared = yield* Text.prepareWithSegments({
-    text: "Text can flow into a shape when each line asks for its own width.",
+    text: "Each output line can receive a different available width.",
     font: { family: "Mono", size: 14 },
     whiteSpace: "normal"
   })
-  const request = { maxWidth: 160, lineHeight: 18 }
+  const request = { maxWidth: 180, lineHeight: 18 }
+  const shaped = Text.linesWith(prepared, request, (index) =>
+    Number.max(80, Number.subtract(180, Number.multiply(index, 20)))
+  )
+  const first = Text.nextLine(prepared, request, Text.start)
+  const firstThree = yield* Text.stream(prepared, request).pipe(Stream.take(3), Stream.runCollect)
 
-  const shaped = Text.layoutLinesWith(prepared, request, (lineIndex) => 160 - lineIndex * 20)
-  const firstThree = yield* Text.streamLines(prepared, request).pipe(Stream.take(3), Stream.runCollect)
-
-  return { shaped, firstThree: Chunk.toReadonlyArray(firstThree) }
-}).pipe(Effect.provide(Text.TextLayoutLive))
+  return { first, firstThree, shaped }
+}).pipe(Effect.provide(Text.layer))
 ```
 
-Line breaking prefers hard breaks, then soft hyphens, then dictionary hyphens, then explicit break opportunities, and falls back to breaking between graphemes only when a single grapheme exceeds the width. Tabs align to four-column stops.
+## Services and layers
 
-## Measurement services
+Preparation requires `Text.Segmenter`, `Text.CurrentProfile`, and `MeasurementCache.MeasurementCache`. The cache owns successful measurement memoization and requires a `TextMeasurer.TextMeasurer`. Hyphenation is optional: when no `Hyphenation.Hyphenation` service is present, explicit soft hyphens still work but dictionary breaks do not.
 
-Preparation requires five services, all declared in `Contracts`: `WordSegmenter`, `TextMeasurer`, `MeasurementCache`, `EngineProfile`, and `HyphenationDictionary`. `Text.TextLayoutLive` provides all of them. To replace one, compose the individual layers instead.
+`TextMeasurer.layer` is the deterministic estimator used by `Text.layer`. Compose the individual layers to select a profile or disable dictionary hyphenation.
 
 ```ts typecheck
 import { Effect, Layer } from "effect"
-import { Contracts, Text } from "@scenesystems/effect-text"
+import { Hyphenation, MeasurementCache, Text, TextMeasurer } from "@scenesystems/effect-text"
 
 const services = Layer.mergeAll(
-  Text.WordSegmenterLive,
-  Text.NoHyphenationDictionaryLive,
-  Layer.succeed(Contracts.EngineProfile, {
+  Text.layerSegmenter,
+  Hyphenation.layerNone,
+  Layer.succeed(Text.CurrentProfile, {
     lineFitEpsilon: 0.01,
     tabWidth: 8,
     defaultDirection: "ltr",
     preferEarlySoftHyphenBreak: true,
     preferPrefixWidthsForBreakableRuns: true
   }),
-  Text.MeasurementCacheLive.pipe(Layer.provide(Text.TextMeasurerLive))
+  MeasurementCache.layer.pipe(Layer.provide(TextMeasurer.layer))
 )
 
 export const program = Text.prepare({
@@ -104,55 +115,73 @@ export const program = Text.prepare({
   font: { family: "Mono", size: 12 },
   whiteSpace: "pre-wrap"
 }).pipe(
-  Effect.map((prepared) => Text.layout(prepared, { maxWidth: 72, lineHeight: 16 })),
+  Effect.map((prepared) => Text.summary(prepared, { maxWidth: 72, lineHeight: 16 })),
   Effect.provide(services)
 )
 ```
 
-In a browser, measure with the real font. `Browser.CanvasTextMeasurerLive` wraps a 2D canvas context, serializes access to it, and optionally corrects under-reported emoji advances. `Browser.BrowserMeasurementCacheLive` keys its cache by a support-profile id and a font-readiness revision, so measurements taken before a web font loaded are discarded once you bump the revision. `Browser.browserSupportProfile` returns the engine profile tuned for `canvas-monospace` or `canvas-system-ui`.
+Each acquisition of `MeasurementCache.layer` owns a fresh cache. Reacquire that layer after font availability changes rather than retaining widths measured against stale fonts.
 
-Pass the measurement Layer created by `Browser.CanvasTextMeasurerLive` into the layout program:
+## Canvas measurement and profiles
+
+`CanvasTextMeasurer.layer` supplies the principal `TextMeasurer` from a caller-owned canvas-like 2D context. Access is serialized, approved context state is restored after success, failure, or interruption, and optional emoji correction applies a configurable minimum advance.
+
+`CanvasProfile.monospace` and `CanvasProfile.systemUi` pair font selection with a `Text.Profile`; `CanvasProfile.get()` selects one by id and defaults to monospace.
 
 ```ts typecheck
 import { Effect, Layer } from "effect"
-import { Browser, Contracts, Text } from "@scenesystems/effect-text"
+import { CanvasProfile, CanvasTextMeasurer, MeasurementCache, Text } from "@scenesystems/effect-text"
 
-export const layoutOnCanvas = (measurer: Layer.Layer<Contracts.TextMeasurer>, text: string, maxWidth: number) => {
-  const profile = Browser.browserSupportProfile("canvas-system-ui")
+export const layoutOnCanvas = (context: CanvasTextMeasurer.Context, text: string, maxWidth: number) => {
+  const profile = CanvasProfile.systemUi
   const services = Layer.mergeAll(
-    Text.WordSegmenterLive,
-    Text.NoHyphenationDictionaryLive,
-    Layer.succeed(Contracts.EngineProfile, profile.engineProfile),
-    Browser.BrowserMeasurementCacheLive({
-      profileId: profile.id,
-      fontReadinessRevision: Browser.initialFontReadinessRevision()
-    }).pipe(Layer.provide(measurer))
+    Text.layerSegmenter,
+    Layer.succeed(Text.CurrentProfile, profile.engineProfile),
+    MeasurementCache.layer.pipe(
+      Layer.provide(CanvasTextMeasurer.layer(new CanvasTextMeasurer.Options({ context, textBaseline: "alphabetic" })))
+    )
   )
 
-  return Text.prepareWithSegments({ text, font: { family: "system-ui", size: 16 }, whiteSpace: "normal" }).pipe(
-    Effect.map((prepared) => Text.layoutLinesWithSummary(prepared, { maxWidth, lineHeight: 22 })),
+  return Text.prepareWithSegments({
+    text,
+    font: { family: profile.defaultFontFamily, size: 16 },
+    whiteSpace: profile.defaultWhiteSpaceMode
+  }).pipe(
+    Effect.map((prepared) => Text.layout(prepared, { maxWidth, lineHeight: 22 })),
     Effect.provide(services)
   )
 }
 ```
 
-Widths are in the measurer's units, which for canvas measurement are CSS pixels. Validate against your target browsers and fonts; the package guarantees consistent breaking for a given set of measurements, not equivalence with a browser's own layout.
+Widths from canvas are CSS pixels. The application owns font loading and cache invalidation. `new PreparationKey.PreparationKey(...)` creates a structural application-cache key from `prepare`, `engineProfile`, `supportProfileId`, and `fontReadinessRevision`; its constructor captures nested inputs with Effect Data semantics. `PreparationKey.toInput` recovers its `Text.Input`. `PreparationKey.Revision` validates non-negative integer revisions, which begin at `PreparationKey.initialRevision` and advance with `PreparationKey.nextRevision`.
 
 ## Hyphenation
 
-Set `hyphenationLocale` on the prepare input to break words at dictionary hyphenation points. The default layer bundles `en-us`, `en-gb`, `de`, `fr`, and `es`, and falls back from an exact tag to its base language. `Text.HyphenationSupport` lists the bundled locales.
+`Hyphenation.layer()` bundles patterns for English (US and GB), German, French, and Spanish, with exact-to-base locale fallback. Passing `Hyphenation.Options.dictionaries` replaces the bundled source map rather than extending it. Sources use native tagged `Hyphenation.Dictionary` cases:
 
-`Text.HyphenationDictionaryLive({ dictionaries })` adds or overrides entries; each word maps to the indexes where a hyphen may be inserted. `Text.NoHyphenationDictionaryLive` disables dictionary hyphenation while keeping soft hyphens (`U+00AD`) in the text as break opportunities.
+- `Dictionary.Words({ words })` for explicit word-to-offset maps
+- `Dictionary.Patterns({ patterns })` for Liang pattern data
+- `Dictionary.Compiled({ hyphenateWord })` for a pure compiled matcher
+
+`Hyphenation.layerNone` disables dictionary breaks. Layer-owned locale and word caches are lazy, so unused dictionaries are not compiled.
 
 ```ts typecheck
-import { Effect, Layer } from "effect"
-import { Text } from "@scenesystems/effect-text"
+import { Array as Arr, Effect, Layer } from "effect"
+import { Hyphenation, MeasurementCache, Text, TextMeasurer } from "@scenesystems/effect-text"
 
 const services = Layer.mergeAll(
-  Text.WordSegmenterLive,
-  Text.EngineProfileLive,
-  Text.MeasurementCacheLive.pipe(Layer.provide(Text.TextMeasurerLive)),
-  Text.HyphenationDictionaryLive({ dictionaries: { "en-gb": { colouration: [3, 6] } } })
+  Text.layerSegmenter,
+  Text.layerProfile,
+  Hyphenation.layer(
+    new Hyphenation.Options({
+      dictionaries: {
+        "en-gb": Hyphenation.Dictionary.Words({
+          words: { colouration: Arr.make(3, 6) }
+        })
+      }
+    })
+  ),
+  MeasurementCache.layer.pipe(Layer.provide(TextMeasurer.layer))
 )
 
 export const program = Text.prepareWithSegments({
@@ -161,51 +190,62 @@ export const program = Text.prepareWithSegments({
   hyphenationLocale: "en-gb",
   whiteSpace: "normal"
 }).pipe(
-  Effect.map((prepared) => Text.layoutLines(prepared, { maxWidth: 35, lineHeight: 12 })),
+  Effect.map((prepared) => Text.lines(prepared, { maxWidth: 35, lineHeight: 12 })),
   Effect.provide(services)
 )
 ```
 
-## React integration
+## Calibration
 
-The `React` module contains no components or hooks. It provides the two pieces that a React integration needs and that are easy to get wrong: a stable cache identity for prepared handles and a pure projection for render time.
+`Calibration` evaluates named `Text.Profile` candidates against expected summaries and optional exact lines. `Calibration.evaluate` and `Calibration.optimize` are Effects because they prepare and measure text; `Calibration.score` is a pure weighted-sum projection of an existing report. `Calibration.searchSpace` compiles the concise `Calibration.Search` dimensions used by the optimizer. Optimization returns the selected profile and report together with `optimizationResult` and `OptimizationArtifacts`: a per-invocation event log and cumulative resumable snapshot. Supply `optimizationStorage` to persist those trials and checkpoints.
 
-`React.prepareIdentityFor` combines the prepare input, engine profile, support-profile id, and font-readiness revision into a `PrepareIdentity`, a structural `Data.Class` whose equality and hash follow its fields, so it is directly usable as a `HashMap` key or an `Atom.family` argument. Two inputs with equal identities produce the same prepared handle, so the application can run preparation once per identity and keep the handle in state; `React.prepareInputFromIdentity` recovers the prepare input on a cache miss. `React.projectPreparedLayout` is `Text.layoutLinesWithSummary` under a name that signals it is safe to call during render: it measures nothing and touches no services.
+See [the calibration example](./examples/05-calibration-search.ts) for a seeded search and [the live fixtures](./examples/live/calibrationFixtures.ts) for complete case, profile, service, and search models.
 
-The application owns the rest: running preparation effects, storing handles, bumping the font-readiness revision when `document.fonts` changes, and calling the projection in render or resize work.
+## Public modules
 
-## Public surface
+Every public module is available as a namespace from the package root and as a subpath such as `@scenesystems/effect-text/Text`.
 
-Every module is available as a namespace from the package root and as a subpath such as `@scenesystems/effect-text/Text`.
+| Module                                              | Scope                                                               |
+| --------------------------------------------------- | ------------------------------------------------------------------- |
+| [`Text`](./src/Text.ts)                             | Inputs, handles, pure projections, preparation services, and layers |
+| [`TextMeasurer`](./src/TextMeasurer.ts)             | Measurement service, typed failure, and deterministic estimator     |
+| [`MeasurementCache`](./src/MeasurementCache.ts)     | Scoped measurement memoization                                      |
+| [`Hyphenation`](./src/Hyphenation.ts)               | Dictionary sources, provider, caches, and locale fallback           |
+| [`CanvasTextMeasurer`](./src/CanvasTextMeasurer.ts) | Serialized canvas-host measurement                                  |
+| [`CanvasProfile`](./src/CanvasProfile.ts)           | Monospace and system-UI canvas profiles                             |
+| [`PreparationKey`](./src/PreparationKey.ts)         | Structural application cache keys and font-readiness revisions      |
+| [`Calibration`](./src/Calibration.ts)               | Evaluation, pure scoring, and profile optimization                  |
 
-| Module                                        | Scope                                                                                             |
-| --------------------------------------------- | ------------------------------------------------------------------------------------------------- |
-| [`Text`](./src/Text/index.ts)                 | Prepare inputs, prepared handles, layout functions, cursors, streams, and default layers          |
-| [`Contracts`](./src/contracts/index.ts)       | `WordSegmenter`, `TextMeasurer`, `MeasurementCache`, `EngineProfile`, and `HyphenationDictionary` |
-| [`Browser`](./src/Browser/index.ts)           | Canvas measurement, browser measurement cache, font-readiness revisions, and support profiles     |
-| [`React`](./src/React/index.ts)               | Prepare identities and pure layout projection                                                     |
-| [`Errors`](./src/Errors/index.ts)             | `MeasurementFailed`, `TextLayoutDecodeError`, and the `PrepareError` union                        |
-| [`Experimental`](./src/experimental/index.ts) | Search-backed engine-profile calibration; may change outside semver guarantees                    |
+Paths under `internal` are not exported.
 
-`Contracts` and `Errors` are stable within the current release line. `Text`, `Browser`, and `React` are provisional and may change in minor releases. Paths under `internal` are not exported.
+## Errors and limitations
 
-## Errors and boundaries
+`Text.prepare` and `Text.prepareWithSegments` fail with `TextMeasurer.Failed` when measurement does not return a finite non-negative advance. `Text.prepareUnknown` can additionally fail with `Text.DecodeError`. Layout projections have no error channel once preparation succeeds.
 
-`Text.prepare` and `Text.prepareWithSegments` fail with `MeasurementFailed` when the measurer cannot measure a run. `Text.prepareUnknown` also fails with `TextLayoutDecodeError` for input that does not match `PrepareInput`; `PrepareError` is the union of the two. Layout functions have no error channel: once a handle exists, every width produces a result.
+This is a bounded manual layout engine, not a CSS layout implementation:
 
-This is a bounded manual layout engine. It resolves bidirectional levels for mixed-direction text and mirrors paired punctuation, but it declines unsupported bidi control characters at preparation time and performs no font shaping. Full CSS layout equivalence is out of scope.
+- line breaking is greedy and supports only the documented whitespace modes;
+- callers supply line height, fonts, font readiness, and the measurement host;
+- `TextMeasurer.layer` estimates advances and does not shape fonts;
+- canvas measurement uses host shaping for measured strings, but this package still controls breaking and visual-line assembly;
+- mixed-direction text and paired punctuation are handled for the supported line-local model, but bidi embedding/control semantics and full UAX #9 behavior are outside the support envelope;
+- inline styling, vertical writing, justification, and browser layout equivalence are out of scope.
+
+Validate canvas output against every target browser and font. The package guarantees deterministic projection for a prepared set of measurements, not pixel parity with DOM layout.
 
 ## Examples
 
-The [examples directory](./examples/) contains one runnable program per capability. Start with the [quick start](./examples/01-quick-start.ts), then follow the topic you need: [cursors and streams](./examples/02-cursor-and-stream.ts), [explicit services](./examples/03-explicit-services.ts), [canvas measurement](./examples/04-canvas-measurement.ts), [dictionary hyphenation](./examples/07-dictionary-hyphenation.ts), and [experimental calibration](./examples/05-experimental-calibration-search.ts).
+The [examples directory](./examples/) contains runnable programs for the [quick start](./examples/01-quick-start.ts), [cursors and streams](./examples/02-cursor-and-stream.ts), [explicit services](./examples/03-explicit-services.ts), [canvas measurement](./examples/04-canvas-measurement.ts), [calibration](./examples/05-calibration-search.ts), [synthetic canvas regression artifacts](./examples/06-synthetic-regression-artifacts.ts), and [dictionary hyphenation](./examples/07-dictionary-hyphenation.ts).
+
+Run `bun run packages/effect-text/benchmarks/run.ts` from the repository root to
+measure the public projections and warm-cache preparation. The report is written
+to `.tmp/effect-text-benchmark.json`. It records nanosecond durations, operation
+outputs, and Effect dispatch overhead; timings are host-specific, not conformance
+expectations or comparisons with obsolete implementations.
 
 ## Status
 
-This package is pre-1.0. Minor releases may change public APIs; pin a compatible version and review the [changelog](./CHANGELOG.md) when upgrading. The `Experimental` module may change or be removed with less migration support than the other modules.
-
-## Contributing and support
-
-Read the repository [contributing guide](../../CONTRIBUTING.md) before opening a pull request. Report defects and request changes through [GitHub issues](https://github.com/scenesystems/theoria/issues). For security concerns, follow the [security policy](../../SECURITY.md).
+This package is pre-1.0. Pin a compatible version and review the [changelog](./CHANGELOG.md) when upgrading.
 
 ## Attribution
 

@@ -1,7 +1,7 @@
 /**
  * Type-level discipline: no assertions, no TypeScript utility types over
- * schema-derived types, no module stubs or tacit composition, and the
- * schema-first modeling rules that only library code carries.
+ * schema-derived types, no module stubs or tacit composition, and native
+ * Schema/Data modeling rules for first-party code.
  *
  * @module eslint/effect/types
  */
