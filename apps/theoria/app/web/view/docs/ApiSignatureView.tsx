@@ -1,4 +1,4 @@
-import { Boolean as Bool, Equal, Number as Num, Option } from "effect"
+import { Boolean as Bool, Equal, Match, Number as Num, Option } from "effect"
 import * as Arr from "effect/Array"
 
 import type { ApiDocPart, ApiParameter, ApiSignature, ApiTypeParameter } from "@theoria/docs-model"
@@ -62,6 +62,14 @@ const DefinitionRow = ({
 const definitionListClassName =
   "divide-y divide-hairline-glass rounded-instrument border border-hairline-veil bg-canvas-mist px-4"
 
+const headingRole = (headingAs: "h2" | "h4"): "section-title" | "selection-title" =>
+  Match.value(headingAs).pipe(
+    Match.withReturnType<"section-title" | "selection-title">(),
+    Match.when("h2", () => "section-title"),
+    Match.when("h4", () => "selection-title"),
+    Match.exhaustive
+  )
+
 export const ApiTypeParametersView = ({
   headingAs = "h2",
   parameters
@@ -73,7 +81,7 @@ export const ApiTypeParametersView = ({
     onEmpty: () => null,
     onNonEmpty: (present) => (
       <Stack className="gap-2">
-        <SemanticContent as={headingAs} role={headingAs === "h2" ? "section-title" : "selection-title"}>
+        <SemanticContent as={headingAs} role={headingRole(headingAs)}>
           Type parameters
         </SemanticContent>
         <Stack render={<dl />} className={definitionListClassName}>
@@ -102,7 +110,7 @@ const Parameters = ({
     onEmpty: () => null,
     onNonEmpty: (present) => (
       <Stack className="gap-2">
-        <SemanticContent as={headingAs} role={headingAs === "h2" ? "section-title" : "selection-title"}>
+        <SemanticContent as={headingAs} role={headingRole(headingAs)}>
           Parameters
         </SemanticContent>
         <Stack render={<dl />} className={definitionListClassName}>
@@ -130,21 +138,26 @@ const signatureLabel = (total: number, index: number): string =>
 export const ApiSignatureView = ({
   headingAs = "h2",
   index,
+  renderDocumentation,
   signature,
   total
 }: {
   readonly headingAs?: "h2" | "h4"
   readonly index: number
+  readonly renderDocumentation: boolean
   readonly signature: ApiSignature
   readonly total: number
 }) => (
   <Stack className="gap-5">
-    <ApiDocumentationView docs={signature.docs} headingAs={headingAs} />
+    {Bool.match(renderDocumentation, {
+      onTrue: () => <ApiDocumentationView docs={signature.docs} headingAs={headingAs} />,
+      onFalse: () => null
+    })}
     <CodeBlock label={signatureLabel(total, index)} source={signature.code} />
     <ApiTypeParametersView headingAs={headingAs} parameters={signature.typeParameters} />
     <Parameters headingAs={headingAs} parameters={signature.parameters} />
     <Stack className="gap-2">
-      <SemanticContent as={headingAs} role={headingAs === "h2" ? "section-title" : "selection-title"}>
+      <SemanticContent as={headingAs} role={headingRole(headingAs)}>
         Returns
       </SemanticContent>
       <Cluster
