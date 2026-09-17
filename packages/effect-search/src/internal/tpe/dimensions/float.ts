@@ -9,7 +9,8 @@ import { logStrict } from "@scenesystems/effect-math/Numeric"
 import * as Acquisition from "../../../Acquisition.js"
 import { exp } from "../../../internal/exponential.js"
 import type * as Rng from "../../../internal/rng.js"
-import { buildContinuousParzen, logDensity, sampleFromParzen } from "../../../internal/tpe/continuousParzen.js"
+import { buildContinuousParzen, sampleFromParzen } from "../../../internal/tpe/continuousParzen.js"
+import { prepareLogDensity } from "../../../internal/tpe/continuousParzen/density.js"
 import { defaultNoiseBandwidthOptions, type NoiseBandwidthOptions } from "../../../internal/tpe/noiseEstimator.js"
 import type { TrialSplit } from "../../../internal/tpe/splitTrials.js"
 import type { InvalidSamplerConfig } from "../../../SearchError.js"
@@ -224,9 +225,11 @@ export const floatCandidateTraceFromRolls = (
       rolls,
       ([kernelRoll, valueRoll]) => sampleFromParzen(belowParzen, kernelRoll, valueRoll)
     )
+    const belowLogDensity = prepareLogDensity(belowParzen)
+    const aboveLogDensity = prepareLogDensity(aboveParzen)
     const logPairs = Arr.map(
       modelCandidates,
-      (candidate) => Tuple.make(logDensity(belowParzen, candidate), logDensity(aboveParzen, candidate))
+      (candidate) => Tuple.make(belowLogDensity(candidate), aboveLogDensity(candidate))
     )
 
     return new DimensionScoreTrace({

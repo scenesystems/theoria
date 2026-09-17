@@ -11,6 +11,7 @@ import {
   sampleEffect,
   TruncatedNormalParams
 } from "../../../src/internal/tpe/truncatedNormal.js"
+import { prepareLogPdf } from "../../../src/internal/tpe/truncatedNormal/truncated.js"
 import { FixtureRegistryLive, loadFixture, TruncatedNormalFixture } from "../../helpers/fixtures/index.js"
 
 const CDF_ABSOLUTE_TOLERANCE = 1e-12
@@ -108,6 +109,7 @@ describe("truncated normal fixture parity", () => {
         (entry) =>
           Effect.gen(function*() {
             const params = toParams(entry)
+            const preparedLogPdf = prepareLogPdf(params)
 
             yield* Effect.forEach(
               entry.logPdfProbes,
@@ -117,6 +119,8 @@ describe("truncated normal fixture parity", () => {
                   const expected = numberAt(entry.logPdfExpected, index)
 
                   assertAbsoluteTolerance(actual, expected, LOG_PDF_ABSOLUTE_TOLERANCE)
+                  assertAbsoluteTolerance(preparedLogPdf(probe), expected, LOG_PDF_ABSOLUTE_TOLERANCE)
+                  expect(preparedLogPdf(probe)).toBe(actual)
                 }),
               { discard: true }
             )
