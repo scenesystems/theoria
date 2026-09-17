@@ -23,17 +23,19 @@ import { textLayoutRuntime } from "./text-layout.js"
  * the surface can offer. Structural, so every surface projecting the same text
  * at the same width shares one atom.
  */
-export class TextProjectionKey extends Schema.Class<TextProjectionKey>("TextProjectionKey")({
-  ...TextProjectionRequest.fields,
-  maxWidth: Schema.Number
-}) {}
+export class TextProjectionKey
+  extends Schema.Class<TextProjectionKey>("@theoria/app/web/atoms/Text/TextProjectionKey")({
+    ...TextProjectionRequest.fields,
+    maxWidth: Schema.Number
+  })
+{}
 
 /**
  * What is prepared, independent of the surface's width and variant: the text
  * in its role. Every surface projecting the same text shares one prepared
  * handle, prepared at whatever revision of the faces the runtime measures at.
  */
-class TextPrepareKey extends Schema.Class<TextPrepareKey>("TextPrepareKey")({
+class TextPrepareKey extends Schema.Class<TextPrepareKey>("@theoria/app/web/atoms/Text/TextPrepareKey")({
   ...TextProjectionRequest.pick("role", "text").fields
 }) {}
 

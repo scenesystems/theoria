@@ -23,6 +23,7 @@ import {
   bandLabel,
   type BandRow,
   bandRow,
+  fixedDecimal,
   focusedAttribute,
   markerContributor
 } from "./placeViewModel.js"
@@ -62,11 +63,11 @@ const Disc = ({ cy, disc }: { readonly cy: number; readonly disc: BandDisc }) =>
   return (
     <m.circle
       className={bandDiscClassName(markerContributor(disc.marker), drawn, focused)}
-      cy={cy.toFixed(1)}
+      cy={fixedDecimal(cy, 1)}
       data-place-band-disc={disc.marker.name}
       {...focusedAttribute(focused)}
       exit={{ opacity: 0, transition: exitTransition }}
-      r={disc.marker.radius.toFixed(1)}
+      r={fixedDecimal(disc.marker.radius, 1)}
       {...bandDiscPlacing(preference, disc.cx)}
     />
   )

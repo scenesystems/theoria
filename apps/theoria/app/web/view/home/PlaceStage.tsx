@@ -54,7 +54,14 @@ import { ShimmerLine } from "../primitives/Skeleton.js"
 import { PlaceGhosts } from "./PlaceGhosts.js"
 import { PlaceMarkerDisc } from "./PlaceMarker.js"
 import { ProvenanceMark } from "./PlaceProvenance.js"
-import { isLast, participantTone, type PlaceLegendEntry, searching, waitMotion } from "./placeViewModel.js"
+import {
+  fixedDecimal,
+  isLast,
+  participantTone,
+  type PlaceLegendEntry,
+  searching,
+  waitMotion
+} from "./placeViewModel.js"
 import { PlaceWalk } from "./PlaceWalk.js"
 
 /** A line set with no words keeps its height with a non-breaking space, so the paragraph's rhythm holds. */
@@ -64,7 +71,7 @@ const lineText = (text: string): string =>
 const lineStyle = (line: PlaceLine, padding: number, lineHeight: number): CSSProperties => ({
   left: `${padding}px`,
   top: `${line.y}px`,
-  width: `${line.maxWidth.toFixed(1)}px`,
+  width: `${fixedDecimal(line.maxWidth, 1)}px`,
   height: `${lineHeight}px`
 })
 
@@ -349,16 +356,17 @@ const Paper = ({
         <Drawing drawn={drawn} fit={sheet.fit} frame={frame} shown={shown} />
       </ScrollArea.Content>
     </ScrollArea.Viewport>
-    {cut(drawn)
-      ? (
+    {Bool.match(cut(drawn), {
+      onTrue: () => (
         <>
           <Layer className={fadeClassName} data-place-stage-fade />
           <ScrollArea.Scrollbar className={scrollbarClassName} orientation="vertical">
             <ScrollArea.Thumb className="flex-1 rounded-full bg-ink-secondary-mist" />
           </ScrollArea.Scrollbar>
         </>
-      )
-      : null}
+      ),
+      onFalse: () => null
+    })}
   </ScrollArea.Root>
 )
 

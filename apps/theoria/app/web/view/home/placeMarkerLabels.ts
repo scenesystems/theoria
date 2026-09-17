@@ -1,4 +1,5 @@
-import { Text, type TextMeasurer } from "@scenesystems/effect-text"
+import * as Text from "@scenesystems/effect-text/Text"
+import type * as TextMeasurer from "@scenesystems/effect-text/TextMeasurer"
 import { Effect, Option, Schema } from "effect"
 import * as Arr from "effect/Array"
 import * as Bool from "effect/Boolean"

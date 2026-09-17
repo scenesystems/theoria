@@ -1,6 +1,6 @@
 import { Atom, Registry } from "@effect-atom/atom"
 import type { Atom as AtomType } from "@effect-atom/atom"
-import { PreparationKey } from "@scenesystems/effect-text"
+import * as PreparationKey from "@scenesystems/effect-text/PreparationKey"
 import { Effect, Layer } from "effect"
 
 import type { CanvasUnavailable } from "../platform/BrowserDocument.js"

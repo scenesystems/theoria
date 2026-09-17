@@ -1,4 +1,6 @@
-import { PreparationKey, Text, type TextMeasurer } from "@scenesystems/effect-text"
+import * as PreparationKey from "@scenesystems/effect-text/PreparationKey"
+import * as Text from "@scenesystems/effect-text/Text"
+import type * as TextMeasurer from "@scenesystems/effect-text/TextMeasurer"
 import { Data, Effect, Number } from "effect"
 
 import {

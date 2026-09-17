@@ -1,5 +1,7 @@
-import { Equivalence, Match, Option, Schema } from "effect"
+import { Boolean as Bool, Equal, Equivalence, Match, Option, Schema } from "effect"
 import * as Arr from "effect/Array"
+import * as Num from "effect/Number"
+import * as Str from "effect/String"
 
 import { markersBeside } from "../../../contracts/demo/imagined-place-flow.js"
 import {
@@ -38,6 +40,7 @@ import { drawingId, PlaceRenderFrame, type PlaceSearch } from "../../atoms/imagi
 
 import {
   currentVersion,
+  fixedDecimal,
   participantLabel,
   proposalAnchorLine,
   searching,
@@ -91,22 +94,25 @@ const described = (provenance: PlaceProvenance, detail: string): PlaceProvenance
 const creditedTo = (provenance: PlaceProvenance, site: CodeSite): PlaceProvenance => ({ ...provenance, site })
 
 const proposalFor = (build: PlaceBuild, role: ParticipantRole): Option.Option<ProposalRecord> =>
-  Arr.findFirst(build.proposals, (record) => record.proposal.proposer === role)
+  Arr.findFirst(build.proposals, (record) => Equal.equals(record.proposal.proposer, role))
 
 const proposalOfFeature = (build: PlaceBuild, name: string): Option.Option<ProposalRecord> =>
-  Arr.findFirst(build.proposals, (record) => record.proposal.feature.name === name)
+  Arr.findFirst(build.proposals, (record) => Equal.equals(record.proposal.feature.name, name))
 
 const versionFor = (build: PlaceBuild, contentId: string): Option.Option<Version> =>
-  Arr.findFirst(build.evidence.lineage, (version) => version.contentId === contentId)
+  Arr.findFirst(build.evidence.lineage, (version) => Equal.equals(version.contentId, contentId))
 
 const proposalById = (build: PlaceBuild, contentId: string): Option.Option<ProposalRecord> =>
-  Arr.findFirst(build.proposals, (record) => record.contentId === contentId)
+  Arr.findFirst(build.proposals, (record) => Equal.equals(record.contentId, contentId))
 
 const versionName = (version: Version): string => `v${String(version.version)}`
 
 /** The trial a shown drawing is of, and whether the search kept it. */
 const trialName = (search: PlaceSearch, index: number): string =>
-  index === search.bestIndex ? `Trial ${String(index + 1)} · kept` : `Trial ${String(index + 1)} · not kept`
+  Bool.match(Equal.equals(index, search.bestIndex), {
+    onTrue: () => `Trial ${String(Num.increment(index))} · kept`,
+    onFalse: () => `Trial ${String(Num.increment(index))} · not kept`
+  })
 
 /** Two markers are the same disc: the same feature, at the same place, the same size. */
 const sameDisc: Equivalence.Equivalence<PlaceMarker> = Equivalence.struct({
@@ -132,20 +138,23 @@ const arrivedAtTrial = (frame: PlaceRenderFrame): boolean =>
 
 /** The drawing named as what it is: the trial it has arrived at, or the trial it is heading for. */
 const drawingName = (frame: PlaceRenderFrame): string =>
-  arrivedAtTrial(frame) ? trialName(frame.search, frame.trial) : `Toward trial ${String(frame.trial + 1)}`
+  Bool.match(arrivedAtTrial(frame), {
+    onTrue: () => trialName(frame.search, frame.trial),
+    onFalse: () => `Toward trial ${String(Num.increment(frame.trial))}`
+  })
 
 /** Where a feature stands in the drawing on the paper, if it is drawn there. */
 const drawnFacts = (shown: Option.Option<PlaceRenderFrame>, name: string): ReadonlyArray<ProvenanceFact> =>
   Option.match(
     Option.flatMap(shown, (frame) =>
       Option.map(
-        Arr.findFirst(frame.rendering.projection.markers, (marker) => marker.name === name),
+        Arr.findFirst(frame.rendering.projection.markers, (marker) => Equal.equals(marker.name, name)),
         (marker) => ({ frame, marker })
       )),
     {
       onNone: (): ReadonlyArray<ProvenanceFact> => [],
       onSome: ({ frame, marker }) => [
-        fact("Drawn", `${drawingName(frame)} · r ${String(Math.round(marker.radius))} px`)
+        fact("Drawn", `${drawingName(frame)} · r ${String(Num.round(marker.radius, 0))} px`)
       ]
     }
   )
@@ -164,7 +173,7 @@ const featureAnswer = (
   Option.match(proposalOfFeature(build, name), {
     onNone: () =>
       Option.map(
-        Arr.findFirst(build.artifact.composition.features, (feature) => feature.name === name),
+        Arr.findFirst(build.artifact.composition.features, (feature) => Equal.equals(feature.name, name)),
         (feature) =>
           described(
             answer(
@@ -173,7 +182,7 @@ const featureAnswer = (
               Arr.appendAll(
                 [
                   fact("From", "Your brief"),
-                  fact("Weight", feature.weight.toFixed(2)),
+                  fact("Weight", fixedDecimal(feature.weight, 2)),
                   fact("In", versionName(Arr.headNonEmpty(build.evidence.lineage)))
                 ],
                 drawnFacts(shown, name)
@@ -194,9 +203,10 @@ const featureAnswer = (
                 fact("From", participantLabel(record.proposal.proposer)),
                 fact(
                   "Decision",
-                  record.accepted
-                    ? `Merged into ${versionName(currentVersion(build.evidence))}`
-                    : "Declined"
+                  Bool.match(record.accepted, {
+                    onTrue: () => `Merged into ${versionName(currentVersion(build.evidence))}`,
+                    onFalse: () => "Declined"
+                  })
                 ),
                 fact("Proposal", shortId(record.contentId))
               ],
@@ -211,8 +221,8 @@ const featureAnswer = (
 
 const signatureFacts = (signature: SignatureRecord): ReadonlyArray<ProvenanceFact> => [
   fact("Signer", participantLabel(signature.signer)),
-  fact("Key", signature.keyFingerprint.slice(0, 16)),
-  fact("Check", signature.valid ? "Verified" : "Did not verify")
+  fact("Key", Str.slice(0, 16)(signature.keyFingerprint)),
+  fact("Check", Bool.match(signature.valid, { onTrue: () => "Verified", onFalse: () => "Did not verify" }))
 ]
 
 /** A signature over a proposal is the proposer's; one over a version is the author's. */
@@ -236,7 +246,10 @@ const signatureAnswer = (mark: PlaceMark, build: PlaceBuild, subject: string): O
     }))
 
 const digestFacts = (contentId: string, more: ReadonlyArray<ProvenanceFact>): ReadonlyArray<ProvenanceFact> =>
-  Arr.prepend(more, fact("Digest", contentId.slice(0, contentId.indexOf(":"))))
+  Arr.prepend(
+    more,
+    fact("Digest", Str.slice(0, Option.getOrElse(Str.indexOf(":")(contentId), () => -1))(contentId))
+  )
 
 /** A version's ID digests the whole artifact, its parent's ID included; a proposal's digests the proposal alone. */
 const digestAnswer = (mark: PlaceMark, build: PlaceBuild, contentId: string): Option.Option<PlaceProvenance> =>
@@ -253,7 +266,10 @@ const digestAnswer = (mark: PlaceMark, build: PlaceBuild, contentId: string): Op
               Option.match(Option.fromNullable(version.parent), { onNone: () => "None · origin", onSome: shortId })
             )
           ]),
-          Option.isNone(Option.fromNullable(version.parent)) ? originDigestSite : mergedDigestSite,
+          Bool.match(Option.isNone(Option.fromNullable(version.parent)), {
+            onTrue: () => originDigestSite,
+            onFalse: () => mergedDigestSite
+          }),
           Option.some(contentId)
         )
       ),
@@ -264,7 +280,13 @@ const digestAnswer = (mark: PlaceMark, build: PlaceBuild, contentId: string): Op
           "Proposal content ID",
           digestFacts(contentId, [
             fact("Over", `${participantLabel(record.proposal.proposer)}'s proposal`),
-            fact("Decision", record.accepted ? "Merged · ID unchanged" : "Declined · ID kept")
+            fact(
+              "Decision",
+              Bool.match(record.accepted, {
+                onTrue: () => "Merged · ID unchanged",
+                onFalse: () => "Declined · ID kept"
+              })
+            )
           ]),
           proposalDigestSite,
           Option.some(contentId)
@@ -280,7 +302,7 @@ const compositionAnswer = (mark: PlaceMark, build: PlaceBuild): PlaceProvenance 
       composition.title,
       [
         fact("From", "Your brief"),
-        fact("Features", String(composition.features.length)),
+        fact("Features", String(Arr.length(composition.features))),
         fact("In", versionName(Arr.headNonEmpty(build.evidence.lineage)))
       ],
       composeSite
@@ -298,9 +320,10 @@ const composedNames = (build: PlaceBuild): ReadonlyArray<string> =>
  * merged into it, which is what the place draws.
  */
 const featuresOfVersion = (build: PlaceBuild, version: Version): ReadonlyArray<string> =>
-  Option.isNone(Option.fromNullable(version.parent))
-    ? composedNames(build)
-    : Arr.map(placeFeatures(build.artifact), (feature) => feature.name)
+  Bool.match(Option.isNone(Option.fromNullable(version.parent)), {
+    onTrue: () => composedNames(build),
+    onFalse: () => Arr.map(placeFeatures(build.artifact), (feature) => feature.name)
+  })
 
 /** The features a content ID is over: a version's, or the one feature a proposal offered. */
 const featuresOfSubject = (build: PlaceBuild, contentId: string): ReadonlyArray<string> =>
@@ -326,7 +349,8 @@ const aboutFeatures = (mark: PlaceMark, build: PlaceBuild): ReadonlyArray<string
     Match.tag("Feature", "Disc", ({ name }): ReadonlyArray<string> => [name]),
     Match.tag(
       "CodeLine",
-      ({ site }): ReadonlyArray<string> => site === composeSite.id ? composedNames(build) : []
+      ({ site }): ReadonlyArray<string> =>
+        Bool.match(Equal.equals(site, composeSite.id), { onTrue: () => composedNames(build), onFalse: () => [] })
     ),
     Match.tag("Inference", () => composedNames(build)),
     Match.tag("Digest", ({ contentId }) => featuresOfSubject(build, contentId)),
@@ -343,7 +367,7 @@ const answered = (build: PlaceBuild) => (provenance: PlaceProvenance): PlaceProv
 
 const inferenceAnswer = (mark: PlaceMark, build: PlaceBuild): Option.Option<PlaceProvenance> =>
   Option.map(
-    Arr.findFirst(build.evidence.inference, (evidence) => evidence.program === "theoria-place-composer"),
+    Arr.findFirst(build.evidence.inference, (evidence) => Equal.equals(evidence.program, "theoria-place-composer")),
     (evidence) =>
       answer(
         mark,
@@ -363,7 +387,7 @@ const noteAnswer = (mark: PlaceMark, build: PlaceBuild): PlaceProvenance => {
     mark,
     "Sealed note",
     [
-      fact("From", `${participantLabel(note.from)} to ${participantLabel(note.to).toLocaleLowerCase("en-US")}`),
+      fact("From", `${participantLabel(note.from)} to ${Str.toLocaleLowerCase("en-US")(participantLabel(note.to))}`),
       fact("Key", `${note.agreement} · ${note.kdf}`),
       fact("Sealed", `${note.algorithm} · ${String(note.envelopeBytes)} bytes`)
     ],
@@ -372,7 +396,8 @@ const noteAnswer = (mark: PlaceMark, build: PlaceBuild): PlaceProvenance => {
 }
 
 /** The width a line has when no disc stands beside it. */
-const fullLineWidth = (projection: PlaceProjection): number => projection.stageWidth - 2 * projection.padding
+const fullLineWidth = (projection: PlaceProjection): number =>
+  Num.subtract(projection.stageWidth, Num.multiply(2, projection.padding))
 
 /** The discs standing beside a line of the drawing on the paper, by the flow's own rule. */
 const beside = (frame: PlaceRenderFrame, index: number) =>
@@ -404,22 +429,27 @@ const lineAnswer = (mark: PlaceMark, frame: PlaceRenderFrame, index: number): Op
   return Option.map(Arr.get(projection.lines, index), (line) => ({
     ...answer(
       mark,
-      `Line ${String(index + 1)} of ${String(projection.lines.length)}`,
+      `Line ${String(Num.increment(index))} of ${String(Arr.length(projection.lines))}`,
       Arr.appendAll(
         [
           fact(
             "Room",
-            Arr.isNonEmptyReadonlyArray(besideIt)
-              ? `${String(Math.round(line.maxWidth))} of ${String(full)} px · beside a disc`
-              : `${String(full)} px · full`
+            Bool.match(Arr.isNonEmptyReadonlyArray(besideIt), {
+              onTrue: () => `${String(Num.round(line.maxWidth, 0))} of ${String(full)} px · beside a disc`,
+              onFalse: () => `${String(full)} px · full`
+            })
           ),
-          fact("Set", `${String(Math.round(line.width))} px`)
+          fact("Set", `${String(Num.round(line.width, 0))} px`)
         ],
         Arr.appendAll(
-          Arr.isNonEmptyReadonlyArray(besideIt)
-            ? [fact("Beside", Arr.join(Arr.map(besideIt, (marker) => marker.name), ", "))]
-            : [],
-          Arr.isNonEmptyReadonlyArray(adds) ? [fact("Adds", Arr.join(adds, ", "))] : []
+          Bool.match(Arr.isNonEmptyReadonlyArray(besideIt), {
+            onTrue: () => [fact("Beside", Arr.join(Arr.map(besideIt, (marker) => marker.name), ", "))],
+            onFalse: () => []
+          }),
+          Bool.match(Arr.isNonEmptyReadonlyArray(adds), {
+            onTrue: () => [fact("Adds", Arr.join(adds, ", "))],
+            onFalse: () => []
+          })
         )
       ),
       layoutSite
@@ -434,12 +464,14 @@ const trialAnswer = (mark: PlaceMark, search: PlaceSearch, index: number): Optio
       mark,
       trialName(search, index),
       [
-        fact("Loss", arrangement.quality.loss.toFixed(3)),
+        fact("Loss", fixedDecimal(arrangement.quality.loss, 3)),
         fact(
           "Search",
-          searching(search)
-            ? `${search.best.evidence.sampler} · ${String(search.tried.length)} of ${String(renderTrials)} tried`
-            : `${search.best.evidence.sampler} · ${String(search.tried.length)} tried`
+          Bool.match(searching(search), {
+            onTrue: () =>
+              `${search.best.evidence.sampler} · ${String(search.tried.length)} of ${String(renderTrials)} tried`,
+            onFalse: () => `${search.best.evidence.sampler} · ${String(search.tried.length)} tried`
+          })
         ),
         fact("Seed", String(search.best.evidence.seed))
       ],
@@ -513,16 +545,18 @@ const markMadeBy = (id: CodeSiteId, page: PlaceOnPage): Option.Option<PlaceMark>
  * and each says so under its own package's name.
  */
 const codeLineAnswer = (mark: PlaceMark, page: PlaceOnPage, site: CodeSite): Option.Option<PlaceProvenance> =>
-  site.id === composeSite.id
-    ? Option.map(page.build, (build) => answered(build)(compositionAnswer(mark, build)))
-    : Option.map(
-      Option.flatMap(markMadeBy(site.id, page), (made) => answerFor(made, page)),
-      (provenance) => creditedTo(provenance, site)
-    )
+  Bool.match(Equal.equals(site.id, composeSite.id), {
+    onTrue: () => Option.map(page.build, (build) => answered(build)(compositionAnswer(mark, build))),
+    onFalse: () =>
+      Option.map(
+        Option.flatMap(markMadeBy(site.id, page), (made) => answerFor(made, page)),
+        (provenance) => creditedTo(provenance, site)
+      )
+  })
 
 /** The frame on the paper, if it is a drawing of `source`. */
 const shownOf = (page: PlaceOnPage, source: PlaceSourceId): Option.Option<PlaceRenderFrame> =>
-  Option.filter(page.shown, (frame) => placeSourceId(frame.search.source) === source)
+  Option.filter(page.shown, (frame) => Equal.equals(placeSourceId(frame.search.source), source))
 
 /** The frame on the paper, if it is the drawing a mark was pointed at on. */
 const shownDrawing = (page: PlaceOnPage, drawing: DrawingId): Option.Option<PlaceRenderFrame> =>
