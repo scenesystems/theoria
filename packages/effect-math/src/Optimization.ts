@@ -61,12 +61,15 @@ export type GoldenSectionInput = typeof GoldenSectionInput.Type
  * @since 0.1.0
  * @category errors
  */
-export class DecodeError extends Schema.TaggedError<DecodeError>()("OptimizationDecodeError", {
-  /** Solver whose settings failed decoding. */
-  operation: Schema.String,
-  /** Effect Schema issue report. */
-  message: Schema.String
-}) {}
+export class DecodeError extends Schema.TaggedError<DecodeError>("@scenesystems/effect-math/Optimization/DecodeError")(
+  "OptimizationDecodeError",
+  {
+    /** Solver whose settings failed decoding. */
+    operation: Schema.String,
+    /** Effect Schema issue report. */
+    message: Schema.String
+  }
+) {}
 
 /**
  * Reports a non-finite estimate rejected by strict precision.
@@ -75,12 +78,15 @@ export class DecodeError extends Schema.TaggedError<DecodeError>()("Optimization
  * @category errors
  */
 export class DomainViolationError
-  extends Schema.TaggedError<DomainViolationError>()("OptimizationDomainViolationError", {
-    /** Policy-aware solver that produced the result. */
-    operation: Schema.String,
-    /** Diagnostic describing the rejected result. */
-    message: Schema.String
-  })
+  extends Schema.TaggedError<DomainViolationError>("@scenesystems/effect-math/Optimization/DomainViolationError")(
+    "OptimizationDomainViolationError",
+    {
+      /** Policy-aware solver that produced the result. */
+      operation: Schema.String,
+      /** Diagnostic describing the rejected result. */
+      message: Schema.String
+    }
+  )
 {}
 
 /**

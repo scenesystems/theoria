@@ -49,55 +49,69 @@ export type TwoSampleInput = typeof TwoSampleInput.Type
  * @since 0.1.0
  * @category models
  */
-export class SummaryStatistics extends Schema.TaggedClass<SummaryStatistics>()("SummaryStatistics", {
-  mean: finite,
-  variance: finite,
-  standardDeviation: finite,
-  min: finite,
-  max: finite,
-  count: Schema.Int.pipe(Schema.greaterThanOrEqualTo(1))
-}) {}
+export class SummaryStatistics
+  extends Schema.TaggedClass<SummaryStatistics>("@scenesystems/effect-math/Statistics/SummaryStatistics")(
+    "SummaryStatistics",
+    {
+      mean: finite,
+      variance: finite,
+      standardDeviation: finite,
+      min: finite,
+      max: finite,
+      count: Schema.Int.pipe(Schema.greaterThanOrEqualTo(1))
+    }
+  )
+{}
 
 /** Malformed validated-estimator input.
  * @since 0.1.0
  * @category errors
  */
-export class DecodeError extends Schema.TaggedError<DecodeError>()("StatisticsDecodeError", {
-  operation: Schema.Literal("mean", "variance", "summaryStatistics", "covariance", "minimum", "maximum"),
-  message: Schema.String
-}) {}
+export class DecodeError
+  extends Schema.TaggedError<DecodeError>("@scenesystems/effect-math/Statistics/DecodeError")("StatisticsDecodeError", {
+    operation: Schema.Literal("mean", "variance", "summaryStatistics", "covariance", "minimum", "maximum"),
+    message: Schema.String
+  })
+{}
 
 /** Too few observations or unequal sample lengths.
  * @since 0.1.0
  * @category errors
  */
-export class ShapeError extends Schema.TaggedError<ShapeError>()("StatisticsShapeError", {
-  operation: Schema.Literal(
-    "variance",
-    "summaryStatistics",
-    "covariance",
-    "summaryStatisticsWithPolicies",
-    "varianceWithPolicies",
-    "covarianceWithPolicies"
-  ),
-  expected: Schema.String,
-  actual: Schema.String,
-  message: Schema.String
-}) {}
+export class ShapeError
+  extends Schema.TaggedError<ShapeError>("@scenesystems/effect-math/Statistics/ShapeError")("StatisticsShapeError", {
+    operation: Schema.Literal(
+      "variance",
+      "summaryStatistics",
+      "covariance",
+      "summaryStatisticsWithPolicies",
+      "varianceWithPolicies",
+      "covarianceWithPolicies"
+    ),
+    expected: Schema.String,
+    actual: Schema.String,
+    message: Schema.String
+  })
+{}
 
 /** Non-finite estimator result rejected by strict precision.
  * @since 0.1.0
  * @category errors
  */
-export class DomainViolationError extends Schema.TaggedError<DomainViolationError>()("StatisticsDomainViolationError", {
-  operation: Schema.Literal(
-    "summaryStatisticsWithPolicies",
-    "meanWithPolicies",
-    "varianceWithPolicies",
-    "covarianceWithPolicies"
-  ),
-  message: Schema.String
-}) {}
+export class DomainViolationError
+  extends Schema.TaggedError<DomainViolationError>("@scenesystems/effect-math/Statistics/DomainViolationError")(
+    "StatisticsDomainViolationError",
+    {
+      operation: Schema.Literal(
+        "summaryStatisticsWithPolicies",
+        "meanWithPolicies",
+        "varianceWithPolicies",
+        "covarianceWithPolicies"
+      ),
+      message: Schema.String
+    }
+  )
+{}
 
 /** Recoverable Statistics operation failures.
  * @since 0.1.0

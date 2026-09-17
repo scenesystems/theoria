@@ -12,10 +12,12 @@ import { Boolean, Iterable, Number, Option, Schema, Tuple } from "effect"
 import { abs, exp, log } from "../../Numeric.js"
 import { digamma, gammainc, lnGamma } from "../../Special.js"
 
-class GammaQuantileState extends Schema.Class<GammaQuantileState>("GammaQuantileState")({
-  x: Schema.Number,
-  remaining: Schema.Number
-}) {}
+class GammaQuantileState
+  extends Schema.Class<GammaQuantileState>("@scenesystems/effect-math/internal/distribution/gamma/QuantileState")({
+    x: Schema.Number,
+    remaining: Schema.Number
+  })
+{}
 
 /**
  * Gamma PDF: x^{k−1} e^{−x/θ} / (θ^k Γ(k)) for x > 0.

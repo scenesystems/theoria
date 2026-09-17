@@ -263,28 +263,40 @@ export type Xlog1pyInput = typeof Xlog1pyInput.Type
  * @since 0.1.0
  * @category errors
  */
-export class DecodeError extends Schema.TaggedError<DecodeError>()("NumericDecodeError", {
-  operation: Schema.String,
-  message: Schema.String
-}) {}
+export class DecodeError
+  extends Schema.TaggedError<DecodeError>("@scenesystems/effect-math/Numeric/DecodeError")("NumericDecodeError", {
+    operation: Schema.String,
+    message: Schema.String
+  })
+{}
 
 /** Input or result outside an operation's mathematical domain.
  * @since 0.1.0
  * @category errors
  */
-export class DomainViolationError extends Schema.TaggedError<DomainViolationError>()("NumericDomainViolationError", {
-  operation: Schema.String,
-  message: Schema.String
-}) {}
+export class DomainViolationError
+  extends Schema.TaggedError<DomainViolationError>("@scenesystems/effect-math/Numeric/DomainViolationError")(
+    "NumericDomainViolationError",
+    {
+      operation: Schema.String,
+      message: Schema.String
+    }
+  )
+{}
 
 /** Failure raised when a synchronous numerical callback throws.
  * @since 0.1.0
  * @category errors
  */
-export class ExecutionError extends Schema.TaggedError<ExecutionError>()("KernelExecutionError", {
-  operation: Schema.String,
-  message: Schema.String
-}) {}
+export class ExecutionError
+  extends Schema.TaggedError<ExecutionError>("@scenesystems/effect-math/Numeric/ExecutionError")(
+    "KernelExecutionError",
+    {
+      operation: Schema.String,
+      message: Schema.String
+    }
+  )
+{}
 
 /** Recoverable Numeric operation failures.
  * @since 0.1.0

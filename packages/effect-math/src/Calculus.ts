@@ -304,12 +304,14 @@ export type LaplacianInput = typeof LaplacianInput.Type
  * @since 0.1.0
  * @category errors
  */
-export class DecodeError extends Schema.TaggedError<DecodeError>()("CalculusDecodeError", {
-  /** Operation whose input failed decoding. */
-  operation: Schema.String,
-  /** Effect Schema issue report. */
-  message: Schema.String
-}) {}
+export class DecodeError
+  extends Schema.TaggedError<DecodeError>("@scenesystems/effect-math/Calculus/DecodeError")("CalculusDecodeError", {
+    /** Operation whose input failed decoding. */
+    operation: Schema.String,
+    /** Effect Schema issue report. */
+    message: Schema.String
+  })
+{}
 
 /**
  * Reports a non-finite result rejected by strict precision.
@@ -317,12 +319,17 @@ export class DecodeError extends Schema.TaggedError<DecodeError>()("CalculusDeco
  * @since 0.1.0
  * @category errors
  */
-export class DomainViolationError extends Schema.TaggedError<DomainViolationError>()("CalculusDomainViolationError", {
-  /** Policy-aware operation that produced the result. */
-  operation: Schema.String,
-  /** Diagnostic describing the rejected result. */
-  message: Schema.String
-}) {}
+export class DomainViolationError
+  extends Schema.TaggedError<DomainViolationError>("@scenesystems/effect-math/Calculus/DomainViolationError")(
+    "CalculusDomainViolationError",
+    {
+      /** Policy-aware operation that produced the result. */
+      operation: Schema.String,
+      /** Diagnostic describing the rejected result. */
+      message: Schema.String
+    }
+  )
+{}
 
 /**
  * Reports incompatible dimensions at a validated calculus boundary.
@@ -330,12 +337,17 @@ export class DomainViolationError extends Schema.TaggedError<DomainViolationErro
  * @since 0.1.0
  * @category errors
  */
-export class ParameterError extends Schema.TaggedError<ParameterError>()("CalculusParameterError", {
-  /** Operation whose mathematical precondition failed. */
-  operation: Schema.String,
-  /** Diagnostic describing the incompatible parameters. */
-  message: Schema.String
-}) {}
+export class ParameterError
+  extends Schema.TaggedError<ParameterError>("@scenesystems/effect-math/Calculus/ParameterError")(
+    "CalculusParameterError",
+    {
+      /** Operation whose mathematical precondition failed. */
+      operation: Schema.String,
+      /** Diagnostic describing the incompatible parameters. */
+      message: Schema.String
+    }
+  )
+{}
 
 /**
  * Failures emitted by validated and policy-aware calculus operations.

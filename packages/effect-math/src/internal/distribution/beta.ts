@@ -12,10 +12,12 @@ import { Boolean, Iterable, Number, Option, Schema, Tuple } from "effect"
 import { abs, exp, log } from "../../Numeric.js"
 import { betainc, digamma, lnGamma } from "../../Special.js"
 
-class BetaQuantileState extends Schema.Class<BetaQuantileState>("BetaQuantileState")({
-  x: Schema.Number,
-  remaining: Schema.Number
-}) {}
+class BetaQuantileState
+  extends Schema.Class<BetaQuantileState>("@scenesystems/effect-math/internal/distribution/beta/QuantileState")({
+    x: Schema.Number,
+    remaining: Schema.Number
+  })
+{}
 
 const isNonNaN = Schema.is(Schema.NonNaN)
 

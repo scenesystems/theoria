@@ -16,10 +16,14 @@ import { betainc, erfinv, lnGamma } from "../../Special.js"
 
 const sqrtTwo = sqrt(2)
 
-class StudentTQuantileState extends Schema.Class<StudentTQuantileState>("StudentTQuantileState")({
-  x: Schema.Number,
-  remaining: Schema.Number
-}) {}
+class StudentTQuantileState
+  extends Schema.Class<StudentTQuantileState>("@scenesystems/effect-math/internal/distribution/studentT/QuantileState")(
+    {
+      x: Schema.Number,
+      remaining: Schema.Number
+    }
+  )
+{}
 
 /**
  * Student's t PDF:

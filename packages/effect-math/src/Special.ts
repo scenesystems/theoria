@@ -155,28 +155,40 @@ export type PolygammaInput = typeof PolygammaInput.Type
  * @since 0.1.0
  * @category errors
  */
-export class DecodeError extends Schema.TaggedError<DecodeError>()("SpecialDecodeError", {
-  operation: Schema.String,
-  message: Schema.String
-}) {}
+export class DecodeError
+  extends Schema.TaggedError<DecodeError>("@scenesystems/effect-math/Special/DecodeError")("SpecialDecodeError", {
+    operation: Schema.String,
+    message: Schema.String
+  })
+{}
 
 /** Non-finite result rejected by strict precision.
  * @since 0.1.0
  * @category errors
  */
-export class DomainViolationError extends Schema.TaggedError<DomainViolationError>()("SpecialDomainViolationError", {
-  operation: Schema.String,
-  message: Schema.String
-}) {}
+export class DomainViolationError
+  extends Schema.TaggedError<DomainViolationError>("@scenesystems/effect-math/Special/DomainViolationError")(
+    "SpecialDomainViolationError",
+    {
+      operation: Schema.String,
+      message: Schema.String
+    }
+  )
+{}
 
 /** Parameters outside a special function's mathematical domain.
  * @since 0.1.0
  * @category errors
  */
-export class ParameterError extends Schema.TaggedError<ParameterError>()("SpecialParameterError", {
-  operation: Schema.String,
-  message: Schema.String
-}) {}
+export class ParameterError
+  extends Schema.TaggedError<ParameterError>("@scenesystems/effect-math/Special/ParameterError")(
+    "SpecialParameterError",
+    {
+      operation: Schema.String,
+      message: Schema.String
+    }
+  )
+{}
 
 /** Recoverable Special operation failures.
  * @since 0.1.0

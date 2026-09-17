@@ -62,30 +62,42 @@ export type CentroidInput = typeof CentroidInput.Type
  * @since 0.1.0
  * @category errors
  */
-export class DecodeError extends Schema.TaggedError<DecodeError>()("GeometryDecodeError", {
-  operation: Schema.Literal("distance", "midpoint", "centroid"),
-  message: Schema.String
-}) {}
+export class DecodeError
+  extends Schema.TaggedError<DecodeError>("@scenesystems/effect-math/Geometry/DecodeError")("GeometryDecodeError", {
+    operation: Schema.Literal("distance", "midpoint", "centroid"),
+    message: Schema.String
+  })
+{}
 
 /** Incompatible point dimensions.
  * @since 0.1.0
  * @category errors
  */
-export class ShapeMismatchError extends Schema.TaggedError<ShapeMismatchError>()("GeometryShapeMismatchError", {
-  operation: Schema.Literal("distance", "midpoint", "centroid"),
-  expected: Schema.String,
-  actual: Schema.String,
-  message: Schema.String
-}) {}
+export class ShapeMismatchError
+  extends Schema.TaggedError<ShapeMismatchError>("@scenesystems/effect-math/Geometry/ShapeMismatchError")(
+    "GeometryShapeMismatchError",
+    {
+      operation: Schema.Literal("distance", "midpoint", "centroid"),
+      expected: Schema.String,
+      actual: Schema.String,
+      message: Schema.String
+    }
+  )
+{}
 
 /** Non-finite result rejected by strict precision.
  * @since 0.1.0
  * @category errors
  */
-export class DomainViolationError extends Schema.TaggedError<DomainViolationError>()("GeometryDomainViolationError", {
-  operation: Schema.Literal("distanceWithPolicies"),
-  message: Schema.String
-}) {}
+export class DomainViolationError
+  extends Schema.TaggedError<DomainViolationError>("@scenesystems/effect-math/Geometry/DomainViolationError")(
+    "GeometryDomainViolationError",
+    {
+      operation: Schema.Literal("distanceWithPolicies"),
+      message: Schema.String
+    }
+  )
+{}
 
 /** Recoverable Geometry operation failures.
  * @since 0.1.0

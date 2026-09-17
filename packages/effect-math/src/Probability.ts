@@ -57,10 +57,13 @@ export type EntropyInput = typeof EntropyInput.Type
  * @since 0.1.0
  * @category errors
  */
-export class DecodeError extends Schema.TaggedError<DecodeError>()("ProbabilityDecodeError", {
-  operation: Schema.Literal("entropy"),
-  message: Schema.String
-}) {}
+export class DecodeError extends Schema.TaggedError<DecodeError>("@scenesystems/effect-math/Probability/DecodeError")(
+  "ProbabilityDecodeError",
+  {
+    operation: Schema.Literal("entropy"),
+    message: Schema.String
+  }
+) {}
 
 /**
  * Reports a non-finite Probability result rejected by strict precision.
@@ -69,10 +72,13 @@ export class DecodeError extends Schema.TaggedError<DecodeError>()("ProbabilityD
  * @category errors
  */
 export class DomainViolationError
-  extends Schema.TaggedError<DomainViolationError>()("ProbabilityDomainViolationError", {
-    operation: Schema.Literal("entropyWithPolicies"),
-    message: Schema.String
-  })
+  extends Schema.TaggedError<DomainViolationError>("@scenesystems/effect-math/Probability/DomainViolationError")(
+    "ProbabilityDomainViolationError",
+    {
+      operation: Schema.Literal("entropyWithPolicies"),
+      message: Schema.String
+    }
+  )
 {}
 
 /**

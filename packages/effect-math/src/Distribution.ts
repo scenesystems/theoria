@@ -388,45 +388,56 @@ export type StudentTQuantileInput = typeof StudentTQuantileInput.Type
  * @since 0.1.0
  * @category errors
  */
-export class DecodeError extends Schema.TaggedError<DecodeError>()("DistributionDecodeError", {
-  operation: Schema.Literal(
-    "normalPdf",
-    "normalCdf",
-    "normalQuantile",
-    "uniformPdf",
-    "uniformCdf",
-    "betaCdf",
-    "betaQuantile",
-    "categoricalPmf"
-  ),
-  message: Schema.String
-}) {}
+export class DecodeError extends Schema.TaggedError<DecodeError>("@scenesystems/effect-math/Distribution/DecodeError")(
+  "DistributionDecodeError",
+  {
+    operation: Schema.Literal(
+      "normalPdf",
+      "normalCdf",
+      "normalQuantile",
+      "uniformPdf",
+      "uniformCdf",
+      "betaCdf",
+      "betaQuantile",
+      "categoricalPmf"
+    ),
+    message: Schema.String
+  }
+) {}
 
 /** Non-finite distribution result rejected by strict precision.
  * @since 0.1.0
  * @category errors
  */
 export class DomainViolationError
-  extends Schema.TaggedError<DomainViolationError>()("DistributionDomainViolationError", {
-    operation: Schema.Literal(
-      "normalPdfWithPolicies",
-      "normalCdfWithPolicies",
-      "uniformPdfWithPolicies",
-      "uniformCdfWithPolicies",
-      "betaCdfWithPolicies"
-    ),
-    message: Schema.String
-  })
+  extends Schema.TaggedError<DomainViolationError>("@scenesystems/effect-math/Distribution/DomainViolationError")(
+    "DistributionDomainViolationError",
+    {
+      operation: Schema.Literal(
+        "normalPdfWithPolicies",
+        "normalCdfWithPolicies",
+        "uniformPdfWithPolicies",
+        "uniformCdfWithPolicies",
+        "betaCdfWithPolicies"
+      ),
+      message: Schema.String
+    }
+  )
 {}
 
 /** Unordered finite uniform bounds.
  * @since 0.1.0
  * @category errors
  */
-export class ParameterError extends Schema.TaggedError<ParameterError>()("DistributionParameterError", {
-  operation: Schema.Literal("uniformPdf", "uniformCdf"),
-  message: Schema.String
-}) {}
+export class ParameterError
+  extends Schema.TaggedError<ParameterError>("@scenesystems/effect-math/Distribution/ParameterError")(
+    "DistributionParameterError",
+    {
+      operation: Schema.Literal("uniformPdf", "uniformCdf"),
+      message: Schema.String
+    }
+  )
+{}
 
 /** Recoverable Distribution operation failures.
  * @since 0.1.0

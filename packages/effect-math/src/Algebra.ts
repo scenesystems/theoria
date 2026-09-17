@@ -90,25 +90,32 @@ export type FactorialInput = typeof FactorialInput.Type
  * @since 0.1.0
  * @category errors
  */
-export class DecodeError extends Schema.TaggedError<DecodeError>()("AlgebraDecodeError", {
-  operation: Schema.Literal("polyEval", "polyDerivative", "gcd", "lcm", "factorial"),
-  message: Schema.String
-}) {}
+export class DecodeError
+  extends Schema.TaggedError<DecodeError>("@scenesystems/effect-math/Algebra/DecodeError")("AlgebraDecodeError", {
+    operation: Schema.Literal("polyEval", "polyDerivative", "gcd", "lcm", "factorial"),
+    message: Schema.String
+  })
+{}
 
 /** Non-finite result rejected by strict precision.
  * @since 0.1.0
  * @category errors
  */
-export class DomainViolationError extends Schema.TaggedError<DomainViolationError>()("AlgebraDomainViolationError", {
-  operation: Schema.Literal(
-    "polyEvalWithPolicies",
-    "polyDerivativeWithPolicies",
-    "gcdWithPolicies",
-    "lcmWithPolicies",
-    "factorialWithPolicies"
-  ),
-  message: Schema.String
-}) {}
+export class DomainViolationError
+  extends Schema.TaggedError<DomainViolationError>("@scenesystems/effect-math/Algebra/DomainViolationError")(
+    "AlgebraDomainViolationError",
+    {
+      operation: Schema.Literal(
+        "polyEvalWithPolicies",
+        "polyDerivativeWithPolicies",
+        "gcdWithPolicies",
+        "lcmWithPolicies",
+        "factorialWithPolicies"
+      ),
+      message: Schema.String
+    }
+  )
+{}
 
 /** Recoverable Algebra operation failures.
  * @since 0.1.0

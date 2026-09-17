@@ -21,15 +21,12 @@ const encodeNumber = Schema.encodeSync(Schema.NumberFromString)
  * @since 0.1.0
  * @category models
  */
-export class Complex extends Schema.Class<Complex>("Complex")(
-  {
-    /** Real component. */
-    re: Schema.Number,
-    /** Imaginary component. */
-    im: Schema.Number
-  },
-  { identifier: "@scenesystems/effect-math/Complex/Complex" }
-) {}
+export class Complex extends Schema.Class<Complex>("@scenesystems/effect-math/Complex")({
+  /** Real component. */
+  re: Schema.Number,
+  /** Imaginary component. */
+  im: Schema.Number
+}) {}
 
 /**
  * Accepts a non-negative radius and an angle in radians.
@@ -96,12 +93,14 @@ export type BinaryInput = typeof BinaryInput.Type
  * @since 0.1.0
  * @category errors
  */
-export class DecodeError extends Schema.TaggedError<DecodeError>()("ComplexDecodeError", {
-  /** Operation whose input failed decoding. */
-  operation: Schema.String,
-  /** Effect Schema issue report. */
-  message: Schema.String
-}) {}
+export class DecodeError
+  extends Schema.TaggedError<DecodeError>("@scenesystems/effect-math/Complex/DecodeError")("ComplexDecodeError", {
+    /** Operation whose input failed decoding. */
+    operation: Schema.String,
+    /** Effect Schema issue report. */
+    message: Schema.String
+  })
+{}
 
 /**
  * Reports a non-finite result rejected by strict precision.
@@ -109,12 +108,17 @@ export class DecodeError extends Schema.TaggedError<DecodeError>()("ComplexDecod
  * @since 0.1.0
  * @category errors
  */
-export class DomainViolationError extends Schema.TaggedError<DomainViolationError>()("ComplexDomainViolationError", {
-  /** Policy-aware operation that produced the result. */
-  operation: Schema.String,
-  /** Diagnostic describing the rejected result. */
-  message: Schema.String
-}) {}
+export class DomainViolationError
+  extends Schema.TaggedError<DomainViolationError>("@scenesystems/effect-math/Complex/DomainViolationError")(
+    "ComplexDomainViolationError",
+    {
+      /** Policy-aware operation that produced the result. */
+      operation: Schema.String,
+      /** Diagnostic describing the rejected result. */
+      message: Schema.String
+    }
+  )
+{}
 
 /**
  * Failures emitted by validated and policy-aware complex operations.

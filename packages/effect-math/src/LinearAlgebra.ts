@@ -53,25 +53,29 @@ export const StorageOrder = Schema.Literal("row-major", "column-major").annotati
  * @since 0.1.0
  * @category schemas
  */
-export class DenseVector extends Schema.TaggedClass<DenseVector>()("DenseVector", {
-  data: finiteChunk,
-  length: Dimension
-}) {}
+export class DenseVector
+  extends Schema.TaggedClass<DenseVector>("@scenesystems/effect-math/LinearAlgebra/DenseVector")("DenseVector", {
+    data: finiteChunk,
+    length: Dimension
+  })
+{}
 
 /** Finite dense matrix with explicit shape and layout metadata.
  * @since 0.1.0
  * @category schemas
  */
-export class DenseMatrix extends Schema.TaggedClass<DenseMatrix>()("DenseMatrix", {
-  data: finiteChunk,
-  rows: Dimension,
-  cols: Dimension,
-  stride: Dimension,
-  offset: Schema.Int.pipe(Schema.greaterThanOrEqualTo(0)).annotations({
-    identifier: "@scenesystems/effect-math/LinearAlgebra/MatrixOffset"
-  }),
-  order: StorageOrder
-}) {}
+export class DenseMatrix
+  extends Schema.TaggedClass<DenseMatrix>("@scenesystems/effect-math/LinearAlgebra/DenseMatrix")("DenseMatrix", {
+    data: finiteChunk,
+    rows: Dimension,
+    cols: Dimension,
+    stride: Dimension,
+    offset: Schema.Int.pipe(Schema.greaterThanOrEqualTo(0)).annotations({
+      identifier: "@scenesystems/effect-math/LinearAlgebra/MatrixOffset"
+    }),
+    order: StorageOrder
+  })
+{}
 
 /** Finite vectors for a validated dot product.
  * @since 0.1.0
@@ -158,31 +162,42 @@ export type TransposeInput = typeof TransposeInput.Type
  * @since 0.1.0
  * @category errors
  */
-export class DecodeError extends Schema.TaggedError<DecodeError>()("LinearAlgebraDecodeError", {
-  operation: Schema.Literal("dot", "matvec", "norm", "transpose"),
-  message: Schema.String
-}) {}
+export class DecodeError extends Schema.TaggedError<DecodeError>("@scenesystems/effect-math/LinearAlgebra/DecodeError")(
+  "LinearAlgebraDecodeError",
+  {
+    operation: Schema.Literal("dot", "matvec", "norm", "transpose"),
+    message: Schema.String
+  }
+) {}
 
 /** Incompatible linear-algebra operand dimensions.
  * @since 0.1.0
  * @category errors
  */
-export class ShapeMismatchError extends Schema.TaggedError<ShapeMismatchError>()("ShapeMismatchError", {
-  operation: Schema.Literal("dot", "matvec", "transpose"),
-  expected: Schema.String,
-  actual: Schema.String,
-  message: Schema.String
-}) {}
+export class ShapeMismatchError
+  extends Schema.TaggedError<ShapeMismatchError>("@scenesystems/effect-math/LinearAlgebra/ShapeMismatchError")(
+    "ShapeMismatchError",
+    {
+      operation: Schema.Literal("dot", "matvec", "transpose"),
+      expected: Schema.String,
+      actual: Schema.String,
+      message: Schema.String
+    }
+  )
+{}
 
 /** Non-finite result rejected by strict precision.
  * @since 0.1.0
  * @category errors
  */
 export class DomainViolationError
-  extends Schema.TaggedError<DomainViolationError>()("LinearAlgebraDomainViolationError", {
-    operation: Schema.Literal("dotWithPolicies", "normWithPolicies"),
-    message: Schema.String
-  })
+  extends Schema.TaggedError<DomainViolationError>("@scenesystems/effect-math/LinearAlgebra/DomainViolationError")(
+    "LinearAlgebraDomainViolationError",
+    {
+      operation: Schema.Literal("dotWithPolicies", "normWithPolicies"),
+      message: Schema.String
+    }
+  )
 {}
 
 /** Recoverable LinearAlgebra operation failures.
