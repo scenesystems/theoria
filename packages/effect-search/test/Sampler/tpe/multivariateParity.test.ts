@@ -1,9 +1,11 @@
 import { describe, expect, it } from "@effect/vitest"
-import { Array as Arr, Effect, Number as Num, Option, Schema } from "effect"
+import { Array as Arr, Effect, FastCheck, Number as Num, Option, Schema } from "effect"
 
 import {
   diagonalGaussianLogDensity,
   diagonalGaussianMixtureLogDensity,
+  prepareDiagonalGaussianMixtureLogDensity,
+  prepareSampleDiagonalGaussianMixture,
   sampleDiagonalGaussian,
   sampleDiagonalGaussianMixture,
   scottsBandwidth,
@@ -53,6 +55,85 @@ const samplingFixtures = Arr.make(
 )
 
 describe("multivariate gaussian parity", () => {
+  it.effect.prop("prepared mixture densities retain coordinate and component accumulation order", {
+    means: FastCheck.array(
+      FastCheck.tuple(
+        FastCheck.double({ min: -3, max: 5, noNaN: true }),
+        FastCheck.double({ min: -8, max: 2, noNaN: true }),
+        FastCheck.double({ min: 4, max: 11, noNaN: true })
+      ),
+      { minLength: 1, maxLength: 12 }
+    ),
+    points: FastCheck.array(
+      FastCheck.tuple(
+        FastCheck.double({ min: -4, max: 7, noNaN: true }),
+        FastCheck.double({ min: -9, max: 3, noNaN: true }),
+        FastCheck.double({ min: 1, max: 12, noNaN: true })
+      ),
+      { minLength: 2, maxLength: 6 }
+    )
+  }, ({ means, points }) =>
+    Effect.sync(() => {
+      const sigmas = Arr.map(means, (_mean, index) => Arr.make(Num.sum(0.3, index), 0.7, 2.1))
+      const weights = Arr.map(means, (_mean, index) => index)
+      const density = prepareDiagonalGaussianMixtureLogDensity(means, sigmas, weights)
+      const changed = prepareDiagonalGaussianMixtureLogDensity(Arr.reverse(means), sigmas, Arr.reverse(weights))
+      Arr.forEach(points, (point) => {
+        expect(density(point)).toBe(diagonalGaussianMixtureLogDensity(point, means, sigmas, weights))
+        expect(changed(point)).toBe(
+          diagonalGaussianMixtureLogDensity(point, Arr.reverse(means), sigmas, Arr.reverse(weights))
+        )
+        expect(density(point)).toBe(diagonalGaussianMixtureLogDensity(point, means, sigmas, weights))
+      })
+    }))
+
+  it.effect("prepared mixtures preserve invalid scales, missing components, and zero-weight behavior", () =>
+    Effect.sync(() => {
+      const means = Arr.make(Arr.make(-1, 3), Arr.make(4, -2))
+      const sigmas = Arr.make(Arr.make(0, Number.NaN), Arr.make(Number.POSITIVE_INFINITY, -1))
+      Arr.forEach(Arr.make(Arr.make(0, 0), Arr.make(3, 1), Arr.make(Number.NaN, -1), Arr.make(1, 0)), (weights) => {
+        const density = prepareDiagonalGaussianMixtureLogDensity(means, sigmas, weights)
+        const sample = prepareSampleDiagonalGaussianMixture(means, sigmas, weights)
+        Arr.forEach(
+          Arr.make(Arr.make(-1, 3), Arr.make(2, 1), Arr.empty<number>(), Arr.make(1), Arr.make(Number.NaN, 0)),
+          (point) => {
+            expect(density(point)).toBe(diagonalGaussianMixtureLogDensity(point, means, sigmas, weights))
+          }
+        )
+        Arr.forEach(Arr.make(0, 0.5, 1, Number.NaN), (roll) => {
+          expect(sample(roll, Arr.make(0.1, 0.9))).toEqual(
+            sampleDiagonalGaussianMixture(means, sigmas, weights, roll, Arr.make(0.1, 0.9))
+          )
+        })
+      })
+      const missing = prepareDiagonalGaussianMixtureLogDensity(means, Arr.take(sigmas, 1), Arr.make(0, 1))
+      expect(missing(Arr.make(4, -2))).toBe(Number.NEGATIVE_INFINITY)
+      expect(prepareDiagonalGaussianMixtureLogDensity(Arr.empty(), Arr.empty(), Arr.empty())(Arr.empty())).toBe(
+        Number.NEGATIVE_INFINITY
+      )
+      expect(prepareSampleDiagonalGaussianMixture(Arr.empty(), Arr.empty(), Arr.empty())(0.5, Arr.empty())).toEqual(
+        Arr.empty()
+      )
+    }))
+
+  it.effect("prepared sampling preserves normalized-weight ties and asymmetric coordinate rolls", () =>
+    Effect.sync(() => {
+      const means = Arr.make(Arr.make(-7, 3), Arr.make(2, -4), Arr.make(11, 6))
+      const sigmas = Arr.make(Arr.make(0.3, 1.1), Arr.make(0.7, 2.3), Arr.make(1.5, 0.2))
+      const weights = Arr.make(0, 1, 3)
+      const sample = prepareSampleDiagonalGaussianMixture(means, sigmas, weights)
+      const median = Arr.make(0.5, 0.5)
+      expect(sample(0, median)).toEqual(Arr.make(2, -4))
+      expect(sample(0.25, median)).toEqual(Arr.make(2, -4))
+      expect(sample(0.25000000000000006, median)).toEqual(Arr.make(11, 6))
+      expect(sample(1, median)).toEqual(Arr.make(11, 6))
+      Arr.forEach(Arr.make(0.9, 0.25, 0.1, 0.8, 0.1), (roll) => {
+        expect(sample(roll, Arr.make(0.1, 0.9))).toEqual(
+          sampleDiagonalGaussianMixture(means, sigmas, weights, roll, Arr.make(0.1, 0.9))
+        )
+      })
+    }))
+
   it.effect("replays deterministic diagonal-gaussian log-density fixtures", () =>
     Effect.forEach(
       densityFixtures,
@@ -156,15 +237,22 @@ describe("multivariate gaussian parity", () => {
         mixture.componentRoll,
         mixture.valueRolls
       )
+      const preparedSample = prepareSampleDiagonalGaussianMixture(mixture.means, mixture.sigmas, mixture.weights)(
+        mixture.componentRoll,
+        mixture.valueRolls
+      )
+      const preparedDensity = prepareDiagonalGaussianMixtureLogDensity(mixture.means, mixture.sigmas, mixture.weights)
 
       yield* Effect.sync(() => {
         Arr.forEach(mixture.expectedSample, (expectedValue, index) => {
           expect(Arr.get(sample, index).pipe(Option.getOrElse(() => Number.NaN))).toBeCloseTo(expectedValue, 12)
+          expect(Arr.get(preparedSample, index).pipe(Option.getOrElse(() => Number.NaN))).toBeCloseTo(expectedValue, 12)
         })
         expect(diagonalGaussianMixtureLogDensity(sample, mixture.means, mixture.sigmas, mixture.weights)).toBeCloseTo(
           mixture.expectedLogDensity,
           12
         )
+        expect(preparedDensity(mixture.expectedSample)).toBeCloseTo(mixture.expectedLogDensity, 12)
       })
     }))
 })

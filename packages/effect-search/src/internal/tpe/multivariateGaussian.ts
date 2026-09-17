@@ -1,5 +1,5 @@
 import { isFinite, logStrict, logSumExp, pow } from "@scenesystems/effect-math/Numeric"
-import { Array as Arr, Boolean as Bool, Chunk, Equal, Match, Number as Num, Option } from "effect"
+import { Array as Arr, Boolean as Bool, Chunk, Equal, Match, Number as Num, Option, Tuple } from "effect"
 
 import type { Vector } from "../../Objective.js"
 
@@ -88,18 +88,17 @@ const normalizeWeights = (
   )
 }
 
-const chooseComponentIndex = (weightsInput: Iterable<number>, componentRoll: number): number => {
-  const weights = Arr.fromIterable(weightsInput)
-  return Match.value(Num.lessThanOrEqualTo(Arr.length(weights), 0)).pipe(
+const chooseComponentIndex = (cumulative: Vector, componentRoll: number): number => {
+  return Match.value(Num.lessThanOrEqualTo(Arr.length(cumulative), 0)).pipe(
     Match.when(true, () => 0),
     Match.orElse(() => {
-      const cumulative = cumulativeWeights(weights)
+      const probability = validProbability(componentRoll)
       const index = Arr.findFirstIndex(
         cumulative,
-        (weight) => Num.greaterThanOrEqualTo(weight, validProbability(componentRoll))
-      ).pipe(Option.getOrElse(() => Num.decrement(Arr.length(weights))))
+        (weight) => Num.greaterThanOrEqualTo(weight, probability)
+      ).pipe(Option.getOrElse(() => Num.decrement(Arr.length(cumulative))))
 
-      return Num.clamp(index, { minimum: 0, maximum: Num.decrement(Arr.length(weights)) })
+      return Num.clamp(index, { minimum: 0, maximum: Num.decrement(Arr.length(cumulative)) })
     })
   )
 }
@@ -161,6 +160,54 @@ export const diagonalGaussianMixtureLogDensity = (
   return logSumExp(Chunk.fromIterable(componentLogDensities))
 }
 
+/** Prepares model constants once per candidate batch, retaining both reduction orders. */
+export const prepareDiagonalGaussianMixtureLogDensity = (
+  meansInput: Iterable<Vector>,
+  sigmasInput: Iterable<Vector>,
+  weightsInput: Iterable<number>
+): (pointInput: Iterable<number>) => number => {
+  const means = Arr.fromIterable(meansInput)
+  const sigmas = Arr.fromIterable(sigmasInput)
+  const weights = normalizeWeights(Arr.length(means), weightsInput)
+  const components = Arr.map(means, (mean, index) => {
+    const scales = componentAt(sigmas, index)
+    const weight = valueAt(weights, index, 0)
+    return Bool.match(
+      Bool.or(Num.lessThanOrEqualTo(weight, 0), Bool.not(Num.Equivalence(Arr.length(mean), Arr.length(scales)))),
+      {
+        onTrue: (): (point: Vector) => number => () => Number.NEGATIVE_INFINITY,
+        onFalse: () => {
+          const logWeight = logStrict(weight)
+          const coordinates = Arr.zipWith(mean, scales, (center, scale) => {
+            const sigma = validSigma(scale)
+            return Tuple.make(center, sigma, Num.subtract(Num.negate(logSqrtTwoPi), logStrict(sigma)))
+          })
+          return (point: Vector): number =>
+            Bool.match(Num.Equivalence(Arr.length(point), Arr.length(coordinates)), {
+              onFalse: () => Number.NEGATIVE_INFINITY,
+              onTrue: () =>
+                Num.sum(
+                  logWeight,
+                  Arr.reduce(point, 0, (total, value, axis) => {
+                    const [mean, sigma, normalizer] = Arr.unsafeGet(coordinates, axis)
+                    const normalized = Num.unsafeDivide(Num.subtract(value, mean), sigma)
+                    return Num.sum(
+                      total,
+                      Num.subtract(normalizer, Num.multiply(0.5, Num.multiply(normalized, normalized)))
+                    )
+                  })
+                )
+            })
+        }
+      }
+    )
+  })
+  return (pointInput) => {
+    const point = Arr.fromIterable(pointInput)
+    return logSumExp(Chunk.fromIterable(Arr.map(components, (component) => component(point))))
+  }
+}
+
 export const sampleDiagonalGaussian = (
   meanInput: Iterable<number>,
   sigmasInput: Iterable<number>,
@@ -194,9 +241,24 @@ export const sampleDiagonalGaussianMixture = (
   const valueRolls = Arr.fromIterable(valueRollsInput)
 
   const normalizedWeights = normalizeWeights(Arr.length(means), weights)
-  const componentIndex = chooseComponentIndex(normalizedWeights, componentRoll)
+  const componentIndex = chooseComponentIndex(cumulativeWeights(normalizedWeights), componentRoll)
 
   return sampleDiagonalGaussian(componentAt(means, componentIndex), componentAt(sigmas, componentIndex), valueRolls)
+}
+
+/** Reuses normalized cumulative weights without changing coordinate sampling or random draws. */
+export const prepareSampleDiagonalGaussianMixture = (
+  meansInput: Iterable<Vector>,
+  sigmasInput: Iterable<Vector>,
+  weightsInput: Iterable<number>
+): (componentRoll: number, valueRolls: Iterable<number>) => Vector => {
+  const means = Arr.fromIterable(meansInput)
+  const sigmas = Arr.fromIterable(sigmasInput)
+  const cumulative = cumulativeWeights(normalizeWeights(Arr.length(means), weightsInput))
+  return (componentRoll, valueRolls) => {
+    const index = chooseComponentIndex(cumulative, componentRoll)
+    return sampleDiagonalGaussian(componentAt(means, index), componentAt(sigmas, index), valueRolls)
+  }
 }
 
 export const scottsFactor = (sampleCount: number, dimensions: number): number =>

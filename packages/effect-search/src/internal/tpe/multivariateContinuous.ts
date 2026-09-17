@@ -8,8 +8,8 @@ import { Array as Arr, Boolean as Bool, Chunk, Data, Effect, Match, Number as Nu
 import * as Acquisition from "../../Acquisition.js"
 import type * as Rng from "../../internal/rng.js"
 import {
-  diagonalGaussianMixtureLogDensity,
-  sampleDiagonalGaussianMixture,
+  prepareDiagonalGaussianMixtureLogDensity,
+  prepareSampleDiagonalGaussianMixture,
   scottsBandwidthVector
 } from "../../internal/tpe/multivariateGaussian.js"
 import { type TrialSplit } from "../../internal/tpe/splitTrials.js"
@@ -89,14 +89,10 @@ export const multivariateContinuousCandidateTrace = (
               const belowWeights = uniformWeights(Arr.length(belowVectors))
               const aboveWeights = uniformWeights(Arr.length(aboveVectors))
               const rolls = yield* drawMultivariateRolls(rng, nCandidates, dimensionCount)
-              const modelCandidates = Arr.map(rolls, (roll) =>
-                sampleDiagonalGaussianMixture(
-                  belowVectors,
-                  belowSigmas,
-                  belowWeights,
-                  roll.componentRoll,
-                  roll.valueRolls
-                ))
+              const sample = prepareSampleDiagonalGaussianMixture(belowVectors, belowSigmas, belowWeights)
+              const belowDensity = prepareDiagonalGaussianMixtureLogDensity(belowVectors, belowSigmas, belowWeights)
+              const aboveDensity = prepareDiagonalGaussianMixtureLogDensity(aboveVectors, aboveSigmas, aboveWeights)
+              const modelCandidates = Arr.map(rolls, (roll) => sample(roll.componentRoll, roll.valueRolls))
               const normalizedCandidates = yield* Effect.forEach(
                 modelCandidates,
                 (candidate, candidateIndex) => normalizeModelCandidate(adapters, candidate, candidateIndex)
@@ -105,14 +101,8 @@ export const multivariateContinuousCandidateTrace = (
                 normalizedCandidates,
                 (candidateValues) => configFromCandidate(adapters, candidateValues)
               )
-              const logL = Arr.map(
-                modelCandidates,
-                (candidate) => diagonalGaussianMixtureLogDensity(candidate, belowVectors, belowSigmas, belowWeights)
-              )
-              const logG = Arr.map(
-                modelCandidates,
-                (candidate) => diagonalGaussianMixtureLogDensity(candidate, aboveVectors, aboveSigmas, aboveWeights)
-              )
+              const logL = Arr.map(modelCandidates, belowDensity)
+              const logG = Arr.map(modelCandidates, aboveDensity)
               const scores = Arr.makeBy(Arr.length(modelCandidates), (index) =>
                 Acquisition.score({
                   logL: valueAt(logL, index, Number.NEGATIVE_INFINITY),
