@@ -22,11 +22,11 @@ const GeneratedFixture = Schema.extend(KnownFixtureSchema, Schema.Struct({ file:
     (fixture) => String.Equivalence(fixture.file, String.concat(String.replace(".", "/")(fixture.fixture), ".json")),
     { message: () => "Fixture output path must match its canonical fixture name" }
   )
-).annotations({ identifier: "@scenesystems/effect-math/fixtures/GeneratedFixture" })
+).annotations({ identifier: "@scenesystems/effect-math/scripts/generate-scipy-fixtures/GeneratedFixture" })
 
 const ReferenceBatch = FixtureManifestSchema.omit("fixtures").pipe(
   Schema.extend(Schema.Struct({ fixtures: Schema.NonEmptyArray(GeneratedFixture) }))
-).annotations({ identifier: "@scenesystems/effect-math/fixtures/ReferenceBatch" })
+).annotations({ identifier: "@scenesystems/effect-math/scripts/generate-scipy-fixtures/ReferenceBatch" })
 
 const GeneratedFixtures = Schema.NonEmptyArray(GeneratedFixture).pipe(
   Schema.filter(
@@ -39,16 +39,16 @@ const GeneratedFixtures = Schema.NonEmptyArray(GeneratedFixture).pipe(
   )
 )
 
-class ReferenceEvaluationError
-  extends Schema.TaggedError<ReferenceEvaluationError>("@scenesystems/effect-math/fixtures/ReferenceEvaluationError")(
-    "ReferenceEvaluationError",
-    {
-      family: Schema.String,
-      exitCode: Schema.Number,
-      message: Schema.String
-    }
-  )
-{}
+class ReferenceEvaluationError extends Schema.TaggedError<ReferenceEvaluationError>(
+  "@scenesystems/effect-math/scripts/generate-scipy-fixtures/ReferenceEvaluationError"
+)(
+  "ReferenceEvaluationError",
+  {
+    family: Schema.String,
+    exitCode: Schema.Number,
+    message: Schema.String
+  }
+) {}
 
 const evaluateFamily = (script: string, request: typeof ReferenceRequest.Type) =>
   Effect.gen(function*() {

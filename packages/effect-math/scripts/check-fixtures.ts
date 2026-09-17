@@ -14,7 +14,9 @@ import { directoryBeside, loadFixtureByEntry, loadManifest } from "../test/helpe
 const fixtureRoot = "../test/fixtures/scipy/"
 const manifestFile = "manifest.json"
 
-class FixtureCheckError extends Schema.TaggedError<FixtureCheckError>()("FixtureCheckError", {
+class FixtureCheckError extends Schema.TaggedError<FixtureCheckError>(
+  "@scenesystems/effect-math/scripts/check-fixtures/FixtureCheckError"
+)("FixtureCheckError", {
   name: Schema.String,
   file: Schema.String,
   reason: Schema.String,
