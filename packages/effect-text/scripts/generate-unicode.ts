@@ -1,8 +1,8 @@
 /** Regenerates the pinned Unicode data and independent UAX #29 conformance vectors. */
-import { FetchHttpClient, FileSystem, HttpClient, HttpClientResponse, Path, Url } from "@effect/platform"
+import { Command, FetchHttpClient, FileSystem, HttpClient, HttpClientResponse, Path, Url } from "@effect/platform"
 import { BunContext, BunRuntime } from "@effect/platform-bun"
 import * as Utf8 from "@scenesystems/digest/Utf8"
-import { Array as Arr, Boolean, Effect, Layer, Option, Schema, String } from "effect"
+import { Array as Arr, Boolean, Effect, Layer, Number, Option, Schema, String } from "effect"
 
 import { GraphemeData } from "../src/internal/graphemeSchema.js"
 
@@ -87,8 +87,20 @@ const program = Effect.gen(function*() {
     }))
   const encodedVectors = yield* Schema.encode(Schema.parseJson(TestCases))(vectors)
 
-  yield* fs.writeFileString(path.join(root, "src/internal/graphemeData.json"), String.concat(encodedData, "\n"))
-  yield* fs.writeFileString(path.join(root, "test/fixtures/graphemeBreak17.json"), String.concat(encodedVectors, "\n"))
+  const dataFile = path.join(root, "src/internal/graphemeData.json")
+  const vectorsFile = path.join(root, "test/fixtures/graphemeBreak17.json")
+  yield* fs.writeFileString(dataFile, String.concat(encodedData, "\n"))
+  yield* fs.writeFileString(vectorsFile, String.concat(encodedVectors, "\n"))
+  yield* Command.make("bunx", "--no-install", "prettier", "--write", dataFile, vectorsFile).pipe(
+    Command.workingDirectory(root),
+    Command.stdout("inherit"),
+    Command.stderr("inherit"),
+    Command.exitCode,
+    Effect.filterOrDieMessage(
+      (exitCode) => Number.Equivalence(exitCode, 0),
+      "Prettier failed to format the generated Unicode data"
+    )
+  )
   yield* Effect.log("Generated Unicode 17.0.0 grapheme properties and conformance cases", {
     cases: Arr.length(vectors)
   })
