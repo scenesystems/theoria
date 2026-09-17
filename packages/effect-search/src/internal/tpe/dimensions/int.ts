@@ -3,11 +3,13 @@
  *
  * @since 0.1.0
  */
-import { Array as Arr, Chunk, Effect, Number as Num, Option, Tuple } from "effect"
+import { Array as Arr, Boolean as Bool, Chunk, Effect, Number as Num, Option, Tuple } from "effect"
 
 import * as Acquisition from "../../../Acquisition.js"
 import type * as Rng from "../../../internal/rng.js"
 import { buildContinuousParzen, logDensity, sampleFromParzen } from "../../../internal/tpe/continuousParzen.js"
+import { prepareLogDensity } from "../../../internal/tpe/continuousParzen/density.js"
+import { sampleFromParzenBatch } from "../../../internal/tpe/continuousParzen/sample.js"
 import type { TrialSplit } from "../../../internal/tpe/splitTrials.js"
 import type { InvalidSamplerConfig } from "../../../SearchError.js"
 import type * as SearchSpace from "../../../SearchSpace.js"
@@ -86,13 +88,23 @@ export const intCandidateTraceFromRolls = (
 
     const belowParzen = buildContinuousParzen(numericValuesForParameter(parameter, split.below), modelLow, modelHigh)
     const aboveParzen = buildContinuousParzen(numericValuesForParameter(parameter, split.above), modelLow, modelHigh)
-    const modelCandidates = Arr.map(
-      rolls,
-      ([kernelRoll, valueRoll]) => sampleFromParzen(belowParzen, kernelRoll, valueRoll)
-    )
+    // Preparation pays off only when constants are reused across candidates.
+    const batch = Num.greaterThan(Arr.length(rolls), 1)
+    const modelCandidates = Bool.match(batch, {
+      onTrue: () => sampleFromParzenBatch(belowParzen, rolls),
+      onFalse: () => Arr.map(rolls, ([kernelRoll, valueRoll]) => sampleFromParzen(belowParzen, kernelRoll, valueRoll))
+    })
+    const belowLogDensity = Bool.match(batch, {
+      onTrue: () => prepareLogDensity(belowParzen),
+      onFalse: () => (candidate: number) => logDensity(belowParzen, candidate)
+    })
+    const aboveLogDensity = Bool.match(batch, {
+      onTrue: () => prepareLogDensity(aboveParzen),
+      onFalse: () => (candidate: number) => logDensity(aboveParzen, candidate)
+    })
     const logPairs = Arr.map(
       modelCandidates,
-      (candidate) => Tuple.make(logDensity(belowParzen, candidate), logDensity(aboveParzen, candidate))
+      (candidate) => Tuple.make(belowLogDensity(candidate), aboveLogDensity(candidate))
     )
 
     return new DimensionScoreTrace({

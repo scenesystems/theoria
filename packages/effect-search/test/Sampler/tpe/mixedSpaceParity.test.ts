@@ -1,14 +1,28 @@
 import { describe, expect, it } from "@effect/vitest"
-import { Array as Arr, Data, Effect, Equal, Match, Number as Num, Option, Schema } from "effect"
+import {
+  Array as Arr,
+  Boolean as Bool,
+  Chunk,
+  Data,
+  Effect,
+  Equal,
+  FastCheck,
+  Match,
+  Number as Num,
+  Option,
+  Schema,
+  Tuple
+} from "effect"
 
 import * as Numeric from "@scenesystems/effect-math/Numeric"
+import { buildContinuousParzen, logDensity, sampleFromParzen } from "../../../src/internal/tpe/continuousParzen.js"
 import { categoricalCandidateTraceFromRolls } from "../../../src/internal/tpe/dimensions/categorical.js"
 import { floatCandidateTraceFromRolls } from "../../../src/internal/tpe/dimensions/float.js"
 import { intCandidateTraceFromRolls } from "../../../src/internal/tpe/dimensions/int.js"
 import { type NamedDimensionScoreTrace, selectBestMixedCandidate } from "../../../src/internal/tpe/mixed.js"
 import { CompletedTrialForSplit, type TrialSplit } from "../../../src/internal/tpe/splitTrials.js"
 import type { InvalidSamplerConfig } from "../../../src/SearchError.js"
-import type * as SearchSpace from "../../../src/SearchSpace.js"
+import * as SearchSpace from "../../../src/SearchSpace.js"
 import { decodeMixedOptimizerConfig, makeMixedOptimizerSpace } from "../../fixtures/scenarios/mixedOptimizer.js"
 import { FixtureRegistryLive, loadAllFixtures, MixedSpaceJointTraceFixture } from "../../helpers/fixtures/index.js"
 
@@ -179,6 +193,57 @@ const decodedConfigs = (
 ) => Effect.forEach(configs, (config) => decodeMixedOptimizerConfig(config))
 
 describe("mixed-space fixture parity", () => {
+  it.effect.prop("integer traces score unrounded samples with half-step support and preserve roll order", {
+    observations: FastCheck.array(FastCheck.integer({ min: 0, max: 8 }), { minLength: 2, maxLength: 20 }),
+    rolls: FastCheck.array(
+      FastCheck.tuple(
+        FastCheck.double({ min: 0, max: 1, noNaN: true }),
+        FastCheck.double({ min: 0, max: 1, noNaN: true })
+      ),
+      { minLength: 1, maxLength: 12 }
+    ),
+    stride: FastCheck.integer({ min: 1, max: 5 }),
+    singleton: FastCheck.boolean()
+  }, ({ observations, rolls, stride, singleton }) =>
+    Effect.gen(function*() {
+      const low = -13
+      const high = Num.sum(low, Num.multiply(8, stride))
+      const step = Option.some(stride)
+      const space = yield* SearchSpace.make({ depth: SearchSpace.int(low, high, { step: stride }) })
+      const parameter = yield* Arr.head(space.params)
+      const values = Arr.map(observations, (index) => Num.sum(low, Num.multiply(index, stride)))
+      const trials = Arr.map(values, (depth, trialNumber) =>
+        new CompletedTrialForSplit({
+          trialNumber,
+          config: { depth },
+          value: trialNumber
+        }))
+      const split = { below: Arr.take(trials, 1), above: Arr.drop(trials, 1) }
+      const inputs = Bool.match(singleton, {
+        onTrue: () => Arr.take(rolls, 1),
+        onFalse: () => Arr.prependAll(rolls, Arr.make(Tuple.make(1, 1), Tuple.make(0, 0), Tuple.make(0.5, 0.5)))
+      })
+      const trace = yield* intCandidateTraceFromRolls(parameter, low, high, step, split, inputs)
+      // Independent one-shot reference, with explicitly derived expanded bounds.
+      const modelLow = Num.subtract(low, Num.multiply(0.5, stride))
+      const modelHigh = Num.sum(high, Num.multiply(0.5, stride))
+      const below = buildContinuousParzen(Arr.take(values, 1), modelLow, modelHigh)
+      const above = buildContinuousParzen(Arr.drop(values, 1), modelLow, modelHigh)
+      const samples = Arr.map(inputs, ([kernel, value]) => sampleFromParzen(below, kernel, value))
+      const candidates = Arr.map(samples, (sample) =>
+        Num.round(
+          Num.clamp(
+            Num.sum(low, Num.multiply(Num.round(Num.unsafeDivide(Num.subtract(sample, low), stride), 0), stride)),
+            { minimum: low, maximum: high }
+          ),
+          0
+        ))
+      expect(Chunk.toReadonlyArray(trace.candidates)).toEqual(candidates)
+      expect(trace.logL).toEqual(Arr.map(samples, (sample) => logDensity(below, sample)))
+      expect(trace.logG).toEqual(Arr.map(samples, (sample) => logDensity(above, sample)))
+      expect(trace.scores).toEqual(Arr.zipWith(trace.logL, trace.logG, Num.subtract))
+    }))
+
   it.effect("replays per-dimension rolls and joint EI argmax decisions from mixed-space fixtures", () =>
     Effect.gen(function*() {
       const loaded = yield* loadAllFixtures("mixed-space.").pipe(Effect.provide(FixtureRegistryLive))
