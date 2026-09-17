@@ -6,6 +6,7 @@
  */
 import { BunRuntime } from "@effect/platform-bun"
 import { Numeric } from "@scenesystems/effect-math"
+import { Cipher } from "@scenesystems/seal"
 import {
   BigDecimal,
   Boolean as Bool,
@@ -29,7 +30,7 @@ import { scenarioById } from "../app/server/imagined-place/scenarios.js"
 
 const scenario = scenarioById("unfinished-light")
 
-const request = Schema.decodeSync(PlaceBuildRequest)({
+const request = PlaceBuildRequest.make({
   scenario: scenario.id,
   brief: scenario.brief,
   acceptNeighbor: true,
@@ -192,6 +193,6 @@ const program = Effect.gen(function*() {
       short(Option.getOrElse(versionTwo(both), () => "?"))
     } differs from neighbor-only ${short(Option.getOrElse(versionTwo(result), () => "?"))}`
   )
-}).pipe(Effect.provide(ParticipantsLive))
+}).pipe(Effect.provide([ParticipantsLive, Cipher.layer]))
 
 BunRuntime.runMain(program)

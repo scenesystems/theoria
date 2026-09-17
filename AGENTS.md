@@ -129,7 +129,7 @@ Enforcement is split by tool, each owning one concern, all wired into `bun run l
 - Package export maps keep `internal/*` unreachable to package consumers. They do not prohibit implementation modules inside the same package from using relative imports to their own internals.
 - Every shared abstraction has a semantic owner and lives with that concern. Do not create an ownerless `shared` or `contracts` home by default.
 - Adding algorithms must not require modifying unrelated internals.
-- Non-cryptographic randomness (sampling, search, fixtures) goes through Effect `Random` with seeded generators so runs replay. Key material and signing entropy use `Entropy.Entropy` from `@scenesystems/sign`, with `Entropy.layer` at host boundaries; `Random` is never a source of secrets. Noble's internal scalar blinding remains intact.
+- Non-cryptographic randomness (sampling, search, fixtures) goes through Effect `Random` with seeded generators so runs replay. Key material and signing entropy use `Entropy.Entropy` from `@scenesystems/sign`; encryption nonces belong to `Cipher.Cipher` from `@scenesystems/seal`. Provide their separate `Entropy.layer` and `Cipher.layer` capabilities at host boundaries; `Random` is never a source of secrets. Noble's internal scalar blinding remains intact.
 - Public entrypoints are chosen per library from current consumer concerns rather than inherited package history. Effect remains required; use Schema for values that cross encoded boundaries and Effect-native types for abstract service and generic relationships.
 
 ---

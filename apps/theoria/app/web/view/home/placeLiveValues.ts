@@ -3,7 +3,11 @@ import * as Arr from "effect/Array"
 import * as Num from "effect/Number"
 import * as Tuple from "effect/Tuple"
 
-import { proposalSignatureSite, versionSignatureSite } from "../../../contracts/demo/imagined-place-provenance.js"
+import {
+  proposalSignatureSite,
+  sealSite,
+  versionSignatureSite
+} from "../../../contracts/demo/imagined-place-provenance.js"
 import { renderTrials } from "../../../contracts/demo/imagined-place-search.js"
 import type { PlaceBuild } from "../../../contracts/imagined-place-result.js"
 import type { PlaceSearch, ShownGeometry } from "../../atoms/imagined-place-render.js"
@@ -49,7 +53,7 @@ const proposeValues = (build: PlaceBuild) => {
     ),
     annotation(proposalSignatureSite.match, Option.map(neighbor, (record) => signatureLabel(record.signature))),
     annotation(
-      "seal(\"xchacha20-poly1305\"",
+      sealSite.match,
       Option.some(`${Inspectable.toStringUnknown(note.envelopeBytes)} bytes · opened with your key`)
     )
   ))

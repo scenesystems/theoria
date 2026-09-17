@@ -92,18 +92,18 @@ describe("segmentLine", () => {
         const highlighter = yield* makeSyntaxHighlighter
         const lines = highlightCode(
           highlighter,
-          "const envelope = yield* seal(\"xchacha20-poly1305\", key, Bytes.fromString(note)) // seal",
+          "const envelope = yield* Envelope.encrypt(\"xchacha20-poly1305\", key, Bytes.fromString(note)) // Envelope.encrypt",
           "typescript"
         )
         const line = yield* Arr.head(lines)
         const segments = segmentLine(
           line,
           Arr.make(
-            CodeLink.make({ text: "seal", href: "/seal" }),
-            CodeLink.make({ text: "Bytes.fromString", href: "/bytes" })
+            CodeLink.make({ text: "Envelope.encrypt", href: "/docs/seal/api/Envelope#api-encrypt" }),
+            CodeLink.make({ text: "Bytes.fromString", href: "/docs/sign/api/Bytes#api-fromString" })
           )
         )
-        expect(linked(segments)).toEqual(Arr.make("seal", "Bytes.fromString"))
+        expect(linked(segments)).toEqual(Arr.make("Envelope.encrypt", "Bytes.fromString"))
       })
     ))
 })

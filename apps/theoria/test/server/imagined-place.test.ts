@@ -1,4 +1,5 @@
 import { describe, expect, it } from "@effect/vitest"
+import { Cipher } from "@scenesystems/seal"
 import {
   Array as Arr,
   Boolean as Bool,
@@ -9,7 +10,8 @@ import {
   Option,
   Record,
   String as Str,
-  Struct
+  Struct,
+  Tuple
 } from "effect"
 
 import { Bytes, Ed25519 } from "@scenesystems/sign"
@@ -27,6 +29,7 @@ import {
   versionShapes
 } from "../../app/contracts/imagined-place.js"
 import { Participants, ParticipantsLive } from "../../app/server/imagined-place/authority.js"
+import { sendSealedNote } from "../../app/server/imagined-place/note.js"
 import { render } from "../../app/server/imagined-place/render.js"
 import { buildPlace } from "../../app/server/imagined-place/run.js"
 import { scenarioById } from "../../app/server/imagined-place/scenarios.js"
@@ -46,7 +49,8 @@ const acceptances = Arr.make(
   PlaceAcceptances.make({ acceptNeighbor: true, acceptProgram: true })
 )
 
-const build = (variant: PlaceBuildRequest = request) => buildPlace(variant).pipe(Effect.provide(ParticipantsLive))
+const build = (variant: PlaceBuildRequest = request) =>
+  buildPlace(variant).pipe(Effect.provide([ParticipantsLive, Cipher.layer]))
 
 describe("server/imagined-place", () => {
   it.effect("composes and proposes for every scenario through the typed programs", () =>
@@ -149,7 +153,7 @@ describe("server/imagined-place", () => {
       const neighborRecord = yield* Arr.get(result.evidence.signatures, 2)
       const neighborSignature = yield* Encoding.decodeHex(neighborRecord.signatureHex)
       expect(yield* Ed25519.verify(neighborSignature, Bytes.fromString(neighborRecord.subject), wrongKey)).toBe(false)
-    }).pipe(Effect.provide(ParticipantsLive)))
+    }).pipe(Effect.provide([ParticipantsLive, Cipher.layer])))
 
   it.effect("seals the neighbor's note to the author and the author can open it", () =>
     Effect.gen(function*() {
@@ -161,6 +165,17 @@ describe("server/imagined-place", () => {
       expect(result.evidence.sealedNote.from).toBe("neighbor")
       expect(result.evidence.sealedNote.to).toBe("author")
     }))
+
+  it.effect("preserves empty notes and multibyte UTF-8 across the real sealing pipeline", () =>
+    Effect.forEach(
+      Arr.make(Tuple.make("", 40), Tuple.make("é🌊\u0000", 47)),
+      ([text, expectedBytes]) =>
+        Effect.gen(function*() {
+          const note = yield* sendSealedNote("neighbor", "author", text)
+          expect(note.openedText).toBe(text)
+          expect(note.envelopeBytes).toBe(expectedBytes)
+        })
+    ).pipe(Effect.provide([ParticipantsLive, Cipher.layer])))
 
   it.effect("renders a legible arrangement: text flows around markers, nothing overlaps or leaves the stage", () =>
     Effect.gen(function*() {

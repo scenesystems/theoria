@@ -37,7 +37,7 @@ const proposeReferences = Arr.make(
   ref("sign", "Ed25519", "Ed25519.sign", "sign"),
   ref("sign", "X25519", "X25519.deriveSharedSecret", "deriveSharedSecret"),
   ref("digest", "Hkdf", "Hkdf.sha256", "sha256"),
-  ref("seal", "seal", "seal", "seal"),
+  ref("seal", "Envelope", "Envelope.encrypt", "encrypt"),
   ref("sign", "Bytes", "Bytes.fromString", "fromString")
 )
 

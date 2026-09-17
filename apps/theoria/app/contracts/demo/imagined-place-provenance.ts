@@ -82,7 +82,7 @@ export const composeSite = site("compose", "compose", "composer.forward(", "effe
 export const inferenceSite = site("inference", "compose", "InferenceTesting.staticLanguageModel(", "effect-inference")
 export const proposalDigestSite = site("proposal-digest", "propose", "ContentDigest.fromSchema(Proposal,", "digest")
 export const proposalSignatureSite = site("proposal-signature", "propose", "Ed25519.sign(", "sign")
-export const sealSite = site("seal", "propose", "seal(\"xchacha20-poly1305\"", "seal")
+export const sealSite = site("seal", "propose", "Envelope.encrypt(\"xchacha20-poly1305\"", "seal")
 export const originDigestSite = site(
   "origin-digest",
   "record",

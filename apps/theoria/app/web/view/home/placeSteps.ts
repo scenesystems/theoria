@@ -45,7 +45,8 @@ const signature = yield* Ed25519.sign(proposalBytes, proposer.secretKey, propose
 
 const shared = yield* X25519.deriveSharedSecret(neighbor.secretKey, author.publicKey)
 const key = yield* Hkdf.sha256(shared.sharedSecret, Option.none(), context, 32)
-const envelope = yield* seal("xchacha20-poly1305", key, Bytes.fromString(note))`
+// The application provides Cipher.layer once at its entrypoint.
+const envelope = yield* Envelope.encrypt("xchacha20-poly1305", key, Bytes.fromString(note))`
 
 const recordCode = `// Version 1 is the digest of its content. Version 2 digests version 1's
 // ID as its parent, so the chain cannot be reordered. The author signs each.
