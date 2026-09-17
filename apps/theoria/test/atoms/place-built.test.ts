@@ -1,5 +1,5 @@
 import { Registry, Result } from "@effect-atom/atom"
-import { describe, expect, it } from "@effect/vitest"
+import { expect } from "@effect/vitest"
 import { Effect, Layer, MutableRef, Option } from "effect"
 
 import type { PlaceBuild } from "../../app/contracts/imagined-place-result.js"
@@ -11,7 +11,7 @@ import {
 } from "../../app/web/atoms/imagined-place.js"
 import { SuccessEnvelopeData } from "../../app/web/services/envelopeRequest.js"
 import { ImaginedPlaceClient } from "../../app/web/services/ImaginedPlaceClient.js"
-import { onStage } from "../helpers/place-on-stage.js"
+import { describeOnStage, onStage } from "../helpers/place-on-stage.js"
 
 /**
  * The build the page has is a fact apart from the request for the next one:
@@ -29,7 +29,7 @@ const holdingClient: Layer.Layer<ImaginedPlaceClient> = Layer.succeed(
   ImaginedPlaceClient.make({ build: () => Effect.never })
 )
 
-describe("the build the page has", () => {
+describeOnStage("the build the page has", (it) => {
   it.effect("a rebuild on its way is the same build, and is not a change", () =>
     Effect.gen(function*() {
       const { build } = yield* onStage

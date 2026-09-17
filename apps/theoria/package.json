@@ -11,7 +11,7 @@
     "check:all": "bun run check && bun run check:tests",
     "lint": "cd ../.. && oxlint apps/theoria && eslint --cache --cache-location node_modules/.cache/eslint/ --max-warnings=0 apps/theoria && dprint check \"apps/theoria/**\"",
     "lint:fix": "cd ../.. && oxlint --fix apps/theoria && eslint --cache --cache-location node_modules/.cache/eslint/ --max-warnings=0 --fix apps/theoria && dprint fmt \"apps/theoria/**\"",
-    "test": "vitest run --config vitest.config.ts",
+    "test": "vitest run --root ../.. --project theoria",
     "test:worker": "vitest run --config vitest.worker.config.ts",
     "test:worker:profile": "vitest run --config vitest.worker.config.ts test/worker/home-vitals.test.ts test/worker/home-environment.test.ts",
     "test:worker:staging": "THEORIA_SITE_URL=https://theoria.staging.scenesystems.io bun run test:worker:profile",

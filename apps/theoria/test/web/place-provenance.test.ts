@@ -1,4 +1,4 @@
-import { describe, expect, it } from "@effect/vitest"
+import { expect } from "@effect/vitest"
 import { Effect, Option } from "effect"
 import * as Arr from "effect/Array"
 
@@ -27,7 +27,7 @@ import type { PlaceBuild } from "../../app/contracts/imagined-place-result.js"
 import { drawingId, frameShowing, PlaceRenderFrame } from "../../app/web/atoms/imagined-place-render.js"
 import { type PlaceOnPage, provenanceFor } from "../../app/web/view/home/placeProvenance.js"
 import { currentVersion, proposalAnchorLine } from "../../app/web/view/home/placeViewModel.js"
-import { onStage } from "../helpers/place-on-stage.js"
+import { describeOnStage, onStage } from "../helpers/place-on-stage.js"
 
 /**
  * What the page answers about a mark is read from the build the server
@@ -52,7 +52,7 @@ const codeLine = (step: PlaceStep, match: string): PlaceMark => ({
   site: Option.getOrThrow(codeSiteOf(step, match)).id
 })
 
-describe("place provenance", () => {
+describeOnStage("place provenance", (it) => {
   it.effect("a line of the prose is answered from the drawing on the paper, not from the arrangement the search kept", () =>
     Effect.gen(function*() {
       const { build, kept, showingKept, showingTrial, trial } = yield* onStage
@@ -245,7 +245,7 @@ describe("place provenance", () => {
     }))
 })
 
-describe("answers from the drawing's own source", () => {
+describeOnStage("answers from the drawing's own source", (it) => {
   it.effect("a disc on the paper is answered from the drawing it is on, not from the build in the column", () =>
     Effect.gen(function*() {
       const { build, showingTrial, trial, other } = yield* onStage

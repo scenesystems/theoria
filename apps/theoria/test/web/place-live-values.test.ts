@@ -1,5 +1,5 @@
 import { Registry } from "@effect-atom/atom"
-import { describe, expect, it } from "@effect/vitest"
+import { expect } from "@effect/vitest"
 import { Effect, Equal, Inspectable, Option, Struct, Tuple } from "effect"
 import * as Arr from "effect/Array"
 import * as Num from "effect/Number"
@@ -16,7 +16,7 @@ import { placeLiveValues } from "../../app/web/view/home/placeLiveValues.js"
 import { provenanceFor } from "../../app/web/view/home/placeProvenance.js"
 import { currentVersion, fixedDecimal, signatureFor, signatureLabel } from "../../app/web/view/home/placeViewModel.js"
 import type { CodeAnnotation } from "../../app/web/view/primitives/code/CodeLine.js"
-import { onStage, pageShowing } from "../helpers/place-on-stage.js"
+import { describeOnStage, onStage, pageShowing } from "../helpers/place-on-stage.js"
 
 /**
  * The values beside the Arrange code describe the drawing on the stage —
@@ -30,7 +30,7 @@ const valueOf = (annotations: Iterable<CodeAnnotation>, match: string) =>
     Option.map((found) => found.text)
   )
 
-describe("place live values", () => {
+describeOnStage("place live values", (it) => {
   it.effect("formats stage positions and losses with rounding and retained decimal places", () =>
     Effect.forEach(
       Arr.make(

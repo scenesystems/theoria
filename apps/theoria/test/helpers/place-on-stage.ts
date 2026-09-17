@@ -1,6 +1,7 @@
 import { Registry, Result } from "@effect-atom/atom"
+import { layer } from "@effect/vitest"
 import { Cipher } from "@scenesystems/seal"
-import { Data, Effect, Record, Tuple } from "effect"
+import { Context, Data, Effect, Layer, Record, Tuple } from "effect"
 import * as Arr from "effect/Array"
 import * as HashSet from "effect/HashSet"
 
@@ -48,8 +49,7 @@ const arrangementOf = (rendering: PlaceRendering) =>
     }
   })
 
-/** The two builds, with the first build's trial and kept frames and the other build's complete frame. */
-export const onStage = Effect.gen(function*() {
+const makeOnStage = Effect.gen(function*() {
   const [build, otherBuild] = yield* Effect.all(Tuple.make(
     buildPlace(request).pipe(Effect.provide([ParticipantsLive, Cipher.layer])),
     buildPlace(otherRequest).pipe(Effect.provide([ParticipantsLive, Cipher.layer]))
@@ -96,6 +96,19 @@ export const onStage = Effect.gen(function*() {
     other: Data.struct({ build: otherBuild, showing: otherShowing })
   })
 })
+
+/** The two builds, with the first build's trial and kept frames and the other build's complete frame. */
+export const onStage = Context.GenericTag<Effect.Effect.Success<typeof makeOnStage>>(
+  "@theoria/test/helpers/PlaceOnStage"
+)
+
+/**
+ * Builds the immutable fixture once per test suite, not once per assertion.
+ * Tests still create their own registries; no atom state or live services are shared.
+ * The setup runs three full rendering searches, so it has a one-minute hook
+ * budget. Individual assertions keep the normal test timeout.
+ */
+export const describeOnStage = layer(Layer.effect(onStage, makeOnStage), { timeout: "1 minute" })
 
 /**
  * A page with `build` arrived in the column and `shown` on the paper, as the

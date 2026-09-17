@@ -1,9 +1,9 @@
-import { describe, expect, it } from "@effect/vitest"
+import { expect } from "@effect/vitest"
 import { Effect } from "effect"
 import * as Arr from "effect/Array"
 
 import { legendFromMarkers, legendFromOutline } from "../../app/web/view/home/placeViewModel.js"
-import { onStage } from "../helpers/place-on-stage.js"
+import { describeOnStage, onStage } from "../helpers/place-on-stage.js"
 
 /**
  * The stage's marker legend is laid from the outline before the first drawing
@@ -11,7 +11,7 @@ import { onStage } from "../helpers/place-on-stage.js"
  * the same names in the same order, each in its contributor's tone — or the
  * first frame would move what is under the stage.
  */
-describe("place legend", () => {
+describeOnStage("place legend", (it) => {
   it.effect("the legend from the outline is the legend from the drawing's markers", () =>
     Effect.gen(function*() {
       const { build, kept } = yield* onStage
