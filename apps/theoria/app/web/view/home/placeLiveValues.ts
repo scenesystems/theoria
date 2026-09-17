@@ -101,7 +101,7 @@ const arrangeValues = (search: PlaceSearch, shown: ShownGeometry) => {
       }% of width apart`
     }),
     CodeAnnotation.make({
-      match: "Study.tell(",
+      match: "Optimization.tell(",
       text: Bool.match(searching(search), {
         onTrue: () =>
           `trial ${Inspectable.toStringUnknown(Arr.length(search.tried))} of ${

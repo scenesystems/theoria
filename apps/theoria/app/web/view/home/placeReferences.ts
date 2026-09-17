@@ -55,10 +55,10 @@ const arrangeReferences = Arr.make(
   ref("effect-math", "Statistics", "Statistics.minimum", "minimum"),
   ref("effect-math", "Geometry", "Geometry.euclideanDistance", "euclideanDistance"),
   ref("effect-math", "Statistics", "Statistics.standardDeviation", "standardDeviation"),
-  ref("effect-search", "Study", "Study.open", "open"),
+  ref("effect-search", "Optimization", "Optimization.open", "open"),
   ref("effect-search", "Sampler", "Sampler.tpe", "tpe"),
-  ref("effect-search", "Study", "Study.ask", "ask"),
-  ref("effect-search", "Study", "Study.tell", "tell")
+  ref("effect-search", "Optimization", "Optimization.ask", "ask"),
+  ref("effect-search", "Optimization", "Optimization.tell", "tell")
 )
 
 export const placeReferences = (step: PlaceStep) =>

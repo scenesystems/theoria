@@ -4,10 +4,14 @@
  * @internal
  * @since 0.2.0
  */
-import { Study } from "@scenesystems/effect-search"
-import type * as EffectSearch from "@scenesystems/effect-search"
-import { Chunk, Effect, Number as Num, Option, Ref, Stream } from "effect"
-import type { Layer } from "effect"
+import * as Optimization from "@scenesystems/effect-search/Optimization"
+import type * as OptimizationSnapshot from "@scenesystems/effect-search/OptimizationSnapshot"
+import * as OptimizationStorage from "@scenesystems/effect-search/OptimizationStorage"
+import type * as Pruning from "@scenesystems/effect-search/Pruning"
+import type * as Sampler from "@scenesystems/effect-search/Sampler"
+import type * as SearchSpace from "@scenesystems/effect-search/SearchSpace"
+import { Chunk, Data, Effect, Match, Number as Num, Option, Ref, Stream } from "effect"
+import type { Layer, Schema } from "effect"
 import * as Arr from "effect/Array"
 
 import type { MeasurementCache, WordSegmenter } from "../../../contracts/index.js"
@@ -15,31 +19,34 @@ import type { MeasurementFailed } from "../../../Errors/index.js"
 import type { EngineProfileType } from "../../../Text/schema.js"
 import { CalibrationSnapshotMissing, CalibrationStudyNotSingleObjective } from "../errors.js"
 import { evaluateProfile } from "../evaluation.js"
-import type { CalibrationCaseType, CalibrationObjectiveMetadataType } from "../schema.js"
+import type { CalibrationCase, CalibrationObjectiveMetadataType } from "../schema.js"
 import { scoreCalibrationReportSync } from "./scoring.js"
 import { calibrationProfile } from "./search.js"
 
 type CalibrationObjective = (
   engineProfile: EngineProfileType,
-  runtime: EffectSearch.Study.ObjectiveTrialRuntime
+  runtime: Pruning.Runtime
 ) => Effect.Effect<number, MeasurementFailed>
 
 const asSingleObjectiveResult = <Config>(
-  result: Study.StudyResult<Config>
-): Effect.Effect<Study.SingleObjectiveResult<Config>, CalibrationStudyNotSingleObjective> =>
-  result._tag === "SingleObjective"
-    ? Effect.succeed(result)
-    : new CalibrationStudyNotSingleObjective({
-      trialCount: result.trials.length,
-      paretoFrontSize: result.paretoFront.length
-    })
+  result: Optimization.Result<Config>
+): Effect.Effect<Optimization.SingleObjectiveResult<Config>, CalibrationStudyNotSingleObjective> =>
+  Match.value(result).pipe(
+    Match.tag("SingleObjective", (single) => Effect.succeed(single)),
+    Match.tag("MultiObjective", (multi) =>
+      new CalibrationStudyNotSingleObjective({
+        trialCount: Arr.length(Arr.fromIterable(multi.trials)),
+        paretoFrontSize: Arr.length(Arr.fromIterable(multi.paretoFront))
+      })),
+    Match.exhaustive
+  )
 
-const makeInMemoryStudyStorage = Effect.gen(function*() {
-  const snapshotRef = yield* Ref.make<Option.Option<Study.StudySnapshot>>(Option.none())
-  const trialLogRef = yield* Ref.make<Array<Study.SnapshotTrial>>([])
+const makeInMemoryOptimizationStorage = Effect.gen(function*() {
+  const snapshotRef = yield* Ref.make<Option.Option<OptimizationSnapshot.OptimizationSnapshot>>(Option.none())
+  const trialLogRef = yield* Ref.make(Arr.empty<OptimizationSnapshot.Trial>())
 
-  const storage: Study.StudyStorageApi = {
-    appendTrial: (trial) => Ref.update(trialLogRef, (trials) => [...trials, trial]),
+  const storage: OptimizationStorage.Service = {
+    appendTrial: (trial) => Ref.update(trialLogRef, Arr.append(trial)),
     loadSnapshot: () => Ref.get(snapshotRef),
     loadTrialLog: () => Ref.get(trialLogRef),
     replayTrialLog: () =>
@@ -64,57 +71,59 @@ const makeInMemoryStudyStorage = Effect.gen(function*() {
   return storage
 })
 
-const loadStoredSnapshot = (storage: Study.StudyStorageApi) =>
+const loadStoredSnapshot = (storage: OptimizationStorage.Service) =>
   storage.loadSnapshot().pipe(
     Effect.flatMap(
       Option.match({
         onNone: () =>
           storage.loadTrialLog().pipe(
-            Effect.flatMap((trialLog) => new CalibrationSnapshotMissing({ trialLogLength: trialLog.length }))
+            Effect.flatMap((trialLog) => new CalibrationSnapshotMissing({ trialLogLength: Arr.length(trialLog) }))
           ),
         onSome: Effect.succeed
       })
     )
   )
 
-const resolveStudyStorage = (storage: Option.Option<Study.StudyStorageApi>) =>
+const resolveOptimizationStorage = (storage: Option.Option<OptimizationStorage.Service>) =>
   storage.pipe(
     Option.match({
-      onNone: () => makeInMemoryStudyStorage,
+      onNone: () => makeInMemoryOptimizationStorage,
       onSome: Effect.succeed
     })
   )
 
 const objectiveFunction = (
-  cases: ReadonlyArray<CalibrationCaseType>,
+  cases: Schema.Array$<typeof CalibrationCase>["Type"],
   services: Layer.Layer<WordSegmenter | MeasurementCache>,
   objective: CalibrationObjectiveMetadataType
 ): CalibrationObjective =>
 (
   engineProfile: EngineProfileType,
-  _runtime: EffectSearch.Study.ObjectiveTrialRuntime
+  _runtime: Pruning.Runtime
 ) => scoreCandidate(engineProfile, cases, services, objective)
 
-const storedStudyResult = (options: {
+class StoredOptimizationOptions extends Data.Class<{
   readonly objective: CalibrationObjective
-  readonly sampler: EffectSearch.Sampler.Sampler
-  readonly space: EffectSearch.SearchSpace.SearchSpace
-  readonly storage: Study.StudyStorageApi
-}) =>
-  Study.resumeFromStorage({
+  readonly sampler: Sampler.Sampler
+  readonly space: SearchSpace.SearchSpace
+  readonly storage: OptimizationStorage.Service
+}> {}
+
+const storedOptimizationResult = (options: StoredOptimizationOptions) =>
+  Optimization.resumeFromStorage({
     space: options.space,
     sampler: options.sampler,
     direction: "minimize",
     trials: 0,
     objective: options.objective
   }).pipe(
-    Effect.provideService(Study.StudyStorage, options.storage),
+    Effect.provideService(OptimizationStorage.OptimizationStorage, options.storage),
     Effect.flatMap(asSingleObjectiveResult)
   )
 
 const scoreCandidate = (
   engineProfile: EngineProfileType,
-  cases: ReadonlyArray<CalibrationCaseType>,
+  cases: Schema.Array$<typeof CalibrationCase>["Type"],
   services: Layer.Layer<WordSegmenter | MeasurementCache>,
   objective: CalibrationObjectiveMetadataType
 ) =>
@@ -124,37 +133,39 @@ const scoreCandidate = (
     Effect.map(({ total }) => total)
   )
 
+class FreshStudyOptions extends Data.Class<{
+  readonly cases: Schema.Array$<typeof CalibrationCase>["Type"]
+  readonly objective: CalibrationObjectiveMetadataType
+  readonly sampler: Sampler.Sampler
+  readonly services: Layer.Layer<WordSegmenter | MeasurementCache>
+  readonly storage: Option.Option<OptimizationStorage.Service>
+  readonly space: SearchSpace.SearchSpace
+  readonly trials: number
+}> {}
+
 /**
- * Run one fresh calibration study and collect its ordered event log.
+ * Run one fresh calibration optimization and collect its ordered event log.
  *
  * @since 0.2.0
  * @category internals
  */
-export const runFreshCalibrationStudy = (options: {
-  readonly cases: ReadonlyArray<CalibrationCaseType>
-  readonly objective: CalibrationObjectiveMetadataType
-  readonly sampler: EffectSearch.Sampler.Sampler
-  readonly services: Layer.Layer<WordSegmenter | MeasurementCache>
-  readonly storage: Option.Option<Study.StudyStorageApi>
-  readonly space: EffectSearch.SearchSpace.SearchSpace
-  readonly trials: number
-}) =>
+export const runFreshCalibrationStudy = (options: FreshStudyOptions) =>
   Effect.gen(function*() {
-    const storage = yield* resolveStudyStorage(options.storage)
+    const storage = yield* resolveOptimizationStorage(options.storage)
     const objective = objectiveFunction(options.cases, options.services, options.objective)
-    const eventLog = yield* Study.optimizeStream({
+    const eventLog = yield* Optimization.stream({
       space: options.space,
       sampler: options.sampler,
       direction: "minimize",
       trials: options.trials,
       objective
     }).pipe(
-      Stream.provideService(Study.StudyStorage, storage),
+      Stream.provideService(OptimizationStorage.OptimizationStorage, storage),
       Stream.runCollect,
       Effect.map(Chunk.toReadonlyArray)
     )
     const snapshot = yield* loadStoredSnapshot(storage)
-    const studyResult = yield* storedStudyResult({
+    const studyResult = yield* storedOptimizationResult({
       objective,
       sampler: options.sampler,
       space: options.space,
@@ -168,26 +179,28 @@ export const runFreshCalibrationStudy = (options: {
     }
   })
 
+class ResumedStudyOptions extends Data.Class<{
+  readonly cases: Schema.Array$<typeof CalibrationCase>["Type"]
+  readonly objective: CalibrationObjectiveMetadataType
+  readonly sampler: Sampler.Sampler
+  readonly services: Layer.Layer<WordSegmenter | MeasurementCache>
+  readonly snapshot: OptimizationSnapshot.OptimizationSnapshot
+  readonly storage: Option.Option<OptimizationStorage.Service>
+  readonly space: SearchSpace.SearchSpace
+  readonly trials: number
+}> {}
+
 /**
- * Resume a calibration study from a prior snapshot.
+ * Resume a calibration optimization from a prior snapshot.
  *
  * @since 0.2.0
  * @category internals
  */
-export const runResumedCalibrationStudy = (options: {
-  readonly cases: ReadonlyArray<CalibrationCaseType>
-  readonly objective: CalibrationObjectiveMetadataType
-  readonly sampler: EffectSearch.Sampler.Sampler
-  readonly services: Layer.Layer<WordSegmenter | MeasurementCache>
-  readonly snapshot: Study.StudySnapshot
-  readonly storage: Option.Option<Study.StudyStorageApi>
-  readonly space: EffectSearch.SearchSpace.SearchSpace
-  readonly trials: number
-}) =>
+export const runResumedCalibrationStudy = (options: ResumedStudyOptions) =>
   Effect.gen(function*() {
-    const storage = yield* resolveStudyStorage(options.storage)
+    const storage = yield* resolveOptimizationStorage(options.storage)
     const objective = objectiveFunction(options.cases, options.services, options.objective)
-    const eventLog = yield* Study.resumeStream({
+    const eventLog = yield* Optimization.resumeStream({
       space: options.space,
       sampler: options.sampler,
       snapshot: options.snapshot,
@@ -195,12 +208,12 @@ export const runResumedCalibrationStudy = (options: {
       trials: options.trials,
       objective
     }).pipe(
-      Stream.provideService(Study.StudyStorage, storage),
+      Stream.provideService(OptimizationStorage.OptimizationStorage, storage),
       Stream.runCollect,
       Effect.map(Chunk.toReadonlyArray)
     )
     const snapshot = yield* loadStoredSnapshot(storage)
-    const studyResult = yield* storedStudyResult({
+    const studyResult = yield* storedOptimizationResult({
       objective,
       sampler: options.sampler,
       space: options.space,

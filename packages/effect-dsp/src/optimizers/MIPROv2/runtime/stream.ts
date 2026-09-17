@@ -4,7 +4,7 @@
  * @since 0.1.0
  * @internal
  */
-import { streamFromEmitter } from "@scenesystems/effect-search/Study"
+import { toStream } from "@scenesystems/effect-study/Emitter"
 import type { Effect, Stream } from "effect"
 import type { MIPROv2Event as MIPROv2EventType } from "../events.js"
 import type { Phase3EventSink } from "../phase3-model.js"
@@ -23,4 +23,4 @@ import type { Phase3EventSink } from "../phase3-model.js"
  */
 export const streamMIPROv2Events = <A, E, R>(
   runWithEvents: (emit: Phase3EventSink) => Effect.Effect<A, E, R>
-): Stream.Stream<MIPROv2EventType, E, R> => streamFromEmitter(runWithEvents)
+): Stream.Stream<MIPROv2EventType, E, R> => toStream(runWithEvents)

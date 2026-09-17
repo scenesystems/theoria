@@ -68,9 +68,12 @@ export const TACIT_USAGE_RULES = [
 
 export const TYPE_MODELING_RULES = [
   {
-    selector: "TSInterfaceDeclaration",
+    // Effect documents empty interfaces extending Schema.Type/Encoded as native
+    // type extraction. They may anchor recursive codecs without a parallel model.
+    selector:
+      "TSInterfaceDeclaration:not([body.body.length=0][extends.length=1][extends.0.expression.object.object.name='Schema'][extends.0.expression.object.property.name='Schema'][extends.0.expression.property.name=/^(Type|Encoded)$/][extends.0.typeArguments.params.length=1][extends.0.typeArguments.params.0.type='TSTypeQuery'][extends.0.typeArguments.params.0.exprName.type='Identifier'])",
     message:
-      "Do not use TypeScript interfaces. Model runtime contracts with Schema.Class, Schema.TaggedClass, or Data.TaggedClass."
+      "Do not handwrite interface models. Use Schema/Class APIs or an empty interface deriving only Schema.Schema.Type<typeof schema> or Schema.Schema.Encoded<typeof schema>."
   },
   {
     selector: "TSTypeAliasDeclaration[typeAnnotation.type='TSTypeLiteral']",

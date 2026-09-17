@@ -54,7 +54,7 @@ import { textLayoutLive } from "./text-layout.js"
  *
  * This is the same search the server runs in `server/imagined-place/render.ts`
  * (same seed, same trial budget, same objective), driven step by step with
- * `Study.ask`/`Study.tell` so the page can show the arrangement improving.
+ * `Optimization.ask`/`Optimization.tell` so the page can show the arrangement improving.
  *
  * The search moves in jumps: each better trial is a new arrangement, and a
  * merge or a decline is a new artifact whose arrangements place every disc

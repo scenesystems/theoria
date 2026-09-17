@@ -342,7 +342,7 @@ const program = Effect.gen(function*() {
     summary: summaryArtifact,
     events: eventsArtifact,
     moduleState: moduleStateArtifact
-  }).pipe(Effect.provide(artifacts.envelopeContextLayer))
+  }).pipe(Effect.provide(artifacts.artifactContextLayer))
 
   yield* logExampleStage("summary", {
     baselineExactMatch: outcomeSummary.baselineExactMatch,

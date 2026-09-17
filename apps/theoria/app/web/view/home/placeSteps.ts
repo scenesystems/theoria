@@ -79,9 +79,9 @@ const separation = Statistics.minimum(Chunk.map(pairs, ([a, b]) => Geometry.eucl
 const raggedness = Statistics.standardDeviation(Chunk.map(lines, (line) => Num.unsafeDivide(line.width, maxWidth)))
 
 // The same seeded search runs here and on the server; each trial is one frame.
-const handle = yield* Study.open({ space, sampler: Sampler.tpe({ seed: 42 }), objective, trials: 36 })
-const asked = yield* Study.ask(handle)
-yield* Study.tell(handle, asked.trialNumber, arrange(asked.config).quality.loss)`
+const handle = yield* Optimization.open({ space, sampler: Sampler.tpe({ seed: 42 }), objective, trials: 36 })
+const asked = yield* Optimization.ask(handle)
+yield* Optimization.tell(handle, asked.trialNumber, arrange(asked.config).quality.loss)`
 
 export const placeStepDefinition = (step: PlaceStep): PlaceStepDefinition =>
   Match.value(step).pipe(

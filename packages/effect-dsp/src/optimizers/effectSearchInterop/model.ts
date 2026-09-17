@@ -3,10 +3,10 @@
  *
  * @since 0.1.0
  */
+import type * as Optimization from "@scenesystems/effect-search/Optimization"
+import type * as Progress from "@scenesystems/effect-search/Progress"
 import type * as Sampler from "@scenesystems/effect-search/Sampler"
 import type * as SearchSpace from "@scenesystems/effect-search/SearchSpace"
-import type * as Study from "@scenesystems/effect-search/Study"
-import * as StudyEvent from "@scenesystems/effect-search/StudyEvent"
 import { Data, Option, Schema } from "effect"
 
 /**
@@ -87,7 +87,7 @@ export class EffectSearchOpenOptions<Space extends SearchSpace.SearchSpace> exte
   /** Maximum number of reserved trials. */
   readonly trials: number
   /** Objective metadata used by the study contract; ask/tell callers evaluate externally. */
-  readonly objective: Study.ObjectiveFunction<SearchSpace.Type<Space>>
+  readonly objective: Optimization.Objective<SearchSpace.Type<Space>>
   /** Maximum concurrent objective evaluations recorded in study settings. */
   readonly concurrency?: number
 }> {}
@@ -99,7 +99,7 @@ export class EffectSearchOpenOptions<Space extends SearchSpace.SearchSpace> exte
  * @category type-level
  */
 export type EffectSearchInteropHandle<Space extends SearchSpace.SearchSpace = SearchSpace.SearchSpace> =
-  Study.StudyHandle<Space>
+  Optimization.Optimization<Space>
 
 /**
  * Carries a pending trial number and a configuration inferred from its search space.
@@ -107,24 +107,7 @@ export type EffectSearchInteropHandle<Space extends SearchSpace.SearchSpace = Se
  * @since 0.1.0
  * @category type-level
  */
-export type EffectSearchAskedTrial<Config = unknown> = Study.AskedTrial<Config>
-
-/**
- * Decodes the effect-search lifecycle events forwarded by the adapter.
- *
- * @since 0.1.0
- * @category schemas
- */
-export const EffectSearchInteropEventSchema = StudyEvent.StudyEventSchema
-
-/**
- * Preserves an effect-search lifecycle event at the DSP optimizer boundary.
- *
- * @see {@link EffectSearchInteropEventSchema}
- * @since 0.1.0
- * @category type-level
- */
-export type EffectSearchInteropEvent = StudyEvent.StudyEvent
+export type EffectSearchAskedTrial<Config = unknown> = Optimization.AskedTrial<Config>
 
 /**
  * Preserves the destination stream and text selected by effect-search progress formatting.
@@ -132,7 +115,7 @@ export type EffectSearchInteropEvent = StudyEvent.StudyEvent
  * @since 0.1.0
  * @category type-level
  */
-export type EffectSearchProgressLine = Study.ProgressLine
+export type EffectSearchProgressLine = Progress.Line
 
 /**
  * Distinguishes scalar-incumbent results from Pareto-front results.

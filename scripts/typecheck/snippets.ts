@@ -10,7 +10,7 @@ import type { PlatformError } from "@effect/platform/Error"
 import { Array, Boolean, Effect, Number, pipe, Schema, Stream, String } from "effect"
 import type { Scope } from "effect"
 
-const SnippetLanguage = Schema.Literal("ts", "tsx")
+export const SnippetLanguage = Schema.Literal("ts", "tsx")
 
 export type SnippetLanguage = typeof SnippetLanguage.Type
 
@@ -20,8 +20,6 @@ export class Snippet extends Schema.Class<Snippet>("Snippet")({
   language: SnippetLanguage,
   code: Schema.String
 }) {}
-
-const Snippets = Schema.Array(Snippet)
 
 export class SnippetTypecheckError extends Schema.TaggedError<SnippetTypecheckError>()("SnippetTypecheckError", {
   message: Schema.String
@@ -66,7 +64,7 @@ const rewriteCompilerOutput = (
   root: string,
   pathService: Path.Path,
   output: string,
-  snippets: typeof TempSnippets.Type
+  snippets: Iterable<TempSnippet>
 ): string =>
   Array.reduce(snippets, output, (current, { snippet, tempPath }) =>
     pipe(
@@ -119,7 +117,7 @@ const runCompiler = (root: string, snippets: typeof TempSnippets.Type) =>
 export const typecheckSnippets = (
   root: string,
   prefix: string,
-  snippets: typeof Snippets.Type
+  snippets: Iterable<Snippet>
 ): Effect.Effect<
   void,
   SnippetTypecheckError | PlatformError,

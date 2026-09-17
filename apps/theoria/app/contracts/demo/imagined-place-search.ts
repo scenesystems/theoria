@@ -1,7 +1,8 @@
 import { Number as Num, Record, Schema, Tuple } from "effect"
 
 import * as Numeric from "@scenesystems/effect-math/Numeric"
-import { Sampler, SearchSpace } from "@scenesystems/effect-search"
+import * as Sampler from "@scenesystems/effect-search/Sampler"
+import * as SearchSpace from "@scenesystems/effect-search/SearchSpace"
 
 /**
  * The arrangement search as driven from another thread. The sampler (TPE,

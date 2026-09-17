@@ -5,7 +5,9 @@
  * @since 0.1.0
  */
 import type * as LanguageModel from "@effect/ai/LanguageModel"
-import { Sampler as SearchSampler, SearchSpace, Study } from "@scenesystems/effect-search"
+import * as Optimization from "@scenesystems/effect-search/Optimization"
+import * as SearchSampler from "@scenesystems/effect-search/Sampler"
+import * as SearchSpace from "@scenesystems/effect-search/SearchSpace"
 import { Array as Arr, Effect, Option, Ref } from "effect"
 import type { Schema } from "effect"
 import { projectSingleObjective } from "../../contracts/ObjectiveProjection.js"
@@ -161,7 +163,7 @@ export const runPhase3Search = <
       evaluateOn
     })
 
-    const studyResult = yield* Study.maximize({
+    const studyResult = yield* Optimization.maximize({
       space,
       sampler: SearchSampler.tpe({ seed: cadence.seed, multivariate: true }),
       trials: trialBudget,

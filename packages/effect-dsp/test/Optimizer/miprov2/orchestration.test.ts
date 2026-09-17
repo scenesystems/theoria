@@ -9,8 +9,8 @@ import * as Metric from "@scenesystems/effect-dsp/Metric"
 import * as Module from "@scenesystems/effect-dsp/Module"
 import * as Signature from "@scenesystems/effect-dsp/Signature"
 import { MockLanguageModel } from "@scenesystems/effect-dsp/test"
-import { ArtifactStorageError } from "@scenesystems/effect-search/Errors"
-import * as Study from "@scenesystems/effect-search/Study"
+import * as OptimizationStorage from "@scenesystems/effect-search/OptimizationStorage"
+import * as Journal from "@scenesystems/effect-study/Journal"
 import { Array as Arr, Effect, Either, Equal, Layer, Number as Num, Ref, Schema } from "effect"
 import { miprov2WithEvents } from "../../../src/optimizers/MIPROv2/index.js"
 
@@ -95,12 +95,12 @@ describe("MIPROv2 orchestration", () => {
     }))
 
   it.effect(
-    "preserves an ArtifactStorageError raised by the Phase 3 study",
+    "preserves a journal failure raised by Phase 3 optimization storage",
     () =>
       Effect.gen(function*() {
         const module = yield* makeStructuredQaModule
         const mock = yield* makeQaMock
-        const storageError = new ArtifactStorageError({
+        const storageError = new Journal.Failure({
           operation: "write",
           path: "phase-3-study",
           detail: "storage unavailable"
@@ -108,8 +108,8 @@ describe("MIPROv2 orchestration", () => {
         const events = yield* Ref.make<ReadonlyArray<string>>(Arr.empty<string>())
         const appendCalls = yield* Ref.make(0)
         const storage = Layer.succeed(
-          Study.StudyStorage,
-          Study.StudyStorage.of({
+          OptimizationStorage.OptimizationStorage,
+          OptimizationStorage.OptimizationStorage.of({
             appendTrial: () =>
               Ref.update(appendCalls, Num.increment).pipe(
                 Effect.zipRight(Effect.fail(storageError))

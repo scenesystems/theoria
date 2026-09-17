@@ -125,6 +125,7 @@
         "@scenesystems/digest": "workspace:^",
         "@scenesystems/effect-math": "workspace:^",
         "@scenesystems/effect-search": "workspace:^",
+        "@scenesystems/effect-study": "workspace:^",
       },
       "devDependencies": {
         "@scenesystems/effect-inference": "workspace:^",
@@ -162,6 +163,7 @@
       "dependencies": {
         "@scenesystems/digest": "workspace:^",
         "@scenesystems/effect-math": "workspace:^",
+        "@scenesystems/effect-study": "workspace:^",
       },
       "devDependencies": {
         "@scenesystems/effect-inference": "workspace:^",
@@ -176,12 +178,24 @@
         "@effect/sql",
       ],
     },
+    "packages/effect-study": {
+      "name": "@scenesystems/effect-study",
+      "version": "0.0.0",
+      "dependencies": {
+        "@scenesystems/digest": "workspace:^",
+      },
+      "peerDependencies": {
+        "@effect/platform": "^0.97.1",
+        "effect": "^3.22.1",
+      },
+    },
     "packages/effect-text": {
       "name": "@scenesystems/effect-text",
       "version": "0.4.2",
       "dependencies": {
         "@scenesystems/effect-math": "workspace:^",
         "@scenesystems/effect-search": "workspace:^",
+        "@scenesystems/effect-study": "workspace:^",
       },
       "peerDependencies": {
         "effect": "^3.22.1",
@@ -756,6 +770,8 @@
     "@scenesystems/effect-math": ["@scenesystems/effect-math@workspace:packages/effect-math"],
 
     "@scenesystems/effect-search": ["@scenesystems/effect-search@workspace:packages/effect-search"],
+
+    "@scenesystems/effect-study": ["@scenesystems/effect-study@workspace:packages/effect-study"],
 
     "@scenesystems/effect-text": ["@scenesystems/effect-text@workspace:packages/effect-text"],
 

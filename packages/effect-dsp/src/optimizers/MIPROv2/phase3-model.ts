@@ -3,7 +3,7 @@
  *
  * @since 0.1.0
  */
-import type { Study } from "@scenesystems/effect-search"
+import type * as Optimization from "@scenesystems/effect-search/Optimization"
 import { Data, Effect, Schema } from "effect"
 import type { Example } from "../../Example/index.js"
 import type { Metric } from "../../Metric/model.js"
@@ -103,7 +103,7 @@ export class Phase3SearchResult<
   /** Same module instance supplied to `runPhase3Search`. */
   readonly module: DspModule<I, O>
   /** Completed study including the prior baseline and new trials. */
-  readonly studyResult: Study.StudyResult<Phase3Config>
+  readonly studyResult: Optimization.Result<Phase3Config>
   /** Search configuration and evaluation indexes observed during this run. */
   readonly diagnostics: Phase3Diagnostics
 }> {}

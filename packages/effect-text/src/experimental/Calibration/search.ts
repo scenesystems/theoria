@@ -3,10 +3,12 @@
  *
  * @since 0.2.0
  */
-import type { Study } from "@scenesystems/effect-search"
-import { Sampler, SearchSpace } from "@scenesystems/effect-search"
-import { Effect, Option } from "effect"
-import type { Layer } from "effect"
+import type * as OptimizationSnapshot from "@scenesystems/effect-search/OptimizationSnapshot"
+import type * as OptimizationStorage from "@scenesystems/effect-search/OptimizationStorage"
+import * as Sampler from "@scenesystems/effect-search/Sampler"
+import * as SearchSpace from "@scenesystems/effect-search/SearchSpace"
+import { Data, Effect, Option } from "effect"
+import type { Layer, Schema } from "effect"
 
 import type { MeasurementCache, WordSegmenter } from "../../contracts/index.js"
 import { evaluateProfile } from "./evaluation.js"
@@ -21,11 +23,7 @@ import {
   intOptions
 } from "./internal/search.js"
 import { runFreshCalibrationStudy, runResumedCalibrationStudy } from "./internal/study.js"
-import type {
-  CalibrationCaseType,
-  CalibrationObjectiveMetadataType,
-  CalibrationSearchDescriptorType
-} from "./schema.js"
+import type { CalibrationCase, CalibrationObjectiveMetadataType, CalibrationSearchDescriptorType } from "./schema.js"
 
 /**
  * Weighted-sum objective with multipliers 10,000 for line mismatches, 1,000 for
@@ -78,19 +76,19 @@ export const makeProfileSearchSpace = (
   })
 
 /**
- * Runs an Effect Search study and selects the engine profile with the lowest
+ * Runs an Effect Search optimization and selects the engine profile with the lowest
  * weighted calibration loss.
  *
  * @remarks
  * A supplied snapshot makes `trials` an additional-trial budget; without one it
- * is the fresh-study budget. The count must be a non-negative integer, and a
- * fresh study needs a successful trial before a best profile exists. Omission
+ * is the fresh-optimization budget. The count must be a non-negative integer, and a
+ * fresh optimization needs a successful trial before a best profile exists. Omission
  * of `sampler` selects a seed-zero TPE sampler.
  *
  * Candidate measurement failures become trial failures. If no trial succeeds,
  * the Effect fails with `NoSuccessfulTrials`. Search-space, sampler, snapshot,
- * and study validation failures remain in the Effect Search error channel.
- * Supplied `studyStorage` that holds no snapshot after the study ran fails with
+ * and optimization validation failures remain in the Effect Search error channel.
+ * Supplied `studyStorage` that holds no snapshot after the optimization ran fails with
  * `CalibrationSnapshotMissing`, and storage that resolves to a multi-objective
  * study fails with `CalibrationStudyNotSingleObjective`. The final evaluation
  * of the selected profile can fail with `MeasurementFailed`.
@@ -102,9 +100,9 @@ export const makeProfileSearchSpace = (
  * @since 0.2.0
  * @category search
  */
-export const optimizeProfile = (options: {
+export class OptimizeProfileOptions extends Data.Class<{
   /** Calibration corpus evaluated for every candidate. */
-  readonly cases: ReadonlyArray<CalibrationCaseType>
+  readonly cases: Schema.Array$<typeof CalibrationCase>["Type"]
   /** Segmentation and measurement-cache layer acquired for candidate evaluation. */
   readonly services: Layer.Layer<WordSegmenter | MeasurementCache>
   /** Fresh or additional trial budget; must be a non-negative integer. */
@@ -116,14 +114,19 @@ export const optimizeProfile = (options: {
   /** Preferred engine-profile dimension descriptor. */
   readonly searchDescriptor?: CalibrationSearchDescriptorType
   /** Prior checkpoint whose completed trials seed the resumed study. */
-  readonly snapshot?: Study.StudySnapshot
+  readonly snapshot?: OptimizationSnapshot.OptimizationSnapshot
   /** Optional Effect Search persistence service for trial logs and checkpoints. */
-  readonly studyStorage?: Study.StudyStorageApi
-}) =>
+  readonly studyStorage?: OptimizationStorage.Service
+}> {}
+
+export const optimizeProfile = (options: OptimizeProfileOptions) =>
   Effect.gen(function*() {
-    const objective = options.objective ?? DefaultCalibrationObjective
-    const searchDescriptor = options.searchDescriptor ?? DefaultCalibrationSearchDescriptor
-    const sampler = options.sampler ?? Sampler.tpe({ seed: 0 })
+    const objective = Option.getOrElse(Option.fromNullable(options.objective), () => DefaultCalibrationObjective)
+    const searchDescriptor = Option.getOrElse(
+      Option.fromNullable(options.searchDescriptor),
+      () => DefaultCalibrationSearchDescriptor
+    )
+    const sampler = Option.getOrElse(Option.fromNullable(options.sampler), () => Sampler.tpe({ seed: 0 }))
     const space = yield* makeProfileSearchSpace(searchDescriptor)
     const study = yield* Option.fromNullable(options.snapshot).pipe(
       Option.match({

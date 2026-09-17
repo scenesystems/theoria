@@ -1,0 +1,99 @@
+import { describe, expect, it } from "@effect/vitest"
+import { Array as Arr, Effect, Number as Num, Option, Order, Schema } from "effect"
+
+import * as Numeric from "@scenesystems/effect-math/Numeric"
+
+import {
+  buildConstraintDensityModels,
+  constraintDensityRatioProduct
+} from "../../../src/internal/tpe/constrainedDensity.js"
+import { splitSingleObjective } from "../../../src/internal/tpe/split/singleSplit.js"
+import { observation } from "../../../src/Sampler.js"
+import { ConstrainedTpeFixture, FixtureRegistryLive, loadFixture } from "../../helpers/fixtures/index.js"
+
+const SCORE_TOLERANCE = 1e-9
+
+const valueAt = (valuesInput: Iterable<number>, index: number): number => {
+  const values = Arr.fromIterable(valuesInput)
+  return Arr.get(values, index).pipe(
+    Option.getOrElse(() => Number.NaN)
+  )
+}
+
+const expectWithinTolerance = (
+  actual: number,
+  expected: number,
+  tolerance: number
+): void => {
+  expect(Numeric.abs(Num.subtract(actual, expected))).toBeLessThanOrEqual(tolerance)
+}
+
+const descendingRatioOrder = (ratiosInput: Iterable<number>) => {
+  const ratios = Arr.fromIterable(ratiosInput)
+  return Arr.map(
+    Arr.sortBy(
+      Order.mapInput(
+        Order.number,
+        (entry: { readonly index: number; readonly ratio: number }) => Num.negate(entry.ratio)
+      ),
+      Order.mapInput(Order.number, (entry: { readonly index: number; readonly ratio: number }) => entry.index)
+    )(
+      Arr.makeBy(Arr.length(ratios), (index) => ({
+        index,
+        ratio: valueAt(ratios, index)
+      }))
+    ),
+    (entry) => entry.index
+  )
+}
+
+describe("constrained fixture parity", () => {
+  it.effect("matches Optuna-derived constrained density ratios and feasibility ordering", () =>
+    Effect.gen(function*() {
+      const loaded = yield* loadFixture("constrained-tpe.parity").pipe(Effect.provide(FixtureRegistryLive))
+      const fixture = yield* Schema.decodeUnknown(ConstrainedTpeFixture)(loaded)
+
+      yield* Effect.forEach(
+        fixture.payload.densityCases,
+        (densityCase) =>
+          Effect.gen(function*() {
+            const models = buildConstraintDensityModels(densityCase.observations)
+            const ratios = Arr.map(
+              densityCase.probes,
+              (probe) => constraintDensityRatioProduct(models, probe)
+            )
+
+            yield* Effect.forEach(
+              densityCase.expectedRatioProducts,
+              (expectedRatio, index) =>
+                Effect.sync(() => {
+                  expectWithinTolerance(valueAt(ratios, index), expectedRatio, SCORE_TOLERANCE)
+                }),
+              { discard: true }
+            )
+
+            yield* Effect.sync(() => {
+              expect(descendingRatioOrder(ratios)).toEqual(densityCase.expectedOrder)
+            })
+          }),
+        { discard: true }
+      )
+
+      const splitCase = fixture.payload.splitCase
+      const split = splitSingleObjective(
+        Arr.map(splitCase.trials, (trial) =>
+          observation(
+            trial.trialNumber,
+            { trialNumber: trial.trialNumber },
+            trial.value,
+            { constraints: trial.constraints }
+          )),
+        splitCase.direction
+      )
+
+      yield* Effect.sync(() => {
+        expect(Arr.map(split.below, (trial) => trial.trialNumber)).toEqual(splitCase.expectedBelow)
+        expect(Arr.map(split.above, (trial) => trial.trialNumber)).toEqual(splitCase.expectedAbove)
+      })
+    }))
+})

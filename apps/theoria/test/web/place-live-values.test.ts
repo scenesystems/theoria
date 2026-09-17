@@ -99,7 +99,7 @@ describe("place live values", () => {
         )
       )
       // The search line still says where the search stands.
-      expect(valueOf(values, "Study.tell(")).toEqual(
+      expect(valueOf(values, "Optimization.tell(")).toEqual(
         Option.some("7 tried · best loss 1.520")
       )
     }))

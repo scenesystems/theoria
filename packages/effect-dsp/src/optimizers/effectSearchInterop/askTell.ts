@@ -3,11 +3,14 @@
  *
  * @since 0.1.0
  */
-import { Pareto, Sampler, Study } from "@scenesystems/effect-search"
-import type { ObjectiveValue } from "@scenesystems/effect-search/Contracts"
-import type { ArtifactStorageError, SearchError } from "@scenesystems/effect-search/Errors"
+import type { Value as ObjectiveValue } from "@scenesystems/effect-search/Objective"
+import * as Optimization from "@scenesystems/effect-search/Optimization"
+import * as Pareto from "@scenesystems/effect-search/Pareto"
+import * as Sampler from "@scenesystems/effect-search/Sampler"
+import type { SearchError } from "@scenesystems/effect-search/SearchError"
 import type * as SearchSpace from "@scenesystems/effect-search/SearchSpace"
-import { type Effect, Match, Option } from "effect"
+import type * as Journal from "@scenesystems/effect-study/Journal"
+import { Array as Arr, Data, type Effect, Match, Option } from "effect"
 import type * as Scope from "effect/Scope"
 
 import {
@@ -43,7 +46,7 @@ const resolveTpeSamplerOptions = (options: EffectSearchTpeSamplerInput = {}): Ef
  * @since 0.1.0
  * @category constructors
  */
-export const makeTpeSampler = (options: EffectSearchTpeSamplerInput = {}) => {
+export const makeTpeSampler = (options: EffectSearchTpeSamplerInput = {}): Sampler.Sampler => {
   const resolved = resolveTpeSamplerOptions(options)
 
   return Sampler.tpe({
@@ -56,9 +59,9 @@ export const makeTpeSampler = (options: EffectSearchTpeSamplerInput = {}) => {
   })
 }
 
-const openDirectionalStudy = <Space extends SearchSpace.SearchSpace>(
+const openDirectionalOptimization = <Space extends SearchSpace.SearchSpace>(
   options: EffectSearchOpenOptions<Space>
-): Effect.Effect<Study.StudyHandle<Space>, SearchError, Scope.Scope> => {
+): Effect.Effect<Optimization.Optimization<Space>, SearchError, Scope.Scope> => {
   const baseOptions = {
     space: options.space,
     sampler: options.sampler,
@@ -71,8 +74,8 @@ const openDirectionalStudy = <Space extends SearchSpace.SearchSpace>(
   }
 
   return Match.value(options.direction).pipe(
-    Match.when("maximize", () => Study.open({ ...baseOptions, direction: "maximize" })),
-    Match.when("minimize", () => Study.open({ ...baseOptions, direction: "minimize" })),
+    Match.when("maximize", () => Optimization.open({ ...baseOptions, direction: "maximize" })),
+    Match.when("minimize", () => Optimization.open({ ...baseOptions, direction: "minimize" })),
     Match.exhaustive
   )
 }
@@ -91,7 +94,7 @@ const openDirectionalStudy = <Space extends SearchSpace.SearchSpace>(
  */
 export const open = <Space extends SearchSpace.SearchSpace>(
   options: EffectSearchOpenOptions<Space>
-): Effect.Effect<EffectSearchInteropHandle<Space>, SearchError, Scope.Scope> => openDirectionalStudy(options)
+): Effect.Effect<EffectSearchInteropHandle<Space>, SearchError, Scope.Scope> => openDirectionalOptimization(options)
 
 /**
  * Reserves the next sampled configuration as a pending trial.
@@ -108,7 +111,7 @@ export const open = <Space extends SearchSpace.SearchSpace>(
  */
 export const ask = <Space extends SearchSpace.SearchSpace>(
   handle: EffectSearchInteropHandle<Space>
-): Effect.Effect<EffectSearchAskedTrial<SearchSpace.Type<Space>>, SearchError> => Study.ask(handle)
+): Effect.Effect<EffectSearchAskedTrial<SearchSpace.Type<Space>>, SearchError> => Optimization.ask(handle)
 
 /**
  * Completes a pending trial with an externally evaluated objective value.
@@ -126,7 +129,7 @@ export const tell = <Space extends SearchSpace.SearchSpace>(
   handle: EffectSearchInteropHandle<Space>,
   trialNumber: number,
   value: ObjectiveValue
-): Effect.Effect<void, SearchError> => Study.tell(handle, trialNumber, value)
+): Effect.Effect<void, SearchError> => Optimization.tell(handle, trialNumber, value)
 
 /**
  * Finalizes a pending trial with a retained failure cause.
@@ -145,15 +148,15 @@ export const fail = <Space extends SearchSpace.SearchSpace>(
   handle: EffectSearchInteropHandle<Space>,
   trialNumber: number,
   cause: unknown
-): Effect.Effect<void, SearchError> => Study.fail(handle, trialNumber, cause)
+): Effect.Effect<void, SearchError> => Optimization.fail(handle, trialNumber, cause)
 
 /**
  * Closes a running study with completion reason `interrupted`.
  *
  * @remarks
  * Pending trials remain in their running state in later snapshots and results.
- * Repeated cancellation does not emit another completion event. Publishing the
- * completion event to a persistent sink can fail with `ArtifactStorageError`.
+ * Repeated cancellation does not emit another completion event. Completion
+ * event persistence can fail with `Journal.Failure`.
  *
  * @typeParam Space - Search-space schema retained by the study handle.
  *
@@ -162,7 +165,7 @@ export const fail = <Space extends SearchSpace.SearchSpace>(
  */
 export const cancel = <Space extends SearchSpace.SearchSpace>(
   handle: EffectSearchInteropHandle<Space>
-): Effect.Effect<void, ArtifactStorageError> => Study.cancel(handle)
+): Effect.Effect<void, Journal.Failure> => Optimization.cancel(handle)
 
 /**
  * Captures the handle's current trials and compatibility metadata for resume.
@@ -178,14 +181,14 @@ export const cancel = <Space extends SearchSpace.SearchSpace>(
  */
 export const snapshot = <Space extends SearchSpace.SearchSpace>(
   handle: EffectSearchInteropHandle<Space>
-) => Study.snapshot(handle)
+) => Optimization.snapshot(handle)
 
 /**
  * Builds the final result after the handle completes or is cancelled.
  *
  * @remarks
  * Calling this while the handle can still accept reports fails with
- * `InvalidStudyConfig`. Sampler checkpoint and result construction failures
+ * `InvalidOptimizationConfig`. Sampler checkpoint and result construction failures
  * remain in `SearchError`.
  *
  * @typeParam Space - Search-space schema decoded into result trial configurations.
@@ -196,7 +199,7 @@ export const snapshot = <Space extends SearchSpace.SearchSpace>(
  */
 export const result = <Space extends SearchSpace.SearchSpace>(
   handle: EffectSearchInteropHandle<Space>
-): Effect.Effect<Study.StudyResult<SearchSpace.Type<Space>>, SearchError> => Study.result(handle)
+): Effect.Effect<Optimization.Result<SearchSpace.Type<Space>>, SearchError> => Optimization.result(handle)
 
 /**
  * Projects a study result into counts and optional single-objective incumbent data.
@@ -212,14 +215,14 @@ export const result = <Space extends SearchSpace.SearchSpace>(
  * @since 0.1.0
  * @category constructors
  */
-export const resultSummary = <Config>(result: Study.StudyResult<Config>): EffectSearchResultSummary =>
+export const resultSummary = <Config>(result: Optimization.Result<Config>): EffectSearchResultSummary =>
   Match.value(result).pipe(
     Match.tag(
       "SingleObjective",
       ({ bestTrial, trials }) =>
         new EffectSearchResultSummary({
           kind: "SingleObjective",
-          trialCount: trials.length,
+          trialCount: Arr.length(Arr.fromIterable(trials)),
           bestTrialNumber: Option.some(bestTrial.trialNumber),
           bestObjective: Option.some(bestTrial.state.value),
           paretoCount: 1
@@ -230,10 +233,10 @@ export const resultSummary = <Config>(result: Study.StudyResult<Config>): Effect
       ({ paretoFront, trials }) =>
         new EffectSearchResultSummary({
           kind: "MultiObjective",
-          trialCount: trials.length,
+          trialCount: Arr.length(Arr.fromIterable(trials)),
           bestTrialNumber: Option.none(),
           bestObjective: Option.none(),
-          paretoCount: paretoFront.length
+          paretoCount: Arr.length(Arr.fromIterable(paretoFront))
         })
     ),
     Match.exhaustive
@@ -245,11 +248,20 @@ export const resultSummary = <Config>(result: Study.StudyResult<Config>): Effect
  * @since 0.1.0
  * @category re-exports
  */
-export const pareto = {
+export class ParetoOperations extends Data.Class<{
+  readonly dominates: typeof Pareto.dominates
+  readonly nonDominatedIndices: typeof Pareto.nonDominatedIndices
+  readonly nonDominatedSort: typeof Pareto.nonDominatedSort
+  readonly nonDominatedRanks: typeof Pareto.nonDominatedRanks
+  readonly hypervolume2d: typeof Pareto.hypervolume2d
+  readonly hypervolumeContribution2d: typeof Pareto.hypervolumeContribution2d
+}> {}
+
+export const pareto = new ParetoOperations({
   dominates: Pareto.dominates,
   nonDominatedIndices: Pareto.nonDominatedIndices,
   nonDominatedSort: Pareto.nonDominatedSort,
   nonDominatedRanks: Pareto.nonDominatedRanks,
   hypervolume2d: Pareto.hypervolume2d,
   hypervolumeContribution2d: Pareto.hypervolumeContribution2d
-}
+})

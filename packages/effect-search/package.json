@@ -33,19 +33,25 @@
   "exports": {
     "./package.json": "./package.json",
     ".": "./src/index.ts",
-    "./Cache": "./src/Cache/index.ts",
-    "./Contracts": "./src/contracts/index.ts",
-    "./Errors": "./src/Errors/index.ts",
-    "./Experimental": "./src/experimental/index.ts",
-    "./Pareto": "./src/Pareto/index.ts",
-    "./Sampler": "./src/Sampler/index.ts",
-    "./Scheduler": "./src/Scheduler/index.ts",
-    "./SearchSpace": "./src/SearchSpace/index.ts",
-    "./Study": "./src/Study/index.ts",
-    "./StudyEvent": "./src/StudyEvent/index.ts",
-    "./Trial": "./src/Trial/index.ts",
-    "./contracts": "./src/contracts/index.ts",
-    "./experimental": "./src/experimental/index.ts",
+    "./Acquisition": "./src/Acquisition.ts",
+    "./Artifact": "./src/Artifact.ts",
+    "./Cache": "./src/Cache.ts",
+    "./Direction": "./src/Direction.ts",
+    "./Distribution": "./src/Distribution.ts",
+    "./Objective": "./src/Objective.ts",
+    "./ObjectiveCache": "./src/ObjectiveCache.ts",
+    "./Optimization": "./src/Optimization.ts",
+    "./OptimizationEvent": "./src/OptimizationEvent.ts",
+    "./OptimizationSnapshot": "./src/OptimizationSnapshot.ts",
+    "./OptimizationStorage": "./src/OptimizationStorage.ts",
+    "./Pareto": "./src/Pareto.ts",
+    "./Progress": "./src/Progress.ts",
+    "./Pruning": "./src/Pruning.ts",
+    "./Sampler": "./src/Sampler.ts",
+    "./Scheduler": "./src/Scheduler.ts",
+    "./SearchError": "./src/SearchError.ts",
+    "./SearchSpace": "./src/SearchSpace.ts",
+    "./Trial": "./src/Trial.ts",
     "./internal/*": null
   },
   "scripts": {
@@ -67,7 +73,8 @@
   },
   "dependencies": {
     "@scenesystems/digest": "workspace:^",
-    "@scenesystems/effect-math": "workspace:^"
+    "@scenesystems/effect-math": "workspace:^",
+    "@scenesystems/effect-study": "workspace:^"
   },
   "devDependencies": {
     "@scenesystems/effect-inference": "workspace:^"

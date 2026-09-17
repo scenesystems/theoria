@@ -1,7 +1,7 @@
 import { describe, expect, it } from "@effect/vitest"
-import { Array as Arr, Effect, Number as Num, Option } from "effect"
+import { Array as Arr, Boolean as Bool, Effect, Number as Num } from "effect"
 
-import * as Float64 from "../../../src/internal/float64.js"
+import * as Numeric from "@scenesystems/effect-math/Numeric"
 import {
   buildContinuousParzen,
   ContinuousKernel,
@@ -14,25 +14,25 @@ import { logPdf as truncatedLogPdf, TruncatedNormalParams } from "../../../src/i
 describe("tpe continuous parzen", () => {
   it.effect("injects a prior kernel at the midpoint of the support with normalized weights", () =>
     Effect.gen(function*() {
-      const parzen = buildContinuousParzen([0.1, 0.3, 0.8], 0, 1)
-      const priorKernel = yield* Option.fromNullable(parzen.kernels[parzen.kernels.length - 1])
-      const weightSum = parzen.kernels.reduce((total, kernel) => total + kernel.weight, 0)
+      const parzen = buildContinuousParzen(Arr.make(0.1, 0.3, 0.8), 0, 1)
+      const priorKernel = yield* Arr.last(parzen.kernels)
+      const weightSum = Arr.reduce(parzen.kernels, 0, (total, kernel) => Num.sum(total, kernel.weight))
 
       expect(priorKernel.mean).toBeCloseTo(0.5, 12)
       expect(priorKernel.sigma).toBeCloseTo(1, 12)
       expect(weightSum).toBeCloseTo(1, 12)
-      parzen.kernels.forEach((kernel) => {
+      Arr.forEach(parzen.kernels, (kernel) => {
         expect(kernel.weight).toBeCloseTo(0.25, 12)
       })
     }))
 
   it.effect("uses Optuna-style neighbor-gap bandwidths with magic-clip floors", () =>
     Effect.sync(() => {
-      const parzen = buildContinuousParzen([0.2, 0.4, 0.7], 0, 1)
-      const minSigma = 1 / 5
-      const observationKernels = parzen.kernels.slice(0, 3)
+      const parzen = buildContinuousParzen(Arr.make(0.2, 0.4, 0.7), 0, 1)
+      const minSigma = Num.unsafeDivide(1, 5)
+      const observationKernels = Arr.take(parzen.kernels, 3)
 
-      observationKernels.forEach((kernel) => {
+      Arr.forEach(observationKernels, (kernel) => {
         expect(kernel.sigma).toBeCloseTo(0.2, 12)
         expect(kernel.sigma).toBeGreaterThanOrEqual(minSigma)
         expect(kernel.sigma).toBeLessThanOrEqual(1)
@@ -44,32 +44,37 @@ describe("tpe continuous parzen", () => {
       const parzen = new ContinuousParzen({
         low: 0,
         high: 1,
-        kernels: [
+        kernels: Arr.make(
           new ContinuousKernel({ mean: 0.2, sigma: 0.1, weight: 0.9 }),
           new ContinuousKernel({ mean: 0.8, sigma: 0.1, weight: 0.1 })
-        ]
+        )
       })
       const probe = 0.6
-      const componentScores = parzen.kernels.map((kernel) =>
-        Float64.log(kernel.weight) +
-        truncatedLogPdf(
-          probe,
-          new TruncatedNormalParams({
-            mean: kernel.mean,
-            sigma: kernel.sigma,
-            low: parzen.low,
-            high: parzen.high
-          })
+      const componentScores = Arr.map(parzen.kernels, (kernel) =>
+        Num.sum(
+          Numeric.logStrict(kernel.weight),
+          truncatedLogPdf(
+            probe,
+            new TruncatedNormalParams({
+              mean: kernel.mean,
+              sigma: kernel.sigma,
+              low: parzen.low,
+              high: parzen.high
+            })
+          )
+        ))
+      const maxScore = Arr.reduce(
+        componentScores,
+        Number.NEGATIVE_INFINITY,
+        (currentMax, score) => Num.max(currentMax, score)
+      )
+      const expected = Num.sum(
+        maxScore,
+        Numeric.logStrict(
+          Arr.reduce(componentScores, 0, (total, score) =>
+            Num.sum(total, Numeric.pow(2.718281828459045, Num.subtract(score, maxScore))))
         )
       )
-      const maxScore = componentScores.reduce(
-        (currentMax, score) => Num.max(currentMax, score),
-        Number.NEGATIVE_INFINITY
-      )
-      const expected = maxScore +
-        Float64.log(
-          componentScores.reduce((total, score) => total + Float64.exp(score - maxScore), 0)
-        )
 
       expect(logDensity(parzen, probe)).toBeCloseTo(expected, 12)
     }))
@@ -79,10 +84,10 @@ describe("tpe continuous parzen", () => {
       const parzen = new ContinuousParzen({
         low: 0,
         high: 1,
-        kernels: [
+        kernels: Arr.make(
           new ContinuousKernel({ mean: 0.2, sigma: 0.001, weight: 0.9 }),
           new ContinuousKernel({ mean: 0.8, sigma: 0.001, weight: 0.1 })
-        ]
+        )
       })
       const firstKernelSample = sampleFromParzen(parzen, 0.1, 0.5)
       const secondKernelSample = sampleFromParzen(parzen, 0.95, 0.5)
@@ -93,16 +98,17 @@ describe("tpe continuous parzen", () => {
 
   it.effect("samples stay within configured bounds", () =>
     Effect.sync(() => {
-      const low = -2
+      const low = Num.negate(2)
       const high = 3
-      const parzen = buildContinuousParzen([-1.2, 0.3, 2.4], low, high)
+      const parzen = buildContinuousParzen(Arr.make(Num.negate(1.2), 0.3, 2.4), low, high)
       const samples = Arr.makeBy(200, (index) => {
-        const kernelRoll = (index % 20) / 20
-        const valueRoll = ((index * 11) % 100) / 100
+        const kernelRoll = Num.unsafeDivide(Num.remainder(index, 20), 20)
+        const valueRoll = Num.unsafeDivide(Num.remainder(Num.multiply(index, 11), 100), 100)
 
         return sampleFromParzen(parzen, kernelRoll, valueRoll)
       })
 
-      expect(samples.every((sample) => sample >= low && sample <= high)).toBe(true)
+      expect(Arr.every(samples, (sample) =>
+        Bool.and(Num.greaterThanOrEqualTo(sample, low), Num.lessThanOrEqualTo(sample, high)))).toBe(true)
     }))
 })

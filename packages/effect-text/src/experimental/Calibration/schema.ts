@@ -4,7 +4,8 @@
  * @since 0.1.0
  */
 import { Statistics } from "@scenesystems/effect-math"
-import { Study, StudyEvent } from "@scenesystems/effect-search"
+import * as OptimizationEvent from "@scenesystems/effect-search/OptimizationEvent"
+import * as OptimizationSnapshot from "@scenesystems/effect-search/OptimizationSnapshot"
 import { Schema } from "effect"
 
 import {
@@ -392,20 +393,20 @@ export const CalibrationSearchDescriptor = Schema.Struct({
 export type CalibrationSearchDescriptorType = typeof CalibrationSearchDescriptor.Type
 
 /**
- * Machine-readable study artifacts emitted by experimental optimization runs.
+ * Machine-readable artifacts emitted by experimental optimization runs.
  *
  * @since 0.2.0
  * @category schemas
  */
 export const CalibrationStudyArtifacts = Schema.Struct({
   /** Cumulative checkpoint after the requested trials finish. */
-  snapshot: Study.StudySnapshot,
+  snapshot: OptimizationSnapshot.OptimizationSnapshot,
   /** Events emitted by the current invocation in emission order. */
-  eventLog: Schema.Array(StudyEvent.StudyEventSchema)
+  eventLog: Schema.Array(OptimizationEvent.OptimizationEvent)
 })
 
 /**
- * Resumable study snapshot and ordered event log from one optimization run.
+ * Resumable optimization snapshot and ordered event log from one optimization run.
  *
  * @since 0.2.0
  * @category models
@@ -423,8 +424,8 @@ export const CalibrationOptimizationReport = Schema.Struct({
   objective: CalibrationObjectiveMetadata,
   /** Dimensions compiled for candidate sampling. */
   searchDescriptor: CalibrationSearchDescriptor,
-  /** Study stop condition reported by Effect Search. */
-  completionReason: StudyEvent.CompletionReasonSchema,
+  /** Optimization stop condition reported by Effect Search. */
+  completionReason: OptimizationEvent.CompletionReason,
   /** Weighted total loss of the selected profile. */
   bestScore: NonNegativeNumber,
   /** Distribution of the selected profile's per-case losses. */

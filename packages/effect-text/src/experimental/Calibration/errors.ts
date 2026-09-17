@@ -8,10 +8,10 @@ import { Schema } from "effect"
 
 /**
  * Reports that the study storage supplied to `optimizeProfile` held no
- * `StudySnapshot` after the study ran.
+ * `OptimizationSnapshot` after the optimization ran.
  *
  * @remarks
- * `StudyStorageApi.loadSnapshot` permits absence because external storage may
+ * `OptimizationStorage.loadSnapshot` permits absence because external storage may
  * evict or delete checkpoints. Calibration needs the checkpoint to build its
  * resumable artifacts, so absence is a typed failure rather than a defect.
  *

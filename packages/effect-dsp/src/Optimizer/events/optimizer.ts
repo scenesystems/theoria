@@ -3,7 +3,7 @@
  *
  * @since 0.1.0
  */
-import { StudyEventSchema as EffectSearchInteropEventSchema } from "@scenesystems/effect-search/StudyEvent"
+import { OptimizationEvent } from "@scenesystems/effect-search/OptimizationEvent"
 import { Data, Effect, Schema } from "effect"
 import { OptimizerEventEnvelope } from "../../contracts/OptimizerEventEnvelope.js"
 import { encodeAndProjectFieldRecord } from "../../contracts/PayloadProjection.js"
@@ -11,8 +11,6 @@ import { type BootstrapEvent as BootstrapEventType, BootstrapEventSchema } from 
 import { EvaluationEventSchema } from "./evaluation.js"
 import { type GEPAEvent as GEPAEventType, GEPAEventSchema } from "./gepa.js"
 import { type MIPROv2Event as MIPROv2EventType, MIPROv2EventSchema } from "./miprov2.js"
-
-export { StudyEventSchema as EffectSearchInteropEventSchema } from "@scenesystems/effect-search/StudyEvent"
 
 /**
  * Decodes a tagged wrapper around one domain-specific event.
@@ -39,8 +37,8 @@ export const OptimizerEventSchema = Schema.Union(
     event: GEPAEventSchema
   }),
   Schema.TaggedStruct("EffectSearchInterop", {
-    /** Study event emitted by effect-search during optimizer execution. */
-    event: EffectSearchInteropEventSchema
+    /** Optimization event emitted by effect-search during optimizer execution. */
+    event: OptimizationEvent
   }),
   Schema.TaggedStruct("Evaluation", {
     /** Evaluation event preserved without payload projection. */

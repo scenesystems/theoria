@@ -24,15 +24,6 @@ export * from "./Usage.js"
 
 export * from "./OptimizerEventEnvelope.js"
 
-export * from "./ArtifactEnvelope.js"
-
-export {
-  type ArtifactEnvelope,
-  type ArtifactProducer,
-  type ArtifactRelation,
-  type ArtifactSinkApi
-} from "./ArtifactEnvelope.js"
-
 export * from "./FieldValue.js"
 
 export * from "./ModuleParams.js"
@@ -48,3 +39,6 @@ export * from "./OptimizationSurface.js"
 export * from "./ObjectiveProjection.js"
 
 export * from "./TraceProjection.js"
+
+/** DSP-owned artifact provenance and envelopes. @since 0.4.0 @category modules */
+export * as Artifact from "./Artifact.js"

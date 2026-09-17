@@ -6,7 +6,7 @@
  * @internal
  */
 import * as Numeric from "@scenesystems/effect-math/Numeric"
-import { Study } from "@scenesystems/effect-search"
+import * as Optimization from "@scenesystems/effect-search/Optimization"
 import { Array as Arr, Data, Effect, Option, Ref } from "effect"
 import { withModuleParamsDemosAndInstructions } from "../../../contracts/ModuleParams.js"
 import { AllTrialsFailed } from "../../../Errors/optimizer.js"
@@ -141,7 +141,7 @@ export const evaluateBaseline = <E, R>(options: {
 }) =>
   Effect.gen(function*() {
     const baselineObjective = yield* options.evaluateOn(options.baselineConfig, options.valset)
-    const priorTrial = new Study.PriorTrial<Phase3Config>({
+    const priorTrial = new Optimization.PriorTrial<Phase3Config>({
       config: options.baselineConfig,
       value: baselineObjective
     })

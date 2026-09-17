@@ -174,8 +174,8 @@ layer(Layer.merge(SiteLive, BrowserLive), { excludeTestServices: true, timeout: 
         const { failures, page } = yield* openPage({ reducedMotion: "reduce" })
         const pages = [
           { path: "/docs/effect-search/getting-started", title: "Getting started" },
-          { path: "/docs/effect-search/api/Study", title: "Study" },
-          { path: "/docs/effect-search/api/Study#api-ask", title: "ask" }
+          { path: "/docs/effect-search/api/Optimization", title: "Optimization" },
+          { path: "/docs/effect-search/api/Optimization#api-ask", title: "ask" }
         ]
         yield* Effect.forEach(ColorMode.literals, (scheme) =>
           Effect.gen(function*() {
@@ -344,7 +344,7 @@ layer(Layer.merge(SiteLive, BrowserLive), { excludeTestServices: true, timeout: 
       Effect.gen(function*() {
         const { failures, page } = yield* openPage({ viewport: { width: 1440, height: 900 } })
         const docsData = yield* observeRequests(page, (request) => request.url.includes("/docs-data/"))
-        const askPageLoads = Effect.map(docsData, Arr.filter(Str.endsWith("/Study/api-ask.json")))
+        const askPageLoads = Effect.map(docsData, Arr.filter(Str.endsWith("/Optimization/api-ask.json")))
 
         yield* goto(page, "/docs/effect-search")
         yield* visible(page.locator("header").getByRole("link", { name: "Theoria on GitHub" }))
@@ -357,30 +357,30 @@ layer(Layer.merge(SiteLive, BrowserLive), { excludeTestServices: true, timeout: 
         expect(pickerBox.left).toBeGreaterThanOrEqual(railBox.left)
         expect(pickerBox.right).toBeLessThanOrEqual(railBox.right)
         const apiToggle = page.getByRole("button", { name: "Toggle api navigation" })
-        const studyLink = page.getByRole("link", { exact: true, name: "Study" })
-        yield* hidden(studyLink)
+        const optimizationLink = page.getByRole("link", { exact: true, name: "Optimization" })
+        yield* hidden(optimizationLink)
         yield* click(apiToggle)
-        yield* visible(studyLink)
+        yield* visible(optimizationLink)
         yield* click(apiToggle)
-        yield* hidden(studyLink)
+        yield* hidden(optimizationLink)
         yield* click(apiToggle)
-        yield* visible(studyLink)
+        yield* visible(optimizationLink)
 
         yield* click(page.getByRole("link", { exact: true, name: "Getting started" }))
         yield* visible(page.getByRole("heading", { level: 1, name: "Getting started" }))
         yield* attribute(page.getByRole("link", { exact: true, name: "Getting started" }), "aria-current", "page")
 
-        yield* click(studyLink)
-        yield* visible(page.getByRole("heading", { level: 1, name: "Study" }))
-        yield* visible(page.getByText("Runs, observes, snapshots, and resumes optimization studies."))
+        yield* click(optimizationLink)
+        yield* visible(page.getByRole("heading", { level: 1, name: "Optimization" }))
+        yield* visible(page.getByText("Executes, streams, and manually coordinates optimizations."))
 
         yield* click(page.locator("a[href=\"#api-ask\"]"))
-        yield* urlMatches(page, /\/docs\/effect-search\/api\/Study#api-ask$/u)
+        yield* urlMatches(page, /\/docs\/effect-search\/api\/Optimization#api-ask$/u)
         yield* visible(page.getByRole("heading", { level: 1, name: "ask" }))
-        yield* visible(page.getByText("Reserves the next sampled configuration and emits TrialStarted."))
+        yield* visible(page.getByText("Reserves a configuration."))
         expect(yield* askPageLoads).toHaveLength(1)
 
-        yield* click(page.getByRole("link", { exact: true, name: "← Study" }))
+        yield* click(page.getByRole("link", { exact: true, name: "← Optimization" }))
         yield* click(page.locator("a[href=\"#api-ask\"]"))
         yield* visible(page.getByRole("heading", { level: 1, name: "ask" }))
         expect(yield* askPageLoads).toHaveLength(0)
@@ -494,8 +494,8 @@ layer(Layer.merge(SiteLive, BrowserLive), { excludeTestServices: true, timeout: 
         const input = page.getByRole("combobox", { name: "Search" })
         yield* visible(input)
         const searchStarted = yield* Clock.currentTimeMillis
-        yield* fill(input, "resreves trial")
-        const askResult = page.getByRole("option", { name: /Study\.ask/u })
+        yield* fill(input, "resreves configuration")
+        const askResult = page.getByRole("option", { name: /Optimization\.ask/u })
         yield* visible(askResult)
         expect((yield* Clock.currentTimeMillis) - searchStarted).toBeLessThan(750)
         expect(yield* indexLoads).toHaveLength(1)
@@ -514,7 +514,7 @@ layer(Layer.merge(SiteLive, BrowserLive), { excludeTestServices: true, timeout: 
       Effect.gen(function*() {
         const { failures, page } = yield* openPage({ permissions: ["clipboard-read", "clipboard-write"] })
 
-        yield* goto(page, "/docs/effect-search/api/Study#api-ask")
+        yield* goto(page, "/docs/effect-search/api/Optimization#api-ask")
         yield* visible(page.getByRole("heading", { level: 1, name: "ask" }))
         const signature = page.getByRole("region", { name: "Signature code example" })
         yield* highlighted(signature.locator("pre code"))
@@ -558,7 +558,7 @@ layer(Layer.merge(SiteLive, BrowserLive), { excludeTestServices: true, timeout: 
       Effect.gen(function*() {
         const { failures, page } = yield* openPage({ viewport: { width: 1440, height: 500 } })
 
-        yield* goto(page, "/docs/effect-search/api/Study#api-ask")
+        yield* goto(page, "/docs/effect-search/api/Optimization#api-ask")
         yield* visible(page.getByRole("heading", { level: 1, name: "ask" }))
         expect(yield* fitsViewport(page)).toBe(true)
 

@@ -3,7 +3,7 @@
  *
  * @since 0.1.0
  */
-import { streamFromEmitter } from "@scenesystems/effect-search/Study"
+import { toStream } from "@scenesystems/effect-study/Emitter"
 import type { Effect, Stream } from "effect"
 
 import type { GEPAEvent as GEPAEventType } from "../events.js"
@@ -18,4 +18,4 @@ import type { GEPAEventSink } from "./options.js"
  */
 export const streamGEPAEvents = <A, E, R>(
   runWithEvents: (emit: GEPAEventSink) => Effect.Effect<A, E, R>
-): Stream.Stream<GEPAEventType, E, R> => streamFromEmitter(runWithEvents)
+): Stream.Stream<GEPAEventType, E, R> => toStream(runWithEvents)

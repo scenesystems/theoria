@@ -1,6 +1,7 @@
 import { WorkerRunner } from "@effect/platform"
 import { BrowserRuntime, BrowserWorkerRunner } from "@effect/platform-browser"
-import { type Errors, Study } from "@scenesystems/effect-search"
+import * as Optimization from "@scenesystems/effect-search/Optimization"
+import type { SearchError } from "@scenesystems/effect-search/SearchError"
 import { Effect, type Scope } from "effect"
 
 import { AskedMeander, meanderSpace, renderSampler, renderTrials } from "../contracts/demo/imagined-place-search.js"
@@ -9,14 +10,14 @@ import { OpenedStudy, PlaceSearchStudies } from "./services/PlaceSearchStudies.j
 /**
  * The arrangement search's Web Worker: the program root of the thread that
  * hosts the TPE studies, the way `main.tsx` is the page's. Each open search
- * is one `Study` over the meander space; the objective is the page's to
- * compute, so the one given here is never invoked (`Study.open` retains it
+ * is one `Optimization` over the meander space; the objective is the page's to
+ * compute, so the one given here is never invoked (`Optimization.open` retains it
  * without calling it).
  */
 
-const openStudy: Effect.Effect<OpenedStudy, Errors.SearchError, Scope.Scope> = Effect.gen(function*() {
+const openStudy: Effect.Effect<OpenedStudy, SearchError, Scope.Scope> = Effect.gen(function*() {
   const space = yield* meanderSpace
-  const handle = yield* Study.open({
+  const handle = yield* Optimization.open({
     space,
     sampler: renderSampler(),
     objective: () => Effect.dieMessage("the page scores every trial; the search only proposes them"),
@@ -25,10 +26,10 @@ const openStudy: Effect.Effect<OpenedStudy, Errors.SearchError, Scope.Scope> = E
   })
   return new OpenedStudy({
     ask: Effect.map(
-      Study.ask(handle),
+      Optimization.ask(handle),
       (asked) => new AskedMeander({ trial: asked.trialNumber, meander: asked.config })
     ),
-    tell: (trial, loss) => Study.tell(handle, trial, loss)
+    tell: (trial, loss) => Optimization.tell(handle, trial, loss)
   })
 })
 

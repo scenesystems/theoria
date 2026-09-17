@@ -5,10 +5,11 @@
  * Run: bun run examples/14-hyperband-bohb.ts
  */
 import { BunRuntime } from "@effect/platform-bun"
-import { Effect, Match, Option } from "effect"
+import { Array as Arr, Chunk, Effect, Iterable, Match, Number as Num, Option } from "effect"
 
 import * as Numeric from "@scenesystems/effect-math/Numeric"
-import { Sampler, Scheduler, SearchSpace, Study } from "@scenesystems/effect-search"
+import { Optimization, Sampler, Scheduler, SearchSpace } from "@scenesystems/effect-search"
+import type { Pruning } from "@scenesystems/effect-search"
 
 const program = Effect.gen(function*() {
   const space = yield* SearchSpace.make({
@@ -19,14 +20,14 @@ const program = Effect.gen(function*() {
 
   const objective = (
     config: SearchSpace.Type<typeof space>,
-    runtime: Study.ObjectiveTrialRuntime
+    runtime: Pruning.Runtime
   ) =>
     Effect.gen(function*() {
       const resource = yield* runtime.resource.pipe(Effect.map(Option.getOrElse(() => config.budget)))
-      const learningRateLoss = Numeric.pow(Numeric.log10(config.learningRate) - Numeric.log10(0.01), 2)
-      const momentumLoss = Numeric.pow(config.momentum - 0.9, 2)
+      const learningRateLoss = Numeric.pow(Num.subtract(Numeric.log10(config.learningRate), Numeric.log10(0.01)), 2)
+      const momentumLoss = Numeric.pow(Num.subtract(config.momentum, 0.9), 2)
 
-      return learningRateLoss + momentumLoss + 1 / resource
+      return Num.sumAll(Arr.make(learningRateLoss, momentumLoss, Num.unsafeDivide(1, resource)))
     })
 
   const hyperbandScheduler = yield* Scheduler.hyperband({
@@ -45,29 +46,32 @@ const program = Effect.gen(function*() {
     }
   })
 
-  const hyperbandResult = yield* Study.minimize({
+  const hyperbandResult = yield* Optimization.minimize({
     space,
     scheduler: hyperbandScheduler,
     objective
   })
-  const bohbResult = yield* Study.minimize({
+  const bohbResult = yield* Optimization.minimize({
     space,
     scheduler: bohbScheduler,
     objective
   })
 
-  const logResult = (label: string, result: Study.StudyResult<SearchSpace.Type<typeof space>>) =>
+  const logResult = (label: string, result: Optimization.Result<SearchSpace.Type<typeof space>>) =>
     Match.value(result).pipe(
       Match.tag(
         "SingleObjective",
         ({ bestTrial, completionReason, trials, schedulerSummary }) =>
-          Effect.log("Scheduler study complete", {
+          Effect.log("Scheduled optimization complete", {
             scheduler: label,
             completionReason,
-            trialsEvaluated: trials.length,
+            trialsEvaluated: Iterable.size(trials),
             bestValue: bestTrial.state.value,
             bestConfig: bestTrial.config,
-            bracketCount: schedulerSummary?.brackets.length ?? 0
+            bracketCount: Option.fromNullable(schedulerSummary).pipe(
+              Option.map(({ brackets }) => Chunk.size(brackets)),
+              Option.getOrElse(() => 0)
+            )
           })
       ),
       Match.tag("MultiObjective", () => Effect.void),

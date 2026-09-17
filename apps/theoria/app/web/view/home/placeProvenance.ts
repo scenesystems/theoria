@@ -509,7 +509,7 @@ const markMadeBy = (id: CodeSiteId, page: PlaceOnPage): Option.Option<PlaceMark>
 
 /**
  * A line of code is answered by what it made, credited to the line itself:
- * `Statistics.minimum(` and `Study.tell(` both made the trial on the paper,
+ * `Statistics.minimum(` and `Optimization.tell(` both made the trial on the paper,
  * and each says so under its own package's name.
  */
 const codeLineAnswer = (mark: PlaceMark, page: PlaceOnPage, site: CodeSite): Option.Option<PlaceProvenance> =>

@@ -1,14 +1,13 @@
 import { describe, expect, it } from "@effect/vitest"
-import { Array as Arr, Effect, Either, Match, Option, Schema } from "effect"
+import { Array as Arr, Effect, Either, Equal, Match, Option, Schema } from "effect"
 
-import type { PrimitiveChoice } from "../../src/contracts/index.js"
-import { GridIncompatible } from "../../src/Errors/index.js"
-import { emptySuggestContext } from "../../src/Sampler/index.js"
-import * as Sampler from "../../src/Sampler/index.js"
-import * as SearchSpace from "../../src/SearchSpace/index.js"
+import { emptyContext } from "../../src/Sampler.js"
+import * as Sampler from "../../src/Sampler.js"
+import { GridIncompatible } from "../../src/SearchError.js"
+import * as SearchSpace from "../../src/SearchSpace.js"
 
 const categoricalOnlySpace = SearchSpace.make({
-  optimizer: SearchSpace.categorical(["adam", "sgd", "adamw"])
+  optimizer: SearchSpace.categorical(Arr.make("adam", "sgd", "adamw"))
 })
 
 const intStepSpace = SearchSpace.make({
@@ -20,13 +19,13 @@ const floatNoStepSpace = SearchSpace.make({
 })
 
 const mixedSpace = SearchSpace.make({
-  optimizer: SearchSpace.categorical(["adam", "sgd"]),
+  optimizer: SearchSpace.categorical(Arr.make("adam", "sgd")),
   width: SearchSpace.int(16, 64, { step: 16 })
 })
 
 const exhaustiveSpace = SearchSpace.make({
-  alpha: SearchSpace.categorical(["a", "b", "c"]),
-  beta: SearchSpace.categorical(["x", "y", "z", "w"]),
+  alpha: SearchSpace.categorical(Arr.make("a", "b", "c")),
+  beta: SearchSpace.categorical(Arr.make("x", "y", "z", "w")),
   useBatchNorm: SearchSpace.boolean()
 })
 
@@ -35,7 +34,7 @@ const collectSuggestions = (space: SearchSpace.SearchSpace, count: number) => {
 
   return Effect.forEach(
     Arr.makeBy(count, (index) => index),
-    (trialNumber) => Sampler.suggest(sampler, space, emptySuggestContext(trialNumber))
+    (trialNumber) => Sampler.suggest(sampler, space, emptyContext(trialNumber))
   )
 }
 
@@ -45,15 +44,15 @@ const configKey = (config: { readonly alpha: string; readonly beta: string; read
 const choicesFor = (
   space: SearchSpace.SearchSpace,
   name: string
-): ReadonlyArray<PrimitiveChoice> =>
-  Arr.findFirst(space.params, (parameter) => parameter.name === name).pipe(
+) =>
+  Arr.findFirst(space.params, (parameter) => Equal.equals(parameter.name, name)).pipe(
     Option.flatMap((parameter) =>
       Match.value(parameter.distribution).pipe(
         Match.when({ type: "categorical" }, ({ choices }) => Option.some(choices)),
         Match.orElse(() => Option.none())
       )
     ),
-    Option.getOrElse((): ReadonlyArray<PrimitiveChoice> => [])
+    Option.getOrElse(() => Arr.empty())
   )
 
 describe("Sampler.grid", () => {
@@ -62,23 +61,21 @@ describe("Sampler.grid", () => {
       const categoricalSpace = yield* categoricalOnlySpace
       const intSpace = yield* intStepSpace
       const mixedFiniteSpace = yield* mixedSpace
-      const categoricalCandidate = yield* Sampler.suggest(Sampler.grid(), categoricalSpace, emptySuggestContext(0))
-      const intCandidate = yield* Sampler.suggest(Sampler.grid(), intSpace, emptySuggestContext(0))
-      const mixedCandidate = yield* Sampler.suggest(Sampler.grid(), mixedFiniteSpace, emptySuggestContext(0))
+      const categoricalCandidate = yield* Sampler.suggest(Sampler.grid(), categoricalSpace, emptyContext(0))
+      const intCandidate = yield* Sampler.suggest(Sampler.grid(), intSpace, emptyContext(0))
+      const mixedCandidate = yield* Sampler.suggest(Sampler.grid(), mixedFiniteSpace, emptyContext(0))
 
       expect(Either.isRight(Schema.decodeUnknownEither(categoricalSpace.schema)(categoricalCandidate))).toBe(true)
       expect(Either.isRight(Schema.decodeUnknownEither(intSpace.schema)(intCandidate))).toBe(true)
       expect(Either.isRight(Schema.decodeUnknownEither(mixedFiniteSpace.schema)(mixedCandidate))).toBe(true)
 
       const incompatible = yield* Effect.either(
-        Sampler.suggest(Sampler.grid(), yield* floatNoStepSpace, emptySuggestContext(0))
+        Sampler.suggest(Sampler.grid(), yield* floatNoStepSpace, emptyContext(0))
       )
 
       expect(Either.isLeft(incompatible)).toBe(true)
 
-      if (Either.isLeft(incompatible)) {
-        expect(incompatible.left).toBeInstanceOf(GridIncompatible)
-      }
+      Either.mapLeft(incompatible, (failure) => expect(failure).toBeInstanceOf(GridIncompatible))
     }))
 
   it.effect("enumerates deterministic 3×4×2 cartesian order with no duplicates", () =>
@@ -89,7 +86,7 @@ describe("Sampler.grid", () => {
       const observedKeys = Arr.map(decoded, configKey)
       const alphaChoices = Arr.map(choicesFor(space, "alpha"), (choice) => String(choice))
       const betaChoices = Arr.map(choicesFor(space, "beta"), (choice) => String(choice))
-      const batchNormChoices = Arr.map(choicesFor(space, "useBatchNorm"), (choice) => choice === true)
+      const batchNormChoices = Arr.map(choicesFor(space, "useBatchNorm"), (choice) => Equal.equals(choice, true))
 
       const expectedKeys = Arr.flatMap(alphaChoices, (alpha) =>
         Arr.flatMap(betaChoices, (beta) =>
@@ -104,7 +101,7 @@ describe("Sampler.grid", () => {
   it.effect("does not recycle configurations after the finite grid is exhausted", () =>
     Effect.gen(function*() {
       const exhaustedSuggestion = yield* Effect.either(
-        Sampler.suggest(Sampler.grid(), yield* exhaustiveSpace, emptySuggestContext(24))
+        Sampler.suggest(Sampler.grid(), yield* exhaustiveSpace, emptyContext(24))
       )
 
       expect(Either.isLeft(exhaustedSuggestion)).toBe(true)

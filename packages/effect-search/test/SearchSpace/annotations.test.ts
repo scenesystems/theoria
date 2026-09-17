@@ -1,17 +1,14 @@
 import { describe, expect, it } from "@effect/vitest"
-import { Effect, Option } from "effect"
+import { Array as Arr, Effect, Option } from "effect"
 import type { Schema } from "effect"
 
-import { readDistribution } from "../../src/contracts/Distribution.js"
-import * as SearchSpace from "../../src/SearchSpace/index.js"
+import { fromAST } from "../../src/Distribution.js"
+import * as SearchSpace from "../../src/SearchSpace.js"
 
 const expectDistribution = (schema: Schema.Schema.AnyNoContext, expected: unknown) => {
-  const distribution = readDistribution(schema.ast)
+  const distribution = fromAST(schema.ast)
   expect(Option.isSome(distribution)).toBe(true)
-
-  if (Option.isSome(distribution)) {
-    expect(distribution.value).toEqual(expected)
-  }
+  expect(Option.getOrElse(distribution, () => "missing distribution")).toEqual(expected)
 }
 
 describe("SearchSpace annotations", () => {
@@ -41,11 +38,11 @@ describe("SearchSpace annotations", () => {
 
   it.effect("annotates categorical dimensions with literal choices", () =>
     Effect.sync(() => {
-      const schema = SearchSpace.categorical(["adam", "sgd", "adamw"])
+      const schema = SearchSpace.categorical(Arr.make("adam", "sgd", "adamw"))
 
       expectDistribution(schema, {
         type: "categorical",
-        choices: ["adam", "sgd", "adamw"]
+        choices: Arr.make("adam", "sgd", "adamw")
       })
     }))
 
@@ -66,7 +63,7 @@ describe("SearchSpace annotations", () => {
 
       expectDistribution(schema, {
         type: "categorical",
-        choices: [true, false]
+        choices: Arr.make(true, false)
       })
     }))
 })

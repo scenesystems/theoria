@@ -6,21 +6,12 @@
  * disk as derived presentation.
  */
 import { FileSystem, Path } from "@effect/platform"
-import {
-  ArtifactLineage,
-  type ArtifactPayload,
-  ArtifactSink,
-  type ComponentPath,
-  Custom,
-  emit,
-  EnvelopeContext,
-  EnvelopeContextLive,
-  fileSystemSink,
-  PackageVersion,
-  RunId,
-  SourceRef
-} from "@scenesystems/effect-search/Contracts"
-import { Data, DateTime, Effect, Layer, Schema } from "effect"
+import { Artifact as DspArtifact } from "@scenesystems/effect-dsp/contracts"
+import * as Artifact from "@scenesystems/effect-study/Artifact"
+import * as ArtifactContext from "@scenesystems/effect-study/ArtifactContext"
+import * as ArtifactSink from "@scenesystems/effect-study/ArtifactSink"
+import { Array as Arr, Data, DateTime, Effect, Schema, String as Str } from "effect"
+import type { Layer } from "effect"
 
 export class ExampleArtifacts extends Data.Class<{
   readonly runId: string
@@ -28,20 +19,19 @@ export class ExampleArtifacts extends Data.Class<{
   readonly reportsDir: string
   readonly dataDir: string
   readonly storageDir: string
-  readonly envelopeContextLayer: Layer.Layer<EnvelopeContext>
+  readonly artifactContextLayer: Layer.Layer<ArtifactContext.ArtifactContext>
 }> {}
 
 const PACKAGE_VERSION = "0.1.0"
 const DSP_DOMAIN = "dsp"
-const EXAMPLE_COMPONENT: ComponentPath = ["examples", "artifacts"]
+const EXAMPLE_COMPONENT: Artifact.ComponentPath = Arr.make("examples", "artifacts")
 
 const artifactsBaseDirectory = (path: Path.Path): string => path.join("examples", "artifacts")
 
 const normalizeSegment = (value: string): string =>
-  value
-    .toLowerCase()
-    .replaceAll(/[^a-z0-9-]+/g, "-")
-    .replaceAll(/(^-+|-+$)/g, "")
+  Str.replace(/(^-+|-+$)/g, "")(
+    Str.replace(/[^a-z0-9-]+/g, "-")(Str.toLowerCase(value))
+  )
 
 export const artifactDirectoryForExample = (exampleName: string): string =>
   `examples/artifacts/optimizers/${normalizeSegment(exampleName)}`
@@ -70,13 +60,14 @@ export const createExampleArtifacts = (exampleName: string) =>
       { discard: true }
     )
 
-    const packageVersion = yield* Schema.decode(PackageVersion)(PACKAGE_VERSION)
-    const brandedRunId = yield* Schema.decode(RunId)("01HZ0000000000000000000000")
-    const envelopeContextLayer = EnvelopeContextLive({
-      packageVersion,
-      runId: brandedRunId,
-      studyId: exampleName
-    })
+    const packageVersion = yield* Schema.decode(Artifact.PackageVersion)(PACKAGE_VERSION)
+    const brandedRunId = yield* Schema.decode(Artifact.RunId)("01HZ0000000000000000000000")
+    const artifactContextLayer = ArtifactContext.layer(
+      new ArtifactContext.Options({
+        packageVersion,
+        runId: brandedRunId
+      })
+    )
 
     return {
       runId,
@@ -84,49 +75,48 @@ export const createExampleArtifacts = (exampleName: string) =>
       reportsDir,
       dataDir,
       storageDir,
-      envelopeContextLayer
+      artifactContextLayer
     }
   })
 
-const DSP_SOURCE_REF = new SourceRef({
+const DSP_SOURCE: DspArtifact.Source = {
   origin: "effect-dsp",
   domain: DSP_DOMAIN,
-  segments: ["examples", "artifacts"]
-})
+  segments: Arr.make("examples", "artifacts")
+}
 
 export const emitCustomEnvelope = (options: {
   readonly optimizer: string
   readonly metricName: string
   readonly exampleName: string
-  readonly payload: ArtifactPayload
+  readonly payload: Artifact.Payload
 }) =>
   Effect.gen(function*() {
-    const ctx = yield* EnvelopeContext
-    const artifactId = yield* ctx.nextArtifactId
+    const context = yield* ArtifactContext.ArtifactContext
+    const artifactId = yield* context.nextId
     const emittedAt = yield* DateTime.now
 
-    yield* emit(
-      Custom({
-        schemaVersion: "artifact-envelope/v1",
-        producer: {
-          _tag: "EffectDsp",
-          packageVersion: ctx.packageVersion,
+    yield* ArtifactSink.emit(
+      DspArtifact.Envelope,
+      DspArtifact.Custom({
+        producer: DspArtifact.EffectDsp({
+          packageVersion: context.packageVersion,
           component: EXAMPLE_COMPONENT,
-          runId: ctx.runId,
+          runId: context.runId,
           optimizer: options.optimizer,
           metricName: options.metricName,
           exampleName: options.exampleName
-        },
-        lineage: new ArtifactLineage({
-          sourceRef: DSP_SOURCE_REF,
+        }),
+        lineage: {
+          sourceRef: DSP_SOURCE,
           artifactId,
           emittedAt
-        }),
+        },
         payload: options.payload
       })
     )
   })
 
-export const exampleArtifactSinkLayer = (directory: string) => fileSystemSink(directory)
+export const exampleArtifactSinkLayer = (directory: string) => ArtifactSink.layerFileSystem(directory)
 
-export const noopArtifactSinkLayer = Layer.succeed(ArtifactSink, { emit: () => Effect.void })
+export const noopArtifactSinkLayer = ArtifactSink.layer({ emit: () => Effect.void })
