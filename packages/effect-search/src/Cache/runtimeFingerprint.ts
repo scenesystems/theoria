@@ -3,10 +3,9 @@
  *
  * @since 0.1.0
  */
-import { blake3Hash, encodeUtf8, toBase64Url } from "@scenesystems/digest"
-import type { InvalidUnicode } from "@scenesystems/digest"
-
-import { Array as Arr, Chunk, Effect, Match, Option, Order, Predicate, Record as Rec, Schema } from "effect"
+import * as Digest from "@scenesystems/digest/Digest"
+import * as Utf8 from "@scenesystems/digest/Utf8"
+import { Array as Arr, Chunk, Effect, Encoding, Match, Option, Order, Predicate, Record as Rec, Schema } from "effect"
 
 const RUNTIME_DIGEST_PREFIX = "runtime-blake3-256"
 
@@ -155,14 +154,13 @@ const canonicalTokens = (value: unknown): Effect.Effect<Chunk.Chunk<string>, Run
 const tokenPayload = (tokens: Chunk.Chunk<string>): string =>
   Chunk.reduce(tokens, "", (payload, token) => `${payload}${token.length}:${token};`)
 
-const digestPayload = (payload: string): Effect.Effect<string, InvalidUnicode> =>
+const digestPayload = (payload: string): Effect.Effect<string, Utf8.InvalidUnicode> =>
   Effect.gen(function*() {
-    const bytes = yield* encodeUtf8(payload)
-    const hash = yield* blake3Hash(bytes)
-    return toBase64Url(hash)
+    const bytes = yield* Utf8.encode(payload)
+    return Encoding.encodeBase64Url(Digest.hash("blake3-256", bytes))
   })
 
-const digestTokens = (tokens: Chunk.Chunk<string>): Effect.Effect<string, InvalidUnicode> =>
+const digestTokens = (tokens: Chunk.Chunk<string>): Effect.Effect<string, Utf8.InvalidUnicode> =>
   digestPayload(tokenPayload(tokens))
 
 /**
@@ -185,7 +183,7 @@ const digestTokens = (tokens: Chunk.Chunk<string>): Effect.Effect<string, Invali
  */
 export const runtimeFingerprint = (
   value: unknown
-): Effect.Effect<string, InvalidUnicode | RuntimeFingerprintError> =>
+): Effect.Effect<string, Utf8.InvalidUnicode | RuntimeFingerprintError> =>
   canonicalTokens(value).pipe(
     Effect.flatMap(digestTokens),
     Effect.map((digest) => `${RUNTIME_DIGEST_PREFIX}:${digest}`)

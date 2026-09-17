@@ -67,7 +67,7 @@ layer(Layer.merge(SiteLive, BrowserLive), { excludeTestServices: true, timeout: 
 
             yield* click(sidebar.getByRole("link", { name: "API reference", exact: true }))
             yield* urlMatches(page, /\/docs\/digest\/api$/u)
-            yield* visible(sidebar.getByRole("link", { name: "algorithms/blake3", exact: true }))
+            yield* visible(sidebar.getByRole("link", { name: "Blake3", exact: true }))
             const box = yield* act(() => picker.evaluate(boxOf))
             expect(box.height, `expanded API navigation at ${String(height)}px`).toBe(44)
             expect(yield* act(() => picker.evaluate(textFitsBox))).toBe(true)

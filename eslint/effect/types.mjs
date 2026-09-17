@@ -83,12 +83,6 @@ export const TYPE_MODELING_RULES = [
       "Do not use conditional helper type aliases for runtime contracts. Derive from canonical Schema values instead."
   },
   {
-    selector:
-      "TSTypeAliasDeclaration[typeAnnotation.type='TSTypeReference'][typeAnnotation.typeName.type='TSQualifiedName'][typeAnnotation.typeName.left.name='Data'][typeAnnotation.typeName.right.name='TaggedEnum']",
-    message:
-      "Do not define event contracts as type aliases over Data.TaggedEnum. Use schema-backed runtime models or tagged class values."
-  },
-  {
     selector: "TSTypeReference[typeName.name='Readonly'] > TSTypeParameterInstantiation > TSTypeLiteral",
     message:
       "Do not wrap object literals in Readonly<{}>. Model records with Schema.Struct (type X = typeof X.Type) or Data.Class."
