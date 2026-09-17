@@ -1,5 +1,5 @@
 import { useAtomSet } from "@effect-atom/atom-react"
-import { Option } from "effect"
+import { Boolean as Bool, Function, Option } from "effect"
 import type { ComponentProps, MouseEvent, ReactNode } from "react"
 
 import { navigateAtom, shouldNavigateInBrowser } from "../../atoms/navigation.js"
@@ -23,9 +23,12 @@ export const InternalLink = ({
   const navigate = useAtomSet(navigateAtom)
 
   const handleClick = (event: MouseEvent<HTMLAnchorElement>) => {
-    onClick?.(event)
+    Option.match(Option.fromNullable(onClick), {
+      onNone: Function.constVoid,
+      onSome: (click) => click(event)
+    })
 
-    if (
+    Bool.match(
       shouldNavigateInBrowser({
         altKey: event.altKey,
         button: event.button,
@@ -34,11 +37,15 @@ export const InternalLink = ({
         metaKey: event.metaKey,
         shiftKey: event.shiftKey,
         target: Option.fromNullable(props.target)
-      })
-    ) {
-      event.preventDefault()
-      navigate(href)
-    }
+      }),
+      {
+        onTrue: () => {
+          event.preventDefault()
+          navigate(href)
+        },
+        onFalse: Function.constVoid
+      }
+    )
   }
 
   return (

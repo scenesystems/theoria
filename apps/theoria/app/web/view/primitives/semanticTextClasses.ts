@@ -1,5 +1,5 @@
 import type { Text } from "@scenesystems/effect-text"
-import { Match } from "effect"
+import { Boolean as Bool, Match } from "effect"
 import * as Arr from "effect/Array"
 
 import type { SurfaceVariant } from "../../../contracts/presentation.js"
@@ -18,19 +18,22 @@ const maxWidthCssVar = (role: TextRole, variant: SurfaceVariant): string => `--s
  * when the variable is tagged `family-name:`; there is no `font-weight-(…)`.
  */
 export const glyphClassName = (role: TextRole): string =>
-  [
+  Arr.join([
     `st-${role}`,
     `text-(length:${fontSizeVar(role)})`,
     `font-(${fontWeightVar(role)})`,
     `tracking-(${trackingVar(role)})`,
     `font-(family-name:${fontFamilyVar(role)})`
-  ].join(" ")
+  ], " ")
 
 /** Roles whose width is their control's, not a measure of their own: a label is as wide as what it labels. */
 const controlSizedRoles: ReadonlyArray<TextRole> = ["button-label", "marker-label", "wordmark"]
 
 export const maxWidthClassName = (role: TextRole, variant: SurfaceVariant): string =>
-  Arr.contains(controlSizedRoles, role) ? "" : `max-w-(${maxWidthCssVar(role, variant)})`
+  Bool.match(Arr.contains(controlSizedRoles, role), {
+    onTrue: () => "",
+    onFalse: () => `max-w-(${maxWidthCssVar(role, variant)})`
+  })
 
 /** How a block wraps before it is measured: the browser's own wrapping, in the text's white-space mode. */
 export const whiteSpaceClassName = (mode: Text.Whitespace): string =>

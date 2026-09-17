@@ -1,3 +1,4 @@
+import { Boolean, Number, Option } from "effect"
 import * as m from "motion/react-m"
 import type { ReactNode } from "react"
 
@@ -26,17 +27,22 @@ export const ChangedValue = ({ changes, children, className, tone }: {
   readonly className?: string
   readonly tone: ToneClasses
 }) => (
-  <Layer className={`relative isolate ${className ?? ""}`} data-changes={String(changes)} key={changes}>
-    {changes > 0
-      ? (
+  <Layer
+    className={`relative isolate ${Option.getOrElse(Option.fromNullable(className), () => "")}`}
+    data-changes={String(changes)}
+    key={changes}
+  >
+    {Boolean.match(Number.greaterThan(changes, 0), {
+      onTrue: () => (
         <Layer
           aria-hidden
           className={`pointer-events-none absolute -inset-1 -z-10 rounded ${tone.wash}`}
           data-place-wash
           render={<m.span animate={washSettled} initial={washFrom} transition={valueWashTransition} />}
         />
-      )
-      : null}
+      ),
+      onFalse: () => null
+    })}
     {children}
   </Layer>
 )

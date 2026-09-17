@@ -17,15 +17,20 @@ export const CodeLink = Schema.Struct({
 export type CodeLink = typeof CodeLink.Type
 
 /** A plain run of highlighted tokens. */
-export class TokensSegment extends Schema.TaggedClass<TokensSegment>("TokensSegment")("Tokens", {
-  tokens: Schema.Array(HighlightToken)
-}) {}
+export class TokensSegment extends Schema.TaggedClass<TokensSegment>("@theoria/app/web/view/CodeLinks/TokensSegment")(
+  "Tokens",
+  {
+    tokens: Schema.Array(HighlightToken)
+  }
+) {}
 
 /** A run of highlighted tokens wrapped in an API link. */
-export class LinkSegment extends Schema.TaggedClass<LinkSegment>("LinkSegment")("Link", {
-  link: CodeLink,
-  tokens: Schema.Array(HighlightToken)
-}) {}
+export class LinkSegment
+  extends Schema.TaggedClass<LinkSegment>("@theoria/app/web/view/CodeLinks/LinkSegment")("Link", {
+    link: CodeLink,
+    tokens: Schema.Array(HighlightToken)
+  })
+{}
 
 /** A run of tokens, either plain or wrapped in one link. */
 export const LineSegment = Schema.Union(TokensSegment, LinkSegment)
