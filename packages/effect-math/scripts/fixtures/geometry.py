@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from typing import Any
 
-from scipy.spatial import distance as sp_distance
+from scipy.spatial import distance
 
 from ._common import metadata
 
@@ -43,9 +43,9 @@ def generate(generated_at: str) -> list[dict[str, Any]]:
 
 
 _SCIPY_METRIC = {
-    "euclidean": sp_distance.euclidean,
-    "manhattan": sp_distance.cityblock,
-    "chebyshev": sp_distance.chebyshev,
+    "euclidean": distance.euclidean,
+    "manhattan": distance.cityblock,
+    "chebyshev": distance.chebyshev,
 }
 
 
@@ -63,8 +63,8 @@ def _distance_case(
 def _midpoint_case(
     case_id: str, a: list[float], b: list[float]
 ) -> dict[str, Any]:
-    import numpy as np
-    mid = ((np.array(a) + np.array(b)) / 2.0).tolist()
+    import numpy
+    mid = ((numpy.array(a) + numpy.array(b)) / 2.0).tolist()
     return {
         "id": case_id,
         "operation": "midpoint",

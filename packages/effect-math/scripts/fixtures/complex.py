@@ -5,7 +5,7 @@ from __future__ import annotations
 import math
 from typing import Any
 
-import numpy as np
+import numpy
 
 from ._common import metadata
 
@@ -39,7 +39,7 @@ def generate(generated_at: str) -> list[dict[str, Any]]:
     for label, z in _unary_inputs:
         cases.append(_unary_complex_case(f"conjugate-{label}", "conjugate", z, z.conjugate()))
         cases.append(_unary_scalar_case(f"abs-{label}", "abs", z, abs(z)))
-        cases.append(_unary_scalar_case(f"arg-{label}", "arg", z, np.angle(z)))
+        cases.append(_unary_scalar_case(f"arg-{label}", "arg", z, numpy.angle(z)))
 
     # ── Transcendental ──────────────────────────────────────────────────
     _trans_inputs: list[tuple[str, complex]] = [
@@ -50,9 +50,9 @@ def generate(generated_at: str) -> list[dict[str, Any]]:
     ]
 
     for label, z in _trans_inputs:
-        cases.append(_unary_complex_case(f"exp-{label}", "exp", z, np.exp(z)))
-        cases.append(_unary_complex_case(f"log-{label}", "log", z, np.log(z)))
-        cases.append(_unary_complex_case(f"sqrt-{label}", "sqrt", z, np.sqrt(z)))
+        cases.append(_unary_complex_case(f"exp-{label}", "exp", z, numpy.exp(z)))
+        cases.append(_unary_complex_case(f"log-{label}", "log", z, numpy.log(z)))
+        cases.append(_unary_complex_case(f"sqrt-{label}", "sqrt", z, numpy.sqrt(z)))
 
     # pow with complex exponent
     _pow_pairs: list[tuple[str, complex, complex]] = [
@@ -72,9 +72,9 @@ def generate(generated_at: str) -> list[dict[str, Any]]:
     ]
 
     for label, z in _trig_inputs:
-        cases.append(_unary_complex_case(f"sin-{label}", "sin", z, np.sin(z)))
-        cases.append(_unary_complex_case(f"cos-{label}", "cos", z, np.cos(z)))
-        cases.append(_unary_complex_case(f"tan-{label}", "tan", z, np.tan(z)))
+        cases.append(_unary_complex_case(f"sin-{label}", "sin", z, numpy.sin(z)))
+        cases.append(_unary_complex_case(f"cos-{label}", "cos", z, numpy.cos(z)))
+        cases.append(_unary_complex_case(f"tan-{label}", "tan", z, numpy.tan(z)))
 
     # ── Hyperbolic ──────────────────────────────────────────────────────
     _hyp_inputs: list[tuple[str, complex]] = [
@@ -84,9 +84,9 @@ def generate(generated_at: str) -> list[dict[str, Any]]:
     ]
 
     for label, z in _hyp_inputs:
-        cases.append(_unary_complex_case(f"sinh-{label}", "sinh", z, np.sinh(z)))
-        cases.append(_unary_complex_case(f"cosh-{label}", "cosh", z, np.cosh(z)))
-        cases.append(_unary_complex_case(f"tanh-{label}", "tanh", z, np.tanh(z)))
+        cases.append(_unary_complex_case(f"sinh-{label}", "sinh", z, numpy.sinh(z)))
+        cases.append(_unary_complex_case(f"cosh-{label}", "cosh", z, numpy.cosh(z)))
+        cases.append(_unary_complex_case(f"tanh-{label}", "tanh", z, numpy.tanh(z)))
 
     # ── Polar ───────────────────────────────────────────────────────────
     _polar_inputs: list[tuple[str, complex]] = [
@@ -97,7 +97,7 @@ def generate(generated_at: str) -> list[dict[str, Any]]:
 
     for label, z in _polar_inputs:
         r = abs(z)
-        theta = float(np.angle(z))
+        theta = float(numpy.angle(z))
         cases.append({
             "id": f"toPolar-{label}",
             "operation": "toPolar",
@@ -127,9 +127,9 @@ def generate(generated_at: str) -> list[dict[str, Any]]:
             elif fn_name == "cube":
                 fval = z ** 3
             elif fn_name == "sin":
-                fval = np.sin(z)
+                fval = numpy.sin(z)
             elif fn_name == "exp":
-                fval = np.exp(z)
+                fval = numpy.exp(z)
             else:
                 raise ValueError(f"Unknown function: {fn_name}")
 

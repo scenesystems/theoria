@@ -6,41 +6,40 @@
  * @module
  */
 import { BunRuntime } from "@effect/platform-bun"
-import { Console, Effect } from "effect"
+import { Array, Chunk, Effect } from "effect"
 
-import { makeDeterministicRuntimePoliciesLayer, Seed } from "@scenesystems/effect-math/contracts"
 import { expm1, log1p, sum, sumValidated, sumWithPolicies } from "@scenesystems/effect-math/Numeric"
+import * as Policy from "@scenesystems/effect-math/Policy"
 
 const program = Effect.gen(function*() {
   // Direct kernels
   const l = log1p(1e-15)
-  yield* Console.log("log1p(1e-15):", l)
-  // Output: log1p(1e-15): 9.999999999999995e-16
+  yield* Effect.log("Numeric.log1p").pipe(Effect.annotateLogs({ input: "1e-15", result: l }))
 
   const e = expm1(1e-15)
-  yield* Console.log("expm1(1e-15):", e)
+  yield* Effect.log("Numeric.expm1").pipe(Effect.annotateLogs({ input: "1e-15", result: e }))
 
-  const s = sum([1.1, 2.2, 3.3, 4.4])
-  yield* Console.log("sum([1.1, 2.2, 3.3, 4.4]):", s)
+  const s = sum(Chunk.make(1.1, 2.2, 3.3, 4.4))
+  yield* Effect.log("Numeric.sum").pipe(Effect.annotateLogs({ inputSize: 4, result: s }))
 
   // Schema-validated boundary
-  const validated = yield* sumValidated({ values: [10, 20, 30, 40, 50] })
-  yield* Console.log("sumValidated({ values: [10..50] }):", validated)
-  // Output: sumValidated({ values: [10..50] }): 150
+  const validated = yield* sumValidated({ values: Array.make(10, 20, 30, 40, 50) })
+  yield* Effect.log("Numeric.sumValidated").pipe(Effect.annotateLogs({ inputSize: 5, result: validated }))
 
   // Runtime policies
-  const policyResult = yield* sumWithPolicies([100, 200, 300, 400]).pipe(
+  const policyResult = yield* sumWithPolicies(Chunk.make(100, 200, 300, 400)).pipe(
     Effect.provide(
-      makeDeterministicRuntimePoliciesLayer({
-        seed: Seed.make(42),
+      Policy.layerDeterministic({
+        seed: Policy.Seed.make(42),
         precision: "strict",
-        backend: "typed-array",
+        backend: "compensated",
         diagnostics: "disabled"
       })
     )
   )
-  yield* Console.log("sumWithPolicies (strict, typed-array):", policyResult)
-  // Output: sumWithPolicies (strict, typed-array): 1000
+  yield* Effect.log("Numeric.sumWithPolicies").pipe(
+    Effect.annotateLogs({ backend: "compensated", precision: "strict", result: policyResult })
+  )
 })
 
 BunRuntime.runMain(program)

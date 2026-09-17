@@ -14,6 +14,7 @@
     "check-readme-examples.ts",
     "readme-examples/**/*.ts",
     "typecheck/**/*.ts",
+    "pre-commit.ts",
     "ensure-docs-assets.ts",
     "resolve-workspace-deps.ts",
     "release.ts",

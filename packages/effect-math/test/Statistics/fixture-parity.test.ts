@@ -1,16 +1,17 @@
+import { BunContext } from "@effect/platform-bun"
 import { describe, expect, it } from "@effect/vitest"
-import { Array as Arr, Chunk, Effect, Match, Number as N, Option, Schema } from "effect"
+import { Array, Chunk, Effect, Match, Number, Option, Schema } from "effect"
 
-import { maximum, minimum } from "../../src/Statistics/internal/estimators.js"
-import { covariance, mean, standardDeviation, variance } from "../../src/Statistics/operations.js"
-import { FixtureRegistryLive, loadFixture, StatisticsEstimatorParityFixtureSchema } from "../helpers/fixtures/index.js"
+import { abs } from "../../src/Numeric.js"
+import { covariance, maximum, mean, minimum, standardDeviation, variance } from "../../src/Statistics.js"
+import { loadFixture, StatisticsEstimatorParityFixtureSchema } from "../helpers/fixtures/index.js"
 
-const MEAN_VAR_STDDEV_TOLERANCE = 1e-12
-const COVARIANCE_TOLERANCE = 1e-10
-const MINMAX_TOLERANCE = 1e-15
+const meanVarianceStddevTolerance = 1e-12
+const covarianceTolerance = 1e-10
+const minMaxTolerance = 1e-15
 
 const expectWithinTolerance = (actual: number, expected: number, tolerance: number) =>
-  expect(Math.abs(N.subtract(actual, expected))).toBeLessThanOrEqual(tolerance)
+  expect(Number.lessThanOrEqualTo(abs(Number.subtract(actual, expected)), tolerance)).toBe(true)
 
 describe("Statistics SciPy fixture parity", () => {
   it.effect("all estimator-parity cases match SciPy reference values", () =>
@@ -20,28 +21,28 @@ describe("Statistics SciPy fixture parity", () => {
         onExcessProperty: "error"
       })
 
-      yield* Effect.forEach(Arr.fromIterable(fixture.payload.cases), (c) =>
+      yield* Effect.forEach(Array.fromIterable(fixture.payload.cases), (c) =>
         Effect.sync(() =>
           Match.value(c).pipe(
             Match.when({ operation: "mean" }, (v) =>
-              expectWithinTolerance(mean(Chunk.fromIterable(v.input.values)), v.expected, MEAN_VAR_STDDEV_TOLERANCE)),
+              expectWithinTolerance(mean(Chunk.fromIterable(v.input.values)), v.expected, meanVarianceStddevTolerance)),
             Match.when({ operation: "variance" }, (v) =>
               expectWithinTolerance(
                 variance(Chunk.fromIterable(v.input.values)),
                 v.expected,
-                MEAN_VAR_STDDEV_TOLERANCE
+                meanVarianceStddevTolerance
               )),
             Match.when({ operation: "standardDeviation" }, (v) =>
               expectWithinTolerance(
                 standardDeviation(Chunk.fromIterable(v.input.values)),
                 v.expected,
-                MEAN_VAR_STDDEV_TOLERANCE
+                meanVarianceStddevTolerance
               )),
             Match.when({ operation: "covariance" }, (v) =>
               expectWithinTolerance(
                 covariance(Chunk.fromIterable(v.input.a), Chunk.fromIterable(v.input.b)),
                 v.expected,
-                COVARIANCE_TOLERANCE
+                covarianceTolerance
               )),
             Match.when({ operation: "minMax" }, (v) => {
               const chunk = Chunk.fromIterable(v.input.values)
@@ -49,17 +50,17 @@ describe("Statistics SciPy fixture parity", () => {
                 Option.getOrElse(minimum(chunk), () =>
                   0),
                 v.expected.min,
-                MINMAX_TOLERANCE
+                minMaxTolerance
               )
               expectWithinTolerance(
                 Option.getOrElse(maximum(chunk), () =>
                   0),
                 v.expected.max,
-                MINMAX_TOLERANCE
+                minMaxTolerance
               )
             }),
             Match.exhaustive
           )
         ))
-    }).pipe(Effect.provide(FixtureRegistryLive)))
+    }).pipe(Effect.provide(BunContext.layer)))
 })

@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from typing import Any
 
-import numpy as np
+import numpy
 from scipy import stats
 
 from ._common import metadata
@@ -191,25 +191,25 @@ def _normal_entropy(cid: str, mu: float, sigma: float) -> dict[str, Any]:
 
 # --- LogNormal ---
 def _lognormal_pdf(cid: str, x: float, mu: float, sigma: float) -> dict[str, Any]:
-    return {"id": cid, "operation": "logNormalPdf", "input": {"x": x, "mu": mu, "sigma": sigma}, "expected": float(stats.lognorm.pdf(x, s=sigma, scale=np.exp(mu)))}
+    return {"id": cid, "operation": "logNormalPdf", "input": {"x": x, "mu": mu, "sigma": sigma}, "expected": float(stats.lognorm.pdf(x, s=sigma, scale=numpy.exp(mu)))}
 
 def _lognormal_logpdf(cid: str, x: float, mu: float, sigma: float) -> dict[str, Any]:
-    return {"id": cid, "operation": "logNormalLogpdf", "input": {"x": x, "mu": mu, "sigma": sigma}, "expected": float(stats.lognorm.logpdf(x, s=sigma, scale=np.exp(mu)))}
+    return {"id": cid, "operation": "logNormalLogpdf", "input": {"x": x, "mu": mu, "sigma": sigma}, "expected": float(stats.lognorm.logpdf(x, s=sigma, scale=numpy.exp(mu)))}
 
 def _lognormal_cdf(cid: str, x: float, mu: float, sigma: float) -> dict[str, Any]:
-    return {"id": cid, "operation": "logNormalCdf", "input": {"x": x, "mu": mu, "sigma": sigma}, "expected": float(stats.lognorm.cdf(x, s=sigma, scale=np.exp(mu)))}
+    return {"id": cid, "operation": "logNormalCdf", "input": {"x": x, "mu": mu, "sigma": sigma}, "expected": float(stats.lognorm.cdf(x, s=sigma, scale=numpy.exp(mu)))}
 
 def _lognormal_quantile(cid: str, p: float, mu: float, sigma: float) -> dict[str, Any]:
-    return {"id": cid, "operation": "logNormalQuantile", "input": {"p": p, "mu": mu, "sigma": sigma}, "expected": float(stats.lognorm.ppf(p, s=sigma, scale=np.exp(mu)))}
+    return {"id": cid, "operation": "logNormalQuantile", "input": {"p": p, "mu": mu, "sigma": sigma}, "expected": float(stats.lognorm.ppf(p, s=sigma, scale=numpy.exp(mu)))}
 
 def _lognormal_mean(cid: str, mu: float, sigma: float) -> dict[str, Any]:
-    return {"id": cid, "operation": "logNormalMean", "input": {"mu": mu, "sigma": sigma}, "expected": float(stats.lognorm.mean(s=sigma, scale=np.exp(mu)))}
+    return {"id": cid, "operation": "logNormalMean", "input": {"mu": mu, "sigma": sigma}, "expected": float(stats.lognorm.mean(s=sigma, scale=numpy.exp(mu)))}
 
 def _lognormal_variance(cid: str, mu: float, sigma: float) -> dict[str, Any]:
-    return {"id": cid, "operation": "logNormalVariance", "input": {"mu": mu, "sigma": sigma}, "expected": float(stats.lognorm.var(s=sigma, scale=np.exp(mu)))}
+    return {"id": cid, "operation": "logNormalVariance", "input": {"mu": mu, "sigma": sigma}, "expected": float(stats.lognorm.var(s=sigma, scale=numpy.exp(mu)))}
 
 def _lognormal_entropy(cid: str, mu: float, sigma: float) -> dict[str, Any]:
-    return {"id": cid, "operation": "logNormalEntropy", "input": {"mu": mu, "sigma": sigma}, "expected": float(stats.lognorm.entropy(s=sigma, scale=np.exp(mu)))}
+    return {"id": cid, "operation": "logNormalEntropy", "input": {"mu": mu, "sigma": sigma}, "expected": float(stats.lognorm.entropy(s=sigma, scale=numpy.exp(mu)))}
 
 
 # --- Exponential ---
@@ -329,7 +329,7 @@ def _cat_pmf(cid: str, k: int, probs: list[float]) -> dict[str, Any]:
     return {"id": cid, "operation": "categoricalPmf", "input": {"k": k, "probs": probs}, "expected": probs[k]}
 
 def _cat_logpmf(cid: str, k: int, probs: list[float]) -> dict[str, Any]:
-    return {"id": cid, "operation": "categoricalLogpmf", "input": {"k": k, "probs": probs}, "expected": float(np.log(probs[k]))}
+    return {"id": cid, "operation": "categoricalLogpmf", "input": {"k": k, "probs": probs}, "expected": float(numpy.log(probs[k]))}
 
 def _cat_cdf(cid: str, k: int, probs: list[float]) -> dict[str, Any]:
     return {"id": cid, "operation": "categoricalCdf", "input": {"k": k, "probs": probs}, "expected": float(sum(probs[: k + 1]))}
