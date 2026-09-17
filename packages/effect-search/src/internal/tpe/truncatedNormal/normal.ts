@@ -9,7 +9,7 @@ import {
   sqrt
 } from "@scenesystems/effect-math/Numeric"
 import { erf, erfc } from "@scenesystems/effect-math/Special"
-import { Boolean as Bool, Data, Equal, Match, Number as Num, Predicate, Schema } from "effect"
+import { Boolean as Bool, Data, Equal, Match, Number as Num } from "effect"
 
 import {
   inverseSqrtTwo,
@@ -98,7 +98,7 @@ const logNdtrAsymptotic = (value: number): number => {
 }
 
 export const logNdtr = Match.type<number>().pipe(
-  Match.when(Predicate.not(Schema.is(Schema.NonNaN)), () => Number.NaN),
+  Match.when((current) => Bool.not(Num.Equivalence(current, current)), () => Number.NaN),
   Match.when((current) => Equal.equals(current, Number.NEGATIVE_INFINITY), () => Number.NEGATIVE_INFINITY),
   Match.when((current) => Equal.equals(current, Number.POSITIVE_INFINITY), () => 0),
   Match.when(Num.greaterThan(logNdtrRightTailThreshold), (current) => Num.negate(ndtr(Num.negate(current)))),
