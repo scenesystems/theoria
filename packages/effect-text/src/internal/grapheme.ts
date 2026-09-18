@@ -210,22 +210,30 @@ const finish = (state: Scan) =>
     onFalse: () => Chunk.append(state.completed, state.current)
   })
 
+const isAscii = Schema.is(Schema.String.pipe(Schema.pattern(/^\p{ASCII}*$/u)))
+
 /** Segments without normalizing or replacing the original UTF-16 text. */
-export const graphemeClusters = (text: string): typeof Graphemes.Type => {
-  const state = Chunk.reduce(Chunk.fromIterable(text), initial, (current, text): Scan => {
-    const next = character(text)
-    const joined = joinsPrevious(current, next)
-    return new Scan({
-      completed: Boolean.match(joined, { onTrue: () => current.completed, onFalse: () => finish(current) }),
-      current: Boolean.match(joined, { onTrue: () => String.concat(current.current, text), onFalse: () => text }),
-      previous: next.grapheme,
-      oddRegionalIndicators: Boolean.and(
-        String.Equivalence(next.grapheme, "Regional_Indicator"),
-        Boolean.not(current.oddRegionalIndicators)
-      ),
-      emoji: nextEmoji(current, next),
-      conjunct: nextConjunct(current, next)
-    })
+export const graphemeClusters = (text: string): typeof Graphemes.Type =>
+  Boolean.match(isAscii(text), {
+    // UAX #29 GB3 is the only joining rule in ASCII. All other pairs break,
+    // including controls; no property-tree lookup or contextual state is needed.
+    onTrue: () => Option.getOrElse(String.match(/\r\n|[\s\S]/gu)(text), Arr.empty<string>),
+    onFalse: () => {
+      const state = Chunk.reduce(Chunk.fromIterable(text), initial, (current, text): Scan => {
+        const next = character(text)
+        const joined = joinsPrevious(current, next)
+        return new Scan({
+          completed: Boolean.match(joined, { onTrue: () => current.completed, onFalse: () => finish(current) }),
+          current: Boolean.match(joined, { onTrue: () => String.concat(current.current, text), onFalse: () => text }),
+          previous: next.grapheme,
+          oddRegionalIndicators: Boolean.and(
+            String.Equivalence(next.grapheme, "Regional_Indicator"),
+            Boolean.not(current.oddRegionalIndicators)
+          ),
+          emoji: nextEmoji(current, next),
+          conjunct: nextConjunct(current, next)
+        })
+      })
+      return Chunk.toReadonlyArray(finish(state))
+    }
   })
-  return Chunk.toReadonlyArray(finish(state))
-}

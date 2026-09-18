@@ -23,6 +23,19 @@ describe("Unicode 17.0 extended grapheme boundaries", () => {
       expect(graphemeClusters("\ud800a\udc00\u0301")).toEqual(Arr.make("\ud800", "a", "\udc00\u0301"))
     }))
 
+  it.effect("only joins CR-LF in ASCII and retains non-ASCII extension rules", () =>
+    Effect.sync(() => {
+      expect(graphemeClusters("\r\r\n\n\0\tA\u007f")).toEqual(Arr.make("\r", "\r\n", "\n", "\0", "\t", "A", "\u007f"))
+      expect(graphemeClusters("A\u0301\u007f\u0301")).toEqual(Arr.make("A\u0301", "\u007f", "\u0301"))
+    }))
+
+  it.effect.prop("retains ASCII clusters including paired controls", {
+    clusters: FastCheck.array(FastCheck.constantFrom("\r\n", "\0", "\t", "A", "~", "\u007f"))
+  }, ({ clusters }) =>
+    Effect.sync(() => {
+      expect(graphemeClusters(Arr.join(clusters, ""))).toEqual(clusters)
+    }))
+
   it.effect("resets emoji, RI parity and Indic conjunct context at the correct boundaries", () =>
     Effect.sync(() => {
       expect(graphemeClusters("👨‍👩‍👧‍👦x‍👩")).toEqual(Arr.make("👨‍👩‍👧‍👦", "x‍", "👩"))
