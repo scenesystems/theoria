@@ -72,5 +72,30 @@ export const scopes = () => [
     files: ["**/*.{ts,tsx,mts,cts}"],
     ignores: PLATFORM_MODULE_PATTERNS,
     rules: { "no-restricted-globals": ["error", MATH_GLOBAL, ...NUMBER_PARSING_GLOBALS, ...BROWSER_GLOBALS] }
-  }
+  },
+  // Effect Number lacks these binary64 operations. Permit only their direct,
+  // identically named const exports in the owning modules, not general Math
+  // access, calls, aliases, computed properties, or other operations.
+  ...[
+    ["binary", ["sqrt"]],
+    ["transcendental", ["log", "sin", "cos"]]
+  ].map(([module, operations]) => ({
+    name: `theoria/effect/numeric-${module}`,
+    files: [`packages/effect-math/src/internal/numeric/${module}.ts`],
+    rules: {
+      "no-restricted-globals": ["error", ...NUMBER_PARSING_GLOBALS, ...BROWSER_GLOBALS],
+      "no-restricted-syntax": [
+        "error",
+        ...EFFECT_RULES,
+        {
+          selector: `Identifier[name='Math']:not(${
+            operations.map((operation) =>
+              `ExportNamedDeclaration > VariableDeclaration[kind='const'] > VariableDeclarator[id.name='${operation}'] > MemberExpression.init[computed=false][property.name='${operation}'] > Identifier.object`
+            ).join(", ")
+          })`,
+          message: "Only the authorized direct sqrt/log/sin/cos intrinsic exports are allowed in their owning modules."
+        }
+      ]
+    }
+  }))
 ]

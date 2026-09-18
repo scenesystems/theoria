@@ -12,7 +12,6 @@ import {
   Boolean,
   Chunk,
   Data,
-  Match,
   MutableHashMap,
   Number,
   Option,
@@ -377,9 +376,6 @@ const sqrtDyadic = (value: Dyadic): number =>
     }
   })
 
-const newtonRoot = (value: number, estimate: number): number =>
-  Number.multiply(0.5, Number.sum(estimate, Number.unsafeDivide(value, estimate)))
-
 // Dekker TwoProduct specialized to a square. Callers exclude under/overflow
 // of the split and its products. Do not reassociate these operations.
 const squareError = (value: number, product: number): number => {
@@ -392,64 +388,11 @@ const squareError = (value: number, product: number): number => {
   return Number.subtract(Number.multiply(low, low), error3)
 }
 
-const sqrtFinitePositive = (value: number): number => {
-  const normalized = normalize(value)
-  const exponent = floor(Number.multiply(normalized.exponent, 0.5))
-  const a = Boolean.match(Number.Equivalence(normalized.exponent, Number.multiply(2, exponent)), {
-    onTrue: () => normalized.mantissa,
-    onFalse: () => Number.multiply(2, normalized.mantissa)
-  })
-  // The secant (a + 2)/3 agrees with sqrt at 1 and 4. Its worst
-  // relative error on [1, 4] is 1 - sqrt(8)/3 < 0.058, at a = 2.
-  // Newton's relative-error recurrence e²/(2*(1+e)) takes this below
-  // 7e-25 in four steps, leaving only binary64 rounding to certify below.
-  const initial = Number.unsafeDivide(Number.sum(a, 2), 3)
-  const first = newtonRoot(a, initial)
-  const second = newtonRoot(a, first)
-  const third = newtonRoot(a, second)
-  const root = newtonRoot(a, third)
-  // Four steps put g within one spacing u of sqrt(a), 1 <= g <= 2.
-  // Dekker TwoProduct: g² = product + error exactly. Do not reassociate.
-  const product = Number.multiply(root, root)
-  const error = squareError(root, product)
-  const residual = Number.subtract(Number.subtract(a, product), error)
-  const spacing = 2.220446049250313e-16
-  const boundary = Number.multiply(root, spacing)
-  const down = Number.sum(residual, boundary)
-  const up = Number.subtract(residual, boundary)
-  // Distance rounding plus the omitted midpoint term u²/4 is < 25*2^-106.
-  // Guard 2^-100 also covers both binade endpoints; ambiguous cases retain
-  // exact midpoint/ties-to-even rounding, rather than guessing from Newton.
-  const guard = 7.888609052210118e-31
-  return Boolean.match(
-    Boolean.or(Number.lessThanOrEqualTo(abs(down), guard), Number.lessThanOrEqualTo(abs(up), guard)),
-    {
-      onTrue: () => sqrtDyadic(decompose(value)),
-      onFalse: () => {
-        const corrected = Boolean.match(Number.lessThan(down, Number.negate(guard)), {
-          onTrue: () => Number.subtract(root, spacing),
-          onFalse: () =>
-            Boolean.match(Number.greaterThan(up, guard), {
-              onTrue: () => Number.sum(root, spacing),
-              onFalse: () => root
-            })
-        })
-        return scaleNormal(corrected, exponent)
-      }
-    }
-  )
-}
-
-const squareRoot = Match.type<number>().pipe(
-  Match.when(isNaN, () => notANumber),
-  Match.when(zero, (value) => value),
-  Match.when((value) => Number.Equivalence(value, positiveInfinity), () => positiveInfinity),
-  Match.when(Number.lessThan(0), () => notANumber),
-  Match.orElse(sqrtFinitePositive)
-)
-
-/** Principal square root, preserving signed zero and IEEE special values. */
-export const sqrt: (value: number) => number = squareRoot
+/**
+ * Principal square root, preserving signed zero and IEEE special values.
+ * Authorized engine intrinsic: Effect Number has no binary64 square root.
+ */
+export const sqrt: (value: number) => number = Math.sqrt
 
 const addHypotTerm = (state: HypotState, value: number): HypotState =>
   Boolean.match(infinity(value), {

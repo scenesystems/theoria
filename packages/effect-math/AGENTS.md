@@ -30,6 +30,7 @@ All code must be idiomatic Effect. See root `AGENTS.md` for the full banned-patt
 - **`Effect.filterOrFail`** for all validation — no `if` statements
 - **`onExcessProperty: "error"`** on all `Schema.decodeUnknown` boundary calls
 - **No implicit math exceptions.** Deterministic IEEE 754 behavior does not authorize `Math.sqrt` or other JavaScript substitutes. Research Effect's public APIs and ecosystem integrations; obtain explicit authorization for any operation that remains unavailable before introducing a non-Effect implementation.
+- **Authorized binary64 intrinsics:** only the direct `Math.sqrt` export in `internal/numeric/binary.ts` and `Math.log`, `Math.sin`, `Math.cos` exports in `internal/numeric/transcendental.ts`. Effect Number lacks these operations; full-range software reduction and conversion costs prevent the measured implementations from matching engine intrinsics. Callers use `Numeric`; all surrounding arithmetic remains Effect-native. Preserve `logStrict`'s reproducible evaluation and `hypot`'s exact sum-of-squares rounding. This does not authorize other Math operations, wrappers, or broader file exemptions.
 
 ## Flat Concern Architecture
 

@@ -435,6 +435,7 @@ export const pi = 3.141592653589793
 
 /**
  * Computes sine for a radian angle, preserving signed zero; non-finite input produces `NaN`.
+ * Uses the engine's binary64 intrinsic; final-bit rounding can vary across engines.
  * @since 0.4.0
  * @category operations
  */
@@ -442,6 +443,7 @@ export const sin: typeof Transcendental.sin = Transcendental.sin
 
 /**
  * Computes cosine for a radian angle; zero maps to `1` and non-finite input produces `NaN`.
+ * Uses the engine's binary64 intrinsic; final-bit rounding can vary across engines.
  * @since 0.4.0
  * @category operations
  */
@@ -524,8 +526,9 @@ export const ceil: (value: number) => number = Binary.ceil
 export const truncate: (value: number) => number = Binary.truncate
 
 /**
- * Computes the natural logarithm with dyadic normalization, including `NaN`
+ * Computes the natural logarithm with the engine's binary64 intrinsic, including `NaN`
  * for negative input and `-Infinity` for zero. {@link logValidated} rejects those inputs.
+ * Final-bit rounding can vary across engines; use {@link logStrict} for reproducible evaluation.
  * @since 0.1.0
  * @category operations
  */

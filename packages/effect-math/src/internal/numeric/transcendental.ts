@@ -1,11 +1,11 @@
 /**
- * Deterministic transcendental kernels assembled from Effect's public
- * arithmetic, decimal, collection, matching, and schema APIs.
+ * Transcendental kernels using Effect's public arithmetic and matching APIs,
+ * with authorized engine intrinsics for ordinary log, sin, and cos.
  *
  * @since 0.1.0
  * @category internal
  */
-import { BigDecimal, BigInt, Boolean, Match, Number, Option, Predicate, Tuple } from "effect"
+import { Boolean, Match, Number, Predicate, Tuple } from "effect"
 
 import * as Binary from "./binary.js"
 
@@ -17,7 +17,7 @@ const pi = 3.141592653589793
 const maxSafeInteger = 9_007_199_254_740_991
 
 // Adapted from OpenLibm's fdlibm e_log.c, e_log10.c, e_exp.c, s_log1p.c,
-// s_expm1.c, s_atan.c, k_sin.c, k_cos.c and e_rem_pio2.c.
+// s_expm1.c and s_atan.c.
 // https://github.com/JuliaMath/openlibm/tree/master/src
 // Copyright (C) 1993, 2004 by Sun Microsystems, Inc. All rights reserved.
 // Developed at SunSoft, a Sun Microsystems, Inc. business.
@@ -93,24 +93,11 @@ const logarithmReducedValue = (value: number, correction: number): number => {
   })
 }
 
-/** Natural logarithm with IEEE exceptional-value behavior. */
-export const log = (value: number): number =>
-  Boolean.match(Binary.isNaN(value), {
-    onTrue: () => Binary.notANumber,
-    onFalse: () =>
-      Boolean.match(positiveInfinity(value), {
-        onTrue: () => Binary.positiveInfinity,
-        onFalse: () =>
-          Boolean.match(zero(value), {
-            onTrue: () => Binary.negativeInfinity,
-            onFalse: () =>
-              Boolean.match(Number.lessThan(value, 0), {
-                onTrue: () => Binary.notANumber,
-                onFalse: () => logarithmReducedValue(value, 0)
-              })
-          })
-      })
-  })
+/**
+ * Natural logarithm with IEEE exceptional-value behavior.
+ * Authorized engine intrinsic; logStrict retains reproducible evaluation.
+ */
+export const log: (value: number) => number = Math.log
 
 // Preserve the original left-to-right additions: Horner would change seeded
 // optimizer decisions. Bounded scalar recursion removes per-term tuples.
@@ -400,206 +387,11 @@ const power = Match.type<readonly [number, number]>().pipe(
 /** Real-valued power with integer dispatch for negative bases. */
 export const pow = (base: number, exponent: number): number => power(Tuple.make(base, exponent))
 
-// The long decimal expansion is from NIST's Statistical Reference Dataset
-// PiDigits (https://www.itl.nist.gov/div898/strd/univ/data/PiDigits.html).
-// Its 399 fractional digits exceed the 309 decimal integer digits of every
-// finite binary64 input, leaving 90 guard digits during argument reduction.
-const piDecimal = BigDecimal.unsafeFromString(
-  "3.141592653589793238462643383279502884197169399375105820974944592307816406286208998628034825342117067982148086513282306647093844609550582231725359408128481117450284102701938521105559644622948954930381964428810975665933446128475648233786783165271201909145648566923460348610454326648213393607260249141273724587006606315588174881520920962829254091715364367892590360011330530548820466521384146951941511609"
-)
-// Scale 401 represents both pi/4 and every large binary64 input exactly
-// relative to the stored pi: x = c*2^e, e >= -32, so x*10^401 is integral.
-const angleScale = Number.sum(piDecimal.scale, 2)
-const halfPiInteger = BigInt.multiply(piDecimal.value, 50n)
-const quarterPiInteger = BigInt.multiply(piDecimal.value, 25n)
-const angleFives = Binary.integerPower(5n, angleScale)
-const angleConversionDivisor = Binary.integerPower(10n, Number.subtract(angleScale, 20))
+/** Sine using the authorized engine intrinsic's full-range argument reduction. */
+export const sin: (value: number) => number = Math.sin
 
-const sineReduced = (high: number, low: number): number => {
-  const z = Number.multiply(high, high)
-  const w = Number.multiply(z, z)
-  const r = Number.sum(
-    Number.sum(
-      8.33333333332248946124e-3,
-      Number.multiply(z, Number.sum(-1.98412698298579493134e-4, Number.multiply(z, 2.75573137070700676789e-6)))
-    ),
-    Number.multiply(
-      Number.multiply(z, w),
-      Number.sum(-2.50507602534068634195e-8, Number.multiply(z, 1.58969099521155010221e-10))
-    )
-  )
-  const v = Number.multiply(z, high)
-  return Number.subtract(
-    high,
-    Number.subtract(
-      Number.subtract(Number.multiply(z, Number.subtract(Number.multiply(0.5, low), Number.multiply(v, r))), low),
-      Number.multiply(v, -1.66666666666666324348e-1)
-    )
-  )
-}
-
-const cosineReduced = (high: number, low: number): number => {
-  const z = Number.multiply(high, high)
-  const w = Number.multiply(z, z)
-  const r = Number.sum(
-    Number.multiply(
-      z,
-      Number.sum(
-        4.16666666666666019037e-2,
-        Number.multiply(z, Number.sum(-1.38888888888741095749e-3, Number.multiply(z, 2.48015872894767294178e-5)))
-      )
-    ),
-    Number.multiply(
-      Number.multiply(w, w),
-      Number.sum(
-        -2.75573143513906633035e-7,
-        Number.multiply(z, Number.sum(2.08757232129817482790e-9, Number.multiply(z, -1.13596475577881948265e-11)))
-      )
-    )
-  )
-  const halfSquare = Number.multiply(0.5, z)
-  const leading = Number.subtract(1, halfSquare)
-  return Number.sum(
-    leading,
-    Number.sum(
-      Number.subtract(Number.subtract(1, leading), halfSquare),
-      Number.subtract(Number.multiply(z, r), Number.multiply(high, low))
-    )
-  )
-}
-
-// Cody-Waite reduction with conservative arithmetic cancellation checks in
-// place of inspecting exponent bits. Large arguments retain exact reduction.
-const reducedTrig = (high: number, low: number, quadrant: number): number =>
-  Boolean.match(Number.Equivalence(quadrant, 0), {
-    onTrue: () => sineReduced(high, low),
-    onFalse: () =>
-      Boolean.match(Number.Equivalence(quadrant, 1), {
-        onTrue: () => cosineReduced(high, low),
-        onFalse: () =>
-          Boolean.match(Number.Equivalence(quadrant, 2), {
-            onTrue: () => Number.negate(sineReduced(high, low)),
-            onFalse: () => Number.negate(cosineReduced(high, low))
-          })
-      })
-  })
-
-const largeTrig = (value: number, quadrantOffset: number): number => {
-  const dyadic = Binary.decompose(value)
-  const scaled = BigInt.multiply(
-    BigInt.multiply(dyadic.coefficient, angleFives),
-    Binary.integerPower(2n, Number.sum(dyadic.exponent, angleScale))
-  )
-  const quotient = BigInt.unsafeDivide(BigInt.sum(scaled, quarterPiInteger), halfPiInteger)
-  const remainder = BigInt.subtract(scaled, BigInt.multiply(quotient, halfPiInteger))
-  const quadrant = Option.getOrThrow(BigInt.toNumber(
-    BigInt.subtract(quotient, BigInt.multiply(BigInt.unsafeDivide(quotient, 4n), 4n))
-  ))
-  // Enclose the exact remainder between adjacent 20-place decimals. When
-  // both endpoints round to the same binary64, parsing all 401 places
-  // cannot change it. Near zero or a rounding boundary, retain every digit.
-  const truncated = BigInt.unsafeDivide(remainder, angleConversionDivisor)
-  const adjacent = Boolean.match(BigInt.lessThan(remainder, 0n), {
-    onTrue: () => BigInt.decrement(truncated),
-    onFalse: () => BigInt.increment(truncated)
-  })
-  const leading = BigDecimal.unsafeToNumber(BigDecimal.make(truncated, 20))
-  const trailing = BigDecimal.unsafeToNumber(BigDecimal.make(adjacent, 20))
-  const angle = Boolean.match(Number.Equivalence(leading, trailing), {
-    onTrue: () => leading,
-    onFalse: () => BigDecimal.unsafeToNumber(BigDecimal.make(remainder, angleScale))
-  })
-  const offsetQuadrant = Number.sum(quadrant, quadrantOffset)
-  // Reduction uses the magnitude. sin is odd; cos is even.
-  const result = reducedTrig(
-    angle,
-    0,
-    Boolean.match(Number.Equivalence(offsetQuadrant, 4), { onTrue: () => 0, onFalse: () => offsetQuadrant })
-  )
-  return Boolean.match(Boolean.and(Number.lessThan(value, 0), zero(quadrantOffset)), {
-    onTrue: () => Number.negate(result),
-    onFalse: () => result
-  })
-}
-
-const ordinaryTrig = (value: number, quadrantOffset: number): number => {
-  const n = Number.round(Number.multiply(value, 6.36619772367581382433e-1), 0)
-  const r1 = Number.subtract(value, Number.multiply(n, 1.57079632673412561417))
-  const w1 = Number.multiply(n, 6.07710050650619224932e-11)
-  const h1 = Number.subtract(r1, w1)
-  const q = Number.sum(n, quadrantOffset)
-  const quadrant = Number.subtract(q, Number.multiply(4, Binary.floor(Number.multiply(q, 0.25))))
-  return Boolean.match(Number.lessThanOrEqualTo(Binary.abs(h1), Number.multiply(Binary.abs(value), 1.52587890625e-5)), {
-    onFalse: () => reducedTrig(h1, Number.subtract(Number.subtract(r1, h1), w1), quadrant),
-    onTrue: () => {
-      const u2 = Number.multiply(n, 6.07710050630396597660e-11)
-      const r2 = Number.subtract(r1, u2)
-      const w2 = Number.subtract(
-        Number.multiply(n, 2.02226624879595063154e-21),
-        Number.subtract(Number.subtract(r1, r2), u2)
-      )
-      const h2 = Number.subtract(r2, w2)
-      return Boolean.match(
-        Number.lessThanOrEqualTo(Binary.abs(h2), Number.multiply(Binary.abs(value), 1.7763568394002505e-15)),
-        {
-          onFalse: () => reducedTrig(h2, Number.subtract(Number.subtract(r2, h2), w2), quadrant),
-          onTrue: () => {
-            const u3 = Number.multiply(n, 2.02226624871116645580e-21)
-            const r3 = Number.subtract(r2, u3)
-            const w3 = Number.subtract(
-              Number.multiply(n, 8.47842766036889956997e-32),
-              Number.subtract(Number.subtract(r2, r3), u3)
-            )
-            const high = Number.subtract(r3, w3)
-            return reducedTrig(high, Number.subtract(Number.subtract(r3, high), w3), quadrant)
-          }
-        }
-      )
-    }
-  })
-}
-
-/** Sine with Cody-Waite reduction and an exact-decimal large-angle fallback. */
-export const sin = (value: number): number =>
-  Boolean.match(zero(value), {
-    onTrue: () => value,
-    onFalse: () =>
-      Boolean.match(Binary.isFinite(value), {
-        onFalse: () => Binary.notANumber,
-        onTrue: () => {
-          const magnitude = Binary.abs(value)
-          return Boolean.match(Number.lessThanOrEqualTo(magnitude, quarterPi), {
-            onTrue: () => sineReduced(value, 0),
-            onFalse: () =>
-              Boolean.match(Number.lessThan(magnitude, 1_647_099), {
-                onTrue: () => ordinaryTrig(value, 0),
-                onFalse: () => largeTrig(value, 0)
-              })
-          })
-        }
-      })
-  })
-
-/** Cosine with Cody-Waite reduction and an exact-decimal large-angle fallback. */
-export const cos = (value: number): number =>
-  Boolean.match(zero(value), {
-    onTrue: () => 1,
-    onFalse: () =>
-      Boolean.match(Binary.isFinite(value), {
-        onFalse: () => Binary.notANumber,
-        onTrue: () => {
-          const magnitude = Binary.abs(value)
-          return Boolean.match(Number.lessThanOrEqualTo(magnitude, quarterPi), {
-            onTrue: () => cosineReduced(value, 0),
-            onFalse: () =>
-              Boolean.match(Number.lessThan(magnitude, 1_647_099), {
-                onTrue: () => ordinaryTrig(value, 1),
-                onFalse: () => largeTrig(value, 1)
-              })
-          })
-        }
-      })
-  })
+/** Cosine using the authorized engine intrinsic's full-range argument reduction. */
+export const cos: (value: number) => number = Math.cos
 
 const atanReduced = (value: number, high: number, low: number): number => {
   const z = Number.multiply(value, value)
