@@ -1,8 +1,11 @@
 // @vitest-environment node
 import { expect, layer } from "@effect/vitest"
 import type { Locator } from "@playwright/test"
-import { Effect, Fiber, Layer, Option } from "effect"
+import { Numeric } from "@scenesystems/effect-math"
+import { Effect, Fiber, Layer, Number as Num, Option, Predicate } from "effect"
 import * as Arr from "effect/Array"
+import * as Str from "effect/String"
+import { evaluateElement } from "./browser.js"
 
 import { imaginedPlaceSectionId } from "../../app/web/view/home/HomeHero.js"
 import { placeStepDefinitions } from "../../app/web/view/home/placeSteps.js"
@@ -46,7 +49,12 @@ const boxOf = (locator: Locator) =>
   Effect.flatMap(act(() => locator.boundingBox()), (box) =>
     Option.match(Option.fromNullable(box), {
       onNone: () => Effect.dieMessage("the element has no box"),
-      onSome: (some) => Effect.succeed({ ...some, centreX: some.x + some.width / 2, centreY: some.y + some.height / 2 })
+      onSome: (some) =>
+        Effect.succeed({
+          ...some,
+          centreX: Num.sum(some.x, Num.unsafeDivide(some.width, 2)),
+          centreY: Num.sum(some.y, Num.unsafeDivide(some.height, 2))
+        })
     }))
 
 layer(Layer.merge(SiteLive, BrowserLive), { excludeTestServices: true, timeout: "3 minutes" })(
@@ -66,11 +74,11 @@ layer(Layer.merge(SiteLive, BrowserLive), { excludeTestServices: true, timeout: 
             const dot = dots.nth(index)
             // In the viewport, so what is topmost at the dot can be asked; the line is measured from the same scroll.
             yield* act(() => dot.scrollIntoViewIfNeeded())
-            const lineX = yield* act(() => acts.evaluate(beforeRuleCentreX))
+            const lineX = yield* evaluateElement(acts, beforeRuleCentreX)
             const box = yield* boxOf(dot)
             // On the line's centre, to within half a pixel; and the dot paints over the line, so an open ring is open.
-            expect(Math.abs(box.centreX - lineX)).toBeLessThanOrEqual(0.5)
-            expect(yield* act(() => dot.evaluate(topmostAt, { x: lineX, y: box.centreY }))).toBe(true)
+            expect(Numeric.abs(Num.subtract(box.centreX, lineX))).toBeLessThanOrEqual(0.5)
+            expect(yield* evaluateElement(dot, topmostAt, { x: lineX, y: box.centreY })).toBe(true)
           }))
         expect(yield* failures).toEqual([])
       }))
@@ -88,9 +96,9 @@ layer(Layer.merge(SiteLive, BrowserLive), { excludeTestServices: true, timeout: 
             const packages = header.locator("a")
             const total = yield* act(() => packages.count())
             expect(total).toBe(step.packages.length)
-            yield* Effect.forEach(Arr.range(0, total - 1), (index) =>
+            yield* Effect.forEach(Arr.range(0, Num.decrement(total)), (index) =>
               Effect.map(boxOf(packages.nth(index)), (box) => {
-                expect(Math.abs(box.centreY - name.centreY)).toBeLessThanOrEqual(1)
+                expect(Numeric.abs(Num.subtract(box.centreY, name.centreY))).toBeLessThanOrEqual(1)
               }))
           }))
         expect(yield* failures).toEqual([])
@@ -123,7 +131,7 @@ layer(Layer.merge(SiteLive, BrowserLive), { excludeTestServices: true, timeout: 
         ]
         yield* Effect.forEach(lit, (element) => count(element, 1))
         const washes = yield* until(
-          Effect.forEach(lit, (element) => act(() => element.evaluate(backgroundColour))),
+          Effect.forEach(lit, (element) => evaluateElement(element, backgroundColour)),
           (colours) => Arr.dedupe(colours).length === 1,
           "one wash on everything lit"
         )
@@ -146,7 +154,7 @@ layer(Layer.merge(SiteLive, BrowserLive), { excludeTestServices: true, timeout: 
         yield* click(overlay.locator("a[href^='/docs/']").first())
         const preview = page.locator("[data-docs-link-preview]")
         yield* visible(preview)
-        expect(yield* act(() => preview.evaluate(topmostAtItsCentre))).toBe(true)
+        expect(yield* evaluateElement(preview, topmostAtItsCentre)).toBe(true)
         expect(yield* failures).toEqual([])
       }))
 
@@ -157,12 +165,12 @@ layer(Layer.merge(SiteLive, BrowserLive), { excludeTestServices: true, timeout: 
         yield* drawn(page)
         const demo = page.getByRole("region", { name: "Imagined place demo" })
         const band = page.locator("[data-place-band]")
-        yield* act(() => demo.locator("[data-place-stage='column']").evaluate(scrollPast))
+        yield* evaluateElement(demo.locator("[data-place-stage='column']"), scrollPast)
         yield* visible(band)
         const strip = band.getByRole("link", { name: "Back to the place" })
         const box = yield* boxOf(strip)
         expect(box.height).toBeLessThanOrEqual(40)
-        expect(box.width).toBeLessThanOrEqual(390 * 0.8)
+        expect(box.width).toBeLessThanOrEqual(Num.multiply(390, 0.8))
         yield* visible(band.locator("[data-place-band-icon]"))
         yield* count(
           band.locator("[data-place-band-disc]"),
@@ -178,12 +186,12 @@ layer(Layer.merge(SiteLive, BrowserLive), { excludeTestServices: true, timeout: 
         yield* drawn(page)
         const demo = page.getByRole("region", { name: "Imagined place demo" })
         const band = page.locator("[data-place-band]")
-        yield* act(() => demo.locator("[data-place-stage='column']").evaluate(scrollPast))
+        yield* evaluateElement(demo.locator("[data-place-stage='column']"), scrollPast)
         yield* visible(band)
-        const names = yield* act(() => band.evaluate(bandDiscNames))
+        const names = yield* evaluateElement(band, bandDiscNames)
         expect(names.length).toBeGreaterThan(1)
         // The row and the arrow are decoration; the tree holds the link alone, and its name lists the row.
-        const nodes = Arr.filter((yield* accessibilityTree(band)).split("\n"), (line) => !line.startsWith(" "))
+        const nodes = Arr.filter(Str.split(yield* accessibilityTree(band), "\n"), Predicate.not(Str.startsWith(" ")))
         expect(nodes).toHaveLength(1)
         expect(nodes[0]).toMatch(/^- '?link "Back to the place: /u)
         const named = (drawn: ReadonlyArray<string>) =>
@@ -194,8 +202,8 @@ layer(Layer.merge(SiteLive, BrowserLive), { excludeTestServices: true, timeout: 
         // A merge adds a disc to the row, and its name to the link.
         yield* click(demo.getByRole("switch", { checked: false }).first())
         const after = yield* until(
-          act(() => band.evaluate(bandDiscNames)),
-          (drawn) => drawn.length === names.length + 1,
+          evaluateElement(band, bandDiscNames),
+          (drawn) => drawn.length === Num.increment(names.length),
           "one more disc in the band"
         )
         yield* count(named(after), 1)
@@ -211,9 +219,9 @@ layer(Layer.merge(SiteLive, BrowserLive), { excludeTestServices: true, timeout: 
         const arrive = yield* boxOf(demo.locator("[data-place-arrive]"))
         const compose = yield* boxOf(demo.locator("[data-place-step='compose']"))
         const arrange = yield* boxOf(demo.locator("[data-place-step='arrange']"))
-        expect(arrive.y + arrive.height).toBeLessThanOrEqual(compose.y)
-        expect(arrive.y + arrive.height).toBeLessThanOrEqual(arrange.y)
-        expect(Math.abs(compose.y - arrange.y)).toBeLessThanOrEqual(1)
+        expect(Num.sum(arrive.y, arrive.height)).toBeLessThanOrEqual(compose.y)
+        expect(Num.sum(arrive.y, arrive.height)).toBeLessThanOrEqual(arrange.y)
+        expect(Numeric.abs(Num.subtract(compose.y, arrange.y))).toBeLessThanOrEqual(1)
         expect(yield* failures).toEqual([])
       }))
 
@@ -235,7 +243,7 @@ layer(Layer.merge(SiteLive, BrowserLive), { excludeTestServices: true, timeout: 
           yield* goto(page, "/")
           yield* drawn(page)
           const field = page.getByRole("textbox", { name: "Brief" })
-          expect(yield* act(() => field.evaluate(typographyOf))).toMatchObject({ size: "16px", leading: "26px" })
+          expect(yield* evaluateElement(field, typographyOf)).toMatchObject({ size: "16px", leading: "26px" })
           yield* Effect.forEach([
             { text: "A quiet inlet.", rows: 5 },
             { text: Arr.join(Arr.replicate("A quiet inlet.", 7), "\n"), rows: 7 },
@@ -243,7 +251,7 @@ layer(Layer.merge(SiteLive, BrowserLive), { excludeTestServices: true, timeout: 
           ], (draft) =>
             Effect.gen(function*() {
               yield* fill(field, draft.text)
-              expect(yield* act(() => field.evaluate(textAreaVisibleRows))).toBe(draft.rows)
+              expect(yield* evaluateElement(field, textAreaVisibleRows)).toBe(draft.rows)
             }))
           expect(yield* failures).toEqual([])
         })))
@@ -258,9 +266,9 @@ layer(Layer.merge(SiteLive, BrowserLive), { excludeTestServices: true, timeout: 
         const title = yield* boxOf(compose.locator("[data-place-composition-title]"))
         const brief = yield* boxOf(compose.getByRole("textbox"))
         const features = yield* boxOf(compose.locator("[data-place-features]"))
-        expect(stories.y + stories.height).toBeLessThanOrEqual(title.y)
-        expect(title.y + title.height).toBeLessThanOrEqual(brief.y)
-        expect(brief.y + brief.height).toBeLessThanOrEqual(features.y)
+        expect(Num.sum(stories.y, stories.height)).toBeLessThanOrEqual(title.y)
+        expect(Num.sum(title.y, title.height)).toBeLessThanOrEqual(brief.y)
+        expect(Num.sum(brief.y, brief.height)).toBeLessThanOrEqual(features.y)
         // The features are named as what they are, beside the status of the inference that named them.
         yield* visible(compose.locator("[data-place-features-label]"))
         // An edited brief shows as the field's own dirty state and in the version it builds, not in a sentence:

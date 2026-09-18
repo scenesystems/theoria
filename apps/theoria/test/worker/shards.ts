@@ -1,4 +1,4 @@
-import { Data, Option, Schema, Tuple } from "effect"
+import { Data, Number as Num, Option, Schema, Tuple } from "effect"
 import * as Arr from "effect/Array"
 import * as Order from "effect/Order"
 
@@ -19,7 +19,7 @@ class Bin<A> extends Data.Class<{
 }> {
   static readonly empty = <A>(): Bin<A> => new Bin<A>({ total: 0, files: [] })
   with(file: A, weight: number): Bin<A> {
-    return new Bin<A>({ total: this.total + weight, files: Arr.append(this.files, file) })
+    return new Bin<A>({ total: Num.sum(this.total, weight), files: Arr.append(this.files, file) })
   }
 }
 
@@ -66,4 +66,7 @@ export const shardOf = <A>(
   weightOf: (file: A) => number,
   keyOf: (file: A) => string
 ): ReadonlyArray<A> =>
-  Option.getOrElse(Arr.get(balancedShards(files, shard.count, weightOf, keyOf), shard.index - 1), () => Arr.empty())
+  Option.getOrElse(
+    Arr.get(balancedShards(files, shard.count, weightOf, keyOf), Num.decrement(shard.index)),
+    () => Arr.empty()
+  )

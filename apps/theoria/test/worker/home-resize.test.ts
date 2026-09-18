@@ -1,12 +1,14 @@
 // @vitest-environment node
 import { expect, layer } from "@effect/vitest"
 import type { Page } from "@playwright/test"
-import { Effect, Layer, Option, Schema } from "effect"
+import { Numeric } from "@scenesystems/effect-math"
+import { Effect, Layer, Number as Num, Option, Schema } from "effect"
 import * as Arr from "effect/Array"
+import * as Str from "effect/String"
+import { addInitProbe, evaluate, evaluateElement } from "./browser.js"
 
 import { stageMaxWidth } from "../../app/contracts/demo/imagined-place-flow.js"
 import {
-  act,
   animationsSettled,
   BrowserLive,
   click,
@@ -47,35 +49,30 @@ import { SiteLive } from "./site.js"
 
 /** One report of the drawing and its paper in their frame; see `recordFrameFit`. */
 const FrameFit = Schema.Struct({
-  frame: Schema.Number,
-  drawing: Schema.Number,
-  paper: Schema.Number,
-  offCentre: Schema.Number
+  frame: Schema.NumberFromString,
+  drawing: Schema.NumberFromString,
+  paper: Schema.NumberFromString,
+  offCentre: Schema.NumberFromString
 })
 type FrameFit = typeof FrameFit.Type
 
 const frameFit = (reported: string): FrameFit => {
-  const [frame = "0", drawing = "0", paper = "0", offCentre = "0"] = reported.split(" ")
-  return FrameFit.make({
-    frame: Number(frame),
-    drawing: Number(drawing),
-    paper: Number(paper),
-    offCentre: Number(offCentre)
-  })
+  const [frame = "0", drawing = "0", paper = "0", offCentre = "0"] = Str.split(reported, " ")
+  return Schema.decodeUnknownSync(FrameFit)({ frame, drawing, paper, offCentre })
 }
 
 const recordedFits = (page: Page) =>
   Effect.map(
-    act(() => page.evaluate(recordedFrameFit)),
-    (recorded) => Arr.map(Arr.filter(recorded.split("\n"), (line) => line.length > 0), frameFit)
+    evaluate(page, recordedFrameFit),
+    (recorded) => Arr.map(Arr.filter(Str.split(recorded, "\n"), Str.isNonEmpty), frameFit)
   )
 
 /** The stage drawn for exactly the room the step gives it, up to the widest stage, and centred in any room to spare. */
 const stageFillsItsStep = (page: Page, where: string) =>
   Effect.map(
     until(
-      act(() => page.evaluate(stageInItsStep)),
-      ({ stage, step }) => step > 0 && stage === Math.min(stageMaxWidth, step),
+      evaluate(page, stageInItsStep),
+      ({ stage, step }) => step > 0 && stage === Num.min(stageMaxWidth, step),
       `the stage is drawn for its step at ${where}`,
       searchSettlesWithin
     ),
@@ -98,16 +95,17 @@ layer(Layer.merge(SiteLive, BrowserLive), { excludeTestServices: true, timeout: 
             yield* setViewport(page, { width, height: 1080 })
             const stage = yield* stageFillsItsStep(page, `${String(width)}px`)
             expect(stage.stage).toBe(720)
-            const columns = yield* act(() => page.locator("[data-place-columns]").evaluate(boxOf))
+            const columns = yield* evaluateElement(page.locator("[data-place-columns]"), boxOf)
             expect(columns.width).toBe(1504)
             expect(columns.left).toBeGreaterThan(190)
-            const header = yield* act(() =>
-              page.locator("header").filter({ has: page.getByRole("navigation", { name: "Site" }) }).evaluate(boxOf)
+            const header = yield* evaluateElement(
+              page.locator("header").filter({ has: page.getByRole("navigation", { name: "Site" }) }),
+              boxOf
             )
-            const footer = yield* act(() => page.locator("[data-site-footer]").evaluate(boxOf))
+            const footer = yield* evaluateElement(page.locator("[data-site-footer]"), boxOf)
             expect(header.left).toBe(columns.left)
             expect(footer.right).toBe(columns.right)
-            const canvas = yield* act(() => page.locator("main").evaluate(boxOf))
+            const canvas = yield* evaluateElement(page.locator("main"), boxOf)
             expect(columns.centreX).toBe(canvas.centreX)
           }))
         expect(yield* failures).toEqual([])
@@ -124,7 +122,7 @@ layer(Layer.merge(SiteLive, BrowserLive), { excludeTestServices: true, timeout: 
         const narrower = yield* stageFillsItsStep(page, "900px")
         expect(narrower.stage).toBeLessThan(stageMaxWidth)
         expect(narrower.leftOfFrame).toBe(0)
-        expect(yield* act(() => page.evaluate(stepWidths))).toEqual({ arrange: narrower.step, compose: narrower.step })
+        expect(yield* evaluate(page, stepWidths)).toEqual({ arrange: narrower.step, compose: narrower.step })
 
         // A column wider than the widest stage: the paper is the widest stage, centred in the column.
         yield* setViewport(page, { width: 1000, height: 900 })
@@ -137,7 +135,7 @@ layer(Layer.merge(SiteLive, BrowserLive), { excludeTestServices: true, timeout: 
     it.scoped("while the column is resized neither the drawing nor its paper stands wider than the frame, and the frame stays centred", () =>
       Effect.gen(function*() {
         const { failures, page } = yield* openPage({ viewport: { width: 1400, height: 900 } })
-        yield* act(() => page.addInitScript(recordFrameFit))
+        yield* addInitProbe(page, recordFrameFit)
         yield* goto(page, "/")
         yield* drawn(page)
         const settled = yield* stageFillsItsStep(page, "1400px")
@@ -153,12 +151,12 @@ layer(Layer.merge(SiteLive, BrowserLive), { excludeTestServices: true, timeout: 
         expect(fits.length).toBeGreaterThan(2)
         Arr.forEach(fits, (fit) => {
           expect(fit.drawing, `drawing ${String(fit.drawing)} in frame ${String(fit.frame)}`).toBeLessThanOrEqual(
-            fit.frame + 1
+            Num.increment(fit.frame)
           )
           expect(fit.paper, `paper ${String(fit.paper)} in frame ${String(fit.frame)}`).toBeLessThanOrEqual(
-            fit.frame + 1
+            Num.increment(fit.frame)
           )
-          expect(Math.abs(fit.offCentre), `frame ${String(fit.frame)} off centre`).toBeLessThanOrEqual(1)
+          expect(Numeric.abs(fit.offCentre), `frame ${String(fit.frame)} off centre`).toBeLessThanOrEqual(1)
         })
         expect(yield* failures).toEqual([])
       }))
@@ -183,7 +181,7 @@ layer(Layer.merge(SiteLive, BrowserLive), { excludeTestServices: true, timeout: 
         // from its first trial to its landing.
         yield* setViewport(page, { width: 320, height: 700 })
         const first = yield* until(
-          act(() => demo.evaluate(stageFrame)),
+          evaluateElement(demo, stageFrame),
           (frame) => frame.phase !== "complete",
           "the narrow stage's search is drawing"
         )
@@ -192,7 +190,7 @@ layer(Layer.merge(SiteLive, BrowserLive), { excludeTestServices: true, timeout: 
           first
         )
         // The landing is the narrow stage's: drawn for the step's whole width (no widths are offered this narrow).
-        const landed = yield* act(() => page.evaluate(stageInItsStep))
+        const landed = yield* evaluate(page, stageInItsStep)
         expect(landed.stage).toBe(landed.step)
 
         expect(Arr.last(frames).pipe(Option.map((frame) => frame.phase))).toEqual(Option.some("complete"))
@@ -204,11 +202,11 @@ layer(Layer.merge(SiteLive, BrowserLive), { excludeTestServices: true, timeout: 
     it.scoped("a landed drawing is redrawn for another width or another build only, never for the reader's presence", () =>
       Effect.gen(function*() {
         const { failures, page } = yield* openPage({ viewport: { width: 1280, height: 900 } })
-        yield* act(() => page.addInitScript(recordPaperFrames))
+        yield* addInitProbe(page, recordPaperFrames)
         yield* goto(page, "/")
         yield* drawn(page)
         yield* animationsSettled(page)
-        const landed = yield* act(() => page.evaluate(recordedPaperFrames))
+        const landed = yield* evaluate(page, recordedPaperFrames)
 
         // Time passing, the page scrolled down and back, a disc under the pointer and then pressed for its answer,
         // the window left and returned to, the colour scheme changed: none is a change to what is drawn, so none
@@ -220,13 +218,13 @@ layer(Layer.merge(SiteLive, BrowserLive), { excludeTestServices: true, timeout: 
         yield* hover(disc)
         yield* click(disc)
         yield* press(page, "Escape")
-        yield* act(() => page.evaluate(leaveAndReturn))
+        yield* evaluate(page, leaveAndReturn)
         yield* setColorScheme(page, "dark")
         yield* setColorScheme(page, "light")
         yield* Effect.sleep("2 seconds")
         yield* animationsSettled(page)
 
-        expect(yield* act(() => page.evaluate(recordedPaperFrames))).toBe(landed)
+        expect(yield* evaluate(page, recordedPaperFrames)).toBe(landed)
         expect(yield* failures).toEqual([])
       }))
   }

@@ -4,6 +4,7 @@ import type { Page } from "@playwright/test"
 import { Effect, Fiber, Layer, Option, Schema } from "effect"
 import * as Arr from "effect/Array"
 import * as Rec from "effect/Record"
+import { addInitProbe, evaluate } from "./browser.js"
 
 import { webVitalBudgets } from "../../app/contracts/performance.js"
 import { act, animationsSettled, BrowserLive, click, goto, nextResponse, openPage, visible } from "./browser.js"
@@ -41,8 +42,7 @@ const WebVitals = Schema.Struct({
 const viewports = [{ width: 1440, height: 900 }, { width: 390, height: 844 }]
 const searching = (page: Page) => page.locator("[data-place-render-phase='running']")
 
-const readVitals = (page: Page) =>
-  Effect.flatMap(act(() => page.evaluate(recordedWebVitals)), Schema.decodeUnknown(WebVitals))
+const readVitals = (page: Page) => Effect.flatMap(evaluate(page, recordedWebVitals), Schema.decodeUnknown(WebVitals))
 
 /**
  * INP as the budget sees it. An interaction the observer did not report was
@@ -60,7 +60,7 @@ layer(Layer.merge(SiteUnderTest, BrowserLive), { excludeTestServices: true, time
       Effect.forEach(viewports, (viewport) =>
         Effect.gen(function*() {
           const { failures, page } = yield* openPage({ viewport })
-          yield* act(() => page.addInitScript(recordWebVitals))
+          yield* addInitProbe(page, recordWebVitals)
           yield* goto(page, "/")
           yield* drawn(page)
           yield* animationsSettled(page)
@@ -73,7 +73,7 @@ layer(Layer.merge(SiteUnderTest, BrowserLive), { excludeTestServices: true, time
           // The lifetime total of shifts is never less than CLS, so a total within the budget is a CLS within it.
           expect(vitals.layoutShiftTotal).toBeLessThanOrEqual(webVitalBudgets.cls)
           // The demonstration's placeholders stand at the height of what they stand in for: its own loading shifts nothing.
-          expect(yield* act(() => page.evaluate(recordedDemonstrationShifts))).toBe("")
+          expect(yield* evaluate(page, recordedDemonstrationShifts)).toBe("")
           expect(yield* failures).toEqual([])
         })))
 
@@ -89,7 +89,7 @@ layer(Layer.merge(SiteUnderTest, BrowserLive), { excludeTestServices: true, time
       Effect.forEach(viewports, (viewport) =>
         Effect.gen(function*() {
           const { failures, page } = yield* openPage({ viewport })
-          yield* act(() => page.addInitScript(recordFootprints))
+          yield* addInitProbe(page, recordFootprints)
           yield* goto(page, "/")
           yield* drawn(page)
           const heights = heightsByRegion(yield* footprintsUntilLanding(page))
@@ -115,7 +115,7 @@ layer(Layer.merge(SiteUnderTest, BrowserLive), { excludeTestServices: true, time
         const { failures, page } = yield* openPage({ viewport: { width: 390, height: 844 } })
         yield* goto(page, "/")
         yield* drawn(page)
-        const lit = yield* act(() => page.evaluate(canvasLight))
+        const lit = yield* evaluate(page, canvasLight)
         expect(lit.bodyImage).toBe("none")
         expect(lit.light.image).toContain("radial-gradient")
         expect(lit.light.position).toBe("fixed")
@@ -138,7 +138,7 @@ layer(Layer.merge(SiteUnderTest, BrowserLive), { excludeTestServices: true, time
       Effect.forEach(viewports, (viewport) =>
         Effect.gen(function*() {
           const { failures, page } = yield* openPage({ viewport })
-          yield* act(() => page.addInitScript(recordWebVitals))
+          yield* addInitProbe(page, recordWebVitals)
           yield* goto(page, "/")
           yield* drawn(page)
           yield* animationsSettled(page)

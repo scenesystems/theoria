@@ -1,10 +1,10 @@
 // @vitest-environment node
 import { expect, layer } from "@effect/vitest"
 import { Array, Effect, Layer } from "effect"
+import { addInitProbe, evaluate } from "./browser.js"
 
 import { ColorMode } from "../../app/contracts/palette.js"
 import {
-  act,
   BrowserLive,
   count,
   desktop,
@@ -25,7 +25,7 @@ layer(Layer.merge(SiteLive, BrowserLive), { excludeTestServices: true, timeout: 
     it.scoped("renders real guide equations without CSP violations or page overflow in both themes and sizes", () =>
       Effect.gen(function*() {
         const { failures, page } = yield* openPage({ reducedMotion: "reduce" })
-        yield* act(() => page.addInitScript(recordPolicyViolations))
+        yield* addInitProbe(page, recordPolicyViolations)
         yield* goto(page, "/docs/effect-math/mathematical-conventions")
         yield* visible(page.getByRole("heading", { level: 1, name: "Mathematical conventions" }))
 
@@ -42,7 +42,7 @@ layer(Layer.merge(SiteLive, BrowserLive), { excludeTestServices: true, timeout: 
                 yield* count(equations.nth(1).locator("msqrt"), 1)
                 yield* visible(page.locator("p math").first())
                 expect(yield* fitsViewport(page)).toBe(true)
-                expect(yield* act(() => page.evaluate(recordedPolicyViolations))).toBe("")
+                expect(yield* evaluate(page, recordedPolicyViolations)).toBe("")
               }))
           }))
 

@@ -1,6 +1,6 @@
 import { Atom, type Registry } from "@effect-atom/atom"
 import { expect } from "@effect/vitest"
-import { Effect, Option } from "effect"
+import { Effect, Number as Num, Option } from "effect"
 import * as Arr from "effect/Array"
 
 import {
@@ -82,7 +82,7 @@ describeOnStage("place focus", (it) => {
       expect(lit(registry, feature)).toBe(true)
       expect(registry.get(placeFocusedLineAtom)).toEqual(Option.some(anchored))
       expect(lit(registry, line(anchored, showingTrial))).toBe(true)
-      expect(lit(registry, line(anchored + 1, showingTrial))).toBe(false)
+      expect(lit(registry, line(Num.increment(anchored), showingTrial))).toBe(false)
       // And the line of code that made the proposal's identity, in the panel.
       expect(lit(registry, codeLineAt(proposalDigestSite))).toBe(true)
       expect(lit(registry, codeLineAt(layoutSite))).toBe(false)
@@ -237,7 +237,7 @@ describeOnStage("place focus", (it) => {
       expect(lit(onTrial, disc)).toBe(true)
       expect(lit(onTrial, { _tag: "Feature", name: declined.proposal.feature.name })).toBe(false)
       // The line before it carries the composition's own words: no proposal lights from it.
-      onTrial.set(placeFocusAtom, Option.some(line(onTrialLine - 1, showingTrial)))
+      onTrial.set(placeFocusAtom, Option.some(line(Num.decrement(onTrialLine), showingTrial)))
       expect(lit(onTrial, feature)).toBe(false)
       expect(lit(onTrial, disc)).toBe(false)
 

@@ -2,7 +2,7 @@ import type { Atom as AtomType } from "@effect-atom/atom"
 import { Registry, Result } from "@effect-atom/atom"
 import { describe, expect, it } from "@effect/vitest"
 import { PreparationKey, TextMeasurer } from "@scenesystems/effect-text"
-import { Effect, Ref } from "effect"
+import { Effect, Number as Num, Ref } from "effect"
 import type { TextProjection } from "../../app/contracts/text.js"
 
 import { fontReadinessRevisionAtom, textLayoutLayerAtom } from "../../app/web/atoms/text-layout.js"
@@ -34,7 +34,7 @@ const waitForProjection = (
 const makeAuthority = (prepareCalls: Ref.Ref<number>): TextProjectionAuthority =>
   new TextProjectionAuthority({
     prepare: (identity) =>
-      Ref.update(prepareCalls, (count) => count + 1).pipe(
+      Ref.update(prepareCalls, Num.increment).pipe(
         Effect.zipRight(prepareTextProjection(identity))
       ),
     project: ({ prepared, request, maxWidth }) => projectPreparedText({ prepared, request, maxWidth })

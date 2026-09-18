@@ -4,7 +4,7 @@
  */
 import { describe, expect, it } from "@effect/vitest"
 import { Cache, Key, layerMemory } from "@scenesystems/effect-dsp/Cache"
-import { Effect, Option, Ref, Schema } from "effect"
+import { Effect, Number as Num, Option, Ref, Schema } from "effect"
 
 describe("Cache authority contract", () => {
   it.effect("resolve returns miss + computed value on first call", () =>
@@ -19,7 +19,7 @@ describe("Cache authority contract", () => {
         input: { question: "What is 2+2?" },
         params: { instructions: "Answer concisely", demos: [] },
         outputSchema: Schema.Struct({ answer: Schema.String }),
-        compute: Ref.updateAndGet(computeCount, (n) => n + 1).pipe(
+        compute: Ref.updateAndGet(computeCount, Num.increment).pipe(
           Effect.as({ answer: "4" })
         )
       })
@@ -41,7 +41,7 @@ describe("Cache authority contract", () => {
         input: { question: "What is 2+2?" },
         params: { instructions: "Answer concisely", demos: [] },
         outputSchema: Schema.Struct({ answer: Schema.String }),
-        compute: Ref.updateAndGet(computeCount, (n) => n + 1).pipe(
+        compute: Ref.updateAndGet(computeCount, Num.increment).pipe(
           Effect.as({ answer: "4" })
         )
       }
@@ -66,7 +66,7 @@ describe("Cache authority contract", () => {
         input: { question },
         params: { instructions: "Answer concisely", demos: [] },
         outputSchema: Schema.Struct({ answer: Schema.String }),
-        compute: Ref.updateAndGet(computeCount, (n) => n + 1).pipe(
+        compute: Ref.updateAndGet(computeCount, Num.increment).pipe(
           Effect.as({ answer: question })
         )
       })
@@ -91,7 +91,7 @@ describe("Cache authority contract", () => {
         input: { question: "What is 2+2?" },
         params: { instructions, demos: [] },
         outputSchema: Schema.Struct({ answer: Schema.String }),
-        compute: Ref.updateAndGet(computeCount, (n) => n + 1).pipe(
+        compute: Ref.updateAndGet(computeCount, Num.increment).pipe(
           Effect.as({ answer: "4" })
         )
       })

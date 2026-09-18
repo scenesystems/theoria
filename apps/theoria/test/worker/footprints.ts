@@ -4,7 +4,7 @@ import * as Arr from "effect/Array"
 import * as Rec from "effect/Record"
 import * as Str from "effect/String"
 
-import { act, type BrowserError } from "./browser.js"
+import { type Browser, type BrowserError, evaluate } from "./browser.js"
 import { recordedFootprints } from "./platform/in-page.js"
 
 /**
@@ -25,15 +25,15 @@ export const Footprint = Schema.Struct({
 export type Footprint = typeof Footprint.Type
 
 const footprint = (line: string) => {
-  const [region = "", height = "0", phase = "-"] = line.split(" ")
+  const [region = "", height = "0", phase = "-"] = Str.split(line, " ")
   return Schema.decodeUnknownSync(Footprint)({ region, height, phase })
 }
 
 /** Every footprint recorded so far, in the order painted. */
-export const footprintsSoFar = (page: Page): Effect.Effect<ReadonlyArray<Footprint>, BrowserError> =>
+export const footprintsSoFar = (page: Page): Effect.Effect<ReadonlyArray<Footprint>, BrowserError, Browser> =>
   Effect.map(
-    act(() => page.evaluate(recordedFootprints)),
-    (recorded) => Arr.map(Arr.filter(recorded.split("\n"), Str.isNonEmpty), footprint)
+    evaluate(page, recordedFootprints),
+    (recorded) => Arr.map(Arr.filter(Str.split(recorded, "\n"), Str.isNonEmpty), footprint)
   )
 
 const landing = (report: Footprint): boolean => report.phase === "landing" || report.phase === "complete"
@@ -45,7 +45,7 @@ export const untilLanding = (reports: ReadonlyArray<Footprint>): Record<string, 
 /** Every footprint recorded until the drawing lands, by region, in the order painted. */
 export const footprintsUntilLanding = (
   page: Page
-): Effect.Effect<Record<string, ReadonlyArray<Footprint>>, BrowserError> =>
+): Effect.Effect<Record<string, ReadonlyArray<Footprint>>, BrowserError, Browser> =>
   Effect.map(footprintsSoFar(page), untilLanding)
 
 /**

@@ -1,5 +1,5 @@
 import { describe, expect, it } from "@effect/vitest"
-import { Effect, Option } from "effect"
+import { Effect, Number as Num, Option } from "effect"
 import * as Arr from "effect/Array"
 
 import { Registry } from "@effect-atom/atom"
@@ -21,12 +21,14 @@ describe("wordmark morph timing", () => {
   it.effect("rests fully Latin at the start of a cycle and fully Greek at its midpoint", () =>
     Effect.sync(() => {
       expect(Arr.map(segments, (index) => segmentProgress(0, index))).toEqual([0, 0, 0, 0, 0, 0])
-      expect(Arr.map(segments, (index) => segmentProgress(totalFrames / 2, index))).toEqual([1, 1, 1, 1, 1, 1])
+      expect(Arr.map(segments, (index) => segmentProgress(Num.unsafeDivide(totalFrames, 2), index))).toEqual(
+        [1, 1, 1, 1, 1, 1]
+      )
     }))
 
   it.effect("staggers the sweep from left to right", () =>
     Effect.sync(() => {
-      const midSweepFrame = 30 + 12
+      const midSweepFrame = Num.sum(30, 12)
       const midSweep = Arr.map(segments, (index) => segmentProgress(midSweepFrame, index))
 
       expect(segmentProgress(midSweepFrame, 0)).toBeGreaterThan(segmentProgress(midSweepFrame, 5))
@@ -35,7 +37,7 @@ describe("wordmark morph timing", () => {
 
   it.effect("sweeps back so the cycle ends where it began", () =>
     Effect.sync(() => {
-      const beforeEnd = Arr.map(segments, (index) => segmentProgress(totalFrames - 0.001, index))
+      const beforeEnd = Arr.map(segments, (index) => segmentProgress(Num.subtract(totalFrames, 0.001), index))
 
       expect(Arr.every(beforeEnd, (progress) => progress < 0.05)).toBe(true)
     }))
@@ -44,8 +46,10 @@ describe("wordmark morph timing", () => {
 describe("wordmark pass keyframes", () => {
   it.effect("one pass is the cycle after its lead hold, and the intro waits out that hold", () =>
     Effect.sync(() => {
-      const introFrames = introDelaySeconds * 1_000 / frameIntervalMs
-      expect(introFrames + passSeconds * 1_000 / frameIntervalMs).toBeCloseTo(totalFrames)
+      const introFrames = Num.unsafeDivide(Num.multiply(introDelaySeconds, 1_000), frameIntervalMs)
+      expect(
+        Num.sum(introFrames, Num.unsafeDivide(Num.multiply(passSeconds, 1_000), frameIntervalMs))
+      ).toBeCloseTo(totalFrames)
       expect(introFrames).toBe(30)
     }))
 
@@ -54,23 +58,23 @@ describe("wordmark pass keyframes", () => {
       Arr.forEach(segments, (index) => {
         const { times } = segmentPass(index)
         expect(times[0]).toBe(0)
-        expect(times[times.length - 1]).toBe(1)
+        expect(times[Num.decrement(times.length)]).toBe(1)
         expect(Arr.every(Arr.zip(times, Arr.drop(times, 1)), ([earlier, later]) => earlier <= later)).toBe(true)
       })
     }))
 
   it.effect("the Greek face's keyframes are the cycle's own progress at those moments, and the Latin face is its complement", () =>
     Effect.sync(() => {
-      const introFrames = introDelaySeconds * 1_000 / frameIntervalMs
-      const passFrames = passSeconds * 1_000 / frameIntervalMs
+      const introFrames = Num.unsafeDivide(Num.multiply(introDelaySeconds, 1_000), frameIntervalMs)
+      const passFrames = Num.unsafeDivide(Num.multiply(passSeconds, 1_000), frameIntervalMs)
       Arr.forEach(segments, (index) => {
         const { greek, latin, times } = segmentPass(index)
         Arr.forEach(Arr.zip(times, greek), ([time, opacity]) => {
-          expect(segmentProgress(introFrames + time * passFrames, index)).toBeCloseTo(opacity, 6)
+          expect(segmentProgress(Num.sum(introFrames, Num.multiply(time, passFrames)), index)).toBeCloseTo(opacity, 6)
         })
-        expect(Arr.map(Arr.zip(greek, latin), ([g, l]) => g + l)).toEqual(Arr.map(greek, () => 1))
+        expect(Arr.map(Arr.zip(greek, latin), ([g, l]) => Num.sum(g, l))).toEqual(Arr.map(greek, () => 1))
         expect(greek[0]).toBe(0)
-        expect(greek[greek.length - 1]).toBe(0)
+        expect(greek[Num.decrement(greek.length)]).toBe(0)
       })
     }))
 

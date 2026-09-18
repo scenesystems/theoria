@@ -14,7 +14,7 @@
  */
 import { BunContext, BunRuntime } from "@effect/platform-bun"
 import { BootstrapFewShot, Evaluate, Example, Metric, MIPROv2, Module, Signature } from "@scenesystems/effect-dsp"
-import { Array as Arr, Effect, Layer, Ref, Schema, Stream } from "effect"
+import { Array as Arr, Effect, Layer, Number as Num, Ref, Schema, Stream } from "effect"
 import {
   makeStandardEvents,
   makeStandardModuleState,
@@ -273,7 +273,7 @@ const program = Effect.gen(function*() {
     metricName: "exactMatch",
     baselineScore,
     optimizedScore,
-    eventCount: bootstrapEvents.length + miproEvents.length,
+    eventCount: Num.sum(bootstrapEvents.length, miproEvents.length),
     optimizationSummary: {
       bootstrap: bootstrapSummary,
       miprov2: miproEventSummary,

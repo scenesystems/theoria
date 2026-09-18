@@ -3,7 +3,7 @@
  */
 import { describe, expect, it } from "@effect/vitest"
 import { defaultParseRetrySchedule } from "@scenesystems/effect-dsp/Module"
-import { Cause, Effect, Exit, Fiber, Option, Ref, TestClock } from "effect"
+import { Cause, Effect, Exit, Fiber, Number as Num, Option, Ref, TestClock } from "effect"
 
 describe("internal/retry", () => {
   it.effect("retries exactly maxRetries times before succeeding", () =>
@@ -12,7 +12,7 @@ describe("internal/retry", () => {
 
       const resultFiber = yield* Effect.fork(
         Effect.gen(function*() {
-          const nextAttempt = yield* Ref.updateAndGet(attempts, (count) => count + 1)
+          const nextAttempt = yield* Ref.updateAndGet(attempts, Num.increment)
 
           return yield* Effect.if(nextAttempt < 4, {
             onTrue: () => Effect.fail("retry"),
@@ -40,7 +40,7 @@ describe("internal/retry", () => {
       const exitFiber = yield* Effect.fork(
         Effect.exit(
           Effect.gen(function*() {
-            yield* Ref.update(attempts, (count) => count + 1)
+            yield* Ref.update(attempts, Num.increment)
             return yield* Effect.fail("retry")
           }).pipe(
             Effect.retry(defaultParseRetrySchedule(2))

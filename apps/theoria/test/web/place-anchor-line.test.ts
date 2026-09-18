@@ -1,5 +1,5 @@
 import { expect } from "@effect/vitest"
-import { Effect, Option } from "effect"
+import { Effect, Number as Num, Option } from "effect"
 import * as Arr from "effect/Array"
 
 import { description } from "../../app/contracts/demo/imagined-place-arrangement.js"
@@ -15,11 +15,11 @@ import { describeOnStage, onStage } from "../helpers/place-on-stage.js"
  */
 
 const lines = (texts: ReadonlyArray<string>): ReadonlyArray<PlaceLine> =>
-  Arr.map(texts, (text, index) => ({ text, y: 24 * (index + 1), maxWidth: 200, width: 180 }))
+  Arr.map(texts, (text, index) => ({ text, y: Num.multiply(24, Num.increment(index)), maxWidth: 200, width: 180 }))
 
 const projectionOf = (texts: ReadonlyArray<string>): PlaceProjection => ({
   stageWidth: 240,
-  stageHeight: 24 * (texts.length + 1),
+  stageHeight: Num.multiply(24, Num.increment(texts.length)),
   padding: 20,
   lineHeight: 24,
   markers: [],
@@ -86,7 +86,10 @@ describeOnStage("proposal anchor line", (it) => {
       const lineStarting = (projection: PlaceProjection): number => {
         expect(Arr.join(Arr.map(projection.lines, (line) => line.text), " ")).toBe(prose)
         // Each line's text and the space after it: the sentence starts on the first line that ends past its offset.
-        const ends = Arr.drop(Arr.scan(projection.lines, 0, (sum, line) => sum + line.text.length + 1), 1)
+        const ends = Arr.drop(
+          Arr.scan(projection.lines, 0, (sum, line) => Num.sumAll([sum, line.text.length, 1])),
+          1
+        )
         return Arr.length(Arr.filter(ends, (end) => end <= start))
       }
       expect(proposalAnchorLine(kept.projection, merged)).toEqual(Option.some(lineStarting(kept.projection)))

@@ -1,7 +1,7 @@
 import { BunContext } from "@effect/platform-bun"
 import { describe, expect, it } from "@effect/vitest"
 import * as Hkdf from "@scenesystems/digest/Hkdf"
-import { Array as Arr, Effect, Either, Encoding, Option, Schema } from "effect"
+import { Array as Arr, Effect, Either, Encoding, Number as Num, Option, Schema } from "effect"
 
 import * as Fixtures from "../scripts/fixtures.js"
 import { expectByteLength, expectDigest } from "./helpers/assertions.js"
@@ -54,7 +54,7 @@ describe("Hkdf output length admission", () => {
 
   it.effect("rejects non-safe, fractional, negative, and over-maximum lengths", () =>
     Effect.sync(() => {
-      const invalid = [-1, 0.5, NaN, Infinity, Number.MAX_SAFE_INTEGER + 1]
+      const invalid = [-1, 0.5, NaN, Infinity, Num.increment(Number.MAX_SAFE_INTEGER)]
       invalid.forEach((length) => {
         expect(Hkdf.sha256(ikm, salt, info, length)).toStrictEqual(Either.left(new Hkdf.InvalidLength({})))
         expect(Hkdf.sha512(ikm, salt, info, length)).toStrictEqual(Either.left(new Hkdf.InvalidLength({})))

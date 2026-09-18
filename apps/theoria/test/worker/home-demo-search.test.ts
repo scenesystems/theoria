@@ -1,7 +1,9 @@
 // @vitest-environment node
 import { expect, layer } from "@effect/vitest"
-import { Chunk, Duration, Effect, Fiber, Layer, Option, Schedule, Stream } from "effect"
+import { Chunk, Duration, Effect, Fiber, Layer, Number as Num, Option, Schedule, Stream } from "effect"
 import * as Arr from "effect/Array"
+import * as Str from "effect/String"
+import { evaluate, evaluateElement } from "./browser.js"
 
 import { renderTrials } from "../../app/contracts/demo/imagined-place-search.js"
 import { placeStepDefinitions } from "../../app/web/view/home/placeSteps.js"
@@ -29,6 +31,7 @@ import {
   bandShowsKept,
   discsAtRest,
   finishingTouches,
+  hasOverflowY,
   scrollAffordance,
   stageFrame,
   stageLayout,
@@ -73,25 +76,25 @@ layer(Layer.merge(SiteLive, BrowserLive), { excludeTestServices: true, timeout: 
         const caption = page.locator("[data-place-search-caption]")
         yield* containsText(caption, "Kept trial")
         // The disc of the merged feature is still travelling from its name when the search settles; the kept positions are where it lands.
-        yield* eventually(() => page.getByRole("region", { name: "Imagined place demo" }).evaluate(discsAtRest), true)
+        yield* eventually(evaluateElement(page.getByRole("region", { name: "Imagined place demo" }), discsAtRest), true)
         const positions = markerPositions(page)
-        const kept = yield* act(positions)
+        const kept = yield* positions
         // The sheet and the slider under the pointer must not move while trials are swapped.
         const paper = page.locator("[data-place-stage='paper']")
-        const layout = () => page.evaluate(stageLayout)
+        const layout = evaluate(page, stageLayout)
         yield* focus(page.getByRole("slider", { name: "Trial drawn on the stage" }))
         // Focusing scrolls the slider into view; from here on nothing may move it.
-        const atRest = yield* act(layout)
+        const atRest = yield* layout
         yield* press(page, "Home")
         yield* containsText(caption, "Trial 1 of")
         yield* containsText(caption, "not kept")
-        expect(yield* act(positions)).not.toBe(kept)
-        expect(yield* act(layout)).toBe(atRest)
+        expect(yield* positions).not.toBe(kept)
+        expect(yield* layout).toBe(atRest)
         // Trial 1 runs longer than the kept sheet: it is cut with a fade and scrolls, never clipped silently —
         // and on a phone, where nothing hovers, the scrollbar is painted for as long as there is more to see.
         yield* attribute(paper, "data-overflow-y-end", "")
         const cut = yield* until(
-          act(() => paper.evaluate(scrollAffordance)),
+          evaluateElement(paper, scrollAffordance),
           (affordance) => affordance.scrollbarPainted && affordance.fadePainted,
           "the paper's scrollbar and fade painted"
         )
@@ -101,9 +104,9 @@ layer(Layer.merge(SiteLive, BrowserLive), { excludeTestServices: true, timeout: 
         yield* press(page, "End")
         // The last trial may itself be the kept one, so only the position is asserted here.
         yield* containsText(caption, new RegExp(`[Tt]rial ${String(renderTrials)} of ${String(renderTrials)}`, "u"))
-        expect(yield* act(layout)).toBe(atRest)
+        expect(yield* layout).toBe(atRest)
         yield* press(page, "Escape")
-        yield* eventually(() => paper.evaluate((element) => element.hasAttribute("data-has-overflow-y")), false)
+        yield* eventually(evaluateElement(paper, hasOverflowY), false)
         yield* containsText(caption, "Kept trial")
         yield* count(page.locator("[data-place-show-kept]"), 0)
 
@@ -145,7 +148,7 @@ layer(Layer.merge(SiteLive, BrowserLive), { excludeTestServices: true, timeout: 
         yield* visible(whole)
         expect(yield* act(() => whole.textContent())).toBe(wholeId)
         // The whole ID is read, not only copied: at 390 px it breaks wherever the answer's width falls, clipped nowhere.
-        expect(yield* act(() => whole.locator(":scope > *").first().evaluate(textFitsItsBox))).toBe(true)
+        expect(yield* evaluateElement(whole.locator(":scope > *").first(), textFitsItsBox)).toBe(true)
         yield* visible(page.locator("[data-place-provenance] [data-place-provenance-copy]"))
         expect(yield* failures).toEqual([])
       }))
@@ -175,7 +178,7 @@ layer(Layer.merge(SiteLive, BrowserLive), { excludeTestServices: true, timeout: 
         // The merged proposal's name lights the drawn line its sentence starts on; the declined one is not in the prose.
         const neighbor = demo.locator("[data-place-proposal='neighbor']")
         const adds = yield* act(() => neighbor.getByRole("definition").first().innerText())
-        const firstWord = Option.getOrElse(Arr.head(adds.split(" ")), () => adds)
+        const firstWord = Option.getOrElse(Arr.head(Str.split(adds, " ")), () => adds)
         yield* click(neighbor.locator("[data-place-feature]"))
         const lit = demo.locator("[data-place-line][data-place-focused]")
         yield* eventually(() => lit.count(), 1)
@@ -271,17 +274,20 @@ layer(Layer.merge(SiteLive, BrowserLive), { excludeTestServices: true, timeout: 
         yield* focus(slider)
         yield* press(page, "Home")
         yield* attribute(slider, "aria-valuenow", "0")
-        const trials = yield* Effect.forEach(Arr.range(0, renderTrials - 1), (trial) =>
-          Effect.gen(function*() {
-            yield* attribute(slider, "aria-valuenow", String(trial))
-            const frame = yield* until(
-              act(() => demo.evaluate(stageFrame)),
-              (sampled) => sampled.trial === String(trial) && Arr.isNonEmptyReadonlyArray(sampled.clearance),
-              `trial ${String(trial + 1)} drawn with its lines`
-            )
-            yield* Effect.when(press(page, "ArrowRight"), () => trial < renderTrials - 1)
-            return frame
-          }))
+        const trials = yield* Effect.forEach(
+          Arr.range(0, Num.decrement(renderTrials)),
+          (trial) =>
+            Effect.gen(function*() {
+              yield* attribute(slider, "aria-valuenow", String(trial))
+              const frame = yield* until(
+                evaluateElement(demo, stageFrame),
+                (sampled) => sampled.trial === String(trial) && Arr.isNonEmptyReadonlyArray(sampled.clearance),
+                `trial ${String(Num.increment(trial))} drawn with its lines`
+              )
+              yield* Effect.when(press(page, "ArrowRight"), () => trial < Num.decrement(renderTrials))
+              return frame
+            })
+        )
         expect(trials).toHaveLength(renderTrials)
         expect(Arr.map(trials, (frame) => ({ trial: frame.trial, doubled: doubledDiscs(frame) }))).toEqual(
           Arr.map(trials, (frame) => ({ trial: frame.trial, doubled: [] }))
@@ -318,7 +324,7 @@ layer(Layer.merge(SiteLive, BrowserLive), { excludeTestServices: true, timeout: 
             yield* attribute(paper, "data-place-drawn", "sketch")
             // Every frame from the merged search's first trial until the walk is whole.
             const frames = yield* Stream.repeatEffectWithSchedule(
-              act(() => page.evaluate(finishingTouches)),
+              evaluate(page, finishingTouches),
               Schedule.spaced("16 millis").pipe(Schedule.upTo("14 seconds"))
             ).pipe(
               Stream.takeUntil((frame) => frame.walk === 1),
@@ -326,7 +332,7 @@ layer(Layer.merge(SiteLive, BrowserLive), { excludeTestServices: true, timeout: 
               Effect.map(Chunk.toReadonlyArray)
             )
             yield* animationsSettled(page)
-            const settled = yield* act(() => page.evaluate(finishingTouches))
+            const settled = yield* evaluate(page, finishingTouches)
             expect(yield* failures).toEqual([])
             return {
               walks: Arr.dedupe(Arr.filter(Arr.map(frames, (frame) => frame.walk), (walk) => walk >= 0)),
@@ -339,9 +345,16 @@ layer(Layer.merge(SiteLive, BrowserLive), { excludeTestServices: true, timeout: 
           })
         const full = yield* finishing("no-preference")
         // The walk was seen part-drawn on its way to whole; the wash was seen fading and has settled to nothing.
-        expect(Arr.some(full.walks, (walk) => walk > 0 && walk < 1), full.walks.join(" ")).toBe(true)
+        expect(
+          Arr.some(full.walks, (walk) => walk > 0 && walk < 1),
+          Arr.join(Arr.map(full.walks, (walk) => `${walk}`), " ")
+        )
+          .toBe(true)
         expect(Arr.last(full.walks)).toEqual(Option.some(1))
-        expect(Arr.some(full.washes, (opacity) => opacity > 0 && opacity < 1), full.washes.join(" ")).toBe(true)
+        expect(
+          Arr.some(full.washes, (opacity) => opacity > 0 && opacity < 1),
+          Arr.join(Arr.map(full.washes, (opacity) => `${opacity}`), " ")
+        ).toBe(true)
         expect(full.settled).toEqual({ walk: 1, wash: { changes: "1", opacity: 0 } })
         const reduced = yield* finishing("reduce")
         // Drawn whole from its first frame; the wash, colour alone, still marks the change and settles.
@@ -364,7 +377,7 @@ layer(Layer.merge(SiteLive, BrowserLive), { excludeTestServices: true, timeout: 
             const demo = page.getByRole("region", { name: "Imagined place demo" })
             const thumb = demo.getByRole("switch").first().locator("span").first()
             yield* visible(thumb)
-            const transition = yield* act(() => thumb.evaluate(transitionOf))
+            const transition = yield* evaluateElement(thumb, transitionOf)
             expect(yield* failures).toEqual([])
             return transition
           })
@@ -392,8 +405,8 @@ layer(Layer.merge(SiteLive, BrowserLive), { excludeTestServices: true, timeout: 
         const merge = yield* Effect.fork(nextResponse(page, "POST", "/api/imagined-place/build"))
         yield* click(proposal.getByRole("switch"))
         expect((yield* Fiber.join(merge)).status()).toBe(200)
-        yield* eventually(() => band.evaluate(bandShowsKept, name), true, searchSettlesWithin)
-        const before = yield* act(() => band.evaluate(bandDiscCentre, name))
+        yield* eventually(evaluateElement(band, bandShowsKept, name), true, searchSettlesWithin)
+        const before = yield* evaluateElement(band, bandDiscCentre, name)
 
         // Declining the neighbor takes a disc out from before it, so the program's disc has to move left.
         // Every centre it is drawn at, sampled a frame apart, from the decline until the neighbor's disc
@@ -404,8 +417,8 @@ layer(Layer.merge(SiteLive, BrowserLive), { excludeTestServices: true, timeout: 
         )
         const landed = Effect.map(
           Effect.all([
-            act(() => band.evaluate(bandDiscCentre, neighborName)),
-            act(() => band.evaluate(bandShowsKept, name))
+            evaluateElement(band, bandDiscCentre, neighborName),
+            evaluateElement(band, bandShowsKept, name)
           ]),
           ([neighborCentre, kept]) => neighborCentre === "" && kept
         )
@@ -413,7 +426,7 @@ layer(Layer.merge(SiteLive, BrowserLive), { excludeTestServices: true, timeout: 
         yield* click(neighbor.getByRole("switch"))
         const sampled = yield* Effect.fork(
           Stream.repeatEffectWithSchedule(
-            act(() => band.evaluate(bandDiscCentre, name)),
+            evaluateElement(band, bandDiscCentre, name),
             Schedule.spaced("16 millis").pipe(Schedule.upTo(Duration.seconds(12)))
           ).pipe(
             Stream.takeUntilEffect(() => landed),
@@ -423,9 +436,9 @@ layer(Layer.merge(SiteLive, BrowserLive), { excludeTestServices: true, timeout: 
         )
         expect((yield* Fiber.join(decline)).status()).toBe(200)
         const centres = Arr.dedupe(yield* Fiber.join(sampled))
-        const after = yield* act(() => band.evaluate(bandDiscCentre, name))
+        const after = yield* evaluateElement(band, bandDiscCentre, name)
         // The disc did move, and every place it was drawn at is one the row stands at: none between the two.
-        expect(Number(after)).toBeLessThan(Number(before))
+        expect(yield* Num.parse(after)).toBeLessThan(yield* Num.parse(before))
         expect(Arr.difference(centres, [before, after])).toEqual([])
         expect(yield* failures).toEqual([])
       }))

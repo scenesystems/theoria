@@ -1,10 +1,12 @@
 // @vitest-environment node
 import { expect, layer } from "@effect/vitest"
 import type { Page } from "@playwright/test"
-import { Effect, Layer } from "effect"
+import { Numeric } from "@scenesystems/effect-math"
+import { Effect, Layer, Number as Num } from "effect"
 import * as Arr from "effect/Array"
+import { evaluate } from "./browser.js"
 
-import { act, animationsSettled, BrowserLive, goto, openPage, setViewport } from "./browser.js"
+import { animationsSettled, BrowserLive, goto, openPage, setViewport } from "./browser.js"
 import { drawn } from "./demo.js"
 import { pageRhythm } from "./platform/in-page.js"
 import { SiteLive } from "./site.js"
@@ -23,11 +25,17 @@ import { SiteLive } from "./site.js"
 /** How many times the tightest relation within a step the space between steps must be, at least. */
 const stepsApart = 3
 
-const rhythm = (page: Page) => act(() => page.evaluate(pageRhythm))
+const rhythm = (page: Page) => evaluate(page, pageRhythm)
 
 /** Distances that are one distance, allowing the pixel a fluid length rounds to differently along the page. */
 const alike = (distances: ReadonlyArray<number>, message: string) => {
-  expect(Math.max(...distances) - Math.min(...distances), message).toBeLessThanOrEqual(1)
+  expect(
+    Arr.match(distances, {
+      onEmpty: () => 0,
+      onNonEmpty: (values) => Numeric.abs(Num.subtract(Arr.max(values, Num.Order), Arr.min(values, Num.Order)))
+    }),
+    message
+  ).toBeLessThanOrEqual(1)
 }
 
 layer(Layer.merge(SiteLive, BrowserLive), { excludeTestServices: true, timeout: "3 minutes" })(
@@ -46,28 +54,28 @@ layer(Layer.merge(SiteLive, BrowserLive), { excludeTestServices: true, timeout: 
             const at = `at ${String(width)}px`
             expect(measured.withinStep, `${at}: the step's header and body are laid out`).toBeGreaterThan(0)
 
-            const betweenActs = [
-              measured.propose.top - measured.compose.bottom,
-              measured.record.top - measured.propose.bottom
-            ]
-            const actGap = Math.min(...betweenActs)
+            const betweenActs = Arr.make(
+              Num.subtract(measured.propose.top, measured.compose.bottom),
+              Num.subtract(measured.record.top, measured.propose.bottom)
+            )
+            const actGap = Arr.min(betweenActs, Num.Order)
             alike(betweenActs, `${at}: the acts stand equally apart`)
             expect(actGap, `${at}: acts ${String(actGap)}px apart, ${String(measured.withinStep)}px within one`)
-              .toBeGreaterThanOrEqual(measured.withinStep * stepsApart)
+              .toBeGreaterThanOrEqual(Num.multiply(measured.withinStep, stepsApart))
             // Where the columns are stacked, Arrange is a step above Compose and stands the same distance from it.
             if (width < 1024) {
               alike(
-                [measured.compose.top - measured.arrange.bottom, actGap],
+                [Num.subtract(measured.compose.top, measured.arrange.bottom), actGap],
                 `${at}: Arrange stands apart from Compose`
               )
             }
 
             // The demonstration's two columns end together; the next region stands off whichever is longer.
-            const regionGaps = [
-              measured.howItsBuilt.top - measured.columns.bottom,
-              measured.footer.top - measured.howItsBuilt.bottom
-            ]
-            const regionGap = Math.min(...regionGaps)
+            const regionGaps = Arr.make(
+              Num.subtract(measured.howItsBuilt.top, measured.columns.bottom),
+              Num.subtract(measured.footer.top, measured.howItsBuilt.bottom)
+            )
+            const regionGap = Arr.min(regionGaps, Num.Order)
             alike(regionGaps, `${at}: the regions stand equally apart`)
             expect(regionGap, `${at}: regions ${String(regionGap)}px apart, acts ${String(actGap)}px`)
               .toBeGreaterThanOrEqual(actGap)

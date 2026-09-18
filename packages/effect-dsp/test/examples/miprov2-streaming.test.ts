@@ -11,7 +11,7 @@ import * as MockLanguageModel from "@scenesystems/effect-dsp/MockLanguageModel"
 import * as Module from "@scenesystems/effect-dsp/Module"
 import { ModuleParameters } from "@scenesystems/effect-dsp/ModuleParameters"
 import * as Signature from "@scenesystems/effect-dsp/Signature"
-import { Array as Arr, Effect, Layer, Ref, Schema, Stream } from "effect"
+import { Array as Arr, Effect, Layer, Number as Num, Ref, Schema, Stream } from "effect"
 
 const trainset = Arr.make(
   new Example({
@@ -98,6 +98,6 @@ describe("examples/06-optimize-miprov2-stream-mock", () => {
       expect(first).toContain("Phase3Completed")
       expect(first.indexOf("Phase1Started")).toBeLessThan(first.indexOf("Phase2Started"))
       expect(first.indexOf("Phase2Started")).toBeLessThan(first.indexOf("Phase3Started"))
-      expect(first[first.length - 1]).toBe("Phase3Completed")
+      expect(first[Num.decrement(first.length)]).toBe("Phase3Completed")
     }))
 })

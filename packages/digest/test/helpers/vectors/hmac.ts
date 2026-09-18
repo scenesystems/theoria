@@ -8,6 +8,7 @@
  * @category test-helpers
  */
 
+import { Number as Num } from "effect"
 import { encodeFixtureUtf8 } from "../bytes.js"
 
 /**
@@ -37,7 +38,7 @@ export const hmacSha256Vectors = {
   },
   /** Case 4: 25-byte sequential key (0x01..0x19), 50×0xcd data */
   case4: {
-    key: Uint8Array.from({ length: 25 }, (_, i) => i + 1),
+    key: Uint8Array.from({ length: 25 }, (_, i) => Num.increment(i)),
     data: new Uint8Array(50).fill(0xcd),
     expected: "82558a389a443c0ea4cc819899f2083a85f0faa3e578f8077a2e3ff46729665b"
   }

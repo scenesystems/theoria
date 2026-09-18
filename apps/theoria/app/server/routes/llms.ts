@@ -59,8 +59,10 @@ const preamble: ReadonlyArray<string> = [
   "",
   `> ${siteMetadata.tagline}. ${siteMetadata.defaultDescription}`,
   "",
-  "Every package is Effect-native, MIT licensed, and published on npm under the @scenesystems scope. "
-  + "Each README below is the source of that package's guides; the documentation pages render in the browser."
+  Str.concat(
+    "Every package is Effect-native, MIT licensed, and published on npm under the @scenesystems scope. ",
+    "Each README below is the source of that package's guides; the documentation pages render in the browser."
+  )
 ]
 
 const optionalEntries: ReadonlyArray<string> = [

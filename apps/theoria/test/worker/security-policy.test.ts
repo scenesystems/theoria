@@ -2,6 +2,7 @@
 import { expect, layer } from "@effect/vitest"
 import type { Page } from "@playwright/test"
 import { Effect, Layer, Option } from "effect"
+import { addInitProbe, evaluate, evaluateElement } from "./browser.js"
 
 import {
   act,
@@ -34,7 +35,7 @@ import { SiteLive } from "./site.js"
 const viewports: ReadonlyArray<Viewport> = [desktop, phone]
 
 const noViolations = (page: Page, where: string) =>
-  Effect.map(act(() => page.evaluate(recordedPolicyViolations)), (violations) => {
+  Effect.map(evaluate(page, recordedPolicyViolations), (violations) => {
     expect(violations, where).toBe("")
   })
 
@@ -75,7 +76,7 @@ layer(Layer.merge(SiteLive, BrowserLive), { excludeTestServices: true, timeout: 
         Effect.gen(function*() {
           const where = `${String(viewport.width)}×${String(viewport.height)}`
           const { failures, page } = yield* openPage({ viewport })
-          yield* act(() => page.addInitScript(recordPolicyViolations))
+          yield* addInitProbe(page, recordPolicyViolations)
 
           const policy = yield* servedPolicy(page, "/")
           expect(policy, where).toContain("style-src 'self'; ")
@@ -84,7 +85,7 @@ layer(Layer.merge(SiteLive, BrowserLive), { excludeTestServices: true, timeout: 
           // The drawing: its paper is a scroll area, the surface most likely to bring a style of its own.
           yield* drawn(page)
           const demo = page.getByRole("region", { name: "Imagined place demo" })
-          yield* eventually(() => demo.evaluate(storyDrawn), true, searchSettlesWithin)
+          yield* eventually(evaluateElement(demo, storyDrawn), true, searchSettlesWithin)
           yield* noViolations(page, `${where} drawn`)
 
           // A proposal pressed opens its popover; a merge redraws; a new story rebuilds.
@@ -97,7 +98,7 @@ layer(Layer.merge(SiteLive, BrowserLive), { excludeTestServices: true, timeout: 
           yield* click(
             demo.getByRole("radiogroup", { name: "Scenario" }).getByRole("radio", { checked: false }).first()
           )
-          yield* eventually(() => demo.evaluate(storyDrawn), true, searchSettlesWithin)
+          yield* eventually(evaluateElement(demo, storyDrawn), true, searchSettlesWithin)
           yield* noViolations(page, `${where} interacted`)
 
           // The theme, then the documentation: highlighted code in a scroll area, a menu, a dialog, and on a

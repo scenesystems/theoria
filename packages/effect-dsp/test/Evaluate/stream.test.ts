@@ -9,7 +9,7 @@ import * as Metric from "@scenesystems/effect-dsp/Metric"
 import * as MockLanguageModel from "@scenesystems/effect-dsp/MockLanguageModel"
 import * as Module from "@scenesystems/effect-dsp/Module"
 import * as Signature from "@scenesystems/effect-dsp/Signature"
-import { Array as Arr, Chunk, Effect, Layer, Option, Schema, Stream } from "effect"
+import { Array as Arr, Chunk, Effect, Layer, Number as Num, Option, Schema, Stream } from "effect"
 
 const makeQaSignature = () =>
   Signature.make(
@@ -65,10 +65,10 @@ describe("Evaluate.stream", () => {
         { started: 0, completed: 0, failed: 0, finished: 0 },
         (state, event) =>
           Evaluate.events.$match({
-            ExampleStarted: () => ({ ...state, started: state.started + 1 }),
-            ExampleCompleted: () => ({ ...state, completed: state.completed + 1 }),
-            ExampleFailed: () => ({ ...state, failed: state.failed + 1 }),
-            EvaluationCompleted: () => ({ ...state, finished: state.finished + 1 })
+            ExampleStarted: () => ({ ...state, started: Num.increment(state.started) }),
+            ExampleCompleted: () => ({ ...state, completed: Num.increment(state.completed) }),
+            ExampleFailed: () => ({ ...state, failed: Num.increment(state.failed) }),
+            EvaluationCompleted: () => ({ ...state, finished: Num.increment(state.finished) })
           })(event)
       )
       const failedEvent = Arr.findFirst(events, (event) => event._tag === "ExampleFailed")

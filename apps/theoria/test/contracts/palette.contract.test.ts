@@ -526,7 +526,7 @@ describe("Generated palette tokens", () => {
       expect(paperVeil).toEqual(Option.some(["--th-paper-veil", "rgb(255 255 255 / 86%)"]))
       Arr.forEach(HighlightTokenKind.literals, (kind) => {
         const variable = highlightTokenPaint[kind].variable
-        const token = Str.slice(4, Str.length(variable) - 1)(variable)
+        const token = Str.slice(4, Num.decrement(Str.length(variable)))(variable)
         expect(lightNames, `${kind} reads ${variable}`).toContain(token)
       })
     }))

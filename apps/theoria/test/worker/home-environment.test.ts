@@ -1,10 +1,11 @@
 // @vitest-environment node
 import { expect, layer } from "@effect/vitest"
 import type { Locator, Page } from "@playwright/test"
-import { Chunk, Effect, Layer, Match, Option, Schedule, Schema, Stream } from "effect"
+import { Chunk, Effect, Layer, Match, Number as Num, Option, Schedule, Schema, Stream } from "effect"
 import * as Arr from "effect/Array"
 import * as Record from "effect/Record"
 import * as Str from "effect/String"
+import { evaluate, evaluateElement } from "./browser.js"
 
 import { type PlaceScenario, placeScenarioMeta, placeScenarios } from "../../app/contracts/imagined-place.js"
 import type { ColorScheme, Viewport } from "./browser.js"
@@ -26,6 +27,7 @@ import {
 } from "./browser.js"
 import { drawn, searchSettlesWithin } from "./demo.js"
 import {
+  boxTop,
   contrastsWithin,
   fullyInViewport,
   motionSample,
@@ -78,24 +80,24 @@ const leadsFirstViewport = (page: Page, viewport: Viewport) =>
         [
           page.locator("h1"),
           page.locator("[data-home-hero] p").first(),
-          ...[0, 1].map((index) => page.locator("[data-home-hero] a").nth(index))
+          ...Arr.map([0, 1], (index) => page.locator("[data-home-hero] a").nth(index))
         ],
-        (part) => Effect.map(act(() => part.evaluate(fullyInViewport)), (inside) => expect(inside).toBe(true))
+        (part) => Effect.map(evaluateElement(part, fullyInViewport), (inside) => expect(inside).toBe(true))
       )),
     Match.when("arrival-and-first-header", () =>
       Effect.gen(function*() {
-        expect(yield* act(() => page.locator("[data-place-arrive] h2").evaluate(topEdgeInViewport))).toBe(true)
+        expect(yield* evaluateElement(page.locator("[data-place-arrive] h2"), topEdgeInViewport)).toBe(true)
         const tops = yield* Effect.all({
-          arrange: act(() => stepHeader(page, "arrange").evaluate((node) => node.getBoundingClientRect().top)),
-          compose: act(() => stepHeader(page, "compose").evaluate((node) => node.getBoundingClientRect().top))
+          arrange: evaluateElement(stepHeader(page, "arrange"), boxTop),
+          compose: evaluateElement(stepHeader(page, "compose"), boxTop)
         })
         expect(tops.arrange).toBeLessThan(tops.compose)
-        expect(yield* act(() => stepHeader(page, "arrange").evaluate(topEdgeInViewport))).toBe(true)
+        expect(yield* evaluateElement(stepHeader(page, "arrange"), topEdgeInViewport)).toBe(true)
       })),
     Match.when("arrival-and-both-headers", () =>
       Effect.forEach(
         [page.locator("[data-place-arrive] h2"), stepHeader(page, "compose"), stepHeader(page, "arrange")],
-        (part) => Effect.map(act(() => part.evaluate(topEdgeInViewport)), (inside) => expect(inside).toBe(true))
+        (part) => Effect.map(evaluateElement(part, topEdgeInViewport), (inside) => expect(inside).toBe(true))
       )),
     Match.exhaustive
   )
@@ -104,7 +106,7 @@ const storyTaken = (page: Page, scenario: PlaceScenario) =>
   Effect.andThen(
     eventually(() => page.getByRole("textbox", { name: "Brief" }).inputValue(), placeScenarioMeta[scenario].brief),
     eventually(
-      () => page.getByRole("region", { name: "Imagined place demo" }).evaluate(storyDrawn),
+      evaluateElement(page.getByRole("region", { name: "Imagined place demo" }), storyDrawn),
       true,
       searchSettlesWithin
     )
@@ -116,7 +118,7 @@ const storyTaken = (page: Page, scenario: PlaceScenario) =>
  * shapes at 3:1 (WCAG 1.4.11).
  */
 const reaches = (kind: "text" | "graphic", ratio: number) => (locator: Locator) =>
-  Effect.map(act(() => locator.evaluate(contrastsWithin)), (measured) => {
+  Effect.map(evaluateElement(locator, contrastsWithin), (measured) => {
     const ofKind = Arr.filter(measured, (measure) => measure.kind === kind)
     expect(ofKind, `${kind} to measure`).not.toEqual([])
     Arr.forEach(ofKind, (measure) => {
@@ -158,7 +160,7 @@ layer(Layer.merge(SiteUnderTest, BrowserLive), { excludeTestServices: true, time
               Effect.gen(function*() {
                 yield* setColorScheme(page, scheme)
                 yield* animationsSettled(page)
-                yield* act(() => page.evaluate(scrollToTop))
+                yield* evaluate(page, scrollToTop)
                 yield* leadsFirstViewport(page, viewport)
                 yield* Effect.forEach(placeScenarios, (scenario) =>
                   Effect.gen(function*() {
@@ -185,18 +187,21 @@ layer(Layer.merge(SiteUnderTest, BrowserLive), { excludeTestServices: true, time
         // rest finds the disc where it stood before and then, placed outright, at that trial's best: never
         // anywhere between. A sample belongs to the drawing of one search's trial: the trace counts up through
         // a search and starts again at nothing for the next, so a fall in the count begins a new search.
-        const sample = Effect.map(act(() => page.evaluate(motionSample)), (frame) => ({
+        const sample = Effect.map(evaluate(page, motionSample), (frame) => ({
           ...frame,
           placed: Record.fromEntries(frame.placed)
         }))
         const drawings = (frames: ReadonlyArray<{ readonly trials: number }>): ReadonlyArray<string> =>
-          Arr.drop(
-            Arr.scan(frames, { search: 0, trials: -1 }, (previous, frame) => ({
-              search: frame.trials < previous.trials ? previous.search + 1 : previous.search,
-              trials: frame.trials
-            })),
-            1
-          ).map((drawing) => `search ${String(drawing.search)}, trial ${String(drawing.trials)}`)
+          Arr.map(
+            Arr.drop(
+              Arr.scan(frames, { search: 0, trials: -1 }, (previous, frame) => ({
+                search: frame.trials < previous.trials ? Num.increment(previous.search) : previous.search,
+                trials: frame.trials
+              })),
+              1
+            ),
+            (drawing) => `search ${String(drawing.search)}, trial ${String(drawing.trials)}`
+          )
         const landmarks = ["h1", "compose", "arrange", "paper"]
         const onlyOpacityAcross = (change: Effect.Effect<void, unknown>) =>
           Effect.gen(function*() {
@@ -263,9 +268,7 @@ layer(Layer.merge(SiteUnderTest, BrowserLive), { excludeTestServices: true, time
             yield* press(page, "Escape")
             // The band shown, with the Build act lit.
             const build = page.locator("[data-place-act='build']")
-            yield* act(() =>
-              build.evaluate(scrollElementTo, 0)
-            )
+            yield* evaluateElement(build, scrollElementTo, 0)
             // The band carries no words: its discs and its arrow are what must stand out from the strip.
             const bandLink = page.locator("[data-place-band] a")
             yield* visible(bandLink)
@@ -282,13 +285,15 @@ layer(Layer.merge(SiteUnderTest, BrowserLive), { excludeTestServices: true, time
             )
             const caption = page.locator("[data-place-search-caption]")
             yield* until(
-              act(() => caption.innerText()),
+              act(() =>
+                caption.innerText()
+              ),
               (text) => Str.startsWith("Searching arrangements")(text),
               "the running search's caption"
             )
             yield* readable(caption)
             yield* storyTaken(page, scenario)
-            expect(yield* act(() => page.evaluate(paperProseContrast))).toBeGreaterThanOrEqual(4.5)
+            expect(yield* evaluate(page, paperProseContrast)).toBeGreaterThanOrEqual(4.5)
           }))
         expect(yield* failures).toEqual([])
       }))

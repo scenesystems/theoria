@@ -1,12 +1,13 @@
 // @vitest-environment node
 import { expect, layer } from "@effect/vitest"
 import type { Locator, Page } from "@playwright/test"
-import { Duration, Effect, Layer } from "effect"
+import { Duration, Effect, Layer, Predicate } from "effect"
 import * as Arr from "effect/Array"
 import * as Rec from "effect/Record"
+import * as Str from "effect/String"
+import { addInitProbe, evaluateElement } from "./browser.js"
 
 import {
-  act,
   attribute,
   BrowserLive,
   click,
@@ -55,7 +56,7 @@ const leastGraphicContrast = 3
 
 /** Everything visible under `root` reads: the words at AA, the shapes at the graphics' least. */
 const readable = (root: Locator, where: string) =>
-  Effect.map(act(() => root.evaluate(contrastsWithin)), (measured) => {
+  Effect.map(evaluateElement(root, contrastsWithin), (measured) => {
     expect(measured.length, `${where}: nothing measured`).toBeGreaterThan(0)
     Arr.forEach(measured, (found) => {
       expect(found.ratio, `${where}: ${found.kind} "${found.name}"`).toBeGreaterThanOrEqual(
@@ -98,7 +99,7 @@ layer(Layer.merge(SiteLive, BrowserLive), { excludeTestServices: true, timeout: 
             viewport: environment.viewport,
             colorScheme: environment.scheme
           })
-          yield* act(() => page.addInitScript(recordFootprints))
+          yield* addInitProbe(page, recordFootprints)
           const build = yield* holdResponse(page, "POST", buildPath)
           yield* goto(page, "/")
           const demo = demoRegion(page)
@@ -107,7 +108,7 @@ layer(Layer.merge(SiteLive, BrowserLive), { excludeTestServices: true, timeout: 
           yield* nothingShifted(page, `${where}, pending`)
 
           yield* build.release
-          yield* eventually(() => demo.evaluate(storyDrawn), true, searchSettlesWithin)
+          yield* eventually(evaluateElement(demo, storyDrawn), true, searchSettlesWithin)
           yield* hidden(demo.locator("[data-place-search-caption-pending]"))
           yield* nothingShifted(page, `${where}, landed`)
           expect(yield* failures).toEqual([])
@@ -121,7 +122,7 @@ layer(Layer.merge(SiteLive, BrowserLive), { excludeTestServices: true, timeout: 
             viewport: environment.viewport,
             colorScheme: environment.scheme
           })
-          yield* act(() => page.addInitScript(recordFootprints))
+          yield* addInitProbe(page, recordFootprints)
           const build = yield* holdResponse(page, "POST", buildPath)
           yield* goto(page, "/")
           const demo = demoRegion(page)
@@ -154,11 +155,11 @@ layer(Layer.merge(SiteLive, BrowserLive), { excludeTestServices: true, timeout: 
 
           // The build arrives: the failure goes and the drawing lands, nothing having moved.
           yield* rebuild.release
-          yield* eventually(() => demo.evaluate(storyDrawn), true, searchSettlesWithin)
+          yield* eventually(evaluateElement(demo, storyDrawn), true, searchSettlesWithin)
           yield* count(page.getByRole("alert"), 0)
           yield* nothingShifted(page, `${where}, landed after failure`)
           // The browser reports the request the test failed; nothing else went wrong.
-          expect(Arr.filter(yield* failures, (failure) => !failure.includes(buildPath))).toEqual([])
+          expect(Arr.filter(yield* failures, Predicate.not(Str.includes(buildPath)))).toEqual([])
         }), { discard: true }))
 
     /**
@@ -192,7 +193,7 @@ layer(Layer.merge(SiteLive, BrowserLive), { excludeTestServices: true, timeout: 
         const served = yield* site.logs
         expect(report.message).toContain(
           Arr.isNonEmptyReadonlyArray(served)
-            ? `the site told: ${Arr.takeRight(served, siteLogsReported).join(" | ")}`
+            ? `the site told: ${Arr.join(Arr.takeRight(served, siteLogsReported), " | ")}`
             : "the site told nothing"
         )
       }))

@@ -1,8 +1,10 @@
 /** Shared fixtures for the home-page demo’s Chromium tests. */
 import { expect } from "@effect/vitest"
 import type { Locator, Page } from "@playwright/test"
-import { Chunk, Duration, Effect, Fiber, Match, Option, Order, Schedule, Schema, Stream } from "effect"
+import { Chunk, Duration, Effect, Fiber, Match, Number as Num, Option, Order, Schedule, Schema, Stream } from "effect"
 import * as Arr from "effect/Array"
+import * as Str from "effect/String"
+import { addInitProbe, evaluate, evaluateElement, evaluateElements } from "./browser.js"
 
 import { markerGap } from "../../app/contracts/demo/imagined-place-flow.js"
 import { codeSite, CodeSiteId } from "../../app/contracts/demo/imagined-place-provenance.js"
@@ -71,7 +73,7 @@ export const drawn = (page: Page, within: Duration.Duration = searchSettlesWithi
     Effect.catchTag("test/worker/BrowserError", (error) =>
       Effect.flatMap(
         Effect.all({
-          standing: act(() => page.evaluate(stageStanding)),
+          standing: evaluate(page, stageStanding),
           told: failuresOf(page),
           served: Effect.flatMap(Site, (site) => site.logs)
         }),
@@ -79,10 +81,10 @@ export const drawn = (page: Page, within: Duration.Duration = searchSettlesWithi
           Effect.fail(
             new BrowserError({
               message: `The search did not settle within ${Duration.format(within)}: ${standing}${
-                Arr.isNonEmptyReadonlyArray(told) ? `; the page told: ${told.join(" | ")}` : ""
+                Arr.isNonEmptyReadonlyArray(told) ? `; the page told: ${Arr.join(told, " | ")}` : ""
               }${
                 Arr.isNonEmptyReadonlyArray(served)
-                  ? `; the site told: ${Arr.takeRight(served, siteLogsReported).join(" | ")}`
+                  ? `; the site told: ${Arr.join(Arr.takeRight(served, siteLogsReported), " | ")}`
                   : "; the site told nothing"
               }. ${error.message}`,
               cause: error.cause
@@ -118,7 +120,7 @@ export const PaperSample = Schema.Struct({
 export type PaperSample = typeof PaperSample.Type
 
 export const paperSample = (reported: string): PaperSample => {
-  const [height = "-", phase = "-"] = reported.split(" ")
+  const [height = "-", phase = "-"] = Str.split(reported, " ")
   return PaperSample.make({
     height: height === "-" ? Option.none() : Option.some(height),
     phase: phase === "-" ? Option.none() : Option.some(phase)
@@ -129,7 +131,7 @@ export const landing = (sample: PaperSample): boolean =>
   Option.exists(sample.phase, (phase) => phase === "landing" || phase === "complete")
 
 /** Records the paper on every animation frame of every document the page loads from now on. */
-export const recordPaper = (page: Page) => act(() => page.addInitScript(recordPaperFrames))
+export const recordPaper = (page: Page) => addInitProbe(page, recordPaperFrames)
 
 /**
  * Every change to the paper recorded from the document's first frame until
@@ -139,13 +141,13 @@ export const recordPaper = (page: Page) => act(() => page.addInitScript(recordPa
  */
 export const paperUntilLanding = (page: Page) =>
   Effect.map(
-    act(() => page.evaluate(recordedPaperFrames)),
-    (recorded) => Arr.takeWhile(Arr.map(recorded.split("\n"), paperSample), (sample) => !landing(sample))
+    evaluate(page, recordedPaperFrames),
+    (recorded) => Arr.takeWhile(Arr.map(Str.split(recorded, "\n"), paperSample), (sample) => !landing(sample))
   )
 
 /** Every disc's position relative to the stage, so scrolling cannot move it. */
-export const markerPositions = (page: Page) => () =>
-  page.locator("[data-place-marker]").evaluateAll(markerPositionsInStage)
+export const markerPositions = (page: Page) =>
+  evaluateElements(page.locator("[data-place-marker]"), markerPositionsInStage)
 
 export const FeaturePlace = Schema.Struct({
   name: Schema.String,
@@ -211,7 +213,7 @@ export const expectClearance = (frames: ReadonlyArray<StageFrame>) =>
       expect.fail("no frame had both a line and a disc painted")
     },
     onSome: (nearest) => {
-      expect(nearest.least, nearest.between).toBeGreaterThanOrEqual(markerGap - stageRounding)
+      expect(nearest.least, nearest.between).toBeGreaterThanOrEqual(Num.subtract(markerGap, stageRounding))
     }
   })
 
@@ -243,7 +245,7 @@ export const landed = (name: string) => (frame: StageFrame): boolean =>
  */
 export const framesUntil = (region: Locator, done: (frame: StageFrame) => boolean, atMost: Duration.Duration) =>
   Stream.repeatEffectWithSchedule(
-    act(() => region.evaluate(stageFrame)),
+    evaluateElement(region, stageFrame),
     Schedule.spaced("16 millis").pipe(Schedule.upTo(atMost))
   ).pipe(
     Stream.takeUntil(done),
@@ -371,8 +373,8 @@ export const changeStory = (options: { readonly cpuSlowdown?: CpuSlowdown } = {}
     yield* goto(page, "/")
     yield* drawn(page)
     const demo = page.getByRole("region", { name: "Imagined place demo" })
-    yield* eventually(() => demo.evaluate(storyDrawn), true)
-    const before = yield* act(() => demo.evaluate(stageFrame))
+    yield* eventually(evaluateElement(demo, storyDrawn), true)
+    const before = yield* evaluateElement(demo, stageFrame)
     const standing = drawingStands(before)
     const oldSets = paintedSets(before)
     const oldNames = Arr.dedupe(Arr.map(before.places, (place) => place.name))
@@ -389,9 +391,9 @@ export const changeStory = (options: { readonly cpuSlowdown?: CpuSlowdown } = {}
     yield* click(radio)
     expect((yield* Fiber.join(rebuild)).status()).toBe(200)
     // The new story is drawn once its search settles: a search's wait.
-    yield* eventually(() => demo.evaluate(storyDrawn), true, searchSettlesWithin)
+    yield* eventually(evaluateElement(demo, storyDrawn), true, searchSettlesWithin)
     // Once the new drawing has landed, every disc of the old story has shrunk away and gone.
-    yield* eventually(() => demo.evaluate(leaversGone), true)
+    yield* eventually(evaluateElement(demo, leaversGone), true)
     const frames = yield* Fiber.join(painted)
     // The first frame the drawing is elsewhere than it stood, and the first the new lines are painted in.
     const moved = Arr.findFirstIndex(frames, (frame) => drawingStands(frame) !== standing)
@@ -470,7 +472,7 @@ export const fromAnswerToItsCode = (
             body: () =>
               Effect.gen(function*() {
                 yield* press(page, "Tab")
-                return yield* act(() => codeLink.evaluate(isActiveElement))
+                return yield* evaluateElement(codeLink, isActiveElement)
               })
           }).pipe(
             Effect.timeoutFail({ duration: Duration.seconds(5), onTimeout: () => "the code link was never reached" })
@@ -484,13 +486,13 @@ export const fromAnswerToItsCode = (
     const section = page.locator("[data-place-how-its-built]")
     yield* attribute(section.getByRole("tab", { name: step.name }), "aria-selected", "true")
     const gutterMark = section.locator(`[data-place-code-site="${siteId}"]`)
-    yield* eventually(() => gutterMark.evaluate(isActiveElement), true)
+    yield* eventually(evaluateElement(gutterMark, isActiveElement), true)
     yield* hidden(overlay)
     // A smooth scroll takes its frames; an instant one has landed by the time focus has.
     const landing = yield* Match.value(reducedMotion).pipe(
-      Match.when("reduce", () => act(() => page.evaluate(focusLanding))),
+      Match.when("reduce", () => evaluate(page, focusLanding)),
       Match.when("no-preference", () =>
-        until(act(() => page.evaluate(focusLanding)), (landed) => landed.inViewport, "the line is in the viewport")),
+        until(evaluate(page, focusLanding), (landed) => landed.inViewport, "the line is in the viewport")),
       Match.exhaustive
     )
     return { failures, landing, siteId, step: step.id }
@@ -500,7 +502,7 @@ export const referenceTargets = (references: Locator) =>
   Effect.gen(function*() {
     const total = yield* act(() => references.count())
     expect(total).toBeGreaterThan(0)
-    return yield* Effect.forEach(Arr.range(0, total - 1), (index) =>
+    return yield* Effect.forEach(Arr.range(0, Num.decrement(total)), (index) =>
       Effect.gen(function*() {
         const reference = references.nth(index)
         const text = yield* Option.fromNullable(yield* act(() => reference.getAttribute("data-place-reference")))

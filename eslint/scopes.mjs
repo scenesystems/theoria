@@ -18,7 +18,7 @@
  * @module eslint/scopes
  */
 
-import { BROWSER_GLOBALS } from "./effect/builtins.mjs"
+import { BROWSER_GLOBALS, MATH_GLOBAL } from "./effect/builtins.mjs"
 import { DESIGN_TOKEN_RULES } from "./effect/design-tokens.mjs"
 import { CONFIG_HOST_EFFECT_RULES, EFFECT_RULES } from "./effect/index.mjs"
 
@@ -63,9 +63,14 @@ export const scopes = () => [
     rules: { "no-restricted-syntax": ["error", ...EFFECT_RULES, ...DESIGN_TOKEN_RULES] }
   },
   {
+    name: "theoria/effect/math-global",
+    files: ["**/*.{ts,tsx,mts,cts}"],
+    rules: { "no-restricted-globals": ["error", MATH_GLOBAL] }
+  },
+  {
     name: "theoria/effect/browser-boundary",
     files: ["**/*.{ts,tsx,mts,cts}"],
     ignores: PLATFORM_MODULE_PATTERNS,
-    rules: { "no-restricted-globals": ["error", ...BROWSER_GLOBALS] }
+    rules: { "no-restricted-globals": ["error", MATH_GLOBAL, ...BROWSER_GLOBALS] }
   }
 ]

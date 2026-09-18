@@ -1,5 +1,5 @@
 import { describe, expect, it } from "@effect/vitest"
-import { Deferred, Effect, Exit, Layer, Ref, Scope } from "effect"
+import { Deferred, Effect, Exit, Layer, Number as Num, Ref, Scope } from "effect"
 import * as Arr from "effect/Array"
 
 import { measuredFont } from "../../app/contracts/text.js"
@@ -35,7 +35,7 @@ const fontsInFlight = (
 
 /** A readiness at revision 0 that counts how often it is told of an arrival. */
 const readinessTold = (told: Ref.Ref<number>) =>
-  Layer.succeed(FontReadiness, { revision: 0, facesArrived: Ref.update(told, (count) => count + 1) })
+  Layer.succeed(FontReadiness, { revision: 0, facesArrived: Ref.update(told, Num.increment) })
 
 const failing = (font: string) => new BrowserFonts.FontLoadFailed({ font, message: "network" })
 

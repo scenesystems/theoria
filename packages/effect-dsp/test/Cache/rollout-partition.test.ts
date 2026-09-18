@@ -5,7 +5,7 @@
  */
 import { describe, expect, it } from "@effect/vitest"
 import { Cache, layerMemory, withRollout } from "@scenesystems/effect-dsp/Cache"
-import { Effect, Ref, Schema } from "effect"
+import { Effect, Number as Num, Ref, Schema } from "effect"
 
 describe("Cache rollout partition", () => {
   it.effect("different RolloutRef values produce independent cache entries", () =>
@@ -19,7 +19,7 @@ describe("Cache rollout partition", () => {
         input: { question: "What is 2+2?" },
         params: { instructions: "Answer concisely", demos: [] },
         outputSchema: Schema.Struct({ answer: Schema.String }),
-        compute: Ref.updateAndGet(computeCount, (n) => n + 1).pipe(
+        compute: Ref.updateAndGet(computeCount, Num.increment).pipe(
           Effect.as({ answer })
         )
       })
@@ -48,7 +48,7 @@ describe("Cache rollout partition", () => {
         input: { question: "What is 2+2?" },
         params: { instructions: "Answer concisely", demos: [] },
         outputSchema: Schema.Struct({ answer: Schema.String }),
-        compute: Ref.updateAndGet(computeCount, (n) => n + 1).pipe(
+        compute: Ref.updateAndGet(computeCount, Num.increment).pipe(
           Effect.as({ answer: "4" })
         )
       }
@@ -72,7 +72,7 @@ describe("Cache rollout partition", () => {
         input: { question: "What is 2+2?" },
         params: { instructions: "Answer concisely", demos: [] },
         outputSchema: Schema.Struct({ answer: Schema.String }),
-        compute: Ref.updateAndGet(computeCount, (n) => n + 1).pipe(
+        compute: Ref.updateAndGet(computeCount, Num.increment).pipe(
           Effect.as({ answer: "4" })
         )
       }
@@ -96,7 +96,7 @@ describe("Cache rollout partition", () => {
         input: { question: "What is 2+2?" },
         params: { instructions: "Answer concisely", demos: [] },
         outputSchema: Schema.Struct({ answer: Schema.String }),
-        compute: Ref.updateAndGet(computeCount, (n) => n + 1).pipe(
+        compute: Ref.updateAndGet(computeCount, Num.increment).pipe(
           Effect.as({ answer })
         )
       })

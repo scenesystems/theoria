@@ -2,7 +2,8 @@
  * GEPA weighted parent-selection proportionality invariants.
  */
 import { describe, expect, it } from "@effect/vitest"
-import { Array as Arr, Effect, FastCheck as fc, Schema } from "effect"
+import * as Numeric from "@scenesystems/effect-math/Numeric"
+import { Array as Arr, Effect, FastCheck as fc, Number as Num, Schema } from "effect"
 import { ParentSelectionWeight } from "../../src/internal/gepa/model.js"
 import { sampleWeightedParents } from "../../src/internal/gepa/sampling.js"
 import { GepaSelectionWeightsFixtureSchema, loadFixture } from "../helpers/dspy-fixtures/index.js"
@@ -18,7 +19,7 @@ const countSelections = (samples: ReadonlyArray<number>, candidateIndex: number)
     0,
     (count, selected) =>
       selected === candidateIndex
-        ? count + 1
+        ? Num.increment(count)
         : count
   )
 
@@ -41,8 +42,10 @@ describe("GEPA selection proportionality", () => {
         fixture.payload.expectedProbabilities,
         (expectedProbability) =>
           Effect.sync(() => {
-            const observed = countSelections(draws, expectedProbability.candidateIndex) / sampleCount
-            expect(Math.abs(observed - expectedProbability.probability)).toBeLessThanOrEqual(fixture.payload.tolerance)
+            const observed = Num.unsafeDivide(countSelections(draws, expectedProbability.candidateIndex), sampleCount)
+            expect(Numeric.abs(Num.subtract(observed, expectedProbability.probability))).toBeLessThanOrEqual(
+              fixture.payload.tolerance
+            )
           }),
         { discard: true }
       )
@@ -55,13 +58,13 @@ describe("GEPA selection proportionality", () => {
       Effect.sync(() => {
         const weights = toParentSelectionWeights(weightVector)
         const draws = sampleWeightedParents(weights, 10000, 42)
-        const totalWeight = Arr.reduce(weights, 0, (sum, weight) => sum + weight.weight)
+        const totalWeight = Arr.reduce(weights, 0, (sum, weight) => Num.sum(sum, weight.weight))
         const sampleCount = draws.length
         const withinTolerance = Arr.every(weights, (weight) => {
-          const observed = countSelections(draws, weight.candidateIndex) / sampleCount
-          const expected = weight.weight / totalWeight
+          const observed = Num.unsafeDivide(countSelections(draws, weight.candidateIndex), sampleCount)
+          const expected = Num.unsafeDivide(weight.weight, totalWeight)
 
-          return Math.abs(observed - expected) <= 0.02
+          return Numeric.abs(Num.subtract(observed, expected)) <= 0.02
         })
 
         expect(sampleCount).toBe(10000)

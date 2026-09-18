@@ -1,6 +1,6 @@
 // @vitest-environment node
 import { expect, layer } from "@effect/vitest"
-import { ConfigProvider, Effect, Layer, Option, Schema } from "effect"
+import { ConfigProvider, Effect, Layer, Number as Num, Option, Schema } from "effect"
 import * as Arr from "effect/Array"
 import * as Str from "effect/String"
 
@@ -144,7 +144,7 @@ layer(SiteLive, { timeout: "2 minutes" })("Theoria Worker in workerd", (it) => {
         { concurrency: 32 }
       ).pipe(Effect.map(Arr.flatten))
       expect(Arr.filter(answers, (answer) => answer.status !== 200)).toEqual([])
-      expect(answers.length).toBe(200 * assets.length)
+      expect(answers.length).toBe(Num.multiply(200, assets.length))
     }), { timeout: 120_000 })
 
   it.effect("serves its own typefaces, preloaded by the shell, so no text is set twice", () =>
@@ -169,14 +169,18 @@ layer(SiteLive, { timeout: "2 minutes" })("Theoria Worker in workerd", (it) => {
         { onNone: () => Effect.dieMessage("the shell links no stylesheet"), onSome: Effect.succeed }
       )
       const css = yield* text(yield* site.fetch(stylesheet))
-      const declared = Arr.fromIterable(
-        css.matchAll(/url\((\/assets\/[^)]+-latin-wght-normal-[^)]+\.woff2)\)/gu)
-      ).map((found) => found[1] ?? "")
-      const preloads = Arr.fromIterable(
-        homeHtml.matchAll(
-          /<link rel="preload" href="(\/assets\/[^"]+\.woff2)" as="font" type="font\/woff2" crossorigin/gu
-        )
-      ).map((found) => found[1] ?? "")
+      const declared = Arr.map(
+        Arr.fromIterable(Str.matchAll(/url\((\/assets\/[^)]+-latin-wght-normal-[^)]+\.woff2)\)/gu)(css)),
+        (found) => found[1] ?? ""
+      )
+      const preloads = Arr.map(
+        Arr.fromIterable(
+          Str.matchAll(
+            /<link rel="preload" href="(\/assets\/[^"]+\.woff2)" as="font" type="font\/woff2" crossorigin/gu
+          )(homeHtml)
+        ),
+        (found) => found[1] ?? ""
+      )
       expect(declared).toHaveLength(2)
       expect(Arr.sort(preloads, Str.Order)).toEqual(Arr.sort(declared, Str.Order))
       yield* Effect.forEach(preloads, (pathname) =>
@@ -207,7 +211,7 @@ layer(SiteLive, { timeout: "2 minutes" })("Theoria Worker in workerd", (it) => {
 
       const lines = Str.split(yield* text(response), "\n")
       expect(lines[0]).toBe("# Theoria")
-      expect(lines[2]?.startsWith("> ")).toBe(true)
+      expect(Option.exists(Arr.get(lines, 2), Str.startsWith("> "))).toBe(true)
       // llmstxt.org: every list entry under an H2 is a hyperlink, optionally followed by notes.
       const listEntries = Arr.filter(lines, Str.startsWith("- "))
       expect(listEntries.length).toBeGreaterThan(0)

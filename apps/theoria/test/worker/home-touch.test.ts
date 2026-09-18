@@ -1,12 +1,12 @@
 // @vitest-environment node
 import { expect, layer } from "@effect/vitest"
-import { Effect, Layer, Option } from "effect"
+import { Effect, Layer, Number as Num, Option } from "effect"
 import * as Arr from "effect/Array"
+import { evaluateElement, evaluateElements } from "./browser.js"
 
 import { minimumTouchTarget } from "../../app/contracts/demo/imagined-place-flow.js"
 
 import {
-  act,
   attribute,
   BrowserLive,
   count,
@@ -47,16 +47,16 @@ layer(Layer.merge(SiteLive, BrowserLive), { excludeTestServices: true, timeout: 
           Effect.gen(function*() {
             yield* setViewport(page, { width, height: 844 })
             // A narrower column shows the last drawing fitted while its own search runs; the promise is about the drawing made for it.
-            yield* eventually(() => demo.evaluate(drawnForColumn), true, searchSettlesWithin)
-            yield* act(() => paper.evaluate(scrollElementTo, 0))
-            const targets = yield* act(() => discs.evaluateAll(discTouchTargets))
+            yield* eventually(evaluateElement(demo, drawnForColumn), true, searchSettlesWithin)
+            yield* evaluateElement(paper, scrollElementTo, 0)
+            const targets = yield* evaluateElements(discs, discTouchTargets)
             const at = `at ${String(width)}px`
             expect(targets.length, at).toBeGreaterThan(0)
             Arr.forEach(targets, (target) => {
-              const disc = `${at}: ${target.name} (${String(Math.round(target.width))} px)`
+              const disc = `${at}: ${target.name} (${String(Num.round(target.width, 0))} px)`
               expect(target.width, disc).toBeGreaterThanOrEqual(minimumTouchTarget)
               expect(target.height, disc).toBeGreaterThanOrEqual(minimumTouchTarget)
-              expect(target.missed, `${disc} missed ${target.missed.join(", ")}`).toEqual([])
+              expect(target.missed, `${disc} missed ${Arr.join(target.missed, ", ")}`).toEqual([])
             })
           }))
         expect(yield* failures).toEqual([])
@@ -73,17 +73,20 @@ layer(Layer.merge(SiteLive, BrowserLive), { excludeTestServices: true, timeout: 
         const overlay = page.locator("[data-place-provenance]")
         const title = overlay.locator("[data-current]").getByRole("heading", { level: 3 })
 
-        yield* act(() => paper.evaluate(scrollElementTo, 0))
-        const targets = yield* act(() => discs.evaluateAll(discTouchTargets))
+        yield* evaluateElement(paper, scrollElementTo, 0)
+        const targets = yield* evaluateElements(discs, discTouchTargets)
         expect(targets.length).toBeGreaterThan(0)
 
         // Each disc in turn: a touch 21 px left of its centre — on the reach, off the painted disc at
         // 390 wide — answers with that disc's own name, and Escape puts the answer away before the next.
         yield* Effect.forEach(
-          Arr.zip(targets, Arr.range(0, targets.length - 1)),
+          Arr.zip(targets, Arr.range(0, Num.decrement(targets.length))),
           ([target, index]) =>
             Effect.gen(function*() {
-              yield* tap(discs.nth(index), { x: target.disc.width / 2 - 21, y: target.disc.height / 2 })
+              yield* tap(discs.nth(index), {
+                x: Num.subtract(Num.unsafeDivide(target.disc.width, 2), 21),
+                y: Num.unsafeDivide(target.disc.height, 2)
+              })
               yield* visible(overlay)
               yield* hasText(title, target.name)
               yield* press(page, "Escape")
@@ -103,10 +106,13 @@ layer(Layer.merge(SiteLive, BrowserLive), { excludeTestServices: true, timeout: 
         const discs = demo.locator("[data-place-marker]:not([data-place-marker-leaving])")
         const overlay = page.locator("[data-place-provenance]")
         const title = overlay.locator("[data-current]").getByRole("heading", { level: 3 })
-        yield* act(() => paper.evaluate(scrollElementTo, 0))
-        const targets = yield* act(() => discs.evaluateAll(discTouchTargets))
+        yield* evaluateElement(paper, scrollElementTo, 0)
+        const targets = yield* evaluateElements(discs, discTouchTargets)
         const [first, second] = yield* Option.all([Arr.get(targets, 0), Arr.get(targets, 1)])
-        const centre = (target: typeof first) => ({ x: target.disc.width / 2, y: target.disc.height / 2 })
+        const centre = (target: typeof first) => ({
+          x: Num.unsafeDivide(target.disc.width, 2),
+          y: Num.unsafeDivide(target.disc.height, 2)
+        })
 
         // Touched, a disc answers; touched again, its answer closes: a finger is not resting on it, it pressed.
         yield* tap(discs.first(), centre(first))

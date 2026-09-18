@@ -2,7 +2,7 @@
 import { Path, Url } from "@effect/platform"
 import { BunContext } from "@effect/platform-bun"
 import { expect, layer } from "@effect/vitest"
-import { Clock, Duration, Effect, Option } from "effect"
+import { Clock, Duration, Effect, Number as Num, Option } from "effect"
 import * as Arr from "effect/Array"
 import { type Unstable_Config, unstable_readConfig } from "wrangler"
 
@@ -40,9 +40,11 @@ const configuredLimit = Effect.gen(function*() {
 const awaitRoomInWindow = (periodSeconds: number, marginSeconds: number) =>
   Clock.currentTimeMillis.pipe(
     Effect.flatMap((nowMs) => {
-      const periodMs = periodSeconds * 1000
-      const remainingMs = periodMs - (nowMs % periodMs)
-      return remainingMs < marginSeconds * 1000 ? Effect.sleep(Duration.millis(remainingMs)) : Effect.void
+      const periodMs = Num.multiply(periodSeconds, 1000)
+      const remainingMs = Num.subtract(periodMs, Num.remainder(nowMs, periodMs))
+      return remainingMs < Num.multiply(marginSeconds, 1000)
+        ? Effect.sleep(Duration.millis(remainingMs))
+        : Effect.void
     })
   )
 

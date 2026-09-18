@@ -11,7 +11,7 @@ import * as Tool from "@effect/ai/Tool"
 import type * as Toolkit from "@effect/ai/Toolkit"
 import { BunRuntime } from "@effect/platform-bun"
 import { Evaluate, Example, Metric, Module, Signature, Trace } from "@scenesystems/effect-dsp"
-import { Array as Arr, Effect, Schema } from "effect"
+import { Array as Arr, Effect, Number as Num, Schema } from "effect"
 import { withLiveLanguageModel } from "./shared/live-provider-runtime.js"
 
 // Tools
@@ -56,16 +56,16 @@ const evaluateExpression = (expr: string): string => {
   const cleaned = expr.replaceAll(",", "").trim()
 
   const addMatch = /^(\d+(?:\.\d+)?)\s*\+\s*(\d+(?:\.\d+)?)$/.exec(cleaned)
-  if (addMatch) return String(Number(addMatch[1]) + Number(addMatch[2]))
+  if (addMatch) return String(Num.sum(Number(addMatch[1]), Number(addMatch[2])))
 
   const subMatch = /^(\d+(?:\.\d+)?)\s*-\s*(\d+(?:\.\d+)?)$/.exec(cleaned)
-  if (subMatch) return String(Number(subMatch[1]) - Number(subMatch[2]))
+  if (subMatch) return String(Num.subtract(Number(subMatch[1]), Number(subMatch[2])))
 
   const mulMatch = /^(\d+(?:\.\d+)?)\s*\*\s*(\d+(?:\.\d+)?)$/.exec(cleaned)
-  if (mulMatch) return String(Number(mulMatch[1]) * Number(mulMatch[2]))
+  if (mulMatch) return String(Num.multiply(Number(mulMatch[1]), Number(mulMatch[2])))
 
   const divMatch = /^(\d+(?:\.\d+)?)\s*\/\s*(\d+(?:\.\d+)?)$/.exec(cleaned)
-  if (divMatch) return String(Number(divMatch[1]) / Number(divMatch[2]))
+  if (divMatch) return String(Num.unsafeDivide(Number(divMatch[1]), Number(divMatch[2])))
 
   return "0"
 }
@@ -148,7 +148,7 @@ const program = Effect.gen(function*() {
 
   yield* Effect.forEach(traces, (entry, index) =>
     Effect.log("Trace step", {
-      step: index + 1,
+      step: Num.increment(index),
       module: entry.moduleName,
       responsePreview: entry.rawResponse.slice(0, 100),
       durationMs: entry.durationMs

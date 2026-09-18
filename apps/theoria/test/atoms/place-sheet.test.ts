@@ -1,5 +1,5 @@
 import { describe, expect, it } from "@effect/vitest"
-import { Effect } from "effect"
+import { Effect, Number as Num } from "effect"
 
 import { drawingScaled, PlaceDrawing } from "../../app/contracts/demo/imagined-place-flow.js"
 import { PlaceSheet, sheetFit, sheetFitting } from "../../app/web/atoms/imagined-place-render.js"
@@ -33,9 +33,13 @@ const drawing = new PlaceDrawing({
 describe("the sheet under a drawing while the column changes width", () => {
   it.effect("fits a drawing wider than the column to the column, paper and all", () =>
     Effect.sync(() => {
-      expect(sheetFit(448, 704)).toBeCloseTo(448 / 704, 10)
+      expect(sheetFit(448, 704)).toBeCloseTo(Num.unsafeDivide(448, 704), 10)
       expect(sheetFitting(448, 704, 800)).toEqual(
-        PlaceSheet.make({ width: 448, height: 800 * (448 / 704), fit: 448 / 704 })
+        PlaceSheet.make({
+          width: 448,
+          height: Num.multiply(800, Num.unsafeDivide(448, 704)),
+          fit: Num.unsafeDivide(448, 704)
+        })
       )
     }))
 

@@ -6,7 +6,7 @@
  * presentation written directly to disk.
  */
 import { FileSystem, Path } from "@effect/platform"
-import { Array as Arr, Data, Effect, Option, Schema } from "effect"
+import { Array as Arr, Data, Effect, Number as Num, Option, Schema } from "effect"
 import { artifactDirectoryForExample, emitCustomEnvelope, type ExampleArtifacts } from "./output-artifacts.js"
 
 const REPORT_FILE_NAME = "report.md"
@@ -25,7 +25,8 @@ const boolWord = (value: boolean): string =>
 
 const encodeArtifactJson = Schema.encode(Schema.parseJson(Schema.Unknown))
 
-const scoreDelta = (baselineScore: number, optimizedScore: number): number => optimizedScore - baselineScore
+const scoreDelta = (baselineScore: number, optimizedScore: number): number =>
+  Num.subtract(optimizedScore, baselineScore)
 
 const instructionChanged = (beforeInstruction: string, afterInstruction: string): boolean =>
   beforeInstruction !== afterInstruction

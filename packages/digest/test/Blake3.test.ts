@@ -3,7 +3,7 @@ import { describe, expect, it } from "@effect/vitest"
 import * as Blake3 from "@scenesystems/digest/Blake3"
 import * as Digest from "@scenesystems/digest/Digest"
 import * as Utf8 from "@scenesystems/digest/Utf8"
-import { Array as Arr, Effect, Either, Encoding, Schema } from "effect"
+import { Array as Arr, Effect, Either, Encoding, Number as Num, Schema } from "effect"
 
 import * as Fixtures from "../scripts/fixtures.js"
 import { expectByteLength, expectDigest } from "./helpers/assertions.js"
@@ -69,7 +69,7 @@ describe("Blake3.deriveKey", () => {
 
   it.effect("rejects every non-safe, fractional, or negative length", () =>
     Effect.sync(() => {
-      const invalidLengths = [-1, 0.5, NaN, Infinity, Number.MAX_SAFE_INTEGER + 1]
+      const invalidLengths = [-1, 0.5, NaN, Infinity, Num.increment(Number.MAX_SAFE_INTEGER)]
       expect(invalidLengths.map((length) => Blake3.deriveKey(contexts.ctx1, new Uint8Array(), length))).toEqual(
         invalidLengths.map(() => Either.left(new Blake3.InvalidLength({})))
       )
@@ -115,7 +115,7 @@ describe("Blake3 external conformance", () => {
             const input = vector.input_len === 0
               ? new Uint8Array()
               : Uint8Array.from(Arr.makeBy(vector.input_len, (index) =>
-                index % 251))
+                Num.remainder(index, 251)))
             const hash = Digest.hash("blake3-256", input)
             const keyedHash = yield* Blake3.mac(encodeFixtureUtf8(fixture.key), input)
             const derivedKey = yield* Blake3.deriveKey(fixture.context_string, input)

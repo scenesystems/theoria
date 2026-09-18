@@ -1,12 +1,12 @@
 import { describe, expect, it } from "@effect/vitest"
-import { Chunk, Duration, Effect, Option, Ref, Stream, TestClock } from "effect"
+import { Chunk, Duration, Effect, Number as Num, Option, Ref, Stream, TestClock } from "effect"
 import * as Arr from "effect/Array"
 
 import { follow, journeyFrom, releaseRest, toward, Travelling } from "../../app/web/motion/travel.js"
 
 /** A number travels by moving straight; a frame is the test clock moving on 16 ms. */
 const travelling = new Travelling<number>({
-  between: (from, to, t) => from + (to - from) * t,
+  between: (from, to, t) => Num.sum(from, Num.multiply(Num.subtract(to, from), t)),
   duration: Duration.millis(160),
   ticks: Stream.repeatEffect(TestClock.adjust("16 millis"))
 })
@@ -87,7 +87,11 @@ describe("travel", () => {
       // A drawing whose `between` rebuilds the destination's shape even at the start, as a layout would.
       const rebuilding = new Travelling<ReadonlyArray<number>>({
         between: (from, to, t) =>
-          Arr.map(to, (value, index) => Option.getOrElse(Arr.get(from, index), () => value) * (1 - t) + value * t),
+          Arr.map(to, (value, index) =>
+            Num.sum(
+              Num.multiply(Option.getOrElse(Arr.get(from, index), () => value), Num.subtract(1, t)),
+              Num.multiply(value, t)
+            )),
         duration: Duration.millis(160),
         ticks: travelling.ticks
       })

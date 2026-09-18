@@ -1,5 +1,5 @@
 import { describe, expect, it } from "@effect/vitest"
-import { Effect } from "effect"
+import { Effect, Number as Num } from "effect"
 import * as Arr from "effect/Array"
 import * as Str from "effect/String"
 
@@ -13,7 +13,8 @@ import {
 } from "../../app/contracts/text.js"
 
 /** The percentage CSS writes for a ratio, to the four decimals the fallback faces carry. */
-const percent = (ratio: number): string => `${(Math.round(ratio * 1_000_000) / 10_000).toFixed(4)}%`
+const percent = (ratio: number): string =>
+  `${Num.unsafeDivide(Num.round(Num.multiply(ratio, 1_000_000), 0), 10_000).toFixed(4)}%`
 
 describe("Typefaces contract", () => {
   it.effect("every family is set in its served variable face first, then metric-matched stand-ins, then the generic", () =>
@@ -54,7 +55,7 @@ describe("Typefaces contract", () => {
     Effect.sync(() => {
       // Figtree: 1000 units per em, ascent 950, descent 250, average advance 449.
       // Arial: 2048 units per em, ascent 1854, descent 434, line gap 67, average advance 913.
-      const sizeAdjust = (449 / 1000) / (913 / 2048)
+      const sizeAdjust = Num.unsafeDivide(Num.unsafeDivide(449, 1000), Num.unsafeDivide(913, 2048))
       const face = Arr.findFirst(
         Str.split(typefaceFallbackFaces, "@font-face"),
         Str.includes("font-family: \"Figtree Variable Fallback: Arial\";")
@@ -63,10 +64,14 @@ describe("Typefaces contract", () => {
         value: expect.stringContaining(`size-adjust: ${percent(sizeAdjust)}`)
       })
       expect(face).toMatchObject({
-        value: expect.stringContaining(`ascent-override: ${percent(950 / (1000 * sizeAdjust))}`)
+        value: expect.stringContaining(
+          `ascent-override: ${percent(Num.unsafeDivide(950, Num.multiply(1000, sizeAdjust)))}`
+        )
       })
       expect(face).toMatchObject({
-        value: expect.stringContaining(`descent-override: ${percent(250 / (1000 * sizeAdjust))}`)
+        value: expect.stringContaining(
+          `descent-override: ${percent(Num.unsafeDivide(250, Num.multiply(1000, sizeAdjust)))}`
+        )
       })
       // Figtree has no line gap; Arial's must be overridden away or the stand-in stands taller.
       expect(face).toMatchObject({ value: expect.stringContaining("line-gap-override: 0%") })
@@ -76,7 +81,7 @@ describe("Typefaces contract", () => {
     Effect.sync(() => {
       // Geist Mono 1.701: 1000 units/em, 600 advance, 1005 ascent, -295 descent, no line gap.
       // Courier New: 1229/2048 per character — 0.6001, almost the same advance.
-      const sizeAdjust = (600 / 1000) / (1229 / 2048)
+      const sizeAdjust = Num.unsafeDivide(Num.unsafeDivide(600, 1000), Num.unsafeDivide(1229, 2048))
       const face = Arr.findFirst(
         Str.split(typefaceFallbackFaces, "@font-face"),
         Str.includes("font-family: \"Geist Mono Variable Fallback: Courier New\";")
@@ -85,10 +90,14 @@ describe("Typefaces contract", () => {
         value: expect.stringContaining(`size-adjust: ${percent(sizeAdjust)}`)
       })
       expect(face).toMatchObject({
-        value: expect.stringContaining(`ascent-override: ${percent(1005 / (1000 * sizeAdjust))}`)
+        value: expect.stringContaining(
+          `ascent-override: ${percent(Num.unsafeDivide(1005, Num.multiply(1000, sizeAdjust)))}`
+        )
       })
       expect(face).toMatchObject({
-        value: expect.stringContaining(`descent-override: ${percent(295 / (1000 * sizeAdjust))}`)
+        value: expect.stringContaining(
+          `descent-override: ${percent(Num.unsafeDivide(295, Num.multiply(1000, sizeAdjust)))}`
+        )
       })
     }))
 

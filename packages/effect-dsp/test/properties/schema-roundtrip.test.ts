@@ -5,7 +5,7 @@ import { describe, expect, it } from "@effect/vitest"
 import { Demonstration } from "@scenesystems/effect-dsp/Demonstration"
 import * as Module from "@scenesystems/effect-dsp/Module"
 import { ModuleParameters } from "@scenesystems/effect-dsp/ModuleParameters"
-import { Array as Arr, Effect, FastCheck as fc, Match, Option, Schema } from "effect"
+import { Array as Arr, Effect, FastCheck as fc, Match, Number as Num, Option, Schema } from "effect"
 
 const primitiveUnknownArbitrary = fc.oneof(
   fc.string({ maxLength: 12 }),
@@ -88,7 +88,7 @@ describe("Module.SavedState schema round-trip", () => {
   })], ([sample]) =>
     Effect.gen(function*() {
       const modules = Arr.map(sample.modules, (params, index) => ({
-        name: `module-${index + 1}`,
+        name: `module-${String(Num.increment(index))}`,
         params: toModuleParams(params)
       }))
       const state = new Module.SavedState({

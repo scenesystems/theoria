@@ -1,5 +1,5 @@
 import { describe, expect, it } from "@effect/vitest"
-import { Array as Arr, Data, DateTime, Effect, Exit, Schema, Tuple } from "effect"
+import { Array as Arr, Data, DateTime, Effect, Exit, Number as Num, Schema, Tuple } from "effect"
 
 import * as CanonicalJson from "@scenesystems/digest/CanonicalJson"
 import * as Utf8 from "@scenesystems/digest/Utf8"
@@ -11,7 +11,7 @@ const unsupportedValues = Schema.decodeUnknownSync(Rejections)(Arr.make(
   Tuple.make("undefined", undefined, "undefined"),
   Tuple.make("NaN", NaN, "nan"),
   Tuple.make("positive infinity", Infinity, "non-finite-number"),
-  Tuple.make("negative infinity", -Infinity, "non-finite-number"),
+  Tuple.make("negative infinity", Num.negate(Infinity), "non-finite-number"),
   Tuple.make("bigint", 1n, "bigint"),
   Tuple.make("function", () => 1, "function"),
   Tuple.make("symbol", Schema.decodeSync(Schema.Symbol)("value"), "symbol"),

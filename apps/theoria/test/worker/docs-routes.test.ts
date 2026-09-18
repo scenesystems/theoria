@@ -26,7 +26,7 @@ layer(Layer.merge(SiteLive, BrowserLive), { excludeTestServices: true, timeout: 
             yield* shown
               ? Effect.void
               : click(sidebar.getByRole("button", {
-                name: path.includes("/api") ? "Toggle api navigation" : "Toggle guides navigation"
+                name: Str.includes("/api")(path) ? "Toggle api navigation" : "Toggle guides navigation"
               }))
             yield* click(link)
             yield* urlMatches(page, new RegExp(`${escapeForRegExp(path)}$`, "u"))

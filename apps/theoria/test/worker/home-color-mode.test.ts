@@ -4,6 +4,7 @@ import type { BrowserContext, Page } from "@playwright/test"
 import { DateTime, Duration, Effect, Equal, Layer, Option } from "effect"
 import * as Arr from "effect/Array"
 import * as Num from "effect/Number"
+import { evaluate, evaluateElement } from "./browser.js"
 
 import { colorModeCookieName } from "../../app/contracts/color-mode.js"
 import {
@@ -81,7 +82,7 @@ const expectedPaint = (colorOf: (slot: ToneSlot) => Oklch) => ({
 })
 
 /** Reads what a probe wearing `classes` paints in the page. */
-const painted = (page: Page, classes: ToneClasses) => act(() => page.evaluate(paintedByClasses, probeClasses(classes)))
+const painted = (page: Page, classes: ToneClasses) => evaluate(page, paintedByClasses, probeClasses(classes))
 
 /** The colour-mode cookie as the browser holds it for the site, if it does. */
 const preferenceCookie = (context: BrowserContext) =>
@@ -132,21 +133,27 @@ layer(Layer.merge(SiteLive, BrowserLive), { excludeTestServices: true, timeout: 
             // and the pointer resting on it deepens the fill one step, to the wash.
             yield* pointerAway(page)
             yield* eventually(
-              () => chosen.evaluate(backgroundColour),
+              evaluateElement(chosen, backgroundColour),
               computedCss(toneColor("primary", "surface", mode))
             )
             yield* hover(chosen)
-            yield* eventually(() => chosen.evaluate(backgroundColour), computedCss(toneColor("primary", "wash", mode)))
+            yield* eventually(
+              evaluateElement(chosen, backgroundColour),
+              computedCss(toneColor("primary", "wash", mode))
+            )
 
             // The neighbor's merged proposal wears the neighbor's own mark on its switch, deepened to the
             // neighbor's ink under the pointer: the same voice, one step firmer.
             yield* pointerAway(page)
             yield* eventually(
-              () => merge.evaluate(backgroundColour),
+              evaluateElement(merge, backgroundColour),
               computedCss(toneColor("secondary", "accent", mode))
             )
             yield* hover(merge)
-            yield* eventually(() => merge.evaluate(backgroundColour), computedCss(toneColor("secondary", "ink", mode)))
+            yield* eventually(
+              evaluateElement(merge, backgroundColour),
+              computedCss(toneColor("secondary", "ink", mode))
+            )
 
             // A mark is lit with a glass of the instrument while pointed at, and with the instrument itself
             // while answered, so the answer reads firmer than the pointer passing over.
@@ -154,16 +161,16 @@ layer(Layer.merge(SiteLive, BrowserLive), { excludeTestServices: true, timeout: 
             yield* pointerAway(page)
             yield* hover(line)
             yield* eventually(
-              () => line.evaluate(backgroundColour),
+              evaluateElement(line, backgroundColour),
               computedTranslucentCss(neutralColor("instrument", mode), "glass")
             )
             yield* click(line)
             yield* attribute(line, "data-popup-open", "")
             yield* pointerAway(page)
-            yield* eventually(() => line.evaluate(backgroundColour), computedCss(neutralColor("instrument", mode)))
+            yield* eventually(evaluateElement(line, backgroundColour), computedCss(neutralColor("instrument", mode)))
             yield* click(line)
             yield* pointerAway(page)
-            yield* eventually(() => line.evaluate(backgroundColour), "rgba(0, 0, 0, 0)")
+            yield* eventually(evaluateElement(line, backgroundColour), "rgba(0, 0, 0, 0)")
           }))
         expect(yield* failures).toEqual([])
       }))
@@ -176,27 +183,27 @@ layer(Layer.merge(SiteLive, BrowserLive), { excludeTestServices: true, timeout: 
         // A first visit follows the system, which is light: no cookie yet says otherwise. The glyph is a
         // screen, not a sun: the state is "following", whatever the system currently shows.
         yield* visible(themeControl(page, "Following system, currently light — switch to light mode"))
-        expect(yield* act(() => page.evaluate(colorSchemeShown))).toBe("light")
+        expect(yield* evaluate(page, colorSchemeShown)).toBe("light")
         expect(yield* glyphWorn(page, followingSystem)).toBe("screen")
 
         yield* click(themeControl(page, followingSystem))
         yield* visible(themeControl(page, pinnedLight))
-        expect(yield* act(() => page.evaluate(colorSchemeShown))).toBe("light")
+        expect(yield* evaluate(page, colorSchemeShown)).toBe("light")
         expect(yield* glyphWorn(page, pinnedLight)).toBe("sun")
 
         yield* click(themeControl(page, pinnedLight))
         yield* visible(themeControl(page, pinnedDark))
-        yield* eventually(() => page.evaluate(colorSchemeShown), "dark")
+        yield* eventually(evaluate(page, colorSchemeShown), "dark")
         expect(yield* glyphWorn(page, pinnedDark)).toBe("moon")
 
         // Pinned dark, the system's scheme changing means nothing to the page.
         yield* act(() => page.emulateMedia({ colorScheme: "light" }))
-        expect(yield* act(() => page.evaluate(colorSchemeShown))).toBe("dark")
+        expect(yield* evaluate(page, colorSchemeShown)).toBe("dark")
 
         // The third press returns to following the system, and the page follows a flipped system at once.
         yield* click(themeControl(page, pinnedDark))
         yield* visible(themeControl(page, "Following system, currently light — switch to light mode"))
-        yield* eventually(() => page.evaluate(colorSchemeShown), "light")
+        yield* eventually(evaluate(page, colorSchemeShown), "light")
         yield* setColorScheme(page, "dark")
         yield* visible(themeControl(page, "Following system, currently dark — switch to light mode"))
 
@@ -240,9 +247,9 @@ layer(Layer.merge(SiteLive, BrowserLive), { excludeTestServices: true, timeout: 
 
         // And parsed: the root wears the class as soon as it exists, and keeps it once the app takes over.
         yield* gotoParsed(page, "/")
-        expect(yield* act(() => page.evaluate(colorSchemeShown))).toBe("dark")
+        expect(yield* evaluate(page, colorSchemeShown)).toBe("dark")
         yield* visible(themeControl(page, pinnedDark))
-        expect(yield* act(() => page.evaluate(colorSchemeShown))).toBe("dark")
+        expect(yield* evaluate(page, colorSchemeShown)).toBe("dark")
         expect(yield* failures).toEqual([])
       }))
 
@@ -251,16 +258,16 @@ layer(Layer.merge(SiteLive, BrowserLive), { excludeTestServices: true, timeout: 
         const { failures, page } = yield* openPage({ colorScheme: "dark" })
         yield* goto(page, "/")
         yield* visible(themeControl(page, "Following system, currently dark — switch to light mode"))
-        yield* eventually(() => page.evaluate(colorSchemeShown), "dark")
+        yield* eventually(evaluate(page, colorSchemeShown), "dark")
 
         yield* click(themeControl(page, followingSystem))
         yield* visible(themeControl(page, pinnedLight))
-        yield* eventually(() => page.evaluate(colorSchemeShown), "light")
+        yield* eventually(evaluate(page, colorSchemeShown), "light")
 
         yield* gotoParsed(page, "/")
-        expect(yield* act(() => page.evaluate(colorSchemeShown))).toBe("light")
+        expect(yield* evaluate(page, colorSchemeShown)).toBe("light")
         yield* visible(themeControl(page, pinnedLight))
-        expect(yield* act(() => page.evaluate(colorSchemeShown))).toBe("light")
+        expect(yield* evaluate(page, colorSchemeShown)).toBe("light")
         expect(yield* failures).toEqual([])
       }))
   }

@@ -32,12 +32,44 @@ export const TIME_RANDOMNESS_RULES = [
   {
     selector: "CallExpression[callee.object.name='Date'][callee.property.name='now']",
     message: "Do not use 'Date.now()'. Use Clock.currentTimeMillis from 'effect'."
-  },
-  {
-    selector: "CallExpression[callee.object.name='Math'][callee.property.name='random']",
-    message: "Do not use 'Math.random()'. Use Random from 'effect'."
   }
 ]
+
+/**
+ * JavaScript arithmetic syntax bypasses the repository's Effect-native number
+ * and string modules. A negative numeric literal remains ordinary literal
+ * notation; negating any computed value goes through Number.negate.
+ */
+export const ARITHMETIC_RULES = [
+  ...["+", "-", "*", "/", "%", "**"].map((operator) => ({
+    selector: `BinaryExpression[operator='${operator}']`,
+    message: operator === "+"
+      ? "Do not use the '+' operator. Use Number.sum for arithmetic, or Effect String/template literals for text."
+      : "Do not use arithmetic operators. Use Effect Number or @scenesystems/effect-math/Numeric."
+  })),
+  {
+    selector: "UpdateExpression",
+    message: "Do not use update operators. Use Number.increment or Number.decrement."
+  },
+  {
+    selector: "AssignmentExpression[operator=/^(\\+=|-=|\\*=|\\/=|%=|\\*\\*=)$/]",
+    message: "Do not use compound arithmetic assignment. Compute with Effect Number or Numeric and assign immutably."
+  },
+  {
+    selector: "UnaryExpression[operator='+']",
+    message: "Do not use unary '+'. Decode the value, then use Effect Number."
+  },
+  {
+    selector: "UnaryExpression[operator='-']:not([argument.type='Literal'][argument.raw=/^[0-9.]/])",
+    message: "Do not negate computed values with unary '-'. Use Number.negate."
+  }
+]
+
+/** Scope-aware ban on the JavaScript Math global; imported namespaces named Math are allowed. */
+export const MATH_GLOBAL = {
+  name: "Math",
+  message: "Do not use the JavaScript Math global. Use Effect Number or @scenesystems/effect-math/Numeric."
+}
 
 export const JSON_BUILTINS_RULES = [
   {

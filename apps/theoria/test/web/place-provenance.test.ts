@@ -1,5 +1,5 @@
 import { expect } from "@effect/vitest"
-import { Effect, Option } from "effect"
+import { Effect, Number as Num, Option } from "effect"
 import * as Arr from "effect/Array"
 
 import { markersBeside } from "../../app/contracts/demo/imagined-place-flow.js"
@@ -65,7 +65,9 @@ describeOnStage("place provenance", (it) => {
       expect(onTrial.title).toBe(`Line 1 of ${String(trial.projection.lines.length)}`)
       expect(onTrial.site).toEqual(layoutSite)
       const roomOnTrial = yield* factValue(onTrial, "Room")
-      expect(roomOnTrial).toContain(`${String(trial.projection.stageWidth - 2 * trial.projection.padding)} px`)
+      expect(roomOnTrial).toContain(
+        `${String(Num.subtract(trial.projection.stageWidth, Num.multiply(2, trial.projection.padding)))} px`
+      )
 
       const onKept = yield* answered(
         { _tag: "Line", index: 0, drawing: drawingId(showingKept.search) },
@@ -81,7 +83,9 @@ describeOnStage("place provenance", (it) => {
       const mark: PlaceMark = { _tag: "Feature", name: drawn.name }
 
       const onTrial = yield* answered(mark, page(Option.some(build), Option.some(showingTrial)))
-      expect(yield* factValue(onTrial, "Drawn")).toBe(`Trial 1 · not kept · r ${String(Math.round(drawn.radius))} px`)
+      expect(yield* factValue(onTrial, "Drawn")).toBe(
+        `Trial 1 · not kept · r ${String(Num.round(drawn.radius, 0))} px`
+      )
 
       const onKept = yield* answered(mark, page(Option.some(build), Option.some(showingKept)))
       expect(yield* factValue(onKept, "Drawn")).toMatch(/^Trial 2 · kept · r \d+ px$/u)
@@ -172,7 +176,9 @@ describeOnStage("place provenance", (it) => {
       const onTheWay = new PlaceRenderFrame({ ...showingTrial, rendering: kept })
 
       const travelling = yield* answered(mark, page(Option.some(build), Option.some(onTheWay)))
-      expect(yield* factValue(travelling, "Drawn")).toBe(`Toward trial 1 · r ${String(Math.round(drawn.radius))} px`)
+      expect(yield* factValue(travelling, "Drawn")).toBe(
+        `Toward trial 1 · r ${String(Num.round(drawn.radius, 0))} px`
+      )
 
       const arrived = yield* answered(mark, page(Option.some(build), Option.some(showingTrial)))
       expect(yield* factValue(arrived, "Drawn")).toMatch(/^Trial 1 · not kept · r \d+ px$/u)
@@ -192,7 +198,9 @@ describeOnStage("place provenance", (it) => {
 
       const drawn = yield* Arr.head(chosen.rendering.projection.markers)
       const asFeature = yield* answered({ _tag: "Feature", name: drawn.name }, on)
-      expect(yield* factValue(asFeature, "Drawn")).toBe(`Trial 1 · not kept · r ${String(Math.round(drawn.radius))} px`)
+      expect(yield* factValue(asFeature, "Drawn")).toBe(
+        `Trial 1 · not kept · r ${String(Num.round(drawn.radius, 0))} px`
+      )
 
       const asLine = yield* answered({ _tag: "Line", index: 0, drawing }, on)
       expect(asLine.title).toBe(`Line 1 of ${String(trial.projection.lines.length)}`)
@@ -226,7 +234,7 @@ describeOnStage("place provenance", (it) => {
           _tag: "Signature",
           subject: current.contentId
         }],
-        [layoutSite, `Line ${String(narrowed + 1)} of ${String(projection.lines.length)}`, {
+        [layoutSite, `Line ${String(Num.increment(narrowed))} of ${String(projection.lines.length)}`, {
           _tag: "Line",
           index: narrowed,
           drawing: drawingId(showingTrial.search)
@@ -321,7 +329,7 @@ describeOnStage("answers from the drawing's own source", (it) => {
       expect(standing.about).toEqual([neighbor.proposal.feature.name])
       expect(yield* factValue(standing, "Adds")).toBe(neighbor.proposal.feature.name)
       const before = yield* answered(
-        { _tag: "Line", index: keptLine - 1, drawing: drawingId(showingKept.search) },
+        { _tag: "Line", index: Num.decrement(keptLine), drawing: drawingId(showingKept.search) },
         onKept
       )
       expect(before.about).toEqual([])
