@@ -4,94 +4,14 @@
  * @since 0.1.0
  * @category internal
  */
-import { Boolean, Data, Iterable, Number, Option, Tuple } from "effect"
+import { Boolean, Iterable, MutableRef, Number } from "effect"
 
 import * as Numeric from "../../Numeric.js"
 
 const defaultTolerance = 1e-12
 const defaultMaxIterations = 100
-const batchIterations = 32
-
-class BisectState extends Data.Class<{
-  readonly a: number
-  readonly b: number
-  readonly fa: number
-  readonly fb: number
-  readonly iteration: number
-  readonly result: Option.Option<number>
-}> {}
 
 const midpoint = (a: number, b: number): number => Number.multiply(0.5, Number.sum(a, b))
-
-const advanceBatch = (
-  f: (x: number) => number,
-  tolerance: number,
-  maxIterations: number,
-  a: number,
-  b: number,
-  fa: number,
-  fb: number,
-  iteration: number,
-  remaining: number
-): BisectState => {
-  const mid = midpoint(a, b)
-  const complete = Boolean.or(
-    Number.lessThan(Numeric.abs(Number.subtract(b, a)), tolerance),
-    Number.greaterThanOrEqualTo(iteration, maxIterations)
-  )
-  return Boolean.match(complete, {
-    onTrue: () => new BisectState({ a, b, fa, fb, iteration, result: Option.some(mid) }),
-    onFalse: () => {
-      const fmid = f(mid)
-      return Boolean.match(Number.Equivalence(fmid, 0), {
-        onTrue: () => new BisectState({ a, b, fa, fb, iteration, result: Option.some(mid) }),
-        onFalse: () =>
-          Boolean.match(Number.lessThanOrEqualTo(Number.multiply(fa, fmid), 0), {
-            onTrue: () =>
-              continueBatch(
-                f,
-                tolerance,
-                maxIterations,
-                a,
-                mid,
-                fa,
-                fmid,
-                Number.increment(iteration),
-                remaining
-              ),
-            onFalse: () =>
-              continueBatch(
-                f,
-                tolerance,
-                maxIterations,
-                mid,
-                b,
-                fmid,
-                fb,
-                Number.increment(iteration),
-                remaining
-              )
-          })
-      })
-    }
-  })
-}
-
-const continueBatch = (
-  f: (x: number) => number,
-  tolerance: number,
-  maxIterations: number,
-  a: number,
-  b: number,
-  fa: number,
-  fb: number,
-  iteration: number,
-  remaining: number
-): BisectState =>
-  Boolean.match(Number.lessThanOrEqualTo(remaining, 1), {
-    onTrue: () => new BisectState({ a, b, fa, fb, iteration, result: Option.none() }),
-    onFalse: () => advanceBatch(f, tolerance, maxIterations, a, b, fa, fb, iteration, Number.decrement(remaining))
-  })
 
 /**
  * Bisection root-finding kernel.
@@ -114,30 +34,46 @@ export const bisect = (
       return Boolean.match(Number.Equivalence(fb, 0), {
         onTrue: () => b,
         onFalse: () => {
-          const initial = new BisectState({ a, b, fa, fb, iteration: 0, result: Option.none() })
-          const final = Iterable.reduce(
-            Iterable.unfold(initial, (state) =>
-              Option.match(state.result, {
-                onSome: Option.none,
-                onNone: () => {
-                  const next = advanceBatch(
-                    f,
-                    tolerance,
-                    maxIterations,
-                    state.a,
-                    state.b,
-                    state.fa,
-                    state.fb,
-                    state.iteration,
-                    batchIterations
-                  )
-                  return Option.some(Tuple.make(next, next))
+          const left = MutableRef.make(a)
+          const right = MutableRef.make(b)
+          const leftValue = MutableRef.make(fa)
+          Iterable.findFirst(Iterable.range(0), (iteration) =>
+            Boolean.match(
+              Boolean.or(
+                Number.lessThan(Numeric.abs(Number.subtract(MutableRef.get(right), MutableRef.get(left))), tolerance),
+                Number.greaterThanOrEqualTo(iteration, maxIterations)
+              ),
+              {
+                onTrue: () => true,
+                onFalse: () => {
+                  const mid = midpoint(MutableRef.get(left), MutableRef.get(right))
+                  const fmid = f(mid)
+                  return Boolean.match(Number.Equivalence(fmid, 0), {
+                    onTrue: () => {
+                      MutableRef.set(left, mid)
+                      MutableRef.set(right, mid)
+                      return true
+                    },
+                    onFalse: () => {
+                      // Compare signs directly: the product can underflow to zero.
+                      const oppositeSigns = Boolean.or(
+                        Boolean.and(Number.lessThan(MutableRef.get(leftValue), 0), Number.greaterThan(fmid, 0)),
+                        Boolean.and(Number.greaterThan(MutableRef.get(leftValue), 0), Number.lessThan(fmid, 0))
+                      )
+                      Boolean.match(oppositeSigns, {
+                        onTrue: () => MutableRef.set(right, mid),
+                        onFalse: () => {
+                          MutableRef.set(left, mid)
+                          MutableRef.set(leftValue, fmid)
+                        }
+                      })
+                      return false
+                    }
+                  })
                 }
-              })),
-            initial,
-            (_state, next) => next
-          )
-          return Option.getOrElse(final.result, () => midpoint(final.a, final.b))
+              }
+            ))
+          return midpoint(MutableRef.get(left), MutableRef.get(right))
         }
       })
     }

@@ -77,8 +77,8 @@ export const scopes = () => [
   // identically named const exports in the owning modules, not general Math
   // access, calls, aliases, computed properties, or other operations.
   ...[
-    ["binary", ["sqrt"]],
-    ["transcendental", ["log", "sin", "cos"]]
+    ["binary", ["sqrt", "log2"]],
+    ["transcendental", ["log", "log1p", "log10", "exp", "expm1", "pow", "sin", "cos", "atan2", "sinh", "cosh"]]
   ].map(([module, operations]) => ({
     name: `theoria/effect/numeric-${module}`,
     files: [`packages/effect-math/src/internal/numeric/${module}.ts`],
@@ -93,7 +93,7 @@ export const scopes = () => [
               `ExportNamedDeclaration > VariableDeclaration[kind='const'] > VariableDeclarator[id.name='${operation}'] > MemberExpression.init[computed=false][property.name='${operation}'] > Identifier.object`
             ).join(", ")
           })`,
-          message: "Only the authorized direct sqrt/log/sin/cos intrinsic exports are allowed in their owning modules."
+          message: "Only the explicitly listed direct intrinsic exports are allowed in their numeric owners."
         }
       ]
     }

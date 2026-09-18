@@ -10,7 +10,7 @@
  * @since 0.1.0
  * @category internal
  */
-import { Array, Boolean, Iterable, Number } from "effect"
+import { Boolean, Number } from "effect"
 
 import { abs, exp } from "../../Numeric.js"
 
@@ -23,106 +23,86 @@ const tailRegionBoundary = Number.unsafeDivide(1, 0.35)
 const EFX = 1.28379167095512586316e-01
 const ERX = 8.45062911510467529297e-01
 
-// Reverse once into Horner evaluation order. Iterable.reduce uses the array
-// directly, without Array.reduceRight's extra per-coefficient callback.
-const PP = Array.reverse(Array.make(
-  1.28379167095512558561e-01,
-  -3.25042107247001499370e-01,
-  -2.84817495755985104766e-02,
-  -5.77027029648944159157e-03,
-  -2.37630166566501626084e-05
-))
+const PP = (x: number): number => {
+  const degree3 = Number.sum(Number.multiply(-2.37630166566501626084e-05, x), -5.77027029648944159157e-03)
+  const degree2 = Number.sum(Number.multiply(degree3, x), -2.84817495755985104766e-02)
+  const degree1 = Number.sum(Number.multiply(degree2, x), -3.25042107247001499370e-01)
+  return Number.sum(Number.multiply(degree1, x), 1.28379167095512558561e-01)
+}
 
-const QQ = Array.reverse(Array.make(
-  1,
-  3.97917223959155352819e-01,
-  6.50222499887672944485e-02,
-  5.08130628187576562776e-03,
-  1.32494738004321644526e-04,
-  -3.96022827877536812320e-06
-))
+const QQ = (x: number): number => {
+  const degree4 = Number.sum(Number.multiply(-3.96022827877536812320e-06, x), 1.32494738004321644526e-04)
+  const degree3 = Number.sum(Number.multiply(degree4, x), 5.08130628187576562776e-03)
+  const degree2 = Number.sum(Number.multiply(degree3, x), 6.50222499887672944485e-02)
+  const degree1 = Number.sum(Number.multiply(degree2, x), 3.97917223959155352819e-01)
+  return Number.sum(Number.multiply(degree1, x), 1)
+}
 
-const PA = Array.reverse(Array.make(
-  -2.36211856075265944077e-03,
-  4.14856118683748331666e-01,
-  -3.72207876035701323847e-01,
-  3.18346619901161753674e-01,
-  -1.10894694282396677476e-01,
-  3.54783043256182359371e-02,
-  -2.16637559486879084300e-03
-))
+const PA = (x: number): number => {
+  const degree5 = Number.sum(Number.multiply(-2.16637559486879084300e-03, x), 3.54783043256182359371e-02)
+  const degree4 = Number.sum(Number.multiply(degree5, x), -1.10894694282396677476e-01)
+  const degree3 = Number.sum(Number.multiply(degree4, x), 3.18346619901161753674e-01)
+  const degree2 = Number.sum(Number.multiply(degree3, x), -3.72207876035701323847e-01)
+  const degree1 = Number.sum(Number.multiply(degree2, x), 4.14856118683748331666e-01)
+  return Number.sum(Number.multiply(degree1, x), -2.36211856075265944077e-03)
+}
 
-const QA = Array.reverse(Array.make(
-  1,
-  1.06420880400844228286e-01,
-  5.40397917702171048937e-01,
-  7.18286544141962662868e-02,
-  1.26171219808761642112e-01,
-  1.36370839120290507362e-02,
-  1.19844998467991074170e-02
-))
+const QA = (x: number): number => {
+  const degree5 = Number.sum(Number.multiply(1.19844998467991074170e-02, x), 1.36370839120290507362e-02)
+  const degree4 = Number.sum(Number.multiply(degree5, x), 1.26171219808761642112e-01)
+  const degree3 = Number.sum(Number.multiply(degree4, x), 7.18286544141962662868e-02)
+  const degree2 = Number.sum(Number.multiply(degree3, x), 5.40397917702171048937e-01)
+  const degree1 = Number.sum(Number.multiply(degree2, x), 1.06420880400844228286e-01)
+  return Number.sum(Number.multiply(degree1, x), 1)
+}
 
-const RA = Array.reverse(Array.make(
-  -9.86494403484714822705e-03,
-  -6.93858572707181764372e-01,
-  -1.05586262253232909814e01,
-  -6.23753324503260060396e01,
-  -1.62396669462573470355e02,
-  -1.84605092906711035994e02,
-  -8.12874355063065934246e01,
-  -9.81432934416914548592e00
-))
+const RA = (x: number): number => {
+  const degree6 = Number.sum(Number.multiply(-9.81432934416914548592e00, x), -8.12874355063065934246e01)
+  const degree5 = Number.sum(Number.multiply(degree6, x), -1.84605092906711035994e02)
+  const degree4 = Number.sum(Number.multiply(degree5, x), -1.62396669462573470355e02)
+  const degree3 = Number.sum(Number.multiply(degree4, x), -6.23753324503260060396e01)
+  const degree2 = Number.sum(Number.multiply(degree3, x), -1.05586262253232909814e01)
+  const degree1 = Number.sum(Number.multiply(degree2, x), -6.93858572707181764372e-01)
+  return Number.sum(Number.multiply(degree1, x), -9.86494403484714822705e-03)
+}
 
-const SA = Array.reverse(Array.make(
-  1,
-  1.96512716674392571292e01,
-  1.37657754143519042600e02,
-  4.34565877475229228821e02,
-  6.45387271733267880336e02,
-  4.29008140027567833386e02,
-  1.08635005541779435134e02,
-  6.57024977031928170135e00,
-  -6.04244152148580987438e-02
-))
+const SA = (x: number): number => {
+  const degree7 = Number.sum(Number.multiply(-6.04244152148580987438e-02, x), 6.57024977031928170135e00)
+  const degree6 = Number.sum(Number.multiply(degree7, x), 1.08635005541779435134e02)
+  const degree5 = Number.sum(Number.multiply(degree6, x), 4.29008140027567833386e02)
+  const degree4 = Number.sum(Number.multiply(degree5, x), 6.45387271733267880336e02)
+  const degree3 = Number.sum(Number.multiply(degree4, x), 4.34565877475229228821e02)
+  const degree2 = Number.sum(Number.multiply(degree3, x), 1.37657754143519042600e02)
+  const degree1 = Number.sum(Number.multiply(degree2, x), 1.96512716674392571292e01)
+  return Number.sum(Number.multiply(degree1, x), 1)
+}
 
-const RB = Array.reverse(Array.make(
-  -9.86494292470009928597e-03,
-  -7.99283237680523006574e-01,
-  -1.77579549177547519889e01,
-  -1.60636384855821916062e02,
-  -6.37566443368389627722e02,
-  -1.02509513161107724954e03,
-  -4.83519191608651397019e02
-))
+const RB = (x: number): number => {
+  const degree5 = Number.sum(Number.multiply(-4.83519191608651397019e02, x), -1.02509513161107724954e03)
+  const degree4 = Number.sum(Number.multiply(degree5, x), -6.37566443368389627722e02)
+  const degree3 = Number.sum(Number.multiply(degree4, x), -1.60636384855821916062e02)
+  const degree2 = Number.sum(Number.multiply(degree3, x), -1.77579549177547519889e01)
+  const degree1 = Number.sum(Number.multiply(degree2, x), -7.99283237680523006574e-01)
+  return Number.sum(Number.multiply(degree1, x), -9.86494292470009928597e-03)
+}
 
-const SB = Array.reverse(Array.make(
-  1,
-  3.03380607434824582924e01,
-  3.25792512996573918826e02,
-  1.53672958608443695994e03,
-  3.19985821950859553908e03,
-  2.55305040643316442583e03,
-  4.74528541206955367215e02,
-  -2.24409524465858183362e01
-))
-
-const polynomial = (coefficients: Array.NonEmptyArray<number>, x: number): number =>
-  Iterable.reduce(
-    coefficients,
-    0,
-    (accumulator, coefficient) => Number.sum(Number.multiply(accumulator, x), coefficient)
-  )
+const SB = (x: number): number => {
+  const degree6 = Number.sum(Number.multiply(-2.24409524465858183362e01, x), 4.74528541206955367215e02)
+  const degree5 = Number.sum(Number.multiply(degree6, x), 2.55305040643316442583e03)
+  const degree4 = Number.sum(Number.multiply(degree5, x), 3.19985821950859553908e03)
+  const degree3 = Number.sum(Number.multiply(degree4, x), 1.53672958608443695994e03)
+  const degree2 = Number.sum(Number.multiply(degree3, x), 3.25792512996573918826e02)
+  const degree1 = Number.sum(Number.multiply(degree2, x), 3.03380607434824582924e01)
+  return Number.sum(Number.multiply(degree1, x), 1)
+}
 
 const tailApproximation = (
   x: number,
-  numerator: Array.NonEmptyArray<number>,
-  denominator: Array.NonEmptyArray<number>
+  numerator: (x: number) => number,
+  denominator: (x: number) => number
 ): number => {
   const reciprocalSquare = Number.unsafeDivide(1, Number.multiply(x, x))
-  const correction = Number.unsafeDivide(
-    polynomial(numerator, reciprocalSquare),
-    polynomial(denominator, reciprocalSquare)
-  )
+  const correction = Number.unsafeDivide(numerator(reciprocalSquare), denominator(reciprocalSquare))
   return Number.unsafeDivide(
     exp(Number.sum(Number.subtract(Number.negate(Number.multiply(x, x)), 0.5625), correction)),
     x
@@ -139,12 +119,12 @@ const nearZeroApproximation = (x: number): number => Number.multiply(Number.sum(
 
 const polynomialApproximation = (x: number): number => {
   const square = Number.multiply(x, x)
-  return Number.multiply(x, Number.sum(1, Number.unsafeDivide(polynomial(PP, square), polynomial(QQ, square))))
+  return Number.multiply(x, Number.sum(1, Number.unsafeDivide(PP(square), QQ(square))))
 }
 
 const shiftedApproximation = (x: number): number => {
   const shifted = Number.subtract(x, 1)
-  return Number.sum(ERX, Number.unsafeDivide(polynomial(PA, shifted), polynomial(QA, shifted)))
+  return Number.sum(ERX, Number.unsafeDivide(PA(shifted), QA(shifted)))
 }
 
 const erfRightNonBig = (x: number): number =>

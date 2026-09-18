@@ -47,6 +47,15 @@ describe("Optimization / bisect", () => {
       expectClose(bisect(Numeric.cos, 0, 2), Number.multiply(Numeric.pi, 0.5), kernelTolerance)
     }))
 
+  it.effect("preserves bracket signs when products of function values underflow", () =>
+    Effect.gen(function*() {
+      const increasing = (x: number) => Number.multiply(1e-200, Number.subtract(x, 1.75))
+      const decreasing = (x: number) => Number.negate(increasing(x))
+      expectClose(bisect(increasing, 0, 2), 1.75, kernelTolerance)
+      expectClose(bisect(decreasing, 0, 2), 1.75, kernelTolerance)
+      expectClose(bisect(increasing, 2, 0), 1.75, kernelTolerance)
+    }))
+
   it.effect("returns endpoint roots without evaluating the opposite endpoint", () =>
     Effect.gen(function*() {
       const evaluations = MutableRef.make(0)

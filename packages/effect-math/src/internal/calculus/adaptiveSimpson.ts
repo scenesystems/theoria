@@ -4,7 +4,7 @@
  * @since 0.1.0
  * @category internal
  */
-import { Boolean, Chunk, Data, Iterable, Number, Option, Tuple } from "effect"
+import { Boolean, Data, Iterable, MutableList, MutableRef, Number, Option } from "effect"
 
 import * as Numeric from "../../Numeric.js"
 
@@ -44,16 +44,14 @@ class SimpsonFrame extends Data.Class<{
   readonly depth: number
 }> {}
 
-class SimpsonState extends Data.Class<{
-  readonly pending: Chunk.Chunk<SimpsonFrame>
-  readonly total: number
-}> {}
-
-const refine = (f: (x: number) => number, state: SimpsonState): SimpsonState =>
-  Option.match(Chunk.head(state.pending), {
-    onNone: () => state,
+const refine = (
+  f: (x: number) => number,
+  pending: MutableList.MutableList<SimpsonFrame>,
+  total: MutableRef.MutableRef<number>
+) => {
+  return Option.match(Option.fromNullable(MutableList.shift(pending)), {
+    onNone: () => total,
     onSome: (frame) => {
-      const rest = Chunk.drop(state.pending, 1)
       const m = midpoint(frame.a, frame.b)
       const leftMid = midpoint(frame.a, m)
       const rightMid = midpoint(m, frame.b)
@@ -69,26 +67,16 @@ const refine = (f: (x: number) => number, state: SimpsonState): SimpsonState =>
 
       return Boolean.match(complete, {
         onTrue: () =>
-          new SimpsonState({
-            pending: rest,
-            total: Number.sum(state.total, Number.sum(combined, Number.unsafeDivide(correction, 15)))
-          }),
+          MutableRef.set(
+            total,
+            Number.sum(MutableRef.get(total), Number.sum(combined, Number.unsafeDivide(correction, 15)))
+          ),
         onFalse: () => {
           const nextAbsolute = Number.unsafeDivide(frame.absoluteTolerance, 2)
           const nextRelative = Number.unsafeDivide(frame.relativeTolerance, 2)
           const nextDepth = Number.decrement(frame.depth)
-          const children = Chunk.make(
-            new SimpsonFrame({
-              a: frame.a,
-              b: m,
-              fa: frame.fa,
-              fm: fLeftMid,
-              fb: frame.fm,
-              whole: left,
-              absoluteTolerance: nextAbsolute,
-              relativeTolerance: nextRelative,
-              depth: nextDepth
-            }),
+          MutableList.prepend(
+            pending,
             new SimpsonFrame({
               a: m,
               b: frame.b,
@@ -101,11 +89,25 @@ const refine = (f: (x: number) => number, state: SimpsonState): SimpsonState =>
               depth: nextDepth
             })
           )
-          return new SimpsonState({ pending: Chunk.appendAll(children, rest), total: state.total })
+          return MutableList.prepend(
+            pending,
+            new SimpsonFrame({
+              a: frame.a,
+              b: m,
+              fa: frame.fa,
+              fm: fLeftMid,
+              fb: frame.fm,
+              whole: left,
+              absoluteTolerance: nextAbsolute,
+              relativeTolerance: nextRelative,
+              depth: nextDepth
+            })
+          )
         }
       })
     }
   })
+}
 
 /**
  * Adaptive Simpson quadrature with independent absolute and relative tolerances.
@@ -151,47 +153,36 @@ export const adaptiveSimpsonIntegral = (
       const nextAbsolute = Number.unsafeDivide(normalizedAbsoluteTolerance, 2)
       const nextRelative = Number.unsafeDivide(normalizedRelativeTolerance, 2)
       const nextDepth = Number.decrement(normalizedDepth)
-      const initial = new SimpsonState({
-        pending: Chunk.make(
-          new SimpsonFrame({
-            a,
-            b: m,
-            fa,
-            fm: fLeftMid,
-            fb: fm,
-            whole: left,
-            absoluteTolerance: nextAbsolute,
-            relativeTolerance: nextRelative,
-            depth: nextDepth
-          }),
-          new SimpsonFrame({
-            a: m,
-            b,
-            fa: fm,
-            fm: fRightMid,
-            fb,
-            whole: right,
-            absoluteTolerance: nextAbsolute,
-            relativeTolerance: nextRelative,
-            depth: nextDepth
-          })
-        ),
-        total: 0
-      })
-
-      return Iterable.reduce(
-        Iterable.unfold(initial, (state) =>
-          Boolean.match(Chunk.isEmpty(state.pending), {
-            onTrue: Option.none,
-            onFalse: () => {
-              const next = refine(f, state)
-              return Option.some(Tuple.make(next, next))
-            }
-          })),
-        initial,
-        (_state, next) => next
+      const pending = MutableList.make(
+        new SimpsonFrame({
+          a,
+          b: m,
+          fa,
+          fm: fLeftMid,
+          fb: fm,
+          whole: left,
+          absoluteTolerance: nextAbsolute,
+          relativeTolerance: nextRelative,
+          depth: nextDepth
+        }),
+        new SimpsonFrame({
+          a: m,
+          b,
+          fa: fm,
+          fm: fRightMid,
+          fb,
+          whole: right,
+          absoluteTolerance: nextAbsolute,
+          relativeTolerance: nextRelative,
+          depth: nextDepth
+        })
       )
-        .total
+      const total = MutableRef.make(0)
+      Iterable.forEach(
+        Iterable.takeWhile(Iterable.range(0), () => Boolean.not(MutableList.isEmpty(pending))),
+        () => refine(f, pending, total)
+      )
+      return MutableRef.get(total)
     }
   })
 }

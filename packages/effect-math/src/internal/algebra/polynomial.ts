@@ -9,7 +9,7 @@
  * @since 0.1.0
  * @category internal
  */
-import { Boolean, Chunk, Number, Option, pipe } from "effect"
+import { Array, Boolean, Chunk, Number, Option, pipe } from "effect"
 
 /**
  * Evaluates polynomial at `x` via Horner's method. Coefficients are
@@ -23,10 +23,25 @@ export const polyEval = (coefficients: Chunk.Chunk<number>, x: number): number =
   return Option.match(Chunk.last(coefficients), {
     onNone: () => 0,
     onSome: (leading) =>
-      Chunk.reduceRight(
-        Chunk.dropRight(coefficients, 1),
-        leading,
-        (acc, coeff) => Number.sum(coeff, Number.multiply(acc, x))
+      Boolean.match(
+        Boolean.and(
+          Number.Equivalence(Number.subtract(x, x), 0),
+          Boolean.not(Number.Equivalence(leading, 0))
+        ),
+        {
+          onTrue: () =>
+            Array.reduceRight(
+              Chunk.toReadonlyArray(coefficients),
+              0,
+              (acc, coeff) => Number.sum(coeff, Number.multiply(acc, x))
+            ),
+          onFalse: () =>
+            Chunk.reduceRight(
+              Chunk.dropRight(coefficients, 1),
+              leading,
+              (acc, coeff) => Number.sum(coeff, Number.multiply(acc, x))
+            )
+        }
       )
   })
 }

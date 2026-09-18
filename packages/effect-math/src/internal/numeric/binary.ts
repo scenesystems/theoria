@@ -5,19 +5,7 @@
  * @since 0.4.0
  * @category internal
  */
-import {
-  Array,
-  BigDecimal,
-  BigInt,
-  Boolean,
-  Chunk,
-  Data,
-  MutableHashMap,
-  Number,
-  Option,
-  Predicate,
-  Tuple
-} from "effect"
+import { Array, BigDecimal, BigInt, Boolean, Chunk, Data, Number, Option, Predicate, Tuple } from "effect"
 
 export const positiveInfinity = Number.unsafeDivide(1, 0)
 export const negativeInfinity = Number.negate(positiveInfinity)
@@ -90,61 +78,28 @@ export const abs = (value: number): number => Number.sum(0, Number.max(value, Nu
 const power2_512 = 1.3407807929942597e154
 // Private read-only lookup, built once with exact binary multiplications.
 const powersOfTwo = Array.scan(Array.range(1, 1023), 1, (power) => Number.multiply(power, 2))
-// Primitive keys in MutableHashMap avoid Hash.number's collisions for powers
-// of two. This private table is never modified after construction.
-const powerExponents = MutableHashMap.fromIterable(
-  Array.map(powersOfTwo, (power, exponent) => Tuple.make(power, exponent))
-)
 
-const normalizeStep = (value: number, exponent: number, step: number): Normalized =>
-  Boolean.match(Number.lessThan(value, 2), {
-    onTrue: () => new Normalized({ mantissa: value, exponent }),
-    onFalse: () => {
-      const factor = Array.unsafeGet(powersOfTwo, step)
-      return Boolean.match(Number.greaterThanOrEqualTo(value, factor), {
-        onTrue: () =>
-          normalizeStep(Number.unsafeDivide(value, factor), Number.sum(exponent, step), Number.multiply(step, 0.5)),
-        onFalse: () => normalizeStep(value, exponent, Number.multiply(step, 0.5))
-      })
-    }
-  })
-
-const normalizeLarge = (value: number, exponent: number): Normalized => {
-  // nextPow2 uses the host logarithm: treat it as an estimate, not a proof.
-  // Capping prevents its overflow at the top binade; exact power-of-two
-  // division and the final range check certify the representation.
-  const factor = Number.min(Number.nextPow2(value), Array.unsafeGet(powersOfTwo, 1023))
-  const factorExponent = Option.getOrThrow(MutableHashMap.get(powerExponents, factor))
-  const ratio = Number.unsafeDivide(value, factor)
-  const double = Number.lessThan(ratio, 1)
-  const mantissa = Boolean.match(double, { onTrue: () => Number.multiply(ratio, 2), onFalse: () => ratio })
-  return Boolean.match(Boolean.and(Number.greaterThanOrEqualTo(mantissa, 1), Number.lessThan(mantissa, 2)), {
-    onTrue: () =>
-      new Normalized({
-        mantissa,
-        exponent: Number.sum(
-          exponent,
-          Boolean.match(double, {
-            onTrue: () => Number.decrement(factorExponent),
-            onFalse: () => factorExponent
-          })
-        )
-      }),
-    onFalse: () => normalizeStep(value, exponent, 512)
-  })
-}
-
-const normalizeSmall = (value: number, exponent: number): Normalized =>
-  Boolean.match(Number.lessThan(value, 1), {
-    onTrue: () => normalizeSmall(Number.multiply(value, power2_512), Number.subtract(exponent, 512)),
-    onFalse: () => normalizeLarge(value, exponent)
-  })
+/** Internal exponent estimate only; exact dyadic scaling certifies normalization. */
+export const log2: (value: number) => number = Math.log2
 
 /**
  * Normalizes a positive finite nonzero binary64 value to `x = m × 2^e`,
  * where `1 <= m < 2`. Inputs outside that contract are not supported.
  */
-export const normalize = (value: number): Normalized => normalizeSmall(value, 0)
+export const normalize = (value: number): Normalized => {
+  // Rounding log2 directly is not a binary exponent extraction: inputs on
+  // either side of a power of two can share its logarithm. Exact scaling
+  // followed by the mantissa comparison recovers the correct binade.
+  const exponent = Number.min(Number.round(log2(value), 0), 1023)
+  const ratio = Boolean.match(Number.lessThan(exponent, -1023), {
+    onTrue: () => scaleNormal(Number.multiply(value, power2_512), Number.negate(Number.sum(exponent, 512))),
+    onFalse: () => scaleNormal(value, Number.negate(exponent))
+  })
+  return Boolean.match(Number.lessThan(ratio, 1), {
+    onTrue: () => new Normalized({ mantissa: Number.multiply(ratio, 2), exponent: Number.decrement(exponent) }),
+    onFalse: () => new Normalized({ mantissa: ratio, exponent })
+  })
+}
 
 /** Decomposes a finite nonzero number without inspecting its storage. */
 export const decompose = (value: number): Dyadic => {

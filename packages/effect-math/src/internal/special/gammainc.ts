@@ -8,7 +8,7 @@
  * @since 0.1.0
  * @category internal
  */
-import { Boolean, Data, Iterable, Number, Option, Tuple } from "effect"
+import { Array, Boolean, MutableRef, Number } from "effect"
 
 import { abs, exp, log } from "../../Numeric.js"
 import { lnGammaLanczos } from "./gamma.js"
@@ -16,21 +16,7 @@ import { lnGammaLanczos } from "./gamma.js"
 const maxIterations = 200
 const epsilon = 1e-14
 const minimumPositive = 1e-30
-
-class GammaincSeriesState extends Data.Class<{
-  readonly ap: number
-  readonly term: number
-  readonly sum: number
-  readonly remaining: number
-}> {}
-
-class GammaincCFState extends Data.Class<{
-  readonly value: number
-  readonly c: number
-  readonly d: number
-  readonly iteration: number
-  readonly converged: boolean
-}> {}
+const iterations = Array.range(1, maxIterations)
 
 /** Clamp tiny values away from zero to prevent division overflow. */
 const guard = (value: number): number =>
@@ -40,7 +26,7 @@ const guard = (value: number): number =>
   })
 
 /**
- * Iterable-driven series expansion for P(a,x).
+ * Series expansion for P(a,x).
  *
  * P(a,x) = e^{−x} x^a / Γ(a) · Σ_{n=0}^{∞} x^n / (a·(a+1)·…·(a+n))
  *
@@ -51,46 +37,41 @@ const gammaincSeriesLoop = (
   x: number,
   ap: number,
   term: number,
-  sum: number,
-  remaining: number
+  sum: number
 ): number => {
-  const initial = new GammaincSeriesState({ ap, term, sum, remaining })
-  return Iterable.reduce(
-    Iterable.unfold(initial, (state) =>
-      Boolean.match(
-        Boolean.or(
-          Number.Equivalence(state.remaining, 0),
-          Number.lessThan(abs(state.term), Number.multiply(epsilon, abs(state.sum)))
-        ),
-        {
-          onTrue: Option.none,
-          onFalse: () => {
-            const apNext = Number.sum(state.ap, 1)
-            const termNext = Number.multiply(state.term, Number.unsafeDivide(x, apNext))
-            const next = new GammaincSeriesState({
-              ap: apNext,
-              term: termNext,
-              sum: Number.sum(state.sum, termNext),
-              remaining: Number.subtract(state.remaining, 1)
-            })
-            return Option.some(Tuple.make(next.sum, next))
-          }
-        }
-      )),
-    sum,
-    (_sum, next) => next
-  )
+  const apState = MutableRef.make(ap)
+  const termState = MutableRef.make(term)
+  const sumState = MutableRef.make(sum)
+  Boolean.match(Number.lessThan(abs(term), Number.multiply(epsilon, abs(sum))), {
+    onTrue: () => true,
+    onFalse: () => {
+      Array.some(iterations, (iteration) => {
+        const apNext = Number.sum(MutableRef.get(apState), 1)
+        const termNext = Number.multiply(MutableRef.get(termState), Number.unsafeDivide(x, apNext))
+        const sumNext = Number.sum(MutableRef.get(sumState), termNext)
+        MutableRef.set(apState, apNext)
+        MutableRef.set(termState, termNext)
+        MutableRef.set(sumState, sumNext)
+        return Boolean.or(
+          Number.Equivalence(iteration, maxIterations),
+          Number.lessThan(abs(termNext), Number.multiply(epsilon, abs(sumNext)))
+        )
+      })
+      return false
+    }
+  })
+  return MutableRef.get(sumState)
 }
 
 const gammaincSeries = (a: number, x: number, logGamma: number): number => {
   const lnPrefix = Number.subtract(Number.multiply(a, log(x)), Number.sum(x, logGamma))
   const initial = Number.unsafeDivide(1, a)
-  const sum = gammaincSeriesLoop(x, a, initial, initial, maxIterations)
+  const sum = gammaincSeriesLoop(x, a, initial, initial)
   return Number.multiply(exp(lnPrefix), sum)
 }
 
 /**
- * Iterable-driven modified Lentz CF for Q(a,x).
+ * Modified Lentz CF for Q(a,x).
  *
  * Uses the Legendre CF representation of Γ(a,x)
  * (Gautschi, 1979; Lentz, 1976).
@@ -105,44 +86,30 @@ const gammaincCFLoop = (
   x: number,
   f: number,
   c: number,
-  d: number,
-  n: number
+  d: number
 ): number => {
-  const initial = new GammaincCFState({ value: f, c, d, iteration: n, converged: false })
-  const final = Iterable.reduce(
-    Iterable.unfold(
-      initial,
-      (state) =>
-        Boolean.match(Boolean.or(state.converged, Number.greaterThan(state.iteration, maxIterations)), {
-          onTrue: Option.none,
-          onFalse: () => {
-            const an = Number.multiply(state.iteration, Number.subtract(a, state.iteration))
-            const bn = Number.sum(Number.sum(x, 1), Number.subtract(Number.multiply(2, state.iteration), a))
-            const dNext = Number.unsafeDivide(1, guard(Number.sum(bn, Number.multiply(an, state.d))))
-            const cNext = guard(Number.sum(bn, Number.unsafeDivide(an, state.c)))
-            const delta = Number.multiply(cNext, dNext)
-            const next = new GammaincCFState({
-              value: Number.multiply(state.value, delta),
-              c: cNext,
-              d: dNext,
-              iteration: Number.sum(state.iteration, 1),
-              converged: Number.lessThan(abs(Number.subtract(delta, 1)), epsilon)
-            })
-            return Option.some(Tuple.make(next, next))
-          }
-        })
-    ),
-    initial,
-    (_state, next) => next
-  )
-  return final.value
+  const valueState = MutableRef.make(f)
+  const cState = MutableRef.make(c)
+  const dState = MutableRef.make(d)
+  Array.some(iterations, (iteration) => {
+    const an = Number.multiply(iteration, Number.subtract(a, iteration))
+    const bn = Number.sum(Number.sum(x, 1), Number.subtract(Number.multiply(2, iteration), a))
+    const dNext = Number.unsafeDivide(1, guard(Number.sum(bn, Number.multiply(an, MutableRef.get(dState)))))
+    const cNext = guard(Number.sum(bn, Number.unsafeDivide(an, MutableRef.get(cState))))
+    const delta = Number.multiply(cNext, dNext)
+    MutableRef.set(valueState, Number.multiply(MutableRef.get(valueState), delta))
+    MutableRef.set(cState, cNext)
+    MutableRef.set(dState, dNext)
+    return Number.lessThan(abs(Number.subtract(delta, 1)), epsilon)
+  })
+  return MutableRef.get(valueState)
 }
 
 const gammaincCF = (a: number, x: number, logGamma: number): number => {
   const lnPrefix = Number.subtract(Number.multiply(a, log(x)), Number.sum(x, logGamma))
   const b0 = Number.subtract(Number.sum(x, 1), a)
   const f0 = guard(b0)
-  const result = gammaincCFLoop(a, x, f0, f0, 0, 1)
+  const result = gammaincCFLoop(a, x, f0, f0, 0)
   return Number.multiply(exp(lnPrefix), Number.unsafeDivide(1, result))
 }
 

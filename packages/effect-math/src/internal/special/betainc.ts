@@ -11,7 +11,7 @@
  * @since 0.1.0
  * @category internal
  */
-import { Boolean, Data, Iterable, Number, Option, Tuple } from "effect"
+import { Array, Boolean, MutableRef, Number } from "effect"
 
 import { abs, exp, log } from "../../Numeric.js"
 import { lnGammaLanczos } from "./gamma.js"
@@ -19,6 +19,7 @@ import { lnGammaLanczos } from "./gamma.js"
 const maxIterations = 200
 const epsilon = 3e-14
 const minimumPositive = 1e-30
+const iterations = Array.range(1, maxIterations)
 
 /**
  * Log of B(a,b) = Γ(a)Γ(b)/Γ(a+b), shared by beta probabilities and densities.
@@ -31,14 +32,6 @@ export const betaLogNorm = (a: number, b: number): number =>
     Number.sum(lnGammaLanczos(a), lnGammaLanczos(b)),
     lnGammaLanczos(Number.sum(a, b))
   )
-
-class BetaincState extends Data.Class<{
-  readonly value: number
-  readonly c: number
-  readonly d: number
-  readonly iteration: number
-  readonly converged: boolean
-}> {}
 
 /** Clamp tiny values away from zero to prevent division overflow. */
 const guard = (value: number): number =>
@@ -62,13 +55,11 @@ const betacf = (a: number, b: number, x: number): number => {
   const qam = Number.subtract(a, 1)
 
   const d0 = Number.unsafeDivide(1, guard(Number.subtract(1, Number.unsafeDivide(Number.multiply(qab, x), qap))))
-  return betacfLoop(a, b, x, qab, qap, qam, d0, 1, d0, 1)
+  return betacfLoop(a, b, x, qab, qap, qam, d0, 1, d0)
 }
 
 /**
- * Iterable-driven Lentz CF evaluation.
- *
- * Lentz state is represented by the immutable `BetaincState` model.
+ * Lentz CF evaluation with scalar mutable state and bounded early termination.
  *
  * @since 0.1.0
  * @category internal
@@ -82,49 +73,35 @@ const betacfLoop = (
   qam: number,
   h: number,
   cPrev: number,
-  dPrev: number,
-  m: number
+  dPrev: number
 ): number => {
-  const initial = new BetaincState({ value: h, c: cPrev, d: dPrev, iteration: m, converged: false })
-  const final = Iterable.reduce(
-    Iterable.unfold(
-      initial,
-      (state) =>
-        Boolean.match(Boolean.or(state.converged, Number.greaterThan(state.iteration, maxIterations)), {
-          onTrue: Option.none,
-          onFalse: () => {
-            const twoM = Number.multiply(2, state.iteration)
-            const numEven = Number.unsafeDivide(
-              Number.multiply(Number.multiply(state.iteration, Number.subtract(b, state.iteration)), x),
-              Number.multiply(Number.sum(qam, twoM), Number.sum(a, twoM))
-            )
-            const d1 = Number.unsafeDivide(1, guard(Number.sum(1, Number.multiply(numEven, state.d))))
-            const c1 = guard(Number.sum(1, Number.unsafeDivide(numEven, state.c)))
-            const h1 = Number.multiply(state.value, Number.multiply(d1, c1))
-            const numOdd = Number.negate(
-              Number.unsafeDivide(
-                Number.multiply(Number.multiply(Number.sum(a, state.iteration), Number.sum(qab, state.iteration)), x),
-                Number.multiply(Number.sum(a, twoM), Number.sum(qap, twoM))
-              )
-            )
-            const d2 = Number.unsafeDivide(1, guard(Number.sum(1, Number.multiply(numOdd, d1))))
-            const c2 = guard(Number.sum(1, Number.unsafeDivide(numOdd, c1)))
-            const delta = Number.multiply(d2, c2)
-            const next = new BetaincState({
-              value: Number.multiply(h1, delta),
-              c: c2,
-              d: d2,
-              iteration: Number.sum(state.iteration, 1),
-              converged: Number.lessThan(abs(Number.subtract(delta, 1)), epsilon)
-            })
-            return Option.some(Tuple.make(next, next))
-          }
-        })
-    ),
-    initial,
-    (_state, next) => next
-  )
-  return final.value
+  const valueState = MutableRef.make(h)
+  const cState = MutableRef.make(cPrev)
+  const dState = MutableRef.make(dPrev)
+  Array.some(iterations, (iteration) => {
+    const twoM = Number.multiply(2, iteration)
+    const numEven = Number.unsafeDivide(
+      Number.multiply(Number.multiply(iteration, Number.subtract(b, iteration)), x),
+      Number.multiply(Number.sum(qam, twoM), Number.sum(a, twoM))
+    )
+    const d1 = Number.unsafeDivide(1, guard(Number.sum(1, Number.multiply(numEven, MutableRef.get(dState)))))
+    const c1 = guard(Number.sum(1, Number.unsafeDivide(numEven, MutableRef.get(cState))))
+    const h1 = Number.multiply(MutableRef.get(valueState), Number.multiply(d1, c1))
+    const numOdd = Number.negate(
+      Number.unsafeDivide(
+        Number.multiply(Number.multiply(Number.sum(a, iteration), Number.sum(qab, iteration)), x),
+        Number.multiply(Number.sum(a, twoM), Number.sum(qap, twoM))
+      )
+    )
+    const d2 = Number.unsafeDivide(1, guard(Number.sum(1, Number.multiply(numOdd, d1))))
+    const c2 = guard(Number.sum(1, Number.unsafeDivide(numOdd, c1)))
+    const delta = Number.multiply(d2, c2)
+    MutableRef.set(valueState, Number.multiply(h1, delta))
+    MutableRef.set(cState, c2)
+    MutableRef.set(dState, d2)
+    return Number.lessThan(abs(Number.subtract(delta, 1)), epsilon)
+  })
+  return MutableRef.get(valueState)
 }
 
 /**

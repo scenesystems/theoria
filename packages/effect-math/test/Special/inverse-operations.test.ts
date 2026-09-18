@@ -132,6 +132,12 @@ describe("Special / gammaincc", () => {
       expectClose(gammaincc(1, 1), exp(-1), kernelTolerance)
     }))
 
+  it.effect("preserves the complementary tail for an integer shape", () =>
+    Effect.gen(function*() {
+      // Q(2, x) = exp(-x)(1 + x), an exact finite-sum reference.
+      expectClose(gammaincc(2, 40), Number.multiply(exp(-40), 41), 1e-29)
+    }))
+
   it.effect("gammainc(a, x) + gammaincc(a, x) ≈ 1", () =>
     Effect.gen(function*() {
       expectClose(Number.sum(gammainc(5, 5), gammaincc(5, 5)), 1, kernelTolerance)
@@ -161,6 +167,18 @@ describe("Special / betainc", () => {
   it.effect("betainc(2, 3, 0.5) ≈ 0.6875", () =>
     Effect.gen(function*() {
       expectClose(betainc(2, 3, 0.5), 0.6875, kernelTolerance)
+    }))
+
+  it.effect("preserves a direct lower tail with b = 1", () =>
+    Effect.gen(function*() {
+      // I_x(2, 1) = x².
+      expectClose(betainc(2, 1, 1e-12), 1e-24, 1e-36)
+    }))
+
+  it.effect("applies reflection without changing the closed-form result", () =>
+    Effect.gen(function*() {
+      // I_x(1, 2) = 1 - (1 - x)².
+      expectClose(betainc(1, 2, 0.875), 0.984375, 1e-14)
     }))
 })
 

@@ -4,7 +4,7 @@
  * @since 0.1.0
  * @category internal
  */
-import { Boolean, Chunk, Data, Iterable, Number, Option, Schema, Tuple } from "effect"
+import { Array, Boolean, Chunk, Data, Iterable, MutableRef, Number, Option, Schema, Tuple } from "effect"
 
 import type { DerivativeLimitEstimate, RidderMethodInput } from "../../Calculus.js"
 import * as Numeric from "../../Numeric.js"
@@ -155,50 +155,37 @@ class RowRefinement extends Data.Class<{
   readonly rowError: number
 }> {}
 
-class RowState extends Data.Class<{
-  readonly factor: number
-  readonly row: Chunk.Chunk<number>
-  readonly rowError: number
-}> {}
-
 const lastOr = (values: Chunk.Chunk<number>, fallback: number): number =>
   Option.getOrElse(Chunk.last(values), () => fallback)
 
 const refineRow = (
   previousRow: Chunk.Chunk<number>,
   firstColumn: number,
-  depth: number,
   contractionSquared: number
 ): RowRefinement => {
-  const initial = new RowState({
-    factor: contractionSquared,
-    row: Chunk.of(firstColumn),
-    rowError: positiveInfinity
-  })
-  const final = Iterable.reduce(
-    Iterable.range(1, depth),
-    initial,
-    (state, column) => {
-      const current = lastOr(state.row, firstColumn)
-      const previous = Option.getOrElse(Chunk.get(previousRow, Number.decrement(column)), () => current)
-      const denominator = Number.subtract(state.factor, 1)
+  const factor = MutableRef.make(contractionSquared)
+  const rowError = MutableRef.make(positiveInfinity)
+  const row = Array.scan(
+    Chunk.toReadonlyArray(previousRow),
+    firstColumn,
+    (current, previous) => {
+      const currentFactor = MutableRef.get(factor)
+      const denominator = Number.subtract(currentFactor, 1)
       const refined = Number.unsafeDivide(
-        Number.subtract(Number.multiply(current, state.factor), previous),
+        Number.subtract(Number.multiply(current, currentFactor), previous),
         denominator
       )
       const localError = Number.max(
         Numeric.abs(Number.subtract(refined, current)),
         Numeric.abs(Number.subtract(refined, previous))
       )
-      return new RowState({
-        factor: Number.multiply(state.factor, contractionSquared),
-        row: Chunk.append(state.row, refined),
-        rowError: Number.min(state.rowError, localError)
-      })
+      MutableRef.set(factor, Number.multiply(currentFactor, contractionSquared))
+      MutableRef.set(rowError, Number.min(MutableRef.get(rowError), localError))
+      return refined
     }
   )
 
-  return new RowRefinement({ row: final.row, rowError: final.rowError })
+  return new RowRefinement({ row: Chunk.fromIterable(row), rowError: MutableRef.get(rowError) })
 }
 
 const selectBetterEstimate = (
@@ -251,7 +238,7 @@ const advance = <State>(
             onFalse: () => finish(state, state.best, stepResult.state),
             onTrue: () => {
               const firstColumn = stepResult.value
-              const refinement = refineRow(state.previousRow, firstColumn, state.depth, contractionSquared)
+              const refinement = refineRow(state.previousRow, firstColumn, contractionSquared)
               const diagonal = lastOr(refinement.row, firstColumn)
               const previousDiagonal = Option.getOrElse(
                 Chunk.get(state.previousRow, Number.decrement(state.depth)),

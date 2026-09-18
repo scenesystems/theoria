@@ -71,6 +71,14 @@ describe("Algebra / polyEval", () => {
       expect(polyEval(Chunk.empty(), Number.unsafeDivide(0, 0))).toBe(0)
     }))
 
+  it.effect("applies non-finite evaluation points only to nonconstant terms", () =>
+    Effect.gen(function*() {
+      const positiveInfinity = Number.unsafeDivide(1, 0)
+      expect(polyEval(Chunk.make(1, 2), positiveInfinity)).toBe(positiveInfinity)
+      expect(polyEval(Chunk.make(1, Number.negate(2)), positiveInfinity)).toBe(Number.negate(positiveInfinity))
+      expect(polyEval(Chunk.make(1, 2), Number.unsafeDivide(0, 0))).toBeNaN()
+    }))
+
   it.effect.prop("evaluates coefficients in lowest-degree-first order", {
     constant: FastCheck.integer({ min: Number.negate(20), max: 20 }),
     linear: FastCheck.integer({ min: Number.negate(20), max: 20 }),

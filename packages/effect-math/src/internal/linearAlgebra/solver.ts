@@ -6,7 +6,7 @@
  */
 import { Array, Boolean, Chunk, Number, Option, Tuple } from "effect"
 
-import { abs, ceil, floor, sqrt } from "../../Numeric.js"
+import { abs, ceil, sqrt } from "../../Numeric.js"
 
 const solverEpsilon = 1e-12
 
@@ -126,14 +126,11 @@ export const choleskySpd = (
               })
           ).pipe(
             Option.map((lowerRows) =>
-              Chunk.makeBy(Number.multiply(rowCount, rowCount), (flatIndex) => {
-                const row = floor(Number.unsafeDivide(flatIndex, rowCount))
-                const column = Number.subtract(flatIndex, Number.multiply(row, rowCount))
-                return Boolean.match(Number.lessThanOrEqualTo(column, row), {
-                  onFalse: () => 0,
-                  onTrue: () => Array.unsafeGet(Array.unsafeGet(lowerRows, row), column)
-                })
-              })
+              Chunk.unsafeFromArray(Array.flatMap(lowerRows, (row) =>
+                Boolean.match(Number.lessThan(Array.length(row), rowCount), {
+                  onTrue: () => Array.appendAll(row, Array.replicate(0, Number.subtract(rowCount, Array.length(row)))),
+                  onFalse: () => row
+                })))
             )
           )
         )
@@ -158,21 +155,21 @@ export const forwardSubstituteLower = (
     Option.flatMap(() => {
       const transientLower = Chunk.toReadonlyArray(lower)
       const transientRhs = Chunk.toReadonlyArray(rhs)
-      const allIndices = indices(size)
-      return Chunk.reduce(
-        allIndices,
-        Option.some(Chunk.empty<number>()),
+      return Array.reduce(
+        arrayIndices(size),
+        Option.some(Array.empty<number>()),
         (solvedOption, index) =>
           Option.flatMap(solvedOption, (solved) => {
-            const projection = Chunk.reduce(
-              Chunk.take(allIndices, index),
+            const rowStart = Number.multiply(index, size)
+            const projection = Array.reduce(
+              solved,
               0,
-              (sum, column) =>
+              (sum, value, column) =>
                 Number.sum(
                   sum,
                   Number.multiply(
-                    matrixValueAt(transientLower, size, index, column),
-                    Chunk.unsafeGet(solved, column)
+                    Array.unsafeGet(transientLower, Number.sum(rowStart, column)),
+                    value
                   )
                 )
             )
@@ -181,7 +178,7 @@ export const forwardSubstituteLower = (
               (diagonal) => Number.greaterThan(abs(diagonal), solverEpsilon)
             ).pipe(
               Option.map((diagonal) =>
-                Chunk.append(
+                Array.append(
                   solved,
                   Number.unsafeDivide(
                     Number.subtract(Array.unsafeGet(transientRhs, index), projection),
@@ -191,7 +188,7 @@ export const forwardSubstituteLower = (
               )
             )
           })
-      )
+      ).pipe(Option.map(Chunk.unsafeFromArray))
     })
   )
 

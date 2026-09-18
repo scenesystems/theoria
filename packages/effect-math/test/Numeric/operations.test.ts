@@ -22,6 +22,7 @@ import {
   log10,
   log1p,
   log1pWithPolicies,
+  logStrict,
   logValidated,
   max,
   min,
@@ -100,6 +101,26 @@ describe("Numeric scalar arithmetic", () => {
 })
 
 describe("Numeric transcendental kernels", () => {
+  it.effect("preserves strict replay values at normalization boundaries", () =>
+    Effect.gen(function*() {
+      // Historical 24-term accumulation, independently evaluated with Python
+      // math.frexp and binary64 arithmetic. These intentionally are not the
+      // correctly rounded natural log: changing them changes seeded search.
+      expect(logStrict(0.1)).toBe(-2.3025850929940455)
+      expect(logStrict(0.9999999999999999)).toBe(-3.3306690738754696e-16)
+      expect(logStrict(1)).toBe(0)
+      expect(logStrict(1.0000000000000002)).toBe(2.220446049250313e-16)
+      expect(logStrict(1.9999999999999998)).toBe(0.693147180559945)
+      expect(logStrict(2.0000000000000004)).toBe(0.6931471805599455)
+      expect(logStrict(5e-324)).toBe(-744.4400719213812)
+      expect(logStrict(2.2250738585072014e-308)).toBe(-708.3964185322641)
+      expect(logStrict(1.7976931348623157e308)).toBe(709.782712893384)
+      expect(logStrict(-0)).toBe(Number.unsafeDivide(-1, 0))
+      expect(logStrict(Number.unsafeDivide(1, 0))).toBe(Number.unsafeDivide(1, 0))
+      expect(logStrict(-1)).toBeNaN()
+      expect(logStrict(Number.unsafeDivide(0, 0))).toBeNaN()
+    }))
+
   it.effect("matches independent golden values across the logarithm and exponential ranges", () =>
     Effect.gen(function*() {
       expect(log(1)).toBe(0)

@@ -55,6 +55,14 @@ describe("Numeric log-space kernels", () => {
       expect(logsubexp(2, 3)).toBeNaN()
     }))
 
+  it.effect("retains differences whose exponentials round to the same binary64 value", () =>
+    Effect.gen(function*() {
+      // ln(exp(x) - 1) = ln(x) + x/2 + O(x²); corrections at these
+      // positive inputs are smaller than one ulp of the listed logarithms.
+      closeTo(logsubexp(1e-300, 0), -690.7755278982137)
+      closeTo(logsubexp(5e-324, 0), -744.4400719213812)
+    }))
+
   it.effect("uses cancellation-safe branches around zero and negative ln(2)", () =>
     Effect.gen(function*() {
       closeTo(log1mexp(-1), -0.45867514538708193)

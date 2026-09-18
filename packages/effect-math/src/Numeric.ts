@@ -1,5 +1,7 @@
 /**
  * Numeric schemas, errors, scalar transforms, reductions, and policy-aware operations.
+ * Ordinary transcendental operations use engine intrinsics whose final-bit rounding
+ * may vary across engines. Strict precision-policy kernels retain reproducible evaluation.
  *
  * @since 0.1.0
  * @module
@@ -450,7 +452,7 @@ export const sin: typeof Transcendental.sin = Transcendental.sin
 export const cos: typeof Transcendental.cos = Transcendental.cos
 
 /**
- * Computes the exponential with ln(2) range reduction and exact dyadic scaling.
+ * Computes the exponential using the engine's binary64 intrinsic.
  * @since 0.4.0
  * @category operations
  */
@@ -471,7 +473,7 @@ export const atan2: typeof Transcendental.atan2 = Transcendental.atan2
 export const sinh: typeof Transcendental.sinh = Transcendental.sinh
 
 /**
- * Computes hyperbolic cosine using symmetrically scaled exponentials.
+ * Computes hyperbolic cosine without premature intermediate overflow.
  * @since 0.4.0
  * @category operations
  */
@@ -486,8 +488,8 @@ export const cosh: typeof Transcendental.cosh = Transcendental.cosh
 export const log10: typeof Transcendental.log10 = Transcendental.log10
 
 /**
- * Raises `base` to `exponent`, dispatching integral exponents before the
- * logarithm/exponential path so negative bases retain their real results.
+ * Raises `base` to `exponent` using the engine's binary64 intrinsic, including
+ * real integral powers of negative bases and IEEE exceptional values.
  * @since 0.4.0
  * @category operations
  */
@@ -543,28 +545,28 @@ export const log: typeof Transcendental.log = Transcendental.log
 export const logStrict: typeof Transcendental.logStrict = Transcendental.logStrict
 
 /**
- * Computes `ln(1 + x)` with a cancellation-aware small-input series.
+ * Computes `ln(1 + x)` with a cancellation-aware engine intrinsic.
  * @since 0.1.0
  * @category operations
  */
 export const log1p: typeof Transcendental.log1p = Transcendental.log1p
 
 /**
- * Deterministic precision-policy alias for {@link log1p}.
+ * Computes `ln(1 + x)` with a reproducible cancellation-aware software kernel.
  * @since 0.1.0
  * @category operations
  */
 export const log1pStrict: typeof Transcendental.log1pStrict = Transcendental.log1pStrict
 
 /**
- * Computes `exp(x) - 1` with a cancellation-aware small-input series.
+ * Computes `exp(x) - 1` with a cancellation-aware engine intrinsic.
  * @since 0.1.0
  * @category operations
  */
 export const expm1: typeof Transcendental.expm1 = Transcendental.expm1
 
 /**
- * Deterministic precision-policy alias for {@link expm1}.
+ * Computes `exp(x) - 1` with a reproducible cancellation-aware software kernel.
  * @since 0.1.0
  * @category operations
  */
@@ -818,8 +820,9 @@ export const sumWithPolicies = (values: Iterable<number>) =>
  * relaxed mode, preserving accuracy near zero when requested.
  *
  * @remarks
- * Both policy modes use the deterministic native-composition kernel. Enabled
- * diagnostics logs the precision, input, and result.
+ * Strict mode retains reproducible software evaluation; relaxed mode uses
+ * the engine intrinsic. Both preserve small increments. Enabled diagnostics
+ * logs the precision, input, and result.
  *
  * @example
  * ```ts
@@ -876,8 +879,9 @@ export const log1pWithPolicies = (value: number) =>
  * relaxed mode, preserving small increments near zero when requested.
  *
  * @remarks
- * Both policy modes use the deterministic native-composition kernel. Enabled
- * diagnostics logs the precision, input, and result.
+ * Strict mode retains reproducible software evaluation; relaxed mode uses
+ * the engine intrinsic. Both preserve small increments. Enabled diagnostics
+ * logs the precision, input, and result.
  * @since 0.1.0
  * @category operations
  */

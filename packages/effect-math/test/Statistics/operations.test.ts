@@ -1,5 +1,5 @@
 import { describe, expect, it } from "@effect/vitest"
-import { Array, Chunk, Effect, Number, Option } from "effect"
+import { Array, Chunk, Effect, Exit, Number, Option } from "effect"
 
 import { sqrt } from "../../src/Numeric.js"
 
@@ -57,6 +57,24 @@ describe("Statistics / mean", () => {
     Effect.gen(function*() {
       expect(Number.Equivalence(mean(Chunk.make(1e308, 1e308)), 1e308)).toBe(true)
       expect(variance(Chunk.make(1e308, 1e308))).toBe(0)
+      expect(mean(Chunk.make(1.5e308, 1.5e308, -1.5e308))).toBe(5e307)
+    }))
+
+  it.effect("does not divide subnormal observations before summing them", () =>
+    Effect.gen(function*() {
+      expect(mean(Chunk.make(5e-324, 5e-324))).toBe(5e-324)
+      expect(mean(Chunk.make(5e-324, 1.5e-323))).toBe(1e-323)
+    }))
+
+  it.effect("preserves observation order and non-finite sample semantics", () =>
+    Effect.gen(function*() {
+      const positiveInfinity = Number.unsafeDivide(1, 0)
+      const negativeInfinity = Number.negate(positiveInfinity)
+      expect(mean(Chunk.make(1e16, Number.negate(1e16), 1))).toBe(Number.unsafeDivide(1, 3))
+      expect(mean(Chunk.make(positiveInfinity, 1))).toBe(positiveInfinity)
+      expect(mean(Chunk.make(negativeInfinity, negativeInfinity))).toBe(negativeInfinity)
+      expect(mean(Chunk.make(positiveInfinity, negativeInfinity))).toBeNaN()
+      expect(mean(Chunk.empty())).toBeNaN()
     }))
 })
 
@@ -92,6 +110,13 @@ describe("Statistics / summaryStatistics", () => {
       expect(result.variance).toStrictEqual(2.5)
       expect(result.standardDeviation).toBeCloseTo(sqrt(2.5))
     }))
+
+  it.effect("retains the finite summary model for singleton non-finite observations", () =>
+    Effect.gen(function*() {
+      const positiveInfinity = Number.unsafeDivide(1, 0)
+      const result = yield* Effect.exit(Effect.sync(() => summaryStatistics(Chunk.of(positiveInfinity))))
+      expect(Exit.isFailure(result)).toBe(true)
+    }))
 })
 
 describe("Statistics / covariance", () => {
@@ -106,6 +131,13 @@ describe("Statistics / covariance", () => {
     Effect.gen(function*() {
       const values = Chunk.make(1, 3)
       expect(covariance(values, values)).toStrictEqual(variance(values))
+    }))
+
+  it.effect("uses full-sample means and the first sample denominator for unequal lengths", () =>
+    Effect.gen(function*() {
+      expect(covariance(Chunk.make(1, 2, 3), Chunk.make(10, 20))).toBe(2.5)
+      expect(covariance(Chunk.make(1, 2), Chunk.make(0, 3, 6))).toBe(1.5)
+      expect(covariance(Chunk.make(1, 2), Chunk.empty())).toBe(0)
     }))
 })
 

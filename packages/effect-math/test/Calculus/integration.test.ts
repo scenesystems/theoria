@@ -68,6 +68,23 @@ describe("Calculus / adaptive Simpson integration", () => {
       expect(MutableRef.get(evaluated)).toStrictEqual(Chunk.make(0, 0.5, 1, 0.25, 0.75))
     }))
 
+  it.effect("refines depth first without reevaluating cached segment points", () =>
+    Effect.gen(function*() {
+      const evaluated = MutableRef.make(Chunk.empty<number>())
+      const fourthPower = (x: number) => {
+        MutableRef.update(evaluated, Chunk.append(x))
+        const squared = Number.multiply(x, x)
+        return Number.multiply(squared, squared)
+      }
+
+      const result = adaptiveSimpson(fourthPower, 0, 1, 1e-30, 1e-30, 1)
+
+      expectClose(result, 0.2, 1e-16)
+      expect(MutableRef.get(evaluated)).toStrictEqual(
+        Chunk.make(0, 0.5, 1, 0.25, 0.75, 0.125, 0.375, 0.625, 0.875)
+      )
+    }))
+
   it.effect("preserves orientation for reversed interval bounds", () =>
     Effect.gen(function*() {
       expectClose(adaptiveSimpson(Numeric.sin, Numeric.pi, 0), -2, 1e-10)
