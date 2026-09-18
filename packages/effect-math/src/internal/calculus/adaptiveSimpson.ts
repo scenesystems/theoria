@@ -131,35 +131,67 @@ export const adaptiveSimpsonIntegral = (
   const fm = f(m)
   const fb = f(b)
   const whole = segment(a, b, fa, fm, fb)
+  const normalizedAbsoluteTolerance = Number.max(absoluteTolerance, 5e-324)
+  const normalizedRelativeTolerance = Number.max(relativeTolerance, 5e-324)
+  const leftMid = midpoint(a, m)
+  const rightMid = midpoint(m, b)
+  const fLeftMid = f(leftMid)
+  const fRightMid = f(rightMid)
+  const left = segment(a, m, fa, fLeftMid, fm)
+  const right = segment(m, b, fm, fRightMid, fb)
+  const combined = Number.sum(left, right)
+  const correction = Number.subtract(combined, whole)
+  const tolerance = localTolerance(combined, normalizedAbsoluteTolerance, normalizedRelativeTolerance)
+  const converged = Number.lessThanOrEqualTo(Numeric.abs(correction), Number.multiply(15, tolerance))
+  const complete = Boolean.or(Number.lessThanOrEqualTo(normalizedDepth, 0), converged)
 
-  const initial = new SimpsonState({
-    pending: Chunk.of(
-      new SimpsonFrame({
-        a,
-        b,
-        fa,
-        fm,
-        fb,
-        whole,
-        absoluteTolerance: Number.max(absoluteTolerance, 5e-324),
-        relativeTolerance: Number.max(relativeTolerance, 5e-324),
-        depth: normalizedDepth
+  return Boolean.match(complete, {
+    onTrue: () => Number.sum(combined, Number.unsafeDivide(correction, 15)),
+    onFalse: () => {
+      const nextAbsolute = Number.unsafeDivide(normalizedAbsoluteTolerance, 2)
+      const nextRelative = Number.unsafeDivide(normalizedRelativeTolerance, 2)
+      const nextDepth = Number.decrement(normalizedDepth)
+      const initial = new SimpsonState({
+        pending: Chunk.make(
+          new SimpsonFrame({
+            a,
+            b: m,
+            fa,
+            fm: fLeftMid,
+            fb: fm,
+            whole: left,
+            absoluteTolerance: nextAbsolute,
+            relativeTolerance: nextRelative,
+            depth: nextDepth
+          }),
+          new SimpsonFrame({
+            a: m,
+            b,
+            fa: fm,
+            fm: fRightMid,
+            fb,
+            whole: right,
+            absoluteTolerance: nextAbsolute,
+            relativeTolerance: nextRelative,
+            depth: nextDepth
+          })
+        ),
+        total: 0
       })
-    ),
-    total: 0
-  })
 
-  return Iterable.reduce(
-    Iterable.unfold(initial, (state) =>
-      Boolean.match(Chunk.isEmpty(state.pending), {
-        onTrue: Option.none,
-        onFalse: () => {
-          const next = refine(f, state)
-          return Option.some(Tuple.make(next, next))
-        }
-      })),
-    initial,
-    (_state, next) => next
-  )
-    .total
+      return Iterable.reduce(
+        Iterable.unfold(initial, (state) =>
+          Boolean.match(Chunk.isEmpty(state.pending), {
+            onTrue: Option.none,
+            onFalse: () => {
+              const next = refine(f, state)
+              return Option.some(Tuple.make(next, next))
+            }
+          })),
+        initial,
+        (_state, next) => next
+      )
+        .total
+    }
+  })
 }

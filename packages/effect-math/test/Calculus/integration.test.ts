@@ -1,5 +1,5 @@
 import { describe, expect, it } from "@effect/vitest"
-import { Array, Chunk, Effect, Exit, Number, Schema, String } from "effect"
+import { Array, Chunk, Effect, Exit, MutableRef, Number, Schema, String } from "effect"
 
 import {
   adaptiveSimpson,
@@ -50,6 +50,22 @@ describe("Calculus / adaptive Simpson integration", () => {
   it.effect("integrates sin(x) over [0, π] to machine-level tolerance", () =>
     Effect.gen(function*() {
       expectClose(adaptiveSimpson(Numeric.sin, 0, Numeric.pi), 2, 1e-10)
+    }))
+
+  it.effect("keeps endpoint and refinement callback evaluation order when the first interval converges", () =>
+    Effect.gen(function*() {
+      const evaluated = MutableRef.make(Chunk.empty<number>())
+      const result = adaptiveSimpson(
+        (x) => {
+          MutableRef.update(evaluated, Chunk.append(x))
+          return x
+        },
+        0,
+        1
+      )
+
+      expectClose(result, 0.5, 1e-12)
+      expect(MutableRef.get(evaluated)).toStrictEqual(Chunk.make(0, 0.5, 1, 0.25, 0.75))
     }))
 
   it.effect("preserves orientation for reversed interval bounds", () =>

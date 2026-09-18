@@ -8,7 +8,7 @@ import { Boolean, Chunk, HashMap, Number, Option, Tuple } from "effect"
 
 import type { RidderMethodInput } from "../../Calculus.js"
 import * as Numeric from "../../Numeric.js"
-import { evaluateVectorField, type MixedPartialKey, mixedPartialKey, VectorFieldCache } from "./multivariateCache.js"
+import { evaluateVectorField, VectorFieldCache } from "./multivariateCache.js"
 import { ridderExtrapolation, ridderExtrapolationWithState, StatefulStepResult } from "./ridderCore.js"
 
 const notANumber = Number.unsafeDivide(0, 0)
@@ -20,12 +20,7 @@ const perturbAxis = (
   point: Chunk.Chunk<number>,
   axis: number,
   delta: number
-): Chunk.Chunk<number> =>
-  Chunk.map(point, (value, index) =>
-    Boolean.match(Number.Equivalence(index, axis), {
-      onTrue: () => Number.sum(value, delta),
-      onFalse: () => value
-    }))
+): Chunk.Chunk<number> => Chunk.modify(point, axis, (value) => Number.sum(value, delta))
 
 const perturbAxes = (
   point: Chunk.Chunk<number>,
@@ -34,21 +29,14 @@ const perturbAxes = (
   deltaA: number,
   deltaB: number
 ): Chunk.Chunk<number> =>
-  Chunk.map(point, (value, index) => {
-    const onAxisA = Number.Equivalence(index, axisA)
-    const onAxisB = Number.Equivalence(index, axisB)
-    return Boolean.match(Boolean.and(onAxisA, onAxisB), {
-      onTrue: () => Number.sum(value, Number.sum(deltaA, deltaB)),
-      onFalse: () =>
-        Boolean.match(onAxisA, {
-          onTrue: () => Number.sum(value, deltaA),
-          onFalse: () =>
-            Boolean.match(onAxisB, {
-              onTrue: () => Number.sum(value, deltaB),
-              onFalse: () => value
-            })
-        })
-    })
+  Boolean.match(Number.Equivalence(axisA, axisB), {
+    onTrue: () => Chunk.modify(point, axisA, (value) => Number.sum(value, Number.sum(deltaA, deltaB))),
+    onFalse: () =>
+      Chunk.modify(
+        Chunk.modify(point, axisA, (value) => Number.sum(value, deltaA)),
+        axisB,
+        (value) => Number.sum(value, deltaB)
+      )
   })
 
 const partialDerivative = (
@@ -163,31 +151,6 @@ export const jacobianLimit = (
   return values
 }
 
-const resolveHessianEntry = (
-  f: (point: Chunk.Chunk<number>) => number,
-  point: Chunk.Chunk<number>,
-  row: number,
-  column: number,
-  cache: HashMap.HashMap<MixedPartialKey, number>,
-  config?: RidderMethodInput
-) => {
-  const key = mixedPartialKey(row, column)
-  return Boolean.match(Number.Equivalence(row, column), {
-    onTrue: () => {
-      const value = secondPartialDerivative(f, point, row, config)
-      return Tuple.make(HashMap.set(cache, key, value), value)
-    },
-    onFalse: () =>
-      Option.match(HashMap.get(cache, key), {
-        onSome: (value) => Tuple.make(cache, value),
-        onNone: () => {
-          const value = mixedSecondPartialDerivative(f, point, row, column, config)
-          return Tuple.make(HashMap.set(cache, key, value), value)
-        }
-      })
-  })
-}
-
 /**
  * Hessian via diagonal and cached symmetric mixed partial derivatives.
  *
@@ -200,20 +163,22 @@ export const hessianLimit = (
   config?: RidderMethodInput
 ): Chunk.Chunk<Chunk.Chunk<number>> => {
   const axes = Chunk.map(point, (_coordinate, axis) => axis)
-  const [_cache, values] = Chunk.mapAccum(
+  return Chunk.reduce(
     axes,
-    HashMap.empty<MixedPartialKey, number>(),
-    (cache, row) => {
-      const [nextCache, rowValues] = Chunk.mapAccum(
-        axes,
-        cache,
-        (currentCache, column) => resolveHessianEntry(f, point, row, column, currentCache, config)
-      )
-      return Tuple.make(nextCache, rowValues)
+    Chunk.empty<Chunk.Chunk<number>>(),
+    (rows, row) => {
+      const rowValues = Chunk.map(axes, (column) =>
+        Boolean.match(Number.lessThan(column, row), {
+          onTrue: () => Chunk.unsafeGet(Chunk.unsafeGet(rows, column), row),
+          onFalse: () =>
+            Boolean.match(Number.Equivalence(row, column), {
+              onTrue: () => secondPartialDerivative(f, point, row, config),
+              onFalse: () => mixedSecondPartialDerivative(f, point, row, column, config)
+            })
+        }))
+      return Chunk.append(rows, rowValues)
     }
   )
-
-  return values
 }
 
 /**

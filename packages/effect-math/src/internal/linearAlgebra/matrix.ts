@@ -38,7 +38,7 @@ const transientValueAt = (
   )
 
 const hasDenseRegion = (
-  data: ReadonlyArray<number>,
+  dataLength: number,
   rows: number,
   cols: number,
   stride: number,
@@ -57,7 +57,7 @@ const hasDenseRegion = (
               offset,
               Number.sum(Number.multiply(Number.decrement(rows), stride), cols)
             ),
-            Array.length(data)
+            dataLength
           )
         )
       )
@@ -105,7 +105,10 @@ export const matvec = (
   const transientData = Chunk.toReadonlyArray(data)
   const transientX = Chunk.toReadonlyArray(x)
   const columnIndices = indices(cols)
-  const dataAt = transientReader(transientData, hasDenseRegion(transientData, rows, cols, stride, offset))
+  const dataAt = transientReader(
+    transientData,
+    hasDenseRegion(Array.length(transientData), rows, cols, stride, offset)
+  )
   const xAt = transientReader(
     transientX,
     Boolean.and(Number.greaterThan(cols, 0), Number.lessThanOrEqualTo(cols, Array.length(transientX)))
@@ -135,7 +138,10 @@ export const transpose = (
   offset: number
 ): Chunk.Chunk<number> => {
   const transientData = Chunk.toReadonlyArray(data)
-  const dataAt = transientReader(transientData, hasDenseRegion(transientData, rows, cols, stride, offset))
+  const dataAt = transientReader(
+    transientData,
+    hasDenseRegion(Array.length(transientData), rows, cols, stride, offset)
+  )
   const rowCount = ceil(rows)
   return Chunk.map(indices(elementCount(rows, cols)), (flatIndex) => {
     const sourceColumn = floor(Number.unsafeDivide(flatIndex, rowCount))
@@ -159,16 +165,35 @@ export const frobeniusNorm = (
   stride: number,
   offset: number
 ): number => {
-  const transientData = Chunk.toReadonlyArray(data)
-  const dataAt = transientReader(transientData, hasDenseRegion(transientData, rows, cols, stride, offset))
   const columnCount = ceil(cols)
-  return hypot(
-    Chunk.map(indices(elementCount(rows, cols)), (flatIndex) => {
-      const row = floor(Number.unsafeDivide(flatIndex, columnCount))
-      const column = Number.subtract(flatIndex, Number.multiply(row, columnCount))
-      return dataAt(
-        Number.sum(offset, Number.sum(Number.multiply(row, stride), column))
-      )
-    })
+  const count = elementCount(rows, cols)
+  return Boolean.match(
+    Boolean.and(
+      Number.Equivalence(stride, columnCount),
+      hasDenseRegion(Chunk.size(data), rows, cols, stride, offset)
+    ),
+    {
+      onTrue: () => hypot(Chunk.take(Chunk.drop(data, offset), count)),
+      onFalse: () => {
+        const transientData = Chunk.toReadonlyArray(data)
+        const dataAt = transientReader(
+          transientData,
+          hasDenseRegion(Array.length(transientData), rows, cols, stride, offset)
+        )
+        return hypot(
+          Boolean.match(Number.greaterThan(count, 0), {
+            onFalse: Chunk.empty,
+            onTrue: () =>
+              Chunk.makeBy(count, (flatIndex) => {
+                const row = floor(Number.unsafeDivide(flatIndex, columnCount))
+                const column = Number.subtract(flatIndex, Number.multiply(row, columnCount))
+                return dataAt(
+                  Number.sum(offset, Number.sum(Number.multiply(row, stride), column))
+                )
+              })
+          })
+        )
+      }
+    }
   )
 }

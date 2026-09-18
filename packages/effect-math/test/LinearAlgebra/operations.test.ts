@@ -168,6 +168,17 @@ describe("LinearAlgebra / frobeniusNorm", () => {
       const identity = Chunk.make(1, 0, 0, 1)
       expect(frobeniusNorm(identity, 2, 2)).toBeCloseTo(sqrt(2))
     }))
+
+  it.effect("computes a rectangular norm from independent squares", () =>
+    Effect.gen(function*() {
+      expect(frobeniusNorm(Chunk.make(3, 4, 0, 0, 0, 12), 2, 3)).toBeCloseTo(13)
+    }))
+
+  it.effect("treats missing storage as zero and ignores excess storage", () =>
+    Effect.gen(function*() {
+      expect(frobeniusNorm(Chunk.make(3, 4), 2, 2)).toBeCloseTo(5)
+      expect(frobeniusNorm(Chunk.make(3, 4, 12), 1, 2)).toBeCloseTo(5)
+    }))
 })
 
 describe("LinearAlgebra / cholesky", () => {
@@ -193,6 +204,29 @@ describe("LinearAlgebra / cholesky", () => {
     Effect.gen(function*() {
       const decomposed = cholesky(Chunk.make(2, 1, 0, 2), 2)
       expect(Option.isNone(decomposed)).toStrictEqual(true)
+    }))
+
+  it.effect("accepts symmetry differences at the documented tolerance", () =>
+    Effect.gen(function*() {
+      const decomposed = cholesky(Chunk.make(2, 0, 1e-12, 2), 2)
+      expect(Option.isSome(decomposed)).toBe(true)
+      Option.map(decomposed, (lower) => {
+        expect(Option.getOrElse(Chunk.get(lower, 0), () => 0)).toBeCloseTo(sqrt(2))
+        expect(Option.getOrElse(Chunk.get(lower, 1), () => 1)).toBe(0)
+        // 10^-12 / sqrt(2); the tolerance must distinguish this from the
+        // zero upper-triangle entry, even though symmetry accepts both.
+        expect(Option.getOrElse(Chunk.get(lower, 2), () => 0)).toBeCloseTo(
+          7.071067811865475e-13,
+          26
+        )
+        expect(Option.getOrElse(Chunk.get(lower, 3), () => 0)).toBeCloseTo(sqrt(2))
+      })
+    }))
+
+  it.effect("rejects symmetry differences above tolerance and pivots at tolerance", () =>
+    Effect.gen(function*() {
+      expect(Option.isNone(cholesky(Chunk.make(2, 0, 2e-12, 2), 2))).toBe(true)
+      expect(Option.isNone(cholesky(Chunk.of(1e-12), 1))).toBe(true)
     }))
 
   it.effect("preserves row-major pivot order for a three-dimensional factor", () =>

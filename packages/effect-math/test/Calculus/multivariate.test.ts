@@ -169,6 +169,30 @@ describe("Calculus / multivariate operators", () => {
       expect(MutableRef.get(counter)).toStrictEqual(10)
     }))
 
+  it.effect("hessian preserves upper-triangle callback evaluation order while mirroring mixed partials", () =>
+    Effect.gen(function*() {
+      const evaluated = MutableRef.make(Chunk.empty<Chunk.Chunk<number>>())
+      const countingSurface = (coordinates: Chunk.Chunk<number>) => {
+        MutableRef.update(evaluated, Chunk.append(coordinates))
+        return scalarSurface(coordinates)
+      }
+
+      const _result = hessian(countingSurface, point, { maxIterations: singleIterationBudget })
+
+      expect(MutableRef.get(evaluated)).toStrictEqual(Chunk.make(
+        point,
+        Chunk.make(1.01, 2),
+        Chunk.make(0.99, 2),
+        Chunk.make(1.01, 2.01),
+        Chunk.make(1.01, 1.99),
+        Chunk.make(0.99, 2.01),
+        Chunk.make(0.99, 1.99),
+        point,
+        Chunk.make(1, 2.01),
+        Chunk.make(1, 1.99)
+      ))
+    }))
+
   it.effect("directionalDerivative projects gradient onto normalized direction", () =>
     Effect.gen(function*() {
       const direction = Chunk.make(3, 4)

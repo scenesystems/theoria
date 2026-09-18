@@ -86,11 +86,7 @@ export const integerPower = (base: bigint, exponent: number): bigint =>
   })
 
 /** Magnitude with positive zero, and NaN propagation. */
-export const abs = (value: number): number =>
-  Boolean.match(Number.lessThan(value, 0), {
-    onTrue: () => Number.negate(value),
-    onFalse: () => Number.sum(0, value)
-  })
+export const abs = (value: number): number => Number.sum(0, Number.max(value, Number.negate(value)))
 
 const power2_512 = 1.3407807929942597e154
 // Private read-only lookup, built once with exact binary multiplications.
@@ -403,14 +399,16 @@ const sqrtFinitePositive = (value: number): number => {
     onTrue: () => normalized.mantissa,
     onFalse: () => Number.multiply(2, normalized.mantissa)
   })
-  const initial = Number.multiply(0.5, Number.sum(a, 1))
+  // The secant (a + 2)/3 agrees with sqrt at 1 and 4. Its worst
+  // relative error on [1, 4] is 1 - sqrt(8)/3 < 0.058, at a = 2.
+  // Newton's relative-error recurrence e²/(2*(1+e)) takes this below
+  // 7e-25 in four steps, leaving only binary64 rounding to certify below.
+  const initial = Number.unsafeDivide(Number.sum(a, 2), 3)
   const first = newtonRoot(a, initial)
   const second = newtonRoot(a, first)
   const third = newtonRoot(a, second)
-  const fourth = newtonRoot(a, third)
-  const fifth = newtonRoot(a, fourth)
-  const root = newtonRoot(a, fifth)
-  // Six steps put g within one spacing u of sqrt(a), 1 <= g <= 2.
+  const root = newtonRoot(a, third)
+  // Four steps put g within one spacing u of sqrt(a), 1 <= g <= 2.
   // Dekker TwoProduct: g² = product + error exactly. Do not reassociate.
   const product = Number.multiply(root, root)
   const error = squareError(root, product)
