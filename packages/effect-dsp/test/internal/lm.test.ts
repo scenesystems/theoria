@@ -3,7 +3,7 @@
  */
 import * as LanguageModel from "@effect/ai/LanguageModel"
 import { describe, expect, it } from "@effect/vitest"
-import { MockLanguageModel } from "@scenesystems/effect-dsp/test"
+import * as MockLanguageModel from "@scenesystems/effect-dsp/MockLanguageModel"
 import { Effect, Layer, Ref, Schema } from "effect"
 import { callLm, callLmText } from "../../src/internal/lm.js"
 
@@ -13,7 +13,7 @@ describe("internal/lm", () => {
   it.effect("callLm routes through LanguageModel.generateObject", () =>
     Effect.gen(function*() {
       const mock = yield* MockLanguageModel.make(
-        MockLanguageModel.fixed({ answer: "Paris" })
+        MockLanguageModel.succeed({ answer: "Paris" })
       )
 
       const result = yield* callLm(
@@ -33,7 +33,7 @@ describe("internal/lm", () => {
   it.effect("callLmText routes through LanguageModel.generateText", () =>
     Effect.gen(function*() {
       const mock = yield* MockLanguageModel.make(
-        MockLanguageModel.fixed("Paris")
+        MockLanguageModel.succeed("Paris")
       )
 
       const result = yield* callLmText("Answer with one token").pipe(
@@ -50,7 +50,7 @@ describe("internal/lm", () => {
   it.effect("failing strategy uses typed UnknownError channel", () =>
     Effect.gen(function*() {
       const mock = yield* MockLanguageModel.make(
-        MockLanguageModel.failing("forced failure")
+        MockLanguageModel.fail("forced failure")
       )
 
       const recovered = yield* callLmText("Answer with one token").pipe(

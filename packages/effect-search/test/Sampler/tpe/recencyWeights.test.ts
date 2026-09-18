@@ -1,12 +1,12 @@
 import { describe, expect, it } from "@effect/vitest"
-import { Array as Arr, Effect } from "effect"
+import { Array as Arr, Effect, Number as Num } from "effect"
 
 import { defaultWeights } from "../../../src/internal/tpe/recencyWeights.js"
 
 describe("tpe recency weights", () => {
   it.effect("returns all ones when observations are below 25", () =>
     Effect.sync(() => {
-      expect(defaultWeights(5)).toEqual([1, 1, 1, 1, 1])
+      expect(defaultWeights(5)).toEqual(Arr.make(1, 1, 1, 1, 1))
     }))
 
   it.effect("returns all ones at the 25-observation boundary", () =>
@@ -17,24 +17,24 @@ describe("tpe recency weights", () => {
   it.effect("ramps early observations and keeps latest 25 flat at one", () =>
     Effect.sync(() => {
       const weights = defaultWeights(50)
-      const start = 1 / 50
-      const step = (1 - start) / 24
+      const start = Num.unsafeDivide(1, 50)
+      const step = Num.unsafeDivide(Num.subtract(1, start), 24)
 
       expect(weights).toHaveLength(50)
 
-      weights.slice(0, 25).forEach((weight, index) => {
-        const expected = start + step * index
+      Arr.forEach(Arr.take(weights, 25), (weight, index) => {
+        const expected = Num.sum(start, Num.multiply(step, index))
         expect(weight).toBeCloseTo(expected, 12)
       })
 
-      weights.slice(25, 50).forEach((weight) => {
+      Arr.forEach(Arr.drop(weights, 25), (weight) => {
         expect(weight).toBe(1)
       })
     }))
 
   it.effect("always returns a positive total weight", () =>
     Effect.sync(() => {
-      const sum = defaultWeights(50).reduce((total, value) => total + value, 0)
+      const sum = Arr.reduce(defaultWeights(50), 0, Num.sum)
       expect(sum).toBeGreaterThan(0)
     }))
 })

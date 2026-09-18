@@ -1,8 +1,9 @@
 // @vitest-environment node
 import { expect, layer } from "@effect/vitest"
 import type { Locator, Page } from "@playwright/test"
-import { Effect, Layer, Order } from "effect"
+import { Boolean as Bool, Effect, Layer, Number as Num, Option, Order, String as Str } from "effect"
 import * as Arr from "effect/Array"
+import { evaluate, evaluateElement, evaluateElements } from "./browser.js"
 
 import type { ColorScheme } from "./browser.js"
 import {
@@ -21,7 +22,9 @@ import {
 import { drawn } from "./demo.js"
 import {
   backgroundColour,
+  boxHeight,
   edgesOf,
+  focusVisible,
   outlineColour,
   scrollElementTo,
   systemColour,
@@ -40,18 +43,21 @@ import { SiteLive } from "./site.js"
  * not a literal, because the palettes differ.
  */
 const colorSchemes: ReadonlyArray<ColorScheme> = ["light", "dark"]
-const colour = (locator: Locator) => act(() => locator.evaluate(backgroundColour))
-const system = (page: Page, name: string) => act(() => page.evaluate(systemColour, name))
-const edges = (locator: Locator) => act(() => locator.evaluateAll(edgesOf))
+const colour = (locator: Locator) => evaluateElement(locator, backgroundColour)
+const system = (page: Page, name: string) => evaluate(page, systemColour, name)
+const edges = (locator: Locator) => evaluateElements(locator, edgesOf)
 const edge = (locator: Locator) =>
-  Effect.map(edges(locator), (found) => found[0] ?? { outline: absent, border: absent })
+  Effect.map(
+    edges(locator),
+    (found) => Option.getOrElse(Arr.get(found, 0), () => ({ outline: absent, border: absent }))
+  )
 const absent = { color: "", style: "none", width: 0 }
 // The program's proposal is the one unmerged at first sight; scoping by its
 // proposer keeps the locator stable through the merge.
 const mergeSwitch = (page: Page, checked: boolean) =>
   page.locator("[data-place-proposal='program']").getByRole("switch", { checked })
 
-const inForcedColors = (check: (page: Page) => Effect.Effect<void, unknown>) =>
+const inForcedColors = <R>(check: (page: Page) => Effect.Effect<void, unknown, R>) =>
   Effect.forEach(colorSchemes, (scheme) =>
     Effect.gen(function*() {
       const { failures, page } = yield* openPage({ colorScheme: scheme, forcedColors: "active" })
@@ -71,12 +77,12 @@ layer(Layer.merge(SiteLive, BrowserLive), { excludeTestServices: true, timeout: 
           const highlight = yield* system(page, "Highlight")
           // The colour is waited for: a disc transitions its outline colour, and the forced palette
           // is what it transitions between.
-          const inHighlight = (control: Locator, what: string, focusVisible: boolean) =>
+          const inHighlight = (control: Locator, what: string, expectedFocusVisible: boolean) =>
             Effect.gen(function*() {
-              yield* eventually(() => control.evaluate((node) => node.matches(":focus-visible")), focusVisible)
-              yield* eventually(() => control.evaluate(outlineColour), highlight)
+              yield* eventually(evaluateElement(control, focusVisible), expectedFocusVisible)
+              yield* eventually(evaluateElement(control, outlineColour), highlight)
               const { outline } = yield* edge(control)
-              expect({ what, style: outline.style, drawn: outline.width > 0 })
+              expect({ what, style: outline.style, drawn: Num.greaterThan(outline.width, 0) })
                 .toEqual({ what, style: "solid", drawn: true })
             })
           const outlined = (control: Locator, what: string) => inHighlight(control, what, true)
@@ -125,9 +131,9 @@ layer(Layer.merge(SiteLive, BrowserLive), { excludeTestServices: true, timeout: 
           yield* click(track)
           const checked = mergeSwitch(page, true)
           yield* visible(checked)
-          yield* eventually(() => checked.evaluate(backgroundColour), highlight)
+          yield* eventually(evaluateElement(checked, backgroundColour), highlight)
           expect(uncheckedTrack).not.toBe(highlight)
-          yield* eventually(() => checked.locator("[data-switch-thumb]").evaluate(backgroundColour), highlightText)
+          yield* eventually(evaluateElement(checked.locator("[data-switch-thumb]"), backgroundColour), highlightText)
         })
       ))
 
@@ -138,7 +144,7 @@ layer(Layer.merge(SiteLive, BrowserLive), { excludeTestServices: true, timeout: 
             "[data-tab-indicator]"
           )
           expect(yield* colour(indicator)).toBe(yield* system(page, "CanvasText"))
-          expect(yield* act(() => indicator.evaluate((node) => node.getBoundingClientRect().height)))
+          expect(yield* evaluateElement(indicator, boxHeight))
             .toBeGreaterThan(0)
         })
       ))
@@ -190,10 +196,13 @@ layer(Layer.merge(SiteLive, BrowserLive), { excludeTestServices: true, timeout: 
           expect(silent.length).toBeGreaterThan(0)
           Arr.forEach(silent, ({ outline }) => expect(outline.style).toBe("none"))
           // Composing lights the features the author drew first; the merged proposals' stay silent.
-          yield* act(() => page.locator("[data-place-act='compose']").evaluate(scrollElementTo, 0.45))
+          yield* evaluateElement(page.locator("[data-place-act='compose']"), scrollElementTo, 0.45)
           yield* attribute(stage, "data-place-stage-act", "compose")
           const composed = yield* edges(discs)
-          const [quiet, lit] = Arr.partition(composed, ({ outline }) => outline.style !== "none")
+          const [quiet, lit] = Arr.partition(
+            composed,
+            ({ outline }) => Bool.not(Str.Equivalence(outline.style, "none"))
+          )
           expect(lit.length).toBeGreaterThan(0)
           expect(quiet.length).toBeGreaterThan(0)
           Arr.forEach(lit, ({ outline }) => {
@@ -216,8 +225,8 @@ layer(Layer.merge(SiteLive, BrowserLive), { excludeTestServices: true, timeout: 
           yield* click(line)
           const lit = build.locator("[data-code-line-focused]")
           yield* visible(lit)
-          yield* eventually(() => lit.evaluate(backgroundColour), highlight)
-          expect(yield* act(() => lit.evaluate(textColour))).toBe(yield* system(page, "HighlightText"))
+          yield* eventually(evaluateElement(lit, backgroundColour), highlight)
+          expect(yield* evaluateElement(lit, textColour)).toBe(yield* system(page, "HighlightText"))
         })
       ))
 
@@ -245,8 +254,8 @@ layer(Layer.merge(SiteLive, BrowserLive), { excludeTestServices: true, timeout: 
             Effect.gen(function*() {
               yield* click(mark)
               yield* visible(page.locator("[data-place-provenance]"))
-              yield* eventually(() => mark.evaluate(textColour), highlightText)
-              yield* eventually(() => mark.locator("span").first().evaluate(textColour), highlightText)
+              yield* eventually(evaluateElement(mark, textColour), highlightText)
+              yield* eventually(evaluateElement(mark.locator("span").first(), textColour), highlightText)
               yield* press(page, "Escape")
             }))
         })

@@ -1,8 +1,9 @@
-import { Clock, Effect } from "effect"
+import type { Cipher } from "@scenesystems/seal"
+import { Boolean, Clock, Effect, Number, Tuple } from "effect"
 import * as Arr from "effect/Array"
 
-import type { PlaceBuild, ProposalRecord, Version } from "../../contracts/imagined-place-result.js"
-import type { PlaceArtifact, PlaceBuildRequest, Proposal } from "../../contracts/imagined-place.js"
+import { PlaceBuild, ProposalRecord, Version } from "../../contracts/imagined-place-result.js"
+import { PlaceArtifact, type PlaceBuildRequest, Proposal } from "../../contracts/imagined-place.js"
 import { type PlaceBuildError, sealedNoteSender, versionShapes } from "../../contracts/imagined-place.js"
 
 import { type Participants, proposalId, signAs, versionId } from "./authority.js"
@@ -29,20 +30,20 @@ import { scenarioById } from "./scenarios.js"
  */
 export const buildPlace = (
   request: PlaceBuildRequest
-): Effect.Effect<PlaceBuild, PlaceBuildError, Participants> =>
+): Effect.Effect<PlaceBuild, PlaceBuildError, Participants | Cipher.Cipher> =>
   Effect.gen(function*() {
     const startedAt = yield* Clock.currentTimeMillis
     const scenario = scenarioById(request.scenario)
 
     // Compose
     const composed = yield* compose(scenario, request.brief)
-    const origin: PlaceArtifact = {
+    const origin = PlaceArtifact.make({
       schemaVersion: 1,
       scenario: scenario.id,
       brief: request.brief,
       composition: composed.composition,
       accepted: []
-    }
+    })
     const originId = yield* versionId(origin)
 
     // Propose
@@ -53,36 +54,37 @@ export const buildPlace = (
       ],
       { concurrency: "unbounded" }
     )
-    const offered: ReadonlyArray<readonly [Proposal, boolean]> = [
-      [{ proposer: "neighbor", feature: scenario.neighbor.proposal }, request.acceptNeighbor],
-      [{ proposer: "program", feature: proposed.feature }, request.acceptProgram]
-    ]
+    const offered = Arr.make(
+      Tuple.make(Proposal.make({ proposer: "neighbor", feature: scenario.neighbor.proposal }), request.acceptNeighbor),
+      Tuple.make(Proposal.make({ proposer: "program", feature: proposed.feature }), request.acceptProgram)
+    )
     const proposals = yield* Effect.forEach(
       offered,
       ([proposal, accepted]) =>
         Effect.gen(function*() {
           const contentId = yield* proposalId(proposal)
           const signature = yield* signAs(proposal.proposer, contentId)
-          const record: ProposalRecord = { proposal, contentId, accepted, signature }
-          return record
+          return ProposalRecord.make({ proposal, contentId, accepted, signature })
         }),
       { concurrency: "unbounded" }
     )
 
     // Record
     const accepted = Arr.map(Arr.filter(proposals, (record) => record.accepted), (record) => record.proposal)
-    const artifact: PlaceArtifact = Arr.isEmptyReadonlyArray(accepted)
-      ? origin
-      : { ...origin, parent: originId, accepted }
+    const artifact = Boolean.match(Arr.isEmptyReadonlyArray(accepted), {
+      onTrue: () => origin,
+      onFalse: () => PlaceArtifact.make({ ...origin, parent: originId, accepted })
+    })
     const currentId = yield* versionId(artifact)
 
     // The versions are the outline's shapes, digested: version 1 is the origin; version 2, if there is one, extends it.
     const versions: Arr.NonEmptyReadonlyArray<Version> = Arr.map(
       versionShapes(artifact),
-      (shape): Version =>
-        shape.version === 1
-          ? { ...shape, contentId: originId }
-          : { ...shape, contentId: currentId, parent: originId }
+      (shape) =>
+        Boolean.match(Number.Equivalence(shape.version, 1), {
+          onTrue: () => Version.make({ ...shape, contentId: originId }),
+          onFalse: () => Version.make({ ...shape, contentId: currentId, parent: originId })
+        })
     )
 
     // The author signs every version
@@ -93,7 +95,7 @@ export const buildPlace = (
     )
 
     const finishedAt = yield* Clock.currentTimeMillis
-    return {
+    return PlaceBuild.make({
       artifact,
       proposals,
       evidence: {
@@ -102,6 +104,6 @@ export const buildPlace = (
         signatures: Arr.appendAll(versionSignatures, Arr.map(proposals, (record) => record.signature)),
         sealedNote: note
       },
-      durationMs: finishedAt - startedAt
-    }
+      durationMs: Number.subtract(finishedAt, startedAt)
+    })
   })

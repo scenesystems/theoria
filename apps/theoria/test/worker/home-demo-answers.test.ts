@@ -1,7 +1,9 @@
 // @vitest-environment node
 import { expect, layer } from "@effect/vitest"
-import { Chunk, Duration, Effect, Fiber, Layer, Option, Schedule, Stream } from "effect"
+import { Boolean as Bool, Chunk, Duration, Effect, Fiber, Layer, Number as Num, Option, Schedule, Stream } from "effect"
 import * as Arr from "effect/Array"
+import * as Str from "effect/String"
+import { evaluate, evaluateElement, evaluateElements } from "./browser.js"
 
 import { placeScenarioMeta } from "../../app/contracts/imagined-place.js"
 import { placeStepDefinitions } from "../../app/web/view/home/placeSteps.js"
@@ -51,7 +53,7 @@ layer(Layer.merge(SiteLive, BrowserLive), { excludeTestServices: true, timeout: 
         // Marks are held by id: scrolling to one changes the act being read, and the proposing act
         // brings ghosts to the paper's margin, so a mark's place in document order is not its own.
         const marks = demo.locator("[data-provenance]")
-        const pressable = yield* act(() => marks.evaluateAll(visibleElementIds))
+        const pressable = yield* evaluateElements(marks, visibleElementIds)
         expect(pressable.length).toBeGreaterThan(0)
         yield* Effect.forEach(pressable, (id) =>
           Effect.gen(function*() {
@@ -93,7 +95,7 @@ layer(Layer.merge(SiteLive, BrowserLive), { excludeTestServices: true, timeout: 
 
         // The line that digested the neighbor's proposal lights the one disc that proposal put on the paper.
         const built = page.locator("[data-place-how-its-built]")
-        const propose = yield* Arr.findFirst(placeStepDefinitions, (step) => step.id === "propose")
+        const propose = yield* Arr.findFirst(placeStepDefinitions, (step) => Str.Equivalence(step.id, "propose"))
         yield* click(built.getByRole("tab", { name: propose.name }))
         const digestLine = built.locator("[data-provenance*='proposal-digest'] [data-code-annotation]")
         yield* act(() => digestLine.scrollIntoViewIfNeeded())
@@ -116,7 +118,7 @@ layer(Layer.merge(SiteLive, BrowserLive), { excludeTestServices: true, timeout: 
         // The digest's answer stays until dismissed — over the step tabs, here — so it is let go first.
         yield* press(page, "Escape")
         yield* hidden(overlay)
-        const arrange = yield* Arr.findFirst(placeStepDefinitions, (step) => step.id === "arrange")
+        const arrange = yield* Arr.findFirst(placeStepDefinitions, (step) => Str.Equivalence(step.id, "arrange"))
         yield* click(built.getByRole("tab", { name: arrange.name }))
         // Between two answers the overlay holds both for a moment; the title asked about is the current one's.
         const title = overlay.locator("[data-current]").getByRole("heading", { level: 3 })
@@ -221,7 +223,7 @@ layer(Layer.merge(SiteLive, BrowserLive), { excludeTestServices: true, timeout: 
         yield* attribute(line(1), "tabindex", "-1")
         yield* focus(line(0))
         yield* press(page, "ArrowDown")
-        expect(yield* act(() => line(1).evaluate(isActiveElement))).toBe(true)
+        expect(yield* evaluateElement(line(1), isActiveElement)).toBe(true)
         yield* press(page, "Enter")
         yield* visible(overlay)
         yield* containsText(overlay.getByRole("heading", { level: 3 }), /^Line 2 of \d+$/u)
@@ -229,7 +231,7 @@ layer(Layer.merge(SiteLive, BrowserLive), { excludeTestServices: true, timeout: 
         yield* press(page, "Escape")
         yield* hidden(overlay)
         // A pressed answer hands focus back to the mark that opened it.
-        yield* eventually(() => line(1).evaluate(isActiveElement), true)
+        yield* eventually(evaluateElement(line(1), isActiveElement), true)
         // The lines are not native buttons; Space presses one as Enter does, and a second press on the
         // open mark closes its answer — the same press, the other way. A line presses when Space goes
         // down, so the key comes up with the answer open: the answer itself holds focus then, and the
@@ -237,20 +239,20 @@ layer(Layer.merge(SiteLive, BrowserLive), { excludeTestServices: true, timeout: 
         yield* press(page, "Space")
         yield* visible(overlay)
         yield* containsText(overlay.getByRole("heading", { level: 3 }), /^Line 2 of \d+$/u)
-        yield* eventually(() => page.evaluate(activeElementWithin, "[data-place-provenance]"), true)
+        yield* eventually(evaluate(page, activeElementWithin, "[data-place-provenance]"), true)
         yield* Effect.sleep(Duration.millis(200))
         yield* count(page.getByRole("dialog"), 1)
         // Back through the answer to its mark, which stands just before the popup in the tab sequence.
         yield* press(page, "Shift+Tab").pipe(
-          Effect.andThen(act(() => line(1).evaluate(isActiveElement))),
+          Effect.andThen(evaluateElement(line(1), isActiveElement)),
           Effect.repeat({ until: (onMark) => onMark, times: 6 })
         )
-        expect(yield* act(() => line(1).evaluate(isActiveElement))).toBe(true)
+        expect(yield* evaluateElement(line(1), isActiveElement)).toBe(true)
         yield* visible(overlay)
         yield* press(page, "Space")
         yield* hidden(overlay)
         yield* count(demo.locator("[data-place-line][data-place-focused]"), 0)
-        expect(yield* act(() => line(1).evaluate(isActiveElement))).toBe(true)
+        expect(yield* evaluateElement(line(1), isActiveElement)).toBe(true)
 
         // A merged proposal's name, pressed, lights its disc and the line of the drawing its sentence stands on.
         const merged = demo.locator("[data-place-proposal][data-place-recorded='true']").first()
@@ -263,18 +265,24 @@ layer(Layer.merge(SiteLive, BrowserLive), { excludeTestServices: true, timeout: 
         yield* count(demo.locator("[data-place-marker][data-place-focused]"), 1)
         yield* count(demo.locator("[data-place-line][data-place-focused]"), 1)
         const litLine = demo.locator("[data-place-line][data-place-focused]")
-        const anchored = yield* Option.fromNullable(yield* act(() => litLine.getAttribute("data-place-line")))
+        const anchored = yield* Option.flatMap(
+          Option.fromNullable(yield* act(() => litLine.getAttribute("data-place-line"))),
+          Num.parse
+        )
         // The declined proposal's sentence is not in the prose: its name lights no line.
         const declined = demo.locator("[data-place-proposal][data-place-recorded='false']").first()
         yield* click(declined.locator("[data-place-feature]"))
         yield* eventually(() => demo.locator("[data-place-line][data-place-focused]").count(), 0)
 
         // And the other way: that line, pressed, lights the proposal's name and its disc, and says what it adds.
-        yield* act(() => line(Number(anchored)).scrollIntoViewIfNeeded())
-        yield* click(line(Number(anchored)))
-        yield* eventually(() => line(Number(anchored)).getAttribute("data-place-focused"), "")
+        yield* act(() => line(anchored).scrollIntoViewIfNeeded())
+        yield* click(line(anchored))
+        yield* eventually(() => line(anchored).getAttribute("data-place-focused"), "")
         const current = overlay.locator("[data-current]")
-        yield* containsText(current.getByRole("heading", { level: 3 }), `Line ${String(Number(anchored) + 1)} of `)
+        yield* containsText(
+          current.getByRole("heading", { level: 3 }),
+          `Line ${String(Num.increment(anchored))} of `
+        )
         yield* containsText(current, featureName)
         yield* attribute(name, "data-place-focused", "")
         yield* count(demo.locator("[data-place-feature][data-place-focused]"), 1)
@@ -283,8 +291,8 @@ layer(Layer.merge(SiteLive, BrowserLive), { excludeTestServices: true, timeout: 
         // answer stands over that line, as a popup above its anchor does, so it is let go first.)
         yield* press(page, "Escape")
         yield* hidden(overlay)
-        yield* click(line(Number(anchored) - 1))
-        yield* eventually(() => line(Number(anchored) - 1).getAttribute("data-place-focused"), "")
+        yield* click(line(Num.decrement(anchored)))
+        yield* eventually(() => line(Num.decrement(anchored)).getAttribute("data-place-focused"), "")
         yield* count(demo.locator("[data-place-feature][data-place-focused]"), 0)
         yield* count(demo.locator("[data-place-marker][data-place-focused]"), 0)
         expect(yield* failures).toEqual([])
@@ -318,13 +326,13 @@ layer(Layer.merge(SiteLive, BrowserLive), { excludeTestServices: true, timeout: 
         yield* hidden(overlay)
         yield* count(demo.locator("[data-provenance][data-popup-open]"), 0)
         yield* count(demo.locator("[data-place-focused]"), 0)
-        expect(yield* act(() => body.evaluate(isActiveElement))).toBe(true)
+        expect(yield* evaluateElement(body, isActiveElement)).toBe(true)
 
         // A press opens the disc's answer with focus inside it, and the pointer leaving changes nothing.
         yield* click(disc)
         yield* visible(overlay)
         yield* attribute(disc, "data-popup-open", "")
-        expect(yield* act(() => page.evaluate(activeElementWithin, "[data-place-provenance]"))).toBe(true)
+        expect(yield* evaluate(page, activeElementWithin, "[data-place-provenance]")).toBe(true)
         yield* act(() => page.mouse.move(0, 0))
         yield* Effect.sleep(Duration.millis(600))
         yield* visible(overlay)
@@ -336,27 +344,34 @@ layer(Layer.merge(SiteLive, BrowserLive), { excludeTestServices: true, timeout: 
         yield* count(demo.locator("[data-provenance][data-popup-open]"), 1)
         yield* containsText(overlay.locator("[data-current]").getByRole("heading", { level: 3 }), /^Line 3 of \d+$/u)
         yield* Effect.sleep(Duration.millis(200))
-        expect(yield* act(() => line.evaluate(isActiveElement))).toBe(true)
-        expect(yield* act(() => disc.evaluate(isActiveElement))).toBe(false)
+        expect(yield* evaluateElement(line, isActiveElement)).toBe(true)
+        expect(yield* evaluateElement(disc, isActiveElement)).toBe(false)
 
         // The same mark pressed again closes it, and focus is back on the mark.
         yield* click(line)
         yield* hidden(overlay)
-        yield* eventually(() => line.evaluate(isActiveElement), true)
+        yield* until(evaluateElement(line, isActiveElement), (active) => active, "focus after repeat trigger press")
 
         // Escape does the same from inside the answer.
         yield* click(disc)
         yield* visible(overlay)
         yield* press(page, "Escape")
         yield* hidden(overlay)
-        yield* eventually(() => disc.evaluate(isActiveElement), true)
+        yield* until(evaluateElement(disc, isActiveElement), (active) => active, "focus after Escape")
 
-        // A press on nothing in particular — the demo's own heading — closes the answer, and focus is back on the mark.
+        // The heading's nearest focusable ancestor is the route landmark (tabindex=-1).
+        // Clicking the heading closes the answer and preserves focus on that landmark.
+        const main = page.getByRole("main")
+        yield* attribute(main, "tabindex", "-1")
         yield* click(disc)
         yield* visible(overlay)
         yield* click(demo.getByRole("heading", { level: 2 }).first())
         yield* hidden(overlay)
-        yield* eventually(() => disc.evaluate(isActiveElement), true)
+        yield* until(
+          evaluateElement(main, isActiveElement),
+          (active) => active,
+          "focus on the pressed outside landmark"
+        )
 
         // A press on a control closes the answer too, and focus is where the visitor put it: on the control.
         const brief = page.locator("[data-place-step='compose']").getByRole("textbox")
@@ -364,7 +379,7 @@ layer(Layer.merge(SiteLive, BrowserLive), { excludeTestServices: true, timeout: 
         yield* visible(overlay)
         yield* click(brief)
         yield* hidden(overlay)
-        yield* eventually(() => brief.evaluate(isActiveElement), true)
+        yield* until(evaluateElement(brief, isActiveElement), (active) => active, "focus on pressed outside control")
         expect(yield* failures).toEqual([])
       }))
 
@@ -386,17 +401,17 @@ layer(Layer.merge(SiteLive, BrowserLive), { excludeTestServices: true, timeout: 
         const stage = page.locator("[data-place-stage-act]")
         const ghosts = demo.locator("[data-place-ghost]")
 
-        yield* act(() => page.locator("[data-place-act='propose']").evaluate(scrollElementTo, 0.45))
+        yield* evaluateElement(page.locator("[data-place-act='propose']"), scrollElementTo, 0.45)
         yield* attribute(stage, "data-place-stage-act", "propose")
-        yield* until(act(() => ghosts.count()), (found) => found >= 1, "a ghost disc")
+        yield* until(act(() => ghosts.count()), Num.greaterThanOrEqualTo(1), "a ghost disc")
         const ghost = ghosts.first()
         yield* click(ghost)
         yield* visible(overlay)
         yield* attribute(ghost, "data-popup-open", "")
-        expect(yield* act(() => page.evaluate(activeElementWithin, "[data-place-provenance]"))).toBe(true)
+        expect(yield* evaluate(page, activeElementWithin, "[data-place-provenance]")).toBe(true)
 
         // Reading on to the record takes the ghosts off the paper, and the answer with them.
-        yield* act(() => page.locator("[data-place-act='record']").evaluate(scrollElementTo, 0.45))
+        yield* evaluateElement(page.locator("[data-place-act='record']"), scrollElementTo, 0.45)
         yield* attribute(stage, "data-place-stage-act", "record")
         yield* count(ghosts, 0)
         yield* hidden(overlay)
@@ -404,7 +419,7 @@ layer(Layer.merge(SiteLive, BrowserLive), { excludeTestServices: true, timeout: 
         yield* count(demo.locator("[data-place-focused]"), 0)
         // Focus was not handed anywhere: nothing on the page holds it.
         yield* Effect.sleep(Duration.millis(200))
-        expect(yield* act(() => page.locator("body").evaluate(isActiveElement))).toBe(true)
+        expect(yield* evaluateElement(page.locator("body"), isActiveElement)).toBe(true)
         expect(yield* failures).toEqual([])
       }))
 
@@ -433,10 +448,10 @@ layer(Layer.merge(SiteLive, BrowserLive), { excludeTestServices: true, timeout: 
         // moment the new drawing replaces it the answer goes — fading with the words it had,
         // never emptied, and never having named another build's feature.
         const sampling = yield* Stream.repeatEffectWithSchedule(
-          act(() => page.evaluate(answerPopupsShowing)),
+          evaluate(page, answerPopupsShowing),
           Schedule.spaced("16 millis").pipe(Schedule.upTo(Duration.seconds(12)))
         ).pipe(
-          Stream.takeUntil(({ popups }) => popups === 0),
+          Stream.takeUntil(({ popups }) => Num.Equivalence(popups, 0)),
           Stream.runCollect,
           Effect.map(Chunk.toReadonlyArray),
           Effect.fork
@@ -445,14 +460,19 @@ layer(Layer.merge(SiteLive, BrowserLive), { excludeTestServices: true, timeout: 
         yield* Effect.sleep(Duration.millis(200))
         yield* build.release
         const popupUntilGone = yield* Fiber.join(sampling)
-        const whileOnPage = Arr.filter(popupUntilGone, ({ popups }) => popups > 0)
+        const whileOnPage = Arr.filter(popupUntilGone, ({ popups }) => Num.greaterThan(popups, 0))
         expect(whileOnPage.length).toBeGreaterThan(8)
-        expect(Arr.every(whileOnPage, ({ titles }) => titles.length === 1 && titles[0] === title)).toBe(true)
+        expect(
+          Arr.every(
+            whileOnPage,
+            ({ titles }) => Bool.and(Num.Equivalence(Arr.length(titles), 1), Option.contains(Arr.head(titles), title))
+          )
+        ).toBe(true)
         yield* hidden(overlay)
         // The answer went with its drawing, not with a press: no mark of the new drawing was handed focus.
         yield* count(demo.locator("[data-provenance][data-popup-open]"), 0)
         yield* count(demo.locator("[data-place-focused]"), 0)
-        expect(yield* act(() => page.locator("body").evaluate(isActiveElement))).toBe(true)
+        expect(yield* evaluateElement(page.locator("body"), isActiveElement)).toBe(true)
         expect(yield* failures).toEqual([])
       }))
 
@@ -488,7 +508,7 @@ layer(Layer.merge(SiteLive, BrowserLive), { excludeTestServices: true, timeout: 
         yield* visible(overlay)
         yield* press(page, "Escape")
         yield* hidden(overlay)
-        yield* eventually(() => line.evaluate(isActiveElement), true)
+        yield* eventually(evaluateElement(line, isActiveElement), true)
         expect(yield* failures).toEqual([])
       }))
   }

@@ -1,5 +1,5 @@
 import { HttpMiddleware, HttpServerResponse } from "@effect/platform"
-import { Effect } from "effect"
+import { Boolean as Bool, Effect } from "effect"
 
 import { requestIsCanonical } from "./canonical-host.js"
 
@@ -16,6 +16,9 @@ export const indexingPolicy = HttpMiddleware.make((app) =>
     const canonical = yield* requestIsCanonical
     const response = yield* app
 
-    return canonical ? response : HttpServerResponse.setHeader(response, "x-robots-tag", "noindex")
+    return Bool.match(canonical, {
+      onTrue: () => response,
+      onFalse: () => HttpServerResponse.setHeader(response, "x-robots-tag", "noindex")
+    })
   })
 )

@@ -1,6 +1,6 @@
 import { Atom, type Registry } from "@effect-atom/atom"
-import { describe, expect, it } from "@effect/vitest"
-import { Effect, Option } from "effect"
+import { expect } from "@effect/vitest"
+import { Boolean as Bool, Effect, Number as Num, Option, String as Str } from "effect"
 import * as Arr from "effect/Array"
 
 import {
@@ -25,7 +25,7 @@ import {
 } from "../../app/web/atoms/imagined-place-experience.js"
 import { drawingId, type PlaceRenderFrame } from "../../app/web/atoms/imagined-place-render.js"
 import { proposalAnchorLine } from "../../app/web/view/home/placeViewModel.js"
-import { onStage, pageShowing } from "../helpers/place-on-stage.js"
+import { describeOnStage, onStage, pageShowing } from "../helpers/place-on-stage.js"
 
 /** Test writer for the answer authority; production consumers only receive the derived focus atom. */
 const placeFocusAtom = Atom.writable(
@@ -56,7 +56,7 @@ const line = (index: number, shown: PlaceRenderFrame): PlaceMark => ({
 
 const codeLineAt = (site: CodeSite): PlaceMark => ({ _tag: "CodeLine", site: site.id })
 
-describe("place focus", () => {
+describeOnStage("place focus", (it) => {
   it.effect("nothing pointed at lights nothing", () =>
     Effect.gen(function*() {
       const { build, showingTrial } = yield* onStage
@@ -82,12 +82,15 @@ describe("place focus", () => {
       expect(lit(registry, feature)).toBe(true)
       expect(registry.get(placeFocusedLineAtom)).toEqual(Option.some(anchored))
       expect(lit(registry, line(anchored, showingTrial))).toBe(true)
-      expect(lit(registry, line(anchored + 1, showingTrial))).toBe(false)
+      expect(lit(registry, line(Num.increment(anchored), showingTrial))).toBe(false)
       // And the line of code that made the proposal's identity, in the panel.
       expect(lit(registry, codeLineAt(proposalDigestSite))).toBe(true)
       expect(lit(registry, codeLineAt(layoutSite))).toBe(false)
       // The other features stand unlit.
-      const others = Arr.filter(build.artifact.composition.features, (other) => other.name !== feature.name)
+      const others = Arr.filter(
+        build.artifact.composition.features,
+        (other) => Bool.not(Str.Equivalence(other.name, feature.name))
+      )
       expect(Arr.some(others, (other) => lit(registry, { _tag: "Feature", name: other.name }))).toBe(false)
     }))
 
@@ -225,7 +228,7 @@ describe("place focus", () => {
     Effect.gen(function*() {
       const { build, showingKept, showingTrial } = yield* onStage
       const merged = yield* Arr.findFirst(build.proposals, (record) => record.accepted)
-      const declined = yield* Arr.findFirst(build.proposals, (record) => !record.accepted)
+      const declined = yield* Arr.findFirst(build.proposals, (record) => Bool.not(record.accepted))
       const feature: PlaceMark = { _tag: "Feature", name: merged.proposal.feature.name }
       const disc: PlaceMark = { _tag: "Disc", name: merged.proposal.feature.name, source: placeSourceId(build) }
 
@@ -237,7 +240,7 @@ describe("place focus", () => {
       expect(lit(onTrial, disc)).toBe(true)
       expect(lit(onTrial, { _tag: "Feature", name: declined.proposal.feature.name })).toBe(false)
       // The line before it carries the composition's own words: no proposal lights from it.
-      onTrial.set(placeFocusAtom, Option.some(line(onTrialLine - 1, showingTrial)))
+      onTrial.set(placeFocusAtom, Option.some(line(Num.decrement(onTrialLine), showingTrial)))
       expect(lit(onTrial, feature)).toBe(false)
       expect(lit(onTrial, disc)).toBe(false)
 

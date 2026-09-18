@@ -6,9 +6,14 @@ import { StaticStore } from "./static-store.js"
 
 const manifestPathname = "/docs-data/manifest.json"
 
-export class DocsManifestError extends Schema.TaggedError<DocsManifestError>()("DocsManifestError", {
-  message: Schema.String
-}) {}
+export class DocsManifestError
+  extends Schema.TaggedError<DocsManifestError>("@theoria/app/server/config/DocsManifestStore/Error")(
+    "DocsManifestError",
+    {
+      message: Schema.String
+    }
+  )
+{}
 
 export class DocsManifestStore extends Context.Tag("@theoria/app/server/config/DocsManifestStore")<
   DocsManifestStore,

@@ -1,14 +1,14 @@
 // @vitest-environment node
 import { expect, layer } from "@effect/vitest"
 import type { Page } from "@playwright/test"
-import { Effect, Fiber, Layer } from "effect"
+import { Boolean as Bool, Effect, Fiber, Layer, Number as Num, Option } from "effect"
 import * as Arr from "effect/Array"
 import * as Rec from "effect/Record"
 import * as Str from "effect/String"
+import { addInitProbe, evaluate, evaluateElement } from "./browser.js"
 
 import { measuredFont } from "../../app/contracts/text.js"
 import {
-  act,
   BrowserLive,
   count,
   desktop,
@@ -57,13 +57,24 @@ const demoRegion = (page: Page) => page.getByRole("region", { name: "Imagined pl
 /** The phases the paper has been recorded in, in order, one per change. */
 const paperPhases = (page: Page) =>
   Effect.map(
-    act(() => page.evaluate(recordedPaperFrames)),
-    (recorded) => Arr.map(Arr.filter(recorded.split("\n"), Str.isNonEmpty), (line) => line.split(" ")[1] ?? "-")
+    evaluate(page, recordedPaperFrames),
+    (recorded) =>
+      Arr.map(Arr.filter(Str.split(recorded, "\n"), Str.isNonEmpty), (line) =>
+        Option.getOrElse(Arr.get(Str.split(line, " "), 1), () => "-"))
   )
 
 /** How many searches have landed: a `complete` after each run of trials. */
 const landings = (phases: ReadonlyArray<string>): number =>
-  Arr.filter(phases, (phase, index) => phase === "complete" && phases[index - 1] !== "complete").length
+  Arr.length(
+    Arr.filter(
+      phases,
+      (phase, index) =>
+        Bool.and(
+          Str.Equivalence(phase, "complete"),
+          Bool.not(Str.Equivalence(Option.getOrElse(Arr.get(phases, Num.decrement(index)), () => ""), "complete"))
+        )
+    )
+  )
 
 /**
  * Every region of the demonstration was painted at one height until the
@@ -96,9 +107,9 @@ layer(Layer.merge(SiteLive, BrowserLive), { excludeTestServices: true, timeout: 
         Effect.gen(function*() {
           const where = `${String(viewport.width)}×${String(viewport.height)}`
           const { failures, page } = yield* openPage({ viewport })
-          yield* act(() => page.addInitScript(recordFootprints))
-          yield* act(() => page.addInitScript(recordPaperFrames))
-          yield* act(() => page.addInitScript(recordWebVitals))
+          yield* addInitProbe(page, recordFootprints)
+          yield* addInitProbe(page, recordPaperFrames)
+          yield* addInitProbe(page, recordWebVitals)
           const faces = yield* holdResponses(page, "GET", ".woff2")
           const built = yield* Effect.fork(nextResponse(page, "POST", buildPath))
           // The held faces are preloads, so `load` waits on them; the document parsing is enough to look.
@@ -108,10 +119,10 @@ layer(Layer.merge(SiteLive, BrowserLive), { excludeTestServices: true, timeout: 
 
           // The first paint is in a stand-in: the served faces are still in flight, and every stand-in the
           // stacks name is declared with the served face's ascent, descent and advance.
-          const before = yield* act(() => page.evaluate(typefaces, measuredFont("body")))
+          const before = yield* evaluate(page, typefaces, measuredFont("body"))
           expect(before.status, where).toBe("loading")
           expect(before.servedInHand, where).toBe(false)
-          expect((yield* act(() => page.evaluate(typefaces, measuredFont("mono")))).servedInHand, where).toBe(false)
+          expect((yield* evaluate(page, typefaces, measuredFont("mono"))).servedInHand, where).toBe(false)
           expect(before.standIns.length, where).toBeGreaterThanOrEqual(8)
           Arr.forEach(before.standIns, (standIn) => {
             expect(standIn.ascentOverride, `${where}: ${standIn.family}`).not.toBe("normal")
@@ -119,48 +130,48 @@ layer(Layer.merge(SiteLive, BrowserLive), { excludeTestServices: true, timeout: 
           // This host has the Liberation faces, the metric clones of Arial and Courier New, so the title is set in one.
           expect(
             Arr.some(before.standIns, (standIn) =>
-              standIn.family.endsWith("Liberation Sans") && standIn.status === "loaded"),
+              Bool.and(Str.endsWith("Liberation Sans")(standIn.family), Str.Equivalence(standIn.status, "loaded"))),
             where
           ).toBe(true)
-          const titleBefore = yield* act(() =>
-            title.evaluate(textBlockMetrics)
-          )
+          const titleBefore = yield* evaluateElement(title, textBlockMetrics)
 
           // The build back, the stage does not wait for the faces: the story is measured in the stand-in the page
           // shows, the paper cut, and the drawing landed on it.
           yield* Fiber.join(built)
           const paper = demoRegion(page).locator("[data-place-stage='paper']")
           yield* visible(paper)
-          yield* eventually(() => demoRegion(page).evaluate(storyDrawn), true, searchSettlesWithin)
+          yield* eventually(evaluateElement(demoRegion(page), storyDrawn), true, searchSettlesWithin)
           yield* count(demoRegion(page).locator("[data-place-stage='uncut']"), 0)
           expect(landings(yield* paperPhases(page)), where).toBe(1)
-          const stillInFlight = yield* act(() => page.evaluate(typefaces, measuredFont("body")))
+          const stillInFlight = yield* evaluate(page, typefaces, measuredFont("body"))
           expect(stillInFlight.servedInHand, where).toBe(false)
 
           yield* faces.release
           // The faces in hand, the layout is built again in them and the story searched again: a second run of
           // trials, a second landing, on the paper the first cut.
           const after = yield* until(
-            act(() => page.evaluate(typefaces, measuredFont("body"))),
-            (faces) => faces.status === "loaded",
+            evaluate(page, typefaces, measuredFont("body")),
+            (faces) =>
+              Str.Equivalence(faces.status, "loaded"),
             `${where}: the faces loaded`
           )
           expect(after.servedInHand, where).toBe(true)
           expect(after.loaded, where).toContain("Geist Mono Variable")
           yield* until(
             paperPhases(page),
-            (phases) => landings(phases) >= 2,
+            (phases) =>
+              Num.greaterThanOrEqualTo(landings(phases), 2),
             `${where}: a second landing`,
             searchSettlesWithin
           )
-          yield* eventually(() => demoRegion(page).evaluate(storyDrawn), true, searchSettlesWithin)
+          yield* eventually(evaluateElement(demoRegion(page), storyDrawn), true, searchSettlesWithin)
           expect(landings(yield* paperPhases(page)), where).toBe(2)
 
           // The swap moved nothing: the title's box is the box it was, no region of the demonstration was painted at
           // a second height, and the layout-shift observer saw nothing of the demonstration move.
-          expect(yield* act(() => title.evaluate(textBlockMetrics)), where).toEqual(titleBefore)
+          expect(yield* evaluateElement(title, textBlockMetrics), where).toEqual(titleBefore)
           yield* nothingShifted(page, where)
-          expect(yield* act(() => page.evaluate(recordedDemonstrationShifts)), where).toBe("")
+          expect(yield* evaluate(page, recordedDemonstrationShifts), where).toBe("")
           expect(yield* failures).toEqual([])
         }), { discard: true }))
   }

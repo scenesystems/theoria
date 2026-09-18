@@ -2,7 +2,7 @@
  * Signature validation and default instruction derivation.
  */
 import { describe, expect, it } from "@effect/vitest"
-import type { SignatureError } from "@scenesystems/effect-dsp/Errors"
+import type { SignatureError } from "@scenesystems/effect-dsp/DspError"
 import * as Signature from "@scenesystems/effect-dsp/Signature"
 import { Cause, Effect, Exit, Option, Schema } from "effect"
 
@@ -78,9 +78,7 @@ describe("Signature", () => {
         )
 
         expect(signature.instructions).toBe(
-          "Task: Answer questions with concise facts\n" +
-            "Input fields: question (The question to answer), context (Optional supporting context)\n" +
-            "Output fields: answer (A short factual answer)"
+          `Task: Answer questions with concise facts\nInput fields: question (The question to answer), context (Optional supporting context)\nOutput fields: answer (A short factual answer)`
         )
       }))
   })

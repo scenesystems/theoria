@@ -1,7 +1,8 @@
 import { Atom, Result } from "@effect-atom/atom"
 import type { Atom as AtomType } from "@effect-atom/atom"
-import { Effect, Match, Option, Schema, Stream } from "effect"
+import { Boolean as Bool, Effect, Equal, Match, Option, Schema, Stream } from "effect"
 import * as Arr from "effect/Array"
+import * as Num from "effect/Number"
 
 import {
   type AnswerFocusReturn,
@@ -78,12 +79,15 @@ export const placeAnswerAtom: AtomType.Writable<Option.Option<PlaceAnswer>> = At
 export const placeMarkLeftAtom = Atom.fnSync<string>()((triggerId, ctx) => {
   // Read through the registry: a subscribing read would run this again, with this same id, for every
   // later answer — closing an answer a mark of the same id opens after coming back.
-  const carried = Option.exists(ctx.registry.get(answerState), (answer) => answer.triggerId === triggerId)
-  if (carried) {
-    ctx.set(answerLeavingState, ctx.registry.get(placeAnswerOnShowAtom))
-    ctx.set(answerFocusReturnState, "stays")
-    ctx.set(answerState, Option.none())
-  }
+  const carried = Option.exists(ctx.registry.get(answerState), (answer) => Equal.equals(answer.triggerId, triggerId))
+  Bool.match(carried, {
+    onTrue: () => {
+      ctx.set(answerLeavingState, ctx.registry.get(placeAnswerOnShowAtom))
+      ctx.set(answerFocusReturnState, "stays")
+      ctx.set(answerState, Option.none())
+    },
+    onFalse: () => {}
+  })
 })
 
 /**
@@ -106,7 +110,7 @@ export const placeFocusAtom: AtomType.Atom<Option.Option<PlaceMark>> = Atom.map(
  * leaves nothing answered. The pointer resting on a mark says nothing.
  */
 export const answerAfterPress = (press: MarkPress): Option.Option<PlaceAnswer> =>
-  press.opening ? Option.some(new PlaceAnswer(press.pressed)) : Option.none()
+  Bool.match(press.opening, { onTrue: () => Option.some(new PlaceAnswer(press.pressed)), onFalse: Option.none })
 
 /**
  * What is on the page to answer from: the build once it has arrived, and
@@ -146,7 +150,7 @@ const answeringAtom: AtomType.Atom<Answering> = Atom.make((get: AtomType.Context
 
 /** An answer is open for a mark the page can no longer answer: its drawing was replaced, or its build. */
 const vanished = (answering: Answering): boolean =>
-  Option.isSome(answering.answer) && Option.isNone(answering.provenance)
+  Bool.and(Option.isSome(answering.answer), Option.isNone(answering.provenance))
 
 /**
  * An answer lives as long as the page can answer it. When what it was
@@ -208,7 +212,7 @@ export const placeFocusedLineAtom: AtomType.Atom<Option.Option<number>> = Atom.m
             Option.flatMap(
               Arr.findFirst(
                 shown.search.source.proposals,
-                (record: ProposalRecord) => record.proposal.feature.name === name
+                (record: ProposalRecord) => Equal.equals(record.proposal.feature.name, name)
               ),
               (record) => proposalAnchorLine(shown.rendering.projection, record)
             )
@@ -233,9 +237,18 @@ export const placeMarkFocusedAtom = Atom.family((encoded: string): AtomType.Atom
       Match.value(mark).pipe(
         Match.tag("Feature", "Disc", ({ name }) => get(placeFeatureFocusedAtom(name))),
         Match.tag("Line", ({ index }) => Option.contains(get(placeFocusedLineAtom), index)),
-        Match.tag("CodeLine", ({ site }) => Option.exists(get(placeFocusedSiteAtom), (focused) => focused.id === site)),
-        Match.tag("Signature", "Digest", "Trial", "Inference", "Note", () =>
-          Option.exists(get(placeAnsweredMarkAtom), (answered) => encodeMark(answered) === encoded)),
+        Match.tag(
+          "CodeLine",
+          ({ site }) => Option.exists(get(placeFocusedSiteAtom), (focused) => Equal.equals(focused.id, site))
+        ),
+        Match.tag(
+          "Signature",
+          "Digest",
+          "Trial",
+          "Inference",
+          "Note",
+          () => Option.exists(get(placeAnsweredMarkAtom), (answered) => Equal.equals(encodeMark(answered), encoded))
+        ),
         Match.exhaustive
       ))
   )
@@ -307,8 +320,11 @@ const pageStandingChanges: Stream.Stream<
 const actRead: Effect.Effect<PlaceAct, never, BrowserDocument.BrowserDocument | BrowserWindow.BrowserWindow> = Effect
   .gen(function*() {
     const landmarks = yield* BrowserDocument.querySelectorAll(`[${placeActAttribute}]`)
-    const line = (yield* BrowserWindow.viewportHeight) * readingLine
-    const reached = Arr.filter(landmarks, (landmark) => landmark.getBoundingClientRect().top <= line)
+    const line = Num.multiply(yield* BrowserWindow.viewportHeight, readingLine)
+    const reached = Arr.filter(
+      landmarks,
+      (landmark) => Num.lessThanOrEqualTo(landmark.getBoundingClientRect().top, line)
+    )
     return Option.getOrElse(
       Option.flatMap(Arr.last(reached), (landmark) => decodeAct(landmark.getAttribute(placeActAttribute))),
       (): PlaceAct => "arrive"
@@ -339,7 +355,7 @@ export const placeGhostsAtom: AtomType.Atom<ReadonlyArray<ProposalRecord>> = Ato
     Match.when("propose", () =>
       Option.match(get(placeBuiltAtom), {
         onNone: (): ReadonlyArray<ProposalRecord> => [],
-        onSome: (build) => Arr.filter(build.proposals, (record) => !record.accepted)
+        onSome: (build) => Arr.filter(build.proposals, (record) => Bool.not(record.accepted))
       })),
     Match.whenOr("arrive", "compose", "record", "build", (): ReadonlyArray<ProposalRecord> => []),
     Match.exhaustive
@@ -362,7 +378,8 @@ const stageColumnSelector = `[data-place-stage="column"]`
  */
 const stageReadPast: Effect.Effect<boolean, never, BrowserDocument.BrowserDocument> = Effect.map(
   BrowserDocument.querySelectorAll(stageColumnSelector),
-  (columns) => Option.exists(Arr.head(columns), (column) => column.getBoundingClientRect().bottom <= 0)
+  (columns) =>
+    Option.exists(Arr.head(columns), (column) => Num.lessThanOrEqualTo(column.getBoundingClientRect().bottom, 0))
 )
 
 /** Whether the stage has been read past, as it changes. */

@@ -1,20 +1,24 @@
-import { Array as Arr, Equal, Match, Number as Num, Option, Record, Schema, Tuple } from "effect"
+import { Array as Arr, Either, Encoding, Equal, Match, Number as Num, Option, Record, Schema, Tuple } from "effect"
 
-import { type PrimitiveChoice, PrimitiveChoiceSchema } from "../../contracts/Distribution.js"
+import { Choice } from "../../Distribution.js"
 import { type SamplerConfig, valueFromConfig } from "../configAccess.js"
 
-export class CategoricalDimension extends Schema.Class<CategoricalDimension>("effect-search/CategoricalDimension")({
+export class CategoricalDimension extends Schema.Class<CategoricalDimension>(
+  "@scenesystems/effect-search/internal/tpe/multivariateCategorical/CategoricalDimension"
+)({
   name: Schema.String,
   choices: Schema.Array(Schema.Union(Schema.String, Schema.Number, Schema.Boolean, Schema.Null))
 }) {}
 
-export const ChoiceTupleSchema = Schema.Array(PrimitiveChoiceSchema)
+export const ChoiceTupleSchema = Schema.Array(Choice)
 
 export type ChoiceTuple = Schema.Schema.Type<typeof ChoiceTupleSchema>
 
+const ChoiceTuples = Schema.Array(ChoiceTupleSchema)
+
 export const ChoiceConfigSchema = Schema.Record({
   key: Schema.String,
-  value: PrimitiveChoiceSchema
+  value: Choice
 })
 
 export type ChoiceConfig = Schema.Schema.Type<typeof ChoiceConfigSchema>
@@ -26,66 +30,89 @@ export const ChoiceTupleLookupSchema = Schema.Record({
 
 export type ChoiceTupleLookup = Schema.Schema.Type<typeof ChoiceTupleLookupSchema>
 
-const encodeChoice = (choice: PrimitiveChoice): string =>
+const encodeChoice = (choice: Choice): Either.Either<string, Encoding.EncodeException> =>
   Match.value(choice).pipe(
-    Match.when(Match.string, (value) => `s:${encodeURIComponent(value)}`),
-    Match.when(Match.number, (value) => `n:${value}`),
-    Match.when(Match.boolean, (value) => `b:${value ? "1" : "0"}`),
-    Match.when(null, () => "z:null"),
+    Match.when(Match.string, (value) => Encoding.encodeUriComponent(value).pipe(Either.map((key) => `s:${key}`))),
+    Match.when(Match.number, (value) => Either.right(`n:${value}`)),
+    Match.when(Match.boolean, (value) =>
+      Either.right(
+        Match.value(value).pipe(
+          Match.when(true, () => "b:1"),
+          Match.orElse(() => "b:0")
+        )
+      )),
+    Match.when(null, () => Either.right("z:null")),
     Match.exhaustive
   )
 
 const readChoiceFromConfig = (
   dimension: CategoricalDimension,
   config: SamplerConfig
-): Option.Option<PrimitiveChoice> =>
+): Option.Option<Choice> =>
   valueFromConfig(config, dimension.name).pipe(
     Option.flatMap((value) => Arr.findFirst(dimension.choices, (choice) => Equal.equals(choice, value)))
   )
 
 const appendChoice = (
-  tuple: ReadonlyArray<PrimitiveChoice>,
-  choice: PrimitiveChoice
-): ChoiceTuple => Arr.append(tuple, choice)
+  tupleInput: Iterable<Choice>,
+  choice: Choice
+): ChoiceTuple => {
+  const tuple = Arr.fromIterable(tupleInput)
+  return Arr.append(tuple, choice)
+}
 
-const emptyTuple = (): ChoiceTuple => Arr.empty<PrimitiveChoice>()
+const emptyTuple = (): ChoiceTuple => Arr.empty<Choice>()
 
 const valueAt = (
-  values: ReadonlyArray<PrimitiveChoice>,
+  valuesInput: Iterable<Choice>,
   index: number
-): Option.Option<PrimitiveChoice> => Arr.get(values, index)
+): Option.Option<Choice> => {
+  const values = Arr.fromIterable(valuesInput)
+  return Arr.get(values, index)
+}
 
-type DimensionChoiceEntry = readonly [string, PrimitiveChoice]
+const DimensionChoiceEntry = Schema.Tuple(Schema.String, Choice)
+type DimensionChoiceEntry = typeof DimensionChoiceEntry.Type
+const DimensionChoiceEntries = Schema.Array(DimensionChoiceEntry)
 
 const appendDimensionChoice = (
-  entries: ReadonlyArray<DimensionChoiceEntry>,
+  entriesInput: Iterable<DimensionChoiceEntry>,
   dimension: CategoricalDimension,
-  choice: PrimitiveChoice
-): ReadonlyArray<DimensionChoiceEntry> => Arr.append(entries, Tuple.make(dimension.name, choice))
+  choice: Choice
+) => {
+  const entries = Arr.fromIterable(entriesInput)
+  return Arr.append(entries, Tuple.make(dimension.name, choice))
+}
 
-export const tupleKey = (tuple: ReadonlyArray<PrimitiveChoice>): string => Arr.join(Arr.map(tuple, encodeChoice), "|")
+export const tupleKey = (tupleInput: Iterable<Choice>): Either.Either<string, Encoding.EncodeException> => {
+  const tuple = Arr.fromIterable(tupleInput)
+  return Either.all(Arr.map(tuple, encodeChoice)).pipe(Either.map(Arr.join("|")))
+}
 
-export const enumerateChoiceTuples = (dimensions: ReadonlyArray<CategoricalDimension>): ReadonlyArray<ChoiceTuple> =>
-  Match.value(Num.lessThanOrEqualTo(dimensions.length, 0)).pipe(
-    Match.when(true, () => [emptyTuple()]),
+export const enumerateChoiceTuples = (dimensionsInput: Iterable<CategoricalDimension>) => {
+  const dimensions = Arr.fromIterable(dimensionsInput)
+  return Match.value(Num.lessThanOrEqualTo(Arr.length(dimensions), 0)).pipe(
+    Match.when(true, () => Arr.of(emptyTuple())),
     Match.orElse(() =>
       Arr.reduce<
         CategoricalDimension,
-        ReadonlyArray<ChoiceTuple>
+        typeof ChoiceTuples.Type
       >(
         dimensions,
-        [emptyTuple()],
+        Arr.of(emptyTuple()),
         (tuples, dimension) =>
           Arr.flatMap(tuples, (tuple) => Arr.map(dimension.choices, (choice) => appendChoice(tuple, choice)))
       )
     )
   )
+}
 
 export const tupleFromConfig = (
-  dimensions: ReadonlyArray<CategoricalDimension>,
+  dimensionsInput: Iterable<CategoricalDimension>,
   config: SamplerConfig
-): Option.Option<ChoiceTuple> =>
-  Arr.reduce<
+): Option.Option<ChoiceTuple> => {
+  const dimensions = Arr.fromIterable(dimensionsInput)
+  return Arr.reduce<
     CategoricalDimension,
     Option.Option<ChoiceTuple>
   >(
@@ -100,14 +127,17 @@ export const tupleFromConfig = (
         )
       )
   )
+}
 
 export const configFromTuple = (
-  dimensions: ReadonlyArray<CategoricalDimension>,
-  tuple: ReadonlyArray<PrimitiveChoice>
-): Option.Option<ChoiceConfig> =>
-  Arr.reduce<
+  dimensionsInput: Iterable<CategoricalDimension>,
+  tupleInput: Iterable<Choice>
+): Option.Option<ChoiceConfig> => {
+  const dimensions = Arr.fromIterable(dimensionsInput)
+  const tuple = Arr.fromIterable(tupleInput)
+  return Arr.reduce<
     CategoricalDimension,
-    Option.Option<ReadonlyArray<DimensionChoiceEntry>>
+    Option.Option<typeof DimensionChoiceEntries.Type>
   >(
     dimensions,
     Option.some(Arr.empty<DimensionChoiceEntry>()),
@@ -120,6 +150,13 @@ export const configFromTuple = (
         )
       )
   ).pipe(Option.map((entries) => Record.fromEntries(entries)))
+}
 
-export const tupleLookup = (tuples: ReadonlyArray<ChoiceTuple>): ChoiceTupleLookup =>
-  Record.fromEntries(Arr.map(tuples, (tuple) => Tuple.make(tupleKey(tuple), tuple)))
+export const tupleLookup = (
+  tuplesInput: Iterable<ChoiceTuple>
+): Either.Either<ChoiceTupleLookup, Encoding.EncodeException> => {
+  const tuples = Arr.fromIterable(tuplesInput)
+  return Either.all(
+    Arr.map(tuples, (tuple) => tupleKey(tuple).pipe(Either.map((key) => Tuple.make(key, tuple))))
+  ).pipe(Either.map(Record.fromEntries))
+}

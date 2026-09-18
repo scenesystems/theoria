@@ -1,13 +1,19 @@
-import { Effect, Match } from "effect"
+import { Array as Arr, Effect, Inspectable, Match, Schema, String as Str } from "effect"
 
-import { Study } from "@scenesystems/effect-search"
+import * as Optimization from "@scenesystems/effect-search/Optimization"
 import { Text } from "@scenesystems/effect-text"
 
-import { arrange, descriptionInput, renderingFor } from "../../contracts/demo/imagined-place-arrangement.js"
-import { stageFor } from "../../contracts/demo/imagined-place-flow.js"
-import { meanderSpace, renderSampler, renderTrials } from "../../contracts/demo/imagined-place-search.js"
+import {
+  arrange,
+  contributorsOf,
+  descriptionInput,
+  renderingFor
+} from "../../contracts/demo/imagined-place-arrangement.js"
+import { measureFlowQuality, placeMarkers, stageFor } from "../../contracts/demo/imagined-place-flow.js"
+import { meanderSpace, renderSampler } from "../../contracts/demo/imagined-place-optimization.js"
+import { renderTrials } from "../../contracts/demo/imagined-place-search.js"
 import type { PlaceRendering } from "../../contracts/imagined-place-result.js"
-import { type PlaceArtifact, PlaceBuildError } from "../../contracts/imagined-place.js"
+import { type PlaceArtifact, PlaceBuildError, placeFeatures } from "../../contracts/imagined-place.js"
 
 /**
  * Renders the artifact for one stage width on the server, with effect-text's
@@ -24,29 +30,39 @@ export const render = (artifact: PlaceArtifact, stageWidth: number): Effect.Effe
     const stage = stageFor(stageWidth)
     const prepared = yield* Text.prepareWithSegments(descriptionInput(artifact))
     const candidate = arrange(artifact, prepared, stage)
+    const features = placeFeatures(artifact)
+    const contributors = contributorsOf(artifact)
 
-    const result = yield* Study.minimize({
+    const result = yield* Optimization.minimize({
       space: yield* meanderSpace,
       sampler: renderSampler(),
-      objective: (meander) => Effect.succeed(candidate(meander).quality.loss),
+      objective: (meander) =>
+        Effect.succeed(
+          measureFlowQuality(prepared, stage, placeMarkers(features, contributors, stage, meander)).loss
+        ),
       trials: renderTrials
     })
     const best = yield* Match.value(result).pipe(
       Match.tag("SingleObjective", (single) => Effect.succeed(single)),
-      Match.orElse((other) =>
-        Effect.fail(new PlaceBuildError({ stage: "render", message: `unexpected study result ${other._tag}` }))
-      )
+      Match.tag("MultiObjective", (multi) =>
+        Effect.fail(
+          new PlaceBuildError({ stage: "render", message: Str.concat("unexpected study result ", multi._tag) })
+        )),
+      Match.exhaustive
     )
 
     return renderingFor({
       arrangement: candidate(best.bestTrial.config),
       bestLoss: best.bestTrial.state.value,
       stage,
-      trials: best.trials.length
+      trials: Arr.length(Arr.fromIterable(best.trials))
     })
   }).pipe(
-    Effect.provide(Text.TextLayoutLive),
+    Effect.provide(Text.layer),
     Effect.mapError((cause) =>
-      cause instanceof PlaceBuildError ? cause : new PlaceBuildError({ stage: "render", message: String(cause) })
+      Match.value(cause).pipe(
+        Match.when(Schema.is(PlaceBuildError), (error) => error),
+        Match.orElse((error) => new PlaceBuildError({ stage: "render", message: Inspectable.toStringUnknown(error) }))
+      )
     )
   )

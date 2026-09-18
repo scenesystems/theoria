@@ -1,6 +1,7 @@
 import { Registry } from "@effect-atom/atom"
 import { describe, expect, it } from "@effect/vitest"
-import { Effect, Option } from "effect"
+import { Effect, Number as Num, Option } from "effect"
+import * as Arr from "effect/Array"
 
 import { stageMaxWidth, stageMinWidth } from "../../app/contracts/demo/imagined-place-flow.js"
 import {
@@ -34,12 +35,12 @@ describe("the stage's width", () => {
     Effect.sync(() => {
       const registry = Registry.make()
       expect(registry.get(placeStageFrameWidthAtom)).toBe(
-        `min(100%, ${String(stageMaxWidth + placeStageFrameBorderPx * 2)}px)`
+        `min(100%, ${String(Num.sum(stageMaxWidth, Num.multiply(placeStageFrameBorderPx, 2)))}px)`
       )
-      const narrowest = placeStagePresets[0] ?? stageMinWidth
+      const narrowest = Option.getOrElse(Arr.get(placeStagePresets, 0), () => stageMinWidth)
       registry.set(placeStageRequestAtom, narrowest)
       expect(registry.get(placeStageFrameWidthAtom)).toBe(
-        `min(100%, ${String(narrowest + placeStageFrameBorderPx * 2)}px)`
+        `min(100%, ${String(Num.sum(narrowest, Num.multiply(placeStageFrameBorderPx, 2)))}px)`
       )
     }))
 
@@ -51,13 +52,13 @@ describe("the stage's width", () => {
       expect(registry.get(placeStageMeasuredWidthAtom)).toEqual(Option.some(registry.get(placeStageWidthAtom)))
       expect(registry.get(placeStageWidthAtom)).toBeLessThanOrEqual(390)
 
-      registry.set(placeStageContainerWidthAtom, Option.some(stageMaxWidth + 400))
+      registry.set(placeStageContainerWidthAtom, Option.some(Num.sum(stageMaxWidth, 400)))
       expect(registry.get(placeStageMaxDrawableAtom)).toBe(stageMaxWidth)
-      registry.set(placeStageContainerWidthAtom, Option.some(stageMinWidth - 100))
+      registry.set(placeStageContainerWidthAtom, Option.some(Num.subtract(stageMinWidth, 100)))
       expect(registry.get(placeStageMaxDrawableAtom)).toBe(stageMinWidth)
 
       registry.set(placeStageContainerWidthAtom, Option.some(stageMaxWidth))
-      const narrowest = placeStagePresets[0] ?? stageMinWidth
+      const narrowest = Option.getOrElse(Arr.get(placeStagePresets, 0), () => stageMinWidth)
       registry.set(placeStageRequestAtom, narrowest)
       expect(registry.get(placeStageMeasuredWidthAtom)).toEqual(Option.some(narrowest))
     }))

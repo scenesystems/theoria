@@ -2,9 +2,9 @@
 import { FileSystem, Path, Url } from "@effect/platform"
 import { Array, Effect, Number, Schema, String } from "effect"
 
-export class InvalidInvocation extends Schema.TaggedError<InvalidInvocation>()("InvalidInvocation", {
-  message: Schema.String
-}) {}
+export class InvalidInvocation extends Schema.TaggedError<InvalidInvocation>(
+  "@theoria/scripts/release/Invocation/InvalidInvocation"
+)("InvalidInvocation", { message: Schema.String }) {}
 
 /** Preserve argument boundaries without a raw process/Bun global or a shell. */
 export const read = (scriptUrl: string) =>

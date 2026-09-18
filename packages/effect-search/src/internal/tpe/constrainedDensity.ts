@@ -1,11 +1,13 @@
-import { Array as Arr, Data, Match, Number as Num, Option } from "effect"
+import { exp, isFinite, logStrict } from "@scenesystems/effect-math/Numeric"
+import { Array as Arr, Boolean as Bool, Data, Match, Number as Num, Option } from "effect"
 
-import * as Float64 from "../float64.js"
+import type { Vector } from "../../Objective.js"
+
 import { buildContinuousParzen, type ContinuousParzen, logDensity } from "./continuousParzen.js"
 
-const RATIO_EPSILON = 1e-12
-const RATIO_MAX = Num.unsafeDivide(1, RATIO_EPSILON)
-const BOUNDS_PADDING_RATIO = 0.05
+const minimumDensityRatio = 1e-12
+const maximumDensityRatio = Num.unsafeDivide(1, minimumDensityRatio)
+const boundsPaddingRatio = 0.05
 
 class ConstraintBounds extends Data.Class<{
   readonly low: number
@@ -26,38 +28,49 @@ export class ConstraintDensityModel extends Data.Class<{
 }> {}
 
 const finiteConstraintValue = (value: number): number =>
-  Match.value(Number.isFinite(value)).pipe(
+  Match.value(isFinite(value)).pipe(
     Match.when(true, () => value),
     Match.orElse(() => Number.POSITIVE_INFINITY)
   )
 
 export const isConstraintSatisfied = (value: number): boolean => Num.lessThanOrEqualTo(finiteConstraintValue(value), 0)
 
-export const isConstraintVectorFeasible = (constraints: ReadonlyArray<number>): boolean =>
-  Arr.every(constraints, (constraint) => isConstraintSatisfied(constraint))
+export const isConstraintVectorFeasible = (constraintsInput: Iterable<number>): boolean => {
+  const constraints = Arr.fromIterable(constraintsInput)
+  return Arr.every(constraints, (constraint) => isConstraintSatisfied(constraint))
+}
 
-const constraintDimensionCount = (constraints: ReadonlyArray<ReadonlyArray<number>>): number =>
-  Arr.reduce(constraints, 0, (count, values) => Num.max(count, values.length))
+const constraintDimensionCount = (constraintsInput: Iterable<Vector>): number => {
+  const constraints = Arr.fromIterable(constraintsInput)
+  return Arr.reduce(constraints, 0, (count, values) => Num.max(count, Arr.length(values)))
+}
 
-const constraintValueAt = (constraints: ReadonlyArray<number>, index: number): number =>
-  Arr.get(constraints, index).pipe(
+const constraintValueAt = (constraintsInput: Iterable<number>, index: number): number => {
+  const constraints = Arr.fromIterable(constraintsInput)
+  return Arr.get(constraints, index).pipe(
     Option.map((value) => finiteConstraintValue(value)),
     Option.getOrElse(() => Number.POSITIVE_INFINITY)
   )
+}
 
 const valuesForDimension = (
-  constraints: ReadonlyArray<ReadonlyArray<number>>,
+  constraintsInput: Iterable<Vector>,
   index: number
-): ReadonlyArray<number> => Arr.map(constraints, (values) => constraintValueAt(values, index))
+) => {
+  const constraints = Arr.fromIterable(constraintsInput)
+  return Arr.map(constraints, (values) => constraintValueAt(values, index))
+}
 
-const boundsFromValues = (values: ReadonlyArray<number>): ConstraintBounds => {
-  const finiteValues = Arr.filter(values, (value) => Number.isFinite(value))
+const boundsFromValues = (valuesInput: Iterable<number>): ConstraintBounds => {
+  const values = Arr.fromIterable(valuesInput)
+
+  const finiteValues = Arr.filter(values, isFinite)
 
   return Arr.get(finiteValues, 0).pipe(
     Option.match({
       onNone: () =>
         new ConstraintBounds({
-          low: -1,
+          low: Num.negate(1),
           high: 1
         }),
       onSome: (firstValue) => {
@@ -70,23 +83,24 @@ const boundsFromValues = (values: ReadonlyArray<number>): ConstraintBounds => {
               maximum: Num.max(currentRange.maximum, value)
             })
         )
-        const span = range.maximum - range.minimum
+        const span = Num.subtract(range.maximum, range.minimum)
         const padding = Match.value(Num.lessThanOrEqualTo(span, 0)).pipe(
           Match.when(true, () => 1),
-          Match.orElse(() => Num.max(1, span * BOUNDS_PADDING_RATIO))
+          Match.orElse(() => Num.max(1, Num.multiply(span, boundsPaddingRatio)))
         )
 
         return new ConstraintBounds({
-          low: range.minimum - padding,
-          high: range.maximum + padding
+          low: Num.subtract(range.minimum, padding),
+          high: Num.sum(range.maximum, padding)
         })
       }
     })
   )
 }
 
-const gammaFromValues = (values: ReadonlyArray<number>): number =>
-  Match.value(values.length <= 0).pipe(
+const gammaFromValues = (valuesInput: Iterable<number>): number => {
+  const values = Arr.fromIterable(valuesInput)
+  return Match.value(Num.lessThanOrEqualTo(Arr.length(values), 0)).pipe(
     Match.when(true, () => 0.5),
     Match.orElse(() => {
       const feasibleCount = Arr.reduce(
@@ -99,83 +113,100 @@ const gammaFromValues = (values: ReadonlyArray<number>): number =>
           )
       )
 
-      return Num.clamp(Num.unsafeDivide(feasibleCount, values.length), {
-        minimum: RATIO_EPSILON,
-        maximum: 1 - RATIO_EPSILON
+      return Num.clamp(Num.unsafeDivide(feasibleCount, Arr.length(values)), {
+        minimum: minimumDensityRatio,
+        maximum: Num.subtract(1, minimumDensityRatio)
       })
     })
   )
+}
 
-const modelFromValues = (values: ReadonlyArray<number>): ConstraintDensityModel => {
+const modelFromValues = (valuesInput: Iterable<number>): ConstraintDensityModel => {
+  const values = Arr.fromIterable(valuesInput)
+
   const bounds = boundsFromValues(values)
   const feasibleValues = Arr.filter(values, (value) => isConstraintSatisfied(value))
-  const infeasibleValues = Arr.filter(values, (value) => !isConstraintSatisfied(value))
+  const infeasibleValues = Arr.filter(values, (value) => Bool.not(isConstraintSatisfied(value)))
 
   return new ConstraintDensityModel({
     gamma: gammaFromValues(values),
     feasibleParzen: buildContinuousParzen(feasibleValues, bounds.low, bounds.high),
     infeasibleParzen: buildContinuousParzen(infeasibleValues, bounds.low, bounds.high),
-    hasFeasible: feasibleValues.length > 0,
-    hasInfeasible: infeasibleValues.length > 0
+    hasFeasible: Num.greaterThan(Arr.length(feasibleValues), 0),
+    hasInfeasible: Num.greaterThan(Arr.length(infeasibleValues), 0)
   })
 }
 
 const stabilizeRatio = (ratio: number): number =>
-  Match.value(Number.isFinite(ratio)).pipe(
+  Match.value(isFinite(ratio)).pipe(
     Match.when(true, () =>
       Num.clamp(ratio, {
-        minimum: RATIO_EPSILON,
-        maximum: RATIO_MAX
+        minimum: minimumDensityRatio,
+        maximum: maximumDensityRatio
       })),
     Match.orElse(() =>
       Match.value(Num.greaterThan(ratio, 0)).pipe(
-        Match.when(true, () => RATIO_MAX),
-        Match.orElse(() => RATIO_EPSILON)
+        Match.when(true, () => maximumDensityRatio),
+        Match.orElse(() => minimumDensityRatio)
       )
     )
   )
 
 export const buildConstraintDensityModels = (
-  constraints: ReadonlyArray<ReadonlyArray<number>>
-): ReadonlyArray<ConstraintDensityModel> =>
-  Arr.makeBy(constraintDimensionCount(constraints), (index) => modelFromValues(valuesForDimension(constraints, index)))
+  constraintsInput: Iterable<Vector>
+) => {
+  const constraints = Arr.fromIterable(constraintsInput)
+  return Arr.makeBy(
+    constraintDimensionCount(constraints),
+    (index) => modelFromValues(valuesForDimension(constraints, index))
+  )
+}
 
 export const constraintDensityRatio = (
   model: ConstraintDensityModel,
   value: number
 ): number =>
-  Match.value(!model.hasFeasible || !model.hasInfeasible).pipe(
+  Match.value(Bool.or(Bool.not(model.hasFeasible), Bool.not(model.hasInfeasible))).pipe(
     Match.when(true, () => 1),
     Match.orElse(() => {
       const constrainedValue = finiteConstraintValue(value)
       const ratio = stabilizeRatio(
-        Float64.exp(
-          logDensity(model.feasibleParzen, constrainedValue) -
+        exp(
+          Num.subtract(
+            logDensity(model.feasibleParzen, constrainedValue),
             logDensity(model.infeasibleParzen, constrainedValue)
+          )
         )
       )
-      const denominator = model.gamma * ratio + (1 - model.gamma)
+      const denominator = Num.sum(Num.multiply(model.gamma, ratio), Num.subtract(1, model.gamma))
 
-      return Match.value(Number.isFinite(denominator) && Num.greaterThan(denominator, 0)).pipe(
+      return Match.value(Bool.and(isFinite(denominator), Num.greaterThan(denominator, 0))).pipe(
         Match.when(true, () => stabilizeRatio(Num.unsafeDivide(ratio, denominator))),
-        Match.orElse(() => RATIO_EPSILON)
+        Match.orElse(() => minimumDensityRatio)
       )
     })
   )
 
 export const constraintDensityRatioLogProduct = (
-  models: ReadonlyArray<ConstraintDensityModel>,
-  constraints: ReadonlyArray<number>
-): number =>
-  Arr.reduce(models, 0, (sum, model, index) =>
+  modelsInput: Iterable<ConstraintDensityModel>,
+  constraintsInput: Iterable<number>
+): number => {
+  const models = Arr.fromIterable(modelsInput)
+  const constraints = Arr.fromIterable(constraintsInput)
+  return Arr.reduce(models, 0, (sum, model, index) =>
     Num.sum(
       sum,
-      Float64.log(
+      logStrict(
         constraintDensityRatio(model, constraintValueAt(constraints, index))
       )
     ))
+}
 
 export const constraintDensityRatioProduct = (
-  models: ReadonlyArray<ConstraintDensityModel>,
-  constraints: ReadonlyArray<number>
-): number => Float64.exp(constraintDensityRatioLogProduct(models, constraints))
+  modelsInput: Iterable<ConstraintDensityModel>,
+  constraintsInput: Iterable<number>
+): number => {
+  const models = Arr.fromIterable(modelsInput)
+  const constraints = Arr.fromIterable(constraintsInput)
+  return exp(constraintDensityRatioLogProduct(models, constraints))
+}

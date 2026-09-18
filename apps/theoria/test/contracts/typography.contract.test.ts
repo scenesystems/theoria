@@ -1,5 +1,5 @@
 import { describe, expect, it } from "@effect/vitest"
-import { Effect, Option } from "effect"
+import { Boolean as Bool, Effect, Option, String as Str } from "effect"
 import * as Arr from "effect/Array"
 
 import { SurfaceVariant } from "../../app/contracts/presentation.js"
@@ -65,7 +65,11 @@ describe("Typography contract", () => {
       // was measured to fit — would paint wider than it measured with any tracking, so it carries none.
       const projected = Arr.filterMap(
         textSemantics,
-        (semantics) => semantics.wrapAuthority === "effect-text-projected" ? Option.some(semantics.role) : Option.none()
+        (semantics) =>
+          Bool.match(Str.Equivalence(semantics.wrapAuthority, "effect-text-projected"), {
+            onTrue: () => Option.some(semantics.role),
+            onFalse: Option.none
+          })
       )
       const measured = Arr.append(projected, labelRole)
       expect(measured).toContain("code-block")

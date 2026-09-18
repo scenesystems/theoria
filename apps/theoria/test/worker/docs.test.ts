@@ -1,8 +1,9 @@
 // @vitest-environment node
 import { expect, layer } from "@effect/vitest"
-import { Clock, Deferred, Duration, Effect, Layer, Runtime } from "effect"
+import { Boolean, Clock, Deferred, Duration, Effect, Layer, Number, Predicate, Runtime, Schema } from "effect"
 import * as Arr from "effect/Array"
 import * as Str from "effect/String"
+import { evaluate, evaluateElement, evaluateElements } from "./browser.js"
 
 import { cards } from "../../app/contracts/card.js"
 import { elevationIndex } from "../../app/contracts/layout.js"
@@ -37,8 +38,11 @@ import {
   backgroundColour,
   boxOf,
   clipboardText,
+  dispatchKeydown,
+  elementCount,
   greekFaceOpacities,
   horizontalScrollers,
+  isActiveElement,
   presence,
   resolvedChrome,
   scrollAffordance,
@@ -63,14 +67,14 @@ layer(Layer.merge(SiteLive, BrowserLive), { excludeTestServices: true, timeout: 
             const sidebar = page.getByRole("complementary", { name: "Documentation navigation" })
             const picker = sidebar.getByRole("button", { name: "Choose package" })
             yield* visible(picker)
-            expect((yield* act(() => picker.evaluate(boxOf))).height, `overview at ${String(height)}px`).toBe(44)
+            expect((yield* evaluateElement(picker, boxOf)).height, `overview at ${height}px`).toBe(44)
 
             yield* click(sidebar.getByRole("link", { name: "API reference", exact: true }))
             yield* urlMatches(page, /\/docs\/digest\/api$/u)
-            yield* visible(sidebar.getByRole("link", { name: "algorithms/blake3", exact: true }))
-            const box = yield* act(() => picker.evaluate(boxOf))
-            expect(box.height, `expanded API navigation at ${String(height)}px`).toBe(44)
-            expect(yield* act(() => picker.evaluate(textFitsBox))).toBe(true)
+            yield* visible(sidebar.getByRole("link", { name: "Blake3", exact: true }))
+            const box = yield* evaluateElement(picker, boxOf)
+            expect(box.height, `expanded API navigation at ${height}px`).toBe(44)
+            expect(yield* evaluateElement(picker, textFitsBox)).toBe(true)
 
             yield* click(picker)
             yield* visible(page.getByRole("menu"))
@@ -89,25 +93,25 @@ layer(Layer.merge(SiteLive, BrowserLive), { excludeTestServices: true, timeout: 
             yield* setViewport(page, { width, height: 900 })
             yield* goto(page, "/docs")
             yield* visible(page.getByRole("heading", { level: 1, name: "Packages" }))
-            const canvas = yield* act(() => page.locator("body").evaluate(boxOf))
-            const header = yield* act(() => page.locator("header > div").evaluate(boxOf))
+            const canvas = yield* evaluateElement(page.locator("body"), boxOf)
+            const header = yield* evaluateElement(page.locator("header > div"), boxOf)
             expect(header.left).toBe(0)
             expect(header.right).toBe(canvas.right)
-            const logo = yield* act(() => page.locator("header a[href='/'] svg").evaluate(boxOf))
-            const title = yield* act(() => page.getByRole("heading", { level: 1 }).evaluate(boxOf))
+            const logo = yield* evaluateElement(page.locator("header a[href='/'] svg"), boxOf)
+            const title = yield* evaluateElement(page.getByRole("heading", { level: 1 }), boxOf)
             expect(title.left).toBe(logo.left)
 
             yield* goto(page, "/docs/digest")
             const sidebar = page.getByRole("complementary", { name: "Documentation navigation" })
             yield* visible(sidebar)
-            expect((yield* act(() => sidebar.evaluate(boxOf))).left).toBe(0)
-            const picker = yield* act(() => sidebar.getByRole("button", { name: "Choose package" }).evaluate(boxOf))
+            expect((yield* evaluateElement(sidebar, boxOf)).left).toBe(0)
+            const picker = yield* evaluateElement(sidebar.getByRole("button", { name: "Choose package" }), boxOf)
             expect(picker.left).toBe(logo.left)
             const links = sidebar.getByRole("link")
-            expect(yield* act(() => links.evaluateAll((elements) => elements.length))).toBeGreaterThan(5)
-            yield* Effect.forEach(Arr.range(0, (yield* act(() => links.count())) - 1), (index) =>
+            expect(yield* evaluateElements(links, elementCount)).toBeGreaterThan(5)
+            yield* Effect.forEach(Arr.range(0, Number.decrement(yield* act(() => links.count()))), (index) =>
               Effect.gen(function*() {
-                expect(yield* act(() => links.nth(index).evaluate(textFitsBox))).toBe(true)
+                expect(yield* evaluateElement(links.nth(index), textFitsBox)).toBe(true)
               }))
           }))
         expect(yield* failures).toEqual([])
@@ -123,19 +127,19 @@ layer(Layer.merge(SiteLive, BrowserLive), { excludeTestServices: true, timeout: 
             const card = page.locator("[data-docs-package='digest']")
             yield* visible(card)
             yield* hover(card)
-            const hoverColour = yield* act(() => page.evaluate(systemColour, "var(--th-instrument-glass)"))
+            const hoverColour = yield* evaluate(page, systemColour, "var(--th-instrument-glass)")
             yield* until(
-              act(() => card.evaluate(backgroundColour)),
-              (color) => color === hoverColour,
+              evaluateElement(card, backgroundColour),
+              (color) => Str.Equivalence(color, hoverColour),
               "card hover wash"
             )
-            expect((yield* act(() => card.locator("h2").evaluate(underlineDrawn))).lines).not.toContain("underline")
+            expect((yield* evaluateElement(card.locator("h2"), underlineDrawn)).lines).not.toContain("underline")
             yield* act(() => page.mouse.down())
-            const pressedColour = yield* act(() => page.evaluate(systemColour, "var(--th-instrument)"))
+            const pressedColour = yield* evaluate(page, systemColour, "var(--th-instrument)")
             expect(pressedColour).not.toBe(hoverColour)
             yield* until(
-              act(() => card.evaluate(backgroundColour)),
-              (color) => color === pressedColour,
+              evaluateElement(card, backgroundColour),
+              (color) => Str.Equivalence(color, pressedColour),
               "card pressed wash"
             )
             yield* act(() => page.mouse.up())
@@ -150,20 +154,23 @@ layer(Layer.merge(SiteLive, BrowserLive), { excludeTestServices: true, timeout: 
         yield* goto(page, "/")
         const logo = page.locator("header a[href='/'] > span")
         yield* visible(logo)
-        const homeType = yield* act(() => logo.evaluate(typographyOf))
-        const homeMark = yield* act(() => logo.locator("svg").evaluate(boxOf))
+        const homeType = yield* evaluateElement(logo, typographyOf)
+        const homeMark = yield* evaluateElement(logo.locator("svg"), boxOf)
         yield* goto(page, "/docs/effect-inference/getting-started")
         yield* Effect.forEach([320, 1023, 1024, 1920], (width) =>
           Effect.gen(function*() {
             yield* setViewport(page, { width, height: 900 })
             yield* visible(logo)
-            const docsType = yield* act(() => logo.evaluate(typographyOf))
+            const docsType = yield* evaluateElement(logo, typographyOf)
             expect(docsType.size).toBe(homeType.size)
             expect(docsType.weight).toBe(homeType.weight)
-            expect((yield* act(() => logo.locator("svg").evaluate(boxOf))).height).toBe(homeMark.height)
+            expect((yield* evaluateElement(logo.locator("svg"), boxOf)).height).toBe(homeMark.height)
             const wordmark = logo.getByText("Theoria", { exact: true })
-            yield* width < 1024 ? hidden(wordmark) : visible(wordmark)
-            expect((yield* act(() => page.locator("header").evaluate(boxOf))).height).toBe(73)
+            yield* Effect.if(Number.lessThan(width, 1024), {
+              onTrue: () => hidden(wordmark),
+              onFalse: () => visible(wordmark)
+            })
+            expect((yield* evaluateElement(page.locator("header"), boxOf)).height).toBe(73)
             expect(yield* fitsViewport(page)).toBe(true)
           }))
         expect(yield* failures).toEqual([])
@@ -174,8 +181,8 @@ layer(Layer.merge(SiteLive, BrowserLive), { excludeTestServices: true, timeout: 
         const { failures, page } = yield* openPage({ reducedMotion: "reduce" })
         const pages = [
           { path: "/docs/effect-search/getting-started", title: "Getting started" },
-          { path: "/docs/effect-search/api/Study", title: "Study" },
-          { path: "/docs/effect-search/api/Study#api-ask", title: "ask" }
+          { path: "/docs/effect-search/api/Optimization", title: "Optimization" },
+          { path: "/docs/effect-search/api/Optimization#api-ask", title: "ask" }
         ]
         yield* Effect.forEach(ColorMode.literals, (scheme) =>
           Effect.gen(function*() {
@@ -191,7 +198,7 @@ layer(Layer.merge(SiteLive, BrowserLive), { excludeTestServices: true, timeout: 
                     yield* goto(page, route.path)
                     const title = page.getByRole("heading", { level: 1, name: route.title, exact: true })
                     yield* visible(title)
-                    const metrics = yield* act(() => title.evaluate(typographyOf))
+                    const metrics = yield* evaluateElement(title, typographyOf)
                     expect(metrics.family).toContain("Figtree Variable")
                     expect(metrics).toMatchObject({
                       size: viewport.size,
@@ -199,25 +206,31 @@ layer(Layer.merge(SiteLive, BrowserLive), { excludeTestServices: true, timeout: 
                       tracking: viewport.tracking,
                       weight: "600",
                       transform: "none",
-                      color: yield* act(() => page.evaluate(systemColour, "var(--th-ink-strong)"))
+                      color: yield* evaluate(page, systemColour, "var(--th-ink-strong)")
                     })
                     const prose = page.locator("main p").first()
                     yield* visible(prose)
-                    expect(yield* act(() => prose.evaluate(typographyOf))).toMatchObject({
+                    expect(yield* evaluateElement(prose, typographyOf)).toMatchObject({
                       size: "16px",
                       leading: "26px",
                       weight: "400",
                       tracking: "normal",
-                      color: yield* act(() => page.evaluate(systemColour, "var(--th-ink)"))
+                      color: yield* evaluate(page, systemColour, "var(--th-ink)")
                     })
-                    expect(yield* act(() => page.locator("main h2").first().evaluate(typographyOf))).toMatchObject({
-                      size: viewport.width === 639 ? "21px" : "24px",
-                      leading: viewport.width === 639 ? "28px" : "32px",
+                    expect(yield* evaluateElement(page.locator("main h2").first(), typographyOf)).toMatchObject({
+                      size: Boolean.match(Number.Equivalence(viewport.width, 639), {
+                        onTrue: () => "21px",
+                        onFalse: () => "24px"
+                      }),
+                      leading: Boolean.match(Number.Equivalence(viewport.width, 639), {
+                        onTrue: () => "28px",
+                        onFalse: () => "32px"
+                      }),
                       weight: "600",
                       transform: "none",
-                      color: yield* act(() => page.evaluate(systemColour, "var(--th-ink-strong)"))
+                      color: yield* evaluate(page, systemColour, "var(--th-ink-strong)")
                     })
-                    expect(yield* act(() => page.locator("header a[href=\"/\"] > span").evaluate(typographyOf)))
+                    expect(yield* evaluateElement(page.locator("header a[href=\"/\"] > span"), typographyOf))
                       .toMatchObject({
                         size: "24px",
                         leading: "32px",
@@ -225,13 +238,13 @@ layer(Layer.merge(SiteLive, BrowserLive), { excludeTestServices: true, timeout: 
                         tracking: "-0.6px"
                       })
                     const source = page.getByRole("link", { exact: true, name: "Source" }).first()
-                    expect(yield* act(() => source.locator("span").evaluate(typographyOf))).toMatchObject({
+                    expect(yield* evaluateElement(source.locator("span"), typographyOf)).toMatchObject({
                       size: "12px",
                       leading: "16px",
                       weight: "600",
-                      color: (yield* act(() => source.evaluate(typographyOf))).color
+                      color: (yield* evaluateElement(source, typographyOf)).color
                     })
-                    expect(yield* act(() => page.locator("main code").first().evaluate(typographyOf))).toMatchObject({
+                    expect(yield* evaluateElement(page.locator("main code").first(), typographyOf)).toMatchObject({
                       family: expect.stringContaining("Geist Mono Variable"),
                       size: "12px",
                       leading: "18px",
@@ -244,10 +257,54 @@ layer(Layer.merge(SiteLive, BrowserLive), { excludeTestServices: true, timeout: 
         expect(yield* failures).toEqual([])
       }))
 
+    it.scoped("a delayed docs renderer loads on demand and preserves navigation focus", () =>
+      Effect.gen(function*() {
+        const { failures, page } = yield* openPage({ reducedMotion: "reduce" })
+        const runtime = yield* Effect.runtime<never>()
+        const gate = yield* Deferred.make<void>()
+        const modules = yield* observeRequests(page, (request) => Str.includes("/assets/DocsPage-")(request.url))
+        yield* act(() =>
+          page.route("**/assets/DocsPage-*.js", (route) =>
+            Runtime.runPromise(runtime)(Deferred.await(gate).pipe(Effect.andThen(act(() => route.continue())))))
+        )
+        yield* goto(page, "/")
+        const browse = page.getByRole("link", { name: "Browse the packages", exact: true })
+        yield* visible(browse)
+        expect(yield* modules).toHaveLength(0)
+        yield* click(browse)
+        yield* visible(page.locator("[data-docs-skeleton=\"index\"]"))
+        yield* Deferred.succeed(gate, undefined)
+        yield* visible(page.getByRole("heading", { level: 1, name: "Packages" }))
+        yield* until(
+          evaluateElement(page.locator("main"), isActiveElement),
+          (focused) =>
+            focused,
+          "loaded route focus"
+        )
+        expect(yield* modules).toHaveLength(1)
+        expect(yield* failures).toEqual([])
+      }))
+
+    it.scoped("a failed docs renderer can be retried after the network recovers", () =>
+      Effect.gen(function*() {
+        const { failures, page } = yield* openPage({ reducedMotion: "reduce" })
+        yield* act(() => page.route("**/assets/DocsPage-*.js", (route) => route.abort("failed"), { times: 1 }))
+        yield* goto(page, "/")
+        yield* click(page.getByRole("link", { name: "Browse the packages", exact: true }))
+        yield* visible(page.getByRole("heading", { level: 1, name: "Documentation unavailable" }))
+        yield* until(evaluateElement(page.locator("main"), isActiveElement), (focused) => focused, "failed route focus")
+        const networkFailures = yield* failures
+        expect(networkFailures).not.toHaveLength(0)
+        expect(Arr.every(networkFailures, Str.includes("net::ERR_FAILED"))).toBe(true)
+        yield* click(page.getByRole("button", { name: "Try again", exact: true }))
+        yield* visible(page.getByRole("heading", { level: 1, name: "Packages" }))
+        expect(yield* failures).toEqual([])
+      }))
+
     it.scoped("landing links enter the package documentation without a reload", () =>
       Effect.gen(function*() {
         const { failures, page } = yield* openPage()
-        const documents = yield* observeRequests(page, (request) => request.resourceType === "document")
+        const documents = yield* observeRequests(page, (request) => Str.Equivalence(request.resourceType, "document"))
 
         yield* goto(page, "/")
         yield* visible(
@@ -259,7 +316,7 @@ layer(Layer.merge(SiteLive, BrowserLive), { excludeTestServices: true, timeout: 
         const headerNavigationStarted = yield* Clock.currentTimeMillis
         yield* click(page.locator("header").getByRole("link", { exact: true, name: "Docs" }))
         yield* visible(page.getByRole("heading", { level: 1, name: "Packages" }))
-        expect((yield* Clock.currentTimeMillis) - headerNavigationStarted).toBeLessThan(1_500)
+        expect(Number.subtract(yield* Clock.currentTimeMillis, headerNavigationStarted)).toBeLessThan(1_500)
         expect(yield* documents).toHaveLength(1)
 
         yield* goto(page, "/")
@@ -270,7 +327,7 @@ layer(Layer.merge(SiteLive, BrowserLive), { excludeTestServices: true, timeout: 
         const cardNavigationStarted = yield* Clock.currentTimeMillis
         yield* click(page.locator("main").locator("a[href=\"/docs/effect-search\"]"))
         yield* visible(page.getByRole("heading", { level: 1, name: "@scenesystems/effect-search" }))
-        expect((yield* Clock.currentTimeMillis) - cardNavigationStarted).toBeLessThan(1_500)
+        expect(Number.subtract(yield* Clock.currentTimeMillis, cardNavigationStarted)).toBeLessThan(1_500)
         expect(yield* documents).toHaveLength(1)
         expect(yield* failures).toEqual([])
       }))
@@ -286,8 +343,8 @@ layer(Layer.merge(SiteLive, BrowserLive), { excludeTestServices: true, timeout: 
         const entrance = full.page.locator("[data-route-entrance]")
         yield* attached(entrance)
         // Arriving: the first frames after the route mounts are the fade in.
-        const arriving = yield* Effect.forEach(Arr.range(1, 12), () => act(() => entrance.evaluate(presence)))
-        expect(Arr.some(arriving, (sample) => sample.opacity < 1 || sample.fading)).toBe(true)
+        const arriving = yield* Effect.forEach(Arr.range(1, 12), () => evaluateElement(entrance, presence))
+        expect(Arr.some(arriving, (sample) => Boolean.or(Number.lessThan(sample.opacity, 1), sample.fading))).toBe(true)
         yield* visible(full.page.getByRole("heading", { level: 1, name: "Packages" }))
 
         const reduced = yield* openPage({ reducedMotion: "reduce" })
@@ -301,7 +358,7 @@ layer(Layer.merge(SiteLive, BrowserLive), { excludeTestServices: true, timeout: 
         const placed = reduced.page.locator("[data-route-entrance]")
         yield* attached(placed)
         // Placed outright: at full opacity from its first frame, fading nothing.
-        const standing = yield* Effect.forEach(Arr.range(1, 12), () => act(() => placed.evaluate(presence)))
+        const standing = yield* Effect.forEach(Arr.range(1, 12), () => evaluateElement(placed, presence))
         expect(standing).toEqual(Arr.map(standing, () => ({ opacity: 1, fading: false })))
         yield* visible(reduced.page.getByRole("heading", { level: 1, name: "Packages" }))
 
@@ -314,10 +371,12 @@ layer(Layer.merge(SiteLive, BrowserLive), { excludeTestServices: true, timeout: 
         const { failures, page } = yield* openPage()
         yield* goto(page, "/")
         const wordmark = page.locator("header").getByRole("img", { name: "Theoria" })
-        const greek = act(() => wordmark.evaluate(greekFaceOpacities))
-        const someGreek = (opacities: ReadonlyArray<number>) => Arr.some(opacities, (opacity) => opacity > 0)
-        const allLatin = (opacities: ReadonlyArray<number>) =>
-          opacities.length === 6 && Arr.every(opacities, (opacity) => opacity === 0)
+        const greek = evaluateElement(wordmark, greekFaceOpacities)
+        const someGreek = Arr.some<number>(Number.greaterThan(0))
+        const allLatin = Predicate.and(
+          Arr.every<number>((opacity) => Number.Equivalence(opacity, 0)),
+          (opacities) => Number.Equivalence(Arr.length(opacities), 6)
+        )
 
         // The intro: after its lead hold the sweep to Greek shows…
         yield* until(greek, someGreek, "the intro's sweep to Greek", Duration.seconds(6))
@@ -330,7 +389,9 @@ layer(Layer.merge(SiteLive, BrowserLive), { excludeTestServices: true, timeout: 
         const met = yield* Clock.currentTimeMillis
         yield* hover(wordmark)
         yield* until(greek, someGreek, "the replay's sweep to Greek", Duration.seconds(4))
-        expect((yield* Clock.currentTimeMillis) - met).toBeLessThan(introDelaySeconds * 1_000)
+        expect(Number.subtract(yield* Clock.currentTimeMillis, met)).toBeLessThan(
+          Number.multiply(introDelaySeconds, 1_000)
+        )
         yield* until(greek, allLatin, "the replay's return to Latin", Duration.seconds(10))
 
         // Met by the keyboard, the same.
@@ -343,8 +404,8 @@ layer(Layer.merge(SiteLive, BrowserLive), { excludeTestServices: true, timeout: 
     it.scoped("docs navigation, package selection, and focused API caching stay coherent", () =>
       Effect.gen(function*() {
         const { failures, page } = yield* openPage({ viewport: { width: 1440, height: 900 } })
-        const docsData = yield* observeRequests(page, (request) => request.url.includes("/docs-data/"))
-        const askPageLoads = Effect.map(docsData, Arr.filter(Str.endsWith("/Study/api-ask.json")))
+        const docsData = yield* observeRequests(page, (request) => Str.includes("/docs-data/")(request.url))
+        const askPageLoads = Effect.map(docsData, Arr.filter(Str.endsWith("/Optimization/api-ask.json")))
 
         yield* goto(page, "/docs/effect-search")
         yield* visible(page.locator("header").getByRole("link", { name: "Theoria on GitHub" }))
@@ -352,35 +413,35 @@ layer(Layer.merge(SiteLive, BrowserLive), { excludeTestServices: true, timeout: 
         const sidebar = page.getByRole("complementary", { name: "Documentation navigation" })
         const picker = sidebar.getByRole("button", { name: "Choose package" })
         yield* visible(picker)
-        const railBox = yield* act(() => sidebar.evaluate(boxOf))
-        const pickerBox = yield* act(() => picker.evaluate(boxOf))
+        const railBox = yield* evaluateElement(sidebar, boxOf)
+        const pickerBox = yield* evaluateElement(picker, boxOf)
         expect(pickerBox.left).toBeGreaterThanOrEqual(railBox.left)
         expect(pickerBox.right).toBeLessThanOrEqual(railBox.right)
         const apiToggle = page.getByRole("button", { name: "Toggle api navigation" })
-        const studyLink = page.getByRole("link", { exact: true, name: "Study" })
-        yield* hidden(studyLink)
+        const optimizationLink = page.getByRole("link", { exact: true, name: "Optimization" })
+        yield* hidden(optimizationLink)
         yield* click(apiToggle)
-        yield* visible(studyLink)
+        yield* visible(optimizationLink)
         yield* click(apiToggle)
-        yield* hidden(studyLink)
+        yield* hidden(optimizationLink)
         yield* click(apiToggle)
-        yield* visible(studyLink)
+        yield* visible(optimizationLink)
 
         yield* click(page.getByRole("link", { exact: true, name: "Getting started" }))
         yield* visible(page.getByRole("heading", { level: 1, name: "Getting started" }))
         yield* attribute(page.getByRole("link", { exact: true, name: "Getting started" }), "aria-current", "page")
 
-        yield* click(studyLink)
-        yield* visible(page.getByRole("heading", { level: 1, name: "Study" }))
-        yield* visible(page.getByText("Runs, observes, snapshots, and resumes optimization studies."))
+        yield* click(optimizationLink)
+        yield* visible(page.getByRole("heading", { level: 1, name: "Optimization" }))
+        yield* visible(page.getByText("Executes, streams, and manually coordinates optimizations."))
 
         yield* click(page.locator("a[href=\"#api-ask\"]"))
-        yield* urlMatches(page, /\/docs\/effect-search\/api\/Study#api-ask$/u)
+        yield* urlMatches(page, /\/docs\/effect-search\/api\/Optimization#api-ask$/u)
         yield* visible(page.getByRole("heading", { level: 1, name: "ask" }))
-        yield* visible(page.getByText("Reserves the next sampled configuration and emits TrialStarted."))
+        yield* visible(page.getByText("Reserves a configuration."))
         expect(yield* askPageLoads).toHaveLength(1)
 
-        yield* click(page.getByRole("link", { exact: true, name: "← Study" }))
+        yield* click(page.getByRole("link", { exact: true, name: "← Optimization" }))
         yield* click(page.locator("a[href=\"#api-ask\"]"))
         yield* visible(page.getByRole("heading", { level: 1, name: "ask" }))
         expect(yield* askPageLoads).toHaveLength(0)
@@ -401,26 +462,27 @@ layer(Layer.merge(SiteLive, BrowserLive), { excludeTestServices: true, timeout: 
         yield* visible(page.getByRole("heading", { level: 1, name: "@scenesystems/effect-search" }))
 
         // The workbench header is sticky at the header elevation, not a hand-typed z-index.
-        const header = yield* act(() => page.locator("header").first().evaluate(resolvedChrome))
+        const header = yield* evaluateElement(page.locator("header").first(), resolvedChrome)
         expect(header.position).toBe("sticky")
-        expect(header.zIndex).toBe(String(elevationIndex("header")))
+        expect(header.zIndex).toBe(yield* Schema.encode(Schema.NumberFromString)(elevationIndex("header")))
 
         // A picker trigger is an instrument's corner and answers the pointer by the respond relation.
-        const trigger = yield* act(() =>
-          page.getByRole("button", { name: "Search documentation" }).evaluate(resolvedChrome)
+        const trigger = yield* evaluateElement(
+          page.getByRole("button", { name: "Search documentation" }),
+          resolvedChrome
         )
         expect(trigger.radius).toBe("12px")
-        expect(trigger.duration).toBe(`${String(Duration.toSeconds(motionDuration("respond")))}s`)
+        expect(trigger.duration).toBe(`${Duration.toSeconds(motionDuration("respond"))}s`)
 
         // A code example's frame is a sheet: the largest corner on the page.
         yield* click(page.getByRole("link", { exact: true, name: "Getting started" }))
-        const frame = yield* act(() => page.locator("[aria-label$='code example']").first().evaluate(resolvedChrome))
+        const frame = yield* evaluateElement(page.locator("[aria-label$='code example']").first(), resolvedChrome)
         expect(frame.radius).toBe("24px")
 
         // The package menu opens at the menu elevation, above the header.
         yield* click(page.getByRole("button", { name: "Choose package" }))
-        const menu = yield* act(() => page.getByRole("menu").locator("xpath=..").evaluate(resolvedChrome))
-        expect(menu.zIndex).toBe(String(elevationIndex("menu")))
+        const menu = yield* evaluateElement(page.getByRole("menu").locator("xpath=.."), resolvedChrome)
+        expect(menu.zIndex).toBe(yield* Schema.encode(Schema.NumberFromString)(elevationIndex("menu")))
         expect(yield* failures).toEqual([])
       }))
 
@@ -468,7 +530,7 @@ layer(Layer.merge(SiteLive, BrowserLive), { excludeTestServices: true, timeout: 
         const quickStart = page.getByRole("region", { name: "ts code example" }).first()
         const block = quickStart.locator("[data-code-scroll]")
         const tall = yield* until(
-          act(() => block.evaluate(scrollAffordance)),
+          evaluateElement(block, scrollAffordance),
           (affordance) => affordance.overflows,
           "the quick start taller than its viewport"
         )
@@ -477,27 +539,63 @@ layer(Layer.merge(SiteLive, BrowserLive), { excludeTestServices: true, timeout: 
         yield* setViewport(page, { width: 1280, height: 800 })
 
         yield* goto(page, "/docs/effect-math/domains")
-        const contractsLink = page.getByRole("link", { exact: true, name: "@scenesystems/effect-math/contracts" })
-        yield* attribute(contractsLink, "href", "/docs/effect-math/api/contracts")
-        yield* click(contractsLink)
-        yield* visible(page.getByRole("heading", { level: 1, name: "contracts" }))
+        const policyLink = page.getByRole("link", { exact: true, name: "Policy" })
+        yield* attribute(policyLink, "href", "/docs/effect-math/api/Policy")
+        yield* click(policyLink)
+        yield* visible(page.getByRole("heading", { level: 1, name: "Policy" }))
+        expect(yield* failures).toEqual([])
+      }))
+
+    it.scoped("search shortcuts cancel synchronously only while docs are mounted", () =>
+      Effect.gen(function*() {
+        const { failures, page } = yield* openPage({ reducedMotion: "reduce" })
+        yield* goto(page, "/docs")
+        yield* visible(page.getByRole("heading", { name: "Packages", level: 1 }))
+        const input = page.getByRole("combobox", { name: "Search" })
+        expect(yield* evaluate(page, dispatchKeydown, { key: "k" })).toBe(true)
+        expect(yield* evaluate(page, dispatchKeydown, { key: "x", ctrlKey: true })).toBe(true)
+        yield* hidden(input)
+
+        yield* Effect.forEach([{ key: "k", ctrlKey: true }, { key: "K", metaKey: true }], (options) =>
+          Effect.gen(function*() {
+            expect(yield* evaluate(page, dispatchKeydown, options)).toBe(false)
+            yield* visible(input)
+            yield* until(evaluateElement(input, isActiveElement), (focused) =>
+              focused, "search focus")
+            yield* press(page, "Escape")
+            yield* hidden(input)
+          }))
+
+        yield* click(page.getByRole("link", { name: "Theoria home", exact: true }))
+        yield* visible(page.getByRole("heading", { name: "Scientific computing and model programming with Effect" }))
+        yield* until(
+          evaluate(page, dispatchKeydown, { key: "k", ctrlKey: true }),
+          (allowed) =>
+            allowed,
+          "shortcut released on leaving docs"
+        )
+        yield* click(page.getByRole("link", { name: "Browse the packages", exact: true }))
+        yield* visible(page.getByRole("heading", { name: "Packages", level: 1 }))
+        yield* press(page, "Control+k")
+        yield* visible(input)
+        yield* until(evaluateElement(input, isActiveElement), (focused) => focused, "remounted search focus")
         expect(yield* failures).toEqual([])
       }))
 
     it.scoped("search is typo-tolerant, fast, cached, and routable", () =>
       Effect.gen(function*() {
         const { failures, page } = yield* openPage()
-        const indexLoads = yield* observeRequests(page, (request) => request.url.endsWith("/search-index.json"))
+        const indexLoads = yield* observeRequests(page, (request) => Str.endsWith("/search-index.json")(request.url))
 
         yield* goto(page, "/docs/effect-search")
         yield* click(page.getByRole("button", { name: "Search documentation" }))
         const input = page.getByRole("combobox", { name: "Search" })
         yield* visible(input)
         const searchStarted = yield* Clock.currentTimeMillis
-        yield* fill(input, "resreves trial")
-        const askResult = page.getByRole("option", { name: /Study\.ask/u })
+        yield* fill(input, "resreves configuration")
+        const askResult = page.getByRole("option", { name: /Optimization\.ask/u })
         yield* visible(askResult)
-        expect((yield* Clock.currentTimeMillis) - searchStarted).toBeLessThan(750)
+        expect(Number.subtract(yield* Clock.currentTimeMillis, searchStarted)).toBeLessThan(750)
         expect(yield* indexLoads).toHaveLength(1)
         yield* click(askResult)
         yield* visible(page.getByRole("heading", { level: 1, name: "ask" }))
@@ -514,14 +612,14 @@ layer(Layer.merge(SiteLive, BrowserLive), { excludeTestServices: true, timeout: 
       Effect.gen(function*() {
         const { failures, page } = yield* openPage({ permissions: ["clipboard-read", "clipboard-write"] })
 
-        yield* goto(page, "/docs/effect-search/api/Study#api-ask")
+        yield* goto(page, "/docs/effect-search/api/Optimization#api-ask")
         yield* visible(page.getByRole("heading", { level: 1, name: "ask" }))
         const signature = page.getByRole("region", { name: "Signature code example" })
         yield* highlighted(signature.locator("pre code"))
         yield* highlighted(page.locator("dt code").first())
         yield* click(signature.getByRole("button", { name: "Copy Signature" }))
         yield* visible(signature.getByRole("button", { name: "Copied Signature" }))
-        expect(yield* act(() => page.evaluate(clipboardText))).toContain("ask")
+        expect(yield* evaluate(page, clipboardText)).toContain("ask")
         expect(yield* failures).toEqual([])
       }))
 
@@ -558,21 +656,21 @@ layer(Layer.merge(SiteLive, BrowserLive), { excludeTestServices: true, timeout: 
       Effect.gen(function*() {
         const { failures, page } = yield* openPage({ viewport: { width: 1440, height: 500 } })
 
-        yield* goto(page, "/docs/effect-search/api/Study#api-ask")
+        yield* goto(page, "/docs/effect-search/api/Optimization#api-ask")
         yield* visible(page.getByRole("heading", { level: 1, name: "ask" }))
         expect(yield* fitsViewport(page)).toBe(true)
 
         yield* setViewport(page, { width: 1440, height: 900 })
-        yield* act(() => page.evaluate(setRootFontSize, "200%"))
+        yield* evaluate(page, setRootFontSize, "200%")
         const signature = page.getByRole("region", { name: "Signature code example" })
-        const scrollers = yield* act(() => signature.evaluate(horizontalScrollers))
+        const scrollers = yield* evaluateElement(signature, horizontalScrollers)
         expect(scrollers.length).toBeGreaterThan(0)
 
         yield* hover(signature.locator("pre"))
         yield* wheel(page, 4_000, 0)
         yield* until(
-          act(() => signature.evaluate(horizontalScrollers)),
-          Arr.every((scroller) => scroller.atEnd && scroller.contained),
+          evaluateElement(signature, horizontalScrollers),
+          Arr.every((scroller) => Boolean.and(scroller.atEnd, scroller.contained)),
           "signature scrollers reach their end inside the viewport"
         )
         expect(yield* fitsViewport(page)).toBe(true)

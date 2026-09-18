@@ -8,10 +8,10 @@
  * Run: bun run examples/09-react-tool-use-live-openai.ts
  */
 import * as Tool from "@effect/ai/Tool"
-import type * as Toolkit from "@effect/ai/Toolkit"
+import * as Toolkit from "@effect/ai/Toolkit"
 import { BunRuntime } from "@effect/platform-bun"
 import { Evaluate, Example, Metric, Module, Signature, Trace } from "@scenesystems/effect-dsp"
-import { Array as Arr, Effect, Schema } from "effect"
+import { Array as Arr, Effect, Number as Num, Option, Schema, String as Str } from "effect"
 import { withLiveLanguageModel } from "./shared/live-provider-runtime.js"
 
 // Tools
@@ -44,59 +44,36 @@ const KNOWLEDGE: ReadonlyArray<{ readonly match: string; readonly answer: string
 ]
 
 const lookupKnowledge = (query: string): string => {
-  const lowerQuery = query.toLowerCase()
-  const entry = Arr.findFirst(KNOWLEDGE, (k) => lowerQuery.includes(k.match))
+  const lowerQuery = Str.toLowerCase(query)
+  const entry = Arr.findFirst(KNOWLEDGE, (entry) => Str.includes(entry.match)(lowerQuery))
 
-  return entry._tag === "Some"
-    ? entry.value.answer
-    : `No data found for: ${query}`
+  return Option.match(entry, {
+    onSome: (found) => found.answer,
+    onNone: () => `No data found for: ${query}`
+  })
 }
 
 const evaluateExpression = (expr: string): string => {
-  const cleaned = expr.replaceAll(",", "").trim()
+  const cleaned = Str.trim(Str.replaceAll(",", "")(expr))
+  const calculate = (pattern: RegExp, operation: (left: number, right: number) => number): Option.Option<string> =>
+    Str.match(pattern)(cleaned).pipe(
+      Option.flatMap((matched) => Option.all({ left: Arr.get(matched, 1), right: Arr.get(matched, 2) })),
+      Option.map(({ left, right }) => String(operation(Number(left), Number(right))))
+    )
 
-  const addMatch = /^(\d+(?:\.\d+)?)\s*\+\s*(\d+(?:\.\d+)?)$/.exec(cleaned)
-  if (addMatch) return String(Number(addMatch[1]) + Number(addMatch[2]))
-
-  const subMatch = /^(\d+(?:\.\d+)?)\s*-\s*(\d+(?:\.\d+)?)$/.exec(cleaned)
-  if (subMatch) return String(Number(subMatch[1]) - Number(subMatch[2]))
-
-  const mulMatch = /^(\d+(?:\.\d+)?)\s*\*\s*(\d+(?:\.\d+)?)$/.exec(cleaned)
-  if (mulMatch) return String(Number(mulMatch[1]) * Number(mulMatch[2]))
-
-  const divMatch = /^(\d+(?:\.\d+)?)\s*\/\s*(\d+(?:\.\d+)?)$/.exec(cleaned)
-  if (divMatch) return String(Number(divMatch[1]) / Number(divMatch[2]))
-
-  return "0"
+  return calculate(/^(\d+(?:\.\d+)?)\s*\+\s*(\d+(?:\.\d+)?)$/u, Num.sum).pipe(
+    Option.orElse(() => calculate(/^(\d+(?:\.\d+)?)\s*-\s*(\d+(?:\.\d+)?)$/u, Num.subtract)),
+    Option.orElse(() => calculate(/^(\d+(?:\.\d+)?)\s*\*\s*(\d+(?:\.\d+)?)$/u, Num.multiply)),
+    Option.orElse(() => calculate(/^(\d+(?:\.\d+)?)\s*\/\s*(\d+(?:\.\d+)?)$/u, Num.unsafeDivide)),
+    Option.getOrElse(() => "0")
+  )
 }
 
-const toolkit: Toolkit.WithHandler<{
-  readonly KnowledgeBase: typeof KnowledgeBase
-  readonly Calculator: typeof Calculator
-}> = {
-  tools: { KnowledgeBase, Calculator },
-  handle: (name, params) => {
-    if (name === "KnowledgeBase" && "query" in params) {
-      const answer = lookupKnowledge(params.query)
-      const result: Tool.HandlerResult<typeof KnowledgeBase> = {
-        isFailure: false,
-        result: answer,
-        encodedResult: answer
-      }
-      return Effect.succeed(result)
-    }
-
-    const computed = "expression" in params
-      ? evaluateExpression(params.expression)
-      : "0"
-    const result: Tool.HandlerResult<typeof Calculator> = {
-      isFailure: false,
-      result: computed,
-      encodedResult: computed
-    }
-    return Effect.succeed(result)
-  }
-}
+const ResearchTools = Toolkit.make(KnowledgeBase, Calculator)
+const ResearchToolsLive = ResearchTools.toLayer(ResearchTools.of({
+  KnowledgeBase: ({ query }) => Effect.succeed(lookupKnowledge(query)),
+  Calculator: ({ expression }) => Effect.succeed(evaluateExpression(expression))
+}))
 
 // Dataset
 
@@ -118,6 +95,7 @@ const evalset = Arr.make(
 // Program
 
 const program = Effect.gen(function*() {
+  const toolkit = yield* ResearchTools.pipe(Effect.provide(ResearchToolsLive))
   const qaSignature = yield* Signature.make(
     "Answer factual questions. Use the KnowledgeBase tool to look up facts and the Calculator tool for any arithmetic. Return only the final answer.",
     {
@@ -148,7 +126,7 @@ const program = Effect.gen(function*() {
 
   yield* Effect.forEach(traces, (entry, index) =>
     Effect.log("Trace step", {
-      step: index + 1,
+      step: Num.increment(index),
       module: entry.moduleName,
       responsePreview: entry.rawResponse.slice(0, 100),
       durationMs: entry.durationMs

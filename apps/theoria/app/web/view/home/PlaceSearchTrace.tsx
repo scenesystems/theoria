@@ -5,6 +5,8 @@ import * as Arr from "effect/Array"
 import * as Num from "effect/Number"
 import type { CSSProperties } from "react"
 
+import * as Numeric from "@scenesystems/effect-math/Numeric"
+
 import { renderTrials } from "../../../contracts/demo/imagined-place-search.js"
 import {
   type PlaceSearch,
@@ -16,7 +18,15 @@ import { focusEdgeClassName, toneClassesFor, transitionClassName } from "../prim
 import { Layer } from "../primitives/Layout.js"
 import { ShimmerLine } from "../primitives/Skeleton.js"
 
-import { isFirst, isKept, searching, shownTrialIndex, trialValueText, waitMotion } from "./placeViewModel.js"
+import {
+  fixedDecimal,
+  isFirst,
+  isKept,
+  searching,
+  shownTrialIndex,
+  trialValueText,
+  waitMotion
+} from "./placeViewModel.js"
 
 const searchTone = toneClassesFor("primary")
 
@@ -46,7 +56,7 @@ const spanOf = (min: number, max: number): number => {
  * the best and a linear axis would flatten the part worth seeing.
  */
 const pointsFor = (losses: ReadonlyArray<number>): ReadonlyArray<Point> => {
-  const scaled = Arr.map(losses, (loss) => Math.log(Num.max(loss, Number.EPSILON)))
+  const scaled = Arr.map(losses, (loss) => Numeric.log(Num.max(loss, Number.EPSILON)))
   const max = Arr.reduce(scaled, 0, Num.max)
   const min = Arr.reduce(scaled, max, Num.min)
   const range = spanOf(min, max)
@@ -61,13 +71,16 @@ const bestPath = (losses: ReadonlyArray<number>): string =>
   Arr.join(
     Arr.map(pointsFor(runningBest(losses)), (point, index) =>
       Bool.match(isFirst(index), {
-        onTrue: () => `M${point.x.toFixed(2)} ${point.y.toFixed(2)}`,
-        onFalse: () => `H${point.x.toFixed(2)} V${point.y.toFixed(2)}`
+        onTrue: () => `M${fixedDecimal(point.x, 2)} ${fixedDecimal(point.y, 2)}`,
+        onFalse: () => `H${fixedDecimal(point.x, 2)} V${fixedDecimal(point.y, 2)}`
       })),
     " "
   )
 
-const dotStyle = (point: Point): CSSProperties => ({ left: `${point.x.toFixed(2)}%`, top: `${point.y.toFixed(2)}%` })
+const dotStyle = (point: Point): CSSProperties => ({
+  left: `${fixedDecimal(point.x, 2)}%`,
+  top: `${fixedDecimal(point.y, 2)}%`
+})
 
 /** What a trial's dot stands for: the one drawn on the stage, the one the search kept, or one only tried. */
 const DotKind = Schema.Literal("tried", "best", "shown")

@@ -1,5 +1,6 @@
 import { type HttpServerError, HttpServerRequest } from "@effect/platform"
-import { Clock, Effect, Either, Match, Option, Schema } from "effect"
+import type { Cipher } from "@scenesystems/seal"
+import { Boolean as Bool, Clock, Effect, Either, Equal, Match, Option, Schema } from "effect"
 import * as ParseResult from "effect/ParseResult"
 
 import { ErrorModel, httpStatus } from "../../contracts/error.js"
@@ -36,7 +37,14 @@ const Rejection = Schema.Struct({
 type Rejection = typeof Rejection.Type
 
 const respond = (envelope: PlaceBuildEnvelope, headers: Record<string, string>) =>
-  jsonResponse(envelope, { status: envelope.ok ? 200 : httpStatus(envelope.error.code), headers })
+  jsonResponse(envelope, {
+    status: Match.value(envelope).pipe(
+      Match.when({ ok: true }, () => 200),
+      Match.when({ ok: false }, ({ error }) => httpStatus(error.code)),
+      Match.exhaustive
+    ),
+    headers
+  })
 
 const methodRejection: Rejection = {
   error: { code: "method-not-allowed", message: "Place builds must use POST.", retryable: false },
@@ -70,11 +78,14 @@ const unreadableBody: ErrorModel = {
 }
 
 const accessRejection = (request: HttpServerRequest.HttpServerRequest): Option.Option<Rejection> =>
-  request.method !== "POST"
-    ? Option.some(methodRejection)
-    : request.headers["sec-fetch-site"] === "cross-site"
-    ? Option.some(crossSiteRejection)
-    : Option.none()
+  Bool.match(Bool.not(Equal.equals(request.method, "POST")), {
+    onTrue: () => Option.some(methodRejection),
+    onFalse: () =>
+      Bool.match(Equal.equals(request.headers["sec-fetch-site"], "cross-site"), {
+        onTrue: () => Option.some(crossSiteRejection),
+        onFalse: Option.none
+      })
+  })
 
 /** Asks the limiter for admission; requests without a client address share one bucket. */
 const admission = (
@@ -82,9 +93,13 @@ const admission = (
 ): Effect.Effect<Option.Option<Rejection>, never, PlaceBuildLimiter> =>
   Effect.gen(function*() {
     const limiter = yield* PlaceBuildLimiter
-    const actor = request.headers[clientAddressHeader] ?? "unknown-client"
+    const actor = Option.getOrElse(Option.fromNullable(request.headers[clientAddressHeader]), () => "unknown-client")
     const decision = yield* limiter.admit(actor)
-    return decision._tag === "Admitted" ? Option.none() : Option.some(rateLimitRejection(decision.retryAfterSeconds))
+    return Match.value(decision).pipe(
+      Match.tag("Admitted", () => Option.none<Rejection>()),
+      Match.tag("Refused", ({ retryAfterSeconds }) => Option.some(rateLimitRejection(retryAfterSeconds))),
+      Match.exhaustive
+    )
   }).pipe(
     Effect.catchTag("PlaceBuildLimiterError", (failure) => Effect.succeedSome(undecidedAdmission(failure)))
   )
@@ -112,7 +127,7 @@ const decodeBody = HttpServerRequest.schemaBodyJson(PlaceBuildRequest)
 /** Reads and validates the body, builds the place, and turns any failure into an error model. */
 const build = (
   request: HttpServerRequest.HttpServerRequest
-): Effect.Effect<Either.Either<PlaceBuild, ErrorModel>, never, Participants> =>
+): Effect.Effect<Either.Either<PlaceBuild, ErrorModel>, never, Participants | Cipher.Cipher> =>
   decodeBody.pipe(
     Effect.provideService(HttpServerRequest.HttpServerRequest, request),
     Effect.flatMap(buildPlace),

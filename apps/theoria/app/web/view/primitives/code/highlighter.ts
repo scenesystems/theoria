@@ -1,8 +1,9 @@
 import type { HighlighterCore, ThemeRegistration } from "@shikijs/core"
 import type { ThemedToken } from "@shikijs/types"
-import { Effect, Option, Schema, Tuple } from "effect"
+import { Boolean as Bool, Effect, Option, Schema, Tuple } from "effect"
 import * as Arr from "effect/Array"
 import * as Rec from "effect/Record"
+import * as Str from "effect/String"
 
 export const HighlightTokenKind = Schema.Literal(
   "plain",
@@ -27,10 +28,12 @@ export type HighlightToken = typeof HighlightToken.Type
 export const CodeLanguage = Schema.Literal("shellscript", "text", "typescript")
 export type CodeLanguage = typeof CodeLanguage.Type
 
-export class SyntaxHighlightingError extends Schema.TaggedError<SyntaxHighlightingError>()(
-  "SyntaxHighlightingError",
-  { detail: Schema.String }
-) {}
+export class SyntaxHighlightingError
+  extends Schema.TaggedError<SyntaxHighlightingError>("@theoria/app/web/view/code/SyntaxHighlightingError")(
+    "SyntaxHighlightingError",
+    { detail: Schema.String }
+  )
+{}
 
 /**
  * What a kind of token is painted with. The theme colours the kind's grammar
@@ -101,15 +104,9 @@ const theoriaTheme = (): ThemeRegistration => ({
   type: "light",
   fg: highlightTokenPaint.plain.variable,
   bg: "transparent",
-  settings: [
-    {
-      settings: {
-        foreground: highlightTokenPaint.plain.variable,
-        background: "transparent"
-      }
-    },
-    ...Arr.map(scopedKinds, (kind) => ({
-      scope: [...highlightTokenPaint[kind].scope],
+  settings: Arr.prepend(
+    Arr.map(scopedKinds, (kind) => ({
+      scope: Arr.copy(highlightTokenPaint[kind].scope),
       settings: {
         foreground: highlightTokenPaint[kind].variable,
         ...Option.match(highlightTokenPaint[kind].fontStyle, {
@@ -117,8 +114,14 @@ const theoriaTheme = (): ThemeRegistration => ({
           onSome: (fontStyle) => ({ fontStyle })
         })
       }
-    }))
-  ]
+    })),
+    {
+      settings: {
+        foreground: highlightTokenPaint.plain.variable,
+        background: "transparent"
+      }
+    }
+  )
 })
 
 /** The kind each theme colour paints; the theme is the authority, so the map is read from it. */
@@ -168,12 +171,14 @@ export const tokenKindFor = (color: Option.Option<string>): HighlightTokenKind =
 const plainToken = (value: string): HighlightToken => ({ kind: "plain", value })
 
 const projectLine = (line: ReadonlyArray<ThemedToken>): ReadonlyArray<HighlightToken> =>
-  line.length === 0
-    ? [plainToken("")]
-    : Arr.map(line, (token) => ({
-      kind: tokenKindFor(Option.fromNullable(token.color)),
-      value: token.content
-    }))
+  Bool.match(Arr.isEmptyReadonlyArray(line), {
+    onTrue: () => [plainToken("")],
+    onFalse: () =>
+      Arr.map(line, (token) => ({
+        kind: tokenKindFor(Option.fromNullable(token.color)),
+        value: token.content
+      }))
+  })
 
 export const highlightCode = (
   highlighter: HighlighterCore,
@@ -186,6 +191,6 @@ export const highlightCode = (
   )
 
 export const plainCode = (source: string): ReadonlyArray<ReadonlyArray<HighlightToken>> =>
-  Arr.map(source.split("\n"), (line) => [plainToken(line)])
+  Arr.map(Str.split(source, "\n"), (line) => [plainToken(line)])
 
 export const tokenClassName = (kind: HighlightTokenKind): string => highlightTokenPaint[kind].className

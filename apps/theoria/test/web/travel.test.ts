@@ -1,12 +1,12 @@
 import { describe, expect, it } from "@effect/vitest"
-import { Chunk, Duration, Effect, Option, Ref, Stream, TestClock } from "effect"
+import { Chunk, Duration, Effect, Number as Num, Option, Ref, Stream, TestClock } from "effect"
 import * as Arr from "effect/Array"
 
 import { follow, journeyFrom, releaseRest, toward, Travelling } from "../../app/web/motion/travel.js"
 
 /** A number travels by moving straight; a frame is the test clock moving on 16 ms. */
 const travelling = new Travelling<number>({
-  between: (from, to, t) => from + (to - from) * t,
+  between: (from, to, t) => Num.sum(from, Num.multiply(Num.subtract(to, from), t)),
   duration: Duration.millis(160),
   ticks: Stream.repeatEffect(TestClock.adjust("16 millis"))
 })
@@ -16,7 +16,7 @@ const placedOutright = new Travelling<number>({ ...travelling, duration: Duratio
 const collect = <A>(stream: Stream.Stream<A>) => Effect.map(Stream.runCollect(stream), Chunk.toReadonlyArray)
 
 const isMonotone = (values: ReadonlyArray<number>): boolean =>
-  Arr.every(Arr.zip(values, Arr.drop(values, 1)), ([earlier, later]) => later >= earlier)
+  Arr.every(Arr.zip(values, Arr.drop(values, 1)), ([earlier, later]) => Num.greaterThanOrEqualTo(later, earlier))
 
 describe("travel", () => {
   it.effect("the first target ever is placed outright", () =>
@@ -66,7 +66,7 @@ describe("travel", () => {
       const turned = yield* collect(toward(travelling, journey, -100))
       expect(Arr.head(turned)).toEqual(Option.some(reached))
       expect(Arr.last(turned)).toEqual(Option.some(-100))
-      expect(Arr.every(turned, (value) => value <= reached)).toBe(true)
+      expect(Arr.every(turned, Num.lessThanOrEqualTo(reached))).toBe(true)
       expect(Option.map((yield* Ref.get(journey)).travel, (travel) => travel.from)).toEqual(Option.some(reached))
     }))
 
@@ -87,7 +87,11 @@ describe("travel", () => {
       // A drawing whose `between` rebuilds the destination's shape even at the start, as a layout would.
       const rebuilding = new Travelling<ReadonlyArray<number>>({
         between: (from, to, t) =>
-          Arr.map(to, (value, index) => Option.getOrElse(Arr.get(from, index), () => value) * (1 - t) + value * t),
+          Arr.map(to, (value, index) =>
+            Num.sum(
+              Num.multiply(Option.getOrElse(Arr.get(from, index), () => value), Num.subtract(1, t)),
+              Num.multiply(value, t)
+            )),
         duration: Duration.millis(160),
         ticks: travelling.ticks
       })

@@ -1,10 +1,10 @@
 import type { Page } from "@playwright/test"
-import { Effect, Option, Schema } from "effect"
+import { Boolean as Bool, Effect, Option, Schema } from "effect"
 import * as Arr from "effect/Array"
 import * as Rec from "effect/Record"
 import * as Str from "effect/String"
 
-import { act, type BrowserError } from "./browser.js"
+import { type Browser, type BrowserError, evaluate } from "./browser.js"
 import { recordedFootprints } from "./platform/in-page.js"
 
 /**
@@ -25,27 +25,28 @@ export const Footprint = Schema.Struct({
 export type Footprint = typeof Footprint.Type
 
 const footprint = (line: string) => {
-  const [region = "", height = "0", phase = "-"] = line.split(" ")
+  const [region = "", height = "0", phase = "-"] = Str.split(line, " ")
   return Schema.decodeUnknownSync(Footprint)({ region, height, phase })
 }
 
 /** Every footprint recorded so far, in the order painted. */
-export const footprintsSoFar = (page: Page): Effect.Effect<ReadonlyArray<Footprint>, BrowserError> =>
+export const footprintsSoFar = (page: Page): Effect.Effect<ReadonlyArray<Footprint>, BrowserError, Browser> =>
   Effect.map(
-    act(() => page.evaluate(recordedFootprints)),
-    (recorded) => Arr.map(Arr.filter(recorded.split("\n"), Str.isNonEmpty), footprint)
+    evaluate(page, recordedFootprints),
+    (recorded) => Arr.map(Arr.filter(Str.split(recorded, "\n"), Str.isNonEmpty), footprint)
   )
 
-const landing = (report: Footprint): boolean => report.phase === "landing" || report.phase === "complete"
+const landing = (report: Footprint): boolean =>
+  Bool.or(Str.Equivalence(report.phase, "landing"), Str.Equivalence(report.phase, "complete"))
 
 /** The footprints painted before the drawing first lands, by region, in the order painted. */
 export const untilLanding = (reports: ReadonlyArray<Footprint>): Record<string, ReadonlyArray<Footprint>> =>
-  Arr.groupBy(Arr.takeWhile(reports, (report) => !landing(report)), (report) => report.region)
+  Arr.groupBy(Arr.takeWhile(reports, (report) => Bool.not(landing(report))), (report) => report.region)
 
 /** Every footprint recorded until the drawing lands, by region, in the order painted. */
 export const footprintsUntilLanding = (
   page: Page
-): Effect.Effect<Record<string, ReadonlyArray<Footprint>>, BrowserError> =>
+): Effect.Effect<Record<string, ReadonlyArray<Footprint>>, BrowserError, Browser> =>
   Effect.map(footprintsSoFar(page), untilLanding)
 
 /**
@@ -65,7 +66,7 @@ export const aroundSecondSearch = (
 ): { readonly first: ReadonlyArray<Footprint>; readonly second: ReadonlyArray<Footprint> } => {
   const secondStart = Arr.findFirstIndex(
     reports,
-    (report, index) => report.phase === "running" && Arr.some(Arr.take(reports, index), landing)
+    (report, index) => Bool.and(Str.Equivalence(report.phase, "running"), Arr.some(Arr.take(reports, index), landing))
   )
   return Option.match(secondStart, {
     onNone: () => ({ first: reports, second: [] }),

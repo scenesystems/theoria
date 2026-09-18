@@ -1,7 +1,10 @@
 // @vitest-environment node
 import { expect, layer } from "@effect/vitest"
-import { Effect, Fiber, Layer, Option } from "effect"
+import { Numeric } from "@scenesystems/effect-math"
+import { Boolean as Bool, Effect, Fiber, Layer, Number as Num, Option } from "effect"
 import * as Arr from "effect/Array"
+import * as Str from "effect/String"
+import { evaluate, evaluateElement, evaluateElements } from "./browser.js"
 
 import { stageMaxWidth } from "../../app/contracts/demo/imagined-place-flow.js"
 import { type PlaceScenario, placeScenarioMeta, placeScenarios } from "../../app/contracts/imagined-place.js"
@@ -36,6 +39,7 @@ import {
   activeElementRole,
   boxOf,
   canvasColour,
+  computedTypeSize,
   currentLocation,
   documentTop,
   insideViewportRight,
@@ -46,6 +50,7 @@ import {
   scrollPast,
   scrollToTop,
   stageAndColumnWidths,
+  stageLineMetrics,
   storyDrawn,
   surfacePaint,
   textColour,
@@ -64,7 +69,7 @@ layer(Layer.merge(SiteLive, BrowserLive), { excludeTestServices: true, timeout: 
         yield* goto(page, "/")
         yield* drawn(page)
         const demo = page.getByRole("region", { name: "Imagined place demo" })
-        const focusRole = () => page.evaluate(activeElementRole)
+        const focusRole = evaluate(page, activeElementRole)
 
         // Scenarios are a radio group: arrows pick one, and picking rebuilds through the server.
         const scenarios = demo.getByRole("radiogroup", { name: "Scenario" })
@@ -79,11 +84,11 @@ layer(Layer.merge(SiteLive, BrowserLive), { excludeTestServices: true, timeout: 
         const walkTo = (role: string) =>
           Effect.map(
             Effect.iterate(Arr.empty<string>(), {
-              while: (trail) => !Arr.contains(trail, role) && trail.length < 12,
+              while: (trail) => Bool.and(Bool.not(Arr.contains(trail, role)), Num.lessThan(Arr.length(trail), 12)),
               body: (trail) =>
                 Effect.gen(function*() {
                   yield* press(page, "Tab")
-                  return Arr.append(trail, yield* act(focusRole))
+                  return Arr.append(trail, yield* focusRole)
                 })
             }),
             (trail) => ({ reached: Arr.contains(trail, role), trail })
@@ -91,12 +96,19 @@ layer(Layer.merge(SiteLive, BrowserLive), { excludeTestServices: true, timeout: 
         expect(yield* walkTo("textarea")).toMatchObject({ reached: true })
         expect(yield* walkTo("switch")).toMatchObject({ reached: true })
         const merge = demo.getByRole("switch").first()
-        yield* eventually(() => merge.evaluate(isActiveElement), true)
+        yield* eventually(evaluateElement(merge, isActiveElement), true)
         const before = yield* act(() => merge.getAttribute("aria-checked"))
         const remerge = yield* Effect.fork(nextResponse(page, "POST", "/api/imagined-place/build"))
         yield* press(page, "Space")
         expect((yield* Fiber.join(remerge)).status()).toBe(200)
-        yield* attribute(merge, "aria-checked", before === "true" ? "false" : "true")
+        yield* attribute(
+          merge,
+          "aria-checked",
+          Bool.match(Str.Equivalence(Option.getOrElse(Option.fromNullable(before), () => ""), "true"), {
+            onFalse: () => "true",
+            onTrue: () => "false"
+          })
+        )
 
         // The code tabs rove with arrows and activate on Enter (the listings are heavy), and the listing follows.
         const section = page.locator("[data-place-how-its-built]")
@@ -108,17 +120,22 @@ layer(Layer.merge(SiteLive, BrowserLive), { excludeTestServices: true, timeout: 
         yield* press(page, "ArrowRight")
         yield* eventually(focusRole, "tab")
         yield* press(page, "Enter")
-        yield* until(act(() => activeTab.innerText()), (name) => name !== firstStep, "the next tab is selected")
+        yield* until(
+          act(() => activeTab.innerText()),
+          (name) => Bool.not(Str.Equivalence(name, firstStep)),
+          "the next tab is selected"
+        )
         yield* count(listing, 1)
         yield* until(
           act(() => listing.getAttribute("data-place-code-step")),
-          (step) => step !== firstListing,
+          (step) => Bool.not(Str.Equivalence(Option.getOrElse(Option.fromNullable(step), () => ""), firstListing)),
           "the listing follows the selected tab"
         )
 
         // The trace slider answers arrows; its caption names the trial.
         const slider = demo.getByRole("slider", { name: "Trial drawn on the stage" })
         // The rebuild replays its trials first; the slider answers once the search is drawn.
+        yield* drawn(page)
         yield* eventually(() => slider.isEnabled(), true)
         yield* focus(slider)
         yield* press(page, "Home")
@@ -148,9 +165,14 @@ layer(Layer.merge(SiteLive, BrowserLive), { excludeTestServices: true, timeout: 
             // and the stage takes the column whole (to its widest). A drawing cut for the width before is
             // still a fit, so the wait is for the recut, not for any fit.
             const widths = yield* until(
-              act(() => page.evaluate(stageAndColumnWidths)),
+              evaluate(page, stageAndColumnWidths),
               ({ column, drawable, frame, stage }) =>
-                stage > 0 && drawable === stage && frame <= column && stage === Math.min(stageMaxWidth, column),
+                Bool.every([
+                  Num.greaterThan(stage, 0),
+                  Num.Equivalence(drawable, stage),
+                  Num.lessThanOrEqualTo(frame, column),
+                  Num.Equivalence(stage, Num.min(stageMaxWidth, column))
+                ]),
               `the stage takes its column at ${String(width)}px`
             )
             return widths.stage
@@ -174,37 +196,39 @@ layer(Layer.merge(SiteLive, BrowserLive), { excludeTestServices: true, timeout: 
                 yield* click(tab)
                 yield* until(
                   Effect.gen(function*() {
-                    const selected = yield* act(() => tab.evaluate(boxOf))
-                    const first = yield* act(() => section.getByRole("tab").first().evaluate(boxOf))
-                    const indicator = yield* act(() => section.locator("[data-tab-indicator]").evaluate(boxOf))
+                    const selected = yield* evaluateElement(tab, boxOf)
+                    const first = yield* evaluateElement(section.getByRole("tab").first(), boxOf)
+                    const indicator = yield* evaluateElement(section.locator("[data-tab-indicator]"), boxOf)
                     return { selected, first, indicator }
                   }),
                   ({ first, indicator, selected }) =>
-                    selected.top === first.top &&
-                    Math.abs(indicator.bottom - selected.bottom) <= 1 &&
-                    Math.abs(indicator.left - selected.left) <= 1 &&
-                    Math.abs(indicator.right - selected.right) <= 1,
+                    Bool.every([
+                      Num.Equivalence(selected.top, first.top),
+                      Num.lessThanOrEqualTo(Numeric.abs(Num.subtract(indicator.bottom, selected.bottom)), 1),
+                      Num.lessThanOrEqualTo(Numeric.abs(Num.subtract(indicator.left, selected.left)), 1),
+                      Num.lessThanOrEqualTo(Numeric.abs(Num.subtract(indicator.right, selected.right)), 1)
+                    ]),
                   "all tabs stay on one row and the underline follows the selection"
                 )
                 const references = section.locator("[data-place-reference]")
                 yield* visible(references.first())
                 const referenceCount = yield* act(() => references.count())
                 expect(referenceCount).toBeGreaterThan(0)
-                yield* Effect.forEach(Arr.range(0, referenceCount - 1), (index) =>
+                yield* Effect.forEach(Arr.range(0, Num.decrement(referenceCount)), (index) =>
                   Effect.gen(function*() {
                     const reference = references.nth(index)
-                    expect(yield* act(() => reference.evaluate(textFitsBox))).toBe(true)
-                    const symbol = yield* act(() => reference.locator(":scope > code").evaluate(boxOf))
-                    const pkg = yield* act(() => reference.locator(":scope > span").evaluate(boxOf))
+                    expect(yield* evaluateElement(reference, textFitsBox)).toBe(true)
+                    const symbol = yield* evaluateElement(reference.locator(":scope > code"), boxOf)
+                    const pkg = yield* evaluateElement(reference.locator(":scope > span"), boxOf)
                     expect(pkg.top).toBeGreaterThanOrEqual(symbol.bottom)
                     expect(pkg.left).toBe(symbol.left)
                   }))
                 const sources = section.locator("[data-place-source]")
                 const sourceCount = yield* act(() => sources.count())
                 expect(sourceCount).toBeGreaterThan(0)
-                yield* Effect.forEach(Arr.range(0, sourceCount - 1), (index) =>
+                yield* Effect.forEach(Arr.range(0, Num.decrement(sourceCount)), (index) =>
                   Effect.gen(function*() {
-                    expect(yield* act(() => sources.nth(index).evaluate(textFitsBox))).toBe(true)
+                    expect(yield* evaluateElement(sources.nth(index), textFitsBox)).toBe(true)
                   }))
               }))
           }))
@@ -240,7 +264,8 @@ layer(Layer.merge(SiteLive, BrowserLive), { excludeTestServices: true, timeout: 
         yield* Effect.forEach(Arr.flatten(targets), ({ href }) =>
           Effect.gen(function*() {
             yield* goto(page, href)
-            yield* attached(page.locator(`#${href.slice(href.indexOf("#") + 1)}`))
+            const fragmentIndex = yield* Str.indexOf("#")(href)
+            yield* attached(page.locator(`#${Str.slice(Num.increment(fragmentIndex))(href)}`))
           }))
         expect(yield* failures).toEqual([])
       }))
@@ -261,19 +286,20 @@ layer(Layer.merge(SiteLive, BrowserLive), { excludeTestServices: true, timeout: 
         yield* visible(preview)
         yield* urlMatches(page, /\/$/u)
         yield* containsText(preview, /v\d+\.\d+\.\d+/u)
-        yield* containsText(preview, href.slice(1, href.indexOf("#")))
-        yield* eventually(() => preview.evaluate(insideViewportRight), true)
+        yield* containsText(preview, Str.slice(1, yield* Str.indexOf("#")(href))(href))
+        yield* eventually(evaluateElement(preview, insideViewportRight), true)
 
         yield* press(page, "Escape")
         yield* hidden(preview)
-        yield* eventually(() => reference.evaluate(isActiveElement), true)
+        yield* eventually(evaluateElement(reference, isActiveElement), true)
 
         yield* press(page, "Enter")
         yield* visible(preview)
-        yield* eventually(() => page.evaluate(activeElementOpensDocsLink), true)
+        yield* eventually(evaluate(page, activeElementOpensDocsLink), true)
         yield* press(page, "Enter")
-        yield* eventually(() => page.evaluate(currentLocation), href)
-        yield* attached(page.locator(`#${href.slice(href.indexOf("#") + 1)}`))
+        yield* eventually(evaluate(page, currentLocation), href)
+        const fragmentIndex = yield* Str.indexOf("#")(href)
+        yield* attached(page.locator(`#${Str.slice(Num.increment(fragmentIndex))(href)}`))
         expect(yield* failures).toEqual([])
       }))
 
@@ -285,9 +311,9 @@ layer(Layer.merge(SiteLive, BrowserLive), { excludeTestServices: true, timeout: 
         const stage = page.locator("[data-place-stage-act]")
         yield* attribute(stage, "data-place-stage-act", "arrive")
 
-        yield* act(() => page.locator("[data-place-act='propose']").evaluate(scrollElementTo, 0.45))
+        yield* evaluateElement(page.locator("[data-place-act='propose']"), scrollElementTo, 0.45)
         yield* attribute(stage, "data-place-stage-act", "propose")
-        yield* until(act(() => page.locator("[data-place-ghost]").count()), (ghosts) => ghosts >= 1, "a ghost disc")
+        yield* until(act(() => page.locator("[data-place-ghost]").count()), Num.greaterThanOrEqualTo(1), "a ghost disc")
         expect(yield* failures).toEqual([])
       }))
 
@@ -303,19 +329,19 @@ layer(Layer.merge(SiteLive, BrowserLive), { excludeTestServices: true, timeout: 
         yield* click(page.getByRole("link", { exact: true, name: howItsBuiltActionLabel }))
         yield* attribute(stage, "data-place-stage-act", "build")
         // And back the other way, past them all again.
-        yield* act(() => page.evaluate(scrollToTop))
+        yield* evaluate(page, scrollToTop)
         yield* attribute(stage, "data-place-stage-act", "arrive")
 
         // Leaving for the docs and coming back mounts the reading afresh, and it answers where it stands.
-        yield* act(() => page.locator("[data-place-act='propose']").evaluate(scrollElementTo, 0.45))
+        yield* evaluateElement(page.locator("[data-place-act='propose']"), scrollElementTo, 0.45)
         yield* attribute(stage, "data-place-stage-act", "propose")
         yield* click(page.getByRole("link", { exact: true, name: "Browse the packages" }))
         yield* visible(page.getByRole("heading", { level: 1, name: "Packages" }))
         yield* act(() => page.goBack())
         yield* drawn(page)
-        yield* act(() => page.evaluate(scrollToTop))
+        yield* evaluate(page, scrollToTop)
         yield* attribute(stage, "data-place-stage-act", "arrive")
-        yield* act(() => page.locator("[data-place-act='record']").evaluate(scrollElementTo, 0.45))
+        yield* evaluateElement(page.locator("[data-place-act='record']"), scrollElementTo, 0.45)
         yield* attribute(stage, "data-place-stage-act", "record")
         expect(yield* failures).toEqual([])
       }))
@@ -334,13 +360,13 @@ layer(Layer.merge(SiteLive, BrowserLive), { excludeTestServices: true, timeout: 
         const storyTaken = (scenario: PlaceScenario) =>
           Effect.andThen(
             eventually(() => brief.inputValue(), placeScenarioMeta[scenario].brief),
-            eventually(() => demo.evaluate(storyDrawn), true, searchSettlesWithin)
+            eventually(evaluateElement(demo, storyDrawn), true, searchSettlesWithin)
           )
         // The page's colours: the air behind it, the paper, and the ink of the title.
         const palette = Effect.all({
-          air: act(() => page.evaluate(canvasColour)),
-          paper: act(() => paper.evaluate(surfacePaint)),
-          ink: act(() => title.evaluate(textColour))
+          air: evaluate(page, canvasColour),
+          paper: evaluateElement(paper, surfacePaint),
+          ink: evaluateElement(title, textColour)
         })
 
         yield* storyTaken("unfinished-light")
@@ -360,8 +386,8 @@ layer(Layer.merge(SiteLive, BrowserLive), { excludeTestServices: true, timeout: 
                 yield* storyTaken(scenario)
                 expect(yield* palette).toEqual(inScheme)
                 const contrast = yield* until(
-                  act(() => page.evaluate(paperProseContrast)),
-                  (ratio) => ratio >= 4.5,
+                  evaluate(page, paperProseContrast),
+                  Num.greaterThanOrEqualTo(4.5),
                   `prose contrast in ${scenario} ${scheme}`
                 )
                 expect(contrast).toBeGreaterThanOrEqual(4.5)
@@ -381,22 +407,22 @@ layer(Layer.merge(SiteLive, BrowserLive), { excludeTestServices: true, timeout: 
         const compose = demo.locator("[data-place-act='compose']")
         yield* hidden(band)
 
-        const composeTop = yield* act(() => compose.evaluate(documentTop))
-        yield* act(() => column.evaluate(scrollPast))
+        const composeTop = yield* evaluateElement(compose, documentTop)
+        yield* evaluateElement(column, scrollPast)
         yield* visible(band)
         const markers = yield* act(() => demo.locator("[data-place-marker]").count())
         yield* count(band.locator("[data-place-band-disc]"), markers)
-        expect(yield* act(() => compose.evaluate(documentTop))).toBe(composeTop)
+        expect(yield* evaluateElement(compose, documentTop)).toBe(composeTop)
 
-        yield* act(() => page.evaluate(scrollToTop))
+        yield* evaluate(page, scrollToTop)
         yield* hidden(band)
 
         // At the reading width the stage is pinned beside the acts; only the Build act scrolls it away.
         yield* setViewport(page, { width: 1280, height: 800 })
-        yield* act(() => demo.locator("[data-place-act='propose']").evaluate(scrollElementTo, 0.45))
+        yield* evaluateElement(demo.locator("[data-place-act='propose']"), scrollElementTo, 0.45)
         yield* hidden(band)
         const build = demo.locator("[data-place-act='build']")
-        yield* act(() => build.evaluate(scrollElementTo, 0))
+        yield* evaluateElement(build, scrollElementTo, 0)
         yield* visible(band)
         const composeLine = build.locator("[data-place-code-step='compose'] [data-code-annotation]").first()
         yield* click(composeLine)
@@ -420,20 +446,7 @@ layer(Layer.merge(SiteLive, BrowserLive), { excludeTestServices: true, timeout: 
             yield* goto(page, "/")
             const lines = page.locator("[data-place-line]").first()
             yield* visible(lines)
-            const stage = yield* act(() =>
-              page.locator("[data-place-line]").evaluateAll((elements) =>
-                elements.slice(0, 3).map((element) => {
-                  const span = element.querySelector("span")
-                  const computed = (span ?? element).computedStyleMap()
-                  return {
-                    fontSize: computed.get("font-size")?.toString(),
-                    lineHeight: computed.get("line-height")?.toString(),
-                    height: element.getBoundingClientRect().height,
-                    clipped: (span?.scrollWidth ?? 0) > element.clientWidth + 1
-                  }
-                })
-              )
-            )
+            const stage = yield* evaluateElements(page.locator("[data-place-line]"), stageLineMetrics)
             Arr.forEach(stage, (metrics) => {
               expect(metrics.fontSize).toBe("16px")
               expect(metrics.lineHeight).toBe("26px")
@@ -444,15 +457,7 @@ layer(Layer.merge(SiteLive, BrowserLive), { excludeTestServices: true, timeout: 
             yield* goto(page, "/docs")
             const card = page.locator("main article p").first()
             yield* visible(card)
-            const cardMetrics = yield* act(() =>
-              card.evaluate((element) => {
-                const computed = element.computedStyleMap()
-                return {
-                  fontSize: computed.get("font-size")?.toString(),
-                  lineHeight: computed.get("line-height")?.toString()
-                }
-              })
-            )
+            const cardMetrics = yield* evaluateElement(card, computedTypeSize)
             expect(cardMetrics).toEqual({ fontSize: "16px", lineHeight: "26px" })
           }))
         expect(yield* failures).toEqual([])
@@ -465,14 +470,14 @@ layer(Layer.merge(SiteLive, BrowserLive), { excludeTestServices: true, timeout: 
         yield* drawn(page)
         const legend = page.locator("[data-place-legend]")
         yield* visible(legend)
-        const metrics = yield* act(() => legend.evaluate(markerLegendMetrics))
+        const metrics = yield* evaluateElement(legend, markerLegendMetrics)
         expect(metrics.entries).toHaveLength(metrics.markerLabels.length)
         Arr.forEach(metrics.entries, (entry, index) => {
           expect(entry).not.toContain("added by")
           expect(metrics.markerLabels[index]).toContain(metrics.names[index])
         })
-        expect(metrics.markerLabels.some((label) => label.includes("added by neighbor"))).toBe(true)
-        expect(metrics.height).toBeLessThanOrEqual(2 * metrics.lineHeight + metrics.rowGap)
+        expect(Arr.some(metrics.markerLabels, Str.includes("added by neighbor"))).toBe(true)
+        expect(metrics.height).toBeLessThanOrEqual(Num.sum(Num.multiply(2, metrics.lineHeight), metrics.rowGap))
         expect(yield* failures).toEqual([])
       }))
   }

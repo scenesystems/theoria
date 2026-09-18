@@ -2,7 +2,7 @@ import type { Path } from "@effect/platform"
 import { Error as PlatformError, FileSystem } from "@effect/platform"
 import { BunContext } from "@effect/platform-bun"
 import { expect, it } from "@effect/vitest"
-import { Effect, Either, Layer, type Scope } from "effect"
+import { Boolean as Bool, Effect, Either, Layer, Number as Num, type Scope } from "effect"
 import * as Arr from "effect/Array"
 
 import { type WebVitalBudgets, webVitalBudgets } from "../../app/contracts/performance.js"
@@ -64,7 +64,7 @@ it.effect("accepts named homepage scripts and reports the bytes they take on the
     // bytes of header and trailer. The sum is in that band only if it is the
     // encoded size of both.
     const line = "export const value = 0;\n"
-    const script = line.repeat(8192 / line.length)
+    const script = line.repeat(Num.unsafeDivide(8192, line.length))
     const result = yield* checkLayout((root) =>
       Effect.gen(function*() {
         const fileSystem = yield* FileSystem.FileSystem
@@ -78,8 +78,8 @@ it.effect("accepts named homepage scripts and reports the bytes they take on the
       })
     )
     const bytes = Either.getOrElse(Either.map(result, (summary) => summary.homepageScriptGzipBytes), () => -1)
-    expect(bytes).toBeGreaterThan(2 * 18)
-    expect(bytes).toBeLessThan(2 * 512)
+    expect(bytes).toBeGreaterThan(Num.multiply(2, 18))
+    expect(bytes).toBeLessThan(Num.multiply(2, 512))
   }))
 
 it.effect("rejects a homepage script named by the HTML that is missing", () =>
@@ -129,6 +129,7 @@ it.effect("accepts a build whose every asset has a served content type", () =>
       })
     )
     expect(Either.map(result, (summary) => summary.assets)).toEqual(Either.right(6))
+    expect(Either.map(result, (summary) => summary.workerBytes)).toEqual(Either.right(17))
   }))
 
 it.effect("rejects an asset the server cannot type, naming it", () =>
@@ -189,7 +190,11 @@ it.effect("a filesystem that cannot be examined fails the check instead of produ
       Effect.map(FileSystem.FileSystem, (fileSystem) =>
         FileSystem.make({
           ...fileSystem,
-          realPath: (target) => target.endsWith("dist/index.html") ? Effect.fail(denied) : fileSystem.realPath(target)
+          realPath: (target) =>
+            Bool.match(target.endsWith("dist/index.html"), {
+              onTrue: () => Effect.fail(denied),
+              onFalse: () => fileSystem.realPath(target)
+            })
         }))
     )
     const fileSystem = yield* FileSystem.FileSystem

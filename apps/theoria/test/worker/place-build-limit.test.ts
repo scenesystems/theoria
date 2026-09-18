@@ -2,7 +2,7 @@
 import { Path, Url } from "@effect/platform"
 import { BunContext } from "@effect/platform-bun"
 import { expect, layer } from "@effect/vitest"
-import { Clock, Duration, Effect, Option } from "effect"
+import { Clock, Duration, Effect, Number as Num, Option, String as Str } from "effect"
 import * as Arr from "effect/Array"
 import { type Unstable_Config, unstable_readConfig } from "wrangler"
 
@@ -11,7 +11,7 @@ import { header, json, productionHost, Site, SiteLive, SiteRequest } from "./sit
 type Limiter = Unstable_Config["ratelimits"][number]
 
 const placeBuildLimiter = (config: Unstable_Config): Option.Option<Limiter> =>
-  Arr.findFirst(config.ratelimits, (limiter) => limiter.name === "PLACE_BUILD_LIMITER")
+  Arr.findFirst(config.ratelimits, (limiter) => Str.Equivalence(limiter.name, "PLACE_BUILD_LIMITER"))
 
 /**
  * The production limit, read through Wrangler so the test follows
@@ -40,9 +40,12 @@ const configuredLimit = Effect.gen(function*() {
 const awaitRoomInWindow = (periodSeconds: number, marginSeconds: number) =>
   Clock.currentTimeMillis.pipe(
     Effect.flatMap((nowMs) => {
-      const periodMs = periodSeconds * 1000
-      const remainingMs = periodMs - (nowMs % periodMs)
-      return remainingMs < marginSeconds * 1000 ? Effect.sleep(Duration.millis(remainingMs)) : Effect.void
+      const periodMs = Num.multiply(periodSeconds, 1000)
+      const remainingMs = Num.subtract(periodMs, Num.remainder(nowMs, periodMs))
+      return Effect.if(Num.lessThan(remainingMs, Num.multiply(marginSeconds, 1000)), {
+        onFalse: () => Effect.void,
+        onTrue: () => Effect.sleep(Duration.millis(remainingMs))
+      })
     })
   )
 

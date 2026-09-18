@@ -1,8 +1,23 @@
 /** Shared fixtures for the home-page demo’s Chromium tests. */
 import { expect } from "@effect/vitest"
 import type { Locator, Page } from "@playwright/test"
-import { Chunk, Duration, Effect, Fiber, Match, Option, Order, Schedule, Schema, Stream } from "effect"
+import {
+  Boolean as Bool,
+  Chunk,
+  Duration,
+  Effect,
+  Fiber,
+  Match,
+  Number as Num,
+  Option,
+  Order,
+  Schedule,
+  Schema,
+  Stream
+} from "effect"
 import * as Arr from "effect/Array"
+import * as Str from "effect/String"
+import { addInitProbe, evaluate, evaluateElement, evaluateElements } from "./browser.js"
 
 import { markerGap } from "../../app/contracts/demo/imagined-place-flow.js"
 import { codeSite, CodeSiteId } from "../../app/contracts/demo/imagined-place-provenance.js"
@@ -71,7 +86,7 @@ export const drawn = (page: Page, within: Duration.Duration = searchSettlesWithi
     Effect.catchTag("test/worker/BrowserError", (error) =>
       Effect.flatMap(
         Effect.all({
-          standing: act(() => page.evaluate(stageStanding)),
+          standing: evaluate(page, stageStanding),
           told: failuresOf(page),
           served: Effect.flatMap(Site, (site) => site.logs)
         }),
@@ -79,11 +94,15 @@ export const drawn = (page: Page, within: Duration.Duration = searchSettlesWithi
           Effect.fail(
             new BrowserError({
               message: `The search did not settle within ${Duration.format(within)}: ${standing}${
-                Arr.isNonEmptyReadonlyArray(told) ? `; the page told: ${told.join(" | ")}` : ""
+                Bool.match(Arr.isNonEmptyReadonlyArray(told), {
+                  onFalse: () => "",
+                  onTrue: () => `; the page told: ${Arr.join(told, " | ")}`
+                })
               }${
-                Arr.isNonEmptyReadonlyArray(served)
-                  ? `; the site told: ${Arr.takeRight(served, siteLogsReported).join(" | ")}`
-                  : "; the site told nothing"
+                Bool.match(Arr.isNonEmptyReadonlyArray(served), {
+                  onFalse: () => "; the site told nothing",
+                  onTrue: () => `; the site told: ${Arr.join(Arr.takeRight(served, siteLogsReported), " | ")}`
+                })
               }. ${error.message}`,
               cause: error.cause
             })
@@ -118,18 +137,18 @@ export const PaperSample = Schema.Struct({
 export type PaperSample = typeof PaperSample.Type
 
 export const paperSample = (reported: string): PaperSample => {
-  const [height = "-", phase = "-"] = reported.split(" ")
+  const [height = "-", phase = "-"] = Str.split(reported, " ")
   return PaperSample.make({
-    height: height === "-" ? Option.none() : Option.some(height),
-    phase: phase === "-" ? Option.none() : Option.some(phase)
+    height: Bool.match(Str.Equivalence(height, "-"), { onFalse: () => Option.some(height), onTrue: Option.none }),
+    phase: Bool.match(Str.Equivalence(phase, "-"), { onFalse: () => Option.some(phase), onTrue: Option.none })
   })
 }
 
 export const landing = (sample: PaperSample): boolean =>
-  Option.exists(sample.phase, (phase) => phase === "landing" || phase === "complete")
+  Option.exists(sample.phase, (phase) => Bool.or(Str.Equivalence(phase, "landing"), Str.Equivalence(phase, "complete")))
 
 /** Records the paper on every animation frame of every document the page loads from now on. */
-export const recordPaper = (page: Page) => act(() => page.addInitScript(recordPaperFrames))
+export const recordPaper = (page: Page) => addInitProbe(page, recordPaperFrames)
 
 /**
  * Every change to the paper recorded from the document's first frame until
@@ -139,13 +158,13 @@ export const recordPaper = (page: Page) => act(() => page.addInitScript(recordPa
  */
 export const paperUntilLanding = (page: Page) =>
   Effect.map(
-    act(() => page.evaluate(recordedPaperFrames)),
-    (recorded) => Arr.takeWhile(Arr.map(recorded.split("\n"), paperSample), (sample) => !landing(sample))
+    evaluate(page, recordedPaperFrames),
+    (recorded) => Arr.takeWhile(Arr.map(Str.split(recorded, "\n"), paperSample), (sample) => Bool.not(landing(sample)))
   )
 
 /** Every disc's position relative to the stage, so scrolling cannot move it. */
-export const markerPositions = (page: Page) => () =>
-  page.locator("[data-place-marker]").evaluateAll(markerPositionsInStage)
+export const markerPositions = (page: Page) =>
+  evaluateElements(page.locator("[data-place-marker]"), markerPositionsInStage)
 
 export const FeaturePlace = Schema.Struct({
   name: Schema.String,
@@ -198,7 +217,11 @@ export const leastClearance = (frames: ReadonlyArray<StageFrame>): Option.Option
   Arr.reduce(
     Arr.flatMap(frames, (frame) => frame.clearance),
     Option.none<Clearance>(),
-    (least, found) => Option.exists(least, (kept) => kept.least <= found.least) ? least : Option.some(found)
+    (least, found) =>
+      Bool.match(Option.exists(least, (kept) => Num.lessThanOrEqualTo(kept.least, found.least)), {
+        onFalse: () => Option.some(found),
+        onTrue: () => least
+      })
   )
 
 /**
@@ -211,13 +234,13 @@ export const expectClearance = (frames: ReadonlyArray<StageFrame>) =>
       expect.fail("no frame had both a line and a disc painted")
     },
     onSome: (nearest) => {
-      expect(nearest.least, nearest.between).toBeGreaterThanOrEqual(markerGap - stageRounding)
+      expect(nearest.least, nearest.between).toBeGreaterThanOrEqual(Num.subtract(markerGap, stageRounding))
     }
   })
 
 /** The frame's places of one feature. */
 export const placesIn = (frame: StageFrame, name: string): ReadonlyArray<FeaturePlace> =>
-  Arr.filter(frame.places, (place) => place.name === name)
+  Arr.filter(frame.places, (place) => Str.Equivalence(place.name, name))
 
 /**
  * The features painted as a disc more than once in the frame: two drawings
@@ -229,13 +252,20 @@ export const doubledDiscs = (frame: StageFrame): ReadonlyArray<string> =>
   Arr.dedupe(
     Arr.filter(
       Arr.map(frame.places, (place) => place.name),
-      (name) => Arr.filter(placesIn(frame, name), (place) => place.kind === "disc").length > 1
+      (name) =>
+        Num.greaterThan(
+          Arr.length(Arr.filter(placesIn(frame, name), (place) => Str.Equivalence(place.kind, "disc"))),
+          1
+        )
     )
   )
 
 /** The feature `name` has a disc filled in and at rest in the frame. */
 export const landed = (name: string) => (frame: StageFrame): boolean =>
-  Arr.some(placesIn(frame, name), (place) => place.kind === "disc" && place.transform === "none")
+  Arr.some(
+    placesIn(frame, name),
+    (place) => Bool.and(Str.Equivalence(place.kind, "disc"), Str.Equivalence(place.transform, "none"))
+  )
 
 /**
  * The stage sampled a frame apart from now until `done` holds of a frame —
@@ -243,7 +273,7 @@ export const landed = (name: string) => (frame: StageFrame): boolean =>
  */
 export const framesUntil = (region: Locator, done: (frame: StageFrame) => boolean, atMost: Duration.Duration) =>
   Stream.repeatEffectWithSchedule(
-    act(() => region.evaluate(stageFrame)),
+    evaluateElement(region, stageFrame),
     Schedule.spaced("16 millis").pipe(Schedule.upTo(atMost))
   ).pipe(
     Stream.takeUntil(done),
@@ -260,7 +290,11 @@ export const placesOf = (
   Arr.dedupe(
     Arr.filterMap(
       Arr.flatMap(frames, (frame) => placesIn(frame, name)),
-      (place) => place.kind === kind ? Option.some(place.translate) : Option.none()
+      (place) =>
+        Bool.match(Str.Equivalence(place.kind, kind), {
+          onFalse: Option.none,
+          onTrue: () => Option.some(place.translate)
+        })
     )
   )
 
@@ -306,15 +340,21 @@ export const mergeProgramProposal = (reducedMotion: ReducedMotion) =>
     const handingOff = Arr.filter(
       feature_,
       (places) =>
-        Arr.some(places, (place) => place.kind === "ring") && Arr.some(places, (place) => place.kind === "disc")
+        Bool.and(
+          Arr.some(places, (place) => Str.Equivalence(place.kind, "ring")),
+          Arr.some(places, (place) => Str.Equivalence(place.kind, "disc"))
+        )
     )
     return {
       failures,
       name,
       sampled: frames,
       // The disc fills the ring: the hand-off is painted, and at every frame of it both stand in one place.
-      filledInPlace: Arr.isNonEmptyReadonlyArray(handingOff) &&
-        Arr.every(handingOff, (places) => Arr.dedupe(Arr.map(places, (place) => place.translate)).length === 1),
+      filledInPlace: Bool.and(
+        Arr.isNonEmptyReadonlyArray(handingOff),
+        Arr.every(handingOff, (places) =>
+          Num.Equivalence(Arr.length(Arr.dedupe(Arr.map(places, (place) => place.translate))), 1))
+      ),
       // How many places the disc was painted at: one when it never moves.
       placed: Arr.length(discs),
       // The disc arrives with Motion in place, so it is painted at more than one transform on its way in.
@@ -322,7 +362,12 @@ export const mergeProgramProposal = (reducedMotion: ReducedMotion) =>
         Arr.dedupe(
           Arr.filterMap(
             Arr.flatten(feature_),
-            (place) => place.kind === "disc" ? Option.some(place.transform) : Option.none()
+            (place) =>
+              Bool.match(Str.Equivalence(place.kind, "disc"), {
+                onFalse: Option.none,
+                onTrue: () =>
+                  Option.some(place.transform)
+              })
           )
         )
       ),
@@ -341,7 +386,11 @@ export const drawingStands = (frame: StageFrame): string =>
       Arr.dedupe(
         Arr.filterMap(
           frame.places,
-          (place) => place.kind === "disc" ? Option.some(`${place.name}@${place.translate}`) : Option.none()
+          (place) =>
+            Bool.match(Str.Equivalence(place.kind, "disc"), {
+              onFalse: Option.none,
+              onTrue: () => Option.some(`${place.name}@${place.translate}`)
+            })
         )
       ),
       Order.string
@@ -351,11 +400,14 @@ export const drawingStands = (frame: StageFrame): string =>
 
 /** The text of every set of lines painted in the frame. */
 export const paintedSets = (frame: StageFrame): ReadonlyArray<string> =>
-  Arr.filterMap(frame.lines, (set) => set.painted ? Option.some(set.text) : Option.none())
+  Arr.filterMap(
+    frame.lines,
+    (set) => Bool.match(set.painted, { onFalse: Option.none, onTrue: () => Option.some(set.text) })
+  )
 
 /** A set of lines other than those in `known` is painted in the frame. */
 export const paintsNewSet = (frame: StageFrame, known: ReadonlyArray<string>): boolean =>
-  Arr.some(paintedSets(frame), (text) => !Arr.contains(known, text))
+  Arr.some(paintedSets(frame), (text) => Bool.not(Arr.contains(known, text)))
 
 /**
  * Changes the story and reports every frame painted inside the demo until the
@@ -371,8 +423,8 @@ export const changeStory = (options: { readonly cpuSlowdown?: CpuSlowdown } = {}
     yield* goto(page, "/")
     yield* drawn(page)
     const demo = page.getByRole("region", { name: "Imagined place demo" })
-    yield* eventually(() => demo.evaluate(storyDrawn), true)
-    const before = yield* act(() => demo.evaluate(stageFrame))
+    yield* eventually(evaluateElement(demo, storyDrawn), true)
+    const before = yield* evaluateElement(demo, stageFrame)
     const standing = drawingStands(before)
     const oldSets = paintedSets(before)
     const oldNames = Arr.dedupe(Arr.map(before.places, (place) => place.name))
@@ -381,7 +433,11 @@ export const changeStory = (options: { readonly cpuSlowdown?: CpuSlowdown } = {}
     // The new story's drawing, kept and landed: the phase is the search's own, so the old story's
     // `complete` is told from the new one's by the new lines standing over a drawing that has moved.
     const kept = (frame: StageFrame): boolean =>
-      frame.phase === "complete" && paintsNewSet(frame, oldSets) && drawingStands(frame) !== standing
+      Bool.every([
+        Str.Equivalence(frame.phase, "complete"),
+        paintsNewSet(frame, oldSets),
+        Bool.not(Str.Equivalence(drawingStands(frame), standing))
+      ])
 
     // Sample every frame from before the story is chosen until the new drawing is kept.
     const painted = yield* Effect.fork(framesUntil(demo, kept, searchSettlesWithin))
@@ -389,12 +445,12 @@ export const changeStory = (options: { readonly cpuSlowdown?: CpuSlowdown } = {}
     yield* click(radio)
     expect((yield* Fiber.join(rebuild)).status()).toBe(200)
     // The new story is drawn once its search settles: a search's wait.
-    yield* eventually(() => demo.evaluate(storyDrawn), true, searchSettlesWithin)
+    yield* eventually(evaluateElement(demo, storyDrawn), true, searchSettlesWithin)
     // Once the new drawing has landed, every disc of the old story has shrunk away and gone.
-    yield* eventually(() => demo.evaluate(leaversGone), true)
+    yield* eventually(evaluateElement(demo, leaversGone), true)
     const frames = yield* Fiber.join(painted)
     // The first frame the drawing is elsewhere than it stood, and the first the new lines are painted in.
-    const moved = Arr.findFirstIndex(frames, (frame) => drawingStands(frame) !== standing)
+    const moved = Arr.findFirstIndex(frames, (frame) => Bool.not(Str.Equivalence(drawingStands(frame), standing)))
     const newLines = Arr.findFirstIndex(frames, (frame) => paintsNewSet(frame, oldSets))
     return {
       failures,
@@ -403,13 +459,15 @@ export const changeStory = (options: { readonly cpuSlowdown?: CpuSlowdown } = {}
       moved,
       newLines,
       // A frame with two sets painted would be two texts over each other.
-      twoSets: Arr.some(frames, (frame) => paintedSets(frame).length > 1),
+      twoSets: Arr.some(frames, (frame) => Num.greaterThan(Arr.length(paintedSets(frame)), 1)),
       overlaps: Arr.dedupe(Arr.flatMap(frames, (frame) => frame.overlaps)),
       // The old story's discs are still drawn in the first frame the drawing moves — shrinking away where
       // they stood, the lines flowed around them — rather than dropped the moment it does.
       leaversShrink: Option.exists(
         Option.flatMap(moved, (index) => Arr.get(frames, index)),
-        (frame) => Arr.some(frame.places, (place) => place.kind === "disc" && Arr.contains(oldNames, place.name))
+        (frame) =>
+          Arr.some(frame.places, (place) =>
+            Bool.and(Str.Equivalence(place.kind, "disc"), Arr.contains(oldNames, place.name)))
       )
     }
   })
@@ -458,7 +516,7 @@ export const fromAnswerToItsCode = (
       yield* act(() => codeLink.getAttribute("data-place-provenance-code"))
     )
     const site = codeSite(siteId)
-    const step = yield* Arr.findFirst(placeStepDefinitions, (definition) => definition.id === site.step)
+    const step = yield* Arr.findFirst(placeStepDefinitions, (definition) => Str.Equivalence(definition.id, site.step))
 
     yield* Match.value(opening).pipe(
       Match.when("pointer", () => click(codeLink)),
@@ -466,11 +524,11 @@ export const fromAnswerToItsCode = (
         Effect.gen(function*() {
           // Tab walks from the pinned answer's first control to the credited line's link.
           yield* Effect.iterate(false, {
-            while: (reached) => !reached,
+            while: Bool.not,
             body: () =>
               Effect.gen(function*() {
                 yield* press(page, "Tab")
-                return yield* act(() => codeLink.evaluate(isActiveElement))
+                return yield* evaluateElement(codeLink, isActiveElement)
               })
           }).pipe(
             Effect.timeoutFail({ duration: Duration.seconds(5), onTimeout: () => "the code link was never reached" })
@@ -484,13 +542,13 @@ export const fromAnswerToItsCode = (
     const section = page.locator("[data-place-how-its-built]")
     yield* attribute(section.getByRole("tab", { name: step.name }), "aria-selected", "true")
     const gutterMark = section.locator(`[data-place-code-site="${siteId}"]`)
-    yield* eventually(() => gutterMark.evaluate(isActiveElement), true)
+    yield* eventually(evaluateElement(gutterMark, isActiveElement), true)
     yield* hidden(overlay)
     // A smooth scroll takes its frames; an instant one has landed by the time focus has.
     const landing = yield* Match.value(reducedMotion).pipe(
-      Match.when("reduce", () => act(() => page.evaluate(focusLanding))),
+      Match.when("reduce", () => evaluate(page, focusLanding)),
       Match.when("no-preference", () =>
-        until(act(() => page.evaluate(focusLanding)), (landed) => landed.inViewport, "the line is in the viewport")),
+        until(evaluate(page, focusLanding), (landed) => landed.inViewport, "the line is in the viewport")),
       Match.exhaustive
     )
     return { failures, landing, siteId, step: step.id }
@@ -500,7 +558,7 @@ export const referenceTargets = (references: Locator) =>
   Effect.gen(function*() {
     const total = yield* act(() => references.count())
     expect(total).toBeGreaterThan(0)
-    return yield* Effect.forEach(Arr.range(0, total - 1), (index) =>
+    return yield* Effect.forEach(Arr.range(0, Num.decrement(total)), (index) =>
       Effect.gen(function*() {
         const reference = references.nth(index)
         const text = yield* Option.fromNullable(yield* act(() => reference.getAttribute("data-place-reference")))

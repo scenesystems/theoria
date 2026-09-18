@@ -1,0 +1,265 @@
+import { describe, expect, it } from "@effect/vitest"
+import { Array as Arr, Effect, Match, Number as Num, Option, Predicate, Schema } from "effect"
+
+import * as Numeric from "@scenesystems/effect-math/Numeric"
+import * as Optimization from "../../src/Optimization.js"
+import * as Sampler from "../../src/Sampler.js"
+import * as Trial from "../../src/Trial.js"
+import {
+  decodeLinearTreeConditionalConfig,
+  LinearTreeConditionalConfig,
+  makeLinearTreeConditionalSpace
+} from "../fixtures/scenarios/conditionalLinearTree.js"
+
+type ConditionalConfig = Schema.Schema.Type<typeof LinearTreeConditionalConfig>
+
+const decodeConditional = decodeLinearTreeConditionalConfig
+const encodeConfigTrace = Schema.encodeSync(Schema.parseJson(Schema.Array(LinearTreeConditionalConfig)))
+const encodeValueTrace = Schema.encodeSync(Schema.parseJson(Schema.Array(Schema.Number)))
+
+const makeSpace = () => makeLinearTreeConditionalSpace()
+
+const objectiveValue = (config: ConditionalConfig): number =>
+  Match.value(config).pipe(
+    Match.when({ model: "linear" }, ({ learningRate, regularization }) =>
+      Num.sum(
+        Numeric.abs(Num.subtract(Numeric.logStrict(learningRate), Numeric.logStrict(0.02))),
+        Numeric.abs(Num.subtract(regularization, 0.15))
+      )),
+    Match.when({ model: "tree" }, ({ maxDepth, minSamplesLeaf }) =>
+      Num.sumAll(Arr.make(
+        1,
+        Num.multiply(Numeric.abs(Num.subtract(maxDepth, 6)), 0.4),
+        Num.multiply(Numeric.abs(Num.subtract(minSamplesLeaf, 2)), 0.3)
+      ))),
+    Match.exhaustive
+  )
+
+const objective = (raw: unknown) => decodeConditional(raw).pipe(Effect.map(objectiveValue))
+
+const asSingleObjective = (result: Optimization.Result): Option.Option<Optimization.SingleObjectiveResult> =>
+  Match.value(result).pipe(
+    Match.tag("SingleObjective", (singleObjective) => Option.some(singleObjective)),
+    Match.orElse(() => Option.none())
+  )
+
+const configTrace = (result: Optimization.SingleObjectiveResult) =>
+  Effect.forEach(result.trials, (trial) => decodeConditional(trial.config))
+
+const valueTrace = (result: Optimization.SingleObjectiveResult) =>
+  Arr.flatMap(Arr.fromIterable(result.trials), (trial) =>
+    Trial.matchState({
+      Running: () => Arr.empty<number>(),
+      Completed: ({ value }) =>
+        Match.value(value).pipe(
+          Match.when(Match.number, (resolved): ReadonlyArray<number> => Arr.of(resolved)),
+          Match.orElse((): ReadonlyArray<number> => Arr.empty<number>())
+        ),
+      Pruned: () => Arr.empty<number>(),
+      Failed: () => Arr.empty<number>(),
+      Cancelled: () => Arr.empty<number>()
+    })(trial.state))
+
+const runWith = (concurrency: number) =>
+  Effect.gen(function*() {
+    const space = yield* makeSpace()
+    return yield* Optimization.run({
+      space,
+      sampler: Sampler.tpe({ seed: 212, nStartupTrials: 4, nEiCandidates: 16 }),
+      direction: "minimize",
+      trials: 10,
+      concurrency,
+      objective
+    })
+  })
+
+describe("integration conditional TPE optimization", () => {
+  it.effect("preserves deterministic semantic traces for each concurrency profile", () =>
+    Effect.gen(function*() {
+      const singleThreadedA = yield* runWith(1)
+      const singleThreadedB = yield* runWith(1)
+      const parallelA = yield* runWith(4)
+      const parallelB = yield* runWith(4)
+      const singleThreadedAOption = asSingleObjective(singleThreadedA)
+      const singleThreadedBOption = asSingleObjective(singleThreadedB)
+      const parallelAOption = asSingleObjective(parallelA)
+      const parallelBOption = asSingleObjective(parallelB)
+
+      expect(Option.isSome(singleThreadedAOption)).toBe(true)
+      expect(Option.isSome(singleThreadedBOption)).toBe(true)
+      expect(Option.isSome(parallelAOption)).toBe(true)
+      expect(Option.isSome(parallelBOption)).toBe(true)
+
+      const tracedRuns = yield* Option.all({
+        singleThreadedAOption,
+        singleThreadedBOption,
+        parallelAOption,
+        parallelBOption
+      })
+
+      expect(encodeConfigTrace(yield* configTrace(tracedRuns.singleThreadedAOption))).toBe(
+        encodeConfigTrace(yield* configTrace(tracedRuns.singleThreadedBOption))
+      )
+      expect(encodeValueTrace(valueTrace(tracedRuns.singleThreadedAOption))).toBe(
+        encodeValueTrace(valueTrace(tracedRuns.singleThreadedBOption))
+      )
+
+      expect(encodeConfigTrace(yield* configTrace(tracedRuns.parallelAOption))).toBe(
+        encodeConfigTrace(yield* configTrace(tracedRuns.parallelBOption))
+      )
+      expect(encodeValueTrace(valueTrace(tracedRuns.parallelAOption))).toBe(
+        encodeValueTrace(valueTrace(tracedRuns.parallelBOption))
+      )
+      expect(tracedRuns.parallelAOption.bestTrial.state.value).toBe(tracedRuns.parallelBOption.bestTrial.state.value)
+    }))
+
+  it.effect("never emits impossible branch assignments", () =>
+    Effect.gen(function*() {
+      const optimized = yield* runWith(3)
+      const single = asSingleObjective(optimized)
+
+      expect(Option.isSome(single)).toBe(true)
+
+      const verifiedRun = yield* single
+
+      const decodedConfigs = yield* Effect.forEach(verifiedRun.trials, (trial) => decodeConditional(trial.config))
+      Arr.forEach(decodedConfigs, (decoded) => {
+        Match.value(decoded.model).pipe(
+          Match.when("linear", () => {
+            expect(Predicate.hasProperty(decoded, "learningRate")).toBe(true)
+            expect(Predicate.hasProperty(decoded, "regularization")).toBe(true)
+            expect(Predicate.hasProperty(decoded, "maxDepth")).toBe(false)
+            expect(Predicate.hasProperty(decoded, "minSamplesLeaf")).toBe(false)
+          }),
+          Match.when("tree", () => {
+            expect(Predicate.hasProperty(decoded, "maxDepth")).toBe(true)
+            expect(Predicate.hasProperty(decoded, "minSamplesLeaf")).toBe(true)
+            expect(Predicate.hasProperty(decoded, "learningRate")).toBe(false)
+            expect(Predicate.hasProperty(decoded, "regularization")).toBe(false)
+          }),
+          Match.exhaustive
+        )
+      })
+    }))
+
+  it.effect("preserves conditional branch traces across snapshot and resume", () =>
+    Effect.gen(function*() {
+      const options = {
+        seed: 404,
+        nStartupTrials: 4,
+        nEiCandidates: 16
+      }
+      const totalTrials = 8
+      const firstLegTrials = 5
+      const secondLegTrials = Num.subtract(totalTrials, firstLegTrials)
+      const baselineResult = yield* Optimization.run({
+        space: yield* makeSpace(),
+        sampler: Sampler.tpe(options),
+        direction: "minimize",
+        trials: totalTrials,
+        objective
+      })
+      const firstLegResult = yield* Optimization.run({
+        space: yield* makeSpace(),
+        sampler: Sampler.tpe(options),
+        direction: "minimize",
+        trials: firstLegTrials,
+        objective
+      })
+
+      const baselineSingle = asSingleObjective(baselineResult)
+      const firstLegSingle = asSingleObjective(firstLegResult)
+
+      expect(Option.isSome(baselineSingle)).toBe(true)
+      expect(Option.isSome(firstLegSingle)).toBe(true)
+
+      const partialRuns = yield* Option.all({
+        baselineSingle,
+        firstLegSingle
+      })
+
+      const snapshot = yield* Optimization.snapshot(partialRuns.firstLegSingle)
+      const resumedResult = yield* Optimization.resume({
+        space: yield* makeSpace(),
+        sampler: Sampler.tpe(options),
+        snapshot,
+        direction: "minimize",
+        trials: secondLegTrials,
+        objective
+      })
+      const resumedSingle = asSingleObjective(resumedResult)
+
+      expect(Option.isSome(resumedSingle)).toBe(true)
+
+      const resumedRun = yield* resumedSingle
+
+      expect(encodeConfigTrace(yield* configTrace(resumedRun))).toBe(
+        encodeConfigTrace(yield* configTrace(partialRuns.baselineSingle))
+      )
+      expect(encodeValueTrace(valueTrace(resumedRun))).toBe(
+        encodeValueTrace(valueTrace(partialRuns.baselineSingle))
+      )
+      expect(resumedRun.bestTrial.state.value).toBe(partialRuns.baselineSingle.bestTrial.state.value)
+    }))
+
+  it.effect("supports grouped multivariate conditional decomposition deterministically", () =>
+    Effect.gen(function*() {
+      const options = {
+        seed: 515,
+        nStartupTrials: 4,
+        nEiCandidates: 16,
+        multivariate: true,
+        groupDimensions: true
+      }
+      const left = yield* Optimization.run({
+        space: yield* makeSpace(),
+        sampler: Sampler.tpe(options),
+        direction: "minimize",
+        trials: 10,
+        objective
+      })
+      const right = yield* Optimization.run({
+        space: yield* makeSpace(),
+        sampler: Sampler.tpe(options),
+        direction: "minimize",
+        trials: 10,
+        objective
+      })
+      const leftSingle = asSingleObjective(left)
+      const rightSingle = asSingleObjective(right)
+
+      expect(Option.isSome(leftSingle)).toBe(true)
+      expect(Option.isSome(rightSingle)).toBe(true)
+
+      const runs = yield* Option.all({
+        leftSingle,
+        rightSingle
+      })
+
+      const decodedConfigs = yield* Effect.forEach(runs.leftSingle.trials, (trial) => decodeConditional(trial.config))
+      Arr.forEach(decodedConfigs, (decoded) => {
+        Match.value(decoded.model).pipe(
+          Match.when("linear", () => {
+            expect(Predicate.hasProperty(decoded, "learningRate")).toBe(true)
+            expect(Predicate.hasProperty(decoded, "regularization")).toBe(true)
+            expect(Predicate.hasProperty(decoded, "maxDepth")).toBe(false)
+            expect(Predicate.hasProperty(decoded, "minSamplesLeaf")).toBe(false)
+          }),
+          Match.when("tree", () => {
+            expect(Predicate.hasProperty(decoded, "maxDepth")).toBe(true)
+            expect(Predicate.hasProperty(decoded, "minSamplesLeaf")).toBe(true)
+            expect(Predicate.hasProperty(decoded, "learningRate")).toBe(false)
+            expect(Predicate.hasProperty(decoded, "regularization")).toBe(false)
+          }),
+          Match.exhaustive
+        )
+      })
+
+      expect(encodeConfigTrace(yield* configTrace(runs.leftSingle))).toBe(
+        encodeConfigTrace(yield* configTrace(runs.rightSingle))
+      )
+      expect(encodeValueTrace(valueTrace(runs.leftSingle))).toBe(
+        encodeValueTrace(valueTrace(runs.rightSingle))
+      )
+    }))
+})

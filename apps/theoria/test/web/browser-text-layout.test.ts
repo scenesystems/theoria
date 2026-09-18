@@ -1,5 +1,5 @@
 import { describe, expect, it } from "@effect/vitest"
-import { Deferred, Effect, Exit, Layer, Ref, Scope } from "effect"
+import { Boolean as Bool, Deferred, Effect, Exit, Layer, Number as Num, Ref, Scope, String as Str } from "effect"
 import * as Arr from "effect/Array"
 
 import { measuredFont } from "../../app/contracts/text.js"
@@ -35,7 +35,7 @@ const fontsInFlight = (
 
 /** A readiness at revision 0 that counts how often it is told of an arrival. */
 const readinessTold = (told: Ref.Ref<number>) =>
-  Layer.succeed(FontReadiness, { revision: 0, facesArrived: Ref.update(told, (count) => count + 1) })
+  Layer.succeed(FontReadiness, { revision: 0, facesArrived: Ref.update(told, Num.increment) })
 
 const failing = (font: string) => new BrowserFonts.FontLoadFailed({ font, message: "network" })
 
@@ -87,13 +87,16 @@ describe("browser text layout", () => {
       const told = yield* Ref.make(0)
       const body = yield* Deferred.make<void>()
       const mono = yield* Deferred.make<void>()
-      const landing = (font: string) => Deferred.await(font === measuredFont("body") ? body : mono)
+      const landing = (font: string) =>
+        Deferred.await(
+          Bool.match(Str.Equivalence(font, measuredFont("body")), { onTrue: () => body, onFalse: () => mono })
+        )
       const scope = yield* Scope.make()
       yield* servedFacesWatched.pipe(
         Scope.extend(scope),
         Effect.provide(Layer.merge(fontsInFlight(asked, landing), readinessTold(told)))
       )
-      yield* Effect.repeat(Ref.get(asked), { until: (fonts) => fonts.length === 2 })
+      yield* Effect.repeat(Ref.get(asked), { until: (fonts) => Num.Equivalence(fonts.length, 2) })
       expect(yield* Ref.get(asked)).toEqual([measuredFont("body"), measuredFont("mono")])
 
       // The watch does not hold the layout: it returned with the faces still in flight, and nothing is told yet.
@@ -102,12 +105,12 @@ describe("browser text layout", () => {
 
       // The body's face lands: every width measured in its stand-in is wrong now, whatever the code's face is doing.
       yield* Deferred.succeed(body, undefined)
-      yield* Effect.repeat(Ref.get(told), { until: (count) => count > 0 })
+      yield* Effect.repeat(Ref.get(told), { until: Num.greaterThan(0) })
       yield* Effect.yieldNow()
       expect(yield* Ref.get(told)).toBe(1)
 
       yield* Deferred.succeed(mono, undefined)
-      yield* Effect.repeat(Ref.get(told), { until: (count) => count > 1 })
+      yield* Effect.repeat(Ref.get(told), { until: Num.greaterThan(1) })
       yield* Effect.yieldNow()
       expect(yield* Ref.get(told)).toBe(2)
       yield* Scope.close(scope, Exit.void)
@@ -120,12 +123,12 @@ describe("browser text layout", () => {
       const asked = yield* Ref.make<ReadonlyArray<string>>([])
       const told = yield* Ref.make(0)
       const fonts = Layer.succeed(BrowserFonts.BrowserFonts, {
-        inHand: (font) => Effect.succeed(font === measuredFont("body")),
+        inHand: (font) => Effect.succeed(Str.Equivalence(font, measuredFont("body"))),
         load: (font) => Ref.update(asked, Arr.append(font)).pipe(Effect.andThen(failing(font)))
       })
       const scope = yield* Scope.make()
       yield* servedFacesWatched.pipe(Scope.extend(scope), Effect.provide(Layer.merge(fonts, readinessTold(told))))
-      yield* Effect.repeat(Ref.get(asked), { until: (fonts) => fonts.length === 1 })
+      yield* Effect.repeat(Ref.get(asked), { until: (fonts) => Num.Equivalence(fonts.length, 1) })
       yield* Effect.yieldNow()
       yield* Effect.yieldNow()
 
@@ -138,13 +141,17 @@ describe("browser text layout", () => {
     Effect.gen(function*() {
       const asked = yield* Ref.make<ReadonlyArray<string>>([])
       const told = yield* Ref.make(0)
-      const landing = (font: string) => (font === measuredFont("body") ? Effect.void : failing(font))
+      const landing = (font: string) =>
+        Bool.match(Str.Equivalence(font, measuredFont("body")), {
+          onTrue: () => Effect.void,
+          onFalse: () => failing(font)
+        })
       const scope = yield* Scope.make()
       yield* servedFacesWatched.pipe(
         Scope.extend(scope),
         Effect.provide(Layer.merge(fontsInFlight(asked, landing), readinessTold(told)))
       )
-      yield* Effect.repeat(Ref.get(told), { until: (count) => count > 0 })
+      yield* Effect.repeat(Ref.get(told), { until: Num.greaterThan(0) })
 
       expect(yield* Ref.get(told)).toBe(1)
       yield* Scope.close(scope, Exit.void)
@@ -159,7 +166,7 @@ describe("browser text layout", () => {
         Scope.extend(scope),
         Effect.provide(Layer.merge(fontsInFlight(asked, failing), readinessTold(told)))
       )
-      yield* Effect.repeat(Ref.get(asked), { until: (fonts) => fonts.length === 2 })
+      yield* Effect.repeat(Ref.get(asked), { until: (fonts) => Num.Equivalence(fonts.length, 2) })
       yield* Effect.yieldNow()
       yield* Effect.yieldNow()
 
@@ -177,7 +184,7 @@ describe("browser text layout", () => {
         Scope.extend(scope),
         Effect.provide(Layer.merge(fontsInFlight(asked, () => Deferred.await(landed)), readinessTold(told)))
       )
-      yield* Effect.repeat(Ref.get(asked), { until: (fonts) => fonts.length === 2 })
+      yield* Effect.repeat(Ref.get(asked), { until: (fonts) => Num.Equivalence(fonts.length, 2) })
       yield* Scope.close(scope, Exit.void)
 
       yield* Deferred.succeed(landed, undefined)

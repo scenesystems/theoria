@@ -1,0 +1,147 @@
+/**
+ * Regularized incomplete beta function kernel.
+ *
+ * I_x(a,b) = B(x;a,b) / B(a,b) via the modified Lentz continued fraction
+ * (Lentz, 1976; Thompson & Barnett, 1986) with symmetry transform. Normalization
+ * uses log-space via `lnGammaLanczos`.
+ *
+ * When x > (a+1)/(a+b+2) the symmetry identity I_x(a,b) = 1 − I_{1−x}(b,a)
+ * is applied to ensure the continued fraction converges rapidly.
+ *
+ * @since 0.1.0
+ * @category internal
+ */
+import { Array, Boolean, MutableRef, Number } from "effect"
+
+import { abs, exp, log } from "../../Numeric.js"
+import { lnGammaLanczos } from "./gamma.js"
+
+const maxIterations = 200
+const epsilon = 3e-14
+const minimumPositive = 1e-30
+const iterations = Array.range(1, maxIterations)
+
+/**
+ * Log of B(a,b) = Γ(a)Γ(b)/Γ(a+b), shared by beta probabilities and densities.
+ *
+ * @since 0.1.0
+ * @category internal
+ */
+export const betaLogNorm = (a: number, b: number): number =>
+  Number.subtract(
+    Number.sum(lnGammaLanczos(a), lnGammaLanczos(b)),
+    lnGammaLanczos(Number.sum(a, b))
+  )
+
+/** Clamp tiny values away from zero to prevent division overflow. */
+const guard = (value: number): number =>
+  Boolean.match(Number.lessThan(abs(value), minimumPositive), {
+    onTrue: () => minimumPositive,
+    onFalse: () => value
+  })
+
+/**
+ * Modified Lentz continued fraction for I_x(a,b).
+ *
+ * Returns the CF value that, when multiplied by the beta-prefix / a,
+ * gives I_x(a,b).
+ *
+ * @since 0.1.0
+ * @category internal
+ */
+const betacf = (a: number, b: number, x: number): number => {
+  const qab = Number.sum(a, b)
+  const qap = Number.sum(a, 1)
+  const qam = Number.subtract(a, 1)
+
+  const d0 = Number.unsafeDivide(1, guard(Number.subtract(1, Number.unsafeDivide(Number.multiply(qab, x), qap))))
+  return betacfLoop(a, b, x, qab, qap, qam, d0, 1, d0)
+}
+
+/**
+ * Lentz CF evaluation with scalar mutable state and bounded early termination.
+ *
+ * @since 0.1.0
+ * @category internal
+ */
+const betacfLoop = (
+  a: number,
+  b: number,
+  x: number,
+  qab: number,
+  qap: number,
+  qam: number,
+  h: number,
+  cPrev: number,
+  dPrev: number
+): number => {
+  const valueState = MutableRef.make(h)
+  const cState = MutableRef.make(cPrev)
+  const dState = MutableRef.make(dPrev)
+  Array.some(iterations, (iteration) => {
+    const twoM = Number.multiply(2, iteration)
+    const numEven = Number.unsafeDivide(
+      Number.multiply(Number.multiply(iteration, Number.subtract(b, iteration)), x),
+      Number.multiply(Number.sum(qam, twoM), Number.sum(a, twoM))
+    )
+    const d1 = Number.unsafeDivide(1, guard(Number.sum(1, Number.multiply(numEven, MutableRef.get(dState)))))
+    const c1 = guard(Number.sum(1, Number.unsafeDivide(numEven, MutableRef.get(cState))))
+    const h1 = Number.multiply(MutableRef.get(valueState), Number.multiply(d1, c1))
+    const numOdd = Number.negate(
+      Number.unsafeDivide(
+        Number.multiply(Number.multiply(Number.sum(a, iteration), Number.sum(qab, iteration)), x),
+        Number.multiply(Number.sum(a, twoM), Number.sum(qap, twoM))
+      )
+    )
+    const d2 = Number.unsafeDivide(1, guard(Number.sum(1, Number.multiply(numOdd, d1))))
+    const c2 = guard(Number.sum(1, Number.unsafeDivide(numOdd, c1)))
+    const delta = Number.multiply(d2, c2)
+    MutableRef.set(valueState, Number.multiply(h1, delta))
+    MutableRef.set(cState, c2)
+    MutableRef.set(dState, d2)
+    return Number.lessThan(abs(Number.subtract(delta, 1)), epsilon)
+  })
+  return MutableRef.get(valueState)
+}
+
+/**
+ * Regularized incomplete beta I_x(a,b) = B(x;a,b) / B(a,b).
+ *
+ * Requires a > 0, b > 0, 0 ≤ x ≤ 1. Returns a value in [0, 1].
+ * Internal inverse solves may supply their already computed log B(a,b).
+ * Keep it lazy so one-shot endpoint calls do not evaluate normalization.
+ *
+ * @since 0.1.0
+ * @category internal
+ */
+export const betainc = (
+  a: number,
+  b: number,
+  x: number,
+  logNormalization: (a: number, b: number) => number = betaLogNorm
+): number => {
+  return Boolean.match(Number.Equivalence(x, 0), {
+    onTrue: () => 0,
+    onFalse: () =>
+      Boolean.match(Number.Equivalence(x, 1), {
+        onTrue: () => 1,
+        onFalse: () =>
+          Boolean.match(
+            Number.greaterThan(x, Number.unsafeDivide(Number.sum(a, 1), Number.sum(Number.sum(a, b), 2))),
+            {
+              onTrue: () => Number.subtract(1, betainc(b, a, Number.subtract(1, x), logNormalization)),
+              onFalse: () => {
+                const lnPre = Number.subtract(
+                  Number.sum(
+                    Number.multiply(a, log(x)),
+                    Number.multiply(b, log(Number.subtract(1, x)))
+                  ),
+                  Number.sum(log(a), logNormalization(a, b))
+                )
+                return Number.multiply(exp(lnPre), betacf(a, b, x))
+              }
+            }
+          )
+      })
+  })
+}

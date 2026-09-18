@@ -3,17 +3,22 @@
  */
 import * as LanguageModel from "@effect/ai/LanguageModel"
 import { describe, expect, it } from "@effect/vitest"
-import { ModuleParams, projectSingleObjective } from "@scenesystems/effect-dsp/contracts"
 import * as Evaluate from "@scenesystems/effect-dsp/Evaluate"
 import { Example } from "@scenesystems/effect-dsp/Example"
 import * as Metric from "@scenesystems/effect-dsp/Metric"
+import * as MockLanguageModel from "@scenesystems/effect-dsp/MockLanguageModel"
 import * as Module from "@scenesystems/effect-dsp/Module"
+import { ModuleParameters } from "@scenesystems/effect-dsp/ModuleParameters"
 import * as Signature from "@scenesystems/effect-dsp/Signature"
-import { MockLanguageModel } from "@scenesystems/effect-dsp/test"
-import { Array as Arr, Effect, Layer, Option, Record, Ref, Schema } from "effect"
-import { DemoCandidate, PredictorDemoCandidates } from "../../src/optimizers/MIPROv2/bootstrap.js"
-import { InstructionCandidate, PredictorInstructionCandidates } from "../../src/optimizers/MIPROv2/propose.js"
-import { runPhase3Search } from "../../src/optimizers/MIPROv2/search.js"
+import { Array as Arr, Boolean as Bool, Effect, Layer, Option, Record, Ref, Schema } from "effect"
+import { projectSingleObjective } from "../../src/EvaluationObjective.js"
+import {
+  DemoCandidate,
+  InstructionCandidate,
+  PredictorDemoCandidates,
+  PredictorInstructionCandidates
+} from "../../src/MIPROv2Candidates.js"
+import { run } from "../../src/MIPROv2Search.js"
 
 const makeQaSignature = () =>
   Signature.make(
@@ -50,7 +55,7 @@ describe("MIPROv2/effect-search integration", () => {
             new DemoCandidate({
               predictorName: "qa",
               kind: "zero-shot",
-              params: new ModuleParams({
+              params: new ModuleParameters({
                 instructions: baselineParams.instructions,
                 demos: [],
                 outputStrategy: "structured"
@@ -59,7 +64,7 @@ describe("MIPROv2/effect-search integration", () => {
             new DemoCandidate({
               predictorName: "qa",
               kind: "bootstrap-unshuffled",
-              params: new ModuleParams({
+              params: new ModuleParameters({
                 instructions: baselineParams.instructions,
                 demos: [],
                 outputStrategy: "structured"
@@ -92,7 +97,7 @@ describe("MIPROv2/effect-search integration", () => {
         })
       )
       const mock = yield* MockLanguageModel.make(
-        MockLanguageModel.fixed({ answer: "Paris" })
+        MockLanguageModel.succeed({ answer: "Paris" })
       )
       const layer = Layer.succeed(LanguageModel.LanguageModel, mock.service)
 
@@ -106,7 +111,7 @@ describe("MIPROv2/effect-search integration", () => {
       }).pipe(Effect.provide(layer))
       const projected = yield* projectSingleObjective(report, Option.some("mipro"))
 
-      const result = yield* runPhase3Search({
+      const result = yield* run({
         module,
         valset: dataset,
         metric: Metric.exactMatch("answer"),
@@ -117,7 +122,7 @@ describe("MIPROv2/effect-search integration", () => {
         fullEvalEvery: 2,
         seed: 73
       }).pipe(Effect.provide(layer))
-      const defaultCadence = yield* runPhase3Search({
+      const defaultCadence = yield* run({
         module,
         valset: dataset,
         metric: Metric.exactMatch("answer"),
@@ -127,16 +132,17 @@ describe("MIPROv2/effect-search integration", () => {
         seed: 73
       }).pipe(Effect.provide(layer))
 
-      expect(result.studyResult._tag).toBe("SingleObjective")
-      expect(result.studyResult.trials.length).toBeGreaterThan(0)
+      expect(result.optimizationResult._tag).toBe("SingleObjective")
+      expect(Arr.length(Arr.fromIterable(result.optimizationResult.trials))).toBeGreaterThan(0)
       expect(
         Option.isSome(
           Arr.findFirst(
-            result.studyResult.trials,
+            Arr.fromIterable(result.optimizationResult.trials),
             (trial) =>
-              Schema.is(Schema.Record({ key: Schema.String, value: Schema.Unknown }))(trial.config) &&
-              Record.has(trial.config, "qa__demo") &&
-              Record.has(trial.config, "qa__instruction")
+              Bool.and(
+                Schema.is(Schema.Record({ key: Schema.String, value: Schema.Unknown }))(trial.config),
+                Bool.and(Record.has(trial.config, "qa__demo"), Record.has(trial.config, "qa__instruction"))
+              )
           )
         )
       ).toBe(true)

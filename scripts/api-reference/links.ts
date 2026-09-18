@@ -1,4 +1,4 @@
-import { Array as Arr, Option } from "effect"
+import { Array as Arr, Boolean as Bool, Option, String as Str } from "effect"
 
 import { type ConvertedPackage } from "./conversion.js"
 import { documentationPathForExport } from "./documentation-routes.js"
@@ -10,7 +10,10 @@ export type ApiDocLink = readonly [packageName: string, name: string, href: stri
 const canonicalModules = (converted: ConvertedPackage) =>
   Arr.filterMap(converted.modules, (module) =>
     Option.map(
-      Arr.findFirst(module.routes, (route) => route.entrypoint.subpath === module.source.canonicalSubpath),
+      Arr.findFirst(
+        module.routes,
+        (route) => Str.Equivalence(route.entrypoint.subpath, module.source.canonicalSubpath)
+      ),
       (route) => ({ module: module.source, route })
     ))
 
@@ -24,9 +27,10 @@ export const makeApiDocLinks = (
       Arr.map(canonicalModules(converted), ({ route }): ApiDocLink => {
         const { sourcePackage } = converted
         const slug = routeSlug(route.entrypoint.subpath)
-        const name = slug.length === 0
-          ? sourcePackage.manifest.name
-          : slug.split("/").at(-1) ?? slug
+        const name = Bool.match(Str.isEmpty(slug), {
+          onTrue: () => sourcePackage.manifest.name,
+          onFalse: () => Arr.lastNonEmpty(Str.split(slug, "/"))
+        })
         return [
           sourcePackage.manifest.name,
           name,

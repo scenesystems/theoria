@@ -1,6 +1,6 @@
 import { Registry, Result } from "@effect-atom/atom"
 import { describe, expect, it } from "@effect/vitest"
-import { Deferred, Effect, Layer, Ref } from "effect"
+import { Deferred, Effect, Layer, Number as Num, Ref } from "effect"
 import * as Arr from "effect/Array"
 
 import { fontReadinessRevisionAtom, textLayoutLayerAtom, textLayoutRuntime } from "../../app/web/atoms/text-layout.js"
@@ -32,7 +32,7 @@ const layoutWhoseFacesLand = (built: Ref.Ref<ReadonlyArray<number>>, landed: Def
       yield* Ref.update(built, Arr.append(readiness.revision))
       yield* Effect.when(
         Effect.forkScoped(Deferred.await(landed).pipe(Effect.zipRight(readiness.facesArrived))),
-        () => readiness.revision === 0
+        () => Num.Equivalence(readiness.revision, 0)
       )
       return deterministicTextLayoutLive
     })
@@ -68,7 +68,7 @@ const runtimeMounted = (registry: Registry.Registry) =>
   )
 
 const builtTwice = (built: Ref.Ref<ReadonlyArray<number>>) =>
-  Effect.repeat(Ref.get(built), { until: (revisions) => revisions.length >= 2 })
+  Effect.repeat(Ref.get(built), { until: (revisions) => Num.greaterThanOrEqualTo(revisions.length, 2) })
 
 describe("the text layout runtime and the fonts' revision", () => {
   it.scoped("a layout whose faces land after it was built is built again, once, at the next revision", () =>
@@ -97,7 +97,7 @@ describe("the text layout runtime and the fonts' revision", () => {
       yield* measured(registry)
       yield* Deferred.succeed(landed, undefined)
       yield* Effect.repeat(Effect.sync(() => registry.get(fontReadinessRevisionAtom)), {
-        until: (revision) => revision === 1
+        until: (revision) => Num.Equivalence(revision, 1)
       })
 
       yield* runtimeMounted(registry)

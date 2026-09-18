@@ -31,7 +31,14 @@
     "directory": "dist"
   },
   "exports": {
-    ".": "./src/index.ts"
+    ".": "./src/index.ts",
+    "./Blake3": "./src/Blake3.ts",
+    "./CanonicalJson": "./src/CanonicalJson.ts",
+    "./ContentDigest": "./src/ContentDigest.ts",
+    "./Digest": "./src/Digest.ts",
+    "./Hkdf": "./src/Hkdf.ts",
+    "./Hmac": "./src/Hmac.ts",
+    "./Utf8": "./src/Utf8.ts"
   },
   "scripts": {
     "check": "tsc -b tsconfig.src.json",
@@ -42,8 +49,8 @@
     "test": "vitest run --root ../.. packages/digest/test",
     "fixtures:check": "bun run scripts/check-fixtures.ts",
     "fixtures:stamp": "bun run scripts/stamp-fixture-hashes.ts",
-    "fixtures:verify": "bun run fixtures:check && bun run test -- test/conformance",
-    "benchmark:canonicalization": "bun run benchmark/CanonicalizationResponsiveness.ts",
+    "fixtures:verify": "bun run fixtures:check && vitest run --root ../.. packages/digest/test/CanonicalJson/conformance.test.ts packages/digest/test/Digest/conformance.test.ts packages/digest/test/Blake3.test.ts packages/digest/test/Hmac.test.ts packages/digest/test/Hkdf.test.ts",
+    "benchmark:canonicalization": "bun run benchmark/canonicalJsonResponsiveness.ts",
     "build-esm": "tsc -b tsconfig.build.json",
     "build-annotate": "babel build/esm --plugins annotate-pure-calls --out-dir build/esm --source-maps",
     "build-cjs": "babel build/esm --plugins @babel/transform-export-namespace-from --plugins @babel/transform-modules-commonjs --out-dir build/cjs --source-maps",

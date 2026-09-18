@@ -1,50 +1,37 @@
-/**
- * Confirms that JCS key ordering produces the same content address, exercises
- * strict malformed-Unicode rejection, and hashes a Schema value after encoding
- * it to wire form.
- *
- * Run: bun run examples/03-content-addressing.ts
- */
+/** Canonicalizes unknown values and hashes Schema-encoded wire values. */
 
 import { BunRuntime } from "@effect/platform-bun"
-import { canonicalize, canonicalJsonBytes, digest, digestSchemaValue, durableFingerprint } from "@scenesystems/digest"
-import { Effect, Either, Schema } from "effect"
+import { CanonicalJson, ContentDigest } from "@scenesystems/digest"
+import { Effect, Either, Schema, String as Str } from "effect"
+
+const Event = Schema.Struct({
+  name: Schema.String,
+  timestamp: Schema.DateFromString
+})
 
 const program = Effect.gen(function*() {
-  const obj1 = { z: 1, a: 2, m: 3 }
-  const obj2 = { a: 2, m: 3, z: 1 }
-  const canon1 = yield* canonicalize(obj1)
-  const canon2 = yield* canonicalize(obj2)
-  const canonicalBytes = yield* canonicalJsonBytes(obj1)
-  yield* Effect.log("Canonical form", {
-    canonical: canon1,
-    byteLength: canonicalBytes.length,
-    keyOrderInvariant: canon1 === canon2
+  const first = { z: 1, a: 2, m: 3 }
+  const reordered = { a: 2, m: 3, z: 1 }
+  const canonical = yield* CanonicalJson.encode(first)
+  const canonicalBytes = yield* CanonicalJson.encodeBytes(first)
+  yield* Effect.log("Canonical form", { canonical, byteLength: canonicalBytes.length })
+
+  const firstDigest = yield* ContentDigest.fromUnknown("blake3-256", first)
+  const reorderedDigest = yield* ContentDigest.fromUnknown("blake3-256", reordered)
+  yield* Effect.log("Content address", {
+    digest: ContentDigest.toString(firstDigest),
+    orderIndependent: Str.Equivalence(ContentDigest.toString(firstDigest), ContentDigest.toString(reorderedDigest))
   })
 
-  const malformed = yield* Effect.either(canonicalize({ value: "\uD800" }))
+  const malformed = yield* Effect.either(CanonicalJson.encode({ value: "\uD800" }))
   yield* Either.match(malformed, {
     onLeft: (error) => Effect.log("Strict Unicode", { rejected: true, errorTag: error._tag }),
     onRight: () => Effect.log("Strict Unicode", { rejected: false })
   })
 
-  const tagged = yield* digest("blake3-256", { user: "alice", score: 42 })
-  const tagged2 = yield* digest("blake3-256", { score: 42, user: "alice" })
-  yield* Effect.log("Tagged digest", { digest: tagged, orderIndependent: tagged === tagged2 })
-
-  const cacheKey = yield* durableFingerprint({ question: "What is 2+2?", model: "gpt-4" })
-  yield* Effect.log("Cache key", cacheKey)
-
-  const Event = Schema.Struct({
-    name: Schema.String,
-    timestamp: Schema.DateFromString
-  })
-
   const timestamp = yield* Schema.decode(Schema.DateFromString)("2025-01-15T12:00:00Z")
-  const event = { name: "deploy", timestamp }
-  const schemaDigest = yield* digestSchemaValue(Event, event)
-  const schemaDigest2 = yield* digestSchemaValue(Event, event)
-  yield* Effect.log("Schema digest", { digest: schemaDigest, deterministic: schemaDigest === schemaDigest2 })
+  const eventDigest = yield* ContentDigest.fromSchema(Event, { name: "deploy", timestamp })
+  yield* Effect.log("Schema wire digest", ContentDigest.toString(eventDigest))
 })
 
 BunRuntime.runMain(program)

@@ -1,5 +1,5 @@
 import { describe, expect, it } from "@effect/vitest"
-import { Duration, Effect, Layer, MutableRef, Queue, type Scope, Stream } from "effect"
+import { Duration, Effect, Layer, MutableRef, Number as Num, Queue, type Scope, Stream } from "effect"
 
 import type { PlaceAct } from "../../app/contracts/demo/imagined-place-provenance.js"
 import {
@@ -46,7 +46,7 @@ const onThePage = Effect.gen(function*() {
   const browserWindow = yield* BrowserWindow.BrowserWindow
   const viewport = browserWindow.innerHeight
   const arrivalTop = MutableRef.make(0)
-  const buildTop = MutableRef.make(viewport * 3)
+  const buildTop = MutableRef.make(Num.multiply(viewport, 3))
   const columnTop = MutableRef.make(viewport)
   const arrival = standingAt(browserDocument, browserWindow, "section", arrivalTop, viewport)
   arrival.setAttribute(placeActAttribute, "arrive")
@@ -110,7 +110,7 @@ describe("where the visitor is reading", () => {
       const resizes = yield* ResizeObserving.ResizeObserving
       const next = yield* following<boolean>(placeStageReadPastNow)
       expect(yield* next).toBe(false)
-      MutableRef.set(columnTop, -viewport - 1)
+      MutableRef.set(columnTop, Num.negate(Num.increment(viewport)))
       yield* resizes.report(browserDocument.body, { width: 600, height: 1800 })
       expect(yield* next).toBe(true)
     })))

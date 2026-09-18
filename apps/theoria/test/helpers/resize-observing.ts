@@ -1,4 +1,16 @@
-import { Context, Effect, Layer, MutableHashMap, MutableHashSet, MutableRef, Option, Schema } from "effect"
+import {
+  Boolean as Bool,
+  Context,
+  Effect,
+  Equivalence,
+  Function as Fn,
+  Layer,
+  MutableHashMap,
+  MutableHashSet,
+  MutableRef,
+  Option,
+  Schema
+} from "effect"
 import * as Arr from "effect/Array"
 
 import { BrowserWindow } from "../../app/web/platform/BrowserWindow.js"
@@ -20,6 +32,8 @@ const unmeasured: ContentBox = { width: 0, height: 0 }
 export class ResizeObserving extends Context.Tag("test/ResizeObserving")<ResizeObserving, {
   /** Delivers `box` as the size of `target` to every observer watching it. */
   readonly report: (target: Element, box: ContentBox) => Effect.Effect<void>
+  /** Active observers, so tests can verify that detached elements stop being observed. */
+  readonly count: (target: Element) => Effect.Effect<number>
 }>() {}
 
 export const layer: Layer.Layer<ResizeObserving, never, BrowserWindow> = Layer.scoped(
@@ -56,7 +70,7 @@ export const layer: Layer.Layer<ResizeObserving, never, BrowserWindow> = Layer.s
       }
 
       unobserve(target: Element): void {
-        MutableRef.update(this.watching, Arr.filter((watched) => watched !== target))
+        MutableRef.update(this.watching, Arr.filter((watched) => Bool.not(Equivalence.strict()(watched, target))))
       }
 
       disconnect(): void {
@@ -64,11 +78,16 @@ export const layer: Layer.Layer<ResizeObserving, never, BrowserWindow> = Layer.s
         MutableHashSet.remove(observers, this)
       }
 
+      observes(target: Element): boolean {
+        return Arr.contains(MutableRef.get(this.watching), target)
+      }
+
       /** Delivers `box` for `target` if this observer is watching it. */
       deliver(target: Element, box: ContentBox): void {
-        if (Arr.contains(MutableRef.get(this.watching), target)) {
-          this.callback([entryFor(target, box)], this)
-        }
+        Bool.match(Arr.contains(MutableRef.get(this.watching), target), {
+          onTrue: () => this.callback([entryFor(target, box)], this),
+          onFalse: Fn.constVoid
+        })
       }
     }
 
@@ -92,6 +111,9 @@ export const layer: Layer.Layer<ResizeObserving, never, BrowserWindow> = Layer.s
         })
       })
 
-    return { report }
+    const count = (target: Element): Effect.Effect<number> =>
+      Effect.sync(() => Arr.length(Arr.filter(Arr.fromIterable(observers), (observer) => observer.observes(target))))
+
+    return { report, count }
   })
 )

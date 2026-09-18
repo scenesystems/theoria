@@ -5,26 +5,19 @@ import * as BunRuntime from "@effect/platform-bun/BunRuntime"
 import { Jwt } from "@scenesystems/sign"
 import { Array as Arr, Console, Duration, Effect, Encoding, Layer, Number as N, Schema, String as Str } from "effect"
 
+import { Sample, UnexpectedVerdict } from "./benchmark.js"
 import { decodeConformanceFixture, RsaOpenSslFixture } from "./fixture-contract.js"
 import { JwtFixture } from "./jwt-fixture-contract.js"
-import type { Request } from "./worker/protocol.js"
-import { Result } from "./worker/protocol.js"
+import { Identity, RequestBody, Result } from "./worker/protocol.js"
 import { startWorker } from "./worker/runtime.js"
 
-class UnexpectedVerdict extends Schema.TaggedError<UnexpectedVerdict>()("UnexpectedVerdict", {
-  name: Schema.String
-}) {}
-
-const Measurement = Schema.Struct({
-  name: Schema.String,
-  warmups: Schema.Int,
-  samples: Schema.Int,
+const Measurement = Sample.pipe(Schema.extend(Schema.Struct({
   processCpuMillis: Schema.Number,
   meanProcessCpuMillis: Schema.Number,
   p50WallMillis: Schema.Number,
   p95WallMillis: Schema.Number,
   requestsPerSecond: Schema.Number
-})
+})))
 const Report = Schema.parseJson(
   Schema.Struct({
     runtime: Schema.String,
@@ -53,7 +46,7 @@ const program = Effect.gen(function*() {
   const { version } = yield* fs.readFileString(path.join(root, "node_modules/effect/package.json")).pipe(
     Effect.flatMap(Schema.decode(Schema.parseJson(Schema.Struct({ version: Schema.String }))))
   )
-  const measure = (name: string, body: typeof Request.Encoded, expected: typeof Result.Type) =>
+  const measure = (name: string, body: typeof RequestBody.Type, expected: typeof Result.Type) =>
     Effect.gen(function*() {
       const operation = worker.request(body).pipe(Effect.filterOrFail(
         (actual) => Schema.equivalence(Result)(actual, expected),
@@ -69,7 +62,7 @@ const program = Effect.gen(function*() {
       const after = yield* worker.cpuTicks
       const cpu = N.unsafeDivide(N.multiply(N.subtract(after, before), 1000), ticksPerSecond)
       const ordered = Arr.sort(samples, N.Order)
-      return {
+      return yield* Schema.decode(Measurement)({
         name,
         warmups: 50,
         samples: Arr.length(samples),
@@ -79,7 +72,7 @@ const program = Effect.gen(function*() {
         p50WallMillis: yield* Arr.get(ordered, 249),
         p95WallMillis: yield* Arr.get(ordered, 474),
         requestsPerSecond: N.unsafeDivide(Arr.length(samples), Duration.toSeconds(batch))
-      }
+      })
     })
   const jwt = yield* decodeConformanceFixture("jwt-access-openssl.json", Schema.parseJson(JwtFixture))
   const token = Arr.headNonEmpty(jwt.cases).token
@@ -90,44 +83,68 @@ const program = Effect.gen(function*() {
   )
   const signatureBytes = yield* Encoding.decodeBase64Url(signature)
   const changed = yield* Schema.decode(Schema.Uint8Array)(Arr.modify(
-    Arr.fromIterable(signatureBytes),
-    N.decrement(signatureBytes.length),
+    signatureBytes,
+    N.decrement(signatureBytes.byteLength),
     (byte) => N.remainder(N.increment(byte), 256)
   ))
-  const ordinary = { jwk: jwt.jwk, message: Encoding.encodeHex(Arr.join(Arr.make(header, payload), ".")) }
+  const ordinaryMessage = Encoding.encodeHex(Arr.join(Arr.make(header, payload), "."))
   const rsa = yield* decodeConformanceFixture("rsa-openssl.json", RsaOpenSslFixture)
   const largest = yield* Arr.findFirst(rsa.groups, (group) => N.Equivalence(group.bits, 4096))
   const maximum = yield* Arr.findFirst(largest.cases, (vector) => Str.Equivalence(vector.name, "8192 bytes"))
-  const worst = { jwk: largest.jwk, message: maximum.message }
-  const jwtInput = { jwks: { keys: Arr.of(jwt.jwk) }, nowMillis: 150_000 }
+  const decodeRequest = Schema.decode(RequestBody)
+  const ping = yield* decodeRequest({ _tag: "Ping" })
+  const ordinaryGenuine = yield* decodeRequest({
+    _tag: "Rsa",
+    jwk: jwt.jwk,
+    message: ordinaryMessage,
+    signature: Encoding.encodeHex(signatureBytes)
+  })
+  const ordinaryNonmatch = yield* decodeRequest({
+    _tag: "Rsa",
+    jwk: jwt.jwk,
+    message: ordinaryMessage,
+    signature: Encoding.encodeHex(changed)
+  })
+  const maximumGenuine = yield* decodeRequest({
+    _tag: "Rsa",
+    jwk: largest.jwk,
+    message: maximum.message,
+    signature: maximum.signature
+  })
+  const maximumNonmatch = yield* decodeRequest({
+    _tag: "Rsa",
+    jwk: largest.jwk,
+    message: maximum.message,
+    signature: maximum.alteredSignature
+  })
+  const jwtGenuine = yield* decodeRequest({
+    _tag: "Jwt",
+    jwks: { keys: Arr.of(jwt.jwk) },
+    nowMillis: 150_000,
+    token
+  })
+  const jwtNonmatch = yield* decodeRequest({
+    _tag: "Jwt",
+    jwks: { keys: Arr.of(jwt.jwk) },
+    nowMillis: 150_000,
+    token: Arr.join(Arr.make(header, payload, Encoding.encodeBase64Url(changed)), ".")
+  })
   const results = yield* Effect.all(
     Arr.make(
-      measure("HTTP harness baseline", { _tag: "Ping" }, true),
+      measure("HTTP harness baseline", ping, true),
+      measure("RSA 2048/e=65537 genuine", ordinaryGenuine, true),
+      measure("RSA 2048/e=65537 nonmatch", ordinaryNonmatch, false),
+      measure("RSA 4096/e=4294967295/8192 bytes genuine", maximumGenuine, true),
+      measure("RSA 4096/e=4294967295/8192 bytes nonmatch", maximumNonmatch, false),
       measure(
-        "RSA 2048/e=65537 genuine",
-        { ...ordinary, _tag: "Rsa", signature: Encoding.encodeHex(signatureBytes) },
-        true
+        "JWT 2048/e=65537 genuine",
+        jwtGenuine,
+        Identity.make({
+          sub: "user-7",
+          email: "reader@example.test"
+        })
       ),
-      measure("RSA 2048/e=65537 nonmatch", { ...ordinary, _tag: "Rsa", signature: Encoding.encodeHex(changed) }, false),
-      measure(
-        "RSA 4096/e=4294967295/8192 bytes genuine",
-        { ...worst, _tag: "Rsa", signature: maximum.signature },
-        true
-      ),
-      measure("RSA 4096/e=4294967295/8192 bytes nonmatch", {
-        ...worst,
-        _tag: "Rsa",
-        signature: maximum.alteredSignature
-      }, false),
-      measure("JWT 2048/e=65537 genuine", { ...jwtInput, _tag: "Jwt", token }, {
-        sub: "user-7",
-        email: "reader@example.test"
-      }),
-      measure("JWT 2048/e=65537 nonmatch", {
-        ...jwtInput,
-        _tag: "Jwt",
-        token: Arr.join(Arr.make(header, payload, Encoding.encodeBase64Url(changed)), ".")
-      }, new Jwt.Rejected({ reason: "Signature" }))
+      measure("JWT 2048/e=65537 nonmatch", jwtNonmatch, new Jwt.Rejected({ reason: "Signature" }))
     ),
     { concurrency: 1 }
   )

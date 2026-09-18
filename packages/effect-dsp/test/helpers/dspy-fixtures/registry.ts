@@ -23,7 +23,7 @@ const makeFixtureRegistry = (
   }
 ) => {
   const rootDirectory = options.rootDirectory
-  const manifestFileName = options.manifestFileName ?? DEFAULT_MANIFEST_FILE
+  const manifestFileName = Option.getOrElse(Option.fromNullable(options.manifestFileName), () => DEFAULT_MANIFEST_FILE)
 
   const load = (name: FixtureName): Effect.Effect<KnownFixture, FixtureRegistryError> =>
     Effect.gen(function*() {

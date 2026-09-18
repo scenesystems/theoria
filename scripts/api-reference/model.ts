@@ -53,19 +53,23 @@ export const ApiReferenceManifestSchema = Schema.Struct({
 
 export const ApiReferenceManifestJson = Schema.parseJson(ApiReferenceManifestSchema)
 
-export class ApiReferenceGenerationError extends Schema.TaggedError<ApiReferenceGenerationError>()(
-  "ApiReferenceGenerationError",
-  {
-    packageName: Schema.String,
-    detail: Schema.String
-  }
-) {}
+export class ApiReferenceGenerationError
+  extends Schema.TaggedError<ApiReferenceGenerationError>("@theoria/scripts/api-reference/ApiReferenceGenerationError")(
+    "ApiReferenceGenerationError",
+    {
+      packageName: Schema.String,
+      detail: Schema.String
+    }
+  )
+{}
 
 /** TypeDoc itself could not be set up; no package is at fault. */
-export class ApiReferenceToolchainError extends Schema.TaggedError<ApiReferenceToolchainError>()(
-  "ApiReferenceToolchainError",
-  { detail: Schema.String }
-) {}
+export class ApiReferenceToolchainError
+  extends Schema.TaggedError<ApiReferenceToolchainError>("@theoria/scripts/api-reference/ApiReferenceToolchainError")(
+    "ApiReferenceToolchainError",
+    { detail: Schema.String }
+  )
+{}
 
 export type ApiImportKind = typeof ApiImportKindSchema.Type
 export type ApiReferenceFacet = typeof ApiReferenceFacetSchema.Type

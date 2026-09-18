@@ -1,0 +1,149 @@
+/**
+ * TPE integer dimension — continuous Parzen estimation with integer rounding and step quantization.
+ *
+ * @since 0.1.0
+ */
+import { Array as Arr, Boolean as Bool, Chunk, Effect, Number as Num, Option, Tuple } from "effect"
+
+import * as Acquisition from "../../../Acquisition.js"
+import type * as Rng from "../../../internal/rng.js"
+import { buildContinuousParzen, logDensity, sampleFromParzen } from "../../../internal/tpe/continuousParzen.js"
+import { prepareLogDensity } from "../../../internal/tpe/continuousParzen/density.js"
+import { sampleFromParzenBatch } from "../../../internal/tpe/continuousParzen/sample.js"
+import type { TrialSplit } from "../../../internal/tpe/splitTrials.js"
+import type { InvalidSamplerConfig } from "../../../SearchError.js"
+import type * as SearchSpace from "../../../SearchSpace.js"
+import { chooseBestCandidate, drawRollPairs } from "../candidateSelection.js"
+import { expandedBoundsForStep, normalizeFloat } from "./float.js"
+import { rollFromCandidatePair } from "./rolls.js"
+import { type CandidateRollPair, DimensionScoreTrace } from "./trace.js"
+import { numericValuesForParameter } from "./values.js"
+
+const normalizeInt = (
+  value: number,
+  low: number,
+  high: number,
+  step: Option.Option<number>
+): number =>
+  Num.round(
+    normalizeFloat(value, low, high, Option.orElse(step, () => Option.some(1))),
+    0
+  )
+
+/**
+ * Suggests the best integer value for a parameter by sampling candidates from
+ * the below-distribution Parzen estimator, scoring them via acquisition, and
+ * rounding to the nearest valid step.
+ *
+ * @see {@link intCandidateTrace} for the underlying trace construction
+ * @see {@link suggestFloatParameter} for the continuous-valued equivalent
+ * @since 0.1.0
+ * @category sampling
+ */
+export const suggestIntParameter = (
+  rng: Rng.Rng,
+  nCandidates: number,
+  parameter: SearchSpace.Parameter,
+  low: number,
+  high: number,
+  step: Option.Option<number>,
+  split: TrialSplit,
+  acquisition: Acquisition.Strategy = Acquisition.defaultName
+): Effect.Effect<number, InvalidSamplerConfig> =>
+  Effect.gen(function*() {
+    const trace = yield* intCandidateTrace(rng, nCandidates, parameter, low, high, step, split, acquisition)
+
+    return yield* chooseBestCandidate(
+      trace.candidates,
+      trace.scores,
+      `tpe int candidate selection produced no candidate for parameter "${parameter.name}"`
+    )
+  })
+
+/**
+ * Builds a full candidate trace for an integer parameter from pre-drawn rolls,
+ * returning candidates, log-densities, and acquisition scores.
+ *
+ * Internally uses expanded bounds (±0.5 step) so the Parzen estimator covers
+ * the full integer range including boundary values.
+ *
+ * @see {@link intCandidateTrace} for the convenience wrapper that draws rolls
+ * @see {@link DimensionScoreTrace} for the output shape
+ * @since 0.1.0
+ * @category sampling
+ */
+export const intCandidateTraceFromRolls = (
+  parameter: SearchSpace.Parameter,
+  low: number,
+  high: number,
+  step: Option.Option<number>,
+  split: TrialSplit,
+  rollsInput: Iterable<CandidateRollPair>,
+  acquisition: Acquisition.Strategy = Acquisition.defaultName
+): Effect.Effect<DimensionScoreTrace<number>, InvalidSamplerConfig> => {
+  const rolls = Arr.fromIterable(rollsInput)
+  return Effect.gen(function*() {
+    const stride = Option.getOrElse(step, () => 1)
+    const [modelLow, modelHigh] = expandedBoundsForStep(low, high, Option.some(stride))
+
+    const belowParzen = buildContinuousParzen(numericValuesForParameter(parameter, split.below), modelLow, modelHigh)
+    const aboveParzen = buildContinuousParzen(numericValuesForParameter(parameter, split.above), modelLow, modelHigh)
+    // Preparation pays off only when constants are reused across candidates.
+    const batch = Num.greaterThan(Arr.length(rolls), 1)
+    const modelCandidates = Bool.match(batch, {
+      onTrue: () => sampleFromParzenBatch(belowParzen, rolls),
+      onFalse: () => Arr.map(rolls, ([kernelRoll, valueRoll]) => sampleFromParzen(belowParzen, kernelRoll, valueRoll))
+    })
+    const belowLogDensity = Bool.match(batch, {
+      onTrue: () => prepareLogDensity(belowParzen),
+      onFalse: () => (candidate: number) => logDensity(belowParzen, candidate)
+    })
+    const aboveLogDensity = Bool.match(batch, {
+      onTrue: () => prepareLogDensity(aboveParzen),
+      onFalse: () => (candidate: number) => logDensity(aboveParzen, candidate)
+    })
+    const logPairs = Arr.map(
+      modelCandidates,
+      (candidate) => Tuple.make(belowLogDensity(candidate), aboveLogDensity(candidate))
+    )
+
+    return new DimensionScoreTrace({
+      candidates: Chunk.fromIterable(Arr.map(modelCandidates, (candidate) => normalizeInt(candidate, low, high, step))),
+      logL: Arr.map(logPairs, ([logL]) => logL),
+      logG: Arr.map(logPairs, ([_logL, logG]) => logG),
+      scores: Arr.map(logPairs, ([logL, logG], index) =>
+        Acquisition.score({
+          logL,
+          logG,
+          estimatedCost: Option.none(),
+          roll: rollFromCandidatePair(rolls, index)
+        }, acquisition))
+    })
+  })
+}
+
+/**
+ * Draws random roll pairs and delegates to {@link intCandidateTraceFromRolls}
+ * to produce a complete integer dimension trace.
+ *
+ * This is the primary entry point for integer dimension tracing in the
+ * mixed-space suggestion pipeline.
+ *
+ * @see {@link intCandidateTraceFromRolls} for the roll-based implementation
+ * @see {@link suggestIntParameter} for direct best-value selection
+ * @since 0.1.0
+ * @category sampling
+ */
+export const intCandidateTrace = (
+  rng: Rng.Rng,
+  nCandidates: number,
+  parameter: SearchSpace.Parameter,
+  low: number,
+  high: number,
+  step: Option.Option<number>,
+  split: TrialSplit,
+  acquisition: Acquisition.Strategy = Acquisition.defaultName
+): Effect.Effect<DimensionScoreTrace<number>, InvalidSamplerConfig> =>
+  drawRollPairs(rng, nCandidates).pipe(
+    Effect.flatMap((rolls) => intCandidateTraceFromRolls(parameter, low, high, step, split, rolls, acquisition))
+  )

@@ -1,29 +1,52 @@
-import { argmaxIndex, safeDivide, sum } from "@scenesystems/effect-math/Numeric"
-import { Data, Match, Option, Order, Schema } from "effect"
+import { argmaxIndex } from "@scenesystems/effect-math/Numeric"
+import { Boolean, Chunk, Match, Number as Num, Option, Order, pipe, Schema, String as Str } from "effect"
 import * as Arr from "effect/Array"
 import * as HashMap from "effect/HashMap"
 import * as HashSet from "effect/HashSet"
+import { slice as sliceString } from "effect/String"
 
-import type { DocsSearchEntry } from "./docs-data.js"
+import { type DocsSearchEntry, DocsSearchEntrySchema, type DocsSearchIndex } from "./docs-data.js"
 
-class PreparedSearchField extends Data.Class<{
-  readonly text: string
-  readonly words: ReadonlyArray<string>
-  readonly weight: number
-}> {}
+const SearchTokens = Schema.Array(Schema.String)
+type SearchTokens = typeof SearchTokens.Type
 
-class PreparedSearchDocument extends Data.Class<{
-  readonly entry: DocsSearchEntry
-  readonly name: PreparedSearchField
-  readonly qualifiedName: PreparedSearchField
-  readonly fields: ReadonlyArray<PreparedSearchField>
-}> {}
+const SearchScores = Schema.Array(Schema.Number)
+type SearchScores = typeof SearchScores.Type
 
-export class PreparedDocsSearchIndex extends Data.Class<{
-  readonly documents: ReadonlyArray<PreparedSearchDocument>
-  readonly postings: HashMap.HashMap<string, HashSet.HashSet<number>>
-  readonly vocabulary: ReadonlyArray<string>
-}> {}
+const DocumentIndexes = Schema.Array(Schema.NonNegativeInt)
+type DocumentIndexes = typeof DocumentIndexes.Type
+
+class PreparedSearchField extends Schema.Class<PreparedSearchField>("PreparedSearchField")({
+  text: Schema.String,
+  words: SearchTokens,
+  weight: Schema.Number
+}) {}
+
+class PreparedSearchDocument extends Schema.Class<PreparedSearchDocument>("PreparedSearchDocument")({
+  entry: DocsSearchEntrySchema,
+  name: PreparedSearchField,
+  qualifiedName: PreparedSearchField,
+  fields: Schema.Array(PreparedSearchField)
+}) {}
+
+export class PreparedDocsSearchIndex extends Schema.Class<PreparedDocsSearchIndex>("PreparedDocsSearchIndex")({
+  documents: Schema.Array(PreparedSearchDocument),
+  postings: Schema.HashMapFromSelf({
+    key: Schema.String,
+    value: Schema.HashSetFromSelf(Schema.NonNegativeInt)
+  }),
+  vocabulary: SearchTokens
+}) {}
+
+class SubsequenceState extends Schema.Class<SubsequenceState>("SubsequenceState")({
+  cursor: Schema.NonNegativeInt,
+  matched: Schema.Boolean
+}) {}
+
+class ScoredCandidate extends Schema.Class<ScoredCandidate>("ScoredCandidate")({
+  document: PreparedSearchDocument,
+  score: Schema.Number
+}) {}
 
 export const DocsSearchOptions = Schema.Struct({
   limit: Schema.Number,
@@ -33,75 +56,132 @@ export const DocsSearchOptions = Schema.Struct({
 export type DocsSearchOptions = typeof DocsSearchOptions.Type
 
 const normalizeSearchText = (value: string): string =>
-  value
-    .normalize("NFKD")
-    .replace(/([a-z0-9])([A-Z])/gu, "$1 $2")
-    .toLocaleLowerCase("en-US")
-    .replace(/\p{Mark}/gu, "")
-    .replace(/[^a-z0-9]+/gu, " ")
-    .trim()
+  pipe(
+    value,
+    Str.normalize("NFKD"),
+    Str.replace(/([a-z0-9])([A-Z])/gu, "$1 $2"),
+    Str.toLocaleLowerCase("en-US"),
+    Str.replace(/\p{Mark}/gu, ""),
+    Str.replace(/[^a-z0-9]+/gu, " "),
+    Str.trim
+  )
 
 const prepareField = (value: string, weight: number): PreparedSearchField => {
   const text = normalizeSearchText(value)
-  return new PreparedSearchField({ text, weight, words: text.length === 0 ? [] : text.split(/\s+/u) })
+  return new PreparedSearchField({
+    text,
+    weight,
+    words: Boolean.match(Str.isEmpty(text), {
+      onFalse: () => Str.split(text, /\s+/u),
+      onTrue: Arr.empty
+    })
+  })
 }
 
 const isSubsequence = (shorter: string, longer: string): boolean =>
   Arr.reduce(
     Arr.fromIterable(shorter),
-    { cursor: 0, matched: true },
-    (state, character) => {
-      if (!state.matched) return state
-
-      const index = longer.indexOf(character, state.cursor)
-      return index < 0
-        ? { cursor: state.cursor, matched: false }
-        : { cursor: index + 1, matched: true }
-    }
+    new SubsequenceState({ cursor: 0, matched: true }),
+    (state, character) =>
+      Boolean.match(state.matched, {
+        onFalse: () => state,
+        onTrue: () =>
+          pipe(
+            longer,
+            sliceString(state.cursor),
+            Str.indexOf(character),
+            Option.match({
+              onNone: () => new SubsequenceState({ cursor: state.cursor, matched: false }),
+              onSome: (index) =>
+                new SubsequenceState({
+                  cursor: Num.sum(state.cursor, Num.increment(index)),
+                  matched: true
+                })
+            })
+          )
+      })
   ).matched
 
-const ratio = (dividend: number, divisor: number): number => Option.getOrElse(safeDivide(dividend, divisor), () => 0)
+const ratio = (dividend: number, divisor: number): number => Option.getOrElse(Num.divide(dividend, divisor), () => 0)
 
-const maximum = (values: ReadonlyArray<number>): number =>
-  Option.getOrElse(Option.flatMap(argmaxIndex(values), (index) => Arr.get(values, index)), () => 0)
+const maximum = (values: SearchScores): number =>
+  Option.getOrElse(Option.flatMap(argmaxIndex(Chunk.fromIterable(values)), (index) => Arr.get(values, index)), () => 0)
 
 const fuzzySimilarity = (query: string, candidate: string): number => {
-  if (query.length < 3 || candidate.length < 3) return 0
+  const queryLength = Str.length(query)
+  const candidateLength = Str.length(candidate)
+  return Match.value(Boolean.or(Num.lessThan(queryLength, 3), Num.lessThan(candidateLength, 3))).pipe(
+    Match.when(true, () => 0),
+    Match.when(false, () => {
+      const sameSize = Num.Equivalence(queryLength, candidateLength)
+      const characterEquivalence = Option.getEquivalence(Str.Equivalence)
+      const mismatches = Boolean.match(sameSize, {
+        onFalse: Arr.empty,
+        onTrue: () =>
+          Arr.filter(
+            Arr.range(0, Num.decrement(queryLength)),
+            (index) => Boolean.not(characterEquivalence(Str.at(query, index), Str.at(candidate, index)))
+          )
+      })
+      const first = Option.getOrElse(Arr.get(mismatches, 0), () => -1)
+      const second = Option.getOrElse(Arr.get(mismatches, 1), () => -1)
+      const transposed = Boolean.match(Num.Equivalence(Arr.length(mismatches), 2), {
+        onFalse: () => false,
+        onTrue: () =>
+          Boolean.match(characterEquivalence(Str.at(query, first), Str.at(candidate, second)), {
+            onFalse: () => false,
+            onTrue: () => characterEquivalence(Str.at(query, second), Str.at(candidate, first))
+          })
+      })
+      const sameLength = Boolean.match(sameSize, {
+        onFalse: () => 0,
+        onTrue: () =>
+          Boolean.match(transposed, {
+            onFalse: () => Num.subtract(1, ratio(Arr.length(mismatches), queryLength)),
+            onTrue: () => 0.92
+          })
+      })
+      const queryIsShorter = Num.lessThanOrEqualTo(queryLength, candidateLength)
+      const shorter = Boolean.match(queryIsShorter, { onFalse: () => candidate, onTrue: () => query })
+      const longer = Boolean.match(queryIsShorter, { onFalse: () => query, onTrue: () => candidate })
+      const subsequence = Boolean.match(
+        Num.lessThanOrEqualTo(Num.subtract(Str.length(longer), Str.length(shorter)), 2),
+        {
+          onFalse: () => 0,
+          onTrue: () =>
+            Boolean.match(isSubsequence(shorter, longer), {
+              onFalse: () => 0,
+              onTrue: () => ratio(Str.length(shorter), Str.length(longer))
+            })
+        }
+      )
 
-  const mismatches = query.length === candidate.length
-    ? Arr.filter(Arr.range(0, query.length - 1), (index) => query.at(index) !== candidate.at(index))
-    : []
-  const first = mismatches.at(0) ?? -1
-  const second = mismatches.at(1) ?? -1
-  const transposed = mismatches.length === 2
-    && query.at(first) === candidate.at(second)
-    && query.at(second) === candidate.at(first)
-  const sameLength = query.length === candidate.length
-    ? transposed ? 0.92 : 1 - ratio(mismatches.length, query.length)
-    : 0
-  const shorter = query.length <= candidate.length ? query : candidate
-  const longer = query.length <= candidate.length ? candidate : query
-  const subsequence = longer.length - shorter.length <= 2 && isSubsequence(shorter, longer)
-    ? ratio(shorter.length, longer.length)
-    : 0
-
-  return maximum([sameLength, subsequence])
+      return maximum(Arr.make(sameLength, subsequence))
+    }),
+    Match.exhaustive
+  )
 }
 
-const tokenSimilarity = (field: PreparedSearchField, query: string): number => {
-  if (Arr.contains(field.words, query)) return 1
-  if (Arr.some(field.words, (word) => word.startsWith(query))) return 0.9
-  if (field.text.includes(query)) return 0.75
+const tokenSimilarity = (field: PreparedSearchField, query: string): number =>
+  Match.value(query).pipe(
+    Match.when((token) => Arr.contains(field.words, token), () => 1),
+    Match.when((token) => Arr.some(field.words, Str.startsWith(token)), () => 0.9),
+    Match.when((token) => Str.includes(token)(field.text), () => 0.75),
+    Match.orElse((token) => {
+      const similarity = maximum(Arr.map(field.words, (word) => fuzzySimilarity(token, word)))
+      return Boolean.match(Num.greaterThanOrEqualTo(similarity, 0.72), {
+        onFalse: () => -1,
+        onTrue: () => Num.multiply(similarity, 0.65)
+      })
+    })
+  )
 
-  const similarity = maximum(Arr.map(field.words, (word) => fuzzySimilarity(query, word)))
-  return similarity >= 0.72 ? similarity * 0.65 : -1
-}
-
-const fieldScore = (field: PreparedSearchField, query: ReadonlyArray<string>): number => {
+const fieldScore = (field: PreparedSearchField, query: SearchTokens): number => {
   const scores = Arr.map(query, (token) => tokenSimilarity(field, token))
-  return Arr.some(scores, (score) => score < 0)
-    ? -1
-    : ratio(sum(scores), scores.length) * field.weight
+  return Boolean.match(Arr.some(scores, Num.lessThan(0)), {
+    onFalse: () => Num.multiply(ratio(Num.sumAll(scores), Arr.length(scores)), field.weight),
+    onTrue: () => -1
+  })
 }
 
 const emptyQueryScore = (entry: DocsSearchEntry): number =>
@@ -119,32 +199,46 @@ const matchScore = (
   packageSlug: Option.Option<string>
 ): number => {
   const term = normalizeSearchText(query)
-  const packageBoost = Option.exists(packageSlug, (slug) => slug === document.entry.packageSlug) ? 8 : 0
+  const packageBoost = Boolean.match(
+    Option.exists(packageSlug, (slug) => Str.Equivalence(slug, document.entry.packageSlug)),
+    { onFalse: () => 0, onTrue: () => 8 }
+  )
 
-  if (term.length === 0) return emptyQueryScore(document.entry) + packageBoost
+  return Match.value(term).pipe(
+    Match.when(Str.isEmpty, () => Num.sum(emptyQueryScore(document.entry), packageBoost)),
+    Match.orElse((searchTerm) => {
+      const tokens = Str.split(searchTerm, /\s+/u)
+      const phraseScore = Match.value(searchTerm).pipe(
+        Match.when((candidate) => Str.Equivalence(document.name.text, candidate), () => 180),
+        Match.when((candidate) => Str.startsWith(candidate)(document.name.text), () => 150),
+        Match.when((candidate) => Str.includes(candidate)(document.qualifiedName.text), () => 120),
+        Match.orElse(() => 0)
+      )
+      const primaryScore = fieldScore(document.name, tokens)
+      const coherentFieldScore = maximum(Arr.map(document.fields, (field) => fieldScore(field, tokens)))
+      const primaryBoost = Boolean.match(
+        Boolean.and(
+          Num.Equivalence(Arr.length(tokens), Arr.length(document.name.words)),
+          Num.greaterThanOrEqualTo(primaryScore, 0)
+        ),
+        { onFalse: () => 0, onTrue: () => 50 }
+      )
 
-  const tokens = term.split(/\s+/u)
-  const phraseScore = document.name.text === term
-    ? 180
-    : document.name.text.startsWith(term)
-    ? 150
-    : document.qualifiedName.text.includes(term)
-    ? 120
-    : 0
-  const primaryScore = fieldScore(document.name, tokens)
-  const coherentFieldScore = maximum(Arr.map(document.fields, (field) => fieldScore(field, tokens)))
-  const primaryBoost = tokens.length === document.name.words.length && primaryScore >= 0 ? 50 : 0
-
-  return coherentFieldScore < 0 ? -1 : phraseScore + primaryBoost + coherentFieldScore + packageBoost
+      return Boolean.match(Num.lessThan(coherentFieldScore, 0), {
+        onFalse: () => Num.sumAll(Arr.make(phraseScore, primaryBoost, coherentFieldScore, packageBoost)),
+        onTrue: () => -1
+      })
+    })
+  )
 }
 
 const scoreOrder = Order.reverse(Order.mapInput(
   Order.number,
-  (entry: { readonly score: number; readonly document: PreparedSearchDocument }) => entry.score
+  (entry: ScoredCandidate) => entry.score
 ))
 
 const buildPostings = (
-  documents: ReadonlyArray<PreparedSearchDocument>
+  documents: PreparedDocsSearchIndex["documents"]
 ): HashMap.HashMap<string, HashSet.HashSet<number>> =>
   HashMap.mutate(
     HashMap.empty<string, HashSet.HashSet<number>>(),
@@ -165,7 +259,7 @@ const buildPostings = (
   )
 
 export const prepareDocsSearchIndex = (
-  entries: ReadonlyArray<DocsSearchEntry>
+  entries: DocsSearchIndex["entries"]
 ): PreparedDocsSearchIndex => {
   const documents = Arr.map(entries, (entry) => {
     const name = prepareField(entry.name, 120)
@@ -174,13 +268,13 @@ export const prepareDocsSearchIndex = (
       entry,
       name,
       qualifiedName,
-      fields: [
+      fields: Arr.make(
         name,
         qualifiedName,
         prepareField(entry.package, 80),
         prepareField(Option.getOrElse(entry.category, () => ""), 70),
         prepareField(entry.summary, 50)
-      ]
+      )
     })
   })
   const postings = buildPostings(documents)
@@ -195,40 +289,51 @@ export const prepareDocsSearchIndex = (
 const candidateDocumentIndexes = (
   index: PreparedDocsSearchIndex,
   query: string
-): ReadonlyArray<number> => {
+): DocumentIndexes => {
   const term = normalizeSearchText(query)
-  if (term.length === 0) return Arr.range(0, index.documents.length - 1)
-
-  const matchesByToken = Arr.map(term.split(/\s+/u), (token) => {
-    return Arr.reduce(index.vocabulary, HashSet.empty<number>(), (matches, word) => {
-      const wordMatches = word === token
-        || word.startsWith(token)
-        || word.includes(token)
-        || fuzzySimilarity(token, word) >= 0.72
-      return wordMatches
-        ? Option.match(HashMap.get(index.postings, word), {
-          onNone: () => matches,
-          onSome: (documents) => HashSet.union(matches, documents)
+  return Match.value(term).pipe(
+    Match.when(Str.isEmpty, () =>
+      Boolean.match(Arr.isEmptyReadonlyArray(index.documents), {
+        onFalse: () => Arr.range(0, Num.decrement(Arr.length(index.documents))),
+        onTrue: Arr.empty
+      })),
+    Match.orElse((searchTerm) => {
+      const matchesByToken = Arr.map(Str.split(searchTerm, /\s+/u), (token) => {
+        return Arr.reduce(index.vocabulary, HashSet.empty<number>(), (matches, word) => {
+          const wordMatches = Match.value(word).pipe(
+            Match.when((candidate) => Str.Equivalence(candidate, token), () => true),
+            Match.when(Str.startsWith(token), () => true),
+            Match.when(Str.includes(token), () => true),
+            Match.orElse((candidate) => Num.greaterThanOrEqualTo(fuzzySimilarity(token, candidate), 0.72))
+          )
+          return Boolean.match(wordMatches, {
+            onFalse: () => matches,
+            onTrue: () =>
+              Option.match(HashMap.get(index.postings, word), {
+                onNone: () => matches,
+                onSome: (documents) => HashSet.union(matches, documents)
+              })
+          })
         })
-        : matches
-    })
-  })
+      })
 
-  return Option.match(Arr.head(matchesByToken), {
-    onNone: () => [],
-    onSome: (first) =>
-      Arr.filter(
-        Arr.fromIterable(first),
-        (documentIndex) => Arr.every(matchesByToken, (matches) => HashSet.has(matches, documentIndex))
-      )
-  })
+      return Option.match(Arr.head(matchesByToken), {
+        onNone: Arr.empty,
+        onSome: (first) =>
+          Arr.filter(
+            Arr.fromIterable(first),
+            (documentIndex) => Arr.every(matchesByToken, (matches) => HashSet.has(matches, documentIndex))
+          )
+      })
+    })
+  )
 }
 
 export const searchDocs = (
   index: PreparedDocsSearchIndex,
   query: string,
   options: DocsSearchOptions
-): ReadonlyArray<DocsSearchEntry> =>
+): DocsSearchIndex["entries"] =>
   Arr.take(
     Arr.map(
       Arr.sort(
@@ -237,7 +342,10 @@ export const searchDocs = (
           (documentIndex) =>
             Option.flatMap(Arr.get(index.documents, documentIndex), (document) => {
               const score = matchScore(document, query, options.packageSlug)
-              return score < 0 ? Option.none() : Option.some({ document, score })
+              return Boolean.match(Num.lessThan(score, 0), {
+                onFalse: () => Option.some(new ScoredCandidate({ document, score })),
+                onTrue: Option.none
+              })
             })
         ),
         scoreOrder

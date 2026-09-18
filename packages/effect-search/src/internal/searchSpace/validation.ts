@@ -1,0 +1,206 @@
+/**
+ * Validation rules for search space distributions, parameter uniqueness, and switch-case distinctness.
+ *
+ * @since 0.1.0
+ */
+import { isFinite } from "@scenesystems/effect-math/Numeric"
+import {
+  Array as Arr,
+  Boolean as Bool,
+  type Chunk,
+  Effect,
+  Equal,
+  Inspectable,
+  Match,
+  Number as Num,
+  Option,
+  Schema
+} from "effect"
+
+import type { Choice, Distribution } from "../../Distribution.js"
+import type { InvalidSearchSpace } from "../../SearchError.js"
+import type { Case, Parameter } from "../../SearchSpace.js"
+import { expectCondition } from "./failure.js"
+import { ensureChoice } from "./guards.js"
+
+/**
+ * Fails with InvalidSearchSpace if the value is not a finite number.
+ *
+ * @since 0.1.0
+ * @category utils
+ */
+export const ensureFiniteNumber = (value: number, label: string): Effect.Effect<void, InvalidSearchSpace> =>
+  expectCondition(isFinite(value), `${label} must be a finite number`)
+
+/**
+ * Fails with InvalidSearchSpace if the optional step value is present but not positive.
+ *
+ * @since 0.1.0
+ * @category utils
+ */
+export const ensurePositiveStep = (
+  step: Option.Option<number>,
+  dimension: string
+): Effect.Effect<void, InvalidSearchSpace> =>
+  Option.match(step, {
+    onNone: () => Effect.void,
+    onSome: (value) => expectCondition(Num.greaterThan(value, 0), "step must be greater than 0", dimension)
+  })
+
+/**
+ * Reports whether a categorical choices array contains a given value using structural equality.
+ *
+ * @since 0.1.0
+ * @category guards
+ */
+export const hasChoice = (choicesInput: Iterable<Choice>, value: Choice): boolean => {
+  const choices = Arr.fromIterable(choicesInput)
+  return Arr.some(choices, (choice) => Equal.equals(choice, value))
+}
+
+const validateFloatDistribution = (
+  dimension: string,
+  low: number,
+  high: number,
+  scale: Option.Option<"linear" | "log">,
+  step: Option.Option<number>
+): Effect.Effect<void, InvalidSearchSpace> =>
+  Effect.gen(function*() {
+    yield* ensureFiniteNumber(low, `${dimension}.low`)
+    yield* ensureFiniteNumber(high, `${dimension}.high`)
+    yield* ensurePositiveStep(step, dimension)
+    yield* expectCondition(Num.lessThanOrEqualTo(low, high), "float low cannot be greater than high", dimension)
+
+    yield* Option.match(scale, {
+      onNone: () => Effect.void,
+      onSome: (s) =>
+        Match.value(s).pipe(
+          Match.when(
+            "log",
+            () => expectCondition(Num.greaterThan(low, 0), "log-scaled float dimensions require low > 0", dimension)
+          ),
+          Match.orElse(() => Effect.void)
+        )
+    })
+  })
+
+const validateIntDistribution = (
+  dimension: string,
+  low: number,
+  high: number,
+  step: Option.Option<number>
+): Effect.Effect<void, InvalidSearchSpace> =>
+  Effect.gen(function*() {
+    yield* ensureFiniteNumber(low, `${dimension}.low`)
+    yield* ensureFiniteNumber(high, `${dimension}.high`)
+    yield* ensurePositiveStep(step, dimension)
+    yield* expectCondition(
+      Bool.and(
+        Schema.is(Schema.Number.pipe(Schema.int()))(low),
+        Schema.is(Schema.Number.pipe(Schema.int()))(high)
+      ),
+      "int bounds must be integers",
+      dimension
+    )
+    yield* expectCondition(Num.lessThanOrEqualTo(low, high), "int low cannot be greater than high", dimension)
+  })
+
+const validateCategoricalDistribution = (
+  dimension: string,
+  choicesInput: Iterable<Choice>
+): Effect.Effect<void, InvalidSearchSpace> => {
+  const choices = Arr.fromIterable(choicesInput)
+  return Effect.gen(function*() {
+    yield* expectCondition(Num.greaterThan(Arr.length(choices), 0), "categorical choices must be non-empty", dimension)
+    yield* Effect.forEach(choices, (choice) => ensureChoice(choice), { discard: true })
+  })
+}
+
+/**
+ * Validates a distribution's bounds, step, scale, and choices according to its type (float, int, fidelity, categorical).
+ *
+ * @since 0.1.0
+ * @category utils
+ */
+export const validateDistribution = (
+  dimension: string,
+  distribution: Distribution
+): Effect.Effect<void, InvalidSearchSpace> =>
+  Match.value(distribution).pipe(
+    Match.when({ type: "float" }, ({ low, high, scale, step }) =>
+      validateFloatDistribution(dimension, low, high, Option.fromNullable(scale), Option.fromNullable(step))),
+    Match.when({ type: "int" }, ({ low, high, step }) =>
+      validateIntDistribution(dimension, low, high, Option.fromNullable(step))),
+    Match.when({ type: "fidelity" }, ({ low, high }) =>
+      validateIntDistribution(dimension, low, high, Option.none())),
+    Match.when({ type: "categorical" }, ({ choices }) =>
+      validateCategoricalDistribution(dimension, choices)),
+    Match.exhaustive
+  )
+
+const duplicateParameterName = (parametersInput: Iterable<Parameter>): Option.Option<string> => {
+  const parameters = Arr.fromIterable(parametersInput)
+  return Option.map(
+    Arr.findFirst(
+      parameters,
+      (parameter, index) =>
+        Arr.some(
+          Arr.drop(parameters, Num.increment(index)),
+          (candidate) => Equal.equals(candidate.name, parameter.name)
+        )
+    ),
+    (parameter) => parameter.name
+  )
+}
+
+/**
+ * Fails with InvalidSearchSpace if any parameter name appears more than once in the metadata array.
+ *
+ * @since 0.1.0
+ * @category utils
+ */
+export const ensureUniqueParameterNames = (
+  parametersInput: Iterable<Parameter>
+) => {
+  const parameters = Arr.fromIterable(parametersInput)
+
+  const duplicate = duplicateParameterName(parameters)
+
+  return expectCondition(
+    Option.isNone(duplicate),
+    Option.match(duplicate, {
+      onNone: () => "",
+      onSome: (name) =>
+        `parameter "${name}" is declared more than once; conditional parameters must be declared exactly once`
+    })
+  ).pipe(Effect.as(parameters))
+}
+
+/**
+ * Fails with InvalidSearchSpace if any switch-case branch value is duplicated for the given discriminant.
+ *
+ * @since 0.1.0
+ * @category utils
+ */
+export const ensureDistinctCaseValues = (
+  discriminant: string,
+  cases: Chunk.NonEmptyChunk<Case>
+): Effect.Effect<Chunk.NonEmptyChunk<Case>, InvalidSearchSpace> => {
+  const duplicate = Arr.findFirst(
+    cases,
+    (current, index) =>
+      Arr.some(Arr.drop(cases, Num.increment(index)), (candidate) => Equal.equals(candidate.when, current.when))
+  )
+
+  return expectCondition(
+    Option.isNone(duplicate),
+    Option.match(duplicate, {
+      onNone: () => "",
+      onSome: (entry) =>
+        `switch(${discriminant}) has duplicate branch value "${
+          Inspectable.toStringUnknown(entry.when)
+        }"; branch values must be unique`
+    }),
+    discriminant
+  ).pipe(Effect.as(cases))
+}

@@ -6,10 +6,10 @@
  */
 import { FileSystem, Path, Url } from "@effect/platform"
 import { BunContext, BunRuntime } from "@effect/platform-bun"
-import { Array as Arr, Console, Data, Effect, Option, Schema } from "effect"
+import { Array as Arr, Boolean as Bool, Console, Data, Effect, Encoding, Option, Schema, String as Str } from "effect"
 
-import { digestBytesHex } from "../src/convenience.js"
-import { EXTERNAL_FIXTURE_ROOT, FixtureManifestSchema, MANIFEST_FILE } from "./fixture-contract.js"
+import * as Digest from "@scenesystems/digest/Digest"
+import * as Fixtures from "./fixtures.js"
 
 class FixtureStampError extends Data.TaggedError("FixtureStampError")<{
   readonly file: string
@@ -20,7 +20,8 @@ class FixtureStampError extends Data.TaggedError("FixtureStampError")<{
   }
 }
 
-const toSha256Hex = (bytes: Uint8Array): Effect.Effect<string> => digestBytesHex("sha256", bytes)
+const toSha256Hex = (bytes: Uint8Array): Effect.Effect<string> =>
+  Effect.succeed(Encoding.encodeHex(Digest.hash("sha256", bytes)))
 
 const program = Effect.gen(function*() {
   const fileSystem = yield* FileSystem.FileSystem
@@ -29,13 +30,13 @@ const program = Effect.gen(function*() {
     Effect.flatMap((url) => pathService.fromFileUrl(url)),
     Effect.orDie
   )
-  const externalRoot = pathService.join(packageRoot, EXTERNAL_FIXTURE_ROOT)
-  const manifestPath = pathService.join(externalRoot, MANIFEST_FILE)
+  const externalRoot = pathService.join(packageRoot, Fixtures.root)
+  const manifestPath = pathService.join(externalRoot, Fixtures.manifestFile)
 
   const manifestRaw = yield* fileSystem.readFileString(manifestPath).pipe(
     Effect.mapError(() => new FixtureStampError({ file: manifestPath, reason: "manifest file not found" }))
   )
-  const manifest = yield* Schema.decodeUnknown(FixtureManifestSchema)(manifestRaw, {
+  const manifest = yield* Schema.decodeUnknown(Fixtures.Manifest)(manifestRaw, {
     onExcessProperty: "error"
   }).pipe(
     Effect.mapError(() => new FixtureStampError({ file: manifestPath, reason: "manifest schema decode failed" }))
@@ -49,11 +50,10 @@ const program = Effect.gen(function*() {
       )
       const actualSha256 = yield* toSha256Hex(bytes)
 
-      yield* Console.log(
-        source.contentSha256 === actualSha256
-          ? `✓ ${source.id}: ${actualSha256} (unchanged)`
-          : `↺ ${source.id}: ${source.contentSha256} → ${actualSha256}`
-      )
+      yield* Console.log(Bool.match(Str.Equivalence(source.contentSha256, actualSha256), {
+        onTrue: () => `✓ ${source.id}: ${actualSha256} (unchanged)`,
+        onFalse: () => `↺ ${source.id}: ${source.contentSha256} → ${actualSha256}`
+      }))
 
       return {
         ...source,
@@ -68,26 +68,27 @@ const program = Effect.gen(function*() {
   const changed = Arr.some(
     updatedManifest.sources,
     (source) =>
-      Option.match(Arr.findFirst(manifest.sources, (previous) => previous.id === source.id), {
+      Option.match(Arr.findFirst(manifest.sources, (previous) => Str.Equivalence(previous.id, source.id)), {
         onNone: () => true,
-        onSome: (previous) => previous.contentSha256 !== source.contentSha256
+        onSome: (previous) => Bool.not(Str.Equivalence(previous.contentSha256, source.contentSha256))
       })
   )
 
-  if (!changed) {
-    yield* Console.log("\nNo fixture hash updates required.")
-    return
-  }
+  yield* Effect.if(changed, {
+    onFalse: () => Console.log("\nNo fixture hash updates required."),
+    onTrue: () =>
+      Effect.gen(function*() {
+        const encoded = yield* Schema.encode(Fixtures.Manifest)(updatedManifest).pipe(
+          Effect.mapError(() => new FixtureStampError({ file: manifestPath, reason: "manifest encode failed" }))
+        )
 
-  const encoded = yield* Schema.encode(FixtureManifestSchema)(updatedManifest).pipe(
-    Effect.mapError(() => new FixtureStampError({ file: manifestPath, reason: "manifest encode failed" }))
-  )
+        yield* fileSystem.writeFileString(manifestPath, `${encoded}\n`).pipe(
+          Effect.mapError(() => new FixtureStampError({ file: manifestPath, reason: "failed to write manifest" }))
+        )
 
-  yield* fileSystem.writeFileString(manifestPath, `${encoded}\n`).pipe(
-    Effect.mapError(() => new FixtureStampError({ file: manifestPath, reason: "failed to write manifest" }))
-  )
-
-  yield* Console.log(`\nUpdated fixture hash manifest: ${manifestPath}`)
+        yield* Console.log(`\nUpdated fixture hash manifest: ${manifestPath}`)
+      })
+  })
 })
 
 const main = program.pipe(Effect.provide(BunContext.layer))

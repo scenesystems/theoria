@@ -1,46 +1,100 @@
 /**
- * Trace schema + projection determinism contracts.
+ * Trace schema and projection determinism contracts.
  */
+import * as Response from "@effect/ai/Response"
 import { describe, expect, it } from "@effect/vitest"
-import * as Contracts from "@scenesystems/effect-dsp/contracts"
+import { decode, encode } from "@scenesystems/effect-dsp/Payload"
 import * as Trace from "@scenesystems/effect-dsp/Trace"
-import { Effect, Option, Schema } from "effect"
+import { Array as Arr, Effect, Equal, Option, Schema } from "effect"
 
-const makeTraceEntry = () =>
-  new Trace.Entry({
+const Input = Schema.Struct({
+  question: Schema.String,
+  facts: Schema.Array(Schema.Struct({ count: Schema.NumberFromString }))
+})
+const Output = Schema.Struct({ answer: Schema.String })
+
+const usage = new Response.Usage({
+  inputTokens: 17,
+  outputTokens: 5,
+  totalTokens: 29,
+  reasoningTokens: 7,
+  cachedInputTokens: 3
+})
+
+const makeTraceEntry = Effect.gen(function*() {
+  const input = yield* encode(Input, {
+    question: "What is the capital of France?",
+    facts: Arr.make({ count: 17 })
+  })
+  const output = yield* encode(Output, { answer: "Paris" })
+  return new Trace.Entry({
     moduleName: "qa",
     signatureDescription: "Answer questions with concise factual answers",
-    input: { question: "What is the capital of France?" },
-    output: { answer: "Paris" },
+    input,
+    output,
     prompt: "Question: What is the capital of France?",
     rawResponse: "Paris",
-    inputTokens: Option.some(18),
-    outputTokens: Option.some(2),
+    usage,
     durationMs: 12,
     score: Trace.noScore,
     timestamp: 1_700_000_000_000
   })
+})
 
 describe("Trace projection", () => {
   it.effect("round-trips trace entries deterministically", () =>
     Effect.gen(function*() {
-      const entry = makeTraceEntry()
-      const encoded = yield* Schema.encode(Trace.Entry)(entry)
-      const decoded = yield* Schema.decode(Trace.Entry)(encoded)
-      const reEncoded = yield* Schema.encode(Trace.Entry)(decoded)
+      const entry = yield* makeTraceEntry
+      const codec = Schema.parseJson(Trace.Entry)
+      const encoded = yield* Schema.encode(codec)(entry)
+      const decoded = yield* Schema.decode(codec)(encoded)
+      const reEncoded = yield* Schema.encode(codec)(decoded)
 
       expect(reEncoded).toEqual(encoded)
+      expect(decoded.usage.totalTokens).toBe(29)
+      expect(decoded.score).toEqual(Option.none())
+      expect(yield* decode(Input, decoded.input)).toEqual({
+        question: "What is the capital of France?",
+        facts: Arr.make({ count: 17 })
+      })
+      expect(yield* decode(Schema.encodedSchema(Input), decoded.input)).toEqual({
+        question: "What is the capital of France?",
+        facts: Arr.make({ count: "17" })
+      })
+      expect(yield* decode(Output, decoded.output)).toEqual({ answer: "Paris" })
     }))
 
-  it.effect("round-trips optimization projections deterministically", () =>
+  it.effect("retains native usage through optimization projection round trips", () =>
     Effect.gen(function*() {
-      const entry = makeTraceEntry()
-      const projection = yield* Contracts.projectOptimizationObjective(entry)
-      const encoded = yield* Schema.encode(Contracts.OptimizationObjectiveSurface)(projection)
-      const decoded = yield* Schema.decode(Contracts.OptimizationObjectiveSurface)(encoded)
-      const reEncoded = yield* Schema.encode(Contracts.OptimizationObjectiveSurface)(decoded)
+      const entry = yield* makeTraceEntry
+      const projection = yield* Trace.projectObjective(entry)
+      const codec = Schema.parseJson(Trace.ObjectiveProjection)
+      const encoded = yield* Schema.encode(codec)(projection)
+      const decoded = yield* Schema.decode(codec)(encoded)
+      const reEncoded = yield* Schema.encode(codec)(decoded)
 
       expect(reEncoded).toEqual(encoded)
-      expect(projection.usage.cached).toBe(false)
+      expect(Equal.equals(projection.usage, usage)).toBe(true)
+    }))
+
+  it.effect("round-trips absent usage separately from an observed zero-token report", () =>
+    Effect.gen(function*() {
+      const codec = Schema.parseJson(Trace.Call)
+      const zero = new Response.Usage({ inputTokens: 0, outputTokens: 0, totalTokens: 0 })
+      yield* Effect.forEach(Arr.make(Option.none<Response.Usage>(), Option.some(zero)), (observed) =>
+        Effect.gen(function*() {
+          const call = new Trace.Call({
+            operation: "generateText",
+            outcome: "interrupted",
+            usage: observed,
+            durationMs: 3,
+            timestamp: 17
+          })
+          const encoded = yield* Schema.encode(codec)(call)
+          const restored = yield* Schema.decode(codec)(encoded)
+
+          expect(restored.usage).toEqual(observed)
+          expect(restored.outcome).toBe("interrupted")
+        }))
     }))
 })

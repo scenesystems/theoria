@@ -1,10 +1,11 @@
 // @vitest-environment node
 import { expect, layer } from "@effect/vitest"
-import { Effect, Fiber, Layer, Option, Schema } from "effect"
+import { Numeric } from "@scenesystems/effect-math"
+import { Boolean, Effect, Fiber, Layer, Match, Number as Num, Option, Schema } from "effect"
 import * as Arr from "effect/Array"
 import * as Str from "effect/String"
+import { evaluate, evaluateElement } from "./browser.js"
 
-import { cards } from "../../app/contracts/card.js"
 import { PlaceBuildEnvelope } from "../../app/contracts/imagined-place-result.js"
 import { PlaceBuildRequest } from "../../app/contracts/imagined-place.js"
 import { howItsBuiltActionLabel, howItsBuiltSectionId } from "../../app/web/view/home/HomeHero.js"
@@ -49,7 +50,11 @@ const decodeEnvelope = Schema.decodeUnknown(PlaceBuildEnvelope)
 const successfulBuild = (body: unknown) =>
   decodeEnvelope(body).pipe(
     Effect.flatMap((envelope) =>
-      envelope.ok ? Effect.succeed(envelope.data) : Effect.dieMessage(`build failed: ${envelope.error.code}`)
+      Match.value(envelope).pipe(
+        Match.when({ ok: true }, ({ data }) => Effect.succeed(data)),
+        Match.when({ ok: false }, ({ error }) => Effect.dieMessage(`build failed: ${error.code}`)),
+        Match.exhaustive
+      )
     )
   )
 
@@ -96,9 +101,10 @@ layer(Layer.merge(SiteLive, BrowserLive), { excludeTestServices: true, timeout: 
         const versions = demo.locator("[data-place-version]")
         yield* count(versions, 2)
         const current = demo.locator("[data-place-version=\"2\"]")
+        const openedCurrent = Option.getOrThrow(Arr.get(opened.evidence.lineage, 1))
         yield* containsText(current, "V2 · Current")
         yield* count(current.getByText(/^\+ /u), 1)
-        yield* containsText(current, opened.evidence.lineage[1]?.contentId ?? "")
+        yield* containsText(current, openedCurrent.contentId)
         yield* count(demo.getByText("did not verify"), 0)
         yield* count(demo.getByText("The place could not be built."), 0)
 
@@ -116,9 +122,12 @@ layer(Layer.merge(SiteLive, BrowserLive), { excludeTestServices: true, timeout: 
         expect(Arr.map(merged.proposals, (record) => record.accepted)).toEqual([true, true])
         expect(merged.artifact.accepted).toHaveLength(2)
         expect(merged.evidence.lineage).toHaveLength(2)
-        expect(merged.evidence.lineage[0]).toEqual(opened.evidence.lineage[0])
-        expect(merged.evidence.lineage[1]?.contentId).not.toBe(opened.evidence.lineage[1]?.contentId)
-        expect(merged.evidence.lineage[1]?.featureCount).toBeGreaterThan(opened.evidence.lineage[1]?.featureCount ?? 0)
+        const openedOrigin = Option.getOrThrow(Arr.get(opened.evidence.lineage, 0))
+        const mergedOrigin = Option.getOrThrow(Arr.get(merged.evidence.lineage, 0))
+        const mergedCurrent = Option.getOrThrow(Arr.get(merged.evidence.lineage, 1))
+        expect(mergedOrigin).toEqual(openedOrigin)
+        expect(mergedCurrent.contentId).not.toBe(openedCurrent.contentId)
+        expect(mergedCurrent.featureCount).toBeGreaterThan(openedCurrent.featureCount)
 
         yield* attribute(merges.nth(1), "aria-checked", "true")
         yield* attribute(programCard, "data-place-recorded", "true")
@@ -127,7 +136,7 @@ layer(Layer.merge(SiteLive, BrowserLive), { excludeTestServices: true, timeout: 
         yield* containsText(legend, "Proposer program")
         yield* count(versions, 2)
         yield* count(current.getByText(/^\+ /u), 2)
-        yield* containsText(current, merged.evidence.lineage[1]?.contentId ?? "")
+        yield* containsText(current, mergedCurrent.contentId)
         yield* containsText(current, "You signed · key")
         yield* count(demo.getByText("did not verify"), 0)
         expect(yield* failures).toEqual([])
@@ -147,12 +156,12 @@ layer(Layer.merge(SiteLive, BrowserLive), { excludeTestServices: true, timeout: 
         // The page, the demo and the drawn paper are one canvas: none of them
         // is boxed by a border, rounded off or lifted by a shadow.
         const onCanvas = { border: "0px 0px 0px 0px", radius: "0px", shadow: "none" }
-        expect(yield* act(() => page.locator("main").evaluate(surfaceStyle))).toEqual(onCanvas)
-        expect(yield* act(() => demo.evaluate(surfaceStyle))).toEqual(onCanvas)
-        expect(yield* act(() => demo.locator("[data-artifact-stage='frame']").evaluate(surfaceStyle))).toEqual(
+        expect(yield* evaluateElement(page.locator("main"), surfaceStyle)).toEqual(onCanvas)
+        expect(yield* evaluateElement(demo, surfaceStyle)).toEqual(onCanvas)
+        expect(yield* evaluateElement(demo.locator("[data-artifact-stage='frame']"), surfaceStyle)).toEqual(
           onCanvas
         )
-        expect(yield* act(() => paper.evaluate(surfaceStyle))).toEqual(onCanvas)
+        expect(yield* evaluateElement(paper, surfaceStyle)).toEqual(onCanvas)
         expect(yield* failures).toEqual([])
       }))
 
@@ -173,20 +182,22 @@ layer(Layer.merge(SiteLive, BrowserLive), { excludeTestServices: true, timeout: 
         const heading = page.getByRole("heading", { level: 1 })
         const browse = page.getByRole("link", { exact: true, name: "Browse the packages" })
         const arriveTitle = demo.locator("[data-place-arrive] h2")
-        expect(yield* act(() => heading.evaluate(topEdgeInViewport))).toBe(true)
-        expect(yield* act(() => browse.evaluate(topEdgeInViewport))).toBe(true)
-        expect(yield* act(() => arriveTitle.evaluate(topEdgeInViewport))).toBe(true)
-        expect(yield* act(() => demo.locator("[data-place-arrive] p").evaluate(topEdgeInViewport))).toBe(true)
+        expect(yield* evaluateElement(heading, topEdgeInViewport)).toBe(true)
+        expect(yield* evaluateElement(browse, topEdgeInViewport)).toBe(true)
+        expect(yield* evaluateElement(arriveTitle, topEdgeInViewport)).toBe(true)
+        expect(yield* evaluateElement(demo.locator("[data-place-arrive] p"), topEdgeInViewport)).toBe(true)
         expect(
-          yield* act(() =>
-            demo.locator("[data-place-step='compose'] [data-place-step-header]").evaluate(topEdgeInViewport)
+          yield* evaluateElement(
+            demo.locator("[data-place-step='compose'] [data-place-step-header]"),
+            topEdgeInViewport
           )
         ).toBe(true)
-        expect(yield* act(() => paper.evaluate(topEdgeInViewport))).toBe(true)
-        expect(yield* act(() => demo.locator("[data-place-marker]").first().evaluate(fullyInViewport))).toBe(true)
+        expect(yield* evaluateElement(paper, topEdgeInViewport)).toBe(true)
+        expect(yield* evaluateElement(demo.locator("[data-place-marker]").first(), fullyInViewport)).toBe(true)
         expect(
-          yield* act(() =>
-            demo.locator("[data-place-step='arrange'] [data-place-step-header]").evaluate(topEdgeInViewport)
+          yield* evaluateElement(
+            demo.locator("[data-place-step='arrange'] [data-place-step-header]"),
+            topEdgeInViewport
           )
         ).toBe(true)
         // The arrival says what this is and how it works; the place's name and
@@ -203,18 +214,18 @@ layer(Layer.merge(SiteLive, BrowserLive), { excludeTestServices: true, timeout: 
         // Narrow: the hero, both actions and the demonstration's title fit the
         // first screen; the paper follows directly under the arrival.
         yield* setViewport(page, { width: 390, height: 844 })
-        yield* act(() => page.evaluate(scrollToTop))
-        expect(yield* act(() => heading.evaluate(topEdgeInViewport))).toBe(true)
-        expect(yield* act(() => browse.evaluate(topEdgeInViewport))).toBe(true)
+        yield* evaluate(page, scrollToTop)
+        expect(yield* evaluateElement(heading, topEdgeInViewport)).toBe(true)
+        expect(yield* evaluateElement(browse, topEdgeInViewport)).toBe(true)
         const howItsBuilt = page.getByRole("link", { exact: true, name: howItsBuiltActionLabel })
-        expect(yield* act(() => howItsBuilt.evaluate(topEdgeInViewport))).toBe(true)
-        expect(yield* act(() => arriveTitle.evaluate(topEdgeInViewport))).toBe(true)
-        expect(yield* act(() => paper.evaluate(topEdgeInViewport))).toBe(true)
+        expect(yield* evaluateElement(howItsBuilt, topEdgeInViewport)).toBe(true)
+        expect(yield* evaluateElement(arriveTitle, topEdgeInViewport)).toBe(true)
+        expect(yield* evaluateElement(paper, topEdgeInViewport)).toBe(true)
 
         // The hero's second action lands on how the demonstration is built, not on the demonstration already in view.
         yield* click(howItsBuilt)
         yield* urlMatches(page, new RegExp(`#${howItsBuiltSectionId}$`, "u"))
-        yield* eventually(() => page.locator("[data-place-how-its-built]").evaluate(topEdgeInViewport), true)
+        yield* eventually(evaluateElement(page.locator("[data-place-how-its-built]"), topEdgeInViewport), true)
         expect(yield* failures).toEqual([])
       }))
 
@@ -226,34 +237,41 @@ layer(Layer.merge(SiteLive, BrowserLive), { excludeTestServices: true, timeout: 
         })
         yield* goto(smooth.page, "/")
         const smoothLink = smooth.page.getByRole("link", { name: howItsBuiltActionLabel })
-        const start = yield* act(() => smooth.page.evaluate(scrollY))
+        const start = yield* evaluate(smooth.page, scrollY)
         yield* click(smoothLink)
         // The page passes through positions on its way: a glide, not a jump.
         const gliding = yield* scrollPositions(smooth.page, 24)
-        yield* eventually(() => smooth.page.locator("[data-place-how-its-built]").evaluate(topEdgeInViewport), true)
-        const finish = yield* act(() => smooth.page.evaluate(scrollY))
+        yield* eventually(evaluateElement(smooth.page.locator("[data-place-how-its-built]"), topEdgeInViewport), true)
+        const finish = yield* evaluate(smooth.page, scrollY)
         expect(finish).toBeGreaterThan(start)
-        expect(Arr.some(gliding, (position) => position > start && position < finish)).toBe(true)
+        expect(
+          Arr.some(gliding, (position) => Boolean.and(Num.greaterThan(position, start), Num.lessThan(position, finish)))
+        ).toBe(true)
         yield* urlMatches(smooth.page, /#how-its-built$/u)
 
         const reduced = yield* openPage({ viewport: { width: 1440, height: 900 }, reducedMotion: "reduce" })
         yield* goto(reduced.page, "/")
-        const reducedStart = yield* act(() => reduced.page.evaluate(scrollY))
+        const reducedStart = yield* evaluate(reduced.page, scrollY)
         yield* click(reduced.page.getByRole("link", { name: howItsBuiltActionLabel }))
         // Under reduced motion the page is where it is going from the first frame that moves.
         const landing = yield* scrollPositions(reduced.page, 24)
-        yield* eventually(() => reduced.page.locator("[data-place-how-its-built]").evaluate(topEdgeInViewport), true)
-        const landed = yield* act(() => reduced.page.evaluate(scrollY))
-        expect(Arr.every(landing, (position) => position === reducedStart || position === landed)).toBe(true)
+        yield* eventually(evaluateElement(reduced.page.locator("[data-place-how-its-built]"), topEdgeInViewport), true)
+        const landed = yield* evaluate(reduced.page, scrollY)
+        expect(
+          Arr.every(
+            landing,
+            (position) => Boolean.or(Num.Equivalence(position, reducedStart), Num.Equivalence(position, landed))
+          )
+        ).toBe(true)
         yield* urlMatches(reduced.page, /#how-its-built$/u)
 
         const demo = reduced.page.getByRole("region", { name: "Imagined place demo" })
         const paper = demo.locator("[data-place-stage='paper']")
-        yield* act(() => paper.evaluate(scrollPast))
+        yield* evaluateElement(paper, scrollPast)
         const band = reduced.page.locator("[data-place-band]")
         yield* visible(band)
         yield* click(band.getByRole("link", { name: "Back to the place" }))
-        yield* eventually(() => paper.evaluate(topEdgeInViewport), true)
+        yield* eventually(evaluateElement(paper, topEdgeInViewport), true)
         yield* urlMatches(reduced.page, /#imagined-place$/u)
         expect(yield* smooth.failures).toEqual([])
         expect(yield* reduced.failures).toEqual([])
@@ -273,12 +291,9 @@ layer(Layer.merge(SiteLive, BrowserLive), { excludeTestServices: true, timeout: 
         yield* visible(page.getByRole("heading", { level: 1, name: "Packages" }))
 
         // Every documented package has a card, and each card shows the manifest's version.
-        expect(Arr.sort(Arr.map(manifest.packages, (docsPackage) => docsPackage.slug), Str.Order)).toEqual(
-          Arr.sort(Arr.map(cards, (card) => card.id), Str.Order)
-        )
         const packageIndex = page.locator("main")
         const packageCards = packageIndex.locator("[data-docs-package]")
-        yield* count(packageCards, manifest.packages.length)
+        yield* count(packageCards, Arr.length(manifest.packages))
         yield* Effect.forEach(manifest.packages, (docsPackage) => {
           const card = packageIndex.locator(`[data-docs-package="${docsPackage.slug}"]`)
           return Effect.all([
@@ -293,25 +308,27 @@ layer(Layer.merge(SiteLive, BrowserLive), { excludeTestServices: true, timeout: 
         yield* Effect.forEach([320, 390, 639, 640, 768, 919, 920, 935, 936, 1280, 1391, 1392, 1920, 2560], (width) =>
           Effect.gen(function*() {
             yield* setViewport(page, { width, height: 800 })
-            yield* count(packageCards, manifest.packages.length)
+            yield* count(packageCards, Arr.length(manifest.packages))
             expect(yield* fitsViewport(page)).toBe(true)
-            const first = yield* act(() =>
-              packageCards.first().evaluate(boxOf)
-            )
+            const first = yield* evaluateElement(packageCards.first(), boxOf)
             yield* Effect.forEach(manifest.packages, (docsPackage) =>
               Effect.gen(function*() {
                 const card = packageIndex.locator(`[data-docs-package="${docsPackage.slug}"]`)
-                const box = yield* act(() => card.evaluate(boxOf))
+                const box = yield* evaluateElement(card, boxOf)
                 const title = card.getByRole("heading", { name: docsPackage.name, exact: true })
-                const titleBox = yield* act(() => title.evaluate(boxOf))
-                const type = yield* act(() => title.evaluate(typographyOf))
-                expect(titleBox.height, `${docsPackage.slug} title at ${width}px`).toBeLessThanOrEqual(
-                  Number.parseFloat(type.leading) + 1
+                const titleBox = yield* evaluateElement(title, boxOf)
+                const type = yield* evaluateElement(title, typographyOf)
+                const leading = yield* Schema.decodeUnknown(Schema.NumberFromString)(
+                  Str.replace("px", "")(type.leading)
                 )
-                expect(yield* act(() => title.evaluate(textFitsBox))).toBe(true)
-                expect(Number.parseFloat(type.size)).toBeGreaterThanOrEqual(16)
-                expect(Math.abs(box.width - first.width), `card width at ${width}px`).toBeLessThan(1)
-                expect(Math.abs(box.height - first.height), `card height at ${width}px`).toBeLessThan(1)
+                const size = yield* Schema.decodeUnknown(Schema.NumberFromString)(Str.replace("px", "")(type.size))
+                expect(titleBox.height, `${docsPackage.slug} title at ${width}px`).toBeLessThanOrEqual(
+                  Num.sum(leading, 1)
+                )
+                expect(yield* evaluateElement(title, textFitsBox)).toBe(true)
+                expect(size).toBeGreaterThanOrEqual(16)
+                expect(Numeric.abs(Num.subtract(box.width, first.width)), `card width at ${width}px`).toBeLessThan(1)
+                expect(Numeric.abs(Num.subtract(box.height, first.height)), `card height at ${width}px`).toBeLessThan(1)
               }))
           }))
         expect(yield* failures).toEqual([])

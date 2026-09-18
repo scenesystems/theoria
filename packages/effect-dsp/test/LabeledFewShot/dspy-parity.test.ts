@@ -1,0 +1,59 @@
+import * as LanguageModel from "@effect/ai/LanguageModel"
+import { describe, expect, it } from "@effect/vitest"
+import { Example } from "@scenesystems/effect-dsp/Example"
+import * as LabeledFewShot from "@scenesystems/effect-dsp/LabeledFewShot"
+import * as MockLanguageModel from "@scenesystems/effect-dsp/MockLanguageModel"
+import * as Module from "@scenesystems/effect-dsp/Module"
+import * as Signature from "@scenesystems/effect-dsp/Signature"
+import { Array as Arr, Effect, Layer, Option, Ref, Schema } from "effect"
+
+import { LabeledFewShotSampleFixtureSchema, loadFixture } from "../helpers/dspy-fixtures/index.js"
+
+const makeQaSignature = () =>
+  Signature.make(
+    "Answer questions with concise facts",
+    {
+      question: Signature.describe(Schema.String, "The question to answer")
+    },
+    {
+      answer: Signature.describe(Schema.String, "A concise factual answer")
+    }
+  )
+
+describe("LabeledFewShot.run DSPy parity", () => {
+  it.effect("matches fixture-backed seeded sample selection without LM calls", () =>
+    Effect.gen(function*() {
+      const rawFixture = yield* loadFixture("dspy.labeledfewshot.sample-k.seed-9")
+      const fixture = yield* Schema.decodeUnknown(LabeledFewShotSampleFixtureSchema)(rawFixture)
+
+      const signature = yield* makeQaSignature()
+      const module = yield* Module.predict("qa-labeledfewshot-dspy-parity", signature)
+      const trainset = Arr.map(
+        fixture.payload.trainset,
+        (example) =>
+          new Example({
+            input: { question: example.question },
+            output: { answer: example.answer }
+          })
+      )
+      const mock = yield* MockLanguageModel.make(
+        MockLanguageModel.succeed({ answer: "should-not-be-called" })
+      )
+      const layer = Layer.succeed(LanguageModel.LanguageModel, mock.service)
+
+      const optimized = yield* LabeledFewShot.run({
+        module,
+        trainset,
+        k: fixture.payload.k,
+        seed: fixture.payload.seed
+      }).pipe(Effect.provide(layer))
+
+      const params = yield* Ref.get(optimized.params)
+      const calls = yield* Ref.get(mock.calls)
+      const selectedQuestions = Arr.map(params.demos, (demo) =>
+        String(Option.getOrElse(Option.fromNullable(demo.input.question), () => "")))
+
+      expect(selectedQuestions).toStrictEqual(fixture.payload.expectedSelectedQuestions)
+      expect(calls).toHaveLength(fixture.payload.expectedCallCount)
+    }))
+})

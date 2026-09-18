@@ -5,59 +5,93 @@ import {
   type DocsSearchEntry,
   DocsSearchEntrySchema
 } from "@theoria/docs-model"
-import { Array as Arr, Data, Equal, HashMap, HashSet, Option, Tuple } from "effect"
+import {
+  Array as Arr,
+  Boolean as Bool,
+  Data,
+  Equal,
+  HashMap,
+  HashSet,
+  Match,
+  Number as Num,
+  Option,
+  Schema,
+  String as Str,
+  Tuple
+} from "effect"
 
 export class DocumentationRecord extends Data.Class<{
   readonly owner: string
   readonly docs: ApiDocumentation
 }> {}
 
-const docsParts = (docs: ApiDocumentation): ReadonlyArray<ApiDocPart> =>
-  Arr.flatten([
-    docs.summary,
-    docs.remarks,
-    ...Option.match(docs.deprecated, { onNone: Arr.empty, onSome: (parts) => [parts] }),
-    ...docs.see,
-    ...Arr.map(docs.examples, (_) => _.parts)
-  ])
+const numberText = Schema.encodeSync(Schema.NumberFromString)
+
+const docsParts = (docs: ApiDocumentation): ReadonlyArray<ApiDocPart> => {
+  const sections: ReadonlyArray<ReadonlyArray<ApiDocPart>> = Arr.appendAll(
+    Arr.make(
+      docs.summary,
+      docs.remarks,
+      Option.match(docs.deprecated, { onNone: Arr.empty, onSome: (parts) => parts })
+    ),
+    Arr.appendAll(docs.see, Arr.map(docs.examples, (_) => _.parts))
+  )
+  return Arr.flatten(sections)
+}
 
 export const documentationRecords = (value: ApiExport): ReadonlyArray<DocumentationRecord> =>
-  Arr.flatMap(value.facets, (facet, facetIndex) => [
-    new DocumentationRecord({ owner: `${value.id} facet ${String(facetIndex + 1)}`, docs: facet.docs }),
-    ...Arr.map(facet.signatures, (signature, signatureIndex) =>
-      new DocumentationRecord({
-        owner: `${value.id} signature ${String(signatureIndex + 1)}`,
-        docs: signature.docs
-      })),
-    ...Arr.flatMap(facet.members, (member) => [
-      new DocumentationRecord({ owner: `${value.id}.${member.name}`, docs: member.docs }),
-      ...Arr.map(member.signatures, (signature, signatureIndex) =>
+  Arr.flatMap(value.facets, (facet, facetIndex) =>
+    Arr.appendAll(
+      Arr.make(
         new DocumentationRecord({
-          owner: `${value.id}.${member.name} signature ${String(signatureIndex + 1)}`,
-          docs: signature.docs
-        }))
-    ])
-  ])
+          owner: `${value.id} facet ${numberText(Num.increment(facetIndex))}`,
+          docs: facet.docs
+        })
+      ),
+      Arr.appendAll(
+        Arr.map(facet.signatures, (signature, signatureIndex) =>
+          new DocumentationRecord({
+            owner: `${value.id} signature ${numberText(Num.increment(signatureIndex))}`,
+            docs: signature.docs
+          })),
+        Arr.flatMap(facet.members, (member) =>
+          Arr.prepend(
+            Arr.map(member.signatures, (signature, signatureIndex) =>
+              new DocumentationRecord({
+                owner: `${value.id}.${member.name} signature ${numberText(Num.increment(signatureIndex))}`,
+                docs: signature.docs
+              })),
+            new DocumentationRecord({ owner: `${value.id}.${member.name}`, docs: member.docs })
+          ))
+      )
+    ))
 
 export const linkDiagnostics = (
   owner: string,
   parts: ReadonlyArray<ApiDocPart>,
   targets: HashSet.HashSet<string>
 ): ReadonlyArray<string> =>
-  Arr.flatMap(parts, (part) => {
-    if (part.kind !== "link") return []
-    return Option.match(part.href, {
-      onNone: () => [`${owner}: authored link has no target`],
-      onSome: (href) =>
-        /^https?:\/\//u.test(href)
-          ? []
-          : !href.startsWith("/docs/")
-          ? [`${owner}: unsupported link target ${href}`]
-          : HashSet.has(targets, href)
-          ? []
-          : [`${owner}: unresolved link ${href}`]
-    })
-  })
+  Arr.flatMap(parts, (part) =>
+    Match.value(part).pipe(
+      Match.when({ kind: "link" }, (link): ReadonlyArray<string> =>
+        Option.match(link.href, {
+          onNone: () => Arr.make(`${owner}: authored link has no target`),
+          onSome: (href) =>
+            Bool.match(Option.isSome(Str.match(/^https?:\/\//u)(href)), {
+              onTrue: Arr.empty,
+              onFalse: () =>
+                Bool.match(Str.startsWith("/docs/")(href), {
+                  onFalse: () => Arr.make(`${owner}: unsupported link target ${href}`),
+                  onTrue: () =>
+                    Bool.match(HashSet.has(targets, href), {
+                      onTrue: Arr.empty,
+                      onFalse: () => Arr.make(`${owner}: unresolved link ${href}`)
+                    })
+                })
+            })
+        })),
+      Match.orElse((): ReadonlyArray<string> => Arr.empty())
+    ))
 
 export const documentationLinkDiagnostics = (
   records: ReadonlyArray<DocumentationRecord>,
@@ -73,22 +107,31 @@ export const searchIndexDiagnostics = (
   expected: ReadonlyArray<ExpectedSearchEntry>,
   entries: ReadonlyArray<DocsSearchEntry>
 ): ReadonlyArray<string> => {
-  const symbols = Arr.filter(entries, (_) => _.kind === "symbol")
+  const symbols = Arr.filter(entries, (_) => Str.Equivalence(_.kind, "symbol"))
   const symbolsById = HashMap.fromIterable(Arr.map(symbols, (_) => Tuple.make(_.id, _)))
-  return [
-    ...(symbols.length !== expected.length ? ["search index symbol count mismatch"] : []),
-    ...Arr.flatMap(expected, (entry) =>
+  return Arr.appendAll(
+    Bool.match(Num.Equivalence(Arr.length(symbols), Arr.length(expected)), {
+      onTrue: Arr.empty,
+      onFalse: () => Arr.make("search index symbol count mismatch")
+    }),
+    Arr.flatMap(expected, (entry) =>
       HashMap.get(symbolsById, entry.id).pipe(
         Option.filter((actual) =>
-          actual.package === entry.package && actual.packageSlug === entry.packageSlug &&
-          actual.name === entry.name && actual.qualifiedName === entry.qualifiedName &&
-          Equal.equals(actual.category, entry.category) && actual.summary === entry.summary &&
-          actual.path === entry.path && Equal.equals(actual.anchor, entry.anchor)
+          Bool.every(Arr.make(
+            Str.Equivalence(actual.package, entry.package),
+            Str.Equivalence(actual.packageSlug, entry.packageSlug),
+            Str.Equivalence(actual.name, entry.name),
+            Str.Equivalence(actual.qualifiedName, entry.qualifiedName),
+            Equal.equals(actual.category, entry.category),
+            Str.Equivalence(actual.summary, entry.summary),
+            Str.Equivalence(actual.path, entry.path),
+            Equal.equals(actual.anchor, entry.anchor)
+          ))
         ),
         Option.match({
-          onNone: () => [`${entry.id}: search index mismatch`],
-          onSome: () => []
+          onNone: () => Arr.make(`${entry.id}: search index mismatch`),
+          onSome: Arr.empty
         })
       ))
-  ]
+  )
 }

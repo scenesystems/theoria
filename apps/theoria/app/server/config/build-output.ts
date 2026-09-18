@@ -1,7 +1,9 @@
 import { FileSystem, Path } from "@effect/platform"
 import type { PlatformError } from "@effect/platform/Error"
-import { Effect, Either, identity, Option, Schema, Stream } from "effect"
+import { BigInt, Boolean as Bool, Effect, Either, Equal, identity, Match, Option, Schema, Stream } from "effect"
 import * as Arr from "effect/Array"
+import * as Num from "effect/Number"
+import * as Str from "effect/String"
 
 import { type WebVitalBudgets, webVitalBudgets } from "../../contracts/performance.js"
 import { contentTypeForPath } from "./static-store.js"
@@ -15,13 +17,15 @@ import { contentTypeForPath } from "./static-store.js"
  * server has a `content-type` for it (`contentTypeForPath`). Anything else
  * would be served incorrectly, so the build fails instead.
  */
-export class BuildOutputError extends Schema.TaggedError<BuildOutputError>()("BuildOutputError", {
-  root: Schema.String,
-  problems: Schema.Array(Schema.String)
-}) {
+export class BuildOutputError
+  extends Schema.TaggedError<BuildOutputError>("@theoria/app/server/config/BuildOutputError")("BuildOutputError", {
+    root: Schema.String,
+    problems: Schema.Array(Schema.String)
+  })
+{
   override get message(): string {
     return `Build output in ${this.root} is not deployable:\n${
-      this.problems.map((problem) => `  - ${problem}`).join("\n")
+      Arr.join(Arr.map(this.problems, (problem) => `  - ${problem}`), "\n")
     }`
   }
 }
@@ -49,28 +53,42 @@ const workerFiles: ReadonlyArray<string> = ["worker.js", "worker.js.map", "READM
 
 /** Why a file must not ship, or `None` when it belongs in the build. */
 export const buildFileProblem = (relativePath: string): Option.Option<string> => {
-  if (relativePath === "dist/_headers") return Option.none()
-  if (relativePath.startsWith("dist/")) {
-    return Option.isSome(contentTypeForPath(relativePath))
-      ? Option.none()
-      : Option.some(`${relativePath}: the server has no content type for this file`)
-  }
-  if (relativePath.startsWith(".wrangler-out/")) {
-    const name = relativePath.slice(".wrangler-out/".length)
-    return Arr.contains(workerFiles, name) || (name.endsWith(".wasm") && !name.includes("/"))
-      ? Option.none()
-      : Option.some(`${relativePath}: only the Worker bundle, its source map, README and wasm modules ship`)
-  }
-  return Option.some(`${relativePath}: outside dist/ and .wrangler-out/`)
+  return Match.value(relativePath).pipe(
+    Match.when("dist/_headers", () => Option.none()),
+    Match.when(Str.startsWith("dist/"), (path) =>
+      Bool.match(Option.isSome(contentTypeForPath(path)), {
+        onTrue: Option.none,
+        onFalse: () => Option.some(`${path}: the server has no content type for this file`)
+      })),
+    Match.when(Str.startsWith(".wrangler-out/"), (path) => {
+      const name = Str.slice(Str.length(".wrangler-out/"))(path)
+      return Bool.match(
+        Bool.or(
+          Arr.contains(workerFiles, name),
+          Bool.and(Str.endsWith(".wasm")(name), Bool.not(Str.includes("/")(name)))
+        ),
+        {
+          onTrue: Option.none,
+          onFalse: () => Option.some(`${path}: only the Worker bundle, its source map, README and wasm modules ship`)
+        }
+      )
+    }),
+    Match.orElse((path) => Option.some(`${path}: outside dist/ and .wrangler-out/`))
+  )
 }
 
-const fileProblem = (entry: string, type: FileSystem.File.Type): Option.Option<string> => {
-  if (type === "File") return buildFileProblem(entry)
-  if (type === "Directory") return Option.none()
-  return Option.some(`${entry}: is a ${type}, not a regular file`)
-}
+const fileProblem = (entry: string, type: FileSystem.File.Type): Option.Option<string> =>
+  Match.value(type).pipe(
+    Match.when("File", () => buildFileProblem(entry)),
+    Match.when("Directory", () => Option.none<string>()),
+    Match.orElse((other) => Option.some(`${entry}: is a ${other}, not a regular file`))
+  )
 
-const isNotFound = (error: PlatformError): boolean => error._tag === "SystemError" && error.reason === "NotFound"
+const isNotFound = (error: PlatformError): boolean =>
+  Match.value(error).pipe(
+    Match.tag("SystemError", ({ reason }) => Equal.equals(reason, "NotFound")),
+    Match.orElse(() => false)
+  )
 
 /**
  * The bytes on the wire for a file served gzip-encoded, from the platform's
@@ -85,7 +103,7 @@ export const gzipBytes = (bytes: Uint8Array): Effect.Effect<number> =>
       Stream.toReadableStream(Stream.make(new Uint8Array(bytes))).pipeThrough(new CompressionStream("gzip")),
     onError: identity
   }).pipe(
-    Stream.runFold(0, (total, chunk) => total + chunk.byteLength),
+    Stream.runFold(0, (total, chunk) => Num.sum(total, chunk.byteLength)),
     Effect.orDie
   )
 
@@ -93,10 +111,12 @@ export const gzipBytes = (bytes: Uint8Array): Effect.Effect<number> =>
 export const homepageScripts = (indexHtml: string): ReadonlyArray<string> =>
   Arr.dedupe(
     Arr.filterMap(
-      Arr.fromIterable(indexHtml.matchAll(
-        /<script\b(?=[^>]*\btype=["']module["'])[^>]*\bsrc=["'](\/assets\/[^"']+\.js)["'][^>]*>|<link\b(?=[^>]*\brel=["']modulepreload["'])[^>]*\bhref=["'](\/assets\/[^"']+\.js)["'][^>]*>/giu
-      )),
-      (match) => Option.fromNullable(match[1] ?? match[2])
+      Arr.fromIterable(
+        Str.matchAll(
+          /<script\b(?=[^>]*\btype=["']module["'])[^>]*\bsrc=["'](\/assets\/[^"']+\.js)["'][^>]*>|<link\b(?=[^>]*\brel=["']modulepreload["'])[^>]*\bhref=["'](\/assets\/[^"']+\.js)["'][^>]*>/giu
+        )(indexHtml)
+      ),
+      (match) => Option.orElse(Option.fromNullable(match[1]), () => Option.fromNullable(match[2]))
     )
   )
 
@@ -123,11 +143,10 @@ export const checkBuildOutput = (
       Effect.gen(function*() {
         const absolute = path.join(root, relativePath)
         const canonical = yield* fileSystem.realPath(absolute)
-        if (canonical !== path.join(canonicalRoot, relativePath)) {
-          return Option.some<FileSystem.File.Type>("SymbolicLink")
-        }
-        const info = yield* fileSystem.stat(absolute)
-        return Option.some(info.type)
+        return yield* Bool.match(Bool.not(Equal.equals(canonical, path.join(canonicalRoot, relativePath))), {
+          onTrue: () => Effect.succeedSome<FileSystem.File.Type>("SymbolicLink"),
+          onFalse: () => Effect.map(fileSystem.stat(absolute), (info) => Option.some(info.type))
+        })
       }).pipe(Effect.catchIf(isNotFound, () => Effect.succeedNone))
 
     const required = yield* Effect.forEach(
@@ -137,9 +156,10 @@ export const checkBuildOutput = (
     const missing: ReadonlyArray<string> = Arr.filterMap(
       required,
       ({ file, kind }) =>
-        Option.exists(kind, (type) => type === "File")
-          ? Option.none()
-          : Option.some(`${file}: missing`)
+        Bool.match(Option.exists(kind, (type) => Equal.equals(type, "File")), {
+          onTrue: Option.none,
+          onFalse: () => Option.some(`${file}: missing`)
+        })
     )
 
     const listed = yield* Effect.forEach(
@@ -157,40 +177,56 @@ export const checkBuildOutput = (
         onNone: () => Option.some(`${entry}: vanished during the check`),
         onSome: (type) => fileProblem(entry, type)
       }))
-    const existingProblems: ReadonlyArray<string> = [...missing, ...Arr.getLefts(listed), ...entryProblems]
-    const scriptResults = Arr.isEmptyReadonlyArray(existingProblems)
-      ? yield* Effect.flatMap(
-        fileSystem.readFileString(path.join(root, "dist/index.html")),
-        (indexHtml) =>
-          Effect.forEach(
-            homepageScripts(indexHtml),
-            (script) =>
-              fileSystem.readFile(path.join(root, `dist${script}`)).pipe(
-                Effect.flatMap(gzipBytes),
-                Effect.map(Either.right),
-                Effect.catchIf(
-                  isNotFound,
-                  () => Effect.succeed(Either.left(`dist${script}: named by dist/index.html but missing`))
+    const existingProblems: ReadonlyArray<string> = Arr.appendAll(
+      Arr.appendAll(missing, Arr.getLefts(listed)),
+      entryProblems
+    )
+    const scriptResults = yield* Bool.match(Arr.isEmptyReadonlyArray(existingProblems), {
+      onTrue: () =>
+        Effect.flatMap(
+          fileSystem.readFileString(path.join(root, "dist/index.html")),
+          (indexHtml) =>
+            Effect.forEach(
+              homepageScripts(indexHtml),
+              (script) =>
+                fileSystem.readFile(path.join(root, `dist${script}`)).pipe(
+                  Effect.flatMap(gzipBytes),
+                  Effect.map(Either.right),
+                  Effect.catchIf(
+                    isNotFound,
+                    () => Effect.succeed(Either.left(`dist${script}: named by dist/index.html but missing`))
+                  )
                 )
-              )
-          )
-      )
-      : Arr.empty<Either.Either<number, string>>()
-    const homepageScriptGzipBytes = Arr.reduce(Arr.getRights(scriptResults), 0, (total, bytes) => total + bytes)
+            )
+        ),
+      onFalse: () => Effect.succeed(Arr.empty<Either.Either<number, string>>())
+    })
+    const homepageScriptGzipBytes = Arr.reduce(Arr.getRights(scriptResults), 0, Num.sum)
     const scriptProblems = Arr.getLefts(scriptResults)
-    const budgetProblems = homepageScriptGzipBytes > budgets.homepageScriptGzipBytes
-      ? [
+    const budgetProblems = Bool.match(Num.greaterThan(homepageScriptGzipBytes, budgets.homepageScriptGzipBytes), {
+      onTrue: () => [
         `dist/index.html: homepage scripts are ${String(homepageScriptGzipBytes)} gzip bytes, over the budget of ${
           String(budgets.homepageScriptGzipBytes)
         }`
-      ]
-      : Arr.empty<string>()
-    const problems: ReadonlyArray<string> = [...existingProblems, ...scriptProblems, ...budgetProblems]
-    if (Arr.isNonEmptyReadonlyArray(problems)) return yield* new BuildOutputError({ root, problems })
+      ],
+      onFalse: () => Arr.empty<string>()
+    })
+    const problems: ReadonlyArray<string> = Arr.appendAll(
+      Arr.appendAll(existingProblems, scriptProblems),
+      budgetProblems
+    )
+    yield* Effect.when(
+      Effect.fail(new BuildOutputError({ root, problems })),
+      () => Arr.isNonEmptyReadonlyArray(problems)
+    )
 
     const worker = yield* fileSystem.stat(path.join(root, ".wrangler-out/worker.js"))
-    const assets = Arr.filter(kinds, ({ entry, kind }) =>
-      entry.startsWith("dist/") && Option.exists(kind, (type) =>
-        type === "File")).length
-    return { root, assets, workerBytes: Number(worker.size), homepageScriptGzipBytes }
+    const assets = Arr.length(
+      Arr.filter(kinds, ({ entry, kind }) =>
+        Bool.and(
+          Str.startsWith("dist/")(entry),
+          Option.exists(kind, (type) => Equal.equals(type, "File"))
+        ))
+    )
+    return { root, assets, workerBytes: Option.getOrThrow(BigInt.toNumber(worker.size)), homepageScriptGzipBytes }
   })

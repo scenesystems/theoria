@@ -1,5 +1,5 @@
 import { describe, expect, it } from "@effect/vitest"
-import { Array as Arr, Effect, Either } from "effect"
+import { Array as Arr, Boolean as Bool, Effect, Either, Function as Fn } from "effect"
 
 import { DocsApiExportPageJson, DocsApiModuleIndexJson, DocsManifestJson } from "@theoria/docs-model"
 import * as Schema from "effect/Schema"
@@ -30,7 +30,10 @@ describe("documentation browser boundary", () => {
         const client = yield* DocsClient
         const result = yield* Effect.either(client.manifest())
         expect(Either.isLeft(result)).toBe(true)
-        if (Either.isLeft(result)) expect(result.left._tag).toBe("DocsDataError")
+        Either.match(result, {
+          onLeft: (error) => expect(error._tag).toBe("DocsDataError"),
+          onRight: Fn.constVoid
+        })
       })
     ))
 
@@ -48,7 +51,11 @@ describe("documentation browser boundary", () => {
       expect(moduleIndex.exports[0]?.name).toBe("runStudy")
       expect(focusedExport.export.facets[0]?.signatures[0]?.code).toContain("runStudy<A>")
     }).pipe(
-      Effect.provide(staticDocsClient((path) => path.includes("api-runStudy") ? exportJson : moduleJson))
+      Effect.provide(
+        staticDocsClient((path) =>
+          Bool.match(path.includes("api-runStudy"), { onTrue: () => exportJson, onFalse: () => moduleJson })
+        )
+      )
     )
   })
 })

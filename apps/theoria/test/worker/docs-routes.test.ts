@@ -1,6 +1,6 @@
 // @vitest-environment node
 import { expect, layer } from "@effect/vitest"
-import { Effect, Layer } from "effect"
+import { Boolean as Bool, Effect, Layer } from "effect"
 import * as Arr from "effect/Array"
 import * as Str from "effect/String"
 
@@ -23,11 +23,16 @@ layer(Layer.merge(SiteLive, BrowserLive), { excludeTestServices: true, timeout: 
           Effect.gen(function*() {
             const link = sidebar.locator(`a[href="${path}"]`)
             const shown = yield* act(() => link.isVisible())
-            yield* shown
-              ? Effect.void
-              : click(sidebar.getByRole("button", {
-                name: path.includes("/api") ? "Toggle api navigation" : "Toggle guides navigation"
-              }))
+            yield* Effect.if(shown, {
+              onFalse: () =>
+                click(sidebar.getByRole("button", {
+                  name: Bool.match(Str.includes("/api")(path), {
+                    onFalse: () => "Toggle guides navigation",
+                    onTrue: () => "Toggle api navigation"
+                  })
+                })),
+              onTrue: () => Effect.void
+            })
             yield* click(link)
             yield* urlMatches(page, new RegExp(`${escapeForRegExp(path)}$`, "u"))
             yield* visible(page.locator("main h1"))

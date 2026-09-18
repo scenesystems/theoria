@@ -25,6 +25,10 @@
       "name": "linalg.vector-parity"
     },
     {
+      "file": "numeric/elementary-parity.json",
+      "name": "numeric.elementary-parity"
+    },
+    {
       "file": "numeric/logspace-parity.json",
       "name": "numeric.logspace-parity"
     },

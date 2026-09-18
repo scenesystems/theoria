@@ -1,110 +1,57 @@
 /**
- * Strict content hashing and RFC 8785 canonicalization for Effect programs.
+ * Effect-native content identity, canonical JSON, strict Unicode, hashing,
+ * message authentication, and key derivation. Each concern is also available
+ * through its matching package subpath. Private kernels are not public APIs.
  *
- * @remarks
- * Hashing functions accept bytes; text helpers reject unpaired UTF-16
- * surrogates rather than replacing them. Structured-value helpers admit only
- * the package's documented plain-data domain and report closed errors through
- * the Effect error channel.
- *
- * @see {@link blake3Hash}
- * @see {@link sha256}
- * @see {@link canonicalize}
- * @see {@link toBase64Url}
- * @see {@link durableFingerprint}
- * @see {@link Digest256}
- * @see {@link ContentDigest}
- *
- * @since 0.1.0
+ * @since 0.7.0
  * @module
  */
 
 /**
- * @since 0.1.0
- * @category algorithms
+ * BLAKE3 keyed authentication and context-separated derivation.
+ * @since 0.7.0
+ * @category modules
  */
-export * from "./algorithms/blake3.js"
+export * as Blake3 from "./Blake3.js"
 
 /**
- * @since 0.1.0
- * @category algorithms
+ * RFC 8785 canonical JSON admission and encoding.
+ * @since 0.7.0
+ * @category modules
  */
-export * from "./algorithms/sha256.js"
+export * as CanonicalJson from "./CanonicalJson.js"
 
 /**
- * @since 0.1.0
- * @category canonicalization
+ * Algorithm-tagged content identities and Schema-defined preimages.
+ * @since 0.7.0
+ * @category modules
  */
-export * from "./canonicalize.js"
+export * as ContentDigest from "./ContentDigest.js"
 
 /**
- * @since 0.1.0
- * @category encoding
+ * Raw byte, strict text, and streaming cryptographic hashes.
+ * @since 0.7.0
+ * @category modules
  */
-export * from "./encoding.js"
+export * as Digest from "./Digest.js"
 
 /**
- * @since 0.1.0
- * @category digest
+ * RFC 5869 extract-and-expand key derivation.
+ * @since 0.7.0
+ * @category modules
  */
-export * from "./digest.js"
+export * as Hkdf from "./Hkdf.js"
 
 /**
- * @since 0.1.0
- * @category digest
+ * RFC 2104 message authentication codes.
+ * @since 0.7.0
+ * @category modules
  */
-export * from "./convenience.js"
+export * as Hmac from "./Hmac.js"
 
 /**
- * @since 0.1.0
- * @category digest
+ * Strict UTF-8 encoding and Unicode scalar construction.
+ * @since 0.7.0
+ * @category modules
  */
-export * from "./digestSchemaValue.js"
-
-/**
- * @since 0.2.0
- * @category digest
- */
-export * from "./streaming.js"
-
-/**
- * @since 0.1.0
- * @category authentication
- */
-export * from "./hmac.js"
-
-/**
- * @since 0.1.0
- * @category key-derivation
- */
-export * from "./kdf.js"
-
-/**
- * @since 0.1.0
- * @category schemas
- */
-export * from "./schemas/Digest256.js"
-
-/**
- * @since 0.1.0
- * @category schemas
- */
-export * from "./schemas/ContentDigest.js"
-
-/**
- * @since 0.1.0
- * @category schemas
- */
-export * from "./schemas/DigestAlgorithm.js"
-
-/**
- * @since 0.1.0
- * @category fingerprint
- */
-export * from "./schemas/durableFingerprint.js"
-
-/**
- * @since 0.1.0
- * @category errors
- */
-export * from "./schemas/errors.js"
+export * as Utf8 from "./Utf8.js"

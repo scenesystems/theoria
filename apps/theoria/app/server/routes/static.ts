@@ -40,7 +40,7 @@ export const isHtmlPath = (pathname: string): boolean =>
   )
 
 /** A versioned docs-data file: everything under a revision directory is immutable. */
-const isVersionedDocsData = (pathname: string): boolean => /^\/docs-data\/[A-Za-z0-9._-]+\//u.test(pathname)
+const isVersionedDocsData = Schema.is(Schema.String.pipe(Schema.pattern(/^\/docs-data\/[A-Za-z0-9._-]+\//u)))
 
 export const cacheControlForPath = (pathname: string): string =>
   Match.value(pathname).pipe(

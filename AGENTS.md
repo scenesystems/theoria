@@ -8,18 +8,19 @@ alwaysApply: true
 
 Effect-native scientific computing monorepo.
 
-| Package              | Directory                    | npm                              | Deps                                                      |
-| -------------------- | ---------------------------- | -------------------------------- | --------------------------------------------------------- |
-| effect-search        | `packages/effect-search/`    | `@scenesystems/effect-search`    | effect, @scenesystems/digest                              |
-| effect-dsp           | `packages/effect-dsp/`       | `@scenesystems/effect-dsp`       | @scenesystems/effect-search, @effect/ai (peer)            |
-| effect-text          | `packages/effect-text/`      | `@scenesystems/effect-text`      | effect, @scenesystems/effect-search                       |
-| effect-math          | `packages/effect-math/`      | `@scenesystems/effect-math`      | effect                                                    |
-| effect-inference     | `packages/effect-inference/` | `@scenesystems/effect-inference` | @effect/ai, effect                                        |
-| @scenesystems/digest | `packages/digest/`           | `@scenesystems/digest`           | @noble/hashes, effect                                     |
-| @scenesystems/seal   | `packages/seal/`             | `@scenesystems/seal`             | @noble/ciphers, effect                                    |
-| @scenesystems/sign   | `packages/sign/`             | `@scenesystems/sign`             | @noble/curves, @noble/hashes, @noble/post-quantum, effect |
+| Package              | Directory                    | npm                              | Deps                                                                                |
+| -------------------- | ---------------------------- | -------------------------------- | ----------------------------------------------------------------------------------- |
+| effect-study         | `packages/effect-study/`     | `@scenesystems/effect-study`     | effect, @effect/platform, @scenesystems/digest                                      |
+| effect-search        | `packages/effect-search/`    | `@scenesystems/effect-search`    | effect, @scenesystems/effect-study, @scenesystems/effect-math, @scenesystems/digest |
+| effect-dsp           | `packages/effect-dsp/`       | `@scenesystems/effect-dsp`       | @scenesystems/effect-search, @scenesystems/effect-study, @effect/ai (peer)          |
+| effect-text          | `packages/effect-text/`      | `@scenesystems/effect-text`      | effect, @scenesystems/effect-search, @scenesystems/effect-study                     |
+| effect-math          | `packages/effect-math/`      | `@scenesystems/effect-math`      | effect                                                                              |
+| effect-inference     | `packages/effect-inference/` | `@scenesystems/effect-inference` | @effect/ai, effect                                                                  |
+| @scenesystems/digest | `packages/digest/`           | `@scenesystems/digest`           | @noble/hashes, effect                                                               |
+| @scenesystems/seal   | `packages/seal/`             | `@scenesystems/seal`             | @noble/ciphers, effect                                                              |
+| @scenesystems/sign   | `packages/sign/`             | `@scenesystems/sign`             | @noble/curves, @noble/hashes, @noble/post-quantum, @scenesystems/digest, effect     |
 
-The cryptographic authority packages `@scenesystems/digest`, `@scenesystems/seal`, and `@scenesystems/sign` have a single entrypoint (`.`). The scoped effect packages retain their governed public subpaths. Effect is a required peer dependency. Schema is the single source of truth for all types. Published under `@scenesystems/` scope for cross-ecosystem use. Built on the [Noble](https://paulmillr.com/noble/) audited cryptographic ecosystem (6 audits by Cure53 and Trail of Bits).
+Each library chooses entrypoints according to its public concerns; there is no repository-wide single-entrypoint exemption or requirement. Effect is a required peer dependency. Use Schema as the source of truth for encodable data, while abstract generic, callback, Layer, and service relationships may use Effect-native TypeScript types and `Data.Class`. Packages are published under the `@scenesystems/` scope for cross-ecosystem use. Cryptographic implementations build on the [Noble](https://paulmillr.com/noble/) ecosystem; dependency audits do not cover Theoria's compositions.
 
 ---
 
@@ -71,64 +72,78 @@ See `.vendor/AGENTS.md` for the full package→directory map.
 
 ## Effect-Native Code Only
 
-Every TypeScript file in the repository must be idiomatic Effect — packages, apps, tests, benchmarks, and tooling alike. Only framework configuration files (`*.config.{ts,tsx,mts,cts}`) are exempt. Use `it.effect()` in tests.
+Every TypeScript file in the repository must consume native Effect public APIs — packages, apps, tests, benchmarks, and tooling alike, including pure computations and callbacks. Framework-required configuration syntax is permitted, but configuration logic is not exempt. Use `it.effect()` in tests. Lint coverage is not an authorization boundary: an unavailable native operation requires research and explicit user approval, not an agent-created adapter exception.
 
 Enforcement is split by tool, each owning one concern, all wired into `bun run lint`:
 
-- `eslint/` (entry `eslint.config.mjs`) owns the Effect discipline only: `no-restricted-syntax` AST selectors parsed with `@babel/eslint-parser`, one rule set (core, type modeling, Option discipline) applied to every TypeScript file. There are no per-directory scopes or weaker tiers; the only files outside the rules are framework configuration (`**/*.config.*`) and built assets (`apps/*/public/**`). Inline configuration is disabled (`noInlineConfig`), so no file may carry a lint or type-checker suppression comment.
+- `eslint/` (entry `eslint.config.mjs`) owns the Effect discipline only: `no-restricted-syntax` AST selectors parsed with `@babel/eslint-parser`, one rule set (core, type modeling, Option discipline) applied to every TypeScript file. There are no per-directory scopes or weaker tiers. The repository's five synchronous framework configuration entry points follow the same rules, with only `Effect.runSync` permitted to materialize the framework-owned value at that host boundary; built assets (`apps/*/public/**`) remain outside authored-source linting. Inline configuration is disabled (`noInlineConfig`), so no file may carry a lint or type-checker suppression comment.
 - `.oxlintrc.json` owns every generic JavaScript and TypeScript rule: correctness, `no-unused-vars`, `no-explicit-any`, import hygiene, the Node builtin ban (`import/no-nodejs-modules`), and the `@ts-*` directive ban. It has no path overrides. Warnings fail the run (`denyWarnings`). Two rules are intentionally off: `require-yield` (an `Effect.gen` body without `yield*` is a legitimate idiom) and `typescript/prefer-as-const` (conflicts with the `as` ban). The two linters do not overlap.
 - `.dprint.json` owns formatting.
 - `@effect/tsgo` adds Effect diagnostics inside `tsc`.
 
 - Never import Node builtins (`node:*`, `fs`, `path`, `url`, `crypto`) from TypeScript. Use `@effect/platform`, Bun platform services, or package-owned abstractions instead.
 - Tests must exercise behavior, numerical parity, protocol conformance, lifecycle, interruption, typed failures, persistence, or a real integration boundary. Do not test source structure, file inventories, export-map shape, package metadata, generated distribution layout, or checked-in release snapshots.
+- Documentation syntax dependencies are explicitly authorized: unified/Remark parses Markdown, `remark-math` recognizes LaTeX expressions, and KaTeX typesets them. This permission covers those syntax operations only; surrounding models, transformations, failure handling, and tests remain Effect-native. Render mathematical expressions as accessible MathML with untrusted commands disabled; do not weaken the site's content security policy to accommodate inline styles.
+- Binary64 intrinsics unavailable in Effect Number are explicitly authorized at their existing numeric owners when no better dependency-free implementation is clear. See `packages/effect-math/AGENTS.md` for the exact bindings; lint permits those bindings only. All consumers use `Numeric`, and all other Effect-native rules remain in force.
 
-| Banned                                                            | Use Instead                                                                                                                                                              |
-| ----------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| `async/await`                                                     | `Effect.gen` with `yield*`                                                                                                                                               |
-| `throw`, `try/catch`                                              | `Data.TaggedError`, `Schema.TaggedError`                                                                                                                                 |
-| `new Error()`                                                     | `Data.TaggedError` or `Schema.TaggedError`                                                                                                                               |
-| `console.*`                                                       | `Effect.log`, `Effect.logError`, `Effect.logWarning`                                                                                                                     |
-| `let`                                                             | `const`. Mutable state: `Ref`                                                                                                                                            |
-| `for`, `while`, `do...while`                                      | `Arr.map`, `Effect.forEach`, `Effect.iterate`                                                                                                                            |
-| `switch`                                                          | `Match` from effect                                                                                                                                                      |
-| `new Map()` / `new Set()`                                         | `HashMap` / `HashSet` from effect                                                                                                                                        |
-| `Date.now()`, `Math.random()`                                     | `Clock.currentTimeMillis`, `Random` from effect                                                                                                                          |
-| `as` assertions, `satisfies`                                      | `Schema.decodeUnknown`, `Schema.is`                                                                                                                                      |
-| `JSON.parse/stringify`                                            | `Schema.decode` / `Schema.encode`                                                                                                                                        |
-| `Object.keys/entries/values`                                      | `Record` module from effect                                                                                                                                              |
-| `Array.push`                                                      | `Arr.append` / `Arr.appendAll`                                                                                                                                           |
-| `Promise.*`, `.then()`, `.catch()`                                | `Effect.all`, `Effect.map`, `Effect.catchAll`                                                                                                                            |
-| `Effect.runPromise/runSync`                                       | `Runtime.runMain` at entry points only                                                                                                                                   |
-| TypeScript `interface`                                            | `Schema.Class`, `Data.TaggedClass`                                                                                                                                       |
-| `Partial<>`, `Pick<>`, `Omit<>`                                   | `Schema.partial`, `Schema.pick`, `Schema.omit`                                                                                                                           |
-| `Readonly<{…}>`, `type X = {…}`, `type X = A & {…}`               | `Schema.Struct` for data; `Data.Class<{…}>` for records that carry functions, Effects, Layers or generics                                                                |
-| `\| null`, `\| undefined`, `=== null`, `typeof x === "undefined"` | `Option<A>`; `Schema.OptionFromNullOr` where JSON carries `null`                                                                                                         |
-| `Option.getOrUndefined/getOrNull`, `onNone: () => undefined`      | Keep the `Option`; spread `Option.match(o, { onNone: () => ({}), onSome: (v) => ({ field: v }) })` into third-party optional fields                                      |
-| `globalThis`, `localStorage`, `Bun.*`, `crypto.*`                 | A service: `@effect/platform-browser` (`BrowserKeyValueStore`, `Clipboard`), `@effect/platform-bun`, `@scenesystems/digest`, `generateEntropy` from `@scenesystems/sign` |
-| `new URL()`, `fetch()`                                            | `Url.fromString`, `HttpClient` from `@effect/platform`                                                                                                                   |
-| `setTimeout/setInterval`, `requestAnimationFrame`, `performance`  | `Effect.sleep`, `Schedule`, `Clock.currentTimeNanos`; the app's `AnimationFrame` service or Motion's `frame`                                                             |
-| `process.*` (every property, including `memoryUsage`, `versions`) | `Config`, `Console`, `Path` + `import.meta.url`, `Clock`, `BunRuntime.runMain` (exit code 1 on failure); what Effect cannot observe is not reported                      |
+| Banned                                                            | Use Instead                                                                                                                                                                                                                            |
+| ----------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `async/await`                                                     | `Effect.gen` with `yield*`                                                                                                                                                                                                             |
+| `throw`, `try/catch`                                              | `Data.TaggedError` when no codec is needed; `Schema.TaggedError` at encoded boundaries                                                                                                                                                 |
+| `new Error()`                                                     | `Data.TaggedError` when no codec is needed; `Schema.TaggedError` at encoded boundaries                                                                                                                                                 |
+| `console.*`                                                       | `Effect.log`, `Effect.logError`, `Effect.logWarning`                                                                                                                                                                                   |
+| `let`                                                             | `const`. Mutable state: `Ref`                                                                                                                                                                                                          |
+| `for`, `while`, `do...while`                                      | `Array.map`, `Effect.forEach`, `Effect.iterate`                                                                                                                                                                                        |
+| `switch`                                                          | `Match` from effect                                                                                                                                                                                                                    |
+| `new Map()` / `new Set()`                                         | `HashMap` / `HashSet` from effect                                                                                                                                                                                                      |
+| `Date.now()`, `Math.random()`                                     | `Clock.currentTimeMillis`, `Random` from effect                                                                                                                                                                                        |
+| `as` assertions, `satisfies`                                      | `Schema.decodeUnknown`, `Schema.is`                                                                                                                                                                                                    |
+| `JSON.parse/stringify`                                            | `Schema.decode` / `Schema.encode`                                                                                                                                                                                                      |
+| `Object.keys/entries/values`                                      | `Record` module from effect                                                                                                                                                                                                            |
+| `Array.push`                                                      | `Array.append` / `Array.appendAll`                                                                                                                                                                                                     |
+| `Promise.*`, `.then()`, `.catch()`                                | `Effect.all`, `Effect.map`, `Effect.catchAll`                                                                                                                                                                                          |
+| `Effect.runPromise/runSync`                                       | `Runtime.runMain` at entry points only                                                                                                                                                                                                 |
+| Handwritten interface models                                      | `Schema.Class` for encodable data; `Data.Class` / `Data.TaggedClass` for non-encoded relationships; empty interfaces extending only `Schema.Schema.Type<typeof schema>` / `Schema.Schema.Encoded<typeof schema>` for recursive schemas |
+| `Partial<>`, `Pick<>`, `Omit<>`                                   | `Schema.partial`, `Schema.pick`, `Schema.omit`                                                                                                                                                                                         |
+| `Readonly<{…}>`, `type X = {…}`, `type X = A & {…}`               | `Schema.Struct` for data; `Data.Class<{…}>` for records that carry functions, Effects, Layers or generics                                                                                                                              |
+| `\| null`, `\| undefined`, `=== null`, `typeof x === "undefined"` | `Option<A>`; `Schema.OptionFromNullOr` where JSON carries `null`                                                                                                                                                                       |
+| `Option.getOrUndefined/getOrNull`, `onNone: () => undefined`      | Keep the `Option`; spread `Option.match(o, { onNone: () => ({}), onSome: (v) => ({ field: v }) })` into third-party optional fields                                                                                                    |
+| `globalThis`, `localStorage`, `Bun.*`, `crypto.*`                 | A service: `@effect/platform-browser` (`BrowserKeyValueStore`, `Clipboard`), `@effect/platform-bun`, `@scenesystems/digest`, `Entropy.bytes` with `Entropy.layer` from `@scenesystems/sign`                                            |
+| `new URL()`, `fetch()`                                            | `Url.fromString`, `HttpClient` from `@effect/platform`                                                                                                                                                                                 |
+| `setTimeout/setInterval`, `requestAnimationFrame`, `performance`  | `Effect.sleep`, `Schedule`, `Clock.currentTimeNanos`; the app's `AnimationFrame` service or Motion's `frame`                                                                                                                           |
+| `process.*` (every property, including `memoryUsage`, `versions`) | `Config`, `Console`, `Path` + `import.meta.url`, `Clock`, `BunRuntime.runMain` (exit code 1 on failure); what Effect cannot observe is not reported                                                                                    |
 
 ---
 
 ## Conventions
 
-- **Naming**: PascalCase modules, camelCase functions, UPPER_SNAKE constants. Match Effect ecosystem.
+- **Naming**: PascalCase public modules and types, camelCase private modules, functions, and ordinary values, and conventional mathematical or protocol spelling where semantics call for it. Constant casing follows semantic role rather than a blanket UPPER_SNAKE rule. Match the Effect ecosystem.
 - **Single source of truth**: One canonical definition per type, error, constant. Never duplicate.
-- **One concern per file**: `internal/` for implementation, public modules for API surface.
+- **Representations**: Schema owns validated/encoded data. Data owns structural values without a codec, including `Data.TaggedEnum` for closed variants. Services and generic type relationships do not require serialization schemas.
+- **One concern per file**: Flat public concern modules are the baseline. Use `internal/` for implementation details; no concern must adopt a `contract/model/schema/errors/operations/index` template.
 - **Tests assert behaviour**: Property-based for invariants, golden fixtures for numerical correctness. No smoke tests, and no tests that pin structure (export inventories, literal class strings, `_tag` lists, self-equality) rather than behaviour.
-- **API documentation**: Every public export carries a summary, `@since`, `@category`, and examples where non-obvious. Every entrypoint `index.ts` (and every source file that becomes a docs page) opens with a `/** … @since … @module */` header; `bun run docs:api` fails without it.
+- **API documentation**: Every public export carries a summary, `@since`, `@category`, and examples where non-obvious. Every public source file that becomes a docs page opens with a `/** … @since … @module */` header; `bun run docs:api` fails without it.
+
+### Integrated package conventions
+
+`digest`, `effect-math`, `sign`, `seal`, `effect-study`, `effect-search`, `effect-inference`, `effect-dsp`, and `effect-text` share these conventions:
+
+- A public `src/Concern.ts` owns the root `Concern` namespace and exact `./Concern` export. Private source paths are camelCase under `src/internal/`. Tests use `test/Concern.test.ts` or `test/Concern/behavior.test.ts`; supporting fixtures are not public concerns.
+- Schema identifiers, brands, Context keys, and registered symbols use `@scenesystems/<package>/<Concern>[/<Member>]`. A concern's principal model or service uses the concern path; other declarations include their member name. Private identities include their private path. Serialized `_tag` and algorithm strings are separate protocol contracts: do not rename them to normalize identifiers.
+- Choose Schema for validated/encoded models and failures, Data for structural values and failures without codecs, and Context for capabilities. A common naming convention does not require every package to use the same representation or error channel.
+- Docstrings explain purpose, representations, failures, and service requirements where relevant. Use semantic categories such as `models`, `schemas`, `errors`, `services`, and `constructors`, with domain-specific categories for operations. Keep each declaration's truthful package-specific `@since`; integration does not reset it.
+- Published library-to-library workspace dependencies use `workspace:^`; root/private tooling may use `workspace:*`. Keep the common check, lint, test, and build script names; add concern-specific fixture/packed checks where needed. These packages use the root Vitest 4 project configuration; workerd tests keep their dedicated runner. Preserve the root Vite 8.2.2 override and regenerate the lockfile from combined manifests without incidental dependency upgrades. Build from clean outputs after module moves or casing changes before checking packed consumers.
 
 ---
 
 ## Governance
 
-- `internal/*` is unreachable from consumers: each `package.json` `exports` map omits it, so the type checker and the runtime resolver both reject deep imports.
-- Reusable cross-module abstractions live in `src/contracts/`. `internal/*` is private.
+- Package export maps keep `internal/*` unreachable to package consumers. They do not prohibit implementation modules inside the same package from using relative imports to their own internals.
+- Every shared abstraction has a semantic owner and lives with that concern. Do not create an ownerless `shared` or `contracts` home by default.
+- `effect-study` owns generic evaluation, lifecycle, trial history, event factories, and schema-parameterized persistence and artifact delivery. `effect-search` owns optimization strategies, objective values, samplers, pruning, and their event/snapshot codecs; it composes study capabilities rather than re-exporting them under compatibility aliases.
 - Adding algorithms must not require modifying unrelated internals.
-- Non-cryptographic randomness (sampling, search, fixtures) goes through Effect `Random` with seeded generators so runs replay. Key material, nonces and signing entropy come from the platform CSPRNG through `generateEntropy` in `@scenesystems/sign`; `Random` is never a source of secrets.
-- Cryptographic authority packages (`digest`, `seal`, `sign`): single entrypoint (`.`), Effect required, Schema is sole type source. Scoped effect packages retain their governed public subpaths.
+- Non-cryptographic randomness (sampling, search, fixtures) goes through Effect `Random` with seeded generators so runs replay. Key material and signing entropy use `Entropy.Entropy` from `@scenesystems/sign`; encryption nonces belong to `Cipher.Cipher` from `@scenesystems/seal`. Provide their separate `Entropy.layer` and `Cipher.layer` capabilities at host boundaries; `Random` is never a source of secrets. Noble's internal scalar blinding remains intact.
+- Public entrypoints are chosen per library from current consumer concerns rather than inherited package history. Effect remains required; use Schema for values that cross encoded boundaries and Effect-native types for abstract service and generic relationships.
 
 ---
 
@@ -136,6 +151,7 @@ Enforcement is split by tool, each owning one concern, all wired into `bun run l
 
 | Directory                 | Purpose                                                                     |
 | ------------------------- | --------------------------------------------------------------------------- |
+| `packages/effect-study/`  | Reusable evaluation, trial history, stopping, event streams, and artifacts  |
 | `packages/effect-search/` | Bayesian optimization — TPE, MOTPE, HyperBand/BOHB, c-TPE                   |
 | `packages/effect-dsp/`    | Declarative signal programming — DSPy paradigm for Effect                   |
 | `packages/effect-text/`   | Text preparation, measurement seams, greedy multiline layout                |
@@ -167,7 +183,7 @@ Publishing happens only in `Publish Packages` (`.github/workflows/publish.yml`) 
 
 **Types:** `feat`, `fix`, `docs`, `test`, `chore`, `refactor`
 
-**Scopes:** `effect-search`, `effect-dsp`, `effect-text`, `effect-math`, `digest`, `seal`, `sign`, `root`
+**Scopes:** `effect-study`, `effect-search`, `effect-dsp`, `effect-text`, `effect-math`, `digest`, `seal`, `sign`, `root`
 
 ```bash
 git commit -m "feat(effect-search): add TPE categorical sampler"

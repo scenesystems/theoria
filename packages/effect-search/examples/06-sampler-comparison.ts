@@ -5,10 +5,10 @@
  * Run: bun run examples/06-sampler-comparison.ts
  */
 import { BunRuntime } from "@effect/platform-bun"
-import { Effect, Match } from "effect"
+import { Array as Arr, Boolean as Bool, Effect, Match, Number as Num, Tuple } from "effect"
 
 import * as Numeric from "@scenesystems/effect-math/Numeric"
-import { Sampler, SearchSpace, Study } from "@scenesystems/effect-search"
+import { Optimization, Sampler, SearchSpace } from "@scenesystems/effect-search"
 
 const simulatedLoss = (
   learningRate: number,
@@ -16,15 +16,21 @@ const simulatedLoss = (
   hiddenSize: number,
   activation: "relu" | "gelu" | "silu"
 ): number => {
-  const lrPenalty = Numeric.pow(Numeric.log10(learningRate) - Numeric.log10(0.003), 2)
-  const dropoutPenalty = Numeric.pow(dropout - 0.1, 2)
-  const sizePenalty = Numeric.pow((hiddenSize - 256) / 256, 2)
+  const lrPenalty = Numeric.pow(Num.subtract(Numeric.log10(learningRate), Numeric.log10(0.003)), 2)
+  const dropoutPenalty = Numeric.pow(Num.subtract(dropout, 0.1), 2)
+  const sizePenalty = Numeric.pow(Num.unsafeDivide(Num.subtract(hiddenSize, 256), 256), 2)
   const activationBonus = Match.value(activation).pipe(
     Match.when("gelu", () => -0.1),
     Match.when("silu", () => -0.05),
     Match.orElse(() => 0)
   )
-  return 0.5 + lrPenalty * 0.3 + dropoutPenalty * 0.5 + sizePenalty * 0.2 + activationBonus
+  return Num.sumAll(Arr.make(
+    0.5,
+    Num.multiply(lrPenalty, 0.3),
+    Num.multiply(dropoutPenalty, 0.5),
+    Num.multiply(sizePenalty, 0.2),
+    activationBonus
+  ))
 }
 
 const trialCount = 40
@@ -34,11 +40,15 @@ const program = Effect.gen(function*() {
     learningRate: SearchSpace.float(1e-5, 1e-1, { scale: "log" }),
     dropout: SearchSpace.float(0.0, 0.5),
     hiddenSize: SearchSpace.int(32, 512, { step: 32 }),
-    activation: SearchSpace.categorical(["relu", "gelu", "silu"])
+    activation: SearchSpace.categorical(Tuple.make<[
+      "relu",
+      "gelu",
+      "silu"
+    ]>("relu", "gelu", "silu"))
   })
 
-  const runStudy = (name: string, sampler: Sampler.Sampler) =>
-    Study.minimize({
+  const runOptimization = (name: string, sampler: Sampler.Sampler) =>
+    Optimization.minimize({
       space,
       sampler,
       objective: (config) =>
@@ -59,14 +69,16 @@ const program = Effect.gen(function*() {
     dropout: SearchSpace.float(0.0, 0.5)
   })
 
-  const runContinuousStudy = (name: string, sampler: Sampler.Sampler) =>
-    Study.minimize({
+  const runContinuousOptimization = (name: string, sampler: Sampler.Sampler) =>
+    Optimization.minimize({
       space: continuousSpace,
       sampler,
       objective: (config) =>
         Effect.succeed(
-          Numeric.pow(Numeric.log10(config.learningRate) - Numeric.log10(0.003), 2)
-            + Numeric.pow(config.dropout - 0.1, 2)
+          Num.sum(
+            Numeric.pow(Num.subtract(Numeric.log10(config.learningRate), Numeric.log10(0.003)), 2),
+            Numeric.pow(Num.subtract(config.dropout, 0.1), 2)
+          )
         ),
       trials: trialCount
     }).pipe(
@@ -81,22 +93,29 @@ const program = Effect.gen(function*() {
 
   yield* Effect.log("Comparing samplers", { trials: trialCount })
 
-  const randomResult = yield* runStudy("Random", Sampler.random({ seed: 42 }))
-  const tpeResult = yield* runStudy("TPE", Sampler.tpe({ seed: 42, nStartupTrials: 10 }))
+  const randomResult = yield* runOptimization("Random", Sampler.random({ seed: 42 }))
+  const tpeResult = yield* runOptimization("TPE", Sampler.tpe({ seed: 42, nStartupTrials: 10 }))
 
-  const improvement = ((randomResult.bestValue - tpeResult.bestValue) / randomResult.bestValue) * 100
+  const improvement = Num.multiply(
+    Num.unsafeDivide(Num.subtract(randomResult.bestValue, tpeResult.bestValue), randomResult.bestValue),
+    100
+  )
 
   yield* Effect.log("Comparison results", {
-    randomBestLoss: randomResult.bestValue.toFixed(6),
-    tpeBestLoss: tpeResult.bestValue.toFixed(6),
-    tpeImprovement: improvement > 0
-      ? improvement.toFixed(1) + "%"
-      : "Random outperformed (TPE needs more trials)"
+    randomBestLoss: Numeric.round(randomResult.bestValue, 6),
+    tpeBestLoss: Numeric.round(tpeResult.bestValue, 6),
+    tpeImprovement: Bool.match(Num.greaterThan(improvement, 0), {
+      onFalse: () => "Random outperformed (TPE needs more trials)",
+      onTrue: () => `${Numeric.round(improvement, 1)}%`
+    })
   })
 
-  const continuousRandom = yield* runContinuousStudy("Random (continuous)", Sampler.random({ seed: 42 }))
-  const cmaResult = yield* runContinuousStudy("CMA-ES", Sampler.cmaEs({ seed: 42, sigma: 0.45, populationSize: 10 }))
-  const gpResult = yield* runContinuousStudy(
+  const continuousRandom = yield* runContinuousOptimization("Random (continuous)", Sampler.random({ seed: 42 }))
+  const cmaResult = yield* runContinuousOptimization(
+    "CMA-ES",
+    Sampler.cmaEs({ seed: 42, sigma: 0.45, populationSize: 10 })
+  )
+  const gpResult = yield* runContinuousOptimization(
     "GP-BO",
     Sampler.gpBo({
       seed: 42,
@@ -107,9 +126,9 @@ const program = Effect.gen(function*() {
   )
 
   yield* Effect.log("Continuous comparison results", {
-    randomBestLoss: continuousRandom.bestValue.toFixed(6),
-    cmaEsBestLoss: cmaResult.bestValue.toFixed(6),
-    gpBoBestLoss: gpResult.bestValue.toFixed(6)
+    randomBestLoss: Numeric.round(continuousRandom.bestValue, 6),
+    cmaEsBestLoss: Numeric.round(cmaResult.bestValue, 6),
+    gpBoBestLoss: Numeric.round(gpResult.bestValue, 6)
   })
 })
 

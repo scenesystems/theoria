@@ -3,7 +3,7 @@
  */
 import { describe, expect, it } from "@effect/vitest"
 import * as Signature from "@scenesystems/effect-dsp/Signature"
-import { Effect, Option, Schema } from "effect"
+import { Effect, Option, Schema, String as Str } from "effect"
 
 describe("Signature", () => {
   describe("make", () => {
@@ -41,7 +41,7 @@ describe("Signature", () => {
           { question: Signature.describe(Schema.String, "The question to answer") },
           { answer: Signature.describe(Schema.String, "A concise answer") }
         )
-        const questionField = sig.fields.find((f) => f.name === "question")
+        const questionField = sig.fields.find((f) => Str.Equivalence(f.name, "question"))
         const description = Option.flatMap(Option.fromNullable(questionField), (field) => field.description)
 
         expect(description).toEqual(Option.some("The question to answer"))

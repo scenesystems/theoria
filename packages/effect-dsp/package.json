@@ -29,20 +29,31 @@
   },
   "exports": {
     ".": "./src/index.ts",
-    "./Signature": "./src/Signature/index.ts",
-    "./Module": "./src/Module/index.ts",
-    "./Optimizer": "./src/Optimizer/index.ts",
-    "./Metric": "./src/Metric/index.ts",
-    "./Evaluate": "./src/Evaluate/index.ts",
-    "./Example": "./src/Example/index.ts",
-    "./Trace": "./src/Trace/index.ts",
-    "./Errors": "./src/Errors/index.ts",
-    "./Cache": "./src/Cache/index.ts",
-    "./contracts": "./src/contracts/index.ts",
-    "./test": "./src/testing/index.ts",
-    "./experimental": "./src/experimental/index.ts",
-    "./internal/*": null,
-    "./optimizers/*": null
+    "./Signature": "./src/Signature.ts",
+    "./Module": "./src/Module.ts",
+    "./ModuleParameters": "./src/ModuleParameters.ts",
+    "./ModuleGraph": "./src/ModuleGraph.ts",
+    "./Demonstration": "./src/Demonstration.ts",
+    "./Example": "./src/Example.ts",
+    "./Metric": "./src/Metric.ts",
+    "./Evaluate": "./src/Evaluate.ts",
+    "./EvaluationObjective": "./src/EvaluationObjective.ts",
+    "./Artifact": "./src/Artifact.ts",
+    "./Trace": "./src/Trace.ts",
+    "./Cache": "./src/Cache.ts",
+    "./Payload": "./src/Payload.ts",
+    "./DspError": "./src/DspError.ts",
+    "./OptimizerEvent": "./src/OptimizerEvent.ts",
+    "./LabeledFewShot": "./src/LabeledFewShot.ts",
+    "./BootstrapFewShot": "./src/BootstrapFewShot.ts",
+    "./BootstrapRS": "./src/BootstrapRS.ts",
+    "./MIPROv2": "./src/MIPROv2.ts",
+    "./MIPROv2Candidates": "./src/MIPROv2Candidates.ts",
+    "./MIPROv2Search": "./src/MIPROv2Search.ts",
+    "./GEPA": "./src/GEPA.ts",
+    "./Ensemble": "./src/Ensemble.ts",
+    "./MockLanguageModel": "./src/MockLanguageModel.ts",
+    "./internal/*": null
   },
   "scripts": {
     "check": "tsc -b tsconfig.src.json",
@@ -60,7 +71,8 @@
   "dependencies": {
     "@scenesystems/digest": "workspace:^",
     "@scenesystems/effect-math": "workspace:^",
-    "@scenesystems/effect-search": "workspace:^"
+    "@scenesystems/effect-search": "workspace:^",
+    "@scenesystems/effect-study": "workspace:^"
   },
   "devDependencies": {
     "@scenesystems/effect-inference": "workspace:^"

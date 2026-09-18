@@ -1,4 +1,4 @@
-import { Context, Effect, Layer, Option, Schema, Stream } from "effect"
+import { Boolean, Context, Effect, Function, Layer, Option, Schema, Stream } from "effect"
 import * as Arr from "effect/Array"
 
 /**
@@ -9,7 +9,10 @@ import * as Arr from "effect/Array"
  *
  * @since 0.2.0
  */
-export class BrowserDocument extends Context.Tag("theoria/BrowserDocument")<BrowserDocument, Document>() {}
+export class BrowserDocument extends Context.Tag("@theoria/app/web/platform/BrowserDocument")<
+  BrowserDocument,
+  Document
+>() {}
 
 /** The ambient document. This is the one place the app reads the global. */
 export const layer: Layer.Layer<BrowserDocument> = Layer.sync(BrowserDocument, () => document)
@@ -69,15 +72,46 @@ export const events = <K extends keyof DocumentEventMap>(
   )
 
 /**
+ * Cancels matching keydowns during dispatch, then delivers them to the stream.
+ * The approved docs-shortcut boundary: downstream stream delivery is too late
+ * to guarantee default cancellation. Matching stays with the caller; Effect
+ * owns listener acquisition and removal when the stream is interrupted.
+ */
+export const preventedKeydowns = (
+  matches: (event: KeyboardEvent) => boolean
+): Stream.Stream<KeyboardEvent, never, BrowserDocument> =>
+  Stream.asyncPush<KeyboardEvent, never, BrowserDocument>((emit) =>
+    Effect.flatMap(BrowserDocument, (browserDocument) => {
+      const listener = (event: KeyboardEvent): void =>
+        Boolean.match(matches(event), {
+          onFalse: Function.constVoid,
+          onTrue: () => {
+            event.preventDefault()
+            emit.single(event)
+          }
+        })
+      return Effect.acquireRelease(
+        Effect.sync(() => browserDocument.addEventListener("keydown", listener, { passive: false })),
+        () => Effect.sync(() => browserDocument.removeEventListener("keydown", listener))
+      )
+    })
+  )
+
+/**
  * The document could not supply a 2D canvas: the host has no canvas support,
  * refused the context, or is headless. Text measured against this document's
  * fonts is impossible, and callers say so rather than estimate.
  *
  * @since 0.2.0
  */
-export class CanvasUnavailable extends Schema.TaggedError<CanvasUnavailable>()("CanvasUnavailable", {
-  message: Schema.String
-}) {}
+export class CanvasUnavailable
+  extends Schema.TaggedError<CanvasUnavailable>("@theoria/app/web/platform/BrowserDocument/CanvasUnavailable")(
+    "CanvasUnavailable",
+    {
+      message: Schema.String
+    }
+  )
+{}
 
 /** A 2D canvas for text measurement in this document's fonts. */
 export const canvasContext2d: Effect.Effect<CanvasRenderingContext2D, CanvasUnavailable, BrowserDocument> = Effect

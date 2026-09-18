@@ -1,5 +1,5 @@
 import { HttpServerRequest, Url } from "@effect/platform"
-import { Effect, Option } from "effect"
+import { Effect, Equal, Option } from "effect"
 
 import { siteMetadata } from "../contracts/metadata.js"
 
@@ -24,6 +24,6 @@ export const requestIsCanonical: Effect.Effect<boolean, never, HttpServerRequest
     const request = yield* HttpServerRequest.HttpServerRequest
     const host = yield* canonicalHost
     const url = yield* Effect.option(Url.fromString(request.originalUrl))
-    return Option.exists(url, (named) => named.host === host)
+    return Option.exists(url, (named) => Equal.equals(named.host, host))
   }
 )

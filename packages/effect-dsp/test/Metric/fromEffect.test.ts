@@ -3,19 +3,24 @@
  */
 import { describe, expect, it } from "@effect/vitest"
 import * as Metric from "@scenesystems/effect-dsp/Metric"
-import { Effect, Ref } from "effect"
+import { Boolean, Effect, Equal, Number, Ref, Schema } from "effect"
+
+const Output = Schema.Struct({ answer: Schema.String })
 
 describe("Metric.fromEffect", () => {
   it.effect("constructs an effectful scorer with deterministic side effects", () =>
     Effect.gen(function*() {
       const calls = yield* Ref.make(0)
 
-      const metric = Metric.fromEffect("judge", (prediction, expected) =>
+      const metric = Metric.fromEffect("judge", (prediction: typeof Output.Type, expected) =>
         Effect.gen(function*() {
-          yield* Ref.update(calls, (current) => current + 1)
+          yield* Ref.update(calls, Number.increment)
 
           return new Metric.Result({
-            score: prediction.answer === expected.answer ? 1 : 0
+            score: Boolean.match(Equal.equals(prediction.answer, expected.answer), {
+              onTrue: () => 1,
+              onFalse: () => 0
+            })
           })
         }))
 

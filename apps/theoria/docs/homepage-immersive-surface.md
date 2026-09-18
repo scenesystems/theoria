@@ -150,7 +150,7 @@ version is always visible without a badge.
 Theoria's promise is that evidence is retained. The page proves it at the
 level of the pixel: pointing at or focusing any mark asks the page how it knows.
 A disc answers with its feature, contributor and the trial that placed it; a
-narrowed line answers with the disc that narrowed it and the `layoutLinesWith`
+narrowed line answers with the disc that narrowed it and the `linesWith`
 call; a signature answers with the key and the `sign` call; the version ID
 answers with the digest and its parent. In the Build act the answer is also a
 highlighted line in the code beside the value it produced. This is one atom
@@ -638,8 +638,8 @@ import.meta.url), { type: "module" })`, which every bundler resolves
 - [x] `test/worker/home-demo.test.ts` — _every mark answers_: for each
       `[data-provenance]` in the demonstration, hover shows an overlay naming
       a package; each annotation's answer names its own title and package
-      (`Statistics.minimum(` → effect-math, `Study.tell(` → effect-search,
-      `Text.layoutLinesWith(` → effect-text); a code line lights its discs;
+      (`Statistics.minimum(` → effect-math, `Optimization.tell(` → effect-search,
+      `Text.linesWith(` → effect-text); a code line lights its discs;
       the lines answer from the keyboard. _The acts answer on the
       stage_: scrolling to Propose changes `data-place-stage-act` and shows a
       ghost. _Choosing another story changes the drawing and nothing of the

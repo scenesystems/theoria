@@ -2,16 +2,28 @@
 
 from __future__ import annotations
 
-import json
-from pathlib import Path
+import importlib.metadata
+import platform
 from typing import Any
 
 GENERATOR_VERSION = "1.0.0"
 SCHEMA_VERSION = "1.0.0"
-DEFAULT_GENERATED_AT = "2026-03-23T00:00:00Z"
 
 UPSTREAM_NAME = "scipy"
-UPSTREAM_VERSION = "1.15.2"
+UPSTREAM_VERSION = importlib.metadata.version(UPSTREAM_NAME)
+
+
+def generator_metadata(generated_at: str) -> dict[str, Any]:
+    """Attest the versions actually used by this reference process."""
+    return {
+        "script": "scripts/generate-scipy-fixtures.py",
+        "generatorVersion": GENERATOR_VERSION,
+        "upstream": UPSTREAM_NAME,
+        "upstreamVersion": UPSTREAM_VERSION,
+        "numpyVersion": importlib.metadata.version("numpy"),
+        "pythonVersion": platform.python_version(),
+        "generatedAt": generated_at,
+    }
 
 
 def metadata(generated_at: str) -> dict[str, Any]:
@@ -27,9 +39,3 @@ def metadata(generated_at: str) -> dict[str, Any]:
             "version": GENERATOR_VERSION,
         },
     }
-
-
-def write_json(path: Path, value: dict[str, Any]) -> None:
-    """Write a fixture document as pretty-printed JSON with trailing newline."""
-    rendered = json.dumps(value, indent=2, sort_keys=True)
-    path.write_text(f"{rendered}\n", encoding="utf-8")

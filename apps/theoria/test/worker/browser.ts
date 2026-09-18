@@ -3,18 +3,22 @@ import {
   type BrowserContext,
   chromium,
   expect as inBrowser,
+  type JSHandle,
   type Locator,
   type Page,
+  type Request,
   type Response,
   type Route
 } from "@playwright/test"
 import {
+  Boolean as Bool,
   Chunk,
   Context,
   Data,
   Deferred,
   Duration,
   Effect,
+  Function as Fn,
   HashMap,
   Layer,
   Match,
@@ -25,18 +29,18 @@ import {
   Runtime,
   Schedule,
   Schema,
-  type Scope
+  type Scope,
+  SynchronizedRef
 } from "effect"
 import * as Arr from "effect/Array"
+import * as Equivalence from "effect/Equivalence"
+import * as Num from "effect/Number"
+import * as Rec from "effect/Record"
+import * as Str from "effect/String"
+import * as Tuple from "effect/Tuple"
+import { build } from "vite"
 
-import {
-  colorSchemeShown,
-  distinctTextColours,
-  documentFitsViewport,
-  elementsPastViewport,
-  finiteAnimationsFinished,
-  scrollY
-} from "./platform/in-page.js"
+import * as InPage from "./platform/in-page.js"
 import { Site } from "./site.js"
 
 /**
@@ -57,7 +61,14 @@ export class BrowserError extends Data.TaggedError("test/worker/BrowserError")<{
 export const act = <A>(run: () => Promise<A>): Effect.Effect<A, BrowserError> =>
   Effect.tryPromise({
     try: run,
-    catch: (cause) => new BrowserError({ message: Predicate.isError(cause) ? cause.message : String(cause), cause })
+    catch: (cause) =>
+      new BrowserError({
+        message: Match.value(cause).pipe(
+          Match.when(Predicate.isError, (error) => error.message),
+          Match.orElse(String)
+        ),
+        cause
+      })
   })
 
 export class Browser extends Context.Tag("test/worker/Browser")<Browser, {
@@ -70,7 +81,61 @@ export class Browser extends Context.Tag("test/worker/Browser")<Browser, {
    * page can say what the page told when it reports the page's state.
    */
   readonly failures: Ref.Ref<HashMap.HashMap<Page, Queue.Queue<string>>>
+  /** The dependency-preserving browser bundle and its one namespace handle per live document. */
+  readonly probes: {
+    readonly source: string
+    readonly documents: SynchronizedRef.SynchronizedRef<HashMap.HashMap<Page, JSHandle<typeof InPage>>>
+  }
 }>() {}
+
+const probeBundle = Effect.gen(function*() {
+  const output = yield* Effect.tryPromise({
+    try: () =>
+      build({
+        configFile: false,
+        logLevel: "silent",
+        build: {
+          write: false,
+          minify: false,
+          target: "es2022",
+          lib: {
+            entry: `${import.meta.dirname}/platform/in-page.ts`,
+            formats: ["iife"],
+            name: "__theoriaInPage"
+          }
+        }
+      }),
+    catch: (cause) => new BrowserError({ message: "could not bundle browser probes", cause })
+  })
+  const chunks = Arr.flatMap(
+    Arr.ensure(output),
+    (result) =>
+      Match.value(result).pipe(
+        Match.when(Predicate.hasProperty("output"), (withOutput) =>
+          Bool.match(Arr.isArray(withOutput.output), {
+            onFalse: Arr.empty,
+            onTrue: () => withOutput.output
+          })),
+        Match.orElse(Arr.empty)
+      )
+  )
+  const isChunk = (item: unknown): item is { readonly code: string } =>
+    Match.value(item).pipe(
+      Match.when(
+        Predicate.struct({ type: Predicate.isString, code: Predicate.isString }),
+        (chunk) => Str.Equivalence(chunk.type, "chunk")
+      ),
+      Match.orElse(() => false)
+    )
+  return yield* Option.match(
+    Arr.findFirst(chunks, isChunk),
+    {
+      onNone: () =>
+        Effect.fail(new BrowserError({ message: "the browser probe bundle had no JavaScript chunk", cause: output })),
+      onSome: (chunk) => Effect.succeed(chunk.code)
+    }
+  )
+})
 
 /**
  * Chromium for the whole layer. Nothing in a test can respond to the browser
@@ -78,15 +143,158 @@ export class Browser extends Context.Tag("test/worker/Browser")<Browser, {
  */
 export const BrowserLive: Layer.Layer<Browser, BrowserError> = Layer.scoped(
   Browser,
-  Effect.all({
-    chromium: Effect.acquireRelease(
-      act(() => chromium.launch()),
-      (browser) => Effect.orDie(act(() => browser.close()))
-    ),
-    visitors: Ref.make(0),
-    failures: Ref.make(HashMap.empty<Page, Queue.Queue<string>>())
+  Effect.gen(function*() {
+    const source = yield* probeBundle
+    return {
+      chromium: yield* Effect.acquireRelease(
+        act(() => chromium.launch()),
+        (browser) => Effect.orDie(act(() => browser.close()))
+      ),
+      visitors: yield* Ref.make(0),
+      failures: yield* Ref.make(HashMap.empty<Page, Queue.Queue<string>>()),
+      probes: { source, documents: yield* SynchronizedRef.make(HashMap.empty<Page, JSHandle<typeof InPage>>()) }
+    }
   })
 )
+
+const releaseProbeNamespace = (
+  browser: Context.Tag.Service<Browser>,
+  page: Page
+): Effect.Effect<void, BrowserError> =>
+  SynchronizedRef.updateEffect(browser.probes.documents, (documents) =>
+    Option.match(HashMap.get(documents, page), {
+      onNone: () => Effect.succeed(documents),
+      onSome: (handle) => Effect.as(act(() => handle.dispose()), HashMap.remove(documents, page))
+    }))
+
+const probeNamespace = (page: Page): Effect.Effect<JSHandle<typeof InPage>, BrowserError, Browser> =>
+  Effect.flatMap(
+    Browser,
+    (browser) =>
+      SynchronizedRef.modifyEffect(browser.probes.documents, (documents) =>
+        Option.match(HashMap.get(documents, page), {
+          onNone: () =>
+            Effect.map(
+              act(() =>
+                page.evaluateHandle<typeof InPage>(`(() => {${browser.probes.source}\nreturn __theoriaInPage})()`)
+              ),
+              (handle) => Tuple.make(handle, HashMap.set(documents, page, handle))
+            ),
+          onSome: (handle) => Effect.succeed(Tuple.make(handle, documents))
+        }))
+  )
+
+type PageProbe<A, R> = (argument: A) => R
+type EmptyPageProbe<R> = () => R
+type ElementProbe<A, R> = (element: Element, argument: A) => R
+type EmptyElementProbe<R> = (element: Element) => R
+type ElementsProbe<A, R> = (elements: ReadonlyArray<Element>, argument: A) => R
+type EmptyElementsProbe<R> = (elements: ReadonlyArray<Element>) => R
+
+const probeName = (probe: { readonly name: string }): keyof typeof InPage =>
+  Arr.findFirst(Rec.toEntries(InPage), (entry) => Equivalence.strict()(Tuple.getSecond(entry), probe)).pipe(
+    Option.map(Tuple.getFirst),
+    Option.getOrThrow
+  )
+
+/** Runs an exported dependency-preserving probe against the current document. */
+export function evaluate<R>(page: Page, probe: EmptyPageProbe<Promise<R>>): Effect.Effect<R, BrowserError, Browser>
+export function evaluate<R>(page: Page, probe: EmptyPageProbe<R>): Effect.Effect<R, BrowserError, Browser>
+export function evaluate<A, R>(
+  page: Page,
+  probe: PageProbe<A, Promise<R>>,
+  argument: A
+): Effect.Effect<R, BrowserError, Browser>
+export function evaluate<A, R>(
+  page: Page,
+  probe: PageProbe<A, R>,
+  argument: A
+): Effect.Effect<R, BrowserError, Browser>
+export function evaluate<A, R>(
+  page: Page,
+  probe: EmptyPageProbe<R> | PageProbe<A, R>,
+  ...arguments_: ReadonlyArray<A>
+): Effect.Effect<R, BrowserError, Browser> {
+  return Effect.flatMap(probeNamespace(page), (probes) =>
+    act(() =>
+      probes.evaluate(
+        (namespace, input) => Reflect.apply(namespace[input.name], undefined, input.arguments),
+        {
+          name: probeName(probe),
+          arguments: arguments_
+        }
+      )
+    ))
+}
+
+/** Runs an exported dependency-preserving probe with one located element. */
+export function evaluateElement<R>(
+  locator: Locator,
+  probe: EmptyElementProbe<R>
+): Effect.Effect<R, BrowserError, Browser>
+export function evaluateElement<A, R>(
+  locator: Locator,
+  probe: ElementProbe<A, R>,
+  argument: A
+): Effect.Effect<R, BrowserError, Browser>
+export function evaluateElement<A, R>(
+  locator: Locator,
+  probe: EmptyElementProbe<R> | ElementProbe<A, R>,
+  ...arguments_: ReadonlyArray<A>
+): Effect.Effect<R, BrowserError, Browser> {
+  return Effect.flatMap(probeNamespace(locator.page()), (probes) =>
+    act(() =>
+      locator.evaluate(
+        (element, input) => Reflect.apply(input.namespace[input.name], undefined, [element, ...input.arguments]),
+        {
+          namespace: probes,
+          name: probeName(probe),
+          arguments: arguments_
+        }
+      )
+    ))
+}
+
+/** Runs an exported dependency-preserving probe with all matched elements. */
+export function evaluateElements<R>(
+  locator: Locator,
+  probe: EmptyElementsProbe<R>
+): Effect.Effect<R, BrowserError, Browser>
+export function evaluateElements<A, R>(
+  locator: Locator,
+  probe: ElementsProbe<A, R>,
+  argument: A
+): Effect.Effect<R, BrowserError, Browser>
+export function evaluateElements<A, R>(
+  locator: Locator,
+  probe: EmptyElementsProbe<R> | ElementsProbe<A, R>,
+  ...arguments_: ReadonlyArray<A>
+): Effect.Effect<R, BrowserError, Browser> {
+  return Effect.flatMap(probeNamespace(locator.page()), (probes) =>
+    act(() =>
+      locator.evaluateAll(
+        (elements, input) => Reflect.apply(input.namespace[input.name], undefined, [elements, ...input.arguments]),
+        {
+          namespace: probes,
+          name: probeName(probe),
+          arguments: arguments_
+        }
+      )
+    ))
+}
+
+/** Installs an exported observer probe before every document's first script. */
+export const addInitProbe = (
+  page: Page,
+  probe: EmptyPageProbe<void>
+): Effect.Effect<void, BrowserError, Browser> =>
+  Effect.flatMap(
+    Browser,
+    (browser) =>
+      act(() =>
+        page.addInitScript({ content: `(() => {${browser.probes.source}\n__theoriaInPage.${probeName(probe)}()})()` })
+      )
+  )
 
 /**
  * The console errors and uncaught page errors `page` has told since they
@@ -147,25 +355,45 @@ export const openPage = (
     const browser = yield* Browser
     const site = yield* Site
     // Every page a test opens is a visitor of its own; the site says how a visitor is told apart.
-    const visitor = yield* Ref.getAndUpdate(browser.visitors, (count) => count + 1)
+    const visitor = yield* Ref.getAndUpdate(browser.visitors, Num.increment)
     const context = yield* Effect.acquireRelease(
       act(() =>
         browser.chromium.newContext({
           baseURL: site.url,
-          viewport: options.viewport ?? desktop,
-          reducedMotion: options.reducedMotion ?? "no-preference",
-          forcedColors: options.forcedColors ?? "none",
-          colorScheme: options.colorScheme ?? "light",
-          hasTouch: options.hasTouch ?? false,
+          viewport: Option.getOrElse(Option.fromNullable(options.viewport), () => desktop),
+          reducedMotion: Option.getOrElse(Option.fromNullable(options.reducedMotion), () => "no-preference"),
+          forcedColors: Option.getOrElse(Option.fromNullable(options.forcedColors), () => "none"),
+          colorScheme: Option.getOrElse(Option.fromNullable(options.colorScheme), () => "light"),
+          hasTouch: Option.getOrElse(Option.fromNullable(options.hasTouch), () => false),
           extraHTTPHeaders: site.visitorHeaders(visitor)
         })
       ),
       (open) => Effect.orDie(act(() => open.close()))
     )
-    yield* act(() => context.grantPermissions([...(options.permissions ?? [])]))
+    yield* act(() => context.grantPermissions(Option.getOrElse(Option.fromNullable(options.permissions), Arr.empty)))
     const page = yield* act(() => context.newPage())
+    const runtime = yield* Effect.runtime<never>()
+    // A history/fragment change is still the same document. Only a main-frame
+    // navigation request replaces its execution context and invalidates handles.
+    const documentChanged = (request: Request) => {
+      Bool.match(request.isNavigationRequest(), {
+        onFalse: Fn.constVoid,
+        onTrue: () =>
+          Bool.match(Equivalence.strict()(request.frame(), page.mainFrame()), {
+            onFalse: Fn.constVoid,
+            onTrue: () => Runtime.runFork(runtime)(Effect.orDie(releaseProbeNamespace(browser, page)))
+          })
+      })
+    }
+    page.on("request", documentChanged)
+    yield* Effect.addFinalizer(() =>
+      Effect.andThen(
+        Effect.sync(() => page.off("request", documentChanged)),
+        Effect.orDie(releaseProbeNamespace(browser, page))
+      )
+    )
     // Throttling is the DevTools protocol's; it holds for the page's every document until the page closes.
-    yield* Option.match(Option.filter(Option.fromNullable(options.cpuSlowdown), (rate) => rate > 1), {
+    yield* Option.match(Option.filter(Option.fromNullable(options.cpuSlowdown), Num.greaterThan(1)), {
       onNone: () => Effect.void,
       onSome: (rate) =>
         Effect.andThen(
@@ -178,7 +406,10 @@ export const openPage = (
     // can tell the failure it caused from any other.
     const failures = yield* Queue.unbounded<string>()
     page.on("console", (message) => {
-      if (message.type() === "error") Queue.unsafeOffer(failures, `${message.text()} (${message.location().url})`)
+      Bool.match(Str.Equivalence(message.type(), "error"), {
+        onFalse: Fn.constVoid,
+        onTrue: () => Queue.unsafeOffer(failures, `${message.text()} (${message.location().url})`)
+      })
     })
     page.on("pageerror", (error) => {
       Queue.unsafeOffer(failures, error.message)
@@ -199,18 +430,23 @@ export const observeRequests = (
 ): Effect.Effect<Effect.Effect<ReadonlyArray<string>>> =>
   Effect.map(Queue.unbounded<string>(), (seen) => {
     page.on("request", (request) => {
-      if (keep({ url: request.url(), resourceType: request.resourceType() })) Queue.unsafeOffer(seen, request.url())
+      Bool.match(keep({ url: request.url(), resourceType: request.resourceType() }), {
+        onFalse: Fn.constVoid,
+        onTrue: () => Queue.unsafeOffer(seen, request.url())
+      })
     })
     return Queue.takeAll(seen).pipe(Effect.map(Chunk.toReadonlyArray))
   })
 
-export const goto = (page: Page, path: string) => act(() => page.goto(path))
+export const goto = (page: Page, path: string) =>
+  act(() => page.goto(path)).pipe(Effect.tap(() => probeNamespace(page)))
 /**
  * Navigates and returns once the document has parsed, without waiting for the `load` event. For a test that holds a
  * subresource the shell preloads (a font, say): those holds keep `load` from firing, and the test wants the page in
  * exactly that state.
  */
-export const gotoParsed = (page: Page, path: string) => act(() => page.goto(path, { waitUntil: "domcontentloaded" }))
+export const gotoParsed = (page: Page, path: string) =>
+  act(() => page.goto(path, { waitUntil: "domcontentloaded" })).pipe(Effect.tap(() => probeNamespace(page)))
 export const click = (locator: Locator) => act(() => locator.click())
 /** Presses the mouse at a point of the viewport, whatever is there: for reaching a control's hit area outside what it shows. */
 export const clickAt = (page: Page, point: { readonly x: number; readonly y: number }) =>
@@ -246,7 +482,7 @@ export type ColorScheme = typeof ColorScheme.Type
 export const setColorScheme = (page: Page, scheme: ColorScheme) =>
   Effect.andThen(
     act(() => page.emulateMedia({ colorScheme: scheme })),
-    eventually(() => page.evaluate(colorSchemeShown), scheme)
+    eventually(evaluate(page, InPage.colorSchemeShown), scheme)
   )
 
 /**
@@ -284,7 +520,9 @@ export const urlMatches = (page: Page, pattern: RegExp) => act(() => inBrowser(p
 /** Waits for the next response whose URL ends with `suffix` from a request with `method`. */
 export const nextResponse = (page: Page, method: string, suffix: string): Effect.Effect<Response, BrowserError> =>
   act(() =>
-    page.waitForResponse((response) => response.url().endsWith(suffix) && response.request().method() === method)
+    page.waitForResponse((response) =>
+      Bool.and(Str.endsWith(suffix)(response.url()), Str.Equivalence(response.request().method(), method))
+    )
   )
 
 /** What becomes of a held request once the test lets it go: it reaches the server, or it fails as the network would. */
@@ -311,7 +549,7 @@ export const holdResponse = (
 ): Effect.Effect<HeldRequest, BrowserError> =>
   Effect.flatMap(
     Ref.make(false),
-    (held) => holdRequests(page, method, suffix, Ref.getAndSet(held, true).pipe(Effect.map((taken) => !taken)))
+    (held) => holdRequests(page, method, suffix, Ref.getAndSet(held, true).pipe(Effect.map(Bool.not)))
   )
 
 /**
@@ -348,12 +586,14 @@ const holdRequests = (
       )
     yield* act(() =>
       page.route(
-        (url) => url.pathname.endsWith(suffix),
+        (url) => Str.endsWith(suffix)(url.pathname),
         (route) =>
           Runtime.runPromise(runtime)(
-            route.request().method() === method
-              ? Effect.if(claim, { onTrue: () => settle(route), onFalse: () => act(() => route.fallback()) })
-              : act(() => route.fallback())
+            Bool.match(Str.Equivalence(route.request().method(), method), {
+              onFalse: () => act(() => route.fallback()),
+              onTrue: () =>
+                Effect.if(claim, { onTrue: () => settle(route), onFalse: () => act(() => route.fallback()) })
+            })
           )
       )
     )
@@ -364,19 +604,43 @@ const holdRequests = (
   })
 
 export const attached = (locator: Locator) => act(() => inBrowser(locator).toBeAttached())
-export const eventually = <A>(read: () => Promise<A>, expected: A, within: Duration.Duration = assertionWait) =>
-  act(() => inBrowser.poll(read, waiting(within)).toBe(expected))
+export function eventually<A, R>(
+  read: Effect.Effect<A, BrowserError, R>,
+  expected: A,
+  within?: Duration.Duration
+): Effect.Effect<void, BrowserError, R>
+export function eventually<A>(
+  read: () => Promise<A>,
+  expected: A,
+  within?: Duration.Duration
+): Effect.Effect<void, BrowserError>
+export function eventually<A, R>(
+  read: Effect.Effect<A, BrowserError, R> | (() => Promise<A>),
+  expected: A,
+  within: Duration.Duration = assertionWait
+): Effect.Effect<void, BrowserError, R> {
+  const isEffect = (value: typeof read): value is Effect.Effect<A, BrowserError, R> => Effect.isEffect(value)
+  const isRead = (value: typeof read): value is () => Promise<A> => Predicate.isFunction(value)
+  const holds = (value: A) => Equivalence.strict<A>()(value, expected)
+  return Match.value(read).pipe(
+    Match.withReturnType<Effect.Effect<A, BrowserError, R>>(),
+    Match.when(isEffect, (effect) => until(effect, holds, `expected ${String(expected)}`, within)),
+    Match.when(isRead, (run) => until(act(run), holds, `expected ${String(expected)}`, within)),
+    Match.exhaustive,
+    Effect.asVoid
+  )
+}
 
 /**
  * Re-reads `read` until `holds` accepts the value, for as long as an
  * assertion waits unless told otherwise. The last value read is the failure's cause.
  */
-export const until = <A>(
-  read: Effect.Effect<A, BrowserError>,
+export const until = <A, R>(
+  read: Effect.Effect<A, BrowserError, R>,
   holds: (value: A) => boolean,
   description: string,
   within: Duration.Duration = assertionWait
-): Effect.Effect<A, BrowserError> =>
+): Effect.Effect<A, BrowserError, R> =>
   read.pipe(
     Effect.filterOrFail(holds, (value) => new BrowserError({ message: `${description} did not hold`, cause: value })),
     Effect.retry(Schedule.spaced("100 millis").pipe(Schedule.upTo(within)))
@@ -387,19 +651,24 @@ export const until = <A>(
  * colour. The highlighter loads after first render, so this retries until the
  * colours appear or Playwright's assertion timeout elapses.
  */
-export const highlighted = (code: Locator): Effect.Effect<void, BrowserError> =>
-  act(() => inBrowser.poll(() => code.evaluate(distinctTextColours)).toBeGreaterThan(1))
+export const highlighted = (code: Locator): Effect.Effect<void, BrowserError, Browser> =>
+  until(evaluateElement(code, InPage.distinctTextColours), Num.greaterThan(1), "syntax colours").pipe(
+    Effect.asVoid
+  )
 
 /** True when the document does not scroll horizontally at the current viewport. */
-export const fitsViewport = (page: Page) => act(() => page.evaluate(documentFitsViewport))
+export const fitsViewport = (page: Page) => evaluate(page, InPage.documentFitsViewport)
 
 /**
  * The page's vertical scroll position read `samples` times in a row, oldest
  * first — a scroll seen over time. A glide shows positions between where it
  * began and where it ends; a landing at once shows only those two.
  */
-export const scrollPositions = (page: Page, samples: number): Effect.Effect<ReadonlyArray<number>, BrowserError> =>
-  Effect.forEach(Arr.range(1, samples), () => act(() => page.evaluate(scrollY)))
+export const scrollPositions = (
+  page: Page,
+  samples: number
+): Effect.Effect<ReadonlyArray<number>, BrowserError, Browser> =>
+  Effect.forEach(Arr.range(1, samples), () => evaluate(page, InPage.scrollY))
 
 /**
  * Waits until every finite animation on the page (CSS animations and
@@ -407,7 +676,12 @@ export const scrollPositions = (page: Page, samples: number): Effect.Effect<Read
  * measured at rest rather than mid-flight after a viewport change.
  */
 export const animationsSettled = (page: Page) =>
-  Effect.asVoid(act(() => page.waitForFunction(finiteAnimationsFinished)))
+  until(
+    evaluate(page, InPage.finiteAnimationsFinished),
+    (finished) => finished,
+    "finite animations finished",
+    Duration.seconds(30)
+  ).pipe(Effect.asVoid)
 
 /** Elements that leak past the viewport; see `elementsPastViewport`. */
-export const overflowingElements = (page: Page) => act(() => page.evaluate(elementsPastViewport))
+export const overflowingElements = (page: Page) => evaluate(page, InPage.elementsPastViewport)

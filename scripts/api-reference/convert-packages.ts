@@ -1,6 +1,6 @@
 import { Command, type CommandExecutor, FileSystem, Path, Url } from "@effect/platform"
 import type { PlatformError } from "@effect/platform/Error"
-import { Effect, type ParseResult, Schema } from "effect"
+import { Effect, Number as Num, type ParseResult, Schema } from "effect"
 
 import {
   conversionEnvironment,
@@ -17,6 +17,7 @@ import { type ApiSourcePackage } from "./source.js"
 // gigabytes for the largest package. Three at a time overlaps the conversions
 // while staying inside the memory of a four-core CI runner.
 const conversionConcurrency = 3
+const numberText = Schema.encodeSync(Schema.NumberFromString)
 
 const conversionScript = Effect.flatMap(
   Url.fromString("../api-reference-convert.ts", import.meta.url).pipe(Effect.orDie),
@@ -37,12 +38,13 @@ const runConversion = (request: ConversionRequest, packageName: string) =>
     )
     const exitCode = yield* Command.exitCode(command)
 
-    if (Number(exitCode) !== 0) {
-      return yield* new ApiReferenceGenerationError({
+    yield* Effect.unless(
+      new ApiReferenceGenerationError({
         packageName,
-        detail: `conversion process exited with code ${String(exitCode)}`
-      })
-    }
+        detail: `conversion process exited with code ${numberText(exitCode)}`
+      }),
+      () => Num.Equivalence(exitCode, 0)
+    )
 
     const text = yield* fileSystem.readFileString(
       path.join(request.outputDirectory, convertedPackagePath(path, request.packageDirectory))

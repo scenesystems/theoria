@@ -1,5 +1,5 @@
 import { describe, expect, it } from "@effect/vitest"
-import { Effect, Layer } from "effect"
+import { Effect, Layer, Number as Num } from "effect"
 import * as Arr from "effect/Array"
 import * as Option from "effect/Option"
 import type { ReactNode } from "react"
@@ -96,7 +96,7 @@ describe("SemanticText", () => {
       />,
       (container) =>
         Effect.gen(function*() {
-          const spans = yield* waitForProjectedLines(container, (count) => count === 3)
+          const spans = yield* waitForProjectedLines(container, (count) => Num.Equivalence(count, 3))
 
           expect(spans[0]?.textContent).toBe("const  x = 1")
           expect(spans[1]?.textContent).toBe("\u00a0")
@@ -117,7 +117,7 @@ describe("SemanticText", () => {
       />,
       (container) =>
         Effect.gen(function*() {
-          const spans = yield* waitForProjectedLines(container, (count) => count >= 2)
+          const spans = yield* waitForProjectedLines(container, Num.greaterThanOrEqualTo(2))
           const paragraph = yield* paragraphOf(container)
 
           expect(paragraph.dataset.lines).not.toBeUndefined()
@@ -158,7 +158,7 @@ describe("SemanticText", () => {
       />,
       (container) =>
         Effect.gen(function*() {
-          const spans = yield* waitForProjectedLines(container, (count) => count === 2)
+          const spans = yield* waitForProjectedLines(container, (count) => Num.Equivalence(count, 2))
           const paragraph = yield* paragraphOf(container)
 
           expect(paragraph.dataset.lines).toBe("2")

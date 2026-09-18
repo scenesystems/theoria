@@ -2,10 +2,10 @@
  * Schema encode/decode round-trip invariants for Module.SavedState.
  */
 import { describe, expect, it } from "@effect/vitest"
-import { ModuleParams } from "@scenesystems/effect-dsp/contracts"
-import { Demo } from "@scenesystems/effect-dsp/Example"
+import { Demonstration } from "@scenesystems/effect-dsp/Demonstration"
 import * as Module from "@scenesystems/effect-dsp/Module"
-import { Array as Arr, Effect, FastCheck as fc, Match, Option, Schema } from "effect"
+import { ModuleParameters } from "@scenesystems/effect-dsp/ModuleParameters"
+import { Array as Arr, Effect, FastCheck as fc, Match, Number as Num, Option, Predicate, Schema } from "effect"
 
 const primitiveUnknownArbitrary = fc.oneof(
   fc.string({ maxLength: 12 }),
@@ -31,14 +31,16 @@ const moduleParamsArbitrary = fc.record({
 
 const toModuleParams = (params: {
   readonly instructions: string
-  readonly demos: ReadonlyArray<{ readonly input: Record<string, unknown>; readonly output: Record<string, unknown> }>
+  readonly demos: ReadonlyArray<
+    { readonly input: Record<string, unknown>; readonly output: Record<string, unknown> }
+  >
   readonly outputStrategy: unknown
   readonly temperature: unknown
   readonly maxTokens: unknown
-}): ModuleParams =>
-  new ModuleParams({
+}): ModuleParameters =>
+  new ModuleParameters({
     instructions: params.instructions,
-    demos: Arr.map(params.demos, (demo) => new Demo({ input: demo.input, output: demo.output })),
+    demos: Arr.map(params.demos, (demo) => new Demonstration({ input: demo.input, output: demo.output })),
     ...Option.match(
       Match.value(params.outputStrategy).pipe(
         Match.when("auto", () => Option.some<"auto">("auto")),
@@ -53,11 +55,8 @@ const toModuleParams = (params: {
     ),
     ...Option.match(
       Match.value(params.temperature).pipe(
-        Match.when((value: unknown): value is number => typeof value === "number", (temperature) =>
-          Option.some(temperature)),
-        Match.orElse(() =>
-          Option.none<number>()
-        )
+        Match.when(Predicate.isNumber, (temperature) => Option.some(temperature)),
+        Match.orElse(() => Option.none<number>())
       ),
       {
         onNone: () => ({}),
@@ -67,7 +66,7 @@ const toModuleParams = (params: {
     ...Option.match(
       Match.value(params.maxTokens).pipe(
         Match.when(
-          (value: unknown): value is number => typeof value === "number",
+          Predicate.isNumber,
           (maxTokens) => Option.some(maxTokens)
         ),
         Match.orElse(() => Option.none<number>())
@@ -86,7 +85,7 @@ describe("Module.SavedState schema round-trip", () => {
   })], ([sample]) =>
     Effect.gen(function*() {
       const modules = Arr.map(sample.modules, (params, index) => ({
-        name: `module-${index + 1}`,
+        name: `module-${String(Num.increment(index))}`,
         params: toModuleParams(params)
       }))
       const state = new Module.SavedState({

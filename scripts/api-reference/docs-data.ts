@@ -17,6 +17,7 @@ import {
   DocsSearchIndexJson
 } from "@theoria/docs-model"
 import { Array as Arr, Data, Effect, type ParseResult, Schema } from "effect"
+import * as Str from "effect/String"
 
 export class DocsPage extends Data.Class<{
   readonly pkg: DocsManifest["packages"][number]
@@ -42,7 +43,7 @@ export const loadDocsData = (
   Effect.gen(function*() {
     const path = yield* Path.Path
     const docsManifest = yield* decodeFile(DocsManifestJson, path.join(browserOutputRoot, "manifest.json"))
-    const assetFile = (asset: string) => path.join(browserOutputRoot, asset.replace(/^\/docs-data\//u, ""))
+    const assetFile = (asset: string) => path.join(browserOutputRoot, Str.replace(/^\/docs-data\//u, "")(asset))
     const searchIndex = yield* decodeFile(DocsSearchIndexJson, assetFile(docsManifest.searchIndexAsset))
     const pages: ReadonlyArray<DocsPage> = yield* Effect.forEach(
       docsManifest.packages,

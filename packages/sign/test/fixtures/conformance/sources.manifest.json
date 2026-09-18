@@ -1,6 +1,6 @@
 {
   "schema": "@scenesystems/sign conformance provenance manifest v1",
-  "retrievalDate": "2026-09-15",
+  "retrievalDate": "2026-09-16",
   "payloads": [
     {
       "file": "ed25519.json",
@@ -107,6 +107,49 @@
           "reason": "FIPS 204 hint decoding rejects the endpoint ordering, strictly increasing index, or zero-padding structure before primitive verification."
         }
       ]
+    },
+    {
+      "file": "sign-public-kat.json",
+      "sha256": "db36611e5046d80e58b37722fc871d2acd85408e7bb4df08e60d514bc7c58341",
+      "sources": [
+        {
+          "locator": "https://github.com/C2SP/wycheproof",
+          "revision": "e0df04e0c033f2d25c5051dd06230336c7822358",
+          "path": "testvectors_v1/ecdsa_secp256k1_sha256_p1363_test.json",
+          "selector": "tcId 60 (valid edge-case Shamir multiplication) and tcId 4 (invalid modified r)"
+        },
+        {
+          "locator": "https://github.com/bitcoin/bips",
+          "revision": "173f386dfb8b4f1c4b16d69190a753802802ac4d",
+          "path": "bip-0340/test-vectors.csv",
+          "selector": "indexes 0 (signing and valid verification) and 7 (invalid negated-message signature)"
+        },
+        {
+          "locator": "https://github.com/usnistgov/ACVP-Server",
+          "revision": "112690e8484dba7077709a05b1f3af58ddefdd5d",
+          "path": "gen-val/json-files/ML-DSA-keyGen-FIPS204/{prompt,expectedResults}.json",
+          "selector": "joined by tgId/tcId: tgId 1 tcId 1 (ML-DSA-44) and tgId 3 tcId 51 (ML-DSA-87)"
+        },
+        {
+          "locator": "https://github.com/usnistgov/ACVP-Server",
+          "revision": "112690e8484dba7077709a05b1f3af58ddefdd5d",
+          "path": "gen-val/json-files/SLH-DSA-keyGen-FIPS205/{prompt,expectedResults}.json",
+          "selector": "joined by tgId/tcId: 1/1 SHA2-128s, 3/21 SHA2-128f, 7/61 SHA2-192f, and 11/101 SHA2-256f"
+        }
+      ],
+      "licenseNotice": "BIP-340 is BSD-2-Clause (bip-0340.mediawiki); C2SP Wycheproof is Apache-2.0 (LICENSE); NIST ACVP-Server carries the NIST software notice and disclaimer in README.md. Each notice is pinned at the source revision above.",
+      "transformations": [
+        "Extracted the named BIP-340 CSV rows and Wycheproof JSON cases without changing hexadecimal inputs, keys, signatures, or verdicts.",
+        "Joined each ACVP keyGen prompt to expectedResults by tgId and tcId and retained the exact seed, public key, and secret key bytes.",
+        "For each SLH-DSA case, formed the entropy input as the FIPS 205 key-generation input skSeed || skPrf || pkSeed; no cryptographic implementation generated expected bytes.",
+        "Reproducible extraction is implemented by packages/sign/scripts/generate-sign-public-kat.ts; that workflow also rewrites this payload fingerprint."
+      ],
+      "exclusions": [
+        "ECDSA cases other than the selected independent positive and negative controls were excluded for corpus size.",
+        "BIP-340 vectors other than one deterministic signing KAT and one structurally valid negative verification control were excluded.",
+        "ML-DSA-65 is covered by the separate ml-dsa-65.json corpus; non-exposed SLH-DSA SHAKE and small-profile parameter sets were excluded."
+      ],
+      "localVerdictRemaps": []
     },
     {
       "file": "rsa-wycheproof.json",

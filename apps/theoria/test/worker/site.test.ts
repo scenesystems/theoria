@@ -1,6 +1,6 @@
 // @vitest-environment node
 import { expect, layer } from "@effect/vitest"
-import { ConfigProvider, Effect, Layer, Option, Schema } from "effect"
+import { Boolean as Bool, ConfigProvider, Effect, Layer, Match, Number as Num, Option, Schema } from "effect"
 import * as Arr from "effect/Array"
 import * as Str from "effect/String"
 
@@ -143,8 +143,8 @@ layer(SiteLive, { timeout: "2 minutes" })("Theoria Worker in workerd", (it) => {
           ),
         { concurrency: 32 }
       ).pipe(Effect.map(Arr.flatten))
-      expect(Arr.filter(answers, (answer) => answer.status !== 200)).toEqual([])
-      expect(answers.length).toBe(200 * assets.length)
+      expect(Arr.filter(answers, (answer) => Bool.not(Num.Equivalence(answer.status, 200)))).toEqual([])
+      expect(answers.length).toBe(Num.multiply(200, assets.length))
     }), { timeout: 120_000 })
 
   it.effect("serves its own typefaces, preloaded by the shell, so no text is set twice", () =>
@@ -169,14 +169,18 @@ layer(SiteLive, { timeout: "2 minutes" })("Theoria Worker in workerd", (it) => {
         { onNone: () => Effect.dieMessage("the shell links no stylesheet"), onSome: Effect.succeed }
       )
       const css = yield* text(yield* site.fetch(stylesheet))
-      const declared = Arr.fromIterable(
-        css.matchAll(/url\((\/assets\/[^)]+-latin-wght-normal-[^)]+\.woff2)\)/gu)
-      ).map((found) => found[1] ?? "")
-      const preloads = Arr.fromIterable(
-        homeHtml.matchAll(
-          /<link rel="preload" href="(\/assets\/[^"]+\.woff2)" as="font" type="font\/woff2" crossorigin/gu
-        )
-      ).map((found) => found[1] ?? "")
+      const declared = Arr.map(
+        Arr.fromIterable(Str.matchAll(/url\((\/assets\/[^)]+-latin-wght-normal-[^)]+\.woff2)\)/gu)(css)),
+        (found) => Option.getOrElse(Arr.get(found, 1), () => "")
+      )
+      const preloads = Arr.map(
+        Arr.fromIterable(
+          Str.matchAll(
+            /<link rel="preload" href="(\/assets\/[^"]+\.woff2)" as="font" type="font\/woff2" crossorigin/gu
+          )(homeHtml)
+        ),
+        (found) => Option.getOrElse(Arr.get(found, 1), () => "")
+      )
       expect(declared).toHaveLength(2)
       expect(Arr.sort(preloads, Str.Order)).toEqual(Arr.sort(declared, Str.Order))
       yield* Effect.forEach(preloads, (pathname) =>
@@ -207,7 +211,7 @@ layer(SiteLive, { timeout: "2 minutes" })("Theoria Worker in workerd", (it) => {
 
       const lines = Str.split(yield* text(response), "\n")
       expect(lines[0]).toBe("# Theoria")
-      expect(lines[2]?.startsWith("> ")).toBe(true)
+      expect(Option.exists(Arr.get(lines, 2), Str.startsWith("> "))).toBe(true)
       // llmstxt.org: every list entry under an H2 is a hyperlink, optionally followed by notes.
       const listEntries = Arr.filter(lines, Str.startsWith("- "))
       expect(listEntries.length).toBeGreaterThan(0)
@@ -326,8 +330,18 @@ layer(SiteLive, { timeout: "2 minutes" })("Theoria Worker in workerd", (it) => {
       expect(built.status).toBe(200)
       const envelope = yield* Schema.decodeUnknown(PlaceBuildEnvelope)(yield* json(built))
       expect(envelope.ok).toBe(true)
-      expect(envelope.ok && envelope.data.artifact.scenario).toBe("lost-market")
-      expect(envelope.ok && envelope.data.artifact.accepted).toHaveLength(2)
+      expect(
+        Match.value(envelope).pipe(
+          Match.when({ ok: true }, (success) => success.data.artifact.scenario),
+          Match.orElse(() => "")
+        )
+      ).toBe("lost-market")
+      expect(
+        Match.value(envelope).pipe(
+          Match.when({ ok: true }, (success) => success.data.artifact.accepted),
+          Match.orElse(Arr.empty)
+        )
+      ).toHaveLength(2)
 
       const invalid = yield* post(yield* Schema.encode(Schema.parseJson(PartialRequest))({ scenario: "lost-market" }))
       expect(invalid.status).toBe(400)

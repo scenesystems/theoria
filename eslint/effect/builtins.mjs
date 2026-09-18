@@ -32,12 +32,58 @@ export const TIME_RANDOMNESS_RULES = [
   {
     selector: "CallExpression[callee.object.name='Date'][callee.property.name='now']",
     message: "Do not use 'Date.now()'. Use Clock.currentTimeMillis from 'effect'."
-  },
-  {
-    selector: "CallExpression[callee.object.name='Math'][callee.property.name='random']",
-    message: "Do not use 'Math.random()'. Use Random from 'effect'."
   }
 ]
+
+/**
+ * JavaScript arithmetic syntax bypasses the repository's Effect-native number
+ * and string modules. A negative numeric literal remains ordinary literal
+ * notation; negating any computed value goes through Number.negate.
+ */
+export const ARITHMETIC_RULES = [
+  ...["+", "-", "*", "/", "%", "**"].map((operator) => ({
+    selector: `BinaryExpression[operator='${operator}']`,
+    message: operator === "+"
+      ? "Do not use the '+' operator. Use Number.sum for arithmetic, or Effect String/template literals for text."
+      : "Do not use arithmetic operators. Use Effect Number or @scenesystems/effect-math/Numeric."
+  })),
+  {
+    selector: "UpdateExpression",
+    message: "Do not use update operators. Use Number.increment or Number.decrement."
+  },
+  {
+    selector: "AssignmentExpression[operator=/^(\\+=|-=|\\*=|\\/=|%=|\\*\\*=)$/]",
+    message: "Do not use compound arithmetic assignment. Compute with Effect Number or Numeric and assign immutably."
+  },
+  {
+    selector: "UnaryExpression[operator='+']",
+    message: "Do not use unary '+'. Decode the value, then use Effect Number."
+  },
+  {
+    selector: "UnaryExpression[operator='-']:not([argument.type='Literal'][argument.raw=/^[0-9.]/])",
+    message: "Do not negate computed values with unary '-'. Use Number.negate."
+  },
+  {
+    selector: "MemberExpression[object.name='Number'][property.name=/^(parseFloat|parseInt)$/]",
+    message: "Do not use native numeric parsers. Use Effect Number.parse or Schema decoding."
+  },
+  {
+    selector: "MemberExpression[object.name='Number'][computed=true][property.value=/^(parseFloat|parseInt)$/]",
+    message: "Do not use native numeric parsers. Use Effect Number.parse or Schema decoding."
+  }
+]
+
+/** Scope-aware ban on the JavaScript Math global; imported namespaces named Math are allowed. */
+export const MATH_GLOBAL = {
+  name: "Math",
+  message: "Do not use the JavaScript Math global. Use Effect Number or @scenesystems/effect-math/Numeric."
+}
+
+/** Scope-aware bans on native prefix parsers, including references passed as callbacks. */
+export const NUMBER_PARSING_GLOBALS = ["parseFloat", "parseInt"].map((name) => ({
+  name,
+  message: "Do not use native numeric parsers. Use Effect Number.parse or Schema decoding."
+}))
 
 export const JSON_BUILTINS_RULES = [
   {
@@ -240,7 +286,7 @@ export const HOST_GLOBAL_RULES = [
   {
     selector: "MemberExpression[object.name='crypto']",
     message:
-      "Do not use the 'crypto' global. Use @scenesystems/digest for hashing and generateEntropy from @scenesystems/sign for CSPRNG bytes."
+      "Do not use the 'crypto' global. Use @scenesystems/digest for hashing and Entropy.bytes with Entropy.layer from @scenesystems/sign for CSPRNG bytes."
   },
   {
     selector: "Identifier[name=/^(localStorage|sessionStorage)$/]",

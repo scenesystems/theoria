@@ -11,7 +11,9 @@ import { ApiSourceModule, ApiSourcePackage, PackagePublicEntrypoint } from "./so
 // schemas, plus the serialized reflections they write next to the summary.
 
 /** What the generator asks one conversion process to do. */
-export class ConversionRequest extends Schema.Class<ConversionRequest>("ConversionRequest")({
+export class ConversionRequest extends Schema.Class<ConversionRequest>(
+  "@theoria/scripts/api-reference/ConversionRequest"
+)({
   repositoryRoot: Schema.String,
   revision: Schema.String,
   packageDirectory: Schema.String,

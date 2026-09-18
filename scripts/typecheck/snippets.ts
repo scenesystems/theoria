@@ -7,32 +7,44 @@
 
 import { Command, type CommandExecutor, FileSystem, Path } from "@effect/platform"
 import type { PlatformError } from "@effect/platform/Error"
-import { Array as Arr, Data, Effect, Stream, String as Str } from "effect"
+import { Array, Boolean, Effect, Number, pipe, Schema, Stream, String } from "effect"
 import type { Scope } from "effect"
 
-export type SnippetLanguage = "ts" | "tsx"
+export const SnippetLanguage = Schema.Literal("ts", "tsx")
 
-export class Snippet extends Data.Class<{
-  readonly directory: string
-  readonly location: string
-  readonly language: SnippetLanguage
-  readonly code: string
-}> {}
+export type SnippetLanguage = typeof SnippetLanguage.Type
 
-export class SnippetTypecheckError extends Data.TaggedError("SnippetTypecheckError")<{
-  readonly message: string
-}> {}
+export class Snippet extends Schema.Class<Snippet>("@theoria/scripts/typecheck/Snippet")({
+  directory: Schema.String,
+  location: Schema.String,
+  language: SnippetLanguage,
+  code: Schema.String
+}) {}
 
-class TempSnippet extends Data.Class<{
-  readonly snippet: Snippet
-  readonly tempPath: string
-}> {}
+export class SnippetTypecheckError
+  extends Schema.TaggedError<SnippetTypecheckError>("@theoria/scripts/typecheck/SnippetTypecheckError")(
+    "SnippetTypecheckError",
+    {
+      message: Schema.String
+    }
+  )
+{}
 
-const COMPILER_FLAGS = Str.split(
-  "--noEmit --ignoreConfig --pretty false --strict --skipLibCheck --target ES2022 --lib ES2022 --module NodeNext "
-    + "--moduleResolution NodeNext --moduleDetection force --verbatimModuleSyntax --isolatedModules --resolveJsonModule "
-    + "--exactOptionalPropertyTypes --noFallthroughCasesInSwitch --noUncheckedIndexedAccess --noImplicitOverride --jsx react-jsx",
-  " "
+class TempSnippet extends Schema.Class<TempSnippet>("@theoria/scripts/typecheck/TempSnippet")({
+  snippet: Snippet,
+  tempPath: Schema.String
+}) {}
+
+const TempSnippets = Schema.Array(TempSnippet)
+
+const COMPILER_FLAGS = pipe(
+  Array.make(
+    "--noEmit --ignoreConfig --pretty false --strict --skipLibCheck --target ES2022 --lib ES2022 --module NodeNext",
+    "--moduleResolution NodeNext --moduleDetection force --verbatimModuleSyntax --isolatedModules --resolveJsonModule",
+    "--exactOptionalPropertyTypes --noFallthroughCasesInSwitch --noUncheckedIndexedAccess --noImplicitOverride --jsx react-jsx"
+  ),
+  Array.join(" "),
+  String.split(" ")
 )
 
 const materialize = (
@@ -44,9 +56,12 @@ const materialize = (
     const tempPath = yield* fileSystem.makeTempFileScoped({
       directory: snippet.directory,
       prefix,
-      suffix: `.${snippet.language}`
+      suffix: String.concat(".", snippet.language)
     })
-    yield* fileSystem.writeFileString(tempPath, `// Extracted from ${snippet.location}\n${snippet.code}`)
+    yield* fileSystem.writeFileString(
+      tempPath,
+      Array.join(Array.make("// Extracted from ", snippet.location, "\n", snippet.code), "")
+    )
     return new TempSnippet({ snippet, tempPath })
   })
 
@@ -54,33 +69,47 @@ const rewriteCompilerOutput = (
   root: string,
   pathService: Path.Path,
   output: string,
-  snippets: ReadonlyArray<TempSnippet>
+  snippets: Iterable<TempSnippet>
 ): string =>
-  Arr.reduce(snippets, output, (current, { snippet, tempPath }) =>
-    current
-      .replaceAll(tempPath, snippet.location)
-      .replaceAll(pathService.relative(root, tempPath), snippet.location))
+  Array.reduce(snippets, output, (current, { snippet, tempPath }) =>
+    pipe(
+      current,
+      String.replaceAll(tempPath, snippet.location),
+      String.replaceAll(pathService.relative(root, tempPath), snippet.location)
+    ))
 
-const collectText = (stream: Stream.Stream<Uint8Array, PlatformError>) =>
-  Stream.decodeText(stream).pipe(Stream.runFold("", (acc, chunk) => `${acc}${chunk}`))
-
-const runCompiler = (root: string, snippets: ReadonlyArray<TempSnippet>) =>
+const runCompiler = (root: string, snippets: typeof TempSnippets.Type) =>
   Effect.gen(function*() {
     const pathService = yield* Path.Path
-    const command = Command.make("bunx", "tsc", ...COMPILER_FLAGS, ...Arr.map(snippets, (_) => _.tempPath)).pipe(
+    const command = Command.make("bunx", "tsc", ...COMPILER_FLAGS, ...Array.map(snippets, (_) => _.tempPath)).pipe(
       Command.workingDirectory(root),
       Command.stdout("pipe"),
       Command.stderr("pipe")
     )
     const running = yield* Command.start(command)
-    const [exitCode, stdout, stderr] = yield* Effect.all(
-      [running.exitCode, collectText(running.stdout), collectText(running.stderr)],
+    const { exitCode, stderr, stdout } = yield* Effect.all(
+      {
+        exitCode: running.exitCode,
+        stdout: running.stdout.pipe(Stream.decodeText(), Stream.mkString),
+        stderr: running.stderr.pipe(Stream.decodeText(), Stream.mkString)
+      },
       { concurrency: "unbounded" }
     )
-    if (Number(exitCode) === 0) return
-    const compilerOutput = rewriteCompilerOutput(root, pathService, `${stdout}${stderr}`, snippets).trim()
-    return yield* new SnippetTypecheckError({
-      message: Str.isNonEmpty(compilerOutput) ? compilerOutput : "Snippet typecheck failed with no compiler output"
+    return yield* Effect.if(Number.Equivalence(exitCode, 0), {
+      onTrue: () => Effect.void,
+      onFalse: () => {
+        const compilerOutput = String.trim(
+          rewriteCompilerOutput(root, pathService, String.concat(stdout, stderr), snippets)
+        )
+        return Effect.fail(
+          new SnippetTypecheckError({
+            message: Boolean.match(String.isNonEmpty(compilerOutput), {
+              onTrue: () => compilerOutput,
+              onFalse: () => "Snippet typecheck failed with no compiler output"
+            })
+          })
+        )
+      }
     })
   })
 
@@ -93,7 +122,7 @@ const runCompiler = (root: string, snippets: ReadonlyArray<TempSnippet>) =>
 export const typecheckSnippets = (
   root: string,
   prefix: string,
-  snippets: ReadonlyArray<Snippet>
+  snippets: Iterable<Snippet>
 ): Effect.Effect<
   void,
   SnippetTypecheckError | PlatformError,

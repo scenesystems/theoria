@@ -1,7 +1,7 @@
 import { FetchHttpClient } from "@effect/platform"
 import * as BunContext from "@effect/platform-bun/BunContext"
 import { describe, expect, it } from "@effect/vitest"
-import { InvalidVerificationInput, Jwt } from "@scenesystems/sign"
+import { Jwt, Verification } from "@scenesystems/sign"
 import { Array as Arr, Effect, Layer, Match, Schema, String as Str, Struct } from "effect"
 
 import { decodeConformanceFixture, RsaOpenSslFixture } from "../../scripts/fixture-contract.js"
@@ -23,7 +23,7 @@ describe("packed sign in workerd without Node compatibility", () => {
             expect(yield* worker.request({ ...input, _tag: "Rsa", message: vector.alteredMessage })).toBe(false)
             expect(yield* worker.request({ ...input, _tag: "Rsa", signature: vector.alteredSignature })).toBe(false)
             expect(yield* worker.request({ ...input, _tag: "Rsa", signature: Str.takeLeft(vector.signature, 2) }))
-              .toEqual(new InvalidVerificationInput({}))
+              .toEqual(new Verification.InvalidInput({}))
           })))
     }).pipe(Effect.provide(platform)))
 

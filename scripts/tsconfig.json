@@ -14,11 +14,12 @@
     "check-readme-examples.ts",
     "readme-examples/**/*.ts",
     "typecheck/**/*.ts",
+    "pre-commit.ts",
     "ensure-docs-assets.ts",
     "resolve-workspace-deps.ts",
     "release.ts",
     "release/**/*.ts",
-    "../packages/digest/scripts/fixture-schemas.ts"
+    "../packages/digest/scripts/fixtures.ts"
   ],
   "references": [
     { "path": "../packages/docs-model/tsconfig.src.json" },

@@ -1,53 +1,221 @@
 /**
  * Module.refine contracts.
  */
+import type * as AiError from "@effect/ai/AiError"
 import * as LanguageModel from "@effect/ai/LanguageModel"
-import { describe, expect, it } from "@effect/vitest"
-import { MetricResult, RolloutCount } from "@scenesystems/effect-dsp/contracts"
+import { describe, expect, expectTypeOf, it } from "@effect/vitest"
+import type { DspError } from "@scenesystems/effect-dsp/DspError"
+import { Result } from "@scenesystems/effect-dsp/Metric"
+import * as MockLanguageModel from "@scenesystems/effect-dsp/MockLanguageModel"
 import * as Module from "@scenesystems/effect-dsp/Module"
+import * as ModuleGraph from "@scenesystems/effect-dsp/ModuleGraph"
+import { withInstructions } from "@scenesystems/effect-dsp/ModuleParameters"
 import * as Signature from "@scenesystems/effect-dsp/Signature"
-import { MockLanguageModel } from "@scenesystems/effect-dsp/test"
 import * as Trace from "@scenesystems/effect-dsp/Trace"
-import { Deferred, Effect, Fiber, Layer, Ref, Schema } from "effect"
+import {
+  Array as Arr,
+  Boolean,
+  Cause,
+  Context,
+  Deferred,
+  Effect,
+  Equal,
+  Fiber,
+  Layer,
+  Match,
+  Number as Num,
+  Record,
+  Ref,
+  Schema,
+  String as Str
+} from "effect"
+
+class RefineRewardRejected extends Schema.TaggedError<RefineRewardRejected>()(
+  "RefineRewardRejected",
+  { message: Schema.String }
+) {}
+
+class RefineRewardCalls extends Context.Tag("effect-dsp/test/refine/RewardCalls")<
+  RefineRewardCalls,
+  Ref.Ref<number>
+>() {}
+
+const QaInput = Schema.Struct({
+  question: Signature.describe(Schema.String, "The question to answer")
+})
+
+const QaOutput = Schema.Struct({
+  answer: Signature.describe(Schema.String, "A concise factual answer")
+})
 
 const makeQaSignature = () =>
   Signature.make(
     "Answer questions with concise facts",
-    {
-      question: Signature.describe(Schema.String, "The question to answer")
-    },
-    {
-      answer: Signature.describe(Schema.String, "A concise factual answer")
-    }
+    QaInput.fields,
+    QaOutput.fields
   )
 
 describe("Module.refine", () => {
+  it.effect("discovers the executed wrapper, inner composition, and descendant", () =>
+    Effect.gen(function*() {
+      const signature = yield* makeQaSignature()
+      const predictor = yield* Module.predict("refine-discovery-predictor", signature)
+      const inner = yield* Module.compose({
+        name: "refine-discovery-pipeline",
+        signature,
+        subModules: Record.singleton("predictor", predictor),
+        forward: ({ input }) => predictor.forward(input)
+      })
+      const wrapper = yield* Module.refine({
+        name: "refine-discovery-wrapper",
+        module: inner,
+        N: Module.RolloutCount.make(2),
+        threshold: 0.9,
+        reward: () => Effect.succeed(new Result({ score: 1 }))
+      })
+      const wrapperId = yield* Schema.decodeUnknown(Module.Id)(wrapper.name)
+      const innerId = yield* Schema.decodeUnknown(Module.Id)(inner.name)
+      const predictorId = yield* Schema.decodeUnknown(Module.Id)(predictor.name)
+      const model = yield* MockLanguageModel.make(MockLanguageModel.succeed({ answer: "Observed" }))
+
+      const graph = yield* Module.discoverModuleGraph(
+        wrapperId,
+        wrapper.forward({ question: "Discover this execution" }).pipe(
+          Effect.provideService(LanguageModel.LanguageModel, model.service)
+        )
+      )
+      const lineage = yield* ModuleGraph.lineage(graph, predictorId)
+
+      expect(lineage.path).toEqual(Arr.make(wrapperId, innerId, predictorId))
+      expect(yield* Ref.get(model.calls)).toHaveLength(1)
+    }))
+
+  it.effect("loads the live inner graph and retains its loaded state after refinement", () =>
+    Effect.gen(function*() {
+      const signature = yield* makeQaSignature()
+      const predictor = yield* Module.predict("predictor", signature)
+      yield* Ref.update(predictor.params, (params) => withInstructions(params, "Answer saved-city"))
+      const inner = yield* Module.compose({
+        name: "pipeline",
+        signature,
+        subModules: Record.singleton("predictor", predictor),
+        forward: ({ input }) => predictor.forward(input)
+      })
+      const wrapper = yield* Module.refine({
+        name: "refined-pipeline",
+        module: inner,
+        N: Module.RolloutCount.make(2),
+        threshold: 0.9,
+        reward: () => Effect.succeed(new Result({ score: 0.2, feedback: "Be precise" }))
+      })
+      const saved = yield* Module.save(wrapper)
+      const original = yield* Ref.get(inner.params)
+      yield* Ref.update(inner.params, (params) => withInstructions(params, "Changed pipeline"))
+      yield* Ref.update(predictor.params, (params) => withInstructions(params, "Answer changed-city"))
+      yield* Module.load(wrapper, saved)
+      const model = yield* MockLanguageModel.make(MockLanguageModel.map((prompt) => ({
+        answer: Boolean.match(Str.includes("Answer saved-city")(prompt), {
+          onTrue: () => "saved-city",
+          onFalse: () => "changed-city"
+        })
+      })))
+      const result = yield* wrapper.forward({ question: "Which city?" }).pipe(
+        Effect.provideService(LanguageModel.LanguageModel, model.service)
+      )
+      expect(result.answer).toBe("saved-city")
+      expect(yield* Ref.get(inner.params)).toEqual(original)
+      expect(yield* Ref.get(model.calls)).toHaveLength(2)
+    }))
+
+  it.effect("rejects a wrapper identity that collides with the inner owner", () =>
+    Effect.gen(function*() {
+      const signature = yield* makeQaSignature()
+      const inner = yield* Module.predict("same-owner", signature)
+      const error = yield* Module.refine({
+        name: "same-owner",
+        module: inner,
+        N: Module.RolloutCount.make(1),
+        threshold: 0.9,
+        reward: () => Effect.succeed(new Result({ score: 1 }))
+      }).pipe(Effect.flip)
+      expect(error._tag).toBe("CompositionError")
+    }))
+
+  it.effect("restores params while preserving reward service and checked failure channels", () =>
+    Effect.gen(function*() {
+      const qa = yield* makeQaSignature()
+      const mock = yield* MockLanguageModel.make(
+        MockLanguageModel.sequence(Arr.make(
+          { answer: "Needs feedback" },
+          { answer: "Fails scoring" }
+        ))
+      )
+      const inner = yield* Module.predict("qa-refine-reward-channels", qa)
+      const baseParams = yield* Ref.get(inner.params)
+      const rewardCalls = yield* Ref.make(0)
+      const failure = new RefineRewardRejected({ message: "reward rejected" })
+      const refined = yield* Module.refine({
+        name: "qa-refine-reward-wrapper",
+        module: inner,
+        N: Module.RolloutCount.make(2),
+        reward: () =>
+          Effect.flatMap(RefineRewardCalls, (calls) =>
+            Ref.getAndUpdate(calls, Num.increment).pipe(
+              Effect.flatMap((call) =>
+                Match.value(call).pipe(
+                  Match.when(0, () => Effect.succeed(new Result({ score: 0.2, feedback: "Try again" }))),
+                  Match.orElse(() => Effect.fail(failure))
+                )
+              )
+            )),
+        threshold: 0.9
+      })
+      const operation = refined.forward({ question: "Refine this" })
+
+      expectTypeOf<Effect.Effect.Error<typeof operation>>().toEqualTypeOf<
+        AiError.AiError | DspError | RefineRewardRejected
+      >()
+      expectTypeOf<Effect.Effect.Context<typeof operation>>().toEqualTypeOf<
+        LanguageModel.LanguageModel | RefineRewardCalls
+      >()
+
+      const observed = yield* operation.pipe(
+        Effect.provideService(RefineRewardCalls, rewardCalls),
+        Effect.provideService(LanguageModel.LanguageModel, mock.service),
+        Effect.flip
+      )
+      const restoredParams = yield* Ref.get(inner.params)
+
+      expect(Cause.originalError(observed)).toBe(failure)
+      expect(restoredParams).toEqual(baseParams)
+    }))
+
   it.effect("feedback from attempt N appears in the prompt for attempt N+1", () =>
     Effect.gen(function*() {
       const qa = yield* makeQaSignature()
       const mock = yield* MockLanguageModel.make(
-        MockLanguageModel.sequence([
+        MockLanguageModel.sequence(Arr.make(
           { answer: "First attempt" },
           { answer: "Second attempt" },
           { answer: "Third attempt" }
-        ])
+        ))
       )
       const inner = yield* Module.predict("qa", qa)
 
       const reward: Module.RewardFn<
-        { readonly question: typeof Schema.String },
-        { readonly answer: typeof Schema.String }
+        typeof QaInput.fields,
+        typeof QaOutput.fields
       > = (_input, output) => {
-        const scores: Record<string, number> = {
-          "First attempt": 0.3,
-          "Second attempt": 0.5,
-          "Third attempt": 0.9
-        }
-        const score = scores[output.answer] ?? 0
+        const score = Match.value(output.answer).pipe(
+          Match.when("First attempt", () => 0.3),
+          Match.when("Second attempt", () => 0.5),
+          Match.when("Third attempt", () => 0.9),
+          Match.orElse(() => 0)
+        )
         return Effect.succeed(
-          new MetricResult({
+          new Result({
             score,
-            feedback: `Score was ${score}, needs improvement`
+            feedback: "The answer needs improvement"
           })
         )
       }
@@ -55,7 +223,7 @@ describe("Module.refine", () => {
       const refined = yield* Module.refine({
         name: "qa-refine",
         module: inner,
-        N: RolloutCount.make(3),
+        N: Module.RolloutCount.make(3),
         reward,
         threshold: 0.8
       })
@@ -67,37 +235,42 @@ describe("Module.refine", () => {
       )
 
       const calls = yield* Ref.get(mock.calls)
+      const secondCall = yield* Arr.get(calls, 1)
+      const thirdCall = yield* Arr.get(calls, 2)
       expect(calls).toHaveLength(3)
-      expect(calls[1]?.prompt).toContain("Refinement feedback")
-      expect(calls[1]?.prompt).toContain("Attempt 1")
-      expect(calls[2]?.prompt).toContain("Attempt 1")
-      expect(calls[2]?.prompt).toContain("Attempt 2")
+      expect(secondCall.prompt).toContain("Refinement feedback")
+      expect(secondCall.prompt).toContain("Attempt 1")
+      expect(thirdCall.prompt).toContain("Attempt 1")
+      expect(thirdCall.prompt).toContain("Attempt 2")
     }))
 
   it.effect("stops early when a candidate meets the threshold", () =>
     Effect.gen(function*() {
       const qa = yield* makeQaSignature()
       const mock = yield* MockLanguageModel.make(
-        MockLanguageModel.sequence([
+        MockLanguageModel.sequence(Arr.make(
           { answer: "Poor" },
           { answer: "Excellent" },
           { answer: "Should not reach" }
-        ])
+        ))
       )
       const inner = yield* Module.predict("qa", qa)
 
       const reward: Module.RewardFn<
-        { readonly question: typeof Schema.String },
-        { readonly answer: typeof Schema.String }
+        typeof QaInput.fields,
+        typeof QaOutput.fields
       > = (_input, output) => {
-        const score = output.answer === "Excellent" ? 0.95 : 0.3
-        return Effect.succeed(new MetricResult({ score }))
+        const score = Boolean.match(Equal.equals(output.answer, "Excellent"), {
+          onTrue: () => 0.95,
+          onFalse: () => 0.3
+        })
+        return Effect.succeed(new Result({ score }))
       }
 
       const refined = yield* Module.refine({
         name: "qa-early-stop",
         module: inner,
-        N: RolloutCount.make(5),
+        N: Module.RolloutCount.make(5),
         reward,
         threshold: 0.9
       })
@@ -117,22 +290,22 @@ describe("Module.refine", () => {
     Effect.gen(function*() {
       const qa = yield* makeQaSignature()
       const mock = yield* MockLanguageModel.make(
-        MockLanguageModel.sequence([
+        MockLanguageModel.sequence(Arr.make(
           { answer: "Attempt 1" },
           { answer: "Attempt 2" }
-        ])
+        ))
       )
       const inner = yield* Module.predict("qa", qa)
 
       const reward: Module.RewardFn<
-        { readonly question: typeof Schema.String },
-        { readonly answer: typeof Schema.String }
-      > = () => Effect.succeed(new MetricResult({ score: 0.3 }))
+        typeof QaInput.fields,
+        typeof QaOutput.fields
+      > = () => Effect.succeed(new Result({ score: 0.3 }))
 
       const refined = yield* Module.refine({
         name: "qa-traced-refine",
         module: inner,
-        N: RolloutCount.make(2),
+        N: Module.RolloutCount.make(2),
         reward,
         threshold: 0.9
       })
@@ -143,7 +316,7 @@ describe("Module.refine", () => {
         )
       )
 
-      const entries = traced[1]
+      const entries = yield* Arr.get(traced, 1)
       expect(entries).toHaveLength(2)
     }))
 
@@ -151,25 +324,25 @@ describe("Module.refine", () => {
     Effect.gen(function*() {
       const qa = yield* makeQaSignature()
       const mock = yield* MockLanguageModel.make(
-        MockLanguageModel.sequence([
+        MockLanguageModel.sequence(Arr.make(
           { answer: "Run 1 attempt 1" },
           { answer: "Run 1 attempt 2" },
           { answer: "Run 2 attempt 1" },
           { answer: "Run 2 attempt 2" }
-        ])
+        ))
       )
       const inner = yield* Module.predict("qa", qa)
       const baseParams = yield* Ref.get(inner.params)
 
       const reward: Module.RewardFn<
-        { readonly question: typeof Schema.String },
-        { readonly answer: typeof Schema.String }
-      > = () => Effect.succeed(new MetricResult({ score: 0.3 }))
+        typeof QaInput.fields,
+        typeof QaOutput.fields
+      > = () => Effect.succeed(new Result({ score: 0.3 }))
 
       const refined = yield* Module.refine({
         name: "qa-drift-test",
         module: inner,
-        N: RolloutCount.make(2),
+        N: Module.RolloutCount.make(2),
         reward,
         threshold: 0.9
       })
@@ -193,10 +366,10 @@ describe("Module.refine", () => {
     Effect.gen(function*() {
       const qa = yield* makeQaSignature()
       const mock = yield* MockLanguageModel.make(
-        MockLanguageModel.sequence([
+        MockLanguageModel.sequence(Arr.make(
           { answer: "First attempt" },
           { answer: "Second attempt" }
-        ])
+        ))
       )
       const inner = yield* Module.predict("qa", qa)
       const baseParams = yield* Ref.get(inner.params)
@@ -204,23 +377,26 @@ describe("Module.refine", () => {
       const secondRewardStarted = yield* Deferred.make<void>()
 
       const reward: Module.RewardFn<
-        { readonly question: typeof Schema.String },
-        { readonly answer: typeof Schema.String }
+        typeof QaInput.fields,
+        typeof QaOutput.fields
       > = () =>
-        Ref.getAndUpdate(rewardCalls, (count) => count + 1).pipe(
+        Ref.getAndUpdate(rewardCalls, Num.increment).pipe(
           Effect.flatMap((call) =>
-            call === 0
-              ? Effect.succeed(new MetricResult({ score: 0.2, feedback: "Try again" }))
-              : Deferred.succeed(secondRewardStarted, undefined).pipe(
-                Effect.zipRight(Effect.never)
+            Match.value(call).pipe(
+              Match.when(0, () => Effect.succeed(new Result({ score: 0.2, feedback: "Try again" }))),
+              Match.orElse(() =>
+                Deferred.succeed(secondRewardStarted, undefined).pipe(
+                  Effect.zipRight(Effect.never)
+                )
               )
+            )
           )
         )
 
       const refined = yield* Module.refine({
         name: "qa-interrupted-refine",
         module: inner,
-        N: RolloutCount.make(2),
+        N: Module.RolloutCount.make(2),
         reward,
         threshold: 0.9
       })
@@ -241,43 +417,46 @@ describe("Module.refine", () => {
     Effect.gen(function*() {
       const qa = yield* makeQaSignature()
       const mock = yield* MockLanguageModel.make(
-        MockLanguageModel.sequence([
+        MockLanguageModel.sequence(Arr.make(
           { answer: "First" },
           { answer: "Second" }
-        ])
+        ))
       )
       const inner = yield* Module.predict("qa", qa)
       const activeRewards = yield* Ref.make(0)
       const maximumActiveRewards = yield* Ref.make(0)
 
       const reward: Module.RewardFn<
-        { readonly question: typeof Schema.String },
-        { readonly answer: typeof Schema.String }
+        typeof QaInput.fields,
+        typeof QaOutput.fields
       > = () =>
         Effect.acquireUseRelease(
-          Ref.updateAndGet(activeRewards, (count) => count + 1).pipe(
-            Effect.tap((count) => Ref.update(maximumActiveRewards, (maximum) => Math.max(maximum, count)))
+          Ref.updateAndGet(activeRewards, Num.increment).pipe(
+            Effect.tap((count) => Ref.update(maximumActiveRewards, Num.max(count)))
           ),
           () =>
             Effect.yieldNow().pipe(
-              Effect.as(new MetricResult({ score: 1 }))
+              Effect.as(new Result({ score: 1 }))
             ),
-          () => Ref.update(activeRewards, (count) => count - 1)
+          () => Ref.update(activeRewards, Num.decrement)
         )
 
       const refined = yield* Module.refine({
         name: "qa-serialized-refine",
         module: inner,
-        N: RolloutCount.make(1),
+        N: Module.RolloutCount.make(1),
         reward,
         threshold: 0.9
       })
       const modelLayer = Layer.succeed(LanguageModel.LanguageModel, mock.service)
 
-      yield* Effect.all([
-        refined.forward({ question: "First call" }),
-        refined.forward({ question: "Second call" })
-      ], { concurrency: "unbounded" }).pipe(Effect.provide(modelLayer))
+      yield* Effect.all(
+        Arr.make(
+          refined.forward({ question: "First call" }),
+          refined.forward({ question: "Second call" })
+        ),
+        { concurrency: "unbounded" }
+      ).pipe(Effect.provide(modelLayer))
 
       expect(yield* Ref.get(maximumActiveRewards)).toBe(1)
     }))
@@ -286,31 +465,31 @@ describe("Module.refine", () => {
     Effect.gen(function*() {
       const qa = yield* makeQaSignature()
       const mock = yield* MockLanguageModel.make(
-        MockLanguageModel.sequence([
+        MockLanguageModel.sequence(Arr.make(
           { answer: "Weak" },
           { answer: "Better" },
           { answer: "Best so far" }
-        ])
+        ))
       )
       const inner = yield* Module.predict("qa", qa)
 
       const reward: Module.RewardFn<
-        { readonly question: typeof Schema.String },
-        { readonly answer: typeof Schema.String }
+        typeof QaInput.fields,
+        typeof QaOutput.fields
       > = (_input, output) => {
-        const scores: Record<string, number> = {
-          "Weak": 0.2,
-          "Better": 0.5,
-          "Best so far": 0.7
-        }
-        const score = scores[output.answer] ?? 0
-        return Effect.succeed(new MetricResult({ score }))
+        const score = Match.value(output.answer).pipe(
+          Match.when("Weak", () => 0.2),
+          Match.when("Better", () => 0.5),
+          Match.when("Best so far", () => 0.7),
+          Match.orElse(() => 0)
+        )
+        return Effect.succeed(new Result({ score }))
       }
 
       const refined = yield* Module.refine({
         name: "qa-best-overall",
         module: inner,
-        N: RolloutCount.make(3),
+        N: Module.RolloutCount.make(3),
         reward,
         threshold: 0.95
       })
@@ -324,22 +503,181 @@ describe("Module.refine", () => {
       expect(result).toEqual({ answer: "Best so far" })
     }))
 
-  it.effect("returns the first output when every score is NaN", () =>
+  it.effect("does not let a NaN score replace a valid score before a better attempt", () =>
     Effect.gen(function*() {
       const qa = yield* makeQaSignature()
       const mock = yield* MockLanguageModel.make(
-        MockLanguageModel.sequence([
-          { answer: "First" },
-          { answer: "Second" }
-        ])
+        MockLanguageModel.sequence(Arr.make(
+          { answer: "Valid first" },
+          { answer: "NaN candidate" },
+          { answer: "Better last" }
+        ))
       )
       const inner = yield* Module.predict("qa", qa)
+      const nan = yield* Schema.decode(Schema.NumberFromString)("NaN")
+
+      const refined = yield* Module.refine({
+        name: "qa-nan-between-valid-scores",
+        module: inner,
+        N: Module.RolloutCount.make(3),
+        reward: (_input, output) =>
+          Effect.succeed(
+            new Result({
+              score: Match.value(output.answer).pipe(
+                Match.when("Valid first", () => 0.4),
+                Match.when("Better last", () => 0.8),
+                Match.orElse(() => nan)
+              )
+            })
+          ),
+        threshold: 0.9
+      })
+
+      const result = yield* refined.forward({ question: "NaN candidate" }).pipe(
+        Effect.provide(Layer.succeed(LanguageModel.LanguageModel, mock.service))
+      )
+
+      expect(result).toEqual({ answer: "Better last" })
+      expect(yield* Ref.get(mock.calls)).toHaveLength(3)
+    }))
+
+  it.effect("continues after an initial NaN, carries feedback, and stops at a later ordered threshold", () =>
+    Effect.gen(function*() {
+      const qa = yield* makeQaSignature()
+      const mock = yield* MockLanguageModel.make(
+        MockLanguageModel.sequence(Arr.make(
+          { answer: "Unscorable" },
+          { answer: "Meets threshold" },
+          { answer: "Must not run" }
+        ))
+      )
+      const inner = yield* Module.predict("qa", qa)
+      const original = yield* Ref.get(inner.params)
+      const nan = yield* Schema.decode(Schema.NumberFromString)("NaN")
+      const refined = yield* Module.refine({
+        name: "qa-initial-nan",
+        module: inner,
+        N: Module.RolloutCount.make(3),
+        reward: (_input, output) =>
+          Effect.succeed(
+            new Result({
+              score: Match.value(output.answer).pipe(
+                Match.when("Unscorable", () => nan),
+                Match.orElse(() => 0.8)
+              ),
+              feedback: "Supply a verifiable answer"
+            })
+          ),
+        threshold: 0.8
+      })
+
+      const result = yield* refined.forward({ question: "Recover after NaN" }).pipe(
+        Effect.provideService(LanguageModel.LanguageModel, mock.service)
+      )
+      const calls = yield* Ref.get(mock.calls)
+
+      expect(result.answer).toBe("Meets threshold")
+      expect(calls).toHaveLength(2)
+      expect((yield* Arr.get(calls, 1)).prompt).toContain("Attempt 1 (score: NaN): Supply a verifiable answer")
+      expect(yield* Ref.get(inner.params)).toBe(original)
+    }))
+
+  it.effect("accepts either infinity as an ordered score and threshold after an initial NaN", () =>
+    Effect.gen(function*() {
+      const qa = yield* makeQaSignature()
+      const nan = yield* Schema.decode(Schema.NumberFromString)("NaN")
+
+      yield* Effect.forEach(Arr.make("-Infinity", "Infinity"), (encodedThreshold) =>
+        Effect.gen(function*() {
+          const threshold = yield* Schema.decode(Schema.NumberFromString)(encodedThreshold)
+          const suffix = Str.toLowerCase(Str.replace("-", "negative-")(encodedThreshold))
+          const inner = yield* Module.predict(Str.concat("qa-", suffix), qa)
+          const mock = yield* MockLanguageModel.make(
+            MockLanguageModel.sequence(Arr.make(
+              { answer: "Unordered" },
+              { answer: "Ordered" },
+              { answer: "Must not run" }
+            ))
+          )
+          const refined = yield* Module.refine({
+            name: Str.concat("qa-infinite-threshold-", suffix),
+            module: inner,
+            N: Module.RolloutCount.make(3),
+            reward: (_input, output) =>
+              Effect.succeed(
+                new Result({
+                  score: Match.value(output.answer).pipe(
+                    Match.when("Unordered", () => nan),
+                    Match.orElse(() => threshold)
+                  )
+                })
+              ),
+            threshold
+          })
+
+          const result = yield* refined.forward({ question: "Order infinite rewards" }).pipe(
+            Effect.provideService(LanguageModel.LanguageModel, mock.service)
+          )
+
+          expect(result.answer).toBe("Ordered")
+          expect(yield* Ref.get(mock.calls)).toHaveLength(2)
+        }))
+    }))
+
+  it.effect("exhausts attempts for an unordered threshold and retains the highest ordered reward", () =>
+    Effect.gen(function*() {
+      const qa = yield* makeQaSignature()
+      const inner = yield* Module.predict("qa", qa)
+      const nan = yield* Schema.decode(Schema.NumberFromString)("NaN")
+      const mock = yield* MockLanguageModel.make(
+        MockLanguageModel.sequence(Arr.make(
+          { answer: "Best" },
+          { answer: "Unordered" },
+          { answer: "Lower" }
+        ))
+      )
+      const refined = yield* Module.refine({
+        name: "qa-nan-threshold",
+        module: inner,
+        N: Module.RolloutCount.make(3),
+        reward: (_input, output) =>
+          Effect.succeed(
+            new Result({
+              score: Match.value(output.answer).pipe(
+                Match.when("Best", () => 0.7),
+                Match.when("Lower", () => 0.2),
+                Match.orElse(() => nan)
+              )
+            })
+          ),
+        threshold: nan
+      })
+
+      const result = yield* refined.forward({ question: "Unreachable threshold" }).pipe(
+        Effect.provideService(LanguageModel.LanguageModel, mock.service)
+      )
+
+      expect(result.answer).toBe("Best")
+      expect(yield* Ref.get(mock.calls)).toHaveLength(3)
+    }))
+
+  it.effect("exhausts attempts and returns the first output when every score is NaN", () =>
+    Effect.gen(function*() {
+      const qa = yield* makeQaSignature()
+      const mock = yield* MockLanguageModel.make(
+        MockLanguageModel.sequence(Arr.make(
+          { answer: "First" },
+          { answer: "Second" }
+        ))
+      )
+      const inner = yield* Module.predict("qa", qa)
+      const nan = yield* Schema.decode(Schema.NumberFromString)("NaN")
 
       const refined = yield* Module.refine({
         name: "qa-nan-scores",
         module: inner,
-        N: RolloutCount.make(2),
-        reward: () => Effect.succeed(new MetricResult({ score: Number.NaN })),
+        N: Module.RolloutCount.make(2),
+        reward: () => Effect.succeed(new Result({ score: nan })),
         threshold: 0.5
       })
 
@@ -350,12 +688,13 @@ describe("Module.refine", () => {
       )
 
       expect(result).toEqual({ answer: "First" })
+      expect(yield* Ref.get(mock.calls)).toHaveLength(2)
     }))
 
   it.effect("rejects a non-positive attempt count at the RolloutCount boundary", () =>
     Effect.gen(function*() {
-      const zero = yield* Schema.decodeUnknown(RolloutCount)(0).pipe(Effect.flip)
-      const fractional = yield* Schema.decodeUnknown(RolloutCount)(1.5).pipe(Effect.flip)
+      const zero = yield* Schema.decodeUnknown(Module.RolloutCount)(0).pipe(Effect.flip)
+      const fractional = yield* Schema.decodeUnknown(Module.RolloutCount)(1.5).pipe(Effect.flip)
 
       expect(zero._tag).toBe("ParseError")
       expect(fractional._tag).toBe("ParseError")

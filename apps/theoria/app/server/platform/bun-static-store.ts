@@ -1,7 +1,8 @@
 import { FileSystem, HttpPlatform, HttpServerResponse } from "@effect/platform"
 import type { PlatformError } from "@effect/platform/Error"
-import { Effect, Layer, Option, Schema } from "effect"
+import { Boolean as Bool, Effect, Layer, Option, Schema } from "effect"
 import * as Arr from "effect/Array"
+import * as Str from "effect/String"
 
 import { contentTypeForPath, StaticStore, StaticStoreError } from "../config/static-store.js"
 
@@ -16,12 +17,15 @@ import { contentTypeForPath, StaticStore, StaticStoreError } from "../config/sta
 
 const AssetPathname = Schema.String.pipe(
   Schema.pattern(/^\/[A-Za-z0-9._/-]+$/u),
-  Schema.filter((value) => !value.endsWith("/") && !value.includes("..") && !value.includes("//"))
+  Schema.filter((value) =>
+    Bool.not(Bool.some([Str.endsWith("/")(value), Str.includes("..")(value), Str.includes("//")(value)]))
+  )
 )
 
 const isAssetPathname = Schema.is(AssetPathname)
 
-const trimTrailingSlash = (root: string): string => root.endsWith("/") ? root.slice(0, -1) : root
+const trimTrailingSlash = (root: string): string =>
+  Bool.match(Str.endsWith("/")(root), { onTrue: () => Str.slice(0, -1)(root), onFalse: () => root })
 
 const make = (roots: ReadonlyArray<string>) =>
   Effect.gen(function*() {
@@ -37,23 +41,27 @@ const make = (roots: ReadonlyArray<string>) =>
 
     /** The first root that holds `pathname`, or none when no root does. */
     const locate = (pathname: string): Effect.Effect<Option.Option<string>, StaticStoreError> =>
-      isAssetPathname(pathname)
-        ? Effect.findFirst(candidatePaths(pathname), (path) => fileSystem.exists(path)).pipe(
-          Effect.mapError(unreadable(pathname))
-        )
-        : Effect.succeedNone
+      Bool.match(isAssetPathname(pathname), {
+        onTrue: () =>
+          Effect.findFirst(candidatePaths(pathname), (path) => fileSystem.exists(path)).pipe(
+            Effect.mapError(unreadable(pathname))
+          ),
+        onFalse: () => Effect.succeedNone
+      })
 
     const text = (pathname: string): Effect.Effect<string, StaticStoreError> =>
-      isAssetPathname(pathname)
-        ? locate(pathname).pipe(
-          Effect.flatMap(
-            Option.match({
-              onNone: () => new StaticStoreError({ pathname, reason: "NotFound", detail: "" }),
-              onSome: (path) => fileSystem.readFileString(path).pipe(Effect.mapError(unreadable(pathname)))
-            })
-          )
-        )
-        : new StaticStoreError({ pathname, reason: "InvalidPathname", detail: "" })
+      Bool.match(isAssetPathname(pathname), {
+        onTrue: () =>
+          locate(pathname).pipe(
+            Effect.flatMap(
+              Option.match({
+                onNone: () => new StaticStoreError({ pathname, reason: "NotFound", detail: "" }),
+                onSome: (path) => fileSystem.readFileString(path).pipe(Effect.mapError(unreadable(pathname)))
+              })
+            )
+          ),
+        onFalse: () => new StaticStoreError({ pathname, reason: "InvalidPathname", detail: "" })
+      })
 
     // A file without a registered content type is not a servable asset. The
     // build gate keeps such files out of `dist/`; `public/` in development is

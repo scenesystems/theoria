@@ -1,5 +1,5 @@
 import { FetchHttpClient, HttpClient, type HttpClientError } from "@effect/platform"
-import { Effect, Schema } from "effect"
+import { Effect, Match, Schema } from "effect"
 import * as ParseResult from "effect/ParseResult"
 
 import {
@@ -19,9 +19,13 @@ import {
 const parseErrorMessage = (error: ParseResult.ParseError): string => ParseResult.TreeFormatter.formatErrorSync(error)
 
 const requestErrorMessage = (error: HttpClientError.HttpClientError): string =>
-  error._tag === "ResponseError"
-    ? `Documentation data request failed with status ${String(error.response.status)}`
-    : error.message
+  Match.value(error).pipe(
+    Match.tag("ResponseError", (failure) =>
+      `Documentation data request failed with status ${String(failure.response.status)}`),
+    Match.orElse((failure) =>
+      failure.message
+    )
+  )
 
 const make = Effect.gen(function*() {
   const http = (yield* HttpClient.HttpClient).pipe(HttpClient.filterStatusOk)
@@ -53,7 +57,7 @@ const make = Effect.gen(function*() {
  * platform `HttpClient`, so the production layer uses `fetch` while tests
  * provide an in-memory client through `DocsClient.DefaultWithoutDependencies`.
  */
-export class DocsClient extends Effect.Service<DocsClient>()("theoria/DocsClient", {
+export class DocsClient extends Effect.Service<DocsClient>()("@theoria/app/web/services/DocsClient", {
   effect: make,
   dependencies: [FetchHttpClient.layer]
 }) {}

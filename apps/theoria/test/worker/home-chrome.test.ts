@@ -1,8 +1,10 @@
 // @vitest-environment node
 import { expect, layer } from "@effect/vitest"
 import type { Locator, Page } from "@playwright/test"
-import { Effect, Equal, Layer, Option, Predicate } from "effect"
+import { Numeric } from "@scenesystems/effect-math"
+import { Effect, Equal, Layer, Number as Num, Option, Predicate } from "effect"
 import * as Arr from "effect/Array"
+import { evaluate, evaluateElement, evaluateElements } from "./browser.js"
 
 import { siteMetadata } from "../../app/contracts/metadata.js"
 import {
@@ -46,10 +48,16 @@ import { SiteLive } from "./site.js"
 
 /** Distances that are one distance, allowing the pixel a fluid length rounds to differently along the line. */
 const alike = (distances: ReadonlyArray<number>, message: string) => {
-  expect(Math.max(...distances) - Math.min(...distances), message).toBeLessThanOrEqual(1)
+  expect(
+    Arr.match(distances, {
+      onEmpty: () => 0,
+      onNonEmpty: (values) => Numeric.abs(Num.subtract(Arr.max(values, Num.Order), Arr.min(values, Num.Order)))
+    }),
+    message
+  ).toBeLessThanOrEqual(1)
 }
 
-const baselines = (elements: Locator) => act(() => elements.evaluateAll(textBaselines))
+const baselines = (elements: Locator) => evaluateElements(elements, textBaselines)
 
 const siteNav = (page: Page) => page.getByRole("navigation", { name: "Site" })
 
@@ -67,8 +75,8 @@ layer(Layer.merge(SiteLive, BrowserLive), { excludeTestServices: true, timeout: 
         yield* visible(siteNav(page))
 
         const { lines } = yield* Effect.acquireRelease(
-          act(() => page.evaluate(mountWrappedBaselineRow)),
-          () => Effect.orDie(act(() => page.evaluate(unmountWrappedBaselineRow)))
+          evaluate(page, mountWrappedBaselineRow),
+          () => Effect.orDie(evaluate(page, unmountWrappedBaselineRow))
         )
         expect(lines, "the value takes more than one line").toBeGreaterThan(1)
         const rests = yield* baselines(page.locator("[data-probe-label], [data-probe-value]"))
@@ -97,21 +105,24 @@ layer(Layer.merge(SiteLive, BrowserLive), { excludeTestServices: true, timeout: 
               ({ offered, thenOffered }) =>
                 Effect.gen(function*() {
                   yield* visible(page.getByRole("button", { name: offered }))
-                  const controls = yield* act(() => siteNav(page).locator(":scope > *").evaluateAll(headerControls))
+                  const controls = yield* evaluateElements(siteNav(page).locator(":scope > *"), headerControls)
                   const at = `at ${String(viewport.width)}px offering "${String(offered)}"`
                   expect(controls.length, `${at}: docs, the repository, the other theme`).toBe(3)
                   const gaps = Arr.zipWith(
                     Arr.drop(controls, 1),
                     Arr.dropRight(controls, 1),
-                    (next, previous) => next.shown.left - previous.shown.right
+                    (next, previous) => Num.subtract(next.shown.left, previous.shown.right)
                   )
                   alike(gaps, `${at}: the space the reader sees between controls is one space, not ${String(gaps)}`)
-                  expect(Arr.every(controls, (control) => control.glyphInk > 0), `${at}: every control has a glyph`)
+                  expect(
+                    Arr.every(controls, (control) => Num.greaterThan(control.glyphInk, 0)),
+                    `${at}: every control has a glyph`
+                  )
                     .toBe(true)
                   alike(
                     Arr.map(controls, (control) => control.glyphInk),
                     `${at}: the glyphs are drawn at one size, not ${
-                      String(controls.map((control) => control.glyphInk))
+                      String(Arr.map(controls, (control) => control.glyphInk))
                     }`
                   )
                   expect(
@@ -123,7 +134,7 @@ layer(Layer.merge(SiteLive, BrowserLive), { excludeTestServices: true, timeout: 
                     onNone: () => Effect.dieMessage(`${at}: no theme control`),
                     onSome: Effect.succeed
                   })
-                  yield* clickAt(page, { x: theme.centre.x + 21, y: theme.centre.y })
+                  yield* clickAt(page, { x: Num.sum(theme.centre.x, 21), y: theme.centre.y })
                   yield* visible(page.getByRole("button", { name: thenOffered }))
                 })
             )
@@ -148,15 +159,17 @@ layer(Layer.merge(SiteLive, BrowserLive), { excludeTestServices: true, timeout: 
         const legal = footer.getByText(`© ${String(siteMetadata.copyrightYear)} ${siteMetadata.legalName}`, {
           exact: true
         })
-        const brandBox = yield* act(() => brand.evaluate(boxOf))
-        const linksBox = yield* act(() => links.evaluate(boxOf))
+        const brandBox = yield* evaluateElement(brand, boxOf)
+        const linksBox = yield* evaluateElement(links, boxOf)
         alike([brandBox.centreY, linksBox.centreY], "brand and links share a row centre")
         alike(yield* baselines(footer.locator("p")), "tagline and copyright rest on one baseline")
 
         yield* setViewport(page, phone)
-        const rows = yield* Effect.forEach([brand, tagline, links, legal], (row) => act(() => row.evaluate(boxOf)))
+        const rows = yield* Effect.forEach([brand, tagline, links, legal], (row) => evaluateElement(row, boxOf))
         alike(Arr.map(rows, (row) => row.centreX), "the narrow footer has one centred column")
-        expect(Arr.every(Arr.zip(rows, Arr.drop(rows, 1)), ([before, after]) => after.top > before.bottom))
+        expect(
+          Arr.every(Arr.zip(rows, Arr.drop(rows, 1)), ([before, after]) => Num.greaterThan(after.top, before.bottom))
+        )
           .toBe(true)
         expect(yield* failures).toEqual([])
       }))
@@ -167,7 +180,7 @@ layer(Layer.merge(SiteLive, BrowserLive), { excludeTestServices: true, timeout: 
         yield* goto(page, "/")
         yield* drawn(page)
 
-        const controls = yield* act(() => page.locator("body").evaluate(pressableCursors))
+        const controls = yield* evaluateElement(page.locator("body"), pressableCursors)
         // The page renders its controls every way the rule must reach: a button, a mark set as a div, Base UI's
         // radios and switches as spans, its tabs as buttons in a role. Each kind is present, or the check is hollow.
         const rendered = Arr.dedupe(Arr.map(controls, (control) => control.rendered))
@@ -192,7 +205,7 @@ layer(Layer.merge(SiteLive, BrowserLive), { excludeTestServices: true, timeout: 
         const headers = page.locator("[data-place-step-header]")
         const headerCount = yield* act(() => headers.count())
         expect(headerCount).toBeGreaterThan(0)
-        yield* Effect.forEach(Arr.range(0, headerCount - 1), (index) =>
+        yield* Effect.forEach(Arr.range(0, Num.decrement(headerCount)), (index) =>
           Effect.gen(function*() {
             const header = headers.nth(index)
             yield* act(() => header.scrollIntoViewIfNeeded())
@@ -203,10 +216,10 @@ layer(Layer.merge(SiteLive, BrowserLive), { excludeTestServices: true, timeout: 
             alike(rests, `${name}: its name and its packages rest on one baseline, not ${String(rests)}`)
             const link = header.locator("a[href^='/docs/']").first()
             yield* pointerAway(page)
-            const before = yield* act(() => link.evaluate(underlineDrawn))
+            const before = yield* evaluateElement(link, underlineDrawn)
             expect(before.lines, `${name}: no underline until the pointer arrives`).not.toContain("underline")
             yield* hover(link)
-            const under = yield* act(() => link.evaluate(underlineDrawn))
+            const under = yield* evaluateElement(link, underlineDrawn)
             expect(under.lines, `${name}: the underline arrives under the pointer`).toContain("underline")
             expect(under.position, `${name}: the underline is drawn below the descenders`).toBe("under")
             expect(under.color, `${name}: the underline is drawn in the name's colour`).toBe(under.inkColor)

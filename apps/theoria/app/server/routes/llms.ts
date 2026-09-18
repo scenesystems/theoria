@@ -1,6 +1,7 @@
 import { HttpServerResponse } from "@effect/platform"
-import { Effect } from "effect"
+import { Boolean as Bool, Effect } from "effect"
 import * as Arr from "effect/Array"
+import * as Str from "effect/String"
 
 import type { DocsManifest, DocsPackageSummary } from "@theoria/docs-model"
 import { fullCanonicalUrl, siteMetadata } from "../../contracts/metadata.js"
@@ -19,11 +20,14 @@ import { textContentType } from "../config/static-store.js"
  * agents that do not run JavaScript cannot read the site's own pages.
  */
 
-const rawRepositoryUrl = siteMetadata.repositoryUrl.replace("https://github.com/", "https://raw.githubusercontent.com/")
+const rawRepositoryUrl = Str.replace("https://github.com/", "https://raw.githubusercontent.com/")(
+  siteMetadata.repositoryUrl
+)
 
 // Package descriptions come from package.json and are written without a
 // terminal period; every other note ends with one.
-const sentence = (notes: string): string => notes.endsWith(".") ? notes : `${notes}.`
+const sentence = (notes: string): string =>
+  Bool.match(Str.endsWith(".")(notes), { onTrue: () => notes, onFalse: () => `${notes}.` })
 
 const entry = (name: string, url: string, notes: string): string => `- [${name}](${url}): ${sentence(notes)}`
 
@@ -45,8 +49,8 @@ const documentationEntry = (docsPackage: DocsPackageSummary): string =>
   entry(
     `${docsPackage.name} docs`,
     fullCanonicalUrl(docsPackage.overview.path),
-    `${String(docsPackage.guides.length)} guides and the API reference for ${
-      String(docsPackage.apiModules.length)
+    `${String(Arr.length(docsPackage.guides))} guides and the API reference for ${
+      String(Arr.length(docsPackage.apiModules))
     } modules.`
   )
 
@@ -55,8 +59,10 @@ const preamble: ReadonlyArray<string> = [
   "",
   `> ${siteMetadata.tagline}. ${siteMetadata.defaultDescription}`,
   "",
-  "Every package is Effect-native, MIT licensed, and published on npm under the @scenesystems scope. "
-  + "Each README below is the source of that package's guides; the documentation pages render in the browser."
+  Str.concat(
+    "Every package is Effect-native, MIT licensed, and published on npm under the @scenesystems scope. ",
+    "Each README below is the source of that package's guides; the documentation pages render in the browser."
+  )
 ]
 
 const optionalEntries: ReadonlyArray<string> = [
@@ -68,15 +74,15 @@ const optionalEntries: ReadonlyArray<string> = [
 export const renderLlmsTxt = (docsManifest: DocsManifest): string =>
   `${
     Arr.join(
-      [
-        ...preamble,
-        ...section(
+      Arr.flatten([
+        preamble,
+        section(
           "Packages",
           Arr.map(docsManifest.packages, (docsPackage) => readmeEntry(docsManifest.revision, docsPackage))
         ),
-        ...section("Documentation", Arr.map(docsManifest.packages, documentationEntry)),
-        ...section("Optional", optionalEntries)
-      ],
+        section("Documentation", Arr.map(docsManifest.packages, documentationEntry)),
+        section("Optional", optionalEntries)
+      ]),
       "\n"
     )
   }\n`

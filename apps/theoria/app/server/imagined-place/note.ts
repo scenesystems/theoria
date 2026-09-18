@@ -1,16 +1,16 @@
-import { Effect, Option } from "effect"
+import { Effect, Inspectable, Option, Stream, String, Struct } from "effect"
 
-import { hkdfSha256 } from "@scenesystems/digest"
-import { seal, unpackEnvelope, unseal, utf8FromBytes, utf8ToBytes } from "@scenesystems/seal"
-import { deriveSharedSecret } from "@scenesystems/sign"
+import * as Hkdf from "@scenesystems/digest/Hkdf"
+import { type Cipher, Envelope } from "@scenesystems/seal"
+import { Bytes, X25519 } from "@scenesystems/sign"
 
-import type { SealedNote } from "../../contracts/imagined-place-result.js"
+import { SealedNote } from "../../contracts/imagined-place-result.js"
 import type { ParticipantRole } from "../../contracts/imagined-place.js"
 import { PlaceBuildError } from "../../contracts/imagined-place.js"
 
 import { type ParticipantKeys, Participants } from "./authority.js"
 
-const noteContext = utf8ToBytes("theoria/imagined-place/sealed-note/v1")
+const noteContext = Bytes.fromString("theoria/imagined-place/sealed-note/v1")
 
 /**
  * Both sides derive the same sealing key: X25519 agreement between the
@@ -20,8 +20,8 @@ const noteContext = utf8ToBytes("theoria/imagined-place/sealed-note/v1")
  */
 const sealingKey = (mine: ParticipantKeys, theirs: ParticipantKeys) =>
   Effect.gen(function*() {
-    const shared = yield* deriveSharedSecret("x25519", mine.agreement.secretKey, theirs.agreement.publicKey)
-    return yield* hkdfSha256(shared.sharedSecret, Option.none(), noteContext, 32)
+    const shared = yield* X25519.deriveSharedSecret(mine.agreement.secretKey, theirs.agreement.publicKey)
+    return yield* Hkdf.sha256(shared.sharedSecret, Option.none(), noteContext, 32)
   })
 
 /**
@@ -32,25 +32,34 @@ export const sendSealedNote = (
   from: ParticipantRole,
   to: ParticipantRole,
   text: string
-): Effect.Effect<SealedNote, PlaceBuildError, Participants> =>
+): Effect.Effect<SealedNote, PlaceBuildError, Participants | Cipher.Cipher> =>
   Effect.gen(function*() {
     const participants = yield* Participants
-    const sender = participants[from]
-    const recipient = participants[to]
+    const sender = Struct.get(from)(participants)
+    const recipient = Struct.get(to)(participants)
+    const plaintext = Bytes.fromString(text)
 
-    const envelope = yield* seal("xchacha20-poly1305", yield* sealingKey(sender, recipient), utf8ToBytes(text))
-    const packed = yield* unpackEnvelope(envelope)
+    const envelope = yield* Envelope.encrypt(
+      "xchacha20-poly1305",
+      yield* sealingKey(sender, recipient),
+      plaintext
+    )
+    const packed = yield* Envelope.toBytes(envelope)
 
-    const opened = yield* unseal(yield* sealingKey(recipient, sender), envelope)
+    const opened = yield* Envelope.decrypt(envelope, yield* sealingKey(recipient, sender))
 
-    const note: SealedNote = {
+    return SealedNote.make({
       from,
       to,
       agreement: "x25519",
       kdf: "hkdf-sha256",
       algorithm: "xchacha20-poly1305",
       envelopeBytes: packed.length,
-      openedText: utf8FromBytes(opened)
-    }
-    return note
-  }).pipe(Effect.mapError((cause) => new PlaceBuildError({ stage: "seal", message: String(cause) })))
+      openedText: yield* Stream.make(opened).pipe(
+        Stream.decodeText(),
+        Stream.runFold("", String.concat)
+      )
+    })
+  }).pipe(
+    Effect.mapError((cause) => new PlaceBuildError({ stage: "seal", message: Inspectable.toStringUnknown(cause) }))
+  )

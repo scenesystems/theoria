@@ -1,6 +1,7 @@
 import { Url } from "@effect/platform"
-import { Context, Effect, type Either, Layer, Stream } from "effect"
+import { Boolean as Bool, Context, Effect, type Either, Layer, Stream } from "effect"
 import type { IllegalArgumentException } from "effect/Cause"
+import * as Num from "effect/Number"
 
 /**
  * The window this page runs in, as a service. Everything the app needs from
@@ -11,7 +12,10 @@ import type { IllegalArgumentException } from "effect/Cause"
  *
  * @since 0.2.0
  */
-export class BrowserWindow extends Context.Tag("theoria/BrowserWindow")<BrowserWindow, typeof window>() {}
+export class BrowserWindow extends Context.Tag("@theoria/app/web/platform/BrowserWindow")<
+  BrowserWindow,
+  typeof window
+>() {}
 
 /** The ambient window. This is the one place the app reads the global. */
 export const layer: Layer.Layer<BrowserWindow> = Layer.sync(BrowserWindow, () => window)
@@ -40,6 +44,12 @@ export const assign = (url: URL): Effect.Effect<void, never, BrowserWindow> =>
       browserWindow.location.assign(url.href)
     }))
 
+/** Reloads the current document, including its fragment, with a fresh module-loading state. */
+export const reload: Effect.Effect<void, never, BrowserWindow> = Effect.flatMap(
+  BrowserWindow,
+  (browserWindow) => Effect.sync(() => browserWindow.location.reload())
+)
+
 export const scrollToTop: Effect.Effect<void, never, BrowserWindow> = Effect.flatMap(
   BrowserWindow,
   (browserWindow) =>
@@ -58,8 +68,13 @@ export const viewportHeight: Effect.Effect<number, never, BrowserWindow> = Effec
 export const isScrolledToBottom: Effect.Effect<boolean, never, BrowserWindow> = Effect.map(
   BrowserWindow,
   (browserWindow) =>
-    browserWindow.scrollY > 0
-    && browserWindow.innerHeight + browserWindow.scrollY >= browserWindow.document.documentElement.scrollHeight - 2
+    Bool.and(
+      Num.greaterThan(browserWindow.scrollY, 0),
+      Num.greaterThanOrEqualTo(
+        Num.sum(browserWindow.innerHeight, browserWindow.scrollY),
+        Num.subtract(browserWindow.document.documentElement.scrollHeight, 2)
+      )
+    )
 )
 
 /** Window events of one type as a stream; the listener is removed when the stream ends. */

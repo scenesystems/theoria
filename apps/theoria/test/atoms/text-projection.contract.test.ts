@@ -1,9 +1,8 @@
 import type { Atom as AtomType } from "@effect-atom/atom"
 import { Registry, Result } from "@effect-atom/atom"
 import { describe, expect, it } from "@effect/vitest"
-import { Errors } from "@scenesystems/effect-text"
-import { incrementFontReadinessRevision } from "@scenesystems/effect-text/browser"
-import { Effect, Ref } from "effect"
+import { PreparationKey, TextMeasurer } from "@scenesystems/effect-text"
+import { Effect, Number as Num, Ref } from "effect"
 import type { TextProjection } from "../../app/contracts/text.js"
 
 import { fontReadinessRevisionAtom, textLayoutLayerAtom } from "../../app/web/atoms/text-layout.js"
@@ -35,7 +34,7 @@ const waitForProjection = (
 const makeAuthority = (prepareCalls: Ref.Ref<number>): TextProjectionAuthority =>
   new TextProjectionAuthority({
     prepare: (identity) =>
-      Ref.update(prepareCalls, (count) => count + 1).pipe(
+      Ref.update(prepareCalls, Num.increment).pipe(
         Effect.zipRight(prepareTextProjection(identity))
       ),
     project: ({ prepared, request, maxWidth }) => projectPreparedText({ prepared, request, maxWidth })
@@ -76,8 +75,8 @@ describe("text projection contracts", () => {
       yield* waitForProjection(registry, projectionAtom)
       expect(yield* Ref.get(prepareCalls)).toBe(1)
 
-      registry.set(fontReadinessRevisionAtom, incrementFontReadinessRevision(registry.get(fontReadinessRevisionAtom)))
-      yield* Effect.repeat(Ref.get(prepareCalls), { until: (count) => count >= 2 })
+      registry.set(fontReadinessRevisionAtom, PreparationKey.nextRevision(registry.get(fontReadinessRevisionAtom)))
+      yield* Effect.repeat(Ref.get(prepareCalls), { until: Num.greaterThanOrEqualTo(2) })
       yield* waitForProjection(registry, projectionAtom)
 
       expect(yield* Ref.get(prepareCalls)).toBe(2)
@@ -90,7 +89,12 @@ describe("text projection contracts", () => {
       const failing = new TextProjectionAuthority({
         prepare: (identity) =>
           Effect.fail(
-            new Errors.MeasurementFailed({ fontFamily: "test", fontSize: 16, text: identity.text, reason: "no canvas" })
+            new TextMeasurer.Failed({
+              fontFamily: "test",
+              fontSize: 16,
+              text: identity.prepare.text,
+              reason: "no canvas"
+            })
           ),
         project: ({ prepared, request, maxWidth }) => projectPreparedText({ prepared, request, maxWidth })
       })
@@ -107,7 +111,7 @@ describe("text projection contracts", () => {
         Effect.sync(() => registry.get(projectionAtom)).pipe(Effect.flatMap(Result.error))
       )
 
-      expect(failure).toBeInstanceOf(Errors.MeasurementFailed)
+      expect(failure).toBeInstanceOf(TextMeasurer.Failed)
       expect(failure).toMatchObject({ reason: "no canvas" })
     }))
 })

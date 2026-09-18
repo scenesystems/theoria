@@ -1,5 +1,5 @@
 import { describe, expect, it } from "@effect/vitest"
-import { Effect, Either, Option, Schema } from "effect"
+import { Boolean as Bool, Effect, Either, Option, Schema, String as Str } from "effect"
 import * as Arr from "effect/Array"
 
 import { GutterLine, gutterNumber } from "../../app/web/view/primitives/code/HighlightedCode.js"
@@ -37,13 +37,18 @@ describe("Theoria Code Highlighter", () => {
           "const value: NumberBox = 42; const label = \"answer\" // note",
           "typescript"
         )
-        const firstLine = lines[0] ?? []
+        const firstLine = Option.getOrElse(Arr.get(lines, 0), Arr.empty)
 
-        expect(Arr.some(firstLine, (token) => token.kind === "keyword" && token.value === "const")).toBe(true)
-        expect(Arr.some(firstLine, (token) => token.kind === "type" && token.value === "NumberBox")).toBe(true)
-        expect(Arr.some(firstLine, (token) => token.kind === "number" && token.value === "42")).toBe(true)
-        expect(Arr.some(firstLine, (token) => token.kind === "string" && token.value.includes("answer"))).toBe(true)
-        expect(Arr.some(firstLine, (token) => token.kind === "comment" && token.value.startsWith("//"))).toBe(true)
+        expect(Arr.some(firstLine, (token) =>
+          Bool.and(Str.Equivalence(token.kind, "keyword"), Str.Equivalence(token.value, "const")))).toBe(true)
+        expect(Arr.some(firstLine, (token) =>
+          Bool.and(Str.Equivalence(token.kind, "type"), Str.Equivalence(token.value, "NumberBox")))).toBe(true)
+        expect(Arr.some(firstLine, (token) =>
+          Bool.and(Str.Equivalence(token.kind, "number"), Str.Equivalence(token.value, "42")))).toBe(true)
+        expect(Arr.some(firstLine, (token) =>
+          Bool.and(Str.Equivalence(token.kind, "string"), Str.includes("answer")(token.value)))).toBe(true)
+        expect(Arr.some(firstLine, (token) =>
+          Bool.and(Str.Equivalence(token.kind, "comment"), Str.startsWith("//")(token.value)))).toBe(true)
       })
     ))
 

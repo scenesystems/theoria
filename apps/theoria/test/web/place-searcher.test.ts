@@ -5,8 +5,10 @@ import {
   Effect,
   Exit,
   Fiber,
+  Function as Fn,
   Layer,
   Match,
+  Number as Num,
   Option,
   type ParseResult,
   Ref,
@@ -59,11 +61,9 @@ const answeredOnTheWire = (
   request: PlaceSearchRequest
 ): Effect.Effect<unknown, ParseResult.ParseError> =>
   Match.value(request).pipe(
-    Match.tag("OpenSearch", () => Ref.updateAndGet(spawns.searches, (count) => count + 1)),
-    Match.tag("AskSearch", (asked) =>
-      Schema.encode(AskedMeander)(new AskedMeander({ trial: Number(asked.search), meander }))),
-    Match.tag("TellSearch", () =>
-      Effect.void),
+    Match.tag("OpenSearch", () => Ref.updateAndGet(spawns.searches, Num.increment)),
+    Match.tag("AskSearch", (asked) => Schema.encode(AskedMeander)(new AskedMeander({ trial: asked.search, meander }))),
+    Match.tag("TellSearch", () => Effect.void),
     Match.tag("CloseSearch", () => Effect.void),
     Match.exhaustive
   )
@@ -105,10 +105,10 @@ const managerLayer = (answering: Answering): Layer.Layer<Worker.WorkerManager | 
           [Worker.WorkerManagerTypeId]: Worker.WorkerManagerTypeId,
           spawn: <I, O, E>(): Effect.Effect<Worker.Worker<I, O, E>, WorkerError.WorkerError, Scope.Scope> =>
             Effect.gen(function*() {
-              const id = yield* Ref.updateAndGet(spawns.spawned, (count) => count + 1)
+              const id = yield* Ref.updateAndGet(spawns.spawned, Num.increment)
               const alive = yield* Ref.make(true)
               yield* Effect.addFinalizer(() =>
-                Effect.zipRight(Ref.set(alive, false), Ref.update(spawns.ended, (count) => count + 1))
+                Effect.zipRight(Ref.set(alive, false), Ref.update(spawns.ended, Num.increment))
               )
               const answer = (message: I): Effect.Effect<O, E | WorkerError.WorkerError> =>
                 Schema.decodeUnknown(PlaceSearchRequest)(message).pipe(
@@ -127,11 +127,14 @@ const managerLayer = (answering: Answering): Layer.Layer<Worker.WorkerManager | 
                 execute: (message) => Stream.fromEffect(answer(message)),
                 executeEffect: answer
               }
-              return yield* (answering === "unready" ? Effect.never : Effect.succeed(ready))
+              return yield* Match.value(answering).pipe(
+                Match.when("unready", () => Effect.never),
+                Match.orElse(() => Effect.succeed(ready))
+              )
             })
         }))
     ),
-    Worker.layerSpawner(() => undefined)
+    Worker.layerSpawner(Fn.constVoid)
   )
 
 const searcherWith = (answering: Answering) =>

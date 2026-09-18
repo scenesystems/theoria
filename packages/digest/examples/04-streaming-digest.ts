@@ -1,53 +1,29 @@
-/**
- * Hashes byte and text streams incrementally, compares each result with its
- * one-shot equivalent, and verifies a surrogate pair split across text chunks.
- *
- * Run: bun run examples/04-streaming-digest.ts
- */
+/** Hashes byte and text streams while preserving stream failures and services. */
 
 import { BunRuntime } from "@effect/platform-bun"
-import {
-  digestBytesBase64Url,
-  digestBytesHex,
-  digestByteStreamBase64Url,
-  digestByteStreamHex,
-  digestUtf8Base64Url,
-  digestUtf8StreamBase64Url,
-  encodeUtf8
-} from "@scenesystems/digest"
-import { Effect, Stream } from "effect"
+import * as Digest from "@scenesystems/digest/Digest"
+import * as Utf8 from "@scenesystems/digest/Utf8"
+import { Effect, Encoding, Stream, String as Str } from "effect"
 
 const program = Effect.gen(function*() {
-  const chunks = yield* Effect.all([encodeUtf8("stream-"), encodeUtf8("safe-"), encodeUtf8("digest")])
-  const whole = yield* encodeUtf8("stream-safe-digest")
+  const chunks = yield* Effect.all([Utf8.encode("stream-"), Utf8.encode("safe-"), Utf8.encode("digest")])
+  const whole = yield* Utf8.encode("stream-safe-digest")
+  const streamed = yield* Digest.hashStream("blake3-256", Stream.fromIterable(chunks))
+  const oneShot = Digest.hash("blake3-256", whole)
 
-  const streamedB64 = yield* digestByteStreamBase64Url("blake3-256", Stream.fromIterable(chunks))
-  const oneShotB64 = yield* digestBytesBase64Url("blake3-256", whole)
-
-  const streamedHex = yield* digestByteStreamHex("sha256", Stream.fromIterable(chunks))
-  const oneShotHex = yield* digestBytesHex("sha256", whole)
-
-  yield* Effect.log("BLAKE3 stream parity", {
-    streamed: streamedB64,
-    oneShot: oneShotB64,
-    matches: streamedB64 === oneShotB64
+  yield* Effect.log("Byte stream parity", {
+    streamed: Encoding.encodeBase64Url(streamed),
+    matches: Str.Equivalence(Encoding.encodeHex(streamed), Encoding.encodeHex(oneShot))
   })
 
-  yield* Effect.log("SHA-256 stream parity", {
-    streamed: streamedHex,
-    oneShot: oneShotHex,
-    matches: streamedHex === oneShotHex
-  })
-
-  const streamedText = yield* digestUtf8StreamBase64Url(
-    "blake3-256",
+  const streamedText = yield* Digest.hashStringStream(
+    "sha256",
     Stream.fromIterable(["surrogate-", "\uD83D", "\uDE00"])
   )
-  const oneShotText = yield* digestUtf8Base64Url("blake3-256", "surrogate-😀")
-  yield* Effect.log("UTF-8 stream parity", {
-    streamed: streamedText,
-    oneShot: oneShotText,
-    matches: streamedText === oneShotText
+  const oneShotText = yield* Digest.hashString("sha256", "surrogate-😀")
+  yield* Effect.log("Text stream parity", {
+    digest: Encoding.encodeHex(streamedText),
+    matches: Str.Equivalence(Encoding.encodeHex(streamedText), Encoding.encodeHex(oneShotText))
   })
 })
 

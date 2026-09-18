@@ -26,6 +26,7 @@ import {
   discActOutline,
   discClassName,
   discFocusRing,
+  fixedDecimal,
   markerContributor,
   markerLabel,
   markerTone
@@ -36,8 +37,8 @@ const drawnDiameter = (marker: Marker): number => Num.round(Num.multiply(marker.
 
 /** Position with `translate`, which changes without re-laying out the text. */
 const markerStyle = (marker: Marker): CSSProperties => ({
-  translate: `${Num.subtract(marker.x, marker.radius).toFixed(1)}px ${
-    Num.subtract(marker.y, marker.radius).toFixed(1)
+  translate: `${fixedDecimal(Num.subtract(marker.x, marker.radius), 1)}px ${
+    fixedDecimal(Num.subtract(marker.y, marker.radius), 1)
   }px`,
   width: `${String(drawnDiameter(marker))}px`,
   height: `${String(drawnDiameter(marker))}px`
@@ -103,10 +104,10 @@ const reachClassName = "absolute rounded-full"
  */
 const reachStyle = (marker: Marker): CSSProperties => {
   const across = Num.multiply(Num.sum(marker.radius, marker.reach), 2)
-  const offset = `${Num.unsafeDivide(Num.subtract(drawnDiameter(marker), across), 2).toFixed(2)}px`
+  const offset = `${fixedDecimal(Num.unsafeDivide(Num.subtract(drawnDiameter(marker), across), 2), 2)}px`
   return {
-    width: `${across.toFixed(2)}px`,
-    height: `${across.toFixed(2)}px`,
+    width: `${fixedDecimal(across, 2)}px`,
+    height: `${fixedDecimal(across, 2)}px`,
     left: offset,
     top: offset
   }
@@ -218,7 +219,7 @@ const Disc = ({ drawn, index, labelWidth, marker, source }: {
           <SemanticText as="span" className={tone.textStrong} role="button-label" text={String(Num.increment(index))} />
         ),
         onSome: (width) => (
-          <Layer className={labelClassName} style={{ width: `${width.toFixed(1)}px` }}>
+          <Layer className={labelClassName} style={{ width: `${fixedDecimal(width, 1)}px` }}>
             <SemanticText
               as="p"
               className={`w-full ${tone.textStrong}`}

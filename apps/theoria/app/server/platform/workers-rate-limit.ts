@@ -1,4 +1,4 @@
-import { Effect, Layer, Option, Predicate, Schema } from "effect"
+import { Boolean as Bool, Effect, Layer, Match, Option, Predicate, Schema } from "effect"
 
 import {
   admitted,
@@ -26,8 +26,12 @@ export const RateLimitBinding = Schema.declare<{
 }>(
   (input): input is {
     readonly limit: (options: { readonly key: string }) => Promise<{ readonly success: boolean }>
-  } => Predicate.hasProperty(input, "limit") && Predicate.isFunction(input.limit),
-  { identifier: "RateLimitBinding" }
+  } =>
+    Match.value(input).pipe(
+      Match.when(Predicate.hasProperty("limit"), (candidate) => Predicate.isFunction(candidate.limit)),
+      Match.orElse(() => false)
+    ),
+  { identifier: "@theoria/app/server/platform/RateLimitBinding" }
 )
 export type RateLimitBinding = typeof RateLimitBinding.Type
 
@@ -44,7 +48,9 @@ export const make = (binding: RateLimitBinding) =>
       Effect.tryPromise({
         try: () => binding.limit({ key: actor }),
         catch: (cause) => new PlaceBuildLimiterError({ detail: `rate-limit binding failed: ${String(cause)}` })
-      }).pipe(Effect.map(({ success }) => success ? admitted : refused(windowSeconds)))
+      }).pipe(Effect.map(({ success }) =>
+        Bool.match(success, { onTrue: () => admitted, onFalse: () => refused(windowSeconds) })
+      ))
   })
 
 export const layer = (binding: RateLimitBinding): Layer.Layer<PlaceBuildLimiter> =>

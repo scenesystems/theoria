@@ -1,5 +1,5 @@
 import { describe, expect, it } from "@effect/vitest"
-import { Effect, Either, Layer, MutableRef, Schema } from "effect"
+import { Effect, Either, Equivalence, Layer, MutableRef, Number as Num, Schema } from "effect"
 import * as Option from "effect/Option"
 import type { ReactNode } from "react"
 
@@ -43,7 +43,7 @@ describe("layout rows", () => {
     Effect.gen(function*() {
       const browserWindow = yield* BrowserWindow.BrowserWindow
       const clicks = MutableRef.make(0)
-      const row = yield* mountedRow(<Rail onClick={() => MutableRef.update(clicks, (count) => count + 1)} />)
+      const row = yield* mountedRow(<Rail onClick={() => MutableRef.update(clicks, Num.increment)} />)
 
       row.dispatchEvent(new browserWindow.MouseEvent("click", { bubbles: true }))
 
@@ -62,7 +62,11 @@ describe("layout rows", () => {
         Effect.gen(function*() {
           const row = yield* mountedRow(<Rail ref={hold} />)
           const holding = MutableRef.get(held)
-          expect(Option.isSome(holding) && holding.value === row, "the ref holds the rendered element").toBe(true)
+          expect(
+            Option.exists(holding, (element) => Equivalence.strict()(element, row)),
+            "the ref holds the rendered element"
+          )
+            .toBe(true)
         })
       )
 

@@ -3,7 +3,7 @@
  */
 import { describe, expect, it } from "@effect/vitest"
 import * as Metric from "@scenesystems/effect-dsp/Metric"
-import { Effect, FastCheck as fc } from "effect"
+import { Boolean as Bool, Effect, FastCheck as fc, Number as Num } from "effect"
 
 const sentenceArbitrary = fc.array(fc.string({ minLength: 1, maxLength: 8 }), { minLength: 1, maxLength: 6 }).map((
   tokens
@@ -33,10 +33,10 @@ describe("metric invariants", () => {
         { answer: expectedA }
       )
 
-      expect(exactScore.score === 0 || exactScore.score === 1).toBe(true)
-      expect(f1Score.score >= 0).toBe(true)
-      expect(f1Score.score <= 1).toBe(true)
-      expect(containsScore.score === 0 || containsScore.score === 1).toBe(true)
+      expect(Bool.or(Num.Equivalence(exactScore.score, 0), Num.Equivalence(exactScore.score, 1))).toBe(true)
+      expect(Num.greaterThanOrEqualTo(f1Score.score, 0)).toBe(true)
+      expect(Num.lessThanOrEqualTo(f1Score.score, 1)).toBe(true)
+      expect(Bool.or(Num.Equivalence(containsScore.score, 0), Num.Equivalence(containsScore.score, 1))).toBe(true)
     }), { fastCheck: { numRuns: 100 } })
 
   it.effect.prop(

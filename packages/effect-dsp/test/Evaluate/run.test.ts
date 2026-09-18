@@ -6,10 +6,10 @@ import { describe, expect, it } from "@effect/vitest"
 import * as Evaluate from "@scenesystems/effect-dsp/Evaluate"
 import { Example } from "@scenesystems/effect-dsp/Example"
 import * as Metric from "@scenesystems/effect-dsp/Metric"
+import * as MockLanguageModel from "@scenesystems/effect-dsp/MockLanguageModel"
 import * as Module from "@scenesystems/effect-dsp/Module"
 import * as Signature from "@scenesystems/effect-dsp/Signature"
-import { MockLanguageModel } from "@scenesystems/effect-dsp/test"
-import { Effect, Layer, Option, Schema } from "effect"
+import { Array as Arr, Effect, Function as Fn, Layer, Option, Schema } from "effect"
 
 const makeQaSignature = () =>
   Signature.make(
@@ -28,7 +28,7 @@ describe("Evaluate.run", () => {
       const signature = yield* makeQaSignature()
       const module = yield* Module.predict("qa", signature)
       const mock = yield* MockLanguageModel.make(
-        MockLanguageModel.fixed({ answer: "Paris" })
+        MockLanguageModel.succeed({ answer: "Paris" })
       )
       const layer = Layer.succeed(LanguageModel.LanguageModel, mock.service)
 
@@ -64,7 +64,7 @@ describe("Evaluate.run", () => {
       const signature = yield* makeQaSignature()
       const module = yield* Module.predict("qa", signature)
       const mock = yield* MockLanguageModel.make(
-        MockLanguageModel.fixed({ answer: "Paris" })
+        MockLanguageModel.succeed({ answer: "Paris" })
       )
       const layer = Layer.succeed(LanguageModel.LanguageModel, mock.service)
 
@@ -91,11 +91,10 @@ describe("Evaluate.run", () => {
       expect(report.failures).toHaveLength(1)
       expect(report.failures[0]?.index).toBe(1)
       expect(report.failures[0]?.tag).toBe("EvaluationFailed")
-      const failure = report.failures[0]
-
-      if (failure) {
-        expect(report.results[1]?.failure).toEqual(Option.some(failure))
-      }
+      Option.match(Arr.get(report.failures, 0), {
+        onNone: Fn.constVoid,
+        onSome: (failure) => expect(report.results[1]?.failure).toEqual(Option.some(failure))
+      })
     }))
 
   it.effect("keeps aggregate metric folding deterministic regardless of metric declaration order", () =>
@@ -104,7 +103,7 @@ describe("Evaluate.run", () => {
       const module = yield* Module.predict("qa", signature)
 
       const mock = yield* MockLanguageModel.make(
-        MockLanguageModel.fixed({ answer: "Paris" })
+        MockLanguageModel.succeed({ answer: "Paris" })
       )
       const layer = Layer.succeed(LanguageModel.LanguageModel, mock.service)
       const examples = [

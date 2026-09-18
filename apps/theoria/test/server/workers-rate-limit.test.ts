@@ -1,5 +1,5 @@
 import { describe, expect, it } from "@effect/vitest"
-import { Data, Effect, Layer, Logger, type LogLevel, MutableRef, Option, Runtime } from "effect"
+import { Data, Effect, Layer, Logger, type LogLevel, MutableRef, Option, Runtime, String as Str } from "effect"
 import * as Arr from "effect/Array"
 
 import { PlaceBuildLimiter } from "../../app/server/config/place-build-limiter.js"
@@ -25,7 +25,7 @@ describe("server/platform/workers-rate-limit", () => {
       const binding = {
         limit: ({ key }: { readonly key: string }) => {
           MutableRef.update(keys, Arr.append(key))
-          return Runtime.runPromise(runtime)(Effect.succeed({ success: key === "203.0.113.7" }))
+          return Runtime.runPromise(runtime)(Effect.succeed({ success: Str.Equivalence(key, "203.0.113.7") }))
         }
       }
       const [admitted, refused] = yield* Effect.all([admit("203.0.113.7"), admit("198.51.100.9")]).pipe(
@@ -43,7 +43,7 @@ describe("server/platform/workers-rate-limit", () => {
         Effect.provide(layerFromEnv(Option.none()).pipe(Layer.provideMerge(collecting(seen))))
       )
       expect(admissions).toEqual([{ _tag: "Admitted" }, { _tag: "Admitted" }])
-      const warnings = Arr.filter(MutableRef.get(seen), (entry) => entry.level._tag === "Warning")
+      const warnings = Arr.filter(MutableRef.get(seen), (entry) => Str.Equivalence(entry.level._tag, "Warning"))
       expect(warnings.length).toBe(1)
       expect(String(warnings[0]?.message)).toContain("PLACE_BUILD_LIMITER")
     }))

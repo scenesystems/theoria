@@ -24,45 +24,45 @@ bun run build        # ESM + CJS + annotate-pure-calls
 All code must be idiomatic Effect. See root `AGENTS.md` for the full banned-patterns table. Key constraints:
 
 - **`Chunk<number>`** is the sole dense carrier — no `Float64Array`, no `ReadonlyArray` in public API
-- **Effect `Number` module** for all arithmetic — `N.sum`, `N.multiply`, `N.subtract`, not `+`, `-`, `*`
-- **`Schema.TaggedError`** for all errors — no `throw`, no `new Error()`
+- **Effect `Number` module** for all arithmetic — `Number.sum`, `Number.multiply`, `Number.subtract`, not `+`, `-`, `*`
+- **Tagged errors** — use `Data.TaggedError` when no codec is needed and `Schema.TaggedError` when the error crosses an encoded boundary; no `throw`, no `new Error()`
 - **`Match.exhaustive`** for all dispatch — no `switch`, no `if/else` chains
 - **`Effect.filterOrFail`** for all validation — no `if` statements
 - **`onExcessProperty: "error"`** on all `Schema.decodeUnknown` boundary calls
-- **`Math.sqrt`** is the only allowed plain JS math function (deterministic IEEE 754 leaf)
+- **No implicit math exceptions.** Deterministic IEEE 754 behavior does not authorize `Math.sqrt` or other JavaScript substitutes. Research Effect's public APIs and ecosystem integrations; obtain explicit authorization for any operation that remains unavailable before introducing a non-Effect implementation.
+- **Authorized binary64 intrinsics:** only direct `Math.sqrt` and `Math.log2` bindings in `internal/numeric/binary.ts`, and `Math.log`, `Math.log1p`, `Math.log10`, `Math.exp`, `Math.expm1`, `Math.pow`, `Math.sin`, `Math.cos`, `Math.atan2`, `Math.sinh`, and `Math.cosh` bindings in `internal/numeric/transcendental.ts`. Effect Number lacks these operations; research into dependency-free software kernels found no better full-domain implementation under these constraints. Callers use `Numeric`; all surrounding arithmetic remains Effect-native. `log2` is only an exponent estimate, corrected by exact dyadic scaling. Preserve strict-policy reproducible evaluation and `hypot`'s exact sum-of-squares rounding. This does not authorize other Math operations, wrappers, or broader file exemptions.
 
-## Domain Architecture
+## Flat Concern Architecture
 
-Eleven domains, each with the same file structure:
+Public APIs are flat concern modules in `src/<Concern>.ts`, available through the matching package subpath and root namespace: `Numeric`, `Algebra`, `Special`, `LinearAlgebra`, `Geometry`, `Statistics`, `Complex`, `Calculus`, `Optimization`, `Probability`, `Distribution`, `Policy`, `Scalar`, `Backend`, `Precision`, `Autodiff`, `Uncertainty`, and `Computation`.
 
-| Domain        | Stability   | Surface                                                                                        |
-| ------------- | ----------- | ---------------------------------------------------------------------------------------------- |
-| Numeric       | provisional | Scalar transforms, safe division, transcendentals                                              |
-| LinearAlgebra | provisional | Dense vector/matrix ops over Chunk carriers                                                    |
-| Geometry      | provisional | Metric distances, midpoint, centroid                                                           |
-| Probability   | provisional | Normal/uniform PDF/CDF, Shannon entropy                                                        |
-| Statistics    | provisional | Mean, variance, stddev, covariance, SummaryStatistics                                          |
-| Algebra       | provisional | Polynomial eval/derivative, GCD, LCM, factorial                                                |
-| Calculus      | provisional | Numerical derivative, trapezoidal, Simpson's rule                                              |
-| Special       | provisional | Gamma, lnGamma, beta, erf/erfc, digamma                                                        |
-| Optimization  | provisional | Bisection root-finding, golden section minimization                                            |
-| Complex       | provisional | Complex arithmetic, polar form, roots of unity                                                 |
-| Distribution  | provisional | Normal, LogNormal, Exponential, Uniform, Beta, Gamma, StudentT, Categorical, Binomial, Poisson |
+There is no required per-concern file template. Keep schemas, models, errors, services, and operations together when that is the clearest cohesive public module; extract private implementation by algorithm or subject under `internal/`. Public contracts and experimental discovery descriptors are not separate surfaces.
 
-Each domain owns: `contract.ts`, `model.ts`, `schema.ts`, `errors.ts`, `operations.ts`, `internal/`, `index.ts`.
+## Naming and Vocabulary
 
-## Three-Tier Operation Pattern
+- Use Effect's exact public module names: `Array`, `BigDecimal`, `BigInt`, `Boolean`, `Number`, `Record`, and `String`. Do not abbreviate them or prefix them with `Effect`.
+- Resolve overlapping operations with the owning domain namespace: `Numeric.sqrt` and `Complex.sqrt`, not renamed function imports. Direct imports keep their canonical names when there is no collision.
+- Name internal namespaces for their mathematical subject or algorithm: `Arithmetic`, `Trigonometric`, `Integration`, `Ridder`, `Normal`, and `Beta`. Do not add `Kernel`, `Adapter`, `Bridge`, or compatibility suffixes to disambiguate imports.
+- Pure implementations use their operation name, matching the public spelling, without a redundant `Kernel` suffix. Actual algorithm distinctions such as `gammaLanczos` retain their meaning. Public module-local errors use concise names such as `DecodeError`; stable wire tags such as `KernelExecutionError` may remain more specific.
+- Operation forms use the base name, `Validated`, and `WithPolicies`. Precision variants use `Strict` or `Relaxed` only where they name an established policy contract. Distribution suffixes are `Pdf`, `Logpdf`, `Cdf`, `Quantile`, `Pmf`, and `Logpmf`.
+- Casing follows semantic role: ordinary exported values remain camelCase, while established mathematical or protocol constants retain their conventional spelling. Do not convert every constant to UPPER_SNAKE mechanically.
+- Keep conventional mathematical symbols for scalar variables and coefficients. These are not module aliases. Models and schemas use PascalCase; operations and values use camelCase; mathematical constants use their established notation or descriptive uppercase names.
+- Apply the same vocabulary to implementation, tests, examples, scripts, and documentation. Upstream Python imports retain canonical names such as `numpy` and `scipy.special`, without shorthand aliases. This naming rule does not authorize a non-Effect implementation.
+- Verify behavior through public APIs. Do not add tests of naming, guidance, inventories, or scaffolding.
 
-1. **Pure kernel** — synchronous function on `Chunk<number>`, no Effect wrapper
-2. **Effect-wrapped** — Schema decode with `onExcessProperty: "error"`, typed errors
-3. **Policy-aware** — reads `PrecisionPolicyService`/`DiagnosticsPolicyService` via `Context.Tag`
+## Consumer Operation Forms
 
-## Ownership Boundaries
+Numerical concerns expose the forms that their behavior requires, commonly:
 
-- **Probability** owns distributions and measure-space contracts — Statistics must import, never redeclare
-- **Statistics** owns estimators, inference, and diagnostics that consume Probability contracts
-- **Cross-domain `internal/` imports are forbidden** — blocked by exports map
-- **`contracts/shared/`** holds ownerless cross-cutting primitives (branded scalars, boundary errors, runtime policies)
+1. **Base operation** — a synchronous function for already trusted values.
+2. **`Validated` operation** — decodes `unknown` with excess properties rejected and returns typed failures in `Effect`.
+3. **`WithPolicies` operation** — reads the exact `Policy` services named by its Effect requirement, using payloads shaped as `{ policy: ... }`.
+
+`Policy.layerDeterministic`, `Policy.layerNondeterministic`, and `Policy.Seed` provide the standard runtime policy layers. `Probability` owns entropy; normal and uniform density, cumulative, and transform operations belong to `Distribution`. Branded tolerances and execution failures belong to `Numeric`; dimensions and axes belong to `LinearAlgebra`; complex-step differentiation belongs to `Calculus`.
+
+Every cross-concern abstraction must have a semantic owner. Do not create ownerless `shared` or `contracts` directories. Export maps prevent package consumers from importing `internal/*`; they do not prohibit relative internal imports within this package.
+
+Schema is authoritative for encodable data. Abstract generic, callback, Layer, and service relationships may be represented directly with Effect-native TypeScript types or `Data.Class` when no codec is involved.
 
 ## Fixture Testing (SciPy Golden Reference)
 
@@ -78,15 +78,18 @@ Fixture generation uses [uv](https://docs.astral.sh/uv/) with PEP 723 inline met
 
 - Committed fixture JSON in `test/fixtures/scipy/` is the test source of truth
 - `bun run fixtures:check` schema-decodes every committed fixture through the TS `KnownFixtureSchema` union — catches generator ↔ schema drift
-- `bun run fixtures:generate` regenerates fixtures from the generator script
+- `bun run fixtures:generate` runs the Effect entrypoint `scripts/generate-scipy-fixtures.ts`
 - `bun run fixtures:lock` pins exact Python dependency versions (run after changing PEP 723 deps)
-- Generator is decomposed: `scripts/fixtures/` has one module per domain; `generate-scipy-fixtures.py` is the orchestrator
+- Python is explicitly authorized for SciPy/NumPy reference computation, result conversion, and the JSON stdin/stdout protocol. These dependencies remain Python; this authorization does not extend to TypeScript computation or orchestration.
+- Effect owns discovery, scoped Python processes, bounded concurrency, schema validation, filesystem writes, and manifest construction. `generate-scipy-fixtures.py` evaluates one requested family; `scripts/fixtures/` has one module per domain.
+- `SCIPY_FIXTURE_OUTPUT_DIRECTORY` selects an alternate output directory for review before replacing committed references. `SCIPY_FIXTURE_GENERATED_AT` overrides the reproducible default timestamp `2026-03-23T00:00:00Z`.
+- Provenance records the SciPy, NumPy, and Python versions actually used. Review numerical changes independently; do not weaken tolerances to accept regenerated output.
 
 ### Fixture Architecture
 
 - **Python generators** (`scripts/fixtures/*.py`): one module per domain, each exports `generate(generated_at) -> list[dict]`
-- **TS schemas** (`test/helpers/fixtures/schemas.ts`): typed discriminated unions per domain, `KnownFixtureSchema` union of all 9
-- **TS registry** (`test/helpers/fixtures/registry.ts`): `FixtureRegistry` Context.Tag, `loadFixture` helper, `@effect/platform` + `@effect/platform-bun` for file I/O
+- **TS schemas** (`test/helpers/fixtures/schemas.ts`): discriminated unions per domain; `KnownFixtureSchema` owns the fixture vocabulary, with names derived from its members
+- **TS registry** (`test/helpers/fixtures/registry.ts`): `loadFixture` reads the manifest and schema-decodes the requested document using `@effect/platform` services provided by `BunContext.layer`
 - **Fixture-parity tests** (`test/{Domain}/fixture-parity.test.ts`): load via registry, decode through domain schema, dispatch via `Match.exhaustive`
 
 ### Rules

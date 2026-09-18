@@ -1,0 +1,175 @@
+/**
+ * Reference-point construction and two-dimensional hypervolume weights for MOTPE.
+ *
+ * @since 0.1.0
+ */
+import { Array as Arr, Equal, Match, Number as Num, Option } from "effect"
+
+import type { Direction } from "../Direction.js"
+import type { Vector } from "../Objective.js"
+import type { Weights } from "../Pareto.js"
+import { hypervolumeContribution2d } from "./paretoHypervolume.js"
+
+/**
+ * Candidate weights returned in the same order as the supplied objective vectors.
+ *
+ * @remarks
+ * {@link computeMultiObjectiveWeights} produces values from `1e-12` through one for
+ * its two-dimensional path, but the schema and type do not enforce that range.
+ *
+ * @since 0.1.0
+ * @category models
+ */
+
+const minimumWeight = 1e-12
+
+const directionAt = (directionsInput: Iterable<Direction>, index: number): Direction => {
+  const directions = Arr.fromIterable(directionsInput)
+  return Arr.get(directions, index).pipe(
+    Option.match({
+      onNone: () => "minimize",
+      onSome: (direction) => direction
+    })
+  )
+}
+
+const valueAt = (vector: Vector, index: number): number =>
+  Arr.get(vector, index).pipe(
+    Option.match({
+      onNone: () => 0,
+      onSome: (value) => value
+    })
+  )
+
+const toLossCoordinate = (value: number, direction: Direction): number =>
+  Match.value(direction).pipe(
+    Match.when("maximize", () => Num.negate(value)),
+    Match.orElse(() => value)
+  )
+
+const fromLossCoordinate = (value: number, direction: Direction): number =>
+  Match.value(direction).pipe(
+    Match.when("maximize", () => Num.negate(value)),
+    Match.orElse(() => value)
+  )
+
+const toLossSpace = (
+  point: Vector,
+  directionsInput: Iterable<Direction>
+): Vector => {
+  const directions = Arr.fromIterable(directionsInput)
+  return Arr.map(point, (value, index) => toLossCoordinate(value, directionAt(directions, index)))
+}
+
+const fromLossSpace = (
+  point: Vector,
+  directionsInput: Iterable<Direction>
+): Vector => {
+  const directions = Arr.fromIterable(directionsInput)
+  return Arr.map(point, (value, index) => fromLossCoordinate(value, directionAt(directions, index)))
+}
+
+const dimensionLength = (pointsInput: Iterable<Vector>): number => {
+  const points = Arr.fromIterable(pointsInput)
+  return Arr.head(points).pipe(
+    Option.match({
+      onNone: () => 0,
+      onSome: Arr.length
+    })
+  )
+}
+
+const referenceFromLossPoints = (pointsInput: Iterable<Vector>): Vector => {
+  const points = Arr.fromIterable(pointsInput)
+
+  const dimensions = dimensionLength(points)
+
+  return Arr.makeBy(dimensions, (dimension) => {
+    const worst = Arr.reduce(
+      points,
+      Number.NEGATIVE_INFINITY,
+      (acc, point) => Num.max(acc, valueAt(point, dimension))
+    )
+    const reference = Num.max(Num.multiply(1.1, worst), Num.multiply(0.9, worst))
+
+    return Match.value(Num.Equivalence(reference, 0)).pipe(
+      Match.when(true, () => minimumWeight),
+      Match.orElse(() => reference)
+    )
+  })
+}
+
+const normalizeContributions = (contributionsInput: Iterable<number>): Weights => {
+  const contributions = Arr.fromIterable(contributionsInput)
+
+  const maxContribution = Arr.reduce(contributions, 0, (acc, value) => Num.max(acc, value))
+  const normalizer = Num.max(maxContribution, minimumWeight)
+
+  return Arr.map(contributions, (value) => Num.max(Num.unsafeDivide(value, normalizer), minimumWeight))
+}
+
+/**
+ * Derives the reference coordinate beyond the worst observed value in each objective.
+ *
+ * @remarks
+ * Coordinates are converted to minimization values before applying
+ * `max(1.1 * worst, 0.9 * worst)`, then converted back. A zero result becomes `1e-12`.
+ * The first point determines arity; missing coordinates in later points contribute zero.
+ * Missing directions default to `"minimize"`, and empty input returns an empty array.
+ *
+ * @since 0.1.0
+ * @category hypervolume
+ */
+export const computeReferencePoint = (
+  pointsInput: Iterable<Vector>,
+  directionsInput: Iterable<Direction> = Arr.empty()
+): Vector => {
+  const points = Arr.fromIterable(pointsInput)
+  const directions = Arr.fromIterable(directionsInput)
+  return Match.value(Num.lessThanOrEqualTo(Arr.length(points), 0)).pipe(
+    Match.when(true, () => Arr.empty<number>()),
+    Match.orElse(() => {
+      const lossPoints = Arr.map(points, (point) => toLossSpace(point, directions))
+
+      return fromLossSpace(referenceFromLossPoints(lossPoints), directions)
+    })
+  )
+}
+
+/**
+ * Converts leave-one-out hypervolume contributions into MOTPE candidate weights.
+ *
+ * @remarks
+ * For a two-coordinate reference, the largest contribution receives one and other
+ * contributions are divided by it, with `1e-12` as the minimum weight. A reference
+ * with any other arity returns one for every candidate. Omission derives the reference
+ * from the points. Empty input returns an empty array.
+ *
+ * @since 0.1.0
+ * @category hypervolume
+ */
+export const computeMultiObjectiveWeights = (
+  pointsInput: Iterable<Vector>,
+  referencePoint?: Vector,
+  directionsInput: Iterable<Direction> = Arr.empty()
+): Weights => {
+  const points = Arr.fromIterable(pointsInput)
+  const directions = Arr.fromIterable(directionsInput)
+  return Match.value(Num.lessThanOrEqualTo(Arr.length(points), 0)).pipe(
+    Match.when(true, () => Arr.empty<number>()),
+    Match.orElse(() => {
+      const lossPoints = Arr.map(points, (point) => toLossSpace(point, directions))
+      const lossReference = Option.fromNullable(referencePoint).pipe(
+        Option.match({
+          onNone: () => referenceFromLossPoints(lossPoints),
+          onSome: (point) => toLossSpace(point, directions)
+        })
+      )
+
+      return Match.value(Equal.equals(Arr.length(lossReference), 2)).pipe(
+        Match.when(true, () => normalizeContributions(hypervolumeContribution2d(lossPoints, lossReference))),
+        Match.orElse(() => Arr.map(points, () => 1))
+      )
+    })
+  )
+}

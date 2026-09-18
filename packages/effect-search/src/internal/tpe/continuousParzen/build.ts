@@ -1,25 +1,33 @@
-import { Array as Arr, Number as Num, Option } from "effect"
+import { Array as Arr, Boolean as Bool, Number as Num, Option } from "effect"
 
+import { ContinuousKernel, ContinuousParzen } from "../continuousParzen.js"
 import {
-  adjustBandwidthForNoise,
+  bandwidthScaleFromNoiseEstimate,
   defaultNoiseBandwidthOptions,
   estimateNoise,
   type NoiseBandwidthOptions
 } from "../noiseEstimator.js"
-import { valueAt } from "./helpers.js"
-import { clipSigma, normalizedKernelWeights, observationSigmas } from "./kernels.js"
-import { ContinuousKernel, ContinuousParzen } from "./model.js"
+import { clipSigma, normalizedKernelWeights, observationSigmas, valueAt } from "./kernels.js"
 
 export const buildContinuousParzen = (
-  observations: ReadonlyArray<number>,
+  observationsInput: Iterable<number>,
   low: number,
   high: number,
   noiseOptions: NoiseBandwidthOptions = defaultNoiseBandwidthOptions,
   empiricalObservationVariance: Option.Option<number> = Option.none()
 ): ContinuousParzen => {
-  const nKernels = observations.length + 1
-  const priorMean = Num.unsafeDivide(low + high, 2)
-  const noiseEstimate = estimateNoise(observations, low, high, empiricalObservationVariance)
+  const observations = Arr.fromIterable(observationsInput)
+
+  const nKernels = Num.increment(Arr.length(observations))
+  const priorMean = Num.unsafeDivide(Num.sum(low, high), 2)
+  const bandwidthScale = Bool.match(noiseOptions.noiseAware, {
+    onFalse: () => 1,
+    onTrue: () =>
+      bandwidthScaleFromNoiseEstimate(
+        estimateNoise(observations, low, high, empiricalObservationVariance),
+        noiseOptions
+      )
+  })
   const baselineObservationSigmas = Arr.map(
     observationSigmas(observations, low, high),
     (sigma) => clipSigma(sigma, low, high, nKernels)
@@ -28,7 +36,7 @@ export const buildContinuousParzen = (
     baselineObservationSigmas,
     (sigma) =>
       clipSigma(
-        adjustBandwidthForNoise(sigma, noiseEstimate, noiseOptions),
+        Num.multiply(sigma, bandwidthScale),
         low,
         high,
         nKernels
@@ -38,17 +46,17 @@ export const buildContinuousParzen = (
   const sigmas = Arr.append(
     clippedObservationSigmas,
     clipSigma(
-      adjustBandwidthForNoise(high - low, noiseEstimate, noiseOptions),
+      Num.multiply(Num.subtract(high, low), bandwidthScale),
       low,
       high,
       nKernels
     )
   )
-  const weights = normalizedKernelWeights(observations.length)
+  const weights = normalizedKernelWeights(Arr.length(observations))
   const kernels = Arr.map(means, (mean, index) =>
     new ContinuousKernel({
       mean,
-      sigma: valueAt(sigmas, index, high - low),
+      sigma: valueAt(sigmas, index, Num.subtract(high, low)),
       weight: valueAt(weights, index, 0)
     }))
 

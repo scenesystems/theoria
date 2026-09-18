@@ -1,5 +1,6 @@
 import { HttpServerRequest, HttpServerResponse } from "@effect/platform"
 import { Clock, Effect, Match, Option } from "effect"
+import * as Str from "effect/String"
 
 import { httpStatus } from "../contracts/error.js"
 import { jsonResponse, responseMeta } from "./api-response.js"
@@ -37,7 +38,7 @@ const route = (pathname: string, request: HttpServerRequest.HttpServerRequest, r
     Match.when(imaginedPlacePath, () => imaginedPlaceRoute(request, requestId)),
     Match.when("/sitemap.xml", () => sitemapRoute),
     Match.when("/llms.txt", () => llmsTxtRoute),
-    Match.when((value) => value.startsWith("/api/"), () => apiNotFoundResponse(requestId)),
+    Match.when(Str.startsWith("/api/"), () => apiNotFoundResponse(requestId)),
     Match.orElse(() => staticResponse(pathname))
   )
 
