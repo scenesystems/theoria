@@ -1,19 +1,32 @@
 /**
- * Compare one-shot and batch-prepared TPE density scoring, including preparation
+ * Compare one-shot and batch-prepared TPE density scoring and sampling, including preparation
  * in every batch. Run with `bun run packages/effect-search/scripts/benchmark-density.ts`.
  * Each case has 24 probes, 5 warmups, and 7 measured samples of 100 batches.
  * Run without concurrent CPU workloads; output reports raw median nanoseconds.
  */
 import { BunRuntime } from "@effect/platform-bun"
-import { Array as Arr, BigInt, Boolean as Bool, Clock, Console, Data, Effect, Number as Num, Schema } from "effect"
+import {
+  Array as Arr,
+  BigInt,
+  Boolean as Bool,
+  Clock,
+  Console,
+  Data,
+  Effect,
+  Number as Num,
+  Schema,
+  Tuple
+} from "effect"
 
 import {
   buildContinuousParzen,
   ContinuousKernel,
   ContinuousParzen,
-  logDensity
+  logDensity,
+  sampleFromParzen
 } from "../src/internal/tpe/continuousParzen.js"
 import { prepareLogDensity } from "../src/internal/tpe/continuousParzen/density.js"
+import { sampleFromParzenBatch } from "../src/internal/tpe/continuousParzen/sample.js"
 
 class DensityCase extends Data.Class<{
   readonly name: string
@@ -90,7 +103,10 @@ const Result = Schema.Struct({
   oneShotBatchNanos: Schema.Number,
   preparedBatchNanos: Schema.Number,
   speedup: Schema.Number,
-  checksum: Schema.Number
+  checksum: Schema.Number,
+  oneShotSamplingBatchNanos: Schema.Number,
+  preparedSamplingBatchNanos: Schema.Number,
+  samplingChecksum: Schema.Number
 })
 
 BunRuntime.runMain(Effect.gen(function*() {
@@ -110,6 +126,22 @@ BunRuntime.runMain(Effect.gen(function*() {
         new DensityMismatch({ name: entry.name, expected: oneShot.checksum, actual: prepared.checksum })
       )
         .pipe(Effect.unless(() => Num.Equivalence(oneShot.checksum, prepared.checksum)))
+      const rolls = Arr.makeBy(candidates, (index) =>
+        Tuple.make(
+          Num.unsafeDivide(Num.sum(index, 0.5), candidates),
+          Num.unsafeDivide(Num.sum(Num.remainder(Num.multiply(index, 7), candidates), 0.25), candidates)
+        ))
+      const oneShotSampling = yield* measure(() =>
+        Num.sumAll(Arr.map(rolls, ([kernelRoll, valueRoll]) => sampleFromParzen(model, kernelRoll, valueRoll)))
+      )
+      const preparedSampling = yield* measure(() => Num.sumAll(sampleFromParzenBatch(model, rolls)))
+      yield* Effect.fail(
+        new DensityMismatch({
+          name: `${entry.name} sampling`,
+          expected: oneShotSampling.checksum,
+          actual: preparedSampling.checksum
+        })
+      ).pipe(Effect.unless(() => Num.Equivalence(oneShotSampling.checksum, preparedSampling.checksum)))
       return {
         name: entry.name,
         kernels: Arr.length(model.kernels),
@@ -120,7 +152,10 @@ BunRuntime.runMain(Effect.gen(function*() {
         oneShotBatchNanos: oneShot.medianBatchNanos,
         preparedBatchNanos: prepared.medianBatchNanos,
         speedup: Num.unsafeDivide(oneShot.medianBatchNanos, prepared.medianBatchNanos),
-        checksum: prepared.checksum
+        checksum: prepared.checksum,
+        oneShotSamplingBatchNanos: oneShotSampling.medianBatchNanos,
+        preparedSamplingBatchNanos: preparedSampling.medianBatchNanos,
+        samplingChecksum: preparedSampling.checksum
       }
     }))
   yield* Console.log(yield* Schema.encode(Schema.parseJson(Schema.Array(Result), { space: 2 }))(results))

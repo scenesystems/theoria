@@ -1,5 +1,16 @@
 import { describe, expect, it } from "@effect/vitest"
-import { Array as Arr, Boolean as Bool, Effect, Either, Match, Number as Num, Option, Schema } from "effect"
+import {
+  Array as Arr,
+  Boolean as Bool,
+  Effect,
+  Either,
+  FastCheck,
+  Match,
+  Number as Num,
+  Option,
+  Schema,
+  Tuple
+} from "effect"
 
 import * as Numeric from "@scenesystems/effect-math/Numeric"
 import {
@@ -11,6 +22,7 @@ import {
   sampleEffect,
   TruncatedNormalParams
 } from "../../../src/internal/tpe/truncatedNormal.js"
+import { logNdtr, ndtriExp } from "../../../src/internal/tpe/truncatedNormal/normal.js"
 import { prepareLogPdf, prepareSample } from "../../../src/internal/tpe/truncatedNormal/truncated.js"
 import { FixtureRegistryLive, loadFixture, TruncatedNormalFixture } from "../../helpers/fixtures/index.js"
 
@@ -47,7 +59,94 @@ const assertAbsoluteTolerance = (actual: number, expected: number, tolerance: nu
   )
 }
 
+describe("inverse log-normal CDF", () => {
+  it.effect("matches SciPy across approximation boundaries and extreme log probabilities", () =>
+    Effect.sync(() => {
+      // SciPy 1.17.1: ndtri_exp on binary64 log probabilities, not exp(logp).
+      // Beyond its fitted tail interval, references at -5873..., -10000 and
+      // -1e6 use scipy.optimize.brentq(log_ndtr(x)-logp) with xtol=5e-324 and
+      // rtol=4*eps; ndtri_exp alone loses accuracy there. Other extreme logs
+      // round to the leading asymptote within the tolerance below.
+      Arr.forEach(
+        Arr.make(
+          Tuple.make(-1.7976931348623157e308, -1.8961503816218352e154),
+          Tuple.make(-1e300, -1.4142135623730951e150),
+          Tuple.make(-1e20, -14142135623.730951),
+          Tuple.make(-1e6, -1414.2077829910172),
+          Tuple.make(-10000, -141.37983987312714),
+          Tuple.make(-5873.149640421895, -108.3286245390885),
+          Tuple.make(-800, -39.88469483825668),
+          Tuple.make(-100, -13.888476033003888),
+          Tuple.make(-32.00000000000001, -7.620199825255225),
+          Tuple.make(-32, -7.620199825255225),
+          Tuple.make(-31.999999999999996, -7.6201998252552245),
+          Tuple.make(-2.0000000000000004, -1.10151962849875),
+          Tuple.make(-2, -1.10151962849875),
+          Tuple.make(-1.9999999999999998, -1.1015196284987503),
+          Tuple.make(-1, -0.33747496376420244),
+          Tuple.make(-0.6931471805599453, 0),
+          Tuple.make(-0.1454134578688591, 1.1015196284987503),
+          Tuple.make(-0.14541345786885906, 1.1015196284987503),
+          Tuple.make(-0.14541345786885904, 1.10151962849875),
+          Tuple.make(-0.01, 2.3282217375371754),
+          Tuple.make(-1e-20, 9.262340089798409),
+          Tuple.make(-1e-100, 21.273453560965322),
+          Tuple.make(-1e-300, 37.0470962993612),
+          Tuple.make(-5e-324, 38.467405617144344)
+        ),
+        ([logp, expected]) => {
+          expect(Numeric.abs(Num.subtract(ndtriExp(logp), expected))).toBeLessThanOrEqual(
+            Num.max(2e-15, Num.multiply(2e-15, Numeric.abs(expected)))
+          )
+        }
+      )
+    }))
+
+  it.effect("distinguishes exact endpoints from invalid positive log probabilities", () =>
+    Effect.sync(() => {
+      expect(ndtriExp(Number.NEGATIVE_INFINITY)).toBe(Number.NEGATIVE_INFINITY)
+      expect(ndtriExp(0)).toBe(Number.POSITIVE_INFINITY)
+      expect(ndtriExp(-0)).toBe(Number.POSITIVE_INFINITY)
+      Arr.forEach(Arr.make(5e-324, 0.01, 1, Number.POSITIVE_INFINITY, Number.NaN), (logp) => {
+        expect(ndtriExp(logp)).toBeNaN()
+      })
+    }))
+
+  it.effect.prop("inverts finite log probabilities through the CDF's independent tail expansion", {
+    logp: FastCheck.double({ min: -1.7976931348623157e308, max: -2, noNaN: true })
+  }, ({ logp }) =>
+    Effect.sync(() => {
+      expect(Numeric.abs(Num.subtract(logNdtr(ndtriExp(logp)), logp))).toBeLessThanOrEqual(
+        Num.multiply(5e-15, Numeric.abs(logp))
+      )
+    }), { fastCheck: { numRuns: 300, seed: 4387 } })
+})
+
 describe("truncated normal fixture parity", () => {
+  it.effect("retains interior probabilities hundreds of standard deviations into either tail", () =>
+    Effect.sync(() => {
+      // Far-tail inverse error is amplified by conditioning on a narrow
+      // support. The raw Cephes approximation fails this case without its
+      // log-CDF correction, although its ordinary normal quantiles are close.
+      Arr.forEach(Arr.make(-1, 1), (sign) => {
+        const center = Num.multiply(sign, 0.43555094326591787)
+        const params = new TruncatedNormalParams({
+          mean: 0,
+          sigma: 0.001,
+          low: Num.subtract(center, 0.001),
+          high: Num.sum(center, 0.001)
+        })
+        const prepared = prepareSample(params)
+        Arr.forEach(Arr.make(1e-300, 0.01, 0.5, 0.99, 0.999999999999999), (q) => {
+          const value = sample(q, params)
+          expect(prepared(q)).toBe(value)
+          expect(value).toBeGreaterThanOrEqual(params.low)
+          expect(value).toBeLessThanOrEqual(params.high)
+          expect(Numeric.abs(Num.subtract(cdf(value, params), q))).toBeLessThanOrEqual(1e-7)
+        })
+      })
+    }))
+
   it.effect("matches Optuna-derived sample fixtures within absolute tolerance 1e-10", () =>
     Effect.gen(function*() {
       const fixture = yield* loadTruncatedFixture

@@ -38,7 +38,7 @@ const logGaussMass = (a: number, b: number): number => {
 const logMachineEpsilon = logStrict(2.220446049250313e-16)
 
 // Only interior quantiles reach this evaluator. Bounds, mass and the tail base
-// belong to the distribution; the Newton solve and its rounding stay unchanged.
+// belong to the distribution and are independent of each quantile's roll.
 const preparePpf = (a: number, b: number): (q: number) => number =>
   Bool.match(Bool.or(Bool.not(Bool.and(isFinite(a), isFinite(b))), Equal.equals(a, b)), {
     onTrue: () => () => Number.NaN,
