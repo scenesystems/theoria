@@ -137,26 +137,14 @@ const segmentAt = (compilation: Prepared.Compilation, segmentIndex: number) =>
 const runtimeSegmentAt = (kernel: Prepared.Kernel, segmentIndex: number): Option.Option<Prepared.RuntimeSegment> =>
   Chunk.get(kernel.runtime.segments, segmentIndex)
 
-const breakKindAt = (kernel: Prepared.Kernel, segmentIndex: number): Prepared.BreakKind =>
-  runtimeSegmentAt(kernel, segmentIndex).pipe(
-    Option.map((segment) => segment.breakKind),
-    Option.getOrElse((): Prepared.BreakKind => "text")
-  )
-
 type WidthValues = Chunk.Chunk<number>
 type StringValues = Chunk.Chunk<string>
 
 const breakableGraphemeWidthsAt = (kernel: Prepared.Kernel, segmentIndex: number): WidthValues =>
-  runtimeSegmentAt(kernel, segmentIndex).pipe(
-    Option.map((segment) => segment.breakableGraphemeWidths),
-    Option.getOrElse(Chunk.empty<number>)
-  )
-
-const breakablePrefixWidthsAt = (kernel: Prepared.Kernel, segmentIndex: number): WidthValues =>
-  runtimeSegmentAt(kernel, segmentIndex).pipe(
-    Option.map((segment) => segment.breakablePrefixWidths),
-    Option.getOrElse(Chunk.empty<number>)
-  )
+  Option.match(runtimeSegmentAt(kernel, segmentIndex), {
+    onSome: (segment) => segment.breakableGraphemeWidths,
+    onNone: Chunk.empty<number>
+  })
 
 const graphemeBidiLevelsAt = (kernel: Prepared.Kernel, segmentIndex: number): WidthValues =>
   runtimeSegmentAt(kernel, segmentIndex).pipe(
@@ -184,20 +172,9 @@ const advanceFromPrefixWidths = (
     onTrue: () => Chunk.head(prefixWidths).pipe(Option.getOrElse(() => fallback))
   })
 
-const textGraphemeCountAt = (kernel: Prepared.Kernel, segmentIndex: number): number => {
-  const graphemeWidths = breakableGraphemeWidthsAt(kernel, segmentIndex)
-
-  return Boolean.match(Chunk.isEmpty(graphemeWidths), {
-    onFalse: () => graphemeWidths.length,
-    onTrue: () => 1
-  })
-}
-
 const advanceCursor = (kernel: Prepared.Kernel, cursor: Text.Cursor): Text.Cursor => {
-  const remainsInSegment = Boolean.and(
-    Chunk.isNonEmpty(breakableGraphemeWidthsAt(kernel, cursor.segmentIndex)),
-    Number.lessThan(Number.increment(cursor.graphemeIndex), textGraphemeCountAt(kernel, cursor.segmentIndex))
-  )
+  const widths = breakableGraphemeWidthsAt(kernel, cursor.segmentIndex)
+  const remainsInSegment = Number.lessThan(Number.increment(cursor.graphemeIndex), Chunk.size(widths))
 
   return Boolean.match(remainsInSegment, {
     onFalse: () => cursorAt(Number.increment(cursor.segmentIndex)),
@@ -206,14 +183,16 @@ const advanceCursor = (kernel: Prepared.Kernel, cursor: Text.Cursor): Text.Curso
 }
 
 const breakKindAtCursor = (kernel: Prepared.Kernel, cursor: Text.Cursor): Prepared.BreakKind => {
-  const insideTextSegment = Boolean.and(
-    Chunk.isNonEmpty(breakableGraphemeWidthsAt(kernel, cursor.segmentIndex)),
-    Number.lessThan(cursor.graphemeIndex, Number.decrement(textGraphemeCountAt(kernel, cursor.segmentIndex)))
-  )
-
-  return Boolean.match(insideTextSegment, {
-    onFalse: () => breakKindAt(kernel, cursor.segmentIndex),
-    onTrue: () => "text"
+  return Option.match(runtimeSegmentAt(kernel, cursor.segmentIndex), {
+    onNone: () => "text",
+    onSome: (segment) =>
+      Boolean.match(
+        Number.lessThan(cursor.graphemeIndex, Number.decrement(Chunk.size(segment.breakableGraphemeWidths))),
+        {
+          onFalse: () => segment.breakKind,
+          onTrue: () => "text"
+        }
+      )
   })
 }
 
@@ -222,65 +201,34 @@ const resolveFitAdvanceAtCursor = (
   cursor: Text.Cursor,
   currentFitWidth: number
 ): number =>
-  Match.value(breakKindAtCursor(kernel, cursor)).pipe(
-    Match.when("tab", () => resolveTabAdvance(currentFitWidth, kernel.runtime.tabStopAdvance)),
-    Match.when(
-      Match.is(
-        "text",
-        "space",
-        "preserved-space",
-        "soft-hyphen",
-        "dictionary-hyphen",
-        "hard-break",
-        "glue",
-        "zero-width-break"
-      ),
-      () => {
-        const prefixWidths = breakablePrefixWidthsAt(kernel, cursor.segmentIndex)
-        const fallbackWidth = runtimeSegmentAt(kernel, cursor.segmentIndex).pipe(
-          Option.map((segment) => segment.fitAdvance),
-          Option.getOrElse(() => 0)
-        )
-
-        return Boolean.match(Chunk.isNonEmpty(prefixWidths), {
-          onFalse: () => fallbackWidth,
-          onTrue: () => advanceFromPrefixWidths(prefixWidths, cursor.graphemeIndex, fallbackWidth)
-        })
-      }
-    ),
-    Match.exhaustive
-  )
+  Option.match(runtimeSegmentAt(kernel, cursor.segmentIndex), {
+    onNone: () => 0,
+    onSome: (segment) =>
+      Boolean.match(String.Equivalence(segment.breakKind, "tab"), {
+        onTrue: () => resolveTabAdvance(currentFitWidth, kernel.runtime.tabStopAdvance),
+        onFalse: () =>
+          Boolean.match(Chunk.isNonEmpty(segment.breakablePrefixWidths), {
+            onFalse: () => segment.fitAdvance,
+            onTrue: () =>
+              advanceFromPrefixWidths(segment.breakablePrefixWidths, cursor.graphemeIndex, segment.fitAdvance)
+          })
+      })
+  })
 
 const resolvePaintAdvanceAtCursor = (
   kernel: Prepared.Kernel,
   cursor: Text.Cursor,
   currentPaintWidth: number
 ): number =>
-  Match.value(breakKindAtCursor(kernel, cursor)).pipe(
-    Match.when("tab", () => resolveTabAdvance(currentPaintWidth, kernel.runtime.tabStopAdvance)),
-    Match.when(
-      Match.is(
-        "text",
-        "space",
-        "preserved-space",
-        "soft-hyphen",
-        "dictionary-hyphen",
-        "hard-break",
-        "glue",
-        "zero-width-break"
-      ),
-      () => {
-        const graphemeWidths = breakableGraphemeWidthsAt(kernel, cursor.segmentIndex)
-        const fallbackWidth = runtimeSegmentAt(kernel, cursor.segmentIndex).pipe(
-          Option.map((segment) => segment.paintAdvance),
-          Option.getOrElse(() => 0)
-        )
-
-        return Chunk.get(graphemeWidths, cursor.graphemeIndex).pipe(Option.getOrElse(() => fallbackWidth))
-      }
-    ),
-    Match.exhaustive
-  )
+  Option.match(runtimeSegmentAt(kernel, cursor.segmentIndex), {
+    onNone: () => 0,
+    onSome: (segment) =>
+      Boolean.match(String.Equivalence(segment.breakKind, "tab"), {
+        onTrue: () => resolveTabAdvance(currentPaintWidth, kernel.runtime.tabStopAdvance),
+        onFalse: () =>
+          Option.getOrElse(Chunk.get(segment.breakableGraphemeWidths, cursor.graphemeIndex), () => segment.paintAdvance)
+      })
+  })
 
 const appendDiscretionaryBreakCandidate = (
   candidates: BreakCandidates,
@@ -289,9 +237,11 @@ const appendDiscretionaryBreakCandidate = (
   end: Text.Cursor,
   fitWidth: number,
   paintWidth: number
-): BreakCandidates =>
-  Match.value(breakKindAtCursor(kernel, cursor)).pipe(
-    Match.when("soft-hyphen", () =>
+): BreakCandidates => {
+  const kind = breakKindAtCursor(kernel, cursor)
+  return Boolean.match(isDiscretionaryBreak(kind), {
+    onFalse: () => candidates,
+    onTrue: () =>
       Chunk.append(
         candidates,
         new BreakCandidate({
@@ -299,38 +249,22 @@ const appendDiscretionaryBreakCandidate = (
           fitWidth,
           insertedText: "-",
           insertedWidth: kernel.runtime.discretionaryHyphenWidth,
-          kind: "soft-hyphen",
+          kind: Boolean.match(String.Equivalence(kind, "soft-hyphen"), {
+            onTrue: () => "soft-hyphen",
+            onFalse: () => "dictionary-hyphen"
+          }),
           nextCursor: end,
           paintWidth
         })
-      )),
-    Match.when("dictionary-hyphen", () =>
-      Chunk.append(
-        candidates,
-        new BreakCandidate({
-          end,
-          fitWidth,
-          insertedText: "-",
-          insertedWidth: kernel.runtime.discretionaryHyphenWidth,
-          kind: "dictionary-hyphen",
-          nextCursor: end,
-          paintWidth
-        })
-      )),
-    Match.when(
-      Match.is(
-        "text",
-        "space",
-        "preserved-space",
-        "hard-break",
-        "tab",
-        "glue",
-        "zero-width-break"
-      ),
-      () => candidates
-    ),
-    Match.exhaustive
-  )
+      )
+  })
+}
+
+const isDiscretionaryBreak = Match.type<Prepared.BreakKind>().pipe(
+  Match.whenOr("soft-hyphen", "dictionary-hyphen", () => true),
+  Match.whenOr("text", "space", "preserved-space", "hard-break", "tab", "glue", "zero-width-break", () => false),
+  Match.exhaustive
+)
 
 const explicitBreakCandidate = (
   state: LineScanState,
@@ -356,9 +290,9 @@ const breakCandidatesBeforeCommittedSegment = (
     onFalse: () => state.breakCandidates,
     onTrue: () =>
       Chunk.of(
-        Match.value(kernel.whiteSpace).pipe(
-          Match.when("normal", () => explicitBreakCandidate(state, state.end, currentCursor)),
-          Match.when("pre-wrap", () =>
+        Boolean.match(String.Equivalence(kernel.whiteSpace, "normal"), {
+          onTrue: () => explicitBreakCandidate(state, state.end, currentCursor),
+          onFalse: () =>
             new BreakCandidate({
               end: state.pendingEnd,
               fitWidth: Number.sum(state.fitWidth, state.pendingFitWidth),
@@ -367,9 +301,8 @@ const breakCandidatesBeforeCommittedSegment = (
               kind: "explicit",
               nextCursor: currentCursor,
               paintWidth: Number.sum(state.paintWidth, state.pendingPaintWidth)
-            })),
-          Match.exhaustive
-        )
+            })
+        })
       )
   })
 
@@ -390,30 +323,15 @@ const chooseBreakCandidate = (
 
   const softHyphenCandidates = Chunk.filter(
     fittingCandidates,
-    (candidate) =>
-      Match.value(candidate.kind).pipe(
-        Match.when("soft-hyphen", () => true),
-        Match.when(Match.is("dictionary-hyphen", "explicit"), () => false),
-        Match.exhaustive
-      )
+    (candidate) => String.Equivalence(candidate.kind, "soft-hyphen")
   )
   const dictionaryHyphenCandidates = Chunk.filter(
     fittingCandidates,
-    (candidate) =>
-      Match.value(candidate.kind).pipe(
-        Match.when("dictionary-hyphen", () => true),
-        Match.when(Match.is("explicit", "soft-hyphen"), () => false),
-        Match.exhaustive
-      )
+    (candidate) => String.Equivalence(candidate.kind, "dictionary-hyphen")
   )
   const explicitBreakCandidates = Chunk.filter(
     fittingCandidates,
-    (candidate) =>
-      Match.value(candidate.kind).pipe(
-        Match.when("explicit", () => true),
-        Match.when(Match.is("dictionary-hyphen", "soft-hyphen"), () => false),
-        Match.exhaustive
-      )
+    (candidate) => String.Equivalence(candidate.kind, "explicit")
   )
 
   return Boolean.match(Chunk.isEmpty(fittingCandidates), {
@@ -478,10 +396,9 @@ const resolvePendingState = (
   kernel: Prepared.Kernel,
   state: LineScanState
 ): ResolvedPendingState => {
-  const preservePending = Match.value(kernel.whiteSpace).pipe(
-    Match.when("normal", () => false),
-    Match.when("pre-wrap", () => hasPendingWhitespace(state)),
-    Match.exhaustive
+  const preservePending = Boolean.and(
+    String.Equivalence(kernel.whiteSpace, "pre-wrap"),
+    hasPendingWhitespace(state)
   )
 
   return Boolean.match(lineHasCommittedContent(state), {
@@ -559,11 +476,10 @@ const finalizeBeforePending = (
     kernel,
     state.start,
     state.end,
-    Match.value(kernel.whiteSpace).pipe(
-      Match.when("normal", () => currentCursor),
-      Match.when("pre-wrap", () => Option.getOrElse(state.pendingStart, () => currentCursor)),
-      Match.exhaustive
-    ),
+    Boolean.match(String.Equivalence(kernel.whiteSpace, "normal"), {
+      onTrue: () => currentCursor,
+      onFalse: () => Option.getOrElse(state.pendingStart, () => currentCursor)
+    }),
     state.fitWidth,
     state.paintWidth
   )
@@ -612,16 +528,9 @@ const startLineWithSegment = (
   currentCursor: Text.Cursor,
   nextCursor: Text.Cursor
 ): LineScanState => {
-  const leadingFitWidth = Match.value(kernel.whiteSpace).pipe(
-    Match.when("normal", () => 0),
-    Match.when("pre-wrap", () => state.pendingFitWidth),
-    Match.exhaustive
-  )
-  const leadingPaintWidth = Match.value(kernel.whiteSpace).pipe(
-    Match.when("normal", () => 0),
-    Match.when("pre-wrap", () => state.pendingPaintWidth),
-    Match.exhaustive
-  )
+  const normal = String.Equivalence(kernel.whiteSpace, "normal")
+  const leadingFitWidth = Boolean.match(normal, { onTrue: () => 0, onFalse: () => state.pendingFitWidth })
+  const leadingPaintWidth = Boolean.match(normal, { onTrue: () => 0, onFalse: () => state.pendingPaintWidth })
   const fitWidth = Number.sum(leadingFitWidth, resolveFitAdvanceAtCursor(kernel, currentCursor, leadingFitWidth))
   const paintWidth = Number.sum(
     leadingPaintWidth,
@@ -652,11 +561,10 @@ const appendCommittedSegment = (
   kernel: Prepared.Kernel,
   state: LineScanState,
   currentCursor: Text.Cursor,
-  nextCursor: Text.Cursor
+  nextCursor: Text.Cursor,
+  fitWidth: number
 ): LineScanState => {
-  const pendingFitWidth = Number.sum(state.fitWidth, state.pendingFitWidth)
   const pendingPaintWidth = Number.sum(state.paintWidth, state.pendingPaintWidth)
-  const fitWidth = Number.sum(pendingFitWidth, resolveFitAdvanceAtCursor(kernel, currentCursor, pendingFitWidth))
   const paintWidth = Number.sum(
     pendingPaintWidth,
     resolvePaintAdvanceAtCursor(kernel, currentCursor, pendingPaintWidth)
@@ -703,10 +611,9 @@ const advanceWhitespaceFrame = (
   currentCursor: Text.Cursor,
   nextCursor: Text.Cursor
 ): LineWalkFrame => {
-  const ignoreLeading = Match.value(kernel.whiteSpace).pipe(
-    Match.when("normal", () => Boolean.not(lineHasCommittedContent(frame.scan))),
-    Match.when("pre-wrap", () => false),
-    Match.exhaustive
+  const ignoreLeading = Boolean.and(
+    String.Equivalence(kernel.whiteSpace, "normal"),
+    Boolean.not(lineHasCommittedContent(frame.scan))
   )
 
   return Boolean.match(ignoreLeading, {
@@ -814,35 +721,35 @@ const advanceContentFrame = (
           new LineWalkFrame({
             ...frame,
             cursor: nextCursor,
-            scan: appendCommittedSegment(kernel, frame.scan, currentCursor, nextCursor)
+            scan: appendCommittedSegment(kernel, frame.scan, currentCursor, nextCursor, candidateFitWidth)
           })
       })
   })
 }
 
-const advanceLineFrame = (kernel: Prepared.Kernel, frame: LineWalkFrame): LineWalkFrame => {
-  const currentCursor = frame.cursor
-  const nextCursor = advanceCursor(kernel, currentCursor)
-  const breakKind = breakKindAtCursor(kernel, currentCursor)
+const advanceByBreakKind = Match.type<Prepared.BreakKind>().pipe(
+  Match.when(
+    "hard-break",
+    () => (kernel: Prepared.Kernel, frame: LineWalkFrame, _current: Text.Cursor, next: Text.Cursor) =>
+      new LineWalkFrame({ ...frame, cursor: next, record: Option.some(finalizeAtHardBreak(kernel, frame.scan, next)) })
+  ),
+  Match.whenOr("space", "preserved-space", "tab", () => advanceWhitespaceFrame),
+  Match.when(
+    "zero-width-break",
+    () => (_kernel: Prepared.Kernel, frame: LineWalkFrame, current: Text.Cursor, next: Text.Cursor) =>
+      advanceZeroWidthBreakFrame(frame, current, next)
+  ),
+  Match.whenOr("text", "soft-hyphen", "dictionary-hyphen", "glue", () => advanceContentFrame),
+  Match.exhaustive
+)
 
-  return Match.value(breakKind).pipe(
-    Match.when("hard-break", () =>
-      new LineWalkFrame({
-        ...frame,
-        cursor: nextCursor,
-        record: Option.some(finalizeAtHardBreak(kernel, frame.scan, nextCursor))
-      })),
-    Match.when("space", () => advanceWhitespaceFrame(kernel, frame, currentCursor, nextCursor)),
-    Match.when("preserved-space", () => advanceWhitespaceFrame(kernel, frame, currentCursor, nextCursor)),
-    Match.when("tab", () => advanceWhitespaceFrame(kernel, frame, currentCursor, nextCursor)),
-    Match.when("zero-width-break", () => advanceZeroWidthBreakFrame(frame, currentCursor, nextCursor)),
-    Match.when("text", () => advanceContentFrame(kernel, frame, currentCursor, nextCursor)),
-    Match.when("soft-hyphen", () => advanceContentFrame(kernel, frame, currentCursor, nextCursor)),
-    Match.when("dictionary-hyphen", () => advanceContentFrame(kernel, frame, currentCursor, nextCursor)),
-    Match.when("glue", () => advanceContentFrame(kernel, frame, currentCursor, nextCursor)),
-    Match.exhaustive
+const advanceLineFrame = (kernel: Prepared.Kernel, frame: LineWalkFrame): LineWalkFrame =>
+  advanceByBreakKind(breakKindAtCursor(kernel, frame.cursor))(
+    kernel,
+    frame,
+    frame.cursor,
+    advanceCursor(kernel, frame.cursor)
   )
-}
 
 const walkNextLineRecord = (
   kernel: Prepared.Kernel,
