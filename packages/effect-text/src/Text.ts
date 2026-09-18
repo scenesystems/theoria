@@ -6,7 +6,6 @@
  * @module
  */
 import {
-  Boolean,
   Context,
   Data,
   Effect,
@@ -570,14 +569,9 @@ export const ranges: {
   (request: Request): (self: WithSegments) => LineRanges
   (request: Request, resolveMaxWidth: LineWidthResolver): (self: WithSegments) => LineRanges
 } = Function.dual(
-  (arguments_) => {
-    const values = Arr.fromIterable(arguments_)
-
-    return Boolean.and(
-      Predicate.isTupleOfAtLeast(values, 2),
-      Arr.get(values, 1).pipe(Option.exists(Schema.is(Request)))
-    )
-  },
+  // The second argument is a request only in data-first form; data-last
+  // receives a resolver or nothing. This selects an overload, not a codec.
+  (arguments_) => Predicate.isRecord(arguments_[1]),
   (self: WithSegments, request: Request, resolveMaxWidth?: LineWidthResolver): LineRanges =>
     self.ranges(request, resolveMaxWidth)
 )

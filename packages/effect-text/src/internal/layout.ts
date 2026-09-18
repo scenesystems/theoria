@@ -217,52 +217,6 @@ const breakKindAtCursor = (kernel: Prepared.Kernel, cursor: Text.Cursor): Prepar
   })
 }
 
-const resolveFitAdvance = (kernel: Prepared.Kernel, segmentIndex: number, currentFitWidth: number): number =>
-  Match.value(breakKindAt(kernel, segmentIndex)).pipe(
-    Match.when("tab", () => resolveTabAdvance(currentFitWidth, kernel.runtime.tabStopAdvance)),
-    Match.when(
-      Match.is(
-        "text",
-        "space",
-        "preserved-space",
-        "soft-hyphen",
-        "dictionary-hyphen",
-        "hard-break",
-        "glue",
-        "zero-width-break"
-      ),
-      () =>
-        runtimeSegmentAt(kernel, segmentIndex).pipe(
-          Option.map((segment) => segment.fitAdvance),
-          Option.getOrElse(() => 0)
-        )
-    ),
-    Match.exhaustive
-  )
-
-const resolvePaintAdvance = (kernel: Prepared.Kernel, segmentIndex: number, currentPaintWidth: number): number =>
-  Match.value(breakKindAt(kernel, segmentIndex)).pipe(
-    Match.when("tab", () => resolveTabAdvance(currentPaintWidth, kernel.runtime.tabStopAdvance)),
-    Match.when(
-      Match.is(
-        "text",
-        "space",
-        "preserved-space",
-        "soft-hyphen",
-        "dictionary-hyphen",
-        "hard-break",
-        "glue",
-        "zero-width-break"
-      ),
-      () =>
-        runtimeSegmentAt(kernel, segmentIndex).pipe(
-          Option.map((segment) => segment.paintAdvance),
-          Option.getOrElse(() => 0)
-        )
-    ),
-    Match.exhaustive
-  )
-
 const resolveFitAdvanceAtCursor = (
   kernel: Prepared.Kernel,
   cursor: Text.Cursor,
@@ -1056,19 +1010,18 @@ const measureChunkWidth = (
   startSegmentIndex: number,
   segmentLimit: number
 ): number =>
-  Iterable.reduce(
-    Iterable.unfold(startSegmentIndex, (index) =>
-      Boolean.match(Number.lessThan(index, segmentLimit), {
-        onFalse: Option.none,
-        onTrue: () => Option.some(Tuple.make(index, Number.increment(index)))
-      })),
-    Data.struct({ fitWidth: 0, paintWidth: 0 }),
-    (state, segmentIndex) =>
-      Data.struct({
-        fitWidth: Number.sum(state.fitWidth, resolveFitAdvance(kernel, segmentIndex, state.fitWidth)),
-        paintWidth: Number.sum(state.paintWidth, resolvePaintAdvance(kernel, segmentIndex, state.paintWidth))
-      })
-  ).paintWidth
+  Chunk.reduce(
+    Chunk.drop(Chunk.take(kernel.runtime.segments, segmentLimit), startSegmentIndex),
+    0,
+    (paintWidth, segment) =>
+      Number.sum(
+        paintWidth,
+        Boolean.match(String.Equivalence(segment.breakKind, "tab"), {
+          onTrue: () => resolveTabAdvance(paintWidth, kernel.runtime.tabStopAdvance),
+          onFalse: () => segment.paintAdvance
+        })
+      )
+  )
 
 /**
  * Summarizes layout from the canonical walker without materializing line text.
