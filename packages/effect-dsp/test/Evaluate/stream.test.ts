@@ -9,7 +9,18 @@ import * as Metric from "@scenesystems/effect-dsp/Metric"
 import * as MockLanguageModel from "@scenesystems/effect-dsp/MockLanguageModel"
 import * as Module from "@scenesystems/effect-dsp/Module"
 import * as Signature from "@scenesystems/effect-dsp/Signature"
-import { Array as Arr, Chunk, Effect, Layer, Number as Num, Option, Schema, Stream } from "effect"
+import {
+  Array as Arr,
+  Chunk,
+  Effect,
+  Function as Fn,
+  Layer,
+  Match,
+  Number as Num,
+  Option,
+  Schema,
+  Stream
+} from "effect"
 
 const makeQaSignature = () =>
   Signature.make(
@@ -71,7 +82,11 @@ describe("Evaluate.stream", () => {
             EvaluationCompleted: () => ({ ...state, finished: Num.increment(state.finished) })
           })(event)
       )
-      const failedEvent = Arr.findFirst(events, (event) => event._tag === "ExampleFailed")
+      const failedEvent = Arr.findFirst(events, (event) =>
+        Match.value(event._tag).pipe(
+          Match.when("ExampleFailed", () => true),
+          Match.orElse(() => false)
+        ))
       const completion = Arr.last(events)
 
       expect(counts.started).toBe(report.totalExamples)
@@ -80,18 +95,30 @@ describe("Evaluate.stream", () => {
       expect(counts.finished).toBe(1)
       expect(Option.isSome(completion)).toBe(true)
 
-      if (Option.isSome(failedEvent) && failedEvent.value._tag === "ExampleFailed") {
-        expect(failedEvent.value.failure.index).toBe(2)
-        expect(failedEvent.value.failure.tag).toBe("EvaluationFailed")
-      }
+      Option.match(failedEvent, {
+        onNone: Fn.constVoid,
+        onSome: (event) =>
+          Match.value(event).pipe(
+            Match.when({ _tag: "ExampleFailed" }, (failed) => {
+              expect(failed.failure.index).toBe(2)
+              expect(failed.failure.tag).toBe("EvaluationFailed")
+            }),
+            Match.orElse(Fn.constVoid)
+          )
+      })
 
-      if (Option.isSome(completion)) {
-        expect(completion.value._tag).toBe("EvaluationCompleted")
-
-        if (completion.value._tag === "EvaluationCompleted") {
-          expect(completion.value.total).toBe(report.totalExamples)
-          expect(completion.value.overallScore).toBe(report.overallScores.exact)
+      Option.match(completion, {
+        onNone: Fn.constVoid,
+        onSome: (event) => {
+          expect(event._tag).toBe("EvaluationCompleted")
+          Match.value(event).pipe(
+            Match.when({ _tag: "EvaluationCompleted" }, (completed) => {
+              expect(completed.total).toBe(report.totalExamples)
+              expect(completed.overallScore).toBe(report.overallScores.exact)
+            }),
+            Match.orElse(Fn.constVoid)
+          )
         }
-      }
+      })
     }))
 })

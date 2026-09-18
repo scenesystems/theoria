@@ -11,7 +11,7 @@ import * as MockLanguageModel from "@scenesystems/effect-dsp/MockLanguageModel"
 import * as Module from "@scenesystems/effect-dsp/Module"
 import { ModuleParameters } from "@scenesystems/effect-dsp/ModuleParameters"
 import * as Signature from "@scenesystems/effect-dsp/Signature"
-import { Array as Arr, Effect, Layer, Ref, Schema } from "effect"
+import { Array as Arr, Effect, Layer, Match, Ref, Schema } from "effect"
 
 const trainset = Arr.make(
   new Example({
@@ -25,11 +25,11 @@ const trainset = Arr.make(
 )
 
 const responseForPrompt = (prompt: string) =>
-  prompt.includes("What is the capital of France?")
-    ? { answer: "Paris" }
-    : prompt.includes("What is the capital of Japan?")
-    ? { answer: "Tokyo" }
-    : { answer: "Unknown" }
+  Match.value(prompt).pipe(
+    Match.when((value) => value.includes("What is the capital of France?"), () => ({ answer: "Paris" })),
+    Match.when((value) => value.includes("What is the capital of Japan?"), () => ({ answer: "Tokyo" })),
+    Match.orElse(() => ({ answer: "Unknown" }))
+  )
 
 describe("integration/predict-optimize-evaluate", () => {
   it.effect("runs the full pipeline with deterministic mock-layer behavior", () =>

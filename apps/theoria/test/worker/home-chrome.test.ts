@@ -114,7 +114,10 @@ layer(Layer.merge(SiteLive, BrowserLive), { excludeTestServices: true, timeout: 
                     (next, previous) => Num.subtract(next.shown.left, previous.shown.right)
                   )
                   alike(gaps, `${at}: the space the reader sees between controls is one space, not ${String(gaps)}`)
-                  expect(Arr.every(controls, (control) => control.glyphInk > 0), `${at}: every control has a glyph`)
+                  expect(
+                    Arr.every(controls, (control) => Num.greaterThan(control.glyphInk, 0)),
+                    `${at}: every control has a glyph`
+                  )
                     .toBe(true)
                   alike(
                     Arr.map(controls, (control) => control.glyphInk),
@@ -164,7 +167,9 @@ layer(Layer.merge(SiteLive, BrowserLive), { excludeTestServices: true, timeout: 
         yield* setViewport(page, phone)
         const rows = yield* Effect.forEach([brand, tagline, links, legal], (row) => evaluateElement(row, boxOf))
         alike(Arr.map(rows, (row) => row.centreX), "the narrow footer has one centred column")
-        expect(Arr.every(Arr.zip(rows, Arr.drop(rows, 1)), ([before, after]) => after.top > before.bottom))
+        expect(
+          Arr.every(Arr.zip(rows, Arr.drop(rows, 1)), ([before, after]) => Num.greaterThan(after.top, before.bottom))
+        )
           .toBe(true)
         expect(yield* failures).toEqual([])
       }))

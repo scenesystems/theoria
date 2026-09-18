@@ -1,7 +1,7 @@
 import { BunContext } from "@effect/platform-bun"
 import { describe, expect, it } from "@effect/vitest"
 import * as Hmac from "@scenesystems/digest/Hmac"
-import { Effect, Encoding, Number as Num, Schema } from "effect"
+import { Effect, Encoding, Match, Number as Num, Schema } from "effect"
 
 import * as Fixtures from "../scripts/fixtures.js"
 import { expectByteLength, expectDigest } from "./helpers/assertions.js"
@@ -66,9 +66,11 @@ describe("Hmac external conformance", () => {
           Effect.sync(() => {
             const key = hexToBytes(vector.keyHex)
             const message = hexToBytes(vector.messageHex)
-            const result = fixture.algorithm === "hmac-sha1"
-              ? Hmac.sha1(key, message)
-              : Hmac.sha256(key, message)
+            const result = Match.value(fixture.algorithm).pipe(
+              Match.when("hmac-sha1", () =>
+                Hmac.sha1(key, message)),
+              Match.orElse(() => Hmac.sha256(key, message))
+            )
             const actual = Encoding.encodeHex(result.slice(0, vector.outputLength))
 
             expect(vector.expectedHex).toHaveLength(Num.multiply(vector.outputLength, 2))

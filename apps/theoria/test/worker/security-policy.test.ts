@@ -1,7 +1,7 @@
 // @vitest-environment node
 import { expect, layer } from "@effect/vitest"
 import type { Page } from "@playwright/test"
-import { Effect, Layer, Option } from "effect"
+import { Effect, Layer, Number as Num, Option } from "effect"
 import { addInitProbe, evaluate, evaluateElement } from "./browser.js"
 
 import {
@@ -46,7 +46,7 @@ const noViolations = (page: Page, where: string) =>
  */
 const packageMenu = (page: Page, viewport: Viewport) =>
   Effect.gen(function*() {
-    const drawer = viewport.width < 1024
+    const drawer = Num.lessThan(viewport.width, 1024)
     yield* Effect.when(
       Effect.gen(function*() {
         yield* click(page.getByRole("button", { name: "Open navigation" }))
@@ -65,7 +65,9 @@ const servedPolicy = (page: Page, path: string) =>
   Effect.flatMap(act(() => page.goto(path)), (response) =>
     Option.match(Option.fromNullable(response), {
       onNone: () => Effect.dieMessage(`no response for ${path}`),
-      onSome: (some) => Effect.map(act(() => some.headerValue("content-security-policy")), (policy) => policy ?? "")
+      onSome: (some) =>
+        Effect.map(act(() => some.headerValue("content-security-policy")), (policy) =>
+          Option.getOrElse(Option.fromNullable(policy), () => ""))
     }))
 
 layer(Layer.merge(SiteLive, BrowserLive), { excludeTestServices: true, timeout: "4 minutes" })(

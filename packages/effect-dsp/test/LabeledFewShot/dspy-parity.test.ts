@@ -5,7 +5,7 @@ import * as LabeledFewShot from "@scenesystems/effect-dsp/LabeledFewShot"
 import * as MockLanguageModel from "@scenesystems/effect-dsp/MockLanguageModel"
 import * as Module from "@scenesystems/effect-dsp/Module"
 import * as Signature from "@scenesystems/effect-dsp/Signature"
-import { Array as Arr, Effect, Layer, Ref, Schema } from "effect"
+import { Array as Arr, Effect, Layer, Option, Ref, Schema } from "effect"
 
 import { LabeledFewShotSampleFixtureSchema, loadFixture } from "../helpers/dspy-fixtures/index.js"
 
@@ -50,7 +50,8 @@ describe("LabeledFewShot.run DSPy parity", () => {
 
       const params = yield* Ref.get(optimized.params)
       const calls = yield* Ref.get(mock.calls)
-      const selectedQuestions = Arr.map(params.demos, (demo) => String(demo.input.question ?? ""))
+      const selectedQuestions = Arr.map(params.demos, (demo) =>
+        String(Option.getOrElse(Option.fromNullable(demo.input.question), () => "")))
 
       expect(selectedQuestions).toStrictEqual(fixture.payload.expectedSelectedQuestions)
       expect(calls).toHaveLength(fixture.payload.expectedCallCount)

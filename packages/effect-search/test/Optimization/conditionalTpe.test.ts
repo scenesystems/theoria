@@ -1,5 +1,5 @@
 import { describe, expect, it } from "@effect/vitest"
-import { Array as Arr, Effect, Match, Number as Num, Option, Schema } from "effect"
+import { Array as Arr, Effect, Match, Number as Num, Option, Predicate, Schema } from "effect"
 
 import * as Numeric from "@scenesystems/effect-math/Numeric"
 import * as Optimization from "../../src/Optimization.js"
@@ -126,16 +126,16 @@ describe("integration conditional TPE optimization", () => {
       Arr.forEach(decodedConfigs, (decoded) => {
         Match.value(decoded.model).pipe(
           Match.when("linear", () => {
-            expect("learningRate" in decoded).toBe(true)
-            expect("regularization" in decoded).toBe(true)
-            expect("maxDepth" in decoded).toBe(false)
-            expect("minSamplesLeaf" in decoded).toBe(false)
+            expect(Predicate.hasProperty(decoded, "learningRate")).toBe(true)
+            expect(Predicate.hasProperty(decoded, "regularization")).toBe(true)
+            expect(Predicate.hasProperty(decoded, "maxDepth")).toBe(false)
+            expect(Predicate.hasProperty(decoded, "minSamplesLeaf")).toBe(false)
           }),
           Match.when("tree", () => {
-            expect("maxDepth" in decoded).toBe(true)
-            expect("minSamplesLeaf" in decoded).toBe(true)
-            expect("learningRate" in decoded).toBe(false)
-            expect("regularization" in decoded).toBe(false)
+            expect(Predicate.hasProperty(decoded, "maxDepth")).toBe(true)
+            expect(Predicate.hasProperty(decoded, "minSamplesLeaf")).toBe(true)
+            expect(Predicate.hasProperty(decoded, "learningRate")).toBe(false)
+            expect(Predicate.hasProperty(decoded, "regularization")).toBe(false)
           }),
           Match.exhaustive
         )
@@ -240,16 +240,16 @@ describe("integration conditional TPE optimization", () => {
       Arr.forEach(decodedConfigs, (decoded) => {
         Match.value(decoded.model).pipe(
           Match.when("linear", () => {
-            expect("learningRate" in decoded).toBe(true)
-            expect("regularization" in decoded).toBe(true)
-            expect("maxDepth" in decoded).toBe(false)
-            expect("minSamplesLeaf" in decoded).toBe(false)
+            expect(Predicate.hasProperty(decoded, "learningRate")).toBe(true)
+            expect(Predicate.hasProperty(decoded, "regularization")).toBe(true)
+            expect(Predicate.hasProperty(decoded, "maxDepth")).toBe(false)
+            expect(Predicate.hasProperty(decoded, "minSamplesLeaf")).toBe(false)
           }),
           Match.when("tree", () => {
-            expect("maxDepth" in decoded).toBe(true)
-            expect("minSamplesLeaf" in decoded).toBe(true)
-            expect("learningRate" in decoded).toBe(false)
-            expect("regularization" in decoded).toBe(false)
+            expect(Predicate.hasProperty(decoded, "maxDepth")).toBe(true)
+            expect(Predicate.hasProperty(decoded, "minSamplesLeaf")).toBe(true)
+            expect(Predicate.hasProperty(decoded, "learningRate")).toBe(false)
+            expect(Predicate.hasProperty(decoded, "regularization")).toBe(false)
           }),
           Match.exhaustive
         )

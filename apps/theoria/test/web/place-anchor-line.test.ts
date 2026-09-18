@@ -90,7 +90,7 @@ describeOnStage("proposal anchor line", (it) => {
           Arr.scan(projection.lines, 0, (sum, line) => Num.sumAll([sum, line.text.length, 1])),
           1
         )
-        return Arr.length(Arr.filter(ends, (end) => end <= start))
+        return Arr.length(Arr.filter(ends, Num.lessThanOrEqualTo(start)))
       }
       expect(proposalAnchorLine(kept.projection, merged)).toEqual(Option.some(lineStarting(kept.projection)))
       expect(proposalAnchorLine(trial.projection, merged)).toEqual(Option.some(lineStarting(trial.projection)))

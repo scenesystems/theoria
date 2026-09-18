@@ -1,6 +1,7 @@
 import { Numeric } from "@scenesystems/effect-math"
-import { Boolean as Bool, Number as Num, Option, String as Str } from "effect"
+import { Boolean as Bool, Function as Fn, Match, Number as Num, Option, Predicate, String as Str } from "effect"
 import * as Arr from "effect/Array"
+import * as Equivalence from "effect/Equivalence"
 import * as Order from "effect/Order"
 
 /**
@@ -84,9 +85,12 @@ export const stageLineMetrics = (elements: ReadonlyArray<Element>) =>
   Arr.map(Arr.take(elements, 3), (element) => {
     const span = element.querySelector("span")
     return {
-      ...computedTypeSize(span ?? element),
+      ...computedTypeSize(Option.getOrElse(Option.fromNullable(span), () => element)),
       height: element.getBoundingClientRect().height,
-      clipped: (span?.scrollWidth ?? 0) > Num.increment(element.clientWidth)
+      clipped: Num.greaterThan(
+        Option.getOrElse(Option.fromNullable(span?.scrollWidth), () => 0),
+        Num.increment(element.clientWidth)
+      )
     }
   })
 
@@ -95,10 +99,16 @@ export const textFitsBox = (element: Element): boolean => {
   const box = element.getBoundingClientRect()
   const range = document.createRange()
   range.selectNodeContents(element)
-  return Arr.every(Arr.filter(range.getClientRects(), (line) => line.width > 0), (line) =>
+  return Arr.every(Arr.filter(range.getClientRects(), (line) => Num.greaterThan(line.width, 0)), (line) =>
     Bool.and(
-      Bool.and(line.left >= Num.decrement(box.left), line.right <= Num.increment(box.right)),
-      Bool.and(line.top >= Num.decrement(box.top), line.bottom <= Num.increment(box.bottom))
+      Bool.and(
+        Num.greaterThanOrEqualTo(line.left, Num.decrement(box.left)),
+        Num.lessThanOrEqualTo(line.right, Num.increment(box.right))
+      ),
+      Bool.and(
+        Num.greaterThanOrEqualTo(line.top, Num.decrement(box.top)),
+        Num.lessThanOrEqualTo(line.bottom, Num.increment(box.bottom))
+      )
     ))
 }
 
@@ -139,7 +149,7 @@ export const edgesOf = (elements: ReadonlyArray<Element>): ReadonlyArray<{
   })
 
 /** The document does not scroll horizontally at the current viewport. */
-export const documentFitsViewport = () => document.documentElement.scrollWidth <= window.innerWidth
+export const documentFitsViewport = () => Num.lessThanOrEqualTo(document.documentElement.scrollWidth, window.innerWidth)
 
 /**
  * The painted-surface budget below `root`.
@@ -154,24 +164,25 @@ export const surfaceBudget = (root: Element) => {
     const rect = element.getBoundingClientRect()
     const style = getComputedStyle(element)
     return Bool.every([
-      rect.width > 0,
-      rect.height > 0,
-      style.visibility !== "hidden",
-      style.display !== "none"
+      Num.greaterThan(rect.width, 0),
+      Num.greaterThan(rect.height, 0),
+      Bool.not(Str.Equivalence(style.visibility, "hidden")),
+      Bool.not(Str.Equivalence(style.display, "none"))
     ])
   })
-  const visibleColour = (colour: string) => Bool.and(colour !== "transparent", Bool.not(Str.includes(", 0)")(colour)))
+  const visibleColour = (colour: string) =>
+    Bool.and(Bool.not(Str.Equivalence(colour, "transparent")), Bool.not(Str.includes(", 0)")(colour)))
   const enclosed = (element: Element) => {
     const rect = element.getBoundingClientRect()
     const style = getComputedStyle(element)
     const sides = ["Top", "Right", "Bottom", "Left"]
     return Bool.and(
-      Bool.and(rect.width > 24, rect.height > 24),
+      Bool.and(Num.greaterThan(rect.width, 24), Num.greaterThan(rect.height, 24)),
       Arr.every(sides, (side) => {
         const sideName = Str.toLowerCase(side)
         return Bool.every([
-          cssNumericPrefix(style.getPropertyValue(`border-${sideName}-width`)) >= 1,
-          style.getPropertyValue(`border-${sideName}-style`) !== "none",
+          Num.greaterThanOrEqualTo(cssNumericPrefix(style.getPropertyValue(`border-${sideName}-width`)), 1),
+          Bool.not(Str.Equivalence(style.getPropertyValue(`border-${sideName}-style`), "none")),
           visibleColour(style.getPropertyValue(`border-${sideName}-color`))
         ])
       })
@@ -182,7 +193,7 @@ export const surfaceBudget = (root: Element) => {
       Arr.map(
         Arr.filter(
           element.attributes,
-          (attribute) => Bool.or(Str.startsWith("data-")(attribute.name), attribute.name === "aria-label")
+          (attribute) => Bool.or(Str.startsWith("data-")(attribute.name), Str.Equivalence(attribute.name, "aria-label"))
         ),
         (attribute) => `[${attribute.name}='${attribute.value}']`
       ),
@@ -207,9 +218,9 @@ export const surfaceBudget = (root: Element) => {
       return Bool.and(
         Bool.and(Bool.not(Str.includes("inset")(layer)), visibleColour(colour)),
         Bool.some([
-          (lengths[0] ?? 0) !== 0,
-          (lengths[1] ?? 0) !== 0,
-          (lengths[2] ?? 0) > 0
+          Bool.not(Num.Equivalence(Option.getOrElse(Arr.get(lengths, 0), () => 0), 0)),
+          Bool.not(Num.Equivalence(Option.getOrElse(Arr.get(lengths, 1), () => 0), 0)),
+          Num.greaterThan(Option.getOrElse(Arr.get(lengths, 2), () => 0), 0)
         ])
       )
     })
@@ -217,7 +228,8 @@ export const surfaceBudget = (root: Element) => {
     const parent = element.parentElement
     return Option.match(Option.filter(Option.fromNullable(parent), (candidate) => root.contains(candidate)), {
       onNone: () => 1,
-      onSome: (ancestor) => Num.sum(enclosed(ancestor) ? 1 : 0, depth(ancestor))
+      onSome: (ancestor) =>
+        Num.sum(Bool.match(enclosed(ancestor), { onFalse: () => 0, onTrue: () => 1 }), depth(ancestor))
     })
   }
   return {
@@ -239,7 +251,7 @@ export const surfaceBudget = (root: Element) => {
 export const typefaces = (served: string) => ({
   status: document.fonts.status,
   servedInHand: document.fonts.check(served),
-  loaded: Arr.map(Arr.filter(document.fonts, (face) => face.status === "loaded"), (face) => face.family),
+  loaded: Arr.map(Arr.filter(document.fonts, (face) => Str.Equivalence(face.status, "loaded")), (face) => face.family),
   standIns: Arr.map(Arr.filter(document.fonts, (face) => Str.includes("Fallback")(face.family)), (face) => ({
     family: face.family,
     status: face.status,
@@ -264,10 +276,10 @@ export const focusedControlIntersectsBand = () => {
   )
   return Option.exists(Option.product(focused, band), ([focusBox, bandBox]) =>
     Bool.every([
-      focusBox.left < bandBox.right,
-      focusBox.right > bandBox.left,
-      focusBox.top < bandBox.bottom,
-      focusBox.bottom > bandBox.top
+      Num.lessThan(focusBox.left, bandBox.right),
+      Num.greaterThan(focusBox.right, bandBox.left),
+      Num.lessThan(focusBox.top, bandBox.bottom),
+      Num.greaterThan(focusBox.bottom, bandBox.top)
     ]))
 }
 
@@ -279,9 +291,13 @@ export const focusedControlIntersectsBand = () => {
 export const presence = (element: Element) => ({
   opacity: Option.getOrElse(Num.parse(getComputedStyle(element).opacity), () => Number.NaN),
   fading: Arr.some(element.getAnimations(), (animation) =>
-    animation.effect instanceof KeyframeEffect
-      ? Arr.some(animation.effect.getKeyframes(), (keyframe) => "opacity" in keyframe)
-      : false)
+    Match.value(animation.effect).pipe(
+      Match.when(Match.instanceOf(KeyframeEffect), (effect) =>
+        Arr.some(effect.getKeyframes(), Predicate.hasProperty("opacity"))),
+      Match.orElse(() =>
+        false
+      )
+    ))
 })
 
 /**
@@ -306,14 +322,21 @@ export const pressableCursors = (root: Element): ReadonlyArray<{
       rendered: `${Str.toLowerCase(element.tagName)}${
         Arr.join(
           Arr.map(
-            Arr.filter(element.attributes, (attribute) => attribute.name === "role"),
+            Arr.filter(element.attributes, (attribute) => Str.Equivalence(attribute.name, "role")),
             (attribute) => `[role=${attribute.value}]`
           ),
           ""
         )
       }`,
       cursor: getComputedStyle(element).cursor,
-      text: Str.slice(0, 40)(Str.trim(element.getAttribute("aria-label") ?? element.textContent ?? ""))
+      text: Str.slice(0, 40)(Str.trim(
+        Option.getOrElse(
+          Option.fromNullable(element.getAttribute("aria-label")).pipe(
+            Option.orElse(() => Option.fromNullable(element.textContent))
+          ),
+          () => ""
+        )
+      ))
     })
   )
 
@@ -327,10 +350,10 @@ export const greekFaceOpacities = (root: Element): ReadonlyArray<number> =>
 /** Every finite animation (CSS and Web Animations) has finished; infinite ones are ignored. */
 export const finiteAnimationsFinished = () =>
   Arr.every(document.getAnimations(), (animation) =>
-    Bool.match(animation.playState === "finished", {
+    Bool.match(Str.Equivalence(animation.playState, "finished"), {
       onFalse: () =>
         Option.exists(Option.fromNullable(animation.effect), (effect) =>
-          effect.getComputedTiming().iterations === Infinity),
+          Equivalence.strict()(effect.getComputedTiming().iterations, Infinity)),
       onTrue: () =>
         true
     }))
@@ -348,12 +371,12 @@ export const elementsPastViewport = (): ReadonlyArray<string> => {
   const clippedByAncestor = (element: Element): boolean => {
     const ancestor = element.parentElement
     return Option.exists(
-      Option.filter(Option.fromNullable(ancestor), (parent) => parent !== document.body),
+      Option.filter(Option.fromNullable(ancestor), (parent) => Bool.not(Equivalence.strict()(parent, document.body))),
       (parent) =>
         Bool.match(clips(parent), {
           onFalse: () => clippedByAncestor(parent),
           onTrue: () =>
-            Bool.match(parent.getBoundingClientRect().right <= limit, {
+            Bool.match(Num.lessThanOrEqualTo(parent.getBoundingClientRect().right, limit), {
               onFalse: () => clippedByAncestor(parent),
               onTrue: () => true
             })
@@ -366,7 +389,10 @@ export const elementsPastViewport = (): ReadonlyArray<string> => {
     }`
   return Arr.map(
     Arr.filter(
-      Arr.filter(document.querySelectorAll("body *"), (element) => element.getBoundingClientRect().right > limit),
+      Arr.filter(
+        document.querySelectorAll("body *"),
+        (element) => Num.greaterThan(element.getBoundingClientRect().right, limit)
+      ),
       (element) => Bool.not(clippedByAncestor(element))
     ),
     describe
@@ -400,13 +426,16 @@ export const horizontalScrollers = (
       region.querySelectorAll<HTMLElement>("*"),
       (element) =>
         Bool.and(
-          element.scrollWidth > element.clientWidth,
+          Num.greaterThan(element.scrollWidth, element.clientWidth),
           Arr.contains(["auto", "scroll"], getComputedStyle(element).overflowX)
         )
     ),
     (scroller) => ({
-      atEnd: Num.sum(scroller.scrollLeft, scroller.clientWidth) >= Num.decrement(scroller.scrollWidth),
-      contained: region.getBoundingClientRect().right <= document.documentElement.clientWidth
+      atEnd: Num.greaterThanOrEqualTo(
+        Num.sum(scroller.scrollLeft, scroller.clientWidth),
+        Num.decrement(scroller.scrollWidth)
+      ),
+      contained: Num.lessThanOrEqualTo(region.getBoundingClientRect().right, document.documentElement.clientWidth)
     })
   )
 
@@ -432,7 +461,8 @@ export const discTouchTargets = (discs: ReadonlyArray<Element>): ReadonlyArray<{
 }> =>
   Arr.map(discs, (disc) => {
     const box = disc.getBoundingClientRect()
-    const reachBox = (disc.querySelector("[data-place-reach]") ?? disc).getBoundingClientRect()
+    const reachBox = Option.getOrElse(Option.fromNullable(disc.querySelector("[data-place-reach]")), () => disc)
+      .getBoundingClientRect()
     const reach = {
       width: Num.unsafeDivide(Num.round(Num.multiply(reachBox.width, 64), 0), 64),
       height: Num.unsafeDivide(Num.round(Num.multiply(reachBox.height, 64), 0), 64)
@@ -449,7 +479,7 @@ export const discTouchTargets = (discs: ReadonlyArray<Element>): ReadonlyArray<{
       { at: "below", x: centre.x, y: Num.sum(centre.y, offset) }
     ]
     return {
-      name: disc.getAttribute("data-place-marker") ?? "",
+      name: Option.getOrElse(Option.fromNullable(disc.getAttribute("data-place-marker")), () => ""),
       width: reach.width,
       height: reach.height,
       disc: { width: box.width, height: box.height },
@@ -473,8 +503,8 @@ export const markerPositionsInStage = (markers: ReadonlyArray<Element>) => {
   return Arr.join(
     Arr.map(markers, (marker) => {
       const rect = marker.getBoundingClientRect()
-      return `${String(Num.round(Num.subtract(rect.x, stage?.x ?? 0), 0))},${
-        String(Num.round(Num.subtract(rect.y, stage?.y ?? 0), 0))
+      return `${String(Num.round(Num.subtract(rect.x, Option.getOrElse(Option.fromNullable(stage?.x), () => 0)), 0))},${
+        String(Num.round(Num.subtract(rect.y, Option.getOrElse(Option.fromNullable(stage?.y), () => 0)), 0))
       }`
     }),
     " "
@@ -491,9 +521,9 @@ export const stageAndColumnWidths = () => {
   const frame = column?.querySelector("[data-artifact-stage='frame']")
   const content = document.querySelector("[data-place-stage='content']")
   return {
-    column: column?.clientWidth ?? -1,
-    drawable: frame?.clientWidth ?? -1,
-    frame: frame?.getBoundingClientRect().width ?? -1,
+    column: Option.getOrElse(Option.fromNullable(column?.clientWidth), () => -1),
+    drawable: Option.getOrElse(Option.fromNullable(frame?.clientWidth), () => -1),
+    frame: Option.getOrElse(Option.fromNullable(frame?.getBoundingClientRect().width), () => -1),
     stage: Option.getOrElse(
       Option.flatMap(Option.fromNullable(content?.getAttribute("data-place-stage-width")), Num.parse),
       () => -1
@@ -515,13 +545,25 @@ export const stageInItsStep = () => {
   const frameBox = frame?.getBoundingClientRect()
   const presets = [...document.querySelectorAll("[data-place-presets] [role='radio']")]
   return {
-    step: step?.clientWidth ?? -1,
+    step: Option.getOrElse(Option.fromNullable(step?.clientWidth), () => -1),
     stage: Option.getOrElse(
       Option.flatMap(Option.fromNullable(content?.getAttribute("data-place-stage-width")), Num.parse),
       () => -1
     ),
-    leftOfFrame: Num.round(Num.subtract(frameBox?.left ?? 0, stepBox?.left ?? 0), 0),
-    rightOfFrame: Num.round(Num.subtract(stepBox?.right ?? 0, frameBox?.right ?? 0), 0),
+    leftOfFrame: Num.round(
+      Num.subtract(
+        Option.getOrElse(Option.fromNullable(frameBox?.left), () => 0),
+        Option.getOrElse(Option.fromNullable(stepBox?.left), () => 0)
+      ),
+      0
+    ),
+    rightOfFrame: Num.round(
+      Num.subtract(
+        Option.getOrElse(Option.fromNullable(stepBox?.right), () => 0),
+        Option.getOrElse(Option.fromNullable(frameBox?.right), () => 0)
+      ),
+      0
+    ),
     widestOffered: Option.getOrElse(
       Option.map(Option.flatMap(Arr.last(presets), (preset) => Option.fromNullable(preset.textContent)), Str.trim),
       () => ""
@@ -540,12 +582,13 @@ export const pageRhythm = () => {
   const edges = (selector: string) => {
     const element = document.querySelector(selector)
     const box = element?.getBoundingClientRect()
-    return box
-      ? {
-        top: Num.round(Num.sum(box.top, window.scrollY), 0),
-        bottom: Num.round(Num.sum(box.bottom, window.scrollY), 0)
-      }
-      : { top: -1, bottom: -1 }
+    return Option.match(Option.fromNullable(box), {
+      onNone: () => ({ top: -1, bottom: -1 }),
+      onSome: (found) => ({
+        top: Num.round(Num.sum(found.top, window.scrollY), 0),
+        bottom: Num.round(Num.sum(found.bottom, window.scrollY), 0)
+      })
+    })
   }
   const header = edges("[data-place-step='compose'] [data-place-step-header]")
   const body = edges("[data-place-step='compose'] [data-place-step-header] + *")
@@ -565,8 +608,14 @@ export const pageRhythm = () => {
 
 /** The content widths of the Arrange and Compose steps: the columns the two share when they are stacked. */
 export const stepWidths = () => ({
-  arrange: document.querySelector("[data-place-step='arrange']")?.clientWidth ?? -1,
-  compose: document.querySelector("[data-place-step='compose']")?.clientWidth ?? -1
+  arrange: Option.getOrElse(
+    Option.fromNullable(document.querySelector("[data-place-step='arrange']")?.clientWidth),
+    () => -1
+  ),
+  compose: Option.getOrElse(
+    Option.fromNullable(document.querySelector("[data-place-step='compose']")?.clientWidth),
+    () => -1
+  )
 })
 
 /**
@@ -596,31 +645,44 @@ export const recordFrameFit = () => {
       String(Num.round(Num.subtract(centreOf(frame), centreOf(viewport)), 0))
     ], " ")
     const seen = Arr.filter(
-      Str.split(document.documentElement.dataset["frameFit"] ?? "", "\n"),
+      Str.split(Option.getOrElse(Option.fromNullable(document.documentElement.dataset["frameFit"]), () => ""), "\n"),
       Str.isNonEmpty
     )
-    if (Option.contains(Arr.last(seen), line)) return
-    document.documentElement.dataset["frameFit"] = Arr.join(Arr.append(seen, line), "\n")
+    Bool.match(Option.contains(Arr.last(seen), line), {
+      onFalse: () => {
+        document.documentElement.dataset["frameFit"] = Arr.join(Arr.append(seen, line), "\n")
+      },
+      onTrue: Fn.constVoid
+    })
   }
   const arm = () => {
     const frame = document.querySelector("[data-artifact-stage='frame']")
     const viewport = frame?.closest("[data-artifact-stage='viewport']")
     const paper = document.querySelector("[data-place-stage='paper']")
     const drawing = document.querySelector("[data-place-stage='content']")
-    if (document.documentElement.dataset["frameFitArmed"] === "armed") return
-    Option.map(
-      Option.all({
-        frame: Option.fromNullable(frame),
-        viewport: Option.fromNullable(viewport),
-        paper: Option.fromNullable(paper),
-        drawing: Option.fromNullable(drawing)
-      }),
-      (targets) => {
-        document.documentElement.dataset["frameFitArmed"] = "armed"
-        const sizes = new ResizeObserver(record(targets.frame, targets.viewport, targets.paper))
-        sizes.observe(targets.frame, { box: "border-box" })
-        sizes.observe(targets.viewport, { box: "border-box" })
-        sizes.observe(targets.paper, { box: "border-box" })
+    Bool.match(
+      Str.Equivalence(
+        Option.getOrElse(Option.fromNullable(document.documentElement.dataset["frameFitArmed"]), () => ""),
+        "armed"
+      ),
+      {
+        onFalse: () =>
+          Option.map(
+            Option.all({
+              frame: Option.fromNullable(frame),
+              viewport: Option.fromNullable(viewport),
+              paper: Option.fromNullable(paper),
+              drawing: Option.fromNullable(drawing)
+            }),
+            (targets) => {
+              document.documentElement.dataset["frameFitArmed"] = "armed"
+              const sizes = new ResizeObserver(record(targets.frame, targets.viewport, targets.paper))
+              sizes.observe(targets.frame, { box: "border-box" })
+              sizes.observe(targets.viewport, { box: "border-box" })
+              sizes.observe(targets.paper, { box: "border-box" })
+            }
+          ),
+        onTrue: Fn.constVoid
       }
     )
   }
@@ -628,14 +690,17 @@ export const recordFrameFit = () => {
 }
 
 /** The frames `recordFrameFit` has recorded so far, one `frame drawing paper offCentre` line each. */
-export const recordedFrameFit = () => document.documentElement.dataset["frameFit"] ?? ""
+export const recordedFrameFit = () =>
+  Option.getOrElse(Option.fromNullable(document.documentElement.dataset["frameFit"]), () => "")
 
 /** The sheet's height and the trace's top edge: the geometry that must not move while trials are swapped. */
 export const stageLayout = () => {
   const rect = (selector: string) => document.querySelector(selector)?.getBoundingClientRect()
   const sheet = rect("[data-place-stage='paper']")
   const trace = rect("[data-place-trace]")
-  return `${String(Num.round(sheet?.height ?? -1, 0))} ${String(Num.round(trace?.top ?? -1, 0))}`
+  return `${String(Num.round(Option.getOrElse(Option.fromNullable(sheet?.height), () => -1), 0))} ${
+    String(Num.round(Option.getOrElse(Option.fromNullable(trace?.top), () => -1), 0))
+  }`
 }
 
 /**
@@ -653,10 +718,19 @@ export const recordPaperFrames = () => {
   const record = () => {
     const paper = document.querySelector("[data-place-stage='paper']")?.getAttribute("data-place-stage-height")
     const phase = document.querySelector("[data-place-trace]")?.getAttribute("data-place-render-phase")
-    const frame = `${paper ?? "-"} ${phase ?? "-"}`
-    const seen = Arr.filter(Str.split(document.documentElement.dataset["paperFrames"] ?? "", "\n"), Str.isNonEmpty)
-    if (Option.contains(Arr.last(seen), frame)) return
-    document.documentElement.dataset["paperFrames"] = Arr.join(Arr.append(seen, frame), "\n")
+    const frame = `${Option.getOrElse(Option.fromNullable(paper), () => "-")} ${
+      Option.getOrElse(Option.fromNullable(phase), () => "-")
+    }`
+    const seen = Arr.filter(
+      Str.split(Option.getOrElse(Option.fromNullable(document.documentElement.dataset["paperFrames"]), () => ""), "\n"),
+      Str.isNonEmpty
+    )
+    Bool.match(Option.contains(Arr.last(seen), frame), {
+      onFalse: () => {
+        document.documentElement.dataset["paperFrames"] = Arr.join(Arr.append(seen, frame), "\n")
+      },
+      onTrue: Fn.constVoid
+    })
   }
   new MutationObserver(record).observe(document, {
     attributeFilter: ["data-place-stage-height", "data-place-render-phase"],
@@ -667,7 +741,8 @@ export const recordPaperFrames = () => {
 }
 
 /** The states `recordPaperFrames` has recorded so far, one `height phase` line each. */
-export const recordedPaperFrames = () => document.documentElement.dataset["paperFrames"] ?? ""
+export const recordedPaperFrames = () =>
+  Option.getOrElse(Option.fromNullable(document.documentElement.dataset["paperFrames"]), () => "")
 
 /**
  * Records every Content Security Policy violation the document reports, from
@@ -682,7 +757,10 @@ export const recordPolicyViolations = () => {
   document.addEventListener("securitypolicyviolation", (event) => {
     const line = `${event.violatedDirective} ${event.blockedURI} ${event.sourceFile}:${String(event.lineNumber)}`
     const seen = Arr.filter(
-      Str.split(document.documentElement.dataset["policyViolations"] ?? "", "\n"),
+      Str.split(
+        Option.getOrElse(Option.fromNullable(document.documentElement.dataset["policyViolations"]), () => ""),
+        "\n"
+      ),
       Str.isNonEmpty
     )
     document.documentElement.dataset["policyViolations"] = Arr.join(Arr.append(seen, line), "\n")
@@ -697,25 +775,42 @@ export const recordPolicyViolations = () => {
  */
 export const scrollAffordance = (root: Element) => {
   const viewport = root.querySelector(".base-ui-disable-scrollbar")
-  const scrollbars = Arr.filter(root.children, (child) => child.getAttribute("data-orientation") === "vertical")
+  const scrollbars = Arr.filter(
+    root.children,
+    (child) =>
+      Str.Equivalence(
+        Option.getOrElse(Option.fromNullable(child.getAttribute("data-orientation")), () => ""),
+        "vertical"
+      )
+  )
   const painted = (element: Element): boolean =>
     Bool.and(
-      Option.getOrElse(Num.parse(getComputedStyle(element).opacity), () => Number.NaN) > 0,
-      element.getBoundingClientRect().width > 0
+      Num.greaterThan(Option.getOrElse(Num.parse(getComputedStyle(element).opacity), () => Number.NaN), 0),
+      Num.greaterThan(element.getBoundingClientRect().width, 0)
     )
   return {
-    overflows: (viewport?.scrollHeight ?? 0) > Num.increment(viewport?.clientHeight ?? 0),
+    overflows: Num.greaterThan(
+      Option.getOrElse(Option.fromNullable(viewport?.scrollHeight), () => 0),
+      Num.increment(Option.getOrElse(Option.fromNullable(viewport?.clientHeight), () => 0))
+    ),
     scrollbarPainted: Arr.some(scrollbars, painted),
-    thumbHeight: scrollbars[0]?.firstElementChild?.getBoundingClientRect().height ?? 0,
+    thumbHeight: Option.getOrElse(
+      Option.flatMap(
+        Arr.get(scrollbars, 0),
+        (scrollbar) => Option.fromNullable(scrollbar.firstElementChild?.getBoundingClientRect().height)
+      ),
+      () => 0
+    ),
     fadePainted: Arr.some(
       Arr.fromIterable(root.querySelectorAll("[data-place-stage-fade]")),
-      (fade) => Option.getOrElse(Num.parse(getComputedStyle(fade).opacity), () => Number.NaN) > 0
+      (fade) => Num.greaterThan(Option.getOrElse(Num.parse(getComputedStyle(fade).opacity), () => Number.NaN), 0)
     )
   }
 }
 
 /** The violations `recordPolicyViolations` has recorded so far, one per line; empty when the policy refused nothing. */
-export const recordedPolicyViolations = () => document.documentElement.dataset["policyViolations"] ?? ""
+export const recordedPolicyViolations = () =>
+  Option.getOrElse(Option.fromNullable(document.documentElement.dataset["policyViolations"]), () => "")
 
 /**
  * What a reader does to the window without changing the page: switches tab
@@ -743,27 +838,44 @@ export const leaveAndReturn = () => {
 export const recordFootprints = () => {
   const regions = "[data-place-step],[data-place-stage='column']"
   const named = (element: Element): string =>
-    element.matches("[data-place-step]")
-      ? `step:${element.getAttribute("data-place-step") ?? ""}`
-      : "stage:column"
+    Bool.match(element.matches("[data-place-step]"), {
+      onFalse: () => "stage:column",
+      onTrue: () => `step:${Option.getOrElse(Option.fromNullable(element.getAttribute("data-place-step")), () => "")}`
+    })
   const sizes = new ResizeObserver((entries) => {
-    const phase = document.querySelector("[data-place-trace]")?.getAttribute("data-place-render-phase") ?? "-"
+    const phase = Option.getOrElse(
+      Option.fromNullable(document.querySelector("[data-place-trace]")?.getAttribute("data-place-render-phase")),
+      () => "-"
+    )
     const lines = Arr.map(
       entries,
-      (entry) => `${named(entry.target)} ${String(Num.round(entry.borderBoxSize[0]?.blockSize ?? 0, 0))} ${phase}`
+      (entry) =>
+        `${named(entry.target)} ${
+          String(Num.round(Option.getOrElse(Option.fromNullable(entry.borderBoxSize[0]?.blockSize), () => 0), 0))
+        } ${phase}`
     )
-    const seen = Arr.filter(Str.split(document.documentElement.dataset["footprints"] ?? "", "\n"), Str.isNonEmpty)
+    const seen = Arr.filter(
+      Str.split(Option.getOrElse(Option.fromNullable(document.documentElement.dataset["footprints"]), () => ""), "\n"),
+      Str.isNonEmpty
+    )
     document.documentElement.dataset["footprints"] = Arr.join(Arr.appendAll(seen, lines), "\n")
   })
   // Each node is observed as it is added — itself, where it is a region, and every region within it.
   const watch = (records: ReadonlyArray<MutationRecord>) => {
     Arr.forEach(records, (record) => {
       Arr.forEach(record.addedNodes, (node) => {
-        if (!(node instanceof Element)) return
-        const added = node.matches(regions) ? [node] : []
-        Arr.forEach(Arr.appendAll(added, node.querySelectorAll(regions)), (element) => {
-          sizes.observe(element, { box: "border-box" })
-        })
+        Match.value(node).pipe(
+          Match.when(Match.instanceOf(Element), (elementNode) => {
+            const added = Bool.match(elementNode.matches(regions), {
+              onFalse: Arr.empty,
+              onTrue: () => Arr.of(elementNode)
+            })
+            Arr.forEach(Arr.appendAll(added, elementNode.querySelectorAll(regions)), (element) => {
+              sizes.observe(element, { box: "border-box" })
+            })
+          }),
+          Match.orElse(Fn.constVoid)
+        )
       })
     })
   }
@@ -771,7 +883,8 @@ export const recordFootprints = () => {
 }
 
 /** The footprints `recordFootprints` has recorded so far, one `name height phase` line each. */
-export const recordedFootprints = () => document.documentElement.dataset["footprints"] ?? ""
+export const recordedFootprints = () =>
+  Option.getOrElse(Option.fromNullable(document.documentElement.dataset["footprints"]), () => "")
 
 /**
  * Records the page's web vitals from before the document's first script runs.
@@ -819,24 +932,41 @@ export const recordWebVitals = () => {
       Num.decrement(Arr.length(durations)),
       Numeric.floor(Num.unsafeDivide(Arr.length(durations), 50))
     )
-    return Arr.isEmptyReadonlyArray(durations) ? "" : String(durations[setAside] ?? "")
+    return Bool.match(Arr.isEmptyReadonlyArray(durations), {
+      onFalse: () => String(Option.getOrElse(Arr.get(durations, setAside), () => "")),
+      onTrue: () => ""
+    })
   }
   const interactionId = (entry: PerformanceEntry): number =>
-    "interactionId" in entry ? typeof entry.interactionId === "number" ? entry.interactionId : 0 : 0
+    Match.value(entry).pipe(
+      Match.when(Predicate.hasProperty("interactionId"), (timed) =>
+        Option.getOrElse(Option.liftPredicate(timed.interactionId, Predicate.isNumber), () => 0)),
+      Match.orElse(() =>
+        0
+      )
+    )
   // An entry lengthens the interaction it belongs to, or reports a new one; entries of no interaction (`0`) are not INP's.
   const withEntry = (
     reported: ReadonlyArray<{ readonly id: number; readonly duration: number }>,
     entry: PerformanceEntry
   ): ReadonlyArray<{ readonly id: number; readonly duration: number }> => {
     const id = interactionId(entry)
-    if (id === 0) return reported
-    return Arr.some(reported, (interaction) => interaction.id === id)
-      ? Arr.map(
-        reported,
-        (interaction) =>
-          interaction.id === id ? { id, duration: Num.max(interaction.duration, entry.duration) } : interaction
-      )
-      : Arr.append(reported, { id, duration: entry.duration })
+    return Bool.match(Num.Equivalence(id, 0), {
+      onFalse: () =>
+        Bool.match(Arr.some(reported, (interaction) => Num.Equivalence(interaction.id, id)), {
+          onFalse: () => Arr.append(reported, { id, duration: entry.duration }),
+          onTrue: () =>
+            Arr.map(
+              reported,
+              (interaction) =>
+                Bool.match(Num.Equivalence(interaction.id, id), {
+                  onFalse: () => interaction,
+                  onTrue: () => ({ id, duration: Num.max(interaction.duration, entry.duration) })
+                })
+            )
+        }),
+      onTrue: () => reported
+    })
   }
   const record = () => {
     const data = document.documentElement.dataset
@@ -864,20 +994,28 @@ export const recordWebVitals = () => {
     )
   const demonstrationRegion = (
     source: { readonly node: unknown; readonly previousRect: DOMRectReadOnly; readonly currentRect: DOMRectReadOnly }
-  ): ReadonlyArray<string> => {
-    if (!(source.node instanceof Element)) return []
-    const node = source.node
-    const signed = (pixels: number) => `${pixels >= 0 ? "+" : ""}${String(Num.round(pixels, 0))}`
-    const moved = `${signed(Num.subtract(source.currentRect.x, source.previousRect.x))},${
-      signed(Num.subtract(source.currentRect.y, source.previousRect.y))
-    }/${String(Num.round(source.previousRect.width, 0))}x${String(Num.round(source.previousRect.height, 0))}>${
-      String(Num.round(source.currentRect.width, 0))
-    }x${String(Num.round(source.currentRect.height, 0))}`
-    return Arr.map(
-      Option.toArray(Option.fromNullable(node.closest(regions))),
-      (region) => `${placeName(region)}:${placeName(node.closest(`${regions},${parts}`) ?? node)}:${moved}`
+  ): ReadonlyArray<string> =>
+    Match.value(source.node).pipe(
+      Match.when(Match.instanceOf(Element), (node) => {
+        const signed = (pixels: number) =>
+          `${Bool.match(Num.greaterThanOrEqualTo(pixels, 0), { onFalse: () => "", onTrue: () => "+" })}${
+            String(Num.round(pixels, 0))
+          }`
+        const moved = `${signed(Num.subtract(source.currentRect.x, source.previousRect.x))},${
+          signed(Num.subtract(source.currentRect.y, source.previousRect.y))
+        }/${String(Num.round(source.previousRect.width, 0))}x${String(Num.round(source.previousRect.height, 0))}>${
+          String(Num.round(source.currentRect.width, 0))
+        }x${String(Num.round(source.currentRect.height, 0))}`
+        return Arr.map(
+          Option.toArray(Option.fromNullable(node.closest(regions))),
+          (region) =>
+            `${placeName(region)}:${
+              placeName(Option.getOrElse(Option.fromNullable(node.closest(`${regions},${parts}`)), () => node))
+            }:${moved}`
+        )
+      }),
+      Match.orElse(() => Arr.empty<string>())
     )
-  }
   // `LayoutShift.sources` is not in the DOM library yet; each source names the node that moved and its rectangles.
   const isShiftSource = (
     value: unknown
@@ -886,15 +1024,46 @@ export const recordWebVitals = () => {
     readonly previousRect: DOMRectReadOnly
     readonly currentRect: DOMRectReadOnly
   } =>
-    value instanceof Object
-      ? Bool.every([
-        "node" in value,
-        "previousRect" in value ? value.previousRect instanceof DOMRectReadOnly : false,
-        "currentRect" in value ? value.currentRect instanceof DOMRectReadOnly : false
-      ])
-      : false
+    Match.value(value).pipe(
+      Match.when(Predicate.isObject, (object) =>
+        Bool.every([
+          Predicate.hasProperty(object, "node"),
+          Match.value(object).pipe(
+            Match.when(Predicate.hasProperty("previousRect"), (source) =>
+              Match.value(source.previousRect).pipe(
+                Match.when(Match.instanceOf(DOMRectReadOnly), () => true),
+                Match.orElse(() => false)
+              )),
+            Match.orElse(() => false)
+          ),
+          Match.value(object).pipe(
+            Match.when(Predicate.hasProperty("currentRect"), (source) =>
+              Match.value(source.currentRect).pipe(
+                Match.when(Match.instanceOf(DOMRectReadOnly), () => true),
+                Match.orElse(() => false)
+              )),
+            Match.orElse(() => false)
+          )
+        ])),
+      Match.orElse(() => false)
+    )
   const shiftSources = (entry: PerformanceEntry) =>
-    "sources" in entry ? Arr.isArray(entry.sources) ? Arr.filter(entry.sources, isShiftSource) : [] : []
+    Match.value(entry).pipe(
+      Match.when(Predicate.hasProperty("sources"), (shifted) =>
+        Match.value(shifted.sources).pipe(
+          Match.when(Arr.isArray, (sources) => Arr.filter(sources, isShiftSource)),
+          Match.orElse(() =>
+            Arr.empty<
+              { readonly node: unknown; readonly previousRect: DOMRectReadOnly; readonly currentRect: DOMRectReadOnly }
+            >()
+          )
+        )),
+      Match.orElse(() =>
+        Arr.empty<
+          { readonly node: unknown; readonly previousRect: DOMRectReadOnly; readonly currentRect: DOMRectReadOnly }
+        >()
+      )
+    )
   const shiftedRegions = (entry: PerformanceEntry): ReadonlyArray<string> =>
     Arr.map(
       Arr.flatMap(shiftSources(entry), demonstrationRegion),
@@ -902,23 +1071,54 @@ export const recordWebVitals = () => {
     )
   new PerformanceObserver((list) => {
     Arr.forEach(list.getEntries(), (entry) => {
-      const renderTime = "renderTime" in entry ? typeof entry.renderTime === "number" ? entry.renderTime : 0 : 0
-      const loadTime = "loadTime" in entry ? typeof entry.loadTime === "number" ? entry.loadTime : 0 : 0
-      values.lcp = String(renderTime === 0 ? loadTime : renderTime)
+      const renderTime = Match.value(entry).pipe(
+        Match.when(
+          Predicate.hasProperty("renderTime"),
+          (timed) => Option.getOrElse(Option.liftPredicate(timed.renderTime, Predicate.isNumber), () => 0)
+        ),
+        Match.orElse(() => 0)
+      )
+      const loadTime = Match.value(entry).pipe(
+        Match.when(
+          Predicate.hasProperty("loadTime"),
+          (timed) => Option.getOrElse(Option.liftPredicate(timed.loadTime, Predicate.isNumber), () => 0)
+        ),
+        Match.orElse(() => 0)
+      )
+      values.lcp = String(
+        Bool.match(Num.Equivalence(renderTime, 0), { onFalse: () => renderTime, onTrue: () => loadTime })
+      )
     })
     record()
   }).observe({ type: "largest-contentful-paint", buffered: true })
   new PerformanceObserver((list) => {
     const unexpected = Arr.filter(
       list.getEntries(),
-      (entry) => "hadRecentInput" in entry ? Bool.not(entry.hadRecentInput === true) : true
+      (entry) =>
+        Match.value(entry).pipe(
+          Match.when(Predicate.hasProperty("hadRecentInput"), (shift) =>
+            Bool.not(Equivalence.strict()(shift.hadRecentInput, true))),
+          Match.orElse(() =>
+            true
+          )
+        )
     )
     values.shiftTotal = Num.sum(
       values.shiftTotal,
       Arr.reduce(
         unexpected,
         0,
-        (total, entry) => Num.sum(total, "value" in entry ? typeof entry.value === "number" ? entry.value : 0 : 0)
+        (total, entry) =>
+          Num.sum(
+            total,
+            Match.value(entry).pipe(
+              Match.when(Predicate.hasProperty("value"), (shift) =>
+                Option.getOrElse(Option.liftPredicate(shift.value, Predicate.isNumber), () => 0)),
+              Match.orElse(() =>
+                0
+              )
+            )
+          )
       )
     )
     values.shifted = Arr.join(
@@ -951,12 +1151,12 @@ export const recordWebVitals = () => {
 export const recordedWebVitals = () => {
   const data = document.documentElement.dataset
   return {
-    lcp: data["webVitalLcp"] ?? "",
-    layoutShiftTotal: data["webVitalShiftTotal"] ?? "",
-    inp: data["webVitalInp"] ?? "",
-    eventThresholdMs: data["webVitalEventThreshold"] ?? "",
-    interactions: data["webVitalInteractions"] ?? "",
-    interactionDurations: data["webVitalInteractionDurations"] ?? ""
+    lcp: Option.getOrElse(Option.fromNullable(data["webVitalLcp"]), () => ""),
+    layoutShiftTotal: Option.getOrElse(Option.fromNullable(data["webVitalShiftTotal"]), () => ""),
+    inp: Option.getOrElse(Option.fromNullable(data["webVitalInp"]), () => ""),
+    eventThresholdMs: Option.getOrElse(Option.fromNullable(data["webVitalEventThreshold"]), () => ""),
+    interactions: Option.getOrElse(Option.fromNullable(data["webVitalInteractions"]), () => ""),
+    interactionDurations: Option.getOrElse(Option.fromNullable(data["webVitalInteractionDurations"]), () => "")
   }
 }
 
@@ -966,7 +1166,8 @@ export const recordedWebVitals = () => {
  * separated by spaces; empty when only the page outside the demonstration
  * shifted, or nothing did.
  */
-export const recordedDemonstrationShifts = () => document.documentElement.dataset["webVitalShifts"] ?? ""
+export const recordedDemonstrationShifts = () =>
+  Option.getOrElse(Option.fromNullable(document.documentElement.dataset["webVitalShifts"]), () => "")
 
 /**
  * One frame of the settled drawing's finishing touches. `walk`: how much of
@@ -981,13 +1182,13 @@ export const finishingTouches = (): {
   readonly wash: { readonly changes: string; readonly opacity: number }
 } => {
   const mask = document.querySelector("[data-place-walk] mask path")
-  const dash = mask?.getAttribute("stroke-dasharray") ?? ""
+  const dash = Option.getOrElse(Option.fromNullable(mask?.getAttribute("stroke-dasharray")), () => "")
   const washed = document.querySelector("[data-place-current-version] [data-changes]")
   const wash = washed?.querySelector("[data-place-wash]")
   return {
-    walk: Str.isNonEmpty(dash) ? cssNumericPrefix(dash) : -1,
+    walk: Bool.match(Str.isNonEmpty(dash), { onFalse: () => -1, onTrue: () => cssNumericPrefix(dash) }),
     wash: {
-      changes: washed?.getAttribute("data-changes") ?? "",
+      changes: Option.getOrElse(Option.fromNullable(washed?.getAttribute("data-changes")), () => ""),
       opacity: Option.match(Option.fromNullable(wash), {
         onNone: () => -1,
         onSome: (element) => Option.getOrElse(Num.parse(getComputedStyle(element).opacity), () => Number.NaN)
@@ -1034,7 +1235,7 @@ export const stageFrame = (
   readonly clearance: ReadonlyArray<{ readonly least: number; readonly between: string }>
 } => {
   const place = (kind: "ring" | "disc", attribute: string) => (element: Element) => ({
-    name: element.getAttribute(attribute) ?? "",
+    name: Option.getOrElse(Option.fromNullable(element.getAttribute(attribute)), () => ""),
     kind,
     translate: getComputedStyle(element).translate,
     transform: getComputedStyle(element).transform
@@ -1043,15 +1244,26 @@ export const stageFrame = (
     Option.getOrElse(Num.parse(getComputedStyle(element).opacity), () => Number.NaN)
   const painted = (line: Element): boolean => {
     const container = line.closest("[data-place-lines]")
-    return Num.multiply(opacity(line), container ? opacity(container) : 1) > 0
+    return Num.greaterThan(
+      Num.multiply(
+        opacity(line),
+        Option.match(Option.fromNullable(container), { onNone: () => 1, onSome: opacity })
+      ),
+      0
+    )
   }
   const lines = Arr.map(
     Arr.filter(region.querySelectorAll("[data-place-line]"), painted),
     (element) => ({
-      index: element.getAttribute("data-place-line") ?? "",
+      index: Option.getOrElse(Option.fromNullable(element.getAttribute("data-place-line")), () => ""),
       // The set the line is of, by its opening words, so a line of the set leaving is told from one arriving.
-      set: Str.slice(0, 24)(element.closest("[data-place-lines]")?.textContent ?? ""),
-      opacity: Num.multiply(opacity(element), opacity(element.closest("[data-place-lines]") ?? element)),
+      set: Str.slice(0, 24)(
+        Option.getOrElse(Option.fromNullable(element.closest("[data-place-lines]")?.textContent), () => "")
+      ),
+      opacity: Num.multiply(
+        opacity(element),
+        opacity(Option.getOrElse(Option.fromNullable(element.closest("[data-place-lines]")), () => element))
+      ),
       rect: element.getBoundingClientRect()
     })
   )
@@ -1060,12 +1272,20 @@ export const stageFrame = (
     (element) => {
       const rect = element.getBoundingClientRect()
       return {
-        name: element.getAttribute("data-place-marker") ?? element.getAttribute("data-place-marker-arriving") ?? "",
-        standing: element.hasAttribute("data-place-marker-arriving")
-          ? "ring"
-          : element.hasAttribute("data-place-marker-leaving")
-          ? "leaving"
-          : "disc",
+        name: Option.getOrElse(
+          Option.fromNullable(element.getAttribute("data-place-marker")).pipe(
+            Option.orElse(() => Option.fromNullable(element.getAttribute("data-place-marker-arriving")))
+          ),
+          () => ""
+        ),
+        standing: Bool.match(element.hasAttribute("data-place-marker-arriving"), {
+          onFalse: () =>
+            Bool.match(element.hasAttribute("data-place-marker-leaving"), {
+              onFalse: () => "disc",
+              onTrue: () => "leaving"
+            }),
+          onTrue: () => "ring"
+        }),
         x: Num.sum(rect.left, Num.unsafeDivide(rect.width, 2)),
         y: Num.sum(rect.top, Num.unsafeDivide(rect.height, 2)),
         radius: Num.unsafeDivide(Num.min(rect.width, rect.height), 2),
@@ -1073,10 +1293,13 @@ export const stageFrame = (
       }
     }
   )
-  const discs = Arr.filter(discGeometry, (disc) => disc.radius > 0)
+  const discs = Arr.filter(discGeometry, (disc) => Num.greaterThan(disc.radius, 0))
   const clamp = (low: number, high: number, value: number) => Num.clamp(value, { minimum: low, maximum: high })
   const px = (value: number) => value.toFixed(1)
-  const phase = document.querySelector("[data-place-trace]")?.getAttribute("data-place-render-phase") ?? "-"
+  const phase = Option.getOrElse(
+    Option.fromNullable(document.querySelector("[data-place-trace]")?.getAttribute("data-place-render-phase")),
+    () => "-"
+  )
   const fit = Option.getOrElse(
     Option.flatMap(
       Option.fromNullable(region.querySelector("[data-place-stage-fit]")?.getAttribute("data-place-stage-fit")),
@@ -1109,16 +1332,22 @@ export const stageFrame = (
     } × ${px(line.rect.top)}–${px(line.rect.bottom)}, and ${disc.name} (${disc.standing}, r ${px(disc.radius)} at ${
       px(disc.x)
     }, ${px(disc.y)}, transform ${disc.transform}) in phase ${phase}`
-  const paintedLines = Arr.filter(lines, (line) => line.rect.width > 0)
+  const paintedLines = Arr.filter(lines, (line) => Num.greaterThan(line.rect.width, 0))
   const pairs = Arr.flatMap(
     paintedLines,
     (line) => Arr.map(discs, (disc) => ({ line, disc, distance: Num.unsafeDivide(distance(line, disc), fit) }))
   )
   // The nearest pair this frame, as a singleton so a frame with no line or no disc painted reports none.
-  const nearest = Arr.take(Arr.filter(pairs, (pair) => Arr.every(pairs, (other) => pair.distance <= other.distance)), 1)
+  const nearest = Arr.take(
+    Arr.filter(pairs, (pair) => Arr.every(pairs, (other) => Num.lessThanOrEqualTo(pair.distance, other.distance))),
+    1
+  )
   return {
     phase,
-    trial: region.querySelector("[data-place-stage='content']")?.getAttribute("data-place-stage-trial") ?? "-",
+    trial: Option.getOrElse(
+      Option.fromNullable(region.querySelector("[data-place-stage='content']")?.getAttribute("data-place-stage-trial")),
+      () => "-"
+    ),
     places: [
       ...Arr.map(
         Arr.fromIterable(region.querySelectorAll("[data-place-marker-arriving]")),
@@ -1128,13 +1357,19 @@ export const stageFrame = (
     ],
     lines: Arr.map(Arr.fromIterable(region.querySelectorAll("[data-place-lines]")), (set) => ({
       text: Arr.join(
-        Arr.map(Arr.fromIterable(set.querySelectorAll("[data-place-line]")), (line) => line.textContent ?? ""),
+        Arr.map(
+          Arr.fromIterable(set.querySelectorAll("[data-place-line]")),
+          (line) => Option.getOrElse(Option.fromNullable(line.textContent), () => "")
+        ),
         "\n"
       ),
-      painted: opacity(set) > 0
+      painted: Num.greaterThan(opacity(set), 0)
     })),
     // The circle meets the box when the box's nearest point to the centre is within the radius.
-    overlaps: Arr.map(Arr.filter(pairs, (pair) => pair.distance < 0), (pair) => describe(pair.line, pair.disc)),
+    overlaps: Arr.map(
+      Arr.filter(pairs, (pair) => Num.lessThan(pair.distance, 0)),
+      (pair) => describe(pair.line, pair.disc)
+    ),
     clearance: Arr.map(nearest, (pair) => ({ least: pair.distance, between: describe(pair.line, pair.disc) }))
   }
 }
@@ -1147,7 +1382,7 @@ export const leaversGone = (region: Element): boolean =>
 export const discsAtRest = (region: Element): boolean =>
   Arr.every(
     Arr.fromIterable(region.querySelectorAll("[data-place-marker]")),
-    (element) => getComputedStyle(element).transform === "none"
+    (element) => Str.Equivalence(getComputedStyle(element).transform, "none")
   )
 
 /**
@@ -1162,17 +1397,26 @@ export const discsAtRest = (region: Element): boolean =>
  */
 export const drawnForColumn = (region: Element): boolean => {
   const content = region.querySelector("[data-place-stage='content']")
-  const drawable = region.querySelector("[data-artifact-stage='frame']")?.clientWidth ?? -1
+  const drawable = Option.getOrElse(
+    Option.fromNullable(region.querySelector("[data-artifact-stage='frame']")?.clientWidth),
+    () => -1
+  )
   return Option.exists(Option.fromNullable(content), (stage) =>
     Bool.every([
-      region.querySelector("[data-place-stage='paper']")?.getAttribute("data-place-drawn") === "kept",
-      stage.getAttribute("data-place-stage-fit") === "1",
+      Str.Equivalence(
+        Option.getOrElse(
+          Option.fromNullable(region.querySelector("[data-place-stage='paper']")?.getAttribute("data-place-drawn")),
+          () => ""
+        ),
+        "kept"
+      ),
+      Str.Equivalence(Option.getOrElse(Option.fromNullable(stage.getAttribute("data-place-stage-fit")), () => ""), "1"),
       Option.exists(
         Option.flatMap(Option.fromNullable(stage.getAttribute("data-place-stage-width")), Num.parse),
-        (width) => width <= drawable
+        (width) => Num.lessThanOrEqualTo(width, drawable)
       ),
       Arr.every(Arr.fromIterable(region.querySelectorAll("[data-place-marker]")), (element) =>
-        getComputedStyle(element).transform === "none")
+        Str.Equivalence(getComputedStyle(element).transform, "none"))
     ]))
 }
 
@@ -1185,15 +1429,24 @@ export const drawnForColumn = (region: Element): boolean => {
 export const storyDrawn = (region: Element): boolean => {
   const named = Arr.map(
     Arr.fromIterable(region.querySelectorAll("[data-place-features] [data-provenance]")),
-    (mark) => mark.textContent ?? ""
+    (mark) => Option.getOrElse(Option.fromNullable(mark.textContent), () => "")
   )
   const discs = Arr.fromIterable(region.querySelectorAll("[data-place-marker]"))
-  const drawn = Arr.map(discs, (disc) => disc.getAttribute("data-place-marker") ?? "")
+  const drawn = Arr.map(
+    discs,
+    (disc) => Option.getOrElse(Option.fromNullable(disc.getAttribute("data-place-marker")), () => "")
+  )
   return Bool.every([
     Arr.isNonEmptyReadonlyArray(named),
     Arr.every(named, (name) => Arr.contains(drawn, name)),
-    document.querySelector("[data-place-stage='paper']")?.getAttribute("data-place-drawn") === "kept",
-    Arr.every(discs, (disc) => getComputedStyle(disc).transform === "none")
+    Str.Equivalence(
+      Option.getOrElse(
+        Option.fromNullable(document.querySelector("[data-place-stage='paper']")?.getAttribute("data-place-drawn")),
+        () => ""
+      ),
+      "kept"
+    ),
+    Arr.every(discs, (disc) => Str.Equivalence(getComputedStyle(disc).transform, "none"))
   ])
 }
 
@@ -1210,39 +1463,75 @@ export const storyDrawn = (region: Element): boolean => {
  * state; and any failure the stage tells.
  */
 export const stageStanding = (): string => {
-  const phase = document.querySelector("[data-place-render-phase]")?.getAttribute("data-place-render-phase") ??
-    document.querySelector("[data-place-trace-pending]")?.getAttribute("data-place-trace-pending") ?? "-"
-  const paper = document.querySelector("[data-place-stage='paper']")?.getAttribute("data-place-drawn") ??
-    (document.querySelector("[data-place-stage='uncut']") ? "uncut" : "-")
-  const column = document.querySelector("[data-place-stage='column']") ? "standing" : "absent"
+  const phase = Option.getOrElse(
+    Option.fromNullable(document.querySelector("[data-place-render-phase]")?.getAttribute("data-place-render-phase"))
+      .pipe(
+        Option.orElse(() =>
+          Option.fromNullable(
+            document.querySelector("[data-place-trace-pending]")?.getAttribute("data-place-trace-pending")
+          )
+        )
+      ),
+    () => "-"
+  )
+  const paper = Option.getOrElse(
+    Option.fromNullable(document.querySelector("[data-place-stage='paper']")?.getAttribute("data-place-drawn")),
+    () =>
+      Bool.match(Option.isSome(Option.fromNullable(document.querySelector("[data-place-stage='uncut']"))), {
+        onFalse: () => "-",
+        onTrue: () => "uncut"
+      })
+  )
+  const column = Bool.match(Option.isSome(Option.fromNullable(document.querySelector("[data-place-stage='column']"))), {
+    onFalse: () => "absent",
+    onTrue: () => "standing"
+  })
   const failures = Arr.filter(
     Arr.map(
       Arr.fromIterable(document.querySelectorAll("[data-place-stage-failed]")),
-      (failure) => Str.trim(failure.textContent ?? "")
+      (failure) => Str.trim(Option.getOrElse(Option.fromNullable(failure.textContent), () => ""))
     ),
     Str.isNonEmpty
   )
-  const told = Arr.isEmptyReadonlyArray(failures) ? "" : `; the stage told: ${Arr.join(failures, " | ")}`
+  const told = Bool.match(Arr.isEmptyReadonlyArray(failures), {
+    onFalse: () => `; the stage told: ${Arr.join(failures, " | ")}`,
+    onTrue: () => ""
+  })
   return `phase ${phase}, paper ${paper}, column ${column}, document ${document.readyState}${told}`
 }
 
 /** Where the band draws the disc named this frame: its `cx` as written, or nothing while it is not drawn. */
 export const bandDiscCentre = (band: Element, name: string): string =>
-  band.querySelector(`[data-place-band-disc="${name}"]`)?.getAttribute("cx") ?? ""
+  Option.getOrElse(
+    Option.fromNullable(band.querySelector(`[data-place-band-disc="${name}"]`)?.getAttribute("cx")),
+    () => ""
+  )
 
 /** The names of the discs the band draws, left to right as the row has them. */
 export const bandDiscNames = (band: Element): ReadonlyArray<string> =>
   Arr.map(
     Arr.fromIterable(band.querySelectorAll("[data-place-band-disc]")),
-    (disc) => disc.getAttribute("data-place-band-disc") ?? ""
+    (disc) => Option.getOrElse(Option.fromNullable(disc.getAttribute("data-place-band-disc")), () => "")
   )
 
 /** The band draws the disc named, and the paper's drawing is the kept one: a merge has landed in the band. */
 export const bandShowsKept = (band: Element, name: string): boolean =>
   Bool.and(
-    Arr.length(Arr.filter(band.querySelectorAll("[data-place-band-disc]"), (disc) =>
-      disc.getAttribute("data-place-band-disc") === name)) === 1,
-    document.querySelector("[data-place-stage='paper']")?.getAttribute("data-place-drawn") === "kept"
+    Num.Equivalence(
+      Arr.length(Arr.filter(band.querySelectorAll("[data-place-band-disc]"), (disc) =>
+        Str.Equivalence(
+          Option.getOrElse(Option.fromNullable(disc.getAttribute("data-place-band-disc")), () => ""),
+          name
+        ))),
+      1
+    ),
+    Str.Equivalence(
+      Option.getOrElse(
+        Option.fromNullable(document.querySelector("[data-place-stage='paper']")?.getAttribute("data-place-drawn")),
+        () => ""
+      ),
+      "kept"
+    )
   )
 
 /**
@@ -1257,13 +1546,17 @@ export const textFitsItsBox = (element: Element): boolean => {
   const text = range.getBoundingClientRect()
   const box = element.getBoundingClientRect()
   return Bool.and(
-    Bool.and(text.right <= Num.sum(box.right, 0.5), text.right <= window.innerWidth),
-    text.left >= Num.subtract(box.left, 0.5)
+    Bool.and(
+      Num.lessThanOrEqualTo(text.right, Num.sum(box.right, 0.5)),
+      Num.lessThanOrEqualTo(text.right, window.innerWidth)
+    ),
+    Num.greaterThanOrEqualTo(text.left, Num.subtract(box.left, 0.5))
   )
 }
 
 /** The element's right edge is inside the viewport. */
-export const insideViewportRight = (element: Element) => element.getBoundingClientRect().right <= window.innerWidth
+export const insideViewportRight = (element: Element) =>
+  Num.lessThanOrEqualTo(element.getBoundingClientRect().right, window.innerWidth)
 
 /**
  * Whether the element is what the visitor would touch at its own centre:
@@ -1309,7 +1602,7 @@ export const backgroundColour = (element: Element) => getComputedStyle(element).
 export const outlineColour = (element: Element) => getComputedStyle(element).outlineColor
 
 /** The element has keyboard focus. */
-export const isActiveElement = (element: Element) => element === document.activeElement
+export const isActiveElement = (element: Element) => Equivalence.strict()(element, document.activeElement)
 
 /** Whether a cancelable keydown still permits its default when synchronous dispatch returns. */
 export const dispatchKeydown = (options: KeyboardEventInit): boolean =>
@@ -1336,25 +1629,30 @@ export const focusLanding = (): {
   readonly inViewport: boolean
 } => {
   const element = document.activeElement
-  if (element instanceof HTMLElement) {
-    if (element !== document.body) {
-      const rect = element.getBoundingClientRect()
-      return {
-        site: element.getAttribute("data-place-code-site") ?? "",
-        focusVisible: element.matches(":focus-visible"),
-        // An element without size is not shown, so it is nowhere in the viewport.
-        inViewport: Bool.every([
-          rect.width > 0,
-          rect.height > 0,
-          rect.top >= 0,
-          rect.left >= 0,
-          rect.bottom <= window.innerHeight,
-          rect.right <= window.innerWidth
-        ])
-      }
-    }
-  }
-  return { site: "", focusVisible: false, inViewport: false }
+  const absent = () => ({ site: "", focusVisible: false, inViewport: false })
+  return Match.value(element).pipe(
+    Match.when(Match.instanceOf(HTMLElement), (active) =>
+      Bool.match(Equivalence.strict()(active, document.body), {
+        onFalse: () => {
+          const rect = active.getBoundingClientRect()
+          return {
+            site: Option.getOrElse(Option.fromNullable(active.getAttribute("data-place-code-site")), () => ""),
+            focusVisible: active.matches(":focus-visible"),
+            // An element without size is not shown, so it is nowhere in the viewport.
+            inViewport: Bool.every([
+              Num.greaterThan(rect.width, 0),
+              Num.greaterThan(rect.height, 0),
+              Num.greaterThanOrEqualTo(rect.top, 0),
+              Num.greaterThanOrEqualTo(rect.left, 0),
+              Num.lessThanOrEqualTo(rect.bottom, window.innerHeight),
+              Num.lessThanOrEqualTo(rect.right, window.innerWidth)
+            ])
+          }
+        },
+        onTrue: absent
+      })),
+    Match.orElse(absent)
+  )
 }
 
 /**
@@ -1369,7 +1667,10 @@ export const answerPopupsShowing = (): { readonly popups: number; readonly title
     titles: Arr.flatMap(
       popups,
       (popup) =>
-        Arr.map(Arr.fromIterable(popup.querySelectorAll("[data-current] h3")), (heading) => heading.textContent ?? "")
+        Arr.map(
+          Arr.fromIterable(popup.querySelectorAll("[data-current] h3")),
+          (heading) => Option.getOrElse(Option.fromNullable(heading.textContent), () => "")
+        )
     )
   }
 }
@@ -1380,24 +1681,24 @@ export const answerPopupsShowing = (): { readonly popups: number; readonly title
  */
 export const activeElementRole = (): string => {
   const element = document.activeElement
-  return Option.match(
-    Option.filter(
-      Option.fromNullable(element),
-      (active): active is Element => active instanceof Element ? active !== document.body : false
-    ),
-    {
-      onNone: () => "",
-      onSome: (active) => active.getAttribute("role") ?? Str.toLowerCase(active.tagName)
-    }
+  return Match.value(element).pipe(
+    Match.when(Match.instanceOf(Element), (active) =>
+      Bool.match(Equivalence.strict()(active, document.body), {
+        onFalse: () =>
+          Option.getOrElse(Option.fromNullable(active.getAttribute("role")), () => Str.toLowerCase(active.tagName)),
+        onTrue: () => ""
+      })),
+    Match.orElse(() => "")
   )
 }
 
 /** Keyboard focus rests on, or inside, an element matching `selector`. */
 export const activeElementWithin = (selector: string): boolean =>
-  document.activeElement?.closest(selector) instanceof Element
+  Option.isSome(Option.fromNullable(document.activeElement?.closest(selector)))
 
 /** Keyboard focus is on an element marked `data-docs-link-open`. */
-export const activeElementOpensDocsLink = () => document.activeElement?.hasAttribute("data-docs-link-open") ?? false
+export const activeElementOpensDocsLink = () =>
+  Option.getOrElse(Option.fromNullable(document.activeElement?.hasAttribute("data-docs-link-open")), () => false)
 
 /** The current path and fragment. */
 export const currentLocation = () => `${location.pathname}${location.hash}`
@@ -1422,13 +1723,21 @@ export const surfaceStyle = (element: Element) => {
  */
 export const topEdgeInViewport = (element: Element) => {
   const rect = element.getBoundingClientRect()
-  return Bool.every([rect.top >= 0, rect.top < window.innerHeight, rect.height > 0])
+  return Bool.every([
+    Num.greaterThanOrEqualTo(rect.top, 0),
+    Num.lessThan(rect.top, window.innerHeight),
+    Num.greaterThan(rect.height, 0)
+  ])
 }
 
 /** Whether all of an element is inside the viewport. */
 export const fullyInViewport = (element: Element) => {
   const rect = element.getBoundingClientRect()
-  return Bool.every([rect.top >= 0, rect.bottom <= window.innerHeight, rect.height > 0])
+  return Bool.every([
+    Num.greaterThanOrEqualTo(rect.top, 0),
+    Num.lessThanOrEqualTo(rect.bottom, window.innerHeight),
+    Num.greaterThan(rect.height, 0)
+  ])
 }
 
 /** The vertical scroll position now. */
@@ -1437,17 +1746,23 @@ export const scrollY = () => window.scrollY
 /** Mobile marker legend text and its rendered line metrics. */
 export const markerLegendMetrics = (element: Element) => {
   const entries = Arr.fromIterable(element.children)
-  const firstText = entries[0]?.querySelector("span:last-child") ?? element
+  const firstText = Option.getOrElse(
+    Option.flatMap(Arr.get(entries, 0), (entry) => Option.fromNullable(entry.querySelector("span:last-child"))),
+    () => element
+  )
   const style = getComputedStyle(firstText)
   return {
     entries: Arr.map(
       entries,
       (entry) => Option.getOrElse(Option.map(Option.fromNullable(entry.textContent), Str.trim), () => "")
     ),
-    names: Arr.map(entries, (entry) => entry.lastElementChild?.textContent ?? ""),
+    names: Arr.map(
+      entries,
+      (entry) => Option.getOrElse(Option.fromNullable(entry.lastElementChild?.textContent), () => "")
+    ),
     markerLabels: Arr.map(
       Arr.fromIterable(document.querySelectorAll("[data-place-marker]")),
-      (marker) => marker.getAttribute("aria-label") ?? ""
+      (marker) => Option.getOrElse(Option.fromNullable(marker.getAttribute("aria-label")), () => "")
     ),
     height: element.getBoundingClientRect().height,
     lineHeight: cssNumericPrefix(style.lineHeight),
@@ -1494,7 +1809,10 @@ export const paintedByClasses = (classNames: string): {
 
 /** The colour scheme the page shows: the theme's class on `<html>`, set by the app once it has read the media query. */
 export const colorSchemeShown = (): "dark" | "light" =>
-  document.documentElement.classList.contains("dark") ? "dark" : "light"
+  Bool.match(document.documentElement.classList.contains("dark"), {
+    onFalse: () => "light",
+    onTrue: () => "dark"
+  })
 
 /**
  * The page canvas colour as the visitor sees it: the background of the
@@ -1509,7 +1827,11 @@ export const canvasColour = () => {
       document.elementsFromPoint(2, Num.unsafeDivide(window.innerHeight, 2)),
       (element) => getComputedStyle(element).backgroundColor
     ),
-    (colour) => Bool.and(colour !== "rgba(0, 0, 0, 0)", colour !== "transparent")
+    (colour) =>
+      Bool.and(
+        Bool.not(Str.Equivalence(colour, "rgba(0, 0, 0, 0)")),
+        Bool.not(Str.Equivalence(colour, "transparent"))
+      )
   )
   return Option.getOrElse(painted, () => "none")
 }
@@ -1562,36 +1884,54 @@ export const contrastsWithin = (root: Element): ReadonlyArray<{
     canvas.width = 1
     canvas.height = 1
     const context = canvas.getContext("2d")
-    if (!context) return [0, 0, 0, 0]
-    context.clearRect(0, 0, 1, 1)
-    context.fillStyle = colour
-    context.fillRect(0, 0, 1, 1)
-    const [red = 0, green = 0, blue = 0, alpha = 0] = context.getImageData(0, 0, 1, 1).data
-    return [red, green, blue, Num.unsafeDivide(alpha, 255)]
+    return Option.match(Option.fromNullable(context), {
+      onNone: () => [0, 0, 0, 0],
+      onSome: (drawing) => {
+        drawing.clearRect(0, 0, 1, 1)
+        drawing.fillStyle = colour
+        drawing.fillRect(0, 0, 1, 1)
+        const [red = 0, green = 0, blue = 0, alpha = 0] = drawing.getImageData(0, 0, 1, 1).data
+        return [red, green, blue, Num.unsafeDivide(alpha, 255)]
+      }
+    })
   }
   const over = (colour: string, beneath: string): string => {
     const values = channels(colour)
-    const alpha = values[3] ?? 1
-    if (alpha >= 1) return colour
-    const under = channels(beneath)
-    const channelOver = (index: number) =>
-      Num.sum(
-        Num.multiply(values[index] ?? 0, alpha),
-        Num.multiply(under[index] ?? 0, Num.subtract(1, alpha))
-      )
-    return `rgb(${String(channelOver(0))} ${String(channelOver(1))} ${String(channelOver(2))})`
+    const alpha = Option.getOrElse(Arr.get(values, 3), () => 1)
+    return Bool.match(Num.greaterThanOrEqualTo(alpha, 1), {
+      onFalse: () => {
+        const under = channels(beneath)
+        const channelOver = (index: number) =>
+          Num.sum(
+            Num.multiply(Option.getOrElse(Arr.get(values, index), () => 0), alpha),
+            Num.multiply(Option.getOrElse(Arr.get(under, index), () => 0), Num.subtract(1, alpha))
+          )
+        return `rgb(${String(channelOver(0))} ${String(channelOver(1))} ${String(channelOver(2))})`
+      },
+      onTrue: () => colour
+    })
   }
   const opaqueBackground = (node: Element): string => {
     const colour = getComputedStyle(node).backgroundColor
     const parent = node.parentElement
-    if ((channels(colour)[3] ?? 1) >= 1) return colour
-    return over(colour, parent instanceof Element ? opaqueBackground(parent) : "rgb(255 255 255)")
+    return Bool.match(Num.greaterThanOrEqualTo(Option.getOrElse(Arr.get(channels(colour), 3), () => 1), 1), {
+      onFalse: () =>
+        over(
+          colour,
+          Option.match(Option.fromNullable(parent), {
+            onNone: () => "rgb(255 255 255)",
+            onSome: opaqueBackground
+          })
+        ),
+      onTrue: () => colour
+    })
   }
   const channel = (value: number) => {
     const share = Num.unsafeDivide(value, 255)
-    return share <= 0.04045
-      ? Num.unsafeDivide(share, 12.92)
-      : Numeric.pow(Num.unsafeDivide(Num.sum(share, 0.055), 1.055), 2.4)
+    return Bool.match(Num.lessThanOrEqualTo(share, 0.04045), {
+      onFalse: () => Numeric.pow(Num.unsafeDivide(Num.sum(share, 0.055), 1.055), 2.4),
+      onTrue: () => Num.unsafeDivide(share, 12.92)
+    })
   }
   const luminance = (colour: string) => {
     const [r = 0, g = 0, b = 0] = channels(colour)
@@ -1604,51 +1944,62 @@ export const contrastsWithin = (root: Element): ReadonlyArray<{
   const contrast = (paint: string, element: Element) => {
     const beneath = opaqueBackground(element)
     const values = Arr.sort([luminance(over(paint, beneath)), luminance(beneath)], Order.reverse(Num.Order))
-    return Num.unsafeDivide(Num.sum(values[0] ?? 0, 0.05), Num.sum(values[1] ?? 0, 0.05))
+    return Num.unsafeDivide(
+      Num.sum(Option.getOrElse(Arr.get(values, 0), () => 0), 0.05),
+      Num.sum(Option.getOrElse(Arr.get(values, 1), () => 0), 0.05)
+    )
   }
   // Words hidden from assistive technology are not read by anyone: a placeholder drawn as the room the
   // words will take (transparent words under a bar) is a shape, not text, and its bar is not a boundary.
-  const hiddenWords = (element: Element) => element.closest("[aria-hidden='true']") instanceof Element
+  const hiddenWords = (element: Element) => Option.isSome(Option.fromNullable(element.closest("[aria-hidden='true']")))
   const holdsWords = (element: Element) =>
     Bool.match(hiddenWords(element), {
       onFalse: () =>
         Arr.some(Arr.fromIterable(element.childNodes), (node) =>
-          Bool.and(node.nodeType === Node.TEXT_NODE, Str.isNonEmpty(Str.trim(node.textContent ?? "")))),
-      onTrue: () =>
-        false
+          Bool.and(
+            Num.Equivalence(node.nodeType, Node.TEXT_NODE),
+            Str.isNonEmpty(Str.trim(Option.getOrElse(Option.fromNullable(node.textContent), () => "")))
+          )),
+      onTrue: () => false
     })
   const shapes = ["circle", "ellipse", "rect", "path", "line", "polyline", "polygon"]
   // What a shape is told apart by: its stroke where one is painted — a painted boundary is what must stand
   // out from the surface (WCAG 1.4.11) — else its fill; nothing where it has neither.
-  const shapePaint = (element: Element): string => {
-    if (element instanceof SVGElement) {
-      if (Arr.contains(shapes, Str.toLowerCase(element.tagName))) {
-        const style = getComputedStyle(element)
-        const strokePainted = Bool.every([
-          style.stroke !== "none",
-          (channels(style.stroke)[3] ?? 0) > 0,
-          cssNumericPrefix(style.strokeWidth) > 0
-        ])
-        return strokePainted ? style.stroke : style.fill
-      }
-    }
-    return "none"
-  }
+  const shapePaint = (element: Element): string =>
+    Match.value(element).pipe(
+      Match.when(Match.instanceOf(SVGElement), (shape) =>
+        Bool.match(Arr.contains(shapes, Str.toLowerCase(shape.tagName)), {
+          onFalse: () =>
+            "none",
+          onTrue: () => {
+            const style = getComputedStyle(shape)
+            const strokePainted = Bool.every([
+              Bool.not(Str.Equivalence(style.stroke, "none")),
+              Num.greaterThan(Option.getOrElse(Arr.get(channels(style.stroke), 3), () => 0), 0),
+              Num.greaterThan(cssNumericPrefix(style.strokeWidth), 0)
+            ])
+            return Bool.match(strokePainted, { onFalse: () => style.fill, onTrue: () => style.stroke })
+          }
+        })),
+      Match.orElse(() =>
+        "none"
+      )
+    )
   const shown = (element: Element) => {
     const rect = element.getBoundingClientRect()
     const style = getComputedStyle(element)
     return Bool.every([
-      rect.width > 0,
-      rect.height > 0,
-      style.visibility !== "hidden",
-      Option.getOrElse(Num.parse(style.opacity), () => Number.NaN) > 0
+      Num.greaterThan(rect.width, 0),
+      Num.greaterThan(rect.height, 0),
+      Bool.not(Str.Equivalence(style.visibility, "hidden")),
+      Num.greaterThan(Option.getOrElse(Num.parse(style.opacity), () => Number.NaN), 0)
     ])
   }
   const shapeName = (element: Element): string =>
     Option.getOrElse(
       Option.map(
         Arr.findFirst(element.getAttributeNames(), Str.startsWith("data-place-")),
-        (name) => `${name}=${element.getAttribute(name) ?? ""}`
+        (name) => `${name}=${Option.getOrElse(Option.fromNullable(element.getAttribute(name)), () => "")}`
       ),
       () => Str.toLowerCase(element.tagName)
     )
@@ -1657,17 +2008,21 @@ export const contrastsWithin = (root: Element): ReadonlyArray<{
   const shownElements = Arr.filter(Arr.prepend(descendants, root), shown)
   return Arr.flatMap(shownElements, (element) => {
     const paint = shapePaint(element)
-    if (holdsWords(element)) {
-      return [
-        measurement(
-          "text",
-          contrast(getComputedStyle(element).color, element),
-          Str.slice(0, 40)(Str.trim(element.textContent ?? ""))
+    return Bool.match(holdsWords(element), {
+      onFalse: () =>
+        Bool.match(Bool.not(Str.Equivalence(paint, "none")), {
+          onFalse: Arr.empty,
+          onTrue: () => Arr.of(measurement("graphic", contrast(paint, element), shapeName(element)))
+        }),
+      onTrue: () =>
+        Arr.of(
+          measurement(
+            "text",
+            contrast(getComputedStyle(element).color, element),
+            Str.slice(0, 40)(Str.trim(Option.getOrElse(Option.fromNullable(element.textContent), () => "")))
+          )
         )
-      ]
-    }
-    if (paint !== "none") return [measurement("graphic", contrast(paint, element), shapeName(element))]
-    return []
+    })
   })
 }
 
@@ -1687,29 +2042,51 @@ export const motionSample = (): {
   readonly placed: ReadonlyArray<readonly [string, string]>
 } => {
   const omitted = ["offset", "computedOffset", "easing", "composite"]
-  const properties = Arr.flatMap(document.getAnimations(), (animation) => {
-    if (animation instanceof CSSTransition) return Arr.map(Str.split(animation.transitionProperty, ","), Str.trim)
-    return animation.effect instanceof KeyframeEffect ?
-      Arr.flatMap(
-        animation.effect.getKeyframes(),
-        (frame) =>
-          Arr.filter(
-            Reflect.ownKeys(frame),
-            (name): name is string => typeof name === "string" ? Bool.not(Arr.contains(omitted, name)) : false
-          )
-      ) :
-      []
-  })
+  const properties = Arr.flatMap(document.getAnimations(), (animation) =>
+    Match.value(animation).pipe(
+      Match.when(Match.instanceOf(CSSTransition), (transition) =>
+        Arr.map(Str.split(transition.transitionProperty, ","), Str.trim)),
+      Match.orElse(() =>
+        Match.value(animation.effect).pipe(
+          Match.when(Match.instanceOf(KeyframeEffect), (effect) =>
+            Arr.flatMap(
+              effect.getKeyframes(),
+              (frame) =>
+                Arr.filter(
+                  Reflect.ownKeys(frame),
+                  (name): name is string =>
+                    Match.value(name).pipe(
+                      Match.when(Predicate.isString, (property) =>
+                        Bool.not(Arr.contains(omitted, property))),
+                      Match.orElse(() => false)
+                    )
+                )
+            )),
+          Match.orElse(() => Arr.empty<string>())
+        )
+      )
+    ))
   // A disc's place is its place on the paper: the drawing's own geometry, apart from wherever the paper stands.
-  const paper = document.querySelector("[data-place-stage='paper']")?.getBoundingClientRect() ?? new DOMRect()
+  const paper = Option.getOrElse(
+    Option.fromNullable(document.querySelector("[data-place-stage='paper']")?.getBoundingClientRect()),
+    () => new DOMRect()
+  )
   const placed = [
     ...document.querySelectorAll("h1, [data-place-step-header], [data-place-stage='paper'], [data-place-marker]")
   ]
   const placedGeometry = Arr.map(placed, (element): readonly [string, string] => {
     const rect = element.getBoundingClientRect()
-    const origin = element.hasAttribute("data-place-marker") ? paper : new DOMRect()
-    const name = element.getAttribute("data-place-marker") ?? element.getAttribute("data-place-stage")
-      ?? element.closest("[data-place-step]")?.getAttribute("data-place-step") ?? Str.toLowerCase(element.tagName)
+    const origin = Bool.match(element.hasAttribute("data-place-marker"), {
+      onFalse: () => new DOMRect(),
+      onTrue: () => paper
+    })
+    const name = Option.getOrElse(
+      Option.fromNullable(element.getAttribute("data-place-marker")).pipe(
+        Option.orElse(() => Option.fromNullable(element.getAttribute("data-place-stage"))),
+        Option.orElse(() => Option.fromNullable(element.closest("[data-place-step]")?.getAttribute("data-place-step")))
+      ),
+      () => Str.toLowerCase(element.tagName)
+    )
     return [
       name,
       `${String(Num.round(Num.subtract(rect.x, origin.x), 0))},${
@@ -1735,9 +2112,10 @@ export const motionSample = (): {
 export const paperProseContrast = (): number => {
   const channel = (value: number): number => {
     const share = Num.unsafeDivide(value, 255)
-    return share <= 0.04045
-      ? Num.unsafeDivide(share, 12.92)
-      : Numeric.pow(Num.unsafeDivide(Num.sum(share, 0.055), 1.055), 2.4)
+    return Bool.match(Num.lessThanOrEqualTo(share, 0.04045), {
+      onFalse: () => Numeric.pow(Num.unsafeDivide(Num.sum(share, 0.055), 1.055), 2.4),
+      onTrue: () => Num.unsafeDivide(share, 12.92)
+    })
   }
   const luminance = (rgb: string): number => {
     const [r = 0, g = 0, b = 0] = Arr.getSomes(
@@ -1751,7 +2129,10 @@ export const paperProseContrast = (): number => {
   }
   const contrast = (a: string, b: string): number => {
     const [light, dark] = Arr.sort([luminance(a), luminance(b)], Order.reverse(Num.Order))
-    return Num.unsafeDivide(Num.sum(light ?? 0, 0.05), Num.sum(dark ?? 0, 0.05))
+    return Num.unsafeDivide(
+      Num.sum(Option.getOrElse(Option.fromNullable(light), () => 0), 0.05),
+      Num.sum(Option.getOrElse(Option.fromNullable(dark), () => 0), 0.05)
+    )
   }
   const painted = (variable: string): string => {
     const probe = document.body.appendChild(document.createElement("div"))
@@ -1807,26 +2188,30 @@ export const headerControls = (controls: ReadonlyArray<Element>): ReadonlyArray<
   readonly reachesCorners: boolean
   readonly glyphInk: number
 }> => {
-  const paintedBox = (element: Element): DOMRect => {
-    if (!(element instanceof SVGSVGElement)) return element.getBoundingClientRect()
-    const box = element.getBoundingClientRect()
-    const ink = element.getBBox()
-    const scale = Num.unsafeDivide(box.width, element.viewBox.baseVal.width)
-    return new DOMRect(
-      Num.sum(box.left, Num.multiply(ink.x, scale)),
-      Num.sum(box.top, Num.multiply(ink.y, scale)),
-      Num.multiply(ink.width, scale),
-      Num.multiply(ink.height, scale)
+  const paintedBox = (element: Element): DOMRect =>
+    Match.value(element).pipe(
+      Match.when(Match.instanceOf(SVGSVGElement), (svg) => {
+        const box = svg.getBoundingClientRect()
+        const ink = svg.getBBox()
+        const scale = Num.unsafeDivide(box.width, svg.viewBox.baseVal.width)
+        return new DOMRect(
+          Num.sum(box.left, Num.multiply(ink.x, scale)),
+          Num.sum(box.top, Num.multiply(ink.y, scale)),
+          Num.multiply(ink.width, scale),
+          Num.multiply(ink.height, scale)
+        )
+      }),
+      Match.orElse((html) => html.getBoundingClientRect())
     )
-  }
   return Arr.map(controls, (control) => {
     const glyph = control.querySelector("svg")
-    const glyphInk = glyph instanceof SVGSVGElement
-      ? Num.max(paintedBox(glyph).width, paintedBox(glyph).height)
-      : 0
+    const glyphInk = Match.value(glyph).pipe(
+      Match.when(Match.instanceOf(SVGSVGElement), (svg) => Num.max(paintedBox(svg).width, paintedBox(svg).height)),
+      Match.orElse(() => 0)
+    )
     const boxes = Arr.filter(
       Arr.map(Arr.fromIterable(control.children), paintedBox),
-      (box) => Bool.and(box.width > 0, box.height > 0)
+      (box) => Bool.and(Num.greaterThan(box.width, 0), Num.greaterThan(box.height, 0))
     )
     const minimum = (values: ReadonlyArray<number>) =>
       Arr.match(values, { onEmpty: () => Number.POSITIVE_INFINITY, onNonEmpty: (items) => Arr.min(items, Num.Order) })
@@ -1869,7 +2254,7 @@ export const underlineDrawn = (element: Element): {
   readonly inkColor: string
 } => {
   const style = getComputedStyle(element)
-  const words = element.querySelector("span") ?? element
+  const words = Option.getOrElse(Option.fromNullable(element.querySelector("span")), () => element)
   return {
     lines: style.textDecorationLine,
     position: style.textUnderlinePosition,

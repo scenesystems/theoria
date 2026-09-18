@@ -1,7 +1,7 @@
 import { Registry, Result } from "@effect-atom/atom"
 import { describe, expect, it } from "@effect/vitest"
 import { Hyphenation, MeasurementCache, Text, TextMeasurer } from "@scenesystems/effect-text"
-import { Deferred, Effect, Layer, Option, Ref } from "effect"
+import { Boolean as Bool, Deferred, Effect, Layer, Option, Ref } from "effect"
 
 import { DemoRequestError } from "../../app/contracts/demo-error.js"
 import {
@@ -57,19 +57,22 @@ const failingOnceTextLayout: Layer.Layer<BrowserTextLayout> = Layer.unwrapEffect
         Effect.flatMap(
           Ref.getAndSet(askedBefore, true),
           (asked) =>
-            asked
-              ? Effect.provide(
-                Effect.flatMap(TextMeasurer.TextMeasurer, (measurer) => measurer.measure(font, text)),
-                TextMeasurer.layer
-              )
-              : Effect.fail(
-                new TextMeasurer.Failed({
-                  fontFamily: font.family,
-                  fontSize: font.size,
-                  text,
-                  reason: "measureText threw"
-                })
-              )
+            Bool.match(asked, {
+              onTrue: () =>
+                Effect.provide(
+                  Effect.flatMap(TextMeasurer.TextMeasurer, (measurer) => measurer.measure(font, text)),
+                  TextMeasurer.layer
+                ),
+              onFalse: () =>
+                Effect.fail(
+                  new TextMeasurer.Failed({
+                    fontFamily: font.family,
+                    fontSize: font.size,
+                    text,
+                    reason: "measureText threw"
+                  })
+                )
+            })
         )
     })
     return Layer.mergeAll(

@@ -1,4 +1,4 @@
-import { Data, Number as Num, Option, Schema, Tuple } from "effect"
+import { Boolean as Bool, Data, Number as Num, Option, Schema, Tuple } from "effect"
 import * as Arr from "effect/Array"
 import * as Order from "effect/Order"
 
@@ -28,7 +28,11 @@ const lightestIndex = <A>(bins: ReadonlyArray<Bin<A>>): number =>
   Arr.reduce(
     bins,
     Tuple.make(0, Number.POSITIVE_INFINITY),
-    (lightest, bin, index) => bin.total < Tuple.getSecond(lightest) ? Tuple.make(index, bin.total) : lightest
+    (lightest, bin, index) =>
+      Bool.match(Num.lessThan(bin.total, Tuple.getSecond(lightest)), {
+        onFalse: () => lightest,
+        onTrue: () => Tuple.make(index, bin.total)
+      })
   )[0]
 
 /**

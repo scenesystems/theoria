@@ -3,7 +3,7 @@
 import { BunRuntime } from "@effect/platform-bun"
 import * as Digest from "@scenesystems/digest/Digest"
 import * as Utf8 from "@scenesystems/digest/Utf8"
-import { Effect, Encoding, Stream } from "effect"
+import { Effect, Encoding, Stream, String as Str } from "effect"
 
 const program = Effect.gen(function*() {
   const chunks = yield* Effect.all([Utf8.encode("stream-"), Utf8.encode("safe-"), Utf8.encode("digest")])
@@ -13,7 +13,7 @@ const program = Effect.gen(function*() {
 
   yield* Effect.log("Byte stream parity", {
     streamed: Encoding.encodeBase64Url(streamed),
-    matches: Encoding.encodeHex(streamed) === Encoding.encodeHex(oneShot)
+    matches: Str.Equivalence(Encoding.encodeHex(streamed), Encoding.encodeHex(oneShot))
   })
 
   const streamedText = yield* Digest.hashStringStream(
@@ -23,7 +23,7 @@ const program = Effect.gen(function*() {
   const oneShotText = yield* Digest.hashString("sha256", "surrogate-😀")
   yield* Effect.log("Text stream parity", {
     digest: Encoding.encodeHex(streamedText),
-    matches: Encoding.encodeHex(streamedText) === Encoding.encodeHex(oneShotText)
+    matches: Str.Equivalence(Encoding.encodeHex(streamedText), Encoding.encodeHex(oneShotText))
   })
 })
 

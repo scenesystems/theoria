@@ -6,7 +6,7 @@ import * as Metric from "@scenesystems/effect-dsp/Metric"
 import * as MockLanguageModel from "@scenesystems/effect-dsp/MockLanguageModel"
 import * as Module from "@scenesystems/effect-dsp/Module"
 import * as Signature from "@scenesystems/effect-dsp/Signature"
-import { Array as Arr, Effect, Layer, Option, Ref, Schema } from "effect"
+import { Array as Arr, Boolean as Bool, Effect, Layer, Option, Ref, Schema } from "effect"
 
 import {
   BootstrapDemoBudgetFixtureSchema,
@@ -81,7 +81,8 @@ describe("BootstrapFewShot.run DSPy parity", () => {
 
       const params = yield* Ref.get(optimized.params)
       const calls = yield* Ref.get(mock.calls)
-      const demoQuestions = Arr.map(params.demos, (demo) => String(demo.input.question ?? ""))
+      const demoQuestions = Arr.map(params.demos, (demo) =>
+        String(Option.getOrElse(Option.fromNullable(demo.input.question), () => "")))
 
       expect(demoQuestions).toStrictEqual(fixture.payload.expectedAcceptedQuestions)
       expect(params.demos).toHaveLength(fixture.payload.expectedFinalDemoCount)
@@ -114,7 +115,8 @@ describe("BootstrapFewShot.run DSPy parity", () => {
 
       const params = yield* Ref.get(optimized.params)
       const calls = yield* Ref.get(mock.calls)
-      const demoQuestions = Arr.map(params.demos, (demo) => String(demo.input.question ?? ""))
+      const demoQuestions = Arr.map(params.demos, (demo) =>
+        String(Option.getOrElse(Option.fromNullable(demo.input.question), () => "")))
 
       expect(demoQuestions).toStrictEqual(fixture.payload.expectedAcceptedQuestions)
       expect(params.demos).toHaveLength(fixture.payload.expectedFinalDemoCount)
@@ -122,7 +124,8 @@ describe("BootstrapFewShot.run DSPy parity", () => {
       expect(
         Arr.every(
           fixture.payload.expectedRejectedQuestions,
-          (question) => !Arr.contains(demoQuestions, question)
+          (question) =>
+            Bool.not(Arr.contains(demoQuestions, question))
         )
       ).toBe(true)
     }))

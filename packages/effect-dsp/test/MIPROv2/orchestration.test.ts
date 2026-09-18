@@ -12,7 +12,18 @@ import { ModuleParameters } from "@scenesystems/effect-dsp/ModuleParameters"
 import * as Signature from "@scenesystems/effect-dsp/Signature"
 import * as OptimizationStorage from "@scenesystems/effect-search/OptimizationStorage"
 import { Failure as ArtifactStorageError } from "@scenesystems/effect-study/Journal"
-import { Array as Arr, Effect, Either, Equal, Layer, Number as Num, Ref, Schema } from "effect"
+import {
+  Array as Arr,
+  Boolean as Bool,
+  Effect,
+  Either,
+  Equal,
+  Function as Fn,
+  Layer,
+  Number as Num,
+  Ref,
+  Schema
+} from "effect"
 
 const makeQaSignature = () =>
   Signature.make(
@@ -44,9 +55,10 @@ const makeStructuredQaModule = Effect.gen(function*() {
 
 const makeQaMock = MockLanguageModel.make(
   MockLanguageModel.map((prompt) =>
-    prompt.includes("[miprov2-proposal:")
-      ? "Use concise and factual answers"
-      : { answer: "Paris" }
+    Bool.match(prompt.includes("[miprov2-proposal:"), {
+      onTrue: () => "Use concise and factual answers",
+      onFalse: () => ({ answer: "Paris" })
+    })
   )
 )
 
@@ -142,9 +154,10 @@ describe("MIPROv2 orchestration", () => {
         expect(tags).toContain("Phase3Started")
         expect(calls).toBe(1)
         expect(Either.isLeft(outcome)).toBe(true)
-        if (Either.isLeft(outcome)) {
-          expect(Equal.equals(outcome.left, storageError)).toBe(true)
-        }
+        Either.match(outcome, {
+          onLeft: (error) => expect(Equal.equals(error, storageError)).toBe(true),
+          onRight: Fn.constVoid
+        })
       })
   )
 })

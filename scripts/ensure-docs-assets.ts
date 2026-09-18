@@ -1,7 +1,7 @@
 import { FileSystem, Path, Url } from "@effect/platform"
 import { BunContext, BunRuntime } from "@effect/platform-bun"
 import type { PlatformError } from "@effect/platform/Error"
-import { Array as Arr, Console, Effect, Schema } from "effect"
+import { Array as Arr, Boolean as Bool, Console, Effect, Match, Schema } from "effect"
 
 import { DocsManifestJson } from "@theoria/docs-model"
 
@@ -9,7 +9,11 @@ import { ApiReferenceToolchainError } from "./api-reference/model.js"
 
 const docsAssetPrefix = "/docs-data/"
 
-const isNotFound = (error: PlatformError): boolean => error._tag === "SystemError" && error.reason === "NotFound"
+const isNotFound = (error: PlatformError): boolean =>
+  Match.value(error).pipe(
+    Match.when({ _tag: "SystemError", reason: "NotFound" }, () => true),
+    Match.orElse(() => false)
+  )
 
 /**
  * Whether every asset the manifest names is on disk. A manifest that is absent
@@ -47,13 +51,15 @@ const docsAssetsAreCurrent = Effect.gen(function*() {
 )
 
 const program = Effect.flatMap(docsAssetsAreCurrent, (current) =>
-  current
-    ? Console.log("Documentation assets are current.")
-    : Effect.tryPromise({
-      // Loaded on demand so a current asset set never pays for TypeDoc's import graph.
-      try: () => import("./api-reference-program.js"),
-      catch: (cause) =>
-        new ApiReferenceToolchainError({ detail: `Loading the API reference generator failed: ${String(cause)}` })
-    }).pipe(Effect.flatMap(({ apiReferenceProgram }) => apiReferenceProgram)))
+  Bool.match(current, {
+    onTrue: () => Console.log("Documentation assets are current."),
+    onFalse: () =>
+      Effect.tryPromise({
+        // Loaded on demand so a current asset set never pays for TypeDoc's import graph.
+        try: () => import("./api-reference-program.js"),
+        catch: (cause) =>
+          new ApiReferenceToolchainError({ detail: `Loading the API reference generator failed: ${String(cause)}` })
+      }).pipe(Effect.flatMap(({ apiReferenceProgram }) => apiReferenceProgram))
+  }))
 
 BunRuntime.runMain(program.pipe(Effect.provide(BunContext.layer)))

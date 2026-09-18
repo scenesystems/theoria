@@ -5,7 +5,7 @@ import { describe, expect, it } from "@effect/vitest"
 import { Demonstration } from "@scenesystems/effect-dsp/Demonstration"
 import * as Module from "@scenesystems/effect-dsp/Module"
 import { ModuleParameters } from "@scenesystems/effect-dsp/ModuleParameters"
-import { Array as Arr, Effect, FastCheck as fc, Match, Number as Num, Option, Schema } from "effect"
+import { Array as Arr, Effect, FastCheck as fc, Match, Number as Num, Option, Predicate, Schema } from "effect"
 
 const primitiveUnknownArbitrary = fc.oneof(
   fc.string({ maxLength: 12 }),
@@ -55,11 +55,8 @@ const toModuleParams = (params: {
     ),
     ...Option.match(
       Match.value(params.temperature).pipe(
-        Match.when((value: unknown): value is number => typeof value === "number", (temperature) =>
-          Option.some(temperature)),
-        Match.orElse(() =>
-          Option.none<number>()
-        )
+        Match.when(Predicate.isNumber, (temperature) => Option.some(temperature)),
+        Match.orElse(() => Option.none<number>())
       ),
       {
         onNone: () => ({}),
@@ -69,7 +66,7 @@ const toModuleParams = (params: {
     ...Option.match(
       Match.value(params.maxTokens).pipe(
         Match.when(
-          (value: unknown): value is number => typeof value === "number",
+          Predicate.isNumber,
           (maxTokens) => Option.some(maxTokens)
         ),
         Match.orElse(() => Option.none<number>())

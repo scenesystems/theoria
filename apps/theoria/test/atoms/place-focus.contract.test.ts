@@ -1,6 +1,6 @@
 import { Atom, type Registry } from "@effect-atom/atom"
 import { expect } from "@effect/vitest"
-import { Effect, Number as Num, Option } from "effect"
+import { Boolean as Bool, Effect, Number as Num, Option, String as Str } from "effect"
 import * as Arr from "effect/Array"
 
 import {
@@ -87,7 +87,10 @@ describeOnStage("place focus", (it) => {
       expect(lit(registry, codeLineAt(proposalDigestSite))).toBe(true)
       expect(lit(registry, codeLineAt(layoutSite))).toBe(false)
       // The other features stand unlit.
-      const others = Arr.filter(build.artifact.composition.features, (other) => other.name !== feature.name)
+      const others = Arr.filter(
+        build.artifact.composition.features,
+        (other) => Bool.not(Str.Equivalence(other.name, feature.name))
+      )
       expect(Arr.some(others, (other) => lit(registry, { _tag: "Feature", name: other.name }))).toBe(false)
     }))
 
@@ -225,7 +228,7 @@ describeOnStage("place focus", (it) => {
     Effect.gen(function*() {
       const { build, showingKept, showingTrial } = yield* onStage
       const merged = yield* Arr.findFirst(build.proposals, (record) => record.accepted)
-      const declined = yield* Arr.findFirst(build.proposals, (record) => !record.accepted)
+      const declined = yield* Arr.findFirst(build.proposals, (record) => Bool.not(record.accepted))
       const feature: PlaceMark = { _tag: "Feature", name: merged.proposal.feature.name }
       const disc: PlaceMark = { _tag: "Disc", name: merged.proposal.feature.name, source: placeSourceId(build) }
 

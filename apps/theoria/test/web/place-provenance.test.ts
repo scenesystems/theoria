@@ -1,5 +1,5 @@
 import { expect } from "@effect/vitest"
-import { Effect, Number as Num, Option } from "effect"
+import { Effect, Number as Num, Option, String as Str } from "effect"
 import * as Arr from "effect/Array"
 
 import { markersBeside } from "../../app/contracts/demo/imagined-place-flow.js"
@@ -45,7 +45,7 @@ const page = (build: Option.Option<PlaceBuild>, shown: Option.Option<PlaceRender
 const answered = provenanceFor
 
 const factValue = (provenance: PlaceProvenance, label: string): Option.Option<string> =>
-  Option.map(Arr.findFirst(provenance.facts, (fact) => fact.label === label), (fact) => fact.value)
+  Option.map(Arr.findFirst(provenance.facts, (fact) => Str.Equivalence(fact.label, label)), (fact) => fact.value)
 
 const codeLine = (step: PlaceStep, match: string): PlaceMark => ({
   _tag: "CodeLine",
@@ -213,14 +213,16 @@ describeOnStage("place provenance", (it) => {
     Effect.gen(function*() {
       const { build, showingTrial } = yield* onStage
       const on = page(Option.some(build), Option.some(showingTrial))
-      const neighbor = yield* Arr.findFirst(build.proposals, (record) => record.proposal.proposer === "neighbor")
+      const neighbor = yield* Arr.findFirst(build.proposals, (record) =>
+        Str.Equivalence(record.proposal.proposer, "neighbor"))
       const current = currentVersion(build.evidence)
       const origin = yield* Arr.head(build.evidence.lineage)
       const merged = yield* Arr.get(build.evidence.lineage, 1)
       const projection = showingTrial.rendering.projection
       const narrowed = yield* Arr.findFirstIndex(
         projection.lines,
-        (_, index) => Arr.isNonEmptyReadonlyArray(markersBeside(projection, projection.markers, index))
+        (_, index) =>
+          Arr.isNonEmptyReadonlyArray(markersBeside(projection, projection.markers, index))
       )
       const expected: ReadonlyArray<readonly [site: CodeSite, title: string, made: PlaceMark]> = [
         [composeSite, build.artifact.composition.title, codeLine("compose", composeSite.match)],
@@ -314,8 +316,14 @@ describeOnStage("answers from the drawing's own source", (it) => {
   it.effect("a line of the prose is about the merged proposal whose sentence stands on it, read from the drawing shown", () =>
     Effect.gen(function*() {
       const { build, kept, showingKept, showingTrial, trial } = yield* onStage
-      const neighbor = yield* Arr.findFirst(build.proposals, (record) => record.proposal.proposer === "neighbor")
-      const program = yield* Arr.findFirst(build.proposals, (record) => record.proposal.proposer === "program")
+      const neighbor = yield* Arr.findFirst(
+        build.proposals,
+        (record) => Str.Equivalence(record.proposal.proposer, "neighbor")
+      )
+      const program = yield* Arr.findFirst(
+        build.proposals,
+        (record) => Str.Equivalence(record.proposal.proposer, "program")
+      )
       expect(neighbor.accepted).toBe(true)
       expect(program.accepted).toBe(false)
 

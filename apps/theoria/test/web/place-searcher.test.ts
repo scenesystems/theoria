@@ -5,6 +5,7 @@ import {
   Effect,
   Exit,
   Fiber,
+  Function as Fn,
   Layer,
   Match,
   Number as Num,
@@ -126,11 +127,14 @@ const managerLayer = (answering: Answering): Layer.Layer<Worker.WorkerManager | 
                 execute: (message) => Stream.fromEffect(answer(message)),
                 executeEffect: answer
               }
-              return yield* (answering === "unready" ? Effect.never : Effect.succeed(ready))
+              return yield* Match.value(answering).pipe(
+                Match.when("unready", () => Effect.never),
+                Match.orElse(() => Effect.succeed(ready))
+              )
             })
         }))
     ),
-    Worker.layerSpawner(() => undefined)
+    Worker.layerSpawner(Fn.constVoid)
   )
 
 const searcherWith = (answering: Answering) =>

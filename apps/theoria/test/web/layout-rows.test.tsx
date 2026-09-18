@@ -1,5 +1,5 @@
 import { describe, expect, it } from "@effect/vitest"
-import { Effect, Either, Layer, MutableRef, Number as Num, Schema } from "effect"
+import { Effect, Either, Equivalence, Layer, MutableRef, Number as Num, Schema } from "effect"
 import * as Option from "effect/Option"
 import type { ReactNode } from "react"
 
@@ -62,7 +62,11 @@ describe("layout rows", () => {
         Effect.gen(function*() {
           const row = yield* mountedRow(<Rail ref={hold} />)
           const holding = MutableRef.get(held)
-          expect(Option.isSome(holding) && holding.value === row, "the ref holds the rendered element").toBe(true)
+          expect(
+            Option.exists(holding, (element) => Equivalence.strict()(element, row)),
+            "the ref holds the rendered element"
+          )
+            .toBe(true)
         })
       )
 

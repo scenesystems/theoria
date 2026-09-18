@@ -1,4 +1,14 @@
-import { Array as Arr, Boolean as Bool, Data, Match, Number as Num, Option, Predicate, String as Str } from "effect"
+import {
+  Array as Arr,
+  Boolean as Bool,
+  Data,
+  Match,
+  Number as Num,
+  Option,
+  Predicate,
+  Schema,
+  String as Str
+} from "effect"
 import {
   type Comment,
   Comment as CommentApi,
@@ -149,12 +159,12 @@ export const docParts = (parts: ReadonlyArray<CommentDisplayPart>, context: ApiD
         text: link.text,
         href: Match.value(link.target).pipe(
           Match.when(Predicate.isString, (target): Option.Option<string> => Option.some(target)),
-          Match.when((target): target is Reflection => target instanceof Reflection, (target): Option.Option<string> =>
+          Match.when(Schema.is(Schema.instanceOf(Reflection)), (target): Option.Option<string> =>
             reflectionHref(context, target, link.text)),
           Match.when(
-            (target): target is ReflectionSymbolId =>
-              target instanceof ReflectionSymbolId,
-            (target): Option.Option<string> => symbolHref(context, target, link.text)
+            Schema.is(Schema.instanceOf(ReflectionSymbolId)),
+            (target): Option.Option<string> =>
+              symbolHref(context, target, link.text)
           ),
           Match.orElse((): Option.Option<string> => resolvedHref(context, context.packageName, textNames(link.text)))
         )

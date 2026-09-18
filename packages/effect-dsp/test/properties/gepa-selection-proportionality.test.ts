@@ -3,7 +3,7 @@
  */
 import { describe, expect, it } from "@effect/vitest"
 import * as Numeric from "@scenesystems/effect-math/Numeric"
-import { Array as Arr, Effect, FastCheck as fc, Number as Num, Schema } from "effect"
+import { Array as Arr, Boolean as Bool, Effect, FastCheck as fc, Number as Num, Schema } from "effect"
 import { ParentSelectionWeight } from "../../src/internal/gepa/model.js"
 import { sampleWeightedParents } from "../../src/internal/gepa/sampling.js"
 import { GepaSelectionWeightsFixtureSchema, loadFixture } from "../helpers/dspy-fixtures/index.js"
@@ -18,9 +18,10 @@ const countSelections = (samples: ReadonlyArray<number>, candidateIndex: number)
     samples,
     0,
     (count, selected) =>
-      selected === candidateIndex
-        ? Num.increment(count)
-        : count
+      Bool.match(Num.Equivalence(selected, candidateIndex), {
+        onTrue: () => Num.increment(count),
+        onFalse: () => count
+      })
   )
 
 describe("GEPA selection proportionality", () => {
@@ -64,7 +65,7 @@ describe("GEPA selection proportionality", () => {
           const observed = Num.unsafeDivide(countSelections(draws, weight.candidateIndex), sampleCount)
           const expected = Num.unsafeDivide(weight.weight, totalWeight)
 
-          return Numeric.abs(Num.subtract(observed, expected)) <= 0.02
+          return Num.lessThanOrEqualTo(Numeric.abs(Num.subtract(observed, expected)), 0.02)
         })
 
         expect(sampleCount).toBe(10000)

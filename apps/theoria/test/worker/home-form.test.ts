@@ -112,7 +112,7 @@ layer(Layer.merge(SiteLive, BrowserLive), { excludeTestServices: true, timeout: 
         const demo = page.getByRole("region", { name: "Imagined place demo" })
         const overlay = page.locator("[data-place-provenance]")
         const built = page.locator("[data-place-how-its-built]")
-        const propose = yield* Arr.findFirst(placeStepDefinitions, (step) => step.id === "propose")
+        const propose = yield* Arr.findFirst(placeStepDefinitions, (step) => Str.Equivalence(step.id, "propose"))
         yield* click(built.getByRole("tab", { name: propose.name }))
 
         // A merged proposal's name, pressed, lights its line of the prose, the line of code that
@@ -132,7 +132,7 @@ layer(Layer.merge(SiteLive, BrowserLive), { excludeTestServices: true, timeout: 
         yield* Effect.forEach(lit, (element) => count(element, 1))
         const washes = yield* until(
           Effect.forEach(lit, (element) => evaluateElement(element, backgroundColour)),
-          (colours) => Arr.dedupe(colours).length === 1,
+          (colours) => Num.Equivalence(Arr.length(Arr.dedupe(colours)), 1),
           "one wash on everything lit"
         )
         expect(Arr.dedupe(washes)).toHaveLength(1)
@@ -203,7 +203,7 @@ layer(Layer.merge(SiteLive, BrowserLive), { excludeTestServices: true, timeout: 
         yield* click(demo.getByRole("switch", { checked: false }).first())
         const after = yield* until(
           evaluateElement(band, bandDiscNames),
-          (drawn) => drawn.length === Num.increment(names.length),
+          (drawn) => Num.Equivalence(Arr.length(drawn), Num.increment(Arr.length(names))),
           "one more disc in the band"
         )
         yield* count(named(after), 1)

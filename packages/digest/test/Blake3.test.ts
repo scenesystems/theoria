@@ -3,7 +3,7 @@ import { describe, expect, it } from "@effect/vitest"
 import * as Blake3 from "@scenesystems/digest/Blake3"
 import * as Digest from "@scenesystems/digest/Digest"
 import * as Utf8 from "@scenesystems/digest/Utf8"
-import { Array as Arr, Effect, Either, Encoding, Number as Num, Schema } from "effect"
+import { Array as Arr, Boolean as Bool, Effect, Either, Encoding, Number as Num, Schema } from "effect"
 
 import * as Fixtures from "../scripts/fixtures.js"
 import { expectByteLength, expectDigest } from "./helpers/assertions.js"
@@ -112,10 +112,11 @@ describe("Blake3 external conformance", () => {
       yield* Effect.forEach(fixtures, ({ fixture, source }) =>
         Effect.forEach(fixture.cases, (vector) =>
           Effect.gen(function*() {
-            const input = vector.input_len === 0
-              ? new Uint8Array()
-              : Uint8Array.from(Arr.makeBy(vector.input_len, (index) =>
-                Num.remainder(index, 251)))
+            const input = Bool.match(Num.Equivalence(vector.input_len, 0), {
+              onTrue: () =>
+                new Uint8Array(),
+              onFalse: () => Uint8Array.from(Arr.makeBy(vector.input_len, (index) => Num.remainder(index, 251)))
+            })
             const hash = Digest.hash("blake3-256", input)
             const keyedHash = yield* Blake3.mac(encodeFixtureUtf8(fixture.key), input)
             const derivedKey = yield* Blake3.deriveKey(fixture.context_string, input)

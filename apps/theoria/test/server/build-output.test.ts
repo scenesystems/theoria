@@ -2,7 +2,7 @@ import type { Path } from "@effect/platform"
 import { Error as PlatformError, FileSystem } from "@effect/platform"
 import { BunContext } from "@effect/platform-bun"
 import { expect, it } from "@effect/vitest"
-import { Effect, Either, Layer, Number as Num, type Scope } from "effect"
+import { Boolean as Bool, Effect, Either, Layer, Number as Num, type Scope } from "effect"
 import * as Arr from "effect/Array"
 
 import { type WebVitalBudgets, webVitalBudgets } from "../../app/contracts/performance.js"
@@ -190,7 +190,11 @@ it.effect("a filesystem that cannot be examined fails the check instead of produ
       Effect.map(FileSystem.FileSystem, (fileSystem) =>
         FileSystem.make({
           ...fileSystem,
-          realPath: (target) => target.endsWith("dist/index.html") ? Effect.fail(denied) : fileSystem.realPath(target)
+          realPath: (target) =>
+            Bool.match(target.endsWith("dist/index.html"), {
+              onTrue: () => Effect.fail(denied),
+              onFalse: () => fileSystem.realPath(target)
+            })
         }))
     )
     const fileSystem = yield* FileSystem.FileSystem

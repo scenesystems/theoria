@@ -11,12 +11,14 @@ import {
   type Route
 } from "@playwright/test"
 import {
+  Boolean as Bool,
   Chunk,
   Context,
   Data,
   Deferred,
   Duration,
   Effect,
+  Function as Fn,
   HashMap,
   Layer,
   Match,
@@ -31,6 +33,7 @@ import {
   SynchronizedRef
 } from "effect"
 import * as Arr from "effect/Array"
+import * as Equivalence from "effect/Equivalence"
 import * as Num from "effect/Number"
 import * as Rec from "effect/Record"
 import * as Str from "effect/String"
@@ -58,7 +61,14 @@ export class BrowserError extends Data.TaggedError("test/worker/BrowserError")<{
 export const act = <A>(run: () => Promise<A>): Effect.Effect<A, BrowserError> =>
   Effect.tryPromise({
     try: run,
-    catch: (cause) => new BrowserError({ message: Predicate.isError(cause) ? cause.message : String(cause), cause })
+    catch: (cause) =>
+      new BrowserError({
+        message: Match.value(cause).pipe(
+          Match.when(Predicate.isError, (error) => error.message),
+          Match.orElse(String)
+        ),
+        cause
+      })
   })
 
 export class Browser extends Context.Tag("test/worker/Browser")<Browser, {
@@ -99,11 +109,24 @@ const probeBundle = Effect.gen(function*() {
   })
   const chunks = Arr.flatMap(
     Arr.ensure(output),
-    (result) => Predicate.hasProperty(result, "output") && Arr.isArray(result.output) ? result.output : Arr.empty()
+    (result) =>
+      Match.value(result).pipe(
+        Match.when(Predicate.hasProperty("output"), (withOutput) =>
+          Bool.match(Arr.isArray(withOutput.output), {
+            onFalse: Arr.empty,
+            onTrue: () => withOutput.output
+          })),
+        Match.orElse(Arr.empty)
+      )
   )
   const isChunk = (item: unknown): item is { readonly code: string } =>
-    Predicate.hasProperty(item, "type") && item.type === "chunk"
-    && Predicate.hasProperty(item, "code") && Predicate.isString(item.code)
+    Match.value(item).pipe(
+      Match.when(
+        Predicate.struct({ type: Predicate.isString, code: Predicate.isString }),
+        (chunk) => Str.Equivalence(chunk.type, "chunk")
+      ),
+      Match.orElse(() => false)
+    )
   return yield* Option.match(
     Arr.findFirst(chunks, isChunk),
     {
@@ -169,7 +192,7 @@ type ElementsProbe<A, R> = (elements: ReadonlyArray<Element>, argument: A) => R
 type EmptyElementsProbe<R> = (elements: ReadonlyArray<Element>) => R
 
 const probeName = (probe: { readonly name: string }): keyof typeof InPage =>
-  Arr.findFirst(Rec.toEntries(InPage), (entry) => Tuple.getSecond(entry) === probe).pipe(
+  Arr.findFirst(Rec.toEntries(InPage), (entry) => Equivalence.strict()(Tuple.getSecond(entry), probe)).pipe(
     Option.map(Tuple.getFirst),
     Option.getOrThrow
   )
@@ -337,27 +360,30 @@ export const openPage = (
       act(() =>
         browser.chromium.newContext({
           baseURL: site.url,
-          viewport: options.viewport ?? desktop,
-          reducedMotion: options.reducedMotion ?? "no-preference",
-          forcedColors: options.forcedColors ?? "none",
-          colorScheme: options.colorScheme ?? "light",
-          hasTouch: options.hasTouch ?? false,
+          viewport: Option.getOrElse(Option.fromNullable(options.viewport), () => desktop),
+          reducedMotion: Option.getOrElse(Option.fromNullable(options.reducedMotion), () => "no-preference"),
+          forcedColors: Option.getOrElse(Option.fromNullable(options.forcedColors), () => "none"),
+          colorScheme: Option.getOrElse(Option.fromNullable(options.colorScheme), () => "light"),
+          hasTouch: Option.getOrElse(Option.fromNullable(options.hasTouch), () => false),
           extraHTTPHeaders: site.visitorHeaders(visitor)
         })
       ),
       (open) => Effect.orDie(act(() => open.close()))
     )
-    yield* act(() => context.grantPermissions([...(options.permissions ?? [])]))
+    yield* act(() => context.grantPermissions(Option.getOrElse(Option.fromNullable(options.permissions), Arr.empty)))
     const page = yield* act(() => context.newPage())
     const runtime = yield* Effect.runtime<never>()
     // A history/fragment change is still the same document. Only a main-frame
     // navigation request replaces its execution context and invalidates handles.
     const documentChanged = (request: Request) => {
-      if (request.isNavigationRequest()) {
-        if (request.frame() === page.mainFrame()) {
-          Runtime.runFork(runtime)(Effect.orDie(releaseProbeNamespace(browser, page)))
-        }
-      }
+      Bool.match(request.isNavigationRequest(), {
+        onFalse: Fn.constVoid,
+        onTrue: () =>
+          Bool.match(Equivalence.strict()(request.frame(), page.mainFrame()), {
+            onFalse: Fn.constVoid,
+            onTrue: () => Runtime.runFork(runtime)(Effect.orDie(releaseProbeNamespace(browser, page)))
+          })
+      })
     }
     page.on("request", documentChanged)
     yield* Effect.addFinalizer(() =>
@@ -367,7 +393,7 @@ export const openPage = (
       )
     )
     // Throttling is the DevTools protocol's; it holds for the page's every document until the page closes.
-    yield* Option.match(Option.filter(Option.fromNullable(options.cpuSlowdown), (rate) => rate > 1), {
+    yield* Option.match(Option.filter(Option.fromNullable(options.cpuSlowdown), Num.greaterThan(1)), {
       onNone: () => Effect.void,
       onSome: (rate) =>
         Effect.andThen(
@@ -380,7 +406,10 @@ export const openPage = (
     // can tell the failure it caused from any other.
     const failures = yield* Queue.unbounded<string>()
     page.on("console", (message) => {
-      if (message.type() === "error") Queue.unsafeOffer(failures, `${message.text()} (${message.location().url})`)
+      Bool.match(Str.Equivalence(message.type(), "error"), {
+        onFalse: Fn.constVoid,
+        onTrue: () => Queue.unsafeOffer(failures, `${message.text()} (${message.location().url})`)
+      })
     })
     page.on("pageerror", (error) => {
       Queue.unsafeOffer(failures, error.message)
@@ -401,7 +430,10 @@ export const observeRequests = (
 ): Effect.Effect<Effect.Effect<ReadonlyArray<string>>> =>
   Effect.map(Queue.unbounded<string>(), (seen) => {
     page.on("request", (request) => {
-      if (keep({ url: request.url(), resourceType: request.resourceType() })) Queue.unsafeOffer(seen, request.url())
+      Bool.match(keep({ url: request.url(), resourceType: request.resourceType() }), {
+        onFalse: Fn.constVoid,
+        onTrue: () => Queue.unsafeOffer(seen, request.url())
+      })
     })
     return Queue.takeAll(seen).pipe(Effect.map(Chunk.toReadonlyArray))
   })
@@ -488,7 +520,9 @@ export const urlMatches = (page: Page, pattern: RegExp) => act(() => inBrowser(p
 /** Waits for the next response whose URL ends with `suffix` from a request with `method`. */
 export const nextResponse = (page: Page, method: string, suffix: string): Effect.Effect<Response, BrowserError> =>
   act(() =>
-    page.waitForResponse((response) => Str.endsWith(suffix)(response.url()) && response.request().method() === method)
+    page.waitForResponse((response) =>
+      Bool.and(Str.endsWith(suffix)(response.url()), Str.Equivalence(response.request().method(), method))
+    )
   )
 
 /** What becomes of a held request once the test lets it go: it reaches the server, or it fails as the network would. */
@@ -515,7 +549,7 @@ export const holdResponse = (
 ): Effect.Effect<HeldRequest, BrowserError> =>
   Effect.flatMap(
     Ref.make(false),
-    (held) => holdRequests(page, method, suffix, Ref.getAndSet(held, true).pipe(Effect.map((taken) => !taken)))
+    (held) => holdRequests(page, method, suffix, Ref.getAndSet(held, true).pipe(Effect.map(Bool.not)))
   )
 
 /**
@@ -555,9 +589,11 @@ const holdRequests = (
         (url) => Str.endsWith(suffix)(url.pathname),
         (route) =>
           Runtime.runPromise(runtime)(
-            route.request().method() === method
-              ? Effect.if(claim, { onTrue: () => settle(route), onFalse: () => act(() => route.fallback()) })
-              : act(() => route.fallback())
+            Bool.match(Str.Equivalence(route.request().method(), method), {
+              onFalse: () => act(() => route.fallback()),
+              onTrue: () =>
+                Effect.if(claim, { onTrue: () => settle(route), onFalse: () => act(() => route.fallback()) })
+            })
           )
       )
     )
@@ -583,8 +619,16 @@ export function eventually<A, R>(
   expected: A,
   within: Duration.Duration = assertionWait
 ): Effect.Effect<void, BrowserError, R> {
-  const effect = Effect.isEffect(read) ? read : act(read)
-  return until(effect, (value) => value === expected, `expected ${String(expected)}`, within).pipe(Effect.asVoid)
+  const isEffect = (value: typeof read): value is Effect.Effect<A, BrowserError, R> => Effect.isEffect(value)
+  const isRead = (value: typeof read): value is () => Promise<A> => Predicate.isFunction(value)
+  const holds = (value: A) => Equivalence.strict<A>()(value, expected)
+  return Match.value(read).pipe(
+    Match.withReturnType<Effect.Effect<A, BrowserError, R>>(),
+    Match.when(isEffect, (effect) => until(effect, holds, `expected ${String(expected)}`, within)),
+    Match.when(isRead, (run) => until(act(run), holds, `expected ${String(expected)}`, within)),
+    Match.exhaustive,
+    Effect.asVoid
+  )
 }
 
 /**
@@ -608,7 +652,7 @@ export const until = <A, R>(
  * colours appear or Playwright's assertion timeout elapses.
  */
 export const highlighted = (code: Locator): Effect.Effect<void, BrowserError, Browser> =>
-  until(evaluateElement(code, InPage.distinctTextColours), (colours) => colours > 1, "syntax colours").pipe(
+  until(evaluateElement(code, InPage.distinctTextColours), Num.greaterThan(1), "syntax colours").pipe(
     Effect.asVoid
   )
 

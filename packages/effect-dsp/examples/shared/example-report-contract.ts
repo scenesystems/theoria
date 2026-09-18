@@ -6,7 +6,7 @@
  * presentation written directly to disk.
  */
 import { FileSystem, Path } from "@effect/platform"
-import { Array as Arr, Data, Effect, Number as Num, Option, Schema } from "effect"
+import { Array as Arr, Boolean as Bool, Data, Effect, Number as Num, Option, Schema, String as Str } from "effect"
 import { artifactDirectoryForExample, emitCustomEnvelope, type ExampleArtifacts } from "./output-artifacts.js"
 
 const REPORT_FILE_NAME = "report.md"
@@ -18,10 +18,7 @@ const REPORT_TITLE = "# effect-dsp Optimization Report"
 
 const formatNumber = (value: number): string => value.toFixed(4)
 
-const boolWord = (value: boolean): string =>
-  value
-    ? "yes"
-    : "no"
+const boolWord = (value: boolean): string => Bool.match(value, { onTrue: () => "yes", onFalse: () => "no" })
 
 const encodeArtifactJson = Schema.encode(Schema.parseJson(Schema.Unknown))
 
@@ -29,7 +26,7 @@ const scoreDelta = (baselineScore: number, optimizedScore: number): number =>
   Num.subtract(optimizedScore, baselineScore)
 
 const instructionChanged = (beforeInstruction: string, afterInstruction: string): boolean =>
-  beforeInstruction !== afterInstruction
+  Bool.not(Str.Equivalence(beforeInstruction, afterInstruction))
 
 const lineForOptionalNumber = (label: string, value?: number): string =>
   Option.fromNullable(value).pipe(
@@ -313,7 +310,7 @@ export const makeStandardSummary = (options: {
     instruction,
     demos,
     optimization,
-    extras: options.extras ?? {}
+    extras: Option.getOrElse(Option.fromNullable(options.extras), () => ({}))
   }
 }
 

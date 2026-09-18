@@ -76,7 +76,7 @@ describe("text projection contracts", () => {
       expect(yield* Ref.get(prepareCalls)).toBe(1)
 
       registry.set(fontReadinessRevisionAtom, PreparationKey.nextRevision(registry.get(fontReadinessRevisionAtom)))
-      yield* Effect.repeat(Ref.get(prepareCalls), { until: (count) => count >= 2 })
+      yield* Effect.repeat(Ref.get(prepareCalls), { until: Num.greaterThanOrEqualTo(2) })
       yield* waitForProjection(registry, projectionAtom)
 
       expect(yield* Ref.get(prepareCalls)).toBe(2)

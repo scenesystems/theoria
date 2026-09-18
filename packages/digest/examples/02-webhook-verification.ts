@@ -3,7 +3,7 @@
 import { BunRuntime } from "@effect/platform-bun"
 import * as Hmac from "@scenesystems/digest/Hmac"
 import * as Utf8 from "@scenesystems/digest/Utf8"
-import { Effect, Encoding } from "effect"
+import { Boolean as Bool, Effect, Encoding, String as Str } from "effect"
 
 const program = Effect.gen(function*() {
   const secret = yield* Utf8.encode("whsec_test_secret_key")
@@ -14,7 +14,9 @@ const program = Effect.gen(function*() {
   const tamperedAuthenticator = Hmac.sha256(secret, tampered)
   yield* Effect.log("HMAC-SHA256", {
     authenticator: Encoding.encodeBase64Url(authenticator),
-    tamperedDiffers: Encoding.encodeHex(authenticator) !== Encoding.encodeHex(tamperedAuthenticator)
+    tamperedDiffers: Bool.not(
+      Str.Equivalence(Encoding.encodeHex(authenticator), Encoding.encodeHex(tamperedAuthenticator))
+    )
   })
 
   const legacyAuthenticator = Hmac.sha1(secret, payload)

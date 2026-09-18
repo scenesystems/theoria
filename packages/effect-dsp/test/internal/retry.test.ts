@@ -14,7 +14,7 @@ describe("internal/retry", () => {
         Effect.gen(function*() {
           const nextAttempt = yield* Ref.updateAndGet(attempts, Num.increment)
 
-          return yield* Effect.if(nextAttempt < 4, {
+          return yield* Effect.if(Num.lessThan(nextAttempt, 4), {
             onTrue: () => Effect.fail("retry"),
             onFalse: () => Effect.succeed("ok")
           })

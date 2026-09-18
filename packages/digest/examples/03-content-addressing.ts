@@ -2,7 +2,7 @@
 
 import { BunRuntime } from "@effect/platform-bun"
 import { CanonicalJson, ContentDigest } from "@scenesystems/digest"
-import { Effect, Either, Schema } from "effect"
+import { Effect, Either, Schema, String as Str } from "effect"
 
 const Event = Schema.Struct({
   name: Schema.String,
@@ -20,7 +20,7 @@ const program = Effect.gen(function*() {
   const reorderedDigest = yield* ContentDigest.fromUnknown("blake3-256", reordered)
   yield* Effect.log("Content address", {
     digest: ContentDigest.toString(firstDigest),
-    orderIndependent: ContentDigest.toString(firstDigest) === ContentDigest.toString(reorderedDigest)
+    orderIndependent: Str.Equivalence(ContentDigest.toString(firstDigest), ContentDigest.toString(reorderedDigest))
   })
 
   const malformed = yield* Effect.either(CanonicalJson.encode({ value: "\uD800" }))

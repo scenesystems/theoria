@@ -9,7 +9,7 @@ import * as MockLanguageModel from "@scenesystems/effect-dsp/MockLanguageModel"
 import * as Module from "@scenesystems/effect-dsp/Module"
 import { ModuleParameters } from "@scenesystems/effect-dsp/ModuleParameters"
 import * as Signature from "@scenesystems/effect-dsp/Signature"
-import { Effect, Layer, Record as Rec, Ref, Schema } from "effect"
+import { Effect, Layer, Number as Num, Record as Rec, Ref, Schema } from "effect"
 
 const makeQaSignature = () =>
   Signature.make(
@@ -58,7 +58,7 @@ describe("LabeledFewShot.run", () => {
       const calls = yield* Ref.get(mock.calls)
 
       expect(params.demos).toHaveLength(2)
-      expect(params.demos.every((demo) => Rec.keys(demo.output).length > 0)).toBe(true)
+      expect(params.demos.every((demo) => Num.greaterThan(Rec.keys(demo.output).length, 0))).toBe(true)
       expect(calls).toHaveLength(0)
     }))
 

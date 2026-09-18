@@ -721,8 +721,8 @@ const program = Effect.gen(function*() {
   const gepaEventSummary = GEPA.summarizeEvents(gepaEvents)
   const panelParamsAfterGEPA = yield* Ref.get(methodsPanel.params)
 
-  const baselineScore = baseline.overallScores.protocolFit ?? 0
-  const optimizedScore = optimized.overallScores.protocolFit ?? 0
+  const baselineScore = Option.getOrElse(Option.fromNullable(baseline.overallScores.protocolFit), () => 0)
+  const optimizedScore = Option.getOrElse(Option.fromNullable(optimized.overallScores.protocolFit), () => 0)
   const gepaOutcome = GEPA.summarizeOutcome({
     baselineScore,
     optimizedScore,

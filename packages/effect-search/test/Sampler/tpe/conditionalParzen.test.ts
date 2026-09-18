@@ -1,5 +1,5 @@
 import { describe, expect, it } from "@effect/vitest"
-import { Array as Arr, Effect, Either, Equal, Match, Option, Schema } from "effect"
+import { Array as Arr, Effect, Either, Equal, Match, Option, Predicate, Schema } from "effect"
 
 import { numericValuesForParameter, primitiveValuesForParameter } from "../../../src/internal/tpe/dimensions/values.js"
 import { CompletedTrialForSplit } from "../../../src/internal/tpe/splitTrials.js"
@@ -111,16 +111,16 @@ describe("TPE conditional branch-aware density behavior", () => {
 
       Match.value(branchConfig.model).pipe(
         Match.when("linear", () => {
-          expect("learningRate" in branchConfig).toBe(true)
-          expect("regularization" in branchConfig).toBe(true)
-          expect("maxDepth" in branchConfig).toBe(false)
-          expect("minSamplesLeaf" in branchConfig).toBe(false)
+          expect(Predicate.hasProperty(branchConfig, "learningRate")).toBe(true)
+          expect(Predicate.hasProperty(branchConfig, "regularization")).toBe(true)
+          expect(Predicate.hasProperty(branchConfig, "maxDepth")).toBe(false)
+          expect(Predicate.hasProperty(branchConfig, "minSamplesLeaf")).toBe(false)
         }),
         Match.when("tree", () => {
-          expect("maxDepth" in branchConfig).toBe(true)
-          expect("minSamplesLeaf" in branchConfig).toBe(true)
-          expect("learningRate" in branchConfig).toBe(false)
-          expect("regularization" in branchConfig).toBe(false)
+          expect(Predicate.hasProperty(branchConfig, "maxDepth")).toBe(true)
+          expect(Predicate.hasProperty(branchConfig, "minSamplesLeaf")).toBe(true)
+          expect(Predicate.hasProperty(branchConfig, "learningRate")).toBe(false)
+          expect(Predicate.hasProperty(branchConfig, "regularization")).toBe(false)
         }),
         Match.exhaustive
       )

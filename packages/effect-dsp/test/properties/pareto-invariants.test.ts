@@ -2,7 +2,7 @@
  * GEPA Pareto frontier invariants.
  */
 import { describe, expect, it } from "@effect/vitest"
-import { Array as Arr, Effect, FastCheck as fc, Option } from "effect"
+import { Array as Arr, Boolean as Bool, Effect, FastCheck as fc, Number as Num, Option } from "effect"
 import { deriveParetoKernelSnapshot, dominatesCandidateVector } from "../../src/internal/gepa/frontier.js"
 
 const scoreMatrixArbitrary = fc
@@ -41,10 +41,12 @@ describe("GEPA Pareto invariants", () => {
           Arr.filter(
             snapshot.frontierIndices,
             (otherIndex) =>
-              otherIndex !== candidateIndex &&
-              dominatesCandidateVector(
-                scoreVectorAt(scoreMatrix, otherIndex),
-                scoreVectorAt(scoreMatrix, candidateIndex)
+              Bool.and(
+                Bool.not(Num.Equivalence(otherIndex, candidateIndex)),
+                dominatesCandidateVector(
+                  scoreVectorAt(scoreMatrix, otherIndex),
+                  scoreVectorAt(scoreMatrix, candidateIndex)
+                )
               )
           ))
         expect(dominanceViolations).toEqual([])

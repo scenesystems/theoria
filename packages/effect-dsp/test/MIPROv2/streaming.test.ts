@@ -10,7 +10,7 @@ import * as MockLanguageModel from "@scenesystems/effect-dsp/MockLanguageModel"
 import * as Module from "@scenesystems/effect-dsp/Module"
 import { ModuleParameters } from "@scenesystems/effect-dsp/ModuleParameters"
 import * as Signature from "@scenesystems/effect-dsp/Signature"
-import { Array as Arr, Effect, Exit, Fiber, Layer, Ref, Schema, Stream } from "effect"
+import { Array as Arr, Boolean as Bool, Effect, Exit, Fiber, Layer, Ref, Schema, Stream } from "effect"
 
 const makeQaSignature = () =>
   Signature.make(
@@ -76,9 +76,10 @@ describe("MIPROv2.stream", () => {
 
       const mock = yield* MockLanguageModel.make(
         MockLanguageModel.map((prompt) =>
-          prompt.includes("[miprov2-proposal:")
-            ? "Use concise factual answers"
-            : { answer: "Paris" }
+          Bool.match(prompt.includes("[miprov2-proposal:"), {
+            onTrue: () => "Use concise factual answers",
+            onFalse: () => ({ answer: "Paris" })
+          })
         )
       )
       const layer = Layer.succeed(LanguageModel.LanguageModel, mock.service)
@@ -108,9 +109,10 @@ describe("MIPROv2.stream", () => {
         MockLanguageModel.fromFunction((prompt) =>
           Effect.sleep("50 millis").pipe(
             Effect.as(
-              prompt.includes("[miprov2-proposal:")
-                ? "Use concise factual answers"
-                : { answer: "Paris" }
+              Bool.match(prompt.includes("[miprov2-proposal:"), {
+                onTrue: () => "Use concise factual answers",
+                onFalse: () => ({ answer: "Paris" })
+              })
             )
           )
         )
@@ -141,16 +143,18 @@ describe("MIPROv2.stream", () => {
 
       const mockA = yield* MockLanguageModel.make(
         MockLanguageModel.map((prompt) =>
-          prompt.includes("[miprov2-proposal:")
-            ? "Use concise factual answers"
-            : { answer: "Paris" }
+          Bool.match(prompt.includes("[miprov2-proposal:"), {
+            onTrue: () => "Use concise factual answers",
+            onFalse: () => ({ answer: "Paris" })
+          })
         )
       )
       const mockB = yield* MockLanguageModel.make(
         MockLanguageModel.map((prompt) =>
-          prompt.includes("[miprov2-proposal:")
-            ? "Use concise factual answers"
-            : { answer: "Paris" }
+          Bool.match(prompt.includes("[miprov2-proposal:"), {
+            onTrue: () => "Use concise factual answers",
+            onFalse: () => ({ answer: "Paris" })
+          })
         )
       )
       const layerA = Layer.succeed(LanguageModel.LanguageModel, mockA.service)

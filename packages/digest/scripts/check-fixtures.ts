@@ -8,7 +8,20 @@ import { FileSystem, Path, Url } from "@effect/platform"
 import { BunContext, BunRuntime } from "@effect/platform-bun"
 import type * as PlatformError from "@effect/platform/Error"
 import type { ParseResult } from "effect"
-import { Array as Arr, Console, Data, Effect, Either, Encoding, Option, Schema, Stream } from "effect"
+import {
+  Array as Arr,
+  Boolean as Bool,
+  Console,
+  Data,
+  Effect,
+  Either,
+  Encoding,
+  Match,
+  Option,
+  Schema,
+  Stream,
+  String as Str
+} from "effect"
 
 import * as Digest from "@scenesystems/digest/Digest"
 import * as Fixtures from "./fixtures.js"
@@ -69,43 +82,55 @@ const findJsonFiles = (
   prefix: string
 ): Effect.Effect<Array<Either.Either<string, FixtureCheckError>>, never> =>
   Effect.gen(function*() {
-    const directory = prefix === "" ? root : pathService.join(root, prefix)
+    const directory = Bool.match(Str.isEmpty(prefix), {
+      onTrue: () => root,
+      onFalse: () => pathService.join(root, prefix)
+    })
     const entries = yield* Effect.either(fileSystem.readDirectory(directory))
-    if (Either.isLeft(entries)) {
-      return [Either.left(
-        new FixtureCheckError({
-          name: "scan",
-          file: directory,
-          reason: "could not read directory",
-          cause: Option.some(entries.left)
-        })
-      )]
-    }
-
-    const nested = yield* Effect.forEach(entries.right, (entry) =>
-      Effect.gen(function*() {
-        const relative = prefix === "" ? entry : `${prefix}/${entry}`
-        const absolute = pathService.join(root, relative)
-        const stat = yield* Effect.either(fileSystem.stat(absolute))
-        if (Either.isLeft(stat)) {
-          return [Either.left(
-            new FixtureCheckError({
-              name: "scan",
-              file: absolute,
-              reason: "could not stat",
-              cause: Option.some(stat.left)
+    return yield* Either.match(entries, {
+      onLeft: (error) =>
+        Effect.succeed([Either.left(
+          new FixtureCheckError({
+            name: "scan",
+            file: directory,
+            reason: "could not read directory",
+            cause: Option.some(error)
+          })
+        )]),
+      onRight: (entries) =>
+        Effect.map(
+          Effect.forEach(entries, (entry) => {
+            const relative = Bool.match(Str.isEmpty(prefix), {
+              onTrue: () => entry,
+              onFalse: () => `${prefix}/${entry}`
             })
-          )]
-        }
-
-        if (stat.right.type === "Directory") {
-          return yield* findJsonFiles(fileSystem, pathService, root, relative)
-        }
-
-        return entry.endsWith(".json") ? [Either.right(relative)] : Arr.empty()
-      }))
-
-    return Arr.flatten(nested)
+            const absolute = pathService.join(root, relative)
+            return Effect.flatMap(Effect.either(fileSystem.stat(absolute)), (stat) =>
+              Either.match(stat, {
+                onLeft: (error) =>
+                  Effect.succeed([Either.left(
+                    new FixtureCheckError({
+                      name: "scan",
+                      file: absolute,
+                      reason: "could not stat",
+                      cause: Option.some(error)
+                    })
+                  )]),
+                onRight: (stat) =>
+                  Match.value(stat.type).pipe(
+                    Match.when("Directory", () => findJsonFiles(fileSystem, pathService, root, relative)),
+                    Match.orElse(() =>
+                      Effect.succeed(Bool.match(Str.endsWith(".json")(entry), {
+                        onTrue: () => [Either.right(relative)],
+                        onFalse: Arr.empty
+                      }))
+                    )
+                  )
+              }))
+          }),
+          Arr.flatten
+        )
+    })
   })
 
 const program = Effect.gen(function*() {
@@ -160,14 +185,17 @@ const program = Effect.gen(function*() {
       )
 
       const actualSha256 = yield* toSha256Hex(bytes)
-      if (actualSha256 !== source.contentSha256) {
-        return yield* new FixtureCheckError({
-          name: source.id,
-          file: source.fixturePath,
-          reason: `contentSha256 mismatch: expected ${source.contentSha256}, got ${actualSha256}`,
-          cause: Option.none()
-        })
-      }
+      yield* Effect.when(
+        Effect.fail(
+          new FixtureCheckError({
+            name: source.id,
+            file: source.fixturePath,
+            reason: `contentSha256 mismatch: expected ${source.contentSha256}, got ${actualSha256}`,
+            cause: Option.none()
+          })
+        ),
+        () => Bool.not(Str.Equivalence(actualSha256, source.contentSha256))
+      )
 
       return source.id
     }).pipe(Effect.either))
@@ -181,22 +209,24 @@ const program = Effect.gen(function*() {
   const [scanErrors, discoveredJsonFiles] = Arr.separate(externalJsonFiles)
   const scannedFixturePaths = Arr.filter(
     Arr.map(discoveredJsonFiles, (file) => normalizeRelativePath(pathService, file)),
-    (file) => file !== Fixtures.manifestFile
+    (file) => Bool.not(Str.Equivalence(file, Fixtures.manifestFile))
   )
 
   const orphanErrors = Arr.filterMap(
     scannedFixturePaths,
     (fixturePath) =>
-      Arr.some(expectedFixturePaths, (expected) => expected === fixturePath)
-        ? Option.none<FixtureCheckError>()
-        : Option.some(
-          new FixtureCheckError({
-            name: "orphan",
-            file: fixturePath,
-            reason: "fixture file exists on disk but is not declared in sources.manifest.json",
-            cause: Option.none()
-          })
-        )
+      Bool.match(Arr.contains(expectedFixturePaths, fixturePath), {
+        onTrue: Option.none,
+        onFalse: () =>
+          Option.some(
+            new FixtureCheckError({
+              name: "orphan",
+              file: fixturePath,
+              reason: "fixture file exists on disk but is not declared in sources.manifest.json",
+              cause: Option.none()
+            })
+          )
+      })
   )
 
   const [resultErrors, passedNames] = Arr.separate(fixtureResults)
@@ -211,14 +241,17 @@ const program = Effect.gen(function*() {
   yield* Console.log()
   yield* Console.log(`Results: ${passedNames.length} passed, ${allErrors.length} failed`)
 
-  if (Arr.isNonEmptyArray(allErrors)) {
-    return yield* new FixtureCheckError({
-      name: "summary",
-      file: "",
-      reason: `${allErrors.length} fixture check failure(s)`,
-      cause: Option.none()
-    })
-  }
+  yield* Effect.when(
+    Effect.fail(
+      new FixtureCheckError({
+        name: "summary",
+        file: "",
+        reason: `${allErrors.length} fixture check failure(s)`,
+        cause: Option.none()
+      })
+    ),
+    () => Arr.isNonEmptyArray(allErrors)
+  )
 })
 
 const main = program.pipe(Effect.provide(BunContext.layer))

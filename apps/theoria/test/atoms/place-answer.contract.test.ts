@@ -1,5 +1,5 @@
 import { expect } from "@effect/vitest"
-import { Effect, Option } from "effect"
+import { Boolean as Bool, Effect, Option } from "effect"
 import * as Arr from "effect/Array"
 
 import { PlaceAnswer, type PlaceMark, placeSourceId } from "../../app/contracts/demo/imagined-place-provenance.js"
@@ -130,7 +130,7 @@ describeOnStage("answer lifetime", (it) => {
       // A declined proposal's ghost stands at the margin only while the proposing act is read; its feature
       // is still in the build, so the page could answer for it — but the mark that opened the answer is gone.
       const { build, showingTrial } = yield* onStage
-      const declined = yield* Arr.findFirst(build.proposals, (record) => !record.accepted)
+      const declined = yield* Arr.findFirst(build.proposals, (record) => Bool.not(record.accepted))
       const ghost = new PlaceAnswer({
         triggerId: "ghost",
         mark: { _tag: "Feature", name: declined.proposal.feature.name }

@@ -98,6 +98,30 @@ export const SWITCH_STATEMENT_RULES = [
   }
 ]
 
+export const NATIVE_CONTROL_FLOW_RULES = [
+  {
+    selector: "IfStatement",
+    message: "Do not use if statements. Use Boolean.match, Match, Option, Either, or an Effect control-flow API."
+  },
+  {
+    selector: "ConditionalExpression",
+    message: "Do not use conditional expressions. Use Boolean.match, Match, Option, or Either."
+  },
+  {
+    selector: "LogicalExpression",
+    message: "Do not use JavaScript logical operators. Use Boolean, Option, Predicate, or an Effect control-flow API."
+  },
+  {
+    selector: "BinaryExpression[operator=/^(===|!==|==|!=|<|>|<=|>=|in|instanceof)$/]",
+    message:
+      "Do not use JavaScript comparisons. Use Effect Equivalence, Equal, Number, String, Predicate, or Match APIs."
+  },
+  {
+    selector: "UnaryExpression[operator=/^(!|typeof)$/]",
+    message: "Do not use JavaScript unary predicates. Use Boolean.not or Predicate APIs."
+  }
+]
+
 export const ENTRY_POINT_RULES = [
   {
     selector: "CallExpression[callee.object.name='Effect'][callee.property.name='runPromise']",

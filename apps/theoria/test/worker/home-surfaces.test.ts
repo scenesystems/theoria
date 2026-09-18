@@ -1,6 +1,6 @@
 // @vitest-environment node
 import { expect, layer } from "@effect/vitest"
-import { Effect, Layer, Number as Num } from "effect"
+import { Boolean as Bool, Effect, Layer, Number as Num, String as Str } from "effect"
 import * as Arr from "effect/Array"
 import { evaluate, evaluateElement } from "./browser.js"
 
@@ -125,7 +125,7 @@ layer(Layer.merge(SiteLive, BrowserLive), { excludeTestServices: true, timeout: 
         yield* press(page, "Space")
         const after = yield* until(
           act(() => lines.allInnerTexts()),
-          (text) => Arr.join(text, " ") !== Arr.join(before, " "),
+          (text) => Bool.not(Str.Equivalence(Arr.join(text, " "), Arr.join(before, " "))),
           "the merged proposal changes the prose",
           searchSettlesWithin
         )

@@ -32,14 +32,16 @@ describe("wordmark morph timing", () => {
       const midSweep = Arr.map(segments, (index) => segmentProgress(midSweepFrame, index))
 
       expect(segmentProgress(midSweepFrame, 0)).toBeGreaterThan(segmentProgress(midSweepFrame, 5))
-      expect(Arr.every(Arr.zip(midSweep, Arr.drop(midSweep, 1)), ([left, right]) => left >= right)).toBe(true)
+      expect(
+        Arr.every(Arr.zip(midSweep, Arr.drop(midSweep, 1)), ([left, right]) => Num.greaterThanOrEqualTo(left, right))
+      ).toBe(true)
     }))
 
   it.effect("sweeps back so the cycle ends where it began", () =>
     Effect.sync(() => {
       const beforeEnd = Arr.map(segments, (index) => segmentProgress(Num.subtract(totalFrames, 0.001), index))
 
-      expect(Arr.every(beforeEnd, (progress) => progress < 0.05)).toBe(true)
+      expect(Arr.every(beforeEnd, Num.lessThan(0.05))).toBe(true)
     }))
 })
 
@@ -59,7 +61,9 @@ describe("wordmark pass keyframes", () => {
         const { times } = segmentPass(index)
         expect(times[0]).toBe(0)
         expect(times[Num.decrement(times.length)]).toBe(1)
-        expect(Arr.every(Arr.zip(times, Arr.drop(times, 1)), ([earlier, later]) => earlier <= later)).toBe(true)
+        expect(
+          Arr.every(Arr.zip(times, Arr.drop(times, 1)), ([earlier, later]) => Num.lessThanOrEqualTo(earlier, later))
+        ).toBe(true)
       })
     }))
 

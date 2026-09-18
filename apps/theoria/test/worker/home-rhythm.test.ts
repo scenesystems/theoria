@@ -2,7 +2,7 @@
 import { expect, layer } from "@effect/vitest"
 import type { Page } from "@playwright/test"
 import { Numeric } from "@scenesystems/effect-math"
-import { Effect, Layer, Number as Num } from "effect"
+import { Boolean as Bool, Effect, Layer, Number as Num } from "effect"
 import * as Arr from "effect/Array"
 import { evaluate } from "./browser.js"
 
@@ -63,12 +63,14 @@ layer(Layer.merge(SiteLive, BrowserLive), { excludeTestServices: true, timeout: 
             expect(actGap, `${at}: acts ${String(actGap)}px apart, ${String(measured.withinStep)}px within one`)
               .toBeGreaterThanOrEqual(Num.multiply(measured.withinStep, stepsApart))
             // Where the columns are stacked, Arrange is a step above Compose and stands the same distance from it.
-            if (width < 1024) {
-              alike(
-                [Num.subtract(measured.compose.top, measured.arrange.bottom), actGap],
-                `${at}: Arrange stands apart from Compose`
-              )
-            }
+            Bool.match(Num.lessThan(width, 1024), {
+              onFalse: () => undefined,
+              onTrue: () =>
+                alike(
+                  [Num.subtract(measured.compose.top, measured.arrange.bottom), actGap],
+                  `${at}: Arrange stands apart from Compose`
+                )
+            })
 
             // The demonstration's two columns end together; the next region stands off whichever is longer.
             const regionGaps = Arr.make(

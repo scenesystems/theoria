@@ -1,7 +1,8 @@
 // @vitest-environment node
 import { expect, layer } from "@effect/vitest"
-import { Chunk, Duration, Effect, Fiber, Layer, Number as Num, Option, Schedule, Stream } from "effect"
+import { Boolean as Bool, Chunk, Duration, Effect, Fiber, Layer, Number as Num, Option, Schedule, Stream } from "effect"
 import * as Arr from "effect/Array"
+import * as Str from "effect/String"
 import { evaluate, evaluateElement, evaluateElements } from "./browser.js"
 
 import { placeScenarioMeta } from "../../app/contracts/imagined-place.js"
@@ -94,7 +95,7 @@ layer(Layer.merge(SiteLive, BrowserLive), { excludeTestServices: true, timeout: 
 
         // The line that digested the neighbor's proposal lights the one disc that proposal put on the paper.
         const built = page.locator("[data-place-how-its-built]")
-        const propose = yield* Arr.findFirst(placeStepDefinitions, (step) => step.id === "propose")
+        const propose = yield* Arr.findFirst(placeStepDefinitions, (step) => Str.Equivalence(step.id, "propose"))
         yield* click(built.getByRole("tab", { name: propose.name }))
         const digestLine = built.locator("[data-provenance*='proposal-digest'] [data-code-annotation]")
         yield* act(() => digestLine.scrollIntoViewIfNeeded())
@@ -117,7 +118,7 @@ layer(Layer.merge(SiteLive, BrowserLive), { excludeTestServices: true, timeout: 
         // The digest's answer stays until dismissed — over the step tabs, here — so it is let go first.
         yield* press(page, "Escape")
         yield* hidden(overlay)
-        const arrange = yield* Arr.findFirst(placeStepDefinitions, (step) => step.id === "arrange")
+        const arrange = yield* Arr.findFirst(placeStepDefinitions, (step) => Str.Equivalence(step.id, "arrange"))
         yield* click(built.getByRole("tab", { name: arrange.name }))
         // Between two answers the overlay holds both for a moment; the title asked about is the current one's.
         const title = overlay.locator("[data-current]").getByRole("heading", { level: 3 })
@@ -402,7 +403,7 @@ layer(Layer.merge(SiteLive, BrowserLive), { excludeTestServices: true, timeout: 
 
         yield* evaluateElement(page.locator("[data-place-act='propose']"), scrollElementTo, 0.45)
         yield* attribute(stage, "data-place-stage-act", "propose")
-        yield* until(act(() => ghosts.count()), (found) => found >= 1, "a ghost disc")
+        yield* until(act(() => ghosts.count()), Num.greaterThanOrEqualTo(1), "a ghost disc")
         const ghost = ghosts.first()
         yield* click(ghost)
         yield* visible(overlay)
@@ -450,7 +451,7 @@ layer(Layer.merge(SiteLive, BrowserLive), { excludeTestServices: true, timeout: 
           evaluate(page, answerPopupsShowing),
           Schedule.spaced("16 millis").pipe(Schedule.upTo(Duration.seconds(12)))
         ).pipe(
-          Stream.takeUntil(({ popups }) => popups === 0),
+          Stream.takeUntil(({ popups }) => Num.Equivalence(popups, 0)),
           Stream.runCollect,
           Effect.map(Chunk.toReadonlyArray),
           Effect.fork
@@ -459,9 +460,14 @@ layer(Layer.merge(SiteLive, BrowserLive), { excludeTestServices: true, timeout: 
         yield* Effect.sleep(Duration.millis(200))
         yield* build.release
         const popupUntilGone = yield* Fiber.join(sampling)
-        const whileOnPage = Arr.filter(popupUntilGone, ({ popups }) => popups > 0)
+        const whileOnPage = Arr.filter(popupUntilGone, ({ popups }) => Num.greaterThan(popups, 0))
         expect(whileOnPage.length).toBeGreaterThan(8)
-        expect(Arr.every(whileOnPage, ({ titles }) => titles.length === 1 && titles[0] === title)).toBe(true)
+        expect(
+          Arr.every(
+            whileOnPage,
+            ({ titles }) => Bool.and(Num.Equivalence(Arr.length(titles), 1), Option.contains(Arr.head(titles), title))
+          )
+        ).toBe(true)
         yield* hidden(overlay)
         // The answer went with its drawing, not with a press: no mark of the new drawing was handed focus.
         yield* count(demo.locator("[data-provenance][data-popup-open]"), 0)

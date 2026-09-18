@@ -1,6 +1,6 @@
 import { FileSystem, Path, Url } from "@effect/platform"
 import { BunContext } from "@effect/platform-bun"
-import { Effect, Option, Schema } from "effect"
+import { Effect, Option, Schema, String as Str } from "effect"
 
 import {
   FixtureFileReadError,
@@ -85,7 +85,7 @@ export const findManifestEntry = (
   manifest: FixtureManifest,
   name: FixtureName
 ): Option.Option<Schema.Schema.Type<typeof FixtureManifestEntrySchema>> =>
-  Option.fromNullable(manifest.fixtures.find((entry) => entry.name === name))
+  Option.fromNullable(manifest.fixtures.find((entry) => Str.Equivalence(entry.name, name)))
 
 const decodeFixture = (
   fixtureName: FixtureName,
@@ -102,7 +102,7 @@ const decodeFixture = (
         })
     ),
     Effect.filterOrFail(
-      (fixture) => fixture.fixture === fixtureName,
+      (fixture) => Str.Equivalence(fixture.fixture, fixtureName),
       (fixture) =>
         new FixtureSchemaDecodeError({
           fixture: fixtureName,

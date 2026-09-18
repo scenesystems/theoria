@@ -1,6 +1,6 @@
 // @vitest-environment node
 import { expect, layer } from "@effect/vitest"
-import { Chunk, Duration, Effect, Fiber, Layer, Number as Num, Option, Schedule, Stream } from "effect"
+import { Boolean as Bool, Chunk, Duration, Effect, Fiber, Layer, Number as Num, Option, Schedule, Stream } from "effect"
 import * as Arr from "effect/Array"
 import * as Str from "effect/String"
 import { evaluate, evaluateElement } from "./browser.js"
@@ -65,10 +65,12 @@ layer(Layer.merge(SiteLive, BrowserLive), { excludeTestServices: true, timeout: 
         yield* goto(page, "/")
         yield* drawn(page)
         // Nothing has failed while the build and the first drawing are on their way.
-        expect(Arr.filter(yield* Fiber.join(told), (shown) => shown > 0)).toEqual([])
+        expect(Arr.filter(yield* Fiber.join(told), Num.greaterThan(0))).toEqual([])
         // The paper is cut to size before the first trial is in, and holds that size until the drawing lands.
         const papers = yield* paperUntilLanding(page)
-        expect(Arr.some(papers, (sample) => Option.isSome(sample.height) && Option.isNone(sample.phase))).toBe(true)
+        expect(Arr.some(papers, (sample) => Bool.and(Option.isSome(sample.height), Option.isNone(sample.phase)))).toBe(
+          true
+        )
         expect(Arr.dedupe(Arr.filterMap(papers, (sample) => sample.height))).toHaveLength(1)
         yield* count(page.locator("[data-place-step]"), placeStepDefinitions.length)
         yield* visible(page.locator("[data-place-marker]").first())
@@ -95,7 +97,7 @@ layer(Layer.merge(SiteLive, BrowserLive), { excludeTestServices: true, timeout: 
         yield* attribute(paper, "data-overflow-y-end", "")
         const cut = yield* until(
           evaluateElement(paper, scrollAffordance),
-          (affordance) => affordance.scrollbarPainted && affordance.fadePainted,
+          (affordance) => Bool.and(affordance.scrollbarPainted, affordance.fadePainted),
           "the paper's scrollbar and fade painted"
         )
         expect(cut.overflows).toBe(true)
@@ -115,7 +117,7 @@ layer(Layer.merge(SiteLive, BrowserLive), { excludeTestServices: true, timeout: 
         // The Arrange code answers for the drawing on the stage — this trial, not the kept one —
         // so its line count, the popup it opens, and the prose on the paper agree.
         const built = page.locator("[data-place-how-its-built]")
-        const arrange = yield* Arr.findFirst(placeStepDefinitions, (step) => step.id === "arrange")
+        const arrange = yield* Arr.findFirst(placeStepDefinitions, (step) => Str.Equivalence(step.id, "arrange"))
         yield* click(built.getByRole("tab", { name: arrange.name }))
         const layoutLine = built.locator("[data-place-code-step='arrange'] [data-code-annotation]", {
           hasText: "lines at"
@@ -281,10 +283,14 @@ layer(Layer.merge(SiteLive, BrowserLive), { excludeTestServices: true, timeout: 
               yield* attribute(slider, "aria-valuenow", String(trial))
               const frame = yield* until(
                 evaluateElement(demo, stageFrame),
-                (sampled) => sampled.trial === String(trial) && Arr.isNonEmptyReadonlyArray(sampled.clearance),
+                (sampled) =>
+                  Bool.and(
+                    Str.Equivalence(sampled.trial, String(trial)),
+                    Arr.isNonEmptyReadonlyArray(sampled.clearance)
+                  ),
                 `trial ${String(Num.increment(trial))} drawn with its lines`
               )
-              yield* Effect.when(press(page, "ArrowRight"), () => trial < Num.decrement(renderTrials))
+              yield* Effect.when(press(page, "ArrowRight"), () => Num.lessThan(trial, Num.decrement(renderTrials)))
               return frame
             })
         )
@@ -327,7 +333,7 @@ layer(Layer.merge(SiteLive, BrowserLive), { excludeTestServices: true, timeout: 
               evaluate(page, finishingTouches),
               Schedule.spaced("16 millis").pipe(Schedule.upTo("14 seconds"))
             ).pipe(
-              Stream.takeUntil((frame) => frame.walk === 1),
+              Stream.takeUntil((frame) => Num.Equivalence(frame.walk, 1)),
               Stream.runCollect,
               Effect.map(Chunk.toReadonlyArray)
             )
@@ -335,10 +341,13 @@ layer(Layer.merge(SiteLive, BrowserLive), { excludeTestServices: true, timeout: 
             const settled = yield* evaluate(page, finishingTouches)
             expect(yield* failures).toEqual([])
             return {
-              walks: Arr.dedupe(Arr.filter(Arr.map(frames, (frame) => frame.walk), (walk) => walk >= 0)),
+              walks: Arr.dedupe(Arr.filter(Arr.map(frames, (frame) => frame.walk), Num.greaterThanOrEqualTo(0))),
               washes: Arr.dedupe(
                 Arr.filterMap(frames, (frame) =>
-                  frame.wash.changes === "1" ? Option.some(frame.wash.opacity) : Option.none())
+                  Bool.match(Str.Equivalence(frame.wash.changes, "1"), {
+                    onFalse: Option.none,
+                    onTrue: () => Option.some(frame.wash.opacity)
+                  }))
               ),
               settled
             }
@@ -346,13 +355,13 @@ layer(Layer.merge(SiteLive, BrowserLive), { excludeTestServices: true, timeout: 
         const full = yield* finishing("no-preference")
         // The walk was seen part-drawn on its way to whole; the wash was seen fading and has settled to nothing.
         expect(
-          Arr.some(full.walks, (walk) => walk > 0 && walk < 1),
+          Arr.some(full.walks, (walk) => Bool.and(Num.greaterThan(walk, 0), Num.lessThan(walk, 1))),
           Arr.join(Arr.map(full.walks, (walk) => `${walk}`), " ")
         )
           .toBe(true)
         expect(Arr.last(full.walks)).toEqual(Option.some(1))
         expect(
-          Arr.some(full.washes, (opacity) => opacity > 0 && opacity < 1),
+          Arr.some(full.washes, (opacity) => Bool.and(Num.greaterThan(opacity, 0), Num.lessThan(opacity, 1))),
           Arr.join(Arr.map(full.washes, (opacity) => `${opacity}`), " ")
         ).toBe(true)
         expect(full.settled).toEqual({ walk: 1, wash: { changes: "1", opacity: 0 } })
@@ -420,7 +429,7 @@ layer(Layer.merge(SiteLive, BrowserLive), { excludeTestServices: true, timeout: 
             evaluateElement(band, bandDiscCentre, neighborName),
             evaluateElement(band, bandShowsKept, name)
           ]),
-          ([neighborCentre, kept]) => neighborCentre === "" && kept
+          ([neighborCentre, kept]) => Bool.and(Str.isEmpty(neighborCentre), kept)
         )
         const decline = yield* Effect.fork(nextResponse(page, "POST", "/api/imagined-place/build"))
         yield* click(neighbor.getByRole("switch"))

@@ -1,5 +1,5 @@
 import { expect } from "@effect/vitest"
-import { Effect } from "effect"
+import { Effect, String as Str } from "effect"
 import * as Arr from "effect/Array"
 
 import { legendFromMarkers, legendFromOutline } from "../../app/web/view/home/placeViewModel.js"
@@ -27,7 +27,7 @@ describeOnStage("place legend", (it) => {
       const legend = legendFromOutline(build.artifact)
       const own = Arr.take(legend, build.artifact.composition.features.length)
       const merged = Arr.drop(legend, build.artifact.composition.features.length)
-      expect(Arr.every(own, (entry) => entry.contributedBy === "author")).toBe(true)
+      expect(Arr.every(own, (entry) => Str.Equivalence(entry.contributedBy, "author"))).toBe(true)
       expect(Arr.map(merged, (entry) => entry.contributedBy)).toEqual(
         Arr.map(build.artifact.accepted, (proposal) => proposal.proposer)
       )

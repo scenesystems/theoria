@@ -1,7 +1,7 @@
 // @vitest-environment node
 import { expect, layer } from "@effect/vitest"
 import type { Locator, Page } from "@playwright/test"
-import { Chunk, Effect, Layer, Match, Number as Num, Option, Schedule, Schema, Stream } from "effect"
+import { Boolean as Bool, Chunk, Effect, Layer, Match, Number as Num, Option, Schedule, Schema, Stream } from "effect"
 import * as Arr from "effect/Array"
 import * as Record from "effect/Record"
 import * as Str from "effect/String"
@@ -64,11 +64,14 @@ const shortViewport = 640
 const twoColumns = 1024
 
 const firstViewportLead = (viewport: Viewport): FirstViewportLead =>
-  viewport.height < shortViewport
-    ? "hero"
-    : viewport.width >= twoColumns
-    ? "arrival-and-both-headers"
-    : "arrival-and-first-header"
+  Bool.match(Num.lessThan(viewport.height, shortViewport), {
+    onFalse: () =>
+      Bool.match(Num.greaterThanOrEqualTo(viewport.width, twoColumns), {
+        onFalse: () => "arrival-and-first-header",
+        onTrue: () => "arrival-and-both-headers"
+      }),
+    onTrue: () => "hero"
+  })
 
 const stepHeader = (page: Page, step: "compose" | "arrange") =>
   page.locator(`[data-place-step='${step}'] [data-place-step-header]`)
@@ -119,7 +122,7 @@ const storyTaken = (page: Page, scenario: PlaceScenario) =>
  */
 const reaches = (kind: "text" | "graphic", ratio: number) => (locator: Locator) =>
   Effect.map(evaluateElement(locator, contrastsWithin), (measured) => {
-    const ofKind = Arr.filter(measured, (measure) => measure.kind === kind)
+    const ofKind = Arr.filter(measured, (measure) => Str.Equivalence(measure.kind, kind))
     expect(ofKind, `${kind} to measure`).not.toEqual([])
     Arr.forEach(ofKind, (measure) => {
       expect(measure.ratio, measure.name).toBeGreaterThanOrEqual(ratio)
@@ -195,7 +198,10 @@ layer(Layer.merge(SiteUnderTest, BrowserLive), { excludeTestServices: true, time
           Arr.map(
             Arr.drop(
               Arr.scan(frames, { search: 0, trials: -1 }, (previous, frame) => ({
-                search: frame.trials < previous.trials ? Num.increment(previous.search) : previous.search,
+                search: Bool.match(Num.lessThan(frame.trials, previous.trials), {
+                  onFalse: () => previous.search,
+                  onTrue: () => Num.increment(previous.search)
+                }),
                 trials: frame.trials
               })),
               1
@@ -222,17 +228,25 @@ layer(Layer.merge(SiteUnderTest, BrowserLive), { excludeTestServices: true, time
             Arr.forEach(retained, (name) => {
               const stoodAt = (frames: ReadonlyArray<typeof before>) =>
                 Arr.dedupe(Arr.filterMap(frames, (frame) => Record.get(frame.placed, name)))
-              const ends = [before.placed[name] ?? "", after.placed[name] ?? ""]
-              if (Arr.contains(landmarks, name)) {
-                expect(Arr.difference(stoodAt(samples), ends), name).toEqual([])
-                return
-              }
-              const rested = before.placed[name] ?? ""
-              Arr.forEach(Arr.dedupe(Arr.map(sampled, ([drawing]) => drawing)), (drawing) => {
-                const during = stoodAt(
-                  Arr.filterMap(sampled, ([of, frame]) => of === drawing ? Option.some(frame) : Option.none())
-                )
-                expect(Arr.difference(during, [rested]).length, `${name} during ${drawing}`).toBeLessThanOrEqual(1)
+              const ends = [
+                Option.getOrElse(Record.get(before.placed, name), () => ""),
+                Option.getOrElse(Record.get(after.placed, name), () => "")
+              ]
+              Bool.match(Arr.contains(landmarks, name), {
+                onFalse: () => {
+                  const rested = Option.getOrElse(Record.get(before.placed, name), () => "")
+                  Arr.forEach(Arr.dedupe(Arr.map(sampled, ([drawing]) => drawing)), (drawing) => {
+                    const during = stoodAt(
+                      Arr.filterMap(sampled, ([of, frame]) =>
+                        Bool.match(Str.Equivalence(of, drawing), {
+                          onFalse: Option.none,
+                          onTrue: () => Option.some(frame)
+                        }))
+                    )
+                    expect(Arr.difference(during, [rested]).length, `${name} during ${drawing}`).toBeLessThanOrEqual(1)
+                  })
+                },
+                onTrue: () => expect(Arr.difference(stoodAt(samples), ends), name).toEqual([])
               })
             })
             // How many trials the sampled frames saw drawn, by the trace's count.

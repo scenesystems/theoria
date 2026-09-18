@@ -16,7 +16,7 @@ const placedOutright = new Travelling<number>({ ...travelling, duration: Duratio
 const collect = <A>(stream: Stream.Stream<A>) => Effect.map(Stream.runCollect(stream), Chunk.toReadonlyArray)
 
 const isMonotone = (values: ReadonlyArray<number>): boolean =>
-  Arr.every(Arr.zip(values, Arr.drop(values, 1)), ([earlier, later]) => later >= earlier)
+  Arr.every(Arr.zip(values, Arr.drop(values, 1)), ([earlier, later]) => Num.greaterThanOrEqualTo(later, earlier))
 
 describe("travel", () => {
   it.effect("the first target ever is placed outright", () =>
@@ -66,7 +66,7 @@ describe("travel", () => {
       const turned = yield* collect(toward(travelling, journey, -100))
       expect(Arr.head(turned)).toEqual(Option.some(reached))
       expect(Arr.last(turned)).toEqual(Option.some(-100))
-      expect(Arr.every(turned, (value) => value <= reached)).toBe(true)
+      expect(Arr.every(turned, Num.lessThanOrEqualTo(reached))).toBe(true)
       expect(Option.map((yield* Ref.get(journey)).travel, (travel) => travel.from)).toEqual(Option.some(reached))
     }))
 

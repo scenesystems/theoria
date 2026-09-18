@@ -14,7 +14,7 @@
  */
 import { BunContext, BunRuntime } from "@effect/platform-bun"
 import { BootstrapFewShot, Evaluate, Example, Metric, MIPROv2, Module, Signature } from "@scenesystems/effect-dsp"
-import { Array as Arr, Effect, Layer, Number as Num, Ref, Schema, Stream } from "effect"
+import { Array as Arr, Effect, Layer, Number as Num, Option, Ref, Schema, Stream } from "effect"
 import {
   makeStandardEvents,
   makeStandardModuleState,
@@ -257,8 +257,8 @@ const program = Effect.gen(function*() {
   })
   const optimizedParams = yield* Ref.get(planner.params)
 
-  const baselineScore = baseline.overallScores.exactMatch ?? 0
-  const optimizedScore = optimized.overallScores.exactMatch ?? 0
+  const baselineScore = Option.getOrElse(Option.fromNullable(baseline.overallScores.exactMatch), () => 0)
+  const optimizedScore = Option.getOrElse(Option.fromNullable(optimized.overallScores.exactMatch), () => 0)
   const outcomeSummary = MIPROv2.summarizeOutcome({
     baselineScore,
     optimizedScore,

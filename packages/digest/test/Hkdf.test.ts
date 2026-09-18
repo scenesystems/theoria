@@ -1,7 +1,7 @@
 import { BunContext } from "@effect/platform-bun"
 import { describe, expect, it } from "@effect/vitest"
 import * as Hkdf from "@scenesystems/digest/Hkdf"
-import { Array as Arr, Effect, Either, Encoding, Number as Num, Option, Schema } from "effect"
+import { Array as Arr, Effect, Either, Encoding, Match, Number as Num, Option, Schema } from "effect"
 
 import * as Fixtures from "../scripts/fixtures.js"
 import { expectByteLength, expectDigest } from "./helpers/assertions.js"
@@ -76,26 +76,28 @@ describe("Hkdf external conformance", () => {
         ))
 
       yield* Effect.forEach(fixtures, ({ fixture, source }) =>
-        fixture.algorithm === "hkdf-sha256"
-          ? Effect.forEach(fixture.cases, (vector) =>
-            Effect.gen(function*() {
-              const result = yield* Hkdf.sha256(
-                hexToBytes(vector.ikmHex),
-                Option.fromNullable(vector.saltHex).pipe(Option.map(hexToBytes)),
-                hexToBytes(vector.infoHex),
-                vector.length
-              )
-              expectStringMatch(
-                vector.id,
-                fixture.algorithm,
-                source.id,
-                source.sourceLocator,
-                source.fixturePath,
-                Encoding.encodeHex(result),
-                vector.expectedHex
-              )
-            }))
-          : Effect.void)
+        Match.value(fixture).pipe(
+          Match.when({ algorithm: "hkdf-sha256" }, (fixture) =>
+            Effect.forEach(fixture.cases, (vector) =>
+              Effect.gen(function*() {
+                const result = yield* Hkdf.sha256(
+                  hexToBytes(vector.ikmHex),
+                  Option.fromNullable(vector.saltHex).pipe(Option.map(hexToBytes)),
+                  hexToBytes(vector.infoHex),
+                  vector.length
+                )
+                expectStringMatch(
+                  vector.id,
+                  fixture.algorithm,
+                  source.id,
+                  source.sourceLocator,
+                  source.fixturePath,
+                  Encoding.encodeHex(result),
+                  vector.expectedHex
+                )
+              }))),
+          Match.orElse(() => Effect.void)
+        ))
     }).pipe(Effect.provide(BunContext.layer)))
 
   it.effect("matches every valid Wycheproof HKDF-SHA512 output", () =>
@@ -108,12 +110,20 @@ describe("Hkdf external conformance", () => {
           Effect.map((fixture) => ({ fixture, source }))
         ))
       const vectors = Arr.flatMap(fixtures, ({ fixture, source }) =>
-        fixture.algorithm === "HKDF-SHA-512"
-          ? Arr.flatMap(fixture.testGroups, (group) => Arr.map(group.tests, (vector) => ({ fixture, source, vector })))
-          : [])
+        Match.value(fixture).pipe(
+          Match.when({ algorithm: "HKDF-SHA-512" }, (fixture) =>
+            Arr.flatMap(
+              fixture.testGroups,
+              (group) => Arr.map(group.tests, (vector) => ({ fixture, source, vector }))
+            )),
+          Match.orElse(() => Arr.empty())
+        ))
 
       yield* Effect.forEach(
-        Arr.filter(vectors, ({ vector }) => vector.result === "valid"),
+        Arr.filter(
+          vectors,
+          ({ vector }) => Match.value(vector.result).pipe(Match.when("valid", () => true), Match.orElse(() => false))
+        ),
         ({ fixture, source, vector }) =>
           Effect.gen(function*() {
             const result = yield* Hkdf.sha512(

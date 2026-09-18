@@ -1,7 +1,7 @@
 import { Registry } from "@effect-atom/atom"
 import { useAtomValue } from "@effect-atom/atom-react"
 import { describe, expect, it } from "@effect/vitest"
-import { Boolean, Effect, Layer, Option } from "effect"
+import { Boolean, Effect, Layer, Option, String as Str } from "effect"
 
 import { docsKeyboardShortcutsAtom, docsSearchOpenAtom } from "../../app/web/atoms/docs.js"
 import { browserNavigationMountAtom, pageRouteAtom, shouldNavigateInBrowser } from "../../app/web/atoms/navigation.js"
@@ -107,13 +107,23 @@ describe("browser navigation", () => {
       yield* Effect.acquireRelease(atPath("/docs"), () => atPath("/"))
       const { container } = yield* mountWithRegistry(<NavigationHarness />)
 
-      yield* waitFor(() => container.querySelector("output")?.textContent === "/docs")
+      yield* waitFor(() =>
+        Option.exists(
+          Option.fromNullable(container.querySelector("output")?.textContent),
+          (text) => Str.Equivalence(text, "/docs")
+        )
+      )
       const mount = container.querySelector("main")
       const link = container.querySelector("a")
       const click = new browserWindow.MouseEvent("click", { bubbles: true, cancelable: true })
 
       link?.dispatchEvent(click)
-      yield* waitFor(() => container.querySelector("output")?.textContent === "/docs/effect-search/api/Study")
+      yield* waitFor(() =>
+        Option.exists(
+          Option.fromNullable(container.querySelector("output")?.textContent),
+          (text) => Str.Equivalence(text, "/docs/effect-search/api/Study")
+        )
+      )
 
       expect(click.defaultPrevented).toBe(true)
       expect(browserWindow.location.pathname).toBe("/docs/effect-search/api/Study")

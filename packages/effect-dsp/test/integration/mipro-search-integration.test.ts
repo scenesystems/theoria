@@ -10,7 +10,7 @@ import * as MockLanguageModel from "@scenesystems/effect-dsp/MockLanguageModel"
 import * as Module from "@scenesystems/effect-dsp/Module"
 import { ModuleParameters } from "@scenesystems/effect-dsp/ModuleParameters"
 import * as Signature from "@scenesystems/effect-dsp/Signature"
-import { Array as Arr, Effect, Layer, Option, Record, Ref, Schema } from "effect"
+import { Array as Arr, Boolean as Bool, Effect, Layer, Option, Record, Ref, Schema } from "effect"
 import { projectSingleObjective } from "../../src/EvaluationObjective.js"
 import {
   DemoCandidate,
@@ -139,9 +139,10 @@ describe("MIPROv2/effect-search integration", () => {
           Arr.findFirst(
             Arr.fromIterable(result.optimizationResult.trials),
             (trial) =>
-              Schema.is(Schema.Record({ key: Schema.String, value: Schema.Unknown }))(trial.config) &&
-              Record.has(trial.config, "qa__demo") &&
-              Record.has(trial.config, "qa__instruction")
+              Bool.and(
+                Schema.is(Schema.Record({ key: Schema.String, value: Schema.Unknown }))(trial.config),
+                Bool.and(Record.has(trial.config, "qa__demo"), Record.has(trial.config, "qa__instruction"))
+              )
           )
         )
       ).toBe(true)

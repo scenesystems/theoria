@@ -1,4 +1,16 @@
-import { Context, Effect, Layer, MutableHashMap, MutableHashSet, MutableRef, Option, Schema } from "effect"
+import {
+  Boolean as Bool,
+  Context,
+  Effect,
+  Equivalence,
+  Function as Fn,
+  Layer,
+  MutableHashMap,
+  MutableHashSet,
+  MutableRef,
+  Option,
+  Schema
+} from "effect"
 import * as Arr from "effect/Array"
 
 import { BrowserWindow } from "../../app/web/platform/BrowserWindow.js"
@@ -58,7 +70,7 @@ export const layer: Layer.Layer<ResizeObserving, never, BrowserWindow> = Layer.s
       }
 
       unobserve(target: Element): void {
-        MutableRef.update(this.watching, Arr.filter((watched) => watched !== target))
+        MutableRef.update(this.watching, Arr.filter((watched) => Bool.not(Equivalence.strict()(watched, target))))
       }
 
       disconnect(): void {
@@ -72,9 +84,10 @@ export const layer: Layer.Layer<ResizeObserving, never, BrowserWindow> = Layer.s
 
       /** Delivers `box` for `target` if this observer is watching it. */
       deliver(target: Element, box: ContentBox): void {
-        if (Arr.contains(MutableRef.get(this.watching), target)) {
-          this.callback([entryFor(target, box)], this)
-        }
+        Bool.match(Arr.contains(MutableRef.get(this.watching), target), {
+          onTrue: () => this.callback([entryFor(target, box)], this),
+          onFalse: Fn.constVoid
+        })
       }
     }
 

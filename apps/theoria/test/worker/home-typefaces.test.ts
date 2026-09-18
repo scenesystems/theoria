@@ -1,7 +1,7 @@
 // @vitest-environment node
 import { expect, layer } from "@effect/vitest"
 import type { Page } from "@playwright/test"
-import { Effect, Fiber, Layer, Number as Num, Option } from "effect"
+import { Boolean as Bool, Effect, Fiber, Layer, Number as Num, Option } from "effect"
 import * as Arr from "effect/Array"
 import * as Rec from "effect/Record"
 import * as Str from "effect/String"
@@ -59,17 +59,22 @@ const paperPhases = (page: Page) =>
   Effect.map(
     evaluate(page, recordedPaperFrames),
     (recorded) =>
-      Arr.map(Arr.filter(Str.split(recorded, "\n"), Str.isNonEmpty), (line) => Str.split(line, " ")[1] ?? "-")
+      Arr.map(Arr.filter(Str.split(recorded, "\n"), Str.isNonEmpty), (line) =>
+        Option.getOrElse(Arr.get(Str.split(line, " "), 1), () => "-"))
   )
 
 /** How many searches have landed: a `complete` after each run of trials. */
 const landings = (phases: ReadonlyArray<string>): number =>
-  Arr.filter(
-    phases,
-    (phase, index) =>
-      phase === "complete"
-      && Option.getOrElse(Arr.get(phases, Num.decrement(index)), () => "") !== "complete"
-  ).length
+  Arr.length(
+    Arr.filter(
+      phases,
+      (phase, index) =>
+        Bool.and(
+          Str.Equivalence(phase, "complete"),
+          Bool.not(Str.Equivalence(Option.getOrElse(Arr.get(phases, Num.decrement(index)), () => ""), "complete"))
+        )
+    )
+  )
 
 /**
  * Every region of the demonstration was painted at one height until the
@@ -125,7 +130,7 @@ layer(Layer.merge(SiteLive, BrowserLive), { excludeTestServices: true, timeout: 
           // This host has the Liberation faces, the metric clones of Arial and Courier New, so the title is set in one.
           expect(
             Arr.some(before.standIns, (standIn) =>
-              Str.endsWith("Liberation Sans")(standIn.family) && standIn.status === "loaded"),
+              Bool.and(Str.endsWith("Liberation Sans")(standIn.family), Str.Equivalence(standIn.status, "loaded"))),
             where
           ).toBe(true)
           const titleBefore = yield* evaluateElement(title, textBlockMetrics)
@@ -147,14 +152,15 @@ layer(Layer.merge(SiteLive, BrowserLive), { excludeTestServices: true, timeout: 
           const after = yield* until(
             evaluate(page, typefaces, measuredFont("body")),
             (faces) =>
-              faces.status === "loaded",
+              Str.Equivalence(faces.status, "loaded"),
             `${where}: the faces loaded`
           )
           expect(after.servedInHand, where).toBe(true)
           expect(after.loaded, where).toContain("Geist Mono Variable")
           yield* until(
             paperPhases(page),
-            (phases) => landings(phases) >= 2,
+            (phases) =>
+              Num.greaterThanOrEqualTo(landings(phases), 2),
             `${where}: a second landing`,
             searchSettlesWithin
           )

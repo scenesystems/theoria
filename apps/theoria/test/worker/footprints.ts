@@ -1,5 +1,5 @@
 import type { Page } from "@playwright/test"
-import { Effect, Option, Schema } from "effect"
+import { Boolean as Bool, Effect, Option, Schema } from "effect"
 import * as Arr from "effect/Array"
 import * as Rec from "effect/Record"
 import * as Str from "effect/String"
@@ -36,11 +36,12 @@ export const footprintsSoFar = (page: Page): Effect.Effect<ReadonlyArray<Footpri
     (recorded) => Arr.map(Arr.filter(Str.split(recorded, "\n"), Str.isNonEmpty), footprint)
   )
 
-const landing = (report: Footprint): boolean => report.phase === "landing" || report.phase === "complete"
+const landing = (report: Footprint): boolean =>
+  Bool.or(Str.Equivalence(report.phase, "landing"), Str.Equivalence(report.phase, "complete"))
 
 /** The footprints painted before the drawing first lands, by region, in the order painted. */
 export const untilLanding = (reports: ReadonlyArray<Footprint>): Record<string, ReadonlyArray<Footprint>> =>
-  Arr.groupBy(Arr.takeWhile(reports, (report) => !landing(report)), (report) => report.region)
+  Arr.groupBy(Arr.takeWhile(reports, (report) => Bool.not(landing(report))), (report) => report.region)
 
 /** Every footprint recorded until the drawing lands, by region, in the order painted. */
 export const footprintsUntilLanding = (
@@ -65,7 +66,7 @@ export const aroundSecondSearch = (
 ): { readonly first: ReadonlyArray<Footprint>; readonly second: ReadonlyArray<Footprint> } => {
   const secondStart = Arr.findFirstIndex(
     reports,
-    (report, index) => report.phase === "running" && Arr.some(Arr.take(reports, index), landing)
+    (report, index) => Bool.and(Str.Equivalence(report.phase, "running"), Arr.some(Arr.take(reports, index), landing))
   )
   return Option.match(secondStart, {
     onNone: () => ({ first: reports, second: [] }),

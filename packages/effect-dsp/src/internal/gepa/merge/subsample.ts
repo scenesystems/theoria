@@ -7,7 +7,7 @@
  */
 import * as Numeric from "@scenesystems/effect-math/Numeric"
 import { sampleStratifiedRoundRobin } from "@scenesystems/effect-search/Sampler"
-import { Array as Arr, Chunk, HashMap, Match, Number as Num, Option } from "effect"
+import { Array as Arr, Boolean as Bool, Chunk, HashMap, Match, Number as Num, Option } from "effect"
 import type { MergeComparison, MergeComparisonBucket, MergeComparisons } from "../model.js"
 
 type MergeBuckets = HashMap.HashMap<MergeComparisonBucket, Chunk.Chunk<MergeComparison>>
@@ -33,8 +33,9 @@ const bucketOrder = Chunk.make(PARENT_A_BETTER, PARENT_B_BETTER, TIE)
  */
 export const classifyMergeComparisonBucket = (comparison: MergeComparison): MergeComparisonBucket =>
   Match.value(Num.subtract(comparison.parentAScore, comparison.parentBScore)).pipe(
-    Match.when((delta) => delta > 0, () => PARENT_A_BETTER),
-    Match.when((delta) => delta < 0, () => PARENT_B_BETTER),
+    Match.when((delta) => Bool.not(Num.Equivalence(delta, delta)), () => TIE),
+    Match.when(Num.greaterThan(0), () => PARENT_A_BETTER),
+    Match.when(Num.lessThan(0), () => PARENT_B_BETTER),
     Match.orElse(() => TIE)
   )
 

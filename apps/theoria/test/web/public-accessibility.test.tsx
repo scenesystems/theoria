@@ -1,5 +1,5 @@
 import { describe, expect, it } from "@effect/vitest"
-import { Effect, Option } from "effect"
+import { Effect, Function as Fn, Option } from "effect"
 
 import * as BrowserDocument from "../../app/web/platform/BrowserDocument.js"
 import { neutralToneClasses } from "../../app/web/view/primitives/designSystem.js"
@@ -15,7 +15,7 @@ describe("public-site accessibility", () => {
           checked={false}
           disabled={false}
           label="Obstacles"
-          onToggle={() => undefined}
+          onToggle={Fn.constVoid}
           tone={neutralToneClasses}
         />
       )
@@ -34,7 +34,9 @@ describe("public-site accessibility", () => {
         </>
       )
 
-      yield* waitFor(() => container.textContent?.includes("Theoria") === true)
+      yield* waitFor(() =>
+        Option.exists(Option.fromNullable(container.textContent), (text) => text.includes("Theoria"))
+      )
       expect(container.querySelector("span:not([role])[aria-label]")).toBeNull()
       expect(container.querySelector("[role=\"img\"]")?.getAttribute("aria-label")).toBe("Theoria")
     }).pipe(Effect.scoped, Effect.provide(BrowserDocument.layer)))

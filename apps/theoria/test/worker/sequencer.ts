@@ -1,4 +1,4 @@
-import { Option } from "effect"
+import { Boolean as Bool, Option } from "effect"
 import * as Arr from "effect/Array"
 import * as Str from "effect/String"
 import { BaseSequencer, type TestSequencer, type TestSpecification, type Vitest } from "vitest/node"
@@ -11,7 +11,10 @@ import { shardOf } from "./shards.js"
  */
 const statsKey = (root: string, spec: TestSpecification): string => {
   const under = `${root}/`
-  const path = Str.startsWith(under)(spec.moduleId) ? Str.slice(under.length)(spec.moduleId) : spec.moduleId
+  const path = Bool.match(Str.startsWith(under)(spec.moduleId), {
+    onFalse: () => spec.moduleId,
+    onTrue: () => Str.slice(under.length)(spec.moduleId)
+  })
   return `${spec.project.name}:${path}`
 }
 

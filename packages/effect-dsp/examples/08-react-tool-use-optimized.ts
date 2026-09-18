@@ -14,11 +14,11 @@
  * Run: bun run examples/08-react-tool-use-optimized.ts
  */
 import * as Tool from "@effect/ai/Tool"
-import type * as Toolkit from "@effect/ai/Toolkit"
+import * as Toolkit from "@effect/ai/Toolkit"
 import { BunRuntime } from "@effect/platform-bun"
 import { BootstrapFewShot, Evaluate, Example, Metric, Module, Signature, Trace } from "@scenesystems/effect-dsp"
 import * as Numeric from "@scenesystems/effect-math/Numeric"
-import { Array as Arr, Effect, Number as Num, Ref, Schema } from "effect"
+import { Array as Arr, Effect, Match, Number as Num, Option, Ref, Schema, String as Str } from "effect"
 import { withLiveLanguageModel } from "./shared/live-provider-runtime.js"
 
 // Tools
@@ -43,68 +43,46 @@ const UnitConverter = Tool.make("UnitConverter", {
 })
 
 const evaluateExpression = (expr: string): string => {
-  const cleaned = expr.replaceAll(",", "").trim()
+  const cleaned = Str.trim(Str.replaceAll(",", "")(expr))
+  const calculate = (pattern: RegExp, operation: (left: number, right: number) => number): Option.Option<string> =>
+    Str.match(pattern)(cleaned).pipe(
+      Option.flatMap((matched) => Option.all({ left: Arr.get(matched, 1), right: Arr.get(matched, 2) })),
+      Option.map(({ left, right }) => String(operation(Number(left), Number(right))))
+    )
 
-  const addMatch = /^(\d+(?:\.\d+)?)\s*\+\s*(\d+(?:\.\d+)?)$/.exec(cleaned)
-  if (addMatch) return String(Num.sum(Number(addMatch[1]), Number(addMatch[2])))
-
-  const subMatch = /^(\d+(?:\.\d+)?)\s*-\s*(\d+(?:\.\d+)?)$/.exec(cleaned)
-  if (subMatch) return String(Num.subtract(Number(subMatch[1]), Number(subMatch[2])))
-
-  const mulMatch = /^(\d+(?:\.\d+)?)\s*\*\s*(\d+(?:\.\d+)?)$/.exec(cleaned)
-  if (mulMatch) return String(Num.multiply(Number(mulMatch[1]), Number(mulMatch[2])))
-
-  const divMatch = /^(\d+(?:\.\d+)?)\s*\/\s*(\d+(?:\.\d+)?)$/.exec(cleaned)
-  if (divMatch) return String(Num.unsafeDivide(Number(divMatch[1]), Number(divMatch[2])))
-
-  return "0"
+  return calculate(/^(\d+(?:\.\d+)?)\s*\+\s*(\d+(?:\.\d+)?)$/u, Num.sum).pipe(
+    Option.orElse(() => calculate(/^(\d+(?:\.\d+)?)\s*-\s*(\d+(?:\.\d+)?)$/u, Num.subtract)),
+    Option.orElse(() => calculate(/^(\d+(?:\.\d+)?)\s*\*\s*(\d+(?:\.\d+)?)$/u, Num.multiply)),
+    Option.orElse(() => calculate(/^(\d+(?:\.\d+)?)\s*\/\s*(\d+(?:\.\d+)?)$/u, Num.unsafeDivide)),
+    Option.getOrElse(() => "0")
+  )
 }
 
 const convertUnit = (value: number, from: string, to: string): string => {
-  const fromLower = from.toLowerCase()
-  const toLower = to.toLowerCase()
+  const units = { from: Str.toLowerCase(from), to: Str.toLowerCase(to) }
 
-  if (fromLower === "miles" && toLower === "km") return String(Numeric.round(Num.multiply(value, 1.60934), 2))
-  if (fromLower === "km" && toLower === "miles") return String(Numeric.round(Num.unsafeDivide(value, 1.60934), 2))
-  if (fromLower === "lbs" && toLower === "kg") return String(Numeric.round(Num.multiply(value, 0.453592), 2))
-  if (fromLower === "kg" && toLower === "lbs") return String(Numeric.round(Num.unsafeDivide(value, 0.453592), 2))
-  if (fromLower === "f" && toLower === "c") {
-    return String(Numeric.round(Num.unsafeDivide(Num.multiply(Num.subtract(value, 32), 5), 9), 2))
-  }
-  if (fromLower === "c" && toLower === "f") {
-    return String(Numeric.round(Num.sum(Num.unsafeDivide(Num.multiply(value, 9), 5), 32), 2))
-  }
-
-  return String(value)
+  return Match.value(units).pipe(
+    Match.when({ from: "miles", to: "km" }, () => String(Numeric.round(Num.multiply(value, 1.60934), 2))),
+    Match.when({ from: "km", to: "miles" }, () => String(Numeric.round(Num.unsafeDivide(value, 1.60934), 2))),
+    Match.when({ from: "lbs", to: "kg" }, () => String(Numeric.round(Num.multiply(value, 0.453592), 2))),
+    Match.when({ from: "kg", to: "lbs" }, () => String(Numeric.round(Num.unsafeDivide(value, 0.453592), 2))),
+    Match.when(
+      { from: "f", to: "c" },
+      () => String(Numeric.round(Num.unsafeDivide(Num.multiply(Num.subtract(value, 32), 5), 9), 2))
+    ),
+    Match.when(
+      { from: "c", to: "f" },
+      () => String(Numeric.round(Num.sum(Num.unsafeDivide(Num.multiply(value, 9), 5), 32), 2))
+    ),
+    Match.orElse(() => String(value))
+  )
 }
 
-const toolkit: Toolkit.WithHandler<{
-  readonly Calculator: typeof Calculator
-  readonly UnitConverter: typeof UnitConverter
-}> = {
-  tools: { Calculator, UnitConverter },
-  handle: (name, params) => {
-    if (name === "Calculator" && "expression" in params) {
-      const computed = evaluateExpression(params.expression)
-      const result: Tool.HandlerResult<typeof Calculator> = {
-        isFailure: false,
-        result: computed,
-        encodedResult: computed
-      }
-      return Effect.succeed(result)
-    }
-
-    const converted = "value" in params && "from" in params && "to" in params
-      ? convertUnit(params.value, params.from, params.to)
-      : "0"
-    const result: Tool.HandlerResult<typeof UnitConverter> = {
-      isFailure: false,
-      result: converted,
-      encodedResult: converted
-    }
-    return Effect.succeed(result)
-  }
-}
+const MathTools = Toolkit.make(Calculator, UnitConverter)
+const MathToolsLive = MathTools.toLayer(MathTools.of({
+  Calculator: ({ expression }) => Effect.succeed(evaluateExpression(expression)),
+  UnitConverter: ({ from, to, value }) => Effect.succeed(convertUnit(value, from, to))
+}))
 
 // Datasets
 
@@ -145,6 +123,7 @@ const evalset = Arr.make(
 // Program
 
 const program = Effect.gen(function*() {
+  const toolkit = yield* MathTools.pipe(Effect.provide(MathToolsLive))
   // 1. Define signature
   const mathSignature = yield* Signature.make(
     "Solve math and unit-conversion word problems step-by-step. Use the Calculator tool for arithmetic and the UnitConverter tool for unit conversions. Return only the final number.",
@@ -220,8 +199,8 @@ const program = Effect.gen(function*() {
     concurrency: 1
   })
 
-  const optimizedScore = optimized.overallScores.exactMatch ?? 0
-  const baselineScore = baseline.overallScores.exactMatch ?? 0
+  const optimizedScore = Option.getOrElse(Option.fromNullable(optimized.overallScores.exactMatch), () => 0)
+  const baselineScore = Option.getOrElse(Option.fromNullable(baseline.overallScores.exactMatch), () => 0)
 
   yield* Effect.log("Optimized evaluation", {
     exactMatch: optimizedScore,

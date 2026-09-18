@@ -1,6 +1,6 @@
 import { Registry, Result } from "@effect-atom/atom"
 import { expect } from "@effect/vitest"
-import { Effect, Layer, MutableRef, Option } from "effect"
+import { Effect, Equivalence, Layer, MutableRef, Option } from "effect"
 import * as Arr from "effect/Array"
 
 import { codeSite, PlaceAnswer, placeSourceId } from "../../app/contracts/demo/imagined-place-provenance.js"
@@ -106,7 +106,7 @@ describeOnStage("the route from a credited line to its code", (it) => {
       expect(registry.get(placeAnswerFocusReturnAtom)).toBe("stays")
 
       // After the step has rendered: the line has focus, mid-viewport, and the section is the entry.
-      yield* waitFor(() => browserDocument.activeElement === mark)
+      yield* waitFor(() => Equivalence.strict()(browserDocument.activeElement, mark))
       expect(browserWindow.location.hash).toBe("#how-its-built")
       expect(MutableRef.get(scrolledWith)).toEqual(Option.some({ behavior: "smooth", block: "center" }))
     }).pipe(Effect.scoped, Effect.provide(pageLayer)))
@@ -114,7 +114,7 @@ describeOnStage("the route from a credited line to its code", (it) => {
   it.effect("lands at once when the reader asks for reduced motion", () =>
     Effect.gen(function*() {
       const { browserDocument, mark, scrolledWith } = yield* arrivedWith("reduced")
-      yield* waitFor(() => browserDocument.activeElement === mark)
+      yield* waitFor(() => Equivalence.strict()(browserDocument.activeElement, mark))
       expect(MutableRef.get(scrolledWith)).toEqual(Option.some({ behavior: "instant", block: "center" }))
     }).pipe(Effect.scoped, Effect.provide(pageLayer)))
 

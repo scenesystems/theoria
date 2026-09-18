@@ -1,7 +1,7 @@
 // @vitest-environment node
 import { expect, layer } from "@effect/vitest"
 import { Numeric } from "@scenesystems/effect-math"
-import { Effect, Fiber, Layer, Number as Num, Option } from "effect"
+import { Boolean as Bool, Effect, Fiber, Layer, Number as Num, Option } from "effect"
 import * as Arr from "effect/Array"
 import * as Str from "effect/String"
 import { evaluate, evaluateElement, evaluateElements } from "./browser.js"
@@ -84,7 +84,7 @@ layer(Layer.merge(SiteLive, BrowserLive), { excludeTestServices: true, timeout: 
         const walkTo = (role: string) =>
           Effect.map(
             Effect.iterate(Arr.empty<string>(), {
-              while: (trail) => !Arr.contains(trail, role) && trail.length < 12,
+              while: (trail) => Bool.and(Bool.not(Arr.contains(trail, role)), Num.lessThan(Arr.length(trail), 12)),
               body: (trail) =>
                 Effect.gen(function*() {
                   yield* press(page, "Tab")
@@ -101,7 +101,14 @@ layer(Layer.merge(SiteLive, BrowserLive), { excludeTestServices: true, timeout: 
         const remerge = yield* Effect.fork(nextResponse(page, "POST", "/api/imagined-place/build"))
         yield* press(page, "Space")
         expect((yield* Fiber.join(remerge)).status()).toBe(200)
-        yield* attribute(merge, "aria-checked", before === "true" ? "false" : "true")
+        yield* attribute(
+          merge,
+          "aria-checked",
+          Bool.match(Str.Equivalence(Option.getOrElse(Option.fromNullable(before), () => ""), "true"), {
+            onFalse: () => "true",
+            onTrue: () => "false"
+          })
+        )
 
         // The code tabs rove with arrows and activate on Enter (the listings are heavy), and the listing follows.
         const section = page.locator("[data-place-how-its-built]")
@@ -113,11 +120,15 @@ layer(Layer.merge(SiteLive, BrowserLive), { excludeTestServices: true, timeout: 
         yield* press(page, "ArrowRight")
         yield* eventually(focusRole, "tab")
         yield* press(page, "Enter")
-        yield* until(act(() => activeTab.innerText()), (name) => name !== firstStep, "the next tab is selected")
+        yield* until(
+          act(() => activeTab.innerText()),
+          (name) => Bool.not(Str.Equivalence(name, firstStep)),
+          "the next tab is selected"
+        )
         yield* count(listing, 1)
         yield* until(
           act(() => listing.getAttribute("data-place-code-step")),
-          (step) => step !== firstListing,
+          (step) => Bool.not(Str.Equivalence(Option.getOrElse(Option.fromNullable(step), () => ""), firstListing)),
           "the listing follows the selected tab"
         )
 
@@ -156,7 +167,12 @@ layer(Layer.merge(SiteLive, BrowserLive), { excludeTestServices: true, timeout: 
             const widths = yield* until(
               evaluate(page, stageAndColumnWidths),
               ({ column, drawable, frame, stage }) =>
-                stage > 0 && drawable === stage && frame <= column && stage === Num.min(stageMaxWidth, column),
+                Bool.every([
+                  Num.greaterThan(stage, 0),
+                  Num.Equivalence(drawable, stage),
+                  Num.lessThanOrEqualTo(frame, column),
+                  Num.Equivalence(stage, Num.min(stageMaxWidth, column))
+                ]),
               `the stage takes its column at ${String(width)}px`
             )
             return widths.stage
@@ -186,10 +202,12 @@ layer(Layer.merge(SiteLive, BrowserLive), { excludeTestServices: true, timeout: 
                     return { selected, first, indicator }
                   }),
                   ({ first, indicator, selected }) =>
-                    selected.top === first.top &&
-                    Numeric.abs(Num.subtract(indicator.bottom, selected.bottom)) <= 1 &&
-                    Numeric.abs(Num.subtract(indicator.left, selected.left)) <= 1 &&
-                    Numeric.abs(Num.subtract(indicator.right, selected.right)) <= 1,
+                    Bool.every([
+                      Num.Equivalence(selected.top, first.top),
+                      Num.lessThanOrEqualTo(Numeric.abs(Num.subtract(indicator.bottom, selected.bottom)), 1),
+                      Num.lessThanOrEqualTo(Numeric.abs(Num.subtract(indicator.left, selected.left)), 1),
+                      Num.lessThanOrEqualTo(Numeric.abs(Num.subtract(indicator.right, selected.right)), 1)
+                    ]),
                   "all tabs stay on one row and the underline follows the selection"
                 )
                 const references = section.locator("[data-place-reference]")
@@ -295,7 +313,7 @@ layer(Layer.merge(SiteLive, BrowserLive), { excludeTestServices: true, timeout: 
 
         yield* evaluateElement(page.locator("[data-place-act='propose']"), scrollElementTo, 0.45)
         yield* attribute(stage, "data-place-stage-act", "propose")
-        yield* until(act(() => page.locator("[data-place-ghost]").count()), (ghosts) => ghosts >= 1, "a ghost disc")
+        yield* until(act(() => page.locator("[data-place-ghost]").count()), Num.greaterThanOrEqualTo(1), "a ghost disc")
         expect(yield* failures).toEqual([])
       }))
 
@@ -369,7 +387,7 @@ layer(Layer.merge(SiteLive, BrowserLive), { excludeTestServices: true, timeout: 
                 expect(yield* palette).toEqual(inScheme)
                 const contrast = yield* until(
                   evaluate(page, paperProseContrast),
-                  (ratio) => ratio >= 4.5,
+                  Num.greaterThanOrEqualTo(4.5),
                   `prose contrast in ${scenario} ${scheme}`
                 )
                 expect(contrast).toBeGreaterThanOrEqual(4.5)

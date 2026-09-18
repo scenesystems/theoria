@@ -1,5 +1,5 @@
 import { describe, expect, it } from "@effect/vitest"
-import { Effect } from "effect"
+import { Effect, Number as Num, String as Str } from "effect"
 import * as Arr from "effect/Array"
 
 import { ErrorCode, httpStatus } from "../../app/contracts/error.js"
@@ -28,7 +28,7 @@ describe("Error contract", () => {
         expect(status, code).toBeGreaterThanOrEqual(400)
         expect(status, code).toBeLessThan(600)
         // Only a failed execution is the server's own fault; every other code names something about the request.
-        expect(status >= 500, code).toBe(code === "execution-failed")
+        expect(Num.greaterThanOrEqualTo(status, 500), code).toBe(Str.Equivalence(code, "execution-failed"))
       })
     }))
 })

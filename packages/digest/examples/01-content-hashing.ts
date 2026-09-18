@@ -3,7 +3,7 @@
 import { BunRuntime } from "@effect/platform-bun"
 import * as Digest from "@scenesystems/digest/Digest"
 import * as Utf8 from "@scenesystems/digest/Utf8"
-import { Effect, Encoding } from "effect"
+import { Effect, Encoding, String as Str } from "effect"
 
 const program = Effect.gen(function*() {
   const message = "hello, content hashing!"
@@ -22,7 +22,7 @@ const program = Effect.gen(function*() {
 
   const strictTextHash = yield* Digest.hashString("blake3-256", message)
   yield* Effect.log("Strict text parity", {
-    matches: Encoding.encodeHex(strictTextHash) === Encoding.encodeHex(blake3)
+    matches: Str.Equivalence(Encoding.encodeHex(strictTextHash), Encoding.encodeHex(blake3))
   })
 })
 

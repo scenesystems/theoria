@@ -1,7 +1,7 @@
 // @vitest-environment node
 import { expect, layer } from "@effect/vitest"
 import type { Locator, Page } from "@playwright/test"
-import { Duration, Effect, Layer, Predicate } from "effect"
+import { Boolean as Bool, Duration, Effect, Layer, Predicate } from "effect"
 import * as Arr from "effect/Array"
 import * as Rec from "effect/Record"
 import * as Str from "effect/String"
@@ -60,7 +60,10 @@ const readable = (root: Locator, where: string) =>
     expect(measured.length, `${where}: nothing measured`).toBeGreaterThan(0)
     Arr.forEach(measured, (found) => {
       expect(found.ratio, `${where}: ${found.kind} "${found.name}"`).toBeGreaterThanOrEqual(
-        found.kind === "text" ? leastTextContrast : leastGraphicContrast
+        Bool.match(Str.Equivalence(found.kind, "text"), {
+          onFalse: () => leastGraphicContrast,
+          onTrue: () => leastTextContrast
+        })
       )
     })
   })
@@ -192,9 +195,10 @@ layer(Layer.merge(SiteLive, BrowserLive), { excludeTestServices: true, timeout: 
         // The site's logs are the runtime's own: whatever it has said is carried, and their absence is said too.
         const served = yield* site.logs
         expect(report.message).toContain(
-          Arr.isNonEmptyReadonlyArray(served)
-            ? `the site told: ${Arr.join(Arr.takeRight(served, siteLogsReported), " | ")}`
-            : "the site told nothing"
+          Bool.match(Arr.isNonEmptyReadonlyArray(served), {
+            onFalse: () => "the site told nothing",
+            onTrue: () => `the site told: ${Arr.join(Arr.takeRight(served, siteLogsReported), " | ")}`
+          })
         )
       }))
   }

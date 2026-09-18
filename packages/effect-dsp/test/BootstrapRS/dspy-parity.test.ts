@@ -7,7 +7,7 @@ import * as MockLanguageModel from "@scenesystems/effect-dsp/MockLanguageModel"
 import * as Module from "@scenesystems/effect-dsp/Module"
 import { ModuleParameters } from "@scenesystems/effect-dsp/ModuleParameters"
 import * as Signature from "@scenesystems/effect-dsp/Signature"
-import { Array as Arr, Effect, Layer, Ref, Schema } from "effect"
+import { Array as Arr, Boolean as Bool, Effect, Layer, Match, Option, Ref, Schema, String as Str } from "effect"
 
 import { BootstrapRSCandidateCatalogFixtureSchema, loadFixture } from "../helpers/dspy-fixtures/index.js"
 
@@ -51,23 +51,18 @@ describe("BootstrapRS.run DSPy parity", () => {
         })
       )
       const mock = yield* MockLanguageModel.make(
-        MockLanguageModel.map((prompt) => {
-          if (prompt.includes("What is the capital of France?")) {
-            return { answer: "Paris" }
-          }
-
-          if (prompt.includes("What is the capital of Japan?")) {
-            return { answer: "Tokyo" }
-          }
-
-          if (prompt.includes("Name the capital of Japan in one word")) {
-            return prompt.includes("Tokyo")
-              ? { answer: "Tokyo" }
-              : { answer: "London" }
-          }
-
-          return { answer: "London" }
-        })
+        MockLanguageModel.map((prompt) =>
+          Match.value(prompt).pipe(
+            Match.when(Str.includes("What is the capital of France?"), () => ({ answer: "Paris" })),
+            Match.when(Str.includes("What is the capital of Japan?"), () => ({ answer: "Tokyo" })),
+            Match.when(Str.includes("Name the capital of Japan in one word"), (prompt) =>
+              Bool.match(Str.includes("Tokyo")(prompt), {
+                onTrue: () => ({ answer: "Tokyo" }),
+                onFalse: () => ({ answer: "London" })
+              })),
+            Match.orElse(() => ({ answer: "London" }))
+          )
+        )
       )
       const lmLayer = Layer.succeed(LanguageModel.LanguageModel, mock.service)
 
@@ -87,7 +82,10 @@ describe("BootstrapRS.run DSPy parity", () => {
 
       const params = yield* Ref.get(optimized.params)
       const calls = yield* Ref.get(mock.calls)
-      const demoQuestions = Arr.map(params.demos, (demo) => String(demo.input.question ?? ""))
+      const demoQuestions = Arr.map(
+        params.demos,
+        (demo) => String(Option.getOrElse(Option.fromNullable(demo.input.question), () => ""))
+      )
 
       expect(demoQuestions).toStrictEqual(fixture.payload.expectedBestDemoQuestions)
       expect(calls).toHaveLength(fixture.payload.expectedCallCount)

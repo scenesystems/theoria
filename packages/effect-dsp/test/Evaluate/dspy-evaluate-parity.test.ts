@@ -6,7 +6,7 @@ import * as Metric from "@scenesystems/effect-dsp/Metric"
 import * as MockLanguageModel from "@scenesystems/effect-dsp/MockLanguageModel"
 import * as Module from "@scenesystems/effect-dsp/Module"
 import * as Signature from "@scenesystems/effect-dsp/Signature"
-import { Array as Arr, Chunk, Effect, Layer, Option, Schema, Stream } from "effect"
+import { Array as Arr, Chunk, Effect, Layer, Match, Option, Predicate, Schema, Stream } from "effect"
 
 import {
   EvaluateEventOrderFixtureSchema,
@@ -103,7 +103,7 @@ describe("Evaluate DSPy parity", () => {
       const projectedReportExamples = Arr.map(report.results, (result) => ({
         index: result.index,
         score: Option.match(result.failure, {
-          onNone: () => result.scores.exact ?? 0,
+          onNone: () => Option.getOrElse(Option.fromNullable(result.scores.exact), () => 0),
           onSome: () => 0
         }),
         failure: Option.isSome(result.failure)
@@ -124,15 +124,31 @@ describe("Evaluate DSPy parity", () => {
       expect(projectedEvents).toHaveLength(eventFixture.payload.eventCount)
       expect(
         Arr.filterMap(projectedEvents, (event) =>
-          event._tag === "ExampleCompleted" && "index" in event
-            ? Option.some(event.index)
-            : Option.none<number>())
+          Match.value(event).pipe(
+            Match.when({ _tag: "ExampleCompleted" }, (event) =>
+              Match.value(event).pipe(
+                Match.when(Predicate.hasProperty("index"), (indexed) =>
+                  Option.liftPredicate(indexed.index, Predicate.isNumber)),
+                Match.orElse(() =>
+                  Option.none<number>()
+                )
+              )),
+            Match.orElse(() => Option.none<number>())
+          ))
       ).toStrictEqual(eventFixture.payload.completedIndices)
       expect(
         Arr.filterMap(projectedEvents, (event) =>
-          event._tag === "ExampleFailed" && "index" in event
-            ? Option.some(event.index)
-            : Option.none<number>())
+          Match.value(event).pipe(
+            Match.when({ _tag: "ExampleFailed" }, (event) =>
+              Match.value(event).pipe(
+                Match.when(Predicate.hasProperty("index"), (indexed) =>
+                  Option.liftPredicate(indexed.index, Predicate.isNumber)),
+                Match.orElse(() =>
+                  Option.none<number>()
+                )
+              )),
+            Match.orElse(() => Option.none<number>())
+          ))
       ).toStrictEqual(eventFixture.payload.failedIndices)
     }))
 })

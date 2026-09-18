@@ -1,6 +1,6 @@
 import { HttpServerResponse } from "@effect/platform"
 import { expect, it } from "@effect/vitest"
-import { Data, Effect, Either, Option, Runtime } from "effect"
+import { Boolean as Bool, Data, Effect, Either, Function as Fn, Option, Runtime, String as Str } from "effect"
 
 import type { StaticStoreError } from "../../app/server/config/static-store.js"
 import * as AssetsStaticStore from "../../app/server/platform/assets-static-store.js"
@@ -23,10 +23,18 @@ const bindingOffline = Effect.map(Effect.runtime(), (runtime) =>
 
 /** The binding's answer for a path, built as a server response. */
 const answerFor = (pathname: string): HttpServerResponse.HttpServerResponse => {
-  if (pathname === "/present.txt") return HttpServerResponse.text("hello", { contentType: "text/plain" })
-  if (pathname === "/forbidden.txt") return HttpServerResponse.text("denied", { status: 403 })
-  if (pathname === "/broken.txt") return HttpServerResponse.text("boom", { status: 500 })
-  return HttpServerResponse.empty({ status: 404 })
+  return Bool.match(Str.Equivalence(pathname, "/present.txt"), {
+    onTrue: () => HttpServerResponse.text("hello", { contentType: "text/plain" }),
+    onFalse: () =>
+      Bool.match(Str.Equivalence(pathname, "/forbidden.txt"), {
+        onTrue: () => HttpServerResponse.text("denied", { status: 403 }),
+        onFalse: () =>
+          Bool.match(Str.Equivalence(pathname, "/broken.txt"), {
+            onTrue: () => HttpServerResponse.text("boom", { status: 500 }),
+            onFalse: () => HttpServerResponse.empty({ status: 404 })
+          })
+      })
+  })
 }
 
 /** The binding's answer handed over as the web `Response` the binding returns. */
@@ -44,9 +52,10 @@ it.effect("a 2xx asset streams, a 404 is absence, and every other status is Unre
 
     const present = yield* store.response("/present.txt")
     expect(Option.isSome(present)).toBe(true)
-    if (Option.isSome(present)) {
-      expect(yield* bodyText(present.value)).toBe("hello")
-    }
+    yield* Option.match(present, {
+      onNone: () => Effect.void,
+      onSome: (response) => Effect.map(bodyText(response), (body) => expect(body).toBe("hello"))
+    })
 
     expect(Option.isNone(yield* store.response("/missing.txt"))).toBe(true)
 
@@ -68,7 +77,8 @@ it.effect("a binding whose fetch rejects is Unreadable, not absent", () =>
     const store = yield* bindingOffline
     const outcome = yield* Effect.either(store.response("/present.txt"))
     expect(failureReason(outcome)).toEqual(Option.some("Unreadable"))
-    if (Either.isLeft(outcome)) {
-      expect(outcome.left.detail).toContain("binding offline")
-    }
+    Either.match(outcome, {
+      onLeft: (error) => expect(error.detail).toContain("binding offline"),
+      onRight: Fn.constVoid
+    })
   }))

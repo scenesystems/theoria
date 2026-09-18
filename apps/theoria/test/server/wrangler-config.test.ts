@@ -2,7 +2,7 @@
 import { Path, Url } from "@effect/platform"
 import { BunContext } from "@effect/platform-bun"
 import { expect, it } from "@effect/vitest"
-import { Effect, Option } from "effect"
+import { Effect, Option, String as Str } from "effect"
 import * as Arr from "effect/Array"
 import { type Unstable_Config, unstable_readConfig } from "wrangler"
 
@@ -34,7 +34,7 @@ it.effect("gives every deployment target its own place-build limiter (the bindin
 
     const limiters = Arr.map(
       configs,
-      (config) => Arr.filter(config.ratelimits, (limit) => limit.name === "PLACE_BUILD_LIMITER")
+      (config) => Arr.filter(config.ratelimits, (limit) => Str.Equivalence(limit.name, "PLACE_BUILD_LIMITER"))
     )
     Arr.forEach(limiters, (found) => {
       expect(found).toHaveLength(1)

@@ -11,7 +11,7 @@ import * as MockLanguageModel from "@scenesystems/effect-dsp/MockLanguageModel"
 import * as Module from "@scenesystems/effect-dsp/Module"
 import { ModuleParameters } from "@scenesystems/effect-dsp/ModuleParameters"
 import * as Signature from "@scenesystems/effect-dsp/Signature"
-import { Effect, Either, Layer, Ref, Schema } from "effect"
+import { Boolean as Bool, Effect, Either, Function as Fn, Layer, Match, Ref, Schema, String as Str } from "effect"
 
 const makeQaSignature = () =>
   Signature.make(
@@ -52,23 +52,20 @@ describe("BootstrapRS.run", () => {
       )
 
       const mock = yield* MockLanguageModel.make(
-        MockLanguageModel.map((prompt) => {
-          if (prompt.includes("What is the capital of France?")) {
-            return "[[ ## answer ## ]]\nParis"
-          }
-
-          if (prompt.includes("What is the capital of Japan?")) {
-            return "[[ ## answer ## ]]\nTokyo"
-          }
-
-          if (prompt.includes("Name the capital of Japan in one word")) {
-            return prompt.includes("Tokyo")
-              ? "[[ ## answer ## ]]\nTokyo"
-              : "[[ ## answer ## ]]\nLondon"
-          }
-
-          return "[[ ## answer ## ]]\nLondon"
-        })
+        MockLanguageModel.map((prompt) =>
+          Match.value(prompt).pipe(
+            Match.when(Str.includes("What is the capital of France?"), () => "[[ ## answer ## ]]\nParis"),
+            Match.when(Str.includes("What is the capital of Japan?"), () => "[[ ## answer ## ]]\nTokyo"),
+            Match.when(Str.includes("Name the capital of Japan in one word"), (prompt) =>
+              Bool.match(Str.includes("Tokyo")(prompt), {
+                onTrue: () => "[[ ## answer ## ]]\nTokyo",
+                onFalse: () => "[[ ## answer ## ]]\nLondon"
+              })),
+            Match.orElse(() =>
+              "[[ ## answer ## ]]\nLondon"
+            )
+          )
+        )
       )
       const lmLayer = Layer.succeed(LanguageModel.LanguageModel, mock.service)
 
@@ -126,13 +123,15 @@ describe("BootstrapRS.run", () => {
 
       expect(Either.isLeft(result)).toBe(true)
 
-      if (Either.isLeft(result)) {
-        expect(result.left).toEqual(
-          new AllTrialsFailed({
-            message: "BootstrapRS failed to evaluate any candidate",
-            trialCount: 0
-          })
-        )
-      }
+      Either.match(result, {
+        onLeft: (error) =>
+          expect(error).toEqual(
+            new AllTrialsFailed({
+              message: "BootstrapRS failed to evaluate any candidate",
+              trialCount: 0
+            })
+          ),
+        onRight: Fn.constVoid
+      })
     }))
 })

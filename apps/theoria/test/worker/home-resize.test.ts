@@ -2,7 +2,7 @@
 import { expect, layer } from "@effect/vitest"
 import type { Page } from "@playwright/test"
 import { Numeric } from "@scenesystems/effect-math"
-import { Effect, Layer, Number as Num, Option, Schema } from "effect"
+import { Boolean as Bool, Effect, Layer, Number as Num, Option, Schema } from "effect"
 import * as Arr from "effect/Array"
 import * as Str from "effect/String"
 import { addInitProbe, evaluate, evaluateElement } from "./browser.js"
@@ -72,7 +72,7 @@ const stageFillsItsStep = (page: Page, where: string) =>
   Effect.map(
     until(
       evaluate(page, stageInItsStep),
-      ({ stage, step }) => step > 0 && stage === Num.min(stageMaxWidth, step),
+      ({ stage, step }) => Bool.and(Num.greaterThan(step, 0), Num.Equivalence(stage, Num.min(stageMaxWidth, step))),
       `the stage is drawn for its step at ${where}`,
       searchSettlesWithin
     ),
@@ -182,11 +182,11 @@ layer(Layer.merge(SiteLive, BrowserLive), { excludeTestServices: true, timeout: 
         yield* setViewport(page, { width: 320, height: 700 })
         const first = yield* until(
           evaluateElement(demo, stageFrame),
-          (frame) => frame.phase !== "complete",
+          (frame) => Bool.not(Str.Equivalence(frame.phase, "complete")),
           "the narrow stage's search is drawing"
         )
         const frames = Arr.prepend(
-          yield* framesUntil(demo, (frame) => frame.phase === "complete", searchSettlesWithin),
+          yield* framesUntil(demo, (frame) => Str.Equivalence(frame.phase, "complete"), searchSettlesWithin),
           first
         )
         // The landing is the narrow stage's: drawn for the step's whole width (no widths are offered this narrow).
