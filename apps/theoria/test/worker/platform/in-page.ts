@@ -4,6 +4,20 @@ import * as Arr from "effect/Array"
 import * as Order from "effect/Order"
 
 /**
+ * The leading CSS number in a computed dimension or multi-value attribute.
+ * Units and following values are deliberately left outside the match; CSS
+ * keywords and empty values stay invalid rather than becoming zero.
+ */
+const cssNumericPrefix = (value: string): number =>
+  Option.getOrElse(
+    Option.flatMap(
+      Str.match(/^[+-]?(?:\d+(?:\.\d*)?|\.\d+)(?:e[+-]?\d+)?/iu)(Str.trim(value)),
+      (match) => Option.flatMap(Option.fromNullable(match[0]), Num.parse)
+    ),
+    () => Num.unsafeDivide(0, 0)
+  )
+
+/**
  * Browser probes bundled with their Effect dependencies by `browser.ts`.
  *
  * This is the test side of the browser boundary: the one module in test code
@@ -114,12 +128,12 @@ export const edgesOf = (elements: ReadonlyArray<Element>): ReadonlyArray<{
       outline: {
         color: style.outlineColor,
         style: style.outlineStyle,
-        width: Number.parseFloat(style.outlineWidth)
+        width: cssNumericPrefix(style.outlineWidth)
       },
       border: {
         color: style.borderLeftColor,
         style: style.borderLeftStyle,
-        width: Number.parseFloat(style.borderLeftWidth)
+        width: cssNumericPrefix(style.borderLeftWidth)
       }
     }
   })
@@ -156,7 +170,7 @@ export const surfaceBudget = (root: Element) => {
       Arr.every(sides, (side) => {
         const sideName = Str.toLowerCase(side)
         return Bool.every([
-          Number.parseFloat(style.getPropertyValue(`border-${sideName}-width`)) >= 1,
+          cssNumericPrefix(style.getPropertyValue(`border-${sideName}-width`)) >= 1,
           style.getPropertyValue(`border-${sideName}-style`) !== "none",
           visibleColour(style.getPropertyValue(`border-${sideName}-color`))
         ])
@@ -237,7 +251,7 @@ export const typefaces = (served: string) => ({
 /** Width and line height of a text box. */
 export const textBlockMetrics = (element: Element) => ({
   height: element.getBoundingClientRect().height,
-  lineHeight: Number.parseFloat(getComputedStyle(element).lineHeight)
+  lineHeight: cssNumericPrefix(getComputedStyle(element).lineHeight)
 })
 
 /** Whether the focused element overlaps the pinned place-band link. */
@@ -971,7 +985,7 @@ export const finishingTouches = (): {
   const washed = document.querySelector("[data-place-current-version] [data-changes]")
   const wash = washed?.querySelector("[data-place-wash]")
   return {
-    walk: Str.isNonEmpty(dash) ? Number.parseFloat(dash) : -1,
+    walk: Str.isNonEmpty(dash) ? cssNumericPrefix(dash) : -1,
     wash: {
       changes: washed?.getAttribute("data-changes") ?? "",
       opacity: Option.match(Option.fromNullable(wash), {
@@ -1284,7 +1298,7 @@ export const beforeRuleCentreX = (element: Element): number => {
   const rule = getComputedStyle(element, "::before")
   return Num.sum(
     element.getBoundingClientRect().left,
-    Num.sum(Number.parseFloat(rule.left), Num.unsafeDivide(Number.parseFloat(rule.width), 2))
+    Num.sum(cssNumericPrefix(rule.left), Num.unsafeDivide(cssNumericPrefix(rule.width), 2))
   )
 }
 
@@ -1436,8 +1450,8 @@ export const markerLegendMetrics = (element: Element) => {
       (marker) => marker.getAttribute("aria-label") ?? ""
     ),
     height: element.getBoundingClientRect().height,
-    lineHeight: Number.parseFloat(style.lineHeight),
-    rowGap: Number.parseFloat(getComputedStyle(element).rowGap)
+    lineHeight: cssNumericPrefix(style.lineHeight),
+    rowGap: cssNumericPrefix(getComputedStyle(element).rowGap)
   }
 }
 
@@ -1613,7 +1627,7 @@ export const contrastsWithin = (root: Element): ReadonlyArray<{
         const strokePainted = Bool.every([
           style.stroke !== "none",
           (channels(style.stroke)[3] ?? 0) > 0,
-          Number.parseFloat(style.strokeWidth) > 0
+          cssNumericPrefix(style.strokeWidth) > 0
         ])
         return strokePainted ? style.stroke : style.fill
       }
@@ -1890,7 +1904,7 @@ export const mountWrappedBaselineRow = (): { readonly lines: number } => {
   value.textContent = "a value long enough that it must take more than one line"
   row.append(label, value)
   document.body.append(row)
-  const lineHeight = Number.parseFloat(getComputedStyle(value).lineHeight)
+  const lineHeight = cssNumericPrefix(getComputedStyle(value).lineHeight)
   return { lines: Num.round(Num.unsafeDivide(value.getBoundingClientRect().height, lineHeight), 0) }
 }
 
@@ -1928,12 +1942,12 @@ export const resolvedChrome = (element: Element) => {
 export const textAreaVisibleRows = (element: Element): number => {
   const style = getComputedStyle(element)
   const inset = Arr.reduce(
-    Arr.map([style.paddingTop, style.paddingBottom, style.borderTopWidth, style.borderBottomWidth], Number.parseFloat),
+    Arr.map([style.paddingTop, style.paddingBottom, style.borderTopWidth, style.borderBottomWidth], cssNumericPrefix),
     0,
     Num.sum
   )
   return Num.unsafeDivide(
     Num.subtract(element.getBoundingClientRect().height, inset),
-    Number.parseFloat(style.lineHeight)
+    cssNumericPrefix(style.lineHeight)
   )
 }

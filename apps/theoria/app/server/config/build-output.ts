@@ -1,6 +1,6 @@
 import { FileSystem, Path } from "@effect/platform"
 import type { PlatformError } from "@effect/platform/Error"
-import { Boolean as Bool, Effect, Either, Equal, identity, Match, Option, Schema, Stream } from "effect"
+import { BigInt, Boolean as Bool, Effect, Either, Equal, identity, Match, Option, Schema, Stream } from "effect"
 import * as Arr from "effect/Array"
 import * as Num from "effect/Number"
 import * as Str from "effect/String"
@@ -228,5 +228,5 @@ export const checkBuildOutput = (
           Option.exists(kind, (type) => Equal.equals(type, "File"))
         ))
     )
-    return { root, assets, workerBytes: Number(worker.size), homepageScriptGzipBytes }
+    return { root, assets, workerBytes: Option.getOrThrow(BigInt.toNumber(worker.size)), homepageScriptGzipBytes }
   })

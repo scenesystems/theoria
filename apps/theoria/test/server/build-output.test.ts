@@ -129,6 +129,7 @@ it.effect("accepts a build whose every asset has a served content type", () =>
       })
     )
     expect(Either.map(result, (summary) => summary.assets)).toEqual(Either.right(6))
+    expect(Either.map(result, (summary) => summary.workerBytes)).toEqual(Either.right(17))
   }))
 
 it.effect("rejects an asset the server cannot type, naming it", () =>

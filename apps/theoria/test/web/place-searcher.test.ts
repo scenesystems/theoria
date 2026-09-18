@@ -61,10 +61,8 @@ const answeredOnTheWire = (
 ): Effect.Effect<unknown, ParseResult.ParseError> =>
   Match.value(request).pipe(
     Match.tag("OpenSearch", () => Ref.updateAndGet(spawns.searches, Num.increment)),
-    Match.tag("AskSearch", (asked) =>
-      Schema.encode(AskedMeander)(new AskedMeander({ trial: Number(asked.search), meander }))),
-    Match.tag("TellSearch", () =>
-      Effect.void),
+    Match.tag("AskSearch", (asked) => Schema.encode(AskedMeander)(new AskedMeander({ trial: asked.search, meander }))),
+    Match.tag("TellSearch", () => Effect.void),
     Match.tag("CloseSearch", () => Effect.void),
     Match.exhaustive
   )

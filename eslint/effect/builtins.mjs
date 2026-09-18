@@ -62,6 +62,14 @@ export const ARITHMETIC_RULES = [
   {
     selector: "UnaryExpression[operator='-']:not([argument.type='Literal'][argument.raw=/^[0-9.]/])",
     message: "Do not negate computed values with unary '-'. Use Number.negate."
+  },
+  {
+    selector: "MemberExpression[object.name='Number'][property.name=/^(parseFloat|parseInt)$/]",
+    message: "Do not use native numeric parsers. Use Effect Number.parse or Schema decoding."
+  },
+  {
+    selector: "MemberExpression[object.name='Number'][computed=true][property.value=/^(parseFloat|parseInt)$/]",
+    message: "Do not use native numeric parsers. Use Effect Number.parse or Schema decoding."
   }
 ]
 
@@ -70,6 +78,12 @@ export const MATH_GLOBAL = {
   name: "Math",
   message: "Do not use the JavaScript Math global. Use Effect Number or @scenesystems/effect-math/Numeric."
 }
+
+/** Scope-aware bans on native prefix parsers, including references passed as callbacks. */
+export const NUMBER_PARSING_GLOBALS = ["parseFloat", "parseInt"].map((name) => ({
+  name,
+  message: "Do not use native numeric parsers. Use Effect Number.parse or Schema decoding."
+}))
 
 export const JSON_BUILTINS_RULES = [
   {
