@@ -1,5 +1,5 @@
 import { describe, expect, it } from "@effect/vitest"
-import { Chunk, Effect, Layer, Number, Stream, String } from "effect"
+import { Chunk, Effect, Layer, Number, Option, Stream, String, Tuple } from "effect"
 import * as Arr from "effect/Array"
 import * as MeasurementCache from "../../src/MeasurementCache.js"
 import * as Text from "../../src/Text.js"
@@ -22,6 +22,23 @@ const collectCursorLines = (
 ): Text.Lines => Arr.unfold(cursor, (position) => Text.nextLine(prepared, request, position))
 
 describe("Text hot-path contracts", () => {
+  it.effect("stops before indexing empty or exhausted prepared text", () =>
+    Effect.gen(function*() {
+      const font = { family: "Mono", size: 10 }
+      const empty = yield* Text.prepareWithSegments({ text: "", font, whiteSpace: "normal" }).pipe(
+        Effect.provide(testLayer)
+      )
+      const prepared = yield* Text.prepareWithSegments({ text: "abc", font, whiteSpace: "normal" }).pipe(
+        Effect.provide(testLayer)
+      )
+      const request: Text.Request = { maxWidth: 20, lineHeight: 12 }
+      expect(Text.nextLine(empty, request, Text.start)).toEqual(Option.none())
+      const first = Option.getOrThrow(Text.nextLine(prepared, request, Text.start))
+      expect(Tuple.getFirst(first).text).toBe("abc")
+      expect(Text.nextLine(prepared, request, Tuple.getSecond(first))).toEqual(Option.none())
+      expect(Text.nextLine(prepared, request, { segmentIndex: 100, graphemeIndex: 0 })).toEqual(Option.none())
+    }))
+
   it.effect("stream and cursor projections retain each line's text, width, and order", () =>
     Effect.gen(function*() {
       const prepared = yield* Text.prepareWithSegments({

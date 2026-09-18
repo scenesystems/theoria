@@ -47,6 +47,8 @@ export type BreakKind = typeof BreakKind.Type
 
 type StringValues = Chunk.Chunk<string>
 type WidthValues = Chunk.Chunk<number>
+type IndexedStringValues = ReadonlyArray<string>
+type IndexedWidthValues = ReadonlyArray<number>
 
 /** @internal */
 export class Segment extends Data.Class<{
@@ -72,16 +74,17 @@ export type Segments = Chunk.Chunk<Segment>
 /** @internal */
 export class RuntimeSegment extends Data.Class<{
   readonly breakKind: BreakKind
-  readonly breakableGraphemeWidths: WidthValues
-  readonly breakablePrefixWidths: WidthValues
+  readonly breakableGraphemeCount: number
+  readonly breakableGraphemeWidths: IndexedWidthValues
+  readonly breakableFitAdvances: IndexedWidthValues
   readonly fitAdvance: number
-  readonly graphemeBidiLevels: WidthValues
-  readonly mirroredGraphemes: StringValues
+  readonly graphemeBidiLevels: IndexedWidthValues
+  readonly mirroredGraphemes: IndexedStringValues
   readonly paintAdvance: number
 }> {}
 
 /** @internal */
-export type RuntimeSegments = Chunk.Chunk<RuntimeSegment>
+export type RuntimeSegments = ReadonlyArray<RuntimeSegment>
 
 /** @internal */
 export class LineChunk extends Data.Class<{
@@ -123,7 +126,7 @@ export class CursorHintKey extends Data.Class<{
 
 /** @internal */
 export class Surface extends Data.Class<{
-  readonly segments: Segments
+  readonly segments: ReadonlyArray<Segment>
 }> {
   readonly cursorHints = MutableRef.make(HashMap.empty<CursorHintKey, number>())
 }

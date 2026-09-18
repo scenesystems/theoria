@@ -136,46 +136,43 @@ const hardBreakSegment = (): Text.Segment => ({ kind: "hard-break", text: lineFe
 
 const normalizeLineBreaks = (text: string): string => String.replace(/\r\n?/gu, lineFeed)(text)
 
-const isOrdinaryWhitespaceCharacter = (character: string): boolean =>
-  Match.value(character).pipe(
-    Match.when(" ", () => true),
-    Match.when(tab, () => true),
-    Match.when(lineFeed, () => true),
-    Match.when("\u000b", () => true),
-    Match.when("\u000c", () => true),
-    Match.orElse(() => false)
-  )
+const isOrdinaryWhitespaceCharacter: (character: string) => boolean = Match.type<string>().pipe(
+  Match.when(" ", () => true),
+  Match.when(tab, () => true),
+  Match.when(lineFeed, () => true),
+  Match.when("\u000b", () => true),
+  Match.when("\u000c", () => true),
+  Match.orElse(() => false)
+)
 
 const isOrdinaryWhitespace = (text: string): boolean =>
   Boolean.and(Boolean.not(String.isEmpty(text)), Arr.every(Arr.fromIterable(text), isOrdinaryWhitespaceCharacter))
 
-const classifyTextCluster = (text: string): TextBreakClass =>
-  Match.value(text).pipe(
-    Match.withReturnType<TextBreakClass>(),
-    Match.when(softHyphen, () => "soft-hyphen"),
-    Match.when(noBreakSpace, () => "glue"),
-    Match.when(wordJoiner, () => "glue"),
-    Match.when(zeroWidthSpace, () => "zero-width-break"),
-    Match.when(isRunConnector, () => "connector"),
-    Match.when(isOpeningPunctuation, () => "opening-punctuation"),
-    Match.when(isClosingPunctuation, () => "closing-punctuation"),
-    Match.when(isCjkScript, () => "cjk"),
-    Match.when(isNoSpaceScript, () => "no-space-script"),
-    Match.when(isNumber, () => "numeric"),
-    Match.when(isLetter, () => "alphabetic"),
-    Match.orElse(() => "other")
-  )
+const classifyTextCluster: (text: string) => TextBreakClass = Match.type<string>().pipe(
+  Match.withReturnType<TextBreakClass>(),
+  Match.when(softHyphen, () => "soft-hyphen"),
+  Match.when(noBreakSpace, () => "glue"),
+  Match.when(wordJoiner, () => "glue"),
+  Match.when(zeroWidthSpace, () => "zero-width-break"),
+  Match.when(isRunConnector, () => "connector"),
+  Match.when(isOpeningPunctuation, () => "opening-punctuation"),
+  Match.when(isClosingPunctuation, () => "closing-punctuation"),
+  Match.when(isCjkScript, () => "cjk"),
+  Match.when(isNoSpaceScript, () => "no-space-script"),
+  Match.when(isNumber, () => "numeric"),
+  Match.when(isLetter, () => "alphabetic"),
+  Match.orElse(() => "other")
+)
 
 const textAtomicToken = (text: string): TextAtomicToken =>
   AtomicToken.Text({ breakClass: classifyTextCluster(text), text })
 
-const atomicTokenFor = (cluster: string): AtomicToken =>
-  Match.value(cluster).pipe(
-    Match.when(lineFeed, (text) => AtomicToken.HardBreak({ text })),
-    Match.when(tab, (text) => AtomicToken.Tab({ text })),
-    Match.when(isOrdinaryWhitespace, (text) => AtomicToken.Space({ text })),
-    Match.orElse(textAtomicToken)
-  )
+const atomicTokenFor: (cluster: string) => AtomicToken = Match.type<string>().pipe(
+  Match.when(lineFeed, (text) => AtomicToken.HardBreak({ text })),
+  Match.when(tab, (text) => AtomicToken.Tab({ text })),
+  Match.when(isOrdinaryWhitespace, (text) => AtomicToken.Space({ text })),
+  Match.orElse(textAtomicToken)
+)
 
 const tokenizeText = (text: string): AtomicTokens =>
   Chunk.map(Chunk.fromIterable(graphemeClusters(normalizeLineBreaks(text))), atomicTokenFor)
@@ -212,21 +209,20 @@ const continuesConnectorRun = (token: TextAtomicToken): boolean =>
     Match.exhaustive
   )
 
-const isBreakBoundary = (breakClass: TextBreakClass): boolean =>
-  Match.value(breakClass).pipe(
-    Match.when("glue", () => true),
-    Match.when("zero-width-break", () => true),
-    Match.when("alphabetic", () => false),
-    Match.when("cjk", () => false),
-    Match.when("closing-punctuation", () => false),
-    Match.when("connector", () => false),
-    Match.when("no-space-script", () => false),
-    Match.when("numeric", () => false),
-    Match.when("opening-punctuation", () => false),
-    Match.when("other", () => false),
-    Match.when("soft-hyphen", () => false),
-    Match.exhaustive
-  )
+const isBreakBoundary: (breakClass: TextBreakClass) => boolean = Match.type<TextBreakClass>().pipe(
+  Match.when("glue", () => true),
+  Match.when("zero-width-break", () => true),
+  Match.when("alphabetic", () => false),
+  Match.when("cjk", () => false),
+  Match.when("closing-punctuation", () => false),
+  Match.when("connector", () => false),
+  Match.when("no-space-script", () => false),
+  Match.when("numeric", () => false),
+  Match.when("opening-punctuation", () => false),
+  Match.when("other", () => false),
+  Match.when("soft-hyphen", () => false),
+  Match.exhaustive
+)
 
 const shouldMergeTextAtoms = (
   previous: TextAtomicToken,

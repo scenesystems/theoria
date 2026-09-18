@@ -468,24 +468,6 @@ const preparedBreakKindFor = (
     Match.exhaustive
   )
 
-const textWidthsOrEmpty = (segment: Prepared.Segment, values: WidthValues): WidthValues =>
-  Match.value(segment.kind).pipe(
-    Match.when("text", () => values),
-    Match.when("space", Chunk.empty<number>),
-    Match.when("tab", Chunk.empty<number>),
-    Match.when("hard-break", Chunk.empty<number>),
-    Match.exhaustive
-  )
-
-const textStringsOrEmpty = (segment: Prepared.Segment, values: StringValues): StringValues =>
-  Match.value(segment.kind).pipe(
-    Match.when("text", () => values),
-    Match.when("space", Chunk.empty<string>),
-    Match.when("tab", Chunk.empty<string>),
-    Match.when("hard-break", Chunk.empty<string>),
-    Match.exhaustive
-  )
-
 const lineChunksFor = (segments: Prepared.Segments): Prepared.LineChunks => {
   const hardBreakIndices = Chunk.filterMap(
     segments,
@@ -524,16 +506,27 @@ const lineChunksFor = (segments: Prepared.Segments): Prepared.LineChunks => {
 const compileRuntimeSegment = (
   segment: Prepared.Segment,
   whiteSpace: Text.Whitespace
-): Prepared.RuntimeSegment =>
-  new Prepared.RuntimeSegment({
+): Prepared.RuntimeSegment => {
+  const breakableGraphemeWidths = Chunk.toReadonlyArray(segment.graphemeAdvances)
+  const prefixes = Chunk.toReadonlyArray(segment.fitPrefixWidths)
+
+  return new Prepared.RuntimeSegment({
     breakKind: preparedBreakKindFor(segment, whiteSpace),
-    breakableGraphemeWidths: textWidthsOrEmpty(segment, segment.graphemeAdvances),
-    breakablePrefixWidths: textWidthsOrEmpty(segment, segment.fitPrefixWidths),
+    breakableGraphemeCount: Arr.length(breakableGraphemeWidths),
+    breakableGraphemeWidths,
+    // Every subsequent layout uses these same differences. Retain their
+    // binary64 rounding here rather than subtracting again per grapheme.
+    breakableFitAdvances: Arr.map(prefixes, (width, index) =>
+      Boolean.match(Number.Equivalence(index, 0), {
+        onTrue: () => width,
+        onFalse: () => Number.subtract(width, Arr.unsafeGet(prefixes, Number.decrement(index)))
+      })),
     fitAdvance: segment.fitWidth,
-    graphemeBidiLevels: textWidthsOrEmpty(segment, segment.graphemeBidiLevels),
-    mirroredGraphemes: textStringsOrEmpty(segment, segment.mirroredGraphemes),
+    graphemeBidiLevels: Chunk.toReadonlyArray(segment.graphemeBidiLevels),
+    mirroredGraphemes: Chunk.toReadonlyArray(segment.mirroredGraphemes),
     paintAdvance: segment.width
   })
+}
 
 const compileKernelRuntime = (
   segments: Prepared.Segments,
@@ -542,8 +535,8 @@ const compileKernelRuntime = (
   whiteSpace: Text.Whitespace
 ): Prepared.RuntimeTables => {
   const chunks = lineChunksFor(segments)
-  const runtimeSegments: Prepared.RuntimeSegments = Chunk.map(
-    segments,
+  const runtimeSegments: Prepared.RuntimeSegments = Arr.map(
+    Chunk.toReadonlyArray(segments),
     (segment) => compileRuntimeSegment(segment, whiteSpace)
   )
 
@@ -555,7 +548,8 @@ const compileKernelRuntime = (
   })
 }
 
-const retainLogicalSurface = (segments: Prepared.Segments): Prepared.Surface => new Prepared.Surface({ segments })
+const retainLogicalSurface = (segments: Prepared.Segments): Prepared.Surface =>
+  new Prepared.Surface({ segments: Chunk.toReadonlyArray(segments) })
 
 /**
  * Resolves the prepared base direction once from source text and engine defaults.
