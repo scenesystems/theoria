@@ -8,10 +8,11 @@
  * @since 0.1.0
  * @category internal
  */
-import { Boolean, Data, Function, Iterable, Match, Number, Option, Predicate, Schema, Tuple } from "effect"
+import { Boolean, Data, Function, Iterable, Match, Number, Option, Predicate, Tuple } from "effect"
 
-import { exp, isFinite, log } from "../../Numeric.js"
+import { exp, isFinite, log, log1p } from "../../Numeric.js"
 import { digamma, lnGamma } from "../../Special.js"
+import { isNaN } from "../numeric/binary.js"
 import { gammainc, gammaincc } from "../special/gammainc.js"
 
 class GammaQuantileState extends Data.Class<{
@@ -76,13 +77,13 @@ export const gammaPdf = (
  */
 export const gammaLogpdf = (x: number, shape: number, scale: number): number => {
   return Match.value(x).pipe(
-    Match.when(Infinity, () => -Infinity),
-    Match.when(Number.lessThan(0), () => -Infinity),
+    Match.when(Infinity, () => Number.negate(Infinity)),
+    Match.when(Number.lessThan(0), () => Number.negate(Infinity)),
     Match.when((value) => Number.Equivalence(value, 0), () =>
       Match.value(Number.Order(shape, 1)).pipe(
         Match.when(-1, () => Infinity),
         Match.when(0, () => Number.negate(log(scale))),
-        Match.when(1, () => -Infinity),
+        Match.when(1, () => Number.negate(Infinity)),
         Match.exhaustive
       )),
     Match.orElse(() =>
@@ -243,9 +244,15 @@ const gammaQuantileLoop = (
  */
 export const gammaQuantile = (p: number, shape: number, scale: number): number => {
   return Match.value(p).pipe(
-    Match.when(Predicate.not(Schema.is(Schema.NonNaN)), () => NaN),
+    Match.when(isNaN, () => NaN),
     Match.when(Number.lessThanOrEqualTo(0), () => 0),
     Match.when(Number.greaterThanOrEqualTo(1), () => Infinity),
+    // Gamma(1, scale) is exponential. log1p preserves the lower tail when
+    // subtracting p from one would round to one; no inverse solve is needed.
+    Match.when(
+      () => Number.Equivalence(shape, 1),
+      () => Number.multiply(scale, Number.negate(log1p(Number.negate(p))))
+    ),
     Match.orElse((p) => {
       const logGamma = Function.constant(lnGamma(shape))
       const upper = gammaQuantileUpper(p, shape, logGamma)

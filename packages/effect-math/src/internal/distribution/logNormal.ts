@@ -78,7 +78,7 @@ export const logNormalLogpdf = (x: number, mu: number, sigma: number): number =>
         Number.multiply(0.5, Number.multiply(z, z))
       )
     },
-    onFalse: () => -Infinity
+    onFalse: () => Number.negate(Infinity)
   })
 
 /**

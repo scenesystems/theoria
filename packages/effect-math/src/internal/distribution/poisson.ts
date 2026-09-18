@@ -26,10 +26,11 @@ const Integer = Schema.Number.pipe(Schema.int())
  */
 export const poissonLogpmf = (k: number, mu: number): number => {
   return Boolean.match(Boolean.or(Number.lessThan(k, 0), Boolean.not(Schema.is(Integer)(k))), {
-    onTrue: () => -Infinity,
+    onTrue: () => Number.negate(Infinity),
     onFalse: () =>
       Boolean.match(Number.Equivalence(mu, 0), {
-        onTrue: () => Boolean.match(Number.Equivalence(k, 0), { onTrue: () => 0, onFalse: () => -Infinity }),
+        onTrue: () =>
+          Boolean.match(Number.Equivalence(k, 0), { onTrue: () => 0, onFalse: () => Number.negate(Infinity) }),
         onFalse: () =>
           Number.subtract(
             Number.subtract(Number.multiply(k, log(mu)), mu),

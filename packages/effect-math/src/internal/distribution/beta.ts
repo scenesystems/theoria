@@ -79,20 +79,20 @@ export const betaPdf = (
 export const betaLogpdf = (x: number, alpha: number, beta: number): number => {
   return Match.value(x).pipe(
     Match.when((value) => Boolean.not(isNonNaN(value)), () => NaN),
-    Match.when(Number.lessThan(0), () => -Infinity),
-    Match.when(Number.greaterThan(1), () => -Infinity),
+    Match.when(Number.lessThan(0), () => Number.negate(Infinity)),
+    Match.when(Number.greaterThan(1), () => Number.negate(Infinity)),
     Match.when((value) => Number.Equivalence(value, 0), () =>
       Match.value(Number.Order(alpha, 1)).pipe(
         Match.when(-1, () => Infinity),
         Match.when(0, () => Number.negate(betaLogNorm(alpha, beta))),
-        Match.when(1, () => -Infinity),
+        Match.when(1, () => Number.negate(Infinity)),
         Match.exhaustive
       )),
     Match.when((value) => Number.Equivalence(value, 1), () =>
       Match.value(Number.Order(beta, 1)).pipe(
         Match.when(-1, () => Infinity),
         Match.when(0, () => Number.negate(betaLogNorm(alpha, beta))),
-        Match.when(1, () => -Infinity),
+        Match.when(1, () => Number.negate(Infinity)),
         Match.exhaustive
       )),
     Match.orElse(() =>

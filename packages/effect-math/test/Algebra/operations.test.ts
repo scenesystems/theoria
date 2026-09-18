@@ -44,14 +44,14 @@ describe("Algebra / polyEval", () => {
       expect(polyEval(Chunk.of(5), 3)).toStrictEqual(5)
     }))
 
-  it.effect("evaluates linear polynomial", () =>
+  it.effect("evaluates asymmetric coefficients in lowest-degree-first order", () =>
     Effect.gen(function*() {
-      expect(polyEval(Chunk.make(2, 3), 1)).toStrictEqual(5)
+      expect(polyEval(Chunk.make(2, 3), 4)).toStrictEqual(14)
     }))
 
-  it.effect("evaluates quadratic polynomial", () =>
+  it.effect("evaluates an asymmetric higher-degree polynomial by Horner's method", () =>
     Effect.gen(function*() {
-      expect(polyEval(Chunk.make(1, Number.negate(2), 1), 3)).toStrictEqual(4)
+      expect(polyEval(Chunk.make(17, Number.negate(3), 5, Number.negate(2)), 4)).toStrictEqual(Number.negate(43))
     }))
 
   it.effect("evaluates at x=0 returns a0", () =>

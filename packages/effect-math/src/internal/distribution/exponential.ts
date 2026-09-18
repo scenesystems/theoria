@@ -33,7 +33,7 @@ export const exponentialPdf = (x: number, rate: number): number =>
 export const exponentialLogpdf = (x: number, rate: number): number =>
   Boolean.match(isInSupport(x), {
     onTrue: () => Number.subtract(log(rate), Number.multiply(rate, x)),
-    onFalse: () => -Infinity
+    onFalse: () => Number.negate(Infinity)
   })
 
 /**

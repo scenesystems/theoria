@@ -308,7 +308,7 @@ export const erfinv = (x: number): number => {
         onTrue: () => Infinity,
         onFalse: () =>
           Boolean.match(Number.Equivalence(x, -1), {
-            onTrue: () => -Infinity,
+            onTrue: () => Number.negate(Infinity),
             onFalse: () =>
               Boolean.match(Boolean.or(Number.lessThan(x, -1), Number.greaterThan(x, 1)), {
                 onTrue: () => NaN,
@@ -335,7 +335,7 @@ export const erfinv = (x: number): number => {
 export const erfcinv: (x: number) => number = Match.type<number>().pipe(
   Match.when((x) => Boolean.or(Number.lessThan(x, 0), Number.greaterThan(x, 2)), () => NaN),
   Match.when((x) => Number.Equivalence(x, 0), () => Infinity),
-  Match.when((x) => Number.Equivalence(x, 2), () => -Infinity),
+  Match.when((x) => Number.Equivalence(x, 2), () => Number.negate(Infinity)),
   Match.orElse((x) => {
     const reflected = Number.greaterThan(x, 1)
     const q = Boolean.match(reflected, { onTrue: () => Number.subtract(2, x), onFalse: () => x })

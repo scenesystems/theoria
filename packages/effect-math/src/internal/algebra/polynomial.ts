@@ -20,13 +20,11 @@ import { Boolean, Chunk, Number, Option, pipe } from "effect"
  * @category internal
  */
 export const polyEval = (coefficients: Chunk.Chunk<number>, x: number): number => {
-  const reversed = Chunk.reverse(coefficients)
-
-  return Option.match(Chunk.head(reversed), {
+  return Option.match(Chunk.last(coefficients), {
     onNone: () => 0,
     onSome: (leading) =>
-      Chunk.reduce(
-        Chunk.drop(reversed, 1),
+      Chunk.reduceRight(
+        Chunk.dropRight(coefficients, 1),
         leading,
         (acc, coeff) => Number.sum(coeff, Number.multiply(acc, x))
       )

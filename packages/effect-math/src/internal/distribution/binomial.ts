@@ -27,13 +27,15 @@ export const binomialLogpmf = (k: number, n: number, p: number): number => {
   return Boolean.match(
     Boolean.or(Boolean.not(Schema.is(Integer)(k)), Boolean.or(Number.lessThan(k, 0), Number.greaterThan(k, n))),
     {
-      onTrue: () => -Infinity,
+      onTrue: () => Number.negate(Infinity),
       onFalse: () =>
         Boolean.match(Number.Equivalence(p, 0), {
-          onTrue: () => Boolean.match(Number.Equivalence(k, 0), { onTrue: () => 0, onFalse: () => -Infinity }),
+          onTrue: () =>
+            Boolean.match(Number.Equivalence(k, 0), { onTrue: () => 0, onFalse: () => Number.negate(Infinity) }),
           onFalse: () =>
             Boolean.match(Number.Equivalence(p, 1), {
-              onTrue: () => Boolean.match(Number.Equivalence(k, n), { onTrue: () => 0, onFalse: () => -Infinity }),
+              onTrue: () =>
+                Boolean.match(Number.Equivalence(k, n), { onTrue: () => 0, onFalse: () => Number.negate(Infinity) }),
               onFalse: () => {
                 const lnCoefficient = Number.subtract(
                   lnGamma(Number.sum(n, 1)),

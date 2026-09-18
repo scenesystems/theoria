@@ -37,7 +37,7 @@ export const uniformPdf = (x: number, low: number, high: number): number =>
 export const uniformLogpdf = (x: number, low: number, high: number): number =>
   Boolean.match(hasOrderedInputs(x, low, high), {
     onTrue: () => Number.negate(log(Number.subtract(high, low))),
-    onFalse: () => -Infinity
+    onFalse: () => Number.negate(Infinity)
   })
 
 /**

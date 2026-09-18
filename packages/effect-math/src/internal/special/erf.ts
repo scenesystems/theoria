@@ -189,7 +189,7 @@ export const erfCephes = (x: number): number => {
       Boolean.match(Number.Equivalence(x, Infinity), {
         onTrue: () => 1,
         onFalse: () =>
-          Boolean.match(Number.Equivalence(x, -Infinity), {
+          Boolean.match(Number.Equivalence(x, Number.negate(Infinity)), {
             onTrue: () => -1,
             onFalse: () => {
               const absoluteX = abs(x)

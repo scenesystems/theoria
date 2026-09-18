@@ -28,7 +28,7 @@ export const categoricalPmf = (k: number, probs: Chunk.Chunk<number>): number =>
 export const categoricalLogpmf = (k: number, probs: Chunk.Chunk<number>): number =>
   Option.match(Chunk.get(probs, k), {
     onSome: log,
-    onNone: () => -Infinity
+    onNone: () => Number.negate(Infinity)
   })
 
 /**

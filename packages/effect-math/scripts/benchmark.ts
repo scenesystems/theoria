@@ -8,6 +8,7 @@
  * overhead is subtracted. Numerical correctness belongs to the fixture tests.
  */
 import { BunRuntime } from "@effect/platform-bun"
+import * as Algebra from "@scenesystems/effect-math/Algebra"
 import * as Calculus from "@scenesystems/effect-math/Calculus"
 import * as Complex from "@scenesystems/effect-math/Complex"
 import * as Distribution from "@scenesystems/effect-math/Distribution"
@@ -15,11 +16,13 @@ import * as Geometry from "@scenesystems/effect-math/Geometry"
 import * as LinearAlgebra from "@scenesystems/effect-math/LinearAlgebra"
 import * as Numeric from "@scenesystems/effect-math/Numeric"
 import * as Optimization from "@scenesystems/effect-math/Optimization"
+import * as Policy from "@scenesystems/effect-math/Policy"
 import * as Special from "@scenesystems/effect-math/Special"
 import * as Statistics from "@scenesystems/effect-math/Statistics"
 import {
   Array,
   BigInt,
+  Boolean,
   Chunk,
   Clock,
   Config,
@@ -60,7 +63,7 @@ const BenchmarkReport = Schema.Struct({
 class BenchmarkCase extends Data.Class<{
   readonly name: string
   readonly operationsPerIteration: number
-  readonly evaluate: (iterations: number) => number
+  readonly evaluate: (iterations: number) => Effect.Effect<number, BenchmarkError>
 }> {}
 
 class BenchmarkError extends Data.TaggedError("BenchmarkError")<{
@@ -81,7 +84,7 @@ const unaryCase = (
   return new BenchmarkCase({
     name,
     operationsPerIteration: Chunk.size(values),
-    evaluate: (iterations) => repeat(iterations, evaluateBatch)
+    evaluate: (iterations) => Effect.sync(() => repeat(iterations, evaluateBatch))
   })
 }
 
@@ -95,7 +98,7 @@ const binaryCase = (
   return new BenchmarkCase({
     name,
     operationsPerIteration: Number.min(Chunk.size(left), Chunk.size(right)),
-    evaluate: (iterations) => repeat(iterations, evaluateBatch)
+    evaluate: (iterations) => Effect.sync(() => repeat(iterations, evaluateBatch))
   })
 }
 
@@ -103,7 +106,25 @@ const singleCallCase = (name: string, evaluate: () => number): BenchmarkCase =>
   new BenchmarkCase({
     name,
     operationsPerIteration: 1,
-    evaluate: (iterations) => repeat(iterations, evaluate)
+    evaluate: (iterations) => Effect.sync(() => repeat(iterations, evaluate))
+  })
+
+const effectCase = <E>(
+  name: string,
+  evaluate: Effect.Effect<number, E, Policy.Precision | Policy.Diagnostics | Policy.Backend>
+): BenchmarkCase =>
+  new BenchmarkCase({
+    name,
+    operationsPerIteration: 1,
+    evaluate: (iterations) =>
+      Effect.reduce(
+        Chunk.range(1, iterations),
+        0,
+        (checksum) => Effect.map(evaluate, (value) => Number.sum(checksum, value))
+      ).pipe(
+        Effect.provide(policyLayer),
+        Effect.mapError(() => new BenchmarkError({ message: `${name}: operation failed` }))
+      )
   })
 
 const ordinary = Chunk.make(-7.75, -2.5, -0.125, 0.25, 1.5, 3.75, 11.125, 31.5)
@@ -123,6 +144,11 @@ const logLeft = Chunk.make(-1000, -100, -10, -1, 1, 10, 100, 1000)
 const logRight = Chunk.make(-1001, -99, -11, -0.5, 0.5, 9, 101, 999)
 const logSubLeft = Chunk.make(-999, -98, -9, 0, 2, 11, 102, 1001)
 const sumValues = Chunk.make(-1000, 0.125, 2.5, 7.75, 100, -3.25, 1e-8, 1e6, -999_000)
+const polynomialCoefficients = Chunk.make(1.25, -2.5, 3.75, -4.5, 2.125, -0.75, 0.125)
+const largePolynomialCoefficients = Chunk.map(
+  Chunk.range(1, 4096),
+  (coefficient) => Number.unsafeDivide(coefficient, 4096)
+)
 
 const vectorA = Chunk.make(1.25, -2.5, 3.75, 4.5, -5.25, 6.125, 7.75, -8.5)
 const vectorB = Chunk.make(-0.5, 1.75, 2.25, -3.5, 4.125, -5.75, 6.5, 7.25)
@@ -132,6 +158,21 @@ const lowerTriangularMatrix = Chunk.make(2, 0, 0, 0, -1, 3, 0, 0, 4, 0.5, -2, 0,
 const upperTriangularMatrix = Chunk.make(-2, 1.5, 0.25, -3, 0, 4, -1, 2, 0, 0, 3, 0.75, 0, 0, 0, -5)
 const matrixVector = Chunk.make(1.25, -0.75, 2.5, 0.5)
 const matrixRhs = Chunk.make(2, 1, 4, 3)
+const mediumMatrixSize = 16
+const mediumMatrixIndices = Chunk.range(0, Number.decrement(mediumMatrixSize))
+const mediumMatrix = Chunk.flatMap(
+  mediumMatrixIndices,
+  (row) =>
+    Chunk.map(mediumMatrixIndices, (column) =>
+      Boolean.match(Number.Equivalence(row, column), {
+        onFalse: () => Number.unsafeDivide(1, Number.increment(Numeric.abs(Number.subtract(row, column)))),
+        onTrue: () => Number.sum(mediumMatrixSize, row)
+      }))
+)
+const mediumMatrixVector = Chunk.map(
+  mediumMatrixIndices,
+  (index) => Number.unsafeDivide(Number.increment(index), mediumMatrixSize)
+)
 const points = Chunk.make(
   Chunk.make(1.25, -2.5, 3.75, 0.5),
   Chunk.make(-4.5, 2.25, 1.5, 3.25),
@@ -146,10 +187,19 @@ const erfcUpperTail = Chunk.make(-1.25, 0, 0.5, 1.75, 3.5, 8)
 const argmaxValues = Chunk.make(-4.5, 11.25, 3.125, -2.75, 8.5, 29.625, 19.25, -8.125)
 const argmaxValueSet = HashSet.make(-4.5, 11.25, 3.125, -2.75, 8.5, 29.625, 19.25, -8.125)
 const sampledCurve = Chunk.make(0, 0.015625, 0.0625, 0.140625, 0.25, 0.390625, 0.5625, 0.765625, 1)
+const calculusPoint = Chunk.make(-1.25, 0.5, 2.75)
 
 const scalarObjective = (value: number): number =>
   Number.multiply(Number.subtract(value, 1.75), Number.subtract(value, 1.75))
 const rootObjective = (value: number): number => Number.subtract(Number.multiply(value, value), 2)
+const multivariateObjective = (point: Chunk.Chunk<number>): number =>
+  Number.sumAll(Chunk.map(point, (value) => Number.multiply(value, value)))
+const policyLayer = Policy.layerDeterministic({
+  seed: Policy.Seed.make(42),
+  precision: "strict",
+  backend: "scalar",
+  diagnostics: "disabled"
+})
 
 const cases = Chunk.make(
   unaryCase("Numeric.abs ordinary", ordinary, Numeric.abs),
@@ -188,6 +238,15 @@ const cases = Chunk.make(
     "Numeric.argmaxIndex one-shot iterable",
     () => Option.getOrElse(Numeric.argmaxIndex(HashSet.values(argmaxValueSet)), () => 0)
   ),
+  singleCallCase("Algebra.polyEval ordinary coefficients", () => Algebra.polyEval(polynomialCoefficients, 1.25)),
+  singleCallCase(
+    "Algebra.polyEval 4096 coefficients",
+    () => Algebra.polyEval(largePolynomialCoefficients, 0.875)
+  ),
+  effectCase(
+    "Algebra.polyEvalWithPolicies ordinary coefficients",
+    Algebra.polyEvalWithPolicies(polynomialCoefficients, 1.25)
+  ),
   singleCallCase("Geometry.euclideanDistance vector", () => Geometry.euclideanDistance(vectorA, vectorB)),
   singleCallCase("Geometry.squaredEuclideanDistance vector", () => Geometry.squaredEuclideanDistance(vectorA, vectorB)),
   singleCallCase("Geometry.manhattanDistance vector", () => Geometry.manhattanDistance(vectorA, vectorB)),
@@ -224,6 +283,26 @@ const cases = Chunk.make(
   singleCallCase(
     "LinearAlgebra.solveSpd matrix",
     () => Option.match(LinearAlgebra.solveSpd(matrix, 4, matrixRhs), { onNone: () => 0, onSome: consume })
+  ),
+  singleCallCase(
+    "LinearAlgebra.matvec 16x16 matrix",
+    () => consume(LinearAlgebra.matvec(mediumMatrix, mediumMatrixSize, mediumMatrixSize, mediumMatrixVector))
+  ),
+  singleCallCase(
+    "LinearAlgebra.transpose 16x16 matrix",
+    () => consume(LinearAlgebra.transpose(mediumMatrix, mediumMatrixSize, mediumMatrixSize))
+  ),
+  singleCallCase(
+    "LinearAlgebra.cholesky 16x16 matrix",
+    () => Option.match(LinearAlgebra.cholesky(mediumMatrix, mediumMatrixSize), { onNone: () => 0, onSome: consume })
+  ),
+  singleCallCase(
+    "LinearAlgebra.solveSpd 16x16 matrix",
+    () =>
+      Option.match(LinearAlgebra.solveSpd(mediumMatrix, mediumMatrixSize, mediumMatrixVector), {
+        onNone: () => 0,
+        onSome: consume
+      })
   ),
   singleCallCase("Complex.multiply ordinary", () => {
     const value = Complex.multiply(complexLeft, complexRight)
@@ -276,10 +355,20 @@ const cases = Chunk.make(
     return Number.sum(summary.mean, Number.sum(summary.variance, summary.standardDeviation))
   }),
   singleCallCase("Calculus.derivative callback", () => Calculus.derivative(scalarObjective, 2.25)),
+  singleCallCase("Calculus.secondDerivative callback", () => Calculus.secondDerivative(scalarObjective, 2.25)),
+  singleCallCase("Calculus.gradient callback", () => consume(Calculus.gradient(multivariateObjective, calculusPoint))),
+  singleCallCase(
+    "Calculus.hessian callback",
+    () => consume(Chunk.flatten(Calculus.hessian(multivariateObjective, calculusPoint)))
+  ),
   singleCallCase("Calculus.simpson reduction", () => Calculus.simpson(sampledCurve, 0.125)),
   singleCallCase(
     "Calculus.adaptiveSimpson callback",
     () => Calculus.adaptiveSimpson(scalarObjective, -2, 4, 1e-8, 1e-8, 12)
+  ),
+  effectCase(
+    "Calculus.derivativeWithPolicies callback",
+    Calculus.derivativeWithPolicies(scalarObjective, 2.25)
   ),
   singleCallCase("Optimization.bisect callback", () => Optimization.bisect(rootObjective, 0, 2, 1e-10, 64)),
   singleCallCase(
@@ -290,13 +379,13 @@ const cases = Chunk.make(
 
 const measure = (benchmark: BenchmarkCase, config: typeof BenchmarkConfig.Type) =>
   Effect.gen(function*() {
-    yield* Effect.replicateEffect(Effect.sync(() => benchmark.evaluate(config.iterations)), config.warmups, {
+    yield* Effect.replicateEffect(benchmark.evaluate(config.iterations), config.warmups, {
       discard: true
     })
     const samples = yield* Effect.replicateEffect(
       Effect.gen(function*() {
         const started = yield* Clock.currentTimeNanos
-        const checksum = yield* Effect.sync(() => benchmark.evaluate(config.iterations))
+        const checksum = yield* benchmark.evaluate(config.iterations)
         const finished = yield* Clock.currentTimeNanos
         const elapsedNanos = yield* BigInt.toNumber(BigInt.subtract(finished, started))
         yield* Effect.succeed(checksum).pipe(

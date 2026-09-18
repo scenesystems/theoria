@@ -211,13 +211,13 @@ describe("Distribution / beta boundaries and quantiles", () => {
       expect(betaPdf(0, 1, 2)).toBeCloseTo(2, 14)
       expect(betaLogpdf(0, 1, 2)).toBeCloseTo(0.6931471805599453, 14)
       expect(betaPdf(0, 2, 2)).toBe(0)
-      expect(betaLogpdf(0, 2, 2)).toBe(-Infinity)
+      expect(betaLogpdf(0, 2, 2)).toBe(Number.negate(Infinity))
       expect(betaPdf(1, 2, 0.5)).toBe(Infinity)
       expect(betaLogpdf(1, 2, 0.5)).toBe(Infinity)
       expect(betaPdf(1, 2, 1)).toBeCloseTo(2, 14)
       expect(betaLogpdf(1, 2, 1)).toBeCloseTo(0.6931471805599453, 14)
       expect(betaPdf(1, 2, 2)).toBe(0)
-      expect(betaLogpdf(1, 2, 2)).toBe(-Infinity)
+      expect(betaLogpdf(1, 2, 2)).toBe(Number.negate(Infinity))
     }))
 
   it.effect("returns exact support endpoints", () =>
@@ -282,7 +282,7 @@ describe("Distribution / gamma boundaries and quantiles", () => {
       expect(gammaPdf(0, 1, 2)).toBe(0.5)
       expect(gammaLogpdf(0, 1, 2)).toBeCloseTo(-0.6931471805599453, 14)
       expect(gammaPdf(0, 2, 2)).toBe(0)
-      expect(gammaLogpdf(0, 2, 2)).toBe(-Infinity)
+      expect(gammaLogpdf(0, 2, 2)).toBe(Number.negate(Infinity))
     }))
 
   it.effect("returns exact support endpoints", () =>
@@ -290,7 +290,7 @@ describe("Distribution / gamma boundaries and quantiles", () => {
       expect(gammaQuantile(0, 2, 3)).toBe(0)
       expect(gammaQuantile(1, 2, 3)).toBe(Infinity)
       expect(gammaPdf(Infinity, 2, 3)).toBe(0)
-      expect(gammaLogpdf(Infinity, 2, 3)).toBe(-Infinity)
+      expect(gammaLogpdf(Infinity, 2, 3)).toBe(Number.negate(Infinity))
       expect(gammaCdf(Infinity, 2, 3)).toBe(1)
       expect(isNaN(gammaQuantile(NaN, 2, 3))).toBe(true)
     }))
@@ -308,14 +308,13 @@ describe("Distribution / gamma boundaries and quantiles", () => {
       expectRelativeClose(gammaQuantile(0.25, 80, 4), 295.1975963980082, 1e-10, 2e-10)
     }))
 
-  it.effect.prop("agrees with the exponential quantile at shape one", {
-    p: FastCheck.double({ min: 1e-14, max: Number.subtract(1, 1e-14), noNaN: true }),
-    scale: FastCheck.double({ min: 0.01, max: 100, noNaN: true })
-  }, ({ p, scale }) =>
+  it.effect("matches exponential reference quantiles at shape one, including both tails", () =>
     Effect.gen(function*() {
-      // Gamma(1,scale) has inverse CDF -scale*log(1-p); no CDF roundtrip.
-      const expected = Number.multiply(scale, Number.negate(log1p(Number.negate(p))))
-      expectRelativeClose(gammaQuantile(p, 1, scale), expected, 0, 1e-13)
+      // scipy.stats.expon.ppf references; Gamma(1, scale) is exponential.
+      // The lower tail distinguishes log1p(-p) from log(1-p), which rounds to zero.
+      expectRelativeClose(gammaQuantile(1e-30, 1, 3.5), 3.5e-30, 0, 2e-15)
+      expectRelativeClose(gammaQuantile(0.2, 1, 3.5), 0.7810024295997342, 0, 2e-15)
+      expectRelativeClose(gammaQuantile(0.9999999999999999, 1, 0.125), 4.592100071209638, 0, 2e-15)
     }))
 
   it.effect.prop(
