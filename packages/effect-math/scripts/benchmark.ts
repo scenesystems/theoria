@@ -250,10 +250,15 @@ const cases = Chunk.make(
     (value) => Distribution.normalQuantile(value, 0.5, 1.75)
   ),
   singleCallCase("Distribution.betaCdf ordinary", () => Distribution.betaCdf(0.375, 2.5, 4.25)),
+  singleCallCase("Distribution.betaCdf reflected", () => Distribution.betaCdf(0.875, 2.5, 4.25)),
+  singleCallCase("Distribution.betaPdf ordinary", () => Distribution.betaPdf(0.375, 2.5, 4.25)),
   unaryCase("Distribution.betaQuantile uniform", probabilities, (value) => Distribution.betaQuantile(value, 1, 1)),
   singleCallCase("Distribution.betaQuantile ordinary", () => Distribution.betaQuantile(0.375, 2.5, 4.25)),
   singleCallCase("Distribution.betaQuantile lower-tail", () => Distribution.betaQuantile(1e-12, 0.25, 7)),
   singleCallCase("Distribution.betaQuantile upper-tail", () => Distribution.betaQuantile(0.999999, 2, 40)),
+  singleCallCase("Distribution.gammaCdf series", () => Distribution.gammaCdf(2, 3.75, 1.25)),
+  singleCallCase("Distribution.gammaCdf fraction", () => Distribution.gammaCdf(15, 3.75, 1.25)),
+  singleCallCase("Distribution.gammaPdf ordinary", () => Distribution.gammaPdf(2, 3.75, 1.25)),
   unaryCase(
     "Distribution.gammaQuantile exponential",
     probabilities,

@@ -20,6 +20,18 @@ const maxIterations = 200
 const epsilon = 3e-14
 const minimumPositive = 1e-30
 
+/**
+ * Log of B(a,b) = Γ(a)Γ(b)/Γ(a+b), shared by beta probabilities and densities.
+ *
+ * @since 0.1.0
+ * @category internal
+ */
+export const betaLogNorm = (a: number, b: number): number =>
+  Number.subtract(
+    Number.sum(lnGammaLanczos(a), lnGammaLanczos(b)),
+    lnGammaLanczos(Number.sum(a, b))
+  )
+
 class BetaincState extends Data.Class<{
   readonly value: number
   readonly c: number
@@ -119,11 +131,18 @@ const betacfLoop = (
  * Regularized incomplete beta I_x(a,b) = B(x;a,b) / B(a,b).
  *
  * Requires a > 0, b > 0, 0 ≤ x ≤ 1. Returns a value in [0, 1].
+ * Internal inverse solves may supply their already computed log B(a,b).
+ * Keep it lazy so one-shot endpoint calls do not evaluate normalization.
  *
  * @since 0.1.0
  * @category internal
  */
-export const betainc = (a: number, b: number, x: number): number => {
+export const betainc = (
+  a: number,
+  b: number,
+  x: number,
+  logNormalization: (a: number, b: number) => number = betaLogNorm
+): number => {
   return Boolean.match(Number.Equivalence(x, 0), {
     onTrue: () => 0,
     onFalse: () =>
@@ -133,20 +152,14 @@ export const betainc = (a: number, b: number, x: number): number => {
           Boolean.match(
             Number.greaterThan(x, Number.unsafeDivide(Number.sum(a, 1), Number.sum(Number.sum(a, b), 2))),
             {
-              onTrue: () => Number.subtract(1, betainc(b, a, Number.subtract(1, x))),
+              onTrue: () => Number.subtract(1, betainc(b, a, Number.subtract(1, x), logNormalization)),
               onFalse: () => {
                 const lnPre = Number.subtract(
                   Number.sum(
                     Number.multiply(a, log(x)),
                     Number.multiply(b, log(Number.subtract(1, x)))
                   ),
-                  Number.sum(
-                    log(a),
-                    Number.subtract(
-                      Number.sum(lnGammaLanczos(a), lnGammaLanczos(b)),
-                      lnGammaLanczos(Number.sum(a, b))
-                    )
-                  )
+                  Number.sum(log(a), logNormalization(a, b))
                 )
                 return Number.multiply(exp(lnPre), betacf(a, b, x))
               }

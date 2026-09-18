@@ -35,7 +35,7 @@ import {
   uniformPdfValidated,
   uniformPdfWithPolicies
 } from "../../src/Distribution.js"
-import { abs, isFinite, log1p, pi, sqrt } from "../../src/Numeric.js"
+import { abs, exp, expm1, isFinite, log, log1p, pi, sqrt } from "../../src/Numeric.js"
 import * as Policy from "../../src/Policy.js"
 
 const strictLayer = Policy.layerDeterministic({
@@ -245,6 +245,19 @@ describe("Distribution / beta boundaries and quantiles", () => {
       // Beta(1,1) is uniform: its inverse CDF is the probability itself.
       expectRelativeClose(betaQuantile(p, 1, 1), p, 0, 1e-13)
     }))
+
+  it.effect.prop("preserves the power-law quantiles in both shape orientations", {
+    p: FastCheck.double({ min: 0.001, max: 0.999, noNaN: true }),
+    shape: FastCheck.double({ min: 0.25, max: 16, noNaN: true })
+  }, ({ p, shape }) =>
+    Effect.gen(function*() {
+      // F(x;a,1)=x^a and F(x;1,b)=1-(1-x)^b. These independent
+      // identities catch normalization errors shared by a CDF/PDF roundtrip.
+      const power = exp(Number.unsafeDivide(log(p), shape))
+      const reflected = Number.negate(expm1(Number.unsafeDivide(log1p(Number.negate(p)), shape)))
+      expectRelativeClose(betaQuantile(p, shape, 1), power, 0, 2e-12)
+      expectRelativeClose(betaQuantile(p, 1, shape), reflected, 0, 2e-12)
+    }), { fastCheck: { numRuns: 100, seed: 4293 } })
 
   it.effect.prop(
     "round-trips seeded interior probabilities for asymmetric shapes",

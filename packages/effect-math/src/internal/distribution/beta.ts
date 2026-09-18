@@ -2,15 +2,17 @@
  * Beta distribution kernels.
  * Parameters: alpha > 0, beta > 0. Support: x ∈ [0, 1].
  *
- * CDF and normalization delegate to canonical public Special operations.
+ * CDF and normalization use the Special implementations, reusing shape-only
+ * normalization throughout an inverse solve.
  *
  * @since 0.1.0
  * @category internal
  */
-import { Boolean, Data, Iterable, Match, Number, Option, Schema, Tuple } from "effect"
+import { Boolean, Data, Function, Iterable, Match, Number, Option, Schema, Tuple } from "effect"
 
 import { exp, isFinite, log } from "../../Numeric.js"
-import { betainc, digamma, lnGamma } from "../../Special.js"
+import { digamma } from "../../Special.js"
+import { betainc, betaLogNorm } from "../special/betainc.js"
 
 class BetaQuantileState extends Data.Class<{
   readonly lower: number
@@ -22,18 +24,6 @@ class BetaQuantileState extends Data.Class<{
 const isNonNaN = Schema.is(Schema.NonNaN)
 
 /**
- * Log of the Beta function B(a,b) = Γ(a)Γ(b)/Γ(a+b).
- *
- * @since 0.1.0
- * @category internal
- */
-export const betaLogNorm = (a: number, b: number): number =>
-  Number.subtract(
-    Number.sum(lnGamma(a), lnGamma(b)),
-    lnGamma(Number.sum(a, b))
-  )
-
-/**
  * Beta PDF: x^{α−1}(1−x)^{β−1} / B(α,β) for x ∈ (0,1).
  *
  * At either endpoint the density is infinite when the corresponding shape is
@@ -42,7 +32,12 @@ export const betaLogNorm = (a: number, b: number): number =>
  * @since 0.1.0
  * @category internal
  */
-export const betaPdf = (x: number, alpha: number, beta: number): number => {
+export const betaPdf = (
+  x: number,
+  alpha: number,
+  beta: number,
+  logNormalization: (alpha: number, beta: number) => number = betaLogNorm
+): number => {
   return Match.value(x).pipe(
     Match.when((value) => Boolean.not(isNonNaN(value)), () => NaN),
     Match.when(Number.lessThan(0), () => 0),
@@ -50,14 +45,14 @@ export const betaPdf = (x: number, alpha: number, beta: number): number => {
     Match.when((value) => Number.Equivalence(value, 0), () =>
       Match.value(Number.Order(alpha, 1)).pipe(
         Match.when(-1, () => Infinity),
-        Match.when(0, () => exp(Number.negate(betaLogNorm(alpha, beta)))),
+        Match.when(0, () => exp(Number.negate(logNormalization(alpha, beta)))),
         Match.when(1, () => 0),
         Match.exhaustive
       )),
     Match.when((value) => Number.Equivalence(value, 1), () =>
       Match.value(Number.Order(beta, 1)).pipe(
         Match.when(-1, () => Infinity),
-        Match.when(0, () => exp(Number.negate(betaLogNorm(alpha, beta)))),
+        Match.when(0, () => exp(Number.negate(logNormalization(alpha, beta)))),
         Match.when(1, () => 0),
         Match.exhaustive
       )),
@@ -68,7 +63,7 @@ export const betaPdf = (x: number, alpha: number, beta: number): number => {
             Number.multiply(Number.subtract(alpha, 1), log(x)),
             Number.multiply(Number.subtract(beta, 1), log(Number.subtract(1, x)))
           ),
-          betaLogNorm(alpha, beta)
+          logNormalization(alpha, beta)
         )
       )
     )
@@ -143,7 +138,8 @@ const betaQuantileLoop = (
   p: number,
   alpha: number,
   beta: number,
-  initialX: number
+  initialX: number,
+  logNormalization: () => number
 ): number => {
   const upperTail = Number.greaterThan(p, 0.5)
   const target = Boolean.match(upperTail, {
@@ -152,8 +148,8 @@ const betaQuantileLoop = (
   })
   const probabilityError = (x: number): number =>
     Boolean.match(upperTail, {
-      onTrue: () => Number.subtract(target, betainc(beta, alpha, Number.subtract(1, x))),
-      onFalse: () => Number.subtract(betainc(alpha, beta, x), target)
+      onTrue: () => Number.subtract(target, betainc(beta, alpha, Number.subtract(1, x), logNormalization)),
+      onFalse: () => Number.subtract(betainc(alpha, beta, x, logNormalization), target)
     })
   const initial = new BetaQuantileState({ lower: 0, upper: 1, x: initialX, remaining: 320 })
   return Iterable.reduce(
@@ -184,7 +180,7 @@ const betaQuantileLoop = (
                 const midpoint = Number.unsafeDivide(Number.sum(lower, upper), 2)
                 const candidate = Number.subtract(
                   state.x,
-                  Number.unsafeDivide(difference, betaPdf(state.x, alpha, beta))
+                  Number.unsafeDivide(difference, betaPdf(state.x, alpha, beta, logNormalization))
                 )
                 const useCandidate = Boolean.and(
                   isFinite(candidate),
@@ -231,10 +227,13 @@ export const betaQuantile = (p: number, alpha: number, beta: number): number =>
       })
       const tailShape = Boolean.match(upperTail, { onTrue: () => beta, onFalse: () => alpha })
       const oppositeShape = Boolean.match(upperTail, { onTrue: () => alpha, onFalse: () => beta })
+      // B(a,b) is symmetric; the same normalization serves reflected CDFs and
+      // the PDF without changing either expression's floating-point grouping.
+      const logNormalization = Function.constant(betaLogNorm(tailShape, oppositeShape))
       const distance = exp(Number.unsafeDivide(
         Number.sum(
           Number.sum(log(tailProbability), log(tailShape)),
-          betaLogNorm(tailShape, oppositeShape)
+          logNormalization()
         ),
         tailShape
       ))
@@ -250,7 +249,7 @@ export const betaQuantile = (p: number, alpha: number, beta: number): number =>
       // An underflowed tail distance already rounds to its support endpoint.
       return Boolean.match(Number.Equivalence(distance, 0), {
         onTrue: () => estimate,
-        onFalse: () => betaQuantileLoop(p, alpha, beta, initial)
+        onFalse: () => betaQuantileLoop(p, alpha, beta, initial, logNormalization)
       })
     })
   )
