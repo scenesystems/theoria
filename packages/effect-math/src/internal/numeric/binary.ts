@@ -5,7 +5,7 @@
  * @since 0.4.0
  * @category internal
  */
-import { Array, BigDecimal, BigInt, Boolean, Chunk, Data, Number, Option, Predicate, Tuple } from "effect"
+import { Array, BigDecimal, BigInt, Boolean, Chunk, Data, MutableRef, Number, Option, Predicate, Tuple } from "effect"
 
 export const positiveInfinity = Number.unsafeDivide(1, 0)
 export const negativeInfinity = Number.negate(positiveInfinity)
@@ -75,9 +75,10 @@ export const integerPower = (base: bigint, exponent: number): bigint =>
 /** Magnitude with positive zero, and NaN propagation. */
 export const abs: (value: number) => number = Math.abs
 
+/** Real-valued power including signed-zero, negative-base, and infinity rules. */
+export const pow: (base: number, exponent: number) => number = Math.pow
+
 const power2_512 = 1.3407807929942597e154
-// Private read-only lookup, built once with exact binary multiplications.
-const powersOfTwo = Array.scan(Array.range(1, 1023), 1, (power) => Number.multiply(power, 2))
 
 /** Internal exponent estimate only; exact dyadic scaling certifies normalization. */
 export const log2: (value: number) => number = Math.log2
@@ -110,11 +111,7 @@ export const decompose = (value: number): Dyadic => {
   })
 }
 
-const scaleNormal = (value: number, exponent: number): number =>
-  Boolean.match(Number.lessThan(exponent, 0), {
-    onTrue: () => Number.unsafeDivide(value, Array.unsafeGet(powersOfTwo, Number.negate(exponent))),
-    onFalse: () => Number.multiply(value, Array.unsafeGet(powersOfTwo, exponent))
-  })
+const scaleNormal = (value: number, exponent: number): number => Number.multiply(value, pow(2, exponent))
 
 const withSign = (magnitude: number, value: number): number =>
   Boolean.match(Number.lessThan(value, 0), {
@@ -386,6 +383,40 @@ const normResidual = (sum: readonly [number, number], root: number): number => {
   return Number.sum(Number.subtract(Number.subtract(sum[0], product), squareError(root, product)), sum[1])
 }
 
+// Short significands can share an exact integer lattice. Split the square's
+// bit budget between precision and headroom above the first nonzero value.
+// The per-term checks, not that scale estimate, certify exact arithmetic.
+// Integer squares and positive partial sums <= 2^53-1 are exact. Scaling the
+// correctly rounded root back by a power of two is exact for normal results.
+const exactIntegerSum = Number.lessThanOrEqualTo(maxSafeInteger)
+const hypotIntegral = (values: Chunk.Chunk<number>, exponent: number): Option.Option<number> => {
+  const bits = floor(Number.unsafeDivide(Number.subtract(53, ceil(log2(Chunk.size(values)))), 4))
+  const scale = pow(2, Number.subtract(Number.decrement(bits), exponent))
+  const scaleValue = Number.multiply(scale)
+  const unscaleValue = Number.unsafeDivide(scale)
+  const sum = MutableRef.make(0)
+  const integral = Array.every(Chunk.toReadonlyArray(values), (value) => {
+    const scaled = scaleValue(value)
+    const total = Number.sum(MutableRef.get(sum), Number.multiply(scaled, scaled))
+    MutableRef.set(sum, total)
+    return Boolean.every(Array.make(
+      Number.Equivalence(scaled, floor(scaled)),
+      // The round-trip check rejects any nonzero input lost to underflow.
+      Number.Equivalence(unscaleValue(scaled), value),
+      exactIntegerSum(total)
+    ))
+  })
+  return Boolean.match(integral, {
+    onFalse: Option.none,
+    onTrue: () => {
+      const result = unscaleValue(sqrt(MutableRef.get(sum)))
+      return Option.liftPredicate((value: number) =>
+        Boolean.and(Number.greaterThanOrEqualTo(value, minimumNormal), isFinite(value))
+      )(result)
+    }
+  })
+}
+
 const hypotCompensated = (values: Chunk.Chunk<number>, exponent: number): number => {
   const scale = scaleNormal(1, Number.negate(exponent))
   const sum = Array.reduce(
@@ -458,8 +489,7 @@ const hypotCompensated = (values: Chunk.Chunk<number>, exponent: number): number
   })
 }
 
-/** Correctly rounded norm; uncertain floating results retain exact dyadic rounding. */
-export const hypot = (values: Chunk.Chunk<number>): number => {
+const hypotFloating = (values: Chunk.Chunk<number>): number => {
   const largest = Array.reduce(
     Chunk.toReadonlyArray(values),
     Tuple.make(0, 0),
@@ -506,3 +536,14 @@ export const hypot = (values: Chunk.Chunk<number>): number => {
       })
   })
 }
+
+/** Correctly rounded norm; uncertain floating results retain exact dyadic rounding. */
+export const hypot = (values: Chunk.Chunk<number>): number =>
+  Option.match(Array.findFirst(Chunk.toReadonlyArray(values), (value) => Boolean.not(zero(value))), {
+    onNone: () => 0,
+    onSome: (first) =>
+      Boolean.match(isFinite(first), {
+        onFalse: () => hypotExact(values),
+        onTrue: () => Option.getOrElse(hypotIntegral(values, floor(log2(abs(first)))), () => hypotFloating(values))
+      })
+  })

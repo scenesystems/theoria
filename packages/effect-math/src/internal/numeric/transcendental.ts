@@ -28,9 +28,6 @@ export const expm1: (value: number) => number = Math.expm1
 /** Base-ten logarithm without a second rounding from dividing natural logs. */
 export const log10: (value: number) => number = Math.log10
 
-/** Real-valued power including signed-zero, negative-base, and infinity rules. */
-export const pow: (base: number, exponent: number) => number = Math.pow
-
 /** Sine with full-range argument reduction. */
 export const sin: (value: number) => number = Math.sin
 

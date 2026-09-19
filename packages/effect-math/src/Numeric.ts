@@ -493,7 +493,7 @@ export const log10: typeof Transcendental.log10 = Transcendental.log10
  * @since 0.4.0
  * @category operations
  */
-export const pow: typeof Transcendental.pow = Transcendental.pow
+export const pow: typeof Binary.pow = Binary.pow
 
 /**
  * Rounds a number to the requested decimal precision. Both data-first and

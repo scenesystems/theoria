@@ -109,6 +109,32 @@ describe("Numeric binary64 arithmetic", () => {
       expect(hypot(Chunk.make(5_464.208024978638, 5_104.779699210003))).toBe(7_477.7232576304605)
     }))
 
+  it.effect.prop("preserves exactly representable Pythagorean norms across binary scales", {
+    m: FastCheck.integer({ min: 1, max: 1000 }),
+    n: FastCheck.integer({ min: 1, max: 1000 }),
+    exponent: FastCheck.integer({ min: -900, max: 900 })
+  }, ({ m, n, exponent }) =>
+    Effect.gen(function*() {
+      const factor = Boolean.match(Number.lessThan(exponent, 0), { onTrue: () => 0.5, onFalse: () => 2 })
+      const scale = Number.multiplyAll(Iterable.take(Iterable.makeBy(() => factor), abs(exponent)))
+      const squareM = Number.multiply(m, m)
+      const squareN = Number.multiply(n, n)
+      // (m² - n²)² + (2mn)² = (m² + n²)², with all integer operations exact.
+      const a = Number.multiply(Number.subtract(squareM, squareN), scale)
+      const b = Number.multiply(Number.multiply(2, Number.multiply(m, n)), scale)
+      const expected = Number.multiply(Number.sum(squareM, squareN), scale)
+      expect(hypot(Chunk.make(a, b))).toBe(expected)
+      expect(hypot(Chunk.make(b, Number.negate(a)))).toBe(expected)
+    }))
+
+  it.effect("does not mistake rounded large integer squares or their sum for exact arithmetic", () =>
+    Effect.gen(function*() {
+      // Python Decimal, precision 200, from exact integer squares. Direct
+      // binary64 sum-of-squares followed by sqrt is one ulp low in each case.
+      expect(hypot(Chunk.make(67_108_864, 67_108_864, 3))).toBe(94_906_265.6242516)
+      expect(hypot(Chunk.make(94_906_266, 5))).toBe(94_906_266.00000013)
+    }))
+
   it.effect.prop("rounds vector midpoints to even without dropping decisive small squares", {
     exponent: FastCheck.integer({ min: -900, max: 900 }),
     reverse: FastCheck.boolean()

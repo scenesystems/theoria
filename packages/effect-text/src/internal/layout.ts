@@ -59,6 +59,8 @@ class LineWalkFrame extends Data.Class<{
 
 type LineRecordWalkState = readonly [cursor: Text.Cursor, lineIndex: number]
 
+const lineWalkBatch = Arr.range(0, 63)
+
 const cursorHintKey = (maxWidth: number, cursor: Text.Cursor): CursorHintKey =>
   new CursorHintKey({
     graphemeIndex: cursor.graphemeIndex,
@@ -740,15 +742,17 @@ const walkNextLineRecord = (
         scan: initialLineScanState(cursor),
         segmentLimit: segmentLimitForCursor(kernel, cursor)
       })
-      Iterable.some(Iterable.range(0), () => {
-        const currentCursor = MutableRef.get(initial.cursor)
-        return Boolean.match(lineFrameIsComplete(initial, currentCursor), {
-          onFalse: () => {
-            advanceLineFrame(kernel, initial, currentCursor)
-            return false
-          },
-          onTrue: () => true
-        })
+      const advance = Boolean.match({
+        onFalse: () => {
+          advanceLineFrame(kernel, initial, MutableRef.get(initial.cursor))
+          return false
+        },
+        onTrue: () => true
+      })
+      const visit = () => advance(lineFrameIsComplete(initial, MutableRef.get(initial.cursor)))
+      Boolean.match(Arr.some(lineWalkBatch, visit), {
+        onTrue: () => true,
+        onFalse: () => Iterable.some(Iterable.range(0), () => Arr.some(lineWalkBatch, visit))
       })
 
       return Option.orElse(

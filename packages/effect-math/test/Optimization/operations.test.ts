@@ -100,6 +100,23 @@ describe("Optimization / bisect", () => {
       expect(MutableRef.get(evaluations)).toStrictEqual(5)
     }))
 
+  it.effect("continues narrowing when the interval width equals the tolerance", () =>
+    Effect.gen(function*() {
+      const evaluations = MutableRef.make(0)
+      const result = bisect(
+        (x) => {
+          MutableRef.increment(evaluations)
+          return Number.subtract(x, 1.75)
+        },
+        0,
+        2,
+        2,
+        1
+      )
+      expect(result).toBe(1.5)
+      expect(MutableRef.get(evaluations)).toBe(3)
+    }))
+
   it.effect("preserves reversed brackets and exact iteration-budget boundaries", () =>
     Effect.gen(function*() {
       const evaluations = MutableRef.make(0)
@@ -229,6 +246,30 @@ describe("Optimization / goldenSection", () => {
       )
       expect(result).toStrictEqual(1)
       expect(MutableRef.get(evaluations)).toStrictEqual(2)
+    }))
+
+  it.effect.prop("keeps the right-hand interval on ties at the tolerance boundary", {
+    start: FastCheck.integer({ min: -128, max: 128 }),
+    width: FastCheck.integer({ min: 1, max: 512 }),
+    value: FastCheck.constantFrom(0, -0, 5, Number.unsafeDivide(0, 0))
+  }, ({ start, width, value }) =>
+    Effect.gen(function*() {
+      const evaluations = MutableRef.make(0)
+      const result = goldenSection(
+        () => {
+          MutableRef.increment(evaluations)
+          return value
+        },
+        start,
+        Number.sum(start, width),
+        width,
+        1
+      )
+      // One right-hand contraction advances the midpoint by
+      // width * (5 - sqrt(5)) / 4. Effect Order also selects that branch
+      // for unordered objective values.
+      expectClose(result, Number.sum(start, Number.multiply(width, 0.6909830056250525)), 2e-13)
+      expect(MutableRef.get(evaluations)).toBe(3)
     }))
 
   it.effect("preserves capped nonfinite interval behavior", () =>

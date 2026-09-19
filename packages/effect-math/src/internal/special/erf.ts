@@ -10,7 +10,7 @@
  * @since 0.1.0
  * @category internal
  */
-import { Boolean, Function, Number } from "effect"
+import { Function, Number, Ordering } from "effect"
 
 import { abs, exp } from "../../Numeric.js"
 
@@ -18,12 +18,6 @@ const twoPowNegative28 = 3.725290298461914e-9
 const smallRegionBoundary = 0.84375
 const middleRegionBoundary = 1.25
 const tailRegionBoundary = Number.unsafeDivide(1, 0.35)
-const isNearZero = Number.lessThan(twoPowNegative28)
-const isSmall = Number.lessThan(smallRegionBoundary)
-const isMiddle = Number.lessThan(middleRegionBoundary)
-const isTailA = Number.lessThan(tailRegionBoundary)
-const isNegative = Number.lessThan(0)
-const isNonnegative = Number.greaterThanOrEqualTo(0)
 
 const EFX = 1.28379167095512586316e-01
 const ERX = 8.45062911510467529297e-01
@@ -116,11 +110,12 @@ const tailApproximation = (
 
 const positiveTailA = (x: number): number => tailApproximation(x, RA, SA)
 const positiveTailB = (x: number): number => tailApproximation(x, RB, SB)
-const selectPositiveTail = Boolean.match({
-  onTrue: () => positiveTailA,
-  onFalse: () => positiveTailB
+const selectPositiveTail = Ordering.match({
+  onLessThan: () => positiveTailA,
+  onEqual: () => positiveTailB,
+  onGreaterThan: () => positiveTailB
 })
-const positiveTail = (x: number): number => selectPositiveTail(isTailA(x))(x)
+const positiveTail = (x: number): number => selectPositiveTail(Number.Order(x, tailRegionBoundary))(x)
 
 const nearZeroApproximation = (x: number): number => Number.multiply(Number.sum(1, EFX), x)
 
@@ -135,50 +130,58 @@ const shiftedApproximation = (x: number): number => {
 }
 
 const erfPositiveTail = (x: number): number => Number.subtract(1, positiveTail(x))
-const selectErfMiddleRegion = Boolean.match({
-  onTrue: () => shiftedApproximation,
-  onFalse: () => erfPositiveTail
+const selectErfMiddleRegion = Ordering.match({
+  onLessThan: () => shiftedApproximation,
+  onEqual: () => erfPositiveTail,
+  onGreaterThan: () => erfPositiveTail
 })
-const erfMiddleRegion = (x: number): number => selectErfMiddleRegion(isMiddle(x))(x)
-const selectErfSmallRegion = Boolean.match({
-  onTrue: () => polynomialApproximation,
-  onFalse: () => erfMiddleRegion
+const erfMiddleRegion = (x: number): number => selectErfMiddleRegion(Number.Order(x, middleRegionBoundary))(x)
+const selectErfSmallRegion = Ordering.match({
+  onLessThan: () => polynomialApproximation,
+  onEqual: () => erfMiddleRegion,
+  onGreaterThan: () => erfMiddleRegion
 })
-const erfSmallRegion = (x: number): number => selectErfSmallRegion(isSmall(x))(x)
-const selectErfNearZero = Boolean.match({
-  onTrue: () => nearZeroApproximation,
-  onFalse: () => erfSmallRegion
+const erfSmallRegion = (x: number): number => selectErfSmallRegion(Number.Order(x, smallRegionBoundary))(x)
+const selectErfNearZero = Ordering.match({
+  onLessThan: () => nearZeroApproximation,
+  onEqual: () => erfSmallRegion,
+  onGreaterThan: () => erfSmallRegion
 })
-const erfRightNonBig = (x: number): number => selectErfNearZero(isNearZero(x))(x)
+const erfRightNonBig = (x: number): number => selectErfNearZero(Number.Order(x, twoPowNegative28))(x)
 
 const erfcNearZero = (x: number): number => Number.subtract(1, nearZeroApproximation(x))
 const erfcPolynomial = (x: number): number => Number.subtract(1, polynomialApproximation(x))
 const erfcShifted = (x: number): number => Number.subtract(1, shiftedApproximation(x))
-const selectErfcMiddleRegion = Boolean.match({
-  onTrue: () => erfcShifted,
-  onFalse: () => positiveTail
+const selectErfcMiddleRegion = Ordering.match({
+  onLessThan: () => erfcShifted,
+  onEqual: () => positiveTail,
+  onGreaterThan: () => positiveTail
 })
-const erfcMiddleRegion = (x: number): number => selectErfcMiddleRegion(isMiddle(x))(x)
-const selectErfcSmallRegion = Boolean.match({
-  onTrue: () => erfcPolynomial,
-  onFalse: () => erfcMiddleRegion
+const erfcMiddleRegion = (x: number): number => selectErfcMiddleRegion(Number.Order(x, middleRegionBoundary))(x)
+const selectErfcSmallRegion = Ordering.match({
+  onLessThan: () => erfcPolynomial,
+  onEqual: () => erfcMiddleRegion,
+  onGreaterThan: () => erfcMiddleRegion
 })
-const erfcSmallRegion = (x: number): number => selectErfcSmallRegion(isSmall(x))(x)
-const selectErfcNearZero = Boolean.match({
-  onTrue: () => erfcNearZero,
-  onFalse: () => erfcSmallRegion
+const erfcSmallRegion = (x: number): number => selectErfcSmallRegion(Number.Order(x, smallRegionBoundary))(x)
+const selectErfcNearZero = Ordering.match({
+  onLessThan: () => erfcNearZero,
+  onEqual: () => erfcSmallRegion,
+  onGreaterThan: () => erfcSmallRegion
 })
-const erfcPositive = (x: number): number => selectErfcNearZero(isNearZero(x))(x)
+const erfcPositive = (x: number): number => selectErfcNearZero(Number.Order(x, twoPowNegative28))(x)
 
-const selectErfSign = Boolean.match({
-  onTrue: () => Number.negate,
-  onFalse: () => Function.identity<number>
+const selectErfSign = Ordering.match({
+  onLessThan: () => Number.negate,
+  onEqual: () => Function.identity<number>,
+  onGreaterThan: () => Function.identity<number>
 })
 
 const erfcNegative = (x: number): number => Number.subtract(2, erfcPositive(Number.negate(x)))
-const selectErfcSign = Boolean.match({
-  onTrue: () => erfcPositive,
-  onFalse: () => erfcNegative
+const selectErfcSign = Ordering.match({
+  onLessThan: () => erfcNegative,
+  onEqual: () => erfcPositive,
+  onGreaterThan: () => erfcPositive
 })
 
 /**
@@ -189,9 +192,9 @@ const selectErfcSign = Boolean.match({
  * @category internal
  */
 export const erfCephes = (x: number): number => {
-  const negative = isNegative(x)
+  const sign = Number.Order(x, 0)
   const rightValue = erfRightNonBig(abs(x))
-  return selectErfSign(negative)(rightValue)
+  return selectErfSign(sign)(rightValue)
 }
 
 /**
@@ -202,5 +205,5 @@ export const erfCephes = (x: number): number => {
  * @category internal
  */
 export const erfcCephes = (x: number): number => {
-  return selectErfcSign(isNonnegative(x))(x)
+  return selectErfcSign(Number.Order(x, 0))(x)
 }

@@ -164,32 +164,43 @@ export const frobeniusNorm = (
   const columnCount = ceil(cols)
   const count = elementCount(rows, cols)
   return Boolean.match(
-    Boolean.and(
+    Boolean.every(Array.make(
+      Number.Equivalence(offset, 0),
       Number.Equivalence(stride, columnCount),
-      hasDenseRegion(Chunk.size(data), rows, cols, stride, offset)
-    ),
+      Number.Equivalence(count, Chunk.size(data))
+    )),
     {
-      onTrue: () => hypot(Chunk.take(Chunk.drop(data, offset), count)),
-      onFalse: () => {
-        const transientData = Chunk.toReadonlyArray(data)
-        const dataAt = transientReader(
-          transientData,
-          hasDenseRegion(Array.length(transientData), rows, cols, stride, offset)
+      onTrue: () => hypot(data),
+      onFalse: () =>
+        Boolean.match(
+          Boolean.and(
+            Number.Equivalence(stride, columnCount),
+            hasDenseRegion(Chunk.size(data), rows, cols, stride, offset)
+          ),
+          {
+            onTrue: () => hypot(Chunk.take(Chunk.drop(data, offset), count)),
+            onFalse: () => {
+              const transientData = Chunk.toReadonlyArray(data)
+              const dataAt = transientReader(
+                transientData,
+                hasDenseRegion(Array.length(transientData), rows, cols, stride, offset)
+              )
+              return hypot(
+                Boolean.match(Number.greaterThan(count, 0), {
+                  onFalse: Chunk.empty,
+                  onTrue: () =>
+                    Chunk.makeBy(count, (flatIndex) => {
+                      const row = floor(Number.unsafeDivide(flatIndex, columnCount))
+                      const column = Number.subtract(flatIndex, Number.multiply(row, columnCount))
+                      return dataAt(
+                        Number.sum(offset, Number.sum(Number.multiply(row, stride), column))
+                      )
+                    })
+                })
+              )
+            }
+          }
         )
-        return hypot(
-          Boolean.match(Number.greaterThan(count, 0), {
-            onFalse: Chunk.empty,
-            onTrue: () =>
-              Chunk.makeBy(count, (flatIndex) => {
-                const row = floor(Number.unsafeDivide(flatIndex, columnCount))
-                const column = Number.subtract(flatIndex, Number.multiply(row, columnCount))
-                return dataAt(
-                  Number.sum(offset, Number.sum(Number.multiply(row, stride), column))
-                )
-              })
-          })
-        )
-      }
     }
   )
 }

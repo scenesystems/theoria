@@ -1,5 +1,5 @@
 import { describe, expect, it } from "@effect/vitest"
-import { Effect, Exit, Number, Schema, String } from "effect"
+import { Array, Boolean, Effect, Exit, FastCheck, MutableRef, Number, Schema, String } from "effect"
 
 import {
   derivative,
@@ -42,6 +42,60 @@ describe("Calculus / univariate limit operators", () => {
       expect(estimate.absoluteError).toBeLessThanOrEqual(1e-8)
     }))
 
+  it.effect.prop("reports the actual refinement count without exceeding the callback budget", {
+    budget: FastCheck.integer({ min: 1, max: 16 })
+  }, ({ budget }) =>
+    Effect.gen(function*() {
+      const evaluations = MutableRef.make(0)
+      const estimate = derivativeLimit(
+        (x) => {
+          MutableRef.increment(evaluations)
+          return Number.sum(Number.multiply(3, x), 1)
+        },
+        2,
+        {
+          initialStep: Numeric.StepSize.make(0.125),
+          contractionFactor: 2,
+          maxIterations: Numeric.IterationBudget.make(budget)
+        }
+      )
+      // A linear function on these exact dyadic steps needs two identical
+      // central differences to certify convergence; a budget of one cannot.
+      const iterations = Number.min(budget, 2)
+      expect(estimate.value).toBe(3)
+      expect(estimate.iterations).toBe(iterations)
+      expect(estimate.converged).toBe(Number.greaterThan(budget, 1))
+      expect(estimate.absoluteError).toBe(Boolean.match(Number.Equivalence(budget, 1), {
+        onTrue: () => Number.unsafeDivide(1, 0),
+        onFalse: () => 0
+      }))
+      expect(MutableRef.get(evaluations)).toBe(Number.multiply(iterations, 2))
+    }))
+
+  it.effect("uses the caller's larger refinement budget when the derivative does not converge", () =>
+    Effect.gen(function*() {
+      const evaluations = MutableRef.make(0)
+      const estimate = derivativeLimit(
+        (x) => {
+          MutableRef.increment(evaluations)
+          return Number.multiply(Number.sign(x), Numeric.sqrt(Numeric.abs(x)))
+        },
+        0,
+        {
+          initialStep: Numeric.StepSize.make(1),
+          contractionFactor: 2,
+          maxIterations: Numeric.IterationBudget.make(16),
+          absoluteTolerance: Numeric.AbsoluteTolerance.make(1e-100),
+          relativeTolerance: Numeric.RelativeTolerance.make(1e-100),
+          safetyFactor: 1e100
+        }
+      )
+      // The derivative at zero is unbounded; with the runaway threshold
+      // suppressed, all sixteen two-sided samples must be evaluated.
+      expect(estimate.converged).toBe(false)
+      expect(MutableRef.get(evaluations)).toBe(32)
+    }))
+
   it.effect("secondDerivativeLimit converges for exp(x) at x=1", () =>
     Effect.gen(function*() {
       const estimate = secondDerivativeLimit(Numeric.exp, 1)
@@ -76,6 +130,16 @@ describe("Calculus / univariate validation", () => {
       expect(estimate.converged).toStrictEqual(true)
       expectClose(estimate.value, 0.5, 1e-10)
     }))
+
+  it.effect("rejects nonpositive, fractional, nonfinite, and unsafe iteration budgets at the boundary", () =>
+    Effect.forEach(
+      Array.make(0, -1, 1.5, Number.unsafeDivide(1, 0), Number.unsafeDivide(0, 0), 9_007_199_254_740_992),
+      (maxIterations) =>
+        Effect.gen(function*() {
+          const result = yield* Effect.exit(derivativeLimitValidated(Numeric.sin, { x: 1, maxIterations }))
+          expect(Exit.isFailure(result)).toBe(true)
+        })
+    ))
 
   it.effect("secondDerivativeLimitValidated rejects excess properties", () =>
     Effect.gen(function*() {

@@ -4,7 +4,7 @@
  * @since 0.1.0
  * @category internal
  */
-import { Array, Boolean, Iterable, MutableRef, Number } from "effect"
+import { Array, Boolean, Iterable, MutableRef, Number, Ordering } from "effect"
 
 import * as Numeric from "../../Numeric.js"
 
@@ -39,7 +39,6 @@ export const goldenSection = (
   const secondPoint = MutableRef.make(Number.sum(a, scaleByPhi(Number.subtract(b, a))))
   const firstValue = MutableRef.make(f(MutableRef.get(firstPoint)))
   const secondValue = MutableRef.make(f(MutableRef.get(secondPoint)))
-  const withinTolerance = Number.lessThan(tolerance)
   const narrowLeft = () => {
     const nextRight = MutableRef.get(secondPoint)
     const nextFirstPoint = Number.sum(
@@ -64,17 +63,15 @@ export const goldenSection = (
     MutableRef.set(secondPoint, nextSecondPoint)
     MutableRef.set(secondValue, f(nextSecondPoint))
   }
-  const narrow = { onTrue: narrowLeft, onFalse: narrowRight }
-  const selectNarrow = Boolean.match(narrow)
+  const selectNarrow = Ordering.match({ onLessThan: narrowLeft, onEqual: narrowRight, onGreaterThan: narrowRight })
   const stop = () => true
   const advance = () => {
-    selectNarrow(Number.lessThan(MutableRef.get(firstValue), MutableRef.get(secondValue)))
+    selectNarrow(Number.Order(MutableRef.get(firstValue), MutableRef.get(secondValue)))
     return false
   }
-  const step = { onTrue: stop, onFalse: advance }
-  const selectStep = Boolean.match(step)
+  const selectStep = Ordering.match({ onLessThan: stop, onEqual: advance, onGreaterThan: advance })
   const visit = () =>
-    selectStep(withinTolerance(Numeric.abs(Number.subtract(MutableRef.get(right), MutableRef.get(left)))))
+    selectStep(Number.Order(Numeric.abs(Number.subtract(MutableRef.get(right), MutableRef.get(left))), tolerance))
   const runBatch = (batch: number) => {
     const remaining = Number.subtract(maxIterations, Number.multiply(batch, iterationBatchSize))
     const iterations = Array.take(iterationBatch, Numeric.ceil(remaining))

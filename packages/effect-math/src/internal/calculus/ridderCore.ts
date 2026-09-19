@@ -29,6 +29,7 @@ const defaultConfig = new NormalizedRidderConfig({
   safetyFactor: 2.5
 })
 
+const refinementBatch = Array.range(1, defaultConfig.maxIterations)
 const positiveInfinity = Number.unsafeDivide(1, 0)
 
 /**
@@ -133,12 +134,6 @@ const normalizeConfig = (config?: RidderMethodInput): NormalizedRidderConfig => 
 const toleranceFor = (value: number, config: NormalizedRidderConfig): number =>
   Number.max(config.absoluteTolerance, Number.multiply(Numeric.abs(value), config.relativeTolerance))
 
-const minimumIterationBudget = Schema.decodeSync(Numeric.IterationBudget)(1)
-const validIterationBudget = Option.liftPredicate(Schema.is(Numeric.IterationBudget))
-
-const normalizeIterationBudget = (iterations: number): Numeric.IterationBudget =>
-  Option.getOrElse(validIterationBudget(iterations), () => minimumIterationBudget)
-
 const makeEstimate = (
   value: number,
   absoluteError: number,
@@ -147,7 +142,9 @@ const makeEstimate = (
 ): DerivativeLimitEstimate => ({
   value,
   absoluteError,
-  iterations: normalizeIterationBudget(iterations),
+  // Depth starts at one and increments only below the normalized positive
+  // safe-integer budget. External configuration still undergoes validation.
+  iterations: Numeric.IterationBudget.make(iterations, { disableValidation: true }),
   converged
 })
 
@@ -294,10 +291,14 @@ export const ridderExtrapolation = (
     result: Option.none()
   })
   const state = MutableRef.make(initial)
-  Iterable.some(Iterable.range(0), () => {
+  const refine = () => {
     const next = advance(kernel, normalized, contractionSquared, MutableRef.get(state))
     MutableRef.set(state, next)
     return Option.isSome(next.result)
+  }
+  Boolean.match(Array.some(refinementBatch, refine), {
+    onTrue: () => true,
+    onFalse: () => Iterable.some(Iterable.range(0), refine)
   })
   const final = MutableRef.get(state)
   const result = Option.getOrElse(final.result, () => final.best)

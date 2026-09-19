@@ -4,7 +4,7 @@
  * @since 0.1.0
  * @category internal
  */
-import { Array, Boolean, Iterable, MutableRef, Number } from "effect"
+import { Array, Boolean, Iterable, MutableRef, Number, Ordering } from "effect"
 
 import * as Numeric from "../../Numeric.js"
 
@@ -42,31 +42,43 @@ export const bisect = (
           // Endpoint roots have exited. Advancing left preserves its nonzero
           // sign, including Effect Order's positive classification of NaN.
           const leftSign = Number.sign(fa)
-          const withinTolerance = Number.lessThan(tolerance)
+          const narrowLeft = (mid: number) => {
+            MutableRef.set(left, mid)
+            return false
+          }
+          const narrowRight = (mid: number) => {
+            MutableRef.set(right, mid)
+            return false
+          }
+          const finish = (mid: number) => {
+            MutableRef.set(left, mid)
+            MutableRef.set(right, mid)
+            return true
+          }
+          // Compare signs directly: the product can underflow to zero.
+          const negative = Boolean.match(Number.Equivalence(leftSign, -1), {
+            onTrue: () => narrowLeft,
+            onFalse: () => narrowRight
+          })
+          const positive = Boolean.match(Number.Equivalence(leftSign, 1), {
+            onTrue: () => narrowLeft,
+            onFalse: () => narrowRight
+          })
+          const selectNarrow = Ordering.match({
+            onLessThan: () => negative,
+            onEqual: () => finish,
+            onGreaterThan: () => positive
+          })
           const stop = () => true
           const advance = () => {
             const mid = midpoint(MutableRef.get(left), MutableRef.get(right))
-            const fmid = f(mid)
-            return Boolean.match(Number.Equivalence(fmid, 0), {
-              onTrue: () => {
-                MutableRef.set(left, mid)
-                MutableRef.set(right, mid)
-                return true
-              },
-              onFalse: () => {
-                // Compare signs directly: the product can underflow to zero.
-                Boolean.match(Boolean.not(Number.Equivalence(leftSign, Number.sign(fmid))), {
-                  onTrue: () => MutableRef.set(right, mid),
-                  onFalse: () => MutableRef.set(left, mid)
-                })
-                return false
-              }
-            })
+            return selectNarrow(Number.Order(f(mid), 0))(mid)
           }
-          const step = { onTrue: stop, onFalse: advance }
-          const selectStep = Boolean.match(step)
+          const selectStep = Ordering.match({ onLessThan: stop, onEqual: advance, onGreaterThan: advance })
           const visit = () =>
-            selectStep(withinTolerance(Numeric.abs(Number.subtract(MutableRef.get(right), MutableRef.get(left)))))
+            selectStep(
+              Number.Order(Numeric.abs(Number.subtract(MutableRef.get(right), MutableRef.get(left))), tolerance)
+            )
           const runBatch = (batch: number) => {
             const remaining = Number.subtract(maxIterations, Number.multiply(batch, iterationBatchSize))
             const iterations = Array.take(iterationBatch, Numeric.ceil(remaining))
