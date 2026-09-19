@@ -3,13 +3,13 @@
  *
  * @since 0.1.0
  */
-import { Boolean, Chunk, Data, Iterable, Number, Option, String, Tuple } from "effect"
+import { Array, Boolean, Chunk, Data, MutableRef, Number, String, Tuple } from "effect"
 
 import * as BidiData from "./bidiData.js"
 
 class LevelBounds extends Data.Class<{
   readonly maxLevel: number
-  readonly minimumOddLevel: Option.Option<number>
+  readonly minLevel: number
 }> {}
 
 /** Internal line-local unit used while deriving visual order from prepared metadata. */
@@ -46,68 +46,62 @@ export const mirrorText = (text: string): string =>
 /** Re-exports unsupported bidi-control detection so preparation and projection share one decision point. */
 export const containsUnsupportedBidiControls = BidiData.containsUnsupportedBidiControls
 
-const minimumOddLevel = (current: Option.Option<number>, level: number): Option.Option<number> =>
-  Boolean.match(isOddLevel(level), {
-    onFalse: () => current,
-    onTrue: () =>
-      current.pipe(
-        Option.match({
-          onNone: () => Option.some(level),
-          onSome: (minimum) => Option.some(Number.min(minimum, level))
-        })
-      )
+const scanLevelBounds = (units: Array.NonEmptyReadonlyArray<VisualOrderUnit>): LevelBounds => {
+  const maxLevel = MutableRef.make(0)
+  const minLevel = MutableRef.make(visualOrderUnitLevel(Array.headNonEmpty(units)))
+  Array.forEach(units, (unit) => {
+    const level = visualOrderUnitLevel(unit)
+    MutableRef.set(maxLevel, Number.max(MutableRef.get(maxLevel), level))
+    MutableRef.set(minLevel, Number.min(MutableRef.get(minLevel), level))
   })
-
-const scanLevelBounds = (units: VisualOrderUnits): LevelBounds =>
-  Chunk.reduce(
-    units,
-    new LevelBounds({ maxLevel: 0, minimumOddLevel: Option.none() }),
-    (bounds, unit) =>
-      new LevelBounds({
-        maxLevel: Number.max(bounds.maxLevel, visualOrderUnitLevel(unit)),
-        minimumOddLevel: minimumOddLevel(bounds.minimumOddLevel, visualOrderUnitLevel(unit))
-      })
-  )
+  return new LevelBounds({ maxLevel: MutableRef.get(maxLevel), minLevel: MutableRef.get(minLevel) })
+}
 
 // UAX #9 L2: at each descending level, reverse each contiguous run whose
 // levels meet the threshold. Group membership is a Boolean equivalence.
-const levelRuns = (units: VisualOrderUnits, level: number): Chunk.Chunk<VisualOrderUnits> =>
-  Chunk.fromIterable(Iterable.map(
-    Iterable.groupWith(units, (self, that) =>
+const reverseLevelRuns = (
+  units: Array.NonEmptyReadonlyArray<VisualOrderUnit>,
+  level: number
+): Array.NonEmptyReadonlyArray<VisualOrderUnit> =>
+  Array.flatMap(
+    Array.groupWith(units, (self, that) =>
       Boolean.Equivalence(
         Number.greaterThanOrEqualTo(visualOrderUnitLevel(self), level),
         Number.greaterThanOrEqualTo(visualOrderUnitLevel(that), level)
       )),
-    Chunk.fromIterable
-  ))
-
-const reverseLevelRuns = (units: VisualOrderUnits, level: number): VisualOrderUnits =>
-  Chunk.flatMap(levelRuns(units, level), (run) =>
-    Chunk.head(run).pipe(
-      Option.match({
-        onNone: Chunk.empty<VisualOrderUnit>,
-        onSome: (head) =>
-          Boolean.match(Number.greaterThanOrEqualTo(visualOrderUnitLevel(head), level), {
-            onTrue: () => Chunk.reverse(run),
-            onFalse: () => run
-          })
+    (run) =>
+      Boolean.match(Number.greaterThanOrEqualTo(visualOrderUnitLevel(Array.headNonEmpty(run)), level), {
+        onTrue: () => Array.reverse(run),
+        onFalse: () => run
       })
-    ))
-
-const reorderVisualUnits = (units: VisualOrderUnits): VisualOrderUnits => {
-  const bounds = scanLevelBounds(units)
-  return bounds.minimumOddLevel.pipe(
-    Option.match({
-      onNone: () => units,
-      onSome: (minimumOdd) =>
-        Chunk.reduceRight(
-          Chunk.range(minimumOdd, bounds.maxLevel),
-          units,
-          reverseLevelRuns
-        )
-    })
   )
-}
+
+const reorderVisualUnits = (units: VisualOrderUnits): VisualOrderUnits =>
+  Array.match(Chunk.toReadonlyArray(units), {
+    onEmpty: () => units,
+    onNonEmpty: (values) => {
+      const bounds = scanLevelBounds(values)
+      // ICU's L2 formulation rounds the overall minimum up to odd. Passes
+      // below the lowest observed odd level cancel in identical pairs.
+      const minimumOdd = Boolean.match(isOddLevel(bounds.minLevel), {
+        onTrue: () => bounds.minLevel,
+        onFalse: () => Number.increment(bounds.minLevel)
+      })
+      return Boolean.match(Number.lessThan(bounds.maxLevel, minimumOdd), {
+        onTrue: () => units,
+        onFalse: () =>
+          Chunk.unsafeFromArray(Array.reduceRight(
+            Array.range(minimumOdd, bounds.maxLevel),
+            values,
+            (reordered, level) =>
+              Boolean.match(Number.Equivalence(level, bounds.minLevel), {
+                onTrue: () => Array.reverse(reordered),
+                onFalse: () => reverseLevelRuns(reordered, level)
+              })
+          ))
+      })
+    }
+  })
 
 const appendInsertedTextUnits = (
   units: VisualOrderUnits,

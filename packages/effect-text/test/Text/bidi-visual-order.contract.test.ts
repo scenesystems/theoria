@@ -107,6 +107,34 @@ describe("Text bidi visual ordering contracts", () => {
       )
     }))
 
+  it.effect("keeps partial-segment bounds while reversing an overlong RTL word", () =>
+    Effect.gen(function*() {
+      const prepared = yield* Text.prepareWithSegments({
+        text: "אבגדהוז",
+        font: { family: "Mono", size: 10 },
+        whiteSpace: "normal"
+      }).pipe(Effect.provide(makeTestLayer))
+      const request = { maxWidth: 15, lineHeight: 12 }
+      expect(Text.lines(prepared, request)).toEqual(Arr.make(
+        { baseDirection: "rtl", index: 0, order: "visual", text: "גבא", width: 15 },
+        { baseDirection: "rtl", index: 1, order: "visual", text: "והד", width: 15 },
+        { baseDirection: "rtl", index: 2, order: "visual", text: "ז", width: 5 }
+      ))
+    }))
+
+  it.effect("keeps all-LTR continuation lines in logical order within an RTL paragraph", () =>
+    Effect.gen(function*() {
+      const prepared = yield* Text.prepareWithSegments({
+        text: "שלום abcdefghijklmnop",
+        font: { family: "Mono", size: 10 },
+        whiteSpace: "normal"
+      }).pipe(Effect.provide(makeTestLayer))
+      const lines = Text.lines(prepared, { maxWidth: 20, lineHeight: 12 })
+      expect(Arr.map(lines, (line) => line.text)).toEqual(Arr.make("םולש", "abcd", "efgh", "ijkl", "mnop"))
+      expect(Arr.map(lines, (line) => line.width)).toEqual(Arr.replicate(20, 5))
+      expect(Arr.every(lines, (line) => String.Equivalence(line.baseDirection, "rtl"))).toBe(true)
+    }))
+
   it.effect("keeps summary and manual layout surfaces aligned under bidi visual ordering", () =>
     Effect.gen(function*() {
       const prepared = yield* Text.prepareWithSegments({

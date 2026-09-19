@@ -10,7 +10,7 @@ import * as Iterable from "effect/Iterable"
 import * as MutableRef from "effect/MutableRef"
 
 import type * as Text from "../Text.js"
-import { projectVisualText, type VisualOrderUnit, visualOrderUnitLevel } from "./bidi.js"
+import { projectVisualText, visualOrderUnitLevel } from "./bidi.js"
 import type * as Prepared from "./prepared.js"
 import { CursorHintKey } from "./prepared.js"
 
@@ -114,9 +114,6 @@ const advanceCursorForSegment = (segment: Prepared.RuntimeSegment, cursor: Text.
     onTrue: () => cursorAt(cursor.segmentIndex, Number.increment(cursor.graphemeIndex))
   })
 }
-
-const advanceCursor = (kernel: Prepared.Kernel, cursor: Text.Cursor): Text.Cursor =>
-  advanceCursorForSegment(runtimeSegmentAt(kernel, cursor.segmentIndex), cursor)
 
 const breakKindAtCursor = (segment: Prepared.RuntimeSegment, cursor: Text.Cursor): Prepared.BreakKind => {
   return Boolean.match(
@@ -851,14 +848,6 @@ const walkLineValues = <A>(
   )
 }
 
-const visualOrderUnitAtCursor = (
-  compilation: Prepared.Compilation,
-  cursor: Text.Cursor
-): VisualOrderUnit => {
-  const runtimeSegment = runtimeSegmentAt(compilation.kernel, cursor.segmentIndex)
-  return Arr.unsafeGet(runtimeSegment.visualOrderUnits, cursor.graphemeIndex)
-}
-
 const fallbackLevelForDirection: (direction: Text.Direction) => number = Match.type<Text.Direction>().pipe(
   Match.when("ltr", () => 0),
   Match.when("rtl", () => 1),
@@ -869,20 +858,33 @@ const visualUnitsForRecord = (
   compilation: Prepared.Compilation,
   record: InternalLineRecord
 ) =>
-  Chunk.unsafeFromArray(Arr.unfold(
-    record.start,
-    (cursor) =>
-      Boolean.match(cursorEquals(cursor, record.end), {
-        onFalse: () =>
-          Option.some(
-            Tuple.make(
-              visualOrderUnitAtCursor(compilation, cursor),
-              advanceCursor(compilation.kernel, cursor)
-            )
-          ),
-        onTrue: Option.none
+  Boolean.match(cursorEquals(record.start, record.end), {
+    onTrue: Chunk.empty,
+    onFalse: () => {
+      const lastSegment = Boolean.match(Number.Equivalence(record.end.graphemeIndex, 0), {
+        onTrue: () => Number.decrement(record.end.segmentIndex),
+        onFalse: () => record.end.segmentIndex
       })
-  ))
+      return Chunk.unsafeFromArray(Arr.flatMap(
+        Arr.range(record.start.segmentIndex, lastSegment),
+        (segmentIndex) => {
+          const units = runtimeSegmentAt(compilation.kernel, segmentIndex).visualOrderUnits
+          const start = Boolean.match(Number.Equivalence(segmentIndex, record.start.segmentIndex), {
+            onTrue: () => record.start.graphemeIndex,
+            onFalse: () => 0
+          })
+          const end = Boolean.match(Number.Equivalence(segmentIndex, record.end.segmentIndex), {
+            onTrue: () => record.end.graphemeIndex,
+            onFalse: () => Arr.length(units)
+          })
+          return Boolean.match(Boolean.and(Number.Equivalence(start, 0), Number.Equivalence(end, Arr.length(units))), {
+            onTrue: () => units,
+            onFalse: () => Arr.map(Arr.range(start, Number.decrement(end)), (index) => Arr.unsafeGet(units, index))
+          })
+        }
+      ))
+    }
+  })
 
 const visualTextForRecord = (compilation: Prepared.Compilation, record: InternalLineRecord): string => {
   const units = visualUnitsForRecord(compilation, record)
@@ -1008,11 +1010,7 @@ export const materializeLinesWithSummary = (
   compilation: Prepared.Compilation,
   request: Text.Request
 ): Text.Layout => {
-  const lines = walkLineValues(
-    compilation.kernel,
-    () => request.maxWidth,
-    (record, lineIndex) => materializeLine(compilation, lineIndex, record)
-  )
+  const lines = materializeLines(compilation, request)
 
   return {
     summary: {
