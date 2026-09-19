@@ -32,23 +32,6 @@ const matrixValueAt = (
   column: number
 ): number => Array.unsafeGet(matrix, matrixIndex(size, row, column))
 
-const isSymmetricMatrix = (
-  matrix: ReadonlyArray<number>,
-  size: number,
-  allIndices: ReadonlyArray<number>,
-  indexPrefixes: ReadonlyArray<ReadonlyArray<number>>
-): boolean =>
-  Array.every(
-    allIndices,
-    (row) =>
-      Array.every(Array.unsafeGet(indexPrefixes, row), (column) => {
-        return Number.lessThanOrEqualTo(
-          abs(Number.subtract(matrixValueAt(matrix, size, row, column), matrixValueAt(matrix, size, column, row))),
-          solverEpsilon
-        )
-      })
-  )
-
 export const choleskySpd = (
   matrix: Chunk.Chunk<number>,
   size: number
@@ -58,80 +41,71 @@ export const choleskySpd = (
     Option.filter(() => Number.Equivalence(Chunk.size(matrix), Number.multiply(size, size))),
     Option.flatMap(() => {
       const rowCount = ceil(size)
-      const allIndices = arrayIndices(rowCount)
-      const indexPrefixes = Array.makeBy(
-        Number.increment(rowCount),
-        (length) => arrayIndices(length)
-      )
-      return Option.liftPredicate(
-        matrix,
-        () => isSymmetricMatrix(transientMatrix, size, allIndices, indexPrefixes)
-      ).pipe(
-        Option.flatMap(() =>
-          Array.reduce(
-            allIndices,
-            Option.some(Array.empty<ReadonlyArray<number>>()),
-            (completedRowsOption, row) =>
-              Option.flatMap(completedRowsOption, (completedRows) => {
-                return Array.reduce(
-                  Array.unsafeGet(indexPrefixes, Number.increment(row)),
-                  Option.some(Array.empty<number>()),
-                  (partialRowOption, column) =>
-                    Option.flatMap(partialRowOption, (partialRow) => {
-                      const projection = Array.reduce(
-                        Array.unsafeGet(indexPrefixes, column),
-                        0,
-                        (sum, shared) => {
-                          const columnFactor = Boolean.match(Number.Equivalence(row, column), {
-                            onFalse: () => Array.unsafeGet(Array.unsafeGet(completedRows, column), shared),
-                            onTrue: () => Array.unsafeGet(partialRow, shared)
-                          })
-                          return Number.sum(
-                            sum,
-                            Number.multiply(
-                              Array.unsafeGet(partialRow, shared),
-                              columnFactor
-                            )
+      return Array.reduce(
+        arrayIndices(rowCount),
+        Option.some(Array.empty<ReadonlyArray<number>>()),
+        (completedRowsOption, row) =>
+          Option.flatMap(completedRowsOption, (completedRows) =>
+            Array.reduce(
+              completedRows,
+              Option.some(Array.empty<number>()),
+              (partialRowOption, columnFactors, column) =>
+                partialRowOption.pipe(
+                  Option.filter(() =>
+                    Number.lessThanOrEqualTo(
+                      abs(Number.subtract(
+                        matrixValueAt(transientMatrix, size, row, column),
+                        matrixValueAt(transientMatrix, size, column, row)
+                      )),
+                      solverEpsilon
+                    )
+                  ),
+                  Option.flatMap((partialRow) => {
+                    const projection = Array.reduce(
+                      partialRow,
+                      0,
+                      (sum, factor, shared) =>
+                        Number.sum(sum, Number.multiply(factor, Array.unsafeGet(columnFactors, shared)))
+                    )
+                    return Option.liftPredicate(
+                      Array.unsafeGet(columnFactors, column),
+                      (pivot) => Number.greaterThan(abs(pivot), solverEpsilon)
+                    ).pipe(
+                      Option.map((pivot) =>
+                        Array.append(
+                          partialRow,
+                          Number.unsafeDivide(
+                            Number.subtract(matrixValueAt(transientMatrix, size, row, column), projection),
+                            pivot
                           )
-                        }
+                        )
                       )
-                      return Boolean.match(Number.Equivalence(row, column), {
-                        onTrue: () =>
-                          Option.liftPredicate(
-                            Number.subtract(matrixValueAt(transientMatrix, size, row, row), projection),
-                            Number.greaterThan(solverEpsilon)
-                          ).pipe(
-                            Option.map((diagonal) => Array.append(partialRow, sqrt(diagonal)))
-                          ),
-                        onFalse: () =>
-                          Option.liftPredicate(
-                            Array.unsafeGet(Array.unsafeGet(completedRows, column), column),
-                            (pivot) => Number.greaterThan(abs(pivot), solverEpsilon)
-                          ).pipe(
-                            Option.map((pivot) =>
-                              Array.append(
-                                partialRow,
-                                Number.unsafeDivide(
-                                  Number.subtract(matrixValueAt(transientMatrix, size, row, column), projection),
-                                  pivot
-                                )
-                              )
-                            )
-                          )
-                      })
-                    })
+                    )
+                  })
+                )
+            ).pipe(
+              Option.flatMap((partialRow) => {
+                const projection = Array.reduce(
+                  partialRow,
+                  0,
+                  (sum, factor) => Number.sum(sum, Number.multiply(factor, factor))
+                )
+                return Option.liftPredicate(
+                  Number.subtract(matrixValueAt(transientMatrix, size, row, row), projection),
+                  Number.greaterThan(solverEpsilon)
                 ).pipe(
-                  Option.map((partialRow) => Array.append(completedRows, partialRow))
+                  Option.map((diagonal) => Array.append(completedRows, Array.append(partialRow, sqrt(diagonal))))
                 )
               })
-          ).pipe(
-            Option.map((lowerRows) =>
-              Chunk.unsafeFromArray(Array.flatMap(lowerRows, (row) =>
-                Boolean.match(Number.lessThan(Array.length(row), rowCount), {
-                  onTrue: () => Array.appendAll(row, Array.replicate(0, Number.subtract(rowCount, Array.length(row)))),
-                  onFalse: () => row
-                })))
-            )
+            ))
+      ).pipe(
+        Option.map((lowerRows) =>
+          Chunk.unsafeFromArray(
+            Array.flatMap(lowerRows, (row) =>
+              Boolean.match(Number.lessThan(Array.length(row), rowCount), {
+                onTrue: () => Array.appendAll(row, Array.replicate(0, Number.subtract(rowCount, Array.length(row)))),
+                onFalse: () => row
+              }))
           )
         )
       )

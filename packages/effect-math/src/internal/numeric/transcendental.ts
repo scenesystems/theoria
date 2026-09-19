@@ -88,7 +88,7 @@ export const logStrict = (value: number): number =>
       Boolean.match(positiveInfinity(value), {
         onTrue: () => Binary.positiveInfinity,
         onFalse: () => {
-          const { mantissa, exponent } = Binary.normalize(value)
+          const [mantissa, exponent] = Binary.normalize(value)
           return Boolean.match(Number.Equivalence(mantissa, 1), {
             onTrue: () => Number.multiply(exponent, lnTwo),
             onFalse: () => {
@@ -140,15 +140,15 @@ const logarithmReduced = (f: number, exponent: number, correction: number): numb
 }
 
 const logarithmReducedValue = (value: number, correction: number): number => {
-  const normalized = Binary.normalize(value)
-  return Boolean.match(Number.greaterThanOrEqualTo(normalized.mantissa, 1.4142112731933594), {
+  const [mantissa, exponent] = Binary.normalize(value)
+  return Boolean.match(Number.greaterThanOrEqualTo(mantissa, 1.4142112731933594), {
     onTrue: () =>
       logarithmReduced(
-        Number.subtract(Number.multiply(normalized.mantissa, 0.5), 1),
-        Number.increment(normalized.exponent),
+        Number.subtract(Number.multiply(mantissa, 0.5), 1),
+        Number.increment(exponent),
         correction
       ),
-    onFalse: () => logarithmReduced(Number.subtract(normalized.mantissa, 1), normalized.exponent, correction)
+    onFalse: () => logarithmReduced(Number.subtract(mantissa, 1), exponent, correction)
   })
 }
 

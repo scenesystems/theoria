@@ -1,6 +1,6 @@
 import { Command, FileSystem, Path, Url } from "@effect/platform"
 import { BunContext, BunRuntime } from "@effect/platform-bun"
-import { BigInt, Clock, Console, Duration, Effect, Layer, Schema, Stream } from "effect"
+import { BigInt, Clock, Console, Duration, Effect, Layer, Number, Schema, Stream } from "effect"
 import * as Arr from "effect/Array"
 import * as Str from "effect/String"
 
@@ -17,6 +17,9 @@ import {
   type BenchmarkTiming
 } from "./corpus.js"
 
+const warmupIterations = Number.multiply(benchmarkIterations, 3)
+const samplesPerTiming = 5
+
 const reportPath = Effect.gen(function*() {
   const path = yield* Path.Path
   const url = yield* Url.fromString("../../../.tmp/effect-text-benchmark.json", import.meta.url)
@@ -26,16 +29,27 @@ const reportPath = Effect.gen(function*() {
 // Every operation uses this same Effect batch, so its scheduling and callback
 // costs are part of the measurement. The separately reported empty-Effect
 // timing makes that measured overhead visible; operation timings are not
-// adjusted because subtraction would amplify timer and runtime noise.
+// adjusted because subtraction would amplify timer and runtime noise. Report
+// the median observed batch, not one batch affected by JIT compilation or GC.
 const measureTiming = <A, E, R>(run: () => Effect.Effect<A, E, R>): Effect.Effect<BenchmarkTiming, E, R> =>
   Effect.gen(function*() {
     // Warm each operation, not only the preparation cache. Otherwise the first
     // projection pays for JIT compilation of the walker shared by later cases.
-    yield* Effect.replicateEffect(run(), benchmarkIterations, { concurrency: 1, discard: true })
-    const startedAt = yield* Clock.currentTimeNanos
-    yield* Effect.replicateEffect(run(), benchmarkIterations, { concurrency: 1, discard: true })
-    const finishedAt = yield* Clock.currentTimeNanos
-    const totalDuration = Duration.nanos(BigInt.subtract(finishedAt, startedAt))
+    yield* Effect.replicateEffect(run(), warmupIterations, { concurrency: 1, discard: true })
+    const elapsedSamples = yield* Effect.replicateEffect(
+      Effect.gen(function*() {
+        const startedAt = yield* Clock.currentTimeNanos
+        yield* Effect.replicateEffect(run(), benchmarkIterations, { concurrency: 1, discard: true })
+        const finishedAt = yield* Clock.currentTimeNanos
+        return BigInt.subtract(finishedAt, startedAt)
+      }),
+      samplesPerTiming
+    )
+    const median = Arr.unsafeGet(
+      Arr.sort(elapsedSamples, BigInt.Order),
+      Number.unsafeDivide(Number.decrement(samplesPerTiming), 2)
+    )
+    const totalDuration = Duration.nanos(median)
     const meanDuration = Duration.unsafeDivide(totalDuration, benchmarkIterations)
 
     return {
@@ -125,6 +139,8 @@ const program = Effect.gen(function*() {
     benchmark: "effect-text-public-api",
     runtime: Str.concat("Bun ", Str.trim(yield* Command.string(Command.make("bun", "--version")))),
     iterations: benchmarkIterations,
+    warmupIterations,
+    samplesPerTiming,
     clock: "Clock.currentTimeNanos",
     cachePolicy: "one-live-layer-warm-cache",
     effectOverhead: yield* measureTiming(() => Effect.void),

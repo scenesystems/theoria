@@ -26,12 +26,6 @@ export class Dyadic extends Data.Class<{
   readonly exponent: number
 }> {}
 
-/** A positive finite nonzero binary64 value represented as `mantissa × 2^exponent`. */
-export class Normalized extends Data.Class<{
-  readonly mantissa: number
-  readonly exponent: number
-}> {}
-
 class BigIntLengthState extends Data.Class<{
   readonly remaining: bigint
   readonly length: number
@@ -87,27 +81,27 @@ export const log2: (value: number) => number = Math.log2
  * Normalizes a positive finite nonzero binary64 value to `x = m × 2^e`,
  * where `1 <= m < 2`. Inputs outside that contract are not supported.
  */
-export const normalize = (value: number): Normalized => {
+export const normalize = (value: number): readonly [mantissa: number, exponent: number] => {
   // Rounding log2 directly is not a binary exponent extraction: inputs on
   // either side of a power of two can share its logarithm. Exact scaling
   // followed by the mantissa comparison recovers the correct binade.
-  const exponent = Number.min(floor(log2(value)), 1023)
+  const exponent = floor(log2(value))
   const ratio = Boolean.match(Number.lessThan(exponent, -1023), {
     onTrue: () => scaleNormal(Number.multiply(value, power2_512), Number.negate(Number.sum(exponent, 512))),
     onFalse: () => scaleNormal(value, Number.negate(exponent))
   })
   return Boolean.match(Number.lessThan(ratio, 1), {
-    onTrue: () => new Normalized({ mantissa: Number.multiply(ratio, 2), exponent: Number.decrement(exponent) }),
-    onFalse: () => new Normalized({ mantissa: ratio, exponent })
+    onTrue: () => Tuple.make(Number.multiply(ratio, 2), Number.decrement(exponent)),
+    onFalse: () => Tuple.make(ratio, exponent)
   })
 }
 
 /** Decomposes a finite nonzero number without inspecting its storage. */
 export const decompose = (value: number): Dyadic => {
-  const normalized = normalize(abs(value))
+  const [mantissa, exponent] = normalize(abs(value))
   return new Dyadic({
-    coefficient: decodeInteger(Number.multiply(normalized.mantissa, significandScale)),
-    exponent: Number.subtract(normalized.exponent, 52)
+    coefficient: decodeInteger(Number.multiply(mantissa, significandScale)),
+    exponent: Number.subtract(exponent, 52)
   })
 }
 
@@ -123,8 +117,8 @@ const scalePow2Extreme = (value: number, exponent: number): number =>
   Boolean.match(Boolean.or(Boolean.not(isFinite(value)), zero(value)), {
     onTrue: () => value,
     onFalse: () => {
-      const normalized = normalize(abs(value))
-      const targetExponent = Number.sum(normalized.exponent, exponent)
+      const [mantissa, sourceExponent] = normalize(abs(value))
+      const targetExponent = Number.sum(sourceExponent, exponent)
       return Boolean.match(Number.greaterThanOrEqualTo(targetExponent, 1024), {
         onTrue: () => withSign(positiveInfinity, value),
         onFalse: () =>
@@ -135,12 +129,12 @@ const scalePow2Extreme = (value: number, exponent: number): number =>
                 onTrue: () =>
                   withSign(
                     Number.multiply(
-                      scaleNormal(normalized.mantissa, Number.sum(targetExponent, 1022)),
+                      scaleNormal(mantissa, Number.sum(targetExponent, 1022)),
                       minimumNormal
                     ),
                     value
                   ),
-                onFalse: () => withSign(scaleNormal(normalized.mantissa, targetExponent), value)
+                onFalse: () => withSign(scaleNormal(mantissa, targetExponent), value)
               })
           })
       })
@@ -451,9 +445,9 @@ const hypotCompensated = (values: Chunk.Chunk<number>, exponent: number): number
     onTrue: () => {
       const initial = sqrt(Number.sum(sum[0], sum[1]))
       const root = Number.sum(initial, Number.unsafeDivide(normResidual(sum, initial), Number.multiply(2, initial)))
-      const normalized = normalize(root)
-      const gap = scaleNormal(1, Number.subtract(normalized.exponent, 52))
-      const gapDown = Boolean.match(Number.Equivalence(normalized.mantissa, 1), {
+      const [mantissa, rootExponent] = normalize(root)
+      const gap = scaleNormal(1, Number.subtract(rootExponent, 52))
+      const gapDown = Boolean.match(Number.Equivalence(mantissa, 1), {
         onTrue: () => Number.multiply(gap, 0.5),
         onFalse: () => gap
       })
@@ -527,7 +521,7 @@ const hypotFloating = (values: Chunk.Chunk<number>): number => {
                   Number.greaterThanOrEqualTo(maximum, minimumNormal)
                 ),
                 {
-                  onTrue: () => hypotCompensated(values, normalize(maximum).exponent),
+                  onTrue: () => hypotCompensated(values, Tuple.getSecond(normalize(maximum))),
                   onFalse: () => hypotExact(values)
                 }
               )

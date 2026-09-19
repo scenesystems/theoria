@@ -1,5 +1,5 @@
 import { describe, expect, it } from "@effect/vitest"
-import { Chunk, Effect, Layer, Number, Option, Stream, String, Tuple } from "effect"
+import { Boolean, Chunk, Effect, Layer, Number, Option, Stream, String, Tuple } from "effect"
 import * as Arr from "effect/Array"
 import * as MeasurementCache from "../../src/MeasurementCache.js"
 import * as Text from "../../src/Text.js"
@@ -105,6 +105,56 @@ describe("Text hot-path contracts", () => {
       expect(Text.lines(prepared, request)).toEqual(expectedLines)
       expect(Text.ranges(prepared, request)).toEqual(expectedRanges)
       expect(Text.lines(prepared, request)).toEqual(expectedLines)
+    }))
+
+  it.effect("resumes long tokens across scan batches without skipping the last grapheme", () =>
+    Effect.gen(function*() {
+      const prepared = yield* Text.prepareWithSegments({
+        text: String.concat(String.repeat(129)("a"), "bc"),
+        font: { family: "Mono", size: 10 },
+        whiteSpace: "normal"
+      }).pipe(Effect.provide(testLayer))
+      const request: Text.Request = { maxWidth: 320, lineHeight: 12 }
+      const expected = Arr.make(
+        { baseDirection: "ltr", index: 0, order: "visual", text: String.repeat(64)("a"), width: 320 },
+        { baseDirection: "ltr", index: 1, order: "visual", text: String.repeat(64)("a"), width: 320 },
+        { baseDirection: "ltr", index: 2, order: "visual", text: "abc", width: 15 }
+      )
+
+      expect(Text.lines(prepared, request)).toEqual(expected)
+      expect(collectCursorLines(prepared, request)).toEqual(expected)
+      expect(Text.summary(prepared, request)).toEqual({ height: 36, lineCount: 3, maxLineWidth: 320 })
+      expect(Arr.map(Text.ranges(prepared, request), (range) => range.width)).toEqual(Arr.make(320, 320, 15))
+    }))
+
+  it.effect("keeps sequential paint rounding instead of adding a pre-summed text run", () =>
+    Effect.gen(function*() {
+      const layer = Layer.mergeAll(
+        Text.layerSegmenter,
+        Text.layerProfile,
+        MeasurementCache.layer.pipe(Layer.provide(Layer.succeed(TextMeasurer.TextMeasurer, {
+          measure: (_font, text) =>
+            Effect.succeed(Boolean.match(String.startsWith("a")(text), {
+              onTrue: () => Number.sum(1e16, Number.decrement(String.length(text))),
+              onFalse: () => String.length(text)
+            }))
+        })))
+      )
+      const text = String.concat("a", String.repeat(32)("b"))
+      const prepared = yield* Text.prepareWithSegments({
+        text,
+        font: { family: "Mono", size: 10 },
+        whiteSpace: "normal"
+      }).pipe(
+        Effect.provide(layer)
+      )
+      const request: Text.Request = { maxWidth: 1e20, lineHeight: 12 }
+      // At 10^16 the spacing is 2: each +1 ties to the same even value.
+      // Grouping the 32 trailing unit widths first would instead add 32.
+      expect(Text.lines(prepared, request)).toEqual(Arr.of(
+        { baseDirection: "ltr", index: 0, order: "visual", text, width: 1e16 }
+      ))
+      expect(Arr.map(Text.ranges(prepared, request), (range) => range.width)).toEqual(Arr.of(1e16))
     }))
 
   it.effect("taking a stream prefix returns only the requested initial lines", () =>

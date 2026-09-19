@@ -660,6 +660,10 @@ const advanceContentFrame = (
     onFalse: () => {
       MutableRef.set(frame.cursor, nextCursor)
       startLineWithSegment(kernel, segment, kind, scan, currentCursor, nextCursor)
+      Boolean.match(Number.lessThan(currentCursor.graphemeIndex, Number.subtract(segment.breakableGraphemeCount, 2)), {
+        onFalse: () => {},
+        onTrue: () => advanceTextInterior(segment, frame, nextCursor)
+      })
     },
     onTrue: () => {
       const pendingFitWidth = Number.sum(MutableRef.get(scan.fitWidth), MutableRef.get(scan.pendingFitWidth))
@@ -692,6 +696,13 @@ const advanceContentFrame = (
         onTrue: () => {
           MutableRef.set(frame.cursor, nextCursor)
           appendCommittedSegment(kernel, segment, kind, scan, currentCursor, nextCursor, candidateFitWidth)
+          Boolean.match(
+            Number.lessThan(currentCursor.graphemeIndex, Number.subtract(segment.breakableGraphemeCount, 2)),
+            {
+              onFalse: () => {},
+              onTrue: () => advanceTextInterior(segment, frame, nextCursor)
+            }
+          )
         }
       })
     }
@@ -715,6 +726,55 @@ const advanceRuleFor: (kind: Prepared.BreakKind) => AdvanceLineRule = Match.type
   Match.when(Match.is("soft-hyphen", "dictionary-hyphen", "glue"), () => advanceContentFrame),
   Match.exhaustive
 )
+
+// After the first grapheme commits pending whitespace, interior graphemes
+// cannot introduce a break opportunity. Accumulate them in the same order,
+// publishing one cursor instead of rebuilding the whole scan state each time.
+// Leave the last grapheme and any overflow to the ordinary break rules.
+const advanceTextInterior = (
+  segment: Prepared.RuntimeSegment,
+  frame: LineWalkFrame,
+  cursor: Text.Cursor
+): void => {
+  const index = MutableRef.make(cursor.graphemeIndex)
+  const limit = Number.decrement(segment.breakableGraphemeCount)
+  const scan = frame.scan
+  const visit = () => {
+    const current = MutableRef.get(index)
+    return Boolean.match(Number.lessThan(current, limit), {
+      onFalse: () => true,
+      onTrue: () => {
+        const width = Number.sum(
+          Number.sum(MutableRef.get(scan.fitWidth), 0),
+          Arr.unsafeGet(segment.breakableFitAdvances, current)
+        )
+        return Boolean.match(Number.lessThanOrEqualTo(width, frame.fitLimit), {
+          onFalse: () => true,
+          onTrue: () => {
+            MutableRef.set(scan.fitWidth, width)
+            MutableRef.set(
+              scan.paintWidth,
+              Number.sum(
+                Number.sum(MutableRef.get(scan.paintWidth), 0),
+                Arr.unsafeGet(segment.breakableGraphemeWidths, current)
+              )
+            )
+            MutableRef.set(index, Number.increment(current))
+            return false
+          }
+        })
+      }
+    })
+  }
+  Boolean.match(Arr.some(lineWalkBatch, visit), {
+    onTrue: () => true,
+    onFalse: () => Iterable.some(Iterable.range(0), () => Arr.some(lineWalkBatch, visit))
+  })
+  const end = cursorAt(cursor.segmentIndex, MutableRef.get(index))
+  MutableRef.set(frame.cursor, end)
+  MutableRef.set(scan.end, end)
+  MutableRef.set(scan.pendingEnd, end)
+}
 
 const advanceLineFrame = (
   kernel: Prepared.Kernel,

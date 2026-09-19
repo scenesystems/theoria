@@ -121,6 +121,22 @@ describe("Numeric transcendental kernels", () => {
       expect(logStrict(Number.unsafeDivide(0, 0))).toBeNaN()
     }))
 
+  it.effect("preserves strict accumulation as the series convergence rate changes", () =>
+    Effect.gen(function*() {
+      // Python binary64 reference: frexp normalization and all 24 original
+      // terms, without early termination. Horner evaluation or a fixed short
+      // series changes these results even when it approximates ln(x) closely.
+      expect(logStrict(1.0001)).toBe(9.999500033329732e-5)
+      expect(logStrict(1.015625)).toBe(0.015504186535965253)
+      expect(logStrict(1.125)).toBe(0.11778303565638346)
+      expect(logStrict(1.25)).toBe(0.22314355131420974)
+      expect(logStrict(1.375)).toBe(0.3184537311185346)
+      expect(logStrict(1.5)).toBe(0.40546510810816444)
+      expect(logStrict(1.75)).toBe(0.5596157879354225)
+      expect(logStrict(1.9375)).toBe(0.6613984822453651)
+      expect(logStrict(1.999)).toBe(0.692647055518263)
+    }))
+
   it.effect("matches independent golden values across the logarithm and exponential ranges", () =>
     Effect.gen(function*() {
       expect(log(1)).toBe(0)

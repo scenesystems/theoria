@@ -68,6 +68,8 @@ export const BenchmarkReport = Schema.Struct({
   benchmark: Schema.Literal("effect-text-public-api"),
   runtime: Schema.String,
   iterations: PositiveInt,
+  warmupIterations: PositiveInt,
+  samplesPerTiming: PositiveInt,
   clock: Schema.Literal("Clock.currentTimeNanos"),
   cachePolicy: Schema.Literal("one-live-layer-warm-cache"),
   effectOverhead: BenchmarkTiming,

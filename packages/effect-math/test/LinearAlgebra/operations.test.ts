@@ -229,6 +229,12 @@ describe("LinearAlgebra / cholesky", () => {
       expect(Option.isNone(cholesky(Chunk.of(1e-12), 1))).toBe(true)
     }))
 
+  it.effect("rejects a late asymmetric row or failed diagonal instead of returning a partial factor", () =>
+    Effect.gen(function*() {
+      expect(cholesky(Chunk.make(4, 0, 0, 0, 9, 0, 2e-12, 0, 16), 3)).toEqual(Option.none())
+      expect(cholesky(Chunk.make(4, 0, 0, 0, 9, 0, 0, 0, 1e-12), 3)).toEqual(Option.none())
+    }))
+
   it.effect("preserves row-major pivot order for a three-dimensional factor", () =>
     Effect.gen(function*() {
       const decomposed = cholesky(
