@@ -44,6 +44,14 @@ describe("Calculus / sampled integration", () => {
       const values = Chunk.make(0, 1, 8, 27, 64)
       expectClose(simpson(values, 1), 64, 1e-12)
     }))
+
+  it.effect("uses a trapezoidal tail only for an odd number of intervals", () =>
+    Effect.gen(function*() {
+      // x³ integrates to 4 on [0, 2]; the [2, 3] trapezoid adds (8 + 27) / 2.
+      expect(simpson(Chunk.make(0, 1, 8), 1)).toBe(4)
+      expect(simpson(Chunk.make(0, 1, 8, 27), 1)).toBe(21.5)
+      expect(simpson(Chunk.make(0, 1, 8, 27), -0.25)).toBe(-5.375)
+    }))
 })
 
 describe("Calculus / adaptive Simpson integration", () => {

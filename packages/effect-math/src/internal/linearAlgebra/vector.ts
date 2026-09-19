@@ -16,8 +16,8 @@ import { abs, hypot } from "../../Numeric.js"
  */
 export const dot = (a: Chunk.Chunk<number>, b: Chunk.Chunk<number>): number => {
   const transientB = Chunk.toReadonlyArray(b)
-  return Chunk.reduce(
-    Chunk.take(a, Number.min(Chunk.size(a), Chunk.size(b))),
+  return Array.reduce(
+    Chunk.toReadonlyArray(Chunk.take(a, Number.min(Chunk.size(a), Chunk.size(b)))),
     0,
     (sum, value, index) =>
       Number.sum(

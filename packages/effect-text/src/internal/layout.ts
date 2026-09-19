@@ -3,14 +3,14 @@
  *
  * @since 0.1.0
  */
-import { Boolean, Chunk, Data, Match, Number, Option, Order, RedBlackTree, Schema, String, Tuple } from "effect"
+import { Boolean, Chunk, Data, Match, Number, Option, Order, Schema, String, Tuple } from "effect"
 import * as Arr from "effect/Array"
 import * as HashMap from "effect/HashMap"
 import * as Iterable from "effect/Iterable"
 import * as MutableRef from "effect/MutableRef"
 
 import type * as Text from "../Text.js"
-import { projectVisualText, VisualOrderUnit } from "./bidi.js"
+import { projectVisualText, type VisualOrderUnit, visualOrderUnitLevel } from "./bidi.js"
 import type * as Prepared from "./prepared.js"
 import { CursorHintKey } from "./prepared.js"
 
@@ -30,13 +30,9 @@ class BreakCandidate extends Data.Class<{
 type BreakCandidates = ReadonlyArray<BreakCandidate>
 
 class InternalLineRecord extends Data.Class<{
-  readonly baseDirection: Text.Direction
   readonly end: Text.Cursor
-  readonly fitWidth: number
   readonly insertedBreakText: string
   readonly nextCursor: Text.Cursor
-  readonly order: Text.Line["order"]
-  readonly paintWidth: number
   readonly start: Text.Cursor
   readonly width: number
 }> {}
@@ -61,10 +57,7 @@ class LineWalkFrame extends Data.Class<{
   readonly segmentLimit: number
 }> {}
 
-class LineRecordWalkState extends Data.Class<{
-  readonly cursor: Text.Cursor
-  readonly lineIndex: number
-}> {}
+type LineRecordWalkState = readonly [cursor: Text.Cursor, lineIndex: number]
 
 const cursorHintKey = (maxWidth: number, cursor: Text.Cursor): CursorHintKey =>
   new CursorHintKey({
@@ -102,9 +95,6 @@ const resolveTabAdvance = (currentWidth: number, tabStopAdvance: number): number
     onTrue: () => 0
   })
 }
-
-const segmentAt = (compilation: Prepared.Compilation, segmentIndex: number) =>
-  Arr.unsafeGet(compilation.surface.segments, segmentIndex)
 
 const runtimeSegmentAt = (kernel: Prepared.Kernel, segmentIndex: number): Prepared.RuntimeSegment =>
   Arr.unsafeGet(kernel.runtime.segments, segmentIndex)
@@ -324,22 +314,16 @@ const initialLineScanState = (cursor: Text.Cursor): LineScanState =>
   })
 
 const emitInternalLineRecord = (
-  kernel: Prepared.Kernel,
   start: Text.Cursor,
   end: Text.Cursor,
   nextCursor: Text.Cursor,
-  fitWidth: number,
   paintWidth: number,
   insertedBreakText: string = ""
 ): InternalLineRecord =>
   new InternalLineRecord({
-    baseDirection: kernel.baseDirection,
     end,
-    fitWidth,
     insertedBreakText,
     nextCursor,
-    order: "visual",
-    paintWidth,
     start,
     width: paintWidth
   })
@@ -400,11 +384,9 @@ const finalizeAtEnd = (kernel: Prepared.Kernel, state: LineScanState): Option.Op
     onFalse: () =>
       Option.some(
         emitInternalLineRecord(
-          kernel,
           MutableRef.get(state.start),
           resolved.end,
           endCursorFor(kernel),
-          resolved.fitWidth,
           resolved.paintWidth
         )
       ),
@@ -420,26 +402,21 @@ const finalizeAtHardBreak = (
   const resolved = resolvePendingState(kernel, state)
 
   return emitInternalLineRecord(
-    kernel,
     MutableRef.get(state.start),
     resolved.end,
     nextCursor,
-    resolved.fitWidth,
     resolved.paintWidth
   )
 }
 
 const finalizeBeforeCurrent = (
-  kernel: Prepared.Kernel,
   state: LineScanState,
   nextCursor: Text.Cursor
 ): InternalLineRecord =>
   emitInternalLineRecord(
-    kernel,
     MutableRef.get(state.start),
     MutableRef.get(state.end),
     nextCursor,
-    MutableRef.get(state.fitWidth),
     MutableRef.get(state.paintWidth)
   )
 
@@ -449,28 +426,23 @@ const finalizeBeforePending = (
   currentCursor: Text.Cursor
 ): InternalLineRecord =>
   emitInternalLineRecord(
-    kernel,
     MutableRef.get(state.start),
     MutableRef.get(state.end),
     Boolean.match(String.Equivalence(kernel.whiteSpace, "normal"), {
       onTrue: () => currentCursor,
       onFalse: () => Option.getOrElse(MutableRef.get(state.pendingStart), () => currentCursor)
     }),
-    MutableRef.get(state.fitWidth),
     MutableRef.get(state.paintWidth)
   )
 
 const finalizeBreakCandidate = (
-  kernel: Prepared.Kernel,
   candidate: BreakCandidate,
   start: Text.Cursor
 ): InternalLineRecord =>
   emitInternalLineRecord(
-    kernel,
     start,
     candidate.end,
     candidate.nextCursor,
-    Number.sum(candidate.fitWidth, candidate.insertedWidth),
     Number.sum(candidate.paintWidth, candidate.insertedWidth),
     candidate.insertedText
   )
@@ -597,10 +569,7 @@ const appendCommittedSegment = (
 }
 
 const segmentLimitForCursor = (kernel: Prepared.Kernel, cursor: Text.Cursor): number =>
-  Iterable.head(RedBlackTree.greaterThan(kernel.runtime.chunksByEnd, cursor.segmentIndex)).pipe(
-    Option.map(Tuple.getFirst),
-    Option.getOrElse(() => segmentCount(kernel))
-  )
+  runtimeSegmentAt(kernel, cursor.segmentIndex).chunkEndSegmentIndex
 
 const lineFrameIsComplete = (frame: LineWalkFrame, cursor: Text.Cursor): boolean => {
   return Boolean.or(
@@ -639,6 +608,7 @@ const advanceWhitespaceFrame = (
 const advanceHardBreakFrame = (
   kernel: Prepared.Kernel,
   _segment: Prepared.RuntimeSegment,
+  _kind: Prepared.BreakKind,
   frame: LineWalkFrame,
   _currentCursor: Text.Cursor,
   nextCursor: Text.Cursor
@@ -653,6 +623,7 @@ const advanceHardBreakFrame = (
 const advanceZeroWidthBreakFrame = (
   _kernel: Prepared.Kernel,
   _segment: Prepared.RuntimeSegment,
+  _kind: Prepared.BreakKind,
   frame: LineWalkFrame,
   currentCursor: Text.Cursor,
   nextCursor: Text.Cursor
@@ -707,9 +678,8 @@ const advanceContentFrame = (
               MutableRef.set(
                 frame.record,
                 Option.match(breakCandidate, {
-                  onNone: () => Option.some(finalizeBeforeCurrent(kernel, scan, currentCursor)),
-                  onSome: (candidate) =>
-                    Option.some(finalizeBreakCandidate(kernel, candidate, MutableRef.get(scan.start)))
+                  onNone: () => Option.some(finalizeBeforeCurrent(scan, currentCursor)),
+                  onSome: (candidate) => Option.some(finalizeBreakCandidate(candidate, MutableRef.get(scan.start)))
                 })
               )
             },
@@ -726,15 +696,23 @@ const advanceContentFrame = (
   })
 }
 
-const isWhitespaceBreak = (kind: Prepared.BreakKind): boolean =>
-  Boolean.match(String.Equivalence(kind, "space"), {
-    onFalse: () =>
-      Boolean.match(String.Equivalence(kind, "preserved-space"), {
-        onFalse: () => String.Equivalence(kind, "tab"),
-        onTrue: () => true
-      }),
-    onTrue: () => true
-  })
+type AdvanceLineRule = (
+  kernel: Prepared.Kernel,
+  segment: Prepared.RuntimeSegment,
+  kind: Prepared.BreakKind,
+  frame: LineWalkFrame,
+  currentCursor: Text.Cursor,
+  nextCursor: Text.Cursor
+) => void
+
+const advanceRuleFor: (kind: Prepared.BreakKind) => AdvanceLineRule = Match.type<Prepared.BreakKind>().pipe(
+  Match.when("text", () => advanceContentFrame),
+  Match.when("hard-break", () => advanceHardBreakFrame),
+  Match.when(Match.is("space", "preserved-space", "tab"), () => advanceWhitespaceFrame),
+  Match.when("zero-width-break", () => advanceZeroWidthBreakFrame),
+  Match.when(Match.is("soft-hyphen", "dictionary-hyphen", "glue"), () => advanceContentFrame),
+  Match.exhaustive
+)
 
 const advanceLineFrame = (
   kernel: Prepared.Kernel,
@@ -745,22 +723,7 @@ const advanceLineFrame = (
   const kind = breakKindAtCursor(segment, cursor)
   const nextCursor = advanceCursorForSegment(segment, cursor)
 
-  Boolean.match(String.Equivalence(kind, "text"), {
-    onFalse: () =>
-      Boolean.match(String.Equivalence(kind, "hard-break"), {
-        onFalse: () =>
-          Boolean.match(isWhitespaceBreak(kind), {
-            onFalse: () =>
-              Boolean.match(String.Equivalence(kind, "zero-width-break"), {
-                onFalse: () => advanceContentFrame(kernel, segment, kind, frame, cursor, nextCursor),
-                onTrue: () => advanceZeroWidthBreakFrame(kernel, segment, frame, cursor, nextCursor)
-              }),
-            onTrue: () => advanceWhitespaceFrame(kernel, segment, kind, frame, cursor, nextCursor)
-          }),
-        onTrue: () => advanceHardBreakFrame(kernel, segment, frame, cursor, nextCursor)
-      }),
-    onTrue: () => advanceContentFrame(kernel, segment, kind, frame, cursor, nextCursor)
-  })
+  advanceRuleFor(kind)(kernel, segment, kind, frame, cursor, nextCursor)
 }
 
 const walkNextLineRecord = (
@@ -802,64 +765,41 @@ const walkLineValues = <A>(
   project: (record: InternalLineRecord, lineIndex: number) => A,
   lineIndex: number = 0,
   cursor: Text.Cursor = cursorAt(0)
-): ReadonlyArray<A> =>
-  Arr.unfold(
-    new LineRecordWalkState({ cursor, lineIndex }),
-    (state) =>
-      Boolean.match(Number.greaterThanOrEqualTo(state.cursor.segmentIndex, segmentCount(kernel)), {
+): ReadonlyArray<A> => {
+  return Arr.unfold(
+    Tuple.make(cursor, lineIndex),
+    (state: LineRecordWalkState) => {
+      const currentCursor = Tuple.getFirst(state)
+      const currentLineIndex = Tuple.getSecond(state)
+      return Boolean.match(Number.greaterThanOrEqualTo(currentCursor.segmentIndex, segmentCount(kernel)), {
         onFalse: () =>
-          walkNextLineRecord(kernel, maxWidthAtLine(state.lineIndex), state.cursor).pipe(
+          walkNextLineRecord(kernel, maxWidthAtLine(currentLineIndex), currentCursor).pipe(
             Option.map((record) =>
               Tuple.make(
-                project(record, state.lineIndex),
-                new LineRecordWalkState({
-                  cursor: record.nextCursor,
-                  lineIndex: Number.increment(state.lineIndex)
-                })
+                project(record, currentLineIndex),
+                Tuple.make(record.nextCursor, Number.increment(currentLineIndex))
               )
             )
           ),
         onTrue: Option.none
       })
+    }
   )
+}
 
 const visualOrderUnitAtCursor = (
   compilation: Prepared.Compilation,
   cursor: Text.Cursor
 ): VisualOrderUnit => {
-  const segment = segmentAt(compilation, cursor.segmentIndex)
   const runtimeSegment = runtimeSegmentAt(compilation.kernel, cursor.segmentIndex)
-
-  return Match.value(segment.kind).pipe(
-    Match.when("text", () => {
-      const text = Chunk.unsafeGet(segment.graphemes, cursor.graphemeIndex)
-      return new VisualOrderUnit({
-        level: Arr.unsafeGet(runtimeSegment.graphemeBidiLevels, cursor.graphemeIndex),
-        mirroredText: Arr.unsafeGet(runtimeSegment.mirroredGraphemes, cursor.graphemeIndex),
-        text
-      })
-    }),
-    Match.when("space", () =>
-      new VisualOrderUnit({
-        level: segment.bidiLevel,
-        mirroredText: segment.text,
-        text: segment.text
-      })),
-    Match.when("tab", () =>
-      new VisualOrderUnit({
-        level: segment.bidiLevel,
-        mirroredText: segment.text,
-        text: segment.text
-      })),
-    Match.when("hard-break", () =>
-      new VisualOrderUnit({
-        level: segment.bidiLevel,
-        mirroredText: segment.text,
-        text: segment.text
-      })),
-    Match.exhaustive
-  )
+  return Arr.unsafeGet(runtimeSegment.visualOrderUnits, cursor.graphemeIndex)
 }
+
+const fallbackLevelForDirection: (direction: Text.Direction) => number = Match.type<Text.Direction>().pipe(
+  Match.when("ltr", () => 0),
+  Match.when("rtl", () => 1),
+  Match.exhaustive
+)
 
 const visualUnitsForRecord = (
   compilation: Prepared.Compilation,
@@ -883,14 +823,8 @@ const visualUnitsForRecord = (
 const visualTextForRecord = (compilation: Prepared.Compilation, record: InternalLineRecord): string => {
   const units = visualUnitsForRecord(compilation, record)
   const fallbackLevel = Chunk.last(units).pipe(
-    Option.map((unit) => unit.level),
-    Option.getOrElse(() =>
-      Match.value(compilation.kernel.baseDirection).pipe(
-        Match.when("ltr", () => 0),
-        Match.when("rtl", () => 1),
-        Match.exhaustive
-      )
-    )
+    Option.map(visualOrderUnitLevel),
+    Option.getOrElse(() => fallbackLevelForDirection(compilation.kernel.baseDirection))
   )
 
   return projectVisualText(units, record.insertedBreakText, fallbackLevel)
@@ -1070,9 +1004,9 @@ export const walkLineRanges = (
     compilation.kernel,
     maxWidthAtLine,
     (record) => ({
-      baseDirection: record.baseDirection,
+      baseDirection: compilation.kernel.baseDirection,
       end: record.end,
-      order: record.order,
+      order: "visual",
       start: record.start,
       width: record.width
     })

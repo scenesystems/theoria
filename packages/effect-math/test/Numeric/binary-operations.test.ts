@@ -151,6 +151,48 @@ describe("Numeric binary64 arithmetic", () => {
       expect(hypot(Chunk.make(1, 1e-200))).toBe(1)
     }))
 
+  it.effect("rounds exact squared sums across scaling and accumulation boundaries", () =>
+    Effect.gen(function*() {
+      // sqrt(2^48 + 2^-2), evaluated from that exact dyadic integer sum at
+      // Decimal precision 200. The half-sized component moves the result by
+      // two ulps and must not disappear while accumulating squares.
+      expect(hypot(Chunk.make(16_777_216, 0.5))).toBe(16_777_216.000000007)
+
+      // Exact powers-of-two rescaling gives a 3-4-5 triangle at both ends of
+      // the normal range. The expected values are the exact products 5*2^e,
+      // not results from this implementation.
+      expect(hypot(Chunk.make(3.3706746278668423e307, 4.49423283715579e307))).toBe(5.617791046444737e307)
+      expect(hypot(Chunk.make(6.675221575521604e-308, 8.900295434028806e-308))).toBe(1.1125369292536007e-307)
+
+      // The components are odd integers scaled by 2^-25. Their exact squared
+      // integer sum is 31656589927513216, above binary64's consecutive-integer
+      // range. Decimal precision 120 rounds the exact norm upward; summing the
+      // unbudgeted binary64 squares instead rounds it one ulp downward.
+      const denominator = 33_554_432
+      const budgetBoundary = Chunk.map(
+        Chunk.make(
+          41_025_733,
+          35_232_875,
+          52_011_337,
+          49_988_847,
+          48_533_851,
+          42_918_663,
+          40_432_767,
+          39_388_799,
+          61_869_127,
+          35_687_331,
+          35_554_089,
+          39_842_213,
+          48_226_979,
+          49_168_041,
+          35_335_231,
+          46_898_201
+        ),
+        (value) => Number.unsafeDivide(value, denominator)
+      )
+      expect(hypot(budgetBoundary)).toBe(5.302518271058911)
+    }))
+
   it.effect("prioritizes infinite norm components over NaN and canonicalizes zero", () =>
     Effect.gen(function*() {
       expect(hypot(Chunk.empty())).toBe(0)

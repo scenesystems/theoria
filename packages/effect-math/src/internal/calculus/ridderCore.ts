@@ -4,7 +4,7 @@
  * @since 0.1.0
  * @category internal
  */
-import { Array, Boolean, Chunk, Data, Iterable, MutableRef, Number, Option, Schema, Tuple } from "effect"
+import { Array, Boolean, Data, Iterable, MutableRef, Number, Option, Schema } from "effect"
 
 import type { DerivativeLimitEstimate, RidderMethodInput } from "../../Calculus.js"
 import * as Numeric from "../../Numeric.js"
@@ -69,7 +69,7 @@ export class StatefulRidderResult<State> extends Data.Class<{
   readonly state: State
 }> {}
 
-const isFinite = Schema.is(Schema.Finite)
+const isFinite = Numeric.isFinite
 const isInteger = Schema.is(Schema.Int)
 
 const isFinitePositive = (value: number): boolean => Boolean.and(isFinite(value), Number.greaterThan(value, 0))
@@ -134,9 +134,10 @@ const toleranceFor = (value: number, config: NormalizedRidderConfig): number =>
   Number.max(config.absoluteTolerance, Number.multiply(Numeric.abs(value), config.relativeTolerance))
 
 const minimumIterationBudget = Schema.decodeSync(Numeric.IterationBudget)(1)
+const validIterationBudget = Option.liftPredicate(Schema.is(Numeric.IterationBudget))
 
 const normalizeIterationBudget = (iterations: number): Numeric.IterationBudget =>
-  Option.getOrElse(Option.liftPredicate(Schema.is(Numeric.IterationBudget))(iterations), () => minimumIterationBudget)
+  Option.getOrElse(validIterationBudget(iterations), () => minimumIterationBudget)
 
 const makeEstimate = (
   value: number,
@@ -151,22 +152,19 @@ const makeEstimate = (
 })
 
 class RowRefinement extends Data.Class<{
-  readonly row: Chunk.Chunk<number>
+  readonly row: Array.NonEmptyReadonlyArray<number>
   readonly rowError: number
 }> {}
 
-const lastOr = (values: Chunk.Chunk<number>, fallback: number): number =>
-  Option.getOrElse(Chunk.last(values), () => fallback)
-
 const refineRow = (
-  previousRow: Chunk.Chunk<number>,
+  previousRow: Array.NonEmptyReadonlyArray<number>,
   firstColumn: number,
   contractionSquared: number
 ): RowRefinement => {
   const factor = MutableRef.make(contractionSquared)
   const rowError = MutableRef.make(positiveInfinity)
   const row = Array.scan(
-    Chunk.toReadonlyArray(previousRow),
+    previousRow,
     firstColumn,
     (current, previous) => {
       const currentFactor = MutableRef.get(factor)
@@ -185,7 +183,7 @@ const refineRow = (
     }
   )
 
-  return new RowRefinement({ row: Chunk.fromIterable(row), rowError: MutableRef.get(rowError) })
+  return new RowRefinement({ row, rowError: MutableRef.get(rowError) })
 }
 
 const selectBetterEstimate = (
@@ -197,35 +195,32 @@ const selectBetterEstimate = (
     onFalse: () => current
   })
 
-class RidderState<State> extends Data.Class<{
+class RidderState extends Data.Class<{
   readonly depth: number
   readonly currentStep: number
-  readonly previousRow: Chunk.Chunk<number>
+  readonly previousRow: Array.NonEmptyReadonlyArray<number>
   readonly best: DerivativeLimitEstimate
   readonly result: Option.Option<DerivativeLimitEstimate>
-  readonly kernelState: State
 }> {}
 
-const finish = <State>(
-  state: RidderState<State>,
-  result: DerivativeLimitEstimate,
-  kernelState: State = state.kernelState
-): RidderState<State> =>
+const finish = (
+  state: RidderState,
+  result: DerivativeLimitEstimate
+): RidderState =>
   new RidderState({
     depth: state.depth,
     currentStep: state.currentStep,
     previousRow: state.previousRow,
     best: state.best,
-    result: Option.some(result),
-    kernelState
+    result: Option.some(result)
   })
 
-const advance = <State>(
-  kernel: StatefulStepKernel<State>,
+const advance = (
+  kernel: StepKernel,
   normalized: NormalizedRidderConfig,
   contractionSquared: number,
-  state: RidderState<State>
-): RidderState<State> =>
+  state: RidderState
+): RidderState =>
   Boolean.match(Number.greaterThanOrEqualTo(state.depth, normalized.maxIterations), {
     onTrue: () => finish(state, state.best),
     onFalse: () => {
@@ -233,17 +228,15 @@ const advance = <State>(
       return Boolean.match(Number.lessThanOrEqualTo(nextStep, normalized.minimumStep), {
         onTrue: () => finish(state, state.best),
         onFalse: () => {
-          const stepResult = kernel(nextStep, state.kernelState)
-          return Boolean.match(isFinite(stepResult.value), {
-            onFalse: () => finish(state, state.best, stepResult.state),
+          const firstColumn = kernel(nextStep)
+          return Boolean.match(isFinite(firstColumn), {
+            onFalse: () => finish(state, state.best),
             onTrue: () => {
-              const firstColumn = stepResult.value
               const refinement = refineRow(state.previousRow, firstColumn, contractionSquared)
-              const diagonal = lastOr(refinement.row, firstColumn)
-              const previousDiagonal = Option.getOrElse(
-                Chunk.get(state.previousRow, Number.decrement(state.depth)),
-                () => lastOr(state.previousRow, diagonal)
-              )
+              // The initial row has one entry; each refinement appends one
+              // extrapolation column. Depth is always the previous row's size.
+              const diagonal = Array.unsafeGet(refinement.row, state.depth)
+              const previousDiagonal = Array.unsafeGet(state.previousRow, Number.decrement(state.depth))
               const diagonalShift = Numeric.abs(Number.subtract(diagonal, previousDiagonal))
               const candidateError = Number.min(diagonalShift, refinement.rowError)
               const converged = Number.lessThanOrEqualTo(candidateError, toleranceFor(diagonal, normalized))
@@ -258,18 +251,17 @@ const advance = <State>(
               )
 
               return Boolean.match(converged, {
-                onTrue: () => finish(state, candidate, stepResult.state),
+                onTrue: () => finish(state, candidate),
                 onFalse: () =>
                   Boolean.match(runaway, {
-                    onTrue: () => finish(state, bestCandidate, stepResult.state),
+                    onTrue: () => finish(state, bestCandidate),
                     onFalse: () =>
                       new RidderState({
                         depth: Number.increment(state.depth),
                         currentStep: nextStep,
                         previousRow: refinement.row,
                         best: bestCandidate,
-                        result: Option.none(),
-                        kernelState: stepResult.state
+                        result: Option.none()
                       })
                   })
               })
@@ -289,12 +281,32 @@ const advance = <State>(
 export const ridderExtrapolation = (
   kernel: StepKernel,
   config?: RidderMethodInput
-): DerivativeLimitEstimate =>
-  ridderExtrapolationWithState(
-    (step, state) => new StatefulStepResult({ value: kernel(step), state }),
-    true,
-    config
-  ).estimate
+): DerivativeLimitEstimate => {
+  const normalized = normalizeConfig(config)
+  const contractionSquared = Number.multiply(normalized.contractionFactor, normalized.contractionFactor)
+  const initialValue = kernel(normalized.initialStep)
+  const initialEstimate = makeEstimate(initialValue, positiveInfinity, 1, false)
+  const initial = new RidderState({
+    depth: 1,
+    currentStep: normalized.initialStep,
+    previousRow: Array.of(initialValue),
+    best: initialEstimate,
+    result: Option.none()
+  })
+  const state = MutableRef.make(initial)
+  Iterable.some(Iterable.range(0), () => {
+    const next = advance(kernel, normalized, contractionSquared, MutableRef.get(state))
+    MutableRef.set(state, next)
+    return Option.isSome(next.result)
+  })
+  const final = MutableRef.get(state)
+  const result = Option.getOrElse(final.result, () => final.best)
+
+  return Boolean.match(isFinite(result.value), {
+    onTrue: () => result,
+    onFalse: () => makeEstimate(result.value, positiveInfinity, result.iterations, false)
+  })
+}
 
 /**
  * Ridder extrapolation that preserves immutable state between kernel calls.
@@ -307,38 +319,15 @@ export const ridderExtrapolationWithState = <State>(
   initialKernelState: State,
   config?: RidderMethodInput
 ): StatefulRidderResult<State> => {
-  const normalized = normalizeConfig(config)
-  const contractionSquared = Number.multiply(normalized.contractionFactor, normalized.contractionFactor)
-  const initialStepResult = kernel(normalized.initialStep, initialKernelState)
-  const initialValue = initialStepResult.value
-  const initialEstimate = makeEstimate(initialValue, positiveInfinity, 1, false)
-  const initial = new RidderState({
-    depth: 1,
-    currentStep: normalized.initialStep,
-    previousRow: Chunk.of(initialValue),
-    best: initialEstimate,
-    result: Option.none(),
-    kernelState: initialStepResult.state
-  })
-  const final = Iterable.reduce(
-    Iterable.unfold(initial, (state) =>
-      Option.match(state.result, {
-        onSome: Option.none,
-        onNone: () => {
-          const next = advance(kernel, normalized, contractionSquared, state)
-          return Option.some(Tuple.make(next, next))
-        }
-      })),
-    initial,
-    (_state, next) => next
-  )
-  const result = Option.getOrElse(final.result, () => final.best)
+  const state = MutableRef.make(initialKernelState)
+  const estimate = ridderExtrapolation((step) => {
+    const next = kernel(step, MutableRef.get(state))
+    MutableRef.set(state, next.state)
+    return next.value
+  }, config)
 
   return new StatefulRidderResult({
-    estimate: Boolean.match(isFinite(result.value), {
-      onTrue: () => result,
-      onFalse: () => makeEstimate(result.value, positiveInfinity, result.iterations, false)
-    }),
-    state: final.kernelState
+    estimate,
+    state: MutableRef.get(state)
   })
 }

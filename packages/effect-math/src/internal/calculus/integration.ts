@@ -11,6 +11,11 @@ import { Boolean, Chunk, Number } from "effect"
 
 const notANumber = Number.unsafeDivide(0, 0)
 
+const isEven = (index: number): boolean => {
+  const half = Number.multiply(index, 0.5)
+  return Number.Equivalence(half, Number.round(half, 0))
+}
+
 /**
  * Composite trapezoidal rule for evenly-spaced samples.
  *
@@ -65,7 +70,7 @@ export const simpsonsRule = (values: Chunk.Chunk<number>, dx: number): number =>
         onTrue: () => trapezoidalRule(values, dx),
         onFalse: () => {
           const intervals = Number.decrement(size)
-          const evenIntervals = Number.Equivalence(Number.remainder(intervals, 2), 0)
+          const evenIntervals = isEven(intervals)
           const simpsonIntervals = Boolean.match(evenIntervals, {
             onTrue: () => intervals,
             onFalse: () => Number.decrement(intervals)
@@ -103,9 +108,9 @@ const simpsonCore = (values: Chunk.Chunk<number>, dx: number): number => {
           Number.sum(
             acc,
             Number.multiply(
-              Boolean.match(Number.Equivalence(Number.remainder(i, 2), 1), {
-                onTrue: () => 4,
-                onFalse: () => 2
+              Boolean.match(isEven(i), {
+                onTrue: () => 2,
+                onFalse: () => 4
               }),
               y
             )

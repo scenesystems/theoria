@@ -19,198 +19,313 @@ import {
   String,
   Tuple
 } from "effect"
+import * as MutableRef from "effect/MutableRef"
 
 import rawData from "./graphemeData.json" with { type: "json" }
-import type { CodePointRange, ConjunctBreak, GraphemeBreak, Graphemes } from "./graphemeSchema.js"
+import type {
+  CodePointRange,
+  ConjunctBreak,
+  ConjunctRange,
+  GraphemeBreak,
+  GraphemeRange,
+  Graphemes
+} from "./graphemeSchema.js"
 import { GraphemeData } from "./graphemeSchema.js"
 
 const data = Schema.decodeUnknownSync(GraphemeData)(rawData)
-const graphemeRanges = RedBlackTree.fromIterable(
-  Arr.map(data.grapheme, (range) => Tuple.make(range.start, range)),
-  Order.number
-)
-const conjunctRanges = RedBlackTree.fromIterable(
-  Arr.map(data.conjunct, (range) => Tuple.make(range.start, range)),
-  Order.number
-)
-const pictographicRanges = RedBlackTree.fromIterable(
-  Arr.map(data.pictographic, (range) => Tuple.make(range.start, range)),
-  Order.number
-)
 
-// The UCD ranges are disjoint. The nearest preceding start is the only range
-// that can contain this code point; the end check distinguishes gaps.
-const rangeAt = <A extends typeof CodePointRange.Type>(
-  ranges: RedBlackTree.RedBlackTree<number, A>,
-  codePoint: number
-) =>
-  Iterable.head(RedBlackTree.lessThanEqualReversed(ranges, codePoint)).pipe(
-    Option.map(Tuple.getSecond),
-    Option.filter((range) => Number.lessThanOrEqualTo(codePoint, range.end))
-  )
-
-class Character extends Data.Class<{
-  readonly text: string
+class CharacterProperties extends Data.Class<{
   readonly grapheme: typeof GraphemeBreak.Type
   readonly conjunct: typeof ConjunctBreak.Type
   readonly pictographic: boolean
 }> {}
 
-const character = (text: string): Character => {
-  // String iteration supplies a non-empty code-point string, including isolated surrogates.
-  const codePoint = Option.getOrThrow(String.codePointAt(text, 0))
-  return new Character({
-    text,
-    grapheme: rangeAt(graphemeRanges, codePoint).pipe(
-      Option.map((range) => range.value),
-      Option.getOrElse((): typeof GraphemeBreak.Type => "Other")
-    ),
-    conjunct: rangeAt(conjunctRanges, codePoint).pipe(
-      Option.map((range) => range.value),
-      Option.getOrElse((): typeof ConjunctBreak.Type => "None")
-    ),
-    pictographic: Option.isSome(rangeAt(pictographicRanges, codePoint))
+const initialCharacterProperties = new CharacterProperties({
+  grapheme: "Other",
+  conjunct: "None",
+  pictographic: false
+})
+
+type PropertyEvent = Data.TaggedEnum<{
+  GraphemeStart: { readonly point: number; readonly value: typeof GraphemeBreak.Type }
+  GraphemeEnd: { readonly point: number }
+  ConjunctStart: { readonly point: number; readonly value: typeof ConjunctBreak.Type }
+  ConjunctEnd: { readonly point: number }
+  PictographicStart: { readonly point: number }
+  PictographicEnd: { readonly point: number }
+}>
+const PropertyEvent = Data.taggedEnum<PropertyEvent>()
+
+const graphemeEvents = (range: typeof GraphemeRange.Type): ReadonlyArray<PropertyEvent> =>
+  Arr.make(
+    PropertyEvent.GraphemeStart({ point: range.start, value: range.value }),
+    PropertyEvent.GraphemeEnd({ point: Number.increment(range.end) })
+  )
+
+const conjunctEvents = (range: typeof ConjunctRange.Type): ReadonlyArray<PropertyEvent> =>
+  Arr.make(
+    PropertyEvent.ConjunctStart({ point: range.start, value: range.value }),
+    PropertyEvent.ConjunctEnd({ point: Number.increment(range.end) })
+  )
+
+const pictographicEvents = (range: typeof CodePointRange.Type): ReadonlyArray<PropertyEvent> =>
+  Arr.make(
+    PropertyEvent.PictographicStart({ point: range.start }),
+    PropertyEvent.PictographicEnd({ point: Number.increment(range.end) })
+  )
+
+const eventPriority: (event: PropertyEvent) => number = PropertyEvent.$match({
+  GraphemeEnd: () => 0,
+  ConjunctEnd: () => 0,
+  PictographicEnd: () => 0,
+  GraphemeStart: () => 1,
+  ConjunctStart: () => 1,
+  PictographicStart: () => 1
+})
+
+const applyPropertyEvent: (properties: CharacterProperties, event: PropertyEvent) => CharacterProperties = (
+  properties,
+  event
+) =>
+  PropertyEvent.$match({
+    GraphemeStart: ({ value }) => new CharacterProperties({ ...properties, grapheme: value }),
+    GraphemeEnd: () => new CharacterProperties({ ...properties, grapheme: "Other" }),
+    ConjunctStart: ({ value }) => new CharacterProperties({ ...properties, conjunct: value }),
+    ConjunctEnd: () => new CharacterProperties({ ...properties, conjunct: "None" }),
+    PictographicStart: () => new CharacterProperties({ ...properties, pictographic: true }),
+    PictographicEnd: () => new CharacterProperties({ ...properties, pictographic: false })
+  })(event)
+
+const propertyEvents: ReadonlyArray<PropertyEvent> = Arr.sortBy(
+  Order.mapInput(Order.number, (event: PropertyEvent) => event.point),
+  Order.mapInput(Order.number, eventPriority)
+)(Arr.appendAll(
+  Arr.appendAll(Arr.flatMap(data.grapheme, graphemeEvents), Arr.flatMap(data.conjunct, conjunctEvents)),
+  Arr.flatMap(data.pictographic, pictographicEvents)
+))
+
+// Apply all events at each boundary in a single pass, without copying suffixes.
+const propertyBoundaries = Tuple.getSecond(Arr.mapAccum(
+  Iterable.groupWith(propertyEvents, (self, that) => Number.Equivalence(self.point, that.point)),
+  initialCharacterProperties,
+  (properties, events) => {
+    const next = Arr.reduce(events, properties, applyPropertyEvent)
+    return Tuple.make(next, Tuple.make(Arr.headNonEmpty(events).point, next))
+  }
+))
+
+const propertiesByCodePoint = RedBlackTree.fromIterable(propertyBoundaries, Order.number)
+
+const propertiesAt = (codePoint: number): CharacterProperties =>
+  Iterable.head(RedBlackTree.lessThanEqualReversed(propertiesByCodePoint, codePoint)).pipe(
+    Option.map(Tuple.getSecond),
+    Option.getOrElse(() => initialCharacterProperties)
+  )
+
+const basicMultilingualPlaneLimit = 0x10000
+const basicMultilingualPlaneBoundaries = Arr.takeWhile(
+  propertyBoundaries,
+  (boundary) => Number.lessThan(Tuple.getFirst(boundary), basicMultilingualPlaneLimit)
+)
+// Expand the disjoint intervals once, rather than perform a tree lookup for
+// every code point during module initialization. Entries share their property record.
+const basicMultilingualPlaneProperties = Arr.flatMap(basicMultilingualPlaneBoundaries, (boundary, index) => {
+  const end = Option.getOrElse(
+    Option.map(Arr.get(basicMultilingualPlaneBoundaries, Number.increment(index)), Tuple.getFirst),
+    () => basicMultilingualPlaneLimit
+  )
+  return Arr.replicate(Tuple.getSecond(boundary), Number.subtract(end, Tuple.getFirst(boundary)))
+})
+const propertiesForCodePoint = (codePoint: number): CharacterProperties =>
+  Boolean.match(Number.lessThan(codePoint, basicMultilingualPlaneLimit), {
+    onFalse: () => propertiesAt(codePoint),
+    onTrue: () => Arr.unsafeGet(basicMultilingualPlaneProperties, codePoint)
   })
-}
+
+const character = (text: string): CharacterProperties =>
+  // String iteration supplies a non-empty code-point string, including isolated surrogates.
+  propertiesForCodePoint(Option.getOrThrow(String.codePointAt(text, 0)))
 
 const EmojiState = Schema.Literal("none", "pictographic", "zwj")
 const ConjunctState = Schema.Literal("none", "consonant", "linked")
+type EmojiState = typeof EmojiState.Type
+type ConjunctState = typeof ConjunctState.Type
 
 class Scan extends Data.Class<{
-  readonly completed: Chunk.Chunk<string>
-  readonly current: string
-  readonly previous: typeof GraphemeBreak.Type
-  readonly oddRegionalIndicators: boolean
-  readonly emoji: typeof EmojiState.Type
-  readonly conjunct: typeof ConjunctState.Type
+  readonly completed: MutableRef.MutableRef<Chunk.Chunk<string>>
+  readonly current: MutableRef.MutableRef<string>
+  readonly previous: MutableRef.MutableRef<typeof GraphemeBreak.Type>
+  readonly oddRegionalIndicators: MutableRef.MutableRef<boolean>
+  readonly emoji: MutableRef.MutableRef<EmojiState>
+  readonly conjunct: MutableRef.MutableRef<ConjunctState>
 }> {}
 
-const initial = new Scan({
-  completed: Chunk.empty(),
-  current: "",
-  previous: "Other",
-  oddRegionalIndicators: false,
-  emoji: "none",
-  conjunct: "none"
-})
+const initialScan = (): Scan =>
+  new Scan({
+    completed: MutableRef.make(Chunk.empty()),
+    current: MutableRef.make(""),
+    previous: MutableRef.make("Other"),
+    oddRegionalIndicators: MutableRef.make(false),
+    emoji: MutableRef.make("none"),
+    conjunct: MutableRef.make("none")
+  })
 
-const joinsPrevious = (state: Scan, next: Character): boolean => {
-  const afterControl = Boolean.or(
-    String.Equivalence(state.previous, "CR"),
-    Boolean.or(String.Equivalence(state.previous, "LF"), String.Equivalence(state.previous, "Control"))
-  )
-  // GB9b, GB9c, GB11 and GB12/13 depend on the preceding context.
-  const contextualJoin = Boolean.or(
-    String.Equivalence(state.previous, "Prepend"),
+const followsControl = (state: Scan): boolean =>
+  Boolean.or(
+    String.Equivalence(MutableRef.get(state.previous), "CR"),
     Boolean.or(
-      Boolean.and(String.Equivalence(next.conjunct, "Consonant"), String.Equivalence(state.conjunct, "linked")),
+      String.Equivalence(MutableRef.get(state.previous), "LF"),
+      String.Equivalence(MutableRef.get(state.previous), "Control")
+    )
+  )
+
+const joinsContext = (state: Scan, next: CharacterProperties): boolean =>
+  Boolean.or(
+    String.Equivalence(MutableRef.get(state.previous), "Prepend"),
+    Boolean.or(
+      Boolean.and(
+        String.Equivalence(next.conjunct, "Consonant"),
+        String.Equivalence(MutableRef.get(state.conjunct), "linked")
+      ),
       Boolean.or(
-        Boolean.and(next.pictographic, String.Equivalence(state.emoji, "zwj")),
-        Boolean.and(String.Equivalence(next.grapheme, "Regional_Indicator"), state.oddRegionalIndicators)
+        Boolean.and(next.pictographic, String.Equivalence(MutableRef.get(state.emoji), "zwj")),
+        Boolean.and(
+          String.Equivalence(next.grapheme, "Regional_Indicator"),
+          MutableRef.get(state.oddRegionalIndicators)
+        )
       )
     )
   )
-  return Match.value(next.grapheme).pipe(
-    // GB3–GB5: only CR × LF crosses a control boundary.
-    Match.when("LF", () => String.Equivalence(state.previous, "CR")),
-    Match.when(Match.is("CR", "Control"), () => false),
-    // GB9 and GB9a: extensions join unless GB4 already broke the pair.
-    Match.when(Match.is("Extend", "ZWJ", "SpacingMark"), () => Boolean.not(afterControl)),
-    // GB6–GB8: Hangul syllable joins, in addition to the context rules.
-    Match.when(Match.is("L", "LV", "LVT"), () =>
-      Boolean.and(
-        Boolean.not(afterControl),
-        Boolean.or(contextualJoin, String.Equivalence(state.previous, "L"))
-      )),
-    Match.when("V", () =>
-      Boolean.and(
-        Boolean.not(afterControl),
-        Boolean.or(
-          contextualJoin,
-          Boolean.or(
-            String.Equivalence(state.previous, "L"),
-            Boolean.or(String.Equivalence(state.previous, "LV"), String.Equivalence(state.previous, "V"))
-          )
-        )
-      )),
-    Match.when("T", () =>
-      Boolean.and(
-        Boolean.not(afterControl),
-        Boolean.or(
-          contextualJoin,
-          Boolean.or(
-            Boolean.or(String.Equivalence(state.previous, "LV"), String.Equivalence(state.previous, "V")),
-            Boolean.or(String.Equivalence(state.previous, "LVT"), String.Equivalence(state.previous, "T"))
-          )
-        )
-      )),
-    // GB999: remaining pairs break unless a context rule joins them.
-    Match.when(
-      Match.is("Other", "Regional_Indicator", "Prepend"),
-      () => Boolean.and(Boolean.not(afterControl), contextualJoin)
-    ),
-    Match.exhaustive
-  )
-}
 
-const nextEmoji = (state: Scan, next: Character): Scan["emoji"] =>
-  Boolean.match(next.pictographic, {
-    onTrue: (): Scan["emoji"] => "pictographic",
-    onFalse: () =>
-      Match.value(state.emoji).pipe(
-        Match.withReturnType<Scan["emoji"]>(),
-        Match.when("pictographic", () =>
-          Match.value(next.grapheme).pipe(
-            Match.withReturnType<Scan["emoji"]>(),
-            Match.when("Extend", () => "pictographic"),
-            Match.when("ZWJ", () => "zwj"),
-            Match.when(
-              Match.is(
-                "CR",
-                "Control",
-                "L",
-                "LF",
-                "LV",
-                "LVT",
-                "Other",
-                "Prepend",
-                "Regional_Indicator",
-                "SpacingMark",
-                "T",
-                "V"
-              ),
-              () => "none"
-            ),
-            Match.exhaustive
-          )),
-        Match.when(Match.is("none", "zwj"), () => "none"),
-        Match.exhaustive
+type JoinRule = (state: Scan, next: CharacterProperties) => boolean
+
+const joinsLineFeed: JoinRule = (state) => String.Equivalence(MutableRef.get(state.previous), "CR")
+const neverJoins: JoinRule = () => false
+const joinsExtension: JoinRule = (state) => Boolean.not(followsControl(state))
+const joinsL: JoinRule = (state, next) =>
+  Boolean.and(
+    Boolean.not(followsControl(state)),
+    Boolean.or(joinsContext(state, next), String.Equivalence(MutableRef.get(state.previous), "L"))
+  )
+const joinsV: JoinRule = (state, next) =>
+  Boolean.and(
+    Boolean.not(followsControl(state)),
+    Boolean.or(
+      joinsContext(state, next),
+      Boolean.or(
+        String.Equivalence(MutableRef.get(state.previous), "L"),
+        Boolean.or(
+          String.Equivalence(MutableRef.get(state.previous), "LV"),
+          String.Equivalence(MutableRef.get(state.previous), "V")
+        )
       )
+    )
+  )
+const joinsT: JoinRule = (state, next) =>
+  Boolean.and(
+    Boolean.not(followsControl(state)),
+    Boolean.or(
+      joinsContext(state, next),
+      Boolean.or(
+        Boolean.or(
+          String.Equivalence(MutableRef.get(state.previous), "LV"),
+          String.Equivalence(MutableRef.get(state.previous), "V")
+        ),
+        Boolean.or(
+          String.Equivalence(MutableRef.get(state.previous), "LVT"),
+          String.Equivalence(MutableRef.get(state.previous), "T")
+        )
+      )
+    )
+  )
+const joinsRemaining: JoinRule = (state, next) =>
+  Boolean.and(Boolean.not(followsControl(state)), joinsContext(state, next))
+
+const joinRuleFor: (grapheme: typeof GraphemeBreak.Type) => JoinRule = Match.type<typeof GraphemeBreak.Type>().pipe(
+  Match.when("LF", () => joinsLineFeed),
+  Match.when(Match.is("CR", "Control"), () => neverJoins),
+  Match.when(Match.is("Extend", "ZWJ", "SpacingMark"), () => joinsExtension),
+  Match.when(Match.is("L", "LV", "LVT"), () => joinsL),
+  Match.when("V", () => joinsV),
+  Match.when("T", () => joinsT),
+  Match.when(Match.is("Other", "Regional_Indicator", "Prepend"), () => joinsRemaining),
+  Match.exhaustive
+)
+
+const joinsPrevious = (state: Scan, next: CharacterProperties): boolean => joinRuleFor(next.grapheme)(state, next)
+
+const emojiAfterPictographic: (grapheme: typeof GraphemeBreak.Type) => EmojiState = Match.type<
+  typeof GraphemeBreak.Type
+>().pipe(
+  Match.withReturnType<EmojiState>(),
+  Match.when("Extend", () => "pictographic"),
+  Match.when("ZWJ", () => "zwj"),
+  Match.when(
+    Match.is(
+      "CR",
+      "Control",
+      "L",
+      "LF",
+      "LV",
+      "LVT",
+      "Other",
+      "Prepend",
+      "Regional_Indicator",
+      "SpacingMark",
+      "T",
+      "V"
+    ),
+    () => "none"
+  ),
+  Match.exhaustive
+)
+
+type EmojiRule = (next: CharacterProperties) => EmojiState
+
+const resetEmoji: EmojiRule = () => "none"
+const advancePictographicEmoji: EmojiRule = (next) => emojiAfterPictographic(next.grapheme)
+const emojiRuleFor: (emoji: EmojiState) => EmojiRule = Match.type<EmojiState>().pipe(
+  Match.when("pictographic", () => advancePictographicEmoji),
+  Match.when(Match.is("none", "zwj"), () => resetEmoji),
+  Match.exhaustive
+)
+
+const nextEmoji = (state: Scan, next: CharacterProperties): EmojiState =>
+  Boolean.match(next.pictographic, {
+    onTrue: (): EmojiState => "pictographic",
+    onFalse: () => emojiRuleFor(MutableRef.get(state.emoji))(next)
   })
 
-const nextConjunct = (state: Scan, next: Character): Scan["conjunct"] =>
-  Match.value(next.conjunct).pipe(
-    Match.withReturnType<Scan["conjunct"]>(),
-    Match.when("Consonant", () => "consonant"),
-    Match.when("Extend", () => state.conjunct),
-    Match.when("Linker", () =>
-      Match.value(state.conjunct).pipe(
-        Match.withReturnType<Scan["conjunct"]>(),
-        Match.when("none", () => "none"),
-        Match.when(Match.is("consonant", "linked"), () => "linked"),
-        Match.exhaustive
-      )),
-    Match.when("None", () => "none"),
+type ConjunctRule = (state: Scan) => ConjunctState
+
+const consonantConjunct: ConjunctRule = () => "consonant"
+const retainedConjunct: ConjunctRule = (state) => MutableRef.get(state.conjunct)
+const resetConjunct: ConjunctRule = () => "none"
+const linkedConjunctState: (conjunct: ConjunctState) => ConjunctState = Match.type<ConjunctState>().pipe(
+  Match.withReturnType<ConjunctState>(),
+  Match.when("none", () => "none"),
+  Match.when(Match.is("consonant", "linked"), () => "linked"),
+  Match.exhaustive
+)
+const linkedConjunct: ConjunctRule = (state) => linkedConjunctState(MutableRef.get(state.conjunct))
+const conjunctRuleFor: (conjunct: typeof ConjunctBreak.Type) => ConjunctRule = Match.type<typeof ConjunctBreak.Type>()
+  .pipe(
+    Match.when("Consonant", () => consonantConjunct),
+    Match.when("Extend", () => retainedConjunct),
+    Match.when("Linker", () => linkedConjunct),
+    Match.when("None", () => resetConjunct),
     Match.exhaustive
   )
+
+const nextConjunct = (state: Scan, next: CharacterProperties): ConjunctState => conjunctRuleFor(next.conjunct)(state)
 
 const finish = (state: Scan) =>
-  Boolean.match(String.isEmpty(state.current), {
-    onTrue: () => state.completed,
-    onFalse: () => Chunk.append(state.completed, state.current)
+  Boolean.match(String.isEmpty(MutableRef.get(state.current)), {
+    onTrue: () => MutableRef.get(state.completed),
+    onFalse: () => Chunk.append(MutableRef.get(state.completed), MutableRef.get(state.current))
   })
 
-const isAscii = Schema.is(Schema.String.pipe(Schema.pattern(/^\p{ASCII}*$/u)))
+const isAscii = (text: string): boolean => Option.isSome(String.match(/^\p{ASCII}*$/u)(text))
 
 /** Segments without normalizing or replacing the original UTF-16 text. */
 export const graphemeClusters = (text: string): typeof Graphemes.Type =>
@@ -219,20 +334,31 @@ export const graphemeClusters = (text: string): typeof Graphemes.Type =>
     // including controls; no property-tree lookup or contextual state is needed.
     onTrue: () => Option.getOrElse(String.match(/\r\n|[\s\S]/gu)(text), Arr.empty<string>),
     onFalse: () => {
-      const state = Chunk.reduce(Chunk.fromIterable(text), initial, (current, text): Scan => {
+      const state = initialScan()
+      Chunk.forEach(Chunk.fromIterable(text), (text) => {
         const next = character(text)
-        const joined = joinsPrevious(current, next)
-        return new Scan({
-          completed: Boolean.match(joined, { onTrue: () => current.completed, onFalse: () => finish(current) }),
-          current: Boolean.match(joined, { onTrue: () => String.concat(current.current, text), onFalse: () => text }),
-          previous: next.grapheme,
-          oddRegionalIndicators: Boolean.and(
-            String.Equivalence(next.grapheme, "Regional_Indicator"),
-            Boolean.not(current.oddRegionalIndicators)
-          ),
-          emoji: nextEmoji(current, next),
-          conjunct: nextConjunct(current, next)
-        })
+        const joined = joinsPrevious(state, next)
+        const emoji = nextEmoji(state, next)
+        const conjunct = nextConjunct(state, next)
+        const oddRegionalIndicators = Boolean.and(
+          String.Equivalence(next.grapheme, "Regional_Indicator"),
+          Boolean.not(MutableRef.get(state.oddRegionalIndicators))
+        )
+        MutableRef.set(
+          state.completed,
+          Boolean.match(joined, { onTrue: () => MutableRef.get(state.completed), onFalse: () => finish(state) })
+        )
+        MutableRef.set(
+          state.current,
+          Boolean.match(joined, {
+            onTrue: () => String.concat(MutableRef.get(state.current), text),
+            onFalse: () => text
+          })
+        )
+        MutableRef.set(state.previous, next.grapheme)
+        MutableRef.set(state.oddRegionalIndicators, oddRegionalIndicators)
+        MutableRef.set(state.emoji, emoji)
+        MutableRef.set(state.conjunct, conjunct)
       })
       return Chunk.toReadonlyArray(finish(state))
     }

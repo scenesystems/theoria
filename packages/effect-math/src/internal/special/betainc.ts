@@ -11,7 +11,7 @@
  * @since 0.1.0
  * @category internal
  */
-import { Array, Boolean, MutableRef, Number } from "effect"
+import { Array, Boolean, Function, MutableRef, Number } from "effect"
 
 import { abs, exp, log } from "../../Numeric.js"
 import { lnGammaLanczos } from "./gamma.js"
@@ -34,11 +34,12 @@ export const betaLogNorm = (a: number, b: number): number =>
   )
 
 /** Clamp tiny values away from zero to prevent division overflow. */
-const guard = (value: number): number =>
-  Boolean.match(Number.lessThan(abs(value), minimumPositive), {
-    onTrue: () => minimumPositive,
-    onFalse: () => value
-  })
+const useMinimumPositive = (_value: number): number => minimumPositive
+const selectGuard = Boolean.match({
+  onTrue: () => useMinimumPositive,
+  onFalse: () => Function.identity<number>
+})
+const guard = (value: number): number => selectGuard(Number.lessThan(abs(value), minimumPositive))(value)
 
 /**
  * Modified Lentz continued fraction for I_x(a,b).
@@ -104,6 +105,75 @@ const betacfLoop = (
   return MutableRef.get(valueState)
 }
 
+const betaincDirect = (
+  a: number,
+  b: number,
+  x: number,
+  logNormalization: (a: number, b: number) => number
+): number => {
+  const lnPre = Number.subtract(
+    Number.sum(
+      Number.multiply(a, log(x)),
+      Number.multiply(b, log(Number.subtract(1, x)))
+    ),
+    Number.sum(log(a), logNormalization(a, b))
+  )
+  return Number.multiply(exp(lnPre), betacf(a, b, x))
+}
+
+const betaincReflected = (
+  a: number,
+  b: number,
+  x: number,
+  logNormalization: (a: number, b: number) => number
+): number => Number.subtract(1, betaincDirect(b, a, Number.subtract(1, x), logNormalization))
+
+const selectSymmetry = Boolean.match({
+  onTrue: () => betaincReflected,
+  onFalse: () => betaincDirect
+})
+
+const betaincInterior = (
+  a: number,
+  b: number,
+  x: number,
+  logNormalization: (a: number, b: number) => number
+): number =>
+  selectSymmetry(
+    Number.greaterThan(x, Number.unsafeDivide(Number.sum(a, 1), Number.sum(Number.sum(a, b), 2)))
+  )(a, b, x, logNormalization)
+
+const betaincAtOne = (
+  _a: number,
+  _b: number,
+  _x: number,
+  _logNormalization: (a: number, b: number) => number
+): number => 1
+
+const selectOneEndpoint = Boolean.match({
+  onTrue: () => betaincAtOne,
+  onFalse: () => betaincInterior
+})
+
+const betaincAfterZero = (
+  a: number,
+  b: number,
+  x: number,
+  logNormalization: (a: number, b: number) => number
+): number => selectOneEndpoint(Number.Equivalence(x, 1))(a, b, x, logNormalization)
+
+const betaincAtZero = (
+  _a: number,
+  _b: number,
+  _x: number,
+  _logNormalization: (a: number, b: number) => number
+): number => 0
+
+const selectZeroEndpoint = Boolean.match({
+  onTrue: () => betaincAtZero,
+  onFalse: () => betaincAfterZero
+})
+
 /**
  * Regularized incomplete beta I_x(a,b) = B(x;a,b) / B(a,b).
  *
@@ -119,29 +189,4 @@ export const betainc = (
   b: number,
   x: number,
   logNormalization: (a: number, b: number) => number = betaLogNorm
-): number => {
-  return Boolean.match(Number.Equivalence(x, 0), {
-    onTrue: () => 0,
-    onFalse: () =>
-      Boolean.match(Number.Equivalence(x, 1), {
-        onTrue: () => 1,
-        onFalse: () =>
-          Boolean.match(
-            Number.greaterThan(x, Number.unsafeDivide(Number.sum(a, 1), Number.sum(Number.sum(a, b), 2))),
-            {
-              onTrue: () => Number.subtract(1, betainc(b, a, Number.subtract(1, x), logNormalization)),
-              onFalse: () => {
-                const lnPre = Number.subtract(
-                  Number.sum(
-                    Number.multiply(a, log(x)),
-                    Number.multiply(b, log(Number.subtract(1, x)))
-                  ),
-                  Number.sum(log(a), logNormalization(a, b))
-                )
-                return Number.multiply(exp(lnPre), betacf(a, b, x))
-              }
-            }
-          )
-      })
-  })
-}
+): number => selectZeroEndpoint(Number.Equivalence(x, 0))(a, b, x, logNormalization)

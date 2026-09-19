@@ -152,6 +152,24 @@ describe("Calculus / multivariate operators", () => {
       expect(MutableRef.get(counter)).toStrictEqual(5)
     }))
 
+  it.effect("retains refined vector-field samples when subsequent Jacobian rows reuse them", () =>
+    Effect.gen(function*() {
+      const counter = MutableRef.make(0)
+      const result = jacobian(
+        (coordinates) => {
+          MutableRef.increment(counter)
+          return vectorField(coordinates)
+        },
+        point,
+        { maxIterations: Numeric.IterationBudget.make(2) }
+      )
+
+      expectMatrixClose(result, Chunk.make(Chunk.make(2, 1), Chunk.make(Number.sum(2, Numeric.cos(1)), 1)), 5e-7)
+      // One unperturbed sample, then two signs at two step sizes on each
+      // of two axes. Every later output row reuses all eight perturbations.
+      expect(MutableRef.get(counter)).toStrictEqual(9)
+    }))
+
   it.effect("hessian constructs symmetric mixed partials with reduced evaluations", () =>
     Effect.gen(function*() {
       const counter = MutableRef.make(0)

@@ -64,6 +64,49 @@ describe("Text hot-path contracts", () => {
       expect(cursorLines).toEqual(expected)
     }))
 
+  it.effect("repeated multi-line projections reset line-local whitespace state", () =>
+    Effect.gen(function*() {
+      const prepared = yield* Text.prepareWithSegments({
+        text: "one two three",
+        font: { family: "Mono", size: 10 },
+        whiteSpace: "normal"
+      }).pipe(Effect.provide(testLayer))
+      const request: Text.Request = { maxWidth: 25, lineHeight: 12 }
+      const expectedLines = Arr.make(
+        { baseDirection: "ltr", index: 0, order: "visual", text: "one", width: 15 },
+        { baseDirection: "ltr", index: 1, order: "visual", text: "two", width: 15 },
+        { baseDirection: "ltr", index: 2, order: "visual", text: "three", width: 25 }
+      )
+      const expectedRanges = Arr.make(
+        {
+          baseDirection: "ltr",
+          end: { graphemeIndex: 0, segmentIndex: 1 },
+          order: "visual",
+          start: { graphemeIndex: 0, segmentIndex: 0 },
+          width: 15
+        },
+        {
+          baseDirection: "ltr",
+          end: { graphemeIndex: 0, segmentIndex: 3 },
+          order: "visual",
+          start: { graphemeIndex: 0, segmentIndex: 2 },
+          width: 15
+        },
+        {
+          baseDirection: "ltr",
+          end: { graphemeIndex: 0, segmentIndex: 5 },
+          order: "visual",
+          start: { graphemeIndex: 0, segmentIndex: 4 },
+          width: 25
+        }
+      )
+
+      expect(Text.ranges(prepared, request)).toEqual(expectedRanges)
+      expect(Text.lines(prepared, request)).toEqual(expectedLines)
+      expect(Text.ranges(prepared, request)).toEqual(expectedRanges)
+      expect(Text.lines(prepared, request)).toEqual(expectedLines)
+    }))
+
   it.effect("taking a stream prefix returns only the requested initial lines", () =>
     Effect.gen(function*() {
       const prepared = yield* Text.prepareWithSegments({

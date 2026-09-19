@@ -8,13 +8,14 @@
  * @internal
  * @since 0.5.0
  */
-import { Chunk, Data, Order, RedBlackTree, Schema, Tuple } from "effect"
+import { type Chunk, Data, Schema } from "effect"
 import * as HashMap from "effect/HashMap"
 import * as MutableRef from "effect/MutableRef"
 
 import { SegmentKind as TextSegmentKind } from "../Text.js"
 import type { Direction, Whitespace } from "../Text.js"
 import type { TextDirection } from "./analysis.js"
+import type { VisualOrderUnit } from "./bidi.js"
 import { BreakOpportunity as HyphenatedBreakOpportunity } from "./hyphenation.js"
 
 /** @internal */
@@ -47,7 +48,6 @@ export type BreakKind = typeof BreakKind.Type
 
 type StringValues = Chunk.Chunk<string>
 type WidthValues = Chunk.Chunk<number>
-type IndexedStringValues = ReadonlyArray<string>
 type IndexedWidthValues = ReadonlyArray<number>
 
 /** @internal */
@@ -77,10 +77,10 @@ export class RuntimeSegment extends Data.Class<{
   readonly breakableGraphemeCount: number
   readonly breakableGraphemeWidths: IndexedWidthValues
   readonly breakableFitAdvances: IndexedWidthValues
+  readonly chunkEndSegmentIndex: number
   readonly fitAdvance: number
-  readonly graphemeBidiLevels: IndexedWidthValues
-  readonly mirroredGraphemes: IndexedStringValues
   readonly paintAdvance: number
+  readonly visualOrderUnits: ReadonlyArray<VisualOrderUnit>
 }> {}
 
 /** @internal */
@@ -101,12 +101,7 @@ export class RuntimeTables extends Data.Class<{
   readonly discretionaryHyphenWidth: number
   readonly segments: RuntimeSegments
   readonly tabStopAdvance: number
-}> {
-  readonly chunksByEnd = RedBlackTree.fromIterable(
-    Chunk.map(this.chunks, (chunk) => Tuple.make(chunk.consumedEndSegmentIndex, chunk)),
-    Order.number
-  )
-}
+}> {}
 
 /** @internal */
 export class Kernel extends Data.Class<{

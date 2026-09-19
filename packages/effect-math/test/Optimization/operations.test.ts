@@ -1,5 +1,5 @@
 import { describe, expect, it } from "@effect/vitest"
-import { Effect, Exit, MutableRef, Number, Schema } from "effect"
+import { Effect, Exit, FastCheck, MutableRef, Number, Schema } from "effect"
 
 import * as Numeric from "../../src/Numeric.js"
 import {
@@ -83,6 +83,23 @@ describe("Optimization / bisect", () => {
       expect(MutableRef.get(evaluations)).toStrictEqual(2)
     }))
 
+  it.effect("stops at an asymmetric exact root without an extra callback", () =>
+    Effect.gen(function*() {
+      const evaluations = MutableRef.make(0)
+      const root = bisect(
+        (x) => {
+          MutableRef.increment(evaluations)
+          return Number.subtract(x, 0.25)
+        },
+        0,
+        2,
+        1e-30,
+        64
+      )
+      expect(root).toStrictEqual(0.25)
+      expect(MutableRef.get(evaluations)).toStrictEqual(5)
+    }))
+
   it.effect("preserves reversed brackets and exact iteration-budget boundaries", () =>
     Effect.gen(function*() {
       const evaluations = MutableRef.make(0)
@@ -104,6 +121,43 @@ describe("Optimization / bisect", () => {
       MutableRef.set(evaluations, 0)
       expect(bisect(counted, 0, 2, 1e-30, 2)).toStrictEqual(1.25)
       expect(MutableRef.get(evaluations)).toStrictEqual(4)
+    }))
+
+  it.effect.prop("honors callback budgets on both sides of iteration-batch boundaries", {
+    maxIterations: FastCheck.integer({ min: 60, max: 130 })
+  }, ({ maxIterations }) =>
+    Effect.gen(function*() {
+      const evaluations = MutableRef.make(0)
+      const result = bisect(
+        () => {
+          MutableRef.increment(evaluations)
+          return 1
+        },
+        0,
+        1,
+        -1,
+        maxIterations
+      )
+      expect(result).toStrictEqual(1)
+      expect(MutableRef.get(evaluations)).toStrictEqual(Number.sum(maxIterations, 2))
+    }))
+
+  it.effect("preserves capped nonfinite bracket behavior", () =>
+    Effect.gen(function*() {
+      const evaluations = MutableRef.make(0)
+      const maxIterations = 3
+      const result = bisect(
+        (x) => {
+          MutableRef.increment(evaluations)
+          return x
+        },
+        Number.unsafeDivide(0, 0),
+        2,
+        -1,
+        maxIterations
+      )
+      expect(result).toBeNaN()
+      expect(MutableRef.get(evaluations)).toStrictEqual(Number.sum(maxIterations, 2))
     }))
 
   it.effect("is stack safe for a large finite nonconverging budget", () =>
@@ -140,6 +194,60 @@ describe("Optimization / goldenSection", () => {
     Effect.gen(function*() {
       const f = (x: number) => Number.multiply(Number.subtract(x, 1), Number.subtract(x, 1))
       expectClose(goldenSection(f, -2, 4), 1, kernelTolerance)
+    }))
+
+  it.effect("caps an asymmetric objective without an extra callback", () =>
+    Effect.gen(function*() {
+      const evaluations = MutableRef.make(0)
+      const maxIterations = 3
+      const result = goldenSection(
+        (x) => {
+          MutableRef.increment(evaluations)
+          return Number.multiply(Number.subtract(x, 0.3), Number.subtract(x, 0.3))
+        },
+        0,
+        2,
+        1e-30,
+        maxIterations
+      )
+      expectClose(result, 0.2360679774997897, 1e-15)
+      expect(MutableRef.get(evaluations)).toStrictEqual(Number.sum(maxIterations, 2))
+    }))
+
+  it.effect("returns before narrowing when the initial interval satisfies tolerance", () =>
+    Effect.gen(function*() {
+      const evaluations = MutableRef.make(0)
+      const result = goldenSection(
+        (x) => {
+          MutableRef.increment(evaluations)
+          return Number.multiply(Number.subtract(x, 0.3), Number.subtract(x, 0.3))
+        },
+        0,
+        2,
+        3,
+        64
+      )
+      expect(result).toStrictEqual(1)
+      expect(MutableRef.get(evaluations)).toStrictEqual(2)
+    }))
+
+  it.effect("preserves capped nonfinite interval behavior", () =>
+    Effect.gen(function*() {
+      const evaluations = MutableRef.make(0)
+      const maxIterations = 3
+      const infinity = Number.unsafeDivide(1, 0)
+      const result = goldenSection(
+        (x) => {
+          MutableRef.increment(evaluations)
+          return Number.multiply(x, x)
+        },
+        Number.negate(infinity),
+        infinity,
+        -1,
+        maxIterations
+      )
+      expect(result).toBeNaN()
+      expect(MutableRef.get(evaluations)).toStrictEqual(Number.sum(maxIterations, 2))
     }))
 
   it.effect("preserves reversed intervals and the zero-iteration callback budget", () =>

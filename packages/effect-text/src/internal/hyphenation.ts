@@ -45,6 +45,11 @@ const strings = Schema.Array(Schema.String)
 const isDigit = Schema.is(Schema.String.pipe(Schema.pattern(/^[0-9]$/u)))
 const longestFirst = Order.reverse(Order.mapInput(Order.number, (pattern: Pattern) => String.length(pattern.letters)))
 
+const isOddWeight = (weight: number): boolean => {
+  const half = Number.multiply(weight, 0.5)
+  return Boolean.not(Number.Equivalence(half, Number.round(half, 0)))
+}
+
 const sanitize = (word: string, points: Hyphenation.BreakPoints): Hyphenation.BreakPoints =>
   Arr.dedupe(Arr.sort(
     Arr.filter(points, (point) =>
@@ -213,7 +218,7 @@ const matchPatterns = (word: Word, working: string, source: CompiledPatterns): H
                 Number.greaterThan(index, source.leftMin),
                 Number.lessThan(index, Number.subtract(length, source.rightMin))
               ),
-              Number.Equivalence(Number.remainder(Arr.get(points, index).pipe(Option.getOrElse(() => 0)), 2), 1)
+              isOddWeight(Arr.get(points, index).pipe(Option.getOrElse(() => 0)))
             )
         )
         return originalPoints(word, Arr.map(candidates, Number.decrement))

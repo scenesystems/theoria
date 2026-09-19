@@ -29,6 +29,9 @@ const reportPath = Effect.gen(function*() {
 // adjusted because subtraction would amplify timer and runtime noise.
 const measureTiming = <A, E, R>(run: () => Effect.Effect<A, E, R>): Effect.Effect<BenchmarkTiming, E, R> =>
   Effect.gen(function*() {
+    // Warm each operation, not only the preparation cache. Otherwise the first
+    // projection pays for JIT compilation of the walker shared by later cases.
+    yield* Effect.replicateEffect(run(), benchmarkIterations, { concurrency: 1, discard: true })
     const startedAt = yield* Clock.currentTimeNanos
     yield* Effect.replicateEffect(run(), benchmarkIterations, { concurrency: 1, discard: true })
     const finishedAt = yield* Clock.currentTimeNanos

@@ -10,15 +10,20 @@
  * @since 0.1.0
  * @category internal
  */
-import { Boolean, Number } from "effect"
+import { Boolean, Function, Number } from "effect"
 
 import { abs, exp } from "../../Numeric.js"
 
 const twoPowNegative28 = 3.725290298461914e-9
-const rightTailThreshold = 6
 const smallRegionBoundary = 0.84375
 const middleRegionBoundary = 1.25
 const tailRegionBoundary = Number.unsafeDivide(1, 0.35)
+const isNearZero = Number.lessThan(twoPowNegative28)
+const isSmall = Number.lessThan(smallRegionBoundary)
+const isMiddle = Number.lessThan(middleRegionBoundary)
+const isTailA = Number.lessThan(tailRegionBoundary)
+const isNegative = Number.lessThan(0)
+const isNonnegative = Number.greaterThanOrEqualTo(0)
 
 const EFX = 1.28379167095512586316e-01
 const ERX = 8.45062911510467529297e-01
@@ -109,11 +114,13 @@ const tailApproximation = (
   )
 }
 
-const positiveTail = (x: number): number =>
-  Boolean.match(Number.lessThan(x, tailRegionBoundary), {
-    onTrue: () => tailApproximation(x, RA, SA),
-    onFalse: () => tailApproximation(x, RB, SB)
-  })
+const positiveTailA = (x: number): number => tailApproximation(x, RA, SA)
+const positiveTailB = (x: number): number => tailApproximation(x, RB, SB)
+const selectPositiveTail = Boolean.match({
+  onTrue: () => positiveTailA,
+  onFalse: () => positiveTailB
+})
+const positiveTail = (x: number): number => selectPositiveTail(isTailA(x))(x)
 
 const nearZeroApproximation = (x: number): number => Number.multiply(Number.sum(1, EFX), x)
 
@@ -127,33 +134,52 @@ const shiftedApproximation = (x: number): number => {
   return Number.sum(ERX, Number.unsafeDivide(PA(shifted), QA(shifted)))
 }
 
-const erfRightNonBig = (x: number): number =>
-  Boolean.match(Number.lessThan(x, twoPowNegative28), {
-    onTrue: () => nearZeroApproximation(x),
-    onFalse: () =>
-      Boolean.match(Number.lessThan(x, smallRegionBoundary), {
-        onTrue: () => polynomialApproximation(x),
-        onFalse: () =>
-          Boolean.match(Number.lessThan(x, middleRegionBoundary), {
-            onTrue: () => shiftedApproximation(x),
-            onFalse: () => Number.subtract(1, positiveTail(x))
-          })
-      })
-  })
+const erfPositiveTail = (x: number): number => Number.subtract(1, positiveTail(x))
+const selectErfMiddleRegion = Boolean.match({
+  onTrue: () => shiftedApproximation,
+  onFalse: () => erfPositiveTail
+})
+const erfMiddleRegion = (x: number): number => selectErfMiddleRegion(isMiddle(x))(x)
+const selectErfSmallRegion = Boolean.match({
+  onTrue: () => polynomialApproximation,
+  onFalse: () => erfMiddleRegion
+})
+const erfSmallRegion = (x: number): number => selectErfSmallRegion(isSmall(x))(x)
+const selectErfNearZero = Boolean.match({
+  onTrue: () => nearZeroApproximation,
+  onFalse: () => erfSmallRegion
+})
+const erfRightNonBig = (x: number): number => selectErfNearZero(isNearZero(x))(x)
 
-const erfcPositive = (x: number): number =>
-  Boolean.match(Number.lessThan(x, twoPowNegative28), {
-    onTrue: () => Number.subtract(1, nearZeroApproximation(x)),
-    onFalse: () =>
-      Boolean.match(Number.lessThan(x, smallRegionBoundary), {
-        onTrue: () => Number.subtract(1, polynomialApproximation(x)),
-        onFalse: () =>
-          Boolean.match(Number.lessThan(x, middleRegionBoundary), {
-            onTrue: () => Number.subtract(1, shiftedApproximation(x)),
-            onFalse: () => positiveTail(x)
-          })
-      })
-  })
+const erfcNearZero = (x: number): number => Number.subtract(1, nearZeroApproximation(x))
+const erfcPolynomial = (x: number): number => Number.subtract(1, polynomialApproximation(x))
+const erfcShifted = (x: number): number => Number.subtract(1, shiftedApproximation(x))
+const selectErfcMiddleRegion = Boolean.match({
+  onTrue: () => erfcShifted,
+  onFalse: () => positiveTail
+})
+const erfcMiddleRegion = (x: number): number => selectErfcMiddleRegion(isMiddle(x))(x)
+const selectErfcSmallRegion = Boolean.match({
+  onTrue: () => erfcPolynomial,
+  onFalse: () => erfcMiddleRegion
+})
+const erfcSmallRegion = (x: number): number => selectErfcSmallRegion(isSmall(x))(x)
+const selectErfcNearZero = Boolean.match({
+  onTrue: () => erfcNearZero,
+  onFalse: () => erfcSmallRegion
+})
+const erfcPositive = (x: number): number => selectErfcNearZero(isNearZero(x))(x)
+
+const selectErfSign = Boolean.match({
+  onTrue: () => Number.negate,
+  onFalse: () => Function.identity<number>
+})
+
+const erfcNegative = (x: number): number => Number.subtract(2, erfcPositive(Number.negate(x)))
+const selectErfcSign = Boolean.match({
+  onTrue: () => erfcPositive,
+  onFalse: () => erfcNegative
+})
 
 /**
  * erf(x) via Cephes multi-region rational polynomial. Handles negative x
@@ -163,28 +189,9 @@ const erfcPositive = (x: number): number =>
  * @category internal
  */
 export const erfCephes = (x: number): number => {
-  return Boolean.match(Number.Equivalence(x, x), {
-    onFalse: () => NaN,
-    onTrue: () =>
-      Boolean.match(Number.Equivalence(x, Infinity), {
-        onTrue: () => 1,
-        onFalse: () =>
-          Boolean.match(Number.Equivalence(x, Number.negate(Infinity)), {
-            onTrue: () => -1,
-            onFalse: () => {
-              const absoluteX = abs(x)
-              const rightValue = Boolean.match(Number.lessThan(absoluteX, rightTailThreshold), {
-                onTrue: () => erfRightNonBig(absoluteX),
-                onFalse: () => 1
-              })
-              return Boolean.match(Number.lessThan(x, 0), {
-                onTrue: () => Number.negate(rightValue),
-                onFalse: () => rightValue
-              })
-            }
-          })
-      })
-  })
+  const negative = isNegative(x)
+  const rightValue = erfRightNonBig(abs(x))
+  return selectErfSign(negative)(rightValue)
 }
 
 /**
@@ -195,12 +202,5 @@ export const erfCephes = (x: number): number => {
  * @category internal
  */
 export const erfcCephes = (x: number): number => {
-  return Boolean.match(Number.Equivalence(x, x), {
-    onFalse: () => NaN,
-    onTrue: () =>
-      Boolean.match(Number.greaterThanOrEqualTo(x, 0), {
-        onTrue: () => erfcPositive(x),
-        onFalse: () => Number.subtract(2, erfcPositive(Number.negate(x)))
-      })
-  })
+  return selectErfcSign(isNonnegative(x))(x)
 }

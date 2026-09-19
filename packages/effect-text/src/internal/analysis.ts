@@ -3,7 +3,7 @@
  *
  * @since 0.1.0
  */
-import { Boolean, Chunk, Data, Match, Number, Option, Schema, String, Tuple } from "effect"
+import { Boolean, Chunk, Data, Function, Iterable, Match, Number, Option, Schema, String, Tuple } from "effect"
 import * as Arr from "effect/Array"
 
 import * as Text from "../Text.js"
@@ -26,39 +26,37 @@ export const zeroWidthSpace = "\u200b"
 const tab = "\t"
 const lineFeed = "\n"
 
-const isRtlCharacter = Schema.is(Schema.String.pipe(Schema.pattern(/[\u0590-\u08ff\uFB1D-\uFDFD\uFE70-\uFEFC]/u)))
-const isStrongCharacter = Schema.is(Schema.String.pipe(Schema.pattern(/\p{Letter}|\p{Number}/u)))
-const isLetter = Schema.is(Schema.String.pipe(Schema.pattern(/\p{Letter}/u)))
-const isNumber = Schema.is(Schema.String.pipe(Schema.pattern(/\p{Number}/u)))
-const isExtendedPictographic = Schema.is(Schema.String.pipe(Schema.pattern(/\p{Extended_Pictographic}/u)))
-const isRegionalIndicatorPair = Schema.is(
-  Schema.String.pipe(Schema.pattern(/^\p{Regional_Indicator}{2}$/u))
-)
-const isKeycapSequence = Schema.is(Schema.String.pipe(Schema.pattern(/^[#*0-9]\uFE0F?\u20E3$/u)))
+const isRtlCharacter = Function.compose(String.match(/[\u0590-\u08ff\uFB1D-\uFDFD\uFE70-\uFEFC]/u), Option.isSome)
+const isStrongCharacter = Function.compose(String.match(/\p{Letter}|\p{Number}/u), Option.isSome)
+const isLetter = Function.compose(String.match(/\p{Letter}/u), Option.isSome)
+const isNumber = Function.compose(String.match(/\p{Number}/u), Option.isSome)
+const isExtendedPictographic = Function.compose(String.match(/\p{Extended_Pictographic}/u), Option.isSome)
+const isRegionalIndicatorPair = Function.compose(String.match(/^\p{Regional_Indicator}{2}$/u), Option.isSome)
+const isKeycapSequence = Function.compose(String.match(/^[#*0-9]\uFE0F?\u20E3$/u), Option.isSome)
 const isEmoji = (cluster: string): boolean =>
   Boolean.or(
     isExtendedPictographic(cluster),
     Boolean.or(isRegionalIndicatorPair(cluster), isKeycapSequence(cluster))
   )
-const isCjkScript = Schema.is(
-  Schema.String.pipe(Schema.pattern(/[\p{Script=Han}\p{Script=Hiragana}\p{Script=Katakana}\p{Script=Hangul}]/u))
+const isCjkScript = Function.compose(
+  String.match(/[\p{Script=Han}\p{Script=Hiragana}\p{Script=Katakana}\p{Script=Hangul}]/u),
+  Option.isSome
 )
-const isNoSpaceScript = Schema.is(
-  Schema.String.pipe(Schema.pattern(/[\p{Script=Thai}\p{Script=Lao}\p{Script=Khmer}\p{Script=Myanmar}]/u))
+const isNoSpaceScript = Function.compose(
+  String.match(/[\p{Script=Thai}\p{Script=Lao}\p{Script=Khmer}\p{Script=Myanmar}]/u),
+  Option.isSome
 )
-const isOpeningPunctuation = Schema.is(
-  Schema.String.pipe(
-    Schema.pattern(/^[([{\u2018\u201C\u00AB\u2039\u3008\u300A\u300C\u300E\u3010\u3014\uFF08\uFF3B\uFF5B]+$/u)
-  )
+const isOpeningPunctuation = Function.compose(
+  String.match(/^[([{\u2018\u201C\u00AB\u2039\u3008\u300A\u300C\u300E\u3010\u3014\uFF08\uFF3B\uFF5B]+$/u),
+  Option.isSome
 )
-const isClosingPunctuation = Schema.is(
-  Schema.String.pipe(
-    Schema.pattern(
-      /^[)\]}\u2019\u201D\u00BB\u203A\u3001\u3002\u3009\u300B\u300D\u300F\u3011\u3015\uFF09\uFF3D\uFF5D\uFF0C\uFF0E!?;,.:]+$/u
-    )
-  )
+const isClosingPunctuation = Function.compose(
+  String.match(
+    /^[)\]}\u2019\u201D\u00BB\u203A\u3001\u3002\u3009\u300B\u300D\u300F\u3011\u3015\uFF09\uFF3D\uFF5D\uFF0C\uFF0E!?;,.:]+$/u
+  ),
+  Option.isSome
 )
-const isRunConnector = Schema.is(Schema.String.pipe(Schema.pattern(/^[-._~,/:@?&=#%+]+$/u)))
+const isRunConnector = Function.compose(String.match(/^[-._~,/:@?&=#%+]+$/u), Option.isSome)
 
 /** Internal logical direction classification used by preparation and bidi projection. */
 export const TextDirection = Schema.Union(Schema.suspend(() => Text.Direction), Schema.Literal("neutral"))
@@ -177,37 +175,39 @@ const atomicTokenFor: (cluster: string) => AtomicToken = Match.type<string>().pi
 const tokenizeText = (text: string): AtomicTokens =>
   Chunk.map(Chunk.fromIterable(graphemeClusters(normalizeLineBreaks(text))), atomicTokenFor)
 
-const isRunEndpoint = (token: TextAtomicToken): boolean =>
-  Match.value(token.breakClass).pipe(
-    Match.when("alphabetic", () => true),
-    Match.when("cjk", () => true),
-    Match.when("numeric", () => true),
-    Match.when("closing-punctuation", () => false),
-    Match.when("connector", () => false),
-    Match.when("glue", () => false),
-    Match.when("no-space-script", () => false),
-    Match.when("opening-punctuation", () => false),
-    Match.when("other", () => false),
-    Match.when("soft-hyphen", () => false),
-    Match.when("zero-width-break", () => false),
-    Match.exhaustive
-  )
+const isRunEndpointClass: (breakClass: TextBreakClass) => boolean = Match.type<TextBreakClass>().pipe(
+  Match.when("alphabetic", () => true),
+  Match.when("cjk", () => true),
+  Match.when("numeric", () => true),
+  Match.when("closing-punctuation", () => false),
+  Match.when("connector", () => false),
+  Match.when("glue", () => false),
+  Match.when("no-space-script", () => false),
+  Match.when("opening-punctuation", () => false),
+  Match.when("other", () => false),
+  Match.when("soft-hyphen", () => false),
+  Match.when("zero-width-break", () => false),
+  Match.exhaustive
+)
 
-const continuesConnectorRun = (token: TextAtomicToken): boolean =>
-  Match.value(token.breakClass).pipe(
-    Match.when("alphabetic", () => true),
-    Match.when("cjk", () => true),
-    Match.when("closing-punctuation", () => true),
-    Match.when("connector", () => true),
-    Match.when("numeric", () => true),
-    Match.when("glue", () => false),
-    Match.when("no-space-script", () => false),
-    Match.when("opening-punctuation", () => false),
-    Match.when("other", () => false),
-    Match.when("soft-hyphen", () => false),
-    Match.when("zero-width-break", () => false),
-    Match.exhaustive
-  )
+const isRunEndpoint = (token: TextAtomicToken): boolean => isRunEndpointClass(token.breakClass)
+
+const continuesConnectorRunClass: (breakClass: TextBreakClass) => boolean = Match.type<TextBreakClass>().pipe(
+  Match.when("alphabetic", () => true),
+  Match.when("cjk", () => true),
+  Match.when("closing-punctuation", () => true),
+  Match.when("connector", () => true),
+  Match.when("numeric", () => true),
+  Match.when("glue", () => false),
+  Match.when("no-space-script", () => false),
+  Match.when("opening-punctuation", () => false),
+  Match.when("other", () => false),
+  Match.when("soft-hyphen", () => false),
+  Match.when("zero-width-break", () => false),
+  Match.exhaustive
+)
+
+const continuesConnectorRun = (token: TextAtomicToken): boolean => continuesConnectorRunClass(token.breakClass)
 
 const isBreakBoundary: (breakClass: TextBreakClass) => boolean = Match.type<TextBreakClass>().pipe(
   Match.when("glue", () => true),
@@ -291,10 +291,7 @@ const groupAdjacent = <A>(
   values: Chunk.Chunk<A>,
   equivalent: (self: A, that: A) => boolean
 ): Chunk.Chunk<Chunk.Chunk<A>> =>
-  Arr.match(Chunk.toReadonlyArray(values), {
-    onEmpty: Chunk.empty<Chunk.Chunk<A>>,
-    onNonEmpty: (nonEmpty) => Chunk.fromIterable(Arr.map(Arr.groupWith(nonEmpty, equivalent), Chunk.fromIterable))
-  })
+  Chunk.fromIterable(Iterable.map(Iterable.groupWith(values, equivalent), Chunk.fromIterable))
 
 const textSegmentsFromAtoms = (atoms: TextAtomicTokens): SegmentChunk => {
   const grouped = Tuple.getSecond(Chunk.mapAccum<TextGroupingCursor, TextAtomicToken, GroupedTextAtomicToken>(
@@ -371,19 +368,22 @@ const segmentPreWrapGroup = (group: AtomicTokens): SegmentChunk =>
 const segmentPreWrapText = (text: string): SegmentChunk =>
   Chunk.flatMap(groupPreWrapTokens(tokenizeText(text)), segmentPreWrapGroup)
 
+const segmentForWhitespace: (whiteSpace: Text.Whitespace) => (text: string) => SegmentChunk = Match.type<
+  Text.Whitespace
+>().pipe(
+  Match.when("normal", () => segmentNormalText),
+  Match.when("pre-wrap", () => segmentPreWrapText),
+  Match.exhaustive
+)
+
 /** Builds text, space, and hard-break segments from canonical grapheme and break-class analysis. */
 export const segmentText = (text: string, whiteSpace: Text.Whitespace): Text.Segments =>
-  Match.value(whiteSpace).pipe(
-    Match.when("normal", () => segmentNormalText(text)),
-    Match.when("pre-wrap", () => segmentPreWrapText(text)),
-    Match.exhaustive,
-    Chunk.toReadonlyArray
-  )
+  Chunk.toReadonlyArray(segmentForWhitespace(whiteSpace)(text))
 
 /** Detects the first strong text direction present in a string. */
 export const detectTextDirection = (text: string): TextDirection =>
-  Chunk.findFirst(
-    Chunk.fromIterable(text),
+  Iterable.findFirst(
+    text,
     (character) => Boolean.or(isRtlCharacter(character), isStrongCharacter(character))
   ).pipe(
     Option.match({
@@ -395,31 +395,42 @@ export const detectTextDirection = (text: string): TextDirection =>
 
 /** Resolves the base direction for preparation, falling back when input is neutral. */
 export const resolveBaseDirection = (text: string, fallback: Text.Direction): Text.Direction =>
-  Match.value(detectTextDirection(text)).pipe(
-    Match.withReturnType<Text.Direction>(),
-    Match.when("neutral", () => fallback),
-    Match.when("ltr", () => "ltr"),
-    Match.when("rtl", () => "rtl"),
-    Match.exhaustive
-  )
+  resolvedBaseDirectionFor(detectTextDirection(text))(fallback)
+
+const resolvedBaseDirectionFor: (direction: TextDirection) => (fallback: Text.Direction) => Text.Direction = Match.type<
+  TextDirection
+>().pipe(
+  Match.withReturnType<(fallback: Text.Direction) => Text.Direction>(),
+  Match.when("neutral", () => (fallback) => fallback),
+  Match.when("ltr", () => () => "ltr"),
+  Match.when("rtl", () => () => "rtl"),
+  Match.exhaustive
+)
+
+const baseLevel: (direction: Text.Direction) => number = Match.type<Text.Direction>().pipe(
+  Match.when("ltr", () => 0),
+  Match.when("rtl", () => 1),
+  Match.exhaustive
+)
+
+const ltrLevel: (direction: Text.Direction) => number = Match.type<Text.Direction>().pipe(
+  Match.when("ltr", () => 0),
+  Match.when("rtl", () => 2),
+  Match.exhaustive
+)
+
+const bidiLevelFor: (direction: TextDirection) => (baseDirection: Text.Direction) => number = Match.type<
+  TextDirection
+>().pipe(
+  Match.when("neutral", () => baseLevel),
+  Match.when("ltr", () => ltrLevel),
+  Match.when("rtl", () => () => 1),
+  Match.exhaustive
+)
 
 /** Maps logical text direction into the line-level bidi level used by the visual projector. */
 export const bidiLevelForDirection = (direction: TextDirection, baseDirection: Text.Direction): number =>
-  Match.value(direction).pipe(
-    Match.when(
-      "neutral",
-      () => Match.value(baseDirection).pipe(Match.when("ltr", () => 0), Match.when("rtl", () => 1), Match.exhaustive)
-    ),
-    Match.when(
-      "ltr",
-      () => Match.value(baseDirection).pipe(Match.when("ltr", () => 0), Match.when("rtl", () => 2), Match.exhaustive)
-    ),
-    Match.when(
-      "rtl",
-      () => Match.value(baseDirection).pipe(Match.when("ltr", () => 1), Match.when("rtl", () => 1), Match.exhaustive)
-    ),
-    Match.exhaustive
-  )
+  bidiLevelFor(direction)(baseDirection)
 
 /** Splits whitespace into grouped spaces and single tab tokens for later measurement. */
 export const splitWhitespaceTokens = (text: string): WhitespaceTokens =>

@@ -8,7 +8,7 @@
  * @since 0.1.0
  * @category internal
  */
-import { Array, Boolean, MutableRef, Number } from "effect"
+import { Boolean, Function, Number } from "effect"
 
 import { abs, exp, log } from "../../Numeric.js"
 import { lnGammaLanczos } from "./gamma.js"
@@ -16,14 +16,17 @@ import { lnGammaLanczos } from "./gamma.js"
 const maxIterations = 200
 const epsilon = 1e-14
 const minimumPositive = 1e-30
-const iterations = Array.range(1, maxIterations)
+const addOne = Number.sum(1)
+const subtractOne = Number.subtract(1)
+const scaleByEpsilon = Number.multiply(epsilon)
 
 /** Clamp tiny values away from zero to prevent division overflow. */
-const guard = (value: number): number =>
-  Boolean.match(Number.lessThan(abs(value), minimumPositive), {
-    onTrue: () => minimumPositive,
-    onFalse: () => value
-  })
+const useMinimumPositive = (_value: number): number => minimumPositive
+const selectGuard = Boolean.match({
+  onTrue: () => useMinimumPositive,
+  onFalse: () => Function.identity<number>
+})
+const guard = (value: number): number => selectGuard(Number.lessThan(abs(value), minimumPositive))(value)
 
 /**
  * Series expansion for P(a,x).
@@ -37,36 +40,39 @@ const gammaincSeriesLoop = (
   x: number,
   ap: number,
   term: number,
-  sum: number
-): number => {
-  const apState = MutableRef.make(ap)
-  const termState = MutableRef.make(term)
-  const sumState = MutableRef.make(sum)
-  Boolean.match(Number.lessThan(abs(term), Number.multiply(epsilon, abs(sum))), {
-    onTrue: () => true,
-    onFalse: () => {
-      Array.some(iterations, (iteration) => {
-        const apNext = Number.sum(MutableRef.get(apState), 1)
-        const termNext = Number.multiply(MutableRef.get(termState), Number.unsafeDivide(x, apNext))
-        const sumNext = Number.sum(MutableRef.get(sumState), termNext)
-        MutableRef.set(apState, apNext)
-        MutableRef.set(termState, termNext)
-        MutableRef.set(sumState, sumNext)
-        return Boolean.or(
-          Number.Equivalence(iteration, maxIterations),
-          Number.lessThan(abs(termNext), Number.multiply(epsilon, abs(sumNext)))
-        )
-      })
-      return false
-    }
-  })
-  return MutableRef.get(sumState)
+  sum: number,
+  remaining: number
+): number =>
+  selectSeriesStep(
+    Boolean.or(
+      Number.Equivalence(remaining, 0),
+      Number.lessThan(term, scaleByEpsilon(sum))
+    )
+  )(x, ap, term, sum, remaining)
+
+const seriesDone = (_x: number, _ap: number, _term: number, sum: number, _remaining: number): number => sum
+
+const seriesNext = (x: number, ap: number, term: number, sum: number, remaining: number): number => {
+  const apNext = addOne(ap)
+  const termNext = Number.multiply(term, Number.unsafeDivide(x, apNext))
+  return gammaincSeriesLoop(
+    x,
+    apNext,
+    termNext,
+    Number.sum(sum, termNext),
+    subtractOne(remaining)
+  )
 }
+
+const selectSeriesStep = Boolean.match({
+  onTrue: () => seriesDone,
+  onFalse: () => seriesNext
+})
 
 const gammaincSeries = (a: number, x: number, logGamma: number): number => {
   const lnPrefix = Number.subtract(Number.multiply(a, log(x)), Number.sum(x, logGamma))
   const initial = Number.unsafeDivide(1, a)
-  const sum = gammaincSeriesLoop(x, a, initial, initial)
+  const sum = gammaincSeriesLoop(x, a, initial, initial, maxIterations)
   return Number.multiply(exp(lnPrefix), sum)
 }
 
@@ -86,30 +92,60 @@ const gammaincCFLoop = (
   x: number,
   f: number,
   c: number,
-  d: number
-): number => {
-  const valueState = MutableRef.make(f)
-  const cState = MutableRef.make(c)
-  const dState = MutableRef.make(d)
-  Array.some(iterations, (iteration) => {
-    const an = Number.multiply(iteration, Number.subtract(a, iteration))
-    const bn = Number.sum(Number.sum(x, 1), Number.subtract(Number.multiply(2, iteration), a))
-    const dNext = Number.unsafeDivide(1, guard(Number.sum(bn, Number.multiply(an, MutableRef.get(dState)))))
-    const cNext = guard(Number.sum(bn, Number.unsafeDivide(an, MutableRef.get(cState))))
-    const delta = Number.multiply(cNext, dNext)
-    MutableRef.set(valueState, Number.multiply(MutableRef.get(valueState), delta))
-    MutableRef.set(cState, cNext)
-    MutableRef.set(dState, dNext)
-    return Number.lessThan(abs(Number.subtract(delta, 1)), epsilon)
-  })
-  return MutableRef.get(valueState)
+  d: number,
+  iteration: number
+): number => selectFractionLimit(Number.greaterThan(iteration, maxIterations))(a, x, f, c, d, iteration)
+
+const fractionDone = (
+  _a: number,
+  _x: number,
+  f: number,
+  _c: number,
+  _d: number,
+  _iteration: number
+): number => f
+
+const fractionNext = (a: number, x: number, f: number, c: number, d: number, iteration: number): number => {
+  const an = Number.multiply(iteration, Number.subtract(a, iteration))
+  const bn = Number.sum(Number.sum(x, 1), Number.subtract(Number.multiply(2, iteration), a))
+  const dNext = Number.unsafeDivide(1, guard(Number.sum(bn, Number.multiply(an, d))))
+  const cNext = guard(Number.sum(bn, Number.unsafeDivide(an, c)))
+  const delta = Number.multiply(cNext, dNext)
+  const fNext = Number.multiply(f, delta)
+  return selectFractionConvergence(Number.lessThan(abs(Number.subtract(delta, 1)), epsilon))(
+    a,
+    x,
+    fNext,
+    cNext,
+    dNext,
+    iteration
+  )
 }
+
+const fractionContinue = (
+  a: number,
+  x: number,
+  f: number,
+  c: number,
+  d: number,
+  iteration: number
+): number => gammaincCFLoop(a, x, f, c, d, Number.sum(iteration, 1))
+
+const selectFractionLimit = Boolean.match({
+  onTrue: () => fractionDone,
+  onFalse: () => fractionNext
+})
+
+const selectFractionConvergence = Boolean.match({
+  onTrue: () => fractionDone,
+  onFalse: () => fractionContinue
+})
 
 const gammaincCF = (a: number, x: number, logGamma: number): number => {
   const lnPrefix = Number.subtract(Number.multiply(a, log(x)), Number.sum(x, logGamma))
   const b0 = Number.subtract(Number.sum(x, 1), a)
   const f0 = guard(b0)
-  const result = gammaincCFLoop(a, x, f0, f0, 0)
+  const result = gammaincCFLoop(a, x, f0, f0, 0, 1)
   return Number.multiply(exp(lnPrefix), Number.unsafeDivide(1, result))
 }
 

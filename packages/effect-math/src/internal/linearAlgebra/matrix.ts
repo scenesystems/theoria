@@ -113,15 +113,14 @@ export const matvec = (
     transientX,
     Boolean.and(Number.greaterThan(cols, 0), Number.lessThanOrEqualTo(cols, Array.length(transientX)))
   )
-  return Chunk.map(indices(rows), (i) =>
-    Chunk.reduce(columnIndices, 0, (sum, j) =>
+  return Chunk.map(indices(rows), (i) => {
+    const rowStart = Number.sum(offset, Number.multiply(i, stride))
+    return Array.reduce(Chunk.toReadonlyArray(columnIndices), 0, (sum, j) =>
       Number.sum(
         sum,
-        Number.multiply(
-          dataAt(Number.sum(offset, Number.sum(Number.multiply(i, stride), j))),
-          xAt(j)
-        )
-      )))
+        Number.multiply(dataAt(Number.sum(rowStart, j)), xAt(j))
+      ))
+  })
 }
 
 /**
@@ -142,14 +141,11 @@ export const transpose = (
     transientData,
     hasDenseRegion(Array.length(transientData), rows, cols, stride, offset)
   )
-  const rowCount = ceil(rows)
-  return Chunk.map(indices(elementCount(rows, cols)), (flatIndex) => {
-    const sourceColumn = floor(Number.unsafeDivide(flatIndex, rowCount))
-    const sourceRow = Number.subtract(flatIndex, Number.multiply(sourceColumn, rowCount))
-    return dataAt(
-      Number.sum(offset, Number.sum(Number.multiply(sourceRow, stride), sourceColumn))
-    )
-  })
+  const sourceRows = Chunk.toReadonlyArray(indices(rows))
+  return Chunk.unsafeFromArray(Array.flatMap(Chunk.toReadonlyArray(indices(cols)), (column) => {
+    const columnStart = Number.sum(offset, column)
+    return Array.map(sourceRows, (row) => dataAt(Number.sum(columnStart, Number.multiply(row, stride))))
+  }))
 }
 
 /**

@@ -73,7 +73,7 @@ export const integerPower = (base: bigint, exponent: number): bigint =>
   })
 
 /** Magnitude with positive zero, and NaN propagation. */
-export const abs = (value: number): number => Number.sum(0, Number.max(value, Number.negate(value)))
+export const abs: (value: number) => number = Math.abs
 
 const power2_512 = 1.3407807929942597e154
 // Private read-only lookup, built once with exact binary multiplications.
@@ -90,7 +90,7 @@ export const normalize = (value: number): Normalized => {
   // Rounding log2 directly is not a binary exponent extraction: inputs on
   // either side of a power of two can share its logarithm. Exact scaling
   // followed by the mantissa comparison recovers the correct binade.
-  const exponent = Number.min(Number.round(log2(value), 0), 1023)
+  const exponent = Number.min(floor(log2(value)), 1023)
   const ratio = Boolean.match(Number.lessThan(exponent, -1023), {
     onTrue: () => scaleNormal(Number.multiply(value, power2_512), Number.negate(Number.sum(exponent, 512))),
     onFalse: () => scaleNormal(value, Number.negate(exponent))
@@ -218,23 +218,9 @@ export const toBigInt = (value: number): Option.Option<bigint> =>
     )
   )
 
-const roundedInteger = (value: number): number => Number.round(value, 0)
+export const floor: (value: number) => number = Math.floor
 
-export const floor = (value: number): number => {
-  const rounded = roundedInteger(value)
-  return Boolean.match(Number.greaterThan(rounded, value), {
-    onTrue: () => Number.decrement(rounded),
-    onFalse: () => rounded
-  })
-}
-
-export const ceil = (value: number): number => {
-  const rounded = roundedInteger(value)
-  return Boolean.match(Number.lessThan(rounded, value), {
-    onTrue: () => Number.increment(rounded),
-    onFalse: () => rounded
-  })
-}
+export const ceil: (value: number) => number = Math.ceil
 
 export const truncate = (value: number): number =>
   Boolean.match(Number.lessThan(value, 0), {
@@ -331,15 +317,15 @@ const sqrtDyadic = (value: Dyadic): number =>
     }
   })
 
-// Dekker TwoProduct specialized to a square. Callers exclude under/overflow
-// of the split and its products. Do not reassociate these operations.
+// Shewchuk's Square_Tail specialization of Dekker TwoProduct:
+// https://www.cs.cmu.edu/~quake/robust.html
+// Callers exclude under/overflow of the split and its products. Do not reassociate.
 const squareError = (value: number, product: number): number => {
   const split = Number.multiply(134217729, value)
   const high = Number.subtract(split, Number.subtract(split, value))
   const low = Number.subtract(value, high)
   const error1 = Number.subtract(product, Number.multiply(high, high))
-  const error2 = Number.subtract(error1, Number.multiply(low, high))
-  const error3 = Number.subtract(error2, Number.multiply(high, low))
+  const error3 = Number.subtract(error1, Number.multiply(Number.sum(high, high), low))
   return Number.subtract(Number.multiply(low, low), error3)
 }
 
@@ -402,29 +388,33 @@ const normResidual = (sum: readonly [number, number], root: number): number => {
 
 const hypotCompensated = (values: Chunk.Chunk<number>, exponent: number): number => {
   const scale = scaleNormal(1, Number.negate(exponent))
-  const sum = Chunk.reduce(values, Tuple.make(0, 0), (state, value) =>
-    Boolean.match(zero(value), {
-      onTrue: () => state,
-      onFalse: () => {
-        const scaled = Number.multiply(value, scale)
-        // Below 2^-450, a square's low-order product may underflow. Reject
-        // the whole floating calculation; never discard small components.
-        return Boolean.match(Number.lessThan(abs(scaled), 3.4395525670743494e-136), {
-          onTrue: () => Tuple.make(state[0], notANumber),
-          onFalse: () => {
-            const product = Number.multiply(scaled, scaled)
-            const high = Number.sum(state[0], product)
-            // Knuth TwoSum: no input ordering assumption.
-            const virtual = Number.subtract(high, state[0])
-            const error = Number.sum(
-              Number.subtract(state[0], Number.subtract(high, virtual)),
-              Number.subtract(product, virtual)
-            )
-            return Tuple.make(high, Number.sum(Number.sum(state[1], squareError(scaled, product)), error))
-          }
-        })
-      }
-    }))
+  const sum = Array.reduce(
+    Chunk.toReadonlyArray(values),
+    Tuple.make(0, 0),
+    (state, value) =>
+      Boolean.match(zero(value), {
+        onTrue: () => state,
+        onFalse: () => {
+          const scaled = Number.multiply(value, scale)
+          // Below 2^-450, a square's low-order product may underflow. Reject
+          // the whole floating calculation; never discard small components.
+          return Boolean.match(Number.lessThan(abs(scaled), 3.4395525670743494e-136), {
+            onTrue: () => Tuple.make(state[0], notANumber),
+            onFalse: () => {
+              const product = Number.multiply(scaled, scaled)
+              const high = Number.sum(state[0], product)
+              // Knuth TwoSum: no input ordering assumption.
+              const virtual = Number.subtract(high, state[0])
+              const error = Number.sum(
+                Number.subtract(state[0], Number.subtract(high, virtual)),
+                Number.subtract(product, virtual)
+              )
+              return Tuple.make(high, Number.sum(Number.sum(state[1], squareError(scaled, product)), error))
+            }
+          })
+        }
+      })
+  )
   return Boolean.match(isFinite(sum[1]), {
     onFalse: () => hypotExact(values),
     onTrue: () => {
@@ -470,17 +460,21 @@ const hypotCompensated = (values: Chunk.Chunk<number>, exponent: number): number
 
 /** Correctly rounded norm; uncertain floating results retain exact dyadic rounding. */
 export const hypot = (values: Chunk.Chunk<number>): number => {
-  const largest = Chunk.reduce(values, Tuple.make(0, 0), (state, value) =>
-    Boolean.match(isFinite(value), {
-      onTrue: () => {
-        const magnitude = abs(value)
-        return Boolean.match(Number.greaterThan(magnitude, state[0]), {
-          onTrue: () => Tuple.make(magnitude, state[0]),
-          onFalse: () => Tuple.make(state[0], Number.max(state[1], magnitude))
-        })
-      },
-      onFalse: () => Tuple.make(positiveInfinity, positiveInfinity)
-    }))
+  const largest = Array.reduce(
+    Chunk.toReadonlyArray(values),
+    Tuple.make(0, 0),
+    (state, value) =>
+      Boolean.match(isFinite(value), {
+        onTrue: () => {
+          const magnitude = abs(value)
+          return Boolean.match(Number.greaterThan(magnitude, state[0]), {
+            onTrue: () => Tuple.make(magnitude, state[0]),
+            onFalse: () => Tuple.make(state[0], Number.max(state[1], magnitude))
+          })
+        },
+        onFalse: () => Tuple.make(positiveInfinity, positiveInfinity)
+      })
+  )
   const maximum = largest[0]
   return Boolean.match(isFinite(maximum), {
     onFalse: () => hypotExact(values),

@@ -3,7 +3,7 @@
  *
  * @since 0.1.0
  */
-import { Boolean, Chunk, Data, Effect, Match, Number, Option, Schema, String, Tuple } from "effect"
+import { Boolean, Chunk, Data, Effect, Function, Iterable, Match, Number, Option, Schema, String, Tuple } from "effect"
 import type { Context } from "effect"
 import * as Arr from "effect/Array"
 
@@ -21,10 +21,11 @@ import {
   splitSoftHyphenPieces,
   splitWhitespaceTokens,
   type TextDirection,
+  type WhitespaceToken,
   wordJoiner,
   zeroWidthSpace
 } from "./analysis.js"
-import { containsUnsupportedBidiControls, mirrorText } from "./bidi.js"
+import { containsUnsupportedBidiControls, mirrorText, visualOrderUnit } from "./bidi.js"
 import {
   type BreakOpportunity,
   HyphenatedPiece,
@@ -79,7 +80,7 @@ class PreparedSegmentsCompilation extends Data.Class<{
 
 const isZeroWidthControlText = (text: string): boolean =>
   Boolean.or(String.Equivalence(text, zeroWidthSpace), String.Equivalence(text, wordJoiner))
-const isHyphenatableText = Schema.is(Schema.String.pipe(Schema.pattern(/^[\p{Letter}\p{Mark}\u200c\u200d]+$/u)))
+const isHyphenatableText = Function.compose(String.match(/^[\p{Letter}\p{Mark}\u200c\u200d]+$/u), Option.isSome)
 
 const lastWidthOrElse = (values: WidthValues, fallback: number): number =>
   Chunk.last(values).pipe(Option.getOrElse(() => fallback))
@@ -101,32 +102,55 @@ const prefixWidthsFor = (widths: WidthValues): WidthValues =>
 const resolvedTextDirection = (
   direction: TextDirection,
   fallback: Text.Direction
-): Text.Direction =>
-  Match.value(direction).pipe(
-    Match.withReturnType<Text.Direction>(),
-    Match.when("neutral", () => fallback),
-    Match.when("ltr", () => "ltr"),
-    Match.when("rtl", () => "rtl"),
-    Match.exhaustive
-  )
+): Text.Direction => resolvedTextDirectionFor(direction)(fallback)
+
+const resolvedTextDirectionFor: (direction: TextDirection) => (fallback: Text.Direction) => Text.Direction = Match.type<
+  TextDirection
+>().pipe(
+  Match.withReturnType<(fallback: Text.Direction) => Text.Direction>(),
+  Match.when("neutral", () => (fallback) => fallback),
+  Match.when("ltr", () => () => "ltr"),
+  Match.when("rtl", () => () => "rtl"),
+  Match.exhaustive
+)
+
+const breakKindForOpportunity: (opportunity: Prepared.BreakOpportunity) => Prepared.BreakKind = Match.type<
+  Prepared.BreakOpportunity
+>().pipe(
+  Match.withReturnType<Prepared.BreakKind>(),
+  Match.when("soft-hyphen", () => "soft-hyphen"),
+  Match.when("dictionary-hyphen", () => "dictionary-hyphen"),
+  Match.when("none", () => "text"),
+  Match.when("space", () => "text"),
+  Match.exhaustive
+)
+
+const breakTextFor: (opportunity: BreakOpportunity) => string = Match.type<BreakOpportunity>().pipe(
+  Match.when("none", () => String.empty),
+  Match.when("soft-hyphen", () => "-"),
+  Match.when("dictionary-hyphen", () => "-"),
+  Match.exhaustive
+)
+
+const breakWidthFor: (opportunity: BreakOpportunity) => (width: number) => number = Match.type<BreakOpportunity>().pipe(
+  Match.when("none", () => () => 0),
+  Match.when("soft-hyphen", () => (width: number) => width),
+  Match.when("dictionary-hyphen", () => (width: number) => width),
+  Match.exhaustive
+)
 
 const preparedTextBreakKindFor = (segment: Prepared.Segment): Prepared.BreakKind =>
-  Match.value(segment.text).pipe(
-    Match.withReturnType<Prepared.BreakKind>(),
-    Match.when(zeroWidthSpace, () => "zero-width-break"),
-    Match.when(wordJoiner, () => "glue"),
-    Match.when(noBreakSpace, () => "glue"),
-    Match.orElse(() =>
-      Match.value(segment.breakOpportunity).pipe(
-        Match.withReturnType<Prepared.BreakKind>(),
-        Match.when("soft-hyphen", () => "soft-hyphen"),
-        Match.when("dictionary-hyphen", () => "dictionary-hyphen"),
-        Match.when("none", () => "text"),
-        Match.when("space", () => "text"),
-        Match.exhaustive
-      )
-    )
-  )
+  preparedTextBreakKindForText(segment.text)(segment.breakOpportunity)
+
+const preparedTextBreakKindForText: (
+  text: string
+) => (opportunity: Prepared.BreakOpportunity) => Prepared.BreakKind = Match.type<string>().pipe(
+  Match.withReturnType<(opportunity: Prepared.BreakOpportunity) => Prepared.BreakKind>(),
+  Match.when(zeroWidthSpace, () => () => "zero-width-break"),
+  Match.when(wordJoiner, () => () => "glue"),
+  Match.when(noBreakSpace, () => () => "glue"),
+  Match.orElse(() => breakKindForOpportunity)
+)
 
 const compilePreparedBidiGraphemeData = (
   text: string,
@@ -174,18 +198,8 @@ const makeTextSegment = (
     direction,
     bidiLevel: bidiLevelForDirection(direction, baseDirection),
     breakOpportunity,
-    breakText: Match.value(breakOpportunity).pipe(
-      Match.when("none", () => String.empty),
-      Match.when("soft-hyphen", () => "-"),
-      Match.when("dictionary-hyphen", () => "-"),
-      Match.exhaustive
-    ),
-    breakWidth: Match.value(breakOpportunity).pipe(
-      Match.when("none", () => 0),
-      Match.when("soft-hyphen", () => breakWidth),
-      Match.when("dictionary-hyphen", () => breakWidth),
-      Match.exhaustive
-    ),
+    breakText: breakTextFor(breakOpportunity),
+    breakWidth: breakWidthFor(breakOpportunity)(breakWidth),
     graphemes,
     graphemeAdvances,
     fitPrefixWidths,
@@ -244,19 +258,15 @@ const cumulativeTexts = (parts: StringValues): StringValues =>
   )
 
 const hyphenationRuns = (text: string): HyphenationRuns =>
-  Arr.match(graphemeClusters(text), {
-    onEmpty: Chunk.empty<HyphenationRun>,
-    onNonEmpty: (clusters) =>
-      Chunk.fromIterable(Arr.map(
-        Arr.groupWith(clusters, (left, right) =>
-          Boolean.Equivalence(isHyphenatableText(left), isHyphenatableText(right))),
-        (graphemes) =>
-          new HyphenationRun({
-            hyphenate: isHyphenatableText(Arr.headNonEmpty(graphemes)),
-            text: Arr.join(graphemes, "")
-          })
-      ))
-  })
+  Chunk.fromIterable(Iterable.map(
+    Iterable.groupWith(graphemeClusters(text), (left, right) =>
+      Boolean.Equivalence(isHyphenatableText(left), isHyphenatableText(right))),
+    (graphemes) =>
+      new HyphenationRun({
+        hyphenate: isHyphenatableText(Arr.headNonEmpty(graphemes)),
+        text: Arr.join(graphemes, "")
+      })
+  ))
 
 const hyphenatedRunPieces = (
   run: HyphenationRun,
@@ -377,14 +387,14 @@ const prepareTextSegment = (
       Number.greaterThan(pieces.length, 1),
       context.engineProfile.preferPrefixWidthsForBreakableRuns
     )
-    const fitMeasurementTexts = Boolean.match(useCumulativeMeasurements, {
-      onFalse: () => pieceTexts,
-      onTrue: () => cumulativeTexts(pieceTexts)
+    const fitPieceWidths = yield* Boolean.match(useCumulativeMeasurements, {
+      onFalse: () => Effect.succeed(Chunk.empty<number>()),
+      onTrue: () =>
+        Effect.forEach(
+          Chunk.toReadonlyArray(cumulativeTexts(pieceTexts)),
+          context.measure
+        ).pipe(Effect.map(Chunk.fromIterable))
     })
-    const fitPieceWidths = yield* Effect.forEach(
-      Chunk.toReadonlyArray(fitMeasurementTexts),
-      context.measure
-    ).pipe(Effect.map(Chunk.fromIterable))
 
     return yield* Boolean.match(Chunk.isEmpty(pieces), {
       onFalse: () =>
@@ -425,61 +435,90 @@ const prepareWhitespaceSegment = (
   segment: Text.Segment,
   context: PreparationContext
 ): Effect.Effect<Prepared.Segments, TextMeasurer.Failed> =>
-  Effect.forEach(splitWhitespaceTokens(segment.text), (token) =>
-    Match.value(token.kind).pipe(
-      Match.when("tab", () =>
-        Effect.succeed(makeWhitespaceSegment("tab", token.text, context.tabStopAdvance, context.baseDirection))),
-      Match.when("space", () =>
-        context.measure(token.text).pipe(
-          Effect.map((width) =>
-            makeWhitespaceSegment("space", token.text, width, context.baseDirection)
-          )
-        )),
-      Match.exhaustive
-    )).pipe(Effect.map(Chunk.fromIterable))
+  Effect.forEach(splitWhitespaceTokens(segment.text), (token) => prepareWhitespaceTokenFor(token.kind)(token, context))
+    .pipe(Effect.map(Chunk.fromIterable))
+
+type PrepareWhitespaceTokenRule = (
+  token: WhitespaceToken,
+  context: PreparationContext
+) => Effect.Effect<Prepared.Segment, TextMeasurer.Failed>
+
+const prepareTabToken: PrepareWhitespaceTokenRule = (token, context) =>
+  Effect.succeed(makeWhitespaceSegment("tab", token.text, context.tabStopAdvance, context.baseDirection))
+const prepareSpaceToken: PrepareWhitespaceTokenRule = (token, context) =>
+  context.measure(token.text).pipe(
+    Effect.map((width) => makeWhitespaceSegment("space", token.text, width, context.baseDirection))
+  )
+const prepareWhitespaceTokenFor: (kind: WhitespaceSegmentKind) => PrepareWhitespaceTokenRule = Match.type<
+  WhitespaceSegmentKind
+>().pipe(
+  Match.when("tab", () => prepareTabToken),
+  Match.when("space", () => prepareSpaceToken),
+  Match.exhaustive
+)
+
+type PrepareSegmentRule = (
+  segment: Text.Segment,
+  context: PreparationContext
+) => Effect.Effect<Prepared.Segments, TextMeasurer.Failed>
+
+const prepareHardBreak: PrepareSegmentRule = (_segment, context) =>
+  Effect.succeed(Chunk.of(makeHardBreakSegment(context.baseDirection)))
+const prepareSegmentFor: (kind: Text.SegmentKind) => PrepareSegmentRule = Match.type<Text.SegmentKind>().pipe(
+  Match.when("hard-break", () => prepareHardBreak),
+  Match.when("space", () => prepareWhitespaceSegment),
+  Match.when("text", () => prepareTextSegment),
+  Match.exhaustive
+)
 
 const prepareSegment = (
   segment: Text.Segment,
   context: PreparationContext
-): Effect.Effect<Prepared.Segments, TextMeasurer.Failed> =>
-  Match.value(segment.kind).pipe(
-    Match.when("hard-break", () => Effect.succeed(Chunk.of(makeHardBreakSegment(context.baseDirection)))),
-    Match.when("space", () => prepareWhitespaceSegment(segment, context)),
-    Match.when("text", () => prepareTextSegment(segment, context)),
-    Match.exhaustive
-  )
+): Effect.Effect<Prepared.Segments, TextMeasurer.Failed> => prepareSegmentFor(segment.kind)(segment, context)
+
+const whitespaceBreakKindFor: (whiteSpace: Text.Whitespace) => Prepared.BreakKind = Match.type<Text.Whitespace>().pipe(
+  Match.withReturnType<Prepared.BreakKind>(),
+  Match.when("normal", () => "space"),
+  Match.when("pre-wrap", () => "preserved-space"),
+  Match.exhaustive
+)
+
+type PreparedBreakKindRule = (
+  segment: Prepared.Segment,
+  whiteSpace: Text.Whitespace
+) => Prepared.BreakKind
+
+const hardBreakKind: PreparedBreakKindRule = () => "hard-break"
+const tabBreakKind: PreparedBreakKindRule = () => "tab"
+const whitespaceBreakKind: PreparedBreakKindRule = (_segment, whiteSpace) => whitespaceBreakKindFor(whiteSpace)
+const textBreakKind: PreparedBreakKindRule = (segment) => preparedTextBreakKindFor(segment)
+const preparedBreakKindRuleFor: (kind: Prepared.SegmentKind) => PreparedBreakKindRule = Match.type<
+  Prepared.SegmentKind
+>().pipe(
+  Match.when("hard-break", () => hardBreakKind),
+  Match.when("tab", () => tabBreakKind),
+  Match.when("space", () => whitespaceBreakKind),
+  Match.when("text", () => textBreakKind),
+  Match.exhaustive
+)
 
 const preparedBreakKindFor = (
   segment: Prepared.Segment,
   whiteSpace: Text.Whitespace
-): Prepared.BreakKind =>
-  Match.value(segment.kind).pipe(
-    Match.withReturnType<Prepared.BreakKind>(),
-    Match.when("hard-break", () => "hard-break"),
-    Match.when("tab", () => "tab"),
-    Match.when("space", () =>
-      Match.value(whiteSpace).pipe(
-        Match.withReturnType<Prepared.BreakKind>(),
-        Match.when("normal", () => "space"),
-        Match.when("pre-wrap", () => "preserved-space"),
-        Match.exhaustive
-      )),
-    Match.when("text", () => preparedTextBreakKindFor(segment)),
-    Match.exhaustive
-  )
+): Prepared.BreakKind => preparedBreakKindRuleFor(segment.kind)(segment, whiteSpace)
+
+const hardBreakIndexFor: (kind: Prepared.SegmentKind) => (index: number) => Option.Option<number> = Match.type<
+  Prepared.SegmentKind
+>().pipe(
+  Match.when("hard-break", () => Option.some),
+  Match.when(Match.is("text", "space", "tab"), () => Option.none),
+  Match.exhaustive
+)
 
 const lineChunksFor = (segments: Prepared.Segments): Prepared.LineChunks => {
   const hardBreakIndices = Chunk.filterMap(
     segments,
-    (segment, index) =>
-      Match.value(segment.kind).pipe(
-        Match.withReturnType<Option.Option<number>>(),
-        Match.when("hard-break", () => Option.some(index)),
-        Match.when("text", () => Option.none()),
-        Match.when("space", () => Option.none()),
-        Match.when("tab", () => Option.none()),
-        Match.exhaustive
-      )
+    (segment, index) => hardBreakIndexFor(segment.kind)(index)
   )
   const [trailingStartSegmentIndex, hardBreakChunks] = Chunk.mapAccum(
     hardBreakIndices,
@@ -505,10 +544,24 @@ const lineChunksFor = (segments: Prepared.Segments): Prepared.LineChunks => {
 
 const compileRuntimeSegment = (
   segment: Prepared.Segment,
+  chunkEndSegmentIndex: number,
   whiteSpace: Text.Whitespace
 ): Prepared.RuntimeSegment => {
   const breakableGraphemeWidths = Chunk.toReadonlyArray(segment.graphemeAdvances)
   const prefixes = Chunk.toReadonlyArray(segment.fitPrefixWidths)
+  const graphemes = Chunk.toReadonlyArray(segment.graphemes)
+  const graphemeBidiLevels = Chunk.toReadonlyArray(segment.graphemeBidiLevels)
+  const mirroredGraphemes = Chunk.toReadonlyArray(segment.mirroredGraphemes)
+  const visualOrderUnits = Boolean.match(Arr.isEmptyReadonlyArray(graphemes), {
+    onFalse: () =>
+      Arr.map(graphemes, (grapheme, index) =>
+        visualOrderUnit(
+          Arr.unsafeGet(graphemeBidiLevels, index),
+          Arr.unsafeGet(mirroredGraphemes, index),
+          grapheme
+        )),
+    onTrue: () => Arr.of(visualOrderUnit(segment.bidiLevel, segment.text, segment.text))
+  })
 
   return new Prepared.RuntimeSegment({
     breakKind: preparedBreakKindFor(segment, whiteSpace),
@@ -521,10 +574,10 @@ const compileRuntimeSegment = (
         onTrue: () => width,
         onFalse: () => Number.subtract(width, Arr.unsafeGet(prefixes, Number.decrement(index)))
       })),
+    chunkEndSegmentIndex,
     fitAdvance: segment.fitWidth,
-    graphemeBidiLevels: Chunk.toReadonlyArray(segment.graphemeBidiLevels),
-    mirroredGraphemes: Chunk.toReadonlyArray(segment.mirroredGraphemes),
-    paintAdvance: segment.width
+    paintAdvance: segment.width,
+    visualOrderUnits
   })
 }
 
@@ -535,9 +588,14 @@ const compileKernelRuntime = (
   whiteSpace: Text.Whitespace
 ): Prepared.RuntimeTables => {
   const chunks = lineChunksFor(segments)
+  const chunkEndSegmentIndices = Chunk.flatMap(chunks, (chunk) =>
+    Chunk.makeBy(
+      Number.subtract(chunk.consumedEndSegmentIndex, chunk.startSegmentIndex),
+      () => chunk.consumedEndSegmentIndex
+    ))
   const runtimeSegments: Prepared.RuntimeSegments = Arr.map(
     Chunk.toReadonlyArray(segments),
-    (segment) => compileRuntimeSegment(segment, whiteSpace)
+    (segment, index) => compileRuntimeSegment(segment, Chunk.unsafeGet(chunkEndSegmentIndices, index), whiteSpace)
   )
 
   return new Prepared.RuntimeTables({
