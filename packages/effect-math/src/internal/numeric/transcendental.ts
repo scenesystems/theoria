@@ -81,16 +81,15 @@ const logarithmStrictSeries = (z: number): number => {
   return Number.sum(s29, Number.unsafeDivide(t31, 31))
 }
 
-const logarithmStrictFinite = (value: number): number => {
-  const [mantissa, exponent] = Binary.normalize(value)
-  return Boolean.match(Number.Equivalence(mantissa, 1), {
+const logarithmStrictFinite = Binary.withNormalized((mantissa, exponent) =>
+  Boolean.match(Number.Equivalence(mantissa, 1), {
     onTrue: () => Number.multiply(exponent, lnTwo),
     onFalse: () => {
       const z = Number.unsafeDivide(Number.subtract(mantissa, 1), Number.sum(mantissa, 1))
       return Number.sum(Number.multiply(2, logarithmStrictSeries(z)), Number.multiply(exponent, lnTwo))
     }
   })
-}
+)
 
 /** Reproduces the established binary64 series and normalization for seeded policies. */
 export const logStrict = Match.type<number>().pipe(

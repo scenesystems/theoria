@@ -107,6 +107,21 @@ describe("Text hot-path contracts", () => {
       expect(Text.lines(prepared, request)).toEqual(expectedLines)
     }))
 
+  it.effect("keeps summary height consistent with materialized summaries for fractional line heights", () =>
+    Effect.gen(function*() {
+      const prepared = yield* Text.prepareWithSegments({
+        text: "a\nb\nc\nd\ne\nf\ng\nh\ni\nj",
+        font: { family: "Mono", size: 10 },
+        whiteSpace: "pre-wrap"
+      }).pipe(Effect.provide(testLayer))
+      const request: Text.Request = { maxWidth: 20, lineHeight: 0.1 }
+      const lines = Text.lines(prepared, request)
+
+      expect(Text.summary(prepared, request)).toEqual({ height: 1, lineCount: 10, maxLineWidth: 5 })
+      expect(Text.summary(prepared, request)).toEqual(Text.summaryFromLines(lines, request.lineHeight))
+      expect(Text.summary(prepared, request)).toEqual(Text.layout(prepared, request).summary)
+    }))
+
   it.effect("resumes long tokens across scan batches without skipping the last grapheme", () =>
     Effect.gen(function*() {
       const prepared = yield* Text.prepareWithSegments({

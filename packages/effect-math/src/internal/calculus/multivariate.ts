@@ -22,22 +22,18 @@ const perturbAxis = (
   delta: number
 ): Chunk.Chunk<number> => Chunk.modify(point, axis, (value) => Number.sum(value, delta))
 
-const perturbAxes = (
+const perturbDistinctAxes = (
   point: Chunk.Chunk<number>,
   axisA: number,
   axisB: number,
   deltaA: number,
   deltaB: number
 ): Chunk.Chunk<number> =>
-  Boolean.match(Number.Equivalence(axisA, axisB), {
-    onTrue: () => Chunk.modify(point, axisA, (value) => Number.sum(value, Number.sum(deltaA, deltaB))),
-    onFalse: () =>
-      Chunk.modify(
-        Chunk.modify(point, axisA, (value) => Number.sum(value, deltaA)),
-        axisB,
-        (value) => Number.sum(value, deltaB)
-      )
-  })
+  Chunk.modify(
+    Chunk.modify(point, axisA, (value) => Number.sum(value, deltaA)),
+    axisB,
+    (value) => Number.sum(value, deltaB)
+  )
 
 const partialDerivative = (
   f: (point: Chunk.Chunk<number>) => number,
@@ -76,10 +72,10 @@ const mixedSecondPartialDerivative = (
   config?: RidderMethodInput
 ): number =>
   ridderExtrapolation((step) => {
-    const plusPlus = f(perturbAxes(point, axisA, axisB, step, step))
-    const plusMinus = f(perturbAxes(point, axisA, axisB, step, Number.negate(step)))
-    const minusPlus = f(perturbAxes(point, axisA, axisB, Number.negate(step), step))
-    const minusMinus = f(perturbAxes(point, axisA, axisB, Number.negate(step), Number.negate(step)))
+    const plusPlus = f(perturbDistinctAxes(point, axisA, axisB, step, step))
+    const plusMinus = f(perturbDistinctAxes(point, axisA, axisB, step, Number.negate(step)))
+    const minusPlus = f(perturbDistinctAxes(point, axisA, axisB, Number.negate(step), step))
+    const minusMinus = f(perturbDistinctAxes(point, axisA, axisB, Number.negate(step), Number.negate(step)))
     return Number.unsafeDivide(
       Number.subtract(Number.subtract(plusPlus, plusMinus), Number.subtract(minusPlus, minusMinus)),
       Number.multiply(4, Number.multiply(step, step))

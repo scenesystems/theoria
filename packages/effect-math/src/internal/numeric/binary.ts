@@ -80,8 +80,9 @@ export const log2: (value: number) => number = Math.log2
 /**
  * Normalizes a positive finite nonzero binary64 value to `x = m × 2^e`,
  * where `1 <= m < 2`. Inputs outside that contract are not supported.
+ * Binds the consumer once so scalar operations need not allocate a pair.
  */
-export const normalize = (value: number): readonly [mantissa: number, exponent: number] => {
+export const withNormalized = <A>(consume: (mantissa: number, exponent: number) => A) => (value: number): A => {
   // Rounding log2 directly is not a binary exponent extraction: inputs on
   // either side of a power of two can share its logarithm. Exact scaling
   // followed by the mantissa comparison recovers the correct binade.
@@ -91,10 +92,13 @@ export const normalize = (value: number): readonly [mantissa: number, exponent: 
     onFalse: () => scaleNormal(value, Number.negate(exponent))
   })
   return Boolean.match(Number.lessThan(ratio, 1), {
-    onTrue: () => Tuple.make(Number.multiply(ratio, 2), Number.decrement(exponent)),
-    onFalse: () => Tuple.make(ratio, exponent)
+    onTrue: () => consume(Number.multiply(ratio, 2), Number.decrement(exponent)),
+    onFalse: () => consume(ratio, exponent)
   })
 }
+
+/** Normalized mantissa and binary exponent for operations that need both. */
+export const normalize = withNormalized<readonly [mantissa: number, exponent: number]>(Tuple.make)
 
 /** Decomposes a finite nonzero number without inspecting its storage. */
 export const decompose = (value: number): Dyadic => {

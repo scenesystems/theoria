@@ -162,9 +162,12 @@ describe("Special / erf", () => {
       expectClose(erf(6), 1, erfBoundaryTolerance)
     }))
 
-  it.effect("preserves signed zero, NaN, and infinity behavior", () =>
+  it.effect("preserves exact tiny values and special-value behavior", () =>
     Effect.gen(function*() {
+      expect(erf(0)).toBe(0)
       expect(erf(-0)).toBe(0)
+      expect(erf(-5e-324)).toBe(-5e-324)
+      expect(erf(-1e-300)).toBe(-1.1283791670955126e-300)
       expect(erf(Number.unsafeDivide(0, 0))).toBeNaN()
       expect(erf(Number.unsafeDivide(1, 0))).toBe(1)
       expect(erf(Number.unsafeDivide(-1, 0))).toBe(-1)

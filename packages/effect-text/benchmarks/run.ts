@@ -17,7 +17,9 @@ import {
   type BenchmarkTiming
 } from "./corpus.js"
 
-const warmupIterations = Number.multiply(benchmarkIterations, 3)
+// Measure steady-state traversal after the shared walker reaches the optimizing
+// JIT tier. These timings do not describe cold-start or first-render latency.
+const warmupIterations = Number.multiply(benchmarkIterations, 20)
 const samplesPerTiming = 5
 
 const reportPath = Effect.gen(function*() {

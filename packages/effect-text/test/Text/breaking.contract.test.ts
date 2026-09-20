@@ -131,4 +131,62 @@ describe("Text breaking contracts", () => {
         visualLine(1, "\tc", 27.75)
       ))
     }))
+
+  it.effect("advances fractional tabs at exact stops and on both neighboring sides", () =>
+    Effect.gen(function*() {
+      const measurer = Layer.succeed(TextMeasurer.TextMeasurer, {
+        measure: (_font, text: string) =>
+          Effect.succeed(
+            Match.value(text).pipe(
+              Match.when(" ", () => 5.125),
+              Match.when("a", () => 20.499999999999996),
+              Match.when("c", () => 20.5),
+              Match.when("e", () => 20.500000000000004),
+              Match.orElse(() => 1)
+            )
+          )
+      })
+      const prepared = yield* Text.prepareWithSegments({
+        text: "a\tb\nc\td\ne\tf",
+        font: { family: "Mono", size: 10 },
+        whiteSpace: "pre-wrap"
+      }).pipe(Effect.provide(Layer.mergeAll(
+        Text.layerSegmenter,
+        Text.layerProfile,
+        MeasurementCache.layer.pipe(Layer.provide(measurer))
+      )))
+
+      expect(Text.lines(prepared, { maxWidth: 100, lineHeight: 12 })).toEqual(Arr.make(
+        visualLine(0, "a\tb", 21.5),
+        visualLine(1, "c\td", 42),
+        visualLine(2, "e\tf", 42)
+      ))
+    }))
+
+  it.effect("does not skip a fractional tab stop when division rounds up below it", () =>
+    Effect.gen(function*() {
+      const measurer = Layer.succeed(TextMeasurer.TextMeasurer, {
+        measure: (_font, text: string) =>
+          Effect.succeed(
+            Match.value(text).pipe(
+              Match.when(" ", () => 24.88250064070176),
+              Match.when("a", () => 922245.00374697),
+              Match.orElse(() => 1)
+            )
+          )
+      })
+      const prepared = yield* Text.prepareWithSegments({
+        text: "a\tb",
+        font: { family: "Mono", size: 10 },
+        whiteSpace: "pre-wrap"
+      }).pipe(Effect.provide(Layer.mergeAll(
+        Text.layerSegmenter,
+        Text.layerProfile,
+        MeasurementCache.layer.pipe(Layer.provide(measurer))
+      )))
+
+      expect(Text.lines(prepared, { maxWidth: 1_000_000, lineHeight: 12 })).toEqual(Arr.of(
+        visualLine(0, "a\tb", 922246.0037469701)
+      ))
+    }))
 })

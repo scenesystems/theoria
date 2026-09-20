@@ -140,6 +140,44 @@ describe("Optimization / bisect", () => {
       expect(MutableRef.get(evaluations)).toStrictEqual(4)
     }))
 
+  it.effect("rounds fractional iteration budgets up across batch boundaries", () =>
+    Effect.gen(function*() {
+      const evaluations = MutableRef.make(0)
+      const counted = () => {
+        MutableRef.increment(evaluations)
+        return 1
+      }
+
+      expect(bisect(counted, 0, 1, -1, 0.5)).toStrictEqual(0.75)
+      expect(MutableRef.get(evaluations)).toStrictEqual(3)
+
+      MutableRef.set(evaluations, 0)
+      expect(bisect(counted, 0, 1, -1, 63.5)).toStrictEqual(1)
+      expect(MutableRef.get(evaluations)).toStrictEqual(66)
+
+      MutableRef.set(evaluations, 0)
+      expect(bisect(counted, 0, 1, -1, 64.5)).toStrictEqual(1)
+      expect(MutableRef.get(evaluations)).toStrictEqual(67)
+    }))
+
+  it.effect("routes a NaN midpoint by Number.Order for a finite bracket", () =>
+    Effect.gen(function*() {
+      const evaluations = MutableRef.make(0)
+      const result = bisect(
+        (x) => {
+          MutableRef.increment(evaluations)
+          const centered = Number.subtract(x, 1)
+          return Number.unsafeDivide(centered, Numeric.abs(centered))
+        },
+        0,
+        2,
+        -1,
+        1
+      )
+      expect(result).toStrictEqual(0.5)
+      expect(MutableRef.get(evaluations)).toStrictEqual(3)
+    }))
+
   it.effect.prop("honors callback budgets on both sides of iteration-batch boundaries", {
     maxIterations: FastCheck.integer({ min: 60, max: 130 })
   }, ({ maxIterations }) =>
@@ -330,6 +368,25 @@ describe("Optimization / goldenSection", () => {
         Number.multiply(0.5, Number.sum(x2, 2))
       )
       expect(MutableRef.get(evaluations)).toStrictEqual(4)
+    }))
+
+  it.effect.prop("honors callback budgets on both sides of iteration-batch boundaries", {
+    maxIterations: FastCheck.integer({ min: 60, max: 130 })
+  }, ({ maxIterations }) =>
+    Effect.gen(function*() {
+      const evaluations = MutableRef.make(0)
+      const result = goldenSection(
+        () => {
+          MutableRef.increment(evaluations)
+          return 1
+        },
+        0,
+        1,
+        -1,
+        maxIterations
+      )
+      expectClose(result, 1, kernelTolerance)
+      expect(MutableRef.get(evaluations)).toStrictEqual(Number.sum(maxIterations, 2))
     }))
 
   it.effect("is stack safe for a large finite nonconverging budget", () =>

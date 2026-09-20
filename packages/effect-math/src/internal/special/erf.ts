@@ -10,7 +10,7 @@
  * @since 0.1.0
  * @category internal
  */
-import { Function, Number, Ordering } from "effect"
+import { Number, Ordering } from "effect"
 
 import { abs, exp } from "../../Numeric.js"
 
@@ -171,12 +171,6 @@ const selectErfcNearZero = Ordering.match({
 })
 const erfcPositive = (x: number): number => selectErfcNearZero(Number.Order(x, twoPowNegative28))(x)
 
-const selectErfSign = Ordering.match({
-  onLessThan: () => Number.negate,
-  onEqual: () => Function.identity<number>,
-  onGreaterThan: () => Function.identity<number>
-})
-
 const erfcNegative = (x: number): number => Number.subtract(2, erfcPositive(Number.negate(x)))
 const selectErfcSign = Ordering.match({
   onLessThan: () => erfcNegative,
@@ -191,11 +185,7 @@ const selectErfcSign = Ordering.match({
  * @since 0.1.0
  * @category internal
  */
-export const erfCephes = (x: number): number => {
-  const sign = Number.Order(x, 0)
-  const rightValue = erfRightNonBig(abs(x))
-  return selectErfSign(sign)(rightValue)
-}
+export const erfCephes = (x: number): number => Number.multiply(Number.sign(x), erfRightNonBig(abs(x)))
 
 /**
  * erfc(x) = 1 − erf(x). Uses the complementary form directly for

@@ -3,10 +3,12 @@
  *
  * @since 0.1.0
  */
+import * as Numeric from "@scenesystems/effect-math/Numeric"
 import { Boolean, Chunk, Data, Match, Number, Option, Order, Schema, String, Tuple } from "effect"
 import * as Arr from "effect/Array"
 import * as HashMap from "effect/HashMap"
 import * as Iterable from "effect/Iterable"
+import * as MutableList from "effect/MutableList"
 import * as MutableRef from "effect/MutableRef"
 
 import type * as Text from "../Text.js"
@@ -51,13 +53,11 @@ class LineScanState extends Data.Class<{
 
 class LineWalkFrame extends Data.Class<{
   readonly cursor: MutableRef.MutableRef<Text.Cursor>
-  readonly fitLimit: number
+  readonly fitLimit: MutableRef.MutableRef<number>
   readonly record: MutableRef.MutableRef<Option.Option<InternalLineRecord>>
   readonly scan: LineScanState
-  readonly segmentLimit: number
+  readonly segmentLimit: MutableRef.MutableRef<number>
 }> {}
-
-type LineRecordWalkState = readonly [cursor: Text.Cursor, lineIndex: number]
 
 const lineWalkBatch = Arr.range(0, 63)
 
@@ -87,12 +87,18 @@ const endCursorFor = (kernel: Prepared.Kernel): Text.Cursor => cursorAt(segmentC
 const resolveTabAdvance = (currentWidth: number, tabStopAdvance: number): number => {
   return Boolean.match(Number.lessThanOrEqualTo(tabStopAdvance, 0), {
     onFalse: () => {
-      const remainder = Number.remainder(currentWidth, tabStopAdvance)
-
-      return Boolean.match(Number.Equivalence(remainder, 0), {
-        onFalse: () => Number.subtract(tabStopAdvance, remainder),
-        onTrue: () => tabStopAdvance
+      const quotient = Number.unsafeDivide(currentWidth, tabStopAdvance)
+      const stopIndex = Numeric.floor(quotient)
+      const nextStopIndex = Boolean.match(Number.Equivalence(quotient, stopIndex), {
+        onFalse: () => Number.increment(stopIndex),
+        onTrue: () =>
+          Boolean.match(Number.lessThan(currentWidth, Number.multiply(tabStopAdvance, stopIndex)), {
+            onFalse: () => Number.increment(stopIndex),
+            onTrue: () => stopIndex
+          })
       })
+
+      return Number.subtract(Number.multiply(tabStopAdvance, nextStopIndex), currentWidth)
     },
     onTrue: () => 0
   })
@@ -310,6 +316,27 @@ const initialLineScanState = (cursor: Text.Cursor): LineScanState =>
     pendingPaintWidth: MutableRef.make(0),
     pendingStart: MutableRef.make(Option.none()),
     start: MutableRef.make(cursor)
+  })
+
+const resetLineScanState = (state: LineScanState, cursor: Text.Cursor): void => {
+  MutableRef.set(state.breakCandidates, Arr.empty())
+  MutableRef.set(state.end, cursor)
+  MutableRef.set(state.fitWidth, 0)
+  MutableRef.set(state.paintWidth, 0)
+  MutableRef.set(state.pendingEnd, cursor)
+  MutableRef.set(state.pendingFitWidth, 0)
+  MutableRef.set(state.pendingPaintWidth, 0)
+  MutableRef.set(state.pendingStart, Option.none())
+  MutableRef.set(state.start, cursor)
+}
+
+const initialLineWalkFrame = (cursor: Text.Cursor): LineWalkFrame =>
+  new LineWalkFrame({
+    cursor: MutableRef.make(cursor),
+    fitLimit: MutableRef.make(0),
+    record: MutableRef.make(Option.none()),
+    scan: initialLineScanState(cursor),
+    segmentLimit: MutableRef.make(0)
   })
 
 const emitInternalLineRecord = (
@@ -573,7 +600,7 @@ const segmentLimitForCursor = (kernel: Prepared.Kernel, cursor: Text.Cursor): nu
 const lineFrameIsComplete = (frame: LineWalkFrame, cursor: Text.Cursor): boolean => {
   return Boolean.or(
     Option.isSome(MutableRef.get(frame.record)),
-    Number.greaterThanOrEqualTo(cursor.segmentIndex, frame.segmentLimit)
+    Number.greaterThanOrEqualTo(cursor.segmentIndex, MutableRef.get(frame.segmentLimit))
   )
 }
 
@@ -668,13 +695,13 @@ const advanceContentFrame = (
         pendingFitWidth,
         resolveFitAdvanceAtCursor(segment, currentCursor)
       )
-      return Boolean.match(Number.lessThanOrEqualTo(candidateFitWidth, frame.fitLimit), {
+      return Boolean.match(Number.lessThanOrEqualTo(candidateFitWidth, MutableRef.get(frame.fitLimit)), {
         onFalse: () =>
           Boolean.match(hasPendingWhitespace(scan), {
             onFalse: () => {
               const breakCandidate = chooseBreakCandidate(
                 MutableRef.get(scan.breakCandidates),
-                frame.fitLimit,
+                MutableRef.get(frame.fitLimit),
                 kernel.preferEarlySoftHyphenBreak
               )
 
@@ -745,7 +772,7 @@ const advanceTextInterior = (
           Number.sum(MutableRef.get(scan.fitWidth), 0),
           Arr.unsafeGet(segment.breakableFitAdvances, current)
         )
-        return Boolean.match(Number.lessThanOrEqualTo(width, frame.fitLimit), {
+        return Boolean.match(Number.lessThanOrEqualTo(width, MutableRef.get(frame.fitLimit)), {
           onFalse: () => true,
           onTrue: () => {
             MutableRef.set(scan.fitWidth, width)
@@ -785,6 +812,29 @@ const advanceLineFrame = (
   advanceRuleFor(kind)(kernel, segment, kind, frame, cursor, nextCursor)
 }
 
+const scanLineRecord = (
+  kernel: Prepared.Kernel,
+  frame: LineWalkFrame
+): Option.Option<InternalLineRecord> => {
+  const advance = Boolean.match({
+    onFalse: () => {
+      advanceLineFrame(kernel, frame, MutableRef.get(frame.cursor))
+      return false
+    },
+    onTrue: () => true
+  })
+  const visit = () => advance(lineFrameIsComplete(frame, MutableRef.get(frame.cursor)))
+  Boolean.match(Arr.some(lineWalkBatch, visit), {
+    onTrue: () => true,
+    onFalse: () => Iterable.some(Iterable.range(0), () => Arr.some(lineWalkBatch, visit))
+  })
+
+  return Option.orElse(
+    MutableRef.get(frame.record),
+    () => finalizeAtEnd(kernel, frame.scan)
+  )
+}
+
 const walkNextLineRecord = (
   kernel: Prepared.Kernel,
   maxWidth: number,
@@ -794,31 +844,60 @@ const walkNextLineRecord = (
     onFalse: () => {
       const initial = new LineWalkFrame({
         cursor: MutableRef.make(cursor),
-        fitLimit: Number.sum(maxWidth, kernel.lineFitEpsilon),
+        fitLimit: MutableRef.make(Number.sum(maxWidth, kernel.lineFitEpsilon)),
         record: MutableRef.make(Option.none()),
         scan: initialLineScanState(cursor),
-        segmentLimit: segmentLimitForCursor(kernel, cursor)
+        segmentLimit: MutableRef.make(segmentLimitForCursor(kernel, cursor))
       })
-      const advance = Boolean.match({
-        onFalse: () => {
-          advanceLineFrame(kernel, initial, MutableRef.get(initial.cursor))
-          return false
-        },
-        onTrue: () => true
-      })
-      const visit = () => advance(lineFrameIsComplete(initial, MutableRef.get(initial.cursor)))
-      Boolean.match(Arr.some(lineWalkBatch, visit), {
-        onTrue: () => true,
-        onFalse: () => Iterable.some(Iterable.range(0), () => Arr.some(lineWalkBatch, visit))
-      })
-
-      return Option.orElse(
-        MutableRef.get(initial.record),
-        () => finalizeAtEnd(kernel, initial.scan)
-      )
+      return scanLineRecord(kernel, initial)
     },
     onTrue: () => Option.none()
   })
+
+const forEachLineRecord = (
+  kernel: Prepared.Kernel,
+  maxWidthAtLine: (lineIndex: number) => number,
+  visitRecord: (record: InternalLineRecord, lineIndex: number) => void,
+  lineIndex: number = 0,
+  cursor: Text.Cursor = cursorAt(0)
+): number => {
+  const walkFrame = initialLineWalkFrame(cursor)
+  const currentCursor = walkFrame.cursor
+  const currentLineIndex = MutableRef.make(lineIndex)
+  const visitLine = () =>
+    Boolean.match(Number.greaterThanOrEqualTo(MutableRef.get(currentCursor).segmentIndex, segmentCount(kernel)), {
+      onFalse: () => {
+        const cursor = MutableRef.get(currentCursor)
+        resetLineScanState(walkFrame.scan, cursor)
+        MutableRef.set(walkFrame.record, Option.none())
+        MutableRef.set(
+          walkFrame.fitLimit,
+          Number.sum(maxWidthAtLine(MutableRef.get(currentLineIndex)), kernel.lineFitEpsilon)
+        )
+        MutableRef.set(walkFrame.segmentLimit, segmentLimitForCursor(kernel, cursor))
+        return Option.match(
+          scanLineRecord(kernel, walkFrame),
+          {
+            onNone: () => true,
+            onSome: (record) => {
+              visitRecord(record, MutableRef.get(currentLineIndex))
+              MutableRef.set(currentCursor, record.nextCursor)
+              MutableRef.increment(currentLineIndex)
+              return false
+            }
+          }
+        )
+      },
+      onTrue: () => true
+    })
+
+  Boolean.match(Arr.some(lineWalkBatch, visitLine), {
+    onFalse: () => Iterable.some(Iterable.range(0), () => Arr.some(lineWalkBatch, visitLine)),
+    onTrue: () => true
+  })
+
+  return Number.subtract(MutableRef.get(currentLineIndex), lineIndex)
+}
 
 const walkLineValues = <A>(
   kernel: Prepared.Kernel,
@@ -827,25 +906,16 @@ const walkLineValues = <A>(
   lineIndex: number = 0,
   cursor: Text.Cursor = cursorAt(0)
 ): ReadonlyArray<A> => {
-  return Arr.unfold(
-    Tuple.make(cursor, lineIndex),
-    (state: LineRecordWalkState) => {
-      const currentCursor = Tuple.getFirst(state)
-      const currentLineIndex = Tuple.getSecond(state)
-      return Boolean.match(Number.greaterThanOrEqualTo(currentCursor.segmentIndex, segmentCount(kernel)), {
-        onFalse: () =>
-          walkNextLineRecord(kernel, maxWidthAtLine(currentLineIndex), currentCursor).pipe(
-            Option.map((record) =>
-              Tuple.make(
-                project(record, currentLineIndex),
-                Tuple.make(record.nextCursor, Number.increment(currentLineIndex))
-              )
-            )
-          ),
-        onTrue: Option.none
-      })
-    }
+  const values = MutableList.empty<A>()
+  forEachLineRecord(
+    kernel,
+    maxWidthAtLine,
+    (record, currentLineIndex) => MutableList.append(values, project(record, currentLineIndex)),
+    lineIndex,
+    cursor
   )
+
+  return Arr.fromIterable(values)
 }
 
 const fallbackLevelForDirection: (direction: Text.Direction) => number = Match.type<Text.Direction>().pipe(
@@ -932,20 +1002,18 @@ const measureChunkWidth = (
  * @since 0.2.0
  * @category internals
  */
-export const summarizeLines = (kernel: Prepared.Kernel, request: Text.Request): Text.Summary =>
-  Arr.reduce(
-    walkLineValues(kernel, () => request.maxWidth, (record) => record.width),
-    {
-      height: 0,
-      lineCount: 0,
-      maxLineWidth: 0
-    },
-    (summary, width) => ({
-      height: Number.sum(summary.height, request.lineHeight),
-      lineCount: Number.increment(summary.lineCount),
-      maxLineWidth: Number.max(summary.maxLineWidth, width)
-    })
-  )
+export const summarizeLines = (kernel: Prepared.Kernel, request: Text.Request): Text.Summary => {
+  const maxLineWidth = MutableRef.make(0)
+  const lineCount = forEachLineRecord(kernel, () => request.maxWidth, (record) => {
+    MutableRef.set(maxLineWidth, Number.max(MutableRef.get(maxLineWidth), record.width))
+  })
+
+  return {
+    height: Number.multiply(lineCount, request.lineHeight),
+    lineCount,
+    maxLineWidth: MutableRef.get(maxLineWidth)
+  }
+}
 
 const rememberCursorHint = (
   cursor: Text.Cursor,

@@ -19,6 +19,9 @@ const minimumPositive = 1e-30
 const addOne = Number.sum(1)
 const subtractOne = Number.subtract(1)
 const scaleByEpsilon = Number.multiply(epsilon)
+const isBelowMinimumPositive = Number.lessThan(minimumPositive)
+const isConverged = Number.lessThan(epsilon)
+const exceedsIterationLimit = Number.greaterThan(maxIterations)
 
 /** Clamp tiny values away from zero to prevent division overflow. */
 const useMinimumPositive = (_value: number): number => minimumPositive
@@ -26,7 +29,7 @@ const selectGuard = Boolean.match({
   onTrue: () => useMinimumPositive,
   onFalse: () => Function.identity<number>
 })
-const guard = (value: number): number => selectGuard(Number.lessThan(abs(value), minimumPositive))(value)
+const guard = (value: number): number => selectGuard(isBelowMinimumPositive(abs(value)))(value)
 
 /**
  * Series expansion for P(a,x).
@@ -94,7 +97,7 @@ const gammaincCFLoop = (
   c: number,
   d: number,
   iteration: number
-): number => selectFractionLimit(Number.greaterThan(iteration, maxIterations))(a, x, f, c, d, iteration)
+): number => selectFractionLimit(exceedsIterationLimit(iteration))(a, x, f, c, d, iteration)
 
 const fractionDone = (
   _a: number,
@@ -112,7 +115,7 @@ const fractionNext = (a: number, x: number, f: number, c: number, d: number, ite
   const cNext = guard(Number.sum(bn, Number.unsafeDivide(an, c)))
   const delta = Number.multiply(cNext, dNext)
   const fNext = Number.multiply(f, delta)
-  return selectFractionConvergence(Number.lessThan(abs(Number.subtract(delta, 1)), epsilon))(
+  return selectFractionConvergence(isConverged(abs(Number.subtract(delta, 1))))(
     a,
     x,
     fNext,
@@ -129,7 +132,7 @@ const fractionContinue = (
   c: number,
   d: number,
   iteration: number
-): number => gammaincCFLoop(a, x, f, c, d, Number.sum(iteration, 1))
+): number => gammaincCFLoop(a, x, f, c, d, addOne(iteration))
 
 const selectFractionLimit = Boolean.match({
   onTrue: () => fractionDone,
