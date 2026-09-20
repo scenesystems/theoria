@@ -151,18 +151,30 @@ const logarithmReducedValue = (value: number, correction: number): number => {
   })
 }
 
+const logarithmIncrementSmall = (value: number): number => {
+  // For |x| < 2^-12 the degree-five remainder is below 2^-62 relative
+  // to x. Subtract the grouped correction to preserve negative zero.
+  const square = Number.multiply(value, value)
+  const fourthAndFifth = Number.multiply(
+    square,
+    Number.subtract(0.25, Number.multiply(value, 0.2))
+  )
+  return Number.subtract(
+    value,
+    Number.multiply(
+      square,
+      Number.sum(Number.subtract(0.5, Number.unsafeDivide(value, 3)), fourthAndFifth)
+    )
+  )
+}
+
 /** Reproducible precision-policy kernel for ln(1 + x). */
 export const log1pStrict = Match.type<number>().pipe(
+  Match.when((value) => Number.lessThan(Binary.abs(value), 0.000244140625), logarithmIncrementSmall),
   Match.when(Binary.isNaN, () => Binary.notANumber),
-  Match.when(zero, (value) => value),
   Match.when((value) => Number.Equivalence(value, -1), () => Binary.negativeInfinity),
   Match.when(Number.lessThan(-1), () => Binary.notANumber),
   Match.when(positiveInfinity, () => Binary.positiveInfinity),
-  Match.when((value) => Number.lessThan(Binary.abs(value), 5.551115123125783e-17), (value) => value),
-  Match.when(
-    (value) => Number.lessThan(Binary.abs(value), 1.862645149230957e-9),
-    (value) => Number.subtract(value, Number.multiply(0.5, Number.multiply(value, value)))
-  ),
   Match.when(
     Number.between({ minimum: -0.2928934097290039, maximum: 0.4142136573791504 }),
     (value) => logarithmReduced(value, 0, 0)
@@ -235,13 +247,23 @@ const exponentialMinusOneFinite = (value: number): number => {
   })
 }
 
+const exponentialMinusOneSmall = (value: number): number => {
+  // For |x| < 2^-12 the degree-five remainder is below 2^-69 relative
+  // to x. Keep the fdlibm correction grouping, including signed zero.
+  const halfSquare = Number.multiply(0.5, Number.multiply(value, value))
+  const error = Number.multiply(
+    Number.unsafeDivide(Number.negate(halfSquare), 3),
+    Number.sum(1, Number.multiply(value, Number.sum(0.25, Number.multiply(value, 0.05))))
+  )
+  return Number.subtract(value, Number.subtract(Number.multiply(value, error), halfSquare))
+}
+
 /** Reproducible precision-policy kernel for exp(x) - 1. */
 export const expm1Strict = Match.type<number>().pipe(
+  Match.when((value) => Number.lessThan(Binary.abs(value), 0.000244140625), exponentialMinusOneSmall),
   Match.when(Binary.isNaN, () => Binary.notANumber),
-  Match.when(zero, (value) => value),
   Match.when(Number.greaterThan(709.782712893384), () => Binary.positiveInfinity),
   Match.when(Number.lessThan(-38.816242111356935), () => -1),
-  Match.when((value) => Number.lessThan(Binary.abs(value), 5.551115123125783e-17), (value) => value),
   Match.orElse(exponentialMinusOneFinite)
 )
 

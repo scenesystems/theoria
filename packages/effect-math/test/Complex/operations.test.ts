@@ -78,11 +78,13 @@ describe("Complex vectors", () => {
 })
 
 describe("Complex validation and policies", () => {
-  it.effect("round-trips the canonical Schema class", () =>
+  it.effect("round-trips computed results through the canonical Schema class", () =>
     Effect.gen(function*() {
-      const encoded = yield* Schema.encode(Complex.Complex)(Complex.make(3, 4))
+      const result = Complex.multiply(Complex.make(2, 3), Complex.make(-5, 7))
+      const encoded = yield* Schema.encode(Complex.Complex)(result)
+      expect(encoded).toStrictEqual({ re: -31, im: -1 })
       const decoded = yield* Schema.decode(Complex.Complex)(encoded)
-      expectComplex(decoded, 3, 4)
+      expectComplex(decoded, -31, -1)
     }))
 
   it.effect("rejects excess validated input with the stable wire tag", () =>

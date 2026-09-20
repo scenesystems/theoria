@@ -133,8 +133,10 @@ const decode = <A, I, R>(schema: Schema.Schema<A, I, R>, operation: string, inpu
     Effect.mapError((error) => new DecodeError({ operation, message: error.message }))
   )
 
+// Arithmetic already produces numbers, including the allowed IEEE exceptional
+// values. Keep the Schema class and codec without decoding each result again.
 const fromCartesian = (components: Arithmetic.Cartesian): Complex =>
-  new Complex({ re: Tuple.getFirst(components), im: Tuple.getSecond(components) })
+  new Complex({ re: Tuple.getFirst(components), im: Tuple.getSecond(components) }, { disableValidation: true })
 
 /**
  * Constructs a complex value without normalization or finiteness checks.

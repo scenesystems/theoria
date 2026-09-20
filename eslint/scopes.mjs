@@ -77,7 +77,7 @@ export const scopes = () => [
   // identically named const exports in the owning modules, not general Math
   // access, calls, aliases, computed properties, or other operations.
   ...[
-    ["binary", ["abs", "min", "max", "floor", "ceil", "sqrt", "log2", "pow"]],
+    ["binary", ["abs", "min", "max", "floor", "ceil", "sqrt", "hypot", "log2", "pow"]],
     ["transcendental", ["log", "log1p", "log10", "exp", "expm1", "sin", "cos", "atan2", "sinh", "cosh"]]
   ].map(([module, operations]) => ({
     name: `theoria/effect/numeric-${module}`,

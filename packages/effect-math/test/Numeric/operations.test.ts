@@ -15,12 +15,14 @@ import {
   DomainViolationError,
   exp,
   expm1,
+  expm1Strict,
   expm1WithPolicies,
   floor,
   isFinite,
   log,
   log10,
   log1p,
+  log1pStrict,
   log1pWithPolicies,
   logStrict,
   logValidated,
@@ -162,6 +164,52 @@ describe("Numeric transcendental kernels", () => {
       expect(expm1(-0)).toBe(-0)
       expect(log1p(-1)).toBe(Number.unsafeDivide(-1, 0))
       expect(log1p(-2)).toBeNaN()
+    }))
+
+  it.effect("preserves cancellation terms across strict small-exponential boundaries", () =>
+    Effect.gen(function*() {
+      // mpmath 100-decimal-digit expm1, rounded independently to binary64.
+      expect(expm1Strict(1e-8)).toBe(1.0000000050000001e-8)
+      expect(expm1Strict(-1e-8)).toBe(-9.999999950000001e-9)
+      expect(expm1Strict(1.4901161193847655e-8)).toBe(1.490116130486996e-8)
+      expect(expm1Strict(1.4901161193847656e-8)).toBe(1.490116130486996e-8)
+      expect(expm1Strict(1.490116119384766e-8)).toBe(1.4901161304869962e-8)
+      expect(expm1Strict(-1.4901161193847655e-8)).toBe(-1.4901161082825352e-8)
+      expect(expm1Strict(-1.4901161193847656e-8)).toBe(-1.4901161082825354e-8)
+      expect(expm1Strict(-1.490116119384766e-8)).toBe(-1.4901161082825357e-8)
+      expect(expm1Strict(-1e-5)).toBe(-9.999950000166666e-6)
+      expect(expm1Strict(1e-5)).toBe(1.0000050000166668e-5)
+      expect(expm1Strict(-0.00024414062500000005)).toBe(-0.00024411082510278353)
+      expect(expm1Strict(-0.000244140625)).toBe(-0.00024411082510278348)
+      expect(expm1Strict(-0.00024414062499999997)).toBe(-0.00024411082510278345)
+      expect(expm1Strict(0.00024414062499999997)).toBe(0.0002441704297478549)
+      expect(expm1Strict(0.000244140625)).toBe(0.0002441704297478549)
+      expect(expm1Strict(0.00024414062500000005)).toBe(0.00024417042974785497)
+      expect(expm1Strict(-0)).toBe(-0)
+      expect(expm1Strict(-5e-324)).toBe(-5e-324)
+    }))
+
+  it.effect("preserves cancellation terms across strict small-logarithm boundaries", () =>
+    Effect.gen(function*() {
+      // mpmath 100-decimal-digit log1p, rounded independently to binary64.
+      expect(log1pStrict(1e-8)).toBe(9.999999950000001e-9)
+      expect(log1pStrict(-1e-8)).toBe(-1.0000000050000001e-8)
+      expect(log1pStrict(1.4901161193847655e-8)).toBe(1.4901161082825354e-8)
+      expect(log1pStrict(1.4901161193847656e-8)).toBe(1.4901161082825355e-8)
+      expect(log1pStrict(1.490116119384766e-8)).toBe(1.4901161082825359e-8)
+      expect(log1pStrict(-1.4901161193847655e-8)).toBe(-1.490116130486996e-8)
+      expect(log1pStrict(-1.4901161193847656e-8)).toBe(-1.490116130486996e-8)
+      expect(log1pStrict(-1.490116119384766e-8)).toBe(-1.4901161304869962e-8)
+      expect(log1pStrict(-1e-5)).toBe(-1.0000050000333337e-5)
+      expect(log1pStrict(1e-5)).toBe(9.999950000333332e-6)
+      expect(log1pStrict(-0.00024414062500000005)).toBe(-0.00024417043217391454)
+      expect(log1pStrict(-0.000244140625)).toBe(-0.0002441704321739145)
+      expect(log1pStrict(-0.00024414062499999997)).toBe(-0.00024417043217391443)
+      expect(log1pStrict(0.00024414062499999997)).toBe(0.00024411082752736268)
+      expect(log1pStrict(0.000244140625)).toBe(0.0002441108275273627)
+      expect(log1pStrict(0.00024414062500000005)).toBe(0.00024411082752736276)
+      expect(log1pStrict(-0)).toBe(-0)
+      expect(log1pStrict(-5e-324)).toBe(-5e-324)
     }))
 
   it.effect("reduces ordinary and huge angles without losing the quadrant", () =>

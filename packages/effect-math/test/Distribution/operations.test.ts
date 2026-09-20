@@ -323,6 +323,15 @@ describe("Distribution / gamma boundaries and quantiles", () => {
       expectRelativeClose(gammaQuantile(0.25, 80, 4), 295.1975963980082, 1e-10, 2e-10)
     }))
 
+  it.effect("converges relative to the quantile rather than an absolute step size", () =>
+    Effect.gen(function*() {
+      // scipy.special.gammaincinv, SciPy 1.17.1. The shape-two tail still
+      // needs refinement: its first relative series correction is 4.7e-11.
+      expectRelativeClose(gammaQuantile(1e-20, 2, 1), 1.414213562439759e-10, 0, 2e-14)
+      expectRelativeClose(gammaQuantile(0.375, 3.75, 1), 2.8709313816226807, 0, 2e-14)
+      expectRelativeClose(gammaQuantile(0.99, 2.5, 1), 7.543136234694495, 0, 2e-14)
+    }))
+
   it.effect("resolves the smallest representable shape-two lower-tail quantile", () =>
     Effect.gen(function*() {
       // scipy.stats.gamma.ppf(5e-324, 2), independently evaluated by SciPy 1.17.1.

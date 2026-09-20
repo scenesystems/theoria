@@ -7,9 +7,10 @@
  * @since 0.1.0
  * @category internal
  */
-import { Boolean, Chunk, Number, Schema, Tuple } from "effect"
+import { Boolean, Number, Schema, Tuple } from "effect"
 
 import * as Numeric from "../../Numeric.js"
+import * as Binary from "../numeric/binary.js"
 
 /**
  * Private rectangular carrier shared by complex arithmetic mechanisms.
@@ -120,13 +121,13 @@ export const divide = (
 export const conjugate = (re: number, im: number): Cartesian => Tuple.make(re, Number.negate(im))
 
 /**
- * Complex modulus |a + bi| = √(a² + b²) via the Numeric hypotenuse operation
+ * Complex modulus |a + bi| = √(a² + b²) via the engine hypotenuse operation
  * to avoid overflow for large components.
  *
  * @since 0.1.0
  * @category internal
  */
-export const abs = (re: number, im: number): number => Numeric.hypot(Chunk.make(re, im))
+export const abs = (re: number, im: number): number => Binary.hypot(re, im)
 
 /**
  * Complex argument (phase angle): arg(a + bi) = atan2(b, a).
@@ -157,7 +158,7 @@ export const exp = (re: number, im: number): Cartesian => {
  * @category internal
  */
 export const log = (re: number, im: number): Cartesian =>
-  Tuple.make(Numeric.log(Numeric.hypot(Chunk.make(re, im))), Numeric.atan2(im, re))
+  Tuple.make(Numeric.log(Binary.hypot(re, im)), Numeric.atan2(im, re))
 
 /**
  * Complex exponentiation z^w = exp(w · log(z)). Returns `[1, 0]`
@@ -197,7 +198,7 @@ export const sqrt = (re: number, im: number): Cartesian =>
   Boolean.match(Boolean.and(Number.Equivalence(re, 0), Number.Equivalence(im, 0)), {
     onTrue: () => Tuple.make(0, 0),
     onFalse: () => {
-      const radius = Numeric.hypot(Chunk.make(re, im))
+      const radius = Binary.hypot(re, im)
       const resultRe = Numeric.sqrt(Number.unsafeDivide(Number.sum(radius, re), 2))
       const resultIm = Numeric.sqrt(Number.unsafeDivide(Number.subtract(radius, re), 2))
       return Tuple.make(

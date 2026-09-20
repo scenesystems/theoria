@@ -8,13 +8,14 @@
  * @since 0.1.0
  * @category internal
  */
-import { Boolean, Function, Match, Number, Schema } from "effect"
+import { Boolean, Function, Match, Number, Predicate } from "effect"
 
 import { abs, exp, isFinite, log } from "../../Numeric.js"
 import { digamma } from "../../Special.js"
-import { betainc, betaLogNorm } from "../special/betainc.js"
+import { isNaN } from "../numeric/binary.js"
+import { betaincInterior, betaLogNorm } from "../special/betainc.js"
 
-const isNonNaN = Schema.is(Schema.NonNaN)
+const isNonNaN = Predicate.not(isNaN)
 
 /**
  * Beta PDF: x^{α−1}(1−x)^{β−1} / B(α,β) for x ∈ (0,1).
@@ -115,7 +116,7 @@ export const betaCdf = (x: number, alpha: number, beta: number): number => {
         onFalse: () =>
           Boolean.match(Number.greaterThanOrEqualTo(x, 1), {
             onTrue: () => 1,
-            onFalse: () => betainc(alpha, beta, x)
+            onFalse: () => betaincInterior(alpha, beta, x, betaLogNorm)
           })
       })
   })
@@ -141,11 +142,27 @@ const betaQuantileLoop = (
   })
   const probabilityError = (x: number): number =>
     Boolean.match(upperTail, {
-      onTrue: () => Number.subtract(target, betainc(beta, alpha, Number.subtract(1, x), logNormalization)),
-      onFalse: () => Number.subtract(betainc(alpha, beta, x, logNormalization), target)
+      onTrue: () => Number.subtract(target, betaincInterior(beta, alpha, Number.subtract(1, x), logNormalization)),
+      onFalse: () => Number.subtract(betaincInterior(alpha, beta, x, logNormalization), target)
     })
   return betaQuantileIteration(probabilityError, alpha, beta, logNormalization, 0, 1, initialX, 320)
 }
+
+const betaPdfInterior = (
+  x: number,
+  alpha: number,
+  beta: number,
+  logNormalization: () => number
+): number =>
+  exp(
+    Number.subtract(
+      Number.sum(
+        Number.multiply(Number.subtract(alpha, 1), log(x)),
+        Number.multiply(Number.subtract(beta, 1), log(Number.subtract(1, x)))
+      ),
+      logNormalization()
+    )
+  )
 
 const betaQuantileIteration = (
   probabilityError: (x: number) => number,
@@ -173,7 +190,7 @@ const betaQuantileIteration = (
           const nextLower = Boolean.match(below, { onTrue: () => x, onFalse: () => lower })
           const nextUpper = Boolean.match(below, { onTrue: () => upper, onFalse: () => x })
           const bracketMidpoint = Number.unsafeDivide(Number.sum(nextLower, nextUpper), 2)
-          const newtonStep = Number.unsafeDivide(difference, betaPdf(x, alpha, beta, logNormalization))
+          const newtonStep = Number.unsafeDivide(difference, betaPdfInterior(x, alpha, beta, logNormalization))
           const logDensityDerivative = Number.subtract(
             Number.unsafeDivide(Number.subtract(alpha, 1), x),
             Number.unsafeDivide(Number.subtract(beta, 1), Number.subtract(1, x))
@@ -237,11 +254,12 @@ export const betaQuantile = (p: number, alpha: number, beta: number): number =>
       const oppositeShape = Boolean.match(upperTail, { onTrue: () => alpha, onFalse: () => beta })
       // B(a,b) is symmetric; the same normalization serves reflected CDFs and
       // the PDF without changing either expression's floating-point grouping.
-      const logNormalization = Function.constant(betaLogNorm(tailShape, oppositeShape))
+      const normalization = betaLogNorm(tailShape, oppositeShape)
+      const logNormalization = Function.constant(normalization)
       const distance = exp(Number.unsafeDivide(
         Number.sum(
           Number.sum(log(tailProbability), log(tailShape)),
-          logNormalization()
+          normalization
         ),
         tailShape
       ))

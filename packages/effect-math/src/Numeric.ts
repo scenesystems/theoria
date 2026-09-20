@@ -426,7 +426,7 @@ export const sqrt: (value: number) => number = Binary.sqrt
  * @since 0.4.0
  * @category operations
  */
-export const hypot: typeof Binary.hypot = Binary.hypot
+export const hypot: typeof Binary.hypotRounded = Binary.hypotRounded
 
 /**
  * Correctly rounded binary64 ratio of a circle's circumference to its diameter.

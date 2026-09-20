@@ -158,6 +158,21 @@ describe("Special / gammaincc", () => {
       expectClose(gammaincc(2, 3), Number.multiply(exp(-3), 4), 1e-14)
     }))
 
+  it.effect("preserves the non-integer continued-fraction recurrence", () =>
+    Effect.gen(function*() {
+      // scipy.special.gammaincc reference, independently evaluated with SciPy 1.17.1.
+      expectClose(gammaincc(3.75, 12), 0.0016310390163441538, 2e-17)
+    }))
+
+  it.effect("keeps the continued fraction stable when every numerator is negative", () =>
+    Effect.gen(function*() {
+      // SciPy 1.17.1 references. Shapes below one make n(a − n) negative
+      // from the first iteration; x = a + 1 gives the smallest denominators.
+      expectClose(gammaincc(0.125, 1.125), 0.025367388598511103, 4e-16)
+      expectClose(gammaincc(1e-8, 1.00000001), 2.1938393296147597e-9, 4e-23)
+      expectClose(gammaincc(0.875, 2), 0.10893012448240144, 2e-15)
+    }))
+
   it.effect("gammainc(a, x) + gammaincc(a, x) ≈ 1", () =>
     Effect.gen(function*() {
       expectClose(Number.sum(gammainc(5, 5), gammaincc(5, 5)), 1, kernelTolerance)
@@ -193,12 +208,29 @@ describe("Special / betainc", () => {
     Effect.gen(function*() {
       // I_x(2, 1) = x².
       expectClose(betainc(2, 1, 1e-12), 1e-24, 1e-36)
+      // scipy.special.betainc reference, independently regenerated with SciPy 1.17.1.
+      expectClose(betainc(0.125, 80, 1e-250), 1.0319452159347026e-31, 1e-43)
     }))
 
   it.effect("applies reflection without changing the closed-form result", () =>
     Effect.gen(function*() {
       // I_x(1, 2) = 1 - (1 - x)².
       expectClose(betainc(1, 2, 0.875), 0.984375, 1e-14)
+    }))
+
+  it.effect("remains stable for concentrated symmetric shapes", () =>
+    Effect.gen(function*() {
+      // scipy.special.betainc references, independently regenerated with SciPy 1.17.1.
+      expectClose(betainc(100, 100, 0.49), 0.3887733080667469, 1e-12)
+      expectClose(betainc(1000, 1000, 0.5), 0.4999999999999992, 1e-12)
+    }))
+
+  it.effect("converges for small b·x when x is close to one", () =>
+    Effect.gen(function*() {
+      // SciPy 1.17.1: small b·x alone does not ensure rapid series convergence.
+      expectClose(betainc(100, 0.125, 0.98), 0.007233207683938254, 1e-14)
+      expectClose(betainc(1000, 0.125, 0.99), 7.076623262007454e-7, 1e-18)
+      expectClose(betainc(0.125, 100, 0.02), 0.9927667923160617, 1e-14)
     }))
 })
 

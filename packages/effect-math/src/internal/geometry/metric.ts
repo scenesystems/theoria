@@ -7,7 +7,7 @@
  */
 import { Array, Boolean, Chunk, Number, Option } from "effect"
 
-import { abs, hypot } from "../../Numeric.js"
+import { abs, hypot, isFinite, sqrt } from "../../Numeric.js"
 
 const indices = (size: number): Chunk.Chunk<number> =>
   Boolean.match(Number.greaterThan(size, 0), {
@@ -44,13 +44,13 @@ export const squaredEuclideanDistance = (a: Chunk.Chunk<number>, b: Chunk.Chunk<
  * @category internal
  */
 export const euclideanDistance = (a: Chunk.Chunk<number>, b: Chunk.Chunk<number>): number => {
-  const transientB = Chunk.toReadonlyArray(b)
-  return hypot(
-    Chunk.map(
-      Chunk.take(a, Number.min(Chunk.size(a), Chunk.size(b))),
-      (ai, index) => Number.subtract(ai, Array.unsafeGet(transientB, index))
-    )
-  )
+  const squared = squaredEuclideanDistance(a, b)
+  // Ordinary sums use the same square root as the squared-distance API.
+  // An overflowed or subnormal sum needs scaling to retain its magnitude.
+  return Boolean.match(Boolean.and(isFinite(squared), Number.greaterThanOrEqualTo(squared, 2.2250738585072014e-308)), {
+    onTrue: () => sqrt(squared),
+    onFalse: () => hypot(Chunk.zipWith(a, b, Number.subtract))
+  })
 }
 
 /**

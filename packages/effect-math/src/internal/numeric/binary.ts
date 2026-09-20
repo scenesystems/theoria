@@ -73,6 +73,9 @@ export const abs: (value: number) => number = Math.abs
 export const min: (left: number, right: number) => number = Math.min
 export const max: (left: number, right: number) => number = Math.max
 
+/** Engine-scaled norm for consumers without an exact-sum rounding contract. */
+export const hypot = Math.hypot
+
 /** Real-valued power including signed-zero, negative-base, and infinity rules. */
 export const pow: (base: number, exponent: number) => number = Math.pow
 
@@ -541,7 +544,7 @@ const hypotFloating = (values: Chunk.Chunk<number>): number => {
 }
 
 /** Correctly rounded norm; uncertain floating results retain exact dyadic rounding. */
-export const hypot = (values: Chunk.Chunk<number>): number =>
+export const hypotRounded = (values: Chunk.Chunk<number>): number =>
   Option.match(Array.findFirst(Chunk.toReadonlyArray(values), (value) => Boolean.not(zero(value))), {
     onNone: () => 0,
     onSome: (first) =>

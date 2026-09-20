@@ -59,6 +59,20 @@ describe("Geometry / euclideanDistance", () => {
       expect(Schema.is(Schema.Finite)(result)).toBe(true)
       expect(Number.greaterThan(result, 1e308)).toBe(true)
     }))
+
+  it.effect("retains tiny coordinate differences without squaring them to zero", () =>
+    Effect.gen(function*() {
+      const result = euclideanDistance(Chunk.make(3e-200, -4e-200), Chunk.make(0, 0))
+      expect(Number.unsafeDivide(result, 1e-200)).toBeCloseTo(5, 14)
+    }))
+
+  it.effect("supports dimensions beyond engine argument-list limits", () =>
+    Effect.gen(function*() {
+      const zeros = Chunk.makeBy(131_071, () => 0)
+      const point = Chunk.append(Chunk.prepend(zeros, 3), -4)
+      const origin = Chunk.makeBy(Chunk.size(point), () => 0)
+      expect(euclideanDistance(point, origin)).toBe(5)
+    }))
 })
 
 describe("Geometry / squaredEuclideanDistance", () => {

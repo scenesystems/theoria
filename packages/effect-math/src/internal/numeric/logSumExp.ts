@@ -14,16 +14,11 @@ export const logSumExpChunk = Match.type<Chunk.Chunk<number>>().pipe(
   Match.when((values) => Number.Equivalence(Chunk.size(values), 1), (values) => Chunk.unsafeGet(values, 0)),
   Match.orElse((values) => {
     const elements = Chunk.toReadonlyArray(values)
-    // Effect's total Number.Order is not an IEEE unordered comparison, so
-    // propagate NaN explicitly while folding exceptional values into this scan.
+    // IEEE maximum propagates NaN without separate predicates at every term.
     const maximum = Array.reduce(
       elements,
       Binary.negativeInfinity,
-      (current, value) =>
-        Boolean.match(Boolean.or(Binary.isNaN(value), Binary.isNaN(current)), {
-          onTrue: () => Binary.notANumber,
-          onFalse: () => Number.max(current, value)
-        })
+      (current, value) => Binary.max(current, value)
     )
     return Boolean.match(Binary.isFinite(maximum), {
       onFalse: () => maximum,

@@ -353,56 +353,65 @@ const emitInternalLineRecord = (
     width: paintWidth
   })
 
-class ResolvedPendingState extends Data.Class<{
-  readonly end: Text.Cursor
-  readonly fitWidth: number
-  readonly paintWidth: number
-}> {}
+const resolvePendingEnd = (
+  state: LineScanState,
+  hasCommittedContent: boolean,
+  preservePending: boolean
+): Text.Cursor =>
+  Boolean.match(hasCommittedContent, {
+    onFalse: () =>
+      Boolean.match(preservePending, {
+        onFalse: () => MutableRef.get(state.start),
+        onTrue: () => MutableRef.get(state.pendingEnd)
+      }),
+    onTrue: () =>
+      Boolean.match(preservePending, {
+        onFalse: () => MutableRef.get(state.end),
+        onTrue: () => MutableRef.get(state.pendingEnd)
+      })
+  })
 
-const resolvePendingState = (
-  kernel: Prepared.Kernel,
-  state: LineScanState
-): ResolvedPendingState => {
+const resolvePendingWidth = (
+  committedWidth: number,
+  pendingWidth: number,
+  hasCommittedContent: boolean,
+  preservePending: boolean
+): number =>
+  Boolean.match(hasCommittedContent, {
+    onFalse: () =>
+      Boolean.match(preservePending, {
+        onFalse: () => 0,
+        onTrue: () => pendingWidth
+      }),
+    onTrue: () =>
+      Boolean.match(preservePending, {
+        onFalse: () => committedWidth,
+        onTrue: () => Number.sum(committedWidth, pendingWidth)
+      })
+  })
+
+const finalizeAtEnd = (kernel: Prepared.Kernel, state: LineScanState): Option.Option<InternalLineRecord> => {
+  const hasCommittedContent = lineHasCommittedContent(state)
   const preservePending = Boolean.and(
     String.Equivalence(kernel.whiteSpace, "pre-wrap"),
     hasPendingWhitespace(state)
   )
-
-  return Boolean.match(lineHasCommittedContent(state), {
-    onFalse: () =>
-      Boolean.match(preservePending, {
-        onFalse: () => new ResolvedPendingState({ end: MutableRef.get(state.start), fitWidth: 0, paintWidth: 0 }),
-        onTrue: () =>
-          new ResolvedPendingState({
-            end: MutableRef.get(state.pendingEnd),
-            fitWidth: MutableRef.get(state.pendingFitWidth),
-            paintWidth: MutableRef.get(state.pendingPaintWidth)
-          })
-      }),
-    onTrue: () =>
-      Boolean.match(preservePending, {
-        onFalse: () =>
-          new ResolvedPendingState({
-            end: MutableRef.get(state.end),
-            fitWidth: MutableRef.get(state.fitWidth),
-            paintWidth: MutableRef.get(state.paintWidth)
-          }),
-        onTrue: () =>
-          new ResolvedPendingState({
-            end: MutableRef.get(state.pendingEnd),
-            fitWidth: Number.sum(MutableRef.get(state.fitWidth), MutableRef.get(state.pendingFitWidth)),
-            paintWidth: Number.sum(MutableRef.get(state.paintWidth), MutableRef.get(state.pendingPaintWidth))
-          })
-      })
-  })
-}
-
-const finalizeAtEnd = (kernel: Prepared.Kernel, state: LineScanState): Option.Option<InternalLineRecord> => {
-  const resolved = resolvePendingState(kernel, state)
+  const fitWidth = resolvePendingWidth(
+    MutableRef.get(state.fitWidth),
+    MutableRef.get(state.pendingFitWidth),
+    hasCommittedContent,
+    preservePending
+  )
+  const paintWidth = resolvePendingWidth(
+    MutableRef.get(state.paintWidth),
+    MutableRef.get(state.pendingPaintWidth),
+    hasCommittedContent,
+    preservePending
+  )
 
   const empty = Boolean.and(
-    Boolean.not(lineHasCommittedContent(state)),
-    Boolean.and(Number.Equivalence(resolved.fitWidth, 0), Number.Equivalence(resolved.paintWidth, 0))
+    Boolean.not(hasCommittedContent),
+    Boolean.and(Number.Equivalence(fitWidth, 0), Number.Equivalence(paintWidth, 0))
   )
 
   return Boolean.match(empty, {
@@ -410,9 +419,9 @@ const finalizeAtEnd = (kernel: Prepared.Kernel, state: LineScanState): Option.Op
       Option.some(
         emitInternalLineRecord(
           MutableRef.get(state.start),
-          resolved.end,
+          resolvePendingEnd(state, hasCommittedContent, preservePending),
           endCursorFor(kernel),
-          resolved.paintWidth
+          paintWidth
         )
       ),
     onTrue: Option.none
@@ -424,13 +433,22 @@ const finalizeAtHardBreak = (
   state: LineScanState,
   nextCursor: Text.Cursor
 ): InternalLineRecord => {
-  const resolved = resolvePendingState(kernel, state)
+  const hasCommittedContent = lineHasCommittedContent(state)
+  const preservePending = Boolean.and(
+    String.Equivalence(kernel.whiteSpace, "pre-wrap"),
+    hasPendingWhitespace(state)
+  )
 
   return emitInternalLineRecord(
     MutableRef.get(state.start),
-    resolved.end,
+    resolvePendingEnd(state, hasCommittedContent, preservePending),
     nextCursor,
-    resolved.paintWidth
+    resolvePendingWidth(
+      MutableRef.get(state.paintWidth),
+      MutableRef.get(state.pendingPaintWidth),
+      hasCommittedContent,
+      preservePending
+    )
   )
 }
 

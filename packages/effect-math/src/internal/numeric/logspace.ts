@@ -12,26 +12,26 @@ import { exp, expm1, log, log1p } from "./transcendental.js"
 const lnTwo = 0.6931471805599453
 const belowNegativeLnTwo = Number.lessThan(Number.negate(lnTwo))
 
+const equalLogWeights = (a: number, _b: number): number => Number.sum(a, lnTwo)
+const unequalLogWeights = (a: number, b: number): number =>
+  Number.sum(Binary.max(a, b), log1p(exp(Number.negate(Binary.abs(Number.subtract(a, b))))))
+const selectLogWeights = Boolean.match({ onTrue: () => equalLogWeights, onFalse: () => unequalLogWeights })
+
 /** Computes `log(exp(a) + exp(b))` without materializing large exponentials. */
-export const logaddexp = (a: number, b: number): number =>
-  Boolean.match(Number.Equivalence(a, b), {
-    onTrue: () => Number.sum(a, lnTwo),
-    onFalse: () => Number.sum(Binary.max(a, b), log1p(exp(Number.negate(Binary.abs(Number.subtract(a, b))))))
-  })
+export const logaddexp = (a: number, b: number): number => selectLogWeights(Number.Equivalence(a, b))(a, b)
 
 /** Computes `log(exp(a) - exp(b))`; returns NaN outside the strict `a > b` domain. */
 export const logsubexp = (a: number, b: number): number => Number.sum(a, log1mexp(Number.subtract(b, a)))
 
+const log1mexpFar = (x: number): number => log1p(Number.negate(exp(x)))
+const log1mexpNear = (x: number): number =>
+  // x/x is exactly one for every finite nonzero x, including subnormals.
+  // At zero it rejects the excluded endpoint with NaN rather than -Infinity.
+  log(Number.multiply(Number.negate(expm1(x)), Number.unsafeDivide(x, x)))
+const selectLog1mexp = Boolean.match({ onTrue: () => log1mexpFar, onFalse: () => log1mexpNear })
+
 /** Computes `log(1 - exp(x))` on `x < 0` without cancellation. */
-export const log1mexp = (x: number): number =>
-  Boolean.match(belowNegativeLnTwo(x), {
-    onTrue: () => log1p(Number.negate(exp(x))),
-    onFalse: () =>
-      Boolean.match(Number.Equivalence(x, 0), {
-        onTrue: () => Binary.notANumber,
-        onFalse: () => log(Number.negate(expm1(x)))
-      })
-  })
+export const log1mexp = (x: number): number => selectLog1mexp(belowNegativeLnTwo(x))(x)
 
 /** Computes softplus without overflowing its intermediate exponential. */
 export const log1pexp = (x: number): number => Number.sum(Binary.max(x, 0), log1p(exp(Number.negate(Binary.abs(x)))))

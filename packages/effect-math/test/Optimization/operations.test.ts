@@ -1,5 +1,5 @@
 import { describe, expect, it } from "@effect/vitest"
-import { Effect, Exit, FastCheck, MutableRef, Number, Schema } from "effect"
+import { Chunk, Effect, Exit, FastCheck, MutableRef, Number, Schema } from "effect"
 
 import * as Numeric from "../../src/Numeric.js"
 import {
@@ -387,6 +387,71 @@ describe("Optimization / goldenSection", () => {
       )
       expectClose(result, 1, kernelTolerance)
       expect(MutableRef.get(evaluations)).toStrictEqual(Number.sum(maxIterations, 2))
+    }))
+
+  it.effect("normalizes fractional budgets across the iteration-batch boundary", () =>
+    Effect.gen(function*() {
+      const evaluations = MutableRef.make(0)
+      const objective = () => {
+        MutableRef.increment(evaluations)
+        return 1
+      }
+
+      expectClose(goldenSection(objective, 0, 1, -1, 0.5), 0.6909830056250525, 1e-15)
+      expect(MutableRef.get(evaluations)).toStrictEqual(3)
+
+      MutableRef.set(evaluations, 0)
+      expectClose(goldenSection(objective, 0, 1, -1, 63.5), 1, kernelTolerance)
+      expect(MutableRef.get(evaluations)).toStrictEqual(66)
+
+      MutableRef.set(evaluations, 0)
+      expectClose(goldenSection(objective, 0, 1, -1, 64.5), 1, kernelTolerance)
+      expect(MutableRef.get(evaluations)).toStrictEqual(67)
+    }))
+
+  it.effect("preserves the evaluation sequence when an objective runs a nested search", () =>
+    Effect.gen(function*() {
+      const baselineTrace = MutableRef.make(Chunk.empty<number>())
+      const nestedTrace = MutableRef.make(Chunk.empty<number>())
+      const nestedEvaluations = MutableRef.make(0)
+      const evaluate = (x: number) => Number.multiply(Number.subtract(x, 0.3), Number.subtract(x, 0.3))
+      const baseline = goldenSection(
+        (x) => {
+          MutableRef.update(baselineTrace, Chunk.append(x))
+          return evaluate(x)
+        },
+        0,
+        2,
+        1e-30,
+        65
+      )
+      const nested = goldenSection(
+        (x) => {
+          MutableRef.update(nestedTrace, Chunk.append(x))
+          goldenSection(
+            (y) => {
+              MutableRef.increment(nestedEvaluations)
+              return Number.multiply(Number.subtract(y, 0.25), Number.subtract(y, 0.25))
+            },
+            -1,
+            1,
+            1e-30,
+            2
+          )
+          return evaluate(x)
+        },
+        0,
+        2,
+        1e-30,
+        65
+      )
+
+      expect(nested).toStrictEqual(baseline)
+      expect(Chunk.toReadonlyArray(MutableRef.get(nestedTrace))).toStrictEqual(
+        Chunk.toReadonlyArray(MutableRef.get(baselineTrace))
+      )
+      expect(Chunk.size(MutableRef.get(nestedTrace))).toStrictEqual(67)
+      expect(MutableRef.get(nestedEvaluations)).toStrictEqual(Number.multiply(67, 4))
     }))
 
   it.effect("is stack safe for a large finite nonconverging budget", () =>

@@ -67,8 +67,11 @@ describe("Numeric log-space kernels", () => {
     Effect.gen(function*() {
       closeTo(log1mexp(-1), -0.45867514538708193)
       closeTo(log1mexp(-1e-15), -34.538776394910684)
+      closeTo(log1mexp(-5e-324), -744.4400719213812)
       expect(log1mexp(Number.unsafeDivide(-1, 0))).toBe(-0)
       expect(log1mexp(0)).toBeNaN()
+      expect(log1mexp(-0)).toBeNaN()
+      expect(log1mexp(Number.unsafeDivide(1, 0))).toBeNaN()
       closeTo(log1pexp(0), 0.6931471805599453)
       expect(log1pexp(40)).toBe(40)
       closeTo(log1pexp(-40), 4.248354255291589e-18)

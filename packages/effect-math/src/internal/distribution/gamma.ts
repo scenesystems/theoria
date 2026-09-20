@@ -10,7 +10,7 @@
  */
 import { Boolean, Function, Match, Number } from "effect"
 
-import { exp, isFinite, log, log1p, sqrt } from "../../Numeric.js"
+import { abs, exp, isFinite, log, log1p, sqrt } from "../../Numeric.js"
 import { digamma, erfcinv, lnGamma } from "../../Special.js"
 import { isNaN } from "../numeric/binary.js"
 import { gammainc, gammaincc } from "../special/gammainc.js"
@@ -89,19 +89,30 @@ export const gammaLogpdf = (x: number, shape: number, scale: number): number => 
   )
 }
 
+const gammaCdfInterior = (x: number, shape: number, scale: number): number =>
+  gammainc(shape, Number.unsafeDivide(x, scale))
+
+const selectGammaCdfSupport = Boolean.match({
+  onTrue: () => Function.constant(0),
+  onFalse: () => gammaCdfInterior
+})
+
+const gammaCdfFinite = (x: number, shape: number, scale: number): number =>
+  selectGammaCdfSupport(Number.lessThanOrEqualTo(x, 0))(x, shape, scale)
+
+const selectGammaCdfInfinity = Boolean.match({
+  onTrue: () => Function.constant(1),
+  onFalse: () => gammaCdfFinite
+})
+
 /**
  * Gamma CDF via regularized lower incomplete gamma P(k, x/θ).
  *
  * @since 0.1.0
  * @category internal
  */
-export const gammaCdf = (x: number, shape: number, scale: number): number => {
-  return Match.value(x).pipe(
-    Match.when(Infinity, () => 1),
-    Match.when(Number.lessThanOrEqualTo(0), () => 0),
-    Match.orElse(() => gammainc(shape, Number.unsafeDivide(x, scale)))
-  )
-}
+export const gammaCdf = (x: number, shape: number, scale: number): number =>
+  selectGammaCdfInfinity(Number.Equivalence(x, Infinity))(x, shape, scale)
 
 /**
  * Finds a finite standardized upper bracket by geometric expansion.
@@ -110,22 +121,11 @@ export const gammaCdf = (x: number, shape: number, scale: number): number => {
  * @category internal
  */
 const gammaQuantileUpper = (
-  p: number,
+  probabilityError: (x: number) => number,
   shape: number,
   estimate: number,
-  logGamma: () => number
+  tailScale: number
 ): number => {
-  const upperTail = Number.greaterThan(p, 0.5)
-  const target = Boolean.match(upperTail, {
-    onTrue: () => Number.subtract(1, p),
-    onFalse: () => p
-  })
-  const probabilityError = (x: number): number =>
-    Boolean.match(upperTail, {
-      onTrue: () => Number.subtract(target, gammaincc(shape, x, logGamma)),
-      onFalse: () => Number.subtract(gammainc(shape, x, logGamma), target)
-    })
-  const tailScale = Number.negate(log1p(Number.negate(p)))
   return gammaQuantileUpperIteration(
     probabilityError,
     Number.max(Number.max(Number.max(1, shape), tailScale), estimate),
@@ -161,29 +161,17 @@ const gammaQuantileUpperIteration = (
  * @category internal
  */
 const gammaQuantileLoop = (
-  p: number,
-  shape: number,
+  probabilityError: (x: number) => number,
+  shapeMinusOne: number,
+  logNormalization: number,
   upper: number,
-  initialX: number,
-  logGamma: () => number
-): number => {
-  const upperTail = Number.greaterThan(p, 0.5)
-  const target = Boolean.match(upperTail, {
-    onTrue: () => Number.subtract(1, p),
-    onFalse: () => p
-  })
-  const probabilityError = (x: number): number =>
-    Boolean.match(upperTail, {
-      onTrue: () => Number.subtract(target, gammaincc(shape, x, logGamma)),
-      onFalse: () => Number.subtract(gammainc(shape, x, logGamma), target)
-    })
-  return gammaQuantileIteration(probabilityError, shape, logGamma, 0, upper, initialX, 320)
-}
+  initialX: number
+): number => gammaQuantileIteration(probabilityError, shapeMinusOne, logNormalization, 0, upper, initialX, 320)
 
 const gammaQuantileIteration = (
   probabilityError: (x: number) => number,
-  shape: number,
-  logGamma: () => number,
+  shapeMinusOne: number,
+  logNormalization: number,
   lower: number,
   upper: number,
   x: number,
@@ -205,9 +193,15 @@ const gammaQuantileIteration = (
           const nextLower = Boolean.match(below, { onTrue: () => x, onFalse: () => lower })
           const nextUpper = Boolean.match(below, { onTrue: () => upper, onFalse: () => x })
           const bracketMidpoint = Number.unsafeDivide(Number.sum(nextLower, nextUpper), 2)
-          const newtonStep = Number.unsafeDivide(difference, gammaPdf(x, shape, 1, logGamma))
+          const density = exp(
+            Number.subtract(
+              Number.subtract(Number.multiply(shapeMinusOne, log(x)), x),
+              logNormalization
+            )
+          )
+          const newtonStep = Number.unsafeDivide(difference, density)
           const logDensityDerivative = Number.subtract(
-            Number.unsafeDivide(Number.subtract(shape, 1), x),
+            Number.unsafeDivide(shapeMinusOne, x),
             1
           )
           const halleyDenominator = Number.subtract(
@@ -218,25 +212,31 @@ const gammaQuantileIteration = (
             x,
             Number.unsafeDivide(newtonStep, halleyDenominator)
           )
-          return Boolean.match(Number.Equivalence(candidate, x), {
-            onTrue: () => x,
-            onFalse: () => {
-              const useCandidate = Boolean.and(
-                isFinite(candidate),
-                Boolean.and(Number.greaterThan(candidate, nextLower), Number.lessThan(candidate, nextUpper))
-              )
-              const nextX = Boolean.match(useCandidate, { onTrue: () => candidate, onFalse: () => bracketMidpoint })
-              return gammaQuantileIteration(
-                probabilityError,
-                shape,
-                logGamma,
-                nextLower,
-                nextUpper,
-                nextX,
-                Number.subtract(remaining, 1)
-              )
+          // Stop at relative binary64 precision rather than bisecting after
+          // the CDF's final-bit noise sends a converged step outside the bracket.
+          // An absolute threshold would prematurely accept tiny tail quantiles.
+          return Boolean.match(
+            Number.lessThanOrEqualTo(abs(Number.subtract(candidate, x)), Number.multiply(8.881784197001252e-16, x)),
+            {
+              onTrue: () => x,
+              onFalse: () => {
+                const useCandidate = Boolean.and(
+                  isFinite(candidate),
+                  Boolean.and(Number.greaterThan(candidate, nextLower), Number.lessThan(candidate, nextUpper))
+                )
+                const nextX = Boolean.match(useCandidate, { onTrue: () => candidate, onFalse: () => bracketMidpoint })
+                return gammaQuantileIteration(
+                  probabilityError,
+                  shapeMinusOne,
+                  logNormalization,
+                  nextLower,
+                  nextUpper,
+                  nextX,
+                  Number.subtract(remaining, 1)
+                )
+              }
             }
-          })
+          )
         }
       })
     }
@@ -265,9 +265,10 @@ export const gammaQuantile = (p: number, shape: number, scale: number): number =
       () => Number.multiply(scale, Number.negate(log1p(Number.negate(p))))
     ),
     Match.orElse((p) => {
-      const logGamma = Function.constant(lnGamma(shape))
+      const logNormalization = lnGamma(shape)
+      const logGamma = Function.constant(logNormalization)
       const logLowerEstimate = Number.unsafeDivide(
-        Number.sum(log(p), lnGamma(Number.sum(shape, 1))),
+        Number.sum(log(p), Number.sum(log(shape), logNormalization)),
         shape
       )
       const lowerEstimate = exp(logLowerEstimate)
@@ -305,13 +306,31 @@ export const gammaQuantile = (p: number, shape: number, scale: number): number =
               },
               onFalse: () => tailEstimate
             })
-            const upper = gammaQuantileUpper(p, shape, estimate, logGamma)
+            const upperTail = Number.greaterThan(p, 0.5)
+            const probabilityError = Boolean.match(upperTail, {
+              onTrue: () => {
+                const target = Number.subtract(1, p)
+                return (x: number): number => Number.subtract(target, gammaincc(shape, x, logGamma))
+              },
+              onFalse: () => (x: number): number => Number.subtract(gammainc(shape, x, logGamma), p)
+            })
+            const tailScale = Number.negate(log1p(Number.negate(p)))
+            const upper = gammaQuantileUpper(probabilityError, shape, estimate, tailScale)
             const interior = Boolean.and(Number.greaterThan(estimate, 0), Number.lessThan(estimate, upper))
             const initial = Boolean.match(interior, {
               onTrue: () => estimate,
               onFalse: () => Number.unsafeDivide(upper, 2)
             })
-            return Number.multiply(gammaQuantileLoop(p, shape, upper, initial, logGamma), scale)
+            return Number.multiply(
+              gammaQuantileLoop(
+                probabilityError,
+                Number.subtract(shape, 1),
+                logNormalization,
+                upper,
+                initial
+              ),
+              scale
+            )
           }
         }
       )
