@@ -90,6 +90,28 @@ describe("Numeric log-space kernels", () => {
       expect(logaddexp(Number.negate(infinity), Number.negate(infinity))).toBe(Number.negate(infinity))
     }))
 
+  it.effect("retains softplus corrections and tiny tails across the asymptotic cutoffs", () =>
+    Effect.gen(function*() {
+      // NumPy logaddexp(0, x), evaluated in longdouble and rounded to binary64.
+      // Below the positive cutoff the correction can still change the result.
+      expect(log1pexp(33.25)).toBe(33.25000000000001)
+      expect(log1pexp(33.27)).toBe(33.27000000000001)
+      expect(log1pexp(33.28)).toBe(33.28)
+      expect(log1pexp(33.3)).toBe(33.3)
+      expect(log1pexp(33.4)).toBe(33.4)
+      yield* Effect.forEach([
+        { x: -36.9, expected: 9.430476078526807e-17 },
+        { x: -37, expected: 8.533047625744066e-17 },
+        { x: -37.1, expected: 7.721020781656124e-17 },
+        { x: -100, expected: 3.720075976020836e-44 }
+      ], ({ x, expected }) =>
+        Effect.sync(() => {
+          expect(abs(Number.subtract(log1pexp(x), expected)))
+            .toBeLessThanOrEqual(Number.multiply(expected, 2.22e-16))
+        }))
+      expect(log1pexp(-745)).toBe(5e-324)
+    }))
+
   it.effect.prop("preserves the softplus reflection identity across its finite domain", {
     value: FastCheck.double({ min: -700, max: 700, noNaN: true, noDefaultInfinity: true })
   }, ({ value }) =>

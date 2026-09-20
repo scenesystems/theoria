@@ -235,6 +235,7 @@ const cases = Chunk.make(
   binaryCase("Numeric.logsubexp log-space", logSubLeft, logRight, Numeric.logsubexp),
   unaryCase("Numeric.log1mexp log-space", Chunk.make(-100, -10, -2, -1, -0.5, -0.01), Numeric.log1mexp),
   unaryCase("Numeric.log1pexp log-space", logLeft, Numeric.log1pexp),
+  unaryCase("Numeric.log1pexp central", Chunk.make(-36, -10, -1, 0, 1, 10, 20, 33.25), Numeric.log1pexp),
   binaryCase("Numeric.xlogy log-space", ordinary, positive, Numeric.xlogy),
   binaryCase("Numeric.xlog1py tiny", ordinary, tiny, Numeric.xlog1py),
   singleCallCase("Numeric.logSumExp reduction", () => Numeric.logSumExp(logLeft)),

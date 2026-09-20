@@ -33,8 +33,15 @@ const selectLog1mexp = Boolean.match({ onTrue: () => log1mexpFar, onFalse: () =>
 /** Computes `log(1 - exp(x))` on `x < 0` without cancellation. */
 export const log1mexp = (x: number): number => selectLog1mexp(belowNegativeLnTwo(x))(x)
 
-/** Computes softplus without overflowing its intermediate exponential. */
-export const log1pexp = (x: number): number => Number.sum(Binary.max(x, 0), log1p(exp(Number.negate(Binary.abs(x)))))
+/**
+ * Computes softplus without overflowing its intermediate exponential.
+ * The omitted corrections in either tail are below binary64 rounding precision.
+ */
+export const log1pexp = (x: number): number => {
+  if (x > 33.3) return x
+  if (x > -37) return log1p(exp(x))
+  return exp(x)
+}
 
 const zeroProduct = Function.constant(0)
 const logarithmicProduct = (x: number, y: number): number => Number.multiply(x, log(y))

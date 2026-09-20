@@ -18,6 +18,8 @@
  * @module eslint/scopes
  */
 
+import { Array, Match, String } from "effect"
+
 import { BROWSER_GLOBALS, MATH_GLOBAL, NUMBER_PARSING_GLOBALS } from "./effect/builtins.mjs"
 import { DESIGN_TOKEN_RULES } from "./effect/design-tokens.mjs"
 import { CONFIG_HOST_EFFECT_RULES, EFFECT_RULES } from "./effect/index.mjs"
@@ -41,6 +43,16 @@ const PLATFORM_MODULE_PATTERNS = ["apps/*/app/web/platform/**", "apps/*/test/*/p
 
 /** The web views, whose class strings read the layout and motion contracts' tokens and no other scale. */
 const WEB_VIEW_PATTERNS = ["apps/*/app/web/**/*.{ts,tsx}"]
+
+/** Only softplus's two authorized asymptotic guards, not arbitrary native control flow. */
+const SOFTPLUS_GUARDS = Array.map(
+  [
+    "IfStatement[test.operator='>'][test.left.name='x'][test.right.value=33.3][consequent.type='ReturnStatement'][consequent.argument.name='x']",
+    "IfStatement[test.operator='>'][test.left.name='x'][test.right.type='UnaryExpression'][test.right.operator='-'][test.right.argument.value=37][consequent.type='ReturnStatement'][consequent.argument.callee.name='log1p']"
+  ],
+  (guard) =>
+    `ExportNamedDeclaration > VariableDeclaration[kind='const'] > VariableDeclarator[id.name='log1pexp'] > ArrowFunctionExpression.init > BlockStatement.body > ${guard}`
+)
 
 /**
  * @returns {import('eslint').Linter.Config[]}
@@ -72,6 +84,29 @@ export const scopes = () => [
     files: ["**/*.{ts,tsx,mts,cts}"],
     ignores: PLATFORM_MODULE_PATTERNS,
     rules: { "no-restricted-globals": ["error", MATH_GLOBAL, ...NUMBER_PARSING_GLOBALS, ...BROWSER_GLOBALS] }
+  },
+  {
+    name: "theoria/effect/softplus-guards",
+    files: ["packages/effect-math/src/internal/numeric/logspace.ts"],
+    rules: {
+      "no-restricted-syntax": [
+        "error",
+        ...Array.map(EFFECT_RULES, (rule) =>
+          Match.value(rule.selector).pipe(
+            Match.when("IfStatement", () => ({
+              ...rule,
+              selector: `${rule.selector}:not(${Array.join(SOFTPLUS_GUARDS, ", ")})`
+            })),
+            Match.when(String.startsWith("BinaryExpression[operator=/^"), () => ({
+              ...rule,
+              selector: `${rule.selector}:not(${
+                Array.join(Array.map(SOFTPLUS_GUARDS, (guard) => `${guard} > BinaryExpression.test`), ", ")
+              })`
+            })),
+            Match.orElse(() => rule)
+          ))
+      ]
+    }
   },
   // Authorized binary64 intrinsics and numerical extrema. Permit only their direct,
   // identically named const exports in the owning modules, not general Math
