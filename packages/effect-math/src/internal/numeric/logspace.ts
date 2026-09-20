@@ -46,19 +46,17 @@ export const log1pexp = (x: number): number => {
 }
 
 const zeroProduct = Function.constant(0)
-const logarithmicProduct = (x: number, y: number): number => Number.multiply(x, log(y))
 const logarithmicIncrementProduct = (x: number, y: number): number => Number.multiply(x, log1p(y))
-const selectLogarithmicProduct = Boolean.match({
-  onTrue: () => zeroProduct,
-  onFalse: () => logarithmicProduct
-})
 const selectLogarithmicIncrementProduct = Boolean.match({
   onTrue: () => zeroProduct,
   onFalse: () => logarithmicIncrementProduct
 })
 
 /** Computes `x * log(y)` with the conventional zero multiplier. */
-export const xlogy = (x: number, y: number): number => selectLogarithmicProduct(Number.Equivalence(x, 0))(x, y)
+export const xlogy = (x: number, y: number): number => {
+  if (Number.Equivalence(x, 0)) return 0
+  return multiply(x, log(y))
+}
 
 /** Computes `x * log(1 + y)` with the conventional zero multiplier. */
 export const xlog1py = (x: number, y: number): number =>

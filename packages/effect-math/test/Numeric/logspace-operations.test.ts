@@ -159,6 +159,23 @@ describe("Numeric log-space kernels", () => {
       closeTo(xlog1py(1, 1), 0.6931471805599453)
     }))
 
+  it.effect("keeps xlogy zero conventions separate from nonzero IEEE products", () =>
+    Effect.gen(function*() {
+      const infinity = Number.unsafeDivide(1, 0)
+      const nan = Number.unsafeDivide(0, 0)
+      yield* Effect.forEach([0, -1, infinity, Number.negate(infinity), nan], (value) =>
+        Effect.sync(() => {
+          expect(xlogy(0, value)).toBe(0)
+          expect(xlogy(-0, value)).toBe(0)
+        }))
+      expect(xlogy(-2, 1)).toBe(-0)
+      expect(xlogy(2, 1)).toBe(0)
+      expect(xlogy(-2, 0)).toBe(infinity)
+      expect(xlogy(2, 0)).toBe(Number.negate(infinity))
+      expect(xlogy(infinity, 1)).toBeNaN()
+      expect(xlogy(nan, 1)).toBeNaN()
+    }))
+
   it.effect("handles empty, singleton, shifted, and infinite log-sum-exp inputs", () =>
     Effect.gen(function*() {
       const negativeInfinity = Number.unsafeDivide(-1, 0)

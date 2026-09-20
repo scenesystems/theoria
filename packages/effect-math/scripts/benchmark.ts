@@ -244,6 +244,12 @@ const cases = Chunk.make(
   unaryCase("Numeric.log1pexp log-space", logLeft, Numeric.log1pexp),
   unaryCase("Numeric.log1pexp central", Chunk.make(-36, -10, -1, 0, 1, 10, 20, 33.25), Numeric.log1pexp),
   binaryCase("Numeric.xlogy log-space", ordinary, positive, Numeric.xlogy),
+  binaryCase(
+    "Numeric.xlogy zero multipliers",
+    Chunk.make(0, 1, -0, -1, 0, 2, -0, -2),
+    Chunk.make(0, 2, -1, 0.5, Number.unsafeDivide(-1, 0), 4, Number.unsafeDivide(0, 0), 0.25),
+    Numeric.xlogy
+  ),
   binaryCase("Numeric.xlog1py tiny", ordinary, tiny, Numeric.xlog1py),
   singleCallCase("Numeric.logSumExp reduction", () => Numeric.logSumExp(logLeft)),
   singleCallCase("Numeric.argmaxIndex Chunk", () => Option.getOrElse(Numeric.argmaxIndex(argmaxValues), () => 0)),

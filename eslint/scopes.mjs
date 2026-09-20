@@ -54,9 +54,12 @@ const SOFTPLUS_GUARDS = Array.map(
     `ExportNamedDeclaration > VariableDeclaration[kind='const'] > VariableDeclarator[id.name='log1pexp'] > ArrowFunctionExpression.init > BlockStatement.body > ${guard}`
 )
 
-/** Log-addition compares through Effect Number.Order; only its result dispatch is native. */
+/** Only the specifically authorized log-space return guards, not general control flow. */
 const LOGSPACE_GUARDS = Array.appendAll(
-  SOFTPLUS_GUARDS,
+  Array.append(
+    SOFTPLUS_GUARDS,
+    "ExportNamedDeclaration > VariableDeclaration[kind='const'] > VariableDeclarator[id.name='xlogy'] > ArrowFunctionExpression.init > BlockStatement.body > IfStatement[test.callee.object.name='Number'][test.callee.property.name='Equivalence'][test.arguments.length=2][test.arguments.0.name='x'][test.arguments.1.value=0][consequent.type='ReturnStatement'][consequent.argument.value=0]"
+  ),
   Array.map(
     [0, 1],
     (ordering) =>

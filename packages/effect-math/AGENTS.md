@@ -24,7 +24,7 @@ bun run build        # ESM + CJS + annotate-pure-calls
 All code must be idiomatic Effect. See root `AGENTS.md` for the full banned-patterns table. Key constraints:
 
 - **`Chunk<number>`** is the sole dense carrier — no `Float64Array`, no `ReadonlyArray` in public API
-- **Effect arithmetic APIs** — `Number.sum`, `Number.multiply`, `Number.subtract`, not `+`, `-`, `*`. Hot log-addition uses the direct `SemigroupSum.combine` and `SemigroupMultiply.combine` functions from `@effect/typeclass/data/Number` to avoid dual-call dispatch; these remain Effect implementations, not local arithmetic wrappers.
+- **Effect arithmetic APIs** — `Number.sum`, `Number.multiply`, `Number.subtract`, not `+`, `-`, `*`. Hot log-space operations use the direct `SemigroupSum.combine` and `SemigroupMultiply.combine` functions from `@effect/typeclass/data/Number` to avoid dual-call dispatch; these remain Effect implementations, not local arithmetic wrappers.
 - **Tagged errors** — use `Data.TaggedError` when no codec is needed and `Schema.TaggedError` when the error crosses an encoded boundary; no `throw`, no `new Error()`
 - **`Match.exhaustive`** for all dispatch — no `switch`, no `if/else` chains
 - **`Effect.filterOrFail`** for all validation — no `if` statements
@@ -35,6 +35,7 @@ All code must be idiomatic Effect. See root `AGENTS.md` for the full banned-patt
 - **Authorized engine norm:** a direct `Math.hypot` binding in `internal/numeric/binary.ts` serves complex arithmetic, matching its overflow-resistant baseline contract. `Numeric.hypot` retains its stronger correctly rounded exact-sum contract. Do not substitute the engine norm for that public API.
 - **Authorized softplus guards:** only `log1pexp` in `internal/numeric/logspace.ts` may use the native `if (x > 33.3) return x` and `if (x > -37) return log1p(exp(x))` guards. These skip negligible tail corrections and prevent exponential overflow without hot-path dispatch overhead. This does not authorize native control flow or comparisons in other operations; use Effect APIs elsewhere.
 - **Authorized log-addition guards:** only `logaddexp` in `internal/numeric/logspace.ts` may dispatch on its Effect `Number.Order(a, b)` result with `if (ordering === 0)` and `if (ordering === 1)` return guards. Equal operands include the infinite endpoints; unequal operands select the dominant log-weight without extra extrema calculations. Effect selectors were measured before permitting these guards. Arithmetic and operand comparison remain Effect-native; other native guards are not authorized.
+- **Authorized logarithmic-product guard:** only `xlogy` in `internal/numeric/logspace.ts` may use `if (Number.Equivalence(x, 0)) return 0` to preserve its zero-multiplier convention without selector dispatch. Equality and multiplication remain Effect APIs. This does not authorize native operand comparisons or additional guards.
 
 ## Flat Concern Architecture
 
