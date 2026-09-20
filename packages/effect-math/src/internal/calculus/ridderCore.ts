@@ -8,6 +8,7 @@ import { Array, Boolean, Data, Iterable, MutableRef, Number, Option, Schema } fr
 
 import type { DerivativeLimitEstimate, RidderMethodInput } from "../../Calculus.js"
 import * as Numeric from "../../Numeric.js"
+import { max, min } from "../numeric/binary.js"
 
 class NormalizedRidderConfig extends Data.Class<{
   readonly initialStep: number
@@ -132,7 +133,7 @@ const normalizeConfig = (config?: RidderMethodInput): NormalizedRidderConfig => 
 }
 
 const toleranceFor = (value: number, config: NormalizedRidderConfig): number =>
-  Number.max(config.absoluteTolerance, Number.multiply(Numeric.abs(value), config.relativeTolerance))
+  max(config.absoluteTolerance, Number.multiply(Numeric.abs(value), config.relativeTolerance))
 
 const makeEstimate = (
   value: number,
@@ -170,12 +171,12 @@ const refineRow = (
         Number.subtract(Number.multiply(current, currentFactor), previous),
         denominator
       )
-      const localError = Number.max(
+      const localError = max(
         Numeric.abs(Number.subtract(refined, current)),
         Numeric.abs(Number.subtract(refined, previous))
       )
       MutableRef.set(factor, Number.multiply(currentFactor, contractionSquared))
-      MutableRef.set(rowError, Number.min(MutableRef.get(rowError), localError))
+      MutableRef.set(rowError, min(MutableRef.get(rowError), localError))
       return refined
     }
   )
@@ -235,8 +236,11 @@ const advance = (
               const diagonal = Array.unsafeGet(refinement.row, state.depth)
               const previousDiagonal = Array.unsafeGet(state.previousRow, Number.decrement(state.depth))
               const diagonalShift = Numeric.abs(Number.subtract(diagonal, previousDiagonal))
-              const candidateError = Number.min(diagonalShift, refinement.rowError)
-              const converged = Number.lessThanOrEqualTo(candidateError, toleranceFor(diagonal, normalized))
+              const candidateError = min(diagonalShift, refinement.rowError)
+              const converged = Boolean.and(
+                isFinite(candidateError),
+                Number.lessThanOrEqualTo(candidateError, toleranceFor(diagonal, normalized))
+              )
               const candidate = makeEstimate(diagonal, candidateError, Number.increment(state.depth), converged)
               const bestCandidate = selectBetterEstimate(state.best, candidate)
               const runaway = Boolean.and(

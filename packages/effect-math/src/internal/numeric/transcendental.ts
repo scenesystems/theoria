@@ -6,12 +6,14 @@
  * @category internal
  */
 import { Boolean, Function, Match, Number, Predicate } from "effect"
+import { match } from "effect/Boolean"
+import { Equivalence, greaterThan, multiply, subtract, sum, unsafeDivide } from "effect/Number"
 
 import * as Binary from "./binary.js"
 
 const lnTwo = 0.6931471805599453
-const zero = (value: number): boolean => Number.Equivalence(value, 0)
-const positiveInfinity = (value: number): boolean => Number.Equivalence(value, Binary.positiveInfinity)
+const zero = (value: number): boolean => Equivalence(value, 0)
+const positiveInfinity = (value: number): boolean => Equivalence(value, Binary.positiveInfinity)
 
 /** Natural logarithm; logStrict retains reproducible evaluation. */
 export const log: (value: number) => number = Math.log
@@ -48,45 +50,45 @@ export const cosh: (value: number) => number = Math.cosh
 // < 2^-54, below half a spacing even at a binade boundary. That term and
 // all seven later terms of the original 24-term series round away.
 const logarithmStrictSeries = (z: number): number => {
-  const square = Number.multiply(z, z)
-  const t3 = Number.multiply(z, square)
-  const s3 = Number.sum(z, Number.unsafeDivide(t3, 3))
-  const t5 = Number.multiply(t3, square)
-  const s5 = Number.sum(s3, Number.unsafeDivide(t5, 5))
-  const t7 = Number.multiply(t5, square)
-  const s7 = Number.sum(s5, Number.unsafeDivide(t7, 7))
-  const t9 = Number.multiply(t7, square)
-  const s9 = Number.sum(s7, Number.unsafeDivide(t9, 9))
-  const t11 = Number.multiply(t9, square)
-  const s11 = Number.sum(s9, Number.unsafeDivide(t11, 11))
-  const t13 = Number.multiply(t11, square)
-  const s13 = Number.sum(s11, Number.unsafeDivide(t13, 13))
-  const t15 = Number.multiply(t13, square)
-  const s15 = Number.sum(s13, Number.unsafeDivide(t15, 15))
-  const t17 = Number.multiply(t15, square)
-  const s17 = Number.sum(s15, Number.unsafeDivide(t17, 17))
-  const t19 = Number.multiply(t17, square)
-  const s19 = Number.sum(s17, Number.unsafeDivide(t19, 19))
-  const t21 = Number.multiply(t19, square)
-  const s21 = Number.sum(s19, Number.unsafeDivide(t21, 21))
-  const t23 = Number.multiply(t21, square)
-  const s23 = Number.sum(s21, Number.unsafeDivide(t23, 23))
-  const t25 = Number.multiply(t23, square)
-  const s25 = Number.sum(s23, Number.unsafeDivide(t25, 25))
-  const t27 = Number.multiply(t25, square)
-  const s27 = Number.sum(s25, Number.unsafeDivide(t27, 27))
-  const t29 = Number.multiply(t27, square)
-  const s29 = Number.sum(s27, Number.unsafeDivide(t29, 29))
-  const t31 = Number.multiply(t29, square)
-  return Number.sum(s29, Number.unsafeDivide(t31, 31))
+  const square = multiply(z, z)
+  const t3 = multiply(z, square)
+  const s3 = sum(z, unsafeDivide(t3, 3))
+  const t5 = multiply(t3, square)
+  const s5 = sum(s3, unsafeDivide(t5, 5))
+  const t7 = multiply(t5, square)
+  const s7 = sum(s5, unsafeDivide(t7, 7))
+  const t9 = multiply(t7, square)
+  const s9 = sum(s7, unsafeDivide(t9, 9))
+  const t11 = multiply(t9, square)
+  const s11 = sum(s9, unsafeDivide(t11, 11))
+  const t13 = multiply(t11, square)
+  const s13 = sum(s11, unsafeDivide(t13, 13))
+  const t15 = multiply(t13, square)
+  const s15 = sum(s13, unsafeDivide(t15, 15))
+  const t17 = multiply(t15, square)
+  const s17 = sum(s15, unsafeDivide(t17, 17))
+  const t19 = multiply(t17, square)
+  const s19 = sum(s17, unsafeDivide(t19, 19))
+  const t21 = multiply(t19, square)
+  const s21 = sum(s19, unsafeDivide(t21, 21))
+  const t23 = multiply(t21, square)
+  const s23 = sum(s21, unsafeDivide(t23, 23))
+  const t25 = multiply(t23, square)
+  const s25 = sum(s23, unsafeDivide(t25, 25))
+  const t27 = multiply(t25, square)
+  const s27 = sum(s25, unsafeDivide(t27, 27))
+  const t29 = multiply(t27, square)
+  const s29 = sum(s27, unsafeDivide(t29, 29))
+  const t31 = multiply(t29, square)
+  return sum(s29, unsafeDivide(t31, 31))
 }
 
 const logarithmStrictFinite = Binary.withNormalized((mantissa, exponent) =>
-  Boolean.match(Number.Equivalence(mantissa, 1), {
-    onTrue: () => Number.multiply(exponent, lnTwo),
+  match(Equivalence(mantissa, 1), {
+    onTrue: () => multiply(exponent, lnTwo),
     onFalse: () => {
-      const z = Number.unsafeDivide(Number.subtract(mantissa, 1), Number.sum(mantissa, 1))
-      return Number.sum(Number.multiply(2, logarithmStrictSeries(z)), Number.multiply(exponent, lnTwo))
+      const z = unsafeDivide(subtract(mantissa, 1), sum(mantissa, 1))
+      return sum(multiply(2, logarithmStrictSeries(z)), multiply(exponent, lnTwo))
     }
   })
 )
@@ -94,7 +96,7 @@ const logarithmStrictFinite = Binary.withNormalized((mantissa, exponent) =>
 /** Reproduces the established binary64 series and normalization for seeded policies. */
 export const logStrict = Match.type<number>().pipe(
   Match.when(positiveInfinity, Function.constant(Binary.positiveInfinity)),
-  Match.when(Number.greaterThan(0), logarithmStrictFinite),
+  Match.when(greaterThan(0), logarithmStrictFinite),
   Match.when(zero, Function.constant(Binary.negativeInfinity)),
   Match.orElse(Function.constant(Binary.notANumber))
 )

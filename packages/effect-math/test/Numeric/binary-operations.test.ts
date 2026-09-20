@@ -109,6 +109,21 @@ describe("Numeric binary64 arithmetic", () => {
       expect(hypot(Chunk.make(5_464.208024978638, 5_104.779699210003))).toBe(7_477.7232576304605)
     }))
 
+  it.effect("retains exact pair fallback across scaling bounds and ties", () =>
+    Effect.gen(function*() {
+      // Exact 3-4-5 triples around 2^-450 and 2^450 verify that rejected
+      // direct certification retains underflow- and overflow-safe fallback.
+      expect(hypot(Chunk.make(2.579664425305762e-136, 3.4395525670743494e-136))).toBe(4.299440708842937e-136)
+      expect(hypot(Chunk.make(4.3610323457736413e135, 5.814709794364855e135))).toBe(7.268387242956069e135)
+
+      // m=80,000,000 and n=60,000,001 generate an exact Pythagorean
+      // hypotenuse 10,000,000,120,000,001. Scaling by 2^-53 places it
+      // exactly halfway between the asserted value and its successor; the
+      // lower neighbor has an even significand. Decimal(100) independently
+      // confirms the exact midpoint 1.110223037947832946947812615690054...
+      expect(hypot(Chunk.make(0.3108624335723674, 1.0658141214037187))).toBe(1.1102230379478328)
+    }))
+
   it.effect.prop("preserves exactly representable Pythagorean norms across binary scales", {
     m: FastCheck.integer({ min: 1, max: 1000 }),
     n: FastCheck.integer({ min: 1, max: 1000 }),

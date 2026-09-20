@@ -7,12 +7,16 @@
 import { Boolean, Data, Iterable, MutableList, MutableRef, Number, Option } from "effect"
 
 import * as Numeric from "../../Numeric.js"
+import { max } from "../numeric/binary.js"
 
 const defaultAbsoluteTolerance = 1e-10
 const defaultRelativeTolerance = 1e-10
 const defaultMaxDepth = 16
+const halve = Number.multiply(0.5)
+const divideBySix = Number.unsafeDivide(6)
+const multiplyByFour = Number.multiply(4)
 
-const midpoint = (a: number, b: number): number => Number.unsafeDivide(Number.sum(a, b), 2)
+const midpoint = (a: number, b: number): number => halve(Number.sum(a, b))
 
 const segment = (
   a: number,
@@ -22,15 +26,15 @@ const segment = (
   fb: number
 ): number =>
   Number.multiply(
-    Number.unsafeDivide(Number.subtract(b, a), 6),
-    Number.sum(Number.sum(fa, Number.multiply(4, fm)), fb)
+    divideBySix(Number.subtract(b, a)),
+    Number.sum(Number.sum(fa, multiplyByFour(fm)), fb)
   )
 
 const localTolerance = (
   estimate: number,
   absoluteTolerance: number,
   relativeTolerance: number
-): number => Number.max(absoluteTolerance, Number.multiply(relativeTolerance, Numeric.abs(estimate)))
+): number => max(absoluteTolerance, Number.multiply(relativeTolerance, Numeric.abs(estimate)))
 
 class SimpsonFrame extends Data.Class<{
   readonly a: number
@@ -123,18 +127,13 @@ export const adaptiveSimpsonIntegral = (
   relativeTolerance: number = defaultRelativeTolerance,
   maxDepth: number = defaultMaxDepth
 ): number => {
-  const normalizedDepth = Boolean.match(Numeric.isFinite(maxDepth), {
-    onTrue: () => Number.max(0, maxDepth),
-    onFalse: () => defaultMaxDepth
-  })
-
   const m = midpoint(a, b)
   const fa = f(a)
   const fm = f(m)
   const fb = f(b)
   const whole = segment(a, b, fa, fm, fb)
-  const normalizedAbsoluteTolerance = Number.max(absoluteTolerance, 5e-324)
-  const normalizedRelativeTolerance = Number.max(relativeTolerance, 5e-324)
+  const normalizedAbsoluteTolerance = max(absoluteTolerance, 5e-324)
+  const normalizedRelativeTolerance = max(relativeTolerance, 5e-324)
   const leftMid = midpoint(a, m)
   const rightMid = midpoint(m, b)
   const fLeftMid = f(leftMid)
@@ -145,44 +144,52 @@ export const adaptiveSimpsonIntegral = (
   const correction = Number.subtract(combined, whole)
   const tolerance = localTolerance(combined, normalizedAbsoluteTolerance, normalizedRelativeTolerance)
   const converged = Number.lessThanOrEqualTo(Numeric.abs(correction), Number.multiply(15, tolerance))
-  const complete = Boolean.or(Number.lessThanOrEqualTo(normalizedDepth, 0), converged)
 
-  return Boolean.match(complete, {
+  return Boolean.match(converged, {
     onTrue: () => Number.sum(combined, Number.unsafeDivide(correction, 15)),
     onFalse: () => {
-      const nextAbsolute = Number.unsafeDivide(normalizedAbsoluteTolerance, 2)
-      const nextRelative = Number.unsafeDivide(normalizedRelativeTolerance, 2)
-      const nextDepth = Number.decrement(normalizedDepth)
-      const pending = MutableList.make(
-        new SimpsonFrame({
-          a,
-          b: m,
-          fa,
-          fm: fLeftMid,
-          fb: fm,
-          whole: left,
-          absoluteTolerance: nextAbsolute,
-          relativeTolerance: nextRelative,
-          depth: nextDepth
-        }),
-        new SimpsonFrame({
-          a: m,
-          b,
-          fa: fm,
-          fm: fRightMid,
-          fb,
-          whole: right,
-          absoluteTolerance: nextAbsolute,
-          relativeTolerance: nextRelative,
-          depth: nextDepth
-        })
-      )
-      const total = MutableRef.make(0)
-      Iterable.forEach(
-        Iterable.takeWhile(Iterable.range(0), () => Boolean.not(MutableList.isEmpty(pending))),
-        () => refine(f, pending, total)
-      )
-      return MutableRef.get(total)
+      const normalizedDepth = Boolean.match(Numeric.isFinite(maxDepth), {
+        onTrue: () => max(0, maxDepth),
+        onFalse: () => defaultMaxDepth
+      })
+      return Boolean.match(Number.lessThanOrEqualTo(normalizedDepth, 0), {
+        onTrue: () => Number.sum(combined, Number.unsafeDivide(correction, 15)),
+        onFalse: () => {
+          const nextAbsolute = Number.unsafeDivide(normalizedAbsoluteTolerance, 2)
+          const nextRelative = Number.unsafeDivide(normalizedRelativeTolerance, 2)
+          const nextDepth = Number.decrement(normalizedDepth)
+          const pending = MutableList.make(
+            new SimpsonFrame({
+              a,
+              b: m,
+              fa,
+              fm: fLeftMid,
+              fb: fm,
+              whole: left,
+              absoluteTolerance: nextAbsolute,
+              relativeTolerance: nextRelative,
+              depth: nextDepth
+            }),
+            new SimpsonFrame({
+              a: m,
+              b,
+              fa: fm,
+              fm: fRightMid,
+              fb,
+              whole: right,
+              absoluteTolerance: nextAbsolute,
+              relativeTolerance: nextRelative,
+              depth: nextDepth
+            })
+          )
+          const total = MutableRef.make(0)
+          Iterable.forEach(
+            Iterable.takeWhile(Iterable.range(0), () => Boolean.not(MutableList.isEmpty(pending))),
+            () => refine(f, pending, total)
+          )
+          return MutableRef.get(total)
+        }
+      })
     }
   })
 }

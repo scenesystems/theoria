@@ -142,6 +142,43 @@ describe("Text hot-path contracts", () => {
       expect(Arr.map(Text.ranges(prepared, request), (range) => range.width)).toEqual(Arr.make(320, 320, 15))
     }))
 
+  it.effect("resumes inside a long token and crosses following segments", () =>
+    Effect.gen(function*() {
+      const prepared = yield* Text.prepareWithSegments({
+        text: String.concat(String.repeat(129)("a"), " bc"),
+        font: { family: "Mono", size: 10 },
+        whiteSpace: "normal"
+      }).pipe(Effect.provide(testLayer))
+      const request: Text.Request = { maxWidth: 330, lineHeight: 12 }
+      const resumedAt = { segmentIndex: 0, graphemeIndex: 66 }
+      const resumed = Option.getOrThrow(Text.nextLine(prepared, request, resumedAt))
+
+      expect(Tuple.getFirst(resumed)).toEqual({
+        baseDirection: "ltr",
+        index: 1,
+        order: "visual",
+        text: String.concat(String.repeat(63)("a"), " bc"),
+        width: 330
+      })
+      expect(Tuple.getSecond(resumed)).toEqual({ segmentIndex: 3, graphemeIndex: 0 })
+      expect(Text.ranges(prepared, request)).toEqual(Arr.make(
+        {
+          baseDirection: "ltr",
+          end: { segmentIndex: 0, graphemeIndex: 66 },
+          order: "visual",
+          start: { segmentIndex: 0, graphemeIndex: 0 },
+          width: 330
+        },
+        {
+          baseDirection: "ltr",
+          end: { segmentIndex: 3, graphemeIndex: 0 },
+          order: "visual",
+          start: resumedAt,
+          width: 330
+        }
+      ))
+    }))
+
   it.effect("keeps sequential paint rounding instead of adding a pre-summed text run", () =>
     Effect.gen(function*() {
       const layer = Layer.mergeAll(

@@ -13,7 +13,7 @@ import * as HashMap from "effect/HashMap"
 import * as MutableRef from "effect/MutableRef"
 
 import { SegmentKind as TextSegmentKind } from "../Text.js"
-import type { Direction, Whitespace } from "../Text.js"
+import type { Cursor, Direction, Whitespace } from "../Text.js"
 import type { TextDirection } from "./analysis.js"
 import type { VisualOrderUnit } from "./bidi.js"
 import { BreakOpportunity as HyphenatedBreakOpportunity } from "./hyphenation.js"
@@ -79,6 +79,7 @@ export class RuntimeSegment extends Data.Class<{
   readonly breakableFitAdvances: IndexedWidthValues
   readonly chunkEndSegmentIndex: number
   readonly fitAdvance: number
+  readonly nextSegmentCursor: Cursor
   readonly paintAdvance: number
   readonly visualOrderUnits: ReadonlyArray<VisualOrderUnit>
 }> {}

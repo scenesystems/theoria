@@ -1,7 +1,7 @@
 import { describe, expect, it } from "@effect/vitest"
 import { Array, Effect, Number, Tuple } from "effect"
 
-import { abs, exp } from "../../src/Numeric.js"
+import { abs, exp, expm1 } from "../../src/Numeric.js"
 import * as Policy from "../../src/Policy.js"
 import {
   betainc,
@@ -115,6 +115,20 @@ describe("Special / gammainc", () => {
       expectClose(gammainc(1, 1), Number.subtract(1, exp(-1)), kernelTolerance)
     }))
 
+  it.effect("converges through the series for an integer-shape closed form", () =>
+    Effect.gen(function*() {
+      // P(2, x) = 1 - exp(-x)(1 + x).
+      const expected = Number.subtract(1, Number.multiply(exp(-1), 2))
+      expectClose(gammainc(2, 1), expected, 1e-14)
+    }))
+
+  it.effect("preserves a tiny lower tail after the fixed series prefix", () =>
+    Effect.gen(function*() {
+      // P(1, x) = 1 - exp(-x), evaluated without cancellation.
+      const x = 1e-12
+      expectClose(gammainc(1, x), Number.negate(expm1(Number.negate(x))), 4e-27)
+    }))
+
   it.effect("gammainc(0.5, 1) ≈ 0.8427", () =>
     Effect.gen(function*() {
       expectClose(gammainc(0.5, 1), 0.8427007929497151, kernelTolerance)
@@ -136,6 +150,12 @@ describe("Special / gammaincc", () => {
     Effect.gen(function*() {
       // Q(2, x) = exp(-x)(1 + x), an exact finite-sum reference.
       expectClose(gammaincc(2, 40), Number.multiply(exp(-40), 41), 1e-29)
+    }))
+
+  it.effect("converges through the continued fraction at the region boundary", () =>
+    Effect.gen(function*() {
+      // x = a + 1 selects the continued fraction; Q(2, x) = exp(-x)(1 + x).
+      expectClose(gammaincc(2, 3), Number.multiply(exp(-3), 4), 1e-14)
     }))
 
   it.effect("gammainc(a, x) + gammaincc(a, x) ≈ 1", () =>

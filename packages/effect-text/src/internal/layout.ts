@@ -8,7 +8,6 @@ import { Boolean, Chunk, Data, Match, Number, Option, Order, Schema, String, Tup
 import * as Arr from "effect/Array"
 import * as HashMap from "effect/HashMap"
 import * as Iterable from "effect/Iterable"
-import * as MutableList from "effect/MutableList"
 import * as MutableRef from "effect/MutableRef"
 
 import type * as Text from "../Text.js"
@@ -89,13 +88,13 @@ const resolveTabAdvance = (currentWidth: number, tabStopAdvance: number): number
     onFalse: () => {
       const quotient = Number.unsafeDivide(currentWidth, tabStopAdvance)
       const stopIndex = Numeric.floor(quotient)
-      const nextStopIndex = Boolean.match(Number.Equivalence(quotient, stopIndex), {
+      const adjacentBelowStop = Boolean.and(
+        Number.Equivalence(quotient, stopIndex),
+        Number.lessThan(currentWidth, Number.multiply(tabStopAdvance, stopIndex))
+      )
+      const nextStopIndex = Boolean.match(adjacentBelowStop, {
         onFalse: () => Number.increment(stopIndex),
-        onTrue: () =>
-          Boolean.match(Number.lessThan(currentWidth, Number.multiply(tabStopAdvance, stopIndex)), {
-            onFalse: () => Number.increment(stopIndex),
-            onTrue: () => stopIndex
-          })
+        onTrue: () => stopIndex
       })
 
       return Number.subtract(Number.multiply(tabStopAdvance, nextStopIndex), currentWidth)
@@ -116,7 +115,7 @@ const advanceCursorForSegment = (segment: Prepared.RuntimeSegment, cursor: Text.
   )
 
   return Boolean.match(remainsInSegment, {
-    onFalse: () => cursorAt(Number.increment(cursor.segmentIndex)),
+    onFalse: () => segment.nextSegmentCursor,
     onTrue: () => cursorAt(cursor.segmentIndex, Number.increment(cursor.graphemeIndex))
   })
 }
@@ -492,26 +491,16 @@ const appendPendingWhitespace = (
       MutableRef.set(state.pendingPaintWidth, Number.sum(pendingPaintWidth, segment.paintAdvance))
     },
     onTrue: () => {
-      MutableRef.set(
-        state.pendingFitWidth,
-        Number.sum(
-          pendingFitWidth,
-          resolveTabAdvance(
-            Number.sum(MutableRef.get(state.fitWidth), pendingFitWidth),
-            kernel.runtime.tabStopAdvance
-          )
-        )
-      )
-      MutableRef.set(
-        state.pendingPaintWidth,
-        Number.sum(
-          pendingPaintWidth,
-          resolveTabAdvance(
-            Number.sum(MutableRef.get(state.paintWidth), pendingPaintWidth),
-            kernel.runtime.tabStopAdvance
-          )
-        )
-      )
+      const currentFitWidth = Number.sum(MutableRef.get(state.fitWidth), pendingFitWidth)
+      const currentPaintWidth = Number.sum(MutableRef.get(state.paintWidth), pendingPaintWidth)
+      const fitAdvance = resolveTabAdvance(currentFitWidth, kernel.runtime.tabStopAdvance)
+      const paintAdvance = Boolean.match(Number.Equivalence(currentFitWidth, currentPaintWidth), {
+        onFalse: () => resolveTabAdvance(currentPaintWidth, kernel.runtime.tabStopAdvance),
+        onTrue: () => fitAdvance
+      })
+
+      MutableRef.set(state.pendingFitWidth, Number.sum(pendingFitWidth, fitAdvance))
+      MutableRef.set(state.pendingPaintWidth, Number.sum(pendingPaintWidth, paintAdvance))
     }
   })
   MutableRef.update(state.pendingStart, Option.orElse(() => Option.some(currentCursor)))
@@ -769,7 +758,7 @@ const advanceTextInterior = (
       onFalse: () => true,
       onTrue: () => {
         const width = Number.sum(
-          Number.sum(MutableRef.get(scan.fitWidth), 0),
+          MutableRef.get(scan.fitWidth),
           Arr.unsafeGet(segment.breakableFitAdvances, current)
         )
         return Boolean.match(Number.lessThanOrEqualTo(width, MutableRef.get(frame.fitLimit)), {
@@ -779,7 +768,7 @@ const advanceTextInterior = (
             MutableRef.set(
               scan.paintWidth,
               Number.sum(
-                Number.sum(MutableRef.get(scan.paintWidth), 0),
+                MutableRef.get(scan.paintWidth),
                 Arr.unsafeGet(segment.breakableGraphemeWidths, current)
               )
             )
@@ -816,14 +805,10 @@ const scanLineRecord = (
   kernel: Prepared.Kernel,
   frame: LineWalkFrame
 ): Option.Option<InternalLineRecord> => {
-  const advance = Boolean.match({
-    onFalse: () => {
-      advanceLineFrame(kernel, frame, MutableRef.get(frame.cursor))
-      return false
-    },
-    onTrue: () => true
-  })
-  const visit = () => advance(lineFrameIsComplete(frame, MutableRef.get(frame.cursor)))
+  const visit = () => {
+    advanceLineFrame(kernel, frame, MutableRef.get(frame.cursor))
+    return lineFrameIsComplete(frame, MutableRef.get(frame.cursor))
+  }
   Boolean.match(Arr.some(lineWalkBatch, visit), {
     onTrue: () => true,
     onFalse: () => Iterable.some(Iterable.range(0), () => Arr.some(lineWalkBatch, visit))
@@ -906,16 +891,32 @@ const walkLineValues = <A>(
   lineIndex: number = 0,
   cursor: Text.Cursor = cursorAt(0)
 ): ReadonlyArray<A> => {
-  const values = MutableList.empty<A>()
-  forEachLineRecord(
-    kernel,
-    maxWidthAtLine,
-    (record, currentLineIndex) => MutableList.append(values, project(record, currentLineIndex)),
-    lineIndex,
-    cursor
-  )
+  const walkFrame = initialLineWalkFrame(cursor)
 
-  return Arr.fromIterable(values)
+  return Arr.unfold(
+    lineIndex,
+    (currentLineIndex) =>
+      Boolean.match(Number.greaterThanOrEqualTo(MutableRef.get(walkFrame.cursor).segmentIndex, segmentCount(kernel)), {
+        onFalse: () => {
+          const currentCursor = MutableRef.get(walkFrame.cursor)
+          resetLineScanState(walkFrame.scan, currentCursor)
+          MutableRef.set(walkFrame.record, Option.none())
+          MutableRef.set(
+            walkFrame.fitLimit,
+            Number.sum(maxWidthAtLine(currentLineIndex), kernel.lineFitEpsilon)
+          )
+          MutableRef.set(walkFrame.segmentLimit, segmentLimitForCursor(kernel, currentCursor))
+
+          return scanLineRecord(kernel, walkFrame).pipe(
+            Option.map((record) => {
+              MutableRef.set(walkFrame.cursor, record.nextCursor)
+              return Tuple.make(project(record, currentLineIndex), Number.increment(currentLineIndex))
+            })
+          )
+        },
+        onTrue: () => Option.none()
+      })
+  )
 }
 
 const fallbackLevelForDirection: (direction: Text.Direction) => number = Match.type<Text.Direction>().pipe(

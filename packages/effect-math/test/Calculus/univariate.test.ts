@@ -96,6 +96,21 @@ describe("Calculus / univariate limit operators", () => {
       expect(MutableRef.get(evaluations)).toBe(32)
     }))
 
+  it.effect("does not report convergence when extrapolation overflows a finite derivative", () =>
+    Effect.gen(function*() {
+      const estimate = derivativeLimit((x) => Number.multiply(x, 1e308), 0, {
+        initialStep: Numeric.StepSize.make(0.125),
+        contractionFactor: 2,
+        maxIterations: Numeric.IterationBudget.make(4)
+      })
+      // The central differences are finite; multiplying them by the
+      // extrapolation factor overflows. Keep the finite initial estimate
+      // without treating a NaN error bound as a convergence certificate.
+      expect(estimate.value).toBe(1e308)
+      expect(estimate.absoluteError).toBe(Number.unsafeDivide(1, 0))
+      expect(estimate.converged).toBe(false)
+    }))
+
   it.effect("secondDerivativeLimit converges for exp(x) at x=1", () =>
     Effect.gen(function*() {
       const estimate = secondDerivativeLimit(Numeric.exp, 1)

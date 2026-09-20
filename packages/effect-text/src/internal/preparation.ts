@@ -544,6 +544,7 @@ const lineChunksFor = (segments: Prepared.Segments): Prepared.LineChunks => {
 
 const compileRuntimeSegment = (
   segment: Prepared.Segment,
+  segmentIndex: number,
   chunkEndSegmentIndex: number,
   whiteSpace: Text.Whitespace
 ): Prepared.RuntimeSegment => {
@@ -576,6 +577,7 @@ const compileRuntimeSegment = (
       })),
     chunkEndSegmentIndex,
     fitAdvance: segment.fitWidth,
+    nextSegmentCursor: { graphemeIndex: 0, segmentIndex: Number.increment(segmentIndex) },
     paintAdvance: segment.width,
     visualOrderUnits
   })
@@ -595,7 +597,8 @@ const compileKernelRuntime = (
     ))
   const runtimeSegments: Prepared.RuntimeSegments = Arr.map(
     Chunk.toReadonlyArray(segments),
-    (segment, index) => compileRuntimeSegment(segment, Chunk.unsafeGet(chunkEndSegmentIndices, index), whiteSpace)
+    (segment, index) =>
+      compileRuntimeSegment(segment, index, Chunk.unsafeGet(chunkEndSegmentIndices, index), whiteSpace)
   )
 
   return new Prepared.RuntimeTables({

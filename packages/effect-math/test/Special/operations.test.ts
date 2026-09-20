@@ -12,6 +12,7 @@ import {
   digammaWithPolicies,
   erf,
   erfc,
+  erfcinv,
   erfcValidated,
   erfcWithPolicies,
   erfValidated,
@@ -44,6 +45,9 @@ const erfBoundaryTolerance = 2e-15
 
 const expectClose = (actual: number, expected: number, tolerance: number) =>
   expect(abs(Number.subtract(actual, expected))).toBeLessThanOrEqual(tolerance)
+
+const expectRelativeClose = (actual: number, expected: number, tolerance: number) =>
+  expect(abs(Number.unsafeDivide(Number.subtract(actual, expected), expected))).toBeLessThanOrEqual(tolerance)
 
 // ---------------------------------------------------------------------------
 // Pure kernel operations — gamma
@@ -162,6 +166,17 @@ describe("Special / erf", () => {
       expectClose(erf(6), 1, erfBoundaryTolerance)
     }))
 
+  it.effect("matches independent references around the Cephes region boundaries", () =>
+    Effect.gen(function*() {
+      // SciPy special.erf evaluated at the adjacent binary64 values around 1 and 8.
+      expectClose(erf(0.9999999999999999), 0.8427007929497148, erfBoundaryTolerance)
+      expectClose(erf(1), 0.8427007929497148, erfBoundaryTolerance)
+      expectClose(erf(1.0000000000000002), 0.842700792949715, erfBoundaryTolerance)
+      expect(erf(7.999999999999999)).toBe(1)
+      expect(erf(8)).toBe(1)
+      expect(erf(8.000000000000002)).toBe(1)
+    }))
+
   it.effect("preserves exact tiny values and special-value behavior", () =>
     Effect.gen(function*() {
       expect(erf(0)).toBe(0)
@@ -195,6 +210,36 @@ describe("Special / erfc", () => {
       expectClose(erfc(1.25), 0.07709987174354177, erfBoundaryTolerance)
       expectClose(erfc(largeSplit), 5.3312311388322815e-5, erfBoundaryTolerance)
       expectClose(erfc(6), 2.1519736712498913e-17, 1e-30)
+    }))
+
+  it.effect("matches independent references around the Cephes region boundaries", () =>
+    Effect.gen(function*() {
+      // SciPy special.erfc evaluated at the adjacent binary64 values around 1 and 8.
+      expectClose(erfc(0.9999999999999999), 0.15729920705028522, erfBoundaryTolerance)
+      expectClose(erfc(1), 0.15729920705028516, erfBoundaryTolerance)
+      expectClose(erfc(1.0000000000000002), 0.15729920705028502, erfBoundaryTolerance)
+      expectRelativeClose(erfc(7.999999999999999), 1.1224297172983089e-29, 3e-14)
+      expectRelativeClose(erfc(8), 1.1224297172982928e-29, 3e-14)
+      expectRelativeClose(erfc(8.000000000000002), 1.1224297172982608e-29, 3e-14)
+    }))
+
+  it.effect("retains independently computed extreme-tail probabilities", () =>
+    Effect.gen(function*() {
+      // 100-digit mpmath erfc references rounded to binary64.
+      expectRelativeClose(erfc(20), 5.395865611607901e-176, 3e-14)
+      expectRelativeClose(erfc(26), 5.663192408856143e-296, 3e-14)
+      expectRelativeClose(erfc(26.5), 2.2109076642637343e-307, 3e-14)
+      expect(erfc(27)).toBe(5.23705e-319)
+      expect(erfc(27.2)).toBe(1e-323)
+      expect(erfc(27.25)).toBe(0)
+    }))
+
+  it.effect("round-trips inverse complementary-error tail probabilities", () =>
+    Effect.gen(function*() {
+      expectRelativeClose(erfc(erfcinv(1e-20)), 1e-20, 8e-14)
+      expectRelativeClose(erfc(erfcinv(1e-100)), 1e-100, 8e-14)
+      expectRelativeClose(erfc(erfcinv(1e-300)), 1e-300, 8e-14)
+      expect(erfc(erfcinv(5e-324))).toBe(5e-324)
     }))
 
   it.effect("preserves signed zero, NaN, and infinity behavior", () =>

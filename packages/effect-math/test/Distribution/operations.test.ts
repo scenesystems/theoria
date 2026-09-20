@@ -196,6 +196,21 @@ describe("Distribution / betaCdf", () => {
       expect(betaCdf(0.5, 2, 2)).toBeCloseTo(0.5)
     }))
 
+  it.effect("matches closed-form power CDFs across the continued-fraction symmetry boundary", () =>
+    Effect.gen(function*() {
+      // I_x(a,1)=x^a and I_x(1,b)=1-(1-x)^b independently cover both
+      // orientations of the incomplete-beta continued fraction.
+      Array.forEach(Array.make(0.125, 0.5, 0.875), (x) => {
+        expectRelativeClose(betaCdf(x, 4, 1), exp(Number.multiply(4, log(x))), 0, 2e-14)
+        expectRelativeClose(
+          betaCdf(x, 1, 4),
+          Number.negate(expm1(Number.multiply(4, log1p(Number.negate(x))))),
+          0,
+          2e-14
+        )
+      })
+    }))
+
   it.effect("preserves NaN outside Number ordering", () =>
     Effect.gen(function*() {
       expect(isNaN(betaPdf(NaN, 2, 2))).toStrictEqual(true)
@@ -306,6 +321,12 @@ describe("Distribution / gamma boundaries and quantiles", () => {
       expectRelativeClose(gammaQuantile(0.999999, 2, 3), 50.06526237248832, 1e-10, 2e-10)
       expectRelativeClose(gammaQuantile(0.999999999, 40, 0.2), 18.048015832241045, 1e-10, 2e-9)
       expectRelativeClose(gammaQuantile(0.25, 80, 4), 295.1975963980082, 1e-10, 2e-10)
+    }))
+
+  it.effect("resolves the smallest representable shape-two lower-tail quantile", () =>
+    Effect.gen(function*() {
+      // scipy.stats.gamma.ppf(5e-324, 2), independently evaluated by SciPy 1.17.1.
+      expectRelativeClose(gammaQuantile(5e-324, 2, 1), 3.1434555694052576e-162, 0, 8e-14)
     }))
 
   it.effect("matches exponential reference quantiles at shape one, including both tails", () =>

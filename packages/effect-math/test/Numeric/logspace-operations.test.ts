@@ -74,6 +74,27 @@ describe("Numeric log-space kernels", () => {
       closeTo(log1pexp(-40), 4.248354255291589e-18)
     }))
 
+  it.effect("keeps softplus finite across exponential overflow and handles IEEE endpoints", () =>
+    Effect.gen(function*() {
+      const infinity = Number.unsafeDivide(1, 0)
+      expect(log1pexp(1_000)).toBe(1_000)
+      expect(log1pexp(-1_000)).toBe(0)
+      expect(log1pexp(infinity)).toBe(infinity)
+      expect(log1pexp(Number.negate(infinity))).toBe(0)
+      expect(log1pexp(Number.unsafeDivide(0, 0))).toBeNaN()
+      expect(log1pexp(1)).toBeCloseTo(1.3132616875182228, 15)
+      expect(log1pexp(-1)).toBeCloseTo(0.31326168751822286, 15)
+      expect(logaddexp(Number.negate(infinity), Number.negate(infinity))).toBe(Number.negate(infinity))
+    }))
+
+  it.effect.prop("preserves the softplus reflection identity across its finite domain", {
+    value: FastCheck.double({ min: -700, max: 700, noNaN: true, noDefaultInfinity: true })
+  }, ({ value }) =>
+    Effect.sync(() => {
+      expect(abs(Number.subtract(Number.subtract(log1pexp(value), log1pexp(Number.negate(value))), value)))
+        .toBeLessThanOrEqual(2e-13)
+    }))
+
   it.effect("honors zero-multiplier conventions without masking nonzero domain errors", () =>
     Effect.gen(function*() {
       expect(xlogy(0, 0)).toBe(0)

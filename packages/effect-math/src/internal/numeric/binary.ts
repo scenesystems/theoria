@@ -69,6 +69,10 @@ export const integerPower = (base: bigint, exponent: number): bigint =>
 /** Magnitude with positive zero, and NaN propagation. */
 export const abs: (value: number) => number = Math.abs
 
+/** IEEE extrema for numerical error bounds, including NaN propagation. */
+export const min: (left: number, right: number) => number = Math.min
+export const max: (left: number, right: number) => number = Math.max
+
 /** Real-valued power including signed-zero, negative-base, and infinity rules. */
 export const pow: (base: number, exponent: number) => number = Math.pow
 
@@ -381,12 +385,13 @@ const normResidual = (sum: readonly [number, number], root: number): number => {
   return Number.sum(Number.subtract(Number.subtract(sum[0], product), squareError(root, product)), sum[1])
 }
 
+const exactIntegerSum = Number.lessThanOrEqualTo(maxSafeInteger)
+
 // Short significands can share an exact integer lattice. Split the square's
 // bit budget between precision and headroom above the first nonzero value.
 // The per-term checks, not that scale estimate, certify exact arithmetic.
 // Integer squares and positive partial sums <= 2^53-1 are exact. Scaling the
 // correctly rounded root back by a power of two is exact for normal results.
-const exactIntegerSum = Number.lessThanOrEqualTo(maxSafeInteger)
 const hypotIntegral = (values: Chunk.Chunk<number>, exponent: number): Option.Option<number> => {
   const bits = floor(Number.unsafeDivide(Number.subtract(53, ceil(log2(Chunk.size(values)))), 4))
   const scale = pow(2, Number.subtract(Number.decrement(bits), exponent))
@@ -542,6 +547,47 @@ export const hypot = (values: Chunk.Chunk<number>): number =>
     onSome: (first) =>
       Boolean.match(isFinite(first), {
         onFalse: () => hypotExact(values),
-        onTrue: () => Option.getOrElse(hypotIntegral(values, floor(log2(abs(first)))), () => hypotFloating(values))
+        onTrue: () =>
+          Boolean.match(Number.Equivalence(Chunk.size(values), 2), {
+            onFalse: () =>
+              Option.getOrElse(hypotIntegral(values, floor(log2(abs(first)))), () => hypotFloating(values)),
+            onTrue: () => {
+              // A fixed 12-bit fractional lattice covers ordinary pairs
+              // without normalization or mutable accumulation. Round trips
+              // and the 53-bit sum bound certify exact squares and summation.
+              const left = Chunk.unsafeGet(values, 0)
+              const right = Chunk.unsafeGet(values, 1)
+              const leftScaled = Number.multiply(left, 4096)
+              const rightScaled = Number.multiply(right, 4096)
+              const total = Number.sum(
+                Number.multiply(leftScaled, leftScaled),
+                Number.multiply(rightScaled, rightScaled)
+              )
+              const result = Number.unsafeDivide(sqrt(total), 4096)
+              return Boolean.match(
+                Boolean.and(
+                  Boolean.and(
+                    Number.Equivalence(leftScaled, floor(leftScaled)),
+                    Number.Equivalence(rightScaled, floor(rightScaled))
+                  ),
+                  Boolean.and(
+                    Boolean.and(
+                      Number.Equivalence(Number.unsafeDivide(leftScaled, 4096), left),
+                      Number.Equivalence(Number.unsafeDivide(rightScaled, 4096), right)
+                    ),
+                    exactIntegerSum(total)
+                  )
+                ),
+                {
+                  onTrue: () => result,
+                  onFalse: () =>
+                    Option.getOrElse(
+                      hypotIntegral(values, floor(log2(abs(first)))),
+                      () => hypotFloating(values)
+                    )
+                }
+              )
+            }
+          })
       })
   })
