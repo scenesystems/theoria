@@ -43,9 +43,39 @@ describe("Numeric log-space kernels", () => {
     Effect.gen(function*() {
       closeTo(logaddexp(1, 1), 1.6931471805599454)
       closeTo(logaddexp(1_000, 999), 1000.3132616875182)
+      // NumPy logaddexp in longdouble, rounded to binary64; either operand can dominate.
+      closeTo(logaddexp(-1_000, -999), -998.6867383124818)
+      closeTo(logaddexp(-999, -1_000), -998.6867383124818)
       expect(logaddexp(5, Number.unsafeDivide(-1, 0))).toBe(5)
       expect(logaddexp(Number.unsafeDivide(1, 0), Number.unsafeDivide(1, 0))).toBe(Number.unsafeDivide(1, 0))
       expect(logaddexp(Number.unsafeDivide(1, 0), Number.unsafeDivide(0, 0))).toBeNaN()
+    }))
+
+  it.effect("preserves log-addition tails and IEEE endpoints in either operand order", () =>
+    Effect.gen(function*() {
+      const infinity = Number.unsafeDivide(1, 0)
+      const negativeInfinity = Number.negate(infinity)
+      const nan = Number.unsafeDivide(0, 0)
+      yield* Effect.forEach([
+        // NumPy logaddexp in longdouble, rounded to binary64. A direct
+        // logarithm of the exponential sum would lose this small correction.
+        { a: 0, b: -40, expected: 4.248354255291589e-18 },
+        { a: -0, b: 0, expected: 0.6931471805599453 },
+        { a: 1e308, b: -1e308, expected: 1e308 },
+        { a: infinity, b: -5, expected: infinity },
+        { a: negativeInfinity, b: -5, expected: -5 },
+        { a: infinity, b: negativeInfinity, expected: infinity },
+        { a: negativeInfinity, b: negativeInfinity, expected: negativeInfinity }
+      ], ({ a, b, expected }) =>
+        Effect.sync(() => {
+          expect(logaddexp(a, b)).toBe(expected)
+          expect(logaddexp(b, a)).toBe(expected)
+        }))
+      yield* Effect.forEach([0, -1_000, infinity, negativeInfinity, nan], (value) =>
+        Effect.sync(() => {
+          expect(logaddexp(nan, value)).toBeNaN()
+          expect(logaddexp(value, nan)).toBeNaN()
+        }))
     }))
 
   it.effect("subtracts only inside the strict positive-difference domain", () =>

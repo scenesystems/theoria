@@ -65,6 +65,9 @@
     "build": "bun run build-esm && bun run build-annotate && bun run build-cjs && build-utils pack-v3",
     "clean": "rm -rf build dist .tsbuildinfo"
   },
+  "dependencies": {
+    "@effect/typeclass": "0.41.0"
+  },
   "peerDependencies": {
     "effect": "^3.22.1"
   }

@@ -232,6 +232,13 @@ const cases = Chunk.make(
   unaryCase("Numeric.cosh ordinary", moderate, Numeric.cosh),
   singleCallCase("Numeric.sum reduction", () => Numeric.sum(sumValues)),
   binaryCase("Numeric.logaddexp log-space", logLeft, logRight, Numeric.logaddexp),
+  binaryCase("Numeric.logaddexp equal weights", logLeft, logLeft, Numeric.logaddexp),
+  binaryCase(
+    "Numeric.logaddexp separated weights",
+    logLeft,
+    Chunk.make(-2_000, -200, -1_000, -40, -1, 100, 1_000, 10),
+    Numeric.logaddexp
+  ),
   binaryCase("Numeric.logsubexp log-space", logSubLeft, logRight, Numeric.logsubexp),
   unaryCase("Numeric.log1mexp log-space", Chunk.make(-100, -10, -2, -1, -0.5, -0.01), Numeric.log1mexp),
   unaryCase("Numeric.log1pexp log-space", logLeft, Numeric.log1pexp),

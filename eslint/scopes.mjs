@@ -54,6 +54,16 @@ const SOFTPLUS_GUARDS = Array.map(
     `ExportNamedDeclaration > VariableDeclaration[kind='const'] > VariableDeclarator[id.name='log1pexp'] > ArrowFunctionExpression.init > BlockStatement.body > ${guard}`
 )
 
+/** Log-addition compares through Effect Number.Order; only its result dispatch is native. */
+const LOGSPACE_GUARDS = Array.appendAll(
+  SOFTPLUS_GUARDS,
+  Array.map(
+    [0, 1],
+    (ordering) =>
+      `ExportNamedDeclaration > VariableDeclaration[kind='const'] > VariableDeclarator[id.name='logaddexp'] > ArrowFunctionExpression.init > BlockStatement.body > IfStatement[test.operator='==='][test.left.name='ordering'][test.right.value=${ordering}][consequent.type='ReturnStatement'][consequent.argument.callee.name='sum']`
+  )
+)
+
 /**
  * @returns {import('eslint').Linter.Config[]}
  */
@@ -86,7 +96,7 @@ export const scopes = () => [
     rules: { "no-restricted-globals": ["error", MATH_GLOBAL, ...NUMBER_PARSING_GLOBALS, ...BROWSER_GLOBALS] }
   },
   {
-    name: "theoria/effect/softplus-guards",
+    name: "theoria/effect/logspace-guards",
     files: ["packages/effect-math/src/internal/numeric/logspace.ts"],
     rules: {
       "no-restricted-syntax": [
@@ -95,12 +105,12 @@ export const scopes = () => [
           Match.value(rule.selector).pipe(
             Match.when("IfStatement", () => ({
               ...rule,
-              selector: `${rule.selector}:not(${Array.join(SOFTPLUS_GUARDS, ", ")})`
+              selector: `${rule.selector}:not(${Array.join(LOGSPACE_GUARDS, ", ")})`
             })),
             Match.when(String.startsWith("BinaryExpression[operator=/^"), () => ({
               ...rule,
               selector: `${rule.selector}:not(${
-                Array.join(Array.map(SOFTPLUS_GUARDS, (guard) => `${guard} > BinaryExpression.test`), ", ")
+                Array.join(Array.map(LOGSPACE_GUARDS, (guard) => `${guard} > BinaryExpression.test`), ", ")
               })`
             })),
             Match.orElse(() => rule)

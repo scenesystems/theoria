@@ -4,21 +4,23 @@
  * @since 0.1.0
  * @category internal
  */
+import { SemigroupMultiply, SemigroupSum } from "@effect/typeclass/data/Number"
 import { Boolean, Function, Number } from "effect"
 
-import * as Binary from "./binary.js"
 import { exp, expm1, log, log1p } from "./transcendental.js"
 
+const sum = SemigroupSum.combine
+const multiply = SemigroupMultiply.combine
 const lnTwo = 0.6931471805599453
 const belowNegativeLnTwo = Number.lessThan(Number.negate(lnTwo))
 
-const equalLogWeights = (a: number, _b: number): number => Number.sum(a, lnTwo)
-const unequalLogWeights = (a: number, b: number): number =>
-  Number.sum(Binary.max(a, b), log1p(exp(Number.negate(Binary.abs(Number.subtract(a, b))))))
-const selectLogWeights = Boolean.match({ onTrue: () => equalLogWeights, onFalse: () => unequalLogWeights })
-
 /** Computes `log(exp(a) + exp(b))` without materializing large exponentials. */
-export const logaddexp = (a: number, b: number): number => selectLogWeights(Number.Equivalence(a, b))(a, b)
+export const logaddexp = (a: number, b: number): number => {
+  const ordering = Number.Order(a, b)
+  if (ordering === 0) return sum(a, lnTwo)
+  if (ordering === 1) return sum(a, log1p(exp(sum(b, multiply(a, -1)))))
+  return sum(b, log1p(exp(sum(a, multiply(b, -1)))))
+}
 
 /** Computes `log(exp(a) - exp(b))`; returns NaN outside the strict `a > b` domain. */
 export const logsubexp = (a: number, b: number): number => Number.sum(a, log1mexp(Number.subtract(b, a)))
