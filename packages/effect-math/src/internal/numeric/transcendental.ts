@@ -5,7 +5,7 @@
  * @since 0.1.0
  * @category internal
  */
-import { Boolean, Match, Number, Predicate } from "effect"
+import { Boolean, Function, Match, Number, Predicate } from "effect"
 
 import * as Binary from "./binary.js"
 
@@ -81,26 +81,24 @@ const logarithmStrictSeries = (z: number): number => {
   return Number.sum(s29, Number.unsafeDivide(t31, 31))
 }
 
-/** Reproduces the established binary64 series and normalization for seeded policies. */
-export const logStrict = (value: number): number =>
-  Boolean.match(Number.greaterThan(value, 0), {
-    onTrue: () =>
-      Boolean.match(positiveInfinity(value), {
-        onTrue: () => Binary.positiveInfinity,
-        onFalse: () => {
-          const [mantissa, exponent] = Binary.normalize(value)
-          return Boolean.match(Number.Equivalence(mantissa, 1), {
-            onTrue: () => Number.multiply(exponent, lnTwo),
-            onFalse: () => {
-              const z = Number.unsafeDivide(Number.subtract(mantissa, 1), Number.sum(mantissa, 1))
-              return Number.sum(Number.multiply(2, logarithmStrictSeries(z)), Number.multiply(exponent, lnTwo))
-            }
-          })
-        }
-      }),
-    onFalse: () =>
-      Boolean.match(zero(value), { onTrue: () => Binary.negativeInfinity, onFalse: () => Binary.notANumber })
+const logarithmStrictFinite = (value: number): number => {
+  const [mantissa, exponent] = Binary.normalize(value)
+  return Boolean.match(Number.Equivalence(mantissa, 1), {
+    onTrue: () => Number.multiply(exponent, lnTwo),
+    onFalse: () => {
+      const z = Number.unsafeDivide(Number.subtract(mantissa, 1), Number.sum(mantissa, 1))
+      return Number.sum(Number.multiply(2, logarithmStrictSeries(z)), Number.multiply(exponent, lnTwo))
+    }
   })
+}
+
+/** Reproduces the established binary64 series and normalization for seeded policies. */
+export const logStrict = Match.type<number>().pipe(
+  Match.when(positiveInfinity, Function.constant(Binary.positiveInfinity)),
+  Match.when(Number.greaterThan(0), logarithmStrictFinite),
+  Match.when(zero, Function.constant(Binary.negativeInfinity)),
+  Match.orElse(Function.constant(Binary.notANumber))
+)
 
 // Adapted from OpenLibm's fdlibm s_log1p.c and s_expm1.c.
 // https://github.com/JuliaMath/openlibm/tree/master/src

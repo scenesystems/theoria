@@ -1,5 +1,5 @@
 import { describe, expect, it } from "@effect/vitest"
-import { Effect, Layer, Number, String } from "effect"
+import { Effect, Layer, Match, Number, String } from "effect"
 import * as Arr from "effect/Array"
 
 import * as MeasurementCache from "../../src/MeasurementCache.js"
@@ -94,6 +94,41 @@ describe("Text breaking contracts", () => {
         visualLine(0, "alphab", 30),
         visualLine(1, "et", 10),
         visualLine(2, "a\tb", 25)
+      ))
+    }))
+
+  it.effect("aligns fractional tabs independently when kerning separates fit and paint widths", () =>
+    Effect.gen(function*() {
+      const measurer = Layer.succeed(TextMeasurer.TextMeasurer, {
+        measure: (_font, text: string) =>
+          Effect.succeed(
+            Match.value(text).pipe(
+              Match.when(" ", () => 5.125),
+              Match.when("ab", () => 14),
+              Match.orElse((value) => Number.multiply(String.length(value), 7.25))
+            )
+          )
+      })
+      const prepared = yield* Text.prepareWithSegments({
+        text: "ab\tc",
+        font: { family: "Mono", size: 10 },
+        whiteSpace: "pre-wrap"
+      }).pipe(Effect.provide(Layer.mergeAll(
+        Text.layerSegmenter,
+        Text.layerProfile,
+        MeasurementCache.layer.pipe(Layer.provide(measurer))
+      )))
+
+      // The tab stop is 20.5. Kerning gives fit width 14 but paint width 14.5;
+      // their advances must differ so both reach the same stop before c.
+      expect(Text.lines(prepared, { maxWidth: 27.75, lineHeight: 12 })).toEqual(Arr.of(
+        visualLine(0, "ab\tc", 27.75)
+      ))
+      // Pre-wrap carries pending whitespace to the continuation line; its
+      // tab is now measured from zero rather than the previous line's end.
+      expect(Text.lines(prepared, { maxWidth: 27.7, lineHeight: 12 })).toEqual(Arr.make(
+        visualLine(0, "ab", 14.5),
+        visualLine(1, "\tc", 27.75)
       ))
     }))
 })

@@ -213,6 +213,11 @@ const cases = Chunk.make(
   unaryCase("Numeric.log extreme", extremePositive, Numeric.log),
   unaryCase("Numeric.logStrict ordinary", positive, Numeric.logStrict),
   unaryCase("Numeric.logStrict extreme", extremePositive, Numeric.logStrict),
+  unaryCase(
+    "Numeric.logStrict subnormal",
+    Chunk.make(5e-324, 1e-323, 1.5e-323, 3.5e-323, 1e-320, 1e-310, 2.225073858507201e-308),
+    Numeric.logStrict
+  ),
   unaryCase("Numeric.log1pStrict tiny", tiny, Numeric.log1pStrict),
   unaryCase("Numeric.expm1Strict tiny", tiny, Numeric.expm1Strict),
   unaryCase("Numeric.exp ordinary", moderate, Numeric.exp),

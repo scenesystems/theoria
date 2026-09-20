@@ -23,15 +23,15 @@ describe("Numeric binary64 arithmetic", () => {
       expect(toBigDecimal(infinity)).toEqual(Option.none())
     }))
 
-  it.effect("round-trips both neighbors of every normal power of two through exact decimals", () =>
+  it.effect("round-trips both neighbors of every representable power of two through exact decimals", () =>
     Effect.gen(function*() {
-      const powers = Array.scan(Array.range(1, 2045), 2.2250738585072014e-308, (value) => Number.multiply(value, 2))
+      const powers = Array.scan(Array.range(1, 2097), 5e-324, (value) => Number.multiply(value, 2))
       Array.forEach(powers, (power) =>
         Array.forEach(
           Array.make(
             Number.subtract(power, Number.max(5e-324, Number.multiply(power, 1.1102230246251565e-16))),
             power,
-            Number.sum(power, Number.multiply(power, 2.220446049250313e-16))
+            Number.sum(power, Number.max(5e-324, Number.multiply(power, 2.220446049250313e-16)))
           ),
           (value) => expect(BigDecimal.unsafeToNumber(Option.getOrThrow(toBigDecimal(value)))).toBe(value)
         ))
