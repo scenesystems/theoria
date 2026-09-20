@@ -5,7 +5,7 @@
  * @category internal
  */
 import { SemigroupMultiply, SemigroupSum } from "@effect/typeclass/data/Number"
-import { Boolean, Function, Number } from "effect"
+import { Boolean, Number } from "effect"
 
 import { exp, expm1, log, log1p } from "./transcendental.js"
 
@@ -45,13 +45,6 @@ export const log1pexp = (x: number): number => {
   return exp(x)
 }
 
-const zeroProduct = Function.constant(0)
-const logarithmicIncrementProduct = (x: number, y: number): number => Number.multiply(x, log1p(y))
-const selectLogarithmicIncrementProduct = Boolean.match({
-  onTrue: () => zeroProduct,
-  onFalse: () => logarithmicIncrementProduct
-})
-
 /** Computes `x * log(y)` with the conventional zero multiplier. */
 export const xlogy = (x: number, y: number): number => {
   if (Number.Equivalence(x, 0)) return 0
@@ -59,5 +52,7 @@ export const xlogy = (x: number, y: number): number => {
 }
 
 /** Computes `x * log(1 + y)` with the conventional zero multiplier. */
-export const xlog1py = (x: number, y: number): number =>
-  selectLogarithmicIncrementProduct(Number.Equivalence(x, 0))(x, y)
+export const xlog1py = (x: number, y: number): number => {
+  if (Number.Equivalence(x, 0)) return 0
+  return multiply(x, log1p(y))
+}

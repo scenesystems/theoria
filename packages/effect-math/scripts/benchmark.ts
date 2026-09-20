@@ -251,6 +251,12 @@ const cases = Chunk.make(
     Numeric.xlogy
   ),
   binaryCase("Numeric.xlog1py tiny", ordinary, tiny, Numeric.xlog1py),
+  binaryCase(
+    "Numeric.xlog1py zero multipliers",
+    Chunk.make(0, 1, -0, -1, 0, 2, -0, -2),
+    Chunk.make(-1, 1, -2, -0.5, Number.unsafeDivide(-1, 0), 3, Number.unsafeDivide(0, 0), -0.75),
+    Numeric.xlog1py
+  ),
   singleCallCase("Numeric.logSumExp reduction", () => Numeric.logSumExp(logLeft)),
   singleCallCase("Numeric.argmaxIndex Chunk", () => Option.getOrElse(Numeric.argmaxIndex(argmaxValues), () => 0)),
   singleCallCase(

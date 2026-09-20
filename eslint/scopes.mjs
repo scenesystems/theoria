@@ -58,7 +58,7 @@ const SOFTPLUS_GUARDS = Array.map(
 const LOGSPACE_GUARDS = Array.appendAll(
   Array.append(
     SOFTPLUS_GUARDS,
-    "ExportNamedDeclaration > VariableDeclaration[kind='const'] > VariableDeclarator[id.name='xlogy'] > ArrowFunctionExpression.init > BlockStatement.body > IfStatement[test.callee.object.name='Number'][test.callee.property.name='Equivalence'][test.arguments.length=2][test.arguments.0.name='x'][test.arguments.1.value=0][consequent.type='ReturnStatement'][consequent.argument.value=0]"
+    "ExportNamedDeclaration > VariableDeclaration[kind='const'] > VariableDeclarator[id.name=/^(xlogy|xlog1py)$/] > ArrowFunctionExpression.init > BlockStatement.body > IfStatement[test.callee.object.name='Number'][test.callee.property.name='Equivalence'][test.arguments.length=2][test.arguments.0.name='x'][test.arguments.1.value=0][consequent.type='ReturnStatement'][consequent.argument.value=0]"
   ),
   Array.map(
     [0, 1],
