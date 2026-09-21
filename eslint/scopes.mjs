@@ -18,7 +18,7 @@
  * @module eslint/scopes
  */
 
-import { Array, Match, String } from "effect"
+import { Array, Match, Number, String } from "effect"
 
 import { BROWSER_GLOBALS, MATH_GLOBAL, NUMBER_PARSING_GLOBALS } from "./effect/builtins.mjs"
 import { DESIGN_TOKEN_RULES } from "./effect/design-tokens.mjs"
@@ -66,6 +66,32 @@ const LOGSPACE_GUARDS = Array.appendAll(
       `ExportNamedDeclaration > VariableDeclaration[kind='const'] > VariableDeclarator[id.name='logaddexp'] > ArrowFunctionExpression.init > BlockStatement.body > IfStatement[test.operator='==='][test.left.name='ordering'][test.right.value=${ordering}][consequent.type='ReturnStatement'][consequent.argument.callee.name='sum']`
   )
 )
+
+/** Measured strict-log exits and its two exact-normalization corrections only. */
+const STRICT_LOG_GUARDS = [
+  "VariableDeclarator[id.name='logStrict'] > ArrowFunctionExpression.init > BlockStatement.body > IfStatement[test.operator='!'][test.argument.operator='>'][test.argument.left.name='value'][test.argument.right.value=0][consequent.type='ReturnStatement'][consequent.argument.callee.name='log']",
+  "VariableDeclarator[id.name='logStrict'] > ArrowFunctionExpression.init > BlockStatement.body > IfStatement[test.callee.name='positiveInfinity'][consequent.type='ReturnStatement'][consequent.argument.object.name='Binary'][consequent.argument.property.name='positiveInfinity']",
+  ...Array.map(
+    [9, 17, 25],
+    (term) =>
+      `VariableDeclarator[id.name='logarithmStrictSeries'] > ArrowFunctionExpression.init > BlockStatement.body > IfStatement[test.callee.name='Equivalence'][test.arguments.0.name='s${term}'][test.arguments.1.name='s${
+        Number.subtract(term, 2)
+      }'][consequent.type='ReturnStatement'][consequent.argument.name='s${term}']`
+  ),
+  "VariableDeclarator[id.name='logarithmStrictFinite'] > CallExpression.init[callee.object.name='Binary'][callee.property.name='withNormalized'] > ArrowFunctionExpression > BlockStatement.body > IfStatement[test.callee.name='Equivalence'][test.arguments.0.name='mantissa'][test.arguments.1.value=1][consequent.type='ReturnStatement'][consequent.argument.callee.name='multiply']",
+  "VariableDeclarator[id.name='withNormalized'] > ArrowFunctionExpression.init > BlockStatement.body > VariableDeclaration > VariableDeclarator[id.name='consumeNormal'] > ArrowFunctionExpression.init > BlockStatement.body > IfStatement[test.operator='<'][test.left.name='ratio'][test.right.value=1][consequent.type='ReturnStatement'][consequent.argument.callee.name='consume']",
+  "VariableDeclarator[id.name='withNormalized'] > ArrowFunctionExpression.init > BlockStatement.body > ReturnStatement > ArrowFunctionExpression > BlockStatement.body > IfStatement[test.operator='<'][test.left.name='value'][test.right.name='minimumNormal'][consequent.type='ReturnStatement'][consequent.argument.callee.name='consumeNormal']"
+]
+
+/** Constant odd divisors and the mantissa transform; not arbitrary native arithmetic. */
+const STRICT_LOG_DIVISIONS = [
+  ...Array.map(
+    [3, 5, 7, 9, 11, 13, 15, 17, 19, 21, 23, 25, 27, 29, 31],
+    (term) =>
+      `VariableDeclarator[id.name='logarithmStrictSeries'] > ArrowFunctionExpression.init > BlockStatement.body :matches(VariableDeclaration > VariableDeclarator, ReturnStatement) > CallExpression[callee.name='sum'] > BinaryExpression[operator='/'][left.name='t${term}'][right.value=${term}]`
+  ),
+  "VariableDeclarator[id.name='logarithmStrictFinite'] > CallExpression.init[callee.object.name='Binary'][callee.property.name='withNormalized'] > ArrowFunctionExpression > BlockStatement.body > VariableDeclaration > VariableDeclarator[id.name='z'] > BinaryExpression[operator='/'][left.callee.name='sum'][left.arguments.0.name='mantissa'][left.arguments.1.operator='-'][left.arguments.1.argument.value=1][right.callee.name='sum'][right.arguments.0.name='mantissa'][right.arguments.1.value=1]"
+]
 
 /**
  * @returns {import('eslint').Linter.Config[]}
@@ -134,7 +160,34 @@ export const scopes = () => [
       "no-restricted-globals": ["error", ...NUMBER_PARSING_GLOBALS, ...BROWSER_GLOBALS],
       "no-restricted-syntax": [
         "error",
-        ...EFFECT_RULES,
+        ...Array.map(EFFECT_RULES, (rule) =>
+          Match.value(rule.selector).pipe(
+            Match.when("IfStatement", () => ({
+              ...rule,
+              selector: `${rule.selector}:not(${Array.join(STRICT_LOG_GUARDS, ", ")})`
+            })),
+            Match.when("BinaryExpression[operator='/']", () => ({
+              ...rule,
+              selector: `${rule.selector}:not(${Array.join(STRICT_LOG_DIVISIONS, ", ")})`
+            })),
+            Match.when(String.startsWith("BinaryExpression[operator=/^"), () => ({
+              ...rule,
+              selector: `${rule.selector}:not(${
+                Array.join(
+                  Array.flatMap(STRICT_LOG_GUARDS, (guard) => [
+                    `${guard} > BinaryExpression.test`,
+                    `${guard} > UnaryExpression.test > BinaryExpression.argument`
+                  ]),
+                  ", "
+                )
+              })`
+            })),
+            Match.when("UnaryExpression[operator=/^(!|typeof)$/]", () => ({
+              ...rule,
+              selector: `${rule.selector}:not(${Array.unsafeGet(STRICT_LOG_GUARDS, 0)} > UnaryExpression.test)`
+            })),
+            Match.orElse(() => rule)
+          )),
         {
           selector: `Identifier[name='Math']:not(${
             operations.map((operation) =>

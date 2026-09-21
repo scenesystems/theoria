@@ -5,8 +5,11 @@
  * @since 0.4.0
  * @category internal
  */
+import { SemigroupMultiply, SemigroupSum } from "@effect/typeclass/data/Number"
 import { Array, BigDecimal, BigInt, Boolean, Chunk, Data, MutableRef, Number, Option, Predicate, Tuple } from "effect"
 
+const multiply = SemigroupMultiply.combine
+const sum = SemigroupSum.combine
 export const positiveInfinity = Number.unsafeDivide(1, 0)
 export const negativeInfinity = Number.negate(positiveInfinity)
 export const notANumber = Number.unsafeDivide(0, 0)
@@ -79,29 +82,34 @@ export const hypot = Math.hypot
 /** Real-valued power including signed-zero, negative-base, and infinity rules. */
 export const pow: (base: number, exponent: number) => number = Math.pow
 
-const power2_512 = 1.3407807929942597e154
-
 /** Internal exponent estimate only; exact dyadic scaling certifies normalization. */
 export const log2: (value: number) => number = Math.log2
 
+// Subnormals are scaled before estimation. The resulting log2 estimate is
+// in [-1022, 1024], including rounding at the largest finite input. Indexing
+// its reciprocal power avoids repeated exponentiation without losing bits.
+const normalizationPowers = Array.makeBy(2047, (index) => pow(2, Number.subtract(1022, index)))
+
 /**
- * Normalizes a positive finite nonzero binary64 value to `x = m × 2^e`,
- * where `1 <= m < 2`. Inputs outside that contract are not supported.
- * Binds the consumer once so scalar operations need not allocate a pair.
+ * Consumes a positive finite nonzero value as `value = mantissa × 2^exponent`,
+ * with `1 <= mantissa < 2`. Other inputs are outside this internal contract.
+ * Binding the consumer once avoids allocating a pair on scalar hot paths.
  */
-export const withNormalized = <A>(consume: (mantissa: number, exponent: number) => A) => (value: number): A => {
+export const withNormalized = <A>(consume: (mantissa: number, exponent: number) => A) => {
   // Rounding log2 directly is not a binary exponent extraction: inputs on
   // either side of a power of two can share its logarithm. Exact scaling
   // followed by the mantissa comparison recovers the correct binade.
-  const exponent = floor(log2(value))
-  const ratio = Boolean.match(Number.lessThan(exponent, -1023), {
-    onTrue: () => scaleNormal(Number.multiply(value, power2_512), Number.negate(Number.sum(exponent, 512))),
-    onFalse: () => scaleNormal(value, Number.negate(exponent))
-  })
-  return Boolean.match(Number.lessThan(ratio, 1), {
-    onTrue: () => consume(Number.multiply(ratio, 2), Number.decrement(exponent)),
-    onFalse: () => consume(ratio, exponent)
-  })
+  const consumeNormal = (value: number, offset: number): A => {
+    const exponent = floor(log2(value))
+    const ratio = multiply(value, Array.unsafeGet(normalizationPowers, sum(exponent, 1022)))
+    const adjustedExponent = sum(exponent, offset)
+    if (ratio < 1) return consume(multiply(ratio, 2), sum(adjustedExponent, -1))
+    return consume(ratio, adjustedExponent)
+  }
+  return (value: number): A => {
+    if (value < minimumNormal) return consumeNormal(multiply(value, significandScale), -52)
+    return consumeNormal(value, 0)
+  }
 }
 
 /** Normalized mantissa and binary exponent for operations that need both. */

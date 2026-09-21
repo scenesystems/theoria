@@ -1,16 +1,18 @@
 /**
  * Authorized binary64 engine intrinsics and reproducible precision-policy kernels.
- * Effect Number owns all surrounding arithmetic.
+ * Strict logarithms retain their established binary64 accumulation order.
  *
  * @since 0.1.0
  * @category internal
  */
-import { Boolean, Function, Match, Number, Predicate } from "effect"
-import { match } from "effect/Boolean"
-import { Equivalence, greaterThan, multiply, subtract, sum, unsafeDivide } from "effect/Number"
+import { SemigroupMultiply, SemigroupSum } from "@effect/typeclass/data/Number"
+import { Boolean, Match, Number, Predicate } from "effect"
+import { Equivalence } from "effect/Number"
 
 import * as Binary from "./binary.js"
 
+const multiply = SemigroupMultiply.combine
+const sum = SemigroupSum.combine
 const lnTwo = 0.6931471805599453
 const zero = (value: number): boolean => Equivalence(value, 0)
 const positiveInfinity = (value: number): boolean => Equivalence(value, Binary.positiveInfinity)
@@ -49,57 +51,57 @@ export const cosh: (value: number) => number = Math.cosh
 // different rounding. On 0 <= z <= 1/3, term 17 / sum <= (1/3)^32 / 33
 // < 2^-54, below half a spacing even at a binade boundary. That term and
 // all seven later terms of the original 24-term series round away.
+// The early exits are exact too: positive terms decrease, so once an
+// addition leaves the sum unchanged, every subsequent addition does too.
 const logarithmStrictSeries = (z: number): number => {
   const square = multiply(z, z)
   const t3 = multiply(z, square)
-  const s3 = sum(z, unsafeDivide(t3, 3))
+  const s3 = sum(z, t3 / 3)
   const t5 = multiply(t3, square)
-  const s5 = sum(s3, unsafeDivide(t5, 5))
+  const s5 = sum(s3, t5 / 5)
   const t7 = multiply(t5, square)
-  const s7 = sum(s5, unsafeDivide(t7, 7))
+  const s7 = sum(s5, t7 / 7)
   const t9 = multiply(t7, square)
-  const s9 = sum(s7, unsafeDivide(t9, 9))
+  const s9 = sum(s7, t9 / 9)
+  if (Equivalence(s9, s7)) return s9
   const t11 = multiply(t9, square)
-  const s11 = sum(s9, unsafeDivide(t11, 11))
+  const s11 = sum(s9, t11 / 11)
   const t13 = multiply(t11, square)
-  const s13 = sum(s11, unsafeDivide(t13, 13))
+  const s13 = sum(s11, t13 / 13)
   const t15 = multiply(t13, square)
-  const s15 = sum(s13, unsafeDivide(t15, 15))
+  const s15 = sum(s13, t15 / 15)
   const t17 = multiply(t15, square)
-  const s17 = sum(s15, unsafeDivide(t17, 17))
+  const s17 = sum(s15, t17 / 17)
+  if (Equivalence(s17, s15)) return s17
   const t19 = multiply(t17, square)
-  const s19 = sum(s17, unsafeDivide(t19, 19))
+  const s19 = sum(s17, t19 / 19)
   const t21 = multiply(t19, square)
-  const s21 = sum(s19, unsafeDivide(t21, 21))
+  const s21 = sum(s19, t21 / 21)
   const t23 = multiply(t21, square)
-  const s23 = sum(s21, unsafeDivide(t23, 23))
+  const s23 = sum(s21, t23 / 23)
   const t25 = multiply(t23, square)
-  const s25 = sum(s23, unsafeDivide(t25, 25))
+  const s25 = sum(s23, t25 / 25)
+  if (Equivalence(s25, s23)) return s25
   const t27 = multiply(t25, square)
-  const s27 = sum(s25, unsafeDivide(t27, 27))
+  const s27 = sum(s25, t27 / 27)
   const t29 = multiply(t27, square)
-  const s29 = sum(s27, unsafeDivide(t29, 29))
+  const s29 = sum(s27, t29 / 29)
   const t31 = multiply(t29, square)
-  return sum(s29, unsafeDivide(t31, 31))
+  return sum(s29, t31 / 31)
 }
 
-const logarithmStrictFinite = Binary.withNormalized((mantissa, exponent) =>
-  match(Equivalence(mantissa, 1), {
-    onTrue: () => multiply(exponent, lnTwo),
-    onFalse: () => {
-      const z = unsafeDivide(subtract(mantissa, 1), sum(mantissa, 1))
-      return sum(multiply(2, logarithmStrictSeries(z)), multiply(exponent, lnTwo))
-    }
-  })
-)
+const logarithmStrictFinite = Binary.withNormalized((mantissa, exponent) => {
+  if (Equivalence(mantissa, 1)) return multiply(exponent, lnTwo)
+  const z = sum(mantissa, -1) / sum(mantissa, 1)
+  return sum(multiply(2, logarithmStrictSeries(z)), multiply(exponent, lnTwo))
+})
 
 /** Reproduces the established binary64 series and normalization for seeded policies. */
-export const logStrict = Match.type<number>().pipe(
-  Match.when(positiveInfinity, Function.constant(Binary.positiveInfinity)),
-  Match.when(greaterThan(0), logarithmStrictFinite),
-  Match.when(zero, Function.constant(Binary.negativeInfinity)),
-  Match.orElse(Function.constant(Binary.notANumber))
-)
+export const logStrict = (value: number): number => {
+  if (!(value > 0)) return log(value)
+  if (positiveInfinity(value)) return Binary.positiveInfinity
+  return logarithmStrictFinite(value)
+}
 
 // Adapted from OpenLibm's fdlibm s_log1p.c and s_expm1.c.
 // https://github.com/JuliaMath/openlibm/tree/master/src

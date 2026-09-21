@@ -63,6 +63,19 @@ const relaxedLayer = Policy.layerDeterministic({
 const closeTo = (actual: number, expected: number, tolerance: number) =>
   expect(abs(Number.subtract(actual, expected))).toBeLessThanOrEqual(tolerance)
 
+// The established 24-term, left-to-right binary64 reference. The inputs supply
+// normalization independently, so a wrong exponent estimate or table index
+// cannot reproduce itself in the expected value.
+const strictLogReference = (mantissa: number, exponent: number): number => {
+  const z = Number.unsafeDivide(Number.subtract(mantissa, 1), Number.sum(mantissa, 1))
+  const square = Number.multiply(z, z)
+  const result = Array.reduce(Array.range(0, 23), { term: z, total: 0 }, (state, index) => ({
+    term: Number.multiply(state.term, square),
+    total: Number.sum(state.total, Number.unsafeDivide(state.term, Number.sum(Number.multiply(2, index), 1)))
+  }))
+  return Number.sum(Number.multiply(2, result.total), Number.multiply(exponent, 0.6931471805599453))
+}
+
 describe("Numeric scalar arithmetic", () => {
   it.effect("distinguishes guarded, unguarded, and finite division boundaries", () =>
     Effect.gen(function*() {
@@ -103,6 +116,27 @@ describe("Numeric scalar arithmetic", () => {
 })
 
 describe("Numeric transcendental kernels", () => {
+  it.effect.prop("preserves every accumulated bit across normal binary64 exponents", {
+    mantissa: FastCheck.double({ min: 1, max: 1.9999999999999998, noNaN: true }),
+    exponent: FastCheck.integer({ min: -1022, max: 1023 })
+  }, ({ mantissa, exponent }) =>
+    Effect.gen(function*() {
+      const value = Number.multiply(mantissa, pow(2, exponent))
+      expect(logStrict(value)).toBe(strictLogReference(mantissa, exponent))
+    }))
+
+  it.effect("corrects logarithm estimates on both sides of every normal power of two", () =>
+    Effect.gen(function*() {
+      Array.forEach(Array.range(-1021, 1023), (exponent) => {
+        const power = pow(2, exponent)
+        const previous = Number.multiply(1.9999999999999998, pow(2, Number.decrement(exponent)))
+        const next = Number.multiply(1.0000000000000002, power)
+        expect(logStrict(previous)).toBe(strictLogReference(1.9999999999999998, Number.decrement(exponent)))
+        expect(logStrict(power)).toBe(strictLogReference(1, exponent))
+        expect(logStrict(next)).toBe(strictLogReference(1.0000000000000002, exponent))
+      })
+    }))
+
   it.effect("preserves strict replay values at normalization boundaries", () =>
     Effect.gen(function*() {
       // Historical 24-term accumulation, independently evaluated with Python
@@ -120,8 +154,10 @@ describe("Numeric transcendental kernels", () => {
       expect(logStrict(2.225073858507201e-308)).toBe(-708.3964185322642)
       expect(logStrict(2.2250738585072014e-308)).toBe(-708.3964185322641)
       expect(logStrict(1.7976931348623157e308)).toBe(709.782712893384)
+      expect(logStrict(0)).toBe(Number.unsafeDivide(-1, 0))
       expect(logStrict(-0)).toBe(Number.unsafeDivide(-1, 0))
       expect(logStrict(Number.unsafeDivide(1, 0))).toBe(Number.unsafeDivide(1, 0))
+      expect(logStrict(Number.unsafeDivide(-1, 0))).toBeNaN()
       expect(logStrict(-1)).toBeNaN()
       expect(logStrict(Number.unsafeDivide(0, 0))).toBeNaN()
     }))
@@ -135,8 +171,14 @@ describe("Numeric transcendental kernels", () => {
       expect(logStrict(1.015625)).toBe(0.015504186535965253)
       expect(logStrict(1.125)).toBe(0.11778303565638346)
       expect(logStrict(1.25)).toBe(0.22314355131420974)
+      expect(logStrict(1.2857142857142856)).toBe(0.2513144282809059)
+      expect(logStrict(1.2857142857142858)).toBe(0.2513144282809061)
+      expect(logStrict(1.285714285714286)).toBe(0.2513144282809062)
       expect(logStrict(1.375)).toBe(0.3184537311185346)
       expect(logStrict(1.5)).toBe(0.40546510810816444)
+      expect(logStrict(1.6666666666666665)).toBe(0.5108256237659904)
+      expect(logStrict(1.6666666666666667)).toBe(0.5108256237659905)
+      expect(logStrict(1.666666666666667)).toBe(0.5108256237659906)
       expect(logStrict(1.75)).toBe(0.5596157879354225)
       expect(logStrict(1.9375)).toBe(0.6613984822453651)
       expect(logStrict(1.999)).toBe(0.692647055518263)
