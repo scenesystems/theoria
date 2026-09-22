@@ -93,6 +93,25 @@ const STRICT_LOG_DIVISIONS = [
   "VariableDeclarator[id.name='logarithmStrictFinite'] > CallExpression.init[callee.object.name='Binary'][callee.property.name='withNormalized'] > ArrowFunctionExpression > BlockStatement.body > VariableDeclaration > VariableDeclarator[id.name='z'] > BinaryExpression[operator='/'][left.callee.name='sum'][left.arguments.0.name='mantissa'][left.arguments.1.operator='-'][left.arguments.1.argument.value=1][right.callee.name='sum'][right.arguments.0.name='mantissa'][right.arguments.1.value=1]"
 ]
 
+/** Bisection's measured exits and sign selection; arithmetic stays Effect-native. */
+const BISECTION_GUARDS = [
+  ...Array.map(
+    [
+      "IfStatement[test.operator='<'][test.left.callee.name='abs'][test.right.name='tolerance'][consequent.argument.callee.name='midpoint']",
+      "IfStatement[test.callee.name='Equivalence'][test.arguments.0.name='remaining'][test.arguments.1.value=0][consequent.argument.callee.name='exhausted']",
+      "IfStatement[test.callee.name='Equivalence'][test.arguments.0.name='remaining'][test.arguments.1.value=1][consequent.argument.callee.name='exhausted']",
+      "IfStatement[test.callee.name='Equivalence'][test.arguments.0.name=/^(value|nextValue)$/][test.arguments.1.value=0][consequent.argument.name=/^(mid|nextMid)$/]",
+      "IfStatement[test.operator='==='][test.left.operator='<'][test.left.left.name='nextValue'][test.left.right.value=0][test.right.name='negative'][consequent.type='BlockStatement']:has(ReturnStatement > CallExpression[callee.name='narrow'])"
+    ],
+    (guard) => `VariableDeclarator[id.name='narrow'] > ArrowFunctionExpression.init > BlockStatement.body > ${guard}`
+  ),
+  "VariableDeclarator[id.name='bisect'] > ArrowFunctionExpression.init > BlockStatement.body > IfStatement[test.callee.object.name='Number'][test.callee.property.name='Equivalence'][test.arguments.1.value=0][consequent.type='ReturnStatement'][consequent.argument.name=/^(a|b)$/]",
+  "VariableDeclarator[id.name='bisect'] > ArrowFunctionExpression.init > BlockStatement.body > IfStatement[test.callee.object.name='Boolean'][test.callee.property.name='not'][consequent.type='BlockStatement']:has(ReturnStatement > CallExpression[callee.name='narrow'])"
+]
+
+const BISECTION_SIGN =
+  "VariableDeclarator[id.name='narrow'] > ArrowFunctionExpression.init > BlockStatement.body > VariableDeclaration > VariableDeclarator[id.name='sameSign'] > BinaryExpression.init[operator='==='][left.operator='<'][left.left.name='value'][left.right.value=0][right.name='negative']"
+
 /**
  * @returns {import('eslint').Linter.Config[]}
  */
@@ -140,6 +159,43 @@ export const scopes = () => [
               ...rule,
               selector: `${rule.selector}:not(${
                 Array.join(Array.map(LOGSPACE_GUARDS, (guard) => `${guard} > BinaryExpression.test`), ", ")
+              })`
+            })),
+            Match.orElse(() => rule)
+          ))
+      ]
+    }
+  },
+  {
+    name: "theoria/effect/bisection-guards",
+    files: ["packages/effect-math/src/internal/optimization/bisect.ts"],
+    rules: {
+      "no-restricted-syntax": [
+        "error",
+        ...Array.map(EFFECT_RULES, (rule) =>
+          Match.value(rule.selector).pipe(
+            Match.when("IfStatement", () => ({
+              ...rule,
+              selector: `${rule.selector}:not(${Array.join(BISECTION_GUARDS, ", ")})`
+            })),
+            Match.when("ConditionalExpression", () => ({
+              ...rule,
+              selector:
+                `${rule.selector}:not(VariableDeclarator[id.name='narrow'] > ArrowFunctionExpression.init > BlockStatement.body > VariableDeclaration > VariableDeclarator[id.name=/^(nextA|nextB)$/] > ConditionalExpression.init[test.name='sameSign'])`
+            })),
+            Match.when(String.startsWith("BinaryExpression[operator=/^"), () => ({
+              ...rule,
+              selector: `${rule.selector}:not(${
+                Array.join(
+                  Array.appendAll(
+                    Array.flatMap(BISECTION_GUARDS, (guard) => [
+                      `${guard} > BinaryExpression.test`,
+                      `${guard} > BinaryExpression.test > BinaryExpression.left`
+                    ]),
+                    [BISECTION_SIGN, `${BISECTION_SIGN} > BinaryExpression.left`]
+                  ),
+                  ", "
+                )
               })`
             })),
             Match.orElse(() => rule)

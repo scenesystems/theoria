@@ -1,5 +1,5 @@
 import { describe, expect, it } from "@effect/vitest"
-import { Chunk, Effect, Exit, FastCheck, MutableRef, Number, Schema } from "effect"
+import { Chunk, Effect, Exit, FastCheck, MutableRef, Number, Schema, Tuple } from "effect"
 
 import * as Numeric from "../../src/Numeric.js"
 import {
@@ -83,21 +83,23 @@ describe("Optimization / bisect", () => {
       expect(MutableRef.get(evaluations)).toStrictEqual(2)
     }))
 
-  it.effect("stops at an asymmetric exact root without an extra callback", () =>
+  it.effect.prop("stops at an exact root in either half-step without an extra callback", {
+    expected: FastCheck.constantFrom(Tuple.make(0.25, 5), Tuple.make(1.5, 4))
+  }, ({ expected }) =>
     Effect.gen(function*() {
       const evaluations = MutableRef.make(0)
       const root = bisect(
         (x) => {
           MutableRef.increment(evaluations)
-          return Number.subtract(x, 0.25)
+          return Number.subtract(x, expected[0])
         },
         0,
         2,
         1e-30,
         64
       )
-      expect(root).toStrictEqual(0.25)
-      expect(MutableRef.get(evaluations)).toStrictEqual(5)
+      expect(root).toStrictEqual(expected[0])
+      expect(MutableRef.get(evaluations)).toStrictEqual(expected[1])
     }))
 
   it.effect("continues narrowing when the interval width equals the tolerance", () =>
@@ -158,6 +160,14 @@ describe("Optimization / bisect", () => {
       MutableRef.set(evaluations, 0)
       expect(bisect(counted, 0, 1, -1, 64.5)).toStrictEqual(1)
       expect(MutableRef.get(evaluations)).toStrictEqual(67)
+
+      MutableRef.set(evaluations, 0)
+      expect(bisect(counted, 0, 1, -1, 255.5)).toStrictEqual(1)
+      expect(MutableRef.get(evaluations)).toStrictEqual(258)
+
+      MutableRef.set(evaluations, 0)
+      expect(bisect(counted, 0, 1, -1, 256.5)).toStrictEqual(1)
+      expect(MutableRef.get(evaluations)).toStrictEqual(259)
     }))
 
   it.effect("routes a NaN midpoint by Number.Order for a finite bracket", () =>
@@ -179,7 +189,7 @@ describe("Optimization / bisect", () => {
     }))
 
   it.effect.prop("honors callback budgets on both sides of iteration-batch boundaries", {
-    maxIterations: FastCheck.integer({ min: 60, max: 130 })
+    maxIterations: FastCheck.constantFrom(63, 64, 65, 255, 256, 257, 511, 512, 513)
   }, ({ maxIterations }) =>
     Effect.gen(function*() {
       const evaluations = MutableRef.make(0)
@@ -231,6 +241,55 @@ describe("Optimization / bisect", () => {
       )
       expect(result).toStrictEqual(1)
       expect(MutableRef.get(evaluations)).toStrictEqual(Number.sum(maxIterations, 2))
+    }))
+
+  it.effect.prop("does not narrow for an empty or unordered iteration budget", {
+    budget: FastCheck.constantFrom(-1, Number.unsafeDivide(-1, 0), NaN)
+  }, ({ budget }) =>
+    Effect.gen(function*() {
+      const evaluations = MutableRef.make(0)
+      const result = bisect(
+        (x) => {
+          MutableRef.increment(evaluations)
+          return Number.subtract(x, 1.75)
+        },
+        0,
+        2,
+        -1,
+        budget
+      )
+      expect(result).toBe(1)
+      expect(MutableRef.get(evaluations)).toBe(2)
+    }))
+
+  it.effect("keeps nested searches independent across iteration boundaries", () =>
+    Effect.gen(function*() {
+      const evaluations = MutableRef.make(0)
+      const nestedEvaluations = MutableRef.make(0)
+      const result = bisect(
+        (x) => {
+          MutableRef.increment(evaluations)
+          const nested = bisect(
+            () => {
+              MutableRef.increment(nestedEvaluations)
+              return 1
+            },
+            0,
+            1,
+            -1,
+            257
+          )
+          expect(nested).toBe(1)
+          return Number.subtract(Number.multiply(x, x), 2)
+        },
+        0,
+        2,
+        -1,
+        257
+      )
+      expectClose(result, Numeric.sqrt(2), kernelTolerance)
+      expect(MutableRef.get(evaluations)).toBe(259)
+      expect(MutableRef.get(nestedEvaluations)).toBe(Number.multiply(259, 259))
     }))
 })
 

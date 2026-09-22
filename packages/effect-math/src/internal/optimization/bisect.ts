@@ -4,156 +4,46 @@
  * @since 0.1.0
  * @category internal
  */
-import { Array, Boolean, Iterable, MutableRef, Number, Ordering, Tuple } from "effect"
+import { SemigroupMultiply, SemigroupSum } from "@effect/typeclass/data/Number"
+import { Boolean, Iterable, MutableRef, Number, Tuple } from "effect"
+import { Equivalence } from "effect/Number"
 
-import * as Numeric from "../../Numeric.js"
+import { abs, ceil } from "../../Numeric.js"
 
-const defaultTolerance = 1e-12
-const defaultMaxIterations = 100
-const iterationBatchSize = 64
-const iterationBatch = Array.range(0, Number.decrement(iterationBatchSize))
-const halve = Number.multiply(0.5)
+const sum = SemigroupSum.combine
+const multiply = SemigroupMultiply.combine
+const midpoint = (a: number, b: number): number => multiply(0.5, sum(a, b))
+const iterationBatchSize = 256
 
-const midpoint = (a: number, b: number): number => halve(Number.sum(a, b))
-
-type Narrow = (context: BisectContext, mid: number) => boolean
-type SelectNarrow = (ordering: Ordering.Ordering) => Narrow
-type BisectContext = readonly [
-  f: (x: number) => number,
-  left: MutableRef.MutableRef<number>,
-  right: MutableRef.MutableRef<number>,
-  tolerance: number,
-  maxIterations: number,
-  selectNarrow: SelectNarrow
-]
-
-const narrowLeft: Narrow = (context, mid) => {
-  MutableRef.set(context[1], mid)
-  return false
-}
-
-const narrowRight: Narrow = (context, mid) => {
-  MutableRef.set(context[2], mid)
-  return false
-}
-
-const finish: Narrow = (context, mid) => {
-  MutableRef.set(context[1], mid)
-  MutableRef.set(context[2], mid)
-  return true
-}
-
-const selectNegative: SelectNarrow = Ordering.match({
-  onLessThan: () => narrowLeft,
-  onEqual: () => finish,
-  onGreaterThan: () => narrowRight
-})
-
-const selectPositive: SelectNarrow = Ordering.match({
-  onLessThan: () => narrowRight,
-  onEqual: () => finish,
-  onGreaterThan: () => narrowLeft
-})
-
-const selectByLeftSign = Ordering.match({
-  onLessThan: () => selectNegative,
-  onEqual: () => selectPositive,
-  onGreaterThan: () => selectPositive
-})
-
-const stop = (_context: BisectContext): boolean => true
-
-const advance = (context: BisectContext): boolean => {
-  const mid = midpoint(MutableRef.get(context[1]), MutableRef.get(context[2]))
-  return context[5](Number.Order(context[0](mid), 0))(context, mid)
-}
-
-const selectStep = Ordering.match({
-  onLessThan: () => stop,
-  onEqual: () => advance,
-  onGreaterThan: () => advance
-})
-
-const visit = (context: BisectContext): boolean =>
-  selectStep(
-    Number.Order(Numeric.abs(Number.subtract(MutableRef.get(context[2]), MutableRef.get(context[1]))), context[3])
-  )(context)
-
-const runExactBatch = (context: BisectContext, _remaining: number): boolean =>
-  Boolean.or(Array.some(iterationBatch, () => visit(context)), true)
-
-const runPartialBatch = (context: BisectContext, remaining: number): boolean => {
-  const iterations = Array.take(iterationBatch, remaining)
-  return Boolean.or(
-    Array.some(iterations, () => visit(context)),
-    Number.lessThan(Array.length(iterations), iterationBatchSize)
-  )
-}
-
-const selectBatch = Boolean.match({
-  onFalse: () => runPartialBatch,
-  onTrue: () => runExactBatch
-})
-
-const runBatch = (context: BisectContext, batch: number): boolean => {
-  const remaining = Numeric.ceil(Number.subtract(context[4], Number.multiply(batch, iterationBatchSize)))
-  return selectBatch(Number.Equivalence(remaining, iterationBatchSize))(context, remaining)
-}
-
-const continueBatches = (context: BisectContext): number => {
-  Iterable.some(Iterable.range(1), (batch) => runBatch(context, batch))
-  return midpoint(MutableRef.get(context[1]), MutableRef.get(context[2]))
-}
-
-const finishSearch = (context: BisectContext): number =>
-  midpoint(MutableRef.get(context[1]), MutableRef.get(context[2]))
-
-const selectSearch = Boolean.match({
-  onFalse: () => continueBatches,
-  onTrue: () => finishSearch
-})
-
-const search = (
+// Two halvings per call amortize recursive-call overhead. Each halving retains
+// its own tolerance, budget, and exact-root exits, including odd budgets.
+const narrow = (
   f: (x: number) => number,
   a: number,
   b: number,
-  fa: number,
   tolerance: number,
-  maxIterations: number
+  negative: boolean,
+  remaining: number,
+  exhausted: (a: number, b: number) => number
 ): number => {
-  const context: BisectContext = Tuple.make(
-    f,
-    MutableRef.make(a),
-    MutableRef.make(b),
-    tolerance,
-    maxIterations,
-    selectByLeftSign(Number.sign(fa))
-  )
-  return selectSearch(runBatch(context, 0))(context)
+  if (abs(sum(b, multiply(a, -1))) < tolerance) return midpoint(a, b)
+  if (Equivalence(remaining, 0)) return exhausted(a, b)
+  const mid = midpoint(a, b)
+  const value = f(mid)
+  if (Equivalence(value, 0)) return mid
+  const sameSign = (value < 0) === negative
+  const nextA = sameSign ? mid : a
+  const nextB = sameSign ? b : mid
+  if (abs(sum(nextB, multiply(nextA, -1))) < tolerance) return midpoint(nextA, nextB)
+  if (Equivalence(remaining, 1)) return exhausted(nextA, nextB)
+  const nextMid = midpoint(nextA, nextB)
+  const nextValue = f(nextMid)
+  if (Equivalence(nextValue, 0)) return nextMid
+  if ((nextValue < 0) === negative) {
+    return narrow(f, nextMid, nextB, tolerance, negative, sum(remaining, -2), exhausted)
+  }
+  return narrow(f, nextA, nextMid, tolerance, negative, sum(remaining, -2), exhausted)
 }
-
-const returnRight = (_f: (x: number) => number, _a: number, b: number): number => b
-
-const selectRightEndpoint = Boolean.match({
-  onFalse: () => search,
-  onTrue: () => returnRight
-})
-
-const checkRightEndpoint = (
-  f: (x: number) => number,
-  a: number,
-  b: number,
-  fa: number,
-  tolerance: number,
-  maxIterations: number
-): number => selectRightEndpoint(Number.Equivalence(f(b), 0))(f, a, b, fa, tolerance, maxIterations)
-
-const returnLeft = (_f: (x: number) => number, a: number): number => a
-
-const selectLeftEndpoint = Boolean.match({
-  onFalse: () => checkRightEndpoint,
-  onTrue: () => returnLeft
-})
 
 /**
  * Bisection root-finding kernel.
@@ -165,9 +55,34 @@ export const bisect = (
   f: (x: number) => number,
   a: number,
   b: number,
-  tolerance: number = defaultTolerance,
-  maxIterations: number = defaultMaxIterations
+  tolerance: number = 1e-12,
+  maxIterations: number = 100
 ): number => {
   const fa = f(a)
-  return selectLeftEndpoint(Number.Equivalence(fa, 0))(f, a, b, fa, tolerance, maxIterations)
+  if (Number.Equivalence(fa, 0)) return a
+  if (Number.Equivalence(f(b), 0)) return b
+  const negative = Number.lessThan(fa, 0)
+  const budget = ceil(maxIterations)
+  if (Boolean.not(Number.lessThan(iterationBatchSize, budget))) {
+    return narrow(f, a, b, tolerance, negative, Number.max(0, budget), midpoint)
+  }
+
+  const interval = MutableRef.make(Tuple.make(a, b))
+  const finished = MutableRef.make(false)
+  const result = MutableRef.make(0)
+  const exhausted = (a: number, b: number): number => {
+    MutableRef.set(interval, Tuple.make(a, b))
+    MutableRef.set(finished, false)
+    return midpoint(a, b)
+  }
+  const runBatch = (batch: number): boolean => {
+    const remaining = Number.subtract(budget, multiply(batch, iterationBatchSize))
+    const count = Number.min(iterationBatchSize, Number.max(0, remaining))
+    const current = MutableRef.get(interval)
+    MutableRef.set(finished, true)
+    MutableRef.set(result, narrow(f, current[0], current[1], tolerance, negative, count, exhausted))
+    return Boolean.or(MutableRef.get(finished), Boolean.not(Number.lessThan(iterationBatchSize, remaining)))
+  }
+  Iterable.some(Iterable.range(0), runBatch)
+  return MutableRef.get(result)
 }
