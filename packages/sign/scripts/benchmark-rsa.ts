@@ -100,7 +100,7 @@ const program = Effect.gen(function*() {
   const maximumSignature = yield* Encoding.decodeHex(maximum.signature)
   const maximumNonmatch = yield* Encoding.decodeHex(maximum.alteredSignature)
   const policy = new Jwt.Policy({ issuer: "https://team.example", audience: "app", maxLifetimeSeconds: 3600 })
-  const identity = Identity.pipe(Schema.extend(Schema.Struct({ sub: Schema.Literal("user-7") })))
+  const identity = Identity.pipe(Schema.omit("sub"), Schema.extend(Schema.Struct({ sub: Schema.Literal("user-7") })))
   const verifyJwt = (input: string) =>
     Jwt.verifyRs256(Redacted.make(input), { keys: Arr.of(jwt.jwk) }, policy, identity).pipe(
       Effect.as(true),
