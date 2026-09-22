@@ -268,6 +268,43 @@ describe("LinearAlgebra / forwardSubstitutionLower", () => {
 })
 
 describe("LinearAlgebra / backwardSubstitutionUpper", () => {
+  it.effect("keeps ascending solution columns while traversing rows backwards", () =>
+    Effect.gen(function*() {
+      const upper = Chunk.make(
+        -2,
+        1.5,
+        0.25,
+        -3,
+        0,
+        4,
+        -1,
+        2,
+        0,
+        0,
+        3,
+        0.75,
+        0,
+        0,
+        0,
+        -5
+      )
+      // Multiplying the rows by [1, -2, 3, -4] gives these exact dyadic sums.
+      const solved = yield* backwardSubstitutionUpper(upper, 4, Chunk.make(7.75, -19, 6, 20))
+      expect(Equal.equals(solved, Chunk.make(1, -2, 3, -4))).toBe(true)
+    }))
+
+  it.effect("propagates a rejected interior pivot after solving later rows", () =>
+    Effect.gen(function*() {
+      const upper = Chunk.make(2, 1, 3, 0, 1e-12, 4, 0, 0, 5)
+      expect(Option.isNone(backwardSubstitutionUpper(upper, 3, Chunk.make(7, 8, 10)))).toBe(true)
+      const accepted = yield* backwardSubstitutionUpper(
+        Chunk.make(2, 1, 3, 0, 2e-12, 4, 0, 0, 5),
+        3,
+        Chunk.make(10, 8, 10)
+      )
+      expect(Equal.equals(accepted, Chunk.make(2, 0, 2))).toBe(true)
+    }))
+
   it.effect("solves upper-triangular systems", () =>
     Effect.gen(function*() {
       const upper = Chunk.make(2, 1, 0, 2)

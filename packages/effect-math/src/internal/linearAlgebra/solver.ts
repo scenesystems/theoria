@@ -10,12 +10,6 @@ import { abs, ceil, sqrt } from "../../Numeric.js"
 
 const solverEpsilon = 1e-12
 
-const indices = (size: number): Chunk.Chunk<number> =>
-  Boolean.match(Number.greaterThan(size, 0), {
-    onFalse: Chunk.empty,
-    onTrue: () => Chunk.makeBy(ceil(size), (index) => index)
-  })
-
 const arrayIndices = (size: number): ReadonlyArray<number> =>
   Boolean.match(Number.greaterThan(size, 0), {
     onFalse: Array.empty,
@@ -171,22 +165,22 @@ const backwardSubstitute = (
   size: number,
   rhs: ReadonlyArray<number>,
   valueAt: (matrix: ReadonlyArray<number>, size: number, row: number, column: number) => number
-): Option.Option<Chunk.Chunk<number>> => {
-  const allIndices = indices(size)
-  return Chunk.reduce(
-    Chunk.reverse(allIndices),
-    Option.some(Chunk.empty<number>()),
+): Option.Option<Chunk.Chunk<number>> =>
+  Array.reduceRight(
+    arrayIndices(size),
+    Option.some(Array.empty<number>()),
     (solvedOption, index) =>
       Option.flatMap(solvedOption, (solved) => {
-        const projection = Chunk.reduce(
-          Chunk.drop(allIndices, Number.increment(index)),
+        const columnStart = Number.increment(index)
+        const projection = Array.reduce(
+          solved,
           0,
-          (sum, column, columnOffset) =>
+          (sum, value, columnOffset) =>
             Number.sum(
               sum,
               Number.multiply(
-                valueAt(upper, size, index, column),
-                Chunk.unsafeGet(solved, columnOffset)
+                valueAt(upper, size, index, Number.sum(columnStart, columnOffset)),
+                value
               )
             )
         )
@@ -195,7 +189,7 @@ const backwardSubstitute = (
           (diagonal) => Number.greaterThan(abs(diagonal), solverEpsilon)
         ).pipe(
           Option.map((diagonal) =>
-            Chunk.prepend(
+            Array.prepend(
               solved,
               Number.unsafeDivide(
                 Number.subtract(Array.unsafeGet(rhs, index), projection),
@@ -205,8 +199,7 @@ const backwardSubstitute = (
           )
         )
       })
-  )
-}
+  ).pipe(Option.map(Chunk.unsafeFromArray))
 
 export const backwardSubstituteUpper = (
   upper: Chunk.Chunk<number>,
