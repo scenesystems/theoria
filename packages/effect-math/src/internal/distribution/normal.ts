@@ -7,10 +7,15 @@
  * @since 0.1.0
  * @category internal
  */
+import { SemigroupMultiply, SemigroupSum } from "@effect/typeclass/data/Number"
 import { Number } from "effect"
+import { unsafeDivide } from "effect/Number"
 
 import { exp, log, pi, sqrt } from "../../Numeric.js"
 import { erfc, erfcinv } from "../../Special.js"
+
+const sum = SemigroupSum.combine
+const multiply = SemigroupMultiply.combine
 
 /**
  * Precomputed √(2π) for the normal PDF denominator.
@@ -19,6 +24,7 @@ import { erfc, erfcinv } from "../../Special.js"
  * @category internal
  */
 const sqrtTwo = sqrt(2)
+const inverseSqrtTwo = unsafeDivide(1, sqrtTwo)
 const normalizationDenominator = sqrt(Number.multiply(2, pi))
 
 /**
@@ -62,8 +68,7 @@ export const standardNormalPdf = (x: number): number =>
  * @since 0.1.0
  * @category internal
  */
-export const standardNormalCdf = (x: number): number =>
-  Number.multiply(0.5, erfc(Number.unsafeDivide(Number.negate(x), sqrtTwo)))
+export const standardNormalCdf = (x: number): number => multiply(0.5, erfc(multiply(multiply(-1, x), inverseSqrtTwo)))
 
 /**
  * Finite standard-normal inverse transform with deterministic endpoint clamping.
@@ -105,7 +110,7 @@ export const normalLogpdf = (x: number, mu: number, sigma: number): number => {
  * @category internal
  */
 export const normalCdf = (x: number, mu: number, sigma: number): number =>
-  standardNormalCdf(Number.unsafeDivide(Number.subtract(x, mu), sigma))
+  multiply(0.5, erfc(multiply(unsafeDivide(sum(mu, multiply(-1, x)), sigma), inverseSqrtTwo)))
 
 /**
  * Normal quantile (inverse CDF): Q(p; μ, σ) = μ − σ√2 · erfcinv(2p).

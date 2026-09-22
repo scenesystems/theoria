@@ -229,13 +229,13 @@ export const lnGamma: (x: number) => number = Gamma.lnGammaLanczos
 export const beta: (a: number, b: number) => number = Beta.betaFromGamma
 
 /**
- * Approximates the error function with Cephes rational polynomials over
+ * Approximates the error function with Cephes and fdlibm rational polynomials over
  * multiple input regions. It preserves odd symmetry and maps positive and
  * negative infinity to `1` and `-1` respectively.
  * @since 0.1.0
  * @category operations
  */
-export const erf: (x: number) => number = Erf.erfCephes
+export const erf: (x: number) => number = Erf.erf
 
 /**
  * Computes the complementary error function directly in the positive tail,
@@ -243,7 +243,7 @@ export const erf: (x: number) => number = Erf.erfCephes
  * @since 0.1.0
  * @category operations
  */
-export const erfc: (x: number) => number = Erf.erfcCephes
+export const erfc: (x: number) => number = Erf.erfc
 
 /**
  * Approximates the logarithmic derivative of gamma. Inputs below `7` are
@@ -340,7 +340,7 @@ export const erfValidated = (input: unknown) =>
         })
       )
     )
-    return Erf.erfCephes(decoded.x)
+    return Erf.erf(decoded.x)
   })
 
 /**
@@ -361,7 +361,7 @@ export const erfcValidated = (input: unknown) =>
         })
       )
     )
-    return Erf.erfcCephes(decoded.x)
+    return Erf.erfc(decoded.x)
   })
 
 /**
@@ -442,7 +442,7 @@ export const gammaWithPolicies = (x: number) =>
 export const erfWithPolicies = (x: number) =>
   PolicyGuard.scalar({
     operation: "Special.erfWithPolicies",
-    compute: () => Erf.erfCephes(x),
+    compute: () => Erf.erf(x),
     makeError: (message) => new DomainViolationError({ operation: "erfWithPolicies", message }),
     annotations: (result) => ({ input: encodeNumber(x), result: encodeNumber(result) })
   })
@@ -504,7 +504,7 @@ export const betaWithPolicies = (a: number, b: number) =>
 export const erfcWithPolicies = (x: number) =>
   PolicyGuard.scalar({
     operation: "Special.erfcWithPolicies",
-    compute: () => Erf.erfcCephes(x),
+    compute: () => Erf.erfc(x),
     makeError: (message) => new DomainViolationError({ operation: "erfcWithPolicies", message }),
     annotations: (result) => ({ input: encodeNumber(x), result: encodeNumber(result) })
   })

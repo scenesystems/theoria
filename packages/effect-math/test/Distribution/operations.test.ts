@@ -122,6 +122,13 @@ describe("Distribution / normalCdf", () => {
       expect(normalCdf(3, 3, 1)).toBeCloseTo(0.5)
     }))
 
+  it.effect("preserves location, scale, and finite ratios when sigma times sqrt(2) would overflow", () =>
+    Effect.gen(function*() {
+      // SciPy special.ndtr at z = -2 and z = 1, respectively.
+      expectRelativeClose(normalCdf(0.5, 2, 0.75), 0.022750131948179195, 0, 2e-15)
+      expectRelativeClose(normalCdf(1.5e308, 0, 1.5e308), 0.8413447460685429, 0, 2e-15)
+    }))
+
   it.effect("retains representable probabilities far into the lower tail", () =>
     Effect.gen(function*() {
       // SciPy special.ndtr, not a quantile/CDF roundtrip sharing a kernel.

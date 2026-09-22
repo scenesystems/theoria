@@ -1,12 +1,9 @@
 /**
  * Error function and complementary error function kernels.
  *
- * Uses the Cephes double-precision rational approximation for `|x| <= 1`
- * with a narrow Cephes erfc bridge and fdlibm's two complementary-error tail
- * regions. The four positive erf regions replace fdlibm's separate near-zero,
- * small, and around-one dispatches while retaining its accurate subnormal
- * tails. erfc retains the established fdlibm path and its cheaper common
- * regions.
+ * Shares Cephes's rational approximation on |x| <= 1 and fdlibm's shifted
+ * rational below 1.25. Direct complementary-error tails avoid cancellation
+ * for larger inputs and retain representable subnormal probabilities.
  *
  * Cephes Math Library Release 2.2: June, 1992.
  * Copyright 1984, 1987, 1988, 1992 by Stephen L. Moshier.
@@ -19,17 +16,15 @@
  * @since 0.1.0
  * @category internal
  */
-import { Ordering } from "effect"
-import { match } from "effect/Boolean"
-import { lessThan, lessThanOrEqualTo, multiply, negate, Order, sign, subtract, sum, unsafeDivide } from "effect/Number"
+import { SemigroupMultiply, SemigroupSum } from "@effect/typeclass/data/Number"
+import { Equivalence, Order, sign, unsafeDivide } from "effect/Number"
 
 import { abs, exp } from "../../Numeric.js"
 
+const sum = SemigroupSum.combine
+const multiply = SemigroupMultiply.combine
 const tailRegionBoundary = unsafeDivide(1, 0.35)
-const twoPowNegative28 = 3.725290298461914e-9
-const smallRegionBoundary = 0.84375
 const middleRegionBoundary = 1.25
-const EFX = 1.28379167095512586316e-1
 const ERX = 8.45062911510467529297e-1
 
 const erfNumerator = (x: number): number => {
@@ -45,21 +40,6 @@ const erfDenominator = (x: number): number => {
   const degree3 = sum(multiply(degree4, x), 4594.323829709801)
   const degree2 = sum(multiply(degree3, x), 22629.000061389095)
   return sum(multiply(degree2, x), 49267.39426086359)
-}
-
-const fdlibmSmallNumerator = (x: number): number => {
-  const degree3 = sum(multiply(-2.37630166566501626084e-5, x), -5.77027029648944159157e-3)
-  const degree2 = sum(multiply(degree3, x), -2.84817495755985104766e-2)
-  const degree1 = sum(multiply(degree2, x), -3.25042107247001499370e-1)
-  return sum(multiply(degree1, x), 1.28379167095512558561e-1)
-}
-
-const fdlibmSmallDenominator = (x: number): number => {
-  const degree4 = sum(multiply(-3.96022827877536812320e-6, x), 1.32494738004321644526e-4)
-  const degree3 = sum(multiply(degree4, x), 5.08130628187576562776e-3)
-  const degree2 = sum(multiply(degree3, x), 6.50222499887672944485e-2)
-  const degree1 = sum(multiply(degree2, x), 3.97917223959155352819e-1)
-  return sum(multiply(degree1, x), 1)
 }
 
 const fdlibmMiddleNumerator = (x: number): number => {
@@ -78,28 +58,6 @@ const fdlibmMiddleDenominator = (x: number): number => {
   const degree2 = sum(multiply(degree3, x), 5.40397917702171048937e-1)
   const degree1 = sum(multiply(degree2, x), 1.06420880400844228286e-1)
   return sum(multiply(degree1, x), 1)
-}
-
-const erfcBridgeNumerator = (x: number): number => {
-  const degree7 = sum(multiply(2.461969814735305e-10, x), 0.5641895648310689)
-  const degree6 = sum(multiply(degree7, x), 7.463210564422699)
-  const degree5 = sum(multiply(degree6, x), 48.63719709856814)
-  const degree4 = sum(multiply(degree5, x), 196.5208329560771)
-  const degree3 = sum(multiply(degree4, x), 526.4451949954773)
-  const degree2 = sum(multiply(degree3, x), 934.5285271719576)
-  const degree1 = sum(multiply(degree2, x), 1027.5518868951572)
-  return sum(multiply(degree1, x), 557.5353353693994)
-}
-
-const erfcBridgeDenominator = (x: number): number => {
-  const degree8 = sum(x, 13.228195115474499)
-  const degree7 = sum(multiply(degree8, x), 86.70721408859897)
-  const degree6 = sum(multiply(degree7, x), 354.9377788878199)
-  const degree5 = sum(multiply(degree6, x), 975.7085017432055)
-  const degree4 = sum(multiply(degree5, x), 1823.9091668790973)
-  const degree3 = sum(multiply(degree4, x), 2246.3376081871097)
-  const degree2 = sum(multiply(degree3, x), 1656.6630919416134)
-  return sum(multiply(degree2, x), 557.5353408177277)
 }
 
 const erfcNearTailNumerator = (x: number): number => {
@@ -142,93 +100,45 @@ const erfcFarTailDenominator = (x: number): number => {
   return sum(multiply(degree1, x), 1)
 }
 
+const erfcTail = (x: number): number => {
+  const square = multiply(x, x)
+  const reciprocalSquare = unsafeDivide(1, square)
+  const correction = Equivalence(Order(x, tailRegionBoundary), -1)
+    ? unsafeDivide(erfcNearTailNumerator(reciprocalSquare), erfcNearTailDenominator(reciprocalSquare))
+    : unsafeDivide(erfcFarTailNumerator(reciprocalSquare), erfcFarTailDenominator(reciprocalSquare))
+  return unsafeDivide(exp(sum(sum(multiply(-1, square), -0.5625), correction)), x)
+}
+
+const erfPositive = (x: number): number => {
+  if (x <= 1) return erfSmall(x)
+  if (x < middleRegionBoundary) return fdlibmMiddle(x)
+  return sum(1, multiply(-1, erfcTail(x)))
+}
+
 const erfSmall = (x: number): number => {
   const square = multiply(x, x)
   return unsafeDivide(multiply(x, erfNumerator(square)), erfDenominator(square))
 }
-
-const erfcBridge = (x: number): number =>
-  unsafeDivide(
-    multiply(exp(negate(multiply(x, x))), erfcBridgeNumerator(x)),
-    erfcBridgeDenominator(x)
-  )
-
-const erfcTailApproximation = (
-  x: number,
-  numerator: (x: number) => number,
-  denominator: (x: number) => number
-): number => {
-  const square = multiply(x, x)
-  const reciprocalSquare = unsafeDivide(1, square)
-  const correction = unsafeDivide(numerator(reciprocalSquare), denominator(reciprocalSquare))
-  return unsafeDivide(exp(sum(subtract(negate(square), 0.5625), correction)), x)
-}
-
-const erfcNearTail = (x: number): number => erfcTailApproximation(x, erfcNearTailNumerator, erfcNearTailDenominator)
-const erfcFarTail = (x: number): number => erfcTailApproximation(x, erfcFarTailNumerator, erfcFarTailDenominator)
-
-const selectErfcTail = Ordering.match({
-  onLessThan: () => erfcNearTail,
-  onEqual: () => erfcFarTail,
-  onGreaterThan: () => erfcFarTail
-})
-const erfcTail = (x: number): number => selectErfcTail(Order(x, tailRegionBoundary))(x)
-
-const selectErfcBridge = match({ onFalse: () => erfcTail, onTrue: () => erfcBridge })
-const erfcBridgeOrTail = (x: number): number => selectErfcBridge(lessThan(x, 1.25))(x)
-
-const erfPositiveTail = (x: number): number => subtract(1, erfcBridgeOrTail(x))
-const selectErfPositive = match({ onFalse: () => erfPositiveTail, onTrue: () => erfSmall })
-const erfPositive = (x: number): number => selectErfPositive(lessThanOrEqualTo(x, 1))(x)
-
-const fdlibmNearZero = (x: number): number => multiply(sum(1, EFX), x)
-const fdlibmSmall = (x: number): number => {
-  const square = multiply(x, x)
-  return multiply(x, sum(1, unsafeDivide(fdlibmSmallNumerator(square), fdlibmSmallDenominator(square))))
-}
 const fdlibmMiddle = (x: number): number => {
-  const shifted = subtract(x, 1)
+  const shifted = sum(x, -1)
   return sum(ERX, unsafeDivide(fdlibmMiddleNumerator(shifted), fdlibmMiddleDenominator(shifted)))
 }
 
-const erfcNearZero = (x: number): number => subtract(1, fdlibmNearZero(x))
-const erfcSmall = (x: number): number => subtract(1, fdlibmSmall(x))
-const erfcMiddle = (x: number): number => subtract(1, fdlibmMiddle(x))
-const selectErfcMiddle = Ordering.match({
-  onLessThan: () => erfcMiddle,
-  onEqual: () => erfcTail,
-  onGreaterThan: () => erfcTail
-})
-const erfcMiddleOrTail = (x: number): number => selectErfcMiddle(Order(x, middleRegionBoundary))(x)
-const selectErfcSmall = Ordering.match({
-  onLessThan: () => erfcSmall,
-  onEqual: () => erfcMiddleOrTail,
-  onGreaterThan: () => erfcMiddleOrTail
-})
-const erfcSmallOrGreater = (x: number): number => selectErfcSmall(Order(x, smallRegionBoundary))(x)
-const selectErfcNearZero = Ordering.match({
-  onLessThan: () => erfcNearZero,
-  onEqual: () => erfcSmallOrGreater,
-  onGreaterThan: () => erfcSmallOrGreater
-})
-const erfcPositive = (x: number): number => selectErfcNearZero(Order(x, twoPowNegative28))(x)
+const erfcPositive = (x: number): number => {
+  if (x <= 1) return sum(1, multiply(-1, erfSmall(x)))
+  if (x < middleRegionBoundary) return sum(1, multiply(-1, fdlibmMiddle(x)))
+  return erfcTail(x)
+}
 
 /**
- * Evaluates erf with the Cephes small-domain rational and direct erfc tails.
+ * Evaluates erf with rational approximations and direct erfc tails.
  * Multiplication by Effect Number's sign preserves the public positive-zero
  * result for negative zero.
  *
  * @since 0.1.0
  * @category internal
  */
-export const erfCephes = (x: number): number => multiply(sign(x), erfPositive(abs(x)))
-
-const erfcNegative = (x: number): number => subtract(2, erfcPositive(negate(x)))
-const selectErfcSign = Ordering.match({
-  onLessThan: () => erfcNegative,
-  onEqual: () => erfcPositive,
-  onGreaterThan: () => erfcPositive
-})
+export const erf = (x: number): number => multiply(sign(x), erfPositive(abs(x)))
 
 /**
  * Evaluates erfc directly in both tails so representable probabilities are
@@ -237,4 +147,7 @@ const selectErfcSign = Ordering.match({
  * @since 0.1.0
  * @category internal
  */
-export const erfcCephes = (x: number): number => selectErfcSign(Order(x, 0))(x)
+export const erfc = (x: number): number => {
+  if (x < 0) return sum(2, multiply(-1, erfcPositive(multiply(-1, x))))
+  return erfcPositive(x)
+}

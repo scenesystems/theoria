@@ -125,6 +125,12 @@ const GOLDEN_SECTION_GUARDS = [
   "VariableDeclarator[id.name='goldenSection'] > ArrowFunctionExpression.init > BlockStatement.body > IfStatement[test.callee.object.name='Boolean'][test.callee.property.name='not'][consequent.type='BlockStatement']:has(ReturnStatement > CallExpression[callee.name='narrow'])"
 ]
 
+const ERF_GUARDS = [
+  "VariableDeclarator[id.name=/^(erfPositive|erfcPositive)$/] > ArrowFunctionExpression.init > BlockStatement.body > IfStatement[test.operator='<='][test.left.name='x'][test.right.value=1][consequent.type='ReturnStatement']",
+  "VariableDeclarator[id.name=/^(erfPositive|erfcPositive)$/] > ArrowFunctionExpression.init > BlockStatement.body > IfStatement[test.operator='<'][test.left.name='x'][test.right.name='middleRegionBoundary'][consequent.type='ReturnStatement']",
+  "VariableDeclarator[id.name='erfc'] > ArrowFunctionExpression.init > BlockStatement.body > IfStatement[test.operator='<'][test.left.name='x'][test.right.value=0][consequent.argument.callee.name='sum']"
+]
+
 /**
  * @returns {import('eslint').Linter.Config[]}
  */
@@ -238,6 +244,34 @@ export const scopes = () => [
               selector: `${rule.selector}:not(${
                 Array.join(Array.map(GOLDEN_SECTION_GUARDS, (guard) => `${guard} > BinaryExpression.test`), ", ")
               }, VariableDeclarator[id.name='narrow'] > ArrowFunctionExpression.init > BlockStatement.body > VariableDeclaration > VariableDeclarator[id.name='left'] > BinaryExpression.init[operator='<'][left.name='y1'][right.name='y2'])`
+            })),
+            Match.orElse(() => rule)
+          ))
+      ]
+    }
+  },
+  {
+    name: "theoria/effect/error-function-guards",
+    files: ["packages/effect-math/src/internal/special/erf.ts"],
+    rules: {
+      "no-restricted-syntax": [
+        "error",
+        ...Array.map(EFFECT_RULES, (rule) =>
+          Match.value(rule.selector).pipe(
+            Match.when("IfStatement", () => ({
+              ...rule,
+              selector: `${rule.selector}:not(${Array.join(ERF_GUARDS, ", ")})`
+            })),
+            Match.when("ConditionalExpression", () => ({
+              ...rule,
+              selector:
+                `${rule.selector}:not(VariableDeclarator[id.name='erfcTail'] > ArrowFunctionExpression.init > BlockStatement.body > VariableDeclaration > VariableDeclarator[id.name='correction'] > ConditionalExpression.init[test.callee.name='Equivalence'][test.arguments.0.callee.name='Order'][test.arguments.0.arguments.0.name='x'][test.arguments.0.arguments.1.name='tailRegionBoundary'][test.arguments.1.operator='-'][test.arguments.1.argument.value=1])`
+            })),
+            Match.when(String.startsWith("BinaryExpression[operator=/^"), () => ({
+              ...rule,
+              selector: `${rule.selector}:not(${
+                Array.join(Array.map(ERF_GUARDS, (guard) => `${guard} > BinaryExpression.test`), ", ")
+              })`
             })),
             Match.orElse(() => rule)
           ))

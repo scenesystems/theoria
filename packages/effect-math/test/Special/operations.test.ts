@@ -1,5 +1,5 @@
 import { describe, expect, it } from "@effect/vitest"
-import { Effect, Number } from "effect"
+import { Array, Effect, Number } from "effect"
 
 import { abs, isFinite, pi, sqrt } from "../../src/Numeric.js"
 import * as Policy from "../../src/Policy.js"
@@ -175,6 +175,20 @@ describe("Special / erf", () => {
       expect(erf(7.999999999999999)).toBe(1)
       expect(erf(8)).toBe(1)
       expect(erf(8.000000000000002)).toBe(1)
+    }))
+
+  it.effect("keeps both functions monotone across the shared rational region joins", () =>
+    Effect.gen(function*() {
+      Array.forEach(Array.make(1, 1.25), (boundary) => {
+        const before = Number.subtract(boundary, 2.220446049250313e-16)
+        const after = Number.sum(boundary, 2.220446049250313e-16)
+        expect(erf(before)).toBeLessThanOrEqual(erf(boundary))
+        expect(erf(boundary)).toBeLessThanOrEqual(erf(after))
+        expect(erfc(before)).toBeGreaterThanOrEqual(erfc(boundary))
+        expect(erfc(boundary)).toBeGreaterThanOrEqual(erfc(after))
+        expect(erf(Number.negate(after))).toBeLessThanOrEqual(erf(Number.negate(before)))
+        expect(erfc(Number.negate(after))).toBeGreaterThanOrEqual(erfc(Number.negate(before)))
+      })
     }))
 
   it.effect("preserves exact tiny values and special-value behavior", () =>
