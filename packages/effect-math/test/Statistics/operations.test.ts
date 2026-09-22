@@ -1,7 +1,7 @@
 import { describe, expect, it } from "@effect/vitest"
-import { Array, Chunk, Effect, Exit, Number, Option } from "effect"
+import { Array, Chunk, Effect, Exit, FastCheck, Number, Option } from "effect"
 
-import { sqrt } from "../../src/Numeric.js"
+import { abs, sqrt } from "../../src/Numeric.js"
 
 import * as Policy from "../../src/Policy.js"
 import {
@@ -109,6 +109,40 @@ describe("Statistics / summaryStatistics", () => {
       expect(result.max).toStrictEqual(5)
       expect(result.variance).toStrictEqual(2.5)
       expect(result.standardDeviation).toBeCloseTo(sqrt(2.5))
+    }))
+
+  it.effect.prop("matches independent integer moments and sorted extrema", {
+    first: FastCheck.integer({ min: -1000, max: 1000 }),
+    rest: FastCheck.array(FastCheck.integer({ min: -1000, max: 1000 }), { minLength: 1, maxLength: 24 })
+  }, ({ first, rest }) =>
+    Effect.sync(() => {
+      const values = Array.make(first, ...rest)
+      const count = Array.length(values)
+      const total = Number.sumAll(values)
+      const secondMoment = Array.reduce(values, 0, (acc, value) => Number.sum(acc, Number.multiply(value, value)))
+      const expectedVariance = Number.unsafeDivide(
+        Number.subtract(secondMoment, Number.unsafeDivide(Number.multiply(total, total), count)),
+        Number.decrement(count)
+      )
+      const sorted = Array.sort(values, Number.Order)
+      const result = summaryStatistics(Chunk.prepend(Chunk.fromIterable(rest), first))
+      expect(result.count).toBe(count)
+      expect(result.min).toBe(Array.unsafeGet(sorted, 0))
+      expect(result.max).toBe(Array.unsafeGet(sorted, Number.decrement(count)))
+      expect(abs(Number.subtract(result.mean, Number.unsafeDivide(total, count)))).toBeLessThanOrEqual(1e-12)
+      expect(abs(Number.subtract(result.variance, expectedVariance))).toBeLessThanOrEqual(1e-8)
+      expect(result.standardDeviation).toBeCloseTo(sqrt(expectedVariance), 8)
+    }))
+
+  it.effect("preserves signed-zero extrema independently of observation order", () =>
+    Effect.gen(function*() {
+      Array.forEach(Array.make(Chunk.make(0, -0), Chunk.make(-0, 0)), (values) => {
+        const result = summaryStatistics(values)
+        expect(result.min).toBe(-0)
+        expect(result.max).toBe(0)
+        expect(result.variance).toBe(0)
+      })
+      expect(summaryStatistics(Chunk.of(-7)).variance).toBe(0)
     }))
 
   it.effect("retains the finite summary model for singleton non-finite observations", () =>

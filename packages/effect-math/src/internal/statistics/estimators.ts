@@ -4,10 +4,17 @@
  * @since 0.1.0
  * @category internal
  */
+import { SemigroupMultiply, SemigroupSum } from "@effect/typeclass/data/Number"
 import { Array, Boolean, Chunk, MutableRef, Number, Option } from "effect"
+import { get, set } from "effect/MutableRef"
+import { unsafeDivide } from "effect/Number"
 
 import { abs, isFinite, sqrt } from "../../Numeric.js"
 import { SummaryStatistics } from "../../Statistics.js"
+import { max, min } from "../numeric/binary.js"
+
+const sum = SemigroupSum.combine
+const multiply = SemigroupMultiply.combine
 
 const meanArray = (values: ReadonlyArray<number>): number => {
   const total = Number.sumAll(values)
@@ -63,29 +70,26 @@ export const summaryStatistics = (values: Chunk.NonEmptyChunk<number>): SummaryS
   const minimum = MutableRef.make(first)
   const sumOfSquaredDistances = MutableRef.make(0)
   Chunk.forEach(Chunk.tailNonEmpty(values), (value, index) => {
-    const nextCount = Number.sum(index, 2)
-    const currentAverage = MutableRef.get(average)
-    const delta = Number.subtract(value, currentAverage)
-    const nextAverage = Number.sum(currentAverage, Number.unsafeDivide(delta, nextCount))
-    const updatedDelta = Number.subtract(value, nextAverage)
-    MutableRef.set(maximum, Number.max(MutableRef.get(maximum), value))
-    MutableRef.set(average, nextAverage)
-    MutableRef.set(minimum, Number.min(MutableRef.get(minimum), value))
-    MutableRef.set(
-      sumOfSquaredDistances,
-      Number.sum(MutableRef.get(sumOfSquaredDistances), Number.multiply(delta, updatedDelta))
-    )
+    const nextCount = sum(index, 2)
+    const currentAverage = get(average)
+    const delta = sum(value, multiply(-1, currentAverage))
+    const nextAverage = sum(currentAverage, unsafeDivide(delta, nextCount))
+    const updatedDelta = sum(value, multiply(-1, nextAverage))
+    set(maximum, max(get(maximum), value))
+    set(average, nextAverage)
+    set(minimum, min(get(minimum), value))
+    set(sumOfSquaredDistances, sum(get(sumOfSquaredDistances), multiply(delta, updatedDelta)))
   })
   const finalCount = Chunk.size(values)
   const sampleVariance = Boolean.match(Number.Equivalence(finalCount, 1), {
     onTrue: () => 0,
-    onFalse: () => Number.unsafeDivide(MutableRef.get(sumOfSquaredDistances), Number.decrement(finalCount))
+    onFalse: () => unsafeDivide(get(sumOfSquaredDistances), Number.decrement(finalCount))
   })
   return new SummaryStatistics({
     count: finalCount,
-    max: MutableRef.get(maximum),
-    mean: MutableRef.get(average),
-    min: MutableRef.get(minimum),
+    max: get(maximum),
+    mean: get(average),
+    min: get(minimum),
     standardDeviation: sqrt(sampleVariance),
     variance: sampleVariance
   })
