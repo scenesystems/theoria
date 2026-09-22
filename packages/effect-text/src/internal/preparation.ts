@@ -602,7 +602,6 @@ const compileKernelRuntime = (
   )
 
   return new Prepared.RuntimeTables({
-    chunks,
     discretionaryHyphenWidth: hyphenWidth,
     segments: runtimeSegments,
     tabStopAdvance

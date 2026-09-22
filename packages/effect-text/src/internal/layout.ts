@@ -4,7 +4,7 @@
  * @since 0.1.0
  */
 import * as Numeric from "@scenesystems/effect-math/Numeric"
-import { Boolean, Chunk, Data, Match, Number, Option, Order, Schema, String, Tuple } from "effect"
+import { Boolean, Data, Match, Number, Option, Order, Schema, String, Tuple } from "effect"
 import * as Arr from "effect/Array"
 import * as HashMap from "effect/HashMap"
 import * as Iterable from "effect/Iterable"
@@ -997,24 +997,6 @@ const materializeLine = (
   width: record.width
 })
 
-const measureChunkWidth = (
-  kernel: Prepared.Kernel,
-  startSegmentIndex: number,
-  segmentLimit: number
-): number =>
-  Arr.reduce(
-    Arr.drop(Arr.take(kernel.runtime.segments, segmentLimit), startSegmentIndex),
-    0,
-    (paintWidth, segment) =>
-      Number.sum(
-        paintWidth,
-        Boolean.match(String.Equivalence(segment.breakKind, "tab"), {
-          onTrue: () => resolveTabAdvance(paintWidth, kernel.runtime.tabStopAdvance),
-          onFalse: () => segment.paintAdvance
-        })
-      )
-  )
-
 /**
  * Summarizes layout from the canonical walker without materializing line text.
  *
@@ -1167,9 +1149,26 @@ export const walkLineRanges = (
  * @since 0.2.0
  * @category internals
  */
-export const measureNaturalWidth = (kernel: Prepared.Kernel): number =>
-  Chunk.reduce(kernel.runtime.chunks, 0, (maxWidth, chunk) => {
-    const chunkWidth = measureChunkWidth(kernel, chunk.startSegmentIndex, chunk.consumedEndSegmentIndex)
-
-    return Number.max(maxWidth, chunkWidth)
+export const measureNaturalWidth = (kernel: Prepared.Kernel): number => {
+  const paintWidth = MutableRef.make(0)
+  return Arr.reduce(kernel.runtime.segments, 0, (maxWidth, segment, index) => {
+    const currentWidth = MutableRef.get(paintWidth)
+    const width = Number.sum(
+      currentWidth,
+      Boolean.match(String.Equivalence(segment.breakKind, "tab"), {
+        onTrue: () => resolveTabAdvance(currentWidth, kernel.runtime.tabStopAdvance),
+        onFalse: () => segment.paintAdvance
+      })
+    )
+    return Boolean.match(Number.Equivalence(Number.increment(index), segment.chunkEndSegmentIndex), {
+      onFalse: () => {
+        MutableRef.set(paintWidth, width)
+        return maxWidth
+      },
+      onTrue: () => {
+        MutableRef.set(paintWidth, 0)
+        return Number.max(maxWidth, width)
+      }
+    })
   })
+}

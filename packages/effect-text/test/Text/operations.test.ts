@@ -455,13 +455,25 @@ describe("Text edge cases and robustness", () => {
   it.effect("naturalWidth returns the widest forced line width", () =>
     Effect.gen(function*() {
       const { layer } = yield* makeTestContext
-      const prepared = yield* Text.prepareWithSegments({
-        text: "a\tb\ncccc",
-        font: { family: "Mono", size: 10 },
-        whiteSpace: "pre-wrap"
-      }).pipe(Effect.provide(layer))
+      yield* Effect.forEach(
+        Arr.make(
+          { text: "a\tb\ncccc", width: 25 },
+          { text: "\t a\nb\tc\nddddddd\n", width: 35 },
+          { text: "\n\n", width: 0 },
+          { text: "", width: 0 }
+        ),
+        ({ text, width }) =>
+          Effect.gen(function*() {
+            const input: Text.Input = { text, font: { family: "Mono", size: 10 }, whiteSpace: "pre-wrap" }
+            const summaryOnly = yield* Text.prepare(input)
+            const prepared = yield* Text.prepareWithSegments(input)
 
-      expect(Text.naturalWidth(prepared)).toBe(25)
+            expect(Text.naturalWidth(summaryOnly)).toBe(width)
+            expect(Text.naturalWidth(prepared)).toBe(width)
+            Text.layout(prepared, { maxWidth: 10, lineHeight: 12 })
+            expect(Text.naturalWidth(prepared)).toBe(width)
+          })
+      ).pipe(Effect.provide(layer))
     }))
 
   it.effect("stream produces the same values as lines", () =>

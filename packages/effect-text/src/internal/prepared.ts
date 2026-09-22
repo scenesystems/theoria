@@ -98,7 +98,6 @@ export type LineChunks = Chunk.Chunk<LineChunk>
 
 /** @internal */
 export class RuntimeTables extends Data.Class<{
-  readonly chunks: LineChunks
   readonly discretionaryHyphenWidth: number
   readonly segments: RuntimeSegments
   readonly tabStopAdvance: number

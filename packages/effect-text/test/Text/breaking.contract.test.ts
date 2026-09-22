@@ -124,6 +124,7 @@ describe("Text breaking contracts", () => {
       expect(Text.lines(prepared, { maxWidth: 27.75, lineHeight: 12 })).toEqual(Arr.of(
         visualLine(0, "ab\tc", 27.75)
       ))
+      expect(Text.naturalWidth(prepared)).toBe(27.75)
       // Pre-wrap carries pending whitespace to the continuation line; its
       // tab is now measured from zero rather than the previous line's end.
       expect(Text.lines(prepared, { maxWidth: 27.7, lineHeight: 12 })).toEqual(Arr.make(
@@ -188,5 +189,6 @@ describe("Text breaking contracts", () => {
       expect(Text.lines(prepared, { maxWidth: 1_000_000, lineHeight: 12 })).toEqual(Arr.of(
         visualLine(0, "a\tb", 922246.0037469701)
       ))
+      expect(Text.naturalWidth(prepared)).toBe(922246.0037469701)
     }))
 })

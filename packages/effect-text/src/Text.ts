@@ -442,11 +442,15 @@ export class WithSegments extends Data.Class<
   }
 > {}
 
-const fromKernel = (kernel: Prepared.Kernel): Text =>
-  new Text({
+const fromKernel = (kernel: Prepared.Kernel): Text => {
+  // Natural width is request-independent, like the retained measurements.
+  // Compute it while constructing the handle, never again per projection.
+  const naturalWidth = InternalLayout.measureNaturalWidth(kernel)
+  return new Text({
     summary: (request) => InternalLayout.summarizeLines(kernel, request),
-    naturalWidth: () => InternalLayout.measureNaturalWidth(kernel)
+    naturalWidth: () => naturalWidth
   })
+}
 
 const compile = (input: Input): Effect.Effect<Prepared.Compilation, TextMeasurer.Failed, Services> =>
   Effect.gen(function*() {
