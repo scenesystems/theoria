@@ -112,6 +112,19 @@ const BISECTION_GUARDS = [
 const BISECTION_SIGN =
   "VariableDeclarator[id.name='narrow'] > ArrowFunctionExpression.init > BlockStatement.body > VariableDeclaration > VariableDeclarator[id.name='sameSign'] > BinaryExpression.init[operator='==='][left.operator='<'][left.left.name='value'][left.right.value=0][right.name='negative']"
 
+const GOLDEN_SECTION_GUARDS = [
+  ...Array.map(
+    [
+      "IfStatement[test.operator='<'][test.left.callee.name='abs'][test.right.name='tolerance'][consequent.argument.callee.name='midpoint']",
+      "IfStatement[test.callee.name='Equivalence'][test.arguments.0.name='remaining'][test.arguments.1.value=0][consequent.argument.callee.name='exhausted']",
+      "IfStatement[test.callee.name='Equivalence'][test.arguments.0.name='remaining'][test.arguments.1.value=1][consequent.argument.callee.name='exhausted']",
+      "IfStatement[test.operator='<'][test.left.name='nextY1'][test.right.name='nextY2'][consequent.type='BlockStatement']:has(ReturnStatement > CallExpression[callee.name='narrow'])"
+    ],
+    (guard) => `VariableDeclarator[id.name='narrow'] > ArrowFunctionExpression.init > BlockStatement.body > ${guard}`
+  ),
+  "VariableDeclarator[id.name='goldenSection'] > ArrowFunctionExpression.init > BlockStatement.body > IfStatement[test.callee.object.name='Boolean'][test.callee.property.name='not'][consequent.type='BlockStatement']:has(ReturnStatement > CallExpression[callee.name='narrow'])"
+]
+
 /**
  * @returns {import('eslint').Linter.Config[]}
  */
@@ -197,6 +210,34 @@ export const scopes = () => [
                   ", "
                 )
               })`
+            })),
+            Match.orElse(() => rule)
+          ))
+      ]
+    }
+  },
+  {
+    name: "theoria/effect/golden-section-guards",
+    files: ["packages/effect-math/src/internal/optimization/goldenSection.ts"],
+    rules: {
+      "no-restricted-syntax": [
+        "error",
+        ...Array.map(EFFECT_RULES, (rule) =>
+          Match.value(rule.selector).pipe(
+            Match.when("IfStatement", () => ({
+              ...rule,
+              selector: `${rule.selector}:not(${Array.join(GOLDEN_SECTION_GUARDS, ", ")})`
+            })),
+            Match.when("ConditionalExpression", () => ({
+              ...rule,
+              selector:
+                `${rule.selector}:not(VariableDeclarator[id.name='narrow'] > ArrowFunctionExpression.init > BlockStatement.body > VariableDeclaration > VariableDeclarator[id.name=/^(next|nextA|nextB|nextX1|nextX2|nextY1|nextY2)$/] > ConditionalExpression.init[test.name='left'])`
+            })),
+            Match.when(String.startsWith("BinaryExpression[operator=/^"), () => ({
+              ...rule,
+              selector: `${rule.selector}:not(${
+                Array.join(Array.map(GOLDEN_SECTION_GUARDS, (guard) => `${guard} > BinaryExpression.test`), ", ")
+              }, VariableDeclarator[id.name='narrow'] > ArrowFunctionExpression.init > BlockStatement.body > VariableDeclaration > VariableDeclarator[id.name='left'] > BinaryExpression.init[operator='<'][left.name='y1'][right.name='y2'])`
             })),
             Match.orElse(() => rule)
           ))

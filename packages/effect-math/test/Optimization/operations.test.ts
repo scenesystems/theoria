@@ -430,7 +430,7 @@ describe("Optimization / goldenSection", () => {
     }))
 
   it.effect.prop("honors callback budgets on both sides of iteration-batch boundaries", {
-    maxIterations: FastCheck.integer({ min: 60, max: 130 })
+    maxIterations: FastCheck.constantFrom(63, 64, 65, 255, 256, 257, 511, 512, 513)
   }, ({ maxIterations }) =>
     Effect.gen(function*() {
       const evaluations = MutableRef.make(0)
@@ -446,6 +446,38 @@ describe("Optimization / goldenSection", () => {
       )
       expectClose(result, 1, kernelTolerance)
       expect(MutableRef.get(evaluations)).toStrictEqual(Number.sum(maxIterations, 2))
+    }))
+
+  it.effect.prop("preserves a nonsaturated bracket across bounded recursion batches", {
+    maxIterations: FastCheck.constantFrom(255, 256, 257, 511, 512, 513)
+  }, ({ maxIterations }) =>
+    Effect.gen(function*() {
+      // A strictly increasing objective keeps the left endpoint at zero and
+      // contracts the right endpoint by phi each time: midpoint = b * phi^n / 2.
+      const expected = Number.multiply(5e149, Numeric.pow(0.6180339887498949, maxIterations))
+      const result = goldenSection((x) => x, 0, 1e150, -1, maxIterations)
+      const reversed = goldenSection((x) => x, 1e150, 0, -1, maxIterations)
+      expect(Numeric.abs(Number.subtract(Number.unsafeDivide(result, expected), 1))).toBeLessThan(1e-12)
+      expect(Numeric.abs(Number.subtract(Number.unsafeDivide(reversed, expected), 1))).toBeLessThan(1e-12)
+    }))
+
+  it.effect.prop("does not narrow for an empty or unordered iteration budget", {
+    budget: FastCheck.constantFrom(-1, Number.unsafeDivide(-1, 0), NaN)
+  }, ({ budget }) =>
+    Effect.gen(function*() {
+      const evaluations = MutableRef.make(0)
+      const result = goldenSection(
+        (x) => {
+          MutableRef.increment(evaluations)
+          return x
+        },
+        0,
+        2,
+        -1,
+        budget
+      )
+      expect(result).toBe(1)
+      expect(MutableRef.get(evaluations)).toBe(2)
     }))
 
   it.effect("normalizes fractional budgets across the iteration-batch boundary", () =>
@@ -466,9 +498,17 @@ describe("Optimization / goldenSection", () => {
       MutableRef.set(evaluations, 0)
       expectClose(goldenSection(objective, 0, 1, -1, 64.5), 1, kernelTolerance)
       expect(MutableRef.get(evaluations)).toStrictEqual(67)
+
+      MutableRef.set(evaluations, 0)
+      expectClose(goldenSection(objective, 0, 1, -1, 255.5), 1, kernelTolerance)
+      expect(MutableRef.get(evaluations)).toStrictEqual(258)
+
+      MutableRef.set(evaluations, 0)
+      expectClose(goldenSection(objective, 0, 1, -1, 256.5), 1, kernelTolerance)
+      expect(MutableRef.get(evaluations)).toStrictEqual(259)
     }))
 
-  it.effect("preserves the evaluation sequence when an objective runs a nested search", () =>
+  it.effect("preserves nested evaluation sequences across bounded recursion batches", () =>
     Effect.gen(function*() {
       const baselineTrace = MutableRef.make(Chunk.empty<number>())
       const nestedTrace = MutableRef.make(Chunk.empty<number>())
@@ -482,7 +522,7 @@ describe("Optimization / goldenSection", () => {
         0,
         2,
         1e-30,
-        65
+        257
       )
       const nested = goldenSection(
         (x) => {
@@ -494,23 +534,23 @@ describe("Optimization / goldenSection", () => {
             },
             -1,
             1,
-            1e-30,
-            2
+            -1,
+            257
           )
           return evaluate(x)
         },
         0,
         2,
         1e-30,
-        65
+        257
       )
 
       expect(nested).toStrictEqual(baseline)
       expect(Chunk.toReadonlyArray(MutableRef.get(nestedTrace))).toStrictEqual(
         Chunk.toReadonlyArray(MutableRef.get(baselineTrace))
       )
-      expect(Chunk.size(MutableRef.get(nestedTrace))).toStrictEqual(67)
-      expect(MutableRef.get(nestedEvaluations)).toStrictEqual(Number.multiply(67, 4))
+      expect(Chunk.size(MutableRef.get(nestedTrace))).toStrictEqual(259)
+      expect(MutableRef.get(nestedEvaluations)).toStrictEqual(Number.multiply(259, 259))
     }))
 
   it.effect("is stack safe for a large finite nonconverging budget", () =>
