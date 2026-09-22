@@ -23,7 +23,14 @@ export const logaddexp = (a: number, b: number): number => {
 }
 
 /** Computes `log(exp(a) - exp(b))`; returns NaN outside the strict `a > b` domain. */
-export const logsubexp = (a: number, b: number): number => Number.sum(a, log1mexp(Number.subtract(b, a)))
+export const logsubexp = (a: number, b: number): number => {
+  const difference = sum(b, multiply(a, -1))
+  if (Equivalence(Number.Order(difference, -0.6931471805599453), -1)) {
+    return sum(a, log1p(multiply(-1, exp(difference))))
+  }
+  if (Equivalence(difference, 0)) return unsafeDivide(difference, difference)
+  return sum(a, log(multiply(-1, expm1(difference))))
+}
 
 /** Computes `log(1 - exp(x))` on `x < 0` without cancellation. */
 export const log1mexp = (x: number): number => {

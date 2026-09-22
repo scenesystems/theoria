@@ -95,6 +95,21 @@ describe("Numeric log-space kernels", () => {
       closeTo(logsubexp(1000, 999.9999999999999), 970.1946712359223)
     }))
 
+  it.effect("preserves log-difference zero signs, infinite endpoints, and overflowing exponent gaps", () =>
+    Effect.gen(function*() {
+      const infinity = Number.unsafeDivide(1, 0)
+      const negativeInfinity = Number.negate(infinity)
+      expect(logsubexp(-0, negativeInfinity)).toBe(-0)
+      expect(logsubexp(0, negativeInfinity)).toBe(0)
+      expect(logsubexp(1e308, -1e308)).toBe(1e308)
+      expect(logsubexp(infinity, 5)).toBe(infinity)
+      expect(logsubexp(infinity, negativeInfinity)).toBe(infinity)
+      expect(logsubexp(infinity, infinity)).toBeNaN()
+      expect(logsubexp(negativeInfinity, negativeInfinity)).toBeNaN()
+      expect(logsubexp(0, -0)).toBeNaN()
+      expect(logsubexp(-0, 0)).toBeNaN()
+    }))
+
   it.effect("joins the cancellation-safe formulas at negative log(2)", () =>
     Effect.gen(function*() {
       // mpmath log(-expm1(x)) at 100 decimal digits for these exact inputs.
