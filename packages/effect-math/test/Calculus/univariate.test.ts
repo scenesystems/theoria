@@ -181,6 +181,27 @@ describe("Calculus / univariate validation", () => {
 })
 
 describe("Calculus / univariate policy behavior", () => {
+  it.effect("recomputes a lazy policy operation on every execution", () =>
+    Effect.gen(function*() {
+      const slope = MutableRef.make(3)
+      const calls = MutableRef.make(0)
+      const operation = derivativeLimitWithPolicies(
+        (x) => {
+          MutableRef.increment(calls)
+          return Number.multiply(MutableRef.get(slope), x)
+        },
+        2,
+        { initialStep: Numeric.StepSize.make(0.125), contractionFactor: 2 }
+      )
+
+      expect(MutableRef.get(calls)).toBe(0)
+      expect((yield* operation.pipe(Effect.provide(strictPolicies))).value).toBe(3)
+      const firstCalls = MutableRef.get(calls)
+      MutableRef.set(slope, 7)
+      expect((yield* operation.pipe(Effect.provide(relaxedPolicies))).value).toBe(7)
+      expect(MutableRef.get(calls)).toBe(Number.multiply(firstCalls, 2))
+    }))
+
   it.effect("strict precision rejects non-finite derivative limits", () =>
     Effect.gen(function*() {
       const result = yield* Effect.exit(derivativeLimitWithPolicies(() => Number.unsafeDivide(1, 0), 1))

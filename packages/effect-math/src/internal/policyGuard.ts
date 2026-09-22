@@ -1,8 +1,8 @@
-import { Array, Clock, Data, Effect, Match, Number, Record, Schema, String } from "effect"
+import { Array, Clock, Context, Data, Effect, Number, Record, Schema, String } from "effect"
 
 import * as Policy from "../Policy.js"
 
-const FiniteNumber = Schema.Number.pipe(Schema.finite())
+const isFiniteNumber = Schema.is(Schema.Finite)
 const encodeNumber = Schema.encodeSync(Schema.NumberFromString)
 
 class Options<A, E> extends Data.Class<{
@@ -20,30 +20,26 @@ class ScalarOptions<E> extends Data.Class<{
   readonly annotations: (result: number) => Record.ReadonlyRecord<string, string>
 }> {}
 
-const guard = <A, E>(options: Options<A, E>, failureMessage: (result: A) => string) =>
-  Effect.gen(function*() {
-    const precision = yield* Policy.Precision
-    const diagnostics = yield* Policy.Diagnostics
-    const compute = Effect.sync(options.compute).pipe(
-      Effect.flatMap((result) =>
-        Match.value(precision.policy).pipe(
-          Match.when("strict", () =>
-            Effect.filterOrFail(
-              Effect.succeed(result),
-              options.isValid,
-              (invalid) => options.makeError(failureMessage(invalid))
-            )),
-          Match.when("relaxed", () => Effect.succeed(result)),
-          Match.exhaustive
-        )
-      )
-    )
+const guard = <A, E>(options: Options<A, E>, failureMessage: (result: A) => string) => {
+  const compute = Effect.sync(options.compute)
+  const strict = Effect.filterOrFail(
+    compute,
+    options.isValid,
+    (invalid) => options.makeError(failureMessage(invalid))
+  )
+  return Effect.contextWithEffect((context: Context.Context<Policy.Precision | Policy.Diagnostics>) => {
+    const precision = Context.get(context, Policy.Precision)
+    const diagnostics = Context.get(context, Policy.Diagnostics)
+    const checked = Effect.if(String.Equivalence(precision.policy, "strict"), {
+      onTrue: () => strict,
+      onFalse: () => compute
+    })
 
-    return yield* Match.value(diagnostics.policy).pipe(
-      Match.when("enabled", () =>
+    return Effect.if(String.Equivalence(diagnostics.policy, "enabled"), {
+      onTrue: () =>
         Effect.gen(function*() {
           const startedAt = yield* Clock.currentTimeMillis
-          const result = yield* compute
+          const result = yield* checked
           const finishedAt = yield* Clock.currentTimeMillis
           const annotations = Record.set(
             Record.set(options.annotations(result), "precision", precision.policy),
@@ -52,21 +48,21 @@ const guard = <A, E>(options: Options<A, E>, failureMessage: (result: A) => stri
           )
           yield* Effect.logDebug(options.operation).pipe(Effect.annotateLogs(annotations))
           return result
-        })),
-      Match.when("disabled", () => compute),
-      Match.exhaustive
-    )
+        }),
+      onFalse: () => checked
+    })
   })
+}
 
 export const scalar = <E>(options: ScalarOptions<E>) =>
   guard(
-    new Options({
+    {
       operation: options.operation,
       compute: options.compute,
-      isValid: Schema.is(FiniteNumber),
+      isValid: isFiniteNumber,
       makeError: options.makeError,
       annotations: options.annotations
-    }),
+    },
     (result) => Array.join(Array.make("Non-finite ", options.operation, " result: ", encodeNumber(result)), "")
   )
 

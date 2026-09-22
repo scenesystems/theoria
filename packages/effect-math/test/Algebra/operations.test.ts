@@ -1,5 +1,18 @@
 import { describe, expect, it } from "@effect/vitest"
-import { Array, Chunk, Effect, Equal, Exit, FastCheck, Number, Predicate, Schema } from "effect"
+import {
+  Array,
+  Chunk,
+  Effect,
+  Equal,
+  Exit,
+  FastCheck,
+  Logger,
+  LogLevel,
+  MutableRef,
+  Number,
+  Predicate,
+  Schema
+} from "effect"
 
 import {
   factorial,
@@ -327,6 +340,23 @@ describe("Algebra / factorialValidated", () => {
 // ---------------------------------------------------------------------------
 
 describe("Algebra / polyEvalWithPolicies", () => {
+  it.effect("reads diagnostics from each execution's context when reusing an operation", () =>
+    Effect.gen(function*() {
+      const count = MutableRef.make(0)
+      const logger = Logger.make(() => MutableRef.increment(count))
+      const operation = polyEvalWithPolicies(Chunk.make(2, 3), 4).pipe(
+        Effect.provide(Logger.replace(Logger.defaultLogger, logger)),
+        Logger.withMinimumLogLevel(LogLevel.Debug)
+      )
+
+      expect(yield* operation.pipe(Effect.provide(relaxedScalarLayer))).toBe(14)
+      expect(MutableRef.get(count)).toBe(0)
+      expect(yield* operation.pipe(Effect.provide(strictCompensatedLayer))).toBe(14)
+      expect(MutableRef.get(count)).toBe(1)
+      expect(yield* operation.pipe(Effect.provide(relaxedScalarLayer))).toBe(14)
+      expect(MutableRef.get(count)).toBe(1)
+    }))
+
   it.effect("returns correct result under strict+compensated", () =>
     Effect.gen(function*() {
       const result = yield* polyEvalWithPolicies(Chunk.make(1, Number.negate(2), 1), 3)
@@ -341,6 +371,16 @@ describe("Algebra / polyEvalWithPolicies", () => {
 })
 
 describe("Algebra / factorialWithPolicies", () => {
+  it.effect("validates a reused operation according to each execution's precision", () =>
+    Effect.gen(function*() {
+      const operation = factorialWithPolicies(200)
+      expect(yield* operation.pipe(Effect.provide(relaxedScalarLayer))).toBe(Number.unsafeDivide(1, 0))
+      const error = yield* Effect.flip(operation.pipe(Effect.provide(strictCompensatedLayer)))
+      expect(error._tag).toBe("AlgebraDomainViolationError")
+      expect(error.operation).toBe("factorialWithPolicies")
+      expect(yield* operation.pipe(Effect.provide(relaxedScalarLayer))).toBe(Number.unsafeDivide(1, 0))
+    }))
+
   it.effect("returns correct result under strict", () =>
     Effect.gen(function*() {
       const result = yield* factorialWithPolicies(5)
