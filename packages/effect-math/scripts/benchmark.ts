@@ -94,10 +94,11 @@ const binaryCase = (
   right: Chunk.Chunk<number>,
   operation: (left: number, right: number) => number
 ): BenchmarkCase => {
-  const evaluateBatch = () => consume(Chunk.zipWith(left, right, operation))
+  const pairs = Chunk.zip(left, right)
+  const evaluateBatch = () => Chunk.reduce(pairs, 0, (checksum, [a, b]) => Number.sum(checksum, operation(a, b)))
   return new BenchmarkCase({
     name,
-    operationsPerIteration: Number.min(Chunk.size(left), Chunk.size(right)),
+    operationsPerIteration: Chunk.size(pairs),
     evaluate: (iterations) => Effect.sync(() => repeat(iterations, evaluateBatch))
   })
 }

@@ -5,14 +5,14 @@
  * @category internal
  */
 import { SemigroupMultiply, SemigroupSum } from "@effect/typeclass/data/Number"
-import { Boolean, Number } from "effect"
+import { Number } from "effect"
+import { Equivalence, unsafeDivide } from "effect/Number"
 
 import { exp, expm1, log, log1p } from "./transcendental.js"
 
 const sum = SemigroupSum.combine
 const multiply = SemigroupMultiply.combine
 const lnTwo = 0.6931471805599453
-const belowNegativeLnTwo = Number.lessThan(Number.negate(lnTwo))
 
 /** Computes `log(exp(a) + exp(b))` without materializing large exponentials. */
 export const logaddexp = (a: number, b: number): number => {
@@ -25,15 +25,12 @@ export const logaddexp = (a: number, b: number): number => {
 /** Computes `log(exp(a) - exp(b))`; returns NaN outside the strict `a > b` domain. */
 export const logsubexp = (a: number, b: number): number => Number.sum(a, log1mexp(Number.subtract(b, a)))
 
-const log1mexpFar = (x: number): number => log1p(Number.negate(exp(x)))
-const log1mexpNear = (x: number): number =>
-  // x/x is exactly one for every finite nonzero x, including subnormals.
-  // At zero it rejects the excluded endpoint with NaN rather than -Infinity.
-  log(Number.multiply(Number.negate(expm1(x)), Number.unsafeDivide(x, x)))
-const selectLog1mexp = Boolean.match({ onTrue: () => log1mexpFar, onFalse: () => log1mexpNear })
-
 /** Computes `log(1 - exp(x))` on `x < 0` without cancellation. */
-export const log1mexp = (x: number): number => selectLog1mexp(belowNegativeLnTwo(x))(x)
+export const log1mexp = (x: number): number => {
+  if (x < -0.6931471805599453) return log1p(multiply(-1, exp(x)))
+  if (Equivalence(x, 0)) return unsafeDivide(x, x)
+  return log(multiply(-1, expm1(x)))
+}
 
 /**
  * Computes softplus without overflowing its intermediate exponential.

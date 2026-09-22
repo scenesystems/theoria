@@ -91,6 +91,19 @@ describe("Numeric log-space kernels", () => {
       // positive inputs are smaller than one ulp of the listed logarithms.
       closeTo(logsubexp(1e-300, 0), -690.7755278982137)
       closeTo(logsubexp(5e-324, 0), -744.4400719213812)
+      // mpmath at 100 decimal digits, using the exact binary64 inputs.
+      closeTo(logsubexp(1000, 999.9999999999999), 970.1946712359223)
+    }))
+
+  it.effect("joins the cancellation-safe formulas at negative log(2)", () =>
+    Effect.gen(function*() {
+      // mpmath log(-expm1(x)) at 100 decimal digits for these exact inputs.
+      expect(abs(Number.subtract(log1mexp(-0.6931471805599454), -0.6931471805599452)))
+        .toBeLessThanOrEqual(1.1102230246251565e-16)
+      expect(abs(Number.subtract(log1mexp(-0.6931471805599453), -0.6931471805599453)))
+        .toBeLessThanOrEqual(1.1102230246251565e-16)
+      expect(abs(Number.subtract(log1mexp(-0.6931471805599452), -0.6931471805599454)))
+        .toBeLessThanOrEqual(1.1102230246251565e-16)
     }))
 
   it.effect("uses cancellation-safe branches around zero and negative ln(2)", () =>

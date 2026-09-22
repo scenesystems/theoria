@@ -56,9 +56,13 @@ const SOFTPLUS_GUARDS = Array.map(
 
 /** Only the specifically authorized log-space return guards, not general control flow. */
 const LOGSPACE_GUARDS = Array.appendAll(
-  Array.append(
+  Array.appendAll(
     SOFTPLUS_GUARDS,
-    "ExportNamedDeclaration > VariableDeclaration[kind='const'] > VariableDeclarator[id.name=/^(xlogy|xlog1py)$/] > ArrowFunctionExpression.init > BlockStatement.body > IfStatement[test.callee.object.name='Number'][test.callee.property.name='Equivalence'][test.arguments.length=2][test.arguments.0.name='x'][test.arguments.1.value=0][consequent.type='ReturnStatement'][consequent.argument.value=0]"
+    [
+      "ExportNamedDeclaration > VariableDeclaration[kind='const'] > VariableDeclarator[id.name=/^(xlogy|xlog1py)$/] > ArrowFunctionExpression.init > BlockStatement.body > IfStatement[test.callee.object.name='Number'][test.callee.property.name='Equivalence'][test.arguments.length=2][test.arguments.0.name='x'][test.arguments.1.value=0][consequent.type='ReturnStatement'][consequent.argument.value=0]",
+      "ExportNamedDeclaration > VariableDeclaration[kind='const'] > VariableDeclarator[id.name='log1mexp'] > ArrowFunctionExpression.init > BlockStatement.body > IfStatement[test.operator='<'][test.left.name='x'][test.right.operator='-'][test.right.argument.value=0.6931471805599453][consequent.type='ReturnStatement'][consequent.argument.callee.name='log1p']",
+      "ExportNamedDeclaration > VariableDeclaration[kind='const'] > VariableDeclarator[id.name='log1mexp'] > ArrowFunctionExpression.init > BlockStatement.body > IfStatement[test.callee.name='Equivalence'][test.arguments.0.name='x'][test.arguments.1.value=0][consequent.type='ReturnStatement'][consequent.argument.callee.name='unsafeDivide'][consequent.argument.arguments.0.name='x'][consequent.argument.arguments.1.name='x']"
+    ]
   ),
   Array.map(
     [0, 1],
