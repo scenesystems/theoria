@@ -948,13 +948,13 @@ const visualUnitsForRecord = (
   record: InternalLineRecord
 ) =>
   Boolean.match(cursorEquals(record.start, record.end), {
-    onTrue: Chunk.empty,
+    onTrue: Arr.empty,
     onFalse: () => {
       const lastSegment = Boolean.match(Number.Equivalence(record.end.graphemeIndex, 0), {
         onTrue: () => Number.decrement(record.end.segmentIndex),
         onFalse: () => record.end.segmentIndex
       })
-      return Chunk.unsafeFromArray(Arr.flatMap(
+      return Arr.flatMap(
         Arr.range(record.start.segmentIndex, lastSegment),
         (segmentIndex) => {
           const units = runtimeSegmentAt(compilation.kernel, segmentIndex).visualOrderUnits
@@ -971,13 +971,13 @@ const visualUnitsForRecord = (
             onFalse: () => Arr.map(Arr.range(start, Number.decrement(end)), (index) => Arr.unsafeGet(units, index))
           })
         }
-      ))
+      )
     }
   })
 
 const visualTextForRecord = (compilation: Prepared.Compilation, record: InternalLineRecord): string => {
   const units = visualUnitsForRecord(compilation, record)
-  const fallbackLevel = Chunk.last(units).pipe(
+  const fallbackLevel = Arr.last(units).pipe(
     Option.map(visualOrderUnitLevel),
     Option.getOrElse(() => fallbackLevelForDirection(compilation.kernel.baseDirection))
   )

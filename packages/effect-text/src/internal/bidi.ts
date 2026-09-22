@@ -22,7 +22,7 @@ export const visualOrderUnit = (level: number, mirroredText: string, text: strin
 /** Reads the embedding level retained by a line-local unit. */
 export const visualOrderUnitLevel = Tuple.getFirst<VisualOrderUnit[0], VisualOrderUnit[1]>
 
-type VisualOrderUnits = Chunk.Chunk<VisualOrderUnit>
+type VisualOrderUnits = ReadonlyArray<VisualOrderUnit>
 
 const isOddLevel = (level: number): boolean => {
   // Embedding levels are non-negative integers; decimal remainder conversion
@@ -77,7 +77,7 @@ const reverseLevelRuns = (
   )
 
 const reorderVisualUnits = (units: VisualOrderUnits): VisualOrderUnits =>
-  Array.match(Chunk.toReadonlyArray(units), {
+  Array.match(units, {
     onEmpty: () => units,
     onNonEmpty: (values) => {
       const bounds = scanLevelBounds(values)
@@ -90,7 +90,7 @@ const reorderVisualUnits = (units: VisualOrderUnits): VisualOrderUnits =>
       return Boolean.match(Number.lessThan(bounds.maxLevel, minimumOdd), {
         onTrue: () => units,
         onFalse: () =>
-          Chunk.unsafeFromArray(Array.reduceRight(
+          Array.reduceRight(
             Array.range(minimumOdd, bounds.maxLevel),
             values,
             (reordered, level) =>
@@ -98,7 +98,7 @@ const reorderVisualUnits = (units: VisualOrderUnits): VisualOrderUnits =>
                 onTrue: () => Array.reverse(reordered),
                 onFalse: () => reverseLevelRuns(reordered, level)
               })
-          ))
+          )
       })
     }
   })
@@ -111,16 +111,17 @@ const appendInsertedTextUnits = (
   Boolean.match(String.isEmpty(insertedText), {
     onTrue: () => units,
     onFalse: () =>
-      Chunk.appendAll(
+      Array.appendAll(
         units,
-        Chunk.map(
-          Chunk.fromIterable(insertedText),
+        Array.map(
+          Array.fromIterable(insertedText),
           (text) => visualOrderUnit(fallbackLevel, mirrorText(text), text)
         )
       )
   })
 
-const renderVisualText = (units: VisualOrderUnits): string => Chunk.join(Chunk.map(units, Tuple.getSecond), "")
+const renderVisualText = (units: VisualOrderUnits): string =>
+  Array.reduce(units, "", (text, unit) => String.concat(text, Tuple.getSecond(unit)))
 
 /** Resolves visually ordered text for a line without forcing permutation allocation. */
 export const projectVisualText = (

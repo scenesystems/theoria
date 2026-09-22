@@ -135,6 +135,20 @@ describe("Text bidi visual ordering contracts", () => {
       expect(Arr.every(lines, (line) => String.Equivalence(line.baseDirection, "rtl"))).toBe(true)
     }))
 
+  it.effect("reverses RTL grapheme runs without reversing embedded digits or combining marks", () =>
+    Effect.gen(function*() {
+      const prepared = yield* Text.prepareWithSegments({
+        text: "אב\u05b0ג12דה",
+        font: { family: "Mono", size: 10 },
+        whiteSpace: "normal"
+      }).pipe(Effect.provide(makeTestLayer))
+
+      expect(Arr.map(Text.lines(prepared, { maxWidth: 200, lineHeight: 12 }), (line) => line.text))
+        .toEqual(Arr.of("הד12גב\u05b0א"))
+      expect(Arr.map(Text.lines(prepared, { maxWidth: 20, lineHeight: 12 }), (line) => line.text))
+        .toEqual(Arr.make("גב\u05b0א", "הד12"))
+    }))
+
   it.effect("keeps summary and manual layout surfaces aligned under bidi visual ordering", () =>
     Effect.gen(function*() {
       const prepared = yield* Text.prepareWithSegments({
