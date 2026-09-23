@@ -1,9 +1,9 @@
 /** Noble adapter. Public types and key policy belong to Cipher. @internal */
 import { gcm, gcmsiv } from "@noble/ciphers/aes.js"
 import { xchacha20poly1305 } from "@noble/ciphers/chacha.js"
-import { randomBytes } from "@noble/ciphers/utils.js"
+import { concatBytes, randomBytes } from "@noble/ciphers/utils.js"
 import type { Context } from "effect"
-import { Array, Data, Effect, Match, Number, Schema, Tuple } from "effect"
+import { Data, Effect, Match, Number } from "effect"
 import * as Cipher from "../Cipher.js"
 
 const primitive = (algorithm: Cipher.Algorithm) =>
@@ -69,24 +69,21 @@ export const make = (
           ),
           Effect.mapError(() => new Cipher.EncryptionFailed({ algorithm }))
         )
-        const ciphertext = yield* Effect.try({
-          try: () => primitive(algorithm)(key, nonce).encrypt(plaintext),
+        return yield* Effect.try({
+          try: () => concatBytes(nonce, primitive(algorithm)(key, nonce).encrypt(plaintext)),
           catch: () => new Cipher.EncryptionFailed({ algorithm })
         })
-        return yield* Schema.decode(Schema.Uint8Array)(Array.appendAll(nonce, ciphertext)).pipe(
-          Effect.mapError(() => new Cipher.EncryptionFailed({ algorithm }))
-        )
       }),
     decrypt: (algorithm, key, ciphertext) =>
       Effect.gen(function*() {
         yield* validateKey(key)
-        const [nonce, payload] = Array.splitAt(ciphertext, nonceLength(algorithm))
-        const [nonceBytes, payloadBytes] = yield* Effect.all(Tuple.make(
-          Schema.decode(Schema.Uint8Array)(nonce),
-          Schema.decode(Schema.Uint8Array)(payload)
-        )).pipe(Effect.mapError(() => new Cipher.DecryptionFailed({ algorithm, reason: "authentication failed" })))
         return yield* Effect.try({
-          try: () => primitive(algorithm)(key, nonceBytes).decrypt(payloadBytes),
+          try: () => {
+            const cipher = primitive(algorithm)
+            const nonce = ciphertext.subarray(0, cipher.nonceLength)
+            const payload = ciphertext.subarray(cipher.nonceLength)
+            return cipher(key, nonce).decrypt(payload)
+          },
           catch: () => new Cipher.DecryptionFailed({ algorithm, reason: "authentication failed" })
         })
       })

@@ -5,7 +5,8 @@
  * @since 0.3.0
  * @module
  */
-import { Array, Effect, Either, Encoding, Number, Schema } from "effect"
+import { concatBytes } from "@noble/ciphers/utils.js"
+import { Effect, Either, Encoding, Number, Schema } from "effect"
 import { dual } from "effect/Function"
 import * as Cipher from "./Cipher.js"
 
@@ -42,11 +43,11 @@ export class Envelope extends Schema.Class<Envelope>("@scenesystems/seal/Envelop
  * @category conversions
  */
 export const fromBytes = (algorithm: Cipher.Algorithm, bytes: Uint8Array): Envelope => {
-  const [nonce, ciphertext] = Array.splitAt(bytes, Cipher.nonceLength(algorithm))
+  const nonceLength = Cipher.nonceLength(algorithm)
   return new Envelope({
     algorithm,
-    nonce: Encoding.encodeBase64Url(Schema.decodeSync(Schema.Uint8Array)(nonce)),
-    ciphertext: Encoding.encodeBase64Url(Schema.decodeSync(Schema.Uint8Array)(ciphertext))
+    nonce: Encoding.encodeBase64Url(bytes.subarray(0, nonceLength)),
+    ciphertext: Encoding.encodeBase64Url(bytes.subarray(nonceLength))
   })
 }
 
@@ -75,7 +76,7 @@ export const toBytes = (self: Envelope): Either.Either<Uint8Array, Cipher.Decryp
       (bytes: Uint8Array) => Number.greaterThanOrEqualTo(bytes.length, Cipher.tagLength(self.algorithm)),
       invalidLength
     )(ciphertext)
-    return Schema.decodeSync(Schema.Uint8Array)(Array.appendAll(nonce, ciphertext))
+    return concatBytes(nonce, ciphertext)
   })
 
 /**

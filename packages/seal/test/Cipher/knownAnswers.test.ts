@@ -28,5 +28,8 @@ describe.each(vectors)("Cipher known answer: $algorithm", (vector) => {
         Effect.provideService(Cipher.Cipher, backend)
       )
       expect(Encoding.encodeHex(encrypted)).toBe(String.concat(vector.nonce, vector.ciphertext))
+      expect(encrypted.buffer).not.toBe(nonce.buffer)
+      expect(encrypted.buffer).not.toBe(plaintext.buffer)
+      expect(Encoding.encodeHex(nonce)).toBe(vector.nonce)
     }))
 })
