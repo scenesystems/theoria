@@ -62,8 +62,8 @@ const program = Effect.gen(function*() {
       private: true,
       type: "module",
       dependencies: {
-        "@scenesystems/sign": path.join(temporary, "sign.tgz"),
-        "@scenesystems/digest": path.join(temporary, "digest.tgz"),
+        "@scenesystems/sign": Str.concat("file:", path.join(temporary, "sign.tgz")),
+        "@scenesystems/digest": Str.concat("file:", path.join(temporary, "digest.tgz")),
         effect: versions.devDependencies.effect,
         "@effect/platform": versions.devDependencies["@effect/platform"],
         "@effect/platform-bun": versions.devDependencies["@effect/platform-bun"],
@@ -72,7 +72,11 @@ const program = Effect.gen(function*() {
       },
       // Resolve sign's transitive digest dependency to the same candidate tarball.
       // Its not-yet-bumped version may also exist in the public registry.
-      overrides: Record.set(versions.overrides, "@scenesystems/digest", path.join(temporary, "digest.tgz"))
+      overrides: Record.set(
+        versions.overrides,
+        "@scenesystems/digest",
+        Str.concat("file:", path.join(temporary, "digest.tgz"))
+      )
     })
   )
   yield* fs.makeDirectory(path.join(temporary, "scripts/worker"), { recursive: true })
