@@ -11,7 +11,7 @@ import { samplerMathError } from "./errors.js"
 // These fields already belong to typed Schema models. Avoid decoding the same
 // numbers for every probe; logPdf still validates the mathematical domain.
 const paramsForKernel = (parzen: ContinuousParzen, kernel: ContinuousKernel): TruncatedNormalParams =>
-  new TruncatedNormalParams({
+  TruncatedNormalParams.make({
     mean: kernel.mean,
     sigma: kernel.sigma,
     low: parzen.low,

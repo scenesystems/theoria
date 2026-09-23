@@ -32,7 +32,7 @@ const SAMPLE_ABSOLUTE_TOLERANCE = 1e-10
 
 type TruncatedFixtureCase = Schema.Schema.Type<typeof TruncatedNormalFixture>["payload"]["cases"][number]
 
-const toParams = (entry: TruncatedFixtureCase): TruncatedNormalParams => new TruncatedNormalParams(entry.params)
+const toParams = (entry: TruncatedFixtureCase): TruncatedNormalParams => TruncatedNormalParams.make(entry.params)
 
 const numberAt = (valuesInput: Iterable<number>, index: number): number => {
   const values = Arr.fromIterable(valuesInput)
@@ -130,7 +130,7 @@ describe("truncated normal fixture parity", () => {
       // log-CDF correction, although its ordinary normal quantiles are close.
       Arr.forEach(Arr.make(-1, 1), (sign) => {
         const center = Num.multiply(sign, 0.43555094326591787)
-        const params = new TruncatedNormalParams({
+        const params = TruncatedNormalParams.make({
           mean: 0,
           sigma: 0.001,
           low: Num.subtract(center, 0.001),
@@ -262,7 +262,7 @@ describe("truncated normal fixture parity", () => {
     Effect.gen(function*() {
       const fixture = yield* loadTruncatedFixture
       const centeredParamsOption = firstParams(fixture)
-      const invalidParams = new TruncatedNormalParams({
+      const invalidParams = TruncatedNormalParams.make({
         mean: 0,
         sigma: 0,
         low: Num.negate(1),
@@ -289,9 +289,9 @@ describe("truncated normal fixture parity", () => {
     Effect.sync(() => {
       Arr.forEach(
         Arr.make(
-          new TruncatedNormalParams({ mean: 1e20, sigma: 1, low: -1, high: 2 }),
-          new TruncatedNormalParams({ mean: 0, sigma: 5e-324, low: -1, high: 2 }),
-          new TruncatedNormalParams({ mean: 0, sigma: 1, low: 2, high: 2 })
+          TruncatedNormalParams.make({ mean: 1e20, sigma: 1, low: -1, high: 2 }),
+          TruncatedNormalParams.make({ mean: 0, sigma: 5e-324, low: -1, high: 2 }),
+          TruncatedNormalParams.make({ mean: 0, sigma: 1, low: 2, high: 2 })
         ),
         (params) => {
           const prepared = prepareSample(params)
@@ -310,7 +310,7 @@ describe("truncated normal fixture parity", () => {
         }
       )
       Arr.forEach(Arr.make(0, -1, Number.NaN, Number.POSITIVE_INFINITY), (sigma) => {
-        const params = new TruncatedNormalParams({ mean: 0, sigma, low: -1, high: 2 })
+        const params = TruncatedNormalParams.make({ mean: 0, sigma, low: -1, high: 2 })
         const prepared = prepareSample(params)
         Arr.forEach(Arr.make(0, 0.4, 1, Number.NaN), (roll) => {
           expect(prepared(roll)).toBeNaN()
@@ -323,7 +323,7 @@ describe("truncated normal fixture parity", () => {
     Effect.gen(function*() {
       const fixture = yield* loadTruncatedFixture
       const centeredParamsOption = firstParams(fixture)
-      const invalidParams = new TruncatedNormalParams({
+      const invalidParams = TruncatedNormalParams.make({
         mean: 0,
         sigma: 0,
         low: Num.negate(1),
@@ -355,7 +355,7 @@ describe("truncated normal fixture parity", () => {
 
       const centeredParams = Option.getOrElse(
         centeredParamsOption,
-        () => new TruncatedNormalParams({ mean: 0, sigma: 1, low: 0, high: 1 })
+        () => TruncatedNormalParams.make({ mean: 0, sigma: 1, low: 0, high: 1 })
       )
 
       const q = 0.37

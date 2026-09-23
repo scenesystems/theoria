@@ -51,7 +51,7 @@ const toParams = (input: {
   readonly supportCenter: number
   readonly halfWidth: number
 }): TruncatedNormalParams =>
-  new TruncatedNormalParams({
+  TruncatedNormalParams.make({
     mean: input.mean,
     sigma: input.sigma,
     low: Num.subtract(input.supportCenter, input.halfWidth),
@@ -88,7 +88,7 @@ const sampleResolution = (params: TruncatedNormalParams): number =>
 const deterministicTailCases = Arr.make(
   {
     id: "mean-far-right-support-left",
-    params: new TruncatedNormalParams({
+    params: TruncatedNormalParams.make({
       mean: 4,
       sigma: 0.8,
       low: Num.negate(1),
@@ -97,7 +97,7 @@ const deterministicTailCases = Arr.make(
   },
   {
     id: "mean-far-left-support-right",
-    params: new TruncatedNormalParams({
+    params: TruncatedNormalParams.make({
       mean: Num.negate(4),
       sigma: 0.8,
       low: 0.3,
@@ -106,7 +106,7 @@ const deterministicTailCases = Arr.make(
   },
   {
     id: "ultra-right-tail",
-    params: new TruncatedNormalParams({
+    params: TruncatedNormalParams.make({
       mean: 0,
       sigma: 1,
       low: 9,
@@ -115,7 +115,7 @@ const deterministicTailCases = Arr.make(
   },
   {
     id: "ultra-tight-support-far-right-mean",
-    params: new TruncatedNormalParams({
+    params: TruncatedNormalParams.make({
       mean: 25,
       sigma: 2,
       low: Num.negate(0.02),
@@ -124,7 +124,7 @@ const deterministicTailCases = Arr.make(
   },
   {
     id: "ultra-tight-support-far-left-mean",
-    params: new TruncatedNormalParams({
+    params: TruncatedNormalParams.make({
       mean: Num.negate(25),
       sigma: 2,
       low: Num.negate(0.03),
@@ -133,7 +133,7 @@ const deterministicTailCases = Arr.make(
   },
   {
     id: "micro-support-far-right-mean",
-    params: new TruncatedNormalParams({
+    params: TruncatedNormalParams.make({
       mean: 40,
       sigma: 1.5,
       low: Num.negate(0.005),
@@ -142,7 +142,7 @@ const deterministicTailCases = Arr.make(
   },
   {
     id: "micro-support-far-left-mean",
-    params: new TruncatedNormalParams({
+    params: TruncatedNormalParams.make({
       mean: Num.negate(40),
       sigma: 1.5,
       low: Num.negate(0.004),
@@ -151,7 +151,7 @@ const deterministicTailCases = Arr.make(
   },
   {
     id: "mean-near-low-bound-tiny-window",
-    params: new TruncatedNormalParams({
+    params: TruncatedNormalParams.make({
       mean: 2.00005,
       sigma: 2e-4,
       low: 2,
@@ -160,7 +160,7 @@ const deterministicTailCases = Arr.make(
   },
   {
     id: "mean-near-high-bound-tiny-window",
-    params: new TruncatedNormalParams({
+    params: TruncatedNormalParams.make({
       mean: Num.negate(1.00005),
       sigma: 2e-4,
       low: Num.negate(1.0005),

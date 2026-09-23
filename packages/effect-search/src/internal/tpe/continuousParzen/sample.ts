@@ -9,7 +9,7 @@ import { samplerMathError } from "./errors.js"
 import { chooseKernelIndex, kernelAt, prepareChooseKernelIndex } from "./kernels.js"
 
 const paramsForKernel = (parzen: ContinuousParzen, kernel: ContinuousKernel): TruncatedNormalParams =>
-  new TruncatedNormalParams({
+  TruncatedNormalParams.make({
     mean: kernel.mean,
     sigma: kernel.sigma,
     low: parzen.low,

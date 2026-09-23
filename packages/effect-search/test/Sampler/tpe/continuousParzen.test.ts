@@ -57,7 +57,7 @@ describe("tpe continuous parzen", () => {
           Numeric.logStrict(kernel.weight),
           truncatedLogPdf(
             probe,
-            new TruncatedNormalParams({
+            TruncatedNormalParams.make({
               mean: kernel.mean,
               sigma: kernel.sigma,
               low: parzen.low,
@@ -92,7 +92,7 @@ describe("tpe continuous parzen", () => {
         )
       })
       const density = prepareLogDensity(parzen)
-      const params = new TruncatedNormalParams({ mean: 0.3, sigma: 0.7, low: parzen.low, high: parzen.high })
+      const params = TruncatedNormalParams.make({ mean: 0.3, sigma: 0.7, low: parzen.low, high: parzen.high })
 
       Arr.forEach(Arr.make(parzen.low, 0.4, parzen.high), (probe) => {
         expect(density(probe)).toBe(truncatedLogPdf(probe, params))
