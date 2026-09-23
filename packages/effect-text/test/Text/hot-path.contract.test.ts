@@ -1,5 +1,5 @@
 import { describe, expect, it } from "@effect/vitest"
-import { Boolean, Chunk, Effect, Layer, Number, Option, Stream, String, Tuple } from "effect"
+import { Boolean, Chunk, Effect, Layer, Match, Number, Option, Stream, String, Tuple } from "effect"
 import * as Arr from "effect/Array"
 import * as MeasurementCache from "../../src/MeasurementCache.js"
 import * as Text from "../../src/Text.js"
@@ -22,6 +22,129 @@ const collectCursorLines = (
 ): Text.Lines => Arr.unfold(cursor, (position) => Text.nextLine(prepared, request, position))
 
 describe("Text hot-path contracts", () => {
+  it.effect("normalizes a fitting terminal grapheme and resumes an overflowing one", () =>
+    Effect.gen(function*() {
+      const prepared = yield* Text.prepareWithSegments({
+        text: "ab",
+        font: { family: "Mono", size: 10 },
+        whiteSpace: "normal"
+      }).pipe(Effect.provide(testLayer))
+      const exact = { maxWidth: 10, lineHeight: 12 }
+      const narrow = { maxWidth: 9.99, lineHeight: 12 }
+      const end = { segmentIndex: 1, graphemeIndex: 0 }
+      const split = { segmentIndex: 0, graphemeIndex: 1 }
+
+      expect(Text.ranges(prepared, exact)).toEqual(Arr.of({
+        baseDirection: "ltr",
+        order: "visual",
+        start: Text.start,
+        end,
+        width: 10
+      }))
+      expect(Text.ranges(prepared, narrow)).toEqual(Arr.make(
+        { baseDirection: "ltr", order: "visual", start: Text.start, end: split, width: 5 },
+        { baseDirection: "ltr", order: "visual", start: split, end, width: 5 }
+      ))
+      const first = Option.getOrThrow(Text.nextLine(prepared, narrow, Text.start))
+      expect(first).toEqual(Tuple.make(
+        { baseDirection: "ltr", index: 0, order: "visual", text: "a", width: 5 },
+        split
+      ))
+      expect(Text.nextLine(prepared, narrow, Tuple.getSecond(first))).toEqual(Option.some(Tuple.make(
+        { baseDirection: "ltr", index: 1, order: "visual", text: "b", width: 5 },
+        end
+      )))
+      expect(Text.nextLine(prepared, exact, end)).toEqual(Option.none())
+    }))
+
+  it.effect("consumes zero-width terminal graphemes without dropping zero-width lines", () =>
+    Effect.gen(function*() {
+      const layer = Layer.mergeAll(
+        Text.layerSegmenter,
+        Text.layerProfile,
+        MeasurementCache.layer.pipe(Layer.provide(Layer.succeed(TextMeasurer.TextMeasurer, {
+          measure: (_font, text) =>
+            Effect.succeed(
+              Match.value(text).pipe(
+                Match.when(Match.is("b", "d", "z", "zz"), () => 0),
+                Match.when(Match.is("ab", "cd"), () => 5),
+                Match.orElse((value) => Number.multiply(String.length(value), 5))
+              )
+            )
+        })))
+      )
+      const prepared = yield* Text.prepareWithSegments({
+        text: "ab\ncd\nzz",
+        font: { family: "Mono", size: 10 },
+        whiteSpace: "pre-wrap"
+      }).pipe(Effect.provide(layer))
+      const request = { maxWidth: 5, lineHeight: 12 }
+      expect(collectCursorLines(prepared, request)).toEqual(Arr.make(
+        { baseDirection: "ltr", index: 0, order: "visual", text: "ab", width: 5 },
+        { baseDirection: "ltr", index: 1, order: "visual", text: "cd", width: 5 },
+        { baseDirection: "ltr", index: 2, order: "visual", text: "zz", width: 0 }
+      ))
+      expect(Text.summary(prepared, request)).toEqual({ height: 36, lineCount: 3, maxLineWidth: 5 })
+      expect(Arr.map(Text.ranges(prepared, request), (range) => range.end)).toEqual(Arr.make(
+        { segmentIndex: 1, graphemeIndex: 0 },
+        { segmentIndex: 3, graphemeIndex: 0 },
+        { segmentIndex: 5, graphemeIndex: 0 }
+      ))
+    }))
+
+  it.effect("fits a shaped terminal advance after pending whitespace without using paint width", () =>
+    Effect.gen(function*() {
+      const layer = Layer.mergeAll(
+        Text.layerSegmenter,
+        Text.layerProfile,
+        MeasurementCache.layer.pipe(Layer.provide(Layer.succeed(TextMeasurer.TextMeasurer, {
+          measure: (_font, text) =>
+            Effect.succeed(
+              Match.value(text).pipe(
+                Match.when(" ", () => 2),
+                Match.when("a", () => 7),
+                Match.when("b", () => 4),
+                Match.when("ab", () => 9),
+                Match.orElse((value) => Number.multiply(String.length(value), 5))
+              )
+            )
+        })))
+      )
+      const prepared = yield* Text.prepareWithSegments({
+        text: "x ab",
+        font: { family: "Mono", size: 10 },
+        whiteSpace: "normal"
+      }).pipe(Effect.provide(layer))
+      // Fit: 5 + 2 + 7 + 2 = 16. Paint: 5 + 2 + 7 + 4 = 18.
+      expect(Text.lines(prepared, { maxWidth: 16, lineHeight: 12 })).toEqual(Arr.of(
+        { baseDirection: "ltr", index: 0, order: "visual", text: "x ab", width: 18 }
+      ))
+      expect(Text.lines(prepared, { maxWidth: 15.99, lineHeight: 12 })).toEqual(Arr.make(
+        { baseDirection: "ltr", index: 0, order: "visual", text: "x", width: 5 },
+        { baseDirection: "ltr", index: 1, order: "visual", text: "ab", width: 11 }
+      ))
+    }))
+
+  it.effect("retains discretionary and explicit breaks after short text runs", () =>
+    Effect.forEach(
+      Arr.make(
+        { text: "ab\u00adcd", first: "ab-", width: 15 },
+        { text: "ab\u200bcd", first: "ab", width: 10 }
+      ),
+      (fixture) =>
+        Effect.gen(function*() {
+          const prepared = yield* Text.prepareWithSegments({
+            text: fixture.text,
+            font: { family: "Mono", size: 10 },
+            whiteSpace: "normal"
+          }).pipe(Effect.provide(testLayer))
+          expect(Text.lines(prepared, { maxWidth: 15, lineHeight: 12 })).toEqual(Arr.make(
+            { baseDirection: "ltr", index: 0, order: "visual", text: fixture.first, width: fixture.width },
+            { baseDirection: "ltr", index: 1, order: "visual", text: "cd", width: 10 }
+          ))
+        })
+    ))
+
   it.effect("stops before indexing empty or exhausted prepared text", () =>
     Effect.gen(function*() {
       const font = { family: "Mono", size: 10 }
