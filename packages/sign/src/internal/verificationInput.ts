@@ -1,5 +1,10 @@
-import { Array as Arr, Effect, Either, identity, Iterable, Number as N, Schema } from "effect"
+import { Array as Arr, Effect, Either, identity, Iterable, Number as N, Predicate, Schema } from "effect"
 import * as Verification from "../Verification.js"
+
+const isInteger = Predicate.compose(
+  Predicate.isNumber,
+  (value) => N.Equivalence(N.subtract(value, N.round(value, 0)), 0)
+)
 
 /**
  * Read length once, admit it before traversal, and copy at most length + 1
@@ -25,10 +30,13 @@ export const copyBytes = <A extends number>(
       Effect.filterOrFail(
         (values) => N.Equivalence(Arr.length(values), length),
         () => new Verification.InvalidInput({})
+      ),
+      Effect.filterOrFail(
+        Arr.every(isInteger),
+        () => new Verification.InvalidInput({})
       )
     )
-    return yield* Schema.decode(Schema.Array(Schema.Uint8.pipe(Schema.int())))(values).pipe(
-      Effect.flatMap(Schema.decode(Schema.Uint8Array)),
+    return yield* Schema.decode(Schema.Uint8Array)(values).pipe(
       Effect.mapError(() => new Verification.InvalidInput({}))
     )
   })

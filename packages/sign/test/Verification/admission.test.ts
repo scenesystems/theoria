@@ -47,7 +47,7 @@ const uncopyableBytes = (bytes: Uint8Array, unreadableLength = false) =>
   )
 
 /** Test-only host interception: count actual traversal behind a lying length. */
-const misreportedBytes = (bytes: Uint8Array, length: number, transform: (byte: number) => number = identity) =>
+const misreportedBytes = (bytes: Uint8Array, length: number, transform: (byte: number) => unknown = identity) =>
   Effect.sync(() => {
     const pulls = MutableRef.make(0)
     return Data.struct({
@@ -93,6 +93,23 @@ describe("strict direct verification admission", () => {
         ))
       ).toEqual(new Signature.SigningFailed({ algorithm: "ml-dsa-65", reason: "invalid input" }))
     }).pipe(Effect.provide(Entropy.layer)))
+
+  it.effect("rejects malformed iterator elements through the material-free input error", () =>
+    Effect.gen(function*() {
+      const seed = yield* Encoding.decodeHex("9d61b19deffd5a60ba844af492ec2cc44449c5697b326919703bac031cae7f60")
+      const keys = yield* Ed25519.keyPairFromSeed(seed)
+      const message = Bytes.fromString("a")
+      const signed = yield* Ed25519.sign(message, keys.secretKey, keys.publicKey)
+      yield* Effect.forEach(
+        Arr.make("97", Symbol.iterator, NaN, Infinity, N.negate(Infinity), N.negate(1), 256),
+        (value) =>
+          Effect.gen(function*() {
+            const malformed = yield* misreportedBytes(message, message.length, () => value)
+            expect(yield* Effect.flip(Ed25519.verify(signed.signature, malformed.bytes, keys.publicKey)))
+              .toEqual(new Verification.InvalidInput({}))
+          })
+      )
+    }))
 
   it.effect("bounds traversal and rejects lengths that disagree with the snapshot across strict suites", () =>
     Effect.gen(function*() {
