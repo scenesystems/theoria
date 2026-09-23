@@ -6,13 +6,12 @@ import type { Context } from "effect"
 import { Data, Effect, Match, Number } from "effect"
 import * as Cipher from "../Cipher.js"
 
-const primitive = (algorithm: Cipher.Algorithm) =>
-  Match.value(algorithm).pipe(
-    Match.when("xchacha20-poly1305", () => xchacha20poly1305),
-    Match.when("aes-256-gcm-siv", () => gcmsiv),
-    Match.when("aes-256-gcm", () => gcm),
-    Match.exhaustive
-  )
+const primitive = Match.type<Cipher.Algorithm>().pipe(
+  Match.when("xchacha20-poly1305", () => xchacha20poly1305),
+  Match.when("aes-256-gcm-siv", () => gcmsiv),
+  Match.when("aes-256-gcm", () => gcm),
+  Match.exhaustive
+)
 
 export const nonceLength = (algorithm: Cipher.Algorithm): number => primitive(algorithm).nonceLength
 export const tagLength = (algorithm: Cipher.Algorithm): number => primitive(algorithm).tagLength
