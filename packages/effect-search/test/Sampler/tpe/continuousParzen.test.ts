@@ -111,19 +111,21 @@ describe("tpe continuous parzen", () => {
       expect(density(Number.NaN)).toBeNaN()
 
       Arr.forEach(Arr.make(0, Num.negate(0.5), Number.NaN, Number.POSITIVE_INFINITY), (sigma) => {
-        const invalid = prepareLogDensity(
-          new ContinuousParzen({
-            low: parzen.low,
-            high: parzen.high,
-            kernels: Arr.make(new ContinuousKernel({ mean: 0.3, sigma, weight: 1 }))
-          })
-        )
+        const model = new ContinuousParzen({
+          low: parzen.low,
+          high: parzen.high,
+          kernels: Arr.make(new ContinuousKernel({ mean: 0.3, sigma, weight: 1 }))
+        })
+        const invalid = prepareLogDensity(model)
         expect(invalid(0.4)).toBeNaN()
         expect(invalid(Number.POSITIVE_INFINITY)).toBeNaN()
+        expect(logDensity(model, 0.4)).toBeNaN()
+        expect(logDensity(model, Number.POSITIVE_INFINITY)).toBeNaN()
       })
       Arr.forEach(Arr.make(parzen.low, Num.subtract(parzen.low, 1)), (high) => {
-        const invalid = prepareLogDensity(new ContinuousParzen({ ...parzen, high }))
-        expect(invalid(0.4)).toBeNaN()
+        const model = new ContinuousParzen({ ...parzen, high })
+        expect(prepareLogDensity(model)(0.4)).toBeNaN()
+        expect(logDensity(model, 0.4)).toBeNaN()
       })
       // Distinct support endpoints can round to the same standardized bound.
       const collapsed = prepareLogDensity(
