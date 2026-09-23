@@ -114,20 +114,17 @@ const advanceCursorForSegment = (segment: Prepared.RuntimeSegment, cursor: Text.
     segment.breakableGraphemeCount
   )
 
-  return Boolean.match(remainsInSegment, {
-    onFalse: () => segment.nextSegmentCursor,
-    onTrue: () => cursorAt(cursor.segmentIndex, Number.increment(cursor.graphemeIndex))
-  })
+  if (remainsInSegment) {
+    return cursorAt(cursor.segmentIndex, Number.increment(cursor.graphemeIndex))
+  }
+  return segment.nextSegmentCursor
 }
 
 const breakKindAtCursor = (segment: Prepared.RuntimeSegment, cursor: Text.Cursor): Prepared.BreakKind => {
-  return Boolean.match(
-    Number.lessThan(cursor.graphemeIndex, Number.decrement(segment.breakableGraphemeCount)),
-    {
-      onFalse: () => segment.breakKind,
-      onTrue: () => "text"
-    }
-  )
+  if (Number.lessThan(cursor.graphemeIndex, Number.decrement(segment.breakableGraphemeCount))) {
+    return "text"
+  }
+  return segment.breakKind
 }
 
 const widthAtCursorOrElse = (
@@ -135,11 +132,12 @@ const widthAtCursorOrElse = (
   widthCount: number,
   cursor: Text.Cursor,
   fallback: number
-): number =>
-  Boolean.match(Number.lessThan(cursor.graphemeIndex, widthCount), {
-    onFalse: () => fallback,
-    onTrue: () => Arr.unsafeGet(widths, cursor.graphemeIndex)
-  })
+): number => {
+  if (Number.lessThan(cursor.graphemeIndex, widthCount)) {
+    return Arr.unsafeGet(widths, cursor.graphemeIndex)
+  }
+  return fallback
+}
 
 const resolveFitAdvanceAtCursor = (
   segment: Prepared.RuntimeSegment,

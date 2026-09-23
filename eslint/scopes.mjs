@@ -137,6 +137,13 @@ const ERF_GUARDS = [
   "VariableDeclarator[id.name='erfc'] > ArrowFunctionExpression.init > BlockStatement.body > IfStatement[test.operator='<'][test.left.name='x'][test.right.value=0][consequent.argument.callee.name='sum']"
 ]
 
+/** Only the three measured cursor-leaf returns; their predicates and reads stay Effect-native. */
+const TEXT_CURSOR_GUARDS = [
+  "VariableDeclarator[id.name='advanceCursorForSegment'] > ArrowFunctionExpression.init > BlockStatement.body > IfStatement[test.name='remainsInSegment'][alternate=null][consequent.type='BlockStatement'][consequent.body.length=1][consequent.body.0.type='ReturnStatement'][consequent.body.0.argument.callee.name='cursorAt'][consequent.body.0.argument.arguments.0.object.name='cursor'][consequent.body.0.argument.arguments.0.property.name='segmentIndex'][consequent.body.0.argument.arguments.1.callee.object.name='Number'][consequent.body.0.argument.arguments.1.callee.property.name='increment']",
+  "VariableDeclarator[id.name='breakKindAtCursor'] > ArrowFunctionExpression.init > BlockStatement.body > IfStatement[test.callee.object.name='Number'][test.callee.property.name='lessThan'][test.arguments.0.object.name='cursor'][test.arguments.0.property.name='graphemeIndex'][test.arguments.1.callee.object.name='Number'][test.arguments.1.callee.property.name='decrement'][alternate=null][consequent.type='BlockStatement'][consequent.body.length=1][consequent.body.0.type='ReturnStatement'][consequent.body.0.argument.value='text']",
+  "VariableDeclarator[id.name='widthAtCursorOrElse'] > ArrowFunctionExpression.init > BlockStatement.body > IfStatement[test.callee.object.name='Number'][test.callee.property.name='lessThan'][test.arguments.0.object.name='cursor'][test.arguments.0.property.name='graphemeIndex'][test.arguments.1.name='widthCount'][alternate=null][consequent.type='BlockStatement'][consequent.body.length=1][consequent.body.0.type='ReturnStatement'][consequent.body.0.argument.callee.object.name='Arr'][consequent.body.0.argument.callee.property.name='unsafeGet'][consequent.body.0.argument.arguments.0.name='widths'][consequent.body.0.argument.arguments.1.object.name='cursor'][consequent.body.0.argument.arguments.1.property.name='graphemeIndex']"
+]
+
 /**
  * @returns {import('eslint').Linter.Config[]}
  */
@@ -167,6 +174,23 @@ export const scopes = () => [
     files: ["**/*.{ts,tsx,mts,cts}"],
     ignores: PLATFORM_MODULE_PATTERNS,
     rules: { "no-restricted-globals": ["error", MATH_GLOBAL, ...NUMBER_PARSING_GLOBALS, ...BROWSER_GLOBALS] }
+  },
+  {
+    name: "theoria/effect/text-cursor-guards",
+    files: ["packages/effect-text/src/internal/layout.ts"],
+    rules: {
+      "no-restricted-syntax": [
+        "error",
+        ...Array.map(EFFECT_RULES, (rule) =>
+          Match.value(rule.selector).pipe(
+            Match.when("IfStatement", () => ({
+              ...rule,
+              selector: `${rule.selector}:not(${Array.join(TEXT_CURSOR_GUARDS, ", ")})`
+            })),
+            Match.orElse(() => rule)
+          ))
+      ]
+    }
   },
   {
     name: "theoria/effect/logspace-guards",
