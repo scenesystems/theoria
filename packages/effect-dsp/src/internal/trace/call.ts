@@ -4,7 +4,21 @@
  * @since 0.1.0
  */
 import type * as Response from "@effect/ai/Response"
-import { Boolean, Cause, Clock, Context, Data, Effect, Exit, Number, Option, Ref } from "effect"
+import {
+  Boolean,
+  Cause,
+  Clock,
+  Context,
+  Data,
+  Effect,
+  Exit,
+  Number,
+  Option,
+  ParseResult,
+  Ref,
+  Schema,
+  String
+} from "effect"
 import { Call } from "../../Trace.js"
 import { appendCall } from "./append.js"
 
@@ -12,6 +26,14 @@ class InvocationUsage extends Context.Tag("@scenesystems/effect-dsp/internal/tra
   InvocationUsage,
   Ref.Ref<Option.Option<Response.Usage>>
 >() {}
+
+// Call has no constructor defaults. Prepare its complete type-side validator,
+// deferring the schema through the public Trace module's circular import.
+const validateCall = ParseResult.validateSync(Schema.suspend(() =>
+  Schema.Struct(Call.fields).annotations({
+    title: String.concat(Call.identifier, " (Constructor)")
+  })
+))
 
 /**
  * Retains provider usage for the innermost tracked model invocation.
@@ -75,16 +97,19 @@ export const trackCall = <A, E, R>(
       const timestamp = yield* Clock.currentTimeMillis
 
       yield* appendCall(
-        new Call({
-          operation,
-          usage: Exit.match(result, {
-            onFailure: () => observed,
-            onSuccess: ([, usage]) => Option.some(usage)
+        new Call(
+          validateCall({
+            operation,
+            usage: Exit.match(result, {
+              onFailure: () => observed,
+              onSuccess: ([, usage]) => Option.some(usage)
+            }),
+            outcome: outcomeFromExit(exit),
+            durationMs: Number.subtract(timestamp, startedAt),
+            timestamp
           }),
-          outcome: outcomeFromExit(exit),
-          durationMs: Number.subtract(timestamp, startedAt),
-          timestamp
-        })
+          { disableValidation: true }
+        )
       )
 
       return yield* result

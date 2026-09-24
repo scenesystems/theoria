@@ -16,8 +16,10 @@ import {
   Fiber,
   Number,
   Option,
+  ParseResult,
   Ref,
   Schema,
+  TestClock,
   Tuple
 } from "effect"
 
@@ -64,6 +66,81 @@ const callByOperation = (
 ) => Arr.findFirst(calls, (call) => Equal.equals(call.operation, operation))
 
 describe("Trace calls", () => {
+  it.effect("retains native usage admission and recovers after an unbranded record", () =>
+    Effect.gen(function*() {
+      const unbranded: Response.Usage = {
+        inputTokens: 3,
+        outputTokens: 5,
+        totalTokens: 11
+      }
+      const selected = yield* Ref.make(unbranded)
+      const operation = trackCall("generateText", Ref.get(selected), (usage) => usage)
+      const reference = yield* Effect.exit(Effect.sync(() =>
+        new Trace.Call({
+          operation: "generateText",
+          usage: Option.some(unbranded),
+          outcome: "success",
+          durationMs: 0,
+          timestamp: 0
+        })
+      ))
+      const referenceCause = yield* Exit.causeOption(reference)
+      const referenceDefect = yield* Cause.dieOption(referenceCause)
+      const referenceError = yield* Option.liftPredicate(ParseResult.isParseError)(referenceDefect)
+      const outside = yield* Effect.exit(operation)
+      const [inside, calls] = yield* Trace.withCalls(Effect.exit(operation))
+
+      yield* Effect.forEach(Arr.make(outside, inside), (exit) =>
+        Effect.gen(function*() {
+          const cause = yield* Exit.causeOption(exit)
+          const defect = yield* Cause.dieOption(cause)
+          const error = yield* Option.liftPredicate(ParseResult.isParseError)(defect)
+          expect(error.message).toBe(referenceError.message)
+        }))
+      expect(calls).toHaveLength(0)
+
+      yield* Ref.set(selected, earlyUsage)
+      const [[response, usage], recovered] = yield* Trace.withCalls(operation)
+      const call = yield* Arr.head(recovered)
+      expect(response).toBe(earlyUsage)
+      expect(usage).toBe(earlyUsage)
+      expect(Option.contains(call.usage, earlyUsage)).toBe(true)
+      expect(recovered).toHaveLength(1)
+    }))
+
+  it.effect("constructs fresh terminal calls lazily on repeated execution", () =>
+    Effect.gen(function*() {
+      yield* TestClock.setTime(1_700_000_000_000)
+      const executions = yield* Ref.make(0)
+      const operation = trackCall(
+        "generateObject",
+        Ref.update(executions, Number.increment).pipe(
+          Effect.zipRight(TestClock.adjust(17)),
+          Effect.as(fallbackUsage)
+        ),
+        (usage) => usage
+      )
+      expect(yield* Ref.get(executions)).toBe(0)
+
+      const [firstResult, firstCalls] = yield* Trace.withCalls(operation)
+      const [secondResult, secondCalls] = yield* Trace.withCalls(operation)
+      const first = yield* Arr.head(firstCalls)
+      const second = yield* Arr.head(secondCalls)
+
+      expect(yield* Ref.get(executions)).toBe(2)
+      expect(firstCalls).toHaveLength(1)
+      expect(secondCalls).toHaveLength(1)
+      expect(second).not.toBe(first)
+      expect(first.timestamp).toBe(1_700_000_000_017)
+      expect(second.timestamp).toBe(1_700_000_000_034)
+      expect(first.durationMs).toBe(17)
+      expect(second.durationMs).toBe(17)
+      expect(Tuple.getFirst(firstResult)).toBe(fallbackUsage)
+      expect(Tuple.getSecond(secondResult)).toBe(fallbackUsage)
+      expect(Option.contains(first.usage, fallbackUsage)).toBe(true)
+      expect(Option.contains(second.usage, fallbackUsage)).toBe(true)
+    }))
+
   it.effect("preserves a typed failure cause while retaining early usage", () =>
     Effect.gen(function*() {
       const failure = new ProviderFailure({ code: "provider-failure" })
