@@ -1,6 +1,19 @@
 import { describe, expect, it } from "@effect/vitest"
 import { decode, encode, makeEncoder, Payload } from "@scenesystems/effect-dsp/Payload"
-import { Array as Arr, Context, Effect, FastCheck, Number, Option, ParseResult, Ref, Schema, String } from "effect"
+import {
+  Array as Arr,
+  Context,
+  Effect,
+  FastCheck,
+  Inspectable,
+  MutableRef,
+  Number,
+  Option,
+  ParseResult,
+  Ref,
+  Schema,
+  String
+} from "effect"
 
 const Facts = Schema.Struct({
   count: Schema.NumberFromString,
@@ -11,6 +24,24 @@ const Facts = Schema.Struct({
 class Prefix extends Context.Tag("PayloadTest/Prefix")<Prefix, string>() {}
 
 describe("schema-bound payloads", () => {
+  it.effect("prepared operations defer synchronous transforms and rerun them on every execution", () =>
+    Effect.gen(function*() {
+      const calls = MutableRef.make(0)
+      const schema = Schema.transform(Schema.String, Schema.String, {
+        strict: true,
+        decode: (value) => value,
+        encode: (value) => {
+          MutableRef.increment(calls)
+          return String.concat(Inspectable.toStringUnknown(MutableRef.get(calls)), value)
+        }
+      })
+      const operation = makeEncoder(schema)(":value")
+      expect(MutableRef.get(calls)).toBe(0)
+      expect(yield* operation).toBe("\"1:value\"")
+      expect(yield* operation).toBe("\"2:value\"")
+      expect(MutableRef.get(calls)).toBe(2)
+    }))
+
   it.effect("prepared encoders retain asynchronous per-value transforms and invocation services", () =>
     Effect.gen(function*() {
       const encodes = yield* Ref.make(0)

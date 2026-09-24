@@ -4,7 +4,7 @@
  * @since 0.4.0
  * @module
  */
-import { Effect, Either, ParseResult, Schema, type SchemaAST } from "effect"
+import { Boolean, Effect, Either, ParseResult, Schema, type SchemaAST } from "effect"
 
 const Json = Schema.parseJson()
 const parseJson = Schema.decodeUnknownEither(Json)
@@ -55,33 +55,37 @@ export const makeEncoder = <A, I, R>(schema: Schema.Schema<A, I, R>) => {
   const decodeWire = Schema.decodeUnknown(wireSchema)
   const equivalence = Either.try(() => Schema.equivalence(wireSchema))
   return (value: A): Effect.Effect<Payload, ParseResult.ParseError, R> =>
-    Effect.gen(function*() {
-      const encoded = yield* encodeDomain(value)
-      const text = yield* encodeWire(encoded).pipe(Effect.flatMap(encodeJson))
-      const restored = yield* decodeJson(text).pipe(Effect.flatMap(decodeWire))
-      const equivalent = yield* equivalence.pipe(
-        Effect.flatMap((compare) => Effect.try(() => compare(encoded, restored))),
-        Effect.mapError(() =>
-          new ParseResult.ParseError({
-            issue: new ParseResult.Type(wireSchema.ast, encoded, "Encoded schema equivalence is unavailable")
-          })
-        )
-      )
-      return yield* Effect.if(equivalent, {
-        // decodeJson already established Payload's fixed JSON-document refinement.
-        onTrue: () => Effect.succeed(Payload.make(text, { disableValidation: true })),
-        onFalse: () =>
-          Effect.fail(
-            new ParseResult.ParseError({
-              issue: new ParseResult.Type(
-                wireSchema.ast,
-                encoded,
-                "JSON encoding did not preserve encoded schema equivalence"
+    Effect.suspend(() =>
+      ParseResult.flatMap(
+        encodeDomain(value),
+        (encoded) =>
+          ParseResult.flatMap(ParseResult.flatMap(encodeWire(encoded), encodeJson), (text) =>
+            ParseResult.flatMap(ParseResult.flatMap(decodeJson(text), decodeWire), (restored) => {
+              const compared = Either.mapLeft(
+                Either.flatMap(equivalence, (compare) => Either.try(() => compare(encoded, restored))),
+                () =>
+                  new ParseResult.ParseError({
+                    issue: new ParseResult.Type(wireSchema.ast, encoded, "Encoded schema equivalence is unavailable")
+                  })
               )
-            })
-          )
-      })
-    })
+              return Either.flatMap(compared, (equivalent) =>
+                Boolean.match(equivalent, {
+                  // decodeJson already established Payload's fixed JSON-document refinement.
+                  onTrue: () => Either.right(Payload.make(text, { disableValidation: true })),
+                  onFalse: () =>
+                    Either.left(
+                      new ParseResult.ParseError({
+                        issue: new ParseResult.Type(
+                          wireSchema.ast,
+                          encoded,
+                          "JSON encoding did not preserve encoded schema equivalence"
+                        )
+                      })
+                    )
+                }))
+            }))
+      )
+    )
 }
 
 /**
