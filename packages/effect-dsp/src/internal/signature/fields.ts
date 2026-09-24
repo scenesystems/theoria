@@ -4,8 +4,10 @@
  *
  * @since 0.1.0
  */
-import { Array as Arr, Inspectable, Option, Record, Schema, SchemaAST } from "effect"
+import { Array as Arr, Boolean, Inspectable, Option, Record, Schema, SchemaAST, String } from "effect"
 import { FieldDescriptionId, FieldInfo } from "../../Signature.js"
+
+const descriptionEquivalence = Option.getEquivalence(String.Equivalence)
 
 const descriptionFromPropertySignature = (propertySignature: SchemaAST.PropertySignature): Option.Option<string> =>
   Option.orElse(
@@ -58,10 +60,13 @@ export const encodedFieldsToInfoArray = (fields: Schema.Struct.Fields) =>
     )
     return Arr.map(
       SchemaAST.getPropertySignatures(Schema.encodedBoundSchema(declaration).ast),
-      (property) =>
-        new FieldInfo({
-          ...extractSingleFieldInfo(property),
-          description: Option.orElse(description, () => descriptionFromPropertySignature(property))
+      (property) => {
+        const info = extractSingleFieldInfo(property)
+        const resolvedDescription = Option.orElse(description, () => info.description)
+        return Boolean.match(descriptionEquivalence(info.description, resolvedDescription), {
+          onTrue: () => info,
+          onFalse: () => new FieldInfo({ ...info, description: resolvedDescription })
         })
+      }
     )
   })

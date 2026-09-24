@@ -64,6 +64,45 @@ describe("Signature", () => {
   })
 
   describe("default instructions", () => {
+    it.effect("retains domain description overrides and falls back to wire descriptions", () =>
+      Effect.gen(function*() {
+        const signature = yield* Signature.make("Resolve descriptions", {
+          question: Schema.transform(
+            Signature.describe(Schema.String, "wire question"),
+            Signature.describe(Schema.String, "domain question"),
+            { strict: true, decode: (value) => value, encode: (value) => value }
+          ),
+          context: Schema.transform(Signature.describe(Schema.String, "wire context"), Schema.String, {
+            strict: true,
+            decode: (value) => value,
+            encode: (value) => value
+          })
+        }, { answer: Signature.describe(Schema.String, "answer meaning") })
+
+        expect(signature.instructions).toBe(
+          "Task: Resolve descriptions\nInput fields: question (domain question), context (wire context)\nOutput fields: answer (answer meaning)"
+        )
+        expect(Arr.map(signature.fields, (field) => field.description)).toEqual(
+          Arr.make(Option.some("domain question"), Option.none(), Option.some("answer meaning"))
+        )
+      }))
+
+    it.effect("rejects malformed wire annotations even when a valid domain description overrides them", () =>
+      Effect.gen(function*() {
+        const malformed = Schema.String.annotations({ [Signature.FieldDescriptionId]: 7 })
+        const valid = Signature.describe(Schema.String, "valid description")
+        const schemas = Arr.make(
+          Schema.transform(malformed, valid, { strict: true, decode: (value) => value, encode: (value) => value }),
+          Schema.transform(valid, malformed, { strict: true, decode: (value) => value, encode: (value) => value })
+        )
+        yield* Effect.forEach(schemas, (question) =>
+          Effect.gen(function*() {
+            const cause = yield* Signature.make("Reject malformed annotations", { question }, { answer: Schema.String })
+              .pipe(Effect.sandbox, Effect.flip)
+            expect(Cause.pretty(cause)).toContain("Expected string, actual 7")
+          }))
+      }))
+
     it.effect("keeps wire names paired with their own annotations and decoded defaults", () =>
       Effect.gen(function*() {
         const signature = yield* Signature.make("Project fields", {
