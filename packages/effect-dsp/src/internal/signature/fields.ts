@@ -42,7 +42,7 @@ export const extractSingleFieldInfo = (
  * @category utils
  */
 export const fieldsToInfoArray = <F extends Schema.Struct.Fields>(schema: Schema.Struct<F>) =>
-  Arr.map(SchemaAST.getPropertySignatures(Schema.typeSchema(schema).ast), extractSingleFieldInfo)
+  Arr.map(SchemaAST.getPropertySignatures(SchemaAST.typeAST(schema.ast)), extractSingleFieldInfo)
 
 /**
  * Projects each field's wire name and optionality while retaining its description.
@@ -55,11 +55,11 @@ export const fieldsToInfoArray = <F extends Schema.Struct.Fields>(schema: Schema
 export const encodedFieldsToInfoArray = (fields: Schema.Struct.Fields) =>
   Arr.flatMap(Record.toEntries(fields), ([name, field]) => {
     const declaration = Schema.Struct(Record.singleton(name, field))
-    const description = Arr.head(SchemaAST.getPropertySignatures(Schema.typeSchema(declaration).ast)).pipe(
+    const description = Arr.head(SchemaAST.getPropertySignatures(SchemaAST.typeAST(declaration.ast))).pipe(
       Option.flatMap(descriptionFromPropertySignature)
     )
     return Arr.map(
-      SchemaAST.getPropertySignatures(Schema.encodedBoundSchema(declaration).ast),
+      SchemaAST.getPropertySignatures(SchemaAST.encodedBoundAST(declaration.ast)),
       (property) => {
         const info = extractSingleFieldInfo(property)
         const resolvedDescription = Option.orElse(description, () => info.description)

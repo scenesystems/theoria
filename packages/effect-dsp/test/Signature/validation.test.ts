@@ -64,6 +64,34 @@ describe("Signature", () => {
   })
 
   describe("default instructions", () => {
+    it.effect("projects nested and suspended schemas without confusing value unions and optional properties", () =>
+      Effect.gen(function*() {
+        const signature = yield* Signature.make("Project ordinary fields", {
+          maybe: Signature.describe(Schema.UndefinedOr(Schema.String), "required value union"),
+          nested: Signature.describe(Schema.Struct({ count: Schema.NumberFromString }), "nested count"),
+          tuple: Signature.describe(Schema.Tuple(Schema.NumberFromString), "tuple count"),
+          union: Signature.describe(Schema.Union(Schema.NumberFromString, Schema.Boolean), "choice"),
+          deferred: Signature.describe(Schema.suspend(() => Schema.NumberFromString), "deferred count"),
+          optional: Schema.optional(Schema.String).annotations({ [Signature.FieldDescriptionId]: "optional property" })
+        }, { answer: Schema.String })
+
+        expect(signature.instructions).toBe(
+          "Task: Project ordinary fields\nInput fields: maybe (required value union), nested (nested count), tuple (tuple count), union (choice), deferred (deferred count), optional (optional property)\nOutput fields: answer"
+        )
+        expect(Arr.map(signature.fields, (field) => field.isOptional)).toEqual(
+          Arr.make(false, false, false, false, false, true, false)
+        )
+        expect(
+          yield* Schema.decodeUnknown(signature.inputSchema)({
+            maybe: undefined,
+            nested: { count: "13" },
+            tuple: ["7"],
+            union: false,
+            deferred: "29"
+          })
+        ).toEqual({ maybe: undefined, nested: { count: 13 }, tuple: [7], union: false, deferred: 29 })
+      }))
+
     it.effect("retains domain description overrides and falls back to wire descriptions", () =>
       Effect.gen(function*() {
         const signature = yield* Signature.make("Resolve descriptions", {
