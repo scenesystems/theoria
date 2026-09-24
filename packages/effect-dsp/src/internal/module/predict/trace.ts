@@ -84,6 +84,10 @@ export const appendTraceEntry = <
   Effect.gen(function*() {
     const traceInput = yield* options.encodeInput(options.input)
 
+    // This closed predictor path already admits metadata at registration,
+    // payloads through their lossless encoders, and selected usage in Call.
+    // The remaining fields are rendered strings, Clock numbers and fixed defaults.
+    // Keep public Entry construction and untrusted persisted decoding validated.
     const entry = new Entry({
       moduleName: options.moduleName,
       signatureDescription: options.signature.description,
@@ -95,7 +99,7 @@ export const appendTraceEntry = <
       durationMs: Number.subtract(options.completedAt, options.startedAt),
       score: noScore,
       timestamp: options.completedAt
-    })
+    }, { disableValidation: true })
 
     yield* append(entry)
   })
