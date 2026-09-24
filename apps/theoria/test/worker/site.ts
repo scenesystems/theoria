@@ -254,10 +254,14 @@ export const SiteLive: Layer.Layer<Site, SiteError> = Layer.scoped(
   Site,
   Effect.gen(function*() {
     const path = yield* Path.Path
-    const projectRoot = yield* Url.fromString("../../", import.meta.url).pipe(
+    const ownRoot = yield* Url.fromString("../../", import.meta.url).pipe(
       Effect.flatMap((url) => path.fromFileUrl(url)),
       Effect.orDie
     )
+    // A historical artifact can be exercised by the same browser harness, at
+    // the same origin. Defaults preserve the ordinary Worker suite's isolation.
+    const projectRoot = yield* Config.string("THEORIA_WORKER_ROOT").pipe(Config.withDefault(ownRoot), Effect.orDie)
+    const port = yield* Config.integer("THEORIA_WORKER_PORT").pipe(Config.option, Effect.orDie)
     const distRoot = path.join(projectRoot, "dist")
     const workerDir = path.join(projectRoot, ".wrangler-out")
 
@@ -283,6 +287,7 @@ export const SiteLive: Layer.Layer<Site, SiteError> = Layer.scoped(
       Effect.try({
         try: () =>
           new Miniflare(convertV4MiniflareOptions({
+            ...Option.match(port, { onNone: Record.empty, onSome: (port) => ({ port }) }),
             log: new NoOpLog(),
             logRequests: false,
             handleStructuredLogs: (log) => {

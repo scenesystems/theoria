@@ -2336,3 +2336,10 @@ export const textAreaVisibleRows = (element: Element): number => {
     cssNumericPrefix(style.lineHeight)
   )
 }
+
+/**
+ * A closure-free DOM predicate for Playwright's animation-frame polling. A
+ * phase's presence is a search-state observation, not a paint timestamp.
+ */
+export const searchPhaseCount = (phase: string): number =>
+  document.querySelectorAll(`[data-place-render-phase='${phase}']`).length
