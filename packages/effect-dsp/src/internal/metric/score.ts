@@ -9,14 +9,15 @@ const normalize = (value: string): string => String.toLowerCase(String.trim(valu
 
 const Scalar = Schema.Union(Schema.String, Schema.Number, Schema.Boolean)
 
-const scalarString = (value: typeof Scalar.Type): Option.Option<string> =>
-  Match.value(value).pipe(
-    Match.when(Predicate.isString, (text) => Option.some(text)),
-    Match.when(Predicate.isNumber, Schema.encodeOption(Schema.NumberFromString)),
-    Match.when(Predicate.isBoolean, (value) =>
-      Option.some(Boolean.match(value, { onTrue: () => "true", onFalse: () => "false" }))),
-    Match.exhaustive
-  )
+const scalarString = Match.type<typeof Scalar.Type>().pipe(
+  Match.when(Predicate.isString, (text) => Option.some(text)),
+  Match.when(Predicate.isNumber, Schema.encodeOption(Schema.NumberFromString)),
+  Match.when(
+    Predicate.isBoolean,
+    (value) => Option.some(Boolean.match(value, { onTrue: () => "true", onFalse: () => "false" }))
+  ),
+  Match.exhaustive
+)
 
 /**
  * Read a field from a metric payload as a normalized (trimmed, lowercased)
