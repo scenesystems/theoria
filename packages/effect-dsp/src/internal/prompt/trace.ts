@@ -5,7 +5,7 @@
  * @internal
  */
 import * as Prompt from "@effect/ai/Prompt"
-import { Array as Arr, Effect, Match, Schema } from "effect"
+import { Array as Arr, Effect, Match, Number, Option, Schema } from "effect"
 import { TraceError } from "../../DspError.js"
 
 const partText = Match.type<Prompt.Part>().pipe(
@@ -18,7 +18,17 @@ const partText = Match.type<Prompt.Part>().pipe(
   })
 )
 
-const partsText = (parts: Iterable<Prompt.Part>) => Effect.forEach(parts, partText).pipe(Effect.map(Arr.join("\n")))
+const partsText = (parts: Iterable<Prompt.Part>) =>
+  Effect.suspend(() => {
+    const values = Arr.fromIterable(parts)
+    return Arr.head(values).pipe(
+      Option.filter(() => Number.Equivalence(Arr.length(values), 1)),
+      Option.match({
+        onNone: () => Effect.forEach(values, partText).pipe(Effect.map(Arr.join("\n"))),
+        onSome: (part) => partText(part).pipe(Effect.map((text) => Arr.join(Arr.of(text), "\n")))
+      })
+    )
+  })
 
 const messageText = Match.type<Prompt.Message>().pipe(
   Match.discriminatorsExhaustive("role")({
