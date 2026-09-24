@@ -89,6 +89,11 @@ export const makePrompt = <I extends Schema.Struct.Fields, O extends Schema.Stru
   const outputSchema = Schema.encodedBoundSchema(signature.outputSchema)
   const renderInput = makeFieldBlock(inputSchema, inputFields)
   const renderOutput = makeFieldBlock(outputSchema, outputFields)
+  const task = String.concat("Task: ", signature.description)
+  const inputSection = String.concat("Input fields:\n", renderFieldSection(inputFields))
+  const outputSection = String.concat("Output fields:\n", renderFieldSection(outputFields))
+  const outputTemplate = String.concat("Output template:\n", renderOutputTemplate(outputNames))
+  const outputRequirements = renderOutputRequirements(outputNames)
 
   return (
     params: ModuleParameters,
@@ -118,11 +123,11 @@ export const makePrompt = <I extends Schema.Struct.Fields, O extends Schema.Stru
           Arr.make(Prompt.systemMessage({
             content: Arr.join(
               Arr.make(
-                String.concat("Task: ", signature.description),
+                task,
                 String.concat("Instructions: ", params.instructions),
-                String.concat("Input fields:\n", renderFieldSection(inputFields)),
-                String.concat("Output fields:\n", renderFieldSection(outputFields)),
-                String.concat("Output template:\n", renderOutputTemplate(outputNames))
+                inputSection,
+                outputSection,
+                outputTemplate
               ),
               "\n\n"
             )
@@ -131,7 +136,7 @@ export const makePrompt = <I extends Schema.Struct.Fields, O extends Schema.Stru
         ),
         Prompt.userMessage({
           content: Arr.make(Prompt.textPart({
-            text: Arr.join(Arr.make(content, renderOutputRequirements(outputNames)), "\n\n")
+            text: Arr.join(Arr.make(content, outputRequirements), "\n\n")
           }))
         })
       )

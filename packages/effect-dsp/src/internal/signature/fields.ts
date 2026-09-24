@@ -39,8 +39,8 @@ export const extractSingleFieldInfo = (
  * @since 0.1.0
  * @category utils
  */
-export const fieldsToInfoArray = (fields: Schema.Struct.Fields) =>
-  Arr.map(SchemaAST.getPropertySignatures(Schema.typeSchema(Schema.Struct(fields)).ast), extractSingleFieldInfo)
+export const fieldsToInfoArray = <F extends Schema.Struct.Fields>(schema: Schema.Struct<F>) =>
+  Arr.map(SchemaAST.getPropertySignatures(Schema.typeSchema(schema).ast), extractSingleFieldInfo)
 
 /**
  * Projects each field's wire name and optionality while retaining its description.
@@ -52,10 +52,12 @@ export const fieldsToInfoArray = (fields: Schema.Struct.Fields) =>
  */
 export const encodedFieldsToInfoArray = (fields: Schema.Struct.Fields) =>
   Arr.flatMap(Record.toEntries(fields), ([name, field]) => {
-    const declaration = Record.singleton(name, field)
-    const description = Arr.head(fieldsToInfoArray(declaration)).pipe(Option.flatMap((info) => info.description))
+    const declaration = Schema.Struct(Record.singleton(name, field))
+    const description = Arr.head(SchemaAST.getPropertySignatures(Schema.typeSchema(declaration).ast)).pipe(
+      Option.flatMap(descriptionFromPropertySignature)
+    )
     return Arr.map(
-      SchemaAST.getPropertySignatures(Schema.encodedBoundSchema(Schema.Struct(declaration)).ast),
+      SchemaAST.getPropertySignatures(Schema.encodedBoundSchema(declaration).ast),
       (property) =>
         new FieldInfo({
           ...extractSingleFieldInfo(property),

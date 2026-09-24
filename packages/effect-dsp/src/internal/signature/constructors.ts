@@ -100,8 +100,8 @@ export const make = <
 
     const inputSchema = Schema.Struct(inputFields)
     const outputSchema = Schema.Struct(outputFields)
-    const inputFieldInfo = fieldsToInfoArray(inputFields)
-    const outputFieldInfo = fieldsToInfoArray(outputFields)
+    const inputFieldInfo = fieldsToInfoArray(inputSchema)
+    const outputFieldInfo = fieldsToInfoArray(outputSchema)
     const fields = Arr.appendAll(inputFieldInfo, outputFieldInfo)
     const instructions = deriveInstruction(
       description,
