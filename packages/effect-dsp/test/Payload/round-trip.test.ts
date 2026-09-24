@@ -3,13 +3,16 @@ import { decode, encode, makeEncoder, Payload } from "@scenesystems/effect-dsp/P
 import {
   Array as Arr,
   Context,
+  Data,
   Effect,
   FastCheck,
+  Hash,
   Inspectable,
   MutableRef,
   Number,
   Option,
   ParseResult,
+  Record,
   Ref,
   Schema,
   String
@@ -24,6 +27,44 @@ const Facts = Schema.Struct({
 class Prefix extends Context.Tag("PayloadTest/Prefix")<Prefix, string>() {}
 
 describe("schema-bound payloads", () => {
+  it.effect.prop("round-trips required string records including escaped code units", {
+    question: FastCheck.string(),
+    answer: FastCheck.string()
+  }, ({ question, answer }) =>
+    Effect.gen(function*() {
+      const schema = Schema.Struct({ question: Schema.String, answer: Schema.String })
+      const value = { question: String.concat(question, "\n\"\\\u0000\ud800"), answer: String.concat("Ω😀", answer) }
+      const operation = makeEncoder(schema)(value)
+      const document = yield* operation
+      expect(yield* decode(schema, document)).toEqual(value)
+      expect(yield* operation).toBe(document)
+      expect(Schema.is(Payload)(document)).toBe(true)
+    }))
+
+  it.effect("projects ordinary records before JSON and checks custom excess-property serialization", () =>
+    Effect.gen(function*() {
+      const schema = Schema.Struct({ value: Schema.String })
+      const value = Data.struct({ value: "original", toJSON: () => ({ value: "changed" }) })
+      expect(yield* makeEncoder(schema)(value)).toBe("{\"value\":\"original\"}")
+      const preserved = schema.annotations({ parseOptions: { onExcessProperty: "preserve" } })
+      const failure = yield* makeEncoder(preserved)(value).pipe(Effect.flip)
+      expect(failure.message).toContain("JSON encoding did not preserve encoded schema equivalence")
+    }))
+
+  it.effect("does not assume empty, symbolic, prototype-named or optional records are JSON-lossless", () =>
+    Effect.gen(function*() {
+      const operations = Arr.make(
+        encode(Schema.Struct({}), { unmodeled: "value" }),
+        encode(Schema.Struct({ [Hash.symbol]: Schema.String }), { [Hash.symbol]: "symbol value" }),
+        encode(Schema.Struct(Record.singleton("__proto__", Schema.String)), Record.singleton("__proto__", "value")),
+        encode(Schema.Struct({ value: Schema.optional(Schema.String) }), { value: undefined })
+      )
+      yield* Effect.forEach(operations, (operation) =>
+        Effect.gen(function*() {
+          expect((yield* operation.pipe(Effect.flip))._tag).toBe("ParseError")
+        }))
+    }))
+
   it.effect("prepared operations defer synchronous transforms and rerun them on every execution", () =>
     Effect.gen(function*() {
       const calls = MutableRef.make(0)
@@ -101,6 +142,10 @@ describe("schema-bound payloads", () => {
       const validJsonFailure = yield* encode(rejecting, "valid JSON string").pipe(Effect.flip)
       expect(validJsonFailure.message).toContain("JSON encoding did not preserve encoded schema equivalence")
 
+      const rejectingRecord = Schema.Struct({ value: Schema.String }).annotations({ equivalence: () => () => false })
+      const recordFailure = yield* encode(rejectingRecord, { value: "valid JSON field" }).pipe(Effect.flip)
+      expect(recordFailure.message).toContain("JSON encoding did not preserve encoded schema equivalence")
+
       const incrementing = Schema.declare<number, number, []>([], {
         decode: () => ParseResult.decodeUnknown(Schema.Number),
         encode: () => (value) => ParseResult.decodeUnknown(Schema.Number)(value).pipe(Effect.map(Number.increment))
@@ -111,14 +156,14 @@ describe("schema-bound payloads", () => {
 
   it.effect("rejects lossy numeric JSON and malformed persisted documents", () =>
     Effect.gen(function*() {
-      const schema = Schema.Struct({ score: Schema.NullOr(Schema.Number) })
+      const schema = Schema.Struct({ label: Schema.String, score: Schema.NullOr(Schema.Number) })
       const infinity = yield* Schema.decode(Schema.NumberFromString)("Infinity")
-      const failure = yield* encode(schema, { score: infinity }).pipe(Effect.flip)
+      const failure = yield* encode(schema, { label: "retained", score: infinity }).pipe(Effect.flip)
       const malformed = yield* Schema.decode(Payload)("{\"unterminated\":").pipe(Effect.flip)
       expect(failure._tag).toBe("ParseError")
       expect(malformed._tag).toBe("ParseError")
-      const valid = yield* encode(schema, { score: null })
-      expect(yield* decode(schema, valid)).toEqual({ score: null })
+      const valid = yield* encode(schema, { label: "retained", score: null })
+      expect(yield* decode(schema, valid)).toEqual({ label: "retained", score: null })
     }))
 
   it.effect("keeps schema service requirements through encoding and decoding", () =>
