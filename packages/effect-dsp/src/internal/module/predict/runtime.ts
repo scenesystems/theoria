@@ -16,7 +16,7 @@ import { makePrompt } from "../../prompt/render.js"
 import { registerRuntime, RuntimeRegistrationOptions } from "../discovery/registry.js"
 import { ForwardOptions } from "./model.js"
 import { runForward } from "./strategy.js"
-import { appendTraceEntry, TraceOptions } from "./trace.js"
+import { appendTraceEntry, makeTracePayloadEncoder, TraceOptions } from "./trace.js"
 
 /** @internal */
 export class RuntimeOptions<I extends Schema.Struct.Fields, O extends Schema.Struct.Fields> extends Data.Class<{
@@ -39,6 +39,8 @@ export const makeForward = <
   O extends Schema.Struct.Fields
 >(options: RuntimeOptions<I, O>): Module<I, O>["forward"] => {
   const buildPrompt = makePrompt(options.signature)
+  const encodeInput = makeTracePayloadEncoder(options.moduleName, "input", options.inputSchema)
+  const encodeOutput = makeTracePayloadEncoder(options.moduleName, "output", options.outputSchema)
   return Effect.fn(options.moduleName)((input) =>
     Effect.gen(function*() {
       yield* registerRuntime(
@@ -62,6 +64,7 @@ export const makeForward = <
           params,
           input,
           outputSchema: options.outputSchema,
+          encodeOutput,
           policy: options.policy
         })
       )
@@ -71,7 +74,7 @@ export const makeForward = <
         new TraceOptions<I, O>({
           moduleName: options.moduleName,
           signature: options.signature,
-          inputSchema: options.inputSchema,
+          encodeInput,
           input,
           execution,
           startedAt,

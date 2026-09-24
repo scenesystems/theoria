@@ -33,10 +33,12 @@ export const Payload = Schema.String.pipe(
 export type Payload = typeof Payload.Type
 
 /**
- * Encodes a value with its owning schema, then checks the JSON round trip with
- * the encoded schema's equivalence. Domain transformations are not decoded
- * during this check. Lossy data (such as Infinity becoming null), unavailable
- * equivalence and failed equivalence checks remain typed parse failures.
+ * Prepares a reusable schema-bound payload encoder. Every invocation encodes
+ * its value and checks the JSON round trip with the encoded schema's
+ * equivalence. Domain transformations are not decoded during this check.
+ * Schema services and asynchronous transformations remain invocation-local.
+ * Lossy data, unavailable equivalence and failed comparisons remain checked
+ * parse failures; only schema preparation is reused, never encoded values.
  *
  * The wire schema must describe JSON data with a suitable equivalence. Opaque
  * declarations and Unknown/Object do not provide general JSON structural
@@ -46,34 +48,51 @@ export type Payload = typeof Payload.Type
  * @since 0.4.0
  * @category encoding
  */
+export const makeEncoder = <A, I, R>(schema: Schema.Schema<A, I, R>) => {
+  const encodeDomain = Schema.encode(schema)
+  const wireSchema = Schema.encodedSchema(schema)
+  const encodeWire = Schema.encode(wireSchema)
+  const decodeWire = Schema.decodeUnknown(wireSchema)
+  const equivalence = Either.try(() => Schema.equivalence(wireSchema))
+  const validateDocument = Schema.decode(Payload)
+  return (value: A): Effect.Effect<Payload, ParseResult.ParseError, R> =>
+    Effect.gen(function*() {
+      const encoded = yield* encodeDomain(value)
+      const text = yield* encodeWire(encoded).pipe(Effect.flatMap(encodeJson))
+      const restored = yield* decodeJson(text).pipe(Effect.flatMap(decodeWire))
+      const equivalent = yield* equivalence.pipe(
+        Effect.flatMap((compare) => Effect.try(() => compare(encoded, restored))),
+        Effect.mapError(() =>
+          new ParseResult.ParseError({
+            issue: new ParseResult.Type(wireSchema.ast, encoded, "Encoded schema equivalence is unavailable")
+          })
+        )
+      )
+      return yield* validateDocument(text).pipe(Effect.filterOrFail(
+        () => equivalent,
+        () =>
+          new ParseResult.ParseError({
+            issue: new ParseResult.Type(
+              wireSchema.ast,
+              encoded,
+              "JSON encoding did not preserve encoded schema equivalence"
+            )
+          })
+      ))
+    })
+}
+
+/**
+ * Encodes a value as a lossless schema-bound JSON document. Use
+ * {@link makeEncoder} when repeatedly encoding through the same schema.
+ *
+ * @since 0.4.0
+ * @category encoding
+ */
 export const encode = <A, I, R>(
   schema: Schema.Schema<A, I, R>,
   value: A
-): Effect.Effect<Payload, ParseResult.ParseError, R> =>
-  Effect.gen(function*() {
-    const encoded = yield* Schema.encode(schema)(value)
-    const wireSchema = Schema.encodedSchema(schema)
-    const text = yield* Schema.encode(wireSchema)(encoded).pipe(Effect.flatMap(encodeJson))
-    const restored = yield* decodeJson(text).pipe(Effect.flatMap(Schema.decodeUnknown(wireSchema)))
-    const equivalent = yield* Effect.try({
-      try: () => Schema.equivalence(wireSchema)(encoded, restored),
-      catch: () =>
-        new ParseResult.ParseError({
-          issue: new ParseResult.Type(wireSchema.ast, encoded, "Encoded schema equivalence is unavailable")
-        })
-    })
-    return yield* Schema.decode(Payload)(text).pipe(Effect.filterOrFail(
-      () => equivalent,
-      () =>
-        new ParseResult.ParseError({
-          issue: new ParseResult.Type(
-            wireSchema.ast,
-            encoded,
-            "JSON encoding did not preserve encoded schema equivalence"
-          )
-        })
-    ))
-  })
+): Effect.Effect<Payload, ParseResult.ParseError, R> => Effect.suspend(() => makeEncoder(schema)(value))
 
 /**
  * Restores a document through its domain schema, preserving decoded types,

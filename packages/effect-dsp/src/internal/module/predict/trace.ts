@@ -7,7 +7,7 @@
  */
 import { Array as Arr, Data, Effect, Number, Schema } from "effect"
 import { TraceError } from "../../../DspError.js"
-import { encode, type Payload } from "../../../Payload.js"
+import { makeEncoder, type Payload } from "../../../Payload.js"
 import type { Signature } from "../../../Signature.js"
 import { append, Entry, noScore } from "../../../Trace.js"
 import type { ForwardExecution } from "./model.js"
@@ -32,6 +32,21 @@ export class PayloadOptions<A, I, R> extends Data.Class<{
 }> {}
 
 /**
+ * Prepares a schema-owned trace encoder without caching invocation values.
+ * @since 0.4.0
+ * @internal
+ */
+export const makeTracePayloadEncoder = <A, I, R>(
+  moduleName: string,
+  carrier: typeof TraceCarrier.Type,
+  schema: Schema.Schema<A, I, R>
+) => {
+  const encode = makeEncoder(schema)
+  return (value: A): Effect.Effect<Payload, TraceError, R> =>
+    encode(value).pipe(Effect.mapError(() => traceCarrierError(moduleName, carrier)))
+}
+
+/**
  * Encode a typed payload through its schema into a lossless JSON document.
  *
  * @since 0.1.0
@@ -41,16 +56,15 @@ export const tracePayloadFromEncoded = <A, I, R>(options: PayloadOptions<A, I, R
   Payload,
   TraceError,
   R
-> =>
-  encode(options.schema, options.value).pipe(
-    Effect.mapError(() => traceCarrierError(options.moduleName, options.carrier))
-  )
+> => Effect.suspend(() => makeTracePayloadEncoder(options.moduleName, options.carrier, options.schema)(options.value))
 
 /** @internal */
 export class TraceOptions<I extends Schema.Struct.Fields, O extends Schema.Struct.Fields> extends Data.Class<{
   readonly moduleName: string
   readonly signature: Signature<I, O>
-  readonly inputSchema: Schema.Struct<I>
+  readonly encodeInput: (
+    value: Schema.Schema.Type<Schema.Struct<I>>
+  ) => Effect.Effect<Payload, TraceError, Schema.Schema.Context<Schema.Struct<I>>>
   readonly input: Schema.Schema.Type<Schema.Struct<I>>
   readonly execution: ForwardExecution<Schema.Schema.Type<Schema.Struct<O>>>
   readonly startedAt: number
@@ -68,14 +82,7 @@ export const appendTraceEntry = <
   O extends Schema.Struct.Fields
 >(options: TraceOptions<I, O>) =>
   Effect.gen(function*() {
-    const traceInput = yield* tracePayloadFromEncoded(
-      new PayloadOptions({
-        moduleName: options.moduleName,
-        carrier: "input",
-        schema: options.inputSchema,
-        value: options.input
-      })
-    )
+    const traceInput = yield* options.encodeInput(options.input)
 
     const entry = new Entry({
       moduleName: options.moduleName,

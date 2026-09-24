@@ -10,6 +10,7 @@ import type * as Prompt from "@effect/ai/Prompt"
 import type * as Response from "@effect/ai/Response"
 import type { Effect, Option, Schema } from "effect"
 import { Data } from "effect"
+import type { TraceError } from "../../../DspError.js"
 import type { PredictPolicy } from "../../../Module.js"
 import type { ModuleParameters } from "../../../ModuleParameters.js"
 import type { Payload } from "../../../Payload.js"
@@ -30,6 +31,9 @@ export class ForwardOptions<I extends Schema.Struct.Fields, O extends Schema.Str
   readonly params: ModuleParameters
   readonly input: Schema.Schema.Type<Schema.Struct<I>>
   readonly outputSchema: Schema.Struct<O>
+  readonly encodeOutput: (
+    value: Schema.Schema.Type<Schema.Struct<O>>
+  ) => Effect.Effect<Payload, TraceError, Schema.Schema.Context<Schema.Struct<O>>>
   readonly policy: PredictPolicy
 }> {}
 

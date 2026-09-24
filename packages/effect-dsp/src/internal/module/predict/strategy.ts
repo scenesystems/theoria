@@ -12,7 +12,6 @@ import { callLmResponse, callLmTextResponse } from "../../lm.js"
 import { parseTextWithRetry, ParseTextWithRetryOptions } from "../../parse/retry.js"
 import { promptToTraceText } from "../../prompt/trace.js"
 import { ForwardExecution, type ForwardOptions } from "./model.js"
-import { PayloadOptions, tracePayloadFromEncoded } from "./trace.js"
 
 const runStructuredForward = <
   I extends Schema.Struct.Fields,
@@ -21,14 +20,7 @@ const runStructuredForward = <
   Effect.gen(function*() {
     const prompt = yield* options.buildPrompt(options.params, options.input)
     const [response, usage] = yield* callLmResponse(prompt, options.outputSchema)
-    const traceOutput = yield* tracePayloadFromEncoded(
-      new PayloadOptions({
-        moduleName: options.moduleName,
-        carrier: "output",
-        schema: options.outputSchema,
-        value: response.value
-      })
-    )
+    const traceOutput = yield* options.encodeOutput(response.value)
 
     return new ForwardExecution({
       output: response.value,
@@ -64,14 +56,7 @@ const runTextForward = <
       })
     )
 
-    const traceOutput = yield* tracePayloadFromEncoded(
-      new PayloadOptions({
-        moduleName: options.moduleName,
-        carrier: "output",
-        schema: options.outputSchema,
-        value: output
-      })
-    )
+    const traceOutput = yield* options.encodeOutput(output)
 
     return new ForwardExecution({
       output,

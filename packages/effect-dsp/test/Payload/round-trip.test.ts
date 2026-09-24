@@ -1,5 +1,5 @@
 import { describe, expect, it } from "@effect/vitest"
-import { decode, encode, Payload } from "@scenesystems/effect-dsp/Payload"
+import { decode, encode, makeEncoder, Payload } from "@scenesystems/effect-dsp/Payload"
 import { Array as Arr, Context, Effect, FastCheck, Number, Option, Ref, Schema, String } from "effect"
 
 const Facts = Schema.Struct({
@@ -11,6 +11,36 @@ const Facts = Schema.Struct({
 class Prefix extends Context.Tag("PayloadTest/Prefix")<Prefix, string>() {}
 
 describe("schema-bound payloads", () => {
+  it.effect("prepared encoders retain asynchronous per-value transforms and invocation services", () =>
+    Effect.gen(function*() {
+      const encodes = yield* Ref.make(0)
+      const decodes = yield* Ref.make(0)
+      const schema = Schema.transformOrFail(Schema.String, Schema.String, {
+        strict: true,
+        encode: (value) =>
+          Effect.yieldNow().pipe(
+            Effect.zipRight(Ref.update(encodes, Number.increment)),
+            Effect.zipRight(Effect.map(Prefix, (prefix) => String.concat(prefix, value)))
+          ),
+        decode: (value) => Ref.update(decodes, Number.increment).pipe(Effect.as(value))
+      })
+      const prepared = makeEncoder(schema)
+      expect(yield* Ref.get(encodes)).toBe(0)
+      expect(yield* prepared("alpha").pipe(Effect.provideService(Prefix, "first:"))).toBe("\"first:alpha\"")
+      expect(yield* prepared("beta").pipe(Effect.provideService(Prefix, "second:"))).toBe("\"second:beta\"")
+      expect(yield* Ref.get(encodes)).toBe(2)
+      expect(yield* Ref.get(decodes)).toBe(0)
+    }))
+
+  it.effect("prepared encoders still check each wire round trip after earlier success or failure", () =>
+    Effect.gen(function*() {
+      const prepared = makeEncoder(Schema.Struct({ score: Schema.NullOr(Schema.Number) }))
+      const infinity = yield* Schema.decode(Schema.NumberFromString)("Infinity")
+      expect(yield* prepared({ score: 7 })).toBe("{\"score\":7}")
+      expect((yield* prepared({ score: infinity }).pipe(Effect.flip))._tag).toBe("ParseError")
+      expect(yield* prepared({ score: null })).toBe("{\"score\":null}")
+    }))
+
   it.effect("retains encoded structured fields and restores decoded signature values", () =>
     Effect.gen(function*() {
       const value = { count: 17, countries: Arr.make("France", "Japan"), details: { active: false, missing: null } }
@@ -101,6 +131,9 @@ describe("schema-bound payloads", () => {
     Effect.gen(function*() {
       const schema = Schema.String.annotations({ equivalence: () => Option.getOrThrow(Option.none()) })
       const failure = yield* encode(schema, "safe").pipe(Effect.flip)
+      const prepared = makeEncoder(schema)
+      const preparedFailure = yield* prepared("also safe").pipe(Effect.flip)
       expect(failure._tag).toBe("ParseError")
+      expect(preparedFailure._tag).toBe("ParseError")
     }))
 })
