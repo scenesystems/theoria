@@ -10,17 +10,23 @@ describe("Metric built-ins", () => {
     Effect.gen(function*() {
       const exact = Metric.exactMatch("answer")
 
-      const match = yield* exact.score(
+      const operation = exact.score(
         { answer: "Paris" },
         { answer: "Paris" }
       )
+      const match = yield* operation
       const mismatch = yield* exact.score(
         { answer: "Lyon" },
         { answer: "Paris" }
       )
+      const repeated = yield* operation
 
       expect(match.score).toBe(1)
       expect(mismatch.score).toBe(0)
+      expect(repeated.score).toBe(1)
+      expect(repeated).not.toBe(match)
+      expect(yield* Schema.encode(Metric.Result)(match)).toEqual({ score: 1 })
+      expect(yield* Schema.encode(Metric.Result)(mismatch)).toEqual({ score: 0 })
     }))
 
   it.effect("f1 returns bounded overlap score for tokenized outputs", () =>
