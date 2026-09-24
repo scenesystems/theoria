@@ -25,15 +25,18 @@ const scalarString = (value: typeof Scalar.Type): Option.Option<string> =>
  * @since 0.1.0
  * @category helpers
  */
-export const fieldString = (payload: typeof Schema.Object.Type, field: string): Option.Option<string> =>
-  Schema.decodeUnknownOption(
+export const fieldString = (field: string) => {
+  const decode = Schema.decodeUnknownOption(
     Schema.Struct(Record.singleton(field, Schema.optional(Scalar)))
-  )(payload).pipe(
-    Option.flatMap(Record.get(field)),
-    Option.flatMap(Option.fromNullable),
-    Option.flatMap(scalarString),
-    Option.map(normalize)
   )
+  return (payload: typeof Schema.Object.Type): Option.Option<string> =>
+    decode(payload).pipe(
+      Option.flatMap(Record.get(field)),
+      Option.flatMap(Option.fromNullable),
+      Option.flatMap(scalarString),
+      Option.map(normalize)
+    )
+}
 
 const nonEmptyToken = (token: string): Option.Option<string> =>
   Option.some(String.trim(token)).pipe(Option.filter(String.isNonEmpty))
@@ -45,10 +48,11 @@ const nonEmptyToken = (token: string): Option.Option<string> =>
  * @since 0.1.0
  * @category helpers
  */
-export const tokenizedField = (
-  payload: typeof Schema.Object.Type,
-  field: string
-) => Option.map(fieldString(payload, field), (value) => Arr.filterMap(String.split(value, /\s+/), nonEmptyToken))
+export const tokenizedField = (field: string) => {
+  const read = fieldString(field)
+  return (payload: typeof Schema.Object.Type) =>
+    Option.map(read(payload), (value) => Arr.filterMap(String.split(value, /\s+/), nonEmptyToken))
+}
 
 const tokenCounts = (tokens: Iterable<string>) =>
   Arr.reduce(tokens, Record.empty<string, number>(), (counts, token) =>

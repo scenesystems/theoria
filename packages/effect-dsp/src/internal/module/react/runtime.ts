@@ -17,7 +17,7 @@ import type { ModuleParameters } from "../../../ModuleParameters.js"
 import type { Signature } from "../../../Signature.js"
 import { callLmTextResponse } from "../../lm.js"
 import { parseTextOutput } from "../../parse/decode.js"
-import { buildPrompt } from "../../prompt/render.js"
+import { makePrompt } from "../../prompt/render.js"
 import { registerRuntime, RuntimeRegistrationOptions } from "../discovery/registry.js"
 import { PayloadOptions, tracePayloadFromEncoded } from "../predict/trace.js"
 import {
@@ -59,6 +59,7 @@ export const makeReactForward = <
   Tool.HandlerError<Tools[keyof Tools]>,
   Tool.Requirements<Tools[keyof Tools]>
 >["forward"] => {
+  const buildPrompt = makePrompt(options.signature)
   return Effect.fn(options.moduleName)((input) =>
     Effect.gen(function*() {
       yield* registerRuntime(
@@ -85,7 +86,7 @@ export const makeReactForward = <
 
       const initialState = new ReactLoopState<Schema.Schema.Type<Schema.Struct<O>>>({
         iteration: 0,
-        prompt: yield* buildPrompt(options.signature, params, input),
+        prompt: yield* buildPrompt(params, input),
         output: Option.none(),
         lastRawResponse: Option.none(),
         lastDiagnostics: Arr.empty(),

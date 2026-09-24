@@ -24,22 +24,27 @@ const singleScoreResult = (score: number): Result => new Result({ score })
  * @since 0.1.0
  * @category metrics
  */
-export const exactMatch = (field: string) =>
-  make(String.concat(String.concat("exactMatch(", field), ")"), (prediction: typeof Schema.Object.Type, expected) => {
-    const score = Option.match(
-      fieldString(prediction, field),
-      {
-        onNone: () => 0,
-        onSome: (left) =>
-          Option.match(fieldString(expected, field), {
-            onNone: () => 0,
-            onSome: (right) => binaryScore(String.Equivalence(left, right))
-          })
-      }
-    )
+export const exactMatch = (field: string) => {
+  const read = fieldString(field)
+  return make(
+    String.concat(String.concat("exactMatch(", field), ")"),
+    (prediction: typeof Schema.Object.Type, expected) => {
+      const score = Option.match(
+        read(prediction),
+        {
+          onNone: () => 0,
+          onSome: (left) =>
+            Option.match(read(expected), {
+              onNone: () => 0,
+              onSome: (right) => binaryScore(String.Equivalence(left, right))
+            })
+        }
+      )
 
-    return singleScoreResult(score)
-  })
+      return singleScoreResult(score)
+    }
+  )
+}
 
 const safeDivision = (numerator: number, denominator: number): number =>
   Option.getOrElse(Number.divide(numerator, denominator), () => 0)
@@ -57,14 +62,15 @@ const safeDivision = (numerator: number, denominator: number): number =>
  * @since 0.1.0
  * @category metrics
  */
-export const f1 = (field: string) =>
-  make(String.concat(String.concat("f1(", field), ")"), (prediction: typeof Schema.Object.Type, expected) => {
+export const f1 = (field: string) => {
+  const read = tokenizedField(field)
+  return make(String.concat(String.concat("f1(", field), ")"), (prediction: typeof Schema.Object.Type, expected) => {
     const score = Option.match(
-      tokenizedField(prediction, field),
+      read(prediction),
       {
         onNone: () => 0,
         onSome: (predictionTokens) =>
-          Option.match(tokenizedField(expected, field), {
+          Option.match(read(expected), {
             onNone: () => 0,
             onSome: (expectedTokens) => {
               const overlap = tokenOverlap(predictionTokens, expectedTokens)
@@ -79,6 +85,7 @@ export const f1 = (field: string) =>
 
     return singleScoreResult(score)
   })
+}
 
 /**
  * Scores `1` when the normalized prediction field contains the normalized
@@ -97,11 +104,12 @@ export const f1 = (field: string) =>
  */
 export const contains = (field: string, target: string) => {
   const normalizedTarget = String.toLowerCase(String.trim(target))
+  const read = fieldString(field)
 
   return make(
     Arr.join(Arr.make("contains(", field, ",", normalizedTarget, ")"), ""),
     (prediction: typeof Schema.Object.Type) => {
-      const score = Option.match(fieldString(prediction, field), {
+      const score = Option.match(read(prediction), {
         onNone: () => 0,
         onSome: (value) => binaryScore(String.includes(normalizedTarget)(value))
       })

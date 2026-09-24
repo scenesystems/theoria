@@ -81,6 +81,42 @@ describe("Module.predict", () => {
       expect(present.prompt).toContain("[[ ## context ## ]]\nliteral context")
     }))
 
+  it.effect("reuses the signature while reading and validating changed parameters on each call", () =>
+    Effect.gen(function*() {
+      const signature = yield* Signature.make("Answer numbered questions", {
+        question: Schema.NumberFromString
+      }, { answer: Schema.String })
+      const module = yield* Module.predict("changing-parameters", signature)
+      const mock = yield* MockLanguageModel.make(MockLanguageModel.succeed({ answer: "ready" }))
+      const provideMock = Effect.provideService(LanguageModel.LanguageModel, mock.service)
+      yield* module.forward({ question: 7 }).pipe(provideMock)
+      yield* Ref.update(module.params, (params) =>
+        new ModuleParameters({
+          ...params,
+          instructions: "Revised instructions",
+          outputStrategy: "structured",
+          demos: Arr.of(new Demonstration({ input: { question: "11" }, output: { answer: "eleven" } }))
+        }))
+      yield* module.forward({ question: 19 }).pipe(provideMock)
+      const calls = yield* Ref.get(mock.calls)
+      const first = yield* Arr.head(calls)
+      const second = yield* Arr.get(calls, 1)
+      expect(first.prompt).toContain("[[ ## question ## ]]\n7")
+      expect(first.prompt).not.toContain("Revised instructions")
+      expect(second.prompt).toContain("Revised instructions")
+      expect(second.prompt).toContain("[[ ## question ## ]]\n11")
+      expect(second.prompt).toContain("[[ ## question ## ]]\n19")
+
+      yield* Ref.update(module.params, (params) =>
+        new ModuleParameters({
+          ...params,
+          demos: Arr.of(new Demonstration({ input: { question: 11 }, output: { answer: "invalid wire input" } }))
+        }))
+      const failure = yield* module.forward({ question: 23 }).pipe(provideMock, Effect.flip)
+      expect(failure._tag).toBe("MalformedInput")
+      expect(Arr.length(yield* Ref.get(mock.calls))).toBe(2)
+    }))
+
   it.effect("stops after the default three parse retries and carries diagnostic feedback", () =>
     Effect.gen(function*() {
       const qa = yield* makeQaSignature()

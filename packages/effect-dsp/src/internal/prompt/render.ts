@@ -38,91 +38,121 @@ const renderFieldSection = (fields: Iterable<FieldInfo>): string =>
     "\n"
   )
 
-const renderFieldBlock = <A extends Record.ReadonlyRecord<string, unknown>>(schema: Schema.Schema<A>, values: A) =>
-  Effect.forEach(Record.keys(values), (name) => {
-    const field = Schema.pluck(schema, name)
-    return Schema.decodeUnknown(field)(values).pipe(
+const makeFieldRenderer = <A extends Record.ReadonlyRecord<string, unknown>>(
+  schema: Schema.Schema<A>,
+  name: string
+) => {
+  const field = Schema.pluck(schema, name)
+  const decode = Schema.decodeUnknown(field)
+  const fieldSchema = Schema.typeSchema(field)
+  return (values: A) =>
+    decode(values).pipe(
       Effect.mapError(promptError),
-      Effect.flatMap((value) => renderValue(Schema.typeSchema(field), value)),
+      Effect.flatMap((value) => renderValue(fieldSchema, value)),
       Effect.map((text) => Arr.join(Arr.make(renderFieldMarker(name), text), "\n"))
     )
-  }).pipe(Effect.map(Arr.join("\n\n")))
+}
+
+const makeFieldBlock = <A extends Record.ReadonlyRecord<string, unknown>>(
+  schema: Schema.Schema<A>,
+  fields: Iterable<FieldInfo>
+) => {
+  const renderers = Record.map(
+    Record.fromIterableBy(fields, (field) => field.name),
+    (_, name) => makeFieldRenderer(schema, name)
+  )
+  return (values: A) =>
+    Effect.forEach(
+      Record.keys(values),
+      (name) => Option.getOrElse(Record.get(renderers, name), () => makeFieldRenderer(schema, name))(values)
+    ).pipe(
+      Effect.map(Arr.join("\n\n"))
+    )
+}
 
 /**
- * Encodes signature inputs before rendering and constructs a native prompt.
- * Demonstrations already carry serialized field records. Structured values are
- * encoded as JSON, while string fields retain their original text.
+ * Prepares signature metadata and schemas for repeated prompt construction.
+ * Each invocation still encodes inputs and validates the current demonstrations.
+ * Structured values are encoded as JSON, while strings retain their text.
  *
  * @since 0.1.0
  * @category constructors
  * @internal
  */
-export const buildPrompt = <I extends Schema.Struct.Fields, O extends Schema.Struct.Fields>(
-  signature: Signature<I, O>,
-  params: ModuleParameters,
-  input: Schema.Schema.Type<Schema.Struct<I>>,
-  feedback: Option.Option<string> = Option.none()
-): Effect.Effect<Prompt.Prompt, AiError.MalformedInput, Schema.Schema.Context<Schema.Struct<I>>> =>
-  Effect.gen(function*() {
-    const inputFields = encodedFieldsToInfoArray(signature.inputFields)
-    const outputFields = encodedFieldsToInfoArray(signature.outputFields)
-    const outputNames = Arr.map(outputFields, (field) => field.name)
-    const encoded = yield* Schema.encode(signature.inputSchema)(input).pipe(Effect.mapError(promptError))
-    const content = yield* renderFieldBlock(Schema.encodedBoundSchema(signature.inputSchema), encoded)
-    const demonstrations = yield* Effect.forEach(params.demos, (demo) =>
-      Effect.gen(function*() {
-        const input = yield* Schema.decodeUnknown(Schema.encodedBoundSchema(signature.inputSchema))(demo.input).pipe(
-          Effect.mapError(promptError),
-          Effect.flatMap((record) => renderFieldBlock(Schema.encodedBoundSchema(signature.inputSchema), record))
-        )
-        const output = yield* Schema.decodeUnknown(Schema.encodedBoundSchema(signature.outputSchema))(demo.output).pipe(
-          Effect.mapError(promptError),
-          Effect.flatMap((record) => renderFieldBlock(Schema.encodedBoundSchema(signature.outputSchema), record))
-        )
-        return Arr.make(
-          Prompt.userMessage({ content: Arr.make(Prompt.textPart({ text: input })) }),
-          Prompt.assistantMessage({ content: Arr.make(Prompt.textPart({ text: output })) })
-        )
-      }))
-    const messages = Arr.append(
-      Arr.appendAll(
-        Arr.make(Prompt.systemMessage({
-          content: Arr.join(
-            Arr.make(
-              String.concat("Task: ", signature.description),
-              String.concat("Instructions: ", params.instructions),
-              String.concat("Input fields:\n", renderFieldSection(inputFields)),
-              String.concat("Output fields:\n", renderFieldSection(outputFields)),
-              String.concat("Output template:\n", renderOutputTemplate(outputNames))
-            ),
-            "\n\n"
+export const makePrompt = <I extends Schema.Struct.Fields, O extends Schema.Struct.Fields>(
+  signature: Signature<I, O>
+) => {
+  const inputFields = encodedFieldsToInfoArray(signature.inputFields)
+  const outputFields = encodedFieldsToInfoArray(signature.outputFields)
+  const outputNames = Arr.map(outputFields, (field) => field.name)
+  const inputSchema = Schema.encodedBoundSchema(signature.inputSchema)
+  const outputSchema = Schema.encodedBoundSchema(signature.outputSchema)
+  const renderInput = makeFieldBlock(inputSchema, inputFields)
+  const renderOutput = makeFieldBlock(outputSchema, outputFields)
+
+  return (
+    params: ModuleParameters,
+    input: Schema.Schema.Type<Schema.Struct<I>>,
+    feedback: Option.Option<string> = Option.none()
+  ): Effect.Effect<Prompt.Prompt, AiError.MalformedInput, Schema.Schema.Context<Schema.Struct<I>>> =>
+    Effect.gen(function*() {
+      const encoded = yield* Schema.encode(signature.inputSchema)(input).pipe(Effect.mapError(promptError))
+      const content = yield* renderInput(encoded)
+      const demonstrations = yield* Effect.forEach(params.demos, (demo) =>
+        Effect.gen(function*() {
+          const input = yield* Schema.decodeUnknown(inputSchema)(demo.input).pipe(
+            Effect.mapError(promptError),
+            Effect.flatMap(renderInput)
           )
-        })),
-        Arr.flatten(demonstrations)
-      ),
-      Prompt.userMessage({
-        content: Arr.make(Prompt.textPart({
-          text: Arr.join(Arr.make(content, renderOutputRequirements(outputNames)), "\n\n")
+          const output = yield* Schema.decodeUnknown(outputSchema)(demo.output).pipe(
+            Effect.mapError(promptError),
+            Effect.flatMap(renderOutput)
+          )
+          return Arr.make(
+            Prompt.userMessage({ content: Arr.make(Prompt.textPart({ text: input })) }),
+            Prompt.assistantMessage({ content: Arr.make(Prompt.textPart({ text: output })) })
+          )
         }))
-      })
-    )
-    return Prompt.fromMessages(Option.match(feedback, {
-      onNone: () => messages,
-      onSome: (value) =>
-        Arr.append(
-          messages,
-          Prompt.userMessage({
-            content: Arr.make(Prompt.textPart({
-              text: Arr.join(
-                Arr.make(
-                  "Parse feedback:\n",
-                  value,
-                  "\n\nPlease return corrected output using the required field markers."
-                ),
-                ""
-              )
-            }))
-          })
-        )
-    }))
-  })
+      const messages = Arr.append(
+        Arr.appendAll(
+          Arr.make(Prompt.systemMessage({
+            content: Arr.join(
+              Arr.make(
+                String.concat("Task: ", signature.description),
+                String.concat("Instructions: ", params.instructions),
+                String.concat("Input fields:\n", renderFieldSection(inputFields)),
+                String.concat("Output fields:\n", renderFieldSection(outputFields)),
+                String.concat("Output template:\n", renderOutputTemplate(outputNames))
+              ),
+              "\n\n"
+            )
+          })),
+          Arr.flatten(demonstrations)
+        ),
+        Prompt.userMessage({
+          content: Arr.make(Prompt.textPart({
+            text: Arr.join(Arr.make(content, renderOutputRequirements(outputNames)), "\n\n")
+          }))
+        })
+      )
+      return Prompt.fromMessages(Option.match(feedback, {
+        onNone: () => messages,
+        onSome: (value) =>
+          Arr.append(
+            messages,
+            Prompt.userMessage({
+              content: Arr.make(Prompt.textPart({
+                text: Arr.join(
+                  Arr.make(
+                    "Parse feedback:\n",
+                    value,
+                    "\n\nPlease return corrected output using the required field markers."
+                  ),
+                  ""
+                )
+              }))
+            })
+          )
+      }))
+    })
+}

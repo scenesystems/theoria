@@ -64,6 +64,27 @@ describe("schema-bound payloads", () => {
       expect(yield* Ref.get(decodes)).toBe(1)
     }))
 
+  it.effect("keeps invocation services and excess-property policy independent of JSON codec reuse", () =>
+    Effect.gen(function*() {
+      const schema = Schema.transformOrFail(Schema.String, Schema.String, {
+        strict: true,
+        decode: (encoded) => Effect.map(Prefix, (prefix) => String.slice(String.length(prefix))(encoded)),
+        encode: (decoded) => Effect.map(Prefix, (prefix) => String.concat(prefix, decoded))
+      })
+      const operation = encode(schema, "value")
+      const first = yield* operation.pipe(Effect.provideService(Prefix, "first:"))
+      const second = yield* operation.pipe(Effect.provideService(Prefix, "second:"))
+      expect(first).toBe("\"first:value\"")
+      expect(second).toBe("\"second:value\"")
+      expect(yield* decode(schema, second).pipe(Effect.provideService(Prefix, "second:"))).toBe("value")
+
+      const document = yield* Schema.decode(Payload)("{\"value\":7,\"extra\":11}")
+      const object = Schema.Struct({ value: Schema.Number })
+      expect(yield* decode(object, document)).toEqual({ value: 7 })
+      const failure = yield* decode(object, document, { onExcessProperty: "error" }).pipe(Effect.flip)
+      expect(failure._tag).toBe("ParseError")
+    }))
+
   it.effect("preserves wire data without imposing bijective domain transformations", () =>
     Effect.gen(function*() {
       const schema = Schema.transform(Schema.String, Schema.String, {

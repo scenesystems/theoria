@@ -10,7 +10,6 @@ import { Array as Arr, Data, Effect, Match } from "effect"
 import { resolveStrategy } from "../../../ModuleParameters.js"
 import { callLmResponse, callLmTextResponse } from "../../lm.js"
 import { parseTextWithRetry, ParseTextWithRetryOptions } from "../../parse/retry.js"
-import { buildPrompt } from "../../prompt/render.js"
 import { promptToTraceText } from "../../prompt/trace.js"
 import { ForwardExecution, type ForwardOptions } from "./model.js"
 import { PayloadOptions, tracePayloadFromEncoded } from "./trace.js"
@@ -20,7 +19,7 @@ const runStructuredForward = <
   O extends Schema.Struct.Fields
 >(options: ForwardOptions<I, O>) =>
   Effect.gen(function*() {
-    const prompt = yield* buildPrompt(options.signature, options.params, options.input)
+    const prompt = yield* options.buildPrompt(options.params, options.input)
     const [response, usage] = yield* callLmResponse(prompt, options.outputSchema)
     const traceOutput = yield* tracePayloadFromEncoded(
       new PayloadOptions({
@@ -56,7 +55,7 @@ const runTextForward = <
         feedbackTemplate: parsePolicy.feedbackTemplate,
         readText: (feedback) =>
           Effect.gen(function*() {
-            const prompt = yield* buildPrompt(options.signature, options.params, options.input, feedback)
+            const prompt = yield* options.buildPrompt(options.params, options.input, feedback)
             const [response, usage] = yield* callLmTextResponse(prompt)
 
             return Data.struct({ prompt, response, usage })

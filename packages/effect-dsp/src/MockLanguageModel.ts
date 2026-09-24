@@ -253,26 +253,37 @@ const unknownUsage = (): Response.Usage =>
 
 const ProviderResponseCandidate = Schema.Array(Schema.Unknown)
 
-const encodeProviderParts = (payload: unknown, options: LanguageModel.ProviderOptions) => {
-  const parts = Schema.mutable(Schema.Array(Response.Part(Toolkit.make(...options.tools))))
+const makeProviderPartsEncoder = (tools: LanguageModel.ProviderOptions["tools"]) => {
+  const parts = Schema.mutable(Schema.Array(Response.Part(Toolkit.make(...tools))))
+  const decodeParts = Schema.decodeUnknown(Schema.Union(Schema.typeSchema(parts), parts))
+  const encodeParts = Schema.encode(parts)
 
-  return Schema.decodeUnknown(Schema.Union(Schema.typeSchema(parts), parts))(payload).pipe(
-    Effect.map((decoded) =>
-      Option.match(Arr.findFirst(decoded, Schema.is(Response.FinishPart)), {
-        onSome: () => decoded,
-        onNone: () => Arr.append(decoded, Response.finishPart({ reason: "stop", usage: unknownUsage() }))
-      })
-    ),
-    Effect.flatMap(Schema.encode(parts)),
-    Effect.mapError((cause) =>
-      mockError(
-        "generateText",
-        "MockLanguageModel received invalid provider response parts",
-        cause
+  return (payload: unknown) =>
+    decodeParts(payload).pipe(
+      Effect.map((decoded) =>
+        Option.match(Arr.findFirst(decoded, Schema.is(Response.FinishPart)), {
+          onSome: () => decoded,
+          onNone: () => Arr.append(decoded, Response.finishPart({ reason: "stop", usage: unknownUsage() }))
+        })
+      ),
+      Effect.flatMap(encodeParts),
+      Effect.mapError((cause) =>
+        mockError(
+          "generateText",
+          "MockLanguageModel received invalid provider response parts",
+          cause
+        )
       )
     )
-  )
 }
+
+const encodePartsWithoutTools = makeProviderPartsEncoder(Arr.empty())
+
+const encodeProviderParts = (payload: unknown, options: LanguageModel.ProviderOptions) =>
+  Arr.match(options.tools, {
+    onEmpty: () => encodePartsWithoutTools(payload),
+    onNonEmpty: (tools) => makeProviderPartsEncoder(tools)(payload)
+  })
 
 const makeProviderResponse = (text: string, options: LanguageModel.ProviderOptions) =>
   encodeProviderParts(

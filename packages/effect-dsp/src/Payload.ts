@@ -6,7 +6,10 @@
  */
 import { Effect, Either, ParseResult, Schema, type SchemaAST } from "effect"
 
-const parseJson = Schema.decodeUnknownEither(Schema.parseJson())
+const Json = Schema.parseJson()
+const parseJson = Schema.decodeUnknownEither(Json)
+const encodeJson = Schema.encode(Json)
+const decodeJson = Schema.decode(Json)
 
 /**
  * A syntactically valid JSON document. Its domain type belongs to the schema
@@ -50,9 +53,8 @@ export const encode = <A, I, R>(
   Effect.gen(function*() {
     const encoded = yield* Schema.encode(schema)(value)
     const wireSchema = Schema.encodedSchema(schema)
-    const codec = Schema.parseJson(wireSchema)
-    const text = yield* Schema.encode(codec)(encoded)
-    const restored = yield* Schema.decode(codec)(text)
+    const text = yield* Schema.encode(wireSchema)(encoded).pipe(Effect.flatMap(encodeJson))
+    const restored = yield* decodeJson(text).pipe(Effect.flatMap(Schema.decodeUnknown(wireSchema)))
     const equivalent = yield* Effect.try({
       try: () => Schema.equivalence(wireSchema)(encoded, restored),
       catch: () =>
@@ -86,4 +88,5 @@ export const decode = <A, I, R>(
   schema: Schema.Schema<A, I, R>,
   document: Payload,
   options?: SchemaAST.ParseOptions
-): Effect.Effect<A, ParseResult.ParseError, R> => Schema.decode(Schema.parseJson(schema))(document, options)
+): Effect.Effect<A, ParseResult.ParseError, R> =>
+  decodeJson(document, options).pipe(Effect.flatMap(Schema.decodeUnknown(schema, options)))

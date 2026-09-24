@@ -299,6 +299,53 @@ describe("MockLanguageModel", () => {
       expect(toolResponse.finishReason).toBe("stop")
     }))
 
+  it.effect("validates each call against its own toolkit after no-tools and other-toolkit calls", () =>
+    Effect.gen(function*() {
+      const toolCall = Response.toolCallPart({
+        id: "call-1",
+        name: "LookupFacts",
+        params: { question: "Where?" },
+        providerExecuted: false
+      })
+      const mock = yield* MockLanguageModel.make(
+        MockLanguageModel.sequence(Arr.make(Arr.of(toolCall), "plain", Arr.of(toolCall), Arr.of(toolCall)))
+      )
+      const provideMock = Effect.provideService(LanguageModel.LanguageModel, mock.service)
+      const tools = Toolkit.make(LookupFacts)
+      const toolkit = yield* tools.pipe(
+        Effect.provide(tools.toLayer({ LookupFacts: ({ question }) => Effect.succeed(question) }))
+      )
+      const otherTools = Toolkit.make(Tool.make("LookupFacts", {
+        parameters: { question: Schema.Number },
+        success: Schema.String
+      }))
+      const otherToolkit = yield* otherTools.pipe(
+        Effect.provide(otherTools.toLayer({ LookupFacts: () => Effect.succeed("unused") }))
+      )
+      const first = yield* LanguageModel.generateText({
+        prompt: "first",
+        toolkit,
+        disableToolCallResolution: true
+      }).pipe(provideMock)
+      const plain = yield* LanguageModel.generateText({ prompt: "plain" }).pipe(provideMock)
+      const invalid = yield* LanguageModel.generateText({
+        prompt: "invalid",
+        toolkit: otherToolkit,
+        disableToolCallResolution: true
+      }).pipe(provideMock, Effect.flip)
+      const again = yield* LanguageModel.generateText({
+        prompt: "again",
+        toolkit,
+        disableToolCallResolution: true
+      }).pipe(provideMock)
+
+      expect(first.toolCalls).toEqual(Arr.of(toolCall))
+      expect(plain.text).toBe("plain")
+      expect(invalid._tag).toBe("UnknownError")
+      expect(again.toolCalls).toEqual(Arr.of(toolCall))
+      expect(Arr.map(yield* Ref.get(mock.calls), (call) => call.prompt)).toEqual(Arr.make("first", "plain", "again"))
+    }))
+
   it.effect("keeps fromFunction effectful and installable through layer", () =>
     Effect.gen(function*() {
       const response = yield* LanguageModel.generateText({ prompt: "layer callback" }).pipe(

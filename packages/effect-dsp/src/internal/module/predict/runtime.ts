@@ -12,6 +12,7 @@ import { NodeSignature } from "../../../Module.js"
 import type { PredictPolicy } from "../../../Module.js"
 import type { ModuleParameters } from "../../../ModuleParameters.js"
 import type { Signature } from "../../../Signature.js"
+import { makePrompt } from "../../prompt/render.js"
 import { registerRuntime, RuntimeRegistrationOptions } from "../discovery/registry.js"
 import { ForwardOptions } from "./model.js"
 import { runForward } from "./strategy.js"
@@ -37,6 +38,7 @@ export const makeForward = <
   I extends Schema.Struct.Fields,
   O extends Schema.Struct.Fields
 >(options: RuntimeOptions<I, O>): Module<I, O>["forward"] => {
+  const buildPrompt = makePrompt(options.signature)
   return Effect.fn(options.moduleName)((input) =>
     Effect.gen(function*() {
       yield* registerRuntime(
@@ -56,7 +58,7 @@ export const makeForward = <
       const execution = yield* runForward(
         new ForwardOptions<I, O>({
           moduleName: options.moduleName,
-          signature: options.signature,
+          buildPrompt,
           params,
           input,
           outputSchema: options.outputSchema,

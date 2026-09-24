@@ -5,13 +5,14 @@
  * @category internal
  * @internal
  */
+import type * as AiError from "@effect/ai/AiError"
+import type * as Prompt from "@effect/ai/Prompt"
 import type * as Response from "@effect/ai/Response"
-import type { Schema } from "effect"
+import type { Effect, Option, Schema } from "effect"
 import { Data } from "effect"
 import type { PredictPolicy } from "../../../Module.js"
 import type { ModuleParameters } from "../../../ModuleParameters.js"
 import type { Payload } from "../../../Payload.js"
-import type { Signature } from "../../../Signature.js"
 
 /**
  * Shared configuration for structured and text forward execution.
@@ -21,7 +22,11 @@ import type { Signature } from "../../../Signature.js"
  */
 export class ForwardOptions<I extends Schema.Struct.Fields, O extends Schema.Struct.Fields> extends Data.Class<{
   readonly moduleName: string
-  readonly signature: Signature<I, O>
+  readonly buildPrompt: (
+    params: ModuleParameters,
+    input: Schema.Schema.Type<Schema.Struct<I>>,
+    feedback?: Option.Option<string>
+  ) => Effect.Effect<Prompt.Prompt, AiError.MalformedInput, Schema.Schema.Context<Schema.Struct<I>>>
   readonly params: ModuleParameters
   readonly input: Schema.Schema.Type<Schema.Struct<I>>
   readonly outputSchema: Schema.Struct<O>
