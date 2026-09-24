@@ -54,7 +54,6 @@ export const makeEncoder = <A, I, R>(schema: Schema.Schema<A, I, R>) => {
   const encodeWire = Schema.encode(wireSchema)
   const decodeWire = Schema.decodeUnknown(wireSchema)
   const equivalence = Either.try(() => Schema.equivalence(wireSchema))
-  const validateDocument = Schema.decode(Payload)
   return (value: A): Effect.Effect<Payload, ParseResult.ParseError, R> =>
     Effect.gen(function*() {
       const encoded = yield* encodeDomain(value)
@@ -68,17 +67,20 @@ export const makeEncoder = <A, I, R>(schema: Schema.Schema<A, I, R>) => {
           })
         )
       )
-      return yield* validateDocument(text).pipe(Effect.filterOrFail(
-        () => equivalent,
-        () =>
-          new ParseResult.ParseError({
-            issue: new ParseResult.Type(
-              wireSchema.ast,
-              encoded,
-              "JSON encoding did not preserve encoded schema equivalence"
-            )
-          })
-      ))
+      return yield* Effect.if(equivalent, {
+        // decodeJson already established Payload's fixed JSON-document refinement.
+        onTrue: () => Effect.succeed(Payload.make(text, { disableValidation: true })),
+        onFalse: () =>
+          Effect.fail(
+            new ParseResult.ParseError({
+              issue: new ParseResult.Type(
+                wireSchema.ast,
+                encoded,
+                "JSON encoding did not preserve encoded schema equivalence"
+              )
+            })
+          )
+      })
     })
 }
 

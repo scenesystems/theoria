@@ -1,6 +1,6 @@
 import { describe, expect, it } from "@effect/vitest"
 import { decode, encode, makeEncoder, Payload } from "@scenesystems/effect-dsp/Payload"
-import { Array as Arr, Context, Effect, FastCheck, Number, Option, Ref, Schema, String } from "effect"
+import { Array as Arr, Context, Effect, FastCheck, Number, Option, ParseResult, Ref, Schema, String } from "effect"
 
 const Facts = Schema.Struct({
   count: Schema.NumberFromString,
@@ -60,7 +60,22 @@ describe("schema-bound payloads", () => {
     Effect.gen(function*() {
       const value = { count, countries, details: { active, missing: null } }
       const document = yield* encode(Facts, value)
+      expect(Schema.is(Payload)(document)).toBe(true)
       expect(yield* decode(Facts, document)).toEqual(value)
+    }))
+
+  it.effect("does not substitute JSON syntax validity for wire encoding and equivalence", () =>
+    Effect.gen(function*() {
+      const rejecting = Schema.String.annotations({ equivalence: () => () => false })
+      const validJsonFailure = yield* encode(rejecting, "valid JSON string").pipe(Effect.flip)
+      expect(validJsonFailure.message).toContain("JSON encoding did not preserve encoded schema equivalence")
+
+      const incrementing = Schema.declare<number, number, []>([], {
+        decode: () => ParseResult.decodeUnknown(Schema.Number),
+        encode: () => (value) => ParseResult.decodeUnknown(Schema.Number)(value).pipe(Effect.map(Number.increment))
+      }, { equivalence: () => Number.Equivalence })
+      const wireFailure = yield* encode(incrementing, 0).pipe(Effect.flip)
+      expect(wireFailure.message).toContain("JSON encoding did not preserve encoded schema equivalence")
     }))
 
   it.effect("rejects lossy numeric JSON and malformed persisted documents", () =>
