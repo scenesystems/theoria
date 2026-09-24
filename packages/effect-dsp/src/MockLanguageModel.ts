@@ -243,13 +243,14 @@ const toProviderText = (
   )
 
 const unknownUsage = (): Response.Usage =>
+  // Fixed unknown counters; the full provider-part encoder still validates Usage.
   new Response.Usage({
     inputTokens: undefined,
     outputTokens: undefined,
     totalTokens: undefined,
     reasoningTokens: undefined,
     cachedInputTokens: undefined
-  })
+  }, { disableValidation: true })
 
 const ProviderResponseCandidate = Schema.Array(Schema.Unknown)
 

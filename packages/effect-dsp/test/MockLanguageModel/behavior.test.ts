@@ -242,6 +242,41 @@ describe("MockLanguageModel", () => {
       ).toEqual(Arr.make(undefined, undefined, undefined, undefined, undefined))
     }))
 
+  it.effect("rejects supplied invalid usage and recovers with fresh unknown usage on later responses", () =>
+    Effect.gen(function*() {
+      const mock = yield* MockLanguageModel.make(MockLanguageModel.sequence(Arr.make(
+        Arr.make(
+          { type: "text", text: "invalid usage" },
+          { type: "finish", reason: "stop", usage: { inputTokens: "unknown", outputTokens: 3, totalTokens: 8 } }
+        ),
+        Arr.of({ type: "text", text: "insert finish" }),
+        "generated"
+      )))
+      const provideMock = Effect.provideService(LanguageModel.LanguageModel, mock.service)
+      const failure = yield* LanguageModel.generateText({ prompt: "invalid" }).pipe(provideMock, Effect.flip)
+      expect(failure._tag).toBe("UnknownError")
+      expect(Arr.length(yield* Ref.get(mock.calls))).toBe(0)
+
+      const inserted = yield* LanguageModel.generateText({ prompt: "inserted" }).pipe(provideMock)
+      const generated = yield* LanguageModel.generateText({ prompt: "generated" }).pipe(provideMock)
+      expect(inserted.text).toBe("insert finish")
+      expect(generated.text).toBe("generated")
+      expect(inserted.usage).not.toBe(generated.usage)
+      expect(Arr.map(Arr.make(inserted, generated), (response) => response.usage)).toEqual(
+        Arr.replicate(
+          new Response.Usage({
+            inputTokens: undefined,
+            outputTokens: undefined,
+            totalTokens: undefined,
+            reasoningTokens: undefined,
+            cachedInputTokens: undefined
+          }),
+          2
+        )
+      )
+      expect(Arr.map(yield* Ref.get(mock.calls), (call) => call.prompt)).toEqual(Arr.make("inserted", "generated"))
+    }))
+
   it.effect("rejects every malformed raw provider response array as invalid parts", () =>
     Effect.gen(function*() {
       const malformed = Arr.make(
