@@ -253,53 +253,52 @@ const unknownUsage = (): Response.Usage =>
 
 const ProviderResponseCandidate = Schema.Array(Schema.Unknown)
 
-const makeProviderPartsEncoder = (tools: LanguageModel.ProviderOptions["tools"]) => {
+const makeProviderPartsCodec = (tools: LanguageModel.ProviderOptions["tools"]) => {
   const parts = Schema.mutable(Schema.Array(Response.Part(Toolkit.make(...tools))))
   const decodeParts = Schema.decodeUnknown(Schema.Union(Schema.typeSchema(parts), parts))
-  const encodeParts = Schema.encode(parts)
+  const encodeParts = Schema.encodeUnknown(parts)
+  const mapPartsError = Effect.mapError((cause: unknown) =>
+    mockError("generateText", "MockLanguageModel received invalid provider response parts", cause)
+  )
 
-  return (payload: unknown) =>
-    decodeParts(payload).pipe(
-      Effect.map((decoded) =>
-        Option.match(Arr.findFirst(decoded, Schema.is(Response.FinishPart)), {
-          onSome: () => decoded,
-          onNone: () => Arr.append(decoded, Response.finishPart({ reason: "stop", usage: unknownUsage() }))
-        })
-      ),
-      Effect.flatMap(encodeParts),
-      Effect.mapError((cause) =>
-        mockError(
-          "generateText",
-          "MockLanguageModel received invalid provider response parts",
-          cause
-        )
+  return Data.struct({
+    encodeNative: (payload: unknown) => encodeParts(payload).pipe(mapPartsError),
+    encodeUnknown: (payload: unknown) =>
+      decodeParts(payload).pipe(
+        Effect.map((decoded) =>
+          Option.match(Arr.findFirst(decoded, Schema.is(Response.FinishPart)), {
+            onSome: () => decoded,
+            onNone: () => Arr.append(decoded, Response.finishPart({ reason: "stop", usage: unknownUsage() }))
+          })
+        ),
+        Effect.flatMap(encodeParts),
+        mapPartsError
       )
-    )
+  })
 }
 
-const encodePartsWithoutTools = makeProviderPartsEncoder(Arr.empty())
+const partsWithoutTools = makeProviderPartsCodec(Arr.empty())
 
-const encodeProviderParts = (payload: unknown, options: LanguageModel.ProviderOptions) =>
+const providerPartsCodec = (options: LanguageModel.ProviderOptions) =>
   Arr.match(options.tools, {
-    onEmpty: () => encodePartsWithoutTools(payload),
-    onNonEmpty: (tools) => makeProviderPartsEncoder(tools)(payload)
+    onEmpty: () => partsWithoutTools,
+    onNonEmpty: makeProviderPartsCodec
   })
 
 const makeProviderResponse = (text: string, options: LanguageModel.ProviderOptions) =>
-  encodeProviderParts(
+  providerPartsCodec(options).encodeNative(
     Arr.make(
       Response.textPart({ text }),
       Response.finishPart({
         reason: "stop",
         usage: unknownUsage()
       })
-    ),
-    options
+    )
   )
 
 const toProviderResponse = (response: unknown, options: LanguageModel.ProviderOptions) =>
   Match.value(response).pipe(
-    Match.when(Schema.is(ProviderResponseCandidate), (payload) => encodeProviderParts(payload, options)),
+    Match.when(Schema.is(ProviderResponseCandidate), (payload) => providerPartsCodec(options).encodeUnknown(payload)),
     Match.orElse((value) =>
       toProviderText(value, options.responseFormat).pipe(
         Effect.flatMap((text) => makeProviderResponse(text, options))

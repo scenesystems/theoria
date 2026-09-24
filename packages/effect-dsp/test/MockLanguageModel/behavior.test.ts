@@ -93,6 +93,54 @@ describe("MockLanguageModel", () => {
       expect(invalidSchema._tag).toBe("MalformedOutput")
     }))
 
+  it.effect("keeps encoded provider normalization separate from generated native responses", () =>
+    Effect.gen(function*() {
+      const mock = yield* MockLanguageModel.make(
+        MockLanguageModel.sequence(Arr.make(
+          Arr.of({ type: "text", text: "encoded without native marker" }),
+          "generated with toolkit",
+          { value: "generated object" }
+        ))
+      )
+      const provideMock = Effect.provideService(LanguageModel.LanguageModel, mock.service)
+      const tools = Toolkit.make(LookupFacts)
+      const toolkit = yield* tools.pipe(
+        Effect.provide(tools.toLayer({ LookupFacts: ({ question }) => Effect.succeed(question) }))
+      )
+      const encoded = yield* LanguageModel.generateText({ prompt: "encoded" }).pipe(provideMock)
+      const generated = yield* LanguageModel.generateText({
+        prompt: "generated text",
+        toolkit,
+        disableToolCallResolution: true
+      }).pipe(provideMock)
+      const structured = yield* LanguageModel.generateObject({
+        prompt: "generated object",
+        schema: TextEnvelope
+      }).pipe(provideMock)
+
+      expect(encoded.text).toBe("encoded without native marker")
+      expect(generated.text).toBe("generated with toolkit")
+      expect(structured.value).toEqual({ value: "generated object" })
+      expect(Arr.map(Arr.make(encoded, generated, structured), (response) => response.finishReason)).toEqual(
+        Arr.make("stop", "stop", "stop")
+      )
+      expect(Arr.map(Arr.make(encoded, generated, structured), (response) => response.usage)).toEqual(
+        Arr.replicate(
+          new Response.Usage({
+            inputTokens: undefined,
+            outputTokens: undefined,
+            totalTokens: undefined,
+            reasoningTokens: undefined,
+            cachedInputTokens: undefined
+          }),
+          3
+        )
+      )
+      expect(Arr.map(yield* Ref.get(mock.calls), (call) => call.prompt)).toEqual(
+        Arr.make("encoded", "generated text", "generated object")
+      )
+    }))
+
   it.effect("rejects lossy object responses instead of manufacturing schema-valid JSON", () =>
     Effect.gen(function*() {
       const schema = Schema.Struct({
