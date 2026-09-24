@@ -81,6 +81,45 @@ describe("Module.predict", () => {
       expect(present.prompt).toContain("[[ ## context ## ]]\nliteral context")
     }))
 
+  it.effect("admits complete renamed and refined demonstrations before rendering individual fields", () =>
+    Effect.gen(function*() {
+      const signature = yield* Signature.make("Render validated examples", {
+        title: Schema.propertySignature(Schema.String.pipe(Schema.minLength(1))).pipe(Schema.fromKey("wireTitle")),
+        tag: Schema.Literal("present")
+      }, {
+        result: Schema.Struct({ score: Schema.NumberFromString }),
+        note: Schema.optional(Schema.String)
+      })
+      const module = yield* Module.predict("field-admission", signature)
+      const valid = new Demonstration({
+        input: { wireTitle: "example", tag: "present" },
+        output: { result: { score: "3" } }
+      })
+      yield* Ref.update(
+        module.params,
+        (params) => new ModuleParameters({ ...params, outputStrategy: "structured", demos: Arr.of(valid) })
+      )
+      const mock = yield* MockLanguageModel.make(MockLanguageModel.succeed({ result: { score: "7" } }))
+      const provideMock = Effect.provideService(LanguageModel.LanguageModel, mock.service)
+      const input = signature.inputSchema.make({ title: "request", tag: "present" })
+      expect(yield* module.forward(input).pipe(provideMock)).toEqual({ result: { score: 7 } })
+      const call = yield* Ref.get(mock.calls).pipe(Effect.flatMap(Arr.head))
+      expect(call.prompt).toContain("[[ ## wireTitle ## ]]\nexample\n\n[[ ## tag ## ]]\npresent")
+      expect(call.prompt).toContain("[[ ## result ## ]]\n{\"score\":\"3\"}\n\n[[ ## wireTitle ## ]]\nrequest")
+      const invalid = Arr.make(
+        new Demonstration({ input: { wireTitle: "missing tag" }, output: valid.output }),
+        new Demonstration({ input: { wireTitle: "", tag: "present" }, output: valid.output }),
+        new Demonstration({ input: valid.input, output: {} }),
+        new Demonstration({ input: valid.input, output: { result: { score: 5 } } })
+      )
+      yield* Effect.forEach(invalid, (demo) =>
+        Effect.gen(function*() {
+          yield* Ref.update(module.params, (params) => new ModuleParameters({ ...params, demos: Arr.of(demo) }))
+          expect((yield* module.forward(input).pipe(provideMock, Effect.flip))._tag).toBe("MalformedInput")
+        }))
+      expect(Arr.length(yield* Ref.get(mock.calls))).toBe(1)
+    }))
+
   it.effect("reuses the signature while reading and validating changed parameters on each call", () =>
     Effect.gen(function*() {
       const signature = yield* Signature.make("Answer numbered questions", {

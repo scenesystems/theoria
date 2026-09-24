@@ -42,15 +42,18 @@ const makeFieldRenderer = <A extends Record.ReadonlyRecord<string, unknown>>(
   schema: Schema.Schema<A>,
   name: string
 ) => {
-  const field = Schema.pluck(schema, name)
-  const decode = Schema.decodeUnknown(field)
-  const fieldSchema = Schema.typeSchema(field)
+  const fieldSchema = Schema.typeSchema(Schema.pluck(schema, name))
+  const decode = Schema.decodeUnknown(fieldSchema)
   return (values: A) =>
-    decode(values).pipe(
-      Effect.mapError(promptError),
-      Effect.flatMap((value) => renderValue(fieldSchema, value)),
-      Effect.map((text) => Arr.join(Arr.make(renderFieldMarker(name), text), "\n"))
-    )
+    Option.match(Record.get(values, name), {
+      onNone: () => Effect.fail(promptError()),
+      onSome: (value) =>
+        decode(value).pipe(
+          Effect.mapError(promptError),
+          Effect.flatMap((value) => renderValue(fieldSchema, value)),
+          Effect.map((text) => Arr.join(Arr.make(renderFieldMarker(name), text), "\n"))
+        )
+    })
 }
 
 const makeFieldBlock = <A extends Record.ReadonlyRecord<string, unknown>>(
