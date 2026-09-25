@@ -145,10 +145,18 @@ export const register = (
       onSome: Effect.succeed
     })
 
-    return yield* SynchronizedRef.updateEffect(
-      collector,
-      (registrations) => mergeRegistration(registrations, registration)
-    )
+    const existing = HashMap.get(yield* SynchronizedRef.get(collector), registration.id)
+    // This collector only inserts absent IDs; an existing registration is never
+    // removed or replaced. Exact matches need no write permit. A missing or
+    // conflicting observation must still be rechecked inside the locked merge.
+    return yield* Effect.if(Option.exists(existing, (value) => sameRegistration(value, registration)), {
+      onTrue: () => Effect.void,
+      onFalse: () =>
+        SynchronizedRef.updateEffect(
+          collector,
+          (registrations) => mergeRegistration(registrations, registration)
+        )
+    })
   })
 
 /**

@@ -11,6 +11,7 @@ import { withInstructions } from "@scenesystems/effect-dsp/ModuleParameters"
 import * as Signature from "@scenesystems/effect-dsp/Signature"
 import type { Option } from "effect"
 import { Array as Arr, Data, Deferred, Effect, Either, Equal, Fiber, Layer, Record, Ref, Schema } from "effect"
+import { registerRuntime, RuntimeRegistrationOptions } from "../../src/internal/module/discovery/registry.js"
 
 const QaInput = Schema.Struct({
   question: Signature.describe(Schema.String, "The question to answer")
@@ -185,6 +186,117 @@ describe("Module discovery", () => {
 
       expect(registrations).toHaveLength(1)
       expect(registration.params).toBe(winner.params)
+    }))
+
+  it.effect("rechecks concurrent identical registrations in each fresh and nested collector", () =>
+    Effect.gen(function*() {
+      const signature = yield* makeQaSignature()
+      const module = yield* Module.predict("repeated-registration", signature)
+      const repeated = registerRuntime(
+        new RuntimeRegistrationOptions({
+          moduleName: module.name,
+          params: module.params,
+          signature: new Module.NodeSignature({
+            description: signature.description,
+            instructions: signature.instructions
+          })
+        })
+      )
+      const collect = Module.discoverModules(Effect.gen(function*() {
+        yield* Effect.all(Arr.make(repeated, repeated), { concurrency: "unbounded" })
+        const nested = yield* Module.discoverModules(repeated)
+        expect(nested).toHaveLength(1)
+        expect((yield* Arr.head(nested)).params).toBe(module.params)
+        yield* Ref.update(module.params, (params) => withInstructions(params, "live instructions"))
+        yield* Effect.all(Arr.make(repeated, repeated), { concurrency: "unbounded" })
+      }))
+      const first = yield* collect
+      const second = yield* collect
+      expect(first).toHaveLength(1)
+      expect(second).toHaveLength(1)
+      const registration = yield* Arr.head(second)
+      expect(registration.id).toBe(module.name)
+      expect(registration.params).toBe(module.params)
+      expect((yield* Ref.get(registration.params)).instructions).toBe("live instructions")
+    }))
+
+  it.effect("checks every registration identity field after an identical repeat", () =>
+    Effect.gen(function*() {
+      const signature = yield* makeQaSignature()
+      const module = yield* Module.predict("identity-registration", signature)
+      const otherParams = yield* Ref.make(yield* Ref.get(module.params))
+      const childA = yield* Schema.decode(Module.Id)("child-a")
+      const childB = yield* Schema.decode(Module.Id)("child-b")
+      const metadata = new Module.NodeSignature({
+        description: signature.description,
+        instructions: signature.instructions
+      })
+      const base = new RuntimeRegistrationOptions({
+        moduleName: module.name,
+        params: module.params,
+        signature: metadata,
+        subModuleIds: Arr.make(childB, childA, childB)
+      })
+      const conflicts = Arr.make(
+        new RuntimeRegistrationOptions({ ...base, params: otherParams }),
+        new RuntimeRegistrationOptions({
+          ...base,
+          signature: new Module.NodeSignature({ ...metadata, description: "different description" })
+        }),
+        new RuntimeRegistrationOptions({
+          ...base,
+          signature: new Module.NodeSignature({ ...metadata, instructions: "different instructions" })
+        }),
+        new RuntimeRegistrationOptions({ ...base, subModuleIds: Arr.of(childA) })
+      )
+      const registrations = yield* Module.discoverModules(Effect.gen(function*() {
+        yield* registerRuntime(base)
+        yield* registerRuntime({ ...base, subModuleIds: Arr.make(childA, childB) })
+        yield* Effect.forEach(conflicts, (conflict) =>
+          Effect.gen(function*() {
+            const failure = yield* registerRuntime(conflict).pipe(Effect.flip)
+            expect(failure.message).toContain("Discovery registration conflict")
+            expect(failure.moduleName).toBe(module.name)
+          }))
+        const invalid = yield* registerRuntime({ ...base, moduleName: "" }).pipe(Effect.flip)
+        expect(invalid.message).toContain("Invalid module id")
+        yield* registerRuntime(base)
+      }))
+      expect(registrations).toHaveLength(1)
+      const registration = yield* Arr.head(registrations)
+      expect(registration.params).toBe(module.params)
+      expect(registration.signature).toEqual(metadata)
+      expect(registration.subModuleIds).toEqual(Arr.make(childA, childB))
+    }))
+
+  it.effect("keeps the first concurrent conflicting insertion as the only later winner", () =>
+    Effect.gen(function*() {
+      const signature = yield* makeQaSignature()
+      const first = yield* Module.predict("insertion-race", signature)
+      const second = yield* Module.predict("insertion-race", signature)
+      const candidates = Arr.map(Arr.make(first, second), (module) =>
+        new RuntimeRegistrationOptions({
+          moduleName: module.name,
+          params: module.params,
+          signature: new Module.NodeSignature({
+            description: signature.description,
+            instructions: signature.instructions
+          })
+        }))
+      const registrations = yield* Module.discoverModules(Effect.gen(function*() {
+        const attempt = Effect.forEach(candidates, (candidate) => registerRuntime(candidate).pipe(Effect.either), {
+          concurrency: "unbounded"
+        })
+        const initial = yield* attempt
+        const repeated = yield* attempt
+        expect(Arr.filter(initial, Either.isRight)).toHaveLength(1)
+        expect(Arr.filter(initial, Either.isLeft)).toHaveLength(1)
+        expect(Arr.map(repeated, Either.isRight)).toEqual(Arr.map(initial, Either.isRight))
+        const winner = yield* Arr.findFirst(Arr.zip(candidates, initial), ([, outcome]) => Either.isRight(outcome))
+        const snapshot = yield* Module.discoverModules(registerRuntime(winner[0]))
+        expect((yield* Arr.head(snapshot)).params).toBe(winner[0].params)
+      }))
+      expect(registrations).toHaveLength(1)
     }))
 
   it.effect("isolates nested scopes and restores the outer collector after failure and interruption", () =>
