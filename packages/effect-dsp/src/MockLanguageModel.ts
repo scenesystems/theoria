@@ -250,7 +250,7 @@ const unknownUsage = (): Response.Usage =>
     totalTokens: undefined,
     reasoningTokens: undefined,
     cachedInputTokens: undefined
-  }, { disableValidation: true })
+  }, true)
 
 const ProviderResponseCandidate = Schema.Array(Schema.Unknown)
 

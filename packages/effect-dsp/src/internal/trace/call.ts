@@ -108,7 +108,7 @@ export const trackCall = <A, E, R>(
             durationMs: Number.subtract(timestamp, startedAt),
             timestamp
           }),
-          { disableValidation: true }
+          true
         )
       )
 

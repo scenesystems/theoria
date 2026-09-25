@@ -97,7 +97,7 @@ export const makeEncoder = <A, I, R>(schema: Schema.Schema<A, I, R>) => {
       Effect.suspend(() =>
         ParseResult.map(
           ParseResult.flatMap(encodeDomain(value), encodeJson),
-          (text) => Payload.make(text, { disableValidation: true })
+          (text) => Payload.make(text, true)
         )
       ),
     onFalse: () => {
@@ -126,7 +126,7 @@ export const makeEncoder = <A, I, R>(schema: Schema.Schema<A, I, R>) => {
                   return Either.flatMap(compared, (equivalent) =>
                     Boolean.match(equivalent, {
                       // decodeJson already established Payload's fixed JSON-document refinement.
-                      onTrue: () => Either.right(Payload.make(text, { disableValidation: true })),
+                      onTrue: () => Either.right(Payload.make(text, true)),
                       onFalse: () =>
                         Either.left(
                           new ParseResult.ParseError({

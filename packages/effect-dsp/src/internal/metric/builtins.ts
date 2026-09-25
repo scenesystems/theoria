@@ -10,7 +10,7 @@ import { make } from "./constructors.js"
 import { binaryScore, fieldString, tokenizedField, tokenOverlap } from "./score.js"
 
 // Private callers compute numeric scores and never supply feedback.
-const singleScoreResult = (score: number): Result => new Result({ score }, { disableValidation: true })
+const singleScoreResult = (score: number): Result => new Result({ score }, true)
 
 /**
  * Scores `1` when normalized scalar fields are equal and `0` otherwise.

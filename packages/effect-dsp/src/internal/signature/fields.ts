@@ -39,7 +39,7 @@ export const extractSingleFieldInfo = (
       description: descriptionFromPropertySignature(propertySignature),
       isOptional: propertySignature.isOptional
     }),
-    { disableValidation: true }
+    true
   )
 
 /**
@@ -76,8 +76,7 @@ export const encodedFieldsToInfoArray = (fields: Schema.Struct.Fields) =>
         const resolvedDescription = Option.orElse(description, () => info.description)
         return Boolean.match(descriptionEquivalence(info.description, resolvedDescription), {
           onTrue: () => info,
-          onFalse: () =>
-            new FieldInfo(validateFieldInfo({ ...info, description: resolvedDescription }), { disableValidation: true })
+          onFalse: () => new FieldInfo(validateFieldInfo({ ...info, description: resolvedDescription }), true)
         })
       }
     )

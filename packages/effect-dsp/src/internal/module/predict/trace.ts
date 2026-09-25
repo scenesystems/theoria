@@ -99,7 +99,7 @@ export const appendTraceEntry = <
       durationMs: Number.subtract(options.completedAt, options.startedAt),
       score: noScore,
       timestamp: options.completedAt
-    }, { disableValidation: true })
+    }, true)
 
     yield* append(entry)
   })
