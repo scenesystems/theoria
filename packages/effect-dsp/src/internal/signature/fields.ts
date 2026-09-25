@@ -4,10 +4,18 @@
  *
  * @since 0.1.0
  */
-import { Array as Arr, Boolean, Inspectable, Option, Record, Schema, SchemaAST, String } from "effect"
+import { Array as Arr, Boolean, Inspectable, Option, ParseResult, Record, Schema, SchemaAST, String } from "effect"
 import { FieldDescriptionId, FieldInfo } from "../../Signature.js"
 
 const descriptionEquivalence = Option.getEquivalence(String.Equivalence)
+
+// FieldInfo has no constructor defaults. Defer its complete type-side validator
+// through the public Signature module's circular import, not individual values.
+const validateFieldInfo = ParseResult.validateSync(Schema.suspend(() =>
+  Schema.Struct(FieldInfo.fields).annotations({
+    title: String.concat(FieldInfo.identifier, " (Constructor)")
+  })
+))
 
 const descriptionFromPropertySignature = (propertySignature: SchemaAST.PropertySignature): Option.Option<string> =>
   Option.orElse(
@@ -25,11 +33,14 @@ const descriptionFromPropertySignature = (propertySignature: SchemaAST.PropertyS
 export const extractSingleFieldInfo = (
   propertySignature: SchemaAST.PropertySignature
 ): FieldInfo =>
-  new FieldInfo({
-    name: Inspectable.toStringUnknown(propertySignature.name),
-    description: descriptionFromPropertySignature(propertySignature),
-    isOptional: propertySignature.isOptional
-  })
+  new FieldInfo(
+    validateFieldInfo({
+      name: Inspectable.toStringUnknown(propertySignature.name),
+      description: descriptionFromPropertySignature(propertySignature),
+      isOptional: propertySignature.isOptional
+    }),
+    { disableValidation: true }
+  )
 
 /**
  * Converts struct fields to metadata in AST property order.
@@ -65,7 +76,8 @@ export const encodedFieldsToInfoArray = (fields: Schema.Struct.Fields) =>
         const resolvedDescription = Option.orElse(description, () => info.description)
         return Boolean.match(descriptionEquivalence(info.description, resolvedDescription), {
           onTrue: () => info,
-          onFalse: () => new FieldInfo({ ...info, description: resolvedDescription })
+          onFalse: () =>
+            new FieldInfo(validateFieldInfo({ ...info, description: resolvedDescription }), { disableValidation: true })
         })
       }
     )

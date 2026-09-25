@@ -4,7 +4,7 @@
 import { describe, expect, it } from "@effect/vitest"
 import type { SignatureError } from "@scenesystems/effect-dsp/DspError"
 import * as Signature from "@scenesystems/effect-dsp/Signature"
-import { Array as Arr, Cause, Effect, Exit, Option, Schema } from "effect"
+import { Array as Arr, Cause, Effect, Exit, FastCheck, Option, Ref, Schema } from "effect"
 
 describe("Signature", () => {
   describe("validation", () => {
@@ -64,6 +64,68 @@ describe("Signature", () => {
   })
 
   describe("default instructions", () => {
+    it.effect.prop("preserves field metadata and wire instructions", {
+      requiredDescription: FastCheck.string(),
+      optionalDescription: FastCheck.string()
+    }, ({ requiredDescription, optionalDescription }) =>
+      Effect.gen(function*() {
+        const signature = yield* Signature.make("Preserve metadata", {
+          question: Schema.propertySignature(Signature.describe(Schema.String, requiredDescription)).pipe(
+            Schema.fromKey("wire-question")
+          ),
+          context: Schema.optional(Schema.String).annotations({ [Signature.FieldDescriptionId]: optionalDescription })
+        }, { answer: Schema.String })
+        expect(signature.fields).toEqual(Arr.make(
+          new Signature.FieldInfo({
+            name: "question",
+            description: Option.some(requiredDescription),
+            isOptional: false
+          }),
+          new Signature.FieldInfo({ name: "context", description: Option.some(optionalDescription), isOptional: true }),
+          new Signature.FieldInfo({ name: "answer", description: Option.none(), isOptional: false })
+        ))
+        expect(signature.instructions).toBe(
+          `Task: Preserve metadata\nInput fields: wire-question (${requiredDescription}), context (${optionalDescription})\nOutput fields: answer`
+        )
+      }))
+
+    it.effect("keeps metadata admission independent after a malformed annotation", () =>
+      Effect.gen(function*() {
+        const description = yield* Ref.make<unknown>(7)
+        const operation = Effect.gen(function*() {
+          const current = yield* Ref.get(description)
+          return yield* Signature.make("Read current metadata", {
+            question: Schema.String.annotations({ [Signature.FieldDescriptionId]: current })
+          }, { answer: Schema.String })
+        })
+        const cause = yield* operation.pipe(Effect.sandbox, Effect.flip)
+        expect(Cause.pretty(cause)).toContain("@scenesystems/effect-dsp/Signature/FieldInfo (Constructor)")
+        expect(Cause.pretty(cause)).toContain("Expected string, actual 7")
+
+        yield* Ref.set(description, "first meaning")
+        const first = yield* Arr.head((yield* operation).fields)
+        const repeated = yield* Arr.head((yield* operation).fields)
+        expect(first).toEqual(
+          new Signature.FieldInfo({
+            name: "question",
+            description: Option.some("first meaning"),
+            isOptional: false
+          })
+        )
+        expect(repeated).not.toBe(first)
+
+        yield* Ref.set(description, "second meaning")
+        const second = yield* Arr.head((yield* operation).fields)
+        expect(second).toEqual(
+          new Signature.FieldInfo({
+            name: "question",
+            description: Option.some("second meaning"),
+            isOptional: false
+          })
+        )
+        expect(second).not.toBe(first)
+      }))
+
     it.effect("projects nested and suspended schemas without confusing value unions and optional properties", () =>
       Effect.gen(function*() {
         const signature = yield* Signature.make("Project ordinary fields", {
@@ -127,6 +189,7 @@ describe("Signature", () => {
           Effect.gen(function*() {
             const cause = yield* Signature.make("Reject malformed annotations", { question }, { answer: Schema.String })
               .pipe(Effect.sandbox, Effect.flip)
+            expect(Cause.pretty(cause)).toContain("@scenesystems/effect-dsp/Signature/FieldInfo (Constructor)")
             expect(Cause.pretty(cause)).toContain("Expected string, actual 7")
           }))
       }))
