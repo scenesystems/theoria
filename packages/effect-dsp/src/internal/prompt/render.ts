@@ -6,7 +6,7 @@
  */
 import * as AiError from "@effect/ai/AiError"
 import * as Prompt from "@effect/ai/Prompt"
-import { Array as Arr, Effect, Option, Predicate, Record, Schema, String } from "effect"
+import { Array as Arr, Effect, Number, Option, Predicate, Record, Schema, String } from "effect"
 import type { ModuleParameters } from "../../ModuleParameters.js"
 import { encode } from "../../Payload.js"
 import type { FieldInfo, Signature } from "../../Signature.js"
@@ -64,13 +64,18 @@ const makeFieldBlock = <A extends Record.ReadonlyRecord<string, unknown>>(
     Record.fromIterableBy(fields, (field) => field.name),
     (_, name) => makeFieldRenderer(schema, name)
   )
-  return (values: A) =>
-    Effect.forEach(
-      Record.keys(values),
-      (name) => Option.getOrElse(Record.get(renderers, name), () => makeFieldRenderer(schema, name))(values)
-    ).pipe(
-      Effect.map(Arr.join("\n\n"))
+  return (values: A) => {
+    const names = Record.keys(values)
+    const render = (name: string) =>
+      Option.getOrElse(Record.get(renderers, name), () => makeFieldRenderer(schema, name))(values)
+    return Arr.head(names).pipe(
+      Option.filter(() => Number.Equivalence(Arr.length(names), 1)),
+      Option.match({
+        onNone: () => Effect.forEach(names, render).pipe(Effect.map(Arr.join("\n\n"))),
+        onSome: (name) => Effect.suspend(() => render(name))
+      })
     )
+  }
 }
 
 /**

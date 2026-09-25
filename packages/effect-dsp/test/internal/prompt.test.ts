@@ -18,6 +18,8 @@ import {
   Fiber,
   MutableRef,
   Number,
+  ParseResult,
+  Ref,
   Schema,
   String,
   Tuple
@@ -51,6 +53,9 @@ const paramsWithoutDemos = new ModuleParameters({
   instructions: "Keep answers short.",
   demos: Arr.empty()
 })
+
+const answerRequirements =
+  "Respond with the corresponding output fields, starting with the field `[[ ## answer ## ]]`, and then ending with the marker for `[[ ## completed ## ]]`."
 
 describe("internal/prompt", () => {
   it.effect.prop("retains exact text and message separators for empty, singleton and wider parts", {
@@ -166,6 +171,104 @@ describe("internal/prompt", () => {
       expect(Cause.isInterrupted(cause)).toBe(true)
       expect(Number.greaterThan(MutableRef.get(calls), 0)).toBe(true)
       expect(Number.lessThan(MutableRef.get(calls), 4096)).toBe(true)
+    }))
+
+  it.effect.prop("renders zero, one and multiple actual fields in order without changing their text", {
+    first: FastCheck.string(),
+    second: FastCheck.string(),
+    keepFirst: FastCheck.boolean(),
+    keepSecond: FastCheck.boolean()
+  }, ({ first, second, keepFirst, keepSecond }) =>
+    Effect.gen(function*() {
+      const signature = yield* Signature.make("Optional fields", {
+        first: Schema.optional(Schema.String),
+        second: Schema.optional(Schema.String)
+      }, { answer: Schema.String })
+      const firstValue = Arr.join(Arr.make("first:", first, "\n\u0000\ud800Ω"), "")
+      const secondValue = Arr.join(Arr.make("second:", second, "\"\\\udfff\n"), "")
+      const input = {
+        ...Boolean.match(keepFirst, { onTrue: () => ({ first: firstValue }), onFalse: () => ({}) }),
+        ...Boolean.match(keepSecond, { onTrue: () => ({ second: secondValue }), onFalse: () => ({}) })
+      }
+      const blocks = Arr.map(
+        Arr.filter(
+          Arr.make(
+            { present: keepFirst, text: String.concat("[[ ## first ## ]]\n", firstValue) },
+            { present: keepSecond, text: String.concat("[[ ## second ## ]]\n", secondValue) }
+          ),
+          (entry) => entry.present
+        ),
+        (entry) => entry.text
+      )
+      const expected = Prompt.userMessage({
+        content: Arr.of(Prompt.textPart({
+          text: Arr.join(Arr.make(Arr.join(blocks, "\n\n"), answerRequirements), "\n\n")
+        }))
+      })
+      const operation = makePrompt(signature)(paramsWithoutDemos, input)
+      expect((yield* operation).content).toContainEqual(expected)
+      expect((yield* operation).content).toContainEqual(expected)
+    }))
+
+  it.effect("defers and repeats asynchronous field decoding without caching input values", () =>
+    Effect.gen(function*() {
+      const decoded = yield* Ref.make(Arr.empty<string>())
+      const question = Schema.declare<string, string, []>([], {
+        decode: () => (input) =>
+          Effect.gen(function*() {
+            yield* Effect.yieldNow()
+            const value = yield* ParseResult.decodeUnknown(Schema.String)(input)
+            yield* Ref.update(decoded, Arr.append(value))
+            return String.toUpperCase(value)
+          }),
+        encode: () => ParseResult.decodeUnknown(Schema.String)
+      })
+      const signature = yield* Signature.make("Answer questions", { question }, { answer: Schema.String })
+      const render = makePrompt(signature)
+      const operation = render(paramsWithoutDemos, { question: "abc" })
+      expect(yield* Ref.get(decoded)).toEqual([])
+
+      const first = yield* operation
+      const repeated = yield* operation
+      const changed = yield* render(paramsWithoutDemos, { question: "xyz" })
+      expect(yield* Ref.get(decoded)).toEqual(["abc", "abc", "xyz"])
+      yield* Effect.forEach(
+        Arr.make(Tuple.make(first, "ABC"), Tuple.make(repeated, "ABC"), Tuple.make(changed, "XYZ")),
+        ([prompt, text]) =>
+          Effect.sync(() => {
+            expect(prompt.content).toContainEqual(Prompt.userMessage({
+              content: Arr.of(Prompt.textPart({
+                text: Arr.join(Arr.make(String.concat("[[ ## question ## ]]\n", text), answerRequirements), "\n\n")
+              }))
+            }))
+          })
+      )
+    }))
+
+  it.effect("preserves structured field values and rejects lossy JSON before later valid rendering", () =>
+    Effect.gen(function*() {
+      const signature = yield* Signature.make("Answer questions", {
+        facts: Schema.Struct({ label: Schema.String, score: Schema.NullOr(Schema.Number) })
+      }, { answer: Schema.String })
+      const render = makePrompt(signature)
+      const first = yield* render(paramsWithoutDemos, { facts: { label: "first", score: null } })
+      const failure = yield* Effect.flip(render(paramsWithoutDemos, { facts: { label: "bad", score: Infinity } }))
+      const recovered = yield* render(paramsWithoutDemos, { facts: { label: "later", score: 7 } })
+      expect(failure._tag).toBe("MalformedInput")
+      yield* Effect.forEach(
+        Arr.make(
+          Tuple.make(first, "{\"label\":\"first\",\"score\":null}"),
+          Tuple.make(recovered, "{\"label\":\"later\",\"score\":7}")
+        ),
+        ([prompt, text]) =>
+          Effect.sync(() => {
+            expect(prompt.content).toContainEqual(Prompt.userMessage({
+              content: Arr.of(Prompt.textPart({
+                text: Arr.join(Arr.make(String.concat("[[ ## facts ## ]]\n", text), answerRequirements), "\n\n")
+              }))
+            }))
+          })
+      )
     }))
 
   it.effect("builds system + demo + final-input prompt using golden fixture", () =>
