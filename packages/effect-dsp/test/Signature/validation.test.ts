@@ -64,6 +64,53 @@ describe("Signature", () => {
   })
 
   describe("default instructions", () => {
+    it.effect.prop("keeps ordered string instructions distinct from symbol metadata on every construction", {
+      requiredDescription: FastCheck.string(),
+      optionalDescription: FastCheck.string(),
+      hiddenDescription: FastCheck.string()
+    }, ({ requiredDescription, optionalDescription, hiddenDescription }) =>
+      Effect.gen(function*() {
+        const hidden = Symbol.for("@scenesystems/effect-dsp/test/Signature/hidden")
+        const fields = {
+          "10": Signature.describe(Schema.String, requiredDescription),
+          "2": Schema.optional(Schema.String).annotations({ [Signature.FieldDescriptionId]: optionalDescription }),
+          zeta: Schema.propertySignature(Signature.describe(Schema.String, "value meaning")).annotations({
+            [Signature.FieldDescriptionId]: "property meaning"
+          }),
+          alpha: Schema.UndefinedOr(Schema.String)
+        }
+        const operation = Signature.make("Ordered fields", fields, { answer: Schema.String })
+        const first = yield* operation
+        const repeated = yield* operation
+        const withSymbol = yield* Signature.make("Ordered fields", {
+          ...fields,
+          [hidden]: Signature.describe(Schema.String, hiddenDescription)
+        }, { answer: Schema.String })
+        const expected =
+          `Task: Ordered fields\nInput fields: 2 (${optionalDescription}), 10 (${requiredDescription}), zeta (property meaning), alpha\nOutput fields: answer`
+        expect(first.instructions).toBe(expected)
+        expect(repeated.instructions).toBe(expected)
+        expect(withSymbol.instructions).toBe(expected)
+        expect(Arr.map(first.fields, (field) => field.name)).toEqual(["2", "10", "zeta", "alpha", "answer"])
+        expect(Arr.map(first.fields, (field) => field.isOptional)).toEqual([true, false, false, false, false])
+        expect(Arr.map(first.fields, (field) => field.description)).toEqual([
+          Option.some(optionalDescription),
+          Option.some(requiredDescription),
+          Option.some("property meaning"),
+          Option.none(),
+          Option.none()
+        ])
+        expect(Arr.map(withSymbol.fields, (field) => field.name)).toEqual([
+          "2",
+          "10",
+          "zeta",
+          "alpha",
+          "Symbol(@scenesystems/effect-dsp/test/Signature/hidden)",
+          "answer"
+        ])
+        expect(yield* Arr.head(repeated.fields)).not.toBe(yield* Arr.head(first.fields))
+      }))
+
     it.effect.prop("preserves field metadata and wire instructions", {
       requiredDescription: FastCheck.string(),
       optionalDescription: FastCheck.string()

@@ -3,11 +3,33 @@
  *
  * @since 0.1.0
  */
-import { Array as Arr, Effect, Option, Record, Schema } from "effect"
+import { Array as Arr, Boolean, Effect, Equivalence, Option, Record, Schema, SchemaAST, String } from "effect"
 import { SignatureError } from "../../DspError.js"
-import { Signature } from "../../Signature.js"
+import { type FieldInfo, Signature } from "../../Signature.js"
 import { encodedFieldsToInfoArray, fieldsToInfoArray } from "./fields.js"
 import { deriveInstruction } from "./instructions.js"
+
+const sameAst = Equivalence.strict<SchemaAST.AST>()
+const sameFieldNames = Arr.getEquivalence(String.Equivalence)
+
+const instructionFields = <F extends Schema.Struct.Fields>(
+  fields: F,
+  schema: Schema.Struct<F>,
+  metadata: ReadonlyArray<FieldInfo>
+): ReadonlyArray<FieldInfo> =>
+  Boolean.match(
+    Boolean.every(Arr.make(
+      sameAst(schema.ast, SchemaAST.typeAST(schema.ast)),
+      sameAst(schema.ast, SchemaAST.encodedBoundAST(schema.ast)),
+      sameFieldNames(Record.keys(fields), Arr.map(metadata, (field) => field.name))
+    )),
+    {
+      // This exact boundary has already admitted the same metadata. Transformed
+      // fields and symbol keys retain their independent wire projection below.
+      onTrue: () => metadata,
+      onFalse: () => encodedFieldsToInfoArray(fields)
+    }
+  )
 
 const failSignature = (reason: string, field?: string): Effect.Effect<never, SignatureError> =>
   Effect.fail(new SignatureError({ reason, field }))
@@ -105,8 +127,8 @@ export const make = <
     const fields = Arr.appendAll(inputFieldInfo, outputFieldInfo)
     const instructions = deriveInstruction(
       description,
-      encodedFieldsToInfoArray(inputFields),
-      encodedFieldsToInfoArray(outputFields)
+      instructionFields(inputFields, inputSchema, inputFieldInfo),
+      instructionFields(outputFields, outputSchema, outputFieldInfo)
     )
 
     return new Signature({
