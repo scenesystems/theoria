@@ -9,7 +9,6 @@ import {
   Boolean,
   Data,
   Effect,
-  Equal,
   Equivalence,
   FiberRef,
   HashMap,
@@ -54,10 +53,9 @@ const decodeModuleId = (moduleName: string): Effect.Effect<Id, CompositionError>
     )
   )
 
-const signaturesMatch = (
-  left: NodeSignature,
-  right: NodeSignature
-): boolean => Equal.equals(left, right)
+// Runtime callers project fresh base NodeSignature values. Compare every model
+// field without hashing them; defer preparation through the Module import cycle.
+const signaturesMatch = Schema.equivalence(Schema.suspend(() => NodeSignature))
 
 const moduleIdEquivalence: Equivalence.Equivalence<Id> = Equivalence.string
 

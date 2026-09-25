@@ -10,7 +10,21 @@ import * as ModuleGraph from "@scenesystems/effect-dsp/ModuleGraph"
 import { withInstructions } from "@scenesystems/effect-dsp/ModuleParameters"
 import * as Signature from "@scenesystems/effect-dsp/Signature"
 import type { Option } from "effect"
-import { Array as Arr, Data, Deferred, Effect, Either, Equal, Fiber, Layer, Record, Ref, Schema } from "effect"
+import {
+  Array as Arr,
+  Data,
+  Deferred,
+  Effect,
+  Either,
+  Equal,
+  FastCheck,
+  Fiber,
+  Layer,
+  Record,
+  Ref,
+  Schema,
+  String
+} from "effect"
 import { registerRuntime, RuntimeRegistrationOptions } from "../../src/internal/module/discovery/registry.js"
 
 const QaInput = Schema.Struct({
@@ -267,6 +281,57 @@ describe("Module discovery", () => {
       expect(registration.params).toBe(module.params)
       expect(registration.signature).toEqual(metadata)
       expect(registration.subModuleIds).toEqual(Arr.make(childA, childB))
+    }))
+
+  it.effect.prop("compares every canonical metadata field without normalizing or retaining an earlier result", {
+    description: FastCheck.string(),
+    instructions: FastCheck.string()
+  }, ({ description, instructions }) =>
+    Effect.gen(function*() {
+      const signature = yield* makeQaSignature()
+      const module = yield* Module.predict("metadata-comparison", signature)
+      const metadata = new Module.NodeSignature({
+        description: Arr.join(Arr.make("description:", description, "\n\u0000\ud800Ω"), ""),
+        instructions: Arr.join(Arr.make("instructions:", instructions, "\"\\\udfff\n"), "")
+      })
+      const base = new RuntimeRegistrationOptions({
+        moduleName: module.name,
+        params: module.params,
+        signature: metadata
+      })
+      const cases = Arr.make(
+        Data.struct({ signature: new Module.NodeSignature(metadata), accepted: true }),
+        Data.struct({
+          signature: new Module.NodeSignature({ ...metadata, description: String.concat(metadata.description, " ") }),
+          accepted: false
+        }),
+        Data.struct({
+          signature: new Module.NodeSignature({ ...metadata, instructions: String.concat(metadata.instructions, " ") }),
+          accepted: false
+        }),
+        Data.struct({
+          signature: new Module.NodeSignature({
+            description: metadata.instructions,
+            instructions: metadata.description
+          }),
+          accepted: false
+        }),
+        Data.struct({ signature: new Module.NodeSignature(metadata), accepted: true })
+      )
+      const registrations = yield* Module.discoverModules(Effect.gen(function*() {
+        yield* registerRuntime(base)
+        yield* Effect.forEach(cases, (entry) =>
+          Effect.gen(function*() {
+            const result = yield* registerRuntime({ ...base, signature: entry.signature }).pipe(Effect.either)
+            expect(Either.isRight(result)).toBe(entry.accepted)
+          }))
+      }))
+      expect(registrations).toHaveLength(1)
+      const retained = yield* Arr.head(registrations)
+      expect(retained.params).toBe(module.params)
+      expect(retained.signature).toBe(metadata)
+      expect(retained.signature.description).toBe(metadata.description)
+      expect(retained.signature.instructions).toBe(metadata.instructions)
     }))
 
   it.effect("keeps the first concurrent conflicting insertion as the only later winner", () =>
