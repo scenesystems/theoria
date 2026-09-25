@@ -51,17 +51,23 @@ export class Codec extends Data.Class<{
 }> {}
 
 const equivalentWire = <A, I>(schema: Schema.Schema<A, I>, left: unknown, right: unknown) =>
-  Effect.gen(function*() {
-    const first = yield* Schema.decodeUnknown(schema)(left, { onExcessProperty: "error" })
-    const second = yield* Schema.decodeUnknown(schema)(right, { onExcessProperty: "error" })
-    return yield* Effect.try({
-      try: () => Schema.equivalence(schema)(first, second),
-      catch: () =>
-        new ParseResult.ParseError({
-          issue: new ParseResult.Type(schema.ast, left, "Demonstration schema equivalence is unavailable")
-        })
-    })
-  })
+  Effect.suspend(() =>
+    ParseResult.flatMap(
+      Schema.decodeUnknown(schema)(left, { onExcessProperty: "error" }),
+      (first) =>
+        ParseResult.flatMap(
+          Schema.decodeUnknown(schema)(right, { onExcessProperty: "error" }),
+          (second) =>
+            Effect.try({
+              try: () => Schema.equivalence(schema)(first, second),
+              catch: () =>
+                new ParseResult.ParseError({
+                  issue: new ParseResult.Type(schema.ast, left, "Demonstration schema equivalence is unavailable")
+                })
+            })
+        )
+    )
+  )
 
 /**
  * Compiles a destination-specific codec from input and output schemas.
