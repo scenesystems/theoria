@@ -8,6 +8,8 @@ alwaysApply: true
 
 Scripts for fixture generation, verification, and schema checking. Python scripts use [uv](https://docs.astral.sh/uv/) with PEP 723 inline metadata — never invoke `python3` directly.
 
+The Python fixture generator and its family modules are the authoritative Optuna reference implementation. The TypeScript/JavaScript Effect mandate applies to TS tooling; it does not require rewriting the Python generator.
+
 ## Commands
 
 | Task              | Command                     |
@@ -21,7 +23,7 @@ Run all commands from `effect-search/`.
 
 ## Structure
 
-- `check-fixtures.ts` — Effect-native TS script; schema-decodes every committed fixture through `KnownFixtureSchema`, detects orphan files
+- `check-fixtures.ts` — Effect-native TS script; schema-decodes every committed fixture through `KnownFixture`, detects orphan files
 - `generate-optuna-fixtures.py` — orchestrator; imports family modules, writes JSON + manifest
 - `verify-optuna-fixtures.py` — re-derives values from live Optuna, asserts committed fixtures match
 - `fixtures/` — one module per FM family, each exports `generate(generated_at: str) -> list[dict]`

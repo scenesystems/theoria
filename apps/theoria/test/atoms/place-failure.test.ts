@@ -1,7 +1,6 @@
 import { Registry, Result } from "@effect-atom/atom"
 import { describe, expect, it } from "@effect/vitest"
-import { Errors, Text } from "@scenesystems/effect-text"
-import * as Contracts from "@scenesystems/effect-text/contracts"
+import { Hyphenation, MeasurementCache, Text, TextMeasurer } from "@scenesystems/effect-text"
 import { Deferred, Effect, Layer, Option, Ref } from "effect"
 
 import { DemoRequestError } from "../../app/contracts/demo-error.js"
@@ -53,18 +52,18 @@ const holdingClient: Layer.Layer<ImaginedPlaceClient> = Layer.succeed(
  */
 const failingOnceTextLayout: Layer.Layer<BrowserTextLayout> = Layer.unwrapEffect(
   Effect.map(Ref.make(false), (askedBefore) => {
-    const estimate = Layer.succeed(Contracts.TextMeasurer, {
+    const estimate = Layer.succeed(TextMeasurer.TextMeasurer, {
       measure: (font, text) =>
         Effect.flatMap(
           Ref.getAndSet(askedBefore, true),
           (asked) =>
             asked
               ? Effect.provide(
-                Effect.flatMap(Contracts.TextMeasurer, (measurer) => measurer.measure(font, text)),
-                Text.TextMeasurerLive
+                Effect.flatMap(TextMeasurer.TextMeasurer, (measurer) => measurer.measure(font, text)),
+                TextMeasurer.layer
               )
               : Effect.fail(
-                new Errors.MeasurementFailed({
+                new TextMeasurer.Failed({
                   fontFamily: font.family,
                   fontSize: font.size,
                   text,
@@ -74,11 +73,10 @@ const failingOnceTextLayout: Layer.Layer<BrowserTextLayout> = Layer.unwrapEffect
         )
     })
     return Layer.mergeAll(
-      Text.WordSegmenterLive,
-      Text.HyphenationDictionaryLive(),
-      Layer.succeed(Contracts.EngineProfile, browserEngineProfile),
-      estimate,
-      Text.MeasurementCacheLive.pipe(Layer.provide(estimate))
+      Text.layerSegmenter,
+      Hyphenation.layer(),
+      Layer.succeed(Text.CurrentProfile, browserEngineProfile),
+      MeasurementCache.layer.pipe(Layer.provide(estimate))
     )
   })
 )
@@ -89,22 +87,21 @@ const failingOnceTextLayout: Layer.Layer<BrowserTextLayout> = Layer.unwrapEffect
  * measurement cache, so a lookup begun for one is the one the other awaits.
  */
 const gatedTextLayout = (gate: Deferred.Deferred<void>): Layer.Layer<BrowserTextLayout> => {
-  const gated = Layer.succeed(Contracts.TextMeasurer, {
+  const gated = Layer.succeed(TextMeasurer.TextMeasurer, {
     measure: (font, text) =>
       Effect.zipRight(
         Deferred.await(gate),
         Effect.provide(
-          Effect.flatMap(Contracts.TextMeasurer, (measurer) => measurer.measure(font, text)),
-          Text.TextMeasurerLive
+          Effect.flatMap(TextMeasurer.TextMeasurer, (measurer) => measurer.measure(font, text)),
+          TextMeasurer.layer
         )
       )
   })
   return Layer.mergeAll(
-    Text.WordSegmenterLive,
-    Text.HyphenationDictionaryLive(),
-    Layer.succeed(Contracts.EngineProfile, browserEngineProfile),
-    gated,
-    Text.MeasurementCacheLive.pipe(Layer.provide(gated))
+    Text.layerSegmenter,
+    Hyphenation.layer(),
+    Layer.succeed(Text.CurrentProfile, browserEngineProfile),
+    MeasurementCache.layer.pipe(Layer.provide(gated))
   )
 }
 

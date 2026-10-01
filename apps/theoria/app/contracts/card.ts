@@ -48,6 +48,16 @@ export const cards: ReadonlyArray<Card> = [
     license: "MIT"
   },
   {
+    id: "effect-study",
+    title: "@scenesystems/effect-study",
+    packageName: "@scenesystems/effect-study",
+    description: "Manages evaluation trials, lifecycle events, and persisted study history.",
+    group: "effect",
+    npmUrl: "https://www.npmjs.com/package/@scenesystems/effect-study",
+    repoUrl: "https://github.com/scenesystems/theoria/tree/main/packages/effect-study",
+    license: "MIT"
+  },
+  {
     id: "effect-search",
     title: "@scenesystems/effect-search",
     packageName: "@scenesystems/effect-search",

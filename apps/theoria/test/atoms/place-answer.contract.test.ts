@@ -1,4 +1,4 @@
-import { describe, expect, it } from "@effect/vitest"
+import { expect } from "@effect/vitest"
 import { Effect, Option } from "effect"
 import * as Arr from "effect/Array"
 
@@ -11,7 +11,7 @@ import {
   placeFocusAtom,
   placeMarkLeftAtom
 } from "../../app/web/atoms/imagined-place-experience.js"
-import { onStage, pageShowing } from "../helpers/place-on-stage.js"
+import { describeOnStage, onStage, pageShowing } from "../helpers/place-on-stage.js"
 
 /**
  * A mark answers when it is pressed, and only then: there is no pointer
@@ -25,7 +25,7 @@ const line: PlaceMark = { _tag: "Line", index: 3, drawing: { source: "blake3-256
 const disc: PlaceMark = { _tag: "Feature", name: "the iron stair" }
 const digest: PlaceMark = { _tag: "Digest", contentId: "th_1abc" }
 
-describe("the answer under a press", () => {
+describeOnStage("the answer under a press", (it) => {
   const onDisc = new PlaceAnswer({ triggerId: "a", mark: disc })
 
   it.effect("a press opens the pressed mark's answer; the same mark pressed again closes it", () =>
@@ -81,7 +81,7 @@ describe("the answer under a press", () => {
     }))
 })
 
-describe("answer lifetime", () => {
+describeOnStage("answer lifetime", (it) => {
   it.effect("an answer opened on the drawing outlives the next build, and is gone once its drawing is replaced", () =>
     Effect.gen(function*() {
       const { build, other, showingTrial, trial } = yield* onStage

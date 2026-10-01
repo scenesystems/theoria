@@ -1,7 +1,7 @@
 import { Atom, Result } from "@effect-atom/atom"
 import type { Atom as AtomType } from "@effect-atom/atom"
 import type { HighlighterCore } from "@shikijs/core"
-import { Schema } from "effect"
+import { Match, Schema } from "effect"
 
 import {
   CodeLanguage,
@@ -18,7 +18,7 @@ export const syntaxHighlighterAtom: AtomType.Atom<Result.Result<HighlighterCore,
   .atom(makeSyntaxHighlighter)
 
 /** One piece of source in one language: what a highlighting is of. Structural, so the same code is one key. */
-export class CodeSource extends Schema.Class<CodeSource>("CodeSource")({
+export class CodeSource extends Schema.Class<CodeSource>("@theoria/app/web/atoms/SyntaxHighlighting/CodeSource")({
   language: CodeLanguage,
   source: Schema.String
 }) {}
@@ -35,7 +35,11 @@ export const highlightedLinesAtom = Atom.family(
         onInitial: () => plainCode(code.source),
         onFailure: () => plainCode(code.source),
         onSuccess: ({ value }) =>
-          code.language === "text" ? plainCode(code.source) : highlightCode(value, code.source, code.language)
+          Match.value(code.language).pipe(
+            Match.when("text", () => plainCode(code.source)),
+            Match.whenOr("shellscript", "typescript", (language) => highlightCode(value, code.source, language)),
+            Match.exhaustive
+          )
       })
     )
 )

@@ -3,11 +3,11 @@
  */
 import * as LanguageModel from "@effect/ai/LanguageModel"
 import { describe, expect, it } from "@effect/vitest"
-import { ModuleParams } from "@scenesystems/effect-dsp/contracts"
-import { Demo } from "@scenesystems/effect-dsp/Example"
+import { Demonstration } from "@scenesystems/effect-dsp/Demonstration"
+import * as MockLanguageModel from "@scenesystems/effect-dsp/MockLanguageModel"
 import * as Module from "@scenesystems/effect-dsp/Module"
+import { ModuleParameters } from "@scenesystems/effect-dsp/ModuleParameters"
 import * as Signature from "@scenesystems/effect-dsp/Signature"
-import { MockLanguageModel } from "@scenesystems/effect-dsp/test"
 import { Effect, Layer, Record, Ref, Schema } from "effect"
 
 const makeQaSignature = () =>
@@ -26,7 +26,7 @@ describe("Module.chainOfThought", () => {
     Effect.gen(function*() {
       const qa = yield* makeQaSignature()
       const mock = yield* MockLanguageModel.make(
-        MockLanguageModel.fixed({
+        MockLanguageModel.succeed({
           reasoning: "Paris is the capital city of France.",
           answer: "Paris"
         })
@@ -54,7 +54,7 @@ describe("Module.chainOfThought", () => {
     Effect.gen(function*() {
       const qa = yield* makeQaSignature()
       const mock = yield* MockLanguageModel.make(
-        MockLanguageModel.fixed(
+        MockLanguageModel.succeed(
           "[[ ## reasoning ## ]]\nParis is the capital city of France.\n\n[[ ## answer ## ]]\nParis"
         )
       )
@@ -63,11 +63,11 @@ describe("Module.chainOfThought", () => {
       yield* Ref.update(
         cot.params,
         (params) =>
-          new ModuleParams({
+          new ModuleParameters({
             instructions: params.instructions,
             outputStrategy: "auto",
             demos: [
-              new Demo({
+              new Demonstration({
                 input: { question: "What is the capital of France?" },
                 output: {
                   reasoning: "France's capital city is Paris.",

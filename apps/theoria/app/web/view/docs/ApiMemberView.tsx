@@ -8,7 +8,7 @@ import { Cluster, Section, Stack } from "../primitives/Layout.js"
 import { ExternalLink } from "../primitives/Link.js"
 import { SemanticContent } from "../primitives/SemanticContent.js"
 import { SemanticText } from "../primitives/SemanticText.js"
-import { ApiDocumentationView } from "./ApiDocumentationView.js"
+import { apiDocumentationEquals, apiDocumentationIsEmpty, ApiDocumentationView } from "./ApiDocumentationView.js"
 import { ApiSignatureView } from "./ApiSignatureView.js"
 
 export const ApiMemberView = ({ member }: { readonly member: ApiMember }) => (
@@ -38,6 +38,10 @@ export const ApiMemberView = ({ member }: { readonly member: ApiMember }) => (
         ),
         onNonEmpty: (signatures) => (
           <Stack className="gap-8">
+            {Bool.match(apiDocumentationIsEmpty(member.docs), {
+              onTrue: () => null,
+              onFalse: () => <ApiDocumentationView docs={member.docs} headingAs="h4" />
+            })}
             {Arr.map(
               signatures,
               (signature, index) => (
@@ -45,6 +49,7 @@ export const ApiMemberView = ({ member }: { readonly member: ApiMember }) => (
                   headingAs="h4"
                   index={index}
                   key={`${signature.kind}:${String(index)}`}
+                  renderDocumentation={Bool.not(apiDocumentationEquals(member.docs, signature.docs))}
                   signature={signature}
                   total={Arr.length(signatures)}
                 />

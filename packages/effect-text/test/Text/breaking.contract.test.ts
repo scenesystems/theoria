@@ -1,10 +1,12 @@
 import { describe, expect, it } from "@effect/vitest"
-import { Effect, Layer } from "effect"
+import { Effect, FastCheck, Layer, Number, String, Tuple } from "effect"
 import * as Arr from "effect/Array"
 
-import { Contracts, Text } from "../../src/index.js"
+import * as MeasurementCache from "../../src/MeasurementCache.js"
+import * as Text from "../../src/Text.js"
+import * as TextMeasurer from "../../src/TextMeasurer.js"
 
-const visualLine = (index: number, text: string, width: number): Text.LayoutLineType => ({
+const visualLine = (index: number, text: string, width: number): Text.Line => ({
   baseDirection: "ltr",
   index,
   order: "visual",
@@ -13,55 +15,41 @@ const visualLine = (index: number, text: string, width: number): Text.LayoutLine
 })
 
 const makeTestLayer = Layer.mergeAll(
-  Text.WordSegmenterLive,
-  Text.EngineProfileLive,
-  Text.MeasurementCacheLive.pipe(
+  Text.layerSegmenter,
+  Text.layerProfile,
+  MeasurementCache.layer.pipe(
     Layer.provide(
-      Layer.succeed(Contracts.TextMeasurer, {
-        measure: (_font, text: string) => Effect.succeed(text.length * 5)
+      Layer.succeed(TextMeasurer.TextMeasurer, {
+        measure: (_font, text: string) => Effect.succeed(Number.multiply(String.length(text), 5))
       })
     )
   )
 )
 
-const withIntlSegmenterDisabled = <A, E, R>(effect: Effect.Effect<A, E, R>): Effect.Effect<A, E, R> =>
-  Effect.acquireUseRelease(
-    Effect.sync(() => {
-      const descriptor = Object.getOwnPropertyDescriptor(Intl, "Segmenter")
-      Object.defineProperty(Intl, "Segmenter", {
-        configurable: true,
-        value: undefined,
-        writable: true
-      })
-      return descriptor
-    }),
-    () => effect,
-    (descriptor) =>
-      Effect.sync(() => {
-        if (descriptor) {
-          Object.defineProperty(Intl, "Segmenter", descriptor)
-        }
-      })
-  )
-
-const layoutFor = (
-  text: string,
-  maxWidth: number,
-  disableIntlSegmenter: boolean
-) => {
-  const layoutEffect = Text.prepareWithSegments({
-    text,
-    font: { family: "Mono", size: 10 },
-    whiteSpace: "normal"
-  }).pipe(
-    Effect.provide(makeTestLayer),
-    Effect.map((prepared) => Text.layoutLines(prepared, { maxWidth, lineHeight: 12 }))
-  )
-
-  return disableIntlSegmenter ? withIntlSegmenterDisabled(layoutEffect) : layoutEffect
-}
-
 describe("Text breaking contracts", () => {
+  it.effect.prop(
+    "grapheme cursor widths preserve every character on both sides of a line-fit boundary",
+    Tuple.make(
+      FastCheck.array(FastCheck.constantFrom("a", "b", "c"), { minLength: 1, maxLength: 80 }),
+      FastCheck.integer({ min: 2, max: 9 })
+    ),
+    ([characters, slots]) =>
+      Effect.gen(function*() {
+        const prepared = yield* Text.prepareWithSegments({
+          text: Arr.join(characters, ""),
+          font: { family: "Mono", size: 10 },
+          whiteSpace: "normal"
+        }).pipe(Effect.provide(makeTestLayer))
+        const expected = (count: number) =>
+          Arr.map(Arr.chunksOf(characters, count), (part, index) =>
+            visualLine(index, Arr.join(part, ""), Number.multiply(Arr.length(part), 5)))
+        expect(Text.lines(prepared, { maxWidth: Number.multiply(slots, 5), lineHeight: 12 }))
+          .toEqual(expected(slots))
+        expect(Text.lines(prepared, { maxWidth: Number.subtract(Number.multiply(slots, 5), 0.1), lineHeight: 12 }))
+          .toEqual(expected(Number.decrement(slots)))
+      })
+  )
+
   it.effect("breaks overlong runs at grapheme boundaries when maxWidth is narrower than the token", () =>
     Effect.gen(function*() {
       const prepared = yield* Text.prepareWithSegments({
@@ -70,10 +58,10 @@ describe("Text breaking contracts", () => {
         whiteSpace: "normal"
       }).pipe(Effect.provide(makeTestLayer))
 
-      const lines = Text.layoutLines(prepared, { maxWidth: 12, lineHeight: 12 })
+      const lines = Text.lines(prepared, { maxWidth: 12, lineHeight: 12 })
 
-      expect(Arr.map(lines, (line) => line.text)).toEqual(["al", "ph", "ab", "et"])
-      expect(Arr.every(lines, (line) => line.width <= 12.01)).toBe(true)
+      expect(Arr.map(lines, (line) => line.text)).toEqual(Arr.make("al", "ph", "ab", "et"))
+      expect(Arr.every(lines, (line) => Number.lessThanOrEqualTo(line.width, 12.01))).toBe(true)
     }))
 
   it.effect("prefers soft-hyphen discretionary breaks before grapheme fallback when both fit", () =>
@@ -84,10 +72,10 @@ describe("Text breaking contracts", () => {
         whiteSpace: "normal"
       }).pipe(Effect.provide(makeTestLayer))
 
-      expect(Text.layoutLines(prepared, { maxWidth: 30, lineHeight: 12 })).toEqual([
+      expect(Text.lines(prepared, { maxWidth: 30, lineHeight: 12 })).toEqual(Arr.make(
         visualLine(0, "alpha-", 30),
         visualLine(1, "beta", 20)
-      ])
+      ))
     }))
 
   it.effect("prefers explicit zero-width break opportunities before grapheme fallback", () =>
@@ -98,19 +86,23 @@ describe("Text breaking contracts", () => {
         whiteSpace: "normal"
       }).pipe(Effect.provide(makeTestLayer))
 
-      expect(Text.layoutLines(prepared, { maxWidth: 30, lineHeight: 12 })).toEqual([
+      expect(Text.lines(prepared, { maxWidth: 30, lineHeight: 12 })).toEqual(Arr.make(
         visualLine(0, "alpha", 25),
         visualLine(1, "beta", 20)
-      ])
+      ))
     }))
 
-  it.effect("native and fallback line breaking stay identical for punctuation-sensitive content", () =>
+  it.effect("keeps punctuation ownership when an attached run falls back to grapheme breaks", () =>
     Effect.gen(function*() {
-      const text = "(hello) world"
-      const native = yield* layoutFor(text, 20, false)
-      const fallback = yield* layoutFor(text, 20, true)
+      const prepared = yield* Text.prepareWithSegments({
+        text: "(hello) world",
+        font: { family: "Mono", size: 10 },
+        whiteSpace: "normal"
+      }).pipe(Effect.provide(makeTestLayer))
 
-      expect(fallback).toEqual(native)
+      expect(Arr.map(Text.lines(prepared, { maxWidth: 20, lineHeight: 12 }), (line) => line.text)).toEqual(
+        Arr.make("(hel", "lo)", "worl", "d")
+      )
     }))
 
   it.effect("keeps tab advancement as layout-time arithmetic after grapheme fallback support is added", () =>
@@ -121,10 +113,10 @@ describe("Text breaking contracts", () => {
         whiteSpace: "pre-wrap"
       }).pipe(Effect.provide(makeTestLayer))
 
-      expect(Text.layoutLines(prepared, { maxWidth: 30, lineHeight: 12 })).toEqual([
+      expect(Text.lines(prepared, { maxWidth: 30, lineHeight: 12 })).toEqual(Arr.make(
         visualLine(0, "alphab", 30),
         visualLine(1, "et", 10),
         visualLine(2, "a\tb", 25)
-      ])
+      ))
     }))
 })

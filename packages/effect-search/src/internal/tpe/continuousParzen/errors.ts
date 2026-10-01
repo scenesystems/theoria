@@ -1,5 +1,5 @@
-import type { InvalidMathInput } from "../../../Errors/index.js"
-import { InvalidSamplerConfig } from "../../../Errors/index.js"
+import type { InvalidMathInput } from "../../../SearchError.js"
+import { InvalidSamplerConfig } from "../../../SearchError.js"
 
 export const samplerMathError = (operation: string, error: InvalidMathInput): InvalidSamplerConfig =>
   new InvalidSamplerConfig({

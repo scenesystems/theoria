@@ -1,6 +1,6 @@
 import { Atom, Registry } from "@effect-atom/atom"
 import type { Atom as AtomType } from "@effect-atom/atom"
-import * as Browser from "@scenesystems/effect-text/browser"
+import * as PreparationKey from "@scenesystems/effect-text/PreparationKey"
 import { Effect, Layer } from "effect"
 
 import type { CanvasUnavailable } from "../platform/BrowserDocument.js"
@@ -14,8 +14,8 @@ import { type BrowserTextLayout, browserTextLayoutLive, FontReadiness } from "..
  * projection carries the revision it was prepared at, and the layer that
  * measures text is built at it.
  */
-export const fontReadinessRevisionAtom: AtomType.Writable<Browser.FontReadinessRevisionType> = Atom.make(
-  Browser.initialFontReadinessRevision()
+export const fontReadinessRevisionAtom: AtomType.Writable<PreparationKey.Revision> = Atom.make(
+  PreparationKey.initialRevision
 )
 
 /**
@@ -29,14 +29,14 @@ export const textLayoutLayerAtom: AtomType.Writable<Layer.Layer<BrowserTextLayou
 
 /** The readiness a layout at this revision is told: its arrival advances the registry's revision. */
 const fontReadinessAt = (
-  revision: Browser.FontReadinessRevisionType
+  revision: PreparationKey.Revision
 ): Layer.Layer<FontReadiness, never, Registry.AtomRegistry> =>
   Layer.effect(
     FontReadiness,
     Effect.map(Registry.AtomRegistry, (registry) => ({
       revision,
       facesArrived: Effect.sync(() => {
-        registry.set(fontReadinessRevisionAtom, Browser.incrementFontReadinessRevision(revision))
+        registry.set(fontReadinessRevisionAtom, PreparationKey.nextRevision(revision))
       })
     }))
   )

@@ -90,7 +90,7 @@ const focusableLineRowClassName =
 const defaultAnnotation = (annotation: CodeAnnotation): ReactNode => <CodeAnnotationRow text={annotation.text} />
 
 /** A line of the sample as the gutter has it: its number, from one, and its text. */
-export class GutterLine extends Schema.Class<GutterLine>("GutterLine")({
+export class GutterLine extends Schema.Class<GutterLine>("@theoria/app/web/view/HighlightedCode/GutterLine")({
   number: Schema.Int.pipe(Schema.positive()),
   text: Schema.String
 }) {}

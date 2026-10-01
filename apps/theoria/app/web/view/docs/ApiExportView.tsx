@@ -9,7 +9,7 @@ import { Cluster, Layer, Section, Stack } from "../primitives/Layout.js"
 import { ExternalLink } from "../primitives/Link.js"
 import { SemanticContent } from "../primitives/SemanticContent.js"
 import { SemanticText } from "../primitives/SemanticText.js"
-import { ApiDocumentationView } from "./ApiDocumentationView.js"
+import { apiDocumentationEquals, apiDocumentationIsEmpty, ApiDocumentationView } from "./ApiDocumentationView.js"
 import { ApiMemberView } from "./ApiMemberView.js"
 import { ApiSignatureView, ApiTypeParametersView } from "./ApiSignatureView.js"
 
@@ -55,12 +55,17 @@ const ApiFacetView = ({ facet }: { readonly facet: ApiFacet }) => (
       ),
       onNonEmpty: (signatures) => (
         <Stack className="gap-9">
+          {Bool.match(apiDocumentationIsEmpty(facet.docs), {
+            onTrue: () => null,
+            onFalse: () => <ApiDocumentationView docs={facet.docs} />
+          })}
           {Arr.map(
             signatures,
             (signature, index) => (
               <ApiSignatureView
                 index={index}
                 key={`${signature.kind}:${String(index)}`}
+                renderDocumentation={Bool.not(apiDocumentationEquals(facet.docs, signature.docs))}
                 signature={signature}
                 total={Arr.length(signatures)}
               />

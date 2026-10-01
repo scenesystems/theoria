@@ -8,30 +8,76 @@ export const DocsAssetPath = Schema.String.pipe(
   Schema.pattern(/^\/docs-data\/[A-Za-z0-9._/-]+$/u)
 )
 
+/**
+ * LaTeX source and its inline or display placement, never executable HTML.
+ * @since 0.0.0
+ * @category models
+ */
+export const MathExpression = Schema.Struct({
+  text: Schema.String,
+  display: Schema.Boolean
+})
+
+/**
+ * A mathematical expression admitted from a generated guide.
+ * @since 0.0.0
+ * @category models
+ */
+export type MathExpression = typeof MathExpression.Type
+
+const GuideMath = MathExpression.pipe(Schema.extend(Schema.Struct({ kind: Schema.Literal("math") })))
+
 export const GuideInlineSchema = Schema.Union(
   Schema.Struct({ kind: Schema.Literal("text"), text: Schema.String }),
   Schema.Struct({ kind: Schema.Literal("code"), text: Schema.String }),
-  Schema.Struct({ kind: Schema.Literal("link"), text: Schema.String, href: NonEmptyString })
+  Schema.Struct({ kind: Schema.Literal("link"), text: Schema.String, href: NonEmptyString }),
+  GuideMath
 )
 
 const GuideInlinePartsSchema = Schema.Array(GuideInlineSchema)
 
+/**
+ * A section heading and its stable fragment identifier.
+ * @since 0.0.0
+ * @category models
+ */
+export const GuideHeading = Schema.Struct({
+  kind: Schema.Literal("heading"),
+  depth: Schema.Literal(2, 3, 4, 5, 6),
+  id: NonEmptyString,
+  text: NonEmptyString
+})
+
+/**
+ * Ordered or unordered guide items containing rich inline content.
+ * @since 0.0.0
+ * @category models
+ */
+export const GuideList = Schema.Struct({
+  kind: Schema.Literal("list"),
+  ordered: Schema.Boolean,
+  items: Schema.Array(GuideInlinePartsSchema)
+})
+
+/**
+ * A GFM table whose cells preserve code, links, and mathematical expressions.
+ * @since 0.0.0
+ * @category models
+ */
+export const GuideTable = Schema.Struct({
+  kind: Schema.Literal("table"),
+  headers: Schema.Array(GuideInlinePartsSchema),
+  rows: Schema.Array(Schema.Array(GuideInlinePartsSchema))
+})
+
 export const GuideBlockSchema = Schema.Union(
+  GuideMath,
   Schema.Struct({ kind: Schema.Literal("paragraph"), parts: GuideInlinePartsSchema }),
-  Schema.Struct({
-    kind: Schema.Literal("heading"),
-    depth: Schema.Literal(2, 3, 4, 5, 6),
-    id: NonEmptyString,
-    text: NonEmptyString
-  }),
+  GuideHeading,
   Schema.Struct({ kind: Schema.Literal("code"), language: Schema.String, source: Schema.String }),
-  Schema.Struct({ kind: Schema.Literal("list"), ordered: Schema.Boolean, items: Schema.Array(GuideInlinePartsSchema) }),
+  GuideList,
   Schema.Struct({ kind: Schema.Literal("quote"), parts: GuideInlinePartsSchema }),
-  Schema.Struct({
-    kind: Schema.Literal("table"),
-    headers: Schema.Array(GuideInlinePartsSchema),
-    rows: Schema.Array(Schema.Array(GuideInlinePartsSchema))
-  })
+  GuideTable
 )
 
 export const GuideAnchorSchema = Schema.Struct({

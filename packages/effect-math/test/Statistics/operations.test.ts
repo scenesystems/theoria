@@ -1,0 +1,436 @@
+import { describe, expect, it } from "@effect/vitest"
+import { Array, Chunk, Effect, Number, Option } from "effect"
+
+import { sqrt } from "../../src/Numeric.js"
+
+import * as Policy from "../../src/Policy.js"
+import {
+  covariance,
+  covarianceValidated,
+  covarianceWithPolicies,
+  maximum,
+  maximumValidated,
+  mean,
+  meanValidated,
+  meanWithPolicies,
+  minimum,
+  minimumValidated,
+  standardDeviation,
+  summaryStatistics,
+  summaryStatisticsValidated,
+  summaryStatisticsWithPolicies,
+  variance,
+  varianceValidated,
+  varianceWithPolicies
+} from "../../src/Statistics.js"
+
+const strictLayer = Policy.layerDeterministic({
+  seed: Policy.Seed.make(42),
+  precision: "strict",
+  backend: "scalar",
+  diagnostics: "enabled"
+})
+
+const relaxedLayer = Policy.layerDeterministic({
+  seed: Policy.Seed.make(42),
+  precision: "relaxed",
+  backend: "scalar",
+  diagnostics: "disabled"
+})
+
+// ---------------------------------------------------------------------------
+// Pure kernel operations
+// ---------------------------------------------------------------------------
+
+describe("Statistics / mean", () => {
+  it.effect("computes mean of [1, 2, 3]", () =>
+    Effect.gen(function*() {
+      expect(mean(Chunk.make(1, 2, 3))).toStrictEqual(2)
+    }))
+
+  it.effect("computes mean of single element", () =>
+    Effect.gen(function*() {
+      expect(mean(Chunk.of(5))).toStrictEqual(5)
+    }))
+
+  it.effect("avoids intermediate overflow for repeated large finite observations", () =>
+    Effect.gen(function*() {
+      expect(Number.Equivalence(mean(Chunk.make(1e308, 1e308)), 1e308)).toBe(true)
+      expect(variance(Chunk.make(1e308, 1e308))).toBe(0)
+    }))
+})
+
+describe("Statistics / variance", () => {
+  it.effect("computes Bessel-corrected variance of [1, 3]", () =>
+    Effect.gen(function*() {
+      expect(variance(Chunk.make(1, 3))).toStrictEqual(2)
+    }))
+
+  it.effect("computes Bessel-corrected variance of [2, 4, 4, 4, 5, 5, 7, 9]", () =>
+    Effect.gen(function*() {
+      const result = variance(Chunk.make(2, 4, 4, 4, 5, 5, 7, 9))
+      expect(result).toBeCloseTo(Number.unsafeDivide(32, 7))
+    }))
+})
+
+describe("Statistics / standardDeviation", () => {
+  it.effect("computes standard deviation of [1, 3]", () =>
+    Effect.gen(function*() {
+      expect(standardDeviation(Chunk.make(1, 3))).toBeCloseTo(sqrt(2))
+    }))
+})
+
+describe("Statistics / summaryStatistics", () => {
+  it.effect("computes descriptive statistics for a non-empty chunk", () =>
+    Effect.gen(function*() {
+      const result = summaryStatistics(Chunk.make(1, 2, 3, 4, 5))
+      expect(result._tag).toStrictEqual("SummaryStatistics")
+      expect(result.mean).toStrictEqual(3)
+      expect(result.count).toStrictEqual(5)
+      expect(result.min).toStrictEqual(1)
+      expect(result.max).toStrictEqual(5)
+      expect(result.variance).toStrictEqual(2.5)
+      expect(result.standardDeviation).toBeCloseTo(sqrt(2.5))
+    }))
+})
+
+describe("Statistics / covariance", () => {
+  it.effect("computes covariance of perfectly correlated pairs", () =>
+    Effect.gen(function*() {
+      const a = Chunk.make(1, 2, 3)
+      const b = Chunk.make(2, 4, 6)
+      expect(covariance(a, b)).toStrictEqual(2)
+    }))
+
+  it.effect("computes covariance of identical samples equals variance", () =>
+    Effect.gen(function*() {
+      const values = Chunk.make(1, 3)
+      expect(covariance(values, values)).toStrictEqual(variance(values))
+    }))
+})
+
+describe("Statistics / minimum", () => {
+  it.effect("returns Option.some(min) for non-empty chunk", () =>
+    Effect.gen(function*() {
+      expect(minimum(Chunk.make(3, 1, 2))).toStrictEqual(Option.some(1))
+    }))
+
+  it.effect("returns Option.none() for empty chunk", () =>
+    Effect.gen(function*() {
+      expect(minimum(Chunk.empty())).toStrictEqual(Option.none())
+    }))
+})
+
+describe("Statistics / maximum", () => {
+  it.effect("returns Option.some(max) for non-empty chunk", () =>
+    Effect.gen(function*() {
+      expect(maximum(Chunk.make(3, 1, 2))).toStrictEqual(Option.some(3))
+    }))
+
+  it.effect("returns Option.none() for empty chunk", () =>
+    Effect.gen(function*() {
+      expect(maximum(Chunk.empty())).toStrictEqual(Option.none())
+    }))
+})
+
+// ---------------------------------------------------------------------------
+// Effect-wrapped operations
+// ---------------------------------------------------------------------------
+
+describe("Statistics / meanValidated", () => {
+  it.effect("decodes valid input and computes mean", () =>
+    Effect.gen(function*() {
+      const result = yield* meanValidated({ values: Array.make(1, 2, 3) })
+      expect(result).toStrictEqual(2)
+    }))
+
+  it.effect("rejects excess properties with StatisticsDecodeError", () =>
+    Effect.gen(function*() {
+      const error = yield* Effect.flip(
+        meanValidated({ values: Array.make(1, 2, 3), extra: true })
+      )
+      expect(error._tag).toStrictEqual("StatisticsDecodeError")
+      expect(error.operation).toStrictEqual("mean")
+    }))
+
+  it.effect("rejects empty array with StatisticsDecodeError", () =>
+    Effect.gen(function*() {
+      const error = yield* Effect.flip(
+        meanValidated({ values: Array.empty() })
+      )
+      expect(error._tag).toStrictEqual("StatisticsDecodeError")
+    }))
+
+  it.effect("rejects non-finite input with StatisticsDecodeError", () =>
+    Effect.gen(function*() {
+      const error = yield* Effect.flip(
+        meanValidated({ values: Array.make(1, Infinity) })
+      )
+      expect(error._tag).toStrictEqual("StatisticsDecodeError")
+    }))
+})
+
+describe("Statistics / varianceValidated", () => {
+  it.effect("computes variance with valid input", () =>
+    Effect.gen(function*() {
+      const result = yield* varianceValidated({ values: Array.make(1, 3) })
+      expect(result).toStrictEqual(2)
+    }))
+
+  it.effect("rejects single sample with StatisticsShapeError", () =>
+    Effect.gen(function*() {
+      const error = yield* Effect.flip(
+        varianceValidated({ values: Array.of(5) })
+      )
+      expect(error._tag).toStrictEqual("StatisticsShapeError")
+      expect(error.operation).toStrictEqual("variance")
+    }))
+})
+
+describe("Statistics / summaryStatisticsValidated", () => {
+  it.effect("returns TaggedClass with correct fields", () =>
+    Effect.gen(function*() {
+      const result = yield* summaryStatisticsValidated({ values: Array.make(1, 2, 3, 4, 5) })
+      expect(result._tag).toStrictEqual("SummaryStatistics")
+      expect(result.mean).toStrictEqual(3)
+      expect(result.count).toStrictEqual(5)
+      expect(result.min).toStrictEqual(1)
+      expect(result.max).toStrictEqual(5)
+      expect(result.variance).toStrictEqual(2.5)
+      expect(result.standardDeviation).toBeCloseTo(sqrt(2.5))
+    }))
+
+  it.effect("rejects single sample with StatisticsShapeError", () =>
+    Effect.gen(function*() {
+      const error = yield* Effect.flip(
+        summaryStatisticsValidated({ values: Array.of(5) })
+      )
+      expect(error._tag).toStrictEqual("StatisticsShapeError")
+      expect(error.operation).toStrictEqual("summaryStatistics")
+    }))
+
+  it.effect("rejects excess properties with StatisticsDecodeError", () =>
+    Effect.gen(function*() {
+      const error = yield* Effect.flip(
+        summaryStatisticsValidated({ values: Array.make(1, 2), extra: true })
+      )
+      expect(error._tag).toStrictEqual("StatisticsDecodeError")
+    }))
+})
+
+describe("Statistics / minimumValidated", () => {
+  it.effect("decodes valid input and returns Option.some(min)", () =>
+    Effect.gen(function*() {
+      const result = yield* minimumValidated({ values: Array.make(3, 1, 2) })
+      expect(result).toStrictEqual(Option.some(1))
+    }))
+
+  it.effect("rejects excess properties with StatisticsDecodeError", () =>
+    Effect.gen(function*() {
+      const error = yield* Effect.flip(
+        minimumValidated({ values: Array.make(1, 2, 3), extra: true })
+      )
+      expect(error._tag).toStrictEqual("StatisticsDecodeError")
+      expect(error.operation).toStrictEqual("minimum")
+    }))
+})
+
+describe("Statistics / maximumValidated", () => {
+  it.effect("decodes valid input and returns Option.some(max)", () =>
+    Effect.gen(function*() {
+      const result = yield* maximumValidated({ values: Array.make(3, 1, 2) })
+      expect(result).toStrictEqual(Option.some(3))
+    }))
+
+  it.effect("rejects excess properties with StatisticsDecodeError", () =>
+    Effect.gen(function*() {
+      const error = yield* Effect.flip(
+        maximumValidated({ values: Array.make(1, 2, 3), extra: true })
+      )
+      expect(error._tag).toStrictEqual("StatisticsDecodeError")
+      expect(error.operation).toStrictEqual("maximum")
+    }))
+})
+
+describe("Statistics / covarianceValidated", () => {
+  it.effect("computes covariance with valid input", () =>
+    Effect.gen(function*() {
+      const result = yield* covarianceValidated({ a: Array.make(1, 2, 3), b: Array.make(2, 4, 6) })
+      expect(result).toStrictEqual(2)
+    }))
+
+  it.effect("rejects mismatched lengths with StatisticsShapeError", () =>
+    Effect.gen(function*() {
+      const error = yield* Effect.flip(
+        covarianceValidated({ a: Array.make(1, 2, 3), b: Array.make(4, 5) })
+      )
+      expect(error._tag).toStrictEqual("StatisticsShapeError")
+      expect(error.operation).toStrictEqual("covariance")
+    }))
+
+  it.effect("rejects single sample with StatisticsShapeError", () =>
+    Effect.gen(function*() {
+      const error = yield* Effect.flip(
+        covarianceValidated({ a: Array.of(1), b: Array.of(2) })
+      )
+      expect(error._tag).toStrictEqual("StatisticsShapeError")
+      expect(error.operation).toStrictEqual("covariance")
+    }))
+
+  it.effect("rejects excess properties with StatisticsDecodeError", () =>
+    Effect.gen(function*() {
+      const error = yield* Effect.flip(
+        covarianceValidated({ a: Array.make(1, 2), b: Array.make(3, 4), extra: true })
+      )
+      expect(error._tag).toStrictEqual("StatisticsDecodeError")
+    }))
+})
+
+// ---------------------------------------------------------------------------
+// Policy-aware operations
+// ---------------------------------------------------------------------------
+
+describe("Statistics / summaryStatisticsWithPolicies", () => {
+  it.effect("computes summary under strict precision", () =>
+    Effect.gen(function*() {
+      const result = yield* summaryStatisticsWithPolicies(Chunk.make(1, 2, 3, 4, 5))
+      expect(result._tag).toStrictEqual("SummaryStatistics")
+      expect(result.mean).toStrictEqual(3)
+      expect(result.count).toStrictEqual(5)
+    }).pipe(Effect.provide(strictLayer)))
+
+  it.effect("strict precision rejects non-finite results", () =>
+    Effect.gen(function*() {
+      const error = yield* Effect.flip(
+        summaryStatisticsWithPolicies(Chunk.make(Infinity, 1))
+      )
+      expect(error._tag).toStrictEqual("StatisticsDomainViolationError")
+      expect(error.operation).toStrictEqual("summaryStatisticsWithPolicies")
+    }).pipe(Effect.provide(strictLayer)))
+
+  it.effect("relaxed precision computes valid finite samples", () =>
+    Effect.gen(function*() {
+      const result = yield* summaryStatisticsWithPolicies(Chunk.make(10, 20, 30))
+      expect(result._tag).toStrictEqual("SummaryStatistics")
+      expect(result.mean).toStrictEqual(20)
+    }).pipe(Effect.provide(relaxedLayer)))
+
+  it.effect("rejects insufficient samples with StatisticsShapeError", () =>
+    Effect.gen(function*() {
+      const error = yield* Effect.flip(
+        summaryStatisticsWithPolicies(Chunk.of(5))
+      )
+      expect(error._tag).toStrictEqual("StatisticsShapeError")
+    }).pipe(Effect.provide(strictLayer)))
+})
+
+describe("Statistics / meanWithPolicies", () => {
+  it.effect("computes mean under strict precision", () =>
+    Effect.gen(function*() {
+      const result = yield* meanWithPolicies(Chunk.make(1, 2, 3))
+      expect(result).toStrictEqual(2)
+    }).pipe(Effect.provide(strictLayer)))
+
+  it.effect("strict precision rejects non-finite results", () =>
+    Effect.gen(function*() {
+      const error = yield* Effect.flip(
+        meanWithPolicies(Chunk.make(Infinity, 1))
+      )
+      expect(error._tag).toStrictEqual("StatisticsDomainViolationError")
+      expect(error.operation).toStrictEqual("meanWithPolicies")
+    }).pipe(Effect.provide(strictLayer)))
+
+  it.effect("relaxed precision passes through finite results", () =>
+    Effect.gen(function*() {
+      const result = yield* meanWithPolicies(Chunk.make(10, 20, 30))
+      expect(result).toStrictEqual(20)
+    }).pipe(Effect.provide(relaxedLayer)))
+})
+
+describe("Statistics / varianceWithPolicies", () => {
+  it.effect("computes variance under strict precision", () =>
+    Effect.gen(function*() {
+      const result = yield* varianceWithPolicies(Chunk.make(1, 3))
+      expect(result).toStrictEqual(2)
+    }).pipe(Effect.provide(strictLayer)))
+
+  it.effect("strict precision rejects non-finite results", () =>
+    Effect.gen(function*() {
+      const error = yield* Effect.flip(
+        varianceWithPolicies(Chunk.make(Infinity, 1))
+      )
+      expect(error._tag).toStrictEqual("StatisticsDomainViolationError")
+      expect(error.operation).toStrictEqual("varianceWithPolicies")
+    }).pipe(Effect.provide(strictLayer)))
+
+  it.effect("rejects insufficient samples with StatisticsShapeError", () =>
+    Effect.gen(function*() {
+      const error = yield* Effect.flip(
+        varianceWithPolicies(Chunk.of(5))
+      )
+      expect(error._tag).toStrictEqual("StatisticsShapeError")
+      expect(error.operation).toStrictEqual("varianceWithPolicies")
+    }).pipe(Effect.provide(strictLayer)))
+
+  it.effect("relaxed precision passes through finite results", () =>
+    Effect.gen(function*() {
+      const result = yield* varianceWithPolicies(Chunk.make(2, 4, 6))
+      expect(result).toStrictEqual(4)
+    }).pipe(Effect.provide(relaxedLayer)))
+})
+
+describe("Statistics / covarianceWithPolicies", () => {
+  it.effect("computes covariance under strict precision", () =>
+    Effect.gen(function*() {
+      const result = yield* covarianceWithPolicies(
+        Chunk.make(1, 2, 3),
+        Chunk.make(2, 4, 6)
+      )
+      expect(result).toStrictEqual(2)
+    }).pipe(Effect.provide(strictLayer)))
+
+  it.effect("strict precision rejects non-finite results", () =>
+    Effect.gen(function*() {
+      const error = yield* Effect.flip(
+        covarianceWithPolicies(
+          Chunk.make(Infinity, 1),
+          Chunk.make(1, 2)
+        )
+      )
+      expect(error._tag).toStrictEqual("StatisticsDomainViolationError")
+      expect(error.operation).toStrictEqual("covarianceWithPolicies")
+    }).pipe(Effect.provide(strictLayer)))
+
+  it.effect("rejects mismatched lengths with StatisticsShapeError", () =>
+    Effect.gen(function*() {
+      const error = yield* Effect.flip(
+        covarianceWithPolicies(
+          Chunk.make(1, 2, 3),
+          Chunk.make(4, 5)
+        )
+      )
+      expect(error._tag).toStrictEqual("StatisticsShapeError")
+      expect(error.operation).toStrictEqual("covarianceWithPolicies")
+    }).pipe(Effect.provide(strictLayer)))
+
+  it.effect("rejects insufficient samples with StatisticsShapeError", () =>
+    Effect.gen(function*() {
+      const error = yield* Effect.flip(
+        covarianceWithPolicies(
+          Chunk.of(1),
+          Chunk.of(2)
+        )
+      )
+      expect(error._tag).toStrictEqual("StatisticsShapeError")
+      expect(error.operation).toStrictEqual("covarianceWithPolicies")
+    }).pipe(Effect.provide(strictLayer)))
+
+  it.effect("relaxed precision passes through finite results", () =>
+    Effect.gen(function*() {
+      const result = yield* covarianceWithPolicies(
+        Chunk.make(1, 2, 3),
+        Chunk.make(2, 4, 6)
+      )
+      expect(result).toStrictEqual(2)
+    }).pipe(Effect.provide(relaxedLayer)))
+})

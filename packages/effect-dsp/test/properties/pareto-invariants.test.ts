@@ -3,7 +3,7 @@
  */
 import { describe, expect, it } from "@effect/vitest"
 import { Array as Arr, Effect, FastCheck as fc, Option } from "effect"
-import { deriveParetoKernelSnapshot, dominatesCandidateVector } from "../../src/optimizers/GEPA/pareto.js"
+import { deriveParetoKernelSnapshot, dominatesCandidateVector } from "../../src/internal/gepa/frontier.js"
 
 const scoreMatrixArbitrary = fc
   .tuple(

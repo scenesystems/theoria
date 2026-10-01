@@ -8,7 +8,6 @@
 import { BunRuntime } from "@effect/platform-bun"
 import { Chunk, Console, Effect } from "effect"
 
-import { makeDeterministicRuntimePoliciesLayer, Seed } from "@scenesystems/effect-math/contracts"
 import {
   betaCdf,
   betaCdfValidated,
@@ -38,6 +37,7 @@ import {
   uniformMean,
   uniformPdf
 } from "@scenesystems/effect-math/Distribution"
+import * as Policy from "@scenesystems/effect-math/Policy"
 
 const program = Effect.gen(function*() {
   // Normal
@@ -81,7 +81,7 @@ const program = Effect.gen(function*() {
 
   // Categorical
   yield* Console.log("\n=== Categorical ===")
-  const probs = Chunk.fromIterable([0.2, 0.3, 0.5])
+  const probs = Chunk.make(0.2, 0.3, 0.5)
   yield* Console.log("  pmf(k=2, [.2,.3,.5]):", categoricalPmf(2, probs))
   yield* Console.log("  entropy([.2,.3,.5]):", categoricalEntropy(probs))
 
@@ -105,8 +105,8 @@ const program = Effect.gen(function*() {
 
   // Runtime policies
   yield* Console.log("\n=== Policy-aware ===")
-  const policies = makeDeterministicRuntimePoliciesLayer({
-    seed: Seed.make(42),
+  const policies = Policy.layerDeterministic({
+    seed: Policy.Seed.make(42),
     precision: "strict",
     backend: "scalar",
     diagnostics: "disabled"

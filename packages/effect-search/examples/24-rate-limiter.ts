@@ -1,15 +1,15 @@
 /**
  * Limits concurrent objective calls to the configured fixed-window quota while
- * the study itself runs with higher concurrency.
+ * the optimization itself runs with higher concurrency.
  *
  * Run: bun run examples/24-rate-limiter.ts
  */
 import * as RateLimiter from "@effect/experimental/RateLimiter"
 import { BunRuntime } from "@effect/platform-bun"
-import { Effect, Layer, Match, Number as Num, Ref } from "effect"
+import { Effect, Iterable, Layer, Match, Number as Num, Ref } from "effect"
 
 import * as Numeric from "@scenesystems/effect-math/Numeric"
-import { Sampler, SearchSpace, Study } from "@scenesystems/effect-search"
+import { Optimization, Sampler, SearchSpace } from "@scenesystems/effect-search"
 
 const program = Effect.gen(function*() {
   const space = yield* SearchSpace.make({
@@ -27,10 +27,10 @@ const program = Effect.gen(function*() {
       () =>
         Effect.sleep("40 millis").pipe(
           Effect.map(() => {
-            const quality = 1 - Numeric.abs(config.temperature - 0.65)
-            const tokenPenalty = config.maxTokens / 4096
+            const quality = Num.subtract(1, Numeric.abs(Num.subtract(config.temperature, 0.65)))
+            const tokenPenalty = Num.unsafeDivide(config.maxTokens, 4096)
 
-            return quality - tokenPenalty
+            return Num.subtract(quality, tokenPenalty)
           })
         ),
       () => Ref.update(inFlightRef, Num.decrement)
@@ -48,7 +48,7 @@ const program = Effect.gen(function*() {
       })
     )
 
-  const result = yield* Study.maximize({
+  const result = yield* Optimization.maximize({
     space,
     sampler: Sampler.tpe({ seed: 24 }),
     trials: 18,
@@ -63,7 +63,7 @@ const program = Effect.gen(function*() {
       ({ bestTrial, completionReason, trials }) =>
         Effect.log("Rate-limited optimization complete", {
           completionReason,
-          trialsEvaluated: trials.length,
+          trialsEvaluated: Iterable.size(trials),
           maxInFlight,
           bestValue: bestTrial.state.value,
           bestConfig: bestTrial.config

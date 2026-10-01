@@ -1,4 +1,4 @@
-import { Array as Arr, Effect, Option, String as Str } from "effect"
+import { Array as Arr, Boolean as Bool, Effect, Option, String as Str } from "effect"
 import {
   type Application,
   type Comment,
@@ -17,17 +17,17 @@ import { ApiReferenceGenerationError } from "./model.js"
 
 export const moduleReflection = (project: ProjectReflection): Option.Option<DeclarationReflection> =>
   Arr.findFirst(
-    project.children ?? [],
+    Option.fromNullable(project.children).pipe(Option.getOrElse(Arr.empty)),
     (reflection): reflection is DeclarationReflection => reflection.kindOf(ReflectionKind.Module)
   )
 
 const hasText = (parts: ReadonlyArray<CommentDisplayPart>): boolean =>
-  Arr.some(parts, (part) => Str.isNonEmpty(part.text.trim()))
+  Arr.some(parts, (part) => Str.isNonEmpty(Str.trim(part.text)))
 
 export const hasCommentSummary = (comment: Comment): boolean => hasText(comment.summary)
 
 export const hasCommentTag = (comment: Comment, tagName: `@${string}`): boolean =>
-  Arr.some(comment.blockTags, (tag) => tag.tag === tagName && hasText(tag.content))
+  Arr.some(comment.blockTags, (tag) => Bool.and(Str.Equivalence(tag.tag, tagName), hasText(tag.content)))
 
 export const requireModuleComment = (input: {
   readonly packageName: string
@@ -64,15 +64,16 @@ export const sourceFileModuleProject = (input: {
 
     const project = yield* Effect.try({
       try: () =>
-        input.app.converter.convert([
+        input.app.converter.convert(Arr.make(
           { displayName: input.displayName, program: input.entrypoint.program, sourceFile }
-        ]),
+        )),
       catch: () => failure(`TypeDoc conversion failed for ${input.sourceFile.relative}`)
     })
 
-    if (input.app.logger.hasErrors()) {
-      return yield* failure(`TypeDoc reported an error while converting ${input.sourceFile.relative}`)
-    }
+    yield* Effect.when(
+      failure(`TypeDoc reported an error while converting ${input.sourceFile.relative}`),
+      () => input.app.logger.hasErrors()
+    )
 
     const reflection = yield* Option.match(moduleReflection(project), {
       onNone: () => failure(`TypeDoc did not create a module reflection for ${input.sourceFile.relative}`),

@@ -3,6 +3,7 @@ import * as Arr from "effect/Array"
 
 import { Module, Signature } from "@scenesystems/effect-dsp"
 import * as InferenceRuntime from "@scenesystems/effect-inference/Runtime"
+import * as RuntimeEvidence from "@scenesystems/effect-inference/RuntimeEvidence"
 import * as InferenceTesting from "@scenesystems/effect-inference/Testing"
 
 import { InferenceEvidence } from "../../contracts/imagined-place-result.js"
@@ -57,27 +58,26 @@ export const proposerSignature = Signature.make(
 
 const recordedEvidence = (program: string, scenario: PlaceScenarioDefinition) =>
   Effect.gen(function*() {
-    const desired = InferenceTesting.makeDesiredRuntimeDescriptor({ modelRef: `theoria/${program}` })
-    const resolvedRoute = InferenceTesting.makeResolvedRouteDescriptor({ desired, selectionReason: "recorded-fixture" })
-    const resolver = yield* InferenceRuntime.RuntimeResolver.pipe(
+    const request = InferenceTesting.request({ modelRef: `theoria/${program}` })
+    const route = InferenceTesting.resolvedRoute({ request, selectionReason: "recorded-fixture" })
+    const resolution = yield* InferenceRuntime.resolve(request).pipe(
       Effect.provide(
-        InferenceTesting.staticRuntimeResolver(InferenceTesting.makeRuntimeResolution({ desired, resolvedRoute }))
+        InferenceTesting.runtimeLayer(InferenceTesting.resolution({ request, route }))
       )
     )
-    const resolution = yield* resolver.resolve(desired)
-    const runtime = InferenceRuntime.makeRuntimeEvidence({
+    const runtime = RuntimeEvidence.make(
       resolution,
-      resolvedRuntime: InferenceTesting.makeResolvedRuntimeDescriptor({
+      InferenceTesting.response({
         responseModel: `recorded/${scenario.id}`,
         finishReason: "stop"
       })
-    })
+    )
     const evidence: InferenceEvidence = {
       program,
       mode: "recorded",
-      responseModel: runtime.resolvedRuntime.responseModel,
-      serveMode: runtime.resolvedRoute.route.serveMode,
-      selectionReason: runtime.resolvedRoute.selectionReason
+      responseModel: runtime.response.responseModel,
+      serveMode: runtime.route.route.serveMode,
+      selectionReason: runtime.route.selectionReason
     }
     return evidence
   })
@@ -102,7 +102,7 @@ export const compose = (
     const program = yield* Module.predict(composerProgram, signature)
     const recorded = yield* encodeComposition(scenario.recorded)
     const composition = yield* program.forward({ brief }).pipe(
-      Effect.provide(InferenceTesting.staticLanguageModel(recorded))
+      Effect.provide(InferenceTesting.languageModel(recorded))
     )
     const inference = yield* recordedEvidence(composerProgram, scenario)
     return { composition, inference }
@@ -132,7 +132,7 @@ export const propose = (
       title: composition.title,
       summary: composition.summary,
       features: Arr.join(Arr.map(composition.features, (feature) => feature.name), ", ")
-    }).pipe(Effect.provide(InferenceTesting.staticLanguageModel(recorded)))
+    }).pipe(Effect.provide(InferenceTesting.languageModel(recorded)))
     const inference = yield* recordedEvidence(proposerProgram, scenario)
     return { feature, inference }
   }).pipe(

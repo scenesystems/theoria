@@ -17,10 +17,12 @@
  */
 import * as LanguageModel from "@effect/ai/LanguageModel"
 import { BunContext, BunRuntime } from "@effect/platform-bun"
-import { Evaluate, Example, Metric, Module, Signature } from "@scenesystems/effect-dsp"
-import { ModuleParams } from "@scenesystems/effect-dsp/contracts"
-import { Contracts, Sampler, SearchSpace, Study } from "@scenesystems/effect-search"
-import { Array as Arr, Effect, Layer, Match, Option, Ref, Schema, Stream } from "effect"
+import { Demonstration, Evaluate, Example, Metric, Module, ModuleParameters, Signature } from "@scenesystems/effect-dsp"
+import * as Optimization from "@scenesystems/effect-search/Optimization"
+import * as Sampler from "@scenesystems/effect-search/Sampler"
+import * as SearchSpace from "@scenesystems/effect-search/SearchSpace"
+import * as ArtifactSink from "@scenesystems/effect-study/ArtifactSink"
+import { Array as Arr, Effect, Layer, Match, Number as Num, Option, Ref, Schema, Stream } from "effect"
 import {
   makeStandardEvents,
   makeStandardModuleState,
@@ -40,12 +42,12 @@ const italyEvalset = Arr.make(
   })
 )
 
-const franceDemo = new Example.Demo({
+const franceDemo = new Demonstration.Demonstration({
   input: { question: "What is the capital of France?" },
   output: { answer: "Paris" }
 })
 
-const japanDemo = new Example.Demo({
+const japanDemo = new Demonstration.Demonstration({
   input: { question: "What is the capital of Japan?" },
   output: { answer: "Tokyo" }
 })
@@ -57,7 +59,7 @@ const instructionCandidate = (index: number): string =>
     Match.orElse(() => "Use provided demonstrations to infer the correct city")
   )
 
-const demoCandidate = (index: number): ReadonlyArray<Example.Demo> =>
+const demoCandidate = (index: number) =>
   Match.value(index).pipe(
     Match.when(0, () => Arr.empty()),
     Match.when(1, () => Arr.make(franceDemo)),
@@ -73,8 +75,8 @@ const program = Effect.gen(function*() {
       studyCacheLayer("effect-dsp/examples/study-resume")
     ),
     Layer.merge(
-      Contracts.fileSystemSink(artifacts.storageDir),
-      artifacts.envelopeContextLayer
+      ArtifactSink.layerFileSystem(artifacts.storageDir),
+      artifacts.artifactContextLayer
     )
   )
 
@@ -100,7 +102,7 @@ const program = Effect.gen(function*() {
 
       yield* Ref.set(
         qa.params,
-        new ModuleParams({
+        new ModuleParameters.ModuleParameters({
           instructions: instructionCandidate(config.instructionIndex),
           demos: demoCandidate(config.demoIndex),
           outputStrategy: "structured"
@@ -124,7 +126,7 @@ const program = Effect.gen(function*() {
 
   const firstLegEvents = yield* Stream.runCollect(
     withStudyProgress(
-      Study.optimizeStream({
+      Optimization.stream({
         space,
         sampler: Sampler.random({ seed: 64 }),
         direction: "maximize",
@@ -136,7 +138,7 @@ const program = Effect.gen(function*() {
 
   const resumedEvents = yield* Stream.runCollect(
     withStudyProgress(
-      Study.resumeFromStorageStream({
+      Optimization.resumeFromStorageStream({
         space,
         sampler: Sampler.random({ seed: 64 }),
         direction: "maximize",
@@ -148,6 +150,7 @@ const program = Effect.gen(function*() {
 
   const firstLegTags = Arr.map(Arr.fromIterable(firstLegEvents), (event) => event._tag)
   const resumedTags = Arr.map(Arr.fromIterable(resumedEvents), (event) => event._tag)
+  const resumedLastEvent = Option.getOrElse(Arr.last(resumedTags), () => "none")
   const optimized = yield* Evaluate.run({
     module: qa,
     examples: italyEvalset,
@@ -168,11 +171,11 @@ const program = Effect.gen(function*() {
     metricName: "exactMatch",
     baselineScore: 0,
     optimizedScore,
-    eventCount: firstLegTags.length + resumedTags.length,
+    eventCount: Num.sum(Arr.length(firstLegTags), Arr.length(resumedTags)),
     optimizationSummary: {
-      firstLegEventCount: firstLegTags.length,
-      resumedEventCount: resumedTags.length,
-      resumedLastEvent: resumedTags[resumedTags.length - 1]
+      firstLegEventCount: Arr.length(firstLegTags),
+      resumedEventCount: Arr.length(resumedTags),
+      resumedLastEvent
     },
     optimizationConfig: {
       storageDirectory: artifacts.storageDir,
@@ -180,9 +183,9 @@ const program = Effect.gen(function*() {
       resumedTrials: 2,
       seed: 64
     },
-    evalsetSize: italyEvalset.length,
+    evalsetSize: Arr.length(italyEvalset),
     instructionAfter: optimizedParams.instructions,
-    demoCountAfter: optimizedParams.demos.length,
+    demoCountAfter: Arr.length(optimizedParams.demos),
     extras: {
       optimized,
       firstLegEventTags: firstLegTags,
@@ -194,11 +197,11 @@ const program = Effect.gen(function*() {
     optimizer: "study",
     streams: Arr.make(
       {
-        name: "study.optimizeStream",
+        name: "optimization.stream",
         events: Arr.fromIterable(firstLegEvents)
       },
       {
-        name: "study.resumeFromStorageStream",
+        name: "optimization.resumeFromStorageStream",
         events: Arr.fromIterable(resumedEvents)
       }
     )
@@ -217,9 +220,9 @@ const program = Effect.gen(function*() {
 
   yield* Effect.log("study-resume-from-storage", {
     storageDirectory: artifacts.storageDir,
-    firstLegEventCount: firstLegTags.length,
-    resumedEventCount: resumedTags.length,
-    resumedLastEvent: resumedTags[resumedTags.length - 1],
+    firstLegEventCount: Arr.length(firstLegTags),
+    resumedEventCount: Arr.length(resumedTags),
+    resumedLastEvent,
     artifactPaths
   })
 })

@@ -27,13 +27,7 @@ import {
   PROMISE_CHAINING_RULES,
   SWITCH_STATEMENT_RULES
 } from "./control-flow.mjs"
-import {
-  ERROR_SWALLOWING_RULES,
-  ERROR_TYPE_ANNOTATION_RULES,
-  NO_CONSOLE_RULES,
-  NO_LOG_INTERPOLATION_RULES,
-  NO_NEW_ERROR_RULES
-} from "./errors.mjs"
+import { ERROR_SWALLOWING_RULES, NO_CONSOLE_RULES, NO_LOG_INTERPOLATION_RULES, NO_NEW_ERROR_RULES } from "./errors.mjs"
 import {
   MODULE_STUB_RULES,
   OPTION_DISCIPLINE_RULES,
@@ -53,7 +47,6 @@ export const EFFECT_RULES = [
   ...PROMISE_CHAINING_RULES,
   ...NO_THROW_TRY_RULES,
   ...NO_NEW_ERROR_RULES,
-  ...ERROR_TYPE_ANNOTATION_RULES,
   ...ERROR_SWALLOWING_RULES,
   ...NO_CONSOLE_RULES,
   ...NO_LOG_INTERPOLATION_RULES,
@@ -76,3 +69,12 @@ export const EFFECT_RULES = [
   ...TYPE_MODELING_RULES,
   ...OPTION_DISCIPLINE_RULES
 ]
+
+/**
+ * Configuration modules are synchronous framework entry points. They follow
+ * the complete Effect discipline, with only Effect.runSync allowed to
+ * materialize the framework-owned value at that host boundary.
+ */
+export const CONFIG_HOST_EFFECT_RULES = EFFECT_RULES.filter(
+  ({ selector }) => selector !== "CallExpression[callee.object.name='Effect'][callee.property.name='runSync']"
+)

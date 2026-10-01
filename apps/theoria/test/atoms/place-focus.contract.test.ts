@@ -1,5 +1,5 @@
 import { Atom, type Registry } from "@effect-atom/atom"
-import { describe, expect, it } from "@effect/vitest"
+import { expect } from "@effect/vitest"
 import { Effect, Option } from "effect"
 import * as Arr from "effect/Array"
 
@@ -25,7 +25,7 @@ import {
 } from "../../app/web/atoms/imagined-place-experience.js"
 import { drawingId, type PlaceRenderFrame } from "../../app/web/atoms/imagined-place-render.js"
 import { proposalAnchorLine } from "../../app/web/view/home/placeViewModel.js"
-import { onStage, pageShowing } from "../helpers/place-on-stage.js"
+import { describeOnStage, onStage, pageShowing } from "../helpers/place-on-stage.js"
 
 /** Test writer for the answer authority; production consumers only receive the derived focus atom. */
 const placeFocusAtom = Atom.writable(
@@ -56,7 +56,7 @@ const line = (index: number, shown: PlaceRenderFrame): PlaceMark => ({
 
 const codeLineAt = (site: CodeSite): PlaceMark => ({ _tag: "CodeLine", site: site.id })
 
-describe("place focus", () => {
+describeOnStage("place focus", (it) => {
   it.effect("nothing pointed at lights nothing", () =>
     Effect.gen(function*() {
       const { build, showingTrial } = yield* onStage

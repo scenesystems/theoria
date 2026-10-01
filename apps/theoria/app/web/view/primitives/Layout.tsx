@@ -1,5 +1,5 @@
 import { useRender } from "@base-ui/react/use-render"
-import { Match, Schema } from "effect"
+import { Match, Option, Schema } from "effect"
 
 import { classNames } from "./classNames.js"
 
@@ -28,7 +28,10 @@ const useLayoutSlot = <Tag extends LayoutTag>(
 ) =>
   useRender({
     defaultTagName,
-    props: { ...props, className: classNames(baseClassName, className ?? "") },
+    props: {
+      ...props,
+      className: classNames(baseClassName, Option.getOrElse(Option.fromNullable(className), () => ""))
+    },
     ref,
     render
   })

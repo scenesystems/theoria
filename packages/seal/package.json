@@ -31,7 +31,9 @@
     "directory": "dist"
   },
   "exports": {
-    ".": "./src/index.ts"
+    ".": "./src/index.ts",
+    "./Cipher": "./src/Cipher.ts",
+    "./Envelope": "./src/Envelope.ts"
   },
   "scripts": {
     "check": "tsc -b tsconfig.src.json",

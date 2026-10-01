@@ -2,7 +2,7 @@
  * Signature validation and default instruction derivation.
  */
 import { describe, expect, it } from "@effect/vitest"
-import type { SignatureError } from "@scenesystems/effect-dsp/Errors"
+import type { SignatureError } from "@scenesystems/effect-dsp/DspError"
 import * as Signature from "@scenesystems/effect-dsp/Signature"
 import { Cause, Effect, Exit, Option, Schema } from "effect"
 

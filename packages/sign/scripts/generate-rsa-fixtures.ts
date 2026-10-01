@@ -4,28 +4,38 @@
  * only in a scoped temporary directory. Run with Bun from any directory.
  */
 import { Command, FileSystem, Path, Url } from "@effect/platform"
-import { BunContext, BunRuntime } from "@effect/platform-bun"
+import * as BunContext from "@effect/platform-bun/BunContext"
+import * as BunRuntime from "@effect/platform-bun/BunRuntime"
 import { Array as Arr, Boolean as B, Effect, Encoding, Number as N, Schema, String as Str } from "effect"
-import { RsaOpenSslFixture } from "./fixture-contract.js"
+import {
+  FixtureGenerationFailed,
+  requireExit,
+  RsaOpenSsl,
+  RsaOpenSslCase,
+  RsaOpenSslFixture,
+  RsaOpenSslGroup
+} from "./fixture-contract.js"
 
-class FixtureGenerationFailed extends Schema.TaggedError<FixtureGenerationFailed>()("FixtureGenerationFailed", {
-  operation: Schema.String
-}) {}
+const Profile = Schema.Struct({
+  bits: Schema.Int,
+  exponent: Schema.Int,
+  exponentHex: Schema.String
+})
 
-const requireExit = (command: Command.Command, expected: number, operation: string) =>
-  Command.exitCode(command).pipe(
-    Effect.filterOrFail((code) => N.Equivalence(code, expected), () => new FixtureGenerationFailed({ operation }))
-  )
+const FixtureMessage = Schema.Struct({
+  name: Schema.String,
+  bytes: Schema.Array(Schema.Uint8)
+})
 
 const program = Effect.gen(function*() {
   const fs = yield* FileSystem.FileSystem
   const path = yield* Path.Path
   const generator = Str.trim(yield* Command.string(Command.make("openssl", "version")))
   const profiles = Arr.make(
-    { bits: 2048, exponent: 3, exponentHex: "03" },
-    { bits: 2049, exponent: 3, exponentHex: "03" },
-    { bits: 3072, exponent: 65537, exponentHex: "010001" },
-    { bits: 4096, exponent: 4294967295, exponentHex: "ffffffff" }
+    Profile.make({ bits: 2048, exponent: 3, exponentHex: "03" }),
+    Profile.make({ bits: 2049, exponent: 3, exponentHex: "03" }),
+    Profile.make({ bits: 3072, exponent: 65537, exponentHex: "010001" }),
+    Profile.make({ bits: 4096, exponent: 4294967295, exponentHex: "ffffffff" })
   )
   const groups = yield* Effect.forEach(profiles, (profile) =>
     Effect.gen(function*() {
@@ -62,10 +72,9 @@ const program = Effect.gen(function*() {
       )
       // OpenSSL rounds some odd requested sizes down. Verify actual public
       // parameters rather than labelling the result with the requested size.
-      const description = yield* Command.string(
+      yield* Command.string(
         Command.make("openssl", "pkey", "-pubin", "-in", publicKey, "-text", "-noout")
-      )
-      yield* Effect.succeed(description).pipe(Effect.filterOrFail(
+      ).pipe(Effect.filterOrFail(
         (text) =>
           B.and(
             Str.includes(Str.concat(bitsText, " bit)"))(text),
@@ -81,9 +90,12 @@ const program = Effect.gen(function*() {
       const n = Encoding.encodeBase64Url(yield* Encoding.decodeHex(Str.padStart(hexWidth, "0")(modulusHex)))
       const e = Encoding.encodeBase64Url(yield* Encoding.decodeHex(profile.exponentHex))
       const messages = Arr.make(
-        { name: "empty", bytes: Arr.empty<number>() },
-        { name: "binary", bytes: Arr.make(0, 255, 128, 1, 42, 13, 10, 0, 254) },
-        { name: "8192 bytes", bytes: Arr.makeBy(8192, (index) => N.remainder(N.sum(N.multiply(index, 17), 31), 256)) }
+        FixtureMessage.make({ name: "empty", bytes: Arr.empty<number>() }),
+        FixtureMessage.make({ name: "binary", bytes: Arr.make(0, 255, 128, 1, 42, 13, 10, 0, 254) }),
+        FixtureMessage.make({
+          name: "8192 bytes",
+          bytes: Arr.makeBy(8192, (index) => N.remainder(N.sum(N.multiply(index, 17), 31), 256))
+        })
       )
       const verify = Command.make(
         "openssl",
@@ -106,37 +118,44 @@ const program = Effect.gen(function*() {
           )
           yield* requireExit(verify, 0, "verify genuine signature")
           const signature = yield* fs.readFile(signaturePath)
-          const alteredMessage = yield* Schema.decode(Schema.Uint8Array)(B.match(Arr.isEmptyArray(message.bytes), {
-            onTrue: () => Arr.of(1),
-            onFalse: () =>
-              Arr.modify(
-                message.bytes,
-                N.decrement(Arr.length(message.bytes)),
-                (byte) => N.remainder(N.increment(byte), 256)
-              )
-          }))
+          const alteredMessage = yield* Schema.decode(Schema.Uint8Array)(
+            Arr.match(message.bytes, {
+              onEmpty: () => Arr.of(1),
+              onNonEmpty: (bytes) =>
+                Arr.modify(
+                  bytes,
+                  N.decrement(Arr.length(bytes)),
+                  (byte) => N.remainder(N.increment(byte), 256)
+                )
+            })
+          )
           yield* fs.writeFile(messagePath, alteredMessage)
           yield* requireExit(verify, 1, "reject altered message")
           yield* fs.writeFile(messagePath, bytes)
           const changedSignature = yield* Arr.modifyOption(
             signature,
-            N.decrement(signature.length),
+            N.decrement(signature.byteLength),
             (byte) => N.remainder(N.increment(byte), 256)
           )
           const alteredSignature = yield* Schema.decode(Schema.Uint8Array)(changedSignature)
           yield* fs.writeFile(signaturePath, alteredSignature)
           yield* requireExit(verify, 1, "reject altered signature")
-          return {
+          return RsaOpenSslCase.make({
             name: message.name,
             message: Encoding.encodeHex(bytes),
             signature: Encoding.encodeHex(signature),
             alteredMessage: Encoding.encodeHex(alteredMessage),
             alteredSignature: Encoding.encodeHex(alteredSignature)
-          }
+          })
         }))
-      return { name, bits: profile.bits, jwk: { kty: "RSA", n, e }, cases }
+      return RsaOpenSslGroup.make({
+        name,
+        bits: profile.bits,
+        jwk: { kty: "RSA", n, e },
+        cases
+      })
     }).pipe(Effect.scoped))
-  const fixture = yield* Schema.decodeUnknown(Schema.typeSchema(RsaOpenSslFixture))({ generator, groups })
+  const fixture = RsaOpenSsl.make({ generator, groups })
   const destination = yield* path.fromFileUrl(
     yield* Url.fromString("../test/fixtures/conformance/rsa-openssl.json", import.meta.url)
   )

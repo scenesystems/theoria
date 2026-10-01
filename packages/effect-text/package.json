@@ -29,21 +29,14 @@
   },
   "exports": {
     ".": "./src/index.ts",
-    "./browser": "./src/Browser/index.ts",
-    "./react": "./src/React/index.ts",
-    "./Text": "./src/Text/index.ts",
-    "./Browser": "./src/Browser/index.ts",
-    "./React": "./src/React/index.ts",
-    "./Contracts": "./src/contracts/index.ts",
-    "./Errors": "./src/Errors/index.ts",
-    "./Experimental": "./src/experimental/index.ts",
-    "./contracts": "./src/contracts/index.ts",
-    "./experimental": "./src/experimental/index.ts",
-    "./internal/*": null,
-    "./Text/internal/*": null,
-    "./Browser/internal/*": null,
-    "./React/internal/*": null,
-    "./experimental/*/internal/*": null
+    "./Text": "./src/Text.ts",
+    "./TextMeasurer": "./src/TextMeasurer.ts",
+    "./MeasurementCache": "./src/MeasurementCache.ts",
+    "./Hyphenation": "./src/Hyphenation.ts",
+    "./CanvasTextMeasurer": "./src/CanvasTextMeasurer.ts",
+    "./CanvasProfile": "./src/CanvasProfile.ts",
+    "./PreparationKey": "./src/PreparationKey.ts",
+    "./Calibration": "./src/Calibration.ts"
   },
   "scripts": {
     "check": "tsc -b tsconfig.src.json",
@@ -55,7 +48,7 @@
     "bench": "bun benchmarks/run.ts",
     "build-esm": "tsc -b tsconfig.build.json",
     "build-annotate": "babel build/esm --plugins annotate-pure-calls --out-dir build/esm --source-maps",
-    "build-cjs": "babel build/esm --plugins @babel/transform-export-namespace-from --plugins @babel/transform-modules-commonjs --out-dir build/cjs --source-maps",
+    "build-cjs": "babel build/esm --plugins @babel/transform-export-namespace-from --plugins @babel/transform-modules-commonjs --out-dir build/cjs --source-maps --copy-files",
     "build": "bun run build-esm && bun run build-annotate && bun run build-cjs && build-utils pack-v3",
     "clean": "rm -rf build dist .tsbuildinfo"
   },
@@ -64,6 +57,10 @@
   },
   "dependencies": {
     "@scenesystems/effect-math": "workspace:^",
-    "@scenesystems/effect-search": "workspace:^"
+    "@scenesystems/effect-search": "workspace:^",
+    "@scenesystems/effect-study": "workspace:^"
+  },
+  "devDependencies": {
+    "@scenesystems/digest": "workspace:^"
   }
 }

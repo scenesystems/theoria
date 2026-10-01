@@ -5,10 +5,10 @@
  * Run: bun run examples/15-constrained-optimization.ts
  */
 import { BunRuntime } from "@effect/platform-bun"
-import { Effect, Either, Match, Schema } from "effect"
+import { Array as Arr, Effect, Either, Iterable, Match, Number as Num, Schema } from "effect"
 
 import * as Numeric from "@scenesystems/effect-math/Numeric"
-import { Sampler, SearchSpace, Study } from "@scenesystems/effect-search"
+import { Optimization, Sampler, SearchSpace } from "@scenesystems/effect-search"
 
 const program = Effect.gen(function*() {
   const space = yield* SearchSpace.make({
@@ -22,22 +22,25 @@ const program = Effect.gen(function*() {
       decodeConstraintConfig(rawConfig).pipe(
         Either.match({
           onLeft: () => 1,
-          onRight: (config) => config.x + config.y - 1
+          onRight: (config) => Num.subtract(Num.sum(config.x, config.y), 1)
         })
       )
     )
 
-  const result = yield* Study.minimize({
+  const result = yield* Optimization.minimize({
     space,
     sampler: Sampler.tpe({
       seed: 404,
       nStartupTrials: 8,
-      constraints: [feasibilityConstraint]
+      constraints: Arr.of(feasibilityConstraint)
     }),
     trials: 60,
     objective: (config) =>
       Effect.succeed(
-        Numeric.pow(config.x - 0.65, 2) + Numeric.pow(config.y - 0.25, 2)
+        Num.sum(
+          Numeric.pow(Num.subtract(config.x, 0.65), 2),
+          Numeric.pow(Num.subtract(config.y, 0.25), 2)
+        )
       )
   })
 
@@ -47,11 +50,11 @@ const program = Effect.gen(function*() {
       ({ bestTrial, completionReason, trials }) =>
         Effect.log("Constrained optimization complete", {
           completionReason,
-          trialsEvaluated: trials.length,
+          trialsEvaluated: Iterable.size(trials),
           bestValue: bestTrial.state.value,
           bestConfig: bestTrial.config,
-          bestConstraintValue: bestTrial.config.x + bestTrial.config.y - 1,
-          feasible: bestTrial.config.x + bestTrial.config.y - 1 <= 0
+          bestConstraintValue: Num.subtract(Num.sum(bestTrial.config.x, bestTrial.config.y), 1),
+          feasible: Num.lessThanOrEqualTo(Num.subtract(Num.sum(bestTrial.config.x, bestTrial.config.y), 1), 0)
         })
     ),
     Match.tag("MultiObjective", () => Effect.void),

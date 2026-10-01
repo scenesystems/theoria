@@ -5,15 +5,10 @@
  */
 import { Match, Option } from "effect"
 
-import type { DesiredRuntimeDescriptor } from "../contracts/DesiredRuntimeDescriptor.js"
-import type { ExecutionRoute } from "../contracts/ExecutionRoute.js"
-import { type ResolvedRouteDescriptor, ResolvedRouteProvenanceVersion } from "../contracts/ResolvedRouteDescriptor.js"
-import { explicitProviderFromSelectionPolicy } from "../contracts/RouteSelectionPolicy.js"
+import { provenanceVersion, type Resolved, type Route, selectedProvider } from "../Route.js"
+import type { RuntimeRequest } from "../RuntimeRequest.js"
 
-/** @since 0.1.0 */
-export const testingSelectionReason = "testing-static-resolution"
-
-const selectionReasonForRoute = (route: ExecutionRoute): string =>
+const selectionReasonForRoute = (route: Route): string =>
   Match.value(route.family).pipe(
     Match.when("OpenAiCompatible", () => "openai-compatible-live"),
     Match.when("OpenAiResponses", () => "openai-responses-direct"),
@@ -26,11 +21,11 @@ const selectionReasonForRoute = (route: ExecutionRoute): string =>
     Match.exhaustive
   )
 
-const selectedProviderForRoute = (route: ExecutionRoute): Option.Option<string> =>
+const selectedProviderForRoute = (route: Route): Option.Option<string> =>
   Match.value(route.family).pipe(
     Match.when("OpenAiResponses", () => Option.some("openai")),
     Match.when("AnthropicMessages", () => Option.some("anthropic")),
-    Match.when("HuggingFace", () => explicitProviderFromSelectionPolicy(Option.fromNullable(route.selectionPolicy))),
+    Match.when("HuggingFace", () => selectedProvider(Option.fromNullable(route.selectionPolicy))),
     Match.orElse(() => Option.none())
   )
 
@@ -40,15 +35,15 @@ const selectedProviderForRoute = (route: ExecutionRoute): Option.Option<string> 
  *
  * @since 0.1.0
  */
-export const makeLiveResolvedRouteDescriptor = (
-  descriptor: DesiredRuntimeDescriptor,
-  route: ExecutionRoute
-): ResolvedRouteDescriptor => ({
+export const make = (
+  request: RuntimeRequest,
+  route: Route
+): Resolved => ({
   route,
-  providerModel: descriptor.artifact.modelRef,
+  providerModel: request.model.modelRef,
   runtimeFlavor: route.runtimeFlavorHint,
   selectionReason: selectionReasonForRoute(route),
-  schemaVersion: ResolvedRouteProvenanceVersion,
+  schemaVersion: provenanceVersion,
   ...Option.fromNullable(route.deploymentId).pipe(
     Option.match({
       onNone: () => ({}),

@@ -4,8 +4,8 @@ from __future__ import annotations
 
 from typing import Any
 
-import numpy as np
-from scipy import special as sp_special
+import numpy
+from scipy import special
 
 from ._common import metadata
 
@@ -44,7 +44,7 @@ def generate(generated_at: str) -> list[dict[str, Any]]:
                     _log1pexp_case("log1pexp-large", 40.0),
                     # --- xlogy ---
                     _xlogy_case("xlogy-x-zero", 0.0, 5.0),
-                    _xlogy_case("xlogy-one-e", 1.0, np.e),
+                    _xlogy_case("xlogy-one-e", 1.0, numpy.e),
                     _xlogy_case("xlogy-2-10", 2.0, 10.0),
                     _xlogy_case("xlogy-half-half", 0.5, 0.5),
                     _xlogy_case("xlogy-large", 10.0, 100.0),
@@ -71,12 +71,12 @@ def _logaddexp_case(case_id: str, a: float, b: float) -> dict[str, Any]:
         "id": case_id,
         "operation": "logaddexp",
         "input": {"a": a, "b": b},
-        "expected": float(np.logaddexp(a, b)),
+        "expected": float(numpy.logaddexp(a, b)),
     }
 
 
 def _logsubexp_case(case_id: str, a: float, b: float) -> dict[str, Any]:
-    expected = float(a + np.log1p(-np.exp(b - a)))
+    expected = float(a + numpy.log1p(-numpy.exp(b - a)))
     return {
         "id": case_id,
         "operation": "logsubexp",
@@ -90,7 +90,7 @@ def _log1mexp_case(case_id: str, x: float) -> dict[str, Any]:
         "id": case_id,
         "operation": "log1mexp",
         "input": {"x": x},
-        "expected": float(np.log(1.0 - np.exp(x))),
+        "expected": float(numpy.log(1.0 - numpy.exp(x))),
     }
 
 
@@ -99,7 +99,7 @@ def _log1pexp_case(case_id: str, x: float) -> dict[str, Any]:
         "id": case_id,
         "operation": "log1pexp",
         "input": {"x": x},
-        "expected": float(np.log1p(np.exp(x))),
+        "expected": float(numpy.log1p(numpy.exp(x))),
     }
 
 
@@ -108,7 +108,7 @@ def _xlogy_case(case_id: str, x: float, y: float) -> dict[str, Any]:
         "id": case_id,
         "operation": "xlogy",
         "input": {"x": x, "y": y},
-        "expected": float(sp_special.xlogy(x, y)),
+        "expected": float(special.xlogy(x, y)),
     }
 
 
@@ -117,7 +117,7 @@ def _xlog1py_case(case_id: str, x: float, y: float) -> dict[str, Any]:
         "id": case_id,
         "operation": "xlog1py",
         "input": {"x": x, "y": y},
-        "expected": float(sp_special.xlog1py(x, y)),
+        "expected": float(special.xlog1py(x, y)),
     }
 
 
@@ -126,5 +126,5 @@ def _log_sum_exp_case(case_id: str, values: list[float]) -> dict[str, Any]:
         "id": case_id,
         "operation": "logSumExp",
         "input": {"values": values},
-        "expected": float(sp_special.logsumexp(values)),
+        "expected": float(special.logsumexp(values)),
     }

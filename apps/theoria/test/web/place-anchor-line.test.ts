@@ -1,11 +1,11 @@
-import { describe, expect, it } from "@effect/vitest"
+import { expect } from "@effect/vitest"
 import { Effect, Option } from "effect"
 import * as Arr from "effect/Array"
 
 import { description } from "../../app/contracts/demo/imagined-place-arrangement.js"
 import type { PlaceLine, PlaceProjection, ProposalRecord } from "../../app/contracts/imagined-place-result.js"
 import { proposalAnchorLine } from "../../app/web/view/home/placeViewModel.js"
-import { onStage } from "../helpers/place-on-stage.js"
+import { describeOnStage, onStage } from "../helpers/place-on-stage.js"
 
 /**
  * The line a merged proposal's sentence begins on is where the proposal is
@@ -35,7 +35,7 @@ const saying = (record: ProposalRecord, sentence: string, accepted: boolean): Pr
 const arrow =
   "On the door of the building the market has just left, one arrow is chalked, pointing the way to the next."
 
-describe("proposal anchor line", () => {
+describeOnStage("proposal anchor line", (it) => {
   it.effect("finds the sentence where it begins, even when its first words are broken across lines", () =>
     Effect.gen(function*() {
       const { build } = yield* onStage

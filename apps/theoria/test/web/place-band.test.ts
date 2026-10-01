@@ -1,4 +1,4 @@
-import { describe, expect, it } from "@effect/vitest"
+import { expect } from "@effect/vitest"
 import { Effect, Equal, Predicate } from "effect"
 import * as Arr from "effect/Array"
 
@@ -13,14 +13,14 @@ import {
 } from "../../app/web/view/home/placeViewModel.js"
 import { discSlotClassName } from "../../app/web/view/primitives/designSystem.js"
 import { departed, shiftTransition } from "../../app/web/view/primitives/motion.js"
-import { onStage } from "../helpers/place-on-stage.js"
+import { describeOnStage, onStage } from "../helpers/place-on-stage.js"
 
 /**
  * The band is the place as a strip: its discs in one row, in the order the
  * place names them, on paper no thicker than the discs need. It is read from
  * a real rendering, so the row is checked against the place itself.
  */
-describe("place band", () => {
+describeOnStage("place band", (it) => {
   it.effect("sets every disc of the place in one row, in order, none touching", () =>
     Effect.gen(function*() {
       const { kept } = yield* onStage

@@ -55,8 +55,8 @@ layer(Layer.merge(SiteLive, BrowserLive), { excludeTestServices: true, timeout: 
     it.scoped("a signature's return type and the words about it start on one line, though they differ in height", () =>
       Effect.gen(function*() {
         const { failures, page } = yield* openPage({ viewport: desktop })
-        yield* goto(page, "/docs/effect-dsp/api/Optimizer#api-progress")
-        yield* visible(page.getByRole("heading", { level: 1, name: "progress" }))
+        yield* goto(page, "/docs/effect-math/api/Statistics#api-mean")
+        yield* visible(page.getByRole("heading", { level: 1, name: "mean" }))
 
         const returns = page.locator("main").getByText("Returns", { exact: true }).first()
         yield* act(() => returns.scrollIntoViewIfNeeded())

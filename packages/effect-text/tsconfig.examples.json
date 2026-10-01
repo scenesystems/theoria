@@ -6,6 +6,6 @@
     "types": ["@types/node", "bun-types"],
     "tsBuildInfoFile": ".tsbuildinfo/examples.tsbuildinfo"
   },
-  "include": ["examples", "benchmarks"],
+  "include": ["examples", "benchmarks", "scripts"],
   "references": [{ "path": "./tsconfig.src.json" }]
 }

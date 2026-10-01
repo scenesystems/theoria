@@ -1,165 +1,107 @@
 /**
- * Signs and verifies messages, derives X25519 shared secrets, and performs
- * X-Wing key encapsulation in Effect programs.
+ * Effect-native signatures, key agreement, encapsulation, and JWT verification.
+ * Select a suite explicitly and provide Entropy.layer at the host boundary for
+ * key generation and randomized signing. Each namespace also has a public
+ * package subpath, for example `@scenesystems/sign/Ed25519`.
  *
- * @example
- * ```ts
- * import { generateKeyPair, sign, utf8ToBytes, verify } from "@scenesystems/sign"
- * import { Effect } from "effect"
- *
- * export const program = Effect.gen(function* () {
- *   const keys = yield* generateKeyPair("ed25519")
- *   const message = utf8ToBytes("hello")
- *   const signature = yield* sign("ed25519", message, keys.secretKey, keys.publicKey)
- *   return yield* verify(signature, message).pipe(
- *     Effect.filterOrFail(
- *       (verified) => verified,
- *       () => "SignatureDidNotVerify"
- *     )
- *   )
- * })
- * ```
- *
- * @since 0.1.0
+ * @since 0.5.0
  * @module
  */
 
 /**
- * @since 0.1.0
- * @category algorithms
+ * Message bytes and length-constant comparison.
+ * @since 0.5.0
+ * @category bytes
  */
-export * from "./algorithms/ed25519.js"
+export * as Bytes from "./Bytes.js"
 
 /**
- * @since 0.4.0
- * @category algorithms
+ * Pure Ed25519 signing and strict RFC 8032 verification.
+ * @since 0.5.0
+ * @category signatures
  */
-export * from "./algorithms/rsa.js"
+export * as Ed25519 from "./Ed25519.js"
 
 /**
- * Fixed RS256 token verification with trusted key selection and claim policy.
- *
+ * Cryptographic entropy capability and native provider.
+ * @since 0.5.0
+ * @category services
+ */
+export * as Entropy from "./Entropy.js"
+
+/**
+ * RS256 JWT verification with trusted keys and explicit claim policy.
  * @since 0.4.0
  * @category protocols
  */
 export * as Jwt from "./Jwt.js"
 
 /**
- * @since 0.1.1
- * @category algorithms
+ * Caller-owned key-pair representation and generation failures.
+ * @since 0.5.0
+ * @category models
  */
-export * from "./algorithms/p256.js"
+export * as KeyPair from "./KeyPair.js"
 
 /**
- * @since 0.1.0
- * @category algorithms
+ * FIPS 204 lattice-based signatures.
+ * @since 0.5.0
+ * @category signatures
  */
-export * from "./algorithms/secp256k1.js"
+export * as MlDsa from "./MlDsa.js"
 
 /**
- * @since 0.1.0
- * @category algorithms
+ * Strict SHA-256, P1363 low-S P-256 verification.
+ * @since 0.5.0
+ * @category signatures
  */
-export * from "./algorithms/x25519.js"
+export * as P256 from "./P256.js"
 
 /**
- * @since 0.1.0
- * @category algorithms
+ * RSA public key admission and RS256 verification.
+ * @since 0.5.0
+ * @category signatures
  */
-export * from "./algorithms/mlDsa.js"
+export * as Rsa from "./Rsa.js"
 
 /**
- * @since 0.1.0
- * @category algorithms
+ * secp256k1 ECDSA and BIP-340 Schnorr signatures.
+ * @since 0.5.0
+ * @category signatures
  */
-export * from "./algorithms/slhDsa.js"
+export * as Secp256k1 from "./Secp256k1.js"
 
 /**
- * @since 0.1.0
- * @category algorithms
+ * Algorithm-tagged signature results and signing failures.
+ * @since 0.5.0
+ * @category models
  */
-export * from "./algorithms/hybrid.js"
+export * as Signature from "./Signature.js"
 
 /**
- * @since 0.1.0
- * @category signing
+ * FIPS 205 stateless hash-based signatures.
+ * @since 0.5.0
+ * @category signatures
  */
-export * from "./sign.js"
+export * as SlhDsa from "./SlhDsa.js"
 
 /**
- * @since 0.1.0
+ * Shared strict-verification policy and material-free failures.
+ * @since 0.5.0
+ * @category verification
+ */
+export * as Verification from "./Verification.js"
+
+/**
+ * RFC 7748 agreement and raw shared secrets.
+ * @since 0.5.0
  * @category agreement
  */
-export * from "./agreement.js"
+export * as X25519 from "./X25519.js"
 
 /**
- * @since 0.1.0
- * @category kem
+ * X25519 and ML-KEM-768 hybrid encapsulation.
+ * @since 0.5.0
+ * @category encapsulation
  */
-export * from "./kem.js"
-
-/**
- * @since 0.1.0
- * @category keys
- */
-export * from "./keyPair.js"
-
-/**
- * @since 0.3.0
- * @category keys
- */
-export * from "./entropy.js"
-
-/**
- * @since 0.1.0
- * @category schemas
- */
-export * from "./schemas/SignatureAlgorithm.js"
-
-/**
- * @since 0.1.0
- * @category schemas
- */
-export * from "./schemas/AgreementAlgorithm.js"
-
-/**
- * @since 0.1.0
- * @category schemas
- */
-export * from "./schemas/KemAlgorithm.js"
-
-/**
- * @since 0.1.0
- * @category schemas
- */
-export * from "./schemas/KeyPair.js"
-
-/**
- * @since 0.1.0
- * @category schemas
- */
-export * from "./schemas/Signature.js"
-
-/**
- * @since 0.1.0
- * @category schemas
- */
-export * from "./schemas/SharedSecret.js"
-
-/**
- * @since 0.1.0
- * @category schemas
- */
-export * from "./schemas/KemCiphertext.js"
-
-/**
- * @since 0.1.0
- * @category errors
- */
-export * from "./schemas/errors.js"
-
-/**
- * @since 0.1.0
- * @category encoding
- */
-export * from "./encoding.js"
+export * as XWing from "./XWing.js"

@@ -1,4 +1,13 @@
-export { TruncatedNormalParams } from "./truncatedNormal/model.js"
+import { Schema } from "effect"
+
+export class TruncatedNormalParams extends Schema.Class<TruncatedNormalParams>(
+  "@scenesystems/effect-search/internal/tpe/truncatedNormal/TruncatedNormalParams"
+)({
+  mean: Schema.Number,
+  sigma: Schema.Number,
+  low: Schema.Number,
+  high: Schema.Number
+}) {}
 
 export { cdf, logPdf, sample } from "./truncatedNormal/truncated.js"
 

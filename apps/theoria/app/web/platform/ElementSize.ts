@@ -1,5 +1,8 @@
-import { Effect, Stream } from "effect"
+import { Data, Effect, Option, Stream, String } from "effect"
 import * as Arr from "effect/Array"
+import * as Num from "effect/Number"
+
+import * as Numeric from "@scenesystems/effect-math/Numeric"
 
 import { BrowserWindow } from "./BrowserWindow.js"
 
@@ -17,7 +20,7 @@ import { BrowserWindow } from "./BrowserWindow.js"
  * @since 0.2.0
  */
 export const contentWidths = (element: HTMLElement): Stream.Stream<number, never, BrowserWindow> =>
-  contentMeasure(element, (size) => Math.floor(size.width))
+  contentMeasure(element, (size) => Numeric.floor(size.width))
 
 /**
  * The content-box height of `element` as whole pixels, on the same terms as
@@ -28,9 +31,17 @@ export const contentWidths = (element: HTMLElement): Stream.Stream<number, never
  * @since 0.3.0
  */
 export const contentHeights = (element: HTMLElement): Stream.Stream<number, never, BrowserWindow> =>
-  contentMeasure(element, (size) => Math.floor(size.height))
+  contentMeasure(element, (size) => Numeric.floor(size.height))
 
-const px = (length: string): number => Number.parseFloat(length)
+/** A computed CSS length's decimal prefix; an absent number remains NaN, not zero. */
+const px = (length: string): number =>
+  String.match(/^[+-]?(?:Infinity|(?:\d+\.?\d*|\.\d+)(?:[eE][+-]?\d+)?)/u)(String.trimStart(length)).pipe(
+    Option.flatMap(Arr.head),
+    Option.flatMap(Num.parse),
+    Option.getOrElse(() => NaN)
+  )
+
+class ContentBox extends Data.Class<{ readonly width: number; readonly height: number }> {}
 
 /**
  * The content box as the observer reports it, to the same fraction of a pixel:
@@ -41,20 +52,30 @@ const px = (length: string): number => Number.parseFloat(length)
 const contentBox = (
   browserWindow: typeof window,
   element: HTMLElement
-): { readonly width: number; readonly height: number } => {
+): ContentBox => {
   const style = browserWindow.getComputedStyle(element)
   const box = element.getBoundingClientRect()
-  return {
-    width: box.width - px(style.borderLeftWidth) - px(style.borderRightWidth) - px(style.paddingLeft)
-      - px(style.paddingRight),
-    height: box.height - px(style.borderTopWidth) - px(style.borderBottomWidth) - px(style.paddingTop)
-      - px(style.paddingBottom)
-  }
+  return new ContentBox({
+    width: Num.subtract(
+      Num.subtract(
+        Num.subtract(Num.subtract(box.width, px(style.borderLeftWidth)), px(style.borderRightWidth)),
+        px(style.paddingLeft)
+      ),
+      px(style.paddingRight)
+    ),
+    height: Num.subtract(
+      Num.subtract(
+        Num.subtract(Num.subtract(box.height, px(style.borderTopWidth)), px(style.borderBottomWidth)),
+        px(style.paddingTop)
+      ),
+      px(style.paddingBottom)
+    )
+  })
 }
 
 const contentMeasure = (
   element: HTMLElement,
-  measure: (size: { readonly width: number; readonly height: number }) => number
+  measure: (size: ContentBox) => number
 ): Stream.Stream<number, never, BrowserWindow> =>
   Stream.unwrap(
     Effect.map(BrowserWindow, (browserWindow) =>

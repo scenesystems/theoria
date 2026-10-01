@@ -2,17 +2,17 @@ import { Array as Arr, Number as Num, Option, Order, Schema, Tuple } from "effec
 
 import { defaultGamma } from "./gammaSplit.js"
 
-export class CompletedTrialForSplit
-  extends Schema.Class<CompletedTrialForSplit>("effect-search/CompletedTrialForSplit")({
-    trialNumber: Schema.Number,
-    config: Schema.Record({ key: Schema.String, value: Schema.Unknown }),
-    value: Schema.Number,
-    observationWeight: Schema.optional(Schema.Number),
-    cost: Schema.optional(Schema.Number),
-    variance: Schema.optional(Schema.Number),
-    sortStep: Schema.optional(Schema.Number)
-  })
-{}
+export class CompletedTrialForSplit extends Schema.Class<CompletedTrialForSplit>(
+  "@scenesystems/effect-search/internal/tpe/splitTrials/CompletedTrialForSplit"
+)({
+  trialNumber: Schema.Number,
+  config: Schema.Record({ key: Schema.String, value: Schema.Unknown }),
+  value: Schema.Number,
+  observationWeight: Schema.optional(Schema.Number),
+  cost: Schema.optional(Schema.Number),
+  variance: Schema.optional(Schema.Number),
+  sortStep: Schema.optional(Schema.Number)
+}) {}
 
 export const TrialSplitSchema = Schema.Struct({
   below: Schema.Array(CompletedTrialForSplit),
@@ -26,7 +26,7 @@ const splitOrder = Order.mapInput(
   (trial: CompletedTrialForSplit) =>
     Tuple.make(
       trial.value,
-      Option.fromNullable(trial.sortStep).pipe(Option.getOrElse(() => -1)),
+      Option.fromNullable(trial.sortStep).pipe(Option.getOrElse(() => Num.negate(1))),
       trial.trialNumber
     )
 )
@@ -40,11 +40,13 @@ const splitCount = (size: number, gamma: (nCompletedTrials: number) => number): 
   })
 
 export const splitTrials = (
-  trials: ReadonlyArray<CompletedTrialForSplit>,
+  trialsInput: Iterable<CompletedTrialForSplit>,
   gamma = defaultGamma
 ): TrialSplit => {
+  const trials = Arr.fromIterable(trialsInput)
+
   const sortedByScore = Arr.sort(trials, splitOrder)
-  const split = splitCount(sortedByScore.length, gamma)
+  const split = splitCount(Arr.length(sortedByScore), gamma)
   const below = Arr.take(sortedByScore, split)
   const above = Arr.drop(sortedByScore, split)
 

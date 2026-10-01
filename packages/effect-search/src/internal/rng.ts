@@ -1,6 +1,6 @@
 import { Effect, Number as Num, Random, Schema } from "effect"
 
-export class RngState extends Schema.Class<RngState>("effect-search/RngState")({
+export class RngState extends Schema.Class<RngState>("@scenesystems/effect-search/internal/rng/RngState")({
   seed: Schema.String
 }) {}
 

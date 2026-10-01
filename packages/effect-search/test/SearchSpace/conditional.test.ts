@@ -1,14 +1,14 @@
 import { describe, expect, it } from "@effect/vitest"
-import { Array as Arr, Effect, Either, Option, Schema } from "effect"
+import { Array as Arr, Chunk, Effect, Either, Equal, Option, Schema } from "effect"
 
-import { makeLinearTreeConditionalSpace } from "../../src/experimental/scenarios/conditionalLinearTree.js"
-import * as SearchSpace from "../../src/SearchSpace/index.js"
+import * as SearchSpace from "../../src/SearchSpace.js"
+import { makeLinearTreeConditionalSpace } from "../fixtures/scenarios/conditionalLinearTree.js"
 import {
-  ConditionalFilteringFixtureSchema,
-  ConditionalGroupDecompositionFixtureSchema,
+  ConditionalFilteringFixture,
+  ConditionalGroupDecompositionFixture,
   FixtureRegistryLive,
   loadFixture
-} from "../helpers/fixtures.js"
+} from "../helpers/fixtures/index.js"
 
 const conditionalSpace = makeLinearTreeConditionalSpace()
 
@@ -26,16 +26,16 @@ const treeStructuredSpace = Effect.gen(function*() {
   })
   const tree = yield* SearchSpace.makeConditional(
     {
-      depthMode: SearchSpace.categorical(["shallow", "deep"])
+      depthMode: SearchSpace.categorical(Arr.make("shallow", "deep"))
     },
-    SearchSpace.switch("depthMode", [SearchSpace.when("shallow", shallow), SearchSpace.when("deep", deep)])
+    SearchSpace.switchOn("depthMode", Chunk.make(SearchSpace.when("shallow", shallow), SearchSpace.when("deep", deep)))
   )
 
   return yield* SearchSpace.makeConditional(
     {
-      model: SearchSpace.categorical(["linear", "tree"])
+      model: SearchSpace.categorical(Arr.make("linear", "tree"))
     },
-    SearchSpace.switch("model", [SearchSpace.when("linear", linear), SearchSpace.when("tree", tree)])
+    SearchSpace.switchOn("model", Chunk.make(SearchSpace.when("linear", linear), SearchSpace.when("tree", tree)))
   )
 })
 
@@ -50,17 +50,17 @@ const branchParitySpace = Effect.gen(function*() {
 
   return yield* SearchSpace.makeConditional(
     {
-      optimizer: SearchSpace.categorical(["adam", "sgd"]),
+      optimizer: SearchSpace.categorical(Arr.make("adam", "sgd")),
       lr: SearchSpace.float(1e-4, 1e-1, { scale: "log" })
     },
-    SearchSpace.switch("optimizer", [SearchSpace.when("adam", adam), SearchSpace.when("sgd", sgd)])
+    SearchSpace.switchOn("optimizer", Chunk.make(SearchSpace.when("adam", adam), SearchSpace.when("sgd", sgd)))
   )
 })
 
 const decodeSpace = (space: SearchSpace.SearchSpace, value: unknown) => Schema.decodeUnknownEither(space.schema)(value)
 
 const parameterByName = (space: SearchSpace.SearchSpace, name: string) =>
-  Arr.findFirst(space.params, (parameter) => parameter.name === name)
+  Arr.findFirst(space.params, (parameter) => Equal.equals(parameter.name, name))
 
 const typeInferenceProof = (_space: SearchSpace.SearchSpace) => {
   type Config = Schema.Schema.Type<typeof _space.schema>
@@ -184,17 +184,17 @@ describe("SearchSpace conditional contracts", () => {
         maxDepth
       })
 
-      expect(tracked.model.activeWhen).toEqual([])
-      expect(tracked.learningRate.activeWhen).toEqual([{ dimension: "model", equals: "linear" }])
-      expect(tracked.maxDepth.activeWhen).toEqual([{ dimension: "model", equals: "tree" }])
+      expect(tracked.model.activeWhen).toEqual(Arr.empty())
+      expect(tracked.learningRate.activeWhen).toEqual(Arr.of({ dimension: "model", equals: "linear" }))
+      expect(tracked.maxDepth.activeWhen).toEqual(Arr.of({ dimension: "model", equals: "tree" }))
 
       const activeLinear = Arr.map(SearchSpace.activeParameters(space, { model: "linear" }), (parameter) =>
         parameter.name)
       const activeTree = Arr.map(SearchSpace.activeParameters(space, { model: "tree" }), (parameter) =>
         parameter.name)
 
-      expect(activeLinear).toEqual(["model", "learningRate", "regularization"])
-      expect(activeTree).toEqual(["model", "maxDepth", "minSamplesLeaf"])
+      expect(activeLinear).toEqual(Arr.make("model", "learningRate", "regularization"))
+      expect(activeTree).toEqual(Arr.make("model", "maxDepth", "minSamplesLeaf"))
     }))
 
   it.effect("rejects switch discriminants that are not categorical dimensions", () =>
@@ -202,24 +202,25 @@ describe("SearchSpace conditional contracts", () => {
       const result = yield* Effect.either(
         SearchSpace.makeConditional(
           {
-            mode: SearchSpace.categorical(["a", "b"])
+            mode: SearchSpace.categorical(Arr.make("a", "b"))
           },
-          SearchSpace.switch("missing", [
-            SearchSpace.when(
-              "a",
-              yield* SearchSpace.make({
-                alpha: SearchSpace.float(0.01, 1)
-              })
+          SearchSpace.switchOn(
+            "missing",
+            Chunk.make(
+              SearchSpace.when(
+                "a",
+                yield* SearchSpace.make({
+                  alpha: SearchSpace.float(0.01, 1)
+                })
+              )
             )
-          ])
+          )
         )
       )
 
       expect(Either.isLeft(result)).toBe(true)
 
-      if (Either.isLeft(result)) {
-        expect(result.left._tag).toBe("effect-search/InvalidSearchSpace")
-      }
+      Either.mapLeft(result, (failure) => expect(failure._tag).toBe("effect-search/InvalidSearchSpace"))
     }))
 
   it.effect("rejects unreachable switch branch values", () =>
@@ -227,24 +228,25 @@ describe("SearchSpace conditional contracts", () => {
       const result = yield* Effect.either(
         SearchSpace.makeConditional(
           {
-            mode: SearchSpace.categorical(["linear"])
+            mode: SearchSpace.categorical(Arr.of("linear"))
           },
-          SearchSpace.switch("mode", [
-            SearchSpace.when(
-              "tree",
-              yield* SearchSpace.make({
-                maxDepth: SearchSpace.int(1, 4)
-              })
+          SearchSpace.switchOn(
+            "mode",
+            Chunk.make(
+              SearchSpace.when(
+                "tree",
+                yield* SearchSpace.make({
+                  maxDepth: SearchSpace.int(1, 4)
+                })
+              )
             )
-          ])
+          )
         )
       )
 
       expect(Either.isLeft(result)).toBe(true)
 
-      if (Either.isLeft(result)) {
-        expect(result.left._tag).toBe("effect-search/InvalidSearchSpace")
-      }
+      Either.mapLeft(result, (failure) => expect(failure._tag).toBe("effect-search/InvalidSearchSpace"))
     }))
 
   it.effect("rejects duplicate parameter names across conditional branches", () =>
@@ -252,40 +254,42 @@ describe("SearchSpace conditional contracts", () => {
       const result = yield* Effect.either(
         SearchSpace.makeConditional(
           {
-            mode: SearchSpace.categorical(["a", "b"])
+            mode: SearchSpace.categorical(Arr.make("a", "b"))
           },
-          SearchSpace.switch("mode", [
-            SearchSpace.when(
-              "a",
-              yield* SearchSpace.make({
-                shared: SearchSpace.float(0.01, 1)
-              })
-            ),
-            SearchSpace.when(
-              "b",
-              yield* SearchSpace.make({
-                shared: SearchSpace.float(0.01, 1)
-              })
+          SearchSpace.switchOn(
+            "mode",
+            Chunk.make(
+              SearchSpace.when(
+                "a",
+                yield* SearchSpace.make({
+                  shared: SearchSpace.float(0.01, 1)
+                })
+              ),
+              SearchSpace.when(
+                "b",
+                yield* SearchSpace.make({
+                  shared: SearchSpace.float(0.01, 1)
+                })
+              )
             )
-          ])
+          )
         )
       )
 
       expect(Either.isLeft(result)).toBe(true)
 
-      if (Either.isLeft(result)) {
-        expect(result.left._tag).toBe("effect-search/InvalidSearchSpace")
-      }
+      Either.mapLeft(result, (failure) => expect(failure._tag).toBe("effect-search/InvalidSearchSpace"))
     }))
 
   it.effect("replays FM-10 conditional filtering fixture for active-branch subset extraction", () =>
     Effect.gen(function*() {
       const loaded = yield* loadFixture("conditional.filtering").pipe(Effect.provide(FixtureRegistryLive))
-      const fixture = yield* Schema.decodeUnknown(ConditionalFilteringFixtureSchema)(loaded)
+      const fixture = yield* Schema.decodeUnknown(ConditionalFilteringFixture)(loaded)
       const space = yield* branchParitySpace
 
-      fixture.payload.cases.forEach((entry) => {
-        const trials = entry.trials.map(
+      Arr.forEach(fixture.payload.cases, (entry) => {
+        const trials = Arr.map(
+          entry.trials,
           (trial) =>
             new SearchSpace.ConditionalTraceTrial({
               trialNumber: trial.trialNumber,
@@ -302,11 +306,11 @@ describe("SearchSpace conditional contracts", () => {
   it.effect("replays FM-11 group decomposition fixture for deterministic key ordering", () =>
     Effect.gen(function*() {
       const loaded = yield* loadFixture("conditional.group-decomposition").pipe(Effect.provide(FixtureRegistryLive))
-      const fixture = yield* Schema.decodeUnknown(ConditionalGroupDecompositionFixtureSchema)(loaded)
+      const fixture = yield* Schema.decodeUnknown(ConditionalGroupDecompositionFixture)(loaded)
       const space = yield* branchParitySpace
-      const groups = SearchSpace.decomposeConditionalGroups(space).map((group) => ({
+      const groups = Arr.map(SearchSpace.decomposeConditionalGroups(space), (group) => ({
         key: group.key,
-        dimensions: [...group.dimensions]
+        dimensions: Arr.fromIterable(group.dimensions)
       }))
 
       expect(groups).toEqual(fixture.payload.expectedGroups)

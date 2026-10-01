@@ -1,7 +1,7 @@
 import { type WorkerError, WorkerRunner } from "@effect/platform"
-import { Data, Effect, Exit, HashMap, Layer, Option, Ref, Scope } from "effect"
+import { Data, Effect, Exit, HashMap, Layer, Match, Number as Num, Option, Ref, Schema, Scope } from "effect"
 
-import type { Errors } from "@scenesystems/effect-search"
+import type { SearchError } from "@scenesystems/effect-search/SearchError"
 
 import {
   type AskedMeander,
@@ -21,8 +21,8 @@ import {
 
 /** A study as the table needs it: asked for its next meander, told what a trial scored. */
 export class OpenedStudy extends Data.Class<{
-  readonly ask: Effect.Effect<AskedMeander, Errors.SearchError>
-  readonly tell: (trial: number, loss: number) => Effect.Effect<void, Errors.SearchError>
+  readonly ask: Effect.Effect<AskedMeander, SearchError>
+  readonly tell: (trial: number, loss: number) => Effect.Effect<void, SearchError>
 }> {}
 
 /** The table's face to the worker runner. */
@@ -41,13 +41,16 @@ class Kept extends Data.Class<{
   readonly scope: Scope.CloseableScope
 }> {}
 
-const failed = (cause: unknown) => new PlaceSearchFailed({ message: String(cause) })
+const numberText = Schema.encodeSync(Schema.NumberFromString)
 
-const unknownSearch = (search: PlaceSearchId) => new PlaceSearchFailed({ message: `no open search ${String(search)}` })
+const failed = (cause: SearchError) => new PlaceSearchFailed({ message: cause.message })
+
+const unknownSearch = (search: PlaceSearchId) =>
+  new PlaceSearchFailed({ message: `no open search ${numberText(search)}` })
 
 /** The table, closing every study it still holds when the given scope closes. */
 export const make = <R>(
-  openStudy: Effect.Effect<OpenedStudy, Errors.SearchError, Scope.Scope | R>
+  openStudy: Effect.Effect<OpenedStudy, SearchError, Scope.Scope | R>
 ): Effect.Effect<Studies, never, Scope.Scope | R> =>
   Effect.gen(function*() {
     const kept = yield* Ref.make(HashMap.empty<PlaceSearchId, Kept>())
@@ -76,9 +79,14 @@ export const make = <R>(
         const scope = yield* Scope.make()
         const study = yield* restore(openStudy.pipe(Scope.extend(scope), Effect.provide(context))).pipe(
           Effect.mapError(failed),
-          Effect.onExit((exit) => Exit.isSuccess(exit) ? Effect.void : Scope.close(scope, exit))
+          Effect.onExit((exit) =>
+            Match.value(Exit.isSuccess(exit)).pipe(
+              Match.when(true, () => Effect.void),
+              Match.orElse(() => Scope.close(scope, exit))
+            )
+          )
         )
-        const search = PlaceSearchId.make(yield* Ref.updateAndGet(named, (count) => count + 1))
+        const search = PlaceSearchId.make(yield* Ref.updateAndGet(named, Num.increment))
         yield* Ref.update(kept, HashMap.set(search, new Kept({ study, scope })))
         return search
       })
@@ -107,7 +115,7 @@ export const make = <R>(
 
 /** The worker runner answering the page's requests from the table. */
 export const layer = (
-  openStudy: Effect.Effect<OpenedStudy, Errors.SearchError, Scope.Scope>
+  openStudy: Effect.Effect<OpenedStudy, SearchError, Scope.Scope>
 ): Layer.Layer<never, WorkerError.WorkerError, WorkerRunner.PlatformRunner> =>
   Layer.unwrapScoped(
     Effect.map(make(openStudy), (studies) =>

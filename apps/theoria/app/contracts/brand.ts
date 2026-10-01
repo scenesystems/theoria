@@ -28,13 +28,13 @@ export const MarkPoint = Schema.Tuple(Schema.Number, Schema.Number)
 export type MarkPoint = typeof MarkPoint.Type
 
 /** One visible face of the cube: its outline, and how much light it takes. */
-export class MarkFace extends Schema.Class<MarkFace>("MarkFace")({
+export class MarkFace extends Schema.Class<MarkFace>("@theoria/app/contracts/Brand/MarkFace")({
   points: Schema.Array(MarkPoint),
   fillOpacity: Unit
 }) {}
 
 /** The mark's frame: the tight bounds of its faces with a hair of padding. */
-export class MarkViewBox extends Schema.Class<MarkViewBox>("MarkViewBox")({
+export class MarkViewBox extends Schema.Class<MarkViewBox>("@theoria/app/contracts/Brand/MarkViewBox")({
   x: Schema.Number,
   y: Schema.Number,
   width: Schema.Number,
@@ -42,7 +42,7 @@ export class MarkViewBox extends Schema.Class<MarkViewBox>("MarkViewBox")({
 }) {}
 
 /** The mark as drawn: its faces back to front, in its frame. */
-export class Mark extends Schema.Class<Mark>("Mark")({
+export class Mark extends Schema.Class<Mark>("@theoria/app/contracts/Brand/Mark")({
   viewBox: MarkViewBox,
   faces: Schema.Array(MarkFace)
 }) {}
@@ -61,7 +61,7 @@ const vector = (x: number, y: number, z: number): Vector => Chunk.make(x, y, z)
 const component = (v: Vector, index: number): number => Chunk.unsafeGet(v, index)
 
 /** A face of the unit cube: its four corners, and the direction it faces. */
-class CubeFace extends Schema.Class<CubeFace>("CubeFace")({
+class CubeFace extends Schema.Class<CubeFace>("@theoria/app/contracts/Brand/CubeFace")({
   vertices: Schema.Chunk(Schema.Chunk(Schema.Number)),
   normal: Schema.Chunk(Schema.Number)
 }) {}
@@ -70,30 +70,61 @@ const cubeFace = (vertices: ReadonlyArray<Vector>, normal: Vector): CubeFace =>
   new CubeFace({ vertices: Chunk.fromIterable(vertices), normal })
 
 const half = 0.5
+const negativeHalf = Num.negate(half)
 
 const cubeFaces: ReadonlyArray<CubeFace> = [
   cubeFace(
-    [vector(-half, -half, half), vector(half, -half, half), vector(half, half, half), vector(-half, half, half)],
+    [
+      vector(negativeHalf, negativeHalf, half),
+      vector(half, negativeHalf, half),
+      vector(half, half, half),
+      vector(negativeHalf, half, half)
+    ],
     vector(0, 0, 1)
   ),
   cubeFace(
-    [vector(half, -half, -half), vector(-half, -half, -half), vector(-half, half, -half), vector(half, half, -half)],
+    [
+      vector(half, negativeHalf, negativeHalf),
+      vector(negativeHalf, negativeHalf, negativeHalf),
+      vector(negativeHalf, half, negativeHalf),
+      vector(half, half, negativeHalf)
+    ],
     vector(0, 0, -1)
   ),
   cubeFace(
-    [vector(-half, half, -half), vector(-half, half, half), vector(half, half, half), vector(half, half, -half)],
+    [
+      vector(negativeHalf, half, negativeHalf),
+      vector(negativeHalf, half, half),
+      vector(half, half, half),
+      vector(half, half, negativeHalf)
+    ],
     vector(0, 1, 0)
   ),
   cubeFace(
-    [vector(-half, -half, -half), vector(half, -half, -half), vector(half, -half, half), vector(-half, -half, half)],
+    [
+      vector(negativeHalf, negativeHalf, negativeHalf),
+      vector(half, negativeHalf, negativeHalf),
+      vector(half, negativeHalf, half),
+      vector(negativeHalf, negativeHalf, half)
+    ],
     vector(0, -1, 0)
   ),
   cubeFace(
-    [vector(half, -half, -half), vector(half, -half, half), vector(half, half, half), vector(half, half, -half)],
+    [
+      vector(half, negativeHalf, negativeHalf),
+      vector(half, negativeHalf, half),
+      vector(half, half, half),
+      vector(half, half, negativeHalf)
+    ],
     vector(1, 0, 0)
   ),
   cubeFace(
-    [vector(-half, -half, half), vector(-half, -half, -half), vector(-half, half, -half), vector(-half, half, half)],
+    [
+      vector(negativeHalf, negativeHalf, half),
+      vector(negativeHalf, negativeHalf, negativeHalf),
+      vector(negativeHalf, half, negativeHalf),
+      vector(negativeHalf, half, half)
+    ],
     vector(-1, 0, 0)
   )
 ]
@@ -113,7 +144,7 @@ const aboutY = Chunk.make(cosY, 0, sinY, 0, 1, 0, Num.negate(sinY), 0, cosY)
 const rotate = (v: Vector): Vector => LinearAlgebra.matvec(aboutY, 3, 3, LinearAlgebra.matvec(aboutX, 3, 3, v))
 
 /** The vector at unit length; every vector normalised here is a constant of non-zero length. */
-const normalise = (v: Vector): Vector => LinearAlgebra.vectorScale(Numeric.unsafeDivide(1, LinearAlgebra.normL2(v)), v)
+const normalise = (v: Vector): Vector => LinearAlgebra.scale(v, Numeric.unsafeDivide(1, LinearAlgebra.normL2(v)))
 
 const light = normalise(vector(0.3, -0.3, 0.9))
 
@@ -121,7 +152,7 @@ const light = normalise(vector(0.3, -0.3, 0.9))
 const lightOn = (normal: Vector): number =>
   Num.max(0.25, Num.sum(Num.multiply(LinearAlgebra.dot(normalise(normal), light), half), 0.55))
 
-class ProjectedFace extends Schema.Class<ProjectedFace>("ProjectedFace")({
+class ProjectedFace extends Schema.Class<ProjectedFace>("@theoria/app/contracts/Brand/ProjectedFace")({
   face: MarkFace,
   depth: Schema.Number
 }) {}

@@ -4,10 +4,9 @@
  * @since 0.1.0
  * @internal
  */
-import type { Schema } from "effect"
-import { Data, Effect, Option, Ref } from "effect"
+import { Data, Effect, Number, Option, Ref, Schema } from "effect"
 import type * as Schedule from "effect/Schedule"
-import { ParseOutputError } from "../../Errors/module.js"
+import { ParseOutputError } from "../../DspError.js"
 import { parseTextOutput } from "./decode.js"
 
 /**
@@ -21,6 +20,7 @@ import { parseTextOutput } from "./decode.js"
  */
 export class ParseTextWithRetryOptions<
   O extends Schema.Struct.Fields,
+  A,
   RE,
   RR
 > extends Data.Class<{
@@ -29,7 +29,8 @@ export class ParseTextWithRetryOptions<
   readonly maxRetries: number
   readonly retrySchedule: (maxRetries: number) => Schedule.Schedule<unknown, unknown, never>
   readonly feedbackTemplate: (error: ParseOutputError) => string
-  readonly readText: (feedback: Option.Option<string>) => Effect.Effect<string, RE, RR>
+  readonly readText: (feedback: Option.Option<string>) => Effect.Effect<A, RE, RR>
+  readonly text: (response: A) => string
 }> {}
 
 /**
@@ -46,23 +47,21 @@ export class ParseTextWithRetryOptions<
  */
 export const parseTextWithRetry = <
   O extends Schema.Struct.Fields,
+  A,
   RE,
   RR
 >(
-  options: ParseTextWithRetryOptions<O, RE, RR>
-): Effect.Effect<
-  Schema.Schema.Type<Schema.Struct<O>>,
-  ParseOutputError | RE,
-  RR | Schema.Schema.Context<Schema.Struct<O>>
-> =>
+  options: ParseTextWithRetryOptions<O, A, RE, RR>
+) =>
   Effect.gen(function*() {
     const parseFeedback = yield* Ref.make<Option.Option<string>>(Option.none())
     const parseAttempts = yield* Ref.make(0)
 
     return yield* Effect.gen(function*() {
       const feedback = yield* Ref.get(parseFeedback)
-      const rawOutput = yield* options.readText(feedback)
-      const currentAttempt = yield* Ref.updateAndGet(parseAttempts, (attempts) => attempts + 1)
+      const response = yield* options.readText(feedback)
+      const rawOutput = options.text(response)
+      const currentAttempt = yield* Ref.updateAndGet(parseAttempts, Number.increment)
 
       return yield* parseTextOutput(
         options.moduleName,
@@ -74,7 +73,7 @@ export const parseTextWithRetry = <
             message: error.message,
             moduleName: error.moduleName,
             rawOutput: Option.orElse(error.rawOutput, () => Option.some(rawOutput)),
-            retryCount: Option.some(currentAttempt - 1),
+            retryCount: Option.some(Number.decrement(currentAttempt)),
             fieldDiagnostics: error.fieldDiagnostics
           })
         ),
@@ -83,9 +82,13 @@ export const parseTextWithRetry = <
             parseFeedback,
             Option.some(options.feedbackTemplate(error))
           )
-        )
+        ),
+        Effect.map((output) => Data.tuple(output, response))
       )
     }).pipe(
-      Effect.retry(options.retrySchedule(options.maxRetries))
+      Effect.retry({
+        schedule: options.retrySchedule(options.maxRetries),
+        while: Schema.is(ParseOutputError)
+      })
     )
   })

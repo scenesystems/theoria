@@ -4,34 +4,29 @@
 import type * as LanguageModel from "@effect/ai/LanguageModel"
 import { Effect, Layer, type Scope } from "effect"
 
-import { InvalidRuntimeConfig } from "@scenesystems/effect-inference/Errors"
-import {
-  type LiveTextProvider as LiveProvider,
-  liveTextProviderLayer,
-  type LiveTextProviderRuntimeOptions,
-  type ResolvedLiveTextProviderRuntime as ResolvedLiveProviderConfig,
-  resolveLiveTextProviderRuntime,
-  withLiveTextProvider
-} from "@scenesystems/effect-inference/Runtime"
+import { InvalidRuntimeConfig } from "@scenesystems/effect-inference/InferenceError"
+import * as TextProvider from "@scenesystems/effect-inference/TextProvider"
 
 export { InvalidRuntimeConfig as LiveProviderRuntimeError }
 
-export type { LiveProvider, LiveTextProviderRuntimeOptions as LiveProviderRuntimeOptions, ResolvedLiveProviderConfig }
+export type LiveProvider = TextProvider.Provider
+export type LiveProviderRuntimeOptions = TextProvider.Options
+export type ResolvedLiveProviderConfig = TextProvider.Runtime
 
-export const resolveLiveProviderConfig = resolveLiveTextProviderRuntime
+export const resolveLiveProviderConfig = TextProvider.resolve
 
 export const liveLanguageModelLayer = (
-  options: LiveTextProviderRuntimeOptions = {}
-): Layer.Layer<LanguageModel.LanguageModel, InvalidRuntimeConfig, never> => liveTextProviderLayer(options)
+  options: TextProvider.Options = new TextProvider.Options({})
+): Layer.Layer<LanguageModel.LanguageModel, InvalidRuntimeConfig, never> => TextProvider.layerConfig(options)
 
 /** Builds the fallible live provider once and exposes its services as an infallible teacher layer. */
 export const liveTeacherLayer = (
-  options: LiveTextProviderRuntimeOptions = {}
+  options: TextProvider.Options = new TextProvider.Options({})
 ): Effect.Effect<Layer.Layer<LanguageModel.LanguageModel>, InvalidRuntimeConfig, Scope.Scope> =>
   Effect.map(Layer.build(liveLanguageModelLayer(options)), Layer.succeedContext)
 
 export const withLiveLanguageModel = <A, E, R>(
   effect: Effect.Effect<A, E, R>,
-  options: LiveTextProviderRuntimeOptions = {}
+  options: TextProvider.Options = new TextProvider.Options({})
 ): Effect.Effect<A, E | InvalidRuntimeConfig, Exclude<R, LanguageModel.LanguageModel>> =>
-  withLiveTextProvider(effect, options)
+  Effect.provide(effect, TextProvider.layerConfig(options))

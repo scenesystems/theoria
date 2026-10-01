@@ -137,8 +137,8 @@ const instructionLines = (instruction: StandardExampleSummary["instruction"]): R
 
 const demoLines = (demos: StandardExampleSummary["demos"]): ReadonlyArray<string> =>
   Arr.make(
-    lineForOptionalNumber("Demo count before", demos.countBefore),
-    lineForOptionalNumber("Demo count after", demos.countAfter),
+    lineForOptionalNumber("Demonstration count before", demos.countBefore),
+    lineForOptionalNumber("Demonstration count after", demos.countAfter),
     lineForOptionalNumber("Demos learned during optimization", demos.learnedDuringOptimization)
   )
 

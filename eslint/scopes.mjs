@@ -3,7 +3,8 @@
  *
  * One rule set applies to every TypeScript file in the repository: packages,
  * application code, React views, scripts, tests and benchmarks alike.
- * Framework configuration files carry no Effect rules.
+ * The five framework configuration entry points carry the same rules, with
+ * Effect.runSync permitted only to materialize that synchronous host value.
  *
  * No file may name the host's globals except the platform modules:
  * `window`, `document` and `navigator` are acquired once in the app's web
@@ -17,10 +18,18 @@
  * @module eslint/scopes
  */
 
-import { FRAMEWORK_CONFIG_PATTERNS } from "./base.mjs"
 import { BROWSER_GLOBALS } from "./effect/builtins.mjs"
 import { DESIGN_TOKEN_RULES } from "./effect/design-tokens.mjs"
-import { EFFECT_RULES } from "./effect/index.mjs"
+import { CONFIG_HOST_EFFECT_RULES, EFFECT_RULES } from "./effect/index.mjs"
+
+/** The repository's framework-owned, synchronous configuration entry points. */
+const CONFIG_HOST_BOUNDARY_PATTERNS = [
+  "vitest.config.ts",
+  "apps/theoria/vite.config.ts",
+  "apps/theoria/vitest.config.ts",
+  "apps/theoria/vitest.worker.config.ts",
+  "packages/sign/vitest.worker.config.ts"
+]
 
 /**
  * The modules that name the host's globals: the app's web platform module,
@@ -40,8 +49,13 @@ export const scopes = () => [
   {
     name: "theoria/effect",
     files: ["**/*.{ts,tsx,mts,cts}"],
-    ignores: FRAMEWORK_CONFIG_PATTERNS,
+    ignores: CONFIG_HOST_BOUNDARY_PATTERNS,
     rules: { "no-restricted-syntax": ["error", ...EFFECT_RULES] }
+  },
+  {
+    name: "theoria/effect/config-host-boundary",
+    files: CONFIG_HOST_BOUNDARY_PATTERNS,
+    rules: { "no-restricted-syntax": ["error", ...CONFIG_HOST_EFFECT_RULES] }
   },
   {
     name: "theoria/effect/design-tokens",
@@ -51,7 +65,7 @@ export const scopes = () => [
   {
     name: "theoria/effect/browser-boundary",
     files: ["**/*.{ts,tsx,mts,cts}"],
-    ignores: [...FRAMEWORK_CONFIG_PATTERNS, ...PLATFORM_MODULE_PATTERNS],
+    ignores: PLATFORM_MODULE_PATTERNS,
     rules: { "no-restricted-globals": ["error", ...BROWSER_GLOBALS] }
   }
 ]

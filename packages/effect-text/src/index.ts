@@ -1,10 +1,5 @@
 /**
- * Prepares text for layout across pure, browser-backed, and React consumers.
- *
- * @remarks
- * Runtime service contracts isolate segmentation and measurement from the pure
- * layout projection. Experimental calibration APIs remain on their own
- * unstable subpath.
+ * Measured text preparation, pure layout, canvas providers, and calibration.
  *
  * @since 0.1.0
  * @module
@@ -16,44 +11,60 @@
  * @since 0.1.0
  * @category domains
  */
-export * as Text from "./Text/index.js"
+export * as Text from "./Text.js"
 
 /**
- * Canvas measurement, readiness-aware caching, and synthetic regression fixtures.
+ * Advance-width measurement capabilities and deterministic estimates.
  *
  * @since 0.2.0
  * @category domains
  */
-export * as Browser from "./Browser/index.js"
+export * as TextMeasurer from "./TextMeasurer.js"
 
 /**
- * Cache identities and layout projections for React integrations.
+ * Scoped measurement memoization and reader lifetime ownership.
  *
  * @since 0.2.0
  * @category domains
  */
-export * as React from "./React/index.js"
+export * as MeasurementCache from "./MeasurementCache.js"
 
 /**
- * Segmentation, measurement, caching, hyphenation, and engine-profile services.
+ * Dictionary sources, compiled matchers, and locale-aware break opportunities.
  *
  * @since 0.1.0
  * @category contracts
  */
-export * as Contracts from "./contracts/index.js"
+export * as Hyphenation from "./Hyphenation.js"
 
 /**
- * Strict-input decoding and preparation-time measurement failures.
+ * Serialized canvas measurement with host state restoration.
  *
  * @since 0.1.0
  * @category domains
  */
-export * as Errors from "./Errors/index.js"
+export * as CanvasTextMeasurer from "./CanvasTextMeasurer.js"
 
 /**
- * Unstable profile evaluation, weighted calibration scoring, and resumable search studies.
+ * Canvas font selections paired with text preparation profiles.
  *
  * @since 0.1.0
  * @category domains
  */
-export * as Experimental from "./experimental/index.js"
+export * as CanvasProfile from "./CanvasProfile.js"
+
+/**
+ * Structural preparation identities and font-readiness generations.
+ *
+ * @since 0.5.0
+ * @category domains
+ */
+export * as PreparationKey from "./PreparationKey.js"
+
+/**
+ * Profile evaluation, weighted scoring, and resumable calibration studies.
+ *
+ * @since 0.5.0
+ * @category domains
+ */
+export * as Calibration from "./Calibration.js"

@@ -1,9 +1,9 @@
 import { Atom, Result } from "@effect-atom/atom"
 import type { Atom as AtomType } from "@effect-atom/atom"
-import { useAtomSubscribe } from "@effect-atom/atom-react"
-import { Data, Effect, Option, Stream } from "effect"
+import { RegistryContext, useAtom, useAtomSubscribe } from "@effect-atom/atom-react"
+import { Boolean, Data, Effect, Equal, Number, Option, Stream, String } from "effect"
 import * as Arr from "effect/Array"
-import { type RefCallback, useCallback, useMemo, useState } from "react"
+import { type RefCallback, useCallback, useContext, useMemo } from "react"
 
 import { nextFrame } from "../platform/AnimationFrame.js"
 import * as BrowserDocument from "../platform/BrowserDocument.js"
@@ -20,7 +20,9 @@ import { appRuntime } from "./runtime.js"
  */
 export const elementWidthAtom: (element: HTMLElement) => AtomType.Atom<Result.Result<number>> = Atom.family(
   (element: HTMLElement) =>
-    appRuntime.atom(ElementSize.contentWidths(element).pipe(Stream.filter((width) => width > 0)))
+    appRuntime.atom(ElementSize.contentWidths(element).pipe(Stream.filter(Number.greaterThan(0)))).pipe(
+      Atom.setIdleTTL(0)
+    )
 )
 
 /** The width of an element that has not mounted: never measured. */
@@ -47,25 +49,28 @@ export const observeOnMount =
 /**
  * Follows the content width of the element the returned ref is attached to.
  *
- * The element exists only after React commits, so it reaches the component
- * the way React measures DOM nodes: a callback ref into component state. It
- * cannot go through a writable atom, because the registry drops an atom that
- * is written before anything mounts it, and refs run in the commit phase
- * while atom mounts run in passive effects. Once the element is in hand, the
- * width is atom state like everything else.
+ * Each component reads its own element slot through useAtom's external-store
+ * subscription. The ref mounts the slot before writing, so even a registry
+ * using microtask disposal cannot discard it before React subscribes.
+ * Neither the slot nor the observation retains an element through idle TTL.
+ * Cleanup clears only its own attachment, including StrictMode ref replay.
  */
 export const useElementWidth = (): ElementWidthHandle => {
-  const [element, setElement] = useState<Option.Option<HTMLElement>>(Option.none())
+  const registry = useContext(RegistryContext)
+  const slot = useMemo(() => Atom.make(Option.none<HTMLElement>()).pipe(Atom.setIdleTTL(0)), [])
+  const [element, setElement] = useAtom(slot)
   const ref = useMemo(
     () =>
       observeOnMount<HTMLElement>((mounted) => {
+        const unmount = registry.mount(slot)
         setElement(Option.some(mounted))
 
         return () => {
-          setElement(Option.none())
+          setElement((current) => Option.filter(current, (active) => Boolean.not(Equal.equals(active, mounted))))
+          unmount()
         }
       }),
-    []
+    [registry, slot, setElement]
   )
 
   return new ElementWidthHandle({
@@ -88,7 +93,8 @@ export const useElementWidthReporter = (onWidth: (width: number) => void): RefCa
   return handle.ref
 }
 
-const anchorIdsFromKey = (key: string): ReadonlyArray<string> => key.length === 0 ? [] : key.split("\u0000")
+const anchorIdsFromKey = (key: string): ReadonlyArray<string> =>
+  Boolean.match(String.isEmpty(key), { onTrue: Arr.empty, onFalse: () => String.split(key, "\u0000") })
 
 /** The last anchor whose heading has scrolled past the top band, or the last anchor once the page bottom is reached. */
 const activeAnchor = (
@@ -98,17 +104,18 @@ const activeAnchor = (
     const first = Arr.head(ids).pipe(Option.getOrElse(() => ""))
     const last = Arr.last(ids).pipe(Option.getOrElse(() => first))
 
-    if (yield* BrowserWindow.isScrolledToBottom) {
-      return last
-    }
-
-    const passed = yield* Effect.filter(ids, (id) =>
-      Effect.map(
-        BrowserDocument.elementById(id),
-        Option.exists((element) => element.getBoundingClientRect().top <= 128)
-      ))
-
-    return Arr.last(passed).pipe(Option.getOrElse(() => first))
+    return yield* Boolean.match(yield* BrowserWindow.isScrolledToBottom, {
+      onTrue: () => Effect.succeed(last),
+      onFalse: () =>
+        Effect.map(
+          Effect.filter(ids, (id) =>
+            Effect.map(
+              BrowserDocument.elementById(id),
+              Option.exists((element) => Number.lessThanOrEqualTo(element.getBoundingClientRect().top, 128))
+            )),
+          (passed) => Arr.last(passed).pipe(Option.getOrElse(() => first))
+        )
+    })
   })
 
 /** Re-evaluates after the first frame and on every scroll, resize and fragment change. */

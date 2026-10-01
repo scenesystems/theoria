@@ -1,5 +1,5 @@
 import { Registry, Result } from "@effect-atom/atom"
-import { describe, expect, it } from "@effect/vitest"
+import { expect } from "@effect/vitest"
 import { Effect, Layer, MutableRef, Option } from "effect"
 import * as Arr from "effect/Array"
 
@@ -15,7 +15,7 @@ import { placeBuildAtom, placeStepAtom } from "../../app/web/atoms/imagined-plac
 import { motionPreferenceAtom, scrollBehaviorFor } from "../../app/web/atoms/motion.js"
 import * as BrowserDocument from "../../app/web/platform/BrowserDocument.js"
 import * as BrowserWindow from "../../app/web/platform/BrowserWindow.js"
-import { onStage } from "../helpers/place-on-stage.js"
+import { describeOnStage, onStage } from "../helpers/place-on-stage.js"
 import { waitFor } from "../helpers/react-mount.js"
 
 /**
@@ -95,7 +95,7 @@ const arrivedWith = (preference: "full" | "reduced") =>
     return { browserDocument, browserWindow, mark, registry, scrolledWith, site }
   })
 
-describe("the route from a credited line to its code", () => {
+describeOnStage("the route from a credited line to its code", (it) => {
   it.effect("selects the step, lets the answer go where it is, enters the section and lands on the line", () =>
     Effect.gen(function*() {
       const { browserDocument, browserWindow, mark, registry, scrolledWith, site } = yield* arrivedWith("full")

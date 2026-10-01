@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from typing import Any
 
-from scipy import special as sp_special
+from scipy import special
 
 from ._common import metadata
 
@@ -75,7 +75,7 @@ def _erfinv_case(case_id: str, x: float) -> dict[str, Any]:
         "id": case_id,
         "operation": "erfinv",
         "input": {"x": x},
-        "expected": float(sp_special.erfinv(x)),
+        "expected": float(special.erfinv(x)),
     }
 
 
@@ -84,7 +84,7 @@ def _erfcinv_case(case_id: str, x: float) -> dict[str, Any]:
         "id": case_id,
         "operation": "erfcinv",
         "input": {"x": x},
-        "expected": float(sp_special.erfcinv(x)),
+        "expected": float(special.erfcinv(x)),
     }
 
 
@@ -93,7 +93,7 @@ def _gammainc_case(case_id: str, a: float, x: float) -> dict[str, Any]:
         "id": case_id,
         "operation": "gammainc",
         "input": {"a": a, "x": x},
-        "expected": float(sp_special.gammainc(a, x)),
+        "expected": float(special.gammainc(a, x)),
     }
 
 
@@ -102,7 +102,7 @@ def _gammaincc_case(case_id: str, a: float, x: float) -> dict[str, Any]:
         "id": case_id,
         "operation": "gammaincc",
         "input": {"a": a, "x": x},
-        "expected": float(sp_special.gammaincc(a, x)),
+        "expected": float(special.gammaincc(a, x)),
     }
 
 
@@ -111,7 +111,7 @@ def _betainc_case(case_id: str, a: float, b: float, x: float) -> dict[str, Any]:
         "id": case_id,
         "operation": "betainc",
         "input": {"a": a, "b": b, "x": x},
-        "expected": float(sp_special.betainc(a, b, x)),
+        "expected": float(special.betainc(a, b, x)),
     }
 
 
@@ -120,5 +120,5 @@ def _polygamma_case(case_id: str, n: int, x: float) -> dict[str, Any]:
         "id": case_id,
         "operation": "polygamma",
         "input": {"n": n, "x": x},
-        "expected": float(sp_special.polygamma(n, x)),
+        "expected": float(special.polygamma(n, x)),
     }

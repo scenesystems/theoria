@@ -13,8 +13,11 @@
  * clock runs while the wordmark rests.
  */
 
-import { Match, Schema } from "effect"
+import { Boolean as Bool, Equal, Match, Schema } from "effect"
 import * as Arr from "effect/Array"
+import * as Num from "effect/Number"
+
+import * as Numeric from "@scenesystems/effect-math/Numeric"
 
 import type { MotionPreference } from "../../atoms/motion.js"
 
@@ -24,36 +27,58 @@ const SEGMENT_COUNT = 6
 const STAGGER_FRACTION = 0.6
 
 export const frameIntervalMs = 80
-export const totalFrames = (HOLD_FRAMES + SWEEP_FRAMES) * 2
+export const totalFrames = Num.multiply(Num.sum(HOLD_FRAMES, SWEEP_FRAMES), 2)
 
-const easeInOut = (t: number): number => t < 0.5 ? 2 * t * t : 1 - (-2 * t + 2) ** 2 / 2
+const easeInOut = (t: number): number =>
+  Bool.match(Num.lessThan(t, 0.5), {
+    onTrue: () => Num.multiply(Num.multiply(2, t), t),
+    onFalse: () => Num.subtract(1, Num.unsafeDivide(Numeric.pow(Num.sum(Num.multiply(-2, t), 2), 2), 2))
+  })
 
 /** Where the whole word is in its cycle: 0 fully Latin, 1 fully Greek, before the stagger is applied. */
 const sweepAt = (frame: number): number =>
-  frame < HOLD_FRAMES
-    ? 0
-    : frame < HOLD_FRAMES + SWEEP_FRAMES
-    ? (frame - HOLD_FRAMES) / SWEEP_FRAMES
-    : frame < HOLD_FRAMES * 2 + SWEEP_FRAMES
-    ? 1
-    : 1 - (frame - HOLD_FRAMES * 2 - SWEEP_FRAMES) / SWEEP_FRAMES
+  Bool.match(Num.lessThan(frame, HOLD_FRAMES), {
+    onTrue: () => 0,
+    onFalse: () =>
+      Bool.match(Num.lessThan(frame, Num.sum(HOLD_FRAMES, SWEEP_FRAMES)), {
+        onTrue: () => Num.unsafeDivide(Num.subtract(frame, HOLD_FRAMES), SWEEP_FRAMES),
+        onFalse: () =>
+          Bool.match(Num.lessThan(frame, Num.sum(Num.multiply(HOLD_FRAMES, 2), SWEEP_FRAMES)), {
+            onTrue: () => 1,
+            onFalse: () =>
+              Num.subtract(
+                1,
+                Num.unsafeDivide(
+                  Num.subtract(Num.subtract(frame, Num.multiply(HOLD_FRAMES, 2)), SWEEP_FRAMES),
+                  SWEEP_FRAMES
+                )
+              )
+          })
+      })
+  })
 
 /** How Greek segment `segmentIndex` is at `frame` within a cycle: 0 fully Latin, 1 fully Greek. */
 export const segmentProgress = (frame: number, segmentIndex: number): number => {
-  const segmentOffset = (segmentIndex / (SEGMENT_COUNT - 1)) * STAGGER_FRACTION
-  const segmentDuration = 1 - STAGGER_FRACTION
-  const localT = Math.max(0, Math.min(1, (sweepAt(frame) - segmentOffset) / segmentDuration))
+  const segmentOffset = Num.multiply(
+    Num.unsafeDivide(segmentIndex, Num.decrement(SEGMENT_COUNT)),
+    STAGGER_FRACTION
+  )
+  const segmentDuration = Num.subtract(1, STAGGER_FRACTION)
+  const localT = Num.max(
+    0,
+    Num.min(1, Num.unsafeDivide(Num.subtract(sweepAt(frame), segmentOffset), segmentDuration))
+  )
 
   return easeInOut(localT)
 }
 
-const secondsOf = (frames: number): number => frames * frameIntervalMs / 1_000
+const secondsOf = (frames: number): number => Num.unsafeDivide(Num.multiply(frames, frameIntervalMs), 1_000)
 
 /** The intro waits out the cycle's lead hold before its pass begins. */
 export const introDelaySeconds = secondsOf(HOLD_FRAMES)
 
 /** One pass: the sweep to Greek, the Greek hold and the sweep back. */
-export const passSeconds = secondsOf(totalFrames - HOLD_FRAMES)
+export const passSeconds = secondsOf(Num.subtract(totalFrames, HOLD_FRAMES))
 
 /** Motion's easing between one keyframe and the next: the holds are flat, the sweeps eased. */
 export type SweepEase = "linear" | "easeInOut"
@@ -71,22 +96,37 @@ export const segmentPass = (segmentIndex: number): {
   readonly times: ReadonlyArray<number>
   readonly ease: ReadonlyArray<SweepEase>
 } => {
-  const segmentOffset = (segmentIndex / (SEGMENT_COUNT - 1)) * STAGGER_FRACTION
-  const segmentDuration = 1 - STAGGER_FRACTION
-  const passFrames = totalFrames - HOLD_FRAMES
-  const inPass = (cycleFrame: number): number => (cycleFrame - HOLD_FRAMES) / passFrames
+  const segmentOffset = Num.multiply(
+    Num.unsafeDivide(segmentIndex, Num.decrement(SEGMENT_COUNT)),
+    STAGGER_FRACTION
+  )
+  const segmentDuration = Num.subtract(1, STAGGER_FRACTION)
+  const passFrames = Num.subtract(totalFrames, HOLD_FRAMES)
+  const inPass = (cycleFrame: number): number => Num.unsafeDivide(Num.subtract(cycleFrame, HOLD_FRAMES), passFrames)
   const greek = [0, 0, 1, 1, 0, 0]
 
   return {
     ease: ["linear", "easeInOut", "linear", "easeInOut", "linear"],
     greek,
-    latin: Arr.map(greek, (opacity) => 1 - opacity),
+    latin: Arr.map(greek, (opacity) => Num.subtract(1, opacity)),
     times: [
       0,
-      inPass(HOLD_FRAMES + segmentOffset * SWEEP_FRAMES),
-      inPass(HOLD_FRAMES + (segmentOffset + segmentDuration) * SWEEP_FRAMES),
-      inPass(HOLD_FRAMES * 2 + SWEEP_FRAMES + (1 - segmentOffset - segmentDuration) * SWEEP_FRAMES),
-      inPass(HOLD_FRAMES * 2 + SWEEP_FRAMES + (1 - segmentOffset) * SWEEP_FRAMES),
+      inPass(Num.sum(HOLD_FRAMES, Num.multiply(segmentOffset, SWEEP_FRAMES))),
+      inPass(Num.sum(HOLD_FRAMES, Num.multiply(Num.sum(segmentOffset, segmentDuration), SWEEP_FRAMES))),
+      inPass(
+        Num.sumAll([
+          Num.multiply(HOLD_FRAMES, 2),
+          SWEEP_FRAMES,
+          Num.multiply(Num.subtract(Num.subtract(1, segmentOffset), segmentDuration), SWEEP_FRAMES)
+        ])
+      ),
+      inPass(
+        Num.sumAll([
+          Num.multiply(HOLD_FRAMES, 2),
+          SWEEP_FRAMES,
+          Num.multiply(Num.subtract(1, segmentOffset), SWEEP_FRAMES)
+        ])
+      ),
       1
     ]
   }
@@ -104,7 +144,10 @@ export type WordmarkEvent = typeof WordmarkEvent.Type
 export const wordmarkPhaseAfter = (phase: WordmarkPhase, event: WordmarkEvent): WordmarkPhase =>
   Match.value(event).pipe(
     Match.when("passEnded", (): WordmarkPhase => "rest"),
-    Match.when("replayAsked", (): WordmarkPhase => phase === "rest" ? "pass" : phase),
+    Match.when(
+      "replayAsked",
+      (): WordmarkPhase => Bool.match(Equal.equals(phase, "rest"), { onTrue: () => "pass", onFalse: () => phase })
+    ),
     Match.exhaustive
   )
 

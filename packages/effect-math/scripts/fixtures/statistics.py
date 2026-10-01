@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from typing import Any
 
-import numpy as np
+import numpy
 
 from ._common import metadata
 
@@ -48,7 +48,7 @@ def _mean_case(case_id: str, values: list[float]) -> dict[str, Any]:
         "id": case_id,
         "operation": "mean",
         "input": {"values": values},
-        "expected": float(np.mean(values)),
+        "expected": float(numpy.mean(values)),
     }
 
 
@@ -57,7 +57,7 @@ def _variance_case(case_id: str, values: list[float]) -> dict[str, Any]:
         "id": case_id,
         "operation": "variance",
         "input": {"values": values},
-        "expected": float(np.var(values, ddof=1)),
+        "expected": float(numpy.var(values, ddof=1)),
     }
 
 
@@ -66,14 +66,14 @@ def _stddev_case(case_id: str, values: list[float]) -> dict[str, Any]:
         "id": case_id,
         "operation": "standardDeviation",
         "input": {"values": values},
-        "expected": float(np.std(values, ddof=1)),
+        "expected": float(numpy.std(values, ddof=1)),
     }
 
 
 def _covariance_case(
     case_id: str, a: list[float], b: list[float]
 ) -> dict[str, Any]:
-    cov_matrix = np.cov(a, b, ddof=1)
+    cov_matrix = numpy.cov(a, b, ddof=1)
     return {
         "id": case_id,
         "operation": "covariance",
@@ -87,5 +87,5 @@ def _min_max_case(case_id: str, values: list[float]) -> dict[str, Any]:
         "id": case_id,
         "operation": "minMax",
         "input": {"values": values},
-        "expected": {"min": float(np.min(values)), "max": float(np.max(values))},
+        "expected": {"min": float(numpy.min(values)), "max": float(numpy.max(values))},
     }

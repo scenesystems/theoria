@@ -1,4 +1,4 @@
-import { Option, Schema } from "effect"
+import { Boolean as Bool, Equal, Option, Schema } from "effect"
 import * as Arr from "effect/Array"
 
 import type { DocsManifest, DocsPackageSummary } from "@theoria/docs-model"
@@ -207,7 +207,7 @@ const articleMetadata = (
 })
 
 const matchesDocsPath = (pathname: string, candidate: string): boolean =>
-  pathname === candidate || pathname === `${candidate}/`
+  Bool.or(Equal.equals(pathname, candidate), Equal.equals(pathname, `${candidate}/`))
 
 const guideAt = (docsPackage: DocsPackageSummary, pathname: string) =>
   Arr.findFirst(docsPackage.guides, (guide) => matchesDocsPath(pathname, guide.path))
@@ -216,22 +216,28 @@ const moduleAt = (docsPackage: DocsPackageSummary, pathname: string) =>
   Arr.findFirst(
     docsPackage.apiModules,
     (module) =>
-      matchesDocsPath(pathname, module.path) || Arr.some(module.aliases, (alias) => matchesDocsPath(pathname, alias))
+      Bool.or(
+        matchesDocsPath(pathname, module.path),
+        Arr.some(module.aliases, (alias) => matchesDocsPath(pathname, alias))
+      )
   )
 
 const packageContainingDocsPath = (manifest: DocsManifest, pathname: string) =>
   Arr.findFirst(
     manifest.packages,
     (docsPackage) =>
-      matchesDocsPath(pathname, docsPackage.overview.path) ||
-      Option.isSome(guideAt(docsPackage, pathname)) ||
-      Option.isSome(moduleAt(docsPackage, pathname))
+      Bool.some([
+        matchesDocsPath(pathname, docsPackage.overview.path),
+        Option.isSome(guideAt(docsPackage, pathname)),
+        Option.isSome(moduleAt(docsPackage, pathname))
+      ])
   )
 
-const isDocsIndexPath = (pathname: string): boolean => pathname === "/docs" || pathname === "/docs/"
+const isDocsIndexPath = (pathname: string): boolean =>
+  Bool.or(Equal.equals(pathname, "/docs"), Equal.equals(pathname, "/docs/"))
 
 export const docsPathExists = (manifest: DocsManifest, pathname: string): boolean =>
-  isDocsIndexPath(pathname) || Option.isSome(packageContainingDocsPath(manifest, pathname))
+  Bool.or(isDocsIndexPath(pathname), Option.isSome(packageContainingDocsPath(manifest, pathname)))
 
 const metadataWithinPackage = (docsPackage: DocsPackageSummary, pathname: string): PageMetadata =>
   Option.match(guideAt(docsPackage, pathname), {
@@ -244,12 +250,14 @@ const metadataWithinPackage = (docsPackage: DocsPackageSummary, pathname: string
   })
 
 export const metadataForDocs = (manifest: DocsManifest, pathname: string): PageMetadata =>
-  isDocsIndexPath(pathname)
-    ? docsIndexMetadata
-    : Option.match(packageContainingDocsPath(manifest, pathname), {
-      onNone: () => missingMetadata,
-      onSome: (docsPackage) => metadataWithinPackage(docsPackage, pathname)
-    })
+  Bool.match(isDocsIndexPath(pathname), {
+    onTrue: () => docsIndexMetadata,
+    onFalse: () =>
+      Option.match(packageContainingDocsPath(manifest, pathname), {
+        onNone: () => missingMetadata,
+        onSome: (docsPackage) => metadataWithinPackage(docsPackage, pathname)
+      })
+  })
 
 /**
  * Join a canonical path with the site URL to produce a fully-qualified URL.

@@ -1,28 +1,31 @@
-import { Array as Arr, Match, Schema } from "effect"
+import { Array as Arr, Match, Number as Num, Schema } from "effect"
 
-import { PrimitiveChoiceSchema } from "../contracts/Distribution.js"
+import { Choice } from "../Distribution.js"
 
 export const FiniteDimensionSchema = Schema.Struct({
   name: Schema.String,
-  values: Schema.Array(PrimitiveChoiceSchema)
+  values: Schema.Array(Choice)
 })
 
 export type FiniteDimension = Schema.Schema.Type<typeof FiniteDimensionSchema>
 
 export const GridConfigSchema = Schema.Record({
   key: Schema.String,
-  value: PrimitiveChoiceSchema
+  value: Choice
 })
 
 export type GridConfig = Schema.Schema.Type<typeof GridConfigSchema>
 
-export const enumerateGrid = (dimensions: ReadonlyArray<FiniteDimension>): ReadonlyArray<GridConfig> =>
-  Match.value(dimensions.length <= 0).pipe(
-    Match.when(true, () => [{}]),
+const GridConfigs = Schema.Array(GridConfigSchema)
+
+export const enumerateGrid = (dimensionsInput: Iterable<FiniteDimension>) => {
+  const dimensions = Arr.fromIterable(dimensionsInput)
+  return Match.value(Num.lessThanOrEqualTo(Arr.length(dimensions), 0)).pipe(
+    Match.when(true, () => Arr.of({})),
     Match.orElse(() =>
-      Arr.reduce<FiniteDimension, ReadonlyArray<GridConfig>>(
+      Arr.reduce<FiniteDimension, typeof GridConfigs.Type>(
         dimensions,
-        [{}],
+        Arr.of({}),
         (configs, dimension) =>
           Arr.flatMap(configs, (config) =>
             Arr.map(dimension.values, (value) => ({
@@ -32,3 +35,4 @@ export const enumerateGrid = (dimensions: ReadonlyArray<FiniteDimension>): Reado
       )
     )
   )
+}

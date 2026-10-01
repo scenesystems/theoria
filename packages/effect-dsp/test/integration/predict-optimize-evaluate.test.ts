@@ -3,14 +3,14 @@
  */
 import * as LanguageModel from "@effect/ai/LanguageModel"
 import { describe, expect, it } from "@effect/vitest"
-import { ModuleParams } from "@scenesystems/effect-dsp/contracts"
+import * as BootstrapFewShot from "@scenesystems/effect-dsp/BootstrapFewShot"
 import * as Evaluate from "@scenesystems/effect-dsp/Evaluate"
 import { Example } from "@scenesystems/effect-dsp/Example"
 import * as Metric from "@scenesystems/effect-dsp/Metric"
+import * as MockLanguageModel from "@scenesystems/effect-dsp/MockLanguageModel"
 import * as Module from "@scenesystems/effect-dsp/Module"
-import * as Optimizer from "@scenesystems/effect-dsp/Optimizer"
+import { ModuleParameters } from "@scenesystems/effect-dsp/ModuleParameters"
 import * as Signature from "@scenesystems/effect-dsp/Signature"
-import { MockLanguageModel } from "@scenesystems/effect-dsp/test"
 import { Array as Arr, Effect, Layer, Ref, Schema } from "effect"
 
 const trainset = Arr.make(
@@ -48,7 +48,7 @@ describe("integration/predict-optimize-evaluate", () => {
 
       yield* Ref.set(
         module.params,
-        new ModuleParams({
+        new ModuleParameters({
           instructions: initialParams.instructions,
           demos: initialParams.demos,
           outputStrategy: "structured"
@@ -69,7 +69,7 @@ describe("integration/predict-optimize-evaluate", () => {
         concurrency: 1
       }).pipe(Effect.provide(layer))
 
-      yield* Optimizer.bootstrapFewShot({
+      yield* BootstrapFewShot.run({
         module,
         trainset,
         metric: Metric.exactMatch("answer"),

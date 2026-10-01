@@ -21,12 +21,14 @@ import * as Str from "effect/String"
  */
 export const StaticStoreFailureReason = Schema.Literal("NotFound", "InvalidPathname", "Unreadable")
 
-export class StaticStoreError extends Schema.TaggedError<StaticStoreError>()("StaticStoreError", {
-  pathname: Schema.String,
-  reason: StaticStoreFailureReason,
-  /** Diagnostic from the platform or transport; empty for request-side reasons. */
-  detail: Schema.String
-}) {}
+export class StaticStoreError
+  extends Schema.TaggedError<StaticStoreError>("@theoria/app/server/config/StaticStore/Error")("StaticStoreError", {
+    pathname: Schema.String,
+    reason: StaticStoreFailureReason,
+    /** Diagnostic from the platform or transport; empty for request-side reasons. */
+    detail: Schema.String
+  })
+{}
 
 export class StaticStore extends Context.Tag("@theoria/app/server/config/StaticStore")<
   StaticStore,

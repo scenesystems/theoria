@@ -12,12 +12,6 @@
 import { includeIgnoreFile } from "eslint/config"
 
 /**
- * Framework configuration is infrastructure, not Effect orchestration. Generic
- * oxlint policy still applies; Effect discipline does not.
- */
-export const FRAMEWORK_CONFIG_PATTERNS = ["**/*.config.{ts,tsx,mts,cts}"]
-
-/**
  * Every tracked source file is linted. What Git does not track (build output,
  * generated data, scratch, vendored references) is not; `.gitignore` is the
  * single statement of that, read here and by oxlint (`--ignore-path`). The

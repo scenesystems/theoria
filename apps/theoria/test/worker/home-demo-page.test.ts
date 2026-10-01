@@ -119,6 +119,7 @@ layer(Layer.merge(SiteLive, BrowserLive), { excludeTestServices: true, timeout: 
         // The trace slider answers arrows; its caption names the trial.
         const slider = demo.getByRole("slider", { name: "Trial drawn on the stage" })
         // The rebuild replays its trials first; the slider answers once the search is drawn.
+        yield* drawn(page)
         yield* eventually(() => slider.isEnabled(), true)
         yield* focus(slider)
         yield* press(page, "Home")

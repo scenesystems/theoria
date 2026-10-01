@@ -1,6 +1,7 @@
 import { FileSystem, Path, Url } from "@effect/platform"
 import { BunContext } from "@effect/platform-bun"
-import { Effect, Option, Schema } from "effect"
+import { Array as Arr, Effect, Schema, String as Str } from "effect"
+import type { Option } from "effect"
 
 import {
   FixtureFileReadError,
@@ -10,8 +11,8 @@ import {
   type FixtureRegistryError,
   FixtureSchemaDecodeError
 } from "./errors.js"
-import { FixtureManifestSchema, KnownFixtureSchema } from "./schemas.js"
-import type { FixtureManifest, FixtureManifestEntrySchema, FixtureName, KnownFixture } from "./schemas.js"
+import { FixtureManifest, KnownFixture } from "./schemas.js"
+import type { FixtureManifestEntry, FixtureName } from "./schemas.js"
 
 const decodeJsonUnknown = Schema.decodeUnknown(Schema.parseJson(Schema.Unknown))
 
@@ -56,7 +57,7 @@ const decodeManifest = (
   path: string,
   payload: unknown
 ): Effect.Effect<FixtureManifest, FixtureManifestDecodeError> =>
-  Schema.decodeUnknown(FixtureManifestSchema)(payload).pipe(
+  Schema.decodeUnknown(FixtureManifest)(payload).pipe(
     Effect.mapError(
       (cause) =>
         new FixtureManifestDecodeError({
@@ -84,15 +85,14 @@ export const loadManifest = (
 export const findManifestEntry = (
   manifest: FixtureManifest,
   name: FixtureName
-): Option.Option<Schema.Schema.Type<typeof FixtureManifestEntrySchema>> =>
-  Option.fromNullable(manifest.fixtures.find((entry) => entry.name === name))
+): Option.Option<FixtureManifestEntry> => Arr.findFirst(manifest.fixtures, (entry) => Str.Equivalence(entry.name, name))
 
 const decodeFixture = (
   fixtureName: FixtureName,
   path: string,
   payload: unknown
 ): Effect.Effect<KnownFixture, FixtureSchemaDecodeError> =>
-  Schema.decodeUnknown(KnownFixtureSchema)(payload).pipe(
+  Schema.decodeUnknown(KnownFixture)(payload).pipe(
     Effect.mapError(
       (cause) =>
         new FixtureSchemaDecodeError({
@@ -102,7 +102,7 @@ const decodeFixture = (
         })
     ),
     Effect.filterOrFail(
-      (fixture) => fixture.fixture === fixtureName,
+      (fixture) => Str.Equivalence(fixture.fixture, fixtureName),
       (fixture) =>
         new FixtureSchemaDecodeError({
           fixture: fixtureName,
@@ -114,7 +114,7 @@ const decodeFixture = (
 
 export const loadFixtureByEntry = (
   rootDirectory: string,
-  entry: Schema.Schema.Type<typeof FixtureManifestEntrySchema>
+  entry: FixtureManifestEntry
 ): Effect.Effect<KnownFixture, FixtureRegistryError> =>
   Effect.gen(function*() {
     const { path, raw } = yield* readText(

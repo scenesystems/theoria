@@ -2,10 +2,9 @@
 import { Command } from "@effect/platform"
 import { Effect, Number, Schema, Sink, Stream } from "effect"
 
-export class CommandFailed extends Schema.TaggedError<CommandFailed>()("CommandFailed", {
-  message: Schema.String,
-  exitCode: Schema.Number
-}) {}
+export class CommandFailed extends Schema.TaggedError<CommandFailed>(
+  "@theoria/scripts/release/Process/CommandFailed"
+)("CommandFailed", { message: Schema.String, exitCode: Schema.Number }) {}
 
 export const output = (command: Command.Command) =>
   Effect.gen(function*() {

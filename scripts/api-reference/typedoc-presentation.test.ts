@@ -91,7 +91,7 @@ describe("TypeDoc presentation adapter", () => {
           sourceUrl: `${sourceUrl}#L40`
         }]
       })
-      expect(presentation.searchEntries.map(({ id, kind, name, path, anchor }) => [
+      expect(Arr.map(presentation.searchEntries, ({ id, kind, name, path, anchor }) => [
         id,
         kind,
         name,

@@ -1,10 +1,10 @@
-import { describe, expect, it } from "@effect/vitest"
+import { expect } from "@effect/vitest"
 import { Effect, Option } from "effect"
 import * as Arr from "effect/Array"
 import * as HashSet from "effect/HashSet"
 
 import { discDrawn, PlaceRenderFrame, PlaceSearch } from "../../app/web/atoms/imagined-place-render.js"
-import { onStage } from "../helpers/place-on-stage.js"
+import { describeOnStage, onStage } from "../helpers/place-on-stage.js"
 
 /**
  * How each disc of a frame is drawn is told from that frame — the one the
@@ -20,7 +20,7 @@ const names = (frame: PlaceRenderFrame) => Arr.map(frame.rendering.projection.ma
 /** The first feature drawn in the frame; every place drawn has one. */
 const firstName = (frame: PlaceRenderFrame): string => Option.getOrThrow(Arr.head(names(frame)))
 
-describe("how a disc is drawn, told from the frame it stands in", () => {
+describeOnStage("how a disc is drawn, told from the frame it stands in", (it) => {
   it.effect("a disc of a feature the search is not heading for is leaving; one it is making room for is arriving; one it has settled stays", () =>
     Effect.gen(function*() {
       const { other, showingKept } = yield* onStage

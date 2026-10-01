@@ -5,7 +5,8 @@ import {
   HttpClientResponse,
   HttpServerResponse
 } from "@effect/platform"
-import { Effect, Layer, Option, Predicate, Schema } from "effect"
+import { Boolean as Bool, Effect, Layer, Match, Option, Predicate, Schema } from "effect"
+import * as Num from "effect/Number"
 
 import { StaticStore, StaticStoreError } from "../config/static-store.js"
 
@@ -30,8 +31,11 @@ type Fetch = (
 
 export const AssetsFetcher = Schema.declare<{ readonly fetch: Fetch }>(
   (input): input is { readonly fetch: Fetch } =>
-    Predicate.hasProperty(input, "fetch") && Predicate.isFunction(input.fetch),
-  { identifier: "AssetsFetcher" }
+    Match.value(input).pipe(
+      Match.when(Predicate.hasProperty("fetch"), (candidate) => Predicate.isFunction(candidate.fetch)),
+      Match.orElse(() => false)
+    ),
+  { identifier: "@theoria/app/server/platform/AssetsFetcher" }
 )
 export type AssetsFetcher = typeof AssetsFetcher.Type
 
@@ -47,7 +51,10 @@ const assetsClient = (assets: AssetsFetcher): HttpClient.HttpClient =>
           request,
           reason: "Transport",
           cause,
-          description: Predicate.isError(cause) ? cause.message : String(cause)
+          description: Match.value(cause).pipe(
+            Match.when(Predicate.isError, (error) => error.message),
+            Match.orElse(String)
+          )
         })
     }).pipe(Effect.map((response) => HttpClientResponse.fromWeb(request, response)))
   ).pipe(HttpClient.mapRequest(HttpClientRequest.prependUrl(assetsOrigin)))
@@ -58,9 +65,14 @@ const assetsClient = (assets: AssetsFetcher): HttpClient.HttpClient =>
  * that may well exist, so it is `Unreadable` and reaches the caller as a 500.
  */
 const storeFailure = (pathname: string) => (cause: HttpClientError.HttpClientError): StaticStoreError =>
-  cause._tag === "ResponseError" && cause.response.status === 404
-    ? new StaticStoreError({ pathname, reason: "NotFound", detail: "" })
-    : new StaticStoreError({ pathname, reason: "Unreadable", detail: cause.message })
+  Match.value(cause).pipe(
+    Match.tag("ResponseError", (error) =>
+      Bool.match(Num.Equivalence(error.response.status, 404), {
+        onTrue: () => new StaticStoreError({ pathname, reason: "NotFound", detail: "" }),
+        onFalse: () => new StaticStoreError({ pathname, reason: "Unreadable", detail: error.message })
+      })),
+    Match.orElse((error) => new StaticStoreError({ pathname, reason: "Unreadable", detail: error.message }))
+  )
 
 export const make = (assets: AssetsFetcher): typeof StaticStore.Service => {
   const client = assetsClient(assets)
@@ -79,7 +91,10 @@ export const make = (assets: AssetsFetcher): typeof StaticStore.Service => {
           )
         ),
         Effect.catchTag("ResponseError", (error) =>
-          error.response.status === 404 ? Effect.succeedNone : Effect.fail(error)),
+          Bool.match(Num.Equivalence(error.response.status, 404), {
+            onTrue: () => Effect.succeedNone,
+            onFalse: () => Effect.fail(error)
+          })),
         Effect.mapError(storeFailure(pathname))
       )
   })

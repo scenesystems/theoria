@@ -1,5 +1,6 @@
-import { Match, Option, Schema } from "effect"
+import { Boolean as Bool, Equal, Match, Option, Schema } from "effect"
 import * as Arr from "effect/Array"
+import * as Str from "effect/String"
 
 import type {
   DocsApiExportSummary,
@@ -28,10 +29,14 @@ export const DocsNavigationBranch = Schema.Struct({
 export type DocsNavigationBranch = typeof DocsNavigationBranch.Type
 
 export const apiCategoryAnchor = (name: string): string =>
-  `category-${name.trim().toLocaleLowerCase("en-US").replace(/[^a-z0-9]+/gu, "-").replace(/(^-|-$)/gu, "")}`
+  `category-${
+    Str.replace(/(^-|-$)/gu, "")(
+      Str.replace(/[^a-z0-9]+/gu, "-")(Str.toLocaleLowerCase("en-US")(Str.trim(name)))
+    )
+  }`
 
 export const apiExportForHash = (page: DocsApiModuleIndex, hash: string): Option.Option<DocsApiExportSummary> =>
-  Arr.findFirst(page.exports, (apiExport) => `#${apiExport.anchor}` === hash)
+  Arr.findFirst(page.exports, (apiExport) => Equal.equals(`#${apiExport.anchor}`, hash))
 
 export const docsPackageFor = (
   manifest: DocsManifest,
@@ -40,7 +45,9 @@ export const docsPackageFor = (
   Match.value(route).pipe(
     Match.tag("DocsIndexRoute", () => Option.none()),
     Match.tag("DocsNotFoundRoute", () => Option.none()),
-    Match.orElse(({ packageSlug }) => Arr.findFirst(manifest.packages, (candidate) => candidate.slug === packageSlug))
+    Match.orElse(({ packageSlug }) =>
+      Arr.findFirst(manifest.packages, (candidate) => Equal.equals(candidate.slug, packageSlug))
+    )
   )
 
 export const docsGuideFor = (
@@ -50,7 +57,7 @@ export const docsGuideFor = (
   Match.value(route).pipe(
     Match.tag("DocsOverviewRoute", () => Option.some(docsPackage.overview)),
     Match.tag("DocsGuideRoute", ({ guideSlug }) =>
-      Arr.findFirst(docsPackage.guides, (guide) => guide.slug === guideSlug)),
+      Arr.findFirst(docsPackage.guides, (guide) => Equal.equals(guide.slug, guideSlug))),
     Match.orElse(() =>
       Option.none()
     )
@@ -64,25 +71,27 @@ export const docsApiModuleFor = (
     Match.tag("DocsApiRoute", ({ moduleSlug }) => {
       const routePath = docsPathFor(route)
       return Arr.findFirst(docsPackage.apiModules, (module) =>
-        Option.match(moduleSlug, {
-          onNone: () => module.slug.length === 0,
-          onSome: (slug) => module.slug === slug
-        })
-        || Arr.contains(module.aliases, routePath))
+        Bool.or(
+          Option.match(moduleSlug, {
+            onNone: () => Str.isEmpty(module.slug),
+            onSome: (slug) => Equal.equals(module.slug, slug)
+          }),
+          Arr.contains(module.aliases, routePath)
+        ))
     }),
     Match.orElse(() => Option.none())
   )
 
 const apiDestination = (module: DocsApiModuleSummary): DocsDestination => ({
-  label: module.slug.length === 0 ? "API reference" : module.name,
+  label: Bool.match(Str.isEmpty(module.slug), { onTrue: () => "API reference", onFalse: () => module.name }),
   href: module.path,
   aliases: module.aliases
 })
 
 const categoryLabel = (category: string): string => {
-  const words = category.replaceAll("-", " ")
+  const words = Str.replaceAll("-", " ")(category)
 
-  return `${words.slice(0, 1).toLocaleUpperCase("en-US")}${words.slice(1)}`
+  return `${Str.toLocaleUpperCase("en-US")(Str.slice(0, 1)(words))}${Str.slice(1)(words)}`
 }
 
 const categoryDestination = (
@@ -97,7 +106,7 @@ const categoryDestination = (
 export const docsNavigationBranchesFor = (
   docsPackage: DocsPackageSummary
 ): ReadonlyArray<DocsNavigationBranch> => {
-  const rootApiModule = Arr.findFirst(docsPackage.apiModules, (module) => module.slug.length === 0)
+  const rootApiModule = Arr.findFirst(docsPackage.apiModules, (module) => Str.isEmpty(module.slug))
   const apiRoot = Option.match(rootApiModule, {
     onNone: (): DocsDestination => ({
       label: "API reference",
@@ -106,13 +115,15 @@ export const docsNavigationBranchesFor = (
     }),
     onSome: apiDestination
   })
-  const apiModules = Arr.filter(docsPackage.apiModules, (module) => module.slug.length > 0)
-  const apiChildren = apiModules.length > 0
-    ? Arr.map(apiModules, apiDestination)
-    : Option.match(rootApiModule, {
-      onNone: () => [],
-      onSome: (module) => Arr.map(module.categories, (category) => categoryDestination(module, category))
-    })
+  const apiModules = Arr.filter(docsPackage.apiModules, (module) => Str.isNonEmpty(module.slug))
+  const apiChildren = Arr.match(apiModules, {
+    onNonEmpty: (modules) => Arr.map(modules, apiDestination),
+    onEmpty: () =>
+      Option.match(rootApiModule, {
+        onNone: () => [],
+        onSome: (module) => Arr.map(module.categories, (category) => categoryDestination(module, category))
+      })
+  })
 
   return [{
     label: "Guides",
@@ -135,5 +146,5 @@ export const docsNavigationBranchesFor = (
 
 export const destinationIsActive = (destination: DocsDestination, route: DocsRoute): boolean => {
   const path = docsPathFor(route)
-  return destination.href === path || Arr.contains(destination.aliases, path)
+  return Bool.or(Equal.equals(destination.href, path), Arr.contains(destination.aliases, path))
 }

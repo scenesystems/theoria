@@ -1,5 +1,5 @@
 import { HttpClient, type HttpClientError, HttpClientRequest } from "@effect/platform"
-import { Data, Effect, identity, Option, Schema } from "effect"
+import { Data, Effect, identity, Match, Option, Schema } from "effect"
 import * as ParseResult from "effect/ParseResult"
 
 import { DemoDecodeError, type DemoError, DemoExecutionError, DemoRequestError } from "../../contracts/demo-error.js"
@@ -18,13 +18,18 @@ export type DecodedEnvelope<A> =
   | { readonly ok: true; readonly meta: Metadata; readonly data: A }
   | { readonly ok: false; readonly meta: Metadata; readonly error: ErrorModel }
 
+const isSuccessEnvelope = <A>(
+  envelope: DecodedEnvelope<A>
+): envelope is Extract<DecodedEnvelope<A>, { readonly ok: true }> => envelope.ok
+
 /** An already-encoded JSON request body; `None` sends no body. */
 export type JsonBody = Option.Option<string>
 
 const requestErrorMessage = (error: HttpClientError.HttpClientError): string =>
-  error._tag === "ResponseError"
-    ? `Request failed with status ${String(error.response.status)}`
-    : error.message
+  Match.value(error).pipe(
+    Match.tag("ResponseError", (failure) => `Request failed with status ${String(failure.response.status)}`),
+    Match.orElse((failure) => failure.message)
+  )
 
 /**
  * Sends the request through the platform `HttpClient` and reads the body as
@@ -77,19 +82,23 @@ export const requestEnvelope = <A, I>(
 ): Effect.Effect<SuccessEnvelopeData<A>, DemoError, HttpClient.HttpClient> =>
   requestDecodedEnvelope(path, schema, method, body).pipe(
     Effect.flatMap((envelope) =>
-      envelope.ok
-        ? Effect.succeed(
-          new SuccessEnvelopeData({
-            data: envelope.data,
-            meta: envelope.meta
-          })
+      Match.value(envelope).pipe(
+        Match.when(isSuccessEnvelope<A>, (success) =>
+          Effect.succeed(
+            new SuccessEnvelopeData({
+              data: success.data,
+              meta: success.meta
+            })
+          )),
+        Match.orElse((failure) =>
+          Effect.fail(
+            new DemoExecutionError({
+              code: failure.error.code,
+              message: failure.error.message,
+              retryable: failure.error.retryable
+            })
+          )
         )
-        : Effect.fail(
-          new DemoExecutionError({
-            code: envelope.error.code,
-            message: envelope.error.message,
-            retryable: envelope.error.retryable
-          })
-        )
+      )
     )
   )

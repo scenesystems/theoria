@@ -37,7 +37,7 @@ React + Tailwind CSS v4 + effect-atom application showcasing Scene Systems packa
 10. **No alpha modifiers on colours** — a colour's translucency is one of the palette contract's levels, `solid | veil | glass | mist` (`contracts/palette.ts` `Translucency`), worn as the level's own utility: `bg-paper-veil`, `border-hairline-glass`, `bg-ink-strong-mist`; never `bg-paper/86`. The same eslint rule holds this in `app/web`; the contract test holds every ink to AA over every translucent surface.
 11. **No brand colour or geometry outside the brand contract** — `index.html` `theme-color`, `manifest.webmanifest`, `favicon.svg`, the raster icons and share cards, and `TheoriaLogo` all follow `contracts/brand.ts` (the mark, and `brandColor("canvas"|"ink", mode)` = the palette's role). Change the contract, run `bun run gen:brand-assets` then `bun run gen:social-assets`, and commit; never edit an artefact by hand. `test/contracts/brand.contract.test.ts` holds each text artefact to its rendering.
 12. **No `forwardRef`** — React 19: `ref` is a prop.
-13. **Schema is single source of truth** — all types derive from Schema. No `as` assertions, no `satisfies`.
+13. **Use the native model for its semantics** — Schema owns validated and encoded data; Data owns structural values without codecs; Context owns services. Derive Schema-owned types from their canonical schemas. No `as` assertions, no `satisfies`.
 
 ---
 

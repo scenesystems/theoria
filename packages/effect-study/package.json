@@ -1,0 +1,64 @@
+{
+  "name": "@scenesystems/effect-study",
+  "version": "0.0.0",
+  "type": "module",
+  "description": "Effect-native trial evaluation, history, and artifacts",
+  "license": "MIT",
+  "homepage": "https://github.com/scenesystems/theoria/tree/main/packages/effect-study",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/scenesystems/theoria.git",
+    "directory": "packages/effect-study"
+  },
+  "bugs": {
+    "url": "https://github.com/scenesystems/theoria/issues"
+  },
+  "keywords": [
+    "effect",
+    "study",
+    "experiments",
+    "evaluation"
+  ],
+  "publishConfig": {
+    "access": "public",
+    "provenance": true,
+    "directory": "dist"
+  },
+  "exports": {
+    ".": "./src/index.ts",
+    "./Artifact": "./src/Artifact.ts",
+    "./ArtifactContext": "./src/ArtifactContext.ts",
+    "./ArtifactSink": "./src/ArtifactSink.ts",
+    "./Emitter": "./src/Emitter.ts",
+    "./Trial": "./src/Trial.ts",
+    "./History": "./src/History.ts",
+    "./Lifecycle": "./src/Lifecycle.ts",
+    "./Stop": "./src/Stop.ts",
+    "./Study": "./src/Study.ts",
+    "./StudyEvent": "./src/StudyEvent.ts",
+    "./StudyStorage": "./src/StudyStorage.ts",
+    "./Evaluation": "./src/Evaluation.ts",
+    "./Journal": "./src/Journal.ts",
+    "./internal/*": null
+  },
+  "scripts": {
+    "check": "tsc -b tsconfig.src.json",
+    "check:tests": "tsc -b tsconfig.test.json",
+    "check:examples": "tsc -b tsconfig.examples.json",
+    "lint": "cd ../.. && oxlint packages/effect-study && eslint --cache --cache-location node_modules/.cache/eslint/ --max-warnings=0 packages/effect-study && dprint check \"packages/effect-study/**\"",
+    "lint:fix": "cd ../.. && oxlint --fix packages/effect-study && eslint --cache --cache-location node_modules/.cache/eslint/ --max-warnings=0 --fix packages/effect-study && dprint fmt \"packages/effect-study/**\"",
+    "test": "vitest run --root ../.. packages/effect-study/test",
+    "build-esm": "tsc -b tsconfig.build.json",
+    "build-annotate": "babel build/esm --plugins annotate-pure-calls --out-dir build/esm --source-maps",
+    "build-cjs": "babel build/esm --plugins @babel/transform-export-namespace-from --plugins @babel/transform-modules-commonjs --out-dir build/cjs --source-maps",
+    "build": "bun run build-esm && bun run build-annotate && bun run build-cjs && build-utils pack-v3",
+    "clean": "rm -rf build dist .tsbuildinfo"
+  },
+  "dependencies": {
+    "@scenesystems/digest": "workspace:^"
+  },
+  "peerDependencies": {
+    "@effect/platform": "^0.97.1",
+    "effect": "^3.22.1"
+  }
+}

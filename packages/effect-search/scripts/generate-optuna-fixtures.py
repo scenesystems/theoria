@@ -27,7 +27,7 @@ from pathlib import Path
 from typing import Any
 
 # Family imports — each module exports generate(generated_at) -> list[dict]
-from fixtures._common import GENERATOR_VERSION, SCHEMA_VERSION, write_json
+from fixtures._common import GENERATOR_VERSION, write_json
 from fixtures import (
     gamma,
     split_trials,
@@ -98,7 +98,6 @@ def build_manifest(generated_at: str, fixture_docs: list[dict[str, Any]]) -> dic
     ]
 
     return {
-        "schemaVersion": SCHEMA_VERSION,
         "generator": {
             "script": "scripts/generate-optuna-fixtures.py",
             "generatorVersion": GENERATOR_VERSION,

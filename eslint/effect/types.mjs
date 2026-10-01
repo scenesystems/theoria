@@ -1,7 +1,7 @@
 /**
  * Type-level discipline: no assertions, no TypeScript utility types over
- * schema-derived types, no module stubs or tacit composition, and the
- * schema-first modeling rules that only library code carries.
+ * schema-derived types, no module stubs or tacit composition, and native
+ * Schema/Data modeling rules for first-party code.
  *
  * @module eslint/effect/types
  */
@@ -68,9 +68,12 @@ export const TACIT_USAGE_RULES = [
 
 export const TYPE_MODELING_RULES = [
   {
-    selector: "TSInterfaceDeclaration",
+    // Effect documents empty interfaces extending Schema.Type/Encoded as native
+    // type extraction. They may anchor recursive codecs without a parallel model.
+    selector:
+      "TSInterfaceDeclaration:not([body.body.length=0][extends.length=1][extends.0.expression.object.object.name='Schema'][extends.0.expression.object.property.name='Schema'][extends.0.expression.property.name=/^(Type|Encoded)$/][extends.0.typeArguments.params.length=1][extends.0.typeArguments.params.0.type='TSTypeQuery'][extends.0.typeArguments.params.0.exprName.type='Identifier'])",
     message:
-      "Do not use TypeScript interfaces. Model runtime contracts with Schema.Class, Schema.TaggedClass, or Data.TaggedClass."
+      "Do not handwrite interface models. Use Schema/Class APIs or an empty interface deriving only Schema.Schema.Type<typeof schema> or Schema.Schema.Encoded<typeof schema>."
   },
   {
     selector: "TSTypeAliasDeclaration[typeAnnotation.type='TSTypeLiteral']",
@@ -81,12 +84,6 @@ export const TYPE_MODELING_RULES = [
     selector: "TSTypeAliasDeclaration[typeAnnotation.type='TSConditionalType']",
     message:
       "Do not use conditional helper type aliases for runtime contracts. Derive from canonical Schema values instead."
-  },
-  {
-    selector:
-      "TSTypeAliasDeclaration[typeAnnotation.type='TSTypeReference'][typeAnnotation.typeName.type='TSQualifiedName'][typeAnnotation.typeName.left.name='Data'][typeAnnotation.typeName.right.name='TaggedEnum']",
-    message:
-      "Do not define event contracts as type aliases over Data.TaggedEnum. Use schema-backed runtime models or tagged class values."
   },
   {
     selector: "TSTypeReference[typeName.name='Readonly'] > TSTypeParameterInstantiation > TSTypeLiteral",

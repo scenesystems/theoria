@@ -1,4 +1,5 @@
 import { Clock, Effect } from "effect"
+import * as Num from "effect/Number"
 
 import { jsonResponse, responseMeta } from "../api-response.js"
 import { RuntimeInfo } from "../config/runtime.js"
@@ -29,7 +30,7 @@ export const readyRoute = (requestId: string) =>
       meta,
       data: {
         status: "ready",
-        uptimeMs: now - runtimeInfo.startedAtMs
+        uptimeMs: Num.subtract(now, runtimeInfo.startedAtMs)
       }
     })
   })

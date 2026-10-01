@@ -1,4 +1,4 @@
-import { Array as Arr, Option, Order } from "effect"
+import { Array as Arr, Boolean as Bool, Number as Num, Option, Order, String as Str } from "effect"
 
 import { type PackagePublicExport } from "./public-exports.js"
 import { apiPagePath, routeSlug } from "./reflections.js"
@@ -8,10 +8,12 @@ export const hasSourceDocumentationPages = (
   sourcePackage: ApiSourcePackage,
   module: ApiSourceModule
 ): boolean =>
-  sourcePackage.modules.length === 1
-  && module.canonicalSubpath === "."
-  && module.routes.length === 1
-  && module.routes[0]?.entrypoint.subpath === "."
+  Bool.every(Arr.make(
+    Num.Equivalence(Arr.length(sourcePackage.modules), 1),
+    Str.Equivalence(module.canonicalSubpath, "."),
+    Num.Equivalence(Arr.length(module.routes), 1),
+    Option.exists(Arr.head(module.routes), (route) => Str.Equivalence(route.entrypoint.subpath, "."))
+  ))
 
 export const sourceDocumentationSlug = (relativeSource: string): string =>
   routeSlug(sourceModuleSubpath(relativeSource))
@@ -24,9 +26,13 @@ export const sourceDocumentationFiles = (
 ): ReadonlyArray<SourceFilePath> => {
   const contributing: ReadonlyArray<SourceFilePath> = Arr.filterMap(
     publicExports,
-    (entry) => entry.sourceFile.relative === module.relative ? Option.none() : Option.some(entry.sourceFile)
+    (entry) =>
+      Bool.match(Str.Equivalence(entry.sourceFile.relative, module.relative), {
+        onTrue: Option.none,
+        onFalse: () => Option.some(entry.sourceFile)
+      })
   )
-  const distinct = Arr.dedupeWith(contributing, (left, right) => left.relative === right.relative)
+  const distinct = Arr.dedupeWith(contributing, (left, right) => Str.Equivalence(left.relative, right.relative))
 
   return Arr.sort(distinct, Order.mapInput(Order.string, (file: SourceFilePath) => file.relative))
 }
@@ -41,11 +47,18 @@ export const documentationPathForExport = (input: {
     routeSlug(input.publicExport.subpath)
   )
 
-  return hasSourceDocumentationPages(input.sourcePackage, input.module)
-      && input.publicExport.sourceFile.relative !== input.module.relative
-    ? apiPagePath(
-      input.sourcePackage.directoryName,
-      sourceDocumentationSlug(input.publicExport.sourceFile.relative)
-    )
-    : routePath
+  return Bool.match(
+    Bool.and(
+      hasSourceDocumentationPages(input.sourcePackage, input.module),
+      Bool.not(Str.Equivalence(input.publicExport.sourceFile.relative, input.module.relative))
+    ),
+    {
+      onTrue: () =>
+        apiPagePath(
+          input.sourcePackage.directoryName,
+          sourceDocumentationSlug(input.publicExport.sourceFile.relative)
+        ),
+      onFalse: () => routePath
+    }
+  )
 }

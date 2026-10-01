@@ -5,7 +5,7 @@ from __future__ import annotations
 import math
 from typing import Any
 
-import numpy as np
+import numpy
 
 from ._common import metadata
 
@@ -49,7 +49,7 @@ def _log1p_case(case_id: str, x: float) -> dict[str, Any]:
         "id": case_id,
         "operation": "log1p",
         "input": {"x": x},
-        "expected": float(np.log1p(x)),
+        "expected": float(numpy.log1p(x)),
     }
 
 
@@ -58,7 +58,7 @@ def _expm1_case(case_id: str, x: float) -> dict[str, Any]:
         "id": case_id,
         "operation": "expm1",
         "input": {"x": x},
-        "expected": float(np.expm1(x)),
+        "expected": float(numpy.expm1(x)),
     }
 
 

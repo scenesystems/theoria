@@ -1,5 +1,6 @@
 import { HttpServerResponse } from "@effect/platform"
 import { Clock, Effect } from "effect"
+import * as Num from "effect/Number"
 
 import type { Metadata } from "../contracts/envelope.js"
 import { RuntimeInfo } from "./config/runtime.js"
@@ -13,7 +14,7 @@ export const responseMeta = (
     const runtimeInfo = yield* RuntimeInfo
     const endedAtMs = yield* Clock.currentTimeMillis
 
-    return { requestId, buildSha: runtimeInfo.buildSha, durationMs: endedAtMs - startedAtMs }
+    return { requestId, buildSha: runtimeInfo.buildSha, durationMs: Num.subtract(endedAtMs, startedAtMs) }
   })
 
 /**

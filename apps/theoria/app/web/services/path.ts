@@ -1,5 +1,6 @@
-import { Match, Option, Schema } from "effect"
+import { Boolean as Bool, Equal, Match, Option, Schema } from "effect"
 import * as Arr from "effect/Array"
+import * as Str from "effect/String"
 
 import {
   docsApiRoute,
@@ -27,22 +28,22 @@ const docsApiPattern = /^\/docs\/([^/]+)\/api(?:\/([^/]+(?:\/[^/]+)*))?\/?$/u
 const docsGuidePattern = /^\/docs\/([^/]+)\/([^/]+)\/?$/u
 const docsOverviewPattern = /^\/docs\/([^/]+)\/?$/u
 
-const packageCapture = (matches: RegExpExecArray): Option.Option<DocsPackageSlug> =>
+const packageCapture = (matches: ReadonlyArray<string>): Option.Option<DocsPackageSlug> =>
   Arr.get(matches, 1).pipe(Option.filter(isDocsPackageSlug))
 
 const docsApiPageRoute = (pathname: string): Option.Option<PageRoute> =>
-  Option.fromNullable(docsApiPattern.exec(pathname)).pipe(
+  Str.match(docsApiPattern)(pathname).pipe(
     Option.flatMap((matches) => {
       const moduleSlug = Arr.get(matches, 2).pipe(Option.flatMap(Option.fromNullable))
       return packageCapture(matches).pipe(
-        Option.filter(() => Option.isNone(moduleSlug) || Option.exists(moduleSlug, isDocsModuleSlug)),
+        Option.filter(() => Bool.or(Option.isNone(moduleSlug), Option.exists(moduleSlug, isDocsModuleSlug))),
         Option.map((packageSlug) => docsApiRoute(packageSlug, moduleSlug))
       )
     })
   )
 
 const docsGuidePageRoute = (pathname: string): Option.Option<PageRoute> =>
-  Option.fromNullable(docsGuidePattern.exec(pathname)).pipe(
+  Str.match(docsGuidePattern)(pathname).pipe(
     Option.flatMap((matches) =>
       Option.all({
         guideSlug: Arr.get(matches, 2).pipe(Option.filter(isDocsGuideSlug)),
@@ -53,30 +54,34 @@ const docsGuidePageRoute = (pathname: string): Option.Option<PageRoute> =>
   )
 
 const docsOverviewPageRoute = (pathname: string): Option.Option<PageRoute> =>
-  Option.fromNullable(docsOverviewPattern.exec(pathname)).pipe(
+  Str.match(docsOverviewPattern)(pathname).pipe(
     Option.flatMap((matches) => packageCapture(matches)),
     Option.map(docsOverviewRoute)
   )
 
 const docsPageRoute = (pathname: string): Option.Option<PageRoute> =>
-  (pathname === "/docs" || pathname === "/docs/"
-    ? Option.some<PageRoute>(docsIndexRoute())
-    : Option.none<PageRoute>()).pipe(
-      Option.orElse(() => docsApiPageRoute(pathname)),
-      Option.orElse(() => docsGuidePageRoute(pathname)),
-      Option.orElse(() => docsOverviewPageRoute(pathname)),
-      Option.orElse(() =>
-        pathname.startsWith("/docs/")
-          ? Option.some<PageRoute>(docsNotFoundRoute())
-          : Option.none<PageRoute>()
-      )
+  Bool.match(Bool.or(Equal.equals(pathname, "/docs"), Equal.equals(pathname, "/docs/")), {
+    onTrue: () => Option.some<PageRoute>(docsIndexRoute()),
+    onFalse: () => Option.none<PageRoute>()
+  }).pipe(
+    Option.orElse(() => docsApiPageRoute(pathname)),
+    Option.orElse(() => docsGuidePageRoute(pathname)),
+    Option.orElse(() => docsOverviewPageRoute(pathname)),
+    Option.orElse(() =>
+      Bool.match(Str.startsWith("/docs/")(pathname), {
+        onTrue: () => Option.some<PageRoute>(docsNotFoundRoute()),
+        onFalse: () => Option.none<PageRoute>()
+      })
     )
+  )
 
 export const isPagePath = (pathname: string): boolean =>
-  pathname === "/"
-  || pathname === "/index.html"
-  || pathname === "/docs"
-  || pathname.startsWith("/docs/")
+  Bool.some([
+    Equal.equals(pathname, "/"),
+    Equal.equals(pathname, "/index.html"),
+    Equal.equals(pathname, "/docs"),
+    Str.startsWith("/docs/")(pathname)
+  ])
 
 export const pagePathFor = (route: PageRoute): string =>
   Match.value(route).pipe(

@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from typing import Any
 
-import numpy as np
+import numpy
 from scipy import stats
 
 from ._common import metadata
@@ -99,7 +99,7 @@ def _uniform_cdf_case(
 
 
 def _entropy_case(case_id: str, probs: list[float]) -> dict[str, Any]:
-    p = np.array(probs, dtype=np.float64)
+    p = numpy.array(probs, dtype=numpy.float64)
     h = float(stats.entropy(p))
     return {
         "id": case_id,

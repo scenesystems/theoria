@@ -10,6 +10,7 @@
   "files": [],
   "references": [
     { "path": "./packages/digest/tsconfig.test.json" },
+    { "path": "./packages/effect-study/tsconfig.test.json" },
     { "path": "./packages/effect-dsp/tsconfig.test.json" },
     { "path": "./packages/effect-inference/tsconfig.test.json" },
     { "path": "./packages/effect-math/tsconfig.test.json" },

@@ -1,4 +1,4 @@
-import { Boolean as Bool, Equal, Match, Option, Schema } from "effect"
+import { BigDecimal, BigInt as BI, Boolean as Bool, Equal, Inspectable, Match, Option, Schema } from "effect"
 import * as Arr from "effect/Array"
 import * as Num from "effect/Number"
 import * as Str from "effect/String"
@@ -40,6 +40,29 @@ import type { PlaceholderMotion } from "../primitives/Skeleton.js"
  * render frame into strings; nothing here reads atoms or touches the DOM.
  */
 
+/** Formats stage measurements with decimal half-away-from-zero rounding and retained trailing zeroes. */
+export const fixedDecimal = (value: number, places: number): string =>
+  Option.match(BigDecimal.safeFromNumber(value), {
+    onNone: () => Inspectable.toStringUnknown(value),
+    onSome: (decimal) => {
+      const rounded = BigDecimal.scale(BigDecimal.round(decimal, { scale: places, mode: "half-from-zero" }), places)
+      const digits = Str.padStart(Num.increment(places), "0")(
+        Schema.encodeSync(Schema.BigInt)(BI.abs(rounded.value))
+      )
+      const separator = Num.subtract(Str.length(digits), places)
+      const sign = Bool.match(BigDecimal.isNegative(decimal), { onTrue: () => "-", onFalse: () => "" })
+      return Str.concat(
+        sign,
+        Bool.match(Equal.equals(places, 0), {
+          onTrue: () => digits,
+          onFalse: () => `${Str.slice(0, separator)(digits)}.${Str.slice(separator)(digits)}`
+        })
+      )
+    }
+  })
+
+const numberText = (value: number): string => Inspectable.toStringUnknown(value)
+
 /** Content IDs look like `blake3-256:…`; the short form keeps the first characters of the digest itself. */
 export const shortId = (id: string): string => {
   const start = Option.match(Str.indexOf(":")(id), { onNone: () => 0, onSome: Num.increment })
@@ -57,7 +80,7 @@ export const contentIdShape = `blake3-256:${unknownDigest}`
 const keyDigits = (fingerprint: string): string => Str.takeLeft(fingerprint, 8)
 
 /** Who has a feature in this version: the author always, and each proposer whose proposal was merged. */
-export const presentParticipants = (place: PlaceOutline): ReadonlyArray<ParticipantRole> =>
+export const presentParticipants = (place: PlaceOutline) =>
   Arr.filter(
     ParticipantRole.literals,
     (role) =>
@@ -109,15 +132,18 @@ export const PlaceLegendEntry = Schema.Struct({
 })
 export type PlaceLegendEntry = typeof PlaceLegendEntry.Type
 
-export const legendFromOutline = (place: PlaceOutline): ReadonlyArray<PlaceLegendEntry> =>
+export const legendFromOutline = (place: PlaceOutline) =>
   Arr.zipWith(placeFeatures(place), contributorsOf(place), (feature, contributor) =>
     PlaceLegendEntry.make({
       name: feature.name,
       contributedBy: Option.getOrElse(contributor, (): ParticipantRole => "author")
     }))
 
-export const legendFromMarkers = (markers: ReadonlyArray<PlaceMarker>): ReadonlyArray<PlaceLegendEntry> =>
-  Arr.map(markers, (marker) => PlaceLegendEntry.make({ name: marker.name, contributedBy: markerContributor(marker) }))
+export const legendFromMarkers = (markers: Iterable<PlaceMarker>) =>
+  Arr.map(
+    Arr.fromIterable(markers),
+    (marker) => PlaceLegendEntry.make({ name: marker.name, contributedBy: markerContributor(marker) })
+  )
 
 /** Under forced colours the ring is dropped with every shadow, so the disc keeps its edge as a `CanvasText` border on the `Canvas`. */
 const discEdgeClassName = "forced-colors:border forced-colors:border-[CanvasText] forced-colors:bg-[Canvas]"
@@ -233,26 +259,31 @@ const bandGap = 10
  */
 export const bandRow = (projection: PlaceProjection): BandRow =>
   Arr.match(projection.markers, {
-    onEmpty: () => ({
-      width: Num.multiply(bandMargin, 2),
-      height: Num.multiply(bandMargin, 2),
-      cy: bandMargin,
-      discs: []
-    }),
+    onEmpty: () =>
+      BandRow.make({
+        width: Num.multiply(bandMargin, 2),
+        height: Num.multiply(bandMargin, 2),
+        cy: bandMargin,
+        discs: Arr.empty()
+      }),
     onNonEmpty: (markers) => {
       // Each disc's left edge; the last entry is where one more would start.
       const lefts = Arr.scan(
         markers,
         bandMargin,
-        (left, marker) => Num.sumAll([left, Num.multiply(marker.radius, 2), bandGap])
+        (left, marker) => Num.sumAll(Arr.make(left, Num.multiply(marker.radius, 2), bandGap))
       )
       const tallest = Arr.max(Arr.map(markers, (marker) => marker.radius), Num.Order)
-      return {
+      return BandRow.make({
         width: Num.sum(Num.subtract(Arr.lastNonEmpty(lefts), bandGap), bandMargin),
         height: Num.multiply(Num.sum(tallest, bandMargin), 2),
         cy: Num.sum(tallest, bandMargin),
-        discs: Arr.zipWith(markers, lefts, (marker, left) => ({ marker, cx: Num.sum(left, marker.radius) }))
-      }
+        discs: Arr.zipWith(
+          markers,
+          lefts,
+          (marker, left) => BandDisc.make({ marker, cx: Num.sum(left, marker.radius) })
+        )
+      })
     }
   })
 
@@ -282,7 +313,7 @@ export const bandDiscPlacing = (preference: MotionPreference, cx: number) =>
       animate: { cx, opacity: 1 },
       transition: { cx: shiftTransition }
     })),
-    Match.when("reduced", () => ({ cx: cx.toFixed(1), initial: departed, animate: { opacity: 1 } })),
+    Match.when("reduced", () => ({ cx: fixedDecimal(cx, 1), initial: departed, animate: { opacity: 1 } })),
     Match.exhaustive
   )
 
@@ -299,13 +330,17 @@ export const markerLabel = (marker: PlaceMarker): string =>
  * The attribute a focused element wears, as props to spread: present and
  * empty while focused, absent otherwise.
  */
-export const focusedAttribute = (focused: boolean): { readonly "data-place-focused"?: "" } =>
-  Bool.match(focused, { onTrue: () => ({ "data-place-focused": "" }), onFalse: () => ({}) })
+const FocusedAttribute = Schema.Struct({ "data-place-focused": Schema.optional(Schema.Literal("")) })
+export const focusedAttribute = (focused: boolean) =>
+  Bool.match(focused, {
+    onTrue: () => FocusedAttribute.make({ "data-place-focused": "" }),
+    onFalse: () => FocusedAttribute.make({})
+  })
 
 /** What a region built from the place says of the build: here, or still pending. */
 export const BuildPresence = Schema.Literal("built", "pending")
 export type BuildPresence = typeof BuildPresence.Type
-export const buildPresence = (build: Option.Option<unknown>): BuildPresence =>
+export const buildPresence = <A>(build: Option.Option<A>): BuildPresence =>
   Option.match(build, { onNone: (): BuildPresence => "pending", onSome: (): BuildPresence => "built" })
 
 /** Whether an index is the first of a sequence: the one nothing stands before. */
@@ -339,7 +374,7 @@ export const versionSignatureLabel = (signature: SignatureRecord): string =>
 export const versionSignatureLabelShape = signedLabel("author", unknownDigest)
 
 export const signatureFor = (
-  signatures: ReadonlyArray<SignatureRecord>,
+  signatures: Iterable<SignatureRecord>,
   subject: string
 ): Option.Option<SignatureRecord> => Arr.findFirst(signatures, (signature) => Equal.equals(signature.subject, subject))
 
@@ -347,7 +382,7 @@ export const signatureFor = (
 export const currentVersion = (evidence: PlaceEvidence): Version => Arr.lastNonEmpty(evidence.lineage)
 
 /** A merged proposal is part of the current version; the pill on its card names which one. */
-export const mergedIntoText = (current: VersionShape): string => `In v${String(current.version)}`
+export const mergedIntoText = (current: VersionShape): string => `In v${numberText(current.version)}`
 
 export const isCurrentVersion = (evidence: PlaceEvidence, version: Version): boolean =>
   Equal.equals(currentVersion(evidence).contentId, version.contentId)
@@ -357,7 +392,7 @@ const isOrigin = (shape: VersionShape): boolean => Equal.equals(shape.version, 1
 
 /** The knot's label: the first version is the origin; every later one is the current version while it is last. */
 export const knotLabel = (shape: VersionShape): string =>
-  `V${String(shape.version)} · ${Bool.match(isOrigin(shape), { onTrue: () => "Origin", onFalse: () => "Current" })}`
+  `V${numberText(shape.version)} · ${Bool.match(isOrigin(shape), { onTrue: () => "Origin", onFalse: () => "Current" })}`
 
 /** The version a knot on the strand records, once the build is here: the one of the knot's shape. */
 export const versionOf = (evidence: PlaceEvidence, shape: VersionShape): Option.Option<Version> =>
@@ -365,7 +400,7 @@ export const versionOf = (evidence: PlaceEvidence, shape: VersionShape): Option.
 
 const sealedNoteText = (bytes: string): string => `Sealed note · ${bytes} bytes`
 /** The envelope as anyone but the author sees it: sealed, and this big. */
-export const sealedNoteLabel = (note: SealedNote): string => sealedNoteText(String(note.envelopeBytes))
+export const sealedNoteLabel = (note: SealedNote): string => sealedNoteText(numberText(note.envelopeBytes))
 /** The room the envelope takes before it is sealed: a size of three digits, as the notes run. */
 export const sealedNoteLabelShape = sealedNoteText("000")
 
@@ -395,12 +430,12 @@ export const proposalAnchorLine = (projection: PlaceProjection, record: Proposal
   })
 
 /** What the version added: the origin's feature count, or each merged proposal with who offered it. */
-export const versionChanges = (offered: ReadonlyArray<OfferedProposal>, shape: VersionShape): ReadonlyArray<string> =>
+export const versionChanges = (offered: Iterable<OfferedProposal>, shape: VersionShape) =>
   Bool.match(isOrigin(shape), {
-    onTrue: () => [`${String(shape.featureCount)} features from your brief`],
+    onTrue: () => Arr.make(`${numberText(shape.featureCount)} features from your brief`),
     onFalse: () =>
       Arr.map(
-        Arr.filter(offered, (proposal) => proposal.accepted),
+        Arr.filter(Arr.fromIterable(offered), (proposal) => proposal.accepted),
         (proposal) => `+ ${proposal.proposal.feature.name} · ${participantLabel(proposal.proposal.proposer)}`
       )
   })
@@ -430,12 +465,13 @@ const lossOf = (search: PlaceSearch, index: number): Option.Option<number> =>
   Option.map(Arr.get(search.tried, index), (arrangement) => arrangement.quality.loss)
 
 /** Trials are numbered from one for the reader, and from zero in the trace. */
-const trialOrdinal = (index: number): string => String(Num.increment(index))
+const trialOrdinal = (index: number): string => numberText(Num.increment(index))
 
 /** Whether the trial at this index is the one the search kept. */
 export const isKept = (search: PlaceSearch, index: number): boolean => Equal.equals(index, search.bestIndex)
 
-const searchingText = (tried: number): string => `Searching arrangements · ${String(tried)} of ${String(renderTrials)}`
+const searchingText = (tried: number): string =>
+  `Searching arrangements · ${numberText(tried)} of ${numberText(renderTrials)}`
 /** The room the caption takes before the search has started: the search, with nothing tried yet. */
 export const searchCaptionShape = searchingText(0)
 
@@ -449,13 +485,17 @@ export const renderProgressText = (search: PlaceSearch, shown: number): string =
     onTrue: () => searchingText(Arr.length(search.tried)),
     onFalse: () =>
       Option.match(lossOf(search, shown), {
-        onNone: () => `${String(Arr.length(search.tried))} arrangements tried`,
+        onNone: () => `${numberText(Arr.length(search.tried))} arrangements tried`,
         onSome: (loss) =>
           Bool.match(isKept(search, shown), {
             onTrue: () =>
-              `Kept trial ${trialOrdinal(shown)} of ${String(Arr.length(search.tried))} · loss ${loss.toFixed(3)}`,
+              `Kept trial ${trialOrdinal(shown)} of ${numberText(Arr.length(search.tried))} · loss ${
+                fixedDecimal(loss, 3)
+              }`,
             onFalse: () =>
-              `Trial ${trialOrdinal(shown)} of ${String(Arr.length(search.tried))} · loss ${loss.toFixed(3)} · not kept`
+              `Trial ${trialOrdinal(shown)} of ${numberText(Arr.length(search.tried))} · loss ${
+                fixedDecimal(loss, 3)
+              } · not kept`
           })
       })
   })
@@ -497,12 +537,12 @@ export const trialValueText = (search: PlaceSearch, index: number): string =>
   Option.match(lossOf(search, index), {
     onNone: () => `Trial ${trialOrdinal(index)}, not tried yet`,
     onSome: (loss) =>
-      `Trial ${trialOrdinal(index)} of ${String(Arr.length(search.tried))}, loss ${loss.toFixed(3)}${
+      `Trial ${trialOrdinal(index)} of ${numberText(Arr.length(search.tried))}, loss ${fixedDecimal(loss, 3)}${
         Bool.match(isKept(search, index), { onTrue: () => ", kept", onFalse: () => "" })
       }`
   })
 
-export const stagePresetLabel = (width: number): string => `${String(width)} px`
+export const stagePresetLabel = (width: number): string => `${numberText(width)} px`
 
 /** Presets closer together than this draw almost the same picture. */
 const presetGapMin = 80
@@ -511,9 +551,12 @@ const presetGapMin = 80
  * The widths worth choosing between: the fixed presets that fit with room to
  * spare, then the full column. Below two there is nothing to choose.
  */
-export const drawablePresets = (presets: ReadonlyArray<number>, maxDrawable: number): ReadonlyArray<number> => {
+export const drawablePresets = (presets: Iterable<number>, maxDrawable: number) => {
   const fitting = Arr.append(
-    Arr.filter(presets, (preset) => Num.lessThanOrEqualTo(Num.sum(preset, presetGapMin), maxDrawable)),
+    Arr.filter(
+      Arr.fromIterable(presets),
+      (preset) => Num.lessThanOrEqualTo(Num.sum(preset, presetGapMin), maxDrawable)
+    ),
     maxDrawable
   )
   return Bool.match(Num.greaterThanOrEqualTo(Arr.length(fitting), 2), {
@@ -522,4 +565,4 @@ export const drawablePresets = (presets: ReadonlyArray<number>, maxDrawable: num
   })
 }
 
-export const briefCountText = (length: number, max: number): string => `${String(length)} / ${String(max)}`
+export const briefCountText = (length: number, max: number): string => `${numberText(length)} / ${numberText(max)}`

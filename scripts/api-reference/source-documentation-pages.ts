@@ -1,4 +1,4 @@
-import { Array as Arr, Effect, Option } from "effect"
+import { Array as Arr, Boolean as Bool, Effect, Number as Num, Option, String as Str } from "effect"
 
 import { type ApiPage } from "@theoria/docs-model"
 import { type ApiConvertedModule } from "./converted.js"
@@ -23,8 +23,8 @@ const duplicateSlug = (sources: ReadonlyArray<string>): Option.Option<string> =>
   Arr.findFirst(
     sources,
     (source, index) =>
-      Arr.some(sources.slice(index + 1), (candidate) =>
-        sourceDocumentationSlug(candidate) === sourceDocumentationSlug(source))
+      Arr.some(Arr.drop(sources, Num.increment(index)), (candidate) =>
+        Str.Equivalence(sourceDocumentationSlug(candidate), sourceDocumentationSlug(source)))
   )
 
 export const makeSourceDocumentationPages = (input: {
@@ -35,97 +35,106 @@ export const makeSourceDocumentationPages = (input: {
   readonly route: ApiReferenceRoute
   readonly page: ApiPage
 }) => {
-  if (!hasSourceDocumentationPages(input.sourcePackage, input.module.source)) {
-    return Effect.succeed<ReadonlyArray<ApiPage>>([])
-  }
-
-  return Effect.gen(function*() {
-    const sourceRoute = yield* Option.match(
-      Arr.findFirst(input.module.routes, (candidate) => candidate.entrypoint.subpath === input.route.subpath),
-      {
-        onNone: () =>
-          Effect.fail(generationError(
-            input.sourcePackage.manifest.name,
-            `${input.route.subpath} has no source route`
-          )),
-        onSome: Effect.succeed
-      }
-    )
-    const sources = Arr.map(
-      sourceDocumentationFiles(input.module.source, sourceRoute.publicExports),
-      (sourceFile) => sourceFile.relative
-    )
-    const collision = duplicateSlug(sources)
-
-    if (Option.isSome(collision)) {
-      return yield* generationError(
-        input.sourcePackage.manifest.name,
-        `source documentation path collides for ${collision.value}`
-      )
-    }
-
-    return yield* Effect.forEach(sources, (source) =>
+  return Bool.match(hasSourceDocumentationPages(input.sourcePackage, input.module.source), {
+    onFalse: () => Effect.succeed<ReadonlyArray<ApiPage>>(Arr.empty()),
+    onTrue: () =>
       Effect.gen(function*() {
-        const publicExports = Arr.filter(sourceRoute.publicExports, (entry) => entry.sourceFile.relative === source)
-        const exports = Arr.filter(input.page.exports, (apiExport) =>
-          Arr.some(publicExports, (entry) =>
-            entry.exportName === apiExport.name && entry.kind === apiExport.importKind))
-
-        if (exports.length !== publicExports.length) {
-          return yield* generationError(
-            input.sourcePackage.manifest.name,
-            `${source} documentation projection omitted a public export`
-          )
-        }
-
-        const slug = sourceDocumentationSlug(source)
-        const comment = yield* Option.match(
-          Arr.findFirst(input.module.sourceComments, (candidate) =>
-            candidate.source === source),
+        const sourceRoute = yield* Option.match(
+          Arr.findFirst(input.module.routes, (candidate) =>
+            Str.Equivalence(candidate.entrypoint.subpath, input.route.subpath)),
           {
             onNone: () =>
               Effect.fail(generationError(
                 input.sourcePackage.manifest.name,
-                `${source} was not converted for source documentation`
+                `${input.route.subpath} has no source route`
               )),
-            onSome: (converted) => Effect.succeed(converted.comment)
+            onSome: Effect.succeed
           }
         )
-        const since = tagText(Option.some(comment), "@since")
-        const path = apiPagePath(input.sourcePackage.directoryName, slug)
-        const sourceUrl =
-          `${repositoryUrl}/blob/${input.revision}/packages/${input.sourcePackage.directoryName}/${source}`
+        const sources = Arr.map(
+          sourceDocumentationFiles(input.module.source, sourceRoute.publicExports),
+          (sourceFile) =>
+            sourceFile.relative
+        )
+        const collision = duplicateSlug(sources)
 
-        const page: ApiPage = {
-          schemaVersion: 2,
-          kind: "api-module",
-          path,
-          canonical: true,
-          canonicalPath: path,
-          aliases: [],
-          package: input.page.package,
-          module: {
-            kind: "source",
-            name: slug,
-            subpath: input.route.subpath,
-            slug,
-            source,
-            docs: documentation(
-              Option.some(comment),
-              new ApiDocContext({
-                packageName: input.sourcePackage.manifest.name,
-                route: input.route,
-                links: input.links
-              })
-            ),
-            since,
-            sourceUrl
-          },
-          categories: categoriesForExports(exports),
-          exports
-        }
+        yield* Option.match(collision, {
+          onNone: () => Effect.void,
+          onSome: (source) =>
+            generationError(
+              input.sourcePackage.manifest.name,
+              `source documentation path collides for ${source}`
+            )
+        })
 
-        return page
-      }))
+        return yield* Effect.forEach(sources, (source) =>
+          Effect.gen(function*() {
+            const publicExports = Arr.filter(sourceRoute.publicExports, (entry) =>
+              Str.Equivalence(entry.sourceFile.relative, source))
+            const exports = Arr.filter(input.page.exports, (apiExport) =>
+              Arr.some(publicExports, (entry) =>
+                Bool.and(
+                  Str.Equivalence(entry.exportName, apiExport.name),
+                  Str.Equivalence(entry.kind, apiExport.importKind)
+                )))
+
+            yield* Effect.unless(
+              generationError(
+                input.sourcePackage.manifest.name,
+                `${source} documentation projection omitted a public export`
+              ),
+              () =>
+                Num.Equivalence(Arr.length(exports), Arr.length(publicExports))
+            )
+
+            const slug = sourceDocumentationSlug(source)
+            const comment = yield* Option.match(
+              Arr.findFirst(input.module.sourceComments, (candidate) => Str.Equivalence(candidate.source, source)),
+              {
+                onNone: () =>
+                  Effect.fail(generationError(
+                    input.sourcePackage.manifest.name,
+                    `${source} was not converted for source documentation`
+                  )),
+                onSome: (converted) => Effect.succeed(converted.comment)
+              }
+            )
+            const since = tagText(Option.some(comment), "@since")
+            const path = apiPagePath(input.sourcePackage.directoryName, slug)
+            const sourceUrl =
+              `${repositoryUrl}/blob/${input.revision}/packages/${input.sourcePackage.directoryName}/${source}`
+
+            const page: ApiPage = {
+              schemaVersion: 2,
+              kind: "api-module",
+              path,
+              canonical: true,
+              canonicalPath: path,
+              aliases: Arr.empty(),
+              package: input.page.package,
+              module: {
+                kind: "source",
+                name: slug,
+                subpath: input.route.subpath,
+                slug,
+                source,
+                docs: documentation(
+                  Option.some(comment),
+                  new ApiDocContext({
+                    packageName: input.sourcePackage.manifest.name,
+                    route: input.route,
+                    links: input.links
+                  })
+                ),
+                since,
+                sourceUrl
+              },
+              categories: categoriesForExports(exports),
+              exports
+            }
+
+            return page
+          }))
+      })
   })
 }

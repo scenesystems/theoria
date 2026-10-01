@@ -53,6 +53,28 @@ import {
 layer(Layer.merge(SiteLive, BrowserLive), { excludeTestServices: true, timeout: "3 minutes" })(
   "Theoria home page demo in Chromium: the search and its drawing",
   (it) => {
+    /**
+     * Run the slow-CPU case first so earlier searches cannot warm the browser
+     * before its initial search deadline is checked.
+     *
+     * The drawing rests for the old lines to leave on the lines' own word, not
+     * on a clock: a page four times slower takes longer over the exit and the
+     * hand-off to the new set than the animation's time, and the drawing is not
+     * to move on before then — the bound on the rest is for a signal that never
+     * comes, far past any hand-off a slow page makes.
+     */
+    it.scoped("on a processor four times slower, a changed story's discs still wait for its lines", () =>
+      Effect.gen(function*() {
+        const { failures, moved, newLines, overlaps, sampled, twoSets } = yield* changeStory({ cpuSlowdown: 4 })
+        expect(Option.isSome(moved)).toBe(true)
+        expect(Option.isSome(newLines)).toBe(true)
+        expect(Option.getOrElse(moved, () => -1)).toBeGreaterThanOrEqual(Option.getOrElse(newLines, () => -1))
+        expect(twoSets).toBe(false)
+        expect(overlaps).toEqual([])
+        expectClearance(sampled)
+        expect(yield* failures).toEqual([])
+      }))
+
     it.scoped("the search trace draws any trial, returns to the kept one, and content IDs open in full", () =>
       Effect.gen(function*() {
         const { failures, page } = yield* openPage({ viewport: { width: 390, height: 844 } })
@@ -223,25 +245,6 @@ layer(Layer.merge(SiteLive, BrowserLive), { excludeTestServices: true, timeout: 
         // them to the last — and are gone once it lands (`changeStory` waits on that); at no frame is a line
         // over any disc, going or coming.
         expect(leaversShrink).toBe(true)
-        expect(overlaps).toEqual([])
-        expectClearance(sampled)
-        expect(yield* failures).toEqual([])
-      }))
-
-    /**
-     * The drawing rests for the old lines to leave on the lines' own word, not
-     * on a clock: a page four times slower takes longer over the exit and the
-     * hand-off to the new set than the animation's time, and the drawing is not
-     * to move on before then — the bound on the rest is for a signal that never
-     * comes, far past any hand-off a slow page makes.
-     */
-    it.scoped("on a processor four times slower, a changed story's discs still wait for its lines", () =>
-      Effect.gen(function*() {
-        const { failures, moved, newLines, overlaps, sampled, twoSets } = yield* changeStory({ cpuSlowdown: 4 })
-        expect(Option.isSome(moved)).toBe(true)
-        expect(Option.isSome(newLines)).toBe(true)
-        expect(Option.getOrElse(moved, () => -1)).toBeGreaterThanOrEqual(Option.getOrElse(newLines, () => -1))
-        expect(twoSets).toBe(false)
         expect(overlaps).toEqual([])
         expectClearance(sampled)
         expect(yield* failures).toEqual([])

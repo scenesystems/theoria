@@ -1,11 +1,14 @@
 /** Immutable staging evidence and independent package-publication gates. */
 import { FileSystem, Path } from "@effect/platform"
-import { sha256 } from "@scenesystems/digest"
+import * as Digest from "@scenesystems/digest/Digest"
 import { Array, Boolean, Effect, Encoding, Option, Order, Schema, String, Struct } from "effect"
 import * as Npm from "./Npm.js"
 import * as Repository from "./Repository.js"
 
-export const Id = Schema.String.pipe(Schema.pattern(/^[1-9][0-9]*$/), Schema.brand("ReleaseId"))
+export const Id = Schema.String.pipe(
+  Schema.pattern(/^[1-9][0-9]*$/),
+  Schema.brand("@theoria/scripts/release/Candidate/ReleaseId")
+)
 export type Id = typeof Id.Type
 const Package = Schema.Struct({
   name: Repository.Package.fields.name,
@@ -48,9 +51,9 @@ const PackedPlan = Schema.Struct({
   })))
 })
 
-export class CandidateError extends Schema.TaggedError<CandidateError>()("CandidateError", {
-  message: Schema.String
-}) {}
+export class CandidateError extends Schema.TaggedError<CandidateError>(
+  "@theoria/scripts/release/Candidate/CandidateError"
+)("CandidateError", { message: Schema.String }) {}
 
 export const read = (file: string) =>
   Effect.flatMap(
@@ -131,7 +134,7 @@ export const verifyPacked = (candidate: Record, directory: string) =>
           )
         const archive = path.join(directory, release.tarball.path)
         const integrity = yield* fs.readFile(archive).pipe(
-          Effect.flatMap(sha256),
+          Effect.map((bytes) => Digest.hash("sha256", bytes)),
           Effect.map(Encoding.encodeBase64),
           Effect.map((digest) => String.concat("sha256-", digest))
         )

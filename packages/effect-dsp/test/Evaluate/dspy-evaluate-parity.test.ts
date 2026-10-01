@@ -3,9 +3,9 @@ import { describe, expect, it } from "@effect/vitest"
 import * as Evaluate from "@scenesystems/effect-dsp/Evaluate"
 import { Example } from "@scenesystems/effect-dsp/Example"
 import * as Metric from "@scenesystems/effect-dsp/Metric"
+import * as MockLanguageModel from "@scenesystems/effect-dsp/MockLanguageModel"
 import * as Module from "@scenesystems/effect-dsp/Module"
 import * as Signature from "@scenesystems/effect-dsp/Signature"
-import { MockLanguageModel } from "@scenesystems/effect-dsp/test"
 import { Array as Arr, Chunk, Effect, Layer, Option, Schema, Stream } from "effect"
 
 import {
@@ -35,8 +35,8 @@ const exampleOutput = (expectedAnswer: Option.Option<string>): Readonly<Record<s
     })
   })
 
-const projectedEvent = (event: Evaluate.EvaluationEventType) =>
-  Evaluate.EvaluationEvent.$match({
+const projectedEvent = (event: Evaluate.Event) =>
+  Evaluate.events.$match({
     ExampleStarted: ({ index, total }) => ({ _tag: "ExampleStarted", index, total }),
     ExampleCompleted: ({ index, score }) => ({ _tag: "ExampleCompleted", index, score }),
     ExampleFailed: ({ failure }) => ({ _tag: "ExampleFailed", index: failure.index }),

@@ -1,23 +1,25 @@
 /**
- * Example and Demo schema round-trip proofs.
+ * Example and Demonstration schema round-trip proofs.
  */
 import { describe, expect, it } from "@effect/vitest"
-import { Demo, Example } from "@scenesystems/effect-dsp/Example"
-import { Schema } from "effect"
+import { Demonstration } from "@scenesystems/effect-dsp/Demonstration"
+import { Example } from "@scenesystems/effect-dsp/Example"
+import { Effect, Schema } from "effect"
 
 const expectSchemaRoundTrip = <A, I>(
   schema: Schema.Schema<A, I, never>,
   value: A
-): void => {
-  const encoded = Schema.encodeSync(schema)(value)
-  const decoded = Schema.decodeUnknownSync(schema)(encoded)
-  const reEncoded = Schema.encodeSync(schema)(decoded)
+): Effect.Effect<void, never> =>
+  Effect.gen(function*() {
+    const encoded = yield* Schema.encode(schema)(value)
+    const decoded = yield* Schema.decodeUnknown(schema)(encoded)
+    const reEncoded = yield* Schema.encode(schema)(decoded)
 
-  expect(reEncoded).toEqual(encoded)
-}
+    expect(reEncoded).toEqual(encoded)
+  }).pipe(Effect.orDie)
 
 describe("Example", () => {
-  it("round-trips labeled examples", () => {
+  it.effect("round-trips labeled examples", () =>
     expectSchemaRoundTrip(
       Example,
       new Example({
@@ -28,10 +30,9 @@ describe("Example", () => {
           answer: "Paris"
         }
       })
-    )
-  })
+    ))
 
-  it("round-trips unlabeled examples", () => {
+  it.effect("round-trips unlabeled examples", () =>
     expectSchemaRoundTrip(
       Example,
       new Example({
@@ -39,15 +40,14 @@ describe("Example", () => {
           question: "What is the capital of Japan?"
         }
       })
-    )
-  })
+    ))
 })
 
-describe("Demo", () => {
-  it("round-trips complete demonstrations", () => {
+describe("Demonstration", () => {
+  it.effect("round-trips complete demonstrations", () =>
     expectSchemaRoundTrip(
-      Demo,
-      new Demo({
+      Demonstration,
+      new Demonstration({
         input: {
           question: "What is the capital of Italy?"
         },
@@ -55,6 +55,5 @@ describe("Demo", () => {
           answer: "Rome"
         }
       })
-    )
-  })
+    ))
 })

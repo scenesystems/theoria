@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from typing import Any
 
-from scipy import special as sp_special
+from scipy import special
 
 from ._common import metadata
 
@@ -77,7 +77,7 @@ def _gamma_case(case_id: str, x: float) -> dict[str, Any]:
         "id": case_id,
         "operation": "gamma",
         "input": {"x": x},
-        "expected": float(sp_special.gamma(x)),
+        "expected": float(special.gamma(x)),
     }
 
 
@@ -86,7 +86,7 @@ def _lngamma_case(case_id: str, x: float) -> dict[str, Any]:
         "id": case_id,
         "operation": "lnGamma",
         "input": {"x": x},
-        "expected": float(sp_special.gammaln(x)),
+        "expected": float(special.gammaln(x)),
     }
 
 
@@ -95,7 +95,7 @@ def _beta_case(case_id: str, a: float, b: float) -> dict[str, Any]:
         "id": case_id,
         "operation": "beta",
         "input": {"a": a, "b": b},
-        "expected": float(sp_special.beta(a, b)),
+        "expected": float(special.beta(a, b)),
     }
 
 
@@ -104,7 +104,7 @@ def _erf_case(case_id: str, x: float) -> dict[str, Any]:
         "id": case_id,
         "operation": "erf",
         "input": {"x": x},
-        "expected": float(sp_special.erf(x)),
+        "expected": float(special.erf(x)),
     }
 
 
@@ -113,7 +113,7 @@ def _erfc_case(case_id: str, x: float) -> dict[str, Any]:
         "id": case_id,
         "operation": "erfc",
         "input": {"x": x},
-        "expected": float(sp_special.erfc(x)),
+        "expected": float(special.erfc(x)),
     }
 
 
@@ -122,5 +122,5 @@ def _digamma_case(case_id: str, x: float) -> dict[str, Any]:
         "id": case_id,
         "operation": "digamma",
         "input": {"x": x},
-        "expected": float(sp_special.digamma(x)),
+        "expected": float(special.digamma(x)),
     }

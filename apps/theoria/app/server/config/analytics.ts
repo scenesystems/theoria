@@ -1,4 +1,5 @@
-import { Config, ConfigError, Context, Either, Layer, Option, Schema } from "effect"
+import { Boolean as Bool, Config, ConfigError, Context, Either, Layer, Option, Schema } from "effect"
+import * as Str from "effect/String"
 
 /**
  * Analytics configuration. Both providers are optional and independent:
@@ -14,14 +15,14 @@ import { Config, ConfigError, Context, Either, Layer, Option, Schema } from "eff
 
 export const GoogleMeasurementId = Schema.String.pipe(
   Schema.pattern(/^G-[A-Z0-9]{4,}$/u),
-  Schema.brand("GoogleMeasurementId")
+  Schema.brand("@theoria/app/server/config/Analytics/GoogleMeasurementId")
 )
 
 export type GoogleMeasurementId = typeof GoogleMeasurementId.Type
 
 export const CloudflareBeaconToken = Schema.String.pipe(
   Schema.pattern(/^[0-9a-f]{32}$/u),
-  Schema.brand("CloudflareBeaconToken")
+  Schema.brand("@theoria/app/server/config/Analytics/CloudflareBeaconToken")
 )
 
 export type CloudflareBeaconToken = typeof CloudflareBeaconToken.Type
@@ -41,14 +42,16 @@ const optionalIdentifier = <A extends string>(
 ): Config.Config<Option.Option<A>> =>
   Config.string(name).pipe(
     Config.withDefault(""),
-    Config.map((value) => value.trim()),
+    Config.map(Str.trim),
     Config.mapOrFail((value) =>
-      value.length === 0
-        ? Either.right(Option.none<A>())
-        : Schema.decodeEither(schema)(value).pipe(
-          Either.map(Option.some),
-          Either.mapLeft(() => ConfigError.InvalidData([name], `${name} is not a valid identifier: ${value}`))
-        )
+      Bool.match(Str.isEmpty(value), {
+        onTrue: () => Either.right(Option.none<A>()),
+        onFalse: () =>
+          Schema.decodeEither(schema)(value).pipe(
+            Either.map(Option.some),
+            Either.mapLeft(() => ConfigError.InvalidData([name], `${name} is not a valid identifier: ${value}`))
+          )
+      })
     )
   )
 

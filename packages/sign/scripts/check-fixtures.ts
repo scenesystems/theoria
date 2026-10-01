@@ -5,18 +5,20 @@
  *
  * Usage: bun run fixtures:check
  */
-import { BunContext, BunRuntime } from "@effect/platform-bun"
-import * as PlatformError from "@effect/platform/Error"
-import { sha256 } from "@noble/hashes/sha2.js"
+import * as BunContext from "@effect/platform-bun/BunContext"
+import * as BunRuntime from "@effect/platform-bun/BunRuntime"
+import type * as PlatformError from "@effect/platform/Error"
+import * as Digest from "@scenesystems/digest/Digest"
 import {
   Array as Arr,
-  Cause,
+  type Cause,
   Console,
+  Data,
   Effect,
   Encoding,
   Match,
   Option,
-  ParseResult,
+  type ParseResult,
   Schema,
   String as Str
 } from "effect"
@@ -27,24 +29,18 @@ import {
   Ed25519Fixture,
   MlDsa65Fixture,
   P256Fixture,
+  PublicSignatureKatFixture,
   readConformanceFixtureBytes,
   RsaOpenSslFixture,
   RsaWycheproofFixture
 } from "./fixture-contract.js"
 import { JwtFixture } from "./jwt-fixture-contract.js"
 
-class FixtureCheckError extends Schema.TaggedError<FixtureCheckError>()("FixtureCheckError", {
-  file: Schema.String,
-  reason: Schema.String,
-  cause: Schema.Option(
-    Schema.Union(
-      PlatformError.BadArgument,
-      PlatformError.SystemError,
-      Schema.instanceOf(ParseResult.ParseError),
-      Schema.instanceOf(Cause.IllegalArgumentException)
-    )
-  )
-}) {
+class FixtureCheckError extends Data.TaggedError("FixtureCheckError")<{
+  readonly file: string
+  readonly reason: string
+  readonly cause: Option.Option<PlatformError.PlatformError | ParseResult.ParseError | Cause.IllegalArgumentException>
+}> {
   override get message() {
     return Arr.join(
       Arr.make(
@@ -66,6 +62,7 @@ const decodePayload = (file: typeof ConformancePayload.fields.file.Type) =>
     Match.when("ed25519.json", (name) => decodeConformanceFixture(name, Ed25519Fixture)),
     Match.when("p256.json", (name) => decodeConformanceFixture(name, P256Fixture)),
     Match.when("ml-dsa-65.json", (name) => decodeConformanceFixture(name, MlDsa65Fixture)),
+    Match.when("sign-public-kat.json", (name) => decodeConformanceFixture(name, PublicSignatureKatFixture)),
     Match.when("rsa-wycheproof.json", (name) => decodeConformanceFixture(name, RsaWycheproofFixture)),
     Match.when("rsa-openssl.json", (name) => decodeConformanceFixture(name, RsaOpenSslFixture)),
     Match.when("jwt-openssl.json", (name) => decodeConformanceFixture(name, Schema.parseJson(JwtFixture))),
@@ -87,13 +84,12 @@ const checkPayload = (payload: typeof ConformancePayload.Type) =>
       )
     )
 
-    const actualSha256 = Encoding.encodeHex(sha256(bytes))
-    yield* Effect.succeed(actualSha256).pipe(Effect.filterOrFail(
+    yield* Effect.succeed(Encoding.encodeHex(Digest.hash("sha256", bytes))).pipe(Effect.filterOrFail(
       (actual) => Str.Equivalence(actual, payload.sha256),
-      () =>
+      (actual) =>
         new FixtureCheckError({
           file: payload.file,
-          reason: Arr.join(Arr.make("sha256 mismatch: expected ", payload.sha256, ", got ", actualSha256), ""),
+          reason: Arr.join(Arr.make("sha256 mismatch: expected ", payload.sha256, ", got ", actual), ""),
           cause: Option.none()
         })
     ))

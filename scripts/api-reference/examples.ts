@@ -12,14 +12,16 @@
 import { type CommandExecutor, type FileSystem, Path } from "@effect/platform"
 import type { PlatformError } from "@effect/platform/Error"
 import type { ApiDocumentation, ApiExample, ApiMember } from "@theoria/docs-model"
-import { Array as Arr, Data, Effect, Option, Schema } from "effect"
+import { Array as Arr, Boolean as Bool, Data, Effect, Option, Schema, String as Str } from "effect"
 
 import { Snippet, type SnippetTypecheckError, typecheckSnippets } from "../typecheck/snippets.js"
 import type { DocsPage } from "./docs-data.js"
 
-export class ApiExampleError extends Schema.TaggedError<ApiExampleError>()("ApiExampleError", {
-  diagnostics: Schema.Array(Schema.String)
-}) {}
+export class ApiExampleError
+  extends Schema.TaggedError<ApiExampleError>("@theoria/scripts/api-reference/ApiExampleError")("ApiExampleError", {
+    diagnostics: Schema.Array(Schema.String)
+  })
+{}
 
 class Authored extends Data.Class<{
   readonly slug: string
@@ -28,58 +30,71 @@ class Authored extends Data.Class<{
   readonly example: ApiExample
 }> {}
 
-const authoredHere = (sourceUrl: string): boolean => !sourceUrl.includes("/node_modules/")
+const authoredHere = (sourceUrl: string): boolean => Bool.not(Str.includes("/node_modules/")(sourceUrl))
 
 const examplesOf = (slug: string, owner: string, sourceUrl: string, docs: ApiDocumentation) =>
   Arr.map(docs.examples, (example) => new Authored({ slug, owner, sourceUrl, example }))
 
 const memberExamples = (slug: string, exportId: string, member: ApiMember): ReadonlyArray<Authored> =>
-  member.inherited ? [] : [
-    ...examplesOf(slug, `${exportId}.${member.name}`, member.sourceUrl, member.docs),
-    ...Arr.flatMap(
-      member.signatures,
-      (signature) => examplesOf(slug, `${exportId}.${member.name}`, member.sourceUrl, signature.docs)
-    )
-  ]
+  Bool.match(member.inherited, {
+    onTrue: Arr.empty,
+    onFalse: () =>
+      Arr.appendAll(
+        examplesOf(slug, `${exportId}.${member.name}`, member.sourceUrl, member.docs),
+        Arr.flatMap(
+          member.signatures,
+          (signature) => examplesOf(slug, `${exportId}.${member.name}`, member.sourceUrl, signature.docs)
+        )
+      )
+  })
 
 const collectAuthored = (page: DocsPage): ReadonlyArray<Authored> => {
   const slug = page.pkg.slug
-  return [
-    ...examplesOf(
+  return Arr.appendAll(
+    examplesOf(
       slug,
       `${page.pkg.name}/${page.index.module.source}`,
       page.index.module.sourceUrl,
       page.index.module.docs
     ),
-    ...Arr.flatMap(page.exports, (value) =>
-      Arr.flatMap(value.facets, (facet) => [
-        ...examplesOf(slug, value.id, facet.sourceUrl, facet.docs),
-        ...Arr.flatMap(
-          facet.signatures,
-          (signature) => examplesOf(slug, value.id, signature.sourceUrl, signature.docs)
-        ),
-        ...Arr.flatMap(facet.members, (member) => memberExamples(slug, value.id, member))
-      ]))
-  ]
+    Arr.flatMap(page.exports, (value) =>
+      Arr.flatMap(value.facets, (facet) =>
+        Arr.appendAll(
+          Arr.appendAll(
+            examplesOf(slug, value.id, facet.sourceUrl, facet.docs),
+            Arr.flatMap(
+              facet.signatures,
+              (signature) => examplesOf(slug, value.id, signature.sourceUrl, signature.docs)
+            )
+          ),
+          Arr.flatMap(facet.members, (member) => memberExamples(slug, value.id, member))
+        )))
+  )
 }
 
 const repositoryPath = (sourceUrl: string): string =>
-  Option.match(Option.fromNullable(/\/blob\/[0-9a-f]+\/(.+)$/u.exec(sourceUrl)?.[1]), {
-    onNone: () => sourceUrl,
-    onSome: (path) => path
-  })
+  Option.match(
+    Str.match(/\/blob\/[0-9a-f]+\/(.+)$/u)(sourceUrl).pipe(Option.flatMap((match) => Arr.get(match, 1))),
+    {
+      onNone: () => sourceUrl,
+      onSome: (path) => path
+    }
+  )
 
 const toSnippet = (root: string, pathService: Path.Path, authored: Authored): Option.Option<Snippet> =>
-  Option.exists(authored.example.language, (language) => language === "ts") && Option.isSome(authored.example.code)
-    ? Option.some(
+  Option.all({
+    language: Option.filter(authored.example.language, (language) => Str.Equivalence(language, "ts")),
+    code: authored.example.code
+  }).pipe(
+    Option.map(({ code }) =>
       new Snippet({
         directory: pathService.join(root, "packages", authored.slug),
         location: `${repositoryPath(authored.sourceUrl)} @example (${authored.owner})`,
         language: "ts",
-        code: authored.example.code.value
+        code
       })
     )
-    : Option.none()
+  )
 
 /**
  * Fails with every non-compiling or non-fenced authored example; succeeds with
@@ -97,19 +112,24 @@ export const checkApiExamples = (
     const pathService = yield* Path.Path
     const authored = Arr.filter(Arr.flatMap(pages, collectAuthored), (_) => authoredHere(_.sourceUrl))
     const unfenced = Arr.filterMap(authored, (_) =>
-      Option.exists(_.example.language, (language) =>
-          language === "ts") && Option.isSome(_.example.code)
-        ? Option.none()
-        : Option.some(`${repositoryPath(_.sourceUrl)} (${_.owner}): @example must be a fenced TypeScript block`))
-    if (Arr.isNonEmptyReadonlyArray(unfenced)) {
-      return yield* new ApiExampleError({ diagnostics: unfenced })
-    }
-    const compilable = Arr.filterMap(authored, (_) =>
-      toSnippet(root, pathService, _))
+      Bool.match(
+        Bool.and(
+          Option.exists(_.example.language, (language) => Str.Equivalence(language, "ts")),
+          Option.isSome(_.example.code)
+        ),
+        {
+          onTrue: Option.none,
+          onFalse: () =>
+            Option.some(`${repositoryPath(_.sourceUrl)} (${_.owner}): @example must be a fenced TypeScript block`)
+        }
+      ))
+    yield* Effect.when(new ApiExampleError({ diagnostics: unfenced }), () => Arr.isNonEmptyReadonlyArray(unfenced))
+    const compilable = Arr.filterMap(authored, (_) => toSnippet(root, pathService, _))
     const snippets = Arr.dedupeWith(
       compilable,
-      (left, right) => left.directory === right.directory && left.code === right.code
+      (left, right) =>
+        Bool.and(Str.Equivalence(left.directory, right.directory), Str.Equivalence(left.code, right.code))
     )
     yield* typecheckSnippets(root, ".api-example-typecheck-", snippets)
-    return snippets.length
+    return Arr.length(snippets)
   })

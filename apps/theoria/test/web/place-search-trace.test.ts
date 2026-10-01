@@ -1,4 +1,4 @@
-import { describe, expect, it } from "@effect/vitest"
+import { expect } from "@effect/vitest"
 import { Effect, Option } from "effect"
 import * as Arr from "effect/Array"
 import * as HashSet from "effect/HashSet"
@@ -13,7 +13,7 @@ import {
   shownTrialIndex,
   trialValueText
 } from "../../app/web/view/home/placeViewModel.js"
-import { onStage } from "../helpers/place-on-stage.js"
+import { describeOnStage, onStage } from "../helpers/place-on-stage.js"
 
 const stage = stageFor(640)
 
@@ -75,7 +75,7 @@ const runningFor = (search: PlaceSearch): PlaceSearch =>
   })
 const landingFor = (search: PlaceSearch): PlaceSearch => new PlaceSearch({ ...search, phase: "landing" })
 
-describe("search trace", () => {
+describeOnStage("search trace", (it) => {
   it.effect("derives the trace from the trials rather than storing it twice", () =>
     Effect.gen(function*() {
       const search = searchFor((yield* onStage).build)

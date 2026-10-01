@@ -1,6 +1,7 @@
 /**
- * Error and logging discipline: typed errors instead of Error constructors and
- * annotations, no swallowed failures, Effect logging instead of console.
+ * Error and logging discipline: tagged error construction, no swallowed
+ * failures, and Effect logging instead of console. Type spellings alone do not
+ * distinguish global Error from a concern-owned Schema-derived Error union.
  *
  * @module eslint/effect/errors
  */
@@ -17,21 +18,6 @@ export const NO_NEW_ERROR_RULES = [
   {
     selector: "NewExpression[callee.name='RangeError']",
     message: "Do not use 'new RangeError()'. Use Data.TaggedError or Schema.TaggedError."
-  }
-]
-
-export const ERROR_TYPE_ANNOTATION_RULES = [
-  {
-    selector: "TSTypeAnnotation TSTypeReference[typeName.name='Error']",
-    message: "Do not use 'Error' as a type annotation. Use Schema.TaggedError or Data.TaggedError."
-  },
-  {
-    selector: "TSTypeAnnotation TSTypeReference[typeName.name='TypeError']",
-    message: "Do not use 'TypeError' as a type annotation. Use Schema.TaggedError or Data.TaggedError."
-  },
-  {
-    selector: "TSTypeAnnotation TSTypeReference[typeName.name='RangeError']",
-    message: "Do not use 'RangeError' as a type annotation. Use Schema.TaggedError or Data.TaggedError."
   }
 ]
 

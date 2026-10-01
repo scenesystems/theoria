@@ -1,7 +1,7 @@
 import { Atom } from "@effect-atom/atom"
 import type { Atom as AtomType, Result } from "@effect-atom/atom"
 import { Clipboard } from "@effect/platform-browser"
-import { Effect, Option, Stream } from "effect"
+import { Array, Boolean, Effect, Function, Option, Stream, String } from "effect"
 
 import * as BrowserDocument from "../platform/BrowserDocument.js"
 import * as BrowserWindow from "../platform/BrowserWindow.js"
@@ -34,14 +34,14 @@ export const copyDocsCodeAtom = appRuntime.fn<string>()((source, ctx) =>
     }),
     Effect.zipRight(Effect.sleep("2 seconds")),
     Effect.tap(() =>
-      Effect.sync(() => {
-        if (Option.contains(ctx(docsCopiedCodeAtom), source)) {
-          ctx.set(docsCopiedCodeAtom, Option.none())
-        }
-        if (Option.contains(ctx(docsCopyFailedCodeAtom), source)) {
-          ctx.set(docsCopyFailedCodeAtom, Option.none())
-        }
-      })
+      Effect.forEach(
+        Array.make(docsCopiedCodeAtom, docsCopyFailedCodeAtom),
+        (atom) =>
+          Effect.sync(() => ctx.set(atom, Option.none())).pipe(
+            Effect.when(() => Option.contains(ctx(atom), source))
+          ),
+        { discard: true }
+      )
     )
   )
 )
@@ -62,34 +62,34 @@ export const docsLocationHashMountAtom: AtomType.Atom<Result.Result<void>> = app
     Effect.gen(function*() {
       get.set(docsLocationHashAtom, hash)
 
-      if (hash.startsWith("#api-")) {
-        yield* BrowserWindow.scrollToTop
-      }
+      yield* BrowserWindow.scrollToTop.pipe(Effect.when(() => String.startsWith("#api-")(hash)))
     }))
 )
 
 const isSearchShortcut = (event: KeyboardEvent): boolean =>
-  (event.metaKey || event.ctrlKey) && event.key.toLocaleLowerCase() === "k"
+  Boolean.match(Boolean.or(event.metaKey, event.ctrlKey), {
+    onFalse: Function.constFalse,
+    onTrue: () => String.Equivalence(String.toLowerCase(event.key), "k")
+  })
 
 /** ⌘K / Ctrl+K opens the docs search while the docs page is mounted. */
 export const docsKeyboardShortcutsAtom: AtomType.Atom<Result.Result<void>> = appRuntime.atom((get) =>
-  BrowserDocument.events("keydown").pipe(
-    Stream.filter(isSearchShortcut),
-    Stream.runForEach((event) =>
+  BrowserDocument.preventedKeydowns(isSearchShortcut).pipe(
+    Stream.runForEach(() =>
       Effect.sync(() => {
-        event.preventDefault()
         get.set(docsSearchOpenAtom, true)
       })
     )
   )
-)
+).pipe(Atom.setIdleTTL(0))
 
 export const setDocsSearchOpenAtom = Atom.fnSync<boolean>()((open, ctx) => {
   ctx.set(docsSearchOpenAtom, open)
 
-  if (!open) {
-    ctx.set(docsSearchQueryAtom, "")
-  }
+  Boolean.match(open, {
+    onTrue: Function.constVoid,
+    onFalse: () => ctx.set(docsSearchQueryAtom, "")
+  })
 })
 
 export const setDocsNavigationOpenAtom = Atom.fnSync<boolean>()((open, ctx) => {

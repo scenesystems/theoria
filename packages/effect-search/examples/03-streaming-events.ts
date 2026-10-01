@@ -1,14 +1,14 @@
 /**
- * Renders terminal progress for a new study and a resumed study while
+ * Renders terminal progress for a new optimization and a resumed optimization while
  * collecting the unchanged event streams for inspection.
  *
  * Run: bun run examples/03-streaming-events.ts
  */
 import { BunRuntime } from "@effect/platform-bun"
-import { Chunk, Effect, Stream } from "effect"
+import { Array as Arr, Chunk, Effect, Number as Num, Option, Stream } from "effect"
 
 import * as Numeric from "@scenesystems/effect-math/Numeric"
-import { Sampler, SearchSpace, Study } from "@scenesystems/effect-search"
+import { Optimization, OptimizationEvent, Progress, Sampler, SearchSpace } from "@scenesystems/effect-search"
 
 const program = Effect.gen(function*() {
   const space = yield* SearchSpace.make({
@@ -17,39 +17,41 @@ const program = Effect.gen(function*() {
   })
   const objective = (config: SearchSpace.Type<typeof space>) =>
     Effect.succeed(
-      Numeric.sin(config.x) * Numeric.cos(config.y)
-        + Numeric.pow(config.x - 1, 2)
-        + Numeric.pow(config.y + 2, 2)
+      Num.sumAll(Arr.make(
+        Num.multiply(Numeric.sin(config.x), Numeric.cos(config.y)),
+        Numeric.pow(Num.subtract(config.x, 1), 2),
+        Numeric.pow(Num.sum(config.y, 2), 2)
+      ))
     )
 
-  yield* Effect.log("Starting optimizeStream run with terminal progress")
+  yield* Effect.log("Starting stream run with terminal progress")
 
-  const optimizeEvents = yield* Study.optimizeStream({
+  const optimizeEvents = yield* Optimization.stream({
     space,
     sampler: Sampler.tpe({ seed: 99 }),
     objective,
     direction: "minimize",
     trials: 12
   }).pipe(
-    Study.tapTerminalProgress(),
+    Progress.tap(),
     Stream.runCollect,
     Effect.map(Chunk.toReadonlyArray)
   )
 
-  const optimizeCompleted = optimizeEvents.filter((event) => event._tag === "TrialCompleted").length
-  const optimizeBestUpdates = optimizeEvents.filter((event) => event._tag === "BestUpdated").length
+  const optimizeCompleted = Arr.length(Arr.filter(optimizeEvents, OptimizationEvent.is("TrialCompleted")))
+  const optimizeBestUpdates = Arr.length(Arr.filter(optimizeEvents, OptimizationEvent.is("BestUpdated")))
 
   yield* Effect.log("Preparing snapshot for resumeStream terminal progress demo")
 
-  const baseline = yield* Study.minimize({
+  const baseline = yield* Optimization.minimize({
     space,
     sampler: Sampler.random({ seed: 90210 }),
     objective,
     trials: 6
   })
-  const snapshot = yield* Study.snapshot(baseline)
+  const snapshot = yield* Optimization.snapshot(baseline)
 
-  const resumeEvents = yield* Study.resumeStream({
+  const resumeEvents = yield* Optimization.resumeStream({
     space,
     sampler: Sampler.random({ seed: 90210 }),
     snapshot,
@@ -57,20 +59,23 @@ const program = Effect.gen(function*() {
     trials: 4,
     objective
   }).pipe(
-    Study.tapTerminalProgress(),
+    Progress.tap(),
     Stream.runCollect,
     Effect.map(Chunk.toReadonlyArray)
   )
 
-  const resumeCompleted = resumeEvents.filter((event) => event._tag === "TrialCompleted").length
-  const resumeLastEvent = resumeEvents[resumeEvents.length - 1]?._tag ?? "none"
+  const resumeCompleted = Arr.length(Arr.filter(resumeEvents, OptimizationEvent.is("TrialCompleted")))
+  const resumeLastEvent = Option.match(Arr.last(resumeEvents), {
+    onNone: () => "none",
+    onSome: (event) => event._tag
+  })
 
   yield* Effect.log("Summary", {
     optimizeCompleted,
     optimizeBestUpdates,
-    optimizeTotalEvents: optimizeEvents.length,
+    optimizeTotalEvents: Arr.length(optimizeEvents),
     resumeCompleted,
-    resumeTotalEvents: resumeEvents.length,
+    resumeTotalEvents: Arr.length(resumeEvents),
     resumeLastEvent
   })
 })

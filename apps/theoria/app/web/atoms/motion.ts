@@ -1,6 +1,6 @@
 import { Atom, Result } from "@effect-atom/atom"
 import type { Atom as AtomType } from "@effect-atom/atom"
-import { Match, Schema, Stream } from "effect"
+import { Boolean as Bool, Match, Schema, Stream } from "effect"
 
 import * as BrowserWindow from "../platform/BrowserWindow.js"
 import { appRuntime } from "./runtime.js"
@@ -12,7 +12,9 @@ export type MotionPreference = typeof MotionPreference.Type
 
 const systemMotionPreferenceAtom: AtomType.Atom<Result.Result<MotionPreference>> = appRuntime.atom(
   BrowserWindow.mediaQuery("(prefers-reduced-motion: reduce)").pipe(
-    Stream.map((reduce): MotionPreference => reduce ? "reduced" : "full")
+    Stream.map((reduce): MotionPreference =>
+      Bool.match(reduce, { onTrue: (): MotionPreference => "reduced", onFalse: (): MotionPreference => "full" })
+    )
   )
 )
 

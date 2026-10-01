@@ -16,7 +16,7 @@
 import * as Tool from "@effect/ai/Tool"
 import type * as Toolkit from "@effect/ai/Toolkit"
 import { BunRuntime } from "@effect/platform-bun"
-import { Evaluate, Example, Metric, Module, Optimizer, Signature, Trace } from "@scenesystems/effect-dsp"
+import { BootstrapFewShot, Evaluate, Example, Metric, Module, Signature, Trace } from "@scenesystems/effect-dsp"
 import * as Numeric from "@scenesystems/effect-math/Numeric"
 import { Array as Arr, Effect, Ref, Schema } from "effect"
 import { withLiveLanguageModel } from "./shared/live-provider-runtime.js"
@@ -196,7 +196,7 @@ const program = Effect.gen(function*() {
   })
 
   // 5. Optimize with BootstrapFewShot
-  yield* Optimizer.bootstrapFewShot({
+  yield* BootstrapFewShot.run({
     module: solver,
     trainset,
     metric: Metric.exactMatch("answer"),

@@ -1,7 +1,8 @@
 import { Atom, Result } from "@effect-atom/atom"
 import type { Atom as AtomType } from "@effect-atom/atom"
-import { Data, Duration, Effect, type Layer, Option, Schema, Stream } from "effect"
+import { Boolean as Bool, Data, Duration, Effect, Equal, type Layer, Option, Schema, Stream } from "effect"
 import * as Arr from "effect/Array"
+import * as Num from "effect/Number"
 import * as Str from "effect/String"
 
 import type { DemoError } from "../../contracts/demo-error.js"
@@ -81,7 +82,7 @@ export const chooseScenarioAtom = Atom.fnSync<PlaceScenario>()((scenario, ctx) =
 
 /** The brief for a story: what was typed under it, or the one it was recorded with. */
 const briefFor = (scenario: PlaceScenario, draft: Option.Option<BriefDraft>): string =>
-  Option.match(Option.filter(draft, (typed) => typed.scenario === scenario), {
+  Option.match(Option.filter(draft, (typed) => Equal.equals(typed.scenario, scenario)), {
     onNone: () => placeScenarioMeta[scenario].brief,
     onSome: (typed) => typed.text
   })
@@ -93,7 +94,7 @@ export const placeBriefAtom: AtomType.Atom<string> = Atom.make((get: AtomType.Co
 
 /** Whether the brief shown is no longer the one the story was recorded with. */
 export const placeBriefEditedAtom: AtomType.Atom<boolean> = Atom.make((get: AtomType.Context) =>
-  get(placeBriefAtom) !== placeScenarioMeta[get(placeControlsAtom).scenario].brief
+  Bool.not(Equal.equals(get(placeBriefAtom), placeScenarioMeta[get(placeControlsAtom).scenario].brief))
 )
 
 /** How long typing rests before the brief is built: not on every keystroke, not long enough to feel ignored. */
@@ -221,7 +222,7 @@ export const PlaceVersionChange = Schema.Struct({
 export type PlaceVersionChange = typeof PlaceVersionChange.Type
 
 const sameVersion = Option.getEquivalence<{ readonly scenario: PlaceScenario; readonly contentId: string }>(
-  (a, b) => a.scenario === b.scenario && Str.Equivalence(a.contentId, b.contentId)
+  (a, b) => Bool.and(Equal.equals(a.scenario, b.scenario), Str.Equivalence(a.contentId, b.contentId))
 )
 
 export const placeVersionChangeAtom: AtomType.Atom<PlaceVersionChange> = Atom.make(
@@ -237,18 +238,20 @@ export const placeVersionChangeAtom: AtomType.Atom<PlaceVersionChange> = Atom.ma
     return Option.match(get.self<PlaceVersionChange>(), {
       onNone: () => ({ current, changes: 0 }),
       onSome: (previous) =>
-        Option.isNone(current) || sameVersion(previous.current, current)
-          ? previous
-          : {
+        Bool.match(Bool.or(Option.isNone(current), sameVersion(previous.current, current)), {
+          onTrue: () => previous,
+          onFalse: () => ({
             current,
             changes: Option.match(previous.current, {
               onNone: () => 0,
               onSome: (before) =>
-                Option.exists(current, (now) => now.scenario === before.scenario)
-                  ? previous.changes + 1
-                  : 0
+                Bool.match(Option.exists(current, (now) => Equal.equals(now.scenario, before.scenario)), {
+                  onTrue: () => Num.increment(previous.changes),
+                  onFalse: () => 0
+                })
             })
-          }
+          })
+        })
     })
   }
 )
@@ -289,13 +292,17 @@ export const placeStageFrameBorderPx = artifactStageBorderPx(placeStageFrame)
 export const placeStageMaxDrawableAtom: AtomType.Atom<number> = Atom.make((get: AtomType.Context) =>
   Option.match(get(placeStageContainerWidthAtom), {
     onNone: () => stageMaxWidth,
-    onSome: (container) => Math.max(stageMinWidth, Math.min(stageMaxWidth, container - placeStageFrameBorderPx * 2))
+    onSome: (container) =>
+      Num.max(
+        stageMinWidth,
+        Num.min(stageMaxWidth, Num.subtract(container, Num.multiply(placeStageFrameBorderPx, 2)))
+      )
   })
 )
 
 /** The stage width that is drawn: the request, cut to the column, clamped to the stage's range. */
 export const placeStageWidthAtom: AtomType.Atom<number> = Atom.make(
-  (get: AtomType.Context) => stageFor(Math.min(get(placeStageRequestAtom), get(placeStageMaxDrawableAtom))).stageWidth
+  (get: AtomType.Context) => stageFor(Num.min(get(placeStageRequestAtom), get(placeStageMaxDrawableAtom))).stageWidth
 )
 
 /**
@@ -306,7 +313,8 @@ export const placeStageWidthAtom: AtomType.Atom<number> = Atom.make(
  * from its placeholder would shrink around it and then jump to the paper.
  */
 export const placeStageFrameWidthAtom: AtomType.Atom<string> = Atom.make(
-  (get: AtomType.Context) => `min(100%, ${String(get(placeStageRequestAtom) + placeStageFrameBorderPx * 2)}px)`
+  (get: AtomType.Context) =>
+    `min(100%, ${String(Num.sum(get(placeStageRequestAtom), Num.multiply(placeStageFrameBorderPx, 2)))}px)`
 )
 
 /**

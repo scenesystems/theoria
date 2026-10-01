@@ -1,8 +1,8 @@
 import { describe, expect, it } from "@effect/vitest"
-import { Deferred, Effect, Exit, Fiber, Ref, Schema, Scope } from "effect"
+import { Deferred, Effect, Exit, Fiber, Number as Num, Ref, Schema, Scope } from "effect"
 import * as Arr from "effect/Array"
 
-import { Errors } from "@scenesystems/effect-search"
+import * as SearchError from "@scenesystems/effect-search/SearchError"
 
 import { AskedMeander, PlaceSearchFailed, type PlaceSearchId } from "../../app/contracts/demo/imagined-place-search.js"
 import { OpenedStudy, PlaceSearchStudies } from "../../app/web/services/PlaceSearchStudies.js"
@@ -27,11 +27,11 @@ class Openings extends Effect.Service<Openings>()("test/Openings", {
 const meander = { edge: 0.7, swing: 0.1, phase: 0, turns: 1, top: 0.2, step: 0.1 }
 
 /** An opener whose study answers every ask with its own number, so asks are seen to reach the study asked. */
-const openingStudies: Effect.Effect<OpenedStudy, Errors.SearchError, Scope.Scope | Openings> = Effect.gen(
+const openingStudies: Effect.Effect<OpenedStudy, SearchError.SearchError, Scope.Scope | Openings> = Effect.gen(
   function*() {
     const openings = yield* Openings
-    const number = yield* Ref.updateAndGet(openings.opened, (count) => count + 1)
-    yield* Effect.addFinalizer(() => Ref.update(openings.closed, (count) => count + 1))
+    const number = yield* Ref.updateAndGet(openings.opened, Num.increment)
+    yield* Effect.addFinalizer(() => Ref.update(openings.closed, Num.increment))
     return new OpenedStudy({
       ask: Effect.succeed(new AskedMeander({ trial: number, meander })),
       tell: (trial, loss) => Ref.update(openings.told, Arr.append({ study: number, trial, loss }))
@@ -39,13 +39,13 @@ const openingStudies: Effect.Effect<OpenedStudy, Errors.SearchError, Scope.Scope
   }
 )
 
-const refusing = Effect.fail(new Errors.InvalidSearchSpace({ reason: "no room for a study" }))
+const refusing = Effect.fail(new SearchError.InvalidSearchSpace({ reason: "no room for a study" }))
 
 /** An opener that registers its finalizer, then waits on the gate before returning the study. */
 const gatedBy = (gate: Deferred.Deferred<void>) =>
   Effect.gen(function*() {
     const openings = yield* Openings
-    yield* Effect.addFinalizer(() => Ref.update(openings.closed, (count) => count + 1))
+    yield* Effect.addFinalizer(() => Ref.update(openings.closed, Num.increment))
     yield* Deferred.await(gate)
     return yield* openingStudies
   })
@@ -54,9 +54,7 @@ const gatedBy = (gate: Deferred.Deferred<void>) =>
 const slowToLetGo = (gate: Deferred.Deferred<void>) =>
   Effect.gen(function*() {
     const openings = yield* Openings
-    yield* Effect.addFinalizer(() =>
-      Effect.zipRight(Deferred.await(gate), Ref.update(openings.closed, (count) => count + 1))
-    )
+    yield* Effect.addFinalizer(() => Effect.zipRight(Deferred.await(gate), Ref.update(openings.closed, Num.increment)))
     return yield* openingStudies
   })
 
@@ -85,7 +83,7 @@ describe("PlaceSearchStudies", () => {
     Effect.gen(function*() {
       const openings = yield* Openings
       const studies = yield* PlaceSearchStudies.make(
-        Effect.zipRight(Effect.addFinalizer(() => Ref.update(openings.closed, (count) => count + 1)), refusing)
+        Effect.zipRight(Effect.addFinalizer(() => Ref.update(openings.closed, Num.increment)), refusing)
       )
       const failed = yield* Effect.flip(studies.open)
       expect(failed._tag).toBe("PlaceSearchFailed")

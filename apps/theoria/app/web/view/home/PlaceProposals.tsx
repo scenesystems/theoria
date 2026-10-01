@@ -1,5 +1,5 @@
 import { useAtomSet, useAtomValue } from "@effect-atom/atom-react"
-import { Match, type Option } from "effect"
+import { Boolean, Match, type Option } from "effect"
 import * as Arr from "effect/Array"
 
 import type { PlaceBuild } from "../../../contracts/imagined-place-result.js"
@@ -24,8 +24,8 @@ const accepts = (controls: PlaceControls, role: ParticipantRole): boolean =>
 
 const toggled = (controls: PlaceControls, role: ParticipantRole): PlaceControls =>
   Match.value(role).pipe(
-    Match.when("neighbor", () => ({ ...controls, acceptNeighbor: !controls.acceptNeighbor })),
-    Match.when("program", () => ({ ...controls, acceptProgram: !controls.acceptProgram })),
+    Match.when("neighbor", () => ({ ...controls, acceptNeighbor: Boolean.not(controls.acceptNeighbor) })),
+    Match.when("program", () => ({ ...controls, acceptProgram: Boolean.not(controls.acceptProgram) })),
     Match.when("author", () => controls),
     Match.exhaustive
   )

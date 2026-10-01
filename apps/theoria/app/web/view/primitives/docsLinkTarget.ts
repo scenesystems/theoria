@@ -1,5 +1,7 @@
-import { Match, Option } from "effect"
+import { Boolean as Bool, Equal, Match, Option } from "effect"
 import * as Arr from "effect/Array"
+import * as Num from "effect/Number"
+import * as Str from "effect/String"
 
 import type {
   DocsApiModuleIndex,
@@ -25,20 +27,22 @@ export type DocsLinkTarget =
   }
 
 const splitHash = (href: string): { readonly path: string; readonly anchor: Option.Option<string> } => {
-  const index = href.indexOf("#")
-  return index < 0
-    ? { path: href, anchor: Option.none() }
-    : { path: href.slice(0, index), anchor: Option.some(href.slice(index + 1)) }
+  const index = Str.indexOf("#")(href)
+  return Option.match(index, {
+    onNone: () => ({ path: href, anchor: Option.none() }),
+    onSome: (at) => ({ path: Str.slice(0, at)(href), anchor: Option.some(Str.slice(Num.increment(at))(href)) })
+  })
 }
 
 const packageTarget = (docsPackage: DocsPackageSummary, path: string): Option.Option<DocsLinkTarget> =>
-  path === docsPackage.overview.path || path === `/docs/${docsPackage.slug}`
-    ? Option.some({ _tag: "Package", docsPackage })
-    : Option.none()
+  Bool.match(Bool.or(Equal.equals(path, docsPackage.overview.path), Equal.equals(path, `/docs/${docsPackage.slug}`)), {
+    onTrue: () => Option.some({ _tag: "Package", docsPackage }),
+    onFalse: Option.none
+  })
 
 const guideTarget = (docsPackage: DocsPackageSummary, path: string): Option.Option<DocsLinkTarget> =>
   Option.map(
-    Arr.findFirst(docsPackage.guides, (guide) => guide.path === path),
+    Arr.findFirst(docsPackage.guides, (guide) => Equal.equals(guide.path, path)),
     (guide): DocsLinkTarget => ({ _tag: "Guide", docsPackage, guide })
   )
 
@@ -48,7 +52,8 @@ const moduleTarget = (
   anchor: Option.Option<string>
 ): Option.Option<DocsLinkTarget> =>
   Option.map(
-    Arr.findFirst(docsPackage.apiModules, (module) => module.path === path || Arr.contains(module.aliases, path)),
+    Arr.findFirst(docsPackage.apiModules, (module) =>
+      Bool.or(Equal.equals(module.path, path), Arr.contains(module.aliases, path))),
     (module): DocsLinkTarget => ({ _tag: "Module", docsPackage, module, anchor })
   )
 
@@ -79,12 +84,14 @@ export const docsLinkTitle = (target: DocsLinkTarget, linkText: string): string 
 
 /** The page the link opens, as the address bar will show it: `docs/effect-text/api/Text`. */
 export const docsLinkPath = (target: DocsLinkTarget): string =>
-  Match.value(target).pipe(
-    Match.tag("Package", ({ docsPackage }) => docsPackage.overview.path),
-    Match.tag("Guide", ({ guide }) => guide.path),
-    Match.tag("Module", ({ module }) => module.path),
-    Match.exhaustive
-  ).slice(1)
+  Str.slice(1)(
+    Match.value(target).pipe(
+      Match.tag("Package", ({ docsPackage }) => docsPackage.overview.path),
+      Match.tag("Guide", ({ guide }) => guide.path),
+      Match.tag("Module", ({ module }) => module.path),
+      Match.exhaustive
+    )
+  )
 
 /**
  * One line about the destination, from the documentation itself. An export's
@@ -104,7 +111,7 @@ export const docsLinkSummary = (
         onSome: (name) =>
           Option.flatMap(moduleIndex, (page) =>
             Option.map(
-              Arr.findFirst(page.exports, (apiExport) => apiExport.anchor === name),
+              Arr.findFirst(page.exports, (apiExport) => Equal.equals(apiExport.anchor, name)),
               (apiExport) => apiExport.summary
             ))
       })),
@@ -113,4 +120,7 @@ export const docsLinkSummary = (
 
 /** The module index an export summary needs, when the target names an export. */
 export const docsLinkModuleAsset = (target: DocsLinkTarget): Option.Option<string> =>
-  target._tag === "Module" && Option.isSome(target.anchor) ? Option.some(target.module.asset) : Option.none()
+  Match.value(target).pipe(
+    Match.tag("Module", ({ anchor, module }) => Option.map(anchor, () => module.asset)),
+    Match.orElse(() => Option.none<string>())
+  )

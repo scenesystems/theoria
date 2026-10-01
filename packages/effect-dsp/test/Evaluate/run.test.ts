@@ -6,9 +6,9 @@ import { describe, expect, it } from "@effect/vitest"
 import * as Evaluate from "@scenesystems/effect-dsp/Evaluate"
 import { Example } from "@scenesystems/effect-dsp/Example"
 import * as Metric from "@scenesystems/effect-dsp/Metric"
+import * as MockLanguageModel from "@scenesystems/effect-dsp/MockLanguageModel"
 import * as Module from "@scenesystems/effect-dsp/Module"
 import * as Signature from "@scenesystems/effect-dsp/Signature"
-import { MockLanguageModel } from "@scenesystems/effect-dsp/test"
 import { Effect, Layer, Option, Schema } from "effect"
 
 const makeQaSignature = () =>
@@ -28,7 +28,7 @@ describe("Evaluate.run", () => {
       const signature = yield* makeQaSignature()
       const module = yield* Module.predict("qa", signature)
       const mock = yield* MockLanguageModel.make(
-        MockLanguageModel.fixed({ answer: "Paris" })
+        MockLanguageModel.succeed({ answer: "Paris" })
       )
       const layer = Layer.succeed(LanguageModel.LanguageModel, mock.service)
 
@@ -64,7 +64,7 @@ describe("Evaluate.run", () => {
       const signature = yield* makeQaSignature()
       const module = yield* Module.predict("qa", signature)
       const mock = yield* MockLanguageModel.make(
-        MockLanguageModel.fixed({ answer: "Paris" })
+        MockLanguageModel.succeed({ answer: "Paris" })
       )
       const layer = Layer.succeed(LanguageModel.LanguageModel, mock.service)
 
@@ -104,7 +104,7 @@ describe("Evaluate.run", () => {
       const module = yield* Module.predict("qa", signature)
 
       const mock = yield* MockLanguageModel.make(
-        MockLanguageModel.fixed({ answer: "Paris" })
+        MockLanguageModel.succeed({ answer: "Paris" })
       )
       const layer = Layer.succeed(LanguageModel.LanguageModel, mock.service)
       const examples = [

@@ -3,9 +3,9 @@
  */
 import * as LanguageModel from "@effect/ai/LanguageModel"
 import { describe, expect, it } from "@effect/vitest"
+import * as MockLanguageModel from "@scenesystems/effect-dsp/MockLanguageModel"
 import * as Module from "@scenesystems/effect-dsp/Module"
 import * as Signature from "@scenesystems/effect-dsp/Signature"
-import { MockLanguageModel } from "@scenesystems/effect-dsp/test"
 import { Effect, Schema } from "effect"
 
 describe("examples/02-basic-classify-mock", () => {
@@ -26,7 +26,7 @@ describe("examples/02-basic-classify-mock", () => {
         Effect.provide(
           MockLanguageModel.layer(
             LanguageModel.LanguageModel,
-            MockLanguageModel.fixed({ label: "positive" })
+            MockLanguageModel.succeed({ label: "positive" })
           )
         )
       )

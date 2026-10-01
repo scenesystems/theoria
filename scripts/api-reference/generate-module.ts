@@ -1,5 +1,5 @@
 import { Path } from "@effect/platform"
-import { Array as Arr, Effect, Option } from "effect"
+import { Array as Arr, Effect, Match, Option, String as Str } from "effect"
 
 import { writeBrowserApiModule } from "./browser-output.js"
 import { type ApiConvertedModule } from "./converted.js"
@@ -81,32 +81,31 @@ export const generateApiModule = (input: {
     const generatedModule: ApiReferenceModule = {
       source: source.relative,
       sourceUrl,
-      reflection: relativeOutput.split(path.sep).join("/"),
+      reflection: Arr.join(Str.split(relativeOutput, path.sep), "/"),
       reflectionSha256,
       reflectionId: reflection.id,
       routes
     }
 
     const canonicalExports = Option.match(
-      Arr.findFirst(input.module.routes, (route) => route.entrypoint.subpath === canonicalRoute.subpath),
+      Arr.findFirst(input.module.routes, (route) => Str.Equivalence(route.entrypoint.subpath, canonicalRoute.subpath)),
       { onNone: () => [], onSome: (route) => route.publicExports }
     )
-    const searchEntries = Arr.map(presentation.searchEntries, (entry) => {
-      if (entry.kind !== "symbol") {
-        return entry
-      }
-
-      return Option.match(
-        Arr.findFirst(canonicalExports, (publicExport) => publicExport.exportName === entry.name),
-        {
-          onNone: () => entry,
-          onSome: (publicExport) => ({
-            ...entry,
-            path: documentationPathForExport({ sourcePackage: input.sourcePackage, module: source, publicExport })
-          })
-        }
-      )
-    })
+    const searchEntries = Arr.map(presentation.searchEntries, (entry) =>
+      Match.value(entry).pipe(
+        Match.when({ kind: "symbol" }, (symbol) =>
+          Option.match(
+            Arr.findFirst(canonicalExports, (publicExport) => Str.Equivalence(publicExport.exportName, symbol.name)),
+            {
+              onNone: () => symbol,
+              onSome: (publicExport) => ({
+                ...symbol,
+                path: documentationPathForExport({ sourcePackage: input.sourcePackage, module: source, publicExport })
+              })
+            }
+          )),
+        Match.orElse(() => entry)
+      ))
 
     return { module: generatedModule, apiModules, searchEntries }
   })

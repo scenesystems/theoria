@@ -1,9 +1,10 @@
-import { Array as Arr, Option } from "effect"
+import { Array as Arr, Boolean as Bool, Match, Option, String as Str } from "effect"
 import {
   type CommentDisplayPart,
   type DeclarationReflection,
   type ParameterReflection,
   ReflectionKind,
+  type ReflectionType,
   type SignatureReflection
 } from "typedoc"
 
@@ -20,7 +21,10 @@ import {
 export const firstSourceUrl = (
   reflection: DeclarationReflection | SignatureReflection
 ): Option.Option<string> =>
-  Arr.findFirst(reflection.sources ?? [], (source) => Option.isSome(Option.fromNullable(source.url))).pipe(
+  Arr.findFirst(
+    Option.fromNullable(reflection.sources).pipe(Option.getOrElse(Arr.empty)),
+    (source) => Option.isSome(Option.fromNullable(source.url))
+  ).pipe(
     Option.flatMap((source) => Option.fromNullable(source.url))
   )
 
@@ -46,7 +50,10 @@ const parameterModel = (
   context: ApiDocContext
 ): ApiParameter => ({
   name: parameter.name,
-  type: parameter.type?.toString() ?? "unknown",
+  type: Option.fromNullable(parameter.type).pipe(
+    Option.map((type) => type.toString()),
+    Option.getOrElse(() => "unknown")
+  ),
   optional: parameter.flags.isOptional,
   rest: parameter.flags.isRest,
   defaultValue: Option.fromNullable(parameter.defaultValue),
@@ -57,15 +64,22 @@ const parameterModel = (
 })
 
 const signatureKind = (signature: SignatureReflection): ApiSignature["kind"] =>
-  signature.kindOf(ReflectionKind.ConstructorSignature) ?
-    "constructor"
-    : signature.kindOf(ReflectionKind.GetSignature) ?
-    "get"
-    : signature.kindOf(ReflectionKind.SetSignature) ?
-    "set"
-    : signature.kindOf(ReflectionKind.IndexSignature) ?
-    "index"
-    : "call"
+  Bool.match(signature.kindOf(ReflectionKind.ConstructorSignature), {
+    onTrue: (): ApiSignature["kind"] => "constructor",
+    onFalse: () =>
+      Bool.match(signature.kindOf(ReflectionKind.GetSignature), {
+        onTrue: (): ApiSignature["kind"] => "get",
+        onFalse: () =>
+          Bool.match(signature.kindOf(ReflectionKind.SetSignature), {
+            onTrue: (): ApiSignature["kind"] => "set",
+            onFalse: () =>
+              Bool.match(signature.kindOf(ReflectionKind.IndexSignature), {
+                onTrue: (): ApiSignature["kind"] => "index",
+                onFalse: (): ApiSignature["kind"] => "call"
+              })
+          })
+      })
+  })
 
 const signatureModel = (
   signature: SignatureReflection,
@@ -73,35 +87,48 @@ const signatureModel = (
   context: ApiDocContext,
   fallbackSourceUrl: string
 ): ApiSignature => {
-  const parameters = Arr.map(signature.parameters ?? [], (parameter) => parameterModel(parameter, signature, context))
-  const parameterCode = Arr.map(
-    parameters,
-    (parameter) =>
-      `${parameter.rest ? "..." : ""}${parameter.name}${
-        parameter.optional && Option.isNone(parameter.defaultValue) ? "?" : ""
-      }: ${parameter.type}${
-        Option.match(parameter.defaultValue, { onNone: () => "", onSome: (value) => ` = ${value}` })
-      }`
-  ).join(", ")
-  const genericCode = (signature.typeParameters?.length ?? 0) === 0
-    ? ""
-    : `<${Arr.map(signature.typeParameters ?? [], typeParameterCode).join(", ")}>`
-  const returns = signature.type?.toString() ?? "void"
+  const parameters = Arr.map(
+    Option.fromNullable(signature.parameters).pipe(Option.getOrElse(Arr.empty)),
+    (parameter) => parameterModel(parameter, signature, context)
+  )
+  const parameterCode = Arr.join(
+    Arr.map(
+      parameters,
+      (parameter) =>
+        `${Bool.match(parameter.rest, { onTrue: () => "...", onFalse: () => "" })}${parameter.name}${
+          Bool.match(Bool.and(parameter.optional, Option.isNone(parameter.defaultValue)), {
+            onTrue: () => "?",
+            onFalse: () => ""
+          })
+        }: ${parameter.type}${
+          Option.match(parameter.defaultValue, { onNone: () => "", onSome: (value) => ` = ${value}` })
+        }`
+    ),
+    ", "
+  )
+  const signatureTypeParameters = Option.fromNullable(signature.typeParameters).pipe(Option.getOrElse(Arr.empty))
+  const genericCode = Bool.match(Arr.isEmptyReadonlyArray(signatureTypeParameters), {
+    onTrue: () => "",
+    onFalse: () => `<${Arr.join(Arr.map(signatureTypeParameters, typeParameterCode), ", ")}>`
+  })
+  const returns = Option.fromNullable(signature.type).pipe(
+    Option.map((type) => type.toString()),
+    Option.getOrElse(() => "void")
+  )
   const kind = signatureKind(signature)
-  const code = kind === "constructor" ?
-    `new ${genericCode}(${parameterCode}): ${returns}`
-    : kind === "get" ?
-    `get ${name}(): ${returns}`
-    : kind === "set" ?
-    `set ${name}(${parameterCode})`
-    : kind === "index" ?
-    `[${parameterCode}]: ${returns}`
-    : `${name}${genericCode}(${parameterCode}): ${returns}`
+  const code = Match.value(kind).pipe(
+    Match.when("constructor", () => `new ${genericCode}(${parameterCode}): ${returns}`),
+    Match.when("get", () => `get ${name}(): ${returns}`),
+    Match.when("set", () => `set ${name}(${parameterCode})`),
+    Match.when("index", () => `[${parameterCode}]: ${returns}`),
+    Match.when("call", () => `${name}${genericCode}(${parameterCode}): ${returns}`),
+    Match.exhaustive
+  )
 
   return {
     kind,
     code,
-    typeParameters: typeParameters(signature.typeParameters ?? [], Option.fromNullable(signature.comment), context),
+    typeParameters: typeParameters(signatureTypeParameters, Option.fromNullable(signature.comment), context),
     parameters,
     returns: { type: returns, description: tagParts(Option.fromNullable(signature.comment), "@returns", context) },
     docs: documentation(Option.fromNullable(signature.comment), context),
@@ -111,11 +138,15 @@ const signatureModel = (
 
 const signaturesOf = (reflection: DeclarationReflection): ReadonlyArray<SignatureReflection> => {
   const direct = reflection.getAllSignatures()
-  return direct.length > 0 ?
-    direct
-    : reflection.type?.type === "reflection" ?
-    reflection.type.declaration.getAllSignatures()
-    : []
+  return Bool.match(Arr.isNonEmptyReadonlyArray(direct), {
+    onTrue: () => direct,
+    onFalse: () =>
+      Option.fromNullable(reflection.type).pipe(
+        Option.filter((type): type is ReflectionType => Str.Equivalence(type.type, "reflection")),
+        Option.map((type) => type.declaration.getAllSignatures()),
+        Option.getOrElse(Arr.empty)
+      )
+  })
 }
 
 export const signatureModels = (

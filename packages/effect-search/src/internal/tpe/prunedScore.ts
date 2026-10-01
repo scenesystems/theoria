@@ -1,53 +1,63 @@
-import { Array as Arr, Match, Option, Schema, Tuple } from "effect"
+import { isFinite } from "@scenesystems/effect-math/Numeric"
+import { Array as Arr, Match, Number as Num, Option, Schema, Tuple } from "effect"
 
-import type { Direction } from "../../contracts/Direction.js"
+import type { Direction } from "../../Direction.js"
 
-export class PrunedIntermediateValue
-  extends Schema.Class<PrunedIntermediateValue>("effect-search/PrunedIntermediateValue")({
-    step: Schema.Number,
-    value: Schema.Number
-  })
-{}
+export class PrunedIntermediateValue extends Schema.Class<PrunedIntermediateValue>(
+  "@scenesystems/effect-search/internal/tpe/prunedScore/PrunedIntermediateValue"
+)({
+  step: Schema.Number,
+  value: Schema.Number
+}) {}
 
-export class PrunedTrialScore extends Schema.Class<PrunedTrialScore>("effect-search/PrunedTrialScore")({
+export class PrunedTrialScore extends Schema.Class<PrunedTrialScore>(
+  "@scenesystems/effect-search/internal/tpe/prunedScore/PrunedTrialScore"
+)({
   step: Schema.Number,
   value: Schema.Number
 }) {}
 
 const latestIntermediateValue = (
-  intermediateValues: ReadonlyArray<PrunedIntermediateValue>
-): Option.Option<PrunedIntermediateValue> =>
-  Arr.reduce(intermediateValues, Option.none<PrunedIntermediateValue>(), (current, value) =>
-    Option.match(current, {
-      onNone: () => Option.some(value),
-      onSome: (latest) =>
-        Match.value(latest.step <= value.step).pipe(
-          Match.when(true, () => Option.some(value)),
-          Match.orElse(() => Option.some(latest))
-        )
-    }))
+  intermediateValuesInput: Iterable<PrunedIntermediateValue>
+): Option.Option<PrunedIntermediateValue> => {
+  const intermediateValues = Arr.fromIterable(intermediateValuesInput)
+  return Arr.reduce(
+    intermediateValues,
+    Option.none<PrunedIntermediateValue>(),
+    (current, value) =>
+      Option.match(current, {
+        onNone: () => Option.some(value),
+        onSome: (latest) =>
+          Match.value(Num.lessThanOrEqualTo(latest.step, value.step)).pipe(
+            Match.when(true, () => Option.some(value)),
+            Match.orElse(() => Option.some(latest))
+          )
+      })
+  )
+}
 
 const directionalScore = (direction: Direction, value: number): number =>
   Match.value(direction).pipe(
-    Match.when("maximize", () => -value),
+    Match.when("maximize", () => Num.negate(value)),
     Match.orElse(() => value)
   )
 
 const finiteScore = (value: number): number =>
-  Match.value(Number.isFinite(value)).pipe(
+  Match.value(isFinite(value)).pipe(
     Match.when(true, () => value),
     Match.orElse(() => Number.POSITIVE_INFINITY)
   )
 
 export const prunedTrialScore = (
-  intermediateValues: ReadonlyArray<PrunedIntermediateValue>,
+  intermediateValuesInput: Iterable<PrunedIntermediateValue>,
   direction: Direction
-): PrunedTrialScore =>
-  latestIntermediateValue(intermediateValues).pipe(
+): PrunedTrialScore => {
+  const intermediateValues = Arr.fromIterable(intermediateValuesInput)
+  return latestIntermediateValue(intermediateValues).pipe(
     Option.match({
       onNone: () =>
         new PrunedTrialScore({
-          step: -1,
+          step: Num.negate(1),
           value: Number.POSITIVE_INFINITY
         }),
       onSome: (latest) =>
@@ -57,6 +67,7 @@ export const prunedTrialScore = (
         })
     })
   )
+}
 
 export const prunedTrialOrderKey = (
   trialNumber: number,

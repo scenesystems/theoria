@@ -1,0 +1,313 @@
+/**
+ * Default resolution and semantic validation for optimization execution.
+ *
+ * @since 0.1.0
+ */
+import { isFinite } from "@scenesystems/effect-math/Numeric"
+import * as Stop from "@scenesystems/effect-study/Stop"
+import { Array as Arr, Boolean as Bool, Duration, Effect, Match, Number as Num, Option, Schema, Tuple } from "effect"
+
+import { type Direction } from "../../../Direction.js"
+import { fromOptions, match } from "../../../Objective.js"
+import * as Pruning from "../../../Pruning.js"
+import { InvalidOptimizationConfig } from "../../../SearchError.js"
+import type * as SearchSpace from "../../../SearchSpace.js"
+import { type OptimizePlan, OptimizeSettings, retryScheduleOrDefault } from "./plan.js"
+
+/**
+ * Extracts the comparison direction for a scalar objective. Vector objectives
+ * produce `None`.
+ *
+ * @since 0.1.0
+ * @category utils
+ */
+export const singleDirectionFromSettings = (settings: OptimizeSettings): Option.Option<Direction> =>
+  match({
+    Single: ({ direction }) => Option.some(direction),
+    Multi: () => Option.none()
+  })(settings.objectiveSpec)
+
+const concurrencyFromOptions = <Config, Space extends SearchSpace.SearchSpace>(
+  options: OptimizePlan<Config, Space>
+): number =>
+  Match.value(options.concurrency).pipe(
+    Match.when(Match.number, (value) => value),
+    Match.orElse(() => 1)
+  )
+
+const evaluationsPerTrialFromOptions = <Config, Space extends SearchSpace.SearchSpace>(
+  options: OptimizePlan<Config, Space>
+): number =>
+  Match.value(options.evaluationsPerTrial).pipe(
+    Match.when(Match.number, (value) => value),
+    Match.orElse(() => 1)
+  )
+
+const trialTimeoutFromOptions = <Config, Space extends SearchSpace.SearchSpace>(
+  options: OptimizePlan<Config, Space>
+): Option.Option<Duration.Duration> =>
+  Option.fromNullable(options.trialTimeout).pipe(
+    Option.flatMap((timeout) => Duration.decodeUnknown(timeout))
+  )
+
+const maxDurationFromOptions = <Config, Space extends SearchSpace.SearchSpace>(
+  options: OptimizePlan<Config, Space>
+): Option.Option<Duration.Duration> =>
+  Option.fromNullable(options.maxDuration).pipe(
+    Option.flatMap((duration) => Duration.decodeUnknown(duration))
+  )
+
+const priorWeightFromOptions = <Config, Space extends SearchSpace.SearchSpace>(
+  options: OptimizePlan<Config, Space>
+): number =>
+  Option.fromNullable(options.priorWeight).pipe(
+    Option.getOrElse(() => 1)
+  )
+
+const maxCostFromOptions = <Config, Space extends SearchSpace.SearchSpace>(
+  options: OptimizePlan<Config, Space>
+): Option.Option<number> => Option.fromNullable(options.maxCost)
+
+const targetValueFromOptions = <Config, Space extends SearchSpace.SearchSpace>(
+  options: OptimizePlan<Config, Space>
+): Option.Option<number> => Option.fromNullable(options.targetValue)
+
+const noImprovementWindowFromOptions = <Config, Space extends SearchSpace.SearchSpace>(
+  options: OptimizePlan<Config, Space>
+): Option.Option<number> => Option.fromNullable(options.noImprovementWindow)
+
+const epsilonFromOptions = <Config, Space extends SearchSpace.SearchSpace>(
+  options: OptimizePlan<Config, Space>
+): number =>
+  Option.fromNullable(options.epsilon).pipe(
+    Option.getOrElse(() => 0)
+  )
+
+/**
+ * Resolves omitted execution settings and objective direction into an immutable
+ * {@link OptimizeSettings} value. Call {@link validateSettings} before execution
+ * to enforce numeric and objective-kind constraints.
+ *
+ * @typeParam Config - Decoded configuration accepted by the source objective.
+ * @typeParam Space - Compiled search space retained by the source options.
+ *
+ * @since 0.1.0
+ * @category utils
+ */
+export const normalizeSettings = <Config, Space extends SearchSpace.SearchSpace>(
+  options: OptimizePlan<Config, Space>
+): OptimizeSettings =>
+  new OptimizeSettings({
+    objectiveSpec: fromOptions({
+      ...Option.fromNullable(options.direction).pipe(
+        Option.match({
+          onNone: () => ({}),
+          onSome: (direction) => ({ direction })
+        })
+      ),
+      ...Option.fromNullable(options.directions).pipe(
+        Option.match({
+          onNone: () => ({}),
+          onSome: (directions) => ({ directions: Arr.fromIterable(directions) })
+        })
+      )
+    }),
+    trials: options.trials,
+    concurrency: concurrencyFromOptions(options),
+    evaluationsPerTrial: evaluationsPerTrialFromOptions(options),
+    stopMode: Stop.modeOrDefault(Option.fromNullable(options.stopMode)),
+    priorWeight: priorWeightFromOptions(options),
+    epsilon: epsilonFromOptions(options),
+    retrySchedule: retryScheduleOrDefault(Option.fromNullable(options.retrySchedule)),
+    ...maxCostFromOptions(options).pipe(
+      Option.match({
+        onNone: () => ({}),
+        onSome: (maxCost) => ({ maxCost })
+      })
+    ),
+    ...targetValueFromOptions(options).pipe(
+      Option.match({
+        onNone: () => ({}),
+        onSome: (targetValue) => ({ targetValue })
+      })
+    ),
+    ...noImprovementWindowFromOptions(options).pipe(
+      Option.match({
+        onNone: () => ({}),
+        onSome: (noImprovementWindow) => ({ noImprovementWindow })
+      })
+    ),
+    ...maxDurationFromOptions(options).pipe(
+      Option.match({
+        onNone: () => ({}),
+        onSome: (maxDuration) => ({ maxDuration })
+      })
+    ),
+    ...trialTimeoutFromOptions(options).pipe(
+      Option.match({
+        onNone: () => ({}),
+        onSome: (trialTimeout) => ({ trialTimeout })
+      })
+    )
+  })
+
+/**
+ * Returns the configured policy or the shared policy that always continues.
+ *
+ * @typeParam Config - Decoded configuration accepted by the source objective.
+ * @typeParam Space - Compiled search space retained by the source options.
+ *
+ * @since 0.1.0
+ * @category constructors
+ */
+export const pruningPolicyFromOptions = <Config, Space extends SearchSpace.SearchSpace>(
+  options: OptimizePlan<Config, Space>
+): Pruning.Policy =>
+  Option.fromNullable(options.pruningPolicy).pipe(
+    Option.match({
+      onNone: () => Pruning.never,
+      onSome: (policy) => policy
+    })
+  )
+
+/**
+ * Rejects unsafe execution counts, invalid numeric limits, and stopping options
+ * incompatible with the scalar or vector objective kind.
+ *
+ * @remarks
+ * Trial count must be a non-negative integer. Concurrency and evaluations per
+ * trial must be positive integers. Prior weight, epsilon, and cost budget must
+ * be finite and non-negative. Target values must be finite, and no-improvement
+ * windows must be positive integers. Positive epsilon is reserved for vector
+ * objectives; target and no-improvement stopping are reserved for scalar ones.
+ *
+ * @since 0.1.0
+ * @category guards
+ */
+export const validateSettings = (
+  settings: OptimizeSettings
+): Effect.Effect<void, InvalidOptimizationConfig> =>
+  Effect.gen(function*() {
+    yield* Effect.when(
+      Effect.fail(new InvalidOptimizationConfig({ reason: "Optimization.run requires trials to be an integer >= 0" })),
+      () =>
+        Bool.or(
+          Bool.not(Schema.is(Schema.Number.pipe(Schema.int()))(settings.trials)),
+          Num.lessThan(settings.trials, 0)
+        )
+    )
+
+    yield* Effect.when(
+      Effect.fail(
+        new InvalidOptimizationConfig({ reason: "Optimization.run requires concurrency to be an integer >= 1" })
+      ),
+      () =>
+        Bool.or(
+          Bool.not(Schema.is(Schema.Number.pipe(Schema.int()))(settings.concurrency)),
+          Num.lessThan(settings.concurrency, 1)
+        )
+    )
+
+    yield* Effect.when(
+      Effect.fail(new InvalidOptimizationConfig({ reason: "Optimization.run requires evaluationsPerTrial >= 1" })),
+      () => Num.lessThan(settings.evaluationsPerTrial, 1)
+    )
+
+    yield* Effect.when(
+      Effect.fail(
+        new InvalidOptimizationConfig({ reason: "Optimization.run requires evaluationsPerTrial to be an integer" })
+      ),
+      () => Bool.not(Schema.is(Schema.Number.pipe(Schema.int()))(settings.evaluationsPerTrial))
+    )
+
+    yield* Effect.when(
+      Effect.fail(
+        new InvalidOptimizationConfig({ reason: "Optimization.run requires priorWeight to be finite and >= 0" })
+      ),
+      () => Bool.or(Bool.not(isFinite(settings.priorWeight)), Num.lessThan(settings.priorWeight, 0))
+    )
+
+    yield* Effect.when(
+      Effect.fail(new InvalidOptimizationConfig({ reason: "Optimization.run requires epsilon to be finite and >= 0" })),
+      () => Bool.or(Bool.not(isFinite(settings.epsilon)), Num.lessThan(settings.epsilon, 0))
+    )
+
+    yield* Option.fromNullable(settings.maxCost).pipe(
+      Option.match({
+        onNone: () => Effect.void,
+        onSome: (maxCost) =>
+          Effect.when(
+            Effect.fail(
+              new InvalidOptimizationConfig({ reason: "Optimization.run requires maxCost to be finite and >= 0" })
+            ),
+            () => Bool.or(Bool.not(isFinite(maxCost)), Num.lessThan(maxCost, 0))
+          )
+      })
+    )
+
+    yield* Option.fromNullable(settings.targetValue).pipe(
+      Option.match({
+        onNone: () => Effect.void,
+        onSome: (targetValue) =>
+          Effect.when(
+            Effect.fail(
+              new InvalidOptimizationConfig({ reason: "Optimization.run requires targetValue to be finite" })
+            ),
+            () => Bool.not(isFinite(targetValue))
+          )
+      })
+    )
+
+    yield* Option.fromNullable(settings.noImprovementWindow).pipe(
+      Option.match({
+        onNone: () => Effect.void,
+        onSome: (noImprovementWindow) =>
+          Effect.when(
+            Effect.fail(
+              new InvalidOptimizationConfig({
+                reason: "Optimization.run requires noImprovementWindow to be an integer >= 1"
+              })
+            ),
+            () =>
+              Bool.or(
+                Bool.not(Schema.is(Schema.Number.pipe(Schema.int()))(noImprovementWindow)),
+                Num.lessThan(noImprovementWindow, 1)
+              )
+          )
+      })
+    )
+
+    yield* match({
+      Single: () =>
+        Effect.when(
+          Effect.fail(
+            new InvalidOptimizationConfig({
+              reason: "Optimization.run supports epsilon only for multi-objective optimizations"
+            })
+          ),
+          () => Bool.not(Num.Equivalence(settings.epsilon, 0))
+        ),
+      Multi: () =>
+        Effect.all(
+          Tuple.make(
+            Effect.when(
+              Effect.fail(
+                new InvalidOptimizationConfig({
+                  reason: "Optimization.run supports targetValue only for single-objective optimizations"
+                })
+              ),
+              () => Option.isSome(Option.fromNullable(settings.targetValue))
+            ),
+            Effect.when(
+              Effect.fail(
+                new InvalidOptimizationConfig({
+                  reason: "Optimization.run supports noImprovementWindow only for single-objective optimizations"
+                })
+              ),
+              () => Option.isSome(Option.fromNullable(settings.noImprovementWindow))
+            )
+          ),
+          { discard: true }
+        )
+    })(settings.objectiveSpec)
+  })

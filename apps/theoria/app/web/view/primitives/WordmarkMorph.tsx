@@ -1,5 +1,5 @@
 import { useAtomSet, useAtomValue } from "@effect-atom/atom-react"
-import { Boolean as Bool, Equal, Match, Schema } from "effect"
+import { Boolean as Bool, Equal, Function, Match, Schema } from "effect"
 import * as Arr from "effect/Array"
 import type { AnimationDefinition, Variants } from "motion/react"
 import * as m from "motion/react-m"
@@ -69,11 +69,14 @@ const LAYERS: Record<Face, ReadonlyArray<{ readonly text: string; readonly varia
  */
 const TextLayer = ({ face }: { readonly face: Face }) => (
   <span className="col-start-1 row-start-1">
-    {LAYERS[face].map((segment, index) => (
-      <m.span data-wordmark-face={face} key={index} variants={segment.variants}>
-        {segment.text}
-      </m.span>
-    ))}
+    {Arr.map(
+      LAYERS[face],
+      (segment, index) => (
+        <m.span data-wordmark-face={face} key={index} variants={segment.variants}>
+          {segment.text}
+        </m.span>
+      )
+    )}
   </span>
 )
 
@@ -114,11 +117,11 @@ const AnimatedWordmark = () => {
       aria-hidden
       className={rootClassName}
       initial="rest"
-      onAnimationComplete={(definition) => {
-        if (passEnded(definition)) {
-          tell("passEnded")
-        }
-      }}
+      onAnimationComplete={(definition) =>
+        Bool.match(passEnded(definition), {
+          onTrue: () => tell("passEnded"),
+          onFalse: Function.constVoid
+        })}
       onPointerEnter={() => tell("replayAsked")}
     >
       <MeasureLayer />

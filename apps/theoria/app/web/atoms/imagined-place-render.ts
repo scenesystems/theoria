@@ -1,8 +1,9 @@
 import { Atom, Result } from "@effect-atom/atom"
 import type { Atom as AtomType } from "@effect-atom/atom"
-import { Duration, Effect, Equal, Layer, Match, Option, Schedule, Schema, Stream } from "effect"
+import { Boolean as Bool, Duration, Effect, Equal, Layer, Match, Option, Schedule, Schema, Stream } from "effect"
 import * as Arr from "effect/Array"
 import * as HashSet from "effect/HashSet"
+import * as Num from "effect/Number"
 import * as Record from "effect/Record"
 
 import { DemoExecutionError } from "../../contracts/demo-error.js"
@@ -54,7 +55,7 @@ import { textLayoutLive } from "./text-layout.js"
  *
  * This is the same search the server runs in `server/imagined-place/render.ts`
  * (same seed, same trial budget, same objective), driven step by step with
- * `Study.ask`/`Study.tell` so the page can show the arrangement improving.
+ * `Optimization.ask`/`Optimization.tell` so the page can show the arrangement improving.
  *
  * The search moves in jumps: each better trial is a new arrangement, and a
  * merge or a decline is a new artifact whose arrangements place every disc
@@ -75,7 +76,7 @@ export const PlaceSearchPhase = Schema.Literal("running", "landing", "complete")
 
 export type PlaceSearchPhase = typeof PlaceSearchPhase.Type
 
-export class PlaceSearch extends Schema.Class<PlaceSearch>("PlaceSearch")({
+export class PlaceSearch extends Schema.Class<PlaceSearch>("@theoria/app/web/atoms/ImaginedPlaceRender/PlaceSearch")({
   source: PlaceBuild,
   phase: PlaceSearchPhase,
   stage: Stage,
@@ -113,7 +114,9 @@ export const drawingId = (search: PlaceSearch): DrawingId => ({
  * which does not wake them for a frame: the same `PlaceSearch` is carried
  * through every frame of a trial's travel.
  */
-export class PlaceRenderFrame extends Schema.Class<PlaceRenderFrame>("PlaceRenderFrame")({
+export class PlaceRenderFrame extends Schema.Class<PlaceRenderFrame>(
+  "@theoria/app/web/atoms/ImaginedPlaceRender/PlaceRenderFrame"
+)({
   search: PlaceSearch,
   /** Index into the search's `tried` of the arrangement the drawing is of, or heading for: the best, or the trial chosen. */
   trial: Schema.Int,
@@ -143,7 +146,7 @@ export const frameShowing = (frame: PlaceRenderFrame, index: Option.Option<numbe
             arrangement,
             bestLoss: frame.search.best.evidence.bestLoss,
             stage: frame.search.stage,
-            trials: frame.search.tried.length
+            trials: Arr.length(frame.search.tried)
           })
         })
     }
@@ -160,17 +163,23 @@ type Progress = typeof Progress.Type
 
 const bestOf = (progress: Progress): Arrangement => Arr.unsafeGet(progress.tried, progress.bestIndex)
 
-const trialsDone = (progress: Progress): boolean => progress.tried.length >= renderTrials
+const trialsDone = (progress: Progress): boolean => Num.greaterThanOrEqualTo(Arr.length(progress.tried), renderTrials)
 
 const phaseOf = (done: boolean, landed: boolean): PlaceSearchPhase =>
-  done ? (landed ? "complete" : "landing") : "running"
+  Bool.match(done, {
+    onTrue: () => Bool.match(landed, { onTrue: () => "complete", onFalse: () => "landing" }),
+    onFalse: () => "running"
+  })
 
 const advance = (current: Option.Option<Progress>, arrangement: Arrangement): Progress =>
   Option.match(current, {
     onNone: () => ({ tried: Arr.of(arrangement), bestIndex: 0 }),
     onSome: (progress) => ({
       tried: Arr.append(progress.tried, arrangement),
-      bestIndex: arrangement.quality.loss < bestOf(progress).quality.loss ? progress.tried.length : progress.bestIndex
+      bestIndex: Bool.match(Num.lessThan(arrangement.quality.loss, bestOf(progress).quality.loss), {
+        onTrue: () => Arr.length(progress.tried),
+        onFalse: () => progress.bestIndex
+      })
     })
   })
 
@@ -207,9 +216,10 @@ const search = (
         })
 
       return Stream.unfoldEffect(Option.none<Progress>(), (current) =>
-        Option.exists(current, trialsDone)
-          ? Effect.succeedNone
-          : Effect.map(trial(current), (next) => Option.some([next, Option.some(next)])))
+        Bool.match(Option.exists(current, trialsDone), {
+          onTrue: () => Effect.succeedNone,
+          onFalse: () => Effect.map(trial(current), (next) => Option.some([next, Option.some(next)]))
+        }))
     })
   ).pipe(
     Stream.retry(Schedule.once.pipe(Schedule.whileInput(workerGone))),
@@ -252,7 +262,8 @@ export const restBeforeTravel = (
     Match.when("full", () =>
       Option.match(left, {
         onNone: () => Duration.zero,
-        onSome: (before) => before === prose ? Duration.zero : motionExitBound
+        onSome: (before) =>
+          Bool.match(Equal.equals(before, prose), { onTrue: () => Duration.zero, onFalse: () => motionExitBound })
       })),
     Match.when("reduced", () => Duration.zero),
     Match.exhaustive
@@ -271,7 +282,7 @@ const linesStanding = (linesOnStage: Stream.Stream<Option.Option<string>>, prose
  * features the last settled arrangement drew, and the description its lines
  * were set from.
  */
-class DrawingLeft extends Schema.Class<DrawingLeft>("DrawingLeft")({
+class DrawingLeft extends Schema.Class<DrawingLeft>("@theoria/app/web/atoms/ImaginedPlaceRender/DrawingLeft")({
   drawing: PlaceDrawing,
   held: Schema.Option(Schema.Number),
   settled: Schema.HashSetFromSelf(Schema.String),
@@ -283,7 +294,7 @@ const drawnNames = (rendering: PlaceRendering): HashSet.HashSet<string> =>
 
 /** What a frame leaves for the next search: its own drawing if it settled, else what it was itself left. */
 const settledAfter = (frame: PlaceRenderFrame): HashSet.HashSet<string> =>
-  settled(frame) ? drawnNames(frame.rendering) : frame.search.settled
+  Bool.match(settled(frame), { onTrue: () => drawnNames(frame.rendering), onFalse: () => frame.search.settled })
 
 const renderStream = (
   source: PlaceBuild,
@@ -334,12 +345,12 @@ const renderStream = (
         const best = bestOf(progress)
         const done = trialsDone(progress)
         const rendered = (arrangement: Arrangement) =>
-          renderingFor({ arrangement, bestLoss: best.quality.loss, stage, trials: progress.tried.length })
+          renderingFor({ arrangement, bestLoss: best.quality.loss, stage, trials: Arr.length(progress.tried) })
         const bestRendering = rendered(best)
         const fits = bestRendering.projection.stageHeight
         const heading = new PlaceDrawing({
           markers: best.markers,
-          paper: done ? fits : held
+          paper: Bool.match(done, { onTrue: () => fits, onFalse: () => held })
         })
         const searchWhile = (landed: boolean) =>
           new PlaceSearch({
@@ -362,21 +373,26 @@ const renderStream = (
         const onTheWay = searchWhile(false)
         const arrived = new PlaceRenderFrame({ ...landed, search: onTheWay })
         const paperOnTheWay = (drawn: PlaceDrawing): number =>
-          done ? Math.max(drawn.paper, paperUnder(stage, drawn.markers)) : drawn.paper
+          Bool.match(done, {
+            onTrue: () => Num.max(drawn.paper, paperUnder(stage, drawn.markers)),
+            onFalse: () => drawn.paper
+          })
         // The drawing arrives, and lands a frame later: whatever stands at the
         // arrival — the ring a disc will fill — is drawn exactly there before
         // anything is swapped for it, whether it travelled or was placed outright.
         return Stream.flatMap(toward(travelling, journey, heading), (drawn) =>
-          Equal.equals(drawn, heading)
-            ? Stream.concat(Stream.make(arrived), Stream.as(Stream.take(travelling.ticks, 1), landed))
-            : Stream.make(
-              new PlaceRenderFrame({
-                search: onTheWay,
-                trial: progress.bestIndex,
-                rendering: rendered(around(drawn.markers)),
-                paper: paperOnTheWay(drawn)
-              })
-            ))
+          Bool.match(Equal.equals(drawn, heading), {
+            onTrue: () => Stream.concat(Stream.make(arrived), Stream.as(Stream.take(travelling.ticks, 1), landed)),
+            onFalse: () =>
+              Stream.make(
+                new PlaceRenderFrame({
+                  search: onTheWay,
+                  trial: progress.bestIndex,
+                  rendering: rendered(around(drawn.markers)),
+                  paper: paperOnTheWay(drawn)
+                })
+              )
+          }))
       }
 
       return search(candidate).pipe(
@@ -393,10 +409,10 @@ const renderStream = (
  */
 export const placeTrialPreviewAtom: AtomType.Writable<Option.Option<number>> = Atom.make(Option.none<number>())
 
-const settled = (frame: PlaceRenderFrame): boolean => frame.search.phase === "complete"
+const settled = (frame: PlaceRenderFrame): boolean => Equal.equals(frame.search.phase, "complete")
 
 const draws = (frame: PlaceRenderFrame, name: string): boolean =>
-  Arr.some(frame.rendering.projection.markers, (marker) => marker.name === name)
+  Arr.some(frame.rendering.projection.markers, (marker) => Equal.equals(marker.name, name))
 
 /**
  * What the stage is drawing. `kept`: the arrangement the search settled on,
@@ -415,7 +431,8 @@ export const placeDrawnAtom: AtomType.Atom<PlaceDrawn> = Atom.make((get: AtomTyp
     onNone: () =>
       Option.match(Result.value(get(placeRenderFrameAtom)), {
         onNone: (): PlaceDrawn => "sketch",
-        onSome: (found): PlaceDrawn => settled(found) ? "kept" : "sketch"
+        onSome: (found): PlaceDrawn =>
+          Bool.match(settled(found), { onTrue: (): PlaceDrawn => "kept", onFalse: (): PlaceDrawn => "sketch" })
       })
   })
 )
@@ -446,12 +463,12 @@ export const PlaceSheet = Schema.Struct({
 export type PlaceSheet = typeof PlaceSheet.Type
 
 /** How far a drawing `drawn` wide is scaled to stand on a column `measured` wide: whole while the column holds it, never up. */
-export const sheetFit = (measured: number, drawn: number): number => Math.min(1, measured / drawn)
+export const sheetFit = (measured: number, drawn: number): number => Num.min(1, Num.unsafeDivide(measured, drawn))
 
 /** The sheet under a drawing `drawn` wide with `paper` under it, on a column `measured` wide. */
 export const sheetFitting = (measured: number, drawn: number, paper: number): PlaceSheet => {
   const fit = sheetFit(measured, drawn)
-  return PlaceSheet.make({ width: Math.min(measured, drawn), height: paper * fit, fit })
+  return PlaceSheet.make({ width: Num.min(measured, drawn), height: Num.multiply(paper, fit), fit })
 }
 
 export const placeSheetAtom: AtomType.Atom<Option.Option<PlaceSheet>> = Atom.make((get: AtomType.Context) =>
@@ -484,11 +501,14 @@ export const PlaceFeatureHome = Schema.Literal("stage", "proposal")
 export type PlaceFeatureHome = typeof PlaceFeatureHome.Type
 
 export const featureHome = (frame: PlaceRenderFrame, name: string): PlaceFeatureHome =>
-  draws(frame, name) && (settled(frame) || HashSet.has(frame.search.settled, name)) ? "stage" : "proposal"
+  Bool.match(Bool.and(draws(frame, name), Bool.or(settled(frame), HashSet.has(frame.search.settled, name))), {
+    onTrue: () => "stage",
+    onFalse: () => "proposal"
+  })
 
 /** Whether the search is heading for a feature: the best so far places every feature the place has; a drawn marker of any other name is on its way out. */
 const heading = (frame: PlaceRenderFrame, name: string): boolean =>
-  Arr.some(frame.search.best.projection.markers, (marker) => marker.name === name)
+  Arr.some(frame.search.best.projection.markers, (marker) => Equal.equals(marker.name, name))
 
 /**
  * How one disc is drawn. `settled`: the disc, positioned by the frame and
@@ -519,13 +539,15 @@ export const discDrawn = (drawn: PlaceDrawn, frame: Option.Option<PlaceRenderFra
       Option.match(frame, {
         onNone: (): PlaceDiscDrawn => "settled",
         onSome: (shown): PlaceDiscDrawn =>
-          heading(shown, name)
-            ? Match.value(featureHome(shown, name)).pipe(
-              Match.when("stage", (): PlaceDiscDrawn => "settled"),
-              Match.when("proposal", (): PlaceDiscDrawn => "arriving"),
-              Match.exhaustive
-            )
-            : "leaving"
+          Bool.match(heading(shown, name), {
+            onTrue: () =>
+              Match.value(featureHome(shown, name)).pipe(
+                Match.when("stage", (): PlaceDiscDrawn => "settled"),
+                Match.when("proposal", (): PlaceDiscDrawn => "arriving"),
+                Match.exhaustive
+              ),
+            onFalse: (): PlaceDiscDrawn => "leaving"
+          })
       })),
     Match.exhaustive
   )
@@ -573,9 +595,10 @@ export const placeRenderFrameAtom: AtomType.Atom<Result.Result<PlaceRenderFrame,
               onSome: (measured) => sheetFit(measured, previous.search.stage.stageWidth)
             })
           ),
-          held: Option.contains(stageWidth, previous.search.stage.stageWidth)
-            ? Option.some(previous.paper)
-            : Option.none(),
+          held: Bool.match(Option.contains(stageWidth, previous.search.stage.stageWidth), {
+            onTrue: () => Option.some(previous.paper),
+            onFalse: Option.none
+          }),
           settled: settledAfter(previous),
           prose: previous.search.prose
         })
@@ -651,18 +674,21 @@ export const placeLegendAtom: AtomType.Atom<Option.Option<ReadonlyArray<PlaceLeg
   (get: AtomType.Context) =>
     Option.match(Result.value(get(placeShownFrameAtom)), {
       onSome: (frame) =>
-        Record.isEmptyRecord(frame.search.labels)
-          ? Option.some(
-            legendFromMarkers(
-              Arr.filter(frame.rendering.projection.markers, (marker) => heading(frame, marker.name))
-            )
-          )
-          : Option.none(),
+        Bool.match(Record.isEmptyRecord(frame.search.labels), {
+          onTrue: () =>
+            Option.some(
+              legendFromMarkers(
+                Arr.filter(frame.rendering.projection.markers, (marker) => heading(frame, marker.name))
+              )
+            ),
+          onFalse: Option.none
+        }),
       onNone: () =>
         Option.flatMap(Result.value(get(placeExpectedLabelsAtom)), (labels) =>
-          Record.isEmptyRecord(labels)
-            ? Option.some(legendFromOutline(get(placeOutlineAtom)))
-            : Option.none())
+          Bool.match(Record.isEmptyRecord(labels), {
+            onTrue: () => Option.some(legendFromOutline(get(placeOutlineAtom))),
+            onFalse: Option.none
+          }))
     })
 )
 
@@ -683,7 +709,9 @@ export const placeSearchAtom: AtomType.Atom<Result.Result<PlaceSearch, PlaceRend
  * is read beside the code is what is seen on the paper and what a press
  * on either is answered with.
  */
-export class ShownGeometry extends Schema.Class<ShownGeometry>("ShownGeometry")({
+export class ShownGeometry extends Schema.Class<ShownGeometry>(
+  "@theoria/app/web/atoms/ImaginedPlaceRender/ShownGeometry"
+)({
   lineCount: Schema.Int,
   stageWidth: Schema.Number,
   /** Smallest centre-to-centre distance as a fraction of the stage width. */
@@ -714,23 +742,30 @@ export const placeShownGeometryAtom: AtomType.Atom<Option.Option<ShownGeometry>>
  * — the search caption's row, there in every state at one height — so
  * nothing around the stage moves for it.
  */
-export class StageFailure extends Schema.Class<StageFailure>("StageFailure")({
-  failed: Schema.Literal("build", "draw"),
-  waiting: Schema.Boolean
-}) {}
+export class StageFailure
+  extends Schema.Class<StageFailure>("@theoria/app/web/atoms/ImaginedPlaceRender/StageFailure")({
+    failed: Schema.Literal("build", "draw"),
+    waiting: Schema.Boolean
+  })
+{}
 
 export const stageFailure = (
   build: Result.Result<unknown, unknown>,
   frame: Result.Result<unknown, unknown>,
   cut: Result.Result<unknown, unknown>
 ): Option.Option<StageFailure> =>
-  Result.isFailure(build)
-    ? Option.some(new StageFailure({ failed: "build", waiting: build.waiting }))
-    : Result.isFailure(frame)
-    ? Option.some(new StageFailure({ failed: "draw", waiting: frame.waiting }))
-    : Option.isNone(Result.value(frame)) && Result.isFailure(cut)
-    ? Option.some(new StageFailure({ failed: "draw", waiting: cut.waiting }))
-    : Option.none()
+  Bool.match(Result.isFailure(build), {
+    onTrue: () => Option.some(new StageFailure({ failed: "build", waiting: build.waiting })),
+    onFalse: () =>
+      Bool.match(Result.isFailure(frame), {
+        onTrue: () => Option.some(new StageFailure({ failed: "draw", waiting: frame.waiting })),
+        onFalse: () =>
+          Bool.match(Bool.and(Option.isNone(Result.value(frame)), Result.isFailure(cut)), {
+            onTrue: () => Option.some(new StageFailure({ failed: "draw", waiting: cut.waiting })),
+            onFalse: Option.none
+          })
+      })
+  })
 
 /**
  * The cut of the paper before the first frame: the paper the search is
@@ -774,7 +809,10 @@ export const PlaceWait = Schema.Literal("pending", "failed")
 export type PlaceWait = typeof PlaceWait.Type
 
 export const placeWait = (failure: Option.Option<StageFailure>): PlaceWait =>
-  Option.exists(failure, (found) => !found.waiting) ? "failed" : "pending"
+  Bool.match(Option.exists(failure, (found) => Bool.not(found.waiting)), {
+    onTrue: () => "failed",
+    onFalse: () => "pending"
+  })
 
 export const placeWaitAtom: AtomType.Atom<PlaceWait> = Atom.make((get: AtomType.Context) =>
   placeWait(get(placeFailureAtom))

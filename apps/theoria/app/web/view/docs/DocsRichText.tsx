@@ -1,22 +1,24 @@
-import { Boolean as Bool, Match, Option, Predicate } from "effect"
-import * as Arr from "effect/Array"
-import * as Str from "effect/String"
+import { Array, Boolean, Match, Option, Predicate, Schema, String } from "effect"
 import type { ReactNode } from "react"
 
-import type { ApiDocPart, GuideInline } from "@theoria/docs-model"
+import { ApiDocPartSchema, GuideInlineSchema } from "@theoria/docs-model"
 import { linkTextClassName } from "../primitives/designSystem.js"
 import { ExternalLink, InternalLink } from "../primitives/Link.js"
+import { MathContent } from "../primitives/MathContent.js"
 import { SemanticContent } from "../primitives/SemanticContent.js"
 
-type RichPart = ApiDocPart | GuideInline
+const RichPart = Schema.Union(ApiDocPartSchema, GuideInlineSchema)
+const RichText = Schema.Struct({ parts: Schema.Array(RichPart) })
 
 /** A link into this site — a path or a fragment — stays a client-side link; any other leaves it. */
-const staysOnSite: Predicate.Predicate<string> = Predicate.some([Str.startsWith("/"), Str.startsWith("#")])
+const staysOnSite: Predicate.Predicate<string> = Predicate.some(
+  Array.make(String.startsWith("/"), String.startsWith("#"))
+)
 
-const richLink = (href: string, text: string, key: string): ReactNode => {
+const richLink = (href: string, text: string, key: number): ReactNode => {
   const className = linkTextClassName
 
-  return Bool.match(staysOnSite(href), {
+  return Boolean.match(staysOnSite(href), {
     onTrue: () => <InternalLink className={className} href={href} key={key}>{text}</InternalLink>,
     onFalse: () => <ExternalLink className={className} href={href} key={key}>{text}</ExternalLink>
   })
@@ -29,9 +31,10 @@ const linkTarget = (href: string | Option.Option<string>): Option.Option<string>
     Match.orElse((target) => target)
   )
 
-const richPart = (part: RichPart, key: string): ReactNode =>
+const richPart = (part: typeof RichPart.Type, key: number): ReactNode =>
   Match.value(part).pipe(
     Match.when({ kind: "text" }, ({ text }) => text),
+    Match.when({ kind: "math" }, (expression) => <MathContent {...expression} key={key} />),
     Match.when({ kind: "code" }, ({ text }) => (
       <SemanticContent
         as="code"
@@ -50,8 +53,8 @@ const richPart = (part: RichPart, key: string): ReactNode =>
     Match.exhaustive
   )
 
-export const DocsRichText = ({ parts }: { readonly parts: ReadonlyArray<RichPart> }) => (
+export const DocsRichText = ({ parts }: typeof RichText.Type) => (
   <>
-    {Arr.map(parts, (part, index) => richPart(part, `${part.kind}:${String(index)}:${String(Str.length(part.text))}`))}
+    {Array.map(parts, richPart)}
   </>
 )

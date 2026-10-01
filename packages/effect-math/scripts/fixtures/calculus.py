@@ -19,7 +19,7 @@ from __future__ import annotations
 import math
 from typing import Any
 
-import numpy as np
+import numpy
 from scipy import integrate
 
 from ._common import metadata
@@ -159,7 +159,7 @@ def _second_derivative_case(case_id: str, func_name: str, x: float) -> dict[str,
 
 
 def _trapezoid_case(case_id: str, values: list[float], dx: float) -> dict[str, Any]:
-    result = float(np.trapz(np.array(values), dx=dx))
+    result = float(numpy.trapz(numpy.array(values), dx=dx))
     return {
         "id": case_id,
         "operation": "trapezoid",
@@ -170,7 +170,7 @@ def _trapezoid_case(case_id: str, values: list[float], dx: float) -> dict[str, A
 
 
 def _simpson_case(case_id: str, values: list[float], dx: float) -> dict[str, Any]:
-    result = float(integrate.simpson(np.array(values), dx=dx))
+    result = float(integrate.simpson(numpy.array(values), dx=dx))
     return {
         "id": case_id,
         "operation": "simpson",

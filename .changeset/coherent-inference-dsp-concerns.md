@@ -1,0 +1,18 @@
+---
+"@scenesystems/effect-dsp": minor
+"@scenesystems/effect-inference": minor
+---
+
+Redesign the DSP and inference public APIs around canonical Effect-style concerns. This is a breaking pre-1.0 migration: legacy paths and declarations are removed, without compatibility aliases.
+
+Each public concern now has one flat PascalCase source module, root namespace, and matching package subpath. Private mechanics live under camelCase `internal/` paths and are inaccessible through package exports. Schema owns encoded data and derived types; Data owns executable generic relationships; Context and Layer own capabilities and implementations.
+
+For DSP, import `BootstrapFewShot`, `BootstrapRS`, `LabeledFewShot`, `MIPROv2`, `GEPA`, and `Ensemble` directly rather than through `Optimizer`. Use algorithm-local `Options`, `Event`, `EventSink`, `run`, `runWithEvents`, `stream`, and progress operations. Use `Ensemble.make` with `ReduceFn` and `ReduceOptions`. Candidate proposal and direct search belong to `MIPROv2Candidates` and `MIPROv2Search`; evaluation projection belongs to `EvaluationObjective`.
+
+Replace `contracts` imports with their canonical owners: `Module.Id`, `Module.Node`, `Module.RolloutCount`, `ModuleGraph.ModuleGraph`, `ModuleParameters.ModuleParameters`, `Demonstration.Demonstration`, `Demonstration.Codec`, `Metric.Result`, `Payload.Payload`, `Trace.Usage`, and `OptimizerEvent.Envelope`. Use concern-local operations such as `ModuleParameters.withInstructions`, `ModuleGraph.traversal`, and `Payload.encode`/`decode`. `DspError` owns package failures. `MockLanguageModel` is a root namespace and subpath with `succeed`, `sequence`, `fromFunction`, `map`, `fail`, `make`, and `layer`. Search studies, samplers, Pareto operations, artifact envelopes, and seeds are consumed directly from effect-search, without a DSP bridge.
+
+For inference, replace descriptor and contracts imports with `Model`, `Route`, `Capabilities`, `RuntimeRequest`, and `RuntimeEvidence`. A request contains `model`, not `artifact`. A `Runtime.Resolution` contains `request`, `route`, and `models`, not `desired`, `resolvedRoute`, and `layers`. Persisted evidence contains `request`, `route`, and `response`, replacing `desired`, `resolvedRoute`, and `resolvedRuntime`; migrate persisted documents explicitly. Model intent, pre-execution provenance, and post-response observations remain separate.
+
+Use `Runtime.Runtime`, `Runtime.Service`, `Runtime.resolve`, `Runtime.layer`, and `Runtime.layerWith`; `Service` replaces `Implementation`. `TextProvider` owns configured OpenAI, Anthropic, and OpenRouter construction. `HuggingFace` owns configuration, while `HuggingFaceEndpoint` and `HuggingFaceRouted` own their routes, language-model layers, and resolution. `HuggingFaceEmbeddingModel.Options`, `layer`, and `layerFetch` replace the endpoint-owned embedding options and duplicated endpoint/routed embedding constructors. `InferenceError` owns checked package failures. Native client observers are flat `AnthropicUsage`, `GoogleUsage`, `OpenAiUsage`, and `OpenRouterUsage` modules exposing `observe`; `Usage.observe` is the provider-independent constructor hook. `Testing` owns deterministic layers and fixtures.
+
+Migrate affected examples, application composition, documentation links, and behavioral suites to these APIs. Preserve provider usage evidence, schema-encoded demonstrations, candidate preflight, generic error/service channels, concurrent discovery, and restoration after checked failures or interruption. Eva package adoption and persisted application settlement remain downstream responsibilities after publication.

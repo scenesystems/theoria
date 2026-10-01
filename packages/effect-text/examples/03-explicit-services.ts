@@ -4,22 +4,22 @@
  *
  * Run with `bun run packages/effect-text/examples/03-explicit-services.ts`.
  */
-import { BunRuntime } from "@effect/platform-bun"
-import { BunContext } from "@effect/platform-bun"
+import { BunContext, BunRuntime } from "@effect/platform-bun"
 import { Effect, Layer } from "effect"
 
-import { Contracts, Text } from "@scenesystems/effect-text"
+import { Hyphenation, MeasurementCache, Text, TextMeasurer } from "@scenesystems/effect-text"
 
 const services = Layer.mergeAll(
-  Text.WordSegmenterLive,
-  Layer.succeed(Contracts.EngineProfile, {
+  Text.layerSegmenter,
+  Hyphenation.layerNone,
+  Layer.succeed(Text.CurrentProfile, {
     lineFitEpsilon: 0.01,
     tabWidth: 8,
     defaultDirection: "ltr",
     preferEarlySoftHyphenBreak: true,
     preferPrefixWidthsForBreakableRuns: true
   }),
-  Text.MeasurementCacheLive.pipe(Layer.provide(Text.TextMeasurerLive))
+  MeasurementCache.layer.pipe(Layer.provide(TextMeasurer.layer))
 )
 
 const program = Effect.gen(function*() {
@@ -30,8 +30,8 @@ const program = Effect.gen(function*() {
   }).pipe(Effect.provide(services))
 
   yield* Effect.log("explicit preparation services", {
-    narrow: Text.layout(prepared, { maxWidth: 72, lineHeight: 16 }),
-    wide: Text.layout(prepared, { maxWidth: 180, lineHeight: 16 })
+    narrow: Text.summary(prepared, { maxWidth: 72, lineHeight: 16 }),
+    wide: Text.summary(prepared, { maxWidth: 180, lineHeight: 16 })
   })
 })
 

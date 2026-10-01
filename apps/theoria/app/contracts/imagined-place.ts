@@ -1,4 +1,4 @@
-import { Schema } from "effect"
+import { Boolean, Schema } from "effect"
 import * as Arr from "effect/Array"
 
 const NonEmptyString = Schema.String.pipe(Schema.minLength(1))
@@ -11,7 +11,7 @@ const UnitInterval = Schema.Number.pipe(Schema.between(0, 1))
  */
 export const PlaceScenario = Schema.Literal("unfinished-light", "lost-market", "drowned-library")
 export type PlaceScenario = typeof PlaceScenario.Type
-export const placeScenarios: ReadonlyArray<PlaceScenario> = PlaceScenario.literals
+export const placeScenarios = PlaceScenario.literals
 
 /**
  * What the visitor sees of a pattern before anything is built: its name and
@@ -21,7 +21,10 @@ export const placeScenarios: ReadonlyArray<PlaceScenario> = PlaceScenario.litera
  *
  * @since 0.3.0
  */
-export const placeScenarioMeta: Record<PlaceScenario, { readonly label: string; readonly brief: string }> = {
+export const placeScenarioMeta = Schema.Record({
+  key: PlaceScenario,
+  value: Schema.Struct({ label: Schema.String, brief: Schema.String })
+}).make({
   "unfinished-light": {
     label: "Unfinished light",
     brief:
@@ -37,7 +40,7 @@ export const placeScenarioMeta: Record<PlaceScenario, { readonly label: string; 
     brief:
       "The library of the valley town that was flooded for the reservoir. Every ten years they drain the water for the dam works, and for a week the town comes back to read what survived."
   }
-}
+})
 
 /**
  * Who can sign something in the demo. The author is the visitor; the neighbor
@@ -167,10 +170,11 @@ export type VersionShape = typeof VersionShape.Type
  * @since 0.3.0
  */
 export const versionShapes = (place: PlaceOutline): Arr.NonEmptyReadonlyArray<VersionShape> => {
-  const origin: VersionShape = { version: 1, featureCount: place.composition.features.length }
-  return Arr.isEmptyReadonlyArray(place.accepted)
-    ? [origin]
-    : [origin, { version: 2, featureCount: placeFeatures(place).length }]
+  const origin = VersionShape.make({ version: 1, featureCount: Arr.length(place.composition.features) })
+  return Boolean.match(Arr.isEmptyReadonlyArray(place.accepted), {
+    onTrue: () => Arr.of(origin),
+    onFalse: () => Arr.make(origin, VersionShape.make({ version: 2, featureCount: Arr.length(placeFeatures(place)) }))
+  })
 }
 
 export const briefMaxLength = 280
@@ -416,7 +420,9 @@ export const placeScenarioRecordings: Record<PlaceScenario, PlaceScenarioRecordi
   }
 }
 
-export class PlaceBuildError extends Schema.TaggedError<PlaceBuildError>()("PlaceBuildError", {
+export class PlaceBuildError extends Schema.TaggedError<PlaceBuildError>(
+  "@theoria/app/contracts/ImaginedPlace/PlaceBuildError"
+)("PlaceBuildError", {
   stage: Schema.Literal("compose", "propose", "identity", "render", "signature", "seal"),
   message: Schema.String
 }) {}

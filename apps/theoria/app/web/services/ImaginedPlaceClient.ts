@@ -33,7 +33,9 @@ const make = Effect.gen(function*() {
  * `fetch` while tests can provide an in-memory client through
  * `ImaginedPlaceClient.DefaultWithoutDependencies`.
  */
-export class ImaginedPlaceClient extends Effect.Service<ImaginedPlaceClient>()("theoria/ImaginedPlaceClient", {
-  effect: make,
-  dependencies: [FetchHttpClient.layer]
-}) {}
+export class ImaginedPlaceClient
+  extends Effect.Service<ImaginedPlaceClient>()("@theoria/app/web/services/ImaginedPlaceClient", {
+    effect: make,
+    dependencies: [FetchHttpClient.layer]
+  })
+{}

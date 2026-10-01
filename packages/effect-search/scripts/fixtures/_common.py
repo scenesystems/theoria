@@ -7,7 +7,6 @@ from pathlib import Path
 from typing import Any
 
 GENERATOR_VERSION = "2.0.0"
-SCHEMA_VERSION = "1.0.0"
 DEFAULT_GENERATED_AT = "2026-03-15T00:00:00Z"
 
 UPSTREAM_NAME = "optuna"

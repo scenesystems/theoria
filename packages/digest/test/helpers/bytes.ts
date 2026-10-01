@@ -9,19 +9,18 @@
  */
 import { Chunk, Effect, Encoding, type ParseResult, Schema, Stream } from "effect"
 
-import { encodeUtf8Unchecked } from "../../src/internal/unicode.js"
-
 /**
  * Encode known well-formed fixture text as UTF-8 bytes.
  *
- * Use the public effectful encoder in tests that exercise text behavior. This
- * helper exists only to prepare fixed raw-byte cryptographic vectors, so it
- * uses the package's unchecked encoder directly.
+ * Use the package's strict public encoder in tests that exercise text
+ * behavior. This helper exists only to prepare fixed, known-well-formed
+ * cryptographic vectors through Effect's independent encoder.
  *
  * @since 0.3.0
  * @category test-helpers
  */
-export const encodeFixtureUtf8 = (text: string): Uint8Array => encodeUtf8Unchecked(text)
+export const encodeFixtureUtf8 = (text: string): Uint8Array =>
+  Schema.decodeSync(Schema.Uint8ArrayFromHex)(Encoding.encodeHex(text))
 
 /**
  * The runtime's own UTF-8 bytes for `text`, reached through Effect's

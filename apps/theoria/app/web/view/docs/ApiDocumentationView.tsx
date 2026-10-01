@@ -1,13 +1,36 @@
-import { Boolean as Bool, Equal, Number as Num, Option } from "effect"
+import { Boolean as Bool, Equal, Match, Number as Num, Option } from "effect"
 import * as Arr from "effect/Array"
+import * as Schema from "effect/Schema"
 
-import type { ApiDocumentation } from "@theoria/docs-model"
+import { type ApiDocumentation, ApiDocumentationSchema } from "@theoria/docs-model"
 import { CodeBlock, codeLanguageFor } from "../primitives/CodeBlock.js"
 import { noticeClassName } from "../primitives/designSystem.js"
 import { Layer, Stack } from "../primitives/Layout.js"
 import { SemanticContent } from "../primitives/SemanticContent.js"
 import { SemanticText } from "../primitives/SemanticText.js"
 import { DocsRichText } from "./DocsRichText.js"
+
+/** TypeDoc can attach the same declaration comment to both a callable and its signature. */
+export const apiDocumentationEquals = Schema.equivalence(ApiDocumentationSchema)
+
+const emptyApiDocumentation: ApiDocumentation = {
+  summary: [],
+  remarks: [],
+  examples: [],
+  deprecated: Option.none(),
+  see: []
+}
+
+export const apiDocumentationIsEmpty = (docs: ApiDocumentation): boolean =>
+  apiDocumentationEquals(docs, emptyApiDocumentation)
+
+const headingRole = (headingAs: "h2" | "h4"): "section-title" | "selection-title" =>
+  Match.value(headingAs).pipe(
+    Match.withReturnType<"section-title" | "selection-title">(),
+    Match.when("h2", () => "section-title"),
+    Match.when("h4", () => "selection-title"),
+    Match.exhaustive
+  )
 
 const RichParagraph = ({ parts }: { readonly parts: ApiDocumentation["summary"] }) =>
   Arr.match(parts, {
@@ -49,7 +72,7 @@ export const ApiDocumentationView = ({ docs, headingAs = "h2" }: {
       onEmpty: () => null,
       onNonEmpty: (remarks) => (
         <Stack className="gap-2">
-          <SemanticContent as={headingAs} role={headingAs === "h2" ? "section-title" : "selection-title"}>
+          <SemanticContent as={headingAs} role={headingRole(headingAs)}>
             Remarks
           </SemanticContent>
           <RichParagraph parts={remarks} />
@@ -74,7 +97,7 @@ export const ApiDocumentationView = ({ docs, headingAs = "h2" }: {
       onEmpty: () => null,
       onNonEmpty: (see) => (
         <Stack className="gap-2">
-          <SemanticContent as={headingAs} role={headingAs === "h2" ? "section-title" : "selection-title"}>
+          <SemanticContent as={headingAs} role={headingRole(headingAs)}>
             See also
           </SemanticContent>
           <Stack render={<ul />} className="ml-5 list-disc gap-1.5">

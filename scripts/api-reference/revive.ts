@@ -1,6 +1,6 @@
 import { FileSystem, Path } from "@effect/platform"
 import type { PlatformError } from "@effect/platform/Error"
-import { Context, Effect, Layer, Option, type ParseResult, Schema } from "effect"
+import { Context, Data, Effect, Layer, Option, type ParseResult, Schema } from "effect"
 import { Application, FileRegistry, normalizePath, type ProjectReflection } from "typedoc"
 
 import { type ConvertedModule } from "./conversion.js"
@@ -15,15 +15,17 @@ import { type TypeDocProjectJson, TypeDocProjectJsonText } from "./typedoc-json.
  * serializes them again for the committed reflection files, so every
  * reflection id in the output comes from this one model.
  */
-export class TypeDocReflections extends Context.Tag("@theoria/api-reference/TypeDocReflections")<
+class TypeDocReflectionService extends Data.Class<{
+  readonly revive: (
+    packageName: string,
+    project: TypeDocProjectJson
+  ) => Effect.Effect<ProjectReflection, ApiReferenceGenerationError>
+  readonly serialize: (project: ProjectReflection) => TypeDocProjectJson
+}> {}
+
+export class TypeDocReflections extends Context.Tag("@theoria/scripts/api-reference/TypeDocReflections")<
   TypeDocReflections,
-  {
-    readonly revive: (
-      packageName: string,
-      project: TypeDocProjectJson
-    ) => Effect.Effect<ProjectReflection, ApiReferenceGenerationError>
-    readonly serialize: (project: ProjectReflection) => TypeDocProjectJson
-  }
+  TypeDocReflectionService
 >() {}
 
 export const typeDocReflectionsLayer = (repositoryRoot: string) =>
@@ -36,7 +38,7 @@ export const typeDocReflectionsLayer = (repositoryRoot: string) =>
       })
       const projectRoot = normalizePath(repositoryRoot)
 
-      return TypeDocReflections.of({
+      return new TypeDocReflectionService({
         revive: (packageName, project) =>
           Effect.try({
             // Each project is revived into a registry of its own, as it was serialized.

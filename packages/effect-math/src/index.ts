@@ -1,109 +1,133 @@
 /**
- * Exposes Theoria's mathematical domains and their shared Effect contracts.
- *
- * @remarks
- * Domain namespaces contain the numerical APIs. Shared Schemas, policy
- * services, Layers, and computation-planning metadata are also importable from
- * `@scenesystems/effect-math/contracts`.
+ * Mathematical operations, validated representations, and computation policies.
+ * Each namespace is also available through its matching package subpath.
  *
  * @since 0.1.0
  * @module
  */
 
 /**
- * Scalar numeric operations and validated numeric boundaries.
- *
+ * Scalar arithmetic, transcendentals, reductions, and numerical settings.
  * @since 0.1.0
- * @category domains
+ * @category modules
  */
-export * as Numeric from "./Numeric/index.js"
+export * as Numeric from "./Numeric.js"
 
 /**
- * Integer, factorial, and polynomial operations.
- *
+ * Polynomial and integer operations.
  * @since 0.1.0
- * @category domains
+ * @category modules
  */
-export * as Algebra from "./Algebra/index.js"
+export * as Algebra from "./Algebra.js"
 
 /**
  * Dense vector and matrix operations.
- *
  * @since 0.1.0
- * @category domains
+ * @category modules
  */
-export * as LinearAlgebra from "./LinearAlgebra/index.js"
+export * as LinearAlgebra from "./LinearAlgebra.js"
 
 /**
- * Numerical differentiation and integration operations.
- *
+ * Real and complex-step differentiation and numerical integration.
  * @since 0.1.0
- * @category domains
+ * @category modules
  */
-export * as Calculus from "./Calculus/index.js"
+export * as Calculus from "./Calculus.js"
 
 /**
- * Special functions and their validated boundaries.
- *
+ * Special functions and inverse functions.
  * @since 0.1.0
- * @category domains
+ * @category modules
  */
-export * as Special from "./Special/index.js"
+export * as Special from "./Special.js"
 
 /**
- * Probability functions and distribution contracts.
- *
+ * Probability masses and discrete Shannon entropy.
  * @since 0.1.0
- * @category domains
+ * @category modules
  */
-export * as Probability from "./Probability/index.js"
+export * as Probability from "./Probability.js"
+
+/**
+ * Distribution parameters, densities, cumulative probabilities, and quantiles.
+ * @since 0.1.0
+ * @category modules
+ */
+export * as Distribution from "./Distribution.js"
 
 /**
  * Descriptive statistics and estimators.
- *
  * @since 0.1.0
- * @category domains
+ * @category modules
  */
-export * as Statistics from "./Statistics/index.js"
+export * as Statistics from "./Statistics.js"
 
 /**
- * Root-finding and scalar minimization operations.
- *
+ * Root finding and scalar minimization.
  * @since 0.1.0
- * @category domains
+ * @category modules
  */
-export * as Optimization from "./Optimization/index.js"
+export * as Optimization from "./Optimization.js"
 
 /**
- * Metric and point-set geometry operations.
- *
+ * Metrics and point-set geometry.
  * @since 0.1.0
- * @category domains
+ * @category modules
  */
-export * as Geometry from "./Geometry/index.js"
+export * as Geometry from "./Geometry.js"
 
 /**
- * Complex-number schemas and arithmetic.
- *
+ * Complex values, arithmetic, polar conversion, and vector operations.
  * @since 0.1.0
- * @category domains
+ * @category modules
  */
-export * as Complex from "./Complex/index.js"
+export * as Complex from "./Complex.js"
 
 /**
- * Probability-distribution models and operations.
- *
+ * Runtime precision, diagnostics, backend preference, and randomness settings.
  * @since 0.1.0
- * @category domains
+ * @category modules
  */
-export * as Distribution from "./Distribution/index.js"
+export * as Policy from "./Policy.js"
 
 /**
- * Shared validation, policy, and computation-planning contracts.
- *
- * The same exports are available from `@scenesystems/effect-math/contracts`.
- *
+ * Scalar representation selection from declared capabilities.
  * @since 0.1.0
- * @category contracts
+ * @category modules
  */
-export * from "./contracts/index.js"
+export * as Scalar from "./Scalar.js"
+
+/**
+ * Backend selection for a scalar representation.
+ * @since 0.1.0
+ * @category modules
+ */
+export * as Backend from "./Backend.js"
+
+/**
+ * Convergence gates and precision escalation decisions.
+ * @since 0.1.0
+ * @category modules
+ */
+export * as Precision from "./Precision.js"
+
+/**
+ * Differentiation-mode selection and finite-difference fallback planning.
+ * @since 0.1.0
+ * @category modules
+ */
+export * as Autodiff from "./Autodiff.js"
+
+/**
+ * Floating-point and decimal uncertainty intervals and bounds.
+ * @since 0.1.0
+ * @category modules
+ */
+export * as Uncertainty from "./Uncertainty.js"
+
+/**
+ * Combined scalar, precision, backend, and differentiation planning.
+ * @since 0.1.0
+ * @category modules
+ */
+export * as Computation from "./Computation.js"

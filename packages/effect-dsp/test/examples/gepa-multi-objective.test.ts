@@ -2,21 +2,39 @@
  * Example contract: GEPA multi-objective mock optimization flow.
  */
 import * as LanguageModel from "@effect/ai/LanguageModel"
+import * as Response from "@effect/ai/Response"
 import { describe, expect, it } from "@effect/vitest"
 import * as Evaluate from "@scenesystems/effect-dsp/Evaluate"
 import { Example } from "@scenesystems/effect-dsp/Example"
+import * as GEPA from "@scenesystems/effect-dsp/GEPA"
 import * as Metric from "@scenesystems/effect-dsp/Metric"
+import * as MockLanguageModel from "@scenesystems/effect-dsp/MockLanguageModel"
 import * as Module from "@scenesystems/effect-dsp/Module"
-import * as Optimizer from "@scenesystems/effect-dsp/Optimizer"
 import * as Signature from "@scenesystems/effect-dsp/Signature"
-import { MockLanguageModel } from "@scenesystems/effect-dsp/test"
-import { Array as Arr, Effect, Layer, Option, Predicate, Ref, Schema, Stream } from "effect"
+import {
+  Array as Arr,
+  Boolean as Bool,
+  Data,
+  Effect,
+  Layer,
+  Match,
+  Number as Num,
+  Option,
+  Ref,
+  Schema,
+  Stream,
+  String as Str
+} from "effect"
 
-const fieldText = (record: Readonly<Record<string, unknown>>, field: string): string =>
-  Option.getOrElse(
-    Option.fromNullable(record[field]).pipe(Option.filter(Predicate.isString)),
-    () => ""
-  )
+const AnswerResponse = Schema.Struct({
+  answer: Signature.describe(Schema.String, "The capital city name")
+})
+
+const reflectiveResponse = Arr.of(
+  Response.textPart({
+    text: "```\nAnswer geography questions with the exact, concise capital city name.\n```"
+  })
+)
 
 const trainset = Arr.make(
   new Example({
@@ -40,30 +58,35 @@ const valset = Arr.make(
   })
 )
 
-const responseForPrompt = (prompt: string): Readonly<Record<string, string>> =>
-  prompt.includes("France")
-    ? { answer: "Paris" }
-    : prompt.includes("Japan")
-    ? { answer: "Tokyo" }
-    : prompt.includes("Germany")
-    ? { answer: "Berlin" }
-    : prompt.includes("Italy")
-    ? { answer: "Rome" }
-    : { answer: "Unknown" }
+const responseForPrompt = (prompt: string) =>
+  Match.value(prompt).pipe(
+    Match.when(Str.includes("Your task is to write a new instruction"), () => reflectiveResponse),
+    Match.when(Str.includes("France"), () => AnswerResponse.make({ answer: "Paris" })),
+    Match.when(Str.includes("Japan"), () => AnswerResponse.make({ answer: "Tokyo" })),
+    Match.when(Str.includes("Germany"), () => AnswerResponse.make({ answer: "Berlin" })),
+    Match.when(Str.includes("Italy"), () => AnswerResponse.make({ answer: "Rome" })),
+    Match.orElse(() => AnswerResponse.make({ answer: "Unknown" }))
+  )
 
 const feedbackMetric = Metric.fromEffect(
   "feedback-exact",
-  (prediction, expected) =>
+  (prediction: typeof AnswerResponse.Type, expected) =>
     Effect.sync(() => {
-      const predicted = fieldText(prediction, "answer")
-      const expectedAnswer = fieldText(expected, "answer")
-      const correct = predicted === expectedAnswer
+      const predicted = prediction.answer
+      const expectedAnswer = expected.answer
+      const correct = Str.Equivalence(predicted, expectedAnswer)
 
-      return new Metric.Result({
-        score: correct ? 1 : 0,
-        feedback: correct
-          ? "correct"
-          : `expected ${expectedAnswer}, got ${predicted}`
+      return Bool.match(correct, {
+        onFalse: () =>
+          new Metric.Result({
+            score: 0,
+            feedback: Arr.join(Arr.make("expected ", expectedAnswer, ", got ", predicted), "")
+          }),
+        onTrue: () =>
+          new Metric.Result({
+            score: 1,
+            feedback: "correct"
+          })
       })
     })
 )
@@ -74,9 +97,7 @@ const runGepaMultiObjective = Effect.gen(function*() {
     {
       question: Signature.describe(Schema.String, "Geography question to answer")
     },
-    {
-      answer: Signature.describe(Schema.String, "The capital city name")
-    }
+    AnswerResponse.fields
   )
 
   const module = yield* Module.predict("qa-gepa-multi", signature)
@@ -84,7 +105,7 @@ const runGepaMultiObjective = Effect.gen(function*() {
   const layer = Layer.succeed(LanguageModel.LanguageModel, mock.service)
 
   const events = yield* Stream.runCollect(
-    Optimizer.gepaStream({
+    GEPA.stream({
       module,
       trainset,
       metric: feedbackMetric,
@@ -96,7 +117,7 @@ const runGepaMultiObjective = Effect.gen(function*() {
   const eventList = Arr.fromIterable(events)
   const params = yield* Ref.get(module.params)
 
-  return { eventList, params, module, layer }
+  return Data.struct({ eventList, params, module, layer })
 })
 
 describe("examples/15-gepa-multi-objective-mock", () => {
@@ -110,24 +131,26 @@ describe("examples/15-gepa-multi-objective-mock", () => {
       expect(tags).toContain("IterationCompleted")
       expect(tags).toContain("OptimizationCompleted")
 
-      const iterationStartIndex = tags.indexOf("IterationStarted")
-      const completedIndex = tags.indexOf("OptimizationCompleted")
-      expect(iterationStartIndex).toBeLessThan(completedIndex)
+      const iterationStartIndex = Arr.findFirstIndex(tags, (tag) => Str.Equivalence(tag, "IterationStarted"))
+      const completedIndex = Arr.findFirstIndex(tags, (tag) => Str.Equivalence(tag, "OptimizationCompleted"))
+      const ordered = Option.zipWith(iterationStartIndex, completedIndex, Num.lessThan)
+
+      expect(ordered).toEqual(Option.some(true))
     }))
 
   it.effect("produces at least one ParetoUpdated event per iteration", () =>
     Effect.gen(function*() {
       const { eventList } = yield* runGepaMultiObjective
-      const paretoUpdates = Arr.filter(eventList, Optimizer.GEPAEvent.$is("ParetoUpdated"))
+      const paretoUpdates = Arr.filter(eventList, GEPA.events.$is("ParetoUpdated"))
 
-      expect(paretoUpdates.length).toBeGreaterThanOrEqual(3)
+      expect(Arr.length(paretoUpdates)).toBeGreaterThanOrEqual(3)
     }))
 
   it.effect("optimized module retains non-empty instructions", () =>
     Effect.gen(function*() {
       const { params } = yield* runGepaMultiObjective
 
-      expect(params.instructions.length).toBeGreaterThan(0)
+      expect(Str.length(params.instructions)).toBeGreaterThan(0)
     }))
 
   it.effect("seeded execution is deterministic across runs", () =>
@@ -154,7 +177,8 @@ describe("examples/15-gepa-multi-objective-mock", () => {
         concurrency: 1
       }).pipe(Effect.provide(layer))
 
-      expect(report.overallScores.exactMatch).toBeGreaterThanOrEqual(0)
-      expect(report.overallScores.composed).toBeGreaterThanOrEqual(0)
+      expect(report.successCount).toBe(1)
+      expect(report.overallScores.exactMatch).toBe(1)
+      expect(report.overallScores.composed).toBe(1)
     }))
 })

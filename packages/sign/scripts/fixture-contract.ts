@@ -3,11 +3,30 @@
  * and their provenance manifest, plus the readers `fixtures:check` and the
  * conformance tests share.
  */
-import { FileSystem, Path, Url } from "@effect/platform"
-import { Effect, Schema } from "effect"
+import { Command, FileSystem, Path, Url } from "@effect/platform"
+import { Data, Effect, Number as N, Schema } from "effect"
 
 const Hex = Schema.String.pipe(Schema.pattern(/^(?:[a-fA-F0-9]{2})*$/))
 export const StrictVerdict = Schema.Literal("valid", "invalid-input", "nonmatch")
+export const PositiveInt = Schema.Int.pipe(Schema.positive())
+
+export const RsaPublicJwk = Schema.Struct({
+  kty: Schema.Literal("RSA"),
+  n: Schema.NonEmptyString,
+  e: Schema.NonEmptyString
+})
+
+export class FixtureGenerationFailed extends Data.TaggedError("FixtureGenerationFailed")<{
+  readonly operation: string
+}> {}
+
+export const requireExit = (command: Command.Command, expected: number, operation: string) =>
+  Command.exitCode(command).pipe(
+    Effect.filterOrFail(
+      (code) => N.Equivalence(code, expected),
+      () => new FixtureGenerationFailed({ operation })
+    )
+  )
 
 export const Ed25519Fixture = Schema.parseJson(
   Schema.Struct({
@@ -29,7 +48,7 @@ export const P256Fixture = Schema.parseJson(
     schema: Schema.Literal("@scenesystems/sign P-256 SHA-256 P1363 low-S conformance v1"),
     cases: Schema.NonEmptyArray(
       Schema.Struct({
-        tcId: Schema.Number.pipe(Schema.int(), Schema.positive()),
+        tcId: PositiveInt,
         publicKey: Schema.Struct({ uncompressed: Hex }),
         message: Hex,
         signature: Hex,
@@ -44,14 +63,14 @@ export const MlDsa65Fixture = Schema.parseJson(
     schema: Schema.Literal("@scenesystems/sign ML-DSA-65 pure external-interface conformance v1"),
     strictVerdicts: Schema.NonEmptyArray(
       Schema.Struct({
-        tcId: Schema.Number.pipe(Schema.int(), Schema.positive()),
+        tcId: PositiveInt,
         verdict: StrictVerdict
       })
     ),
     cases: Schema.NonEmptyArray(
       Schema.Struct({
-        tgId: Schema.Number.pipe(Schema.int(), Schema.positive()),
-        tcId: Schema.Number.pipe(Schema.int(), Schema.positive()),
+        tgId: PositiveInt,
+        tcId: PositiveInt,
         publicKey: Hex,
         message: Hex,
         signature: Hex,
@@ -62,11 +81,66 @@ export const MlDsa65Fixture = Schema.parseJson(
   })
 )
 
+export const PublicSignatureKatKeyPair = Schema.Struct({
+  sourceId: Schema.NonEmptyString,
+  parameterSet: Schema.NonEmptyString,
+  entropy: Hex,
+  publicKey: Hex,
+  secretKey: Hex
+})
+
+export const PublicSignatureKatVerification = Schema.Struct({
+  sourceId: Schema.NonEmptyString,
+  publicKey: Hex,
+  message: Hex,
+  signature: Hex,
+  expected: Schema.Boolean
+})
+
+const MlDsaKeyPair = PublicSignatureKatKeyPair.pipe(
+  Schema.omit("parameterSet"),
+  Schema.extend(Schema.Struct({ parameterSet: Schema.Literal("ML-DSA-44", "ML-DSA-87") }))
+)
+const SlhDsaKeyPair = PublicSignatureKatKeyPair.pipe(
+  Schema.omit("parameterSet"),
+  Schema.extend(Schema.Struct({
+    parameterSet: Schema.Literal("SLH-DSA-SHA2-128s", "SLH-DSA-SHA2-128f", "SLH-DSA-SHA2-192f", "SLH-DSA-SHA2-256f")
+  }))
+)
+
+export const PublicSignatureKat = Schema.Struct({
+  schema: Schema.Literal("@scenesystems/sign public signature KAT conformance v1"),
+  secp256k1: Schema.Struct({
+    ecdsa: Schema.Tuple(PublicSignatureKatVerification, PublicSignatureKatVerification),
+    bip340: Schema.Tuple(
+      Schema.Struct({
+        sourceId: Schema.NonEmptyString,
+        secretKey: Hex,
+        publicKey: Hex,
+        auxiliaryRandomness: Hex,
+        message: Hex,
+        signature: Hex,
+        expected: Schema.Literal(true)
+      }),
+      PublicSignatureKatVerification
+    )
+  }),
+  mlDsa: Schema.Tuple(MlDsaKeyPair, MlDsaKeyPair),
+  slhDsa: Schema.Tuple(
+    SlhDsaKeyPair,
+    SlhDsaKeyPair,
+    SlhDsaKeyPair,
+    SlhDsaKeyPair
+  )
+})
+
+export const PublicSignatureKatFixture = Schema.parseJson(PublicSignatureKat, { space: 2 })
+
 export const RsaWycheproofFixture = Schema.parseJson(Schema.Struct({
   testGroups: Schema.NonEmptyArray(Schema.Struct({
-    keyJwk: Schema.Struct({ kty: Schema.Literal("RSA"), n: Schema.NonEmptyString, e: Schema.NonEmptyString }),
+    keyJwk: RsaPublicJwk,
     tests: Schema.NonEmptyArray(Schema.Struct({
-      tcId: Schema.Int.pipe(Schema.positive()),
+      tcId: PositiveInt,
       msg: Hex,
       sig: Hex,
       result: Schema.Literal("valid", "invalid", "acceptable")
@@ -74,21 +148,27 @@ export const RsaWycheproofFixture = Schema.parseJson(Schema.Struct({
   }))
 }))
 
-export const RsaOpenSslFixture = Schema.parseJson(Schema.Struct({
+export const RsaOpenSslCase = Schema.Struct({
+  name: Schema.NonEmptyString,
+  message: Hex,
+  signature: Hex,
+  alteredMessage: Hex,
+  alteredSignature: Hex
+})
+
+export const RsaOpenSslGroup = Schema.Struct({
+  name: Schema.NonEmptyString,
+  bits: PositiveInt,
+  jwk: RsaPublicJwk,
+  cases: Schema.NonEmptyArray(RsaOpenSslCase)
+})
+
+export const RsaOpenSsl = Schema.Struct({
   generator: Schema.NonEmptyString,
-  groups: Schema.NonEmptyArray(Schema.Struct({
-    name: Schema.NonEmptyString,
-    bits: Schema.Int.pipe(Schema.positive()),
-    jwk: Schema.Struct({ kty: Schema.Literal("RSA"), n: Schema.NonEmptyString, e: Schema.NonEmptyString }),
-    cases: Schema.NonEmptyArray(Schema.Struct({
-      name: Schema.NonEmptyString,
-      message: Hex,
-      signature: Hex,
-      alteredMessage: Hex,
-      alteredSignature: Hex
-    }))
-  }))
-}))
+  groups: Schema.NonEmptyArray(RsaOpenSslGroup)
+})
+
+export const RsaOpenSslFixture = Schema.parseJson(RsaOpenSsl)
 
 const Sha256Hex = Schema.String.pipe(Schema.pattern(/^[a-f0-9]{64}$/))
 const Source = Schema.Struct({
@@ -100,8 +180,8 @@ const Source = Schema.Struct({
 
 const VerdictRemap = Schema.Union(
   Schema.Struct({ caseIds: Schema.NonEmptyArray(Schema.NonEmptyString) }),
-  Schema.Struct({ tcId: Schema.Int.pipe(Schema.positive()) }),
-  Schema.Struct({ tcIds: Schema.NonEmptyArray(Schema.Int.pipe(Schema.positive())) })
+  Schema.Struct({ tcId: PositiveInt }),
+  Schema.Struct({ tcIds: Schema.NonEmptyArray(PositiveInt) })
 ).pipe(Schema.extend(Schema.Struct({
   upstreamResult: Schema.NonEmptyString,
   localVerdict: StrictVerdict,
@@ -113,6 +193,7 @@ export const ConformancePayload = Schema.Struct({
     "ed25519.json",
     "p256.json",
     "ml-dsa-65.json",
+    "sign-public-kat.json",
     "rsa-wycheproof.json",
     "rsa-openssl.json",
     "jwt-openssl.json",
@@ -126,13 +207,13 @@ export const ConformancePayload = Schema.Struct({
   localVerdictRemaps: Schema.Array(VerdictRemap)
 })
 
-export const ConformanceManifest = Schema.parseJson(
-  Schema.Struct({
-    schema: Schema.Literal("@scenesystems/sign conformance provenance manifest v1"),
-    retrievalDate: Schema.String.pipe(Schema.pattern(/^\d{4}-\d{2}-\d{2}$/)),
-    payloads: Schema.NonEmptyArray(ConformancePayload)
-  })
-)
+export const ConformanceManifestData = Schema.Struct({
+  schema: Schema.Literal("@scenesystems/sign conformance provenance manifest v1"),
+  retrievalDate: Schema.String.pipe(Schema.pattern(/^\d{4}-\d{2}-\d{2}$/)),
+  payloads: Schema.NonEmptyArray(ConformancePayload)
+})
+
+export const ConformanceManifest = Schema.parseJson(ConformanceManifestData, { space: 2 })
 
 const fixturePath = (file: string) =>
   Effect.gen(function*() {

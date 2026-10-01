@@ -6,9 +6,8 @@
  * @module
  */
 import { BunRuntime } from "@effect/platform-bun"
-import { Console, Effect, Number as N } from "effect"
+import { Console, Effect, Number } from "effect"
 
-import { makeDeterministicRuntimePoliciesLayer, Seed } from "@scenesystems/effect-math/contracts"
 import * as Numeric from "@scenesystems/effect-math/Numeric"
 import {
   bisect,
@@ -18,10 +17,11 @@ import {
   goldenSectionValidated,
   goldenSectionWithPolicies
 } from "@scenesystems/effect-math/Optimization"
+import * as Policy from "@scenesystems/effect-math/Policy"
 
 const program = Effect.gen(function*() {
   // Bisection root-finding
-  const xSquaredMinus2 = (x: number) => N.subtract(N.multiply(x, x), 2)
+  const xSquaredMinus2 = (x: number) => Number.subtract(Number.multiply(x, x), 2)
   yield* Console.log("bisect(x²−2, 0, 2):", bisect(xSquaredMinus2, 0, 2))
   // Output: ≈ 1.4142135623730951 (√2)
 
@@ -29,11 +29,11 @@ const program = Effect.gen(function*() {
   // Output: ≈ 1.5707963267948966 (π/2)
 
   // Golden-section minimization
-  const xSquared = (x: number) => N.multiply(x, x)
+  const xSquared = (x: number) => Number.multiply(x, x)
   yield* Console.log("goldenSection(x², -2, 2):", goldenSection(xSquared, -2, 2))
   // Output: ≈ 0 (minimum of x²)
 
-  const xMinus1Squared = (x: number) => N.multiply(N.subtract(x, 1), N.subtract(x, 1))
+  const xMinus1Squared = (x: number) => Number.multiply(Number.subtract(x, 1), Number.subtract(x, 1))
   yield* Console.log("goldenSection((x−1)², -2, 4):", goldenSection(xMinus1Squared, -2, 4))
   // Output: ≈ 1 (minimum of (x−1)²)
 
@@ -47,8 +47,8 @@ const program = Effect.gen(function*() {
   // Output: goldenSectionValidated(x², {a:-2, b:2}): ≈ 0
 
   // Strict runtime policy
-  const policies = makeDeterministicRuntimePoliciesLayer({
-    seed: Seed.make(42),
+  const policies = Policy.layerDeterministic({
+    seed: Policy.Seed.make(42),
     precision: "strict",
     backend: "scalar",
     diagnostics: "disabled"

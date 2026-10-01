@@ -39,31 +39,34 @@ const cloudflareSources: Sources = {
 }
 
 const analyticsSources = (settings: AnalyticsSettings): Sources => {
-  const google = Option.isSome(settings.googleMeasurementId) ? googleSources : none
-  const cloudflare = Option.isSome(settings.cloudflareBeaconToken) ? cloudflareSources : none
+  const google = Option.match(settings.googleMeasurementId, { onSome: () => googleSources, onNone: () => none })
+  const cloudflare = Option.match(settings.cloudflareBeaconToken, {
+    onSome: () => cloudflareSources,
+    onNone: () => none
+  })
   return {
-    script: [...google.script, ...cloudflare.script],
-    connect: [...google.connect, ...cloudflare.connect],
-    img: [...google.img, ...cloudflare.img]
+    script: Arr.appendAll(google.script, cloudflare.script),
+    connect: Arr.appendAll(google.connect, cloudflare.connect),
+    img: Arr.appendAll(google.img, cloudflare.img)
   }
 }
 
-const directive = (name: string, sources: ReadonlyArray<string>): string => Arr.join([name, ...sources], " ")
+const directive = (name: string, sources: ReadonlyArray<string>): string => Arr.join(Arr.prepend(sources, name), " ")
 
 export const contentSecurityPolicy = (settings: AnalyticsSettings): string => {
   const extra = analyticsSources(settings)
   return Arr.join([
     "default-src 'self'",
     "base-uri 'self'",
-    directive("connect-src", ["'self'", ...extra.connect]),
+    directive("connect-src", Arr.prepend(extra.connect, "'self'")),
     "font-src 'self'",
     "form-action 'self'",
     "frame-ancestors 'none'",
-    directive("img-src", ["'self'", "data:", ...extra.img]),
+    directive("img-src", Arr.prependAll(extra.img, ["'self'", "data:"])),
     "object-src 'none'",
     // Shiki's Oniguruma grammar engine is WebAssembly; `wasm-unsafe-eval`
     // permits compiling it without permitting JavaScript `eval`.
-    directive("script-src", ["'self'", "'wasm-unsafe-eval'", ...extra.script]),
+    directive("script-src", Arr.prependAll(extra.script, ["'self'", "'wasm-unsafe-eval'"])),
     // No inline style: the shell is static and the page writes none — Shiki's
     // tokens are classes, Base UI is told to write no `<style>` elements
     // (`CSPProvider` in `App.tsx`), and a component's `style` prop is set

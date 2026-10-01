@@ -6,9 +6,9 @@
  * @module
  */
 import { BunRuntime } from "@effect/platform-bun"
-import { Console, Effect } from "effect"
+import { Console, Effect, Number } from "effect"
 
-import { makeDeterministicRuntimePoliciesLayer, Seed } from "@scenesystems/effect-math/contracts"
+import * as Policy from "@scenesystems/effect-math/Policy"
 import {
   beta,
   betaValidated,
@@ -44,7 +44,7 @@ const program = Effect.gen(function*() {
   yield* Console.log("erf(0):", erf(0))
   yield* Console.log("erf(1):", erf(1))
   yield* Console.log("erfc(0):", erfc(0))
-  yield* Console.log("erf(1) + erfc(1):", erf(1) + erfc(1))
+  yield* Console.log("erf(1) + erfc(1):", Number.sum(erf(1), erfc(1)))
   // Output: erf(1) + erfc(1): 1 (complementary identity)
 
   // Digamma function
@@ -63,8 +63,8 @@ const program = Effect.gen(function*() {
   yield* Console.log("erfValidated(x=1):", erfV)
 
   // Strict runtime policy
-  const policies = makeDeterministicRuntimePoliciesLayer({
-    seed: Seed.make(42),
+  const policies = Policy.layerDeterministic({
+    seed: Policy.Seed.make(42),
     precision: "strict",
     backend: "scalar",
     diagnostics: "disabled"

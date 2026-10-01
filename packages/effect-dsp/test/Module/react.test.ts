@@ -4,13 +4,14 @@
 import * as LanguageModel from "@effect/ai/LanguageModel"
 import * as Response from "@effect/ai/Response"
 import * as Tool from "@effect/ai/Tool"
-import type * as Toolkit from "@effect/ai/Toolkit"
+import * as Toolkit from "@effect/ai/Toolkit"
 import { describe, expect, it } from "@effect/vitest"
+import * as MockLanguageModel from "@scenesystems/effect-dsp/MockLanguageModel"
 import * as Module from "@scenesystems/effect-dsp/Module"
+import { decode } from "@scenesystems/effect-dsp/Payload"
 import * as Signature from "@scenesystems/effect-dsp/Signature"
-import { MockLanguageModel } from "@scenesystems/effect-dsp/test"
 import * as Trace from "@scenesystems/effect-dsp/Trace"
-import { Array as Arr, Effect, Layer, Ref, Schema } from "effect"
+import { Array as Arr, Effect, Match, Option, Ref, Schema, String as Str } from "effect"
 
 const makeQaSignature = () =>
   Signature.make(
@@ -39,55 +40,49 @@ const emptyUsage = new Response.Usage({
   cachedInputTokens: undefined
 })
 
-const makeToolkit = (
-  callsRef: Ref.Ref<ReadonlyArray<string>>
-): Toolkit.WithHandler<{ readonly LookupFacts: typeof LookupFacts }> => ({
-  tools: {
-    LookupFacts
-  },
-  handle: (_name, params) => {
-    const result: Tool.HandlerResult<typeof LookupFacts> = {
-      isFailure: false,
-      result: String(params.question),
-      encodedResult: String(params.question)
-    }
-
-    return Ref.update(callsRef, (entries) => Arr.append(entries, params.question)).pipe(
-      Effect.as(result)
-    )
-  }
+const observedUsage = new Response.Usage({
+  inputTokens: 17,
+  outputTokens: 5,
+  totalTokens: 29,
+  reasoningTokens: 7,
+  cachedInputTokens: 3
 })
 
 describe("Module.react", () => {
-  it.effect("iterates tool-using thought/action steps until final parseable output and records each step in trace", () =>
+  it.effect("retains observed usage across tool execution, parse failure, and the final answer", () =>
     Effect.gen(function*() {
       const qa = yield* makeQaSignature()
-      const toolkitCalls = yield* Ref.make<ReadonlyArray<string>>([])
-      const toolkit = makeToolkit(toolkitCalls)
+      const toolkitCalls = yield* Ref.make(Arr.empty<string>())
+      const tools = Toolkit.make(LookupFacts)
+      const toolkit = yield* tools.pipe(Effect.provide(tools.toLayer({
+        LookupFacts: ({ question }) => Ref.update(toolkitCalls, Arr.append(question)).pipe(Effect.as(question))
+      })))
       const mock = yield* MockLanguageModel.make(
-        MockLanguageModel.sequence([
-          Arr.make(
-            Response.textPart({
-              text: "Thought: I should use a tool before answering.",
-              metadata: {}
-            }),
-            Response.toolCallPart({
-              id: "call-1",
-              name: "LookupFacts",
-              params: {
-                question: "What is the capital of France?"
-              },
-              providerExecuted: false,
-              metadata: {}
-            }),
-            Response.finishPart({
-              reason: "stop",
-              usage: emptyUsage,
-              metadata: {}
-            })
-          ),
-          "[[ ## answer ## ]]\nParis"
-        ])
+        MockLanguageModel.fromFunction((prompt) =>
+          Trace.observeUsage(observedUsage).pipe(
+            Effect.as(
+              Match.value(prompt).pipe(
+                Match.when(
+                  Str.includes("Iteration 2 did not produce parseable output."),
+                  () => "[[ ## answer ## ]]\nParis"
+                ),
+                Match.when(Str.includes("Tool observations:"), () => "malformed"),
+                Match.orElse(() =>
+                  Arr.make(
+                    Response.textPart({ text: "Thought: I should use a tool before answering." }),
+                    Response.toolCallPart({
+                      id: "call-1",
+                      name: "LookupFacts",
+                      params: { question: "What is the capital of France?" },
+                      providerExecuted: false
+                    }),
+                    Response.finishPart({ reason: "stop", usage: emptyUsage })
+                  )
+                )
+              )
+            )
+          )
+        )
       )
       const react = yield* Module.react({
         name: "qa-react",
@@ -96,24 +91,38 @@ describe("Module.react", () => {
         maxIterations: 5
       })
 
-      const traced = yield* Trace.withTracing(
-        react.forward({ question: "What is the capital of France?" }).pipe(
-          Effect.provide(Layer.succeed(LanguageModel.LanguageModel, mock.service))
-        )
-      )
-
-      const output = traced[0]
-      const entries = traced[1]
+      const [[[output, entries], calls], aggregate] = yield* Trace.withUsageTracking(
+        Trace.withCalls(Trace.withTracing(react.forward({ question: "What is the capital of France?" })))
+      ).pipe(Effect.provideService(LanguageModel.LanguageModel, mock.service))
       const lmCalls = yield* Ref.get(mock.calls)
       const toolCalls = yield* Ref.get(toolkitCalls)
+      const first = yield* Arr.head(entries)
+      const second = yield* Arr.get(entries, 1)
+      const last = yield* Arr.last(entries)
 
       expect(output).toEqual({ answer: "Paris" })
-      expect(toolCalls).toEqual(["What is the capital of France?"])
-      expect(entries).toHaveLength(2)
-      expect(lmCalls).toHaveLength(2)
-      expect(lmCalls[0]?.method).toBe("generateText")
-      expect(lmCalls[1]?.method).toBe("generateText")
-      expect(entries[0]?.rawResponse).toContain("Thought")
-      expect(entries[1]?.prompt).toContain("Tool observations")
+      expect(toolCalls).toEqual(Arr.make("What is the capital of France?"))
+      expect(Arr.map(lmCalls, (call) => call.method)).toEqual(Arr.make("generateText", "generateText", "generateText"))
+      expect(Arr.map(entries, (entry) => entry.outcome)).toEqual(Arr.make("intermediate", "intermediate", "completed"))
+      expect(first.rawResponse).toContain("Thought")
+      expect(second.prompt).toContain("Tool observations")
+      expect(second.rawResponse).toBe("malformed")
+      const toolOutput = yield* decode(Trace.UnparsedOutput, first.output)
+      const failedOutput = yield* decode(Trace.UnparsedOutput, second.output)
+      expect(toolOutput.toolCallCount).toBe(1)
+      expect(toolOutput.toolResultCount).toBe(1)
+      expect(toolOutput.parseError).toEqual(Option.none())
+      expect(failedOutput.response).toBe("malformed")
+      expect(failedOutput.toolCallCount).toBe(0)
+      expect(failedOutput.toolResultCount).toBe(0)
+      expect(Option.isSome(failedOutput.parseError)).toBe(true)
+      expect(yield* decode(qa.outputSchema, last.output)).toEqual({ answer: "Paris" })
+      expect(last.prompt).toContain("Parse feedback:")
+      expect(Arr.map(entries, (entry) => entry.usage)).toEqual(Arr.make(observedUsage, observedUsage, observedUsage))
+      expect(Arr.map(calls, (call) => call.usage)).toEqual(
+        Arr.make(Option.some(observedUsage), Option.some(observedUsage), Option.some(observedUsage))
+      )
+      expect(aggregate.callCount).toBe(3)
+      expect(aggregate.tokens.totalTokens).toBe(87)
     }))
 })

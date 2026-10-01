@@ -8,7 +8,7 @@ import type { PlaceMarker } from "../../../contracts/imagined-place-result.js"
 import { type MotionPreference, motionPreferenceAtom } from "../../atoms/motion.js"
 import { walkDrawTransition } from "../primitives/motion.js"
 
-import { isFirst } from "./placeViewModel.js"
+import { fixedDecimal, isFirst } from "./placeViewModel.js"
 
 /**
  * The walk through the place: one dotted line through the markers in the
@@ -18,7 +18,10 @@ import { isFirst } from "./placeViewModel.js"
  */
 const walkPath = (markers: ReadonlyArray<PlaceMarker>): string =>
   Arr.join(
-    Arr.map(markers, (marker, index) => `${pathCommand(index)}${marker.x.toFixed(1)} ${marker.y.toFixed(1)}`),
+    Arr.map(
+      markers,
+      (marker, index) => `${pathCommand(index)}${fixedDecimal(marker.x, 1)} ${fixedDecimal(marker.y, 1)}`
+    ),
     " "
   )
 

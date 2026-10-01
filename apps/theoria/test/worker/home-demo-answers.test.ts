@@ -351,12 +351,15 @@ layer(Layer.merge(SiteLive, BrowserLive), { excludeTestServices: true, timeout: 
         yield* hidden(overlay)
         yield* eventually(() => disc.evaluate(isActiveElement), true)
 
-        // A press on nothing in particular — the demo's own heading — closes the answer, and focus is back on the mark.
+        // The heading's nearest focusable ancestor is the route landmark.
+        // Outside clicks preserve that destination; Escape still returns to the mark.
+        const main = page.getByRole("main")
+        yield* attribute(main, "tabindex", "-1")
         yield* click(disc)
         yield* visible(overlay)
         yield* click(demo.getByRole("heading", { level: 2 }).first())
         yield* hidden(overlay)
-        yield* eventually(() => disc.evaluate(isActiveElement), true)
+        yield* eventually(() => main.evaluate(isActiveElement), true)
 
         // A press on a control closes the answer too, and focus is where the visitor put it: on the control.
         const brief = page.locator("[data-place-step='compose']").getByRole("textbox")

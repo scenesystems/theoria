@@ -1,90 +1,93 @@
-import { Schema } from "effect"
+import { Data } from "effect"
+import * as Arr from "effect/Array"
 
-import { WhiteSpaceMode } from "../../src/Text/schema.js"
+import { Segment, type Segments, type Whitespace } from "../../src/Text.js"
 
-const UnicodeSegmentationFixture = Schema.Struct({
-  expectedBreakKinds: Schema.Array(Schema.String),
-  expectedSegments: Schema.Array(Schema.String),
-  name: Schema.String,
-  text: Schema.String,
-  whiteSpace: WhiteSpaceMode
-})
+class UnicodeSegmentationFixture extends Data.Class<{
+  readonly expected: Segments
+  readonly name: string
+  readonly text: string
+  readonly whiteSpace: Whitespace
+}> {}
 
-const UnicodeOverflowFixture = Schema.Struct({
-  maxWidth: Schema.Number,
-  name: Schema.String,
-  text: Schema.String
-})
+class UnicodeOverflowFixture extends Data.Class<{
+  readonly maxWidth: number
+  readonly name: string
+  readonly text: string
+}> {}
 
-export const unicodeSegmentationFixtures: ReadonlyArray<typeof UnicodeSegmentationFixture.Type> = [
-  {
-    expectedBreakKinds: [
-      "text",
-      "glue",
-      "text",
-      "space",
-      "text",
-      "glue",
-      "text",
-      "space",
-      "text",
-      "zero-width-break",
-      "text"
-    ],
-    expectedSegments: ["no", "\u00a0", "break", " ", "word", "\u2060", "join", " ", "a", "\u200b", "b"],
+export const unicodeSegmentationFixtures = Arr.make(
+  new UnicodeSegmentationFixture({
+    expected: Arr.make(
+      Segment.make({ kind: "text", text: "no" }),
+      Segment.make({ kind: "text", text: "\u00a0" }),
+      Segment.make({ kind: "text", text: "break" }),
+      Segment.make({ kind: "space", text: " " }),
+      Segment.make({ kind: "text", text: "word" }),
+      Segment.make({ kind: "text", text: "\u2060" }),
+      Segment.make({ kind: "text", text: "join" }),
+      Segment.make({ kind: "space", text: " " }),
+      Segment.make({ kind: "text", text: "a" }),
+      Segment.make({ kind: "text", text: "\u200b" }),
+      Segment.make({ kind: "text", text: "b" })
+    ),
     name: "nbsp-wj-zwsp",
     text: "no\u00a0break word\u2060join a\u200bb",
     whiteSpace: "normal"
-  },
-  {
-    expectedBreakKinds: ["text"],
-    expectedSegments: ["https://example.com/a-b?x=1,2"],
+  }),
+  new UnicodeSegmentationFixture({
+    expected: Arr.of(Segment.make({ kind: "text", text: "https://example.com/a-b?x=1,2" })),
     name: "url-like-run",
     text: "https://example.com/a-b?x=1,2",
     whiteSpace: "normal"
-  },
-  {
-    expectedBreakKinds: ["text"],
-    expectedSegments: ["1,234.56"],
+  }),
+  new UnicodeSegmentationFixture({
+    expected: Arr.of(Segment.make({ kind: "text", text: "1,234.56" })),
     name: "numeric-run",
     text: "1,234.56",
     whiteSpace: "normal"
-  },
-  {
-    expectedBreakKinds: ["text", "space", "text"],
-    expectedSegments: ["(hello)", " ", "[world]"],
+  }),
+  new UnicodeSegmentationFixture({
+    expected: Arr.make(
+      Segment.make({ kind: "text", text: "(hello)" }),
+      Segment.make({ kind: "space", text: " " }),
+      Segment.make({ kind: "text", text: "[world]" })
+    ),
     name: "opening-and-closing-punctuation",
     text: "(hello) [world]",
     whiteSpace: "normal"
-  },
-  {
-    expectedBreakKinds: ["text", "space", "text"],
-    expectedSegments: ["\u300c\u4f60\u597d\u300d", " ", "\u300e\u4e16\u754c\u300f"],
+  }),
+  new UnicodeSegmentationFixture({
+    expected: Arr.make(
+      Segment.make({ kind: "text", text: "\u300c\u4f60\u597d\u300d" }),
+      Segment.make({ kind: "space", text: " " }),
+      Segment.make({ kind: "text", text: "\u300e\u4e16\u754c\u300f" })
+    ),
     name: "cjk-punctuation-pairs",
     text: "\u300c\u4f60\u597d\u300d \u300e\u4e16\u754c\u300f",
     whiteSpace: "normal"
-  }
-]
+  })
+)
 
-export const unicodeOverflowFixtures: ReadonlyArray<typeof UnicodeOverflowFixture.Type> = [
-  {
+export const unicodeOverflowFixtures = Arr.make(
+  new UnicodeOverflowFixture({
     maxWidth: 25,
     name: "url-like-run",
     text: "https://example.com/a-b?x=1,2"
-  },
-  {
+  }),
+  new UnicodeOverflowFixture({
     maxWidth: 20,
     name: "numeric-run",
     text: "1,234.56"
-  },
-  {
+  }),
+  new UnicodeOverflowFixture({
     maxWidth: 25,
     name: "opening-and-closing-punctuation",
     text: "(hello) [world]"
-  },
-  {
+  }),
+  new UnicodeOverflowFixture({
     maxWidth: 20,
     name: "cjk-punctuation-pairs",
     text: "\u300c\u4f60\u597d\u300d \u300e\u4e16\u754c\u300f"
-  }
-]
+  })
+)

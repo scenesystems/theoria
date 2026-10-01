@@ -1,5 +1,7 @@
 import { Match, Schema } from "effect"
 import * as Arr from "effect/Array"
+import * as Num from "effect/Number"
+import * as Str from "effect/String"
 
 import { fullCanonicalUrl, type PageMetadata, siteMetadata } from "./metadata.js"
 
@@ -57,7 +59,7 @@ const breadcrumbList = (metadata: PageMetadata): JsonValue => ({
     Arr.prepend(metadata.breadcrumbs, { name: siteMetadata.siteName, path: "/" }),
     (crumb, index) => ({
       "@type": "ListItem",
-      position: index + 1,
+      position: Num.increment(index),
       name: crumb.name,
       item: fullCanonicalUrl(crumb.path)
     })
@@ -118,7 +120,9 @@ const encodeJson = Schema.encodeSync(Schema.parseJson(Schema.Unknown))
  * @since 0.1.0
  */
 export const structuredDataJson = (metadata: PageMetadata): string =>
-  encodeJson({
-    "@context": "https://schema.org",
-    "@graph": [...pageNodes(metadata), website, organization]
-  }).replace(/</gu, "\\u003c")
+  Str.replace(/</gu, "\\u003c")(
+    encodeJson({
+      "@context": "https://schema.org",
+      "@graph": Arr.appendAll(pageNodes(metadata), [website, organization])
+    })
+  )
