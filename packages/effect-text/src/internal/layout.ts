@@ -152,12 +152,6 @@ const breakableGraphemeWidthsAt = (kernel: Prepared.Kernel, segmentIndex: number
     Option.getOrElse(Chunk.empty<number>)
   )
 
-const breakablePrefixWidthsAt = (kernel: Prepared.Kernel, segmentIndex: number): WidthValues =>
-  runtimeSegmentAt(kernel, segmentIndex).pipe(
-    Option.map((segment) => segment.breakablePrefixWidths),
-    Option.getOrElse(Chunk.empty<number>)
-  )
-
 const graphemeBidiLevelsAt = (kernel: Prepared.Kernel, segmentIndex: number): WidthValues =>
   runtimeSegmentAt(kernel, segmentIndex).pipe(
     Option.map((segment) => segment.graphemeBidiLevels),
@@ -184,20 +178,9 @@ const advanceFromPrefixWidths = (
     onTrue: () => Chunk.head(prefixWidths).pipe(Option.getOrElse(() => fallback))
   })
 
-const textGraphemeCountAt = (kernel: Prepared.Kernel, segmentIndex: number): number => {
-  const graphemeWidths = breakableGraphemeWidthsAt(kernel, segmentIndex)
-
-  return Boolean.match(Chunk.isEmpty(graphemeWidths), {
-    onFalse: () => graphemeWidths.length,
-    onTrue: () => 1
-  })
-}
-
 const advanceCursor = (kernel: Prepared.Kernel, cursor: Text.Cursor): Text.Cursor => {
-  const remainsInSegment = Boolean.and(
-    Chunk.isNonEmpty(breakableGraphemeWidthsAt(kernel, cursor.segmentIndex)),
-    Number.lessThan(Number.increment(cursor.graphemeIndex), textGraphemeCountAt(kernel, cursor.segmentIndex))
-  )
+  const widths = breakableGraphemeWidthsAt(kernel, cursor.segmentIndex)
+  const remainsInSegment = Number.lessThan(Number.increment(cursor.graphemeIndex), Chunk.size(widths))
 
   return Boolean.match(remainsInSegment, {
     onFalse: () => cursorAt(Number.increment(cursor.segmentIndex)),
@@ -206,14 +189,16 @@ const advanceCursor = (kernel: Prepared.Kernel, cursor: Text.Cursor): Text.Curso
 }
 
 const breakKindAtCursor = (kernel: Prepared.Kernel, cursor: Text.Cursor): Prepared.BreakKind => {
-  const insideTextSegment = Boolean.and(
-    Chunk.isNonEmpty(breakableGraphemeWidthsAt(kernel, cursor.segmentIndex)),
-    Number.lessThan(cursor.graphemeIndex, Number.decrement(textGraphemeCountAt(kernel, cursor.segmentIndex)))
-  )
-
-  return Boolean.match(insideTextSegment, {
-    onFalse: () => breakKindAt(kernel, cursor.segmentIndex),
-    onTrue: () => "text"
+  return Option.match(runtimeSegmentAt(kernel, cursor.segmentIndex), {
+    onNone: () => "text",
+    onSome: (segment) =>
+      Boolean.match(
+        Number.lessThan(cursor.graphemeIndex, Number.decrement(Chunk.size(segment.breakableGraphemeWidths))),
+        {
+          onFalse: () => segment.breakKind,
+          onTrue: () => "text"
+        }
+      )
   })
 }
 
@@ -268,65 +253,34 @@ const resolveFitAdvanceAtCursor = (
   cursor: Text.Cursor,
   currentFitWidth: number
 ): number =>
-  Match.value(breakKindAtCursor(kernel, cursor)).pipe(
-    Match.when("tab", () => resolveTabAdvance(currentFitWidth, kernel.runtime.tabStopAdvance)),
-    Match.when(
-      Match.is(
-        "text",
-        "space",
-        "preserved-space",
-        "soft-hyphen",
-        "dictionary-hyphen",
-        "hard-break",
-        "glue",
-        "zero-width-break"
-      ),
-      () => {
-        const prefixWidths = breakablePrefixWidthsAt(kernel, cursor.segmentIndex)
-        const fallbackWidth = runtimeSegmentAt(kernel, cursor.segmentIndex).pipe(
-          Option.map((segment) => segment.fitAdvance),
-          Option.getOrElse(() => 0)
-        )
-
-        return Boolean.match(Chunk.isNonEmpty(prefixWidths), {
-          onFalse: () => fallbackWidth,
-          onTrue: () => advanceFromPrefixWidths(prefixWidths, cursor.graphemeIndex, fallbackWidth)
-        })
-      }
-    ),
-    Match.exhaustive
-  )
+  Option.match(runtimeSegmentAt(kernel, cursor.segmentIndex), {
+    onNone: () => 0,
+    onSome: (segment) =>
+      Boolean.match(String.Equivalence(segment.breakKind, "tab"), {
+        onTrue: () => resolveTabAdvance(currentFitWidth, kernel.runtime.tabStopAdvance),
+        onFalse: () =>
+          Boolean.match(Chunk.isNonEmpty(segment.breakablePrefixWidths), {
+            onFalse: () => segment.fitAdvance,
+            onTrue: () =>
+              advanceFromPrefixWidths(segment.breakablePrefixWidths, cursor.graphemeIndex, segment.fitAdvance)
+          })
+      })
+  })
 
 const resolvePaintAdvanceAtCursor = (
   kernel: Prepared.Kernel,
   cursor: Text.Cursor,
   currentPaintWidth: number
 ): number =>
-  Match.value(breakKindAtCursor(kernel, cursor)).pipe(
-    Match.when("tab", () => resolveTabAdvance(currentPaintWidth, kernel.runtime.tabStopAdvance)),
-    Match.when(
-      Match.is(
-        "text",
-        "space",
-        "preserved-space",
-        "soft-hyphen",
-        "dictionary-hyphen",
-        "hard-break",
-        "glue",
-        "zero-width-break"
-      ),
-      () => {
-        const graphemeWidths = breakableGraphemeWidthsAt(kernel, cursor.segmentIndex)
-        const fallbackWidth = runtimeSegmentAt(kernel, cursor.segmentIndex).pipe(
-          Option.map((segment) => segment.paintAdvance),
-          Option.getOrElse(() => 0)
-        )
-
-        return Chunk.get(graphemeWidths, cursor.graphemeIndex).pipe(Option.getOrElse(() => fallbackWidth))
-      }
-    ),
-    Match.exhaustive
-  )
+  Option.match(runtimeSegmentAt(kernel, cursor.segmentIndex), {
+    onNone: () => 0,
+    onSome: (segment) =>
+      Boolean.match(String.Equivalence(segment.breakKind, "tab"), {
+        onTrue: () => resolveTabAdvance(currentPaintWidth, kernel.runtime.tabStopAdvance),
+        onFalse: () =>
+          Option.getOrElse(Chunk.get(segment.breakableGraphemeWidths, cursor.graphemeIndex), () => segment.paintAdvance)
+      })
+  })
 
 const appendDiscretionaryBreakCandidate = (
   candidates: BreakCandidates,

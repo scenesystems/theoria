@@ -1,5 +1,5 @@
 import { describe, expect, it } from "@effect/vitest"
-import { Effect, Layer, Number, String } from "effect"
+import { Effect, FastCheck, Layer, Number, String, Tuple } from "effect"
 import * as Arr from "effect/Array"
 
 import * as MeasurementCache from "../../src/MeasurementCache.js"
@@ -27,6 +27,29 @@ const makeTestLayer = Layer.mergeAll(
 )
 
 describe("Text breaking contracts", () => {
+  it.effect.prop(
+    "grapheme cursor widths preserve every character on both sides of a line-fit boundary",
+    Tuple.make(
+      FastCheck.array(FastCheck.constantFrom("a", "b", "c"), { minLength: 1, maxLength: 80 }),
+      FastCheck.integer({ min: 2, max: 9 })
+    ),
+    ([characters, slots]) =>
+      Effect.gen(function*() {
+        const prepared = yield* Text.prepareWithSegments({
+          text: Arr.join(characters, ""),
+          font: { family: "Mono", size: 10 },
+          whiteSpace: "normal"
+        }).pipe(Effect.provide(makeTestLayer))
+        const expected = (count: number) =>
+          Arr.map(Arr.chunksOf(characters, count), (part, index) =>
+            visualLine(index, Arr.join(part, ""), Number.multiply(Arr.length(part), 5)))
+        expect(Text.lines(prepared, { maxWidth: Number.multiply(slots, 5), lineHeight: 12 }))
+          .toEqual(expected(slots))
+        expect(Text.lines(prepared, { maxWidth: Number.subtract(Number.multiply(slots, 5), 0.1), lineHeight: 12 }))
+          .toEqual(expected(Number.decrement(slots)))
+      })
+  )
+
   it.effect("breaks overlong runs at grapheme boundaries when maxWidth is narrower than the token", () =>
     Effect.gen(function*() {
       const prepared = yield* Text.prepareWithSegments({
