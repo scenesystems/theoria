@@ -70,6 +70,6 @@
     "miniflare": "5.20260831.0-alpha",
     "tailwindcss": "^4.3.3",
     "vite": "^8.2.2",
-    "wrangler": "4.128.0"
+    "wrangler": "4.143.0"
   }
 }
