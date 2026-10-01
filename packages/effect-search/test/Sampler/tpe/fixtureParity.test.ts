@@ -5,6 +5,7 @@ import * as Numeric from "@scenesystems/effect-math/Numeric"
 import { sampleWeightedCategoricalCandidatesFromRolls } from "../../../src/internal/tpe/candidates.js"
 import { buildCategoricalParzen } from "../../../src/internal/tpe/categoricalParzen.js"
 import { buildContinuousParzen, logDensity, sampleFromParzen } from "../../../src/internal/tpe/continuousParzen.js"
+import { prepareLogDensity } from "../../../src/internal/tpe/continuousParzen/density.js"
 import { argmax, expectedImprovementScore } from "../../../src/internal/tpe/expectedImprovement.js"
 import {
   CategoricalParzenFixture,
@@ -171,6 +172,7 @@ describe("fixture-backed parity", () => {
               fixture.payload.low,
               fixture.payload.high
             )
+            const preparedLogDensity = prepareLogDensity(parzen)
 
             yield* Effect.forEach(
               fixture.payload.expected.kernels,
@@ -194,6 +196,8 @@ describe("fixture-backed parity", () => {
                     trace.expected,
                     SCORE_TOLERANCE
                   )
+                  expectWithinTolerance(preparedLogDensity(trace.probe), trace.expected, SCORE_TOLERANCE)
+                  expect(preparedLogDensity(trace.probe)).toBe(logDensity(parzen, trace.probe))
                 }),
               { discard: true }
             )

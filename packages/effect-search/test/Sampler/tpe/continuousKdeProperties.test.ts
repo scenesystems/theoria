@@ -3,6 +3,7 @@ import { Array as Arr, Boolean as Bool, Effect, FastCheck as fc, Number as Num, 
 
 import * as Numeric from "@scenesystems/effect-math/Numeric"
 import { buildContinuousParzen, logDensity, sampleFromParzen } from "../../../src/internal/tpe/continuousParzen.js"
+import { prepareLogDensity } from "../../../src/internal/tpe/continuousParzen/density.js"
 
 const boundsInputArbitrary = fc.record({
   center: fc.double({
@@ -180,7 +181,7 @@ describe("continuous KDE invariants", () => {
   )
 
   it.effect.prop(
-    "logDensity stays finite for support probes",
+    "prepared logDensity exactly preserves finite scores across generated models and support probes",
     Tuple.make(
       boundsInputArbitrary,
       observationQuantilesArbitrary,
@@ -192,15 +193,12 @@ describe("continuous KDE invariants", () => {
         const observations = Arr.map(observationsRaw, (quantile) => pointOnSupport(low, high, quantile))
         const probes = Arr.map(probesRaw, (quantile) => pointOnSupport(low, high, quantile))
         const parzen = buildContinuousParzen(observations, low, high)
+        const prepared = prepareLogDensity(parzen)
 
         expect(Arr.every(probes, (probe) => Numeric.isFinite(logDensity(parzen, probe)))).toBe(true)
-        expect(
-          Arr.every(probes, (probe) =>
-            Num.lessThanOrEqualTo(
-              Numeric.abs(Num.subtract(logDensity(parzen, probe), logDensity(parzen, probe))),
-              0
-            ))
-        ).toBe(true)
+        Arr.forEach(probes, (probe) => {
+          expect(prepared(probe)).toBe(logDensity(parzen, probe))
+        })
       })
   )
 

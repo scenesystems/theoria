@@ -82,36 +82,46 @@ const ppf = (q: number, a: number, b: number): number =>
     Match.orElse(({ q: quantile, a: left, b: right }) => ppfFinite(quantile, left, right))
   )
 
-export const logPdf = (x: number, params: TruncatedNormalParams): number => {
-  return Match.value({ x, params }).pipe(
-    Match.when(({ params: currentParams }) => Bool.not(isValidParams(currentParams)), () => Number.NaN),
-    Match.when(({ x: currentX }) => Predicate.not(Schema.is(Schema.NonNaN))(currentX), () => Number.NaN),
-    Match.orElse(({ x: currentX, params: currentParams }) => {
-      const bounds = standardizeBounds(currentParams)
-
-      return Match.value({ x: currentX, bounds }).pipe(
-        Match.when(({ bounds: currentBounds }) => Equal.equals(currentBounds.a, currentBounds.b), () => Number.NaN),
-        Match.when(({ x: value }) => Bool.not(isFinite(value)), () => Number.NEGATIVE_INFINITY),
-        Match.orElse(() => {
-          const standardized = Num.unsafeDivide(Num.subtract(currentX, currentParams.mean), currentParams.sigma)
-
-          return Match.value(standardized).pipe(
-            Match.when(
-              (value) => Bool.or(Num.lessThan(value, bounds.a), Num.greaterThan(value, bounds.b)),
-              () => Number.NEGATIVE_INFINITY
-            ),
-            Match.orElse(() =>
-              Num.subtract(
-                Num.subtract(logNormPdf(standardized), logGaussMass(bounds.a, bounds.b)),
-                logStrict(currentParams.sigma)
-              )
-            )
-          )
-        })
-      )
+const logPdfEvaluator = (
+  params: TruncatedNormalParams,
+  bounds: StandardizedBounds,
+  normalize: (density: number) => number
+): (x: number) => number =>
+  Match.type<number>().pipe(
+    Match.when(Predicate.not(Schema.is(Schema.NonNaN)), () => Number.NaN),
+    Match.when(() => Equal.equals(bounds.a, bounds.b), () => Number.NaN),
+    Match.when(Predicate.not(isFinite), () => Number.NEGATIVE_INFINITY),
+    Match.orElse((x) => {
+      const standardized = Num.unsafeDivide(Num.subtract(x, params.mean), params.sigma)
+      return Bool.match(Bool.or(Num.lessThan(standardized, bounds.a), Num.greaterThan(standardized, bounds.b)), {
+        onTrue: () => Number.NEGATIVE_INFINITY,
+        onFalse: () => normalize(logNormPdf(standardized))
+      })
     })
   )
-}
+
+export const logPdf = (x: number, params: TruncatedNormalParams): number =>
+  Bool.match(isValidParams(params), {
+    onFalse: () => Number.NaN,
+    onTrue: () => {
+      const bounds = standardizeBounds(params)
+      // One-shot probes outside the support do not need normalization.
+      return logPdfEvaluator(params, bounds, (density) =>
+        Num.subtract(Num.subtract(density, logGaussMass(bounds.a, bounds.b)), logStrict(params.sigma)))(x)
+    }
+  })
+
+/** Reuse only model-invariant arithmetic within a batch, preserving subtraction order. */
+export const prepareLogPdf = (params: TruncatedNormalParams): (x: number) => number =>
+  Bool.match(isValidParams(params), {
+    onFalse: () => () => Number.NaN,
+    onTrue: () => {
+      const bounds = standardizeBounds(params)
+      const logMass = logGaussMass(bounds.a, bounds.b)
+      const logSigma = logStrict(params.sigma)
+      return logPdfEvaluator(params, bounds, (density) => Num.subtract(Num.subtract(density, logMass), logSigma))
+    }
+  })
 
 export const cdf = (x: number, params: TruncatedNormalParams): number => {
   return Match.value({ x, params }).pipe(
