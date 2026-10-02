@@ -11,6 +11,19 @@ Traceability: planning thread https://ampcode.com/threads/T-01a0f799-f072-75e9-8
 - PR #117 is closed at `e206de80` with its branch intact. The later performance history (remote `97c76143..e206de80` and the preserved local performance branch ending at `bfa7fa56`) is kept as reference material only; see "Commit disposition".
 - No release-age or dependency-cooldown policy exists in this repository. **Decided:** do not adopt one.
 
+### Where the referenced history lives
+
+| What                                                                     | Ref                                                                          |
+| ------------------------------------------------------------------------ | ---------------------------------------------------------------------------- |
+| Pre-integration `main` (performance reference point)                     | `498e253f`, ancestor of `main`                                               |
+| Integration-only baseline                                                | `7a1cbd55`, ancestor of `e206de80`                                           |
+| PR #117 head: remote performance and policy commits `97c76143..e206de80` | branch `refactor/integration` (= `refs/pull/117/head`)                       |
+| 48 local performance commits beyond #117 (`e206de80..bfa7fa56`)          | tag `archive/pr117-performance-bfa7fa56`; branch `archive/pr117-performance` |
+| Closure checklist and matrix recorded against `bfa7fa56`                 | `theoria/reference/` on branch `archive/pr117-performance` (head `d21c1047`) |
+| Integration candidate `9125fe44` and reviewed #118 head `c8eb18ee`       | `refs/pull/118/head` (squash-merged as `e93d2f9d`)                           |
+
+Every short hash in this document resolves after `git fetch origin --tags`. Archive refs are reference material, never merge candidates.
+
 ## Compatibility facts (verified)
 
 - `effect@4.0.0` released 2026-10-01. Lockstep 4.0.0 releases exist for `@effect/platform-bun`, `platform-browser`, `platform-node`, `sql-sqlite-node`, `sql-sqlite-bun`, `atom-react` (peer `react >=19 <20`), `ai-anthropic`, `ai-openai`, `ai-openai-compat`, `ai-openrouter`, `opentelemetry`, and `vitest` (peer `vitest >=5 <6`).
