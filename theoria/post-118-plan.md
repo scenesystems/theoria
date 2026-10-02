@@ -1,15 +1,16 @@
-# Theoria after PR #118: Effect v4 migration plan
+# Theoria: dependency-first Effect v4 migration
 
-Status: planning document, adopted 2026-10-02. Owner decisions are marked **Decided**.
-Evidence labels: _verified_ (checked locally or against the registry/upstream source on 2026-10-02), _historical_ (CI or prior review claims).
+Status: revised 2026-10-02 following the owner's clarification. This supersedes the earlier PR-0 through PR-6 sequence.
 
-Traceability: planning thread https://ampcode.com/threads/T-01a0f799-f072-75e9-880e-90f41bc95bce.
+Traceability: [original planning thread](https://ampcode.com/threads/T-01a0f799-f072-75e9-880e-90f41bc95bce), [owner's correction](https://ampcode.com/threads/T-45770919-fa25-4a3e-86be-1c62a54891ba).
 
-## Starting point (verified)
+## One migration PR, granular commits
 
-- `main` = `e93d2f9d` (PR #118): the integration-only baseline `7a1cbd55` plus three integration repairs, two narrow demo-search fixes (batch-local density preparation adapted from `4cec6ea6`; cursor lookups adapted from `00c4e8b8`), and cold-first ordering of the throttled demo-search test. CI on that SHA is green (Check, Security, Theoria incl. staging deploy, API reference, Version Packages). Production promotion is manual and has not happened.
-- PR #117 is closed at `e206de80` with its branch intact. The later performance history (remote `97c76143..e206de80` and the preserved local performance branch ending at `bfa7fa56`) is kept as reference material only; see "Commit disposition".
-- No release-age or dependency-cooldown policy exists in this repository. **Decided:** do not adopt one.
+**Decided:** use `refactor/effect-v4` for one full migration PR. The first implementation commit upgrades the dependencies. All subsequent work targets v4. There is no preliminary tooling PR, no v3 correctness-salvage phase, and no requirement to make an intermediate v3 state green.
+
+Commit boundaries make the migration reviewable; they are not independently releasable stages. Intermediate commits may be red while their consumers are being migrated. The final head must pass the complete acceptance suite. Do not co-install v3 and v4, add compatibility shims to preserve v3 APIs, or weaken policy to get through the transition.
+
+The migration includes dependency/toolchain upgrades, source and test migration, the agreed `@theoria/*@0.1.0` rename/reset, documentation and enforcement updates, and final correctness/performance verification. Historical optimization work does not dictate the implementation or delay the dependency upgrade.
 
 ### Where the referenced history lives
 
@@ -24,107 +25,91 @@ Traceability: planning thread https://ampcode.com/threads/T-01a0f799-f072-75e9-8
 
 Every short hash in this document resolves after `git fetch origin --tags`. Archive refs are reference material, never merge candidates.
 
-## Compatibility facts (verified)
+## Source of truth
 
-- `effect@4.0.0` released 2026-10-01. Lockstep 4.0.0 releases exist for `@effect/platform-bun`, `platform-browser`, `platform-node`, `sql-sqlite-node`, `sql-sqlite-bun`, `atom-react` (peer `react >=19 <20`), `ai-anthropic`, `ai-openai`, `ai-openai-compat`, `ai-openrouter`, `opentelemetry`, and `vitest` (peer `vitest >=5 <6`).
-- Folded into `effect` and no longer separate packages: `@effect/platform` core (`effect/http*`), `@effect/experimental`, `@effect/sql` core, `@effect/ai` core, `@effect-atom/*` (`effect/reactivity` + `@effect/atom-react@4`), `effect/FastCheck` (`fast-check` + `effect/Arbitrary`; `@effect/vitest` prop options become `{ arbitrary: { runs } }`).
-- `@effect/ai-google` has no v4 release. Upstream `migration/annotations/effect__ai-google.yaml` states it was "removed from v4 with no direct replacement" and recommends a supported v4 provider for Gemini or Google's SDK directly. No v4 port is planned upstream.
-- No official codemod exists; the upstream migration annotations are rename maps only.
-- `@effect/vitest@0.30.x` (v3 line) peers `effect ^3.22` and `vitest ^3.2`, so vitest 5 cannot land before Effect 4.
-- `@effect/tsgo@0.47.2` supports TypeScript 7.0.2 (already in use), oxlint 1.82–1.86, and oxlint-tsgolint 7.0.2001/7.0.2003, and lints v3 code; the toolchain can move first.
-- Semantic changes to review by hand: `Context.Tag` / `Effect.Tag` / `Effect.Service` → `Context.Service` (no automatic layer, no `dependencies` option); `Layer` memoization is shared across `Effect.provide` (use `{ local: true }` or `Layer.fresh` for isolation); structural equality is the default; `Cause` flattens to `Fail` / `Die` / `Interrupt`; Schema `Union` / `Tuple` take arrays, `filter` → `check` / `refine`, `transform` → `decodeTo`, `parseJson` → `fromJsonString`, `decode*Either` → `decode*Exit`, `Redacted` → `RedactedFromValue`; `Either` → `Result`; `Stream.async*` → `Stream.callback`; `Match.either` → `Match.result`; `Effect.gen(self)` → `Effect.gen({ self })`.
+Follow upstream's [MIGRATION.md](https://github.com/Effect-TS/effect/blob/main/MIGRATION.md) and its linked guides, checked against the exact installed/vendored release:
 
-## Census of affected code (verified, 1289 TS/TSX files)
+- Import/API rename maps and package consolidation.
+- Services: `Context.Tag` / `Effect.Tag` / `Effect.Service` to `Context.Service`, with explicit layers.
+- Flattened Cause, error-handling combinator renames, and Exit matching.
+- Forking options, Yieldable, and fiber keep-alive/process lifetime.
+- Layer memoization across `Effect.provide` calls.
+- `FiberRef` to `Context.Reference`, removal of `Runtime<R>`, and Scope changes.
+- Equality and the full Schema migration guide.
 
-`Context.Tag` 68, `Effect.Tag` 8, `Effect.Service` 5; `Data.Class` 340, `Data.TaggedError` 49, `Data.struct` 49; `Schema.*` 7708 lines (`Struct` 1482, `Class` 172, `TaggedError` 141, `parseJson` 133, `Union(` 119, `Tuple(` 31, `transform` 26, `filter` 22, `equivalence` 14, `Redacted` 4); `ParseResult` 98; `Either` 360; `Match` 4631; `Stream` 373 (`async` 2); `Cause` 58; `Exit` 152; `FiberRef` 15; `Layer` 533; `Effect.gen` 2855; `Effect.fn` 11; `FastCheck` 61 (`it.effect.prop` 53); `@effect/platform` 332 imports (`platform-bun` 145, `HttpClient` 30 files, `HttpServer` 27, `KeyValueStore` 10, `HttpApp` in `worker.ts`); `@effect/ai` 213 (`ai-google` 9); `@effect-atom` 90; `@effect/sql` 8; `@effect/experimental` 3.
+Upstream now versions the runtime ecosystem packages together. Remaining platform, SQL driver, AI provider, atom framework, OpenTelemetry, and Vitest integrations must match the selected Effect v4 release. Separately versioned development tools must satisfy their own compatibility requirements.
 
-## Sequence
+Consolidated modules use paths such as `effect/http`, `effect/ai`, and `effect/reactivity`, not `effect/unstable/*`. Moving paths does not stabilize APIs: review `@stability unstable` and `@stability experimental` annotations when selecting dependency ranges. The earlier plan selected 4.0.0; verify package availability and peer requirements when implementing the dependency commit rather than treating the historical version inventory as a substitute for resolution.
 
-PR-0 → PR-1 → PR-2 → PR-3 → PR-4 → PR-5; PR-6 after PR-3.
+## Granular implementation commit sequence
 
-### PR-0: Housekeeping (complete)
+These are ordered work units in the same PR. Split large package units into coherent commits when needed; do not turn them into preliminary PRs.
 
-- **Decided / done:** #105 and #111–#116 closed as superseded by #118 (branches kept; #117 kept closed as reference).
-- **Decided:** #109 "Version Packages" stays open and unmerged. The downstream consumer pins the currently published versions; no v3 release is needed. The next publish is the v4 line (see "Release and downstream"). If a v3 hotfix is ever required, cut `release/v3` from `e93d2f9d`.
-- **Decided:** #101 (strict Effect / delivery / UI guidance, docs-only) is held open. Its guidance depends on the upgraded toolchain, v4 dependencies, and resulting practices; re-author it after PR-3. It currently conflicts with `main` in `AGENTS.md`, `apps/theoria/app/AGENTS.md`, and `packages/effect-math/AGENTS.md`.
-- **Decided:** Dependabot PRs are ignored for now (no merges, no rebases). PR-1 takes the bumps it needs directly; vitest 5 and `@vitest/coverage-v8` 5 land only inside PR-3.
-- **Decided:** no production promotion until PR-3 is merged and PR-4 remeasurement is complete; `e93d2f9d` stays staging-only.
+1. **Upgrade the full dependency set and toolchain.** Audit root and workspace manifests, select the compatible v4 dependency set, update all required runtime/test/build/lint dependencies together, regenerate `bun.lock`, and sync `.vendor`. Replace consolidated `@effect/platform`, `@effect/experimental`, `@effect/sql`, and `@effect/ai` dependencies with `effect`; remove `@effect/ai-google`; replace `@effect-atom/*` with core reactivity and `@effect/atom-react`. Include the matching platform/AI/SQL integrations, Vitest and coverage 5, `@effect/vitest` 4, and direct `fast-check`. Include the planned tsgo/oxlint/type-aware integration and compatible Wrangler, Node types, and Changesets updates here, not on v3. The prior candidates were `@effect/tsgo` 0.47.2, oxlint 1.86.0, and `oxlint-tsgolint` 7.0.2003; confirm compatibility. Configure `effect-tsgo patch --oxlint`, the strict preset, and type-aware linting; keep tsconfig plugin diagnostics disabled so Effect diagnostics run once through lint. Keep dprint and existing ESLint enforcement. Successful dependency resolution is the first milestone; source compilation is expected to break until subsequent commits.
+2. **Rename packages and reset versions.** Rename all nine public packages to `@theoria/<name>@0.1.0`: digest, sign, seal, effect-math, effect-study, effect-search, effect-text, effect-inference, and effect-dsp. Update workspace references, imports, publishing/repository metadata where applicable, release tooling, API-reference tooling, workflows, and docs. Start fresh changelogs and normalize `@since` to `0.1.0`. Change schema identifiers, brands, Context keys, and registered symbols to the new scope, but preserve serialized `_tag` values and algorithm strings. Set versions directly; Changesets cannot express a reset. Finalize release entries later without accidentally bumping the intended first release above `0.1.0`.
+3. **Migrate digest.** Establish v4 Schema and encoding patterns; preserve canonicalization and byte-identical golden fixtures. Migrate its tests alongside the implementation.
+4. **Migrate sign.** Update services, schemas, typed failures, examples, benchmarks, and packed-consumer checks against v4 peers. Fix issues demonstrated on v4, not by importing an old v3 patch queue.
+5. **Migrate seal.** Preserve authenticated-encryption representations, failure behavior, service boundaries, and fixtures.
+6. **Migrate effect-math.** Update Schema, Result/public APIs, numerical tests, property tests, and benchmarks. Preserve numerical and tail correctness against independent parity fixtures; derive any fixes on v4.
+7. **Migrate effect-study.** Update lifecycle, evaluation, events, persistence, and service/layer composition, including scope and interruption behavior.
+8. **Migrate effect-search.** Update optimization APIs, samplers, pruning, event/snapshot codecs, and Result usage; verify seeded behavior and numerical parity.
+9. **Migrate effect-text.** Update its consumers of search/study and v4 APIs; preserve layout and traversal behavior.
+10. **Migrate effect-inference and remove native Google support.** Update AI/provider APIs and usage observation. Delete `GoogleUsage.ts`, its export/test, the DSP Google trace case, the dependency, and README observation row. Gemini uses OpenRouter primarily, or OpenAI-compatible integration; observe through `OpenRouterUsage` / `OpenAiUsage`. Google was not a configured app `TextProvider`, so no replacement routing is required.
+11. **Migrate effect-dsp.** Update signatures, Payload, predictors, traces, and AI composition. Test schema equivalence across runtime-availability changes; never cache that availability at module construction. Preserve validation and discovery synchronization contracts.
+12. **Migrate docs-model.** Update schemas/codecs while preserving encoded documentation fixtures.
+13. **Migrate apps/theoria server and Worker.** Update HTTP APIs, request services, rate limiting, static storage, scopes, and runtime boundaries. Explicitly audit Layer memoization for accidental cross-request sharing; use local provision or fresh layers where isolation is required.
+14. **Migrate apps/theoria client.** Move atom APIs to core reactivity/framework bindings; verify affected browser behavior and rendered states with the existing browser suite.
+15. **Finish repository consumers and policy.** Migrate remaining scripts, examples, README checks, API references, and test configuration. Update AGENTS guidance and ESLint selectors to v4 idioms without reducing enforcement. Re-author relevant held #101 guidance against the completed v4 implementation.
+16. **Finish release metadata.** Replace obsolete queued changesets with the new-line release descriptions, including the Google removal and public API changes. Verify package versions and the release pipeline produce the intended nine `0.1.0` packages.
+17. **Complete v4 integration and performance verification.** Run the exact-head acceptance suite, repair failures in their owning modules, and record comparable benchmark/browser measurements. Necessary regression fixes belong in granular commits in this same PR; do not require a separate measurement PR before calling the migration verified.
 
-### PR-1: Tooling bump on Effect v3 (green standalone)
+## Cross-cutting migration checks
 
-- `@effect/tsgo` 0.40.0 → 0.47.2; `oxlint` 1.81.0 → 1.86.0; add `oxlint-tsgolint` 7.0.2003 (`@oxlint/plugins` only if a JS plugin is added).
-- `prepare` → `husky && effect-tsgo patch --oxlint`; `.oxlintrc.json` extends `@effect/tsgo/oxlint-presets/strict.json` with type-aware linting; keep the tsconfig plugin `"diagnostics": false` so `check` remains a pure typecheck and Effect diagnostics are emitted once via oxlint.
-- Fold routine development-dependency bumps (wrangler, `@types/node`, `@changesets/cli`). Keep the ESLint selector policy and dprint.
-- Rule: fix findings; never suppress or lower severity. Stack per package if the volume is large.
-- Acceptance: `bun run lint` exits 0 with zero new suppressions; Effect diagnostics clean; `bun run check:all`, `bun run test`, `bun run build`; `apps/theoria` Worker suite unchanged.
+Apply these within each owning commit, using upstream's guides rather than blind renames:
 
-### PR-2: Correctness-only on Effect v3 (small)
+- Schema unions/tuples take arrays; migrate filter/refinement, transformations, JSON codecs, redacted values, and decoding result APIs with their semantics intact.
+- `Either` to `Result`, `Match.either` to `Match.result`, and generator self-binding changes.
+- Stream callback APIs, error combinators, Cause/Exit matching, fibers, references, scopes, and runtime entry points.
+- `fast-check` plus `effect/Arbitrary`, and the new Effect property-test option shape.
+- Structural equality and Layer sharing may change behavior even where code typechecks.
 
-- From `7ef91c10`: tail-preservation hunks and tests (`effect-math` normal and erfinv tails; `Distribution/operations.test.ts`, `Special/inverse-operations.test.ts`). Defer its polynomial-table reuse to PR-5.
-- `4003ea0d`: `Schema.omit("sub")` before `extend` in the sign benchmark script.
-- `7cd45aa9`: fixture formatting.
-- `04e01b5c` (`file:` prefix in sign `check-package.ts`) only if the packed test fails.
-- Acceptance: root gates; `sign` `test:packed`; `effect-math` parity fixtures. No performance claims.
+The original v3 census found 1,289 TS/TSX files, including 68 `Context.Tag`, 8 `Effect.Tag`, 5 `Effect.Service`, 133 `Schema.parseJson`, 360 `Either`, 533 `Layer`, 332 platform imports, 213 AI uses, 90 atom uses, and 61 FastCheck uses. These are historical scope indicators, not a completeness check for the finished migration.
 
-### PR-3: Effect v4 migration, package rename, and version reset (one atomic PR)
+## Acceptance on the final migration head
 
-Why atomic: one `effect` pin, one `bun.lock`, `workspace:^` links. Co-installing v3 and v4 is ruled out.
+- `bun run check:all`, `bun run lint`, `bun run prettier`, `bun run test`, `bun run build`, `bun run build:check`, `bun run check:readmes`, API-reference validation, and `bun run secrets:check`.
+- Zero new suppressions or lowered rule severities; preserve existing Effect-native discipline.
+- Sign packed-consumer and fixture checks against v4 peers; digest/sign/seal/docs-model golden fixtures and effect-math SciPy parity; DSP equivalence checks across runtime-availability toggles.
+- App deploy dry-run and full Worker/browser suite. Keep the 20-second demo-search deadline and cold-first ordering unchanged. Inspect rendered affected UI states.
+- Verify vendored sources match the selected release. Audit manifests/imports for obsolete v3 packages and paths, alongside behavioral testing.
+- After the authorized merge/deployment, run staging Worker verification against the same candidate. Publication and production promotion remain separately authorized external actions.
 
-Commit order:
+Performance verification is part of this PR: compare pre-integration `498e253f`, integrated v3 `e93d2f9d`, and the final v4 head on the same machine class with sequential runs. Measure initial/story-change settling at 4× CPU slowdown (three runs), the full homepage demo-search Worker test, effect-math benchmarks, Sign RSA, and a browser CPU profile. Prior reference measurements were 12.0–12.5 s / 6.6–6.8 s before integration and 18.0–19.0 s / 12.5–13.4 s on integrated v3. They are not new v4 results. Report one comparison table per workload; preserve the production margin requirement below.
 
-1. Dependency swap (red by itself): all manifests and peer ranges (`effect ^4.0.0`; drop `@effect/ai`, `@effect/experimental`, `@effect/platform`, `@effect/sql`, `@effect/ai-google`), `vitest` 5 + `@effect/vitest` 4, `fast-check`, `@effect/atom-react` 4, `platform-bun` / `platform-browser` 4, `ai-anthropic` / `ai-openai` / `ai-openrouter` 4, `sql-sqlite-node` 4; regenerate `bun.lock`; sync `.vendor` to 4.0.0.
-2. Package rename and version reset (**Decided**): every published package becomes `@theoria/<name>` at version `0.1.0` with a fresh `CHANGELOG.md`. The `@theoria` npm scope is owned by the maintainer; the private packages already use it (`@theoria/docs-model`, `@theoria/theoria-app`). Rationale: there are no external consumers, and npm permanently forbids reusing any version ever published under the old names (`0.1.0` is already used by `digest`, `effect-inference`, `seal`, and `sign`), so a rename is the only path to an honest `0.1.0`. Scope: `package.json` names and versions (and `publishConfig` / `repository.directory` where present), `workspace:^` references, README / docs / example imports (≈618 files), `check:readmes` canonical examples, `scripts/release/{Npm,Candidate,Repository}.ts`, `scripts/api-reference/*` outputs and fixtures, `.github/workflows/check.yml` and `snapshot.yml`, `AGENTS.md` (including its `@since` guidance and identifier prefix `@scenesystems/<package>/<Concern>` → `@theoria/<package>/<Concern>`; serialized `_tag` and algorithm strings are protocol contracts and are not renamed). All `@since` annotations become `0.1.0`. Replace the queued `.changeset/*.md` entries with one `0.1.0` changeset per package; changesets cannot express a reset, so set `0.1.0` directly in each `package.json`. `.changeset/config.json` already has `access: public`.
-3. Per-package code migration in dependency order: `digest` → `sign`, `seal`, `effect-math` → `effect-study` → `effect-search` → `effect-text`, `effect-inference` → `effect-dsp` → `docs-model` → `apps/theoria` → scripts, examples, READMEs, API reference → `AGENTS.md` policy wording (`Either` → `Result`, `Context.Service`, concern-owned data types) and ESLint selectors → changesets.
+## Historical work is evidence, not a prerequisite queue
 
-Google provider (**Decided**): drop native Google support, following upstream guidance. Remove `packages/effect-inference/src/GoogleUsage.ts`, its `index.ts` export, `test/GoogleUsage.test.ts`, the Google case in `packages/effect-dsp/test/Trace/provider.test.ts`, the `@effect/ai-google` dependency, and the README usage-observation row. Gemini is reached through `@effect/ai-openrouter` (primary) or `@effect/ai-openai-compat`; `OpenRouterUsage` / `OpenAiUsage` are the observation surfaces. Google was never a configured `TextProvider`, so routing is unchanged. The changeset records the removal.
+Do not salvage v3 fixes before migration. The old tail fix (`7ef91c10`), Sign benchmark fix (`4003ea0d`), fixture formatting (`7cd45aa9`), and packed-dependency fix (`04e01b5c`) are references only. If their underlying issue exists on v4, reproduce it and fix it in the owning migration commit with a behavior test. Do not carry their v3 API choices forward automatically.
 
-Manual review, highest risk first: `Layer` memoization in the Worker request path (`apps/theoria/worker.ts`, rate limiting, static asset `KeyValueStore`); 68 `Context.Tag` + 5 `Effect.Service` → `Context.Service` with explicit layers; 133 `parseJson` → `fromJsonString` with byte-identical encoded fixtures for `digest` / `sign` / `seal` / `docs-model`; `Schema.filter` / `transform` / `equivalence` in DSP `Payload` with no construction-time caching of runtime availability; `Redacted` → `RedactedFromValue`; `Either` → `Result` in public `effect-math` / `effect-search` APIs; `Cause` / `Exit` matching; `Stream.async` → `callback`; atom → reactivity (61 files); `HttpClient` / `HttpServer` / `HttpApp` → `effect/http*`; `FastCheck` → `fast-check` with prop options.
+The earlier performance inventory remains available for diagnosis after v4 is running:
 
-Acceptance on the exact head: `bun run check:all`, `bun run lint` (PR-1 configuration), `bun run prettier`, `bun run test`, `bun run build`, `bun run build:check`, `bun run check:readmes`, API reference validation, `bun run secrets:check`; `sign` `test:packed` and fixture checks against v4 peers; `apps/theoria` `deploy:dry-run` plus the full Worker/browser suite (20 s demo-search deadline unchanged, cold-first case recorded); golden fixtures (`digest` / `sign` / `seal` / `docs-model`, `effect-math` SciPy parity) unchanged; DSP equivalence tests across runtime-availability toggles; staging deploy and `test:worker:staging`; `vendor:check` at 4.0.0.
+- Math remote: `97c76143`, `c9d8b11e`, `a02cedfe`, `9c049ebc`, `6ac9f78c`, `11ecd514`, `985bbf18`, `71eb6903`, `8a09a63d`, `e195ac47`, `2ca3ac87`, `17077189`, `1b28b437`, `5276bb2c`, `f345db61`, `5136fcab`, `e206de80`; local `51724a81`…`51bb1720` (13).
+- Search: `fef1d2e1`, `73175810`, `1d90fcce`, `d3ec2e9d`; `cadff6e8` may already be superseded. `4cec6ea6` was adapted into main.
+- Text: `1742cf0e`, remaining `00c4e8b8` hunks (cursor fixes already landed), `e942a636`, `63789522`, `3ae95fcd`; local `2f50a898`, `02975668`, `159d6d49`, `1042f0a3`.
+- App: `a5842c76`; Seal: `ed03ecbc`, `9a0b22a8`; Sign: `a747a295`.
+- Measurement: `0880a95c` may inform a v4-compatible harness without changing production tests.
+- Enforcement intent: `af338e10`, `4f639f81`, `e7723da5`; their old test-harness rewrites are superseded.
+- Do not carry the local DSP series `04522d4b`…`bfa7fa56` (23 commits). `9857d418` froze runtime-dependent equivalence availability; validation skips and discovery-lock avoidance also require fresh semantic review. Drop `8c7dbf34`; do not automatically carry `b50fb180`.
 
-Estimate: 8–15 engineer-days after a 1–2 day spike on `digest` + `sign` + `effect-math`.
+Preserve all historical refs. Optional optimization beyond demonstrated migration regressions is not a prerequisite for this PR. No separate package-performance PR series is prescribed by this plan.
 
-### PR-4: Performance remeasurement on v4 (measurement only)
+## Linter replacement is not a migration prerequisite
 
-- Same machine class, sequential runs: settle-time probe (CPU slowdown 4×, three runs, initial and story-change settle) and the full `apps/theoria/test/worker/home-demo-search.test.ts` on `498e253f` (pre-integration), `e93d2f9d` (v3 baseline), and the PR-3 head. Reference measurements from the review environment: pre-integration 12.0–12.5 s / 6.6–6.8 s; current `main` 18.0–19.0 s / 12.5–13.4 s; deadline 20 s.
-- Package benchmarks cited by the deferred commits (`effect-math` scripts, `sign` RSA benchmark) and a browser CPU profile for attribution.
-- Rework `0880a95c` (performance-closure harness) into a committed measurement script compatible with cold-first ordering; no production test changes.
-- Output: one table per workload (v3 pre-integration / v3 baseline / v4). Gates PR-5 and production.
+Upgrade the lint dependencies first and adapt enforcement to v4 in this PR. A wholesale ESLint-to-oxlint JS plugin port is separate from upgrading those dependencies and is not required to start or finish the migration. Keep ESLint and the Babel parser unless fixture-corpus testing proves replacement enforcement equal or stricter; JS plugin typing and `noInlineConfig` parity remain concerns. Keep dprint. Do not retain the old PR-6 as a required delivery stage.
 
-### PR-5: Performance series on v4 (after PR-4)
+## Preserved housekeeping and release decisions
 
-One PR per package, each with before/after numbers from the PR-4 harness; no policy or dependency changes.
-
-- `effect-math`: remote `97c76143`, `c9d8b11e`, `a02cedfe`, `9c049ebc`, `6ac9f78c`, `11ecd514`, `985bbf18`, `71eb6903`, `8a09a63d`, `e195ac47`, `2ca3ac87`, `17077189`, `1b28b437`, `5276bb2c`, `f345db61`, `5136fcab`, `e206de80`; local `51724a81`…`51bb1720` (13). Expect heavy v4 conflicts; treat as design notes and re-implement hotspot by hotspot.
-- `effect-search`: `fef1d2e1`, `73175810`, `1d90fcce`, `d3ec2e9d`; local `cadff6e8` (likely superseded; verify). Drop `8c7dbf34`.
-- `effect-text`: `1742cf0e`, remaining `00c4e8b8` hunks, `e942a636`, `63789522`, `3ae95fcd`; local `2f50a898`, `02975668`, `159d6d49`, `1042f0a3`.
-- `apps/theoria`: `a5842c76`. `seal`: `ed03ecbc`, `9a0b22a8`. `sign`: `a747a295`.
-- `effect-dsp` local series `04522d4b`…`bfa7fa56` (23 commits): drop as a series. `9857d418` is a confirmed regression (predictor-bound `Payload.makeEncoder` caching custom `Schema.equivalence` availability at module construction); validation skips and discovery-lock avoidance are policy weakenings; the series is bound to v3 Schema and `@effect/ai`. Re-profile DSP on v4 and open fresh measured PRs.
-
-### PR-6: ESLint → oxlint JS plugin port (after PR-3)
-
-- Port `eslint/effect/*` (builtins, control-flow, design-tokens, errors, types) to an oxlint JS plugin; remove `eslint` and the Babel parser; keep dprint. Fold the enforcement intent of `af338e10` (Effect arithmetic), `4f639f81` (numeric conversion), and `e7723da5` (control flow) in as rules.
-- Known gaps: oxlint JS plugins are typeless and have no `noInlineConfig` equivalent. Keep ESLint until the port is proven equal or stricter on a fixture corpus.
-- Re-author #101 here or alongside PR-3's `AGENTS.md` commit.
-
-## Commit disposition
-
-- Retain now (PR-2): `7ef91c10` tail hunks, `4003ea0d`, `7cd45aa9`, `04e01b5c` optional.
-- Superseded by `main`: `4cec6ea6`, `00c4e8b8` cursor hunks, `cadff6e8` (verify), and the test-harness rewrites in `af338e10` / `4f639f81` / `e7723da5`.
-- Rework: `0880a95c` (PR-4 harness); lint-enforcement parts of `af338e10` / `4f639f81` / `e7723da5` (PR-1 / PR-6).
-- Defer to PR-5: all other remote performance commits and the non-DSP local performance commits.
-- Drop: `9857d418`, `8c7dbf34`, `b50fb180` (re-evaluate), the local `effect-dsp` series `04522d4b`…`bfa7fa56`.
-- All existing refs stay intact.
-
-## Release and downstream
-
-- Now: no publish, no production promotion. #109 stays open; the downstream consumer stays on the currently published `@scenesystems/*` v3 versions; `e93d2f9d` stays on staging only.
-- After PR-3: the first publish is `@theoria/*@0.1.0` for all nine public packages. `publish.yml` uses npm Trusted Publishing, which cannot create new packages, so each new package gets a one-time token-based bootstrap publish (locally from the packed tarballs, or via a temporary granular token), after which the GitHub Actions trusted publisher is added on each package and the existing workflow resumes. Then `npm deprecate @scenesystems/<name>` for the eight old packages with a pointer to the new names (not unpublished; old versions stay installable until downstream cuts over).
-- Downstream cutover is a single PR: Effect v4, import rewrite `@scenesystems/*` → `@theoria/*`, pin `0.1.0`. Snapshot prereleases only on request.
-- First production promotion happens after PR-3 is merged, gated on PR-4 showing demo-search margin comparable to pre-integration on the CI runner class, or an explicit decision to accept the documented margin. Production goes directly from the current pre-integration deployment to v4.
-
-## Decisions log
-
-2026-10-02: drop native Google (use upstream's documented v4 alternatives); do not merge #109; close #105 and #111–#116; hold #101 until after v4; ignore Dependabot PRs; no release-age policy; no production promotion until the full v4 migration is done; rename all published packages to `@theoria/<name>` at `0.1.0` inside the v4 PR, bootstrap-publish with a token then re-enable trusted publishing, deprecate the eight `@scenesystems/*` packages; downstream rewrites imports in its v4 cutover PR.
-
-Open decisions: none.
+- Baseline: PR #118 at `e93d2f9d`; the original plan records green CI and staging deployment, with production still pre-integration. This is historical deployment evidence, not a fresh status query.
+- #105 and #111–#116 were closed as superseded; keep their branches and closed #117's history. #109 stays open/unmerged; there is no intermediate v3 release. Hold #101 for v4-aware guidance. Ignore existing Dependabot PRs and take dependency upgrades directly in the first implementation commit. No dependency-cooldown policy.
+- First publication after the migration is all nine `@theoria/*@0.1.0` packages. The retained release plan calls for one-time token-based bootstrap from packed tarballs, then per-package trusted-publisher configuration and the existing publish workflow. Verify current npm requirements before executing. Deprecate the eight previously published `@scenesystems/*` names with replacement pointers; do not unpublish them.
+- Downstream/Eva cuts over separately in one PR: Effect v4, rewritten imports, and pinned `0.1.0` packages. Snapshot prereleases only on request.
+- Production goes directly to v4 after the migration is merged and its measurements show demo-search margin comparable to pre-integration on the CI runner class, or the owner explicitly accepts the documented reduced margin. No publish, deprecation, or production promotion is authorized merely by this plan.
