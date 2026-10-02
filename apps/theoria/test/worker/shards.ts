@@ -1,4 +1,4 @@
-import { Data, Option, Schema, Tuple } from "effect"
+import { Data, Number, Option, Schema, Tuple } from "effect"
 import * as Arr from "effect/Array"
 import * as Order from "effect/Order"
 
@@ -7,8 +7,8 @@ import * as Order from "effect/Order"
  * line: `--shard=index/count`, the index one-based.
  */
 export const Shard = Schema.Struct({
-  index: Schema.Int.pipe(Schema.positive()),
-  count: Schema.Int.pipe(Schema.positive())
+  index: Schema.Int.check(Schema.isGreaterThan(0)),
+  count: Schema.Int.check(Schema.isGreaterThan(0))
 })
 export type Shard = typeof Shard.Type
 
@@ -27,8 +27,8 @@ class Bin<A> extends Data.Class<{
 const lightestIndex = <A>(bins: ReadonlyArray<Bin<A>>): number =>
   Arr.reduce(
     bins,
-    Tuple.make(0, Number.POSITIVE_INFINITY),
-    (lightest, bin, index) => bin.total < Tuple.getSecond(lightest) ? Tuple.make(index, bin.total) : lightest
+    Tuple.make<[number, number]>(0, Infinity),
+    (lightest, bin, index) => bin.total < Tuple.get(lightest, 1) ? Tuple.make(index, bin.total) : lightest
   )[0]
 
 /**
@@ -47,14 +47,15 @@ export const balancedShards = <A>(
   keyOf: (file: A) => string
 ): ReadonlyArray<ReadonlyArray<A>> => {
   const heaviestFirst = Order.combine(
-    Order.reverse(Order.mapInput(Order.number, weightOf)),
-    Order.mapInput(Order.string, keyOf)
+    Order.flip(Order.mapInput(Order.Number, weightOf)),
+    Order.mapInput(Order.String, keyOf)
   )
   const empty: ReadonlyArray<Bin<A>> = Arr.makeBy(count, Bin.empty<A>)
   const filled = Arr.reduce(
     Arr.sort(files, heaviestFirst),
     empty,
-    (bins, file) => Arr.modify(bins, lightestIndex(bins), (bin) => bin.with(file, weightOf(file)))
+    (bins, file) =>
+      Option.getOrElse(Arr.modify(bins, lightestIndex(bins), (bin) => bin.with(file, weightOf(file))), () => bins)
   )
   return Arr.map(filled, (bin) => bin.files)
 }
@@ -66,4 +67,7 @@ export const shardOf = <A>(
   weightOf: (file: A) => number,
   keyOf: (file: A) => string
 ): ReadonlyArray<A> =>
-  Option.getOrElse(Arr.get(balancedShards(files, shard.count, weightOf, keyOf), shard.index - 1), () => Arr.empty())
+  Option.getOrElse(
+    Arr.get(balancedShards(files, shard.count, weightOf, keyOf), Number.subtract(shard.index, 1)),
+    () => Arr.empty()
+  )

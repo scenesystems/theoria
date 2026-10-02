@@ -37,17 +37,12 @@
     "incremental": true,
 
     // Effect language service, provided by the @effect/tsgo patch applied in
-    // `prepare`. Diagnostics run inside `tsc`; suggestions, warnings and
-    // errors all fail it, so the idiomatic Effect form is the only one that
-    // compiles.
+    // `prepare`. Effect diagnostics run once through type-aware oxlint with
+    // the strict preset; `tsc` owns TypeScript checking only.
     "plugins": [
       {
         "name": "@effect/language-service",
-        "diagnosticSeverity": {},
-        "includeSuggestionsInTsc": true,
-        "ignoreEffectSuggestionsInTscExitCode": false,
-        "ignoreEffectWarningsInTscExitCode": false,
-        "ignoreEffectErrorsInTscExitCode": false
+        "diagnostics": false
       }
     ]
   }

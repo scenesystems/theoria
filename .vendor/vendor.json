@@ -6,17 +6,13 @@
       "prefix": ".vendor/effect",
       "tagTemplate": "effect@${version}",
       "versionSource": "node_modules/effect/package.json",
-      "currentVersion": "3.22.1",
-      "currentTag": "@effect/cluster@0.60.2",
-      "revision": "bd20125fb9b8ce42f814ba738513daaf83ce723d",
+      "currentVersion": "4.0.0",
+      "currentTag": "effect@4.0.0",
+      "revision": "67ba4e46a11ccda0b6761578bfd22c04ae00167d",
       "packageManifests": {
         "effect": {
           "installed": "node_modules/effect/package.json",
           "vendored": "packages/effect/package.json"
-        },
-        "@effect/ai": {
-          "installed": "node_modules/@effect/ai/package.json",
-          "vendored": "packages/ai/ai/package.json"
         },
         "@effect/ai-anthropic": {
           "installed": "node_modules/@effect/ai-anthropic/package.json",
@@ -30,41 +26,25 @@
           "installed": "node_modules/@effect/ai-openrouter/package.json",
           "vendored": "packages/ai/openrouter/package.json"
         },
-        "@effect/cluster": {
-          "installed": "node_modules/@effect/cluster/package.json",
-          "vendored": "packages/cluster/package.json"
+        "@effect/atom-react": {
+          "installed": "apps/theoria/node_modules/@effect/atom-react/package.json",
+          "vendored": "packages/atom/react/package.json"
         },
-        "@effect/experimental": {
-          "installed": "node_modules/@effect/experimental/package.json",
-          "vendored": "packages/experimental/package.json"
-        },
-        "@effect/platform": {
-          "installed": "node_modules/@effect/platform/package.json",
-          "vendored": "packages/platform/package.json"
+        "@effect/platform-browser": {
+          "installed": "apps/theoria/node_modules/@effect/platform-browser/package.json",
+          "vendored": "packages/platform/browser/package.json"
         },
         "@effect/platform-bun": {
           "installed": "node_modules/@effect/platform-bun/package.json",
-          "vendored": "packages/platform-bun/package.json"
-        },
-        "@effect/rpc": {
-          "installed": "node_modules/@effect/rpc/package.json",
-          "vendored": "packages/rpc/package.json"
-        },
-        "@effect/sql": {
-          "installed": "node_modules/@effect/sql/package.json",
-          "vendored": "packages/sql/package.json"
+          "vendored": "packages/platform/bun/package.json"
         },
         "@effect/sql-sqlite-node": {
           "installed": "node_modules/@effect/sql-sqlite-node/package.json",
-          "vendored": "packages/sql-sqlite-node/package.json"
+          "vendored": "packages/sql/sqlite-node/package.json"
         },
         "@effect/vitest": {
           "installed": "node_modules/@effect/vitest/package.json",
           "vendored": "packages/vitest/package.json"
-        },
-        "@effect/workflow": {
-          "installed": "node_modules/@effect/workflow/package.json",
-          "vendored": "packages/workflow/package.json"
         }
       },
       "description": "Effect-TS monorepo packages consumed by this workspace, pinned to the complete installed release-train commit. Effect tool packages maintained in separate repositories are not represented by this checkout."

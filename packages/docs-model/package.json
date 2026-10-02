@@ -16,6 +16,6 @@
   },
   "dependencies": {
     "@scenesystems/effect-math": "workspace:^",
-    "effect": "3.22.1"
+    "effect": "4.0.0"
   }
 }

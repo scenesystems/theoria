@@ -1,12 +1,12 @@
 import tailwindcss from "@tailwindcss/vite"
 import react from "@vitejs/plugin-react"
-import { Boolean as Bool, Config, Data, Effect, Match, Option } from "effect"
+import { Boolean as Bool, Config, Data, Effect, Match, Option, Result } from "effect"
 import * as Arr from "effect/Array"
 import * as Record from "effect/Record"
 import * as Str from "effect/String"
 import { defineConfig, type HtmlTagDescriptor, type Plugin, type Rollup } from "vite"
 
-const apiPort = Effect.runSync(Config.string("THEORIA_PORT").pipe(Config.withDefault("3876")))
+const apiPort = Effect.runSync(Config.String("THEORIA_PORT").pipe(Config.withDefault("3876")))
 const vitePort = 5175
 
 class MissingPreloadedFace extends Data.TaggedError("MissingPreloadedFace")<{
@@ -31,8 +31,8 @@ const emittedFace = (emitted: ReadonlyArray<Rollup.OutputAsset | Rollup.OutputCh
   Arr.findFirst(
     Arr.filterMap(emitted, (output) =>
       Match.value(output).pipe(
-        Match.when({ type: "asset" }, (asset) => Option.some(asset)),
-        Match.orElse(() => Option.none())
+        Match.when({ type: "asset" }, (asset) => Result.succeed(asset)),
+        Match.orElse(() => Result.failVoid)
       )),
     (asset) => Arr.some(asset.originalFileNames, Str.endsWith(`/${face}`))
   )
@@ -49,7 +49,7 @@ const preloadTypefaces = (): Plugin => ({
   transformIndexHtml: {
     order: "post",
     handler: (_html, context) => {
-      const emitted = Option.match(Option.fromNullable(context.bundle), {
+      const emitted = Option.match(Option.fromNullishOr(context.bundle), {
         onNone: () => Arr.empty<Rollup.OutputAsset | Rollup.OutputChunk>(),
         onSome: Record.values
       })
@@ -80,7 +80,7 @@ const preloadTypefaces = (): Plugin => ({
  */
 const chunkGroups = [
   { name: "react-vendor", test: /\/node_modules\/(?:react|react-dom|scheduler)\//, priority: 40 },
-  { name: "effect-core", test: /\/node_modules\/(?:effect|@effect|@effect-atom)\//, priority: 30 },
+  { name: "effect-core", test: /\/node_modules\/(?:effect|@effect)\//, priority: 30 },
   { name: "ui-vendor", test: /\/node_modules\/(?:@base-ui|@heroicons|motion|framer-motion)\//, priority: 30 },
   { name: "effect-text", test: /\/(?:packages|node_modules\/@scenesystems)\/effect-text\//, priority: 20 },
   { name: "effect-search", test: /\/(?:packages|node_modules\/@scenesystems)\/effect-search\//, priority: 20 },

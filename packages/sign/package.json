@@ -74,6 +74,6 @@
     "@scenesystems/digest": "workspace:^"
   },
   "peerDependencies": {
-    "effect": "^3.22.1"
+    "effect": "^4.0.0"
   }
 }

@@ -66,15 +66,12 @@
     "clean": "rm -rf build dist .tsbuildinfo"
   },
   "peerDependencies": {
-    "@effect/ai": ">=0.37.0",
-    "effect": "^3.22.1"
+    "effect": "^4.0.0"
   },
   "dependencies": {
-    "@effect/ai-anthropic": "0.27.0",
-    "@effect/ai-google": "0.16.0",
-    "@effect/ai-openai": "0.41.0",
-    "@effect/ai-openrouter": "0.12.0",
-    "@effect/platform": "0.97.1",
+    "@effect/ai-anthropic": "4.0.0",
+    "@effect/ai-openai": "4.0.0",
+    "@effect/ai-openrouter": "4.0.0",
     "@huggingface/inference": "^4.13.28"
   }
 }
