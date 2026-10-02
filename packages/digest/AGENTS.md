@@ -32,10 +32,10 @@ The root exports namespace objects, and each namespace has an exact matching sub
 
 Keep APIs under their semantic owner. Do not add a flat alias, compatibility wrapper, encoded-format convenience, mutable algorithm registry, crypto provider service, or deep public path. Applications compose hexadecimal and base64 encodings with `Hex`, `Base64`, and `Base64Url` from `effect/encoding`.
 
-Use the least powerful result channel that describes the operation:
+Encoding and cryptographic execution use lazy Effects; pure model accessors remain synchronous:
 
-- deterministic byte primitives are pure (`Digest.hash`, `Hmac.sha256`, `Hmac.sha1`)
-- local validation uses `Result` (`Utf8.encode`, `Utf8.fromScalar`, `Digest.hashString`, `Blake3.mac`, `Blake3.deriveKey`, HKDF); lift it into Effect with `Effect.fromResult`
+- byte primitives are lazy Effects (`Digest.hash`, `Hmac.sha256`, `Hmac.sha1`)
+- strict encoding and keyed validation use typed Effect failures (`Utf8.encode`, `Utf8.fromScalar`, `Digest.hashString`, `Blake3.mac`, `Blake3.deriveKey`, HKDF)
 - cooperative traversal, streams, and Schema encoding use `Effect`
 
 `ContentDigest.ContentDigest` is the runtime and encoded model. Convert it to the `<algorithm>:<base64url>` protocol string only at the boundary with `ContentDigest.toString`.
@@ -56,7 +56,7 @@ Use the least powerful result channel that describes the operation:
 
 - Owner-approved v4 exception: direct `Uint8Array` construction is permitted solely for byte materialization in this package's implementation and tests. Effect 4.0.0's `Schema.Uint8Array` validates existing bytes, and its derived JSON codec accepts base64 rather than v3's number arrays. This does not authorize general native adapters, bypassing input validation, or lint suppressions.
 - Public errors and encoded values are Schema-owned. `Digest.Algorithm` owns the hash algorithm type.
-- `ContentDigest.ContentDigest` and `ContentDigest.Result` explicitly implement structural equality and hashing; v4 `Schema.Class` does not supply that behavior automatically.
+- `ContentDigest.ContentDigest` and `ContentDigest.Result` explicitly implement their structural equality and hashing contracts. Effect v4 also supplies structural equality for Schema classes by default.
 - Property tests use v4 Schema/Arbitrary inputs and `arbitrary` options on `it.effect.prop`.
 - Private traversal variants use `Data.TaggedEnum`; they have no serialization contract. This corrects the former blanket ban on that Effect abstraction.
 - Use `@effect/vitest`, `it.effect`, and `Effect.exit`; do not use `Effect.run*` in source or tests.

@@ -159,7 +159,7 @@ describe("CanonicalJson.encodeBytes", () => {
     Effect.gen(function*() {
       const value = { z: "😀", a: 1 }
       const canonical = yield* CanonicalJson.encode(value)
-      const expected = yield* Effect.fromResult(Utf8.encode(canonical))
+      const expected = yield* Utf8.encode(canonical)
 
       expect(yield* CanonicalJson.encodeBytes(value)).toStrictEqual(expected)
     }))

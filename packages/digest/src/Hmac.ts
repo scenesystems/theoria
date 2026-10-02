@@ -1,6 +1,6 @@
 /**
  * RFC 2104 HMAC-SHA256 and HMAC-SHA1 message authentication.
- * These pure operations accept raw key/message bytes and return fresh tags.
+ * These lazy operations accept raw key/message bytes and return fresh tags.
  * Verification requires constant-time comparison at the protocol boundary.
  * Bind the algorithm, key identity, and message domain in that protocol.
  *
@@ -11,6 +11,7 @@
 import { hmac } from "@noble/hashes/hmac.js"
 import { sha1 as nobleSha1 } from "@noble/hashes/legacy.js"
 import { sha256 as nobleSha256 } from "@noble/hashes/sha2.js"
+import { Effect } from "effect"
 
 /**
  * Computes a 32-byte HMAC-SHA256 authentication tag without modifying inputs.
@@ -20,7 +21,8 @@ import { sha256 as nobleSha256 } from "@noble/hashes/sha2.js"
  * @since 0.7.0
  * @category authentication
  */
-export const sha256 = (key: Uint8Array, message: Uint8Array): Uint8Array => hmac(nobleSha256, key, message)
+export const sha256 = (key: Uint8Array, message: Uint8Array): Effect.Effect<Uint8Array> =>
+  Effect.sync(() => hmac(nobleSha256, key, message))
 
 /**
  * Computes a 20-byte HMAC-SHA1 authentication tag for protocols that require it.
@@ -30,4 +32,5 @@ export const sha256 = (key: Uint8Array, message: Uint8Array): Uint8Array => hmac
  * @since 0.7.0
  * @category authentication
  */
-export const sha1 = (key: Uint8Array, message: Uint8Array): Uint8Array => hmac(nobleSha1, key, message)
+export const sha1 = (key: Uint8Array, message: Uint8Array): Effect.Effect<Uint8Array> =>
+  Effect.sync(() => hmac(nobleSha1, key, message))

@@ -23,16 +23,16 @@ describe("Digest external conformance", () => {
 
       yield* Effect.forEach(fixtures, ({ fixture, source }) =>
         Effect.forEach(fixture.cases, (vector) =>
-          Effect.sync(() =>
+          Effect.gen(function*() {
             expectStringMatch(
               vector.id,
               fixture.algorithm,
               source.id,
               source.sourceLocator,
               source.fixturePath,
-              Hex.encode(Digest.hash("sha256", hexToBytes(vector.inputHex))),
+              Hex.encode(yield* Digest.hash("sha256", hexToBytes(vector.inputHex))),
               vector.expectedHex
             )
-          )))
+          })))
     }).pipe(Effect.provide(BunServices.layer)))
 })

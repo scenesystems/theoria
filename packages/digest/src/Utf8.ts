@@ -6,8 +6,7 @@
  * @module
  */
 
-import { Array, Boolean, Match, Number, Option, Predicate, Result, Schema } from "effect"
-import { Base64 } from "effect/encoding"
+import { Array, Boolean, Effect, Match, Number, Option, Predicate, Schema, Stream } from "effect"
 
 import { encodeUtf8Unchecked, unicodeFault } from "./internal/utf8.js"
 
@@ -77,16 +76,18 @@ const scalarBytes = (scalar: Scalar) => {
  * @since 0.7.0
  * @category constructors
  */
-export const fromScalar = (value: number): Result.Result<string, Schema.SchemaError> =>
-  Result.flatMap(
-    Schema.decodeResult(Scalar)(value),
+export const fromScalar = (value: number): Effect.Effect<string, Schema.SchemaError> =>
+  Effect.flatMap(
+    Schema.decodeEffect(Scalar)(value),
     (scalar) =>
       Boolean.match(Number.Equivalence(scalar, 0xfeff), {
         // The text codec consumes an initial BOM; a scalar's text identity must survive.
-        onTrue: () => Result.succeed("\ufeff"),
+        onTrue: () => Effect.succeed("\ufeff"),
         onFalse: () =>
-          Schema.decodeResult(Schema.Uint8Array)(Uint8Array.from(scalarBytes(scalar))).pipe(
-            Result.map((bytes) => Result.getOrThrow(Base64.decodeString(Base64.encode(bytes))))
+          Stream.make(Uint8Array.from(scalarBytes(scalar))).pipe(
+            Stream.decodeText(),
+            Stream.runHead,
+            Effect.map(Option.getOrThrow)
           )
       })
   )
@@ -98,8 +99,10 @@ export const fromScalar = (value: number): Result.Result<string, Schema.SchemaEr
  * @since 0.7.0
  * @category encoding
  */
-export const encode = (text: string): Result.Result<Uint8Array, InvalidUnicode> =>
-  Option.match(unicodeFault(text), {
-    onNone: () => Result.succeed(encodeUtf8Unchecked(text)),
-    onSome: Result.fail
-  })
+export const encode = (text: string): Effect.Effect<Uint8Array, InvalidUnicode> =>
+  Effect.suspend(() =>
+    Option.match(unicodeFault(text), {
+      onNone: () => encodeUtf8Unchecked(text),
+      onSome: Effect.fail
+    })
+  )

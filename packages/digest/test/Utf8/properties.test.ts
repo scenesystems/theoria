@@ -11,14 +11,14 @@ const JsonString = Schema.fromJsonString(Schema.String)
 
 const unicodeOperations = (text: string, chunks: Stream.Stream<string>) =>
   Record.toEntries({
-    "Utf8.encode": Effect.asVoid(Effect.fromResult(Utf8.encode(text))),
+    "Utf8.encode": Effect.asVoid(Utf8.encode(text)),
     "CanonicalJson.encode root string": Effect.asVoid(CanonicalJson.encode(text)),
     "CanonicalJson.encode nested string": Effect.asVoid(CanonicalJson.encode({ nested: Arr.of(text) })),
     "CanonicalJson.encode object key": Effect.asVoid(CanonicalJson.encode(Record.singleton(text, true))),
     "ContentDigest.fromUnknown": Effect.asVoid(ContentDigest.fromUnknown("blake3-256", text)),
     "ContentDigest.fromSchema": Effect.asVoid(ContentDigest.fromSchema(Schema.String, text)),
     "CanonicalJson.encodeBytes": Effect.asVoid(CanonicalJson.encodeBytes(text)),
-    "Digest.hashString": Effect.asVoid(Effect.fromResult(Digest.hashString("blake3-256", text))),
+    "Digest.hashString": Effect.asVoid(Digest.hashString("blake3-256", text)),
     "Digest.hashStringStream": Effect.asVoid(Digest.hashStringStream("blake3-256", chunks))
   })
 
@@ -33,14 +33,14 @@ describe("public text and canonicalization surface — generated Unicode laws", 
             expect(Exit.isSuccess(yield* Effect.exit(operation)), label).toBe(true)
           }))
 
-        const encodedText = yield* Effect.fromResult(Utf8.encode(text))
+        const encodedText = yield* Utf8.encode(text)
         const canonical = yield* CanonicalJson.encode(text)
         const decodedCanonical = yield* Schema.decodeEffect(JsonString)(canonical)
         const canonicalBytes = yield* CanonicalJson.encodeBytes(text)
-        const canonicalDigest = ContentDigest.fromBytes("blake3-256", canonicalBytes)
+        const canonicalDigest = yield* ContentDigest.fromBytes("blake3-256", canonicalBytes)
         const unknownDigest = yield* ContentDigest.fromUnknown("blake3-256", text)
         const schemaDigest = yield* ContentDigest.fromSchema(Schema.String, text)
-        const textHash = yield* Effect.fromResult(Digest.hashString("blake3-256", text))
+        const textHash = yield* Digest.hashString("blake3-256", text)
 
         expect(encodedText).toStrictEqual(yield* oracleUtf8(text))
         expect(decodedCanonical).toBe(text)

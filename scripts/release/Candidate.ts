@@ -134,7 +134,7 @@ export const verifyPacked = (candidate: Record, directory: string) =>
           )
         const archive = path.join(directory, release.tarball.path)
         const integrity = yield* fs.readFile(archive).pipe(
-          Effect.map((bytes) => Digest.hash("sha256", bytes)),
+          Effect.flatMap((bytes) => Digest.hash("sha256", bytes)),
           Effect.map(Encoding.encodeBase64),
           Effect.map((digest) => String.concat("sha256-", digest))
         )

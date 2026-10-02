@@ -25,7 +25,7 @@ export const sha256File = (filePath: string) =>
     const fileSystem = yield* FileSystem.FileSystem
     const bytes = yield* fileSystem.readFile(filePath)
 
-    return Encoding.encodeHex(Digest.hash("sha256", bytes))
+    return Encoding.encodeHex(yield* Digest.hash("sha256", bytes))
   })
 
 /**

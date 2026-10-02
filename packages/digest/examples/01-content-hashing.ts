@@ -8,10 +8,10 @@ import { Base64Url, Hex } from "effect/encoding"
 
 const program = Effect.gen(function*() {
   const message = "hello, content hashing!"
-  const bytes = yield* Effect.fromResult(Utf8.encode(message))
+  const bytes = yield* Utf8.encode(message)
 
-  const blake3 = Digest.hash("blake3-256", bytes)
-  const sha256 = Digest.hash("sha256", bytes)
+  const blake3 = yield* Digest.hash("blake3-256", bytes)
+  const sha256 = yield* Digest.hash("sha256", bytes)
   yield* Effect.log("BLAKE3", {
     base64url: Base64Url.encode(blake3),
     hex: Hex.encode(blake3)
@@ -21,7 +21,7 @@ const program = Effect.gen(function*() {
     hex: Hex.encode(sha256)
   })
 
-  const strictTextHash = yield* Effect.fromResult(Digest.hashString("blake3-256", message))
+  const strictTextHash = yield* Digest.hashString("blake3-256", message)
   yield* Effect.log("Strict text parity", {
     matches: Hex.encode(strictTextHash) === Hex.encode(blake3)
   })

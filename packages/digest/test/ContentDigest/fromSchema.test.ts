@@ -63,11 +63,6 @@ describe("ContentDigest.fromSchema", () => {
       expect(yield* ContentDigest.fromSchema(schema, "value", "sha256")).toStrictEqual(expected)
       expect((yield* ContentDigest.fromSchemaWithByteLimit(schema, "value", 7, "sha256")).digest)
         .toStrictEqual(expected)
-      const synchronous = yield* Effect.fromResult(
-        ContentDigest.fromSchemaWithByteLimitResult(schema, "value", 7, "sha256")
-      )
-      expect(synchronous.digest).toStrictEqual(expected)
-      expect(synchronous.canonicalByteLength).toBe(7)
     }))
 })
 

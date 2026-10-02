@@ -153,10 +153,9 @@ export const verify = (
       try: () => numberToBytesBE(pow(representative, key.exponent, key.modulus), width),
       catch: () => new Verification.Unavailable({})
     })
-    const digest = yield* Effect.try({
-      try: () => Digest.hash("sha256", detachedMessage),
-      catch: () => new Verification.Unavailable({})
-    })
+    const digest = yield* Digest.hash("sha256", detachedMessage).pipe(
+      Effect.catchDefect(() => Effect.fail(new Verification.Unavailable({})))
+    )
     const expected = new Uint8Array(Arr.flatten(Arr.make(
       Arr.make(0, 1),
       Arr.replicate(255, N.subtract(width, 54)),

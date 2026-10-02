@@ -1,5 +1,5 @@
 import { expect, it } from "@effect/vitest"
-import { Array as Arr, Data, Effect, Exit, Result, Schema, String as Str, Tuple } from "effect"
+import { Array as Arr, Data, Effect, Exit, Schema, String as Str, Tuple } from "effect"
 
 import * as CanonicalJson from "@scenesystems/digest/CanonicalJson"
 import * as ContentDigest from "@scenesystems/digest/ContentDigest"
@@ -70,9 +70,6 @@ it.effect.each(structuralValues)(
       const expected = new CanonicalJson.ByteLimitExceeded({})
       expect(yield* Effect.exit(ContentDigest.fromSchemaWithByteLimit(Schema.Unknown, value, 0))).toStrictEqual(
         Exit.fail(expected)
-      )
-      expect(ContentDigest.fromSchemaWithByteLimitResult(Schema.Unknown, value, 0)).toStrictEqual(
-        Result.fail(expected)
       )
     }),
   testTimeoutMillis

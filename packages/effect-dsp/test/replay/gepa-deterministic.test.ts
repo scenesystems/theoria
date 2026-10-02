@@ -11,7 +11,7 @@ import * as Metric from "@scenesystems/effect-dsp/Metric"
 import * as MockLanguageModel from "@scenesystems/effect-dsp/MockLanguageModel"
 import * as Module from "@scenesystems/effect-dsp/Module"
 import * as Signature from "@scenesystems/effect-dsp/Signature"
-import { Array as Arr, Data, Effect, Either, Layer, Match, Option, Schema, Stream, String as Str } from "effect"
+import { Array as Arr, Data, Effect, Layer, Match, Option, Schema, Stream, String as Str } from "effect"
 
 import { GepaReplaySeedContractFixtureSchema, loadFixture } from "../helpers/dspy-fixtures/index.js"
 
@@ -59,8 +59,7 @@ const makeQaSignature = () =>
     }
   )
 
-const toUtf8Bytes = (value: string) =>
-  Either.match(Utf8.encode(value), { onLeft: Effect.fail, onRight: (bytes) => Effect.succeed(Arr.fromIterable(bytes)) })
+const toUtf8Bytes = (value: string) => Effect.map(Utf8.encode(value), Arr.fromIterable)
 
 const runSeededReplay = (moduleName: string, seed: number, maxIterations: number) =>
   Effect.gen(function*() {

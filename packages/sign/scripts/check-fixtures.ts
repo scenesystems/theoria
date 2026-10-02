@@ -72,15 +72,18 @@ const checkPayload = (payload: typeof ConformancePayload.Type) =>
       )
     )
 
-    yield* Effect.succeed(Hex.encode(Digest.hash("sha256", bytes))).pipe(Effect.filterOrFail(
-      (actual) => Str.Equivalence(actual, payload.sha256),
-      (actual) =>
-        new FixtureCheckError({
-          file: payload.file,
-          reason: Arr.join(Arr.make("sha256 mismatch: expected ", payload.sha256, ", got ", actual), ""),
-          cause: Option.none()
-        })
-    ))
+    yield* Digest.hash("sha256", bytes).pipe(
+      Effect.map(Hex.encode),
+      Effect.filterOrFail(
+        (actual) => Str.Equivalence(actual, payload.sha256),
+        (actual) =>
+          new FixtureCheckError({
+            file: payload.file,
+            reason: Arr.join(Arr.make("sha256 mismatch: expected ", payload.sha256, ", got ", actual), ""),
+            cause: Option.none()
+          })
+      )
+    )
 
     return payload.file
   })

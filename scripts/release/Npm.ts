@@ -72,7 +72,7 @@ const requireSuccess = (status: number) =>
 
 const canonicalSha256Hex = (value: unknown) =>
   CanonicalJson.encodeBytes(value).pipe(
-    Effect.map((bytes) => Digest.hash("sha256", bytes)),
+    Effect.flatMap((bytes) => Digest.hash("sha256", bytes)),
     Effect.map(Encoding.encodeHex)
   )
 
@@ -112,7 +112,7 @@ export const content = (directory: string) =>
                       ),
                     onFalse: () =>
                       fs.readFile(file).pipe(
-                        Effect.map((bytes) => Digest.hash("sha256", bytes)),
+                        Effect.flatMap((bytes) => Digest.hash("sha256", bytes)),
                         Effect.map(Encoding.encodeHex)
                       )
                   })

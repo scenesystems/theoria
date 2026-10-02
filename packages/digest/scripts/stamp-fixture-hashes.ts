@@ -20,8 +20,7 @@ class FixtureStampError extends Data.TaggedError("FixtureStampError")<{
   }
 }
 
-const toSha256Hex = (bytes: Uint8Array): Effect.Effect<string> =>
-  Effect.succeed(Hex.encode(Digest.hash("sha256", bytes)))
+const toSha256Hex = (bytes: Uint8Array): Effect.Effect<string> => Effect.map(Digest.hash("sha256", bytes), Hex.encode)
 
 const program = Effect.gen(function*() {
   const fileSystem = yield* FileSystem.FileSystem

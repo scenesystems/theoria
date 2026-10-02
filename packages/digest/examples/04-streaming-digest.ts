@@ -8,13 +8,13 @@ import { Base64Url, Hex } from "effect/encoding"
 
 const program = Effect.gen(function*() {
   const chunks = yield* Effect.all([
-    Effect.fromResult(Utf8.encode("stream-")),
-    Effect.fromResult(Utf8.encode("safe-")),
-    Effect.fromResult(Utf8.encode("digest"))
+    Utf8.encode("stream-"),
+    Utf8.encode("safe-"),
+    Utf8.encode("digest")
   ])
-  const whole = yield* Effect.fromResult(Utf8.encode("stream-safe-digest"))
+  const whole = yield* Utf8.encode("stream-safe-digest")
   const streamed = yield* Digest.hashStream("blake3-256", Stream.fromIterable(chunks))
-  const oneShot = Digest.hash("blake3-256", whole)
+  const oneShot = yield* Digest.hash("blake3-256", whole)
 
   yield* Effect.log("Byte stream parity", {
     streamed: Base64Url.encode(streamed),
@@ -25,7 +25,7 @@ const program = Effect.gen(function*() {
     "sha256",
     Stream.fromIterable(["surrogate-", "\uD83D", "\uDE00"])
   )
-  const oneShotText = yield* Effect.fromResult(Digest.hashString("sha256", "surrogate-😀"))
+  const oneShotText = yield* Digest.hashString("sha256", "surrogate-😀")
   yield* Effect.log("Text stream parity", {
     digest: Hex.encode(streamedText),
     matches: Hex.encode(streamedText) === Hex.encode(oneShotText)

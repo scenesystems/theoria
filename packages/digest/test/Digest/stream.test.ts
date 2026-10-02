@@ -73,7 +73,7 @@ describe("Digest.hashStream", () => {
     Effect.gen(function*() {
       const chunks = Arr.make(encodeFixtureUtf8("hello "), encodeFixtureUtf8("streaming "), encodeFixtureUtf8("digest"))
       const streamed = yield* Digest.hashStream("blake3-256", Stream.fromIterable(chunks))
-      const oneShot = Digest.hash("blake3-256", yield* concatBytes(chunks))
+      const oneShot = yield* Digest.hash("blake3-256", yield* concatBytes(chunks))
       expect(streamed).toEqual(oneShot)
     }))
 
@@ -81,14 +81,14 @@ describe("Digest.hashStream", () => {
     Effect.gen(function*() {
       const chunks = Arr.make(encodeFixtureUtf8("hello "), encodeFixtureUtf8("streaming "), encodeFixtureUtf8("digest"))
       const streamed = yield* Digest.hashStream("sha256", Stream.fromIterable(chunks))
-      const oneShot = Digest.hash("sha256", yield* concatBytes(chunks))
+      const oneShot = yield* Digest.hash("sha256", yield* concatBytes(chunks))
       expect(streamed).toEqual(oneShot)
     }))
 
   it.effect("empty stream matches empty-input digest", () =>
     Effect.gen(function*() {
       const streamed = yield* Digest.hashStream("blake3-256", Stream.empty)
-      const oneShot = Digest.hash("blake3-256", new Uint8Array())
+      const oneShot = yield* Digest.hash("blake3-256", new Uint8Array())
       expect(streamed).toEqual(oneShot)
     }))
 
@@ -139,7 +139,7 @@ describe("Digest.hashStringStream", () => {
   it.effect("accepts a pair split at every chunk boundary", () =>
     Effect.gen(function*() {
       const text = "A😀B"
-      const oneShot = yield* Effect.fromResult(Digest.hashString("sha256", text))
+      const oneShot = yield* Digest.hashString("sha256", text)
 
       yield* Effect.forEach(everyPartition(text), (chunks) =>
         Effect.gen(function*() {
@@ -152,10 +152,10 @@ describe("Digest.hashStringStream", () => {
     Effect.gen(function*() {
       const chunks = Stream.make("", "\ufeffA\ud83d", "", "", "\ude00B", "")
       expect(yield* Digest.hashStringStream("sha256", chunks)).toEqual(
-        yield* Effect.fromResult(Digest.hashString("sha256", "\ufeffA😀B"))
+        yield* Digest.hashString("sha256", "\ufeffA😀B")
       )
       expect(yield* Digest.hashStringStream("sha256", Stream.make("", ""))).toEqual(
-        yield* Effect.fromResult(Digest.hashString("sha256", ""))
+        yield* Digest.hashString("sha256", "")
       )
     }))
 
@@ -231,7 +231,7 @@ describe("Digest.hashStringStream", () => {
           "sha256",
           Stream.fromIterable(randomPartition(text, splitAfter))
         )
-        const oneShot = yield* Effect.fromResult(Digest.hashString("sha256", text))
+        const oneShot = yield* Digest.hashString("sha256", text)
 
         expect(streamed).toEqual(oneShot)
       }),

@@ -31,8 +31,7 @@ class FixtureCheckError extends Data.TaggedError("FixtureCheckError")<{
 /** The fixture bytes as text; the same bytes are hashed, so the file is read once. */
 const toText = (bytes: Uint8Array): Effect.Effect<string> => Stream.decodeText(Stream.make(bytes)).pipe(Stream.mkString)
 
-const toSha256Hex = (bytes: Uint8Array): Effect.Effect<string> =>
-  Effect.succeed(Hex.encode(Digest.hash("sha256", bytes)))
+const toSha256Hex = (bytes: Uint8Array): Effect.Effect<string> => Effect.map(Digest.hash("sha256", bytes), Hex.encode)
 
 const normalizeRelativePath = (pathService: Path.Path, value: string): string => value.split(pathService.sep).join("/")
 

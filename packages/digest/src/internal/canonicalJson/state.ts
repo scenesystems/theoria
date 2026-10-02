@@ -54,7 +54,6 @@ export class State<E> extends Data.Class<{
   readonly stack: MutableList.MutableList<Frame>
   readonly active: MutableHashSet.MutableHashSet<Ancestor>
   readonly segments: MutableList.MutableList<string>
-  readonly sink: Option.Option<(segment: string) => void>
   readonly admit: (text: string) => Result.Result<void, E>
   readonly pending: MutableRef.MutableRef<string>
   readonly failure: MutableRef.MutableRef<Option.Option<CanonicalizationError | E>>
@@ -73,12 +72,7 @@ export const flushPending = <E>(state: State<E>): void => {
   B.match(Str.isNonEmpty(pending), {
     onFalse: () => undefined,
     onTrue: () => {
-      Option.match(state.sink, {
-        onNone: () => {
-          MutableList.append(state.segments, pending)
-        },
-        onSome: (sink) => sink(pending)
-      })
+      MutableList.append(state.segments, pending)
       MutableRef.set(state.pending, "")
     }
   })

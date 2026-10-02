@@ -7,8 +7,7 @@
  * @internal
  */
 
-import { Boolean as B, Iterable, Match, Number as N, Option, Result, String as Str } from "effect"
-import { Base64 } from "effect/encoding"
+import { Boolean as B, type Effect, Iterable, Match, Number as N, Option, Stream, String as Str } from "effect"
 
 import { InvalidUnicode } from "../Utf8.js"
 
@@ -45,13 +44,9 @@ export const unicodeFault = (text: string): Option.Option<InvalidUnicode> =>
     (match) => Option.flatMap(Option.fromNullishOr(match.index), (index) => unicodeFaultAt(text, index))
   )
 
-/**
- * Effect exposes pure string-to-byte encoding through its public codecs.
- * The decoder cannot fail on Base64 just produced by the paired encoder. This
- * keeps synchronous digest APIs runtime-free and preserves a leading U+FEFF.
- * @internal
- */
-export const encodeUtf8Unchecked = (text: string): Uint8Array => Result.getOrThrow(Base64.decode(Base64.encode(text)))
+/** Encode one validated segment through Effect's public text stream codec. @internal */
+export const encodeUtf8Unchecked = (text: string): Effect.Effect<Uint8Array> =>
+  Stream.make(text).pipe(Stream.encodeText, Stream.mkUint8Array)
 
 /** Measure well-formed text using the package's canonical UTF-8 law. @internal */
 export const utf8ByteLengthUnchecked = (text: string): number =>

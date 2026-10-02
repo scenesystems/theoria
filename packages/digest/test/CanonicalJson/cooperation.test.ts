@@ -9,7 +9,6 @@ import {
   Number as N,
   Record,
   Ref,
-  Result,
   Schema,
   String as Str,
   Tuple
@@ -103,16 +102,15 @@ it.effect("preserves multibyte and escaped text across incremental hash segments
     const value = Str.repeat(8_193)("😀é\n")
     // Construct the expected JSON text independently of CanonicalJson.encode.
     const expectedText = Str.concat(Str.concat("\"", Str.repeat(8_193)("😀é\\n")), "\"")
-    const bytes = yield* Effect.fromResult(Utf8.encode(expectedText))
+    const bytes = yield* Utf8.encode(expectedText)
     expect(yield* CanonicalJson.encodeBytes(value)).toStrictEqual(bytes)
     yield* Effect.forEach(Digest.Algorithm.literals, (algorithm) =>
       Effect.gen(function*() {
-        const expected = Str.concat(Str.concat(algorithm, ":"), Base64Url.encode(Digest.hash(algorithm, bytes)))
+        const expected = Str.concat(Str.concat(algorithm, ":"), Base64Url.encode(yield* Digest.hash(algorithm, bytes)))
+        expect(ContentDigest.toString(yield* ContentDigest.fromUnknown(algorithm, value))).toBe(expected)
         const bounded = yield* ContentDigest.fromSchemaWithByteLimit(Schema.String, value, 65_546, algorithm)
-        const synchronous = ContentDigest.fromSchemaWithByteLimitResult(Schema.String, value, 65_546, algorithm)
         expect(ContentDigest.toString(bounded.digest)).toBe(expected)
         expect(bounded.canonicalByteLength).toBe(65_546)
-        expect(synchronous).toStrictEqual(Result.succeed(bounded))
         expect(yield* Effect.exit(ContentDigest.fromSchemaWithByteLimit(Schema.String, value, 65_545, algorithm)))
           .toStrictEqual(
             Exit.fail(new CanonicalJson.ByteLimitExceeded({}))
@@ -138,13 +136,12 @@ it.effect("stops at the byte limit before a later invalid value is traversed", (
     expect(yield* Effect.exit(ContentDigest.fromSchemaWithByteLimit(Schema.Unknown, value, 64))).toStrictEqual(
       Exit.fail(expected)
     )
-    expect(ContentDigest.fromSchemaWithByteLimitResult(Schema.Unknown, value, 64)).toStrictEqual(Result.fail(expected))
   }))
 
 it.effect("one encodeBytes Effect produces the complete result on repeated execution", () =>
   Effect.gen(function*() {
     const operation = CanonicalJson.encodeBytes({ z: Arr.make(3, 2, 1), a: "value" })
-    const expected = yield* Effect.fromResult(Utf8.encode("{\"a\":\"value\",\"z\":[3,2,1]}"))
+    const expected = yield* Utf8.encode("{\"a\":\"value\",\"z\":[3,2,1]}")
     expect(yield* operation).toStrictEqual(expected)
     expect(yield* operation).toStrictEqual(expected)
   }))

@@ -12,24 +12,24 @@ import { hkdfSha256Vectors } from "./helpers/vectors/hkdf.js"
 
 describe("Hkdf.sha256", () => {
   it.effect("matches every RFC 5869 SHA-256 vector", () =>
-    Effect.sync(() => {
+    Effect.gen(function*() {
       const cases = [hkdfSha256Vectors.case1, hkdfSha256Vectors.case2, hkdfSha256Vectors.case3]
-      cases.forEach(({ ikm, info, length, okm, salt }) =>
-        expectDigest(Result.getOrThrow(Hkdf.sha256(ikm, salt, info, length)), okm)
-      )
+      yield* Effect.forEach(cases, ({ ikm, info, length, okm, salt }) =>
+        Effect.map(Hkdf.sha256(ikm, salt, info, length), (digest) =>
+          expectDigest(digest, okm)))
     }))
 
   it.effect("treats absent salt as hash-length zero bytes", () =>
-    Effect.sync(() => {
+    Effect.gen(function*() {
       const { ikm, info, length, okm } = hkdfSha256Vectors.case3
-      expectDigest(Result.getOrThrow(Hkdf.sha256(ikm, Option.none(), info, length)), okm)
+      expectDigest(yield* Hkdf.sha256(ikm, Option.none(), info, length), okm)
     }))
 
   it.effect("uses info for domain separation", () =>
-    Effect.sync(() => {
+    Effect.gen(function*() {
       const { ikm, salt } = hkdfSha256Vectors.case1
-      const first = Result.getOrThrow(Hkdf.sha256(ikm, salt, encodeFixtureUtf8("context-a"), 32))
-      const second = Result.getOrThrow(Hkdf.sha256(ikm, salt, encodeFixtureUtf8("context-b"), 32))
+      const first = yield* Hkdf.sha256(ikm, salt, encodeFixtureUtf8("context-a"), 32)
+      const second = yield* Hkdf.sha256(ikm, salt, encodeFixtureUtf8("context-b"), 32)
       expect(first).not.toEqual(second)
     }))
 })
@@ -40,28 +40,37 @@ describe("Hkdf output length admission", () => {
   const info = hkdfSha256Vectors.case1.info
 
   it.effect("allows zero and the inclusive SHA-256 and SHA-512 maxima", () =>
-    Effect.sync(() => {
-      expectByteLength(Result.getOrThrow(Hkdf.sha256(ikm, salt, info, 0)), 0)
-      expectByteLength(Result.getOrThrow(Hkdf.sha512(ikm, salt, info, 0)), 0)
-      expectByteLength(Result.getOrThrow(Hkdf.sha256(ikm, salt, info, 8160)), 8160)
-      expectByteLength(Result.getOrThrow(Hkdf.sha512(ikm, salt, info, 16320)), 16320)
+    Effect.gen(function*() {
+      expectByteLength(yield* Hkdf.sha256(ikm, salt, info, 0), 0)
+      expectByteLength(yield* Hkdf.sha512(ikm, salt, info, 0), 0)
+      expectByteLength(yield* Hkdf.sha256(ikm, salt, info, 8160), 8160)
+      expectByteLength(yield* Hkdf.sha512(ikm, salt, info, 16320), 16320)
     }))
 
   it.effect("preserves the independent vector as the prefix of maximum SHA-256 output", () =>
-    Effect.sync(() => {
-      const maximum = Result.getOrThrow(Hkdf.sha256(ikm, salt, info, 8160))
+    Effect.gen(function*() {
+      const maximum = yield* Hkdf.sha256(ikm, salt, info, 8160)
       expectDigest(maximum.slice(0, hkdfSha256Vectors.case1.length), hkdfSha256Vectors.case1.okm)
     }))
 
   it.effect("rejects non-safe, fractional, negative, and over-maximum lengths", () =>
-    Effect.sync(() => {
+    Effect.gen(function*() {
       const invalid = [-1, 0.5, NaN, Infinity, Number.MAX_SAFE_INTEGER + 1]
-      invalid.forEach((length) => {
-        expect(Hkdf.sha256(ikm, salt, info, length)).toStrictEqual(Result.fail(new Hkdf.InvalidLength({})))
-        expect(Hkdf.sha512(ikm, salt, info, length)).toStrictEqual(Result.fail(new Hkdf.InvalidLength({})))
-      })
-      expect(Hkdf.sha256(ikm, salt, info, 8161)).toStrictEqual(Result.fail(new Hkdf.InvalidLength({})))
-      expect(Hkdf.sha512(ikm, salt, info, 16321)).toStrictEqual(Result.fail(new Hkdf.InvalidLength({})))
+      yield* Effect.forEach(invalid, (length) =>
+        Effect.gen(function*() {
+          expect(yield* Effect.result(Hkdf.sha256(ikm, salt, info, length))).toStrictEqual(
+            Result.fail(new Hkdf.InvalidLength({}))
+          )
+          expect(yield* Effect.result(Hkdf.sha512(ikm, salt, info, length))).toStrictEqual(
+            Result.fail(new Hkdf.InvalidLength({}))
+          )
+        }))
+      expect(yield* Effect.result(Hkdf.sha256(ikm, salt, info, 8161))).toStrictEqual(
+        Result.fail(new Hkdf.InvalidLength({}))
+      )
+      expect(yield* Effect.result(Hkdf.sha512(ikm, salt, info, 16321))).toStrictEqual(
+        Result.fail(new Hkdf.InvalidLength({}))
+      )
     }))
 })
 
@@ -80,7 +89,7 @@ describe("Hkdf external conformance", () => {
         fixture.algorithm === "hkdf-sha256"
           ? Effect.forEach(fixture.cases, (vector) =>
             Effect.gen(function*() {
-              const result = yield* Effect.fromResult(Hkdf.sha256(
+              const result = yield* (Hkdf.sha256(
                 hexToBytes(vector.ikmHex),
                 Option.fromNullishOr(vector.saltHex).pipe(Option.map(hexToBytes)),
                 hexToBytes(vector.infoHex),
@@ -117,7 +126,7 @@ describe("Hkdf external conformance", () => {
         Arr.filter(vectors, ({ vector }) => vector.result === "valid"),
         ({ fixture, source, vector }) =>
           Effect.gen(function*() {
-            const result = yield* Effect.fromResult(Hkdf.sha512(
+            const result = yield* (Hkdf.sha512(
               hexToBytes(vector.ikm),
               Option.some(hexToBytes(vector.salt)),
               hexToBytes(vector.info),

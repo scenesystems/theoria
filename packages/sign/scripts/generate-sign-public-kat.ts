@@ -305,7 +305,8 @@ const program = Effect.gen(function*() {
     Str.concat(yield* Schema.encodeEffect(PublicSignatureKatFixture)(fixture), "\n")
   )
   const sha256 = yield* readConformanceFixtureBytes("sign-public-kat.json").pipe(
-    Effect.map((bytes) => Hex.encode(Digest.hash("sha256", bytes)))
+    Effect.flatMap((bytes) => Digest.hash("sha256", bytes)),
+    Effect.map(Hex.encode)
   )
   const manifest = yield* fileSystem.readFileString(path.join(root, "sources.manifest.json")).pipe(
     Effect.flatMap(Schema.decodeEffect(ConformanceManifest))

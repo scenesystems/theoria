@@ -12,42 +12,49 @@ import { hmacSha1Vectors, hmacSha256Vectors, webhookVector } from "./helpers/vec
 
 describe("Hmac.sha256", () => {
   it.effect("matches RFC 4231 vectors", () =>
-    Effect.sync(() => {
+    Effect.gen(function*() {
       const cases = [
         hmacSha256Vectors.case1,
         hmacSha256Vectors.case2,
         hmacSha256Vectors.case3,
         hmacSha256Vectors.case4
       ]
-      cases.forEach(({ data, expected, key }) => expectDigest(Hmac.sha256(key, data), expected))
+      yield* Effect.forEach(cases, ({ data, expected, key }) =>
+        Effect.map(Hmac.sha256(key, data), (tag) => expectDigest(tag, expected)))
     }))
 
   it.effect("supports empty messages and keys on both sides of the block length", () =>
-    Effect.sync(() => {
-      expectByteLength(Hmac.sha256(new Uint8Array(32), new Uint8Array()), 32)
-      expectByteLength(Hmac.sha256(new Uint8Array(4).fill(0x0b), encodeFixtureUtf8("test")), 32)
-      expectByteLength(Hmac.sha256(new Uint8Array(128).fill(0xaa), encodeFixtureUtf8("test")), 32)
+    Effect.gen(function*() {
+      expectByteLength(yield* Hmac.sha256(new Uint8Array(32), new Uint8Array()), 32)
+      expectByteLength(yield* Hmac.sha256(new Uint8Array(4).fill(0x0b), encodeFixtureUtf8("test")), 32)
+      expectByteLength(yield* Hmac.sha256(new Uint8Array(128).fill(0xaa), encodeFixtureUtf8("test")), 32)
     }))
 
   it.effect("composes with Effect Encoding for base64url output", () =>
-    Effect.sync(() => {
+    Effect.gen(function*() {
       const { expected, key, message } = webhookVector
-      expect(Base64Url.encode(Hmac.sha256(key, message))).toBe(expected)
+      expect(Base64Url.encode(yield* Hmac.sha256(key, message))).toBe(expected)
     }))
 })
 
 describe("Hmac.sha1", () => {
   it.effect("matches RFC 2202 vectors", () =>
-    Effect.sync(() => {
-      expectDigest(Hmac.sha1(hmacSha1Vectors.case1.key, hmacSha1Vectors.case1.data), hmacSha1Vectors.case1.expected)
-      expectDigest(Hmac.sha1(hmacSha1Vectors.case2.key, hmacSha1Vectors.case2.data), hmacSha1Vectors.case2.expected)
-      expectByteLength(Hmac.sha1(hmacSha1Vectors.case1.key, hmacSha1Vectors.case1.data), 20)
+    Effect.gen(function*() {
+      expectDigest(
+        yield* Hmac.sha1(hmacSha1Vectors.case1.key, hmacSha1Vectors.case1.data),
+        hmacSha1Vectors.case1.expected
+      )
+      expectDigest(
+        yield* Hmac.sha1(hmacSha1Vectors.case2.key, hmacSha1Vectors.case2.data),
+        hmacSha1Vectors.case2.expected
+      )
+      expectByteLength(yield* Hmac.sha1(hmacSha1Vectors.case1.key, hmacSha1Vectors.case1.data), 20)
     }))
 
   it.effect("composes with Effect Encoding for hexadecimal output", () =>
-    Effect.sync(() => {
+    Effect.gen(function*() {
       const { data, expected, key } = hmacSha1Vectors.case2
-      expect(Hex.encode(Hmac.sha1(key, data))).toBe(expected)
+      expect(Hex.encode(yield* Hmac.sha1(key, data))).toBe(expected)
     }))
 })
 
@@ -64,12 +71,12 @@ describe("Hmac external conformance", () => {
 
       yield* Effect.forEach(fixtures, ({ fixture, source }) =>
         Effect.forEach(fixture.cases, (vector) =>
-          Effect.sync(() => {
+          Effect.gen(function*() {
             const key = hexToBytes(vector.keyHex)
             const message = hexToBytes(vector.messageHex)
-            const result = fixture.algorithm === "hmac-sha1"
+            const result = yield* (fixture.algorithm === "hmac-sha1"
               ? Hmac.sha1(key, message)
-              : Hmac.sha256(key, message)
+              : Hmac.sha256(key, message))
             const actual = Hex.encode(result.slice(0, vector.outputLength))
 
             expect(vector.expectedHex).toHaveLength(vector.outputLength * 2)
