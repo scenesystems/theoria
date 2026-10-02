@@ -4,27 +4,27 @@
  * @since 0.1.0
  * @module
  */
-import { Array as Arr, Data, Number as Num, Option, Schema, SortedMap } from "effect"
+import { Array as Arr, Data, HashMap, Number as Num, Option, Schema, Tuple } from "effect"
 import { dual } from "effect/Function"
 
 import type * as Trial from "./Trial.js"
 
 /**
  * Keeps one current record per trial number and the sum of its valid reported costs.
- * The SortedMap is available for native lookup, filtering, and range operations.
+ * The HashMap supports native lookup and filtering; {@link values} sorts by trial number.
  *
  * @since 0.1.0
  * @category models
  */
 export class History<Config, State> extends Data.Class<{
-  readonly trials: SortedMap.SortedMap<number, Trial.Trial<Config, State>>
+  readonly trials: HashMap.HashMap<number, Trial.Trial<Config, State>>
   readonly cumulativeCost: number
 }> {}
 
-const validCost = Schema.is(Schema.JsonNumber.pipe(Schema.nonNegative()))
+const validCost = Schema.is(Schema.Finite.check(Schema.isGreaterThanOrEqualTo(0)))
 
 const cost = <Config, State>(trial: Trial.Trial<Config, State>): number =>
-  Option.fromNullable(trial.cost).pipe(Option.filter(validCost), Option.getOrElse(() => 0))
+  Option.fromNullishOr(trial.cost).pipe(Option.filter(validCost), Option.getOrElse(() => 0))
 
 /**
  * Creates empty history without imposing an observation or error vocabulary.
@@ -33,7 +33,7 @@ const cost = <Config, State>(trial: Trial.Trial<Config, State>): number =>
  * @category constructors
  */
 export const empty = <Config, State>(): History<Config, State> =>
-  new History({ trials: SortedMap.empty<number, Trial.Trial<Config, State>>(Num.Order), cumulativeCost: 0 })
+  new History({ trials: HashMap.empty<number, Trial.Trial<Config, State>>(), cumulativeCost: 0 })
 
 /**
  * Inserts or replaces a trial. Replacing a record replaces its cost contribution,
@@ -50,12 +50,12 @@ export const set: {
     trial: Trial.Trial<Config, State>
   ): History<Config, State>
 } = dual(2, <Config, State>(self: History<Config, State>, trial: Trial.Trial<Config, State>) => {
-  const previousCost = SortedMap.get(self.trials, trial.trialNumber).pipe(
+  const previousCost = HashMap.get(self.trials, trial.trialNumber).pipe(
     Option.map(cost),
     Option.getOrElse(() => 0)
   )
   return new History({
-    trials: SortedMap.set(self.trials, trial.trialNumber, trial),
+    trials: HashMap.set(self.trials, trial.trialNumber, trial),
     cumulativeCost: Num.sum(Num.subtract(self.cumulativeCost, previousCost), cost(trial))
   })
 })
@@ -79,4 +79,5 @@ export const fromIterable = <Config, State>(records: Iterable<Trial.Trial<Config
  * @since 0.1.0
  * @category accessors
  */
-export const values = <Config, State>(self: History<Config, State>) => Arr.fromIterable(SortedMap.values(self.trials))
+export const values = <Config, State>(self: History<Config, State>) =>
+  Arr.map(Arr.sortWith(HashMap.entries(self.trials), Tuple.get(0), Num.Order), Tuple.get(1))

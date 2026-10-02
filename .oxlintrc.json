@@ -73,7 +73,7 @@
   },
   "overrides": [
     {
-      "files": ["packages/effect-math/src/Complex.ts"],
+      "files": ["packages/effect-math/src/Complex.ts", "packages/effect-study/src/Artifact.ts"],
       "rules": {
         "effecttsgo/schema-number": "off"
       }

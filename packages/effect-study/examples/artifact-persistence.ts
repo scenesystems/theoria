@@ -1,17 +1,16 @@
 /** Producer-owned artifact delivery and generic structured observation persistence. */
-import { FileSystem } from "@effect/platform"
-import { BunContext, BunRuntime } from "@effect/platform-bun"
-import { Array as Arr, Effect, Option, Schema } from "effect"
+import { BunRuntime, BunServices } from "@effect/platform-bun"
+import { Array as Arr, Effect, FileSystem, Option, Schema } from "effect"
 
 import * as ArtifactSink from "@scenesystems/effect-study/ArtifactSink"
 import * as StudyStorage from "@scenesystems/effect-study/StudyStorage"
 
 const Measurement = Schema.Struct({
   sample: Schema.NonEmptyString,
-  values: Schema.Array(Schema.NumberFromString)
+  values: Schema.Array(Schema.FiniteFromString)
 })
 
-const Snapshot = Schema.Struct({ completed: Schema.NonNegativeInt })
+const Snapshot = Schema.Struct({ completed: Schema.Int.check(Schema.isGreaterThanOrEqualTo(0)) })
 
 const program = Effect.scoped(
   Effect.gen(function*() {
@@ -33,4 +32,4 @@ const program = Effect.scoped(
   })
 )
 
-BunRuntime.runMain(program.pipe(Effect.provide(BunContext.layer)))
+BunRuntime.runMain(program.pipe(Effect.provide(BunServices.layer)))

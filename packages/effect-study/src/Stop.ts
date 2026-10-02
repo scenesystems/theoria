@@ -27,7 +27,7 @@ import { dual } from "effect/Function"
  * @since 0.1.0
  * @category schemas
  */
-export const Mode = Schema.Literal("Drain", "Interrupt").annotations({
+export const Mode = Schema.Literals(["Drain", "Interrupt"]).annotate({
   identifier: "@scenesystems/effect-study/Stop/Mode"
 })
 
@@ -59,7 +59,7 @@ export class Request extends Schema.Class<Request>("@scenesystems/effect-study/S
   /** Caller-owned diagnostic text. */
   reason: Schema.String,
   /** Trial number used for deterministic request precedence. */
-  requestedByTrialNumber: Schema.Number
+  requestedByTrialNumber: Schema.Finite
 }) {}
 
 /**
@@ -76,13 +76,13 @@ export type Ref = EffectRef.Ref<Option.Option<Request>>
  * @since 0.1.0
  * @category schemas
  */
-export const Decision = Schema.Union(
+export const Decision = Schema.Union([
   Schema.TaggedStruct("Continue", {}),
   Schema.TaggedStruct("Stop", {
     mode: Mode,
     reason: Schema.String
   })
-).annotations({ identifier: "@scenesystems/effect-study/Stop/Decision" })
+]).annotate({ identifier: "@scenesystems/effect-study/Stop/Decision" })
 
 /**
  * A cooperative continue-or-stop decision.

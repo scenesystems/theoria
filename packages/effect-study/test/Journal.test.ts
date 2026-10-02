@@ -1,29 +1,39 @@
-import { FileSystem, Path } from "@effect/platform"
-import { BunContext } from "@effect/platform-bun"
+import { BunServices } from "@effect/platform-bun"
 import { describe, expect, it } from "@effect/vitest"
-import { Array as Arr, Chunk, Context, Effect, Either, Number as Num, Ref, Schema, Stream, String as Str } from "effect"
+import { FileSystem, Path } from "effect"
+import {
+  Array as Arr,
+  Context,
+  Effect,
+  Number as Num,
+  Ref,
+  Result,
+  Schema,
+  SchemaGetter,
+  Stream,
+  String as Str
+} from "effect"
 
 import * as Journal from "@scenesystems/effect-study/Journal"
 
-class CodecPrefix extends Context.Tag("effect-study/test/CodecPrefix")<CodecPrefix, string>() {}
+class CodecPrefix extends Context.Service<CodecPrefix, string>()("effect-study/test/CodecPrefix") {}
 
-const Name = Schema.transformOrFail(Schema.String, Schema.String, {
-  strict: true,
-  decode: (encoded) => CodecPrefix.pipe(Effect.as(Str.toLowerCase(encoded))),
-  encode: (name) => CodecPrefix.pipe(Effect.as(Str.toUpperCase(name)))
-})
+const Name = Schema.String.pipe(Schema.decode({
+  decode: SchemaGetter.transformEffect((encoded) => CodecPrefix.pipe(Effect.as(Str.toLowerCase(encoded)))),
+  encode: SchemaGetter.transformEffect((name) => CodecPrefix.pipe(Effect.as(Str.toUpperCase(name))))
+}))
 
-const Entry = Schema.Struct({ name: Name, score: Schema.NumberFromString })
+const Entry = Schema.Struct({ name: Name, score: Schema.FiniteFromString })
 
 describe("Journal", () => {
-  it.scoped("round-trips a transformed schema and retains its requirements", () =>
+  it.effect("round-trips a transformed schema and retains its requirements", () =>
     Effect.gen(function*() {
       const fileSystem = yield* FileSystem.FileSystem
       const directory = yield* fileSystem.makeTempDirectoryScoped({ prefix: "effect-study-journal-codec-" })
       const journal = yield* Journal.make(Entry, directory, "records.jsonl")
       yield* journal.append({ name: "alpha", score: 1.5 }).pipe(Effect.provideService(CodecPrefix, "prefix"))
       const raw = yield* fileSystem.readFileString(journal.path)
-      const encoded = yield* Schema.decode(Schema.parseJson(Schema.Struct({
+      const encoded = yield* Schema.decodeEffect(Schema.fromJsonString(Schema.Struct({
         name: Schema.String,
         score: Schema.String
       })))(raw)
@@ -33,10 +43,10 @@ describe("Journal", () => {
       )
 
       expect(encoded).toEqual({ name: "ALPHA", score: "1.5" })
-      expect(Chunk.toReadonlyArray(records)).toEqual(Arr.of({ name: "alpha", score: 1.5 }))
-    }).pipe(Effect.provide(BunContext.layer)))
+      expect(records).toEqual(Arr.of({ name: "alpha", score: 1.5 }))
+    }).pipe(Effect.provide(BunServices.layer)))
 
-  it.scoped("treats a missing log as empty and ignores blank lines", () =>
+  it.effect("treats a missing log as empty and ignores blank lines", () =>
     Effect.gen(function*() {
       const fileSystem = yield* FileSystem.FileSystem
       const path = yield* Path.Path
@@ -52,11 +62,11 @@ describe("Journal", () => {
         Effect.provideService(CodecPrefix, "prefix")
       )
 
-      expect(Chunk.isEmpty(missing)).toBe(true)
-      expect(Chunk.toReadonlyArray(present)).toEqual(Arr.of({ name: "beta", score: 2 }))
-    }).pipe(Effect.provide(BunContext.layer)))
+      expect(Arr.isReadonlyArrayEmpty(missing)).toBe(true)
+      expect(present).toEqual(Arr.of({ name: "beta", score: 2 }))
+    }).pipe(Effect.provide(BunServices.layer)))
 
-  it.scoped("reports the physical line containing malformed or torn JSON", () =>
+  it.effect("reports the physical line containing malformed or torn JSON", () =>
     Effect.gen(function*() {
       const fileSystem = yield* FileSystem.FileSystem
       const path = yield* Path.Path
@@ -67,32 +77,32 @@ describe("Journal", () => {
       const outcome = yield* Journal.read(Entry, filePath).pipe(
         Stream.runCollect,
         Effect.provideService(CodecPrefix, "prefix"),
-        Effect.either
+        Effect.result
       )
 
-      expect(Either.isLeft(outcome)).toBe(true)
-      const error = yield* Either.getLeft(outcome)
+      expect(Result.isFailure(outcome)).toBe(true)
+      const error = yield* Effect.fromResult(Result.flip(outcome))
       expect(error).toBeInstanceOf(Journal.Failure)
       expect(error.operation).toBe("read")
       expect(error.line).toBe(4)
-    }).pipe(Effect.provide(BunContext.layer)))
+    }).pipe(Effect.provide(BunServices.layer)))
 
-  it.scoped("serializes concurrent appends within one journal", () =>
+  it.effect("serializes concurrent appends within one journal", () =>
     Effect.gen(function*() {
       const fileSystem = yield* FileSystem.FileSystem
       const directory = yield* fileSystem.makeTempDirectoryScoped({ prefix: "effect-study-journal-concurrent-" })
       const active = yield* Ref.make(0)
       const maximum = yield* Ref.make(0)
-      const SerializedNumber = Schema.transformOrFail(Schema.Number, Schema.Number, {
-        strict: true,
-        decode: Effect.succeed,
-        encode: (value) =>
+      const SerializedNumber = Schema.Finite.pipe(Schema.decode({
+        decode: SchemaGetter.passthrough(),
+        encode: SchemaGetter.transformEffect((value) =>
           Effect.acquireUseRelease(
             Ref.updateAndGet(active, Num.increment),
-            (count) => Ref.update(maximum, Num.max(count)).pipe(Effect.zipRight(Effect.yieldNow()), Effect.as(value)),
+            (count) => Ref.update(maximum, Num.max(count)).pipe(Effect.andThen(Effect.yieldNow), Effect.as(value)),
             () => Ref.update(active, Num.decrement)
           )
-      })
+        )
+      }))
       const journal = yield* Journal.make(SerializedNumber, directory, "records.jsonl")
       const values = Arr.range(1, 40)
 
@@ -100,26 +110,26 @@ describe("Journal", () => {
       const persisted = yield* journal.read.pipe(Stream.runCollect)
 
       expect(yield* Ref.get(maximum)).toBe(1)
-      expect(Arr.sort(Chunk.toReadonlyArray(persisted), Num.Order)).toEqual(values)
-    }).pipe(Effect.provide(BunContext.layer)))
+      expect(Arr.sort(persisted, Num.Order)).toEqual(values)
+    }).pipe(Effect.provide(BunServices.layer)))
 
-  it.scoped("types read and write failures", () =>
+  it.effect("types read and write failures", () =>
     Effect.gen(function*() {
       const fileSystem = yield* FileSystem.FileSystem
       const path = yield* Path.Path
       const directory = yield* fileSystem.makeTempDirectoryScoped({ prefix: "effect-study-journal-failure-" })
       const blocker = path.join(directory, "blocker")
       yield* fileSystem.writeFileString(blocker, "file")
-      const write = yield* Journal.make(Entry, blocker, "records.jsonl").pipe(Effect.either)
+      const write = yield* Journal.make(Entry, blocker, "records.jsonl").pipe(Effect.result)
       const read = yield* Journal.read(Entry, directory).pipe(
         Stream.runCollect,
         Effect.provideService(CodecPrefix, "prefix"),
-        Effect.either
+        Effect.result
       )
 
-      const writeError = yield* Either.getLeft(write)
-      const readError = yield* Either.getLeft(read)
+      const writeError = yield* Effect.fromResult(Result.flip(write))
+      const readError = yield* Effect.fromResult(Result.flip(read))
       expect(writeError.operation).toBe("write")
       expect(readError.operation).toBe("read")
-    }).pipe(Effect.provide(BunContext.layer)))
+    }).pipe(Effect.provide(BunServices.layer)))
 })

@@ -4,9 +4,7 @@
  * @since 0.1.0
  * @module
  */
-import type { FileSystem, Path } from "@effect/platform"
-import { Effect, Layer, ParseResult, Schema, type Stream } from "effect"
-import type * as Context from "effect/Context"
+import { Context, Effect, type FileSystem, Layer, type Path, Schema, type Stream } from "effect"
 
 import * as Journal from "./Journal.js"
 
@@ -19,18 +17,21 @@ const defaultFileName = "artifacts.jsonl"
  * @since 0.1.0
  * @category services
  */
-export class ArtifactSink extends Effect.Tag("@scenesystems/effect-study/ArtifactSink")<
+export class ArtifactSink extends Context.Service<
   ArtifactSink,
   {
-    readonly emit: <A, I, R>(schema: Schema.Schema<A, I, R>, artifact: A) => Effect.Effect<void, Journal.Failure, R>
+    readonly emit: <A, I, RD, RE>(
+      schema: Schema.Codec<A, I, RD, RE>,
+      artifact: A
+    ) => Effect.Effect<void, Journal.Failure, RE>
   }
->() {}
+>()("@scenesystems/effect-study/ArtifactSink") {}
 
 /** Artifact sink implementation. @since 0.1.0 @category services */
-export type Service = Context.Tag.Service<typeof ArtifactSink>
+export type Service = ArtifactSink["Service"]
 
-const codecFailure = (path: string) => (cause: ParseResult.ParseError): Journal.Failure =>
-  new Journal.Failure({ operation: "write", path, detail: ParseResult.TreeFormatter.formatErrorSync(cause) })
+const codecFailure = (path: string) => (cause: Schema.SchemaError): Journal.Failure =>
+  new Journal.Failure({ operation: "write", path, detail: cause.message })
 
 /** Installs an existing artifact sink. @since 0.1.0 @category layers */
 export const layer = (service: Service): Layer.Layer<ArtifactSink> => Layer.succeed(ArtifactSink, service)
@@ -48,8 +49,11 @@ export const makeFileSystem = (
 ): Effect.Effect<Service, Journal.Failure, FileSystem.FileSystem | Path.Path> =>
   Journal.make(Schema.Unknown, directory, fileName).pipe(
     Effect.map((journal) => ({
-      emit: <A, I, R>(schema: Schema.Schema<A, I, R>, artifact: A): Effect.Effect<void, Journal.Failure, R> =>
-        Schema.encode(schema)(artifact).pipe(
+      emit: <A, I, RD, RE>(
+        schema: Schema.Codec<A, I, RD, RE>,
+        artifact: A
+      ): Effect.Effect<void, Journal.Failure, RE> =>
+        Schema.encodeEffect(schema)(artifact).pipe(
           Effect.mapError(codecFailure(journal.path)),
           Effect.flatMap(journal.append)
         )
@@ -74,16 +78,16 @@ export const layerFileSystem = (
  * @since 0.1.0
  * @category operations
  */
-export const read = <A, I, R>(
-  schema: Schema.Schema<A, I, R>,
+export const read = <A, I, RD, RE>(
+  schema: Schema.Codec<A, I, RD, RE>,
   path: string
-): Stream.Stream<A, Journal.Failure, FileSystem.FileSystem | R> => Journal.read(schema, path)
+): Stream.Stream<A, Journal.Failure, FileSystem.FileSystem | RD> => Journal.read(schema, path)
 
 /** Delivers an artifact through the ambient sink. @since 0.1.0 @category operations */
-export const emit = <A, I, R>(
-  schema: Schema.Schema<A, I, R>,
+export const emit = <A, I, RD, RE>(
+  schema: Schema.Codec<A, I, RD, RE>,
   artifact: A
-): Effect.Effect<void, Journal.Failure, ArtifactSink | R> =>
+): Effect.Effect<void, Journal.Failure, ArtifactSink | RE> =>
   ArtifactSink.pipe(Effect.flatMap((sink) => sink.emit(schema, artifact)))
 
 /**
@@ -93,6 +97,9 @@ export const emit = <A, I, R>(
  * @category operations
  */
 export const fanout = (left: Service, right: Service): Service => ({
-  emit: <A, I, R>(schema: Schema.Schema<A, I, R>, artifact: A): Effect.Effect<void, Journal.Failure, R> =>
-    left.emit(schema, artifact).pipe(Effect.zipRight(right.emit(schema, artifact)))
+  emit: <A, I, RD, RE>(
+    schema: Schema.Codec<A, I, RD, RE>,
+    artifact: A
+  ): Effect.Effect<void, Journal.Failure, RE> =>
+    left.emit(schema, artifact).pipe(Effect.andThen(right.emit(schema, artifact)))
 })

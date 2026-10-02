@@ -4,8 +4,7 @@
  * @since 0.1.0
  * @module
  */
-import { Data, Effect, Layer, Number as Num, Ref } from "effect"
-import type * as Context from "effect/Context"
+import { Context, Data, Effect, Layer, Number as Num, Ref } from "effect"
 
 import * as Artifact from "./Artifact.js"
 
@@ -26,14 +25,14 @@ export class Options extends Data.Class<{
  * @since 0.1.0
  * @category services
  */
-export class ArtifactContext extends Effect.Tag("@scenesystems/effect-study/ArtifactContext")<
+export class ArtifactContext extends Context.Service<
   ArtifactContext,
   {
     readonly packageVersion: Artifact.PackageVersion
     readonly runId: Artifact.RunId
     readonly nextId: Effect.Effect<Artifact.Id>
   }
->() {}
+>()("@scenesystems/effect-study/ArtifactContext") {}
 
 /**
  * Builds an artifact context whose sequence begins at zero and is allocated atomically.
@@ -41,7 +40,7 @@ export class ArtifactContext extends Effect.Tag("@scenesystems/effect-study/Arti
  * @since 0.1.0
  * @category constructors
  */
-export const make = (options: Options): Effect.Effect<Context.Tag.Service<typeof ArtifactContext>> =>
+export const make = (options: Options): Effect.Effect<ArtifactContext["Service"]> =>
   Ref.make(0).pipe(
     Effect.map((sequence) => ({
       packageVersion: options.packageVersion,
@@ -58,4 +57,5 @@ export const make = (options: Options): Effect.Effect<Context.Tag.Service<typeof
  * @since 0.1.0
  * @category layers
  */
-export const layer = (options: Options): Layer.Layer<ArtifactContext> => Layer.effect(ArtifactContext, make(options))
+export const layer = (options: Options): Layer.Layer<ArtifactContext> =>
+  Layer.fresh(Layer.effect(ArtifactContext, make(options)))

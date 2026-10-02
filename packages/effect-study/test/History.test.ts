@@ -1,17 +1,16 @@
 import { expect, it } from "@effect/vitest"
-import { Array as Arr, Effect, Option, pipe, Schema, SortedMap } from "effect"
+import { Array as Arr, Effect, Option, pipe, Schema } from "effect"
 
 import * as History from "@scenesystems/effect-study/History"
 import * as Trial from "@scenesystems/effect-study/Trial"
 
 const Record = Trial.Trial(Schema.String, Trial.Completed(Schema.String))
-const trial = (trialNumber: number, cost: Option.Option<number>) =>
-  Record.make({
-    trialNumber,
-    config: "input",
-    state: { _tag: "Completed", value: "observed", duration: 12 },
-    ...Option.match(cost, { onNone: () => ({}), onSome: (cost) => ({ cost }) })
-  })
+const trial = (trialNumber: number, cost: Option.Option<number>): typeof Record.Type => ({
+  trialNumber,
+  config: "input",
+  state: { _tag: "Completed", value: "observed", duration: 12 },
+  ...Option.match(cost, { onNone: () => ({}), onSome: (cost) => ({ cost }) })
+})
 
 it.effect("orders restored trials and counts each trial's latest cost once", () =>
   Effect.gen(function*() {
@@ -28,7 +27,7 @@ it.effect("orders restored trials and counts each trial's latest cost once", () 
     expect(updated.cumulativeCost).toBe(9)
     expect(History.set(updated, trial(4, Option.some(7))).cumulativeCost).toBe(9)
     expect(history.cumulativeCost).toBe(5)
-    expect(SortedMap.size(updated.trials)).toBe(3)
+    expect(History.values(updated).length).toBe(3)
   }))
 
 it.effect("ignores absent, negative, and non-finite costs without losing trials", () =>
@@ -41,6 +40,6 @@ it.effect("ignores absent, negative, and non-finite costs without losing trials"
       trial(4, Option.none())
     ))
     expect(history.cumulativeCost).toBe(2.75)
-    expect(SortedMap.size(history.trials)).toBe(5)
+    expect(History.values(history).length).toBe(5)
     expect(History.set(history, trial(3, Option.none())).cumulativeCost).toBe(0)
   }))

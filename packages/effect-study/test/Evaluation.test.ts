@@ -1,24 +1,13 @@
 import { expect, it } from "@effect/vitest"
-import {
-  Array as Arr,
-  Context,
-  Deferred,
-  Effect,
-  Either,
-  Fiber,
-  Layer,
-  Number as Num,
-  Ref,
-  Schema,
-  TestClock
-} from "effect"
+import { Array as Arr, Context, Deferred, Effect, Exit, Fiber, Number as Num, Ref, Result, Schema } from "effect"
+import { TestClock } from "effect/testing"
 
 import * as Evaluation from "@scenesystems/effect-study/Evaluation"
 
-class Rejected extends Schema.TaggedError<Rejected>()("Rejected", { input: Schema.Number }) {}
-class Prefix extends Context.Tag("study-test/Prefix")<Prefix, string>() {}
+class Rejected extends Schema.TaggedError<Rejected>()("Rejected", { input: Schema.Finite }) {}
+class Prefix extends Context.Service<Prefix, string>()("study-test/Prefix") {}
 
-const Observation = Schema.Struct({ prefix: Schema.String, config: Schema.Number, trialNumber: Schema.Number })
+const Observation = Schema.Struct({ prefix: Schema.String, config: Schema.Finite, trialNumber: Schema.Finite })
 
 it.effect("evaluates fixed inputs with typed services and preserves input order across concurrent completion", () =>
   Effect.gen(function*() {
@@ -29,11 +18,11 @@ it.effect("evaluates fixed inputs with typed services and preserves input order 
         Effect.gen(function*() {
           const prefix = yield* Prefix
           yield* Effect.sleep(Num.multiply(config, 100))
-          yield* Deferred.succeed(fastFinished, undefined).pipe(Effect.when(() => Num.Equivalence(config, 1)))
+          yield* Deferred.succeed(fastFinished, undefined).pipe(Effect.when(Effect.succeed(Num.Equivalence(config, 1))))
           return Observation.make({ prefix, config, trialNumber })
         }),
       { concurrency: 2 }
-    ).pipe(Effect.provide(Layer.succeed(Prefix, "fixed")), Effect.fork)
+    ).pipe(Effect.provideService(Prefix, "fixed"), Effect.forkChild)
     yield* TestClock.adjust("100 millis")
     yield* Deferred.await(fastFinished)
     yield* TestClock.adjust("200 millis")
@@ -52,17 +41,33 @@ it.effect("propagates typed evaluator failure and interrupts sibling evaluation 
     const result = yield* Evaluation.run(
       Arr.make(0, 1),
       (input) =>
-        Effect.if(Num.Equivalence(input, 0), {
-          onTrue: () => Deferred.await(started).pipe(Effect.zipRight(Effect.fail(new Rejected({ input })))),
-          onFalse: () =>
-            Effect.acquireUseRelease(
-              Deferred.succeed(started, undefined),
-              () => Effect.never,
-              () => Ref.set(finalized, true)
-            )
-        }),
+        Num.Equivalence(input, 0)
+          ? Deferred.await(started).pipe(Effect.andThen(Effect.fail(new Rejected({ input }))))
+          : Effect.acquireUseRelease(
+            Deferred.succeed(started, undefined),
+            () => Effect.never,
+            () => Ref.set(finalized, true)
+          ),
       { concurrency: 2 }
-    ).pipe(Effect.either)
-    expect(result).toEqual(Either.left(new Rejected({ input: 0 })))
+    ).pipe(Effect.result)
+    expect(result).toEqual(Result.fail(new Rejected({ input: 0 })))
     expect(yield* Ref.get(finalized)).toBe(true)
+  }))
+
+it.effect("waits for all active evaluator finalizers when the caller interrupts", () =>
+  Effect.gen(function*() {
+    const started = yield* Deferred.make<void>()
+    const active = yield* Ref.make(0)
+    const fiber = yield* Evaluation.run(Arr.make("left", "right"), () =>
+      Effect.acquireUseRelease(
+        Ref.updateAndGet(active, Num.increment).pipe(
+          Effect.flatMap((count) => Num.Equivalence(count, 2) ? Deferred.succeed(started, undefined) : Effect.void)
+        ),
+        () => Effect.never,
+        () => Ref.update(active, Num.decrement)
+      ), { concurrency: 2 }).pipe(Effect.forkChild)
+    yield* Deferred.await(started)
+    yield* Fiber.interrupt(fiber)
+    expect(yield* Ref.get(active)).toBe(0)
+    expect(Exit.hasInterrupts(yield* Fiber.await(fiber))).toBe(true)
   }))

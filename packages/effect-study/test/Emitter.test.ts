@@ -66,12 +66,12 @@ describe("Emitter.toStream", () => {
       const fiber = yield* merged.pipe(
         Stream.runForEach((event) =>
           Ref.update(seenRef, (seen) => Arr.append(seen, event)).pipe(
-            Effect.zipRight(
-              Deferred.succeed(tailSeen, undefined).pipe(Effect.when(() => Str.Equivalence(event, "tail")))
+            Effect.andThen(
+              Deferred.succeed(tailSeen, undefined).pipe(Effect.when(Effect.succeed(Str.Equivalence(event, "tail"))))
             )
           )
         ),
-        Effect.fork
+        Effect.forkChild
       )
 
       yield* Deferred.await(tailSeen)
@@ -87,7 +87,7 @@ describe("Emitter.toStream", () => {
     Effect.gen(function*() {
       const seen = yield* Ref.make(Arr.empty<string>())
       const exit = yield* Emitter.toStream((emit: Emitter.Emitter<string>) =>
-        emit("before").pipe(Effect.zipRight(Effect.die("producer defect")))
+        emit("before").pipe(Effect.andThen(Effect.die("producer defect")))
       ).pipe(
         Stream.runForEach((event) => Ref.update(seen, Arr.append(event))),
         Effect.exit
@@ -102,7 +102,7 @@ describe("Emitter.toStream", () => {
       const events = yield* Emitter.toStream((emit: Emitter.Emitter<string>) =>
         Effect.acquireUseRelease(
           Ref.set(active, true),
-          () => emit("first").pipe(Effect.zipRight(Effect.never)),
+          () => emit("first").pipe(Effect.andThen(Effect.never)),
           () => Ref.set(active, false)
         )
       ).pipe(Stream.take(1), Stream.runCollect)
