@@ -1,7 +1,7 @@
 /**
  * Authenticated encryption with 256-bit keys and managed cryptographic nonces.
  * Supply {@link layer} at the host boundary. Cipher operations exchange
- * `nonce ‖ ciphertext ‖ tag` bytes; use `Envelope` for JSON storage.
+ * separate nonce and authenticated ciphertext fields; use `Envelope` for JSON storage.
  *
  * @since 0.3.0
  * @module
@@ -17,8 +17,8 @@ import * as internal from "./internal/cipher.js"
  * @since 0.3.0
  * @category models
  */
-export const Algorithm = Schema.Literal("xchacha20-poly1305", "aes-256-gcm-siv", "aes-256-gcm")
-  .annotations({ identifier: "@scenesystems/seal/Cipher/Algorithm" })
+export const Algorithm = Schema.Literals(["xchacha20-poly1305", "aes-256-gcm-siv", "aes-256-gcm"])
+  .annotate({ identifier: "@scenesystems/seal/Cipher/Algorithm" })
 
 /**
  * An algorithm accepted by the cipher service.
@@ -27,6 +27,19 @@ export const Algorithm = Schema.Literal("xchacha20-poly1305", "aes-256-gcm-siv",
  * @category models
  */
 export type Algorithm = typeof Algorithm.Type
+
+/**
+ * Encrypted bytes with their algorithm and nonce. Ciphertext includes the tag.
+ * Construction validates shape, not lengths or authenticity, and borrows supplied
+ * buffers. Keep bytes unchanged during operations. The algorithm is not AAD.
+ * @since 0.3.0
+ * @category models
+ */
+export class Encrypted extends Schema.Class<Encrypted>("@scenesystems/seal/Cipher/Encrypted")({
+  algorithm: Algorithm,
+  nonce: Schema.Uint8Array,
+  ciphertext: Schema.Uint8Array
+}) {}
 
 /**
  * A key rejected because its length is not 32 bytes or its contents are all zero.
@@ -106,19 +119,18 @@ export const tagLength = (algorithm: Algorithm): number => internal.tagLength(al
  * @since 0.3.0
  * @category services
  */
-export class Cipher extends Context.Tag("@scenesystems/seal/Cipher")<Cipher, {
+export class Cipher extends Context.Service<Cipher, {
   readonly generateKey: Effect.Effect<Uint8Array, KeyGenerationFailed>
   readonly encrypt: (
     algorithm: Algorithm,
     key: Uint8Array,
     plaintext: Uint8Array
-  ) => Effect.Effect<Uint8Array, InvalidKey | EncryptionFailed>
+  ) => Effect.Effect<Encrypted, InvalidKey | EncryptionFailed>
   readonly decrypt: (
-    algorithm: Algorithm,
-    key: Uint8Array,
-    ciphertext: Uint8Array
+    encrypted: Encrypted,
+    key: Uint8Array
   ) => Effect.Effect<Uint8Array, InvalidKey | DecryptionFailed>
-}>() {}
+}>()("@scenesystems/seal/Cipher") {}
 
 /**
  * Generates a fresh 32-byte key each time the effect runs. Uses the backend's
@@ -133,9 +145,9 @@ export const generateKey: Effect.Effect<Uint8Array, KeyGenerationFailed, Cipher>
 )
 
 /**
- * Encrypts into `nonce ‖ ciphertext ‖ tag` with a fresh CSPRNG nonce.
+ * Encrypts into separate nonce and ciphertext fields with a fresh CSPRNG nonce.
  * The key must be exactly 32 bytes and not all zero. Inputs must remain unchanged until execution completes.
- * No AAD is accepted. The algorithm is not included in these bytes.
+ * Ciphertext includes the authentication tag. No AAD is accepted.
  *
  * @since 0.3.0
  * @category encryption
@@ -144,11 +156,11 @@ export const encrypt = (
   algorithm: Algorithm,
   key: Uint8Array,
   plaintext: Uint8Array
-): Effect.Effect<Uint8Array, InvalidKey | EncryptionFailed, Cipher> =>
+): Effect.Effect<Encrypted, InvalidKey | EncryptionFailed, Cipher> =>
   Effect.flatMap(Cipher, (cipher) => cipher.encrypt(algorithm, key, plaintext))
 
 /**
- * Authenticates `nonce ‖ ciphertext ‖ tag` and returns fresh plaintext bytes.
+ * Authenticates separate nonce and ciphertext fields and returns fresh plaintext bytes.
  * The key must be exactly 32 bytes and not all zero; authentication failures are deliberately indistinguishable.
  * Neither input is mutated. This operation does not require entropy from the backend.
  *
@@ -156,11 +168,10 @@ export const encrypt = (
  * @category decryption
  */
 export const decrypt = (
-  algorithm: Algorithm,
-  key: Uint8Array,
-  ciphertext: Uint8Array
+  encrypted: Encrypted,
+  key: Uint8Array
 ): Effect.Effect<Uint8Array, InvalidKey | DecryptionFailed, Cipher> =>
-  Effect.flatMap(Cipher, (cipher) => cipher.decrypt(algorithm, key, ciphertext))
+  Effect.flatMap(Cipher, (cipher) => cipher.decrypt(encrypted, key))
 
 /**
  * Noble Ciphers backend. Key and nonce generation use the host's `crypto.getRandomValues`;

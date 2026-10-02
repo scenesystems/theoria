@@ -1,5 +1,5 @@
 import type { Cipher } from "@scenesystems/seal"
-import { Array, Data, Schema } from "effect"
+import { Array, Data } from "effect"
 
 class Vector extends Data.Class<{
   readonly algorithm: Cipher.Algorithm
@@ -37,5 +37,6 @@ export const vectors = Array.make(
   })
 )
 
-export const key = Schema.decodeSync(Schema.Uint8Array)(Array.range(1, 32))
-export const plaintext = Schema.decodeSync(Schema.Uint8Array)(Array.make(0, 1, 17, 127, 128, 255, 84, 19, 6))
+// Encoded fixtures are decoded by each test inside its Effect execution.
+export const key = "0102030405060708090a0b0c0d0e0f101112131415161718191a1b1c1d1e1f20"
+export const plaintext = "0001117f80ff541306"
