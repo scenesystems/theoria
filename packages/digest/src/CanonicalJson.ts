@@ -20,7 +20,7 @@ import { InvalidUnicode } from "./Utf8.js"
 export class UnsupportedValue extends Schema.TaggedError<UnsupportedValue>()(
   "UnsupportedValue",
   {
-    reason: Schema.Literal(
+    reason: Schema.Literals([
       "undefined",
       "nan",
       "non-finite-number",
@@ -35,7 +35,7 @@ export class UnsupportedValue extends Schema.TaggedError<UnsupportedValue>()(
       "promise",
       "sparse-array",
       "unsupported-value"
-    )
+    ])
   },
   { identifier: "@scenesystems/digest/CanonicalJson/UnsupportedValue" }
 ) {}
@@ -84,7 +84,7 @@ export class InvalidByteLimit extends Schema.TaggedError<InvalidByteLimit>()(
  * @since 0.7.0
  * @category errors
  */
-export const ByteLimitError = Schema.Union(InvalidByteLimit, ByteLimitExceeded).annotations({
+export const ByteLimitError = Schema.Union([InvalidByteLimit, ByteLimitExceeded]).annotate({
   identifier: "@scenesystems/digest/CanonicalJson/ByteLimitError"
 })
 
@@ -100,7 +100,7 @@ export type ByteLimitError = typeof ByteLimitError.Type
  * @since 0.7.0
  * @category errors
  */
-export const Error = Schema.Union(InvalidUnicode, UnsupportedValue, CyclicValue).annotations({
+export const Error = Schema.Union([InvalidUnicode, UnsupportedValue, CyclicValue]).annotate({
   identifier: "@scenesystems/digest/CanonicalJson/Error"
 })
 

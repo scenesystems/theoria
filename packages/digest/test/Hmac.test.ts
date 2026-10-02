@@ -1,7 +1,8 @@
-import { BunContext } from "@effect/platform-bun"
+import { BunServices } from "@effect/platform-bun"
 import { describe, expect, it } from "@effect/vitest"
 import * as Hmac from "@scenesystems/digest/Hmac"
-import { Effect, Encoding, Schema } from "effect"
+import { Effect, Schema } from "effect"
+import { Base64Url, Hex } from "effect/encoding"
 
 import * as Fixtures from "../scripts/fixtures.js"
 import { expectByteLength, expectDigest } from "./helpers/assertions.js"
@@ -31,7 +32,7 @@ describe("Hmac.sha256", () => {
   it.effect("composes with Effect Encoding for base64url output", () =>
     Effect.sync(() => {
       const { expected, key, message } = webhookVector
-      expect(Encoding.encodeBase64Url(Hmac.sha256(key, message))).toBe(expected)
+      expect(Base64Url.encode(Hmac.sha256(key, message))).toBe(expected)
     }))
 })
 
@@ -46,7 +47,7 @@ describe("Hmac.sha1", () => {
   it.effect("composes with Effect Encoding for hexadecimal output", () =>
     Effect.sync(() => {
       const { data, expected, key } = hmacSha1Vectors.case2
-      expect(Encoding.encodeHex(Hmac.sha1(key, data))).toBe(expected)
+      expect(Hex.encode(Hmac.sha1(key, data))).toBe(expected)
     }))
 })
 
@@ -57,7 +58,7 @@ describe("Hmac external conformance", () => {
       const sources = Fixtures.sourcesOfKind(manifest, "hmac")
       const fixtures = yield* Effect.forEach(sources, (source) =>
         Fixtures.read(source.fixturePath).pipe(
-          Effect.flatMap(Schema.decodeUnknown(Fixtures.Hmac, { onExcessProperty: "error" })),
+          Effect.flatMap(Schema.decodeUnknownEffect(Fixtures.Hmac, { onExcessProperty: "error" })),
           Effect.map((fixture) => ({ fixture, source }))
         ))
 
@@ -69,7 +70,7 @@ describe("Hmac external conformance", () => {
             const result = fixture.algorithm === "hmac-sha1"
               ? Hmac.sha1(key, message)
               : Hmac.sha256(key, message)
-            const actual = Encoding.encodeHex(result.slice(0, vector.outputLength))
+            const actual = Hex.encode(result.slice(0, vector.outputLength))
 
             expect(vector.expectedHex).toHaveLength(vector.outputLength * 2)
             expectStringMatch(
@@ -82,5 +83,5 @@ describe("Hmac external conformance", () => {
               vector.expectedHex
             )
           })))
-    }).pipe(Effect.provide(BunContext.layer)))
+    }).pipe(Effect.provide(BunServices.layer)))
 })

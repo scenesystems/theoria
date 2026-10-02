@@ -1,24 +1,23 @@
 /** Checked-in conformance corpora, provenance, admission, and loading. */
-import { FileSystem, Path, Url } from "@effect/platform"
-import { Array as Arr, Effect, Match, type ParseResult, Schema, String as Str } from "effect"
+import { Array as Arr, Effect, FileSystem, Match, Path, Schema, String as Str } from "effect"
 
 export const root = "test/fixtures/external"
 export const manifestFile = "sources.manifest.json"
 
-const NonNegativeInt = Schema.Number.pipe(Schema.int(), Schema.greaterThanOrEqualTo(0))
-const PositiveInt = Schema.Number.pipe(Schema.int(), Schema.greaterThan(0))
-const Hex = Schema.String.pipe(Schema.pattern(/^(?:[a-f0-9]{2})*$/))
-const Sha256Hex = Schema.String.pipe(Schema.pattern(/^[a-f0-9]{64}$/))
-const Blake3XofHex = Schema.String.pipe(Schema.pattern(/^[a-f0-9]{262}$/))
+const NonNegativeInt = Schema.Int.check(Schema.isGreaterThanOrEqualTo(0))
+const PositiveInt = Schema.Int.check(Schema.isGreaterThan(0))
+const Hex = Schema.String.check(Schema.isPattern(/^(?:[a-f0-9]{2})*$/))
+const Sha256Hex = Schema.String.check(Schema.isPattern(/^[a-f0-9]{64}$/))
+const Blake3XofHex = Schema.String.check(Schema.isPattern(/^[a-f0-9]{262}$/))
 
-export const Kind = Schema.Literal(
+export const Kind = Schema.Literals([
   "blake3",
   "hash",
   "hmac",
   "hkdf",
   "jcs",
   "unicode-adversarial"
-)
+])
 
 export type Kind = typeof Kind.Type
 
@@ -38,14 +37,14 @@ const Source = Schema.Struct({
   id: Schema.NonEmptyString,
   kind: Kind,
   fixturePath: Schema.NonEmptyString,
-  origin: Schema.Literal("external", "local-adversarial"),
+  origin: Schema.Literals(["external", "local-adversarial"]),
   sourceLocator: Schema.NonEmptyString,
   revision: Schema.NonEmptyString,
   sourcePaths: Schema.NonEmptyArray(Schema.NonEmptyString),
   sourceSelectors: Schema.NonEmptyArray(Schema.NonEmptyString),
-  retrievedAt: Schema.String.pipe(Schema.pattern(/^\d{4}-\d{2}-\d{2}$/)),
+  retrievedAt: Schema.String.check(Schema.isPattern(/^\d{4}-\d{2}-\d{2}$/)),
   sourceLicense: Schema.NonEmptyString,
-  licenseUrl: Schema.String.pipe(Schema.pattern(/^https:\/\//)),
+  licenseUrl: Schema.String.check(Schema.isPattern(/^https:\/\//)),
   sourceNotice: Schema.NonEmptyString,
   transformations: Schema.Array(Schema.NonEmptyString),
   exclusions: Schema.Array(Exclusion),
@@ -53,7 +52,7 @@ const Source = Schema.Struct({
   contentSha256: Sha256Hex
 })
 
-export const Manifest = Schema.parseJson(
+export const Manifest = Schema.fromJsonString(
   Schema.Struct({
     sources: Schema.NonEmptyArray(Source)
   }),
@@ -62,7 +61,7 @@ export const Manifest = Schema.parseJson(
 
 export type Manifest = typeof Manifest.Type
 
-export const CanonicalJson = Schema.parseJson(
+export const CanonicalJson = Schema.fromJsonString(
   Schema.Struct({
     format: Schema.Literal("jcs-cases-v1"),
     cases: Schema.NonEmptyArray(
@@ -75,7 +74,7 @@ export const CanonicalJson = Schema.parseJson(
   })
 )
 
-export const Blake3 = Schema.parseJson(
+export const Blake3 = Schema.fromJsonString(
   Schema.Struct({
     _comment: Schema.NonEmptyString,
     key: Schema.Literal("whats the Elvish word for friend"),
@@ -91,7 +90,7 @@ export const Blake3 = Schema.parseJson(
   })
 )
 
-export const Digest = Schema.parseJson(
+export const Digest = Schema.fromJsonString(
   Schema.Struct({
     format: Schema.Literal("hash-cases-v1"),
     algorithm: Schema.Literal("sha256"),
@@ -105,10 +104,10 @@ export const Digest = Schema.parseJson(
   })
 )
 
-export const Hmac = Schema.parseJson(
+export const Hmac = Schema.fromJsonString(
   Schema.Struct({
     format: Schema.Literal("hmac-cases-v1"),
-    algorithm: Schema.Literal("hmac-sha1", "hmac-sha256"),
+    algorithm: Schema.Literals(["hmac-sha1", "hmac-sha256"]),
     cases: Schema.NonEmptyArray(
       Schema.Struct({
         id: Schema.NonEmptyString,
@@ -151,7 +150,7 @@ const WycheproofHkdfCase = Schema.Struct({
   info: Hex,
   size: NonNegativeInt,
   okm: Hex,
-  result: Schema.Literal("valid", "invalid", "acceptable")
+  result: Schema.Literals(["valid", "invalid", "acceptable"])
 })
 
 const WycheproofHkdf = Schema.Struct({
@@ -159,7 +158,7 @@ const WycheproofHkdf = Schema.Struct({
   schema: Schema.Literal("hkdf_test_schema_v1.json"),
   numberOfTests: PositiveInt,
   header: Schema.NonEmptyArray(Schema.NonEmptyString),
-  notes: Schema.Record({ key: Schema.NonEmptyString, value: WycheproofNote }),
+  notes: Schema.Record(Schema.NonEmptyString, WycheproofNote),
   testGroups: Schema.NonEmptyArray(
     Schema.Struct({
       type: Schema.Literal("HkdfTest"),
@@ -173,15 +172,15 @@ const WycheproofHkdf = Schema.Struct({
   )
 })
 
-export const Hkdf = Schema.parseJson(Schema.Union(Rfc5869, WycheproofHkdf))
+export const Hkdf = Schema.fromJsonString(Schema.Union([Rfc5869, WycheproofHkdf]))
 
-export const UnicodeAdversarial = Schema.parseJson(
+export const UnicodeAdversarial = Schema.fromJsonString(
   Schema.Struct({
     format: Schema.Literal("unicode-adversarial-v1"),
     cases: Schema.NonEmptyArray(
       Schema.Struct({
         id: Schema.NonEmptyString,
-        target: Schema.Literal("key", "value"),
+        target: Schema.Literals(["key", "value"]),
         input: Schema.String,
         expectedTag: Schema.Literal("InvalidUnicode"),
         expectedCodeUnitIndex: NonNegativeInt
@@ -190,29 +189,31 @@ export const UnicodeAdversarial = Schema.parseJson(
   })
 )
 
-export const validate = (kind: Kind, content: string): Effect.Effect<void, ParseResult.ParseError> =>
+export const validate = (kind: Kind, content: string): Effect.Effect<void, Schema.SchemaError> =>
   Match.value(kind).pipe(
     Match.when(
       "blake3",
-      () => Schema.decodeUnknown(Blake3)(content, { onExcessProperty: "error" }).pipe(Effect.asVoid)
+      () => Schema.decodeEffect(Blake3)(content, { onExcessProperty: "error" }).pipe(Effect.asVoid)
     ),
     Match.when(
       "jcs",
-      () => Schema.decodeUnknown(CanonicalJson)(content, { onExcessProperty: "error" }).pipe(Effect.asVoid)
+      () => Schema.decodeEffect(CanonicalJson)(content, { onExcessProperty: "error" }).pipe(Effect.asVoid)
     ),
-    Match.when("hash", () => Schema.decodeUnknown(Digest)(content, { onExcessProperty: "error" }).pipe(Effect.asVoid)),
-    Match.when("hmac", () => Schema.decodeUnknown(Hmac)(content, { onExcessProperty: "error" }).pipe(Effect.asVoid)),
-    Match.when("hkdf", () => Schema.decodeUnknown(Hkdf)(content, { onExcessProperty: "error" }).pipe(Effect.asVoid)),
+    Match.when("hash", () => Schema.decodeEffect(Digest)(content, { onExcessProperty: "error" }).pipe(Effect.asVoid)),
+    Match.when("hmac", () => Schema.decodeEffect(Hmac)(content, { onExcessProperty: "error" }).pipe(Effect.asVoid)),
+    Match.when("hkdf", () => Schema.decodeEffect(Hkdf)(content, { onExcessProperty: "error" }).pipe(Effect.asVoid)),
     Match.when(
       "unicode-adversarial",
-      () => Schema.decodeUnknown(UnicodeAdversarial)(content, { onExcessProperty: "error" }).pipe(Effect.asVoid)
+      () => Schema.decodeEffect(UnicodeAdversarial)(content, { onExcessProperty: "error" }).pipe(Effect.asVoid)
     ),
     Match.exhaustive
   )
 
 const resolveRoot: Effect.Effect<string, never, Path.Path> = Effect.gen(function*() {
   const path = yield* Path.Path
-  return yield* path.fromFileUrl(yield* Url.fromString(`../${root}/`, import.meta.url))
+  const url = yield* Schema.decodeEffect(Schema.URLFromString)(import.meta.url)
+  const file = yield* path.fromFileUrl(url)
+  return path.resolve(path.dirname(file), "..", root)
 }).pipe(Effect.orDie)
 
 export const read = (relativePath: string) =>
@@ -223,7 +224,7 @@ export const read = (relativePath: string) =>
     return yield* fileSystem.readFileString(path.join(absoluteRoot, relativePath))
   })
 
-export const loadManifest = read(manifestFile).pipe(Effect.flatMap(Schema.decodeUnknown(Manifest)))
+export const loadManifest = read(manifestFile).pipe(Effect.flatMap(Schema.decodeUnknownEffect(Manifest)))
 
 export const sourcesOfKind = (manifest: Manifest, kind: Kind) =>
   Arr.filter(manifest.sources, (source) => Str.Equivalence(source.kind, kind))

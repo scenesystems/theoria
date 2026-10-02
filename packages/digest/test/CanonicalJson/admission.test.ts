@@ -1,27 +1,34 @@
 import { describe, expect, it } from "@effect/vitest"
-import { Array as Arr, Data, DateTime, Effect, Exit, Schema, Tuple } from "effect"
+import { Array as Arr, Data, DateTime, Effect, Exit, MutableRef, Schema, Tuple } from "effect"
 
 import * as CanonicalJson from "@scenesystems/digest/CanonicalJson"
 import * as Utf8 from "@scenesystems/digest/Utf8"
 
 const Rejections = Schema.Array(
-  Schema.Tuple(Schema.String, Schema.Unknown, CanonicalJson.UnsupportedValue.fields.reason)
+  Schema.Tuple([Schema.String, Schema.Unknown, CanonicalJson.UnsupportedValue.fields.reason])
 )
-const unsupportedValues = Schema.decodeUnknownSync(Rejections)(Arr.make(
+const unsupportedValues = Schema.decodeSync(Rejections)(Arr.make(
   Tuple.make("undefined", undefined, "undefined"),
   Tuple.make("NaN", NaN, "nan"),
   Tuple.make("positive infinity", Infinity, "non-finite-number"),
   Tuple.make("negative infinity", -Infinity, "non-finite-number"),
   Tuple.make("bigint", 1n, "bigint"),
   Tuple.make("function", () => 1, "function"),
-  Tuple.make("symbol", Schema.decodeSync(Schema.Symbol)("value"), "symbol"),
-  Tuple.make("Date", DateTime.toDateUtc(DateTime.unsafeMake("2026-01-01T00:00:00.000Z")), "date"),
+  Tuple.make("symbol", Schema.decodeSync(Schema.Symbol)(Symbol.for("value")), "symbol"),
+  Tuple.make("Date", DateTime.toDateUtc(DateTime.makeUnsafe("2026-01-01T00:00:00.000Z")), "date"),
   Tuple.make("RegExp", /value/u, "regexp"),
   Tuple.make("sparse array", Arr.allocate(2), "sparse-array"),
-  Tuple.make("bytes", Schema.decodeSync(Schema.Uint8Array)(Arr.make(1)), "typed-array"),
-  Tuple.make("Map", Schema.decodeSync(Schema.Map({ key: Schema.String, value: Schema.Number }))([["value", 1]]), "map"),
-  Tuple.make("Set", Schema.decodeSync(Schema.Set(Schema.Number))(Arr.make(1)), "set")
+  Tuple.make("bytes", Schema.decodeSync(Schema.Uint8Array)(Uint8Array.of(1)), "typed-array"),
+  Tuple.make(
+    "Map",
+    Schema.decodeSync(Schema.toCodecIso(Schema.ReadonlyMap(Schema.String, Schema.Finite)))([["value", 1]]),
+    "map"
+  ),
+  Tuple.make("Set", Schema.decodeSync(Schema.toCodecIso(Schema.ReadonlySet(Schema.Finite)))(Arr.make(1)), "set")
 ))
+
+class DataRecord extends Data.Class<{ readonly value: unknown }> {}
+class CompositeData extends Data.Class<{ readonly z: ReadonlyArray<number>; readonly a: boolean }> {}
 
 describe("CanonicalJson.encode — admission", () => {
   it.effect.each(unsupportedValues)("rejects unencoded %s", ([, value, reason]) =>
@@ -33,7 +40,7 @@ describe("CanonicalJson.encode — admission", () => {
 
   it.effect("canonicalizes Effect data records and arrays by their JSON fields", () =>
     Effect.gen(function*() {
-      const value = Data.struct({ z: Data.array(Arr.make(3, 1)), a: true })
+      const value = new CompositeData({ z: Arr.make(3, 1), a: true })
       expect(yield* CanonicalJson.encode(value)).toBe("{\"a\":true,\"z\":[3,1]}")
     }))
 
@@ -44,6 +51,34 @@ describe("CanonicalJson.encode — admission", () => {
       const expected = Exit.fail(new CanonicalJson.UnsupportedValue({ reason: "nan" }))
       expect(first).toStrictEqual(expected)
       expect(second).toStrictEqual(expected)
+    }))
+
+  it.effect("reads JSON-visible fields once in canonical order and stops on the first failure", () =>
+    Effect.gen(function*() {
+      const reads = MutableRef.make(Arr.empty<string>())
+      const value = {
+        get z(): number {
+          MutableRef.update(reads, Arr.append("z"))
+          return 2
+        },
+        get a(): number {
+          MutableRef.update(reads, Arr.append("a"))
+          return 1
+        }
+      }
+      expect(yield* CanonicalJson.encode(value)).toBe("{\"a\":1,\"z\":2}")
+      expect(MutableRef.get(reads)).toStrictEqual(["a", "z"])
+      MutableRef.set(reads, [])
+      expect(
+        yield* Effect.exit(CanonicalJson.encode({
+          a: undefined,
+          get z() {
+            MutableRef.update(reads, Arr.append("z"))
+            return 2
+          }
+        }))
+      ).toStrictEqual(Exit.fail(new CanonicalJson.UnsupportedValue({ reason: "undefined" })))
+      expect(MutableRef.get(reads)).toStrictEqual([])
     }))
 
   it.effect("rejects malformed nested values and keys with bounded diagnostics", () =>
@@ -77,11 +112,12 @@ describe("CanonicalJson.encode — admission", () => {
 
   it.effect("admits both shared acyclic references and structurally equal siblings", () =>
     Effect.gen(function*() {
-      const shared = Data.struct({ value: 1 })
+      const shared = new DataRecord({ value: 1 })
       const expected = "{\"left\":{\"value\":1},\"right\":{\"value\":1}}"
       expect(yield* CanonicalJson.encode({ left: shared, right: shared })).toBe(expected)
-      expect(yield* CanonicalJson.encode({ left: Data.struct({ value: 1 }), right: Data.struct({ value: 1 }) })).toBe(
-        expected
-      )
+      expect(yield* CanonicalJson.encode({ left: new DataRecord({ value: 1 }), right: new DataRecord({ value: 1 }) }))
+        .toBe(
+          expected
+        )
     }))
 })

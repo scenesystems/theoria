@@ -23,29 +23,29 @@ const measuredSamples = 3
 const timerDuration = Duration.millis(1)
 
 class Sample extends Schema.Class<Sample>("CanonicalizationResponsivenessSample")({
-  wallMs: Schema.Number,
-  schedulerDelayMs: Schema.Number,
-  bytes: Schema.Number
+  wallMs: Schema.Finite,
+  schedulerDelayMs: Schema.Finite,
+  bytes: Schema.Finite
 }) {}
 
 class Probe extends Schema.Class<Probe>("CanonicalizationResponsivenessProbe")({
-  delay: Schema.DurationFromSelf,
-  previous: Schema.DurationFromSelf
+  delay: Schema.Duration,
+  previous: Schema.Duration
 }) {}
 
 class Distribution extends Schema.Class<Distribution>("CanonicalizationResponsivenessDistribution")({
-  min: Schema.Number,
-  p50: Schema.Number,
-  p95: Schema.Number,
-  max: Schema.Number,
-  mean: Schema.Number
+  min: Schema.Finite,
+  p50: Schema.Finite,
+  p95: Schema.Finite,
+  max: Schema.Finite,
+  mean: Schema.Finite
 }) {}
 
 class Workload extends Schema.Class<Workload>("CanonicalizationResponsivenessWorkload")({
-  pointCount: Schema.Number,
-  warmupSamples: Schema.Number,
-  measuredSamples: Schema.Number,
-  timerDurationMs: Schema.Number
+  pointCount: Schema.Finite,
+  warmupSamples: Schema.Finite,
+  measuredSamples: Schema.Finite,
+  timerDurationMs: Schema.Finite
 }) {}
 
 class Report extends Schema.Class<Report>("CanonicalizationResponsivenessReport")({
@@ -55,7 +55,7 @@ class Report extends Schema.Class<Report>("CanonicalizationResponsivenessReport"
   schedulerDelayMs: Distribution
 }) {}
 
-const ReportJson = Schema.parseJson(Report, { space: 2 })
+const ReportJson = Schema.fromJsonString(Report, { space: 2 })
 
 const MaximumValid = Schema.Struct({
   version: Schema.Literal("scene.graph.closed.v1"),
@@ -68,7 +68,7 @@ const MaximumValid = Schema.Struct({
   children: Schema.Array(Schema.Unknown)
 })
 
-const encodeNumber = Schema.encodeSync(Schema.NumberFromString)
+const encodeNumber = Schema.encodeSync(Schema.FiniteFromString)
 
 const maximumValid = Schema.decodeSync(MaximumValid)({
   version: "scene.graph.closed.v1",
@@ -111,7 +111,7 @@ const observe: Effect.Effect<Sample> = Effect.scoped(
     })
     const started = yield* currentTime
     yield* Ref.set(probe, new Probe({ delay: Duration.zero, previous: started }))
-    const timer = Deferred.succeed(timerStarted, undefined).pipe(Effect.zipRight(Effect.forever(tick)))
+    const timer = Deferred.succeed(timerStarted, undefined).pipe(Effect.andThen(Effect.forever(tick)))
     yield* Effect.forkScoped(timer)
     yield* Deferred.await(timerStarted)
     const bytes = yield* Effect.orDie(CanonicalJson.encodeBytes(maximumValid))
@@ -130,7 +130,7 @@ const distribution = (values: Arr.NonEmptyReadonlyArray<number>) => {
   const percentile = (fraction: number): number =>
     Option.getOrElse(
       Arr.findFirst(sorted, (_value, index) =>
-        Num.greaterThanOrEqualTo(Num.increment(index), Num.multiply(Arr.length(sorted), fraction))),
+        Num.isGreaterThanOrEqualTo(Num.increment(index), Num.multiply(Arr.length(sorted), fraction))),
       () =>
         Arr.lastNonEmpty(sorted)
     )
@@ -139,14 +139,14 @@ const distribution = (values: Arr.NonEmptyReadonlyArray<number>) => {
     p50: percentile(0.5),
     p95: percentile(0.95),
     max: Arr.lastNonEmpty(sorted),
-    mean: Num.unsafeDivide(Num.sumAll(sorted), Arr.length(sorted))
+    mean: Num.divideUnsafe(Num.sumAll(sorted), Arr.length(sorted))
   })
 }
 
 const program = Effect.gen(function*() {
   yield* Effect.forEach(Arr.makeBy(warmupSamples, (index) => index), () => observe, { discard: true })
   const samples = yield* Effect.forEach(Arr.makeBy(measuredSamples, (index) => index), () => observe)
-  const report = yield* Schema.encode(ReportJson)(
+  const report = yield* Schema.encodeEffect(ReportJson)(
     new Report({
       workload: new Workload({
         pointCount,

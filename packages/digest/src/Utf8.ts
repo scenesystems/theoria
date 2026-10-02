@@ -6,7 +6,8 @@
  * @module
  */
 
-import { Array, Boolean, Either, Encoding, Match, Number, Option, type ParseResult, Predicate, Schema } from "effect"
+import { Array, Boolean, Match, Number, Option, Predicate, Result, Schema } from "effect"
+import { Base64 } from "effect/encoding"
 
 import { encodeUtf8Unchecked, unicodeFault } from "./internal/utf8.js"
 
@@ -22,8 +23,8 @@ import { encodeUtf8Unchecked, unicodeFault } from "./internal/utf8.js"
 export class InvalidUnicode extends Schema.TaggedError<InvalidUnicode>()(
   "InvalidUnicode",
   {
-    kind: Schema.Literal("lone-high-surrogate", "lone-low-surrogate"),
-    codeUnitIndex: Schema.NonNegativeInt
+    kind: Schema.Literals(["lone-high-surrogate", "lone-low-surrogate"]),
+    codeUnitIndex: Schema.Number.check(Schema.isInt(), Schema.isGreaterThanOrEqualTo(0))
   },
   { identifier: "@scenesystems/digest/Utf8/InvalidUnicode" }
 ) {}
@@ -37,10 +38,10 @@ export class InvalidUnicode extends Schema.TaggedError<InvalidUnicode>()(
  * @category models
  */
 export const Scalar = Schema.Int.pipe(
-  Schema.between(0, 0x10ffff),
-  Schema.filter(Predicate.not(Number.between({ minimum: 0xd800, maximum: 0xdfff }))),
+  Schema.check(Schema.isBetween({ minimum: 0, maximum: 0x10ffff })),
+  Schema.check(Schema.makeFilter(Predicate.not(Number.between({ minimum: 0xd800, maximum: 0xdfff })))),
   Schema.brand("@scenesystems/digest/Utf8/Scalar")
-).annotations({ identifier: "@scenesystems/digest/Utf8/Scalar" })
+).annotate({ identifier: "@scenesystems/digest/Utf8/Scalar" })
 
 /**
  * A validated Unicode scalar, encoded as a number.
@@ -53,13 +54,13 @@ export type Scalar = typeof Scalar.Type
 // shortest UTF-8 form. Fixed power-of-two divisors keep every intermediate exact.
 const scalarBytes = (scalar: Scalar) => {
   const highBits = (divisor: number) =>
-    Number.unsafeDivide(Number.subtract(scalar, Number.remainder(scalar, divisor)), divisor)
+    Number.divideUnsafe(Number.subtract(scalar, Number.remainder(scalar, divisor)), divisor)
   const continuation = (divisor: number) => Number.sum(0x80, Number.remainder(highBits(divisor), 64))
   return Match.value(scalar).pipe(
-    Match.when(Number.lessThanOrEqualTo(0x7f), () => Array.of(scalar)),
-    Match.when(Number.lessThanOrEqualTo(0x7ff), () => Array.make(Number.sum(0xc0, highBits(64)), continuation(1))),
+    Match.when(Number.isLessThanOrEqualTo(0x7f), () => Array.of(scalar)),
+    Match.when(Number.isLessThanOrEqualTo(0x7ff), () => Array.make(Number.sum(0xc0, highBits(64)), continuation(1))),
     Match.when(
-      Number.lessThanOrEqualTo(0xffff),
+      Number.isLessThanOrEqualTo(0xffff),
       () => Array.make(Number.sum(0xe0, highBits(4096)), continuation(64), continuation(1))
     ),
     Match.orElse(() =>
@@ -76,18 +77,16 @@ const scalarBytes = (scalar: Scalar) => {
  * @since 0.7.0
  * @category constructors
  */
-export const fromScalar = (value: number): Either.Either<string, ParseResult.ParseError> =>
-  Either.flatMap(
-    Schema.decodeUnknownEither(Scalar)(value),
+export const fromScalar = (value: number): Result.Result<string, Schema.SchemaError> =>
+  Result.flatMap(
+    Schema.decodeResult(Scalar)(value),
     (scalar) =>
       Boolean.match(Number.Equivalence(scalar, 0xfeff), {
         // The text codec consumes an initial BOM; a scalar's text identity must survive.
-        onTrue: () => Either.right("\ufeff"),
+        onTrue: () => Result.succeed("\ufeff"),
         onFalse: () =>
-          Schema.decodeEither(Schema.Uint8Array)(scalarBytes(scalar)).pipe(
-            // Effect v3's pure byte-to-text codecs take encoded text. At most four
-            // valid UTF-8 bytes pass through hex; no Stream or runtime is needed.
-            Either.flatMap((bytes) => Schema.decodeEither(Schema.StringFromHex)(Encoding.encodeHex(bytes)))
+          Schema.decodeResult(Schema.Uint8Array)(Uint8Array.from(scalarBytes(scalar))).pipe(
+            Result.map((bytes) => Result.getOrThrow(Base64.decodeString(Base64.encode(bytes))))
           )
       })
   )
@@ -99,8 +98,8 @@ export const fromScalar = (value: number): Either.Either<string, ParseResult.Par
  * @since 0.7.0
  * @category encoding
  */
-export const encode = (text: string): Either.Either<Uint8Array, InvalidUnicode> =>
+export const encode = (text: string): Result.Result<Uint8Array, InvalidUnicode> =>
   Option.match(unicodeFault(text), {
-    onNone: () => Either.right(encodeUtf8Unchecked(text)),
-    onSome: Either.left
+    onNone: () => Result.succeed(encodeUtf8Unchecked(text)),
+    onSome: Result.fail
   })

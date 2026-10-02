@@ -1,23 +1,12 @@
 import { describe, expect, it } from "@effect/vitest"
 import * as Utf8 from "@scenesystems/digest/Utf8"
-import {
-  Array as Arr,
-  Effect,
-  Either,
-  Encoding,
-  FastCheck as fc,
-  Number as N,
-  Option,
-  ParseResult,
-  Schema,
-  String as Str,
-  Tuple
-} from "effect"
+import { Array as Arr, Effect, Option, Result, Schema, String as Str, Tuple } from "effect"
+import { Hex } from "effect/encoding"
 
-const scalar = fc.oneof(
-  fc.integer({ min: 0, max: 0xd7ff }),
-  fc.integer({ min: 0xe000, max: 0x10ffff })
-)
+const scalar = Schema.Union([
+  Schema.Int.check(Schema.isBetween({ minimum: 0, maximum: 0xd7ff })),
+  Schema.Int.check(Schema.isBetween({ minimum: 0xe000, maximum: 0x10ffff }))
+])
 
 describe("Utf8.fromScalar", () => {
   it.effect("constructs exact RFC 3629 boundary and asymmetric scalars without normalization", () =>
@@ -43,27 +32,27 @@ describe("Utf8.fromScalar", () => {
       (vector) =>
         Effect.gen(function*() {
           const result = Utf8.fromScalar(vector.value)
-          expect(result).toEqual(Either.right(vector.text))
-          const text = yield* result
-          expect(Encoding.encodeHex(yield* Utf8.encode(text))).toBe(vector.hex)
+          expect(result).toEqual(Result.succeed(vector.text))
+          const text = yield* Effect.fromResult(result)
+          expect(Hex.encode(yield* Effect.fromResult(Utf8.encode(text)))).toBe(vector.hex)
         })
     ))
 
   it.effect("rejects surrogate code points, non-integers, non-finite numbers, and out-of-range input", () =>
     Effect.forEach(
-      Arr.make(-1, 0.5, 0xd800, 0xdbff, 0xdc00, 0xdfff, 0x110000, N.unsafeDivide(0, 0), N.unsafeDivide(1, 0)),
+      Arr.make(-1, 0.5, 0xd800, 0xdbff, 0xdc00, 0xdfff, 0x110000, NaN, Infinity),
       (value) =>
         Effect.gen(function*() {
-          expect(Either.getLeft(Utf8.fromScalar(value))).toEqual(Option.some(expect.any(ParseResult.ParseError)))
-          expect(yield* Effect.flip(Schema.decodeUnknown(Utf8.Scalar)(value))).toBeInstanceOf(ParseResult.ParseError)
+          expect(Result.getFailure(Utf8.fromScalar(value))).toEqual(Option.some(expect.any(Schema.SchemaError)))
+          expect(yield* Effect.flip(Schema.decodeEffect(Utf8.Scalar)(value))).toBeInstanceOf(Schema.SchemaError)
         })
     ))
 
   it.effect("keeps the scalar schema numeric rather than coercing encoded text", () =>
     Effect.gen(function*() {
-      expect(yield* Effect.flip(Schema.decodeUnknown(Utf8.Scalar)("65"))).toBeInstanceOf(ParseResult.ParseError)
-      const value = yield* Schema.decodeUnknown(Utf8.Scalar)(0x233b4)
-      expect(yield* Schema.encode(Utf8.Scalar)(value)).toBe(0x233b4)
+      expect(yield* Effect.flip(Schema.decodeUnknownEffect(Utf8.Scalar)("65"))).toBeInstanceOf(Schema.SchemaError)
+      const value = yield* Schema.decodeEffect(Utf8.Scalar)(0x233b4)
+      expect(yield* Schema.encodeEffect(Utf8.Scalar)(value)).toBe(0x233b4)
     }))
 
   it.effect.prop(
@@ -71,28 +60,28 @@ describe("Utf8.fromScalar", () => {
     Tuple.make(scalar),
     ([value]) =>
       Effect.gen(function*() {
-        const text = yield* Utf8.fromScalar(value)
+        const text = yield* Effect.fromResult(Utf8.fromScalar(value))
         expect(Arr.length(Arr.fromIterable(text))).toBe(1)
         expect(Str.codePointAt(text, 0)).toEqual(Option.some(value))
       }),
-    { fastCheck: { numRuns: 2000, seed: 3629 } }
+    { arbitrary: { runs: 2000, seed: 3629 } }
   )
 
   it.effect.prop(
     "rejects the entire surrogate interval",
-    Tuple.make(fc.integer({ min: 0xd800, max: 0xdfff })),
+    Tuple.make(Schema.Int.check(Schema.isBetween({ minimum: 0xd800, maximum: 0xdfff }))),
     ([value]) =>
       Effect.gen(function*() {
-        expect(yield* Effect.flip(Utf8.fromScalar(value))).toBeInstanceOf(ParseResult.ParseError)
+        expect(yield* Effect.flip(Effect.fromResult(Utf8.fromScalar(value)))).toBeInstanceOf(Schema.SchemaError)
       }),
-    { fastCheck: { numRuns: 200, seed: 3629 } }
+    { arbitrary: { runs: 200, seed: 3629 } }
   )
 
   it.effect("preserves U+FEFF on every execution, independently of surrounding text", () =>
     Effect.gen(function*() {
       const construct = Utf8.fromScalar(0xfeff)
-      expect(yield* construct).toBe("\ufeff")
-      expect(yield* construct).toBe("\ufeff")
-      expect(Str.concat("x", yield* construct)).toBe("x\ufeff")
+      expect(yield* Effect.fromResult(construct)).toBe("\ufeff")
+      expect(yield* Effect.fromResult(construct)).toBe("\ufeff")
+      expect(Str.concat("x", yield* Effect.fromResult(construct))).toBe("x\ufeff")
     }))
 })

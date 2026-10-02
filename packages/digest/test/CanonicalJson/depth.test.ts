@@ -1,5 +1,5 @@
 import { expect, it } from "@effect/vitest"
-import { Array as Arr, Data, Effect, Either, Exit, Number as N, Schema, String as Str, Tuple } from "effect"
+import { Array as Arr, Data, Effect, Exit, Result, Schema, String as Str, Tuple } from "effect"
 
 import * as CanonicalJson from "@scenesystems/digest/CanonicalJson"
 import * as ContentDigest from "@scenesystems/digest/ContentDigest"
@@ -16,13 +16,13 @@ const nestedValue = (
   wrap: (value: unknown) => unknown,
   depthLimit = maximumDepth
 ): Effect.Effect<unknown> =>
-  Effect.map(
-    Effect.iterate<DeepValueState, never, never>(new DeepValueState({ depth: 0, value: null }), {
-      while: ({ depth }) => N.lessThan(depth, depthLimit),
-      body: ({ depth, value }) => Effect.succeed(new DeepValueState({ depth: N.increment(depth), value: wrap(value) }))
-    }),
-    ({ value }) => value
-  )
+  Effect.suspend(() => {
+    const build = (state: DeepValueState): Effect.Effect<unknown> =>
+      state.depth < depthLimit
+        ? Effect.suspend(() => build(new DeepValueState({ depth: state.depth + 1, value: wrap(state.value) })))
+        : Effect.succeed(state.value)
+    return build(new DeepValueState({ depth: 0, value: null }))
+  })
 
 it.effect("canonicalizes 100000 nested arrays without stack growth", () =>
   Effect.gen(function*() {
@@ -41,10 +41,11 @@ it.effect("canonicalizes 100000 nested records without stack growth", () =>
   }), testTimeoutMillis)
 
 class NestedRecord extends Schema.Class<NestedRecord>("NestedRecord")({ value: Schema.Unknown }) {}
+class NestedData extends Data.Class<{ readonly value: unknown }> {}
 
 const structuralValues = Arr.make(
-  Tuple.make("Data.struct", (value: unknown) => Data.struct({ value }), "{\"value\":", "}"),
-  Tuple.make("Data.array", (value: unknown) => Data.array(Arr.of(value)), "[", "]"),
+  Tuple.make("Data.Class", (value: unknown) => new NestedData({ value }), "{\"value\":", "}"),
+  Tuple.make("Array", (value: unknown) => Arr.of(value), "[", "]"),
   Tuple.make("Schema.Class", (value: unknown) => new NestedRecord({ value }), "{\"value\":", "}")
 )
 
@@ -70,8 +71,8 @@ it.effect.each(structuralValues)(
       expect(yield* Effect.exit(ContentDigest.fromSchemaWithByteLimit(Schema.Unknown, value, 0))).toStrictEqual(
         Exit.fail(expected)
       )
-      expect(ContentDigest.fromSchemaWithByteLimitEither(Schema.Unknown, value, 0)).toStrictEqual(
-        Either.left(expected)
+      expect(ContentDigest.fromSchemaWithByteLimitResult(Schema.Unknown, value, 0)).toStrictEqual(
+        Result.fail(expected)
       )
     }),
   testTimeoutMillis

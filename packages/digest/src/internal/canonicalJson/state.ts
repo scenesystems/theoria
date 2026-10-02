@@ -4,7 +4,6 @@ import type { Chunk, MutableHashSet } from "effect"
 import {
   Boolean as B,
   Data,
-  Either,
   Equal,
   Equivalence,
   Hash,
@@ -13,6 +12,7 @@ import {
   MutableRef,
   Number as N,
   Option,
+  Result,
   Schema,
   String as Str
 } from "effect"
@@ -29,7 +29,7 @@ export class Ancestor extends Data.Class<{ readonly identity: object }> {
     return Match.value(that).pipe(
       Match.when(
         Schema.is(Schema.instanceOf(Ancestor)),
-        (other) => Equivalence.strict<object>()(this.identity, other.identity)
+        (other) => Equivalence.strictEqual<object>()(this.identity, other.identity)
       ),
       Match.orElse(() => false)
     )
@@ -55,7 +55,7 @@ export class State<E> extends Data.Class<{
   readonly active: MutableHashSet.MutableHashSet<Ancestor>
   readonly segments: MutableList.MutableList<string>
   readonly sink: Option.Option<(segment: string) => void>
-  readonly admit: (text: string) => Either.Either<void, E>
+  readonly admit: (text: string) => Result.Result<void, E>
   readonly pending: MutableRef.MutableRef<string>
   readonly failure: MutableRef.MutableRef<Option.Option<CanonicalizationError | E>>
 }> {}
@@ -85,11 +85,11 @@ export const flushPending = <E>(state: State<E>): void => {
 }
 
 export const emit = <E>(state: State<E>, text: string): void => {
-  Either.match(state.admit(text), {
-    onLeft: (error) => fail(state, error),
-    onRight: () => {
+  Result.match(state.admit(text), {
+    onFailure: (error) => fail(state, error),
+    onSuccess: () => {
       MutableRef.update(state.pending, Str.concat(text))
-      B.match(N.greaterThanOrEqualTo(Str.length(MutableRef.get(state.pending)), 32_768), {
+      B.match(N.isGreaterThanOrEqualTo(Str.length(MutableRef.get(state.pending)), 32_768), {
         onTrue: () => flushPending(state),
         onFalse: () => undefined
       })

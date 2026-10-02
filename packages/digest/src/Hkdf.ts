@@ -7,7 +7,7 @@
 
 import { hkdf } from "@noble/hashes/hkdf.js"
 import { sha256 as nobleSha256, sha512 as nobleSha512 } from "@noble/hashes/sha2.js"
-import { Array, Either, Number, Option, Predicate, Schema } from "effect"
+import { Array, Number, Option, Predicate, Result, Schema } from "effect"
 
 /**
  * Reports a requested HKDF output length outside the selected hash's RFC 5869 range.
@@ -27,15 +27,18 @@ const derive = (
   salt: Option.Option<Uint8Array>,
   info: Uint8Array,
   length: number
-): Either.Either<Uint8Array, InvalidLength> =>
-  Either.gen(function*() {
-    yield* Either.liftPredicate(
-      Predicate.and(Schema.is(Schema.NonNegativeInt), Number.lessThanOrEqualTo(Number.multiply(255, hash.outputLen))),
+): Result.Result<Uint8Array, InvalidLength> =>
+  Result.gen(function*() {
+    yield* Result.liftPredicate(
+      Predicate.and(
+        Schema.is(Schema.Number.check(Schema.isInt(), Schema.isGreaterThanOrEqualTo(0))),
+        Number.isLessThanOrEqualTo(Number.multiply(255, hash.outputLen))
+      ),
       () => new InvalidLength({})
     )(length)
     const saltBytes = Option.getOrElse(
       salt,
-      () => Schema.decodeSync(Schema.Uint8Array)(Array.replicate(0, hash.outputLen))
+      () => Schema.decodeSync(Schema.Uint8Array)(Uint8Array.from(Array.replicate(0, hash.outputLen)))
     )
     return hkdf(hash, ikm, saltBytes, info, length)
   })
@@ -54,7 +57,7 @@ export const sha256 = (
   salt: Option.Option<Uint8Array>,
   info: Uint8Array,
   length: number
-): Either.Either<Uint8Array, InvalidLength> => derive(nobleSha256, ikm, salt, info, length)
+): Result.Result<Uint8Array, InvalidLength> => derive(nobleSha256, ikm, salt, info, length)
 
 /**
  * Derives 0 through 16320 bytes with HKDF-SHA512.
@@ -70,4 +73,4 @@ export const sha512 = (
   salt: Option.Option<Uint8Array>,
   info: Uint8Array,
   length: number
-): Either.Either<Uint8Array, InvalidLength> => derive(nobleSha512, ikm, salt, info, length)
+): Result.Result<Uint8Array, InvalidLength> => derive(nobleSha512, ikm, salt, info, length)

@@ -30,12 +30,12 @@ The root exports namespace objects, and each namespace has an exact matching sub
 - `Utf8` / `@scenesystems/digest/Utf8` — strict encoding and Unicode scalar construction
 - `Blake3`, `Hmac`, and `Hkdf` with matching subpaths — keyed primitives
 
-Keep APIs under their semantic owner. Do not add a flat alias, compatibility wrapper, encoded-format convenience, mutable algorithm registry, crypto provider service, or deep public path. Applications compose hexadecimal and base64 encodings with Effect's `Encoding` module.
+Keep APIs under their semantic owner. Do not add a flat alias, compatibility wrapper, encoded-format convenience, mutable algorithm registry, crypto provider service, or deep public path. Applications compose hexadecimal and base64 encodings with `Hex`, `Base64`, and `Base64Url` from `effect/encoding`.
 
 Use the least powerful result channel that describes the operation:
 
 - deterministic byte primitives are pure (`Digest.hash`, `Hmac.sha256`, `Hmac.sha1`)
-- local validation uses `Either` (`Utf8.encode`, `Utf8.fromScalar`, `Digest.hashString`, `Blake3.mac`, `Blake3.deriveKey`, HKDF)
+- local validation uses `Result` (`Utf8.encode`, `Utf8.fromScalar`, `Digest.hashString`, `Blake3.mac`, `Blake3.deriveKey`, HKDF); lift it into Effect with `Effect.fromResult`
 - cooperative traversal, streams, and Schema encoding use `Effect`
 
 `ContentDigest.ContentDigest` is the runtime and encoded model. Convert it to the `<algorithm>:<base64url>` protocol string only at the boundary with `ContentDigest.toString`.
@@ -48,13 +48,16 @@ Use the least powerful result channel that describes the operation:
 - Validate strings and keys before encoding. Preserve valid text exactly; never normalize or replace malformed text.
 - Reject unsupported runtime values, malformed Unicode, and cycles through `CanonicalJson.Error`. Keep diagnostics bounded and free of rejected text, keys, paths, and preimages.
 - Keep traversal deterministic, stack-safe, and cooperative between bounded batches. Record key collection and sorting, synchronous Schema transforms, final joining, and final UTF-8 materialization remain synchronous work.
-- Delegate Schema encoding to `Schema.encode` or `Schema.encodeEither`; never interpret Schema ASTs here.
+- Delegate Schema encoding to `Schema.encodeEffect` or `Schema.encodeResult`; never interpret Schema ASTs here. Preserve the codec's encoding requirements independently of its decoding requirements.
 - For bounded Schema digests, count serializer-emitted UTF-8 segments and reject the first segment that would exceed the inclusive limit. Do not claim to inspect exactly `maximumBytes + 1` bytes.
 - Preserve upstream `E` and `R` in stream APIs. Text stream failures report partition-independent absolute UTF-16 code-unit indices.
 
 ## Effect and test discipline
 
+- Owner-approved v4 exception: direct `Uint8Array` construction is permitted solely for byte materialization in this package's implementation and tests. Effect 4.0.0's `Schema.Uint8Array` validates existing bytes, and its derived JSON codec accepts base64 rather than v3's number arrays. This does not authorize general native adapters, bypassing input validation, or lint suppressions.
 - Public errors and encoded values are Schema-owned. `Digest.Algorithm` owns the hash algorithm type.
+- `ContentDigest.ContentDigest` and `ContentDigest.Result` explicitly implement structural equality and hashing; v4 `Schema.Class` does not supply that behavior automatically.
+- Property tests use v4 Schema/Arbitrary inputs and `arbitrary` options on `it.effect.prop`.
 - Private traversal variants use `Data.TaggedEnum`; they have no serialization contract. This corrects the former blanket ban on that Effect abstraction.
 - Use `@effect/vitest`, `it.effect`, and `Effect.exit`; do not use `Effect.run*` in source or tests.
 - Tests import only the root or supported subpaths. Test behavior, known answers, interruption, service requirements, and typed failures—not export inventories or implementation files.

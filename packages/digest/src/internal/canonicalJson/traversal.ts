@@ -4,94 +4,94 @@ import {
   Boolean as B,
   Chunk,
   Effect,
-  Either,
   Iterable,
+  Match,
   MutableHashSet,
   MutableList,
   MutableRef,
   Number as N,
   Option,
-  Predicate,
-  Stream
+  Result
 } from "effect"
 import { constVoid } from "effect/Function"
 
 import { ByteLimitExceeded, type Error as CanonicalizationError } from "../../CanonicalJson.js"
-import { utf8ByteLengthUnchecked } from "../utf8.js"
+import { encodeUtf8Unchecked, utf8ByteLengthUnchecked } from "../utf8.js"
 import { process } from "./serialization.js"
 import { flushPending, Frame, State } from "./state.js"
 
 const makeState = <E>(
   value: unknown,
-  admit: (text: string) => Either.Either<void, E>,
+  admit: (text: string) => Result.Result<void, E>,
   sink: Option.Option<(segment: string) => void>
-): State<E> =>
-  new State({
-    stack: MutableList.make(Frame.Visit({ value })),
+): State<E> => {
+  const stack = MutableList.make<Frame>()
+  MutableList.prepend(stack, Frame.Visit({ value }))
+  return new State({
+    stack,
     active: MutableHashSet.empty(),
-    segments: MutableList.empty(),
+    segments: MutableList.make(),
     sink,
     admit,
     pending: MutableRef.make(""),
     failure: MutableRef.make(Option.none())
   })
+}
 
 const stopped = <E>(state: State<E>): boolean =>
-  B.or(MutableList.isEmpty(state.stack), Option.isSome(MutableRef.get(state.failure)))
+  B.or(N.Equivalence(state.stack.length, 0), Option.isSome(MutableRef.get(state.failure)))
 
 const processBatch = <E>(state: State<E>): void => {
   Iterable.forEach(
     Iterable.takeWhile(Iterable.range(1, 256), () => B.not(stopped(state))),
     () =>
-      Option.match(Option.fromNullable(MutableList.shift(state.stack)), {
-        onNone: constVoid,
-        onSome: (frame) => process(state, frame)
-      })
+      Match.value(MutableList.take(state.stack)).pipe(
+        Match.when(MutableList.Empty, constVoid),
+        Match.orElse((frame) => process(state, frame))
+      )
   )
 }
 
-const complete = <E>(state: State<E>): Either.Either<void, CanonicalizationError | E> =>
+const complete = <E>(state: State<E>): Result.Result<void, CanonicalizationError | E> =>
   Option.match(MutableRef.get(state.failure), {
-    onSome: Either.left,
+    onSome: Result.fail,
     onNone: () => {
       flushPending(state)
-      return Either.right(undefined)
+      return Result.succeed(undefined)
     }
   })
 
 const execute = <E>(state: State<E>): Effect.Effect<void, CanonicalizationError | E> =>
-  Effect.iterate(state, {
-    while: Predicate.not(stopped),
-    body: (current) =>
-      Effect.gen(function*() {
-        processBatch(current)
-        yield* Effect.when(Effect.sleep(0), () => B.not(stopped(current)))
-        return current
-      })
-  }).pipe(Effect.flatMap(complete))
+  Effect.suspend(() => {
+    processBatch(state)
+    return B.match(stopped(state), {
+      onTrue: () => Effect.fromResult(complete(state)),
+      onFalse: () => Effect.andThen(Effect.yieldNow, execute(state))
+    })
+  })
 
-const executeSynchronously = <E>(state: State<E>): Either.Either<void, CanonicalizationError | E> => {
+const executeSynchronously = <E>(state: State<E>): Result.Result<void, CanonicalizationError | E> => {
   Iterable.forEach(Iterable.takeWhile(Iterable.range(0), () => B.not(stopped(state))), () => processBatch(state))
   return complete(state)
 }
 
 const admitBounded =
   (maximumBytes: number, byteLength: MutableRef.MutableRef<number>) =>
-  (text: string): Either.Either<void, ByteLimitExceeded> => {
+  (text: string): Result.Result<void, ByteLimitExceeded> => {
     const next = N.sum(MutableRef.get(byteLength), utf8ByteLengthUnchecked(text))
-    return B.match(N.greaterThan(next, maximumBytes), {
-      onTrue: () => Either.left(new ByteLimitExceeded({})),
+    return B.match(N.isGreaterThan(next, maximumBytes), {
+      onTrue: () => Result.fail(new ByteLimitExceeded({})),
       onFalse: () => {
         MutableRef.set(byteLength, next)
-        return Either.right(undefined)
+        return Result.succeed(undefined)
       }
     })
   }
 
 export const canonicalizeSegments = (value: unknown): Effect.Effect<Chunk.Chunk<string>, CanonicalizationError> =>
   Effect.suspend(() => {
-    const state = makeState(value, () => Either.right(undefined), Option.none())
-    return Effect.map(execute(state), () => Chunk.fromIterable(state.segments))
+    const state = makeState(value, () => Result.succeed(undefined), Option.none())
+    return Effect.map(execute(state), () => Chunk.fromIterable(MutableList.toArray(state.segments)))
   })
 
 export const canonicalizeWithByteLimit = (
@@ -105,14 +105,14 @@ export const canonicalizeWithByteLimit = (
     return Effect.map(execute(state), () => MutableRef.get(length))
   })
 
-export const canonicalizeWithByteLimitEither = (
+export const canonicalizeWithByteLimitResult = (
   value: unknown,
   maximumBytes: number,
   sink: (segment: string) => void
-): Either.Either<number, CanonicalizationError | ByteLimitExceeded> => {
+): Result.Result<number, CanonicalizationError | ByteLimitExceeded> => {
   const length = MutableRef.make(0)
   const state = makeState(value, admitBounded(maximumBytes, length), Option.some(sink))
-  return Either.map(executeSynchronously(state), () => MutableRef.get(length))
+  return Result.map(executeSynchronously(state), () => MutableRef.get(length))
 }
 
 export const canonicalizeValue = (value: unknown): Effect.Effect<string, CanonicalizationError> =>
@@ -120,4 +120,4 @@ export const canonicalizeValue = (value: unknown): Effect.Effect<string, Canonic
 
 /** Final materialization is synchronous; bounded hashing consumes segments instead. */
 export const encodeCanonicalSegments = (segments: Chunk.Chunk<string>): Effect.Effect<Uint8Array> =>
-  Stream.make(Chunk.join(segments, "")).pipe(Stream.encodeText, Stream.runHead, Effect.map(Option.getOrThrow))
+  Effect.sync(() => encodeUtf8Unchecked(Chunk.join(segments, "")))

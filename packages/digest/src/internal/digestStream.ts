@@ -93,7 +93,7 @@ export const hashStringStream = <E, R>(
     (hasher) =>
       chunks.pipe(
         Stream.runFoldEffect(
-          new TextState({ hasher, carriedHighSurrogate: Option.none(), consumedCodeUnits: 0 }),
+          () => new TextState({ hasher, carriedHighSurrogate: Option.none(), consumedCodeUnits: 0 }),
           foldTextChunk
         ),
         Effect.flatMap(finishText)

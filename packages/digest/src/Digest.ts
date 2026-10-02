@@ -8,7 +8,7 @@
 
 import { blake3 } from "@noble/hashes/blake3.js"
 import { sha256 } from "@noble/hashes/sha2.js"
-import { type Effect, Either, Match, Schema, type Stream } from "effect"
+import { type Effect, Match, Result, Schema, type Stream } from "effect"
 import * as streaming from "./internal/digestStream.js"
 import * as Utf8 from "./Utf8.js"
 
@@ -17,7 +17,7 @@ import * as Utf8 from "./Utf8.js"
  * @since 0.7.0
  * @category models
  */
-export const Algorithm = Schema.Literal("blake3-256", "sha256").annotations({
+export const Algorithm = Schema.Literals(["blake3-256", "sha256"]).annotate({
   identifier: "@scenesystems/digest/Digest/Algorithm"
 })
 
@@ -30,7 +30,7 @@ export type Algorithm = typeof Algorithm.Type
 
 /**
  * Hashes an exact byte preimage to a newly allocated 32-byte digest. Pure and
- * synchronous; the input is not modified. Compose with Effect's `Encoding`
+ * synchronous; the input is not modified. Compose with `effect/encoding`
  * for hexadecimal or base64url output. No provider or randomness is required.
  *
  * @since 0.7.0
@@ -40,7 +40,7 @@ export const hash = (algorithm: Algorithm, bytes: Uint8Array): Uint8Array =>
   Match.value(algorithm).pipe(
     Match.when("blake3-256", () => blake3(bytes)),
     Match.when("sha256", () => sha256(bytes)),
-    Match.exhaustive
+    Match.orElseAbsurd
   )
 
 /**
@@ -50,8 +50,8 @@ export const hash = (algorithm: Algorithm, bytes: Uint8Array): Uint8Array =>
  * @since 0.7.0
  * @category hashing
  */
-export const hashString = (algorithm: Algorithm, text: string): Either.Either<Uint8Array, Utf8.InvalidUnicode> =>
-  Either.map(Utf8.encode(text), (bytes) => hash(algorithm, bytes))
+export const hashString = (algorithm: Algorithm, text: string): Result.Result<Uint8Array, Utf8.InvalidUnicode> =>
+  Result.map(Utf8.encode(text), (bytes) => hash(algorithm, bytes))
 
 /**
  * Hashes byte chunks in order without concatenating the input. Chunk boundaries
