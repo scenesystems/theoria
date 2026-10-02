@@ -12,7 +12,7 @@ import { abs, hypot } from "../../Numeric.js"
 const indices = (size: number): Chunk.Chunk<number> =>
   Chunk.fromIterable(
     Iterable.unfold(0, (index) =>
-      Boolean.match(Number.lessThan(index, size), {
+      Boolean.match(Number.isLessThan(index, size), {
         onFalse: Option.none,
         onTrue: () => Option.some(Tuple.make(index, Number.increment(index)))
       }))
@@ -100,6 +100,6 @@ export const centroid = (
         0,
         (acc, pt) => Number.sum(acc, Option.getOrElse(Chunk.get(pt, j), () => 0))
       ),
-      Number.unsafeDivide(1, n)
+      Number.divideUnsafe(1, n)
     ))
 }

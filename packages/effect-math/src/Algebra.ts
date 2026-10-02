@@ -4,13 +4,13 @@
  * @since 0.1.0
  * @module
  */
-import { Array, Chunk, Effect, Schema } from "effect"
+import { Array, Chunk, Effect, Schema, String } from "effect"
 
 import * as Integer from "./internal/algebra/integer.js"
 import * as Polynomial from "./internal/algebra/polynomial.js"
 import * as PolicyGuard from "./internal/policyGuard.js"
 
-const encodeNumber = Schema.encodeSync(Schema.NumberFromString)
+const encodeNumber = String.String
 const finite = Schema.Finite
 const integerPair = { a: Schema.Int, b: Schema.Int }
 
@@ -19,15 +19,15 @@ const integerPair = { a: Schema.Int, b: Schema.Int }
  * @category schemas
  */
 export const PolyEvalInput = Schema.Struct({
-  coefficients: Schema.Chunk(finite),
+  coefficients: Schema.toCodecJson(Schema.Chunk(finite)),
   x: finite
-}).annotations({ identifier: "@scenesystems/effect-math/Algebra/PolyEvalInput" })
+}).annotate({ identifier: "@scenesystems/effect-math/Algebra/PolyEvalInput" })
 
 /** Polynomial coefficients in lowest-degree-first order.
  * @since 0.1.0
  * @category schemas
  */
-export const PolyDerivativeInput = Schema.Struct({ coefficients: Schema.Chunk(finite) }).annotations({
+export const PolyDerivativeInput = Schema.Struct({ coefficients: Schema.toCodecJson(Schema.Chunk(finite)) }).annotate({
   identifier: "@scenesystems/effect-math/Algebra/PolyDerivativeInput"
 })
 
@@ -35,7 +35,7 @@ export const PolyDerivativeInput = Schema.Struct({ coefficients: Schema.Chunk(fi
  * @since 0.1.0
  * @category schemas
  */
-export const GcdInput = Schema.Struct(integerPair).annotations({
+export const GcdInput = Schema.Struct(integerPair).annotate({
   identifier: "@scenesystems/effect-math/Algebra/GcdInput"
 })
 
@@ -43,7 +43,7 @@ export const GcdInput = Schema.Struct(integerPair).annotations({
  * @since 0.1.0
  * @category schemas
  */
-export const LcmInput = Schema.Struct(integerPair).annotations({
+export const LcmInput = Schema.Struct(integerPair).annotate({
   identifier: "@scenesystems/effect-math/Algebra/LcmInput"
 })
 
@@ -52,8 +52,8 @@ export const LcmInput = Schema.Struct(integerPair).annotations({
  * @category schemas
  */
 export const FactorialInput = Schema.Struct({
-  n: Schema.Int.pipe(Schema.greaterThanOrEqualTo(0))
-}).annotations({ identifier: "@scenesystems/effect-math/Algebra/FactorialInput" })
+  n: Schema.Int.check(Schema.isGreaterThanOrEqualTo(0))
+}).annotate({ identifier: "@scenesystems/effect-math/Algebra/FactorialInput" })
 
 /**
  * Decoded polynomial evaluation input.
@@ -92,7 +92,7 @@ export type FactorialInput = typeof FactorialInput.Type
  */
 export class DecodeError
   extends Schema.TaggedError<DecodeError>("@scenesystems/effect-math/Algebra/DecodeError")("AlgebraDecodeError", {
-    operation: Schema.Literal("polyEval", "polyDerivative", "gcd", "lcm", "factorial"),
+    operation: Schema.Literals(["polyEval", "polyDerivative", "gcd", "lcm", "factorial"]),
     message: Schema.String
   })
 {}
@@ -105,13 +105,13 @@ export class DomainViolationError
   extends Schema.TaggedError<DomainViolationError>("@scenesystems/effect-math/Algebra/DomainViolationError")(
     "AlgebraDomainViolationError",
     {
-      operation: Schema.Literal(
+      operation: Schema.Literals([
         "polyEvalWithPolicies",
         "polyDerivativeWithPolicies",
         "gcdWithPolicies",
         "lcmWithPolicies",
         "factorialWithPolicies"
-      ),
+      ]),
       message: Schema.String
     }
   )
@@ -187,7 +187,7 @@ export const factorial: (n: number) => number = Integer.factorial
  */
 export const polyEvalValidated = (input: unknown) =>
   Effect.gen(function*() {
-    const decoded = yield* Schema.decodeUnknown(PolyEvalInput)(input, {
+    const decoded = yield* Schema.decodeUnknownEffect(PolyEvalInput)(input, {
       onExcessProperty: "error"
     }).pipe(
       Effect.mapError((error) =>
@@ -208,7 +208,7 @@ export const polyEvalValidated = (input: unknown) =>
  */
 export const polyDerivativeValidated = (input: unknown) =>
   Effect.gen(function*() {
-    const decoded = yield* Schema.decodeUnknown(PolyDerivativeInput)(input, {
+    const decoded = yield* Schema.decodeUnknownEffect(PolyDerivativeInput)(input, {
       onExcessProperty: "error"
     }).pipe(
       Effect.mapError((error) =>
@@ -229,7 +229,7 @@ export const polyDerivativeValidated = (input: unknown) =>
  */
 export const gcdValidated = (input: unknown) =>
   Effect.gen(function*() {
-    const decoded = yield* Schema.decodeUnknown(GcdInput)(input, {
+    const decoded = yield* Schema.decodeUnknownEffect(GcdInput)(input, {
       onExcessProperty: "error"
     }).pipe(
       Effect.mapError((error) =>
@@ -250,7 +250,7 @@ export const gcdValidated = (input: unknown) =>
  */
 export const lcmValidated = (input: unknown) =>
   Effect.gen(function*() {
-    const decoded = yield* Schema.decodeUnknown(LcmInput)(input, {
+    const decoded = yield* Schema.decodeUnknownEffect(LcmInput)(input, {
       onExcessProperty: "error"
     }).pipe(
       Effect.mapError((error) =>
@@ -271,7 +271,7 @@ export const lcmValidated = (input: unknown) =>
  */
 export const factorialValidated = (input: unknown) =>
   Effect.gen(function*() {
-    const decoded = yield* Schema.decodeUnknown(FactorialInput)(input, {
+    const decoded = yield* Schema.decodeUnknownEffect(FactorialInput)(input, {
       onExcessProperty: "error"
     }).pipe(
       Effect.mapError((error) =>
@@ -310,7 +310,7 @@ export const factorialValidated = (input: unknown) =>
  * )
  *
  * export const program = Algebra.polyEvalWithPolicies(
- *   Chunk.make(1, Number.negate(2), 1), 3
+ *   Chunk.make(1, Number.multiply(2, -1), 1), 3
  * ).pipe(
  *   Effect.provide(layer),
  *   Effect.filterOrFail(

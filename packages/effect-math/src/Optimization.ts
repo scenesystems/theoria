@@ -4,14 +4,14 @@
  * @since 0.1.0
  * @module
  */
-import { Array, Effect, Inspectable, Match, Predicate, Schema } from "effect"
+import { Array, Effect, Inspectable, Match, Predicate, Schema, String } from "effect"
 
 import * as Bisect from "./internal/optimization/bisect.js"
 import * as GoldenSection from "./internal/optimization/goldenSection.js"
 import * as PolicyGuard from "./internal/policyGuard.js"
 import * as Numeric from "./Numeric.js"
 
-const encodeNumber = Schema.encodeSync(Schema.NumberFromString)
+const encodeNumber = String.String
 
 /**
  * Accepts finite bisection endpoints and optional positive stopping controls.
@@ -20,11 +20,11 @@ const encodeNumber = Schema.encodeSync(Schema.NumberFromString)
  * @category schemas
  */
 export const BisectInput = Schema.Struct({
-  a: Schema.Number.pipe(Schema.finite()),
-  b: Schema.Number.pipe(Schema.finite()),
+  a: Schema.Number.check(Schema.isFinite()),
+  b: Schema.Number.check(Schema.isFinite()),
   tolerance: Schema.optional(Numeric.AbsoluteTolerance),
   maxIterations: Schema.optional(Numeric.IterationBudget)
-}).annotations({ identifier: "@scenesystems/effect-math/Optimization/BisectInput" })
+}).annotate({ identifier: "@scenesystems/effect-math/Optimization/BisectInput" })
 
 /**
  * Bisection boundary input.
@@ -41,11 +41,11 @@ export type BisectInput = typeof BisectInput.Type
  * @category schemas
  */
 export const GoldenSectionInput = Schema.Struct({
-  a: Schema.Number.pipe(Schema.finite()),
-  b: Schema.Number.pipe(Schema.finite()),
+  a: Schema.Number.check(Schema.isFinite()),
+  b: Schema.Number.check(Schema.isFinite()),
   tolerance: Schema.optional(Numeric.AbsoluteTolerance),
   maxIterations: Schema.optional(Numeric.IterationBudget)
-}).annotations({ identifier: "@scenesystems/effect-math/Optimization/GoldenSectionInput" })
+}).annotate({ identifier: "@scenesystems/effect-math/Optimization/GoldenSectionInput" })
 
 /**
  * Golden-section boundary input.
@@ -109,8 +109,8 @@ const execute = (operation: string, computation: () => number) =>
     catch: (error) => new Numeric.ExecutionError({ operation, message: formatExecutionError(error) })
   })
 
-const decode = <A, I, R>(schema: Schema.Schema<A, I, R>, operation: string, input: unknown) =>
-  Schema.decodeUnknown(schema)(input, { onExcessProperty: "error" }).pipe(
+const decode = <A, I, R>(schema: Schema.Codec<A, I, R>, operation: string, input: unknown) =>
+  Schema.decodeUnknownEffect(schema)(input, { onExcessProperty: "error" }).pipe(
     Effect.mapError((error) => new DecodeError({ operation, message: error.message }))
   )
 

@@ -17,7 +17,7 @@ import * as Numeric from "../../Numeric.js"
  * @since 0.4.0
  * @category internal
  */
-export const Cartesian = Schema.Tuple(Schema.Number, Schema.Number).annotations({
+export const Cartesian = Schema.Tuple([Schema.Finite, Schema.Finite]).annotate({
   identifier: "@scenesystems/effect-math/internal/complex/Cartesian"
 })
 
@@ -91,21 +91,21 @@ export const divide = (
   Boolean.match(Boolean.and(Number.Equivalence(bRe, 0), Number.Equivalence(bIm, 0)), {
     onTrue: () => Tuple.make(NaN, NaN),
     onFalse: () =>
-      Boolean.match(Number.greaterThanOrEqualTo(Numeric.abs(bRe), Numeric.abs(bIm)), {
+      Boolean.match(Number.isGreaterThanOrEqualTo(Numeric.abs(bRe), Numeric.abs(bIm)), {
         onTrue: () => {
-          const ratio = Number.unsafeDivide(bIm, bRe)
+          const ratio = Number.divideUnsafe(bIm, bRe)
           const denominator = Number.sum(bRe, Number.multiply(bIm, ratio))
           return Tuple.make(
-            Number.unsafeDivide(Number.sum(aRe, Number.multiply(aIm, ratio)), denominator),
-            Number.unsafeDivide(Number.subtract(aIm, Number.multiply(aRe, ratio)), denominator)
+            Number.divideUnsafe(Number.sum(aRe, Number.multiply(aIm, ratio)), denominator),
+            Number.divideUnsafe(Number.subtract(aIm, Number.multiply(aRe, ratio)), denominator)
           )
         },
         onFalse: () => {
-          const ratio = Number.unsafeDivide(bRe, bIm)
+          const ratio = Number.divideUnsafe(bRe, bIm)
           const denominator = Number.sum(bIm, Number.multiply(bRe, ratio))
           return Tuple.make(
-            Number.unsafeDivide(Number.sum(Number.multiply(aRe, ratio), aIm), denominator),
-            Number.unsafeDivide(Number.subtract(Number.multiply(aIm, ratio), aRe), denominator)
+            Number.divideUnsafe(Number.sum(Number.multiply(aRe, ratio), aIm), denominator),
+            Number.divideUnsafe(Number.subtract(Number.multiply(aIm, ratio), aRe), denominator)
           )
         }
       })
@@ -117,7 +117,7 @@ export const divide = (
  * @since 0.1.0
  * @category internal
  */
-export const conjugate = (re: number, im: number): Cartesian => Tuple.make(re, Number.negate(im))
+export const conjugate = (re: number, im: number): Cartesian => Tuple.make(re, Number.multiply(im, -1))
 
 /**
  * Complex modulus |a + bi| = √(a² + b²) via the Numeric hypotenuse operation
@@ -198,13 +198,13 @@ export const sqrt = (re: number, im: number): Cartesian =>
     onTrue: () => Tuple.make(0, 0),
     onFalse: () => {
       const radius = Numeric.hypot(Chunk.make(re, im))
-      const resultRe = Numeric.sqrt(Number.unsafeDivide(Number.sum(radius, re), 2))
-      const resultIm = Numeric.sqrt(Number.unsafeDivide(Number.subtract(radius, re), 2))
+      const resultRe = Numeric.sqrt(Number.divideUnsafe(Number.sum(radius, re), 2))
+      const resultIm = Numeric.sqrt(Number.divideUnsafe(Number.subtract(radius, re), 2))
       return Tuple.make(
         resultRe,
-        Boolean.match(Number.greaterThanOrEqualTo(im, 0), {
+        Boolean.match(Number.isGreaterThanOrEqualTo(im, 0), {
           onTrue: () => resultIm,
-          onFalse: () => Number.negate(resultIm)
+          onFalse: () => Number.multiply(resultIm, -1)
         })
       )
     }

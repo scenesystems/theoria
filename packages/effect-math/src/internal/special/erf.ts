@@ -10,16 +10,16 @@
  * @since 0.1.0
  * @category internal
  */
-import { Boolean, Chunk, Number, Schema } from "effect"
+import { Boolean, Chunk, Number } from "effect"
 
 import { abs, exp } from "../../Numeric.js"
 
-const NonNaN = Schema.Number.pipe(Schema.nonNaN())
+const isNonNaN = (value: number): boolean => Boolean.not(Number.Equivalence(value, NaN))
 const twoPowNegative28 = 3.725290298461914e-9
 const rightTailThreshold = 6
 const smallRegionBoundary = 0.84375
 const middleRegionBoundary = 1.25
-const tailRegionBoundary = Number.unsafeDivide(1, 0.35)
+const tailRegionBoundary = Number.divideUnsafe(1, 0.35)
 
 const EFX = 1.28379167095512586316e-01
 const ERX = 8.45062911510467529297e-01
@@ -117,19 +117,19 @@ const tailApproximation = (
   numerator: Chunk.Chunk<number>,
   denominator: Chunk.Chunk<number>
 ): number => {
-  const reciprocalSquare = Number.unsafeDivide(1, Number.multiply(x, x))
-  const correction = Number.unsafeDivide(
+  const reciprocalSquare = Number.divideUnsafe(1, Number.multiply(x, x))
+  const correction = Number.divideUnsafe(
     polynomial(numerator, reciprocalSquare),
     polynomial(denominator, reciprocalSquare)
   )
-  return Number.unsafeDivide(
-    exp(Number.sum(Number.subtract(Number.negate(Number.multiply(x, x)), 0.5625), correction)),
+  return Number.divideUnsafe(
+    exp(Number.sum(Number.subtract(Number.multiply(-1, Number.multiply(x, x)), 0.5625), correction)),
     x
   )
 }
 
 const positiveTail = (x: number): number =>
-  Boolean.match(Number.lessThan(x, tailRegionBoundary), {
+  Boolean.match(Number.isLessThan(x, tailRegionBoundary), {
     onTrue: () => tailApproximation(x, RA, SA),
     onFalse: () => tailApproximation(x, RB, SB)
   })
@@ -138,22 +138,22 @@ const nearZeroApproximation = (x: number): number => Number.multiply(Number.sum(
 
 const polynomialApproximation = (x: number): number => {
   const square = Number.multiply(x, x)
-  return Number.multiply(x, Number.sum(1, Number.unsafeDivide(polynomial(PP, square), polynomial(QQ, square))))
+  return Number.multiply(x, Number.sum(1, Number.divideUnsafe(polynomial(PP, square), polynomial(QQ, square))))
 }
 
 const shiftedApproximation = (x: number): number => {
   const shifted = Number.subtract(x, 1)
-  return Number.sum(ERX, Number.unsafeDivide(polynomial(PA, shifted), polynomial(QA, shifted)))
+  return Number.sum(ERX, Number.divideUnsafe(polynomial(PA, shifted), polynomial(QA, shifted)))
 }
 
 const erfRightNonBig = (x: number): number =>
-  Boolean.match(Number.lessThan(x, twoPowNegative28), {
+  Boolean.match(Number.isLessThan(x, twoPowNegative28), {
     onTrue: () => nearZeroApproximation(x),
     onFalse: () =>
-      Boolean.match(Number.lessThan(x, smallRegionBoundary), {
+      Boolean.match(Number.isLessThan(x, smallRegionBoundary), {
         onTrue: () => polynomialApproximation(x),
         onFalse: () =>
-          Boolean.match(Number.lessThan(x, middleRegionBoundary), {
+          Boolean.match(Number.isLessThan(x, middleRegionBoundary), {
             onTrue: () => shiftedApproximation(x),
             onFalse: () => Number.subtract(1, positiveTail(x))
           })
@@ -161,13 +161,13 @@ const erfRightNonBig = (x: number): number =>
   })
 
 const erfcPositive = (x: number): number =>
-  Boolean.match(Number.lessThan(x, twoPowNegative28), {
+  Boolean.match(Number.isLessThan(x, twoPowNegative28), {
     onTrue: () => Number.subtract(1, nearZeroApproximation(x)),
     onFalse: () =>
-      Boolean.match(Number.lessThan(x, smallRegionBoundary), {
+      Boolean.match(Number.isLessThan(x, smallRegionBoundary), {
         onTrue: () => Number.subtract(1, polynomialApproximation(x)),
         onFalse: () =>
-          Boolean.match(Number.lessThan(x, middleRegionBoundary), {
+          Boolean.match(Number.isLessThan(x, middleRegionBoundary), {
             onTrue: () => Number.subtract(1, shiftedApproximation(x)),
             onFalse: () => positiveTail(x)
           })
@@ -182,7 +182,7 @@ const erfcPositive = (x: number): number =>
  * @category internal
  */
 export const erfCephes = (x: number): number => {
-  return Boolean.match(Schema.is(NonNaN)(x), {
+  return Boolean.match(isNonNaN(x), {
     onFalse: () => NaN,
     onTrue: () =>
       Boolean.match(Number.Equivalence(x, Infinity), {
@@ -192,12 +192,12 @@ export const erfCephes = (x: number): number => {
             onTrue: () => -1,
             onFalse: () => {
               const absoluteX = abs(x)
-              const rightValue = Boolean.match(Number.lessThan(absoluteX, rightTailThreshold), {
+              const rightValue = Boolean.match(Number.isLessThan(absoluteX, rightTailThreshold), {
                 onTrue: () => erfRightNonBig(absoluteX),
                 onFalse: () => 1
               })
-              return Boolean.match(Number.lessThan(x, 0), {
-                onTrue: () => Number.negate(rightValue),
+              return Boolean.match(Number.isLessThan(x, 0), {
+                onTrue: () => Number.multiply(rightValue, -1),
                 onFalse: () => rightValue
               })
             }
@@ -214,12 +214,12 @@ export const erfCephes = (x: number): number => {
  * @category internal
  */
 export const erfcCephes = (x: number): number => {
-  return Boolean.match(Schema.is(NonNaN)(x), {
+  return Boolean.match(isNonNaN(x), {
     onFalse: () => NaN,
     onTrue: () =>
-      Boolean.match(Number.greaterThanOrEqualTo(x, 0), {
+      Boolean.match(Number.isGreaterThanOrEqualTo(x, 0), {
         onTrue: () => erfcPositive(x),
-        onFalse: () => Number.subtract(2, erfcPositive(Number.negate(x)))
+        onFalse: () => Number.subtract(2, erfcPositive(Number.multiply(x, -1)))
       })
   })
 }

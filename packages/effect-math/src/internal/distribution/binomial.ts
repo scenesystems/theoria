@@ -14,7 +14,7 @@ import { Boolean, Number, Schema } from "effect"
 import { exp, log } from "../../Numeric.js"
 import { betainc, lnGamma } from "../../Special.js"
 
-const Integer = Schema.Number.pipe(Schema.int())
+const Integer = Schema.Number.check(Schema.isInt())
 
 /**
  * Log-PMF: ln C(n,k) + k·ln(p) + (n−k)·ln(1−p).
@@ -25,7 +25,7 @@ const Integer = Schema.Number.pipe(Schema.int())
  */
 export const binomialLogpmf = (k: number, n: number, p: number): number => {
   return Boolean.match(
-    Boolean.or(Boolean.not(Schema.is(Integer)(k)), Boolean.or(Number.lessThan(k, 0), Number.greaterThan(k, n))),
+    Boolean.or(Boolean.not(Schema.is(Integer)(k)), Boolean.or(Number.isLessThan(k, 0), Number.isGreaterThan(k, n))),
     {
       onTrue: () => -Infinity,
       onFalse: () =>
@@ -61,7 +61,7 @@ export const binomialLogpmf = (k: number, n: number, p: number): number => {
  */
 export const binomialPmf = (k: number, n: number, p: number): number => {
   return Boolean.match(
-    Boolean.or(Boolean.not(Schema.is(Integer)(k)), Boolean.or(Number.lessThan(k, 0), Number.greaterThan(k, n))),
+    Boolean.or(Boolean.not(Schema.is(Integer)(k)), Boolean.or(Number.isLessThan(k, 0), Number.isGreaterThan(k, n))),
     {
       onTrue: () => 0,
       onFalse: () => exp(binomialLogpmf(k, n, p))
@@ -77,10 +77,10 @@ export const binomialPmf = (k: number, n: number, p: number): number => {
  * @category internal
  */
 export const binomialCdf = (k: number, n: number, p: number): number => {
-  return Boolean.match(Number.lessThan(k, 0), {
+  return Boolean.match(Number.isLessThan(k, 0), {
     onTrue: () => 0,
     onFalse: () =>
-      Boolean.match(Number.greaterThanOrEqualTo(k, n), {
+      Boolean.match(Number.isGreaterThanOrEqualTo(k, n), {
         onTrue: () => 1,
         onFalse: () =>
           Boolean.match(Number.Equivalence(p, 0), {

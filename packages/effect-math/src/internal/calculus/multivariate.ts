@@ -11,7 +11,7 @@ import * as Numeric from "../../Numeric.js"
 import { evaluateVectorField, type MixedPartialKey, mixedPartialKey, VectorFieldCache } from "./multivariateCache.js"
 import { ridderExtrapolation, ridderExtrapolationWithState, StatefulStepResult } from "./ridderCore.js"
 
-const notANumber = Number.unsafeDivide(0, 0)
+const notANumber = Option.getOrElse(Number.parse("NaN"), () => 0)
 
 const getOr = (values: Chunk.Chunk<number>, index: number, fallback: number): number =>
   Option.getOrElse(Chunk.get(values, index), () => fallback)
@@ -59,8 +59,8 @@ const partialDerivative = (
 ): number =>
   ridderExtrapolation((step) => {
     const plus = f(perturbAxis(point, axis, step))
-    const minus = f(perturbAxis(point, axis, Number.negate(step)))
-    return Number.unsafeDivide(Number.subtract(plus, minus), Number.multiply(2, step))
+    const minus = f(perturbAxis(point, axis, Number.multiply(step, -1)))
+    return Number.divideUnsafe(Number.subtract(plus, minus), Number.multiply(2, step))
   }, config).value
 
 const secondPartialDerivative = (
@@ -72,8 +72,8 @@ const secondPartialDerivative = (
   const center = f(point)
   return ridderExtrapolation((step) => {
     const plus = f(perturbAxis(point, axis, step))
-    const minus = f(perturbAxis(point, axis, Number.negate(step)))
-    return Number.unsafeDivide(
+    const minus = f(perturbAxis(point, axis, Number.multiply(step, -1)))
+    return Number.divideUnsafe(
       Number.sum(Number.subtract(plus, Number.multiply(2, center)), minus),
       Number.multiply(step, step)
     )
@@ -89,10 +89,10 @@ const mixedSecondPartialDerivative = (
 ): number =>
   ridderExtrapolation((step) => {
     const plusPlus = f(perturbAxes(point, axisA, axisB, step, step))
-    const plusMinus = f(perturbAxes(point, axisA, axisB, step, Number.negate(step)))
-    const minusPlus = f(perturbAxes(point, axisA, axisB, Number.negate(step), step))
-    const minusMinus = f(perturbAxes(point, axisA, axisB, Number.negate(step), Number.negate(step)))
-    return Number.unsafeDivide(
+    const plusMinus = f(perturbAxes(point, axisA, axisB, step, Number.multiply(step, -1)))
+    const minusPlus = f(perturbAxes(point, axisA, axisB, Number.multiply(step, -1), step))
+    const minusMinus = f(perturbAxes(point, axisA, axisB, Number.multiply(step, -1), Number.multiply(step, -1)))
+    return Number.divideUnsafe(
       Number.subtract(Number.subtract(plusPlus, plusMinus), Number.subtract(minusPlus, minusMinus)),
       Number.multiply(4, Number.multiply(step, step))
     )
@@ -121,9 +121,9 @@ const cachedPartialDerivative = (
   ridderExtrapolationWithState(
     (step, currentCache) => {
       const plus = evaluateVectorField(f, currentCache, perturbAxis(point, column, step))
-      const minus = evaluateVectorField(f, plus.cache, perturbAxis(point, column, Number.negate(step)))
+      const minus = evaluateVectorField(f, plus.cache, perturbAxis(point, column, Number.multiply(step, -1)))
       return new StatefulStepResult({
-        value: Number.unsafeDivide(
+        value: Number.divideUnsafe(
           Number.subtract(
             getOr(plus.value, row, notANumber),
             getOr(minus.value, row, notANumber)
@@ -234,12 +234,12 @@ export const directionalDerivativeLimit = (
       const directionNorm = Numeric.sqrt(
         Chunk.reduce(direction, 0, (acc, value) => Number.sum(acc, Number.multiply(value, value)))
       )
-      return Boolean.match(Number.lessThanOrEqualTo(directionNorm, 0), {
+      return Boolean.match(Number.isLessThanOrEqualTo(directionNorm, 0), {
         onTrue: () => notANumber,
         onFalse: () => {
           const gradient = gradientLimit(f, point, config)
           const numerator = Chunk.reduce(Chunk.zipWith(gradient, direction, Number.multiply), 0, Number.sum)
-          return Number.unsafeDivide(numerator, directionNorm)
+          return Number.divideUnsafe(numerator, directionNorm)
         }
       })
     }

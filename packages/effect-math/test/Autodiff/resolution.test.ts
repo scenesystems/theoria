@@ -1,5 +1,5 @@
 import { describe, expect, it } from "@effect/vitest"
-import { Array, Effect, Layer, Option, Schema } from "effect"
+import { Array, Effect, Option, Schema } from "effect"
 
 import * as Autodiff from "../../src/Autodiff.js"
 
@@ -41,7 +41,7 @@ describe("Autodiff.resolve", () => {
   it.effect("treats the maximum input dimension as metadata when the request has no dimension", () =>
     Effect.gen(function*() {
       const resolution = yield* Autodiff.resolve({ operation: "gradient" }).pipe(
-        Effect.provide(Layer.succeed(Autodiff.Autodiff, dimensionLimited))
+        Effect.provideService(Autodiff.Autodiff, dimensionLimited)
       )
 
       expect(resolution.method).toStrictEqual("autodiff")
@@ -51,7 +51,7 @@ describe("Autodiff.resolve", () => {
   it.effect("falls back to finite differences when configured", () =>
     Effect.gen(function*() {
       const resolution = yield* Autodiff.resolve({ operation: "gradient" }).pipe(
-        Effect.provide(Layer.succeed(Autodiff.Autodiff, unavailable(true)))
+        Effect.provideService(Autodiff.Autodiff, unavailable(true))
       )
 
       expect(resolution.method).toStrictEqual("finite-difference")
@@ -63,7 +63,7 @@ describe("Autodiff.resolve", () => {
     Effect.gen(function*() {
       const error = yield* Effect.flip(
         Autodiff.resolve({ operation: "gradient" }).pipe(
-          Effect.provide(Layer.succeed(Autodiff.Autodiff, unavailable(false)))
+          Effect.provideService(Autodiff.Autodiff, unavailable(false))
         )
       )
 

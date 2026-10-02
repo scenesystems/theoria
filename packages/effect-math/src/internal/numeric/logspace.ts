@@ -31,10 +31,10 @@ export const logaddexp = (a: number, b: number): number =>
 
 /** Computes `log(exp(a) - exp(b))`; returns NaN outside the strict `a > b` domain. */
 export const logsubexp = (a: number, b: number): number =>
-  Match.value(Number.greaterThan(a, b)).pipe(
+  Match.value(Number.isGreaterThan(a, b)).pipe(
     Match.when(true, () => {
       const exponential = exp(Number.subtract(b, a))
-      return Number.sum(a, log1p(Number.negate(exponential)))
+      return Number.sum(a, log1p(Number.multiply(exponential, -1)))
     }),
     Match.orElse(() => Binary.notANumber)
   )
@@ -42,16 +42,16 @@ export const logsubexp = (a: number, b: number): number =>
 /** Computes `log(1 - exp(x))` on `x < 0` without cancellation. */
 export const log1mexp = (x: number): number =>
   Match.value(x).pipe(
-    Match.when(Number.greaterThanOrEqualTo(0), () => Binary.notANumber),
-    Match.when(Number.greaterThan(Number.negate(lnTwo)), (x) => log(Number.negate(expm1(x)))),
-    Match.orElse((x) => log1p(Number.negate(exp(x))))
+    Match.when(Number.isGreaterThanOrEqualTo(0), () => Binary.notANumber),
+    Match.when(Number.isGreaterThan(Number.multiply(lnTwo, -1)), (x) => log(Number.multiply(-1, expm1(x)))),
+    Match.orElse((x) => log1p(Number.multiply(-1, exp(x))))
   )
 
 /** Computes softplus without overflowing its intermediate exponential. */
 export const log1pexp = (x: number): number =>
   Match.value(x).pipe(
-    Match.when(Number.greaterThan(33.3), (x) => x),
-    Match.when(Number.greaterThan(-37), (x) => log1p(exp(x))),
+    Match.when(Number.isGreaterThan(33.3), (x) => x),
+    Match.when(Number.isGreaterThan(-37), (x) => log1p(exp(x))),
     Match.orElse(exp)
   )
 

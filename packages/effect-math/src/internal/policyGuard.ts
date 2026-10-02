@@ -2,8 +2,8 @@ import { Array, Clock, Data, Effect, Match, Number, Record, Schema, String } fro
 
 import * as Policy from "../Policy.js"
 
-const FiniteNumber = Schema.Number.pipe(Schema.finite())
-const encodeNumber = Schema.encodeSync(Schema.NumberFromString)
+const FiniteNumber = Schema.Number.check(Schema.isFinite())
+const encodeNumber = String.String
 
 class Options<A, E> extends Data.Class<{
   readonly operation: string
@@ -58,7 +58,7 @@ const guard = <A, E>(options: Options<A, E>, failureMessage: (result: A) => stri
     )
   })
 
-export const scalar = <E>(options: ScalarOptions<E>) =>
+export const scalar = <E>(options: ConstructorParameters<typeof ScalarOptions<E>>[0]) =>
   guard(
     new Options({
       operation: options.operation,
@@ -70,5 +70,5 @@ export const scalar = <E>(options: ScalarOptions<E>) =>
     (result) => Array.join(Array.make("Non-finite ", options.operation, " result: ", encodeNumber(result)), "")
   )
 
-export const custom = <A, E>(options: Options<A, E>) =>
-  guard(options, () => String.concat(String.concat("Non-finite ", options.operation), " result"))
+export const custom = <A, E>(options: ConstructorParameters<typeof Options<A, E>>[0]) =>
+  guard(new Options(options), () => String.concat(String.concat("Non-finite ", options.operation), " result"))

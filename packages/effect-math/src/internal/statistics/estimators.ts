@@ -20,15 +20,15 @@ class SummaryAccumulator extends Data.Class<{
 /** Arithmetic mean in observation order. */
 export const mean = (values: Chunk.Chunk<number>): number =>
   Boolean.match(Chunk.every(values, Schema.is(Schema.Finite)), {
-    onFalse: () => Number.unsafeDivide(Chunk.reduce(values, 0, Number.sum), Chunk.size(values)),
+    onFalse: () => Number.divideUnsafe(Chunk.reduce(values, 0, Number.sum), Chunk.size(values)),
     onTrue: () => {
       const scale = Chunk.reduce(values, 0, (maximum, value) => Number.max(maximum, abs(value)))
       return Boolean.match(Number.Equivalence(scale, 0), {
-        onTrue: () => Number.unsafeDivide(Chunk.reduce(values, 0, Number.sum), Chunk.size(values)),
+        onTrue: () => Number.divideUnsafe(Chunk.reduce(values, 0, Number.sum), Chunk.size(values)),
         onFalse: () =>
           Number.multiply(
-            Number.unsafeDivide(
-              Chunk.reduce(values, 0, (sum, value) => Number.sum(sum, Number.unsafeDivide(value, scale))),
+            Number.divideUnsafe(
+              Chunk.reduce(values, 0, (sum, value) => Number.sum(sum, Number.divideUnsafe(value, scale))),
               Chunk.size(values)
             ),
             scale
@@ -40,7 +40,7 @@ export const mean = (values: Chunk.Chunk<number>): number =>
 /** Bessel-corrected sample variance. */
 export const variance = (values: Chunk.Chunk<number>): number => {
   const average = mean(values)
-  return Number.unsafeDivide(
+  return Number.divideUnsafe(
     Chunk.reduce(values, 0, (sum, value) => {
       const distance = Number.subtract(value, average)
       return Number.sum(sum, Number.multiply(distance, distance))
@@ -67,7 +67,7 @@ export const summaryStatistics = (values: Chunk.NonEmptyChunk<number>): SummaryS
     (state, value) => {
       const count = Number.increment(state.count)
       const delta = Number.subtract(value, state.mean)
-      const average = Number.sum(state.mean, Number.unsafeDivide(delta, count))
+      const average = Number.sum(state.mean, Number.divideUnsafe(delta, count))
       const updatedDelta = Number.subtract(value, average)
       return new SummaryAccumulator({
         count,
@@ -83,7 +83,7 @@ export const summaryStatistics = (values: Chunk.NonEmptyChunk<number>): SummaryS
   )
   const sampleVariance = Boolean.match(Number.Equivalence(accumulated.count, 1), {
     onTrue: () => 0,
-    onFalse: () => Number.unsafeDivide(accumulated.sumOfSquaredDistances, Number.decrement(accumulated.count))
+    onFalse: () => Number.divideUnsafe(accumulated.sumOfSquaredDistances, Number.decrement(accumulated.count))
   })
   return new SummaryStatistics({
     count: accumulated.count,
@@ -107,7 +107,7 @@ export const maximum = (values: Chunk.Chunk<number>): Option.Option<number> =>
 export const covariance = (a: Chunk.Chunk<number>, b: Chunk.Chunk<number>): number => {
   const meanA = mean(a)
   const meanB = mean(b)
-  return Number.unsafeDivide(
+  return Number.divideUnsafe(
     pipe(
       Chunk.zipWith(
         a,

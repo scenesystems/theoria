@@ -1,5 +1,7 @@
 import { describe, expect, it } from "@effect/vitest"
-import { Array, Chunk, Effect, FastCheck, Iterable, Number, Option, Schema } from "effect"
+import { Array, Chunk, Effect, Iterable, Number, Option, Schema } from "effect"
+
+import { nan as notANumber, negativeInfinity, positiveInfinity } from "../helpers/nonFinite.js"
 
 import {
   abs,
@@ -63,13 +65,13 @@ const closeTo = (actual: number, expected: number, tolerance: number) =>
 describe("Numeric scalar arithmetic", () => {
   it.effect("distinguishes guarded, unguarded, and finite division boundaries", () =>
     Effect.gen(function*() {
-      expect(yield* safeDivide(10, 4)).toBe(2.5)
-      expect(yield* safeDivide(4)(10)).toBe(2.5)
+      expect(yield* Effect.fromOption(safeDivide(10, 4))).toBe(2.5)
+      expect(yield* Effect.fromOption(safeDivide(4)(10))).toBe(2.5)
       expect(Option.isNone(safeDivide(10, 0))).toBe(true)
       expect(unsafeDivide(10, 4)).toBe(2.5)
       expect(unsafeDivide(4)(10)).toBe(2.5)
-      expect(Option.isNone(safeDivideFinite(Number.unsafeDivide(1, 0), 2))).toBe(true)
-      expect(Option.isNone(safeDivideFinite(1, Number.unsafeDivide(0, 0)))).toBe(true)
+      expect(Option.isNone(safeDivideFinite(positiveInfinity, 2))).toBe(true)
+      expect(Option.isNone(safeDivideFinite(1, notANumber))).toBe(true)
     }))
 
   it.effect("selects extrema, ranges, and decimal rounding through Effect Number", () =>
@@ -85,8 +87,8 @@ describe("Numeric scalar arithmetic", () => {
 
   it.effect("preserves IEEE signs and exceptional values at scalar boundaries", () =>
     Effect.gen(function*() {
-      const infinity = Number.unsafeDivide(1, 0)
-      const nan = Number.unsafeDivide(0, 0)
+      const infinity = positiveInfinity
+      const nan = notANumber
       expect(isFinite(-1.25)).toBe(true)
       expect(isFinite(infinity)).toBe(false)
       expect(abs(-0)).toBe(0)
@@ -109,7 +111,7 @@ describe("Numeric transcendental kernels", () => {
       expect(exp(50)).toBe(5.184705528587072e21)
       expect(exp(-745)).toBe(5e-324)
       expect(exp(-746)).toBe(0)
-      expect(exp(710)).toBe(Number.unsafeDivide(1, 0))
+      expect(exp(710)).toBe(positiveInfinity)
     }))
 
   it.effect("retains increments smaller than one ulp around unity", () =>
@@ -120,19 +122,19 @@ describe("Numeric transcendental kernels", () => {
       expect(expm1(-1e-15)).toBe(-9.999999999999995e-16)
       expect(log1p(-0)).toBe(-0)
       expect(expm1(-0)).toBe(-0)
-      expect(log1p(-1)).toBe(Number.unsafeDivide(-1, 0))
+      expect(log1p(-1)).toBe(negativeInfinity)
       expect(log1p(-2)).toBeNaN()
     }))
 
   it.effect("reduces ordinary and huge angles without losing the quadrant", () =>
     Effect.gen(function*() {
-      closeTo(sin(Number.unsafeDivide(pi, 6)), 0.5, 1e-15)
-      closeTo(cos(Number.unsafeDivide(pi, 3)), 0.5, 1e-15)
+      closeTo(sin(Number.divideUnsafe(pi, 6)), 0.5, 1e-15)
+      closeTo(cos(Number.divideUnsafe(pi, 3)), 0.5, 1e-15)
       closeTo(sin(1e20), -0.6452512852657808, 2e-15)
       closeTo(cos(1e100), 0.9247242387519338, 2e-15)
       closeTo(sin(1.7976931348623157e308), 0.004961954789184062, 3e-15)
       expect(sin(-0)).toBe(-0)
-      expect(cos(Number.unsafeDivide(1, 0))).toBeNaN()
+      expect(cos(positiveInfinity)).toBeNaN()
     }))
 
   it.effect("retains the residual of binary64 angles near exact quadrant boundaries", () =>
@@ -140,7 +142,7 @@ describe("Numeric transcendental kernels", () => {
       // Rounded high-precision evaluations at these exact binary64 inputs.
       closeTo(sin(pi), 1.2246467991473532e-16, 3e-32)
       closeTo(sin(Number.multiply(2, pi)), -2.4492935982947064e-16, 5e-32)
-      closeTo(cos(Number.unsafeDivide(pi, 2)), 6.123233995736766e-17, 2e-32)
+      closeTo(cos(Number.divideUnsafe(pi, 2)), 6.123233995736766e-17, 2e-32)
       closeTo(sin(3.1415926535897936), -3.216245299353273e-16, 5e-32)
       closeTo(cos(1.5707963267948968), -1.6081226496766366e-16, 3e-32)
     }))
@@ -149,9 +151,11 @@ describe("Numeric transcendental kernels", () => {
     Effect.gen(function*() {
       closeTo(atan2(1, 1), 0.7853981633974483, 1e-15)
       closeTo(atan2(1, -1), 2.356194490192345, 1e-15)
+      expect(atan2(0, -1)).toBe(3.141592653589793)
       expect(atan2(-0, -1)).toBe(-3.141592653589793)
+      expect(atan2(0, 1)).toBe(0)
       expect(atan2(-0, 1)).toBe(-0)
-      expect(atan2(Number.unsafeDivide(1, 0), Number.unsafeDivide(1, 0))).toBe(0.7853981633974483)
+      expect(atan2(positiveInfinity, positiveInfinity)).toBe(0.7853981633974483)
     }))
 
   it.effect("computes real powers and hyperbolic functions at domain boundaries", () =>
@@ -163,17 +167,23 @@ describe("Numeric transcendental kernels", () => {
       closeTo(sinh(1), 1.1752011936438014, 5e-16)
       closeTo(cosh(1), 1.5430806348152437, 5e-16)
       expect(sinh(-0)).toBe(-0)
-      expect(cosh(Number.unsafeDivide(-1, 0))).toBe(Number.unsafeDivide(1, 0))
+      expect(cosh(negativeInfinity)).toBe(positiveInfinity)
     }))
 
   it.effect("preserves exceptional powers and gradual underflow", () =>
     Effect.gen(function*() {
-      const infinity = Number.unsafeDivide(1, 0)
-      const nan = Number.unsafeDivide(0, 0)
+      const infinity = positiveInfinity
+      const nan = notANumber
       expect(pow(nan, 0)).toBe(1)
       expect(pow(1, nan)).toBeNaN()
       expect(pow(1, infinity)).toBeNaN()
-      expect(pow(-1, Number.negate(infinity))).toBeNaN()
+      expect(pow(-1, Number.multiply(-1, infinity))).toBeNaN()
+      expect(pow(0, 3)).toBe(0)
+      expect(pow(-0, 3)).toBe(-0)
+      expect(pow(-0, 2)).toBe(0)
+      expect(pow(0, -3)).toBe(positiveInfinity)
+      expect(pow(-0, -3)).toBe(negativeInfinity)
+      expect(pow(-0, -2)).toBe(positiveInfinity)
       expect(pow(2, -1024)).toBe(5.562684646268003e-309)
       expect(pow(2, -1074)).toBe(5e-324)
       expect(pow(-2, -1073)).toBe(-1e-323)
@@ -185,13 +195,13 @@ describe("Numeric transcendental kernels", () => {
       // exp(710) overflows, but exp(710)/2 is still representable.
       closeTo(sinh(710), 1.1169973830808555e308, 2e292)
       closeTo(cosh(-710), 1.1169973830808555e308, 2e292)
-      expect(sinh(711)).toBe(Number.unsafeDivide(1, 0))
-      expect(cosh(711)).toBe(Number.unsafeDivide(1, 0))
+      expect(sinh(711)).toBe(positiveInfinity)
+      expect(cosh(711)).toBe(positiveInfinity)
     }))
 
   it.effect.prop("computes exact small non-negative integer powers", {
-    base: FastCheck.integer({ min: -12, max: 12 }),
-    exponent: FastCheck.integer({ min: 0, max: 8 })
+    base: Schema.Int.check(Schema.isBetween({ minimum: -12, maximum: 12 })),
+    exponent: Schema.Int.check(Schema.isBetween({ minimum: 0, maximum: 8 }))
   }, ({ base, exponent }) =>
     Effect.gen(function*() {
       const expected = Number.multiplyAll(Iterable.take(Iterable.makeBy(() => base), exponent))
@@ -208,29 +218,29 @@ describe("Numeric collection kernels", () => {
 
   it.effect("finds the first maximum without requiring an array carrier", () =>
     Effect.gen(function*() {
-      expect(yield* argmaxIndex(Chunk.make(1, 5, 5, 2))).toBe(1)
-      expect(yield* argmaxIndex(Chunk.of(42))).toBe(0)
+      expect(yield* Effect.fromOption(argmaxIndex(Chunk.make(1, 5, 5, 2)))).toBe(1)
+      expect(yield* Effect.fromOption(argmaxIndex(Chunk.of(42)))).toBe(0)
       expect(Option.isNone(argmaxIndex(Chunk.empty()))).toBe(true)
     }))
 
   it.effect("orders NaN below ordered values while retaining the first all-NaN index", () =>
     Effect.gen(function*() {
-      const nan = Number.unsafeDivide(0, 0)
-      expect(yield* argmaxIndex(Chunk.make(nan, 5, 10))).toBe(2)
-      expect(yield* argmaxIndex(Chunk.make(5, nan, 10))).toBe(2)
-      expect(yield* argmaxIndex(Chunk.make(5, nan, 1))).toBe(0)
-      expect(yield* argmaxIndex(Chunk.make(nan, nan))).toBe(0)
+      const nan = notANumber
+      expect(yield* Effect.fromOption(argmaxIndex(Chunk.make(nan, 5, 10)))).toBe(2)
+      expect(yield* Effect.fromOption(argmaxIndex(Chunk.make(5, nan, 10)))).toBe(2)
+      expect(yield* Effect.fromOption(argmaxIndex(Chunk.make(5, nan, 1)))).toBe(0)
+      expect(yield* Effect.fromOption(argmaxIndex(Chunk.make(nan, nan)))).toBe(0)
     }))
 })
 
 describe("Numeric validated boundaries", () => {
   it.effect("decodes valid division, logarithm, reduction, and selection inputs", () =>
     Effect.gen(function*() {
-      expect(yield* yield* safeDivideValidated({ dividend: 10, divisor: 4 })).toBe(2.5)
+      expect(yield* Effect.flatMap(safeDivideValidated({ dividend: 10, divisor: 4 }), Effect.fromOption)).toBe(2.5)
       expect(yield* unsafeDivideValidated({ dividend: 10, divisor: 5 })).toBe(2)
       closeTo(yield* logValidated({ value: 2.718281828459045 }), 1, 5e-16)
       expect(yield* sumValidated({ values: Array.make(1, 2, 3) })).toBe(6)
-      expect(yield* yield* argmaxValidated({ values: Array.make(1, 5, 3) })).toBe(1)
+      expect(yield* Effect.flatMap(argmaxValidated({ values: Array.make(1, 5, 3) }), Effect.fromOption)).toBe(1)
     }))
 
   it.effect("preserves typed decode failures for malformed and excess input", () =>
@@ -266,7 +276,7 @@ describe("Numeric runtime policies", () => {
 
   it.effect("strict precision rejects non-finite results while relaxed precision returns them", () =>
     Effect.gen(function*() {
-      const infinity = Number.unsafeDivide(1, 0)
+      const infinity = positiveInfinity
       const error = yield* Effect.flip(sumWithPolicies(Chunk.make(infinity, 1)).pipe(Effect.provide(strictLayer)))
       const result = yield* sumWithPolicies(Chunk.make(infinity, 1)).pipe(Effect.provide(relaxedLayer))
       expect(Schema.is(DomainViolationError)(error)).toBe(true)

@@ -14,13 +14,13 @@ import * as Policy from "./Policy.js"
 import * as Precision from "./Precision.js"
 import * as Scalar from "./Scalar.js"
 
-const DifferentiationMethod = Schema.Union(Schema.Literal("none"), Autodiff.Method)
+const DifferentiationMethod = Schema.Union([Schema.Literals(["none"]), Autodiff.Method])
 const NoAutodiffResolution = Schema.Struct({
-  method: Schema.Literal("none"),
-  mode: Schema.OptionFromSelf(Autodiff.Mode),
-  usedFiniteDifferenceFallback: Schema.Literal(false)
+  method: Schema.Literals(["none"]),
+  mode: Schema.Option(Autodiff.Mode),
+  usedFiniteDifferenceFallback: Schema.Literals([false])
 })
-const noAutodiffResolution = Schema.decodeUnknownSync(NoAutodiffResolution)({
+const noAutodiffResolution = Schema.decodeSync(NoAutodiffResolution)({
   method: "none",
   mode: Option.none(),
   usedFiniteDifferenceFallback: false
@@ -44,11 +44,11 @@ export const Request = Schema.Struct({
   requestedScalarKind: Schema.optional(Scalar.Kind),
   preferredBackend: Schema.optional(Backend.Kind),
   preferredAutodiff: Schema.optional(Autodiff.Mode),
-  escalationAttempt: Schema.Number.pipe(Schema.int(), Schema.greaterThanOrEqualTo(0)),
+  escalationAttempt: Schema.Number.check(Schema.isInt(), Schema.isGreaterThanOrEqualTo(0)),
   convergence: Schema.optional(Precision.ConvergenceObservation),
   requiresAutodiff: Schema.Boolean,
   requiresUncertaintyEnvelope: Schema.Boolean
-}).annotations({ identifier: "@scenesystems/effect-math/Computation/Request" })
+}).annotate({ identifier: "@scenesystems/effect-math/Computation/Request" })
 
 /**
  * A decoded computation planning request.
@@ -76,13 +76,13 @@ export const Plan = Schema.Struct({
   scalarResolutionSource: Scalar.ResolutionSource,
   precisionEscalationSource: Precision.ResolutionSource,
   backendKind: Backend.Kind,
-  autodiffMode: Schema.optionalWith(Autodiff.Mode, { as: "Option" }),
+  autodiffMode: Schema.OptionFromOptionalKey(Autodiff.Mode),
   differentiationMethod: DifferentiationMethod,
   finiteDifferenceFallback: Schema.Boolean,
   escalated: Schema.Boolean,
   convergenceSatisfied: Schema.Boolean,
   uncertaintyEnvelope: Schema.Boolean
-}).annotations({ identifier: "@scenesystems/effect-math/Computation/Plan" })
+}).annotate({ identifier: "@scenesystems/effect-math/Computation/Plan" })
 
 /**
  * A decoded computation plan containing selected labels and provenance.
@@ -160,10 +160,10 @@ export class Planner extends Data.Class<{
  * @since 0.1.0
  * @category services
  */
-export class Computation extends Context.Tag("@scenesystems/effect-math/Computation")<Computation, Planner>() {}
+export class Computation extends Context.Service<Computation, Planner>()("@scenesystems/effect-math/Computation") {}
 
 const decodeRequest = (input: unknown) =>
-  Schema.decodeUnknown(Request)(input, { onExcessProperty: "error" }).pipe(
+  Schema.decodeUnknownEffect(Request)(input, { onExcessProperty: "error" }).pipe(
     Effect.mapError(
       (error) =>
         new DecodeError({
@@ -189,7 +189,7 @@ const decodeRequest = (input: unknown) =>
  */
 export const planWithAuthorities = (request: Request) =>
   Effect.gen(function*() {
-    const initialScalar = yield* Option.match(Option.fromNullable(request.requestedScalarKind), {
+    const initialScalar = yield* Option.match(Option.fromNullishOr(request.requestedScalarKind), {
       onNone: () =>
         Scalar.resolve({
           operation: request.operationName,
@@ -203,7 +203,7 @@ export const planWithAuthorities = (request: Request) =>
         })
     })
 
-    const precision = yield* Option.match(Option.fromNullable(request.convergence), {
+    const precision = yield* Option.match(Option.fromNullishOr(request.convergence), {
       onNone: () =>
         Effect.succeed<Precision.Resolution>({
           scalarKind: initialScalar.kind,
@@ -228,7 +228,7 @@ export const planWithAuthorities = (request: Request) =>
       enforceRequestedKind: true
     }).pipe(Effect.map((resolution) => resolution.kind))
 
-    const backendKind = yield* Option.match(Option.fromNullable(request.preferredBackend), {
+    const backendKind = yield* Option.match(Option.fromNullishOr(request.preferredBackend), {
       onNone: () => Backend.resolve({ operation: request.operationName, scalarKind }),
       onSome: (preferredBackend) => Backend.resolve({ operation: request.operationName, scalarKind, preferredBackend })
     })
@@ -236,7 +236,7 @@ export const planWithAuthorities = (request: Request) =>
     const autodiff = yield* Match.value(request.requiresAutodiff).pipe(
       Match.when(false, () => Effect.succeed(noAutodiffResolution)),
       Match.when(true, () =>
-        Option.match(Option.fromNullable(request.preferredAutodiff), {
+        Option.match(Option.fromNullishOr(request.preferredAutodiff), {
           onNone: () => Autodiff.resolve({ operation: request.operationName }),
           onSome: (preferredMode) => Autodiff.resolve({ operation: request.operationName, preferredMode })
         })),

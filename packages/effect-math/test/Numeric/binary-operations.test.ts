@@ -1,10 +1,9 @@
 import { describe, expect, it } from "@effect/vitest"
-import { BigDecimal, Chunk, Effect, Equal, FastCheck, Iterable, Number, Option } from "effect"
+import { BigDecimal, Chunk, Effect, Equal, Iterable, Number, Option, Schema } from "effect"
+
+import { nan, positiveInfinity } from "../helpers/nonFinite.js"
 
 import { abs, ceil, floor, hypot, sqrt, toBigDecimal, toBigInt, truncate } from "../../src/Numeric.js"
-
-const infinity = Number.unsafeDivide(1, 0)
-const nan = Number.unsafeDivide(0, 0)
 
 describe("Numeric binary64 arithmetic", () => {
   it.effect("retains fractional bits when converting to decimal for subsequent rounding", () =>
@@ -12,15 +11,15 @@ describe("Numeric binary64 arithmetic", () => {
       expect(Equal.equals(
         toBigDecimal(0.1),
         Option.some(
-          BigDecimal.unsafeFromString("0.1000000000000000055511151231257827021181583404541015625")
+          BigDecimal.fromStringUnsafe("0.1000000000000000055511151231257827021181583404541015625")
         )
       )).toBe(true)
       expect(Equal.equals(
         Option.map(toBigDecimal(1.005), (value) => BigDecimal.round(value, { scale: 2 })),
-        Option.some(BigDecimal.unsafeFromString("1.00"))
+        Option.some(BigDecimal.fromStringUnsafe("1.00"))
       )).toBe(true)
       expect(toBigDecimal(nan)).toEqual(Option.none())
-      expect(toBigDecimal(infinity)).toEqual(Option.none())
+      expect(toBigDecimal(positiveInfinity)).toEqual(Option.none())
     }))
 
   it.effect("converts the exact integer rather than its shortest decimal spelling", () =>
@@ -31,7 +30,7 @@ describe("Numeric binary64 arithmetic", () => {
       expect(toBigInt(-7)).toEqual(Option.some(-7n))
       expect(toBigInt(-0)).toEqual(Option.some(0n))
       expect(toBigInt(1.5)).toEqual(Option.none())
-      expect(toBigInt(infinity)).toEqual(Option.none())
+      expect(toBigInt(positiveInfinity)).toEqual(Option.none())
       expect(toBigInt(nan)).toEqual(Option.none())
     }))
 
@@ -47,7 +46,7 @@ describe("Numeric binary64 arithmetic", () => {
     }))
 
   it.effect.prop("recovers exactly representable integer square roots", {
-    root: FastCheck.integer({ min: 0, max: 1_000_000 })
+    root: Schema.Int.check(Schema.isBetween({ minimum: 0, maximum: 1_000_000 }))
   }, ({ root }) =>
     Effect.gen(function*() {
       expect(sqrt(Number.multiply(root, root))).toBe(root)
@@ -57,12 +56,12 @@ describe("Numeric binary64 arithmetic", () => {
     Effect.gen(function*() {
       expect(sqrt(-0)).toBe(-0)
       expect(sqrt(0)).toBe(0)
-      expect(sqrt(infinity)).toBe(infinity)
+      expect(sqrt(positiveInfinity)).toBe(positiveInfinity)
       expect(sqrt(-1)).toBeNaN()
-      expect(sqrt(Number.negate(infinity))).toBeNaN()
+      expect(sqrt(Number.multiply(-1, positiveInfinity))).toBeNaN()
       expect(sqrt(nan)).toBeNaN()
       expect(abs(-0)).toBe(0)
-      expect(abs(Number.negate(infinity))).toBe(infinity)
+      expect(abs(Number.multiply(-1, positiveInfinity))).toBe(positiveInfinity)
       expect(abs(nan)).toBeNaN()
     }))
 
@@ -71,20 +70,20 @@ describe("Numeric binary64 arithmetic", () => {
       // Powers of two preserve the exact Pythagorean relation in binary64;
       // decimal factors such as 1e200 do not preserve that relation.
       const large = Number.multiplyAll(Iterable.take(Iterable.makeBy(() => 2), 600))
-      const small = Number.unsafeDivide(1, large)
+      const small = Number.divideUnsafe(1, large)
       expect(hypot(Chunk.make(Number.multiply(3, large), Number.multiply(4, large)))).toBe(Number.multiply(5, large))
       expect(hypot(Chunk.make(Number.multiply(3, small), Number.multiply(4, small)))).toBe(Number.multiply(5, small))
       expect(hypot(Chunk.make(1.5e-323, 2e-323))).toBe(2.5e-323)
       expect(hypot(Chunk.make(2, 3, 6))).toBe(7)
-      expect(hypot(Chunk.make(1.7976931348623157e308, 1.7976931348623157e308))).toBe(infinity)
+      expect(hypot(Chunk.make(1.7976931348623157e308, 1.7976931348623157e308))).toBe(positiveInfinity)
     }))
 
   it.effect("prioritizes infinite norm components over NaN and canonicalizes zero", () =>
     Effect.gen(function*() {
       expect(hypot(Chunk.empty())).toBe(0)
       expect(hypot(Chunk.make(-0, -0))).toBe(0)
-      expect(hypot(Chunk.make(nan, infinity))).toBe(infinity)
-      expect(hypot(Chunk.make(Number.negate(infinity), nan))).toBe(infinity)
+      expect(hypot(Chunk.make(nan, positiveInfinity))).toBe(positiveInfinity)
+      expect(hypot(Chunk.make(Number.multiply(-1, positiveInfinity), nan))).toBe(positiveInfinity)
       expect(hypot(Chunk.make(3, nan))).toBeNaN()
     }))
 

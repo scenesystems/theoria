@@ -6,10 +6,10 @@
  */
 import { Context, Effect, Layer, Schema } from "effect"
 
-const FiniteInteger = Schema.Number.pipe(Schema.finite(), Schema.int())
-const PrecisionValue = Schema.Literal("strict", "relaxed")
-const BackendValue = Schema.Literal("compensated", "scalar")
-const DiagnosticsValue = Schema.Literal("enabled", "disabled")
+const FiniteInteger = Schema.Number.check(Schema.isFinite(), Schema.isInt())
+const PrecisionValue = Schema.Literals(["strict", "relaxed"])
+const BackendValue = Schema.Literals(["compensated", "scalar"])
+const DiagnosticsValue = Schema.Literals(["enabled", "disabled"])
 
 /**
  * Brands non-negative finite integers used to reproduce random streams.
@@ -17,7 +17,7 @@ const DiagnosticsValue = Schema.Literal("enabled", "disabled")
  * @since 0.1.0
  * @category schemas
  */
-export const Seed = FiniteInteger.pipe(Schema.greaterThanOrEqualTo(0)).annotations({
+export const Seed = FiniteInteger.check(Schema.isGreaterThanOrEqualTo(0)).annotate({
   identifier: "@scenesystems/effect-math/Policy/Seed"
 }).pipe(Schema.brand("@scenesystems/effect-math/Policy/Seed"))
 
@@ -35,10 +35,10 @@ export type Seed = typeof Seed.Type
  * @since 0.1.0
  * @category schemas
  */
-export const RandomnessPolicy = Schema.Union(
-  Schema.Struct({ policy: Schema.Literal("deterministic"), seed: Seed }),
-  Schema.Struct({ policy: Schema.Literal("nondeterministic") })
-).annotations({ identifier: "@scenesystems/effect-math/Policy/RandomnessPolicy" })
+export const RandomnessPolicy = Schema.Union([
+  Schema.Struct({ policy: Schema.Literals(["deterministic"]), seed: Seed }),
+  Schema.Struct({ policy: Schema.Literals(["nondeterministic"]) })
+]).annotate({ identifier: "@scenesystems/effect-math/Policy/RandomnessPolicy" })
 
 /**
  * Decoded randomness selection metadata, including a seed only for the
@@ -55,7 +55,7 @@ export type RandomnessPolicy = typeof RandomnessPolicy.Type
  * @since 0.1.0
  * @category schemas
  */
-export const PrecisionPolicy = Schema.Struct({ policy: PrecisionValue }).annotations({
+export const PrecisionPolicy = Schema.Struct({ policy: PrecisionValue }).annotate({
   identifier: "@scenesystems/effect-math/Policy/PrecisionPolicy"
 })
 
@@ -73,7 +73,7 @@ export type PrecisionPolicy = typeof PrecisionPolicy.Type
  * @since 0.1.0
  * @category schemas
  */
-export const BackendPolicy = Schema.Struct({ policy: BackendValue }).annotations({
+export const BackendPolicy = Schema.Struct({ policy: BackendValue }).annotate({
   identifier: "@scenesystems/effect-math/Policy/BackendPolicy"
 })
 
@@ -91,7 +91,7 @@ export type BackendPolicy = typeof BackendPolicy.Type
  * @since 0.1.0
  * @category schemas
  */
-export const DiagnosticsPolicy = Schema.Struct({ policy: DiagnosticsValue }).annotations({
+export const DiagnosticsPolicy = Schema.Struct({ policy: DiagnosticsValue }).annotate({
   identifier: "@scenesystems/effect-math/Policy/DiagnosticsPolicy"
 })
 
@@ -117,7 +117,7 @@ export const Settings = Schema.Struct({
   precisionPolicy: PrecisionPolicy,
   backendPolicy: BackendPolicy,
   diagnosticsPolicy: DiagnosticsPolicy
-}).annotations({ identifier: "@scenesystems/effect-math/Policy/Settings" })
+}).annotate({ identifier: "@scenesystems/effect-math/Policy/Settings" })
 
 /**
  * A decoded aggregate of the four runtime policy service values.
@@ -133,10 +133,9 @@ export type Settings = typeof Settings.Type
  * @since 0.1.0
  * @category services
  */
-export class Randomness extends Context.Tag("@scenesystems/effect-math/Policy/Randomness")<
-  Randomness,
-  RandomnessPolicy
->() {}
+export class Randomness
+  extends Context.Service<Randomness, RandomnessPolicy>()("@scenesystems/effect-math/Policy/Randomness")
+{}
 
 /**
  * Supplies strict or relaxed result handling.
@@ -145,7 +144,7 @@ export class Randomness extends Context.Tag("@scenesystems/effect-math/Policy/Ra
  * @category services
  */
 export class Precision
-  extends Context.Tag("@scenesystems/effect-math/Policy/Precision")<Precision, PrecisionPolicy>()
+  extends Context.Service<Precision, PrecisionPolicy>()("@scenesystems/effect-math/Policy/Precision")
 {}
 
 /**
@@ -154,7 +153,7 @@ export class Precision
  * @since 0.1.0
  * @category services
  */
-export class Backend extends Context.Tag("@scenesystems/effect-math/Policy/Backend")<Backend, BackendPolicy>() {}
+export class Backend extends Context.Service<Backend, BackendPolicy>()("@scenesystems/effect-math/Policy/Backend") {}
 
 /**
  * Supplies the diagnostic logging policy.
@@ -162,10 +161,9 @@ export class Backend extends Context.Tag("@scenesystems/effect-math/Policy/Backe
  * @since 0.1.0
  * @category services
  */
-export class Diagnostics extends Context.Tag("@scenesystems/effect-math/Policy/Diagnostics")<
-  Diagnostics,
-  DiagnosticsPolicy
->() {}
+export class Diagnostics
+  extends Context.Service<Diagnostics, DiagnosticsPolicy>()("@scenesystems/effect-math/Policy/Diagnostics")
+{}
 
 /**
  * Accepts the seed and policy values captured by a deterministic policy layer.
@@ -178,7 +176,7 @@ export const DeterministicOptions = Schema.Struct({
   precision: PrecisionValue,
   backend: BackendValue,
   diagnostics: DiagnosticsValue
-}).annotations({ identifier: "@scenesystems/effect-math/Policy/DeterministicOptions" })
+}).annotate({ identifier: "@scenesystems/effect-math/Policy/DeterministicOptions" })
 
 /**
  * Decoded configuration for all deterministic runtime policy services.
@@ -198,7 +196,7 @@ export const NondeterministicOptions = Schema.Struct({
   precision: PrecisionValue,
   backend: BackendValue,
   diagnostics: DiagnosticsValue
-}).annotations({ identifier: "@scenesystems/effect-math/Policy/NondeterministicOptions" })
+}).annotate({ identifier: "@scenesystems/effect-math/Policy/NondeterministicOptions" })
 
 /**
  * Decoded configuration for all nondeterministic runtime policy services.

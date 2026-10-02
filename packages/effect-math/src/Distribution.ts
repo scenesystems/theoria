@@ -4,7 +4,7 @@
  * @since 0.1.0
  * @module
  */
-import { Array, Effect, Number, Schema } from "effect"
+import { Array, Effect, Number, Schema, String } from "effect"
 import type { Chunk } from "effect"
 
 import * as Beta from "./internal/distribution/beta.js"
@@ -20,18 +20,18 @@ import * as Uniform from "./internal/distribution/uniform.js"
 import * as PolicyGuard from "./internal/policyGuard.js"
 import * as Probability from "./Probability.js"
 
-const encodeNumber = Schema.encodeSync(Schema.NumberFromString)
+const encodeNumber = String.String
 const finite = Schema.Finite
-const positiveFinite = finite.pipe(Schema.positive())
-const nonNegativeFinite = finite.pipe(Schema.nonNegative())
-const unitInterval = finite.pipe(Schema.between(0, 1))
-const nonNegativeInteger = Schema.Int.pipe(Schema.nonNegative())
+const positiveFinite = finite.check(Schema.isGreaterThan(0))
+const nonNegativeFinite = finite.check(Schema.isGreaterThanOrEqualTo(0))
+const unitInterval = finite.check(Schema.isBetween({ minimum: 0, maximum: 1 }))
+const nonNegativeInteger = Schema.Int.check(Schema.isGreaterThanOrEqualTo(0))
 
 /** Finite normal location and positive scale.
  * @since 0.1.0
  * @category schemas
  */
-export const NormalParameters = Schema.Struct({ mu: finite, sigma: positiveFinite }).annotations({
+export const NormalParameters = Schema.Struct({ mu: finite, sigma: positiveFinite }).annotate({
   identifier: "@scenesystems/effect-math/Distribution/NormalParameters"
 })
 
@@ -39,7 +39,7 @@ export const NormalParameters = Schema.Struct({ mu: finite, sigma: positiveFinit
  * @since 0.1.0
  * @category schemas
  */
-export const LogNormalParameters = Schema.Struct({ mu: finite, sigma: positiveFinite }).annotations({
+export const LogNormalParameters = Schema.Struct({ mu: finite, sigma: positiveFinite }).annotate({
   identifier: "@scenesystems/effect-math/Distribution/LogNormalParameters"
 })
 
@@ -47,7 +47,7 @@ export const LogNormalParameters = Schema.Struct({ mu: finite, sigma: positiveFi
  * @since 0.1.0
  * @category schemas
  */
-export const ExponentialParameters = Schema.Struct({ rate: positiveFinite }).annotations({
+export const ExponentialParameters = Schema.Struct({ rate: positiveFinite }).annotate({
   identifier: "@scenesystems/effect-math/Distribution/ExponentialParameters"
 })
 
@@ -55,7 +55,7 @@ export const ExponentialParameters = Schema.Struct({ rate: positiveFinite }).ann
  * @since 0.1.0
  * @category schemas
  */
-export const UniformParameters = Schema.Struct({ low: finite, high: finite }).annotations({
+export const UniformParameters = Schema.Struct({ low: finite, high: finite }).annotate({
   identifier: "@scenesystems/effect-math/Distribution/UniformParameters"
 })
 
@@ -63,7 +63,7 @@ export const UniformParameters = Schema.Struct({ low: finite, high: finite }).an
  * @since 0.1.0
  * @category schemas
  */
-export const BetaParameters = Schema.Struct({ alpha: positiveFinite, beta: positiveFinite }).annotations({
+export const BetaParameters = Schema.Struct({ alpha: positiveFinite, beta: positiveFinite }).annotate({
   identifier: "@scenesystems/effect-math/Distribution/BetaParameters"
 })
 
@@ -71,7 +71,7 @@ export const BetaParameters = Schema.Struct({ alpha: positiveFinite, beta: posit
  * @since 0.1.0
  * @category schemas
  */
-export const GammaParameters = Schema.Struct({ shape: positiveFinite, scale: positiveFinite }).annotations({
+export const GammaParameters = Schema.Struct({ shape: positiveFinite, scale: positiveFinite }).annotate({
   identifier: "@scenesystems/effect-math/Distribution/GammaParameters"
 })
 
@@ -79,7 +79,7 @@ export const GammaParameters = Schema.Struct({ shape: positiveFinite, scale: pos
  * @since 0.1.0
  * @category schemas
  */
-export const StudentTParameters = Schema.Struct({ df: positiveFinite }).annotations({
+export const StudentTParameters = Schema.Struct({ df: positiveFinite }).annotate({
   identifier: "@scenesystems/effect-math/Distribution/StudentTParameters"
 })
 
@@ -87,7 +87,7 @@ export const StudentTParameters = Schema.Struct({ df: positiveFinite }).annotati
  * @since 0.1.0
  * @category schemas
  */
-export const CategoricalParameters = Schema.Struct({ probs: Probability.Masses }).annotations({
+export const CategoricalParameters = Schema.Struct({ probs: Probability.Masses }).annotate({
   identifier: "@scenesystems/effect-math/Distribution/CategoricalParameters"
 })
 
@@ -95,7 +95,7 @@ export const CategoricalParameters = Schema.Struct({ probs: Probability.Masses }
  * @since 0.1.0
  * @category schemas
  */
-export const BinomialParameters = Schema.Struct({ n: nonNegativeInteger, p: unitInterval }).annotations({
+export const BinomialParameters = Schema.Struct({ n: nonNegativeInteger, p: unitInterval }).annotate({
   identifier: "@scenesystems/effect-math/Distribution/BinomialParameters"
 })
 
@@ -103,7 +103,7 @@ export const BinomialParameters = Schema.Struct({ n: nonNegativeInteger, p: unit
  * @since 0.1.0
  * @category schemas
  */
-export const PoissonParameters = Schema.Struct({ mu: positiveFinite }).annotations({
+export const PoissonParameters = Schema.Struct({ mu: positiveFinite }).annotate({
   identifier: "@scenesystems/effect-math/Distribution/PoissonParameters"
 })
 
@@ -111,7 +111,7 @@ export const PoissonParameters = Schema.Struct({ mu: positiveFinite }).annotatio
  * @since 0.1.0
  * @category schemas
  */
-export const NormalInput = Schema.extend(Schema.Struct({ x: finite }), NormalParameters).annotations({
+export const NormalInput = Schema.Struct({ x: finite }).pipe(Schema.fieldsAssign(NormalParameters.fields)).annotate({
   identifier: "@scenesystems/effect-math/Distribution/NormalInput"
 })
 
@@ -119,16 +119,19 @@ export const NormalInput = Schema.extend(Schema.Struct({ x: finite }), NormalPar
  * @since 0.1.0
  * @category schemas
  */
-export const LogNormalInput = Schema.extend(Schema.Struct({ x: positiveFinite }), LogNormalParameters).annotations({
-  identifier: "@scenesystems/effect-math/Distribution/LogNormalInput"
-})
+export const LogNormalInput = Schema.Struct({ x: positiveFinite }).pipe(Schema.fieldsAssign(LogNormalParameters.fields))
+  .annotate({
+    identifier: "@scenesystems/effect-math/Distribution/LogNormalInput"
+  })
 
 /** Non-negative exponential evaluation input.
  * @since 0.1.0
  * @category schemas
  */
-export const ExponentialInput = Schema.extend(Schema.Struct({ x: nonNegativeFinite }), ExponentialParameters)
-  .annotations({
+export const ExponentialInput = Schema.Struct({ x: nonNegativeFinite }).pipe(
+  Schema.fieldsAssign(ExponentialParameters.fields)
+)
+  .annotate({
     identifier: "@scenesystems/effect-math/Distribution/ExponentialInput"
   })
 
@@ -136,7 +139,7 @@ export const ExponentialInput = Schema.extend(Schema.Struct({ x: nonNegativeFini
  * @since 0.1.0
  * @category schemas
  */
-export const UniformInput = Schema.extend(Schema.Struct({ x: finite }), UniformParameters).annotations({
+export const UniformInput = Schema.Struct({ x: finite }).pipe(Schema.fieldsAssign(UniformParameters.fields)).annotate({
   identifier: "@scenesystems/effect-math/Distribution/UniformInput"
 })
 
@@ -144,7 +147,7 @@ export const UniformInput = Schema.extend(Schema.Struct({ x: finite }), UniformP
  * @since 0.1.0
  * @category schemas
  */
-export const BetaInput = Schema.extend(Schema.Struct({ x: unitInterval }), BetaParameters).annotations({
+export const BetaInput = Schema.Struct({ x: unitInterval }).pipe(Schema.fieldsAssign(BetaParameters.fields)).annotate({
   identifier: "@scenesystems/effect-math/Distribution/BetaInput"
 })
 
@@ -152,32 +155,36 @@ export const BetaInput = Schema.extend(Schema.Struct({ x: unitInterval }), BetaP
  * @since 0.1.0
  * @category schemas
  */
-export const GammaInput = Schema.extend(Schema.Struct({ x: nonNegativeFinite }), GammaParameters).annotations({
-  identifier: "@scenesystems/effect-math/Distribution/GammaInput"
-})
+export const GammaInput = Schema.Struct({ x: nonNegativeFinite }).pipe(Schema.fieldsAssign(GammaParameters.fields))
+  .annotate({
+    identifier: "@scenesystems/effect-math/Distribution/GammaInput"
+  })
 
 /** Finite Student's t evaluation input.
  * @since 0.1.0
  * @category schemas
  */
-export const StudentTInput = Schema.extend(Schema.Struct({ x: finite }), StudentTParameters).annotations({
-  identifier: "@scenesystems/effect-math/Distribution/StudentTInput"
-})
+export const StudentTInput = Schema.Struct({ x: finite }).pipe(Schema.fieldsAssign(StudentTParameters.fields)).annotate(
+  {
+    identifier: "@scenesystems/effect-math/Distribution/StudentTInput"
+  }
+)
 
 /** Categorical index and masses.
  * @since 0.1.0
  * @category schemas
  */
-export const CategoricalInput = Schema.extend(
-  Schema.Struct({ k: nonNegativeInteger }),
-  CategoricalParameters
-).annotations({ identifier: "@scenesystems/effect-math/Distribution/CategoricalInput" })
+export const CategoricalInput = Schema.Struct({ k: nonNegativeInteger }).pipe(
+  Schema.fieldsAssign(CategoricalParameters.fields)
+).annotate({ identifier: "@scenesystems/effect-math/Distribution/CategoricalInput" })
 
 /** Binomial success count and parameters.
  * @since 0.1.0
  * @category schemas
  */
-export const BinomialInput = Schema.extend(Schema.Struct({ k: nonNegativeInteger }), BinomialParameters).annotations({
+export const BinomialInput = Schema.Struct({ k: nonNegativeInteger }).pipe(
+  Schema.fieldsAssign(BinomialParameters.fields)
+).annotate({
   identifier: "@scenesystems/effect-math/Distribution/BinomialInput"
 })
 
@@ -185,41 +192,43 @@ export const BinomialInput = Schema.extend(Schema.Struct({ k: nonNegativeInteger
  * @since 0.1.0
  * @category schemas
  */
-export const PoissonInput = Schema.extend(Schema.Struct({ k: nonNegativeInteger }), PoissonParameters).annotations({
-  identifier: "@scenesystems/effect-math/Distribution/PoissonInput"
-})
+export const PoissonInput = Schema.Struct({ k: nonNegativeInteger }).pipe(Schema.fieldsAssign(PoissonParameters.fields))
+  .annotate({
+    identifier: "@scenesystems/effect-math/Distribution/PoissonInput"
+  })
 
 /** Unit-interval probability and normal parameters.
  * @since 0.1.0
  * @category schemas
  */
-export const NormalQuantileInput = Schema.extend(Schema.Struct({ p: unitInterval }), NormalParameters).annotations({
-  identifier: "@scenesystems/effect-math/Distribution/NormalQuantileInput"
-})
+export const NormalQuantileInput = Schema.Struct({ p: unitInterval }).pipe(Schema.fieldsAssign(NormalParameters.fields))
+  .annotate({
+    identifier: "@scenesystems/effect-math/Distribution/NormalQuantileInput"
+  })
 
 /** Unit-interval probability and log-normal parameters.
  * @since 0.1.0
  * @category schemas
  */
-export const LogNormalQuantileInput = Schema.extend(
-  Schema.Struct({ p: unitInterval }),
-  LogNormalParameters
-).annotations({ identifier: "@scenesystems/effect-math/Distribution/LogNormalQuantileInput" })
+export const LogNormalQuantileInput = Schema.Struct({ p: unitInterval }).pipe(
+  Schema.fieldsAssign(LogNormalParameters.fields)
+).annotate({ identifier: "@scenesystems/effect-math/Distribution/LogNormalQuantileInput" })
 
 /** Unit-interval probability and exponential rate.
  * @since 0.1.0
  * @category schemas
  */
-export const ExponentialQuantileInput = Schema.extend(
-  Schema.Struct({ p: unitInterval }),
-  ExponentialParameters
-).annotations({ identifier: "@scenesystems/effect-math/Distribution/ExponentialQuantileInput" })
+export const ExponentialQuantileInput = Schema.Struct({ p: unitInterval }).pipe(
+  Schema.fieldsAssign(ExponentialParameters.fields)
+).annotate({ identifier: "@scenesystems/effect-math/Distribution/ExponentialQuantileInput" })
 
 /** Unit-interval probability and uniform bounds.
  * @since 0.1.0
  * @category schemas
  */
-export const UniformQuantileInput = Schema.extend(Schema.Struct({ p: unitInterval }), UniformParameters).annotations({
+export const UniformQuantileInput = Schema.Struct({ p: unitInterval }).pipe(
+  Schema.fieldsAssign(UniformParameters.fields)
+).annotate({
   identifier: "@scenesystems/effect-math/Distribution/UniformQuantileInput"
 })
 
@@ -227,26 +236,27 @@ export const UniformQuantileInput = Schema.extend(Schema.Struct({ p: unitInterva
  * @since 0.1.0
  * @category schemas
  */
-export const BetaQuantileInput = Schema.extend(Schema.Struct({ p: unitInterval }), BetaParameters).annotations({
-  identifier: "@scenesystems/effect-math/Distribution/BetaQuantileInput"
-})
+export const BetaQuantileInput = Schema.Struct({ p: unitInterval }).pipe(Schema.fieldsAssign(BetaParameters.fields))
+  .annotate({
+    identifier: "@scenesystems/effect-math/Distribution/BetaQuantileInput"
+  })
 
 /** Unit-interval probability and gamma parameters.
  * @since 0.1.0
  * @category schemas
  */
-export const GammaQuantileInput = Schema.extend(Schema.Struct({ p: unitInterval }), GammaParameters).annotations({
-  identifier: "@scenesystems/effect-math/Distribution/GammaQuantileInput"
-})
+export const GammaQuantileInput = Schema.Struct({ p: unitInterval }).pipe(Schema.fieldsAssign(GammaParameters.fields))
+  .annotate({
+    identifier: "@scenesystems/effect-math/Distribution/GammaQuantileInput"
+  })
 
 /** Unit-interval probability and Student's t degrees of freedom.
  * @since 0.1.0
  * @category schemas
  */
-export const StudentTQuantileInput = Schema.extend(
-  Schema.Struct({ p: unitInterval }),
-  StudentTParameters
-).annotations({ identifier: "@scenesystems/effect-math/Distribution/StudentTQuantileInput" })
+export const StudentTQuantileInput = Schema.Struct({ p: unitInterval }).pipe(
+  Schema.fieldsAssign(StudentTParameters.fields)
+).annotate({ identifier: "@scenesystems/effect-math/Distribution/StudentTQuantileInput" })
 
 /** Decoded normal parameters.
  * @since 0.1.0
@@ -391,7 +401,7 @@ export type StudentTQuantileInput = typeof StudentTQuantileInput.Type
 export class DecodeError extends Schema.TaggedError<DecodeError>("@scenesystems/effect-math/Distribution/DecodeError")(
   "DistributionDecodeError",
   {
-    operation: Schema.Literal(
+    operation: Schema.Literals([
       "normalPdf",
       "normalCdf",
       "normalQuantile",
@@ -400,7 +410,7 @@ export class DecodeError extends Schema.TaggedError<DecodeError>("@scenesystems/
       "betaCdf",
       "betaQuantile",
       "categoricalPmf"
-    ),
+    ]),
     message: Schema.String
   }
 ) {}
@@ -413,13 +423,13 @@ export class DomainViolationError
   extends Schema.TaggedError<DomainViolationError>("@scenesystems/effect-math/Distribution/DomainViolationError")(
     "DistributionDomainViolationError",
     {
-      operation: Schema.Literal(
+      operation: Schema.Literals([
         "normalPdfWithPolicies",
         "normalCdfWithPolicies",
         "uniformPdfWithPolicies",
         "uniformCdfWithPolicies",
         "betaCdfWithPolicies"
-      ),
+      ]),
       message: Schema.String
     }
   )
@@ -433,7 +443,7 @@ export class ParameterError
   extends Schema.TaggedError<ParameterError>("@scenesystems/effect-math/Distribution/ParameterError")(
     "DistributionParameterError",
     {
-      operation: Schema.Literal("uniformPdf", "uniformCdf"),
+      operation: Schema.Literals(["uniformPdf", "uniformCdf"]),
       message: Schema.String
     }
   )
@@ -1132,7 +1142,7 @@ export const poissonVariance: (mu: number) => number = Poisson.poissonVariance
  */
 export const normalPdfValidated = (input: unknown) =>
   Effect.gen(function*() {
-    const decoded = yield* Schema.decodeUnknown(NormalInput)(input, {
+    const decoded = yield* Schema.decodeUnknownEffect(NormalInput)(input, {
       onExcessProperty: "error"
     }).pipe(
       Effect.mapError((error) =>
@@ -1157,7 +1167,7 @@ export const normalPdfValidated = (input: unknown) =>
  */
 export const normalCdfValidated = (input: unknown) =>
   Effect.gen(function*() {
-    const decoded = yield* Schema.decodeUnknown(NormalInput)(input, {
+    const decoded = yield* Schema.decodeUnknownEffect(NormalInput)(input, {
       onExcessProperty: "error"
     }).pipe(
       Effect.mapError((error) =>
@@ -1185,7 +1195,7 @@ export const normalCdfValidated = (input: unknown) =>
  */
 export const normalQuantileValidated = (input: unknown) =>
   Effect.gen(function*() {
-    const decoded = yield* Schema.decodeUnknown(NormalQuantileInput)(input, {
+    const decoded = yield* Schema.decodeUnknownEffect(NormalQuantileInput)(input, {
       onExcessProperty: "error"
     }).pipe(
       Effect.mapError((error) =>
@@ -1212,7 +1222,7 @@ export const normalQuantileValidated = (input: unknown) =>
  */
 export const uniformPdfValidated = (input: unknown) =>
   Effect.gen(function*() {
-    const decoded = yield* Schema.decodeUnknown(UniformInput)(input, {
+    const decoded = yield* Schema.decodeUnknownEffect(UniformInput)(input, {
       onExcessProperty: "error"
     }).pipe(
       Effect.mapError((error) =>
@@ -1225,7 +1235,7 @@ export const uniformPdfValidated = (input: unknown) =>
 
     yield* Effect.filterOrFail(
       Effect.succeed(decoded),
-      (d) => Number.lessThan(d.low, d.high),
+      (d) => Number.isLessThan(d.low, d.high),
       (d) =>
         new ParameterError({
           operation: "uniformPdf",
@@ -1252,7 +1262,7 @@ export const uniformPdfValidated = (input: unknown) =>
  */
 export const uniformCdfValidated = (input: unknown) =>
   Effect.gen(function*() {
-    const decoded = yield* Schema.decodeUnknown(UniformInput)(input, {
+    const decoded = yield* Schema.decodeUnknownEffect(UniformInput)(input, {
       onExcessProperty: "error"
     }).pipe(
       Effect.mapError((error) => new DecodeError({ operation: "uniformCdf", message: error.message }))
@@ -1260,7 +1270,7 @@ export const uniformCdfValidated = (input: unknown) =>
 
     yield* Effect.filterOrFail(
       Effect.succeed(decoded),
-      (value) => Number.lessThan(value.low, value.high),
+      (value) => Number.isLessThan(value.low, value.high),
       (value) =>
         new ParameterError({
           operation: "uniformCdf",
@@ -1290,7 +1300,7 @@ export const uniformCdfValidated = (input: unknown) =>
  */
 export const betaCdfValidated = (input: unknown) =>
   Effect.gen(function*() {
-    const decoded = yield* Schema.decodeUnknown(BetaInput)(input, {
+    const decoded = yield* Schema.decodeUnknownEffect(BetaInput)(input, {
       onExcessProperty: "error"
     }).pipe(
       Effect.mapError((error) =>
@@ -1318,7 +1328,7 @@ export const betaCdfValidated = (input: unknown) =>
  */
 export const betaQuantileValidated = (input: unknown) =>
   Effect.gen(function*() {
-    const decoded = yield* Schema.decodeUnknown(BetaQuantileInput)(input, {
+    const decoded = yield* Schema.decodeUnknownEffect(BetaQuantileInput)(input, {
       onExcessProperty: "error"
     }).pipe(
       Effect.mapError((error) =>
@@ -1347,7 +1357,7 @@ export const betaQuantileValidated = (input: unknown) =>
  */
 export const categoricalPmfValidated = (input: unknown) =>
   Effect.gen(function*() {
-    const decoded = yield* Schema.decodeUnknown(CategoricalInput)(input, {
+    const decoded = yield* Schema.decodeUnknownEffect(CategoricalInput)(input, {
       onExcessProperty: "error"
     }).pipe(
       Effect.mapError((error) =>

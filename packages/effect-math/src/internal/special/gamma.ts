@@ -8,11 +8,12 @@
  * @since 0.1.0
  * @category internal
  */
-import { Boolean, Chunk, Number } from "effect"
+import { Boolean, Chunk, Number, Option } from "effect"
 
 import { exp, log, pi, pow, sin, sqrt } from "../../Numeric.js"
 
 const lanczosG = 7
+const positiveInfinity = Option.getOrElse(Number.parse("Infinity"), () => 0)
 
 const lanczosCoefficients: Chunk.Chunk<number> = Chunk.make(
   0.99999999999980993,
@@ -33,23 +34,26 @@ const lanczosCoefficients: Chunk.Chunk<number> = Chunk.make(
  * @category internal
  */
 export const gammaLanczos = (x: number): number => {
-  return Boolean.match(Number.lessThan(x, 0.5), {
+  return Boolean.match(Number.isLessThan(x, 0.5), {
     onTrue: () =>
-      Number.unsafeDivide(
-        pi,
-        Number.multiply(sin(Number.multiply(pi, x)), gammaLanczos(Number.subtract(1, x)))
+      Option.getOrElse(
+        Number.divide(
+          pi,
+          Number.multiply(sin(Number.multiply(pi, x)), gammaLanczos(Number.subtract(1, x)))
+        ),
+        () => positiveInfinity
       ),
     onFalse: () => {
       const xShifted = Number.subtract(x, 1)
       const t = Number.sum(xShifted, Number.sum(lanczosG, 0.5))
       const seriesSum = Chunk.reduce(
         Chunk.drop(lanczosCoefficients, 1),
-        Chunk.unsafeGet(lanczosCoefficients, 0),
-        (acc, coeff, index) => Number.sum(acc, Number.unsafeDivide(coeff, Number.sum(xShifted, Number.sum(index, 1))))
+        Chunk.getUnsafe(lanczosCoefficients, 0),
+        (acc, coeff, index) => Number.sum(acc, Number.divideUnsafe(coeff, Number.sum(xShifted, Number.sum(index, 1))))
       )
       return Number.multiply(
         Number.multiply(sqrt(Number.multiply(2, pi)), seriesSum),
-        Number.multiply(pow(t, Number.sum(xShifted, 0.5)), exp(Number.negate(t)))
+        Number.multiply(pow(t, Number.sum(xShifted, 0.5)), exp(Number.multiply(t, -1)))
       )
     }
   })
@@ -63,10 +67,10 @@ export const gammaLanczos = (x: number): number => {
  * @category internal
  */
 export const lnGammaLanczos = (x: number): number => {
-  return Boolean.match(Number.lessThan(x, 0.5), {
+  return Boolean.match(Number.isLessThan(x, 0.5), {
     onTrue: () =>
       Number.subtract(
-        log(Number.unsafeDivide(pi, sin(Number.multiply(pi, x)))),
+        log(Number.divideUnsafe(pi, sin(Number.multiply(pi, x)))),
         lnGammaLanczos(Number.subtract(1, x))
       ),
     onFalse: () => {
@@ -74,15 +78,15 @@ export const lnGammaLanczos = (x: number): number => {
       const t = Number.sum(xShifted, Number.sum(lanczosG, 0.5))
       const seriesSum = Chunk.reduce(
         Chunk.drop(lanczosCoefficients, 1),
-        Chunk.unsafeGet(lanczosCoefficients, 0),
-        (acc, coeff, index) => Number.sum(acc, Number.unsafeDivide(coeff, Number.sum(xShifted, Number.sum(index, 1))))
+        Chunk.getUnsafe(lanczosCoefficients, 0),
+        (acc, coeff, index) => Number.sum(acc, Number.divideUnsafe(coeff, Number.sum(xShifted, Number.sum(index, 1))))
       )
       return Number.sum(
         Number.sum(
           log(Number.multiply(sqrt(Number.multiply(2, pi)), seriesSum)),
           Number.multiply(Number.sum(xShifted, 0.5), log(t))
         ),
-        Number.negate(t)
+        Number.multiply(t, -1)
       )
     }
   })

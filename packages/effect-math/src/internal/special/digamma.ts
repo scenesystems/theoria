@@ -18,11 +18,11 @@ import { log } from "../../Numeric.js"
 
 const asymptoticThreshold = 7
 
-const B2 = Number.unsafeDivide(1, 6)
-const B4 = Number.unsafeDivide(-1, 30)
-const B6 = Number.unsafeDivide(1, 42)
-const B8 = Number.unsafeDivide(-1, 30)
-const B10 = Number.unsafeDivide(5, 66)
+const B2 = Number.divideUnsafe(1, 6)
+const B4 = Number.divideUnsafe(-1, 30)
+const B6 = Number.divideUnsafe(1, 42)
+const B8 = Number.divideUnsafe(-1, 30)
+const B10 = Number.divideUnsafe(5, 66)
 
 class DigammaState extends Data.Class<{
   readonly x: number
@@ -36,7 +36,7 @@ class DigammaState extends Data.Class<{
  * @category internal
  */
 const digammaAsymptotic = (x: number): number => {
-  const invX = Number.unsafeDivide(1, x)
+  const invX = Number.divideUnsafe(1, x)
   const invX2 = Number.multiply(invX, invX)
 
   return Number.subtract(
@@ -49,18 +49,18 @@ const digammaAsymptotic = (x: number): number => {
           Number.sum(
             Number.sum(
               Number.multiply(B2, 0.5),
-              Number.multiply(Number.multiply(B4, invX2), Number.unsafeDivide(1, 4))
+              Number.multiply(Number.multiply(B4, invX2), Number.divideUnsafe(1, 4))
             ),
-            Number.multiply(Number.multiply(Number.multiply(B6, invX2), invX2), Number.unsafeDivide(1, 6))
+            Number.multiply(Number.multiply(Number.multiply(B6, invX2), invX2), Number.divideUnsafe(1, 6))
           ),
           Number.sum(
             Number.multiply(
               Number.multiply(Number.multiply(Number.multiply(B8, invX2), invX2), invX2),
-              Number.unsafeDivide(1, 8)
+              Number.divideUnsafe(1, 8)
             ),
             Number.multiply(
               Number.multiply(Number.multiply(Number.multiply(Number.multiply(B10, invX2), invX2), invX2), invX2),
-              Number.unsafeDivide(1, 10)
+              Number.divideUnsafe(1, 10)
             )
           )
         )
@@ -79,12 +79,12 @@ const digammaRecurrence = (x: number, correction: number): number => {
   const initial = new DigammaState({ x, correction })
   const final = Iterable.reduce(
     Iterable.unfold(initial, (state) =>
-      Boolean.match(Number.greaterThanOrEqualTo(state.x, asymptoticThreshold), {
+      Boolean.match(Number.isGreaterThanOrEqualTo(state.x, asymptoticThreshold), {
         onTrue: Option.none,
         onFalse: () => {
           const next = new DigammaState({
             x: Number.sum(state.x, 1),
-            correction: Number.subtract(state.correction, Number.unsafeDivide(1, state.x))
+            correction: Number.subtract(state.correction, Number.divideUnsafe(1, state.x))
           })
           return Option.some(Tuple.make(next, next))
         }

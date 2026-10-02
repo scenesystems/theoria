@@ -1,6 +1,8 @@
 import { describe, expect, it } from "@effect/vitest"
 import { Effect, Number } from "effect"
 
+import { nan, negativeInfinity, positiveInfinity } from "../helpers/nonFinite.js"
+
 import { abs, isFinite, pi, sqrt } from "../../src/Numeric.js"
 import * as Policy from "../../src/Policy.js"
 import {
@@ -127,8 +129,8 @@ describe("Special / erf", () => {
 
   it.effect("matches SciPy reference values at every approximation boundary", () =>
     Effect.gen(function*() {
-      const twoPowNegative28 = Number.unsafeDivide(1, 268_435_456)
-      const largeSplit = Number.unsafeDivide(1, 0.35)
+      const twoPowNegative28 = Number.divideUnsafe(1, 268_435_456)
+      const largeSplit = Number.divideUnsafe(1, 0.35)
 
       expectClose(erf(twoPowNegative28), 4.203539964167448e-9, erfBoundaryTolerance)
       expectClose(erf(0.84375), 0.7672256612323416, erfBoundaryTolerance)
@@ -140,9 +142,9 @@ describe("Special / erf", () => {
   it.effect("preserves signed zero, NaN, and infinity behavior", () =>
     Effect.gen(function*() {
       expect(erf(-0)).toBe(0)
-      expect(erf(Number.unsafeDivide(0, 0))).toBeNaN()
-      expect(erf(Number.unsafeDivide(1, 0))).toBe(1)
-      expect(erf(Number.unsafeDivide(-1, 0))).toBe(-1)
+      expect(erf(nan)).toBeNaN()
+      expect(erf(positiveInfinity)).toBe(1)
+      expect(erf(negativeInfinity)).toBe(-1)
     }))
 })
 
@@ -159,8 +161,8 @@ describe("Special / erfc", () => {
 
   it.effect("matches SciPy reference values at every approximation boundary", () =>
     Effect.gen(function*() {
-      const twoPowNegative28 = Number.unsafeDivide(1, 268_435_456)
-      const largeSplit = Number.unsafeDivide(1, 0.35)
+      const twoPowNegative28 = Number.divideUnsafe(1, 268_435_456)
+      const largeSplit = Number.divideUnsafe(1, 0.35)
 
       expectClose(erfc(twoPowNegative28), 0.99999999579646, erfBoundaryTolerance)
       expectClose(erfc(0.84375), 0.2327743387676584, erfBoundaryTolerance)
@@ -172,9 +174,9 @@ describe("Special / erfc", () => {
   it.effect("preserves signed zero, NaN, and infinity behavior", () =>
     Effect.gen(function*() {
       expect(erfc(-0)).toBe(1)
-      expect(erfc(Number.unsafeDivide(0, 0))).toBeNaN()
-      expect(erfc(Number.unsafeDivide(1, 0))).toBe(0)
-      expect(erfc(Number.unsafeDivide(-1, 0))).toBe(2)
+      expect(erfc(nan)).toBeNaN()
+      expect(erfc(positiveInfinity)).toBe(0)
+      expect(erfc(negativeInfinity)).toBe(2)
     }))
 })
 
@@ -186,7 +188,7 @@ describe("Special / digamma", () => {
   it.effect("ψ(1) ≈ -γ (Euler–Mascheroni)", () =>
     Effect.gen(function*() {
       const eulerMascheroni = 0.5772156649015329
-      expectClose(digamma(1), Number.negate(eulerMascheroni), digammaTolerance)
+      expectClose(digamma(1), Number.multiply(-1, eulerMascheroni), digammaTolerance)
     }))
 
   it.effect("ψ(2) ≈ 1 - γ", () =>
@@ -259,7 +261,7 @@ describe("Special / digammaValidated", () => {
     Effect.gen(function*() {
       const result = yield* digammaValidated({ x: 1 })
       const eulerMascheroni = 0.5772156649015329
-      expectClose(result, Number.negate(eulerMascheroni), digammaTolerance)
+      expectClose(result, Number.multiply(-1, eulerMascheroni), digammaTolerance)
     }))
 })
 
@@ -350,7 +352,7 @@ describe("Special / digammaWithPolicies", () => {
     Effect.gen(function*() {
       const eulerMascheroni = 0.5772156649015329
       const result = yield* digammaWithPolicies(1)
-      expectClose(result, Number.negate(eulerMascheroni), digammaTolerance)
+      expectClose(result, Number.multiply(-1, eulerMascheroni), digammaTolerance)
     }).pipe(Effect.provide(strictCompensatedLayer)))
 
   it.effect("returns ψ(2) ≈ 1 - γ under relaxed", () =>

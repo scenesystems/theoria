@@ -1,5 +1,5 @@
 import { describe, expect, it } from "@effect/vitest"
-import { Effect, Layer } from "effect"
+import { Effect } from "effect"
 
 import * as Backend from "../../src/Backend.js"
 import * as Policy from "../../src/Policy.js"
@@ -11,7 +11,7 @@ describe("Backend.resolve", () => {
         operation: "dot",
         scalarKind: "float64",
         preferredBackend: "accelerated"
-      }).pipe(Effect.provide(Layer.succeed(Policy.Backend, { policy: "compensated" })))
+      }).pipe(Effect.provideService(Policy.Backend, { policy: "compensated" }))
 
       expect(backend).toStrictEqual("compensated")
     }))
@@ -19,7 +19,7 @@ describe("Backend.resolve", () => {
   it.effect("falls back when compensated execution cannot serve BigDecimal", () =>
     Effect.gen(function*() {
       const backend = yield* Backend.resolve({ operation: "dot", scalarKind: "bigdecimal" }).pipe(
-        Effect.provide(Layer.succeed(Policy.Backend, { policy: "compensated" }))
+        Effect.provideService(Policy.Backend, { policy: "compensated" })
       )
 
       expect(backend).toStrictEqual("scalar")

@@ -17,10 +17,10 @@ import * as Scalar from "./Scalar.js"
  * @since 0.1.0
  * @category schemas
  */
-export const Kind = Schema.Union(
+export const Kind = Schema.Union([
   Policy.BackendPolicy.fields.policy,
-  Schema.Literal("accelerated")
-).annotations({ identifier: "@scenesystems/effect-math/Backend/Kind" })
+  Schema.Literals(["accelerated"])
+]).annotate({ identifier: "@scenesystems/effect-math/Backend/Kind" })
 
 /**
  * A decoded backend label used in dispatch metadata.
@@ -40,7 +40,7 @@ export const Capability = Schema.Struct({
   kind: Kind,
   available: Schema.Boolean,
   supportedScalarKinds: Schema.NonEmptyArray(Scalar.Kind)
-}).annotations({ identifier: "@scenesystems/effect-math/Backend/Capability" })
+}).annotate({ identifier: "@scenesystems/effect-math/Backend/Capability" })
 
 /**
  * Decoded capability metadata for one backend.
@@ -63,7 +63,7 @@ export const Request = Schema.Struct({
   operation: Schema.String,
   scalarKind: Scalar.Kind,
   preferredBackend: Schema.optional(Kind)
-}).annotations({ identifier: "@scenesystems/effect-math/Backend/Request" })
+}).annotate({ identifier: "@scenesystems/effect-math/Backend/Request" })
 
 /**
  * A decoded backend selection request.
@@ -133,7 +133,7 @@ export const resolve = (request: Request) =>
     const backendPolicy = yield* Policy.Backend
     const ordered = orderedKinds(backendPolicy.policy)
     const requested = Option.getOrElse(
-      Option.fromNullable(request.preferredBackend),
+      Option.fromNullishOr(request.preferredBackend),
       () => backendPolicy.policy
     )
     const resolved = Array.findFirst(ordered, (kind) => supports(kind, request.scalarKind))
@@ -142,16 +142,14 @@ export const resolve = (request: Request) =>
       (candidate) => candidate.kind
     )
 
-    return yield* Option.match(resolved, {
-      onNone: () =>
-        Effect.fail(
-          new UnavailableError({
-            operation: request.operation,
-            requestedBackend: requested,
-            availableBackends: available,
-            message: String.concat("No backend can satisfy scalar lane ", request.scalarKind)
-          })
-        ),
-      onSome: Effect.succeed
-    })
+    return yield* Effect.fromOption(
+      resolved,
+      () =>
+        new UnavailableError({
+          operation: request.operation,
+          requestedBackend: requested,
+          availableBackends: available,
+          message: String.concat("No backend can satisfy scalar lane ", request.scalarKind)
+        })
+    )
   })

@@ -31,6 +31,11 @@ All code must be idiomatic Effect. See root `AGENTS.md` for the full banned-patt
 - **`onExcessProperty: "error"`** on all `Schema.decodeUnknown` boundary calls
 - **No implicit math exceptions.** Deterministic IEEE 754 behavior does not authorize `Math.sqrt` or other JavaScript substitutes. Research Effect's public APIs and ecosystem integrations; obtain explicit authorization for any operation that remains unavailable before introducing a non-Effect implementation.
 
+Approved exceptions:
+
+- Only the private `negativeZero` predicate in `src/internal/numeric/transcendental.ts` may use `Object.is(value, -0)`. Effect v4 has no suitable public signed-zero predicate; its division APIs reject zero divisors. Replace this predicate with a public Effect numeric API when available. This does not authorize other native numerical operations.
+- `src/Complex.ts` intentionally uses `Schema.Number` for IEEE-valued base models. The root Oxlint configuration disables only `effecttsgo/schema-number` for this file. Validated operation inputs still require finite values; do not broaden this exception to other modules.
+
 ## Flat Concern Architecture
 
 Public APIs are flat concern modules in `src/<Concern>.ts`, available through the matching package subpath and root namespace: `Numeric`, `Algebra`, `Special`, `LinearAlgebra`, `Geometry`, `Statistics`, `Complex`, `Calculus`, `Optimization`, `Probability`, `Distribution`, `Policy`, `Scalar`, `Backend`, `Precision`, `Autodiff`, `Uncertainty`, and `Computation`.
@@ -88,7 +93,7 @@ Fixture generation uses [uv](https://docs.astral.sh/uv/) with PEP 723 inline met
 
 - **Python generators** (`scripts/fixtures/*.py`): one module per domain, each exports `generate(generated_at) -> list[dict]`
 - **TS schemas** (`test/helpers/fixtures/schemas.ts`): discriminated unions per domain; `KnownFixtureSchema` owns the fixture vocabulary, with names derived from its members
-- **TS registry** (`test/helpers/fixtures/registry.ts`): `loadFixture` reads the manifest and schema-decodes the requested document using `@effect/platform` services provided by `BunContext.layer`
+- **TS registry** (`test/helpers/fixtures/registry.ts`): `loadFixture` reads the manifest and schema-decodes the requested document using Effect `FileSystem` and `Path` services provided by `BunServices.layer`
 - **Fixture-parity tests** (`test/{Domain}/fixture-parity.test.ts`): load via registry, decode through domain schema, dispatch via `Match.exhaustive`
 
 ### Rules

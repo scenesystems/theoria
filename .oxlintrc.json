@@ -71,5 +71,13 @@
     "typescript/prefer-namespace-keyword": "error",
     "typescript/triple-slash-reference": "error"
   },
+  "overrides": [
+    {
+      "files": ["packages/effect-math/src/Complex.ts"],
+      "rules": {
+        "effecttsgo/schema-number": "off"
+      }
+    }
+  ],
   "ignorePatterns": ["apps/*/public/**"]
 }

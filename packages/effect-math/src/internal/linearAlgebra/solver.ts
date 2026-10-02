@@ -14,7 +14,7 @@ const solverEpsilon = 1e-12
 const indices = (size: number): Chunk.Chunk<number> =>
   Chunk.fromIterable(
     Iterable.unfold(0, (index) =>
-      Boolean.match(Number.lessThan(index, size), {
+      Boolean.match(Number.isLessThan(index, size), {
         onFalse: Option.none,
         onTrue: () => Option.some(Tuple.make(index, Number.increment(index)))
       }))
@@ -36,14 +36,14 @@ const setMatrixValue = (
   row: number,
   column: number,
   value: number
-): Chunk.Chunk<number> => Chunk.replace(matrix, matrixIndex(size, row, column), value)
+): Chunk.Chunk<number> => Option.getOrElse(Chunk.replace(matrix, matrixIndex(size, row, column), value), () => matrix)
 
 const isSymmetricMatrix = (matrix: Chunk.Chunk<number>, size: number): boolean =>
   Chunk.every(indices(size), (row) =>
     Chunk.every(
-      Chunk.filter(indices(size), (column) => Number.greaterThan(column, row)),
+      Chunk.filter(indices(size), (column) => Number.isGreaterThan(column, row)),
       (column) =>
-        Number.lessThanOrEqualTo(
+        Number.isLessThanOrEqualTo(
           abs(Number.subtract(matrixValueAt(matrix, size, row, column), matrixValueAt(matrix, size, column, row))),
           solverEpsilon
         )
@@ -54,9 +54,9 @@ const lowerCoordinates = (size: number) =>
 
 const lowerToChunk = (lower: Chunk.Chunk<number>, size: number): Chunk.Chunk<number> =>
   Chunk.map(indices(Number.multiply(size, size)), (flatIndex) => {
-    const row = floor(Number.unsafeDivide(flatIndex, size))
+    const row = floor(Number.divideUnsafe(flatIndex, size))
     const column = Number.remainder(flatIndex, size)
-    return Boolean.match(Number.lessThanOrEqualTo(column, row), {
+    return Boolean.match(Number.isLessThanOrEqualTo(column, row), {
       onFalse: () => 0,
       onTrue: () => matrixValueAt(lower, size, row, column)
     })
@@ -70,7 +70,7 @@ export const choleskySpd = (
     matrix,
     () =>
       Boolean.and(
-        Number.greaterThan(size, 0),
+        Number.isGreaterThan(size, 0),
         Boolean.and(
           Number.Equivalence(Chunk.size(matrix), Number.multiply(size, size)),
           isSymmetricMatrix(matrix, size)
@@ -83,8 +83,8 @@ export const choleskySpd = (
         Option.some(Chunk.map(indices(Number.multiply(size, size)), () => 0)),
         (lowerOption, coordinate) =>
           Option.flatMap(lowerOption, (lower) => {
-            const row = Tuple.getFirst(coordinate)
-            const column = Tuple.getSecond(coordinate)
+            const row = Tuple.get(coordinate, 0)
+            const column = Tuple.get(coordinate, 1)
             const projection = Chunk.reduce(
               indices(column),
               0,
@@ -101,14 +101,14 @@ export const choleskySpd = (
               onTrue: () =>
                 Option.liftPredicate(
                   Number.subtract(matrixValueAt(matrix, size, row, row), projection),
-                  Number.greaterThan(solverEpsilon)
+                  Number.isGreaterThan(solverEpsilon)
                 ).pipe(
                   Option.map((diagonal) => setMatrixValue(lower, size, row, column, sqrt(diagonal)))
                 ),
               onFalse: () =>
                 Option.liftPredicate(
                   matrixValueAt(lower, size, column, column),
-                  (pivot) => Number.greaterThan(abs(pivot), solverEpsilon)
+                  (pivot) => Number.isGreaterThan(abs(pivot), solverEpsilon)
                 ).pipe(
                   Option.map((pivot) =>
                     setMatrixValue(
@@ -116,7 +116,7 @@ export const choleskySpd = (
                       size,
                       row,
                       column,
-                      Number.unsafeDivide(
+                      Number.divideUnsafe(
                         Number.subtract(matrixValueAt(matrix, size, row, column), projection),
                         pivot
                       )
@@ -163,12 +163,12 @@ export const forwardSubstituteLower = (
             )
             return Option.liftPredicate(
               matrixValueAt(lower, size, index, index),
-              (diagonal) => Number.greaterThan(abs(diagonal), solverEpsilon)
+              (diagonal) => Number.isGreaterThan(abs(diagonal), solverEpsilon)
             ).pipe(
               Option.map((diagonal) =>
                 Chunk.append(
                   solved,
-                  Number.unsafeDivide(
+                  Number.divideUnsafe(
                     Number.subtract(Option.getOrElse(Chunk.get(rhs, index), () => 0), projection),
                     diagonal
                   )
@@ -200,7 +200,7 @@ export const backwardSubstituteUpper = (
         (solvedOption, index) =>
           Option.flatMap(solvedOption, (solved) => {
             const projection = Chunk.reduce(
-              Chunk.filter(indices(size), (column) => Number.greaterThan(column, index)),
+              Chunk.filter(indices(size), (column) => Number.isGreaterThan(column, index)),
               0,
               (sum, column) =>
                 Number.sum(
@@ -213,13 +213,13 @@ export const backwardSubstituteUpper = (
             )
             return Option.liftPredicate(
               matrixValueAt(upper, size, index, index),
-              (diagonal) => Number.greaterThan(abs(diagonal), solverEpsilon)
+              (diagonal) => Number.isGreaterThan(abs(diagonal), solverEpsilon)
             ).pipe(
-              Option.map((diagonal) =>
+              Option.flatMap((diagonal) =>
                 Chunk.replace(
                   solved,
                   index,
-                  Number.unsafeDivide(
+                  Number.divideUnsafe(
                     Number.subtract(Option.getOrElse(Chunk.get(rhs, index), () => 0), projection),
                     diagonal
                   )

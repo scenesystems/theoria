@@ -7,7 +7,7 @@
  * @since 0.1.0
  * @category internal
  */
-import { Boolean, Data, Iterable, Match, Number, Option, Predicate, Schema, Tuple } from "effect"
+import { Boolean, Data, Iterable, Match, Number, Option, Predicate, Tuple } from "effect"
 
 import { exp, isFinite, log } from "../../Numeric.js"
 import { digamma, gammainc, gammaincc, lnGamma } from "../../Special.js"
@@ -36,11 +36,11 @@ class GammaBracketState extends Data.Class<{
 export const gammaPdf = (x: number, shape: number, scale: number): number => {
   return Match.value(x).pipe(
     Match.when(Infinity, () => 0),
-    Match.when(Number.lessThan(0), () => 0),
+    Match.when(Number.isLessThan(0), () => 0),
     Match.when((value) => Number.Equivalence(value, 0), () =>
       Match.value(Number.Order(shape, 1)).pipe(
         Match.when(-1, () => Infinity),
-        Match.when(0, () => Number.unsafeDivide(1, scale)),
+        Match.when(0, () => Number.divideUnsafe(1, scale)),
         Match.when(1, () => 0),
         Match.exhaustive
       )),
@@ -49,7 +49,7 @@ export const gammaPdf = (x: number, shape: number, scale: number): number => {
         Number.subtract(
           Number.subtract(
             Number.multiply(Number.subtract(shape, 1), log(x)),
-            Number.unsafeDivide(x, scale)
+            Number.divideUnsafe(x, scale)
           ),
           Number.sum(
             Number.multiply(shape, log(scale)),
@@ -70,11 +70,11 @@ export const gammaPdf = (x: number, shape: number, scale: number): number => {
 export const gammaLogpdf = (x: number, shape: number, scale: number): number => {
   return Match.value(x).pipe(
     Match.when(Infinity, () => -Infinity),
-    Match.when(Number.lessThan(0), () => -Infinity),
+    Match.when(Number.isLessThan(0), () => -Infinity),
     Match.when((value) => Number.Equivalence(value, 0), () =>
       Match.value(Number.Order(shape, 1)).pipe(
         Match.when(-1, () => Infinity),
-        Match.when(0, () => Number.negate(log(scale))),
+        Match.when(0, () => Number.multiply(-1, log(scale))),
         Match.when(1, () => -Infinity),
         Match.exhaustive
       )),
@@ -82,7 +82,7 @@ export const gammaLogpdf = (x: number, shape: number, scale: number): number => 
       Number.subtract(
         Number.subtract(
           Number.multiply(Number.subtract(shape, 1), log(x)),
-          Number.unsafeDivide(x, scale)
+          Number.divideUnsafe(x, scale)
         ),
         Number.sum(
           Number.multiply(shape, log(scale)),
@@ -102,8 +102,8 @@ export const gammaLogpdf = (x: number, shape: number, scale: number): number => 
 export const gammaCdf = (x: number, shape: number, scale: number): number => {
   return Match.value(x).pipe(
     Match.when(Infinity, () => 1),
-    Match.when(Number.lessThanOrEqualTo(0), () => 0),
-    Match.orElse(() => gammainc(shape, Number.unsafeDivide(x, scale)))
+    Match.when(Number.isLessThanOrEqualTo(0), () => 0),
+    Match.orElse(() => gammainc(shape, Number.divideUnsafe(x, scale)))
   )
 }
 
@@ -114,7 +114,7 @@ export const gammaCdf = (x: number, shape: number, scale: number): number => {
  * @category internal
  */
 const gammaQuantileUpper = (p: number, shape: number): number => {
-  const upperTail = Number.greaterThan(p, 0.5)
+  const upperTail = Number.isGreaterThan(p, 0.5)
   const target = Boolean.match(upperTail, {
     onTrue: () => Number.subtract(1, p),
     onFalse: () => p
@@ -129,7 +129,7 @@ const gammaQuantileUpper = (p: number, shape: number): number => {
     Iterable.unfold(initial, (state) =>
       Boolean.match(
         Boolean.or(
-          Number.greaterThanOrEqualTo(probabilityError(state.upper), 0),
+          Number.isGreaterThanOrEqualTo(probabilityError(state.upper), 0),
           Boolean.or(Number.Equivalence(state.remaining, 0), Predicate.not(isFinite)(state.upper))
         ),
         {
@@ -160,7 +160,7 @@ const gammaQuantileLoop = (
   upper: number,
   initialX: number
 ): number => {
-  const upperTail = Number.greaterThan(p, 0.5)
+  const upperTail = Number.isGreaterThan(p, 0.5)
   const target = Boolean.match(upperTail, {
     onTrue: () => Number.subtract(1, p),
     onFalse: () => p
@@ -174,7 +174,7 @@ const gammaQuantileLoop = (
   return Iterable.reduce(
     Iterable.unfold(initial, (state) => {
       const width = Number.subtract(state.upper, state.lower)
-      const bracketMidpoint = Number.unsafeDivide(Number.sum(state.lower, state.upper), 2)
+      const bracketMidpoint = Number.divideUnsafe(Number.sum(state.lower, state.upper), 2)
       const exhaustedPrecision = Boolean.or(
         Number.Equivalence(bracketMidpoint, state.lower),
         Number.Equivalence(bracketMidpoint, state.upper)
@@ -182,20 +182,20 @@ const gammaQuantileLoop = (
       return Boolean.match(
         Boolean.or(
           Number.Equivalence(state.remaining, 0),
-          Boolean.or(Number.lessThanOrEqualTo(width, 5e-324), exhaustedPrecision)
+          Boolean.or(Number.isLessThanOrEqualTo(width, 5e-324), exhaustedPrecision)
         ),
         {
           onTrue: Option.none,
           onFalse: () => {
             const difference = probabilityError(state.x)
-            const below = Number.lessThan(difference, 0)
+            const below = Number.isLessThan(difference, 0)
             const lower = Boolean.match(below, { onTrue: () => state.x, onFalse: () => state.lower })
             const nextUpper = Boolean.match(below, { onTrue: () => state.upper, onFalse: () => state.x })
-            const midpoint = Number.unsafeDivide(Number.sum(lower, nextUpper), 2)
-            const candidate = Number.subtract(state.x, Number.unsafeDivide(difference, gammaPdf(state.x, shape, 1)))
+            const midpoint = Number.divideUnsafe(Number.sum(lower, nextUpper), 2)
+            const candidate = Number.subtract(state.x, Number.divideUnsafe(difference, gammaPdf(state.x, shape, 1)))
             const useCandidate = Boolean.and(
               isFinite(candidate),
-              Boolean.and(Number.greaterThan(candidate, lower), Number.lessThan(candidate, nextUpper))
+              Boolean.and(Number.isGreaterThan(candidate, lower), Number.isLessThan(candidate, nextUpper))
             )
             const next = new GammaQuantileState({
               lower,
@@ -225,24 +225,24 @@ const gammaQuantileLoop = (
  */
 export const gammaQuantile = (p: number, shape: number, scale: number): number => {
   return Match.value(p).pipe(
-    Match.when(Predicate.not(Schema.is(Schema.NonNaN)), () => NaN),
-    Match.when(Number.lessThanOrEqualTo(0), () => 0),
-    Match.when(Number.greaterThanOrEqualTo(1), () => Infinity),
+    Match.when((value) => Number.Equivalence(value, NaN), () => NaN),
+    Match.when(Number.isLessThanOrEqualTo(0), () => 0),
+    Match.when(Number.isGreaterThanOrEqualTo(1), () => Infinity),
     Match.orElse((p) => {
       const upper = gammaQuantileUpper(p, shape)
-      const logLowerEstimate = Number.unsafeDivide(
+      const logLowerEstimate = Number.divideUnsafe(
         Number.sum(log(p), lnGamma(Number.sum(shape, 1))),
         shape
       )
       const lowerEstimate = exp(logLowerEstimate)
-      const estimate = Boolean.match(Number.lessThanOrEqualTo(p, 0.5), {
+      const estimate = Boolean.match(Number.isLessThanOrEqualTo(p, 0.5), {
         onTrue: () => lowerEstimate,
         onFalse: () => shape
       })
-      const interior = Boolean.and(Number.greaterThan(estimate, 0), Number.lessThan(estimate, upper))
+      const interior = Boolean.and(Number.isGreaterThan(estimate, 0), Number.isLessThan(estimate, upper))
       const initial = Boolean.match(interior, {
         onTrue: () => estimate,
-        onFalse: () => Number.unsafeDivide(upper, 2)
+        onFalse: () => Number.divideUnsafe(upper, 2)
       })
       // Below standardized precision, P(a,x) ~ x^a / Gamma(a+1).
       // Apply scale in log space before rounding the physical quantile to zero.

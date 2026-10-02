@@ -1,4 +1,4 @@
-import { BunContext } from "@effect/platform-bun"
+import { BunServices } from "@effect/platform-bun"
 import { describe, expect, it } from "@effect/vitest"
 import { Array, Chunk, Effect, Match, Number, Option, Schema } from "effect"
 
@@ -11,13 +11,13 @@ const covarianceTolerance = 1e-10
 const minMaxTolerance = 1e-15
 
 const expectWithinTolerance = (actual: number, expected: number, tolerance: number) =>
-  expect(Number.lessThanOrEqualTo(abs(Number.subtract(actual, expected)), tolerance)).toBe(true)
+  expect(Number.isLessThanOrEqualTo(abs(Number.subtract(actual, expected)), tolerance)).toBe(true)
 
 describe("Statistics SciPy fixture parity", () => {
   it.effect("all estimator-parity cases match SciPy reference values", () =>
     Effect.gen(function*() {
       const raw = yield* loadFixture("statistics.estimator-parity")
-      const fixture = yield* Schema.decodeUnknown(StatisticsEstimatorParityFixtureSchema)(raw, {
+      const fixture = yield* Schema.decodeUnknownEffect(StatisticsEstimatorParityFixtureSchema)(raw, {
         onExcessProperty: "error"
       })
 
@@ -62,5 +62,5 @@ describe("Statistics SciPy fixture parity", () => {
             Match.exhaustive
           )
         ))
-    }).pipe(Effect.provide(BunContext.layer)))
+    }).pipe(Effect.provide(BunServices.layer)))
 })

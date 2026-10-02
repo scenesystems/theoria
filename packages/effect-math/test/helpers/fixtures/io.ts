@@ -1,6 +1,5 @@
-import { FileSystem, Path, Url } from "@effect/platform"
-import type { PlatformError } from "@effect/platform/Error"
-import { Array, Effect, type Option, Schema, String, Tuple } from "effect"
+import { Array, Effect, FileSystem, type Option, Path, type PlatformError, Schema, String, Tuple } from "effect"
+import { Url } from "effect/http"
 
 import {
   FixtureFileReadError,
@@ -13,13 +12,13 @@ import {
 import { FixtureManifestSchema, KnownFixtureSchema } from "./schemas.js"
 import type { FixtureManifest, FixtureManifestEntrySchema, FixtureName, KnownFixture } from "./schemas.js"
 
-const decodeJsonUnknown = Schema.decodeUnknown(Schema.parseJson(Schema.Unknown))
+const decodeJsonUnknown = Schema.decodeUnknownEffect(Schema.fromJsonString(Schema.Unknown))
 
 /** The directory `relative` names beside the module at `moduleUrl`, as a filesystem path. */
 export const directoryBeside = (moduleUrl: string, relative: string) =>
   Effect.gen(function*() {
     const path = yield* Path.Path
-    const url = yield* Url.fromString(relative, moduleUrl).pipe(
+    const url = yield* Effect.fromResult(Url.fromString(relative, moduleUrl)).pipe(
       Effect.mapError((cause) => new FixtureRootResolutionError({ moduleUrl, relative, cause }))
     )
     return yield* path.fromFileUrl(url).pipe(
@@ -31,7 +30,7 @@ export const directoryBeside = (moduleUrl: string, relative: string) =>
 const readText = <E>(
   rootDirectory: string,
   file: string,
-  onError: (path: string, cause: PlatformError) => E
+  onError: (path: string, cause: PlatformError.PlatformError) => E
 ) =>
   Effect.gen(function*() {
     const fileSystem = yield* FileSystem.FileSystem
@@ -60,7 +59,7 @@ const decodeManifest = (
   path: string,
   payload: unknown
 ): Effect.Effect<FixtureManifest, FixtureManifestDecodeError> =>
-  Schema.decodeUnknown(FixtureManifestSchema)(payload, { onExcessProperty: "error" }).pipe(
+  Schema.decodeUnknownEffect(FixtureManifestSchema)(payload, { onExcessProperty: "error" }).pipe(
     Effect.mapError(
       (cause) =>
         new FixtureManifestDecodeError({
@@ -96,7 +95,7 @@ const decodeFixture = (
   path: string,
   payload: unknown
 ): Effect.Effect<KnownFixture, FixtureSchemaDecodeError> =>
-  Schema.decodeUnknown(KnownFixtureSchema)(payload, { onExcessProperty: "error" }).pipe(
+  Schema.decodeUnknownEffect(KnownFixtureSchema)(payload, { onExcessProperty: "error" }).pipe(
     Effect.mapError(
       (cause) =>
         new FixtureSchemaDecodeError({

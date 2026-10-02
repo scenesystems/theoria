@@ -1,6 +1,8 @@
 import { describe, expect, it } from "@effect/vitest"
 import { Array, Chunk, Effect, Exit, Number, Schema, String } from "effect"
 
+import { positiveInfinity } from "../helpers/nonFinite.js"
+
 import {
   adaptiveSimpson,
   adaptiveSimpsonValidated,
@@ -98,7 +100,7 @@ describe("Calculus / integration validation", () => {
   it.effect("adaptiveSimpsonValidated maps callback throws to typed kernel errors", () =>
     Effect.gen(function*() {
       const error = yield* Effect.flip(adaptiveSimpsonValidated(
-        () => Schema.decodeUnknownSync(Schema.Number)({ invalid: true }),
+        () => Schema.decodeUnknownSync(Schema.Finite)({ invalid: true }),
         {
           a: 0,
           b: 1
@@ -114,7 +116,7 @@ describe("Calculus / integration validation", () => {
 describe("Calculus / integration policy behavior", () => {
   it.effect("strict precision rejects non-finite adaptive integrals", () =>
     Effect.gen(function*() {
-      const result = yield* Effect.exit(adaptiveSimpsonWithPolicies(() => Number.unsafeDivide(1, 0), 0, 1))
+      const result = yield* Effect.exit(adaptiveSimpsonWithPolicies(() => positiveInfinity, 0, 1))
       expect(Exit.isFailure(result)).toStrictEqual(true)
     }).pipe(Effect.provide(strictPolicies)))
 
@@ -130,14 +132,14 @@ describe("Calculus / integration policy behavior", () => {
 
   it.effect("relaxed precision permits non-finite sampled integration outputs", () =>
     Effect.gen(function*() {
-      const result = yield* trapezoidWithPolicies(Chunk.make(Number.unsafeDivide(1, 0), 1), 1)
+      const result = yield* trapezoidWithPolicies(Chunk.make(positiveInfinity, 1), 1)
       expect(Numeric.isFinite(result)).toStrictEqual(false)
     }).pipe(Effect.provide(relaxedPolicies)))
 
   it.effect("policy wrappers map callback throws to typed kernel errors", () =>
     Effect.gen(function*() {
       const error = yield* Effect.flip(adaptiveSimpsonWithPolicies(
-        () => Schema.decodeUnknownSync(Schema.Number)({ invalid: true }),
+        () => Schema.decodeUnknownSync(Schema.Finite)({ invalid: true }),
         0,
         1
       ))

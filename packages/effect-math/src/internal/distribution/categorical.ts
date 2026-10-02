@@ -39,10 +39,10 @@ export const categoricalLogpmf = (k: number, probs: Chunk.Chunk<number>): number
  * @category internal
  */
 export const categoricalCdf = (k: number, probs: Chunk.Chunk<number>): number => {
-  return Boolean.match(Number.lessThan(k, 0), {
+  return Boolean.match(Number.isLessThan(k, 0), {
     onTrue: () => 0,
     onFalse: () =>
-      Boolean.match(Number.greaterThanOrEqualTo(k, Number.subtract(Chunk.size(probs), 1)), {
+      Boolean.match(Number.isGreaterThanOrEqualTo(k, Number.subtract(Chunk.size(probs), 1)), {
         onTrue: () => 1,
         onFalse: () => Chunk.reduce(Chunk.take(probs, Number.sum(k, 1)), 0, Number.sum)
       })

@@ -1,5 +1,5 @@
 import { describe, expect, it } from "@effect/vitest"
-import { Array, Chunk, Effect, FastCheck, Number, Predicate, Schema } from "effect"
+import { Array, Chunk, Effect, Number, Predicate, Schema } from "effect"
 
 import {
   betaCdf,
@@ -52,7 +52,7 @@ const relaxedLayer = Policy.layerDeterministic({
   diagnostics: "disabled"
 })
 
-const isNaN = Predicate.not(Schema.is(Schema.NonNaN))
+const isNaN = Predicate.not(Schema.is(Schema.Finite.check(Schema.isFinite())))
 
 const expectRelativeClose = (actual: number, expected: number, absolute: number, relative: number) =>
   expect(abs(Number.subtract(actual, expected))).toBeLessThanOrEqual(
@@ -66,7 +66,7 @@ const expectRelativeClose = (actual: number, expected: number, absolute: number,
 describe("Distribution / normalPdf", () => {
   it.effect("peak value at x=mu", () =>
     Effect.gen(function*() {
-      const expected = Number.unsafeDivide(1, sqrt(Number.multiply(2, pi)))
+      const expected = Number.divideUnsafe(1, sqrt(Number.multiply(2, pi)))
       expect(normalPdf(0, 0, 1)).toBeCloseTo(expected)
     }))
 
@@ -76,9 +76,9 @@ describe("Distribution / normalPdf", () => {
     }))
 
   it.effect.prop("is symmetric around every finite location", {
-    mu: FastCheck.double({ min: -100, max: 100, noNaN: true }),
-    offset: FastCheck.double({ min: -20, max: 20, noNaN: true }),
-    sigma: FastCheck.double({ min: 0.1, max: 10, noNaN: true })
+    mu: Schema.Finite.check(Schema.isBetween({ minimum: -100, maximum: 100 })),
+    offset: Schema.Finite.check(Schema.isBetween({ minimum: -20, maximum: 20 })),
+    sigma: Schema.Finite.check(Schema.isBetween({ minimum: 0.1, maximum: 10 }))
   }, ({ mu, offset, sigma }) =>
     Effect.gen(function*() {
       expect(normalPdf(Number.sum(mu, offset), mu, sigma)).toBeCloseTo(
@@ -207,15 +207,15 @@ describe("Distribution / beta boundaries and quantiles", () => {
   it.effect.prop(
     "round-trips seeded interior probabilities for asymmetric shapes",
     {
-      p: FastCheck.double({ min: 1e-5, max: Number.subtract(1, 1e-5), noNaN: true }),
-      alpha: FastCheck.double({ min: 0.5, max: 20, noNaN: true }),
-      beta: FastCheck.double({ min: 0.5, max: 20, noNaN: true })
+      p: Schema.Finite.check(Schema.isBetween({ minimum: 1e-5, maximum: Number.subtract(1, 1e-5) })),
+      alpha: Schema.Finite.check(Schema.isBetween({ minimum: 0.5, maximum: 20 })),
+      beta: Schema.Finite.check(Schema.isBetween({ minimum: 0.5, maximum: 20 }))
     },
     ({ alpha, beta, p }) =>
       Effect.sync(() => {
         expect(abs(Number.subtract(betaCdf(betaQuantile(p, alpha, beta), alpha, beta), p))).toBeLessThanOrEqual(1e-9)
       }),
-    { fastCheck: { numRuns: 100, seed: 2903 } }
+    { arbitrary: { runs: 100, seed: 2903 } }
   )
 })
 
@@ -256,16 +256,16 @@ describe("Distribution / gamma boundaries and quantiles", () => {
   it.effect.prop(
     "round-trips seeded interior probabilities across shape and scale",
     {
-      p: FastCheck.double({ min: 1e-8, max: Number.subtract(1, 1e-8), noNaN: true }),
-      scale: FastCheck.double({ min: 0.1, max: 10, noNaN: true }),
-      shape: FastCheck.double({ min: 0.2, max: 100, noNaN: true })
+      p: Schema.Finite.check(Schema.isBetween({ minimum: 1e-8, maximum: Number.subtract(1, 1e-8) })),
+      scale: Schema.Finite.check(Schema.isBetween({ minimum: 0.1, maximum: 10 })),
+      shape: Schema.Finite.check(Schema.isBetween({ minimum: 0.2, maximum: 100 }))
     },
     ({ p, scale, shape }) =>
       Effect.sync(() => {
         expect(abs(Number.subtract(gammaCdf(gammaQuantile(p, shape, scale), shape, scale), p)))
           .toBeLessThanOrEqual(2e-10)
       }),
-    { fastCheck: { numRuns: 100, seed: 2909 } }
+    { arbitrary: { runs: 100, seed: 2909 } }
   )
 })
 
@@ -303,7 +303,7 @@ describe("Distribution / normalPdfValidated", () => {
   it.effect("decodes valid input", () =>
     Effect.gen(function*() {
       const result = yield* normalPdfValidated({ x: 0, mu: 0, sigma: 1 })
-      const expected = Number.unsafeDivide(1, sqrt(Number.multiply(2, pi)))
+      const expected = Number.divideUnsafe(1, sqrt(Number.multiply(2, pi)))
       expect(result).toBeCloseTo(expected)
     }))
 
@@ -396,7 +396,7 @@ describe("Distribution / normalPdfWithPolicies", () => {
   it.effect("computes under strict", () =>
     Effect.gen(function*() {
       const result = yield* normalPdfWithPolicies(0, 0, 1)
-      const expected = Number.unsafeDivide(1, sqrt(Number.multiply(2, pi)))
+      const expected = Number.divideUnsafe(1, sqrt(Number.multiply(2, pi)))
       expect(result).toBeCloseTo(expected)
     }).pipe(Effect.provide(strictLayer)))
 

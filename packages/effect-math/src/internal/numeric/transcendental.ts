@@ -48,27 +48,28 @@ const horner = (coefficients: Chunk.Chunk<number>, value: number): number =>
 
 // Decimal expansions are the constants defined by NIST DLMF §§3.12 and 4.2;
 // the additional digits are the linked OEIS reference values A002162/A002392.
-const lnTwoDecimal = BigDecimal.unsafeFromString(
+const lnTwoDecimal = BigDecimal.fromStringUnsafe(
   "0.693147180559945309417232121458176568075500134360255254120680009493393621969694715605863326996418687542001481"
 )
-const lnTenDecimal = BigDecimal.unsafeFromString(
+const lnTenDecimal = BigDecimal.fromStringUnsafe(
   "2.302585092994045684017991454684364207601101488628772976033327900967572609677352480235997205089598298341967784"
 )
 
-const finite = Schema.is(Schema.Number.pipe(Schema.finite()))
+const finite = Schema.is(Schema.Number.check(Schema.isFinite()))
 // Every finite binary64 value above the safe-integer range is integral.
 const integer = Predicate.or(
   Schema.is(Schema.Int),
-  Predicate.and(finite, (value: number) => Number.greaterThan(Binary.abs(value), maxSafeInteger))
+  Predicate.and(finite, (value: number) => Number.isGreaterThan(Binary.abs(value), maxSafeInteger))
 )
 const zero = (value: number): boolean => Number.Equivalence(value, 0)
 const positiveInfinity = (value: number): boolean => Number.Equivalence(value, Binary.positiveInfinity)
 const negativeInfinity = (value: number): boolean => Number.Equivalence(value, Binary.negativeInfinity)
-const negativeZero = (value: number): boolean =>
-  Predicate.and(zero, (value: number) => negativeInfinity(Number.unsafeDivide(1, value)))(value)
-const negativeSign = Predicate.or(Number.lessThan(0), negativeZero)
+// Approved native exception: Effect v4 has no signed-zero predicate, and its
+// division APIs reject zero divisors. Replace when a public numeric API exists.
+const negativeZero = (value: number): boolean => Object.is(value, -0)
+const negativeSign = Predicate.or(Number.isLessThan(0), negativeZero)
 const withSign = (magnitude: number, sign: number): number =>
-  Boolean.match(negativeSign(sign), { onTrue: () => Number.negate(magnitude), onFalse: () => magnitude })
+  Boolean.match(negativeSign(sign), { onTrue: () => Number.multiply(magnitude, -1), onFalse: () => magnitude })
 
 class TrigSeriesState extends Data.Class<{
   readonly cosine: number
@@ -89,16 +90,19 @@ const decimalGuard = (value: BigDecimal.BigDecimal): BigDecimal.BigDecimal =>
 
 const logarithmFinitePositive = (value: number): number => {
   const dyadic = Binary.decompose(value)
-  const rawMantissa = Number.unsafeDivide(
-    Schema.encodeSync(Schema.BigIntFromNumber)(dyadic.coefficient),
+  const rawMantissa = Number.divideUnsafe(
+    Option.getOrElse(
+      Number.parse(Schema.encodeSync(Schema.BigIntFromString)(dyadic.coefficient)),
+      () => Binary.notANumber
+    ),
     4_503_599_627_370_496
   )
-  const [mantissa, exponent] = Boolean.match(Number.greaterThanOrEqualTo(rawMantissa, 1.4142112731933594), {
-    onTrue: () => Tuple.make(Number.unsafeDivide(rawMantissa, 2), Number.sum(dyadic.exponent, 53)),
+  const [mantissa, exponent] = Boolean.match(Number.isGreaterThanOrEqualTo(rawMantissa, 1.4142112731933594), {
+    onTrue: () => Tuple.make(Number.divideUnsafe(rawMantissa, 2), Number.sum(dyadic.exponent, 53)),
     onFalse: () => Tuple.make(rawMantissa, Number.sum(dyadic.exponent, 52))
   })
   const f = Number.subtract(mantissa, 1)
-  const s = Number.unsafeDivide(f, Number.sum(2, f))
+  const s = Number.divideUnsafe(f, Number.sum(2, f))
   const z = Number.multiply(s, s)
   const w = Number.multiply(z, z)
   const remainder = Number.sum(
@@ -120,20 +124,20 @@ const logarithmFinitePositive = (value: number): number => {
 
 const logarithmDecimalFinitePositive = (value: number): BigDecimal.BigDecimal => {
   const dyadic = Binary.decompose(value)
-  const rawMantissaDecimal = BigDecimal.unsafeDivide(
+  const rawMantissaDecimal = BigDecimal.divideUnsafe(
     BigDecimal.make(dyadic.coefficient, 0),
     BigDecimal.make(4_503_599_627_370_496n, 0)
   )
-  const rawMantissa = BigDecimal.unsafeToNumber(rawMantissaDecimal)
+  const rawMantissa = BigDecimal.toNumberUnsafe(rawMantissaDecimal)
   const rawExponent = Number.sum(dyadic.exponent, 52)
-  const normalized = Boolean.match(Number.greaterThan(rawMantissa, sqrtTwo), {
+  const normalized = Boolean.match(Number.isGreaterThan(rawMantissa, sqrtTwo), {
     onTrue: () =>
-      Tuple.make(BigDecimal.unsafeDivide(rawMantissaDecimal, BigDecimal.make(2n, 0)), Number.increment(rawExponent)),
+      Tuple.make(BigDecimal.divideUnsafe(rawMantissaDecimal, BigDecimal.make(2n, 0)), Number.increment(rawExponent)),
     onFalse: () => Tuple.make(rawMantissaDecimal, rawExponent)
   })
-  const normalizedMantissa = Tuple.getFirst(normalized)
-  const normalizedExponent = Tuple.getSecond(normalized)
-  const z = BigDecimal.unsafeDivide(
+  const normalizedMantissa = Tuple.get(normalized, 0)
+  const normalizedExponent = Tuple.get(normalized, 1)
+  const z = BigDecimal.divideUnsafe(
     BigDecimal.subtract(normalizedMantissa, BigDecimal.make(1n, 0)),
     BigDecimal.sum(normalizedMantissa, BigDecimal.make(1n, 0))
   )
@@ -148,14 +152,14 @@ const logarithmDecimalFinitePositive = (value: number): BigDecimal.BigDecimal =>
         total: decimalGuard(
           BigDecimal.sum(
             state.total,
-            BigDecimal.unsafeDivide(state.term, BigDecimal.unsafeFromNumber(state.denominator))
+            BigDecimal.divideUnsafe(state.term, BigDecimal.fromNumberUnsafe(state.denominator))
           )
         )
       })
   )
   return BigDecimal.sum(
     BigDecimal.multiply(BigDecimal.make(2n, 0), series.total),
-    BigDecimal.multiply(BigDecimal.unsafeFromNumber(normalizedExponent), lnTwoDecimal)
+    BigDecimal.multiply(BigDecimal.fromNumberUnsafe(normalizedExponent), lnTwoDecimal)
   )
 }
 
@@ -165,7 +169,7 @@ export const log = (value: number): number =>
     Match.when(Binary.isNaN, () => Binary.notANumber),
     Match.when(positiveInfinity, () => Binary.positiveInfinity),
     Match.when(zero, () => Binary.negativeInfinity),
-    Match.when(Number.lessThan(0), () => Binary.notANumber),
+    Match.when(Number.isLessThan(0), () => Binary.notANumber),
     Match.orElse(logarithmFinitePositive)
   )
 
@@ -179,23 +183,29 @@ export const logStrict = (value: number): number =>
     Match.when(Binary.isNaN, () => Binary.notANumber),
     Match.when(positiveInfinity, () => Binary.positiveInfinity),
     Match.when(zero, () => Binary.negativeInfinity),
-    Match.when(Number.lessThan(0), () => Binary.notANumber),
+    Match.when(Number.isLessThan(0), () => Binary.notANumber),
     Match.orElse((value) => {
       const dyadic = Binary.decompose(value)
-      const mantissa = Number.unsafeDivide(
-        Schema.encodeSync(Schema.BigIntFromNumber)(dyadic.coefficient),
+      const mantissa = Number.divideUnsafe(
+        Option.getOrElse(Number.parse(Schema.encodeSync(Schema.BigIntFromString)(dyadic.coefficient)), () =>
+          Binary.notANumber),
         4_503_599_627_370_496
       )
-      const z = Number.unsafeDivide(Number.subtract(mantissa, 1), Number.sum(mantissa, 1))
+      const z = Number.divideUnsafe(Number.subtract(mantissa, 1), Number.sum(mantissa, 1))
       const square = Number.multiply(z, z)
       const [, , total] = Iterable.reduce(
-        Iterable.take(Iterable.makeBy(() => 0), 24),
-        Tuple.make(1, z, 0),
+        Iterable.take(
+          Iterable.makeBy(() =>
+            0
+          ),
+          24
+        ),
+        Tuple.make<[number, number, number]>(1, z, 0),
         ([denominator, term, total]) =>
           Tuple.make(
             Number.sum(denominator, 2),
             Number.multiply(term, square),
-            Number.sum(total, Number.unsafeDivide(term, denominator))
+            Number.sum(total, Number.divideUnsafe(term, denominator))
           )
       )
       return Number.sum(Number.multiply(2, total), Number.multiply(Number.sum(dyadic.exponent, 52), lnTwo))
@@ -205,13 +215,13 @@ export const logStrict = (value: number): number =>
 const alternatingSeries = (value: number): number => {
   const [, , total] = Iterable.reduce(
     Iterable.take(Iterable.makeBy(Number.increment), smallSeriesTerms),
-    Tuple.make(0, value, 0),
+    Tuple.make<[number, number, number]>(0, value, 0),
     ([compensation, term, previousTotal], index) => {
-      const adjusted = Number.subtract(Number.unsafeDivide(term, index), compensation)
+      const adjusted = Number.subtract(Number.divideUnsafe(term, index), compensation)
       const total = Number.sum(previousTotal, adjusted)
       return Tuple.make(
         Number.subtract(Number.subtract(total, previousTotal), adjusted),
-        Number.negate(Number.multiply(term, value)),
+        Number.multiply(-1, Number.multiply(term, value)),
         total
       )
     }
@@ -225,9 +235,9 @@ export const log1p = (value: number): number =>
     Match.when(Binary.isNaN, () => Binary.notANumber),
     Match.when(zero, (value) => value),
     Match.when((value) => Number.Equivalence(value, -1), () => Binary.negativeInfinity),
-    Match.when(Number.lessThan(-1), () => Binary.notANumber),
+    Match.when(Number.isLessThan(-1), () => Binary.notANumber),
     Match.when(positiveInfinity, () => Binary.positiveInfinity),
-    Match.when((value) => Number.lessThanOrEqualTo(Binary.abs(value), 0.5), alternatingSeries),
+    Match.when((value) => Number.isLessThanOrEqualTo(Binary.abs(value), 0.5), alternatingSeries),
     Match.orElse((value) => log(Number.sum(1, value)))
   )
 
@@ -238,10 +248,10 @@ export const log1pStrict: (value: number) => number = log1p
 export const log1pRelaxed: (value: number) => number = log1p
 
 const exponentialReduced = (value: number): BigDecimal.BigDecimal => {
-  const exponent = Binary.floor(Number.sum(Number.unsafeDivide(value, lnTwo), 0.5))
+  const exponent = Binary.floor(Number.sum(Number.divideUnsafe(value, lnTwo), 0.5))
   const reduced = BigDecimal.subtract(
     Binary.exactDecimal(value),
-    BigDecimal.multiply(BigDecimal.unsafeFromNumber(exponent), lnTwoDecimal)
+    BigDecimal.multiply(BigDecimal.fromNumberUnsafe(exponent), lnTwoDecimal)
   )
   const series = Iterable.reduce(
     Iterable.take(Iterable.makeBy(() => 0), exponentialTerms),
@@ -249,9 +259,9 @@ const exponentialReduced = (value: number): BigDecimal.BigDecimal => {
     (state) =>
       new DecimalSeriesState({
         denominator: Number.increment(state.denominator),
-        term: decimalGuard(BigDecimal.unsafeDivide(
+        term: decimalGuard(BigDecimal.divideUnsafe(
           BigDecimal.multiply(state.term, reduced),
-          BigDecimal.unsafeFromNumber(Number.increment(state.denominator))
+          BigDecimal.fromNumberUnsafe(Number.increment(state.denominator))
         )),
         total: decimalGuard(BigDecimal.sum(state.total, state.term))
       })
@@ -263,7 +273,7 @@ const exponentialReduced = (value: number): BigDecimal.BigDecimal => {
 // FDLIBM identifies unity as a rounding-sensitive point. Compute Euler's
 // number once using the decimal series, rather than rounding its rational
 // approximation upward at each call.
-const eulerNumber = BigDecimal.unsafeToNumber(exponentialReduced(1))
+const eulerNumber = BigDecimal.toNumberUnsafe(exponentialReduced(1))
 
 const exponentialFinite = (value: number): number => {
   const exponent = Number.round(Number.multiply(value, 1.44269504088896338700), 0)
@@ -277,12 +287,12 @@ const exponentialFinite = (value: number): number => {
     Number.subtract(
       Number.subtract(
         low,
-        Number.unsafeDivide(Number.multiply(reduced, correction), Number.subtract(2, correction))
+        Number.divideUnsafe(Number.multiply(reduced, correction), Number.subtract(2, correction))
       ),
       high
     )
   )
-  const factor = Boolean.match(Number.lessThan(exponent, 0), { onTrue: () => 0.5, onFalse: () => 2 })
+  const factor = Boolean.match(Number.isLessThan(exponent, 0), { onTrue: () => 0.5, onFalse: () => 2 })
   return Number.multiply(
     result,
     Number.multiplyAll(Iterable.take(Iterable.makeBy(() => factor), Binary.abs(exponent)))
@@ -295,12 +305,12 @@ export const exp = (value: number): number =>
     Match.when(Binary.isNaN, () => Binary.notANumber),
     Match.when(positiveInfinity, () => Binary.positiveInfinity),
     Match.when(negativeInfinity, () => 0),
-    Match.when(Number.greaterThan(710), () => Binary.positiveInfinity),
-    Match.when(Number.lessThan(-746), () => 0),
+    Match.when(Number.isGreaterThan(710), () => Binary.positiveInfinity),
+    Match.when(Number.isLessThan(-746), () => 0),
     Match.when((value) => Number.Equivalence(value, 1), () => eulerNumber),
     Match.when(
-      (value) => Number.greaterThan(Binary.abs(value), 700),
-      (value) => BigDecimal.unsafeToNumber(exponentialReduced(value))
+      (value) => Number.isGreaterThan(Binary.abs(value), 700),
+      (value) => BigDecimal.toNumberUnsafe(exponentialReduced(value))
     ),
     Match.orElse(exponentialFinite)
   )
@@ -308,13 +318,13 @@ export const exp = (value: number): number =>
 const expm1Series = (value: number): number => {
   const [, , total] = Iterable.reduce(
     Iterable.take(Iterable.makeBy(Number.increment), smallSeriesTerms),
-    Tuple.make(0, value, 0),
+    Tuple.make<[number, number, number]>(0, value, 0),
     ([compensation, term, previousTotal], index) => {
       const adjusted = Number.subtract(term, compensation)
       const total = Number.sum(previousTotal, adjusted)
       return Tuple.make(
         Number.subtract(Number.subtract(total, previousTotal), adjusted),
-        Number.unsafeDivide(Number.multiply(term, value), Number.increment(index)),
+        Number.divideUnsafe(Number.multiply(term, value), Number.increment(index)),
         total
       )
     }
@@ -329,7 +339,7 @@ export const expm1 = (value: number): number =>
     Match.when(zero, (value) => value),
     Match.when(positiveInfinity, () => Binary.positiveInfinity),
     Match.when(negativeInfinity, () => -1),
-    Match.when((value) => Number.lessThanOrEqualTo(Binary.abs(value), 0.5), expm1Series),
+    Match.when((value) => Number.isLessThanOrEqualTo(Binary.abs(value), 0.5), expm1Series),
     Match.orElse((value) => Number.subtract(exp(value), 1))
   )
 
@@ -345,9 +355,9 @@ export const log10 = (value: number): number =>
     Match.when(Binary.isNaN, () => Binary.notANumber),
     Match.when(positiveInfinity, () => Binary.positiveInfinity),
     Match.when(zero, () => Binary.negativeInfinity),
-    Match.when(Number.lessThan(0), () => Binary.notANumber),
+    Match.when(Number.isLessThan(0), () => Binary.notANumber),
     Match.orElse((value) =>
-      BigDecimal.unsafeToNumber(BigDecimal.unsafeDivide(logarithmDecimalFinitePositive(value), lnTenDecimal))
+      BigDecimal.toNumberUnsafe(BigDecimal.divideUnsafe(logarithmDecimalFinitePositive(value), lnTenDecimal))
     )
   )
 
@@ -358,10 +368,10 @@ const oddInteger = (value: number): boolean =>
   })
 
 const positiveIntegerPower = (base: number, exponent: number): number => {
-  const initial = Tuple.make(1, exponent, base)
+  const initial: [number, number, number] = Tuple.make(1, exponent, base)
   const [accumulator] = Iterable.reduce(
     Iterable.unfold(initial, ([accumulator, exponent, factor]) =>
-      Boolean.match(Number.greaterThan(exponent, 0), {
+      Boolean.match(Number.isGreaterThan(exponent, 0), {
         onFalse: Option.none,
         onTrue: () => {
           const odd = oddInteger(exponent)
@@ -370,7 +380,7 @@ const positiveIntegerPower = (base: number, exponent: number): number => {
               onTrue: () => Number.multiply(accumulator, factor),
               onFalse: () => accumulator
             }),
-            Number.unsafeDivide(
+            Number.divideUnsafe(
               Number.subtract(exponent, Boolean.match(odd, { onTrue: () => 1, onFalse: () => 0 })),
               2
             ),
@@ -386,14 +396,14 @@ const positiveIntegerPower = (base: number, exponent: number): number => {
 }
 
 const integerPower = (base: number, exponent: number): number =>
-  Boolean.match(Number.lessThan(exponent, 0), {
-    onTrue: () => positiveIntegerPower(Number.unsafeDivide(1, base), Number.negate(exponent)),
+  Boolean.match(Number.isLessThan(exponent, 0), {
+    onTrue: () => positiveIntegerPower(Number.divideUnsafe(1, base), Number.multiply(exponent, -1)),
     onFalse: () => positiveIntegerPower(base, exponent)
   })
 
 const zeroPower = (base: number, exponent: number): number => {
   const signed = Boolean.and(negativeZero(base), oddInteger(exponent))
-  return Boolean.match(Number.greaterThan(exponent, 0), {
+  return Boolean.match(Number.isGreaterThan(exponent, 0), {
     onTrue: () => Boolean.match(signed, { onTrue: () => -0, onFalse: () => 0 }),
     onFalse: () =>
       Boolean.match(signed, { onTrue: () => Binary.negativeInfinity, onFalse: () => Binary.positiveInfinity })
@@ -402,7 +412,7 @@ const zeroPower = (base: number, exponent: number): number => {
 
 const infinitePower = (base: number, exponent: number): number => {
   const signed = Boolean.and(negativeSign(base), oddInteger(exponent))
-  return Boolean.match(Number.greaterThan(exponent, 0), {
+  return Boolean.match(Number.isGreaterThan(exponent, 0), {
     onTrue: () =>
       Boolean.match(signed, { onTrue: () => Binary.negativeInfinity, onFalse: () => Binary.positiveInfinity }),
     onFalse: () => Boolean.match(signed, { onTrue: () => -0, onFalse: () => 0 })
@@ -424,18 +434,18 @@ export const pow = (base: number, exponent: number): number =>
     ),
     Match.when(([, exponent]) => positiveInfinity(exponent), ([base]) =>
       Match.value(Binary.abs(base)).pipe(
-        Match.when(Number.greaterThan(1), () => Binary.positiveInfinity),
-        Match.when(Number.lessThan(1), () => 0),
+        Match.when(Number.isGreaterThan(1), () => Binary.positiveInfinity),
+        Match.when(Number.isLessThan(1), () => 0),
         Match.orElse(() => Binary.notANumber)
       )),
     Match.when(([, exponent]) => negativeInfinity(exponent), ([base]) =>
       Match.value(Binary.abs(base)).pipe(
-        Match.when(Number.greaterThan(1), () => 0),
-        Match.when(Number.lessThan(1), () => Binary.positiveInfinity),
+        Match.when(Number.isGreaterThan(1), () => 0),
+        Match.when(Number.isLessThan(1), () => Binary.positiveInfinity),
         Match.orElse(() => Binary.notANumber)
       )),
     Match.when(([, exponent]) => integer(exponent), ([base, exponent]) => integerPower(base, exponent)),
-    Match.when(([base]) => Number.lessThan(base, 0), () => Binary.notANumber),
+    Match.when(([base]) => Number.isLessThan(base, 0), () => Binary.notANumber),
     Match.orElse(([base, exponent]) => exp(Number.multiply(exponent, log(base))))
   )
 
@@ -443,7 +453,7 @@ export const pow = (base: number, exponent: number): number =>
 // PiDigits (https://www.itl.nist.gov/div898/strd/univ/data/PiDigits.html).
 // Its 399 fractional digits exceed the 309 decimal integer digits of every
 // finite binary64 input, leaving 90 guard digits during argument reduction.
-const piDecimal = BigDecimal.unsafeFromString(
+const piDecimal = BigDecimal.fromStringUnsafe(
   "3.141592653589793238462643383279502884197169399375105820974944592307816406286208998628034825342117067982148086513282306647093844609550582231725359408128481117450284102701938521105559644622948954930381964428810975665933446128475648233786783165271201909145648566923460348610454326648213393607260249141273724587006606315588174881520920962829254091715364367892590360011330530548820466521384146951941511609"
 )
 const twoPiDecimal = BigDecimal.multiply(piDecimal, BigDecimal.make(2n, 0))
@@ -452,14 +462,14 @@ const quarterPiDecimal = BigDecimal.multiply(piDecimal, BigDecimal.make(25n, 2))
 const threeQuarterPiDecimal = BigDecimal.multiply(quarterPiDecimal, BigDecimal.make(3n, 0))
 
 const reducedAngle = (value: number): BigDecimal.BigDecimal => {
-  const remainder = BigDecimal.unsafeRemainder(Binary.exactDecimal(value), twoPiDecimal)
+  const remainder = BigDecimal.remainderUnsafe(Binary.exactDecimal(value), twoPiDecimal)
   return Match.value(remainder).pipe(
     Match.when(
-      (value) => BigDecimal.greaterThan(value, piDecimal),
+      (value) => BigDecimal.isGreaterThan(value, piDecimal),
       (value) => BigDecimal.subtract(value, twoPiDecimal)
     ),
     Match.when(
-      (value) => BigDecimal.lessThan(value, BigDecimal.negate(piDecimal)),
+      (value) => BigDecimal.isLessThan(value, BigDecimal.negate(piDecimal)),
       (value) => BigDecimal.sum(value, twoPiDecimal)
     ),
     Match.orElse((value) => value)
@@ -473,14 +483,20 @@ const trigSeries = (value: number) => {
     new TrigSeriesState({ cosine: 1, cosineTerm: 1, index: 0, sine: value, sineTerm: value }),
     (state) => {
       const twiceIndex = Number.multiply(2, state.index)
-      const nextCosineTerm = Number.negate(Number.unsafeDivide(
-        Number.multiply(state.cosineTerm, square),
-        Number.multiply(Number.increment(twiceIndex), Number.sum(twiceIndex, 2))
-      ))
-      const nextSineTerm = Number.negate(Number.unsafeDivide(
-        Number.multiply(state.sineTerm, square),
-        Number.multiply(Number.sum(twiceIndex, 2), Number.sum(twiceIndex, 3))
-      ))
+      const nextCosineTerm = Number.multiply(
+        -1,
+        Number.divideUnsafe(
+          Number.multiply(state.cosineTerm, square),
+          Number.multiply(Number.increment(twiceIndex), Number.sum(twiceIndex, 2))
+        )
+      )
+      const nextSineTerm = Number.multiply(
+        -1,
+        Number.divideUnsafe(
+          Number.multiply(state.sineTerm, square),
+          Number.multiply(Number.sum(twiceIndex, 2), Number.sum(twiceIndex, 3))
+        )
+      )
       return new TrigSeriesState({
         cosine: Number.sum(state.cosine, nextCosineTerm),
         cosineTerm: nextCosineTerm,
@@ -496,27 +512,27 @@ const trigSeries = (value: number) => {
 const sinCosFinite = (value: number) => {
   const principal = reducedAngle(value)
   return Match.value(principal).pipe(
-    Match.when(BigDecimal.greaterThan(threeQuarterPiDecimal), (angle) => {
-      const [sine, cosine] = trigSeries(BigDecimal.unsafeToNumber(BigDecimal.subtract(piDecimal, angle)))
-      return Tuple.make(sine, Number.negate(cosine))
+    Match.when(BigDecimal.isGreaterThan(threeQuarterPiDecimal), (angle) => {
+      const [sine, cosine] = trigSeries(BigDecimal.toNumberUnsafe(BigDecimal.subtract(piDecimal, angle)))
+      return Tuple.make(sine, Number.multiply(cosine, -1))
     }),
-    Match.when(BigDecimal.greaterThan(quarterPiDecimal), (angle) => {
-      const [sine, cosine] = trigSeries(BigDecimal.unsafeToNumber(BigDecimal.subtract(halfPiDecimal, angle)))
+    Match.when(BigDecimal.isGreaterThan(quarterPiDecimal), (angle) => {
+      const [sine, cosine] = trigSeries(BigDecimal.toNumberUnsafe(BigDecimal.subtract(halfPiDecimal, angle)))
       return Tuple.make(cosine, sine)
     }),
-    Match.when(BigDecimal.lessThan(BigDecimal.negate(threeQuarterPiDecimal)), (angle) => {
+    Match.when(BigDecimal.isLessThan(BigDecimal.negate(threeQuarterPiDecimal)), (angle) => {
       const [sine, cosine] = trigSeries(
-        BigDecimal.unsafeToNumber(BigDecimal.subtract(BigDecimal.negate(piDecimal), angle))
+        BigDecimal.toNumberUnsafe(BigDecimal.subtract(BigDecimal.negate(piDecimal), angle))
       )
-      return Tuple.make(sine, Number.negate(cosine))
+      return Tuple.make(sine, Number.multiply(cosine, -1))
     }),
-    Match.when(BigDecimal.lessThan(BigDecimal.negate(quarterPiDecimal)), (angle) => {
+    Match.when(BigDecimal.isLessThan(BigDecimal.negate(quarterPiDecimal)), (angle) => {
       const [sine, cosine] = trigSeries(
-        BigDecimal.unsafeToNumber(BigDecimal.subtract(BigDecimal.negate(halfPiDecimal), angle))
+        BigDecimal.toNumberUnsafe(BigDecimal.subtract(BigDecimal.negate(halfPiDecimal), angle))
       )
-      return Tuple.make(Number.negate(cosine), Number.negate(sine))
+      return Tuple.make(Number.multiply(cosine, -1), Number.multiply(sine, -1))
     }),
-    Match.orElse((angle) => trigSeries(BigDecimal.unsafeToNumber(angle)))
+    Match.orElse((angle) => trigSeries(BigDecimal.toNumberUnsafe(angle)))
   )
 }
 
@@ -525,7 +541,7 @@ export const sin = (value: number): number =>
   Match.value(value).pipe(
     Match.when(zero, (value) => value),
     Match.when(Predicate.not(finite), () => Binary.notANumber),
-    Match.orElse((value) => Tuple.getFirst(sinCosFinite(value)))
+    Match.orElse((value) => Tuple.get(sinCosFinite(value), 0))
   )
 
 /** Cosine with exact-decimal Payne-Hanek-style range reduction. */
@@ -533,19 +549,19 @@ export const cos = (value: number): number =>
   Match.value(value).pipe(
     Match.when(zero, () => 1),
     Match.when(Predicate.not(finite), () => Binary.notANumber),
-    Match.orElse((value) => Tuple.getSecond(sinCosFinite(value)))
+    Match.orElse((value) => Tuple.get(sinCosFinite(value), 1))
   )
 
 const atanSeries = (value: number): number => {
   const square = Number.multiply(value, value)
   const [, , total] = Iterable.reduce(
     Iterable.take(Iterable.makeBy(() => 0), arctangentTerms),
-    Tuple.make(1, value, 0),
+    Tuple.make<[number, number, number]>(1, value, 0),
     ([denominator, term, total]) =>
       Tuple.make(
         Number.sum(denominator, 2),
-        Number.negate(Number.multiply(term, square)),
-        Number.sum(total, Number.unsafeDivide(term, denominator))
+        Number.multiply(-1, Number.multiply(term, square)),
+        Number.sum(total, Number.divideUnsafe(term, denominator))
       )
   )
   return total
@@ -553,17 +569,17 @@ const atanSeries = (value: number): number => {
 
 const atanUnit = (value: number): number =>
   Match.value(value).pipe(
-    Match.when(Number.greaterThan(0.41421356237309503), (value) =>
+    Match.when(Number.isGreaterThan(0.41421356237309503), (value) =>
       Number.sum(
         quarterPi,
-        atanSeries(Number.unsafeDivide(Number.subtract(value, 1), Number.sum(value, 1)))
+        atanSeries(Number.divideUnsafe(Number.subtract(value, 1), Number.sum(value, 1)))
       )),
     Match.orElse(atanSeries)
   )
 
 const atanPositive = (value: number): number =>
   Match.value(value).pipe(
-    Match.when(Number.greaterThan(1), (value) => Number.subtract(halfPi, atanUnit(Number.unsafeDivide(1, value)))),
+    Match.when(Number.isGreaterThan(1), (value) => Number.subtract(halfPi, atanUnit(Number.divideUnsafe(1, value)))),
     Match.orElse(atanUnit)
   )
 
@@ -596,7 +612,7 @@ export const atan2 = (y: number, x: number): number =>
     ),
     Match.when(([, x]) => zero(x), ([y]) => withSign(halfPi, y)),
     Match.orElse(([y, x]) => {
-      const magnitude = atanPositive(Binary.abs(Number.unsafeDivide(y, x)))
+      const magnitude = atanPositive(Binary.abs(Number.divideUnsafe(y, x)))
       const quadrantMagnitude = Boolean.match(negativeSign(x), {
         onTrue: () => Number.subtract(pi, magnitude),
         onFalse: () => magnitude
@@ -606,9 +622,9 @@ export const atan2 = (y: number, x: number): number =>
   )
 
 const halfExponential = (magnitude: number): number =>
-  Boolean.match(Number.greaterThan(magnitude, 711), {
+  Boolean.match(Number.isGreaterThan(magnitude, 711), {
     onTrue: () => Binary.positiveInfinity,
-    onFalse: () => BigDecimal.unsafeToNumber(BigDecimal.multiply(exponentialReduced(magnitude), BigDecimal.make(5n, 1)))
+    onFalse: () => BigDecimal.toNumberUnsafe(BigDecimal.multiply(exponentialReduced(magnitude), BigDecimal.make(5n, 1)))
   })
 
 /** Hyperbolic sine using a cancellation-aware positive-magnitude formula. */
@@ -621,10 +637,10 @@ export const sinh = (value: number): number =>
     Match.orElse((value) => {
       const magnitude = Binary.abs(value)
       const result = Match.value(magnitude).pipe(
-        Match.when(Number.greaterThan(20), halfExponential),
+        Match.when(Number.isGreaterThan(20), halfExponential),
         Match.orElse((magnitude) => {
           const increment = expm1(magnitude)
-          return Number.unsafeDivide(
+          return Number.divideUnsafe(
             Number.multiply(increment, Number.sum(increment, 2)),
             Number.multiply(2, Number.sum(increment, 1))
           )
@@ -640,11 +656,11 @@ export const cosh = (value: number): number =>
     Match.when(Binary.isNaN, () => Binary.notANumber),
     Match.when(Predicate.or(positiveInfinity, negativeInfinity), () => Binary.positiveInfinity),
     Match.when(
-      (value) => Number.greaterThan(Binary.abs(value), 20),
+      (value) => Number.isGreaterThan(Binary.abs(value), 20),
       (value) => halfExponential(Binary.abs(value))
     ),
     Match.orElse((value) => {
       const exponential = exp(Binary.abs(value))
-      return Number.unsafeDivide(Number.sum(exponential, Number.unsafeDivide(1, exponential)), 2)
+      return Number.divideUnsafe(Number.sum(exponential, Number.divideUnsafe(1, exponential)), 2)
     })
   )

@@ -42,7 +42,7 @@ export const polyEval = (coefficients: Chunk.Chunk<number>, x: number): number =
  * @category internal
  */
 export const polyDerivative = (coefficients: Chunk.Chunk<number>): Chunk.Chunk<number> =>
-  Boolean.match(Number.lessThanOrEqualTo(Chunk.size(coefficients), 1), {
+  Boolean.match(Number.isLessThanOrEqualTo(Chunk.size(coefficients), 1), {
     onTrue: () => Chunk.of(0),
     onFalse: () =>
       pipe(

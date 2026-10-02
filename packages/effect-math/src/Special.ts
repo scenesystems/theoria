@@ -4,7 +4,7 @@
  * @since 0.1.0
  * @module
  */
-import { Array, Effect, Schema } from "effect"
+import { Array, Effect, Schema, String } from "effect"
 
 import * as PolicyGuard from "./internal/policyGuard.js"
 import * as Beta from "./internal/special/beta.js"
@@ -16,15 +16,15 @@ import * as Gamma from "./internal/special/gamma.js"
 import * as Gammainc from "./internal/special/gammainc.js"
 import * as Polygamma from "./internal/special/polygamma.js"
 
-const encodeNumber = Schema.encodeSync(Schema.NumberFromString)
-const finite = Schema.Number.pipe(Schema.finite())
-const positive = finite.pipe(Schema.greaterThan(0))
+const encodeNumber = String.String
+const finite = Schema.Number.check(Schema.isFinite())
+const positive = finite.check(Schema.isGreaterThan(0))
 
 /** Finite gamma argument.
  * @since 0.1.0
  * @category schemas
  */
-export const GammaInput = Schema.Struct({ x: finite }).annotations({
+export const GammaInput = Schema.Struct({ x: finite }).annotate({
   identifier: "@scenesystems/effect-math/Special/GammaInput"
 })
 
@@ -32,7 +32,7 @@ export const GammaInput = Schema.Struct({ x: finite }).annotations({
  * @since 0.1.0
  * @category schemas
  */
-export const LnGammaInput = Schema.Struct({ x: positive }).annotations({
+export const LnGammaInput = Schema.Struct({ x: positive }).annotate({
   identifier: "@scenesystems/effect-math/Special/LnGammaInput"
 })
 
@@ -40,7 +40,7 @@ export const LnGammaInput = Schema.Struct({ x: positive }).annotations({
  * @since 0.1.0
  * @category schemas
  */
-export const BetaInput = Schema.Struct({ a: positive, b: positive }).annotations({
+export const BetaInput = Schema.Struct({ a: positive, b: positive }).annotate({
   identifier: "@scenesystems/effect-math/Special/BetaInput"
 })
 
@@ -48,7 +48,7 @@ export const BetaInput = Schema.Struct({ a: positive, b: positive }).annotations
  * @since 0.1.0
  * @category schemas
  */
-export const ErfInput = Schema.Struct({ x: finite }).annotations({
+export const ErfInput = Schema.Struct({ x: finite }).annotate({
   identifier: "@scenesystems/effect-math/Special/ErfInput"
 })
 
@@ -56,7 +56,7 @@ export const ErfInput = Schema.Struct({ x: finite }).annotations({
  * @since 0.1.0
  * @category schemas
  */
-export const DigammaInput = Schema.Struct({ x: positive }).annotations({
+export const DigammaInput = Schema.Struct({ x: positive }).annotate({
   identifier: "@scenesystems/effect-math/Special/DigammaInput"
 })
 
@@ -65,8 +65,8 @@ export const DigammaInput = Schema.Struct({ x: positive }).annotations({
  * @category schemas
  */
 export const ErfinvInput = Schema.Struct({
-  x: finite.pipe(Schema.greaterThan(-1), Schema.lessThan(1))
-}).annotations({ identifier: "@scenesystems/effect-math/Special/ErfinvInput" })
+  x: finite.check(Schema.isGreaterThan(-1), Schema.isLessThan(1))
+}).annotate({ identifier: "@scenesystems/effect-math/Special/ErfinvInput" })
 
 /** Positive shape and non-negative incomplete-gamma argument.
  * @since 0.1.0
@@ -74,8 +74,8 @@ export const ErfinvInput = Schema.Struct({
  */
 export const GammaincInput = Schema.Struct({
   a: positive,
-  x: finite.pipe(Schema.greaterThanOrEqualTo(0))
-}).annotations({ identifier: "@scenesystems/effect-math/Special/GammaincInput" })
+  x: finite.check(Schema.isGreaterThanOrEqualTo(0))
+}).annotate({ identifier: "@scenesystems/effect-math/Special/GammaincInput" })
 
 /** Positive shapes and unit-interval incomplete-beta argument.
  * @since 0.1.0
@@ -84,17 +84,17 @@ export const GammaincInput = Schema.Struct({
 export const BetaincInput = Schema.Struct({
   a: positive,
   b: positive,
-  x: finite.pipe(Schema.greaterThanOrEqualTo(0), Schema.lessThanOrEqualTo(1))
-}).annotations({ identifier: "@scenesystems/effect-math/Special/BetaincInput" })
+  x: finite.check(Schema.isGreaterThanOrEqualTo(0), Schema.isLessThanOrEqualTo(1))
+}).annotate({ identifier: "@scenesystems/effect-math/Special/BetaincInput" })
 
 /** Non-negative order and positive argument for polygamma.
  * @since 0.1.0
  * @category schemas
  */
 export const PolygammaInput = Schema.Struct({
-  n: Schema.Number.pipe(Schema.int(), Schema.greaterThanOrEqualTo(0)),
+  n: Schema.Number.check(Schema.isInt(), Schema.isGreaterThanOrEqualTo(0)),
   x: positive
-}).annotations({ identifier: "@scenesystems/effect-math/Special/PolygammaInput" })
+}).annotate({ identifier: "@scenesystems/effect-math/Special/PolygammaInput" })
 
 /**
  * Decoded gamma input.
@@ -267,7 +267,7 @@ export const digamma: (x: number) => number = Digamma.digamma
  */
 export const gammaValidated = (input: unknown) =>
   Effect.gen(function*() {
-    const decoded = yield* Schema.decodeUnknown(GammaInput)(input, {
+    const decoded = yield* Schema.decodeUnknownEffect(GammaInput)(input, {
       onExcessProperty: "error"
     }).pipe(
       Effect.mapError((error) =>
@@ -288,7 +288,7 @@ export const gammaValidated = (input: unknown) =>
  */
 export const lnGammaValidated = (input: unknown) =>
   Effect.gen(function*() {
-    const decoded = yield* Schema.decodeUnknown(LnGammaInput)(input, {
+    const decoded = yield* Schema.decodeUnknownEffect(LnGammaInput)(input, {
       onExcessProperty: "error"
     }).pipe(
       Effect.mapError((error) =>
@@ -309,7 +309,7 @@ export const lnGammaValidated = (input: unknown) =>
  */
 export const betaValidated = (input: unknown) =>
   Effect.gen(function*() {
-    const decoded = yield* Schema.decodeUnknown(BetaInput)(input, {
+    const decoded = yield* Schema.decodeUnknownEffect(BetaInput)(input, {
       onExcessProperty: "error"
     }).pipe(
       Effect.mapError((error) =>
@@ -330,7 +330,7 @@ export const betaValidated = (input: unknown) =>
  */
 export const erfValidated = (input: unknown) =>
   Effect.gen(function*() {
-    const decoded = yield* Schema.decodeUnknown(ErfInput)(input, {
+    const decoded = yield* Schema.decodeUnknownEffect(ErfInput)(input, {
       onExcessProperty: "error"
     }).pipe(
       Effect.mapError((error) =>
@@ -351,7 +351,7 @@ export const erfValidated = (input: unknown) =>
  */
 export const erfcValidated = (input: unknown) =>
   Effect.gen(function*() {
-    const decoded = yield* Schema.decodeUnknown(ErfInput)(input, {
+    const decoded = yield* Schema.decodeUnknownEffect(ErfInput)(input, {
       onExcessProperty: "error"
     }).pipe(
       Effect.mapError((error) =>
@@ -372,7 +372,7 @@ export const erfcValidated = (input: unknown) =>
  */
 export const digammaValidated = (input: unknown) =>
   Effect.gen(function*() {
-    const decoded = yield* Schema.decodeUnknown(DigammaInput)(input, {
+    const decoded = yield* Schema.decodeUnknownEffect(DigammaInput)(input, {
       onExcessProperty: "error"
     }).pipe(
       Effect.mapError((error) =>
@@ -412,7 +412,7 @@ export const digammaValidated = (input: unknown) =>
  * export const program = Special.gammaWithPolicies(5).pipe(
  *   Effect.provide(layer),
  *   Effect.filterOrFail(
- *     (result) => Boolean.and(Number.greaterThan(result, 23.999), Number.lessThan(result, 24.001)),
+ *     (result) => Boolean.and(Number.isGreaterThan(result, 23.999), Number.isLessThan(result, 24.001)),
  *     () => "UnexpectedGammaResult"
  *   )
  * )
@@ -599,7 +599,7 @@ export const polygamma: (n: number, x: number) => number = Polygamma.polygamma
  */
 export const erfinvValidated = (input: unknown) =>
   Effect.gen(function*() {
-    const decoded = yield* Schema.decodeUnknown(ErfinvInput)(input, {
+    const decoded = yield* Schema.decodeUnknownEffect(ErfinvInput)(input, {
       onExcessProperty: "error"
     }).pipe(
       Effect.mapError((error) =>
@@ -621,7 +621,7 @@ export const erfinvValidated = (input: unknown) =>
  */
 export const gammaincValidated = (input: unknown) =>
   Effect.gen(function*() {
-    const decoded = yield* Schema.decodeUnknown(GammaincInput)(input, {
+    const decoded = yield* Schema.decodeUnknownEffect(GammaincInput)(input, {
       onExcessProperty: "error"
     }).pipe(
       Effect.mapError((error) =>
@@ -643,7 +643,7 @@ export const gammaincValidated = (input: unknown) =>
  */
 export const betaincValidated = (input: unknown) =>
   Effect.gen(function*() {
-    const decoded = yield* Schema.decodeUnknown(BetaincInput)(input, {
+    const decoded = yield* Schema.decodeUnknownEffect(BetaincInput)(input, {
       onExcessProperty: "error"
     }).pipe(
       Effect.mapError((error) =>
@@ -665,7 +665,7 @@ export const betaincValidated = (input: unknown) =>
  */
 export const polygammaValidated = (input: unknown) =>
   Effect.gen(function*() {
-    const decoded = yield* Schema.decodeUnknown(PolygammaInput)(input, {
+    const decoded = yield* Schema.decodeUnknownEffect(PolygammaInput)(input, {
       onExcessProperty: "error"
     }).pipe(
       Effect.mapError((error) =>

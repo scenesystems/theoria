@@ -13,7 +13,7 @@ import { hypot } from "../../Numeric.js"
 const indices = (size: number): Chunk.Chunk<number> =>
   Chunk.fromIterable(
     Iterable.unfold(0, (index) =>
-      Boolean.match(Number.lessThan(index, size), {
+      Boolean.match(Number.isLessThan(index, size), {
         onFalse: Option.none,
         onTrue: () => Option.some(Tuple.make(index, Number.increment(index)))
       }))

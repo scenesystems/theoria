@@ -11,6 +11,8 @@ import { BigDecimal, BigInt, Boolean, Iterable, Number, Option, Tuple } from "ef
 
 import { toBigInt } from "../../Numeric.js"
 
+const notANumber = Option.getOrElse(Number.parse("NaN"), () => 0)
+
 /**
  * Greatest common divisor through Effect's canonical integer arithmetic.
  * `gcd(0, b) = b`, `gcd(a, 0) = a`.
@@ -22,8 +24,8 @@ export const gcd = (a: number, b: number): number =>
   Option.match(
     Option.zipWith(toBigInt(a), toBigInt(b), (a, b) => BigInt.gcd(BigInt.abs(a), BigInt.abs(b))),
     {
-      onNone: () => Number.unsafeDivide(0, 0),
-      onSome: (result) => BigDecimal.unsafeToNumber(BigDecimal.make(result, 0))
+      onNone: () => notANumber,
+      onSome: (result) => BigDecimal.toNumberUnsafe(BigDecimal.make(result, 0))
     }
   )
 
@@ -45,8 +47,8 @@ export const lcm = (a: number, b: number): number =>
       })),
     {
       onNone: () =>
-        Number.unsafeDivide(0, 0),
-      onSome: (result) => BigDecimal.unsafeToNumber(BigDecimal.make(result, 0))
+        notANumber,
+      onSome: (result) => BigDecimal.toNumberUnsafe(BigDecimal.make(result, 0))
     }
   )
 
@@ -59,7 +61,7 @@ export const lcm = (a: number, b: number): number =>
 export const factorial = (n: number): number =>
   Iterable.reduce(
     Iterable.unfold(n, (factor) =>
-      Boolean.match(Number.lessThanOrEqualTo(factor, 0), {
+      Boolean.match(Number.isLessThanOrEqualTo(factor, 0), {
         onTrue: Option.none,
         onFalse: () => Option.some(Tuple.make(factor, Number.decrement(factor)))
       })),

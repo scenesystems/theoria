@@ -1,5 +1,7 @@
 import { describe, expect, it } from "@effect/vitest"
-import { Array, Chunk, Effect, Equal, Exit, FastCheck, Number, Predicate, Schema } from "effect"
+import { Array, Chunk, Effect, Equal, Exit, Number, Predicate, Schema } from "effect"
+
+import { nan, positiveInfinity } from "../helpers/nonFinite.js"
 
 import {
   factorial,
@@ -51,7 +53,7 @@ describe("Algebra / polyEval", () => {
 
   it.effect("evaluates quadratic polynomial", () =>
     Effect.gen(function*() {
-      expect(polyEval(Chunk.make(1, Number.negate(2), 1), 3)).toStrictEqual(4)
+      expect(polyEval(Chunk.make(1, Number.multiply(-1, 2), 1), 3)).toStrictEqual(4)
     }))
 
   it.effect("evaluates at x=0 returns a0", () =>
@@ -66,16 +68,16 @@ describe("Algebra / polyEval", () => {
 
   it.effect("does not multiply a constant coefficient by a non-finite evaluation point", () =>
     Effect.gen(function*() {
-      expect(polyEval(Chunk.of(Number.negate(7)), Number.unsafeDivide(1, 0))).toBe(Number.negate(7))
-      expect(polyEval(Chunk.of(Number.negate(0)), Number.unsafeDivide(0, 0))).toBe(Number.negate(0))
-      expect(polyEval(Chunk.empty(), Number.unsafeDivide(0, 0))).toBe(0)
+      expect(polyEval(Chunk.of(Number.multiply(-1, 7)), positiveInfinity)).toBe(Number.multiply(-1, 7))
+      expect(polyEval(Chunk.of(Number.multiply(-1, 0)), nan)).toBe(Number.multiply(-1, 0))
+      expect(polyEval(Chunk.empty(), nan)).toBe(0)
     }))
 
   it.effect.prop("evaluates coefficients in lowest-degree-first order", {
-    constant: FastCheck.integer({ min: Number.negate(20), max: 20 }),
-    linear: FastCheck.integer({ min: Number.negate(20), max: 20 }),
-    quadratic: FastCheck.integer({ min: Number.negate(20), max: 20 }),
-    x: FastCheck.integer({ min: Number.negate(10), max: 10 })
+    constant: Schema.Int.check(Schema.isBetween({ minimum: Number.multiply(-1, 20), maximum: 20 })),
+    linear: Schema.Int.check(Schema.isBetween({ minimum: Number.multiply(-1, 20), maximum: 20 })),
+    quadratic: Schema.Int.check(Schema.isBetween({ minimum: Number.multiply(-1, 20), maximum: 20 })),
+    x: Schema.Int.check(Schema.isBetween({ minimum: Number.multiply(-1, 10), maximum: 10 }))
   }, ({ constant, linear, quadratic, x }) =>
     Effect.gen(function*() {
       const expected = Number.sum(
@@ -103,7 +105,9 @@ describe("Algebra / polyDerivative", () => {
 
   it.effect("quadratic polynomial derivative", () =>
     Effect.gen(function*() {
-      expect(Equal.equals(polyDerivative(Chunk.make(1, Number.negate(2), 1)), Chunk.make(Number.negate(2), 2))).toBe(
+      expect(
+        Equal.equals(polyDerivative(Chunk.make(1, Number.multiply(-1, 2), 1)), Chunk.make(Number.multiply(-1, 2), 2))
+      ).toBe(
         true
       )
     }))
@@ -116,8 +120,8 @@ describe("Algebra / polyDerivative", () => {
   it.effect("weights each nonconstant coefficient by its original degree", () =>
     Effect.gen(function*() {
       expect(Equal.equals(
-        polyDerivative(Chunk.make(17, Number.negate(3), 5, Number.negate(2))),
-        Chunk.make(Number.negate(3), 10, Number.negate(6))
+        polyDerivative(Chunk.make(17, Number.multiply(-1, 3), 5, Number.multiply(-1, 2))),
+        Chunk.make(Number.multiply(-1, 3), 10, Number.multiply(-1, 6))
       )).toBe(true)
     }))
 })
@@ -129,12 +133,12 @@ describe("Algebra / polyDerivative", () => {
 describe("Algebra / gcd", () => {
   it.effect("normalizes signs and retains integers beyond the safe range", () =>
     Effect.gen(function*() {
-      expect(gcd(Number.negate(12), 8)).toBe(4)
-      expect(gcd(12, Number.negate(8))).toBe(4)
+      expect(gcd(Number.multiply(-1, 12), 8)).toBe(4)
+      expect(gcd(12, Number.multiply(-1, 8))).toBe(4)
       expect(gcd(0, 0)).toBe(0)
       // The actual binary64 integer ends in 104, unlike the decimal 10^100.
       expect(gcd(1e100, 5)).toBe(1)
-      expect(gcd(Number.negate(1e20), 0)).toBe(1e20)
+      expect(gcd(Number.multiply(-1, 1e20), 0)).toBe(1e20)
       expect(gcd(1.5, 3)).toBeNaN()
     }))
 
@@ -155,7 +159,7 @@ describe("Algebra / gcd", () => {
 
   it.effect("normalizes a signed-zero result to positive zero", () =>
     Effect.gen(function*() {
-      expect(Number.unsafeDivide(1, gcd(Number.negate(0), 0))).toBe(Infinity)
+      expect(gcd(Number.multiply(-1, 0), 0)).toBe(0)
     }))
 
   it.effect("gcd of coprimes is 1", () =>
@@ -174,8 +178,8 @@ describe("Algebra / lcm", () => {
       // 2^52 - 1 is divisible by three, but its product with three is not
       // representable in binary64. The exact lcm is the original operand.
       expect(lcm(4_503_599_627_370_495, 3)).toBe(4_503_599_627_370_495)
-      expect(lcm(Number.negate(12), 8)).toBe(24)
-      expect(lcm(12, Number.negate(8))).toBe(24)
+      expect(lcm(Number.multiply(-1, 12), 8)).toBe(24)
+      expect(lcm(12, Number.multiply(-1, 8))).toBe(24)
       expect(lcm(0, 0)).toBe(0)
       expect(lcm(1e20, 5)).toBe(1e20)
     }))
@@ -192,8 +196,8 @@ describe("Algebra / lcm", () => {
 
   it.effect("returns positive zero when either lcm operand is signed zero", () =>
     Effect.gen(function*() {
-      expect(Number.unsafeDivide(1, lcm(Number.negate(0), 5))).toBe(Infinity)
-      expect(Number.unsafeDivide(1, lcm(5, Number.negate(0)))).toBe(Infinity)
+      expect(lcm(Number.multiply(-1, 0), 5)).toBe(0)
+      expect(lcm(5, Number.multiply(-1, 0))).toBe(0)
     }))
 
   it.effect("lcm of coprimes is product", () =>
@@ -224,12 +228,12 @@ describe("Algebra / factorial", () => {
 
   it.effect("returns numeric overflow instead of exhausting the call stack", () =>
     Effect.gen(function*() {
-      expect(factorial(20_000)).toBe(Number.unsafeDivide(1, 0))
+      expect(factorial(20_000)).toBe(positiveInfinity)
     }))
 
   it.effect("preserves the pure kernel's unit result for negative input", () =>
     Effect.gen(function*() {
-      expect(factorial(Number.negate(3))).toBe(1)
+      expect(factorial(Number.multiply(-1, 3))).toBe(1)
     }))
 })
 
@@ -240,7 +244,7 @@ describe("Algebra / factorial", () => {
 describe("Algebra / polyEvalValidated", () => {
   it.effect("decodes valid input", () =>
     Effect.gen(function*() {
-      const result = yield* polyEvalValidated({ coefficients: Array.make(1, Number.negate(2), 1), x: 3 })
+      const result = yield* polyEvalValidated({ coefficients: Array.make(1, Number.multiply(-1, 2), 1), x: 3 })
       expect(result).toStrictEqual(4)
     }))
 
@@ -303,7 +307,7 @@ describe("Algebra / factorialValidated", () => {
 
   it.effect("rejects negative n", () =>
     Effect.gen(function*() {
-      const result = yield* Effect.exit(factorialValidated({ n: Number.negate(1) }))
+      const result = yield* Effect.exit(factorialValidated({ n: Number.multiply(-1, 1) }))
       expect(Exit.isFailure(result)).toBe(true)
     }))
 
@@ -321,13 +325,13 @@ describe("Algebra / factorialValidated", () => {
 describe("Algebra / polyEvalWithPolicies", () => {
   it.effect("returns correct result under strict+compensated", () =>
     Effect.gen(function*() {
-      const result = yield* polyEvalWithPolicies(Chunk.make(1, Number.negate(2), 1), 3)
+      const result = yield* polyEvalWithPolicies(Chunk.make(1, Number.multiply(-1, 2), 1), 3)
       expect(result).toStrictEqual(4)
     }).pipe(Effect.provide(strictCompensatedLayer)))
 
   it.effect("returns correct result under relaxed+scalar", () =>
     Effect.gen(function*() {
-      const result = yield* polyEvalWithPolicies(Chunk.make(1, Number.negate(2), 1), 3)
+      const result = yield* polyEvalWithPolicies(Chunk.make(1, Number.multiply(-1, 2), 1), 3)
       expect(result).toStrictEqual(4)
     }).pipe(Effect.provide(relaxedScalarLayer)))
 })
@@ -368,8 +372,8 @@ describe("Algebra / factorialWithPolicies", () => {
 describe("Algebra / polyDerivativeWithPolicies", () => {
   it.effect("returns correct derivative under strict", () =>
     Effect.gen(function*() {
-      const result = yield* polyDerivativeWithPolicies(Chunk.make(1, Number.negate(2), 1))
-      expect(Equal.equals(result, Chunk.make(Number.negate(2), 2))).toBe(true)
+      const result = yield* polyDerivativeWithPolicies(Chunk.make(1, Number.multiply(-1, 2), 1))
+      expect(Equal.equals(result, Chunk.make(Number.multiply(-1, 2), 2))).toBe(true)
     }).pipe(Effect.provide(strictCompensatedLayer)))
 
   it.effect("returns correct derivative under relaxed", () =>

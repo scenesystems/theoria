@@ -1,4 +1,4 @@
-import { BunContext } from "@effect/platform-bun"
+import { BunServices } from "@effect/platform-bun"
 import { describe, expect, it } from "@effect/vitest"
 import { Array, Chunk, Effect, Match, Number, Schema } from "effect"
 
@@ -82,7 +82,7 @@ const expectClose = (actual: number, expected: number, tolerance: number) =>
 
 const loadAllCases = Effect.gen(function*() {
   const raw = yield* loadFixture("distribution.algebra-parity")
-  const fixture = yield* Schema.decodeUnknown(DistributionAlgebraParityFixtureSchema)(raw, {
+  const fixture = yield* Schema.decodeUnknownEffect(DistributionAlgebraParityFixtureSchema)(raw, {
     onExcessProperty: "error"
   })
   return Array.fromIterable(fixture.payload.cases)
@@ -374,5 +374,5 @@ describe("Distribution SciPy fixture parity", () => {
             Match.exhaustive
           )
         }))
-    }).pipe(Effect.provide(BunContext.layer)))
+    }).pipe(Effect.provide(BunServices.layer)))
 })

@@ -23,7 +23,7 @@ import * as Policy from "@scenesystems/effect-math/Policy"
 
 const program = Effect.gen(function*() {
   // Polynomial evaluation
-  const coeffs = Chunk.make(1, Number.negate(2), 1) // 1 − 2x + x²
+  const coeffs = Chunk.make(1, Number.multiply(-1, 2), 1) // 1 − 2x + x²
   yield* Console.log("P(3) where P = 1 − 2x + x²:", polyEval(coeffs, 3))
   // Output: P(3) where P = 1 − 2x + x²: 4
 
@@ -56,7 +56,7 @@ const program = Effect.gen(function*() {
   // Output: 20!: 2432902008176640000
 
   // Schema-validated boundary
-  const polyV = yield* polyEvalValidated({ coefficients: Array.make(1, Number.negate(2), 1), x: 3 })
+  const polyV = yield* polyEvalValidated({ coefficients: Array.make(1, Number.multiply(-1, 2), 1), x: 3 })
   yield* Console.log("polyEvalValidated(x=3):", polyV)
   // Output: polyEvalValidated(x=3): 4
 

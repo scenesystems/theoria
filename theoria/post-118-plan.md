@@ -53,7 +53,7 @@ The first unit includes foundational configuration and its runtime helpers: the 
 2. **Migrate digest.** Establish v4 Schema and encoding patterns; preserve canonicalization and byte-identical golden fixtures. Migrate its tests alongside the implementation.
 3. **Migrate sign.** Update services, schemas, typed failures, examples, benchmarks, and packed-consumer checks against v4 peers. Fix issues demonstrated on v4, not by importing an old v3 patch queue.
 4. **Migrate seal.** Preserve authenticated-encryption representations, failure behavior, service boundaries, and fixtures.
-5. **Migrate effect-math.** Update Schema, Result/public APIs, numerical tests, property tests, and benchmarks. Preserve numerical and tail correctness against independent parity fixtures; derive any fixes on v4.
+5. **Migrate effect-math.** Update Schema, Result/public APIs, numerical tests, property tests, examples, fixture tooling, and API documentation. Preserve numerical and tail correctness against independent parity fixtures; derive any fixes on v4. Math benchmark tooling and measurements are deferred to step 17, per the owner's instruction; they do not block this package migration.
 6. **Migrate effect-study.** Update lifecycle, evaluation, events, persistence, and service/layer composition, including scope and interruption behavior.
 7. **Migrate effect-search.** Update optimization APIs, samplers, pruning, event/snapshot codecs, and Result usage; verify seeded behavior and numerical parity.
 8. **Migrate effect-text.** Update its consumers of search/study and v4 APIs; preserve layout and traversal behavior.

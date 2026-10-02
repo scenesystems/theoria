@@ -16,7 +16,7 @@ import * as LinearAlgebra from "./LinearAlgebra.js"
  * @since 0.1.0
  * @category schemas
  */
-export const Mode = Schema.Literal("forward", "reverse").annotations({
+export const Mode = Schema.Literals(["forward", "reverse"]).annotate({
   identifier: "@scenesystems/effect-math/Autodiff/Mode"
 })
 
@@ -42,7 +42,7 @@ export const Capability = Schema.Struct({
   mode: Mode,
   available: Schema.Boolean,
   maxInputDimension: Schema.optional(LinearAlgebra.Dimension)
-}).annotations({ identifier: "@scenesystems/effect-math/Autodiff/Capability" })
+}).annotate({ identifier: "@scenesystems/effect-math/Autodiff/Capability" })
 
 /**
  * Decoded capability metadata for one autodiff mode.
@@ -58,7 +58,7 @@ export type Capability = typeof Capability.Type
  * @since 0.1.0
  * @category schemas
  */
-export const Method = Schema.Literal("autodiff", "finite-difference").annotations({
+export const Method = Schema.Literals(["autodiff", "finite-difference"]).annotate({
   identifier: "@scenesystems/effect-math/Autodiff/Method"
 })
 
@@ -82,9 +82,9 @@ export type Method = typeof Method.Type
  */
 export const Resolution = Schema.Struct({
   method: Method,
-  mode: Schema.optionalWith(Mode, { as: "Option" }),
+  mode: Schema.OptionFromOptionalKey(Mode),
   usedFiniteDifferenceFallback: Schema.Boolean
-}).annotations({ identifier: "@scenesystems/effect-math/Autodiff/Resolution" })
+}).annotate({ identifier: "@scenesystems/effect-math/Autodiff/Resolution" })
 
 /**
  * A decoded differentiation selection result.
@@ -105,7 +105,7 @@ export type Resolution = typeof Resolution.Type
 export const Policy = Schema.Struct({
   preferredOrder: Schema.NonEmptyArray(Mode),
   allowFiniteDifferenceFallback: Schema.Boolean
-}).annotations({ identifier: "@scenesystems/effect-math/Autodiff/Policy" })
+}).annotate({ identifier: "@scenesystems/effect-math/Autodiff/Policy" })
 
 /**
  * A decoded autodiff mode selection policy.
@@ -127,7 +127,7 @@ export type Policy = typeof Policy.Type
 export const Settings = Schema.Struct({
   policy: Policy,
   capabilities: Schema.NonEmptyArray(Capability)
-}).annotations({ identifier: "@scenesystems/effect-math/Autodiff/Settings" })
+}).annotate({ identifier: "@scenesystems/effect-math/Autodiff/Settings" })
 
 /**
  * Decoded policy and capability state consumed by autodiff selection.
@@ -146,7 +146,7 @@ export type Settings = typeof Settings.Type
  * @since 0.1.0
  * @category schemas
  */
-export const Request = Schema.Struct({ operation: Schema.String, preferredMode: Schema.optional(Mode) }).annotations({
+export const Request = Schema.Struct({ operation: Schema.String, preferredMode: Schema.optional(Mode) }).annotate({
   identifier: "@scenesystems/effect-math/Autodiff/Request"
 })
 
@@ -182,7 +182,7 @@ export class UnavailableError extends Schema.TaggedError<UnavailableError>(
  * @since 0.1.0
  * @category services
  */
-export class Autodiff extends Context.Tag("@scenesystems/effect-math/Autodiff")<Autodiff, Settings>() {}
+export class Autodiff extends Context.Service<Autodiff, Settings>()("@scenesystems/effect-math/Autodiff") {}
 
 /**
  * Prefers reverse mode before forward mode and permits finite differences.
@@ -214,7 +214,8 @@ export const defaultSettings = Schema.decodeUnknownSync(Settings)({
  */
 export const layer = Layer.succeed(Autodiff, defaultSettings)
 
-const dedupeModes = Array.dedupeWith(String.Equivalence)
+const dedupeModes = (modes: ReadonlyArray<Mode>): Array<Mode> =>
+  Array.dedupeWith(modes, (self: Mode, that: Mode) => String.Equivalence(self, that))
 
 /**
  * Selects the first available autodiff mode or finite-difference fallback.
@@ -232,7 +233,7 @@ export const resolve = (request: Request) =>
   Effect.gen(function*() {
     const settings = yield* Autodiff
     const ordered = dedupeModes(
-      Option.match(Option.fromNullable(request.preferredMode), {
+      Option.match(Option.fromNullishOr(request.preferredMode), {
         onNone: () => settings.policy.preferredOrder,
         onSome: (mode) => Array.prepend(settings.policy.preferredOrder, mode)
       })
@@ -261,7 +262,7 @@ export const resolve = (request: Request) =>
               new UnavailableError({
                 operation: request.operation,
                 requestedMode: Option.getOrElse(
-                  Option.fromNullable(request.preferredMode),
+                  Option.fromNullishOr(request.preferredMode),
                   () => "policy-default"
                 ),
                 availableModes: available,

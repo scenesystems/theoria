@@ -1,6 +1,6 @@
-import { BunContext } from "@effect/platform-bun"
+import { BunServices } from "@effect/platform-bun"
 import { describe, expect, it } from "@effect/vitest"
-import { Array, Data, Effect, Match, Number, Option, Record, Schema } from "effect"
+import { Array, Data, Effect, Match, Number, Record, Schema } from "effect"
 
 import * as Numeric from "../../src/Numeric.js"
 import { bisect, goldenSection } from "../../src/Optimization.js"
@@ -18,10 +18,7 @@ const lookup = <F>(
   registry: Record.ReadonlyRecord<string, F>,
   name: string
 ): Effect.Effect<F, UnknownFixtureFunction> =>
-  Option.match(Record.get(registry, name), {
-    onNone: () => Effect.fail(new UnknownFixtureFunction({ name })),
-    onSome: Effect.succeed
-  })
+  Effect.fromOption(Record.get(registry, name), () => new UnknownFixtureFunction({ name }))
 
 const rootFunctions: Record.ReadonlyRecord<string, (x: number) => number> = {
   x_squared_minus_2: (x) => Number.subtract(Number.multiply(x, x), 2),
@@ -46,7 +43,7 @@ describe("Optimization SciPy fixture parity", () => {
     Effect.gen(function*() {
       const fixture = yield* loadFixture("optimization.solver-parity").pipe(
         Effect.flatMap((raw) =>
-          Schema.decodeUnknown(OptimizationSolverParityFixtureSchema)(raw, {
+          Schema.decodeUnknownEffect(OptimizationSolverParityFixtureSchema)(raw, {
             onExcessProperty: "error"
           })
         )
@@ -69,5 +66,5 @@ describe("Optimization SciPy fixture parity", () => {
           ),
           Match.exhaustive
         ))
-    }).pipe(Effect.provide(BunContext.layer)))
+    }).pipe(Effect.provide(BunServices.layer)))
 })

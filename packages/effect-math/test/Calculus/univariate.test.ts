@@ -1,6 +1,8 @@
 import { describe, expect, it } from "@effect/vitest"
 import { Effect, Exit, Number, Schema, String } from "effect"
 
+import { positiveInfinity } from "../helpers/nonFinite.js"
+
 import {
   derivative,
   derivativeLimit,
@@ -34,7 +36,7 @@ const expectClose = (actual: number, expected: number, tolerance: number) =>
 describe("Calculus / univariate limit operators", () => {
   it.effect("derivativeLimit returns converged estimate with bounded error", () =>
     Effect.gen(function*() {
-      const estimate = derivativeLimit(Numeric.sin, Number.unsafeDivide(Numeric.pi, 3))
+      const estimate = derivativeLimit(Numeric.sin, Number.divideUnsafe(Numeric.pi, 3))
 
       expect(estimate.converged).toStrictEqual(true)
       expect(estimate.iterations).toBeGreaterThanOrEqual(1)
@@ -68,7 +70,7 @@ describe("Calculus / univariate validation", () => {
   it.effect("derivativeLimitValidated decodes strict input", () =>
     Effect.gen(function*() {
       const estimate = yield* derivativeLimitValidated(Numeric.sin, {
-        x: Number.unsafeDivide(Numeric.pi, 3),
+        x: Number.divideUnsafe(Numeric.pi, 3),
         initialStep: 1e-3,
         maxIterations: 10
       })
@@ -91,7 +93,7 @@ describe("Calculus / univariate validation", () => {
   it.effect("derivativeLimitValidated maps callback throws to typed kernel errors", () =>
     Effect.gen(function*() {
       const error = yield* Effect.flip(derivativeLimitValidated(
-        () => Schema.decodeUnknownSync(Schema.Number)({ invalid: true }),
+        () => Schema.decodeUnknownSync(Schema.Finite)({ invalid: true }),
         { x: 1 }
       ))
 
@@ -104,13 +106,13 @@ describe("Calculus / univariate validation", () => {
 describe("Calculus / univariate policy behavior", () => {
   it.effect("strict precision rejects non-finite derivative limits", () =>
     Effect.gen(function*() {
-      const result = yield* Effect.exit(derivativeLimitWithPolicies(() => Number.unsafeDivide(1, 0), 1))
+      const result = yield* Effect.exit(derivativeLimitWithPolicies(() => positiveInfinity, 1))
       expect(Exit.isFailure(result)).toStrictEqual(true)
     }).pipe(Effect.provide(strictPolicies)))
 
   it.effect("relaxed precision permits non-finite derivative limits", () =>
     Effect.gen(function*() {
-      const estimate = yield* derivativeLimitWithPolicies(() => Number.unsafeDivide(1, 0), 1)
+      const estimate = yield* derivativeLimitWithPolicies(() => positiveInfinity, 1)
 
       expect(Numeric.isFinite(estimate.value)).toStrictEqual(false)
       expect(estimate.converged).toStrictEqual(false)
@@ -118,17 +120,17 @@ describe("Calculus / univariate policy behavior", () => {
 
   it.effect("strict precision keeps converged second derivative estimates", () =>
     Effect.gen(function*() {
-      const point = Number.unsafeDivide(Numeric.pi, 3)
+      const point = Number.divideUnsafe(Numeric.pi, 3)
       const estimate = yield* secondDerivativeLimitWithPolicies(Numeric.sin, point)
 
       expect(estimate.converged).toStrictEqual(true)
-      expectClose(estimate.value, Number.negate(Numeric.sin(point)), 1e-9)
+      expectClose(estimate.value, Number.multiply(-1, Numeric.sin(point)), 1e-9)
     }).pipe(Effect.provide(strictPolicies)))
 
   it.effect("policy wrappers map callback throws to typed kernel errors", () =>
     Effect.gen(function*() {
       const error = yield* Effect.flip(derivativeLimitWithPolicies(
-        () => Schema.decodeUnknownSync(Schema.Number)({ invalid: true }),
+        () => Schema.decodeUnknownSync(Schema.Finite)({ invalid: true }),
         1
       ))
 

@@ -22,7 +22,7 @@ export const derivativeLimitRidder = (
 ): DerivativeLimitEstimate =>
   ridderExtrapolation(
     (step) =>
-      Number.unsafeDivide(
+      Number.divideUnsafe(
         Number.subtract(f(Number.sum(x, step)), f(Number.subtract(x, step))),
         Number.multiply(2, step)
       ),
@@ -46,7 +46,7 @@ export const secondDerivativeLimitRidder = (
     const forward = f(Number.sum(x, step))
     const backward = f(Number.subtract(x, step))
 
-    return Number.unsafeDivide(
+    return Number.divideUnsafe(
       Number.sum(Number.subtract(forward, Number.multiply(2, center)), backward),
       Number.multiply(step, step)
     )

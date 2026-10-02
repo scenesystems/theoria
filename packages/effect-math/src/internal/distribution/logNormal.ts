@@ -46,12 +46,12 @@ const entropyOffset = Number.sum(0.5, logNormalization)
  * @category internal
  */
 export const logNormalPdf = (x: number, mu: number, sigma: number): number =>
-  Boolean.match(Number.greaterThan(x, 0), {
+  Boolean.match(Number.isGreaterThan(x, 0), {
     onTrue: () => {
       const lnx = log(x)
-      const z = Number.unsafeDivide(Number.subtract(lnx, mu), sigma)
+      const z = Number.divideUnsafe(Number.subtract(lnx, mu), sigma)
       return Number.multiply(
-        Number.unsafeDivide(1, Number.multiply(x, Number.multiply(sigma, normalizationDenominator))),
+        Number.divideUnsafe(1, Number.multiply(x, Number.multiply(sigma, normalizationDenominator))),
         exp(Number.multiply(-0.5, Number.multiply(z, z)))
       )
     },
@@ -66,13 +66,13 @@ export const logNormalPdf = (x: number, mu: number, sigma: number): number =>
  * @category internal
  */
 export const logNormalLogpdf = (x: number, mu: number, sigma: number): number =>
-  Boolean.match(Number.greaterThan(x, 0), {
+  Boolean.match(Number.isGreaterThan(x, 0), {
     onTrue: () => {
       const lnx = log(x)
-      const z = Number.unsafeDivide(Number.subtract(lnx, mu), sigma)
+      const z = Number.divideUnsafe(Number.subtract(lnx, mu), sigma)
       return Number.subtract(
         Number.subtract(
-          Number.subtract(Number.negate(lnx), log(sigma)),
+          Number.subtract(Number.multiply(lnx, -1), log(sigma)),
           logNormalization
         ),
         Number.multiply(0.5, Number.multiply(z, z))
@@ -89,14 +89,14 @@ export const logNormalLogpdf = (x: number, mu: number, sigma: number): number =>
  * @category internal
  */
 export const logNormalCdf = (x: number, mu: number, sigma: number): number =>
-  Boolean.match(Number.greaterThan(x, 0), {
+  Boolean.match(Number.isGreaterThan(x, 0), {
     onTrue: () =>
       Number.multiply(
         0.5,
         Number.sum(
           1,
           erf(
-            Number.unsafeDivide(Number.subtract(log(x), mu), Number.multiply(sigma, sqrtTwo))
+            Number.divideUnsafe(Number.subtract(log(x), mu), Number.multiply(sigma, sqrtTwo))
           )
         )
       ),

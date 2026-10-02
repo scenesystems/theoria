@@ -28,7 +28,7 @@ export const argmaxIndex = (values: Iterable<number>): Option.Option<number> =>
           new MaximumState({ bestIndex: 0, bestValue: first, index: 1 }),
           (state, value) =>
             Boolean.match(
-              Boolean.and(Boolean.not(Binary.isNaN(value)), Number.greaterThan(value, state.bestValue)),
+              Boolean.and(Boolean.not(Binary.isNaN(value)), Number.isGreaterThan(value, state.bestValue)),
               {
                 onTrue: () =>
                   new MaximumState({

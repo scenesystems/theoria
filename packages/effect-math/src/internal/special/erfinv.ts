@@ -248,38 +248,38 @@ const rationalResult = (
   const shifted = Number.subtract(x, shift)
   return Number.multiply(
     x,
-    Number.sum(y, Number.unsafeDivide(evalPoly(numerator, shifted), evalPoly(denominator, shifted)))
+    Number.sum(y, Number.divideUnsafe(evalPoly(numerator, shifted), evalPoly(denominator, shifted)))
   )
 }
 
 const erfinvCore = (p: number, q: number): number =>
-  Boolean.match(Number.lessThanOrEqualTo(p, 0.5), {
+  Boolean.match(Number.isLessThanOrEqualTo(p, 0.5), {
     onTrue: () => {
       const g = Number.multiply(p, Number.sum(p, 10))
-      return Number.multiply(g, Number.sum(Y1, Number.unsafeDivide(evalPoly(P1, p), evalPoly(Q1, p))))
+      return Number.multiply(g, Number.sum(Y1, Number.divideUnsafe(evalPoly(P1, p), evalPoly(Q1, p))))
     },
     onFalse: () =>
-      Boolean.match(Number.greaterThanOrEqualTo(q, 0.25), {
+      Boolean.match(Number.isGreaterThanOrEqualTo(q, 0.25), {
         onTrue: () => {
           const g = sqrt(Number.multiply(-2, log(q)))
           const shifted = Number.subtract(q, 0.25)
-          return Number.unsafeDivide(
+          return Number.divideUnsafe(
             g,
-            Number.sum(Y2, Number.unsafeDivide(evalPoly(P2, shifted), evalPoly(Q2, shifted)))
+            Number.sum(Y2, Number.divideUnsafe(evalPoly(P2, shifted), evalPoly(Q2, shifted)))
           )
         },
         onFalse: () => {
-          const x = sqrt(Number.negate(log(q)))
-          return Boolean.match(Number.lessThan(x, 3), {
+          const x = sqrt(Number.multiply(-1, log(q)))
+          return Boolean.match(Number.isLessThan(x, 3), {
             onTrue: () => rationalResult(x, 1.125, Y3A, P3A, Q3A),
             onFalse: () =>
-              Boolean.match(Number.lessThan(x, 6), {
+              Boolean.match(Number.isLessThan(x, 6), {
                 onTrue: () => rationalResult(x, 3, Y3B, P3B, Q3B),
                 onFalse: () =>
-                  Boolean.match(Number.lessThan(x, 18), {
+                  Boolean.match(Number.isLessThan(x, 18), {
                     onTrue: () => rationalResult(x, 6, Y3C, P3C, Q3C),
                     onFalse: () =>
-                      Boolean.match(Number.lessThan(x, 44), {
+                      Boolean.match(Number.isLessThan(x, 44), {
                         onTrue: () => rationalResult(x, 18, Y3D, P3D, Q3D),
                         onFalse: () => rationalResult(x, 44, Y3E, P3E, Q3E)
                       })
@@ -311,10 +311,10 @@ export const erfinv = (x: number): number => {
           Boolean.match(Number.Equivalence(x, -1), {
             onTrue: () => -Infinity,
             onFalse: () =>
-              Boolean.match(Boolean.or(Number.lessThan(x, -1), Number.greaterThan(x, 1)), {
+              Boolean.match(Boolean.or(Number.isLessThan(x, -1), Number.isGreaterThan(x, 1)), {
                 onTrue: () => NaN,
                 onFalse: () => {
-                  const sign = Boolean.match(Number.lessThan(x, 0), { onTrue: () => -1, onFalse: () => 1 })
+                  const sign = Boolean.match(Number.isLessThan(x, 0), { onTrue: () => -1, onFalse: () => 1 })
                   const p = abs(x)
                   return Number.multiply(sign, erfinvCore(p, Number.subtract(1, p)))
                 }
