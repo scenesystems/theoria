@@ -45,13 +45,13 @@ const proposeCode = `// Every proposal is content-addressed and signed by whoeve
 const proposalId = yield* ContentDigest.fromSchema(Proposal, proposal, "blake3-256").pipe(
   Effect.map(ContentDigest.toString)
 )
-const proposalBytes = Bytes.fromString(proposalId)
+const proposalBytes = yield* Bytes.fromString(proposalId)
 const signature = yield* Ed25519.sign(proposalBytes, proposer.secretKey, proposer.publicKey)
 
 const shared = yield* X25519.deriveSharedSecret(neighbor.secretKey, author.publicKey)
 const key = yield* Hkdf.sha256(shared.sharedSecret, Option.none(), context, 32)
 // The application provides Cipher.layer once at its entrypoint.
-const envelope = yield* Envelope.encrypt("xchacha20-poly1305", key, Bytes.fromString(note))`
+const envelope = yield* Envelope.encrypt("xchacha20-poly1305", key, yield* Bytes.fromString(note))`
 
 const recordCode = `// Version 1 is the digest of its content. Version 2 digests version 1's
 // ID as its parent, so the chain cannot be reordered. The author signs each.
@@ -65,7 +65,7 @@ const mergedId = yield* ContentDigest.fromSchema(PlaceArtifact, merged, "blake3-
   Effect.map(ContentDigest.toString)
 )
 
-const mergedBytes = Bytes.fromString(mergedId)
+const mergedBytes = yield* Bytes.fromString(mergedId)
 const signed = yield* Ed25519.sign(mergedBytes, author.secretKey, author.publicKey)`
 
 const arrangeCode = `// Drawing happens where the place is shown, with that screen's font metrics.

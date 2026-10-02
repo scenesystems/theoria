@@ -72,7 +72,7 @@ describe("strict direct verification admission", () => {
     Effect.gen(function*() {
       const seed = yield* decodeHex("9d61b19deffd5a60ba844af492ec2cc44449c5697b326919703bac031cae7f60")
       const keys = yield* Ed25519.keyPairFromSeed(seed)
-      const message = Bytes.fromString("a")
+      const message = yield* Bytes.fromString("a")
       const signed = yield* Ed25519.sign(message, keys.secretKey, keys.publicKey)
       const fractionalMessage = yield* misreportedBytes(message, message.length, N.sum(0.5))
       expect(yield* Effect.flip(Ed25519.verify(signed.signature, fractionalMessage.bytes, keys.publicKey)))
@@ -88,7 +88,7 @@ describe("strict direct verification admission", () => {
           message,
           pqKeys.secretKey,
           pqKeys.publicKey,
-          Bytes.fromString(""),
+          yield* Bytes.fromString(""),
           fractionalEntropy.bytes
         ))
       ).toEqual(new Signature.SigningFailed({ algorithm: "ml-dsa-65", reason: "invalid input" }))
@@ -103,7 +103,7 @@ describe("strict direct verification admission", () => {
         (yield* Schema.decodeUnknownEffect(Schema.toType(P256Fixture))(p256Corpus)).cases
       )
       const keys = yield* MlDsa.generateKeyPair65
-      const empty = Bytes.fromString("")
+      const empty = yield* Bytes.fromString("")
       const signed = yield* MlDsa.sign65Deterministic(empty, keys.secretKey, keys.publicKey)
       const overLimit = new Uint8Array(
         Arr.replicate(0x71, N.increment(Verification.maxMessageBytes))
@@ -170,13 +170,13 @@ describe("strict direct verification admission", () => {
   it.effect("classifies inconsistent seed, context, and entropy snapshots as invalid input", () =>
     Effect.gen(function*() {
       const seed = yield* decodeHex("9d61b19deffd5a60ba844af492ec2cc44449c5697b326919703bac031cae7f60")
-      const hiddenSeed = yield* misreportedBytes(Bytes.fromString("short"), seed.length)
+      const hiddenSeed = yield* misreportedBytes(yield* Bytes.fromString("short"), seed.length)
       expect(yield* Effect.flip(Ed25519.keyPairFromSeed(hiddenSeed.bytes))).toEqual(new Ed25519.InvalidSeed({}))
       const keys = yield* MlDsa.generateKeyPair65
-      const empty = Bytes.fromString("")
+      const empty = yield* Bytes.fromString("")
       const entropy = new Uint8Array(Arr.replicate(0x42, MlDsa.entropyBytes))
-      const hiddenEntropy = yield* misreportedBytes(Bytes.fromString("short"), MlDsa.entropyBytes)
-      const context = yield* misreportedBytes(Bytes.fromString("not empty"), 0)
+      const hiddenEntropy = yield* misreportedBytes(yield* Bytes.fromString("short"), MlDsa.entropyBytes)
+      const context = yield* misreportedBytes(yield* Bytes.fromString("not empty"), 0)
       const signed = yield* MlDsa.sign65Hedged(empty, keys.secretKey, keys.publicKey, empty, entropy)
       expect(yield* Effect.flip(MlDsa.verify65(signed.signature, empty, keys.publicKey, context.bytes)))
         .toEqual(new Verification.InvalidInput({}))
@@ -202,7 +202,7 @@ describe("strict direct verification admission", () => {
         (yield* Schema.decodeUnknownEffect(Schema.toType(P256Fixture))(p256Corpus)).cases
       )
       const keys = yield* MlDsa.generateKeyPair65
-      const empty = Bytes.fromString("")
+      const empty = yield* Bytes.fromString("")
       const entropy = new Uint8Array(Arr.replicate(0x42, MlDsa.entropyBytes))
       const signed = yield* MlDsa.sign65Hedged(empty, keys.secretKey, keys.publicKey, empty, entropy)
       const verifyMlDsa = (signature: Uint8Array, message: Uint8Array, publicKey: Uint8Array) =>
@@ -280,7 +280,7 @@ describe("strict direct verification admission", () => {
       )
       const rsaKey = yield* Rsa.publicKeyFromJwk(rsa.keyJwk)
       const rsaSignature = new Uint8Array(Arr.replicate(0, 256))
-      const message = Bytes.fromString("")
+      const message = yield* Bytes.fromString("")
       const seed = yield* decodeHex("9d61b19deffd5a60ba844af492ec2cc44449c5697b326919703bac031cae7f60")
 
       yield* Effect.forEach(
@@ -312,8 +312,8 @@ describe("strict direct verification admission", () => {
   it.effect("hedged signing rejects each unreadable input without throwing or misclassifying it as a backend failure", () =>
     Effect.gen(function*() {
       const keys = yield* MlDsa.generateKeyPair65
-      const message = Bytes.fromString("")
-      const context = Bytes.fromString("")
+      const message = yield* Bytes.fromString("")
+      const context = yield* Bytes.fromString("")
       const entropy = new Uint8Array(Arr.replicate(0x42, MlDsa.entropyBytes))
       const signed = yield* MlDsa.sign65Hedged(message, keys.secretKey, keys.publicKey, context, entropy)
       expect(yield* MlDsa.verify65(signed.signature, message, keys.publicKey, context)).toBe(true)

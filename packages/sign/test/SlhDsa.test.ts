@@ -26,8 +26,6 @@ const decodeHex = (value: string) => Effect.fromResult(Encoding.Hex.decode(value
 import { PublicSignatureKatFixture } from "../scripts/fixture-contract.js"
 import katCorpus from "./fixtures/conformance/sign-public-kat.json" with { type: "json" }
 
-const message = Bytes.fromString("hash-based hello")
-
 const deterministicEntropy = (entropy: Uint8Array) =>
   Layer.succeed(
     Entropy.Entropy,
@@ -70,6 +68,7 @@ describe("SLH-DSA independent ACVP conformance", () => {
 describe("SLH-DSA-SHA2-128f — algorithm contracts", () => {
   it.effect("sign → verify roundtrip", () =>
     Effect.gen(function*() {
+      const message = yield* Bytes.fromString("hash-based hello")
       const kp = yield* SlhDsa.generateSha2128fKeyPair
       const sig = yield* SlhDsa.signSha2128f(message, kp.secretKey, kp.publicKey)
       const valid = yield* SlhDsa.verifySha2128f(sig.signature, message, kp.publicKey)
@@ -86,6 +85,7 @@ describe("SLH-DSA-SHA2-128f — algorithm contracts", () => {
 
   it.effect("expected signature size — 17088B", () =>
     Effect.gen(function*() {
+      const message = yield* Bytes.fromString("hash-based hello")
       const kp = yield* SlhDsa.generateSha2128fKeyPair
       const sig = yield* SlhDsa.signSha2128f(message, kp.secretKey, kp.publicKey)
       expect(sig.signature.length).toBe(17088)
@@ -93,6 +93,7 @@ describe("SLH-DSA-SHA2-128f — algorithm contracts", () => {
 
   it.effect("rejects wrong public key", () =>
     Effect.gen(function*() {
+      const message = yield* Bytes.fromString("hash-based hello")
       const kp1 = yield* SlhDsa.generateSha2128fKeyPair
       const kp2 = yield* SlhDsa.generateSha2128fKeyPair
       const sig = yield* SlhDsa.signSha2128f(message, kp1.secretKey, kp1.publicKey)
@@ -104,6 +105,7 @@ describe("SLH-DSA-SHA2-128f — algorithm contracts", () => {
 describe("SLH-DSA-SHA2-128s — algorithm contracts", () => {
   it.effect("sign → verify roundtrip", () =>
     Effect.gen(function*() {
+      const message = yield* Bytes.fromString("hash-based hello")
       const kp = yield* SlhDsa.generateSha2128sKeyPair
       const sig = yield* SlhDsa.signSha2128s(message, kp.secretKey, kp.publicKey)
       const valid = yield* SlhDsa.verifySha2128s(sig.signature, message, kp.publicKey)
@@ -120,6 +122,7 @@ describe("SLH-DSA-SHA2-128s — algorithm contracts", () => {
 
   it.effect("expected signature size — 7856B", () =>
     Effect.gen(function*() {
+      const message = yield* Bytes.fromString("hash-based hello")
       const kp = yield* SlhDsa.generateSha2128sKeyPair
       const sig = yield* SlhDsa.signSha2128s(message, kp.secretKey, kp.publicKey)
       expect(sig.signature.length).toBe(7856)
@@ -127,6 +130,7 @@ describe("SLH-DSA-SHA2-128s — algorithm contracts", () => {
 
   it.effect("rejects tampered signature", () =>
     Effect.gen(function*() {
+      const message = yield* Bytes.fromString("hash-based hello")
       const kp = yield* SlhDsa.generateSha2128sKeyPair
       const sig = yield* SlhDsa.signSha2128s(message, kp.secretKey, kp.publicKey)
       const tampered = new Uint8Array(
@@ -148,6 +152,7 @@ describe("SLH-DSA-SHA2-128s — algorithm contracts", () => {
 describe("higher-security SLH-DSA suites", () => {
   it.effect("signs and verifies SHA2-192f", () =>
     Effect.gen(function*() {
+      const message = yield* Bytes.fromString("hash-based hello")
       const keys = yield* SlhDsa.generateSha2192fKeyPair
       const signed = yield* SlhDsa.signSha2192f(message, keys.secretKey, keys.publicKey)
       expect(yield* SlhDsa.verifySha2192f(signed.signature, message, keys.publicKey)).toBe(true)
@@ -158,6 +163,7 @@ describe("higher-security SLH-DSA suites", () => {
 
   it.effect("signs and verifies SHA2-256f", () =>
     Effect.gen(function*() {
+      const message = yield* Bytes.fromString("hash-based hello")
       const keys = yield* SlhDsa.generateSha2256fKeyPair
       const signed = yield* SlhDsa.signSha2256f(message, keys.secretKey, keys.publicKey)
       expect(yield* SlhDsa.verifySha2256f(signed.signature, message, keys.publicKey)).toBe(true)

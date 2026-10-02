@@ -83,7 +83,7 @@ const program = Effect.gen(function*() {
     Schema.String,
     Schema.String
   ]))(Str.split(token, "."))
-  const message = Bytes.fromString(Arr.join(Arr.make(header, payload), "."))
+  const message = yield* Bytes.fromString(Arr.join(Arr.make(header, payload), "."))
   const signature = yield* Effect.fromResult(Base64Url.decode(signatureText))
   const changed = new Uint8Array(
     yield* Effect.fromOption(Arr.modify(

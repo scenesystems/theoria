@@ -104,7 +104,7 @@ describe("Entropy", () => {
 
   it.effect("fails signing and encapsulation before using keys when the entropy provider fails", () =>
     Effect.gen(function*() {
-      const empty = Bytes.fromString("")
+      const empty = yield* Bytes.fromString("")
       const requests = yield* Ref.make(Arr.empty<number>())
       const source = Entropy.Entropy.of({
         bytes: (length) =>
@@ -141,7 +141,7 @@ describe("Entropy", () => {
     Effect.gen(function*() {
       const started = yield* Deferred.make<void>()
       const released = yield* Deferred.make<Exit.Exit<never>>()
-      const empty = Bytes.fromString("")
+      const empty = yield* Bytes.fromString("")
       const fiber = yield* MlDsa.sign44(empty, empty, empty).pipe(
         Effect.provideService(Entropy.Entropy, {
           bytes: () =>
@@ -165,7 +165,8 @@ describe("Entropy", () => {
   it.effect("preserves provider defects rather than relabeling them as typed operation failures", () =>
     Effect.gen(function*() {
       const defect = new EntropyProviderDefect()
-      const exit = yield* XWing.encapsulate(Bytes.fromString("")).pipe(
+      const empty = yield* Bytes.fromString("")
+      const exit = yield* XWing.encapsulate(empty).pipe(
         Effect.provideService(Entropy.Entropy, { bytes: () => Effect.die(defect) }),
         Effect.exit
       )
@@ -174,7 +175,7 @@ describe("Entropy", () => {
 
   it.effect("randomized signatures depend on supplied entropy, not ambient defaults", () =>
     Effect.gen(function*() {
-      const message = Bytes.fromString("asymmetric signing entropy fixture")
+      const message = yield* Bytes.fromString("asymmetric signing entropy fixture")
       yield* Effect.forEach(
         Arr.make(
           Tuple.make(Secp256k1.generateSchnorrKeyPair, Secp256k1.signSchnorr, Secp256k1.verifySchnorr, 32),
@@ -215,8 +216,8 @@ describe("Entropy", () => {
     Effect.gen(function*() {
       const originalKeys = yield* Secp256k1.generateSchnorrKeyPair
       const mutatedKeys = yield* Secp256k1.generateSchnorrKeyPair
-      const originalMessage = Bytes.fromString("original message payload")
-      const mutatedMessage = Bytes.fromString("mutated! message payload")
+      const originalMessage = yield* Bytes.fromString("original message payload")
+      const mutatedMessage = yield* Bytes.fromString("mutated! message payload")
       const inputMessage = yield* copyBytes(originalMessage)
       const inputSecretKey = yield* copyBytes(originalKeys.secretKey)
       const inputPublicKey = yield* copyBytes(originalKeys.publicKey)
@@ -244,8 +245,8 @@ describe("Entropy", () => {
     Effect.gen(function*() {
       const originalKeys = yield* MlDsa.generateKeyPair44
       const mutatedKeys = yield* MlDsa.generateKeyPair44
-      const originalMessage = Bytes.fromString("original message payload")
-      const mutatedMessage = Bytes.fromString("mutated! message payload")
+      const originalMessage = yield* Bytes.fromString("original message payload")
+      const mutatedMessage = yield* Bytes.fromString("mutated! message payload")
       const inputMessage = yield* copyBytes(originalMessage)
       const inputSecretKey = yield* copyBytes(originalKeys.secretKey)
       const inputPublicKey = yield* copyBytes(originalKeys.publicKey)

@@ -157,7 +157,8 @@ export const verifyRs256 = <S extends Schema.Constraint>(
         () => new Rejected({ reason: "MalformedToken" })
       )
     )
-    yield* Rsa.verify(signature, Bytes.fromString(Arr.join(Arr.make(encodedHeader, encodedPayload), ".")), key).pipe(
+    const signedContent = yield* Bytes.fromString(Arr.join(Arr.make(encodedHeader, encodedPayload), "."))
+    yield* Rsa.verify(signature, signedContent, key).pipe(
       Effect.catchTag("InvalidVerificationInput", () => Effect.fail(new Rejected({ reason: "Signature" }))),
       Effect.filterOrFail(identity, () => new Rejected({ reason: "Signature" }))
     )

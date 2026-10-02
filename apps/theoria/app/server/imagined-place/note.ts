@@ -21,7 +21,7 @@ const noteContext = Bytes.fromString("theoria/imagined-place/sealed-note/v1")
 const sealingKey = (mine: ParticipantKeys, theirs: ParticipantKeys) =>
   Effect.gen(function*() {
     const shared = yield* X25519.deriveSharedSecret(mine.agreement.secretKey, theirs.agreement.publicKey)
-    return yield* Effect.fromResult(Hkdf.sha256(shared.sharedSecret, Option.none(), noteContext, 32))
+    return yield* Hkdf.sha256(shared.sharedSecret, Option.none(), yield* noteContext, 32)
   })
 
 /**
@@ -37,7 +37,7 @@ export const sendSealedNote = (
     const participants = yield* Participants
     const sender = Struct.get(from)(participants)
     const recipient = Struct.get(to)(participants)
-    const plaintext = Bytes.fromString(text)
+    const plaintext = yield* Bytes.fromString(text)
 
     const encrypted = yield* Cipher.encrypt(
       "xchacha20-poly1305",

@@ -6,8 +6,8 @@ import corpus from "./fixtures/conformance/rsa-wycheproof.json" with { type: "js
 
 it.effect("looks up byte carriers by shared references, not copied byte contents", () =>
   Effect.gen(function*() {
-    const key = Bytes.fromString("public bytes")
-    const bytes = Bytes.fromString("payload bytes")
+    const key = yield* Bytes.fromString("public bytes")
+    const bytes = yield* Bytes.fromString("payload bytes")
     yield* Effect.forEach(
       Arr.make(
         (value: Uint8Array) => new KeyPair.KeyPair({ algorithm: "ed25519", publicKey: key, secretKey: value }),

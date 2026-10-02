@@ -23,10 +23,9 @@ const modifyBytes = (bytes: Iterable<number>, index: number, f: (byte: number) =
 const decodeHex = (value: string) => Effect.fromResult(Encoding.Hex.decode(value))
 
 describe("Ed25519 — algorithm contracts", () => {
-  const message = Bytes.fromString("hello noble")
-
   it.effect("sign → verify roundtrip", () =>
     Effect.gen(function*() {
+      const message = yield* Bytes.fromString("hello noble")
       const kp = yield* Ed25519.generateKeyPair
       const sig = yield* Ed25519.sign(message, kp.secretKey, kp.publicKey)
       const valid = yield* Ed25519.verify(sig.signature, message, kp.publicKey)
@@ -35,6 +34,7 @@ describe("Ed25519 — algorithm contracts", () => {
 
   it.effect("produces 64-byte signatures", () =>
     Effect.gen(function*() {
+      const message = yield* Bytes.fromString("hello noble")
       const kp = yield* Ed25519.generateKeyPair
       const sig = yield* Ed25519.sign(message, kp.secretKey, kp.publicKey)
       expect(sig.signature.length).toBe(64)
@@ -42,6 +42,7 @@ describe("Ed25519 — algorithm contracts", () => {
 
   it.effect("deterministic signing — identical inputs produce identical signatures", () =>
     Effect.gen(function*() {
+      const message = yield* Bytes.fromString("hello noble")
       const kp = yield* Ed25519.generateKeyPair
       const sig1 = yield* Ed25519.sign(message, kp.secretKey, kp.publicKey)
       const sig2 = yield* Ed25519.sign(message, kp.secretKey, kp.publicKey)
@@ -50,6 +51,7 @@ describe("Ed25519 — algorithm contracts", () => {
 
   it.effect("rejects tampered signature", () =>
     Effect.gen(function*() {
+      const message = yield* Bytes.fromString("hello noble")
       const kp = yield* Ed25519.generateKeyPair
       const sig = yield* Ed25519.sign(message, kp.secretKey, kp.publicKey)
       const tampered = new Uint8Array(
@@ -61,6 +63,7 @@ describe("Ed25519 — algorithm contracts", () => {
 
   it.effect("rejects wrong public key", () =>
     Effect.gen(function*() {
+      const message = yield* Bytes.fromString("hello noble")
       const kp1 = yield* Ed25519.generateKeyPair
       const kp2 = yield* Ed25519.generateKeyPair
       const sig = yield* Ed25519.sign(message, kp1.secretKey, kp1.publicKey)

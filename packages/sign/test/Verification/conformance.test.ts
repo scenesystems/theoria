@@ -8,12 +8,10 @@ const decodeHex = (value: string) => Effect.fromResult(Encoding.Hex.decode(value
 import { P256Fixture } from "../../scripts/fixture-contract.js"
 import p256Corpus from "../fixtures/conformance/p256.json" with { type: "json" }
 
-const EMPTY_CONTEXT = Bytes.fromString("")
-const message = Bytes.fromString("strict direct verification")
-
 describe("strict direct verification suites", () => {
   it.effect("rejects malformed Ed25519 input and does not mutate admitted input", () =>
     Effect.gen(function*() {
+      const message = yield* Bytes.fromString("strict direct verification")
       const keyPair = yield* Ed25519.generateKeyPair
       const signed = yield* Ed25519.sign(message, keyPair.secretKey, keyPair.publicKey)
       const signature = signed.signature
@@ -28,7 +26,8 @@ describe("strict direct verification suites", () => {
       const shortSignature = new Uint8Array(Arr.drop(Arr.fromIterable(signature), 1))
 
       expect(yield* Ed25519.verify(signature, message, publicKey)).toBe(true)
-      expect(yield* Ed25519.verify(signature, Bytes.fromString("different message"), publicKey)).toBe(false)
+      const differentMessage = yield* Bytes.fromString("different message")
+      expect(yield* Ed25519.verify(signature, differentMessage, publicKey)).toBe(false)
       yield* Effect.forEach(
         Arr.make(
           Ed25519.verify(shortSignature, message, publicKey),
@@ -68,7 +67,8 @@ describe("strict direct verification suites", () => {
       const before = Arr.map(inputs, Arr.fromIterable)
 
       expect(yield* P256.verify(signature, message, publicKey)).toBe(true)
-      expect(yield* P256.verify(signature, Bytes.fromString("different message"), publicKey)).toBe(false)
+      const differentMessage = yield* Bytes.fromString("different message")
+      expect(yield* P256.verify(signature, differentMessage, publicKey)).toBe(false)
       yield* Effect.forEach(
         Arr.make(
           P256.verify(signature, message, compressedPublicKey),
@@ -88,6 +88,8 @@ describe("strict direct verification suites", () => {
 
   it.effect("freezes explicit ML-DSA-65 context, canonical hints, and signing entropy", () =>
     Effect.gen(function*() {
+      const message = yield* Bytes.fromString("strict direct verification")
+      const EMPTY_CONTEXT = yield* Bytes.fromString("")
       const keyPair = yield* MlDsa.generateKeyPair65
       const entropy = new Uint8Array(Arr.replicate(0x42, MlDsa.entropyBytes))
       const otherEntropy = new Uint8Array(Arr.replicate(0x24, MlDsa.entropyBytes))

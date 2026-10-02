@@ -14,9 +14,6 @@ const decodeHex = (value: string) => Effect.fromResult(Encoding.Hex.decode(value
 import { PublicSignatureKatFixture } from "../scripts/fixture-contract.js"
 import katCorpus from "./fixtures/conformance/sign-public-kat.json" with { type: "json" }
 
-const message = Bytes.fromString("post-quantum hello")
-const emptyContext = Bytes.fromString("")
-
 const deterministicEntropy = (entropy: Uint8Array) =>
   Layer.succeed(
     Entropy.Entropy,
@@ -57,6 +54,7 @@ describe("ML-DSA independent ACVP conformance", () => {
 describe("ML-DSA-44", () => {
   it.effect("signs and verifies with the specified carrier sizes", () =>
     Effect.gen(function*() {
+      const message = yield* Bytes.fromString("post-quantum hello")
       const keys = yield* MlDsa.generateKeyPair44
       const signed = yield* MlDsa.sign44(message, keys.secretKey, keys.publicKey)
       expect(yield* MlDsa.verify44(signed.signature, message, keys.publicKey)).toBe(true)
@@ -68,6 +66,7 @@ describe("ML-DSA-44", () => {
 
   it.effect("rejects a signature under another public key", () =>
     Effect.gen(function*() {
+      const message = yield* Bytes.fromString("post-quantum hello")
       const first = yield* MlDsa.generateKeyPair44
       const second = yield* MlDsa.generateKeyPair44
       const signed = yield* MlDsa.sign44(message, first.secretKey, first.publicKey)
@@ -78,6 +77,8 @@ describe("ML-DSA-44", () => {
 describe("ML-DSA-65", () => {
   it.effect("deterministically signs and verifies with the specified carrier sizes", () =>
     Effect.gen(function*() {
+      const message = yield* Bytes.fromString("post-quantum hello")
+      const emptyContext = yield* Bytes.fromString("")
       const keys = yield* MlDsa.generateKeyPair65
       const first = yield* MlDsa.sign65Deterministic(message, keys.secretKey, keys.publicKey)
       const second = yield* MlDsa.sign65Deterministic(message, keys.secretKey, keys.publicKey)
@@ -91,6 +92,8 @@ describe("ML-DSA-65", () => {
 
   it.effect("rejects tampered signatures and a wrong public key", () =>
     Effect.gen(function*() {
+      const message = yield* Bytes.fromString("post-quantum hello")
+      const emptyContext = yield* Bytes.fromString("")
       const first = yield* MlDsa.generateKeyPair65
       const second = yield* MlDsa.generateKeyPair65
       const signed = yield* MlDsa.sign65Deterministic(message, first.secretKey, first.publicKey)
@@ -105,6 +108,7 @@ describe("ML-DSA-65", () => {
 describe("ML-DSA-87", () => {
   it.effect("signs and verifies with the specified carrier sizes", () =>
     Effect.gen(function*() {
+      const message = yield* Bytes.fromString("post-quantum hello")
       const keys = yield* MlDsa.generateKeyPair87
       const signed = yield* MlDsa.sign87(message, keys.secretKey, keys.publicKey)
       expect(yield* MlDsa.verify87(signed.signature, message, keys.publicKey)).toBe(true)

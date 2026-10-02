@@ -92,7 +92,7 @@ describe("segmentLine", () => {
         const highlighter = yield* makeSyntaxHighlighter
         const lines = highlightCode(
           highlighter,
-          "const envelope = yield* Envelope.encrypt(\"xchacha20-poly1305\", key, Bytes.fromString(note)) // Envelope.encrypt",
+          "const envelope = yield* Envelope.encrypt(\"xchacha20-poly1305\", key, yield* Bytes.fromString(note)) // Envelope.encrypt",
           "typescript"
         )
         const line = yield* Arr.head(lines)

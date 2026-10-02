@@ -59,8 +59,8 @@ export const proposalId = (proposal: Proposal): Effect.Effect<string, PlaceBuild
     Effect.mapError(identityError)
   )
 
-export const fingerprint = (publicKey: Uint8Array): string =>
-  Str.takeLeft(Encoding.encodeHex(Digest.hash("blake3-256", publicKey)), 16)
+export const fingerprint = (publicKey: Uint8Array): Effect.Effect<string> =>
+  Digest.hash("blake3-256", publicKey).pipe(Effect.map((hash) => Str.takeLeft(Encoding.encodeHex(hash), 16)))
 
 /**
  * Signs a content ID with the participant's session key, then verifies it
@@ -73,10 +73,10 @@ export const signAs = (
   Effect.gen(function*() {
     const participants = yield* Participants
     const key = Struct.get(signer)(participants).signing
-    const message = Bytes.fromString(subject)
+    const message = yield* Bytes.fromString(subject)
     const signature = yield* Ed25519.sign(message, key.secretKey, key.publicKey)
     const valid = yield* Ed25519.verify(signature.signature, message, key.publicKey)
-    const keyFingerprint = fingerprint(key.publicKey)
+    const keyFingerprint = yield* fingerprint(key.publicKey)
     return SignatureRecord.make({
       signer,
       subject,

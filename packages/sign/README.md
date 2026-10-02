@@ -28,7 +28,7 @@ import { Effect } from "effect"
 
 export const program = Effect.gen(function* () {
   const keys = yield* Ed25519.generateKeyPair
-  const message = Bytes.fromString("signed content")
+  const message = yield* Bytes.fromString("signed content")
   const signed = yield* Ed25519.sign(message, keys.secretKey, keys.publicKey)
   const valid = yield* Ed25519.verify(signed.signature, message, keys.publicKey)
   return { signed, valid }
@@ -101,6 +101,8 @@ Apply a protocol-bound KDF before using either output as a symmetric key. [`@sce
 
 Both errors retain no input material, algorithm, key, message, context, or backend diagnostic. Inputs are admitted and copied on every execution; mutation between executions is validated again. `Verification.maxMessageBytes` is 8,192, inclusive. **This resource bound is Theoria policy, not an algorithm or wire-format limit.** Cryptographic primitives execute synchronously and cannot be preempted by an Effect timeout.
 
+`Bytes.fromString(text)` is a lazy Effect using Effect's UTF-8 stream encoder; yield it to obtain fresh bytes. It replaces malformed UTF-16 with U+FFFD; use digest's strict `Utf8.encode` when malformed text must fail. `Bytes.collect(byteStream)` buffers at most 8,192 bytes for signing or verification, checks each chunk before traversal, snapshots admitted input, and preserves upstream errors, requirements, and cancellation. This is bounded buffering, not incremental signing or prehashing. No signature mode changes.
+
 - **Ed25519:** strict RFC 8032, ZIP-215 disabled. Public keys and signature R must be canonical and non-small-order; S must be below the subgroup order. Keys are 32 bytes, signatures 64.
 - **P-256:** SHA-256 exactly once, 65-byte uncompressed SEC1 key, 64-byte IEEE P1363 signature with low S. DER, compressed keys, and high S fail admission.
 - **ML-DSA-65:** explicit FIPS 204 context of 0–255 bytes, 1,952-byte public key, 3,309-byte signature with canonical hint encoding. Contexts are not interchangeable.
@@ -118,8 +120,8 @@ import { Effect } from "effect"
 
 export const signDocument = Effect.gen(function* () {
   const keys = yield* MlDsa.generateKeyPair65
-  const message = Bytes.fromString("quantum-resistant document")
-  const context = Bytes.fromString("example.com/documents/v1")
+  const message = yield* Bytes.fromString("quantum-resistant document")
+  const context = yield* Bytes.fromString("example.com/documents/v1")
   const entropy = yield* Entropy.bytes(MlDsa.entropyBytes)
   const signed = yield* MlDsa.sign65Hedged(message, keys.secretKey, keys.publicKey, context, entropy)
   return yield* MlDsa.verify65(signed.signature, message, keys.publicKey, context)

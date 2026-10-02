@@ -141,10 +141,11 @@ describe("server/imagined-place", () => {
           const publicKey = participant.signing.publicKey
           const signature = yield* Encoding.decodeHex(record.signatureHex)
           expect(record.valid).toBe(true)
-          expect(yield* Ed25519.verify(signature, Bytes.fromString(record.subject), publicKey)).toBe(true)
-          expect(yield* Ed25519.verify(signature, Bytes.fromString(Str.concat(record.subject, "x")), publicKey)).toBe(
-            false
-          )
+          expect(yield* Ed25519.verify(signature, yield* Bytes.fromString(record.subject), publicKey)).toBe(true)
+          expect(yield* Ed25519.verify(signature, yield* Bytes.fromString(Str.concat(record.subject, "x")), publicKey))
+            .toBe(
+              false
+            )
         }))
 
       const signers = Arr.map(result.evidence.signatures, (record) => record.signer)
@@ -152,7 +153,9 @@ describe("server/imagined-place", () => {
       const wrongKey = (yield* Record.get(participants, "author")).signing.publicKey
       const neighborRecord = yield* Arr.get(result.evidence.signatures, 2)
       const neighborSignature = yield* Encoding.decodeHex(neighborRecord.signatureHex)
-      expect(yield* Ed25519.verify(neighborSignature, Bytes.fromString(neighborRecord.subject), wrongKey)).toBe(false)
+      expect(yield* Ed25519.verify(neighborSignature, yield* Bytes.fromString(neighborRecord.subject), wrongKey)).toBe(
+        false
+      )
     }).pipe(Effect.provide([ParticipantsLive, Cipher.layer])))
 
   it.effect("seals the neighbor's note to the author and the author can open it", () =>
@@ -160,7 +163,7 @@ describe("server/imagined-place", () => {
       const result = yield* build()
       expect(result.evidence.sealedNote.openedText).toBe(scenarioById("unfinished-light").neighbor.note)
       expect(result.evidence.sealedNote.envelopeBytes).toBeGreaterThan(
-        Bytes.fromString(result.evidence.sealedNote.openedText).length
+        (yield* Bytes.fromString(result.evidence.sealedNote.openedText)).length
       )
       expect(result.evidence.sealedNote.from).toBe("neighbor")
       expect(result.evidence.sealedNote.to).toBe("author")

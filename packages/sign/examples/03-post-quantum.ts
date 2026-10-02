@@ -17,7 +17,7 @@ const program = Effect.gen(function*() {
     secretKeyBytes: sigKeys.secretKey.byteLength
   })
 
-  const message = Bytes.fromString("quantum-resistant document signing")
+  const message = yield* Bytes.fromString("quantum-resistant document signing")
   const context = yield* Effect.fromResult(Hex.decode(""))
   const entropy32 = yield* Entropy.bytes(MlDsa.entropyBytes)
   const sig = yield* MlDsa.sign65Hedged(message, sigKeys.secretKey, sigKeys.publicKey, context, entropy32)

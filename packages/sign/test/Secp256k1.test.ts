@@ -78,10 +78,9 @@ describe("secp256k1 independent conformance", () => {
 })
 
 describe("secp256k1 ECDSA — algorithm contracts", () => {
-  const message = Bytes.fromString("hello secp256k1")
-
   it.effect("sign → verify roundtrip", () =>
     Effect.gen(function*() {
+      const message = yield* Bytes.fromString("hello secp256k1")
       const kp = yield* Secp256k1.generateEcdsaKeyPair
       const sig = yield* Secp256k1.signEcdsa(message, kp.secretKey, kp.publicKey)
       const valid = yield* Secp256k1.verifyEcdsa(sig.signature, message, kp.publicKey)
@@ -90,6 +89,7 @@ describe("secp256k1 ECDSA — algorithm contracts", () => {
 
   it.effect("deterministic signing (RFC 6979)", () =>
     Effect.gen(function*() {
+      const message = yield* Bytes.fromString("hello secp256k1")
       const kp = yield* Secp256k1.generateEcdsaKeyPair
       const sig1 = yield* Secp256k1.signEcdsa(message, kp.secretKey, kp.publicKey)
       const sig2 = yield* Secp256k1.signEcdsa(message, kp.secretKey, kp.publicKey)
@@ -98,6 +98,7 @@ describe("secp256k1 ECDSA — algorithm contracts", () => {
 
   it.effect("produces 64-byte compact signatures", () =>
     Effect.gen(function*() {
+      const message = yield* Bytes.fromString("hello secp256k1")
       const kp = yield* Secp256k1.generateEcdsaKeyPair
       const sig = yield* Secp256k1.signEcdsa(message, kp.secretKey, kp.publicKey)
       expect(sig.signature.length).toBe(64)
@@ -105,6 +106,7 @@ describe("secp256k1 ECDSA — algorithm contracts", () => {
 
   it.effect("rejects tampered signature", () =>
     Effect.gen(function*() {
+      const message = yield* Bytes.fromString("hello secp256k1")
       const kp = yield* Secp256k1.generateEcdsaKeyPair
       const sig = yield* Secp256k1.signEcdsa(message, kp.secretKey, kp.publicKey)
       const tampered = new Uint8Array(
@@ -116,6 +118,7 @@ describe("secp256k1 ECDSA — algorithm contracts", () => {
 
   it.effect("rejects wrong public key", () =>
     Effect.gen(function*() {
+      const message = yield* Bytes.fromString("hello secp256k1")
       const kp1 = yield* Secp256k1.generateEcdsaKeyPair
       const kp2 = yield* Secp256k1.generateEcdsaKeyPair
       const sig = yield* Secp256k1.signEcdsa(message, kp1.secretKey, kp1.publicKey)
@@ -133,10 +136,9 @@ describe("secp256k1 ECDSA — algorithm contracts", () => {
 })
 
 describe("secp256k1 Schnorr (BIP-340) — algorithm contracts", () => {
-  const message = Bytes.fromString("0123456789abcdef0123456789abcdef")
-
   it.effect("sign → verify roundtrip", () =>
     Effect.gen(function*() {
+      const message = yield* Bytes.fromString("0123456789abcdef0123456789abcdef")
       const kp = yield* Secp256k1.generateSchnorrKeyPair
       const sig = yield* Secp256k1.signSchnorr(message, kp.secretKey, kp.publicKey)
       const valid = yield* Secp256k1.verifySchnorr(sig.signature, message, kp.publicKey)
@@ -145,6 +147,7 @@ describe("secp256k1 Schnorr (BIP-340) — algorithm contracts", () => {
 
   it.effect("produces 64-byte signatures", () =>
     Effect.gen(function*() {
+      const message = yield* Bytes.fromString("0123456789abcdef0123456789abcdef")
       const kp = yield* Secp256k1.generateSchnorrKeyPair
       const sig = yield* Secp256k1.signSchnorr(message, kp.secretKey, kp.publicKey)
       expect(sig.signature.length).toBe(64)
@@ -152,6 +155,7 @@ describe("secp256k1 Schnorr (BIP-340) — algorithm contracts", () => {
 
   it.effect("rejects tampered signature", () =>
     Effect.gen(function*() {
+      const message = yield* Bytes.fromString("0123456789abcdef0123456789abcdef")
       const kp = yield* Secp256k1.generateSchnorrKeyPair
       const sig = yield* Secp256k1.signSchnorr(message, kp.secretKey, kp.publicKey)
       const tampered = new Uint8Array(
