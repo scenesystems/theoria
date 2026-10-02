@@ -6,12 +6,13 @@
  * @module
  */
 import { ml_kem768_x25519 } from "@noble/post-quantum/hybrid.js"
-import { Cause, Effect, Schema } from "effect"
+import { Cause, Effect, Equal, Hash, Schema } from "effect"
 import * as Entropy from "./Entropy.js"
+import { nonNegativeInt } from "./internal/schema.js"
 import { copyBytes } from "./internal/verificationInput.js"
 import * as KeyPair from "./KeyPair.js"
 
-const Algorithm = KeyPair.Algorithm.pipe(Schema.pickLiteral("xwing"))
+const Algorithm = KeyPair.Algorithm.pick(["xwing"])
 
 /**
  * Sender-side X-Wing ciphertext and raw shared secret.
@@ -24,12 +25,25 @@ const Algorithm = KeyPair.Algorithm.pipe(Schema.pickLiteral("xwing"))
  */
 export class Encapsulation extends Schema.Class<Encapsulation>("@scenesystems/sign/XWing/Encapsulation")({
   algorithm: Algorithm,
-  ciphertext: Schema.Uint8ArrayFromSelf,
-  sharedSecret: Schema.Uint8ArrayFromSelf
+  ciphertext: Schema.Uint8Array,
+  sharedSecret: Schema.Uint8Array
 }, {
   title: "X-Wing encapsulation",
   description: "The ciphertext for a recipient and the sender's raw shared secret."
-}) {}
+}) {
+  [Equal.symbol](that: Equal.Equal): boolean {
+    return that instanceof Encapsulation &&
+      this.algorithm === that.algorithm &&
+      this.ciphertext === that.ciphertext &&
+      this.sharedSecret === that.sharedSecret
+  }
+
+  [Hash.symbol](): number {
+    return Hash.combine(Hash.random(this.ciphertext))(
+      Hash.combine(Hash.random(this.sharedSecret))(Hash.string(this.algorithm))
+    )
+  }
+}
 
 /**
  * X-Wing rejected input or could not complete an operation.
@@ -38,12 +52,13 @@ export class Encapsulation extends Schema.Class<Encapsulation>("@scenesystems/si
  * @since 0.5.0
  * @category errors
  */
-export class Failed extends Schema.TaggedError<Failed>("@scenesystems/sign/XWing/Failed")("KemFailed", {
+export class Failed extends Schema.TaggedError<Failed>()("KemFailed", {
   algorithm: Algorithm,
   reason: Schema.String
 }, {
   title: "X-Wing operation failed",
-  description: "X-Wing rejected key or ciphertext input or could not execute."
+  description: "X-Wing rejected key or ciphertext input or could not execute.",
+  identifier: "@scenesystems/sign/XWing/Failed"
 }) {}
 
 /**
@@ -54,21 +69,22 @@ export class Failed extends Schema.TaggedError<Failed>("@scenesystems/sign/XWing
  * @since 0.5.0
  * @category keys
  */
-export const generateKeyPair = (): Effect.Effect<KeyPair.KeyPair, KeyPair.GenerationFailed, Entropy.Entropy> =>
-  Entropy.bytes(32).pipe(
-    Effect.mapError(() =>
-      new KeyPair.GenerationFailed({ algorithm: "xwing", reason: "Key generation entropy unavailable" })
-    ),
-    Effect.flatMap((seed) =>
-      Effect.try({
-        try: () => {
-          const { secretKey, publicKey } = ml_kem768_x25519.keygen(seed)
-          return new KeyPair.KeyPair({ algorithm: "xwing", publicKey, secretKey })
-        },
-        catch: (cause) => new KeyPair.GenerationFailed({ algorithm: "xwing", reason: Cause.pretty(Cause.fail(cause)) })
-      })
-    )
+export const generateKeyPair: Effect.Effect<KeyPair.KeyPair, KeyPair.GenerationFailed, Entropy.Entropy> = Entropy.bytes(
+  32
+).pipe(
+  Effect.mapError(() =>
+    new KeyPair.GenerationFailed({ algorithm: "xwing", reason: "Key generation entropy unavailable" })
+  ),
+  Effect.flatMap((seed) =>
+    Effect.try({
+      try: () => {
+        const { secretKey, publicKey } = ml_kem768_x25519.keygen(seed)
+        return new KeyPair.KeyPair({ algorithm: "xwing", publicKey, secretKey })
+      },
+      catch: (cause) => new KeyPair.GenerationFailed({ algorithm: "xwing", reason: Cause.pretty(Cause.fail(cause)) })
+    })
   )
+)
 
 /**
  * Encapsulates for an X-Wing public key using explicit entropy.
@@ -85,7 +101,7 @@ export const generateKeyPair = (): Effect.Effect<KeyPair.KeyPair, KeyPair.Genera
 export const encapsulate = (
   publicKey: Uint8Array
 ): Effect.Effect<Encapsulation, Failed, Entropy.Entropy> =>
-  copyBytes(publicKey, Schema.NonNegativeInt).pipe(
+  copyBytes(publicKey, nonNegativeInt).pipe(
     Effect.mapError(() => new Failed({ algorithm: "xwing", reason: "invalid input" })),
     Effect.flatMap((publicKey) =>
       Entropy.bytes(64).pipe(

@@ -9,6 +9,7 @@
     "respectEslintDisableDirectives": false
   },
   "rules": {
+    "effecttsgo/unstable-api-usage": "off",
     "import/no-nodejs-modules": "error",
     "no-array-constructor": "error",
     "no-case-declarations": "error",

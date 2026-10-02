@@ -5,12 +5,12 @@
  * Run: bun run examples/01-sign-verify.ts
  */
 
-import * as BunRuntime from "@effect/platform-bun/BunRuntime"
+import { BunRuntime } from "@effect/platform-bun"
 import { Bytes, Ed25519, Entropy } from "@scenesystems/sign"
 import { Effect } from "effect"
 
 const program = Effect.gen(function*() {
-  const keys = yield* Ed25519.generateKeyPair()
+  const keys = yield* Ed25519.generateKeyPair
   yield* Effect.log("Key pair", {
     algorithm: keys.algorithm,
     publicKeyBytes: keys.publicKey.byteLength,

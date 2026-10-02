@@ -21,8 +21,8 @@ Effect-native signatures, key agreement, encapsulation, and JWT verification.
 
 ## Native Effect implementation
 
-- Consume installed Effect v3 public APIs throughout pure computations, callbacks, private mechanics, tests, examples, and tooling. An Effect return type does not exempt its body.
-- Use native Boolean/Match/Option/Either control flow, Number/BigInt/String operations, and Effect collections rather than native operators, branches, loops, collection methods, or handwritten record/array carriers. This is Theoria policy, not a claim about Effect's internal implementation style.
+- Consume installed Effect v4 public APIs throughout pure computations, callbacks, private mechanics, tests, examples, and tooling. An Effect return type does not exempt its body.
+- Use native Boolean/Match/Option/Result control flow, Number/BigInt/String operations, and Effect collections rather than native operators, branches, loops, collection methods, or handwritten record/array carriers. This is Theoria policy, not a claim about Effect's internal implementation style.
 - Schema owns validated and encoded data; Data owns structural values without codecs. Construct typed internal values through their constructors and decode untrusted representations at admission boundaries. Derive representations from the canonical schema.
 - Research public signatures, tests, usage, and ecosystem integrations against the installed version before selecting an API. Effect internals and lint exclusions do not authorize substitutes. A remaining external operation needs explicit user approval for that exact gap, not a blanket adapter exception.
 - Hashing is owned by `@scenesystems/digest`; sign composes that API rather than importing a second hashing implementation.
@@ -34,6 +34,8 @@ The owner explicitly approved retaining the following existing operations in the
 1. Noble cryptographic randomness, curve/signature/key-agreement/post-quantum/KEM primitives, and equal-length byte comparison without data-dependent early exit. JavaScript execution is not guaranteed constant-time.
 2. RSA public-integer `bitLen`, modular `pow`, and fixed-width big-endian `numberToBytesBE`. Byte-to-bigint admission continues to use native Encoding and Schema APIs.
 3. Test-only hostile host objects: `ArrayBuffer.transfer`, Proxy/Reflect interception, and throwing property getters used to exercise input-admission failures.
+
+For the Effect v4 migration, the owner also approved direct `Uint8Array` construction solely for byte materialization in this package's implementation, tests, and tooling. Effect v4's `Schema.Uint8Array` validates existing bytes; its JSON codec uses base64, not number arrays. Preserve input validation, bounded traversal, hostile-input handling, and material-free errors.
 
 This approval is limited to those operations in this package. It does not exempt surrounding models, control flow, callbacks, error handling, state, or composition, authorize substitutes where Effect supplies the required API, or grant an exception to an entire adapter or dependency. Additional gaps require separate explicit approval.
 

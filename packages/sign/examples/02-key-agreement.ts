@@ -6,13 +6,13 @@
  * Run: bun run examples/02-key-agreement.ts
  */
 
-import * as BunRuntime from "@effect/platform-bun/BunRuntime"
+import { BunRuntime } from "@effect/platform-bun"
 import { Bytes, Entropy, X25519 } from "@scenesystems/sign"
 import { Effect } from "effect"
 
 const program = Effect.gen(function*() {
-  const alice = yield* X25519.generateKeyPair()
-  const bob = yield* X25519.generateKeyPair()
+  const alice = yield* X25519.generateKeyPair
+  const bob = yield* X25519.generateKeyPair
   yield* Effect.log("Key pairs generated", {
     alicePublicKeyBytes: alice.publicKey.byteLength,
     bobPublicKeyBytes: bob.publicKey.byteLength

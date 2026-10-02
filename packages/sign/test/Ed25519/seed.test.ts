@@ -1,6 +1,9 @@
 import { describe, expect, it } from "@effect/vitest"
 import * as Ed25519 from "@scenesystems/sign/Ed25519"
-import { Array as Arr, Effect, Encoding, Equivalence, Schema } from "effect"
+import { Array as Arr, Effect, Equivalence } from "effect"
+import * as Encoding from "effect/encoding"
+
+const decodeHex = (value: string) => Effect.fromResult(Encoding.Hex.decode(value))
 
 describe("Ed25519 seed reconstruction", () => {
   it.effect("reconstructs RFC 8032 section 7.1 identities without changing their seed", () =>
@@ -19,12 +22,12 @@ describe("Ed25519 seed reconstruction", () => {
       ),
       (vector) =>
         Effect.gen(function*() {
-          const seed = yield* Encoding.decodeHex(vector.seed)
+          const seed = yield* decodeHex(vector.seed)
           const keys = yield* Ed25519.keyPairFromSeed(seed)
-          expect(Encoding.encodeHex(keys.publicKey)).toBe(vector.publicKey)
-          expect(Encoding.encodeHex(keys.secretKey)).toBe(vector.seed)
-          expect(Equivalence.strict<Uint8Array>()(keys.secretKey, seed)).toBe(false)
-          const message = yield* Encoding.decodeHex(vector.message)
+          expect(Encoding.Hex.encode(keys.publicKey)).toBe(vector.publicKey)
+          expect(Encoding.Hex.encode(keys.secretKey)).toBe(vector.seed)
+          expect(Equivalence.strictEqual<Uint8Array>()(keys.secretKey, seed)).toBe(false)
+          const message = yield* decodeHex(vector.message)
           const signed = yield* Ed25519.sign(message, keys.secretKey, keys.publicKey)
           expect(yield* Ed25519.verify(signed.signature, message, keys.publicKey)).toBe(true)
         })
@@ -33,15 +36,15 @@ describe("Ed25519 seed reconstruction", () => {
   it.effect("rejects seeds on both sides of the exact 32-byte boundary", () =>
     Effect.forEach(Arr.make(0, 31, 33, 64), (length) =>
       Effect.gen(function*() {
-        const seed = yield* Schema.decode(Schema.Uint8Array)(Arr.take(Arr.replicate(0, length), length))
+        const seed = new Uint8Array(Arr.take(Arr.replicate(0, length), length))
         expect(yield* Effect.flip(Ed25519.keyPairFromSeed(seed))).toEqual(new Ed25519.InvalidSeed({}))
       })))
 
   it.effect("rejects a public key that does not belong to the signing seed", () =>
     Effect.gen(function*() {
-      const seed = yield* Encoding.decodeHex("9d61b19deffd5a60ba844af492ec2cc44449c5697b326919703bac031cae7f60")
-      const wrongKey = yield* Encoding.decodeHex("3d4017c3e843895a92b70aa74d1b7ebc9c982ccf2ec4968cc0cd55f12af4660c")
-      const message = yield* Encoding.decodeHex("72")
+      const seed = yield* decodeHex("9d61b19deffd5a60ba844af492ec2cc44449c5697b326919703bac031cae7f60")
+      const wrongKey = yield* decodeHex("3d4017c3e843895a92b70aa74d1b7ebc9c982ccf2ec4968cc0cd55f12af4660c")
+      const message = yield* decodeHex("72")
       const failure = yield* Effect.flip(Ed25519.sign(message, seed, wrongKey))
       expect(failure.reason).toBe("Invalid Ed25519 signing input")
     }))

@@ -1,12 +1,13 @@
 /**
  * Preparing message bytes and comparing cryptographic byte sequences.
- * Use Effect's Encoding module directly for hex and base64 codecs.
+ * Use `effect/encoding` directly for hex and base64 codecs.
  *
  * @since 0.5.0
  * @module
  */
 import { equalBytes } from "@noble/curves/utils.js"
-import { Either, Encoding } from "effect"
+import { Result } from "effect"
+import { Base64 } from "effect/encoding"
 
 /**
  * Encodes a string as fresh UTF-8 bytes without normalization. Lone UTF-16
@@ -15,8 +16,7 @@ import { Either, Encoding } from "effect"
  * @since 0.5.0
  * @category conversions
  */
-export const fromString = (self: string): Uint8Array =>
-  Either.getOrThrow(Encoding.decodeBase64(Encoding.encodeBase64(self)))
+export const fromString = (self: string): Uint8Array => Result.getOrThrow(Base64.decode(Base64.encode(self)))
 
 /**
  * Compares equal-length arrays without data-dependent early exit. Different

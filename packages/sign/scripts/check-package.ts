@@ -1,71 +1,98 @@
 /** Exercise an isolated packed installation in Bun and native workerd. */
-import { Command, FileSystem, Path, Url } from "@effect/platform"
-import * as BunContext from "@effect/platform-bun/BunContext"
-import * as BunRuntime from "@effect/platform-bun/BunRuntime"
-import { Array as Arr, Config, Data, Effect, Number as N, Record, Schema, String as Str } from "effect"
+import { BunRuntime, BunServices } from "@effect/platform-bun"
+import {
+  Array as Arr,
+  Config,
+  Data,
+  Effect,
+  FileSystem,
+  Number as N,
+  Path,
+  Record,
+  Schema,
+  String as Str
+} from "effect"
+import { ChildProcess as Command, ChildProcessSpawner } from "effect/process"
 
 class PackageCheckFailed extends Data.TaggedError("PackageCheckFailed")<{
   readonly operation: string
 }> {}
 
 const execute = (command: Command.Command, operation: string) =>
-  command.pipe(
-    Command.stdout("inherit"),
-    Command.stderr("inherit"),
-    Command.exitCode,
+  Effect.flatMap(ChildProcessSpawner.ChildProcessSpawner, (spawner) => spawner.exitCode(command)).pipe(
     Effect.filterOrFail((code) => N.Equivalence(code, 0), () => new PackageCheckFailed({ operation }))
   )
 
 const program = Effect.gen(function*() {
   const fs = yield* FileSystem.FileSystem
   const path = yield* Path.Path
-  const root = yield* path.fromFileUrl(yield* Url.fromString("../", import.meta.url))
+  const script = yield* path.fromFileUrl(yield* Schema.decodeEffect(Schema.URLFromString)(import.meta.url))
+  const root = path.resolve(path.dirname(script), "..")
   const repository = path.resolve(root, "../..")
   const temporary = yield* fs.makeTempDirectoryScoped()
+  const versions = yield* fs.readFileString(path.join(repository, "package.json")).pipe(
+    Effect.flatMap(Schema.decodeEffect(Schema.fromJsonString(Schema.Struct({
+      devDependencies: Schema.Struct({
+        effect: Schema.String,
+        "@effect/platform-bun": Schema.String,
+        "@effect/vitest": Schema.String
+      }),
+      overrides: Schema.Record(Schema.String, Schema.String)
+    }))))
+  )
+  // Bun resolves workspace:^ while packing only inside a registered workspace.
+  // Stage the built distributions together; never rewrite the release outputs.
+  const staging = yield* fs.makeTempDirectoryScoped()
+  yield* Effect.forEach(
+    Arr.make("digest", "sign"),
+    (name) => fs.copy(path.join(repository, "packages", name, "dist"), path.join(staging, name))
+  )
+  yield* fs.writeFileString(
+    path.join(staging, "package.json"),
+    yield* Schema.encodeEffect(Schema.fromJsonString(Schema.Struct({
+      private: Schema.Boolean,
+      workspaces: Schema.Array(Schema.String),
+      dependencies: Schema.Record(Schema.String, Schema.String)
+    })))({
+      private: true,
+      workspaces: Arr.make("digest", "sign"),
+      dependencies: { effect: versions.devDependencies.effect }
+    })
+  )
+  yield* execute(
+    Command.make("bun", ["install", "--ignore-scripts", "--no-progress"], {
+      cwd: staging,
+      stdout: "inherit",
+      stderr: "inherit"
+    }),
+    "resolve staged workspace versions"
+  )
   yield* Effect.forEach(Arr.make("digest", "sign"), (name) =>
     execute(
       Command.make(
         "bun",
-        "pm",
-        "pack",
-        "--ignore-scripts",
-        "--quiet",
-        "--filename",
-        path.join(temporary, Str.concat(name, ".tgz"))
-      ).pipe(
-        Command.workingDirectory(path.join(repository, "packages", name, "dist"))
+        ["pm", "pack", "--ignore-scripts", "--quiet", "--filename", path.join(temporary, Str.concat(name, ".tgz"))],
+        { cwd: path.join(staging, name), stdout: "inherit", stderr: "inherit" }
       ),
       Str.concat("pack built ", name)
     ))
-  const versions = yield* fs.readFileString(path.join(repository, "package.json")).pipe(
-    Effect.flatMap(Schema.decode(Schema.parseJson(Schema.Struct({
-      devDependencies: Schema.Struct({
-        effect: Schema.String,
-        "@effect/platform": Schema.String,
-        "@effect/platform-bun": Schema.String,
-        "@effect/vitest": Schema.String
-      }),
-      overrides: Schema.Record({ key: Schema.String, value: Schema.String })
-    }))))
-  )
   const { version: vitestVersion } = yield* fs.readFileString(path.join(repository, "node_modules/vitest/package.json"))
-    .pipe(Effect.flatMap(Schema.decode(Schema.parseJson(Schema.Struct({ version: Schema.NonEmptyString })))))
-  const manifest = Schema.parseJson(Schema.Struct({
+    .pipe(Effect.flatMap(Schema.decodeEffect(Schema.fromJsonString(Schema.Struct({ version: Schema.NonEmptyString })))))
+  const manifest = Schema.fromJsonString(Schema.Struct({
     private: Schema.Literal(true),
     type: Schema.Literal("module"),
-    dependencies: Schema.Record({ key: Schema.String, value: Schema.String }),
-    overrides: Schema.Record({ key: Schema.String, value: Schema.String })
+    dependencies: Schema.Record(Schema.String, Schema.String),
+    overrides: Schema.Record(Schema.String, Schema.String)
   }))
   yield* fs.writeFileString(
     path.join(temporary, "package.json"),
-    yield* Schema.encode(manifest)({
+    yield* Schema.encodeEffect(manifest)({
       private: true,
       type: "module",
       dependencies: {
         "@scenesystems/sign": path.join(temporary, "sign.tgz"),
         "@scenesystems/digest": path.join(temporary, "digest.tgz"),
         effect: versions.devDependencies.effect,
-        "@effect/platform": versions.devDependencies["@effect/platform"],
         "@effect/platform-bun": versions.devDependencies["@effect/platform-bun"],
         "@effect/vitest": versions.devDependencies["@effect/vitest"],
         vitest: vitestVersion
@@ -99,41 +126,53 @@ const program = Effect.gen(function*() {
     (file) => fs.copyFile(path.join(root, file), path.join(temporary, file))
   )
   yield* execute(
-    Command.make("bun", "install", "--ignore-scripts", "--no-progress").pipe(
-      Command.workingDirectory(temporary)
-    ),
+    Command.make("bun", ["install", "--ignore-scripts", "--no-progress"], {
+      cwd: temporary,
+      stdout: "inherit",
+      stderr: "inherit"
+    }),
     "install isolated packed consumer"
   )
   yield* execute(
-    Command.make("bun", "run", "--bun", "vitest", "run", "test/Rsa.test.ts", "test/Jwt.test.ts").pipe(
-      Command.workingDirectory(temporary)
-    ),
+    Command.make("bun", ["run", "--bun", "vitest", "run", "test/Rsa.test.ts", "test/Jwt.test.ts"], {
+      cwd: temporary,
+      stdout: "inherit",
+      stderr: "inherit"
+    }),
     "verify packed public API"
   )
   yield* fs.copyFile(path.join(root, "scripts/worker/config.capnp"), path.join(temporary, "config.capnp"))
   yield* execute(
-    Command.make("bun", "build", "scripts/worker/entry.ts", "--target=browser", "--outfile=worker.mjs").pipe(
-      Command.workingDirectory(temporary)
-    ),
+    Command.make("bun", ["build", "scripts/worker/entry.ts", "--target=browser", "--outfile=worker.mjs"], {
+      cwd: temporary,
+      stdout: "inherit",
+      stderr: "inherit"
+    }),
     "bundle packed public API for workerd"
   )
   const miniflare = yield* fs.realPath(path.join(repository, "apps/theoria/node_modules/miniflare"))
   const binary = yield* fs.realPath(path.resolve(miniflare, "../workerd/bin/workerd"))
   yield* execute(
-    Command.make("bun", "run", "--bun", "vitest", "run", "--config", "vitest.worker.config.ts").pipe(
-      Command.workingDirectory(temporary),
-      Command.env({ SIGN_WORKERD: binary })
-    ),
+    Command.make("bun", ["run", "--bun", "vitest", "run", "--config", "vitest.worker.config.ts"], {
+      cwd: temporary,
+      env: { SIGN_WORKERD: binary },
+      extendEnv: true,
+      stdout: "inherit",
+      stderr: "inherit"
+    }),
     "verify packed public API in workerd"
   )
-  const benchmark = yield* Config.boolean("SIGN_WORKER_BENCHMARK").pipe(Config.withDefault(false))
+  const benchmark = yield* Config.Boolean("SIGN_WORKER_BENCHMARK").pipe(Config.withDefault(false))
   yield* execute(
-    Command.make("bun", "run", "scripts/benchmark-worker.ts").pipe(
-      Command.workingDirectory(temporary),
-      Command.env({ SIGN_WORKERD: binary })
-    ),
+    Command.make("bun", ["run", "scripts/benchmark-worker.ts"], {
+      cwd: temporary,
+      env: { SIGN_WORKERD: binary },
+      extendEnv: true,
+      stdout: "inherit",
+      stderr: "inherit"
+    }),
     "measure packed public API in workerd"
-  ).pipe(Effect.when(() => benchmark))
-}).pipe(Effect.scoped, Effect.provide(BunContext.layer))
+  ).pipe(Effect.when(Effect.succeed(benchmark)))
+}).pipe(Effect.scoped, Effect.provide(BunServices.layer))
 
 BunRuntime.runMain(program)

@@ -3,12 +3,12 @@
  * and their provenance manifest, plus the readers `fixtures:check` and the
  * conformance tests share.
  */
-import { Command, FileSystem, Path, Url } from "@effect/platform"
-import { Data, Effect, Number as N, Schema } from "effect"
+import { Data, Effect, FileSystem, Number as N, Path, Schema, Struct, Tuple } from "effect"
+import { type ChildProcess as Command, ChildProcessSpawner } from "effect/process"
 
-const Hex = Schema.String.pipe(Schema.pattern(/^(?:[a-fA-F0-9]{2})*$/))
-export const StrictVerdict = Schema.Literal("valid", "invalid-input", "nonmatch")
-export const PositiveInt = Schema.Int.pipe(Schema.positive())
+const Hex = Schema.String.check(Schema.isPattern(/^(?:[a-fA-F0-9]{2})*$/))
+export const StrictVerdict = Schema.Literals(["valid", "invalid-input", "nonmatch"])
+export const PositiveInt = Schema.Int.check(Schema.isGreaterThan(0))
 
 export const RsaPublicJwk = Schema.Struct({
   kty: Schema.Literal("RSA"),
@@ -21,14 +21,17 @@ export class FixtureGenerationFailed extends Data.TaggedError("FixtureGeneration
 }> {}
 
 export const requireExit = (command: Command.Command, expected: number, operation: string) =>
-  Command.exitCode(command).pipe(
-    Effect.filterOrFail(
-      (code) => N.Equivalence(code, expected),
+  Effect.gen(function*() {
+    const spawner = yield* ChildProcessSpawner.ChildProcessSpawner
+    const code = yield* spawner.exitCode(command)
+    return yield* Effect.filterOrFail(
+      Effect.succeed(code),
+      (actual) => N.Equivalence(actual, expected),
       () => new FixtureGenerationFailed({ operation })
     )
-  )
+  })
 
-export const Ed25519Fixture = Schema.parseJson(
+export const Ed25519Fixture = Schema.fromJsonString(
   Schema.Struct({
     schema: Schema.Literal("@scenesystems/sign ed25519 strict conformance v1"),
     cases: Schema.NonEmptyArray(
@@ -43,7 +46,7 @@ export const Ed25519Fixture = Schema.parseJson(
   })
 )
 
-export const P256Fixture = Schema.parseJson(
+export const P256Fixture = Schema.fromJsonString(
   Schema.Struct({
     schema: Schema.Literal("@scenesystems/sign P-256 SHA-256 P1363 low-S conformance v1"),
     cases: Schema.NonEmptyArray(
@@ -58,7 +61,7 @@ export const P256Fixture = Schema.parseJson(
   })
 )
 
-export const MlDsa65Fixture = Schema.parseJson(
+export const MlDsa65Fixture = Schema.fromJsonString(
   Schema.Struct({
     schema: Schema.Literal("@scenesystems/sign ML-DSA-65 pure external-interface conformance v1"),
     strictVerdicts: Schema.NonEmptyArray(
@@ -97,22 +100,25 @@ export const PublicSignatureKatVerification = Schema.Struct({
   expected: Schema.Boolean
 })
 
-const MlDsaKeyPair = PublicSignatureKatKeyPair.pipe(
-  Schema.omit("parameterSet"),
-  Schema.extend(Schema.Struct({ parameterSet: Schema.Literal("ML-DSA-44", "ML-DSA-87") }))
-)
-const SlhDsaKeyPair = PublicSignatureKatKeyPair.pipe(
-  Schema.omit("parameterSet"),
-  Schema.extend(Schema.Struct({
-    parameterSet: Schema.Literal("SLH-DSA-SHA2-128s", "SLH-DSA-SHA2-128f", "SLH-DSA-SHA2-192f", "SLH-DSA-SHA2-256f")
+const MlDsaKeyPair = PublicSignatureKatKeyPair
+  .mapFields(Struct.omit(["parameterSet"]))
+  .mapFields(Struct.assign({ parameterSet: Schema.Literals(["ML-DSA-44", "ML-DSA-87"]) }))
+const SlhDsaKeyPair = PublicSignatureKatKeyPair
+  .mapFields(Struct.omit(["parameterSet"]))
+  .mapFields(Struct.assign({
+    parameterSet: Schema.Literals([
+      "SLH-DSA-SHA2-128s",
+      "SLH-DSA-SHA2-128f",
+      "SLH-DSA-SHA2-192f",
+      "SLH-DSA-SHA2-256f"
+    ])
   }))
-)
 
 export const PublicSignatureKat = Schema.Struct({
   schema: Schema.Literal("@scenesystems/sign public signature KAT conformance v1"),
   secp256k1: Schema.Struct({
-    ecdsa: Schema.Tuple(PublicSignatureKatVerification, PublicSignatureKatVerification),
-    bip340: Schema.Tuple(
+    ecdsa: Schema.Tuple([PublicSignatureKatVerification, PublicSignatureKatVerification]),
+    bip340: Schema.Tuple([
       Schema.Struct({
         sourceId: Schema.NonEmptyString,
         secretKey: Hex,
@@ -123,27 +129,27 @@ export const PublicSignatureKat = Schema.Struct({
         expected: Schema.Literal(true)
       }),
       PublicSignatureKatVerification
-    )
+    ])
   }),
-  mlDsa: Schema.Tuple(MlDsaKeyPair, MlDsaKeyPair),
-  slhDsa: Schema.Tuple(
+  mlDsa: Schema.Tuple([MlDsaKeyPair, MlDsaKeyPair]),
+  slhDsa: Schema.Tuple([
     SlhDsaKeyPair,
     SlhDsaKeyPair,
     SlhDsaKeyPair,
     SlhDsaKeyPair
-  )
+  ])
 })
 
-export const PublicSignatureKatFixture = Schema.parseJson(PublicSignatureKat, { space: 2 })
+export const PublicSignatureKatFixture = Schema.fromJsonString(PublicSignatureKat, { space: 2 })
 
-export const RsaWycheproofFixture = Schema.parseJson(Schema.Struct({
+export const RsaWycheproofFixture = Schema.fromJsonString(Schema.Struct({
   testGroups: Schema.NonEmptyArray(Schema.Struct({
     keyJwk: RsaPublicJwk,
     tests: Schema.NonEmptyArray(Schema.Struct({
       tcId: PositiveInt,
       msg: Hex,
       sig: Hex,
-      result: Schema.Literal("valid", "invalid", "acceptable")
+      result: Schema.Literals(["valid", "invalid", "acceptable"])
     }))
   }))
 }))
@@ -168,28 +174,28 @@ export const RsaOpenSsl = Schema.Struct({
   groups: Schema.NonEmptyArray(RsaOpenSslGroup)
 })
 
-export const RsaOpenSslFixture = Schema.parseJson(RsaOpenSsl)
+export const RsaOpenSslFixture = Schema.fromJsonString(RsaOpenSsl)
 
-const Sha256Hex = Schema.String.pipe(Schema.pattern(/^[a-f0-9]{64}$/))
+const Sha256Hex = Schema.String.check(Schema.isPattern(/^[a-f0-9]{64}$/))
 const Source = Schema.Struct({
-  locator: Schema.String.pipe(Schema.pattern(/^https:\/\//)),
+  locator: Schema.String.check(Schema.isPattern(/^https:\/\//)),
   revision: Schema.NonEmptyString,
   path: Schema.NonEmptyString,
   selector: Schema.NonEmptyString
 })
 
-const VerdictRemap = Schema.Union(
+const VerdictRemap = Schema.Union([
   Schema.Struct({ caseIds: Schema.NonEmptyArray(Schema.NonEmptyString) }),
   Schema.Struct({ tcId: PositiveInt }),
   Schema.Struct({ tcIds: Schema.NonEmptyArray(PositiveInt) })
-).pipe(Schema.extend(Schema.Struct({
+]).mapMembers(Tuple.map(Schema.fieldsAssign({
   upstreamResult: Schema.NonEmptyString,
   localVerdict: StrictVerdict,
   reason: Schema.NonEmptyString
 })))
 
 export const ConformancePayload = Schema.Struct({
-  file: Schema.Literal(
+  file: Schema.Literals([
     "ed25519.json",
     "p256.json",
     "ml-dsa-65.json",
@@ -198,7 +204,7 @@ export const ConformancePayload = Schema.Struct({
     "rsa-openssl.json",
     "jwt-openssl.json",
     "jwt-access-openssl.json"
-  ),
+  ]),
   sha256: Sha256Hex,
   sources: Schema.NonEmptyArray(Source),
   licenseNotice: Schema.NonEmptyString,
@@ -209,16 +215,17 @@ export const ConformancePayload = Schema.Struct({
 
 export const ConformanceManifestData = Schema.Struct({
   schema: Schema.Literal("@scenesystems/sign conformance provenance manifest v1"),
-  retrievalDate: Schema.String.pipe(Schema.pattern(/^\d{4}-\d{2}-\d{2}$/)),
+  retrievalDate: Schema.String.check(Schema.isPattern(/^\d{4}-\d{2}-\d{2}$/)),
   payloads: Schema.NonEmptyArray(ConformancePayload)
 })
 
-export const ConformanceManifest = Schema.parseJson(ConformanceManifestData, { space: 2 })
+export const ConformanceManifest = Schema.fromJsonString(ConformanceManifestData, { space: 2 })
 
 const fixturePath = (file: string) =>
   Effect.gen(function*() {
     const path = yield* Path.Path
-    const root = yield* path.fromFileUrl(yield* Url.fromString("../test/fixtures/conformance/", import.meta.url))
+    const script = yield* path.fromFileUrl(yield* Schema.decodeEffect(Schema.URLFromString)(import.meta.url))
+    const root = path.resolve(path.dirname(script), "../test/fixtures/conformance")
     return path.join(root, file)
   })
 
@@ -234,7 +241,7 @@ export const readConformanceFixtureBytes = (file: string) =>
     return yield* fileSystem.readFile(yield* fixturePath(file))
   })
 
-export const decodeConformanceFixture = <A, I>(file: string, schema: Schema.Schema<A, I>) =>
+export const decodeConformanceFixture = <S extends Schema.Constraint>(file: string, schema: S) =>
   readConformanceFixture(file).pipe(
-    Effect.flatMap(Schema.decodeUnknown(schema))
+    Effect.flatMap(Schema.decodeUnknownEffect(schema))
   )

@@ -5,11 +5,11 @@
  * @module
  */
 import { x25519 } from "@noble/curves/ed25519.js"
-import { Cause, Effect, Schema } from "effect"
+import { Cause, Effect, Equal, Hash, Schema } from "effect"
 import * as Entropy from "./Entropy.js"
 import * as KeyPair from "./KeyPair.js"
 
-const Algorithm = KeyPair.Algorithm.pipe(Schema.pickLiteral("x25519"))
+const Algorithm = KeyPair.Algorithm.pick(["x25519"])
 
 /**
  * Caller-owned raw output from X25519 agreement.
@@ -22,11 +22,19 @@ const Algorithm = KeyPair.Algorithm.pipe(Schema.pickLiteral("x25519"))
  */
 export class SharedSecret extends Schema.Class<SharedSecret>("@scenesystems/sign/X25519/SharedSecret")({
   algorithm: Algorithm,
-  sharedSecret: Schema.Uint8ArrayFromSelf
+  sharedSecret: Schema.Uint8Array
 }, {
   title: "X25519 shared secret",
   description: "Raw X25519 output before protocol-specific key derivation."
-}) {}
+}) {
+  [Equal.symbol](that: Equal.Equal): boolean {
+    return that instanceof SharedSecret && this.algorithm === that.algorithm && this.sharedSecret === that.sharedSecret
+  }
+
+  [Hash.symbol](): number {
+    return Hash.combine(Hash.random(this.sharedSecret))(Hash.string(this.algorithm))
+  }
+}
 
 /**
  * X25519 agreement rejected key material or could not execute.
@@ -35,14 +43,13 @@ export class SharedSecret extends Schema.Class<SharedSecret>("@scenesystems/sign
  * @since 0.5.0
  * @category errors
  */
-export class AgreementFailed extends Schema.TaggedError<AgreementFailed>(
-  "@scenesystems/sign/X25519/AgreementFailed"
-)("AgreementFailed", {
+export class AgreementFailed extends Schema.TaggedError<AgreementFailed>()("AgreementFailed", {
   algorithm: Algorithm,
   reason: Schema.String
 }, {
   title: "X25519 agreement failed",
-  description: "X25519 rejected local or peer key material or could not execute."
+  description: "X25519 rejected local or peer key material or could not execute.",
+  identifier: "@scenesystems/sign/X25519/AgreementFailed"
 }) {}
 
 /**
@@ -53,21 +60,22 @@ export class AgreementFailed extends Schema.TaggedError<AgreementFailed>(
  * @since 0.5.0
  * @category keys
  */
-export const generateKeyPair = (): Effect.Effect<KeyPair.KeyPair, KeyPair.GenerationFailed, Entropy.Entropy> =>
-  Entropy.bytes(32).pipe(
-    Effect.mapError(() =>
-      new KeyPair.GenerationFailed({ algorithm: "x25519", reason: "Key generation entropy unavailable" })
-    ),
-    Effect.flatMap((seed) =>
-      Effect.try({
-        try: () => {
-          const { secretKey, publicKey } = x25519.keygen(seed)
-          return new KeyPair.KeyPair({ algorithm: "x25519", publicKey, secretKey })
-        },
-        catch: (cause) => new KeyPair.GenerationFailed({ algorithm: "x25519", reason: Cause.pretty(Cause.fail(cause)) })
-      })
-    )
+export const generateKeyPair: Effect.Effect<KeyPair.KeyPair, KeyPair.GenerationFailed, Entropy.Entropy> = Entropy.bytes(
+  32
+).pipe(
+  Effect.mapError(() =>
+    new KeyPair.GenerationFailed({ algorithm: "x25519", reason: "Key generation entropy unavailable" })
+  ),
+  Effect.flatMap((seed) =>
+    Effect.try({
+      try: () => {
+        const { secretKey, publicKey } = x25519.keygen(seed)
+        return new KeyPair.KeyPair({ algorithm: "x25519", publicKey, secretKey })
+      },
+      catch: (cause) => new KeyPair.GenerationFailed({ algorithm: "x25519", reason: Cause.pretty(Cause.fail(cause)) })
+    })
   )
+)
 
 /**
  * Derives a raw X25519 shared secret.

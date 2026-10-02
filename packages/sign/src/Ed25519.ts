@@ -5,9 +5,10 @@
  * @module
  */
 import { ed25519 } from "@noble/curves/ed25519.js"
-import { Array as Arr, Boolean as B, Effect, identity, Number as N, Schema } from "effect"
+import { Array as Arr, Boolean as B, Effect, Number as N, Schema } from "effect"
 import * as Bytes from "./Bytes.js"
 import * as Entropy from "./Entropy.js"
+import { nonNegativeInt } from "./internal/schema.js"
 import { copyBytes, detachVerificationInputs } from "./internal/verificationInput.js"
 import * as KeyPair from "./KeyPair.js"
 import * as Signature from "./Signature.js"
@@ -21,10 +22,10 @@ import * as Verification from "./Verification.js"
  * @since 0.5.0
  * @category schemas
  */
-export const Seed = Schema.Uint8ArrayFromSelf.pipe(
-  Schema.filter((bytes) => N.Equivalence(bytes.length, 32)),
+export const Seed = Schema.Uint8Array.pipe(
+  Schema.check(Schema.makeFilter((bytes) => N.Equivalence(bytes.length, 32))),
   Schema.brand("@scenesystems/sign/Ed25519/Seed"),
-  Schema.annotations({
+  Schema.annotate({
     identifier: "@scenesystems/sign/Ed25519/Seed",
     title: "Ed25519 seed",
     description: "An exact 32-byte RFC 8032 secret seed."
@@ -46,12 +47,13 @@ export type Seed = typeof Seed.Type
  * @since 0.5.0
  * @category errors
  */
-export class InvalidSeed extends Schema.TaggedError<InvalidSeed>("@scenesystems/sign/Ed25519/InvalidSeed")(
+export class InvalidSeed extends Schema.TaggedError<InvalidSeed>()(
   "InvalidEd25519Seed",
   {},
   {
     title: "Invalid Ed25519 seed",
-    description: "The supplied value is not an exact 32-byte Ed25519 seed."
+    description: "The supplied value is not an exact 32-byte Ed25519 seed.",
+    identifier: "@scenesystems/sign/Ed25519/InvalidSeed"
   }
 ) {}
 
@@ -67,12 +69,7 @@ export class InvalidSeed extends Schema.TaggedError<InvalidSeed>("@scenesystems/
 export const keyPairFromSeed = (
   seed: Uint8Array
 ): Effect.Effect<KeyPair.KeyPair, InvalidSeed | KeyPair.GenerationFailed> =>
-  Effect.try({
-    try: () => Schema.decodeUnknownEither(Seed)(seed),
-    catch: () => new InvalidSeed({})
-  }).pipe(
-    Effect.flatMap(identity),
-    Effect.flatMap((seed) => copyBytes(seed, Schema.Literal(32))),
+  copyBytes(seed, Schema.Literal(32)).pipe(
     Effect.mapError(() => new InvalidSeed({})),
     Effect.flatMap((secretKey) =>
       Effect.try({
@@ -90,13 +87,14 @@ export const keyPairFromSeed = (
  * @since 0.5.0
  * @category keys
  */
-export const generateKeyPair = (): Effect.Effect<KeyPair.KeyPair, KeyPair.GenerationFailed, Entropy.Entropy> =>
-  Entropy.bytes(32).pipe(
-    Effect.flatMap(keyPairFromSeed),
-    Effect.mapError(() =>
-      new KeyPair.GenerationFailed({ algorithm: "ed25519", reason: "Ed25519 key generation unavailable" })
-    )
+export const generateKeyPair: Effect.Effect<KeyPair.KeyPair, KeyPair.GenerationFailed, Entropy.Entropy> = Entropy.bytes(
+  32
+).pipe(
+  Effect.flatMap(keyPairFromSeed),
+  Effect.mapError(() =>
+    new KeyPair.GenerationFailed({ algorithm: "ed25519", reason: "Ed25519 key generation unavailable" })
   )
+)
 
 /**
  * Produces a deterministic pure-Ed25519 signature.
@@ -121,7 +119,7 @@ export const sign = (
         () => new Verification.InvalidInput({})
       )
     )
-    const protectedMessage = yield* copyBytes(message, Schema.NonNegativeInt)
+    const protectedMessage = yield* copyBytes(message, nonNegativeInt)
     return yield* Effect.try({
       try: () =>
         new Signature.Signature({
@@ -166,17 +164,14 @@ export const verify = (
         }).pipe(
           Effect.filterOrFail((point) => B.not(point.isSmallOrder()), () => new Verification.InvalidInput({}))
         )
-        const signaturePoint = yield* Schema.decode(Schema.Uint8Array)(Arr.take(Arr.fromIterable(input.signature), 32))
-          .pipe(Effect.mapError(() => new Verification.InvalidInput({})))
+        const signaturePoint = new Uint8Array(Arr.take(Arr.fromIterable(input.signature), 32))
         yield* Effect.try({
           try: () => ed25519.Point.fromBytes(signaturePoint, false),
           catch: () => new Verification.InvalidInput({})
         }).pipe(
           Effect.filterOrFail((point) => B.not(point.isSmallOrder()), () => new Verification.InvalidInput({}))
         )
-        const scalar = yield* Schema.decode(Schema.Uint8Array)(Arr.drop(Arr.fromIterable(input.signature), 32)).pipe(
-          Effect.mapError(() => new Verification.InvalidInput({}))
-        )
+        const scalar = new Uint8Array(Arr.drop(Arr.fromIterable(input.signature), 32))
         yield* Effect.try({
           try: () => ed25519.Point.Fn.fromBytes(scalar),
           catch: () => new Verification.InvalidInput({})

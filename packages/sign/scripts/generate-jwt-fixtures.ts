@@ -4,22 +4,22 @@
  * from any directory. Ephemeral private keys are scoped and never retained.
  * Regeneration changes keys and signatures, not expected policy.
  */
-import { Command, FileSystem, Path, Url } from "@effect/platform"
-import * as BunContext from "@effect/platform-bun/BunContext"
-import * as BunRuntime from "@effect/platform-bun/BunRuntime"
-import { Array as Arr, Data, Effect, Encoding, Schema, String as Str } from "effect"
+import { BunRuntime, BunServices } from "@effect/platform-bun"
+import { Array as Arr, Effect, FileSystem, Path, Schema, String as Str } from "effect"
+import { Base64Url, Hex } from "effect/encoding"
+import { ChildProcess, ChildProcessSpawner } from "effect/process"
 import { requireExit } from "./fixture-contract.js"
 import { JwtCase, JwtExpected, JwtFixture } from "./jwt-fixture-contract.js"
 
 const JwtSpecification = Schema.Struct({
   name: Schema.String,
-  payload: Schema.Union(Schema.String, Schema.Uint8ArrayFromSelf),
+  payload: Schema.Union([Schema.String, Schema.Uint8Array]),
   header: Schema.String,
   expected: JwtExpected
 })
 
 const JwtCorpus = Schema.Struct({
-  file: Schema.Literal("jwt-openssl.json", "jwt-access-openssl.json"),
+  file: Schema.Literals(["jwt-openssl.json", "jwt-access-openssl.json"]),
   kid: Schema.String,
   specifications: Schema.NonEmptyArray(JwtSpecification)
 })
@@ -32,11 +32,17 @@ const valid: typeof JwtExpected.Type = "valid"
 const claims: typeof JwtExpected.Type = "Claims"
 const malformedToken: typeof JwtExpected.Type = "MalformedToken"
 
+const Command = {
+  make: (executable: string, ...args: ReadonlyArray<string>) => ChildProcess.make(executable, args),
+  string: (command: ChildProcess.Command) =>
+    Effect.flatMap(ChildProcessSpawner.ChildProcessSpawner, (spawner) => spawner.string(command))
+}
+
 const program = Effect.gen(function*() {
   const fs = yield* FileSystem.FileSystem
   const path = yield* Path.Path
   const generator = Str.trim(yield* Command.string(Command.make("openssl", "version")))
-  const malformedUtf8 = yield* Encoding.decodeHex("7b226578747261223a22ff227d")
+  const malformedUtf8 = yield* Effect.fromResult(Hex.decode("7b226578747261223a22ff227d"))
   const corpora = Arr.make(
     JwtCorpus.make({
       file: "jwt-openssl.json",
@@ -321,13 +327,13 @@ const program = Effect.gen(function*() {
         "export public key"
       )
       const modulus = yield* Command.string(Command.make("openssl", "rsa", "-in", keyPath, "-modulus", "-noout"))
-      const n = Encoding.encodeBase64Url(
-        yield* Encoding.decodeHex(Str.trim(Str.replace("Modulus=", "")(modulus)))
+      const n = Base64Url.encode(
+        yield* Effect.fromResult(Hex.decode(Str.trim(Str.replace("Modulus=", "")(modulus))))
       )
       const cases = yield* Effect.forEach(corpus.specifications, (specification) =>
         Effect.gen(function*() {
           const input = Arr.join(
-            Arr.make(Encoding.encodeBase64Url(specification.header), Encoding.encodeBase64Url(specification.payload)),
+            Arr.make(Base64Url.encode(specification.header), Base64Url.encode(specification.payload)),
             "."
           )
           yield* fs.writeFileString(inputPath, input)
@@ -350,7 +356,7 @@ const program = Effect.gen(function*() {
             0,
             "verify retained signature"
           )
-          const signature = Encoding.encodeBase64Url(yield* fs.readFile(signaturePath))
+          const signature = Base64Url.encode(yield* fs.readFile(signaturePath))
           return JwtCase.make({
             name: specification.name,
             token: Arr.join(Arr.make(input, signature), "."),
@@ -362,18 +368,17 @@ const program = Effect.gen(function*() {
         jwk: { kty: "RSA", kid: corpus.kid, alg: "RS256", n, e: "AQAB" },
         cases
       })
-      return Data.struct({ file: corpus.file, fixture })
+      return { file: corpus.file, fixture }
     }).pipe(Effect.scoped))
   yield* Effect.forEach(generated, (result) =>
     Effect.gen(function*() {
-      const destination = yield* path.fromFileUrl(
-        yield* Url.fromString(Str.concat("../test/fixtures/conformance/", result.file), import.meta.url)
-      )
+      const script = yield* path.fromFileUrl(yield* Schema.decodeEffect(Schema.URLFromString)(import.meta.url))
+      const destination = path.resolve(path.dirname(script), "../test/fixtures/conformance", result.file)
       yield* fs.writeFileString(
         destination,
-        yield* Schema.encode(Schema.parseJson(JwtFixture, { space: 2 }))(result.fixture)
+        yield* Schema.encodeEffect(Schema.fromJsonString(JwtFixture, { space: 2 }))(result.fixture)
       )
     }), { discard: true })
-}).pipe(Effect.provide(BunContext.layer))
+}).pipe(Effect.provide(BunServices.layer))
 
 BunRuntime.runMain(program)

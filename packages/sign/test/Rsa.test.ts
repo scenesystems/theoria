@@ -1,26 +1,30 @@
-import * as BunContext from "@effect/platform-bun/BunContext"
+import { BunServices } from "@effect/platform-bun"
 import { describe, expect, it } from "@effect/vitest"
 import { Verification } from "@scenesystems/sign"
 import * as Rsa from "@scenesystems/sign/Rsa"
-import { Array as Arr, Effect, Encoding, Match, Number as N, Record, Schema, String as Str, Struct } from "effect"
+import { Array as Arr, Effect, Match, Number as N, Record, Schema, String as Str, Struct } from "effect"
+import * as Encoding from "effect/encoding"
+
+const decodeHex = (value: string) => Effect.fromResult(Encoding.Hex.decode(value))
+const decodeBase64Url = (value: string) => Effect.fromResult(Encoding.Base64Url.decode(value))
 import { decodeConformanceFixture, RsaOpenSslFixture, RsaWycheproofFixture } from "../scripts/fixture-contract.js"
 import corpus from "./fixtures/conformance/rsa-wycheproof.json" with { type: "json" }
 
 describe("RSA PKCS1 SHA-256", () => {
   it.effect("enforces strict DER and padding across all 259 independent Wycheproof vectors", () =>
     Effect.gen(function*() {
-      const fixture = yield* Schema.decodeUnknown(Schema.typeSchema(RsaWycheproofFixture))(corpus)
+      const fixture = yield* Schema.decodeUnknownEffect(Schema.toType(RsaWycheproofFixture))(corpus)
       yield* Effect.forEach(fixture.testGroups, (group) =>
         Effect.gen(function*() {
           const key = yield* Rsa.publicKeyFromJwk(group.keyJwk)
           yield* Effect.forEach(group.tests, (vector) =>
             Effect.gen(function*() {
-              const signature = yield* Encoding.decodeHex(vector.sig)
-              const message = yield* Encoding.decodeHex(vector.msg)
+              const signature = yield* decodeHex(vector.sig)
+              const message = yield* decodeHex(vector.msg)
               const verified = yield* Rsa.verify(signature, message, key).pipe(
                 Effect.catchTag("InvalidVerificationInput", () => Effect.succeed(false))
               )
-              const label = Str.concat("Wycheproof ", yield* Schema.encode(Schema.NumberFromString)(vector.tcId))
+              const label = Str.concat("Wycheproof ", yield* Schema.encodeEffect(Schema.FiniteFromString)(vector.tcId))
               const expected = Match.value(vector.result).pipe(
                 Match.when("valid", () => true),
                 Match.whenOr("invalid", "acceptable", () => false),
@@ -33,13 +37,13 @@ describe("RSA PKCS1 SHA-256", () => {
 
   it.effect("rejects noncanonical integers, unsupported parameters, and conflicting JWK metadata", () =>
     Effect.gen(function*() {
-      const fixture = yield* Schema.decodeUnknown(Schema.typeSchema(RsaWycheproofFixture))(corpus)
+      const fixture = yield* Schema.decodeUnknownEffect(Schema.toType(RsaWycheproofFixture))(corpus)
       const group = Arr.headNonEmpty(fixture.testGroups)
-      const modulus = yield* Encoding.decodeBase64Url(group.keyJwk.n)
-      const leadingZero = yield* Schema.decode(Schema.Uint8Array)(Arr.prepend(Arr.fromIterable(modulus), 0))
+      const modulus = yield* decodeBase64Url(group.keyJwk.n)
+      const leadingZero = new Uint8Array(Arr.prepend(Arr.fromIterable(modulus), 0))
       yield* Effect.forEach(
         Arr.make(
-          Struct.evolve(group.keyJwk, { n: () => Encoding.encodeBase64Url(leadingZero) }),
+          Struct.evolve(group.keyJwk, { n: () => Encoding.Base64Url.encode(leadingZero) }),
           Struct.evolve(group.keyJwk, { n: (n) => Str.concat(n, "=") }),
           Struct.evolve(group.keyJwk, { n: () => "AQ" }),
           Struct.evolve(group.keyJwk, { e: () => "AA" }),
@@ -61,7 +65,7 @@ describe("RSA PKCS1 SHA-256", () => {
 
   it.effect("classifies unreadable JWK fields and RSA key fields as material-free admission failures", () =>
     Effect.gen(function*() {
-      const fixture = yield* Schema.decodeUnknown(Schema.typeSchema(RsaWycheproofFixture))(corpus)
+      const fixture = yield* Schema.decodeUnknownEffect(Schema.toType(RsaWycheproofFixture))(corpus)
       const jwk = Arr.headNonEmpty(fixture.testGroups).keyJwk
       const key = yield* Rsa.publicKeyFromJwk(jwk)
       const unreadableN = {
@@ -88,8 +92,8 @@ describe("RSA PKCS1 SHA-256", () => {
           return Schema.decodeUnknownSync(Schema.Never)(key.exponent)
         }
       }
-      const signature = yield* Schema.decode(Schema.Uint8Array)(Arr.replicate(0, 256))
-      const message = yield* Schema.decode(Schema.Uint8Array)(Arr.empty<number>())
+      const signature = new Uint8Array(Arr.replicate(0, 256))
+      const message = new Uint8Array(Arr.empty<number>())
 
       yield* Effect.forEach(Arr.make(unreadableN, unreadableE), (unreadableJwk) =>
         Effect.gen(function*() {
@@ -111,17 +115,17 @@ describe("RSA PKCS1 SHA-256", () => {
           const key = yield* Rsa.publicKeyFromJwk(group.jwk)
           yield* Effect.forEach(group.cases, (vector) =>
             Effect.gen(function*() {
-              const message = yield* Encoding.decodeHex(vector.message)
-              const signature = yield* Encoding.decodeHex(vector.signature)
+              const message = yield* decodeHex(vector.message)
+              const signature = yield* decodeHex(vector.signature)
               const label = Str.concat(group.name, Str.concat(" / ", vector.name))
               expect(yield* Rsa.verify(signature, message, key), label).toBe(true)
-              const alteredMessage = yield* Encoding.decodeHex(vector.alteredMessage)
-              const alteredSignature = yield* Encoding.decodeHex(vector.alteredSignature)
+              const alteredMessage = yield* decodeHex(vector.alteredMessage)
+              const alteredSignature = yield* decodeHex(vector.alteredSignature)
               expect(yield* Rsa.verify(signature, alteredMessage, key), label).toBe(false)
               expect(yield* Rsa.verify(alteredSignature, message, key), label).toBe(false)
             }))
         }))
-    }).pipe(Effect.provide(BunContext.layer)))
+    }).pipe(Effect.provide(BunServices.layer)))
 
   it.effect("enforces modulus-width signatures, representative range, and the inclusive message limit", () =>
     Effect.gen(function*() {
@@ -130,9 +134,9 @@ describe("RSA PKCS1 SHA-256", () => {
         Effect.gen(function*() {
           const key = yield* Rsa.publicKeyFromJwk(group.jwk)
           const vector = Arr.headNonEmpty(group.cases)
-          const message = yield* Encoding.decodeHex(vector.message)
-          const signature = Arr.fromIterable(yield* Encoding.decodeHex(vector.signature))
-          const modulus = Arr.fromIterable(yield* Encoding.decodeBase64Url(group.jwk.n))
+          const message = yield* decodeHex(vector.message)
+          const signature = Arr.fromIterable(yield* decodeHex(vector.signature))
+          const modulus = Arr.fromIterable(yield* decodeBase64Url(group.jwk.n))
           const width = Arr.length(modulus)
           yield* Effect.forEach(
             Arr.make(
@@ -144,43 +148,45 @@ describe("RSA PKCS1 SHA-256", () => {
             ),
             (bytes) =>
               Effect.gen(function*() {
-                const invalid = yield* Schema.decode(Schema.Uint8Array)(bytes)
+                const invalid = new Uint8Array(bytes)
                 expect(yield* Effect.flip(Rsa.verify(invalid, message, key)), group.name).toEqual(
                   new Verification.InvalidInput({})
                 )
               })
           )
-          const belowModulus = yield* Arr.modifyOption(modulus, N.decrement(width), N.decrement)
+          const belowModulus = yield* Effect.fromOption(Arr.modify(modulus, N.decrement(width), N.decrement))
           yield* Effect.forEach(
             Arr.make(Arr.replicate(0, width), Arr.append(Arr.replicate(0, N.decrement(width)), 1), belowModulus),
             (bytes) =>
               Effect.gen(function*() {
-                const admitted = yield* Schema.decode(Schema.Uint8Array)(bytes)
+                const admitted = new Uint8Array(bytes)
                 expect(yield* Rsa.verify(admitted, message, key), group.name).toBe(false)
               })
           )
-          const limit = yield* Arr.findFirst(group.cases, (test) => Str.Equivalence(test.name, "8192 bytes"))
-          const limitMessage = yield* Encoding.decodeHex(limit.message)
-          const limitSignature = yield* Encoding.decodeHex(limit.signature)
+          const limit = yield* Effect.fromOption(
+            Arr.findFirst(group.cases, (test) => Str.Equivalence(test.name, "8192 bytes"))
+          )
+          const limitMessage = yield* decodeHex(limit.message)
+          const limitSignature = yield* decodeHex(limit.signature)
           expect(yield* Rsa.verify(limitSignature, limitMessage, key), group.name).toBe(true)
-          const tooLong = yield* Schema.decode(Schema.Uint8Array)(Arr.append(Arr.fromIterable(limitMessage), 1))
+          const tooLong = new Uint8Array(Arr.append(Arr.fromIterable(limitMessage), 1))
           expect(yield* Effect.flip(Rsa.verify(limitSignature, tooLong, key)), group.name).toEqual(
             new Verification.InvalidInput({})
           )
         }))
-    }).pipe(Effect.provide(BunContext.layer)))
+    }).pipe(Effect.provide(BunServices.layer)))
 
   it.effect("rejects 2047-bit, 4097-bit, and even moduli without conflating width with bit length", () =>
     Effect.gen(function*() {
-      const fixture = yield* Schema.decodeUnknown(Schema.typeSchema(RsaWycheproofFixture))(corpus)
+      const fixture = yield* Schema.decodeUnknownEffect(Schema.toType(RsaWycheproofFixture))(corpus)
       const jwk = Arr.headNonEmpty(fixture.testGroups).keyJwk
-      const original = Arr.fromIterable(yield* Encoding.decodeBase64Url(jwk.n))
-      const even = yield* Arr.modifyOption(original, N.decrement(Arr.length(original)), N.decrement)
+      const original = Arr.fromIterable(yield* decodeBase64Url(jwk.n))
+      const even = yield* Effect.fromOption(Arr.modify(original, N.decrement(Arr.length(original)), N.decrement))
       yield* Effect.forEach(
         Arr.make(Arr.prepend(Arr.replicate(255, 255), 127), Arr.append(Arr.prepend(Arr.replicate(0, 511), 1), 1), even),
         (bytes) =>
           Effect.gen(function*() {
-            const n = Encoding.encodeBase64Url(yield* Schema.decode(Schema.Uint8Array)(bytes))
+            const n = Encoding.Base64Url.encode(new Uint8Array(bytes))
             expect(yield* Effect.flip(Rsa.publicKeyFromJwk(Struct.evolve(jwk, { n: () => n })))).toEqual(
               new Rsa.InvalidPublicKey({})
             )

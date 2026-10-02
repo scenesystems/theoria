@@ -5,7 +5,7 @@
  * @since 0.5.0
  * @module
  */
-import { Schema } from "effect"
+import { Equal, Hash, Schema } from "effect"
 import * as Signature from "./Signature.js"
 
 /**
@@ -14,7 +14,7 @@ import * as Signature from "./Signature.js"
  * @since 0.5.0
  * @category schemas
  */
-export const Algorithm = Schema.Literal(...Signature.Algorithm.literals, "x25519", "xwing").annotations({
+export const Algorithm = Schema.Literals([...Signature.Algorithm.literals, "x25519", "xwing"]).annotate({
   identifier: "@scenesystems/sign/KeyPair/Algorithm"
 })
 
@@ -36,9 +36,22 @@ export type Algorithm = typeof Algorithm.Type
  */
 export class KeyPair extends Schema.Class<KeyPair>("@scenesystems/sign/KeyPair")({
   algorithm: Algorithm,
-  publicKey: Schema.Uint8ArrayFromSelf,
-  secretKey: Schema.Uint8ArrayFromSelf
-}) {}
+  publicKey: Schema.Uint8Array,
+  secretKey: Schema.Uint8Array
+}) {
+  [Equal.symbol](that: Equal.Equal): boolean {
+    return that instanceof KeyPair &&
+      this.algorithm === that.algorithm &&
+      this.publicKey === that.publicKey &&
+      this.secretKey === that.secretKey
+  }
+
+  [Hash.symbol](): number {
+    return Hash.combine(Hash.random(this.publicKey))(
+      Hash.combine(Hash.random(this.secretKey))(Hash.string(this.algorithm))
+    )
+  }
+}
 
 /**
  * The selected suite could not generate a key pair. Diagnostics from some
@@ -46,6 +59,8 @@ export class KeyPair extends Schema.Class<KeyPair>("@scenesystems/sign/KeyPair")
  * @since 0.5.0
  * @category errors
  */
-export class GenerationFailed extends Schema.TaggedError<GenerationFailed>(
-  "@scenesystems/sign/KeyPair/GenerationFailed"
-)("KeyGenerationFailed", { algorithm: Algorithm, reason: Schema.String }) {}
+export class GenerationFailed extends Schema.TaggedError<GenerationFailed>()(
+  "KeyGenerationFailed",
+  { algorithm: Algorithm, reason: Schema.String },
+  { identifier: "@scenesystems/sign/KeyPair/GenerationFailed" }
+) {}

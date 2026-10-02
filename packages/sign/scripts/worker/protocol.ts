@@ -4,7 +4,7 @@ import { Schema } from "effect"
 
 export const Identity = Schema.Struct({ sub: Schema.NonEmptyString, email: Schema.Literal("reader@example.test") })
 
-export const Request = Schema.Union(
+export const Request = Schema.Union([
   Schema.TaggedStruct("Ping", {}),
   Schema.TaggedStruct("Rsa", {
     jwk: Schema.Unknown,
@@ -14,17 +14,17 @@ export const Request = Schema.Union(
   Schema.TaggedStruct("Jwt", {
     token: Schema.String,
     jwks: Schema.Unknown,
-    nowMillis: Schema.NonNegativeInt
+    nowMillis: Schema.Int.check(Schema.isGreaterThanOrEqualTo(0))
   })
-)
+])
 
-export const RequestBody = Schema.encodedSchema(Request)
+export const RequestBody = Schema.toEncoded(Request)
 
-export const Result = Schema.Union(
+export const Result = Schema.Union([
   Schema.Boolean,
   Identity,
   Jwt.Rejected,
   Rsa.InvalidPublicKey,
   Verification.InvalidInput,
   Verification.Unavailable
-)
+])
