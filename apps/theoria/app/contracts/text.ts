@@ -17,21 +17,19 @@ import * as Record from "effect/Record"
 
 import { type SurfaceVariant, SurfaceVariant as SurfaceVariantSchema } from "./presentation.js"
 
-const PositiveWidth = Schema.Number.pipe(
-  Schema.int(),
-  Schema.greaterThan(0)
+const PositiveWidth = Schema.Int.pipe(
+  Schema.check(Schema.isGreaterThan(0))
 )
 
-const PositiveLineHeight = Schema.Number.pipe(
-  Schema.finite(),
-  Schema.greaterThan(0)
+const PositiveLineHeight = Schema.Finite.pipe(
+  Schema.check(Schema.isGreaterThan(0))
 )
 
-export const FontWeight = Schema.Literal("normal", "medium", "semibold", "bold")
+export const FontWeight = Schema.Literals(["normal", "medium", "semibold", "bold"])
 
 export type FontWeight = typeof FontWeight.Type
 
-export const FontFamily = Schema.Literal("body", "display", "mono")
+export const FontFamily = Schema.Literals(["body", "display", "mono"])
 
 export type FontFamily = typeof FontFamily.Type
 
@@ -44,7 +42,7 @@ export type FontFamily = typeof FontFamily.Type
  * fonts' metric tables, so text set in the stand-in takes the same lines and
  * the same height, and the swap moves nothing.
  */
-const Typeface = Schema.Literal("sans", "mono")
+const Typeface = Schema.Literals(["sans", "mono"])
 type Typeface = typeof Typeface.Type
 
 const typefaceOf = (family: FontFamily): Typeface =>
@@ -97,7 +95,7 @@ export type TypefaceFallback = typeof TypefaceFallback.Type
 
 const fontStack = (typeface: Typeface) =>
   createFontStack(
-    Arr.prepend(HashMap.unsafeGet(standIns, typeface), HashMap.unsafeGet(servedFaces, typeface))
+    Arr.prepend(HashMap.getUnsafe(standIns, typeface), HashMap.getUnsafe(servedFaces, typeface))
   )
 
 const fontStacks = HashMap.make(
@@ -107,12 +105,12 @@ const fontStacks = HashMap.make(
 
 /** The face a family is served in, by the name its `@font-face` rules declare. */
 export const servedFontFamily = (family: FontFamily): string =>
-  HashMap.unsafeGet(servedFaces, typefaceOf(family)).familyName
+  HashMap.getUnsafe(servedFaces, typefaceOf(family)).familyName
 
 const TypefaceFallbacks = Schema.Array(TypefaceFallback)
 
 export const typefaceFallbacks = (family: FontFamily): typeof TypefaceFallbacks.Type =>
-  Arr.map(HashMap.unsafeGet(standIns, typefaceOf(family)), (standIn) =>
+  Arr.map(HashMap.getUnsafe(standIns, typefaceOf(family)), (standIn) =>
     TypefaceFallback.make({
       alias: Str.concat(servedFontFamily(family), Str.concat(" Fallback: ", standIn.familyName)),
       standIn: standIn.familyName
@@ -120,7 +118,7 @@ export const typefaceFallbacks = (family: FontFamily): typeof TypefaceFallbacks.
 
 /** The `@font-face` rules that scale every stand-in to the face it stands in for. */
 export const typefaceFallbackFaces: string = Arr.join(
-  Arr.map(Typeface.literals, (typeface) => HashMap.unsafeGet(fontStacks, typeface).fontFaces),
+  Arr.map(Typeface.literals, (typeface) => HashMap.getUnsafe(fontStacks, typeface).fontFaces),
   "\n"
 )
 
@@ -139,7 +137,7 @@ const fontFamilyStacks = HashMap.fromIterable(
     Tuple.make(
       family,
       Str.concat(
-        HashMap.unsafeGet(fontStacks, typefaceOf(family)).fontFamily,
+        HashMap.getUnsafe(fontStacks, typefaceOf(family)).fontFamily,
         Str.concat(", ", genericFamily(typefaceOf(family)))
       )
     ))
@@ -158,20 +156,20 @@ const fontWeightValues = HashMap.make(
   Tuple.make("bold", 700)
 )
 
-export const fontFamilyCss = (family: FontFamily): string => HashMap.unsafeGet(fontFamilyStacks, family)
+export const fontFamilyCss = (family: FontFamily): string => HashMap.getUnsafe(fontFamilyStacks, family)
 
-export const fontFamilyCssVar = (family: FontFamily): string => HashMap.unsafeGet(fontFamilyVarNames, family)
+export const fontFamilyCssVar = (family: FontFamily): string => HashMap.getUnsafe(fontFamilyVarNames, family)
 
-export const fontWeightNumeric = (weight: FontWeight): number => HashMap.unsafeGet(fontWeightValues, weight)
+export const fontWeightNumeric = (weight: FontWeight): number => HashMap.getUnsafe(fontWeightValues, weight)
 
-const FontFamilyThemeTokens = Schema.Array(Schema.Tuple(Schema.String, Schema.String))
+const FontFamilyThemeTokens = Schema.Array(Schema.Tuple([Schema.String, Schema.String]))
 
 export const fontFamilyThemeTokens: typeof FontFamilyThemeTokens.Type = Arr.map(
   HashMap.toEntries(fontFamilyStacks),
   ([family, stack]) => Tuple.make(Str.concat("--font-", family), stack)
 )
 
-export const TextRole = Schema.Literal(
+export const TextRole = Schema.Literals([
   "display",
   "lead",
   "hero-title",
@@ -189,36 +187,39 @@ export const TextRole = Schema.Literal(
   "button-label",
   "marker-label",
   "wordmark"
-)
+])
 
 export type TextRole = typeof TextRole.Type
 
 /** A measure for every surface variant: a variant added to `SurfaceVariant` is a width owed by every role. */
-export const VariantMaxWidth = Schema.Record({ key: SurfaceVariantSchema, value: PositiveWidth })
+export const VariantMaxWidth = Schema.Record(SurfaceVariantSchema, PositiveWidth)
 
 export type VariantMaxWidth = typeof VariantMaxWidth.Type
 
-export const LineBreakBehavior = Schema.Literal("wrap", "nowrap")
+export const LineBreakBehavior = Schema.Literals(["wrap", "nowrap"])
 
 export type LineBreakBehavior = typeof LineBreakBehavior.Type
 
-export const TextWrapAuthority = Schema.Literal("native-browser", "effect-text-projected")
+export const TextWrapAuthority = Schema.Literals(["native-browser", "effect-text-projected"])
 
 export type TextWrapAuthority = typeof TextWrapAuthority.Type
 
 /** A length that follows the viewport's width between two bounds: `clamp(min, vw, max)`. */
 export const FluidSize = Schema.Struct({
   min: PositiveWidth,
-  vw: Schema.Number.pipe(Schema.finite(), Schema.greaterThan(0)),
+  vw: Schema.Finite.pipe(Schema.check(Schema.isGreaterThan(0))),
   max: PositiveWidth
 })
 export type FluidSize = typeof FluidSize.Type
 
-export const FontSize = Schema.Union(Schema.Number.pipe(Schema.finite(), Schema.greaterThan(0)), FluidSize)
+export const FontSize = Schema.Union([
+  Schema.Finite.pipe(Schema.check(Schema.isGreaterThan(0))),
+  FluidSize
+])
 export type FontSize = typeof FontSize.Type
 
 /** Leading, fixed or fluid: a fluid size wants fluid leading beside it, or the ratio between them drifts. */
-export const LineHeight = Schema.Union(PositiveLineHeight, FluidSize)
+export const LineHeight = Schema.Union([PositiveLineHeight, FluidSize])
 export type LineHeight = typeof LineHeight.Type
 
 /**
@@ -229,7 +230,7 @@ export type LineHeight = typeof LineHeight.Type
 export const Metrics = Schema.Struct({ fontSize: FontSize, lineHeight: LineHeight })
 export type Metrics = typeof Metrics.Type
 
-export const Viewport = Schema.Literal("narrow", "wide")
+export const Viewport = Schema.Literals(["narrow", "wide"])
 export type Viewport = typeof Viewport.Type
 
 const Viewports = Schema.Array(Viewport)
@@ -251,18 +252,18 @@ export const ResponsiveMetrics = Schema.Struct({
 export type ResponsiveMetrics = typeof ResponsiveMetrics.Type
 
 /** Prose owns its ink; labels inside controls and measured marks inherit their owner's state. */
-export const TextForeground = Schema.Literal("inherit", "ink-strong", "ink", "ink-secondary", "ink-tertiary")
+export const TextForeground = Schema.Literals(["inherit", "ink-strong", "ink", "ink-secondary", "ink-tertiary"])
 export type TextForeground = typeof TextForeground.Type
 
-export const TextTransform = Schema.Literal("none", "uppercase")
+export const TextTransform = Schema.Literals(["none", "uppercase"])
 export type TextTransform = typeof TextTransform.Type
 
 export const TextSemantics = Schema.Struct({
   role: TextRole,
   family: FontFamily,
-  fontSize: Schema.Number.pipe(Schema.finite(), Schema.greaterThan(0)),
+  fontSize: Schema.Finite.pipe(Schema.check(Schema.isGreaterThan(0))),
   weight: FontWeight,
-  tracking: Schema.Number.pipe(Schema.finite()),
+  tracking: Schema.Finite,
   foreground: TextForeground,
   transform: TextTransform,
   wrapAuthority: TextWrapAuthority,
@@ -275,7 +276,7 @@ export const TextSemantics = Schema.Struct({
 
 export type TextSemantics = typeof TextSemantics.Type
 
-const TextSemanticsByRole = Schema.Record({ key: TextRole, value: TextSemantics })
+const TextSemanticsByRole = Schema.Record(TextRole, TextSemantics)
 
 type TextSemanticsByRole = typeof TextSemanticsByRole.Type
 
@@ -293,7 +294,7 @@ export const textSemanticsByRole: TextSemanticsByRole = {
     family: "display",
     fontSize: 44,
     weight: "semibold",
-    tracking: Num.negate(0.02),
+    tracking: Num.multiply(0.02, -1),
     foreground: "ink-strong",
     transform: "none",
     wrapAuthority: "native-browser",
@@ -328,7 +329,7 @@ export const textSemanticsByRole: TextSemanticsByRole = {
     family: "display",
     fontSize: 38,
     weight: "semibold",
-    tracking: Num.negate(0.02),
+    tracking: Num.multiply(0.02, -1),
     foreground: "ink-strong",
     transform: "none",
     wrapAuthority: "native-browser",
@@ -418,7 +419,7 @@ export const textSemanticsByRole: TextSemanticsByRole = {
     family: "display",
     fontSize: 24,
     weight: "semibold",
-    tracking: Num.negate(0.01),
+    tracking: Num.multiply(0.01, -1),
     foreground: "ink-strong",
     transform: "none",
     wrapAuthority: "native-browser",
@@ -435,7 +436,7 @@ export const textSemanticsByRole: TextSemanticsByRole = {
     family: "display",
     fontSize: 24,
     weight: "semibold",
-    tracking: Num.negate(0.01),
+    tracking: Num.multiply(0.01, -1),
     foreground: "ink-strong",
     transform: "none",
     wrapAuthority: "native-browser",
@@ -544,7 +545,7 @@ export const textSemanticsByRole: TextSemanticsByRole = {
     family: "display",
     fontSize: 24,
     weight: "semibold",
-    tracking: Num.negate(0.025),
+    tracking: Num.multiply(0.025, -1),
     foreground: "ink",
     transform: "none",
     wrapAuthority: "native-browser",
@@ -562,7 +563,7 @@ export const semanticsFor = (role: TextRole): TextSemantics => textSemanticsByRo
 
 /** The metrics a role takes at a viewport instead of its own, if it has any. */
 export const metricsOverride = (semantics: TextSemantics, viewport: Viewport): Option.Option<Metrics> =>
-  Option.fromNullable(semantics.at[viewport])
+  Option.fromNullishOr(semantics.at[viewport])
 
 /** A role's size and leading, base or at a viewport that overrides them. */
 export const metricsAt = (role: TextRole, viewport: Option.Option<Viewport>): Metrics => {
@@ -581,18 +582,18 @@ const lengthCss = (length: FontSize): string =>
       Arr.join(
         Arr.make(
           "clamp(",
-          Schema.encodeSync(Schema.NumberFromString)(fluid.min),
+          Schema.encodeSync(Schema.FiniteFromString)(fluid.min),
           "px, ",
-          Schema.encodeSync(Schema.NumberFromString)(fluid.vw),
+          Schema.encodeSync(Schema.FiniteFromString)(fluid.vw),
           "vw, ",
-          Schema.encodeSync(Schema.NumberFromString)(fluid.max),
+          Schema.encodeSync(Schema.FiniteFromString)(fluid.max),
           "px)"
         ),
         ""
       )),
     Match.when(
-      Schema.is(Schema.Number),
-      (fixed) => Str.concat(Schema.encodeSync(Schema.NumberFromString)(fixed), "px")
+      Schema.is(Schema.Finite),
+      (fixed) => Str.concat(Schema.encodeSync(Schema.FiniteFromString)(fixed), "px")
     ),
     Match.exhaustive
   )

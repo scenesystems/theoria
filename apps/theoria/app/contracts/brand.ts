@@ -1,6 +1,6 @@
 import * as LinearAlgebra from "@scenesystems/effect-math/LinearAlgebra"
 import * as Numeric from "@scenesystems/effect-math/Numeric"
-import { Boolean as Bool, Number as Num, Option, Order, Schema, Tuple } from "effect"
+import { Boolean as Bool, Number as Num, Order, Schema, Tuple } from "effect"
 import * as Arr from "effect/Array"
 import * as Chunk from "effect/Chunk"
 
@@ -20,10 +20,10 @@ import { type ColorMode, neutralColor, type Oklch } from "./palette.js"
  * the polygons by hand.
  */
 
-const Unit = Schema.Number.pipe(Schema.between(0, 1))
+const Unit = Schema.Finite.pipe(Schema.check(Schema.isBetween({ minimum: 0, maximum: 1 })))
 
 /** A point on the mark's plane, after projection. */
-export const MarkPoint = Schema.Tuple(Schema.Number, Schema.Number)
+export const MarkPoint = Schema.Tuple([Schema.Finite, Schema.Finite])
 
 export type MarkPoint = typeof MarkPoint.Type
 
@@ -35,10 +35,10 @@ export class MarkFace extends Schema.Class<MarkFace>("@theoria/app/contracts/Bra
 
 /** The mark's frame: the tight bounds of its faces with a hair of padding. */
 export class MarkViewBox extends Schema.Class<MarkViewBox>("@theoria/app/contracts/Brand/MarkViewBox")({
-  x: Schema.Number,
-  y: Schema.Number,
-  width: Schema.Number,
-  height: Schema.Number
+  x: Schema.Finite,
+  y: Schema.Finite,
+  width: Schema.Finite,
+  height: Schema.Finite
 }) {}
 
 /** The mark as drawn: its faces back to front, in its frame. */
@@ -58,19 +58,19 @@ type Vector = Chunk.Chunk<number>
 
 const vector = (x: number, y: number, z: number): Vector => Chunk.make(x, y, z)
 
-const component = (v: Vector, index: number): number => Chunk.unsafeGet(v, index)
+const component = (v: Vector, index: number): number => Chunk.getUnsafe(v, index)
 
 /** A face of the unit cube: its four corners, and the direction it faces. */
 class CubeFace extends Schema.Class<CubeFace>("@theoria/app/contracts/Brand/CubeFace")({
-  vertices: Schema.Chunk(Schema.Chunk(Schema.Number)),
-  normal: Schema.Chunk(Schema.Number)
+  vertices: Schema.Chunk(Schema.Chunk(Schema.Finite)),
+  normal: Schema.Chunk(Schema.Finite)
 }) {}
 
 const cubeFace = (vertices: ReadonlyArray<Vector>, normal: Vector): CubeFace =>
   new CubeFace({ vertices: Chunk.fromIterable(vertices), normal })
 
 const half = 0.5
-const negativeHalf = Num.negate(half)
+const negativeHalf = Num.multiply(half, -1)
 
 const cubeFaces: ReadonlyArray<CubeFace> = [
   cubeFace(
@@ -138,8 +138,8 @@ const sinX = Numeric.sqrt(Numeric.unsafeDivide(2, 3))
 const cosY = Numeric.sqrt(half)
 const sinY = cosY
 
-const aboutX = Chunk.make(1, 0, 0, 0, cosX, Num.negate(sinX), 0, sinX, cosX)
-const aboutY = Chunk.make(cosY, 0, sinY, 0, 1, 0, Num.negate(sinY), 0, cosY)
+const aboutX = Chunk.make(1, 0, 0, 0, cosX, Num.multiply(sinX, -1), 0, sinX, cosX)
+const aboutY = Chunk.make(cosY, 0, sinY, 0, 1, 0, Num.multiply(sinY, -1), 0, cosY)
 
 const rotate = (v: Vector): Vector => LinearAlgebra.matvec(aboutY, 3, 3, LinearAlgebra.matvec(aboutX, 3, 3, v))
 
@@ -154,7 +154,7 @@ const lightOn = (normal: Vector): number =>
 
 class ProjectedFace extends Schema.Class<ProjectedFace>("@theoria/app/contracts/Brand/ProjectedFace")({
   face: MarkFace,
-  depth: Schema.Number
+  depth: Schema.Finite
 }) {}
 
 /** A face turned towards the viewer, projected: its corners on the plane (y up becomes y down), its mean depth, and its light. */
@@ -163,7 +163,7 @@ const project = (face: CubeFace, normal: Vector): ProjectedFace => {
   return new ProjectedFace({
     face: new MarkFace({
       points: Chunk.toReadonlyArray(
-        Chunk.map(corners, (corner) => Tuple.make(component(corner, 0), Num.negate(component(corner, 1))))
+        Chunk.map(corners, (corner) => Tuple.make(component(corner, 0), Num.multiply(component(corner, 1), -1)))
       ),
       fillOpacity: Num.sum(0.6, Num.multiply(lightOn(normal), 0.3))
     }),
@@ -179,11 +179,11 @@ const byDepth = Order.mapInput(Num.Order, (projected: ProjectedFace) => projecte
 /** The faces the viewer sees, back to front. */
 const visibleFaces: ReadonlyArray<MarkFace> = Arr.map(
   Arr.sort(
-    Arr.filterMap(cubeFaces, (face) => {
+    Arr.flatMap(cubeFaces, (face) => {
       const normal = rotate(face.normal)
-      return Bool.match(Num.greaterThan(component(normal, 2), 0), {
-        onTrue: () => Option.some(project(face, normal)),
-        onFalse: Option.none
+      return Bool.match(Num.isGreaterThan(component(normal, 2), 0), {
+        onTrue: () => Arr.of(project(face, normal)),
+        onFalse: Arr.empty
       })
     }),
     byDepth
@@ -202,8 +202,8 @@ const extent = (values: ReadonlyArray<number>): readonly [number, number] =>
 
 const frame = (faces: ReadonlyArray<MarkFace>): MarkViewBox => {
   const points = Arr.flatMap(faces, (face) => face.points)
-  const [left, right] = extent(Arr.map(points, Tuple.getFirst))
-  const [top, bottom] = extent(Arr.map(points, Tuple.getSecond))
+  const [left, right] = extent(Arr.map(points, (pair) => pair[0]))
+  const [top, bottom] = extent(Arr.map(points, (pair) => pair[1]))
   return new MarkViewBox({
     x: Num.subtract(left, padding),
     y: Num.subtract(top, padding),
@@ -224,7 +224,7 @@ export const mark: Mark = new Mark({ viewBox: frame(visibleFaces), faces: visibl
  * chrome and the installed app's splash take, and the ink the mark is drawn
  * in. Each is the palette's role of that name, so the chrome matches the page.
  */
-export const BrandRole = Schema.Literal("canvas", "ink")
+export const BrandRole = Schema.Literals(["canvas", "ink"])
 
 export type BrandRole = typeof BrandRole.Type
 

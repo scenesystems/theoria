@@ -1,6 +1,6 @@
-import { HttpServerResponse } from "@effect/platform"
 import { Effect } from "effect"
 import * as Arr from "effect/Array"
+import { HttpServerResponse } from "effect/http"
 
 import type { DocsManifest } from "@theoria/docs-model"
 import { fullCanonicalUrl } from "../../contracts/metadata.js"

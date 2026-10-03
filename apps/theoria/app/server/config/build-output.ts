@@ -1,8 +1,10 @@
-import { FileSystem, Path } from "@effect/platform"
-import type { PlatformError } from "@effect/platform/Error"
-import { Boolean as Bool, Effect, Either, Equal, identity, Match, Option, Schema, Stream } from "effect"
+import { Boolean as Bool, Effect, Equal, Match, Option, Result, Schema, Stream } from "effect"
 import * as Arr from "effect/Array"
+import * as FileSystem from "effect/FileSystem"
+import { HttpPlatform } from "effect/http"
 import * as Num from "effect/Number"
+import * as Path from "effect/Path"
+import type { PlatformError } from "effect/PlatformError"
 import * as Str from "effect/String"
 
 import { type WebVitalBudgets, webVitalBudgets } from "../../contracts/performance.js"
@@ -32,9 +34,9 @@ export class BuildOutputError
 
 export const BuildOutputSummary = Schema.Struct({
   root: Schema.String,
-  assets: Schema.Number,
-  workerBytes: Schema.Number,
-  homepageScriptGzipBytes: Schema.Number
+  assets: Schema.Finite,
+  workerBytes: Schema.Finite,
+  homepageScriptGzipBytes: Schema.Finite
 })
 export type BuildOutputSummary = typeof BuildOutputSummary.Type
 
@@ -84,11 +86,7 @@ const fileProblem = (entry: string, type: FileSystem.File.Type): Option.Option<s
     Match.orElse((other) => Option.some(`${entry}: is a ${other}, not a regular file`))
   )
 
-const isNotFound = (error: PlatformError): boolean =>
-  Match.value(error).pipe(
-    Match.tag("SystemError", ({ reason }) => Equal.equals(reason, "NotFound")),
-    Match.orElse(() => false)
-  )
+const isNotFound = (error: PlatformError): boolean => Equal.equals(error.reason._tag, "NotFound")
 
 /**
  * The bytes on the wire for a file served gzip-encoded, from the platform's
@@ -100,10 +98,12 @@ export const gzipBytes = (bytes: Uint8Array): Effect.Effect<number> =>
   Stream.fromReadableStream({
     // A fresh copy: the file's view may be over a shared buffer, and the compressor takes only an `ArrayBuffer`-backed one.
     evaluate: () =>
-      Stream.toReadableStream(Stream.make(new Uint8Array(bytes))).pipeThrough(new CompressionStream("gzip")),
-    onError: identity
+      HttpPlatform.compressionTransformWeb("gzip")(
+        Stream.toReadableStream(Stream.make(new Uint8Array(bytes)))
+      ),
+    onError: (error) => error
   }).pipe(
-    Stream.runFold(0, (total, chunk) => Num.sum(total, chunk.byteLength)),
+    Stream.runFold(() => 0, (total, chunk) => Num.sum(total, chunk.byteLength)),
     Effect.orDie
   )
 
@@ -116,7 +116,11 @@ export const homepageScripts = (indexHtml: string): ReadonlyArray<string> =>
           /<script\b(?=[^>]*\btype=["']module["'])[^>]*\bsrc=["'](\/assets\/[^"']+\.js)["'][^>]*>|<link\b(?=[^>]*\brel=["']modulepreload["'])[^>]*\bhref=["'](\/assets\/[^"']+\.js)["'][^>]*>/giu
         )(indexHtml)
       ),
-      (match) => Option.orElse(Option.fromNullable(match[1]), () => Option.fromNullable(match[2]))
+      (match) =>
+        Result.fromOption(
+          Option.orElse(Option.fromNullishOr(match[1]), () => Option.fromNullishOr(match[2])),
+          () => undefined
+        )
     )
   )
 
@@ -157,8 +161,8 @@ export const checkBuildOutput = (
       required,
       ({ file, kind }) =>
         Bool.match(Option.exists(kind, (type) => Equal.equals(type, "File")), {
-          onTrue: Option.none,
-          onFalse: () => Option.some(`${file}: missing`)
+          onTrue: () => Result.failVoid,
+          onFalse: () => Result.succeed(`${file}: missing`)
         })
     )
 
@@ -166,22 +170,30 @@ export const checkBuildOutput = (
       buildDirectories,
       (directory) =>
         fileSystem.readDirectory(path.join(root, directory), { recursive: true }).pipe(
-          Effect.map((entries) => Either.right(Arr.map(entries, (entry) => `${directory}/${entry}`))),
-          Effect.catchIf(isNotFound, () => Effect.succeed(Either.left(`${directory}/: missing directory`)))
+          Effect.map((entries) => Result.succeed(Arr.map(entries, (entry) => `${directory}/${entry}`))),
+          Effect.catchIf(isNotFound, () => Effect.succeed(Result.fail(`${directory}/: missing directory`)))
         )
     )
-    const entries: ReadonlyArray<string> = Arr.flatten(Arr.getRights(listed))
+    const entries: ReadonlyArray<string> = Arr.flatten(
+      Arr.filterMap(listed, (result) => Result.match(result, { onSuccess: Result.succeed, onFailure: Result.fail }))
+    )
     const kinds = yield* Effect.forEach(entries, (entry) => Effect.map(kindOf(entry), (kind) => ({ entry, kind })))
     const entryProblems: ReadonlyArray<string> = Arr.filterMap(kinds, ({ entry, kind }) =>
-      Option.match(kind, {
-        onNone: () => Option.some(`${entry}: vanished during the check`),
-        onSome: (type) => fileProblem(entry, type)
-      }))
+      Result.fromOption(
+        Option.match(kind, {
+          onNone: () => Option.some(`${entry}: vanished during the check`),
+          onSome: (type) => fileProblem(entry, type)
+        }),
+        () => undefined
+      ))
     const existingProblems: ReadonlyArray<string> = Arr.appendAll(
-      Arr.appendAll(missing, Arr.getLefts(listed)),
+      Arr.appendAll(
+        missing,
+        Arr.filterMap(listed, (result) => Result.match(result, { onSuccess: Result.fail, onFailure: Result.succeed }))
+      ),
       entryProblems
     )
-    const scriptResults = yield* Bool.match(Arr.isEmptyReadonlyArray(existingProblems), {
+    const scriptResults = yield* Bool.match(Equal.equals(Arr.length(existingProblems), 0), {
       onTrue: () =>
         Effect.flatMap(
           fileSystem.readFileString(path.join(root, "dist/index.html")),
@@ -191,19 +203,29 @@ export const checkBuildOutput = (
               (script) =>
                 fileSystem.readFile(path.join(root, `dist${script}`)).pipe(
                   Effect.flatMap(gzipBytes),
-                  Effect.map(Either.right),
+                  Effect.map(Result.succeed),
                   Effect.catchIf(
                     isNotFound,
-                    () => Effect.succeed(Either.left(`dist${script}: named by dist/index.html but missing`))
+                    () => Effect.succeed(Result.fail(`dist${script}: named by dist/index.html but missing`))
                   )
                 )
             )
         ),
-      onFalse: () => Effect.succeed(Arr.empty<Either.Either<number, string>>())
+      onFalse: () => Effect.succeed(Arr.empty<Result.Result<number, string>>())
     })
-    const homepageScriptGzipBytes = Arr.reduce(Arr.getRights(scriptResults), 0, Num.sum)
-    const scriptProblems = Arr.getLefts(scriptResults)
-    const budgetProblems = Bool.match(Num.greaterThan(homepageScriptGzipBytes, budgets.homepageScriptGzipBytes), {
+    const homepageScriptGzipBytes = Arr.reduce(
+      Arr.filterMap(
+        scriptResults,
+        (result) => Result.match(result, { onSuccess: Result.succeed, onFailure: Result.fail })
+      ),
+      0,
+      Num.sum
+    )
+    const scriptProblems = Arr.filterMap(
+      scriptResults,
+      (result) => Result.match(result, { onSuccess: Result.fail, onFailure: Result.succeed })
+    )
+    const budgetProblems = Bool.match(Num.isGreaterThan(homepageScriptGzipBytes, budgets.homepageScriptGzipBytes), {
       onTrue: () => [
         `dist/index.html: homepage scripts are ${String(homepageScriptGzipBytes)} gzip bytes, over the budget of ${
           String(budgets.homepageScriptGzipBytes)
@@ -217,7 +239,7 @@ export const checkBuildOutput = (
     )
     yield* Effect.when(
       Effect.fail(new BuildOutputError({ root, problems })),
-      () => Arr.isNonEmptyReadonlyArray(problems)
+      Effect.succeed(Num.isGreaterThan(Arr.length(problems), 0))
     )
 
     const worker = yield* fileSystem.stat(path.join(root, ".wrangler-out/worker.js"))

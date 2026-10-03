@@ -13,7 +13,7 @@ import { type PlaceBuild } from "../imagined-place-result.js"
  *
  * @since 0.3.0
  */
-export const PlaceStep = Schema.Literal("compose", "propose", "record", "arrange")
+export const PlaceStep = Schema.Literals(["compose", "propose", "record", "arrange"])
 export type PlaceStep = typeof PlaceStep.Type
 export const placeSteps = PlaceStep.literals
 
@@ -24,7 +24,7 @@ export const placeSteps = PlaceStep.literals
  *
  * @since 0.3.0
  */
-export const PlaceAct = Schema.Literal("arrive", "compose", "propose", "record", "build")
+export const PlaceAct = Schema.Literals(["arrive", "compose", "propose", "record", "build"])
 export type PlaceAct = typeof PlaceAct.Type
 
 /**
@@ -35,7 +35,7 @@ export type PlaceAct = typeof PlaceAct.Type
  *
  * @since 0.3.0
  */
-export const CodeSiteId = Schema.Literal(
+export const CodeSiteId = Schema.Literals([
   "compose",
   "inference",
   "proposal-digest",
@@ -47,7 +47,7 @@ export const CodeSiteId = Schema.Literal(
   "layout",
   "separation",
   "search"
-)
+])
 export type CodeSiteId = typeof CodeSiteId.Type
 
 /**
@@ -141,11 +141,11 @@ export const placeSourceId = (build: PlaceBuild): PlaceSourceId => Arr.lastNonEm
  *
  * @since 0.3.0
  */
-export const DrawingId = Schema.Struct({ source: PlaceSourceId, stageWidth: Schema.Number })
+export const DrawingId = Schema.Struct({ source: PlaceSourceId, stageWidth: Schema.Finite })
 export type DrawingId = typeof DrawingId.Type
 
 /** Two drawing IDs name the same drawing. */
-export const sameDrawing: Equivalence.Equivalence<DrawingId> = Schema.equivalence(DrawingId)
+export const sameDrawing: Equivalence.Equivalence<DrawingId> = Schema.toEquivalence(DrawingId)
 
 /**
  * Something on the page a visitor can point at and be answered about: a
@@ -161,7 +161,7 @@ export const sameDrawing: Equivalence.Equivalence<DrawingId> = Schema.equivalenc
  *
  * @since 0.3.0
  */
-export const PlaceMark = Schema.Union(
+export const PlaceMark = Schema.Union([
   Schema.TaggedStruct("Feature", { name: Schema.String }),
   Schema.TaggedStruct("Disc", { name: Schema.String, source: PlaceSourceId }),
   Schema.TaggedStruct("Line", { index: Schema.Int, drawing: DrawingId }),
@@ -171,7 +171,7 @@ export const PlaceMark = Schema.Union(
   Schema.TaggedStruct("Inference", {}),
   Schema.TaggedStruct("Note", {}),
   Schema.TaggedStruct("CodeLine", { site: CodeSiteId })
-)
+])
 export type PlaceMark = typeof PlaceMark.Type
 
 /**
@@ -181,7 +181,7 @@ export type PlaceMark = typeof PlaceMark.Type
  *
  * @since 0.3.0
  */
-export const AnswerFocusReturn = Schema.Literal("mark", "stays")
+export const AnswerFocusReturn = Schema.Literals(["mark", "stays"])
 export type AnswerFocusReturn = typeof AnswerFocusReturn.Type
 
 /** A mark as one mounted trigger carries it: the element's id and the mark it stands for. */
@@ -200,7 +200,7 @@ export const MarkPress = Schema.Struct({ opening: Schema.Boolean, pressed: MarkT
 export type MarkPress = typeof MarkPress.Type
 
 /** A mark carried on an element as one attribute value, and read back from it. */
-export const PlaceMarkAttribute = Schema.parseJson(PlaceMark)
+export const PlaceMarkAttribute = Schema.fromJsonString(PlaceMark)
 
 export const encodeMark = Schema.encodeSync(PlaceMarkAttribute)
 export const decodeMark: (value: unknown) => Option.Option<PlaceMark> = Schema.decodeUnknownOption(

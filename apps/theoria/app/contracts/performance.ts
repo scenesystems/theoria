@@ -3,13 +3,13 @@ import { Schema } from "effect"
 /** The homepage's measured performance limits, shared by build and browser checks. */
 export const WebVitalBudgets = Schema.Struct({
   /** Google's good largest contentful paint threshold. */
-  lcpMs: Schema.Number,
+  lcpMs: Schema.Finite,
   /** Google's good cumulative layout shift threshold. */
-  cls: Schema.Number,
+  cls: Schema.Finite,
   /** Google's good interaction to next paint threshold. */
-  inpMs: Schema.Number,
+  inpMs: Schema.Finite,
   /** Gzip bytes of every script loaded by `dist/index.html` on first paint. */
-  homepageScriptGzipBytes: Schema.Number
+  homepageScriptGzipBytes: Schema.Int
 })
 
 export type WebVitalBudgets = typeof WebVitalBudgets.Type

@@ -1,5 +1,5 @@
-import { HttpApp, HttpMiddleware } from "@effect/platform"
 import { ConfigProvider, Data, Effect, Layer, Predicate, Schema } from "effect"
+import { HttpEffect, HttpMiddleware } from "effect/http"
 import * as EffectRecord from "effect/Record"
 
 import { AppLayer, publicApp } from "./app.js"
@@ -21,12 +21,12 @@ import * as WorkersRateLimit from "./platform/workers-rate-limit.js"
  * fail the runtime's construction in the error channel, and the handler's
  * first request reports it, rather than raising out of the `fetch` export.
  */
-const WorkerEnv = Schema.Struct(
-  {
+const WorkerEnv = Schema.StructWithRest(
+  Schema.Struct({
     ASSETS: AssetsStaticStore.AssetsFetcher,
-    PLACE_BUILD_LIMITER: Schema.optionalWith(WorkersRateLimit.RateLimitBinding, { as: "Option" })
-  },
-  { key: Schema.String, value: Schema.Unknown }
+    PLACE_BUILD_LIMITER: Schema.OptionFromOptionalKey(WorkersRateLimit.RateLimitBinding)
+  }),
+  [Schema.Record(Schema.String, Schema.Unknown)]
 )
 type WorkerEnv = typeof WorkerEnv.Type
 
@@ -42,12 +42,12 @@ const layerFor = (env: WorkerEnv) =>
   AppLayer.pipe(
     Layer.provideMerge(AssetsStaticStore.layer(env.ASSETS)),
     Layer.provideMerge(WorkersRateLimit.layerFromEnv(env.PLACE_BUILD_LIMITER)),
-    Layer.provide(Layer.setConfigProvider(ConfigProvider.fromJson(stringVariables(env))))
+    Layer.provide(ConfigProvider.layer(ConfigProvider.fromUnknown(stringVariables(env))))
   )
 
 export const makeWorkerHandler = (env: unknown): WorkerHandler =>
-  new WorkerHandler(HttpApp.toWebHandlerLayer(
+  new WorkerHandler(HttpEffect.toWebHandlerLayer(
     publicApp,
-    Layer.unwrapEffect(Effect.map(Schema.decodeUnknown(WorkerEnv)(env), layerFor)),
+    Layer.unwrap(Effect.map(Schema.decodeUnknownEffect(WorkerEnv)(env), layerFor)),
     { middleware: HttpMiddleware.logger }
   ))

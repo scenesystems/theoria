@@ -3,14 +3,14 @@ import * as Arr from "effect/Array"
 
 import type { DocsManifest, DocsPackageSummary } from "@theoria/docs-model"
 
-const NonEmptyString = Schema.String.pipe(Schema.minLength(1))
+const NonEmptyString = Schema.String.pipe(Schema.check(Schema.isMinLength(1)))
 
 /**
  * Open Graph page type discriminator.
  *
  * @since 0.1.0
  */
-export const OgType = Schema.Literal("website", "article")
+export const OgType = Schema.Literals(["website", "article"])
 
 export type OgType = typeof OgType.Type
 
@@ -32,7 +32,7 @@ export const SiteMetadata = Schema.Struct({
   /** The publisher as it is incorporated: the name the copyright line and the structured data carry. */
   legalName: Schema.Literal("SCENE Systems, Inc."),
   /** Year of first publication, matching the repository LICENSE. */
-  copyrightYear: Schema.Int.pipe(Schema.greaterThanOrEqualTo(2026))
+  copyrightYear: Schema.Int.pipe(Schema.check(Schema.isGreaterThanOrEqualTo(2026)))
 })
 
 export type SiteMetadata = typeof SiteMetadata.Type
@@ -86,7 +86,7 @@ export type Breadcrumb = typeof Breadcrumb.Type
  *
  * @since 0.1.0
  */
-export const PageKind = Schema.Union(
+export const PageKind = Schema.Union([
   Schema.TaggedStruct("Home", {}),
   Schema.TaggedStruct("DocsIndex", {}),
   Schema.TaggedStruct("Package", {
@@ -101,7 +101,7 @@ export const PageKind = Schema.Union(
     packagePath: NonEmptyString
   }),
   Schema.TaggedStruct("Missing", {})
-)
+])
 
 export type PageKind = typeof PageKind.Type
 

@@ -1,13 +1,13 @@
 import { Boolean as Bool, Clock, Config, Context, Effect, Layer } from "effect"
 import * as Str from "effect/String"
 
-export class RuntimeInfo extends Context.Tag("@theoria/app/server/config/RuntimeInfo")<
+export class RuntimeInfo extends Context.Service<
   RuntimeInfo,
   {
     readonly buildSha: string
     readonly startedAtMs: number
   }
->() {}
+>()("@theoria/app/server/config/RuntimeInfo") {}
 
 const nonEmptyOrDefault = (raw: string, fallback: string): string => {
   const value = Str.trim(raw)
@@ -16,7 +16,7 @@ const nonEmptyOrDefault = (raw: string, fallback: string): string => {
 
 /** `BUILD_SHA` is set by the deployment workflow (`wrangler deploy --var`). */
 const makeRuntimeInfo = Effect.gen(function*() {
-  const rawBuildSha = yield* Config.string("BUILD_SHA").pipe(Config.withDefault("dev-local"))
+  const rawBuildSha = yield* Config.String("BUILD_SHA").pipe(Config.withDefault("dev-local"))
   const buildSha = nonEmptyOrDefault(rawBuildSha, "dev-local")
   const startedAtMs = yield* Clock.currentTimeMillis
 

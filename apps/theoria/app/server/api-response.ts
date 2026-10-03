@@ -1,5 +1,5 @@
-import { HttpServerResponse } from "@effect/platform"
 import { Clock, Effect } from "effect"
+import { HttpServerResponse } from "effect/http"
 import * as Num from "effect/Number"
 
 import type { Metadata } from "../contracts/envelope.js"

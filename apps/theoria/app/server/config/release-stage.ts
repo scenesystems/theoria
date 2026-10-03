@@ -1,4 +1,4 @@
-import { Config, Schema } from "effect"
+import { Config } from "effect"
 
 import { ReleaseStage } from "../../contracts/release-stage.js"
 
@@ -8,6 +8,6 @@ import { ReleaseStage } from "../../contracts/release-stage.js"
  * treated as `preview`. An invalid value fails with a `ConfigError` and the
  * server refuses to start (see `AppLayer`).
  */
-export const releaseStageConfig: Config.Config<ReleaseStage> = Schema.Config("RELEASE_STAGE", ReleaseStage).pipe(
+export const releaseStageConfig: Config.Config<ReleaseStage> = Config.schema(ReleaseStage, "RELEASE_STAGE").pipe(
   Config.withDefault<ReleaseStage>("preview")
 )

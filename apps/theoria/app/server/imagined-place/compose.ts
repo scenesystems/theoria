@@ -82,8 +82,8 @@ const recordedEvidence = (program: string, scenario: PlaceScenarioDefinition) =>
     return evidence
   })
 
-const encodeComposition = Schema.encode(Schema.parseJson(PlaceComposition))
-const encodeProposal = Schema.encode(Schema.parseJson(ProposedFeature))
+const encodeComposition = Schema.encodeEffect(Schema.fromJsonString(PlaceComposition))
+const encodeProposal = Schema.encodeEffect(Schema.fromJsonString(ProposedFeature))
 
 export const Composed = Schema.Struct({ composition: PlaceComposition, inference: InferenceEvidence })
 export type Composed = typeof Composed.Type

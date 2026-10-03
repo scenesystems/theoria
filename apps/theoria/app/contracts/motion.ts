@@ -22,7 +22,7 @@ import * as HashMap from "effect/HashMap"
  *   (a drawer after a swipe); it leaves at the finger's speed and lands soft,
  *   so it has its own ease.
  */
-export const MotionRelation = Schema.Literal("enter", "shift", "exit", "respond", "follow")
+export const MotionRelation = Schema.Literals(["enter", "shift", "exit", "respond", "follow"])
 
 export type MotionRelation = typeof MotionRelation.Type
 
@@ -36,7 +36,7 @@ const durations = HashMap.make(
   entry<MotionRelation, Duration.Duration>("follow", Duration.millis(300))
 )
 
-export const motionDuration = (relation: MotionRelation): Duration.Duration => HashMap.unsafeGet(durations, relation)
+export const motionDuration = (relation: MotionRelation): Duration.Duration => HashMap.getUnsafe(durations, relation)
 
 /**
  * The longest anything resting for an exit waits for it. What leaves signals
@@ -92,7 +92,7 @@ export const motionFollowEase: readonly [number, number, number, number] = [0.32
  * itself moves, `follow` for what a gesture set moving. The name is the CSS
  * token's (`--ease-<name>`) and the utility's (`ease-<name>`).
  */
-export const MotionEase = Schema.Literal("theme", "follow")
+export const MotionEase = Schema.Literals(["theme", "follow"])
 
 export type MotionEase = typeof MotionEase.Type
 

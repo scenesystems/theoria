@@ -5,7 +5,7 @@
  * Effect's `HttpServerRequest.fromWeb` both take the web `Request` the host
  * would hand the Worker; this module builds that one object.
  */
-import { HttpServerRequest } from "@effect/platform"
+import { HttpServerRequest } from "effect/http"
 
 /** The web request for `url`, as the host would deliver it. */
 export const webRequest = (url: string, init: RequestInit): Request => new Request(url, init)

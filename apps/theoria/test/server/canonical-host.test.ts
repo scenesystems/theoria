@@ -1,6 +1,6 @@
-import { HttpServerRequest } from "@effect/platform"
 import { describe, expect, it } from "@effect/vitest"
 import { Effect } from "effect"
+import { HttpServerRequest } from "effect/http"
 
 import { siteMetadata } from "../../app/contracts/metadata.js"
 import { requestIsCanonical } from "../../app/server/canonical-host.js"

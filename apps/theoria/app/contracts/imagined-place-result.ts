@@ -3,8 +3,8 @@ import { Schema } from "effect"
 import { Envelope } from "./envelope.js"
 import { OfferedProposal, ParticipantRole, PlaceArtifact, VersionShape } from "./imagined-place.js"
 
-const NonEmptyString = Schema.String.pipe(Schema.minLength(1))
-const UnitInterval = Schema.Number.pipe(Schema.between(0, 1))
+const NonEmptyString = Schema.String.pipe(Schema.check(Schema.isMinLength(1)))
+const UnitInterval = Schema.Finite.pipe(Schema.check(Schema.isBetween({ minimum: 0, maximum: 1 })))
 
 /**
  * A feature marker on the stage in pixels; `contributedBy` is set when the
@@ -20,19 +20,19 @@ const UnitInterval = Schema.Number.pipe(Schema.between(0, 1))
 export const PlaceMarker = Schema.Struct({
   name: NonEmptyString,
   description: NonEmptyString,
-  x: Schema.Number,
-  y: Schema.Number,
-  radius: Schema.Number.pipe(Schema.positive()),
-  reach: Schema.Number.pipe(Schema.nonNegative()),
+  x: Schema.Finite,
+  y: Schema.Finite,
+  radius: Schema.Finite.pipe(Schema.check(Schema.isGreaterThan(0))),
+  reach: Schema.Finite.pipe(Schema.check(Schema.isGreaterThanOrEqualTo(0))),
   contributedBy: Schema.optional(ParticipantRole)
 })
 export type PlaceMarker = typeof PlaceMarker.Type
 
 export const PlaceLine = Schema.Struct({
   text: Schema.String,
-  y: Schema.Number,
-  maxWidth: Schema.Number,
-  width: Schema.Number
+  y: Schema.Finite,
+  maxWidth: Schema.Finite,
+  width: Schema.Finite
 })
 export type PlaceLine = typeof PlaceLine.Type
 
@@ -44,10 +44,10 @@ export type PlaceLine = typeof PlaceLine.Type
  * @since 0.3.0
  */
 export const PlaceProjection = Schema.Struct({
-  stageWidth: Schema.Number.pipe(Schema.positive()),
-  stageHeight: Schema.Number.pipe(Schema.positive()),
-  padding: Schema.Number,
-  lineHeight: Schema.Number.pipe(Schema.positive()),
+  stageWidth: Schema.Finite.pipe(Schema.check(Schema.isGreaterThan(0))),
+  stageHeight: Schema.Finite.pipe(Schema.check(Schema.isGreaterThan(0))),
+  padding: Schema.Finite,
+  lineHeight: Schema.Finite.pipe(Schema.check(Schema.isGreaterThan(0))),
   markers: Schema.Array(PlaceMarker),
   lines: Schema.Array(PlaceLine)
 })
@@ -66,11 +66,11 @@ export const RenderEvidence = Schema.Struct({
   sampler: Schema.Literal("tpe"),
   seed: Schema.Int,
   trials: Schema.Int,
-  bestLoss: Schema.Number,
-  minimumSeparation: Schema.Number,
+  bestLoss: Schema.Finite,
+  minimumSeparation: Schema.Finite,
   lineCount: Schema.Int,
   narrowestLine: UnitInterval,
-  raggedness: Schema.Number
+  raggedness: Schema.Finite
 })
 export type RenderEvidence = typeof RenderEvidence.Type
 
@@ -154,7 +154,7 @@ export const PlaceBuild = Schema.Struct({
   artifact: PlaceArtifact,
   proposals: Schema.Array(ProposalRecord),
   evidence: PlaceEvidence,
-  durationMs: Schema.Number
+  durationMs: Schema.Finite
 })
 export type PlaceBuild = typeof PlaceBuild.Type
 

@@ -1,6 +1,6 @@
-import { Path, Url } from "@effect/platform"
-import { BunContext, BunRuntime } from "@effect/platform-bun"
-import { Config, Effect, Number } from "effect"
+import { BunRuntime, BunServices } from "@effect/platform-bun"
+import { Config, Effect, Number, Path } from "effect"
+import { Url } from "effect/http"
 
 import { checkBuildOutput } from "../app/server/config/build-output.js"
 
@@ -16,8 +16,8 @@ import { checkBuildOutput } from "../app/server/config/build-output.js"
 
 const program = Effect.gen(function*() {
   const path = yield* Path.Path
-  const appRoot = yield* Effect.flatMap(Url.fromString("../", import.meta.url), path.fromFileUrl)
-  const root = yield* Config.string("BUILD_ROOT").pipe(
+  const appRoot = yield* Effect.flatMap(Effect.fromResult(Url.fromString("../", import.meta.url)), path.fromFileUrl)
+  const root = yield* Config.String("BUILD_ROOT").pipe(
     Config.withDefault(appRoot),
     Config.map((value) => path.resolve(value))
   )
@@ -26,10 +26,10 @@ const program = Effect.gen(function*() {
     Effect.annotateLogs({
       root: summary.root,
       assets: summary.assets,
-      workerKiB: Number.round(Number.unsafeDivide(summary.workerBytes, 1024), 0),
-      homepageScriptGzipKiB: Number.round(Number.unsafeDivide(summary.homepageScriptGzipBytes, 1024), 0)
+      workerKiB: Number.round(summary.workerBytes / 1024, 0),
+      homepageScriptGzipKiB: Number.round(summary.homepageScriptGzipBytes / 1024, 0)
     })
   )
 })
 
-BunRuntime.runMain(Effect.provide(program, BunContext.layer))
+BunRuntime.runMain(Effect.provide(program, BunServices.layer))

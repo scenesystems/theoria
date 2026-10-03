@@ -1,4 +1,4 @@
-import { Effect, Inspectable, Number, Option, Stream, Struct } from "effect"
+import { Effect, Inspectable, Number, Option, Stream } from "effect"
 
 import * as Hkdf from "@scenesystems/digest/Hkdf"
 import { Cipher } from "@scenesystems/seal"
@@ -35,8 +35,8 @@ export const sendSealedNote = (
 ): Effect.Effect<SealedNote, PlaceBuildError, Participants | Cipher.Cipher> =>
   Effect.gen(function*() {
     const participants = yield* Participants
-    const sender = Struct.get(from)(participants)
-    const recipient = Struct.get(to)(participants)
+    const sender = participants[from]
+    const recipient = participants[to]
     const plaintext = yield* Bytes.fromString(text)
 
     const encrypted = yield* Cipher.encrypt(

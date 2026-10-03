@@ -1,6 +1,6 @@
-import type { HttpServerRequest } from "@effect/platform"
 import { Boolean as Bool, Effect, Option } from "effect"
 import * as Arr from "effect/Array"
+import type { HttpServerRequest } from "effect/http"
 import * as Str from "effect/String"
 
 import { requestIsCanonical } from "./canonical-host.js"

@@ -1,5 +1,5 @@
 import { describe, expect, it } from "@effect/vitest"
-import { Data, Effect, Layer, Logger, type LogLevel, MutableRef, Option, Runtime } from "effect"
+import { Data, Effect, Layer, Logger, type LogLevel, MutableRef, Option } from "effect"
 import * as Arr from "effect/Array"
 
 import { PlaceBuildLimiter } from "../../app/server/config/place-build-limiter.js"
@@ -9,23 +9,22 @@ class Entry extends Data.Class<{ readonly level: LogLevel.LogLevel; readonly mes
 
 /** Collects every log entry so a test can assert what the layer reported. */
 const collecting = (seen: MutableRef.MutableRef<ReadonlyArray<Entry>>) =>
-  Logger.replace(
-    Logger.defaultLogger,
+  Logger.layer([
     Logger.make(({ logLevel, message }) => MutableRef.update(seen, Arr.append(new Entry({ level: logLevel, message }))))
-  )
+  ])
 
 const admit = (actor: string) => PlaceBuildLimiter.pipe(Effect.flatMap((limiter) => limiter.admit(actor)))
 
 describe("server/platform/workers-rate-limit", () => {
   it.effect("maps the binding's answer to an admission and reports the window on refusal", () =>
     Effect.gen(function*() {
-      const runtime = yield* Effect.runtime()
+      const runtime = yield* Effect.context()
       const keys = MutableRef.make<ReadonlyArray<string>>([])
       // Stands in for Cloudflare's Promise-returning binding.
       const binding = {
         limit: ({ key }: { readonly key: string }) => {
           MutableRef.update(keys, Arr.append(key))
-          return Runtime.runPromise(runtime)(Effect.succeed({ success: key === "203.0.113.7" }))
+          return Effect.runPromiseWith(runtime)(Effect.succeed({ success: key === "203.0.113.7" }))
         }
       }
       const [admitted, refused] = yield* Effect.all([admit("203.0.113.7"), admit("198.51.100.9")]).pipe(
@@ -43,7 +42,7 @@ describe("server/platform/workers-rate-limit", () => {
         Effect.provide(layerFromEnv(Option.none()).pipe(Layer.provideMerge(collecting(seen))))
       )
       expect(admissions).toEqual([{ _tag: "Admitted" }, { _tag: "Admitted" }])
-      const warnings = Arr.filter(MutableRef.get(seen), (entry) => entry.level._tag === "Warning")
+      const warnings = Arr.filter(MutableRef.get(seen), (entry) => entry.level === "Warn")
       expect(warnings.length).toBe(1)
       expect(String(warnings[0]?.message)).toContain("PLACE_BUILD_LIMITER")
     }))

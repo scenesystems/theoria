@@ -1,4 +1,5 @@
-import { Context, Effect, Encoding, Inspectable, Layer, Schema, String as Str, Struct } from "effect"
+import { Context, Effect, Inspectable, Layer, Schema, String as Str } from "effect"
+import * as Hex from "effect/encoding/Hex"
 
 import * as ContentDigest from "@scenesystems/digest/ContentDigest"
 import * as Digest from "@scenesystems/digest/Digest"
@@ -14,7 +15,7 @@ import { ParticipantRole, PlaceArtifact, PlaceBuildError, Proposal } from "../..
 export const ParticipantKeys = Schema.Struct({ signing: KeyPair.KeyPair, agreement: KeyPair.KeyPair })
 export type ParticipantKeys = typeof ParticipantKeys.Type
 
-export const ParticipantSet = Schema.Record({ key: ParticipantRole, value: ParticipantKeys })
+export const ParticipantSet = Schema.Record(ParticipantRole, ParticipantKeys)
 export type ParticipantSet = typeof ParticipantSet.Type
 
 /**
@@ -22,20 +23,19 @@ export type ParticipantSet = typeof ParticipantSet.Type
  * process and prove only that this server signed on a participant's behalf;
  * the UI labels every verification "valid for session key".
  */
-export class Participants extends Context.Tag("@theoria/app/server/imagined-place/Participants")<
-  Participants,
-  ParticipantSet
->() {}
+export class Participants extends Context.Service<Participants, ParticipantSet>()(
+  "@theoria/app/server/imagined-place/Participants"
+) {}
 
 const participantKeys: Effect.Effect<ParticipantKeys, KeyPair.GenerationFailed, Entropy.Entropy> = Effect.all({
-  signing: Ed25519.generateKeyPair(),
-  agreement: X25519.generateKeyPair()
-}).pipe(Effect.map(ParticipantKeys.make))
+  signing: Ed25519.generateKeyPair,
+  agreement: X25519.generateKeyPair
+}).pipe(Effect.map((keys) => ParticipantKeys.make(keys)))
 
 export const ParticipantsLive = Layer.effect(
   Participants,
   Effect.all({ author: participantKeys, neighbor: participantKeys, program: participantKeys }).pipe(
-    Effect.map(ParticipantSet.make)
+    Effect.map((participants) => ParticipantSet.make(participants))
   )
 ).pipe(Layer.provide(Entropy.layer))
 
@@ -60,7 +60,7 @@ export const proposalId = (proposal: Proposal): Effect.Effect<string, PlaceBuild
   )
 
 export const fingerprint = (publicKey: Uint8Array): Effect.Effect<string> =>
-  Digest.hash("blake3-256", publicKey).pipe(Effect.map((hash) => Str.takeLeft(Encoding.encodeHex(hash), 16)))
+  Digest.hash("blake3-256", publicKey).pipe(Effect.map((hash) => Str.takeLeft(Hex.encode(hash), 16)))
 
 /**
  * Signs a content ID with the participant's session key, then verifies it
@@ -72,7 +72,7 @@ export const signAs = (
 ): Effect.Effect<SignatureRecord, PlaceBuildError, Participants> =>
   Effect.gen(function*() {
     const participants = yield* Participants
-    const key = Struct.get(signer)(participants).signing
+    const key = participants[signer].signing
     const message = yield* Bytes.fromString(subject)
     const signature = yield* Ed25519.sign(message, key.secretKey, key.publicKey)
     const valid = yield* Ed25519.verify(signature.signature, message, key.publicKey)
@@ -82,7 +82,7 @@ export const signAs = (
       subject,
       algorithm: "ed25519",
       keyFingerprint,
-      signatureHex: Encoding.encodeHex(signature.signature),
+      signatureHex: Hex.encode(signature.signature),
       valid
     })
   }).pipe(

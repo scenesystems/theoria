@@ -13,6 +13,6 @@ import { Schema } from "effect"
  *
  * @since 0.3.0
  */
-export const Tone = Schema.Literal("primary", "secondary", "tertiary")
+export const Tone = Schema.Literals(["primary", "secondary", "tertiary"])
 
 export type Tone = typeof Tone.Type

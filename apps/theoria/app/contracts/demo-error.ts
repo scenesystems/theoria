@@ -24,4 +24,4 @@ export class DemoExecutionError extends Schema.TaggedError<DemoExecutionError>(
 
 export type DemoError = DemoRequestError | DemoDecodeError | DemoExecutionError
 
-export const DemoError = Schema.Union(DemoRequestError, DemoDecodeError, DemoExecutionError)
+export const DemoError = Schema.Union([DemoRequestError, DemoDecodeError, DemoExecutionError])

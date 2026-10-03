@@ -1,10 +1,13 @@
-import { HttpServerRequest, Url } from "@effect/platform"
 import { Effect, Equal, Option } from "effect"
+import { HttpServerRequest, Url } from "effect/http"
 
 import { siteMetadata } from "../contracts/metadata.js"
 
 /** The production hostname; `siteUrl` is a checked constant, so a parse failure is a defect. */
-const canonicalHost: Effect.Effect<string> = Effect.map(Url.fromString(siteMetadata.siteUrl), (url) => url.host).pipe(
+const canonicalHost: Effect.Effect<string> = Effect.map(
+  Effect.fromResult(Url.fromString(siteMetadata.siteUrl)),
+  (url) => url.host
+).pipe(
   Effect.orDie
 )
 
@@ -23,7 +26,7 @@ export const requestIsCanonical: Effect.Effect<boolean, never, HttpServerRequest
   function*() {
     const request = yield* HttpServerRequest.HttpServerRequest
     const host = yield* canonicalHost
-    const url = yield* Effect.option(Url.fromString(request.originalUrl))
+    const url = yield* Effect.option(Effect.fromResult(Url.fromString(request.originalUrl)))
     return Option.exists(url, (named) => Equal.equals(named.host, host))
   }
 )
