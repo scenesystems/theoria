@@ -1,6 +1,6 @@
 // @vitest-environment node
 import { expect, layer } from "@effect/vitest"
-import { Chunk, Duration, Effect, Fiber, Layer, Option, Schedule, Stream } from "effect"
+import { Duration, Effect, Fiber, Layer, Option, Schedule, Stream } from "effect"
 import * as Arr from "effect/Array"
 
 import { placeScenarioMeta } from "../../app/contracts/imagined-place.js"
@@ -38,7 +38,7 @@ import { drawn, fromAnswerToItsCode } from "./demo.js"
 layer(Layer.merge(SiteLive, BrowserLive), { excludeTestServices: true, timeout: "3 minutes" })(
   "Theoria home page demo in Chromium: marks and their answers",
   (it) => {
-    it.scoped("every mark answers, and the answer lights what made it", () =>
+    it("every mark answers, and the answer lights what made it", () =>
       Effect.gen(function*() {
         const { failures, page } = yield* openPage()
         yield* goto(page, "/")
@@ -93,7 +93,7 @@ layer(Layer.merge(SiteLive, BrowserLive), { excludeTestServices: true, timeout: 
 
         // The line that digested the neighbor's proposal lights the one disc that proposal put on the paper.
         const built = page.locator("[data-place-how-its-built]")
-        const propose = yield* Arr.findFirst(placeStepDefinitions, (step) => step.id === "propose")
+        const propose = yield* Effect.fromOption(Arr.findFirst(placeStepDefinitions, (step) => step.id === "propose"))
         yield* click(built.getByRole("tab", { name: propose.name }))
         const digestLine = built.locator("[data-provenance*='proposal-digest'] [data-code-annotation]")
         yield* act(() => digestLine.scrollIntoViewIfNeeded())
@@ -101,11 +101,11 @@ layer(Layer.merge(SiteLive, BrowserLive), { excludeTestServices: true, timeout: 
         yield* hidden(overlay)
         yield* click(digestLine)
         yield* visible(overlay)
-        const neighborName = yield* Option.fromNullable(
+        const neighborName = yield* Effect.fromOption(Option.fromNullishOr(
           yield* act(() =>
             demo.locator("[data-place-proposal='neighbor'] [data-place-feature]").getAttribute("data-place-feature")
           )
-        )
+        ))
         yield* count(demo.locator("[data-place-marker][data-place-focused]"), 1)
         yield* attribute(demo.locator("[data-place-marker][data-place-focused]"), "data-place-marker", neighborName)
 
@@ -116,7 +116,7 @@ layer(Layer.merge(SiteLive, BrowserLive), { excludeTestServices: true, timeout: 
         // The digest's answer stays until dismissed — over the step tabs, here — so it is let go first.
         yield* press(page, "Escape")
         yield* hidden(overlay)
-        const arrange = yield* Arr.findFirst(placeStepDefinitions, (step) => step.id === "arrange")
+        const arrange = yield* Effect.fromOption(Arr.findFirst(placeStepDefinitions, (step) => step.id === "arrange"))
         yield* click(built.getByRole("tab", { name: arrange.name }))
         // Between two answers the overlay holds both for a moment; the title asked about is the current one's.
         const title = overlay.locator("[data-current]").getByRole("heading", { level: 3 })
@@ -159,21 +159,21 @@ layer(Layer.merge(SiteLive, BrowserLive), { excludeTestServices: true, timeout: 
      * By keyboard the landing shows its ring; under reduced motion it lands at
      * once rather than gliding.
      */
-    it.scoped("an answer's credited line, followed by pointer, lands on that line of code", () =>
+    it("an answer's credited line, followed by pointer, lands on that line of code", () =>
       Effect.gen(function*() {
         const { failures, landing, siteId } = yield* fromAnswerToItsCode("pointer", "no-preference")
         expect(landing).toMatchObject({ site: siteId, inViewport: true })
         expect(yield* failures).toEqual([])
       }))
 
-    it.scoped("an answer's credited line, followed by keyboard, lands on that line with its focus ring", () =>
+    it("an answer's credited line, followed by keyboard, lands on that line with its focus ring", () =>
       Effect.gen(function*() {
         const { failures, landing, siteId } = yield* fromAnswerToItsCode("keyboard", "no-preference")
         expect(landing).toEqual({ site: siteId, focusVisible: true, inViewport: true })
         expect(yield* failures).toEqual([])
       }))
 
-    it.scoped("under reduced motion the credited line is landed on at once", () =>
+    it("under reduced motion the credited line is landed on at once", () =>
       Effect.gen(function*() {
         const { failures, landing, siteId } = yield* fromAnswerToItsCode("keyboard", "reduce")
         expect(landing).toEqual({ site: siteId, focusVisible: true, inViewport: true })
@@ -185,14 +185,14 @@ layer(Layer.merge(SiteLive, BrowserLive), { excludeTestServices: true, timeout: 
      * lands on it there too, and a line of the prose, credited to a step other
      * than the one open, lands with that step's code shown.
      */
-    it.scoped("on a phone, a disc's credited line, followed by pointer, is landed on", () =>
+    it("on a phone, a disc's credited line, followed by pointer, is landed on", () =>
       Effect.gen(function*() {
         const { failures, landing, siteId } = yield* fromAnswerToItsCode("pointer", "no-preference", "disc", phone)
         expect(landing).toMatchObject({ site: siteId, inViewport: true })
         expect(yield* failures).toEqual([])
       }))
 
-    it.scoped("on a phone, a prose line's credited line, followed by keyboard, opens its own step and lands", () =>
+    it("on a phone, a prose line's credited line, followed by keyboard, opens its own step and lands", () =>
       Effect.gen(function*() {
         const { failures, landing, siteId, step } = yield* fromAnswerToItsCode(
           "keyboard",
@@ -205,7 +205,7 @@ layer(Layer.merge(SiteLive, BrowserLive), { excludeTestServices: true, timeout: 
         expect(yield* failures).toEqual([])
       }))
 
-    it.scoped("the lines answer from the keyboard, and a proposal lights the line its sentence stands on", () =>
+    it("the lines answer from the keyboard, and a proposal lights the line its sentence stands on", () =>
       Effect.gen(function*() {
         const { failures, page } = yield* openPage()
         yield* goto(page, "/")
@@ -263,7 +263,9 @@ layer(Layer.merge(SiteLive, BrowserLive), { excludeTestServices: true, timeout: 
         yield* count(demo.locator("[data-place-marker][data-place-focused]"), 1)
         yield* count(demo.locator("[data-place-line][data-place-focused]"), 1)
         const litLine = demo.locator("[data-place-line][data-place-focused]")
-        const anchored = yield* Option.fromNullable(yield* act(() => litLine.getAttribute("data-place-line")))
+        const anchored = yield* Effect.fromOption(
+          Option.fromNullishOr(yield* act(() => litLine.getAttribute("data-place-line")))
+        )
         // The declined proposal's sentence is not in the prose: its name lights no line.
         const declined = demo.locator("[data-place-proposal][data-place-recorded='false']").first()
         yield* click(declined.locator("[data-place-feature]"))
@@ -297,7 +299,7 @@ layer(Layer.merge(SiteLive, BrowserLive), { excludeTestServices: true, timeout: 
      * Escape hands it back to the mark; a second press on the same mark closes
      * it, and a press on another mark moves the answer there.
      */
-    it.scoped("the pointer reveals nothing; a press opens, moves and closes the answer", () =>
+    it("the pointer reveals nothing; a press opens, moves and closes the answer", () =>
       Effect.gen(function*() {
         const { failures, page } = yield* openPage()
         yield* goto(page, "/")
@@ -379,7 +381,7 @@ layer(Layer.merge(SiteLive, BrowserLive), { excludeTestServices: true, timeout: 
      * stay where the reader is rather than handing it to whatever was focused
      * before.
      */
-    it.scoped("a mark leaving the page takes its answer with it", () =>
+    it("a mark leaving the page takes its answer with it", () =>
       Effect.gen(function*() {
         const { failures, page } = yield* openPage()
         yield* goto(page, "/")
@@ -411,7 +413,7 @@ layer(Layer.merge(SiteLive, BrowserLive), { excludeTestServices: true, timeout: 
         expect(yield* failures).toEqual([])
       }))
 
-    it.scoped("an answer opened on the drawing survives the next story's build and closes with its drawing", () =>
+    it("an answer opened on the drawing survives the next story's build and closes with its drawing", () =>
       Effect.gen(function*() {
         const { failures, page } = yield* openPage()
         yield* goto(page, "/")
@@ -430,19 +432,18 @@ layer(Layer.merge(SiteLive, BrowserLive), { excludeTestServices: true, timeout: 
         yield* attribute(radio, "aria-checked", "true")
         yield* click(disc)
         yield* visible(overlay)
-        const title = yield* Option.fromNullable(yield* act(() => heading.textContent()))
+        const title = yield* Effect.fromOption(Option.fromNullishOr(yield* act(() => heading.textContent())))
         // The answer's title, sampled a frame apart for as long as the popup is on the page:
         // while the next story is built the old drawing stays and so does its answer; the
         // moment the new drawing replaces it the answer goes — fading with the words it had,
         // never emptied, and never having named another build's feature.
-        const sampling = yield* Stream.repeatEffectWithSchedule(
+        const sampling = yield* Stream.fromEffectSchedule(
           act(() => page.evaluate(answerPopupsShowing)),
-          Schedule.spaced("16 millis").pipe(Schedule.upTo(Duration.seconds(12)))
+          Schedule.spaced("16 millis").pipe(Schedule.upTo({ duration: Duration.seconds(12) }))
         ).pipe(
           Stream.takeUntil(({ popups }) => popups === 0),
           Stream.runCollect,
-          Effect.map(Chunk.toReadonlyArray),
-          Effect.fork
+          Effect.forkChild
         )
         // A few frames of the pending build are sampled with the answer open before it is let go.
         yield* Effect.sleep(Duration.millis(200))
@@ -459,7 +460,7 @@ layer(Layer.merge(SiteLive, BrowserLive), { excludeTestServices: true, timeout: 
         expect(yield* failures).toEqual([])
       }))
 
-    it.scoped("a preview opened from an answer stacks on it, and each dismisses in turn", () =>
+    it("a preview opened from an answer stacks on it, and each dismisses in turn", () =>
       Effect.gen(function*() {
         const { failures, page } = yield* openPage()
         yield* goto(page, "/")

@@ -42,12 +42,12 @@ import type { PlaceholderMotion } from "../primitives/Skeleton.js"
 
 /** Formats stage measurements with decimal half-away-from-zero rounding and retained trailing zeroes. */
 export const fixedDecimal = (value: number, places: number): string =>
-  Option.match(BigDecimal.safeFromNumber(value), {
+  Option.match(BigDecimal.fromNumber(value), {
     onNone: () => Inspectable.toStringUnknown(value),
     onSome: (decimal) => {
       const rounded = BigDecimal.scale(BigDecimal.round(decimal, { scale: places, mode: "half-from-zero" }), places)
       const digits = Str.padStart(Num.increment(places), "0")(
-        Schema.encodeSync(Schema.BigInt)(BI.abs(rounded.value))
+        BI.abs(rounded.value).toString()
       )
       const separator = Num.subtract(Str.length(digits), places)
       const sign = Bool.match(BigDecimal.isNegative(decimal), { onTrue: () => "-", onFalse: () => "" })
@@ -115,7 +115,7 @@ export const participantTone = (role: ParticipantRole): Tone =>
 
 /** Features from the composition belong to the author, who signed version 1. */
 export const markerContributor = (marker: PlaceMarker): ParticipantRole =>
-  Option.getOrElse(Option.fromNullable(marker.contributedBy), (): ParticipantRole => "author")
+  Option.getOrElse(Option.fromNullishOr(marker.contributedBy), (): ParticipantRole => "author")
 
 export const markerTone = (marker: PlaceMarker): ToneClasses =>
   toneClassesFor(participantTone(markerContributor(marker)))
@@ -167,7 +167,7 @@ const actOutline = (tone: Tone): string => discSlotClassName(tone, "actOutline")
  * disc's opacity and must not find a CSS transition on it.
  */
 export const discActOutline = (act: PlaceAct, marker: PlaceMarker): string => {
-  const proposer = Option.fromNullable(marker.contributedBy)
+  const proposer = Option.fromNullishOr(marker.contributedBy)
   return Match.value(act).pipe(
     Match.when("compose", () =>
       Option.match(proposer, {
@@ -231,15 +231,15 @@ export const bandDiscClassName = (role: ParticipantRole, drawn: PlaceDiscDrawn, 
 /** A disc of the place set in the band's row: the marker at its centre there. */
 export const BandDisc = Schema.Struct({
   marker: PlaceMarker,
-  cx: Schema.Number
+  cx: Schema.Finite
 })
 export type BandDisc = typeof BandDisc.Type
 
 /** The band's drawing, in the stage's own units: discs in a row on a strip of paper. */
 export const BandRow = Schema.Struct({
-  width: Schema.Number.pipe(Schema.positive()),
-  height: Schema.Number.pipe(Schema.positive()),
-  cy: Schema.Number,
+  width: Schema.Finite.check(Schema.isGreaterThan(0)),
+  height: Schema.Finite.check(Schema.isGreaterThan(0)),
+  cy: Schema.Finite,
   discs: Schema.Array(BandDisc)
 })
 export type BandRow = typeof BandRow.Type
@@ -321,7 +321,7 @@ export const bandDiscPlacing = (preference: MotionPreference, cx: number) =>
 export const ghostClassName = (role: ParticipantRole): string => discSlotClassName(participantTone(role), "ghost")
 
 export const markerLabel = (marker: PlaceMarker): string =>
-  Option.match(Option.fromNullable(marker.contributedBy), {
+  Option.match(Option.fromNullishOr(marker.contributedBy), {
     onNone: () => marker.name,
     onSome: (role) => `${marker.name}, added by ${Str.toLocaleLowerCase("en-US")(participantLabel(role))}`
   })
@@ -338,7 +338,7 @@ export const focusedAttribute = (focused: boolean) =>
   })
 
 /** What a region built from the place says of the build: here, or still pending. */
-export const BuildPresence = Schema.Literal("built", "pending")
+export const BuildPresence = Schema.Literals(["built", "pending"])
 export type BuildPresence = typeof BuildPresence.Type
 export const buildPresence = <A>(build: Option.Option<A>): BuildPresence =>
   Option.match(build, { onNone: (): BuildPresence => "pending", onSome: (): BuildPresence => "built" })
@@ -424,7 +424,7 @@ export const proposalAnchorLine = (projection: PlaceProjection, record: Proposal
       const ends = Arr.drop(Arr.scan(letters, 0, (sum, text) => Num.sum(sum, Str.length(text))), 1)
       return Option.flatMap(
         Str.indexOf(lettersOf(record.proposal.feature.description))(Arr.join(letters, "")),
-        (start) => Arr.findFirstIndex(ends, (end) => Num.greaterThan(end, start))
+        (start) => Arr.findFirstIndex(ends, (end) => Num.isGreaterThan(end, start))
       )
     }
   })
@@ -555,11 +555,11 @@ export const drawablePresets = (presets: Iterable<number>, maxDrawable: number) 
   const fitting = Arr.append(
     Arr.filter(
       Arr.fromIterable(presets),
-      (preset) => Num.lessThanOrEqualTo(Num.sum(preset, presetGapMin), maxDrawable)
+      (preset) => Num.isLessThanOrEqualTo(Num.sum(preset, presetGapMin), maxDrawable)
     ),
     maxDrawable
   )
-  return Bool.match(Num.greaterThanOrEqualTo(Arr.length(fitting), 2), {
+  return Bool.match(Num.isGreaterThanOrEqualTo(Arr.length(fitting), 2), {
     onTrue: () => fitting,
     onFalse: () => Arr.empty<number>()
   })

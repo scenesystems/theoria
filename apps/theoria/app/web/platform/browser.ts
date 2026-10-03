@@ -1,6 +1,7 @@
-import { FetchHttpClient, type HttpClient, type KeyValueStore } from "@effect/platform"
-import { Clipboard } from "@effect/platform-browser"
+import { BrowserHttpClient, Clipboard } from "@effect/platform-browser"
 import { Layer } from "effect"
+import type * as HttpClient from "effect/http/HttpClient"
+import type * as KeyValueStore from "effect/persistence/KeyValueStore"
 
 import * as BrowserCookies from "./BrowserCookies.js"
 import * as BrowserDocument from "./BrowserDocument.js"
@@ -30,5 +31,5 @@ export const BrowserLive: Layer.Layer<BrowserServices> = Layer.mergeAll(
   BrowserDocument.layer,
   BrowserCookies.layerKeyValueStore.pipe(Layer.provide(BrowserDocument.layer)),
   Clipboard.layer,
-  FetchHttpClient.layer
+  BrowserHttpClient.layerFetch
 )

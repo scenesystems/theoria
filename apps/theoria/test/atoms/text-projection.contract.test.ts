@@ -1,8 +1,9 @@
-import type { Atom as AtomType } from "@effect-atom/atom"
-import { Registry, Result } from "@effect-atom/atom"
 import { describe, expect, it } from "@effect/vitest"
 import { PreparationKey, TextMeasurer } from "@scenesystems/effect-text"
 import { Effect, Ref } from "effect"
+import { AtomRegistry as Registry } from "effect/reactivity"
+import type { AsyncResult as Result } from "effect/reactivity"
+import type * as AtomType from "effect/reactivity/Atom"
 import type { TextProjection } from "../../app/contracts/text.js"
 
 import { fontReadinessRevisionAtom, textLayoutLayerAtom } from "../../app/web/atoms/text-layout.js"
@@ -13,38 +14,44 @@ import {
   TextProjectionKey
 } from "../../app/web/atoms/text.js"
 import { deterministicTextLayoutLive } from "../../app/web/text/browserTextLayout.js"
-import { prepareTextProjection, projectPreparedText } from "../../app/web/view/text/authority.js"
+import {
+  prepareTextProjection,
+  projectPreparedText,
+  ProjectPreparedTextOptions
+} from "../../app/web/view/text/authority.js"
 
 /** happy-dom has no canvas, so the registry measures with the deterministic layer. */
-const makeTestRegistry = (): Registry.Registry =>
+const makeTestRegistry = (): Registry.AtomRegistry =>
   Registry.make({
-    initialValues: [[textLayoutLayerAtom, deterministicTextLayoutLive]],
-    scheduleTask: (f) => {
-      f()
-    }
+    initialValues: [[textLayoutLayerAtom, deterministicTextLayoutLive]]
   })
+
+const testRegistry = Effect.acquireRelease(
+  Effect.sync(makeTestRegistry),
+  (registry) => Effect.sync(() => registry.dispose())
+)
 
 /** Polls the atom until a projection is present. */
 const waitForProjection = (
-  registry: Registry.Registry,
-  atom: AtomType.Atom<Result.Result<TextProjection, TextProjectionError>>
-): Effect.Effect<TextProjection, never, never> =>
-  Effect.eventually(Effect.sync(() => registry.get(atom)).pipe(Effect.flatMap(Result.value)))
+  registry: Registry.AtomRegistry,
+  atom: AtomType.Atom<Result.AsyncResult<TextProjection, TextProjectionError>>
+): Effect.Effect<TextProjection, never, never> => Registry.getResult(registry, atom).pipe(Effect.orDie)
 
 const makeAuthority = (prepareCalls: Ref.Ref<number>): TextProjectionAuthority =>
   new TextProjectionAuthority({
     prepare: (identity) =>
       Ref.update(prepareCalls, (count) => count + 1).pipe(
-        Effect.zipRight(prepareTextProjection(identity))
+        Effect.andThen(prepareTextProjection(identity))
       ),
-    project: ({ prepared, request, maxWidth }) => projectPreparedText({ prepared, request, maxWidth })
+    project: ({ prepared, request, maxWidth }) =>
+      projectPreparedText(new ProjectPreparedTextOptions({ prepared, request, maxWidth }))
   })
 
 describe("text projection contracts", () => {
   it.effect("generic text projection reuses a prepared handle across width changes", () =>
     Effect.gen(function*() {
       const prepareCalls = yield* Ref.make(0)
-      const registry = makeTestRegistry()
+      const registry = yield* testRegistry
       const projectionAtom = makeTextProjectionAtom(makeAuthority(prepareCalls))
       const text = "The same prepared handle should survive width changes in the generic projection path."
       const at = (maxWidth: number) =>
@@ -62,7 +69,7 @@ describe("text projection contracts", () => {
   it.effect("the faces' arrival prepares the text again: a prepared handle is the revision's, not the page's", () =>
     Effect.gen(function*() {
       const prepareCalls = yield* Ref.make(0)
-      const registry = makeTestRegistry()
+      const registry = yield* testRegistry
       const projectionAtom = makeTextProjectionAtom(makeAuthority(prepareCalls))(
         new TextProjectionKey({
           role: "row-label",
@@ -85,7 +92,7 @@ describe("text projection contracts", () => {
 
   it.effect("a measurement failure reaches the surface as the failure, not as an absent projection", () =>
     Effect.gen(function*() {
-      const registry = makeTestRegistry()
+      const registry = yield* testRegistry
       const failing = new TextProjectionAuthority({
         prepare: (identity) =>
           Effect.fail(
@@ -96,7 +103,8 @@ describe("text projection contracts", () => {
               reason: "no canvas"
             })
           ),
-        project: ({ prepared, request, maxWidth }) => projectPreparedText({ prepared, request, maxWidth })
+        project: ({ prepared, request, maxWidth }) =>
+          projectPreparedText(new ProjectPreparedTextOptions({ prepared, request, maxWidth }))
       })
       const projectionAtom = makeTextProjectionAtom(failing)(
         new TextProjectionKey({
@@ -107,9 +115,7 @@ describe("text projection contracts", () => {
         })
       )
 
-      const failure = yield* Effect.eventually(
-        Effect.sync(() => registry.get(projectionAtom)).pipe(Effect.flatMap(Result.error))
-      )
+      const failure = yield* Effect.flip(Registry.getResult(registry, projectionAtom))
 
       expect(failure).toBeInstanceOf(TextMeasurer.Failed)
       expect(failure).toMatchObject({ reason: "no canvas" })

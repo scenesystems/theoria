@@ -63,9 +63,9 @@ describe("Typography contract", () => {
       // effect-text measures a face at a size and weight; letter-spacing is not in its font descriptor. A role
       // whose measured width decides a box — code laid out by projection, a disc's name clipped to the width it
       // was measured to fit — would paint wider than it measured with any tracking, so it carries none.
-      const projected = Arr.filterMap(
+      const projected = Arr.flatMap(
         textSemantics,
-        (semantics) => semantics.wrapAuthority === "effect-text-projected" ? Option.some(semantics.role) : Option.none()
+        (semantics) => semantics.wrapAuthority === "effect-text-projected" ? Arr.of(semantics.role) : Arr.empty()
       )
       const measured = Arr.append(projected, labelRole)
       expect(measured).toContain("code-block")

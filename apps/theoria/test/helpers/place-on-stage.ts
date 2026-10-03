@@ -1,9 +1,9 @@
-import { Registry, Result } from "@effect-atom/atom"
 import { layer } from "@effect/vitest"
 import { Cipher } from "@scenesystems/seal"
-import { Context, Data, Effect, Layer, Record, Tuple } from "effect"
+import { Context, Effect, Layer, Record, Tuple } from "effect"
 import * as Arr from "effect/Array"
 import * as HashSet from "effect/HashSet"
+import { AsyncResult as Result, AtomRegistry as Registry } from "effect/reactivity"
 
 import { Arrangement } from "../../app/contracts/demo/imagined-place-arrangement.js"
 import { stageFor } from "../../app/contracts/demo/imagined-place-flow.js"
@@ -87,20 +87,20 @@ const makeOnStage = Effect.gen(function*() {
     rendering: otherRendering,
     paper: otherRendering.projection.stageHeight
   })
-  return Data.struct({
+  return {
     build,
     kept,
     trial,
     showingTrial,
     showingKept,
-    other: Data.struct({ build: otherBuild, showing: otherShowing })
-  })
+    other: { build: otherBuild, showing: otherShowing }
+  }
 })
 
 /** The two builds, with the first build's trial and kept frames and the other build's complete frame. */
-export const onStage = Context.GenericTag<Effect.Effect.Success<typeof makeOnStage>>(
-  "@theoria/test/helpers/PlaceOnStage"
-)
+export class onStage
+  extends Context.Service<onStage, Effect.Success<typeof makeOnStage>>()("@theoria/test/helpers/PlaceOnStage")
+{}
 
 /**
  * Builds the immutable fixture once per test suite, not once per assertion.
@@ -116,18 +116,14 @@ export const describeOnStage = layer(Layer.effect(onStage, makeOnStage), { timeo
  * for as long as the page stands. A seeded value only stands while its node
  * does; unmounted, the node goes when the last thing reading it lets go,
  * and the next read computes the atom afresh — for the build, from the
- * network. Tasks run inline, so every derivation is settled by the time
- * `set` returns.
+ * network. Callers await scheduled derivations before reading their results.
  */
-export const pageShowing = (build: PlaceBuild, shown: PlaceRenderFrame): Registry.Registry => {
+export const pageShowing = (build: PlaceBuild, shown: PlaceRenderFrame): Registry.AtomRegistry => {
   const registry = Registry.make({
     initialValues: Tuple.make(
       Tuple.make(placeBuildAtom, Result.success(build)),
       Tuple.make(placeShownFrameAtom, Result.success(shown))
-    ),
-    scheduleTask: (task) => {
-      task()
-    }
+    )
   })
   registry.mount(placeBuildAtom)
   registry.mount(placeShownFrameAtom)

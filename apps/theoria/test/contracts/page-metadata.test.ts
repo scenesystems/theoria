@@ -9,12 +9,14 @@ import { structuredDataJson } from "../../app/contracts/structured-data.js"
 import { renderHead } from "../../app/server/render-head.js"
 import { docsManifestFixture } from "../helpers/docs-fixtures.js"
 
-const Graph = Schema.parseJson(Schema.Struct({
+const Graph = Schema.fromJsonString(Schema.Struct({
   "@context": Schema.Literal("https://schema.org"),
-  "@graph": Schema.Array(Schema.Struct({ "@type": Schema.String }, { key: Schema.String, value: Schema.Unknown }))
+  "@graph": Schema.Array(
+    Schema.StructWithRest(Schema.Struct({ "@type": Schema.String }), [Schema.Record(Schema.String, Schema.Unknown)])
+  )
 }))
 
-const graphOf = (json: string) => Schema.decodeUnknownSync(Graph)(json)["@graph"]
+const graphOf = (json: string) => Schema.decodeSync(Graph)(json)["@graph"]
 
 /** The content of the `Meta` entry keyed `key`; empty when the head carries none. */
 const metaContent = (entries: ReadonlyArray<HeadEntry>, key: string): string =>

@@ -44,8 +44,8 @@ session. The frontend development server uses port `5175`.
   response envelope, and the text and theme tokens.
 - `app/server` serves static assets and the typed API: health, version,
   sitemap, and `POST /api/imagined-place/build`.
-- `app/web` contains the React views and `@effect-atom/atom` state for the
-  home page and the docs pages.
+- `app/web` contains the React views and core Effect reactivity state, with
+  `@effect/atom-react` bindings, for the home page and the docs pages.
 
 ## Verify changes
 

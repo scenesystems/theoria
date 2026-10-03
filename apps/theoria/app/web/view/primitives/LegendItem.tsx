@@ -21,7 +21,7 @@ export const LegendItem = ({
 }) => (
   <Cluster className="gap-1.5">
     <Layer aria-hidden render={<span />} className={`inline-flex size-2 shrink-0 rounded-full ${tone.bg}`} />
-    {Option.match(Option.fromNullable(index), {
+    {Option.match(Option.fromNullishOr(index), {
       onNone: () => null,
       onSome: (value) => (
         <SemanticText as="span" className="tabular-nums text-ink-tertiary" role="row-value" text={String(value)} />

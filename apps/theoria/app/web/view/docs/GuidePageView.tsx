@@ -56,7 +56,7 @@ const Heading = (block: typeof GuideHeading.Type) => {
 }
 
 /** A guide list is ordered or not; the element says which. */
-const ListElement = Schema.Literal("ol", "ul")
+const ListElement = Schema.Literals(["ol", "ul"])
 type ListElement = typeof ListElement.Type
 
 const List = ({ items, ordered }: typeof GuideList.Type) => {

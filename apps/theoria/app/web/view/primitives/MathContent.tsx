@@ -1,4 +1,4 @@
-import { Boolean, Data, Either } from "effect"
+import { Boolean, Data, Result } from "effect"
 import { renderToString } from "katex"
 
 import type { MathExpression } from "@theoria/docs-model"
@@ -16,7 +16,7 @@ class InvalidLatex extends Data.TaggedError("InvalidLatex")<{
  * Invalid input stays visible as escaped source instead of failing the page.
  */
 export const MathContent = ({ display, text }: MathExpression) =>
-  Either.try({
+  Result.try({
     try: () =>
       renderToString(text, {
         displayMode: display,
@@ -28,14 +28,14 @@ export const MathContent = ({ display, text }: MathExpression) =>
         maxExpand: 1000
       }),
     catch: (cause) => new InvalidLatex({ source: text, cause })
-  }).pipe(Either.match({
-    onLeft: (error) => (
+  }).pipe(Result.match({
+    onFailure: (error) => (
       <SemanticContent as="span" role="body">
         {"Invalid LaTeX: "}
         <SemanticContent as="code" role="code-meta">{error.source}</SemanticContent>
       </SemanticContent>
     ),
-    onRight: (mathml) => (
+    onSuccess: (mathml) => (
       <span
         className={Boolean.match(display, {
           onTrue: () => "math-content block overflow-x-auto py-2",

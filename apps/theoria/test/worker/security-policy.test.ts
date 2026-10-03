@@ -51,26 +51,26 @@ const packageMenu = (page: Page, viewport: Viewport) =>
         yield* click(page.getByRole("button", { name: "Open navigation" }))
         yield* visible(page.getByRole("dialog"))
       }),
-      () => drawer
+      Effect.succeed(drawer)
     )
     yield* click(page.getByRole("button", { name: "Choose package" }))
     yield* visible(page.getByRole("menuitem").first())
     yield* press(page, "Escape")
-    yield* Effect.when(press(page, "Escape"), () => drawer)
+    yield* Effect.when(press(page, "Escape"), Effect.succeed(drawer))
   })
 
 /** The policy the document was served under, from the navigation's own response. */
 const servedPolicy = (page: Page, path: string) =>
   Effect.flatMap(act(() => page.goto(path)), (response) =>
-    Option.match(Option.fromNullable(response), {
-      onNone: () => Effect.dieMessage(`no response for ${path}`),
+    Option.match(Option.fromNullishOr(response), {
+      onNone: () => Effect.die(`no response for ${path}`),
       onSome: (some) => Effect.map(act(() => some.headerValue("content-security-policy")), (policy) => policy ?? "")
     }))
 
 layer(Layer.merge(SiteLive, BrowserLive), { excludeTestServices: true, timeout: "4 minutes" })(
   "Theoria security policy in Chromium",
   (it) => {
-    it.scoped("the page runs under a policy that admits no inline style, and nothing it does is refused", () =>
+    it("the page runs under a policy that admits no inline style, and nothing it does is refused", () =>
       Effect.forEach(viewports, (viewport) =>
         Effect.gen(function*() {
           const where = `${String(viewport.width)}×${String(viewport.height)}`

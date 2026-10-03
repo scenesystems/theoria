@@ -1,9 +1,9 @@
-import { FileSystem, Path, Url } from "@effect/platform"
-import { BunContext } from "@effect/platform-bun"
+import { BunFileSystem } from "@effect/platform-bun"
 import { describe, expect, it } from "@effect/vitest"
 import * as Numeric from "@scenesystems/effect-math/Numeric"
-import { Effect, Number as Num, Option, Order, Schema } from "effect"
+import { Effect, FileSystem, Layer, Number as Num, Option, Order, Path, Schema } from "effect"
 import * as Arr from "effect/Array"
+import * as Url from "effect/http/Url"
 import * as Str from "effect/String"
 
 import { brandColor, BrandRole, mark, markStroke } from "../../app/contracts/brand.js"
@@ -21,11 +21,11 @@ import { drawMark, favicon, palette, siteCard, solidIcon } from "../../scripts/s
 /** The app's root, from this file rather than the working directory: the root test run starts elsewhere. */
 const appRoot: Effect.Effect<string, never, Path.Path> = Effect.gen(function*() {
   const path = yield* Path.Path
-  return yield* path.fromFileUrl(yield* Url.fromString("../../", import.meta.url))
+  return yield* path.fromFileUrl(yield* Effect.fromResult(Url.fromString("../../", import.meta.url)))
 }).pipe(Effect.orDie)
 
 const descends = (values: ReadonlyArray<number>): boolean =>
-  Arr.every(Arr.zip(values, Arr.drop(values, 1)), ([above, below]) => Order.greaterThan(Num.Order)(above, below))
+  Arr.every(Arr.zip(values, Arr.drop(values, 1)), ([above, below]) => Order.isGreaterThan(Num.Order)(above, below))
 
 /** A face's mean depth stands in for its light here: the face turned to the light is the nearest. */
 const opacities = Arr.map(mark.faces, (face) => face.fillOpacity)
@@ -48,8 +48,8 @@ describe("brand contract", () => {
       expect(mark.viewBox.width).toBeCloseTo(Num.sum(1.6927, 0.12), 4)
       expect(mark.viewBox.height).toBeCloseTo(Num.sum(1.3938, 0.12), 4)
       // The frame is centred on the origin.
-      expect(mark.viewBox.x).toBeCloseTo(Num.negate(Numeric.unsafeDivide(mark.viewBox.width, 2)), 4)
-      expect(mark.viewBox.y).toBeCloseTo(Num.negate(Numeric.unsafeDivide(mark.viewBox.height, 2)), 4)
+      expect(mark.viewBox.x).toBeCloseTo(Num.multiply(Numeric.unsafeDivide(mark.viewBox.width, 2), -1), 4)
+      expect(mark.viewBox.y).toBeCloseTo(Num.multiply(Numeric.unsafeDivide(mark.viewBox.height, 2), -1), 4)
       // Faces are drawn back to front and take less light the further they turn from it: the first is the brightest.
       expect(descends(opacities)).toBe(true)
       expect(Option.getOrElse(Arr.head(opacities), () => 0)).toBeCloseTo(0.8758, 3)
@@ -101,7 +101,7 @@ describe("brand contract", () => {
 
   it.effect("the manifest paints its splash and chrome in the dark canvas its icons stand on", () =>
     Effect.gen(function*() {
-      const manifest = yield* Schema.decode(WebManifest)(yield* renderWebManifest())
+      const manifest = yield* Schema.decodeEffect(WebManifest)(yield* renderWebManifest)
       expect(manifest.background_color).toBe("rgb(7 24 32)")
       expect(manifest.theme_color).toBe(manifest.background_color)
       expect(manifest.name).toBe("Theoria")
@@ -137,10 +137,10 @@ describe("brand contract", () => {
       const html = yield* fileSystem.readFileString(path.join(root, "index.html"))
 
       expect(svg).toBe(renderFaviconSvg())
-      expect(manifest).toBe(yield* renderWebManifest())
+      expect(manifest).toBe(yield* renderWebManifest)
       Arr.forEach(renderThemeColorMetas(), (meta) => expect(html).toContain(meta))
       // The head carries exactly the rendered metas: none with a colour of its own.
       expect(Arr.length(Arr.filter(Str.split(html, "\n"), Str.includes("<meta name=\"theme-color\"")))).toBe(2)
       expect(Str.includes("#")(manifest)).toBe(false)
-    }).pipe(Effect.provide(BunContext.layer)))
+    }).pipe(Effect.provide(Layer.merge(BunFileSystem.layer, Path.layer))))
 })

@@ -1,6 +1,6 @@
-import { Cookies, Error as PlatformError, KeyValueStore } from "@effect/platform"
-import type { Option } from "effect"
-import { Effect, Either, Layer, Record } from "effect"
+import { Effect, Layer, type Option, Record, Result } from "effect"
+import * as Cookies from "effect/http/Cookies"
+import * as KeyValueStore from "effect/persistence/KeyValueStore"
 
 import { colorModeCookieOptions, preferenceCookieRemoval } from "../../contracts/color-mode.js"
 import { BrowserDocument } from "./BrowserDocument.js"
@@ -20,13 +20,11 @@ import { BrowserDocument } from "./BrowserDocument.js"
  * @since 0.3.0
  */
 
-const cookieError = (method: string, key: string, description: string): PlatformError.SystemError =>
-  new PlatformError.SystemError({
-    reason: "InvalidData",
-    module: "KeyValueStore",
+const cookieError = (method: string, key: string, message: string): KeyValueStore.KeyValueStoreError =>
+  new KeyValueStore.KeyValueStoreError({
     method,
-    pathOrDescriptor: key,
-    description
+    key,
+    message
   })
 
 /** Writes one cookie, or fails when its name or value cannot travel in a `Cookie` header. */
@@ -35,10 +33,10 @@ const write = (
   key: string,
   value: string,
   options: Cookies.Cookie["options"]
-): Effect.Effect<void, PlatformError.PlatformError> =>
-  Either.match(Cookies.makeCookie(key, value, options), {
-    onLeft: (error) => Effect.fail(cookieError("set", key, error.message)),
-    onRight: (cookie) =>
+): Effect.Effect<void, KeyValueStore.KeyValueStoreError> =>
+  Result.match(Cookies.makeCookie(key, value, options), {
+    onFailure: (error) => Effect.fail(cookieError("set", key, error.message)),
+    onSuccess: (cookie) =>
       Effect.sync(() => {
         browserDocument.cookie = Cookies.serializeCookie(cookie)
       })
@@ -49,7 +47,7 @@ const read = (browserDocument: Document): Effect.Effect<Record.ReadonlyRecord<st
 
 const make = (browserDocument: Document): KeyValueStore.KeyValueStore =>
   KeyValueStore.makeStringOnly({
-    get: (key) => Effect.map(read(browserDocument), Record.get(key)),
+    get: (key) => Effect.map(read(browserDocument), (cookies) => cookies[key]),
     set: (key, value) => write(browserDocument, key, value, colorModeCookieOptions),
     remove: (key) => write(browserDocument, key, "", preferenceCookieRemoval),
     clear: Effect.flatMap(

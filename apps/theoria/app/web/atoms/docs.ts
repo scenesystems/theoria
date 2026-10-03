@@ -1,7 +1,8 @@
-import { Atom } from "@effect-atom/atom"
-import type { Atom as AtomType, Result } from "@effect-atom/atom"
 import { Clipboard } from "@effect/platform-browser"
 import { Array, Boolean, Effect, Function, Option, Stream, String } from "effect"
+import { Atom } from "effect/reactivity"
+import type * as Result from "effect/reactivity/AsyncResult"
+import type * as AtomType from "effect/reactivity/Atom"
 
 import * as BrowserDocument from "../platform/BrowserDocument.js"
 import * as BrowserWindow from "../platform/BrowserWindow.js"
@@ -32,13 +33,13 @@ export const copyDocsCodeAtom = appRuntime.fn<string>()((source, ctx) =>
           ctx.set(docsCopyFailedCodeAtom, Option.none())
         })
     }),
-    Effect.zipRight(Effect.sleep("2 seconds")),
+    Effect.andThen(Effect.sleep("2 seconds")),
     Effect.tap(() =>
       Effect.forEach(
         Array.make(docsCopiedCodeAtom, docsCopyFailedCodeAtom),
         (atom) =>
           Effect.sync(() => ctx.set(atom, Option.none())).pipe(
-            Effect.when(() => Option.contains(ctx(atom), source))
+            Effect.when(Effect.succeed(Option.contains(ctx(atom), source)))
           ),
         { discard: true }
       )
@@ -57,12 +58,12 @@ const locationHashes: Stream.Stream<string, never, BrowserWindow.BrowserWindow> 
  * mounted. API anchors select a page section rather than a position, so they
  * scroll to the top instead of to an element.
  */
-export const docsLocationHashMountAtom: AtomType.Atom<Result.Result<void>> = appRuntime.atom((get) =>
+export const docsLocationHashMountAtom: AtomType.Atom<Result.AsyncResult<void>> = appRuntime.atom((get) =>
   Stream.runForEach(locationHashes, (hash) =>
     Effect.gen(function*() {
       get.set(docsLocationHashAtom, hash)
 
-      yield* BrowserWindow.scrollToTop.pipe(Effect.when(() => String.startsWith("#api-")(hash)))
+      yield* BrowserWindow.scrollToTop.pipe(Effect.when(Effect.succeed(String.startsWith("#api-")(hash))))
     }))
 )
 
@@ -73,7 +74,7 @@ const isSearchShortcut = (event: KeyboardEvent): boolean =>
   })
 
 /** ⌘K / Ctrl+K opens the docs search while the docs page is mounted. */
-export const docsKeyboardShortcutsAtom: AtomType.Atom<Result.Result<void>> = appRuntime.atom((get) =>
+export const docsKeyboardShortcutsAtom: AtomType.Atom<Result.AsyncResult<void>> = appRuntime.atom((get) =>
   BrowserDocument.preventedKeydowns(isSearchShortcut).pipe(
     Stream.runForEach(() =>
       Effect.sync(() => {

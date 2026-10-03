@@ -52,11 +52,11 @@ const ApiCategoryIndex = ({
     <Stack className="gap-4">
       <SemanticText as="h2" role="section-title" text={category.name} />
       <Stack render={<ul />} className="divide-y divide-hairline-glass border-y border-hairline-glass py-1">
-        {Arr.filterMap(category.exportIds, (id) =>
-          Option.map(
-            exportFor(page, id),
-            (apiExport) => <ApiExportIndexItem apiExport={apiExport} key={apiExport.id} />
-          ))}
+        {Arr.flatMap(category.exportIds, (id) =>
+          Option.match(exportFor(page, id), {
+            onNone: () => [],
+            onSome: (apiExport) => [<ApiExportIndexItem apiExport={apiExport} key={apiExport.id} />]
+          }))}
       </Stack>
     </Stack>
   </Section>

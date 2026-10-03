@@ -22,7 +22,7 @@ describe("the drawing's rest before it travels", () => {
       expect(restBeforeTravel(Option.some("The rock is bare."), "The rock is bare but for lichen.", "full")).toEqual(
         motionExitBound
       )
-      expect(Duration.greaterThan(motionExitBound, motionDuration("exit"))).toBe(true)
+      expect(Duration.isGreaterThan(motionExitBound, motionDuration("exit"))).toBe(true)
     }))
 
   it.effect("the bound is a page's patience, not the exit's length, so a busy page does not travel under lines still leaving", () =>
@@ -30,7 +30,7 @@ describe("the drawing's rest before it travels", () => {
       // A main thread held for a long task — a second or more on a shared machine — stretches an exit past any
       // small multiple of its own length. Ending the rest then puts the old lines, flowed around where the discs
       // were, over discs that have moved on. The bound is only for a signal that never comes.
-      expect(Duration.greaterThanOrEqualTo(motionExitBound, Duration.seconds(2))).toBe(true)
+      expect(Duration.isGreaterThanOrEqualTo(motionExitBound, Duration.seconds(2))).toBe(true)
     }))
 
   it.effect("is nothing while the description is the same, or for a first drawing", () =>

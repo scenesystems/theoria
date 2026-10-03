@@ -1,6 +1,6 @@
-import { Url } from "@effect/platform"
-import { Boolean as Bool, Context, Effect, type Either, Layer, Stream } from "effect"
-import type { IllegalArgumentException } from "effect/Cause"
+import { Boolean as Bool, Context, Effect, Layer, Result, Stream } from "effect"
+import type { IllegalArgumentError } from "effect/Cause"
+import * as Url from "effect/http/Url"
 import * as Num from "effect/Number"
 
 /**
@@ -12,10 +12,10 @@ import * as Num from "effect/Number"
  *
  * @since 0.2.0
  */
-export class BrowserWindow extends Context.Tag("@theoria/app/web/platform/BrowserWindow")<
+export class BrowserWindow extends Context.Service<
   BrowserWindow,
   typeof window
->() {}
+>()("@theoria/app/web/platform/BrowserWindow") {}
 
 /** The ambient window. This is the one place the app reads the global. */
 export const layer: Layer.Layer<BrowserWindow> = Layer.sync(BrowserWindow, () => window)
@@ -23,11 +23,15 @@ export const layer: Layer.Layer<BrowserWindow> = Layer.sync(BrowserWindow, () =>
 /** The document's current URL. A window's own location is always a valid URL, so a parse failure is a defect. */
 export const currentUrl: Effect.Effect<URL, never, BrowserWindow> = Effect.flatMap(
   BrowserWindow,
-  (browserWindow) => Url.fromString(browserWindow.location.href)
-).pipe(Effect.orDie)
+  (browserWindow) =>
+    Result.match(Url.fromString(browserWindow.location.href), {
+      onFailure: Effect.die,
+      onSuccess: Effect.succeed
+    })
+)
 
 /** Resolves `href` against `base` without a service, for callers that already hold the current URL. */
-export const resolveAgainst = (href: string, base: URL): Either.Either<URL, IllegalArgumentException> =>
+export const resolveAgainst = (href: string, base: URL): Result.Result<URL, IllegalArgumentError> =>
   Url.fromString(href, base.href)
 
 /** Adds a same-document history entry without loading anything. */
@@ -69,8 +73,8 @@ export const isScrolledToBottom: Effect.Effect<boolean, never, BrowserWindow> = 
   BrowserWindow,
   (browserWindow) =>
     Bool.and(
-      Num.greaterThan(browserWindow.scrollY, 0),
-      Num.greaterThanOrEqualTo(
+      Num.isGreaterThan(browserWindow.scrollY, 0),
+      Num.isGreaterThanOrEqualTo(
         Num.sum(browserWindow.innerHeight, browserWindow.scrollY),
         Num.subtract(browserWindow.document.documentElement.scrollHeight, 2)
       )

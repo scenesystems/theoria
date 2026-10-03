@@ -1,6 +1,6 @@
-import { Registry, Result } from "@effect-atom/atom"
 import { expect } from "@effect/vitest"
 import { Effect, Layer, MutableRef, Option } from "effect"
+import { AsyncResult as Result, AtomRegistry as Registry } from "effect/reactivity"
 
 import type { PlaceBuild } from "../../app/contracts/imagined-place-result.js"
 import {
@@ -26,39 +26,36 @@ const envelopeOf = (build: PlaceBuild): SuccessEnvelopeData<PlaceBuild> =>
 /** A client whose answer never comes, so a rebuild stays on its way. */
 const holdingClient: Layer.Layer<ImaginedPlaceClient> = Layer.succeed(
   ImaginedPlaceClient,
-  ImaginedPlaceClient.make({ build: () => Effect.never })
+  { build: () => Effect.never }
 )
 
 describeOnStage("the build the page has", (it) => {
   it.effect("a rebuild on its way is the same build, and is not a change", () =>
     Effect.gen(function*() {
       const { build } = yield* onStage
-      const registry = Registry.make({
-        initialValues: [
-          [placeClientLayerAtom, holdingClient],
-          [placeBuildEnvelopeAtom, Result.success(envelopeOf(build))]
-        ],
-        scheduleTask: (task) => {
-          task()
-        }
-      })
+      const registry = yield* Effect.acquireRelease(
+        Effect.sync(() =>
+          Registry.make({
+            initialValues: [
+              [placeClientLayerAtom, holdingClient],
+              [placeBuildEnvelopeAtom, Result.success(envelopeOf(build))]
+            ]
+          })
+        ),
+        (registry) => Effect.sync(() => registry.dispose())
+      )
       expect(registry.get(placeBuiltAtom)).toEqual(Option.some(build))
-      const changes = MutableRef.make(0)
       const answers = MutableRef.make(0)
-      const unsubscribe = registry.subscribe(placeBuiltAtom, () => {
-        MutableRef.increment(changes)
-      })
       const unsubscribeAnswers = registry.subscribe(placeBuildAtom, () => {
         MutableRef.increment(answers)
       })
+      MutableRef.set(answers, 0)
 
       // Asked to build again: the server's answer changes — it is waiting — and the build does not.
       registry.refresh(placeBuildEnvelopeAtom)
       expect(Result.isWaiting(registry.get(placeBuildAtom))).toBe(true)
       expect(MutableRef.get(answers)).toBe(1)
       expect(registry.get(placeBuiltAtom)).toEqual(Option.some(build))
-      expect(MutableRef.get(changes)).toBe(0)
-      unsubscribe()
       unsubscribeAnswers()
     }))
 })

@@ -4,7 +4,7 @@ import type { Locator, Page } from "@playwright/test"
 import { Effect, Layer, Order } from "effect"
 import * as Arr from "effect/Array"
 
-import type { ColorScheme } from "./browser.js"
+import type { BrowserError, ColorScheme } from "./browser.js"
 import {
   act,
   animationsSettled,
@@ -51,7 +51,7 @@ const absent = { color: "", style: "none", width: 0 }
 const mergeSwitch = (page: Page, checked: boolean) =>
   page.locator("[data-place-proposal='program']").getByRole("switch", { checked })
 
-const inForcedColors = (check: (page: Page) => Effect.Effect<void, unknown>) =>
+const inForcedColors = (check: (page: Page) => Effect.Effect<void, BrowserError>) =>
   Effect.forEach(colorSchemes, (scheme) =>
     Effect.gen(function*() {
       const { failures, page } = yield* openPage({ colorScheme: scheme, forcedColors: "active" })
@@ -65,7 +65,7 @@ const inForcedColors = (check: (page: Page) => Effect.Effect<void, unknown>) =>
 layer(Layer.merge(SiteLive, BrowserLive), { excludeTestServices: true, timeout: "2 minutes" })(
   "Theoria home forced colours in Chromium",
   (it) => {
-    it.scoped("focus is outlined in Highlight on a disc, an answer's mark and the primary action", () =>
+    it("focus is outlined in Highlight on a disc, an answer's mark and the primary action", () =>
       inForcedColors((page) =>
         Effect.gen(function*() {
           const highlight = yield* system(page, "Highlight")
@@ -110,7 +110,7 @@ layer(Layer.merge(SiteLive, BrowserLive), { excludeTestServices: true, timeout: 
         })
       ))
 
-    it.scoped("the merge switch tells checked from unchecked by track and thumb", () =>
+    it("the merge switch tells checked from unchecked by track and thumb", () =>
       inForcedColors((page) =>
         Effect.gen(function*() {
           const track = mergeSwitch(page, false)
@@ -131,7 +131,7 @@ layer(Layer.merge(SiteLive, BrowserLive), { excludeTestServices: true, timeout: 
         })
       ))
 
-    it.scoped("the Build tab indicator is a CanvasText line", () =>
+    it("the Build tab indicator is a CanvasText line", () =>
       inForcedColors((page) =>
         Effect.gen(function*() {
           const indicator = page.locator("[data-place-act='build']").getByRole("tablist").locator(
@@ -143,7 +143,7 @@ layer(Layer.merge(SiteLive, BrowserLive), { excludeTestServices: true, timeout: 
         })
       ))
 
-    it.scoped("the strand's current knot is filled and the earlier one open", () =>
+    it("the strand's current knot is filled and the earlier one open", () =>
       inForcedColors((page) =>
         Effect.gen(function*() {
           const merge = mergeSwitch(page, false)
@@ -161,7 +161,7 @@ layer(Layer.merge(SiteLive, BrowserLive), { excludeTestServices: true, timeout: 
         })
       ))
 
-    it.scoped("every disc keeps a CanvasText edge on the Canvas", () =>
+    it("every disc keeps a CanvasText edge on the Canvas", () =>
       inForcedColors((page) =>
         Effect.gen(function*() {
           const canvasText = yield* system(page, "CanvasText")
@@ -177,7 +177,7 @@ layer(Layer.merge(SiteLive, BrowserLive), { excludeTestServices: true, timeout: 
         })
       ))
 
-    it.scoped("an act lights a disc's outline in CanvasText, and a disc it says nothing of wears none", () =>
+    it("an act lights a disc's outline in CanvasText, and a disc it says nothing of wears none", () =>
       inForcedColors((page) =>
         Effect.gen(function*() {
           const canvasText = yield* system(page, "CanvasText")
@@ -193,7 +193,8 @@ layer(Layer.merge(SiteLive, BrowserLive), { excludeTestServices: true, timeout: 
           yield* act(() => page.locator("[data-place-act='compose']").evaluate(scrollElementTo, 0.45))
           yield* attribute(stage, "data-place-stage-act", "compose")
           const composed = yield* edges(discs)
-          const [quiet, lit] = Arr.partition(composed, ({ outline }) => outline.style !== "none")
+          const quiet = Arr.filter(composed, ({ outline }) => outline.style === "none")
+          const lit = Arr.filter(composed, ({ outline }) => outline.style !== "none")
           expect(lit.length).toBeGreaterThan(0)
           expect(quiet.length).toBeGreaterThan(0)
           Arr.forEach(lit, ({ outline }) => {
@@ -203,7 +204,7 @@ layer(Layer.merge(SiteLive, BrowserLive), { excludeTestServices: true, timeout: 
         })
       ))
 
-    it.scoped("a line of code lights in Highlight when pressed, and no line is lit without it", () =>
+    it("a line of code lights in Highlight when pressed, and no line is lit without it", () =>
       inForcedColors((page) =>
         Effect.gen(function*() {
           const highlight = yield* system(page, "Highlight")
@@ -221,12 +222,12 @@ layer(Layer.merge(SiteLive, BrowserLive), { excludeTestServices: true, timeout: 
         })
       ))
 
-    it.scoped("a merged proposer's rule is solid and an unmerged one dashed, both in CanvasText", () =>
+    it("a merged proposer's rule is solid and an unmerged one dashed, both in CanvasText", () =>
       inForcedColors((page) =>
         Effect.gen(function*() {
           const canvasText = yield* system(page, "CanvasText")
           const rules = yield* edges(page.locator("[data-place-proposal]"))
-          expect(Arr.sort(Arr.map(rules, ({ border }) => border.style), Order.string)).toEqual(["dashed", "solid"])
+          expect(Arr.sort(Arr.map(rules, ({ border }) => border.style), Order.String)).toEqual(["dashed", "solid"])
           Arr.forEach(rules, ({ border }) => {
             expect(border.width).toBeGreaterThan(0)
             expect(border.color).toBe(canvasText)
@@ -234,7 +235,7 @@ layer(Layer.merge(SiteLive, BrowserLive), { excludeTestServices: true, timeout: 
         })
       ))
 
-    it.scoped("inline mark labels inherit HighlightText from their pressed button", () =>
+    it("inline mark labels inherit HighlightText from their pressed button", () =>
       inForcedColors((page) =>
         Effect.gen(function*() {
           const highlightText = yield* system(page, "HighlightText")

@@ -1,7 +1,7 @@
 import * as PreparationKey from "@scenesystems/effect-text/PreparationKey"
 import * as Text from "@scenesystems/effect-text/Text"
 import type * as TextMeasurer from "@scenesystems/effect-text/TextMeasurer"
-import { Data, Effect, Number } from "effect"
+import { Data, Effect, Number, Schema } from "effect"
 
 import {
   layoutRequestFor,
@@ -12,7 +12,10 @@ import {
 } from "../../../contracts/text.js"
 import { browserEngineProfile, browserSupportProfileId, type BrowserTextLayout } from "../../text/browserTextLayout.js"
 
-const TextPrepareRequest = TextProjectionRequest.pick("role", "text")
+const TextPrepareRequest = Schema.Struct({
+  role: TextProjectionRequest.fields.role,
+  text: TextProjectionRequest.fields.text
+})
 type TextPrepareRequest = typeof TextPrepareRequest.Type
 
 /** The contract's layout for the role and variant, narrowed to the measure the surface can actually offer. */
@@ -32,12 +35,14 @@ export const prepareIdentityForTextProjection = (
   { role, text }: TextPrepareRequest,
   fontReadinessRevision: PreparationKey.Revision
 ): PreparationKey.PreparationKey =>
-  new PreparationKey.PreparationKey({
-    prepare: prepareInputFor(role, text),
-    engineProfile: browserEngineProfile,
-    supportProfileId: browserSupportProfileId,
-    fontReadinessRevision
-  })
+  new PreparationKey.PreparationKey(
+    new PreparationKey.Options({
+      prepare: prepareInputFor(role, text),
+      engineProfile: browserEngineProfile,
+      supportProfileId: browserSupportProfileId,
+      fontReadinessRevision
+    })
+  )
 
 export const prepareTextProjection = (
   identity: PreparationKey.PreparationKey
@@ -83,5 +88,5 @@ export const projectText = (
   maxWidth: number = maxWidthFor(request.role, request.variant)
 ) =>
   prepareTextProjection(prepareIdentityForTextProjection(request, PreparationKey.initialRevision)).pipe(
-    Effect.map((prepared) => projectPreparedText({ prepared, request, maxWidth }))
+    Effect.map((prepared) => projectPreparedText(new ProjectPreparedTextOptions({ prepared, request, maxWidth })))
   )

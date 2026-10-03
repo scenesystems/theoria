@@ -1,8 +1,8 @@
-import { Result } from "@effect-atom/atom"
 import { Boolean as Bool, Equal, Match, Schema } from "effect"
 import * as Arr from "effect/Array"
 import * as Num from "effect/Number"
 import * as Option from "effect/Option"
+import { AsyncResult as Result } from "effect/reactivity"
 import * as Str from "effect/String"
 import type { CSSProperties } from "react"
 
@@ -13,21 +13,21 @@ import { classNames } from "./classNames.js"
 import { glyphClassName, lineHeightVar, maxWidthClassName, whiteSpaceClassName } from "./semanticTextClasses.js"
 
 /** The block elements a text may be: those the projection may wrap line by line. */
-export const BlockElement = Schema.Literal("p", "h1", "h2", "h3", "dt", "dd")
+export const BlockElement = Schema.Literals(["p", "h1", "h2", "h3", "dt", "dd"])
 export type BlockElement = typeof BlockElement.Type
 
 /** The inline elements a text may be: set on one line, never projected. */
-export const InlineElement = Schema.Literal("span", "code", "kbd")
+export const InlineElement = Schema.Literals(["span", "code", "kbd"])
 export type InlineElement = typeof InlineElement.Type
 
-export const SemanticTextElement = Schema.Union(BlockElement, InlineElement)
+export const SemanticTextElement = Schema.Union([BlockElement, InlineElement])
 export type SemanticTextElement = typeof SemanticTextElement.Type
 
 /**
  * Why a block is wrapped by the browser rather than by a projection, exposed
  * as `data-text-layout` so a measurement failure is visible in the document.
  */
-const BrowserLayoutReason = Schema.Literal("native", "measuring", "measurement-failed")
+const BrowserLayoutReason = Schema.Literals(["native", "measuring", "measurement-failed"])
 type BrowserLayoutReason = typeof BrowserLayoutReason.Type
 
 const projectedLineWhitespaceClass = (preserveWhitespace: boolean): string =>
@@ -253,9 +253,9 @@ export const SemanticText = ({
   readonly variant?: SurfaceVariant
 }) => {
   const semantics = semanticsFor(role)
-  const wrapping = Option.getOrElse(Option.fromNullable(wrapAuthority), () => semantics.wrapAuthority)
-  const maxLines = Option.fromNullable(lineLimit)
-  const reserved = Option.fromNullable(reserveLines)
+  const wrapping = Option.getOrElse(Option.fromNullishOr(wrapAuthority), () => semantics.wrapAuthority)
+  const maxLines = Option.fromNullishOr(lineLimit)
+  const reserved = Option.fromNullishOr(reserveLines)
 
   return Match.value(as).pipe(
     Match.when(

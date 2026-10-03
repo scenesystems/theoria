@@ -1,9 +1,9 @@
-import { Result } from "@effect-atom/atom"
-import { useAtomValue } from "@effect-atom/atom-react"
+import { useAtomValue } from "@effect/atom-react"
 import { ArrowUpIcon } from "@heroicons/react/20/solid"
 import { Option } from "effect"
 import * as Arr from "effect/Array"
 import * as Bool from "effect/Boolean"
+import { AsyncResult as Result } from "effect/reactivity"
 import { AnimatePresence } from "motion/react"
 import * as m from "motion/react-m"
 

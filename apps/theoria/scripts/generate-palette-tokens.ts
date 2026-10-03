@@ -1,6 +1,5 @@
-import { FileSystem } from "@effect/platform"
-import { BunContext, BunRuntime } from "@effect/platform-bun"
-import { Console, Effect } from "effect"
+import { BunRuntime, BunServices } from "@effect/platform-bun"
+import { Console, Effect, FileSystem } from "effect"
 
 import { renderPaletteTokensCss } from "../app/web/palette/paletteTokens.js"
 
@@ -12,4 +11,4 @@ const program = Effect.gen(function*() {
   yield* Console.log(`Rendered ${outputPath}`)
 })
 
-BunRuntime.runMain(program.pipe(Effect.provide(BunContext.layer)))
+BunRuntime.runMain(program.pipe(Effect.provide(BunServices.layer)))

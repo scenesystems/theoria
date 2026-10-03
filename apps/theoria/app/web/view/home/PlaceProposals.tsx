@@ -1,4 +1,4 @@
-import { useAtomSet, useAtomValue } from "@effect-atom/atom-react"
+import { useAtomSet, useAtomValue } from "@effect/atom-react"
 import { Boolean, Match, type Option } from "effect"
 import * as Arr from "effect/Array"
 

@@ -1,4 +1,4 @@
-import { useAtomValue } from "@effect-atom/atom-react"
+import { useAtomValue } from "@effect/atom-react"
 import { Boolean as Bool, Match, Option, Schema } from "effect"
 import * as Num from "effect/Number"
 import { AnimatePresence } from "motion/react"
@@ -8,7 +8,7 @@ import type { CSSProperties } from "react"
 import type { PlaceSourceId } from "../../../contracts/demo/imagined-place-provenance.js"
 import type { PlaceMarker as Marker } from "../../../contracts/imagined-place-result.js"
 import { placeActAtom } from "../../atoms/imagined-place-experience.js"
-import { PlaceDiscDrawn } from "../../atoms/imagined-place-render.js"
+import type { PlaceDiscDrawn } from "../../atoms/imagined-place-render.js"
 import { type MotionPreference, motionPreferenceAtom } from "../../atoms/motion.js"
 import {
   focusRingClassName,
@@ -104,7 +104,7 @@ const reachClassName = "absolute rounded-full"
  */
 const reachStyle = (marker: Marker): CSSProperties => {
   const across = Num.multiply(Num.sum(marker.radius, marker.reach), 2)
-  const offset = `${fixedDecimal(Num.unsafeDivide(Num.subtract(drawnDiameter(marker), across), 2), 2)}px`
+  const offset = `${fixedDecimal(Num.divideUnsafe(Num.subtract(drawnDiameter(marker), across), 2), 2)}px`
   return {
     width: `${fixedDecimal(across, 2)}px`,
     height: `${fixedDecimal(across, 2)}px`,
@@ -114,7 +114,7 @@ const reachStyle = (marker: Marker): CSSProperties => {
 }
 
 /** A disc reaches only when its touch target is larger than it is drawn. */
-const reaching = (marker: Marker): boolean => Num.greaterThan(marker.reach, 0)
+const reaching = (marker: Marker): boolean => Num.isGreaterThan(marker.reach, 0)
 
 const Reach = ({ marker }: { readonly marker: Marker }) =>
   Bool.match(reaching(marker), {
@@ -123,11 +123,11 @@ const Reach = ({ marker }: { readonly marker: Marker }) =>
   })
 
 /** A disc the visitor can point at: settled on the stage, or a trial's, placed outright as the trace is scrubbed. */
-const DiscPresent = PlaceDiscDrawn.pipe(Schema.pickLiteral("settled", "trial"))
+const DiscPresent = Schema.Literals(["settled", "trial"])
 type DiscPresent = typeof DiscPresent.Type
 
 /** A disc standing in the drawing: present, or leaving where it stood. */
-const DiscStanding = PlaceDiscDrawn.pipe(Schema.pickLiteral("settled", "trial", "leaving"))
+const DiscStanding = Schema.Literals(["settled", "trial", "leaving"])
 type DiscStanding = typeof DiscStanding.Type
 
 /**

@@ -93,7 +93,7 @@ const preferenceCookie = (context: BrowserContext) =>
 layer(Layer.merge(SiteLive, BrowserLive), { excludeTestServices: true, timeout: "3 minutes" })(
   "Theoria colour mode in Chromium",
   (it) => {
-    it.scoped("every tone's solid slots, and the neutral's, paint the palette's colour in both modes", () =>
+    it("every tone's solid slots, and the neutral's, paint the palette's colour in both modes", () =>
       Effect.gen(function*() {
         const { failures, page } = yield* openPage({ colorScheme: "light" })
         yield* goto(page, "/")
@@ -114,7 +114,7 @@ layer(Layer.merge(SiteLive, BrowserLive), { excludeTestServices: true, timeout: 
         expect(yield* failures).toEqual([])
       }))
 
-    it.scoped("a chosen fill, a checked toggle and an answered mark each step deeper on the ladder, in both modes", () =>
+    it("a chosen fill, a checked toggle and an answered mark each step deeper on the ladder, in both modes", () =>
       Effect.gen(function*() {
         const { failures, page } = yield* openPage({ colorScheme: "light" })
         yield* goto(page, "/")
@@ -168,7 +168,7 @@ layer(Layer.merge(SiteLive, BrowserLive), { excludeTestServices: true, timeout: 
         expect(yield* failures).toEqual([])
       }))
 
-    it.scoped("the control cycles system → light → dark → system, and following the system follows it live", () =>
+    it("the control cycles system → light → dark → system, and following the system follows it live", () =>
       Effect.gen(function*() {
         const { context, failures, page } = yield* openPage({ colorScheme: "light" })
         yield* goto(page, "/")
@@ -209,13 +209,13 @@ layer(Layer.merge(SiteLive, BrowserLive), { excludeTestServices: true, timeout: 
         expect(
           Option.map(
             cookie,
-            (found) => Num.greaterThan(Num.multiply(found.expires, 1000), DateTime.toEpochMillis(inAYear))
+            (found) => Num.isGreaterThan(Num.multiply(found.expires, 1000), DateTime.toEpochMillis(inAYear))
           )
         ).toEqual(Option.some(true))
         expect(yield* failures).toEqual([])
       }))
 
-    it.scoped("a reader who chose dark is served a dark shell: the first frame is dark before any script runs", () =>
+    it("a reader who chose dark is served a dark shell: the first frame is dark before any script runs", () =>
       Effect.gen(function*() {
         const { context, failures, page } = yield* openPage({ colorScheme: "light" })
         yield* goto(page, "/")
@@ -228,9 +228,9 @@ layer(Layer.merge(SiteLive, BrowserLive), { excludeTestServices: true, timeout: 
 
         // The next document, as served: dark on the root element in the HTML itself, and cached per cookie.
         const served = yield* Option.match(
-          Option.fromNullable(yield* act(() => page.goto("/docs", { waitUntil: "commit" }))),
+          Option.fromNullishOr(yield* act(() => page.goto("/docs", { waitUntil: "commit" }))),
           {
-            onNone: () => Effect.dieMessage("navigating to /docs produced no response"),
+            onNone: () => Effect.die("navigating to /docs produced no response"),
             onSome: Effect.succeed
           }
         )
@@ -246,7 +246,7 @@ layer(Layer.merge(SiteLive, BrowserLive), { excludeTestServices: true, timeout: 
         expect(yield* failures).toEqual([])
       }))
 
-    it.scoped("a reader who chose light on a dark system is served the light shell, and the app keeps it light", () =>
+    it("a reader who chose light on a dark system is served the light shell, and the app keeps it light", () =>
       Effect.gen(function*() {
         const { failures, page } = yield* openPage({ colorScheme: "dark" })
         yield* goto(page, "/")

@@ -70,7 +70,7 @@ describeOnStage("the answer under a press", (it) => {
       const { build, showingTrial } = yield* onStage
       const available: PlaceMark = {
         _tag: "Feature",
-        name: (yield* Arr.head(build.artifact.composition.features)).name
+        name: (yield* Effect.fromOption(Arr.head(build.artifact.composition.features))).name
       }
       const registry = pageShowing(build, showingTrial)
       expect(registry.get(placeFocusAtom)).toEqual(Option.none())
@@ -85,7 +85,7 @@ describeOnStage("answer lifetime", (it) => {
   it.effect("an answer opened on the drawing outlives the next build, and is gone once its drawing is replaced", () =>
     Effect.gen(function*() {
       const { build, other, showingTrial, trial } = yield* onStage
-      const name = (yield* Arr.head(trial.projection.markers)).name
+      const name = (yield* Effect.fromOption(Arr.head(trial.projection.markers))).name
       const onDisc = new PlaceAnswer({
         triggerId: "d",
         mark: { _tag: "Disc", name, source: placeSourceId(build) }
@@ -106,7 +106,7 @@ describeOnStage("answer lifetime", (it) => {
   it.effect("the popup keeps the answer's words while it leaves", () =>
     Effect.gen(function*() {
       const { build, showingTrial, trial } = yield* onStage
-      const name = (yield* Arr.head(trial.projection.markers)).name
+      const name = (yield* Effect.fromOption(Arr.head(trial.projection.markers))).name
       const registry = pageShowing(build, showingTrial)
       expect(registry.get(placeAnswerOnShowAtom)).toEqual(Option.none())
 
@@ -130,7 +130,7 @@ describeOnStage("answer lifetime", (it) => {
       // A declined proposal's ghost stands at the margin only while the proposing act is read; its feature
       // is still in the build, so the page could answer for it — but the mark that opened the answer is gone.
       const { build, showingTrial } = yield* onStage
-      const declined = yield* Arr.findFirst(build.proposals, (record) => !record.accepted)
+      const declined = yield* Effect.fromOption(Arr.findFirst(build.proposals, (record) => !record.accepted))
       const ghost = new PlaceAnswer({
         triggerId: "ghost",
         mark: { _tag: "Feature", name: declined.proposal.feature.name }

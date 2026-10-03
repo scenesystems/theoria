@@ -40,13 +40,13 @@ const request = PlaceBuildRequest.make({
 const wideStage = 660
 const narrowStage = 320
 
-const encodeNumber = Schema.encodeSync(Schema.NumberFromString)
+const encodeNumber = Schema.encodeSync(Schema.FiniteFromString)
 const fixed = (value: number, digits = 3): string =>
   Option.match(Numeric.toBigDecimal(value), {
     onNone: () => encodeNumber(value),
     onSome: (decimal) => {
       const rounded = BigDecimal.round(decimal, { scale: digits, mode: "half-from-zero" })
-      const sign = Bool.match(Bool.and(Num.lessThan(value, 0), BigDecimal.isZero(rounded)), {
+      const sign = Bool.match(Bool.and(Num.isLessThan(value, 0), BigDecimal.isZero(rounded)), {
         onTrue: () => "-",
         onFalse: () => ""
       })
@@ -115,7 +115,7 @@ const printPlace = (result: PlaceBuild, rendered: PlaceRendering) =>
           `   version ${encodeNumber(version.version)}   ${short(version.contentId)}  ${
             encodeNumber(version.featureCount)
           } features${
-            Option.match(Option.fromNullable(version.parent), {
+            Option.match(Option.fromNullishOr(version.parent), {
               onNone: () => "  (origin)",
               onSome: (parent) => `  parent ${short(parent)}`
             })
@@ -151,7 +151,7 @@ const printPlace = (result: PlaceBuild, rendered: PlaceRendering) =>
           `   marker      ${Str.padEnd(24)(marker.name)} (${Str.padStart(5)(px(marker.x))}, ${
             Str.padStart(5)(px(marker.y))
           }) r ${px(marker.radius)}${
-            Option.match(Option.fromNullable(marker.contributedBy), {
+            Option.match(Option.fromNullishOr(marker.contributedBy), {
               onNone: () => "",
               onSome: (by) => `  from ${by}`
             })

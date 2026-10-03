@@ -1,8 +1,8 @@
 import { Button } from "@base-ui/react/button"
-import { Result } from "@effect-atom/atom"
-import { useAtomSet, useAtomValue } from "@effect-atom/atom-react"
+import { useAtomSet, useAtomValue } from "@effect/atom-react"
 import { Boolean as Bool, Equal, Option } from "effect"
 import * as Arr from "effect/Array"
+import { AsyncResult as Result } from "effect/reactivity"
 
 import type { PlaceBuild } from "../../../contracts/imagined-place-result.js"
 import type { PlaceOutline } from "../../../contracts/imagined-place.js"

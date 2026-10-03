@@ -1,8 +1,8 @@
-import { Registry } from "@effect-atom/atom"
 import { expect } from "@effect/vitest"
 import { Effect, Equal, Inspectable, Option, Struct, Tuple } from "effect"
 import * as Arr from "effect/Array"
 import * as Num from "effect/Number"
+import { AtomRegistry as Registry } from "effect/reactivity"
 import * as Str from "effect/String"
 
 import {
@@ -46,15 +46,15 @@ describeOnStage("place live values", (it) => {
 
   it.effect("keeps proposal and version signatures attached to their own signing steps", () =>
     Effect.gen(function*() {
-      const { build } = yield* onStage
-      const neighbor = yield* Arr.findFirst(
+      const { build } = yield* Effect.service(onStage)
+      const neighbor = Option.getOrThrow(Arr.findFirst(
         build.proposals,
         (record) => Equal.equals(record.proposal.proposer, "neighbor")
-      )
-      const versionSignature = yield* signatureFor(
+      ))
+      const versionSignature = Option.getOrThrow(signatureFor(
         build.evidence.signatures,
         currentVersion(build.evidence).contentId
-      )
+      ))
       const proposalValues = placeLiveValues("propose", Option.some(build), Option.none(), Option.none())
       const recordValues = placeLiveValues("record", Option.some(build), Option.none(), Option.none())
 
@@ -66,7 +66,7 @@ describeOnStage("place live values", (it) => {
 
   it.effect("say the lines and separation of the trial chosen, not of the best", () =>
     Effect.gen(function*() {
-      const { build, kept, showingTrial, trial } = yield* onStage
+      const { build, kept, showingTrial, trial } = yield* Effect.service(onStage)
       expect(trial.evidence.lineCount).not.toBe(kept.evidence.lineCount)
       const search = new PlaceSearch(Struct.evolve(showingTrial.search, {
         best: (best) =>
@@ -106,15 +106,15 @@ describeOnStage("place live values", (it) => {
 
   it.effect("agree with what a press on the layout line is answered with", () =>
     Effect.gen(function*() {
-      const { build, showingTrial } = yield* onStage
+      const { build, showingTrial } = yield* Effect.service(onStage)
       const registry = pageShowing(build, showingTrial)
       const shown = registry.get(placeShownGeometryAtom)
       const values = placeLiveValues("arrange", Option.some(build), Option.some(showingTrial.search), shown)
-      const answer = yield* provenanceFor(
+      const answer = Option.getOrThrow(provenanceFor(
         { _tag: "CodeLine", site: layoutSite.id },
         { build: Option.some(build), shown: Option.some(showingTrial) }
-      )
-      const lines = yield* Option.map(shown, (geometry) => geometry.lineCount)
+      ))
+      const lines = Option.getOrThrow(Option.map(shown, (geometry) => geometry.lineCount))
       expect(valueOf(values, "Text.linesWith(")).toEqual(
         Option.some(
           `${Inspectable.toStringUnknown(lines)} lines at ${
@@ -129,7 +129,7 @@ describeOnStage("place live values", (it) => {
 
   it.effect("are the same value from one frame to the next while the drawing has not changed", () =>
     Effect.gen(function*() {
-      const { showingKept, showingTrial } = yield* onStage
+      const { showingKept, showingTrial } = yield* Effect.service(onStage)
       expect(Equal.equals(shownGeometry(showingKept), shownGeometry(Struct.evolve(showingKept, { paper: () => 0 }))))
         .toBe(true)
       expect(Equal.equals(shownGeometry(showingKept), shownGeometry(showingTrial))).toBe(false)
@@ -137,7 +137,7 @@ describeOnStage("place live values", (it) => {
 
   it.effect("are absent before anything is drawn", () =>
     Effect.gen(function*() {
-      const { build, showingTrial } = yield* onStage
+      const { build, showingTrial } = yield* Effect.service(onStage)
       expect(placeLiveValues("arrange", Option.some(build), Option.some(showingTrial.search), Option.none())).toEqual(
         Arr.empty()
       )

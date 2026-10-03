@@ -21,7 +21,7 @@ export const DocsDestination = Schema.Struct({
 export type DocsDestination = typeof DocsDestination.Type
 
 export const DocsNavigationBranch = Schema.Struct({
-  label: Schema.Literal("Guides", "API"),
+  label: Schema.Literals(["Guides", "API"]),
   root: DocsDestination,
   children: Schema.Array(DocsDestination)
 })

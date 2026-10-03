@@ -12,6 +12,7 @@ import {
   animationsSettled,
   attached,
   attribute,
+  type BrowserError,
   BrowserLive,
   click,
   containsText,
@@ -58,7 +59,7 @@ import { colorSchemes, drawn, referenceTargets, searchSettlesWithin } from "./de
 layer(Layer.merge(SiteLive, BrowserLive), { excludeTestServices: true, timeout: "3 minutes" })(
   "Theoria home page demo in Chromium: the page around the stage",
   (it) => {
-    it.scoped("keyboard reaches every control", () =>
+    it("keyboard reaches every control", () =>
       Effect.gen(function*() {
         const { failures, page } = yield* openPage()
         yield* goto(page, "/")
@@ -70,30 +71,30 @@ layer(Layer.merge(SiteLive, BrowserLive), { excludeTestServices: true, timeout: 
         const scenarios = demo.getByRole("radiogroup", { name: "Scenario" })
         const checked = scenarios.getByRole("radio", { checked: true })
         yield* focus(checked)
-        const rebuild = yield* Effect.fork(nextResponse(page, "POST", "/api/imagined-place/build"))
+        const rebuild = yield* Effect.forkChild(nextResponse(page, "POST", "/api/imagined-place/build"))
         yield* press(page, "ArrowRight")
         expect((yield* Fiber.join(rebuild)).status()).toBe(200)
         yield* eventually(focusRole, "radio")
 
         // Tab walks from the scenarios into the brief and on to the first merge switch, with nothing trapping it.
         const walkTo = (role: string) =>
-          Effect.map(
-            Effect.iterate(Arr.empty<string>(), {
-              while: (trail) => !Arr.contains(trail, role) && trail.length < 12,
-              body: (trail) =>
-                Effect.gen(function*() {
-                  yield* press(page, "Tab")
-                  return Arr.append(trail, yield* act(focusRole))
-                })
-            }),
-            (trail) => ({ reached: Arr.contains(trail, role), trail })
-          )
+          Effect.gen(function*() {
+            const walk = (trail: ReadonlyArray<string>): Effect.Effect<ReadonlyArray<string>, BrowserError> =>
+              Arr.contains(trail, role) || trail.length >= 12
+                ? Effect.succeed(trail)
+                : press(page, "Tab").pipe(
+                  Effect.andThen(act(focusRole)),
+                  Effect.flatMap((focused) => walk(Arr.append(trail, focused)))
+                )
+            const trail = yield* walk(Arr.empty<string>())
+            return { reached: Arr.contains(trail, role), trail }
+          })
         expect(yield* walkTo("textarea")).toMatchObject({ reached: true })
         expect(yield* walkTo("switch")).toMatchObject({ reached: true })
         const merge = demo.getByRole("switch").first()
         yield* eventually(() => merge.evaluate(isActiveElement), true)
         const before = yield* act(() => merge.getAttribute("aria-checked"))
-        const remerge = yield* Effect.fork(nextResponse(page, "POST", "/api/imagined-place/build"))
+        const remerge = yield* Effect.forkChild(nextResponse(page, "POST", "/api/imagined-place/build"))
         yield* press(page, "Space")
         expect((yield* Fiber.join(remerge)).status()).toBe(200)
         yield* attribute(merge, "aria-checked", before === "true" ? "false" : "true")
@@ -103,7 +104,9 @@ layer(Layer.merge(SiteLive, BrowserLive), { excludeTestServices: true, timeout: 
         const activeTab = section.getByRole("tab", { selected: true })
         const firstStep = yield* act(() => activeTab.innerText())
         const listing = section.locator("[data-place-code-step]")
-        const firstListing = yield* Option.fromNullable(yield* act(() => listing.getAttribute("data-place-code-step")))
+        const firstListing = yield* Effect.fromOption(
+          Option.fromNullishOr(yield* act(() => listing.getAttribute("data-place-code-step")))
+        )
         yield* focus(activeTab)
         yield* press(page, "ArrowRight")
         yield* eventually(focusRole, "tab")
@@ -130,7 +133,7 @@ layer(Layer.merge(SiteLive, BrowserLive), { excludeTestServices: true, timeout: 
         expect(yield* failures).toEqual([])
       }))
 
-    it.scoped("nothing on the home page leaks past the viewport at any width", () =>
+    it("nothing on the home page leaks past the viewport at any width", () =>
       Effect.gen(function*() {
         const { failures, page } = yield* openPage({ viewport: { width: 390, height: 844 } })
         yield* goto(page, "/")
@@ -160,7 +163,7 @@ layer(Layer.merge(SiteLive, BrowserLive), { excludeTestServices: true, timeout: 
         expect(yield* failures).toEqual([])
       }))
 
-    it.scoped("how it's built keeps tabs on one row and wraps references without clipping or misaligning package labels", () =>
+    it("how it's built keeps tabs on one row and wraps references without clipping or misaligning package labels", () =>
       Effect.gen(function*() {
         const { failures, page } = yield* openPage({ reducedMotion: "reduce" })
         yield* goto(page, "/")
@@ -212,7 +215,7 @@ layer(Layer.merge(SiteLive, BrowserLive), { excludeTestServices: true, timeout: 
         expect(yield* failures).toEqual([])
       }))
 
-    it.scoped("how it's built links every symbol to an existing reference anchor and shows values from the build", () =>
+    it("how it's built links every symbol to an existing reference anchor and shows values from the build", () =>
       Effect.gen(function*() {
         const { failures, page } = yield* openPage()
         yield* goto(page, "/")
@@ -246,7 +249,7 @@ layer(Layer.merge(SiteLive, BrowserLive), { excludeTestServices: true, timeout: 
         expect(yield* failures).toEqual([])
       }))
 
-    it.scoped("a docs link previews its destination on a plain press and only the preview's own link leaves the page", () =>
+    it("a docs link previews its destination on a plain press and only the preview's own link leaves the page", () =>
       Effect.gen(function*() {
         const { failures, page } = yield* openPage()
         yield* setViewport(page, { width: 390, height: 844 })
@@ -255,7 +258,7 @@ layer(Layer.merge(SiteLive, BrowserLive), { excludeTestServices: true, timeout: 
 
         const section = page.locator("[data-place-how-its-built]")
         const reference = section.locator("[data-place-reference]").first()
-        const href = yield* Option.fromNullable(yield* act(() => reference.getAttribute("href")))
+        const href = yield* Effect.fromOption(Option.fromNullishOr(yield* act(() => reference.getAttribute("href"))))
         const preview = page.locator(`[data-docs-link-preview='${href}']`)
 
         yield* click(reference)
@@ -278,7 +281,7 @@ layer(Layer.merge(SiteLive, BrowserLive), { excludeTestServices: true, timeout: 
         expect(yield* failures).toEqual([])
       }))
 
-    it.scoped("the acts answer on the stage", () =>
+    it("the acts answer on the stage", () =>
       Effect.gen(function*() {
         const { failures, page } = yield* openPage()
         yield* goto(page, "/")
@@ -292,7 +295,7 @@ layer(Layer.merge(SiteLive, BrowserLive), { excludeTestServices: true, timeout: 
         expect(yield* failures).toEqual([])
       }))
 
-    it.scoped("the act follows a jump either way, and a return to the page", () =>
+    it("the act follows a jump either way, and a return to the page", () =>
       Effect.gen(function*() {
         const { failures, page } = yield* openPage()
         yield* goto(page, "/")
@@ -321,7 +324,7 @@ layer(Layer.merge(SiteLive, BrowserLive), { excludeTestServices: true, timeout: 
         expect(yield* failures).toEqual([])
       }))
 
-    it.scoped("choosing another story changes the drawing and nothing of the page, in every mode", () =>
+    it("choosing another story changes the drawing and nothing of the page, in every mode", () =>
       Effect.gen(function*() {
         const { failures, page } = yield* openPage()
         yield* goto(page, "/")
@@ -371,7 +374,7 @@ layer(Layer.merge(SiteLive, BrowserLive), { excludeTestServices: true, timeout: 
         expect(yield* failures).toEqual([])
       }))
 
-    it.scoped("the place stays as a band while the stage is scrolled past, and moves nothing", () =>
+    it("the place stays as a band while the stage is scrolled past, and moves nothing", () =>
       Effect.gen(function*() {
         const { failures, page } = yield* openPage({ viewport: { width: 390, height: 844 } })
         yield* goto(page, "/")
@@ -405,7 +408,7 @@ layer(Layer.merge(SiteLive, BrowserLive), { excludeTestServices: true, timeout: 
         expect(yield* failures).toEqual([])
       }))
 
-    it.scoped("stage prose metrics stay aligned with geometry across responsive widths", () =>
+    it("stage prose metrics stay aligned with geometry across responsive widths", () =>
       Effect.gen(function*() {
         const viewports = [
           { width: 390, height: 844 },
@@ -459,7 +462,7 @@ layer(Layer.merge(SiteLive, BrowserLive), { excludeTestServices: true, timeout: 
         expect(yield* failures).toEqual([])
       }))
 
-    it.scoped("the mobile numbered legend names every disc in no more than two lines", () =>
+    it("the mobile numbered legend names every disc in no more than two lines", () =>
       Effect.gen(function*() {
         const { failures, page } = yield* openPage({ viewport: { width: 390, height: 844 } })
         yield* goto(page, "/")

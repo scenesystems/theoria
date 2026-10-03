@@ -9,7 +9,6 @@ import {
   type Route
 } from "@playwright/test"
 import {
-  Chunk,
   Context,
   Data,
   Deferred,
@@ -22,7 +21,6 @@ import {
   Predicate,
   Queue,
   Ref,
-  Runtime,
   Schedule,
   Schema,
   type Scope
@@ -60,7 +58,7 @@ export const act = <A>(run: () => Promise<A>): Effect.Effect<A, BrowserError> =>
     catch: (cause) => new BrowserError({ message: Predicate.isError(cause) ? cause.message : String(cause), cause })
   })
 
-export class Browser extends Context.Tag("test/worker/Browser")<Browser, {
+export class Browser extends Context.Service<Browser, {
   readonly chromium: PlaywrightBrowser
   /** How many visitors this browser has opened pages for; each page is a visitor of its own. */
   readonly visitors: Ref.Ref<number>
@@ -70,13 +68,13 @@ export class Browser extends Context.Tag("test/worker/Browser")<Browser, {
    * page can say what the page told when it reports the page's state.
    */
   readonly failures: Ref.Ref<HashMap.HashMap<Page, Queue.Queue<string>>>
-}>() {}
+}>()("test/worker/Browser") {}
 
 /**
  * Chromium for the whole layer. Nothing in a test can respond to the browser
  * failing to close, so that failure surfaces as a defect in the scope's exit.
  */
-export const BrowserLive: Layer.Layer<Browser, BrowserError> = Layer.scoped(
+export const BrowserLive: Layer.Layer<Browser, BrowserError> = Layer.effect(
   Browser,
   Effect.all({
     chromium: Effect.acquireRelease(
@@ -100,11 +98,11 @@ export const failuresOf = (page: Page): Effect.Effect<ReadonlyArray<string>, nev
       Effect.flatMap(Ref.get(browser.failures), (open) =>
         Option.match(HashMap.get(open, page), {
           onNone: () => Effect.succeed(Arr.empty<string>()),
-          onSome: (told) => Effect.map(Queue.takeAll(told), Chunk.toReadonlyArray)
+          onSome: Queue.takeAll
         }))
   )
 
-export const Viewport = Schema.Struct({ width: Schema.Number, height: Schema.Number })
+export const Viewport = Schema.Struct({ width: Schema.Finite, height: Schema.Finite })
 export type Viewport = typeof Viewport.Type
 export const desktop: Viewport = { width: 1280, height: 800 }
 export const phone: Viewport = { width: 390, height: 844 }
@@ -118,9 +116,9 @@ export class Session extends Data.Class<{
 
 /** Opens an isolated browser context on the site for the rest of the scope. */
 /** The reader's system motion setting the context reports; `no-preference` unless a test asks otherwise. */
-export const ReducedMotion = Schema.Literal("reduce", "no-preference")
+export const ReducedMotion = Schema.Literals(["reduce", "no-preference"])
 export type ReducedMotion = typeof ReducedMotion.Type
-export const ForcedColors = Schema.Literal("active", "none")
+export const ForcedColors = Schema.Literals(["active", "none"])
 export type ForcedColors = typeof ForcedColors.Type
 
 /**
@@ -128,7 +126,7 @@ export type ForcedColors = typeof ForcedColors.Type
  * way DevTools throttles it: every script, layout and paint takes that many
  * times as long, while the clock runs as it does. `1` is this machine.
  */
-export const CpuSlowdown = Schema.Number.pipe(Schema.greaterThanOrEqualTo(1))
+export const CpuSlowdown = Schema.Finite.check(Schema.isGreaterThanOrEqualTo(1))
 export type CpuSlowdown = typeof CpuSlowdown.Type
 
 export const openPage = (
@@ -165,7 +163,7 @@ export const openPage = (
     yield* act(() => context.grantPermissions([...(options.permissions ?? [])]))
     const page = yield* act(() => context.newPage())
     // Throttling is the DevTools protocol's; it holds for the page's every document until the page closes.
-    yield* Option.match(Option.filter(Option.fromNullable(options.cpuSlowdown), (rate) => rate > 1), {
+    yield* Option.match(Option.filter(Option.fromNullishOr(options.cpuSlowdown), (rate) => rate > 1), {
       onNone: () => Effect.void,
       onSome: (rate) =>
         Effect.andThen(
@@ -178,10 +176,10 @@ export const openPage = (
     // can tell the failure it caused from any other.
     const failures = yield* Queue.unbounded<string>()
     page.on("console", (message) => {
-      if (message.type() === "error") Queue.unsafeOffer(failures, `${message.text()} (${message.location().url})`)
+      if (message.type() === "error") Queue.offerUnsafe(failures, `${message.text()} (${message.location().url})`)
     })
     page.on("pageerror", (error) => {
-      Queue.unsafeOffer(failures, error.message)
+      Queue.offerUnsafe(failures, error.message)
     })
     // The page's failures are the browser's to hand back (`failuresOf`) for as long as the page's scope stands.
     yield* Effect.acquireRelease(
@@ -189,7 +187,7 @@ export const openPage = (
       () => Ref.update(browser.failures, HashMap.remove(page))
     )
 
-    return new Session({ page, context, failures: Queue.takeAll(failures).pipe(Effect.map(Chunk.toReadonlyArray)) })
+    return new Session({ page, context, failures: Queue.takeAll(failures) })
   })
 
 /** Records the URL of every request that passes `keep`; taking them clears the buffer. */
@@ -199,9 +197,9 @@ export const observeRequests = (
 ): Effect.Effect<Effect.Effect<ReadonlyArray<string>>> =>
   Effect.map(Queue.unbounded<string>(), (seen) => {
     page.on("request", (request) => {
-      if (keep({ url: request.url(), resourceType: request.resourceType() })) Queue.unsafeOffer(seen, request.url())
+      if (keep({ url: request.url(), resourceType: request.resourceType() })) Queue.offerUnsafe(seen, request.url())
     })
-    return Queue.takeAll(seen).pipe(Effect.map(Chunk.toReadonlyArray))
+    return Queue.takeAll(seen)
   })
 
 export const goto = (page: Page, path: string) => act(() => page.goto(path))
@@ -234,7 +232,7 @@ export const wheel = (page: Page, deltaX: number, deltaY: number) => act(() => p
 export const fill = (locator: Locator, value: string) => act(() => locator.fill(value))
 export const setViewport = (page: Page, viewport: Viewport) => act(() => page.setViewportSize(viewport))
 /** The reader's system colour scheme, as the page's `prefers-color-scheme` media query reports it. */
-export const ColorScheme = Schema.Literal("light", "dark")
+export const ColorScheme = Schema.Literals(["light", "dark"])
 export type ColorScheme = typeof ColorScheme.Type
 /**
  * Sets the reader's scheme and returns once the page shows it. The app reads
@@ -288,7 +286,7 @@ export const nextResponse = (page: Page, method: string, suffix: string): Effect
   )
 
 /** What becomes of a held request once the test lets it go: it reaches the server, or it fails as the network would. */
-export const HeldOutcome = Schema.Literal("continue", "fail")
+export const HeldOutcome = Schema.Literals(["continue", "fail"])
 export type HeldOutcome = typeof HeldOutcome.Type
 
 /** A request held at the browser's edge, and the two ways to let it go. */
@@ -332,7 +330,7 @@ const holdRequests = (
   claim: Effect.Effect<boolean>
 ): Effect.Effect<HeldRequest, BrowserError> =>
   Effect.gen(function*() {
-    const runtime = yield* Effect.runtime<never>()
+    const runtime = yield* Effect.context<never>()
     const outcome = yield* Deferred.make<HeldOutcome>()
     const settle = (route: Route) =>
       Deferred.await(outcome).pipe(
@@ -350,9 +348,9 @@ const holdRequests = (
       page.route(
         (url) => url.pathname.endsWith(suffix),
         (route) =>
-          Runtime.runPromise(runtime)(
+          Effect.runPromiseWith(runtime)(
             route.request().method() === method
-              ? Effect.if(claim, { onTrue: () => settle(route), onFalse: () => act(() => route.fallback()) })
+              ? Effect.flatMap(claim, (claimed) => claimed ? settle(route) : act(() => route.fallback()))
               : act(() => route.fallback())
           )
       )
@@ -364,8 +362,11 @@ const holdRequests = (
   })
 
 export const attached = (locator: Locator) => act(() => inBrowser(locator).toBeAttached())
-export const eventually = <A>(read: () => Promise<A>, expected: A, within: Duration.Duration = assertionWait) =>
-  act(() => inBrowser.poll(read, waiting(within)).toBe(expected))
+export const eventually = <A>(
+  read: () => Promise<A>,
+  expected: NoInfer<A>,
+  within: Duration.Duration = assertionWait
+) => act(() => inBrowser.poll(read, waiting(within)).toBe(expected))
 
 /**
  * Re-reads `read` until `holds` accepts the value, for as long as an
@@ -379,7 +380,7 @@ export const until = <A>(
 ): Effect.Effect<A, BrowserError> =>
   read.pipe(
     Effect.filterOrFail(holds, (value) => new BrowserError({ message: `${description} did not hold`, cause: value })),
-    Effect.retry(Schedule.spaced("100 millis").pipe(Schedule.upTo(within)))
+    Effect.retry(Schedule.spaced("100 millis").pipe(Schedule.upTo({ duration: within })))
   )
 
 /**

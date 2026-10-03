@@ -6,7 +6,7 @@ import * as Str from "effect/String"
 import { Elevation, elevationIndex, measureCss, Radius, radiusCss } from "../../app/contracts/layout.js"
 
 const strictlyAscending = (values: ReadonlyArray<number>): boolean =>
-  Arr.every(Arr.zip(values, Arr.drop(values, 1)), ([below, above]) => Order.lessThan(Num.Order)(below, above))
+  Arr.every(Arr.zip(values, Arr.drop(values, 1)), ([below, above]) => Order.isLessThan(Num.Order)(below, above))
 
 const remValue = (css: string): number => Option.getOrThrow(Num.parse(Str.replace("rem", "")(css)))
 

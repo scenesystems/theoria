@@ -22,7 +22,7 @@ const withPage = (
 ): Effect.Effect<void> =>
   Effect.gen(function*() {
     const { container } = yield* mountWithRegistry(node)
-    yield* waitFor(() => Option.exists(Option.fromNullable(container.textContent), Str.includes(settled)))
+    yield* waitFor(() => Option.exists(Option.fromNullishOr(container.textContent), Str.includes(settled)))
     use(container)
   }).pipe(Effect.scoped, Effect.provide(BrowserDocument.layer))
 
@@ -59,7 +59,7 @@ describe("API page presentation", () => {
         expect(container.textContent).toContain("Input configuration.")
         expect(container.textContent).toContain("Effect<StudyResult<A>>")
         expect(container.textContent).toContain("const result = yield* runStudy(input)")
-        const text = Option.getOrThrow(Option.fromNullable(container.textContent))
+        const text = Option.getOrThrow(Option.fromNullishOr(container.textContent))
         expect(Option.getOrThrow(Str.indexOf("Run a study.")(text))).toBeLessThan(
           Option.getOrThrow(Str.indexOf("runStudy<A>")(text))
         )

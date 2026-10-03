@@ -14,7 +14,7 @@ import { describeOnStage, onStage } from "../helpers/place-on-stage.js"
 describeOnStage("place legend", (it) => {
   it.effect("the legend from the outline is the legend from the drawing's markers", () =>
     Effect.gen(function*() {
-      const { build, kept } = yield* onStage
+      const { build, kept } = yield* Effect.service(onStage)
       const fromOutline = legendFromOutline(build.artifact)
       const fromMarkers = legendFromMarkers(kept.projection.markers)
       expect(fromOutline).toEqual(fromMarkers)
@@ -23,7 +23,7 @@ describeOnStage("place legend", (it) => {
 
   it.effect("the composition's features are the author's; a merged feature keeps its proposer", () =>
     Effect.gen(function*() {
-      const { build } = yield* onStage
+      const { build } = yield* Effect.service(onStage)
       const legend = legendFromOutline(build.artifact)
       const own = Arr.take(legend, build.artifact.composition.features.length)
       const merged = Arr.drop(legend, build.artifact.composition.features.length)

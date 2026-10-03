@@ -42,25 +42,25 @@ import { Site, SiteLive } from "./site.js"
 
 const buildPath = "/api/imagined-place/build"
 
-const decodeRequest = Schema.decodeUnknown(PlaceBuildRequest)
-const decodeEnvelope = Schema.decodeUnknown(PlaceBuildEnvelope)
+const decodeRequest = Schema.decodeUnknownEffect(PlaceBuildRequest)
+const decodeEnvelope = Schema.decodeUnknownEffect(PlaceBuildEnvelope)
 
 /** The build inside a successful envelope; a failure envelope fails the test. */
 const successfulBuild = (body: unknown) =>
   decodeEnvelope(body).pipe(
     Effect.flatMap((envelope) =>
-      envelope.ok ? Effect.succeed(envelope.data) : Effect.dieMessage(`build failed: ${envelope.error.code}`)
+      envelope.ok ? Effect.succeed(envelope.data) : Effect.die(`build failed: ${envelope.error.code}`)
     )
   )
 
 layer(Layer.merge(SiteLive, BrowserLive), { excludeTestServices: true, timeout: "2 minutes" })(
   "Theoria home page in Chromium",
   (it) => {
-    it.scoped("the imagined place is built by the real API and re-digested when a proposal is merged", () =>
+    it("the imagined place is built by the real API and re-digested when a proposal is merged", () =>
       Effect.gen(function*() {
         const { failures, page } = yield* openPage()
 
-        const firstBuild = yield* Effect.fork(nextResponse(page, "POST", buildPath))
+        const firstBuild = yield* Effect.forkChild(nextResponse(page, "POST", buildPath))
         yield* goto(page, "/")
         const demo = page.getByRole("region", { name: "Imagined place demo" })
         yield* visible(demo)
@@ -104,7 +104,7 @@ layer(Layer.merge(SiteLive, BrowserLive), { excludeTestServices: true, timeout: 
 
         // Merging the program's proposal rebuilds through the server: the merged
         // version now carries both features, so its content ID and signature change.
-        const rebuild = yield* Effect.fork(nextResponse(page, "POST", buildPath))
+        const rebuild = yield* Effect.forkChild(nextResponse(page, "POST", buildPath))
         yield* click(merges.nth(1))
         const rebuilt = yield* Fiber.join(rebuild)
         expect(rebuilt.status()).toBe(200)
@@ -133,7 +133,7 @@ layer(Layer.merge(SiteLive, BrowserLive), { excludeTestServices: true, timeout: 
         expect(yield* failures).toEqual([])
       }))
 
-    it.scoped("the place sits on the canvas: no surface between the page and the drawing", () =>
+    it("the place sits on the canvas: no surface between the page and the drawing", () =>
       Effect.gen(function*() {
         const { failures, page } = yield* openPage()
         yield* goto(page, "/")
@@ -156,7 +156,7 @@ layer(Layer.merge(SiteLive, BrowserLive), { excludeTestServices: true, timeout: 
         expect(yield* failures).toEqual([])
       }))
 
-    it.scoped("the hero and the place share the first viewport", () =>
+    it("the hero and the place share the first viewport", () =>
       Effect.gen(function*() {
         const { failures, page } = yield* openPage({ viewport: { width: 1440, height: 900 } })
         yield* goto(page, "/")
@@ -195,9 +195,9 @@ layer(Layer.merge(SiteLive, BrowserLive), { excludeTestServices: true, timeout: 
         yield* containsText(arriveTitle, placeArriveTitle)
         yield* containsText(arrive, placeArriveText)
         yield* count(arrive.getByText(/at high water the sea covers the causeway/u), 0)
-        const composedTitle = yield* Option.fromNullable(
+        const composedTitle = yield* Effect.fromOption(Option.fromNullishOr(
           yield* act(() => demo.locator("[data-place-composition-title]").textContent())
-        )
+        ))
         yield* count(arrive.getByText(composedTitle, { exact: true }), 0)
 
         // Narrow: the hero, both actions and the demonstration's title fit the
@@ -218,7 +218,7 @@ layer(Layer.merge(SiteLive, BrowserLive), { excludeTestServices: true, timeout: 
         expect(yield* failures).toEqual([])
       }))
 
-    it.scoped("same-document anchors glide unless reduced motion asks them to land at once", () =>
+    it("same-document anchors glide unless reduced motion asks them to land at once", () =>
       Effect.gen(function*() {
         const smooth = yield* openPage({
           viewport: { width: 1440, height: 900 },
@@ -259,7 +259,7 @@ layer(Layer.merge(SiteLive, BrowserLive), { excludeTestServices: true, timeout: 
         expect(yield* reduced.failures).toEqual([])
       }))
 
-    it.scoped("the package index stays complete and unscrolled across responsive widths", () =>
+    it("the package index stays complete and unscrolled across responsive widths", () =>
       Effect.gen(function*() {
         const { manifest } = yield* Site
         const { failures, page } = yield* openPage({ viewport: { width: 320, height: 800 } })

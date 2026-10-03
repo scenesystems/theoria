@@ -1,7 +1,7 @@
-import { Registry } from "@effect-atom/atom"
 import { describe, expect, it } from "@effect/vitest"
-import { Duration, Effect, Equal, Number as Num, Option, Predicate } from "effect"
+import { Duration, Effect, Equal, Number as Num, Option, Predicate, Result } from "effect"
 import * as Arr from "effect/Array"
+import * as AtomRegistry from "effect/reactivity/AtomRegistry"
 
 import {
   motionArrivalBudget,
@@ -35,15 +35,15 @@ import { wordmarkMotion } from "../../app/web/view/primitives/wordmarkMorph.js"
 describe("motion contract", () => {
   it.effect("a walk drawing itself and a changed value's wash are slower than any relation, and the wash outlasts the walk", () =>
     Effect.sync(() => {
-      expect(Duration.lessThan(motionDuration("shift"), motionWalkDraw)).toBe(true)
-      expect(Duration.lessThan(motionWalkDraw, motionValueWash)).toBe(true)
+      expect(Duration.isLessThan(motionDuration("shift"), motionWalkDraw)).toBe(true)
+      expect(Duration.isLessThan(motionWalkDraw, motionValueWash)).toBe(true)
       expect(walkDrawTransition).toEqual({ duration: Duration.toSeconds(motionWalkDraw), ease: motionEase })
       expect(valueWashTransition).toEqual({ duration: Duration.toSeconds(motionValueWash), ease: motionEase })
     }))
 
   it.effect("a pending placeholder breathes slower than anything arriving, symmetrically, for as long as it is pending", () =>
     Effect.sync(() => {
-      expect(Duration.lessThan(motionValueWash, motionPulse)).toBe(true)
+      expect(Duration.isLessThan(motionValueWash, motionPulse)).toBe(true)
       expect(pulseTransition).toEqual({
         duration: Duration.toSeconds(motionPulse),
         ease: "easeInOut",
@@ -53,21 +53,21 @@ describe("motion contract", () => {
 
   it.effect("leaves quicker than it arrives, and moves what is already there slowest", () =>
     Effect.sync(() => {
-      expect(Duration.lessThan(motionDuration("exit"), motionDuration("enter"))).toBe(true)
-      expect(Duration.lessThan(motionDuration("enter"), motionDuration("shift"))).toBe(true)
+      expect(Duration.isLessThan(motionDuration("exit"), motionDuration("enter"))).toBe(true)
+      expect(Duration.isLessThan(motionDuration("enter"), motionDuration("shift"))).toBe(true)
     }))
 
   it.effect("a control responds quicker than anything arrives, and what follows a gesture lands before a shift would", () =>
     Effect.sync(() => {
-      expect(Duration.lessThan(motionDuration("respond"), motionDuration("enter"))).toBe(true)
-      expect(Duration.lessThan(motionDuration("follow"), motionDuration("shift"))).toBe(true)
+      expect(Duration.isLessThan(motionDuration("respond"), motionDuration("enter"))).toBe(true)
+      expect(Duration.isLessThan(motionDuration("follow"), motionDuration("shift"))).toBe(true)
     }))
 
   it.effect("only what follows a gesture has its own ease; everything the page moves shares the theme's", () =>
     Effect.sync(() => {
       const [following, own] = Arr.partition(
         MotionRelation.literals,
-        (relation) => Equal.equals(motionEaseFor(relation), "theme")
+        (relation) => Equal.equals(motionEaseFor(relation), "theme") ? Result.fail(relation) : Result.succeed(relation)
       )
       expect(following).toEqual(["follow"])
       expect(own).toEqual(["enter", "shift", "exit", "respond"])
@@ -129,7 +129,7 @@ describe("motion contract", () => {
 
   it.effect("draws the search's sketch until it settles, and a trial while one is chosen from the trace", () =>
     Effect.sync(() => {
-      const registry = Registry.make()
+      const registry = AtomRegistry.make()
       // Nothing has settled yet: the stage follows the sketch, and every disc on it is Motion's.
       expect(registry.get(placeDrawnAtom)).toBe("sketch")
       expect(registry.get(placeDiscDrawnAtom("Causeway"))).toBe("settled")

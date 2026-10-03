@@ -1,4 +1,4 @@
-import { RegistryProvider } from "@effect-atom/atom-react"
+import { RegistryProvider } from "@effect/atom-react"
 import { Effect, Option, type Scope } from "effect"
 import type { ReactNode } from "react"
 import { createRoot, type Root } from "react-dom/client"
@@ -57,7 +57,7 @@ export const mountWithRegistry = (
 
 /** Reads until `read` yields a value; the surrounding test's timeout bounds the wait. */
 export function waitForValue<A>(read: () => Option.Option<A>): Effect.Effect<A> {
-  return Effect.eventually(Effect.suspend(read))
+  return Effect.eventually(Effect.suspend(() => Effect.fromOption(read())))
 }
 
 /** Retries `predicate` until it holds; the surrounding test's timeout bounds the wait. */

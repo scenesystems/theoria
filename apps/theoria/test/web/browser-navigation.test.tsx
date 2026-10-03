@@ -1,7 +1,7 @@
-import { Registry } from "@effect-atom/atom"
-import { useAtomValue } from "@effect-atom/atom-react"
+import { useAtomValue } from "@effect/atom-react"
 import { describe, expect, it } from "@effect/vitest"
 import { Boolean, Effect, Layer, Option } from "effect"
+import { AtomRegistry as Registry } from "effect/reactivity"
 
 import { docsKeyboardShortcutsAtom, docsSearchOpenAtom } from "../../app/web/atoms/docs.js"
 import { browserNavigationMountAtom, pageRouteAtom, shouldNavigateInBrowser } from "../../app/web/atoms/navigation.js"
@@ -83,7 +83,7 @@ describe("browser navigation", () => {
             expect(event.defaultPrevented).toBe(false)
           })
       )
-      yield* Effect.yieldNow()
+      yield* Effect.yieldNow
       expect(registry.get(docsSearchOpenAtom)).toBe(false)
 
       unmount()
@@ -92,7 +92,7 @@ describe("browser navigation", () => {
       )
       registry.set(docsSearchOpenAtom, false)
       expect(browserDocument.dispatchEvent(keydown({ key: "K", metaKey: true }))).toBe(true)
-      yield* Effect.yieldNow()
+      yield* Effect.yieldNow
       expect(registry.get(docsSearchOpenAtom)).toBe(false)
 
       // Re-entering docs must subscribe again; removing a listener cannot permanently disable the shortcut.

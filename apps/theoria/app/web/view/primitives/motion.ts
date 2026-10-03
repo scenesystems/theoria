@@ -46,7 +46,7 @@ export const pulseTransition: Transition = { duration: seconds(motionPulse), eas
 export const stillTransition: Transition = { duration: 0 }
 
 /** Each of several things arriving together takes two thirds of a lone arrival; the stagger makes up the rest. */
-const staggeredDuration: Duration.Duration = Duration.times(motionDuration("enter"), Num.unsafeDivide(2, 3))
+const staggeredDuration: Duration.Duration = Duration.times(motionDuration("enter"), Num.divideUnsafe(2, 3))
 
 /** The latest one of them may start and still land within the arrival budget. */
 const lastStart: Duration.Duration = Duration.subtract(motionArrivalBudget, staggeredDuration)

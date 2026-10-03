@@ -1,6 +1,6 @@
-import { Registry } from "@effect-atom/atom"
 import { describe, expect, it } from "@effect/vitest"
 import { Effect, Option } from "effect"
+import { AtomRegistry as Registry } from "effect/reactivity"
 
 import { stageMaxWidth, stageMinWidth } from "../../app/contracts/demo/imagined-place-flow.js"
 import {

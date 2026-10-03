@@ -1,13 +1,13 @@
 // @vitest-environment node
 import { expect, layer } from "@effect/vitest"
 import type { Locator, Page } from "@playwright/test"
-import { Chunk, Effect, Layer, Match, Option, Schedule, Schema, Stream } from "effect"
+import { Effect, Layer, Match, Result, Schedule, Schema, Stream } from "effect"
 import * as Arr from "effect/Array"
 import * as Record from "effect/Record"
 import * as Str from "effect/String"
 
 import { type PlaceScenario, placeScenarioMeta, placeScenarios } from "../../app/contracts/imagined-place.js"
-import type { ColorScheme, Viewport } from "./browser.js"
+import type { BrowserError, ColorScheme, Viewport } from "./browser.js"
 import {
   act,
   animationsSettled,
@@ -55,7 +55,7 @@ const colorSchemes: ReadonlyArray<ColorScheme> = ["light", "dark"]
  * at `lg` both column headers stand beside it, and below `lg` the columns
  * stack with Arrange first, above the paper, so that header leads.
  */
-const FirstViewportLead = Schema.Literal("hero", "arrival-and-first-header", "arrival-and-both-headers")
+const FirstViewportLead = Schema.Literals(["hero", "arrival-and-first-header", "arrival-and-both-headers"])
 type FirstViewportLead = typeof FirstViewportLead.Type
 
 const shortViewport = 640
@@ -144,7 +144,7 @@ layer(Layer.merge(SiteUnderTest, BrowserLive), { excludeTestServices: true, time
   "Theoria home environment in Chromium",
   (it) => {
     Arr.forEach(viewports, (viewport) =>
-      it.scoped(
+      it(
         `at ${String(viewport.width)}×${String(viewport.height)} every story fits in light and dark, and ${
           firstViewportLead(viewport)
         } leads the first viewport`,
@@ -172,7 +172,7 @@ layer(Layer.merge(SiteUnderTest, BrowserLive), { excludeTestServices: true, time
           })
       ))
 
-    it.scoped("under reduced motion the search still has frames, and merges and story changes move only by opacity", () =>
+    it("under reduced motion the search still has frames, and merges and story changes move only by opacity", () =>
       Effect.gen(function*() {
         const { failures, page } = yield* openPage({ viewport: { width: 1280, height: 800 }, reducedMotion: "reduce" })
         yield* goto(page, "/")
@@ -198,14 +198,14 @@ layer(Layer.merge(SiteUnderTest, BrowserLive), { excludeTestServices: true, time
             1
           ).map((drawing) => `search ${String(drawing.search)}, trial ${String(drawing.trials)}`)
         const landmarks = ["h1", "compose", "arrange", "paper"]
-        const onlyOpacityAcross = (change: Effect.Effect<void, unknown>) =>
+        const onlyOpacityAcross = (change: Effect.Effect<void, BrowserError>) =>
           Effect.gen(function*() {
             const before = yield* sample
             yield* change
-            const samples = yield* Stream.repeatEffectWithSchedule(
+            const samples = yield* Stream.fromEffectSchedule(
               sample,
-              Schedule.spaced("16 millis").pipe(Schedule.upTo("2 seconds"))
-            ).pipe(Stream.runCollect, Effect.map(Chunk.toReadonlyArray))
+              Schedule.spaced("16 millis").pipe(Schedule.upTo({ duration: "2 seconds" }))
+            ).pipe(Stream.runCollect)
             yield* drawn(page)
             yield* animationsSettled(page)
             const after = yield* sample
@@ -216,7 +216,9 @@ layer(Layer.merge(SiteUnderTest, BrowserLive), { excludeTestServices: true, time
             const sampled = Arr.zip(drawings(samples), samples)
             Arr.forEach(retained, (name) => {
               const stoodAt = (frames: ReadonlyArray<typeof before>) =>
-                Arr.dedupe(Arr.filterMap(frames, (frame) => Record.get(frame.placed, name)))
+                Arr.dedupe(
+                  Arr.filterMap(frames, (frame) => Result.fromOption(Record.get(frame.placed, name), () => undefined))
+                )
               const ends = [before.placed[name] ?? "", after.placed[name] ?? ""]
               if (Arr.contains(landmarks, name)) {
                 expect(Arr.difference(stoodAt(samples), ends), name).toEqual([])
@@ -225,7 +227,7 @@ layer(Layer.merge(SiteUnderTest, BrowserLive), { excludeTestServices: true, time
               const rested = before.placed[name] ?? ""
               Arr.forEach(Arr.dedupe(Arr.map(sampled, ([drawing]) => drawing)), (drawing) => {
                 const during = stoodAt(
-                  Arr.filterMap(sampled, ([of, frame]) => of === drawing ? Option.some(frame) : Option.none())
+                  Arr.filterMap(sampled, ([of, frame]) => of === drawing ? Result.succeed(frame) : Result.failVoid)
                 )
                 expect(Arr.difference(during, [rested]).length, `${name} during ${drawing}`).toBeLessThanOrEqual(1)
               })
@@ -245,7 +247,7 @@ layer(Layer.merge(SiteUnderTest, BrowserLive), { excludeTestServices: true, time
         expect(yield* failures).toEqual([])
       }))
 
-    it.scoped("light and dark keep every interactive state readable", () =>
+    it("light and dark keep every interactive state readable", () =>
       Effect.gen(function*() {
         const { failures, page } = yield* openPage({ viewport: { width: 1280, height: 800 } })
         // Each scheme changes to a story the page is not already showing, so the search runs.

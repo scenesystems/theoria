@@ -1,7 +1,7 @@
-import { Registry } from "@effect-atom/atom"
 import { describe, expect, it } from "@effect/vitest"
 import type { Scope } from "effect"
 import { Duration, Effect, Option } from "effect"
+import { AtomRegistry as Registry } from "effect/reactivity"
 
 import { placeScenarioMeta } from "../../app/contracts/imagined-place.js"
 import {
@@ -24,24 +24,25 @@ import {
 const unfinished = placeScenarioMeta["unfinished-light"].brief
 const lost = placeScenarioMeta["lost-market"].brief
 
-/** A registry whose tasks run at once, holding the request mounted so its debounce is live. */
+/** A registry using the browser's task scheduling, holding the request mounted so its debounce is live. */
 const mounted = Effect.acquireRelease(
   Effect.sync(() => {
-    const registry = Registry.make({
-      scheduleTask: (task) => {
-        task()
-      }
-    })
+    const registry = Registry.make()
     const unmount = registry.mount(placeBuildRequestAtom)
     return { registry, unmount }
   }),
-  ({ unmount }) => Effect.sync(unmount)
+  ({ registry, unmount }) =>
+    Effect.sync(() => {
+      unmount()
+      registry.dispose()
+    })
 )
 
-/** Real time passes for the settle — the debounce is the page's own timer — so these run on the live clock. */
-const settled = Effect.sleep(Duration.sum(briefSettleDelay, Duration.millis(50)))
+/** The atom owns a detached runtime, so exercise its debounce with the live clock. */
+const advance = Effect.sleep
+const settled = advance(Duration.sum(briefSettleDelay, Duration.millis(50)))
 
-/** A test on the live clock, with a scope for the mounted registry. */
+/** A test with a scope for the mounted registry. */
 const live = (name: string, body: Effect.Effect<void, never, Scope.Scope>) => it.live(name, () => Effect.scoped(body))
 
 describe("the place's build request", () => {
@@ -108,7 +109,7 @@ describe("the place's build request", () => {
       expect(registry.get(placeBuildRequestAtom)).toMatchObject({ scenario: "unfinished-light", brief: unfinished })
       // Typing again at once: the old words are gone for good; only the new ones settle.
       registry.set(placeBriefDraftAtom, Option.some({ scenario: "unfinished-light", text: "A harbour" }))
-      yield* Effect.sleep(Duration.millis(100))
+      yield* advance(Duration.millis(100))
       expect(registry.get(placeBuildRequestAtom).brief).toBe(unfinished)
       yield* settled
       expect(registry.get(placeBuildRequestAtom).brief).toBe("A harbour")

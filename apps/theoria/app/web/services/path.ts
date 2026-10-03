@@ -34,7 +34,7 @@ const packageCapture = (matches: ReadonlyArray<string>): Option.Option<DocsPacka
 const docsApiPageRoute = (pathname: string): Option.Option<PageRoute> =>
   Str.match(docsApiPattern)(pathname).pipe(
     Option.flatMap((matches) => {
-      const moduleSlug = Arr.get(matches, 2).pipe(Option.flatMap(Option.fromNullable))
+      const moduleSlug = Arr.get(matches, 2).pipe(Option.flatMap(Option.fromNullishOr))
       return packageCapture(matches).pipe(
         Option.filter(() => Bool.or(Option.isNone(moduleSlug), Option.exists(moduleSlug, isDocsModuleSlug))),
         Option.map((packageSlug) => docsApiRoute(packageSlug, moduleSlug))

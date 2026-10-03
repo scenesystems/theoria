@@ -1,5 +1,5 @@
 import { Separator } from "@base-ui/react/separator"
-import { useAtomValue } from "@effect-atom/atom-react"
+import { useAtomValue } from "@effect/atom-react"
 import { Boolean as Bool, Equal, Match, Option, Schema } from "effect"
 import * as m from "motion/react-m"
 import type { CSSProperties, ReactNode } from "react"
@@ -26,7 +26,7 @@ import { fontSizeVar, lineHeightVar } from "./semanticTextClasses.js"
  * holds still: nothing is coming until it is asked for. A still placeholder
  * is the room something would take, not a promise that it will.
  */
-export const PlaceholderMotion = Schema.Literal("breathing", "still")
+export const PlaceholderMotion = Schema.Literals(["breathing", "still"])
 export type PlaceholderMotion = typeof PlaceholderMotion.Type
 
 const still = { animate: { opacity: 1 }, transition: stillTransition }

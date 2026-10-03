@@ -1,9 +1,9 @@
 import { ScrollArea } from "@base-ui/react/scroll-area"
 import { Toolbar } from "@base-ui/react/toolbar"
-import { Result } from "@effect-atom/atom"
-import { useAtomSet, useAtomValue } from "@effect-atom/atom-react"
+import { useAtomSet, useAtomValue } from "@effect/atom-react"
 import { BigDecimal, Boolean as Bool, Equal, Match, Number as Num, Option } from "effect"
 import * as Arr from "effect/Array"
+import { AsyncResult as Result } from "effect/reactivity"
 import * as Record from "effect/Record"
 import * as Str from "effect/String"
 import { AnimatePresence } from "motion/react"
@@ -218,7 +218,7 @@ const Lines = ({ drawing, preference, projection, prose }: {
  * stage shows can be read against the trace that chose it.
  */
 const fitStyle = (fit: number): CSSProperties =>
-  Bool.match(Num.lessThan(fit, 1), {
+  Bool.match(Num.isLessThan(fit, 1), {
     onTrue: () => ({ transform: `scale(${fit})`, transformOrigin: "0 0" }),
     onFalse: () => ({})
   })
@@ -292,7 +292,7 @@ const Drawing = ({ drawn, fit, frame, shown }: {
  */
 const paperSurfaceClassName = "group/stage relative bg-radial-[at_20%_0%] from-canvas to-paper"
 const paperClassName = (fit: number): string =>
-  Bool.match(Num.lessThan(fit, 1), {
+  Bool.match(Num.isLessThan(fit, 1), {
     onTrue: () => paperSurfaceClassName,
     onFalse: () =>
       `${paperSurfaceClassName} transition-[width] ${transitionClassName("shift")} ${stillUnderReducedMotion}`
@@ -417,10 +417,10 @@ const sketchedLineWidth = (index: number, count: number): string =>
 
 /** How many whole lines the sheet holds inside its padding. */
 const sketchedLineCount = (sheet: PlaceSheet, stage: Stage): number =>
-  BigDecimal.unsafeToNumber(
+  BigDecimal.toNumberUnsafe(
     BigDecimal.floor(
-      BigDecimal.unsafeFromNumber(
-        Num.unsafeDivide(Num.subtract(sheet.height, Num.multiply(stage.padding, 2)), stage.lineHeight)
+      BigDecimal.fromNumberUnsafe(
+        Num.divideUnsafe(Num.subtract(sheet.height, Num.multiply(stage.padding, 2)), stage.lineHeight)
       )
     )
   )

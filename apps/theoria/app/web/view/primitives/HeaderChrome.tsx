@@ -12,7 +12,7 @@ import { elevationClassName, focusClassName, respondColorsClassName } from "./de
  * the one header; this is the difference between a story and a workbench,
  * not drift.
  */
-export const HeaderChrome = Schema.Literal("floating", "workbench")
+export const HeaderChrome = Schema.Literals(["floating", "workbench"])
 export type HeaderChrome = typeof HeaderChrome.Type
 
 export const headerChromeClassName = (chrome: HeaderChrome): string =>
@@ -78,7 +78,7 @@ export const headerChromeIconButtonClassName = (className = ""): string =>
  * box to the edge. A glyph's box is its ink size divided by that fraction,
  * so glyphs from either source are drawn at nominally the same size.
  */
-export const HeaderGlyphSource = Schema.Literal("heroicon-20-solid", "brand-mark")
+export const HeaderGlyphSource = Schema.Literals(["heroicon-20-solid", "brand-mark"])
 export type HeaderGlyphSource = typeof HeaderGlyphSource.Type
 
 /**

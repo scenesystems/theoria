@@ -1,7 +1,7 @@
 // @vitest-environment node
 import { expect, layer } from "@effect/vitest"
 import type { Page } from "@playwright/test"
-import { Effect, Fiber, Layer, Option, Schema } from "effect"
+import { Effect, Fiber, Layer, Option, Schema, SchemaGetter } from "effect"
 import * as Arr from "effect/Array"
 import * as Rec from "effect/Record"
 
@@ -19,8 +19,11 @@ import {
 import { SiteUnderTest } from "./site.js"
 
 /** A measurement in milliseconds that may not have been made: empty where nothing was observed. */
-const ObservedMs = Schema.OptionFromNonEmptyTrimmedString.pipe(
-  Schema.compose(Schema.OptionFromSelf(Schema.NumberFromString))
+const ObservedMs = Schema.String.pipe(
+  Schema.decodeTo(Schema.Option(Schema.Finite), {
+    decode: SchemaGetter.transform((value) => value.trim() === "" ? Option.none() : Option.some(Number(value))),
+    encode: SchemaGetter.transform(Option.match({ onNone: () => "", onSome: String }))
+  })
 )
 
 /**
@@ -30,10 +33,10 @@ const ObservedMs = Schema.OptionFromNonEmptyTrimmedString.pipe(
  */
 const WebVitals = Schema.Struct({
   lcp: ObservedMs,
-  layoutShiftTotal: Schema.NumberFromString,
+  layoutShiftTotal: Schema.FiniteFromString,
   inp: ObservedMs,
-  eventThresholdMs: Schema.NumberFromString,
-  interactions: Schema.NumberFromString,
+  eventThresholdMs: Schema.FiniteFromString,
+  interactions: Schema.FiniteFromString,
   /** Each reported interaction's duration, in the order first observed, so a failure names the slow one. */
   interactionDurations: Schema.String
 })
@@ -42,7 +45,7 @@ const viewports = [{ width: 1440, height: 900 }, { width: 390, height: 844 }]
 const searching = (page: Page) => page.locator("[data-place-render-phase='running']")
 
 const readVitals = (page: Page) =>
-  Effect.flatMap(act(() => page.evaluate(recordedWebVitals)), Schema.decodeUnknown(WebVitals))
+  Effect.flatMap(act(() => page.evaluate(recordedWebVitals)), Schema.decodeUnknownEffect(WebVitals))
 
 /**
  * INP as the budget sees it. An interaction the observer did not report was
@@ -56,7 +59,7 @@ const interactionToNextPaint = (vitals: typeof WebVitals.Type): number =>
 layer(Layer.merge(SiteUnderTest, BrowserLive), { excludeTestServices: true, timeout: "2 minutes" })(
   "Theoria homepage web vitals in Chromium",
   (it) => {
-    it.scoped("the homepage's first paint stays within its vitals budgets", () =>
+    it("the homepage's first paint stays within its vitals budgets", () =>
       Effect.forEach(viewports, (viewport) =>
         Effect.gen(function*() {
           const { failures, page } = yield* openPage({ viewport })
@@ -85,7 +88,7 @@ layer(Layer.merge(SiteUnderTest, BrowserLive), { excludeTestServices: true, time
      * it counts — is still a change of shape, so the footprint is what is
      * asserted, not the score.
      */
-    it.scoped("each region of the demonstration is painted at one height from its first frame until the drawing lands", () =>
+    it("each region of the demonstration is painted at one height from its first frame until the drawing lands", () =>
       Effect.forEach(viewports, (viewport) =>
         Effect.gen(function*() {
           const { failures, page } = yield* openPage({ viewport })
@@ -110,7 +113,7 @@ layer(Layer.merge(SiteUnderTest, BrowserLive), { excludeTestServices: true, time
      * re-shades the gradient tile by tile, and a press on a phone waits
      * behind it. The light is also no part of the page: nothing can point at it.
      */
-    it.scoped("the canvas light is its own fixed layer, not the body's paint", () =>
+    it("the canvas light is its own fixed layer, not the body's paint", () =>
       Effect.gen(function*() {
         const { failures, page } = yield* openPage({ viewport: { width: 390, height: 844 } })
         yield* goto(page, "/")
@@ -134,7 +137,7 @@ layer(Layer.merge(SiteUnderTest, BrowserLive), { excludeTestServices: true, time
      * counted from the events themselves, so a page that was never touched, or
      * a recorder that never ran, cannot pass as a responsive one.
      */
-    it.scoped("an interaction while the search runs stays within the INP budget", () =>
+    it("an interaction while the search runs stays within the INP budget", () =>
       Effect.forEach(viewports, (viewport) =>
         Effect.gen(function*() {
           const { failures, page } = yield* openPage({ viewport })
@@ -143,7 +146,7 @@ layer(Layer.merge(SiteUnderTest, BrowserLive), { excludeTestServices: true, time
           yield* drawn(page)
           yield* animationsSettled(page)
           const scenarios = page.getByRole("radiogroup", { name: "Scenario" })
-          const rebuild = yield* Effect.fork(nextResponse(page, "POST", "/api/imagined-place/build"))
+          const rebuild = yield* Effect.forkChild(nextResponse(page, "POST", "/api/imagined-place/build"))
           yield* click(scenarios.getByRole("radio", { checked: false }).first())
           expect((yield* Fiber.join(rebuild)).status()).toBe(200)
           // The new build's search is running: the trials are coming in and the drawing is travelling.

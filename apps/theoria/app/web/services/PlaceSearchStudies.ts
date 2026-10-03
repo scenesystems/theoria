@@ -1,5 +1,7 @@
-import { type WorkerError, WorkerRunner } from "@effect/platform"
-import { Data, Effect, Exit, HashMap, Layer, Match, Number as Num, Option, Ref, Schema, Scope } from "effect"
+import { Data, Effect, Exit, HashMap, Layer, Match, Number as Num, Ref, Schema, Scope } from "effect"
+import { RpcServer } from "effect/rpc"
+import type * as WorkerError from "effect/workers/WorkerError"
+import type * as WorkerRunner from "effect/workers/WorkerRunner"
 
 import type { SearchError } from "@scenesystems/effect-search/SearchError"
 
@@ -38,10 +40,10 @@ export class Studies extends Data.Class<{
 /** A study kept open, and the scope it lives in, closed with `CloseSearch`. */
 class Kept extends Data.Class<{
   readonly study: OpenedStudy
-  readonly scope: Scope.CloseableScope
+  readonly scope: Scope.Closeable
 }> {}
 
-const numberText = Schema.encodeSync(Schema.NumberFromString)
+const numberText = Schema.encodeSync(Schema.FiniteFromString)
 
 const failed = (cause: SearchError) => new PlaceSearchFailed({ message: cause.message })
 
@@ -66,10 +68,7 @@ export const make = <R>(
 
     const found = (search: PlaceSearchId): Effect.Effect<Kept, PlaceSearchFailed> =>
       Effect.flatMap(Ref.get(kept), (all) =>
-        Option.match(HashMap.get(all, search), {
-          onNone: () => Effect.fail(unknownSearch(search)),
-          onSome: Effect.succeed
-        }))
+        Effect.fromOption(HashMap.get(all, search)).pipe(Effect.mapError(() => unknownSearch(search))))
 
     // A study is opened in its own scope and kept in one step: one that
     // fails to open, or whose opening is given up on, is closed with its
@@ -77,11 +76,12 @@ export const make = <R>(
     const open: Effect.Effect<PlaceSearchId, PlaceSearchFailed> = Effect.uninterruptibleMask((restore) =>
       Effect.gen(function*() {
         const scope = yield* Scope.make()
-        const study = yield* restore(openStudy.pipe(Scope.extend(scope), Effect.provide(context))).pipe(
+        const study = yield* restore(openStudy.pipe(Scope.provide(scope), Effect.provide(context))).pipe(
           Effect.mapError(failed),
           Effect.onExit((exit) =>
             Match.value(Exit.isSuccess(exit)).pipe(
-              Match.when(true, () => Effect.void),
+              Match.when(true, () =>
+                Effect.void),
               Match.orElse(() => Scope.close(scope, exit))
             )
           )
@@ -116,15 +116,18 @@ export const make = <R>(
 /** The worker runner answering the page's requests from the table. */
 export const layer = (
   openStudy: Effect.Effect<OpenedStudy, SearchError, Scope.Scope>
-): Layer.Layer<never, WorkerError.WorkerError, WorkerRunner.PlatformRunner> =>
-  Layer.unwrapScoped(
+): Layer.Layer<never, WorkerError.WorkerError, WorkerRunner.WorkerRunnerPlatform> =>
+  Layer.unwrap(
     Effect.map(make(openStudy), (studies) =>
-      WorkerRunner.layerSerialized(PlaceSearchRequest, {
-        OpenSearch: () => studies.open,
-        AskSearch: (request) => studies.ask(request.search),
-        TellSearch: (request) => studies.tell(request.search, request.trial, request.loss),
-        CloseSearch: (request) => studies.close(request.search)
-      }))
+      RpcServer.layer(PlaceSearchRequest).pipe(
+        Layer.provide(PlaceSearchRequest.toLayer({
+          OpenSearch: () => studies.open,
+          AskSearch: (request) => studies.ask(request.search),
+          TellSearch: (request) => studies.tell(request.search, request.trial, request.loss),
+          CloseSearch: (request) => studies.close(request.search)
+        })),
+        Layer.provide(RpcServer.layerProtocolWorkerRunner)
+      ))
   )
 
 export const PlaceSearchStudies = { make, layer }

@@ -7,7 +7,7 @@ import { ExternalLink, InternalLink } from "../primitives/Link.js"
 import { MathContent } from "../primitives/MathContent.js"
 import { SemanticContent } from "../primitives/SemanticContent.js"
 
-const RichPart = Schema.Union(ApiDocPartSchema, GuideInlineSchema)
+const RichPart = Schema.Union([ApiDocPartSchema, GuideInlineSchema])
 const RichText = Schema.Struct({ parts: Schema.Array(RichPart) })
 
 /** A link into this site — a path or a fragment — stays a client-side link; any other leaves it. */

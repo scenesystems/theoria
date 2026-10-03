@@ -8,7 +8,7 @@ import { Layer, Stack } from "../primitives/Layout.js"
 import { SemanticText } from "../primitives/SemanticText.js"
 import { PulseLayer, ShimmerLine } from "../primitives/Skeleton.js"
 
-export const DocsLoadingKind = Schema.Literal("index", "guide", "api")
+export const DocsLoadingKind = Schema.Literals(["index", "guide", "api"])
 export type DocsLoadingKind = typeof DocsLoadingKind.Type
 
 const IndexSkeleton = () => (
@@ -103,7 +103,7 @@ export const DocsStatus = (
   Match.value(props).pipe(
     Match.when(
       { state: "loading" },
-      ({ kind }) => <DocsLoadingSkeleton kind={Option.getOrElse(Option.fromNullable(kind), () => "guide")} />
+      ({ kind }) => <DocsLoadingSkeleton kind={Option.getOrElse(Option.fromNullishOr(kind), () => "guide")} />
     ),
     Match.when({ state: "not-found" }, () => (
       <Notice

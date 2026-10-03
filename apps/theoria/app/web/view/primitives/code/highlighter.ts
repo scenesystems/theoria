@@ -1,11 +1,11 @@
 import type { HighlighterCore, ThemeRegistration } from "@shikijs/core"
 import type { ThemedToken } from "@shikijs/types"
-import { Boolean as Bool, Effect, Option, Schema, Tuple } from "effect"
+import { Effect, Option, Schema, Tuple } from "effect"
 import * as Arr from "effect/Array"
 import * as Rec from "effect/Record"
 import * as Str from "effect/String"
 
-export const HighlightTokenKind = Schema.Literal(
+export const HighlightTokenKind = Schema.Literals([
   "plain",
   "comment",
   "keyword",
@@ -14,7 +14,7 @@ export const HighlightTokenKind = Schema.Literal(
   "type",
   "function",
   "operator"
-)
+])
 
 export type HighlightTokenKind = typeof HighlightTokenKind.Type
 
@@ -25,7 +25,7 @@ export const HighlightToken = Schema.Struct({
 
 export type HighlightToken = typeof HighlightToken.Type
 
-export const CodeLanguage = Schema.Literal("shellscript", "text", "typescript")
+export const CodeLanguage = Schema.Literals(["shellscript", "text", "typescript"])
 export type CodeLanguage = typeof CodeLanguage.Type
 
 export class SyntaxHighlightingError
@@ -96,7 +96,7 @@ export const highlightTokenPaint: Record<HighlightTokenKind, {
 
 const scopedKinds = Arr.filter(
   HighlightTokenKind.literals,
-  (kind) => Arr.isNonEmptyReadonlyArray(highlightTokenPaint[kind].scope)
+  (kind) => Arr.match(highlightTokenPaint[kind].scope, { onEmpty: () => false, onNonEmpty: () => true })
 )
 
 const theoriaTheme = (): ThemeRegistration => ({
@@ -171,11 +171,11 @@ export const tokenKindFor = (color: Option.Option<string>): HighlightTokenKind =
 const plainToken = (value: string): HighlightToken => ({ kind: "plain", value })
 
 const projectLine = (line: ReadonlyArray<ThemedToken>): ReadonlyArray<HighlightToken> =>
-  Bool.match(Arr.isEmptyReadonlyArray(line), {
-    onTrue: () => [plainToken("")],
-    onFalse: () =>
+  Arr.match(line, {
+    onEmpty: () => [plainToken("")],
+    onNonEmpty: () =>
       Arr.map(line, (token) => ({
-        kind: tokenKindFor(Option.fromNullable(token.color)),
+        kind: tokenKindFor(Option.fromNullishOr(token.color)),
         value: token.content
       }))
   })

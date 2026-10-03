@@ -1,4 +1,4 @@
-import { Data, Effect, Option, Stream, String } from "effect"
+import { Data, Effect, Option, Queue, Stream, String } from "effect"
 import * as Arr from "effect/Array"
 import * as Num from "effect/Number"
 
@@ -81,12 +81,20 @@ const contentMeasure = (
     Effect.map(BrowserWindow, (browserWindow) =>
       Stream.concat(
         Stream.sync(() => measure(contentBox(browserWindow, element))),
-        Stream.asyncPush<number>((emit) =>
+        Stream.callback<number>((emit) =>
           Effect.acquireRelease(
             Effect.sync(() => {
               const observer = new browserWindow.ResizeObserver((entries) => {
                 Arr.forEach(entries, (entry) => {
-                  emit.single(measure(entry.contentRect))
+                  Queue.offerUnsafe(
+                    emit,
+                    measure(
+                      new ContentBox({
+                        width: entry.contentRect.width,
+                        height: entry.contentRect.height
+                      })
+                    )
+                  )
                 })
               })
               observer.observe(element)

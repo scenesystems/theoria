@@ -6,7 +6,7 @@ import { GuideInlineSchema } from "@theoria/docs-model"
 import { DocsRichText } from "../../app/web/view/docs/DocsRichText.js"
 
 const renderMath = (text: string, display: boolean) =>
-  Schema.decodeUnknown(GuideInlineSchema)({ kind: "math", text, display }).pipe(
+  Schema.decodeEffect(GuideInlineSchema)({ kind: "math", text, display }).pipe(
     Effect.map((part) => renderToStaticMarkup(<DocsRichText parts={Array.of(part)} />))
   )
 
@@ -29,10 +29,10 @@ describe("mathematical documentation", () => {
 
   it.effect("shows malformed LaTeX as escaped source without breaking surrounding prose", () =>
     Effect.gen(function*() {
-      const parts = yield* Schema.decodeUnknown(Schema.Array(GuideInlineSchema))(Array.make(
-        { kind: "text", text: "Before " },
-        { kind: "math", text: "\\frac{<img src=x onerror=alert(1)>}", display: false },
-        { kind: "text", text: " after." }
+      const parts = yield* Schema.decodeEffect(Schema.Array(GuideInlineSchema))(Array.make(
+        GuideInlineSchema.make({ kind: "text", text: "Before " }),
+        GuideInlineSchema.make({ kind: "math", text: "\\frac{<img src=x onerror=alert(1)>}", display: false }),
+        GuideInlineSchema.make({ kind: "text", text: " after." })
       ))
       const content = renderToStaticMarkup(<DocsRichText parts={parts} />)
 

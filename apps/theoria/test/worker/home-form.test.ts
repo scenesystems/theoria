@@ -44,15 +44,15 @@ import { SiteLive } from "./site.js"
 /** An element's box on the viewport; an element with no box fails the test. */
 const boxOf = (locator: Locator) =>
   Effect.flatMap(act(() => locator.boundingBox()), (box) =>
-    Option.match(Option.fromNullable(box), {
-      onNone: () => Effect.dieMessage("the element has no box"),
+    Option.match(Option.fromNullishOr(box), {
+      onNone: () => Effect.die("the element has no box"),
       onSome: (some) => Effect.succeed({ ...some, centreX: some.x + some.width / 2, centreY: some.y + some.height / 2 })
     }))
 
 layer(Layer.merge(SiteLive, BrowserLive), { excludeTestServices: true, timeout: "3 minutes" })(
   "Theoria home page form in Chromium",
   (it) => {
-    it.scoped("the spine's dots stand centred on its line, and over it", () =>
+    it("the spine's dots stand centred on its line, and over it", () =>
       Effect.gen(function*() {
         const { failures, page } = yield* openPage()
         yield* goto(page, "/")
@@ -75,7 +75,7 @@ layer(Layer.merge(SiteLive, BrowserLive), { excludeTestServices: true, timeout: 
         expect(yield* failures).toEqual([])
       }))
 
-    it.scoped("a step's name and the packages that do its work stand level", () =>
+    it("a step's name and the packages that do its work stand level", () =>
       Effect.gen(function*() {
         const { failures, page } = yield* openPage()
         yield* goto(page, "/")
@@ -96,7 +96,7 @@ layer(Layer.merge(SiteLive, BrowserLive), { excludeTestServices: true, timeout: 
         expect(yield* failures).toEqual([])
       }))
 
-    it.scoped("what is lit wears one wash wherever it stands", () =>
+    it("what is lit wears one wash wherever it stands", () =>
       Effect.gen(function*() {
         const { failures, page } = yield* openPage()
         yield* goto(page, "/")
@@ -104,7 +104,7 @@ layer(Layer.merge(SiteLive, BrowserLive), { excludeTestServices: true, timeout: 
         const demo = page.getByRole("region", { name: "Imagined place demo" })
         const overlay = page.locator("[data-place-provenance]")
         const built = page.locator("[data-place-how-its-built]")
-        const propose = yield* Arr.findFirst(placeStepDefinitions, (step) => step.id === "propose")
+        const propose = yield* Effect.fromOption(Arr.findFirst(placeStepDefinitions, (step) => step.id === "propose"))
         yield* click(built.getByRole("tab", { name: propose.name }))
 
         // A merged proposal's name, pressed, lights its line of the prose, the line of code that
@@ -132,7 +132,7 @@ layer(Layer.merge(SiteLive, BrowserLive), { excludeTestServices: true, timeout: 
         expect(yield* failures).toEqual([])
       }))
 
-    it.scoped("a preview opened from an answer stands over the answer", () =>
+    it("a preview opened from an answer stands over the answer", () =>
       Effect.gen(function*() {
         const { failures, page } = yield* openPage()
         yield* goto(page, "/")
@@ -150,7 +150,7 @@ layer(Layer.merge(SiteLive, BrowserLive), { excludeTestServices: true, timeout: 
         expect(yield* failures).toEqual([])
       }))
 
-    it.scoped("the band is a strip, no taller than a line of text, with a way back up", () =>
+    it("the band is a strip, no taller than a line of text, with a way back up", () =>
       Effect.gen(function*() {
         const { failures, page } = yield* openPage({ viewport: { width: 390, height: 844 } })
         yield* goto(page, "/")
@@ -171,7 +171,7 @@ layer(Layer.merge(SiteLive, BrowserLive), { excludeTestServices: true, timeout: 
         expect(yield* failures).toEqual([])
       }))
 
-    it.scoped("to assistive technology the band is one link, named for where it goes and what it shows", () =>
+    it("to assistive technology the band is one link, named for where it goes and what it shows", () =>
       Effect.gen(function*() {
         const { failures, page } = yield* openPage({ viewport: { width: 390, height: 844 } })
         yield* goto(page, "/")
@@ -202,7 +202,7 @@ layer(Layer.merge(SiteLive, BrowserLive), { excludeTestServices: true, timeout: 
         expect(yield* failures).toEqual([])
       }))
 
-    it.scoped("the arrival leads the demonstration, and Compose and Arrange start on one line", () =>
+    it("the arrival leads the demonstration, and Compose and Arrange start on one line", () =>
       Effect.gen(function*() {
         const { failures, page } = yield* openPage()
         yield* goto(page, "/")
@@ -217,7 +217,7 @@ layer(Layer.merge(SiteLive, BrowserLive), { excludeTestServices: true, timeout: 
         expect(yield* failures).toEqual([])
       }))
 
-    it.scoped("the Build act is titled and not narrated: no paragraph stands between its title and the code", () =>
+    it("the Build act is titled and not narrated: no paragraph stands between its title and the code", () =>
       Effect.gen(function*() {
         const { failures, page } = yield* openPage()
         yield* goto(page, "/")
@@ -228,7 +228,7 @@ layer(Layer.merge(SiteLive, BrowserLive), { excludeTestServices: true, timeout: 
         expect(yield* failures).toEqual([])
       }))
 
-    it.scoped("the brief uses body metrics, keeps its five-row floor, and grows for longer drafts", () =>
+    it("the brief uses body metrics, keeps its five-row floor, and grows for longer drafts", () =>
       Effect.forEach([390, 1280], (width) =>
         Effect.gen(function*() {
           const { failures, page } = yield* openPage({ viewport: { width, height: 900 } })
@@ -248,7 +248,7 @@ layer(Layer.merge(SiteLive, BrowserLive), { excludeTestServices: true, timeout: 
           expect(yield* failures).toEqual([])
         })))
 
-    it.scoped("the Compose act reads down: the stories, the title, the brief, the features", () =>
+    it("the Compose act reads down: the stories, the title, the brief, the features", () =>
       Effect.gen(function*() {
         const { failures, page } = yield* openPage()
         yield* goto(page, "/")
@@ -268,7 +268,7 @@ layer(Layer.merge(SiteLive, BrowserLive), { excludeTestServices: true, timeout: 
         const field = compose.getByRole("textbox")
         const paragraphs = yield* act(() => compose.locator("p").count())
         yield* withoutAttribute(field, "data-dirty")
-        const rebuild = yield* Effect.fork(nextResponse(page, "POST", "/api/imagined-place/build"))
+        const rebuild = yield* Effect.forkChild(nextResponse(page, "POST", "/api/imagined-place/build"))
         yield* fill(field, "a lighthouse keeper's rock, reached at low water")
         expect((yield* Fiber.join(rebuild)).status()).toBe(200)
         yield* attribute(field, "data-dirty", "")

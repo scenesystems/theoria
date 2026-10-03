@@ -34,7 +34,7 @@ import { SiteLive } from "./site.js"
  */
 layer(Layer.merge(SiteLive, BrowserLive), { excludeTestServices: true, timeout: "3 minutes" })(
   (it) => {
-    it.scoped("every disc answers to a touch 44 px across on the narrowest phones", () =>
+    it("every disc answers to a touch 44 px across on the narrowest phones", () =>
       Effect.gen(function*() {
         const { failures, page } = yield* openPage({ viewport: { width: 390, height: 844 } })
         yield* goto(page, "/")
@@ -62,7 +62,7 @@ layer(Layer.merge(SiteLive, BrowserLive), { excludeTestServices: true, timeout: 
         expect(yield* failures).toEqual([])
       }))
 
-    it.scoped("a finger on a disc's reach opens that disc's answer and no other, on a phone with a touchscreen", () =>
+    it("a finger on a disc's reach opens that disc's answer and no other, on a phone with a touchscreen", () =>
       Effect.gen(function*() {
         const { failures, page } = yield* openPage({ hasTouch: true, viewport: { width: 390, height: 844 } })
         yield* goto(page, "/")
@@ -93,7 +93,7 @@ layer(Layer.merge(SiteLive, BrowserLive), { excludeTestServices: true, timeout: 
         expect(yield* failures).toEqual([])
       }))
 
-    it.scoped("a finger presses as a pointer does: the same disc again closes, another disc takes the answer, a touch outside puts it away", () =>
+    it("a finger presses as a pointer does: the same disc again closes, another disc takes the answer, a touch outside puts it away", () =>
       Effect.gen(function*() {
         const { failures, page } = yield* openPage({ hasTouch: true, viewport: { width: 390, height: 844 } })
         yield* goto(page, "/")
@@ -105,7 +105,7 @@ layer(Layer.merge(SiteLive, BrowserLive), { excludeTestServices: true, timeout: 
         const title = overlay.locator("[data-current]").getByRole("heading", { level: 3 })
         yield* act(() => paper.evaluate(scrollElementTo, 0))
         const targets = yield* act(() => discs.evaluateAll(discTouchTargets))
-        const [first, second] = yield* Option.all([Arr.get(targets, 0), Arr.get(targets, 1)])
+        const [first, second] = yield* Effect.fromOption(Option.all([Arr.get(targets, 0), Arr.get(targets, 1)]))
         const centre = (target: typeof first) => ({ x: target.disc.width / 2, y: target.disc.height / 2 })
 
         // Touched, a disc answers; touched again, its answer closes: a finger is not resting on it, it pressed.

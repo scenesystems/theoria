@@ -1,5 +1,5 @@
 import { describe, expect, it } from "@effect/vitest"
-import { Boolean as Bool, Effect, Equal, Layer, Number as Num, Option, Schema, String as Str, Tuple } from "effect"
+import { Boolean as Bool, Effect, Equal, Layer, Number as Num, Option, Schema, String as Str } from "effect"
 import * as Arr from "effect/Array"
 
 import * as Numeric from "@scenesystems/effect-math/Numeric"
@@ -36,7 +36,7 @@ type PlaceFeatures = typeof PlaceFeatures.Type
 const PlaceMarkers = Schema.Array(PlaceMarker)
 type PlaceMarkers = typeof PlaceMarkers.Type
 
-const OptionalParticipants = Schema.Array(Schema.OptionFromSelf(ParticipantRole))
+const OptionalParticipants = Schema.Array(Schema.Option(ParticipantRole))
 type OptionalParticipants = typeof OptionalParticipants.Type
 
 const Meanders = Schema.Array(Meander)
@@ -65,24 +65,24 @@ const fixedWidthText = Layer.mergeAll(
 
 /** The corners of the meander space are where the geometry is most stressed. */
 const corner = (pick: 0 | 1): Meander => ({
-  edge: Arr.unsafeGet(meanderBounds.edge, pick),
-  swing: Arr.unsafeGet(meanderBounds.swing, pick),
-  phase: Arr.unsafeGet(meanderBounds.phase, pick),
-  turns: Arr.unsafeGet(meanderBounds.turns, pick),
-  top: Arr.unsafeGet(meanderBounds.top, pick),
-  step: Tuple.getFirst(meanderBounds.step)
+  edge: Arr.getUnsafe(meanderBounds.edge, pick),
+  swing: Arr.getUnsafe(meanderBounds.swing, pick),
+  phase: Arr.getUnsafe(meanderBounds.phase, pick),
+  turns: Arr.getUnsafe(meanderBounds.turns, pick),
+  top: Arr.getUnsafe(meanderBounds.top, pick),
+  step: ((pair) => pair[0])(meanderBounds.step)
 })
 
 const corners: Meanders = Arr.make(corner(0), corner(1))
 
 /** The meander that leans furthest left: full swing, at the trough of the sine from the first feature on. */
 const leftmost: Meander = {
-  edge: Tuple.getFirst(meanderBounds.edge),
-  swing: Tuple.getSecond(meanderBounds.swing),
-  phase: Num.negate(Num.unsafeDivide(Numeric.pi, 2)),
-  turns: Tuple.getFirst(meanderBounds.turns),
-  top: Tuple.getFirst(meanderBounds.top),
-  step: Tuple.getFirst(meanderBounds.step)
+  edge: ((pair) => pair[0])(meanderBounds.edge),
+  swing: ((pair) => pair[1])(meanderBounds.swing),
+  phase: Num.multiply(Numeric.unsafeDivide(Numeric.pi, 2), -1),
+  turns: ((pair) => pair[0])(meanderBounds.turns),
+  top: ((pair) => pair[0])(meanderBounds.top),
+  step: ((pair) => pair[0])(meanderBounds.step)
 }
 
 const distance = (a: PlaceMarker, b: PlaceMarker): number => {
@@ -127,16 +127,16 @@ const expectTouchable = (markers: PlaceMarkers) =>
   })
 
 /** Steps of a travel between the two corners, as the stage would draw them. */
-const steps = Arr.map(Arr.range(0, 10), (index) => Num.unsafeDivide(index, 10))
+const steps = Arr.map(Arr.range(0, 10), (index) => Numeric.unsafeDivide(index, 10))
 
 describe("Imagined place geometry contract", () => {
   it.effect("a disc's reach makes up what its radius lacks of a 44 px touch target, and nothing more", () =>
     Effect.sync(() => {
       const narrow = stageFor(240)
       const small = markerRadius(narrow, 0)
-      expect(small).toBeLessThan(Num.unsafeDivide(minimumTouchTarget, 2))
+      expect(small).toBeLessThan(Numeric.unsafeDivide(minimumTouchTarget, 2))
       expect(Num.multiply(2, Num.sum(small, touchReach(small)))).toBeCloseTo(minimumTouchTarget, 10)
-      expect(touchReach(Num.unsafeDivide(minimumTouchTarget, 2))).toBe(0)
+      expect(touchReach(Numeric.unsafeDivide(minimumTouchTarget, 2))).toBe(0)
       expect(touchReach(markerRadius(stageFor(900), 1))).toBe(0)
     }))
 
@@ -180,7 +180,7 @@ describe("Imagined place geometry contract", () => {
       const arriving = Arr.findFirst(halfway, (m) => Equal.equals(m.name, "Feature 6"))
       const destination = Arr.findFirst(to, (m) => Equal.equals(m.name, "Feature 6"))
       expect(Option.map(arriving, (m) => m.radius)).toEqual(
-        Option.map(destination, (m) => Num.unsafeDivide(m.radius, 2))
+        Option.map(destination, (m) => Numeric.unsafeDivide(m.radius, 2))
       )
       expect(Option.map(arriving, (m) => m.x)).toEqual(Option.map(destination, (m) => m.x))
       // The leaver is still drawn, half its size, where it stood — so the text is flowed around it while it
@@ -188,7 +188,7 @@ describe("Imagined place geometry contract", () => {
       const leaving = Arr.findFirst(halfway, (m) => Equal.equals(m.name, "Feature 1"))
       const origin = Arr.findFirst(from, (m) => Equal.equals(m.name, "Feature 1"))
       expect(Option.map(leaving, (m) => m.radius)).toEqual(
-        Option.map(origin, (m) => Num.unsafeDivide(m.radius, 2))
+        Option.map(origin, (m) => Numeric.unsafeDivide(m.radius, 2))
       )
       expect(Option.map(leaving, (m) => m.x)).toEqual(Option.map(origin, (m) => m.x))
       expect(Arr.map(halfway, (m) => m.name)).toEqual(Arr.append(Arr.map(to, (m) => m.name), "Feature 1"))
@@ -325,14 +325,14 @@ describe("Imagined place geometry contract", () => {
       // where a travelling disc would be clamped, and the paper is at least what the discs stand on.
       const wide = stageFor(900)
       const narrow = stageFor(254)
-      const scale = Num.unsafeDivide(narrow.stageWidth, wide.stageWidth)
+      const scale = Numeric.unsafeDivide(narrow.stageWidth, wide.stageWidth)
       const scaled = drawingScaled(
         new PlaceDrawing({ markers: placeMarkers(features, noContributors, wide, leftmost), paper: wide.stageHeight }),
         scale
       )
       expect(
         Arr.some(scaled.markers, (m) =>
-          Num.lessThan(
+          Num.isLessThan(
             Num.subtract(m.x, m.radius),
             Num.sumAll(Arr.make(narrow.padding, minimumLineWidth, markerGap))
           ))
@@ -356,7 +356,7 @@ describe("Imagined place geometry contract", () => {
       const narrow = stageFor(254)
       const scaled = drawingScaled(
         new PlaceDrawing({ markers: placeMarkers(features, noContributors, wide, leftmost), paper: wide.stageHeight }),
-        Num.unsafeDivide(narrow.stageWidth, wide.stageWidth)
+        Numeric.unsafeDivide(narrow.stageWidth, wide.stageWidth)
       )
       // A line's ink runs from the padding for its width; a disc beside that line whose left edge is short
       // of the ink's end, less the gap, has the prose through it.
@@ -365,7 +365,7 @@ describe("Imagined place geometry contract", () => {
           Arr.some(
             markersBeside(narrow, markers, index),
             (marker) =>
-              Num.lessThan(
+              Num.isLessThan(
                 Num.subtract(Num.subtract(marker.x, marker.radius), markerGap),
                 Num.subtract(Num.sum(narrow.padding, line.width), 1e-9)
               )

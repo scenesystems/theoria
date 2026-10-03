@@ -28,11 +28,11 @@ export const ChangedValue = ({ changes, children, className, tone }: {
   readonly tone: ToneClasses
 }) => (
   <Layer
-    className={`relative isolate ${Option.getOrElse(Option.fromNullable(className), () => "")}`}
+    className={`relative isolate ${Option.getOrElse(Option.fromNullishOr(className), () => "")}`}
     data-changes={String(changes)}
     key={changes}
   >
-    {Boolean.match(Number.greaterThan(changes, 0), {
+    {Boolean.match(Number.isGreaterThan(changes, 0), {
       onTrue: () => (
         <Layer
           aria-hidden

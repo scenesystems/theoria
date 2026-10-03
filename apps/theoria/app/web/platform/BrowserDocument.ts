@@ -1,4 +1,4 @@
-import { Boolean, Context, Effect, Function, Layer, Option, Schema, Stream } from "effect"
+import { Boolean, Context, Effect, Function, Layer, Option, Queue, Schema, Stream } from "effect"
 import * as Arr from "effect/Array"
 
 /**
@@ -9,10 +9,10 @@ import * as Arr from "effect/Array"
  *
  * @since 0.2.0
  */
-export class BrowserDocument extends Context.Tag("@theoria/app/web/platform/BrowserDocument")<
+export class BrowserDocument extends Context.Service<
   BrowserDocument,
   Document
->() {}
+>()("@theoria/app/web/platform/BrowserDocument") {}
 
 /** The ambient document. This is the one place the app reads the global. */
 export const layer: Layer.Layer<BrowserDocument> = Layer.sync(BrowserDocument, () => document)
@@ -24,12 +24,12 @@ export const body: Effect.Effect<HTMLElement, never, BrowserDocument> = Effect.m
 )
 
 export const elementById = (id: string): Effect.Effect<Option.Option<HTMLElement>, never, BrowserDocument> =>
-  Effect.map(BrowserDocument, (browserDocument) => Option.fromNullable(browserDocument.getElementById(id)))
+  Effect.map(BrowserDocument, (browserDocument) => Option.fromNullishOr(browserDocument.getElementById(id)))
 
 export const querySelector = (selector: string): Effect.Effect<Option.Option<HTMLElement>, never, BrowserDocument> =>
   Effect.map(
     BrowserDocument,
-    (browserDocument) => Option.fromNullable(browserDocument.querySelector<HTMLElement>(selector))
+    (browserDocument) => Option.fromNullishOr(browserDocument.querySelector<HTMLElement>(selector))
   )
 
 /** Every element the selector matches, in document order. */
@@ -45,7 +45,7 @@ export const querySelectorAll = (
 export const headElement = (selector: string): Effect.Effect<Option.Option<HTMLElement>, never, BrowserDocument> =>
   Effect.map(
     BrowserDocument,
-    (browserDocument) => Option.fromNullable(browserDocument.head.querySelector<HTMLElement>(selector))
+    (browserDocument) => Option.fromNullishOr(browserDocument.head.querySelector<HTMLElement>(selector))
   )
 
 export const setTitle = (text: string): Effect.Effect<void, never, BrowserDocument> =>
@@ -80,14 +80,14 @@ export const events = <K extends keyof DocumentEventMap>(
 export const preventedKeydowns = (
   matches: (event: KeyboardEvent) => boolean
 ): Stream.Stream<KeyboardEvent, never, BrowserDocument> =>
-  Stream.asyncPush<KeyboardEvent, never, BrowserDocument>((emit) =>
+  Stream.callback<KeyboardEvent, never, BrowserDocument>((emit) =>
     Effect.flatMap(BrowserDocument, (browserDocument) => {
       const listener = (event: KeyboardEvent): void =>
         Boolean.match(matches(event), {
           onFalse: Function.constVoid,
           onTrue: () => {
             event.preventDefault()
-            emit.single(event)
+            Queue.offerUnsafe(emit, event)
           }
         })
       return Effect.acquireRelease(
@@ -118,7 +118,7 @@ export const canvasContext2d: Effect.Effect<CanvasRenderingContext2D, CanvasUnav
   .flatMap(
     BrowserDocument,
     (browserDocument) =>
-      Option.fromNullable(browserDocument.createElement("canvas").getContext("2d")).pipe(
+      Option.fromNullishOr(browserDocument.createElement("canvas").getContext("2d")).pipe(
         Option.match({
           onNone: () => new CanvasUnavailable({ message: "The document returned no 2D canvas context." }),
           onSome: Effect.succeed

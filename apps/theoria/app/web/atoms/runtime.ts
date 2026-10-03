@@ -1,4 +1,4 @@
-import { Atom } from "@effect-atom/atom"
+import { Atom } from "effect/reactivity"
 
 import { BrowserLive } from "../platform/browser.js"
 

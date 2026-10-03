@@ -1,5 +1,5 @@
-import { HttpClient, HttpClientResponse, HttpServerResponse } from "@effect/platform"
 import { Effect, Layer } from "effect"
+import { HttpClient, HttpClientResponse, HttpServerResponse } from "effect/http"
 
 import { DocsClient } from "../../app/web/services/DocsClient.js"
 

@@ -1,5 +1,5 @@
 import { Button } from "@base-ui/react/button"
-import { useAtomSet, useAtomValue } from "@effect-atom/atom-react"
+import { useAtomSet, useAtomValue } from "@effect/atom-react"
 import { ComputerDesktopIcon, MoonIcon, SunIcon } from "@heroicons/react/20/solid"
 import { Match, Schema } from "effect"
 
@@ -28,7 +28,7 @@ export const themeToggleLabel = (preference: ColorModePreference, mode: ColorMod
   )
 
 /** The glyph the control wears: a screen while following the system, the sun pinned light, the moon pinned dark. */
-export const ThemeToggleGlyph = Schema.Literal("screen", "sun", "moon")
+export const ThemeToggleGlyph = Schema.Literals(["screen", "sun", "moon"])
 export type ThemeToggleGlyph = typeof ThemeToggleGlyph.Type
 
 /** The glyph names the preference, as the label does: following the system is its own state, not a light or a dark one. */

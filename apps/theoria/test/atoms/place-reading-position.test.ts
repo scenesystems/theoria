@@ -75,9 +75,9 @@ const following = <A>(stream: Stream.Stream<A, never, BrowserDocument.BrowserDoc
     yield* Effect.forkScoped(Stream.runForEach(stream, (value) => Queue.offer(seen, value)))
     return seen
   }).pipe(Effect.map((seen) =>
-    Queue.take(seen).pipe(Effect.timeoutFail({
+    Queue.take(seen).pipe(Effect.timeoutOrElse({
       duration: Duration.seconds(2),
-      onTimeout: () => "nothing was measured again"
+      orElse: () => Effect.fail("nothing was measured again")
     }))
   ))
 

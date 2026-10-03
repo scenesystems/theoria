@@ -1,5 +1,6 @@
-import { FetchHttpClient, HttpClient } from "@effect/platform"
-import { Effect, Option, Schema } from "effect"
+import { BrowserHttpClient } from "@effect/platform-browser"
+import { Context, Effect, Layer, Option, Schema } from "effect"
+import * as HttpClient from "effect/http/HttpClient"
 
 import { type DemoError, DemoRequestError } from "../../contracts/demo-error.js"
 import { type PlaceBuild, PlaceBuildEnvelope } from "../../contracts/imagined-place-result.js"
@@ -9,7 +10,7 @@ import { formatParseError, requestEnvelope, type SuccessEnvelopeData } from "./e
 
 const buildPath = "/api/imagined-place/build"
 
-const encodeBuildRequest = Schema.encode(Schema.parseJson(PlaceBuildRequest))
+const encodeBuildRequest = Schema.encodeEffect(Schema.fromJsonString(PlaceBuildRequest))
 
 const make = Effect.gen(function*() {
   const http = yield* HttpClient.HttpClient
@@ -33,9 +34,11 @@ const make = Effect.gen(function*() {
  * `fetch` while tests can provide an in-memory client through
  * `ImaginedPlaceClient.DefaultWithoutDependencies`.
  */
-export class ImaginedPlaceClient
-  extends Effect.Service<ImaginedPlaceClient>()("@theoria/app/web/services/ImaginedPlaceClient", {
-    effect: make,
-    dependencies: [FetchHttpClient.layer]
-  })
-{}
+export class ImaginedPlaceClient extends Context.Service<ImaginedPlaceClient, Effect.Success<typeof make>>()(
+  "@theoria/app/web/services/ImaginedPlaceClient"
+) {
+  static readonly DefaultWithoutDependencies = Layer.effect(ImaginedPlaceClient, make)
+  static readonly Default = ImaginedPlaceClient.DefaultWithoutDependencies.pipe(
+    Layer.provide(BrowserHttpClient.layerFetch)
+  )
+}

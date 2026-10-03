@@ -81,7 +81,7 @@ const space = yield* SearchSpace.make({
   turns: SearchSpace.float(0.5, 2.5), top: SearchSpace.float(0.04, 0.6), step: SearchSpace.float(0.03, 0.24)
 })
 const separation = Statistics.minimum(Chunk.map(pairs, ([a, b]) => Geometry.euclideanDistance(a, b)))
-const raggedness = Statistics.standardDeviation(Chunk.map(lines, (line) => Num.unsafeDivide(line.width, maxWidth)))
+const raggedness = Statistics.standardDeviation(Chunk.map(lines, (line) => Num.divideUnsafe(line.width, maxWidth)))
 
 // The same seeded search runs here and on the server; each trial is one frame.
 const handle = yield* Optimization.open({ space, sampler: Sampler.tpe({ seed: 42 }), objective, trials: 36 })

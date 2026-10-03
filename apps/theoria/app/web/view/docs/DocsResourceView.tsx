@@ -1,7 +1,7 @@
-import { Result } from "@effect-atom/atom"
-import { useAtomRefresh, useAtomValue } from "@effect-atom/atom-react"
+import { useAtomRefresh, useAtomValue } from "@effect/atom-react"
 import { Option } from "effect"
 import * as Arr from "effect/Array"
+import { AsyncResult as Result } from "effect/reactivity"
 
 import type { DocsApiExportSummary, DocsApiModuleIndex, GuidePage } from "@theoria/docs-model"
 import type { DocsRoute } from "../../../contracts/docs.js"

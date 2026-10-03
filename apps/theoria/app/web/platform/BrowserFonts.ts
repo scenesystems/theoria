@@ -31,7 +31,7 @@ export class FontLoadFailed
  *
  * @since 0.2.0
  */
-export class BrowserFonts extends Context.Tag("@theoria/app/web/platform/BrowserFonts")<BrowserFonts, {
+export class BrowserFonts extends Context.Service<BrowserFonts, {
   /**
    * Whether text in this font renders now without a face still to come: every
    * declared face is loaded, or none is declared and a system face stands.
@@ -39,7 +39,7 @@ export class BrowserFonts extends Context.Tag("@theoria/app/web/platform/Browser
   readonly inHand: (font: string) => Effect.Effect<boolean>
   /** Resolves once every declared face is loaded, or fails with the reason. */
   readonly load: (font: string) => Effect.Effect<void, FontLoadFailed>
-}>() {}
+}>()("@theoria/app/web/platform/BrowserFonts") {}
 
 const failure = (font: string) => (cause: unknown): FontLoadFailed =>
   new FontLoadFailed({
@@ -59,7 +59,7 @@ export const layer: Layer.Layer<BrowserFonts, never, BrowserDocument.BrowserDocu
   Effect.map(
     BrowserDocument.BrowserDocument,
     (browserDocument) =>
-      Option.match(Option.fromNullable(browserDocument.fonts), {
+      Option.match(Option.fromNullishOr(browserDocument.fonts), {
         onNone: () => ({ inHand: () => Effect.succeed(true), load: () => Effect.void }),
         onSome: (fonts) => ({
           inHand: (font) => Effect.sync(() => fonts.check(font)),

@@ -1,6 +1,7 @@
 import { describe, expect, it } from "@effect/vitest"
-import { Chunk, Duration, Effect, Option, Ref, Stream, TestClock } from "effect"
+import { Duration, Effect, Option, Ref, Stream } from "effect"
 import * as Arr from "effect/Array"
+import { TestClock } from "effect/testing"
 
 import { follow, journeyFrom, releaseRest, toward, Travelling } from "../../app/web/motion/travel.js"
 
@@ -8,12 +9,16 @@ import { follow, journeyFrom, releaseRest, toward, Travelling } from "../../app/
 const travelling = new Travelling<number>({
   between: (from, to, t) => from + (to - from) * t,
   duration: Duration.millis(160),
-  ticks: Stream.repeatEffect(TestClock.adjust("16 millis"))
+  ticks: Stream.fromEffectRepeat(TestClock.adjust("16 millis"))
 })
 
-const placedOutright = new Travelling<number>({ ...travelling, duration: Duration.zero })
+const placedOutright = new Travelling<number>({
+  between: travelling.between,
+  ticks: travelling.ticks,
+  duration: Duration.zero
+})
 
-const collect = <A>(stream: Stream.Stream<A>) => Effect.map(Stream.runCollect(stream), Chunk.toReadonlyArray)
+const collect = <A>(stream: Stream.Stream<A>) => Stream.runCollect(stream)
 
 const isMonotone = (values: ReadonlyArray<number>): boolean =>
   Arr.every(Arr.zip(values, Arr.drop(values, 1)), ([earlier, later]) => later >= earlier)
@@ -150,7 +155,7 @@ describe("travel", () => {
       const journey = yield* journeyFrom(Option.some(0), Duration.millis(32))
       // At once, the frame the rest is counted from, two of rest, then three frames of travel.
       const partWay = yield* collect(Stream.take(toward(travelling, journey, 100), 7))
-      const reached = yield* Arr.last(partWay)
+      const reached = Option.getOrThrow(Arr.last(partWay))
       expect(reached).toBeGreaterThan(0)
       expect(reached).toBeLessThan(100)
       const before = yield* Ref.get(journey)
@@ -190,7 +195,14 @@ describe("travel", () => {
 
   it.effect("following a stream of targets draws every step of the way", () =>
     Effect.gen(function*() {
-      const drawn = yield* collect(follow(travelling, Stream.make(40, 40, 80), Option.some(0)))
+      // Targets arrive on separate frames, not as one batch that switchMap may coalesce.
+      const targets = Stream.concat(
+        Stream.make(40),
+        Stream.make(40, 80).pipe(
+          Stream.mapEffect((target) => Effect.as(Effect.sleep("64 millis"), target))
+        )
+      )
+      const drawn = yield* collect(follow(travelling, targets, Option.some(0)))
       expect(Arr.head(drawn)).toEqual(Option.some(0))
       expect(Arr.last(drawn)).toEqual(Option.some(80))
       expect(isMonotone(drawn)).toBe(true)

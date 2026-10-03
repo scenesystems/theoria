@@ -1,5 +1,5 @@
 import { describe, expect, it } from "@effect/vitest"
-import { Array as Arr, Effect, Either } from "effect"
+import { Array as Arr, Effect, Option, Result } from "effect"
 
 import { DocsApiExportPageJson, DocsApiModuleIndexJson, DocsManifestJson } from "@theoria/docs-model"
 import * as Schema from "effect/Schema"
@@ -17,7 +17,7 @@ describe("documentation browser boundary", () => {
       Schema.encodeSync(DocsManifestJson)(docsManifestFixture),
       Effect.gen(function*() {
         const client = yield* DocsClient
-        const manifest = yield* client.manifest()
+        const manifest = yield* client.manifest
         expect(manifest.revision).toBe(docsManifestFixture.revision)
         expect(manifest.packages[0]?.slug).toBe("effect-search")
       })
@@ -28,9 +28,9 @@ describe("documentation browser boundary", () => {
       "{\"schemaVersion\":2}",
       Effect.gen(function*() {
         const client = yield* DocsClient
-        const result = yield* Effect.either(client.manifest())
-        expect(Either.isLeft(result)).toBe(true)
-        if (Either.isLeft(result)) expect(result.left._tag).toBe("DocsDataError")
+        const result = yield* Effect.result(client.manifest)
+        expect(Result.isFailure(result)).toBe(true)
+        if (Result.isFailure(result)) expect(result.failure._tag).toBe("DocsDataError")
       })
     ))
 
@@ -42,7 +42,7 @@ describe("documentation browser boundary", () => {
     return Effect.gen(function*() {
       const client = yield* DocsClient
       const moduleIndex = yield* client.apiModuleIndex("/module.json")
-      const summary = yield* Arr.head(moduleIndex.exports)
+      const summary = Option.getOrThrow(Arr.head(moduleIndex.exports))
       const focusedExport = yield* client.apiExport(summary.asset)
 
       expect(moduleIndex.exports[0]?.name).toBe("runStudy")

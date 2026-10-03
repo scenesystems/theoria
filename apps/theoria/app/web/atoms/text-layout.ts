@@ -1,10 +1,19 @@
-import { Atom, Registry } from "@effect-atom/atom"
-import type { Atom as AtomType } from "@effect-atom/atom"
 import * as PreparationKey from "@scenesystems/effect-text/PreparationKey"
-import { Effect, Layer } from "effect"
+import { Context, Data, Effect, Layer } from "effect"
+import { Atom, AtomRegistry as Registry } from "effect/reactivity"
+import type * as AtomType from "effect/reactivity/Atom"
 
 import type { CanvasUnavailable } from "../platform/BrowserDocument.js"
-import { type BrowserTextLayout, browserTextLayoutLive, FontReadiness } from "../text/browserTextLayout.js"
+import { type BrowserTextLayout, browserTextLayoutLive, type FontReadiness } from "../text/browserTextLayout.js"
+
+class FontReadinessValue extends Data.Class<{
+  readonly revision: PreparationKey.Revision
+  readonly facesArrived: Effect.Effect<void>
+}> {}
+
+const FontReadinessService = Context.Service<FontReadiness, FontReadinessValue>(
+  "@theoria/app/web/text/FontReadiness"
+)
 
 /**
  * The generation of the served faces' readiness the page measures at:
@@ -32,13 +41,14 @@ const fontReadinessAt = (
   revision: PreparationKey.Revision
 ): Layer.Layer<FontReadiness, never, Registry.AtomRegistry> =>
   Layer.effect(
-    FontReadiness,
-    Effect.map(Registry.AtomRegistry, (registry) => ({
-      revision,
-      facesArrived: Effect.sync(() => {
-        registry.set(fontReadinessRevisionAtom, PreparationKey.nextRevision(revision))
-      })
-    }))
+    FontReadinessService,
+    Effect.map(Registry.AtomRegistry, (registry) =>
+      new FontReadinessValue({
+        revision,
+        facesArrived: Effect.sync(() => {
+          registry.set(fontReadinessRevisionAtom, PreparationKey.nextRevision(revision))
+        })
+      }))
   )
 
 /**
@@ -59,10 +69,10 @@ const fontReadinessAt = (
  */
 export const textLayoutLive: AtomType.Atom<
   Layer.Layer<BrowserTextLayout | FontReadiness, CanvasUnavailable, Registry.AtomRegistry>
-> = Atom.make((get: AtomType.Context) =>
+> = Atom.make((get: AtomType.AtomContext) =>
   Layer.provideMerge(Layer.fresh(get(textLayoutLayerAtom)), fontReadinessAt(get(fontReadinessRevisionAtom)))
 )
 
 /** One runtime, so the measurement cache is shared by text projections and the place drawing alike. */
 export const textLayoutRuntime: AtomType.AtomRuntime<BrowserTextLayout | FontReadiness, CanvasUnavailable> = Atom
-  .runtime((get: AtomType.Context) => get(textLayoutLive))
+  .runtime((get: AtomType.AtomContext) => get(textLayoutLive))

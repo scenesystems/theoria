@@ -1,7 +1,7 @@
-import { Registry, Result } from "@effect-atom/atom"
-import { RegistryContext, useAtomValue } from "@effect-atom/atom-react"
+import { RegistryContext, useAtomValue } from "@effect/atom-react"
 import { describe, expect, it } from "@effect/vitest"
 import { Boolean, Effect, Equal, Layer, Number, Option, Stream } from "effect"
+import { AsyncResult as Result, AtomRegistry as Registry } from "effect/reactivity"
 import { StrictMode } from "react"
 
 import { useElementWidth } from "../../app/web/atoms/element-observation.js"
@@ -44,9 +44,11 @@ describe("mounted element observation", () => {
             </StrictMode>
           </RegistryContext.Provider>
         )
-        const left = yield* waitForValue(() => Option.fromNullable(container.querySelector("[data-measured=\"left\"]")))
+        const left = yield* waitForValue(() =>
+          Option.fromNullishOr(container.querySelector("[data-measured=\"left\"]"))
+        )
         const right = yield* waitForValue(() =>
-          Option.fromNullable(container.querySelector("[data-measured=\"right\"]"))
+          Option.fromNullishOr(container.querySelector("[data-measured=\"right\"]"))
         )
         yield* observing.report(left, { width: 213.75, height: 30 })
         yield* observing.report(right, { width: 487.25, height: 40 })

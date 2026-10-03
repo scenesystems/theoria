@@ -1,7 +1,8 @@
-import { Atom, type Registry } from "@effect-atom/atom"
 import { expect } from "@effect/vitest"
 import { Effect, Option } from "effect"
 import * as Arr from "effect/Array"
+import { Atom } from "effect/reactivity"
+import type * as Registry from "effect/reactivity/AtomRegistry"
 
 import {
   type CodeSite,
@@ -45,7 +46,7 @@ const placeFocusAtom = Atom.writable(
  * read from the atoms alone, with a real build and drawing on the page.
  */
 
-const lit = (registry: Registry.Registry, mark: PlaceMark): boolean =>
+const lit = (registry: Registry.AtomRegistry, mark: PlaceMark): boolean =>
   registry.get(placeMarkFocusedAtom(encodeMark(mark)))
 
 const line = (index: number, shown: PlaceRenderFrame): PlaceMark => ({
@@ -73,8 +74,8 @@ describeOnStage("place focus", (it) => {
     Effect.gen(function*() {
       const { build, showingTrial } = yield* onStage
       const registry = pageShowing(build, showingTrial)
-      const merged = yield* Arr.findFirst(build.proposals, (record) => record.accepted)
-      const anchored = yield* proposalAnchorLine(showingTrial.rendering.projection, merged)
+      const merged = yield* Effect.fromOption(Arr.findFirst(build.proposals, (record) => record.accepted))
+      const anchored = yield* Effect.fromOption(proposalAnchorLine(showingTrial.rendering.projection, merged))
       const feature: PlaceMark = { _tag: "Feature", name: merged.proposal.feature.name }
 
       registry.set(placeFocusAtom, Option.some(feature))
@@ -110,7 +111,7 @@ describeOnStage("place focus", (it) => {
     Effect.gen(function*() {
       const { build, showingTrial } = yield* onStage
       const registry = pageShowing(build, showingTrial)
-      const merged = yield* Arr.findFirst(build.proposals, (record) => record.accepted)
+      const merged = yield* Effect.fromOption(Arr.findFirst(build.proposals, (record) => record.accepted))
       const digesting = codeLineAt(proposalDigestSite)
 
       registry.set(placeFocusAtom, Option.some(digesting))
@@ -131,9 +132,9 @@ describeOnStage("place focus", (it) => {
     Effect.gen(function*() {
       const { build, showingTrial } = yield* onStage
       const registry = pageShowing(build, showingTrial)
-      const origin = yield* Arr.head(build.evidence.lineage)
-      const current = yield* Arr.last(build.evidence.lineage)
-      const merged = yield* Arr.findFirst(build.proposals, (record) => record.accepted)
+      const origin = yield* Effect.fromOption(Arr.head(build.evidence.lineage))
+      const current = yield* Effect.fromOption(Arr.last(build.evidence.lineage))
+      const merged = yield* Effect.fromOption(Arr.findFirst(build.proposals, (record) => record.accepted))
       const composed = Arr.map(build.artifact.composition.features, (feature) => feature.name)
 
       // Version 1 digests the composition alone.
@@ -161,9 +162,9 @@ describeOnStage("place focus", (it) => {
       const laying = codeLineAt(layoutSite)
 
       registry.set(placeFocusAtom, Option.some(laying))
-      const answered = yield* registry.get(placeAnsweredMarkAtom)
+      const answered = yield* Effect.fromOption(registry.get(placeAnsweredMarkAtom))
       expect(answered._tag).toBe("Line")
-      const index = yield* registry.get(placeFocusedLineAtom)
+      const index = yield* Effect.fromOption(registry.get(placeFocusedLineAtom))
       expect(answered).toEqual(line(index, showingTrial))
       expect(lit(registry, line(index, showingTrial))).toBe(true)
       expect(lit(registry, laying)).toBe(true)
@@ -205,7 +206,7 @@ describeOnStage("place focus", (it) => {
   it.effect("what is lit follows the drawing: the same feature stands on another line of another trial", () =>
     Effect.gen(function*() {
       const { build, showingKept, showingTrial } = yield* onStage
-      const merged = yield* Arr.findFirst(build.proposals, (record) => record.accepted)
+      const merged = yield* Effect.fromOption(Arr.findFirst(build.proposals, (record) => record.accepted))
       const feature: PlaceMark = { _tag: "Feature", name: merged.proposal.feature.name }
       const onTrial = pageShowing(build, showingTrial)
       const onKept = pageShowing(build, showingKept)
@@ -224,13 +225,13 @@ describeOnStage("place focus", (it) => {
   it.effect("the line a merged proposal's sentence stands on, pointed at, lights the proposal's name and its disc — and follows the drawing shown", () =>
     Effect.gen(function*() {
       const { build, showingKept, showingTrial } = yield* onStage
-      const merged = yield* Arr.findFirst(build.proposals, (record) => record.accepted)
-      const declined = yield* Arr.findFirst(build.proposals, (record) => !record.accepted)
+      const merged = yield* Effect.fromOption(Arr.findFirst(build.proposals, (record) => record.accepted))
+      const declined = yield* Effect.fromOption(Arr.findFirst(build.proposals, (record) => !record.accepted))
       const feature: PlaceMark = { _tag: "Feature", name: merged.proposal.feature.name }
       const disc: PlaceMark = { _tag: "Disc", name: merged.proposal.feature.name, source: placeSourceId(build) }
 
       const onTrial = pageShowing(build, showingTrial)
-      const onTrialLine = yield* proposalAnchorLine(showingTrial.rendering.projection, merged)
+      const onTrialLine = yield* Effect.fromOption(proposalAnchorLine(showingTrial.rendering.projection, merged))
       onTrial.set(placeFocusAtom, Option.some(line(onTrialLine, showingTrial)))
       expect(lit(onTrial, line(onTrialLine, showingTrial))).toBe(true)
       expect(lit(onTrial, feature)).toBe(true)
@@ -243,7 +244,7 @@ describeOnStage("place focus", (it) => {
 
       // On the kept drawing the sentence stands on another line; that line lights the proposal, the trial's line no longer does.
       const onKept = pageShowing(build, showingKept)
-      const onKeptLine = yield* proposalAnchorLine(showingKept.rendering.projection, merged)
+      const onKeptLine = yield* Effect.fromOption(proposalAnchorLine(showingKept.rendering.projection, merged))
       expect(onKeptLine).not.toBe(onTrialLine)
       onKept.set(placeFocusAtom, Option.some(line(onKeptLine, showingKept)))
       expect(lit(onKept, feature)).toBe(true)

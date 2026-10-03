@@ -26,7 +26,7 @@ import { prepareBrowserText } from "../text/authority.js"
  * record is empty, every disc shows its number and the legend carries the
  * names, so the numbers on the stage and in the legend always agree.
  */
-export const MarkerLabelWidths = Schema.Record({ key: Schema.String, value: Schema.Number })
+export const MarkerLabelWidths = Schema.Record(Schema.String, Schema.Finite)
 export type MarkerLabelWidths = typeof MarkerLabelWidths.Type
 
 /**
@@ -59,8 +59,8 @@ const fitsCircle = (lines: Text.Lines, lineHeight: number, maxWidth: number, inn
   const widest = Arr.reduce(lines, 0, (acc, line) => Num.max(acc, line.width))
   const height = Num.multiply(Arr.length(lines), lineHeight)
   return Bool.and(
-    Num.lessThanOrEqualTo(widest, maxWidth),
-    Num.lessThanOrEqualTo(
+    Num.isLessThanOrEqualTo(widest, maxWidth),
+    Num.isLessThanOrEqualTo(
       Num.sum(Num.multiply(widest, widest), Num.multiply(height, height)),
       Num.multiply(inner, inner)
     )
@@ -74,7 +74,7 @@ export const labelWidthFor = (
 ): Option.Option<number> => {
   const inner = Num.subtract(diameter, Num.multiply(2, labelInset))
   const lineHeight = semanticsFor(labelRole).lineHeight
-  return Bool.match(Num.lessThanOrEqualTo(inner, 0), {
+  return Bool.match(Num.isLessThanOrEqualTo(inner, 0), {
     onFalse: () =>
       Arr.findFirst(wrapFractions, (fraction) => {
         const maxWidth = Num.multiply(inner, fraction)

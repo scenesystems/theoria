@@ -13,10 +13,10 @@ import {
 import { SemanticText, type SemanticTextElement } from "./SemanticText.js"
 
 /** How a group's options are drawn: as separate pills, or as one segmented control. */
-export const ChoiceAppearance = Schema.Literal("pill", "segment")
+export const ChoiceAppearance = Schema.Literals(["pill", "segment"])
 export type ChoiceAppearance = typeof ChoiceAppearance.Type
 
-const decodeIndex = Schema.decodeUnknownOption(Schema.Number)
+const decodeIndex = Schema.decodeUnknownOption(Schema.Finite)
 
 /** The group's own classes: a segmented rail sized to its options, or a wrapping row of pills. */
 const groupClassName = (
@@ -89,7 +89,7 @@ export const ChoiceGroup = ({
 }) => (
   <RadioGroup
     aria-label={label}
-    className={groupClassName(appearance, Arr.length(options), Option.fromNullable(className))}
+    className={groupClassName(appearance, Arr.length(options), Option.fromNullishOr(className))}
     disabled={disabled}
     onValueChange={(value) => {
       Option.map(decodeIndex(value), onSelect)
