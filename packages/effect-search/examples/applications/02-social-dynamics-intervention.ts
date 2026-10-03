@@ -44,39 +44,41 @@ const program = Effect.gen(function*() {
     Num.sumAll(Arr.make(
       Num.subtract(1.1, valueOrZero(FRAMING_TRUST_GAIN, config.framing)),
       Num.multiply(Numeric.abs(Num.subtract(config.escalationThreshold, 0.58)), 1.25),
-      Bool.match(config.peerPairing, { onFalse: () => 0.14, onTrue: () => Num.negate(0.17) }),
-      Num.unsafeDivide(Numeric.abs(Num.subtract(config.sessionMinutes, 35)), 90)
+      Bool.match(config.peerPairing, { onFalse: () => 0.14, onTrue: () => Num.subtract(0, 0.17) }),
+      Num.divideUnsafe(Numeric.abs(Num.subtract(config.sessionMinutes, 35)), 90)
     ))
   const disengagementRiskScore = (config: SearchSpace.Type<typeof space>): number =>
     Num.sumAll(Arr.make(
       0.3,
       valueOrZero(FRAMING_REACTANCE, config.framing),
       Num.multiply(valueOrZero(CONTACT_LOAD, config.cadence), 0.26),
-      Bool.match(Num.greaterThan(config.sessionMinutes, 45), { onFalse: () => 0, onTrue: () => 0.2 }),
-      Bool.match(config.peerPairing, { onFalse: () => 0.05, onTrue: () => Num.negate(0.07) })
+      Bool.match(Num.isGreaterThan(config.sessionMinutes, 45), { onFalse: () => 0, onTrue: () => 0.2 }),
+      Bool.match(config.peerPairing, { onFalse: () => 0.05, onTrue: () => Num.subtract(0, 0.07) })
     ))
   const facilitatorLoadScore = (config: SearchSpace.Type<typeof space>): number =>
     Num.sumAll(Arr.make(
       0.15,
       valueOrZero(CONTACT_LOAD, config.cadence),
-      Num.unsafeDivide(config.sessionMinutes, 38),
+      Num.divideUnsafe(config.sessionMinutes, 38),
       Bool.match(config.peerPairing, { onFalse: () => 0.36, onTrue: () => 0.22 }),
-      Bool.match(Num.lessThan(config.escalationThreshold, 0.35), { onFalse: () => 0, onTrue: () => 0.24 })
+      Bool.match(Num.isLessThan(config.escalationThreshold, 0.35), { onFalse: () => 0, onTrue: () => 0.24 })
     ))
 
-  const result = yield* Optimization.run({
-    space,
-    sampler: Sampler.tpe({ seed: 2701, multivariate: true, noiseAware: true }),
-    directions: Arr.replicate<Direction.Direction>("minimize", 3),
-    trials: 81,
-    objective: (config) => {
-      const conflictRisk = conflictRiskScore(config)
-      const disengagementRisk = disengagementRiskScore(config)
-      const facilitatorLoad = facilitatorLoadScore(config)
+  const result = yield* Optimization.run(
+    new Optimization.FlatOptions({
+      space,
+      sampler: Sampler.tpe(new Sampler.TpeOptions({ seed: 2701, multivariate: true, noiseAware: true })),
+      directions: Arr.replicate<Direction.Direction>("minimize", 3),
+      trials: 81,
+      objective: (config) => {
+        const conflictRisk = conflictRiskScore(config)
+        const disengagementRisk = disengagementRiskScore(config)
+        const facilitatorLoad = facilitatorLoadScore(config)
 
-      return Effect.succeed(Tuple.make(conflictRisk, disengagementRisk, facilitatorLoad))
-    }
-  })
+        return Effect.succeed(Tuple.make(conflictRisk, disengagementRisk, facilitatorLoad))
+      }
+    })
+  )
 
   yield* Match.value(result).pipe(
     Match.tag("MultiObjective", ({ paretoFront, completionReason, trials }) =>

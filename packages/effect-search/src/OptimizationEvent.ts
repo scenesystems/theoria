@@ -12,65 +12,67 @@ import { Decision as PruneDecision } from "./Pruning.js"
 import { TrialError } from "./SearchError.js"
 
 /** Why an optimization stopped admitting work. @since 0.7.0 @category schemas */
-export const CompletionReason = Schema.Literal(
-  "budgetExhausted",
-  "spaceExhausted",
-  "interrupted",
-  "durationExceeded",
-  "targetReached",
-  "convergence",
-  "noImprovement"
+export const CompletionReason = Schema.Literals(
+  [
+    "budgetExhausted",
+    "spaceExhausted",
+    "interrupted",
+    "durationExceeded",
+    "targetReached",
+    "convergence",
+    "noImprovement"
+  ]
 )
 /** Optimization completion reason decoded by {@link CompletionReason}. @since 0.7.0 @category models */
 export type CompletionReason = typeof CompletionReason.Type
 
 /** All optimization events accepted at persistence boundaries. @since 0.7.0 @category schemas */
-export const OptimizationEvent = Schema.Union(
+export const OptimizationEvent = Schema.Union([
   StudyEvent.TrialStarted(Schema.Unknown),
   Schema.TaggedStruct("TrialReported", {
-    trialNumber: Schema.Number,
-    step: Schema.Number,
-    value: Schema.Number,
+    trialNumber: Schema.Finite,
+    step: Schema.Finite,
+    value: Schema.Finite,
     decision: PruneDecision
   }),
   StudyEvent.TrialCompleted(Value),
   StudyEvent.TrialCosted,
   Schema.TaggedStruct("TrialPruned", {
-    trialNumber: Schema.Number,
-    step: Schema.Number,
+    trialNumber: Schema.Finite,
+    step: Schema.Finite,
     reason: Schema.String,
     policy: Schema.String
   }),
   StudyEvent.TrialRetried(TrialError),
   StudyEvent.TrialCancelled(Schema.Literal("timeout")),
   StudyEvent.TrialFailed(TrialError),
-  Schema.TaggedStruct("BestUpdated", { trialNumber: Schema.Number, value: Schema.Number }),
+  Schema.TaggedStruct("BestUpdated", { trialNumber: Schema.Finite, value: Schema.Finite }),
   StudyEvent.StopRequested,
   Schema.TaggedStruct("BracketStarted", {
-    bracketIndex: Schema.Number,
-    configs: Schema.Number,
-    minResource: Schema.Number
+    bracketIndex: Schema.Finite,
+    configs: Schema.Finite,
+    minResource: Schema.Finite
   }),
   Schema.TaggedStruct("RoundStarted", {
-    bracketIndex: Schema.Number,
-    roundIndex: Schema.Number,
-    nConfigs: Schema.Number,
-    resource: Schema.Number
+    bracketIndex: Schema.Finite,
+    roundIndex: Schema.Finite,
+    nConfigs: Schema.Finite,
+    resource: Schema.Finite
   }),
   Schema.TaggedStruct("RoundCompleted", {
-    bracketIndex: Schema.Number,
-    roundIndex: Schema.Number,
-    nConfigs: Schema.Number,
-    resource: Schema.Number,
-    completed: Schema.Number
+    bracketIndex: Schema.Finite,
+    roundIndex: Schema.Finite,
+    nConfigs: Schema.Finite,
+    resource: Schema.Finite,
+    completed: Schema.Finite
   }),
   Schema.TaggedStruct("BracketCompleted", {
-    bracketIndex: Schema.Number,
-    rounds: Schema.Number,
-    bestValue: Schema.optional(Schema.Number)
+    bracketIndex: Schema.Finite,
+    rounds: Schema.Finite,
+    bestValue: Schema.optional(Schema.Finite)
   }),
   StudyEvent.Completed(CompletionReason)
-)
+])
 /** An optimization lifecycle event. @since 0.7.0 @category models */
 export type OptimizationEvent = typeof OptimizationEvent.Type
 

@@ -44,7 +44,7 @@ export const ensurePositiveStep = (
 ): Effect.Effect<void, InvalidSearchSpace> =>
   Option.match(step, {
     onNone: () => Effect.void,
-    onSome: (value) => expectCondition(Num.greaterThan(value, 0), "step must be greater than 0", dimension)
+    onSome: (value) => expectCondition(Num.isGreaterThan(value, 0), "step must be greater than 0", dimension)
   })
 
 /**
@@ -69,7 +69,7 @@ const validateFloatDistribution = (
     yield* ensureFiniteNumber(low, `${dimension}.low`)
     yield* ensureFiniteNumber(high, `${dimension}.high`)
     yield* ensurePositiveStep(step, dimension)
-    yield* expectCondition(Num.lessThanOrEqualTo(low, high), "float low cannot be greater than high", dimension)
+    yield* expectCondition(Num.isLessThanOrEqualTo(low, high), "float low cannot be greater than high", dimension)
 
     yield* Option.match(scale, {
       onNone: () => Effect.void,
@@ -77,7 +77,7 @@ const validateFloatDistribution = (
         Match.value(s).pipe(
           Match.when(
             "log",
-            () => expectCondition(Num.greaterThan(low, 0), "log-scaled float dimensions require low > 0", dimension)
+            () => expectCondition(Num.isGreaterThan(low, 0), "log-scaled float dimensions require low > 0", dimension)
           ),
           Match.orElse(() => Effect.void)
         )
@@ -96,13 +96,13 @@ const validateIntDistribution = (
     yield* ensurePositiveStep(step, dimension)
     yield* expectCondition(
       Bool.and(
-        Schema.is(Schema.Number.pipe(Schema.int()))(low),
-        Schema.is(Schema.Number.pipe(Schema.int()))(high)
+        Schema.is(Schema.Int)(low),
+        Schema.is(Schema.Int)(high)
       ),
       "int bounds must be integers",
       dimension
     )
-    yield* expectCondition(Num.lessThanOrEqualTo(low, high), "int low cannot be greater than high", dimension)
+    yield* expectCondition(Num.isLessThanOrEqualTo(low, high), "int low cannot be greater than high", dimension)
   })
 
 const validateCategoricalDistribution = (
@@ -111,7 +111,11 @@ const validateCategoricalDistribution = (
 ): Effect.Effect<void, InvalidSearchSpace> => {
   const choices = Arr.fromIterable(choicesInput)
   return Effect.gen(function*() {
-    yield* expectCondition(Num.greaterThan(Arr.length(choices), 0), "categorical choices must be non-empty", dimension)
+    yield* expectCondition(
+      Num.isGreaterThan(Arr.length(choices), 0),
+      "categorical choices must be non-empty",
+      dimension
+    )
     yield* Effect.forEach(choices, (choice) => ensureChoice(choice), { discard: true })
   })
 }
@@ -128,9 +132,9 @@ export const validateDistribution = (
 ): Effect.Effect<void, InvalidSearchSpace> =>
   Match.value(distribution).pipe(
     Match.when({ type: "float" }, ({ low, high, scale, step }) =>
-      validateFloatDistribution(dimension, low, high, Option.fromNullable(scale), Option.fromNullable(step))),
+      validateFloatDistribution(dimension, low, high, Option.fromNullishOr(scale), Option.fromNullishOr(step))),
     Match.when({ type: "int" }, ({ low, high, step }) =>
-      validateIntDistribution(dimension, low, high, Option.fromNullable(step))),
+      validateIntDistribution(dimension, low, high, Option.fromNullishOr(step))),
     Match.when({ type: "fidelity" }, ({ low, high }) =>
       validateIntDistribution(dimension, low, high, Option.none())),
     Match.when({ type: "categorical" }, ({ choices }) =>

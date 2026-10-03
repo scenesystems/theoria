@@ -4,7 +4,7 @@
  * @since 0.1.0
  */
 import { isFinite } from "@scenesystems/effect-math/Numeric"
-import { Array as Arr, Boolean as Bool, Data, Equal, Match, Number as Num, Option } from "effect"
+import { Array as Arr, Boolean as Bool, Data, Equal, Match, Number as Num, Option, Result } from "effect"
 
 import type { Vector } from "../../../Objective.js"
 
@@ -56,25 +56,25 @@ const asMultiObjectiveTrials = (
             trialNumber: trial.trialNumber,
             config: trial.config,
             vector,
-            ...Option.fromNullable(trial.observationWeight).pipe(
+            ...Option.fromNullishOr(trial.observationWeight).pipe(
               Option.match({
                 onNone: () => ({}),
                 onSome: (observationWeight) => ({ observationWeight })
               })
             ),
-            ...Option.fromNullable(trial.cost).pipe(
+            ...Option.fromNullishOr(trial.cost).pipe(
               Option.match({
                 onNone: () => ({}),
                 onSome: (cost) => ({ cost })
               })
             ),
-            ...Option.fromNullable(trial.variance).pipe(
+            ...Option.fromNullishOr(trial.variance).pipe(
               Option.match({
                 onNone: () => ({}),
                 onSome: (variance) => ({ variance })
               })
             ),
-            ...Option.fromNullable(trial.constraints).pipe(
+            ...Option.fromNullishOr(trial.constraints).pipe(
               Option.match({
                 onNone: () => ({}),
                 onSome: (constraints) => ({ constraints })
@@ -82,7 +82,8 @@ const asMultiObjectiveTrials = (
             )
           })
         )),
-      Match.orElse(() => Option.none())
+      Match.orElse(() => Option.none()),
+      Result.fromOption(() => undefined)
     )
   })
 }
@@ -138,26 +139,26 @@ const weightedFrontTrials = (
                 trialNumber: trial.trialNumber,
                 config: trial.config,
                 value: scalarizedValue(rank, weightAt(weights, index)),
-                ...Option.fromNullable(trial.observationWeight).pipe(
+                ...Option.fromNullishOr(trial.observationWeight).pipe(
                   Option.match({
                     onNone: () => ({}),
                     onSome: (observationWeight) => ({ observationWeight })
                   })
                 ),
-                ...Option.fromNullable(trial.cost).pipe(
+                ...Option.fromNullishOr(trial.cost).pipe(
                   Option.match({
                     onNone: () => ({}),
                     onSome: (cost) => ({ cost })
                   })
                 ),
-                ...Option.fromNullable(trial.variance).pipe(
+                ...Option.fromNullishOr(trial.variance).pipe(
                   Option.match({
                     onNone: () => ({}),
                     onSome: (variance) => ({ variance })
                   })
                 )
               }),
-              constraints: Option.fromNullable(trial.constraints).pipe(
+              constraints: Option.fromNullishOr(trial.constraints).pipe(
                 Option.getOrElse(() => Arr.empty())
               )
             })
@@ -167,7 +168,7 @@ const weightedFrontTrials = (
 }
 
 const splitCount = (size: number, nBelowOverride?: number): number => {
-  const requested = Option.fromNullable(nBelowOverride).pipe(Option.getOrElse(() => defaultGamma(size)))
+  const requested = Option.fromNullishOr(nBelowOverride).pipe(Option.getOrElse(() => defaultGamma(size)))
 
   return Num.clamp(requested, {
     minimum: 0,
@@ -196,7 +197,7 @@ export const splitMultiObjective = (
   const completed = Arr.fromIterable(completedInput)
   const directions = Arr.fromIterable(directionsInput)
 
-  return Match.value(Num.lessThanOrEqualTo(Arr.length(directions), 0)).pipe(
+  return Match.value(Num.isLessThanOrEqualTo(Arr.length(directions), 0)).pipe(
     Match.when(true, () => ({
       below: Arr.empty<CompletedTrialForSplit>(),
       above: Arr.empty<CompletedTrialForSplit>()

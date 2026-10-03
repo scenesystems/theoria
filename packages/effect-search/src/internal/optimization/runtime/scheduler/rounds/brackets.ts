@@ -26,7 +26,7 @@ const bestValueFromSummary = (
     summary.rounds,
     Option.none<number>(),
     (best, roundSummaryEntry) =>
-      Option.fromNullable(roundSummaryEntry.bestValue).pipe(
+      Option.fromNullishOr(roundSummaryEntry.bestValue).pipe(
         Option.flatMap((candidate) =>
           Option.match(best, {
             onNone: () => Option.some(candidate),

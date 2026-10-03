@@ -5,7 +5,7 @@
  * Run: bun run examples/13-resume-stream.ts
  */
 import { BunRuntime } from "@effect/platform-bun"
-import { Array as Arr, Chunk, Effect, Number as Num, Option, Stream } from "effect"
+import { Array as Arr, Effect, Number as Num, Option, Stream } from "effect"
 
 import * as Numeric from "@scenesystems/effect-math/Numeric"
 import { Optimization, OptimizationEvent, Sampler, SearchSpace } from "@scenesystems/effect-search"
@@ -20,25 +20,28 @@ const program = Effect.gen(function*() {
   })
   const objective = (config: SearchSpace.Type<typeof space>) => Effect.succeed(objectiveValue(config.x, config.depth))
 
-  const baseline = yield* Optimization.minimize({
-    space,
-    sampler: Sampler.random({ seed: 813 }),
-    trials: 6,
-    objective
-  })
+  const baseline = yield* Optimization.minimize(
+    new Optimization.FlatOptions({
+      space,
+      sampler: Sampler.random({ seed: 813 }),
+      trials: 6,
+      objective
+    })
+  )
   const snapshot = yield* Optimization.snapshot(baseline)
 
-  const events = yield* Optimization.resumeStream({
-    space,
-    sampler: Sampler.random({ seed: 813 }),
-    snapshot,
-    direction: "minimize",
-    trials: 4,
-    objective
-  }).pipe(
+  const events = yield* Optimization.resumeStream(
+    new Optimization.ResumeOptions({
+      space,
+      sampler: Sampler.random({ seed: 813 }),
+      snapshot,
+      direction: "minimize",
+      trials: 4,
+      objective
+    })
+  ).pipe(
     Stream.tap((event) => Effect.log("Resume event", event._tag)),
-    Stream.runCollect,
-    Effect.map(Chunk.toReadonlyArray)
+    Stream.runCollect
   )
 
   const optimizationCompletedEvents = Arr.filter(events, OptimizationEvent.is("Completed"))

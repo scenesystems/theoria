@@ -38,8 +38,8 @@ export class SamplerExhausted extends Schema.TaggedError<SamplerExhausted>(
   "effect-search/SamplerExhausted",
   {
     sampler: Schema.String,
-    nextTrialNumber: Schema.Number,
-    available: Schema.Number
+    nextTrialNumber: Schema.Finite,
+    available: Schema.Finite
   }
 ) {}
 
@@ -93,7 +93,7 @@ export class InvalidObjectiveValue extends Schema.TaggedError<InvalidObjectiveVa
 )(
   "effect-search/InvalidObjectiveValue",
   {
-    trialNumber: Schema.Number,
+    trialNumber: Schema.Finite,
     value: Value
   }
 ) {}
@@ -104,7 +104,7 @@ export class InvalidObjectiveReport extends Schema.TaggedError<InvalidObjectiveR
 )(
   "effect-search/InvalidObjectiveReport",
   {
-    trialNumber: Schema.Number,
+    trialNumber: Schema.Finite,
     reason: Schema.String,
     step: Schema.optional(Schema.Number),
     value: Schema.optional(Schema.Number),
@@ -116,7 +116,7 @@ export class InvalidObjectiveReport extends Schema.TaggedError<InvalidObjectiveR
 export class TrialError extends Schema.TaggedError<TrialError>("@scenesystems/effect-search/SearchError/TrialError")(
   "effect-search/TrialError",
   {
-    trialNumber: Schema.Number,
+    trialNumber: Schema.Finite,
     message: Schema.String,
     cause: Schema.Unknown
   }
@@ -127,7 +127,7 @@ export class NoSuccessfulTrials extends Schema.TaggedError<NoSuccessfulTrials>(
   "@scenesystems/effect-search/SearchError/NoSuccessfulTrials"
 )(
   "effect-search/NoSuccessfulTrials",
-  { trialCount: Schema.Number }
+  { trialCount: Schema.Finite }
 ) {}
 
 /** Input outside a numerical helper's domain. @since 0.1.0 @category errors */
@@ -155,7 +155,7 @@ export class NotImplemented extends Schema.TaggedError<NotImplemented>(
  * @since 0.1.0
  * @category schemas
  */
-export const SearchError = Schema.Union(
+export const SearchError = Schema.Union([
   InvalidSearchSpace,
   InvalidSamplerConfig,
   SamplerExhausted,
@@ -170,7 +170,7 @@ export const SearchError = Schema.Union(
   InvalidMathInput,
   NotImplemented,
   Journal.Failure
-)
+])
 
 /** Expected search failure decoded by {@link SearchError}. @since 0.1.0 @category models */
 export type SearchError = typeof SearchError.Type

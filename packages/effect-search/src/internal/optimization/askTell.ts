@@ -3,7 +3,7 @@
  *
  * @since 0.1.0
  */
-import { Array as Arr, Clock, Effect, Mailbox, Option, Schema, SynchronizedRef } from "effect"
+import { Array as Arr, type Cause, Clock, Effect, Option, Queue, Schema, SynchronizedRef } from "effect"
 import type * as Scope from "effect/Scope"
 
 import type * as Journal from "@scenesystems/effect-study/Journal"
@@ -43,7 +43,7 @@ import { reserveNextTrialOrMarkSpaceExhausted } from "./runtime/trialReservation
  * @category combinators
  */
 export const open = <Space extends SearchSpace.SearchSpace>(
-  options: Optimization.Options<SearchSpace.Type<Space>, Space>
+  options: Optimization.Options<Space>
 ): Effect.Effect<Optimization.Optimization<Space>, SearchError, Scope.Scope> =>
   Effect.gen(function*() {
     const optimizePlan = yield* optimizePlanFromOptions(options)
@@ -56,13 +56,13 @@ export const open = <Space extends SearchSpace.SearchSpace>(
     )
 
     yield* Effect.acquireRelease(Sampler.acquire(optimizePlan.sampler), () => Sampler.release(optimizePlan.sampler))
-    const eventQueue = yield* Mailbox.make<OptimizationEvent.OptimizationEvent>()
-    yield* Effect.addFinalizer(() => eventQueue.shutdown)
+    const eventQueue = yield* Queue.unbounded<OptimizationEvent.OptimizationEvent, Cause.Done>()
+    yield* Effect.addFinalizer(() => Queue.shutdown(eventQueue))
 
     const runtime = yield* initializeRuntime(
       settings,
       runtimeSeed.initialTrials,
-      new EventPublisher({ publish: (event) => eventQueue.offer(event).pipe(Effect.asVoid) })
+      new EventPublisher({ publish: (event) => Queue.offer(eventQueue, event).pipe(Effect.asVoid) })
     )
 
     yield* GenericStudy.transition(runtime.study, "Running")
@@ -113,7 +113,7 @@ export const ask = <Space extends SearchSpace.SearchSpace>(
     return yield* Option.match(reserved, {
       onNone: () =>
         publishCompletion(state, "spaceExhausted", "Completed").pipe(
-          Effect.zipRight(
+          Effect.andThen(
             Effect.fail(invalid("Optimization.ask cannot reserve a trial because the search space is exhausted"))
           )
         ),

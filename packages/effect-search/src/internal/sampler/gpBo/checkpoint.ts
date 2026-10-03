@@ -58,7 +58,7 @@ export const restoreCheckpoint = (
         }
       ) =>
         Effect.gen(function*() {
-          const checkpointAcquisitionOption = Option.fromNullable(checkpointAcquisition)
+          const checkpointAcquisitionOption = Option.fromNullishOr(checkpointAcquisition)
 
           return yield* Match.value(
             Bool.and(

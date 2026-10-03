@@ -1,5 +1,5 @@
 import { describe, expect, it } from "@effect/vitest"
-import { Array as Arr, Boolean as Bool, Effect, FastCheck as fc, Number as Num, Tuple } from "effect"
+import { Arbitrary, Array as Arr, Boolean as Bool, Effect, Number as Num, Schema, Tuple } from "effect"
 
 import { buildContinuousParzen } from "../../../src/internal/tpe/continuousParzen.js"
 import { minimumBandwidth } from "../../../src/internal/tpe/continuousParzen/kernels.js"
@@ -9,25 +9,12 @@ import {
   NoiseBandwidthOptions
 } from "../../../src/internal/tpe/noiseEstimator.js"
 
-const observationArbitrary = fc.array(
-  fc.double({
-    min: 0,
-    max: 1,
-    noNaN: true,
-    noDefaultInfinity: true
-  }),
-  {
-    minLength: 2,
-    maxLength: 24
-  }
+const observationArbitrary = Arbitrary.array(
+  Arbitrary.schema(Schema.Finite.check(Schema.isBetween({ minimum: 0, maximum: 1 }))),
+  { minLength: 2, maxLength: 24 }
 )
 
-const alphaArbitrary = fc.double({
-  min: 0,
-  max: 10,
-  noNaN: true,
-  noDefaultInfinity: true
-})
+const alphaArbitrary = Arbitrary.schema(Schema.Finite.check(Schema.isBetween({ minimum: 0, maximum: 10 })))
 
 describe("bandwidth invariants", () => {
   it.effect.prop(
@@ -59,7 +46,7 @@ describe("bandwidth invariants", () => {
 
         expect(higherScale).toBeGreaterThanOrEqual(lowerScale)
       }),
-    { fastCheck: { numRuns: 300 } }
+    { arbitrary: { runs: 300 } }
   )
 
   it.effect.prop(
@@ -80,10 +67,10 @@ describe("bandwidth invariants", () => {
 
         expect(
           Arr.every(parzen.kernels, (kernel) =>
-            Bool.and(Num.greaterThanOrEqualTo(kernel.sigma, minSigma), Num.lessThanOrEqualTo(kernel.sigma, 1)))
+            Bool.and(Num.isGreaterThanOrEqualTo(kernel.sigma, minSigma), Num.isLessThanOrEqualTo(kernel.sigma, 1)))
         ).toBe(true)
       }),
-    { fastCheck: { numRuns: 300 } }
+    { arbitrary: { runs: 300 } }
   )
 
   it.effect.prop(
@@ -102,6 +89,6 @@ describe("bandwidth invariants", () => {
 
         expect(scale).toBe(1)
       }),
-    { fastCheck: { numRuns: 300 } }
+    { arbitrary: { runs: 300 } }
   )
 })

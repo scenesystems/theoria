@@ -15,7 +15,7 @@ import type { Vector } from "../../../Objective.js"
  * @since 0.1.0
  * @category schemas
  */
-export const CandidateRollPair = Schema.Tuple(Schema.Number, Schema.Number)
+export const CandidateRollPair = Schema.Tuple([Schema.Finite, Schema.Finite])
 
 /**
  * A tuple of two uniform draws that select a kernel component and a value

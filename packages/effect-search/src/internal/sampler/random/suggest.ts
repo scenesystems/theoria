@@ -28,8 +28,9 @@ export const suggest = (
   seed: number,
   space: SearchSpace.SearchSpace,
   context: Context
-): Effect.Effect<unknown, SearchError> => {
-  const rng = rngByTrial("random", seed, context.nextTrialNumber)
+): Effect.Effect<unknown, SearchError> =>
+  Effect.gen(function*() {
+    const rng = yield* rngByTrial("random", seed, context.nextTrialNumber)
 
-  return sampleParameters(rng, space.params).pipe(Effect.map(configObject))
-}
+    return yield* sampleParameters(rng, space.params).pipe(Effect.map(configObject))
+  })

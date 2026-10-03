@@ -17,7 +17,8 @@ const CoupledSpace = SearchSpace.make({
   temperature: SearchSpace.categorical(temperatureChoices)
 })
 
-const decodeConfig = (raw: unknown) => Effect.flatMap(CoupledSpace, (space) => Schema.decodeUnknown(space.schema)(raw))
+const decodeConfig = (raw: unknown) =>
+  Effect.flatMap(CoupledSpace, (space) => Schema.decodeUnknownEffect(space.schema)(raw))
 
 const indexOfChoice = (choices: Iterable<string>, value: string): number =>
   Arr.findFirstIndex(choices, Equal.equals(value)).pipe(Option.getOrElse(() => 0))
@@ -62,13 +63,15 @@ const asSingleObjective = (result: Optimization.Result): Option.Option<Optimizat
 const runWith = (sampler: Sampler.Sampler) =>
   Effect.gen(function*() {
     const space = yield* CoupledSpace
-    return yield* Optimization.run({
-      space,
-      sampler,
-      direction: "minimize",
-      trials: 24,
-      objective: objectiveValue
-    })
+    return yield* Optimization.run(
+      new Optimization.FlatOptions({
+        space,
+        sampler,
+        direction: "minimize",
+        trials: 24,
+        objective: objectiveValue
+      })
+    )
   })
 
 describe("integration multivariate categorical tpe optimization", () => {
@@ -79,10 +82,13 @@ describe("integration multivariate categorical tpe optimization", () => {
         right: SearchSpace.categorical(Arr.range(0, 255))
       })
       const error = yield* Sampler.suggest(
-        Sampler.tpe({ seed: 19, nStartupTrials: 0, nEiCandidates: 1 }),
+        Sampler.tpe(new Sampler.TpeOptions({ seed: 19, nStartupTrials: 0, nEiCandidates: 1 })),
         space,
         Sampler.emptyContext()
-      ).pipe(Effect.flip, Effect.flatMap(Schema.decodeUnknown(InvalidSamplerConfig)))
+      ).pipe(Effect.matchEffect({
+        onFailure: Schema.decodeUnknownEffect(InvalidSamplerConfig),
+        onSuccess: () => Effect.die("Expected an invalid sampler configuration")
+      }))
 
       expect(error.reason).toBe("tpe joint categorical sampling supports at most 65536 tuples")
     }))
@@ -94,10 +100,10 @@ describe("integration multivariate categorical tpe optimization", () => {
         right: SearchSpace.categorical(Arr.range(0, 255))
       })
       const result = yield* Sampler.suggest(
-        Sampler.tpe({ seed: 19, nStartupTrials: 0, nEiCandidates: 1 }),
+        Sampler.tpe(new Sampler.TpeOptions({ seed: 19, nStartupTrials: 0, nEiCandidates: 1 })),
         space,
         Sampler.emptyContext()
-      ).pipe(Effect.flatMap(Schema.decodeUnknown(space.schema)))
+      ).pipe(Effect.flatMap(Schema.decodeUnknownEffect(space.schema)))
 
       expect(result.left).toBeGreaterThanOrEqual(0)
       expect(result.left).toBeLessThan(256)
@@ -109,10 +115,13 @@ describe("integration multivariate categorical tpe optimization", () => {
     Effect.gen(function*() {
       const space = yield* SearchSpace.make({ choice: SearchSpace.categorical(Arr.make("valid", "\ud800")) })
       const error = yield* Sampler.suggest(
-        Sampler.tpe({ seed: 19, nStartupTrials: 0 }),
+        Sampler.tpe(new Sampler.TpeOptions({ seed: 19, nStartupTrials: 0 })),
         space,
         Sampler.emptyContext()
-      ).pipe(Effect.flip, Effect.flatMap(Schema.decodeUnknown(InvalidSamplerConfig)))
+      ).pipe(Effect.matchEffect({
+        onFailure: Schema.decodeUnknownEffect(InvalidSamplerConfig),
+        onSuccess: () => Effect.die("Expected an invalid sampler configuration")
+      }))
 
       expect(error.sampler).toBe("tpe")
       expect(error.reason).toBe("tpe categorical search space contains an unencodable choice")
@@ -122,11 +131,13 @@ describe("integration multivariate categorical tpe optimization", () => {
     Effect.gen(function*() {
       const seed = 211
       const tpeOptimized = yield* runWith(
-        Sampler.tpe({
-          seed,
-          nStartupTrials: 8,
-          nEiCandidates: 80
-        })
+        Sampler.tpe(
+          new Sampler.TpeOptions({
+            seed,
+            nStartupTrials: 8,
+            nEiCandidates: 80
+          })
+        )
       )
       const randomOptimized = yield* runWith(Sampler.random({ seed }))
       const tpeOption = asSingleObjective(tpeOptimized)
@@ -134,8 +145,8 @@ describe("integration multivariate categorical tpe optimization", () => {
 
       expect(Option.isSome(tpeOption)).toBe(true)
       expect(Option.isSome(randomOption)).toBe(true)
-      const tpe = yield* tpeOption
-      const random = yield* randomOption
+      const tpe = yield* Effect.fromOption(tpeOption)
+      const random = yield* Effect.fromOption(randomOption)
 
       expect(yield* isCoupledBestPair(tpe.bestTrial.config)).toBe(true)
       expect(tpe.bestTrial.state.value).toBeLessThanOrEqual(random.bestTrial.state.value)

@@ -59,8 +59,8 @@ export const make = (
   options: Sampler.GridOptions = {},
   pendingImputationPolicy: PendingPolicy
 ): Sampler.Sampler => {
-  const seed = numberOptionOr(Option.fromNullable(options.seed), 0)
-  const shuffle = booleanOptionOr(Option.fromNullable(options.shuffle), false)
+  const seed = numberOptionOr(Option.fromNullishOr(options.seed), 0)
+  const shuffle = booleanOptionOr(Option.fromNullishOr(options.shuffle), false)
 
   return new Sampler.Sampler({
     kind: Sampler.Grid({ options }),

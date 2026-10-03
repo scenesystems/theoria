@@ -7,7 +7,7 @@ import { exp } from "../exponential.js"
 import { buildContinuousParzen, type ContinuousParzen, logDensity } from "./continuousParzen.js"
 
 const minimumDensityRatio = 1e-12
-const maximumDensityRatio = Num.unsafeDivide(1, minimumDensityRatio)
+const maximumDensityRatio = Num.divideUnsafe(1, minimumDensityRatio)
 const boundsPaddingRatio = 0.05
 
 class ConstraintBounds extends Data.Class<{
@@ -34,7 +34,8 @@ const finiteConstraintValue = (value: number): number =>
     Match.orElse(() => Number.POSITIVE_INFINITY)
   )
 
-export const isConstraintSatisfied = (value: number): boolean => Num.lessThanOrEqualTo(finiteConstraintValue(value), 0)
+export const isConstraintSatisfied = (value: number): boolean =>
+  Num.isLessThanOrEqualTo(finiteConstraintValue(value), 0)
 
 export const isConstraintVectorFeasible = (constraintsInput: Iterable<number>): boolean => {
   const constraints = Arr.fromIterable(constraintsInput)
@@ -71,7 +72,7 @@ const boundsFromValues = (valuesInput: Iterable<number>): ConstraintBounds => {
     Option.match({
       onNone: () =>
         new ConstraintBounds({
-          low: Num.negate(1),
+          low: Num.multiply(-1, 1),
           high: 1
         }),
       onSome: (firstValue) => {
@@ -85,7 +86,7 @@ const boundsFromValues = (valuesInput: Iterable<number>): ConstraintBounds => {
             })
         )
         const span = Num.subtract(range.maximum, range.minimum)
-        const padding = Match.value(Num.lessThanOrEqualTo(span, 0)).pipe(
+        const padding = Match.value(Num.isLessThanOrEqualTo(span, 0)).pipe(
           Match.when(true, () => 1),
           Match.orElse(() => Num.max(1, Num.multiply(span, boundsPaddingRatio)))
         )
@@ -101,7 +102,7 @@ const boundsFromValues = (valuesInput: Iterable<number>): ConstraintBounds => {
 
 const gammaFromValues = (valuesInput: Iterable<number>): number => {
   const values = Arr.fromIterable(valuesInput)
-  return Match.value(Num.lessThanOrEqualTo(Arr.length(values), 0)).pipe(
+  return Match.value(Num.isLessThanOrEqualTo(Arr.length(values), 0)).pipe(
     Match.when(true, () => 0.5),
     Match.orElse(() => {
       const feasibleCount = Arr.reduce(
@@ -114,7 +115,7 @@ const gammaFromValues = (valuesInput: Iterable<number>): number => {
           )
       )
 
-      return Num.clamp(Num.unsafeDivide(feasibleCount, Arr.length(values)), {
+      return Num.clamp(Num.divideUnsafe(feasibleCount, Arr.length(values)), {
         minimum: minimumDensityRatio,
         maximum: Num.subtract(1, minimumDensityRatio)
       })
@@ -133,8 +134,8 @@ const modelFromValues = (valuesInput: Iterable<number>): ConstraintDensityModel 
     gamma: gammaFromValues(values),
     feasibleParzen: buildContinuousParzen(feasibleValues, bounds.low, bounds.high),
     infeasibleParzen: buildContinuousParzen(infeasibleValues, bounds.low, bounds.high),
-    hasFeasible: Num.greaterThan(Arr.length(feasibleValues), 0),
-    hasInfeasible: Num.greaterThan(Arr.length(infeasibleValues), 0)
+    hasFeasible: Num.isGreaterThan(Arr.length(feasibleValues), 0),
+    hasInfeasible: Num.isGreaterThan(Arr.length(infeasibleValues), 0)
   })
 }
 
@@ -146,7 +147,7 @@ const stabilizeRatio = (ratio: number): number =>
         maximum: maximumDensityRatio
       })),
     Match.orElse(() =>
-      Match.value(Num.greaterThan(ratio, 0)).pipe(
+      Match.value(Num.isGreaterThan(ratio, 0)).pipe(
         Match.when(true, () => maximumDensityRatio),
         Match.orElse(() => minimumDensityRatio)
       )
@@ -181,8 +182,8 @@ export const constraintDensityRatio = (
       )
       const denominator = Num.sum(Num.multiply(model.gamma, ratio), Num.subtract(1, model.gamma))
 
-      return Match.value(Bool.and(isFinite(denominator), Num.greaterThan(denominator, 0))).pipe(
-        Match.when(true, () => stabilizeRatio(Num.unsafeDivide(ratio, denominator))),
+      return Match.value(Bool.and(isFinite(denominator), Num.isGreaterThan(denominator, 0))).pipe(
+        Match.when(true, () => stabilizeRatio(Num.divideUnsafe(ratio, denominator))),
         Match.orElse(() => minimumDensityRatio)
       )
     })

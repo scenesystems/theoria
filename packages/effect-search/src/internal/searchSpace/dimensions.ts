@@ -3,10 +3,10 @@
  *
  * @since 0.1.0
  */
-import { Array as Arr, Option, Schema } from "effect"
+import { Array as Arr, Equal, Option, Schema } from "effect"
 
-import { annotate } from "../../Distribution.js"
-import type { Choice, Distribution } from "../../Distribution.js"
+import { annotate, Choice } from "../../Distribution.js"
+import type { Distribution } from "../../Distribution.js"
 import type { FloatOptions, IntOptions } from "../../SearchSpace.js"
 
 const makeFloatDistribution = (
@@ -14,14 +14,14 @@ const makeFloatDistribution = (
   high: number,
   options: FloatOptions
 ): Distribution => {
-  const scalePart = Option.fromNullable(options.scale).pipe(
+  const scalePart = Option.fromNullishOr(options.scale).pipe(
     Option.match({
       onNone: () => ({}),
       onSome: (scale) => ({ scale })
     })
   )
 
-  const stepPart = Option.fromNullable(options.step).pipe(
+  const stepPart = Option.fromNullishOr(options.step).pipe(
     Option.match({
       onNone: () => ({}),
       onSome: (step) => ({ step })
@@ -42,7 +42,7 @@ const makeIntDistribution = (
   high: number,
   options: IntOptions
 ): Distribution => {
-  const stepPart = Option.fromNullable(options.step).pipe(
+  const stepPart = Option.fromNullishOr(options.step).pipe(
     Option.match({
       onNone: () => ({}),
       onSome: (step) => ({ step })
@@ -73,8 +73,12 @@ const makeIntDistribution = (
  * @since 0.1.0
  * @category constructors
  */
-export const float = (low: number, high: number, options: FloatOptions = {}): Schema.Schema<number> => {
-  return annotate(Schema.Number, makeFloatDistribution(low, high, options))
+export const float = (
+  low: number,
+  high: number,
+  options: FloatOptions = {}
+): Schema.Codec<number, number, never, never> => {
+  return annotate(Schema.Finite, makeFloatDistribution(low, high, options))
 }
 
 /**
@@ -92,7 +96,11 @@ export const float = (low: number, high: number, options: FloatOptions = {}): Sc
  * @since 0.1.0
  * @category constructors
  */
-export const int = (low: number, high: number, options: IntOptions = {}): Schema.Schema<number> => {
+export const int = (
+  low: number,
+  high: number,
+  options: IntOptions = {}
+): Schema.Codec<number, number, never, never> => {
   return annotate(Schema.Int, makeIntDistribution(low, high, options))
 }
 
@@ -110,7 +118,7 @@ export const int = (low: number, high: number, options: IntOptions = {}): Schema
  * @since 0.1.0
  * @category constructors
  */
-export const fidelity = (low: number, high: number): Schema.Schema<number> =>
+export const fidelity = (low: number, high: number): Schema.Codec<number, number, never, never> =>
   annotate(Schema.Int, {
     type: "fidelity",
     low,
@@ -131,21 +139,26 @@ export const fidelity = (low: number, high: number): Schema.Schema<number> =>
  * @since 0.1.0
  * @category constructors
  */
-export const categorical = <const Choices extends Iterable<Choice>>(
+export function categorical<const Choices extends ReadonlyArray<Choice>>(
   choices: Choices
-): Schema.Schema<Choices extends Iterable<infer Value> ? Value : never> => {
+): Schema.Codec<Choices[number], Choices[number], never, never>
+export function categorical(choices: ReadonlyArray<Choice>): Schema.Codec<Choice, Choice, never, never>
+export function categorical(choices: ReadonlyArray<Choice>): Schema.Codec<Choice, Choice, never, never> {
   const materialized = Arr.fromIterable(choices)
-  const head = Arr.head(materialized).pipe(Option.getOrElse((): Choice => null))
 
   const schema = annotate(
-    Schema.Literal(head, ...Arr.drop(materialized, 1)),
+    Choice.check(
+      Schema.makeFilter((value) =>
+        Arr.some(materialized, (choice) => Equal.equals(choice, value)) || "categorical value is not a declared choice"
+      )
+    ),
     {
       type: "categorical",
       choices: materialized
     }
   )
 
-  return Schema.make<Choices extends Iterable<infer Value> ? Value : never>(schema.ast)
+  return schema
 }
 
 /**
@@ -154,8 +167,8 @@ export const categorical = <const Choices extends Iterable<Choice>>(
  * @since 0.1.0
  * @category constructors
  */
-export const boolean = (): Schema.Schema<boolean> =>
-  annotate(Schema.Literal(true, false), {
+export const boolean = (): Schema.Codec<boolean, boolean, never, never> =>
+  annotate(Schema.Literals([true, false]), {
     type: "categorical",
     choices: Arr.make(true, false)
   })

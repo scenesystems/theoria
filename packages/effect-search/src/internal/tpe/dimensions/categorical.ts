@@ -34,7 +34,7 @@ const tupleKeyFromTrial = (
           invalidConfig(`tpe categorical history trial ${trial.trialNumber} does not match search-space dimensions`)
         ),
       onSome: (tupleConfig) =>
-        Multi.tupleKey(tupleConfig).pipe(
+        Effect.fromResult(Multi.tupleKey(tupleConfig)).pipe(
           Effect.mapError(() => invalidConfig("tpe categorical history contains an unencodable choice"))
         )
     })
@@ -144,12 +144,15 @@ export const categoricalCandidateTraceFromRolls = (
       return {
         logL,
         logG,
-        score: Acquisition.score({
-          logL,
-          logG,
-          estimatedCost: Option.none(),
-          roll: Arr.get(rolls, index)
-        }, acquisition)
+        score: Acquisition.score(
+          new Acquisition.Context({
+            logL,
+            logG,
+            estimatedCost: Option.none(),
+            roll: Arr.get(rolls, index)
+          }),
+          acquisition
+        )
       }
     })
 
@@ -219,15 +222,15 @@ export const suggestMultivariateCategorical = (
     )
     yield* Effect.succeed(tupleCount).pipe(
       Effect.filterOrFail(
-        Num.lessThanOrEqualTo(maximumJointCategoricalTuples),
+        Num.isLessThanOrEqualTo(maximumJointCategoricalTuples),
         () => invalidConfig("tpe joint categorical sampling supports at most 65536 tuples")
       )
     )
     const tupleDomain = Multi.enumerateChoiceTuples(dimensions)
-    const tupleChoices = yield* Effect.forEach(tupleDomain, Multi.tupleKey).pipe(
+    const tupleChoices = yield* Effect.forEach(tupleDomain, (tuple) => Effect.fromResult(Multi.tupleKey(tuple))).pipe(
       Effect.mapError(() => invalidConfig("tpe categorical search space contains an unencodable choice"))
     )
-    const lookup = yield* Multi.tupleLookup(tupleDomain).pipe(
+    const lookup = yield* Effect.fromResult(Multi.tupleLookup(tupleDomain)).pipe(
       Effect.mapError(() => invalidConfig("tpe categorical search space contains an unencodable choice"))
     )
     const belowKeys = yield* tupleKeysFromTrials(dimensions, split.below)
@@ -244,12 +247,15 @@ export const suggestMultivariateCategorical = (
       const logL = logProbability(belowDensity.choices, belowDensity.probabilities, candidate)
       const logG = logProbability(aboveDensity.choices, aboveDensity.probabilities, candidate)
 
-      return Acquisition.score({
-        logL,
-        logG,
-        estimatedCost: Option.none(),
-        roll: Arr.get(rolls, index)
-      }, acquisition)
+      return Acquisition.score(
+        new Acquisition.Context({
+          logL,
+          logG,
+          estimatedCost: Option.none(),
+          roll: Arr.get(rolls, index)
+        }),
+        acquisition
+      )
     })
     const bestCandidate = yield* chooseBestCandidate(
       candidates,
@@ -263,17 +269,13 @@ export const suggestMultivariateCategorical = (
         Effect.fail(invalidConfig("tpe categorical candidate selection must resolve to a string tuple key"))
       )
     )
-    const bestTuple = yield* Record.get(lookup, bestKey).pipe(
-      Option.match({
-        onNone: () => Effect.fail(invalidConfig("tpe categorical candidate key lookup failed")),
-        onSome: Effect.succeed
-      })
+    const bestTuple = yield* Effect.fromOption(
+      Record.get(lookup, bestKey),
+      () => invalidConfig("tpe categorical candidate key lookup failed")
     )
-    const raw = yield* Multi.configFromTuple(dimensions, bestTuple).pipe(
-      Option.match({
-        onNone: () => Effect.fail(invalidConfig("tpe categorical candidate tuple does not align with dimensions")),
-        onSome: Effect.succeed
-      })
+    const raw = yield* Effect.fromOption(
+      Multi.configFromTuple(dimensions, bestTuple),
+      () => invalidConfig("tpe categorical candidate tuple does not align with dimensions")
     )
 
     return raw

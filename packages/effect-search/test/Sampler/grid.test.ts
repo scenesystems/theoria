@@ -1,5 +1,5 @@
 import { describe, expect, it } from "@effect/vitest"
-import { Array as Arr, Effect, Either, Equal, Match, Option, Schema } from "effect"
+import { Array as Arr, Effect, Equal, Match, Option, Result, Schema } from "effect"
 
 import { emptyContext } from "../../src/Sampler.js"
 import * as Sampler from "../../src/Sampler.js"
@@ -65,26 +65,28 @@ describe("Sampler.grid", () => {
       const intCandidate = yield* Sampler.suggest(Sampler.grid(), intSpace, emptyContext(0))
       const mixedCandidate = yield* Sampler.suggest(Sampler.grid(), mixedFiniteSpace, emptyContext(0))
 
-      expect(Either.isRight(Schema.decodeUnknownEither(categoricalSpace.schema)(categoricalCandidate))).toBe(true)
-      expect(Either.isRight(Schema.decodeUnknownEither(intSpace.schema)(intCandidate))).toBe(true)
-      expect(Either.isRight(Schema.decodeUnknownEither(mixedFiniteSpace.schema)(mixedCandidate))).toBe(true)
+      expect(Result.isSuccess(Schema.decodeUnknownResult(categoricalSpace.schema)(categoricalCandidate))).toBe(true)
+      expect(Result.isSuccess(Schema.decodeUnknownResult(intSpace.schema)(intCandidate))).toBe(true)
+      expect(Result.isSuccess(Schema.decodeUnknownResult(mixedFiniteSpace.schema)(mixedCandidate))).toBe(true)
 
-      const incompatible = yield* Effect.either(
+      const incompatible = yield* Effect.result(
         Sampler.suggest(Sampler.grid(), yield* floatNoStepSpace, emptyContext(0))
       )
 
-      expect(Either.isLeft(incompatible)).toBe(true)
+      expect(Result.isFailure(incompatible)).toBe(true)
 
-      Either.mapLeft(incompatible, (failure) => expect(failure).toBeInstanceOf(GridIncompatible))
+      Result.mapError(incompatible, (failure) => expect(failure).toBeInstanceOf(GridIncompatible))
     }))
 
   it.effect("enumerates deterministic 3×4×2 cartesian order with no duplicates", () =>
     Effect.gen(function*() {
       const space = yield* exhaustiveSpace
       const candidates = yield* collectSuggestions(space, 24)
-      const decoded = yield* Effect.forEach(candidates, (candidate) => Schema.decodeUnknown(space.schema)(candidate))
+      const decoded = yield* Effect.forEach(candidates, (candidate) =>
+        Schema.decodeUnknownEffect(space.schema)(candidate))
       const observedKeys = Arr.map(decoded, configKey)
-      const alphaChoices = Arr.map(choicesFor(space, "alpha"), (choice) => String(choice))
+      const alphaChoices = Arr.map(choicesFor(space, "alpha"), (choice) =>
+        String(choice))
       const betaChoices = Arr.map(choicesFor(space, "beta"), (choice) => String(choice))
       const batchNormChoices = Arr.map(choicesFor(space, "useBatchNorm"), (choice) => Equal.equals(choice, true))
 
@@ -100,10 +102,10 @@ describe("Sampler.grid", () => {
 
   it.effect("does not recycle configurations after the finite grid is exhausted", () =>
     Effect.gen(function*() {
-      const exhaustedSuggestion = yield* Effect.either(
+      const exhaustedSuggestion = yield* Effect.result(
         Sampler.suggest(Sampler.grid(), yield* exhaustiveSpace, emptyContext(24))
       )
 
-      expect(Either.isLeft(exhaustedSuggestion)).toBe(true)
+      expect(Result.isFailure(exhaustedSuggestion)).toBe(true)
     }))
 })

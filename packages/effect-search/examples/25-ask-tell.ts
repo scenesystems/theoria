@@ -21,7 +21,7 @@ const program = Effect.scoped(
       Num.sumAll(Arr.make(
         Numeric.pow(Num.subtract(config.x, 1.5), 2),
         Numeric.pow(Num.sum(config.y, 0.75), 2),
-        Num.unsafeDivide(config.depth, 20)
+        Num.divideUnsafe(config.depth, 20)
       ))
 
     const evaluateReservedTrial = (handle: Optimization.Optimization<typeof space>) =>
@@ -29,13 +29,15 @@ const program = Effect.scoped(
         Effect.tap((asked) => Optimization.tell(handle, asked.trialNumber, objectiveValue(asked.config)))
       )
 
-    const handle = yield* Optimization.open({
-      space,
-      sampler: Sampler.random({ seed: 25 }),
-      direction: "minimize",
-      trials: 4,
-      objective: (config) => Effect.succeed(objectiveValue(config))
-    })
+    const handle = yield* Optimization.open(
+      new Optimization.FlatOptions({
+        space,
+        sampler: Sampler.random({ seed: 25 }),
+        direction: "minimize",
+        trials: 4,
+        objective: (config) => Effect.succeed(objectiveValue(config))
+      })
+    )
 
     const first = yield* evaluateReservedTrial(handle)
     const second = yield* evaluateReservedTrial(handle)

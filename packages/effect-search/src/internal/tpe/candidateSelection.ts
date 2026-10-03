@@ -3,7 +3,7 @@
  *
  * @since 0.1.0
  */
-import { Array as Arr, Effect, Match, Number as Num, Option, Tuple } from "effect"
+import { Array as Arr, Effect, Match, Number as Num, Tuple } from "effect"
 
 import * as Rng from "../../internal/rng.js"
 import { argmax } from "../../internal/tpe/expectedImprovement.js"
@@ -12,7 +12,7 @@ import { makeCandidateRollPair } from "./dimensions/trace.js"
 import { invalidConfig } from "./options.js"
 
 const indices = (count: number) =>
-  Match.value(Num.lessThanOrEqualTo(count, 0)).pipe(
+  Match.value(Num.isLessThanOrEqualTo(count, 0)).pipe(
     Match.when(true, () => Arr.empty<number>()),
     Match.orElse(() => Arr.makeBy(count, (index) => index))
   )
@@ -38,12 +38,7 @@ export const chooseBestCandidate = <A>(
 
   const bestIndex = argmax(scores)
 
-  return Arr.get(candidates, bestIndex).pipe(
-    Option.match({
-      onNone: () => Effect.fail(invalidConfig(reason)),
-      onSome: Effect.succeed
-    })
-  )
+  return Effect.fromOption(Arr.get(candidates, bestIndex), () => invalidConfig(reason))
 }
 
 /**

@@ -1,8 +1,8 @@
-import { FileSystem } from "@effect/platform"
-import { BunContext } from "@effect/platform-bun"
+import { BunServices } from "@effect/platform-bun"
 import { describe, expect, it } from "@effect/vitest"
 import * as StudyStorage from "@scenesystems/effect-study/StudyStorage"
-import { Array as Arr, Effect, Number as Num } from "effect"
+import { FileSystem } from "effect"
+import { Array as Arr, Effect, Number as Num, Struct } from "effect"
 
 import * as Optimization from "../../src/Optimization.js"
 import * as OptimizationSnapshot from "../../src/OptimizationSnapshot.js"
@@ -19,7 +19,7 @@ import {
 } from "../helpers/optimizationSnapshots.js"
 
 describe("recovery resume-from-storage", () => {
-  it.scoped("restores canonical snapshot + replay tail and matches uninterrupted deterministic baseline", () =>
+  it.effect("restores canonical snapshot + replay tail and matches uninterrupted deterministic baseline", () =>
     Effect.gen(function*() {
       const fileSystem = yield* FileSystem.FileSystem
       const directory = yield* fileSystem.makeTempDirectoryScoped({
@@ -34,48 +34,53 @@ describe("recovery resume-from-storage", () => {
       const replayTailTrials = 2
       const resumedTrials = Num.subtract(Num.subtract(totalTrials, checkpointTrials), replayTailTrials)
 
-      const baselineResult = yield* Optimization.run({
-        space: yield* snapshotSpace,
-        sampler: Sampler.random({ seed }),
-        direction: "minimize",
-        trials: totalTrials,
-        objective: snapshotSingleObjective
-      })
-      const stagedResult = yield* Optimization.run({
-        space: yield* snapshotSpace,
-        sampler: Sampler.random({ seed }),
-        direction: "minimize",
-        trials: Num.sum(checkpointTrials, replayTailTrials),
-        objective: snapshotSingleObjective
-      })
+      const baselineResult = yield* Optimization.run(
+        new Optimization.FlatOptions({
+          space: yield* snapshotSpace,
+          sampler: Sampler.random({ seed }),
+          direction: "minimize",
+          trials: totalTrials,
+          objective: snapshotSingleObjective
+        })
+      )
+      const stagedResult = yield* Optimization.run(
+        new Optimization.FlatOptions({
+          space: yield* snapshotSpace,
+          sampler: Sampler.random({ seed }),
+          direction: "minimize",
+          trials: Num.sum(checkpointTrials, replayTailTrials),
+          objective: snapshotSingleObjective
+        })
+      )
 
       const baselineSingle = snapshotSingleObjectiveResult(baselineResult)
       const stagedSingle = snapshotSingleObjectiveResult(stagedResult)
-      const baseline = yield* baselineSingle
-      const staged = yield* stagedSingle
+      const baseline = yield* Effect.fromOption(baselineSingle)
+      const staged = yield* Effect.fromOption(stagedSingle)
 
       const stagedSnapshot = yield* Optimization.snapshot(staged)
-      const checkpoint = new OptimizationSnapshot.OptimizationSnapshot({
-        ...stagedSnapshot,
+      const checkpoint = new OptimizationSnapshot.OptimizationSnapshot(Struct.assign(stagedSnapshot, {
         nextTrialNumber: checkpointTrials,
         trials: Arr.take(stagedSnapshot.trials, checkpointTrials),
         completedCount: checkpointTrials
-      })
+      }))
 
       yield* storage.writeSnapshot(checkpoint)
       yield* Effect.forEach(stagedSnapshot.trials, (trial) => storage.appendTrial(trial), { discard: true })
 
-      const resumedResult = yield* Optimization.resumeFromStorage({
-        space: yield* snapshotSpace,
-        sampler: Sampler.random({ seed }),
-        direction: "minimize",
-        trials: resumedTrials,
-        objective: snapshotSingleObjective
-      }).pipe(
+      const resumedResult = yield* Optimization.resumeFromStorage(
+        new Optimization.StorageResumeOptions({
+          space: yield* snapshotSpace,
+          sampler: Sampler.random({ seed }),
+          direction: "minimize",
+          trials: resumedTrials,
+          objective: snapshotSingleObjective
+        })
+      ).pipe(
         Effect.provide(OptimizationStorage.layerFileSystem(storageOptions))
       )
 
-      const resumedSingle = yield* snapshotSingleObjectiveResult(resumedResult)
+      const resumedSingle = yield* Effect.fromOption(snapshotSingleObjectiveResult(resumedResult))
 
       expect(encodeSnapshotConfigTrace(yield* snapshotConfigTrace(resumedSingle))).toBe(
         encodeSnapshotConfigTrace(yield* snapshotConfigTrace(baseline))
@@ -91,5 +96,5 @@ describe("recovery resume-from-storage", () => {
       const resumedSnapshot = yield* Optimization.snapshot(resumedSingle)
       expect(resumedSnapshot.nextTrialNumber).toBe(totalTrials)
       expect(resumedSnapshot.completedCount).toBe(totalTrials)
-    }).pipe(Effect.provide(BunContext.layer)))
+    }).pipe(Effect.provide(BunServices.layer)))
 })

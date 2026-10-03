@@ -16,11 +16,10 @@ import type { ObjectiveAttempt } from "./trialEvaluation.js"
 export const objectiveExitValue = (
   objectiveExit: Exit.Exit<ObjectiveAttempt, TrialError>
 ): Exit.Exit<Value, TrialError> =>
-  Match.value(objectiveExit).pipe(
-    Match.tag("Success", ({ value }) => Exit.succeed(value.value)),
-    Match.tag("Failure", ({ cause }) => Exit.failCause(cause)),
-    Match.exhaustive
-  )
+  Exit.match(objectiveExit, {
+    onSuccess: (value) => Exit.succeed(value.value),
+    onFailure: Exit.failCause
+  })
 
 /**
  * @since 0.1.0
@@ -39,7 +38,7 @@ export const objectiveRetryCount = (objectiveExit: Exit.Exit<ObjectiveAttempt, T
  */
 export const objectiveCost = (objectiveExit: Exit.Exit<ObjectiveAttempt, TrialError>): Option.Option<number> =>
   Match.value(objectiveExit).pipe(
-    Match.tag("Success", ({ value }) => Option.fromNullable(value.cost)),
+    Match.tag("Success", ({ value }) => Option.fromNullishOr(value.cost)),
     Match.tag("Failure", () => Option.none()),
     Match.exhaustive
   )
@@ -50,7 +49,7 @@ export const objectiveCost = (objectiveExit: Exit.Exit<ObjectiveAttempt, TrialEr
  */
 export const objectiveVariance = (objectiveExit: Exit.Exit<ObjectiveAttempt, TrialError>): Option.Option<number> =>
   Match.value(objectiveExit).pipe(
-    Match.tag("Success", ({ value }) => Option.fromNullable(value.variance)),
+    Match.tag("Success", ({ value }) => Option.fromNullishOr(value.variance)),
     Match.tag("Failure", () => Option.none()),
     Match.exhaustive
   )

@@ -40,8 +40,12 @@ export const extendSpace = (
     })
 
     const schema = yield* Effect.try({
-      try: () => Schema.extend(left.schema, right.schema),
-      catch: () => extendFailure("schema extension failed")
+      try: () =>
+        Schema.Union(Arr.flatMap(left.schema.members, (leftMember) =>
+          Arr.map(right.schema.members, (rightMember) =>
+            leftMember.pipe(Schema.fieldsAssign(rightMember.fields))))),
+      catch: () =>
+        extendFailure("schema extension failed")
     })
     const params = yield* ensureUniqueParameterNames(Arr.appendAll(left.params, right.params))
 

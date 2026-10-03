@@ -31,19 +31,19 @@ const reportError = (
   new InvalidObjectiveReport({
     trialNumber,
     reason,
-    ...Option.fromNullable(step).pipe(
+    ...Option.fromNullishOr(step).pipe(
       Option.match({
         onNone: () => ({}),
         onSome: (resolvedStep) => ({ step: resolvedStep })
       })
     ),
-    ...Option.fromNullable(value).pipe(
+    ...Option.fromNullishOr(value).pipe(
       Option.match({
         onNone: () => ({}),
         onSome: (resolvedValue) => ({ value: resolvedValue })
       })
     ),
-    ...Option.fromNullable(previousStep).pipe(
+    ...Option.fromNullishOr(previousStep).pipe(
       Option.match({
         onNone: () => ({}),
         onSome: (resolvedPreviousStep) => ({ previousStep: resolvedPreviousStep })
@@ -52,7 +52,7 @@ const reportError = (
   })
 
 const validateStep = (trialNumber: number, step: number): Effect.Effect<void, InvalidObjectiveReport> =>
-  Match.value(Bool.and(Schema.is(Schema.Number.pipe(Schema.int()))(step), Num.greaterThanOrEqualTo(step, 0))).pipe(
+  Match.value(Bool.and(Schema.is(Schema.Int)(step), Num.isGreaterThanOrEqualTo(step, 0))).pipe(
     Match.when(true, () => Effect.void),
     Match.orElse(() => Effect.fail(reportError(trialNumber, "step must be a non-negative integer", step)))
   )
@@ -77,7 +77,7 @@ const validateMonotonicStep = (
     Option.match({
       onNone: () => Effect.void,
       onSome: ({ step: previousStep }) =>
-        Match.value(Num.greaterThan(step, previousStep)).pipe(
+        Match.value(Num.isGreaterThan(step, previousStep)).pipe(
           Match.when(true, () => Effect.void),
           Match.orElse(() =>
             Match.value(Num.Equivalence(step, previousStep)).pipe(

@@ -1,16 +1,5 @@
 import { describe, expect, it } from "@effect/vitest"
-import {
-  Array as Arr,
-  Boolean as Bool,
-  Chunk,
-  Effect,
-  Equal,
-  Match,
-  Number as Num,
-  Option,
-  Schema,
-  Stream
-} from "effect"
+import { Array as Arr, Boolean as Bool, Effect, Equal, Match, Number as Num, Option, Schema, Stream } from "effect"
 
 import type { Direction } from "../../src/Direction.js"
 import * as Optimization from "../../src/Optimization.js"
@@ -20,7 +9,7 @@ import * as SearchSpace from "../../src/SearchSpace.js"
 const makeTypedSpace = () =>
   SearchSpace.make({
     lr: SearchSpace.float(0.001, 0.1),
-    optimizer: SearchSpace.categorical(Schema.Literal("adam", "sgd").literals)
+    optimizer: SearchSpace.categorical(Schema.Literals(["adam", "sgd"]).literals)
   })
 
 const expectTypedConfig = (config: { readonly lr: number; readonly optimizer: "adam" | "sgd" }) => config
@@ -45,25 +34,27 @@ describe("Optimization typed results", () => {
   it.effect("infers objective config and threads it into Result.bestTrial.config", () =>
     Effect.gen(function*() {
       const space = yield* makeTypedSpace()
-      const optimized = yield* Optimization.run({
-        space,
-        sampler: Sampler.random({ seed: 13 }),
-        direction: "minimize",
-        trials: 8,
-        objective: (config) => {
-          const typed = expectTypedConfig(config)
-          return Effect.succeed(Num.sum(
-            typed.lr,
-            Match.value(typed.optimizer).pipe(
-              Match.when("adam", () => 0),
-              Match.orElse(() => 1)
-            )
-          ))
-        }
-      })
+      const optimized = yield* Optimization.run(
+        new Optimization.FlatOptions({
+          space,
+          sampler: Sampler.random({ seed: 13 }),
+          direction: "minimize",
+          trials: 8,
+          objective: (config) => {
+            const typed = expectTypedConfig(config)
+            return Effect.succeed(Num.sum(
+              typed.lr,
+              Match.value(typed.optimizer).pipe(
+                Match.when("adam", () => 0),
+                Match.orElse(() => 1)
+              )
+            ))
+          }
+        })
+      )
       const typedResult: Optimization.Result<SearchSpace.Type<typeof space>> = optimized
 
-      const singleObjective = yield* singleObjectiveResult(typedResult)
+      const singleObjective = yield* Effect.fromOption(singleObjectiveResult(typedResult))
       const typedBestConfig = expectTypedConfig(singleObjective.bestTrial.config)
 
       expect(typedBestConfig.lr).toBeGreaterThanOrEqual(0.001)
@@ -72,17 +63,19 @@ describe("Optimization typed results", () => {
   it.effect("infers objective config for stream without explicit annotations", () =>
     Effect.gen(function*() {
       const space = yield* makeTypedSpace()
-      const stream = Optimization.stream({
-        space,
-        sampler: Sampler.random({ seed: 5 }),
-        direction: "minimize",
-        trials: 1,
-        objective: (config) => {
-          const typed = expectTypedConfig(config)
-          return Effect.succeed(typed.lr)
-        }
-      })
-      const events = Chunk.toReadonlyArray(yield* Stream.runCollect(stream))
+      const stream = Optimization.stream(
+        new Optimization.FlatOptions({
+          space,
+          sampler: Sampler.random({ seed: 5 }),
+          direction: "minimize",
+          trials: 1,
+          objective: (config) => {
+            const typed = expectTypedConfig(config)
+            return Effect.succeed(typed.lr)
+          }
+        })
+      )
+      const events = yield* Stream.runCollect(stream)
 
       expect(Arr.map(events, (event) => event._tag)).toEqual(Arr.make(
         "TrialStarted",
@@ -95,25 +88,27 @@ describe("Optimization typed results", () => {
   it.effect("threads config type into MultiObjectiveResult.paretoFront", () =>
     Effect.gen(function*() {
       const space = yield* makeTypedSpace()
-      const optimized = yield* Optimization.run({
-        space,
-        sampler: Sampler.random({ seed: 21 }),
-        directions: Arr.make<Arr.NonEmptyArray<Direction>>("minimize", "maximize"),
-        trials: 10,
-        objective: (config) => {
-          const typed = expectTypedConfig(config)
-          return Effect.succeed(Arr.make(
-            typed.lr,
-            Match.value(typed.optimizer).pipe(
-              Match.when("adam", () => 1),
-              Match.orElse(() => 0)
-            )
-          ))
-        }
-      })
+      const optimized = yield* Optimization.run(
+        new Optimization.FlatOptions({
+          space,
+          sampler: Sampler.random({ seed: 21 }),
+          directions: Arr.make<Arr.NonEmptyArray<Direction>>("minimize", "maximize"),
+          trials: 10,
+          objective: (config) => {
+            const typed = expectTypedConfig(config)
+            return Effect.succeed(Arr.make(
+              typed.lr,
+              Match.value(typed.optimizer).pipe(
+                Match.when("adam", () => 1),
+                Match.orElse(() => 0)
+              )
+            ))
+          }
+        })
+      )
 
-      const multiObjective = yield* multiObjectiveResult(optimized)
-      const firstPareto = yield* Arr.last(Arr.fromIterable(multiObjective.paretoFront))
+      const multiObjective = yield* Effect.fromOption(multiObjectiveResult(optimized))
+      const firstPareto = yield* Effect.fromOption(Arr.last(Arr.fromIterable(multiObjective.paretoFront)))
       const typedParetoConfig = expectTypedConfig(firstPareto.config)
 
       expect(Bool.or(

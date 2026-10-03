@@ -22,21 +22,25 @@ const program = Effect.gen(function*() {
     Num.sumAll(Arr.make(
       Numeric.pow(Num.subtract(config.x, 1.4), 2),
       Num.multiply(Numeric.pow(Num.sum(config.y, 0.8), 2), 0.6),
-      Num.multiply(Numeric.pow(Num.unsafeDivide(Num.subtract(config.depth, 4), 4), 2), 0.1)
+      Num.multiply(Numeric.pow(Num.divideUnsafe(Num.subtract(config.depth, 4), 4), 2), 0.1)
     ))
 
   const runWithAcquisition = (name: "ei" | "pi" | "thompson") =>
-    Optimization.minimize({
-      space,
-      sampler: Sampler.tpe({
-        seed: 260,
-        nStartupTrials: 8,
-        nEiCandidates: 30,
-        acquisition: name
-      }),
-      trials: trialCount,
-      objective: (config) => Effect.succeed(objective(config))
-    }).pipe(
+    Optimization.minimize(
+      new Optimization.FlatOptions({
+        space,
+        sampler: Sampler.tpe(
+          new Sampler.TpeOptions({
+            seed: 260,
+            nStartupTrials: 8,
+            nEiCandidates: 30,
+            acquisition: name
+          })
+        ),
+        trials: trialCount,
+        objective: (config) => Effect.succeed(objective(config))
+      })
+    ).pipe(
       Effect.map((result) =>
         Match.value(result).pipe(
           Match.tag("SingleObjective", ({ bestTrial }) => ({

@@ -6,12 +6,14 @@ export class RngState extends Schema.Class<RngState>("@scenesystems/effect-searc
 
 export type Rng = Random.Random
 
-export const make = <A>(seed: A): Rng => Random.make(seed)
+export const make = (seed: string | number): Effect.Effect<Rng> => Random.Random.pipe(Random.withSeed(seed))
 
-export const nextFloat = (rng: Rng, low = 0, high = 1) => rng.nextRange(low, high)
+export const nextFloat = (rng: Rng, low = 0, high = 1) =>
+  Random.nextBetween(low, high).pipe(Effect.provideService(Random.Random, rng))
 
 export const nextInt = (rng: Rng, low: number, high: number) =>
-  rng.nextIntBetween(low, Num.increment(high)).pipe(
+  Random.nextIntBetween(low, high).pipe(
+    Effect.provideService(Random.Random, rng),
     Effect.map((value) =>
       Num.clamp(value, {
         minimum: low,
@@ -20,4 +22,4 @@ export const nextInt = (rng: Rng, low: number, high: number) =>
     )
   )
 
-export const nextBoolean = (rng: Rng) => rng.nextBoolean
+export const nextBoolean = (rng: Rng) => Random.nextBoolean.pipe(Effect.provideService(Random.Random, rng))

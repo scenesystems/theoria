@@ -11,21 +11,9 @@ import { compileBase } from "./compile/base.js"
 import { compileWithBranch } from "./compile/branch.js"
 import { ensureUniqueParameterNames } from "./validation.js"
 
-const fingerprintSchema = () => Schema.parseJson(Schema.Array(Parameter))
-
-type ConditionalType<
-  Dimensions extends {
-    readonly [key: string]: Schema.Schema.AnyNoContext
-  },
-  BranchSchema extends Schema.Schema.AnyNoContext
-> = Schema.Schema.Type<Schema.Struct<Dimensions>> & Schema.Schema.Type<BranchSchema>
-
-type ConditionalEncoded<
-  Dimensions extends {
-    readonly [key: string]: Schema.Schema.AnyNoContext
-  },
-  BranchSchema extends Schema.Schema.AnyNoContext
-> = Schema.Schema.Encoded<Schema.Struct<Dimensions>> & Schema.Schema.Encoded<BranchSchema>
+const fingerprintSchema = () => Schema.fromJsonString(Schema.Array(Parameter))
+type SpaceField = Schema.Codec<unknown, unknown, never, never>
+type BranchCodec = Schema.Union<ReadonlyArray<Schema.Struct<Readonly<Record<string, SpaceField>>>>>
 
 /**
  * Encodes ordered distribution and activation metadata as JSON.
@@ -63,7 +51,7 @@ export const fingerprint = (space: SearchSpace): string => Schema.encodeSync(fin
  */
 export const make = <
   const Dimensions extends {
-    readonly [key: string]: Schema.Schema.AnyNoContext
+    readonly [key: string]: SpaceField
   }
 >(
   dimensions: Dimensions
@@ -71,11 +59,7 @@ export const make = <
   Effect.gen(function*() {
     const compiled = yield* compileBase(dimensions, Arr.empty())
     const params = yield* ensureUniqueParameterNames(compiled.params)
-    const schema = Schema.make<
-      Schema.Schema.Type<typeof compiled.schema>,
-      Schema.Schema.Encoded<typeof compiled.schema>,
-      never
-    >(compiled.schema.ast)
+    const schema = Schema.Union([compiled.schema])
 
     return new SearchSpace({
       schema,
@@ -107,9 +91,9 @@ export const make = <
  */
 export const makeConditional = <
   const Dimensions extends {
-    readonly [key: string]: Schema.Schema.AnyNoContext
+    readonly [key: string]: SpaceField
   },
-  BranchSchema extends Schema.Schema.AnyNoContext
+  BranchSchema extends BranchCodec
 >(
   dimensions: Dimensions,
   branch: Switch<BranchSchema>
@@ -119,11 +103,7 @@ export const makeConditional = <
     const compiled = yield* compileWithBranch(base, branch)
 
     const params = yield* ensureUniqueParameterNames(compiled.params)
-    const schema = Schema.make<
-      ConditionalType<Dimensions, BranchSchema>,
-      ConditionalEncoded<Dimensions, BranchSchema>,
-      never
-    >(compiled.schema.ast)
+    const schema = compiled.schema
 
     return new SearchSpace({
       schema,

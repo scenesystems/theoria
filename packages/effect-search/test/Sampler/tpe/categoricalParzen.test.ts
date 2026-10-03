@@ -31,7 +31,7 @@ describe("tpe categorical parzen", () => {
       const result = yield* buildCategoricalParzen(Arr.make("adam", "sgd", "adamw"), Arr.empty())
 
       yield* Effect.sync(() => {
-        expect(result.probabilities).toEqual(Arr.replicate(Num.unsafeDivide(1, 3), 3))
+        expect(result.probabilities).toEqual(Arr.replicate(Num.divideUnsafe(1, 3), 3))
       })
     }))
 

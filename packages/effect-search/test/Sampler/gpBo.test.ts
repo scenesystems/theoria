@@ -1,5 +1,5 @@
 import { describe, expect, it } from "@effect/vitest"
-import { Array as Arr, Effect, Either, Match, Number as Num, Option, Schema, Tuple } from "effect"
+import { Array as Arr, Effect, Match, Number as Num, Option, Result, Schema, Tuple } from "effect"
 
 import { Name } from "../../src/Acquisition.js"
 import * as Direction from "../../src/Direction.js"
@@ -18,7 +18,7 @@ const continuousSpace = SearchSpace.make({
   dropout: SearchSpace.float(0, 0.6)
 })
 
-const acquisitionNames = Schema.decodeSync(Schema.Array(Name))(Schema.Literal("ei", "pi", "thompson").literals)
+const acquisitionNames = Schema.decodeSync(Schema.Array(Name))(Schema.Literals(["ei", "pi", "thompson"]).literals)
 
 const categoricalSpace = SearchSpace.make({
   optimizer: SearchSpace.categorical(Arr.make("adam", "sgd")),
@@ -65,7 +65,7 @@ describe("Sampler.gpBo", () => {
   it.effect("keeps acquisition strategy compatibility across EI/PI/Thompson options", () =>
     Effect.gen(function*() {
       const space = yield* continuousSpace
-      const decode = Schema.decodeUnknownEither(space.schema)
+      const decode = Schema.decodeUnknownResult(space.schema)
       const outcomes = yield* Effect.forEach(acquisitionNames, (acquisition) =>
         Sampler.suggest(
           Sampler.gpBo({ seed: 22, nStartupTrials: 2, nCandidates: 24, acquisition }),
@@ -75,30 +75,30 @@ describe("Sampler.gpBo", () => {
 
       Arr.forEach(outcomes, (candidate) => {
         const decoded = decode(candidate)
-        expect(Either.isRight(decoded)).toBe(true)
+        expect(Result.isSuccess(decoded)).toBe(true)
       })
     }))
 
   it.effect("rejects search spaces containing unsupported dimensions with typed sampler errors", () =>
     Effect.gen(function*() {
-      const outcome = yield* Effect.either(
+      const outcome = yield* Effect.result(
         Sampler.suggest(Sampler.gpBo({ seed: 3 }), yield* categoricalSpace, emptyContext(0))
       )
 
-      expect(Either.isLeft(outcome)).toBe(true)
+      expect(Result.isFailure(outcome)).toBe(true)
 
-      Either.mapLeft(outcome, (failure) => expect(failure).toBeInstanceOf(SamplerSearchSpaceUnsupported))
+      Result.mapError(outcome, (failure) => expect(failure).toBeInstanceOf(SamplerSearchSpaceUnsupported))
     }))
 
   it.effect("rejects multi-objective suggestion contexts with typed sampler errors", () =>
     Effect.gen(function*() {
-      const outcome = yield* Effect.either(
+      const outcome = yield* Effect.result(
         Sampler.suggest(Sampler.gpBo({ seed: 3 }), yield* continuousSpace, multiContext(2))
       )
 
-      expect(Either.isLeft(outcome)).toBe(true)
+      expect(Result.isFailure(outcome)).toBe(true)
 
-      Either.mapLeft(outcome, (failure) => expect(failure).toBeInstanceOf(SamplerObjectiveUnsupported))
+      Result.mapError(outcome, (failure) => expect(failure).toBeInstanceOf(SamplerObjectiveUnsupported))
     }))
 
   it.effect("fails checkpoint restore when persisted checkpoint mismatches runtime sampler parameters", () =>
@@ -116,11 +116,11 @@ describe("Sampler.gpBo", () => {
         })),
         Match.orElse((value): Sampler.Checkpoint => value)
       )
-      const outcome = yield* Effect.either(Sampler.restore(sampler, corruptCheckpoint))
+      const outcome = yield* Effect.result(Sampler.restore(sampler, corruptCheckpoint))
 
-      expect(Either.isLeft(outcome)).toBe(true)
+      expect(Result.isFailure(outcome)).toBe(true)
 
-      Either.mapLeft(outcome, (failure) => expect(failure).toBeInstanceOf(InvalidOptimizationConfig))
+      Result.mapError(outcome, (failure) => expect(failure).toBeInstanceOf(InvalidOptimizationConfig))
     }))
 
   it.effect("fails checkpoint restore when GP hyperparameters drift across resume", () =>
@@ -142,17 +142,17 @@ describe("Sampler.gpBo", () => {
         noise: 0.1,
         acquisition: "ei"
       })
-      const outcome = yield* Effect.either(Sampler.restore(resumedWithDrift, checkpoint))
+      const outcome = yield* Effect.result(Sampler.restore(resumedWithDrift, checkpoint))
 
-      expect(Either.isLeft(outcome)).toBe(true)
+      expect(Result.isFailure(outcome)).toBe(true)
 
-      Either.mapLeft(outcome, (failure) => expect(failure).toBeInstanceOf(InvalidOptimizationConfig))
+      Result.mapError(outcome, (failure) => expect(failure).toBeInstanceOf(InvalidOptimizationConfig))
     }))
 
   it.effect("produces schema-decodable suggestions within declared bounds", () =>
     Effect.gen(function*() {
       const space = yield* continuousSpace
-      const decode = Schema.decodeUnknownEither(space.schema)
+      const decode = Schema.decodeUnknownResult(space.schema)
       const candidate = yield* Sampler.suggest(
         Sampler.gpBo({ seed: 7, nStartupTrials: 0, nCandidates: 32 }),
         space,
@@ -160,8 +160,8 @@ describe("Sampler.gpBo", () => {
       )
       const decoded = decode(candidate)
 
-      expect(Either.isRight(decoded)).toBe(true)
+      expect(Result.isSuccess(decoded)).toBe(true)
 
-      Either.map(decoded, (config) => expect(Option.isSome(Option.fromNullable(config.learningRate))).toBe(true))
+      Result.map(decoded, (config) => expect(Option.isSome(Option.fromNullishOr(config.learningRate))).toBe(true))
     }))
 })

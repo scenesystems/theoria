@@ -73,7 +73,20 @@
   },
   "overrides": [
     {
-      "files": ["packages/effect-math/src/Complex.ts", "packages/effect-study/src/Artifact.ts"],
+      "files": [
+        "packages/effect-math/src/Complex.ts",
+        "packages/effect-search/src/Objective.ts",
+        "packages/effect-search/src/Pareto.ts",
+        "packages/effect-search/src/SearchError.ts",
+        "packages/effect-search/src/internal/tpe/continuousParzen.ts",
+        "packages/effect-search/src/internal/tpe/expectedImprovement.ts",
+        "packages/effect-search/src/internal/tpe/prunedScore.ts",
+        "packages/effect-search/src/internal/tpe/splitTrials.ts",
+        "packages/effect-search/src/internal/tpe/truncatedNormal.ts",
+        "packages/effect-search/src/internal/tpe/truncatedNormal/normal.ts",
+        "packages/effect-search/src/internal/tpe/truncatedNormal/truncated.ts",
+        "packages/effect-study/src/Artifact.ts"
+      ],
       "rules": {
         "effecttsgo/schema-number": "off"
       }

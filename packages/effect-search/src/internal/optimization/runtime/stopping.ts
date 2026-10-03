@@ -19,8 +19,8 @@ const targetReachedForDirection = (
   candidateValue: number
 ): boolean =>
   Match.value(direction).pipe(
-    Match.when("minimize", () => Num.lessThanOrEqualTo(candidateValue, targetValue)),
-    Match.when("maximize", () => Num.greaterThanOrEqualTo(candidateValue, targetValue)),
+    Match.when("minimize", () => Num.isLessThanOrEqualTo(candidateValue, targetValue)),
+    Match.when("maximize", () => Num.isGreaterThanOrEqualTo(candidateValue, targetValue)),
     Match.exhaustive
   )
 
@@ -42,7 +42,7 @@ const markTargetIfReached = <Config>(
   runtime: OptimizationRuntime<Config>,
   trial: Trial.Trial<Config>
 ): Effect.Effect<void> =>
-  Option.fromNullable(settings.targetValue).pipe(
+  Option.fromNullishOr(settings.targetValue).pipe(
     Option.match({
       onNone: () => Effect.void,
       onSome: (targetValue) =>
@@ -56,7 +56,7 @@ const markTargetIfReached = <Config>(
                   onSome: (candidateValue) =>
                     Effect.when(
                       markTargetReached(runtime.completionReasonRef),
-                      () => targetReachedForDirection(direction, targetValue, candidateValue)
+                      Effect.succeed(targetReachedForDirection(direction, targetValue, candidateValue))
                     )
                 })
               )
@@ -69,7 +69,7 @@ const markNoImprovementIfWindowExceeded = <Config>(
   settings: OptimizeSettings,
   runtime: OptimizationRuntime<Config>
 ): Effect.Effect<void> =>
-  Option.fromNullable(settings.noImprovementWindow).pipe(
+  Option.fromNullishOr(settings.noImprovementWindow).pipe(
     Option.match({
       onNone: () => Effect.void,
       onSome: (window) =>
@@ -77,7 +77,7 @@ const markNoImprovementIfWindowExceeded = <Config>(
           Effect.flatMap((noImprovementCount) =>
             Effect.when(
               markNoImprovement(runtime.completionReasonRef),
-              () => Num.greaterThanOrEqualTo(noImprovementCount, window)
+              Effect.succeed(Num.isGreaterThanOrEqualTo(noImprovementCount, window))
             )
           )
         )
@@ -96,7 +96,7 @@ export const applyTrialStoppingPolicies = <Config>(
   trial: Trial.Trial<Config>
 ): Effect.Effect<void> =>
   markTargetIfReached(settings, runtime, trial).pipe(
-    Effect.zipRight(markNoImprovementIfWindowExceeded(settings, runtime))
+    Effect.andThen(markNoImprovementIfWindowExceeded(settings, runtime))
   )
 
 /**
@@ -109,12 +109,12 @@ export const startDurationStopper = <Config>(
   settings: OptimizeSettings,
   runtime: OptimizationRuntime<Config>
 ): Effect.Effect<void, never, Scope.Scope> =>
-  Option.fromNullable(settings.maxDuration).pipe(
+  Option.fromNullishOr(settings.maxDuration).pipe(
     Option.match({
       onNone: () => Effect.void,
       onSome: (maxDuration) =>
         Effect.sleep(maxDuration).pipe(
-          Effect.zipRight(markDurationExceeded(runtime.completionReasonRef)),
+          Effect.andThen(markDurationExceeded(runtime.completionReasonRef)),
           Effect.forkScoped,
           Effect.asVoid
         )

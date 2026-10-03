@@ -18,7 +18,7 @@ const program = Effect.gen(function*() {
     strategy: SearchSpace.categorical(Tuple.make("least-conn", "round-robin", "queue-depth"))
   })
   const latencyScore = (config: SearchSpace.Type<typeof space>): number => {
-    const workerTerm = Num.unsafeDivide(220, config.workerCount)
+    const workerTerm = Num.divideUnsafe(220, config.workerCount)
     const batchPenalty = Num.multiply(Numeric.abs(Num.subtract(config.batchSize, 160)), 0.4)
     const retryPenalty = Num.multiply(config.retryDelayMillis, 0.2)
     const strategyPenalty = Match.value(config.strategy).pipe(
@@ -31,18 +31,20 @@ const program = Effect.gen(function*() {
   const makePriorTrial = (config: SearchSpace.Type<typeof space>, value: number) =>
     new Optimization.PriorTrial({ config, value })
 
-  const result = yield* Optimization.minimize({
-    space,
-    sampler: Sampler.tpe({ seed: 2026 }),
-    trials: 50,
-    priorWeight: 0.6,
-    priorTrials: Arr.make(
-      makePriorTrial({ workerCount: 16, batchSize: 160, retryDelayMillis: 40, strategy: "least-conn" }, 67),
-      makePriorTrial({ workerCount: 12, batchSize: 192, retryDelayMillis: 60, strategy: "queue-depth" }, 74),
-      makePriorTrial({ workerCount: 20, batchSize: 128, retryDelayMillis: 40, strategy: "least-conn" }, 70)
-    ),
-    objective: (config) => Effect.succeed(latencyScore(config))
-  })
+  const result = yield* Optimization.minimize(
+    new Optimization.FlatOptions({
+      space,
+      sampler: Sampler.tpe(new Sampler.TpeOptions({ seed: 2026 })),
+      trials: 50,
+      priorWeight: 0.6,
+      priorTrials: Arr.make(
+        makePriorTrial({ workerCount: 16, batchSize: 160, retryDelayMillis: 40, strategy: "least-conn" }, 67),
+        makePriorTrial({ workerCount: 12, batchSize: 192, retryDelayMillis: 60, strategy: "queue-depth" }, 74),
+        makePriorTrial({ workerCount: 20, batchSize: 128, retryDelayMillis: 40, strategy: "least-conn" }, 70)
+      ),
+      objective: (config) => Effect.succeed(latencyScore(config))
+    })
+  )
 
   yield* Match.value(result).pipe(
     Match.tag(

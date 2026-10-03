@@ -4,7 +4,18 @@
  * @since 0.1.0
  */
 import * as Journal from "@scenesystems/effect-study/Journal"
-import { Boolean as Bool, Cause, Chunk, Effect, Match, Number as Num, Option, Ref, Schedule, Schema } from "effect"
+import {
+  Array as Arr,
+  Boolean as Bool,
+  Cause,
+  Effect,
+  Match,
+  Number as Num,
+  Option,
+  Ref,
+  Schedule,
+  Schema
+} from "effect"
 
 import { Request as CacheRequest } from "../../../../ObjectiveCache.js"
 import * as OptimizationEvent from "../../../../OptimizationEvent.js"
@@ -35,18 +46,18 @@ const isTrialError = Schema.is(TrialError)
 const retryableTrialError = (
   cause: Cause.Cause<TrialError | Journal.Failure>
 ): Option.Option<TrialError> => {
-  const failures = Cause.failures(cause)
-  const trialFailures = Chunk.filter(failures, isTrialError)
+  const failures = Arr.filter(cause.reasons, Cause.isFailReason)
+  const trialFailures = Arr.filter(Arr.map(failures, ({ error }) => error), isTrialError)
   return Match.value(
     Bool.and(
-      Chunk.isEmpty(Cause.defects(cause)),
+      Bool.not(Arr.some(cause.reasons, Cause.isDieReason)),
       Bool.and(
-        Bool.not(Cause.isInterrupted(cause)),
-        Num.Equivalence(Chunk.size(failures), Chunk.size(trialFailures))
+        Bool.not(Cause.hasInterrupts(cause)),
+        Num.Equivalence(Arr.length(failures), Arr.length(trialFailures))
       )
     )
   ).pipe(
-    Match.when(true, () => Chunk.head(trialFailures)),
+    Match.when(true, () => Arr.head(trialFailures)),
     Match.orElse(() => Option.none())
   )
 }
@@ -73,30 +84,34 @@ export const evaluateObjectiveWithRetry = <Space extends SearchSpace.SearchSpace
   resolveCachedValue: CacheResolveForTrial<Space["schema"]>
 ): Effect.Effect<ObjectiveSample, TrialError | Journal.Failure> =>
   Effect.gen(function*() {
-    const retryDriver = yield* Schedule.driver(settings.retrySchedule)
+    const retryStep = yield* Schedule.toStepWithSleep(settings.retrySchedule)
 
-    const evaluateUncached = Effect.locally(
-      options.objective(running.config, objectiveRuntime).pipe(
-        Effect.flatMap((result) => decodeObjectiveResult(trialNumber, result)),
-        Effect.mapErrorCause(
-          Cause.map((cause) =>
-            Option.liftPredicate(cause, isJournalFailure).pipe(
-              Option.match({
-                onNone: () => objectiveFailure(trialNumber, cause),
-                onSome: (storageError) => storageError
-              })
-            )
-          )
-        )
+    const evaluateUncached: Effect.Effect<ObjectiveEvaluation, TrialError | Journal.Failure> = options.objective(
+      running.config,
+      objectiveRuntime
+    ).pipe(
+      Effect.flatMap((result) => decodeObjectiveResult(trialNumber, result)),
+      Effect.catchCause((cause) =>
+        Effect.failCause(Cause.map(cause, (error) =>
+          Option.liftPredicate(error, isJournalFailure).pipe(
+            Option.match({
+              onNone: () => objectiveFailure(trialNumber, error),
+              onSome: (failure) => failure
+            })
+          )))
       ),
-      CurrentTrialContext,
-      Option.some(trialContext)
+      Effect.provideService(CurrentTrialContext, Option.some(trialContext))
     )
 
     const evaluateWithCache = Effect.gen(function*() {
       const lastEvaluation = yield* Ref.make<Option.Option<ObjectiveEvaluation>>(Option.none())
       const { value } = yield* resolveCachedValue(
-        new CacheRequest({
+        new CacheRequest<
+          Space["schema"]["Type"],
+          Space["schema"]["Encoded"],
+          TrialError | Journal.Failure,
+          never
+        >({
           schema: options.space.schema,
           config: running.config,
           compute: evaluateUncached.pipe(
@@ -115,7 +130,7 @@ export const evaluateObjectiveWithRetry = <Space extends SearchSpace.SearchSpace
           new ObjectiveSample({
             value: evaluation.value,
             retryCount: attempt,
-            ...Option.fromNullable(evaluation.cost).pipe(
+            ...Option.fromNullishOr(evaluation.cost).pipe(
               Option.match({
                 onNone: () => ({}),
                 onSome: (cost) => ({ cost })
@@ -123,11 +138,11 @@ export const evaluateObjectiveWithRetry = <Space extends SearchSpace.SearchSpace
             )
           })
         ),
-        Effect.catchAllCause((cause) =>
+        Effect.catchCause((cause) =>
           Option.match(retryableTrialError(cause), {
             onNone: () => Effect.failCause(cause),
             onSome: (error) =>
-              retryDriver.next(error).pipe(
+              retryStep(error).pipe(
                 Effect.matchEffect({
                   onFailure: () => Effect.failCause(cause),
                   onSuccess: () =>
@@ -138,7 +153,7 @@ export const evaluateObjectiveWithRetry = <Space extends SearchSpace.SearchSpace
                         attempt: Num.increment(attempt),
                         error
                       })
-                    ).pipe(Effect.zipRight(retryLoop(Num.increment(attempt))))
+                    ).pipe(Effect.andThen(retryLoop(Num.increment(attempt))))
                 })
               )
           })

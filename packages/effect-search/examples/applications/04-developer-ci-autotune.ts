@@ -33,17 +33,17 @@ const program = Effect.gen(function*() {
   const ciQualityScore = (config: SearchSpace.Type<typeof space>): number => {
     const cacheSpeed = Option.getOrElse(Record.get(CACHE_SPEED_FACTOR, config.cacheMode), () => 1)
     const cacheFlake = Option.getOrElse(Record.get(CACHE_FLAKE_FACTOR, config.cacheMode), () => 1)
-    const baseDurationMinutes = Num.multiply(Num.unsafeDivide(34, Numeric.pow(config.workers, 0.64)), cacheSpeed)
-    const shardImbalancePenalty = Num.unsafeDivide(
-      Numeric.abs(Num.subtract(config.shardCount, Num.unsafeDivide(config.workers, 2.4))),
+    const baseDurationMinutes = Num.multiply(Num.divideUnsafe(34, Numeric.pow(config.workers, 0.64)), cacheSpeed)
+    const shardImbalancePenalty = Num.divideUnsafe(
+      Numeric.abs(Num.subtract(config.shardCount, Num.divideUnsafe(config.workers, 2.4))),
       9
     )
-    const timeoutPenalty = Bool.match(Num.lessThan(config.timeoutSeconds, 60), {
+    const timeoutPenalty = Bool.match(Num.isLessThan(config.timeoutSeconds, 60), {
       onFalse: () => 0,
-      onTrue: () => Num.unsafeDivide(Num.subtract(60, config.timeoutSeconds), 34)
+      onTrue: () => Num.divideUnsafe(Num.subtract(60, config.timeoutSeconds), 34)
     })
     const flakeRisk = Num.sum(
-      Num.multiply(Num.unsafeDivide(0.42, Num.sum(config.retries, 1.4)), cacheFlake),
+      Num.multiply(Num.divideUnsafe(0.42, Num.sum(config.retries, 1.4)), cacheFlake),
       timeoutPenalty
     )
 
@@ -60,18 +60,20 @@ const program = Effect.gen(function*() {
       )
     ))
 
-  const result = yield* Optimization.minimize({
-    space,
-    sampler: Sampler.tpe({ seed: 2901 }),
-    trials: 80,
-    maxCost: 22,
-    objective: (config) => {
-      const objectiveValue = ciQualityScore(config)
-      const infraCost = ciInfraCost(config)
+  const result = yield* Optimization.minimize(
+    new Optimization.FlatOptions({
+      space,
+      sampler: Sampler.tpe(new Sampler.TpeOptions({ seed: 2901 })),
+      trials: 80,
+      maxCost: 22,
+      objective: (config) => {
+        const objectiveValue = ciQualityScore(config)
+        const infraCost = ciInfraCost(config)
 
-      return Effect.succeed(new Optimization.ObjectiveReport({ value: objectiveValue, cost: infraCost }))
-    }
-  })
+        return Effect.succeed(new Optimization.ObjectiveReport({ value: objectiveValue, cost: infraCost }))
+      }
+    })
+  )
 
   yield* Match.value(result).pipe(
     Match.tag(

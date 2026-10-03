@@ -77,7 +77,7 @@ export const eventPublisherFromPubSub = (pubsub: PubSub.PubSub<OptimizationEvent
  */
 export const fanoutEventPublisher = (left: EventPublisher, right: EventPublisher): EventPublisher =>
   new EventPublisher({
-    publish: (event) => left.publish(event).pipe(Effect.zipRight(right.publish(event)))
+    publish: (event) => left.publish(event).pipe(Effect.andThen(right.publish(event)))
   })
 
 const eventComponent: StudyArtifact.ComponentPath = Arr.make("Optimization", "events")
@@ -196,13 +196,13 @@ export const emitLifecycleEvents = <Config>(
                 updateBestValue(runtime.bestValueRef, direction, numericValue).pipe(
                   Effect.flatMap((wasUpdated) =>
                     updateNoImprovementCount(runtime.noImprovementCountRef, wasUpdated).pipe(
-                      Effect.zipRight(
+                      Effect.andThen(
                         Effect.when(
                           appendEvent(
                             runtime,
                             OptimizationEvent.BestUpdated({ trialNumber: finalized.trialNumber, value: numericValue })
                           ),
-                          () => wasUpdated
+                          Effect.succeed(wasUpdated)
                         )
                       )
                     )

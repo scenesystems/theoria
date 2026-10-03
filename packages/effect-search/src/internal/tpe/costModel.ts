@@ -4,7 +4,18 @@
  * @since 0.1.0
  */
 import { abs, isFinite } from "@scenesystems/effect-math/Numeric"
-import { Array as Arr, Boolean as Bool, Equal, Match, Number as Num, Option, Predicate, Record, Tuple } from "effect"
+import {
+  Array as Arr,
+  Boolean as Bool,
+  Equal,
+  Match,
+  Number as Num,
+  Option,
+  Predicate,
+  Record,
+  Result,
+  Tuple
+} from "effect"
 
 import type { Choice } from "../../Distribution.js"
 import { valueFromConfig } from "../../internal/configAccess.js"
@@ -12,9 +23,9 @@ import type { CompletedTrialForSplit, TrialSplit } from "../../internal/tpe/spli
 
 const backgroundSimilarity = 0.25
 
-const finitePositive = (value: number): boolean => Bool.and(isFinite(value), Num.greaterThan(value, 0))
+const finitePositive = (value: number): boolean => Bool.and(isFinite(value), Num.isGreaterThan(value, 0))
 
-const finiteNonNegative = (value: number): boolean => Bool.and(isFinite(value), Num.greaterThanOrEqualTo(value, 0))
+const finiteNonNegative = (value: number): boolean => Bool.and(isFinite(value), Num.isGreaterThanOrEqualTo(value, 0))
 
 const costSamples = (
   split: TrialSplit
@@ -22,7 +33,7 @@ const costSamples = (
   Arr.filter(
     Arr.appendAll(split.below, split.above),
     (trial): trial is CompletedTrialForSplit & { readonly cost: number } =>
-      Option.fromNullable(trial.cost).pipe(
+      Option.fromNullishOr(trial.cost).pipe(
         Option.filter(finitePositive),
         Option.isSome
       )
@@ -42,11 +53,11 @@ const meanCost = (
   samplesInput: Iterable<CompletedTrialForSplit & { readonly cost: number }>
 ): Option.Option<number> => {
   const samples = Arr.fromIterable(samplesInput)
-  return Match.value(Num.lessThanOrEqualTo(Arr.length(samples), 0)).pipe(
+  return Match.value(Num.isLessThanOrEqualTo(Arr.length(samples), 0)).pipe(
     Match.when(true, () => Option.none()),
     Match.orElse(() =>
       Option.some(
-        Num.unsafeDivide(
+        Num.divideUnsafe(
           Arr.reduce(samples, 0, (total, sample) => Num.sum(total, sample.cost)),
           Arr.length(samples)
         )
@@ -62,11 +73,11 @@ const weightedMeanCost = (
 
   const totalWeight = Arr.reduce(weightedSamples, 0, (total, sample) => Num.sum(total, sample.weight))
 
-  return Match.value(Num.lessThanOrEqualTo(totalWeight, 0)).pipe(
+  return Match.value(Num.isLessThanOrEqualTo(totalWeight, 0)).pipe(
     Match.when(true, () => Option.none()),
     Match.orElse(() =>
       Option.some(
-        Num.unsafeDivide(
+        Num.divideUnsafe(
           Arr.reduce(weightedSamples, 0, (total, sample) => Num.sum(total, Num.multiply(sample.weight, sample.cost))),
           totalWeight
         )
@@ -76,7 +87,7 @@ const weightedMeanCost = (
 }
 
 const numericSimilarity = (left: number, right: number): number =>
-  Num.unsafeDivide(1, Num.sum(1, abs(Num.subtract(left, right))))
+  Num.divideUnsafe(1, Num.sum(1, abs(Num.subtract(left, right))))
 
 const primitiveSimilarity = (left: unknown, right: unknown): number =>
   Match.value(Equal.equals(left, right)).pipe(
@@ -107,7 +118,8 @@ export const estimateCostForNumericParameter = (
       Option.map((observed) => ({
         weight: numericSimilarity(candidateValue, observed),
         cost: sample.cost
-      }))
+      })),
+      Result.fromOption(() => undefined)
     ))
 
   return weightedMeanCost(weightedSamples).pipe(
@@ -137,7 +149,8 @@ export const estimateCostForCategoricalParameter = (
       Option.map((observed) => ({
         weight: primitiveSimilarity(observed, candidateValue),
         cost: sample.cost
-      }))
+      })),
+      Result.fromOption(() => undefined)
     ))
 
   return weightedMeanCost(weightedSamples).pipe(
@@ -180,14 +193,14 @@ export const estimateCostForConfig = (
 ): Option.Option<number> => {
   const samples = costSamples(split)
   const candidateEntries = Match.value(candidateConfig).pipe(
-    Match.when(Predicate.isRecord, (record) => Record.toEntries(record)),
+    Match.when(Predicate.isObject, (record) => Record.toEntries(record)),
     Match.orElse(() => Arr.empty<readonly [string, unknown]>())
   )
   const weightedSamples = Arr.map(samples, (sample) => {
-    const similarity = Match.value(Num.lessThanOrEqualTo(Arr.length(candidateEntries), 0)).pipe(
+    const similarity = Match.value(Num.isLessThanOrEqualTo(Arr.length(candidateEntries), 0)).pipe(
       Match.when(true, () => 1),
       Match.orElse(() =>
-        Num.unsafeDivide(
+        Num.divideUnsafe(
           Arr.reduce(candidateEntries, 0, (total, [key, candidateValue]) =>
             Num.sum(
               total,
@@ -226,14 +239,18 @@ export const estimateCostForConfig = (
 export const objectiveVarianceFromSplit = (split: TrialSplit): Option.Option<number> => {
   const variances = Arr.filterMap(
     Arr.appendAll(split.below, split.above),
-    (trial) => Option.fromNullable(trial.variance).pipe(Option.filter(finiteNonNegative))
+    (trial) =>
+      Option.fromNullishOr(trial.variance).pipe(
+        Option.filter(finiteNonNegative),
+        Result.fromOption(() => undefined)
+      )
   )
 
-  return Match.value(Num.lessThanOrEqualTo(Arr.length(variances), 0)).pipe(
+  return Match.value(Num.isLessThanOrEqualTo(Arr.length(variances), 0)).pipe(
     Match.when(true, () => Option.none()),
     Match.orElse(() =>
       Option.some(
-        Num.unsafeDivide(
+        Num.divideUnsafe(
           Arr.reduce(variances, 0, (total, variance) => Num.sum(total, variance)),
           Arr.length(variances)
         )

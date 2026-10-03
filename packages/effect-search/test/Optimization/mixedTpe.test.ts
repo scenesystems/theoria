@@ -8,13 +8,13 @@ import { decodeMixedOptimizerConfig, makeMixedOptimizerSpace } from "../fixtures
 
 const ScenarioSchema = Schema.Struct({
   label: Schema.String,
-  seed: Schema.Number,
-  startupTrials: Schema.Number,
-  nEiCandidates: Schema.Number,
-  trials: Schema.Number
+  seed: Schema.Finite,
+  startupTrials: Schema.Finite,
+  nEiCandidates: Schema.Finite,
+  trials: Schema.Finite
 })
 
-const stressScenarios = Schema.decodeUnknownSync(Schema.Array(ScenarioSchema))(Arr.make(
+const stressScenarios = Schema.decodeSync(Schema.Array(ScenarioSchema))(Arr.make(
   {
     label: "baseline-mixed",
     seed: 177,
@@ -60,14 +60,16 @@ const traceFor = (result: Optimization.SingleObjectiveResult) =>
 
 const runWith = (sampler: Sampler.Sampler, trials: number) =>
   Effect.gen(function*() {
-    const space = yield* makeMixedOptimizerSpace()
-    return yield* Optimization.run({
-      space,
-      sampler,
-      direction: "minimize",
-      trials,
-      objective: objectiveValue
-    })
+    const space = yield* makeMixedOptimizerSpace
+    return yield* Optimization.run(
+      new Optimization.FlatOptions({
+        space,
+        sampler,
+        direction: "minimize",
+        trials,
+        objective: objectiveValue
+      })
+    )
   })
 
 describe("integration mixed-space tpe optimization", () => {
@@ -79,11 +81,13 @@ describe("integration mixed-space tpe optimization", () => {
         (scenario) =>
           Effect.gen(function*() {
             const tpeResult = yield* runWith(
-              Sampler.tpe({
-                seed: scenario.seed,
-                nStartupTrials: scenario.startupTrials,
-                nEiCandidates: scenario.nEiCandidates
-              }),
+              Sampler.tpe(
+                new Sampler.TpeOptions({
+                  seed: scenario.seed,
+                  nStartupTrials: scenario.startupTrials,
+                  nEiCandidates: scenario.nEiCandidates
+                })
+              ),
               scenario.trials
             )
             const randomResult = yield* runWith(Sampler.random({ seed: scenario.seed }), scenario.trials)
@@ -92,8 +96,8 @@ describe("integration mixed-space tpe optimization", () => {
 
             expect(Option.isSome(tpeOption), scenario.label).toBe(true)
             expect(Option.isSome(randomOption), scenario.label).toBe(true)
-            const tpe = yield* tpeOption
-            const random = yield* randomOption
+            const tpe = yield* Effect.fromOption(tpeOption)
+            const random = yield* Effect.fromOption(randomOption)
 
             const tpeTrials = Arr.fromIterable(tpe.trials)
             const randomTrials = Arr.fromIterable(random.trials)
@@ -124,19 +128,23 @@ describe("integration mixed-space tpe optimization", () => {
           (scenario) =>
             Effect.gen(function*() {
               const tpeResultA = yield* runWith(
-                Sampler.tpe({
-                  seed: scenario.seed,
-                  nStartupTrials: scenario.startupTrials,
-                  nEiCandidates: scenario.nEiCandidates
-                }),
+                Sampler.tpe(
+                  new Sampler.TpeOptions({
+                    seed: scenario.seed,
+                    nStartupTrials: scenario.startupTrials,
+                    nEiCandidates: scenario.nEiCandidates
+                  })
+                ),
                 scenario.trials
               )
               const tpeResultB = yield* runWith(
-                Sampler.tpe({
-                  seed: scenario.seed,
-                  nStartupTrials: scenario.startupTrials,
-                  nEiCandidates: scenario.nEiCandidates
-                }),
+                Sampler.tpe(
+                  new Sampler.TpeOptions({
+                    seed: scenario.seed,
+                    nStartupTrials: scenario.startupTrials,
+                    nEiCandidates: scenario.nEiCandidates
+                  })
+                ),
                 scenario.trials
               )
               const randomResult = yield* runWith(Sampler.random({ seed: scenario.seed }), scenario.trials)
@@ -147,9 +155,9 @@ describe("integration mixed-space tpe optimization", () => {
               expect(Option.isSome(tpeOptionA), scenario.label).toBe(true)
               expect(Option.isSome(tpeOptionB), scenario.label).toBe(true)
               expect(Option.isSome(randomOption), scenario.label).toBe(true)
-              const tpeA = yield* tpeOptionA
-              const tpeB = yield* tpeOptionB
-              const random = yield* randomOption
+              const tpeA = yield* Effect.fromOption(tpeOptionA)
+              const tpeB = yield* Effect.fromOption(tpeOptionB)
+              const random = yield* Effect.fromOption(randomOption)
 
               expect(traceFor(tpeA), scenario.label).toEqual(traceFor(tpeB))
 
@@ -166,7 +174,7 @@ describe("integration mixed-space tpe optimization", () => {
           label: result.label,
           delta: Num.subtract(result.tpeBest, result.randomBest)
         }))
-        const hasBetterOrEqual = Arr.some(deltas, (entry) => Num.lessThanOrEqualTo(entry.delta, 0))
+        const hasBetterOrEqual = Arr.some(deltas, (entry) => Num.isLessThanOrEqualTo(entry.delta, 0))
         const maxRegression = Arr.reduce(deltas, Number.NEGATIVE_INFINITY, (currentMax, entry) =>
           Num.max(currentMax, entry.delta))
 

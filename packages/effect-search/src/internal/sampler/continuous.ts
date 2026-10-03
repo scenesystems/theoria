@@ -40,13 +40,13 @@ const unsupported = (
     new SamplerSearchSpaceUnsupported({
       sampler,
       reason,
-      ...Option.fromNullable(dimension).pipe(
+      ...Option.fromNullishOr(dimension).pipe(
         Option.match({
           onNone: () => ({}),
           onSome: (resolvedDimension) => ({ dimension: resolvedDimension })
         })
       ),
-      ...Option.fromNullable(distribution).pipe(
+      ...Option.fromNullishOr(distribution).pipe(
         Option.match({
           onNone: () => ({}),
           onSome: (resolvedDistribution) => ({ distribution: resolvedDistribution })
@@ -65,30 +65,31 @@ const validateNumericBounds = (
       Effect.gen(function*() {
         yield* Effect.when(
           unsupported(sampler, "requires finite numeric bounds", dimension.name, distribution.type),
-          () => Bool.or(Bool.not(isFinite(low)), Bool.not(isFinite(high)))
+          Effect.succeed(Bool.or(Bool.not(isFinite(low)), Bool.not(isFinite(high))))
         )
         yield* Effect.when(
           unsupported(sampler, "requires high > low for each dimension", dimension.name, distribution.type),
-          () => Num.lessThanOrEqualTo(high, low)
+          Effect.succeed(Num.isLessThanOrEqualTo(high, low))
         )
         yield* Effect.when(
           unsupported(sampler, "requires positive bounds for log-scaled dimensions", dimension.name, distribution.type),
-          () =>
+          Effect.succeed(
             Bool.and(
               Equal.equals(scale, "log"),
-              Bool.or(Num.lessThanOrEqualTo(low, 0), Num.lessThanOrEqualTo(high, 0))
+              Bool.or(Num.isLessThanOrEqualTo(low, 0), Num.isLessThanOrEqualTo(high, 0))
             )
+          )
         )
       })),
     Match.when({ type: "int" }, ({ low, high }) =>
       Effect.gen(function*() {
         yield* Effect.when(
           unsupported(sampler, "requires finite numeric bounds", dimension.name, distribution.type),
-          () => Bool.or(Bool.not(isFinite(low)), Bool.not(isFinite(high)))
+          Effect.succeed(Bool.or(Bool.not(isFinite(low)), Bool.not(isFinite(high))))
         )
         yield* Effect.when(
           unsupported(sampler, "requires high > low for each dimension", dimension.name, distribution.type),
-          () => Num.lessThanOrEqualTo(high, low)
+          Effect.succeed(Num.isLessThanOrEqualTo(high, low))
         )
       })),
     Match.orElse(() => Effect.void)
@@ -107,7 +108,7 @@ export const continuousDimensionsFromSpace = (
 ) =>
   Effect.reduce(
     space.params,
-    Arr.empty<ContinuousDimension>(),
+    () => Arr.empty<ContinuousDimension>(),
     (dimensions, parameter) =>
       Match.value(parameter.distribution).pipe(
         Match.when({ type: "float" }, (distribution) =>
@@ -129,7 +130,7 @@ export const continuousDimensionsFromSpace = (
       )
   ).pipe(
     Effect.filterOrElse(
-      (dimensions) => Num.greaterThan(Arr.length(dimensions), 0),
+      (dimensions) => Num.isGreaterThan(Arr.length(dimensions), 0),
       () => unsupported(sampler, "requires at least one continuous dimension")
     )
   )
@@ -139,18 +140,18 @@ const normalizeValueForDimension = (dimension: ContinuousDimension, value: numbe
     Match.when({ type: "float" }, ({ low, high, scale }) => {
       const normalized = Match.value(scale).pipe(
         Match.when("log", () =>
-          Num.unsafeDivide(
+          Num.divideUnsafe(
             Num.subtract(logStrict(value), logStrict(low)),
             Num.subtract(logStrict(high), logStrict(low))
           )),
-        Match.orElse(() => Num.unsafeDivide(Num.subtract(value, low), Num.subtract(high, low)))
+        Match.orElse(() => Num.divideUnsafe(Num.subtract(value, low), Num.subtract(high, low)))
       )
 
       return clamp01(normalized)
     }),
     Match.when(
       { type: "int" },
-      ({ low, high }) => clamp01(Num.unsafeDivide(Num.subtract(value, low), Num.subtract(high, low)))
+      ({ low, high }) => clamp01(Num.divideUnsafe(Num.subtract(value, low), Num.subtract(high, low)))
     ),
     Match.orElse(() => 0.5)
   )
@@ -159,7 +160,7 @@ const quantizeValue = (value: number, low: number, high: number, step: Option.Op
   Option.match(step, {
     onNone: () => Num.clamp(value, { minimum: low, maximum: high }),
     onSome: (stride) => {
-      const steps = Num.round(Num.unsafeDivide(Num.subtract(value, low), stride), 0)
+      const steps = Num.round(Num.divideUnsafe(Num.subtract(value, low), stride), 0)
       const quantized = Num.sum(low, Num.multiply(steps, stride))
 
       return Num.clamp(quantized, { minimum: low, maximum: high })
@@ -179,12 +180,12 @@ const denormalizeValueForDimension = (dimension: ContinuousDimension, normalized
         Match.orElse(() => Num.sum(low, Num.multiply(clamped, Num.subtract(high, low))))
       )
 
-      return quantizeValue(raw, low, high, Option.fromNullable(step))
+      return quantizeValue(raw, low, high, Option.fromNullishOr(step))
     }),
     Match.when({ type: "int" }, ({ low, high, step }) => {
       const clamped = clamp01(normalized)
       const raw = Num.sum(low, Num.multiply(clamped, Num.subtract(high, low)))
-      const quantized = quantizeValue(raw, low, high, Option.fromNullable(step))
+      const quantized = quantizeValue(raw, low, high, Option.fromNullishOr(step))
 
       return Num.round(quantized, 0)
     }),

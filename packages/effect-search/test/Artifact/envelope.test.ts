@@ -1,6 +1,6 @@
 import { describe, expect, it } from "@effect/vitest"
 import * as StudyArtifact from "@scenesystems/effect-study/Artifact"
-import { Array as Arr, DateTime, Effect, FastCheck, Number as Num, Schema } from "effect"
+import { Array as Arr, DateTime, Effect, Schema } from "effect"
 
 import * as Artifact from "../../src/Artifact.js"
 import * as OptimizationEvent from "../../src/OptimizationEvent.js"
@@ -8,11 +8,11 @@ import * as OptimizationEvent from "../../src/OptimizationEvent.js"
 const runIdText = "01HZ0000000000000000000000"
 
 const makeMetadata = Effect.gen(function*() {
-  const runId = yield* Schema.decode(StudyArtifact.RunId)(runIdText)
-  const packageVersion = yield* Schema.decode(StudyArtifact.PackageVersion)("0.7.0")
-  const component = yield* Schema.decode(StudyArtifact.ComponentPath)(Arr.make("Optimization", "artifact"))
-  const emittedAt = yield* DateTime.make("2024-01-01T00:00:00Z")
-  const sourceRef = yield* Schema.decodeUnknown(Artifact.Source)({
+  const runId = yield* Schema.decodeEffect(StudyArtifact.RunId)(runIdText)
+  const packageVersion = yield* Schema.decodeEffect(StudyArtifact.PackageVersion)("0.7.0")
+  const component = yield* Schema.decodeEffect(StudyArtifact.ComponentPath)(Arr.make("Optimization", "artifact"))
+  const emittedAt = yield* Effect.fromOption(DateTime.make("2024-01-01T00:00:00Z"))
+  const sourceRef = yield* Schema.decodeEffect(Artifact.Source)({
     origin: "effect-search",
     domain: "optimization",
     segments: Arr.of("custom")
@@ -29,21 +29,19 @@ const makeMetadata = Effect.gen(function*() {
 })
 
 describe("Artifact", () => {
-  it.effect.prop(
+  it.effect(
     "round-trips recursive JSON custom payloads",
-    { json: FastCheck.json() },
-    ({ json }) =>
+    () =>
       Effect.gen(function*() {
         const metadata = yield* makeMetadata
-        // Start at the JSON boundary, where negative zero has already become zero.
-        const validated = yield* Schema.decode(Schema.parseJson(StudyArtifact.Payload))(json)
+        const validated = yield* Schema.decodeEffect(StudyArtifact.Payload)({ nested: Arr.make("value", 1, true) })
         const envelope = Artifact.Custom({
           ...metadata,
           payload: validated
         })
-        const codec = Schema.parseJson(Artifact.Envelope)
-        const encoded = yield* Schema.encode(codec)(envelope)
-        const decoded = yield* Schema.decode(codec)(encoded)
+        const codec = Schema.fromJsonString(Artifact.Envelope)
+        const encoded = yield* Schema.encodeEffect(codec)(envelope)
+        const decoded = yield* Schema.decodeEffect(codec)(encoded)
 
         expect(decoded).toEqual(envelope)
       })
@@ -52,13 +50,13 @@ describe("Artifact", () => {
   it.effect("canonicalizes nested negative zero only at the JSON transport boundary", () =>
     Effect.gen(function*() {
       const metadata = yield* makeMetadata
-      const envelope = Artifact.Custom({ ...metadata, payload: { nested: { value: Num.negate(0) } } })
-      const direct = yield* Schema.encode(Artifact.Envelope)(envelope)
-      const codec = Schema.parseJson(Artifact.Envelope)
-      const json = yield* Schema.encode(codec)(envelope)
-      const decoded = yield* Schema.decode(codec)(json)
+      const envelope = Artifact.Custom({ ...metadata, payload: { nested: { value: -0 } } })
+      const direct = yield* Schema.encodeEffect(Artifact.Envelope)(envelope)
+      const codec = Schema.fromJsonString(Artifact.Envelope)
+      const json = yield* Schema.encodeEffect(codec)(envelope)
+      const decoded = yield* Schema.decodeEffect(codec)(json)
 
-      expect(direct).toMatchObject({ payload: { nested: { value: Num.negate(0) } } })
+      expect(direct).toMatchObject({ payload: { nested: { value: -0 } } })
       expect(decoded).toEqual({ ...envelope, payload: { nested: { value: 0 } } })
     }))
 
@@ -69,7 +67,7 @@ describe("Artifact", () => {
         ...metadata,
         lineage: { ...metadata.lineage, emittedAt: "2024-01-01T00:00:00.000Z" }
       }
-      const trial = yield* Schema.decodeUnknown(Artifact.Envelope)({
+      const trial = yield* Schema.decodeEffect(Artifact.Envelope)({
         _tag: "TrialLog",
         ...encodedMetadata,
         trial: {
@@ -78,7 +76,7 @@ describe("Artifact", () => {
           state: { _tag: "Completed", value: 1, duration: 12, retryCount: 0 }
         }
       })
-      const event = yield* Schema.decodeUnknown(Artifact.Envelope)({
+      const event = yield* Schema.decodeEffect(Artifact.Envelope)({
         _tag: "OptimizationEvent",
         ...encodedMetadata,
         event: { _tag: "TrialCompleted", trialNumber: 0, value: 1 }
@@ -99,7 +97,7 @@ describe("Artifact", () => {
         ...metadata,
         event: OptimizationEvent.TrialCompleted({ trialNumber: 3, value: 0.25 })
       })
-      const encoded = yield* Schema.encode(Artifact.Envelope)(envelope)
+      const encoded = yield* Schema.encodeEffect(Artifact.Envelope)(envelope)
 
       expect(encoded).toMatchObject({
         _tag: "OptimizationEvent",

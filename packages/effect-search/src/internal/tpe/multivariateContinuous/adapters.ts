@@ -68,8 +68,8 @@ export const adapterForParameter = (
 ): Effect.Effect<ContinuousAdapter, InvalidSamplerConfig> =>
   Match.value(parameter.distribution).pipe(
     Match.when({ type: "float" }, ({ low, high, scale, step }) => {
-      const scaleOption = Option.fromNullable(scale)
-      const stepOption = Option.fromNullable(step)
+      const scaleOption = Option.fromNullishOr(scale)
+      const stepOption = Option.fromNullishOr(step)
 
       return Option.match(scaleOption, {
         onNone: () =>
@@ -83,7 +83,7 @@ export const adapterForParameter = (
         onSome: (resolvedScale) =>
           Match.value(resolvedScale).pipe(
             Match.when("log", () =>
-              Match.value(Bool.or(Num.lessThanOrEqualTo(low, 0), Num.lessThanOrEqualTo(high, 0))).pipe(
+              Match.value(Bool.or(Num.isLessThanOrEqualTo(low, 0), Num.isLessThanOrEqualTo(high, 0))).pipe(
                 Match.when(true, () =>
                   Effect.fail(
                     invalidConfig(
@@ -114,7 +114,7 @@ export const adapterForParameter = (
       })
     }),
     Match.when({ type: "int" }, ({ low, high, step }) => {
-      const stride = Option.orElse(Option.fromNullable(step), () => Option.some(1))
+      const stride = Option.orElse(Option.fromNullishOr(step), () => Option.some(1))
       const [expandedLow, expandedHigh] = expandedBoundsForStep(low, high, stride)
 
       return Effect.succeed(

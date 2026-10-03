@@ -27,35 +27,43 @@ const program = Effect.gen(function*() {
       const learningRateLoss = Numeric.pow(Num.subtract(Numeric.log10(config.learningRate), Numeric.log10(0.01)), 2)
       const momentumLoss = Numeric.pow(Num.subtract(config.momentum, 0.9), 2)
 
-      return Num.sumAll(Arr.make(learningRateLoss, momentumLoss, Num.unsafeDivide(1, resource)))
+      return Num.sumAll(Arr.make(learningRateLoss, momentumLoss, Num.divideUnsafe(1, resource)))
     })
 
-  const hyperbandScheduler = yield* Scheduler.hyperband({
-    maxResource: 9,
-    reductionFactor: 3,
-    sampler: Sampler.random({ seed: 320 })
-  })
-  const bohbScheduler = yield* Scheduler.bohb({
-    maxResource: 9,
-    reductionFactor: 3,
-    seed: 320,
-    tpeOptions: {
+  const hyperbandScheduler = yield* Scheduler.hyperband(
+    new Scheduler.HyperbandOptions({
+      maxResource: 9,
+      reductionFactor: 3,
+      sampler: Sampler.random({ seed: 320 })
+    })
+  )
+  const bohbScheduler = yield* Scheduler.bohb(
+    new Scheduler.BohbOptions({
+      maxResource: 9,
+      reductionFactor: 3,
       seed: 320,
-      nStartupTrials: 4,
-      nEiCandidates: 24
-    }
-  })
+      tpeOptions: new Sampler.TpeOptions({
+        seed: 320,
+        nStartupTrials: 4,
+        nEiCandidates: 24
+      })
+    })
+  )
 
-  const hyperbandResult = yield* Optimization.minimize({
-    space,
-    scheduler: hyperbandScheduler,
-    objective
-  })
-  const bohbResult = yield* Optimization.minimize({
-    space,
-    scheduler: bohbScheduler,
-    objective
-  })
+  const hyperbandResult = yield* Optimization.minimize(
+    new Optimization.ScheduledOptions({
+      space,
+      scheduler: hyperbandScheduler,
+      objective
+    })
+  )
+  const bohbResult = yield* Optimization.minimize(
+    new Optimization.ScheduledOptions({
+      space,
+      scheduler: bohbScheduler,
+      objective
+    })
+  )
 
   const logResult = (label: string, result: Optimization.Result<SearchSpace.Type<typeof space>>) =>
     Match.value(result).pipe(
@@ -68,7 +76,7 @@ const program = Effect.gen(function*() {
             trialsEvaluated: Iterable.size(trials),
             bestValue: bestTrial.state.value,
             bestConfig: bestTrial.config,
-            bracketCount: Option.fromNullable(schedulerSummary).pipe(
+            bracketCount: Option.fromUndefinedOr(schedulerSummary).pipe(
               Option.map(({ brackets }) => Chunk.size(brackets)),
               Option.getOrElse(() => 0)
             )

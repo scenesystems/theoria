@@ -32,7 +32,7 @@ export type SlotConfig = Schema.Schema.Type<typeof SlotConfig>
  * @since 0.1.0
  * @category utils
  */
-export const decodeSlotConfig = Schema.decodeUnknown(SlotConfig)
+export const decodeSlotConfig = Schema.decodeUnknownEffect(SlotConfig)
 
 /**
  * Builds an integer slot space from `0` through `maxSlot`.

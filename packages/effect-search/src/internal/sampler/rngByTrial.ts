@@ -3,6 +3,7 @@
  *
  * @since 0.1.0
  */
+import type { Effect } from "effect"
 import * as Rng from "../rng.js"
 import { normalizeDeterministicSeed } from "./deterministic.js"
 
@@ -28,4 +29,4 @@ export const rngByTrial = (
   samplerKind: string,
   seed: number,
   nextTrialNumber: number
-): Rng.Rng => Rng.make(samplerSeedForTrial(samplerKind, seed, nextTrialNumber))
+): Effect.Effect<Rng.Rng> => Rng.make(samplerSeedForTrial(samplerKind, seed, nextTrialNumber))

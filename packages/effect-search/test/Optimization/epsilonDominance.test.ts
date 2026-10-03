@@ -11,7 +11,7 @@ const space = SearchSpace.make({
   variant: SearchSpace.int(0, 2)
 })
 
-const decodeConfig = Schema.decodeUnknownSync(Schema.Struct({ variant: Schema.Number }))
+const decodeConfig = Schema.decodeUnknownSync(Schema.Struct({ variant: Schema.Finite }))
 
 const point = (left: number, right: number) => Arr.make(left, right)
 
@@ -43,17 +43,19 @@ const runWithProfile = (
   epsilon: Option.Option<number> = Option.none()
 ) =>
   Effect.flatMap(space, (searchSpace) =>
-    Optimization.run({
-      space: searchSpace,
-      sampler: Sampler.grid({ shuffle: false }),
-      directions: Arr.make<Arr.NonEmptyArray<Direction>>("minimize", "minimize"),
-      trials: 3,
-      objective: objectiveFromProfile(profile),
-      ...Option.match(epsilon, {
-        onNone: () => ({}),
-        onSome: (value) => ({ epsilon: value })
+    Optimization.run(
+      new Optimization.FlatOptions({
+        space: searchSpace,
+        sampler: Sampler.grid({ shuffle: false }),
+        directions: Arr.make<Arr.NonEmptyArray<Direction>>("minimize", "minimize"),
+        trials: 3,
+        objective: objectiveFromProfile(profile),
+        ...Option.match(epsilon, {
+          onNone: () => ({}),
+          onSome: (value) => ({ epsilon: value })
+        })
       })
-    }))
+    ))
 
 const resumeWithProfile = (
   snapshot: OptimizationSnapshot.OptimizationSnapshot,
@@ -61,25 +63,27 @@ const resumeWithProfile = (
   epsilon: Option.Option<number> = Option.none()
 ) =>
   Effect.flatMap(space, (searchSpace) =>
-    Optimization.resume({
-      space: searchSpace,
-      sampler: Sampler.grid({ shuffle: false }),
-      snapshot,
-      directions: Arr.make<Arr.NonEmptyArray<Direction>>("minimize", "minimize"),
-      trials: 3,
-      objective: objectiveFromProfile(profile),
-      ...Option.match(epsilon, {
-        onNone: () => ({}),
-        onSome: (value) => ({ epsilon: value })
+    Optimization.resume(
+      new Optimization.ResumeOptions({
+        space: searchSpace,
+        sampler: Sampler.grid({ shuffle: false }),
+        snapshot,
+        directions: Arr.make<Arr.NonEmptyArray<Direction>>("minimize", "minimize"),
+        trials: 3,
+        objective: objectiveFromProfile(profile),
+        ...Option.match(epsilon, {
+          onNone: () => ({}),
+          onSome: (value) => ({ epsilon: value })
+        })
       })
-    }))
+    ))
 
 const paretoVariantSignature = (result: Optimization.Result) =>
   Match.value(result).pipe(
     Match.tag("MultiObjective", ({ paretoFront }) =>
       Arr.sort(
         Arr.map(Arr.fromIterable(paretoFront), (trial) => decodeConfig(trial.config).variant),
-        Order.number
+        Order.Number
       )),
     Match.orElse(() => Arr.empty<number>())
   )
@@ -87,7 +91,7 @@ const paretoVariantSignature = (result: Optimization.Result) =>
 describe("epsilon dominance", () => {
   it.effect("rejects invalid epsilon values for run and resume", () =>
     Effect.gen(function*() {
-      const runStatus = yield* runWithProfile(PROFILE_A, Option.some(Num.negate(0.1))).pipe(
+      const runStatus = yield* runWithProfile(PROFILE_A, Option.some(Num.multiply(-1, 0.1))).pipe(
         Effect.as("ok"),
         Effect.catchTag("effect-search/InvalidOptimizationConfig", () => Effect.succeed("invalid"))
       )
@@ -96,7 +100,7 @@ describe("epsilon dominance", () => {
 
       const baseline = yield* runWithProfile(PROFILE_A, Option.some(0))
       const snapshot = yield* Optimization.snapshot(baseline)
-      const resumeStatus = yield* resumeWithProfile(snapshot, PROFILE_A, Option.some(Num.negate(0.1))).pipe(
+      const resumeStatus = yield* resumeWithProfile(snapshot, PROFILE_A, Option.some(Num.multiply(-1, 0.1))).pipe(
         Effect.as("ok"),
         Effect.catchTag("effect-search/InvalidOptimizationConfig", () => Effect.succeed("invalid"))
       )

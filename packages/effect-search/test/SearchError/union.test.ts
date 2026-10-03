@@ -1,6 +1,6 @@
 import { describe, expect, it } from "@effect/vitest"
 import * as Journal from "@scenesystems/effect-study/Journal"
-import { Effect, Either, Schema } from "effect"
+import { Effect, Result, Schema } from "effect"
 
 import { isSearchError, SearchError, TrialError } from "../../src/SearchError.js"
 
@@ -14,11 +14,11 @@ describe("SearchError guard", () => {
         message: "boom",
         cause: "cause"
       }
-      const decoded = Schema.decodeUnknownEither(SearchError)(wire)
+      const decoded = Schema.decodeUnknownResult(SearchError)(wire)
 
       expect(isSearchError(instance)).toBe(true)
-      expect(Either.isRight(decoded)).toBe(true)
-      expect(isSearchError(Either.getOrThrow(decoded))).toBe(true)
+      expect(Result.isSuccess(decoded)).toBe(true)
+      expect(Result.isSuccess(decoded) && isSearchError(decoded.success)).toBe(true)
     }))
 
   it.effect("rejects a recognized tag with invalid fields", () =>

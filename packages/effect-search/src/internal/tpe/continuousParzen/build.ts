@@ -19,7 +19,7 @@ export const buildContinuousParzen = (
   const observations = Arr.fromIterable(observationsInput)
 
   const nKernels = Num.increment(Arr.length(observations))
-  const priorMean = Num.unsafeDivide(Num.sum(low, high), 2)
+  const priorMean = Num.divideUnsafe(Num.sum(low, high), 2)
   const noiseEstimate = estimateNoise(observations, low, high, empiricalObservationVariance)
   const baselineObservationSigmas = Arr.map(
     observationSigmas(observations, low, high),

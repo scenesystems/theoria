@@ -1,44 +1,27 @@
 import { describe, expect, it } from "@effect/vitest"
-import { Array as Arr, Effect, FastCheck as fc, Number as Num, Option, Tuple } from "effect"
+import { Arbitrary, Array as Arr, Effect, Number as Num, Option, Schema, Tuple } from "effect"
 
 import * as Numeric from "@scenesystems/effect-math/Numeric"
 
 import { diagonalGaussianLogDensity, sampleDiagonalGaussian } from "../../../src/internal/tpe/multivariateGaussian.js"
 
-const finiteCoordinateArbitrary = fc.double({
-  min: Num.negate(10),
-  max: 10,
-  noNaN: true,
-  noDefaultInfinity: true
-})
+const finiteCoordinateArbitrary = Arbitrary.schema(
+  Schema.Finite.check(Schema.isBetween({ minimum: Num.multiply(-1, 10), maximum: 10 }))
+)
 
-const positiveSigmaArbitrary = fc.double({
-  min: 1e-3,
-  max: 5,
-  noNaN: true,
-  noDefaultInfinity: true
-})
+const positiveSigmaArbitrary = Arbitrary.schema(
+  Schema.Finite.check(Schema.isBetween({ minimum: 1e-3, maximum: 5 }))
+)
 
-const symmetricOffsetArbitrary = fc.double({
-  min: Num.negate(3),
-  max: 3,
-  noNaN: true,
-  noDefaultInfinity: true
-})
+const symmetricOffsetArbitrary = Arbitrary.schema(
+  Schema.Finite.check(Schema.isBetween({ minimum: Num.multiply(-1, 3), maximum: 3 }))
+)
 
-const offsetArbitrary = fc.double({
-  min: 0,
-  max: 8,
-  noNaN: true,
-  noDefaultInfinity: true
-})
+const offsetArbitrary = Arbitrary.schema(Schema.Finite.check(Schema.isBetween({ minimum: 0, maximum: 8 })))
 
-const rollArbitrary = fc.double({
-  min: 1e-6,
-  max: Num.subtract(1, 1e-6),
-  noNaN: true,
-  noDefaultInfinity: true
-})
+const rollArbitrary = Arbitrary.schema(
+  Schema.Finite.check(Schema.isBetween({ minimum: 1e-6, maximum: Num.subtract(1, 1e-6) }))
+)
 
 describe("multivariate gaussian invariants", () => {
   it.effect.prop(
@@ -66,7 +49,7 @@ describe("multivariate gaussian invariants", () => {
 
         expect(Numeric.abs(Num.subtract(left, right))).toBeLessThanOrEqual(1e-8)
       }),
-    { fastCheck: { numRuns: 300 } }
+    { arbitrary: { runs: 300 } }
   )
 
   it.effect.prop(
@@ -86,7 +69,7 @@ describe("multivariate gaussian invariants", () => {
 
         expect(near).toBeGreaterThanOrEqual(far)
       }),
-    { fastCheck: { numRuns: 300 } }
+    { arbitrary: { runs: 300 } }
   )
 
   it.effect.prop(
@@ -107,6 +90,6 @@ describe("multivariate gaussian invariants", () => {
 
         expect(Numeric.abs(Num.subtract(Num.sum(left, right), Num.multiply(2, mean)))).toBeLessThanOrEqual(1e-8)
       }),
-    { fastCheck: { numRuns: 300 } }
+    { arbitrary: { runs: 300 } }
   )
 })

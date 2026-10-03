@@ -43,7 +43,7 @@ const parametersInGroup = (
 
 const groupDepth = (parametersInput: Iterable<SearchSpace.Parameter>): number => {
   const parameters = Arr.fromIterable(parametersInput)
-  return Match.value(Num.lessThanOrEqualTo(Arr.length(parameters), 0)).pipe(
+  return Match.value(Num.isLessThanOrEqualTo(Arr.length(parameters), 0)).pipe(
     Match.when(true, () => 0),
     Match.orElse(() =>
       Arr.reduce(
@@ -80,7 +80,7 @@ export const orderedGroups = (
   )
 
   const ordered = Arr.map(groups, (names) => {
-    const sortedNames = Arr.sort(names, Order.string)
+    const sortedNames = Arr.sort(names, Order.String)
     const parameters = parametersInGroup(space, sortedNames)
     return new OrderedGroup({
       key: Arr.join(sortedNames, "|"),
@@ -89,10 +89,8 @@ export const orderedGroups = (
     })
   })
 
-  return Arr.sortBy(
-    Order.mapInput(Order.number, (group: OrderedGroup) => group.depth),
-    Order.mapInput(Order.string, (group: OrderedGroup) => group.key)
-  )(ordered)
+  const sortedByKey = Arr.sort(ordered, Order.mapInput(Order.String, (group: OrderedGroup) => group.key))
+  return Arr.sort(sortedByKey, Order.mapInput(Order.Number, (group: OrderedGroup) => group.depth))
 }
 
 /**
@@ -123,7 +121,7 @@ const trialContainsAllParameters = (
   const parameters = Arr.fromIterable(parametersInput)
   return Match.value(config).pipe(
     Match.when(
-      Predicate.isRecord,
+      Predicate.isObject,
       (record) => Arr.every(parameters, (parameter) => Record.has(record, parameter.name))
     ),
     Match.orElse(() => false)
@@ -150,7 +148,7 @@ export const splitForParameters = (
   const below = Arr.filter(split.below, (trial) => trialContainsAllParameters(trial.config, parameters))
   const above = Arr.filter(split.above, (trial) => trialContainsAllParameters(trial.config, parameters))
 
-  return Match.value(Bool.and(Num.greaterThan(Arr.length(below), 0), Num.greaterThan(Arr.length(above), 0))).pipe(
+  return Match.value(Bool.and(Num.isGreaterThan(Arr.length(below), 0), Num.isGreaterThan(Arr.length(above), 0))).pipe(
     Match.when(true, () => ({ below, above })),
     Match.orElse(() => split)
   )

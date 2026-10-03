@@ -27,12 +27,14 @@ const program = Effect.gen(function*() {
     return Num.sum(Num.subtract(optimizerScore, batchPenalty), normBonus)
   }
 
-  const result = yield* Optimization.maximize({
-    space,
-    sampler: Sampler.grid({ shuffle: true, seed: 7 }),
-    objective: (config) => Effect.succeed(simulatedAccuracy(config)),
-    trials: 100
-  })
+  const result = yield* Optimization.maximize(
+    new Optimization.FlatOptions({
+      space,
+      sampler: Sampler.grid({ shuffle: true, seed: 7 }),
+      objective: (config) => Effect.succeed(simulatedAccuracy(config)),
+      trials: 100
+    })
+  )
 
   yield* Match.value(result).pipe(
     Match.tag("SingleObjective", ({ bestTrial, trials }) => {

@@ -5,7 +5,7 @@ import * as Numeric from "@scenesystems/effect-math/Numeric"
 import { categoricalCandidateTraceFromRolls } from "../../../src/internal/tpe/dimensions/categorical.js"
 import { floatCandidateTraceFromRolls } from "../../../src/internal/tpe/dimensions/float.js"
 import { intCandidateTraceFromRolls } from "../../../src/internal/tpe/dimensions/int.js"
-import { type NamedDimensionScoreTrace, selectBestMixedCandidate } from "../../../src/internal/tpe/mixed.js"
+import { NamedDimensionScoreTrace, selectBestMixedCandidate } from "../../../src/internal/tpe/mixed.js"
 import { CompletedTrialForSplit, type TrialSplit } from "../../../src/internal/tpe/splitTrials.js"
 import type { InvalidSamplerConfig } from "../../../src/SearchError.js"
 import type * as SearchSpace from "../../../src/SearchSpace.js"
@@ -31,10 +31,8 @@ const parameterByName = (
   name: string
 ): Effect.Effect<SearchSpace.Parameter, MissingParameterMetadata> =>
   Arr.findFirst(space.params, (parameter) => Equal.equals(parameter.name, name)).pipe(
-    Option.match({
-      onNone: () => Effect.fail(new MissingParameterMetadata({ name })),
-      onSome: Effect.succeed
-    })
+    Effect.fromOption,
+    Effect.mapError(() => new MissingParameterMetadata({ name }))
   )
 
 const expectNumericVector = (
@@ -104,11 +102,11 @@ const traceFromDimension = (
               Effect.tap((trace) =>
                 expectNumericVector(trace.scores, categorical.scores, `${categorical.name}.scores`, SCORE_TOLERANCE)
               ),
-              Effect.map((trace) => ({ name: parameter.name, trace }))
+              Effect.map((trace) =>
+                new NamedDimensionScoreTrace({ name: parameter.name, trace })
+              )
             )),
-          Match.orElse(() =>
-            new UnexpectedDistribution({ name: parameter.name, expected: "categorical" })
-          )
+          Match.orElse(() => new UnexpectedDistribution({ name: parameter.name, expected: "categorical" }))
         )),
       Match.when({ kind: "float" }, (continuous) =>
         Match.value(parameter.distribution).pipe(
@@ -117,8 +115,8 @@ const traceFromDimension = (
               parameter,
               distribution.low,
               distribution.high,
-              Option.fromNullable(distribution.scale),
-              Option.fromNullable(distribution.step),
+              Option.fromNullishOr(distribution.scale),
+              Option.fromNullishOr(distribution.step),
               split,
               continuous.candidateRolls
             ).pipe(
@@ -139,7 +137,7 @@ const traceFromDimension = (
               Effect.tap((trace) =>
                 expectNumericVector(trace.scores, continuous.scores, `${continuous.name}.scores`, SCORE_TOLERANCE)
               ),
-              Effect.map((trace) => ({ name: parameter.name, trace }))
+              Effect.map((trace) => new NamedDimensionScoreTrace({ name: parameter.name, trace }))
             )),
           Match.orElse(() => new UnexpectedDistribution({ name: parameter.name, expected: "float" }))
         )),
@@ -150,7 +148,7 @@ const traceFromDimension = (
               parameter,
               distribution.low,
               distribution.high,
-              Option.fromNullable(distribution.step),
+              Option.fromNullishOr(distribution.step),
               split,
               integer.candidateRolls
             ).pipe(
@@ -166,7 +164,7 @@ const traceFromDimension = (
               Effect.tap((trace) =>
                 expectNumericVector(trace.scores, integer.scores, `${integer.name}.scores`, SCORE_TOLERANCE)
               ),
-              Effect.map((trace) => ({ name: parameter.name, trace }))
+              Effect.map((trace) => new NamedDimensionScoreTrace({ name: parameter.name, trace }))
             )),
           Match.orElse(() => new UnexpectedDistribution({ name: parameter.name, expected: "int" }))
         )),
@@ -184,14 +182,14 @@ describe("mixed-space fixture parity", () => {
       const loaded = yield* loadAllFixtures("mixed-space.").pipe(Effect.provide(FixtureRegistryLive))
       const fixtures = yield* Effect.forEach(
         loaded,
-        (entry) => Schema.decodeUnknown(MixedSpaceJointTraceFixture)(entry)
+        (entry) => Schema.decodeUnknownEffect(MixedSpaceJointTraceFixture)(entry)
       )
 
       yield* Effect.forEach(
         fixtures,
         (fixture) =>
           Effect.gen(function*() {
-            const space = yield* makeMixedOptimizerSpace()
+            const space = yield* makeMixedOptimizerSpace
             const split = splitFromFixture(fixture.payload)
 
             const traces = yield* Effect.forEach(fixture.payload.dimensions, (dimension) =>

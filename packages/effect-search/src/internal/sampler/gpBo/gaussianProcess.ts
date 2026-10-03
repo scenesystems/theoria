@@ -42,8 +42,9 @@ const rbfKernel = (leftInput: Iterable<number>, rightInput: Iterable<number>, le
   const left = Arr.fromIterable(leftInput)
   const right = Arr.fromIterable(rightInput)
   return exp(
-    Num.negate(
-      Num.unsafeDivide(
+    Num.multiply(
+      -1,
+      Num.divideUnsafe(
         squaredDistance(left, right),
         Num.multiply(2, Num.multiply(lengthScale, lengthScale))
       )
@@ -58,7 +59,7 @@ const buildKernelMatrix = (
 ): Chunk.Chunk<number> => {
   const observations = Arr.fromIterable(observationsInput)
   return Chunk.makeBy(Num.multiply(Arr.length(observations), Arr.length(observations)), (flatIndex) => {
-    const row = floor(Num.unsafeDivide(flatIndex, Arr.length(observations)))
+    const row = floor(Num.divideUnsafe(flatIndex, Arr.length(observations)))
     const column = Num.remainder(flatIndex, Arr.length(observations))
     const rowVector = Arr.get(observations, row).pipe(
       Option.map((observation) => observation.vector),
@@ -104,7 +105,7 @@ export const buildPosterior = (
   noise: number
 ): Option.Option<PosteriorModel> => {
   const observations = Arr.fromIterable(observationsInput)
-  return Match.value(Num.lessThanOrEqualTo(Arr.length(observations), 0)).pipe(
+  return Match.value(Num.isLessThanOrEqualTo(Arr.length(observations), 0)).pipe(
     Match.when(true, () => Option.none()),
     Match.orElse(() => {
       const size = Arr.length(observations)
@@ -167,7 +168,7 @@ export const predictPosterior = (
           Num.sum(rbfKernel(candidate, candidate, model.lengthScale), model.noise),
           dotProduct(projection, projection)
         )
-        return Match.value(Num.greaterThan(predictive, varianceFloor)).pipe(
+        return Match.value(Num.isGreaterThan(predictive, varianceFloor)).pipe(
           Match.when(true, () => predictive),
           Match.orElse(() => varianceFloor)
         )

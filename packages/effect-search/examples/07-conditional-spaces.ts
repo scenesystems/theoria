@@ -5,7 +5,7 @@
  * Run: bun run examples/07-conditional-spaces.ts
  */
 import { BunRuntime } from "@effect/platform-bun"
-import { Array as Arr, Chunk, Effect, Match, Number as Num, Tuple } from "effect"
+import { Array as Arr, Chunk, Effect, Match, Number as Num, Schema, Tuple } from "effect"
 
 import * as Numeric from "@scenesystems/effect-math/Numeric"
 import { Optimization, Sampler, SearchSpace } from "@scenesystems/effect-search"
@@ -18,8 +18,8 @@ const linearLoss = (learningRate: number, regularization: number): number =>
 
 const treeLoss = (maxDepth: number, minSamplesLeaf: number): number =>
   Num.sumAll(Arr.make(
-    Numeric.pow(Num.unsafeDivide(Num.subtract(maxDepth, 7), 7), 2),
-    Numeric.pow(Num.unsafeDivide(Num.subtract(minSamplesLeaf, 2), 4), 2),
+    Numeric.pow(Num.divideUnsafe(Num.subtract(maxDepth, 7), 7), 2),
+    Numeric.pow(Num.divideUnsafe(Num.subtract(minSamplesLeaf, 2), 4), 2),
     0.05
   ))
 
@@ -44,20 +44,42 @@ const program = Effect.gen(function*() {
       )
     )
   )
+  const ConditionalConfig = Schema.Union([
+    Schema.Struct({
+      model: Schema.Literal("linear"),
+      learningRate: Schema.Finite,
+      regularization: Schema.Finite
+    }),
+    Schema.Struct({
+      model: Schema.Literal("tree"),
+      maxDepth: Schema.Finite,
+      minSamplesLeaf: Schema.Finite
+    })
+  ])
 
-  const result = yield* Optimization.minimize({
-    space,
-    sampler: Sampler.tpe({ seed: 17 }),
-    trials: 45,
-    objective: (config) =>
-      Match.value(config).pipe(
-        Match.when({ model: "linear" }, ({ learningRate, regularization }) =>
-          Effect.succeed(linearLoss(learningRate, regularization))),
-        Match.when({ model: "tree" }, ({ maxDepth, minSamplesLeaf }) =>
-          Effect.succeed(treeLoss(maxDepth, minSamplesLeaf))),
-        Match.exhaustive
-      )
-  })
+  const result = yield* Optimization.minimize(
+    new Optimization.FlatOptions({
+      space,
+      sampler: Sampler.tpe(new Sampler.TpeOptions({ seed: 17 })),
+      trials: 45,
+      objective: (rawConfig) =>
+        Effect.gen(function*() {
+          const config = yield* Schema.decodeUnknownEffect(ConditionalConfig)(rawConfig)
+
+          return Match.value(config).pipe(
+            Match.when(
+              { model: "linear" },
+              ({ learningRate, regularization }) => linearLoss(learningRate, regularization)
+            ),
+            Match.when(
+              { model: "tree" },
+              ({ maxDepth, minSamplesLeaf }) => treeLoss(maxDepth, minSamplesLeaf)
+            ),
+            Match.exhaustive
+          )
+        })
+    })
+  )
 
   yield* Match.value(result).pipe(
     Match.tag("SingleObjective", ({ bestTrial, completionReason }) =>

@@ -8,8 +8,8 @@ import * as Scheduler from "../../src/Scheduler.js"
 import * as SearchSpace from "../../src/SearchSpace.js"
 
 const space = SearchSpace.make({
-  instructionWeight: SearchSpace.float(Num.negate(1), 1),
-  demoWeight: SearchSpace.float(Num.negate(1), 1),
+  instructionWeight: SearchSpace.float(Num.multiply(-1, 1), 1),
+  demoWeight: SearchSpace.float(Num.multiply(-1, 1), 1),
   budget: SearchSpace.fidelity(1, 9)
 })
 
@@ -28,25 +28,29 @@ const objective = (
     const instructionLoss = Num.multiply(instructionDistance, instructionDistance)
     const demoLoss = Num.multiply(demoDistance, demoDistance)
 
-    return Num.sumAll(Arr.make(instructionLoss, demoLoss, Num.unsafeDivide(1, resource)))
+    return Num.sumAll(Arr.make(instructionLoss, demoLoss, Num.divideUnsafe(1, resource)))
   })
 
 describe("integration hyperband optimization", () => {
   it.effect("executes bracketed multi-fidelity rounds with ordered resource escalation", () =>
     Effect.gen(function*() {
       const resolvedSpace = yield* space
-      const scheduler = yield* Scheduler.hyperband({
-        maxResource: 9,
-        reductionFactor: 3,
-        sampler: Sampler.random({ seed: 42 })
-      })
-      const events = yield* Optimization.stream({
-        space: resolvedSpace,
-        scheduler,
-        direction: "minimize",
-        objective
-      }).pipe(Stream.runCollect)
-      const allEvents = Chunk.toReadonlyArray(events)
+      const scheduler = yield* Scheduler.hyperband(
+        new Scheduler.HyperbandOptions({
+          maxResource: 9,
+          reductionFactor: 3,
+          sampler: Sampler.random({ seed: 42 })
+        })
+      )
+      const events = yield* Optimization.stream(
+        new Optimization.ScheduledOptions({
+          space: resolvedSpace,
+          scheduler,
+          direction: "minimize",
+          objective
+        })
+      ).pipe(Stream.runCollect)
+      const allEvents = events
       const roundResources = Arr.flatMap(allEvents, (event) =>
         Match.value(event).pipe(
           Match.tag("RoundStarted", ({ resource }) => Arr.of(resource)),
@@ -58,12 +62,14 @@ describe("integration hyperband optimization", () => {
       const bracketCompleteCount = Arr.length(
         Arr.filter(allEvents, (event) => Equal.equals(event._tag, "BracketCompleted"))
       )
-      const result = yield* Optimization.run({
-        space: resolvedSpace,
-        scheduler,
-        direction: "minimize",
-        objective
-      })
+      const result = yield* Optimization.run(
+        new Optimization.ScheduledOptions({
+          space: resolvedSpace,
+          scheduler,
+          direction: "minimize",
+          objective
+        })
+      )
 
       expect(roundResources).toContain(1)
       expect(roundResources).toContain(3)
@@ -71,6 +77,6 @@ describe("integration hyperband optimization", () => {
       expect(bracketStartCount).toBe(Chunk.size(scheduler.brackets))
       expect(bracketCompleteCount).toBe(Chunk.size(scheduler.brackets))
       expect(result.trials).toHaveLength(Scheduler.totalTrials(scheduler))
-      expect(Option.isSome(Option.fromNullable(result.schedulerSummary))).toBe(true)
+      expect(Option.isSome(Option.fromNullishOr(result.schedulerSummary))).toBe(true)
     }), 20_000)
 })

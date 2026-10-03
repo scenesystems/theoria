@@ -18,7 +18,7 @@ const numericValue = (value: unknown): Option.Option<number> =>
 
 const directionalValue = (direction: Direction, value: number): number =>
   Match.value(direction).pipe(
-    Match.when("maximize", () => Num.negate(value)),
+    Match.when("maximize", () => Num.multiply(-1, value)),
     Match.orElse(() => value)
   )
 
@@ -38,26 +38,26 @@ const asConstraintAwareSplitTrials = (
                 trialNumber: trial.trialNumber,
                 config: trial.config,
                 value: directionalValue(direction, value),
-                ...Option.fromNullable(trial.observationWeight).pipe(
+                ...Option.fromNullishOr(trial.observationWeight).pipe(
                   Option.match({
                     onNone: () => ({}),
                     onSome: (observationWeight) => ({ observationWeight })
                   })
                 ),
-                ...Option.fromNullable(trial.cost).pipe(
+                ...Option.fromNullishOr(trial.cost).pipe(
                   Option.match({
                     onNone: () => ({}),
                     onSome: (cost) => ({ cost })
                   })
                 ),
-                ...Option.fromNullable(trial.variance).pipe(
+                ...Option.fromNullishOr(trial.variance).pipe(
                   Option.match({
                     onNone: () => ({}),
                     onSome: (variance) => ({ variance })
                   })
                 )
               }),
-              constraints: Option.fromNullable(trial.constraints).pipe(
+              constraints: Option.fromNullishOr(trial.constraints).pipe(
                 Option.getOrElse(() => Arr.empty())
               )
             })

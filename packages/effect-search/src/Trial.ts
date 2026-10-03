@@ -12,9 +12,9 @@ import { Value } from "./Objective.js"
 import { TrialError } from "./SearchError.js"
 
 const CompletionMetadata = Schema.Struct({
-  retryCount: Schema.Number,
-  evaluationCount: Schema.optional(Schema.Number),
-  variance: Schema.optional(Schema.Number)
+  retryCount: Schema.Finite,
+  evaluationCount: Schema.optional(Schema.Finite),
+  variance: Schema.optional(Schema.Finite)
 })
 
 const CompletedState = Schema.Struct({
@@ -23,7 +23,7 @@ const CompletedState = Schema.Struct({
 })
 
 const NumericCompletedState = Schema.Struct({
-  ...StudyTrial.Completed(Schema.Number).fields,
+  ...StudyTrial.Completed(Schema.Finite).fields,
   ...CompletionMetadata.fields
 })
 
@@ -36,18 +36,18 @@ export type NumericCompletedState = typeof NumericCompletedState.Type
  * @since 0.7.0
  * @category schemas
  */
-export const State = Schema.Union(
+export const State = Schema.Union([
   StudyTrial.Running,
   CompletedState,
   StudyTrial.Failed(TrialError),
   Schema.TaggedStruct("Pruned", {
-    step: Schema.Number,
+    step: Schema.Finite,
     reason: Schema.String,
     policy: Schema.String,
-    duration: Schema.Number
+    duration: Schema.Finite
   }),
   StudyTrial.Cancelled
-)
+])
 
 /** A running or terminal search trial state. @since 0.7.0 @category models */
 export type State = typeof State.Type
@@ -78,7 +78,7 @@ export type CompletedState = Data.TaggedEnum.Value<State, "Completed">
  * @since 0.7.0
  * @category schema-factories
  */
-export const Trial = <Config extends Schema.Schema.All>(config: Config) => StudyTrial.Trial(config, State)
+export const Trial = <Config extends Schema.Constraint>(config: Config) => StudyTrial.Trial(config, State)
 
 /** Search trial data with its decoded configuration type preserved. @since 0.7.0 @category models */
 export type Trial<Config> = StudyTrial.Trial<Config, State>
@@ -105,15 +105,14 @@ const completeWithMetadata = <Config>(
   now: number,
   retryCount: number,
   cost: Option.Option<number>
-): Trial<Config> =>
-  Data.struct({
-    ...self,
-    state: Completed({ value, duration: durationFromState(self.state, now), retryCount }),
-    ...Option.match(cost, {
-      onNone: () => ({}),
-      onSome: (resolvedCost) => ({ cost: resolvedCost })
-    })
+): Trial<Config> => ({
+  ...self,
+  state: Completed({ value, duration: durationFromState(self.state, now), retryCount }),
+  ...Option.match(cost, {
+    onNone: () => ({}),
+    onSome: (resolvedCost) => ({ cost: resolvedCost })
   })
+})
 
 /** Completes a trial with no retries. @since 0.7.0 @category combinators */
 export const complete: {
@@ -163,8 +162,8 @@ export const fail: {
   3,
   <Config>(self: Trial<Config>, error: TrialError, now: number) =>
     Match.value(self.state).pipe(
-      Match.tag("Running", (state) => StudyTrial.fail(Data.struct({ ...self, state }), error, now)),
-      Match.orElse(() => Data.struct({ ...self, state: Failed({ error, duration: 0 }) }))
+      Match.tag("Running", (state) => StudyTrial.fail({ ...self, state }, error, now)),
+      Match.orElse(() => ({ ...self, state: Failed({ error, duration: 0 }) }))
     )
 )
 
@@ -174,8 +173,10 @@ export const prune: {
   <Config>(self: Trial<Config>, step: number, reason: string, policy: string, now: number): Trial<Config>
 } = dual(
   5,
-  <Config>(self: Trial<Config>, step: number, reason: string, policy: string, now: number) =>
-    Data.struct({ ...self, state: Pruned({ step, reason, policy, duration: durationFromState(self.state, now) }) })
+  <Config>(self: Trial<Config>, step: number, reason: string, policy: string, now: number) => ({
+    ...self,
+    state: Pruned({ step, reason, policy, duration: durationFromState(self.state, now) })
+  })
 )
 
 /** Records terminal cancellation. @since 0.7.0 @category combinators */

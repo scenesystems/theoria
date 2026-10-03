@@ -11,12 +11,12 @@ import type * as SearchSpace from "../../../SearchSpace.js"
 import type { FiniteDimension } from "../../grid.js"
 
 const floatingEpsilon = 1e-12
-const NumericValues = Schema.Array(Schema.Number)
+const NumericValues = Schema.Array(Schema.Finite)
 type NumericValues = typeof NumericValues.Type
 
 const finiteRange = (low: number, high: number, step: number) => {
   const go = (cursor: number, acc: NumericValues): NumericValues =>
-    Match.value(Num.greaterThan(cursor, Num.sum(high, floatingEpsilon))).pipe(
+    Match.value(Num.isGreaterThan(cursor, Num.sum(high, floatingEpsilon))).pipe(
       Match.when(true, () => acc),
       Match.orElse(() => go(Num.sum(cursor, step), Arr.append(acc, Num.round(cursor, 12))))
     )

@@ -37,8 +37,8 @@ export const Metadata = Schema.Struct({
 /** Continuation metadata decoded by {@link Metadata}. @since 0.7.0 @category models */
 export type Metadata = typeof Metadata.Type
 
-const Count = Schema.Int.pipe(Schema.nonNegative())
-const NonNegativeFinite = Schema.NonNegative.pipe(Schema.finite())
+const Count = Schema.Int.check(Schema.isGreaterThanOrEqualTo(0))
+const NonNegativeFinite = Schema.Finite.check(Schema.isGreaterThanOrEqualTo(0))
 
 const stateDuration = (state: SearchTrial.State): number =>
   SearchTrial.matchState({
@@ -53,30 +53,29 @@ const stateDuration = (state: SearchTrial.State): number =>
 export const Trial = Schema.Struct({
   ...StudyTrial.Trial(Schema.Unknown, SearchTrial.State).fields,
   trialNumber: Schema.Int
-}).pipe(
-  Schema.filter((trial) =>
+}).check(
+  Schema.makeFilter((trial) =>
     Match.value(trial.prior).pipe(
       Match.when(
         true,
-        () => Bool.and(Num.lessThan(trial.trialNumber, 0), SearchTrial.isState("Completed")(trial.state))
+        () => Bool.and(Num.isLessThan(trial.trialNumber, 0), SearchTrial.isState("Completed")(trial.state))
       ),
-      Match.orElse(() => Num.greaterThanOrEqualTo(trial.trialNumber, 0))
-    ), { message: () => "Only completed prior trials may have negative trial numbers" }),
-  Schema.filter((trial) => Schema.is(NonNegativeFinite)(stateDuration(trial.state)), {
-    message: () => "Trial durations must be finite and non-negative"
-  }),
-  Schema.annotations({ identifier: "@scenesystems/effect-search/OptimizationSnapshot/Trial" })
-)
+      Match.orElse(() => Num.isGreaterThanOrEqualTo(trial.trialNumber, 0))
+    ), { message: "Only completed prior trials may have negative trial numbers" }),
+  Schema.makeFilter((trial) => Schema.is(NonNegativeFinite)(stateDuration(trial.state)), {
+    message: "Trial durations must be finite and non-negative"
+  })
+).annotate({ identifier: "@scenesystems/effect-search/OptimizationSnapshot/Trial" })
 /** Persisted trial decoded by {@link Trial}. @since 0.7.0 @category models */
 export type Trial = typeof Trial.Type
 
-const Trials = Schema.Array(Trial).pipe(Schema.filter(
+const Trials = Schema.Array(Trial).check(Schema.makeFilter(
   (trials) =>
     Num.Equivalence(
       HashSet.size(HashSet.fromIterable(Arr.map(trials, (trial) => trial.trialNumber))),
       Arr.length(trials)
     ),
-  { message: () => "Snapshot trial numbers must be unique" }
+  { message: "Snapshot trial numbers must be unique" }
 ))
 const Contents = Schema.Struct({ ...Metadata.fields, trials: Trials })
 
@@ -132,7 +131,7 @@ const deriveFields = (metadata: Metadata, trials: Iterable<Trial>) => {
   return {
     ...metadata,
     nextTrialNumber: Num.increment(
-      Arr.reduce(orderedTrials, Num.negate(1), (maximum, trial) => Num.max(maximum, trial.trialNumber))
+      Arr.reduce(orderedTrials, Num.multiply(-1, 1), (maximum, trial) => Num.max(maximum, trial.trialNumber))
     ),
     trials: orderedTrials,
     completedCount,
@@ -150,8 +149,7 @@ const deriveFields = (metadata: Metadata, trials: Iterable<Trial>) => {
 export const fromTrial = <Config>(trial: SearchTrial.Trial<Config>): Trial => ({ ...trial })
 
 /** Reconstructs a runtime trial with a caller-decoded configuration. @since 0.7.0 @category conversions */
-export const toTrial = <Config>(trial: Trial, config: Config): SearchTrial.Trial<Config> =>
-  Data.struct({ ...trial, config })
+export const toTrial = <Config>(trial: Trial, config: Config): SearchTrial.Trial<Config> => ({ ...trial, config })
 
 /** Builds a replay snapshot and derives numbering, duration, retry, and prior counters. @since 0.7.0 @category constructors */
 export const make = <Config>(trials: Iterable<SearchTrial.Trial<Config>>, metadata: Metadata): OptimizationSnapshot => {
@@ -161,15 +159,15 @@ export const make = <Config>(trials: Iterable<SearchTrial.Trial<Config>>, metada
 
 /** Decodes unknown snapshot input and recomputes derived diagnostics rather than trusting them. @since 0.7.0 @category decoding */
 export const decodeUnknown = (input: unknown) =>
-  Schema.decodeUnknown(Contents)(input).pipe(
-    Effect.flatMap((snapshot) => Schema.decodeUnknown(OptimizationSnapshot)(deriveFields(snapshot, snapshot.trials)))
+  Schema.decodeUnknownEffect(Contents)(input).pipe(
+    Effect.flatMap((snapshot) => Schema.decodeEffect(OptimizationSnapshot)(deriveFields(snapshot, snapshot.trials)))
   )
 
 const invalid = (reason: string) => new InvalidOptimizationConfig({ reason })
 
 const validated = (input: unknown): Effect.Effect<OptimizationSnapshot, InvalidOptimizationConfig> =>
   Effect.gen(function*() {
-    const persisted = yield* Schema.decodeUnknown(OptimizationSnapshot)(input).pipe(
+    const persisted = yield* Schema.decodeUnknownEffect(OptimizationSnapshot)(input).pipe(
       Effect.mapError(() => invalid("Optimization.resume snapshot payload decode failed"))
     )
     const decoded = yield* decodeUnknown(persisted).pipe(
@@ -177,11 +175,11 @@ const validated = (input: unknown): Effect.Effect<OptimizationSnapshot, InvalidO
     )
     yield* Effect.when(
       Effect.fail(invalid("Optimization.resume snapshot next trial number mismatch")),
-      () => Bool.not(Num.Equivalence(decoded.nextTrialNumber, persisted.nextTrialNumber))
+      Effect.sync(() => Bool.not(Num.Equivalence(decoded.nextTrialNumber, persisted.nextTrialNumber)))
     )
     yield* Effect.when(
       Effect.fail(invalid("Optimization.resume snapshot completed count mismatch")),
-      () => Bool.not(Num.Equivalence(decoded.completedCount, persisted.completedCount))
+      Effect.sync(() => Bool.not(Num.Equivalence(decoded.completedCount, persisted.completedCount)))
     )
     return decoded
   })
@@ -207,10 +205,10 @@ export const recover = (
 ): Effect.Effect<OptimizationSnapshot, InvalidOptimizationConfig> =>
   Effect.gen(function*() {
     const checkpoint = yield* validated(snapshot)
-    const tail = yield* Schema.decodeUnknown(Schema.Array(Trial))(Arr.fromIterable(replayTail)).pipe(
+    const tail = yield* Schema.decodeEffect(Schema.Array(Trial))(Arr.fromIterable(replayTail)).pipe(
       Effect.mapError(() => invalid("Optimization.resumeFromStorage replay tail payload decode failed"))
     )
-    const stale = Arr.findFirst(tail, (trial) => Num.lessThan(trial.trialNumber, checkpoint.nextTrialNumber))
+    const stale = Arr.findFirst(tail, (trial) => Num.isLessThan(trial.trialNumber, checkpoint.nextTrialNumber))
     yield* Option.match(stale, {
       onNone: () => Effect.void,
       onSome: (trial) =>
@@ -233,7 +231,14 @@ export const recover = (
           })
         )
     })
-    return yield* decodeUnknown({ ...checkpoint, trials }).pipe(
+    return yield* decodeUnknown({
+      spaceFingerprint: checkpoint.spaceFingerprint,
+      objectiveSpec: checkpoint.objectiveSpec,
+      stopMode: checkpoint.stopMode,
+      samplerKind: checkpoint.samplerKind,
+      samplerCheckpoint: checkpoint.samplerCheckpoint,
+      trials
+    }).pipe(
       Effect.mapError(() => invalid("Optimization.resumeFromStorage replay diagnostics are invalid"))
     )
   })
@@ -243,6 +248,12 @@ export class Seed<Config> extends Data.Class<{
   readonly initialTrials: Iterable<SearchTrial.Trial<Config>>
   readonly startTrialNumber: number
 }> {}
+
+const decodeConfig = <S extends Schema.Constraint>(
+  schema: S,
+  input: unknown
+): Effect.Effect<S["Type"], Schema.SchemaError> =>
+  Effect.fromResult(Schema.decodeUnknownResult(Schema.toType(schema))(input))
 
 /**
  * Validates space, objective, stop-mode, and sampler compatibility before replay.
@@ -264,27 +275,26 @@ export const restore = <Space extends SearchSpace.SearchSpace>(
     const decoded = yield* validated(snapshot)
     yield* Effect.when(
       Effect.fail(invalid("Optimization.resume space fingerprint mismatch")),
-      () => Bool.not(Equal.equals(decoded.spaceFingerprint, SearchSpace.fingerprint(space)))
+      Effect.sync(() => Bool.not(Equal.equals(decoded.spaceFingerprint, SearchSpace.fingerprint(space))))
     )
     yield* Effect.when(
       Effect.fail(invalid("Optimization.resume objective specification mismatch")),
-      () => Bool.not(Schema.equivalence(Objective)(decoded.objectiveSpec, objectiveSpec))
+      Effect.sync(() => Bool.not(Schema.toEquivalence(Objective)(decoded.objectiveSpec, objectiveSpec)))
     )
     yield* Effect.when(
       Effect.fail(invalid("Optimization.resume stop mode mismatch")),
-      () => Bool.not(Equal.equals(decoded.stopMode, stopMode))
+      Effect.sync(() => Bool.not(Equal.equals(decoded.stopMode, stopMode)))
     )
     yield* Effect.when(
       Effect.fail(invalid("Optimization.resume sampler kind mismatch")),
-      () => Bool.not(Schema.equivalence(Sampler.Kind)(decoded.samplerKind, sampler.kind))
+      Effect.sync(() => Bool.not(Schema.toEquivalence(Sampler.Kind)(decoded.samplerKind, sampler.kind)))
     )
     const initialTrials = yield* Effect.forEach(decoded.trials, (trial) =>
-      Schema.decodeUnknown(space.schema)(trial.config).pipe(
+      decodeConfig(space.schema, trial.config).pipe(
         Effect.map((config) => {
           const restored = toTrial(trial, config)
           return Match.value(SearchTrial.isState("Running")(restored.state)).pipe(
-            Match.when(true, () =>
-              SearchTrial.cancel(restored)),
+            Match.when(true, () => SearchTrial.cancel(restored)),
             Match.orElse(() => restored)
           )
         }),

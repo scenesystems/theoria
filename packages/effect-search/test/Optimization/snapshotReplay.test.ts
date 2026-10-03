@@ -29,15 +29,17 @@ describe("Optimization snapshot-resume metadata and replay parity", () => {
       const seed = 501
       const space = yield* snapshotSpace
       const sampler = Sampler.random({ seed })
-      const initialResult = yield* Optimization.run({
-        space,
-        sampler,
-        direction: "minimize",
-        trials: 6,
-        objective: snapshotSingleObjective
-      })
+      const initialResult = yield* Optimization.run(
+        new Optimization.FlatOptions({
+          space,
+          sampler,
+          direction: "minimize",
+          trials: 6,
+          objective: snapshotSingleObjective
+        })
+      )
 
-      const initialSingle = yield* snapshotSingleObjectiveResult(initialResult)
+      const initialSingle = yield* Effect.fromOption(snapshotSingleObjectiveResult(initialResult))
 
       const snapshot = yield* Optimization.snapshot(initialSingle)
 
@@ -49,7 +51,7 @@ describe("Optimization snapshot-resume metadata and replay parity", () => {
       expect(snapshot.nextTrialNumber).toBe(6)
       expect(snapshot.completedCount).toBe(6)
 
-      const metadata = yield* Schema.decodeUnknown(OptimizationSnapshot.Metadata)({
+      const metadata = yield* Schema.decodeEffect(OptimizationSnapshot.Metadata)({
         spaceFingerprint: snapshot.spaceFingerprint,
         objectiveSpec: snapshot.objectiveSpec,
         stopMode: snapshot.stopMode,
@@ -58,16 +60,18 @@ describe("Optimization snapshot-resume metadata and replay parity", () => {
       })
       expect(metadata.spaceFingerprint).toBe(snapshot.spaceFingerprint)
 
-      const resumedResult = yield* Optimization.resume({
-        space,
-        sampler,
-        snapshot,
-        direction: "minimize",
-        trials: 4,
-        objective: snapshotSingleObjective
-      })
+      const resumedResult = yield* Optimization.resume(
+        new Optimization.ResumeOptions({
+          space,
+          sampler,
+          snapshot,
+          direction: "minimize",
+          trials: 4,
+          objective: snapshotSingleObjective
+        })
+      )
 
-      const resumedSingle = yield* snapshotSingleObjectiveResult(resumedResult)
+      const resumedSingle = yield* Effect.fromOption(snapshotSingleObjectiveResult(resumedResult))
 
       expect(resumedSingle.trials).toHaveLength(10)
       expect(Arr.map(Arr.fromIterable(resumedSingle.trials), (trial) => trial.trialNumber)).toEqual(Arr.make(
@@ -91,34 +95,40 @@ describe("Optimization snapshot-resume metadata and replay parity", () => {
       const totalTrials = 12
       const firstLegTrials = 7
       const secondLegTrials = Num.subtract(totalTrials, firstLegTrials)
-      const baselineResult = yield* Optimization.run({
-        space: yield* snapshotSpace,
-        sampler: Sampler.random({ seed }),
-        direction: "minimize",
-        trials: totalTrials,
-        objective: snapshotSingleObjective
-      })
-      const firstLegResult = yield* Optimization.run({
-        space: yield* snapshotSpace,
-        sampler: Sampler.random({ seed }),
-        direction: "minimize",
-        trials: firstLegTrials,
-        objective: snapshotSingleObjective
-      })
+      const baselineResult = yield* Optimization.run(
+        new Optimization.FlatOptions({
+          space: yield* snapshotSpace,
+          sampler: Sampler.random({ seed }),
+          direction: "minimize",
+          trials: totalTrials,
+          objective: snapshotSingleObjective
+        })
+      )
+      const firstLegResult = yield* Optimization.run(
+        new Optimization.FlatOptions({
+          space: yield* snapshotSpace,
+          sampler: Sampler.random({ seed }),
+          direction: "minimize",
+          trials: firstLegTrials,
+          objective: snapshotSingleObjective
+        })
+      )
 
-      const baselineSingle = yield* snapshotSingleObjectiveResult(baselineResult)
-      const firstLegSingle = yield* snapshotSingleObjectiveResult(firstLegResult)
+      const baselineSingle = yield* Effect.fromOption(snapshotSingleObjectiveResult(baselineResult))
+      const firstLegSingle = yield* Effect.fromOption(snapshotSingleObjectiveResult(firstLegResult))
 
       const snapshot = yield* Optimization.snapshot(firstLegSingle)
-      const resumedResult = yield* Optimization.resume({
-        space: yield* snapshotSpace,
-        sampler: Sampler.random({ seed }),
-        snapshot,
-        direction: "minimize",
-        trials: secondLegTrials,
-        objective: snapshotSingleObjective
-      })
-      const resumedSingle = yield* snapshotSingleObjectiveResult(resumedResult)
+      const resumedResult = yield* Optimization.resume(
+        new Optimization.ResumeOptions({
+          space: yield* snapshotSpace,
+          sampler: Sampler.random({ seed }),
+          snapshot,
+          direction: "minimize",
+          trials: secondLegTrials,
+          objective: snapshotSingleObjective
+        })
+      )
+      const resumedSingle = yield* Effect.fromOption(snapshotSingleObjectiveResult(resumedResult))
 
       expect(encodeSnapshotConfigTrace(yield* snapshotConfigTrace(resumedSingle))).toBe(
         encodeSnapshotConfigTrace(yield* snapshotConfigTrace(baselineSingle))
@@ -132,42 +142,48 @@ describe("Optimization snapshot-resume metadata and replay parity", () => {
 
   it.effect("proves deterministic parity for single-objective TPE N+M replay", () =>
     Effect.gen(function*() {
-      const options = {
+      const options = new Sampler.TpeOptions({
         seed: 313,
         nStartupTrials: 4,
         nEiCandidates: 16
-      }
+      })
       const totalTrials = 8
       const firstLegTrials = 5
       const secondLegTrials = Num.subtract(totalTrials, firstLegTrials)
-      const baselineResult = yield* Optimization.run({
-        space: yield* snapshotSpace,
-        sampler: Sampler.tpe(options),
-        direction: "minimize",
-        trials: totalTrials,
-        objective: snapshotSingleObjective
-      })
-      const firstLegResult = yield* Optimization.run({
-        space: yield* snapshotSpace,
-        sampler: Sampler.tpe(options),
-        direction: "minimize",
-        trials: firstLegTrials,
-        objective: snapshotSingleObjective
-      })
+      const baselineResult = yield* Optimization.run(
+        new Optimization.FlatOptions({
+          space: yield* snapshotSpace,
+          sampler: Sampler.tpe(options),
+          direction: "minimize",
+          trials: totalTrials,
+          objective: snapshotSingleObjective
+        })
+      )
+      const firstLegResult = yield* Optimization.run(
+        new Optimization.FlatOptions({
+          space: yield* snapshotSpace,
+          sampler: Sampler.tpe(options),
+          direction: "minimize",
+          trials: firstLegTrials,
+          objective: snapshotSingleObjective
+        })
+      )
 
-      const baselineSingle = yield* snapshotSingleObjectiveResult(baselineResult)
-      const firstLegSingle = yield* snapshotSingleObjectiveResult(firstLegResult)
+      const baselineSingle = yield* Effect.fromOption(snapshotSingleObjectiveResult(baselineResult))
+      const firstLegSingle = yield* Effect.fromOption(snapshotSingleObjectiveResult(firstLegResult))
 
       const snapshot = yield* Optimization.snapshot(firstLegSingle)
-      const resumedResult = yield* Optimization.resume({
-        space: yield* snapshotSpace,
-        sampler: Sampler.tpe(options),
-        snapshot,
-        direction: "minimize",
-        trials: secondLegTrials,
-        objective: snapshotSingleObjective
-      })
-      const resumedSingle = yield* snapshotSingleObjectiveResult(resumedResult)
+      const resumedResult = yield* Optimization.resume(
+        new Optimization.ResumeOptions({
+          space: yield* snapshotSpace,
+          sampler: Sampler.tpe(options),
+          snapshot,
+          direction: "minimize",
+          trials: secondLegTrials,
+          objective: snapshotSingleObjective
+        })
+      )
+      const resumedSingle = yield* Effect.fromOption(snapshotSingleObjectiveResult(resumedResult))
 
       expect(encodeSnapshotConfigTrace(yield* snapshotConfigTrace(resumedSingle))).toBe(
         encodeSnapshotConfigTrace(yield* snapshotConfigTrace(baselineSingle))
@@ -181,42 +197,48 @@ describe("Optimization snapshot-resume metadata and replay parity", () => {
 
   it.effect("proves deterministic parity for multi-objective TPE N+M replay", () =>
     Effect.gen(function*() {
-      const options = {
+      const options = new Sampler.TpeOptions({
         seed: 404,
         nStartupTrials: 4,
         nEiCandidates: 16
-      }
+      })
       const totalTrials = 8
       const firstLegTrials = 5
       const secondLegTrials = Num.subtract(totalTrials, firstLegTrials)
-      const baselineResult = yield* Optimization.run({
-        space: yield* multiObjectiveSnapshotSpace,
-        sampler: Sampler.tpe(options),
-        directions: Arr.make<Arr.NonEmptyArray<Direction>>("minimize", "minimize"),
-        trials: totalTrials,
-        objective: snapshotObjectiveVector
-      })
-      const firstLegResult = yield* Optimization.run({
-        space: yield* multiObjectiveSnapshotSpace,
-        sampler: Sampler.tpe(options),
-        directions: Arr.make<Arr.NonEmptyArray<Direction>>("minimize", "minimize"),
-        trials: firstLegTrials,
-        objective: snapshotObjectiveVector
-      })
+      const baselineResult = yield* Optimization.run(
+        new Optimization.FlatOptions({
+          space: yield* multiObjectiveSnapshotSpace,
+          sampler: Sampler.tpe(options),
+          directions: Arr.make<Arr.NonEmptyArray<Direction>>("minimize", "minimize"),
+          trials: totalTrials,
+          objective: snapshotObjectiveVector
+        })
+      )
+      const firstLegResult = yield* Optimization.run(
+        new Optimization.FlatOptions({
+          space: yield* multiObjectiveSnapshotSpace,
+          sampler: Sampler.tpe(options),
+          directions: Arr.make<Arr.NonEmptyArray<Direction>>("minimize", "minimize"),
+          trials: firstLegTrials,
+          objective: snapshotObjectiveVector
+        })
+      )
 
-      const baselineMulti = yield* snapshotMultiObjectiveResult(baselineResult)
-      const firstLegMulti = yield* snapshotMultiObjectiveResult(firstLegResult)
+      const baselineMulti = yield* Effect.fromOption(snapshotMultiObjectiveResult(baselineResult))
+      const firstLegMulti = yield* Effect.fromOption(snapshotMultiObjectiveResult(firstLegResult))
 
       const snapshot = yield* Optimization.snapshot(firstLegMulti)
-      const resumedResult = yield* Optimization.resume({
-        space: yield* multiObjectiveSnapshotSpace,
-        sampler: Sampler.tpe(options),
-        snapshot,
-        directions: Arr.make<Arr.NonEmptyArray<Direction>>("minimize", "minimize"),
-        trials: secondLegTrials,
-        objective: snapshotObjectiveVector
-      })
-      const resumedMulti = yield* snapshotMultiObjectiveResult(resumedResult)
+      const resumedResult = yield* Optimization.resume(
+        new Optimization.ResumeOptions({
+          space: yield* multiObjectiveSnapshotSpace,
+          sampler: Sampler.tpe(options),
+          snapshot,
+          directions: Arr.make<Arr.NonEmptyArray<Direction>>("minimize", "minimize"),
+          trials: secondLegTrials,
+          objective: snapshotObjectiveVector
+        })
+      )
+      const resumedMulti = yield* Effect.fromOption(snapshotMultiObjectiveResult(resumedResult))
 
       expect(encodeMultiObjectiveConfigTrace(yield* multiObjectiveConfigTrace(resumedMulti))).toBe(
         encodeMultiObjectiveConfigTrace(yield* multiObjectiveConfigTrace(baselineMulti))

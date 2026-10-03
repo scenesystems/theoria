@@ -17,8 +17,8 @@ describe("tpe recency weights", () => {
   it.effect("ramps early observations and keeps latest 25 flat at one", () =>
     Effect.sync(() => {
       const weights = defaultWeights(50)
-      const start = Num.unsafeDivide(1, 50)
-      const step = Num.unsafeDivide(Num.subtract(1, start), 24)
+      const start = Num.divideUnsafe(1, 50)
+      const step = Num.divideUnsafe(Num.subtract(1, start), 24)
 
       expect(weights).toHaveLength(50)
 

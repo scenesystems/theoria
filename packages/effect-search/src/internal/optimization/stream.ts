@@ -53,7 +53,7 @@ const streamFromExecutionPlan = <Space extends SearchSpace.SearchSpace, R>(
  * @category combinators
  */
 export const stream = <Space extends SearchSpace.SearchSpace>(
-  options: Optimization.Options<SearchSpace.Type<Space>, Space>
+  options: Optimization.Options<Space>
 ): Stream.Stream<OptimizationEvent.OptimizationEvent, SearchError> =>
   Stream.unwrap(
     streamFromExecutionPlan(
@@ -76,7 +76,7 @@ export const stream = <Space extends SearchSpace.SearchSpace>(
  * @category combinators
  */
 export const resumeStream = <Space extends SearchSpace.SearchSpace>(
-  options: Optimization.ResumeOptions<SearchSpace.Type<Space>, Space>
+  options: Optimization.ResumeOptions<Space>
 ): Stream.Stream<OptimizationEvent.OptimizationEvent, SearchError> =>
   Stream.unwrap(
     streamFromExecutionPlan(
@@ -100,7 +100,7 @@ export const resumeStream = <Space extends SearchSpace.SearchSpace>(
  * @category combinators
  */
 export const resumeFromStorageStream = <Space extends SearchSpace.SearchSpace>(
-  options: Optimization.StorageResumeOptions<SearchSpace.Type<Space>, Space>
+  options: Optimization.StorageResumeOptions<Space>
 ): Stream.Stream<
   OptimizationEvent.OptimizationEvent,
   SearchError,

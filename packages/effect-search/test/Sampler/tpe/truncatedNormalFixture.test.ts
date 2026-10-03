@@ -1,5 +1,5 @@
 import { describe, expect, it } from "@effect/vitest"
-import { Array as Arr, Boolean as Bool, Effect, Either, Match, Number as Num, Option, Schema } from "effect"
+import { Array as Arr, Boolean as Bool, Effect, Match, Number as Num, Option, Result, Schema } from "effect"
 
 import * as Numeric from "@scenesystems/effect-math/Numeric"
 import {
@@ -29,7 +29,7 @@ const numberAt = (valuesInput: Iterable<number>, index: number): number => {
 
 const loadTruncatedFixture = loadFixture("truncated-normal.edge-cases").pipe(
   Effect.provide(FixtureRegistryLive),
-  Effect.flatMap((fixture) => Schema.decodeUnknown(TruncatedNormalFixture)(fixture))
+  Effect.flatMap((fixture) => Schema.decodeUnknownEffect(TruncatedNormalFixture)(fixture))
 )
 
 const firstParams = (
@@ -39,8 +39,8 @@ const firstParams = (
 const assertAbsoluteTolerance = (actual: number, expected: number, tolerance: number): void => {
   Match.value(expected).pipe(
     Match.when(
-      (value) => Bool.not(Schema.is(Schema.NonNaN)(value)),
-      () => expect(Bool.not(Schema.is(Schema.NonNaN)(actual))).toBe(true)
+      (value) => Bool.not(Schema.is(Schema.Finite)(value)),
+      () => expect(Bool.not(Schema.is(Schema.Finite)(actual))).toBe(true)
     ),
     Match.when((value) => Bool.not(Numeric.isFinite(value)), () => expect(actual).toBe(expected)),
     Match.orElse(() => expect(Numeric.abs(Num.subtract(actual, expected))).toBeLessThanOrEqual(tolerance))
@@ -163,7 +163,7 @@ describe("truncated normal fixture parity", () => {
       const invalidParams = new TruncatedNormalParams({
         mean: 0,
         sigma: 0,
-        low: Num.negate(1),
+        low: Num.multiply(-1, 1),
         high: 1
       })
 
@@ -174,12 +174,12 @@ describe("truncated normal fixture parity", () => {
       const centeredParams = Option.getOrElse(centeredParamsOption, () => invalidParams)
 
       yield* Effect.sync(() => {
-        expect(logPdf(Num.negate(0.1), centeredParams)).toBe(Number.NEGATIVE_INFINITY)
+        expect(logPdf(Num.multiply(-1, 0.1), centeredParams)).toBe(Number.NEGATIVE_INFINITY)
         expect(logPdf(1.1, centeredParams)).toBe(Number.NEGATIVE_INFINITY)
 
-        expect(Bool.not(Schema.is(Schema.NonNaN)(logPdf(0, invalidParams)))).toBe(true)
-        expect(Bool.not(Schema.is(Schema.NonNaN)(cdf(0, invalidParams)))).toBe(true)
-        expect(Bool.not(Schema.is(Schema.NonNaN)(sample(0.5, invalidParams)))).toBe(true)
+        expect(Bool.not(Schema.is(Schema.Finite)(logPdf(0, invalidParams)))).toBe(true)
+        expect(Bool.not(Schema.is(Schema.Finite)(cdf(0, invalidParams)))).toBe(true)
+        expect(Bool.not(Schema.is(Schema.Finite)(sample(0.5, invalidParams)))).toBe(true)
       })
     }))
 
@@ -190,22 +190,22 @@ describe("truncated normal fixture parity", () => {
       const invalidParams = new TruncatedNormalParams({
         mean: 0,
         sigma: 0,
-        low: Num.negate(1),
+        low: Num.multiply(-1, 1),
         high: 1
       })
       const validParams = Option.getOrElse(centeredParamsOption, () => invalidParams)
 
-      const invalidLogPdf = yield* Effect.either(logPdfEffect(0, invalidParams))
-      const invalidCdf = yield* Effect.either(cdfEffect(0, invalidParams))
-      const invalidSample = yield* Effect.either(sampleEffect(1.1, validParams))
+      const invalidLogPdf = yield* Effect.result(logPdfEffect(0, invalidParams))
+      const invalidCdf = yield* Effect.result(cdfEffect(0, invalidParams))
+      const invalidSample = yield* Effect.result(sampleEffect(1.1, validParams))
 
-      expect(Either.isLeft(invalidLogPdf)).toBe(true)
-      expect(Either.isLeft(invalidCdf)).toBe(true)
-      expect(Either.isLeft(invalidSample)).toBe(true)
+      expect(Result.isFailure(invalidLogPdf)).toBe(true)
+      expect(Result.isFailure(invalidCdf)).toBe(true)
+      expect(Result.isFailure(invalidSample)).toBe(true)
 
-      Either.mapLeft(invalidLogPdf, (failure) => expect(failure._tag).toBe("effect-search/InvalidMathInput"))
-      Either.mapLeft(invalidCdf, (failure) => expect(failure._tag).toBe("effect-search/InvalidMathInput"))
-      Either.mapLeft(invalidSample, (failure) => expect(failure._tag).toBe("effect-search/InvalidMathInput"))
+      Result.mapError(invalidLogPdf, (failure) => expect(failure._tag).toBe("effect-search/InvalidMathInput"))
+      Result.mapError(invalidCdf, (failure) => expect(failure._tag).toBe("effect-search/InvalidMathInput"))
+      Result.mapError(invalidSample, (failure) => expect(failure._tag).toBe("effect-search/InvalidMathInput"))
     }))
 
   it.effect("effectful math matches pure outputs on valid inputs", () =>

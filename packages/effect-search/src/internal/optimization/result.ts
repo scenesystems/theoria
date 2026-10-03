@@ -29,17 +29,17 @@ export const resultFromOutcome = <Config>(
           outcome.completed,
           (trial): trial is Trial.NumericCompletedTrial<Config> => Trial.isNumericCompleted(trial)
         )
-        const best = yield* Option.match(pickBestTrial(direction, numericCompleted), {
-          onNone: () => Effect.fail(new NoSuccessfulTrials({ trialCount: Iterable.size(outcome.trials) })),
-          onSome: Effect.succeed
-        })
+        const best = yield* Effect.fromOption(
+          pickBestTrial(direction, numericCompleted),
+          () => new NoSuccessfulTrials({ trialCount: Iterable.size(outcome.trials) })
+        )
 
         return new SingleObjectiveResult<Config>({
           snapshotMetadata: outcome.snapshotMetadata,
           bestTrial: best,
           trials: outcome.trials,
           completionReason: outcome.completionReason,
-          ...Option.fromNullable(outcome.schedulerSummary).pipe(
+          ...Option.fromNullishOr(outcome.schedulerSummary).pipe(
             Option.match({
               onNone: () => ({}),
               onSome: (schedulerSummary) => ({ schedulerSummary })
@@ -53,7 +53,7 @@ export const resultFromOutcome = <Config>(
 
         yield* Effect.when(
           Effect.fail(new NoSuccessfulTrials({ trialCount: Iterable.size(outcome.trials) })),
-          () => Arr.isEmptyArray(paretoFront)
+          Effect.sync(() => Arr.length(paretoFront) === 0)
         )
 
         return new MultiObjectiveResult<Config>({
@@ -61,7 +61,7 @@ export const resultFromOutcome = <Config>(
           paretoFront,
           trials: outcome.trials,
           completionReason: outcome.completionReason,
-          ...Option.fromNullable(outcome.schedulerSummary).pipe(
+          ...Option.fromNullishOr(outcome.schedulerSummary).pipe(
             Option.match({
               onNone: () => ({}),
               onSome: (schedulerSummary) => ({ schedulerSummary })

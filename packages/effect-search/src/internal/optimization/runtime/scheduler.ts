@@ -41,17 +41,11 @@ export const runSchedulerOptimization = <Space extends SearchSpace.SearchSpace>(
   startTrialNumber: number
 ): Effect.Effect<Scheduler.Summary, SearchError> =>
   Effect.gen(function*() {
-    const scheduler = yield* Option.fromNullable(options.scheduler).pipe(
-      Option.match({
-        onNone: () => Effect.fail(noScheduler()),
-        onSome: Effect.succeed
-      })
+    const scheduler = yield* Effect.fromOption(Option.fromNullishOr(options.scheduler)).pipe(
+      Effect.mapError(noScheduler)
     )
-    const direction = yield* singleDirectionFromSettings(settings).pipe(
-      Option.match({
-        onNone: () => Effect.fail(noDirection()),
-        onSome: Effect.succeed
-      })
+    const direction = yield* Effect.fromOption(singleDirectionFromSettings(settings)).pipe(
+      Effect.mapError(noDirection)
     )
     const bracketSummaries = yield* runBrackets(
       options,

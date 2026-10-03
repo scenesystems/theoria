@@ -19,7 +19,9 @@ import type { OptimizationRuntime } from "./bootstrap.js"
 import { markSpaceExhausted } from "./completion.js"
 import { contextForSuggestion } from "./context.js"
 
-type ConfigFor<Space extends SearchSpace.SearchSpace> = SearchSpace.Type<Space>
+type SpaceCodec = SearchSpace.SearchSpace["schema"]
+type SpaceFor<SpaceSchema extends SpaceCodec> = SearchSpace.SearchSpace<SpaceSchema>
+type ConfigFor<SpaceSchema extends SpaceCodec> = SpaceSchema["Type"]
 
 /**
  * Samples a single configuration from the search space using the plan's default sampler.
@@ -27,11 +29,12 @@ type ConfigFor<Space extends SearchSpace.SearchSpace> = SearchSpace.Type<Space>
  * @since 0.1.0
  * @category utils
  */
-export const suggestConfig = <Space extends SearchSpace.SearchSpace>(
-  options: OptimizePlan<ConfigFor<Space>, Space>,
+export const suggestConfig = <SpaceSchema extends SpaceCodec>(
+  options: OptimizePlan<ConfigFor<SpaceSchema>, SpaceFor<SpaceSchema>>,
   settings: OptimizeSettings,
-  runtime: OptimizationRuntime<ConfigFor<Space>>
-): Effect.Effect<ConfigFor<Space>, SearchError> => suggestConfigWithSampler(options, settings, runtime, options.sampler)
+  runtime: OptimizationRuntime<ConfigFor<SpaceSchema>>
+): Effect.Effect<ConfigFor<SpaceSchema>, SearchError> =>
+  suggestConfigWithSampler(options, settings, runtime, options.sampler)
 
 /**
  * Samples a single configuration using an explicitly provided sampler instead of the plan default.
@@ -39,12 +42,12 @@ export const suggestConfig = <Space extends SearchSpace.SearchSpace>(
  * @since 0.1.0
  * @category utils
  */
-export const suggestConfigWithSampler = <Space extends SearchSpace.SearchSpace>(
-  options: OptimizePlan<ConfigFor<Space>, Space>,
+export const suggestConfigWithSampler = <SpaceSchema extends SpaceCodec>(
+  options: OptimizePlan<ConfigFor<SpaceSchema>, SpaceFor<SpaceSchema>>,
   settings: OptimizeSettings,
-  runtime: OptimizationRuntime<ConfigFor<Space>>,
+  runtime: OptimizationRuntime<ConfigFor<SpaceSchema>>,
   sampler: Sampler.Sampler
-): Effect.Effect<ConfigFor<Space>, SearchError> =>
+): Effect.Effect<ConfigFor<SpaceSchema>, SearchError> =>
   GenericStudy.modify(runtime.study, (state) =>
     Effect.gen(function*() {
       const suggestionContext = yield* contextForSuggestion(
@@ -56,7 +59,7 @@ export const suggestConfigWithSampler = <Space extends SearchSpace.SearchSpace>(
       )
       const rawConfig = yield* Sampler.suggest(sampler, options.space, suggestionContext)
 
-      const config = yield* decodeConfig(
+      const config = yield* decodeConfig<SpaceSchema>(
         sampler.kind._tag,
         options.space,
         rawConfig,
@@ -67,12 +70,12 @@ export const suggestConfigWithSampler = <Space extends SearchSpace.SearchSpace>(
     }))
 
 const reserveTrial = Effect.fn("effect-search/Optimization.reserveTrial")(
-  <Space extends SearchSpace.SearchSpace>(
-    options: OptimizePlan<ConfigFor<Space>, Space>,
+  <SpaceSchema extends SpaceCodec>(
+    options: OptimizePlan<ConfigFor<SpaceSchema>, SpaceFor<SpaceSchema>>,
     settings: OptimizeSettings,
     trialNumber: number,
-    runtime: OptimizationRuntime<ConfigFor<Space>>
-  ): Effect.Effect<Trial.Trial<ConfigFor<Space>>, SearchError> =>
+    runtime: OptimizationRuntime<ConfigFor<SpaceSchema>>
+  ): Effect.Effect<Trial.Trial<ConfigFor<SpaceSchema>>, SearchError> =>
     GenericStudy.modify(runtime.study, (state) =>
       Effect.gen(function*() {
         const suggestionContext = yield* contextForSuggestion(
@@ -83,7 +86,7 @@ const reserveTrial = Effect.fn("effect-search/Optimization.reserveTrial")(
           options.sampler.pendingImputationPolicy
         )
         const rawConfig = yield* Sampler.suggest(options.sampler, options.space, suggestionContext)
-        const config = yield* decodeConfig(
+        const config = yield* decodeConfig<SpaceSchema>(
           options.sampler.kind._tag,
           options.space,
           rawConfig,
@@ -110,17 +113,17 @@ const exhaustedBudget = (): InvalidOptimizationConfig =>
   })
 
 /** Atomically validates manual admission, allocates the number, and records the reservation. */
-export const reserveNextTrialOrMarkSpaceExhausted = <Space extends SearchSpace.SearchSpace>(
-  options: OptimizePlan<ConfigFor<Space>, Space>,
+export const reserveNextTrialOrMarkSpaceExhausted = <SpaceSchema extends SpaceCodec>(
+  options: OptimizePlan<ConfigFor<SpaceSchema>, SpaceFor<SpaceSchema>>,
   settings: OptimizeSettings,
-  runtime: OptimizationRuntime<ConfigFor<Space>>
-): Effect.Effect<Option.Option<Trial.Trial<ConfigFor<Space>>>, SearchError> =>
+  runtime: OptimizationRuntime<ConfigFor<SpaceSchema>>
+): Effect.Effect<Option.Option<Trial.Trial<ConfigFor<SpaceSchema>>>, SearchError> =>
   GenericStudy.modify(runtime.study, (runtimeState) =>
     Match.value(runtimeState.lifecycle).pipe(
       Match.when("Running", () => {
         const trialNumber = Num.increment(maxTrialNumberFromState(runtimeState.history))
         const freshCount = freshTrialCountFromState(runtimeState.history)
-        return Match.value(Num.greaterThanOrEqualTo(freshCount, settings.trials)).pipe(
+        return Match.value(Num.isGreaterThanOrEqualTo(freshCount, settings.trials)).pipe(
           Match.when(true, () => Effect.fail(exhaustedBudget())),
           Match.orElse(() =>
             Effect.gen(function*() {
@@ -132,7 +135,7 @@ export const reserveNextTrialOrMarkSpaceExhausted = <Space extends SearchSpace.S
                 options.sampler.pendingImputationPolicy
               )
               const rawConfig = yield* Sampler.suggest(options.sampler, options.space, suggestionContext)
-              const config = yield* decodeConfig(
+              const config = yield* decodeConfig<SpaceSchema>(
                 options.sampler.kind._tag,
                 options.space,
                 rawConfig,
@@ -165,12 +168,12 @@ export const reserveNextTrialOrMarkSpaceExhausted = <Space extends SearchSpace.S
  * @since 0.1.0
  * @category utils
  */
-export const reserveTrialOrMarkSpaceExhausted = <Space extends SearchSpace.SearchSpace>(
-  options: OptimizePlan<ConfigFor<Space>, Space>,
+export const reserveTrialOrMarkSpaceExhausted = <SpaceSchema extends SpaceCodec>(
+  options: OptimizePlan<ConfigFor<SpaceSchema>, SpaceFor<SpaceSchema>>,
   settings: OptimizeSettings,
   trialNumber: number,
-  runtime: OptimizationRuntime<ConfigFor<Space>>
-): Effect.Effect<Option.Option<Trial.Trial<ConfigFor<Space>>>, SearchError> =>
+  runtime: OptimizationRuntime<ConfigFor<SpaceSchema>>
+): Effect.Effect<Option.Option<Trial.Trial<ConfigFor<SpaceSchema>>>, SearchError> =>
   reserveTrial(options, settings, trialNumber, runtime).pipe(
     Effect.asSome,
     Effect.catchTag(

@@ -46,40 +46,40 @@ const evaluationsPerTrialFromOptions = <Config, Space extends SearchSpace.Search
 const trialTimeoutFromOptions = <Config, Space extends SearchSpace.SearchSpace>(
   options: OptimizePlan<Config, Space>
 ): Option.Option<Duration.Duration> =>
-  Option.fromNullable(options.trialTimeout).pipe(
-    Option.flatMap((timeout) => Duration.decodeUnknown(timeout))
+  Option.fromNullishOr(options.trialTimeout).pipe(
+    Option.flatMap(Duration.fromInput)
   )
 
 const maxDurationFromOptions = <Config, Space extends SearchSpace.SearchSpace>(
   options: OptimizePlan<Config, Space>
 ): Option.Option<Duration.Duration> =>
-  Option.fromNullable(options.maxDuration).pipe(
-    Option.flatMap((duration) => Duration.decodeUnknown(duration))
+  Option.fromNullishOr(options.maxDuration).pipe(
+    Option.flatMap(Duration.fromInput)
   )
 
 const priorWeightFromOptions = <Config, Space extends SearchSpace.SearchSpace>(
   options: OptimizePlan<Config, Space>
 ): number =>
-  Option.fromNullable(options.priorWeight).pipe(
+  Option.fromNullishOr(options.priorWeight).pipe(
     Option.getOrElse(() => 1)
   )
 
 const maxCostFromOptions = <Config, Space extends SearchSpace.SearchSpace>(
   options: OptimizePlan<Config, Space>
-): Option.Option<number> => Option.fromNullable(options.maxCost)
+): Option.Option<number> => Option.fromNullishOr(options.maxCost)
 
 const targetValueFromOptions = <Config, Space extends SearchSpace.SearchSpace>(
   options: OptimizePlan<Config, Space>
-): Option.Option<number> => Option.fromNullable(options.targetValue)
+): Option.Option<number> => Option.fromNullishOr(options.targetValue)
 
 const noImprovementWindowFromOptions = <Config, Space extends SearchSpace.SearchSpace>(
   options: OptimizePlan<Config, Space>
-): Option.Option<number> => Option.fromNullable(options.noImprovementWindow)
+): Option.Option<number> => Option.fromNullishOr(options.noImprovementWindow)
 
 const epsilonFromOptions = <Config, Space extends SearchSpace.SearchSpace>(
   options: OptimizePlan<Config, Space>
 ): number =>
-  Option.fromNullable(options.epsilon).pipe(
+  Option.fromNullishOr(options.epsilon).pipe(
     Option.getOrElse(() => 0)
   )
 
@@ -99,13 +99,13 @@ export const normalizeSettings = <Config, Space extends SearchSpace.SearchSpace>
 ): OptimizeSettings =>
   new OptimizeSettings({
     objectiveSpec: fromOptions({
-      ...Option.fromNullable(options.direction).pipe(
+      ...Option.fromNullishOr(options.direction).pipe(
         Option.match({
           onNone: () => ({}),
           onSome: (direction) => ({ direction })
         })
       ),
-      ...Option.fromNullable(options.directions).pipe(
+      ...Option.fromNullishOr(options.directions).pipe(
         Option.match({
           onNone: () => ({}),
           onSome: (directions) => ({ directions: Arr.fromIterable(directions) })
@@ -115,10 +115,10 @@ export const normalizeSettings = <Config, Space extends SearchSpace.SearchSpace>
     trials: options.trials,
     concurrency: concurrencyFromOptions(options),
     evaluationsPerTrial: evaluationsPerTrialFromOptions(options),
-    stopMode: Stop.modeOrDefault(Option.fromNullable(options.stopMode)),
+    stopMode: Stop.modeOrDefault(Option.fromNullishOr(options.stopMode)),
     priorWeight: priorWeightFromOptions(options),
     epsilon: epsilonFromOptions(options),
-    retrySchedule: retryScheduleOrDefault(Option.fromNullable(options.retrySchedule)),
+    retrySchedule: retryScheduleOrDefault(Option.fromNullishOr(options.retrySchedule)),
     ...maxCostFromOptions(options).pipe(
       Option.match({
         onNone: () => ({}),
@@ -163,7 +163,7 @@ export const normalizeSettings = <Config, Space extends SearchSpace.SearchSpace>
 export const pruningPolicyFromOptions = <Config, Space extends SearchSpace.SearchSpace>(
   options: OptimizePlan<Config, Space>
 ): Pruning.Policy =>
-  Option.fromNullable(options.pruningPolicy).pipe(
+  Option.fromNullishOr(options.pruningPolicy).pipe(
     Option.match({
       onNone: () => Pruning.never,
       onSome: (policy) => policy
@@ -190,49 +190,51 @@ export const validateSettings = (
   Effect.gen(function*() {
     yield* Effect.when(
       Effect.fail(new InvalidOptimizationConfig({ reason: "Optimization.run requires trials to be an integer >= 0" })),
-      () =>
+      Effect.succeed(
         Bool.or(
-          Bool.not(Schema.is(Schema.Number.pipe(Schema.int()))(settings.trials)),
-          Num.lessThan(settings.trials, 0)
+          Bool.not(Schema.is(Schema.Int)(settings.trials)),
+          Num.isLessThan(settings.trials, 0)
         )
+      )
     )
 
     yield* Effect.when(
       Effect.fail(
         new InvalidOptimizationConfig({ reason: "Optimization.run requires concurrency to be an integer >= 1" })
       ),
-      () =>
+      Effect.succeed(
         Bool.or(
-          Bool.not(Schema.is(Schema.Number.pipe(Schema.int()))(settings.concurrency)),
-          Num.lessThan(settings.concurrency, 1)
+          Bool.not(Schema.is(Schema.Int)(settings.concurrency)),
+          Num.isLessThan(settings.concurrency, 1)
         )
+      )
     )
 
     yield* Effect.when(
       Effect.fail(new InvalidOptimizationConfig({ reason: "Optimization.run requires evaluationsPerTrial >= 1" })),
-      () => Num.lessThan(settings.evaluationsPerTrial, 1)
+      Effect.succeed(Num.isLessThan(settings.evaluationsPerTrial, 1))
     )
 
     yield* Effect.when(
       Effect.fail(
         new InvalidOptimizationConfig({ reason: "Optimization.run requires evaluationsPerTrial to be an integer" })
       ),
-      () => Bool.not(Schema.is(Schema.Number.pipe(Schema.int()))(settings.evaluationsPerTrial))
+      Effect.succeed(Bool.not(Schema.is(Schema.Int)(settings.evaluationsPerTrial)))
     )
 
     yield* Effect.when(
       Effect.fail(
         new InvalidOptimizationConfig({ reason: "Optimization.run requires priorWeight to be finite and >= 0" })
       ),
-      () => Bool.or(Bool.not(isFinite(settings.priorWeight)), Num.lessThan(settings.priorWeight, 0))
+      Effect.succeed(Bool.or(Bool.not(isFinite(settings.priorWeight)), Num.isLessThan(settings.priorWeight, 0)))
     )
 
     yield* Effect.when(
       Effect.fail(new InvalidOptimizationConfig({ reason: "Optimization.run requires epsilon to be finite and >= 0" })),
-      () => Bool.or(Bool.not(isFinite(settings.epsilon)), Num.lessThan(settings.epsilon, 0))
+      Effect.succeed(Bool.or(Bool.not(isFinite(settings.epsilon)), Num.isLessThan(settings.epsilon, 0)))
     )
 
-    yield* Option.fromNullable(settings.maxCost).pipe(
+    yield* Option.fromNullishOr(settings.maxCost).pipe(
       Option.match({
         onNone: () => Effect.void,
         onSome: (maxCost) =>
@@ -240,12 +242,12 @@ export const validateSettings = (
             Effect.fail(
               new InvalidOptimizationConfig({ reason: "Optimization.run requires maxCost to be finite and >= 0" })
             ),
-            () => Bool.or(Bool.not(isFinite(maxCost)), Num.lessThan(maxCost, 0))
+            Effect.succeed(Bool.or(Bool.not(isFinite(maxCost)), Num.isLessThan(maxCost, 0)))
           )
       })
     )
 
-    yield* Option.fromNullable(settings.targetValue).pipe(
+    yield* Option.fromNullishOr(settings.targetValue).pipe(
       Option.match({
         onNone: () => Effect.void,
         onSome: (targetValue) =>
@@ -253,12 +255,12 @@ export const validateSettings = (
             Effect.fail(
               new InvalidOptimizationConfig({ reason: "Optimization.run requires targetValue to be finite" })
             ),
-            () => Bool.not(isFinite(targetValue))
+            Effect.succeed(Bool.not(isFinite(targetValue)))
           )
       })
     )
 
-    yield* Option.fromNullable(settings.noImprovementWindow).pipe(
+    yield* Option.fromNullishOr(settings.noImprovementWindow).pipe(
       Option.match({
         onNone: () => Effect.void,
         onSome: (noImprovementWindow) =>
@@ -268,11 +270,12 @@ export const validateSettings = (
                 reason: "Optimization.run requires noImprovementWindow to be an integer >= 1"
               })
             ),
-            () =>
+            Effect.succeed(
               Bool.or(
-                Bool.not(Schema.is(Schema.Number.pipe(Schema.int()))(noImprovementWindow)),
-                Num.lessThan(noImprovementWindow, 1)
+                Bool.not(Schema.is(Schema.Int)(noImprovementWindow)),
+                Num.isLessThan(noImprovementWindow, 1)
               )
+            )
           )
       })
     )
@@ -285,7 +288,7 @@ export const validateSettings = (
               reason: "Optimization.run supports epsilon only for multi-objective optimizations"
             })
           ),
-          () => Bool.not(Num.Equivalence(settings.epsilon, 0))
+          Effect.succeed(Bool.not(Num.Equivalence(settings.epsilon, 0)))
         ),
       Multi: () =>
         Effect.all(
@@ -296,7 +299,7 @@ export const validateSettings = (
                   reason: "Optimization.run supports targetValue only for single-objective optimizations"
                 })
               ),
-              () => Option.isSome(Option.fromNullable(settings.targetValue))
+              Effect.succeed(Option.isSome(Option.fromNullishOr(settings.targetValue)))
             ),
             Effect.when(
               Effect.fail(
@@ -304,7 +307,7 @@ export const validateSettings = (
                   reason: "Optimization.run supports noImprovementWindow only for single-objective optimizations"
                 })
               ),
-              () => Option.isSome(Option.fromNullable(settings.noImprovementWindow))
+              Effect.succeed(Option.isSome(Option.fromNullishOr(settings.noImprovementWindow)))
             )
           ),
           { discard: true }

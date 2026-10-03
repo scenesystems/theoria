@@ -1,5 +1,5 @@
 import { describe, expect, it } from "@effect/vitest"
-import { Array as Arr, Effect, Either, Match, Number as Num, Option, Stream } from "effect"
+import { Array as Arr, Effect, Match, Number as Num, Option, Result, Stream } from "effect"
 
 import * as Optimization from "../../src/Optimization.js"
 import type * as Pruning from "../../src/Pruning.js"
@@ -8,19 +8,19 @@ import * as Scheduler from "../../src/Scheduler.js"
 import * as SearchSpace from "../../src/SearchSpace.js"
 
 const space = SearchSpace.make({
-  x: SearchSpace.float(Num.negate(2), 2),
+  x: SearchSpace.float(Num.multiply(-1, 2), 2),
   budget: SearchSpace.fidelity(1, 9)
 })
 
 const objective = (
-  config: SearchSpace.Type<Effect.Effect.Success<typeof space>>,
+  config: { readonly x: number; readonly budget: number },
   runtime: Pruning.Runtime
-): Effect.Effect<number> =>
+) =>
   Effect.gen(function*() {
     const resource = yield* runtime.resource.pipe(Effect.map(Option.getOrElse(() => 1)))
 
     const distance = Num.subtract(config.x, 0.4)
-    return Num.sum(Num.multiply(distance, distance), Num.unsafeDivide(1, resource))
+    return Num.sum(Num.multiply(distance, distance), Num.divideUnsafe(1, resource))
   })
 
 const bestValue = <Config>(result: Optimization.Result<Config>): number =>
@@ -33,32 +33,38 @@ const bestValue = <Config>(result: Optimization.Result<Config>): number =>
 describe("hyperband scheduler", () => {
   it.effect("rejects non-finite topology values", () =>
     Effect.gen(function*() {
-      const invalidResource = yield* Effect.either(
-        Scheduler.hyperband({
-          maxResource: Number.NaN,
-          reductionFactor: 3,
-          sampler: Sampler.random()
-        })
+      const invalidResource = yield* Effect.result(
+        Scheduler.hyperband(
+          new Scheduler.HyperbandOptions({
+            maxResource: Number.NaN,
+            reductionFactor: 3,
+            sampler: Sampler.random()
+          })
+        )
       )
-      const invalidReduction = yield* Effect.either(
-        Scheduler.hyperband({
-          maxResource: 9,
-          reductionFactor: Number.POSITIVE_INFINITY,
-          sampler: Sampler.random()
-        })
+      const invalidReduction = yield* Effect.result(
+        Scheduler.hyperband(
+          new Scheduler.HyperbandOptions({
+            maxResource: 9,
+            reductionFactor: Number.POSITIVE_INFINITY,
+            sampler: Sampler.random()
+          })
+        )
       )
 
-      expect(Either.isLeft(invalidResource)).toBe(true)
-      expect(Either.isLeft(invalidReduction)).toBe(true)
+      expect(Result.isFailure(invalidResource)).toBe(true)
+      expect(Result.isFailure(invalidReduction)).toBe(true)
     }))
 
   it.effect("builds deterministic bracket topology", () =>
     Effect.gen(function*() {
-      const scheduler = yield* Scheduler.hyperband({
-        maxResource: 9,
-        reductionFactor: 3,
-        sampler: Sampler.random({ seed: 11 })
-      })
+      const scheduler = yield* Scheduler.hyperband(
+        new Scheduler.HyperbandOptions({
+          maxResource: 9,
+          reductionFactor: 3,
+          sampler: Sampler.random({ seed: 11 })
+        })
+      )
 
       expect(scheduler.mode).toBe("hyperband")
       expect(Scheduler.totalTrials(scheduler)).toBe(22)
@@ -75,24 +81,30 @@ describe("hyperband scheduler", () => {
     "runs bracket/round events and attaches scheduler summary to optimization result",
     () =>
       Effect.gen(function*() {
-        const scheduler = yield* Scheduler.hyperband({
-          maxResource: 9,
-          reductionFactor: 3,
-          sampler: Sampler.random({ seed: 21 })
-        })
-        const events = yield* Optimization.stream({
-          space: yield* space,
-          scheduler,
-          direction: "minimize",
-          objective
-        }).pipe(Stream.runCollect)
+        const scheduler = yield* Scheduler.hyperband(
+          new Scheduler.HyperbandOptions({
+            maxResource: 9,
+            reductionFactor: 3,
+            sampler: Sampler.random({ seed: 21 })
+          })
+        )
+        const events = yield* Optimization.stream(
+          new Optimization.ScheduledOptions({
+            space: yield* space,
+            scheduler,
+            direction: "minimize",
+            objective
+          })
+        ).pipe(Stream.runCollect)
         const tags = Arr.map(Arr.fromIterable(events), (event) => event._tag)
-        const result = yield* Optimization.run({
-          space: yield* space,
-          scheduler,
-          direction: "minimize",
-          objective
-        })
+        const result = yield* Optimization.run(
+          new Optimization.ScheduledOptions({
+            space: yield* space,
+            scheduler,
+            direction: "minimize",
+            objective
+          })
+        )
 
         expect(tags).toContain("BracketStarted")
         expect(tags).toContain("RoundStarted")
@@ -100,7 +112,7 @@ describe("hyperband scheduler", () => {
         expect(tags).toContain("BracketCompleted")
         expect(Arr.last(tags)).toEqual(Option.some("Completed"))
         expect(result.trials).toHaveLength(Scheduler.totalTrials(scheduler))
-        expect(Option.isSome(Option.fromNullable(result.schedulerSummary))).toBe(true)
+        expect(Option.isSome(Option.fromNullishOr(result.schedulerSummary))).toBe(true)
         expect(bestValue(result)).toBeLessThan(0.5)
       }),
     15_000

@@ -4,35 +4,34 @@
  * @since 0.7.0
  * @module
  */
-import type { FileSystem, Path } from "@effect/platform"
 import type * as Journal from "@scenesystems/effect-study/Journal"
 import * as StudyStorage from "@scenesystems/effect-study/StudyStorage"
-import { Array as Arr, Effect, Layer, Number as Num, Option, Schema, Tuple } from "effect"
-import type * as Context from "effect/Context"
+import type { FileSystem, Path } from "effect"
+import { Array as Arr, Context, Effect, Layer, Number as Num, Option, Schema, Tuple } from "effect"
 
 import * as OptimizationSnapshot from "./OptimizationSnapshot.js"
 
 const Trials = Schema.Array(OptimizationSnapshot.Trial)
 
 /** Optimization checkpoint and replay-tail policy. @since 0.7.0 @category services */
-export class OptimizationStorage extends Effect.Tag("@scenesystems/effect-search/OptimizationStorage")<
+export class OptimizationStorage extends Context.Service<
   OptimizationStorage,
   {
     readonly appendTrial: (trial: OptimizationSnapshot.Trial) => Effect.Effect<void, Journal.Failure>
     readonly writeSnapshot: (
       snapshot: OptimizationSnapshot.OptimizationSnapshot
     ) => Effect.Effect<void, Journal.Failure>
-    readonly loadSnapshot: () => Effect.Effect<
+    readonly loadSnapshot: (_?: void) => Effect.Effect<
       Option.Option<OptimizationSnapshot.OptimizationSnapshot>,
       Journal.Failure
     >
-    readonly loadTrialLog: () => Effect.Effect<typeof Trials.Type, Journal.Failure>
-    readonly replayTrialLog: () => Effect.Effect<typeof Trials.Type, Journal.Failure>
+    readonly loadTrialLog: (_?: void) => Effect.Effect<typeof Trials.Type, Journal.Failure>
+    readonly replayTrialLog: (_?: void) => Effect.Effect<typeof Trials.Type, Journal.Failure>
   }
->() {}
+>()("@scenesystems/effect-search/OptimizationStorage") {}
 
 /** Optimization storage implementation. @since 0.7.0 @category models */
-export type Service = Context.Tag.Service<typeof OptimizationStorage>
+export type Service = OptimizationStorage["Service"]
 
 const specialize = (storage: StudyStorage.Service): Service => {
   const loadSnapshot = storage.loadSnapshot(OptimizationSnapshot.OptimizationSnapshot)
@@ -48,7 +47,7 @@ const specialize = (storage: StudyStorage.Service): Service => {
           Option.match(snapshot, {
             onNone: () => trials,
             onSome: (value) =>
-              Arr.filter(trials, (trial) => Num.greaterThanOrEqualTo(trial.trialNumber, value.nextTrialNumber))
+              Arr.filter(trials, (trial) => Num.isGreaterThanOrEqualTo(trial.trialNumber, value.nextTrialNumber))
           })
         )
       )

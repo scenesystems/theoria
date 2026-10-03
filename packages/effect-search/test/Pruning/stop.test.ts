@@ -1,6 +1,6 @@
 import { expect, it } from "@effect/vitest"
 import * as Journal from "@scenesystems/effect-study/Journal"
-import { Chunk, Effect, Either, Option, Ref } from "effect"
+import { Chunk, Effect, Option, Ref, Result } from "effect"
 
 import { EventPublisher, EventRuntime } from "../../src/internal/optimization/events.js"
 import { makeStopRef, requestOptimizationStop } from "../../src/internal/optimization/runtime/controls.js"
@@ -50,7 +50,7 @@ it.effect("preserves typed publication errors at the search boundary", () =>
     )
     const stopRef = yield* makeStopRef
 
-    const result = yield* requestOptimizationStop(runtime, stopRef, "Drain", 2, "persist").pipe(Effect.either)
+    const result = yield* requestOptimizationStop(runtime, stopRef, "Drain", 2, "persist").pipe(Effect.result)
 
-    expect(result).toEqual(Either.left(failure))
+    expect(result).toEqual(Result.fail(failure))
   }))

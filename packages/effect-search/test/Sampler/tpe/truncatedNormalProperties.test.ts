@@ -1,49 +1,27 @@
 import { describe, expect, it } from "@effect/vitest"
-import { Array as Arr, Boolean as Bool, Effect, Equal, FastCheck as fc, Number as Num, Option, Tuple } from "effect"
+import { Arbitrary, Array as Arr, Boolean as Bool, Effect, Equal, Number as Num, Option, Schema, Tuple } from "effect"
 
 import * as Numeric from "@scenesystems/effect-math/Numeric"
 import { cdf, logPdf, sample, TruncatedNormalParams } from "../../../src/internal/tpe/truncatedNormal.js"
 
-const paramsInputArbitrary = fc.record({
-  mean: fc.double({
-    min: Num.negate(5),
-    max: 5,
-    noNaN: true,
-    noDefaultInfinity: true
-  }),
-  sigma: fc.double({
-    min: 1e-3,
-    max: 5,
-    noNaN: true,
-    noDefaultInfinity: true
-  }),
-  supportCenter: fc.double({
-    min: Num.negate(8),
-    max: 8,
-    noNaN: true,
-    noDefaultInfinity: true
-  }),
-  halfWidth: fc.double({
-    min: 1e-3,
-    max: 6,
-    noNaN: true,
-    noDefaultInfinity: true
-  })
+const paramsInputArbitrary = Arbitrary.all({
+  mean: Arbitrary.schema(
+    Schema.Finite.check(Schema.isBetween({ minimum: Num.multiply(-1, 5), maximum: 5 }))
+  ),
+  sigma: Arbitrary.schema(Schema.Finite.check(Schema.isBetween({ minimum: 1e-3, maximum: 5 }))),
+  supportCenter: Arbitrary.schema(
+    Schema.Finite.check(Schema.isBetween({ minimum: Num.multiply(-1, 8), maximum: 8 }))
+  ),
+  halfWidth: Arbitrary.schema(Schema.Finite.check(Schema.isBetween({ minimum: 1e-3, maximum: 6 })))
 })
 
-const quantileArbitrary = fc.double({
-  min: 1e-300,
-  max: Num.subtract(1, 1e-15),
-  noNaN: true,
-  noDefaultInfinity: true
-})
+const quantileArbitrary = Arbitrary.schema(
+  Schema.Finite.check(Schema.isBetween({ minimum: 1e-300, maximum: Num.subtract(1, 1e-15) }))
+)
 
-const rollArbitrary = fc.double({
-  min: Num.negate(2),
-  max: 2,
-  noNaN: true,
-  noDefaultInfinity: true
-})
+const rollArbitrary = Arbitrary.schema(
+  Schema.Finite.check(Schema.isBetween({ minimum: Num.multiply(-1, 2), maximum: 2 }))
+)
 
 const toParams = (input: {
   readonly mean: number
@@ -91,14 +69,14 @@ const deterministicTailCases = Arr.make(
     params: new TruncatedNormalParams({
       mean: 4,
       sigma: 0.8,
-      low: Num.negate(1),
-      high: Num.negate(0.3)
+      low: Num.multiply(-1, 1),
+      high: Num.multiply(-1, 0.3)
     })
   },
   {
     id: "mean-far-left-support-right",
     params: new TruncatedNormalParams({
-      mean: Num.negate(4),
+      mean: Num.multiply(-1, 4),
       sigma: 0.8,
       low: 0.3,
       high: 1
@@ -118,16 +96,16 @@ const deterministicTailCases = Arr.make(
     params: new TruncatedNormalParams({
       mean: 25,
       sigma: 2,
-      low: Num.negate(0.02),
+      low: Num.multiply(-1, 0.02),
       high: 0.03
     })
   },
   {
     id: "ultra-tight-support-far-left-mean",
     params: new TruncatedNormalParams({
-      mean: Num.negate(25),
+      mean: Num.multiply(-1, 25),
       sigma: 2,
-      low: Num.negate(0.03),
+      low: Num.multiply(-1, 0.03),
       high: 0.02
     })
   },
@@ -136,16 +114,16 @@ const deterministicTailCases = Arr.make(
     params: new TruncatedNormalParams({
       mean: 40,
       sigma: 1.5,
-      low: Num.negate(0.005),
+      low: Num.multiply(-1, 0.005),
       high: 0.004
     })
   },
   {
     id: "micro-support-far-left-mean",
     params: new TruncatedNormalParams({
-      mean: Num.negate(40),
+      mean: Num.multiply(-1, 40),
       sigma: 1.5,
-      low: Num.negate(0.004),
+      low: Num.multiply(-1, 0.004),
       high: 0.005
     })
   },
@@ -161,10 +139,10 @@ const deterministicTailCases = Arr.make(
   {
     id: "mean-near-high-bound-tiny-window",
     params: new TruncatedNormalParams({
-      mean: Num.negate(1.00005),
+      mean: Num.multiply(-1, 1.00005),
       sigma: 2e-4,
-      low: Num.negate(1.0005),
-      high: Num.negate(1)
+      low: Num.multiply(-1, 1.0005),
+      high: Num.multiply(-1, 1)
     })
   }
 )
@@ -177,7 +155,7 @@ const isMonotoneWithin = (values: Iterable<number>, tolerance: number): boolean 
       (value, index) =>
         Bool.or(
           Equal.equals(index, 0),
-          Num.greaterThanOrEqualTo(
+          Num.isGreaterThanOrEqualTo(
             Num.sum(value, tolerance),
             Arr.get(entries, Num.decrement(index)).pipe(
               Option.getOrElse(() => Number.NEGATIVE_INFINITY)
@@ -196,7 +174,7 @@ const valueAt = (values: Iterable<number>, index: number, fallback: number): num
 describe("truncated normal invariants", () => {
   it.effect("uses canonical signed-zero semantics for magnitude and square root", () =>
     Effect.sync(() => {
-      const negativeZero = Num.negate(0)
+      const negativeZero = Num.multiply(-1, 0)
       expect(Numeric.abs(negativeZero)).toBe(0)
       expect(Numeric.sqrt(negativeZero)).toBe(negativeZero)
     }))
@@ -207,7 +185,7 @@ describe("truncated normal invariants", () => {
     ([input]) =>
       Effect.sync(() => {
         const params = toParams(input)
-        const points = Arr.makeBy(41, (index) => supportPoint(params, Num.unsafeDivide(index, 40)))
+        const points = Arr.makeBy(41, (index) => supportPoint(params, Num.divideUnsafe(index, 40)))
         const values = Arr.map(points, (point) => cdf(point, params))
 
         expect(Numeric.abs(Num.subtract(valueAt(values, 0, 0), 0))).toBeLessThanOrEqual(CDF_EPSILON)
@@ -217,8 +195,8 @@ describe("truncated normal invariants", () => {
         expect(
           Arr.every(values, (value) =>
             Bool.and(
-              Num.greaterThanOrEqualTo(value, Num.negate(CDF_EPSILON)),
-              Num.lessThanOrEqualTo(value, Num.sum(1, CDF_EPSILON))
+              Num.isGreaterThanOrEqualTo(value, Num.multiply(-1, CDF_EPSILON)),
+              Num.isLessThanOrEqualTo(value, Num.sum(1, CDF_EPSILON))
             ))
         ).toBe(true)
         expect(cdfTraceIsMonotone(values)).toBe(true)
@@ -229,7 +207,7 @@ describe("truncated normal invariants", () => {
     "sample values stay in [low, high] for all rolls",
     Tuple.make(
       paramsInputArbitrary,
-      fc.array(rollArbitrary, { minLength: 1, maxLength: 128 })
+      Arbitrary.array(rollArbitrary, { minLength: 1, maxLength: 128 })
     ),
     ([input, rolls]) =>
       Effect.sync(() => {
@@ -238,7 +216,7 @@ describe("truncated normal invariants", () => {
 
         expect(
           Arr.every(draws, (draw) =>
-            Bool.and(Num.greaterThanOrEqualTo(draw, params.low), Num.lessThanOrEqualTo(draw, params.high)))
+            Bool.and(Num.isGreaterThanOrEqualTo(draw, params.low), Num.isLessThanOrEqualTo(draw, params.high)))
         ).toBe(true)
       })
   )
@@ -247,7 +225,7 @@ describe("truncated normal invariants", () => {
     "sample stays monotone as quantiles increase",
     Tuple.make(
       paramsInputArbitrary,
-      fc.array(quantileArbitrary, { minLength: 2, maxLength: 128 })
+      Arbitrary.array(quantileArbitrary, { minLength: 2, maxLength: 128 })
     ),
     ([input, quantiles]) =>
       Effect.sync(() => {
@@ -263,7 +241,7 @@ describe("truncated normal invariants", () => {
     "logPdf stays finite for points inside support",
     Tuple.make(
       paramsInputArbitrary,
-      fc.array(quantileArbitrary, { minLength: 1, maxLength: 64 })
+      Arbitrary.array(quantileArbitrary, { minLength: 1, maxLength: 64 })
     ),
     ([input, quantiles]) =>
       Effect.sync(() => {
@@ -278,7 +256,7 @@ describe("truncated normal invariants", () => {
     "cdf(sample(q)) round-trip remains stable across tail-heavy supports",
     Tuple.make(
       paramsInputArbitrary,
-      fc.array(quantileArbitrary, { minLength: 1, maxLength: 64 })
+      Arbitrary.array(quantileArbitrary, { minLength: 1, maxLength: 64 })
     ),
     ([input, quantiles]) =>
       Effect.sync(() => {
@@ -294,7 +272,7 @@ describe("truncated normal invariants", () => {
           return Numeric.abs(Num.subtract(recovered, clampedQuantile))
         })
 
-        expect(Arr.every(roundTripDiffs, Num.lessThanOrEqualTo(ROUNDTRIP_QUANTILE_TOLERANCE))).toBe(true)
+        expect(Arr.every(roundTripDiffs, Num.isLessThanOrEqualTo(ROUNDTRIP_QUANTILE_TOLERANCE))).toBe(true)
       })
   )
 
@@ -327,11 +305,11 @@ describe("truncated normal invariants", () => {
           expect(
             Arr.every(draws, (draw) =>
               Bool.and(
-                Num.greaterThanOrEqualTo(draw, tailCase.params.low),
-                Num.lessThanOrEqualTo(draw, tailCase.params.high)
+                Num.isGreaterThanOrEqualTo(draw, tailCase.params.low),
+                Num.isLessThanOrEqualTo(draw, tailCase.params.high)
               ))
           ).toBe(true)
-          expect(Arr.every(roundTripDiffs, Num.lessThanOrEqualTo(ROUNDTRIP_QUANTILE_TOLERANCE))).toBe(true)
+          expect(Arr.every(roundTripDiffs, Num.isLessThanOrEqualTo(ROUNDTRIP_QUANTILE_TOLERANCE))).toBe(true)
         }),
       { discard: true }
     ))

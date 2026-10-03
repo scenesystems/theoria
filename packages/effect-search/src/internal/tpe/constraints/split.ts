@@ -37,7 +37,7 @@ class InfeasibleRankingEntry extends Data.Class<{
 }> {}
 
 const trialNumberOrder = Order.mapInput(
-  Order.number,
+  Order.Number,
   (trial: CompletedTrialForSplit) => trial.trialNumber
 )
 
@@ -45,7 +45,7 @@ const sortByTrialNumber = (
   trialsInput: Iterable<CompletedTrialForSplit>
 ) => {
   const trials = Arr.fromIterable(trialsInput)
-  return Arr.sortBy(trialNumberOrder)(trials)
+  return Arr.sort(trials, trialNumberOrder)
 }
 
 const constraintCount = (trialsInput: Iterable<ConstraintAwareSplitTrial>): number => {
@@ -82,7 +82,7 @@ const splitCount = (
   size: number,
   nBelowOverride?: number
 ): number => {
-  const requested = Option.fromNullable(nBelowOverride).pipe(
+  const requested = Option.fromNullishOr(nBelowOverride).pipe(
     Option.getOrElse(() => defaultGamma(size))
   )
 
@@ -99,21 +99,21 @@ const rankedTrial = (
   new CompletedTrialForSplit({
     trialNumber: trial.trialNumber,
     config: trial.config,
-    value: Num.negate(logDensityProduct),
+    value: Num.multiply(-1, logDensityProduct),
     sortStep: trial.value,
-    ...Option.fromNullable(trial.observationWeight).pipe(
+    ...Option.fromNullishOr(trial.observationWeight).pipe(
       Option.match({
         onNone: () => ({}),
         onSome: (observationWeight) => ({ observationWeight })
       })
     ),
-    ...Option.fromNullable(trial.cost).pipe(
+    ...Option.fromNullishOr(trial.cost).pipe(
       Option.match({
         onNone: () => ({}),
         onSome: (cost) => ({ cost })
       })
     ),
-    ...Option.fromNullable(trial.variance).pipe(
+    ...Option.fromNullishOr(trial.variance).pipe(
       Option.match({
         onNone: () => ({}),
         onSome: (variance) => ({ variance })
@@ -159,7 +159,7 @@ export const splitWithConstraintFeasibility = (
 
   const normalizedTrials = normalizeTrials(trials)
   const count = constraintCount(normalizedTrials)
-  return Option.liftPredicate(normalizedTrials, () => Num.greaterThan(count, 0)).pipe(
+  return Option.liftPredicate(normalizedTrials, () => Num.isGreaterThan(count, 0)).pipe(
     Option.flatMap((nonEmptyConstraints) => {
       const feasible = Arr.filter(nonEmptyConstraints, (trial) => isConstraintVectorFeasible(trial.constraints))
       const infeasible = Arr.filter(
@@ -167,7 +167,7 @@ export const splitWithConstraintFeasibility = (
         (trial) => Bool.not(isConstraintVectorFeasible(trial.constraints))
       )
 
-      return Option.liftPredicate(feasible, (entries) => Num.greaterThan(Arr.length(entries), 0)).pipe(
+      return Option.liftPredicate(feasible, (entries) => Num.isGreaterThan(Arr.length(entries), 0)).pipe(
         Option.map((feasibleEntries) => {
           const targetBelow = splitCount(Arr.length(nonEmptyConstraints), nBelowOverride)
           const feasibleTrials = Arr.map(feasibleEntries, (trial) => trial.trial)
@@ -184,7 +184,7 @@ export const splitWithConstraintFeasibility = (
           })
           const infeasibleTrials = Arr.map(rankedInfeasible, (trial) => trial.original)
 
-          return Match.value(Num.lessThanOrEqualTo(targetBelow, Arr.length(feasibleTrials))).pipe(
+          return Match.value(Num.isLessThanOrEqualTo(targetBelow, Arr.length(feasibleTrials))).pipe(
             Match.when(true, () => {
               const feasibleSplit = splitTrials(feasibleTrials, () => targetBelow)
 

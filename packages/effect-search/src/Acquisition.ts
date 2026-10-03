@@ -33,7 +33,7 @@ import {
  * @since 0.1.0
  * @category schemas
  */
-export const Name = Schema.Literal("ei", "pi", "thompson")
+export const Name = Schema.Literals(["ei", "pi", "thompson"])
 
 /**
  * A built-in acquisition strategy name decoded by {@link Name}.
@@ -98,7 +98,7 @@ export const make = (name: string, score: Score): Acquisition => new Acquisition
 /** Tests whether an unknown value is an acquisition implementation. @since 0.7.0 @category guards */
 export const isAcquisition = (input: unknown): input is Acquisition =>
   Match.value(input).pipe(
-    Match.when(Predicate.isRecord, (record) =>
+    Match.when(Predicate.isObject, (record) =>
       Bool.and(
         Record.get(record, "name").pipe(Option.match({ onNone: () => false, onSome: Predicate.isString })),
         Record.get(record, "score").pipe(Option.match({ onNone: () => false, onSome: Predicate.isFunction }))
@@ -117,7 +117,7 @@ export const probabilityOfImprovement = make(
   "pi",
   ({ estimatedCost, logG, logL }) => {
     const ratio = exp(Num.subtract(logL, logG))
-    return scoreWithEstimatedCost(Num.unsafeDivide(ratio, Num.increment(ratio)), estimatedCost)
+    return scoreWithEstimatedCost(Num.divideUnsafe(ratio, Num.increment(ratio)), estimatedCost)
   }
 )
 
@@ -125,12 +125,12 @@ const rollEpsilon = 1e-12
 
 const clampRoll = (roll: number): number =>
   Match.value(roll).pipe(
-    Match.when(Num.lessThanOrEqualTo(rollEpsilon), () => rollEpsilon),
-    Match.when(Num.greaterThanOrEqualTo(Num.subtract(1, rollEpsilon)), () => Num.subtract(1, rollEpsilon)),
+    Match.when(Num.isLessThanOrEqualTo(rollEpsilon), () => rollEpsilon),
+    Match.when(Num.isGreaterThanOrEqualTo(Num.subtract(1, rollEpsilon)), () => Num.subtract(1, rollEpsilon)),
     Match.orElse((value) => value)
   )
 
-const gumbelNoise = (roll: number): number => Num.negate(logStrict(Num.negate(logStrict(clampRoll(roll)))))
+const gumbelNoise = (roll: number): number => Num.multiply(-1, logStrict(Num.multiply(-1, logStrict(clampRoll(roll)))))
 
 /** Thompson-sampling acquisition. @since 0.7.0 @category strategies */
 export const thompson = make(

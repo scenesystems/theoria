@@ -27,18 +27,19 @@ const bohbShouldExplore = (
     Match.orElse(() => {
       const minimumObservations = Num.increment(Num.max(dimensionCount, 0))
 
-      return Match.value(Num.lessThan(completedObservations, minimumObservations)).pipe(
+      return Match.value(Num.isLessThan(completedObservations, minimumObservations)).pipe(
         Match.when(true, () => Effect.succeed(true)),
         Match.orElse(() => {
-          const explorationFraction = Option.fromNullable(scheduler.randomFraction).pipe(
+          const explorationFraction = Option.fromNullishOr(scheduler.randomFraction).pipe(
             Option.getOrElse(() => 0.33)
           )
-          const rollSeed = Option.fromNullable(scheduler.seed).pipe(
+          const rollSeed = Option.fromNullishOr(scheduler.seed).pipe(
             Option.getOrElse(() => 0)
           )
 
-          return Rng.nextFloat(Rng.make(`bohb:${rollSeed}:${trialNumber}`)).pipe(
-            Effect.map((roll) => Num.lessThanOrEqualTo(roll, explorationFraction))
+          return Rng.make(`bohb:${rollSeed}:${trialNumber}`).pipe(
+            Effect.flatMap(Rng.nextFloat),
+            Effect.map((roll) => Num.isLessThanOrEqualTo(roll, explorationFraction))
           )
         })
       )
@@ -76,7 +77,7 @@ export const suggestByMode = <Space extends SearchSpace.SearchSpace>(
           settings,
           runtime,
           Sampler.random({
-            ...Option.fromNullable(scheduler.seed).pipe(
+            ...Option.fromNullishOr(scheduler.seed).pipe(
               Option.match({
                 onNone: () => ({}),
                 onSome: (seed) => ({ seed })

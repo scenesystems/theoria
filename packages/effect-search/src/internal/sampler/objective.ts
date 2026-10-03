@@ -4,7 +4,7 @@
  * @since 0.1.0
  */
 import { isFinite } from "@scenesystems/effect-math/Numeric"
-import { Array as Arr, Data, Effect, Match, Number as Num, Option } from "effect"
+import { Array as Arr, Data, Effect, Match, Number as Num, Option, Result } from "effect"
 
 import type { Vector } from "../../Objective.js"
 
@@ -47,7 +47,7 @@ const ensureSingleObjective = (
 const orientedValue = (direction: Direction, value: number): number =>
   Match.value(direction).pipe(
     Match.when("minimize", () => value),
-    Match.orElse(() => Num.negate(value))
+    Match.orElse(() => Num.multiply(-1, value))
   )
 
 const scalarFromObjective = (value: number | Vector): Option.Option<number> =>
@@ -76,7 +76,8 @@ export const scalarObservationsFromContext = (
               config: trial.config,
               value: orientedValue(direction, value)
             })
-          )
+          ),
+          Result.fromOption(() => void 0)
         ))
     )
   )

@@ -34,14 +34,20 @@ export const validateValue = (
   match({
     Single: () =>
       Effect.fail(new InvalidObjectiveValue({ trialNumber, value })).pipe(
-        Effect.when(() => Bool.not(Schema.is(Schema.JsonNumber)(value))),
+        Effect.when(Effect.sync(() => Bool.not(Schema.is(Schema.Finite)(value)))),
         Effect.asVoid
       ),
     Multi: ({ directions }) =>
       Effect.fail(new InvalidObjectiveValue({ trialNumber, value })).pipe(
-        Effect.when(() =>
-          Bool.not(Schema.is(Schema.Array(Schema.JsonNumber).pipe(Schema.itemsCount(Arr.length(directions))))(value))
-        ),
+        Effect.when(Effect.sync(() =>
+          Bool.not(
+            Schema.is(
+              Schema.Array(Schema.Finite).check(Schema.isBetweenLength(Arr.length(directions), Arr.length(directions)))
+            )(
+              value
+            )
+          )
+        )),
         Effect.asVoid
       )
   })(objectiveSpec)
@@ -59,24 +65,22 @@ export const pendingTrial = <Space extends SearchSpace.SearchSpace>(
 ): Effect.Effect<Trial.Trial<SearchSpace.Type<Space>>, SearchError> =>
   GenericStudy.read(state.runtime.study).pipe(
     Effect.flatMap((studyState) =>
-      Option.match(pendingTrialByNumber(studyState.history, trialNumber), {
-        onNone: () =>
-          Effect.fail(
-            invalid(
-              Arr.join(
-                Arr.make(
-                  "Optimization.",
-                  operation,
-                  " trial ",
-                  Schema.encodeSync(Schema.NumberFromString)(trialNumber),
-                  " is not reserved"
-                ),
-                ""
-              )
+      Effect.fromOption(
+        pendingTrialByNumber(studyState.history, trialNumber),
+        () =>
+          invalid(
+            Arr.join(
+              Arr.make(
+                "Optimization.",
+                operation,
+                " trial ",
+                Schema.encodeSync(Schema.FiniteFromString)(trialNumber),
+                " is not reserved"
+              ),
+              ""
             )
-          ),
-        onSome: Effect.succeed
-      })
+          )
+      )
     )
   )
 

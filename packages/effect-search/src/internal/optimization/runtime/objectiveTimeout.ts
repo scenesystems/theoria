@@ -21,19 +21,20 @@ export const evaluateObjectiveWithTimeout = <A, E, R>(
   objectiveEffect: Effect.Effect<A, E, R>,
   trialTimeout: Duration.Duration
 ): Effect.Effect<Option.Option<Exit.Exit<A, E>>, never, R> =>
-  Effect.gen(function*() {
-    const objectiveFiber = yield* Effect.fork(objectiveEffect)
+  Effect.scoped(Effect.gen(function*() {
+    const objectiveFiber = yield* Effect.forkScoped(objectiveEffect)
     const completed = yield* Fiber.await(objectiveFiber).pipe(Effect.timeoutOption(trialTimeout))
 
     return yield* Option.match(completed, {
       onSome: (exit) => Effect.succeedSome(exit),
       onNone: () =>
         Fiber.interrupt(objectiveFiber).pipe(
+          Effect.andThen(Fiber.await(objectiveFiber)),
           Effect.map(
             Exit.match({
               onSuccess: (value) => Option.some(Exit.succeed(value)),
               onFailure: (cause) =>
-                Bool.match(Cause.isInterruptedOnly(cause), {
+                Bool.match(Cause.hasInterruptsOnly(cause), {
                   onTrue: () => Option.none(),
                   onFalse: () => Option.some(Exit.failCause(cause))
                 })
@@ -41,4 +42,4 @@ export const evaluateObjectiveWithTimeout = <A, E, R>(
           )
         )
     })
-  })
+  }))

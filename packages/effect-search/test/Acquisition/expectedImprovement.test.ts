@@ -1,5 +1,5 @@
 import { describe, expect, it } from "@effect/vitest"
-import { Array as Arr, Effect, FastCheck as fc, Number as Num, Option, Schema, Tuple } from "effect"
+import { Array as Arr, Effect, Number as Num, Option, Schema, Tuple } from "effect"
 
 import {
   argmax,
@@ -11,13 +11,16 @@ import {
 describe("tpe expected improvement", () => {
   it.effect("computes EI scores as log_l minus log_g", () =>
     Effect.sync(() => {
-      expect(expectedImprovementScore(Num.negate(1.75), Num.negate(3.1))).toBeCloseTo(1.35, 12)
-      expect(expectedImprovementScore(Num.negate(3.1), Num.negate(1.75))).toBeCloseTo(Num.negate(1.35), 12)
+      expect(expectedImprovementScore(Num.multiply(-1, 1.75), Num.multiply(-1, 3.1))).toBeCloseTo(1.35, 12)
+      expect(expectedImprovementScore(Num.multiply(-1, 3.1), Num.multiply(-1, 1.75))).toBeCloseTo(
+        Num.multiply(-1, 1.35),
+        12
+      )
     }))
 
   it.effect("selects the candidate with maximal EI score", () =>
     Effect.sync(() => {
-      const scores = Arr.make(Num.negate(2.2), 0.4, 1.9, 1.2)
+      const scores = Arr.make(Num.multiply(-1, 2.2), 0.4, 1.9, 1.2)
       expect(argmax(scores)).toBe(2)
     }))
 
@@ -30,25 +33,26 @@ describe("tpe expected improvement", () => {
   it.effect.prop(
     "never emits NaN scores for finite inputs",
     Tuple.make(
-      fc.integer({ min: Num.negate(1_000_000), max: 1_000_000 }),
-      fc.integer({ min: Num.negate(1_000_000), max: 1_000_000 })
+      Schema.Int.check(Schema.isBetween({ minimum: Num.multiply(-1, 1_000_000), maximum: 1_000_000 })),
+      Schema.Int.check(Schema.isBetween({ minimum: Num.multiply(-1, 1_000_000), maximum: 1_000_000 }))
     ),
     ([logL, logG]) =>
       Effect.sync(() => {
-        expect(Schema.is(Schema.NonNaN)(expectedImprovementScore(logL, logG))).toBe(true)
+        expect(Schema.is(Schema.Finite)(expectedImprovementScore(logL, logG))).toBe(true)
       })
   )
 
   it.effect("accumulates joint log-density contributions for grouped EI", () =>
     Effect.sync(() => {
-      expect(sumLogDensities(Arr.make(Num.negate(1.2), Num.negate(0.3), Num.negate(2.5)))).toBeCloseTo(
-        Num.negate(4),
-        12
-      )
+      expect(sumLogDensities(Arr.make(Num.multiply(-1, 1.2), Num.multiply(-1, 0.3), Num.multiply(-1, 2.5))))
+        .toBeCloseTo(
+          Num.multiply(-1, 4),
+          12
+        )
       expect(
         jointExpectedImprovementScore(
-          Arr.make(Num.negate(1.2), Num.negate(0.3)),
-          Arr.make(Num.negate(2.1), Num.negate(1.1))
+          Arr.make(Num.multiply(-1, 1.2), Num.multiply(-1, 0.3)),
+          Arr.make(Num.multiply(-1, 2.1), Num.multiply(-1, 1.1))
         )
       ).toBeCloseTo(1.7, 12)
     }))
@@ -56,7 +60,8 @@ describe("tpe expected improvement", () => {
   it.effect.prop(
     "always chooses an index inside the provided candidate set",
     Tuple.make(
-      fc.array(fc.integer({ min: Num.negate(1_000_000), max: 1_000_000 }), { minLength: 1, maxLength: 100 })
+      Schema.Array(Schema.Int.check(Schema.isBetween({ minimum: Num.multiply(-1, 1_000_000), maximum: 1_000_000 })))
+        .check(Schema.isMinLength(1), Schema.isMaxLength(100))
     ),
     ([scores]) =>
       Effect.sync(() => {

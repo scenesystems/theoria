@@ -200,7 +200,7 @@ export const runScheduledTrial = <Space extends SearchSpace.SearchSpace>(
             ).pipe(Effect.asVoid)
         })
       }),
-      () => Bool.not(skipTrial)
+      Effect.succeed(Bool.not(skipTrial))
     )
   })
 

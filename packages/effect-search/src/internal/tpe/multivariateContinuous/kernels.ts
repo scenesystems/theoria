@@ -27,7 +27,7 @@ export class MultivariateCandidateRoll extends Data.Class<{
 }> {}
 
 const indices = (count: number) =>
-  Match.value(Num.lessThanOrEqualTo(count, 0)).pipe(
+  Match.value(Num.isLessThanOrEqualTo(count, 0)).pipe(
     Match.when(true, () => Arr.empty<number>()),
     Match.orElse(() => Arr.makeBy(count, (index) => index))
   )
@@ -50,18 +50,18 @@ export const valueAt = (valuesInput: Iterable<number>, index: number, fallback: 
 
 const average = (valuesInput: Iterable<number>): number => {
   const values = Arr.fromIterable(valuesInput)
-  return Match.value(Num.lessThanOrEqualTo(Arr.length(values), 0)).pipe(
+  return Match.value(Num.isLessThanOrEqualTo(Arr.length(values), 0)).pipe(
     Match.when(true, () => 0),
-    Match.orElse(() => Num.unsafeDivide(Arr.reduce(values, 0, (sum, value) => Num.sum(sum, value)), Arr.length(values)))
+    Match.orElse(() => Num.divideUnsafe(Arr.reduce(values, 0, (sum, value) => Num.sum(sum, value)), Arr.length(values)))
   )
 }
 
 const stddev = (valuesInput: Iterable<number>, mean: number): number => {
   const values = Arr.fromIterable(valuesInput)
-  return Match.value(Num.lessThanOrEqualTo(Arr.length(values), 0)).pipe(
+  return Match.value(Num.isLessThanOrEqualTo(Arr.length(values), 0)).pipe(
     Match.when(true, () => 1),
     Match.orElse(() => {
-      const variance = Num.unsafeDivide(
+      const variance = Num.divideUnsafe(
         Arr.reduce(values, 0, (sum, value) => {
           const centered = Num.subtract(value, mean)
           return Num.sum(sum, Num.multiply(centered, centered))
@@ -114,9 +114,9 @@ export const statsByDimension = (
  * @category constructors
  */
 export const uniformWeights = (componentCount: number) =>
-  Match.value(Num.lessThanOrEqualTo(componentCount, 0)).pipe(
+  Match.value(Num.isLessThanOrEqualTo(componentCount, 0)).pipe(
     Match.when(true, () => Arr.empty<number>()),
-    Match.orElse(() => Arr.makeBy(componentCount, () => Num.unsafeDivide(1, componentCount)))
+    Match.orElse(() => Arr.makeBy(componentCount, () => Num.divideUnsafe(1, componentCount)))
   )
 
 /**

@@ -22,13 +22,13 @@ const invalidSchedulerConfig = (reason: string): InvalidOptimizationConfig =>
   })
 
 const countFromRound = (baseConfigs: number, reductionFactor: number, roundIndex: number): number =>
-  Num.max(1, floor(Num.unsafeDivide(baseConfigs, pow(reductionFactor, roundIndex))))
+  Num.max(1, floor(Num.divideUnsafe(baseConfigs, pow(reductionFactor, roundIndex))))
 
 const resourceFromRound = (baseResource: number, reductionFactor: number, roundIndex: number): number =>
   Num.max(1, floor(Num.multiply(baseResource, pow(reductionFactor, roundIndex))))
 
 const sMaxFrom = (maxResource: number, reductionFactor: number): number =>
-  floor(Num.unsafeDivide(log(maxResource), log(reductionFactor)))
+  floor(Num.divideUnsafe(log(maxResource), log(reductionFactor)))
 
 const roundCountFromBracket = (bracketLevel: number): number => Num.increment(bracketLevel)
 
@@ -52,8 +52,8 @@ const bracketAtLevel = (
 ): Bracket => {
   const numerator = Num.multiply(Num.increment(sMax), pow(reductionFactor, bracketLevel))
   const denominator = Num.increment(bracketLevel)
-  const configs = Num.max(1, ceil(Num.unsafeDivide(numerator, denominator)))
-  const minResource = Num.max(1, floor(Num.unsafeDivide(maxResource, pow(reductionFactor, bracketLevel))))
+  const configs = Num.max(1, ceil(Num.divideUnsafe(numerator, denominator)))
+  const minResource = Num.max(1, floor(Num.divideUnsafe(maxResource, pow(reductionFactor, bracketLevel))))
 
   return new Bracket({
     index: Num.subtract(sMax, bracketLevel),
@@ -70,11 +70,11 @@ const validateSchedulerNumbers = (
   Effect.gen(function*() {
     yield* Effect.when(
       Effect.fail(invalidSchedulerConfig("hyperband requires maxResource >= 1")),
-      () => Bool.or(Bool.not(isFinite(maxResource)), Num.lessThan(maxResource, 1))
+      Effect.sync(() => Bool.or(Bool.not(isFinite(maxResource)), Num.isLessThan(maxResource, 1)))
     )
     yield* Effect.when(
       Effect.fail(invalidSchedulerConfig("hyperband requires reductionFactor >= 2")),
-      () => Bool.or(Bool.not(isFinite(reductionFactor)), Num.lessThan(reductionFactor, 2))
+      Effect.sync(() => Bool.or(Bool.not(isFinite(reductionFactor)), Num.isLessThan(reductionFactor, 2)))
     )
   })
 
@@ -99,7 +99,7 @@ const bohbExplorationRatio = (candidate: Option.Option<number>): Effect.Effect<n
     onSome: (ratio) =>
       Match.value(Bool.or(
         Bool.not(isFinite(ratio)),
-        Bool.or(Num.lessThan(ratio, 0), Num.greaterThan(ratio, 1))
+        Bool.or(Num.isLessThan(ratio, 0), Num.isGreaterThan(ratio, 1))
       )).pipe(
         Match.when(true, () => Effect.fail(invalidSchedulerConfig("bohb explorationRatio must be between 0 and 1"))),
         Match.orElse(() => Effect.succeed(ratio))
@@ -159,25 +159,57 @@ export const bohb = (
 ): Effect.Effect<Plan, InvalidOptimizationConfig> =>
   Effect.gen(function*() {
     const brackets = yield* buildBrackets(options.maxResource, options.reductionFactor)
-    const explorationRatio = yield* bohbExplorationRatio(Option.fromNullable(options.explorationRatio))
+    const explorationRatio = yield* bohbExplorationRatio(Option.fromNullishOr(options.explorationRatio))
 
     const tpeSampler = Sampler.tpe(
-      Option.fromNullable(options.tpeOptions).pipe(
+      Option.fromNullishOr(options.tpeOptions).pipe(
         Option.match({
           onNone: () =>
             new Sampler.TpeOptions({
-              ...Option.match(Option.fromNullable(options.seed), {
+              ...Option.match(Option.fromNullishOr(options.seed), {
                 onNone: () => ({}),
                 onSome: (seed) => ({ seed })
               })
             }),
-          onSome: (tpeOptions) => ({
-            ...tpeOptions,
-            ...Option.match(
-              Option.orElse(Option.fromNullable(tpeOptions.seed), () => Option.fromNullable(options.seed)),
-              { onNone: () => ({}), onSome: (seed) => ({ seed }) }
-            )
-          })
+          onSome: (tpeOptions) =>
+            new Sampler.TpeOptions({
+              ...Option.match(Option.fromNullishOr(tpeOptions.nStartupTrials), {
+                onNone: () => ({}),
+                onSome: (nStartupTrials) => ({ nStartupTrials })
+              }),
+              ...Option.match(Option.fromNullishOr(tpeOptions.nEiCandidates), {
+                onNone: () => ({}),
+                onSome: (nEiCandidates) => ({ nEiCandidates })
+              }),
+              ...Option.match(Option.fromNullishOr(tpeOptions.multivariate), {
+                onNone: () => ({}),
+                onSome: (multivariate) => ({ multivariate })
+              }),
+              ...Option.match(Option.fromNullishOr(tpeOptions.groupDimensions), {
+                onNone: () => ({}),
+                onSome: (groupDimensions) => ({ groupDimensions })
+              }),
+              ...Option.match(Option.fromNullishOr(tpeOptions.noiseAware), {
+                onNone: () => ({}),
+                onSome: (noiseAware) => ({ noiseAware })
+              }),
+              ...Option.match(Option.fromNullishOr(tpeOptions.noiseAlpha), {
+                onNone: () => ({}),
+                onSome: (noiseAlpha) => ({ noiseAlpha })
+              }),
+              ...Option.match(Option.fromNullishOr(tpeOptions.acquisition), {
+                onNone: () => ({}),
+                onSome: (acquisition) => ({ acquisition })
+              }),
+              ...Option.match(Option.fromNullishOr(tpeOptions.constraints), {
+                onNone: () => ({}),
+                onSome: (constraints) => ({ constraints })
+              }),
+              ...Option.match(
+                Option.orElse(Option.fromNullishOr(tpeOptions.seed), () => Option.fromNullishOr(options.seed)),
+                { onNone: () => ({}), onSome: (seed) => ({ seed }) }
+              )
+            })
         })
       )
     )
@@ -190,7 +222,7 @@ export const bohb = (
       brackets: Chunk.fromIterable(brackets),
       randomFraction: explorationRatio,
       minObservations: 1,
-      ...Option.fromNullable(options.seed).pipe(
+      ...Option.fromNullishOr(options.seed).pipe(
         Option.match({
           onNone: () => ({}),
           onSome: (seed) => ({ seed })

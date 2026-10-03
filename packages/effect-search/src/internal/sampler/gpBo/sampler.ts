@@ -37,7 +37,7 @@ export const make = (
   const nCandidates = candidatesFromOptions(snapshotOptions)
   const lengthScale = lengthScaleFromOptions(snapshotOptions)
   const noise = noiseFromOptions(snapshotOptions)
-  const acquisition = Option.fromNullable(snapshotOptions.acquisition)
+  const acquisition = Option.fromNullishOr(snapshotOptions.acquisition)
 
   return new Sampler.Sampler({
     kind: Sampler.GpBo({ options: snapshotOptions }),

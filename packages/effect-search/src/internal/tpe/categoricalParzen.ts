@@ -2,12 +2,12 @@ import {
   Array as Arr,
   Boolean as Bool,
   Effect,
-  Either,
   Equal,
   Match,
   Number as Num,
   Option,
   Predicate,
+  Result,
   Schema,
   Tuple
 } from "effect"
@@ -19,13 +19,17 @@ import { exp } from "../exponential.js"
 import { defaultWeights } from "./recencyWeights.js"
 
 export const CategoricalKernelSchema = Schema.Struct({
-  probabilities: Schema.Array(Schema.Number)
+  probabilities: Schema.Array(Schema.Finite)
 })
 
 export type CategoricalKernel = Schema.Schema.Type<typeof CategoricalKernelSchema>
 
+const isCategoricalDistanceEvaluator = (
+  input: unknown
+): input is (observed: Choice, candidate: Choice) => number => Predicate.isFunction(input)
+
 const CategoricalDistanceEvaluatorSchema = Schema.declare(
-  Predicate.isFunction,
+  isCategoricalDistanceEvaluator,
   { identifier: "@scenesystems/effect-search/internal/tpe/categoricalParzen/CategoricalDistanceEvaluator" }
 )
 
@@ -38,21 +42,21 @@ export class CategoricalDistanceFunction extends Schema.Class<CategoricalDistanc
 export class CategoricalParzenOptions extends Schema.Class<CategoricalParzenOptions>(
   "@scenesystems/effect-search/internal/tpe/categoricalParzen/CategoricalParzenOptions"
 )({
-  priorWeight: Schema.optional(Schema.Number),
+  priorWeight: Schema.optional(Schema.Finite),
   distance: Schema.optional(CategoricalDistanceFunction)
 }) {}
 
 const CategoricalParzenInputOptionsSchema = Schema.Struct({
-  priorWeight: Schema.optional(Schema.Number),
-  distance: Schema.optional(Schema.Union(CategoricalDistanceFunction, CategoricalDistanceEvaluatorSchema))
+  priorWeight: Schema.optional(Schema.Finite),
+  distance: Schema.optional(Schema.Union([CategoricalDistanceFunction, CategoricalDistanceEvaluatorSchema]))
 })
 
 type CategoricalParzenInputOptions = Schema.Schema.Type<typeof CategoricalParzenInputOptionsSchema>
 
 export const CategoricalParzenSchema = Schema.Struct({
   choices: Schema.Array(Choice),
-  kernelWeights: Schema.Array(Schema.Number),
-  probabilities: Schema.Array(Schema.Number),
+  kernelWeights: Schema.Array(Schema.Finite),
+  probabilities: Schema.Array(Schema.Finite),
   kernels: Schema.Array(CategoricalKernelSchema)
 })
 
@@ -88,16 +92,16 @@ const normalize = (weightsInput: Iterable<number>) => {
 
   const total = sum(weights)
 
-  return Match.value(Num.lessThanOrEqualTo(total, 0)).pipe(
+  return Match.value(Num.isLessThanOrEqualTo(total, 0)).pipe(
     Match.when(true, () => Arr.empty<number>()),
-    Match.orElse(() => Arr.map(weights, (weight) => Num.unsafeDivide(weight, total)))
+    Match.orElse(() => Arr.map(weights, (weight) => Num.divideUnsafe(weight, total)))
   )
 }
 
 const uniform = (count: number) =>
-  Match.value(Num.lessThanOrEqualTo(count, 0)).pipe(
+  Match.value(Num.isLessThanOrEqualTo(count, 0)).pipe(
     Match.when(true, () => Arr.empty<number>()),
-    Match.orElse(() => Arr.makeBy(count, () => Num.unsafeDivide(1, count)))
+    Match.orElse(() => Arr.makeBy(count, () => Num.divideUnsafe(1, count)))
   )
 
 const priorKernel = (choiceCount: number): CategoricalKernel => ({
@@ -134,13 +138,13 @@ const normalizedOptions = (
   readonly [Option.Option<number>, Option.Option<CategoricalDistanceFunction>],
   InvalidSamplerConfig
 > =>
-  Match.value(Schema.decodeUnknownEither(CategoricalParzenInputOptionsSchema)(options)).pipe(
+  Match.value(Schema.decodeResult(CategoricalParzenInputOptionsSchema)(options)).pipe(
     Match.when(
-      Either.isRight,
-      ({ right }) =>
+      Result.isSuccess,
+      ({ success }) =>
         Effect.succeed(Tuple.make(
-          Option.fromNullable(right.priorWeight),
-          normalizeDistance(Option.fromNullable(right.distance))
+          Option.fromNullishOr(success.priorWeight),
+          normalizeDistance(Option.fromNullishOr(success.distance))
         ))
     ),
     Match.orElse(() => Effect.fail(invalidCategoricalParzenOptions()))
@@ -157,20 +161,20 @@ const distanceKernelRaw = (
 
   const distances = Arr.map(choices, (choice) => asFiniteDistance(distance.evaluate(observed, choice)))
   const maxDistance = Arr.reduce(distances, 0, (currentMax, value) => Num.max(currentMax, value))
-  const normalizedDistances = Match.value(Num.lessThanOrEqualTo(maxDistance, 0)).pipe(
+  const normalizedDistances = Match.value(Num.isLessThanOrEqualTo(maxDistance, 0)).pipe(
     Match.when(true, () => Arr.map(distances, () => 0)),
-    Match.orElse(() => Arr.map(distances, (value) => Num.unsafeDivide(value, maxDistance)))
+    Match.orElse(() => Arr.map(distances, (value) => Num.divideUnsafe(value, maxDistance)))
   )
   const coefficient = Num.multiply(
-    logStrict(Num.unsafeDivide(nKernels, priorWeight)),
-    Num.unsafeDivide(logStrict(Arr.length(choices)), logStrict(6))
+    logStrict(Num.divideUnsafe(nKernels, priorWeight)),
+    Num.divideUnsafe(logStrict(Arr.length(choices)), logStrict(6))
   )
 
   return Arr.map(normalizedDistances, (distanceValue) =>
     exp(
       Num.multiply(
         Num.multiply(distanceValue, distanceValue),
-        Num.negate(coefficient)
+        Num.multiply(-1, coefficient)
       )
     ))
 }
@@ -184,7 +188,7 @@ const observationKernel = (
 ): CategoricalKernel => {
   const choices = Arr.fromIterable(choicesInput)
 
-  const smoothing = Num.unsafeDivide(priorWeight, nKernels)
+  const smoothing = Num.divideUnsafe(priorWeight, nKernels)
   const raw = distance.pipe(
     Option.match({
       onNone: () =>
@@ -209,7 +213,7 @@ const weightedKernelProbabilities = (
 ) => {
   const kernels = Arr.fromIterable(kernelsInput)
   const kernelWeights = Arr.fromIterable(kernelWeightsInput)
-  return Match.value(Bool.or(Num.lessThanOrEqualTo(Arr.length(kernels), 0), Num.lessThanOrEqualTo(choiceCount, 0)))
+  return Match.value(Bool.or(Num.isLessThanOrEqualTo(Arr.length(kernels), 0), Num.isLessThanOrEqualTo(choiceCount, 0)))
     .pipe(
       Match.when(true, () => Arr.empty<number>()),
       Match.orElse(() =>
@@ -234,7 +238,7 @@ export const buildCategoricalParzen = (
 ): Effect.Effect<CategoricalParzen, InvalidSamplerConfig> => {
   const choices = Arr.fromIterable(choicesInput)
   const observations = Arr.fromIterable(observationsInput)
-  return Match.value(Num.lessThanOrEqualTo(Arr.length(choices), 0)).pipe(
+  return Match.value(Num.isLessThanOrEqualTo(Arr.length(choices), 0)).pipe(
     Match.when(true, () =>
       Effect.succeed({
         choices,

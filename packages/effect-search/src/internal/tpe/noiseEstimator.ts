@@ -23,10 +23,10 @@ export const defaultNoiseBandwidthOptions = new NoiseBandwidthOptions({
 
 const average = (valuesInput: Iterable<number>): number => {
   const values = Arr.fromIterable(valuesInput)
-  return Match.value(Num.lessThanOrEqualTo(Arr.length(values), 0)).pipe(
+  return Match.value(Num.isLessThanOrEqualTo(Arr.length(values), 0)).pipe(
     Match.when(true, () => 0),
     Match.orElse(() =>
-      Num.unsafeDivide(
+      Num.divideUnsafe(
         Arr.reduce(values, 0, (total, value) => Num.sum(total, value)),
         Arr.length(values)
       )
@@ -39,10 +39,10 @@ const varianceFromMean = (
   mean: number
 ): number => {
   const values = Arr.fromIterable(valuesInput)
-  return Match.value(Num.lessThanOrEqualTo(Arr.length(values), 1)).pipe(
+  return Match.value(Num.isLessThanOrEqualTo(Arr.length(values), 1)).pipe(
     Match.when(true, () => 0),
     Match.orElse(() =>
-      Num.unsafeDivide(
+      Num.divideUnsafe(
         Arr.reduce(values, 0, (total, value) => {
           const centered = Num.subtract(value, mean)
           return Num.sum(total, Num.multiply(centered, centered))
@@ -65,11 +65,11 @@ const bandwidthFromSample = (
   span: number
 ): number => {
   const values = Arr.fromIterable(valuesInput)
-  return Match.value(Num.lessThanOrEqualTo(Arr.length(values), 1)).pipe(
+  return Match.value(Num.isLessThanOrEqualTo(Arr.length(values), 1)).pipe(
     Match.when(true, () => span),
     Match.orElse(() => {
       const stddev = sqrt(variance(values))
-      const scottFactor = pow(Arr.length(values), Num.negate(0.2))
+      const scottFactor = pow(Arr.length(values), Num.multiply(-1, 0.2))
       return Num.max(Num.multiply(stddev, scottFactor), noiseFloor)
     })
   )
@@ -80,7 +80,7 @@ const bootstrapIndex = (
   replicateIndex: number,
   sampleIndex: number
 ): number =>
-  Match.value(Num.lessThanOrEqualTo(observationCount, 0)).pipe(
+  Match.value(Num.isLessThanOrEqualTo(observationCount, 0)).pipe(
     Match.when(true, () => 0),
     Match.orElse(
       () =>
@@ -110,7 +110,7 @@ const bootstrapBandwidthVariance = (
   span: number
 ): number => {
   const observations = Arr.fromIterable(observationsInput)
-  return Match.value(Num.lessThanOrEqualTo(Arr.length(observations), 1)).pipe(
+  return Match.value(Num.isLessThanOrEqualTo(Arr.length(observations), 1)).pipe(
     Match.when(true, () => 0),
     Match.orElse(() =>
       variance(
@@ -123,7 +123,7 @@ const bootstrapBandwidthVariance = (
   )
 }
 
-const finiteNonNegative = (value: number): boolean => Bool.and(isFinite(value), Num.greaterThanOrEqualTo(value, 0))
+const finiteNonNegative = (value: number): boolean => Bool.and(isFinite(value), Num.isGreaterThanOrEqualTo(value, 0))
 
 const observationVarianceFromSources = (
   observationsInput: Iterable<number>,
@@ -148,7 +148,7 @@ export const estimateNoise = (
   const observationVariance = observationVarianceFromSources(observations, empiricalObservationVariance)
   const bootstrapVariance = bootstrapBandwidthVariance(observations, span)
   const normalizedNoise = Num.max(
-    Num.unsafeDivide(
+    Num.divideUnsafe(
       Num.sum(observationVariance, bootstrapVariance),
       Num.multiply(span, span)
     ),

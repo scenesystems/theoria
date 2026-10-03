@@ -1,21 +1,18 @@
 import { describe, expect, it } from "@effect/vitest"
-import { Array as Arr, Effect, Match, Number as Num, Option, Predicate, Schema } from "effect"
+import { Array as Arr, Effect, Match, Number as Num, Option, Schema } from "effect"
 
 import * as Numeric from "@scenesystems/effect-math/Numeric"
 import * as Optimization from "../../src/Optimization.js"
 import * as Sampler from "../../src/Sampler.js"
-import * as Trial from "../../src/Trial.js"
+import type * as Trial from "../../src/Trial.js"
 import { makeRandomTrainingSpace } from "../fixtures/scenarios/randomTraining.js"
 
 const valuesFromTrials = (trials: Iterable<Trial.Trial<unknown>>) =>
   Arr.flatMap(Arr.fromIterable(trials), (trial) =>
-    Trial.matchState({
-      Running: Arr.empty,
-      Completed: ({ value }) => Option.liftPredicate(value, Predicate.isNumber).pipe(Option.toArray),
-      Pruned: Arr.empty,
-      Failed: Arr.empty,
-      Cancelled: Arr.empty
-    })(trial.state))
+    Match.value(trial.state).pipe(
+      Match.tag("Completed", ({ value }) => Schema.decodeUnknownOption(Schema.Finite)(value).pipe(Option.toArray)),
+      Match.orElse(() => Arr.empty<number>())
+    ))
 
 const asSingleObjective = (result: Optimization.Result): Option.Option<Optimization.SingleObjectiveResult> =>
   Match.value(result).pipe(
@@ -26,31 +23,33 @@ const asSingleObjective = (result: Optimization.Result): Option.Option<Optimizat
 const runOptimization = (seed: number, direction: "minimize" | "maximize") =>
   Effect.gen(function*() {
     const space = yield* makeRandomTrainingSpace()
-    const decode = Schema.decodeUnknown(space.schema)
+    const decode = Schema.decodeUnknownEffect(space.schema)
 
-    return yield* Optimization.run({
-      space,
-      sampler: Sampler.random({ seed }),
-      direction,
-      trials: 18,
-      objective: (raw) =>
-        Effect.gen(function*() {
-          const config = yield* decode(raw)
-          const lrPenalty = Num.multiply(Numeric.abs(Num.subtract(config.lr, 0.02)), 100)
-          const optimizerPenalty = Match.value(config.optimizer).pipe(
-            Match.when("adam", () => 0),
-            Match.when("adamw", () => 0.15),
-            Match.orElse(() => 0.35)
-          )
-          const batchPenalty = Num.unsafeDivide(Numeric.abs(Num.subtract(config.batchSize, 32)), 16)
-          const normPenalty = Match.value(config.useBatchNorm).pipe(
-            Match.when(true, () => 0.05),
-            Match.orElse(() => 0.2)
-          )
+    return yield* Optimization.run(
+      new Optimization.FlatOptions({
+        space,
+        sampler: Sampler.random({ seed }),
+        direction,
+        trials: 18,
+        objective: (raw) =>
+          Effect.gen(function*() {
+            const config = yield* decode(raw)
+            const lrPenalty = Num.multiply(Numeric.abs(Num.subtract(config.lr, 0.02)), 100)
+            const optimizerPenalty = Match.value(config.optimizer).pipe(
+              Match.when("adam", () => 0),
+              Match.when("adamw", () => 0.15),
+              Match.orElse(() => 0.35)
+            )
+            const batchPenalty = Num.divideUnsafe(Numeric.abs(Num.subtract(config.batchSize, 32)), 16)
+            const normPenalty = Match.value(config.useBatchNorm).pipe(
+              Match.when(true, () => 0.05),
+              Match.orElse(() => 0.2)
+            )
 
-          return Num.sumAll(Arr.make(lrPenalty, optimizerPenalty, batchPenalty, normPenalty))
-        })
-    })
+            return Num.sumAll(Arr.make(lrPenalty, optimizerPenalty, batchPenalty, normPenalty))
+          })
+      })
+    )
   })
 
 describe("integration random optimization", () => {
@@ -59,7 +58,7 @@ describe("integration random optimization", () => {
       const optimized = yield* runOptimization(101, "minimize")
       const resultOption = asSingleObjective(optimized)
       expect(Option.isSome(resultOption)).toBe(true)
-      const result = yield* resultOption
+      const result = yield* Effect.fromOption(resultOption)
       expect(result._tag).toBe("SingleObjective")
       expect(result.completionReason).toBe("budgetExhausted")
       expect(result.trials).toHaveLength(18)
@@ -74,8 +73,8 @@ describe("integration random optimization", () => {
       const rightOption = asSingleObjective(right)
       expect(Option.isSome(leftOption)).toBe(true)
       expect(Option.isSome(rightOption)).toBe(true)
-      const leftResult = yield* leftOption
-      const rightResult = yield* rightOption
+      const leftResult = yield* Effect.fromOption(leftOption)
+      const rightResult = yield* Effect.fromOption(rightOption)
 
       expect(valuesFromTrials(leftResult.trials)).toEqual(valuesFromTrials(rightResult.trials))
       expect(leftResult.bestTrial.state.value).toBe(rightResult.bestTrial.state.value)
@@ -89,8 +88,8 @@ describe("integration random optimization", () => {
       const maximizeOption = asSingleObjective(maximizeOptimized)
       expect(Option.isSome(minimizeOption)).toBe(true)
       expect(Option.isSome(maximizeOption)).toBe(true)
-      const minimizeResult = yield* minimizeOption
-      const maximizeResult = yield* maximizeOption
+      const minimizeResult = yield* Effect.fromOption(minimizeOption)
+      const maximizeResult = yield* Effect.fromOption(maximizeOption)
       const minimizeValues = valuesFromTrials(minimizeResult.trials)
       const maximizeValues = valuesFromTrials(maximizeResult.trials)
       const minBaseline = Arr.head(minimizeValues).pipe(Option.getOrElse(() => Number.POSITIVE_INFINITY))

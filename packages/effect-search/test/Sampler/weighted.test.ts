@@ -1,5 +1,5 @@
 import { describe, expect, it } from "@effect/vitest"
-import { Array as Arr, Boolean as Bool, Effect, Equal, Match, Number as Num, Tuple } from "effect"
+import { Array as Arr, Boolean as Bool, Effect, Equal, Match, Number as Num } from "effect"
 
 import * as Numeric from "@scenesystems/effect-math/Numeric"
 
@@ -35,10 +35,10 @@ describe("Sampler weighted utilities", () => {
       const weights = Arr.make(
         { index: 9, weight: 0 },
         { index: 2, weight: 0 },
-        { index: 5, weight: Num.negate(1) }
+        { index: 5, weight: Num.multiply(-1, 1) }
       )
       const reordered = Arr.make(
-        { index: 5, weight: Num.negate(1) },
+        { index: 5, weight: Num.multiply(-1, 1) },
         { index: 9, weight: 0 },
         { index: 2, weight: 0 }
       )
@@ -63,9 +63,10 @@ describe("Sampler weighted utilities", () => {
       const scaledDraws = Sampler.sampleWeightedIndices(scaled, 1000, 1)
 
       expect(normalizedDraws).toEqual(scaledDraws)
-      expect(Arr.every(normalized, (entry) => Num.greaterThan(countSelections(normalizedDraws, entry.index), 0))).toBe(
-        true
-      )
+      expect(Arr.every(normalized, (entry) => Num.isGreaterThan(countSelections(normalizedDraws, entry.index), 0)))
+        .toBe(
+          true
+        )
     }))
 
   it.effect("tracks weighted probabilities on a deterministic stream", () =>
@@ -79,10 +80,10 @@ describe("Sampler weighted utilities", () => {
       const totalWeight = Arr.reduce(weights, 0, (sum, weight) => Num.sum(sum, weight.weight))
       const sampleCount = Arr.length(draws)
       const withinTolerance = Arr.every(weights, (weight) => {
-        const observed = Num.unsafeDivide(countSelections(draws, weight.index), sampleCount)
-        const expected = Num.unsafeDivide(weight.weight, totalWeight)
+        const observed = Num.divideUnsafe(countSelections(draws, weight.index), sampleCount)
+        const expected = Num.divideUnsafe(weight.weight, totalWeight)
 
-        return Num.lessThanOrEqualTo(Numeric.abs(Num.subtract(observed, expected)), 0.02)
+        return Num.isLessThanOrEqualTo(Numeric.abs(Num.subtract(observed, expected)), 0.02)
       })
 
       expect(sampleCount).toBe(10000)
@@ -93,13 +94,13 @@ describe("Sampler weighted utilities", () => {
     Effect.sync(() => {
       const weights = Arr.make(
         { index: 10, weight: 1 },
-        { index: Num.negate(2), weight: 2 },
+        { index: Num.multiply(-1, 2), weight: 2 },
         { index: 4, weight: 7 }
       )
       const reordered = Arr.make(
         { index: 4, weight: 7 },
         { index: 10, weight: 1 },
-        { index: Num.negate(2), weight: 2 }
+        { index: Num.multiply(-1, 2), weight: 2 }
       )
       const draws = Sampler.sampleWeightedIndices(weights, 100, 11)
 
@@ -112,7 +113,7 @@ describe("Sampler weighted utilities", () => {
       const weights = Arr.make(
         { index: 0, weight: Number.MAX_VALUE },
         { index: 1, weight: Number.MAX_VALUE },
-        { index: 2, weight: Num.unsafeDivide(Number.MAX_VALUE, 2) }
+        { index: 2, weight: Num.divideUnsafe(Number.MAX_VALUE, 2) }
       )
       const draws = Sampler.sampleWeightedIndices(weights, 10000, 42)
 
@@ -124,9 +125,9 @@ describe("Sampler weighted utilities", () => {
   it.effect("excludes non-finite and non-positive weights", () =>
     Effect.sync(() => {
       const weights = Arr.make(
-        { index: Num.negate(1), weight: Number.POSITIVE_INFINITY },
+        { index: Num.multiply(-1, 1), weight: Number.POSITIVE_INFINITY },
         { index: 2, weight: Number.NaN },
-        { index: 5, weight: Num.negate(1) },
+        { index: 5, weight: Num.multiply(-1, 1) },
         { index: 7, weight: Number.NEGATIVE_INFINITY },
         { index: 8, weight: 2 }
       )
@@ -144,7 +145,7 @@ describe("Sampler weighted utilities", () => {
     Effect.sync(() => {
       const weights = Arr.make({ index: 0, weight: 1 })
 
-      expect(Sampler.sampleWeightedIndices(weights, Num.negate(1), 7)).toEqual(Arr.empty())
+      expect(Sampler.sampleWeightedIndices(weights, Num.multiply(-1, 1), 7)).toEqual(Arr.empty())
       expect(Sampler.sampleWeightedIndices(weights, Number.NaN, 7)).toEqual(Arr.empty())
     }))
 
@@ -171,8 +172,8 @@ describe("Sampler weighted utilities", () => {
 
       expect(pairB).toEqual(pairA)
       expect(pairA).toEqual(sequence)
-      expect(Bool.not(Equal.equals(Tuple.getFirst(distinctPair), Tuple.getSecond(distinctPair)))).toBe(true)
-      expect(Bool.not(Equal.equals(Tuple.getFirst(zeroWeightDistinctPair), Tuple.getSecond(zeroWeightDistinctPair))))
+      expect(Bool.not(Equal.equals(distinctPair[0], distinctPair[1]))).toBe(true)
+      expect(Bool.not(Equal.equals(zeroWeightDistinctPair[0], zeroWeightDistinctPair[1])))
         .toBe(true)
     }))
 })

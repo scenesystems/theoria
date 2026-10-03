@@ -13,7 +13,7 @@ import * as SearchSpace from "../../../src/SearchSpace.js"
  * @since 0.1.0
  * @category models
  */
-export const LinearTreeModelChoices = Schema.Literal("linear", "tree").literals
+export const LinearTreeModelChoices = Schema.Literals(["linear", "tree"]).literals
 
 /**
  * Decodes the `linear` branch with numeric learning rate and regularization.
@@ -28,9 +28,9 @@ export const LinearConfig = Schema.Struct({
   /** Selects the linear branch. */
   model: Schema.Literal("linear"),
   /** Learning rate; any schema-valid number is accepted during standalone decoding. */
-  learningRate: Schema.Number,
+  learningRate: Schema.Finite,
   /** Regularization value; any schema-valid number is accepted during standalone decoding. */
-  regularization: Schema.Number
+  regularization: Schema.Finite
 })
 
 /**
@@ -57,7 +57,7 @@ export const TreeConfig = Schema.Struct({
  * @since 0.1.0
  * @category schemas
  */
-export const LinearTreeConditionalConfig = Schema.Union(LinearConfig, TreeConfig)
+export const LinearTreeConditionalConfig = Schema.Union([LinearConfig, TreeConfig])
 
 /**
  * Preserves the selected model branch and only that branch's parameters.
@@ -73,7 +73,7 @@ export type LinearTreeConditionalConfig = Schema.Schema.Type<typeof LinearTreeCo
  * @since 0.1.0
  * @category utils
  */
-export const decodeLinearTreeConditionalConfig = Schema.decodeUnknown(LinearTreeConditionalConfig)
+export const decodeLinearTreeConditionalConfig = Schema.decodeUnknownEffect(LinearTreeConditionalConfig)
 
 /**
  * Builds a conditional space that samples only parameters for the selected model.
@@ -86,21 +86,20 @@ export const decodeLinearTreeConditionalConfig = Schema.decodeUnknown(LinearTree
  * @since 0.1.0
  * @category constructors
  */
-export const makeLinearTreeConditionalSpace = () =>
-  Effect.gen(function*() {
-    const linear = yield* SearchSpace.make({
-      learningRate: SearchSpace.float(1e-4, 1e-1, { scale: "log" }),
-      regularization: SearchSpace.float(0, 1)
-    })
-    const tree = yield* SearchSpace.make({
-      maxDepth: SearchSpace.int(2, 12),
-      minSamplesLeaf: SearchSpace.int(1, 6)
-    })
-
-    return yield* SearchSpace.makeConditional(
-      {
-        model: SearchSpace.categorical(LinearTreeModelChoices)
-      },
-      SearchSpace.switchOn("model", Chunk.make(SearchSpace.when("linear", linear), SearchSpace.when("tree", tree)))
-    )
+export const makeLinearTreeConditionalSpace = Effect.gen(function*() {
+  const linear = yield* SearchSpace.make({
+    learningRate: SearchSpace.float(1e-4, 1e-1, { scale: "log" }),
+    regularization: SearchSpace.float(0, 1)
   })
+  const tree = yield* SearchSpace.make({
+    maxDepth: SearchSpace.int(2, 12),
+    minSamplesLeaf: SearchSpace.int(1, 6)
+  })
+
+  return yield* SearchSpace.makeConditional(
+    {
+      model: SearchSpace.categorical(LinearTreeModelChoices)
+    },
+    SearchSpace.switchOn("model", Chunk.make(SearchSpace.when("linear", linear), SearchSpace.when("tree", tree)))
+  )
+})

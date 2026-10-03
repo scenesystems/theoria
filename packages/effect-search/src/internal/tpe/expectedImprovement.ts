@@ -11,7 +11,7 @@ export const expectedImprovementScore = (
 ): ExpectedImprovementScore => Num.subtract(logL, logG)
 
 const finitePositiveCost = (estimatedCost: number): boolean =>
-  Bool.and(isFinite(estimatedCost), Num.greaterThan(estimatedCost, 0))
+  Bool.and(isFinite(estimatedCost), Num.isGreaterThan(estimatedCost, 0))
 
 export const scoreWithEstimatedCost = (
   score: ExpectedImprovementScore,
@@ -65,7 +65,7 @@ class ArgmaxCandidate extends Data.Class<{
   readonly score: number
 }> {}
 
-const isNonNaN = Schema.is(Schema.NonNaN)
+const isNonNaN = (value: number): boolean => Bool.not(Num.Equivalence(value, Number.NaN))
 
 export const argmax = (scores: Iterable<ExpectedImprovementScore>): number =>
   Arr.reduce(
@@ -76,7 +76,7 @@ export const argmax = (scores: Iterable<ExpectedImprovementScore>): number =>
         onFalse: () => currentBest,
         onTrue: () =>
           currentBest.pipe(
-            Option.filter((current) => Num.greaterThanOrEqualTo(current.score, candidateScore)),
+            Option.filter((current) => Num.isGreaterThanOrEqualTo(current.score, candidateScore)),
             Option.orElse(() => Option.some(new ArgmaxCandidate({ index, score: candidateScore })))
           )
       })

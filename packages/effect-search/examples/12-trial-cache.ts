@@ -18,21 +18,25 @@ const program = Effect.gen(function*() {
   const cachedRuns = Effect.gen(function*() {
     const objective = () => Ref.updateAndGet(objectiveCalls, Num.increment)
 
-    const first = yield* Optimization.minimize({
-      space,
-      sampler: Sampler.random({ seed: 31 }),
-      trials: 4,
-      concurrency: 1,
-      objective
-    })
+    const first = yield* Optimization.minimize(
+      new Optimization.FlatOptions({
+        space,
+        sampler: Sampler.random({ seed: 31 }),
+        trials: 4,
+        concurrency: 1,
+        objective
+      })
+    )
 
-    const second = yield* Optimization.minimize({
-      space,
-      sampler: Sampler.random({ seed: 31 }),
-      trials: 4,
-      concurrency: 1,
-      objective
-    })
+    const second = yield* Optimization.minimize(
+      new Optimization.FlatOptions({
+        space,
+        sampler: Sampler.random({ seed: 31 }),
+        trials: 4,
+        concurrency: 1,
+        objective
+      })
+    )
 
     return { first, second }
   }).pipe(

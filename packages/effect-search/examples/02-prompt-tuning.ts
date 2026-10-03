@@ -25,16 +25,18 @@ const program = Effect.gen(function*() {
       Match.orElse(() => 0.5)
     )
     const demoScore = Numeric.min(Num.multiply(config.fewShotCount, 0.15), 0.6)
-    const tokenScore = Num.multiply(Numeric.min(Num.unsafeDivide(config.maxTokens, 2048), 1.0), 0.3)
+    const tokenScore = Num.multiply(Numeric.min(Num.divideUnsafe(config.maxTokens, 2048), 1.0), 0.3)
     return Num.sumAll(Arr.make(tempScore, styleScore, demoScore, tokenScore))
   }
 
-  const result = yield* Optimization.maximize({
-    space,
-    sampler: Sampler.tpe({ seed: 42 }),
-    objective: (config) => Effect.succeed(promptQuality(config)),
-    trials: 40
-  })
+  const result = yield* Optimization.maximize(
+    new Optimization.FlatOptions({
+      space,
+      sampler: Sampler.tpe(new Sampler.TpeOptions({ seed: 42 })),
+      objective: (config) => Effect.succeed(promptQuality(config)),
+      trials: 40
+    })
+  )
 
   yield* Match.value(result).pipe(
     Match.tag("SingleObjective", ({ bestTrial, completionReason }) =>

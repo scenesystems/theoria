@@ -3,50 +3,31 @@
  *
  * @since 0.1.0
  */
-import { Array as Arr, Chunk, Record as Rec, Schema } from "effect"
+import { Array as Arr, Chunk, Match, Record as Rec, Schema } from "effect"
 
 import type { Choice } from "../../Distribution.js"
 import type { SearchSpace } from "../../SearchSpace.js"
 import { Case, Switch } from "../../SearchSpace.js"
 
-type BranchCaseType<
-  Discriminant extends string,
-  CaseSchema extends Schema.Schema.AnyNoContext,
-  ChoiceValue extends Choice
-> =
-  & {
-    readonly [Key in Discriminant]: ChoiceValue
-  }
-  & Schema.Schema.Type<CaseSchema>
-
-type BranchCaseEncoded<
-  Discriminant extends string,
-  CaseSchema extends Schema.Schema.AnyNoContext,
-  ChoiceValue extends Choice
-> =
-  & {
-    readonly [Key in Discriminant]: ChoiceValue
-  }
-  & Schema.Schema.Encoded<CaseSchema>
+type SpaceField = Schema.Codec<unknown, unknown, never, never>
+type BranchCodec = Schema.Union<ReadonlyArray<Schema.Struct<Readonly<Record<string, SpaceField>>>>>
 
 const branchSchema = <
   Discriminant extends string,
-  CaseSchema extends Schema.Schema.AnyNoContext,
+  CaseSchema extends BranchCodec,
   ChoiceValue extends Choice
 >(
   discriminant: Discriminant,
   entry: Case<CaseSchema, ChoiceValue>
 ) => {
-  const schema = Schema.extend(
-    Schema.Struct(Rec.singleton(discriminant, Schema.Literal(entry.when))),
-    entry.schema
+  const literal = Match.value(entry.when).pipe(
+    Match.when(Match.null, () => Schema.Null),
+    Match.orElse((value) => Schema.Literal(value))
   )
-
-  return Schema.make<
-    BranchCaseType<Discriminant, CaseSchema, ChoiceValue>,
-    BranchCaseEncoded<Discriminant, CaseSchema, ChoiceValue>,
-    never
-  >(schema.ast)
+  const discriminantField = Rec.singleton(discriminant, literal)
+  return entry.schema.mapMembers((members) =>
+    Arr.map(members, (member) => member.pipe(Schema.fieldsAssign(discriminantField)))
+  )
 }
 
 /**
@@ -66,7 +47,7 @@ const branchSchema = <
  */
 export const when = <
   ChoiceValue extends Choice,
-  SpaceSchema extends Schema.Schema.AnyNoContext
+  SpaceSchema extends BranchCodec
 >(
   value: ChoiceValue,
   space: SearchSpace<SpaceSchema>
@@ -101,20 +82,12 @@ export const switchOn = <
   discriminant: Discriminant,
   cases: Chunk.NonEmptyChunk<BranchCase>
 ) => {
-  const runtimeSchema = Arr.reduce(
-    Chunk.drop(cases, 1),
-    branchSchema(discriminant, Chunk.headNonEmpty(cases)),
-    (current, entry) => Schema.Union(current, branchSchema(discriminant, entry))
+  const headMembers = branchSchema(discriminant, Chunk.headNonEmpty(cases)).members
+  const tailMembers = Arr.flatMap(
+    Arr.fromIterable(Chunk.drop(cases, 1)),
+    (entry) => branchSchema(discriminant, entry).members
   )
-
-  const schema = Schema.make<
-    BranchCase extends Case<infer CaseSchema, infer ChoiceValue> ? BranchCaseType<Discriminant, CaseSchema, ChoiceValue>
-      : never,
-    BranchCase extends Case<infer CaseSchema, infer ChoiceValue> ?
-      BranchCaseEncoded<Discriminant, CaseSchema, ChoiceValue>
-      : never,
-    never
-  >(runtimeSchema.ast)
+  const schema = Schema.Union(Arr.appendAll(headMembers, tailMembers))
 
   return new Switch<typeof schema, BranchCase, Discriminant>({
     discriminant,

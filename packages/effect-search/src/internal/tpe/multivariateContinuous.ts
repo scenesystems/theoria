@@ -55,7 +55,7 @@ export const multivariateContinuousCandidateTrace = (
   acquisition: Acquisition.Strategy = Acquisition.defaultName
 ): Effect.Effect<Option.Option<MultivariateContinuousTrace>, InvalidSamplerConfig> => {
   const parameters = Arr.fromIterable(parametersInput)
-  return Match.value(Num.lessThan(Arr.length(parameters), 2)).pipe(
+  return Match.value(Num.isLessThan(Arr.length(parameters), 2)).pipe(
     Match.when(true, () => Effect.succeedNone),
     Match.orElse(() =>
       Effect.gen(function*() {
@@ -63,8 +63,8 @@ export const multivariateContinuousCandidateTrace = (
         const belowVectors = vectorsFromSplit(adapters, split.below)
         const aboveVectors = vectorsFromSplit(adapters, split.above)
         const hasSufficientHistory = Bool.and(
-          Num.greaterThan(Arr.length(belowVectors), 2),
-          Num.greaterThan(Arr.length(aboveVectors), 2)
+          Num.isGreaterThan(Arr.length(belowVectors), 2),
+          Num.isGreaterThan(Arr.length(aboveVectors), 2)
         )
 
         return yield* Match.value(hasSufficientHistory).pipe(
@@ -114,16 +114,19 @@ export const multivariateContinuousCandidateTrace = (
                 (candidate) => diagonalGaussianMixtureLogDensity(candidate, aboveVectors, aboveSigmas, aboveWeights)
               )
               const scores = Arr.makeBy(Arr.length(modelCandidates), (index) =>
-                Acquisition.score({
-                  logL: valueAt(logL, index, Number.NEGATIVE_INFINITY),
-                  logG: valueAt(logG, index, Number.NEGATIVE_INFINITY),
-                  estimatedCost: Arr.get(candidateConfigs, index).pipe(
-                    Option.flatMap((candidateConfig) => estimateCostForConfig(split, candidateConfig))
-                  ),
-                  roll: Arr.get(rolls, index).pipe(
-                    Option.map((candidateRoll) => candidateRoll.componentRoll)
-                  )
-                }, acquisition))
+                Acquisition.score(
+                  new Acquisition.Context({
+                    logL: valueAt(logL, index, Number.NEGATIVE_INFINITY),
+                    logG: valueAt(logG, index, Number.NEGATIVE_INFINITY),
+                    estimatedCost: Arr.get(candidateConfigs, index).pipe(
+                      Option.flatMap((candidateConfig) => estimateCostForConfig(split, candidateConfig))
+                    ),
+                    roll: Arr.get(rolls, index).pipe(
+                      Option.map((candidateRoll) => candidateRoll.componentRoll)
+                    )
+                  }),
+                  acquisition
+                ))
 
               return Option.some(
                 new MultivariateContinuousTrace({

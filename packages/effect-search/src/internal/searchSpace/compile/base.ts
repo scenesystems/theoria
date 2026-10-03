@@ -12,14 +12,16 @@ import { type Condition, Parameter } from "../../../SearchSpace.js"
 import { invalidSearchSpace } from "../failure.js"
 import { validateDistribution } from "../validation.js"
 
+type SpaceField = Schema.Codec<unknown, unknown, never, never>
+
 const requireDistribution = (
   name: string,
-  schema: Schema.Schema.AnyNoContext
+  schema: SpaceField
 ): Effect.Effect<Distribution, InvalidSearchSpace> =>
-  Option.match(fromAST(schema.ast), {
-    onNone: () => Effect.fail(invalidSearchSpace(`dimension "${name}" is missing distribution metadata`, name)),
-    onSome: Effect.succeed
-  })
+  Effect.fromOption(
+    fromAST(schema.ast),
+    () => invalidSearchSpace(`dimension "${name}" is missing distribution metadata`, name)
+  )
 
 const toParameterMetadata = (
   name: string,
@@ -64,7 +66,7 @@ const mergeCategoricalChoices = (
  */
 export const compileBase = <
   const Dimensions extends {
-    readonly [key: string]: Schema.Schema.AnyNoContext
+    readonly [key: string]: SpaceField
   }
 >(
   dimensions: Dimensions,

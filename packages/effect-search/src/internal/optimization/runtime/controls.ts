@@ -3,7 +3,7 @@
  *
  * @since 0.1.0
  */
-import { Effect, FiberRef, Number as Num, Option } from "effect"
+import { Effect, Option } from "effect"
 
 import * as Stop from "@scenesystems/effect-study/Stop"
 import { Runtime as PruningRuntime } from "../../../Pruning.js"
@@ -27,7 +27,7 @@ const withCurrentTrialContext = <A, E>(
   onNone: () => Effect.Effect<A, E>,
   onSome: (context: TrialContext) => Effect.Effect<A, E>
 ): Effect.Effect<A, E> =>
-  FiberRef.get(CurrentTrialContext).pipe(
+  CurrentTrialContext.pipe(
     Effect.flatMap(
       Option.match({
         onNone,
@@ -38,7 +38,7 @@ const withCurrentTrialContext = <A, E>(
 
 const missingContextReport = (step: number, value: number): InvalidObjectiveReport =>
   new InvalidObjectiveReport({
-    trialNumber: Num.negate(1),
+    trialNumber: -1,
     reason: "missing-trial-context",
     step,
     value

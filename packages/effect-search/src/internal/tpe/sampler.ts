@@ -5,7 +5,7 @@
  */
 import { Effect, Option } from "effect"
 
-import { noPendingPolicy, type PendingPolicy, type TpeOptions } from "../../Sampler.js"
+import { noPendingPolicy, type PendingPolicy, TpeOptions } from "../../Sampler.js"
 import * as Sampler from "../../Sampler.js"
 import * as RandomSampler from "../sampler/random.js"
 import { restoreCheckpoint } from "./checkpoint.js"
@@ -37,21 +37,21 @@ import { suggestWithStartup } from "./startup.js"
  * @category constructors
  */
 export const make = (
-  options: TpeOptions = {},
+  options: TpeOptions = new TpeOptions({}),
   pendingImputationPolicy: PendingPolicy
 ): Sampler.Sampler => {
   const snapshotOptions = snapshotSafeOptionsFromRuntime(options)
-  const startupTrials = startupTrialsFromOptions(snapshotOptions)
-  const nCandidates = candidatesFromOptions(snapshotOptions)
-  const seed = seedFromOptions(snapshotOptions)
-  const multivariate = multivariateFromOptions(snapshotOptions)
-  const groupDimensions = groupDimensionsFromOptions(snapshotOptions)
-  const noiseOptions = noiseOptionsFromOptions(snapshotOptions)
+  const startupTrials = startupTrialsFromOptions(options)
+  const nCandidates = candidatesFromOptions(options)
+  const seed = seedFromOptions(options)
+  const multivariate = multivariateFromOptions(options)
+  const groupDimensions = groupDimensionsFromOptions(options)
+  const noiseOptions = noiseOptionsFromOptions(options)
   const constraints = constraintEvaluatorsFromOptions(options)
   const acquisition = acquisitionFromOptions(options)
   const randomSampler = RandomSampler.make(
     {
-      ...Option.match(Option.fromNullable(options.seed), {
+      ...Option.match(Option.fromNullishOr(options.seed), {
         onNone: () => ({}),
         onSome: (seed) => ({ seed })
       })
@@ -70,7 +70,7 @@ export const make = (
     }),
     restore: (checkpoint) => restoreCheckpoint(seed, startupTrials, nCandidates, checkpoint),
     suggest: (space, context) =>
-      validateOptions(snapshotOptions).pipe(
+      validateOptions(options).pipe(
         Effect.flatMap(() =>
           suggestWithStartup(
             randomSampler,

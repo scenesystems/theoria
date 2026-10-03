@@ -14,6 +14,7 @@ import { parameterByName } from "./parameters.js"
 import { projectionFailure, type ProjectionOperation } from "./projection.js"
 
 type ConditionPath = Parameter["activeWhen"]
+type SpaceField = Schema.Codec<unknown, unknown, never, never>
 
 const conditionEquals = (left: Condition, right: Condition): boolean =>
   Bool.and(Equal.equals(left.dimension, right.dimension), Equal.equals(left.equals, right.equals))
@@ -47,7 +48,7 @@ const parametersBelowPath = (
     parameters,
     (parameter) =>
       Bool.and(
-        Num.greaterThan(Arr.length(parameter.activeWhen), Arr.length(path)),
+        Num.isGreaterThan(Arr.length(parameter.activeWhen), Arr.length(path)),
         pathStartsWith(parameter.activeWhen, path)
       )
   )
@@ -59,10 +60,12 @@ const nextDiscriminantsForPath = (
 ) => {
   const parameters = Arr.fromIterable(parametersInput)
   return Arr.dedupe(
-    Arr.filterMap(
+    Arr.flatMap(
       parametersBelowPath(parameters, path),
       (parameter) =>
-        Arr.get(parameter.activeWhen, Arr.length(path)).pipe(Option.map((condition) => condition.dimension))
+        Arr.get(parameter.activeWhen, Arr.length(path)).pipe(
+          Option.match({ onNone: Arr.empty, onSome: (condition) => Arr.of(condition.dimension) })
+        )
     )
   )
 }
@@ -73,14 +76,9 @@ const requireParameter = (
   name: string
 ): Effect.Effect<Parameter, InvalidSearchSpace> => {
   const parameters = Arr.fromIterable(parametersInput)
-  return parameterByName(parameters, name).pipe(
-    Option.match({
-      onNone: () =>
-        Effect.fail(
-          projectionFailure(operation, `dangling activation dependency on missing discriminant "${name}"`, name)
-        ),
-      onSome: Effect.succeed
-    })
+  return Effect.fromOption(
+    parameterByName(parameters, name),
+    () => projectionFailure(operation, `dangling activation dependency on missing discriminant "${name}"`, name)
   )
 }
 
@@ -92,7 +90,7 @@ const requireCategoricalChoices = (
     Match.when({ type: "categorical" }, ({ choices }) =>
       Effect.filterOrFail(
         Effect.succeed(choices),
-        (values) => Num.greaterThan(Arr.length(values), 0),
+        (values) => Num.isGreaterThan(Arr.length(values), 0),
         () =>
           projectionFailure(operation, `discriminant "${parameter.name}" has no categorical choices`, parameter.name)
       )),
@@ -109,10 +107,10 @@ const requireCategoricalChoices = (
 
 const schemaFromCategoricalChoices = (
   distribution: Distribution & { readonly type: "categorical" }
-): Schema.Schema.AnyNoContext =>
+): SpaceField =>
   annotate(
-    Choice.pipe(
-      Schema.filter((value) =>
+    Choice.check(
+      Schema.makeFilter((value) =>
         Match.value(Arr.some(distribution.choices, (choice) => Equal.equals(choice, value))).pipe(
           Match.when(true, () => true),
           Match.orElse(() =>
@@ -126,9 +124,9 @@ const schemaFromCategoricalChoices = (
     distribution
   )
 
-const schemaFromDistribution = (distribution: Distribution): Schema.Schema.AnyNoContext =>
+const schemaFromDistribution = (distribution: Distribution): SpaceField =>
   Match.value(distribution).pipe(
-    Match.when({ type: "float" }, (resolvedDistribution) => annotate(Schema.Number, resolvedDistribution)),
+    Match.when({ type: "float" }, (resolvedDistribution) => annotate(Schema.Finite, resolvedDistribution)),
     Match.when({ type: "int" }, (resolvedDistribution) => annotate(Schema.Int, resolvedDistribution)),
     Match.when({ type: "fidelity" }, (resolvedDistribution) => annotate(Schema.Int, resolvedDistribution)),
     Match.when({ type: "categorical" }, (resolvedDistribution) => schemaFromCategoricalChoices(resolvedDistribution)),
@@ -137,7 +135,7 @@ const schemaFromDistribution = (distribution: Distribution): Schema.Schema.AnyNo
 
 const declarationsFromParameters = (
   parametersInput: Iterable<Parameter>
-): Record<string, Schema.Schema.AnyNoContext> => {
+): Record<string, SpaceField> => {
   const parameters = Arr.fromIterable(parametersInput)
   return Arr.reduce(
     parameters,

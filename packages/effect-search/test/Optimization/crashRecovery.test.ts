@@ -1,9 +1,9 @@
-import { FileSystem, Path } from "@effect/platform"
-import { BunContext } from "@effect/platform-bun"
+import { BunServices } from "@effect/platform-bun"
 import { describe, expect, it } from "@effect/vitest"
 import * as Journal from "@scenesystems/effect-study/Journal"
 import * as StudyStorage from "@scenesystems/effect-study/StudyStorage"
-import { Array as Arr, Effect, Either, Layer, Number as Num, Schema, String as Str } from "effect"
+import { FileSystem, Path } from "effect"
+import { Array as Arr, Effect, Layer, Number as Num, Result, Schema, String as Str, Struct } from "effect"
 
 import * as Optimization from "../../src/Optimization.js"
 import * as OptimizationSnapshot from "../../src/OptimizationSnapshot.js"
@@ -21,10 +21,10 @@ import {
 } from "../helpers/optimizationSnapshots.js"
 
 const expectInvalidOptimizationConfig = (
-  outcome: Either.Either<unknown, unknown>,
+  outcome: Result.Result<unknown, unknown>,
   reasonFragment: string
 ) =>
-  Schema.decodeUnknown(InvalidOptimizationConfig)(Either.getOrThrow(Either.flip(outcome))).pipe(
+  Schema.decodeUnknownEffect(InvalidOptimizationConfig)(Result.getOrThrow(Result.flip(outcome))).pipe(
     Effect.tap((failure) =>
       Effect.sync(() => {
         expect(failure).toBeInstanceOf(InvalidOptimizationConfig)
@@ -62,31 +62,34 @@ describe("recovery crash residue", () => {
     const checkpointTrials = 5
     const replayTailTrials = 3
 
-    const baselineResult = yield* Optimization.run({
-      space: yield* snapshotSpace,
-      sampler: Sampler.random({ seed }),
-      direction: "minimize",
-      trials: totalTrials,
-      objective: snapshotSingleObjective
-    })
-    const stagedResult = yield* Optimization.run({
-      space: yield* snapshotSpace,
-      sampler: Sampler.random({ seed }),
-      direction: "minimize",
-      trials: Num.sum(checkpointTrials, replayTailTrials),
-      objective: snapshotSingleObjective
-    })
-    const baseline = yield* snapshotSingleObjectiveResult(baselineResult)
-    const staged = yield* snapshotSingleObjectiveResult(stagedResult)
+    const baselineResult = yield* Optimization.run(
+      new Optimization.FlatOptions({
+        space: yield* snapshotSpace,
+        sampler: Sampler.random({ seed }),
+        direction: "minimize",
+        trials: totalTrials,
+        objective: snapshotSingleObjective
+      })
+    )
+    const stagedResult = yield* Optimization.run(
+      new Optimization.FlatOptions({
+        space: yield* snapshotSpace,
+        sampler: Sampler.random({ seed }),
+        direction: "minimize",
+        trials: Num.sum(checkpointTrials, replayTailTrials),
+        objective: snapshotSingleObjective
+      })
+    )
+    const baseline = yield* Effect.fromOption(snapshotSingleObjectiveResult(baselineResult))
+    const staged = yield* Effect.fromOption(snapshotSingleObjectiveResult(stagedResult))
 
     const stagedSnapshot = yield* Optimization.snapshot(staged)
     yield* storage.writeSnapshot(
-      new OptimizationSnapshot.OptimizationSnapshot({
-        ...stagedSnapshot,
+      new OptimizationSnapshot.OptimizationSnapshot(Struct.assign(stagedSnapshot, {
         nextTrialNumber: checkpointTrials,
         trials: Arr.take(stagedSnapshot.trials, checkpointTrials),
         completedCount: checkpointTrials
-      })
+      }))
     )
     yield* Effect.forEach(
       Arr.take(Arr.drop(stagedSnapshot.trials, checkpointTrials), replayTailTrials),
@@ -94,13 +97,15 @@ describe("recovery crash residue", () => {
       { discard: true }
     )
 
-    const resume = Optimization.resumeFromStorage({
-      space: yield* snapshotSpace,
-      sampler: Sampler.random({ seed }),
-      direction: "minimize",
-      trials: Num.subtract(Num.subtract(totalTrials, checkpointTrials), replayTailTrials),
-      objective: snapshotSingleObjective
-    }).pipe(
+    const resume = Optimization.resumeFromStorage(
+      new Optimization.StorageResumeOptions({
+        space: yield* snapshotSpace,
+        sampler: Sampler.random({ seed }),
+        direction: "minimize",
+        trials: Num.subtract(Num.subtract(totalTrials, checkpointTrials), replayTailTrials),
+        objective: snapshotSingleObjective
+      })
+    ).pipe(
       Effect.provide(OptimizationStorage.layerFileSystem(storageOptions))
     )
 
@@ -112,11 +117,13 @@ describe("recovery crash residue", () => {
     }
   })
 
-  it.scoped("resumes from a checkpoint plus intact replay tail and reproduces the uninterrupted optimization", () =>
+  it.effect("resumes from a checkpoint plus intact replay tail and reproduces the uninterrupted optimization", () =>
     Effect.gen(function*() {
       const { baseline, resume, totalTrials } = yield* stageCheckpointAndTail
 
-      const resumed = yield* resume.pipe(Effect.flatMap(snapshotSingleObjectiveResult))
+      const resumed = yield* resume.pipe(
+        Effect.flatMap((result) => Effect.fromOption(snapshotSingleObjectiveResult(result)))
+      )
 
       expect(encodeSnapshotConfigTrace(yield* snapshotConfigTrace(resumed))).toBe(
         encodeSnapshotConfigTrace(yield* snapshotConfigTrace(baseline))
@@ -131,17 +138,17 @@ describe("recovery crash residue", () => {
       const recoveredSnapshot = yield* Optimization.snapshot(resumed)
       expect(recoveredSnapshot.nextTrialNumber).toBe(totalTrials)
       expect(recoveredSnapshot.completedCount).toBe(totalTrials)
-    }).pipe(Effect.provide(BunContext.layer)))
+    }).pipe(Effect.provide(BunServices.layer)))
 
-  it.scoped("a log torn by an interrupted append fails resume with a typed read error naming the line", () =>
+  it.effect("a log torn by an interrupted append fails resume with a typed read error naming the line", () =>
     Effect.gen(function*() {
       const fileSystem = yield* FileSystem.FileSystem
       const { journalPath, resume } = yield* stageCheckpointAndTail
       const intact = yield* fileSystem.readFileString(journalPath)
       yield* fileSystem.writeFileString(journalPath, "{\"trialNumber\":", { flag: "a" })
 
-      const outcome = yield* Effect.either(resume)
-      const failure = yield* Schema.decodeUnknown(Journal.Failure)(Either.getOrThrow(Either.flip(outcome)))
+      const outcome = yield* Effect.result(resume)
+      const failure = yield* Schema.decodeUnknownEffect(Journal.Failure)(Result.getOrThrow(Result.flip(outcome)))
 
       expect(failure).toBeInstanceOf(Journal.Failure)
       expect(failure._tag).toBe("effect-study/JournalError")
@@ -149,9 +156,9 @@ describe("recovery crash residue", () => {
       expect(failure.path).toBe(journalPath)
       expect(failure.line).toBe(Arr.length(Str.split("\n")(intact)))
       expect(failure.detail).toContain("is not a journal entry")
-    }).pipe(Effect.provide(BunContext.layer)))
+    }).pipe(Effect.provide(BunServices.layer)))
 
-  it.scoped("fails resumeFromStorage with typed InvalidOptimizationConfig when snapshot is missing", () =>
+  it.effect("fails resumeFromStorage with typed InvalidOptimizationConfig when snapshot is missing", () =>
     Effect.gen(function*() {
       const fileSystem = yield* FileSystem.FileSystem
       const directory = yield* fileSystem.makeTempDirectoryScoped({
@@ -159,22 +166,24 @@ describe("recovery crash residue", () => {
       })
       const storageOptions = StudyStorage.fileSystemOptions(directory)
 
-      const outcome = yield* Effect.either(
-        Optimization.resumeFromStorage({
-          space: yield* snapshotSpace,
-          sampler: Sampler.random({ seed: 61 }),
-          direction: "minimize",
-          trials: 2,
-          objective: snapshotSingleObjective
-        }).pipe(
+      const outcome = yield* Effect.result(
+        Optimization.resumeFromStorage(
+          new Optimization.StorageResumeOptions({
+            space: yield* snapshotSpace,
+            sampler: Sampler.random({ seed: 61 }),
+            direction: "minimize",
+            trials: 2,
+            objective: snapshotSingleObjective
+          })
+        ).pipe(
           Effect.provide(OptimizationStorage.layerFileSystem(storageOptions))
         )
       )
 
       yield* expectInvalidOptimizationConfig(outcome, "requires a persisted snapshot")
-    }).pipe(Effect.provide(BunContext.layer)))
+    }).pipe(Effect.provide(BunServices.layer)))
 
-  it.scoped("fails resumeFromStorage with a typed read error when the persisted log is not journal records", () =>
+  it.effect("fails resumeFromStorage with a typed read error when the persisted log is not journal records", () =>
     Effect.gen(function*() {
       const fileSystem = yield* FileSystem.FileSystem
       const path = yield* Path.Path
@@ -186,53 +195,59 @@ describe("recovery crash residue", () => {
 
       yield* fileSystem.writeFileString(journalPath, "{\"_tag\":\"Snapshot\",\"payload\":")
 
-      const outcome = yield* Effect.either(
-        Optimization.resumeFromStorage({
-          space: yield* snapshotSpace,
-          sampler: Sampler.random({ seed: 62 }),
-          direction: "minimize",
-          trials: 2,
-          objective: snapshotSingleObjective
-        }).pipe(
+      const outcome = yield* Effect.result(
+        Optimization.resumeFromStorage(
+          new Optimization.StorageResumeOptions({
+            space: yield* snapshotSpace,
+            sampler: Sampler.random({ seed: 62 }),
+            direction: "minimize",
+            trials: 2,
+            objective: snapshotSingleObjective
+          })
+        ).pipe(
           Effect.provide(OptimizationStorage.layerFileSystem(storageOptions))
         )
       )
 
-      const failure = yield* Schema.decodeUnknown(Journal.Failure)(Either.getOrThrow(Either.flip(outcome)))
+      const failure = yield* Schema.decodeUnknownEffect(Journal.Failure)(Result.getOrThrow(Result.flip(outcome)))
       expect(failure).toBeInstanceOf(Journal.Failure)
       expect(failure._tag).toBe("effect-study/JournalError")
       expect(failure.operation).toBe("read")
       expect(failure.path).toBe(journalPath)
       expect(failure.line).toBe(1)
-    }).pipe(Effect.provide(BunContext.layer)))
+    }).pipe(Effect.provide(BunServices.layer)))
 
   it.effect("fails resumeFromStorage with typed InvalidOptimizationConfig when replay tail introduces duplicate trial numbers", () =>
     Effect.gen(function*() {
-      const snapshotResult = yield* Optimization.run({
-        space: yield* snapshotSpace,
-        sampler: Sampler.random({ seed: 71 }),
-        direction: "minimize",
-        trials: 4,
-        objective: snapshotSingleObjective
-      })
-      const single = yield* snapshotSingleObjectiveResult(snapshotResult)
+      const snapshotResult = yield* Optimization.run(
+        new Optimization.FlatOptions({
+          space: yield* snapshotSpace,
+          sampler: Sampler.random({ seed: 71 }),
+          direction: "minimize",
+          trials: 4,
+          objective: snapshotSingleObjective
+        })
+      )
+      const single = yield* Effect.fromOption(snapshotSingleObjectiveResult(snapshotResult))
 
       const snapshot = yield* Optimization.snapshot(single)
-      const templateTrial = yield* Arr.head(snapshot.trials)
+      const templateTrial = yield* Effect.fromOption(Arr.head(snapshot.trials))
 
       const duplicateReplayTrial: OptimizationSnapshot.Trial = {
         ...templateTrial,
         trialNumber: snapshot.nextTrialNumber
       }
 
-      const outcome = yield* Effect.either(
-        Optimization.resumeFromStorage({
-          space: yield* snapshotSpace,
-          sampler: Sampler.random({ seed: 71 }),
-          direction: "minimize",
-          trials: 1,
-          objective: snapshotSingleObjective
-        }).pipe(
+      const outcome = yield* Effect.result(
+        Optimization.resumeFromStorage(
+          new Optimization.StorageResumeOptions({
+            space: yield* snapshotSpace,
+            sampler: Sampler.random({ seed: 71 }),
+            direction: "minimize",
+            trials: 1,
+            objective: snapshotSingleObjective
+          })
+        ).pipe(
           Effect.provide(
             storageLayerFromReplayTail(snapshot, Arr.make(duplicateReplayTrial, duplicateReplayTrial))
           )

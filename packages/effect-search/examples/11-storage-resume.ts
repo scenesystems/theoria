@@ -4,9 +4,8 @@
  *
  * Run: bun run examples/11-storage-resume.ts
  */
-import { FileSystem } from "@effect/platform"
-import { BunContext, BunRuntime } from "@effect/platform-bun"
-import { Effect, Iterable, Match, Number as Num } from "effect"
+import { BunRuntime, BunServices } from "@effect/platform-bun"
+import { Effect, FileSystem, Iterable, Match, Number as Num } from "effect"
 
 import * as Numeric from "@scenesystems/effect-math/Numeric"
 import { Optimization, OptimizationStorage, Sampler, SearchSpace } from "@scenesystems/effect-search"
@@ -30,20 +29,24 @@ const program = Effect.scoped(
 
     const objective = (config: SearchSpace.Type<typeof space>) => Effect.succeed(objectiveValue(config.x, config.y))
 
-    yield* Optimization.minimize({
-      space,
-      sampler: Sampler.tpe({ seed: 901 }),
-      trials: 15,
-      objective
-    }).pipe(Effect.provide(storageLayer))
+    yield* Optimization.minimize(
+      new Optimization.FlatOptions({
+        space,
+        sampler: Sampler.tpe(new Sampler.TpeOptions({ seed: 901 })),
+        trials: 15,
+        objective
+      })
+    ).pipe(Effect.provide(storageLayer))
 
-    const resumed = yield* Optimization.resumeFromStorage({
-      space,
-      sampler: Sampler.tpe({ seed: 901 }),
-      direction: "minimize",
-      trials: 10,
-      objective
-    }).pipe(Effect.provide(storageLayer))
+    const resumed = yield* Optimization.resumeFromStorage(
+      new Optimization.StorageResumeOptions({
+        space,
+        sampler: Sampler.tpe(new Sampler.TpeOptions({ seed: 901 })),
+        direction: "minimize",
+        trials: 10,
+        objective
+      })
+    ).pipe(Effect.provide(storageLayer))
 
     yield* Match.value(resumed).pipe(
       Match.tag("SingleObjective", ({ bestTrial, completionReason, trials }) =>
@@ -60,4 +63,4 @@ const program = Effect.scoped(
   })
 )
 
-BunRuntime.runMain(program.pipe(Effect.provide(BunContext.layer)))
+BunRuntime.runMain(program.pipe(Effect.provide(BunServices.layer)))

@@ -11,7 +11,7 @@ import type { Sampler, TpeOptions } from "./Sampler.js"
 import type { InvalidOptimizationConfig } from "./SearchError.js"
 
 /** Scheduler algorithm. @since 0.7.0 @category schemas */
-export const Scheduler = Schema.Literal("hyperband", "bohb")
+export const Scheduler = Schema.Literals(["hyperband", "bohb"])
 /** Scheduler algorithm. @since 0.7.0 @category models */
 export type Scheduler = typeof Scheduler.Type
 

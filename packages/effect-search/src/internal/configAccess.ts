@@ -13,7 +13,7 @@ import type { Option } from "effect"
  *
  * @since 0.1.0
  */
-export const SamplerConfigSchema = Schema.Record({ key: Schema.String, value: Schema.Unknown })
+export const SamplerConfigSchema = Schema.Record(Schema.String, Schema.Unknown)
 
 /**
  * @since 0.1.0

@@ -80,7 +80,7 @@ const namedTrace = <A>(name: string, trace: DimensionScoreTrace<A>): NamedDimens
 const normalizedCandidateValue = (name: string, candidate: unknown): unknown =>
   Match.value(candidate).pipe(
     Match.when(
-      Predicate.isRecord,
+      Predicate.isObject,
       (record) => Record.get(record, name).pipe(Option.getOrElse(() => candidate))
     ),
     Match.orElse(() => candidate)
@@ -113,24 +113,14 @@ const jointScoreAtIndex = (
   const traces = Arr.fromIterable(tracesInput)
   return Effect.all(Tuple.make(
     Effect.forEach(traces, (entry) =>
-      logLAt(entry.trace, index).pipe(
-        Option.match({
-          onNone: () =>
-            Effect.fail(
-              invalidConfig(`tpe mixed candidate trace missing logL at index ${index} for parameter "${entry.name}"`)
-            ),
-          onSome: Effect.succeed
-        })
+      Effect.fromOption(
+        logLAt(entry.trace, index),
+        () => invalidConfig(`tpe mixed candidate trace missing logL at index ${index} for parameter "${entry.name}"`)
       )),
     Effect.forEach(traces, (entry) =>
-      logGAt(entry.trace, index).pipe(
-        Option.match({
-          onNone: () =>
-            Effect.fail(
-              invalidConfig(`tpe mixed candidate trace missing logG at index ${index} for parameter "${entry.name}"`)
-            ),
-          onSome: Effect.succeed
-        })
+      Effect.fromOption(
+        logGAt(entry.trace, index),
+        () => invalidConfig(`tpe mixed candidate trace missing logG at index ${index} for parameter "${entry.name}"`)
       ))
   )).pipe(
     Effect.map(([logLContributions, logGContributions]) =>
@@ -183,7 +173,7 @@ export const selectBestMixedCandidate = (
       onNone: () =>
         Effect.fail(invalidConfig("tpe mixed-space candidate selection requires at least one parameter trace")),
       onSome: (count) =>
-        Match.value(Num.lessThanOrEqualTo(count, 0)).pipe(
+        Match.value(Num.isLessThanOrEqualTo(count, 0)).pipe(
           Match.when(
             true,
             () => Effect.fail(invalidConfig("tpe mixed-space candidate selection requires at least one candidate"))
@@ -244,14 +234,14 @@ export const traceForParameter = (
         parameter,
         low,
         high,
-        Option.fromNullable(scale),
-        Option.fromNullable(step),
+        Option.fromNullishOr(scale),
+        Option.fromNullishOr(step),
         split,
         noiseOptions,
         acquisition
       ).pipe(Effect.map((trace) => namedTrace(parameter.name, trace)))),
     Match.when({ type: "int" }, ({ low, high, step }) =>
-      intCandidateTrace(rng, nCandidates, parameter, low, high, Option.fromNullable(step), split, acquisition).pipe(
+      intCandidateTrace(rng, nCandidates, parameter, low, high, Option.fromNullishOr(step), split, acquisition).pipe(
         Effect.map((trace) =>
           namedTrace(parameter.name, trace)
         )

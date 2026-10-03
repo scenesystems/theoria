@@ -16,19 +16,19 @@ const cloneWithConstraints = (
     trialNumber: trial.trialNumber,
     config: trial.config,
     value: trial.value,
-    ...Option.fromNullable(trial.observationWeight).pipe(
+    ...Option.fromNullishOr(trial.observationWeight).pipe(
       Option.match({
         onNone: () => ({}),
         onSome: (observationWeight) => ({ observationWeight })
       })
     ),
-    ...Option.fromNullable(trial.cost).pipe(
+    ...Option.fromNullishOr(trial.cost).pipe(
       Option.match({
         onNone: () => ({}),
         onSome: (cost) => ({ cost })
       })
     ),
-    ...Option.fromNullable(trial.variance).pipe(
+    ...Option.fromNullishOr(trial.variance).pipe(
       Option.match({
         onNone: () => ({}),
         onSome: (variance) => ({ variance })
@@ -42,7 +42,7 @@ const existingConstraints = (
   trial: Observation,
   constraintCount: number
 ) =>
-  Option.fromNullable(trial.constraints).pipe(
+  Option.fromNullishOr(trial.constraints).pipe(
     Option.filter((constraints) => Equal.equals(Arr.length(constraints), constraintCount))
   )
 

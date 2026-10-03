@@ -11,11 +11,13 @@ const makeCaptureSink = (supportsAnsi: boolean) =>
     const stderr = yield* Ref.make(Arr.empty<string>())
 
     return {
-      sink: Progress.makeSink({
-        supportsAnsi: Effect.succeed(supportsAnsi),
-        writeStdout: (line) => Ref.update(stdout, (lines) => Arr.append(lines, line)),
-        writeStderr: (line) => Ref.update(stderr, (lines) => Arr.append(lines, line))
-      }),
+      sink: Progress.makeSink(
+        new Progress.SinkOptions({
+          supportsAnsi: Effect.succeed(supportsAnsi),
+          writeStdout: (line) => Ref.update(stdout, (lines) => Arr.append(lines, line)),
+          writeStderr: (line) => Ref.update(stderr, (lines) => Arr.append(lines, line))
+        })
+      ),
       stdout,
       stderr
     }

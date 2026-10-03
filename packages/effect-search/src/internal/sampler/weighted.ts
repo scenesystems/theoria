@@ -5,7 +5,6 @@
  */
 import { isFinite, truncate, unsafeDivide } from "@scenesystems/effect-math/Numeric"
 import { Array as Arr, Boolean as Bool, Data, Equal, Match, Number as Num, Option, Order, Tuple } from "effect"
-import { PCGRandom } from "effect/Utils"
 
 import type { Vector } from "../../Objective.js"
 
@@ -53,7 +52,7 @@ class WeightedSamplingState extends Data.Class<{
 }> {}
 
 const weightedIndexOrder: Order.Order<WeightedIndex> = Order.mapInput(
-  Order.number,
+  Order.Number,
   (entry) => entry.index
 )
 
@@ -65,7 +64,7 @@ const sortedWeights = (weightsInput: Iterable<WeightedIndex>) => {
 const sortedPositiveWeights = (weightsInput: Iterable<WeightedIndex>) => {
   const weights = Arr.fromIterable(weightsInput)
   return sortedWeights(
-    Arr.filter(weights, (entry) => Bool.and(isFinite(entry.weight), Num.greaterThan(entry.weight, 0)))
+    Arr.filter(weights, (entry) => Bool.and(isFinite(entry.weight), Num.isGreaterThan(entry.weight, 0)))
   )
 }
 
@@ -80,13 +79,20 @@ const normalizedPositiveWeights = (weightsInput: Iterable<WeightedIndex>) => {
   }))
 }
 
+const unitFromSeed = (seed: number): number => Num.divideUnsafe(seed, 4294967296)
+
+class CumulativeWeight extends Data.Class<{
+  readonly index: number
+  readonly total: number
+}> {}
+
 const cumulativeWeights = (weightsInput: Iterable<WeightedIndex>) => {
   const weights = Arr.fromIterable(weightsInput)
   return Arr.tailNonEmpty(
     Arr.scan(
       weights,
-      Tuple.make(0, 0),
-      (previous, weight) => Tuple.make(weight.index, Num.sum(Tuple.getSecond(previous), weight.weight))
+      new CumulativeWeight({ index: 0, total: 0 }),
+      (previous, weight) => new CumulativeWeight({ index: weight.index, total: Num.sum(previous.total, weight.weight) })
     )
   )
 }
@@ -124,7 +130,7 @@ const defaultZeroWeightFallback = (): WeightedZeroWeightFallback => "lowest-inde
 const zeroWeightFallbackFromNullable = (
   fallback?: WeightedZeroWeightFallback
 ): WeightedZeroWeightFallback =>
-  Option.fromNullable(fallback).pipe(
+  Option.fromNullishOr(fallback).pipe(
     Option.getOrElse(defaultZeroWeightFallback)
   )
 
@@ -153,16 +159,16 @@ const selectWeightedIndexWithUnit = (
   const totalWeight = Arr.last(cumulative).pipe(
     Option.match({
       onNone: () => 0,
-      onSome: Tuple.getSecond
+      onSome: (entry) => entry.total
     })
   )
 
-  return Match.value(Num.greaterThan(totalWeight, 0)).pipe(
+  return Match.value(Num.isGreaterThan(totalWeight, 0)).pipe(
     Match.when(false, () => fallbackIndexForPolicy(weights, fallbackSeed, zeroWeightFallback)),
     Match.when(true, () => {
       const threshold = Num.multiply(unit, totalWeight)
 
-      return Arr.findFirst(cumulative, (entry) => Num.lessThan(threshold, Tuple.getSecond(entry))).pipe(
+      return Arr.findFirst(cumulative, (entry) => Num.isLessThan(threshold, entry.total)).pipe(
         Option.match({
           onNone: () =>
             Arr.last(positive).pipe(
@@ -171,7 +177,7 @@ const selectWeightedIndexWithUnit = (
                 onSome: (entry) => entry.index
               })
             ),
-          onSome: Tuple.getFirst
+          onSome: (entry) => entry.index
         })
       )
     }),
@@ -186,7 +192,7 @@ const normalizeDrawCount = (drawCount: number): number => {
   )
 
   return Match.value(finite).pipe(
-    Match.when(Num.lessThan(0), () => 0),
+    Match.when(Num.isLessThan(0), () => 0),
     Match.orElse((count) => count)
   )
 }
@@ -239,12 +245,12 @@ export const selectWeightedIndexWithPolicy = (
 
   const zeroWeightFallback = zeroWeightFallbackFromNullable(options?.zeroWeightFallback)
   const normalizedSeed = normalizeDeterministicSeed(seed)
-  const generator = new PCGRandom(normalizedSeed)
+  const drawSeed = nextDeterministicSeed(normalizedSeed)
 
   return selectWeightedIndexWithUnit(
     weights,
-    generator.number(),
-    nextDeterministicSeed(normalizedSeed),
+    unitFromSeed(drawSeed),
+    drawSeed,
     zeroWeightFallback
   )
 }
@@ -272,7 +278,6 @@ export const sampleWeightedIndices = (
 ) => {
   const weights = Arr.fromIterable(weightsInput)
   const normalizedSeed = normalizeDeterministicSeed(seed)
-  const generator = new PCGRandom(normalizedSeed)
   return Arr.reduce(
     buildIndices(normalizeDrawCount(drawCount)),
     new WeightedSamplingState({
@@ -286,7 +291,7 @@ export const sampleWeightedIndices = (
         seed: nextSeed,
         indices: Arr.append(
           state.indices,
-          selectWeightedIndexWithUnit(weights, generator.number(), nextSeed, defaultZeroWeightFallback())
+          selectWeightedIndexWithUnit(weights, unitFromSeed(nextSeed), nextSeed, defaultZeroWeightFallback())
         )
       })
     }
@@ -301,7 +306,7 @@ const weightsWithoutIndex = (
 
   const filtered = Arr.filter(weights, (entry) => Bool.not(Equal.equals(entry.index, index)))
 
-  return Match.value(Num.lessThanOrEqualTo(Arr.length(filtered), 0)).pipe(
+  return Match.value(Num.isLessThanOrEqualTo(Arr.length(filtered), 0)).pipe(
     Match.when(true, () => weights),
     Match.orElse(() => filtered)
   )
@@ -329,17 +334,16 @@ export const sampleWeightedPair = (
   const weights = Arr.fromIterable(weightsInput)
 
   const zeroWeightFallback = zeroWeightFallbackFromNullable(options?.zeroWeightFallback)
-  const distinct = Option.fromNullable(options?.distinct).pipe(Option.getOrElse(() => false))
+  const distinct = Option.fromNullishOr(options?.distinct).pipe(Option.getOrElse(() => false))
   const normalizedSeed = normalizeDeterministicSeed(seed)
-  const generator = new PCGRandom(normalizedSeed)
   const firstSeed = nextDeterministicSeed(normalizedSeed)
   const secondSeed = nextDeterministicSeed(firstSeed)
-  const first = selectWeightedIndexWithUnit(weights, generator.number(), firstSeed, zeroWeightFallback)
+  const first = selectWeightedIndexWithUnit(weights, unitFromSeed(firstSeed), firstSeed, zeroWeightFallback)
   const secondWeights = Match.value(distinct).pipe(
     Match.when(true, () => weightsWithoutIndex(weights, first)),
     Match.orElse(() => weights)
   )
-  const second = selectWeightedIndexWithUnit(secondWeights, generator.number(), secondSeed, zeroWeightFallback)
+  const second = selectWeightedIndexWithUnit(secondWeights, unitFromSeed(secondSeed), secondSeed, zeroWeightFallback)
 
-  return Data.tuple(first, second)
+  return Tuple.make(first, second)
 }

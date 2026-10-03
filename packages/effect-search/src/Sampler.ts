@@ -20,34 +20,34 @@ import type { InvalidOptimizationConfig, SearchError } from "./SearchError.js"
 import type * as SearchSpace from "./SearchSpace.js"
 
 /** Random-sampler configuration. @since 0.7.0 @category schemas */
-export const RandomOptions = Schema.Struct({ seed: Schema.optional(Schema.Number) })
+export const RandomOptions = Schema.Struct({ seed: Schema.optional(Schema.Finite) })
 /** Random-sampler configuration. @since 0.7.0 @category models */
 export type RandomOptions = typeof RandomOptions.Type
 
 /** Finite-grid configuration. @since 0.7.0 @category schemas */
 export const GridOptions = Schema.Struct({
   shuffle: Schema.optional(Schema.Boolean),
-  seed: Schema.optional(Schema.Number)
+  seed: Schema.optional(Schema.Finite)
 })
 /** Finite-grid configuration. @since 0.7.0 @category models */
 export type GridOptions = typeof GridOptions.Type
 
 /** CMA-ES configuration. @since 0.7.0 @category schemas */
 export const CmaEsOptions = Schema.Struct({
-  seed: Schema.optional(Schema.Number),
-  sigma: Schema.optional(Schema.Number),
-  populationSize: Schema.optional(Schema.Number)
+  seed: Schema.optional(Schema.Finite),
+  sigma: Schema.optional(Schema.Finite),
+  populationSize: Schema.optional(Schema.Finite)
 })
 /** CMA-ES configuration. @since 0.7.0 @category models */
 export type CmaEsOptions = typeof CmaEsOptions.Type
 
 /** Gaussian-process Bayesian-optimization configuration. @since 0.7.0 @category schemas */
 export const GpBoOptions = Schema.Struct({
-  seed: Schema.optional(Schema.Number),
-  nStartupTrials: Schema.optional(Schema.Number),
-  nCandidates: Schema.optional(Schema.Number),
-  lengthScale: Schema.optional(Schema.Number),
-  noise: Schema.optional(Schema.Number),
+  seed: Schema.optional(Schema.Finite),
+  nStartupTrials: Schema.optional(Schema.Finite),
+  nCandidates: Schema.optional(Schema.Finite),
+  lengthScale: Schema.optional(Schema.Finite),
+  noise: Schema.optional(Schema.Finite),
   acquisition: Schema.optional(AcquisitionName)
 })
 /** Gaussian-process Bayesian-optimization configuration. @since 0.7.0 @category models */
@@ -75,24 +75,24 @@ export class TpeOptions extends Data.Class<{
 }> {}
 
 const PersistedTpeOptions = Schema.Struct({
-  nStartupTrials: Schema.optional(Schema.Number),
-  nEiCandidates: Schema.optional(Schema.Number),
+  nStartupTrials: Schema.optional(Schema.Finite),
+  nEiCandidates: Schema.optional(Schema.Finite),
   multivariate: Schema.optional(Schema.Boolean),
   groupDimensions: Schema.optional(Schema.Boolean),
   noiseAware: Schema.optional(Schema.Boolean),
-  noiseAlpha: Schema.optional(Schema.Number),
-  constraintsCount: Schema.optional(Schema.NonNegative),
-  seed: Schema.optional(Schema.Number)
+  noiseAlpha: Schema.optional(Schema.Finite),
+  constraintsCount: Schema.optional(Schema.Finite.check(Schema.isGreaterThanOrEqualTo(0))),
+  seed: Schema.optional(Schema.Finite)
 })
 
 /** Built-in algorithm and normalized serializable options. @since 0.7.0 @category schemas */
-export const Kind = Schema.Union(
+export const Kind = Schema.Union([
   Schema.TaggedStruct("Random", { options: RandomOptions }),
   Schema.TaggedStruct("Grid", { options: GridOptions }),
   Schema.TaggedStruct("Tpe", { options: PersistedTpeOptions }),
   Schema.TaggedStruct("CmaEs", { options: CmaEsOptions }),
   Schema.TaggedStruct("GpBo", { options: GpBoOptions })
-)
+])
 /** Built-in algorithm and normalized serializable options. @since 0.7.0 @category models */
 export type Kind = typeof Kind.Type
 
@@ -113,59 +113,59 @@ export const isKind = kinds.$is
 export const matchKind = kinds.$match
 
 /** Resumable state for every built-in sampler. @since 0.7.0 @category schemas */
-export const Checkpoint = Schema.Union(
-  Schema.TaggedStruct("Random", { seed: Schema.Number }),
-  Schema.TaggedStruct("Grid", { seed: Schema.Number, shuffle: Schema.Boolean }),
+export const Checkpoint = Schema.Union([
+  Schema.TaggedStruct("Random", { seed: Schema.Finite }),
+  Schema.TaggedStruct("Grid", { seed: Schema.Finite, shuffle: Schema.Boolean }),
   Schema.TaggedStruct("Tpe", {
-    seed: Schema.Number,
-    nStartupTrials: Schema.Number,
-    nEiCandidates: Schema.Number
+    seed: Schema.Finite,
+    nStartupTrials: Schema.Finite,
+    nEiCandidates: Schema.Finite
   }),
   Schema.TaggedStruct("CmaEs", {
-    seed: Schema.Number,
-    sigma: Schema.Number,
-    populationSize: Schema.Number
+    seed: Schema.Finite,
+    sigma: Schema.Finite,
+    populationSize: Schema.Finite
   }),
   Schema.TaggedStruct("GpBo", {
-    seed: Schema.Number,
-    nStartupTrials: Schema.Number,
-    nCandidates: Schema.Number,
-    lengthScale: Schema.Number,
-    noise: Schema.Number,
+    seed: Schema.Finite,
+    nStartupTrials: Schema.Finite,
+    nCandidates: Schema.Finite,
+    lengthScale: Schema.Finite,
+    noise: Schema.Finite,
     acquisition: Schema.optional(AcquisitionName)
   })
-)
+])
 /** Resumable state for every built-in sampler. @since 0.7.0 @category models */
 export type Checkpoint = typeof Checkpoint.Type
 
 /** One completed observation supplied to a sampler. @since 0.7.0 @category schemas */
 export class Observation extends Schema.Class<Observation>("@scenesystems/effect-search/Sampler/Observation")({
-  trialNumber: Schema.Number,
-  config: Schema.Record({ key: Schema.String, value: Schema.Unknown }),
+  trialNumber: Schema.Finite,
+  config: Schema.Record(Schema.String, Schema.Unknown),
   value: Value,
-  observationWeight: Schema.optional(Schema.Number),
-  cost: Schema.optional(Schema.Number),
-  variance: Schema.optional(Schema.Number),
-  constraints: Schema.optional(Schema.Array(Schema.Number))
+  observationWeight: Schema.optional(Schema.Finite),
+  cost: Schema.optional(Schema.Finite),
+  variance: Schema.optional(Schema.Finite),
+  constraints: Schema.optional(Schema.Array(Schema.Finite))
 }) {}
 
 /** One reserved configuration supplied to a sampler. @since 0.7.0 @category schemas */
 export class Pending extends Schema.Class<Pending>("@scenesystems/effect-search/Sampler/Pending")({
-  trialNumber: Schema.Number,
-  config: Schema.Record({ key: Schema.String, value: Schema.Unknown })
+  trialNumber: Schema.Finite,
+  config: Schema.Record(Schema.String, Schema.Unknown)
 }) {}
 
 /** Untyped sampler configuration keyed by parameter name. @since 0.7.0 @category models */
 export type Config = Observation["config"]
 
-const SuggestionEpsilon = Schema.NonNegative.pipe(Schema.filter(isFinite))
+const SuggestionEpsilon = Schema.Finite.check(Schema.isGreaterThanOrEqualTo(0), Schema.makeFilter(isFinite))
 
 /** Immutable inputs for one suggestion. @since 0.7.0 @category schemas */
 export class Context extends Schema.Class<Context>("@scenesystems/effect-search/Sampler/Context")({
   completed: Schema.Array(Observation),
   pending: Schema.Array(Pending),
   objectiveSpec: Objective,
-  nextTrialNumber: Schema.Number,
+  nextTrialNumber: Schema.Finite,
   epsilon: SuggestionEpsilon
 }) {}
 
@@ -237,17 +237,17 @@ export const restore: {
 
 /** Runs optional acquisition. @since 0.7.0 @category lifecycle */
 export const acquire = (self: Sampler): Effect.Effect<void, SearchError> =>
-  Option.fromNullable(self.acquire).pipe(Option.getOrElse(() => Effect.void))
+  Option.fromNullishOr(self.acquire).pipe(Option.getOrElse(() => Effect.void))
 /** Runs optional release. @since 0.7.0 @category lifecycle */
 export const release = (self: Sampler): Effect.Effect<void> =>
-  Option.fromNullable(self.release).pipe(Option.getOrElse(() => Effect.void))
+  Option.fromNullishOr(self.release).pipe(Option.getOrElse(() => Effect.void))
 
 /** Creates a random sampler. @since 0.7.0 @category constructors */
 export const random = (options: RandomOptions = {}): Sampler => Constructors.random(options)
 /** Creates a finite-grid sampler. @since 0.7.0 @category constructors */
 export const grid = (options: GridOptions = {}): Sampler => Constructors.grid(options)
 /** Creates a TPE sampler. @since 0.7.0 @category constructors */
-export const tpe = (options: TpeOptions = {}): Sampler => Constructors.tpe(options)
+export const tpe = (options: TpeOptions = new TpeOptions({})): Sampler => Constructors.tpe(options)
 /** Creates a CMA-ES sampler. @since 0.7.0 @category constructors */
 export const cmaEs = (options: CmaEsOptions = {}): Sampler => Constructors.cmaEs(options)
 /** Creates a GP-BO sampler. @since 0.7.0 @category constructors */
@@ -279,19 +279,19 @@ export const observation = (
     trialNumber,
     config,
     value,
-    ...Option.match(Option.fromNullable(options.observationWeight), {
+    ...Option.match(Option.fromNullishOr(options.observationWeight), {
       onNone: () => ({}),
       onSome: (observationWeight) => ({ observationWeight })
     }),
-    ...Option.match(Option.fromNullable(options.cost), {
+    ...Option.match(Option.fromNullishOr(options.cost), {
       onNone: () => ({}),
       onSome: (cost) => ({ cost })
     }),
-    ...Option.match(Option.fromNullable(options.variance), {
+    ...Option.match(Option.fromNullishOr(options.variance), {
       onNone: () => ({}),
       onSome: (variance) => ({ variance })
     }),
-    ...Option.match(Option.fromNullable(options.constraints), {
+    ...Option.match(Option.fromNullishOr(options.constraints), {
       onNone: () => ({}),
       onSome: (constraints) => ({ constraints: Arr.fromIterable(constraints) })
     })
@@ -347,11 +347,11 @@ export class StratifiedRoundRobinOptions<Bucket, Value> extends Data.Class<{
   readonly seed: number
 }> {}
 /** Weighted index schema. @since 0.7.0 @category schemas */
-export const WeightedIndex = Schema.Struct({ index: Schema.Number, weight: Schema.Number })
+export const WeightedIndex = Schema.Struct({ index: Schema.Finite, weight: Schema.Finite })
 /** Weighted index. @since 0.7.0 @category models */
 export type WeightedIndex = typeof WeightedIndex.Type
 /** Weighted zero fallback schema. @since 0.7.0 @category schemas */
-export const WeightedZeroWeightFallback = Schema.Literal("lowest-index", "seed-modulo")
+export const WeightedZeroWeightFallback = Schema.Literals(["lowest-index", "seed-modulo"])
 /** Weighted zero fallback. @since 0.7.0 @category models */
 export type WeightedZeroWeightFallback = typeof WeightedZeroWeightFallback.Type
 /** Weighted selection options. @since 0.7.0 @category schemas */

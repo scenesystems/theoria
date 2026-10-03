@@ -28,11 +28,11 @@ export const logProbability = (
   const probabilities = Arr.fromIterable(probabilitiesInput)
 
   const index = Arr.findFirstIndex(choices, (choice) => Equal.equals(choice, value)).pipe(
-    Option.getOrElse(() => Num.negate(1))
+    Option.getOrElse(() => Num.multiply(-1, 1))
   )
   const probability = Arr.get(probabilities, index).pipe(Option.getOrElse(() => 0))
 
-  return Match.value(Num.lessThanOrEqualTo(probability, 0)).pipe(
+  return Match.value(Num.isLessThanOrEqualTo(probability, 0)).pipe(
     Match.when(true, () => Number.NEGATIVE_INFINITY),
     Match.orElse(() => logStrict(probability))
   )

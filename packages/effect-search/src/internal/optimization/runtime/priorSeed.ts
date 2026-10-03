@@ -30,7 +30,7 @@ const priorTrialFailure = (index: number, reason: string): InvalidOptimizationCo
 
 const isFiniteSingleValue = (value: Value): boolean =>
   Match.value(value).pipe(
-    Match.when(Match.number, Schema.is(Schema.JsonNumber)),
+    Match.when(Match.number, Schema.is(Schema.Finite)),
     Match.orElse(() => false)
   )
 
@@ -41,14 +41,14 @@ const isCompatiblePriorValue = (objectiveSpec: Objective, value: Value): boolean
       Bool.and(isFiniteValue(value), Num.Equivalence(dimensionCount(value), Arr.length(directions)))
   })(objectiveSpec)
 
-const isFiniteNonNegative = Schema.is(Schema.JsonNumber.pipe(Schema.nonNegative()))
+const isFiniteNonNegative = Schema.is(Schema.Finite.check(Schema.isGreaterThanOrEqualTo(0)))
 
 const decodePriorConfig = <Space extends SearchSpace.SearchSpace>(
   space: Space,
   index: number,
   config: unknown
 ): Effect.Effect<SearchSpace.Type<Space>, InvalidOptimizationConfig> =>
-  Schema.decodeUnknown(space.schema)(config).pipe(
+  Effect.fromResult(Schema.decodeUnknownResult(Schema.toType(space.schema))(config)).pipe(
     Effect.mapError(() => priorTrialFailure(index, "does not decode against the provided search space"))
   )
 
@@ -80,27 +80,26 @@ const priorTrialToRuntimeTrial = <Config>(
   config: Config,
   value: Value,
   cost: Option.Option<number>
-): Trial.Trial<Config> =>
-  Data.struct({
-    trialNumber: trialNumberFromIndex(index, totalPriorTrials),
-    config,
-    state: Trial.Completed({
-      value,
-      duration: 0,
-      retryCount: 0
-    }),
-    prior: true,
-    ...Option.match(cost, {
-      onNone: () => ({}),
-      onSome: (resolvedCost) => ({ cost: resolvedCost })
-    })
+): Trial.Trial<Config> => ({
+  trialNumber: trialNumberFromIndex(index, totalPriorTrials),
+  config,
+  state: Trial.Completed({
+    value,
+    duration: 0,
+    retryCount: 0
+  }),
+  prior: true,
+  ...Option.match(cost, {
+    onNone: () => ({}),
+    onSome: (resolvedCost) => ({ cost: resolvedCost })
   })
+})
 
 const normalizedPriorTrials = <Space extends SearchSpace.SearchSpace>(
   options: OptimizePlan<SearchSpace.Type<Space>, Space>,
   objectiveSpec: Objective
 ) =>
-  Option.fromNullable(options.priorTrials).pipe(
+  Option.fromNullishOr(options.priorTrials).pipe(
     Option.match({
       onNone: () => Effect.succeed(Arr.empty<Trial.Trial<SearchSpace.Type<Space>>>()),
       onSome: (priorTrials) => {
@@ -113,7 +112,7 @@ const normalizedPriorTrials = <Space extends SearchSpace.SearchSpace>(
             Effect.gen(function*() {
               const decodedConfig = yield* decodePriorConfig(options.space, index, priorTrial.config)
               yield* validatePriorValue(index, objectiveSpec, priorTrial.value)
-              const costOption = Option.fromNullable(priorTrial.cost)
+              const costOption = Option.fromNullishOr(priorTrial.cost)
 
               yield* Option.match(costOption, {
                 onNone: () => Effect.void,

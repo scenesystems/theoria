@@ -5,7 +5,7 @@ import type { Schema } from "effect"
 import { fromAST } from "../../src/Distribution.js"
 import * as SearchSpace from "../../src/SearchSpace.js"
 
-const expectDistribution = (schema: Schema.Schema.AnyNoContext, expected: unknown) => {
+const expectDistribution = (schema: Schema.Top, expected: unknown) => {
   const distribution = fromAST(schema.ast)
   expect(Option.isSome(distribution)).toBe(true)
   expect(Option.getOrElse(distribution, () => "missing distribution")).toEqual(expected)

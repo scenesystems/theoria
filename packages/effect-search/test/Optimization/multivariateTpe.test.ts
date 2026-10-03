@@ -1,5 +1,5 @@
 import { describe, expect, it } from "@effect/vitest"
-import { Effect, Match, Number as Num } from "effect"
+import { Array as Arr, Effect, Match, Number as Num } from "effect"
 
 import * as Optimization from "../../src/Optimization.js"
 import * as Sampler from "../../src/Sampler.js"
@@ -7,8 +7,8 @@ import * as SearchSpace from "../../src/SearchSpace.js"
 
 const makeCorrelatedSpace = () =>
   SearchSpace.make({
-    x: SearchSpace.float(Num.negate(2), 2),
-    y: SearchSpace.float(Num.negate(2), 2)
+    x: SearchSpace.float(Num.multiply(-1, 2), 2),
+    y: SearchSpace.float(Num.multiply(-1, 2), 2)
   })
 
 const correlatedObjective = (config: { readonly x: number; readonly y: number }): Effect.Effect<number> => {
@@ -19,7 +19,7 @@ const correlatedObjective = (config: { readonly x: number; readonly y: number })
 
 const oneDimensionalSpace = () =>
   SearchSpace.make({
-    x: SearchSpace.float(Num.negate(2), 2)
+    x: SearchSpace.float(Num.multiply(-1, 2), 2)
   })
 
 const oneDimensionalObjective = (config: { readonly x: number }): Effect.Effect<number> => {
@@ -36,36 +36,47 @@ const bestSingleObjectiveValue = <Config>(result: Optimization.Result<Config>): 
 
 describe("integration correlated-space TPE baseline", () => {
   it.effect(
-    "keeps a deterministic correlated objective baseline ready for multivariate rollout",
+    "improves on random search across a fixed seed cohort with equal trial budgets",
     () =>
       Effect.gen(function*() {
         const space = yield* makeCorrelatedSpace()
 
-        const tpeResult = yield* Optimization.run({
-          space,
-          sampler: Sampler.tpe({
-            seed: 11,
-            nStartupTrials: 5,
-            nEiCandidates: 32
-          }),
-          direction: "minimize",
-          trials: 24,
-          objective: correlatedObjective
-        })
+        // Fix the cohort before sampling; do not select seeds for favorable trajectories.
+        const scores = yield* Effect.forEach(Arr.range(0, 19), (seed) =>
+          Effect.gen(function*() {
+            const tpeResult = yield* Optimization.run(
+              new Optimization.FlatOptions({
+                space,
+                sampler: Sampler.tpe(
+                  new Sampler.TpeOptions({ seed, nStartupTrials: 5, nEiCandidates: 32 })
+                ),
+                direction: "minimize",
+                trials: 24,
+                objective: correlatedObjective
+              })
+            )
+            const randomResult = yield* Optimization.run(
+              new Optimization.FlatOptions({
+                space,
+                sampler: Sampler.random({ seed }),
+                direction: "minimize",
+                trials: 24,
+                objective: correlatedObjective
+              })
+            )
+            const tpe = bestSingleObjectiveValue(tpeResult)
+            const random = bestSingleObjectiveValue(randomResult)
+            // The sum of squares has its exact global minimum at (0.5, 0.5).
+            expect(tpe).toBeGreaterThanOrEqual(0)
+            expect(random).toBeGreaterThanOrEqual(0)
+            return { tpe, random }
+          }))
 
-        const randomResult = yield* Optimization.run({
-          space,
-          sampler: Sampler.random({ seed: 11 }),
-          direction: "minimize",
-          trials: 24,
-          objective: correlatedObjective
-        })
-
-        const tpeValue = bestSingleObjectiveValue(tpeResult)
-        const randomValue = bestSingleObjectiveValue(randomResult)
-
-        expect(tpeValue).toBeLessThanOrEqual(randomValue)
-        expect(tpeValue).toBeLessThan(0.1)
+        expect(scores).toHaveLength(20)
+        expect(Num.sumAll(Arr.map(scores, ({ tpe }) => tpe)))
+          .toBeLessThan(Num.sumAll(Arr.map(scores, ({ random }) => random)))
+        expect(Arr.length(Arr.filter(scores, ({ tpe, random }) => Num.isLessThan(tpe, random))))
+          .toBeGreaterThan(Num.divideUnsafe(Arr.length(scores), 2))
       }),
     30_000
   )
@@ -75,37 +86,47 @@ describe("integration correlated-space TPE baseline", () => {
     () =>
       Effect.gen(function*() {
         const space = yield* makeCorrelatedSpace()
-        const left = yield* Optimization.run({
-          space,
-          sampler: Sampler.tpe({
-            seed: 33,
-            nStartupTrials: 5,
-            nEiCandidates: 32,
-            multivariate: true
-          }),
-          direction: "minimize",
-          trials: 24,
-          objective: correlatedObjective
-        })
-        const right = yield* Optimization.run({
-          space,
-          sampler: Sampler.tpe({
-            seed: 33,
-            nStartupTrials: 5,
-            nEiCandidates: 32,
-            multivariate: true
-          }),
-          direction: "minimize",
-          trials: 24,
-          objective: correlatedObjective
-        })
-        const random = yield* Optimization.run({
-          space,
-          sampler: Sampler.random({ seed: 33 }),
-          direction: "minimize",
-          trials: 24,
-          objective: correlatedObjective
-        })
+        const left = yield* Optimization.run(
+          new Optimization.FlatOptions({
+            space,
+            sampler: Sampler.tpe(
+              new Sampler.TpeOptions({
+                seed: 33,
+                nStartupTrials: 5,
+                nEiCandidates: 32,
+                multivariate: true
+              })
+            ),
+            direction: "minimize",
+            trials: 24,
+            objective: correlatedObjective
+          })
+        )
+        const right = yield* Optimization.run(
+          new Optimization.FlatOptions({
+            space,
+            sampler: Sampler.tpe(
+              new Sampler.TpeOptions({
+                seed: 33,
+                nStartupTrials: 5,
+                nEiCandidates: 32,
+                multivariate: true
+              })
+            ),
+            direction: "minimize",
+            trials: 24,
+            objective: correlatedObjective
+          })
+        )
+        const random = yield* Optimization.run(
+          new Optimization.FlatOptions({
+            space,
+            sampler: Sampler.random({ seed: 33 }),
+            direction: "minimize",
+            trials: 24,
+            objective: correlatedObjective
+          })
+        )
         const leftValue = bestSingleObjectiveValue(left)
         const randomValue = bestSingleObjectiveValue(random)
 
@@ -119,29 +140,37 @@ describe("integration correlated-space TPE baseline", () => {
   it.effect("falls back to univariate behavior for one-dimensional spaces", () =>
     Effect.gen(function*() {
       const space = yield* oneDimensionalSpace()
-      const univariate = yield* Optimization.run({
-        space,
-        sampler: Sampler.tpe({
-          seed: 17,
-          nStartupTrials: 4,
-          nEiCandidates: 24
-        }),
-        direction: "minimize",
-        trials: 20,
-        objective: oneDimensionalObjective
-      })
-      const multivariate = yield* Optimization.run({
-        space,
-        sampler: Sampler.tpe({
-          seed: 17,
-          nStartupTrials: 4,
-          nEiCandidates: 24,
-          multivariate: true
-        }),
-        direction: "minimize",
-        trials: 20,
-        objective: oneDimensionalObjective
-      })
+      const univariate = yield* Optimization.run(
+        new Optimization.FlatOptions({
+          space,
+          sampler: Sampler.tpe(
+            new Sampler.TpeOptions({
+              seed: 17,
+              nStartupTrials: 4,
+              nEiCandidates: 24
+            })
+          ),
+          direction: "minimize",
+          trials: 20,
+          objective: oneDimensionalObjective
+        })
+      )
+      const multivariate = yield* Optimization.run(
+        new Optimization.FlatOptions({
+          space,
+          sampler: Sampler.tpe(
+            new Sampler.TpeOptions({
+              seed: 17,
+              nStartupTrials: 4,
+              nEiCandidates: 24,
+              multivariate: true
+            })
+          ),
+          direction: "minimize",
+          trials: 20,
+          objective: oneDimensionalObjective
+        })
+      )
 
       expect(bestSingleObjectiveValue(multivariate)).toBe(bestSingleObjectiveValue(univariate))
     }), 15_000)

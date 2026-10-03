@@ -57,7 +57,7 @@ const persistRuntimeCheckpoint = <Space extends SearchSpace.SearchSpace>(
   })
 
 const failureLifecycle = (cause: Cause.Cause<unknown>): "Cancelled" | "Failed" =>
-  Match.value(Cause.isInterruptedOnly(cause)).pipe(
+  Match.value(Cause.hasInterruptsOnly(cause)).pipe(
     Match.when(true, (): "Cancelled" => "Cancelled"),
     Match.orElse((): "Failed" => "Failed")
   )
@@ -79,14 +79,13 @@ const withRuntimeCheckpoint = <Space extends SearchSpace.SearchSpace, A, E, R>(
 ): Effect.Effect<A, E | SearchError, R> =>
   Effect.uninterruptibleMask((restore) =>
     restore(trials).pipe(
-      Effect.tapErrorCause((cause) =>
+      Effect.tapCause((cause) =>
         GenericStudy.modify(runtime.study, (state) =>
           Effect.succeed(Tuple.make(
             undefined,
             new GenericStudy.State({ lifecycle: failureLifecycle(cause), history: cancelPendingTrials(state.history) })
           ))).pipe(
-            Effect.zipRight(persistRuntimeCheckpoint(options, settings, runtime, interruptionSnapshotSink)),
-            Effect.mapErrorCause((checkpointCause) => Cause.sequential(cause, checkpointCause))
+            Effect.andThen(persistRuntimeCheckpoint(options, settings, runtime, interruptionSnapshotSink))
           )
       )
     )
@@ -99,7 +98,7 @@ const withSamplerLifecycle = <Space extends SearchSpace.SearchSpace, A, E, R>(
   Effect.acquireRelease(
     Sampler.acquire(options.sampler),
     () => Sampler.release(options.sampler)
-  ).pipe(Effect.zipRight(effect))
+  ).pipe(Effect.andThen(effect))
 
 const runTrialWorker = <Space extends SearchSpace.SearchSpace>(
   workQueue: Queue.Dequeue<number>,
@@ -115,7 +114,7 @@ const runTrialWorker = <Space extends SearchSpace.SearchSpace>(
           onNone: () => Effect.void,
           onSome: (trialNumber) =>
             runScheduledTrial(options, settings, pruningPolicy, trialNumber, runtime).pipe(
-              Effect.zipRight(runTrialWorker(workQueue, options, settings, runtime, pruningPolicy))
+              Effect.andThen(runTrialWorker(workQueue, options, settings, runtime, pruningPolicy))
             )
         })
       )
@@ -183,7 +182,7 @@ export const executeOptimization = <Space extends SearchSpace.SearchSpace>(
           runtime,
           interruptionSnapshotSink,
           Effect.gen(function*() {
-            const schedulerSummary = yield* Option.fromNullable(options.scheduler).pipe(
+            const schedulerSummary = yield* Option.fromNullishOr(options.scheduler).pipe(
               Option.match({
                 onNone: () =>
                   executeQueuedTrials(options, settings, runtime, pruningPolicy, runtimeSeed.startTrialNumber).pipe(

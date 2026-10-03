@@ -27,8 +27,8 @@ export type ConfigFor<Space extends SearchSpace.SearchSpace> = SearchSpace.Type<
 
 const directionOrder = (direction: Direction): Order.Order<number> =>
   Match.value(direction).pipe(
-    Match.when("minimize", () => Order.number),
-    Match.when("maximize", () => Order.reverse(Order.number)),
+    Match.when("minimize", () => Order.Number),
+    Match.when("maximize", () => Order.flip(Order.Number)),
     Match.exhaustive
   )
 
@@ -45,7 +45,7 @@ const sortByDirection = <Config>(
   )
 
 const replenishmentSlots = (count: number) =>
-  Match.value(Num.lessThanOrEqualTo(count, 0)).pipe(
+  Match.value(Num.isLessThanOrEqualTo(count, 0)).pipe(
     Match.when(true, () => Arr.empty<number>()),
     Match.orElse(() => Arr.makeBy(count, (index) => index))
   )
@@ -111,7 +111,7 @@ const runRound = <Space extends SearchSpace.SearchSpace>(
         )
       }), { concurrency: settings.concurrency })
 
-    const executedTrials = Arr.filterMap(finalizedTrials, (trialOption) => trialOption)
+    const executedTrials = Arr.getSomes(finalizedTrials)
     const numericCompleted = Arr.filter(
       executedTrials,
       (trial): trial is Trial.NumericCompletedTrial<ConfigFor<Space>> => isNumericCompletedTrialWithConfig(trial)

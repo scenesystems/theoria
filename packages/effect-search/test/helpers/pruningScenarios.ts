@@ -23,19 +23,18 @@ export const pruningReportTrace = (reports: Iterable<Pruning.Report>) =>
     value: report.value
   }))
 
-export const makePruningEventRuntime = (): Effect.Effect<EventRuntime> =>
-  Effect.all({
-    bestValueRef: Ref.make<Option.Option<number>>(Option.none()),
-    noImprovementCountRef: Ref.make(0)
-  }).pipe(
-    Effect.map(({ bestValueRef, noImprovementCountRef }) =>
-      new EventRuntime({
-        bestValueRef,
-        noImprovementCountRef,
-        eventPublisher: noopEventPublisher
-      })
-    )
+export const makePruningEventRuntime: Effect.Effect<EventRuntime> = Effect.all({
+  bestValueRef: Ref.make<Option.Option<number>>(Option.none()),
+  noImprovementCountRef: Ref.make(0)
+}).pipe(
+  Effect.map(({ bestValueRef, noImprovementCountRef }) =>
+    new EventRuntime({
+      bestValueRef,
+      noImprovementCountRef,
+      eventPublisher: noopEventPublisher
+    })
   )
+)
 
 export const pruningSlotSpace = makeSlotSpace(32)
 
@@ -61,7 +60,7 @@ export const pruningSingleObjectiveResult = (
 export const pruneSlotsBelowTwo = new Pruning.Policy({
   name: "slot-pruner",
   decide: ({ latestReport }) =>
-    Match.value(Num.lessThan(latestReport.value, 2)).pipe(
+    Match.value(Num.isLessThan(latestReport.value, 2)).pipe(
       Match.when(true, () =>
         Pruning.prune({
           step: latestReport.step,
@@ -141,7 +140,7 @@ export const invalidReportReasons = (trials: Iterable<Trial.Trial<unknown>>) => 
           Option.match({
             onNone: () => reasonFromFailure(error.cause),
             onSome: (cause) =>
-              Cause.failureOption(cause).pipe(
+              Cause.findErrorOption(cause).pipe(
                 Option.match({
                   onNone: Arr.empty,
                   onSome: reasonFromFailure

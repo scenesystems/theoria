@@ -1,5 +1,5 @@
 import { describe, expect, it } from "@effect/vitest"
-import { Array as Arr, Effect, Either, Match, Number as Num, Ref, Schema } from "effect"
+import { Array as Arr, Effect, Match, Number as Num, Ref, Result, Schema, Struct } from "effect"
 
 import type { Direction } from "../../src/Direction.js"
 import * as Optimization from "../../src/Optimization.js"
@@ -14,10 +14,10 @@ import {
   snapshotSpace
 } from "../helpers/optimizationSnapshots.js"
 
-const expectInvalidOptimizationConfig = (outcome: Either.Either<unknown, unknown>, reasonFragment: string) =>
-  Either.match(outcome, {
-    onLeft: (failure) =>
-      Schema.decodeUnknown(InvalidOptimizationConfig)(failure).pipe(
+const expectInvalidOptimizationConfig = (outcome: Result.Result<unknown, unknown>, reasonFragment: string) =>
+  Result.match(outcome, {
+    onFailure: (failure) =>
+      Schema.decodeUnknownEffect(InvalidOptimizationConfig)(failure).pipe(
         Effect.tap((error) =>
           Effect.sync(() => {
             expect(error).toBeInstanceOf(InvalidOptimizationConfig)
@@ -26,7 +26,7 @@ const expectInvalidOptimizationConfig = (outcome: Either.Either<unknown, unknown
           })
         )
       ),
-    onRight: () => Effect.dieMessage(`Expected InvalidOptimizationConfig containing "${reasonFragment}"`)
+    onSuccess: () => Effect.die(`Expected InvalidOptimizationConfig containing "${reasonFragment}"`)
   })
 
 describe("Optimization snapshot-resume validation boundaries", () => {
@@ -34,62 +34,74 @@ describe("Optimization snapshot-resume validation boundaries", () => {
     Effect.gen(function*() {
       const space = yield* snapshotSpace
       const sampler = Sampler.random({ seed: 19 })
-      const result = yield* Optimization.run({ space, sampler, trials: 1, objective: snapshotSingleObjective })
+      const result = yield* Optimization.run(
+        new Optimization.FlatOptions({ space, sampler, trials: 1, objective: snapshotSingleObjective })
+      )
       const snapshot = yield* Optimization.snapshot(result)
-      const first = yield* Arr.head(snapshot.trials)
+      const first = yield* Effect.fromOption(Arr.head(snapshot.trials))
+      const prior = yield* Schema.decodeEffect(Schema.Literal(true))(true)
       const restores = yield* Ref.make(0)
-      const observed = new Sampler.Sampler({ ...sampler, restore: () => Ref.update(restores, Num.increment) })
+      const observed = new Sampler.Sampler(Struct.assign(sampler, {
+        restore: () => Ref.update(restores, Num.increment)
+      }))
       const reject = (corrupt: OptimizationSnapshot.OptimizationSnapshot) =>
         Effect.gen(function*() {
-          const outcome = yield* Effect.either(Optimization.resume({
-            space,
-            sampler: observed,
-            snapshot: corrupt,
-            trials: 0,
-            objective: snapshotSingleObjective
-          }))
+          const outcome = yield* Effect.result(Optimization.resume(
+            new Optimization.ResumeOptions({
+              space,
+              sampler: observed,
+              snapshot: corrupt,
+              trials: 0,
+              objective: snapshotSingleObjective
+            })
+          ))
           yield* expectInvalidOptimizationConfig(outcome, "snapshot")
           expect(yield* Ref.get(restores)).toBe(0)
         })
-      yield* reject({ ...snapshot, trials: Arr.make(first, first), completedCount: 2 })
+      yield* reject(Struct.assign(snapshot, { trials: Arr.make(first, first), completedCount: 2 }))
       yield* Effect.forEach(
         Arr.make(0.5, -1, NaN, Infinity, 9007199254740992),
         (trialNumber) =>
-          reject({
-            ...snapshot,
-            trials: Arr.of({ ...first, trialNumber }),
+          reject(Struct.assign(snapshot, {
+            trials: Arr.of(Struct.assign(first, { trialNumber })),
             nextTrialNumber: Num.increment(trialNumber)
-          })
+          }))
       )
-      yield* reject({ ...snapshot, trials: Arr.of({ ...first, prior: true }) })
-      yield* reject({ ...snapshot, nextTrialNumber: 0.5 })
-      yield* reject({ ...snapshot, completedCount: -1 })
-      yield* reject({ ...snapshot, completedCount: 0 })
-      yield* reject({ ...snapshot, trials: Arr.of({ ...first, config: { invalid: true } }) })
+      yield* reject(Struct.assign(snapshot, { trials: Arr.of(Struct.assign(first, { prior })) }))
+      yield* reject(Struct.assign(snapshot, { nextTrialNumber: 0.5 }))
+      yield* reject(Struct.assign(snapshot, { completedCount: -1 }))
+      yield* reject(Struct.assign(snapshot, { completedCount: 0 }))
+      yield* reject(Struct.assign(snapshot, {
+        trials: Arr.of(Struct.assign(first, { config: { invalid: true } }))
+      }))
     }))
 
   it.effect("fails resume when snapshot and runtime spaces have different fingerprints", () =>
     Effect.gen(function*() {
-      const snapshotResult = yield* Optimization.run({
-        space: yield* snapshotSpace,
-        sampler: Sampler.random({ seed: 712 }),
-        direction: "minimize",
-        trials: 3,
-        objective: snapshotSingleObjective
-      })
-
-      const single = yield* snapshotSingleObjectiveResult(snapshotResult)
-
-      const snapshot = yield* Optimization.snapshot(single)
-      const outcome = yield* Effect.either(
-        Optimization.resume({
-          space: yield* incompatibleSnapshotSpace,
+      const snapshotResult = yield* Optimization.run(
+        new Optimization.FlatOptions({
+          space: yield* snapshotSpace,
           sampler: Sampler.random({ seed: 712 }),
-          snapshot,
           direction: "minimize",
-          trials: 1,
+          trials: 3,
           objective: snapshotSingleObjective
         })
+      )
+
+      const single = yield* Effect.fromOption(snapshotSingleObjectiveResult(snapshotResult))
+
+      const snapshot = yield* Optimization.snapshot(single)
+      const outcome = yield* Effect.result(
+        Optimization.resume(
+          new Optimization.ResumeOptions({
+            space: yield* incompatibleSnapshotSpace,
+            sampler: Sampler.random({ seed: 712 }),
+            snapshot,
+            direction: "minimize",
+            trials: 1,
+            objective: snapshotSingleObjective
+          })
+        )
       )
 
       yield* expectInvalidOptimizationConfig(outcome, "space fingerprint")
@@ -97,26 +109,30 @@ describe("Optimization snapshot-resume validation boundaries", () => {
 
   it.effect("fails resume when sampler kind does not match snapshot sampler", () =>
     Effect.gen(function*() {
-      const snapshotResult = yield* Optimization.run({
-        space: yield* snapshotSpace,
-        sampler: Sampler.tpe({ seed: 41, nStartupTrials: 2, nEiCandidates: 8 }),
-        direction: "minimize",
-        trials: 6,
-        objective: snapshotSingleObjective
-      })
-
-      const single = yield* snapshotSingleObjectiveResult(snapshotResult)
-
-      const snapshot = yield* Optimization.snapshot(single)
-      const outcome = yield* Effect.either(
-        Optimization.resume({
+      const snapshotResult = yield* Optimization.run(
+        new Optimization.FlatOptions({
           space: yield* snapshotSpace,
-          sampler: Sampler.random({ seed: 41 }),
-          snapshot,
+          sampler: Sampler.tpe(new Sampler.TpeOptions({ seed: 41, nStartupTrials: 2, nEiCandidates: 8 })),
           direction: "minimize",
-          trials: 3,
+          trials: 6,
           objective: snapshotSingleObjective
         })
+      )
+
+      const single = yield* Effect.fromOption(snapshotSingleObjectiveResult(snapshotResult))
+
+      const snapshot = yield* Optimization.snapshot(single)
+      const outcome = yield* Effect.result(
+        Optimization.resume(
+          new Optimization.ResumeOptions({
+            space: yield* snapshotSpace,
+            sampler: Sampler.random({ seed: 41 }),
+            snapshot,
+            direction: "minimize",
+            trials: 3,
+            objective: snapshotSingleObjective
+          })
+        )
       )
 
       yield* expectInvalidOptimizationConfig(outcome, "sampler kind")
@@ -124,26 +140,30 @@ describe("Optimization snapshot-resume validation boundaries", () => {
 
   it.effect("fails resume when objective spec does not match snapshot objective spec", () =>
     Effect.gen(function*() {
-      const snapshotResult = yield* Optimization.run({
-        space: yield* snapshotSpace,
-        sampler: Sampler.random({ seed: 818 }),
-        direction: "minimize",
-        trials: 5,
-        objective: snapshotSingleObjective
-      })
-
-      const single = yield* snapshotSingleObjectiveResult(snapshotResult)
-
-      const snapshot = yield* Optimization.snapshot(single)
-      const outcome = yield* Effect.either(
-        Optimization.resume({
+      const snapshotResult = yield* Optimization.run(
+        new Optimization.FlatOptions({
           space: yield* snapshotSpace,
           sampler: Sampler.random({ seed: 818 }),
-          snapshot,
-          directions: Arr.make<Arr.NonEmptyArray<Direction>>("minimize", "minimize"),
-          trials: 2,
-          objective: snapshotObjectiveVector
+          direction: "minimize",
+          trials: 5,
+          objective: snapshotSingleObjective
         })
+      )
+
+      const single = yield* Effect.fromOption(snapshotSingleObjectiveResult(snapshotResult))
+
+      const snapshot = yield* Optimization.snapshot(single)
+      const outcome = yield* Effect.result(
+        Optimization.resume(
+          new Optimization.ResumeOptions({
+            space: yield* snapshotSpace,
+            sampler: Sampler.random({ seed: 818 }),
+            snapshot,
+            directions: Arr.make<Arr.NonEmptyArray<Direction>>("minimize", "minimize"),
+            trials: 2,
+            objective: snapshotObjectiveVector
+          })
+        )
       )
 
       yield* expectInvalidOptimizationConfig(outcome, "objective spec")
@@ -151,28 +171,32 @@ describe("Optimization snapshot-resume validation boundaries", () => {
 
   it.effect("fails resume when stop mode does not match snapshot stop mode", () =>
     Effect.gen(function*() {
-      const snapshotResult = yield* Optimization.run({
-        space: yield* snapshotSpace,
-        sampler: Sampler.random({ seed: 907 }),
-        direction: "minimize",
-        trials: 4,
-        stopMode: "Drain",
-        objective: snapshotSingleObjective
-      })
-
-      const single = yield* snapshotSingleObjectiveResult(snapshotResult)
-
-      const snapshot = yield* Optimization.snapshot(single)
-      const outcome = yield* Effect.either(
-        Optimization.resume({
+      const snapshotResult = yield* Optimization.run(
+        new Optimization.FlatOptions({
           space: yield* snapshotSpace,
           sampler: Sampler.random({ seed: 907 }),
-          snapshot,
           direction: "minimize",
-          trials: 2,
-          stopMode: "Interrupt",
+          trials: 4,
+          stopMode: "Drain",
           objective: snapshotSingleObjective
         })
+      )
+
+      const single = yield* Effect.fromOption(snapshotSingleObjectiveResult(snapshotResult))
+
+      const snapshot = yield* Optimization.snapshot(single)
+      const outcome = yield* Effect.result(
+        Optimization.resume(
+          new Optimization.ResumeOptions({
+            space: yield* snapshotSpace,
+            sampler: Sampler.random({ seed: 907 }),
+            snapshot,
+            direction: "minimize",
+            trials: 2,
+            stopMode: "Interrupt",
+            objective: snapshotSingleObjective
+          })
+        )
       )
 
       yield* expectInvalidOptimizationConfig(outcome, "stop mode")
@@ -180,15 +204,17 @@ describe("Optimization snapshot-resume validation boundaries", () => {
 
   it.effect("fails resume when sampler checkpoint payload mismatches runtime contract", () =>
     Effect.gen(function*() {
-      const snapshotResult = yield* Optimization.run({
-        space: yield* snapshotSpace,
-        sampler: Sampler.random({ seed: 52 }),
-        direction: "minimize",
-        trials: 4,
-        objective: snapshotSingleObjective
-      })
+      const snapshotResult = yield* Optimization.run(
+        new Optimization.FlatOptions({
+          space: yield* snapshotSpace,
+          sampler: Sampler.random({ seed: 52 }),
+          direction: "minimize",
+          trials: 4,
+          objective: snapshotSingleObjective
+        })
+      )
 
-      const single = yield* snapshotSingleObjectiveResult(snapshotResult)
+      const single = yield* Effect.fromOption(snapshotSingleObjectiveResult(snapshotResult))
 
       const snapshot = yield* Optimization.snapshot(single)
       const corruptCheckpoint = Match.value(snapshot.samplerCheckpoint).pipe(
@@ -224,20 +250,21 @@ describe("Optimization snapshot-resume validation boundaries", () => {
         ),
         Match.exhaustive
       )
-      const corruptSnapshot = new OptimizationSnapshot.OptimizationSnapshot({
-        ...snapshot,
+      const corruptSnapshot = new OptimizationSnapshot.OptimizationSnapshot(Struct.assign(snapshot, {
         samplerCheckpoint: corruptCheckpoint
-      })
+      }))
 
-      const outcome = yield* Effect.either(
-        Optimization.resume({
-          space: yield* snapshotSpace,
-          sampler: Sampler.random({ seed: 52 }),
-          snapshot: corruptSnapshot,
-          direction: "minimize",
-          trials: 2,
-          objective: snapshotSingleObjective
-        })
+      const outcome = yield* Effect.result(
+        Optimization.resume(
+          new Optimization.ResumeOptions({
+            space: yield* snapshotSpace,
+            sampler: Sampler.random({ seed: 52 }),
+            snapshot: corruptSnapshot,
+            direction: "minimize",
+            trials: 2,
+            objective: snapshotSingleObjective
+          })
+        )
       )
 
       yield* expectInvalidOptimizationConfig(outcome, "checkpoint mismatch")

@@ -1,15 +1,21 @@
 import { describe, expect, it } from "@effect/vitest"
-import { Array as Arr, Chunk, Effect, Equal, Match, Number as Num, Option, Predicate, Schema, Stream } from "effect"
+import { Array as Arr, Effect, Equal, Match, Number as Num, Option, Schema, Stream } from "effect"
 
 import * as Optimization from "../../src/Optimization.js"
 import * as Sampler from "../../src/Sampler.js"
 import * as SearchSpace from "../../src/SearchSpace.js"
-import * as Trial from "../../src/Trial.js"
+import type * as Trial from "../../src/Trial.js"
 
 const gridSpace = SearchSpace.make({
   alpha: SearchSpace.categorical(Arr.make("a", "b", "c")),
   beta: SearchSpace.categorical(Arr.make("x", "y", "z", "w")),
   useBatchNorm: SearchSpace.boolean()
+})
+
+const GridConfig = Schema.Struct({
+  alpha: Schema.String,
+  beta: Schema.String,
+  useBatchNorm: Schema.Boolean
 })
 
 const asSingleObjective = (result: Optimization.Result): Option.Option<Optimization.SingleObjectiveResult> =>
@@ -18,28 +24,25 @@ const asSingleObjective = (result: Optimization.Result): Option.Option<Optimizat
     Match.orElse(() => Option.none())
   )
 
-const completedConfigs = (space: SearchSpace.SearchSpace, trials: Iterable<Trial.Trial<unknown>>) => {
-  const decode = Schema.decodeUnknownSync(space.schema)
+const completedConfigs = (
+  _space: SearchSpace.SearchSpace,
+  trials: Iterable<Trial.Trial<unknown>>
+) => {
+  const decode = Schema.decodeUnknownSync(GridConfig)
 
   return Arr.flatMap(Arr.fromIterable(trials), (trial) =>
-    Trial.matchState({
-      Running: Arr.empty,
-      Completed: () => Arr.of(decode(trial.config)),
-      Pruned: Arr.empty,
-      Failed: Arr.empty,
-      Cancelled: Arr.empty
-    })(trial.state))
+    Match.value(trial.state).pipe(
+      Match.tag("Completed", () => Arr.of(decode(trial.config))),
+      Match.orElse(() => Arr.empty<Schema.Schema.Type<typeof GridConfig>>())
+    ))
 }
 
 const completedValues = (trials: Iterable<Trial.Trial<unknown>>) =>
   Arr.flatMap(Arr.fromIterable(trials), (trial) =>
-    Trial.matchState({
-      Running: Arr.empty,
-      Completed: ({ value }) => Option.liftPredicate(value, Predicate.isNumber).pipe(Option.toArray),
-      Pruned: Arr.empty,
-      Failed: Arr.empty,
-      Cancelled: Arr.empty
-    })(trial.state))
+    Match.value(trial.state).pipe(
+      Match.tag("Completed", ({ value }) => Schema.decodeUnknownOption(Schema.Finite)(value).pipe(Option.toArray)),
+      Match.orElse(() => Arr.empty<number>())
+    ))
 
 const keyFromConfig = (
   config: { readonly alpha: string; readonly beta: string; readonly useBatchNorm: boolean }
@@ -74,17 +77,19 @@ describe("integration grid optimization", () => {
   it.effect("uses spaceExhausted completion when trial budget exceeds finite grid size", () =>
     Effect.gen(function*() {
       const space = yield* gridSpace
-      const optimized = yield* Optimization.run({
-        space,
-        sampler: Sampler.grid(),
-        direction: "minimize",
-        trials: 100,
-        objective: objectiveForSpace(space)
-      })
+      const optimized = yield* Optimization.run(
+        new Optimization.FlatOptions({
+          space,
+          sampler: Sampler.grid(),
+          direction: "minimize",
+          trials: 100,
+          objective: objectiveForSpace(space)
+        })
+      )
 
       const singleOption = asSingleObjective(optimized)
       expect(Option.isSome(singleOption)).toBe(true)
-      const result = yield* singleOption
+      const result = yield* Effect.fromOption(singleOption)
       const configurations = completedConfigs(space, result.trials)
       const keys = Arr.map(configurations, keyFromConfig)
       const values = completedValues(result.trials)
@@ -103,17 +108,19 @@ describe("integration grid optimization", () => {
   it.effect("uses budgetExhausted completion when budget is within finite grid size", () =>
     Effect.gen(function*() {
       const space = yield* gridSpace
-      const optimized = yield* Optimization.run({
-        space,
-        sampler: Sampler.grid(),
-        direction: "minimize",
-        trials: 10,
-        objective: objectiveForSpace(space)
-      })
+      const optimized = yield* Optimization.run(
+        new Optimization.FlatOptions({
+          space,
+          sampler: Sampler.grid(),
+          direction: "minimize",
+          trials: 10,
+          objective: objectiveForSpace(space)
+        })
+      )
 
       const singleOption = asSingleObjective(optimized)
       expect(Option.isSome(singleOption)).toBe(true)
-      const result = yield* singleOption
+      const result = yield* Effect.fromOption(singleOption)
 
       expect(result.completionReason).toBe("budgetExhausted")
       expect(result.trials).toHaveLength(10)
@@ -125,9 +132,9 @@ describe("integration grid optimization", () => {
   it.effect("keeps stream lifecycle compatibility for grid studies", () =>
     Effect.gen(function*() {
       const space = yield* gridSpace
-      const events = Chunk.toReadonlyArray(
-        yield* Stream.runCollect(
-          Optimization.stream({
+      const events = yield* Stream.runCollect(
+        Optimization.stream(
+          new Optimization.FlatOptions({
             space,
             sampler: Sampler.grid(),
             direction: "minimize",
@@ -136,6 +143,7 @@ describe("integration grid optimization", () => {
           })
         )
       )
+
       const tags = Arr.map(events, (event) => event._tag)
       const lastEvent = Arr.last(events)
 

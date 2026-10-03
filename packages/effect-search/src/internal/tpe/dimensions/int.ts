@@ -100,12 +100,15 @@ export const intCandidateTraceFromRolls = (
       logL: Arr.map(logPairs, ([logL]) => logL),
       logG: Arr.map(logPairs, ([_logL, logG]) => logG),
       scores: Arr.map(logPairs, ([logL, logG], index) =>
-        Acquisition.score({
-          logL,
-          logG,
-          estimatedCost: Option.none(),
-          roll: rollFromCandidatePair(rolls, index)
-        }, acquisition))
+        Acquisition.score(
+          new Acquisition.Context({
+            logL,
+            logG,
+            estimatedCost: Option.none(),
+            roll: rollFromCandidatePair(rolls, index)
+          }),
+          acquisition
+        ))
     })
   })
 }

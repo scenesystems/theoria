@@ -17,7 +17,7 @@ const shuffleAtIndex = (
   rng: Rng.Rng
 ): Effect.Effect<GridConfigs> => {
   const output = Arr.fromIterable(outputInput)
-  return Match.value(Num.lessThanOrEqualTo(index, 0)).pipe(
+  return Match.value(Num.isLessThanOrEqualTo(index, 0)).pipe(
     Match.when(true, () => Effect.succeed(output)),
     Match.when(false, () =>
       Effect.gen(function*() {
@@ -29,7 +29,8 @@ const shuffleAtIndex = (
           Option.getOrElse((): GridConfig => current)
         )
 
-        const swapped = Arr.modify(Arr.modify(output, index, () => targetValue), target, () => current)
+        const replacedCurrent = Arr.replace(output, index, targetValue).pipe(Option.getOrElse(() => output))
+        const swapped = Arr.replace(replacedCurrent, target, current).pipe(Option.getOrElse(() => replacedCurrent))
 
         return yield* shuffleAtIndex(swapped, Num.decrement(index), rng)
       })),
@@ -43,7 +44,7 @@ const shuffledGridConfigs = (
 ): Effect.Effect<GridConfigs> => {
   const configs = Arr.fromIterable(configsInput)
   return Effect.gen(function*() {
-    const rng = Rng.make(seed)
+    const rng = yield* Rng.make(seed)
     const output = Arr.fromIterable(configs)
 
     return yield* shuffleAtIndex(output, Num.decrement(Arr.length(output)), rng)

@@ -6,7 +6,7 @@
  */
 import type * as Journal from "@scenesystems/effect-study/Journal"
 import type * as Stop from "@scenesystems/effect-study/Stop"
-import { Data, Match, Schema } from "effect"
+import { Data, Match, Schema, Struct } from "effect"
 import type { Duration, Effect, Schedule, Stream } from "effect"
 
 import type { Direction } from "./Direction.js"
@@ -29,11 +29,11 @@ export class ObjectiveReport extends Schema.Class<ObjectiveReport>(
   "@scenesystems/effect-search/Optimization/ObjectiveReport"
 )({
   value: Value,
-  cost: Schema.optional(Schema.Number)
+  cost: Schema.optional(Schema.Finite)
 }) {}
 
 /** Value accepted from objective callbacks. @since 0.7.0 @category schemas */
-export const ObjectiveResult = Schema.Union(Value, ObjectiveReport)
+export const ObjectiveResult = Schema.Union([Value, ObjectiveReport])
 /** Objective callback result decoded by {@link ObjectiveResult}. @since 0.7.0 @category models */
 export type ObjectiveResult = typeof ObjectiveResult.Type
 
@@ -54,73 +54,61 @@ export class PriorTrial<Config = unknown> extends Data.Class<{
 export type RetrySchedule = Schedule.Schedule<unknown, unknown, never>
 
 /** Direct sampler optimization options. @since 0.7.0 @category models */
-export class FlatOptions<
-  Config = unknown,
-  Space extends SearchSpace.SearchSpace = SearchSpace.SearchSpace
-> extends Data.Class<{
+export class FlatOptions<Space extends SearchSpace.SearchSpace = SearchSpace.SearchSpace> extends Data.Class<{
   readonly space: Space
   readonly sampler: Sampler.Sampler
-  readonly objective: Objective<Config>
+  readonly objective: Objective<SearchSpace.Type<Space>>
   readonly trials: number
   readonly direction?: Direction
   readonly directions?: Iterable<Direction>
   readonly pruningPolicy?: Pruning.Policy
   readonly stopMode?: Stop.Mode
   readonly concurrency?: number
-  readonly priorTrials?: Iterable<PriorTrial<Config>>
+  readonly priorTrials?: Iterable<PriorTrial<SearchSpace.Type<Space>>>
   readonly priorWeight?: number
   readonly maxCost?: number
   readonly evaluationsPerTrial?: number
-  readonly maxDuration?: Duration.DurationInput
+  readonly maxDuration?: Duration.Input
   readonly targetValue?: number
   readonly noImprovementWindow?: number
   readonly epsilon?: number
   readonly retrySchedule?: RetrySchedule
-  readonly trialTimeout?: Duration.DurationInput
+  readonly trialTimeout?: Duration.Input
 }> {}
 
 /** Bracket scheduler optimization options. @since 0.7.0 @category models */
-export class ScheduledOptions<
-  Config = unknown,
-  Space extends SearchSpace.SearchSpace = SearchSpace.SearchSpace
-> extends Data.Class<{
+export class ScheduledOptions<Space extends SearchSpace.SearchSpace = SearchSpace.SearchSpace> extends Data.Class<{
   readonly space: Space
   readonly scheduler: Scheduler.Plan
-  readonly objective: Objective<Config>
+  readonly objective: Objective<SearchSpace.Type<Space>>
   readonly direction?: Direction
   readonly directions?: Iterable<Direction>
   readonly pruningPolicy?: Pruning.Policy
   readonly stopMode?: Stop.Mode
   readonly concurrency?: number
-  readonly priorTrials?: Iterable<PriorTrial<Config>>
+  readonly priorTrials?: Iterable<PriorTrial<SearchSpace.Type<Space>>>
   readonly priorWeight?: number
   readonly maxCost?: number
   readonly evaluationsPerTrial?: number
-  readonly maxDuration?: Duration.DurationInput
+  readonly maxDuration?: Duration.Input
   readonly targetValue?: number
   readonly noImprovementWindow?: number
   readonly epsilon?: number
   readonly retrySchedule?: RetrySchedule
-  readonly trialTimeout?: Duration.DurationInput
+  readonly trialTimeout?: Duration.Input
 }> {}
 
 /** Fresh flat or scheduled optimization options. @since 0.7.0 @category models */
-export type Options<
-  Config = unknown,
-  Space extends SearchSpace.SearchSpace = SearchSpace.SearchSpace
-> =
-  | FlatOptions<Config, Space>
-  | ScheduledOptions<Config, Space>
+export type Options<Space extends SearchSpace.SearchSpace = SearchSpace.SearchSpace> =
+  | FlatOptions<Space>
+  | ScheduledOptions<Space>
 
 /** Snapshot continuation options. @since 0.7.0 @category models */
-export class ResumeOptions<
-  Config = unknown,
-  Space extends SearchSpace.SearchSpace = SearchSpace.SearchSpace
-> extends Data.Class<{
+export class ResumeOptions<Space extends SearchSpace.SearchSpace = SearchSpace.SearchSpace> extends Data.Class<{
   readonly space: Space
   readonly sampler: Sampler.Sampler
   readonly snapshot: OptimizationSnapshot.OptimizationSnapshot
-  readonly objective: Objective<Config>
+  readonly objective: Objective<SearchSpace.Type<Space>>
   readonly trials: number
   readonly direction?: Direction
   readonly directions?: Iterable<Direction>
@@ -129,22 +117,19 @@ export class ResumeOptions<
   readonly concurrency?: number
   readonly maxCost?: number
   readonly evaluationsPerTrial?: number
-  readonly maxDuration?: Duration.DurationInput
+  readonly maxDuration?: Duration.Input
   readonly targetValue?: number
   readonly noImprovementWindow?: number
   readonly epsilon?: number
   readonly retrySchedule?: RetrySchedule
-  readonly trialTimeout?: Duration.DurationInput
+  readonly trialTimeout?: Duration.Input
 }> {}
 
 /** Storage continuation options omit the snapshot loaded by the service. @since 0.7.0 @category models */
-export class StorageResumeOptions<
-  Config = unknown,
-  Space extends SearchSpace.SearchSpace = SearchSpace.SearchSpace
-> extends Data.Class<{
+export class StorageResumeOptions<Space extends SearchSpace.SearchSpace = SearchSpace.SearchSpace> extends Data.Class<{
   readonly space: Space
   readonly sampler: Sampler.Sampler
-  readonly objective: Objective<Config>
+  readonly objective: Objective<SearchSpace.Type<Space>>
   readonly trials: number
   readonly direction?: Direction
   readonly directions?: Iterable<Direction>
@@ -153,12 +138,12 @@ export class StorageResumeOptions<
   readonly concurrency?: number
   readonly maxCost?: number
   readonly evaluationsPerTrial?: number
-  readonly maxDuration?: Duration.DurationInput
+  readonly maxDuration?: Duration.Input
   readonly targetValue?: number
   readonly noImprovementWindow?: number
   readonly epsilon?: number
   readonly retrySchedule?: RetrySchedule
-  readonly trialTimeout?: Duration.DurationInput
+  readonly trialTimeout?: Duration.Input
 }> {}
 
 /**
@@ -221,16 +206,29 @@ export const isOptimization = Schema.is(Schema.instanceOf(Optimization))
  * @category execution
  */
 export const run = <Space extends SearchSpace.SearchSpace>(
-  options: Options<SearchSpace.Type<Space>, Space>
+  options: Options<Space>
 ) => execute.run(options)
+
+const withDirection = <Space extends SearchSpace.SearchSpace>(
+  options: Options<Space>,
+  direction: Direction
+): Options<Space> =>
+  Match.value(options).pipe(
+    Match.when(
+      (option): option is FlatOptions<Space> => option instanceof FlatOptions,
+      (option) => Struct.assign(option, { direction })
+    ),
+    Match.orElse((option) => Struct.assign(option, { direction }))
+  )
+
 /** Executes a fresh optimization with scalar minimization semantics. @since 0.7.0 @category execution */
 export const minimize = <Space extends SearchSpace.SearchSpace>(
-  options: Options<SearchSpace.Type<Space>, Space>
-) => execute.run({ ...options, direction: "minimize" })
+  options: Options<Space>
+) => execute.run(withDirection(options, "minimize"))
 /** Executes a fresh optimization with scalar maximization semantics. @since 0.7.0 @category execution */
 export const maximize = <Space extends SearchSpace.SearchSpace>(
-  options: Options<SearchSpace.Type<Space>, Space>
-) => execute.run({ ...options, direction: "maximize" })
+  options: Options<Space>
+) => execute.run(withDirection(options, "maximize"))
 /**
  * Validates and continues an in-memory snapshot for `trials` additional trials.
  * Space, objective, stop-mode, and sampler mismatches fail before execution;
@@ -240,7 +238,7 @@ export const maximize = <Space extends SearchSpace.SearchSpace>(
  * @category execution
  */
 export const resume = <Space extends SearchSpace.SearchSpace>(
-  options: ResumeOptions<SearchSpace.Type<Space>, Space>
+  options: ResumeOptions<Space>
 ) => execute.resume(options)
 /**
  * Loads a snapshot and replay tail from {@link OptimizationStorage}, validates
@@ -252,19 +250,19 @@ export const resume = <Space extends SearchSpace.SearchSpace>(
  * @category execution
  */
 export const resumeFromStorage = <Space extends SearchSpace.SearchSpace>(
-  options: StorageResumeOptions<SearchSpace.Type<Space>, Space>
+  options: StorageResumeOptions<Space>
 ) => execute.resumeFromStorage(options)
 /** Streams live events from a fresh optimization without replaying history. @since 0.7.0 @category execution */
 export const stream = <Space extends SearchSpace.SearchSpace>(
-  options: Options<SearchSpace.Type<Space>, Space>
+  options: Options<Space>
 ) => streams.stream(options)
 /** Streams only newly emitted events while continuing a validated snapshot. @since 0.7.0 @category execution */
 export const resumeStream = <Space extends SearchSpace.SearchSpace>(
-  options: ResumeOptions<SearchSpace.Type<Space>, Space>
+  options: ResumeOptions<Space>
 ) => streams.resumeStream(options)
 /** Streams only newly emitted events while continuing ambient durable state. @since 0.7.0 @category execution */
 export const resumeFromStorageStream = <Space extends SearchSpace.SearchSpace>(
-  options: StorageResumeOptions<SearchSpace.Type<Space>, Space>
+  options: StorageResumeOptions<Space>
 ) => streams.resumeFromStorageStream(options)
 
 /**
@@ -277,7 +275,7 @@ export const resumeFromStorageStream = <Space extends SearchSpace.SearchSpace>(
  * @category operations
  */
 export const open = <Space extends SearchSpace.SearchSpace>(
-  options: Options<SearchSpace.Type<Space>, Space>
+  options: Options<Space>
 ) => askTell.open(options)
 /**
  * Reserves a configuration.

@@ -15,7 +15,7 @@ describe("noise-aware bandwidth parity", () => {
       const loaded = yield* loadFixture("noise-bandwidth.parity").pipe(
         Effect.provide(FixtureRegistryLive)
       )
-      const fixture = yield* Schema.decodeUnknown(NoiseBandwidthFixture)(loaded)
+      const fixture = yield* Schema.decodeUnknownEffect(NoiseBandwidthFixture)(loaded)
 
       yield* Effect.forEach(
         fixture.payload.cases,

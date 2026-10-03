@@ -20,11 +20,13 @@ describe("formatter boundary", () => {
 
       const stdout = yield* Ref.make(Arr.empty<string>())
       const stderr = yield* Ref.make(Arr.empty<string>())
-      const sink = Progress.makeSink({
-        supportsAnsi: Effect.succeed(false),
-        writeStdout: (line) => Ref.update(stdout, (lines) => Arr.append(lines, line)),
-        writeStderr: (line) => Ref.update(stderr, (lines) => Arr.append(lines, line))
-      })
+      const sink = Progress.makeSink(
+        new Progress.SinkOptions({
+          supportsAnsi: Effect.succeed(false),
+          writeStdout: (line) => Ref.update(stdout, (lines) => Arr.append(lines, line)),
+          writeStderr: (line) => Ref.update(stderr, (lines) => Arr.append(lines, line))
+        })
+      )
 
       yield* Progress.write(sink, first)
 

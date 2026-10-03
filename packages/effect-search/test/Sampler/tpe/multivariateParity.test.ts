@@ -17,31 +17,31 @@ const densityFixtures = Arr.make(
     point: Arr.make(0, 0),
     mean: Arr.make(0, 0),
     sigmas: Arr.make(1, 1),
-    expected: Num.negate(1.8378770664093453)
+    expected: Num.multiply(-1, 1.8378770664093453)
   },
   {
     fixture: "multivariate-gaussian.unit-offset",
-    point: Arr.make(1, Num.negate(1)),
+    point: Arr.make(1, Num.multiply(-1, 1)),
     mean: Arr.make(0, 0),
     sigmas: Arr.make(1, 1),
-    expected: Num.negate(2.8378770664093453)
+    expected: Num.multiply(-1, 2.8378770664093453)
   },
   {
     fixture: "multivariate-gaussian.asymmetric-sigma",
-    point: Arr.make(0.25, Num.negate(0.5)),
-    mean: Arr.make(0.5, Num.negate(0.75)),
+    point: Arr.make(0.25, Num.multiply(-1, 0.5)),
+    mean: Arr.make(0.5, Num.multiply(-1, 0.75)),
     sigmas: Arr.make(0.2, 0.4),
-    expected: Num.negate(0.28871092210109006)
+    expected: Num.multiply(-1, 0.28871092210109006)
   }
 )
 
 const samplingFixtures = Arr.make(
   {
     fixture: "multivariate-gaussian.sample.kernel-a",
-    mean: Arr.make(0.5, Num.negate(1)),
+    mean: Arr.make(0.5, Num.multiply(-1, 1)),
     sigmas: Arr.make(0.2, 0.4),
     rolls: Arr.make(0.1, 0.9),
-    expected: Arr.make(0.2436896868910798, Num.negate(0.4873793737821596))
+    expected: Arr.make(0.2436896868910798, Num.multiply(-1, 0.4873793737821596))
   },
   {
     fixture: "multivariate-gaussian.sample.kernel-b",
@@ -90,7 +90,7 @@ describe("multivariate gaussian parity", () => {
   it.effect("replays deterministic mixture-sampling fixture", () =>
     Effect.sync(() => {
       const actual = sampleDiagonalGaussianMixture(
-        Arr.make(Arr.make(0.2, Num.negate(0.3)), Arr.make(1.1, 0.6)),
+        Arr.make(Arr.make(0.2, Num.multiply(-1, 0.3)), Arr.make(1.1, 0.6)),
         Arr.make(Arr.make(0.1, 0.2), Arr.make(0.3, 0.4)),
         Arr.make(0.75, 0.25),
         0.2,
@@ -99,7 +99,7 @@ describe("multivariate gaussian parity", () => {
 
       expect(Arr.get(actual, 0).pipe(Option.getOrElse(() => Number.NaN))).toBeCloseTo(0.16146795335924322, 12)
       expect(Arr.get(actual, 1).pipe(Option.getOrElse(() => Number.NaN))).toBeCloseTo(
-        Num.negate(0.1951198974583919),
+        Num.multiply(-1, 0.1951198974583919),
         12
       )
     }))
@@ -107,7 +107,7 @@ describe("multivariate gaussian parity", () => {
   it.effect("replays fixture-backed FM-14 multivariate gaussian parity", () =>
     Effect.gen(function*() {
       const loaded = yield* loadFixture("multivariate-gaussian.parity").pipe(Effect.provide(FixtureRegistryLive))
-      const fixture = yield* Schema.decodeUnknown(MultivariateGaussianFixture)(loaded)
+      const fixture = yield* Schema.decodeUnknownEffect(MultivariateGaussianFixture)(loaded)
 
       yield* Effect.forEach(
         fixture.payload.densityCases,

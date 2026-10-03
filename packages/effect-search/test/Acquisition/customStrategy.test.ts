@@ -9,8 +9,8 @@ describe("tpe acquisition extension", () => {
   it.effect("dispatches built-in and custom acquisition scorers through a single contract", () =>
     Effect.sync(() => {
       const context = new Acquisition.Context({
-        logL: Num.negate(0.4),
-        logG: Num.negate(1.1),
+        logL: Num.multiply(-1, 0.4),
+        logG: Num.multiply(-1, 1.1),
         estimatedCost: Option.none(),
         roll: Option.some(0.62)
       })

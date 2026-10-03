@@ -1,17 +1,18 @@
-import { FileSystem } from "@effect/platform"
-import { BunContext } from "@effect/platform-bun"
+import * as BunServices from "@effect/platform-bun/BunServices"
 import { describe, expect, it } from "@effect/vitest"
 import {
   Array as Arr,
   Effect,
-  Either,
+  FileSystem,
   Layer,
   Match,
   MutableRef,
   Number as Num,
   Ref,
+  Result as Either,
   Schedule,
   Schema,
+  SchemaGetter,
   Tuple
 } from "effect"
 
@@ -24,17 +25,17 @@ import type * as Trial from "../../src/Trial.js"
 
 class SchemaConfig extends Schema.Class<SchemaConfig>("SchemaConfig")({
   label: Schema.String,
-  value: Schema.Number
+  value: Schema.Finite
 }) {}
 
 const ConfigSchema = Schema.Struct({
   label: Schema.String,
-  value: Schema.Number
+  value: Schema.Finite
 })
 
 const NestedConfigSchema = Schema.Struct({
   label: Schema.String,
-  nested: Schema.Struct({ value: Schema.Number })
+  nested: Schema.Struct({ value: Schema.Finite })
 })
 
 const completedWithValue = (expected: number) =>
@@ -56,18 +57,20 @@ describe("ObjectiveCache", () => {
   it.effect("does not reuse cached values between independent noisy samples", () =>
     Effect.gen(function*() {
       const invocations = yield* Ref.make(0)
-      const result = yield* Optimization.run({
-        space: yield* singleChoiceSpace(),
-        sampler: Sampler.random({ seed: 31 }),
-        trials: 2,
-        evaluationsPerTrial: 3,
-        objective: () => Ref.updateAndGet(invocations, Num.increment)
-      }).pipe(Effect.provide(ObjectiveCache.layerMemory(new ObjectiveCache.Options({ scope: "noisy" }))))
+      const result = yield* Optimization.run(
+        new Optimization.FlatOptions({
+          space: yield* singleChoiceSpace(),
+          sampler: Sampler.random({ seed: 31 }),
+          trials: 2,
+          evaluationsPerTrial: 3,
+          objective: () => Ref.updateAndGet(invocations, Num.increment)
+        })
+      ).pipe(Effect.provide(ObjectiveCache.layerMemory(new ObjectiveCache.Options({ scope: "noisy" }))))
       expect(yield* Ref.get(invocations)).toBe(6)
       const states = Arr.map(Arr.fromIterable(result.trials), (trial) => trial.state)
       expect(states).toEqual(Arr.make(
-        expect.objectContaining({ _tag: "Completed", value: 2, evaluationCount: 3, variance: Num.unsafeDivide(2, 3) }),
-        expect.objectContaining({ _tag: "Completed", value: 5, evaluationCount: 3, variance: Num.unsafeDivide(2, 3) })
+        expect.objectContaining({ _tag: "Completed", value: 2, evaluationCount: 3, variance: 2 / 3 }),
+        expect.objectContaining({ _tag: "Completed", value: 5, evaluationCount: 3, variance: 2 / 3 })
       ))
     }))
 
@@ -75,14 +78,16 @@ describe("ObjectiveCache", () => {
     Effect.gen(function*() {
       const invocations = yield* Ref.make(0)
 
-      const result = yield* Optimization.run({
-        space: yield* singleChoiceSpace(),
-        sampler: Sampler.random({ seed: 31 }),
-        direction: "minimize",
-        trials: 4,
-        concurrency: 1,
-        objective: () => Ref.updateAndGet(invocations, Num.increment)
-      }).pipe(Effect.provide(ObjectiveCache.layerMemory(new ObjectiveCache.Options({ scope: "optimization-cache" }))))
+      const result = yield* Optimization.run(
+        new Optimization.FlatOptions({
+          space: yield* singleChoiceSpace(),
+          sampler: Sampler.random({ seed: 31 }),
+          direction: "minimize",
+          trials: 4,
+          concurrency: 1,
+          objective: () => Ref.updateAndGet(invocations, Num.increment)
+        })
+      ).pipe(Effect.provide(ObjectiveCache.layerMemory(new ObjectiveCache.Options({ scope: "optimization-cache" }))))
 
       const calls = yield* Ref.get(invocations)
 
@@ -95,18 +100,20 @@ describe("ObjectiveCache", () => {
     Effect.gen(function*() {
       const invocations = yield* Ref.make(0)
 
-      const result = yield* Optimization.run({
-        space: yield* singleChoiceSpace(),
-        sampler: Sampler.random({ seed: 41 }),
-        direction: "minimize",
-        trials: 12,
-        concurrency: 12,
-        retrySchedule: Schedule.recurs(0),
-        objective: () =>
-          Ref.updateAndGet(invocations, Num.increment).pipe(
-            Effect.zipLeft(Effect.sleep("10 millis"))
-          )
-      }).pipe(
+      const result = yield* Optimization.run(
+        new Optimization.FlatOptions({
+          space: yield* singleChoiceSpace(),
+          sampler: Sampler.random({ seed: 41 }),
+          direction: "minimize",
+          trials: 12,
+          concurrency: 12,
+          retrySchedule: Schedule.recurs(0),
+          objective: () =>
+            Ref.updateAndGet(invocations, Num.increment).pipe(
+              Effect.tap(() => Effect.sleep("10 millis"))
+            )
+        })
+      ).pipe(
         Effect.provide(ObjectiveCache.layerMemory(new ObjectiveCache.Options({ scope: "stress-single-flight" })))
       )
 
@@ -117,45 +124,51 @@ describe("ObjectiveCache", () => {
       expect(Arr.every(Arr.fromIterable(result.trials), (trial) => completedWithValue(1)(trial.state))).toBe(true)
     }))
 
-  it.scoped("isolates cached objective values by configured optimization scope", () =>
-    Effect.gen(function*() {
-      const fileSystem = yield* FileSystem.FileSystem
-      const directory = yield* fileSystem.makeTempDirectoryScoped({
-        prefix: "effect-search-optimization-objective-cache-"
-      })
-      const invocations = yield* Ref.make(0)
-      const space = yield* singleChoiceSpace()
+  it.effect("isolates cached objective values by configured optimization scope", () =>
+    Effect.scoped(
+      Effect.gen(function*() {
+        const fileSystem = yield* FileSystem.FileSystem
+        const directory = yield* fileSystem.makeTempDirectoryScoped({
+          prefix: "effect-search-optimization-objective-cache-"
+        })
+        const invocations = yield* Ref.make(0)
+        const space = yield* singleChoiceSpace()
 
-      const evaluate = () => Ref.updateAndGet(invocations, Num.increment)
-      const runScoped = (scope: string) =>
-        Optimization.run({
-          space,
-          sampler: Sampler.random({ seed: 31 }),
-          direction: "minimize",
-          trials: 2,
-          concurrency: 1,
-          objective: evaluate
-        }).pipe(Effect.provide(ObjectiveCache.layerFileSystem(directory, new ObjectiveCache.Options({ scope }))))
+        const evaluate = () => Ref.updateAndGet(invocations, Num.increment)
+        const runScoped = (scope: string) =>
+          Optimization.run(
+            new Optimization.FlatOptions({
+              space,
+              sampler: Sampler.random({ seed: 31 }),
+              direction: "minimize",
+              trials: 2,
+              concurrency: 1,
+              objective: evaluate
+            })
+          ).pipe(Effect.provide(ObjectiveCache.layerFileSystem(directory, new ObjectiveCache.Options({ scope }))))
 
-      yield* runScoped("scope-a")
-      yield* runScoped("scope-a")
-      yield* runScoped("scope-b")
+        yield* runScoped("scope-a")
+        yield* runScoped("scope-a")
+        yield* runScoped("scope-b")
 
-      expect(yield* Ref.get(invocations)).toBe(2)
-    }).pipe(Effect.provide(BunContext.layer)))
+        expect(yield* Ref.get(invocations)).toBe(2)
+      }).pipe(Effect.provide(BunServices.layer))
+    ))
 
   it.effect("falls back to uncached objective execution when ObjectiveCache is absent", () =>
     Effect.gen(function*() {
       const invocations = yield* Ref.make(0)
 
-      yield* Optimization.run({
-        space: yield* singleChoiceSpace(),
-        sampler: Sampler.random({ seed: 31 }),
-        direction: "minimize",
-        trials: 4,
-        concurrency: 1,
-        objective: () => Ref.updateAndGet(invocations, Num.increment)
-      })
+      yield* Optimization.run(
+        new Optimization.FlatOptions({
+          space: yield* singleChoiceSpace(),
+          sampler: Sampler.random({ seed: 31 }),
+          direction: "minimize",
+          trials: 4,
+          concurrency: 1,
+          objective: () => Ref.updateAndGet(invocations, Num.increment)
+        })
+      )
 
       expect(yield* Ref.get(invocations)).toBe(4)
     }))
@@ -179,15 +192,15 @@ describe("ObjectiveCache", () => {
         Effect.provideService(Cache.Cache, corruptedCache)
       )
 
-      const resolved = yield* objectiveCache.resolve(
+      const resolved = yield* Effect.result(objectiveCache.resolve(
         new ObjectiveCache.Request({
-          schema: Schema.Struct({ trial: Schema.Number }),
+          schema: Schema.Struct({ trial: Schema.Finite }),
           config: { trial: 1 },
           compute: Effect.succeed(0.5)
         })
-      ).pipe(Effect.either)
+      ))
 
-      expect(resolved).toEqual(Either.left(corruption))
+      expect(resolved).toEqual(Either.fail(corruption))
     }).pipe(Effect.provide(Cache.layerMemory)))
 
   it.effect("propagates backend failures on invalidate", () =>
@@ -214,13 +227,13 @@ describe("ObjectiveCache", () => {
         Effect.provideService(Cache.Cache, failingCache)
       )
 
-      const invalidated = yield* objectiveCache.invalidate(
-        Schema.Struct({ trial: Schema.Number }),
+      const invalidated = yield* Effect.result(objectiveCache.invalidate(
+        Schema.Struct({ trial: Schema.Finite }),
         { trial: 7 }
-      ).pipe(Effect.either)
+      ))
 
       expect(yield* Ref.get(removed)).toBe(true)
-      expect(invalidated).toEqual(Either.left(backendFailure))
+      expect(invalidated).toEqual(Either.fail(backendFailure))
     }).pipe(Effect.provide(Cache.layerMemory)))
 
   it.effect("Cache.Observer receives Miss on first resolve and Hit on second", () =>
@@ -234,7 +247,7 @@ describe("ObjectiveCache", () => {
         Effect.provide(observerLayer)
       )
 
-      const schema = Schema.Struct({ x: Schema.Number })
+      const schema = Schema.Struct({ x: Schema.Finite })
       yield* objectiveCache.resolve(
         new ObjectiveCache.Request({
           schema,
@@ -254,10 +267,10 @@ describe("ObjectiveCache", () => {
       expect(recorded).toHaveLength(2)
 
       const first = Arr.get(recorded, 0).pipe(Either.fromOption(() => "expected first event"))
-      expect(Either.map(first, (result) => result._tag)).toEqual(Either.right("Miss"))
+      expect(Either.map(first, (result) => result._tag)).toEqual(Either.succeed("Miss"))
 
       const second = Arr.get(recorded, 1).pipe(Either.fromOption(() => "expected second event"))
-      expect(Either.map(second, (result) => result._tag)).toEqual(Either.right("Hit"))
+      expect(Either.map(second, (result) => result._tag)).toEqual(Either.succeed("Hit"))
     }).pipe(Effect.provide(Cache.layerMemory)))
 
   it.effect("Cache.Observer receives Invalidation event on invalidate", () =>
@@ -284,7 +297,7 @@ describe("ObjectiveCache", () => {
       expect(recorded).toHaveLength(2)
 
       const invalidation = Arr.get(recorded, 1).pipe(Either.fromOption(() => "expected invalidation event"))
-      expect(Either.map(invalidation, (result) => result._tag)).toEqual(Either.right("Invalidation"))
+      expect(Either.map(invalidation, (result) => result._tag)).toEqual(Either.succeed("Invalidation"))
     }).pipe(Effect.provide(Cache.layerMemory)))
 
   it.effect("preserves known identity-schema fingerprints and supports nested schema configs", () =>
@@ -370,14 +383,13 @@ describe("ObjectiveCache", () => {
       const objectiveCache = yield* ObjectiveCache.make().pipe(Effect.provide(observerLayer))
       const compute = Ref.updateAndGet(invocations, Num.increment)
       const encodes = MutableRef.make(0)
-      const schema = Schema.transform(Schema.NumberFromString, Schema.Number, {
-        strict: true,
-        decode: (value) => value,
-        encode: (value) => {
+      const schema = Schema.FiniteFromString.pipe(Schema.decodeTo(Schema.Finite, {
+        decode: SchemaGetter.passthrough(),
+        encode: SchemaGetter.transform((value) => {
           MutableRef.increment(encodes)
           return value
-        }
-      })
+        })
+      }))
       const operation = objectiveCache.resolve(
         new ObjectiveCache.Request({
           schema,
@@ -422,7 +434,7 @@ describe("ObjectiveCache", () => {
         set: cache.set,
         resolve: ({ compute }) =>
           Ref.set(backendCalled, true).pipe(
-            Effect.zipRight(compute),
+            Effect.andThen(compute),
             Effect.map((value) => new Cache.Result({ value, resolution: "miss" }))
           ),
         remove: () => Ref.set(backendCalled, true)
@@ -431,7 +443,7 @@ describe("ObjectiveCache", () => {
         Effect.provide(observerLayer),
         Effect.provideService(Cache.Cache, permissiveCache)
       )
-      const malformedValue = yield* Effect.either(
+      const malformedValue = yield* Effect.result(
         objectiveCache.resolve(
           new ObjectiveCache.Request({
             schema: Schema.Struct({ text: Schema.String }),
@@ -440,13 +452,13 @@ describe("ObjectiveCache", () => {
           })
         )
       )
-      const malformedKey = yield* Effect.either(
+      const malformedKey = yield* Effect.result(
         objectiveCache.invalidate(
-          Schema.Record({ key: Schema.String, value: Schema.String }),
+          Schema.Record(Schema.String, Schema.String),
           { ["\uD800"]: "value" }
         )
       )
-      const encodingFailure = yield* Effect.either(
+      const encodingFailure = yield* Effect.result(
         objectiveCache.resolve(
           new ObjectiveCache.Request({
             schema: Schema.Struct({ text: Schema.NonEmptyString }),
@@ -460,20 +472,20 @@ describe("ObjectiveCache", () => {
         reason: "fingerprint failure: InvalidUnicode"
       })
 
-      expect(malformedValue).toEqual(Either.left(expected))
-      expect(malformedKey).toEqual(Either.left(expected))
-      expect(Either.isLeft(encodingFailure)).toBe(true)
+      expect(malformedValue).toEqual(Either.fail(expected))
+      expect(malformedKey).toEqual(Either.fail(expected))
+      expect(Either.isFailure(encodingFailure)).toBe(true)
 
       const encodingCorrupt = Either.match(encodingFailure, {
-        onLeft: (error) =>
+        onFailure: (error) =>
           Match.value(error).pipe(
             Match.tag("effect-search/CacheCorrupt", ({ key, reason }) => Tuple.make(key, reason)),
             Match.orElse(() => Tuple.make("unexpected cache error", "unexpected cache error"))
           ),
-        onRight: () => Tuple.make("unexpected success", "unexpected success")
+        onSuccess: () => Tuple.make("unexpected success", "unexpected success")
       })
-      expect(Tuple.getFirst(encodingCorrupt)).toBe("optimization/objective:")
-      expect(Tuple.getSecond(encodingCorrupt)).toContain("Expected")
+      expect(encodingCorrupt[0]).toBe("optimization/objective:")
+      expect(encodingCorrupt[1]).toContain("Expected")
 
       expect(yield* Ref.get(computed)).toBe(false)
       expect(yield* Ref.get(backendCalled)).toBe(false)

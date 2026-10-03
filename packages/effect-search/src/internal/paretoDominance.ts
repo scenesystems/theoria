@@ -5,21 +5,21 @@
  */
 
 import { isFinite } from "@scenesystems/effect-math/Numeric"
-import { Array as Arr, Boolean as Bool, Equal, Match, Number as Num, Option, Schema } from "effect"
+import { Array as Arr, Boolean as Bool, Equal, Match, Number as Num, Option } from "effect"
 
 import type { Direction } from "../Direction.js"
 import type { Vector } from "../Objective.js"
 
-const isNonNaN = Schema.is(Schema.NonNaN)
+const isNonNaN = (value: number): boolean => Bool.not(Num.Equivalence(value, Number.NaN))
 
 const lessThanWhenOrdered = (left: number, right: number): boolean =>
-  Bool.and(Bool.and(isNonNaN(left), isNonNaN(right)), Num.lessThan(left, right))
+  Bool.and(Bool.and(isNonNaN(left), isNonNaN(right)), Num.isLessThan(left, right))
 
 const lessThanOrEqualToWhenOrdered = (left: number, right: number): boolean =>
-  Bool.and(Bool.and(isNonNaN(left), isNonNaN(right)), Num.lessThanOrEqualTo(left, right))
+  Bool.and(Bool.and(isNonNaN(left), isNonNaN(right)), Num.isLessThanOrEqualTo(left, right))
 
 const greaterThanOrEqualToWhenOrdered = (left: number, right: number): boolean =>
-  Bool.and(Bool.and(isNonNaN(left), isNonNaN(right)), Num.greaterThanOrEqualTo(left, right))
+  Bool.and(Bool.and(isNonNaN(left), isNonNaN(right)), Num.isGreaterThanOrEqualTo(left, right))
 
 const minimize = (): Direction => "minimize"
 
@@ -40,7 +40,7 @@ const finiteOrInfinity = (value: number): number =>
 
 const normalizeCoordinate = (value: number, direction: Direction): number =>
   Match.value(direction).pipe(
-    Match.when("maximize", () => Num.negate(value)),
+    Match.when("maximize", () => Num.multiply(-1, value)),
     Match.when("minimize", () => value),
     Match.exhaustive
   )
@@ -95,7 +95,7 @@ export const validateRectangular = (pointsInput: Iterable<Vector>): boolean => {
 }
 
 const normalizedEpsilon = (epsilon: number): number =>
-  Match.value(Bool.and(isFinite(epsilon), Num.greaterThan(epsilon, 0))).pipe(
+  Match.value(Bool.and(isFinite(epsilon), Num.isGreaterThan(epsilon, 0))).pipe(
     Match.when(true, () => epsilon),
     Match.orElse(() => 0)
   )
@@ -145,7 +145,7 @@ export const dominatesNormalized = (
     Match.when(true, () => {
       const margin = normalizedEpsilon(epsilon)
 
-      return Match.value(Num.lessThanOrEqualTo(margin, 0)).pipe(
+      return Match.value(Num.isLessThanOrEqualTo(margin, 0)).pipe(
         Match.when(true, () => dominatesExactly(normalizedLeft, normalizedRight)),
         Match.orElse(() => dominatesWithEpsilon(normalizedLeft, normalizedRight, margin))
       )

@@ -14,14 +14,14 @@ const valueAt = (valuesInput: Iterable<number>, index: number, fallback: number)
 }
 
 const validSigma = (sigma: number): number =>
-  Match.value(Bool.and(isFinite(sigma), Num.greaterThan(sigma, 0))).pipe(
+  Match.value(Bool.and(isFinite(sigma), Num.isGreaterThan(sigma, 0))).pipe(
     Match.when(true, () => sigma),
     Match.when(false, () => minimumScale),
     Match.exhaustive
   )
 
 const validWeight = (weight: number): number =>
-  Match.value(Bool.and(isFinite(weight), Num.greaterThan(weight, 0))).pipe(
+  Match.value(Bool.and(isFinite(weight), Num.isGreaterThan(weight, 0))).pipe(
     Match.when(true, () => weight),
     Match.when(false, () => 0),
     Match.exhaustive
@@ -68,9 +68,9 @@ const cumulativeWeights = (weightsInput: Iterable<number>) => {
 }
 
 const uniformWeights = (componentCount: number) =>
-  Match.value(Num.lessThanOrEqualTo(componentCount, 0)).pipe(
+  Match.value(Num.isLessThanOrEqualTo(componentCount, 0)).pipe(
     Match.when(true, () => Arr.empty<number>()),
-    Match.orElse(() => Arr.makeBy(componentCount, () => Num.unsafeDivide(1, componentCount)))
+    Match.orElse(() => Arr.makeBy(componentCount, () => Num.divideUnsafe(1, componentCount)))
   )
 
 const normalizeWeights = (
@@ -82,21 +82,21 @@ const normalizeWeights = (
   const clamped = Arr.makeBy(componentCount, (index) => validWeight(valueAt(weights, index, 0)))
   const total = Arr.reduce(clamped, 0, (accumulator, weight) => Num.sum(accumulator, weight))
 
-  return Match.value(Num.greaterThan(total, 0)).pipe(
-    Match.when(true, () => Arr.map(clamped, (weight) => Num.unsafeDivide(weight, total))),
+  return Match.value(Num.isGreaterThan(total, 0)).pipe(
+    Match.when(true, () => Arr.map(clamped, (weight) => Num.divideUnsafe(weight, total))),
     Match.orElse(() => uniformWeights(componentCount))
   )
 }
 
 const chooseComponentIndex = (weightsInput: Iterable<number>, componentRoll: number): number => {
   const weights = Arr.fromIterable(weightsInput)
-  return Match.value(Num.lessThanOrEqualTo(Arr.length(weights), 0)).pipe(
+  return Match.value(Num.isLessThanOrEqualTo(Arr.length(weights), 0)).pipe(
     Match.when(true, () => 0),
     Match.orElse(() => {
       const cumulative = cumulativeWeights(weights)
       const index = Arr.findFirstIndex(
         cumulative,
-        (weight) => Num.greaterThanOrEqualTo(weight, validProbability(componentRoll))
+        (weight) => Num.isGreaterThanOrEqualTo(weight, validProbability(componentRoll))
       ).pipe(Option.getOrElse(() => Num.decrement(Arr.length(weights))))
 
       return Num.clamp(index, { minimum: 0, maximum: Num.decrement(Arr.length(weights)) })
@@ -120,12 +120,12 @@ export const diagonalGaussianLogDensity = (
       Arr.reduce(point, 0, (accumulator, coordinate, index) => {
         const currentMean = valueAt(mean, index, 0)
         const sigma = validSigma(valueAt(sigmas, index, minimumScale))
-        const normalized = Num.unsafeDivide(Num.subtract(coordinate, currentMean), sigma)
+        const normalized = Num.divideUnsafe(Num.subtract(coordinate, currentMean), sigma)
 
         return Num.sum(
           accumulator,
           Num.subtract(
-            Num.subtract(Num.negate(logSqrtTwoPi), logStrict(sigma)),
+            Num.subtract(Num.multiply(-1, logSqrtTwoPi), logStrict(sigma)),
             Num.multiply(0.5, Num.multiply(normalized, normalized))
           )
         )
@@ -152,7 +152,7 @@ export const diagonalGaussianMixtureLogDensity = (
     const sigma = componentAt(sigmas, index)
     const weight = valueAt(normalizedWeights, index, 0)
 
-    return Match.value(Num.lessThanOrEqualTo(weight, 0)).pipe(
+    return Match.value(Num.isLessThanOrEqualTo(weight, 0)).pipe(
       Match.when(true, () => Number.NEGATIVE_INFINITY),
       Match.orElse(() => Num.sum(logStrict(weight), diagonalGaussianLogDensity(point, mean, sigma)))
     )
@@ -200,8 +200,8 @@ export const sampleDiagonalGaussianMixture = (
 }
 
 export const scottsFactor = (sampleCount: number, dimensions: number): number =>
-  Match.value(Bool.and(Num.greaterThan(sampleCount, 0), Num.greaterThan(dimensions, 0))).pipe(
-    Match.when(true, () => pow(sampleCount, Num.unsafeDivide(Num.negate(1), Num.sum(dimensions, 4)))),
+  Match.value(Bool.and(Num.isGreaterThan(sampleCount, 0), Num.isGreaterThan(dimensions, 0))).pipe(
+    Match.when(true, () => pow(sampleCount, Num.divideUnsafe(Num.multiply(-1, 1), Num.sum(dimensions, 4)))),
     Match.when(false, () => 1),
     Match.exhaustive
   )

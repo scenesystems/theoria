@@ -18,12 +18,12 @@ const traceValueToNumber = (value: TraceValue): number =>
   )
 
 const optionalTraceValueToNumber = (
-  value: SplitFixtureTrial["value"] | SplitFixtureTrial["liarValue"]
-): Option.Option<number> => Option.fromNullable(value).pipe(Option.map(traceValueToNumber))
+  value: SplitFixtureTrial["value"]
+): Option.Option<number> => Option.fromNullishOr(value).pipe(Option.map(traceValueToNumber))
 
 const directionalScore = (direction: Direction, value: number): number =>
   Match.value(direction).pipe(
-    Match.when("maximize", () => Num.negate(value)),
+    Match.when("maximize", () => Num.multiply(-1, value)),
     Match.orElse(() => value)
   )
 
@@ -51,7 +51,7 @@ const splitTrialFromFixture = (
             trialNumber: trial.trialNumber,
             config: { trialNumber: trial.trialNumber, state: trial.state },
             value: directionalScore(direction, value),
-            sortStep: Num.negate(1)
+            sortStep: Num.multiply(-1, 1)
           })
         )
       )),
@@ -62,7 +62,7 @@ const splitTrialFromFixture = (
             trialNumber: trial.trialNumber,
             config: { trialNumber: trial.trialNumber, state: trial.state },
             value: directionalScore(direction, value),
-            sortStep: Num.negate(1)
+            sortStep: Num.multiply(-1, 1)
           })
         )
       )),
@@ -100,14 +100,14 @@ const makeTrial = (trialNumber: number, value: number) =>
     trialNumber,
     config: { trialNumber },
     value,
-    sortStep: Num.negate(1)
+    sortStep: Num.multiply(-1, 1)
   })
 
 describe("tpe split trials fixture parity", () => {
   it.effect("replays split-trial fixture cases including pruned and liar-aware membership", () =>
     Effect.gen(function*() {
       const loaded = yield* loadFixture("split-trials.single-and-liar").pipe(Effect.provide(FixtureRegistryLive))
-      const fixture = yield* Schema.decodeUnknown(SplitTrialsFixture)(loaded)
+      const fixture = yield* Schema.decodeUnknownEffect(SplitTrialsFixture)(loaded)
 
       Arr.forEach(fixture.payload.cases, (fixtureCase) => {
         const trials = splitTrialsFromFixtureCase(fixtureCase.direction, fixtureCase.trials)

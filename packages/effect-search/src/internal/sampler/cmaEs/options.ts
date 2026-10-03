@@ -27,7 +27,7 @@ export type CmaEsRuntimeOptions = CmaEsOptions
  * @since 0.1.0
  * @category operations
  */
-export const seedFromOptions = (options: CmaEsOptions): number => numberOptionOr(Option.fromNullable(options.seed), 0)
+export const seedFromOptions = (options: CmaEsOptions): number => numberOptionOr(Option.fromNullishOr(options.seed), 0)
 
 /**
  * Reads the global CMA-ES step-size (`sigma`) hyperparameter.
@@ -36,7 +36,7 @@ export const seedFromOptions = (options: CmaEsOptions): number => numberOptionOr
  * @category operations
  */
 export const sigmaFromOptions = (options: CmaEsOptions): number =>
-  numberOptionOr(Option.fromNullable(options.sigma), defaultSigma)
+  numberOptionOr(Option.fromNullishOr(options.sigma), defaultSigma)
 
 /**
  * Reads the per-generation population size.
@@ -45,7 +45,7 @@ export const sigmaFromOptions = (options: CmaEsOptions): number =>
  * @category operations
  */
 export const populationSizeFromOptions = (options: CmaEsOptions): number =>
-  numberOptionOr(Option.fromNullable(options.populationSize), defaultPopulationSize)
+  numberOptionOr(Option.fromNullishOr(options.populationSize), defaultPopulationSize)
 
 /**
  * Produces checkpoint-safe CMA-ES options without runtime closures.
@@ -78,11 +78,11 @@ export const validateOptions = (options: CmaEsOptions): Effect.Effect<void, Inva
 
     yield* Effect.when(
       Effect.fail(invalidConfig("cma-es sampler requires sigma to be finite and > 0")),
-      () => Bool.or(Bool.not(isFinite(sigma)), Num.lessThanOrEqualTo(sigma, 0))
+      Effect.succeed(Bool.or(Bool.not(isFinite(sigma)), Num.isLessThanOrEqualTo(sigma, 0)))
     )
 
     yield* Effect.when(
       Effect.fail(invalidConfig("cma-es sampler requires populationSize to be finite and >= 2")),
-      () => Bool.or(Bool.not(isFinite(populationSize)), Num.lessThan(populationSize, 2))
+      Effect.succeed(Bool.or(Bool.not(isFinite(populationSize)), Num.isLessThan(populationSize, 2)))
     )
   })

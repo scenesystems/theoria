@@ -9,7 +9,7 @@ import * as SearchSpace from "../../src/SearchSpace.js"
 
 const makeSpace = () =>
   SearchSpace.make({
-    x: SearchSpace.float(Num.negate(1), 1)
+    x: SearchSpace.float(Num.multiply(-1, 1), 1)
   })
 
 const captureSampler = (contextsRef: Ref.Ref<Iterable<Context>>): Sampler.Sampler =>
@@ -27,27 +27,29 @@ describe("warm-starting", () => {
       const capturedContextsRef = yield* Ref.make<Iterable<Context>>(Arr.empty())
       const space = yield* makeSpace()
 
-      const result = yield* Optimization.run({
-        space,
-        sampler: captureSampler(capturedContextsRef),
-        direction: "minimize",
-        trials: 2,
-        priorWeight: 0.25,
-        priorTrials: Arr.make(
-          {
-            config: { x: Num.negate(0.75) },
-            value: 0.75
-          },
-          {
-            config: { x: 0.5 },
-            value: 0.5
+      const result = yield* Optimization.run(
+        new Optimization.FlatOptions({
+          space,
+          sampler: captureSampler(capturedContextsRef),
+          direction: "minimize",
+          trials: 2,
+          priorWeight: 0.25,
+          priorTrials: Arr.make(
+            new Optimization.PriorTrial({
+              config: { x: Num.multiply(-1, 0.75) },
+              value: 0.75
+            }),
+            new Optimization.PriorTrial({
+              config: { x: 0.5 },
+              value: 0.5
+            })
+          ),
+          objective: (raw) => {
+            const config = raw
+            return Effect.succeed(Numeric.abs(config.x))
           }
-        ),
-        objective: (raw) => {
-          const config = raw
-          return Effect.succeed(Numeric.abs(config.x))
-        }
-      })
+        })
+      )
 
       const trials = Arr.fromIterable(result.trials)
       expect(Arr.length(trials)).toBe(4)
@@ -56,13 +58,15 @@ describe("warm-starting", () => {
       const freshTrials = Arr.filter(trials, (trial) => Bool.not(Equal.equals(trial.prior, true)))
 
       expect(Arr.length(priorTrials)).toBe(2)
-      expect(Arr.map(priorTrials, (trial) => trial.trialNumber)).toEqual(Arr.make(Num.negate(2), Num.negate(1)))
+      expect(Arr.map(priorTrials, (trial) => trial.trialNumber)).toEqual(
+        Arr.make(Num.multiply(-1, 2), Num.multiply(-1, 1))
+      )
       expect(Arr.length(freshTrials)).toBe(2)
       expect(Arr.map(freshTrials, (trial) => trial.trialNumber)).toEqual(Arr.make(0, 1))
 
       const capturedContexts = Arr.fromIterable(yield* Ref.get(capturedContextsRef))
-      const firstContext = yield* Arr.get(capturedContexts, 0)
-      const secondContext = yield* Arr.get(capturedContexts, 1)
+      const firstContext = yield* Effect.fromOption(Arr.get(capturedContexts, 0))
+      const secondContext = yield* Effect.fromOption(Arr.get(capturedContexts, 1))
 
       expect(Arr.length(capturedContexts)).toBe(2)
       expect(Arr.length(firstContext.completed)).toBe(2)

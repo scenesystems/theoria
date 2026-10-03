@@ -36,7 +36,7 @@ export class ResumeExecutionSeed<
  * @category utils
  */
 export const resumeExecutionSeedFromOptions = <Space extends SearchSpace.SearchSpace>(
-  options: Optimization.ResumeOptions<SearchSpace.Type<Space>, Space>
+  options: Optimization.ResumeOptions<Space>
 ): Effect.Effect<ResumeExecutionSeed<SearchSpace.Type<Space>, Space>, SearchError> =>
   Effect.gen(function*() {
     const resumePlan = yield* resumePlanFromOptions(options)
@@ -76,15 +76,12 @@ const recoveredSnapshotFromStorage = Effect.serviceOption(OptimizationStorage.Op
       onSome: (storage) =>
         Effect.gen(function*() {
           const snapshotOption = yield* storage.loadSnapshot()
-          const snapshot = yield* Option.match(snapshotOption, {
-            onNone: () => Effect.fail(snapshotMissingFailure()),
-            onSome: Effect.succeed
-          })
+          const snapshot = yield* Effect.fromOption(snapshotOption, snapshotMissingFailure)
           // Pin the replay boundary to this snapshot. Loading a second snapshot
           // after a concurrent append could discard trials absent from the first.
           const trialLog = yield* storage.loadTrialLog()
           const replayTail = Arr.filter(trialLog, (trial) =>
-            Num.greaterThanOrEqualTo(trial.trialNumber, snapshot.nextTrialNumber))
+            Num.isGreaterThanOrEqualTo(trial.trialNumber, snapshot.nextTrialNumber))
 
           return yield* OptimizationSnapshot.recover(snapshot, replayTail)
         })
@@ -97,7 +94,7 @@ const recoveredSnapshotFromStorage = Effect.serviceOption(OptimizationStorage.Op
  * @category utils
  */
 export const resumeExecutionSeedFromStorageOptions = <Space extends SearchSpace.SearchSpace>(
-  options: Optimization.StorageResumeOptions<SearchSpace.Type<Space>, Space>
+  options: Optimization.StorageResumeOptions<Space>
 ): Effect.Effect<
   ResumeExecutionSeed<SearchSpace.Type<Space>, Space>,
   SearchError,

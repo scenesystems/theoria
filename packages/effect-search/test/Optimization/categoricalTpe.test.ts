@@ -32,7 +32,7 @@ const interactionPenalty = (instruction: string, demos: string, scoring: string)
     Equal.equals(instruction, "rewrite"),
     Bool.and(Equal.equals(demos, "curated"), Equal.equals(scoring, "balanced"))
   )).pipe(
-    Match.when(true, () => Num.negate(0.25)),
+    Match.when(true, () => Num.multiply(-1, 0.25)),
     Match.orElse(() => 0)
   )
 
@@ -56,15 +56,17 @@ const asSingleObjective = (result: Optimization.Result): Option.Option<Optimizat
 
 const runWith = (sampler: Sampler.Sampler) =>
   Effect.gen(function*() {
-    const space = yield* makePromptCategoricalSpace()
+    const space = yield* makePromptCategoricalSpace
 
-    return yield* Optimization.run({
-      space,
-      sampler,
-      direction: "minimize",
-      trials: 18,
-      objective: objectiveValue
-    })
+    return yield* Optimization.run(
+      new Optimization.FlatOptions({
+        space,
+        sampler,
+        direction: "minimize",
+        trials: 18,
+        objective: objectiveValue
+      })
+    )
   })
 
 describe("integration categorical tpe optimization", () => {
@@ -74,11 +76,13 @@ describe("integration categorical tpe optimization", () => {
       const seed = 73
 
       const tpeOptimized = yield* runWith(
-        Sampler.tpe({
-          seed,
-          nStartupTrials: startupTrials,
-          nEiCandidates: 48
-        })
+        Sampler.tpe(
+          new Sampler.TpeOptions({
+            seed,
+            nStartupTrials: startupTrials,
+            nEiCandidates: 48
+          })
+        )
       )
 
       const randomOptimized = yield* runWith(Sampler.random({ seed }))
@@ -87,8 +91,8 @@ describe("integration categorical tpe optimization", () => {
 
       expect(Option.isSome(tpeOption)).toBe(true)
       expect(Option.isSome(randomOption)).toBe(true)
-      const tpe = yield* tpeOption
-      const random = yield* randomOption
+      const tpe = yield* Effect.fromOption(tpeOption)
+      const random = yield* Effect.fromOption(randomOption)
 
       const startupTpeConfigs = Arr.map(
         Arr.take(Arr.fromIterable(tpe.trials), startupTrials),
@@ -104,27 +108,31 @@ describe("integration categorical tpe optimization", () => {
 
   it.effect("is deterministic with a fixed seed", () =>
     Effect.gen(function*() {
-      const sampler = Sampler.tpe({
-        seed: 91,
-        nStartupTrials: 7,
-        nEiCandidates: 40
-      })
-
-      const left = yield* runWith(sampler)
-      const right = yield* runWith(
-        Sampler.tpe({
+      const sampler = Sampler.tpe(
+        new Sampler.TpeOptions({
           seed: 91,
           nStartupTrials: 7,
           nEiCandidates: 40
         })
+      )
+
+      const left = yield* runWith(sampler)
+      const right = yield* runWith(
+        Sampler.tpe(
+          new Sampler.TpeOptions({
+            seed: 91,
+            nStartupTrials: 7,
+            nEiCandidates: 40
+          })
+        )
       )
       const leftOption = asSingleObjective(left)
       const rightOption = asSingleObjective(right)
 
       expect(Option.isSome(leftOption)).toBe(true)
       expect(Option.isSome(rightOption)).toBe(true)
-      const leftResult = yield* leftOption
-      const rightResult = yield* rightOption
+      const leftResult = yield* Effect.fromOption(leftOption)
+      const rightResult = yield* Effect.fromOption(rightOption)
 
       expect(Arr.map(Arr.fromIterable(leftResult.trials), (trial) => trial.config)).toEqual(
         Arr.map(Arr.fromIterable(rightResult.trials), (trial) => trial.config)
@@ -136,11 +144,13 @@ describe("integration categorical tpe optimization", () => {
     Effect.gen(function*() {
       const seed = 2
       const tpeOptimized = yield* runWith(
-        Sampler.tpe({
-          seed,
-          nStartupTrials: 6,
-          nEiCandidates: 64
-        })
+        Sampler.tpe(
+          new Sampler.TpeOptions({
+            seed,
+            nStartupTrials: 6,
+            nEiCandidates: 64
+          })
+        )
       )
       const randomOptimized = yield* runWith(Sampler.random({ seed }))
       const tpeOption = asSingleObjective(tpeOptimized)
@@ -148,8 +158,8 @@ describe("integration categorical tpe optimization", () => {
 
       expect(Option.isSome(tpeOption)).toBe(true)
       expect(Option.isSome(randomOption)).toBe(true)
-      const tpe = yield* tpeOption
-      const random = yield* randomOption
+      const tpe = yield* Effect.fromOption(tpeOption)
+      const random = yield* Effect.fromOption(randomOption)
 
       expect(tpe.bestTrial.state.value).toBeLessThanOrEqual(random.bestTrial.state.value)
 

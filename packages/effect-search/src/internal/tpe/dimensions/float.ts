@@ -35,7 +35,7 @@ const quantizeWithStep = (
   high: number,
   step: number
 ): number =>
-  Num.clamp(Num.sum(low, Num.multiply(Num.round(Num.unsafeDivide(Num.subtract(value, low), step), 0), step)), {
+  Num.clamp(Num.sum(low, Num.multiply(Num.round(Num.divideUnsafe(Num.subtract(value, low), step), 0), step)), {
     minimum: low,
     maximum: high
   })
@@ -81,7 +81,7 @@ export const expandedBoundsForStep = (
   Option.match(step, {
     onNone: () => Tuple.make(low, high),
     onSome: (stride) =>
-      Tuple.make(Num.subtract(low, Num.unsafeDivide(stride, 2)), Num.sum(high, Num.unsafeDivide(stride, 2)))
+      Tuple.make(Num.subtract(low, Num.divideUnsafe(stride, 2)), Num.sum(high, Num.divideUnsafe(stride, 2)))
   })
 
 const floatModel = (
@@ -106,7 +106,7 @@ const floatModel = (
     onSome: (s) =>
       Match.value(s).pipe(
         Match.when("log", () =>
-          Match.value(Bool.or(Num.lessThanOrEqualTo(low, 0), Num.lessThanOrEqualTo(high, 0))).pipe(
+          Match.value(Bool.or(Num.isLessThanOrEqualTo(low, 0), Num.isLessThanOrEqualTo(high, 0))).pipe(
             Match.when(
               true,
               () => Effect.fail(invalidConfig(`tpe log-scaled float dimension "${name}" requires low > 0 and high > 0`))
@@ -129,7 +129,8 @@ const floatModel = (
             return new FloatModel({
               low: expandedLow,
               high: expandedHigh,
-              toModel: (value: number) => value,
+              toModel: (value: number) =>
+                value,
               fromModel: (value: number) => value
             })
           })
@@ -239,12 +240,15 @@ export const floatCandidateTraceFromRolls = (
       logL: Arr.map(logPairs, ([logL]) => logL),
       logG: Arr.map(logPairs, ([_logL, logG]) => logG),
       scores: Arr.map(logPairs, ([logL, logG], index) =>
-        Acquisition.score({
-          logL,
-          logG,
-          estimatedCost: Option.none(),
-          roll: rollFromCandidatePair(rolls, index)
-        }, acquisition))
+        Acquisition.score(
+          new Acquisition.Context({
+            logL,
+            logG,
+            estimatedCost: Option.none(),
+            roll: rollFromCandidatePair(rolls, index)
+          }),
+          acquisition
+        ))
     })
   })
 }

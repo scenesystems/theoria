@@ -8,19 +8,19 @@ import type * as SearchSpace from "../../../../SearchSpace.js"
 import { OptimizePlan } from "../plan.js"
 import { commonPlanFields } from "./fields.js"
 
-const isScheduled = <Config, Space extends SearchSpace.SearchSpace>(
-  options: Optimization.Options<Config, Space>
-): options is Optimization.ScheduledOptions<Config, Space> => Predicate.hasProperty(options, "scheduler")
+const isScheduled = <Space extends SearchSpace.SearchSpace>(
+  options: Optimization.Options<Space>
+): options is Optimization.ScheduledOptions<Space> => Predicate.hasProperty(options, "scheduler")
 
-const isFlat = <Config, Space extends SearchSpace.SearchSpace>(
-  options: Optimization.Options<Config, Space>
-): options is Optimization.FlatOptions<Config, Space> => Predicate.hasProperty(options, "sampler")
+const isFlat = <Space extends SearchSpace.SearchSpace>(
+  options: Optimization.Options<Space>
+): options is Optimization.FlatOptions<Space> => Predicate.hasProperty(options, "sampler")
 
 const invalidOptions = () =>
   new InvalidOptimizationConfig({ reason: "Optimization.run requires a sampler or scheduler" })
 
 export const optimizePlanFromOptions = <Space extends SearchSpace.SearchSpace>(
-  options: Optimization.Options<SearchSpace.Type<Space>, Space>
+  options: Optimization.Options<Space>
 ): Effect.Effect<OptimizePlan<SearchSpace.Type<Space>, Space>, InvalidOptimizationConfig> =>
   Option.liftPredicate(options, isScheduled).pipe(
     Option.match({

@@ -79,24 +79,26 @@ describe("Optimization scoped execution", () => {
   it.live("persists sampler checkpoint through scoped finalization on interruption", () =>
     Effect.gen(function*() {
       const checkpointCallsRef = yield* Ref.make(0)
-      const storage = yield* StudyStorage.makeMemory().pipe(
+      const storage = yield* StudyStorage.makeMemory.pipe(
         Effect.flatMap((generic) =>
           OptimizationStorage.make.pipe(Effect.provideService(StudyStorage.StudyStorage, generic))
         )
       )
-      const interrupted = yield* Optimization.run({
-        space: yield* makeSpace(),
-        sampler: trackedSampler(trackedRefs(checkpointCallsRef)),
-        direction: "minimize",
-        trials: 40,
-        concurrency: 2,
-        objective: () => Effect.sleep("20 millis").pipe(Effect.as(1))
-      }).pipe(
+      const interrupted = yield* Optimization.run(
+        new Optimization.FlatOptions({
+          space: yield* makeSpace(),
+          sampler: trackedSampler(trackedRefs(checkpointCallsRef)),
+          direction: "minimize",
+          trials: 40,
+          concurrency: 2,
+          objective: () => Effect.sleep("20 millis").pipe(Effect.as(1))
+        })
+      ).pipe(
         Effect.provideService(OptimizationStorage.OptimizationStorage, storage),
         Effect.timeoutOption("40 millis")
       )
       const checkpointCalls = yield* Ref.get(checkpointCallsRef)
-      const snapshot = yield* storage.loadSnapshot().pipe(Effect.flatMap((value) => value))
+      const snapshot = yield* storage.loadSnapshot().pipe(Effect.flatMap(Effect.fromOption))
 
       expect(Option.isNone(interrupted)).toBe(true)
       expect(checkpointCalls).toBe(1)
@@ -108,16 +110,18 @@ describe("Optimization scoped execution", () => {
       const checkpointCallsRef = yield* Ref.make(0)
       const acquireCallsRef = yield* Ref.make(0)
       const releaseCallsRef = yield* Ref.make(0)
-      const interrupted = yield* Optimization.run({
-        space: yield* makeSpace(),
-        sampler: trackedSampler(
-          trackedRefs(checkpointCallsRef, Option.some(acquireCallsRef), Option.some(releaseCallsRef))
-        ),
-        direction: "minimize",
-        trials: 40,
-        concurrency: 2,
-        objective: () => Effect.sleep("20 millis").pipe(Effect.as(1))
-      }).pipe(Effect.timeoutOption("40 millis"))
+      const interrupted = yield* Optimization.run(
+        new Optimization.FlatOptions({
+          space: yield* makeSpace(),
+          sampler: trackedSampler(
+            trackedRefs(checkpointCallsRef, Option.some(acquireCallsRef), Option.some(releaseCallsRef))
+          ),
+          direction: "minimize",
+          trials: 40,
+          concurrency: 2,
+          objective: () => Effect.sleep("20 millis").pipe(Effect.as(1))
+        })
+      ).pipe(Effect.timeoutOption("40 millis"))
 
       expect(Option.isNone(interrupted)).toBe(true)
       expect(yield* Ref.get(acquireCallsRef)).toBe(1)
@@ -138,33 +142,37 @@ describe("Optimization scoped execution", () => {
         loadTrialLog: () => Effect.succeed(Arr.empty()),
         replayTrialLog: () => Effect.succeed(Arr.empty())
       })
-      const interrupted = yield* Optimization.run({
-        space: yield* makeSpace(),
-        sampler,
-        direction: "minimize",
-        trials: 40,
-        concurrency: 2,
-        objective: () => Effect.sleep("20 millis").pipe(Effect.as(1))
-      }).pipe(Effect.provide(storageLayer), Effect.timeoutOption("40 millis"))
+      const interrupted = yield* Optimization.run(
+        new Optimization.FlatOptions({
+          space: yield* makeSpace(),
+          sampler,
+          direction: "minimize",
+          trials: 40,
+          concurrency: 2,
+          objective: () => Effect.sleep("20 millis").pipe(Effect.as(1))
+        })
+      ).pipe(Effect.provide(storageLayer), Effect.timeoutOption("40 millis"))
 
       expect(Option.isNone(interrupted)).toBe(true)
 
       const interruptionSnapshot = yield* Ref.get(interruptionSnapshotRef)
       expect(Option.isSome(interruptionSnapshot)).toBe(true)
-      const snapshot = yield* interruptionSnapshot
+      const snapshot = yield* Effect.fromOption(interruptionSnapshot)
 
-      const resumed = yield* Optimization.resume({
-        space: yield* makeSpace(),
-        sampler,
-        snapshot,
-        direction: "minimize",
-        trials: 2,
-        objective: () => Effect.succeed(1)
-      })
+      const resumed = yield* Optimization.resume(
+        new Optimization.ResumeOptions({
+          space: yield* makeSpace(),
+          sampler,
+          snapshot,
+          direction: "minimize",
+          trials: 2,
+          objective: () => Effect.succeed(1)
+        })
+      )
       const resumedSingle = asSingleObjective(resumed)
 
       expect(Option.isSome(resumedSingle)).toBe(true)
-      const completed = yield* resumedSingle
+      const completed = yield* Effect.fromOption(resumedSingle)
 
       expect(Arr.length(Arr.fromIterable(completed.trials))).toBeGreaterThanOrEqual(2)
     }))
@@ -173,28 +181,30 @@ describe("Optimization scoped execution", () => {
     Effect.gen(function*() {
       const checkpointCallsRef = yield* Ref.make(0)
       const space = yield* makeSpace()
-      const result = yield* Optimization.run({
-        space,
-        sampler: trackedSampler(trackedRefs(checkpointCallsRef)),
-        direction: "maximize",
-        trials: 8,
-        concurrency: 3,
-        objective: (raw) =>
-          Schema.decodeUnknown(space.schema)(raw).pipe(
-            Effect.flatMap((config) =>
-              Effect.sleep(
-                Match.value(config.slot).pipe(
-                  Match.when(0, () => Duration.millis(60)),
-                  Match.orElse(() => Duration.millis(5))
-                )
-              ).pipe(Effect.as(config.slot))
+      const result = yield* Optimization.run(
+        new Optimization.FlatOptions({
+          space,
+          sampler: trackedSampler(trackedRefs(checkpointCallsRef)),
+          direction: "maximize",
+          trials: 8,
+          concurrency: 3,
+          objective: (raw) =>
+            Schema.decodeEffect(space.schema)(raw).pipe(
+              Effect.flatMap((config) =>
+                Effect.sleep(
+                  Match.value(config.slot).pipe(
+                    Match.when(0, () => Duration.millis(60)),
+                    Match.orElse(() => Duration.millis(5))
+                  )
+                ).pipe(Effect.as(config.slot))
+              )
             )
-          )
-      })
+        })
+      )
       const single = asSingleObjective(result)
 
       expect(Option.isSome(single)).toBe(true)
-      const completed = yield* single
+      const completed = yield* Effect.fromOption(single)
 
       const trials = Arr.fromIterable(completed.trials)
       expect(trials).toHaveLength(8)
