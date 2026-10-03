@@ -22,7 +22,7 @@ export default defineConfig({
         extends: true,
         test: {
           name: "packages",
-          include: ["packages/*/test/**/*.test.ts", "scripts/api-reference/**/*.test.ts"],
+          include: ["packages/*/test/**/*.test.ts", "scripts/**/*.test.ts"],
           exclude: ["**/node_modules/**"]
         }
       },

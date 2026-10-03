@@ -1,28 +1,21 @@
 /** Compare prepared package content with the actual npm release, not guessed build inputs. */
-import { Command, FileSystem, HttpClient, HttpClientRequest, Path } from "@effect/platform"
 import * as CanonicalJson from "@scenesystems/digest/CanonicalJson"
 import * as Digest from "@scenesystems/digest/Digest"
-import {
-  Array,
-  Boolean,
-  Effect,
-  Encoding,
-  HashSet,
-  Match,
-  Number,
-  Option,
-  Record,
-  Schema,
-  Stream,
-  String,
-  Tuple
-} from "effect"
+import { Array, Boolean, Effect, HashSet, Match, Number, Option, Record, Schema, Stream, String, Tuple } from "effect"
+import { Base64, Hex } from "effect/encoding"
+import * as FileSystem from "effect/FileSystem"
+import { HttpClient } from "effect/http"
+import { HttpClientRequest } from "effect/http"
+import * as Path from "effect/Path"
+import { ChildProcess } from "effect/process"
 import * as Process from "./Process.js"
 import * as Repository from "./Repository.js"
 
-export class PublicationError extends Schema.TaggedError<PublicationError>(
-  "@theoria/scripts/release/Npm/PublicationError"
-)("PublicationError", { message: Schema.String }) {}
+export class PublicationError
+  extends Schema.TaggedError<PublicationError>("@theoria/scripts/release/Npm/PublicationError")("PublicationError", {
+    message: Schema.String
+  })
+{}
 
 export const Release = Schema.Struct({
   sha: Repository.Sha,
@@ -30,13 +23,13 @@ export const Release = Schema.Struct({
   content: Schema.String
 })
 
-const RegistryUrl = Schema.String.pipe(Schema.startsWith("https://registry.npmjs.org/"))
+const RegistryUrl = Schema.String.pipe(Schema.check(Schema.isStartingWith("https://registry.npmjs.org/")))
 const Metadata = Schema.Struct({
   name: Schema.String,
   version: Schema.String,
   dist: Schema.Struct({
     tarball: RegistryUrl,
-    integrity: Schema.String.pipe(Schema.startsWith("sha512-")),
+    integrity: Schema.String.pipe(Schema.check(Schema.isStartingWith("sha512-"))),
     attestations: Schema.Struct({ url: RegistryUrl })
   })
 })
@@ -63,17 +56,19 @@ const Provenance = Schema.Struct({
 const request = (url: string) =>
   Effect.flatMap(HttpClient.HttpClient, (client) => HttpClient.withScope(client).execute(HttpClientRequest.get(url)))
 const requireSuccess = (status: number) =>
-  Effect.unless(
-    new PublicationError({
-      message: String.concat("npm returned HTTP ", Schema.encodeSync(Schema.NumberFromString)(status))
-    }),
-    () => Number.Equivalence(status, 200)
+  Schema.encodeEffect(Schema.FiniteFromString)(status).pipe(
+    Effect.flatMap((encoded) =>
+      Effect.when(
+        new PublicationError({ message: String.concat("npm returned HTTP ", encoded) }),
+        Effect.sync(() => Boolean.not(Number.Equivalence(status, 200)))
+      )
+    )
   )
 
 const canonicalSha256Hex = (value: unknown) =>
   CanonicalJson.encodeBytes(value).pipe(
     Effect.flatMap((bytes) => Digest.hash("sha256", bytes)),
-    Effect.map(Encoding.encodeHex)
+    Effect.map(Schema.encodeSync(Schema.Uint8ArrayFromHex))
   )
 
 /** Ordered file-content identity. Root README/changelog and descriptive manifest metadata are not runtime inputs. */
@@ -87,22 +82,22 @@ export const content = (directory: string) =>
       Effect.gen(function*() {
         const file = path.join(root, name)
         const real = yield* fs.realPath(file)
-        yield* Effect.unless(
+        yield* Effect.when(
           new PublicationError({ message: String.concat("Package contains a symbolic link: ", file) }),
-          () => String.Equivalence(real, file)
+          Effect.sync(() => Boolean.not(String.Equivalence(real, file)))
         )
         const info = yield* fs.stat(file)
         return yield* Match.value(info.type).pipe(
           Match.when("Directory", () => Effect.succeedNone),
           Match.when("File", () =>
-            Effect.if(Boolean.or(String.Equivalence(name, "README.md"), String.Equivalence(name, "CHANGELOG.md")), {
+            Boolean.match(Boolean.or(String.Equivalence(name, "README.md"), String.Equivalence(name, "CHANGELOG.md")), {
               onTrue: () => Effect.succeedNone,
               onFalse: () =>
                 Effect.gen(function*() {
-                  const digest = yield* Effect.if(String.Equivalence(name, "package.json"), {
+                  const digest = yield* Boolean.match(String.Equivalence(name, "package.json"), {
                     onTrue: () =>
                       fs.readFileString(file).pipe(
-                        Effect.flatMap(Schema.decode(Schema.parseJson(Repository.Manifest))),
+                        Effect.flatMap(Schema.decodeEffect(Schema.fromJsonString(Repository.Manifest))),
                         Effect.map(Record.filter((_value, key) =>
                           Boolean.not(
                             HashSet.has(HashSet.make("description", "homepage", "repository", "bugs", "keywords"), key)
@@ -113,7 +108,7 @@ export const content = (directory: string) =>
                     onFalse: () =>
                       fs.readFile(file).pipe(
                         Effect.flatMap((bytes) => Digest.hash("sha256", bytes)),
-                        Effect.map(Encoding.encodeHex)
+                        Effect.map(Hex.encode)
                       )
                   })
                   return Option.some(Tuple.make(name, digest))
@@ -134,16 +129,16 @@ const source = (metadata: typeof Metadata.Type, repository: string) =>
   Effect.gen(function*() {
     const response = yield* request(metadata.dist.attestations.url)
     yield* requireSuccess(response.status)
-    const attestations = yield* response.json.pipe(Effect.flatMap(Schema.decodeUnknown(Attestations)))
-    const digest = yield* Encoding.decodeBase64(String.slice(7)(metadata.dist.integrity)).pipe(
-      Effect.map(Encoding.encodeHex)
+    const attestations = yield* response.json.pipe(Effect.flatMap(Schema.decodeUnknownEffect(Attestations)))
+    const digest = yield* Effect.fromResult(Base64.decode(String.slice(7)(metadata.dist.integrity))).pipe(
+      Effect.map(Hex.encode)
     )
     const statements = yield* Effect.forEach(
       Array.filter(attestations.attestations, (entry) =>
         String.Equivalence(entry.predicateType, "https://slsa.dev/provenance/v1")),
       (entry) =>
-        Encoding.decodeBase64String(entry.bundle.dsseEnvelope.payload).pipe(
-          Effect.flatMap(Schema.decode(Schema.parseJson(Provenance)))
+        Effect.fromResult(Base64.decodeString(entry.bundle.dsseEnvelope.payload)).pipe(
+          Effect.flatMap(Schema.decodeEffect(Schema.fromJsonString(Provenance)))
         )
     )
     const expectedRepository = String.concat("https://github.com/", repository)
@@ -170,7 +165,7 @@ const source = (metadata: typeof Metadata.Type, repository: string) =>
         }
       )
     }))
-    const [sha] = yield* Schema.decodeUnknown(Schema.Tuple(Repository.Sha))(commits)
+    const [sha] = yield* Schema.decodeUnknownEffect(Schema.Tuple([Repository.Sha]))(commits)
     return sha
   })
 
@@ -180,38 +175,51 @@ export const archiveContent = (archive: string) =>
     const fs = yield* FileSystem.FileSystem
     const path = yield* Path.Path
     const directory = yield* fs.makeTempDirectoryScoped()
-    const members = yield* Process.output(Command.make("tar", "-tzf", archive)).pipe(
+    const members = yield* Process.output(ChildProcess.make("tar", ["-tzf", archive], { stderr: "inherit" })).pipe(
       Effect.map(String.linesIterator),
       Effect.map(Array.fromIterable)
     )
-    yield* Effect.unless(new PublicationError({ message: "Package tarball contains unsafe or duplicate paths." }), () =>
-      Boolean.every(Array.make(
-        Number.Equivalence(Array.length(members), HashSet.size(HashSet.fromIterable(members))),
-        Array.every(members, (member) =>
-          Boolean.and(
-            Option.isSome(String.match(/^package\/[a-zA-Z0-9_@+./-]*$/)(member)),
-            Boolean.not(Array.some(String.split(member, "/"), (part) =>
-              Boolean.or(String.Equivalence(part, "."), String.Equivalence(part, ".."))))
-          ))
-      )))
-    const listing = yield* Process.output(Command.make("tar", "-tvzf", archive)).pipe(
+    yield* Effect.when(
+      new PublicationError({ message: "Package tarball contains unsafe or duplicate paths." }),
+      Effect.sync(() =>
+        Boolean.not(Boolean.every(Array.make(
+          Number.Equivalence(Array.length(members), HashSet.size(HashSet.fromIterable(members))),
+          Array.every(members, (member) =>
+            Boolean.and(
+              Option.isSome(String.match(/^package\/[a-zA-Z0-9_@+./-]*$/)(member)),
+              Boolean.not(
+                Array.some(String.split(member, "/"), (part) =>
+                  Boolean.or(String.Equivalence(part, "."), String.Equivalence(part, "..")))
+              )
+            ))
+        )))
+      )
+    )
+    const listing = yield* Process.output(ChildProcess.make("tar", ["-tvzf", archive], { stderr: "inherit" })).pipe(
       Effect.map(String.linesIterator),
       Effect.map(Array.fromIterable)
     )
-    yield* Effect.unless(new PublicationError({ message: "Package tarball contains links or special files." }), () =>
-      Array.every(listing, (line) =>
-        Boolean.or(String.startsWith("-")(line), String.startsWith("d")(line))))
+    yield* Effect.when(
+      new PublicationError({ message: "Package tarball contains links or special files." }),
+      Effect.sync(() =>
+        Boolean.not(Array.every(listing, (line) =>
+          Boolean.or(String.startsWith("-")(line), String.startsWith("d")(line))))
+      )
+    )
     yield* Process.output(
-      Command.make(
+      ChildProcess.make(
         "tar",
-        "--extract",
-        "--gzip",
-        "--file",
-        archive,
-        "--directory",
-        directory,
-        "--no-same-owner",
-        "--no-same-permissions"
+        [
+          "--extract",
+          "--gzip",
+          "--file",
+          archive,
+          "--directory",
+          directory,
+          "--no-same-owner",
+          "--no-same-permissions"
+        ],
+        { stderr: "inherit" }
       )
     )
     return yield* content(path.join(directory, "package"))
@@ -225,15 +233,19 @@ export const published = (name: string, version: string, repository: string) =>
       ""
     )
     const response = yield* request(url)
-    return yield* Effect.if(Number.Equivalence(response.status, 404), {
+    return yield* Boolean.match(Number.Equivalence(response.status, 404), {
       onTrue: () => Effect.succeedNone,
       onFalse: () =>
         Effect.gen(function*() {
           yield* requireSuccess(response.status)
-          const metadata = yield* response.json.pipe(Effect.flatMap(Schema.decodeUnknown(Metadata)))
-          yield* Effect.unless(
+          const metadata = yield* response.json.pipe(Effect.flatMap(Schema.decodeUnknownEffect(Metadata)))
+          yield* Effect.when(
             new PublicationError({ message: "npm metadata identifies a different package/version." }),
-            () => Boolean.and(String.Equivalence(metadata.name, name), String.Equivalence(metadata.version, version))
+            Effect.sync(() =>
+              Boolean.not(
+                Boolean.and(String.Equivalence(metadata.name, name), String.Equivalence(metadata.version, version))
+              )
+            )
           )
           const sha = yield* source(metadata, repository)
           const fs = yield* FileSystem.FileSystem
@@ -244,15 +256,19 @@ export const published = (name: string, version: string, repository: string) =>
           yield* requireSuccess(tarball.status)
           yield* Stream.run(tarball.stream, fs.sink(archive))
           // The archive tool owns archive parsing; Effect owns its lifetime and exit status.
-          const checksum = yield* Process.output(Command.make("sha512sum", archive)).pipe(
+          const checksum = yield* Process.output(
+            ChildProcess.make("sha512sum", [archive], { stderr: "inherit" })
+          ).pipe(
             Effect.map(String.slice(0, 128))
           )
-          const expected = yield* Encoding.decodeBase64(String.slice(7)(metadata.dist.integrity)).pipe(
-            Effect.map(Encoding.encodeHex)
+          const expected = yield* Schema.decodeEffect(Schema.Uint8ArrayFromBase64)(
+            String.slice(7)(metadata.dist.integrity)
+          ).pipe(
+            Effect.flatMap(Schema.encodeEffect(Schema.Uint8ArrayFromHex))
           )
-          yield* Effect.unless(
+          yield* Effect.when(
             new PublicationError({ message: "npm tarball integrity mismatch." }),
-            () => String.Equivalence(checksum, expected)
+            Effect.sync(() => Boolean.not(String.Equivalence(checksum, expected)))
           )
           return Option.some({
             sha,

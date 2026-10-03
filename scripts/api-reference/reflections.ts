@@ -1,5 +1,4 @@
-import type { Path } from "@effect/platform"
-import { Array as Arr, Boolean as Bool, Effect, Option, String as Str } from "effect"
+import { Array as Arr, Boolean as Bool, Effect, Option, type Path, String as Str } from "effect"
 import { type DeclarationReflection, ReflectionKind } from "typedoc"
 
 import { type ApiConvertedModule } from "./converted.js"
@@ -37,8 +36,8 @@ export const moduleDisplayName = (packageName: string, subpath: string): string 
 
 const firstSourceUrl = (reflection: DeclarationReflection): Option.Option<string> =>
   Arr.findFirst(
-    Option.fromNullable(reflection.sources).pipe(Option.getOrElse(Arr.empty)),
-    (source) => Option.fromNullable(source.url)
+    Option.fromNullishOr(reflection.sources).pipe(Option.getOrElse(Arr.empty)),
+    (source) => Option.fromNullishOr(source.url)
   )
 
 const reflectionsForImport = (
@@ -46,7 +45,7 @@ const reflectionsForImport = (
   exportName: string
 ): ReadonlyArray<DeclarationReflection> =>
   Arr.filter(
-    Option.fromNullable(reflection.children).pipe(Option.getOrElse(Arr.empty)),
+    Option.fromNullishOr(reflection.children).pipe(Option.getOrElse(Arr.empty)),
     (child) => Str.Equivalence(child.name, exportName)
   )
 
@@ -70,7 +69,7 @@ const makeImports = (
               packageName,
               detail: `${subpath} export ${entry.exportName} has no semantic TypeDoc reflection`
             }),
-            () => Arr.isEmptyReadonlyArray(semanticReflections)
+            Effect.succeed(Arr.isReadonlyArrayEmpty(semanticReflections))
           )
 
           const reflections = yield* Effect.forEach(semanticReflections, (resolved) =>

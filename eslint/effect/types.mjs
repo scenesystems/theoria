@@ -9,13 +9,16 @@
 export const TYPE_ASSERTION_RULES = [
   {
     selector: "TSAsExpression",
-    message: "Do not use 'as' type assertions. Use Schema.decodeUnknown for runtime validation."
+    message: "Do not use 'as' type assertions. Use Schema.decodeUnknownEffect for runtime validation."
   },
   {
     selector: "TSAsExpression[expression.type='TSAsExpression']",
-    message: "Do not use double 'as' assertions. Use Schema.decodeUnknown."
+    message: "Do not use double 'as' assertions. Use Schema.decodeUnknownEffect."
   },
-  { selector: "TSSatisfiesExpression", message: "Do not use 'satisfies'. Use Schema.is or Schema.decodeUnknown." }
+  {
+    selector: "TSSatisfiesExpression",
+    message: "Do not use 'satisfies'. Use Schema.is or Schema.decodeUnknownEffect."
+  }
 ]
 
 export const UTILITY_TYPE_RULES = [
@@ -37,13 +40,31 @@ export const UTILITY_TYPE_RULES = [
   },
   {
     selector: "TSTypeReference[typeName.name='Partial']",
-    message: "Do not use 'Partial<>'. Use Schema.partial instead."
+    message: "Do not use 'Partial<>'. Use field-level Schema.optional through schema.mapFields instead."
   },
-  { selector: "TSTypeReference[typeName.name='Pick']", message: "Do not use 'Pick<>'. Use Schema.pick instead." },
-  { selector: "TSTypeReference[typeName.name='Omit']", message: "Do not use 'Omit<>'. Use Schema.omit instead." },
+  {
+    selector: "TSTypeReference[typeName.name='Pick']",
+    message: "Do not use 'Pick<>'. Use schema.mapFields(Struct.pick(...)) instead."
+  },
+  {
+    selector: "TSTypeReference[typeName.name='Omit']",
+    message: "Do not use 'Omit<>'. Use schema.mapFields(Struct.omit(...)) instead."
+  },
   {
     selector: "TSTypeReference[typeName.name='Required']",
-    message: "Do not use 'Required<>'. Use Schema.required instead."
+    message: "Do not use 'Required<>'. Model required fields in the owning Schema.Struct."
+  }
+]
+
+export const SCHEMA_V4_MIGRATION_RULES = [
+  {
+    selector: "MemberExpression[object.name='Schema'][property.name='decodeUnknown']",
+    message: "Schema.decodeUnknown is an Effect 3 API. Use the Effect 4 decodeUnknownEffect/Sync/Result variant."
+  },
+  {
+    selector: "MemberExpression[object.name='Schema'][property.name=/^(partial|pick|omit)$/]",
+    message:
+      "This is an Effect 3 Schema API. In Effect 4 transform Struct fields with schema.mapFields and effect/Struct helpers."
   }
 ]
 
@@ -104,9 +125,9 @@ export const OPTION_DISCIPLINE_RULES = [
       "Do not model optionality with '| undefined'. Use Option<A> in runtime and Schema.optional/Schema.OptionFromSelf in schemas."
   },
   {
-    selector: "MemberExpression[object.name=/^(Option|Either)$/][property.name=/^getOr(Null|Undefined)$/]",
+    selector: "MemberExpression[object.name=/^(Option|Either|Result)$/][property.name=/^getOr(Null|Undefined)$/]",
     message:
-      "Do not bridge Option or Either to null/undefined. Stay in Option/Either space with match, map, or getOrElse; encode absence at JSON boundaries with Schema.OptionFromNullOr."
+      "Do not bridge Option or Result to null/undefined. Stay in Option/Result space with match, map, or getOrElse; encode absence at JSON boundaries with Schema.OptionFromNullOr."
   },
   {
     selector: "BinaryExpression[operator='==='][left.type='Identifier'][left.name='undefined']",

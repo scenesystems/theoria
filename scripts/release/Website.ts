@@ -6,20 +6,10 @@
  */
 
 import {
-  Command,
-  type CommandExecutor,
-  Headers,
-  HttpClient,
-  HttpClientRequest,
-  HttpClientResponse,
-  Url
-} from "@effect/platform"
-import {
   Array as Arr,
   Boolean as Bool,
   Duration,
   Effect,
-  Either,
   Match,
   Number as Num,
   Option,
@@ -27,24 +17,33 @@ import {
   Schema,
   String as Str
 } from "effect"
+import { Headers, HttpClient, HttpClientRequest, HttpClientResponse, Url } from "effect/http"
+import { ChildProcess, ChildProcessSpawner } from "effect/process"
 
 /** The website environments that can be promoted by the release program. */
-export const Target = Schema.Literal("staging", "production")
+export const Target = Schema.Literals(["staging", "production"])
 
-const Operation = Schema.Literal("deploy", "verify")
+const Operation = Schema.Union([Schema.Literal("deploy"), Schema.Literal("verify")])
 
 /** A typed failure at the website deployment or verification boundary. */
-export class WebsiteReleaseError extends Schema.TaggedError<WebsiteReleaseError>(
-  "@theoria/scripts/release/Website/WebsiteReleaseError"
-)("WebsiteReleaseError", { operation: Operation, subject: Schema.String, detail: Schema.String }) {
+export class WebsiteReleaseError
+  extends Schema.TaggedError<WebsiteReleaseError>("@theoria/scripts/release/Website/WebsiteReleaseError")(
+    "WebsiteReleaseError",
+    {
+      operation: Operation,
+      subject: Schema.String,
+      detail: Schema.String
+    }
+  )
+{
   override get message(): string {
     return Arr.join(Arr.make(this.operation, " ", this.subject, ": ", this.detail), "")
   }
 }
 
 const VerifySettings = Schema.Struct({
-  attempts: Schema.Number.pipe(Schema.int(), Schema.positive()),
-  delaySeconds: Schema.Number.pipe(Schema.nonNegative())
+  attempts: Schema.Number.pipe(Schema.check(Schema.isInt(), Schema.isGreaterThan(0))),
+  delaySeconds: Schema.Finite.pipe(Schema.check(Schema.isGreaterThanOrEqualTo(0)))
 })
 
 const HealthResponse = Schema.Struct({
@@ -53,7 +52,7 @@ const HealthResponse = Schema.Struct({
 
 const Route = Schema.Struct({
   path: Schema.String,
-  status: Schema.Number.pipe(Schema.int()),
+  status: Schema.Number.pipe(Schema.check(Schema.isInt())),
   mime: Schema.String
 })
 type Route = typeof Route.Type
@@ -96,9 +95,9 @@ const IMAGINED_PLACE_REQUEST = ImaginedPlaceRequest.make({
   acceptProgram: false
 })
 
-const numberText = Schema.encodeSync(Schema.NumberFromString)
+const numberText = Schema.encodeSync(Schema.FiniteFromString)
 const message = (...parts: Arr.NonEmptyReadonlyArray<string>): string => Arr.join(parts, "")
-const websiteUrl = (origin: string, path: string): string => Str.concat(origin, path)
+const websiteUrl = (origin: string, path: string): string => `${origin}${path}`
 
 const releaseFailure = (
   operation: typeof Operation.Type,
@@ -110,13 +109,16 @@ const verifyFailure = (subject: string, detail: string): WebsiteReleaseError =>
   releaseFailure("verify", subject, detail)
 
 const requireCheck = (condition: boolean, subject: string, detail: string) =>
-  Effect.unless(verifyFailure(subject, detail), () => condition).pipe(Effect.asVoid)
+  Effect.when(
+    verifyFailure(subject, detail),
+    Effect.sync(() => Bool.not(condition))
+  ).pipe(Effect.asVoid)
 
-const decodeJson = <A, I>(
+const decodeJson = <A>(
   subject: string,
-  schema: Schema.Schema<A, I>,
+  schema: Schema.Schema<A> & { readonly DecodingServices: never },
   response: HttpClientResponse.HttpClientResponse
-): Effect.Effect<A, WebsiteReleaseError> =>
+) =>
   HttpClientResponse.schemaBodyJson(schema)(response).pipe(
     Effect.mapError((failure) => verifyFailure(subject, failure.message))
   )
@@ -139,9 +141,9 @@ const withResponse = <A>(
       return yield* use(response)
     })
   ).pipe(
-    Effect.timeoutFail({
+    Effect.timeoutOrElse({
       duration: timeout,
-      onTimeout: () => verifyFailure(subject, "HTTP request or response body timed out")
+      orElse: () => Effect.fail(verifyFailure(subject, "HTTP request or response body timed out"))
     })
   )
 
@@ -214,13 +216,11 @@ const waitForBuild = (origin: string, sha: string, settings: typeof VerifySettin
         )
       })
   )
-  const pollingSchedule = Schedule.intersect(
-    Schedule.recurs(Num.decrement(settings.attempts)),
-    Schedule.spaced(Duration.seconds(settings.delaySeconds))
-  )
-
   return probe.pipe(
-    Effect.retry(pollingSchedule),
+    Effect.retry({
+      times: Num.decrement(settings.attempts),
+      schedule: Schedule.spaced(Duration.seconds(settings.delaySeconds))
+    }),
     Effect.mapError((failure) =>
       verifyFailure(
         origin,
@@ -246,7 +246,7 @@ const checkImaginedPlace = (origin: string, noindex: boolean) =>
           IMAGINED_PLACE_PATH,
           Match.value(failure.reason).pipe(
             Match.tag("JsonError", () => "request body JSON encoding failed"),
-            Match.tag("SchemaError", ({ error }) => error.message),
+            Match.tag("SchemaError", ({ issue }) => message("request body schema error: ", issue._tag)),
             Match.exhaustive
           )
         )
@@ -275,10 +275,10 @@ const checkReferencedAsset = (origin: string, noindex: boolean) =>
       Effect.gen(function*() {
         const html = yield* readText("/", response)
         const asset = Option.flatMap(Str.match(/\/assets\/[^\x22]*\.js/)(html), Arr.head)
-        return yield* Option.match(asset, {
-          onNone: () => Effect.fail(verifyFailure("/", "HTML shell references no /assets/*.js bundle")),
-          onSome: Effect.succeed
-        })
+        return yield* Effect.fromOption(
+          asset,
+          () => verifyFailure("/", "HTML shell references no /assets/*.js bundle")
+        )
       })
   ).pipe(
     Effect.flatMap((path) =>
@@ -300,39 +300,38 @@ const checkReferencedAsset = (origin: string, noindex: boolean) =>
 export const deploy = (
   sha: string,
   target: typeof Target.Type
-): Effect.Effect<void, WebsiteReleaseError, CommandExecutor.CommandExecutor> => {
+): Effect.Effect<void, WebsiteReleaseError, ChildProcessSpawner.ChildProcessSpawner> => {
   const environment = Match.value(target).pipe(
     Match.when("staging", () => "staging"),
     Match.when("production", () => ""),
     Match.exhaustive
   )
-  const command = Command.make(
+  const command = ChildProcess.make(
     WRANGLER_EXECUTABLE,
-    "deploy",
-    WORKER_BUNDLE,
-    "--no-bundle",
-    "--env",
-    environment,
-    "--var",
-    Str.concat("BUILD_SHA:", sha),
-    "--tag",
-    sha
-  ).pipe(
-    Command.workingDirectory(WRANGLER_DIRECTORY),
-    Command.stdout("inherit"),
-    Command.stderr("inherit")
+    [
+      "deploy",
+      WORKER_BUNDLE,
+      "--no-bundle",
+      "--env",
+      environment,
+      "--var",
+      Str.concat("BUILD_SHA:", sha),
+      "--tag",
+      sha
+    ],
+    { cwd: WRANGLER_DIRECTORY, stdout: "inherit", stderr: "inherit" }
   )
 
-  return Command.exitCode(command).pipe(
-    Effect.mapError((failure) => releaseFailure("deploy", target, failure.message)),
-    Effect.flatMap((exitCode) =>
-      Effect.unless(
-        releaseFailure("deploy", target, message("Wrangler exited with code ", numberText(exitCode))),
-        () => Num.Equivalence(exitCode, 0)
-      )
-    ),
-    Effect.asVoid
-  )
+  return Effect.gen(function*() {
+    const spawner = yield* ChildProcessSpawner.ChildProcessSpawner
+    const exitCode = yield* spawner.exitCode(command).pipe(
+      Effect.mapError((failure) => releaseFailure("deploy", target, failure.message))
+    )
+    yield* Effect.when(
+      releaseFailure("deploy", target, message("Wrangler exited with code ", numberText(exitCode))),
+      Effect.sync(() => Bool.not(Num.Equivalence(exitCode, 0)))
+    )
+  })
 }
 
 /**
@@ -350,12 +349,12 @@ export const verify = (
   delaySeconds: number = 10
 ): Effect.Effect<void, WebsiteReleaseError, HttpClient.HttpClient> =>
   Effect.gen(function*() {
-    const settings = yield* Schema.decodeUnknown(VerifySettings)({ attempts, delaySeconds }).pipe(
+    const settings = yield* Schema.decodeEffect(VerifySettings)({ attempts, delaySeconds }).pipe(
       Effect.mapError((failure) => verifyFailure(origin, failure.message))
     )
     const normalizedOrigin = Str.replace(/\/$/, "")(origin)
-    yield* Url.fromString(normalizedOrigin).pipe(
-      Either.mapLeft((failure) => verifyFailure(origin, failure.message))
+    yield* Effect.fromResult(Url.fromString(normalizedOrigin)).pipe(
+      Effect.mapError((failure) => verifyFailure(origin, failure.message))
     )
 
     yield* waitForBuild(normalizedOrigin, sha, settings)

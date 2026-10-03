@@ -19,24 +19,24 @@ The package keeps four truths separate:
 
 All public modules are root namespaces and matching flat PascalCase subpaths.
 
-| Module                                                            | Responsibility                                                                       |
-| ----------------------------------------------------------------- | ------------------------------------------------------------------------------------ |
-| `Model`                                                           | Caller-owned model identity                                                          |
-| `Route`                                                           | Route identity, selection policy, runtime flavor, and resolved provenance            |
-| `Capabilities`                                                    | Conservative capability truth and caller requirements                                |
-| `RuntimeRequest`                                                  | Serializable caller intent and checked decoding                                      |
-| `Runtime`                                                         | Resolution service, `Resolution`, `ModelLayers`, `resolve`, `layer`, and `layerWith` |
-| `RuntimeEvidence`                                                 | Response, usage, provider metadata, evidence assembly, and checked decoding          |
-| `TextProvider`                                                    | Config-driven OpenAI, Anthropic, and OpenRouter language models                      |
-| `OpenAiCompatible`                                                | Static compatible routes, transport plans, model layers, and resolution              |
-| `HuggingFace`                                                     | Config-driven Hugging Face resolution                                                |
-| `HuggingFaceEmbeddingModel`                                       | Native feature extraction for endpoints and routed providers                         |
-| `HuggingFaceEndpoint`                                             | Dedicated endpoint routes and model layers                                           |
-| `HuggingFaceRouted`                                               | Provider-router routes and model layers                                              |
-| `InferenceError`                                                  | Canonical schema-backed package failure union                                        |
-| `Usage`                                                           | Native language-model hook observation through `Usage.ConstructorParams`              |
-| `AnthropicUsage`, `OpenAiUsage`, `OpenRouterUsage`                | Native provider client observation                                                   |
-| `Testing`                                                         | Deterministic model layers and runtime fixtures                                      |
+| Module                                             | Responsibility                                                                       |
+| -------------------------------------------------- | ------------------------------------------------------------------------------------ |
+| `Model`                                            | Caller-owned model identity                                                          |
+| `Route`                                            | Route identity, selection policy, runtime flavor, and resolved provenance            |
+| `Capabilities`                                     | Conservative capability truth and caller requirements                                |
+| `RuntimeRequest`                                   | Serializable caller intent and checked decoding                                      |
+| `Runtime`                                          | Resolution service, `Resolution`, `ModelLayers`, `resolve`, `layer`, and `layerWith` |
+| `RuntimeEvidence`                                  | Response, usage, provider metadata, evidence assembly, and checked decoding          |
+| `TextProvider`                                     | Config-driven OpenAI, Anthropic, and OpenRouter language models                      |
+| `OpenAiCompatible`                                 | Static compatible routes, transport plans, model layers, and resolution              |
+| `HuggingFace`                                      | Config-driven Hugging Face resolution                                                |
+| `HuggingFaceEmbeddingModel`                        | Native feature extraction for endpoints and routed providers                         |
+| `HuggingFaceEndpoint`                              | Dedicated endpoint routes and model layers                                           |
+| `HuggingFaceRouted`                                | Provider-router routes and model layers                                              |
+| `InferenceError`                                   | Canonical schema-backed package failure union                                        |
+| `Usage`                                            | Native language-model hook observation through `Usage.ConstructorParams`             |
+| `AnthropicUsage`, `OpenAiUsage`, `OpenRouterUsage` | Native provider client observation                                                   |
+| `Testing`                                          | Deterministic model layers and runtime fixtures                                      |
 
 ## Runtime resolution
 

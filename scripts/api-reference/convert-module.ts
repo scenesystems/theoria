@@ -1,5 +1,4 @@
-import { Path } from "@effect/platform"
-import { Array as Arr, Boolean as Bool, Effect, Option, String as Str } from "effect"
+import { Array as Arr, Boolean as Bool, Effect, Path, String as Str } from "effect"
 import { type Application, type DocumentationEntryPoint } from "typedoc"
 
 import { type ConvertedRoute } from "./conversion.js"
@@ -61,10 +60,9 @@ export const convertApiModule = (input: {
       (candidate) => Str.Equivalence(path.resolve(candidate.sourceFile.fileName), path.resolve(input.module.absolute))
     )
 
-    const resolvedEntrypoint = yield* Option.match(entrypoint, {
-      onNone: () => typeDocFailure(packageName, `TypeDoc did not resolve ${input.module.relative}`),
-      onSome: Effect.succeed
-    })
+    const resolvedEntrypoint = yield* Effect.fromOption(entrypoint).pipe(
+      Effect.mapError(() => typeDocFailure(packageName, `TypeDoc did not resolve ${input.module.relative}`))
+    )
 
     resolvedEntrypoint.displayName = moduleDisplayName(packageName, input.module.canonicalSubpath)
     const project = yield* Effect.try({
@@ -72,31 +70,29 @@ export const convertApiModule = (input: {
       catch: () => typeDocFailure(packageName, `TypeDoc conversion failed for ${input.module.relative}`)
     })
 
-    yield* Effect.when(
-      typeDocFailure(
+    yield* (input.app.logger.hasErrors()
+      ? Effect.fail(typeDocFailure(
         packageName,
         `TypeDoc reported an error while converting ${input.module.relative}`
-      ),
-      () => input.app.logger.hasErrors()
-    )
+      ))
+      : Effect.void)
 
-    const reflection = yield* Option.match(moduleReflection(project), {
-      onNone: () =>
+    const reflection = yield* Effect.fromOption(moduleReflection(project)).pipe(
+      Effect.mapError(() =>
         typeDocFailure(
           packageName,
           `TypeDoc did not create a module reflection for ${input.module.relative}`
-        ),
-      onSome: Effect.succeed
-    })
+        )
+      )
+    )
 
     yield* requireModuleComment({ packageName, relative: input.module.relative, reflection })
 
     input.app.validate(project)
 
-    yield* Effect.when(
-      typeDocFailure(packageName, `TypeDoc validation failed for ${input.module.relative}`),
-      () => input.app.logger.hasErrors()
-    )
+    yield* (input.app.logger.hasErrors()
+      ? Effect.fail(typeDocFailure(packageName, `TypeDoc validation failed for ${input.module.relative}`))
+      : Effect.void)
 
     const routes = yield* Effect.forEach(input.module.routes, ({ entrypoint: routeEntrypoint }) =>
       Effect.map(

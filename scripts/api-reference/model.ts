@@ -1,9 +1,9 @@
 import { Schema } from "effect"
 
-export const ApiImportKindSchema = Schema.Literal("default", "namespace", "type", "value")
+export const ApiImportKindSchema = Schema.Literals(["default", "namespace", "type", "value"])
 
 export const ApiReferenceFacetSchema = Schema.Struct({
-  reflectionId: Schema.Number,
+  reflectionId: Schema.Finite,
   reflectionKind: Schema.String,
   sourceUrl: Schema.String
 })
@@ -32,7 +32,7 @@ export const ApiReferenceModuleSchema = Schema.Struct({
   sourceUrl: Schema.String,
   reflection: Schema.String,
   reflectionSha256: Schema.String,
-  reflectionId: Schema.Number,
+  reflectionId: Schema.Finite,
   routes: Schema.Array(ApiReferenceRouteSchema)
 })
 
@@ -51,7 +51,7 @@ export const ApiReferenceManifestSchema = Schema.Struct({
   packages: Schema.Array(ApiReferencePackageSchema)
 })
 
-export const ApiReferenceManifestJson = Schema.parseJson(ApiReferenceManifestSchema)
+export const ApiReferenceManifestJson = Schema.fromJsonString(ApiReferenceManifestSchema)
 
 export class ApiReferenceGenerationError
   extends Schema.TaggedError<ApiReferenceGenerationError>("@theoria/scripts/api-reference/ApiReferenceGenerationError")(
@@ -61,7 +61,11 @@ export class ApiReferenceGenerationError
       detail: Schema.String
     }
   )
-{}
+{
+  override get message(): string {
+    return `${this.packageName}: ${this.detail}`
+  }
+}
 
 /** TypeDoc itself could not be set up; no package is at fault. */
 export class ApiReferenceToolchainError
@@ -69,7 +73,11 @@ export class ApiReferenceToolchainError
     "ApiReferenceToolchainError",
     { detail: Schema.String }
   )
-{}
+{
+  override get message(): string {
+    return this.detail
+  }
+}
 
 export type ApiImportKind = typeof ApiImportKindSchema.Type
 export type ApiReferenceFacet = typeof ApiReferenceFacetSchema.Type

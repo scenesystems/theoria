@@ -9,10 +9,20 @@
  * constructors carry examples we neither wrote nor can fix here.
  */
 
-import { type CommandExecutor, type FileSystem, Path } from "@effect/platform"
-import type { PlatformError } from "@effect/platform/Error"
 import type { ApiDocumentation, ApiExample, ApiMember } from "@theoria/docs-model"
-import { Array as Arr, Boolean as Bool, Data, Effect, Option, Schema, String as Str } from "effect"
+import {
+  Array as Arr,
+  Boolean as Bool,
+  Data,
+  Effect,
+  type FileSystem,
+  Option,
+  Path,
+  Schema,
+  String as Str
+} from "effect"
+import type { PlatformError } from "effect/PlatformError"
+import type { ChildProcessSpawner } from "effect/process"
 
 import { Snippet, type SnippetTypecheckError, typecheckSnippets } from "../typecheck/snippets.js"
 import type { DocsPage } from "./docs-data.js"
@@ -106,12 +116,12 @@ export const checkApiExamples = (
 ): Effect.Effect<
   number,
   ApiExampleError | SnippetTypecheckError | PlatformError,
-  CommandExecutor.CommandExecutor | FileSystem.FileSystem | Path.Path
+  ChildProcessSpawner.ChildProcessSpawner | FileSystem.FileSystem | Path.Path
 > =>
   Effect.gen(function*() {
     const pathService = yield* Path.Path
     const authored = Arr.filter(Arr.flatMap(pages, collectAuthored), (_) => authoredHere(_.sourceUrl))
-    const unfenced = Arr.filterMap(authored, (_) =>
+    const unfenced = Arr.getSomes(Arr.map(authored, (_) =>
       Bool.match(
         Bool.and(
           Option.exists(_.example.language, (language) => Str.Equivalence(language, "ts")),
@@ -122,9 +132,12 @@ export const checkApiExamples = (
           onFalse: () =>
             Option.some(`${repositoryPath(_.sourceUrl)} (${_.owner}): @example must be a fenced TypeScript block`)
         }
-      ))
-    yield* Effect.when(new ApiExampleError({ diagnostics: unfenced }), () => Arr.isNonEmptyReadonlyArray(unfenced))
-    const compilable = Arr.filterMap(authored, (_) => toSnippet(root, pathService, _))
+      )))
+    yield* Effect.when(
+      new ApiExampleError({ diagnostics: unfenced }),
+      Effect.succeed(Arr.isReadonlyArrayNonEmpty(unfenced))
+    )
+    const compilable = Arr.getSomes(Arr.map(authored, (_) => toSnippet(root, pathService, _)))
     const snippets = Arr.dedupeWith(
       compilable,
       (left, right) =>

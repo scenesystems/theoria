@@ -1,35 +1,39 @@
 /** Git identities and version-only review carry-forward. No working-tree mutation. */
-import { Command } from "@effect/platform"
 import * as CanonicalJson from "@scenesystems/digest/CanonicalJson"
 import { Array, Boolean, Effect, HashSet, Number, Option, Order, Record, Schema, String, Tuple } from "effect"
+import { ChildProcess } from "effect/process"
 import * as Jsonc from "./Jsonc.js"
 import * as Process from "./Process.js"
 
 export const Sha = Schema.String.pipe(
-  Schema.pattern(/^[0-9a-f]{40}$/),
+  Schema.check(Schema.isPattern(/^[0-9a-f]{40}$/)),
   Schema.brand("@theoria/scripts/release/Repository/ReleaseSha")
 )
 export type Sha = typeof Sha.Type
-export const Manifest = Schema.Record({ key: Schema.String, value: Schema.Unknown })
+export const Manifest = Schema.Record(Schema.String, Schema.Unknown)
 export type Manifest = typeof Manifest.Type
-const Dependencies = Schema.Record({ key: Schema.String, value: Schema.String })
+const Dependencies = Schema.Record(Schema.String, Schema.String)
 const dependencyFields = Array.make("dependencies", "devDependencies", "peerDependencies", "optionalDependencies")
 export const Package = Schema.Struct({
-  name: Schema.String.pipe(Schema.pattern(/^@[a-z0-9-]+\/[a-z0-9-]+$/)),
+  name: Schema.String.pipe(Schema.check(Schema.isPattern(/^@[a-z0-9-]+\/[a-z0-9-]+$/))),
   version: Schema.String,
-  private: Schema.optionalWith(Schema.Boolean, { default: () => false })
+  private: Schema.OptionFromOptionalKey(Schema.Boolean)
 })
 
-export class RepositoryError extends Schema.TaggedError<RepositoryError>(
-  "@theoria/scripts/release/Repository/RepositoryError"
-)("RepositoryError", { message: Schema.String }) {}
+export class RepositoryError
+  extends Schema.TaggedError<RepositoryError>("@theoria/scripts/release/Repository/RepositoryError")(
+    "RepositoryError",
+    { message: Schema.String }
+  )
+{}
 
 /** Capture output AND require success: Command.string alone does not check exit status. */
-export const git = (...args: Array.NonEmptyReadonlyArray<string>) => Process.output(Command.make("git", ...args))
+export const git = (...args: Array.NonEmptyReadonlyArray<string>) =>
+  Process.output(ChildProcess.make("git", args, { stderr: "inherit" }))
 
 export const text = (sha: Sha, path: string) => git("show", String.concat(sha, String.concat(":", path)))
 const manifest = (sha: Sha, path: string) =>
-  text(sha, path).pipe(Effect.flatMap(Schema.decode(Schema.parseJson(Manifest))))
+  text(sha, path).pipe(Effect.flatMap(Schema.decodeEffect(Schema.fromJsonString(Manifest))))
 
 export const packages = (sha: Sha) =>
   Effect.gen(function*() {
@@ -39,7 +43,7 @@ export const packages = (sha: Sha) =>
       (directory) => {
         const path = String.concat("packages/", directory)
         return manifest(sha, String.concat(path, "/package.json")).pipe(
-          Effect.flatMap(Schema.decodeUnknown(Package)),
+          Effect.flatMap(Schema.decodeUnknownEffect(Package)),
           Effect.map((value) => ({ ...value, path }))
         )
       }
@@ -47,7 +51,7 @@ export const packages = (sha: Sha) =>
   })
 
 export const publicPackages = (sha: Sha) =>
-  packages(sha).pipe(Effect.map(Array.filter((pkg) => Boolean.not(pkg.private))))
+  packages(sha).pipe(Effect.map(Array.filter((pkg) => Option.getOrElse(pkg.private, () => false) === false)))
 
 const versions = (sha: Sha) =>
   publicPackages(sha).pipe(
@@ -55,10 +59,14 @@ const versions = (sha: Sha) =>
   )
 type Versions = typeof Dependencies.Type
 const version = (text: string) =>
-  Schema.decode(Schema.String.pipe(Schema.pattern(/^(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)$/)))(text).pipe(
+  Schema.decodeEffect(
+    Schema.String.pipe(Schema.check(Schema.isPattern(/^(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)$/)))
+  )(text).pipe(
     Effect.map(String.split(".")),
     Effect.flatMap(
-      Schema.decodeUnknown(Schema.Tuple(Schema.NumberFromString, Schema.NumberFromString, Schema.NumberFromString))
+      Schema.decodeUnknownEffect(
+        Schema.Tuple([Schema.FiniteFromString, Schema.FiniteFromString, Schema.FiniteFromString])
+      )
     )
   )
 
@@ -68,11 +76,11 @@ const finalize = (before: Manifest, oldVersions: Versions, newVersions: Versions
     Option.flatMap((name) => Record.get(newVersions, name)),
     Option.match({ onNone: () => before, onSome: (value) => Record.set(before, "version", value) })
   )
-  return Effect.reduce(dependencyFields, next, (current, field) =>
+  return Effect.reduce(dependencyFields, () => next, (current, field) =>
     Option.match(Record.get(current, field), {
       onNone: () => Effect.succeed(current),
       onSome: (input) =>
-        Schema.decodeUnknown(Dependencies)(input).pipe(Effect.map((dependencies) =>
+        Schema.decodeUnknownEffect(Dependencies)(input).pipe(Effect.map((dependencies) =>
           Record.set(
             current,
             field,
@@ -93,11 +101,11 @@ const finalize = (before: Manifest, oldVersions: Versions, newVersions: Versions
 const requireEqual = <A>(before: A, after: A, path: string) =>
   Effect.gen(function*() {
     const values = yield* Effect.all(Tuple.make(CanonicalJson.encode(before), CanonicalJson.encode(after)))
-    yield* Effect.unless(
+    yield* Effect.when(
       new RepositoryError({
         message: String.concat("Changes beyond version finalization require a fresh review: ", path)
       }),
-      () => String.Equivalence(Tuple.getFirst(values), Tuple.getSecond(values))
+      Effect.sync(() => Boolean.not(String.Equivalence(values[0], values[1])))
     )
   })
 
@@ -114,19 +122,26 @@ export const review = (before: Sha, after: Sha) =>
     )
     yield* Effect.forEach(Record.toEntries(oldVersions), ([name, oldValue]) =>
       Effect.gen(function*() {
-        const newValue = yield* Record.get(newVersions, name)
+        const newValue = yield* Effect.fromOption(
+          Record.get(newVersions, name),
+          () => new RepositoryError({ message: String.concat("Missing package version: ", name) })
+        )
         const oldVersion = yield* version(oldValue)
         const newVersion = yield* version(newValue)
-        yield* Effect.unless(
+        yield* Effect.when(
           new RepositoryError({ message: "Version downgrades require a fresh review." }),
-          () => Order.lessThanOrEqualTo(Order.tuple(Number.Order, Number.Order, Number.Order))(oldVersion, newVersion)
+          Effect.sync(() =>
+            Boolean.not(
+              Order.isLessThanOrEqualTo(Order.Tuple([Number.Order, Number.Order, Number.Order]))(oldVersion, newVersion)
+            )
+          )
         )
       }))
     const diff = yield* git("diff", "--no-renames", "--name-status", "-z", before, after)
     const changes = Array.chunksOf(Array.filter(String.split(diff, "\0"), String.isNonEmpty), 2)
     yield* Effect.forEach(changes, (change) =>
       Effect.gen(function*() {
-        const [status, path] = yield* Schema.decodeUnknown(Schema.Tuple(Schema.String, Schema.String))(change)
+        const [status, path] = yield* Schema.decodeUnknownEffect(Schema.Tuple([Schema.String, Schema.String]))(change)
         const consumed = Boolean.every(
           Array.make(
             String.Equivalence(status, "D"),
@@ -139,20 +154,25 @@ export const review = (before: Sha, after: Sha) =>
           HashSet.has(HashSet.make("A", "M"), status),
           Option.isSome(String.match(/^packages\/[^/]+\/CHANGELOG\.md$/)(path))
         )
-        yield* Effect.unless(
+        yield* Effect.when(
           Effect.gen(function*() {
-            yield* Effect.unless(
+            yield* Effect.when(
               new RepositoryError({ message: String.concat("Review this candidate directly: ", path) }),
-              () => String.Equivalence(status, "M")
+              Effect.sync(() => Boolean.not(String.Equivalence(status, "M")))
             )
-            yield* Effect.if(String.Equivalence(path, "bun.lock"), {
+            yield* Boolean.match(String.Equivalence(path, "bun.lock"), {
               onTrue: () =>
                 Effect.gen(function*() {
-                  const oldLock = yield* text(before, path).pipe(Effect.flatMap(Schema.decode(Jsonc.parse(Manifest))))
-                  const newLock = yield* text(after, path).pipe(Effect.flatMap(Schema.decode(Jsonc.parse(Manifest))))
-                  const workspaces = yield* Record.get(oldLock, "workspaces").pipe(
-                    Effect.flatMap(Schema.decodeUnknown(Schema.Record({ key: Schema.String, value: Manifest })))
+                  const oldLock = yield* text(before, path).pipe(
+                    Effect.flatMap(Schema.decodeEffect(Jsonc.parse(Manifest)))
                   )
+                  const newLock = yield* text(after, path).pipe(
+                    Effect.flatMap(Schema.decodeEffect(Jsonc.parse(Manifest)))
+                  )
+                  const workspaces = yield* Record.get(oldLock, "workspaces").pipe(Option.match({
+                    onNone: () => Effect.fail(new RepositoryError({ message: "bun.lock has no workspaces." })),
+                    onSome: Schema.decodeUnknownEffect(Schema.Record(Schema.String, Manifest))
+                  }))
                   const finalized = yield* Effect.forEach(
                     Record.toEntries(workspaces),
                     ([name, value]) =>
@@ -162,14 +182,15 @@ export const review = (before: Sha, after: Sha) =>
                 }),
               onFalse: () =>
                 Effect.gen(function*() {
-                  yield* Effect.unless(
+                  yield* Effect.when(
                     new RepositoryError({ message: String.concat("Review this candidate directly: ", path) }),
-                    () =>
-                      Option.isSome(
+                    Effect.sync(() =>
+                      Boolean.not(Option.isSome(
                         String.match(
                           /^(package\.json|packages\/[^/]+\/package\.json|apps\/[^/]+\/package\.json|scripts\/package\.json)$/
                         )(path)
-                      )
+                      ))
+                    )
                   )
                   const oldManifest = yield* manifest(before, path)
                   const newManifest = yield* manifest(after, path)
@@ -177,7 +198,7 @@ export const review = (before: Sha, after: Sha) =>
                 })
             })
           }),
-          () => Boolean.or(consumed, changelog)
+          Effect.sync(() => Boolean.not(Boolean.or(consumed, changelog)))
         )
       }), { discard: true })
     yield* Effect.log("Version-only successor verified").pipe(Effect.annotateLogs({ before, after }))

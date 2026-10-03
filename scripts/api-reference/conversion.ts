@@ -1,5 +1,4 @@
-import { type Path } from "@effect/platform"
-import { Schema } from "effect"
+import { Config, type Path, Schema } from "effect"
 
 import { PackagePublicExport } from "./public-exports.js"
 import { ApiSourceModule, ApiSourcePackage, PackagePublicEntrypoint } from "./source.js"
@@ -23,9 +22,12 @@ export class ConversionRequest extends Schema.Class<ConversionRequest>(
 
 const conversionRequestVariable = "THEORIA_API_REFERENCE_CONVERSION"
 
-export const conversionRequestConfig = Schema.Config(conversionRequestVariable, Schema.parseJson(ConversionRequest))
+export const conversionRequestConfig = Config.schema(
+  Schema.fromJsonString(ConversionRequest),
+  conversionRequestVariable
+)
 
-export const encodeConversionRequest = Schema.encode(Schema.parseJson(ConversionRequest))
+export const encodeConversionRequest = Schema.encodeEffect(Schema.fromJsonString(ConversionRequest))
 
 export const conversionEnvironment = (encodedRequest: string): Record<string, string> => ({
   [conversionRequestVariable]: encodedRequest
@@ -61,7 +63,7 @@ export const ConvertedPackage = Schema.Struct({
 })
 export type ConvertedPackage = typeof ConvertedPackage.Type
 
-export const ConvertedPackageText = Schema.parseJson(ConvertedPackage)
+export const ConvertedPackageText = Schema.fromJsonString(ConvertedPackage)
 
 /** Where a conversion process leaves its summary, relative to the output directory every process shares. */
 export const convertedPackagePath = (path: Path.Path, packageSlug: string): string =>

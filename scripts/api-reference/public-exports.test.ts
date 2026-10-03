@@ -1,7 +1,7 @@
-import { Path } from "@effect/platform"
-import { BunContext } from "@effect/platform-bun"
+import { BunServices } from "@effect/platform-bun"
 import { describe, expect, it } from "@effect/vitest"
-import { Array as Arr, Effect, Either, Option } from "effect"
+import { Path } from "effect"
+import { Array as Arr, Effect, Option, Result } from "effect"
 import { Comment, CommentTag, DeclarationReflection, ReflectionKind } from "typedoc"
 
 import { publicExportsFromReflection } from "./public-exports.js"
@@ -44,7 +44,7 @@ const collect = (reflection: DeclarationReflection) =>
       },
       reflection
     })
-  }).pipe(Effect.provide(BunContext.layer))
+  }).pipe(Effect.provide(BunServices.layer))
 
 describe("public export presentation", () => {
   it.effect("classifies merged declarations, prefers value documentation, trims text, and sorts exports", () =>
@@ -82,13 +82,13 @@ describe("public export presentation", () => {
       const incomplete = new DeclarationReflection("Incomplete", ReflectionKind.Variable, reflection)
       incomplete.comment = new Comment([])
       reflection.children = Arr.append(
-        Option.fromNullable(reflection.children).pipe(Option.getOrElse(Arr.empty)),
+        Option.fromNullishOr(reflection.children).pipe(Option.getOrElse(Arr.empty)),
         incomplete
       )
 
-      const result = yield* Effect.either(collect(reflection))
-      expect(Either.isLeft(result)).toBe(true)
-      expect(Either.getLeft(result)).toMatchObject({
+      const result = yield* Effect.result(collect(reflection))
+      expect(Result.isFailure(result)).toBe(true)
+      expect(Result.getFailure(result)).toMatchObject({
         _tag: "Some",
         value: {
           _tag: "ApiReferenceGenerationError",

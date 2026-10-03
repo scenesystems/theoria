@@ -54,8 +54,8 @@
       "prefix": ".vendor/noble-hashes",
       "tagTemplate": "${version}",
       "versionSource": "packages/digest/node_modules/@noble/hashes/package.json",
-      "currentVersion": "2.0.1",
-      "currentTag": "2.0.1",
+      "currentVersion": "2.4.0",
+      "currentTag": "2.4.0",
       "description": "Audited hash functions, MACs, KDFs. Used by digest and sign packages."
     },
     "noble-curves": {
@@ -63,8 +63,8 @@
       "prefix": ".vendor/noble-curves",
       "tagTemplate": "${version}",
       "versionSource": "packages/sign/node_modules/@noble/curves/package.json",
-      "currentVersion": "2.0.1",
-      "currentTag": "2.0.1",
+      "currentVersion": "2.4.0",
+      "currentTag": "2.4.0",
       "description": "Audited elliptic curve cryptography. Used by sign package."
     },
     "noble-ciphers": {
@@ -72,8 +72,8 @@
       "prefix": ".vendor/noble-ciphers",
       "tagTemplate": "${version}",
       "versionSource": "packages/seal/node_modules/@noble/ciphers/package.json",
-      "currentVersion": "2.1.1",
-      "currentTag": "2.1.1",
+      "currentVersion": "2.4.0",
+      "currentTag": "2.4.0",
       "description": "Audited symmetric ciphers (Salsa20, ChaCha, AES). Used by seal package."
     },
     "noble-post-quantum": {
@@ -81,18 +81,9 @@
       "prefix": ".vendor/noble-post-quantum",
       "tagTemplate": "${version}",
       "versionSource": "packages/sign/node_modules/@noble/post-quantum/package.json",
-      "currentVersion": "0.5.4",
-      "currentTag": "0.5.4",
+      "currentVersion": "0.7.1",
+      "currentTag": "0.7.1",
       "description": "Post-quantum cryptography (ML-KEM, ML-DSA, SLH-DSA). Used by sign package."
-    },
-    "scure-base": {
-      "remote": "https://github.com/paulmillr/scure-base.git",
-      "prefix": ".vendor/scure-base",
-      "tagTemplate": "${version}",
-      "versionSource": "packages/digest/node_modules/@scure/base/package.json",
-      "currentVersion": "2.0.0",
-      "currentTag": "2.0.0",
-      "description": "Audited base encoding (base64, base58, etc). Used by digest and seal packages."
     }
   }
 }

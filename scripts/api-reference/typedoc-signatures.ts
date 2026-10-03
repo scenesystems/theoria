@@ -22,10 +22,10 @@ export const firstSourceUrl = (
   reflection: DeclarationReflection | SignatureReflection
 ): Option.Option<string> =>
   Arr.findFirst(
-    Option.fromNullable(reflection.sources).pipe(Option.getOrElse(Arr.empty)),
-    (source) => Option.isSome(Option.fromNullable(source.url))
+    Option.fromNullishOr(reflection.sources).pipe(Option.getOrElse(Arr.empty)),
+    (source) => Option.isSome(Option.fromNullishOr(source.url))
   ).pipe(
-    Option.flatMap((source) => Option.fromNullable(source.url))
+    Option.flatMap((source) => Option.fromNullishOr(source.url))
   )
 
 // A parameter is documented either on itself or through the signature's
@@ -34,11 +34,11 @@ const parameterSummary = (
   parameter: ParameterReflection,
   signature: SignatureReflection
 ): Option.Option<ReadonlyArray<CommentDisplayPart>> =>
-  Option.fromNullable(parameter.comment).pipe(
+  Option.fromNullishOr(parameter.comment).pipe(
     Option.map((present) => present.summary),
     Option.orElse(() =>
-      Option.fromNullable(signature.comment).pipe(
-        Option.flatMap((present) => Option.fromNullable(present.getIdentifiedTag(parameter.name, "@param"))),
+      Option.fromNullishOr(signature.comment).pipe(
+        Option.flatMap((present) => Option.fromNullishOr(present.getIdentifiedTag(parameter.name, "@param"))),
         Option.map((tag) => tag.content)
       )
     )
@@ -50,13 +50,13 @@ const parameterModel = (
   context: ApiDocContext
 ): ApiParameter => ({
   name: parameter.name,
-  type: Option.fromNullable(parameter.type).pipe(
+  type: Option.fromNullishOr(parameter.type).pipe(
     Option.map((type) => type.toString()),
     Option.getOrElse(() => "unknown")
   ),
   optional: parameter.flags.isOptional,
   rest: parameter.flags.isRest,
-  defaultValue: Option.fromNullable(parameter.defaultValue),
+  defaultValue: Option.fromNullishOr(parameter.defaultValue),
   description: Option.match(parameterSummary(parameter, signature), {
     onNone: Arr.empty,
     onSome: (summary) => docParts(summary, context)
@@ -88,7 +88,7 @@ const signatureModel = (
   fallbackSourceUrl: string
 ): ApiSignature => {
   const parameters = Arr.map(
-    Option.fromNullable(signature.parameters).pipe(Option.getOrElse(Arr.empty)),
+    Option.fromNullishOr(signature.parameters).pipe(Option.getOrElse(Arr.empty)),
     (parameter) => parameterModel(parameter, signature, context)
   )
   const parameterCode = Arr.join(
@@ -106,12 +106,12 @@ const signatureModel = (
     ),
     ", "
   )
-  const signatureTypeParameters = Option.fromNullable(signature.typeParameters).pipe(Option.getOrElse(Arr.empty))
-  const genericCode = Bool.match(Arr.isEmptyReadonlyArray(signatureTypeParameters), {
+  const signatureTypeParameters = Option.fromNullishOr(signature.typeParameters).pipe(Option.getOrElse(Arr.empty))
+  const genericCode = Bool.match(Arr.isReadonlyArrayEmpty(signatureTypeParameters), {
     onTrue: () => "",
     onFalse: () => `<${Arr.join(Arr.map(signatureTypeParameters, typeParameterCode), ", ")}>`
   })
-  const returns = Option.fromNullable(signature.type).pipe(
+  const returns = Option.fromNullishOr(signature.type).pipe(
     Option.map((type) => type.toString()),
     Option.getOrElse(() => "void")
   )
@@ -128,20 +128,20 @@ const signatureModel = (
   return {
     kind,
     code,
-    typeParameters: typeParameters(signatureTypeParameters, Option.fromNullable(signature.comment), context),
+    typeParameters: typeParameters(signatureTypeParameters, Option.fromNullishOr(signature.comment), context),
     parameters,
-    returns: { type: returns, description: tagParts(Option.fromNullable(signature.comment), "@returns", context) },
-    docs: documentation(Option.fromNullable(signature.comment), context),
+    returns: { type: returns, description: tagParts(Option.fromNullishOr(signature.comment), "@returns", context) },
+    docs: documentation(Option.fromNullishOr(signature.comment), context),
     sourceUrl: Option.getOrElse(firstSourceUrl(signature), () => fallbackSourceUrl)
   }
 }
 
 const signaturesOf = (reflection: DeclarationReflection): ReadonlyArray<SignatureReflection> => {
   const direct = reflection.getAllSignatures()
-  return Bool.match(Arr.isNonEmptyReadonlyArray(direct), {
+  return Bool.match(Arr.isReadonlyArrayNonEmpty(direct), {
     onTrue: () => direct,
     onFalse: () =>
-      Option.fromNullable(reflection.type).pipe(
+      Option.fromNullishOr(reflection.type).pipe(
         Option.filter((type): type is ReflectionType => Str.Equivalence(type.type, "reflection")),
         Option.map((type) => type.declaration.getAllSignatures()),
         Option.getOrElse(Arr.empty)

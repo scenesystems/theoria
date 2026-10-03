@@ -39,18 +39,15 @@ export const makeSourceDocumentationPages = (input: {
     onFalse: () => Effect.succeed<ReadonlyArray<ApiPage>>(Arr.empty()),
     onTrue: () =>
       Effect.gen(function*() {
-        const sourceRoute = yield* Option.match(
+        const sourceRoute = yield* Effect.fromOption(
           Arr.findFirst(input.module.routes, (candidate) =>
-            Str.Equivalence(candidate.entrypoint.subpath, input.route.subpath)),
-          {
-            onNone: () =>
-              Effect.fail(generationError(
-                input.sourcePackage.manifest.name,
-                `${input.route.subpath} has no source route`
-              )),
-            onSome: Effect.succeed
-          }
-        )
+            Str.Equivalence(candidate.entrypoint.subpath, input.route.subpath))
+        ).pipe(Effect.mapError(() =>
+          generationError(
+            input.sourcePackage.manifest.name,
+            `${input.route.subpath} has no source route`
+          )
+        ))
         const sources = Arr.map(
           sourceDocumentationFiles(input.module.source, sourceRoute.publicExports),
           (sourceFile) =>
@@ -78,27 +75,25 @@ export const makeSourceDocumentationPages = (input: {
                   Str.Equivalence(entry.kind, apiExport.importKind)
                 )))
 
-            yield* Effect.unless(
+            yield* Effect.when(
               generationError(
                 input.sourcePackage.manifest.name,
                 `${source} documentation projection omitted a public export`
               ),
-              () =>
-                Num.Equivalence(Arr.length(exports), Arr.length(publicExports))
+              Effect.succeed(Bool.not(Num.Equivalence(Arr.length(exports), Arr.length(publicExports))))
             )
 
             const slug = sourceDocumentationSlug(source)
-            const comment = yield* Option.match(
-              Arr.findFirst(input.module.sourceComments, (candidate) => Str.Equivalence(candidate.source, source)),
-              {
-                onNone: () =>
-                  Effect.fail(generationError(
-                    input.sourcePackage.manifest.name,
-                    `${source} was not converted for source documentation`
-                  )),
-                onSome: (converted) => Effect.succeed(converted.comment)
-              }
-            )
+            const converted = yield* Effect.fromOption(
+              Arr.findFirst(input.module.sourceComments, (candidate) =>
+                Str.Equivalence(candidate.source, source))
+            ).pipe(Effect.mapError(() =>
+              generationError(
+                input.sourcePackage.manifest.name,
+                `${source} was not converted for source documentation`
+              )
+            ))
+            const comment = converted.comment
             const since = tagText(Option.some(comment), "@since")
             const path = apiPagePath(input.sourcePackage.directoryName, slug)
             const sourceUrl =

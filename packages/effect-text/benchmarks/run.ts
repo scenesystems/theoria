@@ -1,7 +1,8 @@
-import { Command, FileSystem, Path, Url } from "@effect/platform"
-import { BunContext, BunRuntime } from "@effect/platform-bun"
-import { BigInt, Clock, Console, Duration, Effect, Layer, Schema, Stream } from "effect"
+import { BunRuntime, BunServices } from "@effect/platform-bun"
+import { BigInt, Clock, Console, Duration, Effect, FileSystem, Layer, Path, Schema, Stream } from "effect"
 import * as Arr from "effect/Array"
+import { Url } from "effect/http"
+import { ChildProcess, ChildProcessSpawner } from "effect/process"
 import * as Str from "effect/String"
 
 import { Text, type TextMeasurer } from "@scenesystems/effect-text"
@@ -19,7 +20,7 @@ import {
 
 const reportPath = Effect.gen(function*() {
   const path = yield* Path.Path
-  const url = yield* Url.fromString("../../../.tmp/effect-text-benchmark.json", import.meta.url)
+  const url = yield* Effect.fromResult(Url.fromString("../../../.tmp/effect-text-benchmark.json", import.meta.url))
   return yield* path.fromFileUrl(url)
 })
 
@@ -33,12 +34,12 @@ const measureTiming = <A, E, R>(run: () => Effect.Effect<A, E, R>): Effect.Effec
     yield* Effect.replicateEffect(run(), benchmarkIterations, { concurrency: 1, discard: true })
     const finishedAt = yield* Clock.currentTimeNanos
     const totalDuration = Duration.nanos(BigInt.subtract(finishedAt, startedAt))
-    const meanDuration = Duration.unsafeDivide(totalDuration, benchmarkIterations)
+    const meanDuration = Duration.divideUnsafe(totalDuration, benchmarkIterations)
 
     return {
       iterations: benchmarkIterations,
-      totalDurationNanos: Duration.unsafeToNanos(totalDuration),
-      meanDurationNanos: Duration.unsafeToNanos(meanDuration)
+      totalDurationNanos: Duration.toNanosUnsafe(totalDuration),
+      meanDurationNanos: Duration.toNanosUnsafe(meanDuration)
     }
   })
 
@@ -117,17 +118,18 @@ const benchmarkCase = (
 const program = Effect.gen(function*() {
   const fileSystem = yield* FileSystem.FileSystem
   const path = yield* Path.Path
+  const spawner = yield* ChildProcessSpawner.ChildProcessSpawner
   const outputPath = yield* reportPath
   const report: BenchmarkReport = {
     benchmark: "effect-text-public-api",
-    runtime: Str.concat("Bun ", Str.trim(yield* Command.string(Command.make("bun", "--version")))),
+    runtime: Str.concat("Bun ", Str.trim(yield* spawner.string(ChildProcess.make("bun", ["--version"])))),
     iterations: benchmarkIterations,
     clock: "Clock.currentTimeNanos",
     cachePolicy: "one-live-layer-warm-cache",
     effectOverhead: yield* measureTiming(() => Effect.void),
     corpus: yield* Effect.forEach(benchmarkCorpus, benchmarkCase, { concurrency: 1 })
   }
-  const encoded = yield* Schema.encode(BenchmarkReportJson)(report)
+  const encoded = yield* Schema.encodeEffect(BenchmarkReportJson)(report)
 
   yield* fileSystem.makeDirectory(path.dirname(outputPath), { recursive: true })
   yield* fileSystem.writeFileString(outputPath, Str.concat(encoded, "\n"))
@@ -137,4 +139,4 @@ const program = Effect.gen(function*() {
 
 // Text.layer is provided around the whole program so all corpus cases share one
 // live service graph and cache rather than rebuilding services per iteration.
-BunRuntime.runMain(program.pipe(Effect.provide(Layer.merge(Text.layer, BunContext.layer))))
+BunRuntime.runMain(program.pipe(Effect.provide(Layer.merge(Text.layer, BunServices.layer))))

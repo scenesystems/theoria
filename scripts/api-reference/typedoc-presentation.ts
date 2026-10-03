@@ -19,18 +19,16 @@ class MakeApiPresentationInput extends Data.Class<{
   readonly links: ReadonlyArray<ApiDocLink>
 }> {}
 
-export const makeApiPresentation = (input: MakeApiPresentationInput) =>
+export const makeApiPresentation = (input: ConstructorParameters<typeof MakeApiPresentationInput>[0]) =>
   Effect.gen(function*() {
-    const canonicalRoute = yield* Option.match(Arr.findFirst(input.routes, (route) => route.canonical), {
-      onNone: () =>
-        Effect.fail(
-          new ApiReferenceGenerationError({
-            packageName: input.packageName,
-            detail: `${input.moduleReflection.name} has no canonical documentation route`
-          })
-        ),
-      onSome: Effect.succeed
-    })
+    const canonicalRoute = yield* Effect.fromOption(Arr.findFirst(input.routes, (route) => route.canonical)).pipe(
+      Effect.mapError(() =>
+        new ApiReferenceGenerationError({
+          packageName: input.packageName,
+          detail: `${input.moduleReflection.name} has no canonical documentation route`
+        })
+      )
+    )
     const exportsByRoute = yield* Effect.forEach(input.routes, (route) =>
       apiExports(
         input.packageName,
@@ -39,7 +37,7 @@ export const makeApiPresentation = (input: MakeApiPresentationInput) =>
         route,
         new ApiDocContext({ packageName: input.packageName, route, links: input.links })
       ))
-    const moduleComment = Option.fromNullable(input.moduleReflection.comment)
+    const moduleComment = Option.fromNullishOr(input.moduleReflection.comment)
 
     return buildApiPresentation({
       ...input,

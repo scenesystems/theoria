@@ -15,6 +15,8 @@ import {
 import { compose as composeInternal } from "./internal/metric/compose.js"
 import { fromEffect as fromEffectInternal, make as makeInternal } from "./internal/metric/constructors.js"
 
+const Score = ObjectiveValue.pipe(Schema.refine(Predicate.isNumber))
+
 /**
  * Constructs a numeric score with optional evaluator feedback.
  *
@@ -25,8 +27,6 @@ import { fromEffect as fromEffectInternal, make as makeInternal } from "./intern
  * @since 0.1.0
  * @category models
  */
-const Score = ObjectiveValue.pipe(Schema.refine(Predicate.isNumber))
-
 export class Result extends Schema.Class<Result>("@scenesystems/effect-dsp/Metric/Result")({
   score: Score,
   feedback: Schema.optional(Schema.String)

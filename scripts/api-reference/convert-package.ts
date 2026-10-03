@@ -15,19 +15,17 @@ export const convertApiPackage = (input: {
     const packageName = input.sourcePackage.manifest.name
     const app = yield* bootstrapTypeDoc(input.repositoryRoot, input.revision, input.sourcePackage)
 
-    yield* Effect.when(
-      new ApiReferenceGenerationError({ packageName, detail: "TypeDoc initialization failed" }),
-      () => app.logger.hasErrors()
-    )
+    yield* (app.logger.hasErrors()
+      ? Effect.fail(new ApiReferenceGenerationError({ packageName, detail: "TypeDoc initialization failed" }))
+      : Effect.void)
 
-    const resolvedEntrypoints = Option.fromNullable(app.getEntryPoints())
+    const resolvedEntrypoints = Option.fromNullishOr(app.getEntryPoints())
 
-    yield* Effect.when(
-      new ApiReferenceGenerationError({ packageName, detail: "TypeDoc entrypoint resolution failed" }),
-      () => app.logger.hasErrors()
-    )
+    yield* (app.logger.hasErrors()
+      ? Effect.fail(new ApiReferenceGenerationError({ packageName, detail: "TypeDoc entrypoint resolution failed" }))
+      : Effect.void)
 
-    const entrypoints = yield* resolvedEntrypoints.pipe(
+    const entrypoints = yield* Effect.fromOption(resolvedEntrypoints).pipe(
       Effect.mapError(() => new ApiReferenceGenerationError({ packageName, detail: "TypeDoc found no entrypoints" }))
     )
 

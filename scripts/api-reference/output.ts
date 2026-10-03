@@ -1,7 +1,19 @@
-import { FileSystem, Path } from "@effect/platform"
-import type { PlatformError } from "@effect/platform/Error"
 import * as Digest from "@scenesystems/digest/Digest"
-import { Array as Arr, Boolean as Bool, Context, Effect, Encoding, HashSet, Layer, Match, Ref, Schema } from "effect"
+import {
+  Array as Arr,
+  Boolean as Bool,
+  Context,
+  Effect,
+  FileSystem,
+  HashSet,
+  Layer,
+  Match,
+  Path,
+  Ref,
+  Schema
+} from "effect"
+import { Hex } from "effect/encoding"
+import type { PlatformError } from "effect/PlatformError"
 
 import {
   type ApiPage,
@@ -25,7 +37,7 @@ export const sha256File = (filePath: string) =>
     const fileSystem = yield* FileSystem.FileSystem
     const bytes = yield* fileSystem.readFile(filePath)
 
-    return Encoding.encodeHex(yield* Digest.hash("sha256", bytes))
+    return Hex.encode(yield* Digest.hash("sha256", bytes))
   })
 
 /**
@@ -36,17 +48,17 @@ export const sha256File = (filePath: string) =>
  * watched directory that is immediately recreated loses the watch on the new
  * inode, so files written afterwards are never served until a restart.
  */
-export class GeneratedOutputs extends Context.Tag("@theoria/scripts/api-reference/GeneratedOutputs")<
+export class GeneratedOutputs extends Context.Service<
   GeneratedOutputs,
   Ref.Ref<HashSet.HashSet<string>>
->() {}
+>()("@theoria/scripts/api-reference/GeneratedOutputs") {}
 
 export const generatedOutputsLayer = Layer.effect(GeneratedOutputs, Ref.make(HashSet.empty<string>()))
 
-const writeJson = <A>(
+const writeJson = <A, R>(
   outputRoot: string,
   relativeOutput: string,
-  schema: Schema.Schema<A, string>,
+  schema: Schema.Codec<A, string, never, R>,
   value: A
 ) =>
   Effect.gen(function*() {
@@ -55,7 +67,7 @@ const writeJson = <A>(
     const outputs = yield* GeneratedOutputs
     const absoluteOutput = path.join(outputRoot, relativeOutput)
     const outputDirectory = path.dirname(absoluteOutput)
-    const json = yield* Schema.encode(schema)(value)
+    const json = yield* Schema.encodeEffect(schema)(value)
     yield* fileSystem.makeDirectory(outputDirectory, { recursive: true })
     // Written beside its destination so the final rename stays on one filesystem and is atomic.
     const temporaryOutput = yield* fileSystem.makeTempFileScoped({ directory: outputDirectory, prefix: ".writing-" })
@@ -87,14 +99,13 @@ const pruneDirectory = (
           Match.when("Directory", () =>
             Effect.gen(function*() {
               const empty = yield* pruneDirectory(absolute, keep)
-              yield* Effect.when(fileSystem.remove(absolute, { recursive: true }), () => empty)
+              yield* (empty ? fileSystem.remove(absolute, { recursive: true }) : Effect.void)
               return Bool.not(empty)
             })),
           Match.orElse(() =>
-            Effect.if(HashSet.has(keep, absolute), {
-              onTrue: () => Effect.succeed(true),
-              onFalse: () => fileSystem.remove(absolute).pipe(Effect.as(false))
-            })
+            HashSet.has(keep, absolute)
+              ? Effect.succeed(true)
+              : fileSystem.remove(absolute).pipe(Effect.as(false))
           )
         )
       }))

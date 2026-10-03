@@ -31,8 +31,8 @@ Supported names are `Digest`, `ContentDigest`, `CanonicalJson`, `Utf8`, `Blake3`
 
 The API distinguishes deterministic work from validation and cooperative effects:
 
-| Shape    | Operations                                                                                                            |
-| -------- | --------------------------------------------------------------------------------------------------------------------- |
+| Shape    | Operations                                                                                         |
+| -------- | -------------------------------------------------------------------------------------------------- |
 | `Effect` | hashing, strict text encoding, keyed primitives, canonical JSON, streams, and Schema-value digests |
 
 Operations are lazy, typed validation remains explicit, and interruption, upstream failures, and service requirements stay in `Effect`.

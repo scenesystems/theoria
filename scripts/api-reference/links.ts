@@ -8,14 +8,14 @@ import { apiPagePath, routeSlug } from "./reflections.js"
 export type ApiDocLink = readonly [packageName: string, name: string, href: string]
 
 const canonicalModules = (converted: ConvertedPackage) =>
-  Arr.filterMap(converted.modules, (module) =>
+  Arr.getSomes(Arr.map(converted.modules, (module) =>
     Option.map(
       Arr.findFirst(
         module.routes,
         (route) => Str.Equivalence(route.entrypoint.subpath, module.source.canonicalSubpath)
       ),
       (route) => ({ module: module.source, route })
-    ))
+    )))
 
 /** Cross-package link targets, built from the conversion summaries alone so no reflection has to be alive yet. */
 export const makeApiDocLinks = (

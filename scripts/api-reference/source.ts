@@ -1,10 +1,11 @@
-import { FileSystem, Path } from "@effect/platform"
 import {
   Array as Arr,
   Boolean as Bool,
   Effect,
+  FileSystem,
   Option,
   Order,
+  Path,
   Predicate,
   Record as Rec,
   Schema,
@@ -18,10 +19,10 @@ const PackageManifestSchema = Schema.Struct({
   version: Schema.String,
   description: Schema.optional(Schema.String),
   private: Schema.optional(Schema.Boolean),
-  exports: Schema.Record({ key: Schema.String, value: Schema.Unknown })
+  exports: Schema.Record(Schema.String, Schema.Unknown)
 })
 
-const PackageManifestJson = Schema.parseJson(PackageManifestSchema)
+const PackageManifestJson = Schema.fromJsonString(PackageManifestSchema)
 const ExportTargetCandidates = Schema.Array(Schema.Unknown)
 type ExportTargetCandidates = typeof ExportTargetCandidates.Type
 const LocaleStringOrder = Order.make<string>((self, that) => Str.localeCompare(that)(self))
@@ -66,8 +67,8 @@ const isTypeScriptSourceTarget = (value: string): boolean =>
 const isExportTargetCandidates = Schema.is(ExportTargetCandidates)
 
 const firstTypeScriptSourceTarget = (target: unknown): Option.Option<string> =>
-  Option.match(Option.liftPredicate(target, Predicate.isString), {
-    onSome: (sourceTarget) => Option.liftPredicate(sourceTarget, isTypeScriptSourceTarget),
+  Option.match(Option.liftPredicate(Predicate.isString)(target), {
+    onSome: (sourceTarget) => Option.liftPredicate(isTypeScriptSourceTarget)(sourceTarget),
     onNone: () => {
       const visitCandidates = (candidates: ExportTargetCandidates) =>
         Arr.reduce(
@@ -76,10 +77,10 @@ const firstTypeScriptSourceTarget = (target: unknown): Option.Option<string> =>
           (accumulator, value) => Option.orElse(accumulator, () => firstTypeScriptSourceTarget(value))
         )
 
-      return Option.match(Option.liftPredicate(target, isExportTargetCandidates), {
+      return Option.match(Option.liftPredicate(isExportTargetCandidates)(target), {
         onSome: visitCandidates,
         onNone: () =>
-          Option.match(Option.liftPredicate(target, Predicate.isRecord), {
+          Option.match(Option.liftPredicate(Predicate.isObject)(target), {
             onSome: (record) => visitCandidates(Rec.values(record)),
             onNone: Option.none
           })
@@ -97,10 +98,10 @@ const packagePublicEntrypoints = (
 ): PackagePublicEntrypoints => {
   const sortedEntries = Arr.sort(
     Rec.toEntries(manifest.exports),
-    Order.struct({ 0: LocaleStringOrder })
+    Order.Struct({ 0: LocaleStringOrder })
   )
 
-  return Arr.filterMap(
+  return Arr.getSomes(Arr.map(
     sortedEntries,
     ([subpath, target]) =>
       Option.map(firstTypeScriptSourceTarget(target), (sourceTarget) => {
@@ -111,7 +112,7 @@ const packagePublicEntrypoints = (
           sourceFile: { absolute, relative: toForwardSlashes(path, path.relative(packageRoot, absolute)) }
         }
       })
-  )
+  ))
 }
 
 export const sourceModuleSubpath = (relativeSource: string): string => {
@@ -139,7 +140,7 @@ const canonicalEntrypoint = (
 const groupModules = (entrypoints: PackagePublicEntrypoints): ApiSourceModules => {
   const sourceFiles = Arr.dedupe(Arr.map(entrypoints, (entrypoint) => entrypoint.sourceFile.absolute))
 
-  return Arr.filterMap(sourceFiles, (sourceFile) => {
+  return Arr.getSomes(Arr.map(sourceFiles, (sourceFile) => {
     const matchingEntrypoints = Arr.filter(
       entrypoints,
       (entrypoint) => Str.Equivalence(entrypoint.sourceFile.absolute, sourceFile)
@@ -155,7 +156,7 @@ const groupModules = (entrypoints: PackagePublicEntrypoints): ApiSourceModules =
           routes: Arr.map(matchingEntrypoints, (entrypoint) => ({ entrypoint }))
         }))
     )
-  })
+  }))
 }
 
 const hasInternalSegment = (value: string): boolean =>
@@ -188,80 +189,73 @@ export const loadApiSourcePackage = (packagesRoot: string, directoryName: string
     const root = path.join(packagesRoot, directoryName)
     const manifestPath = path.join(root, "package.json")
     const rootStat = yield* fileSystem.stat(root)
-    const manifestExists = yield* Effect.if(Str.Equivalence(rootStat.type, "Directory"), {
-      onTrue: () => fileSystem.exists(manifestPath),
-      onFalse: () => Effect.succeed(false)
-    })
+    const manifestExists = yield* (Str.Equivalence(rootStat.type, "Directory")
+      ? fileSystem.exists(manifestPath)
+      : Effect.succeed(false))
 
-    return yield* Effect.if(manifestExists, {
-      onFalse: () => Effect.succeed(Option.none<ApiSourcePackage>()),
-      onTrue: () =>
-        Effect.gen(function*() {
-          const manifestJson = yield* fileSystem.readFileString(manifestPath)
-          const manifest = yield* Schema.decodeUnknown(PackageManifestJson)(manifestJson)
-          const isPrivate = Option.match(Option.fromNullable(manifest.private), {
-            onNone: () => false,
-            onSome: (value) => Bool.Equivalence(value, true)
-          })
-
-          return yield* Effect.if(isPrivate, {
-            onTrue: () => Effect.succeed(Option.none<ApiSourcePackage>()),
-            onFalse: () =>
-              Effect.gen(function*() {
-                const description = yield* Option.fromNullable(manifest.description).pipe(
-                  Option.map(Str.trim),
-                  Option.filter(Str.isNonEmpty),
-                  Effect.mapError(() =>
-                    new ApiReferenceGenerationError({
-                      packageName: manifest.name,
-                      detail: "public package is missing a description"
-                    })
-                  )
-                )
-
-                const entrypoints = packagePublicEntrypoints(path, root, manifest)
-                const internalEntrypoints = Arr.filter(
-                  entrypoints,
-                  (entrypoint) =>
-                    Bool.or(hasInternalSegment(entrypoint.subpath), hasInternalSegment(entrypoint.sourceFile.relative))
-                )
-
-                yield* Effect.if(Arr.isNonEmptyArray(internalEntrypoints), {
-                  onTrue: () =>
-                    Effect.fail(
-                      new ApiReferenceGenerationError({
-                        packageName: manifest.name,
-                        detail: Str.concat(
-                          "internal API modules are public: ",
-                          Arr.join(Arr.map(internalEntrypoints, (entrypoint) => entrypoint.subpath), ", ")
-                        )
-                      })
-                    ),
-                  onFalse: () => Effect.void
-                })
-
-                const modules = groupModules(entrypoints)
-                const collision = conflictingRoute(modules)
-
-                yield* Option.match(collision, {
-                  onNone: () => Effect.void,
-                  onSome: (conflict) =>
-                    Effect.fail(
-                      new ApiReferenceGenerationError({
-                        packageName: manifest.name,
-                        detail: Str.concat(
-                          Str.concat("route ", conflict.subpath),
-                          " collides case-insensitively with a different source module"
-                        )
-                      })
-                    )
-                })
-
-                return Option.some<ApiSourcePackage>({ directoryName, root, description, manifest, modules })
-              })
-          })
+    return yield* (manifestExists
+      ? Effect.gen(function*() {
+        const manifestJson = yield* fileSystem.readFileString(manifestPath)
+        const manifest = yield* Schema.decodeEffect(PackageManifestJson)(manifestJson)
+        const isPrivate = Option.match(Option.fromNullishOr(manifest.private), {
+          onNone: () => false,
+          onSome: (value) => Bool.Equivalence(value, true)
         })
-    })
+
+        return yield* (isPrivate
+          ? Effect.succeed(Option.none<ApiSourcePackage>())
+          : Effect.gen(function*() {
+            const description = yield* Option.fromNullishOr(manifest.description).pipe(
+              Option.map(Str.trim),
+              Option.filter(Str.isNonEmpty),
+              Effect.fromOption,
+              Effect.mapError(() =>
+                new ApiReferenceGenerationError({
+                  packageName: manifest.name,
+                  detail: "public package is missing a description"
+                })
+              )
+            )
+
+            const entrypoints = packagePublicEntrypoints(path, root, manifest)
+            const internalEntrypoints = Arr.filter(
+              entrypoints,
+              (entrypoint) =>
+                Bool.or(hasInternalSegment(entrypoint.subpath), hasInternalSegment(entrypoint.sourceFile.relative))
+            )
+
+            yield* (Arr.isReadonlyArrayNonEmpty(internalEntrypoints)
+              ? Effect.fail(
+                new ApiReferenceGenerationError({
+                  packageName: manifest.name,
+                  detail: Str.concat(
+                    "internal API modules are public: ",
+                    Arr.join(Arr.map(internalEntrypoints, (entrypoint) => entrypoint.subpath), ", ")
+                  )
+                })
+              )
+              : Effect.void)
+
+            const modules = groupModules(entrypoints)
+            const collision = conflictingRoute(modules)
+
+            yield* Effect.fromOption(collision).pipe(
+              Effect.flip,
+              Effect.mapError((conflict) =>
+                new ApiReferenceGenerationError({
+                  packageName: manifest.name,
+                  detail: Str.concat(
+                    Str.concat("route ", conflict.subpath),
+                    " collides case-insensitively with a different source module"
+                  )
+                })
+              )
+            )
+
+            return Option.some<ApiSourcePackage>({ directoryName, root, description, manifest, modules })
+          }))
+      })
+      : Effect.succeed(Option.none<ApiSourcePackage>()))
   })
 
 export const discoverApiSourcePackages = (packagesRoot: string) =>

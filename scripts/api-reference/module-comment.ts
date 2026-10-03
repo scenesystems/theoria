@@ -17,7 +17,7 @@ import { ApiReferenceGenerationError } from "./model.js"
 
 export const moduleReflection = (project: ProjectReflection): Option.Option<DeclarationReflection> =>
   Arr.findFirst(
-    Option.fromNullable(project.children).pipe(Option.getOrElse(Arr.empty)),
+    Option.fromNullishOr(project.children).pipe(Option.getOrElse(Arr.empty)),
     (reflection): reflection is DeclarationReflection => reflection.kindOf(ReflectionKind.Module)
   )
 
@@ -40,8 +40,9 @@ export const requireModuleComment = (input: {
       detail: `${input.relative} is missing module ${part}`
     })
 
-  return Option.fromNullable(input.reflection.comment).pipe(
-    Option.filter(hasCommentSummary),
+  return Effect.fromOption(
+    Option.filter(Option.fromNullishOr(input.reflection.comment), hasCommentSummary)
+  ).pipe(
     Effect.mapError(() => missing("summary")),
     Effect.filterOrFail((comment) => hasCommentTag(comment, "@since"), () => missing("@since"))
   )
@@ -59,8 +60,9 @@ export const sourceFileModuleProject = (input: {
 }): Effect.Effect<ProjectReflection, ApiReferenceGenerationError> =>
   Effect.gen(function*() {
     const failure = (detail: string) => new ApiReferenceGenerationError({ packageName: input.packageName, detail })
-    const sourceFile = yield* Option.fromNullable(input.entrypoint.program.getSourceFile(input.sourceFile.absolute))
-      .pipe(Effect.mapError(() => failure(`${input.sourceFile.relative} is not part of the TypeDoc program`)))
+    const sourceFile = yield* Effect.fromOption(
+      Option.fromNullishOr(input.entrypoint.program.getSourceFile(input.sourceFile.absolute))
+    ).pipe(Effect.mapError(() => failure(`${input.sourceFile.relative} is not part of the TypeDoc program`)))
 
     const project = yield* Effect.try({
       try: () =>
@@ -72,13 +74,12 @@ export const sourceFileModuleProject = (input: {
 
     yield* Effect.when(
       failure(`TypeDoc reported an error while converting ${input.sourceFile.relative}`),
-      () => input.app.logger.hasErrors()
+      Effect.sync(() => input.app.logger.hasErrors())
     )
 
-    const reflection = yield* Option.match(moduleReflection(project), {
-      onNone: () => failure(`TypeDoc did not create a module reflection for ${input.sourceFile.relative}`),
-      onSome: Effect.succeed
-    })
+    const reflection = yield* Effect.fromOption(moduleReflection(project)).pipe(
+      Effect.mapError(() => failure(`TypeDoc did not create a module reflection for ${input.sourceFile.relative}`))
+    )
 
     yield* requireModuleComment({
       packageName: input.packageName,

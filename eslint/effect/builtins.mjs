@@ -42,11 +42,11 @@ export const TIME_RANDOMNESS_RULES = [
 export const JSON_BUILTINS_RULES = [
   {
     selector: "CallExpression[callee.object.name='JSON'][callee.property.name='parse']",
-    message: "Do not use 'JSON.parse()'. Use Schema.decode or Schema.decodeUnknown."
+    message: "Do not use 'JSON.parse()'. Use Schema.decodeEffect or Schema.decodeUnknownEffect."
   },
   {
     selector: "CallExpression[callee.object.name='JSON'][callee.property.name='stringify']",
-    message: "Do not use 'JSON.stringify()'. Use Schema.encode."
+    message: "Do not use 'JSON.stringify()'. Use Schema.encodeEffect."
   }
 ]
 
@@ -113,6 +113,10 @@ export const ARRAY_BUILTINS_RULES = [
  * alias as a reference, so a type parameter may not share a name with one of
  * these globals. That is no loss: a type parameter called `Event` or `Node`
  * shadows the DOM type of the same name for every reader.
+ */
+/**
+ * @param {string} name
+ * @returns {{ readonly name: string, readonly message: string }}
  */
 const windowMember = (name) => ({
   name,
@@ -235,7 +239,7 @@ export const HOST_GLOBAL_RULES = [
   },
   {
     selector: "MemberExpression[object.name='Bun']",
-    message: "Do not use the 'Bun' global. Use BunContext, BunHttpServer and BunRuntime from '@effect/platform-bun'."
+    message: "Do not use the 'Bun' global. Use BunServices, BunHttpServer and BunRuntime from '@effect/platform-bun'."
   },
   {
     selector: "MemberExpression[object.name='crypto']",
@@ -252,5 +256,48 @@ export const HOST_GLOBAL_RULES = [
     selector: "ImportDeclaration[source.value=/^motion/] ImportSpecifier[imported.name='useReducedMotion']",
     message:
       "Do not read the reader's motion preference from Motion. Read motionPreferenceAtom, the page's one source for it, and decide with Match.exhaustive."
+  }
+]
+
+/**
+ * Effect 4 module and API boundaries. These selectors retain the old bans
+ * while preventing a new file from reintroducing an Effect 3 spelling.
+ */
+export const EFFECT_V4_MIGRATION_RULES = [
+  {
+    selector: "MemberExpression[object.name='Effect'][property.name='Service']",
+    message: "Effect.Service is an Effect 3 API. Define services with Context.Service from 'effect'."
+  },
+  {
+    selector: "ImportDeclaration[source.value=/^@effect\\/platform\\/(FileSystem|Path)$/]",
+    message: "Import FileSystem and Path from 'effect/FileSystem' and 'effect/Path' in Effect 4."
+  },
+  {
+    selector: "ImportDeclaration[source.value='@effect/platform'] ImportSpecifier[imported.name=/^(FileSystem|Path)$/]",
+    message: "Import FileSystem and Path from their Effect 4 core modules: 'effect/FileSystem' and 'effect/Path'."
+  },
+  {
+    selector: "ImportDeclaration[source.value='@effect/platform'] ImportSpecifier[imported.name=/^Http/]",
+    message: "Import Effect 4 HTTP APIs from 'effect/http' or 'effect/http-api'."
+  },
+  {
+    selector: "ImportDeclaration[source.value=/^@effect\\/platform\\/(Http|HttpClient|HttpServer|HttpApi)/]",
+    message: "Effect 4 HTTP APIs are exported from 'effect/http' or 'effect/http-api'."
+  },
+  {
+    selector: "ImportDeclaration[source.value='@effect/platform-bun'] ImportSpecifier[imported.name='BunContext']",
+    message: "BunContext is an Effect 3 API. Use BunServices from '@effect/platform-bun'."
+  },
+  {
+    selector: "ImportDeclaration[source.value=/^@effect-atom\\//]",
+    message: "The Effect 3 effect-atom packages were replaced by 'effect/reactivity' and '@effect/atom-react'."
+  },
+  {
+    selector: "ImportDeclaration[source.value=/^effect\\/Either$/]",
+    message: "Either was replaced by Result in Effect 4. Import Result from 'effect'."
+  },
+  {
+    selector: "ImportDeclaration[source.value='effect'] ImportSpecifier[imported.name='Either']",
+    message: "Either was replaced by Result in Effect 4. Import Result from 'effect'."
   }
 ]

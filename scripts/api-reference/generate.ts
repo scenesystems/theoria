@@ -1,5 +1,4 @@
-import { FileSystem, Path } from "@effect/platform"
-import { Array as Arr, Effect, Layer } from "effect"
+import { Array as Arr, Effect, FileSystem, Layer, Path } from "effect"
 import { Application } from "typedoc"
 
 import { type DocsManifest, type DocsSearchIndex } from "@theoria/docs-model"

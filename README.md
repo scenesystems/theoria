@@ -68,7 +68,7 @@ Computation starts with something that can be measured. `effect-math` supplies b
 
 Once an outcome can be measured it can be searched over. `effect-search` turns any Effect objective into a study: it samples a typed search space, records every trial, supports conditional dimensions and competing objectives, and persists its state so a run can be resumed. It uses `effect-math` for its numerical work and `digest` to key caches and identify artifacts.
 
-The same loop drives language model programs. `effect-dsp` replaces prompt strings with typed signatures and composable modules, evaluates them against examples, and optimizes instructions and demonstrations with algorithms built on `effect-search`. `effect-inference` provides the `LanguageModel` layer, resolving a requested provider through `@effect/ai` and returning evidence about the runtime that answered.
+The same loop drives language model programs. `effect-dsp` replaces prompt strings with typed signatures and composable modules, evaluates them against examples, and optimizes instructions and demonstrations with algorithms built on `effect-search`. `effect-inference` provides the `LanguageModel` layer, resolving a requested provider through `effect/ai` and returning evidence about the runtime that answered.
 
 `effect-text` prepares text once and lays it out many times as the available width changes. It stands apart from the data pipeline, but its experimental calibration tools use `effect-math` and `effect-search` to fit layout profiles against measured samples.
 
@@ -79,7 +79,7 @@ When a result is kept, `digest` gives its exact content a stable name, `sign` bi
 Install the package you need together with Effect. This example minimizes a function without a gradient using `effect-search`:
 
 ```sh
-bun add @scenesystems/effect-search effect @effect/platform @effect/platform-bun @effect/experimental
+bun add @scenesystems/effect-search effect @effect/platform-bun
 ```
 
 ```ts typecheck
@@ -93,16 +93,18 @@ export const program = Effect.gen(function* () {
     y: SearchSpace.float(-5, 5)
   })
 
-  return yield* Optimization.minimize({
-    space,
-    sampler: Sampler.tpe({ seed: 42 }),
-    objective: ({ x, y }) => {
-      const dx = Number.subtract(x, 2)
-      const dy = Number.sum(y, 1)
-      return Effect.succeed(Number.sum(Number.multiply(dx, dx), Number.multiply(dy, dy)))
-    },
-    trials: 50
-  })
+  return yield* Optimization.minimize(
+    new Optimization.FlatOptions({
+      space,
+      sampler: Sampler.tpe(new Sampler.TpeOptions({ seed: 42 })),
+      objective: ({ x, y }) => {
+        const dx = Number.subtract(x, 2)
+        const dy = Number.sum(y, 1)
+        return Effect.succeed(Number.sum(Number.multiply(dx, dx), Number.multiply(dy, dy)))
+      },
+      trials: 50
+    })
+  )
 })
 
 BunRuntime.runMain(program)
@@ -120,7 +122,7 @@ The objective is an ordinary Effect, so it can run a benchmark, call a model, or
 
 Theoria implements published algorithms and builds on open-source work. The references below are the ones each package follows most closely; each package README credits its sources in an Attribution or Standards section.
 
-**Effect.** All packages are built on [Effect](https://github.com/Effect-TS/effect) for services, resources, typed errors, and schemas, and the model packages use [`@effect/ai`](https://effect.website/docs/ai/introduction/) for provider integration.
+**Effect.** All packages are built on [Effect](https://github.com/Effect-TS/effect) for services, resources, typed errors, and schemas, and the model packages use `effect/ai` for provider integration.
 
 **Black-box optimization (`effect-search`).** Sampler behavior and numerical fixtures draw on [Optuna](https://github.com/optuna/optuna) ([Akiba et al., 2019](https://arxiv.org/abs/1907.10902)). The algorithms follow the Tree-structured Parzen Estimator ([Bergstra et al., 2011](https://papers.nips.cc/paper/4443-algorithms-for-hyper-parameter-optimization)), multi-objective TPE ([Ozaki et al., 2022](https://doi.org/10.1613/jair.1.13188)), constrained TPE ([Watanabe and Hutter, 2023](https://arxiv.org/abs/2211.14411)), HyperBand ([Li et al., 2018](https://arxiv.org/abs/1603.06560)), BOHB ([Falkner et al., 2018](https://arxiv.org/abs/1807.01774)), and CMA-ES ([Hansen, 2016](https://arxiv.org/abs/1604.00772)).
 

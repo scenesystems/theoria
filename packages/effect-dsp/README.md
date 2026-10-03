@@ -60,15 +60,17 @@ export const program = Effect.gen(function* () {
   )
   const metric = Metric.exactMatch("answer")
 
-  yield* BootstrapFewShot.run({
-    module: qa,
-    trainset: examples,
-    metric,
-    maxRounds: 1,
-    maxBootstrappedDemos: 1
-  })
+  yield* BootstrapFewShot.run(
+    new BootstrapFewShot.Options({
+      module: qa,
+      trainset: examples,
+      metric,
+      maxRounds: 1,
+      maxBootstrappedDemos: 1
+    })
+  )
 
-  return yield* Evaluate.run({ module: qa, examples, metrics: { exactMatch: metric } })
+  return yield* Evaluate.run(new Evaluate.Options({ module: qa, examples, metrics: { exactMatch: metric } }))
 })
 ```
 
@@ -100,7 +102,7 @@ effect-study:
 ```ts typecheck
 import { Optimization, Pareto, Sampler } from "@scenesystems/effect-search"
 
-export const sampler = Sampler.tpe({ seed: 17 })
+export const sampler = Sampler.tpe(new Sampler.TpeOptions({ seed: 17 }))
 export const frontier = Pareto.nonDominatedIndices
 export const optimize = Optimization.run
 ```

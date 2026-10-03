@@ -3,7 +3,6 @@
  * marked `typecheck` for compilation.
  */
 
-import { FileSystem, Path, Url } from "@effect/platform"
 import {
   Array as Arr,
   Boolean as Bool,
@@ -15,6 +14,9 @@ import {
   String as Str,
   Tuple
 } from "effect"
+import * as FileSystem from "effect/FileSystem"
+import { Url } from "effect/http"
+import * as Path from "effect/Path"
 
 import { SnippetLanguage } from "../typecheck/snippets.js"
 
@@ -36,19 +38,19 @@ export class ReadmeSnippet extends Schema.Class<ReadmeSnippet>("@theoria/scripts
   readme: ReadmeTarget,
   code: Schema.String,
   language: SnippetLanguage,
-  line: Schema.Number
+  line: Schema.Finite
 }) {}
 
 class OpenFence extends Schema.Class<OpenFence>("OpenFence")({
-  startLine: Schema.Number,
-  language: Schema.OptionFromSelf(SnippetLanguage),
+  startLine: Schema.Finite,
+  language: Schema.Option(SnippetLanguage),
   typecheck: Schema.Boolean,
   body: Schema.Array(Schema.String)
 }) {}
 
 class ParseState extends Schema.Class<ParseState>("ParseState")({
   snippets: Schema.Array(ReadmeSnippet),
-  open: Schema.OptionFromSelf(OpenFence)
+  open: Schema.Option(OpenFence)
 }) {}
 
 const FENCE = "```"
@@ -58,7 +60,7 @@ const toPosixPath = (pathService: Path.Path, value: string): string => Arr.join(
 
 export const projectRoot = Effect.gen(function*() {
   const pathService = yield* Path.Path
-  const rootUrl = yield* Url.fromString("../../", import.meta.url).pipe(Effect.orDie)
+  const rootUrl = yield* Url.fromString("../../", import.meta.url).pipe(Effect.fromResult, Effect.orDie)
   return yield* pathService.fromFileUrl(rootUrl)
 })
 
@@ -92,7 +94,7 @@ const listWorkspaceReadmes = (root: string, directoryName: string) =>
     const pathService = yield* Path.Path
     const workspaceRoot = pathService.join(root, directoryName)
     const exists = yield* fileSystem.exists(workspaceRoot)
-    return yield* Effect.if(exists, {
+    return yield* Bool.match(exists, {
       onFalse: () => Effect.succeed(Arr.empty<ReadmeTarget>()),
       onTrue: () =>
         Effect.gen(function*() {
@@ -157,13 +159,13 @@ const closeFence = (readme: ReadmeTarget, state: ParseState, fence: OpenFence): 
 const parseReadmeSnippets = (
   readme: ReadmeTarget,
   content: string
-): Effect.Effect<Schema.Schema.Type<Schema.Array$<typeof ReadmeSnippet>>, ReadmeExampleCheckError> => {
+): Effect.Effect<ReadonlyArray<ReadmeSnippet>, ReadmeExampleCheckError> => {
   const initial = new ParseState({ snippets: Arr.empty(), open: Option.none() })
   const final = Arr.reduce(Str.split(content, "\n"), initial, (state, line, index) =>
     Option.match(state.open, {
       onNone: () =>
         Bool.match(Str.startsWith(FENCE)(line), {
-          onTrue: () => new ParseState({ ...state, open: Option.some(openFence(line, index)) }),
+          onTrue: () => new ParseState({ snippets: state.snippets, open: Option.some(openFence(line, index)) }),
           onFalse: () => state
         }),
       onSome: (fence) =>
@@ -171,8 +173,15 @@ const parseReadmeSnippets = (
           onTrue: () => closeFence(readme, state, fence),
           onFalse: () =>
             new ParseState({
-              ...state,
-              open: Option.some(new OpenFence({ ...fence, body: Arr.append(fence.body, line) }))
+              snippets: state.snippets,
+              open: Option.some(
+                new OpenFence({
+                  startLine: fence.startLine,
+                  language: fence.language,
+                  typecheck: fence.typecheck,
+                  body: Arr.append(fence.body, line)
+                })
+              )
             })
         })
     }))
@@ -182,7 +191,7 @@ const parseReadmeSnippets = (
       new ReadmeExampleCheckError({
         message: Str.concat(
           "Unclosed code fence in ",
-          Arr.join(Tuple.make(readme.relativePath, Schema.encodeSync(Schema.NumberFromString)(fence.startLine)), ":")
+          Arr.join(Tuple.make(readme.relativePath, Schema.encodeSync(Schema.FiniteFromString)(fence.startLine)), ":")
         )
       })
   })

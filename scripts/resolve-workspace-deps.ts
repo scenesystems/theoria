@@ -5,9 +5,24 @@
  * semver ranges after `build-utils pack-v3`.
  */
 
-import { FileSystem, Path, Url } from "@effect/platform"
-import { BunContext, BunRuntime } from "@effect/platform-bun"
-import { Array, Boolean, Effect, HashMap, Match, Number, Option, Record, Schema, String, Tuple } from "effect"
+import { BunRuntime, BunServices } from "@effect/platform-bun"
+import {
+  Array,
+  Boolean,
+  Effect,
+  HashMap,
+  Match,
+  Number,
+  Option,
+  Record,
+  Schema,
+  SchemaGetter,
+  String,
+  Tuple
+} from "effect"
+import * as FileSystem from "effect/FileSystem"
+import { Url } from "effect/http"
+import * as Path from "effect/Path"
 
 class WorkspaceDependencyResolutionError extends Schema.TaggedError<WorkspaceDependencyResolutionError>(
   "@theoria/scripts/resolve-workspace-deps/WorkspaceDependencyResolutionError"
@@ -16,37 +31,34 @@ class WorkspaceDependencyResolutionError extends Schema.TaggedError<WorkspaceDep
   { message: Schema.String }
 ) {}
 
-const DependencyMap = Schema.transform(
-  Schema.Record({ key: Schema.String, value: Schema.String }),
-  Schema.HashMapFromSelf({ key: Schema.String, value: Schema.String }),
-  {
-    strict: true,
-    decode: (dependencies) => HashMap.fromIterable(Array.fromRecord(dependencies)),
-    encode: (dependencies) => Record.fromEntries(HashMap.toEntries(dependencies))
-  }
+const DependencyMap = Schema.Record(Schema.String, Schema.String).pipe(
+  Schema.decodeTo(Schema.HashMap(Schema.String, Schema.String), {
+    decode: SchemaGetter.transform((dependencies) => HashMap.fromIterable(Record.toEntries(dependencies))),
+    encode: SchemaGetter.transform((dependencies) => Record.fromEntries(HashMap.toEntries(dependencies)))
+  })
 )
 type DependencyMap = typeof DependencyMap.Type
-const optionalDependencyMap = Schema.optionalWith(DependencyMap, { as: "Option" })
-const optionalString = Schema.optionalWith(Schema.String, { as: "Option" })
-const Manifest = Schema.Struct(
-  {
+const optionalDependencyMap = Schema.OptionFromOptionalKey(DependencyMap)
+const optionalString = Schema.OptionFromOptionalKey(Schema.String)
+const Manifest = Schema.StructWithRest(
+  Schema.Struct({
     name: optionalString,
     version: optionalString,
     dependencies: optionalDependencyMap,
     devDependencies: optionalDependencyMap,
     peerDependencies: optionalDependencyMap,
     optionalDependencies: optionalDependencyMap
-  },
-  Schema.Record({ key: Schema.String, value: Schema.Unknown })
+  }),
+  [Schema.Record(Schema.String, Schema.Unknown)]
 )
-const ManifestJson = Schema.parseJson(Manifest, { space: 2 })
+const ManifestJson = Schema.fromJsonString(Manifest, { space: 2 })
 
 const WORKSPACE_PROTOCOL = "workspace:"
 
 const readManifest = (manifestPath: string) =>
   Effect.gen(function*() {
     const fs = yield* FileSystem.FileSystem
-    return yield* fs.readFileString(manifestPath).pipe(Effect.flatMap(Schema.decode(ManifestJson)))
+    return yield* fs.readFileString(manifestPath).pipe(Effect.flatMap(Schema.decodeEffect(ManifestJson)))
   })
 
 const readOptionalManifest = (manifestPath: string) =>
@@ -62,7 +74,7 @@ const readOptionalManifest = (manifestPath: string) =>
 const packageDirectories = Effect.gen(function*() {
   const fs = yield* FileSystem.FileSystem
   const path = yield* Path.Path
-  const root = yield* Effect.flatMap(Url.fromString("../", import.meta.url), path.fromFileUrl)
+  const root = yield* Effect.flatMap(Effect.fromResult(Url.fromString("../", import.meta.url)), path.fromFileUrl)
   const packagesDir = path.join(root, "packages")
   const entries = yield* fs.readDirectory(packagesDir)
   const directories = yield* Effect.filter(
@@ -82,9 +94,10 @@ const workspaceVersions = (directories: Iterable<string>) =>
       { concurrency: "unbounded" }
     )
     return HashMap.fromIterable(
-      Array.filterMap(
+      Array.flatMap(
         manifests,
-        (manifest) => Option.flatMap(manifest, (value) => Option.all(Tuple.make(value.name, value.version)))
+        (manifest) =>
+          Array.fromOption(Option.flatMap(manifest, (value) => Option.all(Tuple.make(value.name, value.version))))
       )
     )
   })
@@ -193,7 +206,7 @@ const processPackage = (directory: string, versions: DependencyMap) =>
             Effect.gen(function*() {
               const packageName = Option.getOrElse(current.name, () => directory)
               const next = yield* resolveManifest(current, versions)
-              const encoded = yield* Schema.encode(ManifestJson)(next)
+              const encoded = yield* Schema.encodeEffect(ManifestJson)(next)
               yield* fs.writeFileString(distManifestPath, String.concat(encoded, "\n"))
               yield* Effect.log("Workspace dependencies resolved").pipe(
                 Effect.annotateLogs({ packageName, dependenciesResolved: resolved })
@@ -221,6 +234,6 @@ BunRuntime.runMain(
     Effect.tapError((error) =>
       Effect.logError("Workspace dependency resolution failed").pipe(Effect.annotateLogs({ error }))
     ),
-    Effect.provide(BunContext.layer)
+    Effect.provide(BunServices.layer)
   )
 )

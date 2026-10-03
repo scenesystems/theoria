@@ -215,6 +215,7 @@
       "name": "@theoria/scripts",
       "version": "0.0.0",
       "dependencies": {
+        "@effect/platform-bun": "4.0.0",
         "effect": "4.0.0",
         "typedoc": "0.28.20",
         "typescript": "6.0.2",

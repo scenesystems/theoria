@@ -54,7 +54,7 @@ class ModuleSearchEntryInput extends Data.Class<{
   readonly moduleSummary: string
 }> {}
 
-const moduleSearchEntry = (input: ModuleSearchEntryInput): DocsSearchEntry => ({
+const moduleSearchEntry = (input: ConstructorParameters<typeof ModuleSearchEntryInput>[0]): DocsSearchEntry => ({
   id: apiModuleId(input.packageSlug, input.route.slug),
   kind: "module",
   package: input.packageName,
@@ -74,7 +74,9 @@ class SymbolSearchEntriesInput extends Data.Class<{
   readonly exports: ReadonlyArray<ApiExport>
 }> {}
 
-const symbolSearchEntries = (input: SymbolSearchEntriesInput): ReadonlyArray<DocsSearchEntry> =>
+const symbolSearchEntries = (
+  input: ConstructorParameters<typeof SymbolSearchEntriesInput>[0]
+): ReadonlyArray<DocsSearchEntry> =>
   Arr.map(input.exports, (apiExport) => ({
     id: apiExport.id,
     kind: "symbol",
@@ -103,12 +105,12 @@ class BuildApiPresentationInput extends Data.Class<{
   readonly exportsByRoute: ReadonlyArray<ReadonlyArray<ApiExport>>
 }> {}
 
-export const buildApiPresentation = (input: BuildApiPresentationInput) => {
+export const buildApiPresentation = (input: ConstructorParameters<typeof BuildApiPresentationInput>[0]) => {
   const aliases = Arr.map(
     Arr.filter(input.routes, (route) => Bool.not(route.canonical)),
     (route) => route.path
   )
-  const pages: ReadonlyArray<ApiPage> = Arr.map(Arr.zip(input.routes, input.exportsByRoute), ([route, exports]) => ({
+  const pages: ReadonlyArray<ApiPage> = Arr.zipWith(input.routes, input.exportsByRoute, (route, exports) => ({
     schemaVersion: 2,
     kind: "api-module",
     path: route.path,
@@ -134,27 +136,30 @@ export const buildApiPresentation = (input: BuildApiPresentationInput) => {
     categories: categoriesFor(input.packageSlug, route),
     exports
   }))
-  const searchEntries = Arr.flatMap(
-    Arr.zip(input.routes, input.exportsByRoute),
-    ([route, exports]): ReadonlyArray<DocsSearchEntry> =>
-      Bool.match(route.canonical, {
-        onTrue: () =>
-          Arr.prepend(
-            symbolSearchEntries({
-              packageName: input.packageName,
-              packageSlug: input.packageSlug,
-              route,
-              exports
-            }),
-            moduleSearchEntry({
-              packageName: input.packageName,
-              packageSlug: input.packageSlug,
-              route,
-              moduleSummary: input.moduleSummary
-            })
-          ),
-        onFalse: Arr.empty
-      })
+  const searchEntries = Arr.flatten(
+    Arr.zipWith(
+      input.routes,
+      input.exportsByRoute,
+      (route, exports): ReadonlyArray<DocsSearchEntry> =>
+        Bool.match(route.canonical, {
+          onTrue: () =>
+            Arr.prepend(
+              symbolSearchEntries({
+                packageName: input.packageName,
+                packageSlug: input.packageSlug,
+                route,
+                exports
+              }),
+              moduleSearchEntry({
+                packageName: input.packageName,
+                packageSlug: input.packageSlug,
+                route,
+                moduleSummary: input.moduleSummary
+              })
+            ),
+          onFalse: Arr.empty
+        })
+    )
   )
 
   return { pages, searchEntries }

@@ -10,7 +10,7 @@ Authenticated encryption for Effect v4, backed by Noble Ciphers. Effect `^4.0.0`
 import { Cipher, Envelope } from "@scenesystems/seal"
 import { Effect, Schema } from "effect"
 
-export const program = Effect.gen(function*() {
+export const program = Effect.gen(function* () {
   const key = yield* Cipher.generateKey
   const plaintext = yield* Schema.decodeEffect(Schema.Uint8ArrayFromHex)("0001027f80ff")
   const encrypted = yield* Cipher.encrypt("xchacha20-poly1305", key, plaintext)
@@ -41,8 +41,7 @@ export const openStored = (key: Uint8Array, stored: unknown) =>
 export const sealForTransport = (key: Uint8Array, plaintext: Uint8Array) =>
   Envelope.encrypt("xchacha20-poly1305", key, plaintext)
 
-export const openTyped = (key: Uint8Array, stored: Envelope.Encoded) =>
-  Envelope.decrypt(stored, key)
+export const openTyped = (key: Uint8Array, stored: Envelope.Encoded) => Envelope.decrypt(stored, key)
 ```
 
 `Envelope.encrypt` combines encryption and encoding; `Envelope.decrypt` combines decoding and authentication, also supporting pipeable `Envelope.decrypt(key)`. Both preserve the `Cipher.Cipher` requirement. Unknown input should go through schema admission, whose schema errors are distinct from Cipher's sanitized failures; do not expose input-bearing schema diagnostics to an untrusted peer.
@@ -51,11 +50,11 @@ The algorithm field is metadata, **not authenticated AAD**. Enforce the protocol
 
 ## Algorithms and key lifecycle
 
-| Algorithm | Nonce | Contract |
-| --- | ---: | --- |
-| `xchacha20-poly1305` | 24 bytes | Recommended for randomly generated nonces. |
-| `aes-256-gcm-siv` | 12 bytes | Resists accidental nonce reuse; usage limits still apply. |
-| `aes-256-gcm` | 12 bytes | Nonce reuse under one key is catastrophic. |
+| Algorithm            |    Nonce | Contract                                                  |
+| -------------------- | -------: | --------------------------------------------------------- |
+| `xchacha20-poly1305` | 24 bytes | Recommended for randomly generated nonces.                |
+| `aes-256-gcm-siv`    | 12 bytes | Resists accidental nonce reuse; usage limits still apply. |
+| `aes-256-gcm`        | 12 bytes | Nonce reuse under one key is catastrophic.                |
 
 All algorithms use 32-byte keys and 16-byte tags. All-zero keys are rejected as Theoria policy, not an AEAD standard requirement. `Cipher.generateKey` produces a fresh key on every execution. `Cipher.layer` uses the host CSPRNG through Noble, never Effect's seedable Random service; provide it at the host boundary. Layer construction does not acquire entropy.
 

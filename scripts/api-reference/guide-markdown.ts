@@ -66,7 +66,7 @@ const guideHref = (input: typeof Link.Type): string =>
       })
   })
 
-const inlinePart = (input: Source<PhrasingContent>): typeof InlineParts.Type =>
+const inlinePart = (input: ConstructorParameters<typeof Source<PhrasingContent>>[0]): typeof InlineParts.Type =>
   Match.value(input.node).pipe(
     Match.withReturnType<typeof InlineParts.Type>(),
     Match.when({ type: "text" }, (node) => Array.of({ kind: "text", text: node.value })),
@@ -76,8 +76,8 @@ const inlinePart = (input: Source<PhrasingContent>): typeof InlineParts.Type =>
     Match.when({ type: "image" }, (node) =>
       Array.of({
         kind: "link",
-        text: Option.fromNullable(node.alt).pipe(
-          Option.orElse(() => Option.fromNullable(node.title)),
+        text: Option.fromNullishOr(node.alt).pipe(
+          Option.orElse(() => Option.fromNullishOr(node.title)),
           Option.getOrElse(() => node.url)
         ),
         href: guideHref({ ...input, href: node.url })
@@ -88,10 +88,11 @@ const inlinePart = (input: Source<PhrasingContent>): typeof InlineParts.Type =>
         text: inlineText(inlineParts(node.children, input.packageSlug, input.revision)),
         href: guideHref({ ...input, href: node.url })
       })),
-    Match.when({ type: Match.is("emphasis", "strong", "delete") }, (node) =>
-      inlineParts(node.children, input.packageSlug, input.revision)),
-    Match.when({ type: Match.is("footnoteReference", "html", "imageReference", "linkReference") }, () =>
-      Array.empty()),
+    Match.when(
+      { type: Match.is("emphasis", "strong", "delete") },
+      (node) => inlineParts(node.children, input.packageSlug, input.revision)
+    ),
+    Match.when({ type: Match.is("footnoteReference", "html", "imageReference", "linkReference") }, () => Array.empty()),
     Match.exhaustive
   )
 
@@ -158,7 +159,11 @@ const blockquoteParts = (
       Match.exhaustive
     ))
 
-export const guideBlock = ({ node, packageSlug, revision }: Source<RootContent>): Option.Option<GuideBlock> =>
+export const guideBlock = ({
+  node,
+  packageSlug,
+  revision
+}: ConstructorParameters<typeof Source<RootContent>>[0]): Option.Option<GuideBlock> =>
   Match.value(node).pipe(
     Match.withReturnType<Option.Option<GuideBlock>>(),
     Match.when({ type: "math" }, (node) => Option.some({ kind: "math", text: node.value, display: true })),
@@ -171,7 +176,7 @@ export const guideBlock = ({ node, packageSlug, revision }: Source<RootContent>)
       (node) =>
         Option.some({
           kind: "code",
-          language: Option.getOrElse(Option.fromNullable(node.lang), () => "text"),
+          language: Option.getOrElse(Option.fromNullishOr(node.lang), () => "text"),
           source: node.value
         })
     ),
@@ -186,7 +191,7 @@ export const guideBlock = ({ node, packageSlug, revision }: Source<RootContent>)
     Match.when({ type: "list" }, (node) =>
       Option.some({
         kind: "list",
-        ordered: Option.getOrElse(Option.fromNullable(node.ordered), () => false),
+        ordered: Option.getOrElse(Option.fromNullishOr(node.ordered), () => false),
         items: Array.map(node.children, (item) => itemParts(item, packageSlug, revision))
       })),
     Match.when(

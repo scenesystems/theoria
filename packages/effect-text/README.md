@@ -138,7 +138,7 @@ rather than retaining widths measured against stale fonts.
 import { Effect, Layer } from "effect"
 import { CanvasProfile, CanvasTextMeasurer, MeasurementCache, Text } from "@scenesystems/effect-text"
 
-export const layoutOnCanvas = (context: CanvasRenderingContext2D, text: string, maxWidth: number) => {
+export const layoutOnCanvas = (context: CanvasTextMeasurer.Context, text: string, maxWidth: number) => {
   const profile = CanvasProfile.systemUi
   const services = Layer.mergeAll(
     Text.layerSegmenter,

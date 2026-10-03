@@ -3,8 +3,6 @@
  * post-generation checks can verify what was actually emitted.
  */
 
-import { FileSystem, Path } from "@effect/platform"
-import type { PlatformError } from "@effect/platform/Error"
 import {
   type ApiExport,
   DocsApiExportPageJson,
@@ -16,7 +14,8 @@ import {
   type DocsSearchIndex,
   DocsSearchIndexJson
 } from "@theoria/docs-model"
-import { Array as Arr, Data, Effect, type ParseResult, Schema } from "effect"
+import { Array as Arr, Data, Effect, FileSystem, Path, Schema } from "effect"
+import type { PlatformError } from "effect/PlatformError"
 import * as Str from "effect/String"
 
 export class DocsPage extends Data.Class<{
@@ -31,15 +30,15 @@ export class DocsData extends Data.Class<{
   readonly pages: ReadonlyArray<DocsPage>
 }> {}
 
-const decodeFile = <A, I>(schema: Schema.Schema<A, I>, file: string) =>
+const decodeFile = <S extends Schema.Constraint>(schema: S, file: string) =>
   Effect.flatMap(
     FileSystem.FileSystem,
-    (fs) => fs.readFileString(file).pipe(Effect.flatMap(Schema.decodeUnknown(schema)))
+    (fs) => fs.readFileString(file).pipe(Effect.flatMap(Schema.decodeUnknownEffect(schema)))
   )
 
 export const loadDocsData = (
   browserOutputRoot: string
-): Effect.Effect<DocsData, ParseResult.ParseError | PlatformError, FileSystem.FileSystem | Path.Path> =>
+): Effect.Effect<DocsData, Schema.SchemaError | PlatformError, FileSystem.FileSystem | Path.Path> =>
   Effect.gen(function*() {
     const path = yield* Path.Path
     const docsManifest = yield* decodeFile(DocsManifestJson, path.join(browserOutputRoot, "manifest.json"))

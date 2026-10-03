@@ -1,17 +1,22 @@
 /** Subprocess output whose success includes the exit status, not just readable stdout. */
-import { Command } from "@effect/platform"
-import { Effect, Number, Schema, Sink, Stream } from "effect"
+import { Array, Boolean, Effect, Number, Schema, Stream } from "effect"
+import type { ChildProcess } from "effect/process"
 
-export class CommandFailed extends Schema.TaggedError<CommandFailed>(
-  "@theoria/scripts/release/Process/CommandFailed"
-)("CommandFailed", { message: Schema.String, exitCode: Schema.Number }) {}
+export class CommandFailed
+  extends Schema.TaggedError<CommandFailed>("@theoria/scripts/release/Process/CommandFailed")("CommandFailed", {
+    message: Schema.String,
+    exitCode: Schema.Finite
+  })
+{}
 
-export const output = (command: Command.Command) =>
+export const output = (command: ChildProcess.Command) =>
   Effect.gen(function*() {
-    const running = yield* Command.start(command.pipe(Command.stderr("inherit")))
-    const text = yield* Stream.run(Stream.decodeText(running.stdout), Sink.mkString)
+    const running = yield* command
+    const text = yield* running.stdout.pipe(Stream.decodeText(), Stream.runCollect, Effect.map(Array.join("")))
     const exitCode = yield* running.exitCode
-    yield* Effect.unless(new CommandFailed({ message: "Release command failed", exitCode }), () =>
-      Number.Equivalence(exitCode, 0))
+    yield* Effect.when(
+      new CommandFailed({ message: "Release command failed", exitCode }),
+      Effect.sync(() => Boolean.not(Number.Equivalence(exitCode, 0)))
+    )
     return text
   }).pipe(Effect.scoped)

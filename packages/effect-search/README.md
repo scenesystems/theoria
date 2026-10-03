@@ -83,7 +83,7 @@ export const program = Effect.gen(function* () {
       space,
       sampler: Sampler.tpe(new Sampler.TpeOptions({ seed: 17 })),
       trials: 45,
-      objective: (config) =>
+      objective: (config: SearchSpace.Type<typeof space>) =>
         Match.value(config).pipe(
           Match.when({ model: "linear" }, ({ learningRate }) =>
             Effect.succeed(Numeric.pow(Numeric.log10(learningRate), 2))
@@ -91,7 +91,7 @@ export const program = Effect.gen(function* () {
           Match.when({ model: "tree" }, ({ maxDepth }) =>
             Effect.succeed(Numeric.pow(Num.divideUnsafe(Num.subtract(maxDepth, 7), 7), 2))
           ),
-          Match.exhaustive
+          Match.orElseAbsurd
         )
     })
   )
@@ -249,7 +249,7 @@ export const program = Effect.scoped(
       const asked = yield* Optimization.ask(handle)
       const value = yield* evaluateRemotely(asked.config)
       yield* Optimization.tell(handle, asked.trialNumber, value)
-    }).pipe(Effect.repeatN(3))
+    }).pipe(Effect.repeat({ times: 3 }))
 
     return yield* Optimization.result(handle)
   })

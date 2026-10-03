@@ -5,12 +5,14 @@
  * repository's TypeScript 7 compiler with `--ignoreConfig`.
  */
 
-import { Command, type CommandExecutor, FileSystem, Path } from "@effect/platform"
-import type { PlatformError } from "@effect/platform/Error"
 import { Array, Boolean, Effect, Number, pipe, Schema, Stream, String } from "effect"
 import type { Scope } from "effect"
+import * as FileSystem from "effect/FileSystem"
+import * as Path from "effect/Path"
+import type { PlatformError } from "effect/PlatformError"
+import { ChildProcess, type ChildProcessSpawner } from "effect/process"
 
-export const SnippetLanguage = Schema.Literal("ts", "tsx")
+export const SnippetLanguage = Schema.Literals(["ts", "tsx"])
 
 export type SnippetLanguage = typeof SnippetLanguage.Type
 
@@ -81,21 +83,24 @@ const rewriteCompilerOutput = (
 const runCompiler = (root: string, snippets: typeof TempSnippets.Type) =>
   Effect.gen(function*() {
     const pathService = yield* Path.Path
-    const command = Command.make("bunx", "tsc", ...COMPILER_FLAGS, ...Array.map(snippets, (_) => _.tempPath)).pipe(
-      Command.workingDirectory(root),
-      Command.stdout("pipe"),
-      Command.stderr("pipe")
-    )
-    const running = yield* Command.start(command)
+    const running = yield* ChildProcess.make("bunx", [
+      "tsc",
+      ...COMPILER_FLAGS,
+      ...Array.map(snippets, (_) => _.tempPath)
+    ], {
+      cwd: root,
+      stdout: "pipe",
+      stderr: "pipe"
+    })
     const { exitCode, stderr, stdout } = yield* Effect.all(
       {
         exitCode: running.exitCode,
-        stdout: running.stdout.pipe(Stream.decodeText(), Stream.mkString),
-        stderr: running.stderr.pipe(Stream.decodeText(), Stream.mkString)
+        stdout: running.stdout.pipe(Stream.decodeText(), Stream.runCollect, Effect.map(Array.join(""))),
+        stderr: running.stderr.pipe(Stream.decodeText(), Stream.runCollect, Effect.map(Array.join("")))
       },
       { concurrency: "unbounded" }
     )
-    return yield* Effect.if(Number.Equivalence(exitCode, 0), {
+    return yield* Boolean.match(Number.Equivalence(exitCode, 0), {
       onTrue: () => Effect.void,
       onFalse: () => {
         const compilerOutput = String.trim(
@@ -126,7 +131,7 @@ export const typecheckSnippets = (
 ): Effect.Effect<
   void,
   SnippetTypecheckError | PlatformError,
-  CommandExecutor.CommandExecutor | FileSystem.FileSystem | Path.Path
+  ChildProcessSpawner.ChildProcessSpawner | FileSystem.FileSystem | Path.Path
 > =>
   Effect.gen(function*() {
     const materialized = yield* Effect.forEach(snippets, (snippet) => materialize(prefix, snippet), {
