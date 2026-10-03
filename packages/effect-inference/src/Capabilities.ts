@@ -7,8 +7,8 @@
 import * as Schema from "effect/Schema"
 
 /** Ordered support levels for structured model output. @since 0.5.0 @category schemas */
-export const StructuredOutput = Schema.Literal("none", "best-effort", "strict")
-  .annotations({ identifier: "@scenesystems/effect-inference/Capabilities/StructuredOutput" })
+export const StructuredOutput = Schema.Literals(["none", "best-effort", "strict"])
+  .annotate({ identifier: "@scenesystems/effect-inference/Capabilities/StructuredOutput" })
 /** Structured-output support level inferred from its schema. @since 0.5.0 @category models */
 export type StructuredOutput = typeof StructuredOutput.Type
 
@@ -26,8 +26,8 @@ export const Capabilities = Schema.Struct({
   structuredOutput: StructuredOutput,
   usageReporting: Schema.Boolean,
   multimodalInput: Schema.Boolean,
-  maxContextTokens: Schema.optional(Schema.Number)
-}).annotations({ identifier: "@scenesystems/effect-inference/Capabilities" })
+  maxContextTokens: Schema.optional(Schema.Finite)
+}).annotate({ identifier: "@scenesystems/effect-inference/Capabilities" })
 /** Resolved runtime capabilities inferred from their schema. @since 0.5.0 @category models */
 export type Capabilities = typeof Capabilities.Type
 
@@ -46,7 +46,7 @@ export const Requirements = Schema.Struct({
   structuredOutput: Schema.optional(StructuredOutput),
   usageReporting: Schema.optional(Schema.Boolean),
   multimodalInput: Schema.optional(Schema.Boolean),
-  minimumContextTokens: Schema.optional(Schema.Number)
-}).annotations({ identifier: "@scenesystems/effect-inference/Capabilities/Requirements" })
+  minimumContextTokens: Schema.optional(Schema.Finite)
+}).annotate({ identifier: "@scenesystems/effect-inference/Capabilities/Requirements" })
 /** Caller capability requirements inferred from their schema. @since 0.5.0 @category models */
 export type Requirements = typeof Requirements.Type

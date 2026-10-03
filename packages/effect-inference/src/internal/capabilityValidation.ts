@@ -17,7 +17,7 @@ const validateBooleanRequirement = (
     Option.match({
       onNone: () => Effect.void,
       onSome: (required) =>
-        Effect.if(Boolean.and(required, Boolean.not(supported)), {
+        Boolean.match(Boolean.and(required, Boolean.not(supported)), {
           onTrue: () =>
             Effect.fail(
               new CapabilityMismatch({
@@ -38,7 +38,7 @@ const validateStructuredOutputRequirement = (
     Option.match({
       onNone: () => Effect.void,
       onSome: (required) =>
-        Effect.if(
+        Boolean.match(
           Match.value(required).pipe(
             Match.when("none", () => true),
             Match.when("best-effort", () => Boolean.not(String.Equivalence(supported, "none"))),
@@ -80,7 +80,7 @@ const validateMinimumContextTokens = (
                 })
               ),
             onSome: (supported) =>
-              Effect.if(Number.lessThan(supported, required), {
+              Boolean.match(Number.isLessThan(supported, required), {
                 onTrue: () =>
                   Effect.fail(
                     new CapabilityMismatch({
@@ -115,41 +115,41 @@ export const ensureCapabilityRequirements = (
         Effect.gen(function*() {
           yield* validateBooleanRequirement(
             "textGeneration",
-            Option.fromNullable(resolvedRequirements.textGeneration),
+            Option.fromNullishOr(resolvedRequirements.textGeneration),
             capabilities.textGeneration
           )
           yield* validateBooleanRequirement(
             "embeddings",
-            Option.fromNullable(resolvedRequirements.embeddings),
+            Option.fromNullishOr(resolvedRequirements.embeddings),
             capabilities.embeddings
           )
           yield* validateBooleanRequirement(
             "streaming",
-            Option.fromNullable(resolvedRequirements.streaming),
+            Option.fromNullishOr(resolvedRequirements.streaming),
             capabilities.streaming
           )
           yield* validateBooleanRequirement(
             "toolCalling",
-            Option.fromNullable(resolvedRequirements.toolCalling),
+            Option.fromNullishOr(resolvedRequirements.toolCalling),
             capabilities.toolCalling
           )
           yield* validateBooleanRequirement(
             "usageReporting",
-            Option.fromNullable(resolvedRequirements.usageReporting),
+            Option.fromNullishOr(resolvedRequirements.usageReporting),
             capabilities.usageReporting
           )
           yield* validateBooleanRequirement(
             "multimodalInput",
-            Option.fromNullable(resolvedRequirements.multimodalInput),
+            Option.fromNullishOr(resolvedRequirements.multimodalInput),
             capabilities.multimodalInput
           )
           yield* validateStructuredOutputRequirement(
-            Option.fromNullable(resolvedRequirements.structuredOutput),
+            Option.fromNullishOr(resolvedRequirements.structuredOutput),
             capabilities.structuredOutput
           )
           yield* validateMinimumContextTokens(
-            Option.fromNullable(resolvedRequirements.minimumContextTokens),
-            Option.fromNullable(capabilities.maxContextTokens)
+            Option.fromNullishOr(resolvedRequirements.minimumContextTokens),
+            Option.fromNullishOr(capabilities.maxContextTokens)
           )
         })
     })

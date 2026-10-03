@@ -25,7 +25,7 @@ const selectedProviderForRoute = (route: Route): Option.Option<string> =>
   Match.value(route.family).pipe(
     Match.when("OpenAiResponses", () => Option.some("openai")),
     Match.when("AnthropicMessages", () => Option.some("anthropic")),
-    Match.when("HuggingFace", () => selectedProvider(Option.fromNullable(route.selectionPolicy))),
+    Match.when("HuggingFace", () => selectedProvider(Option.fromNullishOr(route.selectionPolicy))),
     Match.orElse(() => Option.none())
   )
 
@@ -44,7 +44,7 @@ export const make = (
   runtimeFlavor: route.runtimeFlavorHint,
   selectionReason: selectionReasonForRoute(route),
   schemaVersion: provenanceVersion,
-  ...Option.fromNullable(route.deploymentId).pipe(
+  ...Option.fromNullishOr(route.deploymentId).pipe(
     Option.match({
       onNone: () => ({}),
       onSome: (selectedDeployment) => ({ selectedDeployment })

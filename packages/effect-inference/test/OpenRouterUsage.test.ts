@@ -1,12 +1,12 @@
-import type * as Generated from "@effect/ai-openrouter/Generated"
+import * as Generated from "@effect/ai-openrouter/Generated"
 import * as OpenRouterClient from "@effect/ai-openrouter/OpenRouterClient"
 import * as OpenRouterLanguageModel from "@effect/ai-openrouter/OpenRouterLanguageModel"
-import * as AiResponse from "@effect/ai/Response"
-import * as HttpClient from "@effect/platform/HttpClient"
 import { describe, expect, it } from "@effect/vitest"
+import * as AiResponse from "effect/ai/Response"
 import * as Arr from "effect/Array"
 import * as Chunk from "effect/Chunk"
 import * as Effect from "effect/Effect"
+import * as HttpClient from "effect/http/HttpClient"
 import * as Option from "effect/Option"
 import * as Ref from "effect/Ref"
 import * as Schema from "effect/Schema"
@@ -27,6 +27,7 @@ const response = {
   created: 0,
   model: "openai/gpt-4o-mini",
   object: "chat.completion",
+  system_fingerprint: null,
   usage: {
     prompt_tokens: 17,
     completion_tokens: 5,
@@ -37,11 +38,25 @@ const response = {
   }
 }
 
+const request = Schema.decodeSync(Generated.ChatRequest)({
+  model: "openai/gpt-4o-mini",
+  messages: [{ role: "user", content: "hello" }]
+})
+
 describe("OpenRouterUsage.observe", () => {
+  it.effect("projects disjoint token components and retains cost in the raw codec", () =>
+    Effect.gen(function*() {
+      const raw = { ...response.usage, completion_tokens: 12 }
+      const observation = yield* Schema.decodeEffect(OpenRouterUsage.Observation)(raw)
+      expect(observation.usage.inputTokens).toMatchObject({ total: 17, uncached: 14, cacheRead: 3, cacheWrite: 11 })
+      expect(observation.usage.outputTokens).toEqual({ total: 12, text: 5, reasoning: 7 })
+      expect(yield* Schema.encodeEffect(OpenRouterUsage.Observation)(observation)).toEqual(raw)
+    }))
+
   it.effect("observes all reported counters before structured decoding", () =>
     Effect.gen(function*() {
       const observed = yield* Ref.make(Arr.empty<AiResponse.Usage>())
-      const rawObserved = yield* Ref.make(Option.none<Generated.ChatGenerationTokenUsage>())
+      const rawObserved = yield* Ref.make(Option.none<Generated.ChatUsage>())
       const nativeClient = yield* OpenRouterClient.make({}).pipe(
         Effect.provideService(
           HttpClient.HttpClient,
@@ -52,7 +67,7 @@ describe("OpenRouterUsage.observe", () => {
         nativeClient,
         (usage, raw) =>
           Ref.update(observed, Arr.append(usage)).pipe(
-            Effect.zipRight(Ref.set(rawObserved, raw))
+            Effect.andThen(Ref.set(rawObserved, raw))
           )
       )
       const model = yield* OpenRouterLanguageModel.make({ model: "openai/gpt-4o-mini" }).pipe(
@@ -63,19 +78,20 @@ describe("OpenRouterUsage.observe", () => {
         schema: Schema.Struct({ answer: Schema.String })
       }).pipe(Effect.exit)
       const usages = yield* Ref.get(observed)
-      const usage = yield* Arr.head(usages)
-      const raw = yield* Ref.get(rawObserved).pipe(Effect.flatten)
-      const promptDetails = yield* Option.fromNullable(raw.prompt_tokens_details)
+      const usage = Option.getOrThrow(Arr.head(usages))
+      const raw = Option.getOrThrow(yield* Ref.get(rawObserved))
+      const promptDetails = Option.getOrThrow(Option.fromNullishOr(raw.prompt_tokens_details))
 
       expect(exit._tag).toBe("Failure")
       expect(raw.cost).toBe(0.002)
       expect(promptDetails.cache_write_tokens).toBe(11)
       expect(Arr.length(usages)).toBe(1)
-      expect(usage.inputTokens).toBe(17)
-      expect(usage.outputTokens).toBe(5)
-      expect(usage.totalTokens).toBe(29)
-      expect(Option.fromNullable(usage.reasoningTokens)).toEqual(Option.some(7))
-      expect(Option.fromNullable(usage.cachedInputTokens)).toEqual(Option.some(3))
+      expect(usage.inputTokens.total).toBe(17)
+      expect(usage.inputTokens.uncached).toBe(14)
+      expect(usage.inputTokens.cacheRead).toBe(3)
+      expect(usage.outputTokens.total).toBe(5)
+      expect(usage.outputTokens.text).toBeUndefined()
+      expect(usage.outputTokens.reasoning).toBe(7)
     }))
 
   it.effect("preserves explicit zero details", () =>
@@ -99,15 +115,12 @@ describe("OpenRouterUsage.observe", () => {
         (usage) => Ref.set(observed, Option.some(usage))
       )
 
-      yield* decorated.createChatCompletion({
-        model: "openai/gpt-4o-mini",
-        messages: Arr.make({ role: "user", content: "hello" })
-      })
+      yield* decorated.createChatCompletion(request)
       const observedOption = yield* Ref.get(observed)
-      const usage = yield* observedOption
+      const usage = Option.getOrThrow(observedOption)
 
-      expect(Option.fromNullable(usage.reasoningTokens)).toEqual(Option.some(0))
-      expect(Option.fromNullable(usage.cachedInputTokens)).toEqual(Option.some(0))
+      expect(usage.outputTokens.reasoning).toBe(0)
+      expect(usage.inputTokens.cacheRead).toBe(0)
     }))
 
   it.effect("preserves absent optional details", () =>
@@ -129,15 +142,12 @@ describe("OpenRouterUsage.observe", () => {
         (usage) => Ref.set(observed, Option.some(usage))
       )
 
-      yield* decorated.createChatCompletion({
-        model: "openai/gpt-4o-mini",
-        messages: Arr.make({ role: "user", content: "hello" })
-      })
+      yield* decorated.createChatCompletion(request)
       const observedOption = yield* Ref.get(observed)
-      const usage = yield* observedOption
+      const usage = Option.getOrThrow(observedOption)
 
-      expect(Option.fromNullable(usage.reasoningTokens)).toEqual(Option.none())
-      expect(Option.fromNullable(usage.cachedInputTokens)).toEqual(Option.none())
+      expect(usage.outputTokens.reasoning).toBeUndefined()
+      expect(usage.inputTokens.cacheRead).toBeUndefined()
     }))
 
   it.effect("observes a non-streaming response without usage as unknown", () =>
@@ -145,19 +155,18 @@ describe("OpenRouterUsage.observe", () => {
       const observed = yield* Ref.make(Option.none<AiResponse.Usage>())
       const reported = yield* Ref.make(true)
       const client = yield* OpenRouterClient.make({}).pipe(
-        Effect.provideService(HttpClient.HttpClient, jsonHttpClient(Struct.omit(response, "usage")))
+        Effect.provideService(HttpClient.HttpClient, jsonHttpClient(Struct.omit(response, ["usage"])))
       )
       yield* OpenRouterUsage.observe(client, (usage, raw) =>
-        Ref.set(observed, Option.some(usage)).pipe(Effect.zipRight(Ref.set(reported, Option.isSome(raw)))))
-        .createChatCompletion({ model: "openai/gpt-4o-mini", messages: Arr.make({ role: "user", content: "hello" }) })
-      const usage = yield* Ref.get(observed).pipe(Effect.flatten)
+        Ref.set(observed, Option.some(usage)).pipe(Effect.andThen(Ref.set(reported, Option.isSome(raw)))))
+        .createChatCompletion(request)
+      const usage = Option.getOrThrow(yield* Ref.get(observed))
       const hasReport = yield* Ref.get(reported)
 
       expect(usage).toEqual(
         new AiResponse.Usage({
-          inputTokens: undefined,
-          outputTokens: undefined,
-          totalTokens: undefined
+          inputTokens: {},
+          outputTokens: {}
         })
       )
       expect(hasReport).toBe(false)
@@ -172,7 +181,7 @@ describe("OpenRouterUsage.observe", () => {
           completion_tokens: 5,
           total_tokens: 29,
           completion_tokens_details: { reasoning_tokens: 7 },
-          prompt_tokens_details: { cached_tokens: null }
+          prompt_tokens_details: {}
         }
       }
       const observed = yield* Ref.make(Option.none<AiResponse.Usage>())
@@ -184,18 +193,16 @@ describe("OpenRouterUsage.observe", () => {
         (usage) => Ref.set(observed, Option.some(usage))
       )
 
-      yield* decorated.createChatCompletion({
-        model: "openai/gpt-4o-mini",
-        messages: Arr.make({ role: "user", content: "hello" })
-      })
+      yield* decorated.createChatCompletion(request)
       const observedOption = yield* Ref.get(observed)
-      const usage = yield* observedOption
+      const usage = Option.getOrThrow(observedOption)
 
-      expect(usage.inputTokens).toBe(17)
-      expect(usage.outputTokens).toBe(5)
-      expect(usage.totalTokens).toBe(29)
-      expect(Option.fromNullable(usage.reasoningTokens)).toEqual(Option.some(7))
-      expect(Option.fromNullable(usage.cachedInputTokens)).toEqual(Option.none())
+      expect(usage.inputTokens.total).toBe(17)
+      expect(usage.outputTokens.total).toBe(5)
+      expect(usage.inputTokens.uncached).toBeUndefined()
+      expect(usage.outputTokens.text).toBeUndefined()
+      expect(usage.outputTokens.reasoning).toBe(7)
+      expect(usage.inputTokens.cacheRead).toBeUndefined()
     }))
 
   it.effect("keeps stream chunks and failures while observing the final usage chunk", () =>
@@ -205,6 +212,7 @@ describe("OpenRouterUsage.observe", () => {
           id: "generation-1",
           model: "openai/gpt-4o-mini",
           created: 0,
+          object: "chat.completion.chunk",
           choices: Arr.make({
             index: 0,
             delta: { content: "hello" },
@@ -215,6 +223,7 @@ describe("OpenRouterUsage.observe", () => {
           id: "generation-1",
           model: "openai/gpt-4o-mini",
           created: 0,
+          object: "chat.completion.chunk",
           choices: Arr.empty(),
           usage: response.usage
         }
@@ -230,15 +239,13 @@ describe("OpenRouterUsage.observe", () => {
         (usage) => Ref.update(observed, Arr.append(usage))
       )
 
-      const exit = yield* decorated.createChatCompletionStream({
-        model: "openai/gpt-4o-mini",
-        messages: Arr.make({ role: "user", content: "hello" })
-      }).pipe(
+      const [, stream] = yield* decorated.createChatCompletionStream(request)
+      const exit = yield* stream.pipe(
         Stream.tap((chunk) =>
           Ref.update(
             seen,
             Arr.append(Option.getOrElse(
-              Option.fromNullable(chunk.id),
+              Option.fromNullishOr(chunk.id),
               () => "absent"
             ))
           )

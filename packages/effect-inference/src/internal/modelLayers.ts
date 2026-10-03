@@ -7,17 +7,17 @@ import * as AnthropicClient from "@effect/ai-anthropic/AnthropicClient"
 import * as AnthropicLanguageModel from "@effect/ai-anthropic/AnthropicLanguageModel"
 import * as OpenAiClient from "@effect/ai-openai/OpenAiClient"
 import * as OpenAiLanguageModel from "@effect/ai-openai/OpenAiLanguageModel"
-import * as FetchHttpClient from "@effect/platform/FetchHttpClient"
-import { Boolean, Data, Layer, Match, Option } from "effect"
+import { Boolean, Layer, Match, Option, Schema } from "effect"
+import { FetchHttpClient } from "effect/http"
 
-import type { Capabilities } from "../Capabilities.js"
+import { Capabilities } from "../Capabilities.js"
 import * as HuggingFaceEmbeddingModel from "../HuggingFaceEmbeddingModel.js"
 import * as HuggingFaceEndpoint from "../HuggingFaceEndpoint.js"
 import * as HuggingFaceRouted from "../HuggingFaceRouted.js"
 import * as OpenAiCompatible from "../OpenAiCompatible.js"
-import type { Route } from "../Route.js"
+import { Route } from "../Route.js"
 import { ModelLayers } from "../Runtime.js"
-import type { RuntimeRequest } from "../RuntimeRequest.js"
+import { RuntimeRequest } from "../RuntimeRequest.js"
 
 const openAiLanguageLayer = (model: string, baseUrl: string) =>
   Layer.provide(
@@ -51,7 +51,7 @@ const languageModelLayerForRoute = (route: Route, model: string) =>
             new HuggingFaceRouted.LanguageOptions({
               model,
               baseUrl: route.baseUrl,
-              ...Option.match(Option.fromNullable(route.selectionPolicy), {
+              ...Option.match(Option.fromNullishOr(route.selectionPolicy), {
                 onNone: () => ({}),
                 onSome: (selectionPolicy) => ({ selectionPolicy })
               })
@@ -88,11 +88,11 @@ const embeddingModelLayerForRoute = (route: Route, model: string) =>
     Match.exhaustive
   )
 
-class Options extends Data.Class<{
-  readonly request: RuntimeRequest
-  readonly route: Route
-  readonly capabilities: Capabilities
-}> {}
+const Options = Schema.Struct({
+  request: RuntimeRequest,
+  route: Route,
+  capabilities: Capabilities
+})
 
 /**
  * Builds real model layers for the resolved runtime without emitting any
@@ -100,7 +100,7 @@ class Options extends Data.Class<{
  *
  * @since 0.1.0
  */
-export const make = (options: Options): ModelLayers =>
+export const make = (options: typeof Options.Type): ModelLayers =>
   new ModelLayers({
     languageModel: Boolean.match(options.capabilities.textGeneration, {
       onTrue: () => Option.some(languageModelLayerForRoute(options.route, options.request.model.modelRef)),

@@ -6,9 +6,9 @@
  */
 import * as OpenRouterClient from "@effect/ai-openrouter/OpenRouterClient"
 import * as OpenRouterLanguageModel from "@effect/ai-openrouter/OpenRouterLanguageModel"
-import type * as LanguageModel from "@effect/ai/LanguageModel"
-import * as FetchHttpClient from "@effect/platform/FetchHttpClient"
+import type * as LanguageModel from "effect/ai/LanguageModel"
 import * as Boolean from "effect/Boolean"
+import * as FetchHttpClient from "effect/http/FetchHttpClient"
 import * as Layer from "effect/Layer"
 import * as Match from "effect/Match"
 import * as Option from "effect/Option"
@@ -17,7 +17,7 @@ import * as Schema from "effect/Schema"
 import * as String from "effect/String"
 
 import * as HuggingFaceEmbeddingModel from "./HuggingFaceEmbeddingModel.js"
-import { defaultCapabilities } from "./internal/defaultCapabilities.js"
+import { defaultCapabilities, Options as DefaultCapabilitiesOptions } from "./internal/defaultCapabilities.js"
 import * as resolvedRoute from "./internal/resolvedRoute.js"
 import * as Route from "./Route.js"
 import { ModelLayers, Resolution } from "./Runtime.js"
@@ -29,7 +29,7 @@ export class LanguageOptions extends Schema.Class<LanguageOptions>(
 )({
   model: Schema.String,
   baseUrl: Schema.String,
-  accessToken: Schema.optional(Schema.RedactedFromSelf(Schema.String)),
+  accessToken: Schema.optional(Schema.Redacted(Schema.String)),
   selectionPolicy: Schema.optional(Route.SelectionPolicy)
 }) {}
 
@@ -69,11 +69,11 @@ export const languageModel = (options: LanguageOptions): Layer.Layer<LanguageMod
   Layer.provide(
     Layer.provide(
       OpenRouterLanguageModel.layer({
-        model: modelRef(options.model, Option.fromNullable(options.selectionPolicy))
+        model: modelRef(options.model, Option.fromNullishOr(options.selectionPolicy))
       }),
       OpenRouterClient.layer({
         apiUrl: options.baseUrl,
-        ...Option.match(Option.fromNullable(options.accessToken), {
+        ...Option.match(Option.fromNullishOr(options.accessToken), {
           onNone: () => ({}),
           onSome: (apiKey) => ({ apiKey })
         })
@@ -88,21 +88,21 @@ export const resolve = (
   baseUrl: string,
   accessToken?: Redacted.Redacted
 ): Resolution => {
-  const requestedRoute = Option.fromNullable(request.route)
+  const requestedRoute = Option.fromNullishOr(request.route)
   const selectedRoute = route({
     baseUrl,
     authMethod: "hf-token",
-    ...Option.match(Option.flatMap(requestedRoute, (value) => Option.fromNullable(value.gatewayId)), {
+    ...Option.match(Option.flatMap(requestedRoute, (value) => Option.fromNullishOr(value.gatewayId)), {
       onNone: () => ({}),
       onSome: (gatewayId) => ({ gatewayId })
     }),
-    ...Option.match(Option.flatMap(requestedRoute, (value) => Option.fromNullable(value.selectionPolicy)), {
+    ...Option.match(Option.flatMap(requestedRoute, (value) => Option.fromNullishOr(value.selectionPolicy)), {
       onNone: () => ({}),
       onSome: (selectionPolicy) => ({ selectionPolicy })
     })
   })
-  const capabilities = defaultCapabilities({ route: selectedRoute })
-  const token = Option.match(Option.fromNullable(accessToken), {
+  const capabilities = defaultCapabilities(new DefaultCapabilitiesOptions({ route: selectedRoute }))
+  const token = Option.match(Option.fromNullishOr(accessToken), {
     onNone: () => ({}),
     onSome: (accessToken) => ({ accessToken })
   })
@@ -119,7 +119,7 @@ export const resolve = (
               model: request.model.modelRef,
               baseUrl: selectedRoute.baseUrl,
               ...token,
-              ...Option.match(Option.fromNullable(selectedRoute.selectionPolicy), {
+              ...Option.match(Option.fromNullishOr(selectedRoute.selectionPolicy), {
                 onNone: () => ({}),
                 onSome: (selectionPolicy) => ({ selectionPolicy })
               })

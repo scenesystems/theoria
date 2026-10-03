@@ -8,17 +8,18 @@ import * as OpenAiClient from "@effect/ai-openai/OpenAiClient"
 import * as OpenAiEmbeddingModel from "@effect/ai-openai/OpenAiEmbeddingModel"
 import * as OpenRouterClient from "@effect/ai-openrouter/OpenRouterClient"
 import * as OpenRouterLanguageModel from "@effect/ai-openrouter/OpenRouterLanguageModel"
-import type * as EmbeddingModel from "@effect/ai/EmbeddingModel"
-import type * as LanguageModel from "@effect/ai/LanguageModel"
-import * as FetchHttpClient from "@effect/platform/FetchHttpClient"
+import type * as EmbeddingModel from "effect/ai/EmbeddingModel"
+import type * as LanguageModel from "effect/ai/LanguageModel"
 import * as Boolean from "effect/Boolean"
 import * as Data from "effect/Data"
 import { dual } from "effect/Function"
+import * as FetchHttpClient from "effect/http/FetchHttpClient"
 import * as Layer from "effect/Layer"
 import * as Option from "effect/Option"
 import * as Schema from "effect/Schema"
+import * as Struct from "effect/Struct"
 
-import { defaultCapabilities } from "./internal/defaultCapabilities.js"
+import { defaultCapabilities, Options as DefaultCapabilitiesOptions } from "./internal/defaultCapabilities.js"
 import * as resolvedRoute from "./internal/resolvedRoute.js"
 import * as Route from "./Route.js"
 import { ModelLayers, Resolution } from "./Runtime.js"
@@ -60,7 +61,7 @@ export class TransportPlan extends Data.Class<{
  * @since 0.5.0
  * @category constructors
  */
-export const route = (options: RouteOptions): Route.Route => ({ family: Route.defaultFamily, ...options })
+export const route = (options: RouteOptions): Route.Route => Struct.assign(options, { family: Route.defaultFamily })
 
 /**
  * Replaces a request's route while retaining model intent and requirements.
@@ -97,7 +98,7 @@ export const languageModel = (options: Options): Layer.Layer<LanguageModel.Langu
 export const embeddingModel = (options: Options): Layer.Layer<EmbeddingModel.EmbeddingModel> =>
   Layer.provide(
     Layer.provide(
-      OpenAiEmbeddingModel.layerBatched({ model: options.model }),
+      OpenAiEmbeddingModel.layer({ model: options.model }),
       OpenAiClient.layer({ apiUrl: options.baseUrl })
     ),
     FetchHttpClient.layer
@@ -112,11 +113,11 @@ export const embeddingModel = (options: Options): Layer.Layer<EmbeddingModel.Emb
 export const resolve = (request: RuntimeRequest.RuntimeRequest, baseUrl: string): Resolution => {
   const selectedRoute = planTransport(
     Option.getOrElse(
-      Option.fromNullable(request.route),
-      () => route({ baseUrl, serveMode: "local-runtime", authMethod: "none" })
+      Option.fromNullishOr(request.route),
+      () => route(new RouteOptions({ baseUrl, serveMode: "local-runtime", authMethod: "none" }))
     )
   ).route
-  const capabilities = defaultCapabilities({ route: selectedRoute })
+  const capabilities = defaultCapabilities(new DefaultCapabilitiesOptions({ route: selectedRoute }))
   const options = new Options({ model: request.model.modelRef, baseUrl: selectedRoute.baseUrl })
 
   return new Resolution({

@@ -45,7 +45,6 @@
     "./InferenceError": "./src/InferenceError.ts",
     "./Usage": "./src/Usage.ts",
     "./AnthropicUsage": "./src/AnthropicUsage.ts",
-    "./GoogleUsage": "./src/GoogleUsage.ts",
     "./OpenAiUsage": "./src/OpenAiUsage.ts",
     "./OpenRouterUsage": "./src/OpenRouterUsage.ts",
     "./Testing": "./src/Testing.ts",

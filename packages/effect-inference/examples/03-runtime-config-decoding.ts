@@ -2,9 +2,9 @@
  * Resolves an OpenAI text provider from explicit runtime options and logs the
  * requested route together with the provider response metadata.
  */
-import * as LanguageModel from "@effect/ai/LanguageModel"
 import { BunRuntime } from "@effect/platform-bun"
 import { Boolean, Effect, Function, Option } from "effect"
+import { LanguageModel } from "effect/ai"
 
 import * as TextProvider from "@scenesystems/effect-inference/TextProvider"
 
@@ -25,7 +25,7 @@ export const program = TextProvider.resolve(
           provider: runtime.provider,
           request: runtime.request,
           requestedModel: runtime.request.model.modelRef,
-          route: Option.fromNullable(runtime.request.route),
+          route: Option.fromNullishOr(runtime.request.route),
           finishReason: response.finishReason,
           text: response.text
         })

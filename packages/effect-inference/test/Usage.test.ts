@@ -1,12 +1,11 @@
-import * as AiError from "@effect/ai/AiError"
-import * as IdGenerator from "@effect/ai/IdGenerator"
-import * as LanguageModel from "@effect/ai/LanguageModel"
-import * as Response from "@effect/ai/Response"
-import * as Tool from "@effect/ai/Tool"
-import * as Toolkit from "@effect/ai/Toolkit"
 import { describe, expect, it } from "@effect/vitest"
+import * as AiError from "effect/ai/AiError"
+import * as IdGenerator from "effect/ai/IdGenerator"
+import * as LanguageModel from "effect/ai/LanguageModel"
+import * as Response from "effect/ai/Response"
+import * as Tool from "effect/ai/Tool"
+import * as Toolkit from "effect/ai/Toolkit"
 import * as Arr from "effect/Array"
-import * as Cause from "effect/Cause"
 import * as Deferred from "effect/Deferred"
 import * as Effect from "effect/Effect"
 import * as Fiber from "effect/Fiber"
@@ -19,11 +18,8 @@ import * as Stream from "effect/Stream"
 import * as Usage from "@scenesystems/effect-inference/Usage"
 
 const usage = {
-  inputTokens: 17,
-  outputTokens: 5,
-  totalTokens: 29,
-  reasoningTokens: 7,
-  cachedInputTokens: 3
+  inputTokens: { total: 17, uncached: 14, cacheRead: 3 },
+  outputTokens: { total: 12, text: 5, reasoning: 7 }
 }
 
 const finish: Response.FinishPartEncoded = {
@@ -57,7 +53,7 @@ class ToolFailure extends Schema.TaggedError<ToolFailure>()("ToolFailure", {
 }) {}
 
 const FailingTool = Tool.make("FailingTool", {
-  parameters: { query: Schema.String },
+  parameters: Schema.Struct({ query: Schema.String }),
   success: Schema.String,
   failure: ToolFailure,
   failureMode: "error"
@@ -75,7 +71,7 @@ describe("Usage.observe", () => {
         separator: "-",
         size: 1
       })
-      const params: LanguageModel.ConstructorParams = {
+      const params = new Usage.ConstructorParams({
         generateText: () =>
           Effect.gen(function*() {
             const ids = yield* IdGenerator.IdGenerator
@@ -84,10 +80,10 @@ describe("Usage.observe", () => {
             return Arr.make(malformedText, finish)
           }),
         streamText: () => Stream.empty
-      }
+      })
       const decorated = Usage.observe(params, (currentUsage, currentFinish) =>
         Ref.set(observedUsage, Option.some(currentUsage)).pipe(
-          Effect.zipRight(Ref.set(observedFinish, Option.some(currentFinish)))
+          Effect.andThen(Ref.set(observedFinish, Option.some(currentFinish)))
         ))
       const model = yield* LanguageModel.make(decorated).pipe(
         Effect.provideService(IdGenerator.IdGenerator, generator)
@@ -96,17 +92,16 @@ describe("Usage.observe", () => {
         prompt: "Return an object",
         schema: Schema.Struct({ answer: Schema.String })
       }).pipe(Effect.flip)
-      const currentUsage = yield* Ref.get(observedUsage).pipe(Effect.flatten)
-      const currentFinish = yield* Ref.get(observedFinish).pipe(Effect.flatten)
-      const currentId = yield* Ref.get(generatedId).pipe(Effect.flatten)
+      const currentUsage = Option.getOrThrow(yield* Ref.get(observedUsage))
+      const currentFinish = Option.getOrThrow(yield* Ref.get(observedFinish))
+      const currentId = Option.getOrThrow(yield* Ref.get(generatedId))
 
-      expect(error).toBeInstanceOf(AiError.MalformedOutput)
+      expect(error).toBeInstanceOf(AiError.AiError)
       expect(currentUsage).toBeInstanceOf(Response.Usage)
-      expect(currentUsage.inputTokens).toBe(17)
-      expect(currentUsage.outputTokens).toBe(5)
-      expect(currentUsage.totalTokens).toBe(29)
-      expect(currentUsage.reasoningTokens).toBe(7)
-      expect(currentUsage.cachedInputTokens).toBe(3)
+      expect(currentUsage.inputTokens.total).toBe(17)
+      expect(currentUsage.inputTokens.cacheRead).toBe(3)
+      expect(currentUsage.outputTokens.text).toBe(5)
+      expect(currentUsage.outputTokens.reasoning).toBe(7)
       expect(currentFinish).toBe(finish)
       expect(currentId).toBe("original-x")
     }))
@@ -121,10 +116,10 @@ describe("Usage.observe", () => {
           FailingTool: () => Effect.fail(failure)
         }))
       )
-      const params: LanguageModel.ConstructorParams = {
+      const params = new Usage.ConstructorParams({
         generateText: () => Effect.succeed(Arr.make(toolCall, finish)),
         streamText: () => Stream.empty
-      }
+      })
       const model = yield* LanguageModel.make(
         Usage.observe(
           params,
@@ -137,23 +132,23 @@ describe("Usage.observe", () => {
       }).pipe(Effect.flip)
       const seen = yield* Ref.get(observations)
 
-      expect(Cause.originalError(error)).toBe(failure)
+      expect(error).toBe(failure)
       expect(Arr.length(seen)).toBe(1)
-      expect(yield* Arr.head(seen)).toBeInstanceOf(Response.Usage)
+      expect(Option.getOrThrow(Arr.head(seen))).toBeInstanceOf(Response.Usage)
     }))
 
   it.effect("preserves provider failures without inventing an observation", () =>
     Effect.gen(function*() {
       const providerFailure = new AiError.UnknownError({
-        module: "TestProvider",
-        method: "generateText",
         description: "expected provider failure"
       })
       const observations = yield* Ref.make(Arr.empty<Response.Usage>())
-      const params: LanguageModel.ConstructorParams = {
-        generateText: () => Effect.fail(providerFailure),
-        streamText: () => Stream.fail(providerFailure)
-      }
+      const params = new Usage.ConstructorParams({
+        generateText: () =>
+          Effect.fail(new AiError.AiError({ module: "Test", method: "generateText", reason: providerFailure })),
+        streamText: () =>
+          Stream.fail(new AiError.AiError({ module: "Test", method: "streamText", reason: providerFailure }))
+      })
       const model = yield* LanguageModel.make(
         Usage.observe(
           params,
@@ -163,8 +158,8 @@ describe("Usage.observe", () => {
       const error = yield* model.generateText({ prompt: "hello" }).pipe(Effect.flip)
       const seen = yield* Ref.get(observations)
 
-      expect(Cause.originalError(error)).toBe(providerFailure)
-      expect(Arr.isEmptyArray(seen)).toBe(true)
+      expect(error.reason).toBe(providerFailure)
+      expect(Arr.length(seen)).toBe(0)
     }))
 
   it.effect("observes an early stream finish lazily and preserves cancellation finalizers", () =>
@@ -182,18 +177,18 @@ describe("Usage.observe", () => {
         Stream.concat(Stream.never),
         Stream.ensuring(Ref.set(finalized, true))
       )
-      const params: LanguageModel.ConstructorParams = {
+      const params = new Usage.ConstructorParams({
         generateText: () => Effect.succeed(Arr.of<Response.PartEncoded>(finish)),
         streamText: () => providerStream
-      }
+      })
       const model = yield* LanguageModel.make(
         Usage.observe(
           params,
           (currentUsage, currentFinish) =>
             Ref.update(observations, Arr.append(currentUsage)).pipe(
-              Effect.zipRight(Ref.set(observedFinish, Option.some(currentFinish))),
-              Effect.zipRight(Deferred.succeed(observationStarted, undefined)),
-              Effect.zipRight(Deferred.await(blockedObservation))
+              Effect.andThen(Ref.set(observedFinish, Option.some(currentFinish))),
+              Effect.andThen(Deferred.succeed(observationStarted, undefined)),
+              Effect.andThen(Deferred.await(blockedObservation))
             )
         )
       )
@@ -202,10 +197,10 @@ describe("Usage.observe", () => {
         Stream.runDrain
       )
 
-      expect(Arr.isEmptyArray(yield* Ref.get(observations))).toBe(true)
+      expect(Arr.length(yield* Ref.get(observations))).toBe(0)
       expect(yield* Ref.get(finalized)).toBe(false)
 
-      const fiber = yield* Effect.fork(output)
+      const fiber = yield* Effect.forkChild(output)
       yield* Deferred.await(observationStarted)
 
       expect(yield* Ref.get(delivered)).toBe(1)
@@ -213,9 +208,9 @@ describe("Usage.observe", () => {
       yield* Fiber.interrupt(fiber)
 
       const seen = yield* Ref.get(observations)
-      const currentFinish = yield* Ref.get(observedFinish).pipe(Effect.flatten)
+      const currentFinish = Option.getOrThrow(yield* Ref.get(observedFinish))
       expect(Arr.length(seen)).toBe(1)
-      expect((yield* Arr.head(seen)).totalTokens).toBe(29)
+      expect(Option.getOrThrow(Arr.head(seen)).outputTokens.total).toBe(12)
       expect(currentFinish).toBe(finish)
       expect(yield* Ref.get(finalized)).toBe(true)
     }))

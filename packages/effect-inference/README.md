@@ -1,11 +1,11 @@
 # @scenesystems/effect-inference
 
-Effect-native model intent, route resolution, provider configuration, response evidence, and native provider usage observation for `@effect/ai`.
+Effect-native model intent, route resolution, provider configuration, response evidence, and native provider usage observation for `effect/ai`.
 
 ## Installation
 
 ```sh
-npm install @scenesystems/effect-inference effect @effect/ai
+bun add @scenesystems/effect-inference effect
 ```
 
 ## Architecture
@@ -34,8 +34,8 @@ All public modules are root namespaces and matching flat PascalCase subpaths.
 | `HuggingFaceEndpoint`                                             | Dedicated endpoint routes and model layers                                           |
 | `HuggingFaceRouted`                                               | Provider-router routes and model layers                                              |
 | `InferenceError`                                                  | Canonical schema-backed package failure union                                        |
-| `Usage`                                                           | Native `LanguageModel.ConstructorParams` observation                                 |
-| `AnthropicUsage`, `GoogleUsage`, `OpenAiUsage`, `OpenRouterUsage` | Native provider client observation                                                   |
+| `Usage`                                                           | Native language-model hook observation through `Usage.ConstructorParams`              |
+| `AnthropicUsage`, `OpenAiUsage`, `OpenRouterUsage`                | Native provider client observation                                                   |
 | `Testing`                                                         | Deterministic model layers and runtime fixtures                                      |
 
 ## Runtime resolution
@@ -63,7 +63,7 @@ export const resolution = Runtime.resolve({
 ## Configured text providers
 
 ```ts typecheck
-import * as LanguageModel from "@effect/ai/LanguageModel"
+import { LanguageModel } from "effect/ai"
 import { Effect } from "effect"
 import { TextProvider } from "@scenesystems/effect-inference"
 
@@ -84,9 +84,11 @@ export const program = LanguageModel.generateText({
 - `Options.route` selects direct endpoint execution or routed provider discovery.
 - `layer` requires a caller-provided platform `HttpClient`; `layerFetch` supplies `FetchHttpClient.layer`.
 - Successful discovery is cached for five minutes per layer and concurrent misses are coalesced. Discovery and inference retry only HTTP 503, at most twice.
+- `embed` returns an `EmbedResponse` with `vector`; `embedMany` returns ordered `embeddings` and usage metadata. Use `embedMany` for batching. Independent `embed` calls execute in their caller's fiber so interruption cancels inference. Discovery uses a layer-owned `ScopedCache`, retaining shared work only while a caller needs it.
+- This avoids the installed Effect 4.0.0 request-resolver cancellation defect for `embed`. Direct use of the model's low-level `resolver` retains upstream behavior.
 
 ```ts typecheck
-import * as EmbeddingModel from "@effect/ai/EmbeddingModel"
+import { EmbeddingModel } from "effect/ai"
 import { Effect } from "effect"
 import { HuggingFaceRouted } from "@scenesystems/effect-inference"
 import * as HuggingFaceEmbeddingModel from "@scenesystems/effect-inference/HuggingFaceEmbeddingModel"
@@ -121,7 +123,7 @@ const evidence = RuntimeEvidence.make(resolution, {
   usage: { inputTokens: 12, outputTokens: 4, totalTokens: 16 }
 })
 
-export const encoded = Schema.encode(RuntimeEvidence.RuntimeEvidence)(evidence)
+export const encoded = Schema.encodeEffect(RuntimeEvidence.RuntimeEvidence)(evidence)
 ```
 
 Provider metadata accepts JSON values only. `RuntimeEvidence.decodeUnknown` maps malformed persisted values to `InvalidRuntimeConfig`.
@@ -143,13 +145,17 @@ export const observed = Effect.gen(function* () {
 
 Observers execute in the invoking fiber before native response interpretation. Streams remain lazy and interruptible. Missing reports remain unknown, explicit zeros remain zero, cumulative stream snapshots are not summed, and transport failures do not invent observations.
 
+Canonical usage follows Effect v4's nested `inputTokens` and `outputTokens` structure. Provider-reported totals remain distinct from cache and reasoning details. Derived counters remain absent when their components are missing or inconsistent; raw reports retain provider-specific totals and costs. Anthropic observations preserve their source tag and cumulative state when serialized. Use one observation integration per invocation to avoid recording both raw-client and canonical-finish usage.
+
+Native Google support has been removed. Gemini remains available through OpenRouter or an OpenAI-compatible service, using the matching usage observer.
+
 ## Testing
 
 `Testing.languageModel`, `Testing.embeddingModel`, and `Testing.runtimeLayer` provide deterministic layers. `Testing.request`, `resolvedRoute`, `resolution`, `response`, and `evidence` construct coherent fixtures without provider access or live credentials.
 
 ## Errors and security
 
-`InferenceError.InferenceError` is the schema and type for `InvalidRuntimeConfig`, `CapabilityMismatch`, `UnsupportedRoute`, and `RuntimeNotImplemented`. Provider transport failures remain in their native `@effect/ai` channels. API keys are never stored in requests, resolutions, or evidence.
+`InferenceError.InferenceError` is the schema and type for `InvalidRuntimeConfig`, `CapabilityMismatch`, `UnsupportedRoute`, and `RuntimeNotImplemented`. Provider transport failures remain in the native `effect/ai/AiError` channel, with semantic failures under `error.reason`. API keys are never stored in requests, resolutions, or evidence.
 
 ## License
 

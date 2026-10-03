@@ -3,8 +3,6 @@
  */
 import * as AnthropicClient from "@effect/ai-anthropic/AnthropicClient"
 import * as AnthropicLanguageModel from "@effect/ai-anthropic/AnthropicLanguageModel"
-import * as GoogleClient from "@effect/ai-google/GoogleClient"
-import * as GoogleLanguageModel from "@effect/ai-google/GoogleLanguageModel"
 import * as OpenAiClient from "@effect/ai-openai/OpenAiClient"
 import * as OpenAiLanguageModel from "@effect/ai-openai/OpenAiLanguageModel"
 import * as OpenRouterClient from "@effect/ai-openrouter/OpenRouterClient"
@@ -20,7 +18,6 @@ import { ModuleParameters } from "@scenesystems/effect-dsp/ModuleParameters"
 import * as Signature from "@scenesystems/effect-dsp/Signature"
 import * as Trace from "@scenesystems/effect-dsp/Trace"
 import * as AnthropicUsage from "@scenesystems/effect-inference/AnthropicUsage"
-import * as GoogleUsage from "@scenesystems/effect-inference/GoogleUsage"
 import * as OpenAiUsage from "@scenesystems/effect-inference/OpenAiUsage"
 import * as OpenRouterUsage from "@scenesystems/effect-inference/OpenRouterUsage"
 import { Array as Arr, Effect, Option, Ref, Schema } from "effect"
@@ -247,104 +244,4 @@ describe("Trace provider integration", () => {
       expect(aggregate.tokens.totalTokens).toBe(29)
       expect(aggregate.tokens.cachedInputTokens).toBe(3)
     }))
-
-  it.effect("retains Google usage through native decoding failure into serializable DSP evidence", () =>
-    Effect.scoped(Effect.gen(function*() {
-      const response = {
-        candidates: Arr.make({
-          index: 0,
-          content: { role: "model", parts: Arr.make({ text: "not-json" }) },
-          finishReason: "STOP"
-        }),
-        usageMetadata: {
-          promptTokenCount: 17,
-          candidatesTokenCount: 5,
-          totalTokenCount: 29,
-          thoughtsTokenCount: 7,
-          cachedContentTokenCount: 3
-        }
-      }
-      const client = yield* GoogleClient.make({}).pipe(
-        Effect.provideService(
-          HttpClient.HttpClient,
-          jsonHttpClient(response)
-        )
-      )
-      const model = yield* GoogleLanguageModel.make({ model: "gemini-2.5-flash" }).pipe(
-        Effect.provideService(GoogleClient.GoogleClient, GoogleUsage.observe(client, Trace.observeUsage))
-      )
-      const signature = yield* Signature.make("Answer", { question: Schema.String }, { answer: Schema.String })
-      const module = yield* Module.predict("google-usage", signature)
-      const [[[failure, entries], calls], aggregate] = yield* Trace.withUsageTracking(
-        Trace.withCalls(Trace.withTracing(Effect.flip(module.forward({ question: "Capital?" }))))
-      ).pipe(Effect.provideService(LanguageModel.LanguageModel, model))
-      const call = yield* Arr.head(calls)
-      const codec = Schema.parseJson(Trace.Call)
-      const persisted = yield* Schema.encode(codec)(call)
-      const restored = yield* Schema.decode(codec)(persisted)
-
-      expect(failure._tag).toBe("MalformedOutput")
-      expect(Arr.isEmptyReadonlyArray(entries)).toBe(true)
-      expect(Arr.length(calls)).toBe(1)
-      expect(restored.outcome).toBe("failure")
-      expect(restored.usage).toEqual(Option.some(
-        new Response.Usage({
-          inputTokens: 17,
-          outputTokens: 5,
-          totalTokens: 29,
-          reasoningTokens: 7,
-          cachedInputTokens: 3
-        })
-      ))
-      expect(aggregate.callCount).toBe(1)
-      expect(aggregate.tokens.totalTokens).toBe(29)
-    })))
-
-  it.effect("retains all five Google counters through successful structured prediction", () =>
-    Effect.scoped(Effect.gen(function*() {
-      const client = yield* GoogleClient.make({}).pipe(
-        Effect.provideService(
-          HttpClient.HttpClient,
-          jsonHttpClient({
-            candidates: Arr.make({
-              index: 0,
-              content: { role: "model", parts: Arr.make({ text: "{\"answer\":\"Paris\"}" }) },
-              finishReason: "STOP"
-            }),
-            usageMetadata: {
-              promptTokenCount: 17,
-              candidatesTokenCount: 5,
-              totalTokenCount: 29,
-              thoughtsTokenCount: 7,
-              cachedContentTokenCount: 3
-            }
-          })
-        )
-      )
-      const model = yield* GoogleLanguageModel.make({ model: "gemini-2.5-flash" }).pipe(
-        Effect.provideService(GoogleClient.GoogleClient, GoogleUsage.observe(client, Trace.observeUsage))
-      )
-      const signature = yield* Signature.make("Answer", { question: Schema.String }, { answer: Schema.String })
-      const module = yield* Module.predict("google-success-usage", signature)
-      const [[[output, entries], calls], aggregate] = yield* Trace.withUsageTracking(
-        Trace.withCalls(Trace.withTracing(module.forward({ question: "Capital?" })))
-      ).pipe(Effect.provideService(LanguageModel.LanguageModel, model))
-      const call = yield* Arr.head(calls)
-      const entry = yield* Arr.head(entries)
-      const projection = yield* Trace.projectObjective(entry)
-      const expected = new Response.Usage({
-        inputTokens: 17,
-        outputTokens: 5,
-        totalTokens: 29,
-        reasoningTokens: 7,
-        cachedInputTokens: 3
-      })
-
-      expect(output.answer).toBe("Paris")
-      expect(call.usage).toEqual(Option.some(expected))
-      expect(entry.usage).toEqual(expected)
-      expect(projection.usage).toEqual(expected)
-      expect(aggregate.tokens).toEqual(expected)
-      expect(aggregate.callCount).toBe(1)
-    })))
 })

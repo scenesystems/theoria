@@ -10,7 +10,7 @@ describe("HuggingFace", () => {
       const config = yield* HuggingFace.fromConfig(
         new HuggingFace.Config({
           serveMode: "routed-marketplace",
-          configProvider: ConfigProvider.fromJson({
+          configProvider: ConfigProvider.fromUnknown({
             HUGGINGFACE_ACCESS_TOKEN: "hf_test_token",
             HUGGINGFACE_MODEL: "generic-model",
             HUGGINGFACE_ROUTED_MODEL: "routed-model",
@@ -33,7 +33,7 @@ describe("HuggingFace", () => {
             expect(resolution.route.selectedProvider).toBe("together")
             expect(Option.isSome(resolution.models.embeddingModel)).toBe(true)
           })),
-        Match.when({ serveMode: "dedicated-endpoint" }, () => Effect.dieMessage("Expected routed config")),
+        Match.when({ serveMode: "dedicated-endpoint" }, () => Effect.die("Expected routed config")),
         Match.exhaustive
       )
     }))
@@ -49,7 +49,7 @@ describe("HuggingFace", () => {
           endpointId: "explicit-endpoint",
           deploymentId: "explicit-deployment",
           runtimeFlavorHint: "tgi",
-          configProvider: ConfigProvider.fromJson({
+          configProvider: ConfigProvider.fromUnknown({
             HUGGINGFACE_ACCESS_TOKEN: "configured-token",
             HUGGINGFACE_MODEL: "generic-model",
             HUGGINGFACE_ENDPOINT_MODEL: "endpoint-model",
@@ -79,7 +79,7 @@ describe("HuggingFace", () => {
             expect(resolution.capabilities.embeddings).toBe(false)
             expect(Option.isNone(resolution.models.embeddingModel)).toBe(true)
           })),
-        Match.when({ serveMode: "routed-marketplace" }, () => Effect.dieMessage("Expected endpoint config")),
+        Match.when({ serveMode: "routed-marketplace" }, () => Effect.die("Expected endpoint config")),
         Match.exhaustive
       )
     }))
@@ -90,7 +90,7 @@ describe("HuggingFace", () => {
         new HuggingFace.Config({
           serveMode: "routed-marketplace",
           model: "meta-llama/Llama-3.3-70B-Instruct",
-          configProvider: ConfigProvider.fromJson({}).pipe(ConfigProvider.constantCase)
+          configProvider: ConfigProvider.fromUnknown({}).pipe(ConfigProvider.constantCase)
         })
       ).pipe(Effect.flip)
 

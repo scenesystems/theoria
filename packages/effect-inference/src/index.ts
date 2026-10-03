@@ -38,8 +38,6 @@ export * as Usage from "./Usage.js"
 export * as AnthropicUsage from "./AnthropicUsage.js"
 /** Observes OpenAI response and streaming usage. @since 0.5.0 @category observability */
 export * as OpenAiUsage from "./OpenAiUsage.js"
-/** Observes Google response and streaming usage. @since 0.5.0 @category observability */
-export * as GoogleUsage from "./GoogleUsage.js"
 /** Observes OpenRouter response and streaming usage. @since 0.5.0 @category observability */
 export * as OpenRouterUsage from "./OpenRouterUsage.js"
 /** Deterministic model layers and resolution fixtures. @since 0.5.0 @category testing */

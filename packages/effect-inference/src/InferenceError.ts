@@ -43,9 +43,9 @@ export type InferenceError = typeof InferenceError.Type
  * @since 0.5.0
  * @category schemas
  */
-export const InferenceError = Schema.Union(
+export const InferenceError = Schema.Union([
   InvalidRuntimeConfig,
   CapabilityMismatch,
   UnsupportedRoute,
   RuntimeNotImplemented
-)
+])

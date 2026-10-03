@@ -1,7 +1,7 @@
-import type * as LanguageModel from "@effect/ai/LanguageModel"
 import { describe, expect, expectTypeOf, it } from "@effect/vitest"
 import { ConfigProvider, Effect, Option, Redacted } from "effect"
 import type { Layer } from "effect"
+import type { LanguageModel } from "effect/ai"
 
 import type { InvalidRuntimeConfig } from "@scenesystems/effect-inference/InferenceError"
 import * as TextProvider from "@scenesystems/effect-inference/TextProvider"
@@ -12,7 +12,7 @@ describe("TextProvider", () => {
       const config = yield* TextProvider.fromConfig(
         new TextProvider.Options({
           provider: "openai",
-          configProvider: ConfigProvider.fromJson({
+          configProvider: ConfigProvider.fromUnknown({
             DSP_PROVIDER_MODEL: "generic-model",
             DSP_PROVIDER_API_KEY: "generic-key",
             OPENAI_MODEL: "provider-model",
@@ -37,7 +37,7 @@ describe("TextProvider", () => {
           apiUrl: "https://explicit.example.test/v1",
           openrouterReferrer: "https://explicit-referrer.example.test",
           openrouterTitle: "Explicit title",
-          configProvider: ConfigProvider.fromJson({
+          configProvider: ConfigProvider.fromUnknown({
             DSP_PROVIDER_MODEL: "generic-model",
             DSP_PROVIDER_API_KEY: "generic-key",
             DSP_PROVIDER_API_URL: "https://generic.example.test/v1",
@@ -68,7 +68,7 @@ describe("TextProvider", () => {
           apiKey: Redacted.make("explicit-key")
         })
       )
-      const route = yield* Option.fromNullable(runtime.request.route)
+      const route = yield* Effect.fromOption(Option.fromNullishOr(runtime.request.route))
       expect(route.family).toBe("OpenAiCompatible")
       expect(route.gatewayId).toBe("openrouter")
       expectTypeOf(runtime.languageModel).toEqualTypeOf<Layer.Layer<LanguageModel.LanguageModel>>()
@@ -84,7 +84,7 @@ describe("TextProvider", () => {
       const config = yield* TextProvider.fromConfig(
         new TextProvider.Options({
           provider: "openai",
-          configProvider: ConfigProvider.fromJson({
+          configProvider: ConfigProvider.fromUnknown({
             DSP_PROVIDER_API_KEY: "fallback-key",
             DSP_PROVIDER_MODEL: "fallback-model",
             OPENAI_API_KEY: "   ",
@@ -104,12 +104,12 @@ describe("TextProvider", () => {
       const error = yield* TextProvider.fromConfig(
         new TextProvider.Options({
           provider: "anthropic",
-          configProvider: ConfigProvider.fromJson({}).pipe(ConfigProvider.constantCase)
+          configProvider: ConfigProvider.fromUnknown({}).pipe(ConfigProvider.constantCase)
         })
       ).pipe(Effect.flip)
       expect(error._tag).toBe("effect-inference/InvalidRuntimeConfig")
       expect(error.reason).toBe(
-        "Missing provider API key. Set DSP_PROVIDER_API_KEY or ANTHROPIC_API_KEY."
+        "SourceError: Missing provider API key. Set DSP_PROVIDER_API_KEY or ANTHROPIC_API_KEY."
       )
     }))
 })
