@@ -1,5 +1,5 @@
 import { describe, expect, it } from "@effect/vitest"
-import { Effect, Layer, Match, Number, Option, pipe, Ref, Stream, String, Tuple } from "effect"
+import { Effect, Layer, Match, Number, Option, pipe, Ref, Stream, String } from "effect"
 import * as Arr from "effect/Array"
 
 import * as CanvasTextMeasurer from "../../src/CanvasTextMeasurer.js"
@@ -477,7 +477,7 @@ describe("Text edge cases and robustness", () => {
       const directLines = Text.lines(prepared, request)
       const streamedLines = yield* Stream.runCollect(Text.stream(prepared, request))
 
-      expect(Arr.fromIterable(streamedLines)).toEqual(directLines)
+      expect(streamedLines).toEqual(directLines)
     }))
 
   it.effect("cursor hints remain width-specific when a cursor is reused at another width", () =>
@@ -493,9 +493,9 @@ describe("Text edge cases and robustness", () => {
       const first = Text.nextLine(prepared, narrowRequest, Text.start)
       const hintedCursor = Option.match(first, {
         onNone: () => Text.start,
-        onSome: Tuple.getSecond
+        onSome: ([, cursor]) => cursor
       })
-      expect(Option.map(Text.nextLine(prepared, wideRequest, hintedCursor), (step) => Tuple.getFirst(step).index))
+      expect(Option.map(Text.nextLine(prepared, wideRequest, hintedCursor), ([line]) => line.index))
         .toEqual(
           Option.some(0)
         )

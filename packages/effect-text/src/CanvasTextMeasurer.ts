@@ -16,7 +16,7 @@ import * as TextMeasurer from "./TextMeasurer.js"
  * @since 0.5.0
  * @category schemas
  */
-export const Direction = Schema.Literal("ltr", "rtl", "inherit")
+export const Direction = Schema.Literals(["ltr", "rtl", "inherit"])
 
 /**
  * A canvas direction value.
@@ -32,14 +32,14 @@ export type Direction = typeof Direction.Type
  * @since 0.5.0
  * @category schemas
  */
-export const Baseline = Schema.Literal(
+export const Baseline = Schema.Literals([
   "top",
   "hanging",
   "middle",
   "alphabetic",
   "ideographic",
   "bottom"
-)
+])
 
 /**
  * A canvas baseline value.
@@ -55,7 +55,7 @@ export type Baseline = typeof Baseline.Type
  * @since 0.5.0
  * @category schemas
  */
-export const Metrics = Schema.Struct({ width: Schema.Number })
+export const Metrics = Schema.Struct({ width: Schema.Finite })
 
 /**
  * Canvas text metrics read by this package.
@@ -82,9 +82,9 @@ class ReadonlyContext extends Data.Class<{
  * @since 0.5.0
  * @category models
  */
-export type Context = Types.Mutable<ReadonlyContext>
+export type Context = Types.Mutable<ConstructorParameters<typeof ReadonlyContext>[0]>
 
-const PositiveFinite = Schema.Number.pipe(Schema.finite(), Schema.greaterThan(0))
+const PositiveFinite = Schema.Finite.check(Schema.isGreaterThan(0))
 
 /**
  * Custom additive emoji-width correction settings.
@@ -111,7 +111,7 @@ export type CorrectionOptions = typeof CorrectionOptions.Type
  * @since 0.5.0
  * @category schemas
  */
-export const EmojiCorrection = Schema.Union(Schema.Boolean, CorrectionOptions)
+export const EmojiCorrection = Schema.Union([Schema.Boolean, CorrectionOptions])
 
 /**
  * Decoded emoji-width correction selection.
@@ -148,4 +148,4 @@ export class Options extends Data.Class<{
  * @since 0.5.0
  * @category layers
  */
-export const layer = (options: Options) => Layer.scoped(TextMeasurer.TextMeasurer, make(options))
+export const layer = (options: Options) => Layer.fresh(Layer.effect(TextMeasurer.TextMeasurer, make(options)))

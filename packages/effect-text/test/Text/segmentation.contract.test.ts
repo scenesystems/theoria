@@ -88,6 +88,6 @@ describe("Text segmentation contracts", () => {
 
       expect(Arr.map(lines, (line) => line.text)).toEqual(Arr.make("A", "👨‍👩‍👧‍👦", "B"))
       expect(Arr.reduce(lines, "", (text, line) => String.concat(line.text)(text))).toBe("A👨‍👩‍👧‍👦B")
-      expect(Arr.every(lines, (line) => Number.greaterThan(String.length(line.text), 0))).toBe(true)
+      expect(Arr.every(lines, (line) => Number.isGreaterThan(String.length(line.text), 0))).toBe(true)
     }))
 })

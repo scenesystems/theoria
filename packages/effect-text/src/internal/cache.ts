@@ -3,8 +3,8 @@
  *
  * @since 0.2.0
  */
-import type { Cache, Scope } from "effect"
-import { Data, Effect, Fiber, Option } from "effect"
+import type { Scope } from "effect"
+import { Cache, Data, Effect, Fiber, Option } from "effect"
 
 import type * as Text from "../Text.js"
 
@@ -28,7 +28,7 @@ export const fontKey = (font: Text.Font): FontKey =>
   new FontKey({
     family: font.family,
     size: font.size,
-    weight: Option.fromNullable(font.weight).pipe(Option.getOrElse(() => 400))
+    weight: Option.fromNullishOr(font.weight).pipe(Option.getOrElse(() => 400))
   })
 
 /**
@@ -65,11 +65,11 @@ export const getOrEvict = <Key, Value, Failure>(
   owner: Scope.Scope,
   key: Key
 ): Effect.Effect<Value, Failure> => {
-  const evicting = <A>(read: Effect.Effect<A, Failure>) => Effect.tapErrorCause(read, () => cache.invalidate(key))
+  const evicting = <A>(read: Effect.Effect<A, Failure>) => Effect.tapCause(read, () => Cache.invalidate(cache, key))
   return Effect.flatMap(
-    evicting(cache.getOption(key)),
+    evicting(Cache.getOption(cache, key)),
     Option.match({
-      onNone: () => Effect.flatMap(Effect.forkIn(evicting(cache.get(key)), owner), Fiber.join),
+      onNone: () => Effect.flatMap(Effect.forkIn(evicting(Cache.get(cache, key)), owner), Fiber.join),
       onSome: Effect.succeed
     })
   )

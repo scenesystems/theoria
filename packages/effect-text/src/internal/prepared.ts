@@ -8,7 +8,7 @@
  * @internal
  * @since 0.5.0
  */
-import { Chunk, Data, Order, RedBlackTree, Schema, Tuple } from "effect"
+import { Chunk, Data, Schema } from "effect"
 import * as HashMap from "effect/HashMap"
 import * as MutableRef from "effect/MutableRef"
 
@@ -18,19 +18,19 @@ import type { TextDirection } from "./analysis.js"
 import { BreakOpportunity as HyphenatedBreakOpportunity } from "./hyphenation.js"
 
 /** @internal */
-export const SegmentKind = Schema.Union(Schema.suspend(() => TextSegmentKind), Schema.Literal("tab"))
+export const SegmentKind = Schema.Union([Schema.suspend(() => TextSegmentKind), Schema.Literal("tab")])
 
 /** @internal */
 export type SegmentKind = typeof SegmentKind.Type
 
 /** @internal */
-export const BreakOpportunity = Schema.Union(HyphenatedBreakOpportunity, Schema.Literal("space"))
+export const BreakOpportunity = Schema.Union([HyphenatedBreakOpportunity, Schema.Literal("space")])
 
 /** @internal */
 export type BreakOpportunity = typeof BreakOpportunity.Type
 
 /** @internal */
-export const BreakKind = Schema.Literal(
+export const BreakKind = Schema.Literals([
   "text",
   "space",
   "preserved-space",
@@ -40,7 +40,7 @@ export const BreakKind = Schema.Literal(
   "tab",
   "glue",
   "zero-width-break"
-)
+])
 
 /** @internal */
 export type BreakKind = typeof BreakKind.Type
@@ -99,10 +99,7 @@ export class RuntimeTables extends Data.Class<{
   readonly segments: RuntimeSegments
   readonly tabStopAdvance: number
 }> {
-  readonly chunksByEnd = RedBlackTree.fromIterable(
-    Chunk.map(this.chunks, (chunk) => Tuple.make(chunk.consumedEndSegmentIndex, chunk)),
-    Order.number
-  )
+  readonly chunkEnds = Chunk.map(this.chunks, (chunk) => chunk.consumedEndSegmentIndex)
 }
 
 /** @internal */

@@ -4,7 +4,7 @@
  *
  * Run with `bun run packages/effect-text/examples/05-calibration-search.ts`.
  */
-import { BunContext, BunRuntime } from "@effect/platform-bun"
+import { BunRuntime, BunServices } from "@effect/platform-bun"
 import { Sampler } from "@scenesystems/effect-search"
 import { Array as Arr, Effect, Option } from "effect"
 
@@ -33,4 +33,4 @@ const program = Effect.gen(function*() {
   })
 })
 
-BunRuntime.runMain(program.pipe(Effect.provide(BunContext.layer)))
+BunRuntime.runMain(program.pipe(Effect.provide(BunServices.layer)))

@@ -63,7 +63,7 @@ const makeCaseResult = (
   actual: Text.Summary,
   actualLines: Text.Lines
 ): Calibration.CaseResult => {
-  const mismatchCount = lineMismatchCount(Option.fromNullable(calibrationCase.expected.lines), actualLines)
+  const mismatchCount = lineMismatchCount(Option.fromNullishOr(calibrationCase.expected.lines), actualLines)
 
   return {
     name: calibrationCase.name,

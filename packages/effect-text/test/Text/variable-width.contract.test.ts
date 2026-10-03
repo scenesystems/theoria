@@ -55,7 +55,7 @@ describe("Text variable-width contracts", () => {
       expect(
         Arr.every(
           projected,
-          (line) => Number.lessThanOrEqualTo(line.width, Number.sum(maxWidthAtLine(request, line.index), 0.01))
+          (line) => Number.isLessThanOrEqualTo(line.width, Number.sum(maxWidthAtLine(request, line.index), 0.01))
         )
       ).toBe(true)
     }))

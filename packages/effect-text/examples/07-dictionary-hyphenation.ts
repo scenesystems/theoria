@@ -4,7 +4,6 @@
  *
  * Run with `bun run packages/effect-text/examples/07-dictionary-hyphenation.ts`.
  */
-import * as BunContext from "@effect/platform-bun/BunContext"
 import * as BunRuntime from "@effect/platform-bun/BunRuntime"
 import { Effect, Layer } from "effect"
 import * as Arr from "effect/Array"
@@ -60,4 +59,4 @@ const program = Effect.gen(function*() {
   })
 })
 
-BunRuntime.runMain(program.pipe(Effect.provide(BunContext.layer)))
+BunRuntime.runMain(program)

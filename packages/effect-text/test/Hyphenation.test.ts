@@ -473,15 +473,15 @@ describe("Text hyphenation contracts", () => {
         onNone: () => Tuple.make(visualLine(0, "", 0), Text.start),
         onSome: (step) => step
       })
-      const firstLine = Tuple.getFirst(firstResult)
-      const firstCursor = Tuple.getSecond(firstResult)
+      const firstLine = firstResult[0]
+      const firstCursor = firstResult[1]
       const secondStep = Text.nextLine(prepared, request, firstCursor)
       const secondResult = Option.match(secondStep, {
         onNone: () => Tuple.make(visualLine(1, "", 0), firstCursor),
         onSome: (step) => step
       })
-      const secondLine = Tuple.getFirst(secondResult)
-      const secondCursor = Tuple.getSecond(secondResult)
+      const secondLine = secondResult[0]
+      const secondCursor = secondResult[1]
 
       expect(Option.isSome(firstStep)).toBe(true)
       expect(Option.isSome(secondStep)).toBe(true)
@@ -723,6 +723,6 @@ describe("Text hyphenation contracts", () => {
       const lines = Text.lines(prepared, { maxWidth: 30, lineHeight: 12 })
 
       expect(Arr.length(lines)).toBeGreaterThan(20)
-      expect(Arr.every(lines, (line) => Number.lessThanOrEqualTo(line.width, 30))).toBe(true)
+      expect(Arr.every(lines, (line) => Number.isLessThanOrEqualTo(line.width, 30))).toBe(true)
     }))
 })

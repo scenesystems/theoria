@@ -40,7 +40,7 @@ export type BreakPoints = typeof BreakPoints.Type
  * @since 0.5.0
  * @category schemas
  */
-export const Words = Schema.Record({ key: Schema.String, value: BreakPoints })
+export const Words = Schema.Record(Schema.String, BreakPoints)
 /**
  * Explicit words and their break offsets.
  * @since 0.5.0
@@ -48,7 +48,7 @@ export const Words = Schema.Record({ key: Schema.String, value: BreakPoints })
  */
 export type Words = typeof Words.Type
 
-const patternGroups = Schema.Record({ key: Schema.String, value: Schema.String })
+const patternGroups = Schema.Record(Schema.String, Schema.String)
 
 /**
  * Encoded Liang patterns, optional substitutions, and explicit exceptions.
@@ -58,9 +58,9 @@ const patternGroups = Schema.Record({ key: Schema.String, value: Schema.String }
  * @category schemas
  */
 export const Patterns = Schema.Struct({
-  id: Schema.Union(Schema.String, Schema.Array(Schema.String)),
-  leftmin: Schema.Int.pipe(Schema.nonNegative()),
-  rightmin: Schema.Int.pipe(Schema.nonNegative()),
+  id: Schema.Union([Schema.String, Schema.Array(Schema.String)]),
+  leftmin: Schema.Int.check(Schema.isGreaterThanOrEqualTo(0)),
+  rightmin: Schema.Int.check(Schema.isGreaterThanOrEqualTo(0)),
   patterns: patternGroups,
   charSubstitution: Schema.optional(patternGroups),
   exceptions: Schema.optional(Schema.String)
@@ -111,13 +111,10 @@ export const Dictionary = Data.taggedEnum<Dictionary>()
  * @since 0.5.0
  * @category services
  */
-export class Hyphenation extends Context.Tag("@scenesystems/effect-text/Hyphenation")<
-  Hyphenation,
-  {
-    readonly hyphenateWord: (locale: string, word: string) => Effect.Effect<BreakPoints>
-    readonly supportsLocale?: (locale: string) => Effect.Effect<boolean>
-  }
->() {}
+export class Hyphenation extends Context.Service<Hyphenation, {
+  readonly hyphenateWord: (locale: string, word: string) => Effect.Effect<BreakPoints>
+  readonly supportsLocale?: (locale: string) => Effect.Effect<boolean>
+}>()("@scenesystems/effect-text/Hyphenation") {}
 
 /**
  * Sources and loader for one scoped generation of dictionary and word caches.
@@ -137,16 +134,16 @@ class WordKey extends Data.Class<{ readonly revision: number; readonly locale: s
 
 const make = (options: Options) =>
   Effect.gen(function*() {
-    const revision = Option.fromNullable(options.revision).pipe(Option.getOrElse(() => 0))
+    const revision = Option.fromNullishOr(options.revision).pipe(Option.getOrElse(() => 0))
     const dictionaries = Record.mapKeys(
-      Option.fromNullable(options.dictionaries).pipe(Option.getOrElse(shippedDictionaries)),
+      Option.fromNullishOr(options.dictionaries).pipe(Option.getOrElse(shippedDictionaries)),
       normalizeLocale
     )
     const find = (locale: string) =>
       Array.findFirst(localeCandidates(locale), (candidate) => Record.has(dictionaries, candidate)).pipe(
         Option.flatMap((candidate) => Record.get(dictionaries, candidate))
       )
-    const loader = Option.fromNullable(options.loadDictionary)
+    const loader = Option.fromNullishOr(options.loadDictionary)
     const load = Option.getOrElse(loader, () => (locale: string) =>
       Effect.sync(() =>
         find(locale).pipe(
@@ -162,7 +159,7 @@ const make = (options: Options) =>
       capacity: 2048,
       timeToLive: "24 hours",
       lookup: (key: WordKey) =>
-        locales.get(new LocaleKey({ revision: key.revision, locale: key.locale })).pipe(
+        Cache.get(locales, new LocaleKey({ revision: key.revision, locale: key.locale })).pipe(
           Effect.map((match) => match(key.word))
         )
     })
@@ -170,7 +167,7 @@ const make = (options: Options) =>
       hyphenateWord: (locale, word) =>
         Boolean.match(String.isEmpty(word), {
           onTrue: () => Effect.succeed(Array.empty<number>()),
-          onFalse: () => words.get(new WordKey({ revision, locale: normalizeLocale(locale), word }))
+          onFalse: () => Cache.get(words, new WordKey({ revision, locale: normalizeLocale(locale), word }))
         }),
       supportsLocale: (locale) => Effect.sync(() => Boolean.or(Option.isSome(loader), Option.isSome(find(locale))))
     })
@@ -183,7 +180,7 @@ const make = (options: Options) =>
  * @since 0.5.0
  * @category layers
  */
-export const layer = (options: Options = new Options({})) => Layer.effect(Hyphenation, make(options))
+export const layer = (options: Options = new Options({})) => Layer.fresh(Layer.effect(Hyphenation, make(options)))
 
 /**
  * Disables dictionary breaks without disabling explicit soft hyphens.

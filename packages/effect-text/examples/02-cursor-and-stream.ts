@@ -3,10 +3,9 @@
  *
  * Run with `bun run packages/effect-text/examples/02-cursor-and-stream.ts`.
  */
-import * as BunContext from "@effect/platform-bun/BunContext"
 import * as BunRuntime from "@effect/platform-bun/BunRuntime"
+import * as BunServices from "@effect/platform-bun/BunServices"
 import { Effect, Layer, Option, Stream } from "effect"
-import * as Arr from "effect/Array"
 
 import { Text } from "@scenesystems/effect-text"
 
@@ -25,8 +24,7 @@ const program = Effect.gen(function*() {
   const first = Text.nextLine(prepared, request, Text.start)
   const second = Option.flatMap(first, ([, cursor]) => Text.nextLine(prepared, request, cursor))
   const streamed = yield* Text.stream(prepared, request).pipe(
-    Stream.runCollect,
-    Effect.map(Arr.fromIterable)
+    Stream.runCollect
   )
 
   yield* Effect.log("cursor and stream example", {
@@ -40,6 +38,6 @@ const program = Effect.gen(function*() {
     }),
     streamed
   })
-}).pipe(Effect.provide(Layer.merge(Text.layer, BunContext.layer)))
+}).pipe(Effect.provide(Layer.merge(Text.layer, BunServices.layer)))
 
 BunRuntime.runMain(program)

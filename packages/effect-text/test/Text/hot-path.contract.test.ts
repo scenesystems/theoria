@@ -1,5 +1,5 @@
 import { describe, expect, it } from "@effect/vitest"
-import { Chunk, Effect, Layer, Number, Stream, String } from "effect"
+import { Effect, Layer, Number, Stream, String } from "effect"
 import * as Arr from "effect/Array"
 import * as MeasurementCache from "../../src/MeasurementCache.js"
 import * as Text from "../../src/Text.js"
@@ -31,8 +31,7 @@ describe("Text hot-path contracts", () => {
       }).pipe(Effect.provide(testLayer))
       const request: Text.Request = { maxWidth: 35, lineHeight: 12 }
       const streamed = yield* Text.stream(prepared, request).pipe(
-        Stream.runCollect,
-        Effect.map(Arr.fromIterable)
+        Stream.runCollect
       )
       const cursorLines = collectCursorLines(prepared, request)
       const expected = Arr.make(
@@ -59,7 +58,7 @@ describe("Text hot-path contracts", () => {
         Stream.runCollect
       )
 
-      expect(prefix).toEqual(Chunk.make(
+      expect(prefix).toEqual(Arr.make(
         { baseDirection: "ltr", index: 0, order: "visual", text: "one", width: 15 },
         { baseDirection: "ltr", index: 1, order: "visual", text: "two", width: 15 }
       ))

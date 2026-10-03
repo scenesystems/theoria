@@ -1,5 +1,5 @@
 import { describe, expect, it } from "@effect/vitest"
-import { Cause, Effect, Either, Exit, Match, MutableRef, Number, Option, Schema, String, Tuple } from "effect"
+import { Cause, Data, Effect, Exit, Match, MutableRef, Number, Option, Result, Schema, String, Tuple } from "effect"
 import * as Arr from "effect/Array"
 
 import * as CanvasTextMeasurer from "../../src/CanvasTextMeasurer.js"
@@ -9,7 +9,13 @@ import * as TextMeasurer from "../../src/TextMeasurer.js"
 const font: Text.Font = { family: "Mono", size: 12 }
 const originalFont = "10px monospace"
 
-class ObservingContext {
+class HostContext extends Data.Class<{ readonly host: true }> {
+  constructor() {
+    super({ host: true })
+  }
+}
+
+class ObservingContext extends HostContext {
   direction: CanvasTextMeasurer.Direction = "inherit"
   font = originalFont
   readonly observedDirection = MutableRef.make<CanvasTextMeasurer.Direction>("inherit")
@@ -25,7 +31,10 @@ class ObservingContext {
   }
 }
 
-class EmojiContext {
+class EmojiContext extends HostContext {
+  constructor() {
+    super()
+  }
   direction: CanvasTextMeasurer.Direction = "inherit"
   font = originalFont
   textBaseline: CanvasTextMeasurer.Baseline = "alphabetic"
@@ -71,7 +80,10 @@ class FailingProbeContext extends EmojiContext {
   }
 }
 
-class ThrowingContext {
+class ThrowingContext extends HostContext {
+  constructor() {
+    super()
+  }
   direction: CanvasTextMeasurer.Direction = "inherit"
   font = originalFont
   textBaseline: CanvasTextMeasurer.Baseline = "alphabetic"
@@ -81,7 +93,10 @@ class ThrowingContext {
   }
 }
 
-class AssignmentFailingContext {
+class AssignmentFailingContext extends HostContext {
+  constructor() {
+    super()
+  }
   readonly directionState = MutableRef.make<CanvasTextMeasurer.Direction>("inherit")
   font = originalFont
   readonly measureCalls = MutableRef.make(0)
@@ -108,7 +123,10 @@ class AssignmentFailingContext {
   }
 }
 
-class RestorationFailingContext {
+class RestorationFailingContext extends HostContext {
+  constructor() {
+    super()
+  }
   direction: CanvasTextMeasurer.Direction = "inherit"
   readonly fontState = MutableRef.make(originalFont)
   textBaseline: CanvasTextMeasurer.Baseline = "alphabetic"
@@ -162,7 +180,7 @@ const measure = (
 
 const failures = (exit: Exit.Exit<number, TextMeasurer.Failed>) =>
   Exit.match(exit, {
-    onFailure: (cause) => Arr.fromIterable(Cause.failures(cause)),
+    onFailure: (cause) => Arr.map(Arr.filter(cause.reasons, Cause.isFailReason), (reason) => reason.error),
     onSuccess: () => Arr.empty<TextMeasurer.Failed>()
   })
 
@@ -236,10 +254,10 @@ describe("CanvasTextMeasurer", () => {
   it.effect("evicts a failed emoji probe so the next reader can retry", () => {
     const context = new FailingProbeContext()
     return Effect.gen(function*() {
-      const first = yield* Effect.either(measureEffect("A🙂B"))
+      const first = yield* Effect.result(measureEffect("A🙂B"))
       const second = yield* measureEffect("A🙂B")
 
-      expect(Either.isLeft(first)).toBe(true)
+      expect(Result.isFailure(first)).toBe(true)
       expect(second).toBe(32)
       expect(MutableRef.get(context.probeCalls)).toBe(2)
     }).pipe(Effect.provide(canvasLayer(context, Option.some(true))))

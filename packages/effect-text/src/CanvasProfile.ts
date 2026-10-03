@@ -15,7 +15,7 @@ import * as Text from "./Text.js"
  * @since 0.5.0
  * @category schemas
  */
-export const Id = Schema.Literal("canvas-monospace", "canvas-system-ui")
+export const Id = Schema.Literals(["canvas-monospace", "canvas-system-ui"])
 
 /**
  * Identifier for a shipped canvas profile.
@@ -25,7 +25,7 @@ export const Id = Schema.Literal("canvas-monospace", "canvas-system-ui")
  */
 export type Id = typeof Id.Type
 
-const FontSelection = Schema.Literal("named-family", "browser-default-stack")
+const FontSelection = Schema.Literals(["named-family", "browser-default-stack"])
 
 /**
  * Canvas font selection paired with the `Text.Profile` used during preparation.

@@ -16,10 +16,10 @@ import * as TextMeasurer from "./TextMeasurer.js"
  * @since 0.5.0
  * @category services
  */
-export class MeasurementCache extends Context.Tag("@scenesystems/effect-text/MeasurementCache")<
+export class MeasurementCache extends Context.Service<
   MeasurementCache,
-  Context.Tag.Service<typeof TextMeasurer.TextMeasurer>
->() {}
+  TextMeasurer.TextMeasurer["Service"]
+>()("@scenesystems/effect-text/MeasurementCache") {}
 
 /**
  * Provides a 1,024-entry cache with a 24-hour lifetime per successful entry.
@@ -30,7 +30,7 @@ export class MeasurementCache extends Context.Tag("@scenesystems/effect-text/Mea
  * @since 0.5.0
  * @category layers
  */
-export const layer = Layer.scoped(
+export const layer = Layer.fresh(Layer.effect(
   MeasurementCache,
   Effect.gen(function*() {
     const measurer = yield* TextMeasurer.TextMeasurer
@@ -44,4 +44,4 @@ export const layer = Layer.scoped(
       measure: (font, text) => getOrEvict(cache, owner, new MeasurementKey({ font: fontKey(font), text }))
     })
   })
-)
+))

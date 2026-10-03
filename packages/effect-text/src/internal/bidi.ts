@@ -70,8 +70,8 @@ const levelRuns = (units: VisualOrderUnits, level: number): Chunk.Chunk<VisualOr
       Chunk.fromIterable(Array.map(
         Array.groupWith(nonEmpty, (self, that) =>
           Boolean.Equivalence(
-            Number.greaterThanOrEqualTo(self.level, level),
-            Number.greaterThanOrEqualTo(that.level, level)
+            Number.isGreaterThanOrEqualTo(self.level, level),
+            Number.isGreaterThanOrEqualTo(that.level, level)
           )),
         Chunk.fromIterable
       ))
@@ -83,7 +83,7 @@ const reverseLevelRuns = (units: VisualOrderUnits, level: number): VisualOrderUn
       Option.match({
         onNone: Chunk.empty<VisualOrderUnit>,
         onSome: (head) =>
-          Boolean.match(Number.greaterThanOrEqualTo(head.level, level), {
+          Boolean.match(Number.isGreaterThanOrEqualTo(head.level, level), {
             onTrue: () => Chunk.reverse(run),
             onFalse: () => run
           })

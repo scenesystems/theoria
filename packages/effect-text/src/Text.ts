@@ -14,7 +14,6 @@ import {
   Layer,
   Number,
   Option,
-  ParseResult,
   Predicate,
   Schema,
   Stream,
@@ -30,9 +29,9 @@ import type * as Prepared from "./internal/prepared.js"
 import * as MeasurementCache from "./MeasurementCache.js"
 import * as TextMeasurer from "./TextMeasurer.js"
 
-const finiteNumber = Schema.Number.pipe(Schema.finite())
-const nonNegativeInt = Schema.Number.pipe(Schema.int(), Schema.greaterThanOrEqualTo(0))
-const positiveInt = Schema.Number.pipe(Schema.int(), Schema.greaterThan(0))
+const finiteNumber = Schema.Finite
+const nonNegativeInt = Schema.Int.check(Schema.isGreaterThanOrEqualTo(0))
+const positiveInt = Schema.Int.check(Schema.isGreaterThan(0))
 
 /**
  * A font family, positive CSS-pixel size, and optional positive integer weight.
@@ -42,8 +41,8 @@ const positiveInt = Schema.Number.pipe(Schema.int(), Schema.greaterThan(0))
  */
 export const Font = Schema.Struct({
   family: Schema.String,
-  size: finiteNumber.pipe(Schema.greaterThan(0)),
-  weight: Schema.optional(Schema.Number.pipe(Schema.int(), Schema.greaterThan(0)))
+  size: finiteNumber.check(Schema.isGreaterThan(0)),
+  weight: Schema.optional(positiveInt)
 })
 
 /**
@@ -60,7 +59,7 @@ export type Font = typeof Font.Type
  * @since 0.5.0
  * @category schemas
  */
-export const Whitespace = Schema.Literal("normal", "pre-wrap")
+export const Whitespace = Schema.Literals(["normal", "pre-wrap"])
 
 /**
  * Whitespace collapsing or preservation policy used during preparation.
@@ -76,7 +75,7 @@ export type Whitespace = typeof Whitespace.Type
  * @since 0.5.0
  * @category schemas
  */
-export const Direction = Schema.Literal("ltr", "rtl")
+export const Direction = Schema.Literals(["ltr", "rtl"])
 
 /**
  * Resolved paragraph direction retained by prepared text and projected lines.
@@ -92,7 +91,7 @@ export type Direction = typeof Direction.Type
  * @since 0.5.0
  * @category schemas
  */
-export const SegmentKind = Schema.Literal("text", "space", "hard-break")
+export const SegmentKind = Schema.Literals(["text", "space", "hard-break"])
 
 /**
  * Logical segment classifications produced by a `Segmenter`.
@@ -165,8 +164,8 @@ export type Input = typeof Input.Type
  * @category schemas
  */
 export const Request = Schema.Struct({
-  maxWidth: finiteNumber.pipe(Schema.greaterThan(0)),
-  lineHeight: finiteNumber.pipe(Schema.greaterThan(0))
+  maxWidth: finiteNumber.check(Schema.isGreaterThan(0)),
+  lineHeight: finiteNumber.check(Schema.isGreaterThan(0))
 })
 
 /**
@@ -211,7 +210,7 @@ export const Line = Schema.Struct({
   index: nonNegativeInt,
   ...visualMetadata,
   text: Schema.String,
-  width: finiteNumber.pipe(Schema.greaterThanOrEqualTo(0))
+  width: finiteNumber.check(Schema.isGreaterThanOrEqualTo(0))
 })
 
 /**
@@ -244,7 +243,7 @@ export type Lines = typeof Lines.Type
  * @since 0.5.0
  * @category schemas
  */
-export const LineStep = Schema.Tuple(Line, Cursor)
+export const LineStep = Schema.Tuple([Line, Cursor])
 
 /**
  * A materialized line paired with its successor cursor.
@@ -262,7 +261,7 @@ export type LineStep = typeof LineStep.Type
  */
 export const LineRange = Schema.Struct({
   ...visualMetadata,
-  width: finiteNumber.pipe(Schema.greaterThanOrEqualTo(0)),
+  width: finiteNumber.check(Schema.isGreaterThanOrEqualTo(0)),
   start: Cursor,
   end: Cursor
 })
@@ -299,8 +298,8 @@ export type LineRanges = typeof LineRanges.Type
  */
 export const Summary = Schema.Struct({
   lineCount: nonNegativeInt,
-  height: finiteNumber.pipe(Schema.greaterThanOrEqualTo(0)),
-  maxLineWidth: finiteNumber.pipe(Schema.greaterThanOrEqualTo(0))
+  height: finiteNumber.check(Schema.isGreaterThanOrEqualTo(0)),
+  maxLineWidth: finiteNumber.check(Schema.isGreaterThanOrEqualTo(0))
 })
 
 /**
@@ -337,7 +336,7 @@ export type Layout = typeof Layout.Type
  * @category schemas
  */
 export const Profile = Schema.Struct({
-  lineFitEpsilon: finiteNumber.pipe(Schema.greaterThanOrEqualTo(0)),
+  lineFitEpsilon: finiteNumber.check(Schema.isGreaterThanOrEqualTo(0)),
   tabWidth: positiveInt,
   defaultDirection: Direction,
   preferEarlySoftHyphenBreak: Schema.Boolean,
@@ -358,12 +357,12 @@ export type Profile = typeof Profile.Type
  * @since 0.5.0
  * @category services
  */
-export class Segmenter extends Context.Tag("@scenesystems/effect-text/Text/Segmenter")<
+export class Segmenter extends Context.Service<
   Segmenter,
   {
     readonly segment: (text: string, whiteSpace: Whitespace) => Effect.Effect<Segments>
   }
->() {}
+>()("@scenesystems/effect-text/Text/Segmenter") {}
 
 /**
  * Supplies the profile captured by each prepared handle.
@@ -371,10 +370,10 @@ export class Segmenter extends Context.Tag("@scenesystems/effect-text/Text/Segme
  * @since 0.5.0
  * @category services
  */
-export class CurrentProfile extends Context.Tag("@scenesystems/effect-text/Text/CurrentProfile")<
+export class CurrentProfile extends Context.Service<
   CurrentProfile,
   Profile
->() {}
+>()("@scenesystems/effect-text/Text/CurrentProfile") {}
 
 /**
  * Required environment for text preparation.
@@ -429,7 +428,9 @@ export class Text extends Data.Class<{
  * @category models
  */
 export class WithSegments extends Data.Class<
-  Text & {
+  {
+    readonly summary: Text["summary"]
+    readonly naturalWidth: Text["naturalWidth"]
     /** Materializes lines at a uniform or per-line width. */
     readonly lines: (request: Request, resolveMaxWidth?: LineWidthResolver) => Lines
     /** Materializes lines and summary geometry in one walk. */
@@ -477,17 +478,31 @@ export const prepareWithSegments = (input: Input): Effect.Effect<WithSegments, T
   compile(input).pipe(
     Effect.map((compilation) =>
       new WithSegments({
-        ...fromKernel(compilation.kernel),
+        summary: (request) => InternalLayout.summarizeLines(compilation.kernel, request),
+        naturalWidth: () => InternalLayout.measureNaturalWidth(compilation.kernel),
         lines: (request, resolveMaxWidth) => InternalLayout.materializeLines(compilation, request, resolveMaxWidth),
         layout: (request) => InternalLayout.materializeLinesWithSummary(compilation, request),
         nextLine: (request, cursor) => InternalLayout.materializeLineAtCursor(compilation, request, cursor),
         ranges: (request, resolveMaxWidth) => InternalLayout.walkLineRanges(compilation, request, resolveMaxWidth),
         stream: (request) =>
-          Stream.unfold(new StreamState({ cursor: start, lineIndex: 0 }), (state) =>
-            Option.map(
-              InternalLayout.materializeLineAtCursor(compilation, request, state.cursor, Option.some(state.lineIndex)),
-              ([line, cursor]) =>
-                Tuple.make(line, new StreamState({ cursor, lineIndex: Number.increment(state.lineIndex) }))
+          Stream.paginate(new StreamState({ cursor: start, lineIndex: 0 }), (state) =>
+            Effect.sync(() =>
+              Option.match(
+                InternalLayout.materializeLineAtCursor(
+                  compilation,
+                  request,
+                  state.cursor,
+                  Option.some(state.lineIndex)
+                ),
+                {
+                  onNone: () => Tuple.make(Arr.empty<Line>(), Option.none<StreamState>()),
+                  onSome: ([line, cursor]) =>
+                    Tuple.make(
+                      Arr.of(line),
+                      Option.some(new StreamState({ cursor, lineIndex: Number.increment(state.lineIndex) }))
+                    )
+                }
+              )
             ))
       })
     )
@@ -500,8 +515,8 @@ export const prepareWithSegments = (input: Input): Effect.Effect<WithSegments, T
  * @category constructors
  */
 export const prepareUnknown = (input: unknown): Effect.Effect<Text, TextMeasurer.Failed | DecodeError, Services> =>
-  Schema.decodeUnknown(Input)(input, { onExcessProperty: "error" }).pipe(
-    Effect.mapError((error) => new DecodeError({ reason: ParseResult.TreeFormatter.formatIssueSync(error.issue) })),
+  Schema.decodeUnknownEffect(Input)(input, { onExcessProperty: "error" }).pipe(
+    Effect.mapError((error) => new DecodeError({ reason: error.message })),
     Effect.flatMap(prepare)
   )
 

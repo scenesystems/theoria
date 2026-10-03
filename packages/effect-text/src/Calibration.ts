@@ -5,7 +5,6 @@
  * @since 0.5.0
  * @module
  */
-import { Statistics } from "@scenesystems/effect-math"
 import { OptimizationEvent, OptimizationSnapshot, Sampler, SearchSpace } from "@scenesystems/effect-search"
 import type { Optimization, OptimizationStorage } from "@scenesystems/effect-search"
 import { Data, Effect, Option, Schema, Struct } from "effect"
@@ -13,18 +12,23 @@ import * as Arr from "effect/Array"
 import type * as Layer from "effect/Layer"
 
 import { evaluate as evaluateInternal } from "./internal/calibration/evaluation.js"
-import { runFreshOptimization, runResumedOptimization } from "./internal/calibration/optimization.js"
+import {
+  FreshOptimizationOptions,
+  ResumedOptimizationOptions,
+  runFreshOptimization,
+  runResumedOptimization
+} from "./internal/calibration/optimization.js"
 import { scoreReport } from "./internal/calibration/scoring.js"
 import type * as MeasurementCache from "./MeasurementCache.js"
 import * as Text from "./Text.js"
 import type * as TextMeasurer from "./TextMeasurer.js"
 
-const FiniteNumber = Schema.Number.pipe(Schema.finite())
-const NonNegativeNumber = FiniteNumber.pipe(Schema.greaterThanOrEqualTo(0))
-const NonNegativeInt = Schema.Number.pipe(Schema.int(), Schema.greaterThanOrEqualTo(0))
-const PositiveInt = Schema.Number.pipe(Schema.int(), Schema.greaterThan(0))
-const PositiveNumber = FiniteNumber.pipe(Schema.greaterThan(0))
-const SignedInt = Schema.Number.pipe(Schema.int())
+const FiniteNumber = Schema.Finite
+const NonNegativeNumber = Schema.Finite.check(Schema.isGreaterThanOrEqualTo(0))
+const NonNegativeInt = Schema.Int.check(Schema.isGreaterThanOrEqualTo(0))
+const PositiveInt = Schema.Int.check(Schema.isGreaterThan(0))
+const PositiveNumber = Schema.Finite.check(Schema.isGreaterThan(0))
+const SignedInt = Schema.Int
 
 /**
  * Expected visual text and painted width for one output line.
@@ -291,10 +295,14 @@ const EmptyLossSummary = Schema.Struct({
   standardDeviation: Schema.Literal(0)
 })
 
-const NonEmptyLossSummary = Statistics.SummaryStatistics.pipe(
-  Schema.pick("count", "mean", "min", "max", "variance", "standardDeviation"),
-  Schema.rename({ min: "minimum", max: "maximum" })
-)
+const NonEmptyLossSummary = Schema.Struct({
+  count: PositiveInt,
+  mean: FiniteNumber,
+  minimum: FiniteNumber,
+  maximum: FiniteNumber,
+  variance: NonNegativeNumber,
+  standardDeviation: NonNegativeNumber
+})
 
 /**
  * Descriptive statistics for weighted per-case losses, with an explicit zero
@@ -303,7 +311,7 @@ const NonEmptyLossSummary = Statistics.SummaryStatistics.pipe(
  * @since 0.5.0
  * @category schemas
  */
-export const LossSummary = Schema.Union(EmptyLossSummary, NonEmptyLossSummary)
+export const LossSummary = Schema.Union([EmptyLossSummary, NonEmptyLossSummary])
 
 /**
  * Descriptive statistics for weighted per-case losses.
@@ -694,15 +702,30 @@ export const searchSpace = (search: Search = defaultSearch) =>
     lineFitEpsilon: SearchSpace.float(
       search.lineFitEpsilon.low,
       search.lineFitEpsilon.high,
-      Struct.pick(search.lineFitEpsilon, "step")
+      Struct.pick(search.lineFitEpsilon, ["step"])
     ),
-    tabWidth: SearchSpace.int(search.tabWidth.low, search.tabWidth.high, Struct.pick(search.tabWidth, "step")),
+    tabWidth: SearchSpace.int(search.tabWidth.low, search.tabWidth.high, Struct.pick(search.tabWidth, ["step"])),
     defaultDirection: SearchSpace.categorical(search.defaultDirection.values),
     preferEarlySoftHyphenBreak: SearchSpace.categorical(search.preferEarlySoftHyphenBreak.values),
     preferPrefixWidthsForBreakableRuns: SearchSpace.categorical(
       search.preferPrefixWidthsForBreakableRuns.values
     )
   })
+
+/** @internal */
+export type CalibrationSearchSpace = SearchSpace.SearchSpace<
+  Schema.Union<
+    readonly [
+      Schema.Struct<{
+        readonly lineFitEpsilon: Schema.Codec<number, number, never, never>
+        readonly tabWidth: Schema.Codec<number, number, never, never>
+        readonly defaultDirection: Schema.Codec<Text.Direction, Text.Direction, never, never>
+        readonly preferEarlySoftHyphenBreak: Schema.Codec<boolean, boolean, never, never>
+        readonly preferPrefixWidthsForBreakableRuns: Schema.Codec<boolean, boolean, never, never>
+      }>
+    ]
+  >
+>
 
 /**
  * Runs a fresh or resumed Effect Search optimization and selects the profile with the
@@ -715,42 +738,46 @@ export const searchSpace = (search: Search = defaultSearch) =>
  * @since 0.5.0
  * @category optimization
  */
-export const optimize = (options: OptimizeOptions) =>
+export const optimize = (options: ConstructorParameters<typeof OptimizeOptions>[0]) =>
   Effect.gen(function*() {
-    const objective = Option.fromNullable(options.objective).pipe(
+    const objective = Option.fromNullishOr(options.objective).pipe(
       Option.getOrElse(() => defaultObjective)
     )
-    const search = Option.fromNullable(options.search).pipe(
+    const search = Option.fromNullishOr(options.search).pipe(
       Option.getOrElse(() => defaultSearch)
     )
-    const sampler = Option.fromNullable(options.sampler).pipe(
-      Option.getOrElse(() => Sampler.tpe({ seed: 0 }))
+    const sampler = Option.fromNullishOr(options.sampler).pipe(
+      Option.getOrElse(() => Sampler.tpe(new Sampler.TpeOptions({ seed: 0 })))
     )
-    const storage = Option.fromNullable(options.optimizationStorage)
+    const storage = Option.fromNullishOr(options.optimizationStorage)
     const space = yield* searchSpace(search)
-    const optimization = yield* Option.fromNullable(options.snapshot).pipe(
+    const optimization = yield* Option.fromNullishOr(options.snapshot).pipe(
       Option.match({
         onNone: () =>
-          runFreshOptimization({
-            cases: options.cases,
-            objective,
-            sampler,
-            services: options.services,
-            storage,
-            space,
-            trials: options.trials
-          }),
+          runFreshOptimization(
+            new FreshOptimizationOptions({
+              cases: options.cases,
+              objective,
+              sampler,
+              services: options.services,
+              storage,
+              space,
+              trials: options.trials
+            })
+          ),
         onSome: (snapshot) =>
-          runResumedOptimization({
-            cases: options.cases,
-            objective,
-            sampler,
-            services: options.services,
-            snapshot,
-            storage,
-            space,
-            trials: options.trials
-          })
+          runResumedOptimization(
+            new ResumedOptimizationOptions({
+              cases: options.cases,
+              objective,
+              sampler,
+              services: options.services,
+              snapshot,
+              storage,
+              space,
+              trials: options.trials
+            })
+          )
       })
     )
     const bestProfile = Profile.make({ name: "best", profile: optimization.optimizationResult.bestTrial.config })

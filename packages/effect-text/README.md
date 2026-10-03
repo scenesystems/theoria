@@ -10,7 +10,9 @@ Preparation is an `Effect`: it segments text, measures runs, optionally applies 
 npm install @scenesystems/effect-text effect
 ```
 
-Effect `^3.22.1` is a required peer dependency.
+Effect `^4.0.0` is a required peer dependency. Calibration additionally uses
+`@scenesystems/effect-search`, `@scenesystems/effect-study`, and
+`@scenesystems/effect-math`; these are installed with the package.
 
 ## Quick start
 
@@ -89,7 +91,7 @@ export const program = Effect.gen(function* () {
 
 ## Services and layers
 
-Preparation requires `Text.Segmenter`, `Text.CurrentProfile`, and `MeasurementCache.MeasurementCache`. The cache owns successful measurement memoization and requires a `TextMeasurer.TextMeasurer`. Hyphenation is optional: when no `Hyphenation.Hyphenation` service is present, explicit soft hyphens still work but dictionary breaks do not.
+Preparation requires `Text.Segmenter`, `Text.CurrentProfile`, and `MeasurementCache.MeasurementCache`. The cache owns successful measurement memoization and requires a `TextMeasurer.TextMeasurer` when its scoped layer is built. Hyphenation is optional: when no `Hyphenation.Hyphenation` service is present, explicit soft hyphens still work but dictionary breaks do not.
 
 `TextMeasurer.layer` is the deterministic estimator used by `Text.layer`. Compose the individual layers to select a profile or disable dictionary hyphenation.
 
@@ -120,7 +122,11 @@ export const program = Text.prepare({
 )
 ```
 
-Each acquisition of `MeasurementCache.layer` owns a fresh cache. Reacquire that layer after font availability changes rather than retaining widths measured against stale fonts.
+Each scoped acquisition of `MeasurementCache.layer` owns a fresh cache. Its
+`TextMeasurer` dependency is supplied while constructing the cache layer, as in
+the example above; consumers of the resulting services do not need to provide
+the measurer again. Reacquire the cache layer after font availability changes
+rather than retaining widths measured against stale fonts.
 
 ## Canvas measurement and profiles
 
@@ -132,7 +138,7 @@ Each acquisition of `MeasurementCache.layer` owns a fresh cache. Reacquire that 
 import { Effect, Layer } from "effect"
 import { CanvasProfile, CanvasTextMeasurer, MeasurementCache, Text } from "@scenesystems/effect-text"
 
-export const layoutOnCanvas = (context: CanvasTextMeasurer.Context, text: string, maxWidth: number) => {
+export const layoutOnCanvas = (context: CanvasRenderingContext2D, text: string, maxWidth: number) => {
   const profile = CanvasProfile.systemUi
   const services = Layer.mergeAll(
     Text.layerSegmenter,
@@ -153,7 +159,16 @@ export const layoutOnCanvas = (context: CanvasTextMeasurer.Context, text: string
 }
 ```
 
-Widths from canvas are CSS pixels. The application owns font loading and cache invalidation. `new PreparationKey.PreparationKey(...)` creates a structural application-cache key from `prepare`, `engineProfile`, `supportProfileId`, and `fontReadinessRevision`; its constructor captures nested inputs with Effect Data semantics. `PreparationKey.toInput` recovers its `Text.Input`. `PreparationKey.Revision` validates non-negative integer revisions, which begin at `PreparationKey.initialRevision` and advance with `PreparationKey.nextRevision`.
+The context capability is structural, so an actual browser
+`CanvasRenderingContext2D` can be passed directly; no wrapper or Effect Data
+class is required. Widths from canvas are CSS pixels. The application owns font
+loading and cache invalidation. `new PreparationKey.PreparationKey(...)` creates
+a structural application-cache key from `prepare`, `engineProfile`,
+`supportProfileId`, and `fontReadinessRevision`; its constructor captures nested
+inputs with Effect Data semantics. `PreparationKey.toInput` recovers its
+`Text.Input`. `PreparationKey.Revision` validates non-negative integer revisions,
+which begin at `PreparationKey.initialRevision` and advance with
+`PreparationKey.nextRevision`.
 
 ## Hyphenation
 

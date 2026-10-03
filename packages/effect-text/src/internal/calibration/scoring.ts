@@ -45,8 +45,7 @@ const scoreCaseResult = (
 const summarizeCaseLosses = (caseLosses: Calibration.CaseLosses): Calibration.LossSummary =>
   Arr.match(caseLosses, {
     onEmpty: zeroLossSummary,
-    onNonEmpty: (losses) =>
-      lossSummaryFromStatistics(Statistics.summaryStatistics(Chunk.unsafeFromNonEmptyArray(losses)))
+    onNonEmpty: (losses) => lossSummaryFromStatistics(Statistics.summaryStatistics(Chunk.make(...losses)))
   })
 
 /** @internal */
