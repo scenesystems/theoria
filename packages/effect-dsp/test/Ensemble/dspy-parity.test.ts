@@ -1,4 +1,3 @@
-import * as LanguageModel from "@effect/ai/LanguageModel"
 import { describe, expect, it } from "@effect/vitest"
 import * as Ensemble from "@scenesystems/effect-dsp/Ensemble"
 import * as MockLanguageModel from "@scenesystems/effect-dsp/MockLanguageModel"
@@ -17,6 +16,7 @@ import {
   Schema,
   String as Str
 } from "effect"
+import * as LanguageModel from "effect/ai/LanguageModel"
 
 import { EnsembleMajorityVoteFixtureSchema, loadFixture } from "../helpers/dspy-fixtures/index.js"
 
@@ -29,7 +29,7 @@ const QaOutput = Schema.Struct({
 })
 
 const IndexedAnswer = Schema.Struct({
-  index: Schema.Number,
+  index: Schema.Finite,
   answer: Schema.String,
   instruction: Schema.String
 })
@@ -87,7 +87,7 @@ describe("Ensemble.make DSPy parity", () => {
   it.effect("matches fixture-backed majority vote and tie-break contracts", () =>
     Effect.gen(function*() {
       const rawFixture = yield* loadFixture("dspy.ensemble.majority-vote.basic")
-      const fixture = yield* Schema.decodeUnknown(EnsembleMajorityVoteFixtureSchema)(rawFixture)
+      const fixture = yield* Schema.decodeUnknownEffect(EnsembleMajorityVoteFixtureSchema)(rawFixture)
 
       yield* Effect.forEach(
         fixture.payload.cases,
@@ -131,10 +131,12 @@ describe("Ensemble.make DSPy parity", () => {
               )
             )
             const layer = Layer.succeed(LanguageModel.LanguageModel, mock.service)
-            const ensemble = yield* Ensemble.make({
-              programs,
-              name: Str.concat("ensemble-dspy-parity-", fixtureCase.name)
-            })
+            const ensemble = yield* Ensemble.make(
+              new Ensemble.Options({
+                programs,
+                name: Str.concat("ensemble-dspy-parity-", fixtureCase.name)
+              })
+            )
 
             const result = yield* ensemble.forward({
               question: fixtureCase.question

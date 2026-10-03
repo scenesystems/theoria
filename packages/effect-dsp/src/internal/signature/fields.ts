@@ -4,13 +4,32 @@
  *
  * @since 0.1.0
  */
-import { Array as Arr, Inspectable, Option, Record, Schema, SchemaAST } from "effect"
+import { Array as Arr, Equal, Inspectable, Option, Predicate, Schema, SchemaAST } from "effect"
 import { FieldDescriptionId, FieldInfo } from "../../Signature.js"
 
 const descriptionFromPropertySignature = (propertySignature: SchemaAST.PropertySignature): Option.Option<string> =>
   Option.orElse(
-    SchemaAST.getAnnotation<string>(FieldDescriptionId)(propertySignature),
-    () => SchemaAST.getAnnotation<string>(FieldDescriptionId)(propertySignature.type)
+    Option.filter(
+      Option.fromNullishOr(Schema.resolveAnnotationsKey(Schema.make(propertySignature.type))?.[FieldDescriptionId]),
+      Predicate.isString
+    ),
+    () =>
+      Option.filter(
+        Option.fromNullishOr(Schema.resolveAnnotations(Schema.make(propertySignature.type))?.[FieldDescriptionId]),
+        Predicate.isString
+      )
+  )
+
+const propertySignatures = (ast: SchemaAST.AST): ReadonlyArray<SchemaAST.PropertySignature> =>
+  SchemaAST.isObjects(ast) ? ast.propertySignatures : Arr.empty()
+
+/** Looks up a wire property's value schema without executing domain transformations. @internal */
+export const encodedFieldSchema = <A>(
+  schema: Schema.Schema<A>,
+  name: string
+): Option.Option<Schema.Codec<unknown, unknown, never, never>> =>
+  Arr.findFirst(propertySignatures(schema.ast), (property) => Equal.equals(property.name, name)).pipe(
+    Option.map((property) => Schema.toType(Schema.make(property.type)))
   )
 
 /**
@@ -26,7 +45,7 @@ export const extractSingleFieldInfo = (
   new FieldInfo({
     name: Inspectable.toStringUnknown(propertySignature.name),
     description: descriptionFromPropertySignature(propertySignature),
-    isOptional: propertySignature.isOptional
+    isOptional: propertySignature.type.context?.isOptional ?? false
   })
 
 /**
@@ -39,8 +58,8 @@ export const extractSingleFieldInfo = (
  * @since 0.1.0
  * @category utils
  */
-export const fieldsToInfoArray = (fields: Schema.Struct.Fields) =>
-  Arr.map(SchemaAST.getPropertySignatures(Schema.typeSchema(Schema.Struct(fields)).ast), extractSingleFieldInfo)
+export const fieldsToInfoArray = (schema: Schema.Top) =>
+  Arr.map(propertySignatures(Schema.toType(schema).ast), extractSingleFieldInfo)
 
 /**
  * Projects each field's wire name and optionality while retaining its description.
@@ -50,16 +69,5 @@ export const fieldsToInfoArray = (fields: Schema.Struct.Fields) =>
  * @since 0.4.0
  * @category utils
  */
-export const encodedFieldsToInfoArray = (fields: Schema.Struct.Fields) =>
-  Arr.flatMap(Record.toEntries(fields), ([name, field]) => {
-    const declaration = Record.singleton(name, field)
-    const description = Arr.head(fieldsToInfoArray(declaration)).pipe(Option.flatMap((info) => info.description))
-    return Arr.map(
-      SchemaAST.getPropertySignatures(Schema.encodedBoundSchema(Schema.Struct(declaration)).ast),
-      (property) =>
-        new FieldInfo({
-          ...extractSingleFieldInfo(property),
-          description: Option.orElse(description, () => descriptionFromPropertySignature(property))
-        })
-    )
-  })
+export const encodedFieldsToInfoArray = (schema: Schema.Top) =>
+  Arr.map(propertySignatures(Schema.toEncoded(schema).ast), extractSingleFieldInfo)

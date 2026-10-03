@@ -4,14 +4,14 @@
  * @since 0.1.0
  * @module
  */
-import { Array as Arr, Boolean, Match, Number, Option, Schema } from "effect"
+import { Array as Arr, Boolean, Effect, Match, Number, Option, Schema } from "effect"
 import { Demonstration } from "./Demonstration.js"
 
 /** Output rendering policy used by module generation.
  * @since 0.1.0
  * @category schemas
  */
-export const OutputStrategy = Schema.Literal("text", "structured", "auto")
+export const OutputStrategy = Schema.Literals(["text", "structured", "auto"])
 
 /** Decoded output rendering policy.
  * @since 0.1.0
@@ -19,7 +19,7 @@ export const OutputStrategy = Schema.Literal("text", "structured", "auto")
  */
 export type OutputStrategy = typeof OutputStrategy.Type
 
-const ConcreteStrategy = OutputStrategy.pipe(Schema.pickLiteral("text", "structured"))
+const ConcreteStrategy = OutputStrategy.pick(["text", "structured"])
 
 /** Resolves automatic output selection from the demonstration count.
  * @since 0.1.0
@@ -29,7 +29,7 @@ export const resolveStrategy = (strategy: OutputStrategy, demoCount: number): ty
   Match.value(strategy).pipe(
     Match.withReturnType<typeof ConcreteStrategy.Type>(),
     Match.when("auto", () =>
-      Boolean.match(Number.greaterThan(demoCount, 0), {
+      Boolean.match(Number.isGreaterThan(demoCount, 0), {
         onTrue: () => "text",
         onFalse: () => "structured"
       })),
@@ -54,13 +54,14 @@ export class ModuleParameters extends Schema.Class<ModuleParameters>("@scenesyst
   /** Ordered few-shot demonstrations rendered into text-mode prompts. */
   demos: Schema.Array(Demonstration),
   /** Output rendering policy; omitted encoded values decode to `"auto"`. */
-  outputStrategy: Schema.optionalWith(OutputStrategy, {
-    default: () => "auto"
-  }),
+  outputStrategy: OutputStrategy.pipe(
+    Schema.withDecodingDefaultTypeKey(Effect.succeed("auto")),
+    Schema.withConstructorDefault(Effect.succeed<OutputStrategy>("auto"))
+  ),
   /** Optional provider sampling temperature with no contract-level range check. */
-  temperature: Schema.optional(Schema.Number),
+  temperature: Schema.optional(Schema.Finite),
   /** Optional provider output-token limit with no contract-level integer or range check. */
-  maxTokens: Schema.optional(Schema.Number)
+  maxTokens: Schema.optional(Schema.Finite)
 }) {}
 
 /**
@@ -94,7 +95,14 @@ export const make = (instructions: string): ModuleParameters =>
 export const withDemos = (
   params: ModuleParameters,
   demos: ModuleParameters["demos"]
-): ModuleParameters => new ModuleParameters({ ...params, demos })
+): ModuleParameters =>
+  new ModuleParameters({
+    instructions: params.instructions,
+    demos,
+    outputStrategy: params.outputStrategy,
+    temperature: params.temperature,
+    maxTokens: params.maxTokens
+  })
 
 /**
  * Replaces instructions and demonstrations while retaining rendering and generation settings.
@@ -111,7 +119,14 @@ export const withDemosAndInstructions = (
   params: ModuleParameters,
   demos: ModuleParameters["demos"],
   instructions: string
-): ModuleParameters => new ModuleParameters({ ...params, demos, instructions })
+): ModuleParameters =>
+  new ModuleParameters({
+    instructions,
+    demos,
+    outputStrategy: params.outputStrategy,
+    temperature: params.temperature,
+    maxTokens: params.maxTokens
+  })
 
 /**
  * Replaces instructions while retaining demonstrations and generation settings.
@@ -126,7 +141,14 @@ export const withDemosAndInstructions = (
 export const withInstructions = (
   params: ModuleParameters,
   instructions: string
-): ModuleParameters => new ModuleParameters({ ...params, instructions })
+): ModuleParameters =>
+  new ModuleParameters({
+    instructions,
+    demos: params.demos,
+    outputStrategy: params.outputStrategy,
+    temperature: params.temperature,
+    maxTokens: params.maxTokens
+  })
 
 /**
  * Immutable optimizer-facing projection of module parameters.
@@ -135,10 +157,10 @@ export const withInstructions = (
  */
 export class Projection extends Schema.Class<Projection>("@scenesystems/effect-dsp/ModuleParameters/Projection")({
   instructions: Schema.String,
-  demoCount: Schema.Number,
+  demoCount: Schema.Finite,
   outputStrategy: OutputStrategy,
-  temperature: Schema.OptionFromSelf(Schema.Number),
-  maxTokens: Schema.OptionFromSelf(Schema.Number)
+  temperature: Schema.Option(Schema.Finite),
+  maxTokens: Schema.Option(Schema.Finite)
 }) {}
 
 /**
@@ -148,7 +170,7 @@ export class Projection extends Schema.Class<Projection>("@scenesystems/effect-d
  */
 export class Dimension extends Schema.Class<Dimension>("@scenesystems/effect-dsp/ModuleParameters/Dimension")({
   name: Schema.String,
-  value: Schema.Union(Schema.String, Schema.Number)
+  value: Schema.Union([Schema.String, Schema.Finite])
 }) {}
 
 /**
@@ -160,9 +182,9 @@ export const project = (params: ModuleParameters): Projection =>
   new Projection({
     instructions: params.instructions,
     demoCount: Arr.length(params.demos),
-    outputStrategy: Option.getOrElse(Option.fromNullable(params.outputStrategy), () => "auto"),
-    temperature: Option.fromNullable(params.temperature),
-    maxTokens: Option.fromNullable(params.maxTokens)
+    outputStrategy: params.outputStrategy,
+    temperature: Option.fromNullishOr(params.temperature),
+    maxTokens: Option.fromNullishOr(params.maxTokens)
   })
 
 const optionalDimension = (name: string, value: Option.Option<number>) =>

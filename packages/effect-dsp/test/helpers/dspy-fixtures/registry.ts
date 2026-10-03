@@ -7,14 +7,11 @@ import type { FixtureName, KnownFixture } from "./schemas.js"
 const defaultRootDirectory = directoryBeside(import.meta.url, "../../fixtures/dspy/")
 const DEFAULT_MANIFEST_FILE = "manifest.json"
 
-class FixtureRegistry extends Context.Tag("effect-dsp/test/helpers/DspyFixtureRegistry")<
-  FixtureRegistry,
-  {
-    readonly load: (
-      name: FixtureName
-    ) => Effect.Effect<KnownFixture, FixtureRegistryError>
-  }
->() {}
+class FixtureRegistry extends Context.Service<FixtureRegistry, {
+  readonly load: (
+    name: FixtureName
+  ) => Effect.Effect<KnownFixture, FixtureRegistryError>
+}>()("effect-dsp/test/helpers/DspyFixtureRegistry") {}
 
 const makeFixtureRegistry = (
   options: {

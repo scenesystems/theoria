@@ -2,7 +2,6 @@
  * Example contract: MIPROv2 stream progression with mock provider and
  * effect-search runtime composition.
  */
-import * as LanguageModel from "@effect/ai/LanguageModel"
 import { describe, expect, it } from "@effect/vitest"
 import { Example } from "@scenesystems/effect-dsp/Example"
 import * as Metric from "@scenesystems/effect-dsp/Metric"
@@ -12,6 +11,7 @@ import * as Module from "@scenesystems/effect-dsp/Module"
 import { ModuleParameters } from "@scenesystems/effect-dsp/ModuleParameters"
 import * as Signature from "@scenesystems/effect-dsp/Signature"
 import { Array as Arr, Effect, Layer, Ref, Schema, Stream } from "effect"
+import * as LanguageModel from "effect/ai/LanguageModel"
 
 const trainset = Arr.make(
   new Example({
@@ -67,16 +67,18 @@ const runMiproTagTrace = Effect.gen(function*() {
   const layer = Layer.succeed(LanguageModel.LanguageModel, mock.service)
 
   const tags = yield* Stream.runCollect(
-    MIPROv2.stream({
-      module,
-      trainset,
-      valset: trainset,
-      metric: Metric.exactMatch("answer"),
-      numCandidates: 3,
-      numInstructions: 3,
-      trialBudget: 4,
-      seed: 21
-    })
+    MIPROv2.stream(
+      new MIPROv2.Options({
+        module,
+        trainset,
+        valset: trainset,
+        metric: Metric.exactMatch("answer"),
+        numCandidates: 3,
+        numInstructions: 3,
+        trialBudget: 4,
+        seed: 21
+      })
+    )
   ).pipe(
     Effect.provide(layer),
     Effect.map((events) => Arr.map(Arr.fromIterable(events), (event) => event._tag))

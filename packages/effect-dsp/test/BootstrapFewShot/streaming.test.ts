@@ -1,7 +1,6 @@
 /**
  * BootstrapFewShot streaming event contracts.
  */
-import * as LanguageModel from "@effect/ai/LanguageModel"
 import { describe, expect, it } from "@effect/vitest"
 import * as BootstrapFewShot from "@scenesystems/effect-dsp/BootstrapFewShot"
 import { Example } from "@scenesystems/effect-dsp/Example"
@@ -11,6 +10,7 @@ import * as Module from "@scenesystems/effect-dsp/Module"
 import { ModuleParameters } from "@scenesystems/effect-dsp/ModuleParameters"
 import * as Signature from "@scenesystems/effect-dsp/Signature"
 import { Array as Arr, Effect, Layer, Option, Ref, Schema, Stream } from "effect"
+import * as LanguageModel from "effect/ai/LanguageModel"
 
 const makeQaSignature = () =>
   Signature.make(
@@ -49,23 +49,25 @@ describe("BootstrapFewShot.stream", () => {
       const lmLayer = Layer.succeed(LanguageModel.LanguageModel, mock.service)
 
       const events = yield* Stream.runCollect(
-        BootstrapFewShot.stream({
-          module,
-          trainset: [
-            new Example({
-              input: { question: "What is the capital of France?" },
-              output: { answer: "Paris" }
-            }),
-            new Example({
-              input: { question: "What is the capital of Japan?" },
-              output: { answer: "Tokyo" }
-            })
-          ],
-          metric: Metric.exactMatch("answer"),
-          maxRounds: 3,
-          maxBootstrappedDemos: 1,
-          threshold: 1
-        })
+        BootstrapFewShot.stream(
+          new BootstrapFewShot.Options({
+            module,
+            trainset: [
+              new Example({
+                input: { question: "What is the capital of France?" },
+                output: { answer: "Paris" }
+              }),
+              new Example({
+                input: { question: "What is the capital of Japan?" },
+                output: { answer: "Tokyo" }
+              })
+            ],
+            metric: Metric.exactMatch("answer"),
+            maxRounds: 3,
+            maxBootstrappedDemos: 1,
+            threshold: 1
+          })
+        )
       ).pipe(Effect.provide(lmLayer))
 
       const eventList = Arr.fromIterable(events)
@@ -115,19 +117,21 @@ describe("BootstrapFewShot.stream", () => {
       const lmLayer = Layer.succeed(LanguageModel.LanguageModel, mock.service)
 
       const events = yield* Stream.runCollect(
-        BootstrapFewShot.stream({
-          module,
-          trainset: [
-            new Example({
-              input: { question: "What is the capital of France?" },
-              output: { answer: "Paris" }
-            })
-          ],
-          metric: Metric.exactMatch("answer"),
-          maxRounds: 1,
-          maxBootstrappedDemos: 2,
-          threshold: 1
-        })
+        BootstrapFewShot.stream(
+          new BootstrapFewShot.Options({
+            module,
+            trainset: [
+              new Example({
+                input: { question: "What is the capital of France?" },
+                output: { answer: "Paris" }
+              })
+            ],
+            metric: Metric.exactMatch("answer"),
+            maxRounds: 1,
+            maxBootstrappedDemos: 2,
+            threshold: 1
+          })
+        )
       ).pipe(Effect.provide(lmLayer))
 
       const eventList = Arr.fromIterable(events)

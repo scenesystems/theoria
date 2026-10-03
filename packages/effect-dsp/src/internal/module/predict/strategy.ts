@@ -15,6 +15,12 @@ import { promptToTraceText } from "../../prompt/trace.js"
 import { ForwardExecution, type ForwardOptions } from "./model.js"
 import { PayloadOptions, tracePayloadFromEncoded } from "./trace.js"
 
+class PreparedText<P, R, U> extends Data.Class<{
+  readonly prompt: P
+  readonly response: R
+  readonly usage: U
+}> {}
+
 const runStructuredForward = <
   I extends Schema.Struct.Fields,
   O extends Schema.Struct.Fields
@@ -59,7 +65,7 @@ const runTextForward = <
             const prompt = yield* buildPrompt(options.signature, options.params, options.input, feedback)
             const [response, usage] = yield* callLmTextResponse(prompt)
 
-            return Data.struct({ prompt, response, usage })
+            return new PreparedText({ prompt, response, usage })
           }),
         text: (prepared) => prepared.response.text
       })

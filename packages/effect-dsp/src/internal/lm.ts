@@ -4,12 +4,13 @@
  * @since 0.1.0
  * @internal
  */
-import * as LanguageModel from "@effect/ai/LanguageModel"
-import type * as Prompt from "@effect/ai/Prompt"
-import type * as Tool from "@effect/ai/Tool"
-import type * as Toolkit from "@effect/ai/Toolkit"
 import type { Record, Schema } from "effect"
-import { Effect, Option } from "effect"
+import { Option } from "effect"
+import * as LanguageModel from "effect/ai/LanguageModel"
+import type * as Prompt from "effect/ai/Prompt"
+import type * as Tool from "effect/ai/Tool"
+import type * as Toolkit from "effect/ai/Toolkit"
+import * as Effect from "effect/Effect"
 import { trackCall } from "./trace/call.js"
 
 /**
@@ -20,9 +21,9 @@ import { trackCall } from "./trace/call.js"
  * @category constructors
  * @internal
  */
-export const callLmResponse = <A, I extends Record.ReadonlyRecord<string, unknown>, R>(
+export const callLmResponse = <A, I extends Record.ReadonlyRecord<string, unknown>, RD, RE>(
   prompt: Prompt.RawInput,
-  schema: Schema.Schema<A, I, R>
+  schema: Schema.Codec<A, I, RD, RE>
 ) => trackCall("generateObject", LanguageModel.generateObject({ prompt, schema }), (response) => response.usage)
 
 /**
@@ -33,9 +34,9 @@ export const callLmResponse = <A, I extends Record.ReadonlyRecord<string, unknow
  * @category constructors
  * @internal
  */
-export const callLm = <A, I extends Record.ReadonlyRecord<string, unknown>, R>(
+export const callLm = <A, I extends Record.ReadonlyRecord<string, unknown>, RD, RE>(
   prompt: Prompt.RawInput,
-  schema: Schema.Schema<A, I, R>
+  schema: Schema.Codec<A, I, RD, RE>
 ) => callLmResponse(prompt, schema).pipe(Effect.map(([response]) => response.value))
 
 /**
@@ -51,21 +52,15 @@ export const callLmTextResponse = <
 >(
   prompt: Prompt.RawInput,
   toolkit: Option.Option<Toolkit.WithHandler<Tools>> = Option.none()
-) => {
-  const program = Option.match(toolkit, {
-    onNone: () => LanguageModel.generateText({ prompt }),
-    onSome: (toolkit) => LanguageModel.generateText({ prompt, toolkit })
+) =>
+  Effect.gen(function*() {
+    yield* Effect.void
+    return yield* Option.match(toolkit, {
+      onNone: () => trackCall("generateText", LanguageModel.generateText({ prompt }), (response) => response.usage),
+      onSome: (toolkit) =>
+        trackCall("generateText", LanguageModel.generateText({ prompt, toolkit }), (response) => response.usage)
+    })
   })
-  return trackCall<
-    Effect.Effect.Success<typeof program>,
-    Effect.Effect.Error<typeof program>,
-    Effect.Effect.Context<typeof program>
-  >(
-    "generateText",
-    program,
-    (response) => response.usage
-  )
-}
 
 /**
  * Returns native completion text while retaining call evidence in the active

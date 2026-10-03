@@ -4,7 +4,8 @@
  * @since 0.1.0
  * @internal
  */
-import { Data, Effect, Number, Option, Ref, Schema } from "effect"
+import type { Record } from "effect"
+import { Data, Effect, Number, Option, Ref, Schema, Tuple } from "effect"
 import type * as Schedule from "effect/Schedule"
 import { ParseOutputError } from "../../DspError.js"
 import { parseTextOutput } from "./decode.js"
@@ -19,13 +20,14 @@ import { parseTextOutput } from "./decode.js"
  * @internal
  */
 export class ParseTextWithRetryOptions<
-  O extends Schema.Struct.Fields,
+  O,
+  R,
   A,
   RE,
   RR
 > extends Data.Class<{
   readonly moduleName: string
-  readonly schema: Schema.Struct<O>
+  readonly schema: Schema.Codec<O, Record.ReadonlyRecord<string, unknown>, R, unknown>
   readonly maxRetries: number
   readonly retrySchedule: (maxRetries: number) => Schedule.Schedule<unknown, unknown, never>
   readonly feedbackTemplate: (error: ParseOutputError) => string
@@ -46,12 +48,13 @@ export class ParseTextWithRetryOptions<
  * @internal
  */
 export const parseTextWithRetry = <
-  O extends Schema.Struct.Fields,
+  O,
+  R,
   A,
   RE,
   RR
 >(
-  options: ParseTextWithRetryOptions<O, A, RE, RR>
+  options: ParseTextWithRetryOptions<O, R, A, RE, RR>
 ) =>
   Effect.gen(function*() {
     const parseFeedback = yield* Ref.make<Option.Option<string>>(Option.none())
@@ -83,7 +86,7 @@ export const parseTextWithRetry = <
             Option.some(options.feedbackTemplate(error))
           )
         ),
-        Effect.map((output) => Data.tuple(output, response))
+        Effect.map((output) => Tuple.make(output, response))
       )
     }).pipe(
       Effect.retry({

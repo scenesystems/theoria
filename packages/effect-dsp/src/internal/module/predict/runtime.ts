@@ -21,8 +21,8 @@ import { appendTraceEntry, TraceOptions } from "./trace.js"
 export class RuntimeOptions<I extends Schema.Struct.Fields, O extends Schema.Struct.Fields> extends Data.Class<{
   readonly moduleName: string
   readonly signature: Signature<I, O>
-  readonly inputSchema: Schema.Struct<I>
-  readonly outputSchema: Schema.Struct<O>
+  readonly inputSchema: Signature<I, O>["inputSchema"]
+  readonly outputSchema: Signature<I, O>["outputSchema"]
   readonly paramsRef: Ref.Ref<ModuleParameters>
   readonly policy: PredictPolicy
 }> {}

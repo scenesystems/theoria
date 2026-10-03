@@ -39,7 +39,7 @@ import {
  * @category models
  * @internal
  */
-export const ScoredCandidate = Schema.Tuple(CandidateState, Schema.Number)
+export const ScoredCandidate = Schema.Tuple([CandidateState, Schema.Finite])
 
 /** @internal */
 export type ScoredCandidate = typeof ScoredCandidate.Type
@@ -95,14 +95,14 @@ export const scoreCandidates = <
           metric: options.metric
         })
       ).pipe(
-        Effect.map((score) => Option.some(Data.tuple(candidate, score))),
+        Effect.map((score) => Option.some(Tuple.make(candidate, score))),
         // A candidate with zero successful evaluations has no score to rank; every
         // other failure is a fault in the module, metric or model and propagates.
         Effect.catchTag("AllTrialsFailed", () => Effect.succeedNone)
       ),
     { concurrency: 1 }
   ).pipe(
-    Effect.map((entries) => Arr.filterMap(entries, (entry) => entry))
+    Effect.map((entries) => Arr.flatMap(entries, Option.toArray))
   )
 
 /**
@@ -123,26 +123,28 @@ export const selectBestCandidate = (scoredCandidates: ScoredCandidates) =>
       candidateIndex: SearchSpace.int(0, Num.decrement(Arr.length(scoredCandidates)))
     })
 
-    const result = yield* Optimization.maximize({
-      space: searchSpace,
-      sampler: SearchSampler.grid(),
-      objective: ({ candidateIndex }) =>
-        Option.match(Arr.get(scoredCandidates, candidateIndex), {
-          onNone: () =>
-            Effect.fail(
-              new AllTrialsFailed({
-                message: Str.concat(
-                  "BootstrapRS requested missing candidate index ",
-                  Inspectable.toStringUnknown(candidateIndex)
-                ),
-                trialCount: Arr.length(scoredCandidates)
-              })
-            ),
-          onSome: (entry) => Effect.succeed(Tuple.getSecond(entry))
-        }),
-      trials: Arr.length(scoredCandidates),
-      concurrency: 1
-    })
+    const result = yield* Optimization.maximize(
+      new Optimization.FlatOptions({
+        space: searchSpace,
+        sampler: SearchSampler.grid(),
+        objective: ({ candidateIndex }) =>
+          Option.match(Arr.get(scoredCandidates, candidateIndex), {
+            onNone: () =>
+              Effect.fail(
+                new AllTrialsFailed({
+                  message: Str.concat(
+                    "BootstrapRS requested missing candidate index ",
+                    Inspectable.toStringUnknown(candidateIndex)
+                  ),
+                  trialCount: Arr.length(scoredCandidates)
+                })
+              ),
+            onSome: (entry) => Effect.succeed(entry[1])
+          }),
+        trials: Arr.length(scoredCandidates),
+        concurrency: 1
+      })
+    )
 
     const selectedIndex = Match.value(result).pipe(
       Match.tag("SingleObjective", ({ bestTrial }) => bestTrial.config.candidateIndex),
@@ -161,6 +163,6 @@ export const selectBestCandidate = (scoredCandidates: ScoredCandidates) =>
             trialCount: Arr.length(scoredCandidates)
           })
         ),
-      onSome: (candidate) => Effect.succeed(Tuple.getFirst(candidate))
+      onSome: (candidate) => Effect.succeed(candidate[0])
     })
   })

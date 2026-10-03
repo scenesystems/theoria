@@ -4,7 +4,7 @@
  * stable keys without rollout segment.
  */
 import { describe, expect, it } from "@effect/vitest"
-import { Cache, layerMemory, withRollout } from "@scenesystems/effect-dsp/Cache"
+import { Cache, layerMemory, Request, withRollout } from "@scenesystems/effect-dsp/Cache"
 import { Effect, Ref, Schema } from "effect"
 
 describe("Cache rollout partition", () => {
@@ -13,16 +13,17 @@ describe("Cache rollout partition", () => {
       const computeCount = yield* Ref.make(0)
       const cache = yield* Cache
 
-      const makeRequest = (answer: string) => ({
-        moduleFingerprint: "qa-module",
-        runtimeFingerprint: "runtime-v1",
-        input: { question: "What is 2+2?" },
-        params: { instructions: "Answer concisely", demos: [] },
-        outputSchema: Schema.Struct({ answer: Schema.String }),
-        compute: Ref.updateAndGet(computeCount, (n) => n + 1).pipe(
-          Effect.as({ answer })
-        )
-      })
+      const makeRequest = (answer: string) =>
+        new Request({
+          moduleFingerprint: "qa-module",
+          runtimeFingerprint: "runtime-v1",
+          input: { question: "What is 2+2?" },
+          params: { instructions: "Answer concisely", demos: [] },
+          outputSchema: Schema.Struct({ answer: Schema.String }),
+          compute: Ref.updateAndGet(computeCount, (n) => n + 1).pipe(
+            Effect.as({ answer })
+          )
+        })
 
       const { value: r0, resolution: res0 } = yield* withRollout(0, cache.resolve(makeRequest("answer-0")))
       const { value: r1, resolution: res1 } = yield* withRollout(1, cache.resolve(makeRequest("answer-1")))
@@ -42,7 +43,7 @@ describe("Cache rollout partition", () => {
       const computeCount = yield* Ref.make(0)
       const cache = yield* Cache
 
-      const request = {
+      const request = new Request({
         moduleFingerprint: "qa-module",
         runtimeFingerprint: "runtime-v1",
         input: { question: "What is 2+2?" },
@@ -51,7 +52,7 @@ describe("Cache rollout partition", () => {
         compute: Ref.updateAndGet(computeCount, (n) => n + 1).pipe(
           Effect.as({ answer: "4" })
         )
-      }
+      })
 
       yield* withRollout(5, cache.resolve(request))
       const { value, resolution } = yield* withRollout(5, cache.resolve(request))
@@ -66,7 +67,7 @@ describe("Cache rollout partition", () => {
       const computeCount = yield* Ref.make(0)
       const cache = yield* Cache
 
-      const request = {
+      const request = new Request({
         moduleFingerprint: "qa-module",
         runtimeFingerprint: "runtime-v1",
         input: { question: "What is 2+2?" },
@@ -75,7 +76,7 @@ describe("Cache rollout partition", () => {
         compute: Ref.updateAndGet(computeCount, (n) => n + 1).pipe(
           Effect.as({ answer: "4" })
         )
-      }
+      })
 
       yield* cache.resolve(request)
       const { value, resolution } = yield* cache.resolve(request)
@@ -90,16 +91,17 @@ describe("Cache rollout partition", () => {
       const computeCount = yield* Ref.make(0)
       const cache = yield* Cache
 
-      const makeRequest = (answer: string) => ({
-        moduleFingerprint: "qa-module",
-        runtimeFingerprint: "runtime-v1",
-        input: { question: "What is 2+2?" },
-        params: { instructions: "Answer concisely", demos: [] },
-        outputSchema: Schema.Struct({ answer: Schema.String }),
-        compute: Ref.updateAndGet(computeCount, (n) => n + 1).pipe(
-          Effect.as({ answer })
-        )
-      })
+      const makeRequest = (answer: string) =>
+        new Request({
+          moduleFingerprint: "qa-module",
+          runtimeFingerprint: "runtime-v1",
+          input: { question: "What is 2+2?" },
+          params: { instructions: "Answer concisely", demos: [] },
+          outputSchema: Schema.Struct({ answer: Schema.String }),
+          compute: Ref.updateAndGet(computeCount, (n) => n + 1).pipe(
+            Effect.as({ answer })
+          )
+        })
 
       const { value: rNone, resolution: resNone } = yield* cache.resolve(makeRequest("no-rollout"))
       const { value: rZero, resolution: resZero } = yield* withRollout(0, cache.resolve(makeRequest("rollout-0")))

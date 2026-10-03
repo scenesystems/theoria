@@ -12,7 +12,7 @@
  *
  * Run: bun run examples/10-miprov2-social-science-panel.ts
  */
-import { BunContext, BunRuntime } from "@effect/platform-bun"
+import { BunRuntime, BunServices } from "@effect/platform-bun"
 import { BootstrapFewShot, Evaluate, Example, Metric, MIPROv2, Module, Signature } from "@scenesystems/effect-dsp"
 import { Array as Arr, Effect, Layer, Ref, Schema, Stream } from "effect"
 import {
@@ -185,12 +185,14 @@ const program = Effect.gen(function*() {
     evalExampleCount: evalset.length
   })
 
-  const baseline = yield* Evaluate.run({
-    module: planner,
-    examples: evalset,
-    metrics,
-    concurrency: 1
-  })
+  const baseline = yield* Evaluate.run(
+    new Evaluate.Options({
+      module: planner,
+      examples: evalset,
+      metrics,
+      concurrency: 1
+    })
+  )
 
   yield* logExampleStage("bootstrap-warm-start-started", {
     trainExampleCount: trainset.length,
@@ -198,15 +200,17 @@ const program = Effect.gen(function*() {
     maxBootstrappedDemos: 3
   })
 
-  const bootstrapEventsChunk = yield* BootstrapFewShot.stream({
-    module: planner,
-    trainset,
-    metric: Metric.exactMatch("intervention"),
-    maxRounds: 1,
-    maxBootstrappedDemos: 3,
-    threshold: 1,
-    teacher: teacherLayer
-  }).pipe(
+  const bootstrapEventsChunk = yield* BootstrapFewShot.stream(
+    new BootstrapFewShot.Options({
+      module: planner,
+      trainset,
+      metric: Metric.exactMatch("intervention"),
+      maxRounds: 1,
+      maxBootstrappedDemos: 3,
+      threshold: 1,
+      teacher: teacherLayer
+    })
+  ).pipe(
     BootstrapFewShot.tapProgress((line) => logExampleEvent("bootstrapFewShot", line.text)),
     Stream.runCollect
   )
@@ -233,28 +237,32 @@ const program = Effect.gen(function*() {
     seed: 17
   })
 
-  const miproEventsChunk = yield* MIPROv2.stream({
-    module: planner,
-    trainset,
-    valset: evalset,
-    metric: Metric.exactMatch("intervention"),
-    numCandidates: 4,
-    numInstructions: 4,
-    trialBudget: 6,
-    seed: 17
-  }).pipe(
+  const miproEventsChunk = yield* MIPROv2.stream(
+    new MIPROv2.Options({
+      module: planner,
+      trainset,
+      valset: evalset,
+      metric: Metric.exactMatch("intervention"),
+      numCandidates: 4,
+      numInstructions: 4,
+      trialBudget: 6,
+      seed: 17
+    })
+  ).pipe(
     MIPROv2.tapProgress((line) => logExampleEvent("miprov2", line.text)),
     Stream.runCollect
   )
 
   const miproEvents = Arr.fromIterable(miproEventsChunk)
   const miproEventSummary = MIPROv2.summarizeEvents(miproEvents)
-  const optimized = yield* Evaluate.run({
-    module: planner,
-    examples: evalset,
-    metrics,
-    concurrency: 1
-  })
+  const optimized = yield* Evaluate.run(
+    new Evaluate.Options({
+      module: planner,
+      examples: evalset,
+      metrics,
+      concurrency: 1
+    })
+  )
   const optimizedParams = yield* Ref.get(planner.params)
 
   const baselineScore = baseline.overallScores.exactMatch ?? 0
@@ -359,6 +367,6 @@ const program = Effect.gen(function*() {
 BunRuntime.runMain(
   withLiveLanguageModel(program).pipe(
     Effect.scoped,
-    Effect.provide(Layer.merge(noopArtifactSinkLayer, BunContext.layer))
+    Effect.provide(Layer.merge(noopArtifactSinkLayer, BunServices.layer))
   )
 )

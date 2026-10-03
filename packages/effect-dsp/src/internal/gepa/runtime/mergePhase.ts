@@ -3,7 +3,7 @@
  *
  * @since 0.1.0
  */
-import { Array as Arr, Effect, Inspectable, Number as Num, Option, String as Str } from "effect"
+import { Array as Arr, Boolean, Effect, Inspectable, Number as Num, Option, String as Str } from "effect"
 import type { Schema } from "effect"
 
 import { events, type EventSink, type Options as GEPAOptions } from "../../../GEPA.js"
@@ -45,7 +45,7 @@ export const runMergePhase = <I extends Schema.Struct.Fields, O extends Schema.S
   mergeSeed: number,
   emit: EventSink<EE, ER>
 ) =>
-  Effect.if(shouldAttemptMerge(state), {
+  Boolean.match(shouldAttemptMerge(state), {
     onFalse: () =>
       emit(
         mergeCheckedEvent(iteration, false, false, state.mergeBudgetRemaining)
@@ -98,7 +98,7 @@ export const runMergePhase = <I extends Schema.Struct.Fields, O extends Schema.S
                           comparison.parentBScore)
                       })
 
-                      return yield* Effect.if(mergeAcceptance.accepted, {
+                      return yield* Boolean.match(mergeAcceptance.accepted, {
                         onTrue: () =>
                           Effect.gen(function*() {
                             const mergeState = recordAcceptedMerge(

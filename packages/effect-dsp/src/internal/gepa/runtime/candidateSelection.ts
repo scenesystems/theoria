@@ -19,7 +19,7 @@ import { sampleWeightedParentPair, selectWeightedParent } from "../sampling.js"
 const parseTaggedStep = (identifier: string): Option.Option<number> =>
   Arr.get(Str.split("-")(identifier), 1).pipe(
     Option.flatMap((token) => {
-      return Schema.decodeOption(Schema.NumberFromString)(token).pipe(
+      return Schema.decodeOption(Schema.FiniteFromString)(token).pipe(
         Option.filter(Numeric.isFinite),
         Option.map((value) => Num.max(0, Numeric.truncate(value)))
       )
@@ -116,7 +116,7 @@ export const shouldAttemptMerge = (state: GEPAState): boolean =>
   Bool.every(
     Arr.make(
       state.lastIterationFoundNew,
-      Num.greaterThan(state.mergeBudgetRemaining, 0),
-      Num.greaterThanOrEqualTo(Arr.length(state.candidates), 2)
+      Num.isGreaterThan(state.mergeBudgetRemaining, 0),
+      Num.isGreaterThanOrEqualTo(Arr.length(state.candidates), 2)
     )
   )

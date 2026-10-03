@@ -1,7 +1,6 @@
 /**
  * LabeledFewShot optimizer contracts.
  */
-import * as LanguageModel from "@effect/ai/LanguageModel"
 import { describe, expect, it } from "@effect/vitest"
 import { Example } from "@scenesystems/effect-dsp/Example"
 import * as LabeledFewShot from "@scenesystems/effect-dsp/LabeledFewShot"
@@ -10,6 +9,7 @@ import * as Module from "@scenesystems/effect-dsp/Module"
 import { ModuleParameters } from "@scenesystems/effect-dsp/ModuleParameters"
 import * as Signature from "@scenesystems/effect-dsp/Signature"
 import { Effect, Layer, Record as Rec, Ref, Schema } from "effect"
+import * as LanguageModel from "effect/ai/LanguageModel"
 
 const makeQaSignature = () =>
   Signature.make(
@@ -47,12 +47,14 @@ describe("LabeledFewShot.run", () => {
       )
 
       const layer = Layer.succeed(LanguageModel.LanguageModel, mock.service)
-      const optimized = yield* LabeledFewShot.run({
-        module,
-        trainset: labeledTrainset,
-        k: 2,
-        seed: 11
-      }).pipe(Effect.provide(layer))
+      const optimized = yield* LabeledFewShot.run(
+        new LabeledFewShot.Options({
+          module,
+          trainset: labeledTrainset,
+          k: 2,
+          seed: 11
+        })
+      ).pipe(Effect.provide(layer))
 
       const params = yield* Ref.get(optimized.params)
       const calls = yield* Ref.get(mock.calls)
@@ -66,19 +68,23 @@ describe("LabeledFewShot.run", () => {
     Effect.gen(function*() {
       const signature = yield* makeQaSignature()
       const qa = yield* Module.predict("qa", signature)
-      const root = yield* Module.compose({
-        name: "qa-root",
-        signature,
-        subModules: { qa },
-        forward: ({ input }) => qa.forward(input)
-      })
+      const root = yield* Module.compose(
+        new Module.ComposeOptions({
+          name: "qa-root",
+          signature,
+          subModules: { qa },
+          forward: ({ input }) => qa.forward(input)
+        })
+      )
 
-      yield* LabeledFewShot.run({
-        module: root,
-        trainset: labeledTrainset,
-        k: 1,
-        seed: 3
-      })
+      yield* LabeledFewShot.run(
+        new LabeledFewShot.Options({
+          module: root,
+          trainset: labeledTrainset,
+          k: 1,
+          seed: 3
+        })
+      )
 
       const rootParams = yield* Ref.get(root.params)
       const qaParams = yield* Ref.get(qa.params)
@@ -103,12 +109,14 @@ describe("LabeledFewShot.run", () => {
         })
       )
 
-      yield* LabeledFewShot.run({
-        module,
-        trainset: labeledTrainset,
-        k: 2,
-        seed: 19
-      })
+      yield* LabeledFewShot.run(
+        new LabeledFewShot.Options({
+          module,
+          trainset: labeledTrainset,
+          k: 2,
+          seed: 19
+        })
+      )
       const first = yield* Ref.get(module.params)
 
       yield* Ref.set(
@@ -120,12 +128,14 @@ describe("LabeledFewShot.run", () => {
         })
       )
 
-      yield* LabeledFewShot.run({
-        module,
-        trainset: labeledTrainset,
-        k: 2,
-        seed: 19
-      })
+      yield* LabeledFewShot.run(
+        new LabeledFewShot.Options({
+          module,
+          trainset: labeledTrainset,
+          k: 2,
+          seed: 19
+        })
+      )
       const second = yield* Ref.get(module.params)
 
       expect(second.demos).toEqual(first.demos)

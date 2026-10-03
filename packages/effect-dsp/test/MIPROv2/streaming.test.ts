@@ -1,7 +1,6 @@
 /**
  * MIPROv2 streaming contracts.
  */
-import * as LanguageModel from "@effect/ai/LanguageModel"
 import { describe, expect, it } from "@effect/vitest"
 import { Example } from "@scenesystems/effect-dsp/Example"
 import * as Metric from "@scenesystems/effect-dsp/Metric"
@@ -11,6 +10,7 @@ import * as Module from "@scenesystems/effect-dsp/Module"
 import { ModuleParameters } from "@scenesystems/effect-dsp/ModuleParameters"
 import * as Signature from "@scenesystems/effect-dsp/Signature"
 import { Array as Arr, Effect, Exit, Fiber, Layer, Ref, Schema, Stream } from "effect"
+import * as LanguageModel from "effect/ai/LanguageModel"
 
 const makeQaSignature = () =>
   Signature.make(
@@ -36,16 +36,17 @@ const trainset = Arr.make(
 
 const makeOptimizerOptions = <I extends Schema.Struct.Fields, O extends Schema.Struct.Fields>(
   module: Module.Module<I, O>
-) => ({
-  module,
-  trainset,
-  valset: trainset,
-  metric: Metric.exactMatch("answer"),
-  numCandidates: 4,
-  numInstructions: 4,
-  trialBudget: 6,
-  seed: 37
-})
+) =>
+  new MIPROv2.Options({
+    module,
+    trainset,
+    valset: trainset,
+    metric: Metric.exactMatch("answer"),
+    numCandidates: 4,
+    numInstructions: 4,
+    trialBudget: 6,
+    seed: 37
+  })
 
 const forceStructuredOutputStrategy = <
   I extends Schema.Struct.Fields,
@@ -120,14 +121,14 @@ describe("MIPROv2.stream", () => {
         MIPROv2.stream(makeOptimizerOptions(module))
       ).pipe(
         Effect.provide(layer),
-        Effect.fork
+        Effect.forkScoped
       )
 
       yield* Effect.sleep("10 millis")
       yield* Fiber.interrupt(fiber)
       const exit = yield* Fiber.await(fiber)
 
-      expect(Exit.isInterrupted(exit)).toBe(true)
+      expect(Exit.hasInterrupts(exit)).toBe(true)
     }))
 
   it.effect("keeps stream and non-stream optimization states in parity", () =>

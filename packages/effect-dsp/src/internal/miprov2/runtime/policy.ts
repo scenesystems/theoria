@@ -7,9 +7,8 @@
 import * as Numeric from "@scenesystems/effect-math/Numeric"
 import { buildIndices, normalizeDeterministicSeed, normalizePositiveCount } from "@scenesystems/effect-search/Sampler"
 import { Array as Arr, Inspectable, Number as Num, Option } from "effect"
-import type { Schema } from "effect"
 
-type TipVocabulary = Schema.Array$<typeof Schema.String>["Type"]
+type TipVocabulary = ReadonlyArray<string>
 
 /**
  * Built-in diversity tip vocabulary used when no custom tips are supplied.
@@ -46,7 +45,7 @@ export const normalizeInstructionCount = (count: number): number => normalizePos
  * @category utils
  */
 export const resolveSeed = (seed?: number): number =>
-  normalizeDeterministicSeed(Option.getOrElse(Option.fromNullable(seed), () => 1))
+  normalizeDeterministicSeed(Option.getOrElse(Option.fromNullishOr(seed), () => 1))
 
 /**
  * Produces zero-based indices for instruction proposals, excluding the
@@ -57,7 +56,7 @@ export const resolveSeed = (seed?: number): number =>
  */
 export const proposalIndices = (
   requestedInstructionCount: number
-): Schema.Array$<typeof Schema.Number>["Type"] =>
+): ReadonlyArray<number> =>
   buildIndices(Numeric.max(0, Num.subtract(normalizeInstructionCount(requestedInstructionCount), 1)))
 
 /**
@@ -69,7 +68,7 @@ export const proposalIndices = (
  */
 export const resolveTipVocabulary = (tipVocabulary?: TipVocabulary): TipVocabulary =>
   Option.getOrElse(
-    Option.filter(Option.fromNullable(tipVocabulary), Arr.isNonEmptyReadonlyArray),
+    Option.filter(Option.fromNullishOr(tipVocabulary), Arr.isReadonlyArrayNonEmpty),
     () => defaultTipVocabulary
   )
 
@@ -117,4 +116,4 @@ export const proposalMarker = (predictorName: string, proposalIndex: number, see
  * @category utils
  */
 export const resolveDiversityTemperature = (temperature?: number): number =>
-  Option.getOrElse(Option.fromNullable(temperature), () => 1)
+  Option.getOrElse(Option.fromNullishOr(temperature), () => 1)

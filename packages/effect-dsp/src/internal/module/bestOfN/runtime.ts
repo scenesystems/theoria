@@ -18,7 +18,7 @@ class ScoredCandidate<O> extends Data.Class<{
 
 const scoredCandidateOrder = <O>(): Order.Order<ScoredCandidate<O>> =>
   Order.combine(
-    Order.reverse(Order.mapInput(Num.Order, (candidate: ScoredCandidate<O>) => candidate.score)),
+    Order.mapInput(Order.Number, (candidate: ScoredCandidate<O>) => Num.multiply(candidate.score, -1)),
     Order.mapInput(Num.Order, (candidate: ScoredCandidate<O>) => candidate.rolloutIndex)
   )
 
@@ -62,7 +62,7 @@ export const makeBestOfNForward = <
       )
 
       const sorted = Arr.sort(
-        Arr.filter(candidates, (candidate) => S.is(S.NonNaN)(candidate.score)),
+        Arr.filter(candidates, (candidate) => S.is(S.Finite)(candidate.score)),
         scoredCandidateOrder<Schema.Schema.Type<Schema.Struct<O>>>()
       )
       const best = Option.getOrElse(
@@ -70,14 +70,14 @@ export const makeBestOfNForward = <
         () => Arr.headNonEmpty(candidates)
       )
 
-      return Option.match(Option.fromNullable(options.threshold), {
+      return Option.match(Option.fromNullishOr(options.threshold), {
         onSome: (threshold) =>
           Option.getOrElse(
             Arr.findFirst(
               sorted,
               (candidate) =>
-                Boolean.match(S.is(S.NonNaN)(threshold), {
-                  onTrue: () => Num.greaterThanOrEqualTo(candidate.score, threshold),
+                Boolean.match(S.is(S.Finite)(threshold), {
+                  onTrue: () => Num.isGreaterThanOrEqualTo(candidate.score, threshold),
                   onFalse: () => false
                 })
             ),

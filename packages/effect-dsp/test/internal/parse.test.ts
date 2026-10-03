@@ -10,14 +10,16 @@ import {
   Data,
   Effect,
   Equal,
+  Exit,
+  Fiber,
   Function,
   Number,
   Option,
   Ref,
   Schema,
-  TestClock,
   Tuple
 } from "effect"
+import { TestClock } from "effect/testing"
 import { parseStructuredOutput, parseTextOutput } from "../../src/internal/parse/decode.js"
 import { parseTextWithRetry, ParseTextWithRetryOptions } from "../../src/internal/parse/retry.js"
 
@@ -35,13 +37,13 @@ const makeReadText = (
 ) =>
 (feedback: Option.Option<string>) =>
   Effect.gen(function*() {
-    const next = yield* Ref.modify(responses, (queue) => Data.tuple(Arr.head(queue), Arr.drop(queue, 1)))
+    const next = yield* Ref.modify(responses, (queue) => Tuple.make(Arr.head(queue), Arr.drop(queue, 1)))
     yield* Option.match(feedback, {
       onNone: () => Effect.void,
       onSome: (value) => Ref.update(feedbackLog, (entries) => Arr.append(entries, value))
     })
 
-    return yield* next
+    return yield* Effect.fromOption(next)
   })
 
 describe("internal/parse", () => {
@@ -70,7 +72,7 @@ describe("internal/parse", () => {
   it.effect("fails with ParseOutputError when text output is malformed", () =>
     Effect.gen(function*() {
       const error = yield* parseTextOutput("qa", AnswerSchema, "malformed output").pipe(Effect.flip)
-      const diagnostic = yield* Arr.head(error.fieldDiagnostics)
+      const diagnostic = yield* Effect.fromOption(Arr.head(error.fieldDiagnostics))
 
       expect(error).toBeInstanceOf(ParseOutputError)
       expect(diagnostic.field).toBe("answer")
@@ -91,7 +93,7 @@ describe("internal/parse", () => {
     Effect.gen(function*() {
       const error = yield* parseTextOutput(
         "qa",
-        Schema.Struct({ answer: Schema.String, count: Schema.Number }),
+        Schema.Struct({ answer: Schema.String, count: Schema.Finite }),
         "[[## answer ##]] first [[ ## extra ## ]] value [[ ## answer ## ]] last"
       ).pipe(Effect.flip)
 
@@ -110,7 +112,7 @@ describe("internal/parse", () => {
           "- answer (duplicate-field): Marker [[ ## answer ## ]] appeared 2 times",
           "- count (missing-field): Expected marker [[ ## count ## ]] was not found",
           "- extra (unexpected-field): Marker [[ ## extra ## ]] is not declared in the output schema",
-          "- count (decode-error): is missing"
+          "- count (decode-error): Missing key"
         ),
         "\n"
       ))
@@ -123,7 +125,7 @@ describe("internal/parse", () => {
         "[[ ## answer ## ]]\nParis"
       ))
       const feedbackLog = yield* Ref.make<TextResponses>(Arr.empty())
-      const parsedFiber = yield* Effect.fork(
+      const parsedFiber = yield* Effect.forkChild(
         parseTextWithRetry(
           new ParseTextWithRetryOptions({
             moduleName: "qa",
@@ -139,12 +141,12 @@ describe("internal/parse", () => {
 
       yield* TestClock.adjust("2 seconds")
 
-      const parsed = yield* Effect.fromFiber(parsedFiber)
+      const parsed = yield* Fiber.join(parsedFiber)
       const feedback = yield* Ref.get(feedbackLog)
-      const firstFeedback = yield* Arr.head(feedback)
+      const firstFeedback = yield* Effect.fromOption(Arr.head(feedback))
 
-      expect(Tuple.getFirst(parsed)).toEqual({ answer: "Paris" })
-      expect(Tuple.getSecond(parsed)).toBe("[[ ## answer ## ]]\nParis")
+      expect(parsed[0]).toEqual({ answer: "Paris" })
+      expect(parsed[1]).toBe("[[ ## answer ## ]]\nParis")
       expect(feedback).toHaveLength(1)
       expect(firstFeedback).toContain("Parse error (0)")
       expect(firstFeedback).toContain("answer")
@@ -159,7 +161,7 @@ describe("internal/parse", () => {
       ))
       const feedbackLog = yield* Ref.make<TextResponses>(Arr.empty())
 
-      const failureFiber = yield* Effect.fork(
+      const failureFiber = yield* Effect.forkChild(
         Effect.flip(
           parseTextWithRetry(
             new ParseTextWithRetryOptions({
@@ -177,12 +179,12 @@ describe("internal/parse", () => {
 
       yield* TestClock.adjust("2 seconds")
 
-      const error = yield* Effect.fromFiber(failureFiber).pipe(
-        Effect.flatMap(Schema.decodeUnknown(ParseOutputError))
+      const error = yield* Fiber.join(failureFiber).pipe(
+        Effect.flatMap(Schema.decodeUnknownEffect(ParseOutputError))
       )
       const feedback = yield* Ref.get(feedbackLog)
-      const firstFeedback = yield* Arr.head(feedback)
-      const secondFeedback = yield* Arr.get(feedback, 1)
+      const firstFeedback = yield* Effect.fromOption(Arr.head(feedback))
+      const secondFeedback = yield* Effect.fromOption(Arr.get(feedback, 1))
 
       expect(error).toBeInstanceOf(ParseOutputError)
       expect(feedback).toHaveLength(2)
@@ -209,26 +211,28 @@ describe("internal/parse", () => {
             feedbackTemplate: defaultParseFeedbackTemplate,
             readText: (feedback) =>
               Ref.update(readCount, Number.increment).pipe(
-                Effect.zipRight(
+                Effect.andThen(
                   Option.match(feedback, {
                     onNone: () => Effect.void,
                     onSome: (value) => Ref.update(feedbackLog, (entries) => Arr.append(entries, value))
                   })
                 ),
-                Effect.zipRight(Effect.fail(providerError))
+                Effect.andThen(Effect.fail(providerError))
               ),
-            text: Function.identity
+            text: (value) => value
           })
         )
       )
       const reads = yield* Ref.get(readCount)
       const feedback = yield* Ref.get(feedbackLog)
-      const cause = yield* Effect.cause(exit)
-      const failure = yield* Cause.failureOption(cause)
+      const failure = Exit.match(exit, {
+        onFailure: Cause.findErrorOption,
+        onSuccess: () => Option.none<ProviderReadError>()
+      })
 
       expect(reads).toBe(1)
       expect(feedback).toEqual(Arr.empty())
-      expect(Equal.equals(cause, Cause.fail(providerError))).toBe(true)
-      expect(failure).toBe(providerError)
+      expect(Equal.equals(exit, Exit.fail(providerError))).toBe(true)
+      expect(failure).toEqual(Option.some(providerError))
     }))
 })

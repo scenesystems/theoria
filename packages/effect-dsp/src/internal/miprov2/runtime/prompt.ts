@@ -5,7 +5,7 @@
  * @since 0.1.0
  * @internal
  */
-import { Array as Arr, Inspectable, Number as Num, Option, Schema, String as Str, Tuple } from "effect"
+import { Array as Arr, Inspectable, Number as Num, Option, Schema, String as Str } from "effect"
 import { Documents as DemoDocuments, type Documents as DemoDocumentsType } from "../../../Demonstration.js"
 import type { Example } from "../../../Example.js"
 
@@ -25,12 +25,12 @@ export class ProposalPromptOptions extends Schema.Class<ProposalPromptOptions>(
   tip: Schema.String,
   demos: Schema.Array(DemoDocuments),
   baselineInstruction: Schema.String,
-  diversityTemperature: Schema.Number
+  diversityTemperature: Schema.Finite
 }) {}
 
 const renderDemoBlock = (demo: DemoDocumentsType): string =>
   Arr.join(
-    Arr.make("Input:\n", Tuple.getFirst(demo), "\nOutput:\n", Tuple.getSecond(demo)),
+    Arr.make("Input:\n", demo[0], "\nOutput:\n", demo[1]),
     ""
   )
 
@@ -42,9 +42,9 @@ const renderDemoBlock = (demo: DemoDocumentsType): string =>
  * @since 0.1.0
  * @category formatters
  */
-export const datasetSummary = (trainset: Schema.Array$<typeof Example>["Type"]): string => {
+export const datasetSummary = (trainset: ReadonlyArray<Example>): string => {
   const total = Arr.length(trainset)
-  const labeled = Arr.length(Arr.filter(trainset, (example) => Option.isSome(Option.fromNullable(example.output))))
+  const labeled = Arr.length(Arr.filter(trainset, (example) => Option.isSome(Option.fromNullishOr(example.output))))
   const unlabeled = Num.subtract(total, labeled)
 
   return Arr.join(

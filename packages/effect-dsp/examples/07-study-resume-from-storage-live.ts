@@ -15,14 +15,14 @@
  *
  * Run: bun run examples/07-study-resume-from-storage-live.ts
  */
-import * as LanguageModel from "@effect/ai/LanguageModel"
-import { BunContext, BunRuntime } from "@effect/platform-bun"
+import { BunRuntime, BunServices } from "@effect/platform-bun"
 import { Demonstration, Evaluate, Example, Metric, Module, ModuleParameters, Signature } from "@scenesystems/effect-dsp"
 import * as Optimization from "@scenesystems/effect-search/Optimization"
 import * as Sampler from "@scenesystems/effect-search/Sampler"
 import * as SearchSpace from "@scenesystems/effect-search/SearchSpace"
 import * as ArtifactSink from "@scenesystems/effect-study/ArtifactSink"
 import { Array as Arr, Effect, Layer, Match, Number as Num, Option, Ref, Schema, Stream } from "effect"
+import * as LanguageModel from "effect/ai/LanguageModel"
 import {
   makeStandardEvents,
   makeStandardModuleState,
@@ -98,7 +98,7 @@ const program = Effect.gen(function*() {
 
   const objective = (raw: unknown) =>
     Effect.gen(function*() {
-      const config = yield* Schema.decodeUnknown(space.schema)(raw)
+      const config = yield* Schema.decodeUnknownEffect(space.schema)(raw)
 
       yield* Ref.set(
         qa.params,
@@ -109,60 +109,68 @@ const program = Effect.gen(function*() {
         })
       )
 
-      const report = yield* Evaluate.run({
-        module: qa,
-        examples: italyEvalset,
-        metrics: {
-          exactMatch: Metric.exactMatch("answer")
-        },
-        concurrency: 1
-      }).pipe(Effect.provideService(LanguageModel.LanguageModel, languageModel))
+      const report = yield* Evaluate.run(
+        new Evaluate.Options({
+          module: qa,
+          examples: italyEvalset,
+          metrics: {
+            exactMatch: Metric.exactMatch("answer")
+          },
+          concurrency: 1
+        })
+      ).pipe(Effect.provideService(LanguageModel.LanguageModel, languageModel))
 
       return Option.getOrElse(
-        Option.fromNullable(report.overallScores.exactMatch),
+        Option.fromNullishOr(report.overallScores.exactMatch),
         () => 0
       )
     })
 
   const firstLegEvents = yield* Stream.runCollect(
     withStudyProgress(
-      Optimization.stream({
-        space,
-        sampler: Sampler.random({ seed: 64 }),
-        direction: "maximize",
-        trials: 3,
-        objective
-      })
-    ).pipe(Stream.provideLayer(studyLayer))
+      Optimization.stream(
+        new Optimization.FlatOptions({
+          space,
+          sampler: Sampler.random({ seed: 64 }),
+          direction: "maximize",
+          trials: 3,
+          objective
+        })
+      )
+    ).pipe(Stream.provide(studyLayer))
   )
 
   const resumedEvents = yield* Stream.runCollect(
     withStudyProgress(
-      Optimization.resumeFromStorageStream({
-        space,
-        sampler: Sampler.random({ seed: 64 }),
-        direction: "maximize",
-        trials: 2,
-        objective
-      })
-    ).pipe(Stream.provideLayer(studyLayer))
+      Optimization.resumeFromStorageStream(
+        new Optimization.FlatOptions({
+          space,
+          sampler: Sampler.random({ seed: 64 }),
+          direction: "maximize",
+          trials: 2,
+          objective
+        })
+      )
+    ).pipe(Stream.provide(studyLayer))
   )
 
   const firstLegTags = Arr.map(Arr.fromIterable(firstLegEvents), (event) => event._tag)
   const resumedTags = Arr.map(Arr.fromIterable(resumedEvents), (event) => event._tag)
   const resumedLastEvent = Option.getOrElse(Arr.last(resumedTags), () => "none")
-  const optimized = yield* Evaluate.run({
-    module: qa,
-    examples: italyEvalset,
-    metrics: {
-      exactMatch: Metric.exactMatch("answer")
-    },
-    concurrency: 1
-  })
+  const optimized = yield* Evaluate.run(
+    new Evaluate.Options({
+      module: qa,
+      examples: italyEvalset,
+      metrics: {
+        exactMatch: Metric.exactMatch("answer")
+      },
+      concurrency: 1
+    })
+  )
   const optimizedParams = yield* Ref.get(qa.params)
   const moduleSavedState = yield* Module.save(qa)
   const optimizedScore = Option.getOrElse(
-    Option.fromNullable(optimized.overallScores.exactMatch),
+    Option.fromNullishOr(optimized.overallScores.exactMatch),
     () => 0
   )
   const summaryArtifact = makeStandardSummary({
@@ -229,6 +237,6 @@ const program = Effect.gen(function*() {
 
 BunRuntime.runMain(
   withLiveLanguageModel(program).pipe(
-    Effect.provide(BunContext.layer)
+    Effect.provide(BunServices.layer)
   )
 )

@@ -4,32 +4,28 @@
  * @since 0.1.0
  * @internal
  */
-import { Array as Arr, Data, Effect, Match, Option, Predicate, Record, Schema, Tuple } from "effect"
-import * as ParseResult from "effect/ParseResult"
+import type { SchemaAST } from "effect"
+import { Array as Arr, Data, Effect, Match, Option, Predicate, Record, Schema, SchemaIssue, Tuple } from "effect"
 import { ParseFieldDiagnostic, ParseOutputError } from "../../DspError.js"
-import { encodedFieldsToInfoArray } from "../signature/fields.js"
+import { encodedFieldSchema, encodedFieldsToInfoArray } from "../signature/fields.js"
 import { extractMarkedRecord, markerDiagnostics } from "./protocol.js"
 
-const pathSegmentToField = (segment: PropertyKey): string =>
+const pathSegmentToField = (segment: unknown): string =>
   Match.value(segment).pipe(
     Match.when(Predicate.isString, (value) => value),
-    Match.when(Predicate.isNumber, Schema.encodeSync(Schema.NumberFromString)),
-    Match.when(Predicate.isSymbol, () => "[root]"),
-    Match.exhaustive
+    Match.when(Predicate.isNumber, Schema.encodeSync(Schema.FiniteFromString)),
+    Match.orElse(() => "[root]")
   )
 
-const fieldFromPath = (path: ParseResult.ArrayFormatterIssue["path"]): string =>
-  Option.match(Arr.head(path), {
-    onNone: () => "[root]",
-    onSome: pathSegmentToField
-  })
-
-const schemaDiagnostics = (issue: ParseResult.ParseIssue): ParseOutputError["fieldDiagnostics"] =>
+const schemaDiagnostics = (issue: SchemaIssue.Issue): ParseOutputError["fieldDiagnostics"] =>
   Arr.map(
-    ParseResult.ArrayFormatter.formatIssueSync(issue),
+    SchemaIssue.makeFormatterStandardSchemaV1()(issue).issues,
     (diagnostic) =>
       new ParseFieldDiagnostic({
-        field: fieldFromPath(diagnostic.path),
+        field: Option.match(Option.fromNullishOr(diagnostic.path).pipe(Option.flatMap(Arr.head)), {
+          onNone: () => "[root]",
+          onSome: (segment) => pathSegmentToField(Predicate.isObject(segment) ? segment.key : segment)
+        }),
         issue: "decode-error",
         message: diagnostic.message
       })
@@ -37,7 +33,7 @@ const schemaDiagnostics = (issue: ParseResult.ParseIssue): ParseOutputError["fie
 
 class DecodeOptions<A, R> extends Data.Class<{
   readonly moduleName: string
-  readonly decode: Effect.Effect<A, ParseResult.ParseError, R>
+  readonly decode: Effect.Effect<A, Schema.SchemaError, R>
   readonly rawOutput: Option.Option<string>
   readonly retryCount: Option.Option<number>
   readonly message: string
@@ -57,38 +53,38 @@ const decodeOutput = <A, R>(options: DecodeOptions<A, R>): Effect.Effect<A, Pars
     )
   )
 
-const decodeTextFields = <O extends Schema.Struct.Fields>(schema: Schema.Struct<O>, rawOutput: string) =>
+const decodeTextFields = <A, R>(
+  schema: Schema.Codec<A, Record.ReadonlyRecord<string, unknown>, R, unknown>,
+  rawOutput: string,
+  options?: SchemaAST.ParseOptions
+): Effect.Effect<A, Schema.SchemaError, R> =>
   Effect.gen(function*() {
     // Project the whole Struct so optional/defaulted/renamed properties retain
     // their encoded contract without running property or domain transformations.
-    const encoded = Schema.encodedBoundSchema(schema)
-    const decodeKey = Schema.decodeUnknownOption(Schema.keyof(encoded))
+    const encoded = Schema.toEncoded(schema)
     const record = extractMarkedRecord(rawOutput)
     const entries = yield* Effect.forEach(Record.toEntries(record), ([name, text]) =>
       Effect.gen(function*() {
-        const value = yield* Option.match(decodeKey(name), {
+        const value = yield* Option.match(encodedFieldSchema(encoded, name), {
           onNone: () => Effect.succeed(text),
-          onSome: (key) => {
-            const field = Schema.typeSchema(Schema.pluck(encoded, key))
+          onSome: (field) => {
             // Raw strings win even in ambiguous unions. JSON is only a wire fallback
             // for non-strings, never a second attempt at a failed domain transformation.
-            const wire = Schema.Union(
-              Schema.compose(Schema.String, field, { strict: false }),
-              Schema.parseJson(field.pipe(Schema.filter(Predicate.not(Predicate.isString))))
-            )
-            return Schema.decodeUnknown(wire)(text)
+            const wire = Schema.Union([
+              Schema.String.pipe(Schema.decodeTo(field)),
+              Schema.fromJsonString(field.check(Schema.makeFilter(Predicate.not(Predicate.isString))))
+            ])
+            return Schema.decodeEffect(wire)(text)
           }
         })
         return Tuple.make(name, value)
       }).pipe(
-        Effect.mapError((error) =>
-          new ParseResult.ParseError({ issue: new ParseResult.Pointer(name, record, error.issue) })
-        )
+        Effect.mapError((error) => new Schema.SchemaError(new SchemaIssue.Pointer([name], error.issue)))
       ))
 
     // Missing fields remain absent. The original Struct alone applies defaults,
     // Option/property transformations, domain decoding and service requirements.
-    return yield* Schema.decodeUnknown(schema)(Record.fromEntries(entries))
+    return yield* Schema.decodeEffect(schema)(Record.fromEntries(entries), options)
   })
 
 /**
@@ -104,15 +100,17 @@ export const parseStructuredOutput = <O extends Schema.Struct.Fields>(
   moduleName: string,
   schema: Schema.Struct<O>,
   value: unknown
-): Effect.Effect<Schema.Schema.Type<Schema.Struct<O>>, ParseOutputError, Schema.Schema.Context<Schema.Struct<O>>> =>
-  decodeOutput({
-    moduleName,
-    decode: Schema.decodeUnknown(schema)(value),
-    rawOutput: Option.some("[structured-output]"),
-    retryCount: Option.none<number>(),
-    message: "Unable to decode structured output against module schema",
-    protocolDiagnostics: Arr.empty()
-  })
+): Effect.Effect<Schema.Schema.Type<Schema.Struct<O>>, ParseOutputError, Schema.Struct<O>["DecodingServices"]> =>
+  decodeOutput(
+    new DecodeOptions({
+      moduleName,
+      decode: Schema.decodeUnknownEffect(schema)(value),
+      rawOutput: Option.some("[structured-output]"),
+      retryCount: Option.none<number>(),
+      message: "Unable to decode structured output against module schema",
+      protocolDiagnostics: Arr.empty()
+    })
+  )
 
 /**
  * Extracts marker-delimited fields from raw LLM text, then decodes the
@@ -125,19 +123,22 @@ export const parseStructuredOutput = <O extends Schema.Struct.Fields>(
  * @category constructors
  * @internal
  */
-export const parseTextOutput = <O extends Schema.Struct.Fields>(
+export const parseTextOutput = <A, R>(
   moduleName: string,
-  schema: Schema.Struct<O>,
-  rawOutput: string
-): Effect.Effect<Schema.Schema.Type<Schema.Struct<O>>, ParseOutputError, Schema.Schema.Context<Schema.Struct<O>>> => {
-  const expectedFields = Arr.map(encodedFieldsToInfoArray(schema.fields), (field) => field.name)
+  schema: Schema.Codec<A, Record.ReadonlyRecord<string, unknown>, R, unknown>,
+  rawOutput: string,
+  options?: SchemaAST.ParseOptions
+): Effect.Effect<A, ParseOutputError, R> => {
+  const expectedFields = Arr.map(encodedFieldsToInfoArray(schema), (field) => field.name)
 
-  return decodeOutput({
-    moduleName,
-    decode: decodeTextFields(schema, rawOutput),
-    rawOutput: Option.some(rawOutput),
-    retryCount: Option.none<number>(),
-    message: "Unable to decode text output against module schema",
-    protocolDiagnostics: markerDiagnostics(expectedFields, rawOutput)
-  })
+  return decodeOutput(
+    new DecodeOptions({
+      moduleName,
+      decode: decodeTextFields(schema, rawOutput, options),
+      rawOutput: Option.some(rawOutput),
+      retryCount: Option.none<number>(),
+      message: "Unable to decode text output against module schema",
+      protocolDiagnostics: markerDiagnostics(expectedFields, rawOutput)
+    })
+  )
 }

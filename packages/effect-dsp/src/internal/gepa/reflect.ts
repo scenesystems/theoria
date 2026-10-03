@@ -34,7 +34,7 @@ const renderReflectiveExampleSection = (example: ReflectiveExample, index: numbe
 
   return Arr.join(
     Arr.make(
-      String.concat("# Example ", Schema.encodeSync(Schema.NumberFromString)(Number.increment(index))),
+      String.concat("# Example ", Schema.encodeSync(Schema.FiniteFromString)(Number.increment(index))),
       Arr.headNonEmpty(labels),
       example.inputs,
       Arr.lastNonEmpty(labels),
@@ -75,13 +75,13 @@ export const formatParseFailureFeedback = (structureInstruction: string): string
  * @category combinators
  */
 export const normalizeMetricFeedback = (metricResult: MetricResult): string =>
-  Option.match(Option.fromNullable(metricResult.feedback), {
+  Option.match(Option.fromNullishOr(metricResult.feedback), {
     onNone: () => EMPTY_FEEDBACK,
     onSome: String.trim
   })
 
 const reflectiveFeedback = (sample: ReflectiveDatasetSample): string =>
-  Option.match(Option.fromNullable(sample.parseFailureStructure), {
+  Option.match(Option.fromNullishOr(sample.parseFailureStructure), {
     onNone: () => normalizeMetricFeedback(sample.metricResult),
     onSome: (structureInstruction) => formatParseFailureFeedback(structureInstruction)
   })

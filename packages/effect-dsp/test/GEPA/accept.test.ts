@@ -3,7 +3,11 @@
  */
 import { describe, expect, it } from "@effect/vitest"
 import { Array as Arr, Boolean as Bool, Effect, Number as Num, Option, Ref, Schema } from "effect"
-import { evaluateMergeAcceptance, evaluateMutationAcceptance } from "../../src/internal/gepa/accept.js"
+import {
+  evaluateMergeAcceptance,
+  evaluateMutationAcceptance,
+  EvaluateMutationAcceptanceOptions
+} from "../../src/internal/gepa/accept.js"
 import {
   GepaAcceptMergeNonStrictFixtureSchema,
   GepaAcceptMutationStrictGreaterFixtureSchema,
@@ -14,17 +18,19 @@ describe("GEPA acceptance gates", () => {
   it.effect("evaluates fixture-declared strict mutation acceptance cases", () =>
     Effect.gen(function*() {
       const rawFixture = yield* loadFixture("dspy.gepa.accept.mutation-strict-greater")
-      const fixture = yield* Schema.decodeUnknown(GepaAcceptMutationStrictGreaterFixtureSchema)(rawFixture)
+      const fixture = yield* Schema.decodeUnknownEffect(GepaAcceptMutationStrictGreaterFixtureSchema)(rawFixture)
 
       yield* Effect.forEach(
         fixture.payload.cases,
         (testCase) =>
           Effect.gen(function*() {
-            const result = yield* evaluateMutationAcceptance({
-              previousSubsampleScores: testCase.previousSubsampleScores,
-              mutatedSubsampleScores: testCase.mutatedSubsampleScores,
-              evaluateFullValset: Effect.succeed(testCase.fullValsetScores)
-            })
+            const result = yield* evaluateMutationAcceptance(
+              new EvaluateMutationAcceptanceOptions({
+                previousSubsampleScores: testCase.previousSubsampleScores,
+                mutatedSubsampleScores: testCase.mutatedSubsampleScores,
+                evaluateFullValset: Effect.succeed(testCase.fullValsetScores)
+              })
+            )
 
             expect(result.gate1Passed).toBe(testCase.expectedGate1Passed)
             expect(result.fullValsetEvaluated).toBe(testCase.expectedFullValsetEvaluated)
@@ -36,11 +42,13 @@ describe("GEPA acceptance gates", () => {
 
   it.effect("enforces strict mutation gate 1 (`newSum > oldSum`) and rejects equality", () =>
     Effect.gen(function*() {
-      const result = yield* evaluateMutationAcceptance({
-        previousSubsampleScores: Arr.make(0.4, 0.6),
-        mutatedSubsampleScores: Arr.make(0.4, 0.6),
-        evaluateFullValset: Effect.succeed(Arr.make(0.9, 1))
-      })
+      const result = yield* evaluateMutationAcceptance(
+        new EvaluateMutationAcceptanceOptions({
+          previousSubsampleScores: Arr.make(0.4, 0.6),
+          mutatedSubsampleScores: Arr.make(0.4, 0.6),
+          evaluateFullValset: Effect.succeed(Arr.make(0.9, 1))
+        })
+      )
 
       expect(result.gate1Passed).toBe(false)
       expect(result.previousSubsampleSum).toBe(1)
@@ -57,18 +65,22 @@ describe("GEPA acceptance gates", () => {
         Effect.as(Arr.make(0.8, 0.9))
       )
 
-      const rejectedAtGate1 = yield* evaluateMutationAcceptance({
-        previousSubsampleScores: Arr.make(0.5, 0.5),
-        mutatedSubsampleScores: Arr.make(0.5, 0.5),
-        evaluateFullValset
-      })
+      const rejectedAtGate1 = yield* evaluateMutationAcceptance(
+        new EvaluateMutationAcceptanceOptions({
+          previousSubsampleScores: Arr.make(0.5, 0.5),
+          mutatedSubsampleScores: Arr.make(0.5, 0.5),
+          evaluateFullValset
+        })
+      )
       const callsAfterGate1Reject = yield* Ref.get(fullEvalCalls)
 
-      const acceptedAtGate1 = yield* evaluateMutationAcceptance({
-        previousSubsampleScores: Arr.make(0.2, 0.3),
-        mutatedSubsampleScores: Arr.make(0.4, 0.3),
-        evaluateFullValset
-      })
+      const acceptedAtGate1 = yield* evaluateMutationAcceptance(
+        new EvaluateMutationAcceptanceOptions({
+          previousSubsampleScores: Arr.make(0.2, 0.3),
+          mutatedSubsampleScores: Arr.make(0.4, 0.3),
+          evaluateFullValset
+        })
+      )
       const callsAfterGate1Pass = yield* Ref.get(fullEvalCalls)
 
       expect(rejectedAtGate1.gate1Passed).toBe(false)
@@ -95,11 +107,13 @@ describe("GEPA acceptance gates", () => {
           { previousSubsampleScores: Arr.make(1), mutatedSubsampleScores: Arr.make(Number.NaN) }
         ),
         (scores) =>
-          evaluateMutationAcceptance({
-            previousSubsampleScores: scores.previousSubsampleScores,
-            mutatedSubsampleScores: scores.mutatedSubsampleScores,
-            evaluateFullValset
-          })
+          evaluateMutationAcceptance(
+            new EvaluateMutationAcceptanceOptions({
+              previousSubsampleScores: scores.previousSubsampleScores,
+              mutatedSubsampleScores: scores.mutatedSubsampleScores,
+              evaluateFullValset
+            })
+          )
       )
       const calls = yield* Ref.get(fullEvalCalls)
 
@@ -111,7 +125,7 @@ describe("GEPA acceptance gates", () => {
   it.effect("accepts merge candidates with non-strict comparator (`mergedSum >= bestParentSum`)", () =>
     Effect.gen(function*() {
       const rawFixture = yield* loadFixture("dspy.gepa.accept.merge-non-strict")
-      const fixture = yield* Schema.decodeUnknown(GepaAcceptMergeNonStrictFixtureSchema)(rawFixture)
+      const fixture = yield* Schema.decodeUnknownEffect(GepaAcceptMergeNonStrictFixtureSchema)(rawFixture)
       const tieAccepted = evaluateMergeAcceptance({
         mergedSubsampleScores: Arr.make(0.5, 0.4),
         parentASubsampleScores: Arr.make(0.4, 0.5),

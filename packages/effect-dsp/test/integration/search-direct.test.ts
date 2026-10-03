@@ -9,15 +9,17 @@ describe("integration/effect-search direct", () => {
     Effect.scoped(
       Effect.gen(function*() {
         const searchSpace = yield* space
-        const handle = yield* Optimization.open({
-          direction: "maximize",
-          space: searchSpace,
-          sampler: Sampler.tpe({ seed: 71, acquisition: "ei" }),
-          trials: 2,
-          objective: () => Effect.succeed(0),
-          concurrency: 1
-        })
-        const eventFiber = yield* Stream.runCollect(Optimization.events(handle)).pipe(Effect.fork)
+        const handle = yield* Optimization.open(
+          new Optimization.FlatOptions({
+            direction: "maximize",
+            space: searchSpace,
+            sampler: Sampler.tpe(new Sampler.TpeOptions({ seed: 71, acquisition: "ei" })),
+            trials: 2,
+            objective: () => Effect.succeed(0),
+            concurrency: 1
+          })
+        )
+        const eventFiber = yield* Stream.runCollect(Optimization.events(handle)).pipe(Effect.forkScoped)
         const first = yield* Optimization.ask(handle)
         yield* Optimization.tell(handle, first.trialNumber, first.config.x)
         const second = yield* Optimization.ask(handle)
@@ -41,7 +43,7 @@ describe("integration/effect-search direct", () => {
   it.effect("uses the public Pareto module for ranking and hypervolume", () =>
     Effect.gen(function*() {
       const vectors = Arr.make(Arr.make(1, 1), Arr.make(2, 0), Arr.make(0, 2), Arr.make(1.5, 1.5))
-      const directions = yield* Schema.decodeUnknown(Schema.Array(Schema.Literal("maximize", "minimize")))(
+      const directions = yield* Schema.decodeUnknownEffect(Schema.Array(Schema.Literals(["maximize", "minimize"])))(
         Arr.make("maximize", "maximize")
       )
       expect(Pareto.nonDominatedIndices(vectors, directions)).toEqual([1, 2, 3])

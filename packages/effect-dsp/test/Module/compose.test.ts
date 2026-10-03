@@ -1,7 +1,6 @@
 /**
  * Module composition graph contracts.
  */
-import * as LanguageModel from "@effect/ai/LanguageModel"
 import { describe, expect, it } from "@effect/vitest"
 import * as MockLanguageModel from "@scenesystems/effect-dsp/MockLanguageModel"
 import * as Module from "@scenesystems/effect-dsp/Module"
@@ -9,7 +8,8 @@ import * as ModuleGraph from "@scenesystems/effect-dsp/ModuleGraph"
 import { make as makeParameters } from "@scenesystems/effect-dsp/ModuleParameters"
 import * as Signature from "@scenesystems/effect-dsp/Signature"
 import * as Trace from "@scenesystems/effect-dsp/Trace"
-import { Array as Arr, Effect, HashMap, Layer, Option, Record, Ref, Schema, Tuple } from "effect"
+import { Array as Arr, Effect, HashMap, Layer, MutableRef, Option, Record, Ref, Schema, Tuple } from "effect"
+import * as LanguageModel from "effect/ai/LanguageModel"
 
 const makeQaSignature = () =>
   Signature.make(
@@ -22,7 +22,7 @@ const makeQaSignature = () =>
     }
   )
 
-const decodeModuleId = Schema.decodeUnknown(Module.Id)
+const decodeModuleId = Schema.decodeUnknownEffect(Module.Id)
 
 describe("Module.compose", () => {
   it.effect("retains the destination demonstration contract on projected children", () =>
@@ -38,13 +38,13 @@ describe("Module.compose", () => {
         })
       )
       const qaId = yield* decodeModuleId("qa")
-      const node = yield* HashMap.get(root.subModules, qaId)
+      const node = Option.getOrThrow(HashMap.get(root.subModules, qaId))
       const demo = yield* node.demonstrationCodec.decode({ input: { question: "Where?" }, output: { answer: "Here" } })
       const invalid = yield* Effect.flip(
         node.demonstrationCodec.decode({ input: { question: 42 }, output: { answer: "Here" } })
       )
       expect(demo.input).toEqual({ question: "Where?" })
-      expect(invalid._tag).toBe("ParseError")
+      expect(invalid._tag).toBe("SchemaError")
     }))
 
   it.effect("builds explicit graph contracts with stable traversal and lineage", () =>
@@ -70,7 +70,7 @@ describe("Module.compose", () => {
       const pipelineId = yield* decodeModuleId(pipeline.name)
       const qaId = yield* decodeModuleId(qa.name)
       const traversal = ModuleGraph.traversal(rootGraph)
-      const lineage = yield* ModuleGraph.lineage(rootGraph, qaId)
+      const lineage = Option.getOrThrow(ModuleGraph.lineage(rootGraph, qaId))
 
       expect(traversal).toEqual(Arr.make(
         rootId,
@@ -107,16 +107,22 @@ describe("Module.compose", () => {
         description: signature.description,
         instructions: signature.instructions
       })
-      const loopNode: Module.Node = {
+      const cycle = MutableRef.make(Option.none<Module.Node>())
+      class CycleNode extends Module.Node {
+        override get subModules(): Module.Node["subModules"] {
+          return HashMap.make(Tuple.make(loopId, Option.getOrThrow(MutableRef.get(cycle))))
+        }
+        override set subModules(_initial: Module.Node["subModules"]) {}
+      }
+      const loopNode = new CycleNode({
         moduleId: loopId,
         name: "loop",
         signature: loopSignature,
         demonstrationCodec: signature.demonstrationCodec,
         params: paramsRef,
-        get subModules() {
-          return HashMap.make(Tuple.make(loopId, loopNode))
-        }
-      }
+        subModules: HashMap.empty()
+      })
+      MutableRef.set(cycle, Option.some(loopNode))
       const loopModule = new Module.Module({
         name: "loop",
         signature,
@@ -168,7 +174,13 @@ describe("Module.compose", () => {
     Effect.gen(function*() {
       const signature = yield* makeQaSignature()
       const child = yield* Module.predict("child", signature)
-      const renamed = new Module.Module({ ...child, name: "renamed" })
+      const renamed = new Module.Module({
+        name: "renamed",
+        signature: child.signature,
+        params: child.params,
+        subModules: child.subModules,
+        forward: child.forward
+      })
       const error = yield* Effect.flip(Module.composeGraph(
         new Module.ComposeGraphOptions({
           name: "root",
@@ -310,10 +322,10 @@ describe("Module.compose", () => {
         )
       )
       const traced = yield* Trace.withTracing(program)
-      const graph = Tuple.getFirst(traced)
-      const entries = Tuple.getSecond(traced)
-      const qaLineage = yield* ModuleGraph.lineage(graph, qaId)
-      const secondaryLineage = yield* ModuleGraph.lineage(graph, secondaryId)
+      const graph = traced[0]
+      const entries = traced[1]
+      const qaLineage = Option.getOrThrow(ModuleGraph.lineage(graph, qaId))
+      const secondaryLineage = Option.getOrThrow(ModuleGraph.lineage(graph, secondaryId))
 
       expect(Arr.map(entries, (entry) => entry.moduleName)).toEqual(Arr.make(
         "qa",
@@ -367,16 +379,14 @@ describe("Module.compose", () => {
           )
         )
       )
-      const innerUsage = Tuple.getSecond(Tuple.getFirst(nested))
-      const outerUsage = Tuple.getSecond(nested)
+      const innerUsage = nested[0][1]
+      const outerUsage = nested[1]
 
       expect(innerUsage.callCount).toBe(2)
       expect(outerUsage.callCount).toBe(2)
-      expect(Option.isNone(Option.fromNullable(innerUsage.tokens.inputTokens))).toBe(true)
-      expect(Option.isNone(Option.fromNullable(outerUsage.tokens.inputTokens))).toBe(true)
-      expect(Option.isNone(Option.fromNullable(innerUsage.tokens.outputTokens))).toBe(true)
-      expect(Option.isNone(Option.fromNullable(outerUsage.tokens.outputTokens))).toBe(true)
-      expect(Option.isNone(Option.fromNullable(innerUsage.tokens.totalTokens))).toBe(true)
-      expect(Option.isNone(Option.fromNullable(outerUsage.tokens.totalTokens))).toBe(true)
+      expect(Option.isNone(Option.fromNullishOr(innerUsage.tokens.inputTokens.total))).toBe(true)
+      expect(Option.isNone(Option.fromNullishOr(outerUsage.tokens.inputTokens.total))).toBe(true)
+      expect(Option.isNone(Option.fromNullishOr(innerUsage.tokens.outputTokens.total))).toBe(true)
+      expect(Option.isNone(Option.fromNullishOr(outerUsage.tokens.outputTokens.total))).toBe(true)
     }))
 })

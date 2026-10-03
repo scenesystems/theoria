@@ -16,7 +16,7 @@ import type { ModuleParameters } from "../../../ModuleParameters.js"
  * @since 0.1.0
  * @category type-level
  */
-export const Phase3DimensionIndex = Schema.Literal(0, 1, 2, 3, 4, 5, 6, 7, 8, 9)
+export const Phase3DimensionIndex = Schema.Literals([0, 1, 2, 3, 4, 5, 6, 7, 8, 9])
 
 /** @internal */
 export type Phase3DimensionIndex = typeof Phase3DimensionIndex.Type
@@ -31,7 +31,7 @@ export type Phase3DimensionIndex = typeof Phase3DimensionIndex.Type
  * @see {@link demoDimensionName}
  * @see {@link instructionDimensionName}
  */
-export const Phase3Config = Schema.Record({ key: Schema.String, value: Phase3DimensionIndex })
+export const Phase3Config = Schema.Record(Schema.String, Phase3DimensionIndex)
 
 /** @internal */
 export type Phase3Config = typeof Phase3Config.Type
@@ -67,7 +67,7 @@ export class BestAveragingCandidate extends Schema.Class<BestAveragingCandidate>
   "@scenesystems/effect-dsp/internal/miprov2/runtime/model/BestAveragingCandidate"
 )({
   config: Phase3Config,
-  score: Schema.Number
+  score: Schema.Finite
 }) {}
 
 /**

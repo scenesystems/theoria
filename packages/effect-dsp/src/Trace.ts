@@ -4,9 +4,8 @@
  * @since 0.1.0
  * @module
  */
-import * as Response from "@effect/ai/Response"
-import type { ParseResult } from "effect"
 import { Effect, Number, Option, Schema } from "effect"
+import * as Response from "effect/ai/Response"
 import { Id } from "./Module.js"
 import { Payload } from "./Payload.js"
 
@@ -20,9 +19,9 @@ import { Payload } from "./Payload.js"
  */
 export const UnparsedOutput = Schema.Struct({
   response: Schema.String,
-  parseError: Schema.Option(Schema.String),
-  toolCallCount: Schema.Number,
-  toolResultCount: Schema.Number
+  parseError: Schema.toCodecJson(Schema.Option(Schema.String)),
+  toolCallCount: Schema.Finite,
+  toolResultCount: Schema.Finite
 })
 
 /**
@@ -49,7 +48,9 @@ export class Entry extends Schema.Class<Entry>("@scenesystems/effect-dsp/Trace/E
   /** Schema-encoded answer or intermediate {@link UnparsedOutput} document. */
   output: Payload,
   /** Intermediate ReAct turns are evidence, not replayable demonstrations. */
-  outcome: Schema.optionalWith(Schema.Literal("completed", "intermediate"), { default: () => "completed" }),
+  outcome: Schema.Literals(["completed", "intermediate"]).pipe(
+    Schema.withDecodingDefaultType(Effect.succeed("completed"))
+  ),
   /** Rendered prompt sent to the language model. */
   prompt: Schema.String,
   /** Unparsed language-model response text. */
@@ -57,11 +58,11 @@ export class Entry extends Schema.Class<Entry>("@scenesystems/effect-dsp/Trace/E
   /** Same selected native usage as the final successful invocation's Call. */
   usage: Response.Usage,
   /** Invocation duration in milliseconds. */
-  durationMs: Schema.Number,
+  durationMs: Schema.Finite,
   /** Optional score assigned to this invocation. */
-  score: Schema.Option(Schema.Number),
+  score: Schema.toCodecJson(Schema.Option(Schema.Finite)),
   /** Invocation timestamp in Unix epoch milliseconds. */
-  timestamp: Schema.Number
+  timestamp: Schema.Finite
 }) {}
 
 /**
@@ -76,15 +77,15 @@ export class Entry extends Schema.Class<Entry>("@scenesystems/effect-dsp/Trace/E
  */
 export class Call extends Schema.Class<Call>("@scenesystems/effect-dsp/Trace/Call")({
   /** Language-model operation observed by the DSP runtime. */
-  operation: Schema.Literal("generateObject", "generateText"),
+  operation: Schema.Literals(["generateObject", "generateText"]),
   /** Provider usage when it was observed before the invocation terminated. */
-  usage: Schema.Option(Response.Usage),
+  usage: Schema.toCodecJson(Schema.Option(Response.Usage)),
   /** Terminal invocation outcome without failure details. */
-  outcome: Schema.Literal("success", "failure", "interrupted"),
+  outcome: Schema.Literals(["success", "failure", "interrupted"]),
   /** Invocation duration in milliseconds. */
-  durationMs: Schema.Number,
+  durationMs: Schema.Finite,
   /** Invocation completion time in Unix epoch milliseconds. */
-  timestamp: Schema.Number
+  timestamp: Schema.Finite
 }) {}
 
 /**
@@ -101,48 +102,74 @@ export const noScore: Option.Option<number> = Option.none()
  */
 export class Usage extends Schema.Class<Usage>("@scenesystems/effect-dsp/Trace/Usage")({
   tokens: Response.Usage,
-  callCount: Schema.NonNegativeInt
+  callCount: Schema.Int
 }) {}
 
-const sampleCounter = (
-  sample: Option.Option<Response.Usage>,
-  select: (usage: Response.Usage) => Response.Usage["inputTokens"]
-): Option.Option<number> => Option.flatMap(sample, (usage) => Option.fromNullable(select(usage)))
-
-const sumCounter = (
-  current: Response.Usage["inputTokens"],
-  sample: Option.Option<Response.Usage>,
-  select: (usage: Response.Usage) => Response.Usage["inputTokens"]
-): Option.Option<number> => Option.zipWith(Option.fromNullable(current), sampleCounter(sample, select), Number.sum)
+const sumCounter = (current: Option.Option<number>, sample: Option.Option<number>): Option.Option<number> =>
+  Option.match(current, {
+    onNone: () => Option.none<number>(),
+    onSome: (current) =>
+      Option.match(sample, {
+        onNone: () => Option.none<number>(),
+        onSome: (sample) => Option.some(Number.sum(current, sample))
+      })
+  })
 
 const accumulateTokens = (current: Response.Usage, sample: Option.Option<Response.Usage>): Response.Usage => {
-  const inputTokens = sumCounter(current.inputTokens, sample, (usage) => usage.inputTokens)
-  const outputTokens = sumCounter(current.outputTokens, sample, (usage) => usage.outputTokens)
-  const totalTokens = sumCounter(current.totalTokens, sample, (usage) => usage.totalTokens)
-  const reasoningTokens = sumCounter(current.reasoningTokens, sample, (usage) => usage.reasoningTokens)
-  const cachedInputTokens = sumCounter(current.cachedInputTokens, sample, (usage) => usage.cachedInputTokens)
-
   return new Response.Usage({
-    ...Option.match(inputTokens, {
-      onNone: () => ({ inputTokens: undefined }),
-      onSome: (value) => ({ inputTokens: value })
-    }),
-    ...Option.match(outputTokens, {
-      onNone: () => ({ outputTokens: undefined }),
-      onSome: (value) => ({ outputTokens: value })
-    }),
-    ...Option.match(totalTokens, {
-      onNone: () => ({ totalTokens: undefined }),
-      onSome: (value) => ({ totalTokens: value })
-    }),
-    ...Option.match(reasoningTokens, {
-      onNone: () => ({}),
-      onSome: (value) => ({ reasoningTokens: value })
-    }),
-    ...Option.match(cachedInputTokens, {
-      onNone: () => ({}),
-      onSome: (value) => ({ cachedInputTokens: value })
-    })
+    inputTokens: {
+      ...Option.match(
+        sumCounter(
+          Option.fromNullishOr(current.inputTokens.total),
+          Option.flatMap(sample, (usage) => Option.fromNullishOr(usage.inputTokens.total))
+        ),
+        { onNone: () => ({}), onSome: (total) => ({ total }) }
+      ),
+      ...Option.match(
+        sumCounter(
+          Option.fromNullishOr(current.inputTokens.uncached),
+          Option.flatMap(sample, (usage) => Option.fromNullishOr(usage.inputTokens.uncached))
+        ),
+        { onNone: () => ({}), onSome: (uncached) => ({ uncached }) }
+      ),
+      ...Option.match(
+        sumCounter(
+          Option.fromNullishOr(current.inputTokens.cacheRead),
+          Option.flatMap(sample, (usage) => Option.fromNullishOr(usage.inputTokens.cacheRead))
+        ),
+        { onNone: () => ({}), onSome: (cacheRead) => ({ cacheRead }) }
+      ),
+      ...Option.match(
+        sumCounter(
+          Option.fromNullishOr(current.inputTokens.cacheWrite),
+          Option.flatMap(sample, (usage) => Option.fromNullishOr(usage.inputTokens.cacheWrite))
+        ),
+        { onNone: () => ({}), onSome: (cacheWrite) => ({ cacheWrite }) }
+      )
+    },
+    outputTokens: {
+      ...Option.match(
+        sumCounter(
+          Option.fromNullishOr(current.outputTokens.total),
+          Option.flatMap(sample, (usage) => Option.fromNullishOr(usage.outputTokens.total))
+        ),
+        { onNone: () => ({}), onSome: (total) => ({ total }) }
+      ),
+      ...Option.match(
+        sumCounter(
+          Option.fromNullishOr(current.outputTokens.text),
+          Option.flatMap(sample, (usage) => Option.fromNullishOr(usage.outputTokens.text))
+        ),
+        { onNone: () => ({}), onSome: (text) => ({ text }) }
+      ),
+      ...Option.match(
+        sumCounter(
+          Option.fromNullishOr(current.outputTokens.reasoning),
+          Option.flatMap(sample, (usage) => Option.fromNullishOr(usage.outputTokens.reasoning))
+        ),
+        { onNone: () => ({}), onSome: (reasoning) => ({ reasoning }) }
+      )
+    }
   })
 }
 
@@ -162,11 +189,8 @@ export const accumulateUsage = (summary: Usage, sample: Option.Option<Response.U
  */
 export const emptyUsage = new Usage({
   tokens: new Response.Usage({
-    inputTokens: 0,
-    outputTokens: 0,
-    totalTokens: 0,
-    reasoningTokens: 0,
-    cachedInputTokens: 0
+    inputTokens: { total: 0, uncached: 0, cacheRead: 0, cacheWrite: 0 },
+    outputTokens: { total: 0, text: 0, reasoning: 0 }
   }),
   callCount: 0
 })
@@ -183,11 +207,11 @@ export class ObjectiveProjection
     prompt: Schema.String,
     output: Payload,
     outcome: Entry.fields.outcome,
-    score: Schema.Option(Schema.Number),
+    score: Schema.toCodecJson(Schema.Option(Schema.Finite)),
     rawResponse: Schema.String,
     usage: Response.Usage,
-    durationMs: Schema.Number,
-    timestamp: Schema.Number
+    durationMs: Schema.Finite,
+    timestamp: Schema.Finite
   })
 {}
 
@@ -197,8 +221,8 @@ export class ObjectiveProjection
  */
 export const projectObjective = (
   entry: Entry
-): Effect.Effect<ObjectiveProjection, ParseResult.ParseError> =>
-  Schema.decode(Id)(entry.moduleName).pipe(
+): Effect.Effect<ObjectiveProjection, Schema.SchemaError> =>
+  Schema.decodeEffect(Id)(entry.moduleName).pipe(
     Effect.map((moduleId) =>
       new ObjectiveProjection({
         moduleId,

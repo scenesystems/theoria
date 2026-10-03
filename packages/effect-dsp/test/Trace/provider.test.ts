@@ -7,11 +7,6 @@ import * as OpenAiClient from "@effect/ai-openai/OpenAiClient"
 import * as OpenAiLanguageModel from "@effect/ai-openai/OpenAiLanguageModel"
 import * as OpenRouterClient from "@effect/ai-openrouter/OpenRouterClient"
 import * as OpenRouterLanguageModel from "@effect/ai-openrouter/OpenRouterLanguageModel"
-import * as LanguageModel from "@effect/ai/LanguageModel"
-import * as Response from "@effect/ai/Response"
-import * as HttpClient from "@effect/platform/HttpClient"
-import * as HttpClientResponse from "@effect/platform/HttpClientResponse"
-import * as HttpServerResponse from "@effect/platform/HttpServerResponse"
 import { describe, expect, it } from "@effect/vitest"
 import * as Module from "@scenesystems/effect-dsp/Module"
 import { ModuleParameters } from "@scenesystems/effect-dsp/ModuleParameters"
@@ -21,12 +16,17 @@ import * as AnthropicUsage from "@scenesystems/effect-inference/AnthropicUsage"
 import * as OpenAiUsage from "@scenesystems/effect-inference/OpenAiUsage"
 import * as OpenRouterUsage from "@scenesystems/effect-inference/OpenRouterUsage"
 import { Array as Arr, Effect, Option, Ref, Schema } from "effect"
+import * as LanguageModel from "effect/ai/LanguageModel"
+import * as Response from "effect/ai/Response"
+import * as HttpClient from "effect/http/HttpClient"
+import * as HttpClientResponse from "effect/http/HttpClientResponse"
+import * as HttpServerResponse from "effect/http/HttpServerResponse"
 
 const jsonHttpClient = (body: unknown): HttpClient.HttpClient =>
   HttpClient.make((request) =>
     Effect.succeed(HttpClientResponse.fromWeb(
       request,
-      HttpServerResponse.toWeb(HttpServerResponse.unsafeJson(body))
+      HttpServerResponse.toWeb(HttpServerResponse.jsonUnsafe(body))
     ))
   )
 
@@ -40,9 +40,10 @@ const providerResponse = {
   created: 0,
   model: "openai/gpt-4o-mini",
   object: "chat.completion",
+  system_fingerprint: null,
   usage: {
     prompt_tokens: 17,
-    completion_tokens: 5,
+    completion_tokens: 12,
     total_tokens: 29,
     completion_tokens_details: { reasoning_tokens: 7 },
     prompt_tokens_details: { cached_tokens: 3 }
@@ -57,23 +58,20 @@ describe("Trace provider integration", () => {
           name: "reported",
           raw: {
             input_tokens: 17,
-            output_tokens: 5,
+            output_tokens: 12,
             total_tokens: 29,
             input_tokens_details: { cached_tokens: 3 },
             output_tokens_details: { reasoning_tokens: 7 }
           },
           expected: new Response.Usage({
-            inputTokens: 17,
-            outputTokens: 5,
-            totalTokens: 29,
-            reasoningTokens: 7,
-            cachedInputTokens: 3
+            inputTokens: { total: 17, uncached: 14, cacheRead: 3 },
+            outputTokens: { total: 12, text: 5, reasoning: 7 }
           })
         },
         {
           name: "missing",
           raw: null,
-          expected: new Response.Usage({ inputTokens: undefined, outputTokens: undefined, totalTokens: undefined })
+          expected: new Response.Usage({ inputTokens: {}, outputTokens: {} })
         },
         {
           name: "zero",
@@ -85,11 +83,8 @@ describe("Trace provider integration", () => {
             output_tokens_details: { reasoning_tokens: 0 }
           },
           expected: new Response.Usage({
-            inputTokens: 0,
-            outputTokens: 0,
-            totalTokens: 0,
-            reasoningTokens: 0,
-            cachedInputTokens: 0
+            inputTokens: { total: 0, uncached: 0, cacheRead: 0 },
+            outputTokens: { total: 0, text: 0, reasoning: 0 }
           })
         }
       ),
@@ -132,19 +127,35 @@ describe("Trace provider integration", () => {
             Effect.provideService(OpenAiClient.OpenAiClient, OpenAiUsage.observe(client, Trace.observeUsage))
           )
           const signature = yield* Signature.make("Answer", { question: Schema.String }, { answer: Schema.String })
-          const module = yield* Module.predict(Arr.join(Arr.make("openai", name, "usage"), "-"), signature, {
-            policy: { parse: { maxRetries: 0 } }
-          })
-          yield* Ref.update(module.params, (params) => new ModuleParameters({ ...params, outputStrategy: "text" }))
+          const module = yield* Module.predict(
+            Arr.join(Arr.make("openai", name, "usage"), "-"),
+            signature,
+            new Module.PredictOptions({
+              policy: new Module.PredictPolicyOverrides({
+                parse: new Module.ParsePolicyOverrides({ maxRetries: 0 })
+              })
+            })
+          )
+          yield* Ref.update(
+            module.params,
+            (params) =>
+              new ModuleParameters({
+                instructions: params.instructions,
+                demos: params.demos,
+                outputStrategy: "text",
+                temperature: params.temperature,
+                maxTokens: params.maxTokens
+              })
+          )
           const [[[output, entries], calls], aggregate] = yield* Trace.withUsageTracking(
             Trace.withCalls(Trace.withTracing(module.forward({ question: "Capital?" })))
           ).pipe(Effect.provideService(LanguageModel.LanguageModel, model))
-          const call = yield* Arr.head(calls)
-          const entry = yield* Arr.head(entries)
+          const call = Option.getOrThrow(Arr.head(calls))
+          const entry = Option.getOrThrow(Arr.head(entries))
           const projection = yield* Trace.projectObjective(entry)
-          const codec = Schema.parseJson(Trace.Entry)
-          const persisted = yield* Schema.encode(codec)(entry)
-          const restored = yield* Schema.decode(codec)(persisted)
+          const codec = Schema.fromJsonString(Trace.Entry)
+          const persisted = yield* Schema.encodeEffect(codec)(entry)
+          const restored = yield* Schema.decodeEffect(codec)(persisted)
 
           expect(output.answer).toBe("Paris")
           expect(Arr.length(calls)).toBe(1)
@@ -171,7 +182,15 @@ describe("Trace provider integration", () => {
             content: Arr.make({ type: "tool_use", id: "object-1", name: "generateObject", input: { answer: "Paris" } }),
             model: "claude-sonnet-4-5",
             stop_reason: "tool_use",
-            usage: { input_tokens: 17, output_tokens: 5, cache_read_input_tokens: 3 }
+            stop_sequence: null,
+            usage: {
+              input_tokens: 14,
+              output_tokens: 5,
+              cache_read_input_tokens: 3,
+              cache_creation_input_tokens: null,
+              cache_creation: null,
+              service_tier: null
+            }
           })
         )
       )
@@ -186,14 +205,12 @@ describe("Trace provider integration", () => {
       const [[[output, entries], calls], aggregate] = yield* Trace.withUsageTracking(
         Trace.withCalls(Trace.withTracing(module.forward({ question: "Capital?" })))
       ).pipe(Effect.provideService(LanguageModel.LanguageModel, model))
-      const call = yield* Arr.head(calls)
-      const entry = yield* Arr.head(entries)
+      const call = Option.getOrThrow(Arr.head(calls))
+      const entry = Option.getOrThrow(Arr.head(entries))
       const projection = yield* Trace.projectObjective(entry)
       const expected = new Response.Usage({
-        inputTokens: 17,
-        outputTokens: 5,
-        totalTokens: undefined,
-        cachedInputTokens: 3
+        inputTokens: { uncached: 14, cacheRead: 3 },
+        outputTokens: { total: 5 }
       })
 
       expect(output.answer).toBe("Paris")
@@ -220,28 +237,32 @@ describe("Trace provider integration", () => {
       const [[[failure, entries], calls], aggregate] = yield* Trace.withUsageTracking(
         Trace.withCalls(Trace.withTracing(Effect.flip(module.forward({ question: "Capital?" }))))
       ).pipe(Effect.provideService(LanguageModel.LanguageModel, model))
-      const call = yield* Arr.head(calls)
-      const received = yield* call.usage
-      const codec = Schema.parseJson(Trace.Call)
-      const json = yield* Schema.encode(codec)(call)
-      const restored = yield* Schema.decode(codec)(json)
+      const call = Option.getOrThrow(Arr.head(calls))
+      const received = Option.getOrThrow(call.usage)
+      const codec = Schema.fromJsonString(Trace.Call)
+      const json = yield* Schema.encodeEffect(codec)(call)
+      const restored = yield* Schema.decodeEffect(codec)(json)
 
-      expect(failure._tag).toBe("MalformedOutput")
-      expect(Arr.isEmptyReadonlyArray(entries)).toBe(true)
+      expect(failure).toMatchObject({
+        _tag: "AiError",
+        reason: { _tag: "StructuredOutputError" }
+      })
+      expect(failure.message).toBe(
+        "LanguageModel.generateObject: Structured output validation failed: Expected a valid JSON string"
+      )
+      expect(Arr.length(entries)).toBe(0)
       expect(Arr.length(calls)).toBe(1)
       expect(call.outcome).toBe("failure")
       expect(restored.usage).toEqual(Option.some(
         new Response.Usage({
-          inputTokens: 17,
-          outputTokens: 5,
-          totalTokens: 29,
-          reasoningTokens: 7,
-          cachedInputTokens: 3
+          inputTokens: { total: 17, uncached: 14, cacheRead: 3 },
+          outputTokens: { total: 12, text: 5, reasoning: 7 }
         })
       ))
-      expect(received.totalTokens).toBe(29)
+      expect(received.inputTokens.total).toBe(17)
+      expect(received.outputTokens.total).toBe(12)
       expect(aggregate.callCount).toBe(1)
-      expect(aggregate.tokens.totalTokens).toBe(29)
-      expect(aggregate.tokens.cachedInputTokens).toBe(3)
+      expect(aggregate.tokens.inputTokens.total).toBe(17)
+      expect(aggregate.tokens.inputTokens.cacheRead).toBe(3)
     }))
 })

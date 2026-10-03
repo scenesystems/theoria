@@ -16,7 +16,7 @@ import { BunRuntime } from "@effect/platform-bun"
 import { Module, Signature } from "@scenesystems/effect-dsp"
 import { Effect, Schema } from "effect"
 
-import { withLiveLanguageModel } from "./shared/live-provider-runtime.js"
+import { LiveProviderRuntimeOptions, withLiveLanguageModel } from "./shared/live-provider-runtime.js"
 
 const program = Effect.gen(function*() {
   const classifierSignature = yield* Signature.make(
@@ -36,7 +36,10 @@ const program = Effect.gen(function*() {
 })
 
 BunRuntime.runMain(
-  withLiveLanguageModel(program, {
-    provider: "openai"
-  })
+  withLiveLanguageModel(
+    program,
+    new LiveProviderRuntimeOptions({
+      provider: "openai"
+    })
+  )
 )

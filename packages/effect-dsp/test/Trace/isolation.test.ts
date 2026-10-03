@@ -1,17 +1,14 @@
 /**
  * Lexical trace isolation contracts.
  */
-import * as Response from "@effect/ai/Response"
 import { describe, expect, it } from "@effect/vitest"
 import * as Trace from "@scenesystems/effect-dsp/Trace"
-import { Array as Arr, Deferred, Effect, Option, Tuple } from "effect"
+import { Array as Arr, Deferred, Effect, Option } from "effect"
+import * as Response from "effect/ai/Response"
 
 const usage = new Response.Usage({
-  inputTokens: 1,
-  outputTokens: 1,
-  totalTokens: 2,
-  reasoningTokens: 0,
-  cachedInputTokens: 0
+  inputTokens: { total: 1, uncached: 1, cacheRead: 0 },
+  outputTokens: { total: 1, text: 1, reasoning: 0 }
 })
 
 const call = (timestamp: number) =>
@@ -51,12 +48,12 @@ describe("Trace isolation", () => {
           { concurrency: "unbounded" }
         )
       )
-      const siblingResults = Tuple.getFirst(nested)
-      const firstSibling = yield* Arr.get(siblingResults, 0)
-      const secondSibling = yield* Arr.get(siblingResults, 1)
-      const firstTimestamps = Arr.map(Tuple.getSecond(firstSibling), (observed) => observed.timestamp)
-      const secondTimestamps = Arr.map(Tuple.getSecond(secondSibling), (observed) => observed.timestamp)
-      const parentTimestamps = Arr.map(Tuple.getSecond(nested), (observed) => observed.timestamp)
+      const siblingResults = nested[0]
+      const firstSibling = Option.getOrThrow(Arr.get(siblingResults, 0))
+      const secondSibling = Option.getOrThrow(Arr.get(siblingResults, 1))
+      const firstTimestamps = Arr.map(firstSibling[1], (observed) => observed.timestamp)
+      const secondTimestamps = Arr.map(secondSibling[1], (observed) => observed.timestamp)
+      const parentTimestamps = Arr.map(nested[1], (observed) => observed.timestamp)
 
       expect(firstTimestamps).toEqual(Arr.make(1, 4))
       expect(secondTimestamps).toEqual(Arr.make(2, 3))
@@ -71,13 +68,13 @@ describe("Trace isolation", () => {
         (timestamp) => Trace.withCalls(Trace.appendCall(call(timestamp))),
         { concurrency: "unbounded" }
       )
-      const first = yield* Arr.get(scopes, 0)
-      const second = yield* Arr.get(scopes, 1)
-      const firstCall = yield* Arr.head(Tuple.getSecond(first))
-      const secondCall = yield* Arr.head(Tuple.getSecond(second))
+      const first = Option.getOrThrow(Arr.get(scopes, 0))
+      const second = Option.getOrThrow(Arr.get(scopes, 1))
+      const firstCall = Option.getOrThrow(Arr.head(first[1]))
+      const secondCall = Option.getOrThrow(Arr.head(second[1]))
 
-      expect(Arr.length(Tuple.getSecond(first))).toBe(1)
-      expect(Arr.length(Tuple.getSecond(second))).toBe(1)
+      expect(Arr.length(first[1])).toBe(1)
+      expect(Arr.length(second[1])).toBe(1)
       expect(firstCall.timestamp).toBe(11)
       expect(secondCall.timestamp).toBe(22)
     }))

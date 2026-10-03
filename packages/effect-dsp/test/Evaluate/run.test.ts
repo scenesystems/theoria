@@ -1,7 +1,6 @@
 /**
  * Evaluate.run contracts.
  */
-import * as LanguageModel from "@effect/ai/LanguageModel"
 import { describe, expect, it } from "@effect/vitest"
 import * as Evaluate from "@scenesystems/effect-dsp/Evaluate"
 import { Example } from "@scenesystems/effect-dsp/Example"
@@ -10,6 +9,7 @@ import * as MockLanguageModel from "@scenesystems/effect-dsp/MockLanguageModel"
 import * as Module from "@scenesystems/effect-dsp/Module"
 import * as Signature from "@scenesystems/effect-dsp/Signature"
 import { Effect, Layer, Option, Schema } from "effect"
+import * as LanguageModel from "effect/ai/LanguageModel"
 
 const makeQaSignature = () =>
   Signature.make(
@@ -32,23 +32,25 @@ describe("Evaluate.run", () => {
       )
       const layer = Layer.succeed(LanguageModel.LanguageModel, mock.service)
 
-      const report = yield* Evaluate.run({
-        module,
-        examples: [
-          new Example({
-            input: { question: "What is the capital of France?" },
-            output: { answer: "Paris" }
-          }),
-          new Example({
-            input: { question: "What is the capital of Japan?" },
-            output: { answer: "Tokyo" }
-          })
-        ],
-        metrics: {
-          exact: Metric.exactMatch("answer")
-        },
-        concurrency: 2
-      }).pipe(
+      const report = yield* Evaluate.run(
+        new Evaluate.Options({
+          module,
+          examples: [
+            new Example({
+              input: { question: "What is the capital of France?" },
+              output: { answer: "Paris" }
+            }),
+            new Example({
+              input: { question: "What is the capital of Japan?" },
+              output: { answer: "Tokyo" }
+            })
+          ],
+          metrics: {
+            exact: Metric.exactMatch("answer")
+          },
+          concurrency: 2
+        })
+      ).pipe(
         Effect.provide(layer)
       )
 
@@ -68,21 +70,23 @@ describe("Evaluate.run", () => {
       )
       const layer = Layer.succeed(LanguageModel.LanguageModel, mock.service)
 
-      const report = yield* Evaluate.run({
-        module,
-        examples: [
-          new Example({
-            input: { question: "What is the capital of France?" },
-            output: { answer: "Paris" }
-          }),
-          new Example({
-            input: { question: "What is the capital of Japan?" }
-          })
-        ],
-        metrics: {
-          exact: Metric.exactMatch("answer")
-        }
-      }).pipe(
+      const report = yield* Evaluate.run(
+        new Evaluate.Options({
+          module,
+          examples: [
+            new Example({
+              input: { question: "What is the capital of France?" },
+              output: { answer: "Paris" }
+            }),
+            new Example({
+              input: { question: "What is the capital of Japan?" }
+            })
+          ],
+          metrics: {
+            exact: Metric.exactMatch("answer")
+          }
+        })
+      ).pipe(
         Effect.provide(layer)
       )
 
@@ -118,23 +122,27 @@ describe("Evaluate.run", () => {
         })
       ]
 
-      const reportA = yield* Evaluate.run({
-        module,
-        examples,
-        metrics: {
-          exact: Metric.exactMatch("answer"),
-          contains: Metric.contains("answer", "paris")
-        }
-      }).pipe(Effect.provide(layer))
+      const reportA = yield* Evaluate.run(
+        new Evaluate.Options({
+          module,
+          examples,
+          metrics: {
+            exact: Metric.exactMatch("answer"),
+            contains: Metric.contains("answer", "paris")
+          }
+        })
+      ).pipe(Effect.provide(layer))
 
-      const reportB = yield* Evaluate.run({
-        module,
-        examples,
-        metrics: {
-          contains: Metric.contains("answer", "paris"),
-          exact: Metric.exactMatch("answer")
-        }
-      }).pipe(Effect.provide(layer))
+      const reportB = yield* Evaluate.run(
+        new Evaluate.Options({
+          module,
+          examples,
+          metrics: {
+            contains: Metric.contains("answer", "paris"),
+            exact: Metric.exactMatch("answer")
+          }
+        })
+      ).pipe(Effect.provide(layer))
 
       expect(reportA.overallScores).toEqual(reportB.overallScores)
       expect(reportA.results).toEqual(reportB.results)

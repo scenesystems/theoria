@@ -1,8 +1,6 @@
 /**
  * Per-invocation call observation contracts.
  */
-import * as LanguageModel from "@effect/ai/LanguageModel"
-import * as Response from "@effect/ai/Response"
 import { describe, expect, it } from "@effect/vitest"
 import * as Trace from "@scenesystems/effect-dsp/Trace"
 import {
@@ -17,9 +15,11 @@ import {
   Number,
   Option,
   Ref,
-  Schema,
-  Tuple
+  Result,
+  Schema
 } from "effect"
+import * as LanguageModel from "effect/ai/LanguageModel"
+import * as Response from "effect/ai/Response"
 
 import { trackCall } from "../../src/internal/trace/call.js"
 
@@ -35,27 +35,18 @@ class ProviderDefect extends Data.TaggedError("ProviderDefect")<{
 }> {}
 
 const earlyUsage = new Response.Usage({
-  inputTokens: 17,
-  outputTokens: 5,
-  totalTokens: 29,
-  reasoningTokens: 7,
-  cachedInputTokens: 3
+  inputTokens: { total: 17, uncached: 14, cacheRead: 3 },
+  outputTokens: { total: 12, text: 5, reasoning: 7 }
 })
 
 const fallbackUsage = new Response.Usage({
-  inputTokens: 90,
-  outputTokens: 40,
-  totalTokens: 140,
-  reasoningTokens: 10,
-  cachedInputTokens: 0
+  inputTokens: { total: 90, uncached: 90, cacheRead: 0 },
+  outputTokens: { total: 50, text: 40, reasoning: 10 }
 })
 
 const concurrentUsage = new Response.Usage({
-  inputTokens: 3,
-  outputTokens: 11,
-  totalTokens: 21,
-  reasoningTokens: 7,
-  cachedInputTokens: 2
+  inputTokens: { total: 3, uncached: 1, cacheRead: 2 },
+  outputTokens: { total: 18, text: 11, reasoning: 7 }
 })
 
 const callByOperation = (
@@ -71,15 +62,17 @@ describe("Trace calls", () => {
         Effect.exit(
           trackCall(
             "generateObject",
-            Trace.observeUsage(earlyUsage).pipe(Effect.zipRight(Effect.fail(failure))),
+            Trace.observeUsage(earlyUsage).pipe(Effect.andThen(Effect.fail(failure))),
             () => fallbackUsage
           )
         )
       )
-      const exit = Tuple.getFirst(scoped)
-      const observed = yield* Arr.head(Tuple.getSecond(scoped))
-      const cause = yield* Exit.causeOption(exit)
-      const observedFailure = yield* Cause.failureOption(cause)
+      const exit = scoped[0]
+      const observed = Option.getOrThrow(Arr.head(scoped[1]))
+      expect(Exit.isFailure(exit)).toBe(true)
+      if (Exit.isSuccess(exit)) return
+      const cause = exit.cause
+      const observedFailure = Option.getOrThrow(Cause.findErrorOption(cause))
 
       expect(observed.outcome).toBe("failure")
       expect(Option.contains(observed.usage, earlyUsage)).toBe(true)
@@ -93,14 +86,15 @@ describe("Trace calls", () => {
       const scoped = yield* Trace.withCalls(
         Effect.exit(trackCall("generateText", Effect.die(defect), () => fallbackUsage))
       )
-      const exit = Tuple.getFirst(scoped)
-      const observed = yield* Arr.head(Tuple.getSecond(scoped))
-      const cause = yield* Exit.causeOption(exit)
-      const observedDefect = yield* Cause.dieOption(cause)
+      const exit = scoped[0]
+      const observed = Option.getOrThrow(Arr.head(scoped[1]))
+      expect(Exit.isFailure(exit)).toBe(true)
+      if (Exit.isSuccess(exit)) return
+      const cause = exit.cause
+      const observedDefect = Result.getOrThrow(Cause.findDefect(cause))
 
       expect(observed.outcome).toBe("failure")
       expect(Option.isNone(observed.usage)).toBe(true)
-      expect(Cause.isDie(cause)).toBe(true)
       expect(observedDefect).toBe(defect)
     }))
 
@@ -109,12 +103,12 @@ describe("Trace calls", () => {
       const usageObserved = yield* Deferred.make<void>()
       const scoped = yield* Trace.withCalls(
         Effect.gen(function*() {
-          const fiber = yield* Effect.fork(
+          const fiber = yield* Effect.forkChild(
             trackCall(
               "generateText",
               Trace.observeUsage(earlyUsage).pipe(
-                Effect.zipRight(Deferred.succeed(usageObserved, undefined)),
-                Effect.zipRight(Effect.never)
+                Effect.andThen(Deferred.succeed(usageObserved, undefined)),
+                Effect.andThen(Effect.never)
               ),
               () => fallbackUsage
             )
@@ -122,14 +116,17 @@ describe("Trace calls", () => {
 
           yield* Deferred.await(usageObserved)
 
-          return yield* Fiber.interrupt(fiber)
+          yield* Fiber.interrupt(fiber)
+          return yield* Fiber.await(fiber)
         })
       )
-      const exit = Tuple.getFirst(scoped)
-      const observed = yield* Arr.head(Tuple.getSecond(scoped))
-      const cause = yield* Exit.causeOption(exit)
+      const exit = scoped[0]
+      const observed = Option.getOrThrow(Arr.head(scoped[1]))
+      expect(Exit.isFailure(exit)).toBe(true)
+      if (Exit.isSuccess(exit)) return
+      const cause = exit.cause
 
-      expect(Cause.isInterrupted(cause)).toBe(true)
+      expect(Cause.hasInterrupts(cause)).toBe(true)
       expect(observed.outcome).toBe("interrupted")
       expect(Option.contains(observed.usage, earlyUsage)).toBe(true)
     }))
@@ -137,22 +134,22 @@ describe("Trace calls", () => {
   it.effect("keeps the latest cumulative observation ahead of fallback and appends once", () =>
     Effect.gen(function*() {
       const nativeResponse = new LanguageModel.GenerateTextResponse(Arr.make(
-        Response.textPart({ text: "Paris" }),
-        Response.finishPart({ reason: "stop", usage: fallbackUsage })
+        Response.makePart("text", { text: "Paris" }),
+        Response.makePart("finish", { reason: "stop", usage: fallbackUsage })
       ))
       const scoped = yield* Trace.withCalls(
         trackCall(
           "generateObject",
           Trace.observeUsage(concurrentUsage).pipe(
-            Effect.zipRight(Trace.observeUsage(earlyUsage)),
+            Effect.andThen(Trace.observeUsage(earlyUsage)),
             Effect.as(nativeResponse)
           ),
           (response) => response.usage
         )
       )
-      const [response, selected] = Tuple.getFirst(scoped)
-      const calls = Tuple.getSecond(scoped)
-      const observed = yield* Arr.head(calls)
+      const [response, selected] = scoped[0]
+      const calls = scoped[1]
+      const observed = Option.getOrThrow(Arr.head(calls))
 
       expect(response).toBe(nativeResponse)
       expect(response.text).toBe("Paris")
@@ -160,8 +157,8 @@ describe("Trace calls", () => {
       expect(selected).toBe(earlyUsage)
       expect(Arr.length(calls)).toBe(1)
       expect(Option.contains(observed.usage, earlyUsage)).toBe(true)
-      expect(Number.greaterThanOrEqualTo(observed.durationMs, 0)).toBe(true)
-      expect(Number.greaterThanOrEqualTo(observed.timestamp, 0)).toBe(true)
+      expect(Number.isGreaterThanOrEqualTo(observed.durationMs, 0)).toBe(true)
+      expect(Number.isGreaterThanOrEqualTo(observed.timestamp, 0)).toBe(true)
     }))
 
   it.effect("keeps interleaved concurrent usage observations call-local", () =>
@@ -174,8 +171,8 @@ describe("Trace calls", () => {
             trackCall(
               "generateObject",
               Trace.observeUsage(earlyUsage).pipe(
-                Effect.zipRight(Deferred.succeed(firstObserved, undefined)),
-                Effect.zipRight(Deferred.await(secondObserved)),
+                Effect.andThen(Deferred.succeed(firstObserved, undefined)),
+                Effect.andThen(Deferred.await(secondObserved)),
                 Effect.as(fallbackUsage)
               ),
               (usage) => usage
@@ -183,8 +180,8 @@ describe("Trace calls", () => {
             trackCall(
               "generateText",
               Deferred.await(firstObserved).pipe(
-                Effect.zipRight(Trace.observeUsage(concurrentUsage)),
-                Effect.zipRight(Deferred.succeed(secondObserved, undefined)),
+                Effect.andThen(Trace.observeUsage(concurrentUsage)),
+                Effect.andThen(Deferred.succeed(secondObserved, undefined)),
                 Effect.as(fallbackUsage)
               ),
               (usage) => usage
@@ -193,9 +190,9 @@ describe("Trace calls", () => {
           { concurrency: "unbounded", discard: true }
         )
       )
-      const calls = Tuple.getSecond(scoped)
-      const objectCall = yield* callByOperation(calls, "generateObject")
-      const textCall = yield* callByOperation(calls, "generateText")
+      const calls = scoped[1]
+      const objectCall = Option.getOrThrow(callByOperation(calls, "generateObject"))
+      const textCall = Option.getOrThrow(callByOperation(calls, "generateText"))
 
       expect(Arr.length(calls)).toBe(2)
       expect(Option.contains(objectCall.usage, earlyUsage)).toBe(true)
@@ -223,9 +220,9 @@ describe("Trace calls", () => {
           (usage) => usage
         )
       )
-      const calls = Tuple.getSecond(scoped)
-      const outerCall = yield* callByOperation(calls, "generateObject")
-      const innerCall = yield* callByOperation(calls, "generateText")
+      const calls = scoped[1]
+      const outerCall = Option.getOrThrow(callByOperation(calls, "generateObject"))
+      const innerCall = Option.getOrThrow(callByOperation(calls, "generateText"))
 
       expect(Arr.length(calls)).toBe(2)
       expect(Option.contains(outerCall.usage, earlyUsage)).toBe(true)
@@ -243,7 +240,7 @@ describe("Trace calls", () => {
         )
       )
       const calls = yield* Ref.get(seen)
-      const observed = yield* Arr.head(calls)
+      const observed = Option.getOrThrow(Arr.head(calls))
 
       expect(Arr.length(calls)).toBe(1)
       expect(observed.outcome).toBe("success")

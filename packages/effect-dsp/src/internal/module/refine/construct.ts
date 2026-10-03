@@ -5,9 +5,9 @@
  * @module
  */
 import type { Schema } from "effect"
-import { Effect, Record, Ref } from "effect"
+import { Effect, Record, Ref, Semaphore } from "effect"
 import type { CompositionError } from "../../../DspError.js"
-import { Module, type RefineOptions } from "../../../Module.js"
+import { ComposeGraphOptions, Module, type RefineOptions } from "../../../Module.js"
 import { make as makeDefaultModuleParameters } from "../../../ModuleParameters.js"
 import { buildCompositionGraph } from "../compose/graph.js"
 import { ComposeForwardOptions, makeComposeForward } from "../compose/runtime.js"
@@ -61,15 +61,17 @@ export const refine = <
   options: RefineOptions<I, O, ModuleE, ModuleR, RewardE, RewardR>
 ): Effect.Effect<Module<I, O, ModuleE | RewardE, ModuleR | RewardR>, CompositionError> =>
   Effect.gen(function*() {
-    const composition = yield* buildCompositionGraph({
-      name: options.name,
-      signature: options.module.signature,
-      subModules: Record.singleton("inner", options.module)
-    })
+    const composition = yield* buildCompositionGraph(
+      new ComposeGraphOptions({
+        name: options.name,
+        signature: options.module.signature,
+        subModules: Record.singleton("inner", options.module)
+      })
+    )
     const paramsRef = yield* Ref.make(
       makeDefaultModuleParameters(options.module.signature.instructions)
     )
-    const forwardLock = yield* Effect.makeSemaphore(1)
+    const forwardLock = yield* Semaphore.make(1)
     const refineForward = makeRefineForward(options, forwardLock)
 
     return new Module({

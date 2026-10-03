@@ -5,12 +5,11 @@
  * envelopes through ArtifactSink. Markdown reports are written directly to
  * disk as derived presentation.
  */
-import { FileSystem, Path } from "@effect/platform"
 import * as DspArtifact from "@scenesystems/effect-dsp/Artifact"
 import * as Artifact from "@scenesystems/effect-study/Artifact"
 import * as ArtifactContext from "@scenesystems/effect-study/ArtifactContext"
 import * as ArtifactSink from "@scenesystems/effect-study/ArtifactSink"
-import { Array as Arr, Data, DateTime, Effect, Schema, String as Str } from "effect"
+import { Array as Arr, Data, DateTime, Effect, FileSystem, Path, Schema, String as Str } from "effect"
 import type { Layer } from "effect"
 
 export class ExampleArtifacts extends Data.Class<{
@@ -60,8 +59,8 @@ export const createExampleArtifacts = (exampleName: string) =>
       { discard: true }
     )
 
-    const packageVersion = yield* Schema.decode(Artifact.PackageVersion)(PACKAGE_VERSION)
-    const brandedRunId = yield* Schema.decode(Artifact.RunId)("01HZ0000000000000000000000")
+    const packageVersion = yield* Schema.decodeEffect(Artifact.PackageVersion)(PACKAGE_VERSION)
+    const brandedRunId = yield* Schema.decodeEffect(Artifact.RunId)("01HZ0000000000000000000000")
     const artifactContextLayer = ArtifactContext.layer(
       new ArtifactContext.Options({
         packageVersion,
@@ -69,14 +68,14 @@ export const createExampleArtifacts = (exampleName: string) =>
       })
     )
 
-    return {
+    return new ExampleArtifacts({
       runId,
       rootDir,
       reportsDir,
       dataDir,
       storageDir,
       artifactContextLayer
-    }
+    })
   })
 
 const DSP_SOURCE: DspArtifact.Source = {

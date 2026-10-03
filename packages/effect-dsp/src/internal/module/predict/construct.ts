@@ -11,16 +11,12 @@ import {
   makePredictPolicy,
   Module,
   type Node,
-  type PredictOptions,
-  type PredictPolicyOverrides
+  PredictOptions,
+  PredictPolicyOverrides
 } from "../../../Module.js"
 import { ModuleParameters } from "../../../ModuleParameters.js"
 import type { Signature } from "../../../Signature.js"
 import { makeForward, RuntimeOptions } from "./runtime.js"
-
-const EMPTY_PREDICT_POLICY_OVERRIDES: PredictPolicyOverrides = {}
-
-const EMPTY_PREDICT_OPTIONS: PredictOptions = {}
 
 const makeInitialParams = <
   I extends Schema.Struct.Fields,
@@ -67,13 +63,13 @@ export const predict = <
 >(
   name: string,
   signature: Signature<I, O>,
-  options: PredictOptions = EMPTY_PREDICT_OPTIONS
+  options: PredictOptions = new PredictOptions({})
 ): Effect.Effect<Module<I, O>> =>
   Effect.gen(function*() {
     const policy = makePredictPolicy(
       Option.getOrElse(
-        Option.fromNullable(options.policy),
-        () => EMPTY_PREDICT_POLICY_OVERRIDES
+        Option.fromNullishOr(options.policy),
+        () => new PredictPolicyOverrides({})
       )
     )
     const paramsRef = yield* Ref.make(makeInitialParams(signature))

@@ -1,8 +1,6 @@
 /**
  * GEPA orchestration contracts.
  */
-import * as LanguageModel from "@effect/ai/LanguageModel"
-import * as Response from "@effect/ai/Response"
 import { describe, expect, it } from "@effect/vitest"
 import { Example } from "@scenesystems/effect-dsp/Example"
 import * as GEPA from "@scenesystems/effect-dsp/GEPA"
@@ -29,6 +27,8 @@ import {
   Stream,
   String as Str
 } from "effect"
+import * as LanguageModel from "effect/ai/LanguageModel"
+import * as Response from "effect/ai/Response"
 import { PredictorInstruction, ProgramCandidate } from "../../src/internal/gepa/model.js"
 import { CandidateEvaluationWindow, evaluateCandidate } from "../../src/internal/gepa/runtime/evaluate.js"
 import { GepaOrchestrationEventOrderFixtureSchema, loadFixture } from "../helpers/dspy-fixtures/index.js"
@@ -44,14 +44,23 @@ class DraftResponse extends Schema.Class<DraftResponse>("DraftResponse")({
 
 class Gate2MetricFailure extends Data.TaggedError("Gate2MetricFailure") {}
 
+type AcceptanceEvaluatedEvent = Extract<GEPA.Event, { readonly _tag: "AcceptanceEvaluated" }>
+
+class CountingStreamResult extends Data.Class<{
+  readonly acceptance: Option.Option<AcceptanceEvaluatedEvent>
+  readonly evaluatedRows: number
+}> {}
+
 const reflectiveResponse = Arr.of(
-  Response.textPart({
+  Response.TextPart.make({
+    metadata: {},
     text: "```\nAnswer each question concisely using the most accurate fact available.\n```"
   })
 )
 
 const improvingReflectiveResponse = Arr.of(
-  Response.textPart({
+  Response.TextPart.make({
+    metadata: {},
     text: "```\nimproved instruction\n```"
   })
 )
@@ -83,7 +92,7 @@ const makeDraftSignature = () =>
     "Draft an answer from a weighted query",
     {
       query: Signature.describe(Schema.String, "Question rewritten for the drafting stage"),
-      confidence: Signature.describe(Schema.NumberFromString, "Integer confidence weight")
+      confidence: Signature.describe(Schema.FiniteFromString, "Integer confidence weight")
     },
     {
       draft: Signature.describe(Schema.String, "Draft answer"),
@@ -138,17 +147,19 @@ const runCountingStream = (mutatedIsBetter: boolean) =>
     const evaluatedRows = yield* Ref.make(0)
     const mock = yield* makeCountingModel(evaluatedRows, mutatedIsBetter)
     const events = yield* Stream.runCollect(
-      GEPA.stream({
-        module,
-        trainset: makeEvaluationExamples(),
-        metric: Metric.exactMatch("answer"),
-        maxIterations: 1,
-        seed: 42
-      })
+      GEPA.stream(
+        new GEPA.Options({
+          module,
+          trainset: makeEvaluationExamples(),
+          metric: Metric.exactMatch("answer"),
+          maxIterations: 1,
+          seed: 42
+        })
+      )
     ).pipe(Effect.provideService(LanguageModel.LanguageModel, mock.service))
     const eventList = Arr.fromIterable(events)
 
-    return Data.struct({
+    return new CountingStreamResult({
       acceptance: Arr.findFirst(eventList, GEPA.events.$is("AcceptanceEvaluated")),
       evaluatedRows: yield* Ref.get(evaluatedRows)
     })
@@ -206,19 +217,19 @@ describe("GEPA.run orchestration", () => {
                 )
               )
             ),
-            Effect.zipRight(Effect.fail(new Gate2MetricFailure()))
+            Effect.andThen(Effect.fail(new Gate2MetricFailure()))
           )
       )
 
       const failure = yield* evaluateCandidate(
-        {
+        new GEPA.Options({
           module: root,
           trainset: Arr.make(
             new Example({ input: { question: "Compose this" }, output: { answer: "correct" } })
           ),
           metric,
           maxIterations: 0
-        },
+        }),
         candidate
       ).pipe(
         Effect.provideService(LanguageModel.LanguageModel, mock.service),
@@ -266,32 +277,32 @@ describe("GEPA.run orchestration", () => {
         () =>
           Effect.all({ root: Ref.get(root.params), child: Ref.get(child.params) }).pipe(
             Effect.flatMap((current) =>
-              Effect.if(
+              Bool.match(
                 Bool.and(
                   Str.Equivalence(current.root.instructions, "interrupted root"),
                   Str.Equivalence(current.child.instructions, "interrupted child")
                 ),
                 {
                   onFalse: () => Effect.never,
-                  onTrue: () => Deferred.succeed(metricStarted, true).pipe(Effect.zipRight(Effect.never))
+                  onTrue: () => Deferred.succeed(metricStarted, true).pipe(Effect.andThen(Effect.never))
                 }
               )
             )
           )
       )
       const fiber = yield* evaluateCandidate(
-        {
+        new GEPA.Options({
           module: root,
           trainset: Arr.make(
             new Example({ input: { question: "Interrupt this" }, output: { answer: "correct" } })
           ),
           metric,
           maxIterations: 0
-        },
+        }),
         candidate
       ).pipe(
         Effect.provideService(LanguageModel.LanguageModel, mock.service),
-        Effect.fork
+        Effect.forkScoped
       )
 
       yield* Deferred.await(metricStarted)
@@ -320,12 +331,12 @@ describe("GEPA.run orchestration", () => {
         )
       })
       const evaluation = yield* evaluateCandidate(
-        {
+        new GEPA.Options({
           module,
           trainset: makeEvaluationExamples(),
           metric: Metric.exactMatch("answer"),
           maxIterations: 0
-        },
+        }),
         candidate,
         new CandidateEvaluationWindow({
           startIndex: 2,
@@ -359,13 +370,15 @@ describe("GEPA.run orchestration", () => {
       const originalParams = yield* Ref.get(module.params)
       const mock = yield* MockLanguageModel.make(MockLanguageModel.succeed(improvingReflectiveResponse))
 
-      yield* GEPA.run({
-        module,
-        trainset: makeEvaluationExamples(),
-        metric: Metric.exactMatch("answer"),
-        maxIterations: 1,
-        seed: 42
-      }).pipe(Effect.provideService(LanguageModel.LanguageModel, mock.service))
+      yield* GEPA.run(
+        new GEPA.Options({
+          module,
+          trainset: makeEvaluationExamples(),
+          metric: Metric.exactMatch("answer"),
+          maxIterations: 1,
+          seed: 42
+        })
+      ).pipe(Effect.provideService(LanguageModel.LanguageModel, mock.service))
 
       expect(yield* Ref.get(evaluatedRows)).toBe(REJECTED_MUTATION_ROW_COUNT)
       expect(yield* Ref.get(module.params)).toEqual(originalParams)
@@ -375,8 +388,8 @@ describe("GEPA.run orchestration", () => {
     Effect.gen(function*() {
       const rejected = yield* runCountingStream(false)
       const accepted = yield* runCountingStream(true)
-      const rejectedAcceptance = yield* rejected.acceptance
-      const acceptedAcceptance = yield* accepted.acceptance
+      const rejectedAcceptance = Option.getOrThrow(rejected.acceptance)
+      const acceptedAcceptance = Option.getOrThrow(accepted.acceptance)
 
       expect(rejected.evaluatedRows).toBe(REJECTED_MUTATION_ROW_COUNT)
       expect(rejectedAcceptance.accepted).toBe(false)
@@ -402,7 +415,7 @@ describe("GEPA.run orchestration", () => {
         (prediction: AnswerResponse, expected) =>
           Ref.updateAndGet(scoredRows, Num.increment).pipe(
             Effect.flatMap((rowCount) =>
-              Effect.if(Num.Equivalence(rowCount, ACCEPTED_MUTATION_ROW_COUNT), {
+              Bool.match(Num.Equivalence(rowCount, ACCEPTED_MUTATION_ROW_COUNT), {
                 onFalse: () => Effect.succeed(scoreAnswer(prediction, expected)),
                 onTrue: () => Effect.fail(new Gate2MetricFailure())
               })
@@ -410,13 +423,15 @@ describe("GEPA.run orchestration", () => {
           )
       )
 
-      const failure = yield* GEPA.run({
-        module,
-        trainset: makeEvaluationExamples(),
-        metric,
-        maxIterations: 1,
-        seed: 42
-      }).pipe(
+      const failure = yield* GEPA.run(
+        new GEPA.Options({
+          module,
+          trainset: makeEvaluationExamples(),
+          metric,
+          maxIterations: 1,
+          seed: 42
+        })
+      ).pipe(
         Effect.provideService(LanguageModel.LanguageModel, mock.service),
         Effect.flip
       )
@@ -447,7 +462,7 @@ describe("GEPA.run orchestration", () => {
                     Str.includes("Question 4")(candidate)
                   )
                 ),
-              () => Deferred.succeed(gate2Started, true).pipe(Effect.zipRight(Effect.never))
+              () => Deferred.succeed(gate2Started, true).pipe(Effect.andThen(Effect.never))
             ),
             Match.orElse((candidate) =>
               Effect.succeed(
@@ -462,15 +477,17 @@ describe("GEPA.run orchestration", () => {
           )
         )
       )
-      const fiber = yield* GEPA.run({
-        module,
-        trainset: makeEvaluationExamples(),
-        metric: Metric.exactMatch("answer"),
-        maxIterations: 1,
-        seed: 42
-      }).pipe(
+      const fiber = yield* GEPA.run(
+        new GEPA.Options({
+          module,
+          trainset: makeEvaluationExamples(),
+          metric: Metric.exactMatch("answer"),
+          maxIterations: 1,
+          seed: 42
+        })
+      ).pipe(
         Effect.provideService(LanguageModel.LanguageModel, mock.service),
-        Effect.fork
+        Effect.forkScoped
       )
 
       yield* Deferred.await(gate2Started)
@@ -482,7 +499,7 @@ describe("GEPA.run orchestration", () => {
   it.effect("runs merge-check → reflective mutation → acceptance → Pareto update in canonical order", () =>
     Effect.gen(function*() {
       const rawEventOrderFixture = yield* loadFixture("dspy.gepa.orchestration.event-order.seed-0")
-      const eventOrderFixture = yield* Schema.decodeUnknown(GepaOrchestrationEventOrderFixtureSchema)(
+      const eventOrderFixture = yield* Schema.decodeUnknownEffect(GepaOrchestrationEventOrderFixtureSchema)(
         rawEventOrderFixture
       )
       const signature = yield* makeQaSignature()
@@ -490,22 +507,24 @@ describe("GEPA.run orchestration", () => {
       const mock = yield* MockLanguageModel.make(MockLanguageModel.map(responseForPrompt))
       const layer = Layer.succeed(LanguageModel.LanguageModel, mock.service)
       const events = yield* Stream.runCollect(
-        GEPA.stream({
-          module,
-          trainset: Arr.make(
-            new Example({
-              input: { question: "What is the capital of France?" },
-              output: { answer: "London" }
-            }),
-            new Example({
-              input: { question: "What is the capital of Japan?" },
-              output: { answer: "Berlin" }
-            })
-          ),
-          metric: Metric.exactMatch("answer"),
-          maxIterations: 2,
-          seed: 42
-        })
+        GEPA.stream(
+          new GEPA.Options({
+            module,
+            trainset: Arr.make(
+              new Example({
+                input: { question: "What is the capital of France?" },
+                output: { answer: "London" }
+              }),
+              new Example({
+                input: { question: "What is the capital of Japan?" },
+                output: { answer: "Berlin" }
+              })
+            ),
+            metric: Metric.exactMatch("answer"),
+            maxIterations: 2,
+            seed: 42
+          })
+        )
       ).pipe(Effect.provide(layer))
 
       const eventList = Arr.fromIterable(events)
@@ -519,7 +538,7 @@ describe("GEPA.run orchestration", () => {
       )
 
       expect(Option.isSome(firstAppearance)).toBe(true)
-      expect(Option.map(firstAppearance, Arr.sort(Order.number))).toEqual(firstAppearance)
+      expect(Option.map(firstAppearance, Arr.sort(Order.Number))).toEqual(firstAppearance)
       expect(Arr.head(tags)).toEqual(
         Option.some(Arr.headNonEmpty(eventOrderFixture.payload.expectedWithinIterationOrder))
       )

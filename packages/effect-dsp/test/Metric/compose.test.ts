@@ -3,7 +3,7 @@
  */
 import { describe, expect, it } from "@effect/vitest"
 import * as Metric from "@scenesystems/effect-dsp/Metric"
-import { Array as Arr, Chunk, Data, Effect, Either, Number, Ref, Schema, Tuple } from "effect"
+import { Array as Arr, Chunk, Data, Effect, Number, Ref, Result, Schema, Tuple } from "effect"
 import { composedScoreMap } from "../../src/internal/metric/compose.js"
 
 describe("Metric.compose", () => {
@@ -42,7 +42,7 @@ describe("Metric.compose", () => {
 
   it.effect("orders schema-bound scorers and feedback by name, including empty feedback", () =>
     Effect.gen(function*() {
-      const Output = Schema.Struct({ value: Schema.Number })
+      const Output = Schema.Struct({ value: Schema.Finite })
       const calls = yield* Ref.make(Arr.empty<string>())
       const metric = (name: string, feedback: string) =>
         Metric.fromEffect(name, (prediction: typeof Output.Type, expected) =>
@@ -67,10 +67,10 @@ describe("Metric.compose", () => {
         z: Metric.fromEffect("z", () =>
           Ref.update(calls, Arr.append("z")).pipe(Effect.as(new Metric.Result({ score: 1 })))),
         a: Metric.fromEffect("a", () =>
-          Ref.update(calls, Arr.append("a")).pipe(Effect.zipRight(Effect.fail(failure))))
+          Ref.update(calls, Arr.append("a")).pipe(Effect.andThen(Effect.fail(failure))))
       })
 
-      expect(yield* Effect.either(composed.score({}, {}))).toEqual(Either.left(failure))
+      expect(yield* Effect.result(composed.score({}, {}))).toEqual(Result.fail(failure))
       expect(yield* Ref.get(calls)).toEqual(Arr.make("a"))
     }))
 

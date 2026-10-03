@@ -1,7 +1,6 @@
 /**
  * Fixture-backed DSPy parity contracts for MIPROv2 phase defaults and budgeting.
  */
-import * as LanguageModel from "@effect/ai/LanguageModel"
 import { describe, expect, it } from "@effect/vitest"
 import { Example } from "@scenesystems/effect-dsp/Example"
 import * as Metric from "@scenesystems/effect-dsp/Metric"
@@ -13,6 +12,7 @@ import {
   Array as Arr,
   Boolean as Bool,
   Effect,
+  Fiber,
   Inspectable,
   Layer,
   Match,
@@ -22,6 +22,8 @@ import {
   Schema,
   String as Str
 } from "effect"
+import * as LanguageModel from "effect/ai/LanguageModel"
+import * as TestClock from "effect/testing/TestClock"
 
 import { resolvePhase3Cadence } from "../../src/internal/miprov2/runtime/budget.js"
 import {
@@ -82,7 +84,7 @@ describe("MIPROv2 DSPy phase parity", () => {
   it.effect("matches fixture-defined phase defaults and orchestration order", () =>
     Effect.gen(function*() {
       const rawFixture = yield* loadFixture("dspy.mipro.phase-config")
-      const fixture = yield* Schema.decodeUnknown(MiproPhaseConfigFixtureSchema)(rawFixture)
+      const fixture = yield* Schema.decodeUnknownEffect(MiproPhaseConfigFixtureSchema)(rawFixture)
 
       const cadence = resolvePhase3Cadence({})
 
@@ -113,8 +115,8 @@ describe("MIPROv2 DSPy phase parity", () => {
       )
       const layer = Layer.succeed(LanguageModel.LanguageModel, mock.service)
 
-      yield* MIPROv2.runWithEvents(
-        {
+      const fiber = yield* MIPROv2.runWithEvents(
+        new MIPROv2.Options({
           module,
           trainset,
           valset: trainset,
@@ -123,9 +125,11 @@ describe("MIPROv2 DSPy phase parity", () => {
           numInstructions: 2,
           trialBudget: 1,
           seed: 17
-        },
+        }),
         (event) => Ref.update(events, (tags) => Arr.append(tags, event._tag))
-      ).pipe(Effect.provide(layer))
+      ).pipe(Effect.provide(layer), Effect.forkScoped)
+      yield* TestClock.adjust("1 minute")
+      yield* Fiber.join(fiber)
 
       const tags = yield* Ref.get(events)
       const orderedStartTags = Arr.map(fixture.payload.phaseOrder, phaseStartTag)
@@ -151,14 +155,14 @@ describe("MIPROv2 DSPy phase parity", () => {
         Arr.findFirstIndex(tags, (tag) => Str.Equivalence(tag, "Phase3Started")),
         () => -1
       )
-      expect(Num.lessThan(phase1Index, phase2Index)).toBe(true)
-      expect(Num.lessThan(phase2Index, phase3Index)).toBe(true)
+      expect(Num.isLessThan(phase1Index, phase2Index)).toBe(true)
+      expect(Num.isLessThan(phase2Index, phase3Index)).toBe(true)
     }))
 
   it.effect("matches fixture-defined tip vocabulary and marker template", () =>
     Effect.gen(function*() {
       const rawFixture = yield* loadFixture("dspy.mipro.tips-vocabulary")
-      const fixture = yield* Schema.decodeUnknown(MiproTipsVocabularyFixtureSchema)(rawFixture)
+      const fixture = yield* Schema.decodeUnknownEffect(MiproTipsVocabularyFixtureSchema)(rawFixture)
 
       const expectedMarker = materializeTemplate(
         fixture.payload.proposalMarkerTemplate,
@@ -175,7 +179,7 @@ describe("MIPROv2 DSPy phase parity", () => {
   it.effect("matches fixture-defined trial budget cases", () =>
     Effect.gen(function*() {
       const rawFixture = yield* loadFixture("dspy.mipro.trial-budget-cases")
-      const fixture = yield* Schema.decodeUnknown(MiproTrialBudgetCasesFixtureSchema)(rawFixture)
+      const fixture = yield* Schema.decodeUnknownEffect(MiproTrialBudgetCasesFixtureSchema)(rawFixture)
 
       yield* Effect.forEach(fixture.payload.cases, (budgetCase) =>
         Effect.sync(() => {
@@ -183,7 +187,7 @@ describe("MIPROv2 DSPy phase parity", () => {
             predictorCount: budgetCase.predictorCount,
             demoCandidateCount: budgetCase.demoCandidateCount,
             instructionCandidateCount: budgetCase.instructionCandidateCount,
-            ...Option.match(Option.fromNullable(budgetCase.minimum), {
+            ...Option.match(Option.fromNullishOr(budgetCase.minimum), {
               onNone: () => ({}),
               onSome: (minimum) => ({ minimum })
             })

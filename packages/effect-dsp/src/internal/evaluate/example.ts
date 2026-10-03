@@ -37,7 +37,7 @@ export type EvaluationEventSink = (event: Event) => Effect.Effect<void>
  * @since 0.1.0
  * @internal
  */
-export type MetricEntry<ME, MR, A> = Schema.Tuple2<typeof Schema.String, Schema.Schema<Metric<ME, MR, A>>>["Type"]
+export type MetricEntry<ME, MR, A> = readonly [string, Metric<ME, MR, A>]
 
 /**
  * @since 0.1.0
@@ -53,7 +53,7 @@ export class ExampleOutcome extends Data.Class<{
 type ExampleScore = ExampleResult["scores"]
 
 const metricEntryOrder = <ME, MR, A>(): Order.Order<MetricEntry<ME, MR, A>> =>
-  Order.mapInput(Order.string, (entry: MetricEntry<ME, MR, A>) => Tuple.getFirst(entry))
+  Order.mapInput(Order.String, (entry: MetricEntry<ME, MR, A>) => entry[0])
 
 /**
  * @since 0.1.0
@@ -111,19 +111,20 @@ const scoreExample = <I extends Schema.Struct.Fields, O extends Schema.Struct.Fi
   options: EvaluateExampleOptions<I, O, ME, MR, E, R>
 ) =>
   Effect.gen(function*() {
-    const decodedInput = yield* Schema.decodeUnknown(options.module.signature.inputSchema)(options.example.input).pipe(
-      Effect.mapError(() =>
-        new EvaluationFailed({
-          index: options.index,
-          message: "example input does not match module input schema"
-        })
+    const decodedInput = yield* Schema.decodeEffect(options.module.signature.inputSchema)(options.example.input)
+      .pipe(
+        Effect.mapError(() =>
+          new EvaluationFailed({
+            index: options.index,
+            message: "example input does not match module input schema"
+          })
+        )
       )
-    )
-    const expected = yield* Option.match(Option.fromNullable(options.example.output), {
+    const expected = yield* Option.match(Option.fromNullishOr(options.example.output), {
       onNone: () => evaluateMissingOutput(options.index),
       onSome: (value) => Effect.succeed(value)
     })
-    const expectedOutput = yield* Schema.decodeUnknown(options.module.signature.outputSchema)(expected).pipe(
+    const expectedOutput = yield* Schema.decodeEffect(options.module.signature.outputSchema)(expected).pipe(
       Effect.mapError(() =>
         new EvaluationFailed({
           index: options.index,
@@ -133,17 +134,15 @@ const scoreExample = <I extends Schema.Struct.Fields, O extends Schema.Struct.Fi
     )
     const prediction = yield* options.module.forward(decodedInput)
     const scores = yield* Effect.forEach(options.metrics, (entry) =>
-      Tuple.getSecond(entry).score(prediction, expectedOutput).pipe(
-        Effect.map((result) =>
-          Tuple.make(Tuple.getFirst(entry), result.score)
-        )
+      entry[1].score(prediction, expectedOutput).pipe(
+        Effect.map((result) => Tuple.make(entry[0], result.score))
       ))
 
     const scoresByName: ExampleScore = Record.fromEntries(scores)
-    return Data.struct({
+    return {
       scores: scoresByName,
-      averageScore: averageNumbers(Arr.map(scores, Tuple.getSecond))
-    })
+      averageScore: averageNumbers(Arr.map(scores, (entry) => entry[1]))
+    }
   })
 
 /**

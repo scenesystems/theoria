@@ -6,7 +6,7 @@ import { Array as Arr, Number, Option, Schema, String } from "effect"
  * Rounding follows Effect's decimal-place contract, not binary toFixed ties.
  */
 export const formatScore = (value: number, places: number): string => {
-  const parts = String.split(Schema.encodeSync(Schema.NumberFromString)(Number.round(value, places)), ".")
+  const parts = String.split(Schema.encodeSync(Schema.FiniteFromString)(Number.round(value, places)), ".")
   return Arr.join(
     Arr.make(
       Arr.headNonEmpty(parts),

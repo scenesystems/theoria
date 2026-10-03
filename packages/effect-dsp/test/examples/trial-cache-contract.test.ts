@@ -19,14 +19,16 @@ describe("examples/trial-cache-contract", () => {
       const invocations = yield* Ref.make(0)
       const space = yield* singleChoiceSpace
 
-      const result = yield* Optimization.run({
-        space,
-        sampler: Sampler.random({ seed: 31 }),
-        direction: "maximize",
-        trials: 4,
-        concurrency: 1,
-        objective: () => Ref.updateAndGet(invocations, Num.increment)
-      }).pipe(
+      const result = yield* Optimization.run(
+        new Optimization.FlatOptions({
+          space,
+          sampler: Sampler.random({ seed: 31 }),
+          direction: "maximize",
+          trials: 4,
+          concurrency: 1,
+          objective: () => Ref.updateAndGet(invocations, Num.increment)
+        })
+      ).pipe(
         Effect.provide(
           ObjectiveCache.layerMemory(new ObjectiveCache.Options({ scope: "effect-dsp/examples/trial-cache" }))
         )
@@ -52,14 +54,16 @@ describe("examples/trial-cache-contract", () => {
       const invocations = yield* Ref.make(0)
       const space = yield* singleChoiceSpace
 
-      yield* Optimization.run({
-        space,
-        sampler: Sampler.random({ seed: 31 }),
-        direction: "maximize",
-        trials: 4,
-        concurrency: 1,
-        objective: () => Ref.updateAndGet(invocations, Num.increment)
-      })
+      yield* Optimization.run(
+        new Optimization.FlatOptions({
+          space,
+          sampler: Sampler.random({ seed: 31 }),
+          direction: "maximize",
+          trials: 4,
+          concurrency: 1,
+          objective: () => Ref.updateAndGet(invocations, Num.increment)
+        })
+      )
 
       expect(yield* Ref.get(invocations)).toBe(4)
     }))

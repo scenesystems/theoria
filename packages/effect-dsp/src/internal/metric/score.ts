@@ -3,19 +3,21 @@
  *
  * @since 0.1.0
  */
-import { Array as Arr, Boolean, Match, Number, Option, Predicate, Record, Schema, String } from "effect"
+import { Array as Arr, Boolean, Match, Number, Option, Predicate, Record, Result, Schema, String } from "effect"
 
 const normalize = (value: string): string => String.toLowerCase(String.trim(value))
 
-const Scalar = Schema.Union(Schema.String, Schema.Number, Schema.Boolean)
+const Scalar = Schema.Union([Schema.String, Schema.Finite, Schema.Boolean])
 
 const scalarString = (value: typeof Scalar.Type): Option.Option<string> =>
   Match.value(value).pipe(
     Match.when(Predicate.isString, (text) => Option.some(text)),
-    Match.when(Predicate.isNumber, Schema.encodeOption(Schema.NumberFromString)),
+    Match.when(Predicate.isNumber, Schema.encodeOption(Schema.FiniteFromString)),
     Match.when(Predicate.isBoolean, (value) =>
       Option.some(Boolean.match(value, { onTrue: () => "true", onFalse: () => "false" }))),
-    Match.exhaustive
+    Match.orElse(() =>
+      Option.none<string>()
+    )
   )
 
 /**
@@ -25,12 +27,10 @@ const scalarString = (value: typeof Scalar.Type): Option.Option<string> =>
  * @since 0.1.0
  * @category helpers
  */
-export const fieldString = (payload: typeof Schema.Object.Type, field: string): Option.Option<string> =>
-  Schema.decodeUnknownOption(
-    Schema.Struct(Record.singleton(field, Schema.optional(Scalar)))
-  )(payload).pipe(
+export const fieldString = (payload: object, field: string): Option.Option<string> =>
+  Schema.decodeUnknownOption(Schema.Record(Schema.String, Schema.Unknown))(payload).pipe(
     Option.flatMap(Record.get(field)),
-    Option.flatMap(Option.fromNullable),
+    Option.flatMap(Schema.decodeUnknownOption(Scalar)),
     Option.flatMap(scalarString),
     Option.map(normalize)
   )
@@ -46,9 +46,14 @@ const nonEmptyToken = (token: string): Option.Option<string> =>
  * @category helpers
  */
 export const tokenizedField = (
-  payload: typeof Schema.Object.Type,
+  payload: object,
   field: string
-) => Option.map(fieldString(payload, field), (value) => Arr.filterMap(String.split(value, /\s+/), nonEmptyToken))
+) =>
+  Option.map(
+    fieldString(payload, field),
+    (value) =>
+      Arr.filterMap(String.split(value, /\s+/), (token) => Result.fromOption(nonEmptyToken(token), () => void 0))
+  )
 
 const tokenCounts = (tokens: Iterable<string>) =>
   Arr.reduce(tokens, Record.empty<string, number>(), (counts, token) =>
@@ -64,8 +69,8 @@ const tokenCounts = (tokens: Iterable<string>) =>
 class OverlapState extends Schema.Class<OverlapState>(
   "@scenesystems/effect-dsp/internal/metric/score/OverlapState"
 )({
-  overlap: Schema.Number,
-  rightCounts: Schema.Record({ key: Schema.String, value: Schema.Number })
+  overlap: Schema.Finite,
+  rightCounts: Schema.Record(Schema.String, Schema.Finite)
 }) {}
 
 /**
@@ -86,7 +91,7 @@ export const tokenOverlap = (left: Iterable<string>, right: Iterable<string>): n
       Option.match(Record.get(state.rightCounts, token), {
         onNone: () => state,
         onSome: (count) =>
-          Boolean.match(Number.lessThanOrEqualTo(count, 0), {
+          Boolean.match(Number.isLessThanOrEqualTo(count, 0), {
             onTrue: () => state,
             onFalse: () =>
               new OverlapState({

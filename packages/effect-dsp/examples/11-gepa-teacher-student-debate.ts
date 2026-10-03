@@ -12,7 +12,7 @@
  *
  * Run: bun run examples/11-gepa-teacher-student-debate.ts
  */
-import { BunContext, BunRuntime } from "@effect/platform-bun"
+import { BunRuntime, BunServices } from "@effect/platform-bun"
 import { Evaluate, Example, GEPA, Metric, Module, Signature } from "@scenesystems/effect-dsp"
 import { Array as Arr, Boolean, Effect, Layer, Number, Option, Record, Ref, Schema, Stream, String } from "effect"
 import {
@@ -143,7 +143,7 @@ const recommendationMetric = Metric.fromEffect(
 
 const logExampleStage = (
   stage: string,
-  payload: typeof Schema.Object.Type
+  payload: Readonly<Record<string, unknown>>
 ) =>
   Effect.log("example:11 stage", {
     stage,
@@ -199,36 +199,38 @@ const program = Effect.gen(function*() {
   const judge = yield* Module.predict("debate-judge", judgeSignature)
   const teacherLayer = yield* liveTeacherLayer()
 
-  const debateModule = yield* Module.compose({
-    name: "intervention-debate-panel",
-    signature: panelSignature,
-    subModules: {
-      teacherAnalyst,
-      studentAnalyst,
-      judge
-    },
-    forward: ({ input }) =>
-      Effect.gen(function*() {
-        const teacherArgument = yield* teacherAnalyst
-          .forward({
+  const debateModule = yield* Module.compose(
+    new Module.ComposeOptions({
+      name: "intervention-debate-panel",
+      signature: panelSignature,
+      subModules: {
+        teacherAnalyst,
+        studentAnalyst,
+        judge
+      },
+      forward: ({ input }) =>
+        Effect.gen(function*() {
+          const teacherArgument = yield* teacherAnalyst
+            .forward({
+              observation: input.observation,
+              population: input.population
+            })
+            .pipe(Effect.provide(teacherLayer))
+
+          const studentArgument = yield* studentAnalyst.forward({
             observation: input.observation,
             population: input.population
           })
-          .pipe(Effect.provide(teacherLayer))
 
-        const studentArgument = yield* studentAnalyst.forward({
-          observation: input.observation,
-          population: input.population
+          return yield* judge.forward({
+            observation: input.observation,
+            population: input.population,
+            teacherArgument: Arr.join(Arr.make(teacherArgument.intervention, teacherArgument.argument), ": "),
+            studentArgument: Arr.join(Arr.make(studentArgument.intervention, studentArgument.argument), ": ")
+          })
         })
-
-        return yield* judge.forward({
-          observation: input.observation,
-          population: input.population,
-          teacherArgument: Arr.join(Arr.make(teacherArgument.intervention, teacherArgument.argument), ": "),
-          studentArgument: Arr.join(Arr.make(studentArgument.intervention, studentArgument.argument), ": ")
-        })
-      })
-  })
+    })
+  )
 
   const demoInput = {
     observation:
@@ -247,12 +249,14 @@ const program = Effect.gen(function*() {
     evalExampleCount: Arr.length(evalset)
   })
 
-  const baseline = yield* Evaluate.run({
-    module: debateModule,
-    examples: evalset,
-    metrics: { exactMatch: recommendationMetric },
-    concurrency: 1
-  })
+  const baseline = yield* Evaluate.run(
+    new Evaluate.Options({
+      module: debateModule,
+      examples: evalset,
+      metrics: { exactMatch: recommendationMetric },
+      concurrency: 1
+    })
+  )
   const judgeParamsBeforeOptimization = yield* Ref.get(judge.params)
 
   yield* logExampleStage("gepa-stream-started", {
@@ -261,24 +265,28 @@ const program = Effect.gen(function*() {
     seed: 29
   })
 
-  const gepaEventsChunk = yield* GEPA.stream({
-    module: debateModule,
-    trainset,
-    valset: evalset,
-    metric: recommendationMetric,
-    maxIterations: 3,
-    seed: 29
-  }).pipe(
+  const gepaEventsChunk = yield* GEPA.stream(
+    new GEPA.Options({
+      module: debateModule,
+      trainset,
+      valset: evalset,
+      metric: recommendationMetric,
+      maxIterations: 3,
+      seed: 29
+    })
+  ).pipe(
     GEPA.tapProgress((line) => logExampleEvent("gepa", line.text)),
     Stream.runCollect
   )
 
-  const optimized = yield* Evaluate.run({
-    module: debateModule,
-    examples: evalset,
-    metrics: { exactMatch: recommendationMetric },
-    concurrency: 1
-  })
+  const optimized = yield* Evaluate.run(
+    new Evaluate.Options({
+      module: debateModule,
+      examples: evalset,
+      metrics: { exactMatch: recommendationMetric },
+      concurrency: 1
+    })
+  )
 
   const gepaEvents = Arr.fromIterable(gepaEventsChunk)
   const gepaEventSummary = GEPA.summarizeEvents(gepaEvents)
@@ -372,6 +380,6 @@ const program = Effect.gen(function*() {
 BunRuntime.runMain(
   withLiveLanguageModel(program).pipe(
     Effect.scoped,
-    Effect.provide(Layer.merge(noopArtifactSinkLayer, BunContext.layer))
+    Effect.provide(Layer.merge(noopArtifactSinkLayer, BunServices.layer))
   )
 )

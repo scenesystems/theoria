@@ -5,7 +5,6 @@
  * @since 0.1.0
  * @module
  */
-import type * as LanguageModel from "@effect/ai/LanguageModel"
 import * as Emitter from "@scenesystems/effect-study/Emitter"
 import {
   Array as Arr,
@@ -22,8 +21,10 @@ import {
   Stream,
   String as Str
 } from "effect"
+import type * as AiError from "effect/ai/AiError"
+import type * as LanguageModel from "effect/ai/LanguageModel"
 import type * as Layer from "effect/Layer"
-import { BootstrapFailed } from "./DspError.js"
+import { BootstrapFailed, type DspError } from "./DspError.js"
 import { Example } from "./Example.js"
 import { labeledTrainset, normalizeNonNegative } from "./internal/bootstrapFewShot/runtime/demos.js"
 import {
@@ -36,14 +37,14 @@ import {
 import { bootstrapRound, BootstrapRoundOptions } from "./internal/bootstrapFewShot/runtime/round.js"
 import { collectModuleParamRefs } from "./internal/moduleParameters.js"
 import { Options as LabeledFewShotOptions, run as labeledFewShot } from "./LabeledFewShot.js"
-import type { Metric } from "./Metric.js"
+import { type Metric, Result as MetricResult } from "./Metric.js"
 import type { Module } from "./Module.js"
 import { withDemos as withModuleParamsDemos } from "./ModuleParameters.js"
 
 const averageScore = (state: BootstrapState): number =>
-  Bool.match(Num.greaterThan(state.evaluatedExamples, 0), {
+  Bool.match(Num.isGreaterThan(state.evaluatedExamples, 0), {
     onFalse: () => 0,
-    onTrue: () => Num.unsafeDivide(state.scoreSum, state.evaluatedExamples)
+    onTrue: () => Num.divideUnsafe(state.scoreSum, state.evaluatedExamples)
   })
 
 /**
@@ -66,36 +67,36 @@ export type Examples = typeof Examples.Type
  * @since 0.1.0
  * @category events
  */
-export const Event = Schema.Union(
-  Schema.TaggedStruct("RoundStarted", { round: Schema.Number, maxRounds: Schema.Number }),
-  Schema.TaggedStruct("TraceAccepted", { moduleName: Schema.String, score: Schema.Number }),
+export const Event = Schema.Union([
+  Schema.TaggedStruct("RoundStarted", { round: Schema.Finite, maxRounds: Schema.Finite }),
+  Schema.TaggedStruct("TraceAccepted", { moduleName: Schema.String, score: MetricResult.fields.score }),
   Schema.TaggedStruct("TraceRejected", {
     moduleName: Schema.String,
-    score: Schema.Number,
-    threshold: Schema.Number
+    score: MetricResult.fields.score,
+    threshold: MetricResult.fields.score
   }),
-  Schema.TaggedStruct("RoundCompleted", { round: Schema.Number, demosCollected: Schema.Number }),
+  Schema.TaggedStruct("RoundCompleted", { round: Schema.Finite, demosCollected: Schema.Finite }),
   Schema.TaggedStruct("BootstrapFallbackActivated", {
-    threshold: Schema.Number,
-    roundsAttempted: Schema.Number,
-    acceptedTraces: Schema.Number,
-    rejectedTraces: Schema.Number,
+    threshold: MetricResult.fields.score,
+    roundsAttempted: Schema.Finite,
+    acceptedTraces: Schema.Finite,
+    rejectedTraces: Schema.Finite,
     bestScoreSeen: Schema.Boolean,
-    bestScore: Schema.Number,
-    averageScore: Schema.Number,
-    fallbackLabeledDemoCount: Schema.Number
+    bestScore: MetricResult.fields.score,
+    averageScore: MetricResult.fields.score,
+    fallbackLabeledDemoCount: Schema.Finite
   }),
   Schema.TaggedStruct("BootstrapFallbackCompleted", {
-    fallbackDemosAdded: Schema.Number,
-    totalDemos: Schema.Number,
-    roundsUsed: Schema.Number
+    fallbackDemosAdded: Schema.Finite,
+    totalDemos: Schema.Finite,
+    roundsUsed: Schema.Finite
   }),
   Schema.TaggedStruct("BootstrapCompleted", {
-    totalDemos: Schema.Number,
-    roundsUsed: Schema.Number,
+    totalDemos: Schema.Finite,
+    roundsUsed: Schema.Finite,
     fallbackUsed: Schema.Boolean
   })
-)
+])
 
 /** Bootstrap lifecycle event.
  * @since 0.1.0
@@ -120,7 +121,7 @@ export type EventSink<E = never, R = never> = (event: Event) => Effect.Effect<vo
  * @category models
  */
 export class ProgressLine extends Schema.Class<ProgressLine>("@scenesystems/effect-dsp/BootstrapFewShot/ProgressLine")({
-  tag: Schema.typeSchema(Schema.pluck(Event, "_tag")),
+  tag: Schema.String,
   details: Schema.String,
   text: Schema.String
 }) {}
@@ -171,17 +172,17 @@ export const tapProgress =
  * @category models
  */
 export class EventSummary extends Schema.Class<EventSummary>("@scenesystems/effect-dsp/BootstrapFewShot/EventSummary")({
-  totalEvents: Schema.Number,
-  roundsStarted: Schema.Number,
-  roundsCompleted: Schema.Number,
-  traceAcceptedCount: Schema.Number,
-  traceRejectedCount: Schema.Number,
+  totalEvents: Schema.Finite,
+  roundsStarted: Schema.Finite,
+  roundsCompleted: Schema.Finite,
+  traceAcceptedCount: Schema.Finite,
+  traceRejectedCount: Schema.Finite,
   fallbackActivatedSeen: Schema.Boolean,
   fallbackCompletedSeen: Schema.Boolean,
   fallbackUsed: Schema.Boolean,
   completedSeen: Schema.Boolean,
-  totalDemos: Schema.Number,
-  roundsUsed: Schema.Number
+  totalDemos: Schema.Finite,
+  roundsUsed: Schema.Finite
 }) {}
 
 const emptySummary = new EventSummary({
@@ -204,27 +205,61 @@ const emptySummary = new EventSummary({
  */
 export const summarizeEvents = (input: Iterable<Event>): EventSummary =>
   Arr.reduce(input, emptySummary, (summary, event) => {
-    const next = new EventSummary({ ...summary, totalEvents: Num.increment(summary.totalEvents) })
+    const next = new EventSummary({
+      ...(Schema.encodeSync(EventSummary)(summary)),
+      totalEvents: Num.increment(summary.totalEvents)
+    })
     return Match.value(event).pipe(
-      Match.tag("RoundStarted", () => new EventSummary({ ...next, roundsStarted: Num.increment(next.roundsStarted) })),
+      Match.tag(
+        "RoundStarted",
+        () =>
+          new EventSummary({
+            ...(Schema.encodeSync(EventSummary)(next)),
+            roundsStarted: Num.increment(next.roundsStarted)
+          })
+      ),
       Match.tag(
         "TraceAccepted",
-        () => new EventSummary({ ...next, traceAcceptedCount: Num.increment(next.traceAcceptedCount) })
+        () =>
+          new EventSummary({
+            ...(Schema.encodeSync(EventSummary)(next)),
+            traceAcceptedCount: Num.increment(next.traceAcceptedCount)
+          })
       ),
       Match.tag(
         "TraceRejected",
-        () => new EventSummary({ ...next, traceRejectedCount: Num.increment(next.traceRejectedCount) })
+        () =>
+          new EventSummary({
+            ...(Schema.encodeSync(EventSummary)(next)),
+            traceRejectedCount: Num.increment(next.traceRejectedCount)
+          })
       ),
       Match.tag(
         "RoundCompleted",
-        () => new EventSummary({ ...next, roundsCompleted: Num.increment(next.roundsCompleted) })
+        () =>
+          new EventSummary({
+            ...(Schema.encodeSync(EventSummary)(next)),
+            roundsCompleted: Num.increment(next.roundsCompleted)
+          })
       ),
-      Match.tag("BootstrapFallbackActivated", () => new EventSummary({ ...next, fallbackActivatedSeen: true })),
-      Match.tag("BootstrapFallbackCompleted", () => new EventSummary({ ...next, fallbackCompletedSeen: true })),
+      Match.tag(
+        "BootstrapFallbackActivated",
+        () => new EventSummary({ ...(Schema.encodeSync(EventSummary)(next)), fallbackActivatedSeen: true })
+      ),
+      Match.tag(
+        "BootstrapFallbackCompleted",
+        () => new EventSummary({ ...(Schema.encodeSync(EventSummary)(next)), fallbackCompletedSeen: true })
+      ),
       Match.tag(
         "BootstrapCompleted",
         ({ fallbackUsed, roundsUsed, totalDemos }) =>
-          new EventSummary({ ...next, fallbackUsed, roundsUsed, totalDemos, completedSeen: true })
+          new EventSummary({
+            ...(Schema.encodeSync(EventSummary)(next)),
+            fallbackUsed,
+            roundsUsed,
+            totalDemos,
+            completedSeen: true
+          })
       ),
       Match.exhaustive
     )
@@ -354,18 +389,18 @@ export const runWithEvents = <
       Effect.gen(function*() {
         const maxRounds = normalizeNonNegative(options.maxRounds)
         const maxBootstrappedDemos = normalizeNonNegative(options.maxBootstrappedDemos)
-        const threshold = Option.getOrElse(Option.fromNullable(options.threshold), () => defaultBootstrapThreshold)
+        const threshold = Option.getOrElse(Option.fromUndefinedOr(options.threshold), () => defaultBootstrapThreshold)
         const fallbackToLabeledFewShot = Option.getOrElse(
-          Option.fromNullable(options.fallbackToLabeledFewShot),
+          Option.fromUndefinedOr(options.fallbackToLabeledFewShot),
           () => true
         )
         const fallbackLabeledDemoCount = normalizeNonNegative(
           Option.getOrElse(
-            Option.fromNullable(options.fallbackLabeledDemoCount),
+            Option.fromUndefinedOr(options.fallbackLabeledDemoCount),
             () => defaultBootstrapFallbackDemoCount
           )
         )
-        const teacher = Option.fromNullable(options.teacher)
+        const teacher = Option.fromUndefinedOr(options.teacher)
         const initialPredictors = yield* Effect.forEach(snapshots, (snapshot) =>
           Effect.forEach(
             Arr.take(snapshot.params.demos, maxBootstrappedDemos),
@@ -379,138 +414,165 @@ export const runWithEvents = <
                 })
               )
             ))
-        const trainset = labeledTrainset(options.trainset, Option.fromNullable(options.maxLabeledDemos))
+        const trainset = labeledTrainset(options.trainset, Option.fromUndefinedOr(options.maxLabeledDemos))
 
         yield* Effect.forEach(initialPredictors, (predictor) => Ref.set(predictor.owner.params, predictor.params), {
           discard: true
         }).pipe(Effect.uninterruptible)
 
-        const finalState = yield* Effect.iterate(
-          new BootstrapState({
-            round: 1,
-            roundsAttempted: 0,
-            predictors: initialPredictors,
-            totalTraces: 0,
-            acceptedTraces: 0,
-            rejectedTraces: 0,
-            evaluatedExamples: 0,
-            scoreSum: 0,
-            bestScoreSeen: false,
-            bestScore: 0,
-            fallbackUsed: false,
-            continue: true
-          }),
-          {
-            while: Predicate.and(
+        const initialState = new BootstrapState({
+          round: 1,
+          roundsAttempted: 0,
+          predictors: initialPredictors,
+          totalTraces: 0,
+          acceptedTraces: 0,
+          rejectedTraces: 0,
+          evaluatedExamples: 0,
+          scoreSum: 0,
+          bestScoreSeen: false,
+          bestScore: 0,
+          fallbackUsed: false,
+          continue: true
+        })
+        const runRounds = (state: BootstrapState): Effect.Effect<
+          BootstrapState,
+          E | ME | EE | AiError.AiError | DspError | Schema.SchemaError,
+          | R
+          | MR
+          | ER
+          | LanguageModel.LanguageModel
+          | Schema.Struct.DecodingServices<I>
+          | Schema.Struct.EncodingServices<I>
+          | Schema.Struct.DecodingServices<O>
+          | Schema.Struct.EncodingServices<O>
+        > =>
+          Effect.suspend(() =>
+            Bool.match(
               Predicate.and(
-                (state: BootstrapState) => state.continue,
-                (state) => Num.lessThanOrEqualTo(state.round, maxRounds)
-              ),
-              (state) =>
-                Arr.some(
-                  state.predictors,
-                  (predictor) => Num.lessThan(Arr.length(predictor.params.demos), maxBootstrappedDemos)
-                )
-            ),
-            body: (state) =>
-              bootstrapRound(
-                new BootstrapRoundOptions({
-                  state,
-                  module: options.module,
-                  trainset,
-                  metric: options.metric,
-                  threshold,
-                  emit,
-                  teacher,
-                  maxBootstrappedDemos,
-                  maxRounds
-                })
-              )
-          }
-        )
-
-        return yield* Effect.if(Num.Equivalence(demoCount(finalState.predictors), 0), {
-          onFalse: () =>
-            emit(
-              events.BootstrapCompleted({
-                totalDemos: demoCount(finalState.predictors),
-                roundsUsed: finalState.roundsAttempted,
-                fallbackUsed: false
-              })
-            ).pipe(Effect.as(options.module)),
-          onTrue: () =>
-            Effect.if(
-              Bool.match(fallbackToLabeledFewShot, {
-                onFalse: () => false,
-                onTrue: () => Num.greaterThan(fallbackLabeledDemoCount, 0)
-              }),
+                Predicate.and(
+                  (state: BootstrapState) => state.continue,
+                  (state) => Num.isLessThanOrEqualTo(state.round, maxRounds)
+                ),
+                (state) =>
+                  Arr.some(
+                    state.predictors,
+                    (predictor) => Num.isLessThan(Arr.length(predictor.params.demos), maxBootstrappedDemos)
+                  )
+              )(state),
               {
-                onFalse: () => bootstrapFailure("BootstrapFewShot produced zero accepted demos", threshold, finalState),
+                onFalse: () => Effect.succeed(state),
                 onTrue: () =>
-                  Effect.gen(function*() {
-                    yield* emit(
-                      events.BootstrapFallbackActivated({
-                        threshold,
-                        roundsAttempted: finalState.roundsAttempted,
-                        acceptedTraces: finalState.acceptedTraces,
-                        rejectedTraces: finalState.rejectedTraces,
-                        bestScoreSeen: finalState.bestScoreSeen,
-                        bestScore: finalState.bestScore,
-                        averageScore: averageScore(finalState),
-                        fallbackLabeledDemoCount
-                      })
-                    )
-
-                    const optimized = yield* labeledFewShot(
-                      new LabeledFewShotOptions({
-                        module: options.module,
-                        trainset,
-                        k: fallbackLabeledDemoCount
-                      })
-                    )
-                    const fallbackDemos = demoCount(
-                      yield* Effect.forEach(finalState.predictors, (predictor) =>
-                        Ref.get(predictor.owner.params).pipe(
-                          Effect.map((params) => new PredictorDemos({ owner: predictor.owner, params }))
-                        ))
-                    )
-
-                    return yield* Effect.if(Num.Equivalence(fallbackDemos, 0), {
-                      onTrue: () =>
-                        bootstrapFailure(
-                          "BootstrapFewShot produced zero accepted demos and labeled fallback yielded zero demos",
-                          threshold,
-                          finalState
-                        ),
-                      onFalse: () =>
-                        Effect.gen(function*() {
-                          yield* emit(
-                            events.BootstrapFallbackCompleted({
-                              fallbackDemosAdded: fallbackDemos,
-                              totalDemos: fallbackDemos,
-                              roundsUsed: finalState.roundsAttempted
-                            })
-                          )
-                          yield* emit(
-                            events.BootstrapCompleted({
-                              totalDemos: fallbackDemos,
-                              roundsUsed: finalState.roundsAttempted,
-                              fallbackUsed: true
-                            })
-                          )
-
-                          return optimized
-                        })
+                  bootstrapRound(
+                    new BootstrapRoundOptions({
+                      state,
+                      module: options.module,
+                      trainset,
+                      metric: options.metric,
+                      threshold,
+                      emit,
+                      teacher,
+                      maxBootstrappedDemos,
+                      maxRounds
                     })
-                  })
+                  ).pipe(Effect.flatMap(runRounds))
               }
             )
-        })
+          )
+        const finalState = yield* runRounds(initialState)
+
+        return yield* Effect.suspend(() =>
+          Bool.match(Num.Equivalence(demoCount(finalState.predictors), 0), {
+            onFalse: () =>
+              emit(
+                events.BootstrapCompleted({
+                  totalDemos: demoCount(finalState.predictors),
+                  roundsUsed: finalState.roundsAttempted,
+                  fallbackUsed: false
+                })
+              ).pipe(Effect.as(options.module)),
+            onTrue: () =>
+              Effect.suspend(() =>
+                Bool.match(
+                  Bool.match(fallbackToLabeledFewShot, {
+                    onFalse: () => false,
+                    onTrue: () => Num.isGreaterThan(fallbackLabeledDemoCount, 0)
+                  }),
+                  {
+                    onFalse: () =>
+                      bootstrapFailure("BootstrapFewShot produced zero accepted demos", threshold, finalState),
+                    onTrue: () =>
+                      Effect.gen(function*() {
+                        yield* emit(
+                          events.BootstrapFallbackActivated({
+                            threshold,
+                            roundsAttempted: finalState.roundsAttempted,
+                            acceptedTraces: finalState.acceptedTraces,
+                            rejectedTraces: finalState.rejectedTraces,
+                            bestScoreSeen: finalState.bestScoreSeen,
+                            bestScore: finalState.bestScore,
+                            averageScore: averageScore(finalState),
+                            fallbackLabeledDemoCount
+                          })
+                        )
+
+                        const optimized = yield* labeledFewShot(
+                          new LabeledFewShotOptions({
+                            module: options.module,
+                            trainset,
+                            k: fallbackLabeledDemoCount
+                          })
+                        )
+                        const fallbackDemos = demoCount(
+                          yield* Effect.forEach(finalState.predictors, (predictor) =>
+                            Ref.get(predictor.owner.params).pipe(
+                              Effect.map((params) => new PredictorDemos({ owner: predictor.owner, params }))
+                            ))
+                        )
+
+                        return yield* Effect.suspend((): Effect.Effect<
+                          Module<I, O, E, R>,
+                          BootstrapFailed | EE,
+                          ER
+                        > =>
+                          Bool.match(Num.Equivalence(fallbackDemos, 0), {
+                            onTrue: () =>
+                              Effect.fail(bootstrapFailure(
+                                "BootstrapFewShot produced zero accepted demos and labeled fallback yielded zero demos",
+                                threshold,
+                                finalState
+                              )),
+                            onFalse: () =>
+                              Effect.gen(function*() {
+                                yield* emit(
+                                  events.BootstrapFallbackCompleted({
+                                    fallbackDemosAdded: fallbackDemos,
+                                    totalDemos: fallbackDemos,
+                                    roundsUsed: finalState.roundsAttempted
+                                  })
+                                )
+                                yield* emit(
+                                  events.BootstrapCompleted({
+                                    totalDemos: fallbackDemos,
+                                    roundsUsed: finalState.roundsAttempted,
+                                    fallbackUsed: true
+                                  })
+                                )
+
+                                return optimized
+                              })
+                          })
+                        )
+                      })
+                  }
+                )
+              )
+          })
+        )
       }),
     (snapshots, exit) =>
       Effect.when(
         Effect.forEach(snapshots, (snapshot) => Ref.set(snapshot.owner.params, snapshot.params), { discard: true }),
-        () => Exit.isFailure(exit)
+        Effect.sync(() => Exit.isFailure(exit))
       )
   )
 

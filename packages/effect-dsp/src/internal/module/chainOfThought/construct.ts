@@ -6,11 +6,9 @@
  */
 import type { Effect, Schema } from "effect"
 import type { SignatureError } from "../../../DspError.js"
-import type { ChainOfThoughtOutputFields, Module, PredictOptions } from "../../../Module.js"
+import { type ChainOfThoughtOutputFields, type Module, PredictOptions } from "../../../Module.js"
 import type * as Signature from "../../../Signature.js"
 import { makeChainOfThought } from "./runtime.js"
-
-const EMPTY_PREDICT_OPTIONS: PredictOptions = {}
 
 /**
  * Creates a predictor that requests reasoning text before the original outputs.
@@ -44,7 +42,7 @@ export const chainOfThought = <
 >(
   name: string,
   signature: Signature.Signature<I, O>,
-  options: PredictOptions = EMPTY_PREDICT_OPTIONS
+  options: PredictOptions = new PredictOptions({})
 ): Effect.Effect<Module<I, ChainOfThoughtOutputFields<O>>, SignatureError> =>
   makeChainOfThought({
     name,

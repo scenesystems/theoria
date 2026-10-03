@@ -5,7 +5,6 @@
  * @since 0.1.0
  * @internal
  */
-import type * as LanguageModel from "@effect/ai/LanguageModel"
 import * as Numeric from "@scenesystems/effect-math/Numeric"
 import {
   Array as Arr,
@@ -20,6 +19,7 @@ import {
   String as Str,
   Tuple
 } from "effect"
+import type * as LanguageModel from "effect/ai/LanguageModel"
 import type * as Layer from "effect/Layer"
 import { Options as BootstrapFewShotOptions, run as bootstrapFewShot } from "../../../BootstrapFewShot.js"
 import { AllTrialsFailed } from "../../../DspError.js"
@@ -39,7 +39,7 @@ export const BootstrapRSExamples = Schema.Array(Example)
 export type BootstrapRSExamples = typeof BootstrapRSExamples.Type
 
 /** @internal */
-export const BootstrapRSSeeds = Schema.Array(Schema.Number)
+export const BootstrapRSSeeds = Schema.Array(Schema.Finite)
 
 /** @internal */
 export type BootstrapRSSeeds = typeof BootstrapRSSeeds.Type
@@ -48,7 +48,7 @@ export type BootstrapRSSeeds = typeof BootstrapRSSeeds.Type
 export class ResolveSeedsOptions extends Schema.Class<ResolveSeedsOptions>(
   "@scenesystems/effect-dsp/internal/bootstrapRS/runtime/candidates/ResolveSeedsOptions"
 )({
-  numCandidates: Schema.Number,
+  numCandidates: Schema.Finite,
   seeds: Schema.optional(BootstrapRSSeeds)
 }) {}
 
@@ -99,7 +99,7 @@ export const rotateExamples = (examples: BootstrapRSExamples, seed: number): Boo
 export const resolveSeeds = (options: ResolveSeedsOptions): BootstrapRSSeeds => {
   const normalizedCandidateCount = normalizeNonNegative(options.numCandidates)
 
-  return Option.match(Option.fromNullable(options.seeds), {
+  return Option.match(Option.fromNullishOr(options.seeds), {
     onNone: () =>
       Match.value(normalizedCandidateCount).pipe(
         Match.when(0, () => Arr.empty<number>()),
@@ -193,28 +193,28 @@ export const evaluateCandidate = <
 >(options: EvaluateCandidateOptions<I, O, ME, MR, E, R>) =>
   Effect.gen(function*() {
     yield* Module.load(options.module, options.candidate.state)
-    const report = yield* Evaluate.run({
-      module: options.module,
-      examples: options.valset,
-      metrics: {
-        bootstrapRS: options.metric
-      },
-      concurrency: 1
-    })
+    const report = yield* Evaluate.run(
+      new Evaluate.Options({
+        module: options.module,
+        examples: options.valset,
+        metrics: {
+          bootstrapRS: options.metric
+        },
+        concurrency: 1
+      })
+    )
 
-    yield* Effect.if(Num.lessThanOrEqualTo(report.successCount, 0), {
-      onFalse: () => Effect.void,
-      onTrue: () =>
-        new AllTrialsFailed({
-          message: Str.concat(
-            Str.concat("Candidate '", options.candidate.label),
-            "' produced zero successful evaluation examples"
-          ),
-          trialCount: 0
-        })
-    })
+    yield* Effect.fail(
+      new AllTrialsFailed({
+        message: Str.concat(
+          Str.concat("Candidate '", options.candidate.label),
+          "' produced zero successful evaluation examples"
+        ),
+        trialCount: 0
+      })
+    ).pipe(Effect.when(Effect.succeed(Num.isLessThanOrEqualTo(report.successCount, 0))))
 
-    return Option.getOrElse(Option.fromNullable(report.overallScores.bootstrapRS), () => 0)
+    return Option.getOrElse(Option.fromNullishOr(report.overallScores.bootstrapRS), () => 0)
   })
 
 /**
@@ -286,23 +286,23 @@ export const buildCandidateStates = <
               metric: options.metric,
               maxRounds: options.maxRounds,
               maxBootstrappedDemos: options.maxBootstrappedDemos,
-              ...Option.match(Option.fromNullable(options.maxLabeledDemos), {
+              ...Option.match(Option.fromNullishOr(options.maxLabeledDemos), {
                 onNone: () => ({}),
                 onSome: (value) => ({ maxLabeledDemos: value })
               }),
-              ...Option.match(Option.fromNullable(options.threshold), {
+              ...Option.match(Option.fromNullishOr(options.threshold), {
                 onNone: () => ({}),
                 onSome: (value) => ({ threshold: value })
               }),
-              ...Option.match(Option.fromNullable(options.teacher), {
+              ...Option.match(Option.fromNullishOr(options.teacher), {
                 onNone: () => ({}),
                 onSome: (teacher) => ({ teacher })
               }),
-              ...Option.match(Option.fromNullable(options.fallbackToLabeledFewShot), {
+              ...Option.match(Option.fromNullishOr(options.fallbackToLabeledFewShot), {
                 onNone: () => ({ fallbackToLabeledFewShot: false }),
                 onSome: (fallbackToLabeledFewShot) => ({ fallbackToLabeledFewShot })
               }),
-              ...Option.match(Option.fromNullable(options.fallbackLabeledDemoCount), {
+              ...Option.match(Option.fromNullishOr(options.fallbackLabeledDemoCount), {
                 onNone: () => ({}),
                 onSome: (fallbackLabeledDemoCount) => ({ fallbackLabeledDemoCount })
               })

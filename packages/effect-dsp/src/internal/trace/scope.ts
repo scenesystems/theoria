@@ -3,7 +3,7 @@
  *
  * @since 0.1.0
  */
-import { Chunk, Data, Effect, Option, Ref } from "effect"
+import { Chunk, Effect, Option, Ref, Tuple } from "effect"
 import { accumulateUsage, emptyUsage } from "../../Trace.js"
 import type { Call, Entry } from "../../Trace.js"
 import { CallCollections, CallCollector, EntryCollections, EntryCollector } from "./refs.js"
@@ -22,7 +22,7 @@ const callAncestors = (parent: Option.Option<CallCollections>) =>
 
 const collectEntries = <A, E, R>(program: Effect.Effect<A, E, R>) =>
   Effect.gen(function*() {
-    const parent = yield* Effect.serviceOption(EntryCollector)
+    const parent = yield* EntryCollector
     const current = yield* Ref.make(Chunk.empty<Entry>())
     const collections = new EntryCollections({
       current,
@@ -33,13 +33,13 @@ const collectEntries = <A, E, R>(program: Effect.Effect<A, E, R>) =>
       const result = yield* program
       const entries = yield* Ref.get(current)
 
-      return Data.tuple(result, Chunk.toReadonlyArray(entries))
-    }).pipe(Effect.provideService(EntryCollector, collections))
+      return Tuple.make(result, Chunk.toReadonlyArray(entries))
+    }).pipe(Effect.provideService(EntryCollector, Option.some(collections)))
   })
 
 const collectCalls = <A, E, R>(program: Effect.Effect<A, E, R>) =>
   Effect.gen(function*() {
-    const parent = yield* Effect.serviceOption(CallCollector)
+    const parent = yield* CallCollector
     const current = yield* Ref.make(Chunk.empty<Call>())
     const collections = new CallCollections({
       current,
@@ -50,8 +50,8 @@ const collectCalls = <A, E, R>(program: Effect.Effect<A, E, R>) =>
       const result = yield* program
       const calls = yield* Ref.get(current)
 
-      return Data.tuple(result, calls)
-    }).pipe(Effect.provideService(CallCollector, collections))
+      return Tuple.make(result, calls)
+    }).pipe(Effect.provideService(CallCollector, Option.some(collections)))
   })
 
 const summarizeCalls = (calls: Chunk.Chunk<Call>) =>
@@ -92,7 +92,7 @@ export const withTracing = <A, E, R>(program: Effect.Effect<A, E, R>) => collect
  */
 export const withCalls = <A, E, R>(program: Effect.Effect<A, E, R>) =>
   collectCalls(program).pipe(
-    Effect.map(([result, calls]) => Data.tuple(result, Chunk.toReadonlyArray(calls)))
+    Effect.map(([result, calls]) => Tuple.make(result, Chunk.toReadonlyArray(calls)))
   )
 
 /**
@@ -110,7 +110,7 @@ export const withCalls = <A, E, R>(program: Effect.Effect<A, E, R>) =>
  */
 export const withUsageTracking = <A, E, R>(program: Effect.Effect<A, E, R>) =>
   collectCalls(program).pipe(
-    Effect.map(([result, calls]) => Data.tuple(result, summarizeCalls(calls)))
+    Effect.map(([result, calls]) => Tuple.make(result, summarizeCalls(calls)))
   )
 
 /**
@@ -119,7 +119,7 @@ export const withUsageTracking = <A, E, R>(program: Effect.Effect<A, E, R>) =>
  * @since 0.1.0
  * @category combinators
  */
-export const get = Effect.serviceOption(EntryCollector).pipe(
+export const get = EntryCollector.pipe(
   Effect.flatMap(
     Option.match({
       onNone: () => Effect.succeed(Chunk.empty<Entry>()),
@@ -135,7 +135,7 @@ export const get = Effect.serviceOption(EntryCollector).pipe(
  * @since 0.1.0
  * @category combinators
  */
-export const getCalls = Effect.serviceOption(CallCollector).pipe(
+export const getCalls = CallCollector.pipe(
   Effect.flatMap(
     Option.match({
       onNone: () => Effect.succeed(Chunk.empty<Call>()),
@@ -152,7 +152,7 @@ export const getCalls = Effect.serviceOption(CallCollector).pipe(
  * @since 0.1.0
  * @category combinators
  */
-export const getUsage = Effect.serviceOption(CallCollector).pipe(
+export const getUsage = CallCollector.pipe(
   Effect.flatMap(
     Option.match({
       onNone: () => Effect.succeed(Chunk.empty<Call>()),

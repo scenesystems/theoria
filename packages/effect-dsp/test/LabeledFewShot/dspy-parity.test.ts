@@ -1,4 +1,3 @@
-import * as LanguageModel from "@effect/ai/LanguageModel"
 import { describe, expect, it } from "@effect/vitest"
 import { Example } from "@scenesystems/effect-dsp/Example"
 import * as LabeledFewShot from "@scenesystems/effect-dsp/LabeledFewShot"
@@ -6,6 +5,7 @@ import * as MockLanguageModel from "@scenesystems/effect-dsp/MockLanguageModel"
 import * as Module from "@scenesystems/effect-dsp/Module"
 import * as Signature from "@scenesystems/effect-dsp/Signature"
 import { Array as Arr, Effect, Layer, Ref, Schema } from "effect"
+import * as LanguageModel from "effect/ai/LanguageModel"
 
 import { LabeledFewShotSampleFixtureSchema, loadFixture } from "../helpers/dspy-fixtures/index.js"
 
@@ -24,7 +24,7 @@ describe("LabeledFewShot.run DSPy parity", () => {
   it.effect("matches fixture-backed seeded sample selection without LM calls", () =>
     Effect.gen(function*() {
       const rawFixture = yield* loadFixture("dspy.labeledfewshot.sample-k.seed-9")
-      const fixture = yield* Schema.decodeUnknown(LabeledFewShotSampleFixtureSchema)(rawFixture)
+      const fixture = yield* Schema.decodeUnknownEffect(LabeledFewShotSampleFixtureSchema)(rawFixture)
 
       const signature = yield* makeQaSignature()
       const module = yield* Module.predict("qa-labeledfewshot-dspy-parity", signature)
@@ -41,16 +41,19 @@ describe("LabeledFewShot.run DSPy parity", () => {
       )
       const layer = Layer.succeed(LanguageModel.LanguageModel, mock.service)
 
-      const optimized = yield* LabeledFewShot.run({
-        module,
-        trainset,
-        k: fixture.payload.k,
-        seed: fixture.payload.seed
-      }).pipe(Effect.provide(layer))
+      const optimized = yield* LabeledFewShot.run(
+        new LabeledFewShot.Options({
+          module,
+          trainset,
+          k: fixture.payload.k,
+          seed: fixture.payload.seed
+        })
+      ).pipe(Effect.provide(layer))
 
       const params = yield* Ref.get(optimized.params)
       const calls = yield* Ref.get(mock.calls)
-      const selectedQuestions = Arr.map(params.demos, (demo) => String(demo.input.question ?? ""))
+      const selectedQuestions = yield* Effect.forEach(params.demos, (demo) =>
+        Schema.decodeUnknownEffect(Schema.String)(demo.input.question))
 
       expect(selectedQuestions).toStrictEqual(fixture.payload.expectedSelectedQuestions)
       expect(calls).toHaveLength(fixture.payload.expectedCallCount)

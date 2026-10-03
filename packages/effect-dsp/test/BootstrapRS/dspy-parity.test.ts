@@ -1,4 +1,3 @@
-import * as LanguageModel from "@effect/ai/LanguageModel"
 import { describe, expect, it } from "@effect/vitest"
 import * as BootstrapRS from "@scenesystems/effect-dsp/BootstrapRS"
 import { Example } from "@scenesystems/effect-dsp/Example"
@@ -8,6 +7,7 @@ import * as Module from "@scenesystems/effect-dsp/Module"
 import { ModuleParameters } from "@scenesystems/effect-dsp/ModuleParameters"
 import * as Signature from "@scenesystems/effect-dsp/Signature"
 import { Array as Arr, Effect, Layer, Ref, Schema } from "effect"
+import * as LanguageModel from "effect/ai/LanguageModel"
 
 import { BootstrapRSCandidateCatalogFixtureSchema, loadFixture } from "../helpers/dspy-fixtures/index.js"
 
@@ -36,7 +36,7 @@ describe("BootstrapRS.run DSPy parity", () => {
   it.effect("matches fixture-backed candidate catalog and best-candidate selection contracts", () =>
     Effect.gen(function*() {
       const rawFixture = yield* loadFixture("dspy.bootstraprs.candidate-catalog.seed-9")
-      const fixture = yield* Schema.decodeUnknown(BootstrapRSCandidateCatalogFixtureSchema)(rawFixture)
+      const fixture = yield* Schema.decodeUnknownEffect(BootstrapRSCandidateCatalogFixtureSchema)(rawFixture)
 
       const signature = yield* makeQaSignature()
       const module = yield* Module.predict("qa-bootstraprs-dspy-parity", signature)
@@ -71,23 +71,28 @@ describe("BootstrapRS.run DSPy parity", () => {
       )
       const lmLayer = Layer.succeed(LanguageModel.LanguageModel, mock.service)
 
-      const optimized = yield* BootstrapRS.run({
-        module,
-        trainset: toExamples(fixture.payload.trainset),
-        valset: toExamples(fixture.payload.valset),
-        metric: Metric.exactMatch("answer"),
-        numCandidates: fixture.payload.numCandidates,
-        seeds: fixture.payload.seeds,
-        maxRounds: fixture.payload.maxRounds,
-        maxBootstrappedDemos: fixture.payload.maxBootstrappedDemos,
-        maxLabeledDemos: fixture.payload.maxLabeledDemos,
-        threshold: fixture.payload.threshold,
-        fallbackToLabeledFewShot: false
-      }).pipe(Effect.provide(lmLayer))
+      const optimized = yield* BootstrapRS.run(
+        new BootstrapRS.Options({
+          module,
+          trainset: toExamples(fixture.payload.trainset),
+          valset: toExamples(fixture.payload.valset),
+          metric: Metric.exactMatch("answer"),
+          numCandidates: fixture.payload.numCandidates,
+          seeds: fixture.payload.seeds,
+          maxRounds: fixture.payload.maxRounds,
+          maxBootstrappedDemos: fixture.payload.maxBootstrappedDemos,
+          maxLabeledDemos: fixture.payload.maxLabeledDemos,
+          threshold: fixture.payload.threshold,
+          fallbackToLabeledFewShot: false
+        })
+      ).pipe(Effect.provide(lmLayer))
 
       const params = yield* Ref.get(optimized.params)
       const calls = yield* Ref.get(mock.calls)
-      const demoQuestions = Arr.map(params.demos, (demo) => String(demo.input.question ?? ""))
+      const demoQuestions = yield* Effect.forEach(
+        params.demos,
+        (demo) => Schema.decodeUnknownEffect(Schema.String)(demo.input.question)
+      )
 
       expect(demoQuestions).toStrictEqual(fixture.payload.expectedBestDemoQuestions)
       expect(calls).toHaveLength(fixture.payload.expectedCallCount)

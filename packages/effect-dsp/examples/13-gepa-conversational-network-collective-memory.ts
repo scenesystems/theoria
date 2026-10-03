@@ -14,7 +14,7 @@
  *
  * Run: bun run examples/13-gepa-conversational-network-collective-memory.ts
  */
-import { BunContext, BunRuntime } from "@effect/platform-bun"
+import { BunRuntime, BunServices } from "@effect/platform-bun"
 import { Evaluate, Example, GEPA, Metric, Module, Signature } from "@scenesystems/effect-dsp"
 import {
   Array as Arr,
@@ -206,7 +206,7 @@ const evalset = Arr.make(
 
 const logExampleStage = (
   stage: string,
-  payload: typeof Schema.Object.Type
+  payload: Readonly<Record<string, unknown>>
 ) =>
   Effect.log("example:13 stage", {
     stage,
@@ -298,7 +298,7 @@ const protocolMetric = Metric.fromEffect(
         onTrue: () => 1,
         onFalse: () => 0
       })
-      const score = Number.unsafeDivide(Number.sumAll(Arr.make(conditionScore, sequenceScore, forecastScore)), 3)
+      const score = Number.divideUnsafe(Number.sumAll(Arr.make(conditionScore, sequenceScore, forecastScore)), 3)
 
       const feedback = Boolean.match(Number.Equivalence(score, 1), {
         onTrue: () => "Protocol decisions match target network method and convergence forecast.",
@@ -400,36 +400,38 @@ const program = Effect.gen(function*() {
   )
   const teacherLayer = yield* liveTeacherLayer()
 
-  const protocolPanel = yield* Module.compose({
-    name: "collective-memory-gepa-panel",
-    signature: panelSignature,
-    subModules: {
-      dynamicsAnalyst,
-      protocolPlanner
-    },
-    forward: ({ input }) =>
-      Effect.gen(function*() {
-        const dynamics = yield* dynamicsAnalyst
-          .forward({
+  const protocolPanel = yield* Module.compose(
+    new Module.ComposeOptions({
+      name: "collective-memory-gepa-panel",
+      signature: panelSignature,
+      subModules: {
+        dynamicsAnalyst,
+        protocolPlanner
+      },
+      forward: ({ input }) =>
+        Effect.gen(function*() {
+          const dynamics = yield* dynamicsAnalyst
+            .forward({
+              objective: input.objective,
+              baselineNetwork: input.baselineNetwork,
+              dyadicSignal: input.dyadicSignal,
+              degreeProfile: input.degreeProfile
+            })
+            .pipe(Effect.provide(teacherLayer))
+
+          return yield* protocolPlanner.forward({
             objective: input.objective,
             baselineNetwork: input.baselineNetwork,
             dyadicSignal: input.dyadicSignal,
-            degreeProfile: input.degreeProfile
+            degreeProfile: input.degreeProfile,
+            designConstraint: input.designConstraint,
+            rsProfile: dynamics.rsProfile,
+            alignmentReach: dynamics.alignmentReach,
+            diagnosis: dynamics.diagnosis
           })
-          .pipe(Effect.provide(teacherLayer))
-
-        return yield* protocolPlanner.forward({
-          objective: input.objective,
-          baselineNetwork: input.baselineNetwork,
-          dyadicSignal: input.dyadicSignal,
-          degreeProfile: input.degreeProfile,
-          designConstraint: input.designConstraint,
-          rsProfile: dynamics.rsProfile,
-          alignmentReach: dynamics.alignmentReach,
-          diagnosis: dynamics.diagnosis
         })
-      })
-  })
+    })
+  )
 
   const demonstrationTurn = yield* protocolPanel.forward({
     objective: "Increase network-wide memory overlap after a fixed conversational phase.",
@@ -452,12 +454,14 @@ const program = Effect.gen(function*() {
     evalExampleCount: Arr.length(evalset)
   })
 
-  const baseline = yield* Evaluate.run({
-    module: protocolPlanner,
-    examples: evalset,
-    metrics: { protocolFit: protocolMetric },
-    concurrency: 1
-  })
+  const baseline = yield* Evaluate.run(
+    new Evaluate.Options({
+      module: protocolPlanner,
+      examples: evalset,
+      metrics: { protocolFit: protocolMetric },
+      concurrency: 1
+    })
+  )
 
   yield* logExampleStage("gepa-stream-started", {
     trainExampleCount: Arr.length(trainset),
@@ -466,25 +470,29 @@ const program = Effect.gen(function*() {
     seed: 41
   })
 
-  const gepaEventsChunk = yield* GEPA.stream({
-    module: protocolPlanner,
-    trainset,
-    valset: evalset,
-    metric: protocolMetric,
-    maxIterations: 4,
-    maxMergeInvocations: 4,
-    seed: 41
-  }).pipe(
+  const gepaEventsChunk = yield* GEPA.stream(
+    new GEPA.Options({
+      module: protocolPlanner,
+      trainset,
+      valset: evalset,
+      metric: protocolMetric,
+      maxIterations: 4,
+      maxMergeInvocations: 4,
+      seed: 41
+    })
+  ).pipe(
     GEPA.tapProgress((line) => logExampleEvent("gepa", line.text)),
     Stream.runCollect
   )
 
-  const optimized = yield* Evaluate.run({
-    module: protocolPlanner,
-    examples: evalset,
-    metrics: { protocolFit: protocolMetric },
-    concurrency: 1
-  })
+  const optimized = yield* Evaluate.run(
+    new Evaluate.Options({
+      module: protocolPlanner,
+      examples: evalset,
+      metrics: { protocolFit: protocolMetric },
+      concurrency: 1
+    })
+  )
 
   const gepaEvents = Arr.fromIterable(gepaEventsChunk)
   const gepaEventSummary = GEPA.summarizeEvents(gepaEvents)
@@ -583,6 +591,6 @@ const program = Effect.gen(function*() {
 BunRuntime.runMain(
   withLiveLanguageModel(program).pipe(
     Effect.scoped,
-    Effect.provide(Layer.merge(noopArtifactSinkLayer, BunContext.layer))
+    Effect.provide(Layer.merge(noopArtifactSinkLayer, BunServices.layer))
   )
 )

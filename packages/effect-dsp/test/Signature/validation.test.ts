@@ -2,15 +2,14 @@
  * Signature validation and default instruction derivation.
  */
 import { describe, expect, it } from "@effect/vitest"
-import type { SignatureError } from "@scenesystems/effect-dsp/DspError"
 import * as Signature from "@scenesystems/effect-dsp/Signature"
-import { Cause, Effect, Exit, Option, Schema } from "effect"
+import { Effect, Result, Schema } from "effect"
 
 describe("Signature", () => {
   describe("validation", () => {
     it.effect("rejects empty input fields", () =>
       Effect.gen(function*() {
-        const exit = yield* Effect.exit(
+        const result = yield* Effect.result(
           Signature.make(
             "Answer questions",
             {},
@@ -18,17 +17,12 @@ describe("Signature", () => {
           )
         )
 
-        const failure = Exit.match(exit, {
-          onFailure: Cause.failureOption,
-          onSuccess: () => Option.none<SignatureError>()
-        })
-
-        expect(Option.isSome(failure)).toBe(true)
+        expect(Result.isFailure(result)).toBe(true)
       }))
 
     it.effect("rejects empty output fields", () =>
       Effect.gen(function*() {
-        const exit = yield* Effect.exit(
+        const result = yield* Effect.result(
           Signature.make(
             "Answer questions",
             { question: Schema.String },
@@ -36,17 +30,12 @@ describe("Signature", () => {
           )
         )
 
-        const failure = Exit.match(exit, {
-          onFailure: Cause.failureOption,
-          onSuccess: () => Option.none<SignatureError>()
-        })
-
-        expect(Option.isSome(failure)).toBe(true)
+        expect(Result.isFailure(result)).toBe(true)
       }))
 
     it.effect("rejects overlapping input and output field names", () =>
       Effect.gen(function*() {
-        const exit = yield* Effect.exit(
+        const result = yield* Effect.result(
           Signature.make(
             "Answer questions",
             { answer: Schema.String },
@@ -54,12 +43,7 @@ describe("Signature", () => {
           )
         )
 
-        const failure = Exit.match(exit, {
-          onFailure: Cause.failureOption,
-          onSuccess: () => Option.none<SignatureError>()
-        })
-
-        expect(Option.isSome(failure)).toBe(true)
+        expect(Result.isFailure(result)).toBe(true)
       }))
   })
 

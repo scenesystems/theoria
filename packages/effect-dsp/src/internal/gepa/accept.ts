@@ -5,6 +5,7 @@
  * @see {@link https://arxiv.org/abs/2507.19457 | Agrawal et al., "GEPA: Reflective Prompt Evolution Can Outperform Reinforcement Learning", 2025}
  * @since 0.1.0
  */
+import * as Numeric from "@scenesystems/effect-math/Numeric"
 import { Array as Arr, Boolean as Bool, Data, Effect, Number as Num, Option, Schema } from "effect"
 import { CandidateScoreVector, MergeAcceptance, MutationAcceptance } from "./model.js"
 
@@ -44,7 +45,7 @@ export const EvaluateMergeAcceptanceOptions = Schema.Struct({
 export type EvaluateMergeAcceptanceOptions = typeof EvaluateMergeAcceptanceOptions.Type
 
 const sumScores = (scores: CandidateScoreVector): number => Num.sumAll(scores)
-const isNonNaN = Schema.is(Schema.NonNaN)
+const isNonNaN = Numeric.isFinite
 
 const isOrderedPair = (left: number, right: number): boolean => Bool.and(isNonNaN(left), isNonNaN(right))
 
@@ -64,10 +65,10 @@ export const evaluateMutationAcceptance = <E, R>(
   const mutatedSubsampleSum = sumScores(options.mutatedSubsampleScores)
   const gate1Passed = Bool.match(isOrderedPair(mutatedSubsampleSum, previousSubsampleSum), {
     onFalse: () => false,
-    onTrue: () => Num.greaterThan(mutatedSubsampleSum, previousSubsampleSum)
+    onTrue: () => Num.isGreaterThan(mutatedSubsampleSum, previousSubsampleSum)
   })
 
-  return Effect.if(gate1Passed, {
+  return Bool.match(gate1Passed, {
     onTrue: () =>
       options.evaluateFullValset.pipe(
         Effect.map((fullValsetScores) =>
@@ -121,7 +122,7 @@ export const evaluateMergeAcceptance = (
       )),
       {
         onFalse: () => false,
-        onTrue: () => Num.greaterThanOrEqualTo(mergedSubsampleSum, bestParentSubsampleSum)
+        onTrue: () => Num.isGreaterThanOrEqualTo(mergedSubsampleSum, bestParentSubsampleSum)
       }
     )
   })

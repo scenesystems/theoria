@@ -1,12 +1,12 @@
 /**
  * Example contract: mock-backed classify flow.
  */
-import * as LanguageModel from "@effect/ai/LanguageModel"
 import { describe, expect, it } from "@effect/vitest"
 import * as MockLanguageModel from "@scenesystems/effect-dsp/MockLanguageModel"
 import * as Module from "@scenesystems/effect-dsp/Module"
 import * as Signature from "@scenesystems/effect-dsp/Signature"
 import { Effect, Schema } from "effect"
+import * as LanguageModel from "effect/ai/LanguageModel"
 
 describe("examples/02-basic-classify-mock", () => {
   it.effect("produces deterministic classify output with a direct mock layer", () =>

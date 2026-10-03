@@ -2,13 +2,13 @@ import { describe, expect, it } from "@effect/vitest"
 import { Demonstration } from "@scenesystems/effect-dsp/Demonstration"
 import { encode, Payload } from "@scenesystems/effect-dsp/Payload"
 import * as Signature from "@scenesystems/effect-dsp/Signature"
-import { Array as Arr, Effect, MutableRef, Schema, String, Tuple } from "effect"
+import { Array as Arr, Effect, MutableRef, Schema, String } from "effect"
 
 describe("signature-owned demonstrations", () => {
   it.effect("validates destination wire fields and restores trace documents without domain decoding", () =>
     Effect.gen(function*() {
       const signature = yield* Signature.make("Nested values", {
-        facts: Schema.Struct({ count: Schema.NumberFromString })
+        facts: Schema.Struct({ count: Schema.FiniteFromString })
       }, { answers: Schema.Array(Schema.String) })
       const input = yield* encode(signature.inputSchema, { facts: { count: 7 } })
       const output = yield* encode(signature.outputSchema, { answers: Arr.make("Paris", "Tokyo") })
@@ -20,8 +20,8 @@ describe("signature-owned demonstrations", () => {
         output: { answers: Arr.make("Paris", "Tokyo") }
       })
       const documents = yield* signature.demonstrationCodec.encode(leadingZeroDemo)
-      expect(Tuple.getFirst(documents)).toBe("{\"facts\":{\"count\":\"007\"}}")
-      expect(yield* signature.demonstrationCodec.decodeDocuments(Tuple.getFirst(documents), Tuple.getSecond(documents)))
+      expect(documents[0]).toBe("{\"facts\":{\"count\":\"007\"}}")
+      expect(yield* signature.demonstrationCodec.decodeDocuments(documents[0], documents[1]))
         .toEqual(
           leadingZeroDemo
         )
@@ -30,18 +30,20 @@ describe("signature-owned demonstrations", () => {
         output: demo.output
       })
         .pipe(Effect.flip)
-      expect(failure._tag).toBe("ParseError")
+      expect(failure._tag).toBe("SchemaError")
     }))
 
   it.effect("rejects nested excess fields in trace documents rather than silently projecting them away", () =>
     Effect.gen(function*() {
       const signature = yield* Signature.make("Nested values", {
-        facts: Schema.Struct({ count: Schema.NumberFromString })
+        facts: Schema.Struct({ count: Schema.FiniteFromString })
       }, { answer: Schema.Struct({ label: Schema.String }) })
-      const input = yield* Schema.decode(Payload)("{\"facts\":{\"count\":\"007\"}}")
-      const output = yield* Schema.decode(Payload)("{\"answer\":{\"label\":\"yes\"}}")
-      const extraInput = yield* Schema.decode(Payload)("{\"facts\":{\"count\":\"007\",\"provenance\":\"source-A\"}}")
-      const extraOutput = yield* Schema.decode(Payload)("{\"answer\":{\"label\":\"yes\",\"confidence\":0.9}}")
+      const input = yield* Schema.decodeEffect(Payload)("{\"facts\":{\"count\":\"007\"}}")
+      const output = yield* Schema.decodeEffect(Payload)("{\"answer\":{\"label\":\"yes\"}}")
+      const extraInput = yield* Schema.decodeEffect(Payload)(
+        "{\"facts\":{\"count\":\"007\",\"provenance\":\"source-A\"}}"
+      )
+      const extraOutput = yield* Schema.decodeEffect(Payload)("{\"answer\":{\"label\":\"yes\",\"confidence\":0.9}}")
       const inputFailure = yield* signature.demonstrationCodec.decodeDocuments(extraInput, output).pipe(Effect.flip)
       const outputFailure = yield* signature.demonstrationCodec.decodeDocuments(input, extraOutput).pipe(Effect.flip)
       expect(inputFailure.message).toContain("provenance")
@@ -51,8 +53,8 @@ describe("signature-owned demonstrations", () => {
   it.effect("compares nested wire data structurally and skips output equality for different inputs", () =>
     Effect.gen(function*() {
       const comparisons = MutableRef.make(0)
-      const answer = Schema.String.annotations({
-        equivalence: () => (left, right) => {
+      const answer = Schema.String.annotate({
+        toEquivalence: () => (left: string, right: string) => {
           MutableRef.increment(comparisons)
           return String.Equivalence(left, right)
         }

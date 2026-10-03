@@ -1,4 +1,3 @@
-import * as LanguageModel from "@effect/ai/LanguageModel"
 import { describe, expect, it } from "@effect/vitest"
 import * as BootstrapFewShot from "@scenesystems/effect-dsp/BootstrapFewShot"
 import { Example } from "@scenesystems/effect-dsp/Example"
@@ -7,6 +6,7 @@ import * as MockLanguageModel from "@scenesystems/effect-dsp/MockLanguageModel"
 import * as Module from "@scenesystems/effect-dsp/Module"
 import * as Signature from "@scenesystems/effect-dsp/Signature"
 import { Array as Arr, Effect, Layer, Option, Ref, Schema } from "effect"
+import * as LanguageModel from "effect/ai/LanguageModel"
 
 import {
   BootstrapDemoBudgetFixtureSchema,
@@ -58,7 +58,7 @@ describe("BootstrapFewShot.run DSPy parity", () => {
   it.effect("matches demo budget contracts from committed fixture", () =>
     Effect.gen(function*() {
       const rawFixture = yield* loadFixture("dspy.bootstrap.demo-budget.basic")
-      const fixture = yield* Schema.decodeUnknown(BootstrapDemoBudgetFixtureSchema)(rawFixture)
+      const fixture = yield* Schema.decodeUnknownEffect(BootstrapDemoBudgetFixtureSchema)(rawFixture)
 
       const signature = yield* makeQaSignature()
       const module = yield* Module.predict("qa-bootstrap-demo-budget-dspy-parity", signature)
@@ -69,19 +69,22 @@ describe("BootstrapFewShot.run DSPy parity", () => {
       )
       const layer = Layer.succeed(LanguageModel.LanguageModel, mock.service)
 
-      const optimized = yield* BootstrapFewShot.run({
-        module,
-        trainset: toTrainset(fixture.payload.trainset),
-        metric: Metric.exactMatch("answer"),
-        maxRounds: fixture.payload.maxRounds,
-        maxBootstrappedDemos: fixture.payload.maxBootstrappedDemos,
-        threshold: fixture.payload.threshold,
-        fallbackToLabeledFewShot: false
-      }).pipe(Effect.provide(layer))
+      const optimized = yield* BootstrapFewShot.run(
+        new BootstrapFewShot.Options({
+          module,
+          trainset: toTrainset(fixture.payload.trainset),
+          metric: Metric.exactMatch("answer"),
+          maxRounds: fixture.payload.maxRounds,
+          maxBootstrappedDemos: fixture.payload.maxBootstrappedDemos,
+          threshold: fixture.payload.threshold,
+          fallbackToLabeledFewShot: false
+        })
+      ).pipe(Effect.provide(layer))
 
       const params = yield* Ref.get(optimized.params)
       const calls = yield* Ref.get(mock.calls)
-      const demoQuestions = Arr.map(params.demos, (demo) => String(demo.input.question ?? ""))
+      const demoQuestions = yield* Effect.forEach(params.demos, (demo) =>
+        Schema.decodeUnknownEffect(Schema.String)(demo.input.question))
 
       expect(demoQuestions).toStrictEqual(fixture.payload.expectedAcceptedQuestions)
       expect(params.demos).toHaveLength(fixture.payload.expectedFinalDemoCount)
@@ -91,7 +94,7 @@ describe("BootstrapFewShot.run DSPy parity", () => {
   it.effect("matches threshold filtering contracts from committed fixture", () =>
     Effect.gen(function*() {
       const rawFixture = yield* loadFixture("dspy.bootstrap.threshold-filtering.basic")
-      const fixture = yield* Schema.decodeUnknown(BootstrapThresholdFilteringFixtureSchema)(rawFixture)
+      const fixture = yield* Schema.decodeUnknownEffect(BootstrapThresholdFilteringFixtureSchema)(rawFixture)
 
       const signature = yield* makeQaSignature()
       const module = yield* Module.predict("qa-bootstrap-threshold-dspy-parity", signature)
@@ -102,19 +105,22 @@ describe("BootstrapFewShot.run DSPy parity", () => {
       )
       const layer = Layer.succeed(LanguageModel.LanguageModel, mock.service)
 
-      const optimized = yield* BootstrapFewShot.run({
-        module,
-        trainset: toTrainset(fixture.payload.trainset),
-        metric: Metric.exactMatch("answer"),
-        maxRounds: fixture.payload.maxRounds,
-        maxBootstrappedDemos: fixture.payload.maxBootstrappedDemos,
-        threshold: fixture.payload.threshold,
-        fallbackToLabeledFewShot: false
-      }).pipe(Effect.provide(layer))
+      const optimized = yield* BootstrapFewShot.run(
+        new BootstrapFewShot.Options({
+          module,
+          trainset: toTrainset(fixture.payload.trainset),
+          metric: Metric.exactMatch("answer"),
+          maxRounds: fixture.payload.maxRounds,
+          maxBootstrappedDemos: fixture.payload.maxBootstrappedDemos,
+          threshold: fixture.payload.threshold,
+          fallbackToLabeledFewShot: false
+        })
+      ).pipe(Effect.provide(layer))
 
       const params = yield* Ref.get(optimized.params)
       const calls = yield* Ref.get(mock.calls)
-      const demoQuestions = Arr.map(params.demos, (demo) => String(demo.input.question ?? ""))
+      const demoQuestions = yield* Effect.forEach(params.demos, (demo) =>
+        Schema.decodeUnknownEffect(Schema.String)(demo.input.question))
 
       expect(demoQuestions).toStrictEqual(fixture.payload.expectedAcceptedQuestions)
       expect(params.demos).toHaveLength(fixture.payload.expectedFinalDemoCount)
@@ -122,7 +128,8 @@ describe("BootstrapFewShot.run DSPy parity", () => {
       expect(
         Arr.every(
           fixture.payload.expectedRejectedQuestions,
-          (question) => !Arr.contains(demoQuestions, question)
+          (question) =>
+            !Arr.contains(demoQuestions, question)
         )
       ).toBe(true)
     }))

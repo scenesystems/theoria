@@ -1,11 +1,11 @@
-import * as LanguageModel from "@effect/ai/LanguageModel"
 import { describe, expect, it } from "@effect/vitest"
 import * as MockLanguageModel from "@scenesystems/effect-dsp/MockLanguageModel"
 import * as Module from "@scenesystems/effect-dsp/Module"
 import { decode } from "@scenesystems/effect-dsp/Payload"
 import * as Signature from "@scenesystems/effect-dsp/Signature"
 import * as Trace from "@scenesystems/effect-dsp/Trace"
-import { Array as Arr, Effect, Layer, Option, Schema, String, Tuple } from "effect"
+import { Array as Arr, Effect, Layer, Option, Schema, String } from "effect"
+import * as LanguageModel from "effect/ai/LanguageModel"
 
 import {
   loadFixture,
@@ -29,8 +29,8 @@ describe("Trace DSPy contracts", () => {
     Effect.gen(function*() {
       const rawEntryFixture = yield* loadFixture("dspy.trace.entry-shape.basic")
       const rawIsolationFixture = yield* loadFixture("dspy.trace.fiber-isolation.seed-0")
-      const entryFixture = yield* Schema.decodeUnknown(TraceEntryShapeFixtureSchema)(rawEntryFixture)
-      const isolationFixture = yield* Schema.decodeUnknown(TraceFiberIsolationFixtureSchema)(rawIsolationFixture)
+      const entryFixture = yield* Schema.decodeUnknownEffect(TraceEntryShapeFixtureSchema)(rawEntryFixture)
+      const isolationFixture = yield* Schema.decodeUnknownEffect(TraceFiberIsolationFixtureSchema)(rawIsolationFixture)
 
       const qa = yield* makeQaSignature()
       const module = yield* Module.predict("qa-trace-dspy-parity", qa)
@@ -44,10 +44,10 @@ describe("Trace DSPy contracts", () => {
           Effect.provide(singleRunLayer)
         )
       )
-      const singleRunEntry = yield* Arr.head(Tuple.getSecond(singleRunTrace))
+      const singleRunEntry = Option.getOrThrow(Arr.head(singleRunTrace[1]))
 
-      expect(Tuple.getSecond(singleRunTrace)).toHaveLength(1)
-      expect(Tuple.getFirst(singleRunTrace)).toEqual(entryFixture.payload.samplePrediction)
+      expect(singleRunTrace[1]).toHaveLength(1)
+      expect(singleRunTrace[0]).toEqual(entryFixture.payload.samplePrediction)
       expect(yield* decode(qa.inputSchema, singleRunEntry.input)).toEqual(entryFixture.payload.sampleInput)
       expect(yield* decode(qa.outputSchema, singleRunEntry.output)).toEqual(
         entryFixture.payload.samplePrediction
@@ -85,30 +85,26 @@ describe("Trace DSPy contracts", () => {
         Arr.zip(scopeRuns, scopedTraces),
         (scopeTrace) =>
           Effect.gen(function*() {
-            const run = Tuple.getFirst(scopeTrace)
-            const traced = Tuple.getSecond(scopeTrace)
-            const entries = Tuple.getSecond(traced)
-            const traceEntry = yield* Arr.head(entries)
+            const run = scopeTrace[0]
+            const traced = scopeTrace[1]
+            const entries = traced[1]
+            const traceEntry = Option.getOrThrow(Arr.head(entries))
 
             expect(entries).toHaveLength(run.traceLength)
             expect(yield* decode(qa.inputSchema, traceEntry.input)).toEqual({ question: run.traceInputQuestion })
             expect(yield* decode(qa.outputSchema, traceEntry.output)).toEqual({ answer: run.expectedAnswer })
-            expect(Tuple.getFirst(traced)).toEqual({ answer: run.expectedAnswer })
+            expect(traced[0]).toEqual({ answer: run.expectedAnswer })
           }),
         { discard: true }
       )
 
       const observedInputs = yield* Effect.forEach(
         scopedTraces,
-        (traced) =>
-          Arr.head(Tuple.getSecond(traced)).pipe(Effect.flatMap((entry) => decode(qa.inputSchema, entry.input)))
+        (traced) => decode(qa.inputSchema, Option.getOrThrow(Arr.head(traced[1])).input)
       )
       const observedOutputs = yield* Effect.forEach(
         scopedTraces,
-        (traced) =>
-          Arr.head(Tuple.getSecond(traced)).pipe(
-            Effect.flatMap((entry) => decode(qa.outputSchema, entry.output))
-          )
+        (traced) => decode(qa.outputSchema, Option.getOrThrow(Arr.head(traced[1])).output)
       )
 
       expect(observedInputs).toEqual(Arr.map(scopeRuns, (run) => ({ question: run.question })))

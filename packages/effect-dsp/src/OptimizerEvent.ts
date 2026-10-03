@@ -4,7 +4,6 @@
  * @since 0.1.0
  * @module
  */
-import type { ParseResult } from "effect"
 import { Data, Effect, Schema } from "effect"
 import { type Event as BootstrapEvent, Event as BootstrapEventSchema } from "./BootstrapFewShot.js"
 import { type Event as GEPAEvent, Event as GEPAEventSchema } from "./GEPA.js"
@@ -15,7 +14,7 @@ import { encode as encodePayload, Payload } from "./Payload.js"
  * @since 0.1.0
  * @category schemas
  */
-export const Kind = Schema.Literal("bootstrapFewShot", "miprov2", "gepa")
+export const Kind = Schema.Literals(["bootstrapFewShot", "miprov2", "gepa"])
 /** Stable optimizer identity.
  * @since 0.1.0
  * @category type-level
@@ -43,7 +42,7 @@ export class Envelope extends Schema.Class<Envelope>("@scenesystems/effect-dsp/O
  * @since 0.1.0
  * @category events
  */
-export const OptimizerEvent = Schema.Union(
+export const OptimizerEvent = Schema.Union([
   Schema.TaggedStruct("Bootstrap", {
     /** BootstrapFewShot event preserved without payload projection. */
     event: BootstrapEventSchema
@@ -56,7 +55,7 @@ export const OptimizerEvent = Schema.Union(
     /** GEPA event preserved without payload projection. */
     event: GEPAEventSchema
   })
-)
+])
 
 /**
  * Wraps one optimizer, search, or evaluation event with its owning domain tag.
@@ -86,7 +85,7 @@ export const events = Data.taggedEnum<OptimizerEvent>()
  */
 export const fromBootstrap = (
   event: BootstrapEvent
-): Effect.Effect<Envelope, ParseResult.ParseError> =>
+): Effect.Effect<Envelope, Schema.SchemaError> =>
   encodePayload(BootstrapEventSchema, event).pipe(
     Effect.map((payload) =>
       new Envelope({
@@ -109,7 +108,7 @@ export const fromBootstrap = (
  */
 export const fromMIPROv2 = (
   event: MIPROv2Event
-): Effect.Effect<Envelope, ParseResult.ParseError> =>
+): Effect.Effect<Envelope, Schema.SchemaError> =>
   encodePayload(MIPROv2EventSchema, event).pipe(
     Effect.map((payload) =>
       new Envelope({
@@ -132,7 +131,7 @@ export const fromMIPROv2 = (
  */
 export const fromGEPA = (
   event: GEPAEvent
-): Effect.Effect<Envelope, ParseResult.ParseError> =>
+): Effect.Effect<Envelope, Schema.SchemaError> =>
   encodePayload(GEPAEventSchema, event).pipe(
     Effect.map((payload) =>
       new Envelope({

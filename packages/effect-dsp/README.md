@@ -8,10 +8,10 @@ and demonstrations without owning provider configuration.
 ## Installation
 
 ```sh
-npm install @scenesystems/effect-dsp effect @effect/ai
+bun add @scenesystems/effect-dsp effect
 ```
 
-Bring any `LanguageModel` layer from `@effect/ai`. Provider setup can come from
+Bring any `LanguageModel` layer for Effect v4's `effect/ai/LanguageModel`. Provider setup can come from
 `@scenesystems/effect-inference`, but DSP production code does not depend on it.
 
 ## Typed programs
@@ -131,7 +131,7 @@ their original channels when an operation exposes them separately.
 Testing code imports the flat `MockLanguageModel` subpath:
 
 ```ts typecheck
-import * as LanguageModel from "@effect/ai/LanguageModel"
+import * as LanguageModel from "effect/ai/LanguageModel"
 import * as MockLanguageModel from "@scenesystems/effect-dsp/MockLanguageModel"
 
 export const layer = MockLanguageModel.layer(

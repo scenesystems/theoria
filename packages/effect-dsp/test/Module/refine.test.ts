@@ -1,8 +1,6 @@
 /**
  * Module.refine contracts.
  */
-import type * as AiError from "@effect/ai/AiError"
-import * as LanguageModel from "@effect/ai/LanguageModel"
 import { describe, expect, expectTypeOf, it } from "@effect/vitest"
 import type { DspError } from "@scenesystems/effect-dsp/DspError"
 import { Result } from "@scenesystems/effect-dsp/Metric"
@@ -15,7 +13,6 @@ import * as Trace from "@scenesystems/effect-dsp/Trace"
 import {
   Array as Arr,
   Boolean,
-  Cause,
   Context,
   Deferred,
   Effect,
@@ -24,21 +21,23 @@ import {
   Layer,
   Match,
   Number as Num,
+  Option,
   Record,
   Ref,
   Schema,
   String as Str
 } from "effect"
+import type * as AiError from "effect/ai/AiError"
+import * as LanguageModel from "effect/ai/LanguageModel"
 
 class RefineRewardRejected extends Schema.TaggedError<RefineRewardRejected>()(
   "RefineRewardRejected",
   { message: Schema.String }
 ) {}
 
-class RefineRewardCalls extends Context.Tag("effect-dsp/test/refine/RewardCalls")<
-  RefineRewardCalls,
-  Ref.Ref<number>
->() {}
+class RefineRewardCalls extends Context.Service<RefineRewardCalls, Ref.Ref<number>>()(
+  "effect-dsp/test/refine/RewardCalls"
+) {}
 
 const QaInput = Schema.Struct({
   question: Signature.describe(Schema.String, "The question to answer")
@@ -60,22 +59,26 @@ describe("Module.refine", () => {
     Effect.gen(function*() {
       const signature = yield* makeQaSignature()
       const predictor = yield* Module.predict("refine-discovery-predictor", signature)
-      const inner = yield* Module.compose({
-        name: "refine-discovery-pipeline",
-        signature,
-        subModules: Record.singleton("predictor", predictor),
-        forward: ({ input }) => predictor.forward(input)
-      })
-      const wrapper = yield* Module.refine({
-        name: "refine-discovery-wrapper",
-        module: inner,
-        N: Module.RolloutCount.make(2),
-        threshold: 0.9,
-        reward: () => Effect.succeed(new Result({ score: 1 }))
-      })
-      const wrapperId = yield* Schema.decodeUnknown(Module.Id)(wrapper.name)
-      const innerId = yield* Schema.decodeUnknown(Module.Id)(inner.name)
-      const predictorId = yield* Schema.decodeUnknown(Module.Id)(predictor.name)
+      const inner = yield* Module.compose(
+        new Module.ComposeOptions({
+          name: "refine-discovery-pipeline",
+          signature,
+          subModules: Record.singleton("predictor", predictor),
+          forward: ({ input }) => predictor.forward(input)
+        })
+      )
+      const wrapper = yield* Module.refine(
+        new Module.RefineOptions({
+          name: "refine-discovery-wrapper",
+          module: inner,
+          N: Module.RolloutCount.make(2),
+          threshold: 0.9,
+          reward: () => Effect.succeed(new Result({ score: 1 }))
+        })
+      )
+      const wrapperId = yield* Schema.decodeEffect(Module.Id)(wrapper.name)
+      const innerId = yield* Schema.decodeEffect(Module.Id)(inner.name)
+      const predictorId = yield* Schema.decodeEffect(Module.Id)(predictor.name)
       const model = yield* MockLanguageModel.make(MockLanguageModel.succeed({ answer: "Observed" }))
 
       const graph = yield* Module.discoverModuleGraph(
@@ -84,7 +87,7 @@ describe("Module.refine", () => {
           Effect.provideService(LanguageModel.LanguageModel, model.service)
         )
       )
-      const lineage = yield* ModuleGraph.lineage(graph, predictorId)
+      const lineage = Option.getOrThrow(ModuleGraph.lineage(graph, predictorId))
 
       expect(lineage.path).toEqual(Arr.make(wrapperId, innerId, predictorId))
       expect(yield* Ref.get(model.calls)).toHaveLength(1)
@@ -95,19 +98,23 @@ describe("Module.refine", () => {
       const signature = yield* makeQaSignature()
       const predictor = yield* Module.predict("predictor", signature)
       yield* Ref.update(predictor.params, (params) => withInstructions(params, "Answer saved-city"))
-      const inner = yield* Module.compose({
-        name: "pipeline",
-        signature,
-        subModules: Record.singleton("predictor", predictor),
-        forward: ({ input }) => predictor.forward(input)
-      })
-      const wrapper = yield* Module.refine({
-        name: "refined-pipeline",
-        module: inner,
-        N: Module.RolloutCount.make(2),
-        threshold: 0.9,
-        reward: () => Effect.succeed(new Result({ score: 0.2, feedback: "Be precise" }))
-      })
+      const inner = yield* Module.compose(
+        new Module.ComposeOptions({
+          name: "pipeline",
+          signature,
+          subModules: Record.singleton("predictor", predictor),
+          forward: ({ input }) => predictor.forward(input)
+        })
+      )
+      const wrapper = yield* Module.refine(
+        new Module.RefineOptions({
+          name: "refined-pipeline",
+          module: inner,
+          N: Module.RolloutCount.make(2),
+          threshold: 0.9,
+          reward: () => Effect.succeed(new Result({ score: 0.2, feedback: "Be precise" }))
+        })
+      )
       const saved = yield* Module.save(wrapper)
       const original = yield* Ref.get(inner.params)
       yield* Ref.update(inner.params, (params) => withInstructions(params, "Changed pipeline"))
@@ -131,13 +138,15 @@ describe("Module.refine", () => {
     Effect.gen(function*() {
       const signature = yield* makeQaSignature()
       const inner = yield* Module.predict("same-owner", signature)
-      const error = yield* Module.refine({
-        name: "same-owner",
-        module: inner,
-        N: Module.RolloutCount.make(1),
-        threshold: 0.9,
-        reward: () => Effect.succeed(new Result({ score: 1 }))
-      }).pipe(Effect.flip)
+      const error = yield* Module.refine(
+        new Module.RefineOptions({
+          name: "same-owner",
+          module: inner,
+          N: Module.RolloutCount.make(1),
+          threshold: 0.9,
+          reward: () => Effect.succeed(new Result({ score: 1 }))
+        })
+      ).pipe(Effect.flip)
       expect(error._tag).toBe("CompositionError")
     }))
 
@@ -154,28 +163,30 @@ describe("Module.refine", () => {
       const baseParams = yield* Ref.get(inner.params)
       const rewardCalls = yield* Ref.make(0)
       const failure = new RefineRewardRejected({ message: "reward rejected" })
-      const refined = yield* Module.refine({
-        name: "qa-refine-reward-wrapper",
-        module: inner,
-        N: Module.RolloutCount.make(2),
-        reward: () =>
-          Effect.flatMap(RefineRewardCalls, (calls) =>
-            Ref.getAndUpdate(calls, Num.increment).pipe(
-              Effect.flatMap((call) =>
-                Match.value(call).pipe(
-                  Match.when(0, () => Effect.succeed(new Result({ score: 0.2, feedback: "Try again" }))),
-                  Match.orElse(() => Effect.fail(failure))
+      const refined = yield* Module.refine(
+        new Module.RefineOptions({
+          name: "qa-refine-reward-wrapper",
+          module: inner,
+          N: Module.RolloutCount.make(2),
+          reward: () =>
+            Effect.flatMap(RefineRewardCalls, (calls) =>
+              Ref.getAndUpdate(calls, Num.increment).pipe(
+                Effect.flatMap((call) =>
+                  Match.value(call).pipe(
+                    Match.when(0, () => Effect.succeed(new Result({ score: 0.2, feedback: "Try again" }))),
+                    Match.orElse(() => Effect.fail(failure))
+                  )
                 )
-              )
-            )),
-        threshold: 0.9
-      })
+              )),
+          threshold: 0.9
+        })
+      )
       const operation = refined.forward({ question: "Refine this" })
 
-      expectTypeOf<Effect.Effect.Error<typeof operation>>().toEqualTypeOf<
+      expectTypeOf<Effect.Error<typeof operation>>().toEqualTypeOf<
         AiError.AiError | DspError | RefineRewardRejected
       >()
-      expectTypeOf<Effect.Effect.Context<typeof operation>>().toEqualTypeOf<
+      expectTypeOf<Effect.Services<typeof operation>>().toEqualTypeOf<
         LanguageModel.LanguageModel | RefineRewardCalls
       >()
 
@@ -186,7 +197,7 @@ describe("Module.refine", () => {
       )
       const restoredParams = yield* Ref.get(inner.params)
 
-      expect(Cause.originalError(observed)).toBe(failure)
+      expect(observed).toBe(failure)
       expect(restoredParams).toEqual(baseParams)
     }))
 
@@ -220,23 +231,25 @@ describe("Module.refine", () => {
         )
       }
 
-      const refined = yield* Module.refine({
-        name: "qa-refine",
-        module: inner,
-        N: Module.RolloutCount.make(3),
-        reward,
-        threshold: 0.8
-      })
+      const refined = yield* Module.refine(
+        new Module.RefineOptions({
+          name: "qa-refine",
+          module: inner,
+          N: Module.RolloutCount.make(3),
+          reward,
+          threshold: 0.8
+        })
+      )
 
       yield* refined.forward({
         question: "What is the capital of France?"
       }).pipe(
-        Effect.provide(Layer.succeed(LanguageModel.LanguageModel, mock.service))
+        Effect.provideService(LanguageModel.LanguageModel, mock.service)
       )
 
       const calls = yield* Ref.get(mock.calls)
-      const secondCall = yield* Arr.get(calls, 1)
-      const thirdCall = yield* Arr.get(calls, 2)
+      const secondCall = Option.getOrThrow(Arr.get(calls, 1))
+      const thirdCall = Option.getOrThrow(Arr.get(calls, 2))
       expect(calls).toHaveLength(3)
       expect(secondCall.prompt).toContain("Refinement feedback")
       expect(secondCall.prompt).toContain("Attempt 1")
@@ -267,18 +280,20 @@ describe("Module.refine", () => {
         return Effect.succeed(new Result({ score }))
       }
 
-      const refined = yield* Module.refine({
-        name: "qa-early-stop",
-        module: inner,
-        N: Module.RolloutCount.make(5),
-        reward,
-        threshold: 0.9
-      })
+      const refined = yield* Module.refine(
+        new Module.RefineOptions({
+          name: "qa-early-stop",
+          module: inner,
+          N: Module.RolloutCount.make(5),
+          reward,
+          threshold: 0.9
+        })
+      )
 
       const result = yield* refined.forward({
         question: "Early stop test"
       }).pipe(
-        Effect.provide(Layer.succeed(LanguageModel.LanguageModel, mock.service))
+        Effect.provideService(LanguageModel.LanguageModel, mock.service)
       )
 
       const calls = yield* Ref.get(mock.calls)
@@ -302,21 +317,23 @@ describe("Module.refine", () => {
         typeof QaOutput.fields
       > = () => Effect.succeed(new Result({ score: 0.3 }))
 
-      const refined = yield* Module.refine({
-        name: "qa-traced-refine",
-        module: inner,
-        N: Module.RolloutCount.make(2),
-        reward,
-        threshold: 0.9
-      })
+      const refined = yield* Module.refine(
+        new Module.RefineOptions({
+          name: "qa-traced-refine",
+          module: inner,
+          N: Module.RolloutCount.make(2),
+          reward,
+          threshold: 0.9
+        })
+      )
 
       const traced = yield* Trace.withTracing(
         refined.forward({ question: "Trace test" }).pipe(
-          Effect.provide(Layer.succeed(LanguageModel.LanguageModel, mock.service))
+          Effect.provideService(LanguageModel.LanguageModel, mock.service)
         )
       )
 
-      const entries = yield* Arr.get(traced, 1)
+      const entries = Option.getOrThrow(Arr.get(traced, 1))
       expect(entries).toHaveLength(2)
     }))
 
@@ -339,23 +356,25 @@ describe("Module.refine", () => {
         typeof QaOutput.fields
       > = () => Effect.succeed(new Result({ score: 0.3 }))
 
-      const refined = yield* Module.refine({
-        name: "qa-drift-test",
-        module: inner,
-        N: Module.RolloutCount.make(2),
-        reward,
-        threshold: 0.9
-      })
+      const refined = yield* Module.refine(
+        new Module.RefineOptions({
+          name: "qa-drift-test",
+          module: inner,
+          N: Module.RolloutCount.make(2),
+          reward,
+          threshold: 0.9
+        })
+      )
 
       yield* refined.forward({ question: "First call" }).pipe(
-        Effect.provide(Layer.succeed(LanguageModel.LanguageModel, mock.service))
+        Effect.provideService(LanguageModel.LanguageModel, mock.service)
       )
 
       const paramsAfterFirst = yield* Ref.get(inner.params)
       expect(paramsAfterFirst.instructions).toBe(baseParams.instructions)
 
       yield* refined.forward({ question: "Second call" }).pipe(
-        Effect.provide(Layer.succeed(LanguageModel.LanguageModel, mock.service))
+        Effect.provideService(LanguageModel.LanguageModel, mock.service)
       )
 
       const paramsAfterSecond = yield* Ref.get(inner.params)
@@ -386,24 +405,26 @@ describe("Module.refine", () => {
               Match.when(0, () => Effect.succeed(new Result({ score: 0.2, feedback: "Try again" }))),
               Match.orElse(() =>
                 Deferred.succeed(secondRewardStarted, undefined).pipe(
-                  Effect.zipRight(Effect.never)
+                  Effect.andThen(Effect.never)
                 )
               )
             )
           )
         )
 
-      const refined = yield* Module.refine({
-        name: "qa-interrupted-refine",
-        module: inner,
-        N: Module.RolloutCount.make(2),
-        reward,
-        threshold: 0.9
-      })
+      const refined = yield* Module.refine(
+        new Module.RefineOptions({
+          name: "qa-interrupted-refine",
+          module: inner,
+          N: Module.RolloutCount.make(2),
+          reward,
+          threshold: 0.9
+        })
+      )
 
       const fiber = yield* refined.forward({ question: "Interrupt test" }).pipe(
-        Effect.provide(Layer.succeed(LanguageModel.LanguageModel, mock.service)),
-        Effect.fork
+        Effect.provideService(LanguageModel.LanguageModel, mock.service),
+        Effect.forkChild
       )
 
       yield* Deferred.await(secondRewardStarted)
@@ -435,19 +456,21 @@ describe("Module.refine", () => {
             Effect.tap((count) => Ref.update(maximumActiveRewards, Num.max(count)))
           ),
           () =>
-            Effect.yieldNow().pipe(
+            Effect.yieldNow.pipe(
               Effect.as(new Result({ score: 1 }))
             ),
           () => Ref.update(activeRewards, Num.decrement)
         )
 
-      const refined = yield* Module.refine({
-        name: "qa-serialized-refine",
-        module: inner,
-        N: Module.RolloutCount.make(1),
-        reward,
-        threshold: 0.9
-      })
+      const refined = yield* Module.refine(
+        new Module.RefineOptions({
+          name: "qa-serialized-refine",
+          module: inner,
+          N: Module.RolloutCount.make(1),
+          reward,
+          threshold: 0.9
+        })
+      )
       const modelLayer = Layer.succeed(LanguageModel.LanguageModel, mock.service)
 
       yield* Effect.all(
@@ -486,18 +509,20 @@ describe("Module.refine", () => {
         return Effect.succeed(new Result({ score }))
       }
 
-      const refined = yield* Module.refine({
-        name: "qa-best-overall",
-        module: inner,
-        N: Module.RolloutCount.make(3),
-        reward,
-        threshold: 0.95
-      })
+      const refined = yield* Module.refine(
+        new Module.RefineOptions({
+          name: "qa-best-overall",
+          module: inner,
+          N: Module.RolloutCount.make(3),
+          reward,
+          threshold: 0.95
+        })
+      )
 
       const result = yield* refined.forward({
         question: "Best overall test"
       }).pipe(
-        Effect.provide(Layer.succeed(LanguageModel.LanguageModel, mock.service))
+        Effect.provideService(LanguageModel.LanguageModel, mock.service)
       )
 
       expect(result).toEqual({ answer: "Best so far" })
@@ -514,27 +539,29 @@ describe("Module.refine", () => {
         ))
       )
       const inner = yield* Module.predict("qa", qa)
-      const nan = yield* Schema.decode(Schema.NumberFromString)("NaN")
+      const nan = Number.NaN
 
-      const refined = yield* Module.refine({
-        name: "qa-nan-between-valid-scores",
-        module: inner,
-        N: Module.RolloutCount.make(3),
-        reward: (_input, output) =>
-          Effect.succeed(
-            new Result({
-              score: Match.value(output.answer).pipe(
-                Match.when("Valid first", () => 0.4),
-                Match.when("Better last", () => 0.8),
-                Match.orElse(() => nan)
-              )
-            })
-          ),
-        threshold: 0.9
-      })
+      const refined = yield* Module.refine(
+        new Module.RefineOptions({
+          name: "qa-nan-between-valid-scores",
+          module: inner,
+          N: Module.RolloutCount.make(3),
+          reward: (_input, output) =>
+            Effect.succeed(
+              new Result({
+                score: Match.value(output.answer).pipe(
+                  Match.when("Valid first", () => 0.4),
+                  Match.when("Better last", () => 0.8),
+                  Match.orElse(() => nan)
+                )
+              })
+            ),
+          threshold: 0.9
+        })
+      )
 
       const result = yield* refined.forward({ question: "NaN candidate" }).pipe(
-        Effect.provide(Layer.succeed(LanguageModel.LanguageModel, mock.service))
+        Effect.provideService(LanguageModel.LanguageModel, mock.service)
       )
 
       expect(result).toEqual({ answer: "Better last" })
@@ -553,23 +580,25 @@ describe("Module.refine", () => {
       )
       const inner = yield* Module.predict("qa", qa)
       const original = yield* Ref.get(inner.params)
-      const nan = yield* Schema.decode(Schema.NumberFromString)("NaN")
-      const refined = yield* Module.refine({
-        name: "qa-initial-nan",
-        module: inner,
-        N: Module.RolloutCount.make(3),
-        reward: (_input, output) =>
-          Effect.succeed(
-            new Result({
-              score: Match.value(output.answer).pipe(
-                Match.when("Unscorable", () => nan),
-                Match.orElse(() => 0.8)
-              ),
-              feedback: "Supply a verifiable answer"
-            })
-          ),
-        threshold: 0.8
-      })
+      const nan = Number.NaN
+      const refined = yield* Module.refine(
+        new Module.RefineOptions({
+          name: "qa-initial-nan",
+          module: inner,
+          N: Module.RolloutCount.make(3),
+          reward: (_input, output) =>
+            Effect.succeed(
+              new Result({
+                score: Match.value(output.answer).pipe(
+                  Match.when("Unscorable", () => nan),
+                  Match.orElse(() => 0.8)
+                ),
+                feedback: "Supply a verifiable answer"
+              })
+            ),
+          threshold: 0.8
+        })
+      )
 
       const result = yield* refined.forward({ question: "Recover after NaN" }).pipe(
         Effect.provideService(LanguageModel.LanguageModel, mock.service)
@@ -578,18 +607,20 @@ describe("Module.refine", () => {
 
       expect(result.answer).toBe("Meets threshold")
       expect(calls).toHaveLength(2)
-      expect((yield* Arr.get(calls, 1)).prompt).toContain("Attempt 1 (score: NaN): Supply a verifiable answer")
+      expect((Option.getOrThrow(Arr.get(calls, 1))).prompt).toContain(
+        "Attempt 1 (score: NaN): Supply a verifiable answer"
+      )
       expect(yield* Ref.get(inner.params)).toBe(original)
     }))
 
   it.effect("accepts either infinity as an ordered score and threshold after an initial NaN", () =>
     Effect.gen(function*() {
       const qa = yield* makeQaSignature()
-      const nan = yield* Schema.decode(Schema.NumberFromString)("NaN")
+      const nan = Number.NaN
 
       yield* Effect.forEach(Arr.make("-Infinity", "Infinity"), (encodedThreshold) =>
         Effect.gen(function*() {
-          const threshold = yield* Schema.decode(Schema.NumberFromString)(encodedThreshold)
+          const threshold = yield* Effect.fromOption(Num.parse(encodedThreshold))
           const suffix = Str.toLowerCase(Str.replace("-", "negative-")(encodedThreshold))
           const inner = yield* Module.predict(Str.concat("qa-", suffix), qa)
           const mock = yield* MockLanguageModel.make(
@@ -599,21 +630,23 @@ describe("Module.refine", () => {
               { answer: "Must not run" }
             ))
           )
-          const refined = yield* Module.refine({
-            name: Str.concat("qa-infinite-threshold-", suffix),
-            module: inner,
-            N: Module.RolloutCount.make(3),
-            reward: (_input, output) =>
-              Effect.succeed(
-                new Result({
-                  score: Match.value(output.answer).pipe(
-                    Match.when("Unordered", () => nan),
-                    Match.orElse(() => threshold)
-                  )
-                })
-              ),
-            threshold
-          })
+          const refined = yield* Module.refine(
+            new Module.RefineOptions({
+              name: Str.concat("qa-infinite-threshold-", suffix),
+              module: inner,
+              N: Module.RolloutCount.make(3),
+              reward: (_input, output) =>
+                Effect.succeed(
+                  new Result({
+                    score: Match.value(output.answer).pipe(
+                      Match.when("Unordered", () => nan),
+                      Match.orElse(() => threshold)
+                    )
+                  })
+                ),
+              threshold
+            })
+          )
 
           const result = yield* refined.forward({ question: "Order infinite rewards" }).pipe(
             Effect.provideService(LanguageModel.LanguageModel, mock.service)
@@ -628,7 +661,7 @@ describe("Module.refine", () => {
     Effect.gen(function*() {
       const qa = yield* makeQaSignature()
       const inner = yield* Module.predict("qa", qa)
-      const nan = yield* Schema.decode(Schema.NumberFromString)("NaN")
+      const nan = Number.NaN
       const mock = yield* MockLanguageModel.make(
         MockLanguageModel.sequence(Arr.make(
           { answer: "Best" },
@@ -636,22 +669,24 @@ describe("Module.refine", () => {
           { answer: "Lower" }
         ))
       )
-      const refined = yield* Module.refine({
-        name: "qa-nan-threshold",
-        module: inner,
-        N: Module.RolloutCount.make(3),
-        reward: (_input, output) =>
-          Effect.succeed(
-            new Result({
-              score: Match.value(output.answer).pipe(
-                Match.when("Best", () => 0.7),
-                Match.when("Lower", () => 0.2),
-                Match.orElse(() => nan)
-              )
-            })
-          ),
-        threshold: nan
-      })
+      const refined = yield* Module.refine(
+        new Module.RefineOptions({
+          name: "qa-nan-threshold",
+          module: inner,
+          N: Module.RolloutCount.make(3),
+          reward: (_input, output) =>
+            Effect.succeed(
+              new Result({
+                score: Match.value(output.answer).pipe(
+                  Match.when("Best", () => 0.7),
+                  Match.when("Lower", () => 0.2),
+                  Match.orElse(() => nan)
+                )
+              })
+            ),
+          threshold: nan
+        })
+      )
 
       const result = yield* refined.forward({ question: "Unreachable threshold" }).pipe(
         Effect.provideService(LanguageModel.LanguageModel, mock.service)
@@ -671,20 +706,22 @@ describe("Module.refine", () => {
         ))
       )
       const inner = yield* Module.predict("qa", qa)
-      const nan = yield* Schema.decode(Schema.NumberFromString)("NaN")
+      const nan = Number.NaN
 
-      const refined = yield* Module.refine({
-        name: "qa-nan-scores",
-        module: inner,
-        N: Module.RolloutCount.make(2),
-        reward: () => Effect.succeed(new Result({ score: nan })),
-        threshold: 0.5
-      })
+      const refined = yield* Module.refine(
+        new Module.RefineOptions({
+          name: "qa-nan-scores",
+          module: inner,
+          N: Module.RolloutCount.make(2),
+          reward: () => Effect.succeed(new Result({ score: nan })),
+          threshold: 0.5
+        })
+      )
 
       const result = yield* refined.forward({
         question: "NaN scores"
       }).pipe(
-        Effect.provide(Layer.succeed(LanguageModel.LanguageModel, mock.service))
+        Effect.provideService(LanguageModel.LanguageModel, mock.service)
       )
 
       expect(result).toEqual({ answer: "First" })
@@ -693,10 +730,10 @@ describe("Module.refine", () => {
 
   it.effect("rejects a non-positive attempt count at the RolloutCount boundary", () =>
     Effect.gen(function*() {
-      const zero = yield* Schema.decodeUnknown(Module.RolloutCount)(0).pipe(Effect.flip)
-      const fractional = yield* Schema.decodeUnknown(Module.RolloutCount)(1.5).pipe(Effect.flip)
+      const zero = yield* Schema.decodeEffect(Module.RolloutCount)(0).pipe(Effect.flip)
+      const fractional = yield* Schema.decodeEffect(Module.RolloutCount)(1.5).pipe(Effect.flip)
 
-      expect(zero._tag).toBe("ParseError")
-      expect(fractional._tag).toBe("ParseError")
+      expect(zero._tag).toBe("SchemaError")
+      expect(fractional._tag).toBe("SchemaError")
     }))
 })

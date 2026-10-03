@@ -9,6 +9,7 @@ import { Array as Arr, Effect, MutableRef, Number, Option, Schema, String } from
 import {
   labeledTrainset,
   mergeAcceptedDemos,
+  MergeAcceptedDemosOptions,
   roundInstructions
 } from "../../src/internal/bootstrapFewShot/runtime/demos.js"
 
@@ -19,8 +20,8 @@ describe("bootstrap demonstration helpers", () => {
       const signature = yield* Signature.make("Nested demos", {
         facts: Schema.Struct({ questions: Schema.Array(Schema.String) })
       }, {
-        answer: Schema.String.annotations({
-          equivalence: () => (left, right) => {
+        answer: Schema.String.annotate({
+          toEquivalence: () => (left: string, right: string) => {
             MutableRef.increment(reads)
             return String.Equivalence(left, right)
           }
@@ -35,33 +36,39 @@ describe("bootstrap demonstration helpers", () => {
       const different = makeDemo("Another question")
       const duplicate = makeDemo("France")
 
-      const distinct = yield* mergeAcceptedDemos({
-        existing: Arr.make(existing),
-        accepted: Arr.make(different),
-        maxBootstrappedDemos: 2,
-        contract: signature.demonstrationCodec
-      })
+      const distinct = yield* mergeAcceptedDemos(
+        new MergeAcceptedDemosOptions({
+          existing: Arr.make(existing),
+          accepted: Arr.make(different),
+          maxBootstrappedDemos: 2,
+          contract: signature.demonstrationCodec
+        })
+      )
       expect(distinct.added).toBe(1)
       expect(Arr.length(distinct.demos)).toBe(2)
       expect(MutableRef.get(reads)).toBe(0)
 
-      const deduped = yield* mergeAcceptedDemos({
-        existing: Arr.make(existing),
-        accepted: Arr.make(duplicate),
-        maxBootstrappedDemos: 2,
-        contract: signature.demonstrationCodec
-      })
+      const deduped = yield* mergeAcceptedDemos(
+        new MergeAcceptedDemosOptions({
+          existing: Arr.make(existing),
+          accepted: Arr.make(duplicate),
+          maxBootstrappedDemos: 2,
+          contract: signature.demonstrationCodec
+        })
+      )
       expect(deduped.added).toBe(0)
       expect(Arr.length(deduped.demos)).toBe(1)
-      expect(Number.greaterThan(MutableRef.get(reads), 0)).toBe(true)
+      expect(Number.isGreaterThan(MutableRef.get(reads), 0)).toBe(true)
       MutableRef.set(reads, 0)
 
-      const merged = yield* mergeAcceptedDemos({
-        existing: Arr.make(existing),
-        accepted: Arr.make(duplicate),
-        maxBootstrappedDemos: 1,
-        contract: signature.demonstrationCodec
-      })
+      const merged = yield* mergeAcceptedDemos(
+        new MergeAcceptedDemosOptions({
+          existing: Arr.make(existing),
+          accepted: Arr.make(duplicate),
+          maxBootstrappedDemos: 1,
+          contract: signature.demonstrationCodec
+        })
+      )
       expect(merged.added).toBe(0)
       expect(Arr.length(merged.demos)).toBe(1)
       expect(MutableRef.get(reads)).toBe(0)

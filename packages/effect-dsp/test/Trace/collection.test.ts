@@ -1,21 +1,18 @@
 /**
  * Trace entry and call collection contracts.
  */
-import * as Response from "@effect/ai/Response"
 import { describe, expect, it } from "@effect/vitest"
 import { encode } from "@scenesystems/effect-dsp/Payload"
 import * as Trace from "@scenesystems/effect-dsp/Trace"
-import { Array as Arr, Effect, Option, Schema, Tuple } from "effect"
+import { Array as Arr, Effect, Option, Schema } from "effect"
+import * as Response from "effect/ai/Response"
 
 const Input = Schema.Struct({ question: Schema.String })
 const Output = Schema.Struct({ answer: Schema.String })
 
 const usage = new Response.Usage({
-  inputTokens: 17,
-  outputTokens: 5,
-  totalTokens: 29,
-  reasoningTokens: 7,
-  cachedInputTokens: 3
+  inputTokens: { total: 17, uncached: 14, cacheRead: 3 },
+  outputTokens: { total: 12, text: 5, reasoning: 7 }
 })
 
 const entry = (moduleName: string) =>
@@ -30,6 +27,7 @@ const entry = (moduleName: string) =>
       prompt: "Capital?",
       rawResponse: "Paris",
       usage,
+      outcome: "completed",
       durationMs: 12,
       score: Trace.noScore,
       timestamp: 1_700_000_000_000
@@ -57,7 +55,7 @@ describe("Trace collection", () => {
       expect(entries).toEqual(Arr.empty())
       expect(calls).toEqual(Arr.empty())
       expect(aggregate.callCount).toBe(0)
-      expect(aggregate.tokens.inputTokens).toBe(0)
+      expect(aggregate.tokens.inputTokens.total).toBe(0)
     }))
 
   it.effect("collects entries and calls in their independent scopes", () =>
@@ -68,12 +66,12 @@ describe("Trace collection", () => {
       const called = yield* Trace.withCalls(
         Trace.appendCall(call).pipe(Effect.as("call-result"))
       )
-      const tracedEntry = yield* Arr.head(Tuple.getSecond(traced))
-      const observedCall = yield* Arr.head(Tuple.getSecond(called))
+      const tracedEntry = Option.getOrThrow(Arr.head(traced[1]))
+      const observedCall = Option.getOrThrow(Arr.head(called[1]))
 
-      expect(Tuple.getFirst(traced)).toBe("trace-result")
+      expect(traced[0]).toBe("trace-result")
       expect(tracedEntry.moduleName).toBe("qa")
-      expect(Tuple.getFirst(called)).toBe("call-result")
+      expect(called[0]).toBe("call-result")
       expect(observedCall.operation).toBe("generateText")
     }))
 
@@ -82,8 +80,8 @@ describe("Trace collection", () => {
       const nested = yield* Trace.withCalls(
         Trace.withCalls(Trace.appendCall(call))
       )
-      const inner = Tuple.getSecond(Tuple.getFirst(nested))
-      const outer = Tuple.getSecond(nested)
+      const inner = nested[0][1]
+      const outer = nested[1]
 
       expect(Arr.length(inner)).toBe(1)
       expect(Arr.length(outer)).toBe(1)

@@ -1,10 +1,6 @@
 /**
  * Module.react contracts.
  */
-import * as LanguageModel from "@effect/ai/LanguageModel"
-import * as Response from "@effect/ai/Response"
-import * as Tool from "@effect/ai/Tool"
-import * as Toolkit from "@effect/ai/Toolkit"
 import { describe, expect, it } from "@effect/vitest"
 import * as MockLanguageModel from "@scenesystems/effect-dsp/MockLanguageModel"
 import * as Module from "@scenesystems/effect-dsp/Module"
@@ -12,6 +8,10 @@ import { decode } from "@scenesystems/effect-dsp/Payload"
 import * as Signature from "@scenesystems/effect-dsp/Signature"
 import * as Trace from "@scenesystems/effect-dsp/Trace"
 import { Array as Arr, Effect, Match, Option, Ref, Schema, String as Str } from "effect"
+import * as LanguageModel from "effect/ai/LanguageModel"
+import * as Response from "effect/ai/Response"
+import * as Tool from "effect/ai/Tool"
+import * as Toolkit from "effect/ai/Toolkit"
 
 const makeQaSignature = () =>
   Signature.make(
@@ -26,26 +26,20 @@ const makeQaSignature = () =>
 
 const LookupFacts = Tool.make("LookupFacts", {
   description: "Look up a concise factual answer for a question",
-  parameters: {
+  parameters: Schema.Struct({
     question: Schema.String
-  },
+  }),
   success: Schema.String
 })
 
 const emptyUsage = new Response.Usage({
-  inputTokens: undefined,
-  outputTokens: undefined,
-  totalTokens: undefined,
-  reasoningTokens: undefined,
-  cachedInputTokens: undefined
+  inputTokens: { uncached: undefined, total: undefined, cacheRead: undefined, cacheWrite: undefined },
+  outputTokens: { total: undefined, text: undefined, reasoning: undefined }
 })
 
 const observedUsage = new Response.Usage({
-  inputTokens: 17,
-  outputTokens: 5,
-  totalTokens: 29,
-  reasoningTokens: 7,
-  cachedInputTokens: 3
+  inputTokens: { uncached: 14, total: 17, cacheRead: 3, cacheWrite: undefined },
+  outputTokens: { total: 12, text: 5, reasoning: 7 }
 })
 
 describe("Module.react", () => {
@@ -69,14 +63,14 @@ describe("Module.react", () => {
                 Match.when(Str.includes("Tool observations:"), () => "malformed"),
                 Match.orElse(() =>
                   Arr.make(
-                    Response.textPart({ text: "Thought: I should use a tool before answering." }),
+                    Response.TextPart.make({ text: "Thought: I should use a tool before answering.", metadata: {} }),
                     Response.toolCallPart({
                       id: "call-1",
                       name: "LookupFacts",
                       params: { question: "What is the capital of France?" },
                       providerExecuted: false
                     }),
-                    Response.finishPart({ reason: "stop", usage: emptyUsage })
+                    Response.FinishPart.make({ reason: "stop", usage: emptyUsage, metadata: {} })
                   )
                 )
               )
@@ -84,21 +78,23 @@ describe("Module.react", () => {
           )
         )
       )
-      const react = yield* Module.react({
-        name: "qa-react",
-        signature: qa,
-        toolkit,
-        maxIterations: 5
-      })
+      const react = yield* Module.react(
+        new Module.ReactOptions({
+          name: "qa-react",
+          signature: qa,
+          toolkit,
+          maxIterations: 5
+        })
+      )
 
       const [[[output, entries], calls], aggregate] = yield* Trace.withUsageTracking(
         Trace.withCalls(Trace.withTracing(react.forward({ question: "What is the capital of France?" })))
       ).pipe(Effect.provideService(LanguageModel.LanguageModel, mock.service))
       const lmCalls = yield* Ref.get(mock.calls)
       const toolCalls = yield* Ref.get(toolkitCalls)
-      const first = yield* Arr.head(entries)
-      const second = yield* Arr.get(entries, 1)
-      const last = yield* Arr.last(entries)
+      const first = Option.getOrThrow(Arr.head(entries))
+      const second = Option.getOrThrow(Arr.get(entries, 1))
+      const last = Option.getOrThrow(Arr.last(entries))
 
       expect(output).toEqual({ answer: "Paris" })
       expect(toolCalls).toEqual(Arr.make("What is the capital of France?"))
@@ -123,6 +119,7 @@ describe("Module.react", () => {
         Arr.make(Option.some(observedUsage), Option.some(observedUsage), Option.some(observedUsage))
       )
       expect(aggregate.callCount).toBe(3)
-      expect(aggregate.tokens.totalTokens).toBe(87)
+      expect(aggregate.tokens.inputTokens.total).toBe(51)
+      expect(aggregate.tokens.outputTokens.total).toBe(36)
     }))
 })

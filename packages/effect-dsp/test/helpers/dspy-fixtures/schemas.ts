@@ -12,7 +12,7 @@ const FixtureMetadataSchema = Schema.Struct({
   })
 })
 
-const MessageRoleSchema = Schema.Literal("system", "user", "assistant")
+const MessageRoleSchema = Schema.Literals(["system", "user", "assistant"])
 
 export const MessageSchema = Schema.Struct({
   role: MessageRoleSchema,
@@ -31,7 +31,7 @@ const ExampleSchema = Schema.Struct({
 })
 
 export const ChatPromptFixtureSchema = Schema.Struct({
-  fixture: Schema.Literal("dspy.chat.qa-basic", "dspy.chat.qa-with-demo"),
+  fixture: Schema.Literals(["dspy.chat.qa-basic", "dspy.chat.qa-with-demo"]),
   metadata: FixtureMetadataSchema,
   payload: Schema.Struct({
     signatureDescription: Schema.String,
@@ -151,7 +151,7 @@ export const ChainOfThoughtReasoningFixtureSchema = Schema.Struct({
       reasoning: Schema.String,
       answer: Schema.String
     }),
-    traceLength: Schema.Number,
+    traceLength: Schema.Finite,
     traceInputKeys: Schema.Array(Schema.String),
     tracePredictionKeys: Schema.Array(Schema.String)
   })
@@ -163,7 +163,7 @@ export const TraceEntryShapeFixtureSchema = Schema.Struct({
   fixture: Schema.Literal("dspy.trace.entry-shape.basic"),
   metadata: FixtureMetadataSchema,
   payload: Schema.Struct({
-    traceEntryTupleLength: Schema.Number,
+    traceEntryTupleLength: Schema.Finite,
     moduleClassName: Schema.String,
     moduleOutputFieldOrder: Schema.Array(Schema.String),
     inputKeys: Schema.Array(Schema.String),
@@ -184,7 +184,7 @@ const TraceScopeRunSchema = Schema.Struct({
   question: Schema.String,
   expectedAnswer: Schema.String,
   observedAnswer: Schema.String,
-  traceLength: Schema.Number,
+  traceLength: Schema.Finite,
   traceInputQuestion: Schema.String,
   tracePredictionKeys: Schema.Array(Schema.String)
 })
@@ -193,7 +193,7 @@ export const TraceFiberIsolationFixtureSchema = Schema.Struct({
   fixture: Schema.Literal("dspy.trace.fiber-isolation.seed-0"),
   metadata: FixtureMetadataSchema,
   payload: Schema.Struct({
-    seed: Schema.Number,
+    seed: Schema.Finite,
     scopeRuns: Schema.Array(TraceScopeRunSchema),
     crossScopeTraceLeakDetected: Schema.Boolean
   })
@@ -202,11 +202,11 @@ export const TraceFiberIsolationFixtureSchema = Schema.Struct({
 export type TraceFiberIsolationFixture = Schema.Schema.Type<typeof TraceFiberIsolationFixtureSchema>
 
 const EvaluateExampleSchema = Schema.Struct({
-  index: Schema.Number,
+  index: Schema.Finite,
   question: Schema.String,
   expectedAnswer: Schema.NullOr(Schema.String),
   predictedAnswer: Schema.NullOr(Schema.String),
-  score: Schema.Number,
+  score: Schema.Finite,
   failure: Schema.Boolean
 })
 
@@ -215,43 +215,43 @@ export const EvaluateReportShapeFixtureSchema = Schema.Struct({
   metadata: FixtureMetadataSchema,
   payload: Schema.Struct({
     resultTupleLength: Schema.Literal(3),
-    totalExamples: Schema.Number,
-    successCount: Schema.Number,
-    failureCount: Schema.Number,
-    scorePercent: Schema.Number,
-    scoreFraction: Schema.Number,
-    successfulScoreFraction: Schema.Number,
+    totalExamples: Schema.Finite,
+    successCount: Schema.Finite,
+    failureCount: Schema.Finite,
+    scorePercent: Schema.Finite,
+    scoreFraction: Schema.Finite,
+    successfulScoreFraction: Schema.Finite,
     examples: Schema.Array(EvaluateExampleSchema)
   })
 })
 
 export type EvaluateReportShapeFixture = Schema.Schema.Type<typeof EvaluateReportShapeFixtureSchema>
 
-const EvaluateEventFixtureSchema = Schema.Union(
+const EvaluateEventFixtureSchema = Schema.Union([
   Schema.TaggedStruct("ExampleStarted", {
-    index: Schema.Number,
-    total: Schema.Number
+    index: Schema.Finite,
+    total: Schema.Finite
   }),
   Schema.TaggedStruct("ExampleCompleted", {
-    index: Schema.Number,
-    score: Schema.Number
+    index: Schema.Finite,
+    score: Schema.Finite
   }),
   Schema.TaggedStruct("ExampleFailed", {
-    index: Schema.Number
+    index: Schema.Finite
   }),
   Schema.TaggedStruct("EvaluationCompleted", {
-    overallScore: Schema.Number,
-    total: Schema.Number
+    overallScore: Schema.Finite,
+    total: Schema.Finite
   })
-)
+])
 
 export const EvaluateEventOrderFixtureSchema = Schema.Struct({
   fixture: Schema.Literal("dspy.evaluate.event-order.basic"),
   metadata: FixtureMetadataSchema,
   payload: Schema.Struct({
-    eventCount: Schema.Number,
-    completedIndices: Schema.Array(Schema.Number),
-    failedIndices: Schema.Array(Schema.Number),
+    eventCount: Schema.Finite,
+    completedIndices: Schema.Array(Schema.Finite),
+    failedIndices: Schema.Array(Schema.Finite),
     events: Schema.Array(EvaluateEventFixtureSchema)
   })
 })
@@ -265,22 +265,22 @@ const MetricRawBooleanCaseSchema = Schema.Struct({
 
 const MetricRawNumberCaseSchema = Schema.Struct({
   kind: Schema.Literal("number"),
-  value: Schema.Number
+  value: Schema.Finite
 })
 
 const MetricRawTupleCaseSchema = Schema.Struct({
   kind: Schema.Literal("tuple"),
-  value: Schema.Tuple(Schema.Number, Schema.String)
+  value: Schema.Tuple([Schema.Finite, Schema.String])
 })
 
-const MetricRawCaseSchema = Schema.Union(
+const MetricRawCaseSchema = Schema.Union([
   MetricRawBooleanCaseSchema,
   MetricRawNumberCaseSchema,
   MetricRawTupleCaseSchema
-)
+])
 
 const MetricNormalizedCaseSchema = Schema.Struct({
-  score: Schema.Number,
+  score: Schema.Finite,
   feedback: Schema.NullOr(Schema.String)
 })
 
@@ -316,13 +316,13 @@ export const BootstrapDemoBudgetFixtureSchema = Schema.Struct({
   fixture: Schema.Literal("dspy.bootstrap.demo-budget.basic"),
   metadata: FixtureMetadataSchema,
   payload: Schema.Struct({
-    maxBootstrappedDemos: Schema.Number,
-    threshold: Schema.Number,
-    maxRounds: Schema.Number,
+    maxBootstrappedDemos: Schema.Finite,
+    threshold: Schema.Finite,
+    maxRounds: Schema.Finite,
     trainset: Schema.Array(BootstrapTrainCaseSchema),
     expectedAcceptedQuestions: Schema.Array(Schema.String),
-    expectedFinalDemoCount: Schema.Number,
-    expectedCallCount: Schema.Number
+    expectedFinalDemoCount: Schema.Finite,
+    expectedCallCount: Schema.Finite
   })
 })
 
@@ -332,14 +332,14 @@ export const BootstrapThresholdFilteringFixtureSchema = Schema.Struct({
   fixture: Schema.Literal("dspy.bootstrap.threshold-filtering.basic"),
   metadata: FixtureMetadataSchema,
   payload: Schema.Struct({
-    maxBootstrappedDemos: Schema.Number,
-    threshold: Schema.Number,
-    maxRounds: Schema.Number,
+    maxBootstrappedDemos: Schema.Finite,
+    threshold: Schema.Finite,
+    maxRounds: Schema.Finite,
     trainset: Schema.Array(BootstrapTrainCaseSchema),
     expectedAcceptedQuestions: Schema.Array(Schema.String),
     expectedRejectedQuestions: Schema.Array(Schema.String),
-    expectedFinalDemoCount: Schema.Number,
-    expectedCallCount: Schema.Number
+    expectedFinalDemoCount: Schema.Finite,
+    expectedCallCount: Schema.Finite
   })
 })
 
@@ -349,14 +349,14 @@ export const BootstrapThresholdFilteringNoFallbackFixtureSchema = Schema.Struct(
   fixture: Schema.Literal("dspy.bootstrap.threshold-filtering.basic"),
   metadata: FixtureMetadataSchema,
   payload: Schema.Struct({
-    maxBootstrappedDemos: Schema.Number,
-    threshold: Schema.Number,
-    maxRounds: Schema.Number,
+    maxBootstrappedDemos: Schema.Finite,
+    threshold: Schema.Finite,
+    maxRounds: Schema.Finite,
     trainset: Schema.Array(BootstrapTrainCaseSchema),
     expectedAcceptedQuestions: Schema.Array(Schema.String),
     expectedRejectedQuestions: Schema.Array(Schema.String),
-    expectedFinalDemoCount: Schema.Number,
-    expectedCallCount: Schema.Number
+    expectedFinalDemoCount: Schema.Finite,
+    expectedCallCount: Schema.Finite
   })
 })
 
@@ -368,18 +368,18 @@ export const BootstrapRSCandidateCatalogFixtureSchema = Schema.Struct({
   fixture: Schema.Literal("dspy.bootstraprs.candidate-catalog.seed-9"),
   metadata: FixtureMetadataSchema,
   payload: Schema.Struct({
-    numCandidates: Schema.Number,
-    seeds: Schema.Array(Schema.Number),
-    maxRounds: Schema.Number,
-    maxBootstrappedDemos: Schema.Number,
-    maxLabeledDemos: Schema.Number,
-    threshold: Schema.Number,
+    numCandidates: Schema.Finite,
+    seeds: Schema.Array(Schema.Finite),
+    maxRounds: Schema.Finite,
+    maxBootstrappedDemos: Schema.Finite,
+    maxLabeledDemos: Schema.Finite,
+    threshold: Schema.Finite,
     trainset: Schema.Array(QaPairSchema),
     valset: Schema.Array(QaPairSchema),
     expectedCandidateLabels: Schema.Array(Schema.String),
     expectedBestCandidateLabel: Schema.String,
     expectedBestDemoQuestions: Schema.Array(Schema.String),
-    expectedCallCount: Schema.Number
+    expectedCallCount: Schema.Finite
   })
 })
 
@@ -389,11 +389,11 @@ export const LabeledFewShotSampleFixtureSchema = Schema.Struct({
   fixture: Schema.Literal("dspy.labeledfewshot.sample-k.seed-9"),
   metadata: FixtureMetadataSchema,
   payload: Schema.Struct({
-    seed: Schema.Number,
-    k: Schema.Number,
+    seed: Schema.Finite,
+    k: Schema.Finite,
     trainset: Schema.Array(QaPairSchema),
     expectedSelectedQuestions: Schema.Array(Schema.String),
-    expectedCallCount: Schema.Number
+    expectedCallCount: Schema.Finite
   })
 })
 
@@ -418,11 +418,11 @@ export type EnsembleMajorityVoteFixture = Schema.Schema.Type<typeof EnsembleMajo
 
 const MiproTrialBudgetCaseSchema = Schema.Struct({
   name: Schema.String,
-  predictorCount: Schema.Number,
-  demoCandidateCount: Schema.Number,
-  instructionCandidateCount: Schema.Number,
-  minimum: Schema.NullOr(Schema.Number),
-  expectedBudget: Schema.Number
+  predictorCount: Schema.Finite,
+  demoCandidateCount: Schema.Finite,
+  instructionCandidateCount: Schema.Finite,
+  minimum: Schema.NullOr(Schema.Finite),
+  expectedBudget: Schema.Finite
 })
 
 export const MiproPhaseConfigFixtureSchema = Schema.Struct({
@@ -433,15 +433,15 @@ export const MiproPhaseConfigFixtureSchema = Schema.Struct({
     phase1AnchorKinds: Schema.Array(Schema.String),
     phase3TrialBudgetFormula: Schema.String,
     phase3CadenceDefaults: Schema.Struct({
-      seed: Schema.Number,
-      minibatchSize: Schema.Number,
-      fullEvalEvery: Schema.Number
+      seed: Schema.Finite,
+      minibatchSize: Schema.Finite,
+      fullEvalEvery: Schema.Finite
     }),
     phase3Sampler: Schema.Struct({
       kind: Schema.String,
       multivariate: Schema.Boolean
     }),
-    phase3PriorTrialCount: Schema.Number
+    phase3PriorTrialCount: Schema.Finite
   })
 })
 
@@ -454,7 +454,7 @@ export const MiproTipsVocabularyFixtureSchema = Schema.Struct({
     defaultTips: Schema.Array(Schema.String),
     baselineTip: Schema.String,
     proposalMarkerTemplate: Schema.String,
-    diversityTemperatureDefault: Schema.Number
+    diversityTemperatureDefault: Schema.Finite
   })
 })
 
@@ -472,34 +472,34 @@ export const MiproTrialBudgetCasesFixtureSchema = Schema.Struct({
 export type MiproTrialBudgetCasesFixture = Schema.Schema.Type<typeof MiproTrialBudgetCasesFixtureSchema>
 
 const GepaParentSelectionWeightSchema = Schema.Struct({
-  candidateIndex: Schema.Number,
-  weight: Schema.Number
+  candidateIndex: Schema.Finite,
+  weight: Schema.Finite
 })
 
 const GepaParetoHoldingSchema = Schema.Struct({
-  exampleIndex: Schema.Number,
-  bestScore: Schema.Number,
-  holders: Schema.Array(Schema.Number)
+  exampleIndex: Schema.Finite,
+  bestScore: Schema.Finite,
+  holders: Schema.Array(Schema.Finite)
 })
 
 const GepaSamplingSchema = Schema.Struct({
-  seed: Schema.Number,
-  draws: Schema.Number,
-  tolerance: Schema.Number
+  seed: Schema.Finite,
+  draws: Schema.Finite,
+  tolerance: Schema.Finite
 })
 
 const GepaScoreMatrixPayloadSchema = Schema.Struct({
   objectiveDirection: Schema.Literal("maximize"),
-  scores: Schema.Array(Schema.Array(Schema.Number)),
-  expectedFrontierIndices: Schema.Array(Schema.Number),
-  expectedDominatedIndices: Schema.Array(Schema.Number),
+  scores: Schema.Array(Schema.Array(Schema.Finite)),
+  expectedFrontierIndices: Schema.Array(Schema.Finite),
+  expectedDominatedIndices: Schema.Array(Schema.Finite),
   expectedHoldings: Schema.Array(GepaParetoHoldingSchema),
   expectedSelectionWeights: Schema.Array(GepaParentSelectionWeightSchema),
   sampling: GepaSamplingSchema
 })
 
 export const GepaParetoScoreMatrixFixtureSchema = Schema.Struct({
-  fixture: Schema.Literal("dspy.gepa.pareto.score-matrix.basic", "dspy.gepa.pareto.score-matrix.ties"),
+  fixture: Schema.Literals(["dspy.gepa.pareto.score-matrix.basic", "dspy.gepa.pareto.score-matrix.ties"]),
   metadata: FixtureMetadataSchema,
   payload: GepaScoreMatrixPayloadSchema
 })
@@ -507,17 +507,17 @@ export const GepaParetoScoreMatrixFixtureSchema = Schema.Struct({
 export type GepaParetoScoreMatrixFixture = Schema.Schema.Type<typeof GepaParetoScoreMatrixFixtureSchema>
 
 const GepaExpectedProbabilitySchema = Schema.Struct({
-  candidateIndex: Schema.Number,
-  probability: Schema.Number
+  candidateIndex: Schema.Finite,
+  probability: Schema.Finite
 })
 
 export const GepaSelectionWeightsFixtureSchema = Schema.Struct({
   fixture: Schema.Literal("dspy.gepa.selection.weights.seed-42"),
   metadata: FixtureMetadataSchema,
   payload: Schema.Struct({
-    seed: Schema.Number,
-    draws: Schema.Number,
-    tolerance: Schema.Number,
+    seed: Schema.Finite,
+    draws: Schema.Finite,
+    tolerance: Schema.Finite,
     weights: Schema.Array(GepaParentSelectionWeightSchema),
     expectedProbabilities: Schema.Array(GepaExpectedProbabilitySchema)
   })
@@ -528,11 +528,11 @@ export type GepaSelectionWeightsFixture = Schema.Schema.Type<typeof GepaSelectio
 const GepaReflectSampleSchema = Schema.Struct({
   exampleId: Schema.String,
   predictorName: Schema.String,
-  inputs: Schema.Record({ key: Schema.String, value: Schema.Unknown }),
-  generatedOutputs: Schema.Record({ key: Schema.String, value: Schema.Unknown }),
-  expectedOutput: Schema.Record({ key: Schema.String, value: Schema.Unknown }),
+  inputs: Schema.Record(Schema.String, Schema.Unknown),
+  generatedOutputs: Schema.Record(Schema.String, Schema.Unknown),
+  expectedOutput: Schema.Record(Schema.String, Schema.Unknown),
   metricResult: Schema.Struct({
-    score: Schema.Number,
+    score: Schema.Finite,
     feedback: Schema.optional(Schema.String)
   })
 })
@@ -579,9 +579,9 @@ export type GepaReflectFormatFailureFeedbackFixture = Schema.Schema.Type<
 
 const GepaMutationAcceptanceCaseSchema = Schema.Struct({
   name: Schema.String,
-  previousSubsampleScores: Schema.Array(Schema.Number),
-  mutatedSubsampleScores: Schema.Array(Schema.Number),
-  fullValsetScores: Schema.Array(Schema.Number),
+  previousSubsampleScores: Schema.Array(Schema.Finite),
+  mutatedSubsampleScores: Schema.Array(Schema.Finite),
+  fullValsetScores: Schema.Array(Schema.Finite),
   expectedGate1Passed: Schema.Boolean,
   expectedFullValsetEvaluated: Schema.Boolean,
   expectedAccepted: Schema.Boolean
@@ -601,9 +601,9 @@ export type GepaAcceptMutationStrictGreaterFixture = Schema.Schema.Type<
 
 const GepaMergeAcceptanceCaseSchema = Schema.Struct({
   name: Schema.String,
-  mergedSubsampleScores: Schema.Array(Schema.Number),
-  parentASubsampleScores: Schema.Array(Schema.Number),
-  parentBSubsampleScores: Schema.Array(Schema.Number),
+  mergedSubsampleScores: Schema.Array(Schema.Finite),
+  parentASubsampleScores: Schema.Array(Schema.Finite),
+  parentBSubsampleScores: Schema.Array(Schema.Finite),
   expectedAccepted: Schema.Boolean
 })
 
@@ -630,15 +630,15 @@ const GepaMergeCandidateSchema = Schema.Struct({
 
 const GepaMergeComparisonSchema = Schema.Struct({
   exampleId: Schema.String,
-  parentAScore: Schema.Number,
-  parentBScore: Schema.Number
+  parentAScore: Schema.Finite,
+  parentBScore: Schema.Finite
 })
 
 export const GepaMergeCommonAncestorCasesFixtureSchema = Schema.Struct({
   fixture: Schema.Literal("dspy.gepa.merge.common-ancestor-cases"),
   metadata: FixtureMetadataSchema,
   payload: Schema.Struct({
-    seed: Schema.Number,
+    seed: Schema.Finite,
     parentAId: Schema.String,
     parentBId: Schema.String,
     expectedCommonAncestorId: Schema.String,
@@ -653,21 +653,21 @@ export type GepaMergeCommonAncestorCasesFixture = Schema.Schema.Type<typeof Gepa
 const GepaMergeAttemptDecisionSchema = Schema.Struct({
   name: Schema.String,
   lastIterationFoundNew: Schema.Boolean,
-  candidateCount: Schema.Number,
-  mergeBudgetRemaining: Schema.Number,
+  candidateCount: Schema.Finite,
+  mergeBudgetRemaining: Schema.Finite,
   expectedShouldAttempt: Schema.Boolean
 })
 
 const GepaMergeBudgetTransitionSchema = Schema.Struct({
-  before: Schema.Number,
-  after: Schema.Number
+  before: Schema.Finite,
+  after: Schema.Finite
 })
 
 export const GepaMergeScheduleFixtureSchema = Schema.Struct({
   fixture: Schema.Literal("dspy.gepa.merge.schedule.max-merge-invocations"),
   metadata: FixtureMetadataSchema,
   payload: Schema.Struct({
-    defaultMaxMergeInvocations: Schema.Number,
+    defaultMaxMergeInvocations: Schema.Finite,
     attemptDecisions: Schema.Array(GepaMergeAttemptDecisionSchema),
     acceptedMergeBudgetTransitions: Schema.Array(GepaMergeBudgetTransitionSchema)
   })
@@ -675,56 +675,56 @@ export const GepaMergeScheduleFixtureSchema = Schema.Struct({
 
 export type GepaMergeScheduleFixture = Schema.Schema.Type<typeof GepaMergeScheduleFixtureSchema>
 
-const GepaEventTimelineItemSchema = Schema.Union(
+const GepaEventTimelineItemSchema = Schema.Union([
   Schema.TaggedStruct("IterationStarted", {
-    iteration: Schema.Number,
-    frontierSize: Schema.Number
+    iteration: Schema.Finite,
+    frontierSize: Schema.Finite
   }),
   Schema.TaggedStruct("MergeChecked", {
-    iteration: Schema.Number,
+    iteration: Schema.Finite,
     attempted: Schema.Boolean,
     accepted: Schema.Boolean,
-    mergeBudgetRemaining: Schema.Number
+    mergeBudgetRemaining: Schema.Finite
   }),
   Schema.TaggedStruct("MutationProposed", {
-    iteration: Schema.Number,
+    iteration: Schema.Finite,
     parentId: Schema.String,
     mutatedCandidateId: Schema.String,
     predictorName: Schema.String,
     instruction: Schema.String
   }),
   Schema.TaggedStruct("AcceptanceEvaluated", {
-    iteration: Schema.Number,
+    iteration: Schema.Finite,
     accepted: Schema.Boolean,
     gate1Passed: Schema.Boolean,
     fullValsetEvaluated: Schema.Boolean,
-    previousSubsampleSum: Schema.Number,
-    mutatedSubsampleSum: Schema.Number
+    previousSubsampleSum: Schema.Finite,
+    mutatedSubsampleSum: Schema.Finite
   }),
   Schema.TaggedStruct("ParetoUpdated", {
-    iteration: Schema.Number,
-    frontierIndices: Schema.Array(Schema.Number),
-    dominatedIndices: Schema.Array(Schema.Number),
+    iteration: Schema.Finite,
+    frontierIndices: Schema.Array(Schema.Finite),
+    dominatedIndices: Schema.Array(Schema.Finite),
     parentWeights: Schema.Array(GepaParentSelectionWeightSchema)
   }),
   Schema.TaggedStruct("IterationCompleted", {
-    iteration: Schema.Number,
+    iteration: Schema.Finite,
     acceptedCandidate: Schema.Boolean,
-    frontierSize: Schema.Number
+    frontierSize: Schema.Finite
   }),
   Schema.TaggedStruct("OptimizationCompleted", {
-    iterations: Schema.Number,
+    iterations: Schema.Finite,
     bestCandidateId: Schema.String,
-    frontierSize: Schema.Number
+    frontierSize: Schema.Finite
   })
-)
+])
 
 export const GepaOrchestrationEventOrderFixtureSchema = Schema.Struct({
   fixture: Schema.Literal("dspy.gepa.orchestration.event-order.seed-0"),
   metadata: FixtureMetadataSchema,
   payload: Schema.Struct({
-    seed: Schema.Number,
-    maxIterations: Schema.Number,
+    seed: Schema.Finite,
+    maxIterations: Schema.Finite,
     timeline: Schema.Array(GepaEventTimelineItemSchema),
     expectedWithinIterationOrder: Schema.NonEmptyArray(Schema.String),
     expectedTerminalTag: Schema.String
@@ -735,9 +735,9 @@ export type GepaOrchestrationEventOrderFixture = Schema.Schema.Type<typeof GepaO
 
 const GepaStateTransitionSchema = Schema.Struct({
   name: Schema.String,
-  iteration: Schema.Number,
-  candidateCount: Schema.Number,
-  mergeBudgetRemaining: Schema.Number,
+  iteration: Schema.Finite,
+  candidateCount: Schema.Finite,
+  mergeBudgetRemaining: Schema.Finite,
   lastIterationFoundNew: Schema.Boolean,
   expectedShouldAttemptMerge: Schema.Boolean
 })
@@ -747,7 +747,7 @@ export const GepaOrchestrationStateTransitionsFixtureSchema = Schema.Struct({
   metadata: FixtureMetadataSchema,
   payload: Schema.Struct({
     transitions: Schema.Array(GepaStateTransitionSchema),
-    expectedCandidateCountProgression: Schema.Array(Schema.Number),
+    expectedCandidateCountProgression: Schema.Array(Schema.Finite),
     expectedLastIterationFoundNew: Schema.Array(Schema.Boolean)
   })
 })
@@ -757,9 +757,9 @@ export type GepaOrchestrationStateTransitionsFixture = Schema.Schema.Type<
 >
 
 const GepaFrontierSnapshotSchema = Schema.Struct({
-  iteration: Schema.Number,
-  frontierIndices: Schema.Array(Schema.Number),
-  dominatedIndices: Schema.Array(Schema.Number),
+  iteration: Schema.Finite,
+  frontierIndices: Schema.Array(Schema.Finite),
+  dominatedIndices: Schema.Array(Schema.Finite),
   parentWeights: Schema.Array(GepaParentSelectionWeightSchema)
 })
 
@@ -767,7 +767,7 @@ export const GepaReplayFrontierSnapshotsFixtureSchema = Schema.Struct({
   fixture: Schema.Literal("dspy.gepa.replay.frontier-snapshots.seed-0"),
   metadata: FixtureMetadataSchema,
   payload: Schema.Struct({
-    seed: Schema.Number,
+    seed: Schema.Finite,
     snapshots: Schema.Array(GepaFrontierSnapshotSchema),
     byteStableFields: Schema.Array(Schema.String)
   })
@@ -779,7 +779,7 @@ export const GepaReplayParamsFixtureSchema = Schema.Struct({
   fixture: Schema.Literal("dspy.gepa.replay.params.seed-0"),
   metadata: FixtureMetadataSchema,
   payload: Schema.Struct({
-    seed: Schema.Number,
+    seed: Schema.Finite,
     moduleName: Schema.String,
     savedState: Schema.Unknown,
     stableJsonKeys: Schema.Array(Schema.String),
@@ -793,16 +793,16 @@ export const GepaReplaySeedContractFixtureSchema = Schema.Struct({
   fixture: Schema.Literal("dspy.gepa.replay.seed-0.contract"),
   metadata: FixtureMetadataSchema,
   payload: Schema.Struct({
-    seed: Schema.Number,
+    seed: Schema.Finite,
     moduleName: Schema.String,
-    maxIterations: Schema.Number,
-    trainsetSize: Schema.Number
+    maxIterations: Schema.Finite,
+    trainsetSize: Schema.Finite
   })
 })
 
 export type GepaReplaySeedContractFixture = Schema.Schema.Type<typeof GepaReplaySeedContractFixtureSchema>
 
-export const FixtureNameSchema = Schema.Literal(
+export const FixtureNameSchema = Schema.Literals([
   "dspy.chat.qa-basic",
   "dspy.chat.qa-with-demo",
   "dspy.chat.system-message.basic",
@@ -839,7 +839,7 @@ export const FixtureNameSchema = Schema.Literal(
   "dspy.gepa.replay.frontier-snapshots.seed-0",
   "dspy.gepa.replay.params.seed-0",
   "dspy.gepa.replay.seed-0.contract"
-)
+])
 
 export type FixtureName = Schema.Schema.Type<typeof FixtureNameSchema>
 
@@ -865,7 +865,7 @@ export const FixtureManifestSchema = Schema.Struct({
 
 export type FixtureManifest = Schema.Schema.Type<typeof FixtureManifestSchema>
 
-export const KnownFixtureSchema = Schema.Union(
+export const KnownFixtureSchema = Schema.Union([
   ChatPromptFixtureSchema,
   ChatSystemMessageFixtureSchema,
   ChatOutputRequirementsFixtureSchema,
@@ -900,6 +900,6 @@ export const KnownFixtureSchema = Schema.Union(
   GepaReplayFrontierSnapshotsFixtureSchema,
   GepaReplayParamsFixtureSchema,
   GepaReplaySeedContractFixtureSchema
-)
+])
 
 export type KnownFixture = Schema.Schema.Type<typeof KnownFixtureSchema>

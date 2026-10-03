@@ -20,7 +20,7 @@ import {
 
 const Input = Schema.Struct({
   question: Schema.String,
-  evidence: Schema.Array(Schema.Struct({ city: Schema.String, rank: Schema.NumberFromString }))
+  evidence: Schema.Array(Schema.Struct({ city: Schema.String, rank: Schema.FiniteFromString }))
 })
 const Output = Schema.Struct({ answer: Schema.String, rejected: Schema.Array(Schema.String) })
 
@@ -78,16 +78,16 @@ describe("GEPA reflective mutation", () => {
       const selected = Arr.map(Arr.range(0, 6), (iteration) => selectPredictorRoundRobin(names, iteration))
       expect(selected).toEqual(Arr.map(Arr.make("qa", "judge", "rewrite", "qa", "judge", "rewrite", "qa"), Option.some))
       expect(selectPredictorRoundRobin(Arr.empty<string>(), 0)).toEqual(Option.none())
-      expect(selectPredictorRoundRobin(names, Number.negate(1))).toEqual(Option.some("qa"))
+      expect(selectPredictorRoundRobin(names, Number.multiply(-1, 1))).toEqual(Option.some("qa"))
       expect(selectPredictorRoundRobin(names, 4.9)).toEqual(Option.some("judge"))
-      const infinity = yield* Schema.decode(Schema.NumberFromString)("Infinity")
+      const infinity = yield* Effect.fromOption(Number.parse("Infinity"))
       expect(selectPredictorRoundRobin(names, infinity)).toEqual(Option.some("qa"))
     }))
 
   it.effect("retains nested encoded evidence and output arrays in the golden prompt sections", () =>
     Effect.gen(function*() {
       const fixture = yield* loadFixture("dspy.gepa.reflect.prompt-template.basic").pipe(
-        Effect.flatMap(Schema.decodeUnknown(GepaReflectPromptTemplateFixtureSchema))
+        Effect.flatMap(Schema.decodeUnknownEffect(GepaReflectPromptTemplateFixtureSchema))
       )
       const prompt = buildReflectivePrompt({
         predictorName: "qa",
@@ -105,18 +105,18 @@ describe("GEPA reflective mutation", () => {
         fixture.payload.requiredSubstrings,
         (text) => Effect.sync(() => expect(prompt).toContain(text))
       )
-      const positions = yield* Effect.forEach(
+      const positions = Option.getOrThrow(Option.all(Arr.map(
         fixture.payload.expectedSectionOrder,
         (section) => String.indexOf(section)(prompt)
-      )
-      expect(Arr.every(positions, Number.greaterThanOrEqualTo(0))).toBe(true)
-      expect(positions).toEqual(Arr.sort(positions, Order.number))
+      )))
+      expect(Arr.every(positions, Number.isGreaterThanOrEqualTo(0))).toBe(true)
+      expect(positions).toEqual(Arr.sort(positions, Order.Number))
     }))
 
   it.effect("uses the reference parse-failure feedback contract", () =>
     Effect.gen(function*() {
       const fixture = yield* loadFixture("dspy.gepa.reflect.format-failure-feedback").pipe(
-        Effect.flatMap(Schema.decodeUnknown(GepaReflectFormatFailureFeedbackFixtureSchema))
+        Effect.flatMap(Schema.decodeUnknownEffect(GepaReflectFormatFailureFeedbackFixtureSchema))
       )
       const feedback = formatParseFailureFeedback(fixture.payload.structureInstruction)
       expect(feedback).toBe(fixture.payload.expectedFeedback)

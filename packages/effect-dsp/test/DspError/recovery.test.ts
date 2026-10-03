@@ -22,7 +22,8 @@ describe("Errors", () => {
             message: "bad json",
             moduleName: "qa",
             rawOutput: Option.none(),
-            retryCount: Option.none()
+            retryCount: Option.none(),
+            fieldDiagnostics: []
           })
         )
         expect(Exit.isFailure(exit)).toBe(true)

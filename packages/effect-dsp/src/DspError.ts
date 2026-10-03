@@ -4,7 +4,8 @@
  * @since 0.1.0
  * @module
  */
-import { Array as Arr, Schema } from "effect"
+import { Array as Arr, Effect, Schema } from "effect"
+import { Result as MetricResult } from "./Metric.js"
 
 /** Structural validation failure from signature construction.
  * @since 0.1.0
@@ -27,7 +28,7 @@ export class SignatureError extends Schema.TaggedError<SignatureError>(
 export class ParseFieldDiagnostic
   extends Schema.Class<ParseFieldDiagnostic>("@scenesystems/effect-dsp/DspError/ParseFieldDiagnostic")({
     field: Schema.String,
-    issue: Schema.Literal("missing-field", "unexpected-field", "duplicate-field", "decode-error"),
+    issue: Schema.Literals(["missing-field", "unexpected-field", "duplicate-field", "decode-error"]),
     message: Schema.String
   })
 {}
@@ -43,9 +44,9 @@ export class ParseOutputError extends Schema.TaggedError<ParseOutputError>(
   {
     message: Schema.String,
     moduleName: Schema.String,
-    rawOutput: Schema.OptionFromSelf(Schema.String),
-    retryCount: Schema.OptionFromSelf(Schema.Number),
-    fieldDiagnostics: Schema.optionalWith(Schema.Array(ParseFieldDiagnostic), { default: Arr.empty })
+    rawOutput: Schema.Option(Schema.String),
+    retryCount: Schema.Option(Schema.Finite),
+    fieldDiagnostics: Schema.Array(ParseFieldDiagnostic).pipe(Schema.withDecodingDefaultType(Effect.sync(Arr.empty)))
   }
 ) {}
 
@@ -73,15 +74,15 @@ export class BootstrapFailed extends Schema.TaggedError<BootstrapFailed>(
   "BootstrapFailed",
   {
     message: Schema.String,
-    roundsAttempted: Schema.Number,
-    totalTraces: Schema.Number,
-    threshold: Schema.optionalWith(Schema.Number, { default: () => 0 }),
-    acceptedTraces: Schema.optionalWith(Schema.Number, { default: () => 0 }),
-    rejectedTraces: Schema.optionalWith(Schema.Number, { default: () => 0 }),
-    evaluatedExamples: Schema.optionalWith(Schema.Number, { default: () => 0 }),
-    bestScoreSeen: Schema.optionalWith(Schema.Boolean, { default: () => false }),
-    bestScore: Schema.optionalWith(Schema.Number, { default: () => 0 }),
-    averageScore: Schema.optionalWith(Schema.Number, { default: () => 0 })
+    roundsAttempted: Schema.Finite,
+    totalTraces: Schema.Finite,
+    threshold: MetricResult.fields.score.pipe(Schema.withDecodingDefaultType(Effect.succeed(0))),
+    acceptedTraces: Schema.Finite.pipe(Schema.withDecodingDefaultType(Effect.succeed(0))),
+    rejectedTraces: Schema.Finite.pipe(Schema.withDecodingDefaultType(Effect.succeed(0))),
+    evaluatedExamples: Schema.Finite.pipe(Schema.withDecodingDefaultType(Effect.succeed(0))),
+    bestScoreSeen: Schema.Boolean.pipe(Schema.withDecodingDefaultType(Effect.succeed(false))),
+    bestScore: MetricResult.fields.score.pipe(Schema.withDecodingDefaultType(Effect.succeed(0))),
+    averageScore: MetricResult.fields.score.pipe(Schema.withDecodingDefaultType(Effect.succeed(0)))
   }
 ) {}
 
@@ -95,7 +96,7 @@ export class InstructionProposalFailed extends Schema.TaggedError<InstructionPro
   "InstructionProposalFailed",
   {
     message: Schema.String,
-    predictorIndex: Schema.Number
+    predictorIndex: Schema.Finite
   }
 ) {}
 
@@ -109,7 +110,7 @@ export class AllTrialsFailed extends Schema.TaggedError<AllTrialsFailed>(
   "AllTrialsFailed",
   {
     message: Schema.String,
-    trialCount: Schema.Number
+    trialCount: Schema.Finite
   }
 ) {}
 
@@ -152,7 +153,7 @@ export class EvaluationFailed extends Schema.TaggedError<EvaluationFailed>(
   "EvaluationFailed",
   {
     message: Schema.String,
-    index: Schema.Number
+    index: Schema.Finite
   }
 ) {}
 
@@ -180,7 +181,7 @@ export class SaveLoadError extends Schema.TaggedError<SaveLoadError>(
   "SaveLoadError",
   {
     message: Schema.String,
-    operation: Schema.Literal("save", "load"),
+    operation: Schema.Literals(["save", "load"]),
     path: Schema.optional(Schema.String)
   }
 ) {}
@@ -196,7 +197,7 @@ export class SaveLoadError extends Schema.TaggedError<SaveLoadError>(
  * @since 0.1.0
  * @category errors
  */
-export const DspError = Schema.Union(
+export const DspError = Schema.Union([
   SignatureError,
   ParseOutputError,
   CompositionError,
@@ -208,7 +209,7 @@ export const DspError = Schema.Union(
   EvaluationFailed,
   TraceError,
   SaveLoadError
-)
+])
 
 /**
  * Selects the tagged error values decoded by the {@link DspError} schema.

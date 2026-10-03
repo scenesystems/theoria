@@ -7,9 +7,9 @@ import { Array as Arr, Equivalence, Order } from "effect"
 import { type Id, Registration } from "../../../Module.js"
 import type { Node as ModuleGraphNode } from "../../../ModuleGraph.js"
 
-const moduleIdOrder: Order.Order<Id> = Order.mapInput(Order.string, (moduleId: Id) => moduleId)
+const moduleIdOrder: Order.Order<Id> = Order.mapInput(Order.String, (moduleId: Id) => moduleId)
 
-const moduleIdEquivalence: Equivalence.Equivalence<Id> = Equivalence.string
+const moduleIdEquivalence: Equivalence.Equivalence<Id> = Equivalence.String
 
 const uniqueSortedModuleIds = (moduleIds: Iterable<Id>): ModuleGraphNode["subModuleIds"] =>
   Arr.dedupeWith(Arr.sort(Arr.fromIterable(moduleIds), moduleIdOrder), moduleIdEquivalence)

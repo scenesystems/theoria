@@ -4,13 +4,13 @@
  * @since 0.1.0
  * @module
  */
-import type * as AiError from "@effect/ai/AiError"
-import type * as LanguageModel from "@effect/ai/LanguageModel"
-import type * as Tool from "@effect/ai/Tool"
-import type * as Toolkit from "@effect/ai/Toolkit"
 import * as Numeric from "@scenesystems/effect-math/Numeric"
 import { Array as Arr, Boolean, Data, Equivalence, Graph, HashMap, Match, Option, Order, Schema, Tuple } from "effect"
 import type { Effect, Record, Ref } from "effect"
+import type * as AiError from "effect/ai/AiError"
+import type * as LanguageModel from "effect/ai/LanguageModel"
+import type * as Tool from "effect/ai/Tool"
+import type * as Toolkit from "effect/ai/Toolkit"
 import * as Schedule from "effect/Schedule"
 import type { Codec as DemonstrationCodec } from "./Demonstration.js"
 import type { DspError, ParseOutputError } from "./DspError.js"
@@ -38,7 +38,7 @@ import type { Signature } from "./Signature.js"
  * @category schemas
  */
 export const Id = Schema.String.pipe(
-  Schema.pattern(/^[a-z][a-z0-9-]*$/),
+  Schema.check(Schema.isPattern(/^[a-z][a-z0-9-]*$/)),
   Schema.brand("@scenesystems/effect-dsp/Module/Id")
 )
 
@@ -53,7 +53,7 @@ export type Id = typeof Id.Type
  * @category schemas
  */
 export const RolloutCount = Schema.Int.pipe(
-  Schema.positive(),
+  Schema.check(Schema.isGreaterThan(0)),
   Schema.brand("@scenesystems/effect-dsp/Module/RolloutCount")
 )
 
@@ -99,9 +99,9 @@ class NormalizationWorklist extends Data.Class<{
   readonly expanded: Iterable<Node>
 }> {}
 
-const nodeIdentity = Equivalence.strict<Node>()
-const ownerIdentity = Equivalence.strict<Node["params"]>()
-const declarationOrder: Order.Order<Declaration> = Order.mapInput(Order.string, (edge) => edge.declaredId)
+const nodeIdentity = Equivalence.strictEqual<Node>()
+const ownerIdentity = Equivalence.strictEqual<Node["params"]>()
+const declarationOrder: Order.Order<Declaration> = Order.mapInput(Order.String, (edge) => edge.declaredId)
 
 /** Materializes recursive ownership into a directed graph without reading parameters.
  * @since 0.4.0
@@ -156,7 +156,7 @@ export class Registration extends Data.TaggedClass("ModuleRegistration")<{
   readonly id: Id
   readonly params: Ref.Ref<ModuleParameters>
   readonly signature: NodeSignature
-  readonly subModuleIds: Schema.Array$<typeof Id>["Type"]
+  readonly subModuleIds: ReadonlyArray<Id>
 }> {}
 
 /**
@@ -184,7 +184,7 @@ export class SavedState extends Schema.Class<SavedState>("@scenesystems/effect-d
     })
   ),
   /** Caller-defined envelope metadata ignored by module restoration. */
-  metadata: Schema.optional(Schema.Record({ key: Schema.String, value: Schema.Unknown }))
+  metadata: Schema.optional(Schema.Record(Schema.String, Schema.Unknown))
 }) {}
 
 /**
@@ -230,8 +230,10 @@ export class Module<
     Schema.Schema.Type<Schema.Struct<O>>,
     AiError.AiError | DspError | E,
     | LanguageModel.LanguageModel
-    | Schema.Schema.Context<Schema.Struct<I>>
-    | Schema.Schema.Context<Schema.Struct<O>>
+    | Schema.Struct<I>["DecodingServices"]
+    | Schema.Struct<O>["DecodingServices"]
+    | Schema.Struct<I>["EncodingServices"]
+    | Schema.Struct<O>["EncodingServices"]
     | R
   >
 }> {}
@@ -323,8 +325,10 @@ export type ComposeForward<
   Schema.Schema.Type<Schema.Struct<O>>,
   AiError.AiError | DspError | E,
   | LanguageModel.LanguageModel
-  | Schema.Schema.Context<Schema.Struct<I>>
-  | Schema.Schema.Context<Schema.Struct<O>>
+  | Schema.Struct<I>["DecodingServices"]
+  | Schema.Struct<O>["DecodingServices"]
+  | Schema.Struct<I>["EncodingServices"]
+  | Schema.Struct<O>["EncodingServices"]
   | R
 >
 
@@ -433,10 +437,10 @@ const normalizeRetryCount = (value: number): number =>
  * @category constructors
  */
 export const defaultParseRetrySchedule: ParseRetryScheduleFactory = (maxRetries) =>
-  Schedule.intersect(
+  Schedule.max([
     Schedule.exponential(defaultParseInitialDelay, defaultParseBackoffFactor),
     Schedule.recurs(normalizeRetryCount(maxRetries))
-  )
+  ])
 
 const formatFieldDiagnostic = (diagnostic: ParseOutputError["fieldDiagnostics"][number]): string =>
   Arr.join(Arr.make("- ", diagnostic.field, " (", diagnostic.issue, "): ", diagnostic.message), "")
@@ -453,7 +457,7 @@ export const defaultParseFeedbackTemplate: ParseFeedbackTemplate = (error) => {
         Arr.join(
           Arr.make(
             "Parse error (",
-            Schema.encodeSync(Schema.NumberFromString)(Option.getOrElse(error.retryCount, () => 0)),
+            Schema.encodeSync(Schema.FiniteFromString)(Option.getOrElse(error.retryCount, () => 0)),
             "): ",
             error.message
           ),
@@ -472,10 +476,10 @@ const emptyPredictPolicyOverrides = new PredictPolicyOverrides({})
 const resolveParsePolicy = (overrides: ParsePolicyOverrides): ParsePolicy =>
   new ParsePolicy({
     maxRetries: normalizeRetryCount(
-      Option.getOrElse(Option.fromNullable(overrides.maxRetries), () => defaultParseMaxRetries)
+      Option.getOrElse(Option.fromNullishOr(overrides.maxRetries), () => defaultParseMaxRetries)
     ),
-    retrySchedule: Option.getOrElse(Option.fromNullable(overrides.retrySchedule), () => defaultParseRetrySchedule),
-    feedbackTemplate: Option.getOrElse(Option.fromNullable(overrides.feedbackTemplate), () =>
+    retrySchedule: Option.getOrElse(Option.fromNullishOr(overrides.retrySchedule), () => defaultParseRetrySchedule),
+    feedbackTemplate: Option.getOrElse(Option.fromNullishOr(overrides.feedbackTemplate), () =>
       defaultParseFeedbackTemplate)
   })
 
@@ -486,7 +490,7 @@ const resolveParsePolicy = (overrides: ParsePolicyOverrides): ParsePolicy =>
 export const makePredictPolicy = (overrides: PredictPolicyOverrides = emptyPredictPolicyOverrides): PredictPolicy =>
   new PredictPolicy({
     parse: resolveParsePolicy(
-      Option.getOrElse(Option.fromNullable(overrides.parse), () => emptyParsePolicyOverrides)
+      Option.getOrElse(Option.fromNullishOr(overrides.parse), () => emptyParsePolicyOverrides)
     )
   })
 

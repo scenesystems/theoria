@@ -1,19 +1,20 @@
 /**
  * Behavioral contracts for the public in-memory language-model test double.
  */
-import * as LanguageModel from "@effect/ai/LanguageModel"
-import * as Prompt from "@effect/ai/Prompt"
-import * as Response from "@effect/ai/Response"
-import * as Tool from "@effect/ai/Tool"
-import * as Toolkit from "@effect/ai/Toolkit"
 import { describe, expect, it } from "@effect/vitest"
+import { Result } from "@scenesystems/effect-dsp/Metric"
 import * as MockLanguageModel from "@scenesystems/effect-dsp/MockLanguageModel"
-import { Array as Arr, Chunk, Effect, Order, Ref, Schema, Stream, String } from "effect"
+import { Array as Arr, Chunk, Effect, Number, Order, Ref, Schema, Stream, String } from "effect"
+import * as LanguageModel from "effect/ai/LanguageModel"
+import * as Prompt from "effect/ai/Prompt"
+import * as Response from "effect/ai/Response"
+import * as Tool from "effect/ai/Tool"
+import * as Toolkit from "effect/ai/Toolkit"
 
 const TextEnvelope = Schema.Struct({ value: Schema.String })
 
 const LookupFacts = Tool.make("LookupFacts", {
-  parameters: { question: Schema.String },
+  parameters: Schema.Struct({ question: Schema.String }),
   success: Schema.String
 })
 
@@ -61,7 +62,7 @@ describe("MockLanguageModel", () => {
         prompt: "encode",
         schema: TextEnvelope
       }).pipe(Effect.provideService(LanguageModel.LanguageModel, roundTripMock.service))
-      const expectedJson = yield* Schema.encode(Schema.parseJson(TextEnvelope))(value)
+      const expectedJson = yield* Schema.encodeEffect(Schema.fromJsonString(TextEnvelope))(value)
 
       expect(response.value).toEqual(value)
       expect(response.text).toBe(expectedJson)
@@ -77,7 +78,7 @@ describe("MockLanguageModel", () => {
         Effect.flip
       )
 
-      expect(rejection._tag).toBe("MalformedOutput")
+      expect(rejection.reason._tag).toBe("StructuredOutputError")
 
       const invalidSchemaMock = yield* MockLanguageModel.make(
         MockLanguageModel.succeed({ value: 42 })
@@ -90,18 +91,18 @@ describe("MockLanguageModel", () => {
         Effect.flip
       )
 
-      expect(invalidSchema._tag).toBe("MalformedOutput")
+      expect(invalidSchema.reason._tag).toBe("StructuredOutputError")
     }))
 
   it.effect("rejects lossy object responses instead of manufacturing schema-valid JSON", () =>
     Effect.gen(function*() {
       const schema = Schema.Struct({
         value: Schema.Struct({
-          score: Schema.NullOr(Schema.Number),
+          score: Schema.NullOr(Result.fields.score),
           note: Schema.optional(Schema.String)
         })
       })
-      const infinity = yield* Schema.decode(Schema.NumberFromString)("Infinity")
+      const infinity = yield* Effect.fromOption(Number.parse("Infinity"))
       const payloads = Arr.make(
         { value: { score: infinity } },
         { value: { score: 7, note: () => "discarded by JSON" } }
@@ -117,7 +118,9 @@ describe("MockLanguageModel", () => {
           return failure
         }))
 
-      expect(Arr.map(failures, (failure) => failure._tag)).toEqual(Arr.make("UnknownError", "MalformedOutput"))
+      expect(Arr.map(failures, (failure) => failure.reason._tag)).toEqual(
+        Arr.make("UnknownError", "StructuredOutputError")
+      )
     }))
 
   it.effect("returns sequence responses in order and repeats the final response", () =>
@@ -147,24 +150,21 @@ describe("MockLanguageModel", () => {
       })
       const afterConcurrent = yield* generate
 
-      expect(Arr.sort(concurrent, Order.string)).toEqual(Arr.sort(expected, Order.string))
+      expect(Arr.sort(concurrent, Order.String)).toEqual(Arr.sort(expected, Order.String))
       expect(afterConcurrent).toBe("delta")
     }))
 
   it.effect("preserves native finish parts and every supplied usage counter", () =>
     Effect.gen(function*() {
       const usage = new Response.Usage({
-        inputTokens: 11,
-        outputTokens: 7,
-        totalTokens: 23,
-        reasoningTokens: 5,
-        cachedInputTokens: 3
+        inputTokens: { total: 11, uncached: 8, cacheRead: 3 },
+        outputTokens: { total: 12, text: 7, reasoning: 5 }
       })
       const mock = yield* MockLanguageModel.make(
         MockLanguageModel.succeed(
           Arr.make(
-            Response.textPart({ text: "retained", metadata: {} }),
-            Response.finishPart({ reason: "length", usage, metadata: {} })
+            Response.makePart("text", { text: "retained", metadata: {} }),
+            Response.makePart("finish", { reason: "length", usage, metadata: {} })
           )
         )
       )
@@ -177,7 +177,7 @@ describe("MockLanguageModel", () => {
       expect(response.usage).toEqual(usage)
 
       const unfinishedMock = yield* MockLanguageModel.make(
-        MockLanguageModel.succeed(Arr.of(Response.textPart({ text: "completed", metadata: {} })))
+        MockLanguageModel.succeed(Arr.of(Response.makePart("text", { text: "completed", metadata: {} })))
       )
       const completed = yield* LanguageModel.generateText({ prompt: "finish" }).pipe(
         Effect.provideService(LanguageModel.LanguageModel, unfinishedMock.service)
@@ -185,11 +185,11 @@ describe("MockLanguageModel", () => {
 
       expect(
         Arr.make(
-          completed.usage.inputTokens,
-          completed.usage.outputTokens,
-          completed.usage.totalTokens,
-          completed.usage.reasoningTokens,
-          completed.usage.cachedInputTokens
+          completed.usage.inputTokens.total,
+          completed.usage.inputTokens.cacheRead,
+          completed.usage.outputTokens.total,
+          completed.usage.outputTokens.text,
+          completed.usage.outputTokens.reasoning
         )
       ).toEqual(Arr.make(undefined, undefined, undefined, undefined, undefined))
     }))
@@ -213,16 +213,11 @@ describe("MockLanguageModel", () => {
         }))
 
       expect(Arr.map(failures, (failure) => failure._tag)).toEqual(
-        Arr.make("UnknownError", "UnknownError", "UnknownError", "UnknownError")
+        Arr.make("AiError", "AiError", "AiError", "AiError")
       )
-      expect(Arr.map(failures, (failure) => failure.description)).toEqual(
-        Arr.make(
-          "MockLanguageModel received invalid provider response parts",
-          "MockLanguageModel received invalid provider response parts",
-          "MockLanguageModel received invalid provider response parts",
-          "MockLanguageModel received invalid provider response parts"
-        )
-      )
+      expect(failures).toMatchObject(Arr.map(malformed, () => ({
+        reason: { description: "MockLanguageModel received invalid provider response parts" }
+      })))
     }))
 
   it.effect("rejects unsupported and non-finite text values instead of fabricating text", () =>
@@ -237,14 +232,14 @@ describe("MockLanguageModel", () => {
       const calls = yield* Ref.get(mock.calls)
 
       expect(failure).toMatchObject({
-        _tag: "UnknownError",
+        _tag: "AiError",
         method: "generateText",
-        description: "MockLanguageModel text responses must be strings, finite numbers, or booleans"
+        reason: { description: "MockLanguageModel text responses must be strings, finite numbers, or booleans" }
       })
       expect(Arr.length(calls)).toBe(0)
 
       const nonFinite = yield* Effect.forEach(Arr.make("NaN", "Infinity", "-Infinity"), (value) =>
-        Schema.decode(Schema.NumberFromString)(value))
+        Effect.fromOption(Number.parse(value)))
       const nonFiniteFailures = yield* Effect.forEach(
         nonFinite,
         (value) =>
@@ -258,14 +253,9 @@ describe("MockLanguageModel", () => {
           })
       )
 
-      expect(Arr.map(nonFiniteFailures, (nonFiniteFailure) =>
-        nonFiniteFailure.description)).toEqual(
-          Arr.make(
-            "MockLanguageModel text responses must be strings, finite numbers, or booleans",
-            "MockLanguageModel text responses must be strings, finite numbers, or booleans",
-            "MockLanguageModel text responses must be strings, finite numbers, or booleans"
-          )
-        )
+      expect(nonFiniteFailures).toMatchObject(Arr.map(nonFinite, () => ({
+        reason: { description: "MockLanguageModel text responses must be strings, finite numbers, or booleans" }
+      })))
     }))
 
   it.effect("preserves valid native structured and tool-call responses", () =>
@@ -277,7 +267,7 @@ describe("MockLanguageModel", () => {
         prompt: "structured",
         schema: TextEnvelope
       }).pipe(Effect.provideService(LanguageModel.LanguageModel, structuredMock.service))
-      const toolCall = Response.toolCallPart({
+      const toolCall = Response.makePart("tool-call", {
         id: "call-1",
         name: "LookupFacts",
         params: { question: "Where?" },
@@ -326,8 +316,8 @@ describe("MockLanguageModel", () => {
         Effect.flip
       )
 
-      expect(failingError._tag).toBe("UnknownError")
-      expect(emptyError._tag).toBe("UnknownError")
+      expect(failingError._tag).toBe("AiError")
+      expect(emptyError._tag).toBe("AiError")
     }))
 
   it.effect("fails unsupported streaming through the typed AiError channel", () =>
@@ -348,13 +338,10 @@ describe("MockLanguageModel", () => {
         }))
 
       expect(Arr.map(failures, (failure) => failure._tag)).toEqual(
-        Arr.make("UnknownError", "UnknownError")
+        Arr.make("AiError", "AiError")
       )
-      expect(Arr.map(failures, (failure) => failure.description)).toEqual(
-        Arr.make(
-          "MockLanguageModel does not support streamText",
-          "MockLanguageModel does not support streamText"
-        )
-      )
+      expect(failures).toMatchObject(Arr.map(strategies, () => ({
+        reason: { description: "MockLanguageModel does not support streamText" }
+      })))
     }))
 })

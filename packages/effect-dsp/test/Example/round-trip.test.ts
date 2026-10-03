@@ -7,13 +7,13 @@ import { Example } from "@scenesystems/effect-dsp/Example"
 import { Effect, Schema } from "effect"
 
 const expectSchemaRoundTrip = <A, I>(
-  schema: Schema.Schema<A, I, never>,
+  schema: Schema.Codec<A, I>,
   value: A
 ): Effect.Effect<void, never> =>
   Effect.gen(function*() {
-    const encoded = yield* Schema.encode(schema)(value)
-    const decoded = yield* Schema.decodeUnknown(schema)(encoded)
-    const reEncoded = yield* Schema.encode(schema)(decoded)
+    const encoded = yield* Schema.encodeEffect(schema)(value)
+    const decoded = yield* Schema.decodeUnknownEffect(schema)(encoded)
+    const reEncoded = yield* Schema.encodeEffect(schema)(decoded)
 
     expect(reEncoded).toEqual(encoded)
   }).pipe(Effect.orDie)

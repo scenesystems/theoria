@@ -4,23 +4,25 @@
  * @since 0.1.0
  * @internal
  */
-import * as AiError from "@effect/ai/AiError"
-import * as Prompt from "@effect/ai/Prompt"
 import { Array as Arr, Effect, Option, Predicate, Record, Schema, String } from "effect"
+import * as AiError from "effect/ai/AiError"
+import * as Prompt from "effect/ai/Prompt"
 import type { ModuleParameters } from "../../ModuleParameters.js"
 import { encode } from "../../Payload.js"
 import type { FieldInfo, Signature } from "../../Signature.js"
-import { encodedFieldsToInfoArray } from "../signature/fields.js"
+import { encodedFieldSchema, encodedFieldsToInfoArray } from "../signature/fields.js"
 import { renderFieldMarker, renderOutputRequirements, renderOutputTemplate } from "./protocol.js"
 
 const promptError = () =>
-  new AiError.MalformedInput({
+  AiError.make({
     module: "Prompt",
     method: "buildPrompt",
-    description: "Prompt input could not be encoded without losing information"
+    reason: new AiError.InvalidRequestError({
+      description: "Prompt input could not be encoded without losing information"
+    })
   })
 
-const renderValue = <A>(schema: Schema.Schema<A>, value: A): Effect.Effect<string, AiError.MalformedInput> =>
+const renderValue = <A, I>(schema: Schema.Codec<A, I>, value: A): Effect.Effect<string, AiError.AiError> =>
   Option.match(Option.liftPredicate(Predicate.isString)(value), {
     onSome: (text) => Effect.succeed(text),
     onNone: () => encode(schema, value).pipe(Effect.mapError(promptError))
@@ -39,14 +41,13 @@ const renderFieldSection = (fields: Iterable<FieldInfo>): string =>
   )
 
 const renderFieldBlock = <A extends Record.ReadonlyRecord<string, unknown>>(schema: Schema.Schema<A>, values: A) =>
-  Effect.forEach(Record.keys(values), (name) => {
-    const field = Schema.pluck(schema, name)
-    return Schema.decodeUnknown(field)(values).pipe(
-      Effect.mapError(promptError),
-      Effect.flatMap((value) => renderValue(Schema.typeSchema(field), value)),
-      Effect.map((text) => Arr.join(Arr.make(renderFieldMarker(name), text), "\n"))
-    )
-  }).pipe(Effect.map(Arr.join("\n\n")))
+  Effect.forEach(Record.keys(values), (name) =>
+    Effect.gen(function*() {
+      const field = yield* Effect.fromOption(encodedFieldSchema(schema, name), promptError)
+      const value = yield* Schema.decodeEffect(field)(values[name]).pipe(Effect.mapError(promptError))
+      const text = yield* renderValue(field, value)
+      return Arr.join(Arr.make(renderFieldMarker(name), text), "\n")
+    })).pipe(Effect.map(Arr.join("\n\n")))
 
 /**
  * Encodes signature inputs before rendering and constructs a native prompt.
@@ -62,22 +63,22 @@ export const buildPrompt = <I extends Schema.Struct.Fields, O extends Schema.Str
   params: ModuleParameters,
   input: Schema.Schema.Type<Schema.Struct<I>>,
   feedback: Option.Option<string> = Option.none()
-): Effect.Effect<Prompt.Prompt, AiError.MalformedInput, Schema.Schema.Context<Schema.Struct<I>>> =>
+): Effect.Effect<Prompt.Prompt, AiError.AiError, Schema.Struct<I>["EncodingServices"]> =>
   Effect.gen(function*() {
-    const inputFields = encodedFieldsToInfoArray(signature.inputFields)
-    const outputFields = encodedFieldsToInfoArray(signature.outputFields)
+    const inputFields = encodedFieldsToInfoArray(signature.inputSchema)
+    const outputFields = encodedFieldsToInfoArray(signature.outputSchema)
     const outputNames = Arr.map(outputFields, (field) => field.name)
-    const encoded = yield* Schema.encode(signature.inputSchema)(input).pipe(Effect.mapError(promptError))
-    const content = yield* renderFieldBlock(Schema.encodedBoundSchema(signature.inputSchema), encoded)
+    const encoded = yield* Schema.encodeEffect(signature.inputSchema)(input).pipe(Effect.mapError(promptError))
+    const content = yield* renderFieldBlock(Schema.toEncoded(signature.inputSchema), encoded)
     const demonstrations = yield* Effect.forEach(params.demos, (demo) =>
       Effect.gen(function*() {
-        const input = yield* Schema.decodeUnknown(Schema.encodedBoundSchema(signature.inputSchema))(demo.input).pipe(
+        const input = yield* Schema.decodeEffect(Schema.toEncoded(signature.inputSchema))(demo.input).pipe(
           Effect.mapError(promptError),
-          Effect.flatMap((record) => renderFieldBlock(Schema.encodedBoundSchema(signature.inputSchema), record))
+          Effect.flatMap((record) => renderFieldBlock(Schema.toEncoded(signature.inputSchema), record))
         )
-        const output = yield* Schema.decodeUnknown(Schema.encodedBoundSchema(signature.outputSchema))(demo.output).pipe(
+        const output = yield* Schema.decodeEffect(Schema.toEncoded(signature.outputSchema))(demo.output).pipe(
           Effect.mapError(promptError),
-          Effect.flatMap((record) => renderFieldBlock(Schema.encodedBoundSchema(signature.outputSchema), record))
+          Effect.flatMap((record) => renderFieldBlock(Schema.toEncoded(signature.outputSchema), record))
         )
         return Arr.make(
           Prompt.userMessage({ content: Arr.make(Prompt.textPart({ text: input })) }),

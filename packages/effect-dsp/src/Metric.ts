@@ -4,7 +4,8 @@
  * @since 0.1.0
  * @module
  */
-import { Data, Schema } from "effect"
+import { Value as ObjectiveValue } from "@scenesystems/effect-search/Objective"
+import { Data, Predicate, Schema } from "effect"
 import type { Effect } from "effect"
 import {
   contains as containsInternal,
@@ -24,8 +25,10 @@ import { fromEffect as fromEffectInternal, make as makeInternal } from "./intern
  * @since 0.1.0
  * @category models
  */
+const Score = ObjectiveValue.pipe(Schema.refine(Predicate.isNumber))
+
 export class Result extends Schema.Class<Result>("@scenesystems/effect-dsp/Metric/Result")({
-  score: Schema.Number,
+  score: Score,
   feedback: Schema.optional(Schema.String)
 }) {}
 

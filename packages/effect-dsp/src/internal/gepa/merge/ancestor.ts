@@ -29,7 +29,7 @@ class AncestorDistance extends Schema.Class<AncestorDistance>(
   "@scenesystems/effect-dsp/internal/gepa/merge/ancestor/AncestorDistance"
 )({
   candidateId: Schema.String,
-  distance: Schema.Number
+  distance: Schema.Finite
 }) {}
 
 const AncestorDistances = Schema.Array(AncestorDistance)
@@ -40,8 +40,8 @@ class CommonAncestorCandidate extends Schema.Class<CommonAncestorCandidate>(
   "@scenesystems/effect-dsp/internal/gepa/merge/ancestor/CommonAncestorCandidate"
 )({
   candidateId: Schema.String,
-  parentADistance: Schema.Number,
-  parentBDistance: Schema.Number
+  parentADistance: Schema.Finite,
+  parentBDistance: Schema.Finite
 }) {}
 
 const CommonAncestorCandidates = Schema.Array(CommonAncestorCandidate)
@@ -55,7 +55,7 @@ const makeAncestorDistance = (candidateId: string, distance: number): AncestorDi
   })
 
 const commonAncestorOrder: Order.Order<CommonAncestorCandidate> = Order.mapInput(
-  Order.tuple(Order.number, Order.number, Order.number, Order.number, Order.string),
+  Order.Tuple([Order.Number, Order.Number, Order.Number, Order.Number, Order.String]),
   (candidate) =>
     Tuple.make(
       Num.max(candidate.parentADistance, candidate.parentBDistance),
@@ -119,7 +119,7 @@ const shouldExploreCandidate = (
 ): boolean =>
   Option.match(distanceForCandidate(distances, candidateId), {
     onNone: () => true,
-    onSome: (knownDistance) => Num.lessThan(distance, knownDistance)
+    onSome: (knownDistance) => Num.isLessThan(distance, knownDistance)
   })
 
 const collectAncestorDistances = (
@@ -157,7 +157,7 @@ const sharedAncestorCandidates = (
   parentADistances: AncestorDistances,
   parentBDistances: AncestorDistances
 ): CommonAncestorCandidates =>
-  Arr.filterMap(
+  Arr.flatMap(
     parentADistances,
     (parentAEntry) =>
       distanceForCandidate(parentBDistances, parentAEntry.candidateId).pipe(
@@ -167,7 +167,8 @@ const sharedAncestorCandidates = (
             parentADistance: parentAEntry.distance,
             parentBDistance
           })
-        )
+        ),
+        Option.toArray
       )
   )
 

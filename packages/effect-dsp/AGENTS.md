@@ -7,7 +7,7 @@ alwaysApply: true
 # @scenesystems/effect-dsp
 
 Effect-native typed language-model programs, evaluation, tracing, persistence,
-and optimization. Production code depends on native `@effect/ai` services and
+and optimization. Production code depends on native Effect v4 `effect/ai` services and
 must remain independent of `@scenesystems/effect-inference`.
 
 ## Public architecture

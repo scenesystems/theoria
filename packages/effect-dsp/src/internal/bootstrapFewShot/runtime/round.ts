@@ -4,21 +4,21 @@
  * @since 0.1.0
  * @internal
  */
-import type * as LanguageModel from "@effect/ai/LanguageModel"
 import * as Numeric from "@scenesystems/effect-math/Numeric"
 import {
   Array as Arr,
   Boolean as Bool,
   Data,
   Effect,
+  Equivalence,
   Number as Num,
   Option,
   Predicate,
   Ref,
   Schema,
-  String,
-  Tuple
+  String
 } from "effect"
+import type * as LanguageModel from "effect/ai/LanguageModel"
 import type * as Layer from "effect/Layer"
 import { events, type EventSink, type Examples } from "../../../BootstrapFewShot.js"
 import { Demonstration as Demo } from "../../../Demonstration.js"
@@ -31,7 +31,7 @@ import {
   withDemosAndInstructions as withModuleParamsDemosAndInstructions
 } from "../../../ModuleParameters.js"
 import { withTracing } from "../../../Trace.js"
-import { mergeAcceptedDemos, roundInstructions } from "./demos.js"
+import { mergeAcceptedDemos, MergeAcceptedDemosOptions, roundInstructions } from "./demos.js"
 import { AcceptedDemo, BootstrapState, demoCount, ExampleEvaluation, PredictorDemos, RoundEvaluation } from "./model.js"
 
 /** @internal */
@@ -70,32 +70,46 @@ const evaluateExample = <I extends Schema.Struct.Fields, O extends Schema.Struct
   example: Example
 ) =>
   Effect.gen(function*() {
-    const input = yield* Schema.decodeUnknown(options.module.signature.inputSchema)(example.input)
-    const expected = yield* Option.match(Option.fromNullable(example.output), {
+    const input = yield* Schema.decodeEffect(options.module.signature.inputSchema)(example.input)
+    const expected = yield* Option.match(Option.fromNullishOr(example.output), {
       onNone: () =>
         Effect.fail(
           new BootstrapFailed({
             message: "BootstrapFewShot requires labeled examples",
             roundsAttempted: options.state.roundsAttempted,
-            totalTraces: options.state.totalTraces
+            totalTraces: options.state.totalTraces,
+            threshold: options.threshold,
+            acceptedTraces: options.state.acceptedTraces,
+            rejectedTraces: options.state.rejectedTraces,
+            evaluatedExamples: options.state.evaluatedExamples,
+            bestScoreSeen: options.state.bestScoreSeen,
+            bestScore: options.state.bestScore,
+            averageScore: 0
           })
         ),
       onSome: (output) =>
-        Schema.decodeUnknown(options.module.signature.outputSchema)(output).pipe(
+        Schema.decodeEffect(options.module.signature.outputSchema)(output).pipe(
           Effect.mapError(() =>
             new BootstrapFailed({
               message: "expected output does not match module output schema",
               roundsAttempted: options.state.roundsAttempted,
-              totalTraces: options.state.totalTraces
+              totalTraces: options.state.totalTraces,
+              threshold: options.threshold,
+              acceptedTraces: options.state.acceptedTraces,
+              rejectedTraces: options.state.rejectedTraces,
+              evaluatedExamples: options.state.evaluatedExamples,
+              bestScoreSeen: options.state.bestScoreSeen,
+              bestScore: options.state.bestScore,
+              averageScore: 0
             })
           )
         )
     })
     const traced = yield* withTracing(provideTeacherLayer(options.module.forward(input), options.teacher))
-    const result = Tuple.getFirst(traced)
+    const result = traced[0]
     const metric = yield* options.metric.score(result, expected)
     const entries = Arr.filter(
-      Tuple.getSecond(traced),
+      traced[1],
       Predicate.and(
         (entry) => String.Equivalence(entry.outcome, "completed"),
         (entry) =>
@@ -103,10 +117,13 @@ const evaluateExample = <I extends Schema.Struct.Fields, O extends Schema.Struct
       )
     )
     const accepted = Bool.and(
-      Bool.and(Schema.is(Schema.NonNaN)(metric.score), Schema.is(Schema.NonNaN)(options.threshold)),
-      Num.greaterThanOrEqualTo(metric.score, options.threshold)
+      Bool.and(
+        Equivalence.strictEqual<number>()(metric.score, metric.score),
+        Equivalence.strictEqual<number>()(options.threshold, options.threshold)
+      ),
+      Num.isGreaterThanOrEqualTo(metric.score, options.threshold)
     )
-    const demos = yield* Effect.if(accepted, {
+    const demos = yield* Bool.match(accepted, {
       onFalse: () => Effect.succeed(Arr.empty<AcceptedDemo>()),
       onTrue: () =>
         Effect.gen(function*() {
@@ -118,8 +135,8 @@ const evaluateExample = <I extends Schema.Struct.Fields, O extends Schema.Struct
             onNone: () =>
               Effect.gen(function*() {
                 return new Demo({
-                  input: yield* Schema.encode(options.module.signature.inputSchema)(input),
-                  output: yield* Schema.encode(options.module.signature.outputSchema)(result)
+                  input: yield* Schema.encodeUnknownEffect(options.module.signature.inputSchema)(input),
+                  output: yield* Schema.encodeUnknownEffect(options.module.signature.outputSchema)(result)
                 })
               })
           })
@@ -215,7 +232,7 @@ export const bootstrapRound = <I extends Schema.Struct.Fields, O extends Schema.
             ), { discard: true })
           return aggregateRound(
             yield* Effect.forEach(options.trainset, (example) => evaluateExample(options, example), {
-              concurrency: "inherit"
+              concurrency: "unbounded"
             })
           )
         }),
@@ -223,15 +240,17 @@ export const bootstrapRound = <I extends Schema.Struct.Fields, O extends Schema.
         Effect.forEach(snapshots, (snapshot) => Ref.set(snapshot.owner.params, snapshot.params), { discard: true })
     )
     const predictors = yield* Effect.forEach(options.state.predictors, (predictor) =>
-      mergeAcceptedDemos({
-        existing: predictor.params.demos,
-        accepted: Arr.map(
-          Arr.filter(round.acceptedDemos, (entry) => String.Equivalence(entry.name, predictor.owner.name)),
-          (entry) => entry.demo
-        ),
-        maxBootstrappedDemos: options.maxBootstrappedDemos,
-        contract: predictor.owner.demonstrationCodec
-      }).pipe(Effect.map((merged) =>
+      mergeAcceptedDemos(
+        new MergeAcceptedDemosOptions({
+          existing: predictor.params.demos,
+          accepted: Arr.map(
+            Arr.filter(round.acceptedDemos, (entry) => String.Equivalence(entry.name, predictor.owner.name)),
+            (entry) => entry.demo
+          ),
+          maxBootstrappedDemos: options.maxBootstrappedDemos,
+          contract: predictor.owner.demonstrationCodec
+        })
+      ).pipe(Effect.map((merged) =>
         new PredictorDemos({
           owner: predictor.owner,
           params: withModuleParamsDemos(predictor.params, merged.demos)
@@ -263,6 +282,6 @@ export const bootstrapRound = <I extends Schema.Struct.Fields, O extends Schema.
           })
       }),
       fallbackUsed: options.state.fallbackUsed,
-      continue: Num.greaterThan(demoCount(predictors), demoCount(options.state.predictors))
+      continue: Num.isGreaterThan(demoCount(predictors), demoCount(options.state.predictors))
     })
   })

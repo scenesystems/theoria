@@ -1,8 +1,8 @@
 /**
  * Shared live-provider runtime composition for examples.
  */
-import type * as LanguageModel from "@effect/ai/LanguageModel"
 import { Effect, Layer, type Scope } from "effect"
+import type * as LanguageModel from "effect/ai/LanguageModel"
 
 import { InvalidRuntimeConfig } from "@scenesystems/effect-inference/InferenceError"
 import * as TextProvider from "@scenesystems/effect-inference/TextProvider"
@@ -11,6 +11,7 @@ export { InvalidRuntimeConfig as LiveProviderRuntimeError }
 
 export type LiveProvider = TextProvider.Provider
 export type LiveProviderRuntimeOptions = TextProvider.Options
+export const LiveProviderRuntimeOptions = TextProvider.Options
 export type ResolvedLiveProviderConfig = TextProvider.Runtime
 
 export const resolveLiveProviderConfig = TextProvider.resolve

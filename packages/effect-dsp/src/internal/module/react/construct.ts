@@ -4,10 +4,10 @@
  * @since 0.1.0
  * @module
  */
-import type * as Tool from "@effect/ai/Tool"
 import * as Numeric from "@scenesystems/effect-math/Numeric"
 import { Effect, HashMap, Match, Number, Option, Ref, Schema } from "effect"
 import type { Record } from "effect"
+import type * as Tool from "effect/ai/Tool"
 import { defaultReactMaxIterations, type Id, Module, type Node, type ReactOptions } from "../../../Module.js"
 import { make as makeDefaultModuleParameters, type ModuleParameters } from "../../../ModuleParameters.js"
 import type { Signature } from "../../../Signature.js"
@@ -62,11 +62,11 @@ export const react = <
   Tools extends Record.ReadonlyRecord<string, Tool.Any>
 >(
   options: ReactOptions<I, O, Tools>
-): Effect.Effect<Module<I, O, Tool.HandlerError<Tools[keyof Tools]>, Tool.Requirements<Tools[keyof Tools]>>> =>
+): Effect.Effect<Module<I, O, Tool.HandlerError<Tools[keyof Tools]>, Tool.HandlerServices<Tools[keyof Tools]>>> =>
   Effect.gen(function*() {
     const paramsRef = yield* Ref.make(makeInitialParams(options.signature))
     const maxIterations = normalizeMaxIterations(
-      Option.getOrElse(Option.fromNullable(options.maxIterations), () => defaultReactMaxIterations)
+      Option.getOrElse(Option.fromNullishOr(options.maxIterations), () => defaultReactMaxIterations)
     )
 
     return new Module({

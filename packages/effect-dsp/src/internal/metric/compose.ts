@@ -3,30 +3,32 @@
  *
  * @since 0.1.0
  */
-import type { Schema } from "effect"
-import { Array as Arr, Effect, Option, Order, Record, String, Tuple } from "effect"
+import { Array as Arr, Effect, Option, Order, Record, Result as NativeResult, String, Tuple } from "effect"
 import { type Metric, Result } from "../../Metric.js"
 import { fromEffect } from "./constructors.js"
 import { averageNumbers } from "./score.js"
 
-type MetricEntry<E, R, A> = Schema.Tuple2<typeof Schema.String, Schema.Schema<Metric<E, R, A>>>["Type"]
-type NamedResult = Schema.Tuple2<typeof Schema.String, typeof Result>["Type"]
+type MetricEntry<E, R, A> = readonly [string, Metric<E, R, A>]
+type NamedResult = readonly [string, Result]
 
 const sortedEntries = <E, R, A>(
   metrics: Record.ReadonlyRecord<string, Metric<E, R, A>>
 ) =>
   Arr.sort(
     Record.toEntries(metrics),
-    Order.mapInput(Order.string, (entry: MetricEntry<E, R, A>) => Tuple.getFirst(entry))
+    Order.mapInput(Order.String, (entry: MetricEntry<E, R, A>) => entry[0])
   )
 
 const combineFeedback = (scores: Iterable<NamedResult>): Option.Option<string> => {
   const lines = Arr.filterMap(
     scores,
     (entry) =>
-      Option.map(
-        Option.fromNullable(Tuple.getSecond(entry).feedback),
-        (feedback) => String.concat(String.concat(String.concat("[", Tuple.getFirst(entry)), "] "), feedback)
+      NativeResult.fromOption(
+        Option.map(
+          Option.fromNullishOr(entry[1].feedback),
+          (feedback) => String.concat(String.concat(String.concat("[", entry[0]), "] "), feedback)
+        ),
+        () => void 0
       )
   )
 
@@ -60,12 +62,12 @@ export const compose = <E = never, R = never, A = unknown>(
     Effect.gen(function*() {
       const entries = sortedEntries(metrics)
       const scores = yield* Effect.forEach(entries, (entry) =>
-        Tuple.getSecond(entry).score(prediction, expected).pipe(
-          Effect.map((result) => Tuple.make(Tuple.getFirst(entry), result))
+        entry[1].score(prediction, expected).pipe(
+          Effect.map((result) => Tuple.make(entry[0], result))
         ))
 
       const feedback = combineFeedback(scores)
-      const meanScore = averageNumbers(Arr.map(scores, (entry) => Tuple.getSecond(entry).score))
+      const meanScore = averageNumbers(Arr.map(scores, (entry) => entry[1].score))
 
       return new Result({
         score: meanScore,
@@ -92,5 +94,5 @@ export const composedScoreMap = (scores: Iterable<NamedResult>) =>
   Arr.reduce(
     scores,
     Record.empty<string, number>(),
-    (current, entry) => Record.set(current, Tuple.getFirst(entry), Tuple.getSecond(entry).score)
+    (current, entry) => Record.set(current, entry[0], entry[1].score)
   )

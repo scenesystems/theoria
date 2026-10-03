@@ -5,7 +5,6 @@
  * @internal
  */
 import { Array as Arr, Data, Effect, Option, Ref } from "effect"
-import type { Schema } from "effect"
 import type { BestAveragingCandidate } from "./runtime/model.js"
 
 /** Mutable refs shared by Phase 3 trial evaluations.
@@ -16,8 +15,8 @@ export class TrialRefs extends Data.Class<{
   readonly trialCounter: Ref.Ref<number>
   readonly bestScoreRef: Ref.Ref<Option.Option<number>>
   readonly bestAveragingRef: Ref.Ref<Option.Option<BestAveragingCandidate>>
-  readonly fullEvalTrialsRef: Ref.Ref<Schema.Array$<typeof Schema.Number>["Type"]>
-  readonly minibatchTrialsRef: Ref.Ref<Schema.Array$<typeof Schema.Number>["Type"]>
+  readonly fullEvalTrialsRef: Ref.Ref<ReadonlyArray<number>>
+  readonly minibatchTrialsRef: Ref.Ref<ReadonlyArray<number>>
 }> {}
 
 /** Allocates fresh mutable state for one Phase 3 search.
@@ -28,8 +27,8 @@ export const makeTrialRefs: Effect.Effect<TrialRefs> = Effect.gen(function*() {
   const trialCounter = yield* Ref.make(0)
   const bestScoreRef = yield* Ref.make<Option.Option<number>>(Option.none())
   const bestAveragingRef = yield* Ref.make<Option.Option<BestAveragingCandidate>>(Option.none())
-  const fullEvalTrialsRef = yield* Ref.make<Schema.Array$<typeof Schema.Number>["Type"]>(Arr.empty())
-  const minibatchTrialsRef = yield* Ref.make<Schema.Array$<typeof Schema.Number>["Type"]>(Arr.empty())
+  const fullEvalTrialsRef = yield* Ref.make<ReadonlyArray<number>>(Arr.empty())
+  const minibatchTrialsRef = yield* Ref.make<ReadonlyArray<number>>(Arr.empty())
 
   return new TrialRefs({
     trialCounter,

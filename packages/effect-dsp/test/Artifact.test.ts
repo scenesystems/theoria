@@ -9,10 +9,10 @@ import { Array as Arr, Effect, Schema } from "effect"
 describe("DSP example artifacts", () => {
   it.effect("encodes a versionless custom envelope with DSP-owned provenance", () =>
     Effect.gen(function*() {
-      const runId = yield* Schema.decode(Artifact.RunId)("01ARZ3NDEKTSV4RRFFQ69G5FAV")
-      const packageVersion = yield* Schema.decode(Artifact.PackageVersion)("0.1.0")
+      const runId = yield* Schema.decodeEffect(Artifact.RunId)("01ARZ3NDEKTSV4RRFFQ69G5FAV")
+      const packageVersion = yield* Schema.decodeEffect(Artifact.PackageVersion)("0.1.0")
 
-      const envelope = yield* Schema.decode(DspArtifact.Envelope)({
+      const envelope = yield* Schema.decodeEffect(DspArtifact.Envelope)({
         _tag: "Custom",
         producer: {
           _tag: "EffectDsp",
@@ -38,7 +38,7 @@ describe("DSP example artifacts", () => {
           labels: ["alpha", "beta"]
         }
       })
-      const encoded = yield* Schema.encode(DspArtifact.Envelope)(envelope)
+      const encoded = yield* Schema.encodeEffect(DspArtifact.Envelope)(envelope)
 
       expect(envelope._tag).toBe("Custom")
       expect(encoded).not.toHaveProperty("schemaVersion")

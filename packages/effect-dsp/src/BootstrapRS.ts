@@ -5,9 +5,9 @@
  * @since 0.1.0
  * @module
  */
-import type * as LanguageModel from "@effect/ai/LanguageModel"
 import { Array as Arr, Data, Effect, Exit, Option, Ref, Tuple } from "effect"
 import type { Schema } from "effect"
+import type * as LanguageModel from "effect/ai/LanguageModel"
 import type * as Layer from "effect/Layer"
 import { AllTrialsFailed } from "./DspError.js"
 import {
@@ -124,17 +124,17 @@ export const run = <
         const seeds = resolveSeeds(
           new ResolveSeedsOptions({
             numCandidates: normalizeNonNegative(options.numCandidates),
-            ...Option.match(Option.fromNullable(options.seeds), {
+            ...Option.match(Option.fromUndefinedOr(options.seeds), {
               onNone: () => ({}),
               onSome: (provided) => ({ seeds: provided })
             })
           })
         )
-        const valset = Option.getOrElse(Option.fromNullable(options.valset), () =>
+        const valset = Option.getOrElse(Option.fromUndefinedOr(options.valset), () =>
           options.trainset)
-        const maxRounds = Option.getOrElse(Option.fromNullable(options.maxRounds), () => 1)
-        const maxBootstrappedDemos = Option.getOrElse(Option.fromNullable(options.maxBootstrappedDemos), () => 1)
-        const baselineLabeledCount = Option.getOrElse(Option.fromNullable(options.maxLabeledDemos), () => 1)
+        const maxRounds = Option.getOrElse(Option.fromUndefinedOr(options.maxRounds), () => 1)
+        const maxBootstrappedDemos = Option.getOrElse(Option.fromUndefinedOr(options.maxBootstrappedDemos), () => 1)
+        const baselineLabeledCount = Option.getOrElse(Option.fromUndefinedOr(options.maxLabeledDemos), () => 1)
         const initialState = yield* Module.save(options.module)
 
         const allCandidates = yield* buildCandidateStates(
@@ -146,23 +146,23 @@ export const run = <
             seeds,
             maxRounds,
             maxBootstrappedDemos,
-            ...Option.match(Option.fromNullable(options.maxLabeledDemos), {
+            ...Option.match(Option.fromUndefinedOr(options.maxLabeledDemos), {
               onNone: () => ({}),
               onSome: (maxLabeledDemos) => ({ maxLabeledDemos })
             }),
-            ...Option.match(Option.fromNullable(options.threshold), {
+            ...Option.match(Option.fromUndefinedOr(options.threshold), {
               onNone: () => ({}),
               onSome: (threshold) => ({ threshold })
             }),
-            ...Option.match(Option.fromNullable(options.teacher), {
+            ...Option.match(Option.fromUndefinedOr(options.teacher), {
               onNone: () => ({}),
               onSome: (teacher) => ({ teacher })
             }),
-            ...Option.match(Option.fromNullable(options.fallbackToLabeledFewShot), {
+            ...Option.match(Option.fromUndefinedOr(options.fallbackToLabeledFewShot), {
               onNone: () => ({}),
               onSome: (fallbackToLabeledFewShot) => ({ fallbackToLabeledFewShot })
             }),
-            ...Option.match(Option.fromNullable(options.fallbackLabeledDemoCount), {
+            ...Option.match(Option.fromUndefinedOr(options.fallbackLabeledDemoCount), {
               onNone: () => ({}),
               onSome: (fallbackLabeledDemoCount) => ({ fallbackLabeledDemoCount })
             }),
@@ -170,10 +170,12 @@ export const run = <
           })
         )
 
-        yield* Effect.if(Option.isNone(Arr.head(allCandidates)), {
-          onFalse: () => Effect.void,
-          onTrue: noCandidateError
-        })
+        yield* Effect.suspend(() =>
+          Option.match(Arr.head(allCandidates), {
+            onSome: () => Effect.void,
+            onNone: noCandidateError
+          })
+        )
 
         const scoredCandidates = yield* scoreCandidates(
           new ScoreCandidatesOptions({
@@ -184,10 +186,12 @@ export const run = <
           })
         )
 
-        yield* Effect.if(Option.isNone(Arr.head(scoredCandidates)), {
-          onFalse: () => Effect.void,
-          onTrue: noCandidateError
-        })
+        yield* Effect.suspend(() =>
+          Option.match(Arr.head(scoredCandidates), {
+            onSome: () => Effect.void,
+            onNone: noCandidateError
+          })
+        )
 
         const selectedCandidate = yield* selectBestCandidate(scoredCandidates)
 

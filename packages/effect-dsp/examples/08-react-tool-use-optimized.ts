@@ -13,12 +13,12 @@
  *
  * Run: bun run examples/08-react-tool-use-optimized.ts
  */
-import * as Tool from "@effect/ai/Tool"
-import type * as Toolkit from "@effect/ai/Toolkit"
 import { BunRuntime } from "@effect/platform-bun"
 import { BootstrapFewShot, Evaluate, Example, Metric, Module, Signature, Trace } from "@scenesystems/effect-dsp"
 import * as Numeric from "@scenesystems/effect-math/Numeric"
 import { Array as Arr, Effect, Ref, Schema } from "effect"
+import * as Tool from "effect/ai/Tool"
+import * as Toolkit from "effect/ai/Toolkit"
 import { withLiveLanguageModel } from "./shared/live-provider-runtime.js"
 
 // Tools
@@ -26,19 +26,19 @@ import { withLiveLanguageModel } from "./shared/live-provider-runtime.js"
 const Calculator = Tool.make("Calculator", {
   description:
     "Evaluate a simple arithmetic expression (e.g. '15 + 27', '120 * 8') and return the numeric result as a string",
-  parameters: {
+  parameters: Schema.Struct({
     expression: Schema.String
-  },
+  }),
   success: Schema.String
 })
 
 const UnitConverter = Tool.make("UnitConverter", {
   description: "Convert miles and kilometers, pounds and kilograms, or Fahrenheit and Celsius",
-  parameters: {
-    value: Schema.Number,
+  parameters: Schema.Struct({
+    value: Schema.Finite,
     from: Schema.String,
     to: Schema.String
-  },
+  }),
   success: Schema.String
 })
 
@@ -74,33 +74,7 @@ const convertUnit = (value: number, from: string, to: string): string => {
   return String(value)
 }
 
-const toolkit: Toolkit.WithHandler<{
-  readonly Calculator: typeof Calculator
-  readonly UnitConverter: typeof UnitConverter
-}> = {
-  tools: { Calculator, UnitConverter },
-  handle: (name, params) => {
-    if (name === "Calculator" && "expression" in params) {
-      const computed = evaluateExpression(params.expression)
-      const result: Tool.HandlerResult<typeof Calculator> = {
-        isFailure: false,
-        result: computed,
-        encodedResult: computed
-      }
-      return Effect.succeed(result)
-    }
-
-    const converted = "value" in params && "from" in params && "to" in params
-      ? convertUnit(params.value, params.from, params.to)
-      : "0"
-    const result: Tool.HandlerResult<typeof UnitConverter> = {
-      isFailure: false,
-      result: converted,
-      encodedResult: converted
-    }
-    return Effect.succeed(result)
-  }
-}
+const tools = Toolkit.make(Calculator, UnitConverter)
 
 // Datasets
 
@@ -141,6 +115,10 @@ const evalset = Arr.make(
 // Program
 
 const program = Effect.gen(function*() {
+  const toolkit = yield* tools.pipe(Effect.provide(tools.toLayer({
+    Calculator: ({ expression }) => Effect.succeed(evaluateExpression(expression)),
+    UnitConverter: ({ value, from, to }) => Effect.succeed(convertUnit(value, from, to))
+  })))
   // 1. Define signature
   const mathSignature = yield* Signature.make(
     "Solve math and unit-conversion word problems step-by-step. Use the Calculator tool for arithmetic and the UnitConverter tool for unit conversions. Return only the final number.",
@@ -153,12 +131,14 @@ const program = Effect.gen(function*() {
   )
 
   // 2. Create ReAct module with both tools
-  const solver = yield* Module.react({
-    name: "math-solver",
-    signature: mathSignature,
-    toolkit,
-    maxIterations: 5
-  })
+  const solver = yield* Module.react(
+    new Module.ReactOptions({
+      name: "math-solver",
+      signature: mathSignature,
+      toolkit,
+      maxIterations: 5
+    })
+  )
 
   // Inspect one traced ReAct run.
   const [singleResult, singleTraces] = yield* Trace.withTracing(
@@ -181,12 +161,14 @@ const program = Effect.gen(function*() {
 
   // 4. Baseline evaluation
   const metrics = { exactMatch: Metric.exactMatch("answer") }
-  const baseline = yield* Evaluate.run({
-    module: solver,
-    examples: evalset,
-    metrics,
-    concurrency: 1
-  })
+  const baseline = yield* Evaluate.run(
+    new Evaluate.Options({
+      module: solver,
+      examples: evalset,
+      metrics,
+      concurrency: 1
+    })
+  )
 
   yield* Effect.log("Baseline evaluation", {
     exactMatch: baseline.overallScores.exactMatch,
@@ -196,25 +178,29 @@ const program = Effect.gen(function*() {
   })
 
   // 5. Optimize with BootstrapFewShot
-  yield* BootstrapFewShot.run({
-    module: solver,
-    trainset,
-    metric: Metric.exactMatch("answer"),
-    maxRounds: 2,
-    maxBootstrappedDemos: 3,
-    threshold: 1,
-    fallbackToLabeledFewShot: false
-  })
+  yield* BootstrapFewShot.run(
+    new BootstrapFewShot.Options({
+      module: solver,
+      trainset,
+      metric: Metric.exactMatch("answer"),
+      maxRounds: 2,
+      maxBootstrappedDemos: 3,
+      threshold: 1,
+      fallbackToLabeledFewShot: false
+    })
+  )
 
   const optimizedParams = yield* Ref.get(solver.params)
 
   // 6. Post-optimization evaluation
-  const optimized = yield* Evaluate.run({
-    module: solver,
-    examples: evalset,
-    metrics,
-    concurrency: 1
-  })
+  const optimized = yield* Evaluate.run(
+    new Evaluate.Options({
+      module: solver,
+      examples: evalset,
+      metrics,
+      concurrency: 1
+    })
+  )
 
   const optimizedScore = optimized.overallScores.exactMatch ?? 0
   const baselineScore = baseline.overallScores.exactMatch ?? 0

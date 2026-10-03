@@ -3,7 +3,7 @@
  *
  * @since 0.1.0
  */
-import { Array as Arr, Data, Effect, HashMap, Option, Ref, Schema } from "effect"
+import { Array as Arr, Boolean, Data, Effect, HashMap, Option, Ref, Schema } from "effect"
 import { SaveLoadError } from "../../DspError.js"
 import { SavedState } from "../../Module.js"
 import type { Module } from "../../Module.js"
@@ -11,7 +11,7 @@ import type { ModuleParameters } from "../../ModuleParameters.js"
 import { collectModuleParamRefs, type ModuleParamRef } from "../moduleParameters.js"
 
 const decodeSavedState = (input: unknown) =>
-  Schema.decodeUnknown(SavedState)(input).pipe(
+  Schema.decodeUnknownEffect(SavedState)(input).pipe(
     Effect.mapError(
       () =>
         new SaveLoadError({
@@ -24,9 +24,9 @@ const decodeSavedState = (input: unknown) =>
 const entryRecord = (entries: SavedState["modules"]) =>
   Effect.reduce(
     entries,
-    HashMap.empty<string, ModuleParameters>(),
+    () => HashMap.empty<string, ModuleParameters>(),
     (state, entry) =>
-      Effect.if(HashMap.has(state, entry.name), {
+      Boolean.match(HashMap.has(state, entry.name), {
         onTrue: () =>
           Effect.fail(
             new SaveLoadError({
@@ -41,9 +41,9 @@ const entryRecord = (entries: SavedState["modules"]) =>
 const refsRecord = (refs: Iterable<ModuleParamRef>) =>
   Effect.reduce(
     refs,
-    HashMap.empty<string, Ref.Ref<ModuleParameters>>(),
+    () => HashMap.empty<string, Ref.Ref<ModuleParameters>>(),
     (state, ref) =>
-      Effect.if(HashMap.has(state, ref.name), {
+      Boolean.match(HashMap.has(state, ref.name), {
         onTrue: () =>
           Effect.fail(
             new SaveLoadError({
@@ -139,7 +139,7 @@ export const load = <I extends Schema.Struct.Fields, O extends Schema.Struct.Fie
     yield* Effect.forEach(
       HashMap.keys(savedByName),
       (savedName) =>
-        Effect.if(HashMap.has(targetByName, savedName), {
+        Boolean.match(HashMap.has(targetByName, savedName), {
           onTrue: () => Effect.void,
           onFalse: () =>
             Effect.fail(

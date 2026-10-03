@@ -17,7 +17,7 @@ const loadScoreMatrixFixture = (
   name: "dspy.gepa.pareto.score-matrix.basic" | "dspy.gepa.pareto.score-matrix.ties"
 ) =>
   loadFixture(name).pipe(
-    Effect.flatMap(Schema.decodeUnknown(GepaParetoScoreMatrixFixtureSchema))
+    Effect.flatMap(Schema.decodeUnknownEffect(GepaParetoScoreMatrixFixtureSchema))
   )
 
 const scoreVectorAt = (
@@ -83,14 +83,14 @@ describe("GEPA Pareto kernel", () => {
         fixture.payload.sampling.draws,
         fixture.payload.sampling.seed
       )
-      const positiveWeights = Arr.filter(snapshot.parentWeights, (weight) => Num.greaterThan(weight.weight, 0))
+      const positiveWeights = Arr.filter(snapshot.parentWeights, (weight) => Num.isGreaterThan(weight.weight, 0))
       const totalWeight = Arr.reduce(positiveWeights, 0, (sum, weight) => Num.sum(sum, weight.weight))
       const sampleCount = Arr.length(samples)
       const withinTolerance = Arr.every(positiveWeights, (weight) => {
-        const observed = Num.unsafeDivide(countSelections(samples, weight.candidateIndex), sampleCount)
-        const expected = Num.unsafeDivide(weight.weight, totalWeight)
+        const observed = Num.divideUnsafe(countSelections(samples, weight.candidateIndex), sampleCount)
+        const expected = Num.divideUnsafe(weight.weight, totalWeight)
 
-        return Num.lessThanOrEqualTo(
+        return Num.isLessThanOrEqualTo(
           Numeric.abs(Num.subtract(observed, expected)),
           fixture.payload.sampling.tolerance
         )

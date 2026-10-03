@@ -1,8 +1,6 @@
 /**
  * Ensemble optimizer contracts.
  */
-import type * as AiError from "@effect/ai/AiError"
-import * as LanguageModel from "@effect/ai/LanguageModel"
 import { describe, expect, expectTypeOf, it } from "@effect/vitest"
 import { AllTrialsFailed, type DspError } from "@scenesystems/effect-dsp/DspError"
 import * as Ensemble from "@scenesystems/effect-dsp/Ensemble"
@@ -13,19 +11,20 @@ import * as Signature from "@scenesystems/effect-dsp/Signature"
 import {
   Array as Arr,
   Boolean,
-  Cause,
   Context,
   Effect,
-  Either,
   identity,
   Layer,
   Match,
-  Option,
   Record,
   Ref,
+  Result,
   Schema,
   String as Str
 } from "effect"
+import type * as AiError from "effect/ai/AiError"
+import * as LanguageModel from "effect/ai/LanguageModel"
+import type { Error as EffectError, Services } from "effect/Effect"
 
 const QaInput = Schema.Struct({
   question: Signature.describe(Schema.String, "The question to answer")
@@ -40,20 +39,19 @@ class MemberRejected extends Schema.TaggedError<MemberRejected>()(
   { message: Schema.String }
 ) {}
 
-class MemberBehavior extends Context.Tag("effect-dsp/test/ensemble/MemberBehavior")<
+class MemberBehavior extends Context.Service<
   MemberBehavior,
   Effect.Effect<typeof QaOutput.Type, MemberRejected>
->() {}
+>()("effect-dsp/test/ensemble/MemberBehavior") {}
 
 class ReducerRejected extends Schema.TaggedError<ReducerRejected>()(
   "ReducerRejected",
   { message: Schema.String }
 ) {}
 
-class ReducerDependency extends Context.Tag("effect-dsp/test/ensemble/ReducerDependency")<
-  ReducerDependency,
-  string
->() {}
+class ReducerDependency extends Context.Service<ReducerDependency, string>()(
+  "effect-dsp/test/ensemble/ReducerDependency"
+) {}
 
 const makeQaSignature = () =>
   Signature.make(
@@ -86,23 +84,27 @@ describe("Ensemble.make", () => {
   it.effect("unions member and reducer channels while preserving reducer failure identity", () =>
     Effect.gen(function*() {
       const signature = yield* makeQaSignature()
-      const program = yield* Module.compose({
-        name: "qa-member-channels",
-        signature,
-        subModules: Record.empty(),
-        forward: () => Effect.flatMap(MemberBehavior, identity)
-      })
+      const program = yield* Module.compose(
+        new Module.ComposeOptions({
+          name: "qa-member-channels",
+          signature,
+          subModules: Record.empty(),
+          forward: () => Effect.flatMap(MemberBehavior, identity)
+        })
+      )
       const failure = new ReducerRejected({ message: "reducer unavailable" })
-      const ensemble = yield* Ensemble.make({
-        programs: Arr.make(program),
-        reduceFn: () => ReducerDependency.pipe(Effect.zipRight(Effect.fail(failure)))
-      })
+      const ensemble = yield* Ensemble.make(
+        new Ensemble.Options({
+          programs: Arr.make(program),
+          reduceFn: () => ReducerDependency.pipe(Effect.andThen(Effect.fail(failure)))
+        })
+      )
       const operation = ensemble.forward({ question: "Reduce this" })
 
-      expectTypeOf<Effect.Effect.Error<typeof operation>>().toEqualTypeOf<
+      expectTypeOf<EffectError<typeof operation>>().toEqualTypeOf<
         AiError.AiError | DspError | MemberRejected | ReducerRejected
       >()
-      expectTypeOf<Effect.Effect.Context<typeof operation>>().toEqualTypeOf<
+      expectTypeOf<Services<typeof operation>>().toEqualTypeOf<
         LanguageModel.LanguageModel | MemberBehavior | ReducerDependency
       >()
 
@@ -114,7 +116,7 @@ describe("Ensemble.make", () => {
         Effect.flip
       )
 
-      expect(Cause.originalError(observed)).toBe(failure)
+      expect(observed).toBe(failure)
     }))
 
   it.effect("uses majorityVote by default", () =>
@@ -135,9 +137,11 @@ describe("Ensemble.make", () => {
 
       const layer = Layer.succeed(LanguageModel.LanguageModel, mock.service)
 
-      const ensemble = yield* Ensemble.make({
-        programs: Arr.make(programA, programB, programC)
-      })
+      const ensemble = yield* Ensemble.make(
+        new Ensemble.Options({
+          programs: Arr.make(programA, programB, programC)
+        })
+      )
 
       const result = yield* ensemble.forward({
         question: "What is the capital of France?"
@@ -166,20 +170,17 @@ describe("Ensemble.make", () => {
 
       const layer = Layer.succeed(LanguageModel.LanguageModel, mock.service)
 
-      const ensemble = yield* Ensemble.make({
-        programs: Arr.make(programA, programB),
-        reduceFn: ({ outputs }) =>
-          Option.match(Arr.get(outputs, 1), {
-            onNone: () =>
-              Effect.fail(
-                new AllTrialsFailed({
-                  message: "Custom reducer requires at least two outputs",
-                  trialCount: 0
-                })
-              ),
-            onSome: (output) => Effect.succeed(output)
-          })
-      })
+      const ensemble = yield* Ensemble.make(
+        new Ensemble.Options({
+          programs: Arr.make(programA, programB),
+          reduceFn: ({ outputs }) =>
+            Effect.fromOption(Arr.get(outputs, 1), () =>
+              new AllTrialsFailed({
+                message: "Custom reducer requires at least two outputs",
+                trialCount: 0
+              }))
+        })
+      )
 
       const result = yield* ensemble.forward({
         question: "What is the capital of France?"
@@ -209,22 +210,19 @@ describe("Ensemble.make", () => {
 
       const layer = Layer.succeed(LanguageModel.LanguageModel, mock.service)
 
-      const ensemble = yield* Ensemble.make({
-        programs: Arr.make(programA, programB, programC, programD),
-        size: 2,
-        seed: 17,
-        reduceFn: ({ outputs }) =>
-          Option.match(Arr.head(outputs), {
-            onNone: () =>
-              Effect.fail(
-                new AllTrialsFailed({
-                  message: "Reducer requires at least one output",
-                  trialCount: 0
-                })
-              ),
-            onSome: (output) => Effect.succeed(output)
-          })
-      })
+      const ensemble = yield* Ensemble.make(
+        new Ensemble.Options({
+          programs: Arr.make(programA, programB, programC, programD),
+          size: 2,
+          seed: 17,
+          reduceFn: ({ outputs }) =>
+            Effect.fromOption(Arr.head(outputs), () =>
+              new AllTrialsFailed({
+                message: "Reducer requires at least one output",
+                trialCount: 0
+              }))
+        })
+      )
 
       const first = yield* ensemble.forward({
         question: "What letter wins first?"
@@ -253,11 +251,13 @@ describe("Ensemble.make", () => {
           })
         )
       )
-      const ensemble = yield* Ensemble.make({
-        programs: Arr.make(programA, programB),
-        size: 0.5,
-        seed: 1
-      })
+      const ensemble = yield* Ensemble.make(
+        new Ensemble.Options({
+          programs: Arr.make(programA, programB),
+          size: 0.5,
+          seed: 1
+        })
+      )
 
       const result = yield* ensemble.forward({
         question: "Which program was selected?"
@@ -293,9 +293,11 @@ describe("Ensemble.make", () => {
 
       const layer = Layer.succeed(LanguageModel.LanguageModel, mock.service)
 
-      const ensemble = yield* Ensemble.make({
-        programs: Arr.make(programA, programB, programC, programD)
-      })
+      const ensemble = yield* Ensemble.make(
+        new Ensemble.Options({
+          programs: Arr.make(programA, programB, programC, programD)
+        })
+      )
 
       const result = yield* ensemble.forward({
         question: "What is the capital of France?"
@@ -308,34 +310,38 @@ describe("Ensemble.make", () => {
     Effect.gen(function*() {
       const signature = yield* makeQaSignature()
       const successful = yield* makeProgram("qa-success", signature, "Program Success")
-      const failing = yield* Module.compose({
-        name: "qa-failure",
-        signature,
-        subModules: Record.empty(),
-        forward: () =>
-          Effect.fail(
-            new AllTrialsFailed({
-              message: "Intentional failing program",
-              trialCount: 1
-            })
-          )
-      })
+      const failing = yield* Module.compose(
+        new Module.ComposeOptions({
+          name: "qa-failure",
+          signature,
+          subModules: Record.empty(),
+          forward: () =>
+            Effect.fail(
+              new AllTrialsFailed({
+                message: "Intentional failing program",
+                trialCount: 1
+              })
+            )
+        })
+      )
       const mock = yield* MockLanguageModel.make(
         MockLanguageModel.succeed({ answer: "Paris" })
       )
       const layer = Layer.succeed(LanguageModel.LanguageModel, mock.service)
-      const ensemble = yield* Ensemble.make({
-        programs: Arr.make(successful, failing)
-      })
+      const ensemble = yield* Ensemble.make(
+        new Ensemble.Options({
+          programs: Arr.make(successful, failing)
+        })
+      )
 
-      const result = yield* Effect.either(
+      const result = yield* Effect.result(
         ensemble.forward({
           question: "What is the capital of France?"
         }).pipe(Effect.provide(layer))
       )
 
       expect(result).toEqual(
-        Either.left(
+        Result.fail(
           new AllTrialsFailed({
             message: "Intentional failing program",
             trialCount: 1
@@ -347,14 +353,16 @@ describe("Ensemble.make", () => {
   it.effect("fails when no programs are provided", () =>
     Effect.gen(function*() {
       const signature = yield* makeQaSignature()
-      const result = yield* Effect.either(
-        Ensemble.make({
-          programs: Arr.empty(),
-          name: Str.concat("ensemble-", signature.description)
-        })
+      const result = yield* Effect.result(
+        Ensemble.make(
+          new Ensemble.Options({
+            programs: Arr.empty(),
+            name: Str.concat("ensemble-", signature.description)
+          })
+        )
       )
 
-      expect(result).toEqual(Either.left(
+      expect(result).toEqual(Result.fail(
         new AllTrialsFailed({
           message: "Ensemble.make requires at least one program",
           trialCount: 0

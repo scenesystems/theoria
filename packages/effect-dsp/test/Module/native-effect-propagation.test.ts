@@ -1,8 +1,6 @@
 /**
  * Native module failures and requirements remain visible through consumers.
  */
-import type * as AiError from "@effect/ai/AiError"
-import * as LanguageModel from "@effect/ai/LanguageModel"
 import { describe, expect, expectTypeOf, it } from "@effect/vitest"
 import type { DspError } from "@scenesystems/effect-dsp/DspError"
 import * as Ensemble from "@scenesystems/effect-dsp/Ensemble"
@@ -12,7 +10,9 @@ import * as Metric from "@scenesystems/effect-dsp/Metric"
 import * as MockLanguageModel from "@scenesystems/effect-dsp/MockLanguageModel"
 import * as Module from "@scenesystems/effect-dsp/Module"
 import * as Signature from "@scenesystems/effect-dsp/Signature"
-import { Array as Arr, Boolean, Context, Data, Effect, Equal, Inspectable, Layer, Record, Schema, String } from "effect"
+import { Array as Arr, Boolean, Context, Data, Effect, Equal, Inspectable, Record, Schema, String } from "effect"
+import type * as AiError from "effect/ai/AiError"
+import * as LanguageModel from "effect/ai/LanguageModel"
 
 class NativeModuleFailure extends Schema.TaggedError<NativeModuleFailure>()(
   "NativeModuleFailure",
@@ -31,10 +31,9 @@ class NativeModuleDependencyValue extends Data.Class<{
   readonly result: Effect.Effect<typeof NativeModuleOutput.Type, NativeModuleFailure>
 }> {}
 
-class NativeModuleDependency extends Context.Tag("effect-dsp/test/NativeModuleDependency")<
-  NativeModuleDependency,
-  NativeModuleDependencyValue
->() {}
+class NativeModuleDependency extends Context.Service<NativeModuleDependency, NativeModuleDependencyValue>()(
+  "effect-dsp/test/NativeModuleDependency"
+) {}
 
 const makeSignature = () =>
   Signature.make(
@@ -46,16 +45,18 @@ const makeSignature = () =>
 const makeNativeModule = Effect.gen(function*() {
   const signature = yield* makeSignature()
 
-  return yield* Module.compose({
-    name: "native-module",
-    signature,
-    subModules: Record.empty(),
-    forward: () =>
-      Effect.flatMap(
-        NativeModuleDependency,
-        (dependency) => dependency.result
-      )
-  })
+  return yield* Module.compose(
+    new Module.ComposeOptions({
+      name: "native-module",
+      signature,
+      subModules: Record.empty(),
+      forward: () =>
+        Effect.flatMap(
+          NativeModuleDependency,
+          (dependency) => dependency.result
+        )
+    })
+  )
 })
 
 describe("native Module E/R propagation", () => {
@@ -77,7 +78,7 @@ describe("native Module E/R propagation", () => {
             forward: () => Effect.succeed(output)
           })
         ))
-      const ensemble = yield* Ensemble.make({ programs })
+      const ensemble = yield* Ensemble.make(new Ensemble.Options({ programs }))
       const mock = yield* MockLanguageModel.make(MockLanguageModel.succeed("unused"))
       const result = yield* ensemble.forward({ question: "Which cities?" }).pipe(
         Effect.provideService(LanguageModel.LanguageModel, mock.service)
@@ -90,24 +91,26 @@ describe("native Module E/R propagation", () => {
     Effect.gen(function*() {
       const nativeModule = yield* makeNativeModule
       const nativeOperation = nativeModule.forward({ question: "question" })
-      expectTypeOf<Effect.Effect.Error<typeof nativeOperation>>().toEqualTypeOf<
+      expectTypeOf<Effect.Error<typeof nativeOperation>>().toEqualTypeOf<
         AiError.AiError | DspError | NativeModuleFailure
       >()
-      expectTypeOf<Effect.Effect.Context<typeof nativeOperation>>().toEqualTypeOf<
+      expectTypeOf<Effect.Services<typeof nativeOperation>>().toEqualTypeOf<
         LanguageModel.LanguageModel | NativeModuleDependency
       >()
       const mock = yield* MockLanguageModel.make(MockLanguageModel.succeed({ answer: "unused" }))
-      const wrapped = yield* Module.bestOfN({
-        name: "native-best-of-n",
-        module: nativeModule,
-        N: Module.RolloutCount.make(1),
-        reward: () => Effect.succeed(new Metric.Result({ score: 1 }))
-      })
+      const wrapped = yield* Module.bestOfN(
+        new Module.BestOfNOptions({
+          name: "native-best-of-n",
+          module: nativeModule,
+          N: Module.RolloutCount.make(1),
+          reward: () => Effect.succeed(new Metric.Result({ score: 1 }))
+        })
+      )
       const wrappedOperation = wrapped.forward({ question: "question" })
-      expectTypeOf<Effect.Effect.Error<typeof wrappedOperation>>().toEqualTypeOf<
+      expectTypeOf<Effect.Error<typeof wrappedOperation>>().toEqualTypeOf<
         AiError.AiError | DspError | NativeModuleFailure
       >()
-      expectTypeOf<Effect.Effect.Context<typeof wrappedOperation>>().toEqualTypeOf<
+      expectTypeOf<Effect.Services<typeof wrappedOperation>>().toEqualTypeOf<
         LanguageModel.LanguageModel | NativeModuleDependency
       >()
       const failure = yield* wrappedOperation.pipe(
@@ -117,7 +120,7 @@ describe("native Module E/R propagation", () => {
             result: Effect.fail(new NativeModuleFailure({ message: "native failure" }))
           })
         ),
-        Effect.provide(Layer.succeed(LanguageModel.LanguageModel, mock.service)),
+        Effect.provideService(LanguageModel.LanguageModel, mock.service),
         Effect.flip
       )
 
@@ -129,18 +132,20 @@ describe("native Module E/R propagation", () => {
     Effect.gen(function*() {
       const nativeModule = yield* makeNativeModule
       const mock = yield* MockLanguageModel.make(MockLanguageModel.succeed({ answer: "unused" }))
-      const refined = yield* Module.refine({
-        name: "native-refine",
-        module: nativeModule,
-        N: Module.RolloutCount.make(1),
-        reward: () => Effect.succeed(new Metric.Result({ score: 1 })),
-        threshold: 1
-      })
+      const refined = yield* Module.refine(
+        new Module.RefineOptions({
+          name: "native-refine",
+          module: nativeModule,
+          N: Module.RolloutCount.make(1),
+          reward: () => Effect.succeed(new Metric.Result({ score: 1 })),
+          threshold: 1
+        })
+      )
       const refinedOperation = refined.forward({ question: "question" })
-      expectTypeOf<Effect.Effect.Error<typeof refinedOperation>>().toEqualTypeOf<
+      expectTypeOf<Effect.Error<typeof refinedOperation>>().toEqualTypeOf<
         AiError.AiError | DspError | NativeModuleFailure
       >()
-      expectTypeOf<Effect.Effect.Context<typeof refinedOperation>>().toEqualTypeOf<
+      expectTypeOf<Effect.Services<typeof refinedOperation>>().toEqualTypeOf<
         LanguageModel.LanguageModel | NativeModuleDependency
       >()
       const metric = Metric.make("exact", (prediction: typeof NativeModuleOutput.Type, expected) =>
@@ -150,13 +155,15 @@ describe("native Module E/R propagation", () => {
             onFalse: () => 0
           })
         }))
-      const evaluation = Evaluate.run({
-        module: refined,
-        examples: Arr.make(new Example({ input: { question: "question" }, output: { answer: "answer" } })),
-        metrics: { exact: metric }
-      })
-      expectTypeOf<Effect.Effect.Error<typeof evaluation>>().toEqualTypeOf<never>()
-      expectTypeOf<Effect.Effect.Context<typeof evaluation>>().toEqualTypeOf<
+      const evaluation = Evaluate.run(
+        new Evaluate.Options({
+          module: refined,
+          examples: Arr.make(new Example({ input: { question: "question" }, output: { answer: "answer" } })),
+          metrics: { exact: metric }
+        })
+      )
+      expectTypeOf<Effect.Error<typeof evaluation>>().toEqualTypeOf<never>()
+      expectTypeOf<Effect.Services<typeof evaluation>>().toEqualTypeOf<
         LanguageModel.LanguageModel | NativeModuleDependency
       >()
       const report = yield* evaluation.pipe(
@@ -166,7 +173,7 @@ describe("native Module E/R propagation", () => {
             result: Effect.succeed({ answer: "answer" })
           })
         ),
-        Effect.provide(Layer.succeed(LanguageModel.LanguageModel, mock.service))
+        Effect.provideService(LanguageModel.LanguageModel, mock.service)
       )
 
       expect(report.successCount).toBe(1)

@@ -5,13 +5,13 @@
  * @category internal
  * @internal
  */
-import type * as LanguageModel from "@effect/ai/LanguageModel"
-import type * as Prompt from "@effect/ai/Prompt"
-import type * as Response from "@effect/ai/Response"
-import type * as Tool from "@effect/ai/Tool"
-import type * as Toolkit from "@effect/ai/Toolkit"
 import type { Record } from "effect"
 import { Array as Arr, Data, Effect, Number, Option, Schema, String } from "effect"
+import type * as LanguageModel from "effect/ai/LanguageModel"
+import type * as Prompt from "effect/ai/Prompt"
+import type * as Response from "effect/ai/Response"
+import type * as Tool from "effect/ai/Tool"
+import type * as Toolkit from "effect/ai/Toolkit"
 import { type ParseOutputError, TraceError } from "../../../DspError.js"
 import { defaultParseFeedbackTemplate } from "../../../Module.js"
 import { encode, type Payload } from "../../../Payload.js"
@@ -47,7 +47,7 @@ export const makeToolObservationFeedback = (iteration: number): string =>
       Arr.join(
         Arr.make(
           "Iteration ",
-          Schema.encodeSync(Schema.NumberFromString)(Number.increment(iteration)),
+          Schema.encodeSync(Schema.FiniteFromString)(Number.increment(iteration)),
           " executed tool calls."
         ),
         ""
@@ -74,7 +74,7 @@ export const makeIterationFeedback = (
       Arr.join(
         Arr.make(
           "Iteration ",
-          Schema.encodeSync(Schema.NumberFromString)(Number.increment(iteration)),
+          Schema.encodeSync(Schema.FiniteFromString)(Number.increment(iteration)),
           " did not produce parseable output."
         ),
         ""
@@ -100,13 +100,13 @@ export class ReactTraceOptions<
   readonly moduleName: string
   readonly signature: Signature<I, O>
   readonly traceInput: Payload
-  readonly outputSchema: Schema.Struct<O>
+  readonly outputSchema: Signature<I, O>["outputSchema"]
   readonly output: Option.Option<Schema.Schema.Type<Schema.Struct<O>>>
   readonly parseError: Option.Option<string>
   readonly prompt: Prompt.RawInput
   readonly response:
-    | LanguageModel.GenerateTextResponse<Tools>
-    | LanguageModel.GenerateTextResponse<Toolkit.Tools<typeof Toolkit.empty>>
+    | LanguageModel.GenerateTextResponse<Tools, "opaque">
+    | LanguageModel.GenerateTextResponse<Toolkit.Tools<typeof Toolkit.empty>, "decoded">
   readonly usage: Response.Usage
   readonly startedAt: number
   readonly completedAt: number
@@ -124,7 +124,7 @@ export const appendReactTraceEntry = <
   Tools extends Record.ReadonlyRecord<string, Tool.Any>
 >(
   options: ReactTraceOptions<I, O, Tools>
-): Effect.Effect<void, TraceError, Schema.Schema.Context<Schema.Struct<O>>> =>
+): Effect.Effect<void, TraceError, Schema.Struct<O>["EncodingServices"]> =>
   Effect.gen(function*() {
     const traceOutput = yield* Option.match(options.output, {
       onSome: (output) =>

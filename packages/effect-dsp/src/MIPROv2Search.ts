@@ -22,14 +22,14 @@ export class Diagnostics extends Schema.Class<Diagnostics>("@scenesystems/effect
   dimensionNames: Schema.Array(Schema.String),
   samplerKind: Schema.Literal("tpe"),
   multivariate: Schema.Boolean,
-  trialBudget: Schema.Number,
-  minibatchSize: Schema.Number,
-  fullEvalEvery: Schema.Number,
-  fullEvalTrialNumbers: Schema.Array(Schema.Number),
-  minibatchTrialNumbers: Schema.Array(Schema.Number),
-  priorTrialCount: Schema.Number,
-  baselineObjective: Schema.Number,
-  bestScore: Schema.Number
+  trialBudget: Schema.Finite,
+  minibatchSize: Schema.Finite,
+  fullEvalEvery: Schema.Finite,
+  fullEvalTrialNumbers: Schema.Array(Schema.Finite),
+  minibatchTrialNumbers: Schema.Array(Schema.Finite),
+  priorTrialCount: Schema.Finite,
+  baselineObjective: Schema.Finite,
+  bestScore: Schema.Finite
 }) {}
 
 /** Receives trial and full-set events in evaluation order.

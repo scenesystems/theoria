@@ -7,28 +7,28 @@
  *
  * Run: bun run examples/09-react-tool-use-live-openai.ts
  */
-import * as Tool from "@effect/ai/Tool"
-import type * as Toolkit from "@effect/ai/Toolkit"
 import { BunRuntime } from "@effect/platform-bun"
 import { Evaluate, Example, Metric, Module, Signature, Trace } from "@scenesystems/effect-dsp"
 import { Array as Arr, Effect, Schema } from "effect"
+import * as Tool from "effect/ai/Tool"
+import * as Toolkit from "effect/ai/Toolkit"
 import { withLiveLanguageModel } from "./shared/live-provider-runtime.js"
 
 // Tools
 
 const KnowledgeBase = Tool.make("KnowledgeBase", {
   description: "Look up a factual data point. Returns a concise string with the requested information.",
-  parameters: {
+  parameters: Schema.Struct({
     query: Schema.String
-  },
+  }),
   success: Schema.String
 })
 
 const Calculator = Tool.make("Calculator", {
   description: "Evaluate an arithmetic expression (e.g. '42 * 3') and return the numeric result as a string",
-  parameters: {
+  parameters: Schema.Struct({
     expression: Schema.String
-  },
+  }),
   success: Schema.String
 })
 
@@ -70,33 +70,7 @@ const evaluateExpression = (expr: string): string => {
   return "0"
 }
 
-const toolkit: Toolkit.WithHandler<{
-  readonly KnowledgeBase: typeof KnowledgeBase
-  readonly Calculator: typeof Calculator
-}> = {
-  tools: { KnowledgeBase, Calculator },
-  handle: (name, params) => {
-    if (name === "KnowledgeBase" && "query" in params) {
-      const answer = lookupKnowledge(params.query)
-      const result: Tool.HandlerResult<typeof KnowledgeBase> = {
-        isFailure: false,
-        result: answer,
-        encodedResult: answer
-      }
-      return Effect.succeed(result)
-    }
-
-    const computed = "expression" in params
-      ? evaluateExpression(params.expression)
-      : "0"
-    const result: Tool.HandlerResult<typeof Calculator> = {
-      isFailure: false,
-      result: computed,
-      encodedResult: computed
-    }
-    return Effect.succeed(result)
-  }
-}
+const tools = Toolkit.make(KnowledgeBase, Calculator)
 
 // Dataset
 
@@ -118,6 +92,10 @@ const evalset = Arr.make(
 // Program
 
 const program = Effect.gen(function*() {
+  const toolkit = yield* tools.pipe(Effect.provide(tools.toLayer({
+    KnowledgeBase: ({ query }) => Effect.succeed(lookupKnowledge(query)),
+    Calculator: ({ expression }) => Effect.succeed(evaluateExpression(expression))
+  })))
   const qaSignature = yield* Signature.make(
     "Answer factual questions. Use the KnowledgeBase tool to look up facts and the Calculator tool for any arithmetic. Return only the final answer.",
     {
@@ -128,12 +106,14 @@ const program = Effect.gen(function*() {
     }
   )
 
-  const agent = yield* Module.react({
-    name: "research-agent",
-    signature: qaSignature,
-    toolkit,
-    maxIterations: 5
-  })
+  const agent = yield* Module.react(
+    new Module.ReactOptions({
+      name: "research-agent",
+      signature: qaSignature,
+      toolkit,
+      maxIterations: 5
+    })
+  )
 
   // Run and inspect one multi-tool trace.
   yield* Effect.log("Single traced inference")
@@ -166,12 +146,14 @@ const program = Effect.gen(function*() {
   // 3. Evaluate over the dataset
   yield* Effect.log("Evaluation")
 
-  const report = yield* Evaluate.run({
-    module: agent,
-    examples: evalset,
-    metrics: { exactMatch: Metric.exactMatch("answer") },
-    concurrency: 1
-  })
+  const report = yield* Evaluate.run(
+    new Evaluate.Options({
+      module: agent,
+      examples: evalset,
+      metrics: { exactMatch: Metric.exactMatch("answer") },
+      concurrency: 1
+    })
+  )
 
   yield* Effect.log("Evaluation report", {
     exactMatch: report.overallScores.exactMatch,

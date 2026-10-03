@@ -69,7 +69,7 @@ export const renderOutputTemplate = (fieldNames: typeof FieldNames.Type): string
  * @internal
  */
 export const renderOutputRequirements = (fieldNames: typeof FieldNames.Type): string =>
-  Boolean.match(Arr.isEmptyReadonlyArray(fieldNames), {
+  Boolean.match(Arr.isReadonlyArrayEmpty(fieldNames), {
     onTrue: () => "Respond with the marker `[[ ## completed ## ]]`.",
     onFalse: () =>
       Arr.join(

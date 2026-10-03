@@ -1,12 +1,12 @@
 /**
  * Prompt construction golden fixtures.
  */
-import * as Prompt from "@effect/ai/Prompt"
 import { describe, expect, it } from "@effect/vitest"
 import { Demonstration } from "@scenesystems/effect-dsp/Demonstration"
 import { ModuleParameters } from "@scenesystems/effect-dsp/ModuleParameters"
 import * as Signature from "@scenesystems/effect-dsp/Signature"
 import { Array as Arr, Effect, Schema } from "effect"
+import * as Prompt from "effect/ai/Prompt"
 import { buildPrompt } from "../../src/internal/prompt/render.js"
 import { qaPromptWithDemo, qaPromptWithoutDemos } from "../fixtures/prompt/qa-prompt.fixture.js"
 

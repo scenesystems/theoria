@@ -31,7 +31,7 @@ const makeCandidate = (options: {
 }): ProgramCandidate =>
   new ProgramCandidate({
     candidateId: options.id,
-    parentIds: Option.getOrElse(Option.fromNullable(options.parentIds), Arr.empty<string>),
+    parentIds: Option.getOrElse(Option.fromNullishOr(options.parentIds), Arr.empty<string>),
     predictorInstructions: makePredictorInstructions(options.qa, options.judge)
   })
 
@@ -48,11 +48,11 @@ describe("GEPA merge/crossover", () => {
   it.effect("uses committed fixture contracts for common-ancestor discovery and merge scheduling", () =>
     Effect.gen(function*() {
       const rawCommonAncestorFixture = yield* loadFixture("dspy.gepa.merge.common-ancestor-cases")
-      const commonAncestorFixture = yield* Schema.decodeUnknown(GepaMergeCommonAncestorCasesFixtureSchema)(
+      const commonAncestorFixture = yield* Schema.decodeUnknownEffect(GepaMergeCommonAncestorCasesFixtureSchema)(
         rawCommonAncestorFixture
       )
       const rawScheduleFixture = yield* loadFixture("dspy.gepa.merge.schedule.max-merge-invocations")
-      const scheduleFixture = yield* Schema.decodeUnknown(GepaMergeScheduleFixtureSchema)(rawScheduleFixture)
+      const scheduleFixture = yield* Schema.decodeUnknownEffect(GepaMergeScheduleFixtureSchema)(rawScheduleFixture)
       const candidates = Arr.map(
         commonAncestorFixture.payload.candidates,
         (candidate) =>
@@ -98,8 +98,8 @@ describe("GEPA merge/crossover", () => {
             const shouldAttempt = Bool.every(
               Arr.make(
                 decision.lastIterationFoundNew,
-                Num.greaterThan(decision.mergeBudgetRemaining, 0),
-                Num.greaterThanOrEqualTo(decision.candidateCount, 2)
+                Num.isGreaterThan(decision.mergeBudgetRemaining, 0),
+                Num.isGreaterThanOrEqualTo(decision.candidateCount, 2)
               )
             )
             expect(shouldAttempt).toBe(decision.expectedShouldAttempt)

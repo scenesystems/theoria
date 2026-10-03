@@ -4,7 +4,8 @@
  * @since 0.4.0
  * @module
  */
-import { Data, Effect, ParseResult, Schema } from "effect"
+import type { Record } from "effect"
+import { Data, Effect, Schema } from "effect"
 import { decode, encode, Payload } from "./Payload.js"
 
 /**
@@ -13,8 +14,8 @@ import { decode, encode, Payload } from "./Payload.js"
  * @category models
  */
 export class Demonstration extends Schema.Class<Demonstration>("@scenesystems/effect-dsp/Demonstration")({
-  input: Schema.Record({ key: Schema.String, value: Schema.Unknown }),
-  output: Schema.Record({ key: Schema.String, value: Schema.Unknown })
+  input: Schema.Record(Schema.String, Schema.Unknown),
+  output: Schema.Record(Schema.String, Schema.Unknown)
 }) {}
 
 /**
@@ -22,7 +23,7 @@ export class Demonstration extends Schema.Class<Demonstration>("@scenesystems/ef
  * @since 0.4.0
  * @category schemas
  */
-export const Documents = Schema.Tuple(Payload, Payload)
+export const Documents = Schema.Tuple([Payload, Payload])
 /**
  * Lossless input and output documents produced by a destination codec.
  * @since 0.4.0
@@ -38,29 +39,23 @@ export type Documents = typeof Documents.Type
  * @category models
  */
 export class Codec extends Data.Class<{
-  readonly decode: (value: unknown) => Effect.Effect<Demonstration, ParseResult.ParseError>
-  readonly encode: (value: Demonstration) => Effect.Effect<Documents, ParseResult.ParseError>
+  readonly decode: (value: unknown) => Effect.Effect<Demonstration, Schema.SchemaError>
+  readonly encode: (value: Demonstration) => Effect.Effect<Documents, Schema.SchemaError>
   readonly decodeDocuments: (
     input: Payload,
     output: Payload
-  ) => Effect.Effect<Demonstration, ParseResult.ParseError>
+  ) => Effect.Effect<Demonstration, Schema.SchemaError>
   readonly equivalent: (
     left: Demonstration,
     right: Demonstration
-  ) => Effect.Effect<boolean, ParseResult.ParseError>
+  ) => Effect.Effect<boolean, Schema.SchemaError>
 }> {}
 
-const equivalentWire = <A, I>(schema: Schema.Schema<A, I>, left: unknown, right: unknown) =>
+const equivalentWire = <A, I>(schema: Schema.Codec<A, I>, left: unknown, right: unknown) =>
   Effect.gen(function*() {
-    const first = yield* Schema.decodeUnknown(schema)(left, { onExcessProperty: "error" })
-    const second = yield* Schema.decodeUnknown(schema)(right, { onExcessProperty: "error" })
-    return yield* Effect.try({
-      try: () => Schema.equivalence(schema)(first, second),
-      catch: () =>
-        new ParseResult.ParseError({
-          issue: new ParseResult.Type(schema.ast, left, "Demonstration schema equivalence is unavailable")
-        })
-    })
+    const first = yield* Schema.decodeUnknownEffect(schema)(left, { onExcessProperty: "error" })
+    const second = yield* Schema.decodeUnknownEffect(schema)(right, { onExcessProperty: "error" })
+    return Schema.toEquivalence(schema)(first, second)
   })
 
 /**
@@ -68,20 +63,20 @@ const equivalentWire = <A, I>(schema: Schema.Schema<A, I>, left: unknown, right:
  * @since 0.4.0
  * @category constructors
  */
-export const codec = <I extends Schema.Struct.Fields, O extends Schema.Struct.Fields>(
-  inputSchema: Schema.Struct<I>,
-  outputSchema: Schema.Struct<O>
+export const codec = <I, O, IDR, IER, ODR, OER>(
+  inputSchema: Schema.Codec<I, Record.ReadonlyRecord<string, unknown>, IDR, IER>,
+  outputSchema: Schema.Codec<O, Record.ReadonlyRecord<string, unknown>, ODR, OER>
 ): Codec => {
-  const input = Schema.encodedBoundSchema(inputSchema)
-  const output = Schema.encodedBoundSchema(outputSchema)
+  const input = Schema.toEncoded(inputSchema)
+  const output = Schema.toEncoded(outputSchema)
   const wire = Schema.Struct({ input, output })
   return new Codec({
     decode: (value) =>
-      Schema.decodeUnknown(wire)(value, { onExcessProperty: "error" }).pipe(
+      Schema.decodeUnknownEffect(wire)(value, { onExcessProperty: "error" }).pipe(
         Effect.map((demonstration) => new Demonstration(demonstration))
       ),
     encode: (demonstration) =>
-      Schema.decodeUnknown(wire)(demonstration, { onExcessProperty: "error" }).pipe(
+      Schema.decodeEffect(wire)(demonstration, { onExcessProperty: "error" }).pipe(
         Effect.flatMap((validated) => Effect.zip(encode(input, validated.input), encode(output, validated.output)))
       ),
     decodeDocuments: (inputDocument, outputDocument) =>
@@ -91,9 +86,10 @@ export const codec = <I extends Schema.Struct.Fields, O extends Schema.Struct.Fi
         return new Demonstration({ input: inputValue, output: outputValue })
       }),
     equivalent: (left, right) =>
-      Effect.if(equivalentWire(input, left.input, right.input), {
-        onTrue: () => equivalentWire(output, left.output, right.output),
-        onFalse: () => Effect.succeed(false)
-      })
+      equivalentWire(input, left.input, right.input).pipe(
+        Effect.flatMap((equivalent) =>
+          equivalent ? equivalentWire(output, left.output, right.output) : Effect.succeed(false)
+        )
+      )
   })
 }

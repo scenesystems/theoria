@@ -3,18 +3,17 @@
  */
 import { describe, expect, it } from "@effect/vitest"
 import * as Metric from "@scenesystems/effect-dsp/Metric"
-import { Effect, FastCheck as fc } from "effect"
+import { Effect, Schema } from "effect"
+import * as Arbitrary from "effect/Arbitrary"
 
-const sentenceArbitrary = fc.array(fc.string({ minLength: 1, maxLength: 8 }), { minLength: 1, maxLength: 6 }).map((
-  tokens
-) => tokens.join(" "))
+const stringArbitrary = Arbitrary.schema(Schema.String)
 
 describe("metric invariants", () => {
   it.effect.prop("built-ins always stay within their legal score ranges", [
-    fc.string(),
-    fc.string(),
-    sentenceArbitrary,
-    sentenceArbitrary
+    stringArbitrary,
+    stringArbitrary,
+    stringArbitrary,
+    stringArbitrary
   ], ([predictionA, expectedA, predictionB, expectedB]) =>
     Effect.gen(function*() {
       const exact = Metric.exactMatch("answer")
@@ -37,11 +36,11 @@ describe("metric invariants", () => {
       expect(f1Score.score >= 0).toBe(true)
       expect(f1Score.score <= 1).toBe(true)
       expect(containsScore.score === 0 || containsScore.score === 1).toBe(true)
-    }), { fastCheck: { numRuns: 100 } })
+    }), { arbitrary: { runs: 100 } })
 
   it.effect.prop(
     "built-ins are deterministic for identical inputs",
-    [sentenceArbitrary, sentenceArbitrary],
+    [stringArbitrary, stringArbitrary],
     ([prediction, expected]) =>
       Effect.gen(function*() {
         const exact = Metric.exactMatch("answer")
@@ -58,6 +57,6 @@ describe("metric invariants", () => {
         expect(f1First).toEqual(f1Second)
         expect(containsFirst).toEqual(containsSecond)
       }),
-    { fastCheck: { numRuns: 100 } }
+    { arbitrary: { runs: 100 } }
   )
 })

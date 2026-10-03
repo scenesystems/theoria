@@ -104,15 +104,17 @@ describe("graph parameter persistence", () => {
     Effect.gen(function*() {
       const signature = yield* makeSignature()
       const childSignature = yield* Signature.make("Count", {
-        facts: Schema.Struct({ count: Schema.NumberFromString })
-      }, { result: Schema.Struct({ count: Schema.NumberFromString }) })
+        facts: Schema.Struct({ count: Schema.FiniteFromString })
+      }, { result: Schema.Struct({ count: Schema.FiniteFromString }) })
       const leaf = yield* Module.predict("leaf", childSignature)
-      const root = yield* Module.compose({
-        name: "root",
-        signature,
-        subModules: { leaf },
-        forward: () => Effect.succeed({ answer: "unused" })
-      })
+      const root = yield* Module.compose(
+        new Module.ComposeOptions({
+          name: "root",
+          signature,
+          subModules: { leaf },
+          forward: () => Effect.succeed({ answer: "unused" })
+        })
+      )
       const originalRoot = yield* Ref.get(root.params)
       const originalLeaf = yield* Ref.get(leaf.params)
       const rootEntry = { name: "root", params: params("new root") }
@@ -159,7 +161,7 @@ describe("graph parameter persistence", () => {
   it.effect("rejects ambiguous raw target owners before writing either parameter Ref", () =>
     Effect.gen(function*() {
       const signature = yield* makeSignature()
-      const moduleId = yield* Schema.decodeUnknown(Module.Id)("same")
+      const moduleId = yield* Schema.decodeEffect(Module.Id)("same")
       const first = yield* Ref.make(params("first"))
       const second = yield* Ref.make(params("second"))
       const node = new Module.Node({

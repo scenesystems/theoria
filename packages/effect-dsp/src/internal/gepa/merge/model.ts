@@ -16,12 +16,12 @@ export const PrepareCommonAncestorMergeOptions = Schema.Struct({
   candidates: ProgramCandidates,
   parentAId: Schema.String,
   parentBId: Schema.String,
-  parentAScore: Schema.Number,
-  parentBScore: Schema.Number,
+  parentAScore: Schema.Finite,
+  parentBScore: Schema.Finite,
   mergedCandidateId: Schema.String,
   comparisons: MergeComparisons,
-  mergeBudgetRemaining: Schema.Number,
-  seed: Schema.Number
+  mergeBudgetRemaining: Schema.Finite,
+  seed: Schema.Finite
 })
 
 /**
@@ -37,8 +37,8 @@ export const MergePredictorInstructionsOptions = Schema.Struct({
   ancestor: ProgramCandidate,
   parentA: ProgramCandidate,
   parentB: ProgramCandidate,
-  parentAScore: Schema.Number,
-  parentBScore: Schema.Number
+  parentAScore: Schema.Finite,
+  parentBScore: Schema.Finite
 })
 
 /** @internal */
@@ -50,7 +50,7 @@ export type MergePredictorInstructionsOptions = typeof MergePredictorInstruction
  * @since 0.1.0
  * @category events
  */
-export const MergePreparationEvent = Schema.Union(
+export const MergePreparationEvent = Schema.Union([
   Schema.TaggedStruct("MergeSkippedNoCommonAncestor", {
     parentAId: Schema.String,
     parentBId: Schema.String
@@ -60,7 +60,7 @@ export const MergePreparationEvent = Schema.Union(
     parentBId: Schema.String,
     commonAncestorId: Schema.String
   })
-)
+])
 
 /**
  * Merge/crossover preparation event emitted before acceptance evaluation.
@@ -80,7 +80,7 @@ export class MergePreparation extends Schema.Class<MergePreparation>(
   "@scenesystems/effect-dsp/internal/gepa/merge/model/MergePreparation"
 )({
   event: MergePreparationEvent,
-  candidate: Schema.OptionFromSelf(ProgramCandidate),
+  candidate: Schema.Option(ProgramCandidate),
   subsample: MergeComparisons,
-  mergeBudgetRemaining: Schema.Number
+  mergeBudgetRemaining: Schema.Finite
 }) {}
