@@ -1,6 +1,6 @@
 import * as Schema from "effect/Schema"
 
-export const ApiDocPartSchema = Schema.Union(
+export const ApiDocPartSchema = Schema.Union([
   Schema.Struct({ kind: Schema.Literal("text"), text: Schema.String }),
   Schema.Struct({ kind: Schema.Literal("code"), text: Schema.String }),
   Schema.Struct({
@@ -8,7 +8,7 @@ export const ApiDocPartSchema = Schema.Union(
     text: Schema.String,
     href: Schema.OptionFromNullOr(Schema.String)
   })
-)
+])
 
 export const ApiExampleSchema = Schema.Struct({
   language: Schema.OptionFromNullOr(Schema.String),
@@ -46,7 +46,7 @@ export const ApiReturnSchema = Schema.Struct({
 })
 
 export const ApiSignatureSchema = Schema.Struct({
-  kind: Schema.Literal("call", "constructor", "get", "set", "index"),
+  kind: Schema.Literals(["call", "constructor", "get", "set", "index"]),
   code: Schema.String,
   typeParameters: Schema.Array(ApiTypeParameterSchema),
   parameters: Schema.Array(ApiParameterSchema),
@@ -87,7 +87,7 @@ export const ApiExportSchema = Schema.Struct({
   id: Schema.String,
   name: Schema.String,
   anchor: Schema.String,
-  importKind: Schema.Literal("default", "namespace", "type", "value"),
+  importKind: Schema.Literals(["default", "namespace", "type", "value"]),
   category: Schema.String,
   since: Schema.String,
   summary: Schema.String,
@@ -107,7 +107,7 @@ export const ApiPagePackageSchema = Schema.Struct({
 })
 
 export const ApiPageModuleSchema = Schema.Struct({
-  kind: Schema.Literal("entrypoint", "source"),
+  kind: Schema.Literals(["entrypoint", "source"]),
   name: Schema.String,
   subpath: Schema.String,
   slug: Schema.String,
@@ -130,7 +130,7 @@ export const ApiPageSchema = Schema.Struct({
   exports: Schema.Array(ApiExportSchema)
 })
 
-export const ApiPageJson = Schema.parseJson(ApiPageSchema)
+export const ApiPageJson = Schema.fromJsonString(ApiPageSchema)
 
 export type ApiDocPart = typeof ApiDocPartSchema.Type
 export type ApiExample = typeof ApiExampleSchema.Type

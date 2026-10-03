@@ -1,5 +1,5 @@
 import { argmaxIndex } from "@scenesystems/effect-math/Numeric"
-import { Boolean, Chunk, Match, Number as Num, Option, Order, pipe, Schema, String as Str } from "effect"
+import { Boolean, Chunk, Match, Number as Num, Option, Order, pipe, Result, Schema, String as Str } from "effect"
 import * as Arr from "effect/Array"
 import * as HashMap from "effect/HashMap"
 import * as HashSet from "effect/HashSet"
@@ -10,16 +10,17 @@ import { type DocsSearchEntry, DocsSearchEntrySchema, type DocsSearchIndex } fro
 const SearchTokens = Schema.Array(Schema.String)
 type SearchTokens = typeof SearchTokens.Type
 
-const SearchScores = Schema.Array(Schema.Number)
+const SearchScores = Schema.Array(Schema.Finite)
 type SearchScores = typeof SearchScores.Type
 
-const DocumentIndexes = Schema.Array(Schema.NonNegativeInt)
+const DocumentIndex = Schema.Int.check(Schema.isGreaterThanOrEqualTo(0))
+const DocumentIndexes = Schema.Array(DocumentIndex)
 type DocumentIndexes = typeof DocumentIndexes.Type
 
 class PreparedSearchField extends Schema.Class<PreparedSearchField>("PreparedSearchField")({
   text: Schema.String,
   words: SearchTokens,
-  weight: Schema.Number
+  weight: Schema.Finite
 }) {}
 
 class PreparedSearchDocument extends Schema.Class<PreparedSearchDocument>("PreparedSearchDocument")({
@@ -31,25 +32,22 @@ class PreparedSearchDocument extends Schema.Class<PreparedSearchDocument>("Prepa
 
 export class PreparedDocsSearchIndex extends Schema.Class<PreparedDocsSearchIndex>("PreparedDocsSearchIndex")({
   documents: Schema.Array(PreparedSearchDocument),
-  postings: Schema.HashMapFromSelf({
-    key: Schema.String,
-    value: Schema.HashSetFromSelf(Schema.NonNegativeInt)
-  }),
+  postings: Schema.HashMap(Schema.String, Schema.HashSet(DocumentIndex)),
   vocabulary: SearchTokens
 }) {}
 
 class SubsequenceState extends Schema.Class<SubsequenceState>("SubsequenceState")({
-  cursor: Schema.NonNegativeInt,
+  cursor: DocumentIndex,
   matched: Schema.Boolean
 }) {}
 
 class ScoredCandidate extends Schema.Class<ScoredCandidate>("ScoredCandidate")({
   document: PreparedSearchDocument,
-  score: Schema.Number
+  score: Schema.Finite
 }) {}
 
 export const DocsSearchOptions = Schema.Struct({
-  limit: Schema.Number,
+  limit: Schema.Finite,
   packageSlug: Schema.OptionFromNullOr(Schema.String)
 })
 
@@ -110,11 +108,11 @@ const maximum = (values: SearchScores): number =>
 const fuzzySimilarity = (query: string, candidate: string): number => {
   const queryLength = Str.length(query)
   const candidateLength = Str.length(candidate)
-  return Match.value(Boolean.or(Num.lessThan(queryLength, 3), Num.lessThan(candidateLength, 3))).pipe(
+  return Match.value(Boolean.or(Num.isLessThan(queryLength, 3), Num.isLessThan(candidateLength, 3))).pipe(
     Match.when(true, () => 0),
     Match.when(false, () => {
       const sameSize = Num.Equivalence(queryLength, candidateLength)
-      const characterEquivalence = Option.getEquivalence(Str.Equivalence)
+      const characterEquivalence = Option.makeEquivalence(Str.Equivalence)
       const mismatches = Boolean.match(sameSize, {
         onFalse: Arr.empty,
         onTrue: () =>
@@ -141,11 +139,11 @@ const fuzzySimilarity = (query: string, candidate: string): number => {
             onTrue: () => 0.92
           })
       })
-      const queryIsShorter = Num.lessThanOrEqualTo(queryLength, candidateLength)
+      const queryIsShorter = Num.isLessThanOrEqualTo(queryLength, candidateLength)
       const shorter = Boolean.match(queryIsShorter, { onFalse: () => candidate, onTrue: () => query })
       const longer = Boolean.match(queryIsShorter, { onFalse: () => query, onTrue: () => candidate })
       const subsequence = Boolean.match(
-        Num.lessThanOrEqualTo(Num.subtract(Str.length(longer), Str.length(shorter)), 2),
+        Num.isLessThanOrEqualTo(Num.subtract(Str.length(longer), Str.length(shorter)), 2),
         {
           onFalse: () => 0,
           onTrue: () =>
@@ -169,7 +167,7 @@ const tokenSimilarity = (field: PreparedSearchField, query: string): number =>
     Match.when((token) => Str.includes(token)(field.text), () => 0.75),
     Match.orElse((token) => {
       const similarity = maximum(Arr.map(field.words, (word) => fuzzySimilarity(token, word)))
-      return Boolean.match(Num.greaterThanOrEqualTo(similarity, 0.72), {
+      return Boolean.match(Num.isGreaterThanOrEqualTo(similarity, 0.72), {
         onFalse: () => -1,
         onTrue: () => Num.multiply(similarity, 0.65)
       })
@@ -178,7 +176,7 @@ const tokenSimilarity = (field: PreparedSearchField, query: string): number =>
 
 const fieldScore = (field: PreparedSearchField, query: SearchTokens): number => {
   const scores = Arr.map(query, (token) => tokenSimilarity(field, token))
-  return Boolean.match(Arr.some(scores, Num.lessThan(0)), {
+  return Boolean.match(Arr.some(scores, Num.isLessThan(0)), {
     onFalse: () => Num.multiply(ratio(Num.sumAll(scores), Arr.length(scores)), field.weight),
     onTrue: () => -1
   })
@@ -219,12 +217,12 @@ const matchScore = (
       const primaryBoost = Boolean.match(
         Boolean.and(
           Num.Equivalence(Arr.length(tokens), Arr.length(document.name.words)),
-          Num.greaterThanOrEqualTo(primaryScore, 0)
+          Num.isGreaterThanOrEqualTo(primaryScore, 0)
         ),
         { onFalse: () => 0, onTrue: () => 50 }
       )
 
-      return Boolean.match(Num.lessThan(coherentFieldScore, 0), {
+      return Boolean.match(Num.isLessThan(coherentFieldScore, 0), {
         onFalse: () => Num.sumAll(Arr.make(phraseScore, primaryBoost, coherentFieldScore, packageBoost)),
         onTrue: () => -1
       })
@@ -232,8 +230,8 @@ const matchScore = (
   )
 }
 
-const scoreOrder = Order.reverse(Order.mapInput(
-  Order.number,
+const scoreOrder = Order.flip(Order.mapInput(
+  Num.Order,
   (entry: ScoredCandidate) => entry.score
 ))
 
@@ -244,8 +242,8 @@ const buildPostings = (
     HashMap.empty<string, HashSet.HashSet<number>>(),
     (postings) =>
       Arr.forEach(documents, (document, documentIndex) =>
-        HashSet.forEach(
-          HashSet.fromIterable(Arr.flatMap(document.fields, (field) => field.words)),
+        Arr.forEach(
+          Arr.fromIterable(HashSet.fromIterable(Arr.flatMap(document.fields, (field) => field.words))),
           (word) =>
             HashMap.set(
               postings,
@@ -293,7 +291,7 @@ const candidateDocumentIndexes = (
   const term = normalizeSearchText(query)
   return Match.value(term).pipe(
     Match.when(Str.isEmpty, () =>
-      Boolean.match(Arr.isEmptyReadonlyArray(index.documents), {
+      Boolean.match(Arr.isReadonlyArrayEmpty(index.documents), {
         onFalse: () => Arr.range(0, Num.decrement(Arr.length(index.documents))),
         onTrue: Arr.empty
       })),
@@ -304,7 +302,7 @@ const candidateDocumentIndexes = (
             Match.when((candidate) => Str.Equivalence(candidate, token), () => true),
             Match.when(Str.startsWith(token), () => true),
             Match.when(Str.includes(token), () => true),
-            Match.orElse((candidate) => Num.greaterThanOrEqualTo(fuzzySimilarity(token, candidate), 0.72))
+            Match.orElse((candidate) => Num.isGreaterThanOrEqualTo(fuzzySimilarity(token, candidate), 0.72))
           )
           return Boolean.match(wordMatches, {
             onFalse: () => matches,
@@ -340,11 +338,11 @@ export const searchDocs = (
         Arr.filterMap(
           candidateDocumentIndexes(index, query),
           (documentIndex) =>
-            Option.flatMap(Arr.get(index.documents, documentIndex), (document) => {
+            Result.flatMap(Result.fromOption(Arr.get(index.documents, documentIndex), () => void 0), (document) => {
               const score = matchScore(document, query, options.packageSlug)
-              return Boolean.match(Num.lessThan(score, 0), {
-                onFalse: () => Option.some(new ScoredCandidate({ document, score })),
-                onTrue: Option.none
+              return Boolean.match(Num.isLessThan(score, 0), {
+                onFalse: () => Result.succeed(new ScoredCandidate({ document, score })),
+                onTrue: () => Result.failVoid
               })
             })
         ),
