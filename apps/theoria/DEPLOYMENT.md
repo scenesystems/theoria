@@ -323,7 +323,9 @@ site after selection.
 3. Copy `run_id` from the staging job's summary, or the numeric ID after
    `/actions/runs/` in that run's URL (not the run number or commit SHA).
 4. If the candidate contains unpublished package versions, run **Actions →
-   Publish Packages → Run workflow** on `main` with that `run_id`. The first
+   Publish Packages → Run workflow** on `main` with that `run_id`. For entirely
+   new package names, first follow the separate [bootstrap runbook](../../CONTRIBUTING.md#first-publication-of-a-new-package)
+   using that candidate, then configure their Trusted Publishers. The first
    run pins the candidate and starts a second run on
    `theoria-candidate-<sha>`. Wait for the **tag run**, including **Verify and
    record package publication**, to succeed; a green dispatcher alone does
@@ -400,7 +402,7 @@ responses and artifact downloads. The repository-pinned Wrangler handles
 Cloudflare deployment.
 
 The npm check validates registry-hosted provenance against the published
-tarball's SHA-512 integrity, this repository, and `publish.yml`. It downloads
+tarball's SHA-512 integrity, this repository, and `publish.yml` or `bootstrap.yml`. It downloads
 the tarball, verifies the bytes against that integrity, rejects unsafe archive
 paths, links and special files, and compares its content with the staged
 packages. GNU tar and sha512sum run through scoped Effect commands with checked

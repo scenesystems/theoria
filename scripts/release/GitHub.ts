@@ -213,8 +213,21 @@ export const select = (
   })
 
 /** External mutation: called only by the explicitly dispatched main publication job. */
-export const pin = (sha: Repository.Sha, runId: Candidate.Id, reviewed: Option.Option<Candidate.Id>) =>
+export const pin = (
+  sha: Repository.Sha,
+  runId: Candidate.Id,
+  reviewed: Option.Option<Candidate.Id>,
+  bootstrap: Option.Option<ReadonlyArray<string>> = Option.none()
+) =>
   Effect.gen(function*() {
+    const workflow = Option.match(bootstrap, { onNone: () => "publish.yml", onSome: () => "bootstrap.yml" })
+    const selection = yield* Option.match(bootstrap, {
+      onNone: () => Effect.succeed(Array.empty<string>()),
+      onSome: (names) =>
+        Schema.encodeEffect(Schema.fromJsonString(Schema.Array(Schema.String)))(names).pipe(
+          Effect.map((json) => Array.make("-f", String.concat("packages=", json)))
+        )
+    })
     const name = tag(sha)
     const ref = String.concat("refs/tags/", name)
     const refs = yield* api(String.concat("git/matching-refs/tags/", name)).pipe(
@@ -247,7 +260,7 @@ export const pin = (sha: Repository.Sha, runId: Candidate.Id, reviewed: Option.O
         [
           "workflow",
           "run",
-          "publish.yml",
+          workflow,
           "--repo",
           repo,
           "--ref",
@@ -255,7 +268,8 @@ export const pin = (sha: Repository.Sha, runId: Candidate.Id, reviewed: Option.O
           "-f",
           String.concat("run_id=", runId),
           "-f",
-          String.concat("reviewed_run_id=", Option.getOrElse(reviewed, () => ""))
+          String.concat("reviewed_run_id=", Option.getOrElse(reviewed, () => "")),
+          ...selection
         ],
         { stderr: "inherit" }
       )
@@ -264,7 +278,9 @@ export const pin = (sha: Repository.Sha, runId: Candidate.Id, reviewed: Option.O
       join(
         "## Pinned publication started; packages are not published yet\n\nWait for the [tag run](https://github.com/",
         repo,
-        "/actions/workflows/publish.yml?query=branch%3A",
+        "/actions/workflows/",
+        workflow,
+        "?query=branch%3A",
         name,
         ") to succeed. Production remains unchanged. Promote run_id ",
         runId,

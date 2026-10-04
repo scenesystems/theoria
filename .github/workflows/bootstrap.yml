@@ -1,0 +1,262 @@
+name: Bootstrap Packages
+run-name: Bootstrap ${{ inputs.packages }} from candidate ${{ inputs.run_id }} (${{ github.ref_name }})
+
+on:
+  workflow_dispatch:
+    inputs:
+      run_id:
+        description: Successful Theoria staging candidate run ID with finalized versions
+        required: true
+        type: string
+      packages:
+        description: 'Explicit JSON array of new package names, e.g. ["@scenesystems/effect-study"]'
+        required: true
+        type: string
+      reviewed_run_id:
+        description: Optional earlier reviewed staging run; only version-only changes may follow it
+        required: false
+        type: string
+
+concurrency:
+  # Share the publication lock with publish.yml, but let main dispatch its tag run.
+  group: npm-publish-${{ github.ref_type }}
+  cancel-in-progress: false
+
+permissions: {}
+
+env:
+  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
+  BOOTSTRAP_PACKAGES: ${{ inputs.packages }}
+
+jobs:
+  resolve:
+    name: Resolve staged bootstrap candidate
+    if: >-
+      github.repository_owner == 'scenesystems' &&
+      (github.ref == 'refs/heads/main' || startsWith(github.ref, 'refs/tags/theoria-candidate-'))
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    permissions:
+      contents: read
+      actions: read
+    outputs:
+      build-sha: ${{ steps.candidate.outputs.build-sha }}
+    steps:
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+        with:
+          fetch-depth: 0
+      - uses: ./.github/actions/setup
+      - uses: ./.github/actions/theoria-candidate
+        id: candidate
+        with:
+          run-id: ${{ inputs.run_id }}
+          reviewed-run-id: ${{ inputs.reviewed_run_id }}
+          publication-event: "true"
+      - name: Require explicitly selected package names to be absent from npm
+        env:
+          CANDIDATE: ${{ steps.candidate.outputs.path }}
+        run: bun scripts/release.ts bootstrap-check
+
+  pin:
+    name: Start bootstrap at the immutable candidate ref
+    needs: resolve
+    if: github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    permissions:
+      contents: write
+      actions: write
+    steps:
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+      - uses: ./.github/actions/setup
+      - name: Pin the candidate and dispatch its bootstrap run
+        env:
+          GH_TOKEN: ${{ github.token }}
+          BUILD_SHA: ${{ needs.resolve.outputs.build-sha }}
+          RUN_ID: ${{ inputs.run_id }}
+          REVIEWED_RUN_ID: ${{ inputs.reviewed_run_id }}
+        run: bun scripts/release.ts bootstrap-pin
+
+  # No npm token or OIDC permission during checks and packing.
+  pack:
+    name: Pack selected new packages
+    needs: resolve
+    if: github.ref_type == 'tag'
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    permissions:
+      contents: read
+      actions: read
+    outputs:
+      artifact-id: ${{ steps.selected.outputs.artifact-id }}
+    steps:
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+        with:
+          ref: ${{ needs.resolve.outputs.build-sha }}
+          fetch-depth: 0
+      - uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38 # v6
+        with:
+          node-version-file: ".node-version"
+          package-manager-cache: false
+      - name: Install npm for deterministic packing
+        run: npm install --global npm@11.5.2
+      - uses: ./.github/actions/setup
+      - uses: ./.github/actions/theoria-candidate
+        id: candidate
+        with:
+          run-id: ${{ inputs.run_id }}
+          reviewed-run-id: ${{ inputs.reviewed_run_id }}
+          publication-event: "true"
+      - name: Download staged package output
+        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8
+        with:
+          artifact-ids: ${{ steps.candidate.outputs.package-artifact-id }}
+          merge-multiple: true
+          path: packages
+          github-token: ${{ github.token }}
+          run-id: ${{ inputs.run_id }}
+      - name: Select the Changesets mode
+        id: mode
+        uses: changesets/action/select-mode@8488615a623b1b9c987934bb89eae8af6a946ac1 # v2.1.1
+      - name: Require finalized package versions
+        env:
+          CHANGESETS_MODE: ${{ steps.mode.outputs.mode }}
+        run: bun scripts/release.ts ready
+      - name: Typecheck workspace
+        run: bun run check:all
+      - name: Lint workspace
+        run: bun run lint
+      - name: Test workspace
+        run: bun run test
+      - name: Verify prepared content and already-published versions
+        env:
+          CANDIDATE: ${{ steps.candidate.outputs.path }}
+          RELEASE_OUTPUT: ${{ runner.temp }}/package-check.json
+        run: bun scripts/release.ts check
+      - name: Recheck bootstrap admission before packing
+        env:
+          CANDIDATE: ${{ steps.candidate.outputs.path }}
+        run: bun scripts/release.ts bootstrap-check
+      - name: Pack unpublished versions without rebuilding or lifecycle scripts
+        id: pack
+        uses: changesets/action/pack@8488615a623b1b9c987934bb89eae8af6a946ac1 # v2.1.1
+        with:
+          publish-plan-artifact-id: ${{ steps.mode.outputs.publish-plan-artifact-id }}
+        env:
+          NPM_CONFIG_IGNORE_SCRIPTS: "true"
+      - uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8
+        with:
+          artifact-ids: ${{ steps.pack.outputs.pack-dir-artifact-id }}
+          merge-multiple: true
+          path: ${{ runner.temp }}/theoria-packed
+      - name: Select only bootstrap tarballs and verify their staged content
+        env:
+          CANDIDATE: ${{ steps.candidate.outputs.path }}
+          PACKED_DIRECTORY: ${{ runner.temp }}/theoria-packed
+          RELEASE_OUTPUT: ${{ runner.temp }}/theoria-bootstrap
+        run: bun scripts/release.ts bootstrap-pack
+      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
+        id: selected
+        with:
+          name: theoria-bootstrap-pack
+          path: ${{ runner.temp }}/theoria-bootstrap
+          if-no-files-found: error
+          retention-days: 7
+
+  publish:
+    name: Bootstrap first publications
+    needs: [resolve, pack]
+    # A fresh dispatch must repeat all admission checks; never rerun a publish job.
+    if: github.run_attempt == '1'
+    environment: npm-bootstrap
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    permissions:
+      contents: read
+      actions: read
+      id-token: write
+    steps:
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+        with:
+          ref: ${{ needs.resolve.outputs.build-sha }}
+          fetch-depth: 0
+      - uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38 # v6
+        with:
+          node-version-file: ".node-version"
+          registry-url: "https://registry.npmjs.org"
+          package-manager-cache: false
+      - name: Install npm for publication with provenance
+        run: npm install --global npm@11.5.2
+      - uses: ./.github/actions/setup
+      - uses: ./.github/actions/theoria-candidate
+        id: candidate
+        with:
+          run-id: ${{ inputs.run_id }}
+          reviewed-run-id: ${{ inputs.reviewed_run_id }}
+          publication-event: "true"
+      - uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8
+        with:
+          artifact-ids: ${{ needs.pack.outputs.artifact-id }}
+          merge-multiple: true
+          path: ${{ runner.temp }}/theoria-bootstrap
+      - name: Reverify exact selection, integrity, and content
+        env:
+          CANDIDATE: ${{ steps.candidate.outputs.path }}
+          PACKED_DIRECTORY: ${{ runner.temp }}/theoria-bootstrap
+        run: bun scripts/release.ts bootstrap-packed
+      - name: Generate release token
+        id: app-token
+        uses: actions/create-github-app-token@fee1f7d63c2ff003460e3d139729b119787bc349 # v2
+        with:
+          app-id: ${{ secrets.APP_ID }}
+          private-key: ${{ secrets.APP_PRIVATE_KEY }}
+      - name: Require package names still absent immediately before publication
+        env:
+          CANDIDATE: ${{ steps.candidate.outputs.path }}
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_BOOTSTRAP_TOKEN }}
+        run: bun scripts/release.ts bootstrap-check --authenticated
+      # Only final admission and publication receive the registry token. The
+      # authenticated check also rejects private packages hidden from anonymous
+      # readers. OIDC supplies provenance; lifecycle scripts stay disabled.
+      - name: Publish only the selected first versions
+        uses: changesets/action/publish@8488615a623b1b9c987934bb89eae8af6a946ac1 # v2.1.1
+        with:
+          github-token: ${{ steps.app-token.outputs.token }}
+          pack-dir-artifact-id: ${{ needs.pack.outputs.artifact-id }}
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_BOOTSTRAP_TOKEN }}
+          NPM_CONFIG_PROVENANCE: "true"
+          NPM_CONFIG_IGNORE_SCRIPTS: "true"
+          HUSKY: "0"
+
+  record:
+    name: Verify bootstrap publication
+    needs: [resolve, publish]
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      contents: read
+      actions: read
+    steps:
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+        with:
+          ref: ${{ needs.resolve.outputs.build-sha }}
+          fetch-depth: 0
+      - uses: ./.github/actions/setup
+      - uses: ./.github/actions/theoria-candidate
+        id: candidate
+        with:
+          run-id: ${{ inputs.run_id }}
+          reviewed-run-id: ${{ inputs.reviewed_run_id }}
+          publication-event: "true"
+      - name: Verify selected publications against npm content and provenance
+        env:
+          CANDIDATE: ${{ steps.candidate.outputs.path }}
+          RELEASE_OUTPUT: ${{ runner.temp }}/bootstrap-publication.json
+        run: bun scripts/release.ts bootstrap-published
+      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
+        with:
+          name: theoria-bootstrap-publication-record
+          path: ${{ runner.temp }}/bootstrap-publication.json
+          if-no-files-found: error
+          retention-days: 90

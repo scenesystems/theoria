@@ -35,7 +35,7 @@ export const Identity = Schema.Struct({
   artifact_id: Record.fields.artifact_id,
   package_artifact_id: Record.fields.package_artifact_id
 })
-const Publication = Schema.Struct({
+export const Publication = Schema.Struct({
   ...Record.fields,
   packages: Schema.Array(Schema.Struct({
     ...Package.fields,
@@ -44,7 +44,7 @@ const Publication = Schema.Struct({
 })
 
 // Changesets CLI 3's artifact contract. This repository does not tag private packages.
-const PackedPlan = Schema.Struct({
+export const PackedPlan = Schema.Struct({
   version: Schema.Literal(1),
   plan: Schema.NonEmptyArray(Schema.NonEmptyArray(Schema.Struct({
     kind: Schema.Literal("publish"),
