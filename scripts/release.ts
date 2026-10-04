@@ -82,7 +82,7 @@ const bootstrapPin = Command.make(
 
 const bootstrapCheck = Command.make(
   "bootstrap-check",
-  { file, names, authenticated: Flag.Boolean("authenticated") },
+  { file, names, authenticated: Flag.Boolean("authenticated").pipe(Flag.withDefault(false)) },
   ({ file, names, authenticated }) =>
     Effect.gen(function*() {
       const candidate = yield* Candidate.read(file)

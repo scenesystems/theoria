@@ -118,8 +118,11 @@ token. Do not publish a placeholder version or publish the real first version
 locally: the release gates require matching staged content and CI provenance.
 
 Before first use, a repository administrator must configure the GitHub
-`npm-bootstrap` environment with required reviewers, prevent self-review, and
-allow only deployment **tags** matching `theoria-candidate-*`. Make the existing
+`npm-bootstrap` environment with required reviewers and allow only deployment
+**tags** matching `theoria-candidate-*`. A sole maintainer should select their own
+account as a required reviewer and leave **Prevent self-review** unchecked, so
+they can approve the publication checkpoint. Enable that restriction only when
+another authorized maintainer can review the run. Make the existing
 release app credentials (`APP_ID`, `APP_PRIVATE_KEY`) available to it. The
 workflow does not create environments or change access controls.
 
