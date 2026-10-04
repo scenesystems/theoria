@@ -1,6 +1,6 @@
 # Theoria: dependency-first Effect v4 migration
 
-Status: revised 2026-10-04. Steps 1–14 are implemented and pushed. The owner has approved releasing Effect v4 under the existing package names through the normal release process, then migrating Eva before any separate namespace transition. This supersedes the rename/reset portion of this plan as well as the earlier PR-0 through PR-6 sequence.
+Status: revised 2026-10-04. Steps 1–14 are implemented and pushed. Steps 15–16 are prepared and verified locally; publication prerequisites are recorded below. Step 17, performance verification and final acceptance, remains. The owner has approved releasing Effect v4 under the existing package names through the normal release process, then migrating Eva before any separate namespace transition. This supersedes the rename/reset portion of this plan as well as the earlier PR-0 through PR-6 sequence.
 
 Traceability: [original planning thread](https://ampcode.com/threads/T-01a0f799-f072-75e9-880e-90f41bc95bce), [owner's correction](https://ampcode.com/threads/T-45770919-fa25-4a3e-86be-1c62a54891ba).
 
@@ -66,6 +66,30 @@ The first unit includes foundational configuration and its runtime helpers: the 
 15. **Prepare normal releases under the existing names — next commit.** Audit every queued changeset against the implemented APIs and prior releases. Retain accurate unreleased entries; amend or consolidate stale/duplicate entries without discarding real changes. Cover all nine packages' Effect v4 requirements and consumer-facing breaks, including concern imports, option constructors, effectful digest/sign APIs, service requirements, and native Google removal. Existing pre-1.0 packages use the repository's breaking-minor convention; confirm the actual release plan and any unpublished package's first-release treatment before selecting versions. Keep independent versioning rather than imposing one version on all packages. Review `changeset status`, peer ranges, internal dependency updates, exports, migration examples, and `@since` annotations. Preserve historical entries and append new release notes through Changesets. Do not manually reset versions or blanket-rewrite `@since`. Verify npm publication/trusted-publisher readiness for every package, especially any name not previously published; preparation must not publish anything.
 16. **Close whole-repository integration — next verification/fix commits.** Run the complete acceptance suite below under the existing names, from clean build outputs where needed. Check source/test/example tooling, README/API generation, dependency and vendor alignment, numerical and cryptographic fixtures, packed consumers, Worker/browser behavior, and deployment dry-run. Exercise the migrated release program's validation without publishing or deploying. Fix failures in their owning modules with behavioral regressions. Ensure consumer guidance describes the coordinated Effect v4 upgrade rather than promising v3 compatibility. Passing individual package migrations is not a substitute for this integration gate.
 17. **Complete performance verification and final acceptance — final migration commits.** Finish the deferred benchmark harness migration where needed and run the comparison matrix below. Record comparable measurements, preserve the 20-second search deadline, and investigate demonstrated regressions. Do not introduce speculative optimization or weaken tests to obtain a passing result. Rerun affected checks after fixes and the complete suite on the final migration head. Version finalization later requires its own exact-candidate verification; passing this head does not certify future versioned artifacts.
+
+### Steps 15–16: release preparation and integration evidence
+
+The queued changesets retain their original package scopes and accurate unreleased changes. They now explicitly describe v4 requirements, effectful digest/sign operations, schema/service requirements, option constructors, ordered history traversal, seeded replay changes, and native Google removal. Historical changelogs, manifest versions, and `@since` annotations were not reset.
+
+`bun run changeset status` proposes the following independent releases. Versions are not applied here; the Version Packages PR owns finalization.
+
+| Package (`@scenesystems/`) | Current | Proposed |
+| -------------------------- | ------- | -------- |
+| digest                     | 0.6.0   | 0.7.0    |
+| sign                       | 0.4.0   | 0.5.0    |
+| seal                       | 0.2.3   | 0.3.0    |
+| effect-math                | 0.4.0   | 0.5.0    |
+| effect-study               | 0.0.0   | 0.1.0    |
+| effect-search              | 0.6.0   | 0.7.0    |
+| effect-text                | 0.4.2   | 0.5.0    |
+| effect-inference           | 0.3.0   | 0.4.0    |
+| effect-dsp                 | 0.4.0   | 0.5.0    |
+
+All nine public manifests require `effect: ^4.0.0`; published library-to-library dependencies use `workspace:^`. Clean build output resolves all 12 internal dependency ranges, and all nine built export maps resolve to files. These pre-version artifacts still carry the current versions and must not be published. Rebuild and verify after Changesets finalizes versions and dependent ranges.
+
+Registry inspection found the eight existing versions above with provenance attestations. `@scenesystems/effect-study` returns HTTP 404 and needs first-publication setup; its proposed `0.1.0` is an initial release, not a reset. GitHub's `npm` environment permits `theoria-candidate-*` tags. Current per-package npm trusted-publisher settings were not verified: existing provenance is evidence of prior publication, not proof of current authorization. Confirm those settings and arrange study's first publication before dispatching Publish Packages; no registry or access changes were made.
+
+Local integration passed: `check:all`, strict/type-aware `lint`, `prettier`, `secrets:check`, all 421 test files / 2,154 tests (including release CLI/process validation), 41 README examples, and vendor alignment. A clean `build` regenerated documentation for nine packages, 132 public routes, 1,666 search symbols, and 21 authored examples. Digest/sign fixture checks, all 13 math fixture groups, and all 18 Optuna reference groups passed. App build-output validation, deployment dry-run, all 23 Worker/browser files / 135 tests, and three packed-sign consumer tests passed. No implementation fixes were needed. Non-failing bundle-size and happy-dom socket teardown warnings remain. No benchmark comparison, live-provider validation, staging deployment, or publication is claimed by these results.
 
 ## Normal release and consumer rollout after migration verification
 

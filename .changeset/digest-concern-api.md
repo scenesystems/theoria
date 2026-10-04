@@ -7,8 +7,9 @@ Redesign digest as Effect-native concern modules with root namespaces and matchi
 `Blake3`, `CanonicalJson`, `ContentDigest`, `Digest`, `Hkdf`, `Hmac`, and `Utf8`
 subpaths. This is a breaking pre-1.0 API release; the old flat exports are removed.
 
-Raw hashes, strict text, HMACs, and keyed primitives are lazy Effects with typed
-validation failures, including invalid derivation lengths. Streams
+Require Effect v4. Raw hashes, strict text and canonical JSON, HMACs, HKDF, and
+BLAKE3 keyed primitives are lazy Effects with typed validation failures, including
+invalid derivation lengths. Streams
 and cooperative canonical/Schema hashing retain Effect failures, requirements,
 and interruption. Compose wire encodings with `effect/encoding`.
 
@@ -22,3 +23,8 @@ use `ContentDigest.toString` for the unchanged tagged string representation.
 Digest values reject noncanonical base64url pad bits. Migrate consumers to the
 owning concern modules; there are no compatibility aliases. Effect-search imports
 the canonical identity model and preserves its cache fingerprint wire format.
+
+`ContentDigest.fromBytes`, `fromUnknown`, `fromSchema`, and
+`fromSchemaWithByteLimit` are effectful. Schema-based hashing preserves encoding
+services, failures, interruption, and per-execution hasher finalization; provide
+the schema's encoding requirements at the call site.
