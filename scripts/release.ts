@@ -3,6 +3,7 @@ import { BunRuntime, BunServices } from "@effect/platform-bun"
 import { Array, Config, Effect, Layer, Match, Option, Schema, String } from "effect"
 import { Command, Flag } from "effect/cli"
 import { FetchHttpClient } from "effect/http"
+import * as Bootstrap from "./release/Bootstrap.js"
 import * as Candidate from "./release/Candidate.js"
 import * as GitHub from "./release/GitHub.js"
 import * as Repository from "./release/Repository.js"
@@ -22,6 +23,8 @@ const reviewed = Flag.String("reviewed-run-id").pipe(
 )
 const output = text("output", "RELEASE_OUTPUT")
 const file = text("candidate", "CANDIDATE")
+const names = text("packages", "BOOTSTRAP_PACKAGES").pipe(Flag.withSchema(Schema.fromJsonString(Bootstrap.Names)))
+const directory = text("directory", "PACKED_DIRECTORY")
 
 const capture = Command.make("record", {
   sha,
@@ -69,6 +72,54 @@ const pin = Command.make(
   "pin",
   { sha, runId, reviewed },
   ({ sha, runId, reviewed }) => GitHub.pin(sha, runId, reviewed)
+)
+
+const bootstrapPin = Command.make(
+  "bootstrap-pin",
+  { sha, runId, reviewed, names },
+  ({ sha, runId, reviewed, names }) => GitHub.pin(sha, runId, reviewed, Option.some(names))
+)
+
+const bootstrapCheck = Command.make(
+  "bootstrap-check",
+  { file, names, authenticated: Flag.Boolean("authenticated") },
+  ({ file, names, authenticated }) =>
+    Effect.gen(function*() {
+      const candidate = yield* Candidate.read(file)
+      const token = authenticated
+        ? Option.some(yield* Config.schema(Schema.RedactedFromValue(Schema.NonEmptyString), "NODE_AUTH_TOKEN"))
+        : Option.none()
+      return yield* Bootstrap.requireNew(candidate, names, token)
+    })
+)
+
+const bootstrapPack = Command.make(
+  "bootstrap-pack",
+  { file, names, directory, output },
+  ({ file, names, directory, output }) =>
+    Candidate.read(file).pipe(Effect.flatMap((candidate) => Bootstrap.pack(candidate, names, directory, output)))
+)
+
+const bootstrapPacked = Command.make(
+  "bootstrap-packed",
+  { file, names, directory },
+  ({ file, names, directory }) =>
+    Candidate.read(file).pipe(Effect.flatMap((candidate) => Bootstrap.verifyPacked(candidate, names, directory)))
+)
+
+const bootstrapPublished = Command.make(
+  "bootstrap-published",
+  { file, names, output },
+  ({ file, names, output }) =>
+    Effect.gen(function*() {
+      const candidate = yield* Candidate.read(file)
+      const repository = yield* GitHub.repository
+      yield* Bootstrap.verifyPublication(candidate, names, repository, output)
+      yield* GitHub.summary(String.concat(
+        "Bootstrap publications match the candidate content and provenance. Configure each package's Trusted Publisher (publish.yml, environment npm), revoke the bootstrap token, then use Publish Packages for the remaining candidate packages. Bootstrapped: ",
+        Array.join(names, ", ")
+      ))
+    })
 )
 
 const check = Command.make("check", { file, output }, ({ file, output }) =>
@@ -152,7 +203,25 @@ const review = Command.make("review", {
 }, ({ before, after }) => Repository.review(before, after))
 
 const run = Command.make("release").pipe(
-  Command.withSubcommands(Array.make(capture, resolve, pin, check, packed, published, ready, deploy, verify, review))
+  Command.withSubcommands(
+    Array.make(
+      capture,
+      resolve,
+      pin,
+      check,
+      packed,
+      published,
+      ready,
+      deploy,
+      verify,
+      review,
+      bootstrapPin,
+      bootstrapCheck,
+      bootstrapPack,
+      bootstrapPacked,
+      bootstrapPublished
+    )
+  )
 )
 
 BunRuntime.runMain(

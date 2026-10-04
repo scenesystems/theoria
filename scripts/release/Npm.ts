@@ -1,6 +1,7 @@
 /** Compare prepared package content with the actual npm release, not guessed build inputs. */
 import * as CanonicalJson from "@scenesystems/digest/CanonicalJson"
 import * as Digest from "@scenesystems/digest/Digest"
+import type { Redacted } from "effect"
 import { Array, Boolean, Effect, HashSet, Match, Number, Option, Record, Schema, Stream, String, Tuple } from "effect"
 import { Base64, Hex } from "effect/encoding"
 import * as FileSystem from "effect/FileSystem"
@@ -64,6 +65,26 @@ const requireSuccess = (status: number) =>
       )
     )
   )
+
+/** Bootstrap is for absent package names, never merely absent versions. Fail closed on registry errors. */
+export const requireNew = Effect.fnUntraced(
+  function*(name: string, token: Option.Option<Redacted.Redacted> = Option.none()) {
+    const client = yield* HttpClient.HttpClient
+    const query = HttpClientRequest.get(
+      String.concat("https://registry.npmjs.org/", String.replaceAll("/", "%2F")(name))
+    )
+    const response = yield* HttpClient.withScope(client).execute(Option.match(token, {
+      onNone: () => query,
+      onSome: (token) => HttpClientRequest.bearerToken(query, token)
+    }))
+    yield* Effect.when(
+      new PublicationError({ message: String.concat("Bootstrap requires a registry 404 for package name: ", name) }),
+      Effect.sync(() => Boolean.not(Number.Equivalence(response.status, 404)))
+    )
+  },
+  Effect.scoped,
+  Effect.timeout("1 minute")
+)
 
 const canonicalSha256Hex = (value: unknown) =>
   CanonicalJson.encodeBytes(value).pipe(
@@ -149,7 +170,10 @@ const source = (metadata: typeof Metadata.Type, repository: string) =>
           Array.some(statement.subject, (subject) =>
             String.Equivalence(subject.digest.sha512, digest)),
           String.Equivalence(definition.externalParameters.workflow.repository, expectedRepository),
-          String.Equivalence(definition.externalParameters.workflow.path, ".github/workflows/publish.yml")
+          Array.contains(
+            [".github/workflows/publish.yml", ".github/workflows/bootstrap.yml"],
+            definition.externalParameters.workflow.path
+          )
         )),
         {
           onFalse: () => Array.empty<Repository.Sha>(),
