@@ -1,6 +1,6 @@
 {
   "name": "@scenesystems/effect-study",
-  "version": "0.0.0",
+  "version": "0.1.0",
   "type": "module",
   "description": "Effect-native trial evaluation, history, and artifacts",
   "license": "MIT",
