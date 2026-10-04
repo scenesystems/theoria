@@ -10,12 +10,12 @@ import {
   Array as Arr,
   Boolean as Bool,
   Effect,
-  Either,
   Iterable,
   Match,
   Number as Num,
   Option,
   Record,
+  Result,
   Schema,
   Tuple
 } from "effect"
@@ -46,7 +46,7 @@ const program = Effect.gen(function*() {
   const churnRisk = (config: SearchSpace.Type<typeof space>): number =>
     Num.sumAll(Arr.make(
       0.08,
-      Num.unsafeDivide(config.rolloutPercent, 540),
+      Num.divideUnsafe(config.rolloutPercent, 540),
       Match.value(config.notificationCadence).pipe(
         Match.when("adaptive", () => 0.05),
         Match.orElse(() => 0)
@@ -77,7 +77,7 @@ const program = Effect.gen(function*() {
     const cadenceLift = lift(config.notificationCadence)
     const rankingLift = lift(config.rankingModel)
     const churnViolation = Numeric.max(0, Num.subtract(churnRisk(config), 0.24))
-    const latencyViolation = Num.unsafeDivide(Numeric.max(0, Num.subtract(p95LatencyMs(config), 260)), 220)
+    const latencyViolation = Num.divideUnsafe(Numeric.max(0, Num.subtract(p95LatencyMs(config), 260)), 220)
 
     return Num.sumAll(Arr.make(
       0.45,
@@ -85,20 +85,20 @@ const program = Effect.gen(function*() {
       cadenceLift,
       rankingLift,
       Bool.match(config.supportAutomation, { onFalse: () => 0, onTrue: () => 0.03 }),
-      Num.negate(Num.unsafeDivide(Numeric.abs(Num.subtract(config.rolloutPercent, 65)), 420)),
-      Num.negate(Num.multiply(churnViolation, 2.2)),
-      Num.negate(latencyViolation)
+      Num.subtract(0, Num.divideUnsafe(Numeric.abs(Num.subtract(config.rolloutPercent, 65)), 420)),
+      Num.subtract(0, Num.multiply(churnViolation, 2.2)),
+      Num.subtract(0, latencyViolation)
     ))
   }
 
-  const decodeConfig = Schema.decodeUnknownEither(space.schema)
+  const decodeConfig = Schema.decodeUnknownResult(space.schema)
 
   const churnConstraint = (rawConfig: unknown) =>
     Effect.sync(() =>
       decodeConfig(rawConfig).pipe(
-        Either.match({
-          onLeft: () => 1,
-          onRight: (config) => Num.subtract(churnRisk(config), 0.24)
+        Result.match({
+          onFailure: () => 1,
+          onSuccess: (config) => Num.subtract(churnRisk(config), 0.24)
         })
       )
     )
@@ -106,24 +106,28 @@ const program = Effect.gen(function*() {
   const latencyConstraint = (rawConfig: unknown) =>
     Effect.sync(() =>
       decodeConfig(rawConfig).pipe(
-        Either.match({
-          onLeft: () => 1,
-          onRight: (config) => Num.subtract(p95LatencyMs(config), 260)
+        Result.match({
+          onFailure: () => 1,
+          onSuccess: (config) => Num.subtract(p95LatencyMs(config), 260)
         })
       )
     )
 
-  const result = yield* Optimization.maximize({
-    space,
-    sampler: Sampler.tpe({
-      seed: 2801,
-      nStartupTrials: 12,
-      multivariate: true,
-      constraints: Arr.make(churnConstraint, latencyConstraint)
-    }),
-    trials: 70,
-    objective: (config) => Effect.succeed(businessLiftScore(config))
-  })
+  const result = yield* Optimization.maximize(
+    new Optimization.FlatOptions({
+      space,
+      sampler: Sampler.tpe(
+        new Sampler.TpeOptions({
+          seed: 2801,
+          nStartupTrials: 12,
+          multivariate: true,
+          constraints: Arr.make(churnConstraint, latencyConstraint)
+        })
+      ),
+      trials: 70,
+      objective: (config) => Effect.succeed(businessLiftScore(config))
+    })
+  )
 
   yield* Match.value(result).pipe(
     Match.tag(
@@ -137,8 +141,8 @@ const program = Effect.gen(function*() {
           churnRisk: churnRisk(bestTrial.config),
           p95LatencyMs: p95LatencyMs(bestTrial.config),
           feasible: Bool.and(
-            Num.lessThanOrEqualTo(churnRisk(bestTrial.config), 0.24),
-            Num.lessThanOrEqualTo(p95LatencyMs(bestTrial.config), 260)
+            Num.isLessThanOrEqualTo(churnRisk(bestTrial.config), 0.24),
+            Num.isLessThanOrEqualTo(p95LatencyMs(bestTrial.config), 260)
           )
         })
     ),

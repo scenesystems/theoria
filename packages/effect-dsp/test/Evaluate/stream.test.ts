@@ -1,7 +1,6 @@
 /**
  * Evaluate.stream contracts.
  */
-import * as LanguageModel from "@effect/ai/LanguageModel"
 import { describe, expect, it } from "@effect/vitest"
 import * as Evaluate from "@scenesystems/effect-dsp/Evaluate"
 import { Example } from "@scenesystems/effect-dsp/Example"
@@ -9,7 +8,8 @@ import * as Metric from "@scenesystems/effect-dsp/Metric"
 import * as MockLanguageModel from "@scenesystems/effect-dsp/MockLanguageModel"
 import * as Module from "@scenesystems/effect-dsp/Module"
 import * as Signature from "@scenesystems/effect-dsp/Signature"
-import { Array as Arr, Chunk, Effect, Layer, Option, Schema, Stream } from "effect"
+import { Array as Arr, Effect, Layer, Option, Schema, Stream } from "effect"
+import * as LanguageModel from "effect/ai/LanguageModel"
 
 const makeQaSignature = () =>
   Signature.make(
@@ -31,7 +31,7 @@ describe("Evaluate.stream", () => {
         MockLanguageModel.succeed({ answer: "Paris" })
       )
       const layer = Layer.succeed(LanguageModel.LanguageModel, mock.service)
-      const options = {
+      const options = new Evaluate.Options({
         module,
         examples: [
           new Example({
@@ -50,7 +50,7 @@ describe("Evaluate.stream", () => {
           exact: Metric.exactMatch("answer")
         },
         concurrency: 2
-      }
+      })
 
       const report = yield* Evaluate.run(options).pipe(
         Effect.provide(layer)
@@ -59,7 +59,7 @@ describe("Evaluate.stream", () => {
         Stream.runCollect,
         Effect.provide(layer)
       )
-      const events = Chunk.toReadonlyArray(eventsChunk)
+      const events = eventsChunk
       const counts = Arr.reduce(
         events,
         { started: 0, completed: 0, failed: 0, finished: 0 },

@@ -5,11 +5,12 @@
  * @see {@link https://arxiv.org/abs/2507.19457 | Agrawal et al., "GEPA: Reflective Prompt Evolution Can Outperform Reinforcement Learning", 2025}
  * @since 0.1.0
  */
-import { Array as Arr, Boolean as Bool, Match, Number as Num, Option, Schema, String as Str } from "effect"
+import * as Numeric from "@scenesystems/effect-math/Numeric"
+import { Array as Arr, Boolean as Bool, Match, Number as Num, Option, String as Str } from "effect"
 import { PredictorInstruction, type PredictorInstructions } from "../model.js"
 import type { MergePredictorInstructionsOptions } from "./model.js"
 
-const isNonNaN = Schema.is(Schema.NonNaN)
+const isNonNaN = Numeric.isFinite
 
 const instructionForPredictor = (
   instructions: PredictorInstructions,
@@ -55,7 +56,7 @@ const chooseMergedInstruction = (
       Match.value(
         Bool.match(Bool.and(isNonNaN(parentAScore), isNonNaN(parentBScore)), {
           onFalse: () => false,
-          onTrue: () => Num.greaterThanOrEqualTo(parentAScore, parentBScore)
+          onTrue: () => Num.isGreaterThanOrEqualTo(parentAScore, parentBScore)
         })
       ).pipe(
         Match.when(true, () => state.parentAInstruction),

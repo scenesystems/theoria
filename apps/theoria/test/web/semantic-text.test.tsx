@@ -71,7 +71,7 @@ const waitForProjectedLines = (
   waitForValue(() => Option.liftPredicate(renderedLineSpans(container), (spans) => accept(spans.length)))
 
 const paragraphOf = (container: HTMLDivElement): Effect.Effect<HTMLParagraphElement> =>
-  waitForValue(() => Option.fromNullable(container.querySelector("p")))
+  waitForValue(() => Option.fromNullishOr(container.querySelector("p")))
 
 function withRenderedSemanticText<A>(
   width: number,
@@ -137,7 +137,7 @@ describe("SemanticText", () => {
       />,
       (container) =>
         Effect.gen(function*() {
-          const heading = yield* waitForValue(() => Option.fromNullable(container.querySelector("h3")))
+          const heading = yield* waitForValue(() => Option.fromNullishOr(container.querySelector("h3")))
 
           expect(heading.textContent).toBe("@scenesystems/effect-inference")
         })

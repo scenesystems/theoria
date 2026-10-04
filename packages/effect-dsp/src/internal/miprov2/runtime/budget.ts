@@ -10,26 +10,26 @@ import { normalizeDeterministicSeed } from "@scenesystems/effect-search/Sampler"
 import { Match, Number as Num, Option, Schema } from "effect"
 
 const Phase3TrialBudgetOptions = Schema.Struct({
-  predictorCount: Schema.Number,
-  demoCandidateCount: Schema.Number,
-  instructionCandidateCount: Schema.Number,
-  minimum: Schema.optional(Schema.Number)
+  predictorCount: Schema.Finite,
+  demoCandidateCount: Schema.Finite,
+  instructionCandidateCount: Schema.Finite,
+  minimum: Schema.optional(Schema.Finite)
 })
 
 type Phase3TrialBudgetOptions = typeof Phase3TrialBudgetOptions.Type
 
 const Phase3CadenceOptions = Schema.Struct({
-  seed: Schema.optional(Schema.Number),
-  minibatchSize: Schema.optional(Schema.Number),
-  fullEvalEvery: Schema.optional(Schema.Number)
+  seed: Schema.optional(Schema.Finite),
+  minibatchSize: Schema.optional(Schema.Finite),
+  fullEvalEvery: Schema.optional(Schema.Finite)
 })
 
 type Phase3CadenceOptions = typeof Phase3CadenceOptions.Type
 
 const Phase3Cadence = Schema.Struct({
-  seed: Schema.Number,
-  minibatchSize: Schema.Number,
-  fullEvalEvery: Schema.Number
+  seed: Schema.Finite,
+  minibatchSize: Schema.Finite,
+  fullEvalEvery: Schema.Finite
 })
 
 type Phase3Cadence = typeof Phase3Cadence.Type
@@ -48,7 +48,7 @@ export const normalizePositive = (value: number, fallback: number): number => {
   )
 
   return Match.value(integer).pipe(
-    Match.when(Num.lessThanOrEqualTo(0), () => fallback),
+    Match.when(Num.isLessThanOrEqualTo(0), () => fallback),
     Match.orElse((candidate) => candidate)
   )
 }
@@ -77,7 +77,7 @@ export const phase3TrialBudget = (options: Phase3TrialBudgetOptions): number => 
   const explorationBudget = Num.multiply(Num.multiply(3, safeCandidateCount), 0.5)
 
   return Numeric.max(
-    normalizePositive(Option.getOrElse(Option.fromNullable(options.minimum), () => 1), 1),
+    normalizePositive(Option.getOrElse(Option.fromNullishOr(options.minimum), () => 1), 1),
     Numeric.ceil(Numeric.max(logarithmicBudget, explorationBudget))
   )
 }
@@ -93,7 +93,7 @@ export const phase3TrialBudget = (options: Phase3TrialBudgetOptions): number => 
  * @category utils
  */
 export const resolvePhase3Cadence = (options: Phase3CadenceOptions): Phase3Cadence => ({
-  seed: normalizeDeterministicSeed(Option.getOrElse(Option.fromNullable(options.seed), () => 1)),
-  minibatchSize: normalizePositive(Option.getOrElse(Option.fromNullable(options.minibatchSize), () => 50), 1),
-  fullEvalEvery: normalizePositive(Option.getOrElse(Option.fromNullable(options.fullEvalEvery), () => 5), 1)
+  seed: normalizeDeterministicSeed(Option.getOrElse(Option.fromNullishOr(options.seed), () => 1)),
+  minibatchSize: normalizePositive(Option.getOrElse(Option.fromNullishOr(options.minibatchSize), () => 50), 1),
+  fullEvalEvery: normalizePositive(Option.getOrElse(Option.fromNullishOr(options.fullEvalEvery), () => 5), 1)
 })

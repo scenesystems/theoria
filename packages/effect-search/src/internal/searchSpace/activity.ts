@@ -11,7 +11,7 @@ import type { Parameter, SearchSpace } from "../../SearchSpace.js"
 
 const conditionSatisfied = (config: unknown, condition: Condition): boolean =>
   Match.value(config).pipe(
-    Match.when(Predicate.isRecord, (record) =>
+    Match.when(Predicate.isObject, (record) =>
       Option.match(Record.get(record, condition.dimension), {
         onNone: () => false,
         onSome: (value) => Equal.equals(value, condition.equals)

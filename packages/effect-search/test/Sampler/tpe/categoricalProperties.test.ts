@@ -1,5 +1,5 @@
 import { describe, expect, it } from "@effect/vitest"
-import { Array as Arr, Effect, FastCheck as fc, Number as Num, Option } from "effect"
+import { Arbitrary, Array as Arr, Effect, Number as Num, Option, Schema } from "effect"
 
 import { buildCategoricalParzen } from "../../../src/internal/tpe/categoricalParzen.js"
 
@@ -14,8 +14,14 @@ describe("property tests for categorical parzen", () => {
   it.effect.prop(
     "always produces normalized positive distributions",
     {
-      choices: fc.uniqueArray(fc.string({ minLength: 1, maxLength: 6 }), { minLength: 1, maxLength: 5 }),
-      observationIndices: fc.array(fc.integer({ min: 0, max: 1_000 }), { maxLength: 50 })
+      choices: Arbitrary.schema(
+        Schema.UniqueArray(Schema.String.check(Schema.isMinLength(1), Schema.isMaxLength(6)))
+          .check(Schema.isMinLength(1), Schema.isMaxLength(5))
+      ),
+      observationIndices: Arbitrary.array(
+        Arbitrary.schema(Schema.Int.check(Schema.isBetween({ minimum: 0, maximum: 1_000 }))),
+        { maxLength: 50 }
+      )
     },
     ({ choices, observationIndices }) =>
       Effect.gen(function*() {

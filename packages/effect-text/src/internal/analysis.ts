@@ -26,47 +26,47 @@ export const zeroWidthSpace = "\u200b"
 const tab = "\t"
 const lineFeed = "\n"
 
-const isRtlCharacter = Schema.is(Schema.String.pipe(Schema.pattern(/[\u0590-\u08ff\uFB1D-\uFDFD\uFE70-\uFEFC]/u)))
-const isStrongCharacter = Schema.is(Schema.String.pipe(Schema.pattern(/\p{Letter}|\p{Number}/u)))
-const isLetter = Schema.is(Schema.String.pipe(Schema.pattern(/\p{Letter}/u)))
-const isNumber = Schema.is(Schema.String.pipe(Schema.pattern(/\p{Number}/u)))
-const isExtendedPictographic = Schema.is(Schema.String.pipe(Schema.pattern(/\p{Extended_Pictographic}/u)))
+const isRtlCharacter = Schema.is(Schema.String.check(Schema.isPattern(/[\u0590-\u08ff\uFB1D-\uFDFD\uFE70-\uFEFC]/u)))
+const isStrongCharacter = Schema.is(Schema.String.check(Schema.isPattern(/\p{Letter}|\p{Number}/u)))
+const isLetter = Schema.is(Schema.String.check(Schema.isPattern(/\p{Letter}/u)))
+const isNumber = Schema.is(Schema.String.check(Schema.isPattern(/\p{Number}/u)))
+const isExtendedPictographic = Schema.is(Schema.String.check(Schema.isPattern(/\p{Extended_Pictographic}/u)))
 const isRegionalIndicatorPair = Schema.is(
-  Schema.String.pipe(Schema.pattern(/^\p{Regional_Indicator}{2}$/u))
+  Schema.String.check(Schema.isPattern(/^\p{Regional_Indicator}{2}$/u))
 )
-const isKeycapSequence = Schema.is(Schema.String.pipe(Schema.pattern(/^[#*0-9]\uFE0F?\u20E3$/u)))
+const isKeycapSequence = Schema.is(Schema.String.check(Schema.isPattern(/^[#*0-9]\uFE0F?\u20E3$/u)))
 const isEmoji = (cluster: string): boolean =>
   Boolean.or(
     isExtendedPictographic(cluster),
     Boolean.or(isRegionalIndicatorPair(cluster), isKeycapSequence(cluster))
   )
 const isCjkScript = Schema.is(
-  Schema.String.pipe(Schema.pattern(/[\p{Script=Han}\p{Script=Hiragana}\p{Script=Katakana}\p{Script=Hangul}]/u))
+  Schema.String.check(Schema.isPattern(/[\p{Script=Han}\p{Script=Hiragana}\p{Script=Katakana}\p{Script=Hangul}]/u))
 )
 const isNoSpaceScript = Schema.is(
-  Schema.String.pipe(Schema.pattern(/[\p{Script=Thai}\p{Script=Lao}\p{Script=Khmer}\p{Script=Myanmar}]/u))
+  Schema.String.check(Schema.isPattern(/[\p{Script=Thai}\p{Script=Lao}\p{Script=Khmer}\p{Script=Myanmar}]/u))
 )
 const isOpeningPunctuation = Schema.is(
-  Schema.String.pipe(
-    Schema.pattern(/^[([{\u2018\u201C\u00AB\u2039\u3008\u300A\u300C\u300E\u3010\u3014\uFF08\uFF3B\uFF5B]+$/u)
+  Schema.String.check(
+    Schema.isPattern(/^[([{\u2018\u201C\u00AB\u2039\u3008\u300A\u300C\u300E\u3010\u3014\uFF08\uFF3B\uFF5B]+$/u)
   )
 )
 const isClosingPunctuation = Schema.is(
-  Schema.String.pipe(
-    Schema.pattern(
+  Schema.String.check(
+    Schema.isPattern(
       /^[)\]}\u2019\u201D\u00BB\u203A\u3001\u3002\u3009\u300B\u300D\u300F\u3011\u3015\uFF09\uFF3D\uFF5D\uFF0C\uFF0E!?;,.:]+$/u
     )
   )
 )
-const isRunConnector = Schema.is(Schema.String.pipe(Schema.pattern(/^[-._~,/:@?&=#%+]+$/u)))
+const isRunConnector = Schema.is(Schema.String.check(Schema.isPattern(/^[-._~,/:@?&=#%+]+$/u)))
 
 /** Internal logical direction classification used by preparation and bidi projection. */
-export const TextDirection = Schema.Union(Schema.suspend(() => Text.Direction), Schema.Literal("neutral"))
+export const TextDirection = Schema.Union([Schema.suspend(() => Text.Direction), Schema.Literal("neutral")])
 
 /** Internal logical direction classification used by preparation and bidi projection. */
 export type TextDirection = typeof TextDirection.Type
 
-const WhitespaceTokenKind = Schema.Literal("space", "tab")
+const WhitespaceTokenKind = Schema.Literals(["space", "tab"])
 
 /** Grouped spaces or one tab emitted for preparation-time measurement. */
 export class WhitespaceToken extends Data.Class<{
@@ -80,7 +80,7 @@ export class SoftHyphenPiece extends Data.Class<{
   readonly text: string
 }> {}
 
-const TextBreakClass = Schema.Literal(
+const TextBreakClass = Schema.Literals([
   "alphabetic",
   "cjk",
   "closing-punctuation",
@@ -92,7 +92,7 @@ const TextBreakClass = Schema.Literal(
   "other",
   "soft-hyphen",
   "zero-width-break"
-)
+])
 type TextBreakClass = typeof TextBreakClass.Type
 
 type AtomicToken = Data.TaggedEnum<{
@@ -301,7 +301,7 @@ const groupAdjacent = <A>(
   })
 
 const textSegmentsFromAtoms = (atoms: TextAtomicTokens): SegmentChunk => {
-  const grouped = Tuple.getSecond(Chunk.mapAccum<TextGroupingCursor, TextAtomicToken, GroupedTextAtomicToken>(
+  const accumulated = Chunk.mapAccum(
     atoms,
     new TextGroupingCursor({ group: 0, index: 0 }),
     (cursor, token) => {
@@ -319,7 +319,8 @@ const textSegmentsFromAtoms = (atoms: TextAtomicTokens): SegmentChunk => {
         new GroupedTextAtomicToken({ group: nextGroup, token })
       )
     }
-  ))
+  )
+  const grouped = Tuple.get(accumulated, 1)
   return Chunk.map(
     groupAdjacent(grouped, (self, that) => Number.Equivalence(self.group, that.group)),
     (group) => textSegment(Chunk.join(Chunk.map(group, (item) => item.token.text), ""))
@@ -443,7 +444,7 @@ export const splitSoftHyphenPieces = (text: string): SoftHyphenPieces => {
     Chunk.map(
       parts,
       (part, index) =>
-        new SoftHyphenPiece({ breakAfter: Number.lessThan(index, Number.decrement(parts.length)), text: part })
+        new SoftHyphenPiece({ breakAfter: Number.isLessThan(index, Number.decrement(parts.length)), text: part })
     ),
     (piece) => String.isNonEmpty(piece.text)
   )

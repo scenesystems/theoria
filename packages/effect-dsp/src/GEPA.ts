@@ -23,6 +23,9 @@ import {
   Stream,
   String
 } from "effect"
+import type * as AiError from "effect/ai/AiError"
+import type * as LanguageModel from "effect/ai/LanguageModel"
+import type { DspError } from "./DspError.js"
 import { Example } from "./Example.js"
 import { deriveParetoKernelSnapshot } from "./internal/gepa/frontier.js"
 import { GEPAState, PredictorInstruction, ProgramCandidate } from "./internal/gepa/model.js"
@@ -76,46 +79,46 @@ export class Options<
  * @since 0.1.0
  * @category events
  */
-export const Event = Schema.Union(
-  Schema.TaggedStruct("IterationStarted", { iteration: Schema.Number, frontierSize: Schema.Number }),
+export const Event = Schema.Union([
+  Schema.TaggedStruct("IterationStarted", { iteration: Schema.Finite, frontierSize: Schema.Finite }),
   Schema.TaggedStruct("MergeChecked", {
-    iteration: Schema.Number,
+    iteration: Schema.Finite,
     attempted: Schema.Boolean,
     accepted: Schema.Boolean,
-    mergeBudgetRemaining: Schema.Number
+    mergeBudgetRemaining: Schema.Finite
   }),
   Schema.TaggedStruct("MutationProposed", {
-    iteration: Schema.Number,
+    iteration: Schema.Finite,
     parentId: Schema.String,
     mutatedCandidateId: Schema.String,
     predictorName: Schema.String,
     instruction: Schema.String
   }),
   Schema.TaggedStruct("AcceptanceEvaluated", {
-    iteration: Schema.Number,
+    iteration: Schema.Finite,
     accepted: Schema.Boolean,
     gate1Passed: Schema.Boolean,
     fullValsetEvaluated: Schema.Boolean,
-    previousSubsampleSum: Schema.Number,
-    mutatedSubsampleSum: Schema.Number
+    previousSubsampleSum: Schema.Finite,
+    mutatedSubsampleSum: Schema.Finite
   }),
   Schema.TaggedStruct("ParetoUpdated", {
-    iteration: Schema.Number,
-    frontierIndices: Schema.Array(Schema.Number),
-    dominatedIndices: Schema.Array(Schema.Number),
-    parentWeights: Schema.Array(Schema.Struct({ candidateIndex: Schema.Number, weight: Schema.Number }))
+    iteration: Schema.Finite,
+    frontierIndices: Schema.Array(Schema.Finite),
+    dominatedIndices: Schema.Array(Schema.Finite),
+    parentWeights: Schema.Array(Schema.Struct({ candidateIndex: Schema.Finite, weight: Schema.Finite }))
   }),
   Schema.TaggedStruct("IterationCompleted", {
-    iteration: Schema.Number,
+    iteration: Schema.Finite,
     acceptedCandidate: Schema.Boolean,
-    frontierSize: Schema.Number
+    frontierSize: Schema.Finite
   }),
   Schema.TaggedStruct("OptimizationCompleted", {
-    iterations: Schema.Number,
+    iterations: Schema.Finite,
     bestCandidateId: Schema.String,
-    frontierSize: Schema.Number
+    frontierSize: Schema.Finite
   })
-)
+])
 
 /** GEPA lifecycle event.
  * @since 0.1.0
@@ -148,7 +151,7 @@ export const defaultMaxMergeInvocations = 5
  * @category models
  */
 export class ProgressLine extends Schema.Class<ProgressLine>("@scenesystems/effect-dsp/GEPA/ProgressLine")({
-  tag: Schema.typeSchema(Schema.pluck(Event, "_tag")),
+  tag: Schema.String,
   details: Schema.String,
   text: Schema.String
 }) {}
@@ -245,25 +248,25 @@ export const tapProgress =
  * @category models
  */
 export class EventSummary extends Schema.Class<EventSummary>("@scenesystems/effect-dsp/GEPA/EventSummary")({
-  totalEvents: Schema.Number,
-  iterationStartedCount: Schema.Number,
-  mergeCheckedCount: Schema.Number,
-  mutationProposedCount: Schema.Number,
-  acceptanceEvaluatedCount: Schema.Number,
-  acceptanceAcceptedCount: Schema.Number,
-  gate1PassedCount: Schema.Number,
-  fullValsetEvaluatedCount: Schema.Number,
-  paretoUpdatedCount: Schema.Number,
-  iterationCompletedCount: Schema.Number,
-  iterationWithAcceptedCandidateCount: Schema.Number,
+  totalEvents: Schema.Finite,
+  iterationStartedCount: Schema.Finite,
+  mergeCheckedCount: Schema.Finite,
+  mutationProposedCount: Schema.Finite,
+  acceptanceEvaluatedCount: Schema.Finite,
+  acceptanceAcceptedCount: Schema.Finite,
+  gate1PassedCount: Schema.Finite,
+  fullValsetEvaluatedCount: Schema.Finite,
+  paretoUpdatedCount: Schema.Finite,
+  iterationCompletedCount: Schema.Finite,
+  iterationWithAcceptedCandidateCount: Schema.Finite,
   optimizationCompletedSeen: Schema.Boolean,
-  optimizationIterationCount: Schema.Number,
+  optimizationIterationCount: Schema.Finite,
   optimizationBestCandidateIdSeen: Schema.Boolean,
   optimizationBestCandidateId: Schema.String,
-  optimizationFrontierSize: Schema.Number,
-  lastReportedFrontierSize: Schema.Number,
-  maxFrontierSize: Schema.Number,
-  parentWeightEntriesObserved: Schema.Number
+  optimizationFrontierSize: Schema.Finite,
+  lastReportedFrontierSize: Schema.Finite,
+  maxFrontierSize: Schema.Finite,
+  parentWeightEntriesObserved: Schema.Finite
 }) {}
 const emptySummary = new EventSummary({
   totalEvents: 0,
@@ -292,22 +295,32 @@ const emptySummary = new EventSummary({
  */
 export const summarizeEvents = (input: Iterable<Event>): EventSummary =>
   Arr.reduce(input, emptySummary, (summary, event) => {
-    const next = new EventSummary({ ...summary, totalEvents: Num.increment(summary.totalEvents) })
+    const next = new EventSummary({
+      ...(Schema.encodeSync(EventSummary)(summary)),
+      totalEvents: Num.increment(summary.totalEvents)
+    })
     return Match.value(event).pipe(
       Match.tagsExhaustive({
         IterationStarted: ({ frontierSize }) =>
           new EventSummary({
-            ...next,
+            ...(Schema.encodeSync(EventSummary)(next)),
             iterationStartedCount: Num.increment(next.iterationStartedCount),
             lastReportedFrontierSize: frontierSize,
             maxFrontierSize: Num.max(next.maxFrontierSize, frontierSize)
           }),
-        MergeChecked: () => new EventSummary({ ...next, mergeCheckedCount: Num.increment(next.mergeCheckedCount) }),
+        MergeChecked: () =>
+          new EventSummary({
+            ...(Schema.encodeSync(EventSummary)(next)),
+            mergeCheckedCount: Num.increment(next.mergeCheckedCount)
+          }),
         MutationProposed: () =>
-          new EventSummary({ ...next, mutationProposedCount: Num.increment(next.mutationProposedCount) }),
+          new EventSummary({
+            ...(Schema.encodeSync(EventSummary)(next)),
+            mutationProposedCount: Num.increment(next.mutationProposedCount)
+          }),
         AcceptanceEvaluated: ({ accepted, gate1Passed, fullValsetEvaluated }) =>
           new EventSummary({
-            ...next,
+            ...(Schema.encodeSync(EventSummary)(next)),
             acceptanceEvaluatedCount: Num.increment(next.acceptanceEvaluatedCount),
             acceptanceAcceptedCount: Num.sum(
               next.acceptanceAcceptedCount,
@@ -324,7 +337,7 @@ export const summarizeEvents = (input: Iterable<Event>): EventSummary =>
           }),
         ParetoUpdated: ({ frontierIndices, parentWeights }) =>
           new EventSummary({
-            ...next,
+            ...(Schema.encodeSync(EventSummary)(next)),
             paretoUpdatedCount: Num.increment(next.paretoUpdatedCount),
             lastReportedFrontierSize: Arr.length(frontierIndices),
             maxFrontierSize: Num.max(next.maxFrontierSize, Arr.length(frontierIndices)),
@@ -332,7 +345,7 @@ export const summarizeEvents = (input: Iterable<Event>): EventSummary =>
           }),
         IterationCompleted: ({ acceptedCandidate, frontierSize }) =>
           new EventSummary({
-            ...next,
+            ...(Schema.encodeSync(EventSummary)(next)),
             iterationCompletedCount: Num.increment(next.iterationCompletedCount),
             iterationWithAcceptedCandidateCount: Num.sum(
               next.iterationWithAcceptedCandidateCount,
@@ -343,7 +356,7 @@ export const summarizeEvents = (input: Iterable<Event>): EventSummary =>
           }),
         OptimizationCompleted: ({ iterations, bestCandidateId, frontierSize }) =>
           new EventSummary({
-            ...next,
+            ...(Schema.encodeSync(EventSummary)(next)),
             optimizationCompletedSeen: true,
             optimizationIterationCount: iterations,
             optimizationBestCandidateIdSeen: true,
@@ -419,67 +432,83 @@ export const runWithEvents = <
         paretoSnapshot: initialSnapshot,
         mergeBudgetRemaining: normalizeNonNegativeCount(
           Option.getOrElse(
-            Option.fromNullable(options.maxMergeInvocations),
+            Option.fromUndefinedOr(options.maxMergeInvocations),
             () => defaultMaxMergeInvocations
           )
         ),
         lastIterationFoundNew: false,
-        seed: normalizeDeterministicSeed(Option.getOrElse(Option.fromNullable(options.seed), () => 1))
+        seed: normalizeDeterministicSeed(Option.getOrElse(Option.fromUndefinedOr(options.seed), () => 1))
       })
     )
 
-    yield* Effect.iterate(1, {
-      while: (iteration) => Num.lessThanOrEqualTo(iteration, normalizeNonNegativeCount(options.maxIterations)),
-      body: (iteration) =>
-        Effect.gen(function*() {
-          const state = yield* Ref.get(stateRef)
-          const mergeSeed = state.seed
-          const mutationSeed = nextDeterministicSeed(mergeSeed)
+    const runIteration = (iteration: number): Effect.Effect<
+      void,
+      E | ME | EE | AiError.AiError | DspError | Schema.SchemaError,
+      | R
+      | MR
+      | ER
+      | LanguageModel.LanguageModel
+      | Schema.Struct.DecodingServices<I>
+      | Schema.Struct.EncodingServices<I>
+      | Schema.Struct.DecodingServices<O>
+      | Schema.Struct.EncodingServices<O>
+    > =>
+      Effect.suspend(() =>
+        Boolean.match(
+          Num.isLessThanOrEqualTo(iteration, normalizeNonNegativeCount(options.maxIterations)),
+          {
+            onFalse: () => Effect.void,
+            onTrue: () =>
+              Effect.gen(function*() {
+                const state = yield* Ref.get(stateRef)
+                const mergeSeed = state.seed
+                const mutationSeed = nextDeterministicSeed(mergeSeed)
 
-          yield* emit(
-            events.IterationStarted({ iteration, frontierSize: Arr.length(state.paretoSnapshot.frontierIndices) })
-          )
+                yield* emit(
+                  events.IterationStarted({ iteration, frontierSize: Arr.length(state.paretoSnapshot.frontierIndices) })
+                )
 
-          const stateAfterMerge = yield* runMergePhase(options, state, iteration, mergeSeed, emit)
-          const mutationResult = yield* runMutationPhase(
-            options,
-            stateAfterMerge,
-            iteration,
-            mutationSeed,
-            initialCandidate,
-            emit
-          )
-          const updatedSnapshot = deriveParetoKernelSnapshot(mutationResult.stateAfterAcceptance.scoreVectors)
-          const nextState = new GEPAState({
-            iteration,
-            candidates: mutationResult.stateAfterAcceptance.candidates,
-            scoreVectors: mutationResult.stateAfterAcceptance.scoreVectors,
-            paretoSnapshot: updatedSnapshot,
-            mergeBudgetRemaining: mutationResult.stateAfterAcceptance.mergeBudgetRemaining,
-            lastIterationFoundNew: mutationResult.stateAfterAcceptance.lastIterationFoundNew,
-            seed: nextDeterministicSeed(mutationSeed)
-          })
+                const stateAfterMerge = yield* runMergePhase(options, state, iteration, mergeSeed, emit)
+                const mutationResult = yield* runMutationPhase(
+                  options,
+                  stateAfterMerge,
+                  iteration,
+                  mutationSeed,
+                  initialCandidate,
+                  emit
+                )
+                const updatedSnapshot = deriveParetoKernelSnapshot(mutationResult.stateAfterAcceptance.scoreVectors)
+                const nextState = new GEPAState({
+                  iteration,
+                  candidates: mutationResult.stateAfterAcceptance.candidates,
+                  scoreVectors: mutationResult.stateAfterAcceptance.scoreVectors,
+                  paretoSnapshot: updatedSnapshot,
+                  mergeBudgetRemaining: mutationResult.stateAfterAcceptance.mergeBudgetRemaining,
+                  lastIterationFoundNew: mutationResult.stateAfterAcceptance.lastIterationFoundNew,
+                  seed: nextDeterministicSeed(mutationSeed)
+                })
 
-          yield* Ref.set(stateRef, nextState)
-          yield* emit(
-            events.ParetoUpdated({
-              iteration,
-              frontierIndices: updatedSnapshot.frontierIndices,
-              dominatedIndices: updatedSnapshot.dominatedIndices,
-              parentWeights: updatedSnapshot.parentWeights
-            })
-          )
-          yield* emit(
-            events.IterationCompleted({
-              iteration,
-              acceptedCandidate: mutationResult.accepted,
-              frontierSize: Arr.length(updatedSnapshot.frontierIndices)
-            })
-          )
-
-          return Num.increment(iteration)
-        })
-    })
+                yield* Ref.set(stateRef, nextState)
+                yield* emit(
+                  events.ParetoUpdated({
+                    iteration,
+                    frontierIndices: updatedSnapshot.frontierIndices,
+                    dominatedIndices: updatedSnapshot.dominatedIndices,
+                    parentWeights: updatedSnapshot.parentWeights
+                  })
+                )
+                yield* emit(
+                  events.IterationCompleted({
+                    iteration,
+                    acceptedCandidate: mutationResult.accepted,
+                    frontierSize: Arr.length(updatedSnapshot.frontierIndices)
+                  })
+                )
+              }).pipe(Effect.flatMap(() => runIteration(Num.increment(iteration))))
+          }
+        )
+      )
+    yield* runIteration(1)
 
     const finalState = yield* Ref.get(stateRef)
     const bestIndex = Option.getOrElse(Arr.head(finalState.paretoSnapshot.frontierIndices), () => 0)

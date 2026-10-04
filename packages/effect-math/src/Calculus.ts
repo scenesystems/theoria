@@ -14,15 +14,17 @@ import * as Ridder from "./internal/calculus/ridderUnivariate.js"
 import * as PolicyGuard from "./internal/policyGuard.js"
 import * as Numeric from "./Numeric.js"
 
-const finite = Schema.Number.pipe(Schema.finite())
-const positiveGreaterThanOne = finite.pipe(Schema.greaterThan(1))
-const point = Schema.Struct({ point: Schema.NonEmptyChunk(finite) })
+const finite = Schema.Number.check(Schema.isFinite())
+const positiveGreaterThanOne = finite.check(Schema.isGreaterThan(1))
+const point = Schema.Struct({
+  point: Schema.toCodecJson(Schema.Chunk(finite)).check(Schema.makeFilter<Chunk.Chunk<number>>(Chunk.isNonEmpty))
+})
 const defaultComplexStep = Schema.decodeSync(Numeric.StepSize)(1e-20)
-const encodeBoolean = Schema.encodeSync(Schema.BooleanFromString)
-const encodeNumber = Schema.encodeSync(Schema.NumberFromString)
-const sampledValues = Schema.Chunk(finite).pipe(
-  Schema.filter((values) =>
-    Boolean.match(Number.greaterThanOrEqualTo(Chunk.size(values), 2), {
+const encodeBoolean = (value: boolean) => Boolean.match(value, { onFalse: () => "false", onTrue: () => "true" })
+const encodeNumber = String.String
+const sampledValues = Schema.toCodecJson(Schema.Chunk(finite)).check(
+  Schema.makeFilter((values) =>
+    Boolean.match(Number.isGreaterThanOrEqualTo(Chunk.size(values), 2), {
       onTrue: () => true,
       onFalse: () => "Expected at least two sampled values"
     })
@@ -43,7 +45,7 @@ export const RidderMethodInput = Schema.Struct({
   relativeTolerance: Schema.optional(Numeric.RelativeTolerance),
   minimumStep: Schema.optional(Numeric.StepSize),
   safetyFactor: Schema.optional(positiveGreaterThanOne)
-}).annotations({ identifier: "@scenesystems/effect-math/Calculus/RidderMethodInput" })
+}).annotate({ identifier: "@scenesystems/effect-math/Calculus/RidderMethodInput" })
 
 /**
  * Ridder extrapolation controls with defaults applied by the solver.
@@ -61,10 +63,10 @@ export type RidderMethodInput = typeof RidderMethodInput.Type
  */
 export const DerivativeLimitEstimate = Schema.Struct({
   value: finite,
-  absoluteError: finite.pipe(Schema.nonNegative()),
+  absoluteError: finite.check(Schema.isGreaterThanOrEqualTo(0)),
   iterations: Numeric.IterationBudget,
   converged: Schema.Boolean
-}).annotations({ identifier: "@scenesystems/effect-math/Calculus/DerivativeLimitEstimate" })
+}).annotate({ identifier: "@scenesystems/effect-math/Calculus/DerivativeLimitEstimate" })
 
 /**
  * A derivative estimate with an error bound and refinement status.
@@ -80,10 +82,8 @@ export type DerivativeLimitEstimate = typeof DerivativeLimitEstimate.Type
  * @since 0.1.0
  * @category schemas
  */
-export const DerivativeInput = Schema.extend(
-  Schema.Struct({ x: finite }),
-  RidderMethodInput
-).annotations({ identifier: "@scenesystems/effect-math/Calculus/DerivativeInput" })
+export const DerivativeInput = Schema.Struct({ x: finite }).pipe(Schema.fieldsAssign(RidderMethodInput.fields))
+  .annotate({ identifier: "@scenesystems/effect-math/Calculus/DerivativeInput" })
 
 /**
  * Decoded first-derivative input.
@@ -99,10 +99,8 @@ export type DerivativeInput = typeof DerivativeInput.Type
  * @since 0.2.0
  * @category schemas
  */
-export const SecondDerivativeInput = Schema.extend(
-  Schema.Struct({ x: finite }),
-  RidderMethodInput
-).annotations({ identifier: "@scenesystems/effect-math/Calculus/SecondDerivativeInput" })
+export const SecondDerivativeInput = Schema.Struct({ x: finite }).pipe(Schema.fieldsAssign(RidderMethodInput.fields))
+  .annotate({ identifier: "@scenesystems/effect-math/Calculus/SecondDerivativeInput" })
 
 /**
  * Decoded second-derivative input.
@@ -120,8 +118,8 @@ export type SecondDerivativeInput = typeof SecondDerivativeInput.Type
  */
 export const ComplexStepInput = Schema.Struct({
   x: finite,
-  h: Schema.optionalWith(Numeric.StepSize, { default: () => defaultComplexStep })
-}).annotations({ identifier: "@scenesystems/effect-math/Calculus/ComplexStepInput" })
+  h: Numeric.StepSize.pipe(Schema.withDecodingDefaultType(Effect.succeed(defaultComplexStep)))
+}).annotate({ identifier: "@scenesystems/effect-math/Calculus/ComplexStepInput" })
 
 /**
  * Decoded complex-step differentiation input.
@@ -137,7 +135,7 @@ export type ComplexStepInput = typeof ComplexStepInput.Type
  * @since 0.1.0
  * @category schemas
  */
-export const TrapezoidInput = Schema.Struct({ values: sampledValues, dx: Numeric.StepSize }).annotations({
+export const TrapezoidInput = Schema.Struct({ values: sampledValues, dx: Numeric.StepSize }).annotate({
   identifier: "@scenesystems/effect-math/Calculus/TrapezoidInput"
 })
 
@@ -155,7 +153,7 @@ export type TrapezoidInput = typeof TrapezoidInput.Type
  * @since 0.1.0
  * @category schemas
  */
-export const SimpsonInput = Schema.Struct({ values: sampledValues, dx: Numeric.StepSize }).annotations({
+export const SimpsonInput = Schema.Struct({ values: sampledValues, dx: Numeric.StepSize }).annotate({
   identifier: "@scenesystems/effect-math/Calculus/SimpsonInput"
 })
 
@@ -179,7 +177,7 @@ export const AdaptiveSimpsonInput = Schema.Struct({
   absoluteTolerance: Schema.optional(Numeric.AbsoluteTolerance),
   relativeTolerance: Schema.optional(Numeric.RelativeTolerance),
   maxDepth: Schema.optional(Numeric.IterationBudget)
-}).annotations({ identifier: "@scenesystems/effect-math/Calculus/AdaptiveSimpsonInput" })
+}).annotate({ identifier: "@scenesystems/effect-math/Calculus/AdaptiveSimpsonInput" })
 
 /**
  * Decoded adaptive-Simpson input.
@@ -195,7 +193,7 @@ export type AdaptiveSimpsonInput = typeof AdaptiveSimpsonInput.Type
  * @since 0.2.0
  * @category schemas
  */
-export const GradientInput = Schema.extend(point, RidderMethodInput).annotations({
+export const GradientInput = point.pipe(Schema.fieldsAssign(RidderMethodInput.fields)).annotate({
   identifier: "@scenesystems/effect-math/Calculus/GradientInput"
 })
 
@@ -213,7 +211,7 @@ export type GradientInput = typeof GradientInput.Type
  * @since 0.2.0
  * @category schemas
  */
-export const JacobianInput = Schema.extend(point, RidderMethodInput).annotations({
+export const JacobianInput = point.pipe(Schema.fieldsAssign(RidderMethodInput.fields)).annotate({
   identifier: "@scenesystems/effect-math/Calculus/JacobianInput"
 })
 
@@ -231,7 +229,7 @@ export type JacobianInput = typeof JacobianInput.Type
  * @since 0.2.0
  * @category schemas
  */
-export const HessianInput = Schema.extend(point, RidderMethodInput).annotations({
+export const HessianInput = point.pipe(Schema.fieldsAssign(RidderMethodInput.fields)).annotate({
   identifier: "@scenesystems/effect-math/Calculus/HessianInput"
 })
 
@@ -249,10 +247,12 @@ export type HessianInput = typeof HessianInput.Type
  * @since 0.2.0
  * @category schemas
  */
-export const DirectionalDerivativeInput = Schema.extend(
-  Schema.Struct({ point: Schema.NonEmptyChunk(finite), direction: Schema.NonEmptyChunk(finite) }),
-  RidderMethodInput
-).annotations({ identifier: "@scenesystems/effect-math/Calculus/DirectionalDerivativeInput" })
+export const DirectionalDerivativeInput = Schema.Struct({
+  point: Schema.toCodecJson(Schema.Chunk(finite)).pipe(Schema.refine(Chunk.isNonEmpty)),
+  direction: Schema.toCodecJson(Schema.Chunk(finite)).pipe(Schema.refine(Chunk.isNonEmpty))
+}).pipe(Schema.fieldsAssign(RidderMethodInput.fields)).annotate({
+  identifier: "@scenesystems/effect-math/Calculus/DirectionalDerivativeInput"
+})
 
 /**
  * Decoded directional-derivative input.
@@ -268,7 +268,7 @@ export type DirectionalDerivativeInput = typeof DirectionalDerivativeInput.Type
  * @since 0.2.0
  * @category schemas
  */
-export const DivergenceInput = Schema.extend(point, RidderMethodInput).annotations({
+export const DivergenceInput = point.pipe(Schema.fieldsAssign(RidderMethodInput.fields)).annotate({
   identifier: "@scenesystems/effect-math/Calculus/DivergenceInput"
 })
 
@@ -286,7 +286,7 @@ export type DivergenceInput = typeof DivergenceInput.Type
  * @since 0.2.0
  * @category schemas
  */
-export const LaplacianInput = Schema.extend(point, RidderMethodInput).annotations({
+export const LaplacianInput = point.pipe(Schema.fieldsAssign(RidderMethodInput.fields)).annotate({
   identifier: "@scenesystems/effect-math/Calculus/LaplacianInput"
 })
 
@@ -369,8 +369,8 @@ const execute = <A>(operation: string, computation: () => A): Effect.Effect<A, N
     catch: (error) => new Numeric.ExecutionError({ operation, message: formatExecutionError(error) })
   })
 
-const decode = <A, I, R>(schema: Schema.Schema<A, I, R>, operation: string, input: unknown) =>
-  Schema.decodeUnknown(schema)(input, { onExcessProperty: "error" }).pipe(
+const decode = <A, I, R>(schema: Schema.Codec<A, I, R>, operation: string, input: unknown) =>
+  Schema.decodeUnknownEffect(schema)(input, { onExcessProperty: "error" }).pipe(
     Effect.mapError((error) => new DecodeError({ operation, message: error.message }))
   )
 
@@ -443,7 +443,7 @@ export const complexStep = (
   f: (z: Complex.Complex) => Complex.Complex,
   x: number,
   h: number = 1e-20
-): number => Number.unsafeDivide(f(Complex.make(x, h)).im, h)
+): number => Number.divideUnsafe(f(Complex.make(x, h)).im, h)
 
 /**
  * Integrates evenly spaced samples with the composite trapezoidal rule. Fewer
@@ -610,7 +610,7 @@ export const secondDerivativeValidated = (f: (x: number) => number, input: unkno
  */
 export const complexStepValidated = (f: (z: Complex.Complex) => Complex.Complex, input: unknown) =>
   Effect.gen(function*() {
-    const decoded = yield* Schema.decodeUnknown(ComplexStepInput)(input, { onExcessProperty: "error" }).pipe(
+    const decoded = yield* Schema.decodeUnknownEffect(ComplexStepInput)(input, { onExcessProperty: "error" }).pipe(
       Effect.mapError((error) => new DecodeError({ operation: "complexStep", message: error.message }))
     )
     return yield* execute("complexStep", () => complexStep(f, decoded.x, decoded.h))
@@ -968,9 +968,9 @@ export const adaptiveSimpsonWithPolicies = (
     (result) => ({
       a: encodeNumber(a),
       b: encodeNumber(b),
-      absoluteTolerance: encodeNumber(Option.getOrElse(Option.fromNullable(absoluteTolerance), () => 1e-10)),
-      relativeTolerance: encodeNumber(Option.getOrElse(Option.fromNullable(relativeTolerance), () => 1e-10)),
-      maxDepth: encodeNumber(Option.getOrElse(Option.fromNullable(maxDepth), () => 16)),
+      absoluteTolerance: encodeNumber(Option.getOrElse(Option.fromNullishOr(absoluteTolerance), () => 1e-10)),
+      relativeTolerance: encodeNumber(Option.getOrElse(Option.fromNullishOr(relativeTolerance), () => 1e-10)),
+      maxDepth: encodeNumber(Option.getOrElse(Option.fromNullishOr(maxDepth), () => 16)),
       result: encodeNumber(result)
     })
   )

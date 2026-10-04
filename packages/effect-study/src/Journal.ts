@@ -4,9 +4,8 @@
  * @since 0.1.0
  * @module
  */
-import { FileSystem, Path } from "@effect/platform"
-import type { PlatformError } from "@effect/platform/Error"
-import { Data, Effect, Match, Number as Num, ParseResult, Schema, Stream, String as Str } from "effect"
+import { Data, Effect, FileSystem, Match, Number as Num, Path, Schema, Semaphore, Stream, String as Str } from "effect"
+import type { PlatformError } from "effect/PlatformError"
 
 /**
  * Reports a journal codec or filesystem failure.
@@ -19,9 +18,9 @@ import { Data, Effect, Match, Number as Num, ParseResult, Schema, Stream, String
 export class Failure extends Schema.TaggedError<Failure>("@scenesystems/effect-study/Journal/Failure")(
   "effect-study/JournalError",
   {
-    operation: Schema.Literal("write", "read"),
+    operation: Schema.Union([Schema.Literal("write"), Schema.Literal("read")]),
     path: Schema.String,
-    line: Schema.optional(Schema.Positive.pipe(Schema.int())),
+    line: Schema.optional(Schema.Int.pipe(Schema.check(Schema.isGreaterThan(0)))),
     detail: Schema.String
   }
 ) {}
@@ -33,36 +32,36 @@ export class Failure extends Schema.TaggedError<Failure>("@scenesystems/effect-s
  * @since 0.1.0
  * @category models
  */
-export class Journal<A, I, R> extends Data.Class<{
+export class Journal<A, I, RD, RE> extends Data.Class<{
   readonly path: string
-  readonly schema: Schema.Schema<A, I, R>
-  readonly append: (entry: A) => Effect.Effect<void, Failure, R>
-  readonly read: Stream.Stream<A, Failure, R>
+  readonly schema: Schema.Codec<A, I, RD, RE>
+  readonly append: (entry: A) => Effect.Effect<void, Failure, RE>
+  readonly read: Stream.Stream<A, Failure, RD>
 }> {}
 
-const numberText = Schema.encodeSync(Schema.NumberFromString)
+const numberText = Schema.encodeSync(Schema.FiniteFromString)
 
 const storageFailure =
-  (operation: Failure["operation"], path: string) => (cause: PlatformError | ParseResult.ParseError): Failure =>
+  (operation: Failure["operation"], path: string) => (cause: PlatformError | Schema.SchemaError): Failure =>
     new Failure({ operation, path, detail: cause.message })
 
-const decodeFailure = (path: string, line: number) => (cause: ParseResult.ParseError): Failure =>
+const decodeFailure = (path: string, line: number) => (cause: Schema.SchemaError): Failure =>
   new Failure({
     operation: "read",
     path,
     line,
     detail: Str.concat(
       Str.concat(Str.concat("line ", numberText(line)), " is not a journal entry: "),
-      ParseResult.TreeFormatter.formatErrorSync(cause)
+      cause.message
     )
   })
 
-const readWith = <A, I, R>(
+const readWith = <A, I, RD, RE>(
   fileSystem: FileSystem.FileSystem,
-  schema: Schema.Schema<A, I, R>,
+  schema: Schema.Codec<A, I, RD, RE>,
   filePath: string
-): Stream.Stream<A, Failure, R> => {
-  const codec = Schema.parseJson(schema)
+): Stream.Stream<A, Failure, RD> => {
+  const codec = Schema.fromJsonString(schema)
   return Stream.unwrap(
     fileSystem.exists(filePath).pipe(
       Effect.mapError(storageFailure("read", filePath)),
@@ -71,12 +70,12 @@ const readWith = <A, I, R>(
           Match.when(true, () =>
             fileSystem.stream(filePath).pipe(
               Stream.mapError(storageFailure("read", filePath)),
-              Stream.decodeText("utf8"),
+              Stream.decodeText({ encoding: "utf8" }),
               Stream.splitLines,
               Stream.zipWithIndex,
               Stream.filter(([line]) => Str.isNonEmpty(Str.trim(line))),
               Stream.mapEffect(([line, index]) =>
-                Schema.decode(codec)(line).pipe(
+                Schema.decodeEffect(codec)(line).pipe(
                   Effect.mapError(decodeFailure(filePath, Num.increment(index)))
                 )
               )
@@ -97,10 +96,10 @@ const readWith = <A, I, R>(
  * @since 0.1.0
  * @category operations
  */
-export const read = <A, I, R>(
-  schema: Schema.Schema<A, I, R>,
+export const read = <A, I, RD, RE>(
+  schema: Schema.Codec<A, I, RD, RE>,
   filePath: string
-): Stream.Stream<A, Failure, FileSystem.FileSystem | R> =>
+): Stream.Stream<A, Failure, FileSystem.FileSystem | RD> =>
   Stream.unwrap(FileSystem.FileSystem.pipe(Effect.map((fileSystem) => readWith(fileSystem, schema, filePath))))
 
 /**
@@ -111,17 +110,17 @@ export const read = <A, I, R>(
  * @since 0.1.0
  * @category constructors
  */
-export const make = <A, I, R>(
-  schema: Schema.Schema<A, I, R>,
+export const make = <A, I, RD, RE>(
+  schema: Schema.Codec<A, I, RD, RE>,
   directory: string,
   fileName: string
-): Effect.Effect<Journal<A, I, R>, Failure, FileSystem.FileSystem | Path.Path> =>
+): Effect.Effect<Journal<A, I, RD, RE>, Failure, FileSystem.FileSystem | Path.Path> =>
   Effect.gen(function*() {
     const fileSystem = yield* FileSystem.FileSystem
     const path = yield* Path.Path
     const filePath = path.join(directory, fileName)
-    const lock = yield* Effect.makeSemaphore(1)
-    const codec = Schema.parseJson(schema)
+    const lock = yield* Semaphore.make(1)
+    const codec = Schema.fromJsonString(schema)
     yield* fileSystem.makeDirectory(directory, { recursive: true }).pipe(
       Effect.mapError(storageFailure("write", directory))
     )
@@ -130,7 +129,7 @@ export const make = <A, I, R>(
       schema,
       append: (entry) =>
         lock.withPermits(1)(
-          Schema.encode(codec)(entry).pipe(
+          Schema.encodeEffect(codec)(entry).pipe(
             Effect.flatMap((encoded) => fileSystem.writeFileString(filePath, Str.concat(encoded, "\n"), { flag: "a" })),
             Effect.mapError(storageFailure("write", filePath))
           )

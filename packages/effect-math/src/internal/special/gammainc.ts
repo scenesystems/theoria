@@ -34,7 +34,7 @@ class GammaincCFState extends Data.Class<{
 
 /** Clamp tiny values away from zero to prevent division overflow. */
 const guard = (value: number): number =>
-  Boolean.match(Number.lessThan(abs(value), minimumPositive), {
+  Boolean.match(Number.isLessThan(abs(value), minimumPositive), {
     onTrue: () => minimumPositive,
     onFalse: () => value
   })
@@ -60,13 +60,13 @@ const gammaincSeriesLoop = (
       Boolean.match(
         Boolean.or(
           Number.Equivalence(state.remaining, 0),
-          Number.lessThan(abs(state.term), Number.multiply(epsilon, abs(state.sum)))
+          Number.isLessThan(abs(state.term), Number.multiply(epsilon, abs(state.sum)))
         ),
         {
           onTrue: Option.none,
           onFalse: () => {
             const apNext = Number.sum(state.ap, 1)
-            const termNext = Number.multiply(state.term, Number.unsafeDivide(x, apNext))
+            const termNext = Number.multiply(state.term, Number.divideUnsafe(x, apNext))
             const next = new GammaincSeriesState({
               ap: apNext,
               term: termNext,
@@ -84,7 +84,7 @@ const gammaincSeriesLoop = (
 
 const gammaincSeries = (a: number, x: number): number => {
   const lnPrefix = Number.subtract(Number.multiply(a, log(x)), Number.sum(x, lnGammaLanczos(a)))
-  const initial = Number.unsafeDivide(1, a)
+  const initial = Number.divideUnsafe(1, a)
   const sum = gammaincSeriesLoop(x, a, initial, initial, maxIterations)
   return Number.multiply(exp(lnPrefix), sum)
 }
@@ -113,20 +113,20 @@ const gammaincCFLoop = (
     Iterable.unfold(
       initial,
       (state) =>
-        Boolean.match(Boolean.or(state.converged, Number.greaterThan(state.iteration, maxIterations)), {
+        Boolean.match(Boolean.or(state.converged, Number.isGreaterThan(state.iteration, maxIterations)), {
           onTrue: Option.none,
           onFalse: () => {
             const an = Number.multiply(state.iteration, Number.subtract(a, state.iteration))
             const bn = Number.sum(Number.sum(x, 1), Number.subtract(Number.multiply(2, state.iteration), a))
-            const dNext = Number.unsafeDivide(1, guard(Number.sum(bn, Number.multiply(an, state.d))))
-            const cNext = guard(Number.sum(bn, Number.unsafeDivide(an, state.c)))
+            const dNext = Number.divideUnsafe(1, guard(Number.sum(bn, Number.multiply(an, state.d))))
+            const cNext = guard(Number.sum(bn, Number.divideUnsafe(an, state.c)))
             const delta = Number.multiply(cNext, dNext)
             const next = new GammaincCFState({
               value: Number.multiply(state.value, delta),
               c: cNext,
               d: dNext,
               iteration: Number.sum(state.iteration, 1),
-              converged: Number.lessThan(abs(Number.subtract(delta, 1)), epsilon)
+              converged: Number.isLessThan(abs(Number.subtract(delta, 1)), epsilon)
             })
             return Option.some(Tuple.make(next, next))
           }
@@ -143,7 +143,7 @@ const gammaincCF = (a: number, x: number): number => {
   const b0 = Number.subtract(Number.sum(x, 1), a)
   const f0 = guard(b0)
   const result = gammaincCFLoop(a, x, f0, f0, 0, 1)
-  return Number.multiply(exp(lnPrefix), Number.unsafeDivide(1, result))
+  return Number.multiply(exp(lnPrefix), Number.divideUnsafe(1, result))
 }
 
 /**
@@ -158,7 +158,7 @@ export const gammainc = (a: number, x: number): number => {
   return Boolean.match(Number.Equivalence(x, 0), {
     onTrue: () => 0,
     onFalse: () =>
-      Boolean.match(Number.lessThan(x, Number.sum(a, 1)), {
+      Boolean.match(Number.isLessThan(x, Number.sum(a, 1)), {
         onTrue: () => gammaincSeries(a, x),
         onFalse: () => Number.subtract(1, gammaincCF(a, x))
       })
@@ -177,7 +177,7 @@ export const gammaincc = (a: number, x: number): number => {
   return Boolean.match(Number.Equivalence(x, 0), {
     onTrue: () => 1,
     onFalse: () =>
-      Boolean.match(Number.lessThan(x, Number.sum(a, 1)), {
+      Boolean.match(Number.isLessThan(x, Number.sum(a, 1)), {
         onTrue: () => Number.subtract(1, gammaincSeries(a, x)),
         onFalse: () => gammaincCF(a, x)
       })

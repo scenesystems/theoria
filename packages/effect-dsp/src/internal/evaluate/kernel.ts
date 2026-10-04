@@ -45,7 +45,7 @@ export const evaluateKernel = <
           })
         ),
       {
-        concurrency: Option.getOrElse(Option.fromNullable(options.concurrency), () => 1)
+        concurrency: Option.getOrElse(Option.fromNullishOr(options.concurrency), () => 1)
       }
     )
     const aggregate = aggregateOutcomes(

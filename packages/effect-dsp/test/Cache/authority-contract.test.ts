@@ -3,7 +3,7 @@
  * schema decode failure surfacing, and typed key composition.
  */
 import { describe, expect, it } from "@effect/vitest"
-import { Cache, Key, layerMemory } from "@scenesystems/effect-dsp/Cache"
+import { Cache, Key, layerMemory, Request } from "@scenesystems/effect-dsp/Cache"
 import { Effect, Option, Ref, Schema } from "effect"
 
 describe("Cache authority contract", () => {
@@ -13,16 +13,18 @@ describe("Cache authority contract", () => {
 
       const cache = yield* Cache
 
-      const { value, resolution } = yield* cache.resolve({
-        moduleFingerprint: "qa-module",
-        runtimeFingerprint: "runtime-v1",
-        input: { question: "What is 2+2?" },
-        params: { instructions: "Answer concisely", demos: [] },
-        outputSchema: Schema.Struct({ answer: Schema.String }),
-        compute: Ref.updateAndGet(computeCount, (n) => n + 1).pipe(
-          Effect.as({ answer: "4" })
-        )
-      })
+      const { value, resolution } = yield* cache.resolve(
+        new Request({
+          moduleFingerprint: "qa-module",
+          runtimeFingerprint: "runtime-v1",
+          input: { question: "What is 2+2?" },
+          params: { instructions: "Answer concisely", demos: [] },
+          outputSchema: Schema.Struct({ answer: Schema.String }),
+          compute: Ref.updateAndGet(computeCount, (n) => n + 1).pipe(
+            Effect.as({ answer: "4" })
+          )
+        })
+      )
 
       expect(value).toEqual({ answer: "4" })
       expect(resolution).toBe("miss")
@@ -35,7 +37,7 @@ describe("Cache authority contract", () => {
 
       const cache = yield* Cache
 
-      const request = {
+      const request = new Request({
         moduleFingerprint: "qa-module",
         runtimeFingerprint: "runtime-v1",
         input: { question: "What is 2+2?" },
@@ -44,7 +46,7 @@ describe("Cache authority contract", () => {
         compute: Ref.updateAndGet(computeCount, (n) => n + 1).pipe(
           Effect.as({ answer: "4" })
         )
-      }
+      })
 
       yield* cache.resolve(request)
       const { value, resolution } = yield* cache.resolve(request)
@@ -60,16 +62,17 @@ describe("Cache authority contract", () => {
 
       const cache = yield* Cache
 
-      const makeRequest = (question: string) => ({
-        moduleFingerprint: "qa-module",
-        runtimeFingerprint: "runtime-v1",
-        input: { question },
-        params: { instructions: "Answer concisely", demos: [] },
-        outputSchema: Schema.Struct({ answer: Schema.String }),
-        compute: Ref.updateAndGet(computeCount, (n) => n + 1).pipe(
-          Effect.as({ answer: question })
-        )
-      })
+      const makeRequest = (question: string) =>
+        new Request({
+          moduleFingerprint: "qa-module",
+          runtimeFingerprint: "runtime-v1",
+          input: { question },
+          params: { instructions: "Answer concisely", demos: [] },
+          outputSchema: Schema.Struct({ answer: Schema.String }),
+          compute: Ref.updateAndGet(computeCount, (n) => n + 1).pipe(
+            Effect.as({ answer: question })
+          )
+        })
 
       const { resolution: res1 } = yield* cache.resolve(makeRequest("What is 2+2?"))
       const { resolution: res2 } = yield* cache.resolve(makeRequest("What is 3+3?"))
@@ -85,16 +88,17 @@ describe("Cache authority contract", () => {
 
       const cache = yield* Cache
 
-      const makeRequest = (instructions: string) => ({
-        moduleFingerprint: "qa-module",
-        runtimeFingerprint: "runtime-v1",
-        input: { question: "What is 2+2?" },
-        params: { instructions, demos: [] },
-        outputSchema: Schema.Struct({ answer: Schema.String }),
-        compute: Ref.updateAndGet(computeCount, (n) => n + 1).pipe(
-          Effect.as({ answer: "4" })
-        )
-      })
+      const makeRequest = (instructions: string) =>
+        new Request({
+          moduleFingerprint: "qa-module",
+          runtimeFingerprint: "runtime-v1",
+          input: { question: "What is 2+2?" },
+          params: { instructions, demos: [] },
+          outputSchema: Schema.Struct({ answer: Schema.String }),
+          compute: Ref.updateAndGet(computeCount, (n) => n + 1).pipe(
+            Effect.as({ answer: "4" })
+          )
+        })
 
       const { resolution: res1 } = yield* cache.resolve(makeRequest("Answer concisely"))
       const { resolution: res2 } = yield* cache.resolve(makeRequest("Be verbose"))
@@ -138,26 +142,30 @@ describe("Cache authority contract", () => {
     Effect.gen(function*() {
       const cache = yield* Cache
 
-      const { value, resolution } = yield* cache.resolve({
-        moduleFingerprint: "delegation-test",
-        runtimeFingerprint: "v1",
-        input: { x: 1 },
-        params: { instructions: "test", demos: [] },
-        outputSchema: Schema.Struct({ y: Schema.Number }),
-        compute: Effect.succeed({ y: 42 })
-      })
+      const { value, resolution } = yield* cache.resolve(
+        new Request({
+          moduleFingerprint: "delegation-test",
+          runtimeFingerprint: "v1",
+          input: { x: 1 },
+          params: { instructions: "test", demos: [] },
+          outputSchema: Schema.Struct({ y: Schema.Finite }),
+          compute: Effect.succeed({ y: 42 })
+        })
+      )
 
       expect(value).toEqual({ y: 42 })
       expect(resolution).toBe("miss")
 
-      const { value: cached, resolution: cachedRes } = yield* cache.resolve({
-        moduleFingerprint: "delegation-test",
-        runtimeFingerprint: "v1",
-        input: { x: 1 },
-        params: { instructions: "test", demos: [] },
-        outputSchema: Schema.Struct({ y: Schema.Number }),
-        compute: Effect.succeed({ y: 999 })
-      })
+      const { value: cached, resolution: cachedRes } = yield* cache.resolve(
+        new Request({
+          moduleFingerprint: "delegation-test",
+          runtimeFingerprint: "v1",
+          input: { x: 1 },
+          params: { instructions: "test", demos: [] },
+          outputSchema: Schema.Struct({ y: Schema.Finite }),
+          compute: Effect.succeed({ y: 999 })
+        })
+      )
 
       expect(cached).toEqual({ y: 42 })
       expect(cachedRes).toBe("hit")

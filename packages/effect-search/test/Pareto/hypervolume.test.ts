@@ -37,10 +37,10 @@ describe("hypervolume kernel", () => {
       const minimizeReference = Arr.make(4.4, 4.4)
       const maximizePoints = Arr.map(minimizePoints, (point) =>
         Arr.make(
-          Num.negate(Arr.get(point, 0).pipe(Option.getOrElse(() => 0))),
-          Num.negate(Arr.get(point, 1).pipe(Option.getOrElse(() => 0)))
+          Num.multiply(-1, Arr.get(point, 0).pipe(Option.getOrElse(() => 0))),
+          Num.multiply(-1, Arr.get(point, 1).pipe(Option.getOrElse(() => 0)))
         ))
-      const maximizeReference = Arr.make(Num.negate(4.4), Num.negate(4.4))
+      const maximizeReference = Arr.make(Num.multiply(-1, 4.4), Num.multiply(-1, 4.4))
 
       const minimizeContrib = hypervolumeContribution2d(minimizePoints, minimizeReference)
       const maximizeContrib = hypervolumeContribution2d(

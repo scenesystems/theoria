@@ -14,10 +14,10 @@ import { Direction, minimize, orDefault } from "./Direction.js"
  * @since 0.1.0
  * @category schemas
  */
-export const Objective = Schema.Union(
+export const Objective = Schema.Union([
   Schema.TaggedStruct("Single", { direction: Direction }),
   Schema.TaggedStruct("Multi", { directions: Schema.Array(Direction) })
-)
+])
 
 /** Objective specification decoded by {@link Objective}. @since 0.1.0 @category models */
 export type Objective = typeof Objective.Type
@@ -53,13 +53,13 @@ export type Vector = typeof Vector.Type
  * @since 0.1.0
  * @category schemas
  */
-export const Value = Schema.Union(Schema.Number, Vector)
+export const Value = Schema.Union([Schema.Number, Vector])
 
 /** Objective result decoded by {@link Value}. @since 0.1.0 @category models */
 export type Value = typeof Value.Type
 
 const isVector = Schema.is(Vector)
-const finiteValue = Schema.is(Schema.Union(Schema.JsonNumber, Schema.Array(Schema.JsonNumber)))
+const finiteValue = Schema.is(Schema.Union([Schema.Finite, Schema.Array(Schema.Finite)]))
 
 /** Counts scalar or vector coordinates. @since 0.1.0 @category combinators */
 export const dimensionCount = (value: Value): number =>
@@ -70,7 +70,7 @@ export const dimensionCount = (value: Value): number =>
   )
 
 /** Tests whether a value contains at least one coordinate. @since 0.1.0 @category guards */
-export const hasDimensions = (value: Value): boolean => Num.greaterThan(dimensionCount(value), 0)
+export const hasDimensions = (value: Value): boolean => Num.isGreaterThan(dimensionCount(value), 0)
 
 /** Tests whether every objective coordinate is finite. @since 0.1.0 @category guards */
 export const isFiniteValue = (value: Value): boolean => finiteValue(value)
@@ -123,10 +123,10 @@ export type Options = typeof Options.Type
  * @category constructors
  */
 export const fromOptions = (options: Options): Objective =>
-  Option.fromNullable(options.directions).pipe(
-    Option.filter(Arr.isNonEmptyReadonlyArray),
+  Option.fromNullishOr(options.directions).pipe(
+    Option.filter((directions) => Num.isGreaterThan(Arr.length(directions), 0)),
     Option.match({
-      onNone: () => single(orDefault(Option.fromNullable(options.direction))),
+      onNone: () => single(orDefault(Option.fromNullishOr(options.direction))),
       onSome: multi
     })
   )

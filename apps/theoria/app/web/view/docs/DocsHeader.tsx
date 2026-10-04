@@ -1,5 +1,5 @@
 import { Button } from "@base-ui/react/button"
-import { useAtomSet } from "@effect-atom/atom-react"
+import { useAtomSet } from "@effect/atom-react"
 import { Bars3Icon } from "@heroicons/react/20/solid"
 import { Boolean as Bool } from "effect"
 

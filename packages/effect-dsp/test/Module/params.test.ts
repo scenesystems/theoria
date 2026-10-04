@@ -11,7 +11,7 @@ import {
   withInstructions
 } from "@scenesystems/effect-dsp/ModuleParameters"
 import * as Signature from "@scenesystems/effect-dsp/Signature"
-import { Array as Arr, Effect, Ref, Schema } from "effect"
+import { Array as Arr, Effect, Option, Ref, Schema } from "effect"
 
 const makeQaSignature = () =>
   Signature.make(
@@ -54,7 +54,7 @@ describe("Module params", () => {
       )
 
       const updated = yield* Ref.get(module.params)
-      const demo = yield* Arr.head(updated.demos)
+      const demo = Option.getOrThrow(Arr.head(updated.demos))
 
       expect(updated.instructions).toBe("Use one token answers.")
       expect(updated.demos).toHaveLength(1)
@@ -92,7 +92,7 @@ describe("Module params", () => {
       expect(original.demos).toEqual(Arr.empty())
 
       const defaults = new ModuleParameters({ instructions: "Default", demos: Arr.empty() })
-      const encoded = yield* Schema.encode(ModuleParameters)(withInstructions(defaults, "Replaced"))
+      const encoded = yield* Schema.encodeEffect(ModuleParameters)(withInstructions(defaults, "Replaced"))
       expect(encoded).toEqual({ instructions: "Replaced", demos: Arr.empty(), outputStrategy: "auto" })
     }))
 })

@@ -11,7 +11,7 @@ import {
   pendingAsZeroPolicy,
   type RandomOptions,
   type Sampler,
-  type TpeOptions
+  TpeOptions
 } from "../../Sampler.js"
 import * as TpeSampler from "../tpe/sampler.js"
 import * as CmaEsSampler from "./cmaEs/sampler.js"
@@ -62,7 +62,7 @@ export const grid = (options: GridOptions = {}): Sampler => GridSampler.make(opt
  * @since 0.1.0
  * @category constructors
  */
-export const tpe = (options: TpeOptions = {}): Sampler => TpeSampler.make(options, constantLiarPolicy)
+export const tpe = (options: TpeOptions = new TpeOptions({})): Sampler => TpeSampler.make(options, constantLiarPolicy)
 
 /**
  * Adapts a diagonal CMA-ES model to an unconditional continuous search space.

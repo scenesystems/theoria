@@ -21,7 +21,7 @@ import type { Module } from "./Module.js"
  * @category models
  */
 export class Failure extends Schema.Class<Failure>("@scenesystems/effect-dsp/Evaluate/Failure")({
-  index: Schema.Number,
+  index: Schema.Finite,
   tag: Schema.String,
   message: Schema.String
 }) {}
@@ -31,10 +31,10 @@ export class Failure extends Schema.Class<Failure>("@scenesystems/effect-dsp/Eva
  * @category models
  */
 export class ExampleResult extends Schema.Class<ExampleResult>("@scenesystems/effect-dsp/Evaluate/ExampleResult")({
-  index: Schema.Number,
-  scores: Schema.Record({ key: Schema.String, value: Schema.Number }),
-  failure: Schema.OptionFromSelf(Failure),
-  durationMs: Schema.Number
+  index: Schema.Finite,
+  scores: Schema.Record(Schema.String, Schema.Finite),
+  failure: Schema.Option(Failure),
+  durationMs: Schema.Finite
 }) {}
 
 /** Ordered per-example outcomes and aggregate metric scores.
@@ -42,24 +42,24 @@ export class ExampleResult extends Schema.Class<ExampleResult>("@scenesystems/ef
  * @category models
  */
 export class Report extends Schema.Class<Report>("@scenesystems/effect-dsp/Evaluate/Report")({
-  overallScores: Schema.Record({ key: Schema.String, value: Schema.Number }),
+  overallScores: Schema.Record(Schema.String, Schema.Finite),
   results: Schema.Array(ExampleResult),
   failures: Schema.Array(Failure),
-  totalExamples: Schema.Number,
-  successCount: Schema.Number,
-  failureCount: Schema.Number
+  totalExamples: Schema.Finite,
+  successCount: Schema.Finite,
+  failureCount: Schema.Finite
 }) {}
 
 /** Evaluation lifecycle event schema.
  * @since 0.1.0
  * @category events
  */
-export const Event = Schema.Union(
-  Schema.TaggedStruct("ExampleStarted", { index: Schema.Number, total: Schema.Number }),
-  Schema.TaggedStruct("ExampleCompleted", { index: Schema.Number, score: Schema.Number }),
+export const Event = Schema.Union([
+  Schema.TaggedStruct("ExampleStarted", { index: Schema.Finite, total: Schema.Finite }),
+  Schema.TaggedStruct("ExampleCompleted", { index: Schema.Finite, score: Schema.Finite }),
   Schema.TaggedStruct("ExampleFailed", { failure: Failure }),
-  Schema.TaggedStruct("EvaluationCompleted", { overallScore: Schema.Number, total: Schema.Number })
-)
+  Schema.TaggedStruct("EvaluationCompleted", { overallScore: Schema.Finite, total: Schema.Finite })
+])
 
 /** Evaluation lifecycle event.
  * @since 0.1.0

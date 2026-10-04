@@ -1,4 +1,4 @@
-import { Effect, Number as Num, type ParseResult, Schema } from "effect"
+import { Effect, Number as Num, Schema } from "effect"
 import * as Arr from "effect/Array"
 
 import { brandColor, mark, type MarkFace, type MarkPoint, markStroke, type MarkViewBox } from "../../contracts/brand.js"
@@ -70,7 +70,7 @@ export const themeColorMeta = (mode: ColorMode): string =>
 export const renderThemeColorMetas = (): ReadonlyArray<string> =>
   Arr.map(Arr.reverse(ColorMode.literals), themeColorMeta)
 
-export const WebManifest = Schema.parseJson(
+export const WebManifest = Schema.fromJsonString(
   Schema.Struct({
     name: Schema.String,
     short_name: Schema.String,
@@ -89,23 +89,22 @@ export const WebManifest = Schema.parseJson(
   { space: 2 }
 )
 
+const manifestCanvas = colorCss(brandColor("canvas", "dark"))
+
 /**
  * The installed app's manifest. Its icons are the mark on the dark canvas, so
  * the splash behind them and the chrome around them are that canvas too.
  */
-export const renderWebManifest = (): Effect.Effect<string, ParseResult.ParseError> => {
-  const canvas = colorCss(brandColor("canvas", "dark"))
-  return Schema.encode(WebManifest)({
-    name: siteMetadata.siteName,
-    short_name: siteMetadata.siteName,
-    description: siteMetadata.defaultDescription,
-    start_url: "/",
-    display: "browser",
-    background_color: canvas,
-    theme_color: canvas,
-    icons: [
-      { src: "/icon-192.png", sizes: "192x192", type: "image/png", purpose: "any maskable" },
-      { src: "/icon-512.png", sizes: "512x512", type: "image/png", purpose: "any maskable" }
-    ]
-  }).pipe(Effect.map((json) => `${json}\n`))
-}
+export const renderWebManifest: Effect.Effect<string, Schema.SchemaError> = Schema.encodeEffect(WebManifest)({
+  name: siteMetadata.siteName,
+  short_name: siteMetadata.siteName,
+  description: siteMetadata.defaultDescription,
+  start_url: "/",
+  display: "browser",
+  background_color: manifestCanvas,
+  theme_color: manifestCanvas,
+  icons: [
+    { src: "/icon-192.png", sizes: "192x192", type: "image/png", purpose: "any maskable" },
+    { src: "/icon-512.png", sizes: "512x512", type: "image/png", purpose: "any maskable" }
+  ]
+}).pipe(Effect.map((json) => `${json}\n`))

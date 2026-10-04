@@ -9,7 +9,7 @@ const useEndpoints = false
 const minimumSigma = 1e-12
 
 export const minimumBandwidth = (low: number, high: number, kernelCount: number): number =>
-  Num.unsafeDivide(Num.subtract(high, low), Num.min(100, Num.increment(kernelCount)))
+  Num.divideUnsafe(Num.subtract(high, low), Num.min(100, Num.increment(kernelCount)))
 
 export const valueAt = <A>(valuesInput: Iterable<A>, index: number, fallback: A): A => {
   const values = Arr.fromIterable(valuesInput)
@@ -36,12 +36,12 @@ export const normalizedKernelWeights = (observationCount: number) => {
   const kernelWeights = Arr.append(observationWeights, priorKernelWeight)
   const totalWeight = Num.sumAll(kernelWeights)
 
-  return Match.value(Num.lessThanOrEqualTo(totalWeight, 0)).pipe(
+  return Match.value(Num.isLessThanOrEqualTo(totalWeight, 0)).pipe(
     Match.when(true, () => {
-      const uniform = Num.unsafeDivide(1, Num.max(Arr.length(kernelWeights), 1))
+      const uniform = Num.divideUnsafe(1, Num.max(Arr.length(kernelWeights), 1))
       return Arr.makeBy(Arr.length(kernelWeights), () => uniform)
     }),
-    Match.orElse(() => Arr.map(kernelWeights, (weight) => Num.unsafeDivide(weight, totalWeight)))
+    Match.orElse(() => Arr.map(kernelWeights, (weight) => Num.divideUnsafe(weight, totalWeight)))
   )
 }
 
@@ -52,18 +52,18 @@ export const observationSigmas = (
 ) => {
   const observations = Arr.fromIterable(observationsInput)
 
-  const priorMean = Num.unsafeDivide(Num.sum(low, high), 2)
+  const priorMean = Num.divideUnsafe(Num.sum(low, high), 2)
   const meansWithPrior = Arr.append(observations, priorMean)
   const sorted = Arr.sort(
     Arr.map(meansWithPrior, (mean, index) => Tuple.make(index, mean)),
-    Order.mapInput(Num.Order, (entry: readonly [number, number]) => Tuple.getSecond(entry))
+    Order.mapInput(Num.Order, (entry: readonly [number, number]) => entry[1])
   )
   const sortedPositionLookup = Arr.reduce(
     sorted,
     HashMap.empty<number, number>(),
-    (lookup, entry, sortedIndex) => HashMap.set(lookup, Tuple.getFirst(entry), sortedIndex)
+    (lookup, entry, sortedIndex) => HashMap.set(lookup, entry[0], sortedIndex)
   )
-  const sortedMeans = Arr.map(sorted, Tuple.getSecond)
+  const sortedMeans = Arr.map(sorted, (entry) => entry[1])
   const sortedMeansWithEndpoints = Arr.prepend(Arr.append(sortedMeans, high), low)
   const sortedSigmas = Arr.map(sortedMeans, (_unused, index) => {
     const left = valueAt(sortedMeansWithEndpoints, index, low)
@@ -74,7 +74,7 @@ export const observationSigmas = (
   })
 
   const endpointAdjustedSigmas = Match.value(
-    Bool.and(Bool.not(useEndpoints), Num.greaterThanOrEqualTo(Arr.length(sortedMeansWithEndpoints), 4))
+    Bool.and(Bool.not(useEndpoints), Num.isGreaterThanOrEqualTo(Arr.length(sortedMeansWithEndpoints), 4))
   ).pipe(
     Match.when(true, () =>
       Arr.map(sortedSigmas, (sigma, index) =>
@@ -95,7 +95,7 @@ export const observationSigmas = (
 
   return Arr.map(observations, (_unused, observationIndex) => {
     const sortedIndex = HashMap.get(sortedPositionLookup, observationIndex).pipe(
-      Option.getOrElse(() => Num.negate(1))
+      Option.getOrElse(() => Num.multiply(-1, 1))
     )
 
     return valueAt(endpointAdjustedSigmas, sortedIndex, Num.subtract(high, low))
@@ -103,7 +103,7 @@ export const observationSigmas = (
 }
 
 const positiveKernelWeight = (kernel: ContinuousKernel): number =>
-  Match.value(Num.greaterThan(kernel.weight, 0)).pipe(
+  Match.value(Num.isGreaterThan(kernel.weight, 0)).pipe(
     Match.when(true, () => kernel.weight),
     Match.orElse(() => 0)
   )
@@ -121,11 +121,11 @@ export const chooseKernelIndex = (parzen: ContinuousParzen, roll: number): numbe
     maximum: 1
   })
   const target = Num.multiply(clampedRoll, totalWeight)
-  const index = Arr.findFirstIndex(cumulative, (value) => Num.greaterThanOrEqualTo(value, target)).pipe(
-    Option.getOrElse(() => Num.negate(1))
+  const index = Arr.findFirstIndex(cumulative, (value) => Num.isGreaterThanOrEqualTo(value, target)).pipe(
+    Option.getOrElse(() => Num.multiply(-1, 1))
   )
 
-  return Match.value(Num.lessThan(index, 0)).pipe(
+  return Match.value(Num.isLessThan(index, 0)).pipe(
     Match.when(true, () => Num.max(Num.decrement(Arr.length(parzen.kernels)), 0)),
     Match.orElse(() => index)
   )
@@ -133,7 +133,7 @@ export const chooseKernelIndex = (parzen: ContinuousParzen, roll: number): numbe
 
 const fallbackKernel = (parzen: ContinuousParzen): ContinuousKernel =>
   new ContinuousKernel({
-    mean: Num.unsafeDivide(Num.sum(parzen.low, parzen.high), 2),
+    mean: Num.divideUnsafe(Num.sum(parzen.low, parzen.high), 2),
     sigma: Num.max(Num.subtract(parzen.high, parzen.low), minimumBandwidth(parzen.low, parzen.high, 1)),
     weight: 1
   })

@@ -1,13 +1,13 @@
 import { Match, Option, Schema } from "effect"
 
 const RouteSegment = Schema.String.pipe(
-  Schema.minLength(1),
-  Schema.pattern(/^[A-Za-z0-9._~-]+$/u)
+  Schema.check(Schema.isMinLength(1)),
+  Schema.check(Schema.isPattern(/^[A-Za-z0-9._~-]+$/u))
 )
 
 export const DocsModuleSlug = Schema.String.pipe(
-  Schema.minLength(1),
-  Schema.pattern(/^[A-Za-z0-9._~-]+(?:\/[A-Za-z0-9._~-]+)*$/u)
+  Schema.check(Schema.isMinLength(1)),
+  Schema.check(Schema.isPattern(/^[A-Za-z0-9._~-]+(?:\/[A-Za-z0-9._~-]+)*$/u))
 )
 export type DocsModuleSlug = typeof DocsModuleSlug.Type
 
@@ -17,7 +17,7 @@ export type DocsPackageSlug = typeof DocsPackageSlug.Type
 export const DocsGuideSlug = RouteSegment
 export type DocsGuideSlug = typeof DocsGuideSlug.Type
 
-export const DocsSection = Schema.Literal("packages", "guides", "api")
+export const DocsSection = Schema.Literals(["packages", "guides", "api"])
 export type DocsSection = typeof DocsSection.Type
 
 export const DocsIndexRoute = Schema.TaggedStruct("DocsIndexRoute", {})
@@ -38,13 +38,13 @@ export const DocsApiRoute = Schema.TaggedStruct("DocsApiRoute", {
 
 export const DocsNotFoundRoute = Schema.TaggedStruct("DocsNotFoundRoute", {})
 
-export const DocsRoute = Schema.Union(
+export const DocsRoute = Schema.Union([
   DocsIndexRoute,
   DocsOverviewRoute,
   DocsGuideRoute,
   DocsApiRoute,
   DocsNotFoundRoute
-)
+])
 
 export type DocsRoute = typeof DocsRoute.Type
 

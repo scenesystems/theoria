@@ -1,5 +1,5 @@
 import { describe, expect, it } from "@effect/vitest"
-import { Array as Arr, Effect, Match, Number as Num, Option, Schema } from "effect"
+import { Array as Arr, Effect, Match, Number as Num, Option, Schema, Struct } from "effect"
 
 import * as Optimization from "../../src/Optimization.js"
 import * as Sampler from "../../src/Sampler.js"
@@ -9,7 +9,8 @@ const space = SearchSpace.make({
   x: SearchSpace.int(0, 9)
 })
 
-const decodeConfig = (raw: unknown) => Effect.flatMap(space, (resolved) => Schema.decodeUnknown(resolved.schema)(raw))
+const decodeConfig = (raw: unknown) =>
+  Effect.flatMap(space, (resolved) => Schema.decodeUnknownEffect(resolved.schema)(raw))
 
 const objective = (raw: unknown) => decodeConfig(raw).pipe(Effect.map((config) => config.x))
 
@@ -21,16 +22,16 @@ const asSingleObjective = (result: Optimization.Result): Option.Option<Optimizat
 
 const startupTrials = 5
 
-const samplerOptions = {
+const samplerOptions = new Sampler.TpeOptions({
   seed: 61,
   nStartupTrials: startupTrials,
   nEiCandidates: 32
-}
+})
 
 const trace = (result: Optimization.SingleObjectiveResult) =>
   Effect.forEach(result.trials, (trial) => decodeConfig(trial.config).pipe(Effect.map((config) => config.x)))
 
-const feasibleCount = (values: Iterable<number>): number => Arr.length(Arr.filter(values, Num.lessThanOrEqualTo(4)))
+const feasibleCount = (values: Iterable<number>): number => Arr.length(Arr.filter(values, Num.isLessThanOrEqualTo(4)))
 
 describe("constrained optimization integration", () => {
   it.effect("diverges after startup and improves feasible suggestion frequency", () =>
@@ -44,33 +45,39 @@ describe("constrained optimization integration", () => {
             onSome: (config) => Num.subtract(config.x, 4)
           })
         )
-      const unconstrainedResult = yield* Optimization.run({
-        space: resolvedSpace,
-        sampler: Sampler.tpe(samplerOptions),
-        direction: "maximize",
-        trials: 16,
-        objective
-      })
-      const constrainedResult = yield* Optimization.run({
-        space: resolvedSpace,
-        sampler: Sampler.tpe({
-          ...samplerOptions,
-          constraints: Arr.of(constraint)
-        }),
-        direction: "maximize",
-        trials: 16,
-        objective
-      })
+      const unconstrainedResult = yield* Optimization.run(
+        new Optimization.FlatOptions({
+          space: resolvedSpace,
+          sampler: Sampler.tpe(samplerOptions),
+          direction: "maximize",
+          trials: 16,
+          objective
+        })
+      )
+      const constrainedResult = yield* Optimization.run(
+        new Optimization.FlatOptions({
+          space: resolvedSpace,
+          sampler: Sampler.tpe(
+            new Sampler.TpeOptions(Struct.assign(samplerOptions, {
+              constraints: Arr.of(constraint)
+            }))
+          ),
+          direction: "maximize",
+          trials: 16,
+          objective
+        })
+      )
       const unconstrained = asSingleObjective(unconstrainedResult)
       const constrained = asSingleObjective(constrainedResult)
 
       expect(Option.isSome(unconstrained)).toBe(true)
       expect(Option.isSome(constrained)).toBe(true)
-      const unconstrainedSingle = yield* unconstrained
-      const constrainedSingle = yield* constrained
 
-      const unconstrainedTrace = yield* trace(unconstrainedSingle)
-      const constrainedTrace = yield* trace(constrainedSingle)
+      const unconstrainedRun = yield* Effect.fromOption(unconstrained)
+      const constrainedRun = yield* Effect.fromOption(constrained)
+
+      const unconstrainedTrace = yield* trace(unconstrainedRun)
+      const constrainedTrace = yield* trace(constrainedRun)
       const unconstrainedPostStartup = Arr.drop(unconstrainedTrace, startupTrials)
       const constrainedPostStartup = Arr.drop(constrainedTrace, startupTrials)
 

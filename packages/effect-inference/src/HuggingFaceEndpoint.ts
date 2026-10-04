@@ -6,16 +6,16 @@
  */
 import * as OpenAiClient from "@effect/ai-openai/OpenAiClient"
 import * as OpenAiLanguageModel from "@effect/ai-openai/OpenAiLanguageModel"
-import type * as LanguageModel from "@effect/ai/LanguageModel"
-import * as FetchHttpClient from "@effect/platform/FetchHttpClient"
+import type * as LanguageModel from "effect/ai/LanguageModel"
 import * as Boolean from "effect/Boolean"
+import * as FetchHttpClient from "effect/http/FetchHttpClient"
 import * as Layer from "effect/Layer"
 import * as Option from "effect/Option"
 import type * as Redacted from "effect/Redacted"
 import * as Schema from "effect/Schema"
 
 import * as HuggingFaceEmbeddingModel from "./HuggingFaceEmbeddingModel.js"
-import { defaultCapabilities } from "./internal/defaultCapabilities.js"
+import { defaultCapabilities, Options as DefaultCapabilitiesOptions } from "./internal/defaultCapabilities.js"
 import * as resolvedRoute from "./internal/resolvedRoute.js"
 import type * as Route from "./Route.js"
 import { ModelLayers, Resolution } from "./Runtime.js"
@@ -27,7 +27,7 @@ export class LanguageOptions extends Schema.Class<LanguageOptions>(
 )({
   model: Schema.String,
   baseUrl: Schema.String,
-  accessToken: Schema.optional(Schema.RedactedFromSelf(Schema.String))
+  accessToken: Schema.optional(Schema.Redacted(Schema.String))
 }) {}
 
 /** Constructs a dedicated Hugging Face endpoint route. @since 0.5.0 @category constructors */
@@ -50,7 +50,7 @@ export const languageModel = (options: LanguageOptions): Layer.Layer<LanguageMod
       OpenAiLanguageModel.layer({ model: options.model }),
       OpenAiClient.layer({
         apiUrl: options.baseUrl,
-        ...Option.match(Option.fromNullable(options.accessToken), {
+        ...Option.match(Option.fromNullishOr(options.accessToken), {
           onNone: () => ({}),
           onSome: (apiKey) => ({ apiKey })
         })
@@ -65,25 +65,25 @@ export const resolve = (
   baseUrl: string,
   accessToken?: Redacted.Redacted
 ): Resolution => {
-  const requestedRoute = Option.fromNullable(request.route)
+  const requestedRoute = Option.fromNullishOr(request.route)
   const selectedRoute = route({
     baseUrl,
     authMethod: Option.match(requestedRoute, { onNone: () => "hf-token", onSome: (value) => value.authMethod }),
-    ...Option.match(Option.flatMap(requestedRoute, (value) => Option.fromNullable(value.endpointId)), {
+    ...Option.match(Option.flatMap(requestedRoute, (value) => Option.fromNullishOr(value.endpointId)), {
       onNone: () => ({}),
       onSome: (endpointId) => ({ endpointId })
     }),
-    ...Option.match(Option.flatMap(requestedRoute, (value) => Option.fromNullable(value.deploymentId)), {
+    ...Option.match(Option.flatMap(requestedRoute, (value) => Option.fromNullishOr(value.deploymentId)), {
       onNone: () => ({}),
       onSome: (deploymentId) => ({ deploymentId })
     }),
-    ...Option.match(Option.flatMap(requestedRoute, (value) => Option.fromNullable(value.runtimeFlavorHint)), {
+    ...Option.match(Option.flatMap(requestedRoute, (value) => Option.fromNullishOr(value.runtimeFlavorHint)), {
       onNone: () => ({}),
       onSome: (runtimeFlavorHint) => ({ runtimeFlavorHint })
     })
   })
-  const capabilities = defaultCapabilities({ route: selectedRoute })
-  const token = Option.match(Option.fromNullable(accessToken), {
+  const capabilities = defaultCapabilities(new DefaultCapabilitiesOptions({ route: selectedRoute }))
+  const token = Option.match(Option.fromNullishOr(accessToken), {
     onNone: () => ({}),
     onSome: (accessToken) => ({ accessToken })
   })

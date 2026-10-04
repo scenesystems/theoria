@@ -2,18 +2,7 @@ import { describe, expect, it } from "@effect/vitest"
 import { Sampler, SearchError } from "@scenesystems/effect-search"
 import type * as OptimizationSnapshot from "@scenesystems/effect-search/OptimizationSnapshot"
 import type * as OptimizationStorage from "@scenesystems/effect-search/OptimizationStorage"
-import {
-  Array as Arr,
-  Boolean as Bool,
-  type Context,
-  Effect,
-  Exit,
-  Layer,
-  Number as Num,
-  Option,
-  Ref,
-  String as Str
-} from "effect"
+import { Array as Arr, Boolean as Bool, Effect, Exit, Layer, Number as Num, Option, Ref, String as Str } from "effect"
 
 import {
   calibrationServices,
@@ -57,8 +46,8 @@ describe("Calibration boundary contracts", () => {
   it.effect("optimize does not make layout effectful", () =>
     Effect.gen(function*() {
       const measurementCount = yield* Ref.make(0)
-      const countedTextMeasurer: Context.Tag.Service<typeof TextMeasurer.TextMeasurer> = {
-        measure: (font, text) =>
+      const countedTextMeasurer = {
+        measure: (font: Text.Font, text: string) =>
           Ref.update(measurementCount, Num.increment).pipe(
             Effect.as(
               Num.multiply(
@@ -139,7 +128,11 @@ describe("Calibration boundary contracts", () => {
       search: fixedSearch
     }).pipe(
       Effect.exit,
-      Effect.map((exit) => expect(exit).toStrictEqual(Exit.fail(new SearchError.NoSuccessfulTrials({ trialCount: 0 }))))
+      Effect.map((exit) =>
+        expect(Exit.findErrorOption(exit)).toStrictEqual(
+          Option.some(new SearchError.NoSuccessfulTrials({ trialCount: 0 }))
+        )
+      )
     ))
 
   it.effect("optimize fails with OptimizationSnapshotMissing when storage drops its snapshot", () =>

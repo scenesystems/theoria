@@ -4,14 +4,28 @@
  * @since 0.4.0
  * @module
  */
-import type * as LanguageModel from "@effect/ai/LanguageModel"
-import * as Response from "@effect/ai/Response"
+import type * as AiError from "effect/ai/AiError"
+import type * as IdGenerator from "effect/ai/IdGenerator"
+import type * as LanguageModel from "effect/ai/LanguageModel"
+import * as Response from "effect/ai/Response"
+import * as Data from "effect/Data"
 import * as Effect from "effect/Effect"
 import * as Match from "effect/Match"
 import * as Stream from "effect/Stream"
 import * as Struct from "effect/Struct"
 
 type PartEncoded = Response.PartEncoded | Response.StreamPartEncoded
+
+/** Provider hooks accepted by the usage observer. @since 0.5.0 @category models */
+export class ConstructorParams extends Data.Class<{
+  readonly generateText: (
+    options: LanguageModel.ProviderOptions
+  ) => Effect.Effect<Array<Response.PartEncoded>, AiError.AiError, IdGenerator.IdGenerator>
+  readonly streamText: (
+    options: LanguageModel.ProviderOptions
+  ) => Stream.Stream<Response.StreamPartEncoded, AiError.AiError, IdGenerator.IdGenerator>
+  readonly codecTransformer?: LanguageModel.CodecTransformer
+}> {}
 
 const observePart = (
   observe: (usage: Response.Usage, finish: Response.FinishPartEncoded) => Effect.Effect<void>
@@ -22,27 +36,7 @@ const observePart = (
         new Response.Usage(finish.usage),
         finish
       )),
-    Match.discriminator("type")(
-      "text",
-      "text-start",
-      "text-delta",
-      "text-end",
-      "reasoning",
-      "reasoning-start",
-      "reasoning-delta",
-      "reasoning-end",
-      "tool-params-start",
-      "tool-params-delta",
-      "tool-params-end",
-      "tool-call",
-      "tool-result",
-      "file",
-      "source",
-      "response-metadata",
-      "error",
-      () => Effect.void
-    ),
-    Match.exhaustive
+    Match.orElse(() => Effect.void)
   )
 
 /**
@@ -56,9 +50,9 @@ const observePart = (
  * @category combinators
  */
 export const observe = (
-  params: LanguageModel.ConstructorParams,
+  params: ConstructorParams,
   observe: (usage: Response.Usage, finish: Response.FinishPartEncoded) => Effect.Effect<void>
-): LanguageModel.ConstructorParams => {
+): ConstructorParams => {
   const observeEncodedPart = observePart(observe)
   return Struct.evolve(params, {
     generateText: (generateText) => (options: LanguageModel.ProviderOptions) =>

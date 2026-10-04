@@ -51,7 +51,7 @@ const viewportTokens = (viewport: Viewport): ReadonlyArray<string> =>
 
 const viewportBlock = (viewport: Viewport): Option.Option<string> =>
   Option.map(
-    Option.liftPredicate(viewportTokens(viewport), Arr.isNonEmptyReadonlyArray),
+    Option.liftPredicate(viewportTokens(viewport), Arr.isReadonlyArrayNonEmpty),
     (tokens) => `@media ${viewportCondition(viewport)} {\n  :root {\n${Arr.join(tokens, "\n")}\n  }\n}`
   )
 

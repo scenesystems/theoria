@@ -8,10 +8,12 @@ import { BigDecimal, Boolean, Number, Schema } from "effect"
 
 import * as Scalar from "./Scalar.js"
 
-const NonNegativeFiniteNumber = Schema.Number.pipe(Schema.finite(), Schema.greaterThanOrEqualTo(0))
-const NonNegativeBigDecimal = Schema.BigDecimal.pipe(Schema.nonNegativeBigDecimal())
-const Float64Kind = Scalar.Kind.pipe(Schema.pickLiteral("float64"))
-const BigDecimalKind = Scalar.Kind.pipe(Schema.pickLiteral("bigdecimal"))
+const NonNegativeFiniteNumber = Schema.Number.check(Schema.isFinite(), Schema.isGreaterThanOrEqualTo(0))
+const NonNegativeBigDecimal = Schema.BigDecimalFromString.check(
+  Schema.isGreaterThanOrEqualToBigDecimal(BigDecimal.make(0n, 0))
+)
+const Float64Kind = Scalar.Kind.pick(["float64"])
+const BigDecimalKind = Scalar.Kind.pick(["bigdecimal"])
 const ordered = (isOrdered: boolean, message: string) =>
   Boolean.match(isOrdered, { onFalse: () => message, onTrue: () => true })
 
@@ -24,13 +26,13 @@ const ordered = (isOrdered: boolean, message: string) =>
  * @category schemas
  */
 export const Float64Interval = Schema.Struct({
-  lower: Schema.Number.pipe(Schema.finite()),
-  upper: Schema.Number.pipe(Schema.finite())
-}).pipe(
-  Schema.filter((interval) =>
-    ordered(Number.lessThanOrEqualTo(interval.lower, interval.upper), "Expected lower <= upper")
+  lower: Schema.Number.check(Schema.isFinite()),
+  upper: Schema.Number.check(Schema.isFinite())
+}).check(
+  Schema.makeFilter((interval) =>
+    ordered(Number.isLessThanOrEqualTo(interval.lower, interval.upper), "Expected lower <= upper")
   )
-).annotations({ identifier: "@scenesystems/effect-math/Uncertainty/Float64Interval" })
+).annotate({ identifier: "@scenesystems/effect-math/Uncertainty/Float64Interval" })
 
 /**
  * A decoded ordered interval with finite Float64 endpoints.
@@ -50,13 +52,13 @@ export type Float64Interval = typeof Float64Interval.Type
  * @category schemas
  */
 export const BigDecimalInterval = Schema.Struct({
-  lower: Schema.BigDecimal,
-  upper: Schema.BigDecimal
-}).pipe(
-  Schema.filter((interval) =>
-    ordered(BigDecimal.lessThanOrEqualTo(interval.lower, interval.upper), "Expected lower <= upper")
+  lower: Schema.BigDecimalFromString,
+  upper: Schema.BigDecimalFromString
+}).check(
+  Schema.makeFilter((interval) =>
+    ordered(BigDecimal.isLessThanOrEqualTo(interval.lower, interval.upper), "Expected lower <= upper")
   )
-).annotations({ identifier: "@scenesystems/effect-math/Uncertainty/BigDecimalInterval" })
+).annotate({ identifier: "@scenesystems/effect-math/Uncertainty/BigDecimalInterval" })
 
 /**
  * A decoded ordered interval with `BigDecimal` endpoints.
@@ -78,11 +80,11 @@ export type BigDecimalInterval = typeof BigDecimalInterval.Type
  */
 export const Float64Envelope = Schema.Struct({
   scalarKind: Float64Kind,
-  value: Schema.Number.pipe(Schema.finite()),
+  value: Schema.Number.check(Schema.isFinite()),
   absoluteError: NonNegativeFiniteNumber,
   relativeError: NonNegativeFiniteNumber,
   interval: Schema.optional(Float64Interval)
-}).annotations({ identifier: "@scenesystems/effect-math/Uncertainty/Float64Envelope" })
+}).annotate({ identifier: "@scenesystems/effect-math/Uncertainty/Float64Envelope" })
 
 /**
  * A decoded Float64 estimate, errors, and optional interval.
@@ -106,11 +108,11 @@ export type Float64Envelope = typeof Float64Envelope.Type
  */
 export const BigDecimalEnvelope = Schema.Struct({
   scalarKind: BigDecimalKind,
-  value: Schema.BigDecimal,
+  value: Schema.BigDecimalFromString,
   absoluteError: NonNegativeBigDecimal,
   relativeError: NonNegativeBigDecimal,
   interval: Schema.optional(BigDecimalInterval)
-}).annotations({ identifier: "@scenesystems/effect-math/Uncertainty/BigDecimalEnvelope" })
+}).annotate({ identifier: "@scenesystems/effect-math/Uncertainty/BigDecimalEnvelope" })
 
 /**
  * A decoded BigDecimal estimate, errors, and optional interval.
@@ -129,7 +131,7 @@ export type BigDecimalEnvelope = typeof BigDecimalEnvelope.Type
  * @since 0.1.0
  * @category schemas
  */
-export const Envelope = Schema.Union(Float64Envelope, BigDecimalEnvelope).annotations({
+export const Envelope = Schema.Union([Float64Envelope, BigDecimalEnvelope]).annotate({
   identifier: "@scenesystems/effect-math/Uncertainty/Envelope"
 })
 

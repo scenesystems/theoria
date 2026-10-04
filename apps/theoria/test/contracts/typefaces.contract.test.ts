@@ -1,5 +1,5 @@
 import { describe, expect, it } from "@effect/vitest"
-import { Effect } from "effect"
+import { Effect, Option } from "effect"
 import * as Arr from "effect/Array"
 import * as Str from "effect/String"
 
@@ -42,9 +42,10 @@ describe("Typefaces contract", () => {
           )
           expect(face._tag).toBe("Some")
           // `size-adjust` is written only where the stand-in's average advance differs; the overrides always are.
+          const block = Option.getOrThrow(face)
           Arr.forEach(
             ["src: local(", "ascent-override: ", "descent-override: "],
-            (descriptor) => expect(face).toMatchObject({ value: expect.stringContaining(descriptor) })
+            (descriptor) => expect(block).toContain(descriptor)
           )
         })
       })
@@ -59,17 +60,12 @@ describe("Typefaces contract", () => {
         Str.split(typefaceFallbackFaces, "@font-face"),
         Str.includes("font-family: \"Figtree Variable Fallback: Arial\";")
       )
-      expect(face).toMatchObject({
-        value: expect.stringContaining(`size-adjust: ${percent(sizeAdjust)}`)
-      })
-      expect(face).toMatchObject({
-        value: expect.stringContaining(`ascent-override: ${percent(950 / (1000 * sizeAdjust))}`)
-      })
-      expect(face).toMatchObject({
-        value: expect.stringContaining(`descent-override: ${percent(250 / (1000 * sizeAdjust))}`)
-      })
+      const block = Option.getOrThrow(face)
+      expect(block).toContain(`size-adjust: ${percent(sizeAdjust)}`)
+      expect(block).toContain(`ascent-override: ${percent(950 / (1000 * sizeAdjust))}`)
+      expect(block).toContain(`descent-override: ${percent(250 / (1000 * sizeAdjust))}`)
       // Figtree has no line gap; Arial's must be overridden away or the stand-in stands taller.
-      expect(face).toMatchObject({ value: expect.stringContaining("line-gap-override: 0%") })
+      expect(block).toContain("line-gap-override: 0%")
     }))
 
   it.effect("Courier New stands in for Geist Mono at its advance and vertical metrics, so code does not rewrap or shift", () =>
@@ -81,15 +77,10 @@ describe("Typefaces contract", () => {
         Str.split(typefaceFallbackFaces, "@font-face"),
         Str.includes("font-family: \"Geist Mono Variable Fallback: Courier New\";")
       )
-      expect(face).toMatchObject({
-        value: expect.stringContaining(`size-adjust: ${percent(sizeAdjust)}`)
-      })
-      expect(face).toMatchObject({
-        value: expect.stringContaining(`ascent-override: ${percent(1005 / (1000 * sizeAdjust))}`)
-      })
-      expect(face).toMatchObject({
-        value: expect.stringContaining(`descent-override: ${percent(295 / (1000 * sizeAdjust))}`)
-      })
+      const block = Option.getOrThrow(face)
+      expect(block).toContain(`size-adjust: ${percent(sizeAdjust)}`)
+      expect(block).toContain(`ascent-override: ${percent(1005 / (1000 * sizeAdjust))}`)
+      expect(block).toContain(`descent-override: ${percent(295 / (1000 * sizeAdjust))}`)
     }))
 
   it.effect("the faces measured before drawing are the served ones at their normal weight", () =>

@@ -1,6 +1,6 @@
 import { Button } from "@base-ui/react/button"
 import { ScrollArea } from "@base-ui/react/scroll-area"
-import { useAtomSet, useAtomValue } from "@effect-atom/atom-react"
+import { useAtomSet, useAtomValue } from "@effect/atom-react"
 import { CheckIcon, ClipboardDocumentIcon, ExclamationCircleIcon } from "@heroicons/react/20/solid"
 import { Boolean as Bool, Match, Option, Schema } from "effect"
 import * as Str from "effect/String"
@@ -21,7 +21,7 @@ import { Cluster, Layer, Rail, Section } from "./Layout.js"
 import { SemanticText } from "./SemanticText.js"
 
 /** What the copy control says of the last copy asked of it: nothing yet, done, or failed. */
-const CopyState = Schema.Literal("idle", "copied", "failed")
+const CopyState = Schema.Literals(["idle", "copied", "failed"])
 type CopyState = typeof CopyState.Type
 
 const copyStateFor = ({ copied, failed }: { readonly copied: boolean; readonly failed: boolean }): CopyState =>

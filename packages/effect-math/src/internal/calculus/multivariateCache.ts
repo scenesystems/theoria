@@ -68,7 +68,7 @@ export class MixedPartialKey extends Data.Class<{
  * @category internal
  */
 export const mixedPartialKey = (axisA: number, axisB: number): MixedPartialKey =>
-  Boolean.match(Number.lessThan(axisA, axisB), {
+  Boolean.match(Number.isLessThan(axisA, axisB), {
     onTrue: () => new MixedPartialKey({ lower: axisA, upper: axisB }),
     onFalse: () => new MixedPartialKey({ lower: axisB, upper: axisA })
   })

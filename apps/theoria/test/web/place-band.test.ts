@@ -23,7 +23,7 @@ import { describeOnStage, onStage } from "../helpers/place-on-stage.js"
 describeOnStage("place band", (it) => {
   it.effect("sets every disc of the place in one row, in order, none touching", () =>
     Effect.gen(function*() {
-      const { kept } = yield* onStage
+      const { kept } = yield* Effect.service(onStage)
       const row = bandRow(kept.projection)
       expect(Arr.map(row.discs, (disc) => disc.marker.name)).toEqual(
         Arr.map(kept.projection.markers, (marker) => marker.name)
@@ -49,7 +49,7 @@ describeOnStage("place band", (it) => {
    */
   it.effect("names itself from its row: where it goes, and the features it shows, in order", () =>
     Effect.gen(function*() {
-      const { kept } = yield* onStage
+      const { kept } = yield* Effect.service(onStage)
       const row = bandRow(kept.projection)
       const names = Arr.map(row.discs, (disc) => disc.marker.name)
       expect(names.length).toBeGreaterThan(1)
@@ -59,7 +59,7 @@ describeOnStage("place band", (it) => {
 
   it.effect("is a strip: its paper is no thicker than a quarter of the tallest disc, above and below", () =>
     Effect.gen(function*() {
-      const { kept } = yield* onStage
+      const { kept } = yield* Effect.service(onStage)
       const row = bandRow(kept.projection)
       const tallest = Arr.reduce(kept.projection.markers, 0, (widest, marker) => Math.max(widest, marker.radius))
       expect(tallest).toBeGreaterThan(0)

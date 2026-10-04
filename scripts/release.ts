@@ -1,25 +1,24 @@
 /** Linux/Bun release entry point. GitHub YAML declares triggers and permissions, not release policy. */
-import { Command, Options } from "@effect/cli"
-import { FetchHttpClient } from "@effect/platform"
-import { BunContext, BunRuntime } from "@effect/platform-bun"
+import { BunRuntime, BunServices } from "@effect/platform-bun"
 import { Array, Config, Effect, Layer, Match, Option, Schema, String } from "effect"
+import { Command, Flag } from "effect/cli"
+import { FetchHttpClient } from "effect/http"
 import * as Candidate from "./release/Candidate.js"
 import * as GitHub from "./release/GitHub.js"
-import * as Invocation from "./release/Invocation.js"
 import * as Repository from "./release/Repository.js"
 import * as Website from "./release/Website.js"
 
 const text = (name: string, environment: string) =>
-  Options.text(name).pipe(Options.withFallbackConfig(Config.string(environment)))
-const sha = text("sha", "BUILD_SHA").pipe(Options.withSchema(Repository.Sha))
-const runId = Options.text("run-id").pipe(
-  Options.withFallbackConfig(Config.string("RUN_ID").pipe(Config.orElse(() => Config.string("GITHUB_RUN_ID")))),
-  Options.withSchema(Candidate.Id)
+  Flag.String(name).pipe(Flag.withFallbackConfig(Config.String(environment)))
+const sha = text("sha", "BUILD_SHA").pipe(Flag.withSchema(Repository.Sha))
+const runId = Flag.String("run-id").pipe(
+  Flag.withFallbackConfig(Config.String("RUN_ID").pipe(Config.orElse(() => Config.String("GITHUB_RUN_ID")))),
+  Flag.withSchema(Candidate.Id)
 )
-const reviewed = Options.text("reviewed-run-id").pipe(
-  Options.withFallbackConfig(Config.string("REVIEWED_RUN_ID").pipe(Config.withDefault(""))),
-  Options.withSchema(Schema.Union(Candidate.Id, Schema.Literal(""))),
-  Options.map(Option.liftPredicate(Schema.is(Candidate.Id)))
+const reviewed = Flag.String("reviewed-run-id").pipe(
+  Flag.withFallbackConfig(Config.String("REVIEWED_RUN_ID").pipe(Config.withDefault(""))),
+  Flag.withSchema(Schema.Union([Candidate.Id, Schema.Literal("")])),
+  Flag.map(Option.liftPredicate(Schema.is(Candidate.Id)))
 )
 const output = text("output", "RELEASE_OUTPUT")
 const file = text("candidate", "CANDIDATE")
@@ -28,9 +27,9 @@ const capture = Command.make("record", {
   sha,
   runId,
   output,
-  attempt: text("attempt", "GITHUB_RUN_ATTEMPT").pipe(Options.withSchema(Candidate.Id)),
-  site: text("site-artifact", "SITE_ARTIFACT_ID").pipe(Options.withSchema(Candidate.Id)),
-  packages: text("package-artifact", "PACKAGE_ARTIFACT_ID").pipe(Options.withSchema(Candidate.Id))
+  attempt: text("attempt", "GITHUB_RUN_ATTEMPT").pipe(Flag.withSchema(Candidate.Id)),
+  site: text("site-artifact", "SITE_ARTIFACT_ID").pipe(Flag.withSchema(Candidate.Id)),
+  packages: text("package-artifact", "PACKAGE_ARTIFACT_ID").pipe(Flag.withSchema(Candidate.Id))
 }, ({ sha, runId, output, attempt, site, packages }) =>
   Effect.gen(function*() {
     const candidate = yield* Candidate.capture({
@@ -61,8 +60,8 @@ const resolve = Command.make("resolve", {
   runId,
   reviewed,
   output,
-  publishing: Options.boolean("publication-event").pipe(
-    Options.withFallbackConfig(Config.boolean("PUBLICATION_EVENT").pipe(Config.withDefault(false)))
+  publishing: Flag.Boolean("publication-event").pipe(
+    Flag.withFallbackConfig(Config.Boolean("PUBLICATION_EVENT").pipe(Config.withDefault(false)))
   )
 }, ({ runId, reviewed, output, publishing }) => GitHub.select(runId, reviewed, output, publishing))
 
@@ -76,7 +75,8 @@ const check = Command.make("check", { file, output }, ({ file, output }) =>
   Effect.gen(function*() {
     const candidate = yield* Candidate.read(file)
     yield* Candidate.verifyPrepared(candidate)
-    yield* Candidate.verifyPublication(candidate, yield* GitHub.repository, false, output)
+    const repository = yield* GitHub.repository
+    yield* Candidate.verifyPublication(candidate, repository, false, output)
   }))
 
 const packed = Command.make(
@@ -89,7 +89,8 @@ const packed = Command.make(
 const published = Command.make("published", { file, output }, ({ file, output }) =>
   Effect.gen(function*() {
     const candidate = yield* Candidate.read(file)
-    yield* Candidate.verifyPublication(candidate, yield* GitHub.repository, true, output)
+    const repository = yield* GitHub.repository
+    yield* Candidate.verifyPublication(candidate, repository, true, output)
     yield* GitHub.summary(
       String.concat(
         "All candidate packages match npm provenance and content. Website promotion is a separate choice. Use Theoria Production with run_id: ",
@@ -98,8 +99,11 @@ const published = Command.make("published", { file, output }, ({ file, output })
     )
   }))
 
+const ReleaseMode = Schema.Literals(["version", "publish", "none"])
 const ready = Command.make("ready", {
-  mode: text("mode", "CHANGESETS_MODE").pipe(Options.withSchema(Schema.Literal("version", "publish", "none")))
+  mode: Flag.Literals("mode", ReleaseMode.literals).pipe(
+    Flag.withFallbackConfig(Config.schema(ReleaseMode, "CHANGESETS_MODE"))
+  )
 }, ({ mode }) =>
   Match.value(mode).pipe(
     Match.when("version", () =>
@@ -116,7 +120,7 @@ const ready = Command.make("ready", {
 
 const deploy = Command.make(
   "deploy",
-  { sha, target: Options.text("target").pipe(Options.withSchema(Website.Target)) },
+  { sha, target: Flag.Literals("target", Website.Target.literals) },
   ({ sha, target }) =>
     Effect.gen(function*() {
       const origin = Match.value(target).pipe(
@@ -133,28 +137,26 @@ const deploy = Command.make(
 const verify = Command.make("verify", {
   sha,
   origin: text("url", "BASE_URL"),
-  noindex: Options.boolean("noindex").pipe(Options.withFallbackConfig(Config.boolean("NOINDEX"))),
-  attempts: Options.integer("attempts").pipe(
-    Options.withFallbackConfig(Config.integer("ATTEMPTS").pipe(Config.withDefault(60)))
+  noindex: Flag.Boolean("noindex").pipe(Flag.withFallbackConfig(Config.Boolean("NOINDEX"))),
+  attempts: Flag.Int("attempts").pipe(
+    Flag.withFallbackConfig(Config.Int("ATTEMPTS").pipe(Config.withDefault(60)))
   ),
-  delay: Options.integer("delay-seconds").pipe(
-    Options.withFallbackConfig(Config.integer("DELAY_SECONDS").pipe(Config.withDefault(10)))
+  delay: Flag.Int("delay-seconds").pipe(
+    Flag.withFallbackConfig(Config.Int("DELAY_SECONDS").pipe(Config.withDefault(10)))
   )
 }, ({ sha, origin, noindex, attempts, delay }) => Website.verify(origin, sha, noindex, attempts, delay))
 
 const review = Command.make("review", {
-  before: Options.text("before").pipe(Options.withSchema(Repository.Sha)),
-  after: Options.text("after").pipe(Options.withSchema(Repository.Sha))
+  before: Flag.String("before").pipe(Flag.withSchema(Repository.Sha)),
+  after: Flag.String("after").pipe(Flag.withSchema(Repository.Sha))
 }, ({ before, after }) => Repository.review(before, after))
 
 const run = Command.make("release").pipe(
-  Command.withSubcommands(Array.make(capture, resolve, pin, check, packed, published, ready, deploy, verify, review)),
-  Command.run({ name: "Theoria release", version: "2.0.0" })
+  Command.withSubcommands(Array.make(capture, resolve, pin, check, packed, published, ready, deploy, verify, review))
 )
 
 BunRuntime.runMain(
-  Invocation.read(import.meta.url).pipe(
-    Effect.flatMap(run),
-    Effect.provide(Layer.merge(BunContext.layer, FetchHttpClient.layer))
+  Command.run(run, { version: "2.0.0" }).pipe(
+    Effect.provide(Layer.merge(BunServices.layer, FetchHttpClient.layer))
   )
 )

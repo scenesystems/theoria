@@ -43,14 +43,14 @@ const suggestIndependentParameter = (
         parameter,
         low,
         high,
-        Option.fromNullable(scale),
-        Option.fromNullable(step),
+        Option.fromNullishOr(scale),
+        Option.fromNullishOr(step),
         split,
         noiseOptions,
         acquisition
       )),
     Match.when({ type: "int" }, ({ low, high, step }) =>
-      suggestIntParameter(rng, nCandidates, parameter, low, high, Option.fromNullable(step), split, acquisition)),
+      suggestIntParameter(rng, nCandidates, parameter, low, high, Option.fromNullishOr(step), split, acquisition)),
     Match.when({ type: "fidelity" }, ({ low, high }) =>
       suggestIntParameter(rng, nCandidates, parameter, low, high, Option.none(), split, acquisition)),
     Match.exhaustive
@@ -99,7 +99,7 @@ const suggestIndependent = (
   })
 
 const hasConditionalParameters = (space: SearchSpace.SearchSpace): boolean =>
-  Arr.some(space.params, (parameter) => Num.greaterThan(Arr.length(parameter.activeWhen), 0))
+  Arr.some(space.params, (parameter) => Num.isGreaterThan(Arr.length(parameter.activeWhen), 0))
 
 const suggestModelDriven = (
   seed: number,
@@ -115,7 +115,7 @@ const suggestModelDriven = (
   const constraints = Arr.fromIterable(constraintsInput)
   return Effect.gen(function*() {
     const completed = yield* enrichCompletedTrialsWithConstraints(context.completed, constraints)
-    const rng = rngByTrial("tpe", seed, context.nextTrialNumber)
+    const rng = yield* rngByTrial("tpe", seed, context.nextTrialNumber)
     const split = splitByObjective(completed, context.objectiveSpec, context.epsilon)
     const dimensions = categoricalDimensions(space)
     const containsConditionalParameters = hasConditionalParameters(space)
@@ -186,7 +186,7 @@ export const suggestWithStartup = (
   context: Context
 ): Effect.Effect<unknown, SearchError> => {
   const constraints = Arr.fromIterable(constraintsInput)
-  return Match.value(Num.lessThan(Arr.length(context.completed), startupTrials)).pipe(
+  return Match.value(Num.isLessThan(Arr.length(context.completed), startupTrials)).pipe(
     Match.when(true, () => randomSampler.suggest(space, context)),
     Match.orElse(() =>
       suggestModelDriven(

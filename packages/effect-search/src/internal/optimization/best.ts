@@ -58,8 +58,8 @@ export const isNumericCompletedTrialWithConfig = <Config>(
  */
 export const betterByDirection = (direction: Direction, current: number, best: number): boolean =>
   Match.value(direction).pipe(
-    Match.when("minimize", () => Num.lessThan(current, best)),
-    Match.when("maximize", () => Num.greaterThan(current, best)),
+    Match.when("minimize", () => Num.isLessThan(current, best)),
+    Match.when("maximize", () => Num.isGreaterThan(current, best)),
     Match.exhaustive
   )
 

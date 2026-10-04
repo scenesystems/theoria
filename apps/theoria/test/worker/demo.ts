@@ -1,7 +1,7 @@
 /** Shared fixtures for the home-page demo’s Chromium tests. */
 import { expect } from "@effect/vitest"
 import type { Locator, Page } from "@playwright/test"
-import { Chunk, Duration, Effect, Fiber, Match, Option, Order, Schedule, Schema, Stream } from "effect"
+import { Duration, Effect, Fiber, Match, Option, Order, Result, Schedule, Schema, Stream } from "effect"
 import * as Arr from "effect/Array"
 
 import { markerGap } from "../../app/contracts/demo/imagined-place-flow.js"
@@ -79,9 +79,9 @@ export const drawn = (page: Page, within: Duration.Duration = searchSettlesWithi
           Effect.fail(
             new BrowserError({
               message: `The search did not settle within ${Duration.format(within)}: ${standing}${
-                Arr.isNonEmptyReadonlyArray(told) ? `; the page told: ${told.join(" | ")}` : ""
+                told.length > 0 ? `; the page told: ${told.join(" | ")}` : ""
               }${
-                Arr.isNonEmptyReadonlyArray(served)
+                served.length > 0
                   ? `; the site told: ${Arr.takeRight(served, siteLogsReported).join(" | ")}`
                   : "; the site told nothing"
               }. ${error.message}`,
@@ -101,13 +101,12 @@ export const colorSchemes: ReadonlyArray<ColorScheme> = ["light", "dark"]
  * before the first frame there is nothing to report.
  */
 export const stageFailuresUntilRendered = (page: Page) =>
-  Stream.repeatEffectWithSchedule(
+  Stream.fromEffectSchedule(
     act(() => page.locator("[data-place-stage-failed]").count()),
     Schedule.spaced("16 millis")
   ).pipe(
     Stream.interruptWhen(drawn(page)),
-    Stream.runCollect,
-    Effect.map(Chunk.toReadonlyArray)
+    Stream.runCollect
   )
 
 /** One sample of the paper: its reported height, if there is a paper, and the search's phase, if a trial is in. */
@@ -149,7 +148,7 @@ export const markerPositions = (page: Page) => () =>
 
 export const FeaturePlace = Schema.Struct({
   name: Schema.String,
-  kind: Schema.Literal("ring", "disc"),
+  kind: Schema.Literals(["ring", "disc"]),
   translate: Schema.String,
   transform: Schema.String
 })
@@ -167,7 +166,7 @@ export const LineSet = Schema.Struct({
  */
 export const Clearance = Schema.Struct({
   /** The distance from the line's box to the disc's edge, in the stage's pixels; negative where the line is over the disc. */
-  least: Schema.Number,
+  least: Schema.Finite,
   /** The line and the disc it is between, as the stage read them. */
   between: Schema.String
 })
@@ -242,13 +241,12 @@ export const landed = (name: string) => (frame: StageFrame): boolean =>
  * that frame included — or for `atMost`.
  */
 export const framesUntil = (region: Locator, done: (frame: StageFrame) => boolean, atMost: Duration.Duration) =>
-  Stream.repeatEffectWithSchedule(
+  Stream.fromEffectSchedule(
     act(() => region.evaluate(stageFrame)),
-    Schedule.spaced("16 millis").pipe(Schedule.upTo(atMost))
+    Schedule.spaced("16 millis").pipe(Schedule.upTo({ duration: atMost }))
   ).pipe(
     Stream.takeUntil(done),
-    Stream.runCollect,
-    Effect.map(Chunk.toReadonlyArray)
+    Stream.runCollect
   )
 
 /** Every distinct `translate` the feature's `kind` was painted at, in order of first sight. */
@@ -260,7 +258,7 @@ export const placesOf = (
   Arr.dedupe(
     Arr.filterMap(
       Arr.flatMap(frames, (frame) => placesIn(frame, name)),
-      (place) => place.kind === kind ? Option.some(place.translate) : Option.none()
+      (place) => place.kind === kind ? Result.succeed(place.translate) : Result.failVoid
     )
   )
 
@@ -279,17 +277,19 @@ export const mergeProgramProposal = (reducedMotion: ReducedMotion) =>
     const demo = page.getByRole("region", { name: "Imagined place demo" })
     const proposal = demo.locator("[data-place-proposal='program']")
     const feature = proposal.locator("[data-place-feature]")
-    const name = yield* Option.fromNullable(yield* act(() => feature.getAttribute("data-place-feature")))
+    const name = yield* Effect.fromOption(
+      Option.fromNullishOr(yield* act(() => feature.getAttribute("data-place-feature")))
+    )
     const disc = demo.locator(`[data-place-marker="${name}"]`)
     yield* count(disc, 0)
     const paper = page.locator("[data-place-stage='paper']")
     const sheetHeight = () => paper.getAttribute("data-place-stage-height")
     const keptHeight = yield* act(sheetHeight)
 
-    const rebuild = yield* Effect.fork(nextResponse(page, "POST", "/api/imagined-place/build"))
+    const rebuild = yield* Effect.forkChild(nextResponse(page, "POST", "/api/imagined-place/build"))
     yield* click(proposal.getByRole("switch"))
     // Sample every frame from the moment the merge is requested until the disc is filled in.
-    const painted = yield* Effect.fork(framesUntil(demo, landed(name), searchSettlesWithin))
+    const painted = yield* Effect.forkChild(framesUntil(demo, landed(name), searchSettlesWithin))
     expect((yield* Fiber.join(rebuild)).status()).toBe(200)
     const ring = demo.locator(`[data-place-marker-arriving="${name}"]`)
     yield* visible(ring)
@@ -313,7 +313,7 @@ export const mergeProgramProposal = (reducedMotion: ReducedMotion) =>
       name,
       sampled: frames,
       // The disc fills the ring: the hand-off is painted, and at every frame of it both stand in one place.
-      filledInPlace: Arr.isNonEmptyReadonlyArray(handingOff) &&
+      filledInPlace: handingOff.length > 0 &&
         Arr.every(handingOff, (places) => Arr.dedupe(Arr.map(places, (place) => place.translate)).length === 1),
       // How many places the disc was painted at: one when it never moves.
       placed: Arr.length(discs),
@@ -322,7 +322,7 @@ export const mergeProgramProposal = (reducedMotion: ReducedMotion) =>
         Arr.dedupe(
           Arr.filterMap(
             Arr.flatten(feature_),
-            (place) => place.kind === "disc" ? Option.some(place.transform) : Option.none()
+            (place) => place.kind === "disc" ? Result.succeed(place.transform) : Result.failVoid
           )
         )
       ),
@@ -341,17 +341,17 @@ export const drawingStands = (frame: StageFrame): string =>
       Arr.dedupe(
         Arr.filterMap(
           frame.places,
-          (place) => place.kind === "disc" ? Option.some(`${place.name}@${place.translate}`) : Option.none()
+          (place) => place.kind === "disc" ? Result.succeed(`${place.name}@${place.translate}`) : Result.failVoid
         )
       ),
-      Order.string
+      Order.String
     ),
     "\n"
   )
 
 /** The text of every set of lines painted in the frame. */
 export const paintedSets = (frame: StageFrame): ReadonlyArray<string> =>
-  Arr.filterMap(frame.lines, (set) => set.painted ? Option.some(set.text) : Option.none())
+  Arr.filterMap(frame.lines, (set) => set.painted ? Result.succeed(set.text) : Result.failVoid)
 
 /** A set of lines other than those in `known` is painted in the frame. */
 export const paintsNewSet = (frame: StageFrame, known: ReadonlyArray<string>): boolean =>
@@ -384,8 +384,8 @@ export const changeStory = (options: { readonly cpuSlowdown?: CpuSlowdown } = {}
       frame.phase === "complete" && paintsNewSet(frame, oldSets) && drawingStands(frame) !== standing
 
     // Sample every frame from before the story is chosen until the new drawing is kept.
-    const painted = yield* Effect.fork(framesUntil(demo, kept, searchSettlesWithin))
-    const rebuild = yield* Effect.fork(nextResponse(page, "POST", "/api/imagined-place/build"))
+    const painted = yield* Effect.forkChild(framesUntil(demo, kept, searchSettlesWithin))
+    const rebuild = yield* Effect.forkChild(nextResponse(page, "POST", "/api/imagined-place/build"))
     yield* click(radio)
     expect((yield* Fiber.join(rebuild)).status()).toBe(200)
     // The new story is drawn once its search settles: a search's wait.
@@ -454,26 +454,28 @@ export const fromAnswerToItsCode = (
       Match.exhaustive
     )
     yield* visible(overlay)
-    const siteId = yield* Schema.decodeUnknown(CodeSiteId)(
+    const siteId = yield* Schema.decodeUnknownEffect(CodeSiteId)(
       yield* act(() => codeLink.getAttribute("data-place-provenance-code"))
     )
     const site = codeSite(siteId)
-    const step = yield* Arr.findFirst(placeStepDefinitions, (definition) => definition.id === site.step)
+    const step = yield* Effect.fromOption(
+      Arr.findFirst(placeStepDefinitions, (definition) => definition.id === site.step)
+    )
 
     yield* Match.value(opening).pipe(
       Match.when("pointer", () => click(codeLink)),
       Match.when("keyboard", () =>
         Effect.gen(function*() {
           // Tab walks from the pinned answer's first control to the credited line's link.
-          yield* Effect.iterate(false, {
-            while: (reached) => !reached,
-            body: () =>
-              Effect.gen(function*() {
-                yield* press(page, "Tab")
-                return yield* act(() => codeLink.evaluate(isActiveElement))
-              })
+          yield* Effect.gen(function*() {
+            yield* press(page, "Tab")
+            return yield* act(() => codeLink.evaluate(isActiveElement))
           }).pipe(
-            Effect.timeoutFail({ duration: Duration.seconds(5), onTimeout: () => "the code link was never reached" })
+            Effect.repeat({ until: (reached) => reached }),
+            Effect.timeoutOrElse({
+              duration: Duration.seconds(5),
+              orElse: () => Effect.fail("the code link was never reached")
+            })
           )
           yield* press(page, "Enter")
         })),
@@ -503,8 +505,10 @@ export const referenceTargets = (references: Locator) =>
     return yield* Effect.forEach(Arr.range(0, total - 1), (index) =>
       Effect.gen(function*() {
         const reference = references.nth(index)
-        const text = yield* Option.fromNullable(yield* act(() => reference.getAttribute("data-place-reference")))
-        const href = yield* Option.fromNullable(yield* act(() => reference.getAttribute("href")))
+        const text = yield* Effect.fromOption(
+          Option.fromNullishOr(yield* act(() => reference.getAttribute("data-place-reference")))
+        )
+        const href = yield* Effect.fromOption(Option.fromNullishOr(yield* act(() => reference.getAttribute("href"))))
         return { text, href }
       }))
   })

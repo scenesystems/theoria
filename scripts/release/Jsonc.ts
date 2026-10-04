@@ -1,5 +1,5 @@
 /** JSONC lexical leniency composed with Schema's JSON parser. */
-import { Array, Boolean, identity, Match, Option, Schema, String, Tuple } from "effect"
+import { Array, Boolean, Match, Option, Schema, SchemaGetter, String, Tuple } from "effect"
 
 const lexemes = /("(?:[^"\\]|\\[\s\S])*(?:"|\\?$)|\/\/[^\r\n]*|\/\*[\s\S]*?(?:\*\/|$)|[ \t\r\n]+|[\s\S])/
 const whitespace = (token: string) => Option.isSome(String.match(/^[ \t\r\n]+$/)(token))
@@ -25,7 +25,7 @@ const normalize = (source: string): string => {
       Tuple.make(token, previousValue)
     ))
   const normalized = Array.mapAccum(
-    Array.reverse(Tuple.getSecond(preceded)),
+    Array.reverse(preceded[1]),
     false,
     (nextContainer, [token, previousValue]) =>
       Tuple.make(
@@ -36,9 +36,12 @@ const normalize = (source: string): string => {
         })
       )
   )
-  return Array.join(Array.reverse(Tuple.getSecond(normalized)), "")
+  return Array.join(Array.reverse(normalized[1]), "")
 }
 
 /** Preserve quoted strings, invalid syntax and offsets; encoding emits strict JSON. */
-export const parse = <A, I, R>(schema: Schema.Schema<A, I, R>) =>
-  Schema.transform(Schema.String, Schema.parseJson(schema), { strict: true, decode: normalize, encode: identity })
+export const parse = <S extends Schema.ConstraintCodec<unknown, unknown, never, never>>(schema: S) =>
+  Schema.String.pipe(Schema.decodeTo(Schema.fromJsonString(schema), {
+    decode: SchemaGetter.transform(normalize),
+    encode: SchemaGetter.passthrough()
+  }))

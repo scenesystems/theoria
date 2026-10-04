@@ -21,25 +21,29 @@ const program = Effect.gen(function*() {
 
   const objective = (config: SearchSpace.Type<typeof space>) => Effect.succeed(objectiveValue(config.x, config.y))
 
-  const firstLeg = yield* Optimization.minimize({
-    space,
-    sampler: Sampler.tpe({ seed: 404 }),
-    trials: 20,
-    objective
-  })
+  const firstLeg = yield* Optimization.minimize(
+    new Optimization.FlatOptions({
+      space,
+      sampler: Sampler.tpe(new Sampler.TpeOptions({ seed: 404 })),
+      trials: 20,
+      objective
+    })
+  )
 
   const snapshot = yield* Optimization.snapshot(firstLeg)
-  const encoded = yield* Schema.encode(OptimizationSnapshot.OptimizationSnapshot)(snapshot)
-  const restored = yield* Schema.decode(OptimizationSnapshot.OptimizationSnapshot)(encoded)
+  const encoded = yield* Schema.encodeEffect(OptimizationSnapshot.OptimizationSnapshot)(snapshot)
+  const restored = yield* Schema.decodeEffect(OptimizationSnapshot.OptimizationSnapshot)(encoded)
 
-  const resumed = yield* Optimization.resume({
-    space,
-    sampler: Sampler.tpe({ seed: 404 }),
-    snapshot: restored,
-    direction: "minimize",
-    trials: 20,
-    objective
-  })
+  const resumed = yield* Optimization.resume(
+    new Optimization.ResumeOptions({
+      space,
+      sampler: Sampler.tpe(new Sampler.TpeOptions({ seed: 404 })),
+      snapshot: restored,
+      direction: "minimize",
+      trials: 20,
+      objective
+    })
+  )
 
   yield* Match.value(resumed).pipe(
     Match.tag("SingleObjective", ({ bestTrial, completionReason, trials }) =>

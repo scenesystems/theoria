@@ -1,5 +1,5 @@
 import { describe, expect, it } from "@effect/vitest"
-import { Array as Arr, Boolean as Bool, Effect, Number as Num } from "effect"
+import { Array as Arr, Boolean as Bool, Effect, Number as Num, Option, Struct } from "effect"
 
 import * as Numeric from "@scenesystems/effect-math/Numeric"
 import {
@@ -16,7 +16,7 @@ describe("tpe continuous parzen", () => {
   it.effect("injects a prior kernel at the midpoint of the support with normalized weights", () =>
     Effect.gen(function*() {
       const parzen = buildContinuousParzen(Arr.make(0.1, 0.3, 0.8), 0, 1)
-      const priorKernel = yield* Arr.last(parzen.kernels)
+      const priorKernel = Option.getOrThrow(Arr.last(parzen.kernels))
       const weightSum = Arr.reduce(parzen.kernels, 0, (total, kernel) => Num.sum(total, kernel.weight))
 
       expect(priorKernel.mean).toBeCloseTo(0.5, 12)
@@ -30,7 +30,7 @@ describe("tpe continuous parzen", () => {
   it.effect("uses Optuna-style neighbor-gap bandwidths with magic-clip floors", () =>
     Effect.sync(() => {
       const parzen = buildContinuousParzen(Arr.make(0.2, 0.4, 0.7), 0, 1)
-      const minSigma = Num.unsafeDivide(1, 5)
+      const minSigma = Num.divideUnsafe(1, 5)
       const observationKernels = Arr.take(parzen.kernels, 3)
 
       Arr.forEach(observationKernels, (kernel) => {
@@ -83,7 +83,7 @@ describe("tpe continuous parzen", () => {
   it.effect("prepared densities preserve support, zero weights and invalid kernels across distinct models", () =>
     Effect.sync(() => {
       const parzen = new ContinuousParzen({
-        low: Num.negate(1),
+        low: Num.multiply(-1, 1),
         high: 2,
         kernels: Arr.make(
           new ContinuousKernel({ mean: 0.3, sigma: 0.7, weight: 1 }),
@@ -112,29 +112,27 @@ describe("tpe continuous parzen", () => {
         }
       )
       expect(density(Number.NaN)).toBeNaN()
-      Arr.forEach(Arr.make(0, Num.negate(0.5), Number.NaN, Number.POSITIVE_INFINITY), (sigma) => {
+      Arr.forEach(Arr.make(0, Num.multiply(-1, 0.5), Number.NaN, Number.POSITIVE_INFINITY), (sigma) => {
         const invalid = prepareLogDensity(
-          new ContinuousParzen({
-            ...parzen,
+          new ContinuousParzen(Struct.assign(parzen, {
             kernels: Arr.make(new ContinuousKernel({ mean: 0.3, sigma, weight: 1 }))
-          })
+          }))
         )
         expect(invalid(0.4)).toBeNaN()
         expect(invalid(Number.POSITIVE_INFINITY)).toBeNaN()
       })
       Arr.forEach(Arr.make(parzen.low, Num.subtract(parzen.low, 1)), (high) => {
-        expect(prepareLogDensity(new ContinuousParzen({ ...parzen, high }))(0.4)).toBeNaN()
+        expect(prepareLogDensity(new ContinuousParzen(Struct.assign(parzen, { high })))(0.4)).toBeNaN()
       })
       // Distinct endpoints can round to the same standardized bound.
       const collapsed = prepareLogDensity(
-        new ContinuousParzen({
-          ...parzen,
+        new ContinuousParzen(Struct.assign(parzen, {
           kernels: Arr.make(new ContinuousKernel({ mean: 1e20, sigma: 1, weight: 1 }))
-        })
+        }))
       )
       expect(collapsed(0.4)).toBeNaN()
       expect(collapsed(Number.POSITIVE_INFINITY)).toBeNaN()
-      expect(prepareLogDensity(new ContinuousParzen({ ...parzen, kernels: Arr.empty() }))(0.4))
+      expect(prepareLogDensity(new ContinuousParzen(Struct.assign(parzen, { kernels: Arr.empty() })))(0.4))
         .toBe(Number.NEGATIVE_INFINITY)
     }))
 
@@ -157,17 +155,17 @@ describe("tpe continuous parzen", () => {
 
   it.effect("samples stay within configured bounds", () =>
     Effect.sync(() => {
-      const low = Num.negate(2)
+      const low = Num.multiply(-1, 2)
       const high = 3
-      const parzen = buildContinuousParzen(Arr.make(Num.negate(1.2), 0.3, 2.4), low, high)
+      const parzen = buildContinuousParzen(Arr.make(Num.multiply(-1, 1.2), 0.3, 2.4), low, high)
       const samples = Arr.makeBy(200, (index) => {
-        const kernelRoll = Num.unsafeDivide(Num.remainder(index, 20), 20)
-        const valueRoll = Num.unsafeDivide(Num.remainder(Num.multiply(index, 11), 100), 100)
+        const kernelRoll = Num.divideUnsafe(Num.remainder(index, 20), 20)
+        const valueRoll = Num.divideUnsafe(Num.remainder(Num.multiply(index, 11), 100), 100)
 
         return sampleFromParzen(parzen, kernelRoll, valueRoll)
       })
 
       expect(Arr.every(samples, (sample) =>
-        Bool.and(Num.greaterThanOrEqualTo(sample, low), Num.lessThanOrEqualTo(sample, high)))).toBe(true)
+        Bool.and(Num.isGreaterThanOrEqualTo(sample, low), Num.isLessThanOrEqualTo(sample, high)))).toBe(true)
     }))
 })

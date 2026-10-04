@@ -12,7 +12,7 @@ import { Array as Arr, Match, Number as Num } from "effect"
  * @category utils
  */
 export const trialNumbers = (count: number, startAt = 0) =>
-  Match.value(Num.lessThanOrEqualTo(count, 0)).pipe(
+  Match.value(Num.isLessThanOrEqualTo(count, 0)).pipe(
     Match.when(true, () => Arr.empty<number>()),
     Match.orElse(() => Arr.makeBy(count, (index) => Num.sum(startAt, index)))
   )

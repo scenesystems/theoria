@@ -1,8 +1,8 @@
-import { Result } from "@effect-atom/atom"
-import { useAtomSet, useAtomValue } from "@effect-atom/atom-react"
+import { useAtomSet, useAtomValue } from "@effect/atom-react"
 import { ArrowTopRightOnSquareIcon } from "@heroicons/react/20/solid"
 import { Boolean as Bool, Equal, Option, Schema } from "effect"
 import * as Arr from "effect/Array"
+import { AsyncResult as Result } from "effect/reactivity"
 import * as Str from "effect/String"
 import type { ReactNode } from "react"
 

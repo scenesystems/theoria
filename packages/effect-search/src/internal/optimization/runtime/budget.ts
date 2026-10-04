@@ -15,19 +15,19 @@ import type { OptimizeSettings } from "../options/plan.js"
 import type { OptimizationRuntime } from "./bootstrap.js"
 import { markBudgetExhausted } from "./completion.js"
 
-const isFiniteNonNegative = (value: number): boolean => Bool.and(isFinite(value), Num.greaterThanOrEqualTo(value, 0))
+const isFiniteNonNegative = (value: number): boolean => Bool.and(isFinite(value), Num.isGreaterThanOrEqualTo(value, 0))
 
 const maybeTrialCost = <Config>(trial: Trial.Trial<Config>): Option.Option<number> =>
-  Option.fromNullable(trial.cost).pipe(
+  Option.fromNullishOr(trial.cost).pipe(
     Option.filter(isFiniteNonNegative)
   )
 
 const maybeMaxCost = (settings: OptimizeSettings): Option.Option<number> =>
-  Option.fromNullable(settings.maxCost).pipe(
+  Option.fromNullishOr(settings.maxCost).pipe(
     Option.filter(isFiniteNonNegative)
   )
 
-const budgetExceeded = (cumulativeCost: number, maxCost: number): boolean => Num.greaterThan(cumulativeCost, maxCost)
+const budgetExceeded = (cumulativeCost: number, maxCost: number): boolean => Num.isGreaterThan(cumulativeCost, maxCost)
 
 const completionReasonOnExceeded = <Config>(
   runtime: OptimizationRuntime<Config>,

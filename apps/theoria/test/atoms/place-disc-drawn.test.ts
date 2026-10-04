@@ -1,5 +1,5 @@
 import { expect } from "@effect/vitest"
-import { Effect, Option } from "effect"
+import { Effect, Option, Struct } from "effect"
 import * as Arr from "effect/Array"
 import * as HashSet from "effect/HashSet"
 
@@ -25,23 +25,28 @@ describeOnStage("how a disc is drawn, told from the frame it stands in", (it) =>
     Effect.gen(function*() {
       const { other, showingKept } = yield* onStage
       // The new story's search, just begun: the drawing rests as the old story left it.
-      const search = new PlaceSearch({
-        ...other.showing.search,
-        phase: "running",
-        settled: HashSet.fromIterable(names(showingKept))
-      })
-      const resting = new PlaceRenderFrame({ ...showingKept, search })
+      const search = new PlaceSearch(Struct.evolve(other.showing.search, {
+        phase: (): PlaceSearch["phase"] => "running",
+        settled: () => HashSet.fromIterable(names(showingKept))
+      }))
+      const resting = new PlaceRenderFrame(Struct.evolve(showingKept, { search: () => search }))
       const oldName = firstName(showingKept)
       const newName = firstName(other.showing)
       expect(Arr.contains(names(other.showing), oldName)).toBe(false)
       expect(discDrawn("sketch", Option.some(resting), oldName)).toBe("leaving")
       // The new features are drawn once the travel begins, as rings, until the search settles.
-      const travelling = new PlaceRenderFrame({ ...other.showing, search })
+      const travelling = new PlaceRenderFrame(Struct.evolve(other.showing, { search: () => search }))
       expect(discDrawn("sketch", Option.some(travelling), newName)).toBe("arriving")
       // A feature the last settled drawing drew, and the search draws again, stays a disc.
-      const settledAgain = new PlaceSearch({ ...search, settled: HashSet.fromIterable(names(other.showing)) })
+      const settledAgain = new PlaceSearch(
+        Struct.evolve(search, { settled: () => HashSet.fromIterable(names(other.showing)) })
+      )
       expect(
-        discDrawn("sketch", Option.some(new PlaceRenderFrame({ ...other.showing, search: settledAgain })), newName)
+        discDrawn(
+          "sketch",
+          Option.some(new PlaceRenderFrame(Struct.evolve(other.showing, { search: () => settledAgain }))),
+          newName
+        )
       )
         .toBe("settled")
     }))

@@ -1,5 +1,5 @@
 import { Slider } from "@base-ui/react/slider"
-import { useAtomSet, useAtomValue } from "@effect-atom/atom-react"
+import { useAtomSet, useAtomValue } from "@effect/atom-react"
 import { Boolean as Bool, Equal, Match, Option, Schema } from "effect"
 import * as Arr from "effect/Array"
 import * as Num from "effect/Number"
@@ -30,7 +30,7 @@ import {
 
 const searchTone = toneClassesFor("primary")
 
-const Point = Schema.Struct({ x: Schema.Number, y: Schema.Number })
+const Point = Schema.Struct({ x: Schema.Finite, y: Schema.Finite })
 type Point = typeof Point.Type
 
 /** A running minimum: the loss the search would report after each trial. */
@@ -38,9 +38,9 @@ const runningBest = (losses: ReadonlyArray<number>): ReadonlyArray<number> =>
   Arr.drop(Arr.scan(losses, Number.POSITIVE_INFINITY, Num.min), 1)
 
 /** The chart's width per trial: the whole budget across a hundred percent, or nothing to step by for a budget of one. */
-const trialStep: number = Bool.match(Num.lessThanOrEqualTo(renderTrials, 1), {
+const trialStep: number = Bool.match(Num.isLessThanOrEqualTo(renderTrials, 1), {
   onTrue: () => 0,
-  onFalse: () => Num.unsafeDivide(100, Num.decrement(renderTrials))
+  onFalse: () => Num.divideUnsafe(100, Num.decrement(renderTrials))
 })
 
 /** A flat trace still needs a height to be drawn at: one unit, so every point stands at the bottom. */
@@ -62,7 +62,7 @@ const pointsFor = (losses: ReadonlyArray<number>): ReadonlyArray<Point> => {
   const range = spanOf(min, max)
   return Arr.map(scaled, (value, index) => ({
     x: Num.multiply(index, trialStep),
-    y: Num.subtract(100, Num.multiply(Num.unsafeDivide(Num.subtract(value, min), range), 100))
+    y: Num.subtract(100, Num.multiply(Num.divideUnsafe(Num.subtract(value, min), range), 100))
   }))
 }
 
@@ -83,7 +83,7 @@ const dotStyle = (point: Point): CSSProperties => ({
 })
 
 /** What a trial's dot stands for: the one drawn on the stage, the one the search kept, or one only tried. */
-const DotKind = Schema.Literal("tried", "best", "shown")
+const DotKind = Schema.Literals(["tried", "best", "shown"])
 type DotKind = typeof DotKind.Type
 
 const dotKind = (index: number, best: number, shown: number): DotKind =>

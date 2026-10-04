@@ -12,7 +12,7 @@ Numerical concerns expose the forms their behavior needs. Base operations are sy
 bun add @scenesystems/effect-math effect
 ```
 
-Effect `^3.22.1` is a required peer dependency.
+Effect `^4.0.0` is a required peer dependency.
 
 ## Basic use
 
@@ -28,9 +28,9 @@ const b = Chunk.make(4, 5, 6)
 export const direct: number = dot(a, b)
 
 export const checked = dotValidated({
-  a,
-  b
-}).pipe(Effect.either)
+  a: [1, 2, 3],
+  b: [4, 5, 6]
+}).pipe(Effect.result)
 ```
 
 Import from a concern subpath such as `@scenesystems/effect-math/LinearAlgebra` to keep imports focused, or import concern namespaces from the package root. There are no `contracts` or `experimental` compatibility subpaths.
@@ -149,7 +149,7 @@ export const program = Effect.gen(function* () {
 
 ## Runtime policies
 
-Policy-aware operations declare their configuration as `Context.Tag` services from [`Policy`](./src/Policy.ts), and an Effect that calls one keeps those services in its requirements until a Layer provides them. Service payloads retain the `{ policy: ... }` shape.
+Policy-aware operations declare their configuration as `Context.Service` services from [`Policy`](./src/Policy.ts), and an Effect that calls one keeps those services in its requirements until a Layer provides them. Service payloads retain the `{ policy: ... }` shape.
 
 | Service              | Policy values                                    | Effect on policy-aware operations                                        |
 | -------------------- | ------------------------------------------------ | ------------------------------------------------------------------------ |
@@ -174,7 +174,7 @@ The planning concerns describe how a numerical computation should run without ex
 
 Validated and policy-aware operations fail with tagged errors, so `Effect.catchTag` and `Effect.catchTags` work on them directly and the generated API reference lists each operation's exact union. Import errors from their owning concern: for example, `Numeric.ExecutionError` captures callback failure while preserving the `KernelExecutionError` wire tag, and `LinearAlgebra.ShapeMismatchError` reports incompatible dimensions. Encodable errors use `Schema.TaggedError`; service-only failures that need no codec may use `Data.TaggedError`.
 
-Base operations have no error channel. They do what their documentation says for valid input and follow IEEE 754 otherwise; validation is the caller's job or the validated variant's.
+Base operations have no typed error channel. They require their documented preconditions; `Numeric.unsafeDivide`, for example, throws on a zero divisor, following Effect v4. Use `Numeric.safeDivide` for an `Option` result or `Numeric.unsafeDivideValidated` for typed validation failures.
 
 ## Examples
 

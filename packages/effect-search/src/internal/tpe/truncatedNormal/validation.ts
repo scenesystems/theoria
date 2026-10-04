@@ -15,7 +15,7 @@ export const failWhen = (
   operation: string,
   reason: string
 ): Effect.Effect<void, InvalidMathInput> =>
-  Effect.when(Effect.fail(invalidMathInput(operation, reason)), () => condition)
+  Effect.when(Effect.fail(invalidMathInput(operation, reason)), Effect.succeed(condition))
 
 export const ensureCommonParams = (
   operation: string,
@@ -26,8 +26,8 @@ export const ensureCommonParams = (
     yield* failWhen(Bool.not(isFinite(params.sigma)), operation, "sigma must be finite")
     yield* failWhen(Bool.not(isFinite(params.low)), operation, "low must be finite")
     yield* failWhen(Bool.not(isFinite(params.high)), operation, "high must be finite")
-    yield* failWhen(Num.lessThanOrEqualTo(params.sigma, 0), operation, "sigma must be > 0")
-    yield* failWhen(Num.greaterThan(params.low, params.high), operation, "low must be <= high")
+    yield* failWhen(Num.isLessThanOrEqualTo(params.sigma, 0), operation, "sigma must be > 0")
+    yield* failWhen(Num.isGreaterThan(params.low, params.high), operation, "low must be <= high")
     yield* failWhen(Equal.equals(params.low, params.high), operation, "low and high must not be equal")
   })
 
@@ -37,5 +37,5 @@ export const isValidParams = (params: TruncatedNormalParams): boolean =>
       Bool.and(isFinite(params.mean), isFinite(params.sigma)),
       Bool.and(isFinite(params.low), isFinite(params.high))
     ),
-    Bool.and(Num.greaterThan(params.sigma, 0), Num.lessThanOrEqualTo(params.low, params.high))
+    Bool.and(Num.isGreaterThan(params.sigma, 0), Num.isLessThanOrEqualTo(params.low, params.high))
   )

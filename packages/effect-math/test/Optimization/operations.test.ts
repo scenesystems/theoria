@@ -123,7 +123,7 @@ describe("Optimization / bisectValidated", () => {
   it.effect("maps failed callbacks to typed kernel failures", () =>
     Effect.gen(function*() {
       const error = yield* Effect.flip(bisectValidated(
-        () => Schema.decodeUnknownSync(Schema.Number)({ malformed: true }),
+        () => Schema.decodeUnknownSync(Schema.Finite)({ malformed: true }),
         { a: 0, b: 2 }
       ))
       expect(error._tag).toStrictEqual("KernelExecutionError")
@@ -185,7 +185,7 @@ describe("Optimization / goldenSectionWithPolicies", () => {
   it.effect("maps objective callback failures instead of producing defects", () =>
     Effect.gen(function*() {
       const error = yield* Effect.flip(goldenSectionWithPolicies(
-        () => Schema.decodeUnknownSync(Schema.Number)({ malformed: true }),
+        () => Schema.decodeUnknownSync(Schema.Finite)({ malformed: true }),
         -2,
         2
       ))

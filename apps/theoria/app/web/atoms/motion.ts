@@ -1,22 +1,23 @@
-import { Atom, Result } from "@effect-atom/atom"
-import type { Atom as AtomType } from "@effect-atom/atom"
-import { Boolean as Bool, Match, Schema, Stream } from "effect"
+import { Boolean as Bool, type Cause, Match, Schema, Stream } from "effect"
+import { AsyncResult as Result, Atom } from "effect/reactivity"
+import type * as AtomType from "effect/reactivity/Atom"
 
 import * as BrowserWindow from "../platform/BrowserWindow.js"
 import { appRuntime } from "./runtime.js"
 
 /** Whether things on the page may travel: `full`, or `reduced` when the reader's system asks for less motion. */
-export const MotionPreference = Schema.Literal("full", "reduced")
+export const MotionPreference = Schema.Literals(["full", "reduced"])
 
 export type MotionPreference = typeof MotionPreference.Type
 
-const systemMotionPreferenceAtom: AtomType.Atom<Result.Result<MotionPreference>> = appRuntime.atom(
-  BrowserWindow.mediaQuery("(prefers-reduced-motion: reduce)").pipe(
-    Stream.map((reduce): MotionPreference =>
-      Bool.match(reduce, { onTrue: (): MotionPreference => "reduced", onFalse: (): MotionPreference => "full" })
+const systemMotionPreferenceAtom: AtomType.Atom<Result.AsyncResult<MotionPreference, Cause.NoSuchElementError>> =
+  appRuntime.atom(
+    BrowserWindow.mediaQuery("(prefers-reduced-motion: reduce)").pipe(
+      Stream.map((reduce): MotionPreference =>
+        Bool.match(reduce, { onTrue: (): MotionPreference => "reduced", onFalse: (): MotionPreference => "full" })
+      )
     )
   )
-)
 
 /**
  * The reader's motion preference, followed live from the system. This is the
@@ -28,7 +29,7 @@ export const motionPreferenceAtom: AtomType.Atom<MotionPreference> = Atom.make((
 )
 
 /** How the page brings a thing into view: gliding to it, or landing on it at once. */
-export const ScrollManner = Schema.Literal("smooth", "instant")
+export const ScrollManner = Schema.Literals(["smooth", "instant"])
 export type ScrollManner = typeof ScrollManner.Type
 
 /** The manner the preference asks for: reduced motion lands at once. */

@@ -10,15 +10,15 @@ import {
   Boolean as B,
   Clock,
   Effect,
-  Either,
-  Encoding,
   identity,
   Number as N,
   Option,
   Redacted,
+  Result,
   Schema,
   String as Str
 } from "effect"
+import { Base64Url } from "effect/encoding"
 import * as Bytes from "./Bytes.js"
 import * as Rsa from "./Rsa.js"
 import * as Verification from "./Verification.js"
@@ -29,11 +29,12 @@ import * as Verification from "./Verification.js"
  * @since 0.4.0
  * @category errors
  */
-export class Rejected extends Schema.TaggedError<Rejected>("@scenesystems/sign/Jwt/Rejected")("JwtRejected", {
-  reason: Schema.Literal("MalformedToken", "KeySelection", "InvalidKey", "Signature", "Claims", "Policy")
+export class Rejected extends Schema.TaggedError<Rejected>()("JwtRejected", {
+  reason: Schema.Literals(["MalformedToken", "KeySelection", "InvalidKey", "Signature", "Claims", "Policy"])
 }, {
   title: "JWT rejected",
-  description: "An RS256 token failed structural, key, signature, claims, or policy validation."
+  description: "An RS256 token failed structural, key, signature, claims, or policy validation.",
+  identifier: "@scenesystems/sign/Jwt/Rejected"
 }) {}
 
 /**
@@ -45,42 +46,42 @@ export class Rejected extends Schema.TaggedError<Rejected>("@scenesystems/sign/J
 export class Policy extends Schema.Class<Policy>("@scenesystems/sign/Jwt/Policy")({
   issuer: Schema.NonEmptyString,
   audience: Schema.NonEmptyString,
-  maxLifetimeSeconds: Schema.Number.pipe(Schema.finite(), Schema.positive())
+  maxLifetimeSeconds: Schema.Finite.check(Schema.isGreaterThan(0))
 }, {
   title: "JWT verification policy",
   description: "Trusted issuer, audience, and maximum token lifetime for RS256 verification."
 }) {}
 
-const NumericDate = Schema.Number.pipe(Schema.finite())
+const NumericDate = Schema.Finite
 const Claims = Schema.Struct({
   iss: Schema.NonEmptyString,
-  aud: Schema.ArrayEnsure(Schema.NonEmptyString).pipe(Schema.minItems(1)),
+  aud: Schema.ArrayEnsure(Schema.NonEmptyString).check(Schema.isMinLength(1)),
   iat: NumericDate,
   exp: NumericDate,
-  nbf: Schema.optionalWith(NumericDate, { as: "Option" })
+  nbf: Schema.optional(NumericDate)
 })
 
 const Header = Schema.Struct({
   alg: Schema.Literal("RS256"),
-  kid: Schema.NonEmptyString.pipe(Schema.maxLength(128)),
+  kid: Schema.NonEmptyString.check(Schema.isMaxLength(128)),
   typ: Schema.optional(Schema.Literal("JWT"))
 })
 
-const Segment = Schema.NonEmptyString.pipe(Schema.pattern(/^[A-Za-z0-9_-]+$/))
-const Compact = Schema.String.pipe(Schema.maxLength(N.sum(Verification.maxMessageBytes, 684)))
-const Jwks = Schema.Struct({ keys: Schema.Array(Schema.Unknown).pipe(Schema.maxItems(100)) })
-const KeyId = Schema.Struct({ kid: Schema.optionalWith(Schema.NonEmptyString, { as: "Option" }) })
+const Segment = Schema.NonEmptyString.check(Schema.isPattern(/^[A-Za-z0-9_-]+$/))
+const Compact = Schema.String.check(Schema.isMaxLength(N.sum(Verification.maxMessageBytes, 684)))
+const Jwks = Schema.Struct({ keys: Schema.Array(Schema.Unknown).check(Schema.isMaxLength(100)) })
+const KeyId = Schema.Struct({ kid: Schema.optional(Schema.NonEmptyString) })
 
 const decodeJson = (segment: string) =>
   Effect.gen(function*() {
-    const text = yield* Encoding.decodeBase64UrlString(segment)
+    const text = yield* Effect.fromResult(Base64Url.decodeString(segment))
     // Round-trip the original wire encoding: reject replacement decoding, BOM
     // stripping, padding, and nonzero unused base64 bits, without normalizing JSON.
     yield* Effect.succeed(text).pipe(Effect.filterOrFail(
-      (decoded) => Str.Equivalence(Encoding.encodeBase64Url(decoded), segment),
+      (decoded) => Str.Equivalence(Base64Url.encode(decoded), segment),
       () => new Rejected({ reason: "MalformedToken" })
     ))
-    return yield* Schema.decode(Schema.parseJson(Schema.Unknown))(text)
+    return yield* Schema.decodeEffect(Schema.fromJsonString(Schema.Unknown))(text)
   }).pipe(Effect.mapError(() => new Rejected({ reason: "MalformedToken" })))
 
 /**
@@ -101,81 +102,85 @@ const decodeJson = (segment: string) =>
  * @since 0.4.0
  * @category verification
  */
-export const verifyRs256 = <A, I, R>(
+export const verifyRs256 = <S extends Schema.Constraint>(
   token: Redacted.Redacted<string>,
   trustedJwks: unknown,
   policy: Policy,
-  claimsSchema: Schema.Schema<A, I, R>
-): Effect.Effect<A, Rejected | Verification.Unavailable, R> =>
+  claimsSchema: S
+): Effect.Effect<S["Type"], Rejected | Verification.Unavailable, S["DecodingServices"]> =>
   Effect.gen(function*() {
-    const admittedPolicy = yield* Schema.decode(Policy)({
+    const admittedPolicy = yield* Schema.decodeEffect(Policy)({
       issuer: policy.issuer,
       audience: policy.audience,
       maxLifetimeSeconds: policy.maxLifetimeSeconds
     }).pipe(Effect.mapError(() => new Rejected({ reason: "Policy" })))
-    const compact = yield* Schema.decode(Compact)(Redacted.value(token)).pipe(
+    const compact = yield* Schema.decodeEffect(Compact)(Redacted.value(token)).pipe(
       Effect.mapError(() => new Rejected({ reason: "MalformedToken" }))
     )
-    const [encodedHeader, encodedPayload, encodedSignature] = yield* Schema.decodeUnknown(
-      Schema.Tuple(Segment, Segment, Segment)
+    const [encodedHeader, encodedPayload, encodedSignature] = yield* Schema.decodeUnknownEffect(
+      Schema.Tuple([Segment, Segment, Segment])
     )(
       Str.split(compact, ".")
     ).pipe(Effect.mapError(() => new Rejected({ reason: "MalformedToken" })))
-    const header = yield* Schema.decodeUnknown(Header, { onExcessProperty: "error" })(yield* decodeJson(encodedHeader))
+    const header = yield* Schema.decodeUnknownEffect(Header, { onExcessProperty: "error" })(
+      yield* decodeJson(encodedHeader)
+    )
       .pipe(
         Effect.mapError(() => new Rejected({ reason: "MalformedToken" }))
       )
     const candidates = yield* Effect.try({
       try: () =>
-        Either.map(Schema.decodeUnknownEither(Jwks)(trustedJwks), (jwks) =>
+        Result.map(Schema.decodeUnknownResult(Jwks)(trustedJwks), (jwks) =>
           Arr.filter(jwks.keys, (key) =>
-            Either.match(Schema.decodeUnknownEither(KeyId)(key), {
-              onLeft: () =>
+            Result.match(Schema.decodeUnknownResult(KeyId)(key), {
+              onFailure: () =>
                 false,
-              onRight: (metadata) => Option.exists(metadata.kid, (kid) => Str.Equivalence(kid, header.kid))
+              onSuccess: (metadata) =>
+                Option.exists(Option.fromNullishOr(metadata.kid), (kid) => Str.Equivalence(kid, header.kid))
             }))),
       catch: () =>
         new Rejected({ reason: "KeySelection" })
     }).pipe(
-      Effect.flatMap(identity),
+      Effect.flatMap(Effect.fromResult),
       Effect.mapError(() => new Rejected({ reason: "KeySelection" }))
     )
-    const [selected] = yield* Schema.decodeUnknown(Schema.Tuple(Schema.Unknown))(candidates).pipe(
+    const [selected] = yield* Schema.decodeUnknownEffect(Schema.Tuple([Schema.Unknown]))(candidates).pipe(
       Effect.mapError(() => new Rejected({ reason: "KeySelection" }))
     )
     const key = yield* Rsa.publicKeyFromJwk(selected).pipe(
       Effect.mapError(() => new Rejected({ reason: "InvalidKey" }))
     )
-    const signature = yield* Encoding.decodeBase64Url(encodedSignature).pipe(
+    const signature = yield* Effect.fromResult(Base64Url.decode(encodedSignature)).pipe(
       Effect.mapError(() => new Rejected({ reason: "MalformedToken" })),
       Effect.filterOrFail(
-        (bytes) => Str.Equivalence(Encoding.encodeBase64Url(bytes), encodedSignature),
+        (bytes) => Str.Equivalence(Base64Url.encode(bytes), encodedSignature),
         () => new Rejected({ reason: "MalformedToken" })
       )
     )
-    yield* Rsa.verify(signature, Bytes.fromString(Arr.join(Arr.make(encodedHeader, encodedPayload), ".")), key).pipe(
+    const signedContent = yield* Bytes.fromString(Arr.join(Arr.make(encodedHeader, encodedPayload), "."))
+    yield* Rsa.verify(signature, signedContent, key).pipe(
       Effect.catchTag("InvalidVerificationInput", () => Effect.fail(new Rejected({ reason: "Signature" }))),
       Effect.filterOrFail(identity, () => new Rejected({ reason: "Signature" }))
     )
     const payload = yield* decodeJson(encodedPayload)
-    const claims = yield* Schema.decodeUnknown(Claims)(payload).pipe(
+    const claims = yield* Schema.decodeUnknownEffect(Claims)(payload).pipe(
       Effect.mapError(() => new Rejected({ reason: "Claims" }))
     )
-    const now = N.unsafeDivide(yield* Clock.currentTimeMillis, 1000)
+    const now = N.divideUnsafe(yield* Clock.currentTimeMillis, 1000)
     yield* Effect.succeed(claims).pipe(Effect.filterOrFail(
       (value) =>
         B.every(Arr.make(
           Str.Equivalence(value.iss, admittedPolicy.issuer),
           Arr.contains(value.aud, admittedPolicy.audience),
-          N.lessThanOrEqualTo(value.iat, now),
-          N.greaterThan(value.exp, now),
-          N.greaterThan(value.exp, value.iat),
-          N.lessThanOrEqualTo(N.subtract(value.exp, value.iat), admittedPolicy.maxLifetimeSeconds),
-          Option.match(value.nbf, { onNone: () => true, onSome: N.lessThanOrEqualTo(now) })
+          N.isLessThanOrEqualTo(value.iat, now),
+          N.isGreaterThan(value.exp, now),
+          N.isGreaterThan(value.exp, value.iat),
+          N.isLessThanOrEqualTo(N.subtract(value.exp, value.iat), admittedPolicy.maxLifetimeSeconds),
+          Option.match(Option.fromNullishOr(value.nbf), { onNone: () => true, onSome: N.isLessThanOrEqualTo(now) })
         )),
       () => new Rejected({ reason: "Claims" })
     ))
-    return yield* Schema.decodeUnknown(claimsSchema)(payload).pipe(
+    return yield* Schema.decodeEffect(claimsSchema)(payload).pipe(
       Effect.mapError(() => new Rejected({ reason: "Claims" }))
     )
   })

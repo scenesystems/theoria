@@ -4,13 +4,13 @@
  * @since 0.1.0
  * @module
  */
-import { Chunk, Effect, Schema } from "effect"
+import { Chunk, Effect, Schema, String } from "effect"
 
 import * as PolicyGuard from "./internal/policyGuard.js"
 import * as Entropy from "./internal/probability/entropy.js"
 
-const encodeNumber = Schema.encodeSync(Schema.NumberFromString)
-const nonNegativeFinite = Schema.Finite.pipe(Schema.nonNegative())
+const encodeNumber = String.String
+const nonNegativeFinite = Schema.Finite.check(Schema.isGreaterThanOrEqualTo(0))
 
 /**
  * Decodes a non-empty array of non-negative finite probability masses into a `Chunk`.
@@ -21,9 +21,10 @@ const nonNegativeFinite = Schema.Finite.pipe(Schema.nonNegative())
  * @since 0.1.0
  * @category schemas
  */
-export const Masses = Schema.NonEmptyChunk(nonNegativeFinite).annotations({
-  identifier: "@scenesystems/effect-math/Probability/Masses"
-})
+export const Masses = Schema.toCodecJson(Schema.Chunk(nonNegativeFinite)).pipe(Schema.refine(Chunk.isNonEmpty))
+  .annotate({
+    identifier: "@scenesystems/effect-math/Probability/Masses"
+  })
 
 /**
  * A non-empty collection of non-negative finite probability masses.
@@ -39,7 +40,7 @@ export type Masses = typeof Masses.Type
  * @since 0.1.0
  * @category schemas
  */
-export const EntropyInput = Schema.Struct({ probabilities: Masses }).annotations({
+export const EntropyInput = Schema.Struct({ probabilities: Masses }).annotate({
   identifier: "@scenesystems/effect-math/Probability/EntropyInput"
 })
 
@@ -60,7 +61,7 @@ export type EntropyInput = typeof EntropyInput.Type
 export class DecodeError extends Schema.TaggedError<DecodeError>("@scenesystems/effect-math/Probability/DecodeError")(
   "ProbabilityDecodeError",
   {
-    operation: Schema.Literal("entropy"),
+    operation: Schema.Literals(["entropy"]),
     message: Schema.String
   }
 ) {}
@@ -75,7 +76,7 @@ export class DomainViolationError
   extends Schema.TaggedError<DomainViolationError>("@scenesystems/effect-math/Probability/DomainViolationError")(
     "ProbabilityDomainViolationError",
     {
-      operation: Schema.Literal("entropyWithPolicies"),
+      operation: Schema.Literals(["entropyWithPolicies"]),
       message: Schema.String
     }
   )
@@ -107,7 +108,7 @@ export const entropy: (probabilities: Chunk.Chunk<number>) => number = Entropy.e
  * @category operations
  */
 export const entropyValidated = (input: unknown) =>
-  Schema.decodeUnknown(EntropyInput)(input, { onExcessProperty: "error" }).pipe(
+  Schema.decodeUnknownEffect(EntropyInput)(input, { onExcessProperty: "error" }).pipe(
     Effect.mapError((error) => new DecodeError({ operation: "entropy", message: error.message })),
     Effect.map((decoded) => entropy(decoded.probabilities))
   )

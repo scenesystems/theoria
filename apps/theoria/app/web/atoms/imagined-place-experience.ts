@@ -1,8 +1,8 @@
-import { Atom, Result } from "@effect-atom/atom"
-import type { Atom as AtomType } from "@effect-atom/atom"
-import { Boolean as Bool, Effect, Equal, Match, Option, Schema, Stream } from "effect"
+import { Boolean as Bool, type Cause, Effect, Equal, Match, Option, Schema, Stream } from "effect"
 import * as Arr from "effect/Array"
 import * as Num from "effect/Number"
+import { AsyncResult as Result, Atom } from "effect/reactivity"
+import type * as AtomType from "effect/reactivity/Atom"
 
 import {
   type AnswerFocusReturn,
@@ -55,7 +55,7 @@ const answerLeavingState = Atom.make(Option.none<PlaceProvenance>())
  * said, for the popup to leave with.
  */
 export const placeAnswerAtom: AtomType.Writable<Option.Option<PlaceAnswer>> = Atom.writable(
-  (get: AtomType.Context) => Option.filter(get(answerState), () => Option.isSome(get(placeFocusedProvenanceAtom))),
+  (get: AtomType.AtomContext) => Option.filter(get(answerState), () => Option.isSome(get(placeFocusedProvenanceAtom))),
   (ctx: AtomType.WriteContext<Option.Option<PlaceAnswer>>, value: Option.Option<PlaceAnswer>) => {
     Option.match(value, {
       onNone: () => ctx.set(answerLeavingState, ctx.get(placeAnswerOnShowAtom)),
@@ -117,7 +117,7 @@ export const answerAfterPress = (press: MarkPress): Option.Option<PlaceAnswer> =
  * the frame the stage is drawing this instant, so every answer agrees with
  * what is visible.
  */
-export const placeOnPageAtom: AtomType.Atom<PlaceOnPage> = Atom.make((get: AtomType.Context) => ({
+export const placeOnPageAtom: AtomType.Atom<PlaceOnPage> = Atom.make((get: AtomType.AtomContext) => ({
   build: get(placeBuiltAtom),
   shown: Result.value(get(placeShownFrameAtom))
 }))
@@ -128,7 +128,7 @@ export const placeOnPageAtom: AtomType.Atom<PlaceOnPage> = Atom.make((get: AtomT
  * and what the code panel and the discs light.
  */
 export const placeFocusedProvenanceAtom: AtomType.Atom<Option.Option<PlaceProvenance>> = Atom.make(
-  (get: AtomType.Context) =>
+  (get: AtomType.AtomContext) =>
     Option.flatMap(get(answerState), (answer) => provenanceFor(answer.mark, get(placeOnPageAtom)))
 )
 
@@ -138,13 +138,13 @@ export const placeFocusedProvenanceAtom: AtomType.Atom<Option.Option<PlaceProven
  * rather than emptying the instant the answer is let go.
  */
 export const placeAnswerOnShowAtom: AtomType.Atom<Option.Option<PlaceProvenance>> = Atom.make(
-  (get: AtomType.Context) => Option.orElse(get(placeFocusedProvenanceAtom), () => get(answerLeavingState))
+  (get: AtomType.AtomContext) => Option.orElse(get(placeFocusedProvenanceAtom), () => get(answerLeavingState))
 )
 
 /** The answer open, and what the page says about it this instant. */
 const Answering = Schema.Struct({ answer: Schema.Option(PlaceAnswer), provenance: Schema.Option(PlaceProvenance) })
 type Answering = typeof Answering.Type
-const answeringAtom: AtomType.Atom<Answering> = Atom.make((get: AtomType.Context) =>
+const answeringAtom: AtomType.Atom<Answering> = Atom.make((get: AtomType.AtomContext) =>
   Answering.make({ answer: get(answerState), provenance: get(placeFocusedProvenanceAtom) })
 )
 
@@ -160,7 +160,7 @@ const vanished = (answering: Answering): boolean =>
  * opened it is gone too. The overlay mounts this for as long as answers can
  * be open.
  */
-export const placeAnswerLifetimeAtom = appRuntime.atom((get: AtomType.Context) =>
+export const placeAnswerLifetimeAtom = appRuntime.atom((get: AtomType.AtomContext) =>
   get.stream(answeringAtom).pipe(
     Stream.zipWithPrevious,
     Stream.filter(([, current]) => vanished(current)),
@@ -175,12 +175,12 @@ export const placeAnswerLifetimeAtom = appRuntime.atom((get: AtomType.Context) =
 )
 
 /** The line of code that made what the visitor is pointing at. */
-export const placeFocusedSiteAtom: AtomType.Atom<Option.Option<CodeSite>> = Atom.make((get: AtomType.Context) =>
+export const placeFocusedSiteAtom: AtomType.Atom<Option.Option<CodeSite>> = Atom.make((get: AtomType.AtomContext) =>
   Option.map(get(placeFocusedProvenanceAtom), (provenance) => provenance.site)
 )
 
 /** The mark answered: the one pointed at, or for a line of code, the mark of what that line made. */
-export const placeAnsweredMarkAtom: AtomType.Atom<Option.Option<PlaceMark>> = Atom.make((get: AtomType.Context) =>
+export const placeAnsweredMarkAtom: AtomType.Atom<Option.Option<PlaceMark>> = Atom.make((get: AtomType.AtomContext) =>
   Option.map(get(placeFocusedProvenanceAtom), (provenance) => provenance.mark)
 )
 
@@ -190,7 +190,7 @@ export const placeAnsweredMarkAtom: AtomType.Atom<Option.Option<PlaceMark>> = At
  * the stage can say so.
  */
 export const placeFeatureFocusedAtom = Atom.family((name: string): AtomType.Atom<boolean> =>
-  Atom.make((get: AtomType.Context) =>
+  Atom.make((get: AtomType.AtomContext) =>
     Option.exists(get(placeFocusedProvenanceAtom), (provenance) => Arr.contains(provenance.about, name))
   )
 )
@@ -201,7 +201,7 @@ export const placeFeatureFocusedAtom = Atom.family((name: string): AtomType.Atom
  * at — read from the drawing shown this instant, as the sentence moves while
  * the discs travel.
  */
-export const placeFocusedLineAtom: AtomType.Atom<Option.Option<number>> = Atom.make((get: AtomType.Context) =>
+export const placeFocusedLineAtom: AtomType.Atom<Option.Option<number>> = Atom.make((get: AtomType.AtomContext) =>
   Option.flatMap(get(placeAnsweredMarkAtom), (mark) =>
     Match.value(mark).pipe(
       Match.tag("Line", ({ index }) => Option.some(index)),
@@ -232,7 +232,7 @@ export const placeFocusedLineAtom: AtomType.Atom<Option.Option<number>> = Atom.m
  * the mark's attribute value, since a mark is a value and not a handle.
  */
 export const placeMarkFocusedAtom = Atom.family((encoded: string): AtomType.Atom<boolean> =>
-  Atom.make((get: AtomType.Context) =>
+  Atom.make((get: AtomType.AtomContext) =>
     Option.exists(decodeMark(encoded), (mark) =>
       Match.value(mark).pipe(
         Match.tag("Feature", "Disc", ({ name }) => get(placeFeatureFocusedAtom(name))),
@@ -323,7 +323,7 @@ const actRead: Effect.Effect<PlaceAct, never, BrowserDocument.BrowserDocument | 
     const line = Num.multiply(yield* BrowserWindow.viewportHeight, readingLine)
     const reached = Arr.filter(
       landmarks,
-      (landmark) => Num.lessThanOrEqualTo(landmark.getBoundingClientRect().top, line)
+      (landmark) => Num.isLessThanOrEqualTo(landmark.getBoundingClientRect().top, line)
     )
     return Option.getOrElse(
       Option.flatMap(Arr.last(reached), (landmark) => decodeAct(landmark.getAttribute(placeActAttribute))),
@@ -338,10 +338,12 @@ export const placeActsRead: Stream.Stream<
   BrowserDocument.BrowserDocument | BrowserWindow.BrowserWindow
 > = pageStandingChanges.pipe(Stream.mapEffect(() => actRead), Stream.changes)
 
-const placeActInViewAtom: AtomType.Atom<Result.Result<PlaceAct>> = appRuntime.atom(placeActsRead)
+const placeActInViewAtom: AtomType.Atom<Result.AsyncResult<PlaceAct, Cause.NoSuchElementError>> = appRuntime.atom(
+  placeActsRead
+)
 
 /** The act being read; the arrival until anything has been. */
-export const placeActAtom: AtomType.Atom<PlaceAct> = Atom.make((get: AtomType.Context) =>
+export const placeActAtom: AtomType.Atom<PlaceAct> = Atom.make((get: AtomType.AtomContext) =>
   Result.getOrElse(get(placeActInViewAtom), (): PlaceAct => "arrive")
 )
 
@@ -350,7 +352,7 @@ export const placeActAtom: AtomType.Atom<PlaceAct> = Atom.make((get: AtomType.Co
  * while the proposing act is being read: what the version does not contain,
  * and who offered it.
  */
-export const placeGhostsAtom: AtomType.Atom<ReadonlyArray<ProposalRecord>> = Atom.make((get: AtomType.Context) =>
+export const placeGhostsAtom: AtomType.Atom<ReadonlyArray<ProposalRecord>> = Atom.make((get: AtomType.AtomContext) =>
   Match.value(get(placeActAtom)).pipe(
     Match.when("propose", () =>
       Option.match(get(placeBuiltAtom), {
@@ -379,7 +381,7 @@ const stageColumnSelector = `[data-place-stage="column"]`
 const stageReadPast: Effect.Effect<boolean, never, BrowserDocument.BrowserDocument> = Effect.map(
   BrowserDocument.querySelectorAll(stageColumnSelector),
   (columns) =>
-    Option.exists(Arr.head(columns), (column) => Num.lessThanOrEqualTo(column.getBoundingClientRect().bottom, 0))
+    Option.exists(Arr.head(columns), (column) => Num.isLessThanOrEqualTo(column.getBoundingClientRect().bottom, 0))
 )
 
 /** Whether the stage has been read past, as it changes. */
@@ -389,7 +391,9 @@ export const placeStageReadPastNow: Stream.Stream<
   BrowserDocument.BrowserDocument | BrowserWindow.BrowserWindow
 > = pageStandingChanges.pipe(Stream.mapEffect(() => stageReadPast), Stream.changes)
 
-const placeStageReadPastAtom: AtomType.Atom<Result.Result<boolean>> = appRuntime.atom(placeStageReadPastNow)
+const placeStageReadPastAtom: AtomType.Atom<Result.AsyncResult<boolean, Cause.NoSuchElementError>> = appRuntime.atom(
+  placeStageReadPastNow
+)
 
 /**
  * Whether the band is shown: the place as a band, pinned to the top of the
@@ -399,6 +403,6 @@ const placeStageReadPastAtom: AtomType.Atom<Result.Result<boolean>> = appRuntime
  * there is no band; past the demonstration the band leaves with it, being in
  * its flow.
  */
-export const placeBandAtom: AtomType.Atom<boolean> = Atom.make((get: AtomType.Context) =>
+export const placeBandAtom: AtomType.Atom<boolean> = Atom.make((get: AtomType.AtomContext) =>
   Result.getOrElse(get(placeStageReadPastAtom), () => false)
 )

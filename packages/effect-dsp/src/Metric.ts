@@ -4,7 +4,8 @@
  * @since 0.1.0
  * @module
  */
-import { Data, Schema } from "effect"
+import { Value as ObjectiveValue } from "@scenesystems/effect-search/Objective"
+import { Data, Predicate, Schema } from "effect"
 import type { Effect } from "effect"
 import {
   contains as containsInternal,
@@ -13,6 +14,8 @@ import {
 } from "./internal/metric/builtins.js"
 import { compose as composeInternal } from "./internal/metric/compose.js"
 import { fromEffect as fromEffectInternal, make as makeInternal } from "./internal/metric/constructors.js"
+
+const Score = ObjectiveValue.pipe(Schema.refine(Predicate.isNumber))
 
 /**
  * Constructs a numeric score with optional evaluator feedback.
@@ -25,7 +28,7 @@ import { fromEffect as fromEffectInternal, make as makeInternal } from "./intern
  * @category models
  */
 export class Result extends Schema.Class<Result>("@scenesystems/effect-dsp/Metric/Result")({
-  score: Schema.Number,
+  score: Score,
   feedback: Schema.optional(Schema.String)
 }) {}
 

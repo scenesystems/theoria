@@ -1,21 +1,41 @@
 /** Regenerates the pinned Unicode data and independent UAX #29 conformance vectors. */
-import { Command, FetchHttpClient, FileSystem, HttpClient, HttpClientResponse, Path, Url } from "@effect/platform"
-import { BunContext, BunRuntime } from "@effect/platform-bun"
+import { BunRuntime, BunServices } from "@effect/platform-bun"
 import * as Utf8 from "@scenesystems/digest/Utf8"
-import { Array as Arr, Boolean, Effect, Layer, Number, Option, Schema, String } from "effect"
+import {
+  Array as Arr,
+  Boolean,
+  Data,
+  Effect,
+  FileSystem,
+  Layer,
+  Number,
+  Option,
+  Path,
+  Result,
+  Schema,
+  String
+} from "effect"
+import { FetchHttpClient, HttpClient, HttpClientResponse } from "effect/http"
+import { ChildProcess } from "effect/process"
 
 import { GraphemeData } from "../src/internal/graphemeSchema.js"
 
 const TestCase = Schema.Struct({ input: Schema.String, expected: Schema.Array(Schema.String) })
 const TestCases = Schema.Array(TestCase)
+class MissingGraphemeProperty extends Data.TaggedError("MissingGraphemeProperty") {}
 const words = (text: string) => Arr.filter(String.split(/\s+/u)(String.trim(text)), String.isNonEmpty)
 const bodyLines = (text: string) =>
   Arr.filterMap(
     String.split("\n")(text),
-    (line) => Arr.head(String.split("#")(line)).pipe(Option.map(String.trim), Option.filter(String.isNonEmpty))
+    (line) =>
+      Arr.head(String.split("#")(line)).pipe(
+        Option.map(String.trim),
+        Option.filter(String.isNonEmpty),
+        Result.fromOption(() => undefined)
+      )
   )
 
-const hex = (text: string) => Schema.decode(Schema.NumberFromString)(String.concat("0x", text))
+const hex = (text: string) => Schema.decodeEffect(Schema.FiniteFromString)(String.concat("0x", text))
 const range = (text: string) =>
   Effect.gen(function*() {
     const parts = String.split("..")(text)
@@ -41,7 +61,8 @@ const download = (path: string) =>
 const program = Effect.gen(function*() {
   const fs = yield* FileSystem.FileSystem
   const path = yield* Path.Path
-  const root = yield* path.fromFileUrl(yield* Url.fromString("../", import.meta.url))
+  const scriptFile = yield* path.fromFileUrl(yield* Schema.decodeEffect(Schema.URLFromString)(import.meta.url))
+  const root = path.dirname(path.dirname(scriptFile))
   const sources = yield* Effect.all(
     {
       conjunct: download("DerivedCoreProperties.txt"),
@@ -54,25 +75,30 @@ const program = Effect.gen(function*() {
   const graphemeRows = yield* propertyRows(sources.grapheme)
   const conjunctRows = yield* propertyRows(sources.conjunct)
   const emojiRows = yield* propertyRows(sources.emoji)
-  const data = yield* Schema.decodeUnknown(GraphemeData)({
+  const data = yield* Schema.decodeUnknownEffect(GraphemeData)({
     version: "17.0.0",
     grapheme: yield* Effect.forEach(
       graphemeRows,
-      ({ start, end, fields }) => Effect.map(Arr.head(fields), (value) => ({ start, end, value }))
+      ({ start, end, fields }) =>
+        Effect.fromOption(Arr.head(fields), () => new MissingGraphemeProperty()).pipe(
+          Effect.map((value) => ({ start, end, value }))
+        )
     ),
     conjunct: Arr.filterMap(conjunctRows, ({ start, end, fields }) =>
       Arr.head(fields).pipe(
         Option.filter((value) => String.Equivalence(value, "InCB")),
         Option.flatMap(() => Arr.get(fields, 1)),
-        Option.map((value) => ({ start, end, value }))
+        Option.map((value) => ({ start, end, value })),
+        Result.fromOption(() => undefined)
       )),
     pictographic: Arr.filterMap(emojiRows, ({ start, end, fields }) =>
       Arr.head(fields).pipe(
         Option.filter((value) => String.Equivalence(value, "Extended_Pictographic")),
-        Option.as({ start, end })
+        Option.as({ start, end }),
+        Result.fromOption(() => undefined)
       ))
   })
-  const encodedData = yield* Schema.encode(Schema.parseJson(GraphemeData))(data)
+  const encodedData = yield* Schema.encodeEffect(Schema.fromJsonString(GraphemeData))(data)
   const vectors = yield* Effect.forEach(bodyLines(sources.tests), (line) =>
     Effect.gen(function*() {
       const expected = yield* Effect.forEach(
@@ -85,20 +111,21 @@ const program = Effect.gen(function*() {
       )
       return { input: Arr.join(expected, ""), expected }
     }))
-  const encodedVectors = yield* Schema.encode(Schema.parseJson(TestCases))(vectors)
+  const encodedVectors = yield* Schema.encodeEffect(Schema.fromJsonString(TestCases))(vectors)
 
   const dataFile = path.join(root, "src/internal/graphemeData.json")
   const vectorsFile = path.join(root, "test/fixtures/graphemeBreak17.json")
   yield* fs.writeFileString(dataFile, String.concat(encodedData, "\n"))
   yield* fs.writeFileString(vectorsFile, String.concat(encodedVectors, "\n"))
-  yield* Command.make("bunx", "--no-install", "prettier", "--write", dataFile, vectorsFile).pipe(
-    Command.workingDirectory(root),
-    Command.stdout("inherit"),
-    Command.stderr("inherit"),
-    Command.exitCode,
-    Effect.filterOrDieMessage(
+  const prettier = yield* ChildProcess.make(
+    "bunx",
+    ["--no-install", "prettier", "--write", dataFile, vectorsFile],
+    { cwd: root, stdout: "inherit", stderr: "inherit" }
+  )
+  yield* prettier.exitCode.pipe(
+    Effect.filterOrElse(
       (exitCode) => Number.Equivalence(exitCode, 0),
-      "Prettier failed to format the generated Unicode data"
+      () => Effect.die("Prettier failed to format the generated Unicode data")
     )
   )
   yield* Effect.log("Generated Unicode 17.0.0 grapheme properties and conformance cases", {
@@ -106,4 +133,4 @@ const program = Effect.gen(function*() {
   })
 })
 
-BunRuntime.runMain(program.pipe(Effect.provide(Layer.merge(FetchHttpClient.layer, BunContext.layer))))
+BunRuntime.runMain(program.pipe(Effect.scoped, Effect.provide(Layer.merge(FetchHttpClient.layer, BunServices.layer))))

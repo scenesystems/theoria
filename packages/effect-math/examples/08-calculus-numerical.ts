@@ -41,8 +41,8 @@ const coordinateAt = (point: Chunk.Chunk<number>, index: number): number =>
   Option.getOrElse(Chunk.get(point, index), () => 0)
 
 const program = Effect.gen(function*() {
-  const absoluteTolerance = yield* Schema.decode(Numeric.AbsoluteTolerance)(1e-12)
-  const relativeTolerance = yield* Schema.decode(Numeric.RelativeTolerance)(1e-12)
+  const absoluteTolerance = yield* Schema.decodeEffect(Numeric.AbsoluteTolerance)(1e-12)
+  const relativeTolerance = yield* Schema.decodeEffect(Numeric.RelativeTolerance)(1e-12)
 
   // Derivative operators
   const xSquared = (x: number) => Number.multiply(x, x)
@@ -60,14 +60,14 @@ const program = Effect.gen(function*() {
   yield* Console.log("d²/dx²(x³)|₂:", secondDerivative(xCubed, 2))
   // Output: d²/dx²(x³)|₂: ≈ 12
 
-  const firstLimit = derivativeLimit(Numeric.sin, Number.unsafeDivide(Numeric.pi, 3), {
+  const firstLimit = derivativeLimit(Numeric.sin, Number.divideUnsafe(Numeric.pi, 3), {
     absoluteTolerance,
     relativeTolerance
   })
   yield* Console.log("derivativeLimit d/dx(sin)|π/3:", firstLimit)
   // Output: value ≈ 0.5 with bounded absoluteError and convergence flag
 
-  const secondLimit = secondDerivativeLimit(Numeric.sin, Number.unsafeDivide(Numeric.pi, 3))
+  const secondLimit = secondDerivativeLimit(Numeric.sin, Number.divideUnsafe(Numeric.pi, 3))
   yield* Console.log("secondDerivativeLimit d²/dx²(sin)|π/3:", secondLimit)
   // Output: value ≈ -sin(π/3)
 
@@ -110,10 +110,9 @@ const program = Effect.gen(function*() {
 
   // Trapezoidal integration
   // Sample sin(x) at 11 evenly-spaced points over [0, π/2]
-  const step = yield* Option.match(Numeric.safeDivide(Numeric.pi, 20), {
-    onNone: () => Effect.fail(new UnexpectedZeroDivisor()),
-    onSome: Effect.succeed
-  })
+  const step = yield* Effect.fromOption(Numeric.safeDivide(Numeric.pi, 20)).pipe(
+    Effect.mapError(() => new UnexpectedZeroDivisor())
+  )
   const sineValues = Chunk.makeBy(11, (i) => Numeric.sin(Number.multiply(i, step)))
   yield* Console.log("∫sin(x) dx [0, π/2] (trapezoid):", trapezoid(sineValues, step))
   // Output: ∫sin(x) dx [0, π/2] (trapezoid): ≈ 0.998 (exact = 1)
@@ -163,7 +162,7 @@ const program = Effect.gen(function*() {
   yield* Console.log("simpsonWithPolicies (strict):", simpP)
   // Output: simpsonWithPolicies (strict): 21.333...
 
-  const derivativePolicyEstimate = yield* derivativeLimitWithPolicies(Numeric.sin, Number.unsafeDivide(Numeric.pi, 3))
+  const derivativePolicyEstimate = yield* derivativeLimitWithPolicies(Numeric.sin, Number.divideUnsafe(Numeric.pi, 3))
     .pipe(
       Effect.provide(policies)
     )

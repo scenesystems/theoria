@@ -95,18 +95,31 @@ export const make = <
   inputFields: I,
   outputFields: O
 ): Effect.Effect<Signature<I, O>, SignatureError> =>
+  fromSchemas(description, Schema.Struct(inputFields), Schema.Struct(outputFields))
+
+/** Constructs a signature while retaining the supplied input and output codecs. @internal */
+export const fromSchemas = <
+  I extends Schema.Struct.Fields,
+  O extends Schema.Struct.Fields,
+  const IM extends { readonly [K in keyof I]?: PropertyKey },
+  const OM extends { readonly [K in keyof O]?: PropertyKey }
+>(
+  description: string,
+  inputSchema: Schema.Struct<I> | Schema.encodeKeys<Schema.Struct<I>, IM>,
+  outputSchema: Schema.Struct<O> | Schema.encodeKeys<Schema.Struct<O>, OM>
+): Effect.Effect<Signature<I, O>, SignatureError> =>
   Effect.gen(function*() {
+    const inputFields = "fields" in inputSchema ? inputSchema.fields : inputSchema.to.fields
+    const outputFields = "fields" in outputSchema ? outputSchema.fields : outputSchema.to.fields
     yield* validateFieldCollections(inputFields, outputFields)
 
-    const inputSchema = Schema.Struct(inputFields)
-    const outputSchema = Schema.Struct(outputFields)
-    const inputFieldInfo = fieldsToInfoArray(inputFields)
-    const outputFieldInfo = fieldsToInfoArray(outputFields)
+    const inputFieldInfo = fieldsToInfoArray(inputSchema)
+    const outputFieldInfo = fieldsToInfoArray(outputSchema)
     const fields = Arr.appendAll(inputFieldInfo, outputFieldInfo)
     const instructions = deriveInstruction(
       description,
-      encodedFieldsToInfoArray(inputFields),
-      encodedFieldsToInfoArray(outputFields)
+      encodedFieldsToInfoArray(inputSchema),
+      encodedFieldsToInfoArray(outputSchema)
     )
 
     return new Signature({

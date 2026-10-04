@@ -8,7 +8,7 @@ Effect-native digital signatures, X25519 key agreement, X-Wing hybrid encapsulat
 bun add @scenesystems/sign effect
 ```
 
-Effect `^3.22.1` is a required peer. Public concerns are namespaces with matching, case-sensitive subpaths. Both forms expose the same declarations:
+Effect `^4.0.0` is a required peer. Public concerns are namespaces with matching, case-sensitive subpaths. Both forms expose the same declarations:
 
 ```ts typecheck
 import { Ed25519 } from "@scenesystems/sign"
@@ -18,20 +18,20 @@ export const reconstruct = Ed25519.keyPairFromSeed
 export const importPublicKey = Rsa.publicKeyFromJwk
 ```
 
-Choose the suite explicitly. `Ed25519`, `Secp256k1`, `MlDsa`, and `SlhDsa` own signing and verification; `P256` and `Rsa` are verification-only. `X25519` owns agreement, `XWing` owns encapsulation, and `Jwt` owns token policy. `KeyPair` and `Signature` own the shared data representations. `Verification` owns the strict-verification failure contract and resource limit. `Entropy` is the cryptographic random capability; `Bytes` prepares UTF-8 messages and compares byte sequences. Use Effect's `Encoding` directly for hex and base64.
+Choose the suite explicitly. `Ed25519`, `Secp256k1`, `MlDsa`, and `SlhDsa` own signing and verification; `P256` and `Rsa` are verification-only. `X25519` owns agreement, `XWing` owns encapsulation, and `Jwt` owns token policy. `KeyPair` and `Signature` own the shared data representations. `Verification` owns the strict-verification failure contract and resource limit. `Entropy` is the cryptographic random capability; `Bytes` prepares UTF-8 messages and compares byte sequences. Use `Hex`, `Base64`, and `Base64Url` from `effect/encoding` for wire encodings; lift their decoding Results with `Effect.fromResult`.
 
 ## Sign and verify with an authenticated key
 
 ```ts typecheck
 import { Bytes, Ed25519, Entropy } from "@scenesystems/sign"
-import { Data, Effect } from "effect"
+import { Effect } from "effect"
 
 export const program = Effect.gen(function* () {
-  const keys = yield* Ed25519.generateKeyPair()
-  const message = Bytes.fromString("signed content")
+  const keys = yield* Ed25519.generateKeyPair
+  const message = yield* Bytes.fromString("signed content")
   const signed = yield* Ed25519.sign(message, keys.secretKey, keys.publicKey)
   const valid = yield* Ed25519.verify(signed.signature, message, keys.publicKey)
-  return Data.struct({ signed, valid })
+  return { signed, valid }
 }).pipe(Effect.provide(Entropy.layer))
 ```
 
@@ -43,11 +43,12 @@ Every verifier takes a public key explicitly. Verification proves that bytes mat
 
 ```ts typecheck
 import * as Ed25519 from "@scenesystems/sign/Ed25519"
-import { Effect, Encoding } from "effect"
+import { Effect } from "effect"
+import { Hex } from "effect/encoding"
 
 // Public RFC 8032 test vector, not a production secret.
 export const restoredIdentity = Effect.gen(function* () {
-  const seed = yield* Encoding.decodeHex("9d61b19deffd5a60ba844af492ec2cc44449c5697b326919703bac031cae7f60")
+  const seed = yield* Effect.fromResult(Hex.decode("9d61b19deffd5a60ba844af492ec2cc44449c5697b326919703bac031cae7f60"))
   return yield* Ed25519.keyPairFromSeed(seed)
 })
 ```
@@ -58,7 +59,9 @@ Invalid seed material fails with `Ed25519.InvalidSeed`, which retains no materia
 
 `Entropy.bytes(length)` requests an explicit number of fresh bytes. `Entropy.layer` uses the runtime CSPRNG through Noble, not Effect's reproducible `Random` service. It accepts integer lengths from 0 through 65,536. Rejected lengths and unavailable CSPRNGs fail with `Entropy.GenerationFailed`.
 
-All key generation requires `Entropy.Entropy`. So do Schnorr, ML-DSA-44/87 and SLH-DSA randomized signing, and X-Wing encapsulation. Provide `Entropy.layer` near the application entrypoint. Services that generate identities can consume it through `Layer.provide`.
+`GenerationFailed.length` preserves finite requests as numbers, including rejected negative, fractional, and oversized lengths. Non-finite requests use the strings `"NaN"`, `"Infinity"`, or `"-Infinity"`, keeping diagnostics JSON-safe without turning invalid requests into schema defects.
+
+All key generation requires `Entropy.Entropy`, as do Schnorr, ML-DSA-44/87 and SLH-DSA randomized signing, and X-Wing encapsulation. Zero-argument key generators are lazy Effect values: yield them directly, without `()`. Reusing an Effect draws fresh entropy on every execution. Provide `Entropy.layer` near the application entrypoint. Services that generate identities can consume it through `Layer.provide`.
 
 Ed25519 and ECDSA signing, ML-DSA-65 deterministic signing, verification, agreement, and decapsulation do not require this service. ML-DSA-65 hedged signing takes entropy bytes directly, so the caller chooses where to obtain them.
 
@@ -71,8 +74,8 @@ import { Bytes, Entropy, X25519 } from "@scenesystems/sign"
 import { Effect } from "effect"
 
 export const agree = Effect.gen(function* () {
-  const alice = yield* X25519.generateKeyPair()
-  const bob = yield* X25519.generateKeyPair()
+  const alice = yield* X25519.generateKeyPair
+  const bob = yield* X25519.generateKeyPair
   const fromAlice = yield* X25519.deriveSharedSecret(alice.secretKey, bob.publicKey)
   const fromBob = yield* X25519.deriveSharedSecret(bob.secretKey, alice.publicKey)
   return Bytes.equal(fromAlice.sharedSecret, fromBob.sharedSecret)
@@ -98,6 +101,8 @@ Apply a protocol-bound KDF before using either output as a symmetric key. [`@sce
 
 Both errors retain no input material, algorithm, key, message, context, or backend diagnostic. Inputs are admitted and copied on every execution; mutation between executions is validated again. `Verification.maxMessageBytes` is 8,192, inclusive. **This resource bound is Theoria policy, not an algorithm or wire-format limit.** Cryptographic primitives execute synchronously and cannot be preempted by an Effect timeout.
 
+`Bytes.fromString(text)` is a lazy Effect using Effect's UTF-8 stream encoder; yield it to obtain fresh bytes. It replaces malformed UTF-16 with U+FFFD; use digest's strict `Utf8.encode` when malformed text must fail. `Bytes.collect(byteStream)` buffers at most 8,192 bytes for signing or verification, checks each chunk before traversal, snapshots admitted input, and preserves upstream errors, requirements, and cancellation. This is bounded buffering, not incremental signing or prehashing. No signature mode changes.
+
 - **Ed25519:** strict RFC 8032, ZIP-215 disabled. Public keys and signature R must be canonical and non-small-order; S must be below the subgroup order. Keys are 32 bytes, signatures 64.
 - **P-256:** SHA-256 exactly once, 65-byte uncompressed SEC1 key, 64-byte IEEE P1363 signature with low S. DER, compressed keys, and high S fail admission.
 - **ML-DSA-65:** explicit FIPS 204 context of 0–255 bytes, 1,952-byte public key, 3,309-byte signature with canonical hint encoding. Contexts are not interchangeable.
@@ -114,9 +119,9 @@ import { Bytes, Entropy, MlDsa } from "@scenesystems/sign"
 import { Effect } from "effect"
 
 export const signDocument = Effect.gen(function* () {
-  const keys = yield* MlDsa.generateKeyPair65()
-  const message = Bytes.fromString("quantum-resistant document")
-  const context = Bytes.fromString("example.com/documents/v1")
+  const keys = yield* MlDsa.generateKeyPair65
+  const message = yield* Bytes.fromString("quantum-resistant document")
+  const context = yield* Bytes.fromString("example.com/documents/v1")
   const entropy = yield* Entropy.bytes(MlDsa.entropyBytes)
   const signed = yield* MlDsa.sign65Hedged(message, keys.secretKey, keys.publicKey, context, entropy)
   return yield* MlDsa.verify65(signed.signature, message, keys.publicKey, context)
@@ -138,7 +143,7 @@ import { HashSet, Redacted, Schema } from "effect"
 const allowedEmails = HashSet.make("reader@example.test")
 const Identity = Schema.Struct({
   sub: Schema.NonEmptyString,
-  email: Schema.NonEmptyString.pipe(Schema.filter((email) => HashSet.has(allowedEmails, email)))
+  email: Schema.NonEmptyString.check(Schema.makeFilter((email) => HashSet.has(allowedEmails, email)))
 })
 const policy = new Jwt.Policy({
   issuer: "https://team.cloudflareaccess.com",
@@ -156,13 +161,13 @@ Issuer, audience, iat, and exp are required; nbf is optional and enforced. Compa
 
 ## Data and failure boundaries
 
-Schema classes unify constructors, schemas, and types. `new KeyPair.KeyPair(...)` takes typed constructor input and validates it; invalid construction can throw. Use `Schema.decodeUnknown` for untrusted input and an explicit failure channel. `Signature.Signature`, `X25519.SharedSecret`, and `XWing.Encapsulation` check discriminators and byte carriers, not suite-specific lengths or cryptographic validity. Their encoded byte fields remain Uint8Arrays, not JSON strings. `Rsa.PublicKey` uses bigints. Compose a wire codec explicitly when crossing JSON boundaries.
+Schema classes unify constructors, schemas, and types. `new KeyPair.KeyPair(...)` takes typed constructor input and validates it; invalid construction can throw. Use `Schema.decodeUnknownEffect` for untrusted input and an explicit failure channel. `Signature.Signature`, `X25519.SharedSecret`, and `XWing.Encapsulation` check discriminators and byte carriers, not suite-specific lengths or cryptographic validity. Their encoded byte fields remain Uint8Arrays, not JSON strings. `Rsa.PublicKey` uses bigints. Compose a wire codec explicitly when crossing JSON boundaries; v4's derived JSON codec encodes bytes as base64 rather than number arrays.
 
 Classes do not make nested mutable bytes structurally equal, copy them, or redact secrets. Key and signature algorithms are canonical literal schemas under `KeyPair.Algorithm` and `Signature.Algorithm`. Suite-specific failures live with their concern; shared generation failures live in `KeyPair`, signing failures in `Signature`. Wire tags are retained, but local names and paths are intentionally redesigned.
 
 ## Migrating from 0.4
 
-This is a breaking pre-1.0 minor redesign, without aliases. Replace root flat functions with concern namespaces. Replace generic dispatch with explicit suite operations and independently authenticated verification keys. Replace the flat `KeyPair` class with `KeyPair.KeyPair`, `KemCiphertext` with `XWing.Encapsulation`, `generateEntropy()` with `Entropy.bytes(length)` plus an explicit layer, `utf8ToBytes` with `Bytes.fromString`, `equalBytes` with `Bytes.equal`, and `toHex` with Effect's `Encoding.encodeHex`.
+This is a breaking pre-1.0 minor redesign, without aliases. Replace root flat functions with concern namespaces. Replace generic dispatch with explicit suite operations and independently authenticated verification keys. Replace the flat `KeyPair` class with `KeyPair.KeyPair`, `KemCiphertext` with `XWing.Encapsulation`, `generateEntropy()` with `Entropy.bytes(length)` plus an explicit layer, `utf8ToBytes` with `Bytes.fromString`, `equalBytes` with `Bytes.equal`, and `toHex` with `Hex.encode` from `effect/encoding`.
 
 Public subpaths are the exact PascalCase module names; `internal/`, legacy `algorithms/`, and `schemas/` paths are not exported. Distribution manifests are produced by the existing build-utils pack workflow from the explicit package export map.
 

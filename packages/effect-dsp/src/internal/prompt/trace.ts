@@ -4,17 +4,20 @@
  * @since 0.1.0
  * @internal
  */
-import * as Prompt from "@effect/ai/Prompt"
 import { Array as Arr, Effect, Match, Schema } from "effect"
+import * as Prompt from "effect/ai/Prompt"
 import { TraceError } from "../../DspError.js"
 
 const partText = Match.type<Prompt.Part>().pipe(
   Match.discriminatorsExhaustive("type")({
     text: (part) => Effect.succeed(part.text),
     reasoning: (part) => Effect.succeed(part.text),
-    file: Schema.encode(Schema.parseJson(Prompt.FilePart)),
-    "tool-call": Schema.encode(Schema.parseJson(Prompt.ToolCallPart)),
-    "tool-result": Schema.encode(Schema.parseJson(Prompt.ToolResultPart))
+    file: (part) => Schema.encodeEffect(Schema.fromJsonString(Prompt.FilePart))(part),
+    "tool-call": (part) => Schema.encodeEffect(Schema.fromJsonString(Prompt.ToolCallPart))(part),
+    "tool-result": (part) => Schema.encodeEffect(Schema.fromJsonString(Prompt.ToolResultPart))(part),
+    "tool-approval-response": (part) =>
+      Schema.encodeEffect(Schema.fromJsonString(Prompt.ToolApprovalResponsePart))(part),
+    "tool-approval-request": (part) => Schema.encodeEffect(Schema.fromJsonString(Prompt.ToolApprovalRequestPart))(part)
   })
 )
 

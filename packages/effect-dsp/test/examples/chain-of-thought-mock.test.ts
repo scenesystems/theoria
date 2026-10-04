@@ -1,12 +1,12 @@
 /**
  * Example contract: chain-of-thought flow with mock provider layer.
  */
-import * as LanguageModel from "@effect/ai/LanguageModel"
 import { describe, expect, it } from "@effect/vitest"
 import * as MockLanguageModel from "@scenesystems/effect-dsp/MockLanguageModel"
 import * as Module from "@scenesystems/effect-dsp/Module"
 import * as Signature from "@scenesystems/effect-dsp/Signature"
 import { Effect, Schema } from "effect"
+import * as LanguageModel from "effect/ai/LanguageModel"
 
 describe("examples/04-chain-of-thought-mock", () => {
   it.effect("returns reasoning and answer fields via direct layer provisioning", () =>

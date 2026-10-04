@@ -4,9 +4,8 @@
  * @since 0.5.0
  * @module
  */
-import type * as EmbeddingModel from "@effect/ai/EmbeddingModel"
-import * as FetchHttpClient from "@effect/platform/FetchHttpClient"
-import type * as HttpClient from "@effect/platform/HttpClient"
+import type { EmbeddingModel } from "effect/ai"
+import { FetchHttpClient, type HttpClient } from "effect/http"
 import * as Layer from "effect/Layer"
 import * as Schema from "effect/Schema"
 
@@ -25,13 +24,16 @@ export class Options extends Schema.Class<Options>(
 )({
   model: Schema.String,
   route: Route.Route,
-  accessToken: Schema.optional(Schema.RedactedFromSelf(Schema.String))
+  accessToken: Schema.optional(Schema.Redacted(Schema.String))
 }) {}
 
 /**
  * Provides native feature extraction using the caller's platform HTTP client.
  * Routed discovery is cached per layer; HTTP 503 responses are retried twice.
  * Transport and response-validation failures use the native AI error channel.
+ * Use `embedMany` for explicit batching. Single-input `embed` executes in its
+ * caller's fiber to preserve cancellation instead of using the installed v4
+ * request resolver; direct `resolver` access retains upstream behavior.
  *
  * @since 0.5.0
  * @category layers

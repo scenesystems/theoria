@@ -1,7 +1,6 @@
 /**
  * Module discovery contracts.
  */
-import * as LanguageModel from "@effect/ai/LanguageModel"
 import { describe, expect, it } from "@effect/vitest"
 import * as Ensemble from "@scenesystems/effect-dsp/Ensemble"
 import * as MockLanguageModel from "@scenesystems/effect-dsp/MockLanguageModel"
@@ -9,8 +8,8 @@ import * as Module from "@scenesystems/effect-dsp/Module"
 import * as ModuleGraph from "@scenesystems/effect-dsp/ModuleGraph"
 import { withInstructions } from "@scenesystems/effect-dsp/ModuleParameters"
 import * as Signature from "@scenesystems/effect-dsp/Signature"
-import type { Option } from "effect"
-import { Array as Arr, Data, Deferred, Effect, Either, Equal, Fiber, Layer, Record, Ref, Schema } from "effect"
+import { Array as Arr, Data, Deferred, Effect, Equal, Fiber, Layer, Option, Record, Ref, Result, Schema } from "effect"
+import * as LanguageModel from "effect/ai/LanguageModel"
 
 const QaInput = Schema.Struct({
   question: Signature.describe(Schema.String, "The question to answer")
@@ -59,14 +58,16 @@ describe("Module discovery", () => {
   it.effect("reports a missing root and projects an observed root", () =>
     Effect.gen(function*() {
       const signature = yield* makeQaSignature()
-      const observed = yield* Module.compose({
-        name: "observed",
-        signature,
-        subModules: Record.empty(),
-        forward: () => Effect.succeed(QaOutput.make({ answer: "Observed" }))
-      })
-      const absent = yield* Schema.decodeUnknown(Module.Id)("absent")
-      const id = yield* Schema.decodeUnknown(Module.Id)(observed.name)
+      const observed = yield* Module.compose(
+        new Module.ComposeOptions({
+          name: "observed",
+          signature,
+          subModules: Record.empty(),
+          forward: () => Effect.succeed(QaOutput.make({ answer: "Observed" }))
+        })
+      )
+      const absent = yield* Schema.decodeEffect(Module.Id)("absent")
+      const id = yield* Schema.decodeEffect(Module.Id)(observed.name)
       const model = yield* MockLanguageModel.make(
         MockLanguageModel.succeed(QaOutput.make({ answer: "Observed" }))
       )
@@ -82,39 +83,49 @@ describe("Module discovery", () => {
   it.effect("collects both concurrent ensemble lineages and their live parameters", () =>
     Effect.gen(function*() {
       const signature = yield* makeQaSignature()
-      const leafA = yield* Module.compose({
-        name: "ensemble-leaf-a",
-        signature,
-        subModules: Record.empty(),
-        forward: () => Effect.succeed(QaOutput.make({ answer: "A" }))
-      })
-      const memberA = yield* Module.compose({
-        name: "ensemble-member-a",
-        signature,
-        subModules: Record.singleton("leaf", leafA),
-        forward: ({ input }) => leafA.forward(input)
-      })
-      const leafB = yield* Module.compose({
-        name: "ensemble-leaf-b",
-        signature,
-        subModules: Record.empty(),
-        forward: () => Effect.succeed(QaOutput.make({ answer: "B" }))
-      })
-      const memberB = yield* Module.compose({
-        name: "ensemble-member-b",
-        signature,
-        subModules: Record.singleton("leaf", leafB),
-        forward: ({ input }) => leafB.forward(input)
-      })
-      const ensemble = yield* Ensemble.make({
-        name: "concurrent-ensemble",
-        programs: Arr.make(memberA, memberB)
-      })
-      const rootId = yield* Schema.decodeUnknown(Module.Id)(ensemble.name)
-      const memberAId = yield* Schema.decodeUnknown(Module.Id)(memberA.name)
-      const memberBId = yield* Schema.decodeUnknown(Module.Id)(memberB.name)
-      const leafAId = yield* Schema.decodeUnknown(Module.Id)(leafA.name)
-      const leafBId = yield* Schema.decodeUnknown(Module.Id)(leafB.name)
+      const leafA = yield* Module.compose(
+        new Module.ComposeOptions({
+          name: "ensemble-leaf-a",
+          signature,
+          subModules: Record.empty(),
+          forward: () => Effect.succeed(QaOutput.make({ answer: "A" }))
+        })
+      )
+      const memberA = yield* Module.compose(
+        new Module.ComposeOptions({
+          name: "ensemble-member-a",
+          signature,
+          subModules: Record.singleton("leaf", leafA),
+          forward: ({ input }) => leafA.forward(input)
+        })
+      )
+      const leafB = yield* Module.compose(
+        new Module.ComposeOptions({
+          name: "ensemble-leaf-b",
+          signature,
+          subModules: Record.empty(),
+          forward: () => Effect.succeed(QaOutput.make({ answer: "B" }))
+        })
+      )
+      const memberB = yield* Module.compose(
+        new Module.ComposeOptions({
+          name: "ensemble-member-b",
+          signature,
+          subModules: Record.singleton("leaf", leafB),
+          forward: ({ input }) => leafB.forward(input)
+        })
+      )
+      const ensemble = yield* Ensemble.make(
+        new Ensemble.Options({
+          name: "concurrent-ensemble",
+          programs: Arr.make(memberA, memberB)
+        })
+      )
+      const rootId = yield* Schema.decodeEffect(Module.Id)(ensemble.name)
+      const memberAId = yield* Schema.decodeEffect(Module.Id)(memberA.name)
+      const memberBId = yield* Schema.decodeEffect(Module.Id)(memberB.name)
+      const leafAId = yield* Schema.decodeEffect(Module.Id)(leafA.name)
+      const leafBId = yield* Schema.decodeEffect(Module.Id)(leafB.name)
       const model = yield* MockLanguageModel.make(
         MockLanguageModel.succeed(QaOutput.make({ answer: "unused" }))
       )
@@ -123,10 +134,10 @@ describe("Module discovery", () => {
       )
       const graph = yield* Module.discoverModuleGraph(rootId, operation)
       const registrations = yield* Module.discoverModules(operation)
-      const lineageA = yield* ModuleGraph.lineage(graph, leafAId)
-      const lineageB = yield* ModuleGraph.lineage(graph, leafBId)
-      const leafARegistration = yield* registrationById(registrations, leafAId)
-      const leafBRegistration = yield* registrationById(registrations, leafBId)
+      const lineageA = Option.getOrThrow(ModuleGraph.lineage(graph, leafAId))
+      const lineageB = Option.getOrThrow(ModuleGraph.lineage(graph, leafBId))
+      const leafARegistration = Option.getOrThrow(registrationById(registrations, leafAId))
+      const leafBRegistration = Option.getOrThrow(registrationById(registrations, leafBId))
 
       expect(lineageA.path).toEqual(Arr.make(rootId, memberAId, leafAId))
       expect(lineageB.path).toEqual(Arr.make(rootId, memberBId, leafBId))
@@ -143,18 +154,22 @@ describe("Module discovery", () => {
   it.effect("atomically rejects one concurrent conflicting registration and retains the winner", () =>
     Effect.gen(function*() {
       const signature = yield* makeQaSignature()
-      const winner = yield* Module.compose({
-        name: "shared-registration-id",
-        signature,
-        subModules: Record.empty(),
-        forward: () => Effect.succeed(QaOutput.make({ answer: "winner" }))
-      })
-      const conflicting = yield* Module.compose({
-        name: "shared-registration-id",
-        signature,
-        subModules: Record.empty(),
-        forward: () => Effect.succeed(QaOutput.make({ answer: "conflict" }))
-      })
+      const winner = yield* Module.compose(
+        new Module.ComposeOptions({
+          name: "shared-registration-id",
+          signature,
+          subModules: Record.empty(),
+          forward: () => Effect.succeed(QaOutput.make({ answer: "winner" }))
+        })
+      )
+      const conflicting = yield* Module.compose(
+        new Module.ComposeOptions({
+          name: "shared-registration-id",
+          signature,
+          subModules: Record.empty(),
+          forward: () => Effect.succeed(QaOutput.make({ answer: "conflict" }))
+        })
+      )
       const winnerRegistered = yield* Deferred.make<void>()
       const model = yield* MockLanguageModel.make(
         MockLanguageModel.succeed(QaOutput.make({ answer: "unused" }))
@@ -165,23 +180,23 @@ describe("Module discovery", () => {
             Arr.make(
               winner.forward(QaInput.make({ question: "winner" })).pipe(
                 Effect.tap(() => Deferred.succeed(winnerRegistered, undefined)),
-                Effect.either
+                Effect.result
               ),
               Deferred.await(winnerRegistered).pipe(
-                Effect.zipRight(conflicting.forward(QaInput.make({ question: "conflict" }))),
-                Effect.either
+                Effect.andThen(conflicting.forward(QaInput.make({ question: "conflict" }))),
+                Effect.result
               )
             ),
             { concurrency: "unbounded" }
           )
-          const failures = Arr.filter(outcomes, Either.isLeft)
-          const failure = yield* Arr.head(failures)
+          const failures = Arr.filter(outcomes, Result.isFailure)
+          const failure = Option.getOrThrow(Arr.head(failures))
 
           expect(failures).toHaveLength(1)
-          expect(failure.left._tag).toBe("CompositionError")
+          expect(failure.failure._tag).toBe("CompositionError")
         }).pipe(Effect.provideService(LanguageModel.LanguageModel, model.service))
       )
-      const registration = yield* Arr.head(registrations)
+      const registration = Option.getOrThrow(Arr.head(registrations))
 
       expect(registrations).toHaveLength(1)
       expect(registration.params).toBe(winner.params)
@@ -191,12 +206,14 @@ describe("Module discovery", () => {
     Effect.gen(function*() {
       const signature = yield* makeQaSignature()
       const makeModule = (name: string) =>
-        Module.compose({
-          name,
-          signature,
-          subModules: Record.empty(),
-          forward: () => Effect.succeed(QaOutput.make({ answer: name }))
-        })
+        Module.compose(
+          new Module.ComposeOptions({
+            name,
+            signature,
+            subModules: Record.empty(),
+            forward: () => Effect.succeed(QaOutput.make({ answer: name }))
+          })
+        )
       const outer = yield* makeModule("scope-outer")
       const nested = yield* makeModule("scope-nested")
       const afterFailure = yield* makeModule("scope-after-failure")
@@ -218,16 +235,16 @@ describe("Module discovery", () => {
           const rejected = new DiscoveryScopeRejected({ message: "expected" })
           const failed = yield* Module.discoverModules(
             nested.forward(QaInput.make({ question: "fail" })).pipe(
-              Effect.zipRight(Effect.fail(rejected))
+              Effect.andThen(Effect.fail(rejected))
             )
-          ).pipe(Effect.either)
-          expect(failed).toEqual(Either.left(rejected))
+          ).pipe(Effect.result)
+          expect(failed).toEqual(Result.fail(rejected))
           yield* afterFailure.forward(QaInput.make({ question: "after failure" }))
 
           const interrupted = yield* Module.discoverModules(
             nested.forward(QaInput.make({ question: "interrupt" })).pipe(
-              Effect.zipRight(Deferred.succeed(nestedStarted, undefined)),
-              Effect.zipRight(Effect.never)
+              Effect.andThen(Deferred.succeed(nestedStarted, undefined)),
+              Effect.andThen(Effect.never)
             )
           ).pipe(
             Effect.ensuring(
@@ -236,7 +253,7 @@ describe("Module discovery", () => {
                 Effect.asVoid
               )
             ),
-            Effect.fork
+            Effect.forkChild
           )
           yield* Deferred.await(nestedStarted)
           yield* Fiber.interrupt(interrupted)
@@ -275,9 +292,9 @@ describe("Module discovery", () => {
             })
         })
       )
-      const qaId = yield* Schema.decodeUnknown(Module.Id)(qa.name)
-      const pipelineId = yield* Schema.decodeUnknown(Module.Id)(pipeline.name)
-      const rootId = yield* Schema.decodeUnknown(Module.Id)(root.name)
+      const qaId = yield* Schema.decodeEffect(Module.Id)(qa.name)
+      const pipelineId = yield* Schema.decodeEffect(Module.Id)(pipeline.name)
+      const rootId = yield* Schema.decodeEffect(Module.Id)(root.name)
       const mock = yield* MockLanguageModel.make(
         MockLanguageModel.succeed(QaOutput.make({ answer: "Paris" }))
       )
@@ -295,9 +312,9 @@ describe("Module discovery", () => {
         rootId
       ))
 
-      const qaRegistration = yield* registrationById(first, qaId)
-      const pipelineRegistration = yield* registrationById(first, pipelineId)
-      const rootRegistration = yield* registrationById(first, rootId)
+      const qaRegistration = Option.getOrThrow(registrationById(first, qaId))
+      const pipelineRegistration = Option.getOrThrow(registrationById(first, pipelineId))
+      const rootRegistration = Option.getOrThrow(registrationById(first, rootId))
 
       expect(qaRegistration.subModuleIds).toEqual(Arr.empty())
       expect(pipelineRegistration.subModuleIds).toEqual(Arr.make(qaId))

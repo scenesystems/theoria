@@ -1,11 +1,11 @@
 /**
  * Example contract: live provider path requires caller-provided LanguageModel layer.
  */
-import * as LanguageModel from "@effect/ai/LanguageModel"
 import { describe, expect, it } from "@effect/vitest"
 import * as Module from "@scenesystems/effect-dsp/Module"
 import * as Signature from "@scenesystems/effect-dsp/Signature"
 import { Effect, Layer, Schema } from "effect"
+import * as LanguageModel from "effect/ai/LanguageModel"
 
 const PROVIDER_BOOTSTRAP_FAILURE = "provider-bootstrap-failed"
 

@@ -5,7 +5,7 @@
  */
 import { standardNormalTransform } from "@scenesystems/effect-math/Distribution"
 import { floor, sqrt } from "@scenesystems/effect-math/Numeric"
-import { Array as Arr, Effect, Number as Num, Option } from "effect"
+import { Array as Arr, Effect, Number as Num, Option, Result } from "effect"
 
 import type { Context } from "../../../Sampler.js"
 import type * as SearchSpace from "../../../SearchSpace.js"
@@ -72,7 +72,7 @@ export const suggest = (
   Effect.gen(function*() {
     const dimensions = yield* continuousDimensionsFromSpace("cma-es", space)
     const dimension = Arr.length(dimensions)
-    const mu = Num.max(1, floor(Num.unsafeDivide(populationSize, 2)))
+    const mu = Num.max(1, floor(Num.divideUnsafe(populationSize, 2)))
     const weights = recombinationWeights(mu)
     const constants = cmaEsConstants(dimension, weights)
     const observed = yield* scalarObservationsFromContext("cma-es", context)
@@ -84,10 +84,11 @@ export const suggest = (
             vector,
             value: entry.value
           })
-        )
+        ),
+        Result.fromOption(() => void 0)
       ))
     const orderedByTrial = Arr.sort(observations, trialOrder)
-    const completedGenerations = floor(Num.unsafeDivide(Arr.length(orderedByTrial), populationSize))
+    const completedGenerations = floor(Num.divideUnsafe(Arr.length(orderedByTrial), populationSize))
     const generations = Arr.makeBy(
       completedGenerations,
       (generationIndex) =>
@@ -99,7 +100,7 @@ export const suggest = (
     const initialState = createInitialState(normalizedCenter(dimensions), sigma, dimension)
     const state = Arr.reduce(generations, initialState, (currentState, generation, index) =>
       updateState(currentState, generation, Num.increment(index), weights, constants, mu, dimension))
-    const rng = rngByTrial("cmaes", seed, context.nextTrialNumber)
+    const rng = yield* rngByTrial("cmaes", seed, context.nextTrialNumber)
 
     return denormalizeVector(dimensions, yield* sampleCandidate(rng, state))
   })

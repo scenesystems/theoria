@@ -68,7 +68,7 @@ export const layer = (binding: RateLimitBinding): Layer.Layer<PlaceBuildLimiter>
 export const layerFromEnv = (binding: Option.Option<RateLimitBinding>): Layer.Layer<PlaceBuildLimiter> =>
   Option.match(binding, {
     onNone: () =>
-      Layer.unwrapEffect(
+      Layer.unwrap(
         Effect.logWarning("PLACE_BUILD_LIMITER binding is missing; place builds are not rate limited").pipe(
           Effect.as(unlimited)
         )

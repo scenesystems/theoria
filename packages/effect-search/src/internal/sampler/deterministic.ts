@@ -4,7 +4,7 @@
  * @since 0.1.0
  */
 import { abs, isFinite, truncate } from "@scenesystems/effect-math/Numeric"
-import { Array as Arr, Data, Match, Number as Num, Order } from "effect"
+import { Array as Arr, Match, Number as Num, Order, Tuple } from "effect"
 
 const lcgMultiplier = 1664525
 const lcgIncrement = 1013904223
@@ -26,7 +26,7 @@ export const normalizeDeterministicSeed = (seed: number): number => {
   )
 
   return Match.value(finite).pipe(
-    Match.when(Num.lessThanOrEqualTo(0), () => 1),
+    Match.when(Num.isLessThanOrEqualTo(0), () => 1),
     Match.orElse((value) => value)
   )
 }
@@ -61,7 +61,7 @@ export const normalizePositiveCount = (value: number): number => {
   )
 
   return Match.value(finite).pipe(
-    Match.when(Num.lessThanOrEqualTo(0), () => 1),
+    Match.when(Num.isLessThanOrEqualTo(0), () => 1),
     Match.orElse((count) => count)
   )
 }
@@ -73,7 +73,7 @@ const normalizeNonNegativeCount = (value: number): number => {
   )
 
   return Match.value(finite).pipe(
-    Match.when(Num.lessThanOrEqualTo(0), () => 0),
+    Match.when(Num.isLessThanOrEqualTo(0), () => 0),
     Match.orElse((count) => count)
   )
 }
@@ -90,13 +90,13 @@ const normalizeNonNegativeCount = (value: number): number => {
 export const buildIndices = (count: number) => {
   const normalized = normalizeNonNegativeCount(count)
 
-  return Match.value(Num.lessThanOrEqualTo(normalized, 0)).pipe(
+  return Match.value(Num.isLessThanOrEqualTo(normalized, 0)).pipe(
     Match.when(true, () => Arr.empty<number>()),
     Match.orElse(() => Arr.range(0, Num.decrement(normalized)))
   )
 }
 
-const scoredOrder = <A>(): Order.Order<readonly [number, A]> => Order.mapInput(Order.number, ([score]) => score)
+const scoredOrder = <A>(): Order.Order<readonly [number, A]> => Order.mapInput(Order.Number, ([score]) => score)
 
 /**
  * Returns a reproducible permutation without modifying the input array.
@@ -116,17 +116,17 @@ export const shuffleBySeed = <A>(valuesInput: Iterable<A>, seed: number) => {
 
   const sampled = Arr.reduce(
     values,
-    Data.struct({
+    {
       seed: normalizeDeterministicSeed(seed),
       scored: Arr.empty<readonly [number, A]>()
-    }),
+    },
     (state, value) => {
       const next = nextDeterministicSeed(state.seed)
 
-      return Data.struct({
+      return {
         seed: next,
-        scored: Arr.append(state.scored, Data.tuple(next, value))
-      })
+        scored: Arr.append(state.scored, Tuple.make(next, value))
+      }
     }
   )
 

@@ -2,7 +2,7 @@
  * CanonicalJson conformance against RFC 8785 and cyberphone corpus fixtures.
  */
 
-import { BunContext } from "@effect/platform-bun"
+import { BunServices } from "@effect/platform-bun"
 import { describe, expect, it } from "@effect/vitest"
 import * as CanonicalJson from "@scenesystems/digest/CanonicalJson"
 import { Array as Arr, Effect, Match, Record, Schema, Tuple } from "effect"
@@ -18,7 +18,7 @@ describe("CanonicalJson external conformance", () => {
 
       const fixtures = yield* Effect.forEach(jcsSources, (source) =>
         Fixtures.read(source.fixturePath).pipe(
-          Effect.flatMap(Schema.decodeUnknown(Fixtures.CanonicalJson)),
+          Effect.flatMap(Schema.decodeUnknownEffect(Fixtures.CanonicalJson)),
           Effect.map((fixture) => Tuple.make(source, fixture))
         ))
 
@@ -36,7 +36,7 @@ describe("CanonicalJson external conformance", () => {
               vector.expectedCanonical
             )
           })))
-    }).pipe(Effect.provide(BunContext.layer)))
+    }).pipe(Effect.provide(BunServices.layer)))
 
   it.effect("rejects every local malformed-Unicode key and value verdict", () =>
     Effect.gen(function*() {
@@ -45,7 +45,7 @@ describe("CanonicalJson external conformance", () => {
       const fixtures = yield* Effect.forEach(sources, (source) =>
         Fixtures.read(source.fixturePath).pipe(
           Effect.flatMap((content) =>
-            Schema.decodeUnknown(Fixtures.UnicodeAdversarial)(content, {
+            Schema.decodeEffect(Fixtures.UnicodeAdversarial)(content, {
               onExcessProperty: "error"
             })
           )
@@ -66,5 +66,5 @@ describe("CanonicalJson external conformance", () => {
             codeUnitIndex: vector.expectedCodeUnitIndex
           })
         }))
-    }).pipe(Effect.provide(BunContext.layer)))
+    }).pipe(Effect.provide(BunServices.layer)))
 })

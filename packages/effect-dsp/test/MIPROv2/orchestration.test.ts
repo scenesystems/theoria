@@ -1,7 +1,6 @@
 /**
  * MIPROv2 orchestration contracts.
  */
-import * as LanguageModel from "@effect/ai/LanguageModel"
 import { describe, expect, it } from "@effect/vitest"
 import { Example } from "@scenesystems/effect-dsp/Example"
 import * as Metric from "@scenesystems/effect-dsp/Metric"
@@ -12,7 +11,8 @@ import { ModuleParameters } from "@scenesystems/effect-dsp/ModuleParameters"
 import * as Signature from "@scenesystems/effect-dsp/Signature"
 import * as OptimizationStorage from "@scenesystems/effect-search/OptimizationStorage"
 import { Failure as ArtifactStorageError } from "@scenesystems/effect-study/Journal"
-import { Array as Arr, Effect, Either, Equal, Layer, Number as Num, Ref, Schema } from "effect"
+import { Array as Arr, Effect, Equal, Layer, Number as Num, Ref, Result, Schema } from "effect"
+import * as LanguageModel from "effect/ai/LanguageModel"
 
 const makeQaSignature = () =>
   Signature.make(
@@ -70,7 +70,7 @@ describe("MIPROv2 orchestration", () => {
       const layer = Layer.succeed(LanguageModel.LanguageModel, mock.service)
 
       const optimized = yield* MIPROv2.runWithEvents(
-        {
+        new MIPROv2.Options({
           module,
           trainset,
           valset: trainset,
@@ -79,7 +79,7 @@ describe("MIPROv2 orchestration", () => {
           numInstructions: 4,
           trialBudget: 6,
           seed: 31
-        },
+        }),
         (event) => Ref.update(events, (tags) => Arr.append(tags, event._tag))
       ).pipe(Effect.provide(layer))
 
@@ -112,7 +112,7 @@ describe("MIPROv2 orchestration", () => {
           OptimizationStorage.OptimizationStorage.of({
             appendTrial: () =>
               Ref.update(appendCalls, Num.increment).pipe(
-                Effect.zipRight(Effect.fail(storageError))
+                Effect.andThen(Effect.fail(storageError))
               ),
             writeSnapshot: () => Effect.void,
             loadSnapshot: () => Effect.succeedNone,
@@ -123,7 +123,7 @@ describe("MIPROv2 orchestration", () => {
         const layer = Layer.merge(Layer.succeed(LanguageModel.LanguageModel, mock.service), storage)
 
         const outcome = yield* MIPROv2.runWithEvents(
-          {
+          new MIPROv2.Options({
             module,
             trainset,
             valset: trainset,
@@ -132,18 +132,18 @@ describe("MIPROv2 orchestration", () => {
             numInstructions: 2,
             trialBudget: 2,
             seed: 31
-          },
+          }),
           (event) => Ref.update(events, (tags) => Arr.append(tags, event._tag))
-        ).pipe(Effect.provide(layer), Effect.either)
+        ).pipe(Effect.provide(layer), Effect.result)
 
         const tags = yield* Ref.get(events)
         const calls = yield* Ref.get(appendCalls)
 
         expect(tags).toContain("Phase3Started")
         expect(calls).toBe(1)
-        expect(Either.isLeft(outcome)).toBe(true)
-        if (Either.isLeft(outcome)) {
-          expect(Equal.equals(outcome.left, storageError)).toBe(true)
+        expect(Result.isFailure(outcome)).toBe(true)
+        if (Result.isFailure(outcome)) {
+          expect(Equal.equals(outcome.failure, storageError)).toBe(true)
         }
       })
   )

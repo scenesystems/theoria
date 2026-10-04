@@ -36,11 +36,11 @@ const asSingleObjective = (result: Optimization.Result): Option.Option<Optimizat
 
 const requireSome = <A>(option: Option.Option<A>): Effect.Effect<A> =>
   Option.match(option, {
-    onNone: () => Effect.dieMessage("expected Some"),
+    onNone: () => Effect.die("expected Some"),
     onSome: Effect.succeed
   })
 
-const encodeConfigTrace = Schema.encodeSync(Schema.parseJson(Schema.Array(SlotConfig)))
+const encodeConfigTrace = Schema.encodeSync(Schema.fromJsonString(Schema.Array(SlotConfig)))
 
 const encodeTrialConfigTrace = (
   trials: Iterable<Trial.Trial<unknown>>
@@ -58,7 +58,7 @@ const objective = (raw: unknown, runtime: Pruning.Runtime) =>
 const pruningPolicy = new Pruning.Policy({
   name: "upper-slot-pruner",
   decide: ({ latestReport }) =>
-    Match.value(Num.greaterThanOrEqualTo(latestReport.value, 24)).pipe(
+    Match.value(Num.isGreaterThanOrEqualTo(latestReport.value, 24)).pipe(
       Match.when(true, () =>
         Pruning.prune({
           step: latestReport.step,
@@ -71,19 +71,24 @@ const pruningPolicy = new Pruning.Policy({
 
 const runWithPruning = (trials: number) =>
   Effect.gen(function*() {
-    return yield* Optimization.run({
-      space: yield* space,
-      sampler: Sampler.tpe({
-        seed: runOptions.seed,
-        nStartupTrials: runOptions.nStartupTrials,
-        nEiCandidates: runOptions.nEiCandidates
-      }),
-      direction: "minimize",
-      trials,
-      concurrency: runOptions.concurrency,
-      pruningPolicy,
-      objective
-    })
+    const resolvedSpace = yield* space
+    return yield* Optimization.run(
+      new Optimization.FlatOptions({
+        space: resolvedSpace,
+        sampler: Sampler.tpe(
+          new Sampler.TpeOptions({
+            seed: runOptions.seed,
+            nStartupTrials: runOptions.nStartupTrials,
+            nEiCandidates: runOptions.nEiCandidates
+          })
+        ),
+        direction: "minimize",
+        trials,
+        concurrency: runOptions.concurrency,
+        pruningPolicy,
+        objective
+      })
+    )
   })
 
 const traceState = (result: Optimization.SingleObjectiveResult) =>
@@ -106,7 +111,7 @@ const comparableFirstLegSlice = (
 ) =>
   Arr.map(
     Arr.sort(
-      Arr.filter(Arr.fromIterable(trials), (trial) => Num.lessThan(trial.trialNumber, firstLegTrials)),
+      Arr.filter(Arr.fromIterable(trials), (trial) => Num.isLessThan(trial.trialNumber, firstLegTrials)),
       Order.mapInput(Num.Order, (trial: Trial.Trial<unknown>) => trial.trialNumber)
     ),
     (trial) => ({
@@ -172,34 +177,42 @@ describe("constant-liar + pruning determinism", () => {
         ))
 
         const snapshot = yield* Optimization.snapshot(firstLeg)
-        const resumedResultA = yield* Optimization.resume({
-          space: yield* space,
-          sampler: Sampler.tpe({
-            seed: runOptions.seed,
-            nStartupTrials: runOptions.nStartupTrials,
-            nEiCandidates: runOptions.nEiCandidates
-          }),
-          snapshot,
-          direction: "minimize",
-          trials: secondLegTrials,
-          concurrency: runOptions.concurrency,
-          pruningPolicy,
-          objective
-        })
-        const resumedResultB = yield* Optimization.resume({
-          space: yield* space,
-          sampler: Sampler.tpe({
-            seed: runOptions.seed,
-            nStartupTrials: runOptions.nStartupTrials,
-            nEiCandidates: runOptions.nEiCandidates
-          }),
-          snapshot,
-          direction: "minimize",
-          trials: secondLegTrials,
-          concurrency: runOptions.concurrency,
-          pruningPolicy,
-          objective
-        })
+        const resumedResultA = yield* Optimization.resume(
+          new Optimization.ResumeOptions({
+            space: yield* space,
+            sampler: Sampler.tpe(
+              new Sampler.TpeOptions({
+                seed: runOptions.seed,
+                nStartupTrials: runOptions.nStartupTrials,
+                nEiCandidates: runOptions.nEiCandidates
+              })
+            ),
+            snapshot,
+            direction: "minimize",
+            trials: secondLegTrials,
+            concurrency: runOptions.concurrency,
+            pruningPolicy,
+            objective
+          })
+        )
+        const resumedResultB = yield* Optimization.resume(
+          new Optimization.ResumeOptions({
+            space: yield* space,
+            sampler: Sampler.tpe(
+              new Sampler.TpeOptions({
+                seed: runOptions.seed,
+                nStartupTrials: runOptions.nStartupTrials,
+                nEiCandidates: runOptions.nEiCandidates
+              })
+            ),
+            snapshot,
+            direction: "minimize",
+            trials: secondLegTrials,
+            concurrency: runOptions.concurrency,
+            pruningPolicy,
+            objective
+          })
+        )
 
         const resumedOptionA = asSingleObjective(resumedResultA)
         const resumedOptionB = asSingleObjective(resumedResultB)

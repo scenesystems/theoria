@@ -1,11 +1,3 @@
-import * as EmbeddingModel from "@effect/ai/EmbeddingModel"
-import * as Headers from "@effect/platform/Headers"
-import * as HttpBody from "@effect/platform/HttpBody"
-import * as HttpClient from "@effect/platform/HttpClient"
-import * as HttpClientError from "@effect/platform/HttpClientError"
-import type * as HttpClientRequest from "@effect/platform/HttpClientRequest"
-import * as HttpClientResponse from "@effect/platform/HttpClientResponse"
-import * as HttpServerResponse from "@effect/platform/HttpServerResponse"
 import { describe, expect, it } from "@effect/vitest"
 import {
   Array as Arr,
@@ -15,7 +7,6 @@ import {
   Effect,
   Equal,
   Exit,
-  FastCheck,
   Fiber,
   Inspectable,
   Match,
@@ -24,9 +15,19 @@ import {
   Redacted,
   Ref,
   Schema,
-  String,
-  TestClock
+  String
 } from "effect"
+import { EmbeddingModel } from "effect/ai"
+import {
+  Headers,
+  HttpBody,
+  HttpClient,
+  HttpClientError,
+  type HttpClientRequest,
+  HttpClientResponse,
+  HttpServerResponse
+} from "effect/http"
+import * as TestClock from "effect/testing/TestClock"
 
 import * as HuggingFaceEmbeddingModel from "@scenesystems/effect-inference/HuggingFaceEmbeddingModel"
 import * as HuggingFaceEndpoint from "@scenesystems/effect-inference/HuggingFaceEndpoint"
@@ -62,7 +63,9 @@ const mapping = {
 
 const json = (request: HttpClientRequest.HttpClientRequest, body: unknown, status = 200) =>
   HttpServerResponse.json(body, { status }).pipe(
-    Effect.mapError((cause) => new HttpClientError.RequestError({ request, reason: "Encode", cause })),
+    Effect.mapError((cause) =>
+      new HttpClientError.HttpClientError({ reason: new HttpClientError.EncodeError({ request, cause }) })
+    ),
     Effect.map((response) => HttpClientResponse.fromWeb(request, HttpServerResponse.toWeb(response)))
   )
 
@@ -74,27 +77,32 @@ describe("HuggingFaceEmbeddingModel", () => {
         Ref.updateAndGet(requests, Chunk.append(request)).pipe(
           Effect.flatMap((seen) =>
             Match.value(Chunk.size(seen)).pipe(
-              Match.when(1, () => json(request, Arr.make(0.25, Number.negate(0.5)))),
-              Match.orElse(() => json(request, Arr.make(Arr.make(1, 2), Arr.make(Number.negate(3), 4))))
+              Match.when(1, () => json(request, Arr.make(0.25, -(0.5)))),
+              Match.orElse(() => json(request, Arr.make(Arr.make(1, 2), Arr.make(-3, 4))))
             )
           )
         )
       )
       yield* Effect.gen(function*() {
         const model = yield* EmbeddingModel.EmbeddingModel
-        expect(yield* model.embed("one")).toEqual(Arr.make(0.25, Number.negate(0.5)))
-        expect(yield* model.embedMany(Arr.make("two", "three"))).toEqual(
-          Arr.make(Arr.make(1, 2), Arr.make(Number.negate(3), 4))
+        const single = yield* model.embed("one")
+        expect(single.vector).toEqual(Arr.make(0.25, -(0.5)))
+        const batch = yield* model.embedMany(Arr.make("two", "three"))
+        expect(Arr.map(batch.embeddings, (embedding) => embedding.vector)).toEqual(
+          Arr.make(Arr.make(1, 2), Arr.make(-3, 4))
         )
-        expect(yield* model.embedMany(Arr.empty())).toEqual(Arr.empty())
+        expect(batch.usage.inputTokens).toBeUndefined()
+        const empty = yield* model.embedMany(Arr.empty())
+        expect(empty.embeddings).toEqual(Arr.empty())
+        expect(empty.usage.inputTokens).toBeUndefined()
       }).pipe(
         Effect.provide(HuggingFaceEmbeddingModel.layer(endpoint)),
         Effect.provideService(HttpClient.HttpClient, client)
       )
       const seen = yield* Ref.get(requests)
       expect(Chunk.size(seen)).toBe(2)
-      const first = yield* Chunk.get(seen, 0)
-      const second = yield* Chunk.get(seen, 1)
+      const first = yield* Effect.fromOption(Chunk.get(seen, 0))
+      const second = yield* Effect.fromOption(Chunk.get(seen, 1))
       expect(first.url).toBe(endpoint.route.baseUrl)
       expect(first.method).toBe("POST")
       expect(Headers.get(first.headers, "authorization")).toEqual(Option.some("Bearer hf_test-token"))
@@ -112,7 +120,7 @@ describe("HuggingFaceEmbeddingModel", () => {
               Match.when("GET", () => json(request, mapping)),
               Match.orElse(() =>
                 json(request, {
-                  data: Arr.make({ index: 1, embedding: Arr.make(Number.negate(3), 4) }, {
+                  data: Arr.make({ index: 1, embedding: Arr.make(-3, 4) }, {
                     index: 0,
                     embedding: Arr.make(1, 2)
                   })
@@ -124,22 +132,26 @@ describe("HuggingFaceEmbeddingModel", () => {
       )
       yield* Effect.gen(function*() {
         const model = yield* EmbeddingModel.EmbeddingModel
-        expect(yield* model.embedMany(Arr.make("one", "two"))).toEqual(
-          Arr.make(Arr.make(1, 2), Arr.make(Number.negate(3), 4))
+        const first = yield* model.embedMany(Arr.make("one", "two"))
+        expect(Arr.map(first.embeddings, (embedding) => embedding.vector)).toEqual(
+          Arr.make(Arr.make(1, 2), Arr.make(-3, 4))
         )
-        expect(yield* model.embedMany(Arr.make("one", "two"))).toEqual(
-          Arr.make(Arr.make(1, 2), Arr.make(Number.negate(3), 4))
+        expect(first.usage.inputTokens).toBeUndefined()
+        const second = yield* model.embedMany(Arr.make("one", "two"))
+        expect(Arr.map(second.embeddings, (embedding) => embedding.vector)).toEqual(
+          Arr.make(Arr.make(1, 2), Arr.make(-3, 4))
         )
+        expect(second.usage.inputTokens).toBeUndefined()
       }).pipe(
         Effect.provide(HuggingFaceEmbeddingModel.layer(routed)),
         Effect.provideService(HttpClient.HttpClient, client)
       )
       const seen = yield* Ref.get(requests)
       expect(Chunk.size(seen)).toBe(3)
-      const discovery = yield* Chunk.get(seen, 0)
-      const inference = yield* Chunk.get(seen, 1)
+      const discovery = yield* Effect.fromOption(Chunk.get(seen, 0))
+      const inference = yield* Effect.fromOption(Chunk.get(seen, 1))
       expect(discovery.url).toBe("https://huggingface.co/api/models/org/embedding-model")
-      expect(discovery.urlParams).toEqual(Arr.of(Arr.make("expand[]", "inferenceProviderMapping")))
+      expect(discovery.urlParams.params).toEqual(Arr.of(Arr.make("expand[]", "inferenceProviderMapping")))
       expect(Headers.get(discovery.headers, "authorization")).toEqual(Option.some("Bearer hf_test-token"))
       expect(inference.url).toBe("https://router.huggingface.co/together/v1/embeddings")
       expect(inference.body).toEqual(
@@ -163,7 +175,7 @@ describe("HuggingFaceEmbeddingModel", () => {
         Effect.gen(function*() {
           const model = yield* EmbeddingModel.EmbeddingModel
           const error = yield* Effect.flip(model.embedMany(Arr.make("one", "two")))
-          expect(error._tag).toBe("MalformedOutput")
+          expect(error.reason._tag).toBe("InvalidOutputError")
         }).pipe(
           Effect.provide(HuggingFaceEmbeddingModel.layer(endpoint)),
           Effect.provideService(HttpClient.HttpClient, HttpClient.make((request) => json(request, output)))
@@ -182,17 +194,22 @@ describe("HuggingFaceEmbeddingModel", () => {
         yield* Effect.gen(function*() {
           const model = yield* EmbeddingModel.EmbeddingModel
           const error = yield* Effect.flip(model.embed("one"))
-          expect(error._tag).toBe("HttpResponseError")
-          expect(Inspectable.format(error)).not.toContain("hf_test-token")
-          yield* Match.value(error).pipe(
-            Match.tag("HttpResponseError", (error) =>
-              Effect.sync(() => {
-                expect(error.response.status).toBe(status)
-                expect(error.body).toContain("access denied")
-                expect(error.request.url).toBe(endpoint.route.baseUrl)
-              })),
-            Match.orElse(() => Effect.dieMessage("Expected an HTTP response failure"))
+          expect(error._tag).toBe("AiError")
+          expect(Inspectable.toStringUnknown(error)).not.toContain("hf_test-token")
+          const http = yield* Match.value(error.reason).pipe(
+            Match.tags({
+              AuthenticationError: ({ http }) => Effect.fromOption(Option.fromNullishOr(http)),
+              InternalProviderError: ({ http }) => Effect.fromOption(Option.fromNullishOr(http)),
+              InvalidRequestError: ({ http }) => Effect.fromOption(Option.fromNullishOr(http)),
+              RateLimitError: ({ http }) => Effect.fromOption(Option.fromNullishOr(http)),
+              UnknownError: ({ http }) => Effect.fromOption(Option.fromNullishOr(http))
+            }),
+            Match.orElse(() => Effect.die("Expected HTTP context"))
           )
+          const response = yield* Effect.fromOption(Option.fromNullishOr(http.response))
+          expect(response.status).toBe(status)
+          expect(http.body).toContain("access denied")
+          expect(http.request.url).toBe(endpoint.route.baseUrl)
         }).pipe(
           Effect.provide(HuggingFaceEmbeddingModel.layer(endpoint)),
           Effect.provideService(HttpClient.HttpClient, client)
@@ -201,14 +218,24 @@ describe("HuggingFaceEmbeddingModel", () => {
       })))
 
   it.effect("preserves injected client failure reasons without retaining credential-bearing request causes", () =>
-    Effect.forEach(Schema.Literal("Transport", "Encode").literals, (reason) =>
+    Effect.forEach(Schema.Literals(["TransportError", "EncodeError"]).literals, (reason) =>
       Effect.gen(function*() {
-        const client = HttpClient.make((request) => Effect.fail(new HttpClientError.RequestError({ request, reason })))
+        const client = HttpClient.make((request) =>
+          Effect.fail(
+            new HttpClientError.HttpClientError({
+              reason: Match.value(reason).pipe(
+                Match.when("TransportError", () => new HttpClientError.TransportError({ request })),
+                Match.when("EncodeError", () => new HttpClientError.EncodeError({ request })),
+                Match.exhaustive
+              )
+            })
+          )
+        )
         yield* Effect.gen(function*() {
           const model = yield* EmbeddingModel.EmbeddingModel
           const error = yield* Effect.flip(model.embed("one"))
-          expect(error).toMatchObject({ _tag: "HttpRequestError", reason })
-          expect(Inspectable.format(error)).not.toContain("hf_test-token")
+          expect(error.reason).toMatchObject({ _tag: "NetworkError", reason })
+          expect(Inspectable.toStringUnknown(error)).not.toContain("hf_test-token")
         }).pipe(
           Effect.provide(HuggingFaceEmbeddingModel.layer(endpoint)),
           Effect.provideService(HttpClient.HttpClient, client)
@@ -234,7 +261,7 @@ describe("HuggingFaceEmbeddingModel", () => {
       )
       yield* Effect.gen(function*() {
         const model = yield* EmbeddingModel.EmbeddingModel
-        const fiber = yield* Effect.fork(model.embed("one"))
+        const fiber = yield* Effect.forkChild(model.embed("one"))
         yield* Deferred.await(started)
         yield* TestClock.adjust("99 millis")
         expect(yield* Ref.get(attempts)).toBe(1)
@@ -244,7 +271,7 @@ describe("HuggingFaceEmbeddingModel", () => {
         expect(yield* Ref.get(attempts)).toBe(2)
         yield* TestClock.adjust("1 millis")
         const error = yield* Effect.flip(Fiber.join(fiber))
-        expect(error._tag).toBe("HttpResponseError")
+        expect(error.reason._tag).toBe("InternalProviderError")
         expect(yield* Ref.get(attempts)).toBe(3)
         expect(Chunk.toArray(yield* Ref.get(urls))).toEqual(
           Arr.replicate("https://router.huggingface.co/together/v1/embeddings", 3)
@@ -276,20 +303,20 @@ describe("HuggingFaceEmbeddingModel", () => {
             )),
           Match.orElse(() =>
             Ref.update(posts, Number.increment).pipe(
-              Effect.andThen(json(request, { data: Arr.of({ embedding: Arr.make(2, Number.negate(5)) }) }))
+              Effect.andThen(json(request, { data: Arr.of({ embedding: Arr.make(2, -5) }) }))
             )
           )
         )
       )
       yield* Effect.gen(function*() {
         const model = yield* EmbeddingModel.EmbeddingModel
-        const fiber = yield* Effect.fork(model.embed("one"))
+        const fiber = yield* Effect.forkChild(model.embed("one"))
         yield* Deferred.await(started)
         yield* TestClock.adjust("99 millis")
         expect(yield* Ref.get(posts)).toBe(0)
         expect(yield* Ref.get(gets)).toBe(1)
         yield* TestClock.adjust("1 millis")
-        expect(yield* Fiber.join(fiber)).toEqual(Arr.make(2, Number.negate(5)))
+        expect((yield* Fiber.join(fiber)).vector).toEqual(Arr.make(2, -5))
         expect(yield* Ref.get(gets)).toBe(2)
         expect(yield* Ref.get(posts)).toBe(1)
       }).pipe(
@@ -303,107 +330,198 @@ describe("HuggingFaceEmbeddingModel", () => {
       const gets = yield* Ref.make(0)
       const started = yield* Deferred.make<void>()
       const release = yield* Deferred.make<void>()
+      const interrupted = yield* Deferred.make<void>()
       const client = HttpClient.make((request) =>
         Match.value(request.method).pipe(
           Match.when("GET", () =>
             Ref.update(gets, Number.increment).pipe(
               Effect.andThen(Deferred.done(started, Exit.void)),
               Effect.andThen(Deferred.await(release)),
-              Effect.andThen(json(request, mapping))
+              Effect.andThen(json(request, mapping)),
+              Effect.onInterrupt(() => Deferred.done(interrupted, Exit.void))
             )),
-          Match.orElse(() => json(request, { data: Arr.of({ embedding: Arr.make(2, Number.negate(5)) }) }))
+          Match.orElse(() => json(request, { data: Arr.of({ embedding: Arr.make(2, -5) }) }))
         )
       )
       const layer = HuggingFaceEmbeddingModel.layer(routed)
       yield* Effect.gen(function*() {
         const model = yield* EmbeddingModel.EmbeddingModel
-        const first = yield* Effect.fork(model.embed("one"))
+        const first = yield* Effect.forkChild(model.embed("one"))
         yield* Deferred.await(started)
-        const second = yield* Effect.fork(model.embed("two"))
-        const cancelled = yield* Effect.fork(model.embed("cancelled"))
+        const second = yield* Effect.forkChild(model.embed("two"), { startImmediately: true })
         yield* TestClock.adjust("1 millis")
-        expect(Exit.isInterrupted(yield* Fiber.interrupt(cancelled))).toBe(true)
+        yield* Fiber.interrupt(first)
+        expect(yield* Deferred.isDone(interrupted)).toBe(false)
         expect(yield* Ref.get(gets)).toBe(1)
+        yield* TestClock.adjust("10 minutes")
         yield* Deferred.done(release, Exit.void)
-        expect(yield* Fiber.join(first)).toEqual(Arr.make(2, Number.negate(5)))
-        expect(yield* Fiber.join(second)).toEqual(Arr.make(2, Number.negate(5)))
+        expect((yield* Fiber.join(second)).vector).toEqual(Arr.make(2, -5))
         yield* TestClock.adjust("4 minutes")
-        expect(yield* model.embed("three")).toEqual(Arr.make(2, Number.negate(5)))
+        expect((yield* model.embed("three")).vector).toEqual(Arr.make(2, -5))
         expect(yield* Ref.get(gets)).toBe(1)
         yield* TestClock.adjust("61 seconds")
-        expect(yield* model.embed("four")).toEqual(Arr.make(2, Number.negate(5)))
+        const refreshed = yield* Effect.all(Arr.make(model.embed("four"), model.embed("five")), {
+          concurrency: "unbounded"
+        })
+        expect(Arr.map(refreshed, (embedding) => embedding.vector)).toEqual(Arr.make(Arr.make(2, -5), Arr.make(2, -5)))
         expect(yield* Ref.get(gets)).toBe(2)
       }).pipe(Effect.provide(layer), Effect.provideService(HttpClient.HttpClient, client))
       yield* Effect.gen(function*() {
         const model = yield* EmbeddingModel.EmbeddingModel
-        expect(yield* model.embed("one")).toEqual(Arr.make(2, Number.negate(5)))
+        expect((yield* model.embed("one")).vector).toEqual(Arr.make(2, -5))
       }).pipe(Effect.provide(layer), Effect.provideService(HttpClient.HttpClient, client))
       expect(yield* Ref.get(gets)).toBe(3)
     }))
 
-  it.effect("interrupts discovery and inference and allows subsequent requests after interruption", () =>
-    Effect.forEach(Arr.make("GET", "POST"), (blockedMethod) =>
-      Effect.gen(function*() {
-        const started = yield* Deferred.make<void>()
-        const interrupted = yield* Deferred.make<void>()
-        const blocked = yield* Ref.make(true)
-        const gets = yield* Ref.make(0)
-        const client = HttpClient.make((request) =>
-          Effect.gen(function*() {
-            yield* Ref.update(gets, (count) =>
-              Match.value(request.method).pipe(
-                Match.when("GET", () => Number.increment(count)),
-                Match.orElse(() => count)
-              ))
-            yield* Effect.when(
-              Deferred.done(started, Exit.void).pipe(
-                Effect.andThen(Effect.never),
-                Effect.onInterrupt(() => Deferred.done(interrupted, Exit.void))
-              ),
-              () => Equal.equals(request.method, blockedMethod)
-            ).pipe(Effect.whenEffect(Ref.get(blocked)))
-            return yield* Match.value(request.method).pipe(
-              Match.when("GET", () => json(request, mapping)),
-              Match.orElse(() => json(request, { data: Arr.of({ embedding: Arr.make(2, Number.negate(5)) }) }))
-            )
-          })
-        )
-        yield* Effect.gen(function*() {
-          const model = yield* EmbeddingModel.EmbeddingModel
-          const fiber = yield* Effect.fork(model.embed("one"))
-          yield* Deferred.await(started)
-          const exit = yield* Fiber.interrupt(fiber)
-          expect(Exit.isInterrupted(exit)).toBe(true)
-          yield* Deferred.await(interrupted)
-          yield* Ref.set(blocked, false)
-          expect(yield* model.embed("one")).toEqual(Arr.make(2, Number.negate(5)))
-          expect(yield* Ref.get(gets)).toBe(
-            Match.value(blockedMethod).pipe(
-              Match.when("GET", () => 2),
-              Match.orElse(() => 1)
-            )
+  it.effect.each(["GET", "POST"])(
+    "interrupts %s and allows subsequent requests",
+    (blockedMethod) =>
+      Effect.forEach(Arr.make("embed", "embedMany"), (operation) =>
+        Effect.gen(function*() {
+          const started = yield* Deferred.make<void>()
+          const finalized = yield* Deferred.make<void>()
+          const blocked = yield* Ref.make(true)
+          const gets = yield* Ref.make(0)
+          const client = HttpClient.make((request) =>
+            Effect.gen(function*() {
+              yield* Ref.update(gets, (count) =>
+                Match.value(request.method).pipe(
+                  Match.when("GET", () => Number.increment(count)),
+                  Match.orElse(() => count)
+                ))
+              const isBlocked = yield* Ref.get(blocked)
+              yield* Effect.when(
+                Deferred.done(started, Exit.void).pipe(
+                  Effect.andThen(Effect.never),
+                  Effect.onInterrupt(() => Deferred.done(finalized, Exit.void))
+                ),
+                Effect.succeed(Boolean.and(isBlocked, Equal.equals(request.method, blockedMethod)))
+              )
+              return yield* Match.value(request.method).pipe(
+                Match.when("GET", () => json(request, mapping)),
+                Match.orElse(() => json(request, { data: Arr.of({ embedding: Arr.make(2, -5) }) }))
+              )
+            })
           )
-        }).pipe(
-          Effect.provide(HuggingFaceEmbeddingModel.layer(routed)),
-          Effect.provideService(HttpClient.HttpClient, client)
+          yield* Effect.gen(function*() {
+            const model = yield* EmbeddingModel.EmbeddingModel
+            const fiber = yield* Effect.forkChild(
+              Match.value(operation).pipe(
+                Match.when("embed", () => Effect.asVoid(model.embed("one"))),
+                Match.orElse(() => Effect.asVoid(model.embedMany(Arr.of("one"))))
+              )
+            )
+            yield* Deferred.await(started)
+            yield* Fiber.interrupt(fiber)
+            expect(Exit.hasInterrupts(yield* Fiber.await(fiber))).toBe(true)
+            expect(yield* Deferred.isDone(finalized)).toBe(true)
+            yield* Ref.set(blocked, false)
+            expect((yield* model.embed("one")).vector).toEqual(Arr.make(2, -5))
+            expect(yield* Ref.get(gets)).toBe(
+              Match.value(blockedMethod).pipe(
+                Match.when("GET", () => 2),
+                Match.orElse(() => 1)
+              )
+            )
+          }).pipe(
+            Effect.provide(HuggingFaceEmbeddingModel.layer(routed)),
+            Effect.provideService(HttpClient.HttpClient, client)
+          )
+        }))
+  )
+
+  it.effect("evicts failed discovery after the initiating waiter leaves without advancing time", () =>
+    Effect.gen(function*() {
+      const started = yield* Deferred.make<void>()
+      const release = yield* Deferred.make<void>()
+      const gets = yield* Ref.make(0)
+      const client = HttpClient.make((request) =>
+        Match.value(request.method).pipe(
+          Match.when("GET", () =>
+            Ref.updateAndGet(gets, Number.increment).pipe(
+              Effect.flatMap((count) =>
+                Match.value(count).pipe(
+                  Match.when(1, () =>
+                    Deferred.done(started, Exit.void).pipe(
+                      Effect.andThen(Deferred.await(release)),
+                      Effect.andThen(json(request, { error: "unauthorized" }, 401))
+                    )),
+                  Match.orElse(() => json(request, mapping))
+                )
+              )
+            )),
+          Match.orElse(() => json(request, { data: Arr.of({ embedding: Arr.make(2, -5) }) }))
         )
-      })))
+      )
+      yield* Effect.gen(function*() {
+        const model = yield* EmbeddingModel.EmbeddingModel
+        const first = yield* Effect.forkChild(model.embed("one"))
+        yield* Deferred.await(started)
+        const second = yield* Effect.forkChild(Effect.flip(model.embed("two")), { startImmediately: true })
+        yield* Fiber.interrupt(first)
+        yield* Deferred.done(release, Exit.void)
+        expect((yield* Fiber.join(second)).reason._tag).toBe("AuthenticationError")
+        expect(yield* Ref.get(gets)).toBe(1)
+        expect((yield* model.embed("retry")).vector).toEqual(Arr.make(2, -5))
+        expect(yield* Ref.get(gets)).toBe(2)
+      }).pipe(
+        Effect.provide(HuggingFaceEmbeddingModel.layer(routed)),
+        Effect.provideService(HttpClient.HttpClient, client)
+      )
+    }))
+
+  it.effect("interrupts shared discovery only after its final caller leaves", () =>
+    Effect.gen(function*() {
+      const started = yield* Deferred.make<void>()
+      const interrupted = yield* Deferred.make<void>()
+      const posts = yield* Ref.make(0)
+      const client = HttpClient.make((request) =>
+        Match.value(request.method).pipe(
+          Match.when("GET", () =>
+            Deferred.done(started, Exit.void).pipe(
+              Effect.andThen(Effect.never),
+              Effect.onInterrupt(() => Deferred.done(interrupted, Exit.void))
+            )),
+          Match.orElse(() => Ref.update(posts, Number.increment).pipe(Effect.andThen(json(request, Arr.of(1)))))
+        )
+      )
+      yield* Effect.gen(function*() {
+        const model = yield* EmbeddingModel.EmbeddingModel
+        const first = yield* Effect.forkChild(model.embed("one"))
+        yield* Deferred.await(started)
+        const second = yield* Effect.forkChild(model.embed("two"), { startImmediately: true })
+        yield* TestClock.adjust("1 millis")
+        yield* Fiber.interrupt(first)
+        expect(yield* Deferred.isDone(interrupted)).toBe(false)
+        yield* Fiber.interrupt(second)
+        expect(yield* Deferred.isDone(interrupted)).toBe(true)
+        expect(yield* Ref.get(posts)).toBe(0)
+      }).pipe(
+        Effect.provide(HuggingFaceEmbeddingModel.layer(routed)),
+        Effect.provideService(HttpClient.HttpClient, client)
+      )
+    }))
 
   it.effect.prop("indexed response permutation preserves every input's embedding", {
-    values: FastCheck.uniqueArray(FastCheck.integer({ min: Number.negate(10000), max: 10000 }), {
-      minLength: 2,
-      maxLength: 12
-    })
+    values: Schema.Array(Schema.Int.check(Schema.isBetween({ minimum: -10000, maximum: 10000 }))).check(
+      Schema.isMinLength(2),
+      Schema.isMaxLength(12),
+      Schema.isUnique()
+    )
   }, ({ values }) =>
     Effect.gen(function*() {
       const model = yield* EmbeddingModel.EmbeddingModel
       const texts = yield* Effect.forEach(values, (value) =>
-        Schema.encode(Schema.NumberFromString)(value).pipe(Effect.map((encoded) =>
+        Schema.encodeEffect(Schema.FiniteFromString)(value).pipe(Effect.map((encoded) =>
           String.concat("text-", encoded)
         )))
-      expect(yield* model.embedMany(texts)).toEqual(
-        Arr.map(values, (value) => Arr.make(value, Number.increment(value)))
-      )
+      const response = yield* model.embedMany(texts)
+      expect(Arr.map(response.embeddings, (embedding) =>
+        embedding.vector)).toEqual(
+          Arr.map(values, (value) =>
+            Arr.make(value, Number.increment(value)))
+        )
+      expect(response.usage.inputTokens).toBeUndefined()
     }).pipe(
       Effect.provide(HuggingFaceEmbeddingModel.layer(routed)),
       Effect.provideService(
@@ -429,7 +547,7 @@ describe("HuggingFaceEmbeddingModel", () => {
         Arr.make({ index: 0, embedding: Arr.of(1) }, { index: 0, embedding: Arr.of(2) }),
         Arr.of({ index: 0, embedding: Arr.of(1) }),
         Arr.make({ index: 0, embedding: Arr.of(1) }, { index: 2, embedding: Arr.of(2) }),
-        Arr.make({ index: Number.negate(1), embedding: Arr.of(1) }, { index: 1, embedding: Arr.of(2) }),
+        Arr.make({ index: -1, embedding: Arr.of(1) }, { index: 1, embedding: Arr.of(2) }),
         Arr.make({ index: 0.5, embedding: Arr.of(1) }, { index: 1, embedding: Arr.of(2) }),
         Arr.make({ embedding: Arr.of(1) }, { index: 1, embedding: Arr.of(2) })
       ),
@@ -437,7 +555,7 @@ describe("HuggingFaceEmbeddingModel", () => {
         Effect.gen(function*() {
           const model = yield* EmbeddingModel.EmbeddingModel
           const error = yield* Effect.flip(model.embedMany(Arr.make("one", "two")))
-          expect(error._tag).toBe("MalformedOutput")
+          expect(error.reason._tag).toBe("InvalidOutputError")
         }).pipe(
           Effect.provide(HuggingFaceEmbeddingModel.layer(routed)),
           Effect.provideService(
@@ -522,9 +640,9 @@ describe("HuggingFaceEmbeddingModel", () => {
                       json(
                         request,
                         Match.value(contract.provider).pipe(
-                          Match.when("hf-inference", () => Arr.make(Arr.make(1, Number.negate(2)), Arr.make(3, 4))),
+                          Match.when("hf-inference", () => Arr.make(Arr.make(1, -2), Arr.make(3, 4))),
                           Match.orElse(() => ({
-                            data: Arr.make({ embedding: Arr.make(1, Number.negate(2)) }, { embedding: Arr.make(3, 4) })
+                            data: Arr.make({ embedding: Arr.make(1, -2) }, { embedding: Arr.make(3, 4) })
                           }))
                         )
                       )
@@ -534,26 +652,28 @@ describe("HuggingFaceEmbeddingModel", () => {
               )
               yield* Effect.gen(function*() {
                 const model = yield* EmbeddingModel.EmbeddingModel
-                expect(yield* model.embedMany(Arr.make("one", "two"))).toEqual(
-                  Arr.make(Arr.make(1, Number.negate(2)), Arr.make(3, 4))
+                const response = yield* model.embedMany(Arr.make("one", "two"))
+                expect(Arr.map(response.embeddings, (embedding) => embedding.vector)).toEqual(
+                  Arr.make(Arr.make(1, -2), Arr.make(3, 4))
                 )
+                expect(response.usage.inputTokens).toBeUndefined()
               }).pipe(
                 Effect.provide(HuggingFaceEmbeddingModel.layer(options)),
                 Effect.provideService(HttpClient.HttpClient, client)
               )
               const seen = yield* Ref.get(requests)
-              const discovery = yield* Chunk.get(seen, 0)
-              const inference = yield* Chunk.get(seen, 1)
+              const discovery = yield* Effect.fromOption(Chunk.get(seen, 0))
+              const inference = yield* Effect.fromOption(Chunk.get(seen, 1))
               const direct = Option.exists(token, (token) => Equal.equals(Redacted.value(token), "provider-test-key"))
               expect(inference.url).toBe(Boolean.match(direct, {
                 onTrue: () => contract.directUrl,
                 onFalse: () => contract.routedUrl
               }))
-              expect(Headers.get(discovery.headers, "authorization")).toEqual(Option.filterMap(token, (token) =>
-                Boolean.match(direct, {
-                  onTrue: () => Option.none(),
-                  onFalse: () => Option.some(String.concat("Bearer ", Redacted.value(token)))
-                })))
+              const discoveryAuthorization = Option.map(
+                Option.filter(token, () => Boolean.not(direct)),
+                (token) => String.concat("Bearer ", Redacted.value(token))
+              )
+              expect(Headers.get(discovery.headers, "authorization")).toEqual(discoveryAuthorization)
               expect(Headers.get(inference.headers, "authorization")).toEqual(
                 Option.map(token, (token) => String.concat("Bearer ", Redacted.value(token)))
               )
@@ -576,10 +696,10 @@ describe("HuggingFaceEmbeddingModel", () => {
       tag: Schema.String
     })
     const scenarios = Arr.make(
-      Scenario.make({ policy: "fastest", mapping, tag: "MalformedInput" }),
-      Scenario.make({ policy: "cheapest", mapping, tag: "MalformedInput" }),
-      Scenario.make({ policy: "preferred", mapping, tag: "MalformedInput" }),
-      Scenario.make({ policy: Route.explicitProvider("deepinfra"), mapping, tag: "MalformedInput" }),
+      Scenario.make({ policy: "fastest", mapping, tag: "InvalidRequestError" }),
+      Scenario.make({ policy: "cheapest", mapping, tag: "InvalidRequestError" }),
+      Scenario.make({ policy: "preferred", mapping, tag: "InvalidRequestError" }),
+      Scenario.make({ policy: Route.explicitProvider("deepinfra"), mapping, tag: "InvalidRequestError" }),
       Scenario.make({
         mapping: {
           inferenceProviderMapping: {
@@ -587,7 +707,7 @@ describe("HuggingFaceEmbeddingModel", () => {
             ...mapping.inferenceProviderMapping
           }
         },
-        tag: "MalformedInput"
+        tag: "InvalidRequestError"
       }),
       Scenario.make({
         mapping: {
@@ -596,13 +716,13 @@ describe("HuggingFaceEmbeddingModel", () => {
             "hf-inference": hfInferenceMapping
           }
         },
-        tag: "MalformedInput"
+        tag: "InvalidRequestError"
       }),
-      Scenario.make({ mapping: { inferenceProviderMapping: Arr.empty() }, tag: "MalformedInput" }),
-      Scenario.make({ mapping: {}, tag: "MalformedOutput" }),
+      Scenario.make({ mapping: { inferenceProviderMapping: Arr.empty() }, tag: "InvalidRequestError" }),
+      Scenario.make({ mapping: {}, tag: "InvalidOutputError" }),
       Scenario.make({
         mapping: { inferenceProviderMapping: { together: { task: "feature-extraction" } } },
-        tag: "MalformedOutput"
+        tag: "InvalidOutputError"
       })
     )
     return Effect.forEach(scenarios, (scenario) =>
@@ -612,13 +732,17 @@ describe("HuggingFaceEmbeddingModel", () => {
           Ref.update(requests, Chunk.append(request.method)).pipe(Effect.andThen(json(request, scenario.mapping)))
         )
         const options = new HuggingFaceEmbeddingModel.Options({
-          ...routed,
+          model: routed.model,
+          ...Option.match(Option.fromNullishOr(routed.accessToken), {
+            onNone: () => ({}),
+            onSome: (accessToken) => ({ accessToken })
+          }),
           route: { ...routed.route, selectionPolicy: scenario.policy }
         })
         yield* Effect.gen(function*() {
           const model = yield* EmbeddingModel.EmbeddingModel
           const error = yield* Effect.flip(model.embed("one"))
-          expect(error._tag).toBe(scenario.tag)
+          expect(error.reason._tag).toBe(scenario.tag)
         }).pipe(
           Effect.provide(HuggingFaceEmbeddingModel.layer(options)),
           Effect.provideService(HttpClient.HttpClient, client)
@@ -648,10 +772,10 @@ describe("HuggingFaceEmbeddingModel", () => {
       yield* Effect.gen(function*() {
         const model = yield* EmbeddingModel.EmbeddingModel
         const error = yield* Effect.flip(model.embed("one"))
-        expect(error._tag).toBe("HttpResponseError")
+        expect(error.reason._tag).toBe("AuthenticationError")
         expect(error.method).toBe("discoverProviders")
         yield* TestClock.adjust("1 millis")
-        expect(yield* model.embed("one")).toEqual(Arr.make(7, 8))
+        expect((yield* model.embed("one")).vector).toEqual(Arr.make(7, 8))
         expect(yield* Ref.get(gets)).toBe(2)
       }).pipe(
         Effect.provide(HuggingFaceEmbeddingModel.layer(routed)),
@@ -662,17 +786,17 @@ describe("HuggingFaceEmbeddingModel", () => {
   it.effect("rejects malformed JSON, non-JSON content types and non-finite numbers through typed failures", () =>
     Effect.forEach(
       Arr.make(
-        { body: "{broken", contentType: "application/json", tag: "HttpResponseError" },
-        { body: "[1e400, 2]", contentType: "application/json", tag: "MalformedOutput" },
-        { body: "[1, 2]", contentType: "text/plain", tag: "MalformedOutput" },
-        { body: "[1, 2]", contentType: "application/jsonp", tag: "MalformedOutput" },
-        { body: "[1, 2]", contentType: "application/json-seq", tag: "MalformedOutput" }
+        { body: "{broken", contentType: "application/json", tag: "InvalidOutputError" },
+        { body: "[1e400, 2]", contentType: "application/json", tag: "InvalidOutputError" },
+        { body: "[1, 2]", contentType: "text/plain", tag: "InvalidOutputError" },
+        { body: "[1, 2]", contentType: "application/jsonp", tag: "InvalidOutputError" },
+        { body: "[1, 2]", contentType: "application/json-seq", tag: "InvalidOutputError" }
       ),
       (fixture) =>
         Effect.gen(function*() {
           const model = yield* EmbeddingModel.EmbeddingModel
           const error = yield* Effect.flip(model.embed("one"))
-          expect(error._tag).toBe(fixture.tag)
+          expect(error.reason._tag).toBe(fixture.tag)
         }).pipe(
           Effect.provide(HuggingFaceEmbeddingModel.layer(endpoint)),
           Effect.provideService(
@@ -695,7 +819,7 @@ describe("HuggingFaceEmbeddingModel", () => {
       (contentType) =>
         Effect.gen(function*() {
           const model = yield* EmbeddingModel.EmbeddingModel
-          expect(yield* model.embed("one")).toEqual(Arr.make(1, Number.negate(2)))
+          expect((yield* model.embed("one")).vector).toEqual(Arr.make(1, -2))
         }).pipe(
           Effect.provide(HuggingFaceEmbeddingModel.layer(endpoint)),
           Effect.provideService(
@@ -723,11 +847,18 @@ describe("HuggingFaceEmbeddingModel", () => {
             yield* Effect.gen(function*() {
               const embedding = yield* EmbeddingModel.EmbeddingModel
               const error = yield* Effect.flip(embedding.embed("one"))
-              expect(error._tag).toBe("MalformedInput")
+              expect(error.reason._tag).toBe("InvalidRequestError")
             }).pipe(
               Effect.provide(
                 HuggingFaceEmbeddingModel.layer(
-                  new HuggingFaceEmbeddingModel.Options({ ...options, model })
+                  new HuggingFaceEmbeddingModel.Options({
+                    model,
+                    route: options.route,
+                    ...Option.match(Option.fromNullishOr(options.accessToken), {
+                      onNone: () => ({}),
+                      onSome: (accessToken) => ({ accessToken })
+                    })
+                  })
                 )
               ),
               Effect.provideService(HttpClient.HttpClient, client)

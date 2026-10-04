@@ -15,7 +15,7 @@ describe("Pareto MOTPE compatibility", () => {
       const loaded = yield* loadAllFixtures("motpe-weights.")
       const fixtures = yield* Effect.forEach(
         loaded,
-        (fixture) => Schema.decodeUnknown(MotpeWeightsFixture)(fixture)
+        (fixture) => Schema.decodeUnknownEffect(MotpeWeightsFixture)(fixture)
       )
 
       Arr.forEach(fixtures, (fixture) => {

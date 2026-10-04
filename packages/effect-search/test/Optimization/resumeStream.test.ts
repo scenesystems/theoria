@@ -1,5 +1,5 @@
 import { describe, expect, it } from "@effect/vitest"
-import { Array as Arr, Chunk, Effect, Either, Match, Number as Num, Option, Schema, Stream } from "effect"
+import { Array as Arr, Effect, Match, Number as Num, Option, Result, Schema, Stream } from "effect"
 
 import * as Optimization from "../../src/Optimization.js"
 import * as Sampler from "../../src/Sampler.js"
@@ -8,18 +8,20 @@ import * as SearchSpace from "../../src/SearchSpace.js"
 
 const makeSpace = () =>
   SearchSpace.make({
-    x: SearchSpace.float(Num.negate(1), 1),
+    x: SearchSpace.float(Num.multiply(-1, 1), 1),
     depth: SearchSpace.int(1, 3)
   })
 
 const makeIncompatibleSpace = () =>
   SearchSpace.make({
-    x: SearchSpace.float(Num.negate(1), 1),
+    x: SearchSpace.float(Num.multiply(-1, 1), 1),
     width: SearchSpace.int(1, 3)
   })
 
-const objectiveFromSpace = (space: SearchSpace.SearchSpace) => {
-  const decode = Schema.decodeUnknownSync(space.schema)
+const ObjectiveConfig = Schema.Struct({ x: Schema.Finite, depth: Schema.Finite })
+
+const objectiveFromSpace = (_space: SearchSpace.SearchSpace) => {
+  const decode = Schema.decodeUnknownSync(ObjectiveConfig)
 
   return (raw: unknown) => {
     const config = decode(raw)
@@ -38,27 +40,31 @@ describe("Optimization.resumeStream", () => {
     Effect.gen(function*() {
       const space = yield* makeSpace()
       const objective = objectiveFromSpace(space)
-      const baseline = yield* Optimization.run({
-        space,
-        sampler: Sampler.random({ seed: 908 }),
-        direction: "minimize",
-        trials: 4,
-        objective
-      })
-      const single = yield* asSingleObjective(baseline)
-
-      const snapshot = yield* Optimization.snapshot(single)
-      const eventsChunk = yield* Stream.runCollect(
-        Optimization.resumeStream({
+      const baseline = yield* Optimization.run(
+        new Optimization.FlatOptions({
           space,
           sampler: Sampler.random({ seed: 908 }),
-          snapshot,
           direction: "minimize",
-          trials: 2,
+          trials: 4,
           objective
         })
       )
-      const events = Chunk.toReadonlyArray(eventsChunk)
+      const single = yield* Effect.fromOption(asSingleObjective(baseline))
+
+      const snapshot = yield* Optimization.snapshot(single)
+      const eventsChunk = yield* Stream.runCollect(
+        Optimization.resumeStream(
+          new Optimization.ResumeOptions({
+            space,
+            sampler: Sampler.random({ seed: 908 }),
+            snapshot,
+            direction: "minimize",
+            trials: 2,
+            objective
+          })
+        )
+      )
+      const events = eventsChunk
       const tags = Arr.map(events, (event) => event._tag)
 
       expect(tags).toContain("TrialStarted")
@@ -70,30 +76,34 @@ describe("Optimization.resumeStream", () => {
     Effect.gen(function*() {
       const space = yield* makeSpace()
       const objective = objectiveFromSpace(space)
-      const baseline = yield* Optimization.run({
-        space,
-        sampler: Sampler.random({ seed: 321 }),
-        direction: "minimize",
-        trials: 3,
-        objective
-      })
-      const single = yield* asSingleObjective(baseline)
+      const baseline = yield* Optimization.run(
+        new Optimization.FlatOptions({
+          space,
+          sampler: Sampler.random({ seed: 321 }),
+          direction: "minimize",
+          trials: 3,
+          objective
+        })
+      )
+      const single = yield* Effect.fromOption(asSingleObjective(baseline))
 
       const snapshot = yield* Optimization.snapshot(single)
-      const resumed = yield* Effect.either(
+      const resumed = yield* Effect.result(
         Stream.runCollect(
-          Optimization.resumeStream({
-            space: yield* makeIncompatibleSpace(),
-            sampler: Sampler.random({ seed: 321 }),
-            snapshot,
-            direction: "minimize",
-            trials: 2,
-            objective: objectiveFromSpace(yield* makeIncompatibleSpace())
-          })
+          Optimization.resumeStream(
+            new Optimization.ResumeOptions({
+              space: yield* makeIncompatibleSpace(),
+              sampler: Sampler.random({ seed: 321 }),
+              snapshot,
+              direction: "minimize",
+              trials: 2,
+              objective: objectiveFromSpace(yield* makeIncompatibleSpace())
+            })
+          )
         )
       )
 
-      const failure = Either.getOrThrow(Either.flip(resumed))
+      const failure = Result.getOrThrow(Result.flip(resumed))
       expect(failure).toBeInstanceOf(InvalidOptimizationConfig)
       expect(failure._tag).toBe("effect-search/InvalidOptimizationConfig")
     }))

@@ -38,8 +38,8 @@ const arrow =
 describeOnStage("proposal anchor line", (it) => {
   it.effect("finds the sentence where it begins, even when its first words are broken across lines", () =>
     Effect.gen(function*() {
-      const { build } = yield* onStage
-      const merged = yield* Arr.findFirst(build.proposals, (record) => record.accepted)
+      const { build } = yield* Effect.service(onStage)
+      const merged = Option.getOrThrow(Arr.findFirst(build.proposals, (record) => record.accepted))
       // "Once" holds the letters "On": the composition's first line must not answer for the proposal's sentence.
       const projection = projectionOf([
         "Once a month the market sets up in",
@@ -54,8 +54,8 @@ describeOnStage("proposal anchor line", (it) => {
 
   it.effect("a line broken inside a word still finds the sentence", () =>
     Effect.gen(function*() {
-      const { build } = yield* onStage
-      const merged = yield* Arr.findFirst(build.proposals, (record) => record.accepted)
+      const { build } = yield* Effect.service(onStage)
+      const merged = Option.getOrThrow(Arr.findFirst(build.proposals, (record) => record.accepted))
       const projection = projectionOf([
         "Once a month the market sets",
         "up in whatever building. On the do",
@@ -68,8 +68,8 @@ describeOnStage("proposal anchor line", (it) => {
 
   it.effect("a sentence that is not in the prose, or a declined proposal, has no line", () =>
     Effect.gen(function*() {
-      const { build } = yield* onStage
-      const merged = yield* Arr.findFirst(build.proposals, (record) => record.accepted)
+      const { build } = yield* Effect.service(onStage)
+      const merged = Option.getOrThrow(Arr.findFirst(build.proposals, (record) => record.accepted))
       const projection = projectionOf(["Once a month the market sets up.", "On the door a bell hangs."])
       expect(proposalAnchorLine(projection, saying(merged, arrow, true))).toEqual(Option.none())
       expect(proposalAnchorLine(projection, saying(merged, "On the door a bell hangs.", false))).toEqual(Option.none())
@@ -77,8 +77,8 @@ describeOnStage("proposal anchor line", (it) => {
 
   it.effect("on a real drawing the anchored line is where the merged sentence starts in the flowed prose", () =>
     Effect.gen(function*() {
-      const { build, kept, trial } = yield* onStage
-      const merged = yield* Arr.findFirst(build.proposals, (record) => record.accepted)
+      const { build, kept, trial } = yield* Effect.service(onStage)
+      const merged = Option.getOrThrow(Arr.findFirst(build.proposals, (record) => record.accepted))
       const prose = description(build.artifact)
       // The prose is the lines joined; the sentence starts at one offset of it, whichever width flowed the lines.
       const start = prose.indexOf(merged.proposal.feature.description)

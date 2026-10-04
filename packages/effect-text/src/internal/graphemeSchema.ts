@@ -6,7 +6,7 @@
 import { Schema } from "effect"
 
 /** Grapheme_Cluster_Break property, including the UCD default. */
-export const GraphemeBreak = Schema.Literal(
+export const GraphemeBreak = Schema.Literals([
   "Other",
   "CR",
   "LF",
@@ -21,15 +21,15 @@ export const GraphemeBreak = Schema.Literal(
   "T",
   "LV",
   "LVT"
-)
+])
 
 /** Indic_Conjunct_Break property, including the UCD default. */
-export const ConjunctBreak = Schema.Literal("None", "Consonant", "Extend", "Linker")
+export const ConjunctBreak = Schema.Literals(["None", "Consonant", "Extend", "Linker"])
 
 /** Inclusive range in a Unicode property file. Surrogates are retained as code points. */
 export const CodePointRange = Schema.Struct({
-  start: Schema.Int.pipe(Schema.between(0, 0x10ffff)),
-  end: Schema.Int.pipe(Schema.between(0, 0x10ffff))
+  start: Schema.Int.check(Schema.isBetween({ minimum: 0, maximum: 0x10ffff })),
+  end: Schema.Int.check(Schema.isBetween({ minimum: 0, maximum: 0x10ffff }))
 })
 
 /** Inclusive range with a grapheme-break property. */

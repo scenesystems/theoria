@@ -1,5 +1,5 @@
 import { describe, expect, it } from "@effect/vitest"
-import { Effect, Either } from "effect"
+import { Effect, Result } from "effect"
 
 import * as Digest from "@scenesystems/digest/Digest"
 import * as Utf8 from "@scenesystems/digest/Utf8"
@@ -18,13 +18,13 @@ describe("Digest.hashString", () => {
     Effect.gen(function*() {
       const text = "scene 😀 e\u0301"
       const bytes = yield* Utf8.encode(text)
-      expect(yield* Digest.hashString("sha256", text)).toStrictEqual(Digest.hash("sha256", bytes))
+      expect(yield* Digest.hashString("sha256", text)).toStrictEqual(yield* Digest.hash("sha256", bytes))
     }))
 
-  it.effect("returns InvalidUnicode in Either for malformed text", () => {
-    expect(Digest.hashString("blake3-256", "ok\uD800")).toStrictEqual(
-      Either.left(new Utf8.InvalidUnicode({ kind: "lone-high-surrogate", codeUnitIndex: 2 }))
-    )
-    return Effect.void
-  })
+  it.effect("returns InvalidUnicode for malformed text", () =>
+    Effect.gen(function*() {
+      expect(yield* Effect.result(Digest.hashString("blake3-256", "ok\uD800"))).toStrictEqual(
+        Result.fail(new Utf8.InvalidUnicode({ kind: "lone-high-surrogate", codeUnitIndex: 2 }))
+      )
+    }))
 })

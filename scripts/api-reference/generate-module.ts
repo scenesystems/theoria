@@ -1,5 +1,4 @@
-import { Path } from "@effect/platform"
-import { Array as Arr, Effect, Match, Option, String as Str } from "effect"
+import { Array as Arr, Effect, Match, Option, Path, String as Str } from "effect"
 
 import { writeBrowserApiModule } from "./browser-output.js"
 import { type ApiConvertedModule } from "./converted.js"

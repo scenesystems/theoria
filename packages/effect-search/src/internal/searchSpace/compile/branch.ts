@@ -23,6 +23,9 @@ import { branchCondition } from "../activity.js"
 import { expectCondition, invalidSearchSpace } from "../failure.js"
 import { ensureDistinctCaseValues, hasChoice } from "../validation.js"
 
+type SpaceField = Schema.Codec<unknown, unknown, never, never>
+type BranchCodec = Schema.Union<ReadonlyArray<Schema.Struct<Readonly<Record<string, SpaceField>>>>>
+
 const withPrefixedCondition = (
   parameter: Parameter,
   condition: Condition
@@ -41,13 +44,13 @@ const withPrefixedCondition = (
  */
 export const compileWithBranch = <
   const Dimensions extends {
-    readonly [key: string]: Schema.Schema.AnyNoContext
+    readonly [key: string]: SpaceField
   },
-  BranchSchema extends Schema.Schema.AnyNoContext
+  BranchSchema extends BranchCodec
 >(
   base: {
     readonly schema: Schema.Struct<Dimensions>
-    readonly dimensions: HashMap.HashMap<string, Schema.Struct.Field>
+    readonly dimensions: HashMap.HashMap<string, SpaceField>
     readonly params: SearchSpace["params"]
     readonly knownChoices: HashMap.HashMap<string, Categorical["choices"]>
   },
@@ -55,22 +58,20 @@ export const compileWithBranch = <
 ) =>
   Effect.gen(function*() {
     yield* expectCondition(
-      Num.greaterThan(Str.length(branch.discriminant), 0),
+      Num.isGreaterThan(Str.length(branch.discriminant), 0),
       "switch discriminant must be a non-empty dimension name"
     )
-    yield* expectCondition(Num.greaterThan(Chunk.size(branch.cases), 0), "switch requires at least one branch")
+    yield* expectCondition(Num.isGreaterThan(Chunk.size(branch.cases), 0), "switch requires at least one branch")
 
     const cases = yield* ensureDistinctCaseValues(branch.discriminant, branch.cases)
-    const discriminantChoices = yield* Option.match(HashMap.get(base.knownChoices, branch.discriminant), {
-      onNone: () =>
-        Effect.fail(
-          invalidSearchSpace(
-            `switch(${branch.discriminant}) must reference a previously declared categorical dimension`,
-            branch.discriminant
-          )
-        ),
-      onSome: Effect.succeed
-    })
+    const discriminantChoices = yield* Effect.fromOption(
+      HashMap.get(base.knownChoices, branch.discriminant),
+      () =>
+        invalidSearchSpace(
+          `switch(${branch.discriminant}) must reference a previously declared categorical dimension`,
+          branch.discriminant
+        )
+    )
 
     const unreachable = Arr.findFirst(cases, (entry) => Bool.not(hasChoice(discriminantChoices, entry.when)))
 
@@ -92,10 +93,12 @@ export const compileWithBranch = <
       return Arr.map(entry.params, (parameter) => withPrefixedCondition(parameter, condition))
     })
     const rootDimensions = HashMap.remove(base.dimensions, branch.discriminant)
-    const rootSchema = Schema.Struct(Record.fromEntries(HashMap.entries(rootDimensions)))
+    const rootFields = Record.fromEntries(HashMap.entries(rootDimensions))
 
     return {
-      schema: Schema.extend(rootSchema, branch.schema),
+      schema: branch.schema.mapMembers((members) =>
+        Arr.map(members, (member) => member.pipe(Schema.fieldsAssign(rootFields)))
+      ),
       params: Arr.appendAll(base.params, conditionalParams)
     }
   })

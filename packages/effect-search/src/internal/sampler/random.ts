@@ -27,7 +27,7 @@ export const make = (
   options: Sampler.RandomOptions = {},
   pendingImputationPolicy: PendingPolicy
 ): Sampler.Sampler => {
-  const seed = numberOptionOr(Option.fromNullable(options.seed), 0)
+  const seed = numberOptionOr(Option.fromNullishOr(options.seed), 0)
 
   return new Sampler.Sampler({
     kind: Sampler.Random({ options }),

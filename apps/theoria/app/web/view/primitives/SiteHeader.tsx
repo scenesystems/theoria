@@ -1,4 +1,4 @@
-import { useAtomSet } from "@effect-atom/atom-react"
+import { useAtomSet } from "@effect/atom-react"
 import { BookOpenIcon } from "@heroicons/react/20/solid"
 
 import { wordmarkPhaseAtom } from "../../atoms/wordmark.js"

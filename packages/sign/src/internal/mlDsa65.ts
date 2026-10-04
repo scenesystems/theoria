@@ -23,7 +23,7 @@ export const hasInvalidMlDsa65HintEncoding = (signature: Uint8Array): boolean =>
           // Equal endpoints are empty segments; index ordering restarts for each segment.
           const segments = Arr.zip(Arr.prepend(Arr.dropRight(endpoints, 1), 0), endpoints)
           const invalidEndpoint = Arr.some(segments, ([start, endpoint]) =>
-            B.or(N.greaterThan(endpoint, hintIndexBytes), N.lessThan(endpoint, start)))
+            B.or(N.isGreaterThan(endpoint, hintIndexBytes), N.isLessThan(endpoint, start)))
           return B.match(invalidEndpoint, {
             onTrue: () =>
               true,
@@ -31,7 +31,7 @@ export const hasInvalidMlDsa65HintEncoding = (signature: Uint8Array): boolean =>
               const invalidSegment = Arr.some(segments, ([start, endpoint]) => {
                 const segment = Arr.take(Arr.drop(bytes, N.sum(hintOffset, start)), N.subtract(endpoint, start))
                 return Arr.some(Arr.zip(segment, Arr.drop(segment, 1)), ([previous, next]) =>
-                  N.lessThanOrEqualTo(next, previous))
+                  N.isLessThanOrEqualTo(next, previous))
               })
               const padding = Arr.take(
                 Arr.drop(bytes, N.sum(hintOffset, lastEndpoint)),

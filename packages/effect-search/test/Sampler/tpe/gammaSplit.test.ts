@@ -8,7 +8,7 @@ describe("tpe gamma fixture parity", () => {
   it.effect("replays default and hyperopt gamma fixtures", () =>
     Effect.gen(function*() {
       const loaded = yield* loadFixture("gamma.default-gamma").pipe(Effect.provide(FixtureRegistryLive))
-      const fixture = yield* Schema.decodeUnknown(GammaFixture)(loaded)
+      const fixture = yield* Schema.decodeUnknownEffect(GammaFixture)(loaded)
 
       Arr.forEach(fixture.payload.cases, (entry) => {
         expect(defaultGamma(entry.nTrials)).toBe(entry.defaultGamma)

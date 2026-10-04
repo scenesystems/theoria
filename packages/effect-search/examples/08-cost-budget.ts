@@ -13,8 +13,8 @@ import { Optimization, Sampler, SearchSpace } from "@scenesystems/effect-search"
 const qualityScore = (temperature: number, rerankDepth: number, maxTokens: number): number =>
   Num.sumAll(Arr.make(
     Num.subtract(1, Numeric.abs(Num.subtract(temperature, 0.65))),
-    Numeric.min(Num.unsafeDivide(rerankDepth, 30), 1),
-    Num.multiply(Numeric.min(Num.unsafeDivide(maxTokens, 2048), 1), 0.2)
+    Numeric.min(Num.divideUnsafe(rerankDepth, 30), 1),
+    Num.multiply(Numeric.min(Num.divideUnsafe(maxTokens, 2048), 1), 0.2)
   ))
 
 const estimatedCostUsd = (maxTokens: number, rerankDepth: number): number =>
@@ -27,19 +27,21 @@ const program = Effect.gen(function*() {
     rerankDepth: SearchSpace.int(5, 30, { step: 5 })
   })
 
-  const result = yield* Optimization.maximize({
-    space,
-    sampler: Sampler.tpe({ seed: 88 }),
-    trials: 200,
-    maxCost: 25,
-    objective: (config) =>
-      Effect.succeed(
-        new Optimization.ObjectiveReport({
-          value: qualityScore(config.temperature, config.rerankDepth, config.maxTokens),
-          cost: estimatedCostUsd(config.maxTokens, config.rerankDepth)
-        })
-      )
-  })
+  const result = yield* Optimization.maximize(
+    new Optimization.FlatOptions({
+      space,
+      sampler: Sampler.tpe(new Sampler.TpeOptions({ seed: 88 })),
+      trials: 200,
+      maxCost: 25,
+      objective: (config) =>
+        Effect.succeed(
+          new Optimization.ObjectiveReport({
+            value: qualityScore(config.temperature, config.rerankDepth, config.maxTokens),
+            cost: estimatedCostUsd(config.maxTokens, config.rerankDepth)
+          })
+        )
+    })
+  )
 
   yield* Match.value(result).pipe(
     Match.tag(

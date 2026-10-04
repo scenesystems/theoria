@@ -3,7 +3,6 @@ import {
   Array as Arr,
   Boolean,
   Config,
-  ConfigError,
   ConfigProvider,
   Console,
   Effect,
@@ -20,11 +19,11 @@ import { program as runtimeConfigDecodingProgram } from "../examples/03-runtime-
 import { program as huggingFaceEndpointRuntimeProgram } from "../examples/04-hugging-face-endpoint-runtime.js"
 import { InvalidRuntimeConfig } from "../src/InferenceError.js"
 
-const LiveExampleName = Schema.Literal(
+const LiveExampleName = Schema.Literals([
   "runtime-config-decoding",
   "hugging-face-routed-runtime",
   "hugging-face-endpoint-runtime"
-)
+])
 type LiveExampleName = typeof LiveExampleName.Type
 
 const defaultExamples = LiveExampleName.literals
@@ -48,27 +47,27 @@ const parseSelection = (value: string) => {
       ),
       Match.orElse(() =>
         Effect.fail(
-          ConfigError.InvalidData(
-            [],
-            "Unsupported EFFECT_INFERENCE_LIVE_EXAMPLES entry. Use runtime-config-decoding, hugging-face-routed-runtime, or hugging-face-endpoint-runtime."
-          )
+          new InvalidRuntimeConfig({
+            reason:
+              "Unsupported EFFECT_INFERENCE_LIVE_EXAMPLES entry. Use runtime-config-decoding, hugging-face-routed-runtime, or hugging-face-endpoint-runtime."
+          })
         )
       )
     ))
 }
 
 const exampleConfig = Effect.gen(function*() {
-  const enabled = yield* Config.withDefault(Config.boolean("effectInferenceRunLiveExamples"), false)
-  const selection = yield* Config.option(Config.string("effectInferenceLiveExamples"))
+  const enabled = yield* Config.withDefault(Config.Boolean("effectInferenceRunLiveExamples"), false)
+  const selection = yield* Config.option(Config.String("effectInferenceLiveExamples"))
   const selectedExamples = yield* Option.match(selection, {
     onNone: () => Effect.succeed(defaultExamples),
     onSome: parseSelection
   })
 
   return { enabled, selectedExamples }
-}).pipe(Effect.withConfigProvider(defaultConfigProvider))
+}).pipe(Effect.provideService(ConfigProvider.ConfigProvider, defaultConfigProvider))
 
-const programForExample = (exampleName: LiveExampleName): Effect.Effect<unknown, unknown, never> =>
+const programForExample = (exampleName: LiveExampleName) =>
   Match.value(exampleName).pipe(
     Match.when("runtime-config-decoding", () => runtimeConfigDecodingProgram),
     Match.when("hugging-face-routed-runtime", () => huggingFaceRoutedRuntimeProgram),

@@ -11,7 +11,7 @@ import { SemanticText } from "../primitives/SemanticText.js"
 import { DocsRichText } from "./DocsRichText.js"
 
 /** TypeDoc can attach the same declaration comment to both a callable and its signature. */
-export const apiDocumentationEquals = Schema.equivalence(ApiDocumentationSchema)
+export const apiDocumentationEquals = Schema.toEquivalence(ApiDocumentationSchema)
 
 const emptyApiDocumentation: ApiDocumentation = {
   summary: [],

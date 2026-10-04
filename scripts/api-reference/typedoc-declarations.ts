@@ -23,25 +23,25 @@ import { apiExportAnchor, apiExportId } from "./presentation.js"
 import { type ApiDocContext, documentation, typeParameterCode, typeParameters } from "./typedoc-comments.js"
 import { firstSourceUrl, signatureModels } from "./typedoc-signatures.js"
 
-const numberText = Schema.encodeSync(Schema.NumberFromString)
+const numberText = Schema.encodeSync(Schema.FiniteFromString)
 
 const reflectionKind = (reflection: Reflection): string =>
-  Option.fromNullable(ReflectionKind[reflection.kind]).pipe(
+  Option.fromNullishOr(ReflectionKind[reflection.kind]).pipe(
     Option.filter(Predicate.isString),
     Option.map((kind) => Str.toLowerCase(Str.replace(/([a-z])([A-Z])/gu, "$1-$2")(kind))),
     Option.getOrElse(() => "declaration")
   )
 
 const membersOf = (reflection: DeclarationReflection): ReadonlyArray<DeclarationReflection> => {
-  const declarationChildren = Option.fromNullable(reflection.type).pipe(
+  const declarationChildren = Option.fromNullishOr(reflection.type).pipe(
     Option.filter((type): type is ReflectionType => Str.Equivalence(type.type, "reflection")),
-    Option.flatMap((type) => Option.fromNullable(type.declaration.children)),
+    Option.flatMap((type) => Option.fromNullishOr(type.declaration.children)),
     Option.getOrElse(Arr.empty)
   )
-  const candidates = Option.fromNullable(reflection.children).pipe(
-    Option.filter(Arr.isNonEmptyReadonlyArray),
-    Option.getOrElse(() => declarationChildren)
-  )
+  const candidates = Option.match(Option.fromNullishOr(reflection.children), {
+    onNone: () => declarationChildren,
+    onSome: (children) => Arr.isReadonlyArrayNonEmpty(children) ? children : declarationChildren
+  })
   return Arr.filter(candidates, (member) =>
     Bool.every(Arr.make(
       Bool.not(member.flags.isPrivate),
@@ -61,8 +61,8 @@ const memberModel = (
 ): ApiMember => {
   const sourceUrl = firstSourceUrl(member)
   const signatures = signatureModels(member, member.name, context, Option.getOrElse(sourceUrl, () => fallbackSourceUrl))
-  const type = Option.fromNullable(member.type).pipe(Option.map((value) => value.toString()))
-  const declaration = Bool.match(Arr.isNonEmptyReadonlyArray(signatures), {
+  const type = Option.fromNullishOr(member.type).pipe(Option.map((value) => value.toString()))
+  const declaration = Bool.match(Arr.isReadonlyArrayNonEmpty(signatures), {
     onTrue: () => Arr.join(Arr.map(signatures, (signature) => signature.code), "\n"),
     onFalse: () =>
       `${Bool.match(member.flags.isStatic, { onTrue: () => "static ", onFalse: () => "" })}${
@@ -70,7 +70,7 @@ const memberModel = (
       }${member.name}${Bool.match(member.flags.isOptional, { onTrue: () => "?", onFalse: () => "" })}${
         Option.match(type, { onNone: () => "", onSome: (value) => `: ${value}` })
       }${
-        Option.match(Option.fromNullable(member.defaultValue), {
+        Option.match(Option.fromNullishOr(member.defaultValue), {
           onNone: () => "",
           onSome: (value) => ` = ${value}`
         })
@@ -87,7 +87,7 @@ const memberModel = (
     readonly: member.flags.isReadonly,
     static: member.flags.isStatic,
     inherited: member.flags.isInherited,
-    docs: documentation(Option.fromNullable(member.comment), context),
+    docs: documentation(Option.fromNullishOr(member.comment), context),
     signatures,
     sourceUrl: Option.getOrElse(sourceUrl, () => fallbackSourceUrl)
   }
@@ -97,22 +97,22 @@ const declarationCode = (
   reflection: DeclarationReflection,
   signatures: ReadonlyArray<ApiSignature>
 ): string => {
-  const typeParameters = Option.fromNullable(reflection.typeParameters).pipe(Option.getOrElse(Arr.empty))
-  const generics = Bool.match(Arr.isEmptyReadonlyArray(typeParameters), {
+  const typeParameters = Option.fromNullishOr(reflection.typeParameters).pipe(Option.getOrElse(Arr.empty))
+  const generics = Bool.match(Arr.isReadonlyArrayEmpty(typeParameters), {
     onTrue: () => "",
     onFalse: () => `<${Arr.join(Arr.map(typeParameters, typeParameterCode), ", ")}>`
   })
   const typeList = (keyword: string, types: Option.Option<ReadonlyArray<SomeType>>) =>
     types.pipe(
-      Option.filter(Arr.isNonEmptyReadonlyArray),
+      Option.filter(Arr.isReadonlyArrayNonEmpty),
       Option.match({
         onNone: () => "",
         onSome: (values) => `${keyword}${Arr.join(Arr.map(values, (type) => type.toString()), ", ")}`
       })
     )
-  const extended = typeList(" extends ", Option.fromNullable(reflection.extendedTypes))
-  const implemented = typeList(" implements ", Option.fromNullable(reflection.implementedTypes))
-  const reflectedType = Option.fromNullable(reflection.type).pipe(
+  const extended = typeList(" extends ", Option.fromNullishOr(reflection.extendedTypes))
+  const implemented = typeList(" implements ", Option.fromNullishOr(reflection.implementedTypes))
+  const reflectedType = Option.fromNullishOr(reflection.type).pipe(
     Option.map((type) => type.toString()),
     Option.getOrElse(() => "unknown")
   )
@@ -122,7 +122,7 @@ const declarationCode = (
       (matched) =>
         Bool.and(
           matched,
-          Bool.or(reflection.kindOf(ReflectionKind.Function), Arr.isNonEmptyReadonlyArray(signatures))
+          Bool.or(reflection.kindOf(ReflectionKind.Function), Arr.isReadonlyArrayNonEmpty(signatures))
         ),
       () => Arr.join(Arr.map(signatures, (signature) => signature.code), "\n")
     ),
@@ -166,21 +166,21 @@ const facetModel = (
   return {
     kind: reflectionKind(reflection),
     declaration: declarationCode(reflection, signatures),
-    type: Option.fromNullable(reflection.type).pipe(Option.map((value) => value.toString())),
+    type: Option.fromNullishOr(reflection.type).pipe(Option.map((value) => value.toString())),
     typeParameters: typeParameters(
-      Option.fromNullable(reflection.typeParameters).pipe(Option.getOrElse(Arr.empty)),
-      Option.fromNullable(reflection.comment),
+      Option.fromNullishOr(reflection.typeParameters).pipe(Option.getOrElse(Arr.empty)),
+      Option.fromNullishOr(reflection.comment),
       context
     ),
     extends: Arr.map(
-      Option.fromNullable(reflection.extendedTypes).pipe(Option.getOrElse(Arr.empty)),
+      Option.fromNullishOr(reflection.extendedTypes).pipe(Option.getOrElse(Arr.empty)),
       (type) => type.toString()
     ),
     implements: Arr.map(
-      Option.fromNullable(reflection.implementedTypes).pipe(Option.getOrElse(Arr.empty)),
+      Option.fromNullishOr(reflection.implementedTypes).pipe(Option.getOrElse(Arr.empty)),
       (type) => type.toString()
     ),
-    docs: documentation(Option.fromNullable(reflection.comment), context),
+    docs: documentation(Option.fromNullishOr(reflection.comment), context),
     signatures,
     members: Arr.map(membersOf(reflection), (member) => memberModel(member, reflection.name, context, sourceUrl)),
     sourceUrl
@@ -232,7 +232,7 @@ const exportModel = (
     Effect.forEach(entry.reflections, (facet) =>
       Option.match(
         Arr.findFirst(
-          Option.fromNullable(moduleReflection.children).pipe(Option.getOrElse(Arr.empty)),
+          Option.fromNullishOr(moduleReflection.children).pipe(Option.getOrElse(Arr.empty)),
           (reflection) => Num.Equivalence(reflection.id, facet.reflectionId)
         ),
         {
@@ -265,7 +265,7 @@ export const apiExports = (
   route: ApiReferenceRoute,
   context: ApiDocContext
 ) => {
-  const moduleSummary = summaryText(documentation(Option.fromNullable(moduleReflection.comment), context).summary)
+  const moduleSummary = summaryText(documentation(Option.fromNullishOr(moduleReflection.comment), context).summary)
 
   return Effect.forEach(route.imports, (entry) =>
     exportModel(

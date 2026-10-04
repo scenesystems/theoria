@@ -1,5 +1,4 @@
 /** Public BootstrapRS transactional parameter restoration. */
-import * as LanguageModel from "@effect/ai/LanguageModel"
 import { describe, expect, expectTypeOf, it } from "@effect/vitest"
 import * as BootstrapRS from "@scenesystems/effect-dsp/BootstrapRS"
 import { Demonstration } from "@scenesystems/effect-dsp/Demonstration"
@@ -13,10 +12,12 @@ import * as Signature from "@scenesystems/effect-dsp/Signature"
 import * as OptimizationStorage from "@scenesystems/effect-search/OptimizationStorage"
 import { Failure as ArtifactStorageError } from "@scenesystems/effect-study/Journal"
 import { Array as Arr, Context, Deferred, Effect, Equal, Exit, Fiber, Number, Ref, Schema } from "effect"
+import * as LanguageModel from "effect/ai/LanguageModel"
+import type { Services as EffectServices } from "effect/Effect"
 
 const Output = Schema.Struct({ answer: Schema.String })
-const Scores = Schema.Struct({ value: Schema.Number })
-class Scoring extends Context.Tag("BootstrapRSRestorationScoring")<Scoring, typeof Scores.Type>() {}
+const Scores = Schema.Struct({ value: Schema.Finite })
+class Scoring extends Context.Service<Scoring, typeof Scores.Type>()("BootstrapRSRestorationScoring") {}
 const trainset = Arr.make(new Example({ input: { question: "new" }, output: { answer: "answer" } }))
 const makeTree = Effect.gen(function*() {
   const signature = yield* Signature.make("Answer", { question: Schema.String }, Output.fields)
@@ -31,12 +32,14 @@ const makeTree = Effect.gen(function*() {
       maxTokens: 11
     })
   )
-  const module = yield* Module.compose({
-    name: "root",
-    signature,
-    subModules: { child },
-    forward: () => Effect.succeed({ answer: "answer" })
-  })
+  const module = yield* Module.compose(
+    new Module.ComposeOptions({
+      name: "root",
+      signature,
+      subModules: { child },
+      forward: () => Effect.succeed({ answer: "answer" })
+    })
+  )
   yield* Ref.set(
     module.params,
     new ModuleParameters({
@@ -57,13 +60,15 @@ describe("BootstrapRS.run transactional restoration", () => {
       const originalRoot = yield* Ref.get(module.params)
       const originalChild = yield* Ref.get(child.params)
       const mock = yield* MockLanguageModel.make(MockLanguageModel.succeed({ answer: "answer" }))
-      const failure = yield* BootstrapRS.run({
-        module,
-        trainset,
-        valset: Arr.make(new Example({ input: { question: "unlabeled" } })),
-        metric: Metric.exactMatch("answer"),
-        numCandidates: 0
-      }).pipe(Effect.provideService(LanguageModel.LanguageModel, mock.service), Effect.flip)
+      const failure = yield* BootstrapRS.run(
+        new BootstrapRS.Options({
+          module,
+          trainset,
+          valset: Arr.make(new Example({ input: { question: "unlabeled" } })),
+          metric: Metric.exactMatch("answer"),
+          numCandidates: 0
+        })
+      ).pipe(Effect.provideService(LanguageModel.LanguageModel, mock.service), Effect.flip)
 
       expect(failure).toBeInstanceOf(AllTrialsFailed)
       expect(yield* Ref.get(module.params)).toBe(originalRoot)
@@ -88,10 +93,10 @@ describe("BootstrapRS.run transactional restoration", () => {
           const score = yield* Scoring
           return new Metric.Result({ score: score.value })
         }))
-      const program = BootstrapRS.run({ module, trainset, metric, numCandidates: 0 })
-      expectTypeOf<Effect.Effect.Context<typeof program>>().toEqualTypeOf<LanguageModel.LanguageModel | Scoring>()
+      const program = BootstrapRS.run(new BootstrapRS.Options({ module, trainset, metric, numCandidates: 0 }))
+      expectTypeOf<EffectServices<typeof program>>().toEqualTypeOf<LanguageModel.LanguageModel | Scoring>()
       const failure = yield* program.pipe(
-        Effect.provideService(Scoring, { value: Number.negate(2) }),
+        Effect.provideService(Scoring, { value: Number.multiply(2, -1) }),
         Effect.provideService(LanguageModel.LanguageModel, mock.service),
         Effect.provideService(OptimizationStorage.OptimizationStorage, storage),
         Effect.flip
@@ -99,7 +104,9 @@ describe("BootstrapRS.run transactional restoration", () => {
 
       expect(Equal.equals(failure, storageFailure)).toBe(true)
       expect(yield* Module.save(module)).toEqual(original)
-      expect((yield* Ref.get(child.params)).demos).toEqual((yield* Arr.last(original.modules)).params.demos)
+      expect((yield* Ref.get(child.params)).demos).toEqual(
+        (yield* Effect.fromOption(Arr.last(original.modules))).params.demos
+      )
     }))
 
   it.effect("restores the entire tree after interruption at a mutated-candidate scoring barrier", () =>
@@ -115,15 +122,16 @@ describe("BootstrapRS.run transactional restoration", () => {
         Effect.gen(function*() {
           const call = yield* Ref.updateAndGet(calls, Number.increment)
           yield* Effect.when(
-            Deferred.succeed(entered, true).pipe(Effect.zipRight(Deferred.await(resume))),
-            () => Number.Equivalence(call, 2)
+            Deferred.succeed(entered, true).pipe(Effect.andThen(Deferred.await(resume))),
+            Effect.succeed(Number.Equivalence(call, 2))
           )
           return new Metric.Result({ score: call })
         }))
-      const fiber = yield* BootstrapRS.run({ module, trainset, metric, numCandidates: 0 }).pipe(
-        Effect.provideService(LanguageModel.LanguageModel, mock.service),
-        Effect.fork
-      )
+      const fiber = yield* BootstrapRS.run(new BootstrapRS.Options({ module, trainset, metric, numCandidates: 0 }))
+        .pipe(
+          Effect.provideService(LanguageModel.LanguageModel, mock.service),
+          Effect.forkScoped
+        )
       yield* Deferred.await(entered)
       expect((yield* Ref.get(module.params)).demos).toHaveLength(1)
       expect((yield* Ref.get(child.params)).demos).toEqual(Arr.make(
@@ -132,9 +140,10 @@ describe("BootstrapRS.run transactional restoration", () => {
           output: { answer: "answer" }
         })
       ))
-      const exit = yield* Fiber.interrupt(fiber)
+      yield* Fiber.interrupt(fiber)
+      const exit = yield* Fiber.await(fiber)
 
-      expect(Exit.isInterrupted(exit)).toBe(true)
+      expect(Exit.hasInterrupts(exit)).toBe(true)
       expect(yield* Ref.get(module.params)).toBe(originalRoot)
       expect(yield* Ref.get(child.params)).toBe(originalChild)
     }))
@@ -148,9 +157,10 @@ describe("BootstrapRS.run transactional restoration", () => {
         Ref.get(module.params).pipe(Effect.map((params) =>
           new Metric.Result({ score: Arr.length(params.demos) })
         )))
-      const optimized = yield* BootstrapRS.run({ module, trainset, metric, numCandidates: 0 }).pipe(
-        Effect.provideService(LanguageModel.LanguageModel, mock.service)
-      )
+      const optimized = yield* BootstrapRS.run(new BootstrapRS.Options({ module, trainset, metric, numCandidates: 0 }))
+        .pipe(
+          Effect.provideService(LanguageModel.LanguageModel, mock.service)
+        )
       const selected = yield* Ref.get(optimized.params)
 
       expect(optimized).toBe(module)

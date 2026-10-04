@@ -7,15 +7,15 @@
 import { Array as Arr, Data, Equivalence, Graph as NativeGraph, HashMap, Option, Order, Schema, Tuple } from "effect"
 import { Id, NodeSignature } from "./Module.js"
 
-const moduleIdOrder: Order.Order<Id> = Order.mapInput(Order.string, (moduleId: Id) => moduleId)
+const moduleIdOrder: Order.Order<Id> = Order.mapInput(Order.String, (moduleId: Id) => moduleId)
 
 const uniqueSortedModuleIds = (moduleIds: Iterable<Id>): Node["subModuleIds"] =>
-  Arr.dedupeWith(Arr.sort(moduleIds, moduleIdOrder), Equivalence.string)
+  Arr.dedupeWith(Arr.sort(moduleIds, moduleIdOrder), Equivalence.String)
 
 const graphNodeOrder: Order.Order<Node> = Order.mapInput(moduleIdOrder, (node) => node.moduleId)
 
 const graphEdgeOrder: Order.Order<Edge> = Order.mapInput(
-  Order.string,
+  Order.String,
   (edge) => Arr.join(Arr.make(edge.parentId, "->", edge.childId), "")
 )
 
@@ -54,7 +54,7 @@ class DiscoveredLineage extends Data.Class<{
   readonly lineage: Lineage
 }> {}
 
-const discoveryOrder: Order.Order<DiscoveredLineage> = Order.mapInput(Order.number, (entry) => entry.rank)
+const discoveryOrder: Order.Order<DiscoveredLineage> = Order.mapInput(Order.Number, (entry) => entry.rank)
 
 // A node's latest already-discovered predecessor is its DFS discovery parent:
 // any predecessor discovered later than that parent would have discovered the
@@ -66,9 +66,9 @@ const nativeLineages = (native: NativeModuleGraph) =>
     HashMap.empty<NativeGraph.NodeIndex, DiscoveredLineage>(),
     (discovered, [index, targetId], rank) => {
       const parent = Arr.last(Arr.sort(
-        Arr.filterMap(
+        Arr.flatMap(
           NativeGraph.predecessors(native.graph, index),
-          (predecessor) => HashMap.get(discovered, predecessor)
+          (predecessor) => Option.toArray(HashMap.get(discovered, predecessor))
         ),
         discoveryOrder
       ))
@@ -226,7 +226,7 @@ export const lineage = (
 ): Option.Option<Lineage> => {
   const native = nativeModuleGraph(graph)
   const lineages = nativeLineages(native)
-  return NativeGraph.findNode(native.graph, (moduleId) => Equivalence.string(moduleId, targetId)).pipe(
+  return NativeGraph.findNode(native.graph, (moduleId) => Equivalence.String(moduleId, targetId)).pipe(
     Option.flatMap((index) => HashMap.get(lineages, index)),
     Option.map((entry) => entry.lineage)
   )
@@ -270,6 +270,6 @@ export const project = (graph: ModuleGraph): Projection => {
   return new Projection({
     rootId: graph.rootId,
     traversal: Arr.map(discovered, (entry) => entry.lineage.targetId),
-    lineages: Arr.filterMap(graph.nodes, (node) => HashMap.get(lineages, node.moduleId))
+    lineages: Arr.flatMap(graph.nodes, (node) => Option.toArray(HashMap.get(lineages, node.moduleId)))
   })
 }

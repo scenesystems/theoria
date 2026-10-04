@@ -29,7 +29,7 @@ export type GpBoRuntimeOptions = GpBoOptions
  * @since 0.1.0
  * @category operations
  */
-export const seedFromOptions = (options: GpBoOptions): number => numberOptionOr(Option.fromNullable(options.seed), 0)
+export const seedFromOptions = (options: GpBoOptions): number => numberOptionOr(Option.fromNullishOr(options.seed), 0)
 
 /**
  * Reads the random-startup trial budget used before GP posterior fitting.
@@ -38,7 +38,7 @@ export const seedFromOptions = (options: GpBoOptions): number => numberOptionOr(
  * @category operations
  */
 export const startupTrialsFromOptions = (options: GpBoOptions): number =>
-  numberOptionOr(Option.fromNullable(options.nStartupTrials), defaultStartupTrials)
+  numberOptionOr(Option.fromNullishOr(options.nStartupTrials), defaultStartupTrials)
 
 /**
  * Reads the per-step candidate count used for acquisition scoring.
@@ -47,7 +47,7 @@ export const startupTrialsFromOptions = (options: GpBoOptions): number =>
  * @category operations
  */
 export const candidatesFromOptions = (options: GpBoOptions): number =>
-  numberOptionOr(Option.fromNullable(options.nCandidates), defaultCandidates)
+  numberOptionOr(Option.fromNullishOr(options.nCandidates), defaultCandidates)
 
 /**
  * Reads the RBF kernel length-scale hyperparameter.
@@ -56,7 +56,7 @@ export const candidatesFromOptions = (options: GpBoOptions): number =>
  * @category operations
  */
 export const lengthScaleFromOptions = (options: GpBoOptions): number =>
-  numberOptionOr(Option.fromNullable(options.lengthScale), defaultLengthScale)
+  numberOptionOr(Option.fromNullishOr(options.lengthScale), defaultLengthScale)
 
 /**
  * Reads the GP diagonal noise jitter hyperparameter.
@@ -65,7 +65,7 @@ export const lengthScaleFromOptions = (options: GpBoOptions): number =>
  * @category operations
  */
 export const noiseFromOptions = (options: GpBoOptions): number =>
-  numberOptionOr(Option.fromNullable(options.noise), defaultNoise)
+  numberOptionOr(Option.fromNullishOr(options.noise), defaultNoise)
 
 /**
  * Produces checkpoint-safe GP-BO options without runtime closures.
@@ -103,21 +103,21 @@ export const validateOptions = (options: GpBoOptions): Effect.Effect<void, Inval
 
     yield* Effect.when(
       Effect.fail(invalidConfig("gp-bo sampler requires nStartupTrials >= 0")),
-      () => Bool.or(Bool.not(isFinite(startup)), Num.lessThan(startup, 0))
+      Effect.succeed(Bool.or(Bool.not(isFinite(startup)), Num.isLessThan(startup, 0)))
     )
 
     yield* Effect.when(
       Effect.fail(invalidConfig("gp-bo sampler requires nCandidates >= 1")),
-      () => Bool.or(Bool.not(isFinite(candidates)), Num.lessThan(candidates, 1))
+      Effect.succeed(Bool.or(Bool.not(isFinite(candidates)), Num.isLessThan(candidates, 1)))
     )
 
     yield* Effect.when(
       Effect.fail(invalidConfig("gp-bo sampler requires lengthScale to be finite and > 0")),
-      () => Bool.or(Bool.not(isFinite(lengthScale)), Num.lessThanOrEqualTo(lengthScale, 0))
+      Effect.succeed(Bool.or(Bool.not(isFinite(lengthScale)), Num.isLessThanOrEqualTo(lengthScale, 0)))
     )
 
     yield* Effect.when(
       Effect.fail(invalidConfig("gp-bo sampler requires noise to be finite and >= 0")),
-      () => Bool.or(Bool.not(isFinite(noise)), Num.lessThan(noise, 0))
+      Effect.succeed(Bool.or(Bool.not(isFinite(noise)), Num.isLessThan(noise, 0)))
     )
   })

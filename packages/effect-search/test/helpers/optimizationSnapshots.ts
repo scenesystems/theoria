@@ -1,7 +1,6 @@
 import {
   Array as Arr,
   Boolean as Bool,
-  Chunk,
   Effect,
   Match,
   Number as Num,
@@ -28,39 +27,39 @@ import {
 import { decodeSlotConfig, makeSlotSpace } from "../fixtures/scenarios/slot.js"
 
 export const SnapshotConfig = Schema.Struct({
-  x: SearchSpace.float(Num.negate(2), 2),
+  x: SearchSpace.float(-2, 2),
   depth: SearchSpace.int(1, 5),
-  optimizer: SearchSpace.categorical(Schema.Literal("adam", "sgd").literals)
+  optimizer: SearchSpace.categorical(Schema.Literals(["adam", "sgd"]).literals)
 })
 
 export type SnapshotConfig = Schema.Schema.Type<typeof SnapshotConfig>
 
 export const snapshotSpace = SearchSpace.make(SnapshotConfig.fields)
 
-export const multiObjectiveSnapshotSpace = makePromptCategoricalSpace()
+export const multiObjectiveSnapshotSpace = makePromptCategoricalSpace
 
 export const incompatibleSnapshotSpace = SearchSpace.make({
-  x: SearchSpace.float(Num.negate(2), 2),
+  x: SearchSpace.float(-2, 2),
   depth: SearchSpace.int(1, 5),
   optimizer: SearchSpace.categorical(Arr.of("rmsprop"))
 })
 
-export const decodeSnapshotConfig = Schema.decodeUnknown(SnapshotConfig)
+export const decodeSnapshotConfig = Schema.decodeUnknownEffect(SnapshotConfig)
 
 export const encodeSnapshotConfigTrace = Schema.encodeSync(
-  Schema.parseJson(Schema.Array(SnapshotConfig))
+  Schema.fromJsonString(Schema.Array(SnapshotConfig))
 )
 
 export const encodeSnapshotValueTrace = Schema.encodeSync(
-  Schema.parseJson(Schema.Array(Schema.Number))
+  Schema.fromJsonString(Schema.Array(Schema.Finite))
 )
 
 export const encodeMultiObjectiveConfigTrace = Schema.encodeSync(
-  Schema.parseJson(Schema.Array(PromptCategoricalConfig))
+  Schema.fromJsonString(Schema.Array(PromptCategoricalConfig))
 )
 
 export const encodeObjectiveVectorTrace = Schema.encodeSync(
-  Schema.parseJson(Schema.Array(Schema.Array(Schema.Number)))
+  Schema.fromJsonString(Schema.Array(Schema.Array(Schema.Finite)))
 )
 
 const instructionLatency = (instruction: PromptCategoricalConfig["instruction"]): number =>
@@ -120,7 +119,7 @@ const interactionQualityBonus = (config: PromptCategoricalConfig): number =>
       Bool.and(Str.Equivalence(config.demos, "curated"), Str.Equivalence(config.scoring, "strict"))
     )
   ).pipe(
-    Match.when(true, () => Num.negate(0.2)),
+    Match.when(true, () => -0.2),
     Match.orElse(() => 0)
   )
 
@@ -298,18 +297,18 @@ export const resumeSnapshotWithEvents = (options: Optimization.ResumeOptions) =>
   Effect.gen(function*() {
     const events = yield* Optimization.resumeStream(options).pipe(Stream.runCollect)
     return {
-      events: Chunk.toReadonlyArray(events)
+      events
     }
   })
 
 export const baselineSnapshotTailEvents = (
-  events: Chunk.Chunk<OptimizationEvent.OptimizationEvent>,
+  events: ReadonlyArray<OptimizationEvent.OptimizationEvent>,
   firstLegTrials: number
 ) =>
-  Arr.filter(Chunk.toReadonlyArray(events), (event) =>
+  Arr.filter(events, (event) =>
     Option.match(snapshotEventTrialNumber(event), {
       onNone: () => Str.Equivalence(event._tag, "Completed"),
-      onSome: (trialNumber) => Num.greaterThanOrEqualTo(trialNumber, firstLegTrials)
+      onSome: (trialNumber) => Num.isGreaterThanOrEqualTo(trialNumber, firstLegTrials)
     }))
 
 export const snapshotEventTrace = (events: Iterable<OptimizationEvent.OptimizationEvent>) =>

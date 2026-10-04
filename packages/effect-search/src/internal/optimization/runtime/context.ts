@@ -4,7 +4,7 @@
  * @since 0.1.0
  */
 import type * as History from "@scenesystems/effect-study/History"
-import { Array as Arr, Chunk, Effect, Match, Number as Num, Option, Predicate } from "effect"
+import { Array as Arr, Chunk, Effect, Match, Number as Num, Option, Schema } from "effect"
 
 import type { SamplerConfig } from "../../../internal/configAccess.js"
 import type { Objective } from "../../../Objective.js"
@@ -13,12 +13,12 @@ import type * as Trial from "../../../Trial.js"
 import { completedTrialsFromState, maxTrialNumberFromState, pendingTrialsFromState } from "../history.js"
 
 const toSamplerConfig = <Config>(config: Config): SamplerConfig =>
-  Option.liftPredicate(config, Predicate.isRecord).pipe(
+  Option.liftPredicate(config, Schema.is(Schema.Record(Schema.String, Schema.Unknown))).pipe(
     Option.getOrElse(() => ({}))
   )
 
 const trialVariance = <Config>(trial: Trial.CompletedTrial<Config>): Option.Option<number> =>
-  Option.fromNullable(trial.state.variance)
+  Option.fromNullishOr(trial.state.variance)
 
 const toSuggestCompletedTrial = <Config>(
   trial: Trial.CompletedTrial<Config>,
@@ -32,7 +32,7 @@ const toSuggestCompletedTrial = <Config>(
       Match.when(true, () => priorWeight),
       Match.orElse(() => 1)
     ),
-    ...Option.fromNullable(trial.cost).pipe(
+    ...Option.fromNullishOr(trial.cost).pipe(
       Option.match({
         onNone: () => ({}),
         onSome: (cost) => ({ cost })

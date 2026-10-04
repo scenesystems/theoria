@@ -5,15 +5,15 @@
  * @category internal
  * @internal
  */
-import { Array as Arr, Boolean, Data, Equivalence, Graph, HashMap, Order } from "effect"
+import { Array as Arr, Boolean, Data, Equivalence, Graph, HashMap, Option, Order } from "effect"
 import type { Ref, Schema } from "effect"
 import type { Codec } from "../Demonstration.js"
 import { type Module, type Node, nodeGraph } from "../Module.js"
 import type { ModuleParameters } from "../ModuleParameters.js"
 
-const moduleNodeOrder: Order.Order<Node> = Order.mapInput(Order.string, (node) => node.name)
+const moduleNodeOrder: Order.Order<Node> = Order.mapInput(Order.String, (node) => node.name)
 
-const ownerIdentity = Equivalence.strict<Node["params"]>()
+const ownerIdentity = Equivalence.strictEqual<Node["params"]>()
 
 /**
  * A reference to a single module's mutable parameters, paired with the
@@ -53,12 +53,12 @@ export const collectModuleParamRefs = <
 >(module: Module<I, O, E, R>): Arr.NonEmptyArray<ModuleParamRef> => {
   const children = Arr.sort(Arr.fromIterable(HashMap.values(module.subModules)), moduleNodeOrder)
   const graph = nodeGraph(children)
-  const starts = Arr.filterMap(
+  const starts = Arr.flatMap(
     children,
-    (child) => Graph.findNode(graph, (node) => ownerIdentity(node.params, child.params))
+    (child) => Option.toArray(Graph.findNode(graph, (node) => ownerIdentity(node.params, child.params)))
   )
   const descendants = Arr.filter(
-    Arr.fromIterable(Graph.values(Graph.dfs(graph, { start: Arr.reverse(starts) }))),
+    Arr.fromIterable(Graph.values(Graph.dfs(graph, { start: starts }))),
     (node) => Boolean.not(ownerIdentity(node.params, module.params))
   )
   return Arr.prepend(

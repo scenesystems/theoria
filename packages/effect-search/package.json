@@ -80,14 +80,6 @@
     "@scenesystems/effect-inference": "workspace:^"
   },
   "peerDependencies": {
-    "@effect/experimental": "^0.61.1",
-    "@effect/platform": "^0.97.1",
-    "@effect/sql": ">=0.52.1",
-    "effect": "^3.22.1"
-  },
-  "peerDependenciesMeta": {
-    "@effect/sql": {
-      "optional": true
-    }
+    "effect": "^4.0.0"
   }
 }

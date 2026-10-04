@@ -19,8 +19,8 @@ const sqrtTwo = sqrt(2)
 class StudentTQuantileState
   extends Schema.Class<StudentTQuantileState>("@scenesystems/effect-math/internal/distribution/studentT/QuantileState")(
     {
-      x: Schema.Number,
-      remaining: Schema.Number
+      x: Schema.Finite,
+      remaining: Schema.Int
     }
   )
 {}
@@ -33,8 +33,8 @@ class StudentTQuantileState
  * @category internal
  */
 export const studentTPdf = (x: number, df: number): number => {
-  const halfDfP1 = Number.unsafeDivide(Number.sum(df, 1), 2)
-  const halfDf = Number.unsafeDivide(df, 2)
+  const halfDfP1 = Number.divideUnsafe(Number.sum(df, 1), 2)
+  const halfDf = Number.divideUnsafe(df, 2)
   return exp(
     Number.subtract(
       Number.subtract(
@@ -43,7 +43,7 @@ export const studentTPdf = (x: number, df: number): number => {
       ),
       Number.sum(
         Number.multiply(0.5, log(Number.multiply(df, pi))),
-        Number.multiply(halfDfP1, log(Number.sum(1, Number.unsafeDivide(Number.multiply(x, x), df))))
+        Number.multiply(halfDfP1, log(Number.sum(1, Number.divideUnsafe(Number.multiply(x, x), df))))
       )
     )
   )
@@ -57,8 +57,8 @@ export const studentTPdf = (x: number, df: number): number => {
  * @category internal
  */
 export const studentTLogpdf = (x: number, df: number): number => {
-  const halfDfP1 = Number.unsafeDivide(Number.sum(df, 1), 2)
-  const halfDf = Number.unsafeDivide(df, 2)
+  const halfDfP1 = Number.divideUnsafe(Number.sum(df, 1), 2)
+  const halfDf = Number.divideUnsafe(df, 2)
   return Number.subtract(
     Number.subtract(
       lnGamma(halfDfP1),
@@ -66,7 +66,7 @@ export const studentTLogpdf = (x: number, df: number): number => {
     ),
     Number.sum(
       Number.multiply(0.5, log(Number.multiply(df, pi))),
-      Number.multiply(halfDfP1, log(Number.sum(1, Number.unsafeDivide(Number.multiply(x, x), df))))
+      Number.multiply(halfDfP1, log(Number.sum(1, Number.divideUnsafe(Number.multiply(x, x), df))))
     )
   )
 }
@@ -82,9 +82,9 @@ export const studentTLogpdf = (x: number, df: number): number => {
  */
 export const studentTCdf = (x: number, df: number): number => {
   const t2 = Number.multiply(x, x)
-  const bx = Number.unsafeDivide(df, Number.sum(df, t2))
-  const incompleteBeta = betainc(Number.unsafeDivide(df, 2), 0.5, bx)
-  return Boolean.match(Number.greaterThanOrEqualTo(x, 0), {
+  const bx = Number.divideUnsafe(df, Number.sum(df, t2))
+  const incompleteBeta = betainc(Number.divideUnsafe(df, 2), 0.5, bx)
+  return Boolean.match(Number.isGreaterThanOrEqualTo(x, 0), {
     onTrue: () => Number.subtract(1, Number.multiply(0.5, incompleteBeta)),
     onFalse: () => Number.multiply(0.5, incompleteBeta)
   })
@@ -110,13 +110,13 @@ const studentTQuantileLoop = (
       return Boolean.match(
         Boolean.or(
           Number.Equivalence(state.remaining, 0),
-          Boolean.or(Number.lessThan(density, 1e-30), Number.lessThan(abs(difference), 1e-12))
+          Boolean.or(Number.isLessThan(density, 1e-30), Number.isLessThan(abs(difference), 1e-12))
         ),
         {
           onTrue: Option.none,
           onFalse: () => {
             const next = new StudentTQuantileState({
-              x: Number.subtract(state.x, Number.unsafeDivide(difference, density)),
+              x: Number.subtract(state.x, Number.divideUnsafe(difference, density)),
               remaining: Number.subtract(state.remaining, 1)
             })
             return Option.some(Tuple.make(next.x, next))
@@ -152,7 +152,7 @@ export const studentTQuantile = (p: number, df: number): number => {
  * @category internal
  */
 export const studentTMean = (df: number): number =>
-  Boolean.match(Number.greaterThan(df, 1), { onTrue: () => 0, onFalse: () => NaN })
+  Boolean.match(Number.isGreaterThan(df, 1), { onTrue: () => 0, onFalse: () => NaN })
 
 /**
  * Student's t variance: ν/(ν−2) for ν > 2, Infinity for 1 < ν ≤ 2,
@@ -162,10 +162,10 @@ export const studentTMean = (df: number): number =>
  * @category internal
  */
 export const studentTVariance = (df: number): number => {
-  return Boolean.match(Number.greaterThan(df, 2), {
-    onTrue: () => Number.unsafeDivide(df, Number.subtract(df, 2)),
+  return Boolean.match(Number.isGreaterThan(df, 2), {
+    onTrue: () => Number.divideUnsafe(df, Number.subtract(df, 2)),
     onFalse: () =>
-      Boolean.match(Number.greaterThan(df, 1), {
+      Boolean.match(Number.isGreaterThan(df, 1), {
         onTrue: () => Infinity,
         onFalse: () => NaN
       })

@@ -5,6 +5,6 @@ import { WebVitalBudgets, webVitalBudgets } from "../../app/contracts/performanc
 
 it.effect("the web vital budgets decode through their contract and use Google's good thresholds", () =>
   Effect.gen(function*() {
-    expect(yield* Schema.decodeUnknown(WebVitalBudgets)(webVitalBudgets)).toEqual(webVitalBudgets)
+    expect(yield* Schema.decodeEffect(WebVitalBudgets)(webVitalBudgets)).toEqual(webVitalBudgets)
     expect([webVitalBudgets.lcpMs, webVitalBudgets.cls, webVitalBudgets.inpMs]).toEqual([2500, 0.1, 200])
   }))

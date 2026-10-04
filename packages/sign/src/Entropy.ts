@@ -6,20 +6,21 @@
  * @module
  */
 import { randomBytes } from "@noble/hashes/utils.js"
-import { Context, Effect, Inspectable, Layer, Match, Predicate, Schema, String as Str } from "effect"
+import { Context, Effect, Inspectable, Layer, Match, Number as Num, Predicate, Schema, String as Str } from "effect"
 
 /**
  * The cryptographic random source rejected a length or could not supply bytes.
  * Contains the requested length and diagnostic, never entropy or key material.
+ * Finite lengths remain numbers; non-finite lengths use "NaN", "Infinity", or
+ * "-Infinity" so diagnostics retain the request in a JSON-safe representation.
  * @since 0.5.0
  * @category errors
  */
-export class GenerationFailed
-  extends Schema.TaggedError<GenerationFailed>("@scenesystems/sign/Entropy/GenerationFailed")(
-    "EntropyGenerationFailed",
-    { length: Schema.Number, reason: Schema.String }
-  )
-{}
+export class GenerationFailed extends Schema.TaggedError<GenerationFailed>()(
+  "EntropyGenerationFailed",
+  { length: Schema.Union([Schema.Finite, Schema.Literals(["NaN", "Infinity", "-Infinity"])]), reason: Schema.String },
+  { identifier: "@scenesystems/sign/Entropy/GenerationFailed" }
+) {}
 
 /**
  * Supplies fresh, caller-owned cryptographically secure bytes on every execution.
@@ -28,9 +29,9 @@ export class GenerationFailed
  * @since 0.5.0
  * @category services
  */
-export class Entropy extends Context.Tag("@scenesystems/sign/Entropy")<Entropy, {
+export class Entropy extends Context.Service<Entropy, {
   readonly bytes: (length: number) => Effect.Effect<Uint8Array, GenerationFailed>
-}>() {}
+}>()("@scenesystems/sign/Entropy") {}
 
 /**
  * Requests an explicit number of bytes from the supplied Entropy service.
@@ -58,7 +59,12 @@ export const layer: Layer.Layer<Entropy> = Layer.succeed(Entropy, {
       try: () => randomBytes(length),
       catch: (cause) =>
         new GenerationFailed({
-          length,
+          length: Match.value(length).pipe(
+            Match.when((value): boolean => Schema.is(Schema.Finite)(value), (value) => value),
+            Match.when((value) => Num.Equivalence(value, Infinity), (): "Infinity" => "Infinity"),
+            Match.when((value) => Num.Equivalence(value, -Infinity), (): "-Infinity" => "-Infinity"),
+            Match.orElse((): "NaN" => "NaN")
+          ),
           reason: Match.value(cause).pipe(
             Match.when(Predicate.isError, ({ name, message }) => Str.concat(Str.concat(name, ": "), message)),
             Match.orElse(Inspectable.toStringUnknown)

@@ -3,7 +3,7 @@
  *
  * @since 0.1.0
  */
-import { Array as Arr, Boolean as Bool, Effect, Match, Number as Num, Option } from "effect"
+import { Array as Arr, Boolean as Bool, Effect, Match, Number as Num } from "effect"
 
 import { InvalidSamplerConfig, SamplerExhausted } from "../../../SearchError.js"
 import type { GridConfig } from "../../grid.js"
@@ -39,17 +39,14 @@ export const configAtCursor = (
   const configs = Arr.fromIterable(configsInput)
   return Match.value(
     Bool.or(
-      Num.lessThanOrEqualTo(Arr.length(configs), 0),
-      Num.greaterThanOrEqualTo(nextTrialNumber, Arr.length(configs))
+      Num.isLessThanOrEqualTo(Arr.length(configs), 0),
+      Num.isGreaterThanOrEqualTo(nextTrialNumber, Arr.length(configs))
     )
   ).pipe(
     Match.when(true, () => Effect.fail(exhaustedError(nextTrialNumber, Arr.length(configs)))),
     Match.orElse(() =>
       Arr.get(configs, nextTrialNumber).pipe(
-        Option.match({
-          onNone: () => Effect.fail(missingConfigError()),
-          onSome: Effect.succeed
-        })
+        Effect.fromOption(missingConfigError)
       )
     )
   )

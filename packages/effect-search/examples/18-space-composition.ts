@@ -5,7 +5,7 @@
  * Run: bun run examples/18-space-composition.ts
  */
 import { BunRuntime } from "@effect/platform-bun"
-import { Array as Arr, Effect, Match, Number as Num } from "effect"
+import { Array as Arr, Effect, Match, Number as Num, Schema } from "effect"
 
 import * as Numeric from "@scenesystems/effect-math/Numeric"
 import { Optimization, Sampler, SearchSpace } from "@scenesystems/effect-search"
@@ -24,25 +24,34 @@ const program = Effect.gen(function*() {
   const fullSpace = yield* SearchSpace.extend(optimizerSpace, runtimeSpace)
   const servingSpace = yield* SearchSpace.pick(fullSpace, Arr.make("learningRate", "batchSize", "maxTokens"))
   const noDropoutSpace = yield* SearchSpace.omit(fullSpace, Arr.of("dropout"))
-
-  const result = yield* Optimization.maximize({
-    space: servingSpace,
-    sampler: Sampler.tpe({ seed: 78 }),
-    trials: 35,
-    objective: (config) => {
-      const learningRateScore = Num.subtract(
-        1,
-        Numeric.abs(Num.subtract(Numeric.log10(config.learningRate), Numeric.log10(0.01)))
-      )
-      const batchScore = Num.subtract(
-        1,
-        Num.unsafeDivide(Numeric.abs(Num.subtract(config.batchSize, 64)), 64)
-      )
-      const tokenPenalty = Num.unsafeDivide(config.maxTokens, 4096)
-
-      return Effect.succeed(Num.subtract(Num.sum(learningRateScore, batchScore), tokenPenalty))
-    }
+  const ServingConfig = Schema.Struct({
+    learningRate: Schema.Finite,
+    batchSize: Schema.Finite,
+    maxTokens: Schema.Finite
   })
+
+  const result = yield* Optimization.maximize(
+    new Optimization.FlatOptions({
+      space: servingSpace,
+      sampler: Sampler.tpe(new Sampler.TpeOptions({ seed: 78 })),
+      trials: 35,
+      objective: (rawConfig) =>
+        Effect.gen(function*() {
+          const config = yield* Schema.decodeUnknownEffect(ServingConfig)(rawConfig)
+          const learningRateScore = Num.subtract(
+            1,
+            Numeric.abs(Num.subtract(Numeric.log10(config.learningRate), Numeric.log10(0.01)))
+          )
+          const batchScore = Num.subtract(
+            1,
+            Num.divideUnsafe(Numeric.abs(Num.subtract(config.batchSize, 64)), 64)
+          )
+          const tokenPenalty = Num.divideUnsafe(config.maxTokens, 4096)
+
+          return Num.subtract(Num.sum(learningRateScore, batchScore), tokenPenalty)
+        })
+    })
+  )
 
   yield* Match.value(result).pipe(
     Match.tag("SingleObjective", ({ bestTrial, completionReason }) =>

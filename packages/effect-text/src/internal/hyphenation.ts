@@ -10,7 +10,7 @@ import { es } from "./hyphenationPatterns/es.js"
 import { fr } from "./hyphenationPatterns/fr.js"
 
 /** Canonical preparation-time discretionary break vocabulary. */
-export const BreakOpportunity = Schema.Literal("dictionary-hyphen", "none", "soft-hyphen")
+export const BreakOpportunity = Schema.Literals(["dictionary-hyphen", "none", "soft-hyphen"])
 
 /** Canonical preparation-time discretionary break vocabulary. */
 export type BreakOpportunity = typeof BreakOpportunity.Type
@@ -27,7 +27,12 @@ class Word extends Data.Class<{
   readonly value: string
   readonly boundaryMap: Hyphenation.BreakPoints
 }> {}
-class WordState extends Data.Class<Word & { readonly originalIndex: number }> {}
+class WordState extends Data.Class<{
+  readonly original: string
+  readonly value: string
+  readonly boundaryMap: Hyphenation.BreakPoints
+  readonly originalIndex: number
+}> {}
 class PatternState extends Data.Class<{
   readonly letters: Chunk.Chunk<string>
   readonly points: Hyphenation.BreakPoints
@@ -42,17 +47,20 @@ class CompiledPatterns extends Data.Class<{
 }> {}
 
 const strings = Schema.Array(Schema.String)
-const isDigit = Schema.is(Schema.String.pipe(Schema.pattern(/^[0-9]$/u)))
-const longestFirst = Order.reverse(Order.mapInput(Order.number, (pattern: Pattern) => String.length(pattern.letters)))
+const isDigit = Schema.is(Schema.String.check(Schema.isPattern(/^[0-9]$/u)))
+const longestFirst = Order.mapInput(
+  Order.Number,
+  (pattern: Pattern) => Number.multiply(-1, String.length(pattern.letters))
+)
 
 const sanitize = (word: string, points: Hyphenation.BreakPoints): Hyphenation.BreakPoints =>
   Arr.dedupe(Arr.sort(
     Arr.filter(points, (point) =>
       Boolean.and(
-        Number.greaterThan(point, 0),
-        Number.lessThan(point, String.length(word))
+        Number.isGreaterThan(point, 0),
+        Number.isLessThan(point, String.length(word))
       )),
-    Order.number
+    Order.Number
   ))
 
 /** Canonical lowercase hyphen-separated locale spelling. */
@@ -121,7 +129,7 @@ const parsePattern = (pattern: string): Pattern => {
 const parseGroups = (groups: Hyphenation.Patterns["patterns"]) =>
   Arr.flatMap(Record.toEntries(groups), ([sizeKey, body]) =>
     Number.parse(sizeKey).pipe(
-      Option.filter(Number.greaterThan(0)),
+      Option.filter(Number.isGreaterThan(0)),
       Option.match({
         onNone: Arr.empty<Pattern>,
         onSome: (size) =>
@@ -155,8 +163,10 @@ const exceptionEntry = (exception: string) => {
 
 const compilePatterns = (source: Hyphenation.Patterns): CompiledPatterns =>
   new CompiledPatterns({
-    charSubstitution: Option.fromNullable(source.charSubstitution).pipe(Option.getOrElse(Record.empty<string, string>)),
-    exceptions: Option.fromNullable(source.exceptions).pipe(
+    charSubstitution: Option.fromNullishOr(source.charSubstitution).pipe(
+      Option.getOrElse(Record.empty<string, string>)
+    ),
+    exceptions: Option.fromNullishOr(source.exceptions).pipe(
       Option.map(String.trim),
       Option.filter(String.isNonEmpty),
       Option.match({
@@ -179,7 +189,7 @@ const compilePatterns = (source: Hyphenation.Patterns): CompiledPatterns =>
 const matchPatterns = (word: Word, working: string, source: CompiledPatterns): Hyphenation.BreakPoints => {
   const length = String.length(working)
   return Boolean.match(
-    Number.lessThanOrEqualTo(length, Number.increment(Number.sum(source.leftMin, source.rightMin))),
+    Number.isLessThanOrEqualTo(length, Number.increment(Number.sum(source.leftMin, source.rightMin))),
     {
       onTrue: Arr.empty<number>,
       onFalse: () => {
@@ -210,8 +220,8 @@ const matchPatterns = (word: Word, working: string, source: CompiledPatterns): H
           (index) =>
             Boolean.and(
               Boolean.and(
-                Number.greaterThan(index, source.leftMin),
-                Number.lessThan(index, Number.subtract(length, source.rightMin))
+                Number.isGreaterThan(index, source.leftMin),
+                Number.isLessThan(index, Number.subtract(length, source.rightMin))
               ),
               Number.Equivalence(Number.remainder(Arr.get(points, index).pipe(Option.getOrElse(() => 0)), 2), 1)
             )
@@ -281,7 +291,7 @@ export const splitDictionaryHyphenationPieces = (
     onFalse: () => {
       const length = String.length(word)
       const boundaries = Chunk.append(Chunk.fromIterable(sanitize(word, breakPoints)), length)
-      return Tuple.getSecond(Chunk.mapAccum(boundaries, 0, (start, boundary) =>
+      return Chunk.mapAccum(boundaries, 0, (start, boundary) =>
         Tuple.make(
           boundary,
           new HyphenatedPiece({
@@ -291,6 +301,6 @@ export const splitDictionaryHyphenationPieces = (
             }),
             text: String.slice(start, boundary)(word)
           })
-        )))
+        ))[1]
     }
   })

@@ -107,12 +107,12 @@ export const createInitialState = (
 export const recombinationWeights = (mu: number) => {
   const rawWeights = Arr.makeBy(mu, (index) => Num.subtract(log(Num.sum(mu, 0.5)), log(Num.increment(index))))
   const denominator = Arr.reduce(rawWeights, 0, Num.sum)
-  return Arr.map(rawWeights, (weight) => Num.unsafeDivide(weight, denominator))
+  return Arr.map(rawWeights, (weight) => Num.divideUnsafe(weight, denominator))
 }
 
 const muEffective = (weightsInput: Iterable<number>): number => {
   const weights = Arr.fromIterable(weightsInput)
-  return Num.unsafeDivide(1, Arr.reduce(weights, 0, (sum, weight) => Num.sum(sum, Num.multiply(weight, weight))))
+  return Num.divideUnsafe(1, Arr.reduce(weights, 0, (sum, weight) => Num.sum(sum, Num.multiply(weight, weight))))
 }
 
 /**
@@ -125,7 +125,7 @@ export const cmaEsConstants = (dimensions: number, weightsInput: Iterable<number
   const weights = Arr.fromIterable(weightsInput)
 
   const muEff = muEffective(weights)
-  const cSigma = Num.unsafeDivide(Num.sum(muEff, 2), Num.sum(Num.sum(dimensions, muEff), 5))
+  const cSigma = Num.divideUnsafe(Num.sum(muEff, 2), Num.sum(Num.sum(dimensions, muEff), 5))
   const dSigma = Num.sum(
     Num.sum(
       1,
@@ -134,22 +134,22 @@ export const cmaEsConstants = (dimensions: number, weightsInput: Iterable<number
         Num.max(
           0,
           Num.decrement(sqrt(
-            Num.unsafeDivide(Num.decrement(muEff), Num.increment(dimensions))
+            Num.divideUnsafe(Num.decrement(muEff), Num.increment(dimensions))
           ))
         )
       )
     ),
     cSigma
   )
-  const cC = Num.unsafeDivide(
-    Num.sum(4, Num.unsafeDivide(muEff, dimensions)),
-    Num.sum(Num.sum(dimensions, 4), Num.multiply(2, Num.unsafeDivide(muEff, dimensions)))
+  const cC = Num.divideUnsafe(
+    Num.sum(4, Num.divideUnsafe(muEff, dimensions)),
+    Num.sum(Num.sum(dimensions, 4), Num.multiply(2, Num.divideUnsafe(muEff, dimensions)))
   )
   const dimensionOffset = Num.sum(dimensions, 1.3)
-  const c1 = Num.unsafeDivide(2, Num.sum(Num.multiply(dimensionOffset, dimensionOffset), muEff))
+  const c1 = Num.divideUnsafe(2, Num.sum(Num.multiply(dimensionOffset, dimensionOffset), muEff))
   const cMuDimensionOffset = Num.sum(dimensions, 2)
-  const cMuBase = Num.unsafeDivide(
-    Num.multiply(2, Num.sum(Num.subtract(muEff, 2), Num.unsafeDivide(1, muEff))),
+  const cMuBase = Num.divideUnsafe(
+    Num.multiply(2, Num.sum(Num.subtract(muEff, 2), Num.divideUnsafe(1, muEff))),
     Num.sum(Num.multiply(cMuDimensionOffset, cMuDimensionOffset), muEff)
   )
 
@@ -163,11 +163,11 @@ export const cmaEsConstants = (dimensions: number, weightsInput: Iterable<number
     expectedNorm: Num.multiply(
       sqrt(dimensions),
       Num.sum(
-        Num.subtract(1, Num.unsafeDivide(1, Num.multiply(4, dimensions))),
-        Num.unsafeDivide(1, Num.multiply(21, Num.multiply(dimensions, dimensions)))
+        Num.subtract(1, Num.divideUnsafe(1, Num.multiply(4, dimensions))),
+        Num.divideUnsafe(1, Num.multiply(21, Num.multiply(dimensions, dimensions)))
       )
     ),
-    hSigmaThreshold: Num.sum(1.4, Num.unsafeDivide(2, Num.increment(dimensions)))
+    hSigmaThreshold: Num.sum(1.4, Num.divideUnsafe(2, Num.increment(dimensions)))
   })
 }
 
@@ -212,13 +212,13 @@ export const updateState = (
   const generation = Arr.fromIterable(generationInput)
   const weights = Arr.fromIterable(weightsInput)
 
-  const elite = Arr.sort(generation, Order.mapInput(Order.number, (observation: CmaEsObservation) => observation.value))
+  const elite = Arr.sort(generation, Order.mapInput(Order.Number, (observation: CmaEsObservation) => observation.value))
   const selectedElite = Arr.take(elite, mu)
   const weightedMean = weightedEliteMean(selectedElite, weights, dimension)
   const y = Arr.makeBy(
     dimension,
     (index) =>
-      Num.unsafeDivide(
+      Num.divideUnsafe(
         Num.subtract(vectorValueAt(weightedMean, index), vectorValueAt(current.mean, index)),
         current.sigma
       )
@@ -226,7 +226,7 @@ export const updateState = (
   const inverseRootC = Arr.makeBy(
     dimension,
     (index) =>
-      Num.unsafeDivide(
+      Num.divideUnsafe(
         numericValueAt(y, index),
         sqrt(Num.max(covarianceValueAt(current.covarianceDiag, index), 1e-12))
       )
@@ -247,8 +247,8 @@ export const updateState = (
   )
   const normPSigma = l2Norm(pSigma)
   const sigmaScale = exp(Num.multiply(
-    Num.unsafeDivide(constants.cSigma, constants.dSigma),
-    Num.decrement(Num.unsafeDivide(normPSigma, constants.expectedNorm))
+    Num.divideUnsafe(constants.cSigma, constants.dSigma),
+    Num.decrement(Num.divideUnsafe(normPSigma, constants.expectedNorm))
   ))
   const nextSigma = Num.clamp(Num.multiply(current.sigma, sigmaScale), {
     minimum: 1e-6,
@@ -258,8 +258,8 @@ export const updateState = (
     1,
     pow(Num.subtract(1, constants.cSigma), Num.multiply(2, generationNumber))
   ))
-  const hSigmaMetric = Num.unsafeDivide(Num.unsafeDivide(normPSigma, normCorrection), constants.expectedNorm)
-  const hSigma = Match.value(Num.lessThan(hSigmaMetric, constants.hSigmaThreshold)).pipe(
+  const hSigmaMetric = Num.divideUnsafe(Num.divideUnsafe(normPSigma, normCorrection), constants.expectedNorm)
+  const hSigma = Match.value(Num.isLessThan(hSigmaMetric, constants.hSigmaThreshold)).pipe(
     Match.when(true, () => 1),
     Match.orElse(() => 0)
   )
@@ -289,7 +289,7 @@ export const updateState = (
         const observation = Arr.get(selectedElite, position).pipe(
           Option.getOrElse(() => new CmaEsObservation({ trialNumber: 0, vector: Arr.empty<number>(), value: 0 }))
         )
-        const normalizedStep = Num.unsafeDivide(
+        const normalizedStep = Num.divideUnsafe(
           Num.subtract(vectorValueAt(observation.vector, index), vectorValueAt(current.mean, index)),
           current.sigma
         )
@@ -333,4 +333,4 @@ export const updateState = (
  * @since 0.1.0
  * @category operations
  */
-export const trialOrder = Order.mapInput(Order.number, (observation: CmaEsObservation) => observation.trialNumber)
+export const trialOrder = Order.mapInput(Order.Number, (observation: CmaEsObservation) => observation.trialNumber)

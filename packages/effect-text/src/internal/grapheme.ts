@@ -4,50 +4,43 @@
  *
  * @since 0.4.3
  */
-import {
-  Array as Arr,
-  Boolean,
-  Chunk,
-  Data,
-  Iterable,
-  Match,
-  Number,
-  Option,
-  Order,
-  RedBlackTree,
-  Schema,
-  String,
-  Tuple
-} from "effect"
+import { Array as Arr, Boolean, Chunk, Data, Match, Number, Option, Order, Schema, String } from "effect"
 
 import rawData from "./graphemeData.json" with { type: "json" }
 import type { CodePointRange, ConjunctBreak, GraphemeBreak, Graphemes } from "./graphemeSchema.js"
 import { GraphemeData } from "./graphemeSchema.js"
 
 const data = Schema.decodeUnknownSync(GraphemeData)(rawData)
-const graphemeRanges = RedBlackTree.fromIterable(
-  Arr.map(data.grapheme, (range) => Tuple.make(range.start, range)),
-  Order.number
-)
-const conjunctRanges = RedBlackTree.fromIterable(
-  Arr.map(data.conjunct, (range) => Tuple.make(range.start, range)),
-  Order.number
-)
-const pictographicRanges = RedBlackTree.fromIterable(
-  Arr.map(data.pictographic, (range) => Tuple.make(range.start, range)),
-  Order.number
-)
+const byRangeStart = Order.mapInput(Order.Number, (range: typeof CodePointRange.Type) => range.start)
+const graphemeRanges = Arr.sort(data.grapheme, byRangeStart)
+const conjunctRanges = Arr.sort(data.conjunct, byRangeStart)
+const pictographicRanges = Arr.sort(data.pictographic, byRangeStart)
 
 // The UCD ranges are disjoint. The nearest preceding start is the only range
 // that can contain this code point; the end check distinguishes gaps.
 const rangeAt = <A extends typeof CodePointRange.Type>(
-  ranges: RedBlackTree.RedBlackTree<number, A>,
+  ranges: ReadonlyArray<A>,
   codePoint: number
-) =>
-  Iterable.head(RedBlackTree.lessThanEqualReversed(ranges, codePoint)).pipe(
-    Option.map(Tuple.getSecond),
-    Option.filter((range) => Number.lessThanOrEqualTo(codePoint, range.end))
+): Option.Option<A> => {
+  const search = (low: number, high: number, candidate: Option.Option<A>): Option.Option<A> =>
+    Boolean.match(Number.isGreaterThan(low, high), {
+      onTrue: () => candidate,
+      onFalse: () => {
+        const middle = Number.round(Number.divideUnsafe(Number.sum(low, high), 2), 0)
+        return Arr.get(ranges, middle).pipe(
+          Option.flatMap((range) =>
+            Boolean.match(Number.isLessThanOrEqualTo(range.start, codePoint), {
+              onTrue: () => search(Number.increment(middle), high, Option.some(range)),
+              onFalse: () => search(low, Number.decrement(middle), candidate)
+            })
+          )
+        )
+      }
+    })
+  return search(0, Number.decrement(ranges.length), Option.none()).pipe(
+    Option.filter((range) => Number.isLessThanOrEqualTo(codePoint, range.end))
   )
+}
 
 class Character extends Data.Class<{
   readonly text: string
@@ -73,8 +66,8 @@ const character = (text: string): Character => {
   })
 }
 
-const EmojiState = Schema.Literal("none", "pictographic", "zwj")
-const ConjunctState = Schema.Literal("none", "consonant", "linked")
+const EmojiState = Schema.Literals(["none", "pictographic", "zwj"])
+const ConjunctState = Schema.Literals(["none", "consonant", "linked"])
 
 class Scan extends Data.Class<{
   readonly completed: Chunk.Chunk<string>

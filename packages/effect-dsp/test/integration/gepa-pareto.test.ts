@@ -1,8 +1,6 @@
 /**
  * GEPA integration contract.
  */
-import * as LanguageModel from "@effect/ai/LanguageModel"
-import * as Response from "@effect/ai/Response"
 import { describe, expect, it } from "@effect/vitest"
 import { Example } from "@scenesystems/effect-dsp/Example"
 import * as GEPA from "@scenesystems/effect-dsp/GEPA"
@@ -23,6 +21,8 @@ import {
   Stream,
   String as Str
 } from "effect"
+import * as LanguageModel from "effect/ai/LanguageModel"
+import * as Response from "effect/ai/Response"
 import { GepaSelectionWeightsFixtureSchema, loadFixture } from "../helpers/dspy-fixtures/index.js"
 
 const AnswerResponse = Schema.Struct({
@@ -35,7 +35,7 @@ const DraftResponse = Schema.Struct({
 })
 
 const reflectiveResponse = Arr.of(
-  Response.textPart({
+  Response.makePart("text", {
     text: "```\nAnswer geography questions with concise, factually correct capital city names.\n```"
   })
 )
@@ -65,7 +65,7 @@ describe("GEPA integration", () => {
         "Draft a weighted response",
         {
           query: Signature.describe(Schema.String, "Query for the drafting predictor"),
-          confidence: Signature.describe(Schema.NumberFromString, "Confidence weight")
+          confidence: Signature.describe(Schema.FiniteFromString, "Confidence weight")
         },
         DraftResponse.fields
       )
@@ -95,12 +95,16 @@ describe("GEPA integration", () => {
                 ),
               () =>
                 Effect.succeed(
-                  Arr.of(Response.textPart({ text: Arr.join(Arr.make("```", improvedChildInstruction, "```"), "\n") }))
+                  Arr.of(
+                    Response.makePart("text", {
+                      text: Arr.join(Arr.make("```", improvedChildInstruction, "```"), "\n")
+                    })
+                  )
                 )
             ),
             Match.when(
               Str.includes("Your task is to write a new instruction"),
-              () => Effect.succeed(Arr.of(Response.textPart({ text: "```\nunused root mutation\n```" })))
+              () => Effect.succeed(Arr.of(Response.makePart("text", { text: "```\nunused root mutation\n```" })))
             ),
             Match.orElse((text) =>
               Effect.succeed(
@@ -117,18 +121,20 @@ describe("GEPA integration", () => {
         )
       )
       const events = yield* Stream.runCollect(
-        GEPA.stream({
-          module: root,
-          trainset: Arr.make(
-            new Example({
-              input: { question: "What result should the child produce?" },
-              output: { answer: "correct" }
-            })
-          ),
-          metric: Metric.exactMatch("answer"),
-          maxIterations: 2,
-          seed: 42
-        })
+        GEPA.stream(
+          new GEPA.Options({
+            module: root,
+            trainset: Arr.make(
+              new Example({
+                input: { question: "What result should the child produce?" },
+                output: { answer: "correct" }
+              })
+            ),
+            metric: Metric.exactMatch("answer"),
+            maxIterations: 2,
+            seed: 42
+          })
+        )
       ).pipe(Effect.provideService(LanguageModel.LanguageModel, composedMock.service))
       const finalOutput = yield* root.forward({ question: "What result should the child produce?" }).pipe(
         Effect.provideService(LanguageModel.LanguageModel, composedMock.service)
@@ -136,14 +142,18 @@ describe("GEPA integration", () => {
       const childParams = yield* Ref.get(child.params)
       const rootParams = yield* Ref.get(root.params)
       const mutationEvents = Arr.filter(Arr.fromIterable(events), GEPA.events.$is("MutationProposed"))
-      const childReflection = yield* Ref.get(composedMock.calls).pipe(
-        Effect.flatMap((calls) =>
-          Arr.findFirst(calls, (call) => Str.includes("Target predictor: child-drafter")(call.prompt))
+      const childReflection = Option.getOrThrow(
+        yield* Ref.get(composedMock.calls).pipe(
+          Effect.map((calls) =>
+            Arr.findFirst(calls, (call) => Str.includes("Target predictor: child-drafter")(call.prompt))
+          )
         )
       )
-      const rootReflection = yield* Ref.get(composedMock.calls).pipe(
-        Effect.flatMap((calls) =>
-          Arr.findFirst(calls, (call) => Str.includes("Target predictor: composed-qa")(call.prompt))
+      const rootReflection = Option.getOrThrow(
+        yield* Ref.get(composedMock.calls).pipe(
+          Effect.map((calls) =>
+            Arr.findFirst(calls, (call) => Str.includes("Target predictor: composed-qa")(call.prompt))
+          )
         )
       )
 
@@ -167,7 +177,9 @@ describe("GEPA integration", () => {
     () =>
       Effect.gen(function*() {
         const rawSelectionFixture = yield* loadFixture("dspy.gepa.selection.weights.seed-42")
-        const selectionFixture = yield* Schema.decodeUnknown(GepaSelectionWeightsFixtureSchema)(rawSelectionFixture)
+        const selectionFixture = yield* Schema.decodeUnknownEffect(GepaSelectionWeightsFixtureSchema)(
+          rawSelectionFixture
+        )
         const signature = yield* makeQaSignature()
         const module = yield* Module.predict("qa", signature)
         const mock = yield* MockLanguageModel.make(
@@ -198,34 +210,36 @@ describe("GEPA integration", () => {
         )
 
         const events = yield* Stream.runCollect(
-          GEPA.stream({
-            module,
-            trainset: Arr.make(
-              new Example({
-                input: { question: "What is the capital of France?" },
-                output: { answer: "Paris" }
-              }),
-              new Example({
-                input: { question: "What is the capital of Japan?" },
-                output: { answer: "Tokyo" }
-              }),
-              new Example({
-                input: { question: "What is the capital of Germany?" },
-                output: { answer: "Berlin" }
-              })
-            ),
-            metric: feedbackMetric,
-            maxIterations: 3,
-            seed: selectionFixture.payload.seed
-          })
+          GEPA.stream(
+            new GEPA.Options({
+              module,
+              trainset: Arr.make(
+                new Example({
+                  input: { question: "What is the capital of France?" },
+                  output: { answer: "Paris" }
+                }),
+                new Example({
+                  input: { question: "What is the capital of Japan?" },
+                  output: { answer: "Tokyo" }
+                }),
+                new Example({
+                  input: { question: "What is the capital of Germany?" },
+                  output: { answer: "Berlin" }
+                })
+              ),
+              metric: feedbackMetric,
+              maxIterations: 3,
+              seed: selectionFixture.payload.seed
+            })
+          )
         ).pipe(Effect.provide(layer))
 
         const eventList = Arr.fromIterable(events)
         const paretoEvents = Arr.filter(eventList, GEPA.events.$is("ParetoUpdated"))
         const params = yield* Ref.get(module.params)
 
-        expect(Num.greaterThan(Arr.length(paretoEvents), 0)).toBe(true)
-        expect(Num.greaterThan(Str.length(params.instructions), 0)).toBe(true)
+        expect(Num.isGreaterThan(Arr.length(paretoEvents), 0)).toBe(true)
+        expect(Num.isGreaterThan(Str.length(params.instructions), 0)).toBe(true)
         expect(Option.isSome(Arr.findFirst(eventList, GEPA.events.$is("AcceptanceEvaluated")))).toBe(true)
       })
   )

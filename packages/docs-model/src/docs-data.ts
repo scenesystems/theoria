@@ -2,10 +2,10 @@ import * as Schema from "effect/Schema"
 
 import { ApiCategorySchema, ApiExportSchema, ApiPageModuleSchema, ApiPagePackageSchema } from "./api-reference.js"
 
-const NonEmptyString = Schema.String.pipe(Schema.minLength(1))
+const NonEmptyString = Schema.String.check(Schema.isMinLength(1))
 
 export const DocsAssetPath = Schema.String.pipe(
-  Schema.pattern(/^\/docs-data\/[A-Za-z0-9._/-]+$/u)
+  Schema.check(Schema.isPattern(/^\/docs-data\/[A-Za-z0-9._/-]+$/u))
 )
 
 /**
@@ -25,14 +25,14 @@ export const MathExpression = Schema.Struct({
  */
 export type MathExpression = typeof MathExpression.Type
 
-const GuideMath = MathExpression.pipe(Schema.extend(Schema.Struct({ kind: Schema.Literal("math") })))
+const GuideMath = MathExpression.pipe(Schema.fieldsAssign({ kind: Schema.Literal("math") }))
 
-export const GuideInlineSchema = Schema.Union(
+export const GuideInlineSchema = Schema.Union([
   Schema.Struct({ kind: Schema.Literal("text"), text: Schema.String }),
   Schema.Struct({ kind: Schema.Literal("code"), text: Schema.String }),
   Schema.Struct({ kind: Schema.Literal("link"), text: Schema.String, href: NonEmptyString }),
   GuideMath
-)
+])
 
 const GuideInlinePartsSchema = Schema.Array(GuideInlineSchema)
 
@@ -43,7 +43,7 @@ const GuideInlinePartsSchema = Schema.Array(GuideInlineSchema)
  */
 export const GuideHeading = Schema.Struct({
   kind: Schema.Literal("heading"),
-  depth: Schema.Literal(2, 3, 4, 5, 6),
+  depth: Schema.Literals([2, 3, 4, 5, 6]),
   id: NonEmptyString,
   text: NonEmptyString
 })
@@ -70,7 +70,7 @@ export const GuideTable = Schema.Struct({
   rows: Schema.Array(Schema.Array(GuideInlinePartsSchema))
 })
 
-export const GuideBlockSchema = Schema.Union(
+export const GuideBlockSchema = Schema.Union([
   GuideMath,
   Schema.Struct({ kind: Schema.Literal("paragraph"), parts: GuideInlinePartsSchema }),
   GuideHeading,
@@ -78,12 +78,12 @@ export const GuideBlockSchema = Schema.Union(
   GuideList,
   Schema.Struct({ kind: Schema.Literal("quote"), parts: GuideInlinePartsSchema }),
   GuideTable
-)
+])
 
 export const GuideAnchorSchema = Schema.Struct({
   id: NonEmptyString,
   label: NonEmptyString,
-  depth: Schema.Literal(2, 3, 4, 5, 6)
+  depth: Schema.Literals([2, 3, 4, 5, 6])
 })
 
 export const GuidePageSchema = Schema.Struct({
@@ -107,7 +107,7 @@ export const DocsGuideSummarySchema = Schema.Struct({
 })
 
 export const DocsApiModuleSummarySchema = Schema.Struct({
-  kind: Schema.Literal("entrypoint", "source"),
+  kind: Schema.Literals(["entrypoint", "source"]),
   name: NonEmptyString,
   subpath: NonEmptyString,
   slug: Schema.String,
@@ -117,7 +117,7 @@ export const DocsApiModuleSummarySchema = Schema.Struct({
   aliases: Schema.Array(NonEmptyString),
   summary: NonEmptyString,
   since: NonEmptyString,
-  exportCount: Schema.Number,
+  exportCount: Schema.Finite,
   categories: Schema.Array(NonEmptyString)
 })
 
@@ -125,7 +125,7 @@ export const DocsApiExportSummarySchema = Schema.Struct({
   id: NonEmptyString,
   name: NonEmptyString,
   anchor: NonEmptyString,
-  importKind: Schema.Literal("default", "namespace", "type", "value"),
+  importKind: Schema.Literals(["default", "namespace", "type", "value"]),
   category: Schema.String,
   since: Schema.String,
   summary: Schema.String,
@@ -172,7 +172,7 @@ export const DocsManifestSchema = Schema.Struct({
 
 export const DocsSearchEntrySchema = Schema.Struct({
   id: NonEmptyString,
-  kind: Schema.Literal("package", "guide", "module", "symbol"),
+  kind: Schema.Literals(["package", "guide", "module", "symbol"]),
   package: NonEmptyString,
   packageSlug: NonEmptyString,
   name: NonEmptyString,
@@ -188,11 +188,11 @@ export const DocsSearchIndexSchema = Schema.Struct({
   entries: Schema.Array(DocsSearchEntrySchema)
 })
 
-export const GuidePageJson = Schema.parseJson(GuidePageSchema)
-export const DocsApiModuleIndexJson = Schema.parseJson(DocsApiModuleIndexSchema)
-export const DocsApiExportPageJson = Schema.parseJson(DocsApiExportPageSchema)
-export const DocsManifestJson = Schema.parseJson(DocsManifestSchema)
-export const DocsSearchIndexJson = Schema.parseJson(DocsSearchIndexSchema)
+export const GuidePageJson = Schema.fromJsonString(GuidePageSchema)
+export const DocsApiModuleIndexJson = Schema.fromJsonString(DocsApiModuleIndexSchema)
+export const DocsApiExportPageJson = Schema.fromJsonString(DocsApiExportPageSchema)
+export const DocsManifestJson = Schema.fromJsonString(DocsManifestSchema)
+export const DocsSearchIndexJson = Schema.fromJsonString(DocsSearchIndexSchema)
 
 export class DocsDataError extends Schema.TaggedError<DocsDataError>()("DocsDataError", {
   path: Schema.String,

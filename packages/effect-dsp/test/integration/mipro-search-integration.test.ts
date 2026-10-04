@@ -1,7 +1,6 @@
 /**
  * MIPROv2 + effect-search integration contracts.
  */
-import * as LanguageModel from "@effect/ai/LanguageModel"
 import { describe, expect, it } from "@effect/vitest"
 import * as Evaluate from "@scenesystems/effect-dsp/Evaluate"
 import { Example } from "@scenesystems/effect-dsp/Example"
@@ -11,6 +10,7 @@ import * as Module from "@scenesystems/effect-dsp/Module"
 import { ModuleParameters } from "@scenesystems/effect-dsp/ModuleParameters"
 import * as Signature from "@scenesystems/effect-dsp/Signature"
 import { Array as Arr, Effect, Layer, Option, Record, Ref, Schema } from "effect"
+import * as LanguageModel from "effect/ai/LanguageModel"
 import { projectSingleObjective } from "../../src/EvaluationObjective.js"
 import {
   DemoCandidate,
@@ -18,7 +18,7 @@ import {
   PredictorDemoCandidates,
   PredictorInstructionCandidates
 } from "../../src/MIPROv2Candidates.js"
-import { run } from "../../src/MIPROv2Search.js"
+import { Options as SearchOptions, run } from "../../src/MIPROv2Search.js"
 
 const makeQaSignature = () =>
   Signature.make(
@@ -101,36 +101,42 @@ describe("MIPROv2/effect-search integration", () => {
       )
       const layer = Layer.succeed(LanguageModel.LanguageModel, mock.service)
 
-      const report = yield* Evaluate.run({
-        module,
-        examples: dataset,
-        metrics: {
-          mipro: Metric.exactMatch("answer")
-        },
-        concurrency: 1
-      }).pipe(Effect.provide(layer))
+      const report = yield* Evaluate.run(
+        new Evaluate.Options({
+          module,
+          examples: dataset,
+          metrics: {
+            mipro: Metric.exactMatch("answer")
+          },
+          concurrency: 1
+        })
+      ).pipe(Effect.provide(layer))
       const projected = yield* projectSingleObjective(report, Option.some("mipro"))
 
-      const result = yield* run({
-        module,
-        valset: dataset,
-        metric: Metric.exactMatch("answer"),
-        demoCandidates,
-        instructionCandidates,
-        trialBudget: 4,
-        minibatchSize: 1,
-        fullEvalEvery: 2,
-        seed: 73
-      }).pipe(Effect.provide(layer))
-      const defaultCadence = yield* run({
-        module,
-        valset: dataset,
-        metric: Metric.exactMatch("answer"),
-        demoCandidates,
-        instructionCandidates,
-        trialBudget: 3,
-        seed: 73
-      }).pipe(Effect.provide(layer))
+      const result = yield* run(
+        new SearchOptions({
+          module,
+          valset: dataset,
+          metric: Metric.exactMatch("answer"),
+          demoCandidates,
+          instructionCandidates,
+          trialBudget: 4,
+          minibatchSize: 1,
+          fullEvalEvery: 2,
+          seed: 73
+        })
+      ).pipe(Effect.provide(layer))
+      const defaultCadence = yield* run(
+        new SearchOptions({
+          module,
+          valset: dataset,
+          metric: Metric.exactMatch("answer"),
+          demoCandidates,
+          instructionCandidates,
+          trialBudget: 3,
+          seed: 73
+        })
+      ).pipe(Effect.provide(layer))
 
       expect(result.optimizationResult._tag).toBe("SingleObjective")
       expect(Arr.length(Arr.fromIterable(result.optimizationResult.trials))).toBeGreaterThan(0)
@@ -139,7 +145,7 @@ describe("MIPROv2/effect-search integration", () => {
           Arr.findFirst(
             Arr.fromIterable(result.optimizationResult.trials),
             (trial) =>
-              Schema.is(Schema.Record({ key: Schema.String, value: Schema.Unknown }))(trial.config) &&
+              Schema.is(Schema.Record(Schema.String, Schema.Unknown))(trial.config) &&
               Record.has(trial.config, "qa__demo") &&
               Record.has(trial.config, "qa__instruction")
           )

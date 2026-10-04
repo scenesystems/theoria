@@ -11,7 +11,7 @@ import { contentIdShape, shortId } from "./placeViewModel.js"
 const idTone = neutralToneClasses
 
 /** The two forms an ID is cut to: the digest's first characters in the line, or the whole ID on a line of its own. */
-export const IdForm = Schema.Literal("short", "full")
+export const IdForm = Schema.Literals(["short", "full"])
 export type IdForm = typeof IdForm.Type
 
 const idText = (form: IdForm, id: string): string =>

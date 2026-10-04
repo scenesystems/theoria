@@ -2,12 +2,15 @@
  * GEPA weighted parent-selection proportionality invariants.
  */
 import { describe, expect, it } from "@effect/vitest"
-import { Array as Arr, Effect, FastCheck as fc, Schema } from "effect"
+import { Arbitrary, Array as Arr, Effect, Schema } from "effect"
 import { ParentSelectionWeight } from "../../src/internal/gepa/model.js"
 import { sampleWeightedParents } from "../../src/internal/gepa/sampling.js"
 import { GepaSelectionWeightsFixtureSchema, loadFixture } from "../helpers/dspy-fixtures/index.js"
 
-const weightVectorArbitrary = fc.array(fc.integer({ min: 1, max: 10 }), { minLength: 2, maxLength: 6 })
+const weightVectorArbitrary = Arbitrary.array(
+  Arbitrary.schema(Schema.Int.check(Schema.isBetween({ minimum: 1, maximum: 10 }))),
+  { minLength: 2, maxLength: 6 }
+)
 
 const toParentSelectionWeights = (weights: ReadonlyArray<number>): ReadonlyArray<ParentSelectionWeight> =>
   Arr.map(weights, (weight, candidateIndex) => new ParentSelectionWeight({ candidateIndex, weight }))
@@ -26,7 +29,7 @@ describe("GEPA selection proportionality", () => {
   it.effect("matches the committed dspy.gepa.selection.weights.seed-42 distribution contract", () =>
     Effect.gen(function*() {
       const fixture = yield* loadFixture("dspy.gepa.selection.weights.seed-42").pipe(
-        Effect.flatMap(Schema.decodeUnknown(GepaSelectionWeightsFixtureSchema))
+        Effect.flatMap(Schema.decodeUnknownEffect(GepaSelectionWeightsFixtureSchema))
       )
       const weights = Arr.map(
         fixture.payload.weights,
@@ -67,6 +70,6 @@ describe("GEPA selection proportionality", () => {
         expect(sampleCount).toBe(10000)
         expect(withinTolerance).toBe(true)
       }),
-    { fastCheck: { numRuns: 10 } }
+    { arbitrary: { runs: 10 } }
   )
 })

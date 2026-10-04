@@ -13,8 +13,8 @@ import * as Model from "./Model.js"
 import * as Route from "./Route.js"
 
 /** Schema for the semantic role assigned to an inference request. @since 0.5.0 @category schemas */
-export const Role = Schema.Literal("task", "teacher", "proposer", "evaluator", "critic")
-  .annotations({ identifier: "@scenesystems/effect-inference/RuntimeRequest/Role" })
+export const Role = Schema.Literals(["task", "teacher", "proposer", "evaluator", "critic"])
+  .annotate({ identifier: "@scenesystems/effect-inference/RuntimeRequest/Role" })
 /** Inference-request role inferred from its schema. @since 0.5.0 @category models */
 export type Role = typeof Role.Type
 
@@ -31,7 +31,7 @@ export const RuntimeRequest = Schema.Struct({
   capabilities: Schema.optional(Capabilities.Requirements),
   role: Schema.optional(Role),
   tags: Schema.optional(Schema.Array(Schema.String))
-}).annotations({ identifier: "@scenesystems/effect-inference/RuntimeRequest" })
+}).annotate({ identifier: "@scenesystems/effect-inference/RuntimeRequest" })
 /** Caller-owned runtime request inferred from its schema. @since 0.5.0 @category models */
 export type RuntimeRequest = typeof RuntimeRequest.Type
 
@@ -43,6 +43,6 @@ export type RuntimeRequest = typeof RuntimeRequest.Type
  * @category decoding
  */
 export const decodeUnknown = (input: unknown): Effect.Effect<RuntimeRequest, InvalidRuntimeConfig> =>
-  Schema.decodeUnknown(RuntimeRequest)(input).pipe(
+  Schema.decodeUnknownEffect(RuntimeRequest)(input).pipe(
     Effect.mapError((error) => new InvalidRuntimeConfig({ reason: error.message }))
   )

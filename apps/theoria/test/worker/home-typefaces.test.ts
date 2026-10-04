@@ -91,7 +91,7 @@ const nothingShifted = (page: Page, where: string) =>
 layer(Layer.merge(SiteLive, BrowserLive), { excludeTestServices: true, timeout: "3 minutes" })(
   "Theoria homepage typefaces in Chromium",
   (it) => {
-    it.scoped("text stands at the served face's metrics before it arrives, the stage is drawn in what the page shows, and the arrival re-measures without moving anything", () =>
+    it("text stands at the served face's metrics before it arrives, the stage is drawn in what the page shows, and the arrival re-measures without moving anything", () =>
       Effect.forEach(viewports, (viewport) =>
         Effect.gen(function*() {
           const where = `${String(viewport.width)}×${String(viewport.height)}`
@@ -100,7 +100,7 @@ layer(Layer.merge(SiteLive, BrowserLive), { excludeTestServices: true, timeout: 
           yield* act(() => page.addInitScript(recordPaperFrames))
           yield* act(() => page.addInitScript(recordWebVitals))
           const faces = yield* holdResponses(page, "GET", ".woff2")
-          const built = yield* Effect.fork(nextResponse(page, "POST", buildPath))
+          const built = yield* Effect.forkChild(nextResponse(page, "POST", buildPath))
           // The held faces are preloads, so `load` waits on them; the document parsing is enough to look.
           yield* gotoParsed(page, "/")
           const title = page.getByRole("heading", { level: 1 })

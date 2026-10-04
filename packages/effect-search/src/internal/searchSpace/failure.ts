@@ -14,7 +14,7 @@ import { InvalidSearchSpace } from "../../SearchError.js"
  * @category constructors
  */
 export const invalidSearchSpace = (reason: string, dimension?: string): InvalidSearchSpace =>
-  Option.fromNullable(dimension).pipe(
+  Option.fromNullishOr(dimension).pipe(
     Option.match({
       onNone: () => new InvalidSearchSpace({ reason }),
       onSome: (value) => new InvalidSearchSpace({ reason, dimension: value })

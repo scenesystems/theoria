@@ -6,14 +6,14 @@ import type { Direction } from "../../Direction.js"
 export class PrunedIntermediateValue extends Schema.Class<PrunedIntermediateValue>(
   "@scenesystems/effect-search/internal/tpe/prunedScore/PrunedIntermediateValue"
 )({
-  step: Schema.Number,
+  step: Schema.Finite,
   value: Schema.Number
 }) {}
 
 export class PrunedTrialScore extends Schema.Class<PrunedTrialScore>(
   "@scenesystems/effect-search/internal/tpe/prunedScore/PrunedTrialScore"
 )({
-  step: Schema.Number,
+  step: Schema.Finite,
   value: Schema.Number
 }) {}
 
@@ -28,7 +28,7 @@ const latestIntermediateValue = (
       Option.match(current, {
         onNone: () => Option.some(value),
         onSome: (latest) =>
-          Match.value(Num.lessThanOrEqualTo(latest.step, value.step)).pipe(
+          Match.value(Num.isLessThanOrEqualTo(latest.step, value.step)).pipe(
             Match.when(true, () => Option.some(value)),
             Match.orElse(() => Option.some(latest))
           )
@@ -38,7 +38,7 @@ const latestIntermediateValue = (
 
 const directionalScore = (direction: Direction, value: number): number =>
   Match.value(direction).pipe(
-    Match.when("maximize", () => Num.negate(value)),
+    Match.when("maximize", () => Num.multiply(-1, value)),
     Match.orElse(() => value)
   )
 
@@ -57,7 +57,7 @@ export const prunedTrialScore = (
     Option.match({
       onNone: () =>
         new PrunedTrialScore({
-          step: Num.negate(1),
+          step: Num.multiply(-1, 1),
           value: Number.POSITIVE_INFINITY
         }),
       onSome: (latest) =>

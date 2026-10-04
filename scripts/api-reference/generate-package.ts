@@ -1,5 +1,15 @@
-import { FileSystem } from "@effect/platform"
-import { Array as Arr, Boolean as Bool, Console, Effect, Number as Num, Option, Order, pipe, Schema } from "effect"
+import {
+  Array as Arr,
+  Boolean as Bool,
+  Console,
+  Effect,
+  FileSystem,
+  Number as Num,
+  Option,
+  Order,
+  pipe,
+  Schema
+} from "effect"
 import * as Str from "effect/String"
 
 import { type DocsPackageSummary } from "@theoria/docs-model"
@@ -12,7 +22,7 @@ import { ApiReferenceGenerationError, type ApiReferencePackage } from "./model.j
 import { reviveConvertedModule } from "./revive.js"
 
 const repositoryUrl = "https://github.com/scenesystems/theoria"
-const numberText = Schema.encodeSync(Schema.NumberFromString)
+const numberText = Schema.encodeSync(Schema.FiniteFromString)
 
 const exampleTitle = (fileName: string): string => {
   const title = pipe(
@@ -54,7 +64,7 @@ export const generateApiPackage = (input: {
     const modules = Arr.map(generatedModules, (generated) => generated.module)
     const markdown = yield* fileSystem.readFileString(`${sourcePackage.root}/README.md`)
     const exampleFiles = yield* fileSystem.readDirectory(`${sourcePackage.root}/examples`).pipe(
-      Effect.map((entries) => Arr.sort(Arr.filter(entries, Str.endsWith(".ts")), Order.string))
+      Effect.map((entries) => Arr.sort(Arr.filter(entries, Str.endsWith(".ts")), Order.String))
     )
     const exampleFile = yield* Option.match(Arr.head(exampleFiles), {
       onNone: () =>

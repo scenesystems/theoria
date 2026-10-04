@@ -12,14 +12,14 @@ React + Tailwind CSS v4 + effect-atom application showcasing Scene Systems packa
 
 ## Stack
 
-| Layer      | Technology                                                   |
-| ---------- | ------------------------------------------------------------ |
-| Framework  | React 19                                                     |
-| Styling    | Tailwind CSS v4 (CSS-first, `@theme inline`)                 |
-| Components | Base UI (`@base-ui/react`) — headless, unstyled              |
-| State      | effect-atom (`@effect-atom/atom`, `@effect-atom/atom-react`) |
-| Runtime    | Effect-TS — all code Effect-native                           |
-| Icons      | `@heroicons/react`                                           |
+| Layer      | Technology                                                    |
+| ---------- | ------------------------------------------------------------- |
+| Framework  | React 19                                                      |
+| Styling    | Tailwind CSS v4 (CSS-first, `@theme inline`)                  |
+| Components | Base UI (`@base-ui/react`) — headless, unstyled               |
+| State      | Effect reactivity (`effect/reactivity`, `@effect/atom-react`) |
+| Runtime    | Effect-TS — all code Effect-native                            |
+| Icons      | `@heroicons/react`                                            |
 
 ---
 

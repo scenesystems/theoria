@@ -43,13 +43,13 @@ const valueAt = (vector: Vector, index: number): number =>
 
 const toLossCoordinate = (value: number, direction: Direction): number =>
   Match.value(direction).pipe(
-    Match.when("maximize", () => Num.negate(value)),
+    Match.when("maximize", () => Num.multiply(-1, value)),
     Match.orElse(() => value)
   )
 
 const fromLossCoordinate = (value: number, direction: Direction): number =>
   Match.value(direction).pipe(
-    Match.when("maximize", () => Num.negate(value)),
+    Match.when("maximize", () => Num.multiply(-1, value)),
     Match.orElse(() => value)
   )
 
@@ -105,7 +105,7 @@ const normalizeContributions = (contributionsInput: Iterable<number>): Weights =
   const maxContribution = Arr.reduce(contributions, 0, (acc, value) => Num.max(acc, value))
   const normalizer = Num.max(maxContribution, minimumWeight)
 
-  return Arr.map(contributions, (value) => Num.max(Num.unsafeDivide(value, normalizer), minimumWeight))
+  return Arr.map(contributions, (value) => Num.max(Num.divideUnsafe(value, normalizer), minimumWeight))
 }
 
 /**
@@ -126,7 +126,7 @@ export const computeReferencePoint = (
 ): Vector => {
   const points = Arr.fromIterable(pointsInput)
   const directions = Arr.fromIterable(directionsInput)
-  return Match.value(Num.lessThanOrEqualTo(Arr.length(points), 0)).pipe(
+  return Match.value(Num.isLessThanOrEqualTo(Arr.length(points), 0)).pipe(
     Match.when(true, () => Arr.empty<number>()),
     Match.orElse(() => {
       const lossPoints = Arr.map(points, (point) => toLossSpace(point, directions))
@@ -155,11 +155,11 @@ export const computeMultiObjectiveWeights = (
 ): Weights => {
   const points = Arr.fromIterable(pointsInput)
   const directions = Arr.fromIterable(directionsInput)
-  return Match.value(Num.lessThanOrEqualTo(Arr.length(points), 0)).pipe(
+  return Match.value(Num.isLessThanOrEqualTo(Arr.length(points), 0)).pipe(
     Match.when(true, () => Arr.empty<number>()),
     Match.orElse(() => {
       const lossPoints = Arr.map(points, (point) => toLossSpace(point, directions))
-      const lossReference = Option.fromNullable(referencePoint).pipe(
+      const lossReference = Option.fromNullishOr(referencePoint).pipe(
         Option.match({
           onNone: () => referenceFromLossPoints(lossPoints),
           onSome: (point) => toLossSpace(point, directions)

@@ -1,6 +1,7 @@
-import { Cookies, KeyValueStore } from "@effect/platform"
 import { describe, expect, it } from "@effect/vitest"
 import { Effect, Layer, Option, Schema } from "effect"
+import * as Cookies from "effect/http/Cookies"
+import * as KeyValueStore from "effect/persistence/KeyValueStore"
 
 import { colorModeCookieName, ColorModeCookies, ColorModePreference } from "../../app/contracts/color-mode.js"
 import * as BrowserCookies from "../../app/web/platform/BrowserCookies.js"
@@ -18,7 +19,7 @@ const storeLayer = BrowserCookies.layerKeyValueStore.pipe(Layer.provide(BrowserD
 /** The document's cookies as the Worker sees them: a `Cookie` header, decoded by the Worker's schema. */
 const asTheWorkerReads = Effect.flatMap(
   BrowserDocument.BrowserDocument,
-  (browserDocument) => Schema.decodeUnknown(ColorModeCookies)(Cookies.parseHeader(browserDocument.cookie))
+  (browserDocument) => Schema.decodeEffect(ColorModeCookies)(Cookies.parseHeader(browserDocument.cookie))
 )
 
 /** Leaves the document with no colour-mode cookie once the test is done, whatever it wrote. */
@@ -30,7 +31,7 @@ const withStore = <A, E>(use: Effect.Effect<A, E, KeyValueStore.KeyValueStore | 
 describe("the cookie key-value store", () => {
   it.effect("writes a preference the Worker decodes from the Cookie header", () =>
     withStore(Effect.gen(function*() {
-      const store = (yield* KeyValueStore.KeyValueStore).forSchema(ColorModePreference)
+      const store = KeyValueStore.toSchemaStore(yield* KeyValueStore.KeyValueStore, ColorModePreference)
       yield* store.set(colorModeCookieName, "dark")
 
       const cookies = yield* asTheWorkerReads
@@ -39,7 +40,7 @@ describe("the cookie key-value store", () => {
 
   it.effect("reads back the value it wrote, and a later write replaces it", () =>
     withStore(Effect.gen(function*() {
-      const store = (yield* KeyValueStore.KeyValueStore).forSchema(ColorModePreference)
+      const store = KeyValueStore.toSchemaStore(yield* KeyValueStore.KeyValueStore, ColorModePreference)
       yield* store.set(colorModeCookieName, "light")
       yield* store.set(colorModeCookieName, "system")
 
@@ -60,7 +61,7 @@ describe("the cookie key-value store", () => {
   it.effect("keeps the store's view of a missing key as absence, not an empty string", () =>
     withStore(Effect.gen(function*() {
       const store = yield* KeyValueStore.KeyValueStore
-      expect(yield* store.get("never-written")).toStrictEqual(Option.none())
+      expect(yield* store.get("never-written")).toBeUndefined()
     })))
 
   it.effect("refuses a key that cannot be a cookie name as a platform error, not a silent no-op", () =>
@@ -69,10 +70,10 @@ describe("the cookie key-value store", () => {
       const failure = yield* Effect.flip(store.set("theoria/color-mode", "dark"))
 
       expect(failure).toMatchObject({
-        _tag: "SystemError",
-        reason: "InvalidData",
-        module: "KeyValueStore",
-        pathOrDescriptor: "theoria/color-mode"
+        _tag: "KeyValueStoreError",
+        method: "set",
+        key: "theoria/color-mode",
+        message: "InvalidCookieName"
       })
     })))
 })

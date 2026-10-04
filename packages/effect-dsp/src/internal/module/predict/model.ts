@@ -5,9 +5,9 @@
  * @category internal
  * @internal
  */
-import type * as Response from "@effect/ai/Response"
 import type { Schema } from "effect"
 import { Data } from "effect"
+import type * as Response from "effect/ai/Response"
 import type { PredictPolicy } from "../../../Module.js"
 import type { ModuleParameters } from "../../../ModuleParameters.js"
 import type { Payload } from "../../../Payload.js"
@@ -24,7 +24,7 @@ export class ForwardOptions<I extends Schema.Struct.Fields, O extends Schema.Str
   readonly signature: Signature<I, O>
   readonly params: ModuleParameters
   readonly input: Schema.Schema.Type<Schema.Struct<I>>
-  readonly outputSchema: Schema.Struct<O>
+  readonly outputSchema: Signature<I, O>["outputSchema"]
   readonly policy: PredictPolicy
 }> {}
 

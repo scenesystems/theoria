@@ -26,7 +26,7 @@ import type * as SearchSpace from "../../../SearchSpace.js"
 export type RetrySchedule = Schedule.Schedule<unknown, unknown, never>
 
 const retryScheduleDefault = (): RetrySchedule =>
-  Schedule.exponential("100 millis").pipe(Schedule.intersect(Schedule.recurs(3)), Schedule.jittered)
+  Schedule.exponential("100 millis").pipe(Schedule.upTo({ times: 3 }), Schedule.jittered)
 
 /**
  * Unwraps an optional retry schedule, falling back to a jittered exponential backoff with 3 retries.
@@ -133,7 +133,7 @@ export class OptimizePlan<
   /** Objective samples averaged per trial; omission resolves to one. */
   readonly evaluationsPerTrial?: number
   /** Elapsed-time limit for the optimization execution. */
-  readonly maxDuration?: Duration.DurationInput
+  readonly maxDuration?: Duration.Input
   /** Scalar value that stops admission once reached in the selected direction. */
   readonly targetValue?: number
   /** Completed scalar trials allowed without a new best value. */
@@ -143,7 +143,7 @@ export class OptimizePlan<
   /** Failure retry schedule; omission uses the package backoff schedule. */
   readonly retrySchedule?: RetrySchedule
   /** Time limit covering all objective samples and retries for one trial. */
-  readonly trialTimeout?: Duration.DurationInput
+  readonly trialTimeout?: Duration.Input
 }> {}
 
 /**
@@ -186,7 +186,7 @@ export class ResumePlan<
   /** Objective samples averaged per new trial; omission resolves to one. */
   readonly evaluationsPerTrial?: number
   /** Elapsed-time limit for the resumed execution. */
-  readonly maxDuration?: Duration.DurationInput
+  readonly maxDuration?: Duration.Input
   /** Scalar value that stops admission once reached in the selected direction. */
   readonly targetValue?: number
   /** Completed scalar trials allowed without a new best value. */
@@ -196,5 +196,5 @@ export class ResumePlan<
   /** Failure retry schedule; omission uses the package backoff schedule. */
   readonly retrySchedule?: RetrySchedule
   /** Time limit covering all objective samples and retries for one new trial. */
-  readonly trialTimeout?: Duration.DurationInput
+  readonly trialTimeout?: Duration.Input
 }> {}

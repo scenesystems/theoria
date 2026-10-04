@@ -4,7 +4,7 @@
  *
  * @since 0.1.0
  */
-import { Array as Arr, Data, Effect, Inspectable, Number as Num, Option, Record, String as Str } from "effect"
+import { Array as Arr, Effect, Inspectable, Number as Num, Option, Record, String as Str, Tuple } from "effect"
 import type { Schema } from "effect"
 import type { DspError } from "../../DspError.js"
 import { AllTrialsFailed } from "../../DspError.js"
@@ -21,7 +21,7 @@ const toComposeSubModules = <I extends Schema.Struct.Fields, O extends Schema.St
   programs: EnsembleOptions<I, O, MemberE, MemberR>["programs"]
 ): Module.ComposeSubModules =>
   Arr.reduce(
-    Arr.map(Arr.fromIterable(programs), (program, index) => Data.tuple(defaultProgramName(index), program)),
+    Arr.map(Arr.fromIterable(programs), (program, index) => Tuple.make(defaultProgramName(index), program)),
     Record.empty<string, DspModule<I, O, MemberE, MemberR>>(),
     (state, [alias, program]) => Record.set(state, alias, program)
   )
@@ -61,40 +61,35 @@ export const make = <
 ): Effect.Effect<DspModule<I, O, MemberE | ReducerE, MemberR | ReducerR>, DspError> =>
   Effect.gen(function*() {
     const programs = Arr.fromIterable(options.programs)
-    const lead = yield* Option.match(Arr.head(programs), {
-      onNone: () =>
-        Effect.fail(
-          new AllTrialsFailed({
-            message: "Ensemble.make requires at least one program",
-            trialCount: 0
-          })
-        ),
-      onSome: (program) => Effect.succeed(program)
-    })
+    const lead = yield* Effect.fromOption(Arr.head(programs), () =>
+      new AllTrialsFailed({ message: "Ensemble.make requires at least one program", trialCount: 0 }))
     const selectedPrograms = choosePrograms(
       new ChooseProgramsOptions({
         programs,
-        size: resolveSelectionSize(Arr.length(programs), Option.fromNullable(options.size)),
-        seed: Option.getOrElse(Option.fromNullable(options.seed), () => 1)
+        size: resolveSelectionSize(Arr.length(programs), Option.fromNullishOr(options.size)),
+        seed: Option.getOrElse(Option.fromNullishOr(options.seed), () =>
+          1)
       })
     )
 
-    return yield* Module.compose<I, O, MemberE | ReducerE, MemberR | ReducerR>({
-      name: Option.getOrElse(Option.fromNullable(options.name), () => "ensemble"),
-      signature: lead.signature,
-      subModules: toComposeSubModules(programs),
-      forward: ({ input }) =>
-        Effect.gen(function*() {
-          const outputs = yield* Effect.forEach(
-            selectedPrograms,
-            (program) => program.forward(input),
-            { concurrency: Arr.length(selectedPrograms) }
-          )
+    return yield* Module.compose<I, O, MemberE | ReducerE, MemberR | ReducerR>(
+      new Module.ComposeOptions({
+        name: Option.getOrElse(Option.fromNullishOr(options.name), () => "ensemble"),
+        signature: lead.signature,
+        subModules: toComposeSubModules(programs),
+        forward: ({ input }) =>
+          Effect.gen(function*() {
+            const outputs = yield* Effect.forEach(
+              selectedPrograms,
+              (program) => program.forward(input),
+              { concurrency: Arr.length(selectedPrograms) }
+            )
 
-          return yield* Option.match(Option.fromNullable(options.reduceFn), {
-            onNone: () => majorityVote(outputs, lead.signature.outputSchema),
-            onSome: (reduceFn) => reduceFn(new ReduceOptions({ input, outputs }))
+            return yield* Option.match(Option.fromNullishOr(options.reduceFn), {
+              onNone: () => majorityVote(outputs, lead.signature.outputSchema),
+              onSome: (reduceFn) => reduceFn(new ReduceOptions({ input, outputs }))
+            })
           })
-        })
-    })
+      })
+    )
   })

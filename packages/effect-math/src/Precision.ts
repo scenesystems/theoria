@@ -9,7 +9,7 @@ import { Array, Boolean, Context, Effect, Layer, Match, Number, Option, Schema, 
 import * as Numeric from "./Numeric.js"
 import * as Scalar from "./Scalar.js"
 
-const NonNegativeFiniteNumber = Schema.Number.pipe(Schema.finite(), Schema.greaterThanOrEqualTo(0))
+const NonNegativeFiniteNumber = Schema.Number.check(Schema.isFinite(), Schema.isGreaterThanOrEqualTo(0))
 
 /**
  * Accepts convergence limits for absolute error, relative error, and iterations.
@@ -24,7 +24,7 @@ export const ConvergenceGate = Schema.Struct({
   absoluteTolerance: Numeric.AbsoluteTolerance,
   relativeTolerance: Numeric.RelativeTolerance,
   maxIterations: Numeric.IterationBudget
-}).annotations({ identifier: "@scenesystems/effect-math/Precision/ConvergenceGate" })
+}).annotate({ identifier: "@scenesystems/effect-math/Precision/ConvergenceGate" })
 
 /**
  * Decoded limits used to evaluate a convergence observation.
@@ -45,8 +45,8 @@ export type ConvergenceGate = typeof ConvergenceGate.Type
 export const ConvergenceObservation = Schema.Struct({
   absoluteError: NonNegativeFiniteNumber,
   relativeError: NonNegativeFiniteNumber,
-  iterations: Schema.Number.pipe(Schema.int(), Schema.greaterThanOrEqualTo(0))
-}).annotations({ identifier: "@scenesystems/effect-math/Precision/ConvergenceObservation" })
+  iterations: Schema.Number.check(Schema.isInt(), Schema.isGreaterThanOrEqualTo(0))
+}).annotate({ identifier: "@scenesystems/effect-math/Precision/ConvergenceObservation" })
 
 /**
  * A decoded convergence observation reported by a numerical kernel.
@@ -62,7 +62,7 @@ export type ConvergenceObservation = typeof ConvergenceObservation.Type
  * @since 0.1.0
  * @category schemas
  */
-export const ResolutionSource = Schema.Literal("none", "primary-kind", "escalation-order").annotations({
+export const ResolutionSource = Schema.Literals(["none", "primary-kind", "escalation-order"]).annotate({
   identifier: "@scenesystems/effect-math/Precision/ResolutionSource"
 })
 
@@ -88,7 +88,7 @@ export const Resolution = Schema.Struct({
   converged: Schema.Boolean,
   escalated: Schema.Boolean,
   source: ResolutionSource
-}).annotations({ identifier: "@scenesystems/effect-math/Precision/Resolution" })
+}).annotate({ identifier: "@scenesystems/effect-math/Precision/Resolution" })
 
 /**
  * A decoded precision escalation result.
@@ -112,7 +112,7 @@ export const Policy = Schema.Struct({
   escalationOrder: Schema.NonEmptyArray(Scalar.Kind),
   maxEscalations: Numeric.IterationBudget,
   convergenceGate: ConvergenceGate
-}).annotations({ identifier: "@scenesystems/effect-math/Precision/Policy" })
+}).annotate({ identifier: "@scenesystems/effect-math/Precision/Policy" })
 
 /**
  * A decoded convergence and scalar-escalation policy.
@@ -134,10 +134,10 @@ export type Policy = typeof Policy.Type
 export const Request = Schema.Struct({
   operation: Schema.String,
   currentKind: Scalar.Kind,
-  attempts: Schema.Number.pipe(Schema.int(), Schema.greaterThanOrEqualTo(0)),
+  attempts: Schema.Number.check(Schema.isInt(), Schema.isGreaterThanOrEqualTo(0)),
   convergence: ConvergenceObservation,
   scalarResolutionSource: Scalar.ResolutionSource
-}).annotations({ identifier: "@scenesystems/effect-math/Precision/Request" })
+}).annotate({ identifier: "@scenesystems/effect-math/Precision/Request" })
 
 /**
  * A decoded scalar precision escalation request.
@@ -161,7 +161,7 @@ export class EscalationExhaustedError extends Schema.TaggedError<EscalationExhau
 )("PrecisionEscalationExhaustedError", {
   operation: Schema.String,
   requestedKind: Schema.String,
-  attempts: Schema.Number.pipe(Schema.int(), Schema.greaterThanOrEqualTo(0)),
+  attempts: Schema.Number.check(Schema.isInt(), Schema.isGreaterThanOrEqualTo(0)),
   message: Schema.String
 }) {}
 
@@ -171,7 +171,7 @@ export class EscalationExhaustedError extends Schema.TaggedError<EscalationExhau
  * @since 0.1.0
  * @category services
  */
-export class Precision extends Context.Tag("@scenesystems/effect-math/Precision")<Precision, Policy>() {}
+export class Precision extends Context.Service<Precision, Policy>()("@scenesystems/effect-math/Precision") {}
 
 /**
  * Starts with Float64 and permits promotion to BigDecimal.
@@ -210,10 +210,10 @@ const orderedKinds = (policy: Policy) =>
 const convergedWithin = (observation: ConvergenceObservation, gate: ConvergenceGate): boolean =>
   Boolean.and(
     Boolean.and(
-      Number.lessThanOrEqualTo(observation.absoluteError, gate.absoluteTolerance),
-      Number.lessThanOrEqualTo(observation.relativeError, gate.relativeTolerance)
+      Number.isLessThanOrEqualTo(observation.absoluteError, gate.absoluteTolerance),
+      Number.isLessThanOrEqualTo(observation.relativeError, gate.relativeTolerance)
     ),
-    Number.lessThanOrEqualTo(observation.iterations, gate.maxIterations)
+    Number.isLessThanOrEqualTo(observation.iterations, gate.maxIterations)
   )
 
 const shouldPromoteToPrimary = (request: Request, policy: Policy): boolean =>
@@ -254,7 +254,7 @@ export const resolve = (request: Request) =>
         Effect.gen(function*() {
           yield* Effect.filterOrFail(
             Effect.succeed(request.attempts),
-            (attempts) => Number.lessThan(attempts, policy.maxEscalations),
+            (attempts) => Number.isLessThan(attempts, policy.maxEscalations),
             () =>
               new EscalationExhaustedError({
                 operation: request.operation,
@@ -275,23 +275,18 @@ export const resolve = (request: Request) =>
               })),
             Match.when(false, () =>
               Effect.gen(function*() {
-                const index = yield* Option.match(
+                const index = yield* Effect.fromOption(
                   Array.findFirstIndex(order, (kind) => String.Equivalence(kind, request.currentKind)),
-                  {
-                    onNone: () =>
-                      Effect.fail(
-                        new EscalationExhaustedError({
-                          operation: request.operation,
-                          requestedKind: request.currentKind,
-                          attempts: request.attempts,
-                          message: String.concat(
-                            String.concat("Current scalar kind ", request.currentKind),
-                            " is not declared in escalation order"
-                          )
-                        })
-                      ),
-                    onSome: Effect.succeed
-                  }
+                  () =>
+                    new EscalationExhaustedError({
+                      operation: request.operation,
+                      requestedKind: request.currentKind,
+                      attempts: request.attempts,
+                      message: String.concat(
+                        String.concat("Current scalar kind ", request.currentKind),
+                        " is not declared in escalation order"
+                      )
+                    })
                 )
 
                 return yield* Option.match(Array.get(order, Number.increment(index)), {

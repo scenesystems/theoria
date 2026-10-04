@@ -12,7 +12,7 @@ const defaultAbsoluteTolerance = 1e-10
 const defaultRelativeTolerance = 1e-10
 const defaultMaxDepth = 16
 
-const midpoint = (a: number, b: number): number => Number.unsafeDivide(Number.sum(a, b), 2)
+const midpoint = (a: number, b: number): number => Number.divideUnsafe(Number.sum(a, b), 2)
 
 const segment = (
   a: number,
@@ -22,7 +22,7 @@ const segment = (
   fb: number
 ): number =>
   Number.multiply(
-    Number.unsafeDivide(Number.subtract(b, a), 6),
+    Number.divideUnsafe(Number.subtract(b, a), 6),
     Number.sum(Number.sum(fa, Number.multiply(4, fm)), fb)
   )
 
@@ -64,18 +64,18 @@ const refine = (f: (x: number) => number, state: SimpsonState): SimpsonState =>
       const combined = Number.sum(left, right)
       const correction = Number.subtract(combined, frame.whole)
       const tolerance = localTolerance(combined, frame.absoluteTolerance, frame.relativeTolerance)
-      const converged = Number.lessThanOrEqualTo(Numeric.abs(correction), Number.multiply(15, tolerance))
-      const complete = Boolean.or(Number.lessThanOrEqualTo(frame.depth, 0), converged)
+      const converged = Number.isLessThanOrEqualTo(Numeric.abs(correction), Number.multiply(15, tolerance))
+      const complete = Boolean.or(Number.isLessThanOrEqualTo(frame.depth, 0), converged)
 
       return Boolean.match(complete, {
         onTrue: () =>
           new SimpsonState({
             pending: rest,
-            total: Number.sum(state.total, Number.sum(combined, Number.unsafeDivide(correction, 15)))
+            total: Number.sum(state.total, Number.sum(combined, Number.divideUnsafe(correction, 15)))
           }),
         onFalse: () => {
-          const nextAbsolute = Number.unsafeDivide(frame.absoluteTolerance, 2)
-          const nextRelative = Number.unsafeDivide(frame.relativeTolerance, 2)
+          const nextAbsolute = Number.divideUnsafe(frame.absoluteTolerance, 2)
+          const nextRelative = Number.divideUnsafe(frame.relativeTolerance, 2)
           const nextDepth = Number.decrement(frame.depth)
           const children = Chunk.make(
             new SimpsonFrame({

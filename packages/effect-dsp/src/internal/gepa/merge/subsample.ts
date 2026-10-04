@@ -6,7 +6,7 @@
  * @since 0.1.0
  */
 import * as Numeric from "@scenesystems/effect-math/Numeric"
-import { sampleStratifiedRoundRobin } from "@scenesystems/effect-search/Sampler"
+import { sampleStratifiedRoundRobin, StratifiedRoundRobinOptions } from "@scenesystems/effect-search/Sampler"
 import { Array as Arr, Chunk, HashMap, Match, Option } from "effect"
 import type { MergeComparison, MergeComparisonBucket, MergeComparisons } from "../model.js"
 
@@ -64,9 +64,11 @@ export const selectBalancedMergeSubsample = (
   comparisons: MergeComparisons,
   seed: number
 ): MergeComparisons =>
-  sampleStratifiedRoundRobin({
-    buckets: partitionMergeComparisons(comparisons),
-    bucketOrder,
-    targetSize: Numeric.min(MERGE_SUBSAMPLE_TARGET_SIZE, Arr.length(comparisons)),
-    seed
-  }).pipe(Chunk.toReadonlyArray)
+  sampleStratifiedRoundRobin(
+    new StratifiedRoundRobinOptions({
+      buckets: partitionMergeComparisons(comparisons),
+      bucketOrder,
+      targetSize: Numeric.min(MERGE_SUBSAMPLE_TARGET_SIZE, Arr.length(comparisons)),
+      seed
+    })
+  ).pipe(Chunk.toReadonlyArray)

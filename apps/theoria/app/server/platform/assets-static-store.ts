@@ -1,11 +1,5 @@
-import {
-  HttpClient,
-  HttpClientError,
-  HttpClientRequest,
-  HttpClientResponse,
-  HttpServerResponse
-} from "@effect/platform"
 import { Boolean as Bool, Effect, Layer, Match, Option, Predicate, Schema } from "effect"
+import { HttpClient, HttpClientError, HttpClientRequest, HttpClientResponse, HttpServerResponse } from "effect/http"
 import * as Num from "effect/Number"
 
 import { StaticStore, StaticStoreError } from "../config/static-store.js"
@@ -47,14 +41,15 @@ const assetsClient = (assets: AssetsFetcher): HttpClient.HttpClient =>
     Effect.tryPromise({
       try: () => assets.fetch(url, { method: request.method, headers: request.headers, signal }),
       catch: (cause) =>
-        new HttpClientError.RequestError({
-          request,
-          reason: "Transport",
-          cause,
-          description: Match.value(cause).pipe(
-            Match.when(Predicate.isError, (error) => error.message),
-            Match.orElse(String)
-          )
+        new HttpClientError.HttpClientError({
+          reason: new HttpClientError.TransportError({
+            request,
+            cause,
+            description: Match.value(cause).pipe(
+              Match.when(Predicate.isError, (error) => error.message),
+              Match.orElse(String)
+            )
+          })
         })
     }).pipe(Effect.map((response) => HttpClientResponse.fromWeb(request, response)))
   ).pipe(HttpClient.mapRequest(HttpClientRequest.prependUrl(assetsOrigin)))
@@ -65,8 +60,8 @@ const assetsClient = (assets: AssetsFetcher): HttpClient.HttpClient =>
  * that may well exist, so it is `Unreadable` and reaches the caller as a 500.
  */
 const storeFailure = (pathname: string) => (cause: HttpClientError.HttpClientError): StaticStoreError =>
-  Match.value(cause).pipe(
-    Match.tag("ResponseError", (error) =>
+  Match.value(cause.reason).pipe(
+    Match.tag("StatusCodeError", (error) =>
       Bool.match(Num.Equivalence(error.response.status, 404), {
         onTrue: () => new StaticStoreError({ pathname, reason: "NotFound", detail: "" }),
         onFalse: () => new StaticStoreError({ pathname, reason: "Unreadable", detail: error.message })
@@ -74,7 +69,7 @@ const storeFailure = (pathname: string) => (cause: HttpClientError.HttpClientErr
     Match.orElse((error) => new StaticStoreError({ pathname, reason: "Unreadable", detail: error.message }))
   )
 
-export const make = (assets: AssetsFetcher): typeof StaticStore.Service => {
+export const make = (assets: AssetsFetcher): StaticStore["Service"] => {
   const client = assetsClient(assets)
   const okClient = HttpClient.filterStatusOk(client)
   return StaticStore.of({
@@ -90,12 +85,8 @@ export const make = (assets: AssetsFetcher): typeof StaticStore.Service => {
             HttpServerResponse.stream(response.stream, { status: response.status, headers: response.headers })
           )
         ),
-        Effect.catchTag("ResponseError", (error) =>
-          Bool.match(Num.Equivalence(error.response.status, 404), {
-            onTrue: () => Effect.succeedNone,
-            onFalse: () => Effect.fail(error)
-          })),
-        Effect.mapError(storeFailure(pathname))
+        Effect.mapError(storeFailure(pathname)),
+        Effect.catchIf((error) => error.reason === "NotFound", () => Effect.succeedNone)
       )
   })
 }

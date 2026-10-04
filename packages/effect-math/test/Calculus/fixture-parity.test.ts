@@ -1,6 +1,8 @@
-import { BunContext } from "@effect/platform-bun"
+import { BunServices } from "@effect/platform-bun"
 import { describe, expect, it } from "@effect/vitest"
 import { Array, Boolean, Chunk, Data, Effect, Match, Number, Option, Record, Schema } from "effect"
+
+import { nan } from "../helpers/nonFinite.js"
 
 import {
   adaptiveSimpson,
@@ -24,10 +26,7 @@ const lookup = <F>(
   registry: Record.ReadonlyRecord<string, F>,
   name: string
 ): Effect.Effect<F, UnknownFixtureFunction> =>
-  Option.match(Record.get(registry, name), {
-    onNone: () => Effect.fail(new UnknownFixtureFunction({ name })),
-    onSome: Effect.succeed
-  })
+  Effect.fromOption(Record.get(registry, name), () => new UnknownFixtureFunction({ name }))
 
 const testFunctions: Record.ReadonlyRecord<string, (x: number) => number> = {
   x_squared: (x) => Number.multiply(x, x),
@@ -40,8 +39,8 @@ const testFunctions: Record.ReadonlyRecord<string, (x: number) => number> = {
 
 const scalarSurfaceFunctions: Record.ReadonlyRecord<string, (point: Chunk.Chunk<number>) => number> = {
   quadratic_surface: (point) => {
-    const x = Chunk.unsafeGet(point, 0)
-    const y = Chunk.unsafeGet(point, 1)
+    const x = Chunk.getUnsafe(point, 0)
+    const y = Chunk.getUnsafe(point, 1)
     return Number.sum(
       Number.sum(Number.multiply(x, x), Number.multiply(3, Number.multiply(x, y))),
       Number.multiply(y, y)
@@ -51,8 +50,8 @@ const scalarSurfaceFunctions: Record.ReadonlyRecord<string, (point: Chunk.Chunk<
 
 const vectorFieldFunctions: Record.ReadonlyRecord<string, (point: Chunk.Chunk<number>) => Chunk.Chunk<number>> = {
   coupled_field: (point) => {
-    const x = Chunk.unsafeGet(point, 0)
-    const y = Chunk.unsafeGet(point, 1)
+    const x = Chunk.getUnsafe(point, 0)
+    const y = Chunk.getUnsafe(point, 1)
     return Chunk.make(
       Number.sum(Number.multiply(x, x), y),
       Number.sum(Number.multiply(x, y), Numeric.sin(x))
@@ -67,7 +66,7 @@ const expectParity = (
   relativeTolerance: number
 ) => {
   const absExpected = Numeric.abs(expected)
-  const tolerance = Boolean.match(Number.greaterThan(absExpected, 1), {
+  const tolerance = Boolean.match(Number.isGreaterThan(absExpected, 1), {
     onTrue: () => Number.multiply(absExpected, relativeTolerance),
     onFalse: () => absoluteTolerance
   })
@@ -84,7 +83,7 @@ const expectVectorParity = (
   Chunk.forEach(actual, (value, index) =>
     expectParity(
       value,
-      Option.getOrElse(Chunk.get(expected, index), () => Number.unsafeDivide(0, 0)),
+      Option.getOrElse(Chunk.get(expected, index), () => nan),
       absoluteTolerance,
       relativeTolerance
     ))
@@ -113,7 +112,7 @@ describe("Calculus SciPy fixture parity", () => {
   it.effect("all numerical-parity cases match authoritative tolerances", () =>
     Effect.gen(function*() {
       const raw = yield* loadFixture("calculus.numerical-parity")
-      const fixture = yield* Schema.decodeUnknown(CalculusNumericalParityFixtureSchema)(raw, {
+      const fixture = yield* Schema.decodeUnknownEffect(CalculusNumericalParityFixtureSchema)(raw, {
         onExcessProperty: "error"
       })
 
@@ -218,5 +217,5 @@ describe("Calculus SciPy fixture parity", () => {
               ))),
           Match.exhaustive
         ))
-    }).pipe(Effect.provide(BunContext.layer)))
+    }).pipe(Effect.provide(BunServices.layer)))
 })

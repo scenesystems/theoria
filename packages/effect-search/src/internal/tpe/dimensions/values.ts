@@ -88,7 +88,7 @@ const valuesWithFallback = <A>(
     conditionFallbackLadder(parameter.activeWhen),
     Arr.empty<A>(),
     (selected, conditions) =>
-      Match.value(Num.greaterThan(Arr.length(selected), 0)).pipe(
+      Match.value(Num.isGreaterThan(Arr.length(selected), 0)).pipe(
         Match.when(true, () => selected),
         Match.orElse(() => collectValues(parameter, trials, conditions, normalize))
       )

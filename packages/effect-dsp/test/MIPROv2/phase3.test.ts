@@ -1,7 +1,6 @@
 /**
  * MIPROv2 Phase 3 Bayesian-search contracts.
  */
-import * as LanguageModel from "@effect/ai/LanguageModel"
 import { describe, expect, it } from "@effect/vitest"
 import { Demonstration } from "@scenesystems/effect-dsp/Demonstration"
 import { AllTrialsFailed } from "@scenesystems/effect-dsp/DspError"
@@ -13,7 +12,7 @@ import { ModuleParameters } from "@scenesystems/effect-dsp/ModuleParameters"
 import * as Signature from "@scenesystems/effect-dsp/Signature"
 import {
   Array as Arr,
-  Data,
+  Boolean as Bool,
   Effect,
   Equal,
   Layer,
@@ -23,10 +22,17 @@ import {
   Record as Rec,
   Ref,
   Schema,
-  String
+  String,
+  Tuple
 } from "effect"
+import * as LanguageModel from "effect/ai/LanguageModel"
 import { makeTrialRefs } from "../../src/internal/miprov2/phase3State.js"
-import { evaluateBaseline, evaluateTrial, EvaluateTrialOptions } from "../../src/internal/miprov2/runtime/evaluate.js"
+import {
+  evaluateBaseline,
+  EvaluateBaselineOptions,
+  evaluateTrial,
+  EvaluateTrialOptions
+} from "../../src/internal/miprov2/runtime/evaluate.js"
 import {
   BestAveragingCandidate,
   Phase3Config,
@@ -38,7 +44,7 @@ import {
   PredictorDemoCandidates,
   PredictorInstructionCandidates
 } from "../../src/MIPROv2Candidates.js"
-import { run, trialBudget } from "../../src/MIPROv2Search.js"
+import { Options, run, trialBudget } from "../../src/MIPROv2Search.js"
 
 const makeQaSignature = () =>
   Signature.make(
@@ -139,17 +145,19 @@ describe("MIPROv2 Phase 3", () => {
       )
       const layer = Layer.succeed(LanguageModel.LanguageModel, mock.service)
 
-      const result = yield* run({
-        module,
-        valset: trainset,
-        metric: Metric.exactMatch("answer"),
-        demoCandidates,
-        instructionCandidates,
-        trialBudget: 4,
-        minibatchSize: 1,
-        fullEvalEvery: 2,
-        seed: 13
-      }).pipe(Effect.provide(layer))
+      const result = yield* run(
+        new Options({
+          module,
+          valset: trainset,
+          metric: Metric.exactMatch("answer"),
+          demoCandidates,
+          instructionCandidates,
+          trialBudget: 4,
+          minibatchSize: 1,
+          fullEvalEvery: 2,
+          seed: 13
+        })
+      ).pipe(Effect.provide(layer))
 
       expect(result.diagnostics.dimensionNames).toEqual(Arr.make("qa__demo", "qa__instruction"))
       expect(result.diagnostics.samplerKind).toBe("tpe")
@@ -169,15 +177,17 @@ describe("MIPROv2 Phase 3", () => {
         }
       )
       const child = yield* Module.predict("child", childSignature)
-      const root = yield* Module.compose({
-        name: "root",
-        signature: rootSignature,
-        subModules: Rec.singleton("child", child),
-        forward: ({ input }) =>
-          child.forward({ query: input.question }).pipe(
-            Effect.map((result) => ({ answer: result.fact }))
-          )
-      })
+      const root = yield* Module.compose(
+        new Module.ComposeOptions({
+          name: "root",
+          signature: rootSignature,
+          subModules: Rec.singleton("child", child),
+          forward: ({ input }) =>
+            child.forward({ query: input.question }).pipe(
+              Effect.map((result) => ({ answer: result.fact }))
+            )
+        })
+      )
       const originalRootParams = yield* Ref.get(root.params)
       const originalChildParams = yield* Ref.get(child.params)
       const demoCandidates = Arr.make(
@@ -245,19 +255,21 @@ describe("MIPROv2 Phase 3", () => {
         })
       )
       const mock = yield* MockLanguageModel.make(MockLanguageModel.succeed({ fact: "Paris", answer: "Paris" }))
-      const failure = yield* run({
-        module: root,
-        valset: trainset,
-        metric: Metric.exactMatch("answer"),
-        demoCandidates,
-        instructionCandidates,
-        trialBudget: 1,
-        seed: 17
-      }).pipe(
+      const failure = yield* run(
+        new Options({
+          module: root,
+          valset: trainset,
+          metric: Metric.exactMatch("answer"),
+          demoCandidates,
+          instructionCandidates,
+          trialBudget: 1,
+          seed: 17
+        })
+      ).pipe(
         Effect.provideService(LanguageModel.LanguageModel, mock.service),
         Effect.flip
       )
-      const report = yield* Schema.decodeUnknown(AllTrialsFailed)(failure)
+      const report = yield* Schema.decodeUnknownEffect(AllTrialsFailed)(failure)
 
       expect(report.message).toContain("destination contract for predictor 'child'")
       expect(yield* Ref.get(mock.calls)).toEqual(Arr.empty())
@@ -321,45 +333,51 @@ describe("MIPROv2 Phase 3", () => {
         )
       })
       const mock = yield* MockLanguageModel.make(MockLanguageModel.succeed({ answer: "Paris" }))
-      const ambiguous = yield* run({
-        module,
-        valset: trainset,
-        metric: Metric.exactMatch("answer"),
-        demoCandidates: Arr.make(demoSet, demoSet),
-        instructionCandidates,
-        trialBudget: 1,
-        seed: 19
-      }).pipe(
+      const ambiguous = yield* run(
+        new Options({
+          module,
+          valset: trainset,
+          metric: Metric.exactMatch("answer"),
+          demoCandidates: Arr.make(demoSet, demoSet),
+          instructionCandidates,
+          trialBudget: 1,
+          seed: 19
+        })
+      ).pipe(
         Effect.provideService(LanguageModel.LanguageModel, mock.service),
         Effect.flip
       )
-      const mismatched = yield* run({
-        module,
-        valset: trainset,
-        metric: Metric.exactMatch("answer"),
-        demoCandidates: Arr.make(demoSet),
-        instructionCandidates: mismatchedInstructionCandidates,
-        trialBudget: 1,
-        seed: 19
-      }).pipe(
+      const mismatched = yield* run(
+        new Options({
+          module,
+          valset: trainset,
+          metric: Metric.exactMatch("answer"),
+          demoCandidates: Arr.make(demoSet),
+          instructionCandidates: mismatchedInstructionCandidates,
+          trialBudget: 1,
+          seed: 19
+        })
+      ).pipe(
         Effect.provideService(LanguageModel.LanguageModel, mock.service),
         Effect.flip
       )
-      const unknown = yield* run({
-        module,
-        valset: trainset,
-        metric: Metric.exactMatch("answer"),
-        demoCandidates: Arr.make(demoSet, unknownDemoSet),
-        instructionCandidates,
-        trialBudget: 1,
-        seed: 19
-      }).pipe(
+      const unknown = yield* run(
+        new Options({
+          module,
+          valset: trainset,
+          metric: Metric.exactMatch("answer"),
+          demoCandidates: Arr.make(demoSet, unknownDemoSet),
+          instructionCandidates,
+          trialBudget: 1,
+          seed: 19
+        })
+      ).pipe(
         Effect.provideService(LanguageModel.LanguageModel, mock.service),
         Effect.flip
       )
-      const ambiguousReport = yield* Schema.decodeUnknown(AllTrialsFailed)(ambiguous)
-      const mismatchedReport = yield* Schema.decodeUnknown(AllTrialsFailed)(mismatched)
-      const unknownReport = yield* Schema.decodeUnknown(AllTrialsFailed)(unknown)
+      const ambiguousReport = yield* Schema.decodeUnknownEffect(AllTrialsFailed)(ambiguous)
+      const mismatchedReport = yield* Schema.decodeUnknownEffect(AllTrialsFailed)(mismatched)
+      const unknownReport = yield* Schema.decodeUnknownEffect(AllTrialsFailed)(unknown)
 
       expect(ambiguousReport.message).toContain("Ambiguous phase-3 demo candidates for predictor 'qa'")
       expect(mismatchedReport.message).toContain("identifies predictor 'other'")
@@ -431,17 +449,19 @@ describe("MIPROv2 Phase 3", () => {
       )
       const layer = Layer.succeed(LanguageModel.LanguageModel, mock.service)
 
-      const result = yield* run({
-        module,
-        valset: trainset,
-        metric: Metric.exactMatch("answer"),
-        demoCandidates,
-        instructionCandidates,
-        trialBudget: 6,
-        minibatchSize: 1,
-        fullEvalEvery: 3,
-        seed: 41
-      }).pipe(Effect.provide(layer))
+      const result = yield* run(
+        new Options({
+          module,
+          valset: trainset,
+          metric: Metric.exactMatch("answer"),
+          demoCandidates,
+          instructionCandidates,
+          trialBudget: 6,
+          minibatchSize: 1,
+          fullEvalEvery: 3,
+          seed: 41
+        })
+      ).pipe(Effect.provide(layer))
 
       expect(result.diagnostics.priorTrialCount).toBe(1)
       expect(result.diagnostics.fullEvalTrialNumbers).toEqual(Arr.make(2, 5))
@@ -467,7 +487,7 @@ describe("MIPROv2 Phase 3", () => {
       )
       const refs = yield* makeTrialRefs
       const seenConfigs = yield* Ref.make(Arr.empty<Phase3Config>())
-      const scores = yield* Ref.make<Schema.Array$<typeof Schema.Number>["Type"]>(Arr.make(Num.unsafeDivide(0, 0), 1))
+      const scores = yield* Ref.make<ReadonlyArray<number>>(Arr.make(NaN, 1))
 
       yield* Ref.set(
         refs.bestAveragingRef,
@@ -483,9 +503,9 @@ describe("MIPROv2 Phase 3", () => {
           emit: () => Effect.void,
           evaluateOn: (config) =>
             Ref.update(seenConfigs, (seen) => Arr.append(seen, config)).pipe(
-              Effect.zipRight(
-                Ref.modify(scores, (remaining) => Data.tuple(Arr.head(remaining), Arr.drop(remaining, 1))).pipe(
-                  Effect.flatten
+              Effect.andThen(
+                Ref.modify(scores, (remaining) => Tuple.make(Arr.head(remaining), Arr.drop(remaining, 1))).pipe(
+                  Effect.flatMap(Effect.fromOption)
                 )
               )
             )
@@ -505,49 +525,56 @@ describe("MIPROv2 Phase 3", () => {
       const failedConfig: Phase3Config = { qa__demo: 0, qa__instruction: 1 }
       const validConfig: Phase3Config = { qa__demo: 0, qa__instruction: 2 }
       const refs = yield* makeTrialRefs
-      yield* evaluateBaseline({
-        baselineConfig,
-        refs,
-        valset: trainset,
-        evaluateOn: () => Effect.succeed(Num.negate(5))
-      })
+      yield* evaluateBaseline(
+        new EvaluateBaselineOptions({
+          baselineConfig,
+          refs,
+          valset: trainset,
+          evaluateOn: () => Effect.succeed(Num.multiply(5, -1))
+        })
+      )
       const failure = new AllTrialsFailed({ message: "full checkpoint failed", trialCount: 2 })
-      const failed = yield* evaluateTrial({
-        config: failedConfig,
-        refs,
-        minibatchExamples: Arr.take(trainset, 1),
-        valset: trainset,
-        fullEvalEvery: 1,
-        emit: () => Effect.void,
-        evaluateOn: (_config, examples) =>
-          Effect.if(Num.Equivalence(Arr.length(examples), 1), {
-            onTrue: () => Effect.succeed(Num.negate(1)),
-            onFalse: () => Effect.fail(failure)
-          })
-      }).pipe(Effect.flip)
+      const failed = yield* evaluateTrial(
+        new EvaluateTrialOptions({
+          config: failedConfig,
+          refs,
+          minibatchExamples: Arr.take(trainset, 1),
+          valset: trainset,
+          fullEvalEvery: 1,
+          emit: () => Effect.void,
+          evaluateOn: (_config, examples) =>
+            Bool.match(Num.Equivalence(Arr.length(examples), 1), {
+              onTrue: () => Effect.succeed(Num.multiply(1, -1)),
+              onFalse: () => Effect.fail(failure)
+            })
+        })
+      ).pipe(Effect.flip)
       expect(failed).toBe(failure)
-      expect(yield* Ref.get(refs.bestScoreRef)).toEqual(Option.some(Num.negate(5)))
+      expect(yield* Ref.get(refs.bestScoreRef)).toEqual(Option.some(Num.multiply(5, -1)))
       expect(yield* Ref.get(refs.bestAveragingRef)).toEqual(Option.some(
         new BestAveragingCandidate({
           config: baselineConfig,
-          score: Num.negate(5)
+          score: Num.multiply(5, -1)
         })
       ))
       const fullConfigs = yield* Ref.make(Arr.empty<Phase3Config>())
-      const score = yield* evaluateTrial({
-        config: validConfig,
-        refs,
-        minibatchExamples: Arr.take(trainset, 1),
-        valset: trainset,
-        fullEvalEvery: 1,
-        emit: () => Effect.void,
-        evaluateOn: (config, examples) =>
-          Effect.when(Ref.update(fullConfigs, Arr.append(config)), () => Num.Equivalence(Arr.length(examples), 2)).pipe(
-            Effect.as(Num.negate(3))
-          )
-      })
-      expect(score).toBe(Num.negate(3))
-      expect(yield* Ref.get(refs.bestScoreRef)).toEqual(Option.some(Num.negate(3)))
+      const score = yield* evaluateTrial(
+        new EvaluateTrialOptions({
+          config: validConfig,
+          refs,
+          minibatchExamples: Arr.take(trainset, 1),
+          valset: trainset,
+          fullEvalEvery: 1,
+          emit: () => Effect.void,
+          evaluateOn: (config, examples) =>
+            Bool.match(Num.Equivalence(Arr.length(examples), 2), {
+              onFalse: () => Effect.void,
+              onTrue: () => Ref.update(fullConfigs, Arr.append(config))
+            }).pipe(Effect.as(Num.multiply(3, -1)))
+        })
+      )
+      expect(score).toBe(Num.multiply(3, -1))
+      expect(yield* Ref.get(refs.bestScoreRef)).toEqual(Option.some(Num.multiply(3, -1)))
       expect(yield* Ref.get(fullConfigs)).toEqual(Arr.make(validConfig))
       expect(yield* Ref.get(refs.fullEvalTrialsRef)).toEqual(Arr.make(1))
     }))
@@ -559,73 +586,81 @@ describe("MIPROv2 Phase 3", () => {
       const validConfig: Phase3Config = { qa__demo: 0, qa__instruction: 2 }
       const lowerConfig: Phase3Config = { qa__demo: 0, qa__instruction: 3 }
       const refs = yield* makeTrialRefs
-      const baseline = yield* evaluateBaseline({
-        baselineConfig,
-        refs,
-        valset: trainset,
-        evaluateOn: () => Effect.succeed(Num.negate(5))
-      })
-      yield* evaluateTrial({
-        config: failedConfig,
-        refs,
-        minibatchExamples: Arr.take(trainset, 1),
-        valset: trainset,
-        fullEvalEvery: 2,
-        emit: () => Effect.void,
-        evaluateOn: () => Effect.succeed(Num.negate(1))
-      })
-      expect(yield* Ref.get(refs.bestAveragingRef)).toEqual(Option.some(
-        new BestAveragingCandidate({ config: failedConfig, score: Num.negate(1) })
-      ))
-      const failure = new AllTrialsFailed({ message: "stored checkpoint failed", trialCount: 2 })
-      const fullConfigs = yield* Ref.make(Arr.empty<Phase3Config>())
-      const failed = yield* evaluateTrial({
-        config: validConfig,
-        refs,
-        minibatchExamples: Arr.take(trainset, 1),
-        valset: trainset,
-        fullEvalEvery: 2,
-        emit: () => Effect.void,
-        evaluateOn: (config, examples) =>
-          Effect.if(Num.Equivalence(Arr.length(examples), 1), {
-            onTrue: () => Effect.succeed(Num.negate(3)),
-            onFalse: () => Ref.update(fullConfigs, Arr.append(config)).pipe(Effect.zipRight(Effect.fail(failure)))
-          })
-      }).pipe(Effect.flip)
-      const candidateAfterFailure = yield* Ref.get(refs.bestAveragingRef)
-      const bestAfterFailure = yield* Ref.get(refs.bestScoreRef)
-
-      yield* Effect.forEach(Arr.make(validConfig, lowerConfig), (config) =>
-        evaluateTrial({
-          config,
+      const baseline = yield* evaluateBaseline(
+        new EvaluateBaselineOptions({
+          baselineConfig,
+          refs,
+          valset: trainset,
+          evaluateOn: () => Effect.succeed(Num.multiply(5, -1))
+        })
+      )
+      yield* evaluateTrial(
+        new EvaluateTrialOptions({
+          config: failedConfig,
           refs,
           minibatchExamples: Arr.take(trainset, 1),
           valset: trainset,
           fullEvalEvery: 2,
           emit: () => Effect.void,
-          evaluateOn: (evaluatedConfig, examples) =>
-            Effect.if(Num.Equivalence(Arr.length(examples), 1), {
-              onTrue: () =>
-                Effect.succeed(
-                  Match.value(Schema.equivalence(Phase3Config)(evaluatedConfig, validConfig)).pipe(
-                    Match.when(true, () => Num.negate(3)),
-                    Match.orElse(() => Num.negate(4))
-                  )
-                ),
-              onFalse: () => Ref.update(fullConfigs, Arr.append(evaluatedConfig)).pipe(Effect.as(Num.negate(2)))
+          evaluateOn: () => Effect.succeed(Num.multiply(1, -1))
+        })
+      )
+      expect(yield* Ref.get(refs.bestAveragingRef)).toEqual(Option.some(
+        new BestAveragingCandidate({ config: failedConfig, score: Num.multiply(1, -1) })
+      ))
+      const failure = new AllTrialsFailed({ message: "stored checkpoint failed", trialCount: 2 })
+      const fullConfigs = yield* Ref.make(Arr.empty<Phase3Config>())
+      const failed = yield* evaluateTrial(
+        new EvaluateTrialOptions({
+          config: validConfig,
+          refs,
+          minibatchExamples: Arr.take(trainset, 1),
+          valset: trainset,
+          fullEvalEvery: 2,
+          emit: () => Effect.void,
+          evaluateOn: (config, examples) =>
+            Bool.match(Num.Equivalence(Arr.length(examples), 1), {
+              onTrue: () => Effect.succeed(Num.multiply(3, -1)),
+              onFalse: () => Ref.update(fullConfigs, Arr.append(config)).pipe(Effect.andThen(Effect.fail(failure)))
             })
-        }))
+        })
+      ).pipe(Effect.flip)
+      const candidateAfterFailure = yield* Ref.get(refs.bestAveragingRef)
+      const bestAfterFailure = yield* Ref.get(refs.bestScoreRef)
+
+      yield* Effect.forEach(Arr.make(validConfig, lowerConfig), (config) =>
+        evaluateTrial(
+          new EvaluateTrialOptions({
+            config,
+            refs,
+            minibatchExamples: Arr.take(trainset, 1),
+            valset: trainset,
+            fullEvalEvery: 2,
+            emit: () => Effect.void,
+            evaluateOn: (evaluatedConfig, examples) =>
+              Bool.match(Num.Equivalence(Arr.length(examples), 1), {
+                onTrue: () =>
+                  Effect.succeed(
+                    Match.value(Schema.toEquivalence(Phase3Config)(evaluatedConfig, validConfig)).pipe(
+                      Match.when(true, () => Num.multiply(3, -1)),
+                      Match.orElse(() => Num.multiply(4, -1))
+                    )
+                  ),
+                onFalse: () => Ref.update(fullConfigs, Arr.append(evaluatedConfig)).pipe(Effect.as(Num.multiply(2, -1)))
+              })
+          })
+        ))
 
       expect(yield* Ref.get(fullConfigs)).toEqual(Arr.make(failedConfig, validConfig))
       expect(failed).toBe(failure)
       expect(candidateAfterFailure).toEqual(Option.none())
-      expect(bestAfterFailure).toEqual(Option.some(Num.negate(1)))
-      expect(yield* Ref.get(refs.bestScoreRef)).toEqual(Option.some(Num.negate(1)))
+      expect(bestAfterFailure).toEqual(Option.some(Num.multiply(1, -1)))
+      expect(yield* Ref.get(refs.bestScoreRef)).toEqual(Option.some(Num.multiply(1, -1)))
       expect(yield* Ref.get(refs.bestAveragingRef)).toEqual(Option.some(
-        new BestAveragingCandidate({ config: validConfig, score: Num.negate(3) })
+        new BestAveragingCandidate({ config: validConfig, score: Num.multiply(3, -1) })
       ))
       expect(yield* Ref.get(refs.fullEvalTrialsRef)).toEqual(Arr.make(3))
       expect(yield* Ref.get(refs.minibatchTrialsRef)).toEqual(Arr.make(0, 1, 2, 3))
-      expect(Arr.head(baseline)).toEqual(Option.some(Num.negate(5)))
+      expect(Arr.head(baseline)).toEqual(Option.some(Num.multiply(5, -1)))
     }))
 })

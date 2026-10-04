@@ -1,6 +1,6 @@
-import { HttpServerResponse } from "@effect/platform"
 import { Boolean as Bool, Effect } from "effect"
 import * as Arr from "effect/Array"
+import { HttpServerResponse } from "effect/http"
 import * as Str from "effect/String"
 
 import type { DocsManifest, DocsPackageSummary } from "@theoria/docs-model"

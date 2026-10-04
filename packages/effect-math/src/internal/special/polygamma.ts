@@ -26,12 +26,12 @@ class PolygammaState extends Data.Class<{
 
 // Bernoulli numbers B_{2k} for k = 1..6
 const bernoulliNumbers: Chunk.Chunk<number> = Chunk.make(
-  Number.unsafeDivide(1, 6), // B2
-  Number.unsafeDivide(-1, 30), // B4
-  Number.unsafeDivide(1, 42), // B6
-  Number.unsafeDivide(-1, 30), // B8
-  Number.unsafeDivide(5, 66), // B10
-  Number.unsafeDivide(-691, 2730) // B12
+  Number.divideUnsafe(1, 6), // B2
+  Number.divideUnsafe(-1, 30), // B4
+  Number.divideUnsafe(1, 42), // B6
+  Number.divideUnsafe(-1, 30), // B8
+  Number.divideUnsafe(5, 66), // B10
+  Number.divideUnsafe(-691, 2730) // B12
 )
 
 const factorial = (value: number): number =>
@@ -68,13 +68,13 @@ const polygammaAsymptotic = (n: number, x: number): number => {
     const risingFact = factorial(Number.subtract(Number.sum(twoK, n), 1))
     const denomFact = factorial(twoK)
     const xPow = pow(x, Number.sum(twoK, n))
-    return Number.sum(acc, Number.multiply(bk, Number.unsafeDivide(risingFact, Number.multiply(denomFact, xPow))))
+    return Number.sum(acc, Number.multiply(bk, Number.divideUnsafe(risingFact, Number.multiply(denomFact, xPow))))
   })
 
   const result = Number.sum(
     Number.sum(
-      Number.unsafeDivide(factorial(Number.subtract(n, 1)), xPowN),
-      Number.unsafeDivide(nFact, Number.multiply(2, xPowN1))
+      Number.divideUnsafe(factorial(Number.subtract(n, 1)), xPowN),
+      Number.divideUnsafe(nFact, Number.multiply(2, xPowN1))
     ),
     bernoulliSum
   )
@@ -94,12 +94,12 @@ const polygammaRecurrence = (n: number, x: number, correction: number): number =
   const initial = new PolygammaState({ x, correction })
   const final = Iterable.reduce(
     Iterable.unfold(initial, (state) =>
-      Boolean.match(Number.greaterThanOrEqualTo(state.x, asymptoticThreshold), {
+      Boolean.match(Number.isGreaterThanOrEqualTo(state.x, asymptoticThreshold), {
         onTrue: Option.none,
         onFalse: () => {
           const term = Number.multiply(
             signForOrder(n),
-            Number.unsafeDivide(factorial(n), pow(state.x, Number.sum(n, 1)))
+            Number.divideUnsafe(factorial(n), pow(state.x, Number.sum(n, 1)))
           )
           const next = new PolygammaState({
             x: Number.sum(state.x, 1),

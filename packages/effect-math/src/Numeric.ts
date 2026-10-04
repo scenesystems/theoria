@@ -4,7 +4,7 @@
  * @since 0.1.0
  * @module
  */
-import { Array, Chunk, Clock, Effect, Match, Number, Option, Schema } from "effect"
+import { Array, Chunk, Clock, Effect, Match, Number, Option, Schema, String } from "effect"
 
 import * as Binary from "./internal/numeric/binary.js"
 import * as Logspace from "./internal/numeric/logspace.js"
@@ -16,15 +16,15 @@ import * as Transcendental from "./internal/numeric/transcendental.js"
 import * as PolicyGuard from "./internal/policyGuard.js"
 import * as Policy from "./Policy.js"
 
-const encodeNumber = Schema.encodeSync(Schema.NumberFromString)
-const finite = Schema.Number.pipe(Schema.finite())
-const finiteInteger = finite.pipe(Schema.int())
+const encodeNumber = String.String
+const finite = Schema.Number.check(Schema.isFinite())
+const finiteInteger = finite.check(Schema.isInt())
 
 /** Positive finite error limit measured in the result's units.
  * @since 0.1.0
  * @category schemas
  */
-export const AbsoluteTolerance = finite.pipe(Schema.greaterThan(0)).annotations({
+export const AbsoluteTolerance = finite.check(Schema.isGreaterThan(0)).annotate({
   identifier: "@scenesystems/effect-math/Numeric/AbsoluteTolerance"
 }).pipe(Schema.brand("@scenesystems/effect-math/Numeric/AbsoluteTolerance"))
 
@@ -32,7 +32,7 @@ export const AbsoluteTolerance = finite.pipe(Schema.greaterThan(0)).annotations(
  * @since 0.1.0
  * @category schemas
  */
-export const RelativeTolerance = finite.pipe(Schema.greaterThan(0)).annotations({
+export const RelativeTolerance = finite.check(Schema.isGreaterThan(0)).annotate({
   identifier: "@scenesystems/effect-math/Numeric/RelativeTolerance"
 }).pipe(Schema.brand("@scenesystems/effect-math/Numeric/RelativeTolerance"))
 
@@ -40,7 +40,7 @@ export const RelativeTolerance = finite.pipe(Schema.greaterThan(0)).annotations(
  * @since 0.1.0
  * @category schemas
  */
-export const IterationBudget = finiteInteger.pipe(Schema.greaterThanOrEqualTo(1)).annotations({
+export const IterationBudget = finiteInteger.check(Schema.isGreaterThanOrEqualTo(1)).annotate({
   identifier: "@scenesystems/effect-math/Numeric/IterationBudget"
 }).pipe(Schema.brand("@scenesystems/effect-math/Numeric/IterationBudget"))
 
@@ -48,7 +48,7 @@ export const IterationBudget = finiteInteger.pipe(Schema.greaterThanOrEqualTo(1)
  * @since 0.1.0
  * @category schemas
  */
-export const ConditioningThreshold = finite.pipe(Schema.greaterThan(0)).annotations({
+export const ConditioningThreshold = finite.check(Schema.isGreaterThan(0)).annotate({
   identifier: "@scenesystems/effect-math/Numeric/ConditioningThreshold"
 }).pipe(Schema.brand("@scenesystems/effect-math/Numeric/ConditioningThreshold"))
 
@@ -56,7 +56,7 @@ export const ConditioningThreshold = finite.pipe(Schema.greaterThan(0)).annotati
  * @since 0.1.0
  * @category schemas
  */
-export const StepSize = finite.pipe(Schema.greaterThan(0)).annotations({
+export const StepSize = finite.check(Schema.isGreaterThan(0)).annotate({
   identifier: "@scenesystems/effect-math/Numeric/StepSize"
 }).pipe(Schema.brand("@scenesystems/effect-math/Numeric/StepSize"))
 
@@ -64,7 +64,7 @@ export const StepSize = finite.pipe(Schema.greaterThan(0)).annotations({
  * @since 0.1.0
  * @category schemas
  */
-export const FiniteScalar = finite.annotations({
+export const FiniteScalar = finite.annotate({
   identifier: "@scenesystems/effect-math/Numeric/FiniteScalar"
 }).pipe(Schema.brand("@scenesystems/effect-math/Numeric/FiniteScalar"))
 
@@ -72,7 +72,7 @@ export const FiniteScalar = finite.annotations({
  * @since 0.1.0
  * @category schemas
  */
-export const FinitePositiveScalar = finite.pipe(Schema.greaterThan(0)).annotations({
+export const FinitePositiveScalar = finite.check(Schema.isGreaterThan(0)).annotate({
   identifier: "@scenesystems/effect-math/Numeric/FinitePositiveScalar"
 }).pipe(Schema.brand("@scenesystems/effect-math/Numeric/FinitePositiveScalar"))
 
@@ -80,15 +80,20 @@ export const FinitePositiveScalar = finite.pipe(Schema.greaterThan(0)).annotatio
  * @since 0.1.0
  * @category schemas
  */
-export const FiniteVector = Schema.NonEmptyChunk(finite).annotations({
-  identifier: "@scenesystems/effect-math/Numeric/FiniteVector"
-})
+export const FiniteVector = Schema.toCodecJson(Schema.Chunk(finite)).check(
+  Schema.makeFilter<Chunk.Chunk<number>>(Chunk.isNonEmpty)
+)
+  .annotate({
+    identifier: "@scenesystems/effect-math/Numeric/FiniteVector"
+  })
 
 /** Non-empty dense vector of positive finite numbers.
  * @since 0.1.0
  * @category schemas
  */
-export const PositiveFiniteVector = Schema.NonEmptyChunk(finite.pipe(Schema.greaterThan(0))).annotations({
+export const PositiveFiniteVector = Schema.toCodecJson(Schema.Chunk(finite.check(Schema.isGreaterThan(0)))).check(
+  Schema.makeFilter<Chunk.Chunk<number>>(Chunk.isNonEmpty)
+).annotate({
   identifier: "@scenesystems/effect-math/Numeric/PositiveFiniteVector"
 })
 
@@ -96,7 +101,7 @@ export const PositiveFiniteVector = Schema.NonEmptyChunk(finite.pipe(Schema.grea
  * @since 0.1.0
  * @category schemas
  */
-export const DivideInput = Schema.Struct({ dividend: finite, divisor: finite }).annotations({
+export const DivideInput = Schema.Struct({ dividend: finite, divisor: finite }).annotate({
   identifier: "@scenesystems/effect-math/Numeric/DivideInput"
 })
 
@@ -104,7 +109,7 @@ export const DivideInput = Schema.Struct({ dividend: finite, divisor: finite }).
  * @since 0.1.0
  * @category schemas
  */
-export const LogInput = Schema.Struct({ value: finite.pipe(Schema.greaterThan(0)) }).annotations({
+export const LogInput = Schema.Struct({ value: finite.check(Schema.isGreaterThan(0)) }).annotate({
   identifier: "@scenesystems/effect-math/Numeric/LogInput"
 })
 
@@ -112,7 +117,7 @@ export const LogInput = Schema.Struct({ value: finite.pipe(Schema.greaterThan(0)
  * @since 0.1.0
  * @category schemas
  */
-export const ReductionInput = Schema.Struct({ values: FiniteVector }).annotations({
+export const ReductionInput = Schema.Struct({ values: FiniteVector }).annotate({
   identifier: "@scenesystems/effect-math/Numeric/ReductionInput"
 })
 
@@ -120,7 +125,7 @@ export const ReductionInput = Schema.Struct({ values: FiniteVector }).annotation
  * @since 0.1.0
  * @category schemas
  */
-export const ArgmaxInput = Schema.Struct({ values: FiniteVector }).annotations({
+export const ArgmaxInput = Schema.Struct({ values: FiniteVector }).annotate({
   identifier: "@scenesystems/effect-math/Numeric/ArgmaxInput"
 })
 
@@ -128,7 +133,7 @@ export const ArgmaxInput = Schema.Struct({ values: FiniteVector }).annotations({
  * @since 0.1.0
  * @category schemas
  */
-export const LogaddexpInput = Schema.Struct({ a: finite, b: finite }).annotations({
+export const LogaddexpInput = Schema.Struct({ a: finite, b: finite }).annotate({
   identifier: "@scenesystems/effect-math/Numeric/LogaddexpInput"
 })
 
@@ -136,7 +141,7 @@ export const LogaddexpInput = Schema.Struct({ a: finite, b: finite }).annotation
  * @since 0.2.0
  * @category schemas
  */
-export const LogSumExpInput = Schema.Struct({ values: FiniteVector }).annotations({
+export const LogSumExpInput = Schema.Struct({ values: FiniteVector }).annotate({
   identifier: "@scenesystems/effect-math/Numeric/LogSumExpInput"
 })
 
@@ -144,7 +149,7 @@ export const LogSumExpInput = Schema.Struct({ values: FiniteVector }).annotation
  * @since 0.1.0
  * @category schemas
  */
-export const XlogyInput = Schema.Struct({ x: finite, y: finite.pipe(Schema.greaterThan(0)) }).annotations({
+export const XlogyInput = Schema.Struct({ x: finite, y: finite.check(Schema.isGreaterThan(0)) }).annotate({
   identifier: "@scenesystems/effect-math/Numeric/XlogyInput"
 })
 
@@ -152,7 +157,7 @@ export const XlogyInput = Schema.Struct({ x: finite, y: finite.pipe(Schema.great
  * @since 0.1.0
  * @category schemas
  */
-export const Xlog1pyInput = Schema.Struct({ x: finite, y: finite.pipe(Schema.greaterThan(-1)) }).annotations({
+export const Xlog1pyInput = Schema.Struct({ x: finite, y: finite.check(Schema.isGreaterThan(-1)) }).annotate({
   identifier: "@scenesystems/effect-math/Numeric/Xlog1pyInput"
 })
 
@@ -346,12 +351,14 @@ export type OperationError = DecodeError | DomainViolationError | ExecutionError
 export const safeDivide: typeof Number.divide = Number.divide
 
 /**
- * Divides with JavaScript's IEEE 754 behavior, including infinite and `NaN`
- * results. Use {@link safeDivide} when zero is an expected divisor.
+ * Divides using Effect's `Number.divideUnsafe`, throwing a `RangeError` for
+ * either sign of zero divisor. Other inputs retain IEEE 754 behavior, including
+ * infinite and `NaN` results. Use {@link safeDivide} when zero is expected, or
+ * {@link unsafeDivideValidated} for finite-input validation with typed failures.
  * @since 0.1.0
  * @category operations
  */
-export const unsafeDivide: typeof Number.unsafeDivide = Number.unsafeDivide
+export const unsafeDivide: typeof Number.divideUnsafe = Number.divideUnsafe
 
 /**
  * Divides finite operands and returns `None` for a zero divisor or non-finite
@@ -610,7 +617,7 @@ export const between: typeof Number.between = Number.between
  */
 export const safeDivideValidated = (input: unknown) =>
   Effect.gen(function*() {
-    const decoded = yield* Schema.decodeUnknown(DivideInput)(input, {
+    const decoded = yield* Schema.decodeUnknownEffect(DivideInput)(input, {
       onExcessProperty: "error"
     }).pipe(
       Effect.mapError((error) =>
@@ -631,7 +638,7 @@ export const safeDivideValidated = (input: unknown) =>
  */
 export const unsafeDivideValidated = (input: unknown) =>
   Effect.gen(function*() {
-    const decoded = yield* Schema.decodeUnknown(DivideInput)(input, {
+    const decoded = yield* Schema.decodeUnknownEffect(DivideInput)(input, {
       onExcessProperty: "error"
     }).pipe(
       Effect.mapError((error) =>
@@ -668,7 +675,7 @@ export const unsafeDivideValidated = (input: unknown) =>
  */
 export const logValidated = (input: unknown) =>
   Effect.gen(function*() {
-    const decoded = yield* Schema.decodeUnknown(LogInput)(input, {
+    const decoded = yield* Schema.decodeUnknownEffect(LogInput)(input, {
       onExcessProperty: "error"
     }).pipe(
       Effect.mapError((error) =>
@@ -689,7 +696,7 @@ export const logValidated = (input: unknown) =>
  */
 export const sumValidated = (input: unknown) =>
   Effect.gen(function*() {
-    const decoded = yield* Schema.decodeUnknown(ReductionInput)(input, {
+    const decoded = yield* Schema.decodeUnknownEffect(ReductionInput)(input, {
       onExcessProperty: "error"
     }).pipe(
       Effect.mapError((error) =>
@@ -710,7 +717,7 @@ export const sumValidated = (input: unknown) =>
  */
 export const argmaxValidated = (input: unknown) =>
   Effect.gen(function*() {
-    const decoded = yield* Schema.decodeUnknown(ArgmaxInput)(input, {
+    const decoded = yield* Schema.decodeUnknownEffect(ArgmaxInput)(input, {
       onExcessProperty: "error"
     }).pipe(
       Effect.mapError((error) =>
@@ -832,7 +839,7 @@ export const sumWithPolicies = (values: Iterable<number>) =>
  * export const program = Numeric.log1pWithPolicies(1e-15).pipe(
  *   Effect.provide(layer),
  *   Effect.filterOrFail(
- *     (result) => Predicate.every(Chunk.make(Number.greaterThan(0), Number.lessThan(1e-14)))(result),
+ *     (result) => Predicate.every(Chunk.make(Number.isGreaterThan(0), Number.isLessThan(1e-14)))(result),
  *     () => "UnexpectedLog1pResult"
  *   )
  * )
@@ -977,7 +984,7 @@ export const logSumExp: (xs: Chunk.Chunk<number>) => number = LogSumExp.logSumEx
  */
 export const logaddexpValidated = (input: unknown) =>
   Effect.gen(function*() {
-    const decoded = yield* Schema.decodeUnknown(LogaddexpInput)(input, {
+    const decoded = yield* Schema.decodeUnknownEffect(LogaddexpInput)(input, {
       onExcessProperty: "error"
     }).pipe(
       Effect.mapError((error) =>
@@ -998,7 +1005,7 @@ export const logaddexpValidated = (input: unknown) =>
  */
 export const logSumExpValidated = (input: unknown) =>
   Effect.gen(function*() {
-    const decoded = yield* Schema.decodeUnknown(LogSumExpInput)(input, {
+    const decoded = yield* Schema.decodeUnknownEffect(LogSumExpInput)(input, {
       onExcessProperty: "error"
     }).pipe(
       Effect.mapError((error) =>

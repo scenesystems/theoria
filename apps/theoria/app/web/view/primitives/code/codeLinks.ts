@@ -33,22 +33,22 @@ export class LinkSegment
 {}
 
 /** A run of tokens, either plain or wrapped in one link. */
-export const LineSegment = Schema.Union(TokensSegment, LinkSegment)
+export const LineSegment = Schema.Union([TokensSegment, LinkSegment])
 export type LineSegment = typeof LineSegment.Type
 
-const Positioned = Schema.Struct({ token: HighlightToken, start: Schema.Number, end: Schema.Number })
+const Positioned = Schema.Struct({ token: HighlightToken, start: Schema.Finite, end: Schema.Finite })
 type Positioned = typeof Positioned.Type
 
-const Span = Schema.Struct({ start: Schema.Number, end: Schema.Number, link: CodeLink })
+const Span = Schema.Struct({ start: Schema.Finite, end: Schema.Finite, link: CodeLink })
 type Span = typeof Span.Type
 
-const position = (tokens: Iterable<HighlightToken>) =>
-  Tuple.getSecond(
-    Arr.mapAccum(tokens, 0, (offset, token) => {
-      const end = Num.sum(offset, Str.length(token.value))
-      return Tuple.make(end, Positioned.make({ token, start: offset, end }))
-    })
-  )
+const position = (tokens: Iterable<HighlightToken>) => {
+  const [, positioned] = Arr.mapAccum(tokens, 0, (offset, token) => {
+    const end = Num.sum(offset, Str.length(token.value))
+    return Tuple.make(end, Positioned.make({ token, start: offset, end }))
+  })
+  return positioned
+}
 
 const identifierChar = /[A-Za-z0-9_$.]/
 
@@ -63,7 +63,7 @@ const wholeIdentifier = (text: string, start: number, end: number): boolean =>
 const inCode = (positioned: Iterable<Positioned>, start: number, end: number): boolean =>
   Arr.every(
     Arr.filter(positioned, (position) =>
-      Bool.and(Num.lessThan(position.start, end), Num.greaterThan(position.end, start))),
+      Bool.and(Num.isLessThan(position.start, end), Num.isGreaterThan(position.end, start))),
     (position) =>
       Bool.and(
         Bool.not(Equal.equals(position.token.kind, "comment")),
@@ -74,7 +74,7 @@ const inCode = (positioned: Iterable<Positioned>, start: number, end: number): b
 const overlaps = (spans: Iterable<Span>, start: number, end: number): boolean =>
   Arr.some(
     Arr.fromIterable(spans),
-    (span) => Bool.and(Num.lessThan(span.start, end), Num.greaterThan(span.end, start))
+    (span) => Bool.and(Num.isLessThan(span.start, end), Num.isGreaterThan(span.end, start))
   )
 
 const occurrences = (text: string, needle: string) =>
@@ -89,7 +89,7 @@ const occurrences = (text: string, needle: string) =>
   })
 
 /** Longest link text first, so `Study.open` claims its span before a shorter `Study` could. */
-const byLength = Order.reverse(Order.mapInput(Order.number, (link: CodeLink) => Str.length(link.text)))
+const byLength = Order.flip(Order.mapInput(Order.Number, (link: CodeLink) => Str.length(link.text)))
 
 const spansFor = (text: string, positioned: Iterable<Positioned>, links: Iterable<CodeLink>) =>
   Arr.sort(
@@ -109,13 +109,13 @@ const spansFor = (text: string, positioned: Iterable<Positioned>, links: Iterabl
           }
         )
       })),
-    Order.mapInput(Order.number, (span: Span) =>
+    Order.mapInput(Order.Number, (span: Span) =>
       span.start)
   )
 
 /** Cut one token wherever a span begins or ends inside it. */
 const cut = (p: Positioned, cuts: Iterable<number>) => {
-  const inside = Arr.filter(cuts, (at) => Bool.and(Num.greaterThan(at, p.start), Num.lessThan(at, p.end)))
+  const inside = Arr.filter(cuts, (at) => Bool.and(Num.isGreaterThan(at, p.start), Num.isLessThan(at, p.end)))
   const bounds = Arr.append(Arr.prepend(inside, p.start), p.end)
   return Arr.zipWith(bounds, Arr.drop(bounds, 1), (start, end) =>
     Positioned.make({
@@ -131,13 +131,13 @@ const cut = (p: Positioned, cuts: Iterable<number>) => {
 const spanContaining = (spans: Iterable<Span>, positioned: Positioned): Option.Option<Span> =>
   Arr.findFirst(spans, (span) =>
     Bool.and(
-      Num.greaterThanOrEqualTo(positioned.start, span.start),
-      Num.lessThanOrEqualTo(positioned.end, span.end)
+      Num.isGreaterThanOrEqualTo(positioned.start, span.start),
+      Num.isLessThanOrEqualTo(positioned.end, span.end)
     ))
 
-const Piece = Schema.Struct({ p: Positioned, span: Schema.OptionFromSelf(Span) })
+const Piece = Schema.Struct({ p: Positioned, span: Schema.Option(Span) })
 
-const sameSpan = Option.getEquivalence<Span>((left, right) => Equal.equals(left.start, right.start))
+const sameSpan = Option.makeEquivalence<Span>((left, right) => Equal.equals(left.start, right.start))
 
 /**
  * Splits one highlighted line into plain runs and linked runs. Link texts are

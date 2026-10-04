@@ -13,14 +13,14 @@ import { Example } from "../../Example.js"
 class ScoredDemo extends Schema.Class<ScoredDemo>(
   "@scenesystems/effect-dsp/internal/labeledFewShot/sampling/ScoredDemo"
 )({
-  score: Schema.Number,
+  score: Schema.Finite,
   demo: Demo
 }) {}
 
 class SamplingState extends Schema.Class<SamplingState>(
   "@scenesystems/effect-dsp/internal/labeledFewShot/sampling/SamplingState"
 )({
-  seed: Schema.Number,
+  seed: Schema.Finite,
   scored: Schema.Array(ScoredDemo)
 }) {}
 
@@ -40,13 +40,13 @@ export type LabeledDemos = typeof LabeledDemos.Type
 
 /** @internal */
 export const labeledDemos = (trainset: LabeledExamples): LabeledDemos =>
-  Arr.filterMap(
+  Arr.flatMap(
     trainset,
     (example) =>
       Option.map(
-        Option.fromNullable(example.output),
+        Option.fromNullishOr(example.output),
         (output) => new Demo({ input: example.input, output })
-      )
+      ).pipe(Option.toArray)
   )
 
 /** @internal */

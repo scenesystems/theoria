@@ -3,18 +3,16 @@
  * canvas context. The caller obtains the context from an `HTMLCanvasElement` or
  * `OffscreenCanvas` and owns its lifetime.
  */
-import { Effect, Layer, Option, Schema } from "effect"
+import { Data, Effect, Layer, Option } from "effect"
 
 import { CanvasProfile, CanvasTextMeasurer, Hyphenation, MeasurementCache, Text } from "@scenesystems/effect-text"
 
-export class CanvasLayoutOptions extends Schema.Class<CanvasLayoutOptions>(
-  "@scenesystems/effect-text/examples/04-canvas-measurement/CanvasLayoutOptions"
-)({
-  prepare: Text.Input,
-  request: Text.Request,
-  profileId: Schema.OptionFromSelf(CanvasProfile.Id),
-  emojiCorrection: Schema.OptionFromSelf(CanvasTextMeasurer.EmojiCorrection)
-}) {}
+export class CanvasLayoutOptions extends Data.Class<{
+  readonly prepare: Text.Input
+  readonly request: Text.Request
+  readonly profileId: Option.Option<CanvasProfile.Id>
+  readonly emojiCorrection: Option.Option<CanvasTextMeasurer.EmojiCorrection>
+}> {}
 
 export const layoutCanvasText = (context: CanvasTextMeasurer.Context, options: CanvasLayoutOptions) => {
   const profile = Option.match(options.profileId, {

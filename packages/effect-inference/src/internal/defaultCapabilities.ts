@@ -3,15 +3,17 @@
  *
  * @since 0.1.0
  */
-import { Match, Option, Schema } from "effect"
+import { Match, Option, Schema, Struct } from "effect"
 
 import { Capabilities } from "../Capabilities.js"
 import { defaultFlavor, type Flavor, Route } from "../Route.js"
 
-const Options = Schema.Struct({
-  route: Schema.optionalWith(Route, { exact: true }),
-  overrides: Schema.optionalWith(Schema.partialWith(Capabilities, { exact: true }), { exact: true })
-})
+export class Options extends Schema.Class<Options>(
+  "@scenesystems/effect-inference/internal/defaultCapabilities/Options"
+)({
+  route: Schema.optionalKey(Route),
+  overrides: Schema.optionalKey(Capabilities.mapFields(Struct.map(Schema.optionalKey)))
+}) {}
 
 const hostedOpenAiCompatibleCapabilities: Capabilities = {
   textGeneration: true,
@@ -98,7 +100,7 @@ const capabilitiesForCompatibleFlavor = (runtimeFlavor: Flavor): Capabilities =>
   )
 
 const runtimeFlavorForRoute = (route: Route): Flavor =>
-  Option.fromNullable(route.runtimeFlavorHint).pipe(Option.getOrElse(() => defaultFlavor))
+  Option.fromNullishOr(route.runtimeFlavorHint).pipe(Option.getOrElse(() => defaultFlavor))
 
 const capabilitiesForHuggingFaceEndpoint = (route: Route): Capabilities =>
   Match.value(runtimeFlavorForRoute(route)).pipe(
@@ -147,13 +149,13 @@ const capabilitiesForRoute = (route: Route): Capabilities =>
  * @since 0.1.0
  */
 export const defaultCapabilities = (
-  options?: typeof Options.Type
+  options?: Options
 ): Capabilities => {
-  const route = Option.fromNullable(options).pipe(
-    Option.flatMap((resolvedOptions) => Option.fromNullable(resolvedOptions.route))
+  const route = Option.fromNullishOr(options).pipe(
+    Option.flatMap((resolvedOptions) => Option.fromNullishOr(resolvedOptions.route))
   )
-  const overrides = Option.fromNullable(options).pipe(
-    Option.flatMap((resolvedOptions) => Option.fromNullable(resolvedOptions.overrides))
+  const overrides = Option.fromNullishOr(options).pipe(
+    Option.flatMap((resolvedOptions) => Option.fromNullishOr(resolvedOptions.overrides))
   )
 
   const baseCapabilities = Option.match(route, {

@@ -1,7 +1,7 @@
-import { Registry, Result } from "@effect-atom/atom"
 import { expect } from "@effect/vitest"
 import { Effect, Layer, MutableRef, Option } from "effect"
 import * as Arr from "effect/Array"
+import { AsyncResult as Result, AtomRegistry as Registry } from "effect/reactivity"
 
 import { codeSite, PlaceAnswer, placeSourceId } from "../../app/contracts/demo/imagined-place-provenance.js"
 import {
@@ -13,6 +13,7 @@ import {
 import { placeShownFrameAtom } from "../../app/web/atoms/imagined-place-render.js"
 import { placeBuildAtom, placeStepAtom } from "../../app/web/atoms/imagined-place.js"
 import { motionPreferenceAtom, scrollBehaviorFor } from "../../app/web/atoms/motion.js"
+import { navigateToElementAtom } from "../../app/web/atoms/navigation.js"
 import * as BrowserDocument from "../../app/web/platform/BrowserDocument.js"
 import * as BrowserWindow from "../../app/web/platform/BrowserWindow.js"
 import { describeOnStage, onStage } from "../helpers/place-on-stage.js"
@@ -72,17 +73,35 @@ const arrivedWith = (preference: "full" | "reduced") =>
     const { build, showingTrial, trial } = yield* onStage
     const site = codeSite("layout")
     const { mark, scrolledWith } = yield* gutterMarkOnPage(site.id)
-    const registry = Registry.make({
-      initialValues: [
-        [placeBuildAtom, Result.success(build)],
-        [placeShownFrameAtom, Result.success(showingTrial)],
-        [motionPreferenceAtom, preference]
-      ],
-      scheduleTask: (task) => {
-        task()
-      }
-    })
-    const name = (yield* Arr.head(trial.projection.markers)).name
+    const registry = yield* Effect.acquireRelease(
+      Effect.sync(() =>
+        Registry.make({
+          initialValues: [
+            [placeBuildAtom, Result.success(build)],
+            [placeShownFrameAtom, Result.success(showingTrial)],
+            [motionPreferenceAtom, preference]
+          ]
+        })
+      ),
+      (registry) => Effect.sync(() => registry.dispose())
+    )
+    yield* Effect.acquireRelease(
+      Effect.sync(() => registry.mount(placeBuildAtom)),
+      (unmount) => Effect.sync(() => unmount())
+    )
+    yield* Effect.acquireRelease(
+      Effect.sync(() => registry.mount(placeShownFrameAtom)),
+      (unmount) => Effect.sync(() => unmount())
+    )
+    yield* Effect.acquireRelease(
+      Effect.sync(() => registry.mount(placeGoToSiteAtom)),
+      (unmount) => Effect.sync(() => unmount())
+    )
+    yield* Effect.acquireRelease(
+      Effect.sync(() => registry.mount(navigateToElementAtom)),
+      (unmount) => Effect.sync(() => unmount())
+    )
+    const name = (yield* Effect.fromOption(Arr.head(trial.projection.markers))).name
     registry.set(placeStepAtom, "compose")
     registry.set(
       placeAnswerAtom,
@@ -91,6 +110,7 @@ const arrivedWith = (preference: "full" | "reduced") =>
     expect(registry.get(placeAnswerFocusReturnAtom)).toBe("mark")
 
     registry.set(placeGoToSiteAtom, site.id)
+    yield* Registry.getResult(registry, placeGoToSiteAtom, { suspendOnWaiting: true })
 
     return { browserDocument, browserWindow, mark, registry, scrolledWith, site }
   })

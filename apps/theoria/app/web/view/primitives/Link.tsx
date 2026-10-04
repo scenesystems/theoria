@@ -1,4 +1,4 @@
-import { useAtomSet } from "@effect-atom/atom-react"
+import { useAtomSet } from "@effect/atom-react"
 import { Boolean as Bool, Function, Option } from "effect"
 import type { ComponentProps, MouseEvent, ReactNode } from "react"
 
@@ -23,7 +23,7 @@ export const InternalLink = ({
   const navigate = useAtomSet(navigateAtom)
 
   const handleClick = (event: MouseEvent<HTMLAnchorElement>) => {
-    Option.match(Option.fromNullable(onClick), {
+    Option.match(Option.fromNullishOr(onClick), {
       onNone: Function.constVoid,
       onSome: (click) => click(event)
     })
@@ -36,7 +36,7 @@ export const InternalLink = ({
         defaultPrevented: event.defaultPrevented,
         metaKey: event.metaKey,
         shiftKey: event.shiftKey,
-        target: Option.fromNullable(props.target)
+        target: Option.fromNullishOr(props.target)
       }),
       {
         onTrue: () => {

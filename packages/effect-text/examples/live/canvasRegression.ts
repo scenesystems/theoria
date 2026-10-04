@@ -17,7 +17,7 @@ import {
 } from "@scenesystems/effect-text"
 
 /** Identifier of one synthetic behavior scenario. */
-export const ScenarioId = Schema.Literal(
+export const ScenarioId = Schema.Literals([
   "white-space-normal",
   "white-space-pre-wrap",
   "trailing-whitespace-hard-breaks",
@@ -25,7 +25,7 @@ export const ScenarioId = Schema.Literal(
   "soft-hyphen",
   "mixed-inline-punctuation",
   "fit-paint-divergence"
-)
+])
 
 /** One resolved synthetic scenario. */
 export class Scenario extends Data.Class<{

@@ -22,29 +22,37 @@ const program = Effect.gen(function*() {
       Num.sumAll(Arr.make(
         Numeric.pow(Num.subtract(Num.sum(config.x, config.y), 0.5), 2),
         Num.multiply(Numeric.pow(Num.subtract(Num.subtract(config.x, config.y), 0.1), 2), 0.2),
-        Num.multiply(Numeric.pow(Num.unsafeDivide(Num.subtract(config.depth, 3), 3), 2), 0.1)
+        Num.multiply(Numeric.pow(Num.divideUnsafe(Num.subtract(config.depth, 3), 3), 2), 0.1)
       ))
     )
 
-  const univariate = yield* Optimization.minimize({
-    space,
-    sampler: Sampler.tpe({
-      seed: 222,
-      nStartupTrials: 8
-    }),
-    trials: 45,
-    objective
-  })
-  const multivariate = yield* Optimization.minimize({
-    space,
-    sampler: Sampler.tpe({
-      seed: 222,
-      nStartupTrials: 8,
-      multivariate: true
-    }),
-    trials: 45,
-    objective
-  })
+  const univariate = yield* Optimization.minimize(
+    new Optimization.FlatOptions({
+      space,
+      sampler: Sampler.tpe(
+        new Sampler.TpeOptions({
+          seed: 222,
+          nStartupTrials: 8
+        })
+      ),
+      trials: 45,
+      objective
+    })
+  )
+  const multivariate = yield* Optimization.minimize(
+    new Optimization.FlatOptions({
+      space,
+      sampler: Sampler.tpe(
+        new Sampler.TpeOptions({
+          seed: 222,
+          nStartupTrials: 8,
+          multivariate: true
+        })
+      ),
+      trials: 45,
+      objective
+    })
+  )
 
   const bestValueFrom = (result: Optimization.Result<SearchSpace.Type<typeof space>>) =>
     Match.value(result).pipe(

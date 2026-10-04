@@ -52,7 +52,7 @@ const clampUnitRoll = (roll: number): number =>
  */
 export const standardNormalPdf = (x: number): number =>
   Number.multiply(
-    Number.unsafeDivide(1, normalizationDenominator),
+    Number.divideUnsafe(1, normalizationDenominator),
     exp(Number.multiply(-0.5, Number.multiply(x, x)))
   )
 
@@ -63,7 +63,7 @@ export const standardNormalPdf = (x: number): number =>
  * @category internal
  */
 export const standardNormalCdf = (x: number): number =>
-  Number.multiply(0.5, Number.sum(1, erf(Number.unsafeDivide(x, sqrtTwo))))
+  Number.multiply(0.5, Number.sum(1, erf(Number.divideUnsafe(x, sqrtTwo))))
 
 /**
  * Finite standard-normal inverse transform with deterministic endpoint clamping.
@@ -81,8 +81,8 @@ export const standardNormalTransform = (roll: number): number =>
  * @category internal
  */
 export const normalPdf = (x: number, mu: number, sigma: number): number => {
-  const z = Number.unsafeDivide(Number.subtract(x, mu), sigma)
-  return Number.unsafeDivide(standardNormalPdf(z), sigma)
+  const z = Number.divideUnsafe(Number.subtract(x, mu), sigma)
+  return Number.divideUnsafe(standardNormalPdf(z), sigma)
 }
 
 /**
@@ -92,9 +92,9 @@ export const normalPdf = (x: number, mu: number, sigma: number): number => {
  * @category internal
  */
 export const normalLogpdf = (x: number, mu: number, sigma: number): number => {
-  const z = Number.unsafeDivide(Number.subtract(x, mu), sigma)
+  const z = Number.divideUnsafe(Number.subtract(x, mu), sigma)
   return Number.subtract(
-    Number.subtract(Number.negate(logNormalization), log(sigma)),
+    Number.subtract(Number.multiply(logNormalization, -1), log(sigma)),
     Number.multiply(0.5, Number.multiply(z, z))
   )
 }
@@ -106,7 +106,7 @@ export const normalLogpdf = (x: number, mu: number, sigma: number): number => {
  * @category internal
  */
 export const normalCdf = (x: number, mu: number, sigma: number): number =>
-  standardNormalCdf(Number.unsafeDivide(Number.subtract(x, mu), sigma))
+  standardNormalCdf(Number.divideUnsafe(Number.subtract(x, mu), sigma))
 
 /**
  * Normal quantile (inverse CDF): Q(p; μ, σ) = μ + σ√2 · erfinv(2p − 1).

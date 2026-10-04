@@ -1,9 +1,10 @@
-import type { Path } from "@effect/platform"
-import { Error as PlatformError, FileSystem } from "@effect/platform"
-import { BunContext } from "@effect/platform-bun"
+import { BunServices } from "@effect/platform-bun"
 import { expect, it } from "@effect/vitest"
-import { Effect, Either, Layer, type Scope } from "effect"
+import { Effect, Layer, Result, type Scope } from "effect"
 import * as Arr from "effect/Array"
+import * as FileSystem from "effect/FileSystem"
+import type * as Path from "effect/Path"
+import * as PlatformError from "effect/PlatformError"
 
 import { type WebVitalBudgets, webVitalBudgets } from "../../app/contracts/performance.js"
 import {
@@ -18,7 +19,9 @@ import {
  * inherit its expectations from the code under test; `mutate` then edits it.
  */
 const checkLayout = (
-  mutate: (root: string) => Effect.Effect<void, unknown, FileSystem.FileSystem | Path.Path | Scope.Scope>,
+  mutate: (
+    root: string
+  ) => Effect.Effect<void, PlatformError.PlatformError, FileSystem.FileSystem | Path.Path | Scope.Scope>,
   budgets: WebVitalBudgets = webVitalBudgets
 ) =>
   Effect.gen(function*() {
@@ -34,13 +37,13 @@ const checkLayout = (
     yield* mutate(root)
     // Only a verdict is an outcome; a filesystem the check could not examine fails the test.
     return yield* checkBuildOutput(root, budgets).pipe(
-      Effect.map(Either.right),
-      Effect.catchTag("BuildOutputError", (error) => Effect.succeed(Either.left(error)))
+      Effect.map(Result.succeed),
+      Effect.catchTag("BuildOutputError", (error) => Effect.succeed(Result.fail(error)))
     )
-  }).pipe(Effect.scoped, Effect.provide(BunContext.layer))
+  }).pipe(Effect.scoped, Effect.provide(BunServices.layer))
 
-const problemsOf = (result: Either.Either<BuildOutputSummary, BuildOutputError>) =>
-  Either.match(result, { onLeft: (error) => error.problems, onRight: () => Arr.empty<string>() })
+const problemsOf = (result: Result.Result<BuildOutputSummary, BuildOutputError>) =>
+  Result.match(result, { onFailure: (error) => error.problems, onSuccess: () => Arr.empty<string>() })
 
 it.effect("finds the homepage module entry and modulepreloads in document order", () =>
   Effect.sync(() => {
@@ -77,7 +80,7 @@ it.effect("accepts named homepage scripts and reports the bytes they take on the
         yield* fileSystem.writeFileString(`${root}/dist/assets/vendor.js`, script)
       })
     )
-    const bytes = Either.getOrElse(Either.map(result, (summary) => summary.homepageScriptGzipBytes), () => -1)
+    const bytes = Result.getOrElse(Result.map(result, (summary) => summary.homepageScriptGzipBytes), () => -1)
     expect(bytes).toBeGreaterThan(2 * 18)
     expect(bytes).toBeLessThan(2 * 512)
   }))
@@ -128,7 +131,7 @@ it.effect("accepts a build whose every asset has a served content type", () =>
         yield* fileSystem.writeFileString(`${root}/.wrangler-out/abc-tiktoken_bg.wasm`, "")
       })
     )
-    expect(Either.map(result, (summary) => summary.assets)).toEqual(Either.right(6))
+    expect(Result.map(result, (summary) => summary.assets)).toEqual(Result.succeed(6))
   }))
 
 it.effect("rejects an asset the server cannot type, naming it", () =>
@@ -152,7 +155,7 @@ it.effect("reports every problem in one run: missing files and stray Worker outp
   Effect.gen(function*() {
     const result = yield* checkLayout((root) =>
       Effect.flatMap(FileSystem.FileSystem, (fileSystem) =>
-        Effect.zipRight(
+        Effect.andThen(
           fileSystem.remove(`${root}/dist/robots.txt`),
           fileSystem.writeFileString(`${root}/.wrangler-out/index.js`, "")
         ))
@@ -178,12 +181,14 @@ it.effect("a link out of the artifact is rejected even when its target is a type
 
 it.effect("a filesystem that cannot be examined fails the check instead of producing a verdict", () =>
   Effect.gen(function*() {
-    const denied = new PlatformError.SystemError({
-      reason: "PermissionDenied",
-      module: "FileSystem",
-      method: "realPath",
-      pathOrDescriptor: "dist/index.html"
-    })
+    const denied = new PlatformError.PlatformError(
+      new PlatformError.SystemError({
+        _tag: "PermissionDenied",
+        module: "FileSystem",
+        method: "realPath",
+        pathOrDescriptor: "dist/index.html"
+      })
+    )
     const denyingFileSystem = Layer.effect(
       FileSystem.FileSystem,
       Effect.map(FileSystem.FileSystem, (fileSystem) =>
@@ -203,8 +208,8 @@ it.effect("a filesystem that cannot be examined fails the check instead of produ
     yield* fileSystem.writeFileString(`${root}/.wrangler-out/worker.js`, "")
 
     const outcome = yield* checkBuildOutput(root).pipe(
-      Effect.provide(Layer.provideMerge(denyingFileSystem, BunContext.layer)),
-      Effect.either
+      Effect.provide(Layer.provideMerge(denyingFileSystem, BunServices.layer)),
+      Effect.result
     )
-    expect(outcome).toEqual(Either.left(denied))
-  }).pipe(Effect.scoped, Effect.provide(BunContext.layer)))
+    expect(outcome).toEqual(Result.fail(denied))
+  }).pipe(Effect.scoped, Effect.provide(BunServices.layer)))

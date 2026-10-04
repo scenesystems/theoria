@@ -26,12 +26,14 @@ export const render = (artifact: PlaceArtifact, stageWidth: number): Effect.Effe
     const prepared = yield* Text.prepareWithSegments(descriptionInput(artifact))
     const candidate = arrange(artifact, prepared, stage)
 
-    const result = yield* Optimization.minimize({
-      space: yield* meanderSpace,
-      sampler: renderSampler(),
-      objective: (meander) => Effect.succeed(candidate(meander).quality.loss),
-      trials: renderTrials
-    })
+    const result = yield* Optimization.minimize(
+      new Optimization.FlatOptions({
+        space: yield* meanderSpace,
+        sampler: renderSampler(),
+        objective: (meander) => Effect.succeed(candidate(meander).quality.loss),
+        trials: renderTrials
+      })
+    )
     const best = yield* Match.value(result).pipe(
       Match.tag("SingleObjective", (single) => Effect.succeed(single)),
       Match.tag("MultiObjective", (multi) =>

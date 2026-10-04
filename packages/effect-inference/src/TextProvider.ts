@@ -10,14 +10,12 @@ import * as OpenAiClient from "@effect/ai-openai/OpenAiClient"
 import * as OpenAiLanguageModel from "@effect/ai-openai/OpenAiLanguageModel"
 import * as OpenRouterClient from "@effect/ai-openrouter/OpenRouterClient"
 import * as OpenRouterLanguageModel from "@effect/ai-openrouter/OpenRouterLanguageModel"
-import type * as LanguageModel from "@effect/ai/LanguageModel"
-import * as FetchHttpClient from "@effect/platform/FetchHttpClient"
-import * as Arr from "effect/Array"
+import type * as LanguageModel from "effect/ai/LanguageModel"
 import * as ConfigEffect from "effect/Config"
-import * as ConfigError from "effect/ConfigError"
 import * as ConfigProvider from "effect/ConfigProvider"
 import * as Data from "effect/Data"
 import * as Effect from "effect/Effect"
+import * as FetchHttpClient from "effect/http/FetchHttpClient"
 import * as Layer from "effect/Layer"
 import * as Match from "effect/Match"
 import * as Option from "effect/Option"
@@ -29,8 +27,7 @@ import { InvalidRuntimeConfig } from "./InferenceError.js"
 import type * as RuntimeRequest from "./RuntimeRequest.js"
 
 /** Schema for hosted text-provider identifiers. @since 0.5.0 @category schemas */
-export const Provider = Schema.Literal("openai", "anthropic", "openrouter")
-  .annotations({ identifier: "@scenesystems/effect-inference/TextProvider/Provider" })
+export const Provider = Schema.Literals(["openai", "anthropic", "openrouter"])
 /** Hosted text-provider identifier inferred from its schema. @since 0.5.0 @category models */
 export type Provider = typeof Provider.Type
 
@@ -50,11 +47,11 @@ export class Options extends Data.Class<{
 export class Config extends Schema.Class<Config>("@scenesystems/effect-inference/TextProvider/Config")({
   provider: Provider,
   model: Schema.String,
-  apiKey: Schema.RedactedFromSelf(Schema.String),
-  apiUrl: Schema.OptionFromSelf(Schema.String),
-  anthropicVersion: Schema.OptionFromSelf(Schema.String),
-  openrouterReferrer: Schema.OptionFromSelf(Schema.String),
-  openrouterTitle: Schema.OptionFromSelf(Schema.String)
+  apiKey: Schema.Redacted(Schema.String),
+  apiUrl: Schema.Option(Schema.String),
+  anthropicVersion: Schema.Option(Schema.String),
+  openrouterReferrer: Schema.Option(Schema.String),
+  openrouterTitle: Schema.Option(Schema.String)
 }) {}
 
 /** Resolved hosted-provider request and executable language layer. @since 0.5.0 @category models */
@@ -76,13 +73,13 @@ const defaultModel = (provider: Provider): string =>
   )
 
 const optionalString = (name: string) =>
-  ConfigEffect.option(ConfigEffect.string(name)).pipe(
+  ConfigEffect.option(ConfigEffect.String(name)).pipe(
     ConfigEffect.map(Option.map(String.trim)),
     ConfigEffect.map(Option.filter(String.isNonEmpty))
   )
 
 const optionalRedacted = (name: string) =>
-  ConfigEffect.option(ConfigEffect.redacted(name)).pipe(
+  ConfigEffect.option(ConfigEffect.Redacted(name)).pipe(
     ConfigEffect.map(Option.filter((value) => String.isNonEmpty(String.trim(Redacted.value(value)))))
   )
 
@@ -96,21 +93,18 @@ const providerEnvKey = (provider: Provider): string =>
     Match.exhaustive
   )
 
-const required = <A>(value: Option.Option<A>, message: string): Effect.Effect<A, ConfigError.ConfigError> =>
-  Option.match(value, {
-    onNone: () => Effect.fail(ConfigError.MissingData(Arr.empty(), message)),
-    onSome: Effect.succeed
-  })
+const required = <A>(value: Option.Option<A>, message: string): Effect.Effect<A, ConfigEffect.ConfigError> =>
+  Effect.fromOption(value, () => new ConfigEffect.ConfigError(new ConfigProvider.SourceError({ message })))
 
 const configured = (options: Options) =>
   Effect.gen(function*() {
-    const provider = yield* Option.match(Option.fromNullable(options.provider), {
+    const provider = yield* Option.match(Option.fromNullishOr(options.provider), {
       onSome: Effect.succeed,
-      onNone: () => ConfigEffect.withDefault(ConfigEffect.literal(...Provider.literals)("dspProvider"), "openai")
+      onNone: () => ConfigEffect.withDefault(ConfigEffect.Literals(Provider.literals, "dspProvider"), "openai")
     })
     const providerModel = yield* optionalString(providerKey(provider, "Model"))
     const genericModel = yield* optionalString("dspProviderModel")
-    const model = Option.fromNullable(options.model).pipe(
+    const model = Option.fromNullishOr(options.model).pipe(
       Option.map(String.trim),
       Option.filter(String.isNonEmpty),
       Option.orElse(() => providerModel),
@@ -120,7 +114,7 @@ const configured = (options: Options) =>
     const providerApiKey = yield* optionalRedacted(providerKey(provider, "ApiKey"))
     const genericApiKey = yield* optionalRedacted("dspProviderApiKey")
     const apiKey = yield* required(
-      Option.fromNullable(options.apiKey).pipe(
+      Option.fromNullishOr(options.apiKey).pipe(
         Option.filter((value) => String.isNonEmpty(String.trim(Redacted.value(value)))),
         Option.orElse(() => providerApiKey),
         Option.orElse(() => genericApiKey)
@@ -139,7 +133,7 @@ const configured = (options: Options) =>
     const openrouterTitle = yield* optionalString("openrouterTitle")
     const genericOpenrouterTitle = yield* optionalString("dspProviderOpenrouterTitle")
     const mergeString = (primary: Option.Option<string>, fallback: Option.Option<string>, override?: string) =>
-      Option.fromNullable(override).pipe(
+      Option.fromNullishOr(override).pipe(
         Option.map(String.trim),
         Option.filter(String.isNonEmpty),
         Option.orElse(() => primary),
@@ -166,8 +160,9 @@ const configured = (options: Options) =>
  */
 export const fromConfig = (options: Options = new Options({})): Effect.Effect<Config, InvalidRuntimeConfig> =>
   configured(options).pipe(
-    Effect.withConfigProvider(
-      Option.getOrElse(Option.fromNullable(options.configProvider), () => defaultConfigProvider)
+    Effect.provideService(
+      ConfigProvider.ConfigProvider,
+      Option.getOrElse(Option.fromNullishOr(options.configProvider), () => defaultConfigProvider)
     ),
     Effect.mapError((error) => new InvalidRuntimeConfig({ reason: error.message }))
   )
@@ -268,4 +263,4 @@ export const resolve = (options: Options = new Options({})): Effect.Effect<Runti
 export const layerConfig = (
   options: Options = new Options({})
 ): Layer.Layer<LanguageModel.LanguageModel, InvalidRuntimeConfig> =>
-  Layer.unwrapEffect(resolve(options).pipe(Effect.map((runtime) => runtime.languageModel)))
+  Layer.unwrap(resolve(options).pipe(Effect.map((runtime) => runtime.languageModel)))

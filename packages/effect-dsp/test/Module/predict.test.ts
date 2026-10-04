@@ -1,7 +1,6 @@
 /**
  * Module.predict contracts.
  */
-import * as LanguageModel from "@effect/ai/LanguageModel"
 import { describe, expect, it } from "@effect/vitest"
 import { Demonstration } from "@scenesystems/effect-dsp/Demonstration"
 import * as MockLanguageModel from "@scenesystems/effect-dsp/MockLanguageModel"
@@ -10,7 +9,9 @@ import { ModuleParameters } from "@scenesystems/effect-dsp/ModuleParameters"
 import { decode } from "@scenesystems/effect-dsp/Payload"
 import * as Signature from "@scenesystems/effect-dsp/Signature"
 import * as Trace from "@scenesystems/effect-dsp/Trace"
-import { Array as Arr, Effect, Layer, Option, Ref, Schedule, Schema, TestClock } from "effect"
+import { Array as Arr, Effect, Fiber, Option, Ref, Schedule, Schema } from "effect"
+import * as LanguageModel from "effect/ai/LanguageModel"
+import { TestClock } from "effect/testing"
 
 const makeQaSignature = () =>
   Signature.make(
@@ -27,7 +28,7 @@ describe("Module.predict", () => {
   it.effect("renders schema-encoded structured inputs without replacing them with placeholders", () =>
     Effect.gen(function*() {
       const signature = yield* Signature.make("Render facts", {
-        facts: Schema.Struct({ count: Schema.NumberFromString, countries: Schema.Array(Schema.String) }),
+        facts: Schema.Struct({ count: Schema.FiniteFromString, countries: Schema.Array(Schema.String) }),
         empty: Schema.Null
       }, { answer: Schema.String })
       const module = yield* Module.predict("encoded-input", signature)
@@ -36,13 +37,13 @@ describe("Module.predict", () => {
         facts: { count: 17, countries: Arr.make("France", "Japan") },
         empty: null
       })).pipe(Effect.provideService(LanguageModel.LanguageModel, mock.service))
-      const call = yield* Ref.get(mock.calls).pipe(Effect.flatMap(Arr.head))
-      const entry = yield* Arr.head(entries)
+      const call = Option.getOrThrow(Arr.head(yield* Ref.get(mock.calls)))
+      const entry = Option.getOrThrow(Arr.head(entries))
       expect(result.answer).toBe("France")
       expect(call.prompt).toContain("[[ ## facts ## ]]\n{\"count\":\"17\",\"countries\":[\"France\",\"Japan\"]}")
       expect(call.prompt).toContain("[[ ## empty ## ]]\nnull")
       expect(entry.prompt).toBe(call.prompt)
-      expect(yield* decode(Schema.encodedSchema(signature.inputSchema), entry.input)).toEqual({
+      expect(yield* decode(Schema.toEncoded(signature.inputSchema), entry.input)).toEqual({
         facts: { count: "17", countries: Arr.make("France", "Japan") },
         empty: null
       })
@@ -53,11 +54,13 @@ describe("Module.predict", () => {
       const signature = yield* Signature.make("Render optional facts", {
         question: Schema.String,
         context: Schema.optional(Schema.String)
-      }, { facts: Schema.Struct({ count: Schema.NumberFromString }) })
+      }, { facts: Schema.Struct({ count: Schema.FiniteFromString }) })
       const module = yield* Module.predict("demo-input", signature)
       yield* Ref.update(module.params, (params) =>
         new ModuleParameters({
-          ...params,
+          instructions: params.instructions,
+          temperature: params.temperature,
+          maxTokens: params.maxTokens,
           outputStrategy: "structured",
           demos: Arr.make(
             new Demonstration({
@@ -72,8 +75,8 @@ describe("Module.predict", () => {
         module.forward({ question: "with context", context: "literal context" })
       )).pipe(Effect.provideService(LanguageModel.LanguageModel, mock.service))
       const calls = yield* Ref.get(mock.calls)
-      const absent = yield* Arr.head(calls)
-      const present = yield* Arr.get(calls, 1)
+      const absent = Option.getOrThrow(Arr.head(calls))
+      const present = Option.getOrThrow(Arr.get(calls, 1))
       expect(withoutContext).toEqual({ facts: { count: 7 } })
       expect(withContext).toEqual({ facts: { count: 7 } })
       expect(absent.prompt).toContain("[[ ## facts ## ]]\n{\"count\":\"3\"}")
@@ -86,16 +89,23 @@ describe("Module.predict", () => {
       const qa = yield* makeQaSignature()
       const mock = yield* MockLanguageModel.make(MockLanguageModel.succeed("malformed output"))
       const module = yield* Module.predict("qa", qa)
-      yield* Ref.update(module.params, (params) => new ModuleParameters({ ...params, outputStrategy: "text" }))
+      yield* Ref.update(module.params, (params) =>
+        new ModuleParameters({
+          instructions: params.instructions,
+          demos: params.demos,
+          outputStrategy: "text",
+          temperature: params.temperature,
+          maxTokens: params.maxTokens
+        }))
       const fiber = yield* module.forward({ question: "Capital?" }).pipe(
         Effect.provideService(LanguageModel.LanguageModel, mock.service),
         Effect.flip,
-        Effect.fork
+        Effect.forkChild
       )
       yield* TestClock.adjust("2 seconds")
-      const failure = yield* Effect.fromFiber(fiber)
+      const failure = yield* Fiber.join(fiber)
       const calls = yield* Ref.get(mock.calls)
-      const lastCall = yield* Arr.last(calls)
+      const lastCall = Option.getOrThrow(Arr.last(calls))
 
       expect(failure._tag).toBe("ParseOutputError")
       expect(calls).toHaveLength(4)
@@ -114,14 +124,14 @@ describe("Module.predict", () => {
       const result = yield* module.forward({
         question: "What is the capital of France?"
       }).pipe(
-        Effect.provide(Layer.succeed(LanguageModel.LanguageModel, mock.service))
+        Effect.provideService(LanguageModel.LanguageModel, mock.service)
       )
 
       const calls = yield* Ref.get(mock.calls)
 
       expect(result).toEqual({ answer: "Paris" })
       expect(calls).toHaveLength(1)
-      expect((yield* Arr.head(calls)).method).toBe("generateObject")
+      expect((Option.getOrThrow(Arr.head(calls))).method).toBe("generateObject")
     }))
 
   it.effect("uses text path when outputStrategy is auto and demos are present", () =>
@@ -150,14 +160,14 @@ describe("Module.predict", () => {
       const result = yield* module.forward({
         question: "What is the capital of Japan?"
       }).pipe(
-        Effect.provide(Layer.succeed(LanguageModel.LanguageModel, mock.service))
+        Effect.provideService(LanguageModel.LanguageModel, mock.service)
       )
 
       const calls = yield* Ref.get(mock.calls)
 
       expect(result).toEqual({ answer: "Paris" })
       expect(calls).toHaveLength(1)
-      expect((yield* Arr.head(calls)).method).toBe("generateText")
+      expect((Option.getOrThrow(Arr.head(calls))).method).toBe("generateText")
     }))
 
   it.effect("records trace entries with prompt and response metadata when tracing is enabled", () =>
@@ -170,10 +180,10 @@ describe("Module.predict", () => {
 
       const [result, entries] = yield* Trace.withTracing(
         module.forward({ question: "What is the capital of France?" }).pipe(
-          Effect.provide(Layer.succeed(LanguageModel.LanguageModel, mock.service))
+          Effect.provideService(LanguageModel.LanguageModel, mock.service)
         )
       )
-      const entry = yield* Arr.head(entries)
+      const entry = Option.getOrThrow(Arr.head(entries))
 
       expect(result).toEqual({ answer: "Paris" })
       expect(entries).toHaveLength(1)
@@ -212,17 +222,17 @@ describe("Module.predict", () => {
           })
       )
 
-      const resultFiber = yield* Effect.fork(
+      const resultFiber = yield* Effect.forkChild(
         module.forward({
           question: "What is the capital of Japan?"
         }).pipe(
-          Effect.provide(Layer.succeed(LanguageModel.LanguageModel, mock.service))
+          Effect.provideService(LanguageModel.LanguageModel, mock.service)
         )
       )
 
       yield* TestClock.adjust("2 seconds")
 
-      const result = yield* Effect.fromFiber(resultFiber)
+      const result = yield* Fiber.join(resultFiber)
       const calls = yield* Ref.get(mock.calls)
 
       expect(result).toEqual({ answer: "Paris" })
@@ -240,19 +250,19 @@ describe("Module.predict", () => {
         ))
       )
 
-      const module = yield* Module.predict("qa", qa, {
-        policy: {
-          parse: {
-            maxRetries: 1,
-            retrySchedule: (maxRetries) =>
-              Schedule.intersect(
-                Schedule.spaced("1 second"),
-                Schedule.recurs(maxRetries)
-              ),
-            feedbackTemplate: () => "CUSTOM_PARSE_FEEDBACK"
-          }
-        }
-      })
+      const module = yield* Module.predict(
+        "qa",
+        qa,
+        new Module.PredictOptions({
+          policy: new Module.PredictPolicyOverrides({
+            parse: new Module.ParsePolicyOverrides({
+              maxRetries: 1,
+              retrySchedule: () => Schedule.spaced("1 second"),
+              feedbackTemplate: () => "CUSTOM_PARSE_FEEDBACK"
+            })
+          })
+        })
+      )
 
       yield* Ref.update(
         module.params,
@@ -269,11 +279,11 @@ describe("Module.predict", () => {
           })
       )
 
-      const resultFiber = yield* Effect.fork(
+      const resultFiber = yield* Effect.forkChild(
         module.forward({
           question: "What is the capital of Japan?"
         }).pipe(
-          Effect.provide(Layer.succeed(LanguageModel.LanguageModel, mock.service))
+          Effect.provideService(LanguageModel.LanguageModel, mock.service)
         )
       )
 
@@ -284,11 +294,11 @@ describe("Module.predict", () => {
 
       yield* TestClock.adjust("1 second")
 
-      const result = yield* Effect.fromFiber(resultFiber)
+      const result = yield* Fiber.join(resultFiber)
       const callsAfterRetry = yield* Ref.get(mock.calls)
 
       expect(result).toEqual({ answer: "Paris" })
       expect(callsAfterRetry).toHaveLength(2)
-      expect((yield* Arr.get(callsAfterRetry, 1)).prompt).toContain("CUSTOM_PARSE_FEEDBACK")
+      expect((Option.getOrThrow(Arr.get(callsAfterRetry, 1))).prompt).toContain("CUSTOM_PARSE_FEEDBACK")
     }))
 })

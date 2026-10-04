@@ -28,7 +28,7 @@ const publicReflection = (target: Reflection): Reflection =>
   Bool.match(target.kindOf(ReflectionKind.Module), {
     onTrue: () => target,
     onFalse: () =>
-      Option.match(Option.fromNullable(target.parent), {
+      Option.match(Option.fromNullishOr(target.parent), {
         onNone: () => target,
         onSome: (parent) =>
           Bool.match(parent.kindOf(ReflectionKind.Module), {
@@ -67,11 +67,11 @@ const textNames = (text: string): ReadonlyArray<string> => {
 
 const uniqueHref = (context: ApiDocContext, names: ReadonlyArray<string>): Option.Option<string> => {
   const matches = Arr.dedupe(
-    Arr.filterMap(
+    Arr.getSomes(Arr.map(
       context.links,
       ([, name, href]) =>
         Bool.match(Arr.contains(names, name), { onTrue: () => Option.some(href), onFalse: Option.none })
-    )
+    ))
   )
   return Option.liftPredicate((values: ReadonlyArray<string>) => Num.Equivalence(Arr.length(values), 1))(matches).pipe(
     Option.flatMap(Arr.head)
@@ -105,7 +105,7 @@ const reflectionHref = (context: ApiDocContext, target: Reflection, text: string
             onFalse: () =>
               resolvedHref(
                 context,
-                Option.fromNullable(publicTarget.project.packageName).pipe(
+                Option.fromNullishOr(publicTarget.project.packageName).pipe(
                   Option.getOrElse(() => context.packageName)
                 ),
                 Arr.append(textNames(text), publicTarget.name)
@@ -117,18 +117,39 @@ const reflectionHref = (context: ApiDocContext, target: Reflection, text: string
   )
 }
 
-const symbolHref = (context: ApiDocContext, target: ReflectionSymbolId, text: string) =>
-  resolvedHref(
-    context,
-    target.packageName,
-    Arr.last(Str.split(target.qualifiedName, ".")).pipe(
-      Option.filter(Str.isNonEmpty),
-      Option.match({
-        onNone: () => textNames(text),
-        onSome: (symbolName) => Arr.append(textNames(text), symbolName)
-      })
-    )
+// TypeDoc keeps links from inherited dependency comments as symbol IDs rather
+// than reflections. Effect publishes every public `src` module at this stable
+// API-reference location; internal source modules intentionally do not qualify.
+const effectSymbolHref = (target: ReflectionSymbolId): Option.Option<string> =>
+  Option.liftPredicate(
+    target.packagePath,
+    (packagePath) =>
+      Bool.and(
+        Str.Equivalence(target.packageName, "effect"),
+        Option.isSome(Str.match(/^src\/(?!internal\/)[\p{L}\p{N}_/-]+\.ts$/u)(packagePath))
+      )
+  ).pipe(
+    Option.map(Str.replace(/^src\//u, "")),
+    Option.map(Str.replace(/\.ts$/u, "")),
+    Option.map((moduleName) => `https://effect.website/docs/v4/api/effect/${moduleName}`)
   )
+
+const symbolHref = (context: ApiDocContext, target: ReflectionSymbolId, text: string) =>
+  Bool.match(Str.Equivalence(target.packageName, "effect"), {
+    onTrue: () => effectSymbolHref(target),
+    onFalse: () =>
+      resolvedHref(
+        context,
+        target.packageName,
+        Arr.last(Str.split(target.qualifiedName, ".")).pipe(
+          Option.filter(Str.isNonEmpty),
+          Option.match({
+            onNone: () => textNames(text),
+            onSome: (symbolName) => Arr.append(textNames(text), symbolName)
+          })
+        )
+      )
+  })
 
 const inlineCode = /^`([^`\n]+)`$/u
 
@@ -162,7 +183,7 @@ export const docParts = (parts: ReadonlyArray<CommentDisplayPart>, context: ApiD
     ))
 
 const commentTag = (comment: Option.Option<Comment>, tag: `@${string}`): Option.Option<CommentTag> =>
-  Option.flatMap(comment, (present) => Option.fromNullable(present.getTag(tag)))
+  Option.flatMap(comment, (present) => Option.fromNullishOr(present.getTag(tag)))
 
 const commentTags = (comment: Option.Option<Comment>, tag: `@${string}`): ReadonlyArray<CommentTag> =>
   Option.match(comment, { onNone: Arr.empty, onSome: (present) => present.getTags(tag) })
@@ -230,7 +251,11 @@ const seeItems = (parts: ReadonlyArray<CommentDisplayPart>): ReadonlyArray<Reado
             onFalse: () =>
               Bool.match(isMarker(part, "\n"), {
                 onTrue: () => items,
-                onFalse: () => Arr.modify(items, Num.decrement(Arr.length(items)), (item) => Arr.append(item, part))
+                onFalse: () =>
+                  Option.getOrElse(
+                    Arr.modify(items, Num.decrement(Arr.length(items)), (item) => Arr.append(item, part)),
+                    () => items
+                  )
               })
           })
       ),
@@ -255,12 +280,12 @@ const typeParameterSummary = (
   parameter: TypeParameterReflection,
   ownerComment: Option.Option<Comment>
 ): Option.Option<ReadonlyArray<CommentDisplayPart>> =>
-  Option.fromNullable(parameter.comment).pipe(
+  Option.fromNullishOr(parameter.comment).pipe(
     Option.map((present) => present.summary),
     Option.orElse(() =>
       Option.flatMap(
         ownerComment,
-        (present) => Option.fromNullable(present.getIdentifiedTag(parameter.name, "@typeParam"))
+        (present) => Option.fromNullishOr(present.getIdentifiedTag(parameter.name, "@typeParam"))
       ).pipe(Option.map((tag) => tag.content))
     )
   )
@@ -272,8 +297,8 @@ export const typeParameters = (
 ): ReadonlyArray<ApiTypeParameter> =>
   Arr.map(parameters, (parameter) => ({
     name: parameter.name,
-    constraint: Option.fromNullable(parameter.type).pipe(Option.map((type) => type.toString())),
-    default: Option.fromNullable(parameter.default).pipe(
+    constraint: Option.fromNullishOr(parameter.type).pipe(Option.map((type) => type.toString())),
+    default: Option.fromNullishOr(parameter.default).pipe(
       Option.map((fallback) => fallback.toString())
     ),
     description: Option.match(typeParameterSummary(parameter, ownerComment), {
@@ -286,6 +311,6 @@ const codeSegment = <A>(value: Option.Option<A>, render: (value: A) => string): 
   Option.match(value, { onNone: () => "", onSome: render })
 
 export const typeParameterCode = (parameter: TypeParameterReflection): string =>
-  `${codeSegment(Option.fromNullable(parameter.varianceModifier), (modifier) => `${modifier} `)}${parameter.name}${
-    codeSegment(Option.fromNullable(parameter.type), (type) => ` extends ${type.toString()}`)
-  }${codeSegment(Option.fromNullable(parameter.default), (fallback) => ` = ${fallback.toString()}`)}`
+  `${codeSegment(Option.fromNullishOr(parameter.varianceModifier), (modifier) => `${modifier} `)}${parameter.name}${
+    codeSegment(Option.fromNullishOr(parameter.type), (type) => ` extends ${type.toString()}`)
+  }${codeSegment(Option.fromNullishOr(parameter.default), (fallback) => ` = ${fallback.toString()}`)}`

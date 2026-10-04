@@ -33,17 +33,17 @@ const descendingRatioOrder = (ratiosInput: Iterable<number>) => {
   return Arr.map(
     Arr.sortBy(
       Order.mapInput(
-        Order.number,
-        (entry: { readonly index: number; readonly ratio: number }) => Num.negate(entry.ratio)
+        Order.Number,
+        (entry: { readonly index: number; readonly ratio: number }) => Num.multiply(-1, entry.ratio)
       ),
-      Order.mapInput(Order.number, (entry: { readonly index: number; readonly ratio: number }) => entry.index)
+      Order.mapInput(Order.Number, (entry: { readonly index: number; readonly ratio: number }) => entry.index)
     )(
       Arr.makeBy(Arr.length(ratios), (index) => ({
         index,
         ratio: valueAt(ratios, index)
       }))
     ),
-    (entry) => entry.index
+    (entry: { readonly index: number; readonly ratio: number }) => entry.index
   )
 }
 
@@ -51,7 +51,7 @@ describe("constrained fixture parity", () => {
   it.effect("matches Optuna-derived constrained density ratios and feasibility ordering", () =>
     Effect.gen(function*() {
       const loaded = yield* loadFixture("constrained-tpe.parity").pipe(Effect.provide(FixtureRegistryLive))
-      const fixture = yield* Schema.decodeUnknown(ConstrainedTpeFixture)(loaded)
+      const fixture = yield* Schema.decodeUnknownEffect(ConstrainedTpeFixture)(loaded)
 
       yield* Effect.forEach(
         fixture.payload.densityCases,

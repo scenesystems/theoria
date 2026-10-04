@@ -15,12 +15,12 @@ import { ModuleParameters } from "./ModuleParameters.js"
  * @since 0.4.0
  * @category schemas
  */
-export const DemoCandidateKind = Schema.Literal(
+export const DemoCandidateKind = Schema.Literals([
   "zero-shot",
   "labels-only",
   "bootstrap-unshuffled",
   "bootstrap-shuffled"
-)
+])
 
 /** Identifies a Phase 1 demonstration layout.
  * @since 0.4.0

@@ -4,7 +4,7 @@
  * @since 0.1.0
  * @module
  */
-import { Cause, Data, Duration, Effect, Exit, Match, Schema, Tuple } from "effect"
+import { Cause, Duration, Effect, Exit, Match, Schema, Tuple } from "effect"
 
 import * as History from "./History.js"
 import * as Study from "./Study.js"
@@ -17,8 +17,8 @@ import type * as Trial from "./Trial.js"
  * @category schemas
  */
 export const Options = Schema.Struct({
-  concurrency: Schema.optional(Schema.Number.pipe(Schema.int(), Schema.positive()))
-}).annotations({ identifier: "@scenesystems/effect-study/Evaluation/Options" })
+  concurrency: Schema.optional(Schema.Int.check(Schema.isGreaterThan(0)))
+}).annotate({ identifier: "@scenesystems/effect-study/Evaluation/Options" })
 
 /**
  * Evaluates supplied inputs and returns completed trials in input order, numbered
@@ -47,17 +47,15 @@ export const run = <Config, Value, E, R>(
           evaluate(config, trialNumber)
         ).pipe(
           Effect.timed,
-          Effect.map(([duration, value]): Trial.Trial<Config, Trial.Completed<Value>> =>
-            Data.struct({
-              trialNumber,
-              config,
-              state: Data.struct<Trial.Completed<Value>>({
-                _tag: "Completed",
-                value,
-                duration: Duration.toMillis(duration)
-              })
-            })
-          ),
+          Effect.map(([duration, value]): Trial.Trial<Config, Trial.Completed<Value>> => ({
+            trialNumber,
+            config,
+            state: {
+              _tag: "Completed",
+              value,
+              duration: Duration.toMillis(duration)
+            }
+          })),
           Effect.tap((trial) =>
             Study.modify(study, (state) =>
               Effect.succeed(Tuple.make(
@@ -69,7 +67,7 @@ export const run = <Config, Value, E, R>(
           Effect.onExit((exit) =>
             Exit.match(exit, {
               onFailure: (cause) =>
-                Match.value(Cause.isInterruptedOnly(cause)).pipe(
+                Match.value(Cause.hasInterruptsOnly(cause)).pipe(
                   Match.when(true, () =>
                     Study.transition(study, "Cancelled")),
                   Match.orElse(() => Study.transition(study, "Failed"))

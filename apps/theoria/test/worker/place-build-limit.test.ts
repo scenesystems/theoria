@@ -1,16 +1,23 @@
 // @vitest-environment node
-import { Path, Url } from "@effect/platform"
-import { BunContext } from "@effect/platform-bun"
+import { BunServices } from "@effect/platform-bun"
 import { expect, layer } from "@effect/vitest"
-import { Clock, Duration, Effect, Option } from "effect"
+import { Clock, Duration, Effect, Option, Path, Schema } from "effect"
 import * as Arr from "effect/Array"
-import { type Unstable_Config, unstable_readConfig } from "wrangler"
+import { Url } from "effect/http"
+import { unstable_readConfig } from "wrangler"
 
 import { header, json, productionHost, Site, SiteLive, SiteRequest } from "./site.js"
 
-type Limiter = Unstable_Config["ratelimits"][number]
+const WranglerConfig = Schema.Struct({
+  ratelimits: Schema.Array(Schema.Struct({
+    name: Schema.String,
+    simple: Schema.Struct({ limit: Schema.Finite, period: Schema.Finite })
+  }))
+})
+type WranglerConfig = typeof WranglerConfig.Type
+type Limiter = WranglerConfig["ratelimits"][number]
 
-const placeBuildLimiter = (config: Unstable_Config): Option.Option<Limiter> =>
+const placeBuildLimiter = (config: WranglerConfig): Option.Option<Limiter> =>
   Arr.findFirst(config.ratelimits, (limiter) => limiter.name === "PLACE_BUILD_LIMITER")
 
 /**
@@ -19,17 +26,23 @@ const placeBuildLimiter = (config: Unstable_Config): Option.Option<Limiter> =>
  */
 const configuredLimit = Effect.gen(function*() {
   const path = yield* Path.Path
-  return yield* path.fromFileUrl(yield* Url.fromString("../../", import.meta.url))
+  return yield* path.fromFileUrl(yield* Effect.fromResult(Url.fromString("../../", import.meta.url)))
 }).pipe(
   Effect.orDie,
-  Effect.map((projectRoot) => unstable_readConfig({ config: `${projectRoot}/wrangler.jsonc` }, { hideWarnings: true })),
+  Effect.flatMap((projectRoot) =>
+    Effect.tryPromise(() =>
+      Schema.decodeUnknownPromise(WranglerConfig)(
+        unstable_readConfig({ config: `${projectRoot}/wrangler.jsonc` }, { hideWarnings: true })
+      )
+    )
+  ),
   Effect.flatMap((config) =>
     Option.match(placeBuildLimiter(config), {
-      onNone: () => Effect.dieMessage("wrangler.jsonc declares no PLACE_BUILD_LIMITER binding"),
+      onNone: () => Effect.die("wrangler.jsonc declares no PLACE_BUILD_LIMITER binding"),
       onSome: (limiter) => Effect.succeed({ limit: limiter.simple.limit, periodSeconds: limiter.simple.period })
     })
   ),
-  Effect.provide(BunContext.layer)
+  Effect.provide(BunServices.layer)
 )
 
 /**
@@ -49,7 +62,7 @@ const awaitRoomInWindow = (periodSeconds: number, marginSeconds: number) =>
 layer(SiteLive, { timeout: "2 minutes" })("Place build rate limit in workerd", (it) => {
   // Runs on the live clock: the Worker's counters follow wall-clock windows,
   // which the test clock cannot advance.
-  it.effect("admits the configured number of builds per client address, then answers 429 until the window ends", () =>
+  it("admits the configured number of builds per client address, then answers 429 until the window ends", () =>
     Effect.gen(function*() {
       const site = yield* Site
       const { limit, periodSeconds } = yield* configuredLimit
@@ -86,5 +99,5 @@ layer(SiteLive, { timeout: "2 minutes" })("Place build rate limit in workerd", (
       // Another address has its own budget.
       const neighbour = yield* attempt("198.51.100.11")
       expect(neighbour.status).toBe(400)
-    }).pipe(Effect.withClock(Clock.make())))
+    }))
 })

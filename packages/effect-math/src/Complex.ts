@@ -4,7 +4,7 @@
  * @since 0.1.0
  * @module
  */
-import { Array, Chunk, Effect, Number, Schema, Tuple } from "effect"
+import { Array, Chunk, Effect, Number, Schema, String, Tuple } from "effect"
 import { dual } from "effect/Function"
 
 import * as Arithmetic from "./internal/complex/arithmetic.js"
@@ -12,7 +12,7 @@ import * as Trigonometric from "./internal/complex/trigonometric.js"
 import * as PolicyGuard from "./internal/policyGuard.js"
 import * as Numeric from "./Numeric.js"
 
-const encodeNumber = Schema.encodeSync(Schema.NumberFromString)
+const encodeNumber = String.String
 
 /**
  * A schema-backed Cartesian complex value. Components preserve the full IEEE
@@ -34,10 +34,10 @@ export class Complex extends Schema.Class<Complex>("@scenesystems/effect-math/Co
  * @since 0.4.0
  * @category schemas
  */
-export const Polar = Schema.Tuple(
-  Schema.Number.pipe(Schema.nonNegative()),
+export const Polar = Schema.Tuple([
+  Schema.Number.check(Schema.isGreaterThanOrEqualTo(0)),
   Schema.Number
-).annotations({ identifier: "@scenesystems/effect-math/Complex/Polar" })
+]).annotate({ identifier: "@scenesystems/effect-math/Complex/Polar" })
 
 /**
  * A polar `[radius, angle]` pair.
@@ -54,9 +54,9 @@ export type Polar = typeof Polar.Type
  * @category schemas
  */
 export const Input = Schema.Struct({
-  re: Complex.fields.re.pipe(Schema.finite()),
-  im: Complex.fields.im.pipe(Schema.finite())
-}).annotations({ identifier: "@scenesystems/effect-math/Complex/Input" })
+  re: Complex.fields.re.check(Schema.isFinite()),
+  im: Complex.fields.im.check(Schema.isFinite())
+}).annotate({ identifier: "@scenesystems/effect-math/Complex/Input" })
 
 /**
  * Finite Cartesian input for validated unary operations.
@@ -77,7 +77,7 @@ export const BinaryInput = Schema.Struct({
   aIm: Input.fields.im,
   bRe: Input.fields.re,
   bIm: Input.fields.im
-}).annotations({ identifier: "@scenesystems/effect-math/Complex/BinaryInput" })
+}).annotate({ identifier: "@scenesystems/effect-math/Complex/BinaryInput" })
 
 /**
  * A finite pair of Cartesian operands for validated binary operations.
@@ -128,13 +128,13 @@ export class DomainViolationError
  */
 export type OperationError = DecodeError | DomainViolationError
 
-const decode = <A, I, R>(schema: Schema.Schema<A, I, R>, operation: string, input: unknown) =>
-  Schema.decodeUnknown(schema)(input, { onExcessProperty: "error" }).pipe(
+const decode = <A, I, R>(schema: Schema.Codec<A, I, R>, operation: string, input: unknown) =>
+  Schema.decodeUnknownEffect(schema)(input, { onExcessProperty: "error" }).pipe(
     Effect.mapError((error) => new DecodeError({ operation, message: error.message }))
   )
 
 const fromCartesian = (components: Arithmetic.Cartesian): Complex =>
-  new Complex({ re: Tuple.getFirst(components), im: Tuple.getSecond(components) })
+  new Complex({ re: Tuple.get(components, 0), im: Tuple.get(components, 1) })
 
 /**
  * Constructs a complex value without normalization or finiteness checks.
@@ -391,14 +391,14 @@ export const dot: {
   const initial: Arithmetic.Cartesian = Tuple.make(0, 0)
   const result = Chunk.zipWith(self, that, (left, right) => {
     const conjugated = Arithmetic.conjugate(left.re, left.im)
-    return Arithmetic.multiply(Tuple.getFirst(conjugated), Tuple.getSecond(conjugated), right.re, right.im)
+    return Arithmetic.multiply(Tuple.get(conjugated, 0), Tuple.get(conjugated, 1), right.re, right.im)
   }).pipe(
     Chunk.reduce(initial, (accumulator, value) =>
       Arithmetic.add(
-        Tuple.getFirst(accumulator),
-        Tuple.getSecond(accumulator),
-        Tuple.getFirst(value),
-        Tuple.getSecond(value)
+        Tuple.get(accumulator, 0),
+        Tuple.get(accumulator, 1),
+        Tuple.get(value, 0),
+        Tuple.get(value, 1)
       ))
   )
   return fromCartesian(result)

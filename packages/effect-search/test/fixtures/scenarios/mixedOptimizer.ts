@@ -13,7 +13,7 @@ import * as SearchSpace from "../../../src/SearchSpace.js"
  * @since 0.1.0
  * @category models
  */
-export const MixedOptimizerChoices = Schema.Literal("adam", "sgd", "adamw").literals
+export const MixedOptimizerChoices = Schema.Literals(["adam", "sgd", "adamw"]).literals
 
 /**
  * Decodes a numeric learning rate, an integer depth, and a declared optimizer.
@@ -26,11 +26,11 @@ export const MixedOptimizerChoices = Schema.Literal("adam", "sgd", "adamw").lite
  */
 export const MixedOptimizerConfig = Schema.Struct({
   /** Learning rate; standalone decoding does not enforce the sampling range. */
-  lr: Schema.Number,
+  lr: Schema.Finite,
   /** Integer depth; standalone decoding does not enforce the sampling range. */
   depth: Schema.Int,
   /** Optimizer selected from {@link MixedOptimizerChoices}. */
-  optimizer: Schema.Literal(...MixedOptimizerChoices)
+  optimizer: Schema.Literals(MixedOptimizerChoices)
 })
 
 /**
@@ -47,7 +47,7 @@ export type MixedOptimizerConfig = Schema.Schema.Type<typeof MixedOptimizerConfi
  * @since 0.1.0
  * @category utils
  */
-export const decodeMixedOptimizerConfig = Schema.decodeUnknown(MixedOptimizerConfig)
+export const decodeMixedOptimizerConfig = Schema.decodeUnknownEffect(MixedOptimizerConfig)
 
 /**
  * Builds a space with log-scaled learning rate from `0.0005` through `0.2`,
@@ -56,9 +56,8 @@ export const decodeMixedOptimizerConfig = Schema.decodeUnknown(MixedOptimizerCon
  * @since 0.1.0
  * @category constructors
  */
-export const makeMixedOptimizerSpace = () =>
-  SearchSpace.make({
-    lr: SearchSpace.float(0.0005, 0.2, { scale: "log" }),
-    depth: SearchSpace.int(1, 8),
-    optimizer: SearchSpace.categorical(MixedOptimizerChoices)
-  })
+export const makeMixedOptimizerSpace = SearchSpace.make({
+  lr: SearchSpace.float(0.0005, 0.2, { scale: "log" }),
+  depth: SearchSpace.int(1, 8),
+  optimizer: SearchSpace.categorical(MixedOptimizerChoices)
+})

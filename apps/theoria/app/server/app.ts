@@ -1,6 +1,6 @@
-import { HttpMiddleware } from "@effect/platform"
 import { Cipher } from "@scenesystems/seal"
-import { Layer } from "effect"
+import { Effect, Layer } from "effect"
+import { HttpMiddleware } from "effect/http"
 
 import { AnalyticsLive } from "./config/analytics.js"
 import { DocsManifestStoreLive } from "./config/docs-manifest-store.js"
@@ -22,7 +22,8 @@ export const publicApp = app.pipe(
   // Innermost first: both policies read the host after proxy headers apply.
   indexingPolicy,
   securityHeaders,
-  HttpMiddleware.xForwardedHeaders
+  HttpMiddleware.xForwardedHeaders,
+  Effect.interruptible
 )
 
 /** Fails layer construction when `RELEASE_STAGE` holds an unsupported value. */

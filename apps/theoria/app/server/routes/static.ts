@@ -1,6 +1,6 @@
-import { HttpServerRequest, HttpServerResponse } from "@effect/platform"
 import { Boolean as Bool, Effect, Equal, Match, Option, Schema } from "effect"
 import * as Arr from "effect/Array"
+import { HttpServerRequest, HttpServerResponse } from "effect/http"
 import * as Str from "effect/String"
 
 import type { DocsManifest } from "@theoria/docs-model"
@@ -21,9 +21,11 @@ const indexPathname = "/index.html"
 const docsManifestPathname = "/docs-data/manifest.json"
 
 const AssetPathname = Schema.String.pipe(
-  Schema.pattern(/^\/[A-Za-z0-9._/-]+$/u),
-  Schema.filter((value) =>
-    Bool.not(Bool.some([Str.endsWith("/")(value), Str.includes("..")(value), Str.includes("//")(value)]))
+  Schema.check(Schema.isPattern(/^\/[A-Za-z0-9._/-]+$/u)),
+  Schema.check(
+    Schema.makeFilter((value) =>
+      Bool.not(Bool.some([Str.endsWith("/")(value), Str.includes("..")(value), Str.includes("//")(value)]))
+    )
   )
 )
 
@@ -40,7 +42,7 @@ export const isHtmlPath = (pathname: string): boolean =>
   )
 
 /** A versioned docs-data file: everything under a revision directory is immutable. */
-const isVersionedDocsData = Schema.is(Schema.String.pipe(Schema.pattern(/^\/docs-data\/[A-Za-z0-9._-]+\//u)))
+const isVersionedDocsData = Schema.is(Schema.String.check(Schema.isPattern(/^\/docs-data\/[A-Za-z0-9._-]+\//u)))
 
 export const cacheControlForPath = (pathname: string): string =>
   Match.value(pathname).pipe(
@@ -85,7 +87,7 @@ const colorModePreference: Effect.Effect<
   HttpServerRequest.HttpServerRequest
 > = HttpServerRequest.schemaCookies(ColorModeCookies).pipe(
   Effect.map((cookies) => cookies[colorModeCookieName]),
-  Effect.catchTag("ParseError", () => Effect.succeedNone)
+  Effect.catchTag("SchemaError", () => Effect.succeedNone)
 )
 
 const injectMetadata = (

@@ -1,5 +1,5 @@
 import { describe, expect, it } from "@effect/vitest"
-import { Array as Arr, Chunk, Effect, Either, Equal, Option, Schema } from "effect"
+import { Array as Arr, Chunk, Effect, Equal, Option, Result, Schema } from "effect"
 
 import * as SearchSpace from "../../src/SearchSpace.js"
 
@@ -29,8 +29,6 @@ const conditionalSpace = Effect.gen(function*() {
   )
 })
 
-const requireMergedConfig = (config: { readonly lr: number; readonly batchSize: number }) => config
-
 describe("SearchSpace composition", () => {
   it.effect("extends, picks and omits parameters by name", () =>
     Effect.gen(function*() {
@@ -43,19 +41,18 @@ describe("SearchSpace composition", () => {
       expect(Arr.map(omitted.params, (parameter) => parameter.name)).toEqual(Arr.of("seed"))
     }))
 
-  it.effect("extends two spaces and preserves merged config typing", () =>
+  it.effect("extends two spaces and decodes the merged config", () =>
     Effect.gen(function*() {
       const extended = yield* SearchSpace.extend(yield* learningRateSpace, yield* batchSpace)
-      const decoded = yield* Schema.decodeUnknown(extended.schema)({ lr: 0.01, batchSize: 32 })
-      const typed = requireMergedConfig(decoded)
+      const decoded = yield* Schema.decodeEffect(Schema.toType(extended.schema))({ lr: 0.01, batchSize: 32 })
 
-      expect(typed.batchSize).toBe(32)
+      expect(decoded).toEqual({ lr: 0.01, batchSize: 32 })
       expect(Arr.map(extended.params, (parameter) => parameter.name)).toEqual(Arr.make("lr", "batchSize"))
     }))
 
   it.effect("rejects extend conflicts when spaces reuse parameter names", () =>
     Effect.gen(function*() {
-      const result = yield* Effect.either(
+      const result = yield* Effect.result(
         SearchSpace.extend(
           yield* learningRateSpace,
           yield* SearchSpace.make({
@@ -64,61 +61,61 @@ describe("SearchSpace composition", () => {
         )
       )
 
-      expect(Either.isLeft(result)).toBe(true)
+      expect(Result.isFailure(result)).toBe(true)
 
-      Either.match(result, {
-        onLeft: (failure) => {
+      Result.match(result, {
+        onFailure: (failure) => {
           expect(failure._tag).toBe("effect-search/InvalidSearchSpace")
           expect(failure.reason).toContain("duplicate parameter")
         },
-        onRight: () => undefined
+        onSuccess: () => undefined
       })
     }))
 
   it.effect("pick computes activation dependency closure for conditional dimensions", () =>
     Effect.gen(function*() {
       const projected = yield* SearchSpace.pick(yield* conditionalSpace, Arr.of("lr"))
-      const decode = Schema.decodeUnknownEither(projected.schema)
+      const decode = Schema.decodeUnknownResult(Schema.toType(projected.schema))
       const learningRateParameter = Arr.findFirst(projected.params, (parameter) => Equal.equals(parameter.name, "lr"))
 
       expect(Arr.map(projected.params, (parameter) => parameter.name)).toEqual(Arr.make("model", "lr"))
       expect(Option.map(learningRateParameter, (parameter) => parameter.activeWhen)).toEqual(
         Option.some(Arr.of({ dimension: "model", equals: "linear" }))
       )
-      expect(Either.isRight(decode({ model: "linear", lr: 0.01 }))).toBe(true)
-      expect(Either.isRight(decode({ model: "tree" }))).toBe(true)
-      expect(Either.isLeft(decode({ model: "linear" }))).toBe(true)
+      expect(Result.isSuccess(decode({ model: "linear", lr: 0.01 }))).toBe(true)
+      expect(Result.isSuccess(decode({ model: "tree" }))).toBe(true)
+      expect(Result.isFailure(decode({ model: "linear" }))).toBe(true)
       const treeWithLinearOnlyField = decode({ model: "tree", lr: 0.01 })
-      expect(Either.isRight(treeWithLinearOnlyField)).toBe(true)
+      expect(Result.isSuccess(treeWithLinearOnlyField)).toBe(true)
 
-      expect(Either.getOrElse(treeWithLinearOnlyField, () => ({ model: "invalid" }))).toEqual({ model: "tree" })
+      expect(Result.getOrElse(treeWithLinearOnlyField, () => ({ model: "invalid" }))).toEqual({ model: "tree" })
     }))
 
   it.effect("omit removes descendants when dropping a conditional discriminant", () =>
     Effect.gen(function*() {
       const projected = yield* SearchSpace.omit(yield* conditionalSpace, Arr.of("model"))
-      const decode = Schema.decodeUnknownEither(projected.schema)
+      const decode = Schema.decodeUnknownResult(Schema.toType(projected.schema))
 
       expect(Arr.map(projected.params, (parameter) => parameter.name)).toEqual(Arr.of("seed"))
-      expect(Either.isRight(decode({ seed: 4 }))).toBe(true)
+      expect(Result.isSuccess(decode({ seed: 4 }))).toBe(true)
       const withOmittedDiscriminant = decode({ model: "tree", seed: 4 })
-      expect(Either.isRight(withOmittedDiscriminant)).toBe(true)
+      expect(Result.isSuccess(withOmittedDiscriminant)).toBe(true)
 
-      expect(Either.getOrElse(withOmittedDiscriminant, () => ({ seed: Number.NaN }))).toEqual({ seed: 4 })
+      expect(Result.getOrElse(withOmittedDiscriminant, () => ({ seed: Number.NaN }))).toEqual({ seed: 4 })
     }))
 
   it.effect("fails deterministically on invalid projection requests", () =>
     Effect.gen(function*() {
-      const result = yield* Effect.either(SearchSpace.pick(yield* conditionalSpace, Arr.of("unknown")))
+      const result = yield* Effect.result(SearchSpace.pick(yield* conditionalSpace, Arr.of("unknown")))
 
-      expect(Either.isLeft(result)).toBe(true)
+      expect(Result.isFailure(result)).toBe(true)
 
-      Either.match(result, {
-        onLeft: (failure) => {
+      Result.match(result, {
+        onFailure: (failure) => {
           expect(failure._tag).toBe("effect-search/InvalidSearchSpace")
           expect(failure.reason).toContain("unknown parameter")
         },
-        onRight: () => undefined
+        onSuccess: () => undefined
       })
     }))
 })

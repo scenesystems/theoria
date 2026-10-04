@@ -10,13 +10,12 @@
  * @since 0.1.0
  * @module
  */
-import * as KeyValueStore from "@effect/platform/KeyValueStore"
-import type * as SqlClient from "@effect/sql/SqlClient"
-import { Data, Effect, Layer, Schema } from "effect"
-import type { Option } from "effect"
-import type * as Context from "effect/Context"
+import { Context, Data, Layer, Schema } from "effect"
+import type { Effect, Option } from "effect"
 import { dual } from "effect/Function"
+import * as KeyValueStore from "effect/persistence/KeyValueStore"
 import type * as Scope from "effect/Scope"
+import type * as SqlClient from "effect/sql/SqlClient"
 
 import * as cache from "./internal/cache/cache.js"
 
@@ -33,8 +32,8 @@ import * as cache from "./internal/cache/cache.js"
  */
 export class KeySpace<Key, Value, EncodedKey = Key, EncodedValue = Value> extends Data.Class<{
   readonly namespace: string
-  readonly keySchema: Schema.Schema<Key, EncodedKey, never>
-  readonly valueSchema: Schema.Schema<Value, EncodedValue, never>
+  readonly keySchema: Schema.Codec<Key, EncodedKey>
+  readonly valueSchema: Schema.Codec<Value, EncodedValue>
 }> {}
 
 /**
@@ -52,7 +51,7 @@ export class Request<Key, Value, ComputeError, Requirements, EncodedKey = Key, E
 {}
 
 /** Origin of a resolved value. @since 0.1.0 @category schemas */
-export const Resolution = Schema.Literal("hit", "miss")
+export const Resolution = Schema.Literals(["hit", "miss"])
 
 /** Origin of a resolved value. @since 0.1.0 @category models */
 export type Resolution = typeof Resolution.Type
@@ -97,7 +96,7 @@ export class BackendError extends Schema.TaggedError<BackendError>("@scenesystem
 ) {}
 
 /** Expected cache failures. @since 0.1.0 @category schemas */
-export const Error = Schema.Union(Corrupt, BackendError)
+export const Error = Schema.Union([Corrupt, BackendError])
 
 /** Expected cache failure. @since 0.1.0 @category models */
 export type Error = typeof Error.Type
@@ -126,18 +125,18 @@ export class Invalidation extends Schema.TaggedClass<Invalidation>("@scenesystem
 ) {}
 
 /** Cache observability events accepted at persistence boundaries. @since 0.1.0 @category schemas */
-export const Event = Schema.Union(Hit, Miss, Invalidation)
+export const Event = Schema.Union([Hit, Miss, Invalidation])
 
 /** Cache observability event. @since 0.1.0 @category models */
 export type Event = typeof Event.Type
 
 /** Records cache events selected by integrations. @since 0.1.0 @category services */
-export class Observer extends Effect.Tag("@scenesystems/effect-search/Cache/Observer")<
+export class Observer extends Context.Service<
   Observer,
   {
     readonly record: (event: Event) => Effect.Effect<void>
   }
->() {}
+>()("@scenesystems/effect-search/Cache/Observer") {}
 
 /**
  * Reads and writes typed values under identities derived from encoded keys.
@@ -145,7 +144,7 @@ export class Observer extends Effect.Tag("@scenesystems/effect-search/Cache/Obse
  * @since 0.1.0
  * @category services
  */
-export class Cache extends Effect.Tag("@scenesystems/effect-search/Cache")<
+export class Cache extends Context.Service<
   Cache,
   {
     readonly get: <Key, Value, EncodedKey = Key, EncodedValue = Value>(
@@ -165,10 +164,10 @@ export class Cache extends Effect.Tag("@scenesystems/effect-search/Cache")<
       request: Request<Key, Value, ComputeError, Requirements, EncodedKey, EncodedValue>
     ) => Effect.Effect<Result<Value>, Failure | ComputeError, Requirements>
   }
->() {}
+>()("@scenesystems/effect-search/Cache") {}
 
 /** Cache service implementation. @since 0.1.0 @category models */
-export type Service = Context.Tag.Service<typeof Cache>
+export type Service = Cache["Service"]
 
 /** Reads and decodes an entry. @since 0.1.0 @category combinators */
 export const get: {
@@ -251,10 +250,10 @@ export const resolve: {
 )
 
 /** Allocates cache lookup state and per-key locks. @since 0.1.0 @category constructors */
-export const make = (): Effect.Effect<Service, never, KeyValueStore.KeyValueStore | Scope.Scope> => cache.make()
+export const make = (_?: void): Effect.Effect<Service, never, KeyValueStore.KeyValueStore | Scope.Scope> => cache.make()
 
 /** Installs a cache over the ambient key-value store. @since 0.1.0 @category layers */
-export const layer = Layer.scoped(Cache, make())
+export const layer = Layer.effect(Cache, make())
 
 /** Installs a process-local in-memory cache. @since 0.1.0 @category layers */
 export const layerMemory = Layer.provide(layer, KeyValueStore.layerMemory)

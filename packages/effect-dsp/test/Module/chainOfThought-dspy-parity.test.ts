@@ -1,11 +1,11 @@
-import * as LanguageModel from "@effect/ai/LanguageModel"
 import { describe, expect, it } from "@effect/vitest"
 import * as MockLanguageModel from "@scenesystems/effect-dsp/MockLanguageModel"
 import * as Module from "@scenesystems/effect-dsp/Module"
 import { decode } from "@scenesystems/effect-dsp/Payload"
 import * as Signature from "@scenesystems/effect-dsp/Signature"
 import * as Trace from "@scenesystems/effect-dsp/Trace"
-import { Array as Arr, Effect, Layer, Record, Schema } from "effect"
+import { Array as Arr, Effect, Layer, Option, Record, Schema } from "effect"
+import * as LanguageModel from "effect/ai/LanguageModel"
 
 import { ChainOfThoughtReasoningFixtureSchema, loadFixture } from "../helpers/dspy-fixtures/index.js"
 
@@ -24,7 +24,7 @@ describe("Module.chainOfThought DSPy parity", () => {
   it.effect("matches the DSPy reasoning-field and trace contracts", () =>
     Effect.gen(function*() {
       const rawFixture = yield* loadFixture("dspy.cot.reasoning-field.basic")
-      const fixture = yield* Schema.decodeUnknown(ChainOfThoughtReasoningFixtureSchema)(rawFixture)
+      const fixture = yield* Schema.decodeUnknownEffect(ChainOfThoughtReasoningFixtureSchema)(rawFixture)
 
       const qa = yield* makeQaSignature()
       const cot = yield* Module.chainOfThought("qa-cot-dspy-parity", qa)
@@ -38,7 +38,7 @@ describe("Module.chainOfThought DSPy parity", () => {
           Effect.provide(lmLayer)
         )
       )
-      const firstEntry = yield* Arr.head(entries)
+      const firstEntry = Option.getOrThrow(Arr.head(entries))
 
       expect(Record.keys(cot.signature.outputFields)).toStrictEqual(fixture.payload.outputFieldOrder)
       expect(result).toStrictEqual(fixture.payload.sampleOutput)

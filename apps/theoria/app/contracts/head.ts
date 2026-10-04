@@ -12,7 +12,7 @@ import { structuredDataJson } from "./structured-data.js"
  */
 export const HeadTitle = Schema.TaggedStruct("Title", { text: Schema.String })
 export const HeadMeta = Schema.TaggedStruct("Meta", {
-  attribute: Schema.Literal("name", "property"),
+  attribute: Schema.Literals(["name", "property"]),
   key: Schema.String,
   content: Schema.String
 })
@@ -20,7 +20,7 @@ export const HeadCanonical = Schema.TaggedStruct("Canonical", { href: Schema.Str
 export const HeadStructuredData = Schema.TaggedStruct("StructuredData", { json: Schema.String })
 /** A class on the root element, present or absent: the Worker serves the reader's colour mode this way. */
 export const HeadRootClass = Schema.TaggedStruct("RootClass", { name: Schema.String, present: Schema.Boolean })
-export const HeadEntry = Schema.Union(HeadTitle, HeadMeta, HeadCanonical, HeadStructuredData, HeadRootClass)
+export const HeadEntry = Schema.Union([HeadTitle, HeadMeta, HeadCanonical, HeadStructuredData, HeadRootClass])
 export type HeadEntry = typeof HeadEntry.Type
 
 /** The `id` of the JSON-LD placeholder in `index.html`. */

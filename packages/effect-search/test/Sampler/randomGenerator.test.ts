@@ -4,17 +4,21 @@ import { Array as Arr, Effect, Number as Num, Schema } from "effect"
 import * as Rng from "../../src/internal/rng.js"
 
 const drawFloatSequence = (seed: number, count: number, low = 0, high = 1) => {
-  const rng = Rng.make(seed)
   const draws = Arr.makeBy(count, (index) => index)
 
-  return Effect.forEach(draws, () => Rng.nextFloat(rng, low, high))
+  return Effect.gen(function*() {
+    const rng = yield* Rng.make(seed)
+    return yield* Effect.forEach(draws, () => Rng.nextFloat(rng, low, high))
+  })
 }
 
 const drawIntSequence = (seed: number, count: number, low: number, high: number) => {
-  const rng = Rng.make(seed)
   const draws = Arr.makeBy(count, (index) => index)
 
-  return Effect.forEach(draws, () => Rng.nextInt(rng, low, high))
+  return Effect.gen(function*() {
+    const rng = yield* Rng.make(seed)
+    return yield* Effect.forEach(draws, () => Rng.nextInt(rng, low, high))
+  })
 }
 
 describe("internal rng", () => {
@@ -36,7 +40,7 @@ describe("internal rng", () => {
 
   it.effect("keeps nextFloat draws within inclusive bounds", () =>
     Effect.gen(function*() {
-      const low = Num.negate(3.25)
+      const low = Num.multiply(-1, 3.25)
       const high = 7.5
       const draws = yield* drawFloatSequence(99, 1000, low, high)
 

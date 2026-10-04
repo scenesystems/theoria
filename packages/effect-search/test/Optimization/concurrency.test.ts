@@ -10,7 +10,7 @@ import { makeSlotSpace } from "../fixtures/scenarios/slot.js"
 
 const makeSpace = () =>
   SearchSpace.make({
-    x: SearchSpace.float(Num.negate(2), 2),
+    x: SearchSpace.float(Num.multiply(-1, 2), 2),
     depth: SearchSpace.int(1, 4)
   })
 
@@ -27,31 +27,33 @@ describe("Optimization concurrency", () => {
       const maxActiveRef = yield* Ref.make(0)
       const space = yield* makeSpace()
 
-      const result = yield* Optimization.run({
-        space,
-        sampler: Sampler.random({ seed: 42 }),
-        direction: "minimize",
-        trials: 10,
-        concurrency: 4,
-        objective: (raw) =>
-          Effect.acquireUseRelease(
-            Ref.updateAndGet(activeRef, (active) => Num.increment(active)).pipe(
-              Effect.tap((active) => Ref.update(maxActiveRef, (maxActive) => Num.max(maxActive, active)))
-            ),
-            () => {
-              const config = raw
+      const result = yield* Optimization.run(
+        new Optimization.FlatOptions({
+          space,
+          sampler: Sampler.random({ seed: 42 }),
+          direction: "minimize",
+          trials: 10,
+          concurrency: 4,
+          objective: (raw) =>
+            Effect.acquireUseRelease(
+              Ref.updateAndGet(activeRef, (active) => Num.increment(active)).pipe(
+                Effect.tap((active) => Ref.update(maxActiveRef, (maxActive) => Num.max(maxActive, active)))
+              ),
+              () => {
+                const config = raw
 
-              return Effect.sleep("15 millis").pipe(Effect.as(Num.sum(Numeric.abs(config.x), config.depth)))
-            },
-            () => Ref.update(activeRef, (active) => Num.decrement(active))
-          )
-      })
+                return Effect.sleep("15 millis").pipe(Effect.as(Num.sum(Numeric.abs(config.x), config.depth)))
+              },
+              () => Ref.update(activeRef, (active) => Num.decrement(active))
+            )
+        })
+      )
 
       const single = asSingleObjective(result)
       const maxActive = yield* Ref.get(maxActiveRef)
 
       expect(Option.isSome(single)).toBe(true)
-      const completed = yield* single
+      const completed = yield* Effect.fromOption(single)
 
       expect(maxActive).toBeGreaterThanOrEqual(2)
       expect(completed.trials).toHaveLength(10)
@@ -76,14 +78,16 @@ describe("Optimization concurrency", () => {
           )
       })
 
-      yield* Optimization.run({
-        space: yield* makeSlotSpace(32),
-        sampler: deterministicSampler,
-        direction: "minimize",
-        trials: 8,
-        concurrency: 4,
-        objective: () => Effect.sleep("12 millis").pipe(Effect.as(1))
-      })
+      yield* Optimization.run(
+        new Optimization.FlatOptions({
+          space: yield* makeSlotSpace(32),
+          sampler: deterministicSampler,
+          direction: "minimize",
+          trials: 8,
+          concurrency: 4,
+          objective: () => Effect.sleep("12 millis").pipe(Effect.as(1))
+        })
+      )
 
       const seenHistoryLengths = yield* Ref.get(seenHistoryLengthsRef)
 

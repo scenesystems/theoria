@@ -11,10 +11,10 @@ Reusable trial schemas, history, stop controls, event streams, generic schema-pa
 ## Installation
 
 ```sh
-bun add @scenesystems/effect-search effect @effect/platform @effect/experimental
+bun add @scenesystems/effect-search effect
 ```
 
-Effect `^3.22.1` is a required peer dependency, together with `@effect/platform` and `@effect/experimental`. `@effect/sql` is an optional peer that is needed only for the SQL-backed cache layers.
+Effect `^4.0.0` is the only required peer dependency. Platform implementations such as `@effect/platform-bun` or `@effect/platform-node` are needed only when an application uses filesystem-backed persistence. Install an Effect SQL implementation only when using the SQL-backed cache layer.
 
 ## Basic use
 
@@ -31,12 +31,15 @@ export const program = Effect.gen(function* () {
     y: SearchSpace.float(-5, 5)
   })
 
-  const result = yield* Optimization.minimize({
-    space,
-    sampler: Sampler.tpe({ seed: 42 }),
-    objective: ({ x, y }) => Effect.succeed(Num.sum(Numeric.pow(Num.subtract(x, 2), 2), Numeric.pow(Num.sum(y, 1), 2))),
-    trials: 50
-  })
+  const result = yield* Optimization.minimize(
+    new Optimization.FlatOptions({
+      space,
+      sampler: Sampler.tpe(new Sampler.TpeOptions({ seed: 42 })),
+      objective: ({ x, y }) =>
+        Effect.succeed(Num.sum(Numeric.pow(Num.subtract(x, 2), 2), Numeric.pow(Num.sum(y, 1), 2))),
+      trials: 50
+    })
+  )
 
   yield* Match.value(result).pipe(
     Match.tag("SingleObjective", ({ bestTrial }) =>
@@ -52,12 +55,12 @@ The objective is an ordinary Effect, so it can use services, fail with typed err
 
 ## Search spaces
 
-A space is a record of dimensions. `SearchSpace.float` takes bounds, an optional `step`, and an optional `scale: "log"` for parameters that vary over orders of magnitude. `SearchSpace.int` takes bounds and an optional `step`. `SearchSpace.categorical` takes a list of literals, `SearchSpace.boolean` is a two-value shortcut, and `SearchSpace.fidelity` marks the budget dimension that HyperBand and BOHB schedule over.
+A space is a record of dimensions. `SearchSpace.float` takes bounds, an optional `step`, and an optional `scale: "log"` for parameters that vary over orders of magnitude. `SearchSpace.int` takes bounds and an optional `step`. `SearchSpace.categorical` takes a readonly array of literals, `SearchSpace.boolean` is a two-value shortcut, and `SearchSpace.fidelity` marks the budget dimension that HyperBand and BOHB schedule over.
 
 Conditional spaces branch on a categorical value. `SearchSpace.makeConditional` combines shared dimensions with a `SearchSpace.switchOn` over a non-empty `Chunk` of `SearchSpace.when` branches, and the inferred type is a discriminated union that `Match` can exhaust.
 
 ```ts typecheck
-import { Chunk, Effect, Match, Number as Num } from "effect"
+import { Chunk, Effect, Match, Number as Num, Tuple } from "effect"
 import * as Numeric from "@scenesystems/effect-math/Numeric"
 import { Optimization, Sampler, SearchSpace } from "@scenesystems/effect-search"
 
@@ -71,25 +74,27 @@ export const program = Effect.gen(function* () {
     minSamplesLeaf: SearchSpace.int(1, 6)
   })
   const space = yield* SearchSpace.makeConditional(
-    { model: SearchSpace.categorical(Chunk.make("linear", "tree")) },
+    { model: SearchSpace.categorical(Tuple.make("linear", "tree")) },
     SearchSpace.switchOn("model", Chunk.make(SearchSpace.when("linear", linear), SearchSpace.when("tree", tree)))
   )
 
-  return yield* Optimization.minimize({
-    space,
-    sampler: Sampler.tpe({ seed: 17 }),
-    trials: 45,
-    objective: (config) =>
-      Match.value(config).pipe(
-        Match.when({ model: "linear" }, ({ learningRate }) =>
-          Effect.succeed(Numeric.pow(Numeric.log10(learningRate), 2))
-        ),
-        Match.when({ model: "tree" }, ({ maxDepth }) =>
-          Effect.succeed(Numeric.pow(Num.unsafeDivide(Num.subtract(maxDepth, 7), 7), 2))
-        ),
-        Match.exhaustive
-      )
-  })
+  return yield* Optimization.minimize(
+    new Optimization.FlatOptions({
+      space,
+      sampler: Sampler.tpe(new Sampler.TpeOptions({ seed: 17 })),
+      trials: 45,
+      objective: (config: SearchSpace.Type<typeof space>) =>
+        Match.value(config).pipe(
+          Match.when({ model: "linear" }, ({ learningRate }) =>
+            Effect.succeed(Numeric.pow(Numeric.log10(learningRate), 2))
+          ),
+          Match.when({ model: "tree" }, ({ maxDepth }) =>
+            Effect.succeed(Numeric.pow(Num.divideUnsafe(Num.subtract(maxDepth, 7), 7), 2))
+          ),
+          Match.orElseAbsurd
+        )
+    })
+  )
 })
 ```
 
@@ -112,6 +117,8 @@ Start with TPE for mixed spaces and compare it against random search on the same
 Joint categorical TPE supports at most 65,536 combinations across its dimensions. Larger products fail with checked `InvalidSamplerConfig` before the joint domain is allocated. `nEiCandidates` limits candidate draws, not domain size. This limit applies when model-driven joint categorical sampling begins; random startup does not enumerate the domain.
 
 A seeded sampler reproduces its suggestions when it sees the same ordered trial history and a compatible checkpoint. The optimization as a whole is reproducible only if the objective, clock, external services, and observation order are too. Concurrent evaluation can change completion order, so a seed alone does not guarantee identical results under every concurrency setting.
+
+Effect 4 changed the seeded random sequence used by the samplers, so the same numeric seed does not reproduce the Effect 3 suggestion sequence. Start a new run after upgrading rather than expecting an Effect 3 snapshot or RNG trace to replay under Effect 4; snapshot resumption requires a checkpoint produced by the compatible implementation. The checked-in numerical fixtures themselves were not changed as part of this migration.
 
 TPE accepts the built-in acquisition names `"ei"`, `"pi"`, and `"thompson"`, or a custom `Acquisition.Acquisition` created with `Acquisition.make`. Use `Acquisition.isAcquisition` when narrowing unknown extension values.
 
@@ -138,17 +145,19 @@ export const program = Effect.gen(function* () {
     cacheMb: SearchSpace.int(64, 1024, { step: 64 })
   })
 
-  const result = yield* Optimization.run({
-    space,
-    sampler: Sampler.tpe({ seed: 919 }),
-    directions: Arr.replicate<Direction.Direction>("minimize", 2),
-    trials: 40,
-    objective: ({ replicas, cacheMb }) => {
-      const latency = Num.sum(Num.unsafeDivide(100, replicas), Num.unsafeDivide(2000, cacheMb))
-      const cost = Num.sum(Num.multiply(replicas, 1.5), Num.unsafeDivide(cacheMb, 256))
-      return Effect.succeed(Tuple.make(latency, cost))
-    }
-  })
+  const result = yield* Optimization.run(
+    new Optimization.FlatOptions({
+      space,
+      sampler: Sampler.tpe(new Sampler.TpeOptions({ seed: 919 })),
+      directions: Arr.replicate<Direction.Direction>("minimize", 2),
+      trials: 40,
+      objective: ({ replicas, cacheMb }) => {
+        const latency = Num.sum(Num.divideUnsafe(100, replicas), Num.divideUnsafe(2000, cacheMb))
+        const cost = Num.sum(Num.multiply(replicas, 1.5), Num.divideUnsafe(cacheMb, 256))
+        return Effect.succeed(Tuple.make(latency, cost))
+      }
+    })
+  )
 
   return Match.value(result).pipe(
     Match.tag("MultiObjective", ({ paretoFront }) => Iterable.size(paretoFront)),
@@ -177,18 +186,29 @@ export const program = Effect.gen(function* () {
     return Effect.succeed(Num.multiply(distance, distance))
   }
 
-  const firstLeg = yield* Optimization.minimize({ space, sampler: Sampler.tpe({ seed: 404 }), trials: 20, objective })
-  const stored = yield* Schema.encode(OptimizationSnapshot.OptimizationSnapshot)(yield* Optimization.snapshot(firstLeg))
+  const firstLeg = yield* Optimization.minimize(
+    new Optimization.FlatOptions({
+      space,
+      sampler: Sampler.tpe(new Sampler.TpeOptions({ seed: 404 })),
+      trials: 20,
+      objective
+    })
+  )
+  const stored = yield* Schema.encodeEffect(OptimizationSnapshot.OptimizationSnapshot)(
+    yield* Optimization.snapshot(firstLeg)
+  )
 
-  const snapshot = yield* Schema.decode(OptimizationSnapshot.OptimizationSnapshot)(stored)
-  return yield* Optimization.resume({
-    space,
-    sampler: Sampler.tpe({ seed: 404 }),
-    snapshot,
-    direction: "minimize",
-    trials: 20,
-    objective
-  })
+  const snapshot = yield* Schema.decodeEffect(OptimizationSnapshot.OptimizationSnapshot)(stored)
+  return yield* Optimization.resume(
+    new Optimization.ResumeOptions({
+      space,
+      sampler: Sampler.tpe(new Sampler.TpeOptions({ seed: 404 })),
+      snapshot,
+      direction: "minimize",
+      trials: 20,
+      objective
+    })
+  )
 })
 ```
 
@@ -196,9 +216,9 @@ For long-running work, import `StudyStorage` from `@scenesystems/effect-study/St
 
 Recovery filters the complete append-only trial log against the exact snapshot it loaded, so a concurrently appended snapshot cannot advance the replay boundary and hide intervening trials. Storage must retain that log; this does not provide distributed ownership of an optimization, so callers must still coordinate which process resumes execution.
 
-Artifacts are independent from checkpoints. Import `ArtifactContext` and `ArtifactSink` from `@scenesystems/effect-study/ArtifactContext` and `@scenesystems/effect-study/ArtifactSink`. `ArtifactContext.Options` takes `packageVersion` and `runId`—not an optimization or study ID. Emit with `sink.emit(schema, artifact)`. For a filesystem sink use `ArtifactSink.layerFileSystem(directory, fileName?)`; `ArtifactSink.makeFileSystem` remains the effectful constructor, while `ArtifactSink.layer` installs an already-created generic sink.
+Artifacts are independent from checkpoints. Import `ArtifactContext` and `ArtifactSink` from `@scenesystems/effect-study/ArtifactContext` and `@scenesystems/effect-study/ArtifactSink`. Construct `new ArtifactContext.Options({ packageVersion, runId })`—the fields do not include an optimization or study ID. Emit with `sink.emit(schema, artifact)`. For a filesystem sink use `ArtifactSink.layerFileSystem(directory, fileName?)`; `ArtifactSink.makeFileSystem` remains the effectful constructor, while `ArtifactSink.layer` installs an already-created generic sink.
 
-Objective caching is a separate concern. A cache avoids re-running the objective for an input that was already evaluated, keyed by a content digest of that input, while storage preserves the optimization lifecycle. Construct `ObjectiveCache.Options` with a scope and install `ObjectiveCache.layerMemory`, `ObjectiveCache.layerFileSystem`, or `ObjectiveCache.layerSql`. The lower-level `Cache` module owns schema-keyed cache descriptors and backend services; it fingerprints schema-encoded keys with the canonical identity implementation from `@scenesystems/digest`.
+Objective caching is a separate concern. A cache avoids re-running the objective for an input that was already evaluated, keyed by a content digest of that input, while storage preserves the optimization lifecycle. Construct `new ObjectiveCache.Options({ scope })` and install `ObjectiveCache.layerMemory`, `ObjectiveCache.layerFileSystem`, or `ObjectiveCache.layerSql`. The lower-level `Cache` module owns schema-keyed cache descriptors and backend services; it fingerprints schema-encoded keys with the canonical identity implementation from `@scenesystems/digest`.
 
 When `evaluationsPerTrial` is greater than one, optimization bypasses the objective cache for every sample, including repeated configurations across trials. These independent evaluations produce the reported mean and variance; cached configuration values cannot estimate noise.
 
@@ -215,19 +235,21 @@ export const program = Effect.scoped(
     const space = yield* SearchSpace.make({ x: SearchSpace.float(-4, 4) })
     const evaluateRemotely = (config: SearchSpace.Type<typeof space>) =>
       Effect.succeed(Num.multiply(config.x, config.x))
-    const handle = yield* Optimization.open({
-      space,
-      sampler: Sampler.random({ seed: 25 }),
-      direction: "minimize",
-      trials: 4,
-      objective: evaluateRemotely
-    })
+    const handle = yield* Optimization.open(
+      new Optimization.FlatOptions({
+        space,
+        sampler: Sampler.random({ seed: 25 }),
+        direction: "minimize",
+        trials: 4,
+        objective: evaluateRemotely
+      })
+    )
 
     yield* Effect.gen(function* () {
       const asked = yield* Optimization.ask(handle)
       const value = yield* evaluateRemotely(asked.config)
       yield* Optimization.tell(handle, asked.trialNumber, value)
-    }).pipe(Effect.repeatN(3))
+    }).pipe(Effect.repeat({ times: 3 }))
 
     return yield* Optimization.result(handle)
   })

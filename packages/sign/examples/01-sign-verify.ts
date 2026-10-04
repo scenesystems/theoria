@@ -5,19 +5,19 @@
  * Run: bun run examples/01-sign-verify.ts
  */
 
-import * as BunRuntime from "@effect/platform-bun/BunRuntime"
+import { BunRuntime } from "@effect/platform-bun"
 import { Bytes, Ed25519, Entropy } from "@scenesystems/sign"
 import { Effect } from "effect"
 
 const program = Effect.gen(function*() {
-  const keys = yield* Ed25519.generateKeyPair()
+  const keys = yield* Ed25519.generateKeyPair
   yield* Effect.log("Key pair", {
     algorithm: keys.algorithm,
     publicKeyBytes: keys.publicKey.byteLength,
     secretKeyBytes: keys.secretKey.byteLength
   })
 
-  const message = Bytes.fromString("transfer 100 tokens to Alice")
+  const message = yield* Bytes.fromString("transfer 100 tokens to Alice")
   const sig = yield* Ed25519.sign(message, keys.secretKey, keys.publicKey)
   yield* Effect.log("Signed", {
     algorithm: sig.algorithm,
@@ -27,7 +27,7 @@ const program = Effect.gen(function*() {
   const valid = yield* Ed25519.verify(sig.signature, message, keys.publicKey)
   yield* Effect.log("Verified", { valid })
 
-  const tampered = Bytes.fromString("transfer 999 tokens to Eve")
+  const tampered = yield* Bytes.fromString("transfer 999 tokens to Eve")
   const invalid = yield* Ed25519.verify(sig.signature, tampered, keys.publicKey)
   yield* Effect.log("Tampered", { valid: invalid })
 }).pipe(Effect.provide(Entropy.layer))

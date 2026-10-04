@@ -1,5 +1,5 @@
 import { describe, expect, it } from "@effect/vitest"
-import { Effect, Either, Layer, MutableRef, Schema } from "effect"
+import { Effect, Layer, MutableRef, Result, Schema } from "effect"
 import * as Option from "effect/Option"
 import type { ReactNode } from "react"
 
@@ -14,7 +14,7 @@ const BrowserTest = Layer.merge(BrowserWindow.layer, BrowserDocument.layer)
 const mountedRow = (node: ReactNode) =>
   Effect.flatMap(
     mountReact(node),
-    ({ container }) => waitForValue(() => Option.fromNullable(container.firstElementChild))
+    ({ container }) => waitForValue(() => Option.fromNullishOr(container.firstElementChild))
   )
 
 /**
@@ -71,7 +71,7 @@ describe("layout rows", () => {
 
   it.effect("refuse an alignment the row cannot draw", () =>
     Effect.sync(() => {
-      expect(Either.isLeft(Schema.decodeUnknownEither(RowAlign)("middle"))).toBe(true)
-      expect(Schema.decodeUnknownEither(RowAlign)("baseline")).toEqual(Either.right("baseline"))
+      expect(Result.isFailure(Schema.decodeUnknownResult(RowAlign)("middle"))).toBe(true)
+      expect(Schema.decodeResult(RowAlign)("baseline")).toEqual(Result.succeed("baseline"))
     }))
 })

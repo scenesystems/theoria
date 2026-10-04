@@ -5,11 +5,11 @@
  * @category internal
  * @internal
  */
-import * as Prompt from "@effect/ai/Prompt"
-import type * as Tool from "@effect/ai/Tool"
-import type * as Toolkit from "@effect/ai/Toolkit"
 import type { Record } from "effect"
-import { Array as Arr, Boolean, Clock, Data, Effect, Either, Number, Option, Ref, Schema } from "effect"
+import { Array as Arr, Boolean, Clock, Data, Effect, Number, Option, Ref, Result, Schema } from "effect"
+import * as Prompt from "effect/ai/Prompt"
+import type * as Tool from "effect/ai/Tool"
+import type * as Toolkit from "effect/ai/Toolkit"
 import { type ParseFieldDiagnostic, ParseOutputError } from "../../../DspError.js"
 import type { Module } from "../../../Module.js"
 import { NodeSignature } from "../../../Module.js"
@@ -28,6 +28,16 @@ import {
   ReactTraceOptions
 } from "./step.js"
 
+const iterateEffect = <A, E, R>(
+  state: A,
+  predicate: (state: A) => boolean,
+  body: (state: A) => Effect.Effect<A, E, R>
+): Effect.Effect<A, E, R> =>
+  Boolean.match(predicate(state), {
+    onFalse: () => Effect.succeed(state),
+    onTrue: () => Effect.flatMap(body(state), (next) => Effect.suspend(() => iterateEffect(next, predicate, body)))
+  })
+
 /** @internal */
 export class ReactRuntimeOptions<
   I extends Schema.Struct.Fields,
@@ -36,8 +46,8 @@ export class ReactRuntimeOptions<
 > extends Data.Class<{
   readonly moduleName: string
   readonly signature: Signature<I, O>
-  readonly inputSchema: Schema.Struct<I>
-  readonly outputSchema: Schema.Struct<O>
+  readonly inputSchema: Signature<I, O>["inputSchema"]
+  readonly outputSchema: Signature<I, O>["outputSchema"]
   readonly paramsRef: Ref.Ref<ModuleParameters>
   readonly toolkit: Toolkit.WithHandler<Tools>
   readonly maxIterations: number
@@ -57,7 +67,7 @@ export const makeReactForward = <
   I,
   O,
   Tool.HandlerError<Tools[keyof Tools]>,
-  Tool.Requirements<Tools[keyof Tools]>
+  Tool.HandlerServices<Tools[keyof Tools]>
 >["forward"] => {
   return Effect.fn(options.moduleName)((input) =>
     Effect.gen(function*() {
@@ -92,10 +102,10 @@ export const makeReactForward = <
         lastTurnWasToolCall: false
       })
 
-      const finalState = yield* Effect.iterate(initialState, {
-        while: (state) =>
-          Boolean.and(Number.lessThan(state.iteration, options.maxIterations), Option.isNone(state.output)),
-        body: (state) =>
+      const finalState = yield* iterateEffect(
+        initialState,
+        (state) => Boolean.and(Number.isLessThan(state.iteration, options.maxIterations), Option.isNone(state.output)),
+        (state) =>
           Effect.gen(function*() {
             const prompt = state.prompt
             const startedAt = yield* Clock.currentTimeMillis
@@ -107,9 +117,9 @@ export const makeReactForward = <
               })
             )
             const completedAt = yield* Clock.currentTimeMillis
-            const continuation = Prompt.merge(prompt, Prompt.fromResponseParts(response.content))
+            const continuation = Prompt.concat(prompt, Prompt.fromResponseParts(response.content))
 
-            return yield* Effect.if(Arr.isNonEmptyReadonlyArray(response.toolCalls), {
+            return yield* Boolean.match(Number.isGreaterThan(Arr.length(response.toolCalls), 0), {
               onTrue: () =>
                 appendReactTraceEntry(
                   new ReactTraceOptions<I, O, Tools>({
@@ -129,7 +139,7 @@ export const makeReactForward = <
                   Effect.as(
                     new ReactLoopState({
                       iteration: Number.increment(state.iteration),
-                      prompt: Prompt.merge(continuation, makeToolObservationFeedback(state.iteration)),
+                      prompt: Prompt.concat(continuation, makeToolObservationFeedback(state.iteration)),
                       output: Option.none<Schema.Schema.Type<Schema.Struct<O>>>(),
                       lastRawResponse: Option.some(response.text),
                       lastDiagnostics: Arr.empty<ParseFieldDiagnostic>(),
@@ -139,12 +149,12 @@ export const makeReactForward = <
                 ),
               onFalse: () =>
                 Effect.gen(function*() {
-                  const parsed = yield* Effect.either(
+                  const parsed = yield* Effect.result(
                     parseTextOutput(options.moduleName, options.outputSchema, response.text)
                   )
 
-                  return yield* Either.match(parsed, {
-                    onRight: (output) =>
+                  return yield* Result.match(parsed, {
+                    onSuccess: (output) =>
                       appendReactTraceEntry(
                         new ReactTraceOptions<I, O, Tools>({
                           moduleName: options.moduleName,
@@ -171,7 +181,7 @@ export const makeReactForward = <
                           })
                         )
                       ),
-                    onLeft: (parseError) =>
+                    onFailure: (parseError) =>
                       appendReactTraceEntry(
                         new ReactTraceOptions<I, O, Tools>({
                           moduleName: options.moduleName,
@@ -190,7 +200,7 @@ export const makeReactForward = <
                         Effect.as(
                           new ReactLoopState({
                             iteration: Number.increment(state.iteration),
-                            prompt: Prompt.merge(
+                            prompt: Prompt.concat(
                               continuation,
                               makeIterationFeedback(state.iteration, response.text, parseError)
                             ),
@@ -205,28 +215,23 @@ export const makeReactForward = <
                 })
             })
           })
-      })
+      )
 
-      return yield* Option.match(finalState.output, {
-        onSome: (output) => Effect.succeed(output),
-        onNone: () =>
-          Effect.fail(
-            new ParseOutputError({
-              message: Arr.join(
-                Arr.make(
-                  "ReAct module exhausted ",
-                  Schema.encodeSync(Schema.NumberFromString)(options.maxIterations),
-                  " iterations without producing parseable output"
-                ),
-                ""
-              ),
-              moduleName: options.moduleName,
-              rawOutput: finalState.lastRawResponse,
-              retryCount: Option.some(options.maxIterations),
-              fieldDiagnostics: finalState.lastDiagnostics
-            })
-          )
-      })
+      return yield* Effect.fromOption(finalState.output, () =>
+        new ParseOutputError({
+          message: Arr.join(
+            Arr.make(
+              "ReAct module exhausted ",
+              Schema.encodeSync(Schema.FiniteFromString)(options.maxIterations),
+              " iterations without producing parseable output"
+            ),
+            ""
+          ),
+          moduleName: options.moduleName,
+          rawOutput: finalState.lastRawResponse,
+          retryCount: Option.some(options.maxIterations),
+          fieldDiagnostics: finalState.lastDiagnostics
+        }))
     })
   )
 }

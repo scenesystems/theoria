@@ -1,6 +1,8 @@
 import { describe, expect, it } from "@effect/vitest"
 import { Array, Chunk, Effect, Number, Schema } from "effect"
 
+import { nan as notANumber, negativeInfinity, positiveInfinity } from "../helpers/nonFinite.js"
+
 import {
   abs,
   DecodeError,
@@ -43,9 +45,9 @@ describe("Numeric log-space kernels", () => {
     Effect.gen(function*() {
       closeTo(logaddexp(1, 1), 1.6931471805599454)
       closeTo(logaddexp(1_000, 999), 1000.3132616875182)
-      expect(logaddexp(5, Number.unsafeDivide(-1, 0))).toBe(5)
-      expect(logaddexp(Number.unsafeDivide(1, 0), Number.unsafeDivide(1, 0))).toBe(Number.unsafeDivide(1, 0))
-      expect(logaddexp(Number.unsafeDivide(1, 0), Number.unsafeDivide(0, 0))).toBeNaN()
+      expect(logaddexp(5, negativeInfinity)).toBe(5)
+      expect(logaddexp(positiveInfinity, positiveInfinity)).toBe(positiveInfinity)
+      expect(logaddexp(positiveInfinity, notANumber)).toBeNaN()
     }))
 
   it.effect("subtracts only inside the strict positive-difference domain", () =>
@@ -59,7 +61,7 @@ describe("Numeric log-space kernels", () => {
     Effect.gen(function*() {
       closeTo(log1mexp(-1), -0.45867514538708193)
       closeTo(log1mexp(-1e-15), -34.538776394910684)
-      expect(log1mexp(Number.unsafeDivide(-1, 0))).toBe(-0)
+      expect(log1mexp(negativeInfinity)).toBe(-0)
       expect(log1mexp(0)).toBeNaN()
       closeTo(log1pexp(0), 0.6931471805599453)
       expect(log1pexp(40)).toBe(40)
@@ -77,10 +79,8 @@ describe("Numeric log-space kernels", () => {
 
   it.effect("handles empty, singleton, shifted, and infinite log-sum-exp inputs", () =>
     Effect.gen(function*() {
-      const negativeInfinity = Number.unsafeDivide(-1, 0)
-      const positiveInfinity = Number.unsafeDivide(1, 0)
-      const nan = Number.unsafeDivide(0, 0)
-      expect(logSumExp(Chunk.empty())).toBe(Number.unsafeDivide(-1, 0))
+      const nan = notANumber
+      expect(logSumExp(Chunk.empty())).toBe(negativeInfinity)
       expect(logSumExp(Chunk.of(42))).toBe(42)
       closeTo(logSumExp(Chunk.make(1, 2, 3)), 3.40760596444438)
       closeTo(logSumExp(Chunk.make(1_000, 999, 998)), 1000.4076059644444)
@@ -126,7 +126,7 @@ describe("Numeric log-space policy operations", () => {
 
   it.effect("rejects an infinite result only under strict precision", () =>
     Effect.gen(function*() {
-      const infinity = Number.unsafeDivide(1, 0)
+      const infinity = positiveInfinity
       const pairError = yield* Effect.flip(logaddexpWithPolicies(infinity, 1).pipe(Effect.provide(strictLayer)))
       const vectorError = yield* Effect.flip(
         logSumExpWithPolicies(Chunk.of(infinity)).pipe(Effect.provide(strictLayer))

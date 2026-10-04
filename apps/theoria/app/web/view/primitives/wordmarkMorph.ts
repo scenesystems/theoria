@@ -30,25 +30,25 @@ export const frameIntervalMs = 80
 export const totalFrames = Num.multiply(Num.sum(HOLD_FRAMES, SWEEP_FRAMES), 2)
 
 const easeInOut = (t: number): number =>
-  Bool.match(Num.lessThan(t, 0.5), {
+  Bool.match(Num.isLessThan(t, 0.5), {
     onTrue: () => Num.multiply(Num.multiply(2, t), t),
-    onFalse: () => Num.subtract(1, Num.unsafeDivide(Numeric.pow(Num.sum(Num.multiply(-2, t), 2), 2), 2))
+    onFalse: () => Num.subtract(1, Num.divideUnsafe(Numeric.pow(Num.sum(Num.multiply(-2, t), 2), 2), 2))
   })
 
 /** Where the whole word is in its cycle: 0 fully Latin, 1 fully Greek, before the stagger is applied. */
 const sweepAt = (frame: number): number =>
-  Bool.match(Num.lessThan(frame, HOLD_FRAMES), {
+  Bool.match(Num.isLessThan(frame, HOLD_FRAMES), {
     onTrue: () => 0,
     onFalse: () =>
-      Bool.match(Num.lessThan(frame, Num.sum(HOLD_FRAMES, SWEEP_FRAMES)), {
-        onTrue: () => Num.unsafeDivide(Num.subtract(frame, HOLD_FRAMES), SWEEP_FRAMES),
+      Bool.match(Num.isLessThan(frame, Num.sum(HOLD_FRAMES, SWEEP_FRAMES)), {
+        onTrue: () => Num.divideUnsafe(Num.subtract(frame, HOLD_FRAMES), SWEEP_FRAMES),
         onFalse: () =>
-          Bool.match(Num.lessThan(frame, Num.sum(Num.multiply(HOLD_FRAMES, 2), SWEEP_FRAMES)), {
+          Bool.match(Num.isLessThan(frame, Num.sum(Num.multiply(HOLD_FRAMES, 2), SWEEP_FRAMES)), {
             onTrue: () => 1,
             onFalse: () =>
               Num.subtract(
                 1,
-                Num.unsafeDivide(
+                Num.divideUnsafe(
                   Num.subtract(Num.subtract(frame, Num.multiply(HOLD_FRAMES, 2)), SWEEP_FRAMES),
                   SWEEP_FRAMES
                 )
@@ -60,19 +60,19 @@ const sweepAt = (frame: number): number =>
 /** How Greek segment `segmentIndex` is at `frame` within a cycle: 0 fully Latin, 1 fully Greek. */
 export const segmentProgress = (frame: number, segmentIndex: number): number => {
   const segmentOffset = Num.multiply(
-    Num.unsafeDivide(segmentIndex, Num.decrement(SEGMENT_COUNT)),
+    Num.divideUnsafe(segmentIndex, Num.decrement(SEGMENT_COUNT)),
     STAGGER_FRACTION
   )
   const segmentDuration = Num.subtract(1, STAGGER_FRACTION)
   const localT = Num.max(
     0,
-    Num.min(1, Num.unsafeDivide(Num.subtract(sweepAt(frame), segmentOffset), segmentDuration))
+    Num.min(1, Num.divideUnsafe(Num.subtract(sweepAt(frame), segmentOffset), segmentDuration))
   )
 
   return easeInOut(localT)
 }
 
-const secondsOf = (frames: number): number => Num.unsafeDivide(Num.multiply(frames, frameIntervalMs), 1_000)
+const secondsOf = (frames: number): number => Num.divideUnsafe(Num.multiply(frames, frameIntervalMs), 1_000)
 
 /** The intro waits out the cycle's lead hold before its pass begins. */
 export const introDelaySeconds = secondsOf(HOLD_FRAMES)
@@ -97,12 +97,12 @@ export const segmentPass = (segmentIndex: number): {
   readonly ease: ReadonlyArray<SweepEase>
 } => {
   const segmentOffset = Num.multiply(
-    Num.unsafeDivide(segmentIndex, Num.decrement(SEGMENT_COUNT)),
+    Num.divideUnsafe(segmentIndex, Num.decrement(SEGMENT_COUNT)),
     STAGGER_FRACTION
   )
   const segmentDuration = Num.subtract(1, STAGGER_FRACTION)
   const passFrames = Num.subtract(totalFrames, HOLD_FRAMES)
-  const inPass = (cycleFrame: number): number => Num.unsafeDivide(Num.subtract(cycleFrame, HOLD_FRAMES), passFrames)
+  const inPass = (cycleFrame: number): number => Num.divideUnsafe(Num.subtract(cycleFrame, HOLD_FRAMES), passFrames)
   const greek = [0, 0, 1, 1, 0, 0]
 
   return {
@@ -133,11 +133,11 @@ export const segmentPass = (segmentIndex: number): {
 }
 
 /** Where the wordmark is: playing its first pass, playing one it was asked for, or resting Latin. */
-export const WordmarkPhase = Schema.Literal("intro", "pass", "rest")
+export const WordmarkPhase = Schema.Literals(["intro", "pass", "rest"])
 export type WordmarkPhase = typeof WordmarkPhase.Type
 
 /** What happens to the wordmark: a reader meets it, or a pass it was playing ends. */
-export const WordmarkEvent = Schema.Literal("replayAsked", "passEnded")
+export const WordmarkEvent = Schema.Literals(["replayAsked", "passEnded"])
 export type WordmarkEvent = typeof WordmarkEvent.Type
 
 /** A pass that ends comes to rest; only a resting wordmark plays again, a running pass is left to finish. */
@@ -152,7 +152,7 @@ export const wordmarkPhaseAfter = (phase: WordmarkPhase, event: WordmarkEvent): 
   )
 
 /** What the wordmark does: crossfades through its cycle, or stands still on the Latin face. */
-export const WordmarkMotion = Schema.Literal("crossfading", "still")
+export const WordmarkMotion = Schema.Literals(["crossfading", "still"])
 export type WordmarkMotion = typeof WordmarkMotion.Type
 
 /** The wordmark stands still when the reader's system asks for less motion. */

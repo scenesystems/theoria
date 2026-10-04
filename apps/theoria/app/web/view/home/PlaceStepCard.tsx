@@ -1,5 +1,5 @@
 import { Button } from "@base-ui/react/button"
-import { useAtomSet, useAtomValue } from "@effect-atom/atom-react"
+import { useAtomSet, useAtomValue } from "@effect/atom-react"
 import { Boolean as Bool, Equal, Match, Option, Schema } from "effect"
 import * as Arr from "effect/Array"
 import type { ReactNode } from "react"
@@ -24,11 +24,11 @@ import { type PlaceStep, placeStepDefinition } from "./placeSteps.js"
 
 /** Only packages in the docs manifest are named, so a typo here cannot produce a dead link. */
 const packageNames = (ids: ReadonlyArray<CardId>): ReadonlyArray<ReactNode> =>
-  Arr.filterMap(ids, (id) =>
-    Option.map(
-      Arr.findFirst(cards, (card) => Equal.equals(card.id, id)),
-      (card) => <PackageName id={card.id} key={card.id} />
-    ))
+  Arr.flatMap(ids, (id) =>
+    Option.match(Arr.findFirst(cards, (card) => Equal.equals(card.id, id)), {
+      onNone: () => [],
+      onSome: (card) => [<PackageName id={card.id} key={card.id} />]
+    }))
 
 const nameButtonClassName = `${markClassName} ${litMarkClassName} -mx-1.5 -my-1 px-1.5 py-1 text-left`
 

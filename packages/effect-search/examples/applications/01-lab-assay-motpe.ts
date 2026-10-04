@@ -22,10 +22,10 @@ const program = Effect.gen(function*() {
   const assayErrorScore = (config: SearchSpace.Type<typeof space>): number =>
     Num.sumAll(Arr.make(
       Num.multiply(Numeric.pow(Num.subtract(config.ph, 7.35), 2), 10),
-      Num.unsafeDivide(Numeric.pow(Num.subtract(config.temperatureC, 33.5), 2), 22),
+      Num.divideUnsafe(Numeric.pow(Num.subtract(config.temperatureC, 33.5), 2), 22),
       Num.multiply(Numeric.pow(Num.subtract(config.reagentDose, 1.05), 2), 3.8),
-      Num.unsafeDivide(Numeric.pow(Num.subtract(config.incubationMinutes, 58), 2), 420),
-      Num.unsafeDivide(
+      Num.divideUnsafe(Numeric.pow(Num.subtract(config.incubationMinutes, 58), 2), 420),
+      Num.divideUnsafe(
         Numeric.abs(
           Num.multiply(Num.subtract(config.temperatureC, 33.5), Num.subtract(config.reagentDose, 1.05))
         ),
@@ -36,12 +36,12 @@ const program = Effect.gen(function*() {
     Num.sumAll(Arr.make(
       0.06,
       Num.multiply(Numeric.abs(Num.subtract(config.ph, 7.2)), 0.12),
-      Bool.match(Num.greaterThan(config.temperatureC, 37), {
+      Bool.match(Num.isGreaterThan(config.temperatureC, 37), {
         onFalse: () => 0,
         onTrue: () => Num.multiply(Num.subtract(config.temperatureC, 37), 0.02)
       }),
       Num.multiply(config.washCycles, 0.015),
-      Bool.match(Num.lessThan(config.reagentDose, 0.55), {
+      Bool.match(Num.isLessThan(config.reagentDose, 0.55), {
         onFalse: () => 0,
         onTrue: () => Num.multiply(Num.subtract(0.55, config.reagentDose), 0.2)
       })
@@ -50,22 +50,24 @@ const program = Effect.gen(function*() {
     Num.sumAll(Arr.make(
       config.incubationMinutes,
       Num.multiply(config.washCycles, 6),
-      Bool.match(Num.greaterThan(config.temperatureC, 38), { onFalse: () => 0, onTrue: () => 4 })
+      Bool.match(Num.isGreaterThan(config.temperatureC, 38), { onFalse: () => 0, onTrue: () => 4 })
     ))
 
-  const result = yield* Optimization.run({
-    space,
-    sampler: Sampler.tpe({ seed: 2601, multivariate: true, noiseAware: true }),
-    directions: Arr.replicate<Direction.Direction>("minimize", 3),
-    trials: 72,
-    objective: (config) => {
-      const assayError = assayErrorScore(config)
-      const contaminationRisk = contaminationRiskScore(config)
-      const throughputMinutes = protocolRuntimeMinutes(config)
+  const result = yield* Optimization.run(
+    new Optimization.FlatOptions({
+      space,
+      sampler: Sampler.tpe(new Sampler.TpeOptions({ seed: 2601, multivariate: true, noiseAware: true })),
+      directions: Arr.replicate<Direction.Direction>("minimize", 3),
+      trials: 72,
+      objective: (config) => {
+        const assayError = assayErrorScore(config)
+        const contaminationRisk = contaminationRiskScore(config)
+        const throughputMinutes = protocolRuntimeMinutes(config)
 
-      return Effect.succeed(Tuple.make(assayError, contaminationRisk, throughputMinutes))
-    }
-  })
+        return Effect.succeed(Tuple.make(assayError, contaminationRisk, throughputMinutes))
+      }
+    })
+  )
 
   yield* Match.value(result).pipe(
     Match.tag("MultiObjective", ({ paretoFront, completionReason, trials }) =>

@@ -10,6 +10,7 @@ import type { Optimization } from "@scenesystems/effect-search"
 import { SearchSpace } from "@scenesystems/effect-search"
 import {
   Array as Arr,
+  Boolean as Bool,
   Data,
   Effect,
   HashMap,
@@ -40,7 +41,7 @@ import {
   PredictorBinding
 } from "./model.js"
 
-type Phase3CategoricalSchema = Schema.Schema<Phase3DimensionIndex>
+type Phase3CategoricalSchema = Schema.Codec<Phase3DimensionIndex, Phase3DimensionIndex, never, never>
 
 /** @internal */
 export class ResolveBindingsOptions<
@@ -56,7 +57,7 @@ export class ResolveBindingsOptions<
 
 const categoricalDimension = (count: number): Effect.Effect<Phase3CategoricalSchema, AllTrialsFailed> =>
   Match.value(count).pipe(
-    Match.when((size) => Num.lessThanOrEqualTo(size, 0), () =>
+    Match.when((size) => Num.isLessThanOrEqualTo(size, 0), () =>
       Effect.fail(
         new AllTrialsFailed({
           message: "MIPROv2 Phase 3 requires at least one candidate per dimension",
@@ -64,7 +65,7 @@ const categoricalDimension = (count: number): Effect.Effect<Phase3CategoricalSch
         })
       )),
     Match.when(
-      (size) => Num.lessThanOrEqualTo(size, Arr.length(Phase3DimensionIndex.literals)),
+      (size) => Num.isLessThanOrEqualTo(size, Arr.length(Phase3DimensionIndex.literals)),
       (size) =>
         Arr.match(Arr.take(Phase3DimensionIndex.literals, size), {
           onEmpty: () =>
@@ -102,16 +103,11 @@ const categoricalDimension = (count: number): Effect.Effect<Phase3CategoricalSch
  * @category helpers
  */
 export const configIndex = (config: Phase3Config, key: string): Effect.Effect<Phase3DimensionIndex, AllTrialsFailed> =>
-  Option.match(Record.get(config, key), {
-    onNone: () =>
-      Effect.fail(
-        new AllTrialsFailed({
-          message: Str.concat(Str.concat("Missing phase-3 configuration key '", key), "'"),
-          trialCount: 0
-        })
-      ),
-    onSome: (value) => Effect.succeed(value)
-  })
+  Effect.fromOption(Record.get(config, key), () =>
+    new AllTrialsFailed({
+      message: Str.concat(Str.concat("Missing phase-3 configuration key '", key), "'"),
+      trialCount: 0
+    }))
 
 const bindingFailure = (message: string): AllTrialsFailed =>
   new AllTrialsFailed({
@@ -122,9 +118,9 @@ const bindingFailure = (message: string): AllTrialsFailed =>
 const indexDemoCandidateSets = (candidateSets: PredictorDemoCandidateSets) =>
   Effect.reduce(
     candidateSets,
-    HashMap.empty<string, PredictorDemoCandidates>(),
+    () => HashMap.empty<string, PredictorDemoCandidates>(),
     (setsByName, candidateSet) =>
-      Effect.if(HashMap.has(setsByName, candidateSet.predictorName), {
+      Bool.match(HashMap.has(setsByName, candidateSet.predictorName), {
         onTrue: () =>
           Effect.fail(
             bindingFailure(
@@ -141,9 +137,9 @@ const indexDemoCandidateSets = (candidateSets: PredictorDemoCandidateSets) =>
 const indexInstructionCandidateSets = (candidateSets: PredictorInstructionCandidateSets) =>
   Effect.reduce(
     candidateSets,
-    HashMap.empty<string, PredictorInstructionCandidates>(),
+    () => HashMap.empty<string, PredictorInstructionCandidates>(),
     (setsByName, candidateSet) =>
-      Effect.if(HashMap.has(setsByName, candidateSet.predictorName), {
+      Bool.match(HashMap.has(setsByName, candidateSet.predictorName), {
         onTrue: () =>
           Effect.fail(
             bindingFailure(
@@ -162,28 +158,23 @@ const requireDestination = (
   predictorName: string,
   candidateKind: string
 ) =>
-  Option.match(HashMap.get(refsByName, predictorName), {
-    onNone: () =>
-      Effect.fail(
-        bindingFailure(
-          Str.concat(
-            Str.concat(
-              Str.concat("Unknown phase-3 ", candidateKind),
-              Str.concat(" candidates for predictor '", predictorName)
-            ),
-            "'"
-          )
-        )
-      ),
-    onSome: Effect.succeed
-  })
+  Effect.fromOption(HashMap.get(refsByName, predictorName), () =>
+    bindingFailure(
+      Str.concat(
+        Str.concat(
+          Str.concat("Unknown phase-3 ", candidateKind),
+          Str.concat(" candidates for predictor '", predictorName)
+        ),
+        "'"
+      )
+    ))
 
 const validateCandidateIdentity = (
   candidateKind: string,
   setPredictorName: string,
   candidatePredictorName: string
 ) =>
-  Effect.if(Str.Equivalence(candidatePredictorName, setPredictorName), {
+  Bool.match(Str.Equivalence(candidatePredictorName, setPredictorName), {
     onTrue: () => Effect.void,
     onFalse: () =>
       Effect.fail(
@@ -214,7 +205,7 @@ const validateDemoCandidateSet = (
       candidateSet.candidates,
       (candidate) =>
         validateCandidateIdentity("demo", candidateSet.predictorName, candidate.predictorName).pipe(
-          Effect.zipRight(
+          Effect.andThen(
             Effect.forEach(candidate.params.demos, destination.demonstrationCodec.decode, { discard: true }).pipe(
               Effect.mapError(() =>
                 bindingFailure(
@@ -239,7 +230,7 @@ const validateInstructionCandidateSet = (
   candidateSet: PredictorInstructionCandidates
 ) =>
   requireDestination(refsByName, candidateSet.predictorName, "instruction").pipe(
-    Effect.zipRight(
+    Effect.andThen(
       Effect.forEach(
         candidateSet.candidates,
         (candidate) => validateCandidateIdentity("instruction", candidateSet.predictorName, candidate.predictorName),
@@ -291,29 +282,19 @@ export const resolveBindings = <
 
     return yield* Effect.forEach(refs, (ref) =>
       Effect.gen(function*() {
-        const demos = yield* Option.match(HashMap.get(demosByName, ref.name), {
-          onNone: () =>
-            Effect.fail(
-              new AllTrialsFailed({
-                message: Str.concat(Str.concat("Missing phase-3 demo candidates for predictor '", ref.name), "'"),
-                trialCount: 0
-              })
+        const demos = yield* Effect.fromOption(HashMap.get(demosByName, ref.name), () =>
+          new AllTrialsFailed({
+            message: Str.concat(Str.concat("Missing phase-3 demo candidates for predictor '", ref.name), "'"),
+            trialCount: 0
+          }))
+        const instructions = yield* Effect.fromOption(HashMap.get(instructionsByName, ref.name), () =>
+          new AllTrialsFailed({
+            message: Str.concat(
+              Str.concat("Missing phase-3 instruction candidates for predictor '", ref.name),
+              "'"
             ),
-          onSome: (entry) => Effect.succeed(entry)
-        })
-        const instructions = yield* Option.match(HashMap.get(instructionsByName, ref.name), {
-          onNone: () =>
-            Effect.fail(
-              new AllTrialsFailed({
-                message: Str.concat(
-                  Str.concat("Missing phase-3 instruction candidates for predictor '", ref.name),
-                  "'"
-                ),
-                trialCount: 0
-              })
-            ),
-          onSome: (entry) => Effect.succeed(entry)
-        })
+            trialCount: 0
+          }))
 
         return new PredictorBinding({
           predictorName: ref.name,
@@ -358,7 +339,7 @@ export const baselineConfig = (bindings: Iterable<PredictorBinding>): Phase3Conf
 export const buildSearchDimensions = (bindings: Iterable<PredictorBinding>) =>
   Effect.reduce(
     bindings,
-    Record.empty<string, Phase3CategoricalSchema>(),
+    () => Record.empty<string, Phase3CategoricalSchema>(),
     (dimensions, binding) =>
       Effect.gen(function*() {
         const demoDimension = yield* categoricalDimension(Arr.length(binding.demos.candidates))

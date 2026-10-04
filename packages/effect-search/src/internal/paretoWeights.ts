@@ -14,7 +14,7 @@ import { nonDominatedIndices, objectiveFrontierHoldings } from "./paretoFrontier
 const buildIndices = (
   count: number
 ) =>
-  Match.value(Num.lessThanOrEqualTo(count, 0)).pipe(
+  Match.value(Num.isLessThanOrEqualTo(count, 0)).pipe(
     Match.when(true, () => Arr.empty<number>()),
     Match.orElse(() => Arr.range(0, Num.decrement(count)))
   )

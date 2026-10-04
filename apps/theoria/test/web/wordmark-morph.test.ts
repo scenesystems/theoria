@@ -2,7 +2,7 @@ import { describe, expect, it } from "@effect/vitest"
 import { Effect, Option } from "effect"
 import * as Arr from "effect/Array"
 
-import { Registry } from "@effect-atom/atom"
+import { AtomRegistry as Registry } from "effect/reactivity"
 
 import { wordmarkPhaseAtom } from "../../app/web/atoms/wordmark.js"
 import {

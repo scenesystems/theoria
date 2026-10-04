@@ -1,5 +1,16 @@
-import type { Path } from "@effect/platform"
-import { Array as Arr, Boolean as Bool, Data, Effect, Either, Match, Option, Order, Record, Schema } from "effect"
+import {
+  Array as Arr,
+  Boolean as Bool,
+  Data,
+  Effect,
+  Match,
+  Option,
+  Order,
+  type Path,
+  Record,
+  Result,
+  Schema
+} from "effect"
 import * as Str from "effect/String"
 import { Comment, type DeclarationReflection, type ReferenceReflection, ReflectionKind } from "typedoc"
 
@@ -24,7 +35,7 @@ const resolvedReflection = (reflection: DeclarationReflection): DeclarationRefle
   Option.liftPredicate(
     (candidate: DeclarationReflection): candidate is ReferenceReflection => candidate.isReference()
   )(reflection).pipe(
-    Option.flatMap((reference) => Option.fromNullable(reference.tryGetTargetReflectionDeep())),
+    Option.flatMap((reference) => Option.fromNullishOr(reference.tryGetTargetReflectionDeep())),
     Option.filter((target): target is DeclarationReflection => target.isDeclaration()),
     Option.getOrElse(() => reflection)
   )
@@ -70,8 +81,8 @@ const nonEmpty = (value: string): Option.Option<string> => {
 const commentsFor = (reflection: DeclarationReflection): ReadonlyArray<Comment> =>
   Arr.getSomes(
     Arr.prepend(
-      Arr.map(reflection.getAllSignatures(), (signature) => Option.fromNullable(signature.comment)),
-      Option.fromNullable(reflection.comment)
+      Arr.map(reflection.getAllSignatures(), (signature) => Option.fromNullishOr(signature.comment)),
+      Option.fromNullishOr(reflection.comment)
     )
   )
 
@@ -86,7 +97,7 @@ const tagOf = (comments: ReadonlyArray<Comment>, tag: `@${string}`): Option.Opti
     Arr.map(comments, (comment) =>
       nonEmpty(
         Comment.combineDisplayParts(
-          Option.match(Option.fromNullable(comment.getTag(tag)), {
+          Option.match(Option.fromNullishOr(comment.getTag(tag)), {
             onNone: Arr.empty,
             onSome: (commentTag) => commentTag.content
           })
@@ -101,7 +112,7 @@ const declarationSourceFile = (
   entrypoint: PackagePublicEntrypoint,
   reflection: DeclarationReflection
 ): SourceFilePath =>
-  Option.match(Arr.head(Option.fromNullable(reflection.sources).pipe(Option.getOrElse(Arr.empty))), {
+  Option.match(Arr.head(Option.fromNullishOr(reflection.sources).pipe(Option.getOrElse(Arr.empty))), {
     onNone: () => entrypoint.sourceFile,
     onSome: (source) => ({
       absolute: source.fullFileName,
@@ -120,23 +131,29 @@ class PublicExportsInput extends Data.Class<{
 }> {}
 
 export const publicExportsFromReflection = (
-  input: PublicExportsInput
+  input: ConstructorParameters<typeof PublicExportsInput>[0]
 ): Effect.Effect<ReadonlyArray<PackagePublicExport>, ApiReferenceGenerationError> =>
   Effect.gen(function*() {
     const groups = Record.values(
       Arr.groupBy(
-        Option.fromNullable(input.reflection.children).pipe(Option.getOrElse(Arr.empty)),
+        Option.fromNullishOr(input.reflection.children).pipe(Option.getOrElse(Arr.empty)),
         (child) => child.name
       )
     )
-    const entries = Arr.map(groups, (group): Either.Either<PackagePublicExport, string> => {
+    const entries = Arr.map(groups, (group): Result.Result<PackagePublicExport, string> => {
       const exportName = Arr.headNonEmpty(group).name
       const resolved = Arr.map(group, resolvedReflection)
       const kind = exportKind(exportName, resolved)
-      const [rest, preferred] = Arr.partition(Arr.zip(group, resolved), ([, target]) => matchesKind(kind, target))
-      const comments = Arr.dedupe(
-        Arr.flatMap(Arr.appendAll(preferred, rest), ([child, target]) =>
-          Arr.appendAll(commentsFor(child), commentsFor(target)))
+      const candidates = Arr.zip(group, resolved)
+      const preferred = Arr.filter(candidates, ([, target]) => matchesKind(kind, target))
+      const rest = Arr.filter(candidates, ([, target]) => Bool.not(matchesKind(kind, target)))
+      // TypeDoc comments contain reflection back-references. Effect's structural
+      // deduplication recursively compares those cyclic graphs and can never
+      // complete; ordering already makes repeated comments harmless here.
+      const comments = Arr.flatMap(
+        Arr.appendAll(preferred, rest),
+        ([child, target]: readonly [DeclarationReflection, DeclarationReflection]) =>
+          Arr.appendAll(commentsFor(child), commentsFor(target))
       )
       const summary = summaryOf(comments)
       const since = tagOf(comments, "@since")
@@ -146,17 +163,16 @@ export const publicExportsFromReflection = (
         onNone: () => {
           const missing = Arr.getSomes(Arr.make(
             Bool.match(Option.isNone(summary), {
-              onTrue: () =>
-                Option.some("summary"),
+              onTrue: () => Option.some("summary"),
               onFalse: Option.none
             }),
             Bool.match(Option.isNone(since), { onTrue: () => Option.some("@since"), onFalse: Option.none }),
             Bool.match(Option.isNone(category), { onTrue: () => Option.some("@category"), onFalse: Option.none })
           ))
-          return Either.left(`${input.entrypoint.subpath}#${exportName} (${Arr.join(missing, ", ")})`)
+          return Result.fail(`${input.entrypoint.subpath}#${exportName} (${Arr.join(missing, ", ")})`)
         },
         onSome: (documentation) =>
-          Either.right({
+          Result.succeed({
             subpath: input.entrypoint.subpath,
             exportName,
             kind,
@@ -172,14 +188,18 @@ export const publicExportsFromReflection = (
           })
       })
     })
-    const [incomplete, publicExports] = Arr.separate(entries)
+    // Result uses its success channel on the left and failure channel on the
+    // right, which is the opposite ordering from Either.
+    const [publicExports, incomplete] = Arr.separate(entries)
 
-    return yield* Bool.match(Arr.isNonEmptyReadonlyArray(incomplete), {
+    return yield* Bool.match(Arr.isReadonlyArrayNonEmpty(incomplete), {
       onTrue: () =>
-        new ApiReferenceGenerationError({
-          packageName: input.packageName,
-          detail: `public API documentation is incomplete: ${Arr.join(incomplete, ", ")}`
-        }),
+        Effect.fail(
+          new ApiReferenceGenerationError({
+            packageName: input.packageName,
+            detail: `public API documentation is incomplete: ${Arr.join(incomplete, ", ")}`
+          })
+        ),
       onFalse: () =>
         Effect.succeed(Arr.sort(
           publicExports,

@@ -1,4 +1,4 @@
-import { BunContext } from "@effect/platform-bun"
+import { BunServices } from "@effect/platform-bun"
 import { describe, expect, it } from "@effect/vitest"
 import { Array, Chunk, Effect, Match, Number, Schema } from "effect"
 
@@ -19,7 +19,7 @@ describe("Probability SciPy fixture parity", () => {
   it.effect("all distribution-parity cases match SciPy reference values", () =>
     Effect.gen(function*() {
       const raw = yield* loadFixture("probability.distribution-parity")
-      const fixture = yield* Schema.decodeUnknown(ProbabilityDistributionParityFixtureSchema)(raw, {
+      const fixture = yield* Schema.decodeUnknownEffect(ProbabilityDistributionParityFixtureSchema)(raw, {
         onExcessProperty: "error"
       })
 
@@ -51,5 +51,5 @@ describe("Probability SciPy fixture parity", () => {
             Match.exhaustive
           )
         ))
-    }).pipe(Effect.provide(BunContext.layer)))
+    }).pipe(Effect.provide(BunServices.layer)))
 })

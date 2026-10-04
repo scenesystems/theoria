@@ -3,6 +3,7 @@ import { Array, Boolean, Effect, Number, Schema } from "effect"
 
 import * as Numeric from "../../src/Numeric.js"
 import * as Policy from "../../src/Policy.js"
+import { nan } from "../helpers/nonFinite.js"
 
 const seed = Policy.Seed.make(42)
 const strictCompensated = Policy.layerDeterministic({
@@ -29,7 +30,7 @@ const relaxedScalar = Policy.layerDeterministic({
   backend: "scalar",
   diagnostics: "disabled"
 })
-const notANumber = Schema.decodeUnknownSync(Schema.NumberFromString)("NaN")
+const notANumber = nan
 
 describe("backend and precision policy matrix", () => {
   it.effect("preserves finite sum results in every policy cell", () =>
@@ -55,6 +56,6 @@ describe("backend and precision policy matrix", () => {
       const result = yield* Numeric.sumWithPolicies(values).pipe(Effect.provide(relaxedScalar))
 
       expect(error._tag).toStrictEqual("NumericDomainViolationError")
-      expect(Boolean.not(Schema.is(Schema.NonNaN)(result))).toStrictEqual(true)
+      expect(Boolean.not(Schema.is(Schema.Number.check(Schema.isFinite()))(result))).toStrictEqual(true)
     }))
 })

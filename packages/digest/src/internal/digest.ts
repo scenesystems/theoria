@@ -11,5 +11,5 @@ export const makeHasher = (algorithm: Algorithm): Hasher =>
   Match.value(algorithm).pipe(
     Match.when("blake3-256", () => blake3.create()),
     Match.when("sha256", () => sha256.create()),
-    Match.exhaustive
+    Match.orElseAbsurd
   )

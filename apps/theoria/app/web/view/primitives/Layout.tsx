@@ -30,7 +30,7 @@ const useLayoutSlot = <Tag extends LayoutTag>(
     defaultTagName,
     props: {
       ...props,
-      className: classNames(baseClassName, Option.getOrElse(Option.fromNullable(className), () => ""))
+      className: classNames(baseClassName, Option.getOrElse(Option.fromNullishOr(className), () => ""))
     },
     ref,
     render
@@ -48,7 +48,7 @@ export const Section = layoutSlot("section", "min-w-0")
 export const Stack = layoutSlot("div", "flex min-w-0 flex-col")
 
 /** How a flex row aligns its items on the cross axis. */
-export const RowAlign = Schema.Literal("baseline", "center", "start")
+export const RowAlign = Schema.Literals(["baseline", "center", "start"])
 export type RowAlign = typeof RowAlign.Type
 
 const rowAlignClassName = (align: RowAlign): string =>

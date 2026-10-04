@@ -90,7 +90,7 @@ const pendingStage = (demo: Locator) =>
 layer(Layer.merge(SiteLive, BrowserLive), { excludeTestServices: true, timeout: "3 minutes" })(
   "Theoria homepage before and without the build in Chromium",
   (it) => {
-    it.scoped("while the build is held the demonstration stands at its shape, readable, and the build arriving shifts nothing", () =>
+    it("while the build is held the demonstration stands at its shape, readable, and the build arriving shifts nothing", () =>
       Effect.forEach(environments, (environment) =>
         Effect.gen(function*() {
           const where = describeEnvironment(environment)
@@ -113,7 +113,7 @@ layer(Layer.merge(SiteLive, BrowserLive), { excludeTestServices: true, timeout: 
           expect(yield* failures).toEqual([])
         }), { discard: true }))
 
-    it.scoped("a build that fails is told in the caption's row, the paper stops waiting, and trying again waits there too", () =>
+    it("a build that fails is told in the caption's row, the paper stops waiting, and trying again waits there too", () =>
       Effect.forEach(environments, (environment) =>
         Effect.gen(function*() {
           const where = describeEnvironment(environment)
@@ -170,7 +170,7 @@ layer(Layer.merge(SiteLive, BrowserLive), { excludeTestServices: true, timeout: 
      * as an element not found. The report is the wait's own; a shorter wait
      * here is only to read it without waiting a search's budget.
      */
-    it.scoped("a wait for the drawing that runs out reports the stage's standing and what the page and site told", () =>
+    it("a wait for the drawing that runs out reports the stage's standing and what the page and site told", () =>
       Effect.gen(function*() {
         const { page } = yield* openPage()
         const site = yield* Site
@@ -191,7 +191,7 @@ layer(Layer.merge(SiteLive, BrowserLive), { excludeTestServices: true, timeout: 
         // The site's logs are the runtime's own: whatever it has said is carried, and their absence is said too.
         const served = yield* site.logs
         expect(report.message).toContain(
-          Arr.isNonEmptyReadonlyArray(served)
+          served.length > 0
             ? `the site told: ${Arr.takeRight(served, siteLogsReported).join(" | ")}`
             : "the site told nothing"
         )

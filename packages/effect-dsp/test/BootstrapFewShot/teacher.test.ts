@@ -1,7 +1,6 @@
 /**
  * BootstrapFewShot teacher/student layer routing contracts.
  */
-import * as LanguageModel from "@effect/ai/LanguageModel"
 import { describe, expect, it } from "@effect/vitest"
 import * as BootstrapFewShot from "@scenesystems/effect-dsp/BootstrapFewShot"
 import { Example } from "@scenesystems/effect-dsp/Example"
@@ -11,6 +10,7 @@ import * as Module from "@scenesystems/effect-dsp/Module"
 import { ModuleParameters } from "@scenesystems/effect-dsp/ModuleParameters"
 import * as Signature from "@scenesystems/effect-dsp/Signature"
 import { Effect, Layer, Ref, Schema } from "effect"
+import * as LanguageModel from "effect/ai/LanguageModel"
 
 const makeQaSignature = () =>
   Signature.make(
@@ -49,21 +49,23 @@ describe("BootstrapFewShot.run teacher/student", () => {
       const teacherLayer = Layer.succeed(LanguageModel.LanguageModel, teacher.service)
       const studentLayer = Layer.succeed(LanguageModel.LanguageModel, student.service)
 
-      const optimized = yield* BootstrapFewShot.run({
-        module,
-        trainset: [
-          new Example({
-            input: { question: "What is the capital of France?" },
-            output: { answer: "Paris" }
-          })
-        ],
-        metric: Metric.exactMatch("answer"),
-        maxRounds: 2,
-        maxBootstrappedDemos: 1,
-        threshold: 1,
-        fallbackToLabeledFewShot: false,
-        teacher: teacherLayer
-      }).pipe(Effect.provide(studentLayer))
+      const optimized = yield* BootstrapFewShot.run(
+        new BootstrapFewShot.Options({
+          module,
+          trainset: [
+            new Example({
+              input: { question: "What is the capital of France?" },
+              output: { answer: "Paris" }
+            })
+          ],
+          metric: Metric.exactMatch("answer"),
+          maxRounds: 2,
+          maxBootstrappedDemos: 1,
+          threshold: 1,
+          fallbackToLabeledFewShot: false,
+          teacher: teacherLayer
+        })
+      ).pipe(Effect.provide(studentLayer))
 
       const paramsAfterBootstrap = yield* Ref.get(optimized.params)
       const teacherCallsAfterBootstrap = yield* Ref.get(teacher.calls)

@@ -5,7 +5,7 @@
  * @since 0.5.0
  * @module
  */
-import { Schema } from "effect"
+import { Equal, Hash, Schema } from "effect"
 
 /**
  * Suites that produce signature carriers. Verification-only RSA and P-256 are
@@ -13,18 +13,20 @@ import { Schema } from "effect"
  * @since 0.5.0
  * @category schemas
  */
-export const Algorithm = Schema.Literal(
-  "ed25519",
-  "secp256k1-ecdsa",
-  "secp256k1-schnorr",
-  "ml-dsa-44",
-  "ml-dsa-65",
-  "ml-dsa-87",
-  "slh-dsa-sha2-128f",
-  "slh-dsa-sha2-128s",
-  "slh-dsa-sha2-192f",
-  "slh-dsa-sha2-256f"
-).annotations({ identifier: "@scenesystems/sign/Signature/Algorithm" })
+export const Algorithm = Schema.Literals(
+  [
+    "ed25519",
+    "secp256k1-ecdsa",
+    "secp256k1-schnorr",
+    "ml-dsa-44",
+    "ml-dsa-65",
+    "ml-dsa-87",
+    "slh-dsa-sha2-128f",
+    "slh-dsa-sha2-128s",
+    "slh-dsa-sha2-192f",
+    "slh-dsa-sha2-256f"
+  ]
+).annotate({ identifier: "@scenesystems/sign/Signature/Algorithm" })
 
 /**
  * A supported signing suite.
@@ -48,9 +50,22 @@ export type Algorithm = typeof Algorithm.Type
  */
 export class Signature extends Schema.Class<Signature>("@scenesystems/sign/Signature")({
   algorithm: Algorithm,
-  signature: Schema.Uint8ArrayFromSelf,
-  publicKey: Schema.Uint8ArrayFromSelf
-}) {}
+  signature: Schema.Uint8Array,
+  publicKey: Schema.Uint8Array
+}) {
+  [Equal.symbol](that: Equal.Equal): boolean {
+    return that instanceof Signature &&
+      this.algorithm === that.algorithm &&
+      this.signature === that.signature &&
+      this.publicKey === that.publicKey
+  }
+
+  [Hash.symbol](): number {
+    return Hash.combine(Hash.random(this.publicKey))(
+      Hash.combine(Hash.random(this.signature))(Hash.string(this.algorithm))
+    )
+  }
+}
 
 /**
  * Signing rejected input or could not execute. The diagnostic may contain
@@ -58,9 +73,10 @@ export class Signature extends Schema.Class<Signature>("@scenesystems/sign/Signa
  * @since 0.5.0
  * @category errors
  */
-export class SigningFailed extends Schema.TaggedError<SigningFailed>("@scenesystems/sign/Signature/SigningFailed")(
+export class SigningFailed extends Schema.TaggedError<SigningFailed>()(
   "SigningFailed",
-  { algorithm: Algorithm, reason: Schema.String }
+  { algorithm: Algorithm, reason: Schema.String },
+  { identifier: "@scenesystems/sign/Signature/SigningFailed" }
 ) {}
 
 /**
@@ -70,6 +86,8 @@ export class SigningFailed extends Schema.TaggedError<SigningFailed>("@scenesyst
  * @since 0.5.0
  * @category errors
  */
-export class VerificationFailed extends Schema.TaggedError<VerificationFailed>(
-  "@scenesystems/sign/Signature/VerificationFailed"
-)("VerificationFailed", { algorithm: Algorithm, reason: Schema.String }) {}
+export class VerificationFailed extends Schema.TaggedError<VerificationFailed>()(
+  "VerificationFailed",
+  { algorithm: Algorithm, reason: Schema.String },
+  { identifier: "@scenesystems/sign/Signature/VerificationFailed" }
+) {}

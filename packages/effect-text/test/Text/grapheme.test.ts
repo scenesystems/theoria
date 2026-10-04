@@ -1,5 +1,5 @@
 import { describe, expect, it } from "@effect/vitest"
-import { Array as Arr, Effect, FastCheck, Schema, String } from "effect"
+import { Arbitrary, Array as Arr, Effect, Schema, String } from "effect"
 
 import { graphemeClusters } from "../../src/internal/grapheme.js"
 import { Graphemes } from "../../src/internal/graphemeSchema.js"
@@ -10,7 +10,7 @@ const ConformanceCases = Schema.Array(Schema.Struct({ input: Schema.String, expe
 describe("Unicode 17.0 extended grapheme boundaries", () => {
   it.effect("matches the Unicode UAX #29 conformance corpus", () =>
     Effect.gen(function*() {
-      const cases = yield* Schema.decodeUnknown(ConformanceCases)(vectors)
+      const cases = yield* Schema.decodeEffect(ConformanceCases)(vectors)
       yield* Effect.forEach(cases, ({ input, expected }) =>
         Effect.sync(() => {
           expect(graphemeClusters(input), input).toEqual(expected)
@@ -32,7 +32,7 @@ describe("Unicode 17.0 extended grapheme boundaries", () => {
     }))
 
   it.effect.prop("preserves arbitrary UTF-16 text and never emits empty clusters", {
-    text: FastCheck.stringOf(FastCheck.char16bits())
+    text: Arbitrary.schema(Schema.String)
   }, ({ text }) =>
     Effect.sync(() => {
       const clusters = graphemeClusters(text)

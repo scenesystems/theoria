@@ -5,12 +5,12 @@
  * @since 0.1.0
  * @category internal
  */
-import { Boolean, Number, Schema } from "effect"
+import { Boolean, Number } from "effect"
 
 import { exp, expm1, log, log1p } from "../../Numeric.js"
 
-const isNonNaN = Schema.is(Schema.NonNaN)
-const isInSupport = (value: number): boolean => Boolean.and(isNonNaN(value), Number.greaterThanOrEqualTo(value, 0))
+const isNonNaN = (value: number): boolean => Boolean.not(Number.Equivalence(value, NaN))
+const isInSupport = (value: number): boolean => Boolean.and(isNonNaN(value), Number.isGreaterThanOrEqualTo(value, 0))
 
 /**
  * Exponential PDF: f(x; λ) = λ · exp(−λx) for x ≥ 0, else 0.
@@ -20,7 +20,7 @@ const isInSupport = (value: number): boolean => Boolean.and(isNonNaN(value), Num
  */
 export const exponentialPdf = (x: number, rate: number): number =>
   Boolean.match(isInSupport(x), {
-    onTrue: () => Number.multiply(rate, exp(Number.negate(Number.multiply(rate, x)))),
+    onTrue: () => Number.multiply(rate, exp(Number.multiply(-1, Number.multiply(rate, x)))),
     onFalse: () => 0
   })
 
@@ -44,7 +44,7 @@ export const exponentialLogpdf = (x: number, rate: number): number =>
  */
 export const exponentialCdf = (x: number, rate: number): number =>
   Boolean.match(isInSupport(x), {
-    onTrue: () => Number.negate(expm1(Number.negate(Number.multiply(rate, x)))),
+    onTrue: () => Number.multiply(-1, expm1(Number.multiply(-1, Number.multiply(rate, x)))),
     onFalse: () => 0
   })
 
@@ -55,7 +55,7 @@ export const exponentialCdf = (x: number, rate: number): number =>
  * @category internal
  */
 export const exponentialQuantile = (p: number, rate: number): number =>
-  Number.unsafeDivide(Number.negate(log1p(Number.negate(p))), rate)
+  Number.divideUnsafe(Number.multiply(-1, log1p(Number.multiply(p, -1))), rate)
 
 /**
  * Exponential mean: E[X] = 1 / λ.
@@ -63,7 +63,7 @@ export const exponentialQuantile = (p: number, rate: number): number =>
  * @since 0.1.0
  * @category internal
  */
-export const exponentialMean = (rate: number): number => Number.unsafeDivide(1, rate)
+export const exponentialMean = (rate: number): number => Number.divideUnsafe(1, rate)
 
 /**
  * Exponential variance: Var(X) = 1 / λ².
@@ -71,7 +71,7 @@ export const exponentialMean = (rate: number): number => Number.unsafeDivide(1, 
  * @since 0.1.0
  * @category internal
  */
-export const exponentialVariance = (rate: number): number => Number.unsafeDivide(1, Number.multiply(rate, rate))
+export const exponentialVariance = (rate: number): number => Number.divideUnsafe(1, Number.multiply(rate, rate))
 
 /**
  * Exponential differential entropy: H(X) = 1 − ln(λ).

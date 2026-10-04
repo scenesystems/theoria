@@ -3,8 +3,8 @@ import * as Arr from "effect/Array"
 
 import { Text } from "@scenesystems/effect-text"
 
-const NonNegativeFiniteNumber = Schema.Number.pipe(Schema.finite(), Schema.greaterThanOrEqualTo(0))
-const PositiveInt = Schema.Number.pipe(Schema.int(), Schema.greaterThan(0))
+const NonNegativeFiniteNumber = Schema.Finite.check(Schema.isGreaterThanOrEqualTo(0))
+const PositiveInt = Schema.Int.check(Schema.isGreaterThan(0))
 
 export const BenchmarkCorpusCase = Schema.Struct({
   name: Schema.String,
@@ -30,8 +30,8 @@ export type BenchmarkSample = typeof BenchmarkSample.Type
 
 export const BenchmarkTiming = Schema.Struct({
   iterations: PositiveInt,
-  totalDurationNanos: Schema.PositiveBigInt,
-  meanDurationNanos: Schema.PositiveBigInt
+  totalDurationNanos: Schema.BigIntFromString.check(Schema.isGreaterThanBigInt(0n)),
+  meanDurationNanos: Schema.BigIntFromString.check(Schema.isGreaterThanBigInt(0n))
 })
 
 export type BenchmarkTiming = typeof BenchmarkTiming.Type
@@ -76,7 +76,7 @@ export const BenchmarkReport = Schema.Struct({
 
 export type BenchmarkReport = typeof BenchmarkReport.Type
 
-export const BenchmarkReportJson = Schema.parseJson(BenchmarkReport, { space: 2 })
+export const BenchmarkReportJson = Schema.fromJsonString(BenchmarkReport, { space: 2 })
 
 export type BenchmarkReportJson = typeof BenchmarkReportJson.Type
 

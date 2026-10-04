@@ -4,7 +4,18 @@
  * @see {@link https://arxiv.org/abs/2406.11695 | Opsahl-Ong et al., "Optimizing Instructions and Demonstrations for Multi-Stage Language Model Programs", 2024}
  * @since 0.1.0
  */
-import { Array as Arr, Data, Effect, HashMap, Number as Num, Option, Ref, Schema, String as Str } from "effect"
+import {
+  Array as Arr,
+  Boolean as Bool,
+  Data,
+  Effect,
+  HashMap,
+  Number as Num,
+  Option,
+  Ref,
+  Schema,
+  String as Str
+} from "effect"
 import { Documents as DemoDocuments } from "../../Demonstration.js"
 import { InstructionProposalFailed } from "../../DspError.js"
 import {
@@ -33,26 +44,21 @@ const indexDemoCandidateSets = (
 ) =>
   Effect.reduce(
     candidateSets,
-    HashMap.empty<string, PredictorDemoCandidates>(),
+    () => HashMap.empty<string, PredictorDemoCandidates>(),
     (setsByName, candidateSet) =>
       Effect.gen(function*() {
-        const predictorIndex = yield* Option.match(
+        const predictorIndex = yield* Effect.fromOption(
           Arr.findFirstIndex(refs, (ref) => Str.Equivalence(ref.name, candidateSet.predictorName)),
-          {
-            onNone: () =>
-              Effect.fail(
-                new InstructionProposalFailed({
-                  message: Str.concat(
-                    Str.concat("Unknown demo candidates for predictor '", candidateSet.predictorName),
-                    "'"
-                  ),
-                  predictorIndex: -1
-                })
+          () =>
+            new InstructionProposalFailed({
+              message: Str.concat(
+                Str.concat("Unknown demo candidates for predictor '", candidateSet.predictorName),
+                "'"
               ),
-            onSome: Effect.succeed
-          }
+              predictorIndex: -1
+            })
         )
-        yield* Effect.if(HashMap.has(setsByName, candidateSet.predictorName), {
+        yield* Bool.match(HashMap.has(setsByName, candidateSet.predictorName), {
           onTrue: () =>
             Effect.fail(
               new InstructionProposalFailed({
@@ -66,7 +72,7 @@ const indexDemoCandidateSets = (
           onFalse: () => Effect.void
         })
         yield* Effect.forEach(candidateSet.candidates, (candidate) =>
-          Effect.if(Str.Equivalence(candidate.predictorName, candidateSet.predictorName), {
+          Bool.match(Str.Equivalence(candidate.predictorName, candidateSet.predictorName), {
             onTrue: () => Effect.void,
             onFalse: () =>
               Effect.fail(
@@ -123,26 +129,16 @@ const resolvePredictor = (
   candidateSets: HashMap.HashMap<string, PredictorDemoCandidates>
 ) =>
   Effect.gen(function*() {
-    const demoSet = yield* Option.match(HashMap.get(candidateSets, ref.name), {
-      onNone: () =>
-        Effect.fail(
-          new InstructionProposalFailed({
-            message: Str.concat(Str.concat("Missing demo candidates for predictor '", ref.name), "'"),
-            predictorIndex
-          })
-        ),
-      onSome: Effect.succeed
-    })
-    yield* Option.match(Arr.head(demoSet.candidates), {
-      onNone: () =>
-        Effect.fail(
-          new InstructionProposalFailed({
-            message: Str.concat(Str.concat("Demo candidate set for predictor '", ref.name), "' is empty"),
-            predictorIndex
-          })
-        ),
-      onSome: () => Effect.void
-    })
+    const demoSet = yield* Effect.fromOption(HashMap.get(candidateSets, ref.name), () =>
+      new InstructionProposalFailed({
+        message: Str.concat(Str.concat("Missing demo candidates for predictor '", ref.name), "'"),
+        predictorIndex
+      }))
+    yield* Effect.asVoid(Effect.fromOption(Arr.head(demoSet.candidates), () =>
+      new InstructionProposalFailed({
+        message: Str.concat(Str.concat("Demo candidate set for predictor '", ref.name), "' is empty"),
+        predictorIndex
+      })))
     const params = yield* Ref.get(ref.params)
     return new ResolvedPredictor({ ref, predictorIndex, demoSet, params })
   })
@@ -153,19 +149,11 @@ const preparePredictor = (resolved: ResolvedPredictor) =>
       resolved.demoSet.candidates,
       (candidate) => Effect.forEach(candidate.params.demos, resolved.ref.demonstrationCodec.encode)
     )
-    const firstDemos = yield* Option.match(Arr.head(renderedDemoCandidates), {
-      onNone: () =>
-        Effect.fail(
-          new InstructionProposalFailed({
-            message: Str.concat(
-              Str.concat("Demo candidate set for predictor '", resolved.ref.name),
-              "' is empty"
-            ),
-            predictorIndex: resolved.predictorIndex
-          })
-        ),
-      onSome: Effect.succeed
-    })
+    const firstDemos = yield* Effect.fromOption(Arr.head(renderedDemoCandidates), () =>
+      new InstructionProposalFailed({
+        message: Str.concat(Str.concat("Demo candidate set for predictor '", resolved.ref.name), "' is empty"),
+        predictorIndex: resolved.predictorIndex
+      }))
     return new PreparedPredictor({
       ref: resolved.ref,
       predictorIndex: resolved.predictorIndex,

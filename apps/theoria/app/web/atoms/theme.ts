@@ -1,6 +1,6 @@
-import { Atom, Result } from "@effect-atom/atom"
-import type { Atom as AtomType } from "@effect-atom/atom"
-import { Boolean as Bool, Match, Stream } from "effect"
+import { Boolean as Bool, type Cause, Match, Stream } from "effect"
+import { AsyncResult as Result, Atom } from "effect/reactivity"
+import type * as AtomType from "effect/reactivity/Atom"
 
 import { colorModeCookieName, ColorModePreference, darkRootClass, isDark } from "../../contracts/color-mode.js"
 import { type ColorMode } from "../../contracts/palette.js"
@@ -22,7 +22,7 @@ export const colorModePreferenceAtom: AtomType.Writable<ColorModePreference> = A
   defaultValue: (): ColorModePreference => "system"
 })
 
-const systemColorModeAtom: AtomType.Atom<Result.Result<ColorMode>> = appRuntime.atom(
+const systemColorModeAtom: AtomType.Atom<Result.AsyncResult<ColorMode, Cause.NoSuchElementError>> = appRuntime.atom(
   BrowserWindow.mediaQuery("(prefers-color-scheme: dark)").pipe(
     Stream.map(Bool.match({ onTrue: (): ColorMode => "dark", onFalse: (): ColorMode => "light" }))
   )
@@ -37,6 +37,6 @@ export const colorModeAtom: AtomType.Atom<ColorMode> = Atom.make((get) =>
 )
 
 /** Keeps the `dark` class on `<html>` in step with the mode; mount once at the app root. */
-export const colorModeApplicationAtom: AtomType.Atom<Result.Result<void>> = appRuntime.atom((get) =>
+export const colorModeApplicationAtom: AtomType.Atom<Result.AsyncResult<void>> = appRuntime.atom((get) =>
   BrowserDocument.toggleRootClass(darkRootClass, isDark(get(colorModeAtom)))
 )

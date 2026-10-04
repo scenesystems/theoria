@@ -4,15 +4,16 @@
  * @since 0.4.0
  * @module
  */
-import type { Value as SearchObjectiveValue } from "@scenesystems/effect-search/Objective"
+import { Value as SearchObjectiveValue } from "@scenesystems/effect-search/Objective"
 import { Array as Arr, Match, Number, Option, Order, Record, Schema } from "effect"
 import { Failure, Report } from "./Evaluate.js"
+import { Result as MetricResult } from "./Metric.js"
 
 /** Scalar or vector projection mode.
  * @since 0.4.0
  * @category schemas
  */
-export const Mode = Schema.Literal("single", "multi")
+export const Mode = Schema.Literals(["single", "multi"])
 
 /** One named aggregate metric.
  * @since 0.4.0
@@ -20,7 +21,7 @@ export const Mode = Schema.Literal("single", "multi")
  */
 export class MetricScore extends Schema.Class<MetricScore>("@scenesystems/effect-dsp/EvaluationObjective/MetricScore")({
   name: Schema.String,
-  score: Schema.Number
+  score: MetricResult.fields.score
 }) {}
 
 /** Evaluation context retained beside a projected objective.
@@ -30,10 +31,10 @@ export class MetricScore extends Schema.Class<MetricScore>("@scenesystems/effect
 export class Telemetry extends Schema.Class<Telemetry>("@scenesystems/effect-dsp/EvaluationObjective/Telemetry")({
   metricScores: Schema.Array(MetricScore),
   failures: Schema.Array(Failure),
-  totalExamples: Schema.Number,
-  successCount: Schema.Number,
-  failureCount: Schema.Number,
-  averageDurationMs: Schema.Number
+  totalExamples: Schema.Finite,
+  successCount: Schema.Finite,
+  failureCount: Schema.Finite,
+  averageDurationMs: Schema.Finite
 }) {}
 
 /** Search objective and the evaluation telemetry that produced it.
@@ -41,7 +42,7 @@ export class Telemetry extends Schema.Class<Telemetry>("@scenesystems/effect-dsp
  * @category models
  */
 export class Projection extends Schema.Class<Projection>("@scenesystems/effect-dsp/EvaluationObjective/Projection")({
-  objective: Schema.Union(Schema.Number, Schema.Array(Schema.Number)),
+  objective: SearchObjectiveValue,
   telemetry: Telemetry
 }) {}
 
@@ -51,9 +52,9 @@ export class Projection extends Schema.Class<Projection>("@scenesystems/effect-d
  */
 export type ObjectiveValue = SearchObjectiveValue
 
-const Entry = Schema.Tuple(Schema.String, Schema.Number)
+const Entry = Schema.Tuple([Schema.String, MetricResult.fields.score])
 const Names = Schema.Array(Schema.String)
-const entryOrder: Order.Order<typeof Entry.Type> = Order.mapInput(Order.string, ([name]) => name)
+const entryOrder: Order.Order<typeof Entry.Type> = Order.mapInput(Order.String, ([name]) => name)
 const entries = (report: Report) => Arr.sort(Record.toEntries(report.overallScores), entryOrder)
 const names = (report: Report) => Arr.map(entries(report), ([name]) => name)
 const score = (report: Report, name: string): number =>
@@ -62,7 +63,7 @@ const averageDuration = (report: Report): number =>
   Arr.match(report.results, {
     onEmpty: () => 0,
     onNonEmpty: (results) =>
-      Number.unsafeDivide(
+      Number.divideUnsafe(
         Arr.reduce(results, 0, (sum, result) => Number.sum(sum, result.durationMs)),
         Arr.length(results)
       )
@@ -76,7 +77,7 @@ const telemetry = (report: Report): Telemetry =>
     failureCount: report.failureCount,
     averageDurationMs: averageDuration(report)
   })
-const decodeProjection = Schema.decode(Projection)
+const decodeProjection = Schema.decodeEffect(Projection)
 
 /** Projects one named aggregate metric, or the first name in stable order.
  * @since 0.4.0
@@ -98,7 +99,7 @@ export const projectSingleObjective = (report: Report, metricName: Option.Option
 export const projectMultiObjective = (report: Report, metricNames?: typeof Names.Type) =>
   decodeProjection({
     objective: Arr.map(
-      Option.getOrElse(Option.fromNullable(metricNames), () => names(report)),
+      Option.getOrElse(Option.fromUndefinedOr(metricNames), () => names(report)),
       (name) => score(report, name)
     ),
     telemetry: telemetry(report)
@@ -112,11 +113,10 @@ const ProjectOptions = Schema.Struct({ report: Report, mode: Mode, metricNames: 
  */
 export const project = (options: typeof ProjectOptions.Type) =>
   Match.value(options.mode).pipe(
-    Match.when("single", () =>
+    Match.when((mode) => mode === "single", () =>
       projectSingleObjective(
         options.report,
-        Option.flatMap(Option.fromNullable(options.metricNames), Arr.head)
+        Option.flatMap(Option.fromUndefinedOr(options.metricNames), Arr.head)
       )),
-    Match.when("multi", () => projectMultiObjective(options.report, options.metricNames)),
-    Match.exhaustive
+    Match.orElse(() => projectMultiObjective(options.report, options.metricNames))
   )

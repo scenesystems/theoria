@@ -7,9 +7,9 @@
  * @since 0.1.0
  * @category internal
  */
-import { Boolean, Chunk, Number } from "effect"
+import { Boolean, Chunk, Number, Option } from "effect"
 
-const notANumber = Number.unsafeDivide(0, 0)
+const notANumber = Option.getOrElse(Number.parse("NaN"), () => 0)
 
 /**
  * Composite trapezoidal rule for evenly-spaced samples.
@@ -21,13 +21,13 @@ const notANumber = Number.unsafeDivide(0, 0)
  * @category internal
  */
 export const trapezoidalRule = (values: Chunk.Chunk<number>, dx: number): number => {
-  const hasEnoughSamples = Number.greaterThanOrEqualTo(Chunk.size(values), 2)
+  const hasEnoughSamples = Number.isGreaterThanOrEqualTo(Chunk.size(values), 2)
   return Boolean.match(hasEnoughSamples, {
     onFalse: () => notANumber,
     onTrue: () => {
       const n = Number.decrement(Chunk.size(values))
-      const first = Chunk.unsafeGet(values, 0)
-      const last = Chunk.unsafeGet(values, n)
+      const first = Chunk.getUnsafe(values, 0)
+      const last = Chunk.getUnsafe(values, n)
       const interiorSum = Chunk.reduce(
         Chunk.drop(Chunk.take(values, n), 1),
         0,
@@ -37,8 +37,8 @@ export const trapezoidalRule = (values: Chunk.Chunk<number>, dx: number): number
       return Number.multiply(
         dx,
         Number.sum(
-          Number.sum(Number.unsafeDivide(first, 2), interiorSum),
-          Number.unsafeDivide(last, 2)
+          Number.sum(Number.divideUnsafe(first, 2), interiorSum),
+          Number.divideUnsafe(last, 2)
         )
       )
     }
@@ -58,7 +58,7 @@ export const trapezoidalRule = (values: Chunk.Chunk<number>, dx: number): number
  */
 export const simpsonsRule = (values: Chunk.Chunk<number>, dx: number): number => {
   const size = Chunk.size(values)
-  return Boolean.match(Number.lessThan(size, 2), {
+  return Boolean.match(Number.isLessThan(size, 2), {
     onTrue: () => notANumber,
     onFalse: () =>
       Boolean.match(Number.Equivalence(size, 2), {
@@ -113,5 +113,5 @@ const simpsonCore = (values: Chunk.Chunk<number>, dx: number): number => {
       })
   )
 
-  return Number.multiply(Number.unsafeDivide(dx, 3), weightedSum)
+  return Number.multiply(Number.divideUnsafe(dx, 3), weightedSum)
 }

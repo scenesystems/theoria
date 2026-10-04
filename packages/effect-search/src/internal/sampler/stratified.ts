@@ -22,7 +22,7 @@ const normalizeTargetSize = (targetSize: number): number => {
   )
 
   return Match.value(finite).pipe(
-    Match.when(Num.lessThanOrEqualTo(0), () => 0),
+    Match.when(Num.isLessThanOrEqualTo(0), () => 0),
     Match.orElse((count) => count)
   )
 }
@@ -71,14 +71,14 @@ const takeFromBucket = <Bucket, A>(
   const values = bucketValues(state.buckets, bucket)
   const head = Chunk.head(values)
 
-  return {
+  return new SelectionState({
     buckets: HashMap.set(state.buckets, bucket, Chunk.drop(values, 1)),
     selected: Option.match(head, {
       onNone: () => state.selected,
       onSome: (value) => Chunk.append(state.selected, value)
     }),
     cursor: Num.increment(state.cursor)
-  }
+  })
 }
 
 const roundRobinStepCount = (targetSize: number, bucketCount: number): number => Num.multiply(targetSize, bucketCount)
@@ -95,8 +95,8 @@ const selectRoundRobin = <Bucket, A>(
     (currentState) =>
       Match.value(
         Bool.or(
-          Num.greaterThanOrEqualTo(Chunk.size(currentState.selected), targetSize),
-          Num.lessThanOrEqualTo(availableCount(currentState.buckets, bucketOrder), 0)
+          Num.isGreaterThanOrEqualTo(Chunk.size(currentState.selected), targetSize),
+          Num.isLessThanOrEqualTo(availableCount(currentState.buckets, bucketOrder), 0)
         )
       ).pipe(
         Match.when(true, () => currentState),
@@ -140,17 +140,17 @@ export const sampleStratifiedRoundRobin = <Bucket, A>(
   )
 
   return Match.value(Bool.or(
-    Num.lessThanOrEqualTo(Chunk.size(options.bucketOrder), 0),
-    Num.lessThanOrEqualTo(targetSize, 0)
+    Num.isLessThanOrEqualTo(Chunk.size(options.bucketOrder), 0),
+    Num.isLessThanOrEqualTo(targetSize, 0)
   )).pipe(
     Match.when(true, Chunk.empty<A>),
     Match.orElse(() =>
       selectRoundRobin(
-        {
+        new SelectionState({
           buckets: seededBuckets,
           selected: Chunk.empty<A>(),
           cursor: 0
-        },
+        }),
         options.bucketOrder,
         targetSize
       ).selected

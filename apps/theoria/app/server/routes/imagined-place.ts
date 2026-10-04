@@ -1,7 +1,6 @@
-import { type HttpServerError, HttpServerRequest } from "@effect/platform"
 import type { Cipher } from "@scenesystems/seal"
-import { Boolean as Bool, Clock, Effect, Either, Equal, Match, Option, Schema } from "effect"
-import * as ParseResult from "effect/ParseResult"
+import { Boolean as Bool, Clock, Effect, Equal, Match, Option, Result, Schema } from "effect"
+import { type HttpServerError, HttpServerRequest } from "effect/http"
 
 import { ErrorModel, httpStatus } from "../../contracts/error.js"
 import type { PlaceBuild, PlaceBuildEnvelope } from "../../contracts/imagined-place-result.js"
@@ -32,7 +31,7 @@ const clientAddressHeader = "cf-connecting-ip"
 
 const Rejection = Schema.Struct({
   error: ErrorModel,
-  headers: Schema.Record({ key: Schema.String, value: Schema.String })
+  headers: Schema.Record(Schema.String, Schema.String)
 })
 type Rejection = typeof Rejection.Type
 
@@ -93,7 +92,7 @@ const admission = (
 ): Effect.Effect<Option.Option<Rejection>, never, PlaceBuildLimiter> =>
   Effect.gen(function*() {
     const limiter = yield* PlaceBuildLimiter
-    const actor = Option.getOrElse(Option.fromNullable(request.headers[clientAddressHeader]), () => "unknown-client")
+    const actor = Option.getOrElse(Option.fromNullishOr(request.headers[clientAddressHeader]), () => "unknown-client")
     const decision = yield* limiter.admit(actor)
     return Match.value(decision).pipe(
       Match.tag("Admitted", () => Option.none<Rejection>()),
@@ -105,7 +104,7 @@ const admission = (
   )
 
 const failureModel = (
-  error: PlaceBuildError | ParseResult.ParseError | HttpServerError.RequestError
+  error: PlaceBuildError | Schema.SchemaError | HttpServerError.HttpServerError
 ): ErrorModel =>
   Match.value(error).pipe(
     Match.tag("PlaceBuildError", (failure): ErrorModel => ({
@@ -113,12 +112,12 @@ const failureModel = (
       message: `Place build failed at ${failure.stage}.`,
       retryable: true
     })),
-    Match.tag("ParseError", (failure): ErrorModel => ({
+    Match.tag("SchemaError", (failure): ErrorModel => ({
       code: "invalid-request",
-      message: ParseResult.TreeFormatter.formatErrorSync(failure),
+      message: failure.message,
       retryable: false
     })),
-    Match.tag("RequestError", () => unreadableBody),
+    Match.tag("HttpServerError", () => unreadableBody),
     Match.exhaustive
   )
 
@@ -127,12 +126,12 @@ const decodeBody = HttpServerRequest.schemaBodyJson(PlaceBuildRequest)
 /** Reads and validates the body, builds the place, and turns any failure into an error model. */
 const build = (
   request: HttpServerRequest.HttpServerRequest
-): Effect.Effect<Either.Either<PlaceBuild, ErrorModel>, never, Participants | Cipher.Cipher> =>
+): Effect.Effect<Result.Result<PlaceBuild, ErrorModel>, never, Participants | Cipher.Cipher> =>
   decodeBody.pipe(
     Effect.provideService(HttpServerRequest.HttpServerRequest, request),
     Effect.flatMap(buildPlace),
     Effect.mapError(failureModel),
-    Effect.either
+    Effect.result
   )
 
 export const imaginedPlaceRoute = (request: HttpServerRequest.HttpServerRequest, requestId: string) =>
@@ -144,14 +143,14 @@ export const imaginedPlaceRoute = (request: HttpServerRequest.HttpServerRequest,
       onSome: (rejected) => Effect.succeedSome(rejected)
     })
     const outcome = yield* Option.match(rejection, {
-      onNone: () => build(request).pipe(Effect.map(Either.mapLeft((error): Rejection => ({ error, headers: {} })))),
-      onSome: (rejected) => Effect.succeed(Either.left(rejected))
+      onNone: () => build(request).pipe(Effect.map(Result.mapError((error): Rejection => ({ error, headers: {} })))),
+      onSome: (rejected) => Effect.succeed(Result.fail(rejected))
     })
 
     const meta = yield* responseMeta(requestId, startedAtMs)
 
-    return yield* Either.match(outcome, {
-      onLeft: ({ error, headers }) => respond({ ok: false, meta, error }, headers),
-      onRight: (data) => respond({ ok: true, meta, data }, {})
+    return yield* Result.match(outcome, {
+      onFailure: ({ error, headers }) => respond({ ok: false, meta, error }, headers),
+      onSuccess: (data) => respond({ ok: true, meta, data }, {})
     })
   })

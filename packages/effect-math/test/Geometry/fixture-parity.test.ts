@@ -1,4 +1,4 @@
-import { BunContext } from "@effect/platform-bun"
+import { BunServices } from "@effect/platform-bun"
 import { describe, expect, it } from "@effect/vitest"
 import { Array, Chunk, Effect, Match, Number, Schema, Tuple } from "effect"
 
@@ -9,7 +9,7 @@ import { GeometryDistanceParityFixtureSchema, loadFixture } from "../helpers/fix
 const distanceTolerance = 1e-12
 
 const expectWithinTolerance = (actual: number, expected: number, tolerance: number) =>
-  expect(Number.lessThanOrEqualTo(abs(Number.subtract(actual, expected)), tolerance)).toBe(true)
+  expect(Number.isLessThanOrEqualTo(abs(Number.subtract(actual, expected)), tolerance)).toBe(true)
 
 const expectChunkWithinTolerance = (
   actual: Chunk.Chunk<number>,
@@ -19,7 +19,7 @@ const expectChunkWithinTolerance = (
   expect(Number.Equivalence(Chunk.size(actual), Chunk.size(expected))).toBe(true)
   Chunk.forEach(
     Chunk.zip(actual, expected),
-    (pair) => expectWithinTolerance(Tuple.getFirst(pair), Tuple.getSecond(pair), tolerance)
+    (pair) => expectWithinTolerance(Tuple.get(pair, 0), Tuple.get(pair, 1), tolerance)
   )
 }
 
@@ -27,7 +27,7 @@ describe("Geometry SciPy fixture parity", () => {
   it.effect("all distance-parity cases match SciPy reference values", () =>
     Effect.gen(function*() {
       const raw = yield* loadFixture("geometry.distance-parity")
-      const fixture = yield* Schema.decodeUnknown(GeometryDistanceParityFixtureSchema)(raw, {
+      const fixture = yield* Schema.decodeUnknownEffect(GeometryDistanceParityFixtureSchema)(raw, {
         onExcessProperty: "error"
       })
 
@@ -52,5 +52,5 @@ describe("Geometry SciPy fixture parity", () => {
             Match.exhaustive
           )
         ))
-    }).pipe(Effect.provide(BunContext.layer)))
+    }).pipe(Effect.provide(BunServices.layer)))
 })

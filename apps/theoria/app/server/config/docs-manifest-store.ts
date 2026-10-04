@@ -15,18 +15,18 @@ export class DocsManifestError
   )
 {}
 
-export class DocsManifestStore extends Context.Tag("@theoria/app/server/config/DocsManifestStore")<
+export class DocsManifestStore extends Context.Service<
   DocsManifestStore,
   {
     readonly manifest: Effect.Effect<DocsManifest, DocsManifestError>
   }
->() {}
+>()("@theoria/app/server/config/DocsManifestStore") {}
 
 const makeDocsManifestStore = Effect.gen(function*() {
   const store = yield* StaticStore
   const cached = yield* Ref.make(Option.none<DocsManifest>())
   const load = store.text(manifestPathname).pipe(
-    Effect.flatMap(Schema.decode(DocsManifestJson)),
+    Effect.flatMap(Schema.decodeEffect(DocsManifestJson)),
     Effect.mapError((cause) => new DocsManifestError({ message: String(cause) })),
     Effect.tap((manifest) => Ref.set(cached, Option.some(manifest)))
   )

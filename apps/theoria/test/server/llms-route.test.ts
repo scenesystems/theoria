@@ -1,6 +1,6 @@
-import { HttpServerResponse } from "@effect/platform"
 import { describe, expect, it } from "@effect/vitest"
 import { Data, Effect, Exit, Layer } from "effect"
+import { HttpServerResponse } from "effect/http"
 
 import { DocsManifestError, DocsManifestStore } from "../../app/server/config/docs-manifest-store.js"
 import { textContentType } from "../../app/server/config/static-store.js"

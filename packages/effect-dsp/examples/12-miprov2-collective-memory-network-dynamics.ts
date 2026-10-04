@@ -15,7 +15,7 @@
  *
  * Run: bun run examples/12-miprov2-collective-memory-network-dynamics.ts
  */
-import { BunContext, BunRuntime } from "@effect/platform-bun"
+import { BunRuntime, BunServices } from "@effect/platform-bun"
 import { BootstrapFewShot, Evaluate, Example, Metric, MIPROv2, Module, Signature } from "@scenesystems/effect-dsp"
 import * as Numeric from "@scenesystems/effect-math/Numeric"
 import {
@@ -188,7 +188,7 @@ const evalset = Arr.make(
 
 const logExampleStage = (
   stage: string,
-  payload: typeof Schema.Object.Type
+  payload: Readonly<Record<string, unknown>>
 ) =>
   Effect.log("example:12 stage", {
     stage,
@@ -275,7 +275,7 @@ const normalizeNarrative = (value: string): string =>
 const narrativeTokens = (value: string) =>
   Arr.dedupe(
     Arr.filter(String.split(normalizeNarrative(value), " "), (token) =>
-      Boolean.and(Number.greaterThan(String.length(token), 3), Boolean.not(Arr.contains(STOP_WORDS, token))))
+      Boolean.and(Number.isGreaterThan(String.length(token), 3), Boolean.not(Arr.contains(STOP_WORDS, token))))
   )
 
 const tokenOverlapScore = (predicted: string, expected: string): number => {
@@ -514,36 +514,38 @@ const program = Effect.gen(function*() {
   const teacherLayer = yield* liveTeacherLayer()
 
   // Compose the analyst and planner into one optimizable panel.
-  const protocolPanel = yield* Module.compose({
-    name: "collective-memory-methods-panel",
-    signature: panelSignature,
-    subModules: {
-      dynamicsAnalyst,
-      protocolPlanner
-    },
-    forward: ({ input }) =>
-      Effect.gen(function*() {
-        const dynamics = yield* dynamicsAnalyst
-          .forward({
+  const protocolPanel = yield* Module.compose(
+    new Module.ComposeOptions({
+      name: "collective-memory-methods-panel",
+      signature: panelSignature,
+      subModules: {
+        dynamicsAnalyst,
+        protocolPlanner
+      },
+      forward: ({ input }) =>
+        Effect.gen(function*() {
+          const dynamics = yield* dynamicsAnalyst
+            .forward({
+              objective: input.objective,
+              baselineNetwork: input.baselineNetwork,
+              dyadicSignal: input.dyadicSignal,
+              degreeProfile: input.degreeProfile
+            })
+            .pipe(Effect.provide(teacherLayer))
+
+          return yield* protocolPlanner.forward({
             objective: input.objective,
             baselineNetwork: input.baselineNetwork,
             dyadicSignal: input.dyadicSignal,
-            degreeProfile: input.degreeProfile
+            degreeProfile: input.degreeProfile,
+            designConstraint: input.designConstraint,
+            rsProfile: dynamics.rsProfile,
+            alignmentReach: dynamics.alignmentReach,
+            diagnosis: dynamics.diagnosis
           })
-          .pipe(Effect.provide(teacherLayer))
-
-        return yield* protocolPlanner.forward({
-          objective: input.objective,
-          baselineNetwork: input.baselineNetwork,
-          dyadicSignal: input.dyadicSignal,
-          degreeProfile: input.degreeProfile,
-          designConstraint: input.designConstraint,
-          rsProfile: dynamics.rsProfile,
-          alignmentReach: dynamics.alignmentReach,
-          diagnosis: dynamics.diagnosis
         })
-      })
-  })
+    })
+  )
   const paramsBeforeBootstrap = yield* Ref.get(protocolPanel.params)
 
   // Quick sanity turn before formal evaluation/optimization.
@@ -567,32 +569,36 @@ const program = Effect.gen(function*() {
     evalExampleCount: Arr.length(evalset)
   })
 
-  const baseline = yield* Evaluate.run({
-    module: protocolPanel,
-    examples: evalset,
-    metrics: { protocolFit: protocolMetric },
-    concurrency: 1
-  })
+  const baseline = yield* Evaluate.run(
+    new Evaluate.Options({
+      module: protocolPanel,
+      examples: evalset,
+      metrics: { protocolFit: protocolMetric },
+      concurrency: 1
+    })
+  )
 
   // Seed demonstrations through teacher bootstrapping.
   yield* logExampleStage("bootstrap-warm-start-started", {
     trainExampleCount: Arr.length(trainset),
     maxRounds: 2,
     maxBootstrappedDemos: 3,
-    threshold: Number.unsafeDivide(2, 3)
+    threshold: Number.divideUnsafe(2, 3)
   })
 
-  const bootstrapEventsChunk = yield* BootstrapFewShot.stream({
-    module: protocolPanel,
-    trainset,
-    metric: protocolMetric,
-    maxRounds: 2,
-    maxBootstrappedDemos: 3,
-    threshold: Number.unsafeDivide(2, 3),
-    teacher: teacherLayer,
-    fallbackToLabeledFewShot: true,
-    fallbackLabeledDemoCount: 3
-  }).pipe(
+  const bootstrapEventsChunk = yield* BootstrapFewShot.stream(
+    new BootstrapFewShot.Options({
+      module: protocolPanel,
+      trainset,
+      metric: protocolMetric,
+      maxRounds: 2,
+      maxBootstrappedDemos: 3,
+      threshold: Number.divideUnsafe(2, 3),
+      teacher: teacherLayer,
+      fallbackToLabeledFewShot: true,
+      fallbackLabeledDemoCount: 3
+    })
+  ).pipe(
     BootstrapFewShot.tapProgress((line) => logExampleEvent("bootstrapFewShot", line.text)),
     Stream.runCollect
   )
@@ -628,28 +634,32 @@ const program = Effect.gen(function*() {
     seed: 33
   })
 
-  const miproEventsChunk = yield* MIPROv2.stream({
-    module: protocolPanel,
-    trainset,
-    valset: evalset,
-    metric: protocolMetric,
-    numCandidates: 4,
-    numInstructions: 4,
-    trialBudget: 6,
-    seed: 33
-  }).pipe(
+  const miproEventsChunk = yield* MIPROv2.stream(
+    new MIPROv2.Options({
+      module: protocolPanel,
+      trainset,
+      valset: evalset,
+      metric: protocolMetric,
+      numCandidates: 4,
+      numInstructions: 4,
+      trialBudget: 6,
+      seed: 33
+    })
+  ).pipe(
     MIPROv2.tapProgress((line) => logExampleEvent("miprov2", line.text)),
     Stream.runCollect
   )
   const miproEvents = Arr.fromIterable(miproEventsChunk)
   const miproEventSummary = MIPROv2.summarizeEvents(miproEvents)
 
-  const optimized = yield* Evaluate.run({
-    module: protocolPanel,
-    examples: evalset,
-    metrics: { protocolFit: protocolMetric },
-    concurrency: 1
-  })
+  const optimized = yield* Evaluate.run(
+    new Evaluate.Options({
+      module: protocolPanel,
+      examples: evalset,
+      metrics: { protocolFit: protocolMetric },
+      concurrency: 1
+    })
+  )
 
   const optimizedParams = yield* Ref.get(protocolPanel.params)
 
@@ -686,7 +696,7 @@ const program = Effect.gen(function*() {
       bootstrap: {
         maxRounds: 2,
         maxBootstrappedDemos: 3,
-        threshold: Number.unsafeDivide(2, 3),
+        threshold: Number.divideUnsafe(2, 3),
         fallbackToLabeledFewShot: true,
         fallbackLabeledDemoCount: 3
       },
@@ -773,6 +783,6 @@ const program = Effect.gen(function*() {
 BunRuntime.runMain(
   withLiveLanguageModel(program).pipe(
     Effect.scoped,
-    Effect.provide(Layer.merge(noopArtifactSinkLayer, BunContext.layer))
+    Effect.provide(Layer.merge(noopArtifactSinkLayer, BunServices.layer))
   )
 )

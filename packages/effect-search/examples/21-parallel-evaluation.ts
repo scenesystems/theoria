@@ -18,28 +18,30 @@ const program = Effect.gen(function*() {
   const activeRef = yield* Ref.make(0)
   const maxActiveRef = yield* Ref.make(0)
 
-  const result = yield* Optimization.minimize({
-    space,
-    sampler: Sampler.random({ seed: 221 }),
-    trials: 24,
-    concurrency: 4,
-    objective: (config) =>
-      Effect.acquireUseRelease(
-        Ref.updateAndGet(activeRef, Num.increment).pipe(
-          Effect.tap((active) => Ref.update(maxActiveRef, (maxActive) => Num.max(maxActive, active)))
-        ),
-        () =>
-          Effect.sleep("20 millis").pipe(
-            Effect.as(
-              Num.sum(
-                Numeric.pow(Num.subtract(config.x, 0.4), 2),
-                Numeric.pow(Num.sum(config.y, 0.2), 2)
-              )
-            )
+  const result = yield* Optimization.minimize(
+    new Optimization.FlatOptions({
+      space,
+      sampler: Sampler.random({ seed: 221 }),
+      trials: 24,
+      concurrency: 4,
+      objective: (config) =>
+        Effect.acquireUseRelease(
+          Ref.updateAndGet(activeRef, Num.increment).pipe(
+            Effect.tap((active) => Ref.update(maxActiveRef, (maxActive) => Num.max(maxActive, active)))
           ),
-        () => Ref.update(activeRef, Num.decrement)
-      )
-  })
+          () =>
+            Effect.sleep("20 millis").pipe(
+              Effect.as(
+                Num.sum(
+                  Numeric.pow(Num.subtract(config.x, 0.4), 2),
+                  Numeric.pow(Num.sum(config.y, 0.2), 2)
+                )
+              )
+            ),
+          () => Ref.update(activeRef, Num.decrement)
+        )
+    })
+  )
   const maxActive = yield* Ref.get(maxActiveRef)
 
   yield* Match.value(result).pipe(

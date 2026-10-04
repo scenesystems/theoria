@@ -1,5 +1,5 @@
 import { describe, expect, it } from "@effect/vitest"
-import { Chunk, Effect, Exit, Option, Schema } from "effect"
+import { Chunk, Effect, Option, Result, Schema } from "effect"
 import * as Arr from "effect/Array"
 
 import * as CanvasRegression from "../../examples/live/canvasRegression.js"
@@ -75,11 +75,11 @@ describe("canvas and Text composition", () => {
 
   it.effect("rejects invalid correction and profile identifiers", () =>
     Effect.gen(function*() {
-      const invalidCorrection = yield* Effect.exit(
-        Schema.decodeUnknown(CanvasTextMeasurer.EmojiCorrection)({ minimumAdvanceMultiplier: 0 })
+      const invalidCorrection = yield* Effect.result(
+        Schema.decodeEffect(CanvasTextMeasurer.EmojiCorrection)({ minimumAdvanceMultiplier: 0 })
       )
-      const invalidProfile = yield* Effect.exit(Schema.decodeUnknown(CanvasProfile.Id)("unknown-browser"))
-      expect(Exit.isFailure(invalidCorrection)).toBe(true)
-      expect(Exit.isFailure(invalidProfile)).toBe(true)
+      const invalidProfile = yield* Effect.result(Schema.decodeUnknownEffect(CanvasProfile.Id)("unknown-browser"))
+      expect(Result.isFailure(invalidCorrection)).toBe(true)
+      expect(Result.isFailure(invalidProfile)).toBe(true)
     }))
 })

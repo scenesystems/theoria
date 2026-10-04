@@ -3,9 +3,7 @@ import { Cipher } from "@scenesystems/seal"
 import {
   Array as Arr,
   Boolean as Bool,
-  Data,
   Effect,
-  Encoding,
   Number as Num,
   Option,
   Record,
@@ -13,6 +11,7 @@ import {
   Struct,
   Tuple
 } from "effect"
+import * as Hex from "effect/encoding/Hex"
 
 import { Bytes, Ed25519 } from "@scenesystems/sign"
 
@@ -77,20 +76,20 @@ describe("server/imagined-place", () => {
             acceptNeighbor: () => accept.acceptNeighbor,
             acceptProgram: () => accept.acceptProgram
           }))
-          const recording = yield* Record.get(placeScenarioRecordings, scenario)
+          const recording = Option.getOrThrow(Record.get(placeScenarioRecordings, scenario))
           const outline = recordedOutline(recording, accept)
           expect(result.artifact.composition).toEqual(outline.composition)
           expect(result.artifact.accepted).toEqual(outline.accepted)
           expect(placeFeatures(result.artifact)).toEqual(placeFeatures(outline))
           expect(descriptionInput(result.artifact)).toEqual(descriptionInput(outline))
           // The proposals are recorded in the order they were offered, with the author's decision on each.
-          expect(Arr.map(result.proposals, (record) => Data.struct(Struct.pick(record, "proposal", "accepted"))))
+          expect(Arr.map(result.proposals, (record) => Struct.pick(record, ["proposal", "accepted"])))
             .toEqual(
               recordedProposals(recording, accept)
             )
           // The lineage has the outline's versions: each recorded version is a shape with its digest.
           expect(
-            Arr.map(result.evidence.lineage, (version) => Data.struct(Struct.pick(version, "version", "featureCount")))
+            Arr.map(result.evidence.lineage, (version) => Struct.pick(version, ["version", "featureCount"]))
           ).toEqual(
             versionShapes(outline)
           )
@@ -101,11 +100,11 @@ describe("server/imagined-place", () => {
       const merged = yield* build()
       const untouched = yield* build(Struct.evolve(request, { acceptNeighbor: () => false }))
       const both = yield* build(Struct.evolve(request, { acceptProgram: () => true }))
-      const untouchedOrigin = yield* Arr.get(untouched.evidence.lineage, 0)
-      const mergedOrigin = yield* Arr.get(merged.evidence.lineage, 0)
-      const mergedSecond = yield* Arr.get(merged.evidence.lineage, 1)
-      const bothOrigin = yield* Arr.get(both.evidence.lineage, 0)
-      const bothSecond = yield* Arr.get(both.evidence.lineage, 1)
+      const untouchedOrigin = Option.getOrThrow(Arr.get(untouched.evidence.lineage, 0))
+      const mergedOrigin = Option.getOrThrow(Arr.get(merged.evidence.lineage, 0))
+      const mergedSecond = Option.getOrThrow(Arr.get(merged.evidence.lineage, 1))
+      const bothOrigin = Option.getOrThrow(Arr.get(both.evidence.lineage, 0))
+      const bothSecond = Option.getOrThrow(Arr.get(both.evidence.lineage, 1))
 
       expect(untouched.evidence.lineage.length).toBe(1)
       expect(untouched.artifact.parent).toBeUndefined()
@@ -123,7 +122,7 @@ describe("server/imagined-place", () => {
     Effect.gen(function*() {
       const result = yield* build()
       const rejected = Arr.filter(result.proposals, (record) => Bool.not(record.accepted))
-      const rejectedProposal = yield* Arr.get(rejected, 0)
+      const rejectedProposal = Option.getOrThrow(Arr.get(rejected, 0))
       expect(rejected.length).toBe(1)
       expect(rejectedProposal.proposal.proposer).toBe("program")
       expect(rejectedProposal.signature.valid).toBe(true)
@@ -137,22 +136,25 @@ describe("server/imagined-place", () => {
 
       yield* Effect.forEach(result.evidence.signatures, (record) =>
         Effect.gen(function*() {
-          const participant = yield* Record.get(participants, record.signer)
+          const participant = Option.getOrThrow(Record.get(participants, record.signer))
           const publicKey = participant.signing.publicKey
-          const signature = yield* Encoding.decodeHex(record.signatureHex)
+          const signature = yield* Effect.fromResult(Hex.decode(record.signatureHex))
           expect(record.valid).toBe(true)
-          expect(yield* Ed25519.verify(signature, Bytes.fromString(record.subject), publicKey)).toBe(true)
-          expect(yield* Ed25519.verify(signature, Bytes.fromString(Str.concat(record.subject, "x")), publicKey)).toBe(
-            false
-          )
+          expect(yield* Ed25519.verify(signature, yield* Bytes.fromString(record.subject), publicKey)).toBe(true)
+          expect(yield* Ed25519.verify(signature, yield* Bytes.fromString(Str.concat(record.subject, "x")), publicKey))
+            .toBe(
+              false
+            )
         }))
 
       const signers = Arr.map(result.evidence.signatures, (record) => record.signer)
       expect(signers).toEqual(Arr.make("author", "author", "neighbor", "program"))
-      const wrongKey = (yield* Record.get(participants, "author")).signing.publicKey
-      const neighborRecord = yield* Arr.get(result.evidence.signatures, 2)
-      const neighborSignature = yield* Encoding.decodeHex(neighborRecord.signatureHex)
-      expect(yield* Ed25519.verify(neighborSignature, Bytes.fromString(neighborRecord.subject), wrongKey)).toBe(false)
+      const wrongKey = Option.getOrThrow(Record.get(participants, "author")).signing.publicKey
+      const neighborRecord = Option.getOrThrow(Arr.get(result.evidence.signatures, 2))
+      const neighborSignature = yield* Effect.fromResult(Hex.decode(neighborRecord.signatureHex))
+      expect(yield* Ed25519.verify(neighborSignature, yield* Bytes.fromString(neighborRecord.subject), wrongKey)).toBe(
+        false
+      )
     }).pipe(Effect.provide([ParticipantsLive, Cipher.layer])))
 
   it.effect("seals the neighbor's note to the author and the author can open it", () =>
@@ -160,7 +162,7 @@ describe("server/imagined-place", () => {
       const result = yield* build()
       expect(result.evidence.sealedNote.openedText).toBe(scenarioById("unfinished-light").neighbor.note)
       expect(result.evidence.sealedNote.envelopeBytes).toBeGreaterThan(
-        Bytes.fromString(result.evidence.sealedNote.openedText).length
+        (yield* Bytes.fromString(result.evidence.sealedNote.openedText)).length
       )
       expect(result.evidence.sealedNote.from).toBe("neighbor")
       expect(result.evidence.sealedNote.to).toBe("author")
@@ -185,21 +187,21 @@ describe("server/imagined-place", () => {
 
       expect(evidence.trials).toBe(renderTrials)
       expect(projection.markers.length).toBe(placeFeatures(result.artifact).length)
-      expect(Arr.filter(projection.markers, (m) => Option.isSome(Option.fromNullable(m.contributedBy))).length).toBe(2)
+      expect(Arr.filter(projection.markers, (m) => Option.isSome(Option.fromNullishOr(m.contributedBy))).length).toBe(2)
       expect(
         Arr.every(
           projection.markers,
           (m) =>
             Bool.and(
-              Num.greaterThanOrEqualTo(Num.subtract(m.x, m.radius), Num.decrement(projection.padding)),
+              Num.isGreaterThanOrEqualTo(Num.subtract(m.x, m.radius), Num.decrement(projection.padding)),
               Bool.and(
-                Num.lessThanOrEqualTo(
+                Num.isLessThanOrEqualTo(
                   Num.sum(m.x, m.radius),
                   Num.increment(Num.subtract(projection.stageWidth, projection.padding))
                 ),
                 Bool.and(
-                  Num.greaterThanOrEqualTo(Num.subtract(m.y, m.radius), Num.decrement(projection.padding)),
-                  Num.lessThanOrEqualTo(
+                  Num.isGreaterThanOrEqualTo(Num.subtract(m.y, m.radius), Num.decrement(projection.padding)),
+                  Num.isLessThanOrEqualTo(
                     Num.sum(m.y, m.radius),
                     Num.increment(Num.subtract(projection.stageHeight, projection.padding))
                   )
@@ -209,9 +211,9 @@ describe("server/imagined-place", () => {
         )
       )
         .toBe(true)
-      expect(Arr.every(projection.lines, (line) => Num.lessThanOrEqualTo(line.width, Num.sum(line.maxWidth, 0.5))))
+      expect(Arr.every(projection.lines, (line) => Num.isLessThanOrEqualTo(line.width, Num.sum(line.maxWidth, 0.5))))
         .toBe(true)
-      expect(Arr.some(projection.lines, (line) => Num.lessThan(line.maxWidth, column))).toBe(true)
+      expect(Arr.some(projection.lines, (line) => Num.isLessThan(line.maxWidth, column))).toBe(true)
       expect(evidence.narrowestLine).toBeGreaterThanOrEqual(0.4)
       expect(
         Arr.last(projection.lines).pipe(

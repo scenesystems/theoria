@@ -69,7 +69,7 @@ describe("Statistics / variance", () => {
   it.effect("computes Bessel-corrected variance of [2, 4, 4, 4, 5, 5, 7, 9]", () =>
     Effect.gen(function*() {
       const result = variance(Chunk.make(2, 4, 4, 4, 5, 5, 7, 9))
-      expect(result).toBeCloseTo(Number.unsafeDivide(32, 7))
+      expect(result).toBeCloseTo(Number.divideUnsafe(32, 7))
     }))
 })
 

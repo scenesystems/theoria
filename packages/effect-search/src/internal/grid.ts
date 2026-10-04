@@ -9,10 +9,7 @@ export const FiniteDimensionSchema = Schema.Struct({
 
 export type FiniteDimension = Schema.Schema.Type<typeof FiniteDimensionSchema>
 
-export const GridConfigSchema = Schema.Record({
-  key: Schema.String,
-  value: Choice
-})
+export const GridConfigSchema = Schema.Record(Schema.String, Choice)
 
 export type GridConfig = Schema.Schema.Type<typeof GridConfigSchema>
 
@@ -20,7 +17,7 @@ const GridConfigs = Schema.Array(GridConfigSchema)
 
 export const enumerateGrid = (dimensionsInput: Iterable<FiniteDimension>) => {
   const dimensions = Arr.fromIterable(dimensionsInput)
-  return Match.value(Num.lessThanOrEqualTo(Arr.length(dimensions), 0)).pipe(
+  return Match.value(Num.isLessThanOrEqualTo(Arr.length(dimensions), 0)).pipe(
     Match.when(true, () => Arr.of({})),
     Match.orElse(() =>
       Arr.reduce<FiniteDimension, typeof GridConfigs.Type>(

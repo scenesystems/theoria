@@ -14,34 +14,34 @@ import * as MultiObjective from "./internal/paretoMultiObjective.js"
 import * as WeightsOperations from "./internal/paretoWeights.js"
 import type { Vector } from "./Objective.js"
 
-const Fronts = Schema.Array(Schema.Array(Schema.Number))
+const Fronts = Schema.Array(Schema.Array(Schema.Finite))
 type Fronts = typeof Fronts.Type
 const Directions = Schema.Array(Direction)
 type Directions = typeof Directions.Type
 
 /** Best coordinate value and its candidate holders. @since 0.7.0 @category schemas */
 export class Holding extends Schema.Class<Holding>("@scenesystems/effect-search/Pareto/Holding")({
-  objectiveIndex: Schema.Number,
+  objectiveIndex: Schema.Finite,
   bestValue: Schema.Number,
-  holders: Schema.Array(Schema.Number)
+  holders: Schema.Array(Schema.Finite)
 }) {}
 
 /** Number of coordinates held by one candidate. @since 0.7.0 @category schemas */
 export class HoldingWeight extends Schema.Class<HoldingWeight>("@scenesystems/effect-search/Pareto/HoldingWeight")({
-  candidateIndex: Schema.Number,
-  weight: Schema.Number
+  candidateIndex: Schema.Finite,
+  weight: Schema.Finite
 }) {}
 
 /** A complete first-front analysis. @since 0.7.0 @category schemas */
 export class Frontier extends Schema.Class<Frontier>("@scenesystems/effect-search/Pareto/Frontier")({
-  frontierIndices: Schema.Array(Schema.Number),
-  dominatedIndices: Schema.Array(Schema.Number),
+  frontierIndices: Schema.Array(Schema.Finite),
+  dominatedIndices: Schema.Array(Schema.Finite),
   objectiveHoldings: Schema.Array(Holding),
   holdingWeights: Schema.Array(HoldingWeight)
 }) {}
 
 /** Candidate weights in input order. @since 0.7.0 @category schemas */
-export const Weights = Schema.Array(Schema.Number)
+export const Weights = Schema.Array(Schema.Finite)
 /** Candidate weights in input order. @since 0.7.0 @category models */
 export type Weights = typeof Weights.Type
 

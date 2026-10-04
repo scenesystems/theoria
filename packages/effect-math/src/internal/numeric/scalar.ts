@@ -6,7 +6,7 @@
  */
 import { Boolean, Number, Option, pipe, Schema } from "effect"
 
-const finite = Schema.is(Schema.Number.pipe(Schema.finite()))
+const finite = Schema.is(Schema.Number.check(Schema.isFinite()))
 
 /**
  * Finite-guarded safe division. Returns `None` when either operand or the

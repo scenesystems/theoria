@@ -19,14 +19,14 @@ import { recordedFootprints } from "./platform/in-page.js"
 /** One footprint report: a region's name, its painted height, and the drawing's phase at the time. */
 export const Footprint = Schema.Struct({
   region: Schema.String,
-  height: Schema.NumberFromString,
+  height: Schema.FiniteFromString,
   phase: Schema.String
 })
 export type Footprint = typeof Footprint.Type
 
 const footprint = (line: string) => {
   const [region = "", height = "0", phase = "-"] = line.split(" ")
-  return Schema.decodeUnknownSync(Footprint)({ region, height, phase })
+  return Schema.decodeSync(Footprint)({ region, height, phase })
 }
 
 /** Every footprint recorded so far, in the order painted. */

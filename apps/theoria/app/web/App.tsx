@@ -1,8 +1,8 @@
 import { CSPProvider } from "@base-ui/react/csp-provider"
 import { Tooltip } from "@base-ui/react/tooltip"
-import { Atom, Result } from "@effect-atom/atom"
-import { RegistryProvider, useAtomMount, useAtomSet, useAtomValue } from "@effect-atom/atom-react"
+import { RegistryProvider, useAtomMount, useAtomSet, useAtomValue } from "@effect/atom-react"
 import { Data, Effect, Match } from "effect"
+import { AsyncResult as Result, Atom } from "effect/reactivity"
 import { domAnimation, LazyMotion, MotionConfig } from "motion/react"
 import type { ReactNode } from "react"
 

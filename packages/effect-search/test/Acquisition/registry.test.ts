@@ -8,8 +8,8 @@ describe("tpe acquisition registry", () => {
     Effect.sync(() => {
       const resolved = Acquisition.resolve()
       const context = new Acquisition.Context({
-        logL: Num.negate(0.3),
-        logG: Num.negate(0.8),
+        logL: Num.multiply(-1, 0.3),
+        logG: Num.multiply(-1, 0.8),
         estimatedCost: Option.none(),
         roll: Option.none()
       })
@@ -29,12 +29,14 @@ describe("tpe acquisition registry", () => {
 
       expect(custom.name).toBe("custom-gap")
       expect(
-        custom.score({
-          logL: Num.negate(0.1),
-          logG: Num.negate(0.6),
-          estimatedCost: Option.none(),
-          roll: Option.none()
-        })
+        custom.score(
+          new Acquisition.Context({
+            logL: Num.multiply(-1, 0.1),
+            logG: Num.multiply(-1, 0.6),
+            estimatedCost: Option.none(),
+            roll: Option.none()
+          })
+        )
       ).toBeCloseTo(5, 12)
       expect(Acquisition.resolve("ei").name).toBe("ei")
     }))

@@ -10,24 +10,23 @@ import { dual } from "effect/Function"
 import * as Metric from "./internal/geometry/metric.js"
 import * as PolicyGuard from "./internal/policyGuard.js"
 
-const encodeNumber = Schema.encodeSync(Schema.NumberFromString)
-const point = Schema.Chunk(Schema.Finite)
+const encodeNumber = String.String
+const point = Schema.toCodecJson(Schema.Chunk(Schema.Finite))
 const pointPair = Schema.Struct({ a: point, b: point })
 
 /** Two finite points and a supported distance metric.
  * @since 0.1.0
  * @category schemas
  */
-export const DistanceInput = Schema.extend(
-  pointPair,
-  Schema.Struct({ metric: Schema.Literal("euclidean", "manhattan", "chebyshev") })
-).annotations({ identifier: "@scenesystems/effect-math/Geometry/DistanceInput" })
+export const DistanceInput = pointPair.pipe(
+  Schema.fieldsAssign({ metric: Schema.Literals(["euclidean", "manhattan", "chebyshev"]) })
+).annotate({ identifier: "@scenesystems/effect-math/Geometry/DistanceInput" })
 
 /** Two finite points for midpoint calculation.
  * @since 0.1.0
  * @category schemas
  */
-export const MidpointInput = pointPair.annotations({
+export const MidpointInput = pointPair.annotate({
   identifier: "@scenesystems/effect-math/Geometry/MidpointInput"
 })
 
@@ -35,9 +34,12 @@ export const MidpointInput = pointPair.annotations({
  * @since 0.1.0
  * @category schemas
  */
-export const CentroidInput = Schema.Struct({ points: Schema.NonEmptyChunk(point) }).annotations({
-  identifier: "@scenesystems/effect-math/Geometry/CentroidInput"
+export const CentroidInput = Schema.Struct({
+  points: Schema.toCodecJson(Schema.Chunk(point)).pipe(Schema.refine(Chunk.isNonEmpty))
 })
+  .annotate({
+    identifier: "@scenesystems/effect-math/Geometry/CentroidInput"
+  })
 
 /**
  * Decoded distance input.
@@ -64,7 +66,7 @@ export type CentroidInput = typeof CentroidInput.Type
  */
 export class DecodeError
   extends Schema.TaggedError<DecodeError>("@scenesystems/effect-math/Geometry/DecodeError")("GeometryDecodeError", {
-    operation: Schema.Literal("distance", "midpoint", "centroid"),
+    operation: Schema.Literals(["distance", "midpoint", "centroid"]),
     message: Schema.String
   })
 {}
@@ -77,7 +79,7 @@ export class ShapeMismatchError
   extends Schema.TaggedError<ShapeMismatchError>("@scenesystems/effect-math/Geometry/ShapeMismatchError")(
     "GeometryShapeMismatchError",
     {
-      operation: Schema.Literal("distance", "midpoint", "centroid"),
+      operation: Schema.Literals(["distance", "midpoint", "centroid"]),
       expected: Schema.String,
       actual: Schema.String,
       message: Schema.String
@@ -93,7 +95,7 @@ export class DomainViolationError
   extends Schema.TaggedError<DomainViolationError>("@scenesystems/effect-math/Geometry/DomainViolationError")(
     "GeometryDomainViolationError",
     {
-      operation: Schema.Literal("distanceWithPolicies"),
+      operation: Schema.Literals(["distanceWithPolicies"]),
       message: Schema.String
     }
   )
@@ -187,7 +189,7 @@ export const centroid: (points: Chunk.NonEmptyChunk<Chunk.Chunk<number>>) => Chu
  */
 export const distanceValidated = (input: unknown) =>
   Effect.gen(function*() {
-    const decoded = yield* Schema.decodeUnknown(DistanceInput)(input, {
+    const decoded = yield* Schema.decodeUnknownEffect(DistanceInput)(input, {
       onExcessProperty: "error"
     }).pipe(
       Effect.mapError((error) =>
@@ -228,7 +230,7 @@ export const distanceValidated = (input: unknown) =>
  */
 export const midpointValidated = (input: unknown) =>
   Effect.gen(function*() {
-    const decoded = yield* Schema.decodeUnknown(MidpointInput)(input, {
+    const decoded = yield* Schema.decodeUnknownEffect(MidpointInput)(input, {
       onExcessProperty: "error"
     }).pipe(
       Effect.mapError((error) =>
@@ -264,7 +266,7 @@ export const midpointValidated = (input: unknown) =>
  */
 export const centroidValidated = (input: unknown) =>
   Effect.gen(function*() {
-    const decoded = yield* Schema.decodeUnknown(CentroidInput)(input, {
+    const decoded = yield* Schema.decodeUnknownEffect(CentroidInput)(input, {
       onExcessProperty: "error"
     }).pipe(
       Effect.mapError((error) =>

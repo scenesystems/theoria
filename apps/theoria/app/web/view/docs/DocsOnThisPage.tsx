@@ -1,7 +1,7 @@
-import { Result } from "@effect-atom/atom"
-import { useAtomValue } from "@effect-atom/atom-react"
+import { useAtomValue } from "@effect/atom-react"
 import { Boolean as Bool, Equal } from "effect"
 import * as Arr from "effect/Array"
+import { AsyncResult as Result } from "effect/reactivity"
 
 import { activeAnchorAtom } from "../../atoms/element-observation.js"
 import { focusClassName } from "../primitives/designSystem.js"

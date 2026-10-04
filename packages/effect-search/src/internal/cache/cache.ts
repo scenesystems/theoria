@@ -1,7 +1,3 @@
-import * as PlatformError from "@effect/platform/Error"
-import * as KeyValueStore from "@effect/platform/KeyValueStore"
-import * as SqlClient from "@effect/sql/SqlClient"
-import * as SqlSchema from "@effect/sql/SqlSchema"
 import {
   Cache as LookupCache,
   Effect,
@@ -9,12 +5,15 @@ import {
   Inspectable,
   Layer,
   Option,
-  ParseResult,
   RcMap,
   Schema,
+  Semaphore,
   String as Str
 } from "effect"
+import * as KeyValueStore from "effect/persistence/KeyValueStore"
 import type * as Scope from "effect/Scope"
+import * as SqlClient from "effect/sql/SqlClient"
+import * as SqlSchema from "effect/sql/SqlSchema"
 
 import * as ContentDigest from "@scenesystems/digest/ContentDigest"
 import {
@@ -33,12 +32,10 @@ const sqliteCacheTable = "effect_search_cache_entries"
 
 const keyPrefix = (namespace: string): string => Str.concat(namespace, ":")
 
-const platformErrorFromCause = (operation: string) => (cause: unknown): PlatformError.PlatformError =>
-  new PlatformError.SystemError({
-    reason: "Unknown",
-    module: "KeyValueStore",
+const platformErrorFromCause = (operation: string) => (cause: unknown): KeyValueStore.KeyValueStoreError =>
+  new KeyValueStore.KeyValueStoreError({
     method: operation,
-    description: Inspectable.toStringUnknown(cause),
+    message: Inspectable.toStringUnknown(cause),
     cause
   })
 
@@ -46,11 +43,11 @@ const resolvedKey = <Key, Value, EncodedKey = Key, EncodedValue = Value>(
   keySpace: KeySpace<Key, Value, EncodedKey, EncodedValue>,
   key: Key
 ): Effect.Effect<string, Corrupt> =>
-  Effect.suspend(() => Schema.encode(keySpace.keySchema)(key)).pipe(
+  Effect.suspend(() => Schema.encodeEffect(keySpace.keySchema)(key)).pipe(
     Effect.mapError((error) =>
       new Corrupt({
         key: keyPrefix(keySpace.namespace),
-        reason: ParseResult.TreeFormatter.formatIssueSync(error.issue)
+        reason: error.message
       })
     ),
     Effect.flatMap((encoded) =>
@@ -72,11 +69,11 @@ const decodeValue = <Key, Value, EncodedKey = Key, EncodedValue = Value>(
   key: string,
   encoded: string
 ): Effect.Effect<Value, Corrupt> =>
-  Schema.decode(Schema.parseJson(keySpace.valueSchema))(encoded).pipe(
+  Schema.decodeEffect(Schema.fromJsonString(keySpace.valueSchema))(encoded).pipe(
     Effect.mapError((error) =>
       new Corrupt({
         key,
-        reason: ParseResult.TreeFormatter.formatIssueSync(error.issue)
+        reason: error.message
       })
     )
   )
@@ -86,11 +83,11 @@ const encodeValue = <Key, Value, EncodedKey = Key, EncodedValue = Value>(
   key: string,
   value: Value
 ): Effect.Effect<string, Corrupt> =>
-  Effect.suspend(() => Schema.encode(Schema.parseJson(keySpace.valueSchema))(value)).pipe(
+  Effect.suspend(() => Schema.encodeEffect(Schema.fromJsonString(keySpace.valueSchema))(value)).pipe(
     Effect.mapError((error) =>
       new Corrupt({
         key,
-        reason: ParseResult.TreeFormatter.formatIssueSync(error.issue)
+        reason: error.message
       })
     )
   )
@@ -104,12 +101,13 @@ const makeLookupCache = (
   LookupCache.make({
     capacity: lookupCacheCapacity,
     timeToLive: lookupCacheTtl,
-    lookup: (key) => keyValueStore.get(key).pipe(Effect.mapError(backendError("get")))
+    lookup: (key: string) =>
+      keyValueStore.get(key).pipe(Effect.map(Option.fromNullishOr), Effect.mapError(backendError("get")))
   })
 
 const makeSqliteKeyValueStore = (): Effect.Effect<
   KeyValueStore.KeyValueStore,
-  PlatformError.PlatformError,
+  KeyValueStore.KeyValueStoreError,
   SqlClient.SqlClient
 > =>
   Effect.gen(function*() {
@@ -121,14 +119,18 @@ const makeSqliteKeyValueStore = (): Effect.Effect<
       Effect.mapError(platformErrorFromCause("sqlite-init"))
     )
 
-    const findValue = SqlSchema.findOne({
+    const findValue = SqlSchema.findOneOption({
       Request: Schema.String,
-      Result: Schema.Struct({ value: Schema.String }).pipe(Schema.pluck("value")),
+      Result: Schema.Struct({ value: Schema.String }),
       execute: (key) => sql`SELECT value FROM ${table} WHERE key = ${key} LIMIT 1`
     })
 
     return KeyValueStore.makeStringOnly({
-      get: (key) => findValue(key).pipe(Effect.mapError(platformErrorFromCause("get"))),
+      get: (key) =>
+        findValue(key).pipe(
+          Effect.flatMap(Option.match({ onNone: () => Effect.undefined, onSome: (row) => Effect.succeed(row.value) })),
+          Effect.mapError(platformErrorFromCause("get"))
+        ),
       set: (key, value) =>
         sql`INSERT INTO ${table} (key, value) VALUES (${key}, ${value}) ON CONFLICT(key) DO UPDATE SET value = excluded.value`
           .pipe(Effect.asVoid, Effect.mapError(platformErrorFromCause("set"))),
@@ -141,29 +143,34 @@ const makeSqliteKeyValueStore = (): Effect.Effect<
         Effect.asVoid,
         Effect.mapError(platformErrorFromCause("clear"))
       ),
-      size: SqlSchema.single({
+      size: SqlSchema.findOne({
         Request: Schema.Void,
-        Result: Schema.Struct({ count: Schema.NonNegativeInt }).pipe(Schema.pluck("count")),
+        Result: Schema.Struct({ count: Schema.Natural }),
         execute: () => sql`SELECT COUNT(*) AS count FROM ${table}`
-      })(undefined).pipe(Effect.mapError(platformErrorFromCause("size")))
+      })(undefined).pipe(Effect.map((row) => row.count), Effect.mapError(platformErrorFromCause("size")))
     })
   })
 
 export const sqlKeyValueStoreLayer = (
   sqlClientLayer: Layer.Layer<SqlClient.SqlClient, BackendError>
 ): Layer.Layer<KeyValueStore.KeyValueStore, BackendError> =>
-  Layer.scoped(
+  Layer.effect(
     KeyValueStore.KeyValueStore,
     makeSqliteKeyValueStore().pipe(
       Effect.mapError((error) => new BackendError({ operation: "sql-key-value-store", reason: error.message }))
     )
   ).pipe(
     Layer.provide(sqlClientLayer),
-    Layer.mapError((error) =>
-      new BackendError({
-        operation: "sql-key-value-store-layer",
-        reason: Inspectable.toStringUnknown(error)
-      })
+    Layer.catch((error) =>
+      Layer.effect(
+        KeyValueStore.KeyValueStore,
+        Effect.fail(
+          new BackendError({
+            operation: "sql-key-value-store-layer",
+            reason: Inspectable.toStringUnknown(error)
+          })
+        )
+      )
     )
   )
 
@@ -178,14 +185,14 @@ const resolveMiss = <Value, ComputeError, Requirements>(
 const resolveCached = <Value>(cached: Option.Option<Value>): Option.Option<Result<Value>> =>
   Option.map(cached, (value) => new Result({ value, resolution: "hit" }))
 
-export const make = (): Effect.Effect<Service, never, KeyValueStore.KeyValueStore | Scope.Scope> =>
+export const make = (_?: void): Effect.Effect<Service, never, KeyValueStore.KeyValueStore | Scope.Scope> =>
   Effect.gen(function*() {
     const keyValueStore = yield* KeyValueStore.KeyValueStore
     const lookupCache = yield* makeLookupCache(keyValueStore)
     const perKeySemaphores = yield* RcMap.make({
-      lookup: (_key: string) => Effect.makeSemaphore(1)
+      lookup: (_key: string) => Semaphore.make(1)
     })
-    const registrySemaphore = yield* Effect.makeSemaphore(1)
+    const registrySemaphore = yield* Semaphore.make(1)
 
     const withKeyLock = <A, E, R>(key: string, operation: Effect.Effect<A, E, R>): Effect.Effect<A, E, R> =>
       registrySemaphore.withPermits(1)(RcMap.get(perKeySemaphores, key)).pipe(
@@ -197,8 +204,8 @@ export const make = (): Effect.Effect<Service, never, KeyValueStore.KeyValueStor
       keySpace: KeySpace<Key, Value, EncodedKey, EncodedValue>,
       key: string
     ): Effect.Effect<Option.Option<Value>, CacheError> =>
-      lookupCache.get(key).pipe(
-        Effect.onError(() => lookupCache.invalidate(key)),
+      LookupCache.get(lookupCache, key).pipe(
+        Effect.onError(() => LookupCache.invalidate(lookupCache, key)),
         Effect.flatMap(
           Option.match({
             onNone: () => Effect.succeedNone,
@@ -218,8 +225,8 @@ export const make = (): Effect.Effect<Service, never, KeyValueStore.KeyValueStor
             restore(keyValueStore.set(key, encoded).pipe(Effect.mapError(backendError("set")))).pipe(
               Effect.onExit(
                 Exit.match({
-                  onFailure: () => lookupCache.invalidate(key),
-                  onSuccess: () => lookupCache.set(key, Option.some(encoded))
+                  onFailure: () => LookupCache.invalidate(lookupCache, key),
+                  onSuccess: () => LookupCache.set(lookupCache, key, Option.some(encoded))
                 })
               )
             )
@@ -230,7 +237,7 @@ export const make = (): Effect.Effect<Service, never, KeyValueStore.KeyValueStor
     const removeResolved = (key: string): Effect.Effect<void, CacheError> =>
       Effect.uninterruptibleMask((restore) =>
         restore(keyValueStore.remove(key).pipe(Effect.mapError(backendError("remove")))).pipe(
-          Effect.onExit(() => lookupCache.invalidate(key))
+          Effect.onExit(() => LookupCache.invalidate(lookupCache, key))
         )
       )
 

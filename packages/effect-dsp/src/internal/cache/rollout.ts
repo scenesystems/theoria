@@ -3,7 +3,7 @@
  *
  * @since 0.1.0
  */
-import { Effect, FiberRef, Option } from "effect"
+import { Context, Effect, Option } from "effect"
 
 /**
  * Identifies the current candidate when a module evaluates several candidates.
@@ -13,7 +13,12 @@ import { Effect, FiberRef, Option } from "effect"
  * @since 0.1.0
  * @category refs
  */
-export const RolloutRef: FiberRef.FiberRef<Option.Option<number>> = FiberRef.unsafeMake(Option.none())
+export const RolloutRef = Context.Reference<Option.Option<number>>(
+  "@scenesystems/effect-dsp/internal/cache/RolloutRef",
+  {
+    defaultValue: Option.none
+  }
+)
 
 /**
  * Assigns a rollout index while evaluating `effect`.
@@ -35,4 +40,4 @@ export const RolloutRef: FiberRef.FiberRef<Option.Option<number>> = FiberRef.uns
 export const withRollout = <A, E, R>(
   index: number,
   effect: Effect.Effect<A, E, R>
-): Effect.Effect<A, E, R> => Effect.locally(effect, RolloutRef, Option.some(index))
+): Effect.Effect<A, E, R> => Effect.provideService(effect, RolloutRef, Option.some(index))

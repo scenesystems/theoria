@@ -1,5 +1,5 @@
 import { describe, expect, it } from "@effect/vitest"
-import { Array as Arr, Chunk, Effect, Match, Number as Num, Option, Ref, Schedule, Stream } from "effect"
+import { Array as Arr, Effect, Match, Number as Num, Option, Ref, Schedule, Stream } from "effect"
 
 import * as Optimization from "../../src/Optimization.js"
 import * as Sampler from "../../src/Sampler.js"
@@ -8,7 +8,7 @@ import * as Trial from "../../src/Trial.js"
 
 const makeSpace = () =>
   SearchSpace.make({
-    x: SearchSpace.float(Num.negate(1), 1)
+    x: SearchSpace.float(Num.multiply(-1, 1), 1)
   })
 
 const asSingleObjective = (
@@ -24,25 +24,27 @@ describe("Optimization objective retry", () => {
     Effect.gen(function*() {
       const attemptsRef = yield* Ref.make(0)
       const events = yield* Stream.runCollect(
-        Optimization.stream({
-          space: yield* makeSpace(),
-          sampler: Sampler.random({ seed: 7 }),
-          direction: "minimize",
-          trials: 1,
-          retrySchedule: Schedule.recurs(2),
-          objective: () =>
-            Ref.updateAndGet(attemptsRef, Num.increment).pipe(
-              Effect.flatMap((attempts) =>
-                Match.value(Num.lessThanOrEqualTo(attempts, 2)).pipe(
-                  Match.when(true, () => Effect.fail(`transient-${attempts}`)),
-                  Match.orElse(() => Effect.succeed(0.5))
+        Optimization.stream(
+          new Optimization.FlatOptions({
+            space: yield* makeSpace(),
+            sampler: Sampler.random({ seed: 7 }),
+            direction: "minimize",
+            trials: 1,
+            retrySchedule: Schedule.recurs(2),
+            objective: () =>
+              Ref.updateAndGet(attemptsRef, Num.increment).pipe(
+                Effect.flatMap((attempts) =>
+                  Match.value(Num.isLessThanOrEqualTo(attempts, 2)).pipe(
+                    Match.when(true, () => Effect.fail(`transient-${attempts}`)),
+                    Match.orElse(() => Effect.succeed(0.5))
+                  )
                 )
               )
-            )
-        })
+          })
+        )
       )
       const attempts = yield* Ref.get(attemptsRef)
-      const eventList = Chunk.toReadonlyArray(events)
+      const eventList = events
       const retryAttempts = Arr.flatMap(eventList, (event) =>
         Match.value(event).pipe(
           Match.tag("TrialRetried", ({ attempt }) => Arr.of(attempt)),
@@ -58,63 +60,71 @@ describe("Optimization objective retry", () => {
     Effect.gen(function*() {
       const attemptsRef = yield* Ref.make(0)
 
-      const result = yield* Optimization.run({
-        space: yield* makeSpace(),
-        sampler: Sampler.random({ seed: 7 }),
-        direction: "minimize",
-        trials: 1,
-        retrySchedule: Schedule.recurs(2),
-        objective: () =>
-          Ref.updateAndGet(attemptsRef, Num.increment).pipe(
-            Effect.flatMap((attempts) =>
-              Match.value(Num.lessThanOrEqualTo(attempts, 2)).pipe(
-                Match.when(true, () => Effect.fail(`transient-${attempts}`)),
-                Match.orElse(() => Effect.succeed(0.5))
+      const result = yield* Optimization.run(
+        new Optimization.FlatOptions({
+          space: yield* makeSpace(),
+          sampler: Sampler.random({ seed: 7 }),
+          direction: "minimize",
+          trials: 1,
+          retrySchedule: Schedule.recurs(2),
+          objective: () =>
+            Ref.updateAndGet(attemptsRef, Num.increment).pipe(
+              Effect.flatMap((attempts) =>
+                Match.value(Num.isLessThanOrEqualTo(attempts, 2)).pipe(
+                  Match.when(true, () => Effect.fail(`transient-${attempts}`)),
+                  Match.orElse(() => Effect.succeed(0.5))
+                )
               )
             )
-          )
-      })
+        })
+      )
 
       const single = asSingleObjective(result)
       expect(Option.isSome(single)).toBe(true)
-      const completed = yield* single
+      const completed = yield* Effect.fromOption(single)
 
       const firstTrial = Arr.head(Arr.fromIterable(completed.trials))
       expect(Option.isSome(firstTrial)).toBe(true)
-      const first = yield* firstTrial
+      const first = yield* Effect.fromOption(firstTrial)
 
       expect(first.state._tag).toBe("Completed")
-      const firstCompleted = yield* Option.liftPredicate(first.state, Trial.isState("Completed"))
+      const firstCompleted = yield* Effect.fromOption(Option.liftPredicate(first.state, Trial.isState("Completed")))
       expect(firstCompleted.retryCount).toBe(2)
 
       const snapshot = yield* Optimization.snapshot(completed)
       const snapshotTrial = Arr.head(snapshot.trials)
       expect(Option.isSome(snapshotTrial)).toBe(true)
-      const persisted = yield* snapshotTrial
+      const persisted = yield* Effect.fromOption(snapshotTrial)
 
       expect(persisted.state._tag).toBe("Completed")
-      const persistedCompleted = yield* Option.liftPredicate(persisted.state, Trial.isState("Completed"))
+      const persistedCompleted = yield* Effect.fromOption(
+        Option.liftPredicate(persisted.state, Trial.isState("Completed"))
+      )
       expect(persistedCompleted.retryCount).toBe(2)
 
-      const resumed = yield* Optimization.resume({
-        space: yield* makeSpace(),
-        sampler: Sampler.random({ seed: 7 }),
-        snapshot,
-        direction: "minimize",
-        trials: 0,
-        objective: () => Effect.succeed(0.5)
-      })
+      const resumed = yield* Optimization.resume(
+        new Optimization.ResumeOptions({
+          space: yield* makeSpace(),
+          sampler: Sampler.random({ seed: 7 }),
+          snapshot,
+          direction: "minimize",
+          trials: 0,
+          objective: () => Effect.succeed(0.5)
+        })
+      )
 
       const resumedSingle = asSingleObjective(resumed)
       expect(Option.isSome(resumedSingle)).toBe(true)
-      const resumedResult = yield* resumedSingle
+      const resumedResult = yield* Effect.fromOption(resumedSingle)
 
       const resumedTrial = Arr.head(Arr.fromIterable(resumedResult.trials))
       expect(Option.isSome(resumedTrial)).toBe(true)
-      const replayed = yield* resumedTrial
+      const replayed = yield* Effect.fromOption(resumedTrial)
 
       expect(replayed.state._tag).toBe("Completed")
-      const replayedCompleted = yield* Option.liftPredicate(replayed.state, Trial.isState("Completed"))
+      const replayedCompleted = yield* Effect.fromOption(
+        Option.liftPredicate(replayed.state, Trial.isState("Completed"))
+      )
       expect(replayedCompleted.retryCount).toBe(2)
       expect(yield* Ref.get(attemptsRef)).toBe(3)
     }))

@@ -1,7 +1,7 @@
-import { Registry, Result } from "@effect-atom/atom"
 import { describe, expect, it } from "@effect/vitest"
 import { Hyphenation, MeasurementCache, Text, TextMeasurer } from "@scenesystems/effect-text"
-import { Deferred, Effect, Layer, Option, Ref } from "effect"
+import { Deferred, Effect, Layer, Option, Ref, Struct } from "effect"
+import { AsyncResult as Result, AtomRegistry as Registry } from "effect/reactivity"
 
 import { DemoRequestError } from "../../app/contracts/demo-error.js"
 import {
@@ -42,7 +42,7 @@ const cut = Result.success(480)
 /** A client whose answer never comes, so a build asked for again stays on its way. */
 const holdingClient: Layer.Layer<ImaginedPlaceClient> = Layer.succeed(
   ImaginedPlaceClient,
-  ImaginedPlaceClient.make({ build: () => Effect.never })
+  { build: () => Effect.never }
 )
 
 /**
@@ -50,7 +50,7 @@ const holdingClient: Layer.Layer<ImaginedPlaceClient> = Layer.succeed(
  * a canvas that threw once. What the page does with the failure, and with the
  * paper asked for again, is what is under test.
  */
-const failingOnceTextLayout: Layer.Layer<BrowserTextLayout> = Layer.unwrapEffect(
+const failingOnceTextLayout: Layer.Layer<BrowserTextLayout> = Layer.unwrap(
   Effect.map(Ref.make(false), (askedBefore) => {
     const estimate = Layer.succeed(TextMeasurer.TextMeasurer, {
       measure: (font, text) =>
@@ -89,7 +89,7 @@ const failingOnceTextLayout: Layer.Layer<BrowserTextLayout> = Layer.unwrapEffect
 const gatedTextLayout = (gate: Deferred.Deferred<void>): Layer.Layer<BrowserTextLayout> => {
   const gated = Layer.succeed(TextMeasurer.TextMeasurer, {
     measure: (font, text) =>
-      Effect.zipRight(
+      Effect.andThen(
         Deferred.await(gate),
         Effect.provide(
           Effect.flatMap(TextMeasurer.TextMeasurer, (measurer) => measurer.measure(font, text)),
@@ -109,33 +109,38 @@ const gatedTextLayout = (gate: Deferred.Deferred<void>): Layer.Layer<BrowserText
  * The sheet once it is cut; not yet while nothing is told, and a defect the
  * moment a failure is — so a wait on it ends at once with what was told.
  */
-const sheetCut = (registry: Registry.Registry) =>
+const sheetCut = (registry: Registry.AtomRegistry) =>
   Effect.suspend(() =>
     Option.match(registry.get(placeFailureAtom), {
-      onSome: (failure) => Effect.dieMessage(`the stage told a ${failure.failed} failure`),
-      onNone: () => registry.get(placeSheetAtom)
+      onSome: (failure) => Effect.die(`the stage told a ${failure.failed} failure`),
+      onNone: () => Effect.fromOption(registry.get(placeSheetAtom))
     })
   )
 
 describe("what has failed the stage", () => {
-  it.scoped("a column that changes while the paper is being cut still gets its paper", () =>
+  it.effect("a column that changes while the paper is being cut still gets its paper", () =>
     Effect.gen(function*() {
       const gate = yield* Deferred.make<void>()
-      const registry = Registry.make({
-        initialValues: [
-          [placeClientLayerAtom, holdingClient],
-          [textLayoutLayerAtom, gatedTextLayout(gate)],
-          [placeStageContainerWidthAtom, Option.some(704)]
-        ],
-        scheduleTask: (task) => {
-          task()
-        }
-      })
+      const registry = yield* Effect.acquireRelease(
+        Effect.sync(() =>
+          Registry.make({
+            initialValues: [
+              [placeClientLayerAtom, holdingClient],
+              [textLayoutLayerAtom, gatedTextLayout(gate)],
+              [placeStageContainerWidthAtom, Option.some(704)]
+            ]
+          })
+        ),
+        (registry) => Effect.sync(() => registry.dispose())
+      )
       // The stage holds the sheet and the failure mounted, as the page does, so a cut under way is not let go.
-      yield* Effect.acquireRelease(Effect.sync(() => registry.mount(placeSheetAtom)), (unmount) => Effect.sync(unmount))
+      yield* Effect.acquireRelease(Effect.sync(() => registry.mount(placeSheetAtom)), (unmount) =>
+        Effect.sync(() => unmount()))
       yield* Effect.acquireRelease(
-        Effect.sync(() => registry.mount(placeFailureAtom)),
-        (unmount) => Effect.sync(unmount)
+        Effect.sync(() =>
+          registry.mount(placeFailureAtom)
+        ),
+        (unmount) => Effect.sync(() => unmount())
       )
       // The first cut is under way, parked at its first measurement.
       expect(registry.get(placeSheetAtom)).toEqual(Option.none())
@@ -197,16 +202,18 @@ describe("what has failed the stage", () => {
 
   it.effect("on the page, a paper that could not be cut is told, and cut when the drawing is asked for again", () =>
     Effect.gen(function*() {
-      const registry = Registry.make({
-        initialValues: [
-          [placeClientLayerAtom, holdingClient],
-          [textLayoutLayerAtom, failingOnceTextLayout],
-          [placeStageContainerWidthAtom, Option.some(704)]
-        ],
-        scheduleTask: (task) => {
-          task()
-        }
-      })
+      const registry = yield* Effect.acquireRelease(
+        Effect.sync(() =>
+          Registry.make({
+            initialValues: [
+              [placeClientLayerAtom, holdingClient],
+              [textLayoutLayerAtom, failingOnceTextLayout],
+              [placeStageContainerWidthAtom, Option.some(704)]
+            ]
+          })
+        ),
+        (registry) => Effect.sync(() => registry.dispose())
+      )
       // The build is on its way; the paper should be cut from the outline meanwhile, and could not be.
       expect(registry.get(placeSheetAtom)).toEqual(Option.none())
       expect(registry.get(placeFailureAtom)).toEqual(Option.some(new StageFailure({ failed: "draw", waiting: false })))
@@ -220,15 +227,17 @@ describe("what has failed the stage", () => {
 
   it.effect("asked to build again, the build is what is asked for", () =>
     Effect.gen(function*() {
-      const registry = Registry.make({
-        initialValues: [
-          [placeClientLayerAtom, holdingClient],
-          [placeBuildEnvelopeAtom, failed]
-        ],
-        scheduleTask: (task) => {
-          task()
-        }
-      })
+      const registry = yield* Effect.acquireRelease(
+        Effect.sync(() =>
+          Registry.make({
+            initialValues: [
+              [placeClientLayerAtom, holdingClient],
+              [placeBuildEnvelopeAtom, failed]
+            ]
+          })
+        ),
+        (registry) => Effect.sync(() => registry.dispose())
+      )
       expect(registry.get(placeFailureAtom)).toEqual(Option.some(new StageFailure({ failed: "build", waiting: false })))
       registry.set(placeAgainAtom, "build")
       expect(registry.get(placeFailureAtom)).toEqual(Option.some(new StageFailure({ failed: "build", waiting: true })))
@@ -251,21 +260,27 @@ describe("what has failed the stage", () => {
       expect(stageFailureActionLabel(build)).toBe("Try again")
       expect(stageFailureText(draw)).toBe("The place could not be drawn.")
       expect(stageFailureActionLabel(draw)).toBe("Draw again")
-      expect(stageFailureText(new StageFailure({ ...build, waiting: true }))).toBe("Building the place again.")
-      expect(stageFailureText(new StageFailure({ ...draw, waiting: true }))).toBe("Drawing the place again.")
+      expect(stageFailureText(new StageFailure(Struct.evolve(build, { waiting: () => true })))).toBe(
+        "Building the place again."
+      )
+      expect(stageFailureText(new StageFailure(Struct.evolve(draw, { waiting: () => true })))).toBe(
+        "Drawing the place again."
+      )
     }))
 
   it.effect("on the page, a build that failed is the stage's failure until it is asked for again, and the paper is told", () =>
     Effect.gen(function*() {
-      const registry = Registry.make({
-        initialValues: [
-          [placeClientLayerAtom, holdingClient],
-          [placeBuildEnvelopeAtom, failed]
-        ],
-        scheduleTask: (task) => {
-          task()
-        }
-      })
+      const registry = yield* Effect.acquireRelease(
+        Effect.sync(() =>
+          Registry.make({
+            initialValues: [
+              [placeClientLayerAtom, holdingClient],
+              [placeBuildEnvelopeAtom, failed]
+            ]
+          })
+        ),
+        (registry) => Effect.sync(() => registry.dispose())
+      )
       expect(registry.get(placeFailureAtom)).toEqual(Option.some(new StageFailure({ failed: "build", waiting: false })))
       expect(registry.get(placeWaitAtom)).toBe("failed")
       // Asked to build again: the failure stands, waiting, and the paper waits with it.

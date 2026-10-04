@@ -2,9 +2,7 @@
  * Example contract: storage-backed study resume behavior while the objective
  * evaluates an effect-dsp module with a mock LanguageModel.
  */
-import * as LanguageModel from "@effect/ai/LanguageModel"
-import { FileSystem } from "@effect/platform"
-import { BunContext } from "@effect/platform-bun"
+import { BunServices } from "@effect/platform-bun"
 import { describe, expect, it } from "@effect/vitest"
 import { Demonstration } from "@scenesystems/effect-dsp/Demonstration"
 import * as Evaluate from "@scenesystems/effect-dsp/Evaluate"
@@ -21,7 +19,9 @@ import * as Progress from "@scenesystems/effect-search/Progress"
 import * as Sampler from "@scenesystems/effect-search/Sampler"
 import * as SearchSpace from "@scenesystems/effect-search/SearchSpace"
 import * as StudyStorage from "@scenesystems/effect-study/StudyStorage"
-import { Array as Arr, Chunk, Effect, Layer, Match, Option, Ref, Schema, Stream, String as Str } from "effect"
+import { FileSystem } from "effect"
+import { Array as Arr, Effect, Layer, Match, Option, Ref, Schema, Stream, String as Str } from "effect"
+import * as LanguageModel from "effect/ai/LanguageModel"
 
 const makeSpace = SearchSpace.make({
   instructionIndex: SearchSpace.int(0, 2),
@@ -103,12 +103,10 @@ const runtimeLayer = (
   )
 
 describe("examples/07-miprov2-resume-from-storage", () => {
-  it.scoped("writes snapshot/log state and resumes from persisted storage", () =>
+  it.effect("writes snapshot/log state and resumes from persisted storage", () =>
     Effect.gen(function*() {
       const fileSystem = yield* FileSystem.FileSystem
-      const directory = yield* fileSystem.makeTempDirectoryScoped({
-        prefix: "effect-dsp-example-resume-"
-      })
+      const directory = yield* fileSystem.makeTempDirectoryScoped({ prefix: "effect-dsp-example-resume-" })
       const module = yield* makeQAModule
       const mock = yield* MockLanguageModel.make(
         MockLanguageModel.map(responseForPrompt)
@@ -117,7 +115,7 @@ describe("examples/07-miprov2-resume-from-storage", () => {
       const space = yield* makeSpace
       const objective = (raw: unknown) =>
         Effect.gen(function*() {
-          const config = yield* Schema.decodeUnknown(space.schema)(raw)
+          const config = yield* Schema.decodeUnknownEffect(space.schema)(raw)
 
           yield* Ref.set(
             module.params,
@@ -128,19 +126,21 @@ describe("examples/07-miprov2-resume-from-storage", () => {
             })
           )
 
-          const report = yield* Evaluate.run({
-            module,
-            examples: italyEvalset,
-            metrics: {
-              exactMatch: Metric.exactMatch("answer")
-            },
-            concurrency: 1
-          }).pipe(
+          const report = yield* Evaluate.run(
+            new Evaluate.Options({
+              module,
+              examples: italyEvalset,
+              metrics: {
+                exactMatch: Metric.exactMatch("answer")
+              },
+              concurrency: 1
+            })
+          ).pipe(
             Effect.provideService(LanguageModel.LanguageModel, mock.service)
           )
 
           return Option.getOrElse(
-            Option.fromNullable(report.overallScores.exactMatch),
+            Option.fromNullishOr(report.overallScores.exactMatch),
             () => 0
           )
         })
@@ -152,25 +152,29 @@ describe("examples/07-miprov2-resume-from-storage", () => {
       }
 
       const firstLeg = yield* Stream.runCollect(
-        Optimization.stream({
-          space,
-          sampler: Sampler.random({ seed: 64 }),
-          direction: "maximize",
-          trials: 3,
-          objective
-        }).pipe(Progress.tap(runtimeOptions.sink))
+        Optimization.stream(
+          new Optimization.FlatOptions({
+            space,
+            sampler: Sampler.random({ seed: 64 }),
+            direction: "maximize",
+            trials: 3,
+            objective
+          })
+        ).pipe(Progress.tap(runtimeOptions.sink))
       ).pipe(
         Effect.provide(runtimeLayer(runtimeOptions.storageDirectory, runtimeOptions.cachePrefix))
       )
 
       const resumed = yield* Stream.runCollect(
-        Optimization.resumeFromStorageStream({
-          space,
-          sampler: Sampler.random({ seed: 64 }),
-          direction: "maximize",
-          trials: 2,
-          objective
-        }).pipe(Progress.tap(runtimeOptions.sink))
+        Optimization.resumeFromStorageStream(
+          new Optimization.FlatOptions({
+            space,
+            sampler: Sampler.random({ seed: 64 }),
+            direction: "maximize",
+            trials: 2,
+            objective
+          })
+        ).pipe(Progress.tap(runtimeOptions.sink))
       ).pipe(
         Effect.provide(runtimeLayer(runtimeOptions.storageDirectory, runtimeOptions.cachePrefix))
       )
@@ -180,24 +184,24 @@ describe("examples/07-miprov2-resume-from-storage", () => {
       )
       const snapshotOption = yield* storage.loadSnapshot()
       const trialLog = yield* storage.loadTrialLog()
-      const resumedTags = Arr.map(Chunk.toReadonlyArray(resumed), (event) => event._tag)
+      const resumedTags = Arr.map(resumed, (event) => event._tag)
       const calls = yield* Ref.get(mock.calls)
 
-      expect(Arr.length(Chunk.toReadonlyArray(firstLeg))).toBeGreaterThan(0)
+      expect(Arr.length(firstLeg)).toBeGreaterThan(0)
       expect(resumedTags).toContain("Completed")
       expect(Arr.last(resumedTags)).toEqual(Option.some("Completed"))
       expect(Option.isSome(snapshotOption)).toBe(true)
-      expect(Arr.length(trialLog)).toBeGreaterThanOrEqual(5)
+      expect(Arr.length(Arr.fromIterable(trialLog))).toBeGreaterThanOrEqual(5)
       expect(Arr.length(calls)).toBeGreaterThan(0)
       expect(Arr.some(calls, (call) => Str.includes("What is the capital of Italy?")(call.prompt))).toBe(true)
 
       yield* Option.match(snapshotOption, {
-        onNone: () => Effect.dieMessage("study storage did not persist a snapshot"),
+        onNone: () => Effect.die("study storage did not persist a snapshot"),
         onSome: (snapshot) =>
           Effect.sync(() => {
             expect(snapshot.nextTrialNumber).toBe(5)
             expect(snapshot.completedCount).toBe(5)
           })
       })
-    }).pipe(Effect.provide(BunContext.layer)))
+    }).pipe(Effect.scoped, Effect.provide(BunServices.layer)))
 })

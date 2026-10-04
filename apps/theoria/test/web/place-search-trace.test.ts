@@ -1,5 +1,5 @@
 import { expect } from "@effect/vitest"
-import { Effect, Option } from "effect"
+import { Effect, Option, Struct } from "effect"
 import * as Arr from "effect/Array"
 import * as HashSet from "effect/HashSet"
 
@@ -67,24 +67,24 @@ const completeFor = (search: PlaceSearch): PlaceRenderFrame =>
     paper: rendering.projection.stageHeight
   })
 const runningFor = (search: PlaceSearch): PlaceSearch =>
-  new PlaceSearch({
-    ...search,
-    phase: "running",
-    tried: Arr.take(tried, 2),
-    bestIndex: 1
-  })
-const landingFor = (search: PlaceSearch): PlaceSearch => new PlaceSearch({ ...search, phase: "landing" })
+  new PlaceSearch(Struct.evolve(search, {
+    phase: (): PlaceSearch["phase"] => "running",
+    tried: () => Arr.take(tried, 2),
+    bestIndex: () => 1
+  }))
+const landingFor = (search: PlaceSearch): PlaceSearch =>
+  new PlaceSearch(Struct.evolve(search, { phase: (): PlaceSearch["phase"] => "landing" }))
 
 describeOnStage("search trace", (it) => {
   it.effect("derives the trace from the trials rather than storing it twice", () =>
     Effect.gen(function*() {
-      const search = searchFor((yield* onStage).build)
+      const search = searchFor((yield* Effect.service(onStage)).build)
       expect(searchLosses(search)).toEqual([16.999, 4.25, 1.52])
     }))
 
   it.effect("draws the best trial unless a tried trial is chosen", () =>
     Effect.gen(function*() {
-      const search = searchFor((yield* onStage).build)
+      const search = searchFor((yield* Effect.service(onStage)).build)
       const complete = completeFor(search)
       expect(shownTrialIndex(search, Option.none())).toBe(2)
       expect(shownTrialIndex(search, Option.some(0))).toBe(0)
@@ -95,7 +95,7 @@ describeOnStage("search trace", (it) => {
 
   it.effect("captions the shown trial honestly", () =>
     Effect.gen(function*() {
-      const search = searchFor((yield* onStage).build)
+      const search = searchFor((yield* Effect.service(onStage)).build)
       const running = runningFor(search)
       const landing = landingFor(search)
       expect(renderProgressText(running, 1)).toBe("Searching arrangements · 2 of 36")
@@ -107,7 +107,7 @@ describeOnStage("search trace", (it) => {
 
   it.effect("reports progress until the drawing has landed", () =>
     Effect.gen(function*() {
-      const search = searchFor((yield* onStage).build)
+      const search = searchFor((yield* Effect.service(onStage)).build)
       const running = runningFor(search)
       const landing = landingFor(search)
       expect(searching(running)).toBe(true)
@@ -117,7 +117,7 @@ describeOnStage("search trace", (it) => {
 
   it.effect("tells a screen reader which trial the thumb is on", () =>
     Effect.gen(function*() {
-      const search = searchFor((yield* onStage).build)
+      const search = searchFor((yield* Effect.service(onStage)).build)
       const running = runningFor(search)
       expect(trialValueText(search, 2)).toBe("Trial 3 of 3, loss 1.520, kept")
       expect(trialValueText(search, 1)).toBe("Trial 2 of 3, loss 4.250")

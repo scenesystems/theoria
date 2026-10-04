@@ -6,9 +6,9 @@ import { Example } from "@scenesystems/effect-dsp/Example"
 import * as Module from "@scenesystems/effect-dsp/Module"
 import { ModuleParameters } from "@scenesystems/effect-dsp/ModuleParameters"
 import * as Signature from "@scenesystems/effect-dsp/Signature"
-import { Array as Arr, Effect, Equal, Number as Num, Ref, Schema } from "effect"
+import { Array as Arr, Effect, Equal, Number as Num, Option, Ref, Schema } from "effect"
 import { collectModuleParamRefs } from "../../src/internal/moduleParameters.js"
-import { generateDemoCandidates } from "../../src/MIPROv2Candidates.js"
+import { generateDemoCandidates, GenerateDemoCandidatesOptions } from "../../src/MIPROv2Candidates.js"
 
 const makeQaSignature = () =>
   Signature.make(
@@ -37,7 +37,7 @@ const trainingSet = Arr.make(
 )
 
 const uniqueParams = (params: ReadonlyArray<ModuleParameters>) =>
-  Arr.dedupeWith(Arr.fromIterable(params), Schema.equivalence(ModuleParameters))
+  Arr.dedupeWith(Arr.fromIterable(params), Schema.toEquivalence(ModuleParameters))
 
 const uniqueNumbers = (numbers: ReadonlyArray<number>) => Arr.dedupeWith(Arr.fromIterable(numbers), Num.Equivalence)
 
@@ -56,16 +56,21 @@ describe("MIPROv2 Phase 1", () => {
         })
       )
 
-      const candidateSets = yield* generateDemoCandidates({
-        module,
-        trainset: trainingSet,
-        numCandidates: 6,
-        maxLabeledDemos: 2,
-        maxBootstrappedDemos: 2,
-        seed: 11
-      })
+      const candidateSets = yield* generateDemoCandidates(
+        new GenerateDemoCandidatesOptions({
+          module,
+          trainset: trainingSet,
+          numCandidates: 6,
+          maxLabeledDemos: 2,
+          maxBootstrappedDemos: 2,
+          seed: 11
+        })
+      )
 
-      const root = yield* Arr.head(candidateSets)
+      const root = yield* Option.match(Arr.head(candidateSets), {
+        onNone: () => Effect.die("missing root candidate set"),
+        onSome: Effect.succeed
+      })
       const shuffled = Arr.drop(root.candidates, 3)
       const shuffledDemoCounts = Arr.map(shuffled, (candidate) => Arr.length(candidate.params.demos))
 
@@ -84,23 +89,30 @@ describe("MIPROv2 Phase 1", () => {
       const signature = yield* makeQaSignature()
       const module = yield* Module.predict("qa", signature)
 
-      const first = yield* generateDemoCandidates({
-        module,
-        trainset: trainingSet,
-        numCandidates: 5,
-        maxLabeledDemos: 2,
-        maxBootstrappedDemos: 2,
-        seed: 7
+      const first = yield* generateDemoCandidates(
+        new GenerateDemoCandidatesOptions({
+          module,
+          trainset: trainingSet,
+          numCandidates: 5,
+          maxLabeledDemos: 2,
+          maxBootstrappedDemos: 2,
+          seed: 7
+        })
+      )
+      const second = yield* generateDemoCandidates(
+        new GenerateDemoCandidatesOptions({
+          module,
+          trainset: trainingSet,
+          numCandidates: 5,
+          maxLabeledDemos: 2,
+          maxBootstrappedDemos: 2,
+          seed: 7
+        })
+      )
+      const firstRoot = yield* Option.match(Arr.head(first), {
+        onNone: () => Effect.die("missing root candidate set"),
+        onSome: Effect.succeed
       })
-      const second = yield* generateDemoCandidates({
-        module,
-        trainset: trainingSet,
-        numCandidates: 5,
-        maxLabeledDemos: 2,
-        maxBootstrappedDemos: 2,
-        seed: 7
-      })
-      const firstRoot = yield* Arr.head(first)
 
       expect(second).toEqual(first)
       expect(uniqueParams(Arr.map(firstRoot.candidates, (candidate) => candidate.params))).toHaveLength(
@@ -113,12 +125,14 @@ describe("MIPROv2 Phase 1", () => {
       const signature = yield* makeQaSignature()
       const module = yield* Module.predict("qa", signature)
       const refs = collectModuleParamRefs(module)
-      const candidateSets = yield* generateDemoCandidates({
-        module,
-        trainset: trainingSet,
-        numCandidates: 4,
-        seed: 19
-      })
+      const candidateSets = yield* generateDemoCandidates(
+        new GenerateDemoCandidatesOptions({
+          module,
+          trainset: trainingSet,
+          numCandidates: 4,
+          seed: 19
+        })
+      )
 
       expect(candidateSets).toHaveLength(Arr.length(refs))
       expect(Arr.map(candidateSets, (candidateSet) => candidateSet.predictorName)).toEqual(

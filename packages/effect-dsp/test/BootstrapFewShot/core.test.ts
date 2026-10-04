@@ -1,7 +1,6 @@
 /**
  * BootstrapFewShot core orchestration contracts.
  */
-import * as LanguageModel from "@effect/ai/LanguageModel"
 import { describe, expect, it } from "@effect/vitest"
 import * as BootstrapFewShot from "@scenesystems/effect-dsp/BootstrapFewShot"
 import { BootstrapFailed } from "@scenesystems/effect-dsp/DspError"
@@ -11,7 +10,8 @@ import * as MockLanguageModel from "@scenesystems/effect-dsp/MockLanguageModel"
 import * as Module from "@scenesystems/effect-dsp/Module"
 import { ModuleParameters } from "@scenesystems/effect-dsp/ModuleParameters"
 import * as Signature from "@scenesystems/effect-dsp/Signature"
-import { Array as Arr, Boolean, Effect, Either, Layer, Number as Num, Ref, Schema, String as Str } from "effect"
+import { Array as Arr, Boolean, Effect, Layer, Number as Num, Ref, Result, Schema, String as Str } from "effect"
+import * as LanguageModel from "effect/ai/LanguageModel"
 
 const makeQaSignature = () =>
   Signature.make(
@@ -39,23 +39,25 @@ describe("BootstrapFewShot.run", () => {
       )
       const layer = Layer.succeed(LanguageModel.LanguageModel, mock.service)
 
-      const optimized = yield* BootstrapFewShot.run({
-        module,
-        trainset: Arr.make(
-          new Example({
-            input: { question: "What is the capital of France?" },
-            output: { answer: "Paris" }
-          }),
-          new Example({
-            input: { question: "What is the capital of Japan?" },
-            output: { answer: "Tokyo" }
-          })
-        ),
-        metric: Metric.exactMatch("answer"),
-        maxRounds: 5,
-        maxBootstrappedDemos: 2,
-        threshold: 1
-      }).pipe(Effect.provide(layer))
+      const optimized = yield* BootstrapFewShot.run(
+        new BootstrapFewShot.Options({
+          module,
+          trainset: Arr.make(
+            new Example({
+              input: { question: "What is the capital of France?" },
+              output: { answer: "Paris" }
+            }),
+            new Example({
+              input: { question: "What is the capital of Japan?" },
+              output: { answer: "Tokyo" }
+            })
+          ),
+          metric: Metric.exactMatch("answer"),
+          maxRounds: 5,
+          maxBootstrappedDemos: 2,
+          threshold: 1
+        })
+      ).pipe(Effect.provide(layer))
 
       const params = yield* Ref.get(optimized.params)
       const calls = yield* Ref.get(mock.calls)
@@ -95,23 +97,25 @@ describe("BootstrapFewShot.run", () => {
       )
       const layer = Layer.succeed(LanguageModel.LanguageModel, mock.service)
 
-      const optimized = yield* BootstrapFewShot.run({
-        module,
-        trainset: Arr.make(
-          new Example({
-            input: { question: "What is the capital of France?" },
-            output: { answer: "Paris" }
-          }),
-          new Example({
-            input: { question: "What is the capital of Japan?" },
-            output: { answer: "Tokyo" }
-          })
-        ),
-        metric: Metric.exactMatch("answer"),
-        maxRounds: 4,
-        maxBootstrappedDemos: 2,
-        threshold: 1
-      }).pipe(Effect.provide(layer))
+      const optimized = yield* BootstrapFewShot.run(
+        new BootstrapFewShot.Options({
+          module,
+          trainset: Arr.make(
+            new Example({
+              input: { question: "What is the capital of France?" },
+              output: { answer: "Paris" }
+            }),
+            new Example({
+              input: { question: "What is the capital of Japan?" },
+              output: { answer: "Tokyo" }
+            })
+          ),
+          metric: Metric.exactMatch("answer"),
+          maxRounds: 4,
+          maxBootstrappedDemos: 2,
+          threshold: 1
+        })
+      ).pipe(Effect.provide(layer))
 
       const params = yield* Ref.get(optimized.params)
       const calls = yield* Ref.get(mock.calls)
@@ -135,25 +139,27 @@ describe("BootstrapFewShot.run", () => {
       )
       const layer = Layer.succeed(LanguageModel.LanguageModel, mock.service)
 
-      const result = yield* Effect.either(
-        BootstrapFewShot.run({
-          module,
-          trainset: Arr.make(
-            new Example({
-              input: { question: "What is the capital of France?" },
-              output: { answer: "Paris" }
-            })
-          ),
-          metric: Metric.exactMatch("answer"),
-          maxRounds: 4,
-          maxBootstrappedDemos: 2,
-          threshold: 1
-        }).pipe(Effect.provide(layer))
+      const result = yield* Effect.result(
+        BootstrapFewShot.run(
+          new BootstrapFewShot.Options({
+            module,
+            trainset: Arr.make(
+              new Example({
+                input: { question: "What is the capital of France?" },
+                output: { answer: "Paris" }
+              })
+            ),
+            metric: Metric.exactMatch("answer"),
+            maxRounds: 4,
+            maxBootstrappedDemos: 2,
+            threshold: 1
+          })
+        ).pipe(Effect.provide(layer))
       )
       const calls = yield* Ref.get(mock.calls)
       const params = yield* Ref.get(module.params)
 
-      expect(Either.isRight(result)).toBe(true)
+      expect(Result.isSuccess(result)).toBe(true)
       expect(calls).toHaveLength(1)
       expect(params.demos).toHaveLength(1)
       expect(Arr.map(params.demos, (demo) => demo.output)).toEqual(Arr.make({ answer: "Paris" }))
@@ -170,20 +176,22 @@ describe("BootstrapFewShot.run", () => {
       const layer = Layer.succeed(LanguageModel.LanguageModel, mock.service)
 
       const result = yield* Effect.flip(
-        BootstrapFewShot.run({
-          module,
-          trainset: Arr.make(
-            new Example({
-              input: { question: "What is the capital of France?" },
-              output: { answer: "Paris" }
-            })
-          ),
-          metric: Metric.exactMatch("answer"),
-          maxRounds: 4,
-          maxBootstrappedDemos: 2,
-          threshold: 1,
-          fallbackToLabeledFewShot: false
-        }).pipe(Effect.provide(layer))
+        BootstrapFewShot.run(
+          new BootstrapFewShot.Options({
+            module,
+            trainset: Arr.make(
+              new Example({
+                input: { question: "What is the capital of France?" },
+                output: { answer: "Paris" }
+              })
+            ),
+            metric: Metric.exactMatch("answer"),
+            maxRounds: 4,
+            maxBootstrappedDemos: 2,
+            threshold: 1,
+            fallbackToLabeledFewShot: false
+          })
+        ).pipe(Effect.provide(layer))
       )
       const calls = yield* Ref.get(mock.calls)
 
@@ -211,7 +219,7 @@ describe("BootstrapFewShot.run", () => {
       const module = yield* Module.predict("qa", signature)
       const mock = yield* MockLanguageModel.make(MockLanguageModel.succeed({ answer: "Paris" }))
       const layer = Layer.succeed(LanguageModel.LanguageModel, mock.service)
-      const nan = yield* Num.parse("NaN")
+      const nan = yield* Effect.fromOption(Num.parse("NaN"))
       const metric = Metric.make("nan-score", () => new Metric.Result({ score: nan }))
 
       const result = yield* BootstrapFewShot.run(
@@ -226,18 +234,18 @@ describe("BootstrapFewShot.run", () => {
           metric,
           maxRounds: 1,
           maxBootstrappedDemos: 1,
-          threshold: yield* Num.parse("-Infinity"),
+          threshold: yield* Effect.fromOption(Num.parse("-Infinity")),
           fallbackToLabeledFewShot: false
         })
-      ).pipe(Effect.provide(layer), Effect.either)
+      ).pipe(Effect.provide(layer), Effect.result)
       const params = yield* Ref.get(module.params)
 
-      expect(Either.isLeft(result)).toBe(true)
+      expect(Result.isFailure(result)).toBe(true)
       expect(Arr.length(params.demos)).toBe(0)
       expect(
-        Either.match(result, {
-          onLeft: (error) => Str.Equivalence(error._tag, "BootstrapFailed"),
-          onRight: () => false
+        Result.match(result, {
+          onFailure: (error) => Str.Equivalence(error._tag, "BootstrapFailed"),
+          onSuccess: () => false
         })
       ).toBe(true)
     }))
@@ -248,7 +256,7 @@ describe("BootstrapFewShot.run", () => {
       const module = yield* Module.predict("qa", signature)
       const mock = yield* MockLanguageModel.make(MockLanguageModel.succeed({ answer: "Paris" }))
       const layer = Layer.succeed(LanguageModel.LanguageModel, mock.service)
-      const infinity = yield* Num.parse("Infinity")
+      const infinity = yield* Effect.fromOption(Num.parse("Infinity"))
       const metric = Metric.make("infinite-score", () => new Metric.Result({ score: infinity }))
 
       const optimized = yield* BootstrapFewShot.run(

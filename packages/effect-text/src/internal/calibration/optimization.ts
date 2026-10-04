@@ -13,7 +13,7 @@ import type {
   SearchSpace
 } from "@scenesystems/effect-search"
 import { StudyStorage } from "@scenesystems/effect-study"
-import { Chunk, Data, Effect, Match, Option, Stream } from "effect"
+import { Data, Effect, Match, Option, Stream } from "effect"
 import * as Arr from "effect/Array"
 import type * as Layer from "effect/Layer"
 
@@ -25,24 +25,32 @@ import type * as TextMeasurer from "../../TextMeasurer.js"
 import { evaluate } from "./evaluation.js"
 import { scoreReport } from "./scoring.js"
 
+type ProfileSpace = Calibration.CalibrationSearchSpace
+
 class OptimizationRun extends Data.Class<{
   readonly eventLog: ReadonlyArray<OptimizationEvent.OptimizationEvent>
   readonly snapshot: OptimizationSnapshot.OptimizationSnapshot
   readonly optimizationResult: Optimization.SingleObjectiveResult<Text.Profile>
 }> {}
 
-class FreshOptimizationOptions extends Data.Class<{
+/** @internal */
+export class FreshOptimizationOptions<Space extends ProfileSpace> extends Data.Class<{
   readonly cases: Calibration.Cases
   readonly objective: Calibration.Objective
   readonly sampler: Sampler.Sampler
   readonly services: Layer.Layer<Text.Segmenter | MeasurementCache.MeasurementCache>
   readonly storage: Option.Option<OptimizationStorage.Service>
-  readonly space: SearchSpace.SearchSpace
+  readonly space: Space
   readonly trials: number
 }> {}
 
-class ResumedOptimizationOptions extends Data.Class<
-  FreshOptimizationOptions & {
+type FreshOptions<Space extends ProfileSpace> = ConstructorParameters<
+  typeof FreshOptimizationOptions<Space>
+>[0]
+
+/** @internal */
+export class ResumedOptimizationOptions<Space extends ProfileSpace> extends Data.Class<
+  FreshOptions<Space> & {
     readonly snapshot: OptimizationSnapshot.OptimizationSnapshot
   }
 > {}
@@ -63,7 +71,7 @@ const asSingleObjectiveResult = <Config>(
   )
 
 const makeInMemoryOptimizationStorage = Effect.gen(function*() {
-  const storage = yield* StudyStorage.makeMemory()
+  const storage = yield* StudyStorage.makeMemory
   return yield* OptimizationStorage.make.pipe(Effect.provideService(StudyStorage.StudyStorage, storage))
 })
 
@@ -114,41 +122,47 @@ const objectiveFunction = (
   _runtime: Pruning.Runtime
 ) => scoreCandidate(profile, cases, services, objective)
 
-const storedOptimizationResult = (
+const storedOptimizationResult = <Space extends ProfileSpace>(
   objective: (
-    profile: Text.Profile,
+    profile: SearchSpace.Type<Space>,
     runtime: Pruning.Runtime
   ) => Effect.Effect<number, TextMeasurer.Failed>,
   sampler: Sampler.Sampler,
-  space: SearchSpace.SearchSpace,
+  space: Space,
   storage: OptimizationStorage.Service
 ) =>
-  Optimization.resumeFromStorage({
-    space,
-    sampler,
-    direction: "minimize",
-    trials: 0,
-    objective
-  }).pipe(
+  Optimization.resumeFromStorage(
+    new Optimization.StorageResumeOptions({
+      space,
+      sampler,
+      direction: "minimize",
+      trials: 0,
+      objective
+    })
+  ).pipe(
     Effect.provideService(OptimizationStorage.OptimizationStorage, storage),
     Effect.flatMap(asSingleObjectiveResult)
   )
 
 /** @internal */
-export const runFreshOptimization = (options: FreshOptimizationOptions) =>
+export const runFreshOptimization = <Space extends ProfileSpace>(
+  options: FreshOptimizationOptions<Space>
+) =>
   Effect.gen(function*() {
     const storage = yield* resolveOptimizationStorage(options.storage)
     const objective = objectiveFunction(options.cases, options.services, options.objective)
-    const eventLog = yield* Optimization.stream({
-      space: options.space,
-      sampler: options.sampler,
-      direction: "minimize",
-      trials: options.trials,
-      objective
-    }).pipe(
+    const eventLog = yield* Optimization.stream(
+      new Optimization.FlatOptions({
+        space: options.space,
+        sampler: options.sampler,
+        direction: "minimize",
+        trials: options.trials,
+        objective
+      })
+    ).pipe(
       Stream.provideService(OptimizationStorage.OptimizationStorage, storage),
       Stream.runCollect,
-      Effect.map(Chunk.toReadonlyArray)
+      Effect.map(Arr.fromIterable)
     )
     const snapshot = yield* loadStoredSnapshot(storage)
     const optimizationResult = yield* storedOptimizationResult(objective, options.sampler, options.space, storage)
@@ -157,21 +171,25 @@ export const runFreshOptimization = (options: FreshOptimizationOptions) =>
   })
 
 /** @internal */
-export const runResumedOptimization = (options: ResumedOptimizationOptions) =>
+export const runResumedOptimization = <Space extends ProfileSpace>(
+  options: ResumedOptimizationOptions<Space>
+) =>
   Effect.gen(function*() {
     const storage = yield* resolveOptimizationStorage(options.storage)
     const objective = objectiveFunction(options.cases, options.services, options.objective)
-    const eventLog = yield* Optimization.resumeStream({
-      space: options.space,
-      sampler: options.sampler,
-      snapshot: options.snapshot,
-      direction: "minimize",
-      trials: options.trials,
-      objective
-    }).pipe(
+    const eventLog = yield* Optimization.resumeStream(
+      new Optimization.ResumeOptions({
+        space: options.space,
+        sampler: options.sampler,
+        snapshot: options.snapshot,
+        direction: "minimize",
+        trials: options.trials,
+        objective
+      })
+    ).pipe(
       Stream.provideService(OptimizationStorage.OptimizationStorage, storage),
       Stream.runCollect,
-      Effect.map(Chunk.toReadonlyArray)
+      Effect.map(Arr.fromIterable)
     )
     const snapshot = yield* loadStoredSnapshot(storage)
     const optimizationResult = yield* storedOptimizationResult(objective, options.sampler, options.space, storage)

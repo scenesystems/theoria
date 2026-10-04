@@ -1,5 +1,7 @@
 import { describe, expect, it } from "@effect/vitest"
-import { Array, Chunk, Effect, FastCheck, Number } from "effect"
+import { Array, Chunk, Effect, Schema } from "effect"
+
+import { positiveInfinity } from "../helpers/nonFinite.js"
 
 import { log } from "../../src/Numeric.js"
 import * as Policy from "../../src/Policy.js"
@@ -20,8 +22,8 @@ describe("Probability / entropy", () => {
     }))
 
   it.effect.prop("is invariant under reordering", {
-    first: FastCheck.double({ min: 0, max: 1, noNaN: true }),
-    second: FastCheck.double({ min: 0, max: 1, noNaN: true })
+    first: Schema.Finite.check(Schema.isBetween({ minimum: 0, maximum: 1 })),
+    second: Schema.Finite.check(Schema.isBetween({ minimum: 0, maximum: 1 }))
   }, ({ first, second }) =>
     Effect.gen(function*() {
       expect(entropy(Chunk.make(first, second))).toBe(entropy(Chunk.make(second, first)))
@@ -53,7 +55,7 @@ describe("Probability / entropy", () => {
 
   it.effect("strict precision rejects a non-finite entropy result", () =>
     Effect.gen(function*() {
-      const error = yield* Effect.flip(entropyWithPolicies(Chunk.of(Number.unsafeDivide(1, 0))))
+      const error = yield* Effect.flip(entropyWithPolicies(Chunk.of(positiveInfinity)))
       expect(error._tag).toBe("ProbabilityDomainViolationError")
       expect(error.operation).toBe("entropyWithPolicies")
     }).pipe(Effect.provide(strictLayer)))

@@ -75,7 +75,7 @@ describe("browser text layout", () => {
         Effect.scoped,
         Effect.provide(Layer.merge(fontsAtHand(asked), readinessTold(told)))
       )
-      yield* Effect.yieldNow()
+      yield* Effect.yieldNow
 
       expect(yield* Ref.get(asked)).toEqual([])
       expect(yield* Ref.get(told)).toBe(0)
@@ -90,25 +90,25 @@ describe("browser text layout", () => {
       const landing = (font: string) => Deferred.await(font === measuredFont("body") ? body : mono)
       const scope = yield* Scope.make()
       yield* servedFacesWatched.pipe(
-        Scope.extend(scope),
+        Effect.provideService(Scope.Scope, scope),
         Effect.provide(Layer.merge(fontsInFlight(asked, landing), readinessTold(told)))
       )
       yield* Effect.repeat(Ref.get(asked), { until: (fonts) => fonts.length === 2 })
       expect(yield* Ref.get(asked)).toEqual([measuredFont("body"), measuredFont("mono")])
 
       // The watch does not hold the layout: it returned with the faces still in flight, and nothing is told yet.
-      yield* Effect.yieldNow()
+      yield* Effect.yieldNow
       expect(yield* Ref.get(told)).toBe(0)
 
       // The body's face lands: every width measured in its stand-in is wrong now, whatever the code's face is doing.
       yield* Deferred.succeed(body, undefined)
       yield* Effect.repeat(Ref.get(told), { until: (count) => count > 0 })
-      yield* Effect.yieldNow()
+      yield* Effect.yieldNow
       expect(yield* Ref.get(told)).toBe(1)
 
       yield* Deferred.succeed(mono, undefined)
       yield* Effect.repeat(Ref.get(told), { until: (count) => count > 1 })
-      yield* Effect.yieldNow()
+      yield* Effect.yieldNow
       expect(yield* Ref.get(told)).toBe(2)
       yield* Scope.close(scope, Exit.void)
     }))
@@ -124,10 +124,13 @@ describe("browser text layout", () => {
         load: (font) => Ref.update(asked, Arr.append(font)).pipe(Effect.andThen(failing(font)))
       })
       const scope = yield* Scope.make()
-      yield* servedFacesWatched.pipe(Scope.extend(scope), Effect.provide(Layer.merge(fonts, readinessTold(told))))
+      yield* servedFacesWatched.pipe(
+        Effect.provideService(Scope.Scope, scope),
+        Effect.provide(Layer.merge(fonts, readinessTold(told)))
+      )
       yield* Effect.repeat(Ref.get(asked), { until: (fonts) => fonts.length === 1 })
-      yield* Effect.yieldNow()
-      yield* Effect.yieldNow()
+      yield* Effect.yieldNow
+      yield* Effect.yieldNow
 
       expect(yield* Ref.get(asked)).toEqual([measuredFont("mono")])
       expect(yield* Ref.get(told)).toBe(0)
@@ -141,7 +144,7 @@ describe("browser text layout", () => {
       const landing = (font: string) => (font === measuredFont("body") ? Effect.void : failing(font))
       const scope = yield* Scope.make()
       yield* servedFacesWatched.pipe(
-        Scope.extend(scope),
+        Effect.provideService(Scope.Scope, scope),
         Effect.provide(Layer.merge(fontsInFlight(asked, landing), readinessTold(told)))
       )
       yield* Effect.repeat(Ref.get(told), { until: (count) => count > 0 })
@@ -156,12 +159,12 @@ describe("browser text layout", () => {
       const told = yield* Ref.make(0)
       const scope = yield* Scope.make()
       yield* servedFacesWatched.pipe(
-        Scope.extend(scope),
+        Effect.provideService(Scope.Scope, scope),
         Effect.provide(Layer.merge(fontsInFlight(asked, failing), readinessTold(told)))
       )
       yield* Effect.repeat(Ref.get(asked), { until: (fonts) => fonts.length === 2 })
-      yield* Effect.yieldNow()
-      yield* Effect.yieldNow()
+      yield* Effect.yieldNow
+      yield* Effect.yieldNow
 
       expect(yield* Ref.get(told)).toBe(0)
       yield* Scope.close(scope, Exit.void)
@@ -174,15 +177,15 @@ describe("browser text layout", () => {
       const landed = yield* Deferred.make<void>()
       const scope = yield* Scope.make()
       yield* servedFacesWatched.pipe(
-        Scope.extend(scope),
+        Effect.provideService(Scope.Scope, scope),
         Effect.provide(Layer.merge(fontsInFlight(asked, () => Deferred.await(landed)), readinessTold(told)))
       )
       yield* Effect.repeat(Ref.get(asked), { until: (fonts) => fonts.length === 2 })
       yield* Scope.close(scope, Exit.void)
 
       yield* Deferred.succeed(landed, undefined)
-      yield* Effect.yieldNow()
-      yield* Effect.yieldNow()
+      yield* Effect.yieldNow
+      yield* Effect.yieldNow
       expect(yield* Ref.get(told)).toBe(0)
     }))
 })

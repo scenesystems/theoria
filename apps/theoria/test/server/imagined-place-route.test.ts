@@ -1,9 +1,9 @@
-import type { HttpServerRequest } from "@effect/platform"
-import { Headers, HttpClientRequest, HttpClientResponse, HttpServerResponse } from "@effect/platform"
 import { describe, expect, it } from "@effect/vitest"
 import { Cipher } from "@scenesystems/seal"
-import { Data, Effect, Layer, Ref, Schema } from "effect"
+import { Effect, Layer, Ref, Schema } from "effect"
 import * as Arr from "effect/Array"
+import type { HttpServerRequest } from "effect/http"
+import { Headers, HttpClientRequest, HttpClientResponse, HttpServerResponse } from "effect/http"
 
 import { Failure, Success } from "../../app/contracts/envelope.js"
 import { PlaceBuild, PlaceBuildEnvelope } from "../../app/contracts/imagined-place-result.js"
@@ -17,10 +17,10 @@ import { serverRequest } from "./platform/web-request.js"
 const RuntimeInfoTest = Layer.succeed(RuntimeInfo, { buildSha: "test-sha", startedAtMs: 0 })
 const RouteLive = Layer.mergeAll(RuntimeInfoTest, ParticipantsLive, Cipher.layer, unlimited)
 
-const encodeRequest = Schema.encode(Schema.parseJson(PlaceBuildRequest))
-const decodeEnvelope = Schema.decode(Schema.parseJson(PlaceBuildEnvelope))
-const decodeSuccessEnvelope = Schema.decodeUnknown(Success(PlaceBuild))
-const decodeFailureEnvelope = Schema.decodeUnknown(Failure)
+const encodeRequest = Schema.encodeEffect(Schema.fromJsonString(PlaceBuildRequest))
+const decodeEnvelope = Schema.decodeEffect(Schema.fromJsonString(PlaceBuildEnvelope))
+const decodeSuccessEnvelope = Schema.decodeUnknownEffect(Success(PlaceBuild))
+const decodeFailureEnvelope = Schema.decodeUnknownEffect(Failure)
 
 const request = (init: RequestInit) => serverRequest(`http://127.0.0.1${imaginedPlacePath}`, init)
 
@@ -44,7 +44,7 @@ const call = (incoming: HttpServerRequest.HttpServerRequest, layer: typeof Route
     Effect.flatMap((response) =>
       responseText(incoming, response).pipe(
         Effect.flatMap(decodeEnvelope),
-        Effect.map((envelope) => Data.struct({ status: response.status, headers: response.headers, envelope }))
+        Effect.map((envelope) => ({ status: response.status, headers: response.headers, envelope }))
       )
     ),
     Effect.provide(layer)
@@ -138,7 +138,7 @@ describe("server/routes/imagined-place", () => {
         Layer.mergeAll(RuntimeInfoTest, ParticipantsLive, Cipher.layer, refusing)
       )
       const envelope = yield* decodeFailureEnvelope(response.envelope)
-      const retryAfter = yield* Headers.get(response.headers, "retry-after")
+      const retryAfter = yield* Effect.fromOption(Headers.get(response.headers, "retry-after"))
       expect(response.status).toBe(429)
       expect(retryAfter).toBe("60")
       expect(envelope.error.code).toBe("rate-limited")

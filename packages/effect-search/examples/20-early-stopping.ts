@@ -14,17 +14,19 @@ const program = Effect.gen(function*() {
     x: SearchSpace.float(-1, 1)
   })
 
-  const result = yield* Optimization.minimize({
-    space,
-    sampler: Sampler.random({ seed: 707 }),
-    trials: 200,
-    concurrency: 1,
-    targetValue: 0.05,
-    noImprovementWindow: 4,
-    maxDuration: "2 seconds",
-    epsilon: 1e-6,
-    objective: () => Effect.sleep("5 millis").pipe(Effect.as(0.8))
-  })
+  const result = yield* Optimization.minimize(
+    new Optimization.FlatOptions({
+      space,
+      sampler: Sampler.random({ seed: 707 }),
+      trials: 200,
+      concurrency: 1,
+      targetValue: 0.05,
+      noImprovementWindow: 4,
+      maxDuration: "2 seconds",
+      epsilon: 1e-6,
+      objective: () => Effect.sleep("5 millis").pipe(Effect.as(0.8))
+    })
+  )
 
   yield* Match.value(result).pipe(
     Match.tag("SingleObjective", ({ bestTrial, completionReason, trials }) =>

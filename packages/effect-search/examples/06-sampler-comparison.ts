@@ -18,7 +18,7 @@ const simulatedLoss = (
 ): number => {
   const lrPenalty = Numeric.pow(Num.subtract(Numeric.log10(learningRate), Numeric.log10(0.003)), 2)
   const dropoutPenalty = Numeric.pow(Num.subtract(dropout, 0.1), 2)
-  const sizePenalty = Numeric.pow(Num.unsafeDivide(Num.subtract(hiddenSize, 256), 256), 2)
+  const sizePenalty = Numeric.pow(Num.divideUnsafe(Num.subtract(hiddenSize, 256), 256), 2)
   const activationBonus = Match.value(activation).pipe(
     Match.when("gelu", () => -0.1),
     Match.when("silu", () => -0.05),
@@ -48,13 +48,15 @@ const program = Effect.gen(function*() {
   })
 
   const runOptimization = (name: string, sampler: Sampler.Sampler) =>
-    Optimization.minimize({
-      space,
-      sampler,
-      objective: (config) =>
-        Effect.succeed(simulatedLoss(config.learningRate, config.dropout, config.hiddenSize, config.activation)),
-      trials: trialCount
-    }).pipe(
+    Optimization.minimize(
+      new Optimization.FlatOptions({
+        space,
+        sampler,
+        objective: (config) =>
+          Effect.succeed(simulatedLoss(config.learningRate, config.dropout, config.hiddenSize, config.activation)),
+        trials: trialCount
+      })
+    ).pipe(
       Effect.map((result) =>
         Match.value(result).pipe(
           Match.tag("SingleObjective", (single) => ({ name, bestValue: single.bestTrial.state.value })),
@@ -70,18 +72,20 @@ const program = Effect.gen(function*() {
   })
 
   const runContinuousOptimization = (name: string, sampler: Sampler.Sampler) =>
-    Optimization.minimize({
-      space: continuousSpace,
-      sampler,
-      objective: (config) =>
-        Effect.succeed(
-          Num.sum(
-            Numeric.pow(Num.subtract(Numeric.log10(config.learningRate), Numeric.log10(0.003)), 2),
-            Numeric.pow(Num.subtract(config.dropout, 0.1), 2)
-          )
-        ),
-      trials: trialCount
-    }).pipe(
+    Optimization.minimize(
+      new Optimization.FlatOptions({
+        space: continuousSpace,
+        sampler,
+        objective: (config) =>
+          Effect.succeed(
+            Num.sum(
+              Numeric.pow(Num.subtract(Numeric.log10(config.learningRate), Numeric.log10(0.003)), 2),
+              Numeric.pow(Num.subtract(config.dropout, 0.1), 2)
+            )
+          ),
+        trials: trialCount
+      })
+    ).pipe(
       Effect.map((result) =>
         Match.value(result).pipe(
           Match.tag("SingleObjective", (single) => ({ name, bestValue: single.bestTrial.state.value })),
@@ -94,17 +98,17 @@ const program = Effect.gen(function*() {
   yield* Effect.log("Comparing samplers", { trials: trialCount })
 
   const randomResult = yield* runOptimization("Random", Sampler.random({ seed: 42 }))
-  const tpeResult = yield* runOptimization("TPE", Sampler.tpe({ seed: 42, nStartupTrials: 10 }))
+  const tpeResult = yield* runOptimization("TPE", Sampler.tpe(new Sampler.TpeOptions({ seed: 42, nStartupTrials: 10 })))
 
   const improvement = Num.multiply(
-    Num.unsafeDivide(Num.subtract(randomResult.bestValue, tpeResult.bestValue), randomResult.bestValue),
+    Num.divideUnsafe(Num.subtract(randomResult.bestValue, tpeResult.bestValue), randomResult.bestValue),
     100
   )
 
   yield* Effect.log("Comparison results", {
     randomBestLoss: Numeric.round(randomResult.bestValue, 6),
     tpeBestLoss: Numeric.round(tpeResult.bestValue, 6),
-    tpeImprovement: Bool.match(Num.greaterThan(improvement, 0), {
+    tpeImprovement: Bool.match(Num.isGreaterThan(improvement, 0), {
       onFalse: () => "Random outperformed (TPE needs more trials)",
       onTrue: () => `${Numeric.round(improvement, 1)}%`
     })

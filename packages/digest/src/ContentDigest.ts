@@ -7,10 +7,11 @@
  * @module
  */
 
-import { Boolean, Effect, Either, Encoding, type ParseResult, Schema } from "effect"
+import { Boolean, Effect, Equal, Hash, Schema } from "effect"
+import { Base64Url } from "effect/encoding"
 import * as CanonicalJson from "./CanonicalJson.js"
 import * as Digest from "./Digest.js"
-import { canonicalizeWithByteLimit, canonicalizeWithByteLimitEither } from "./internal/canonicalJson/traversal.js"
+import { canonicalizeInto, canonicalizeWithByteLimit } from "./internal/canonicalJson/traversal.js"
 import { makeHasher } from "./internal/digest.js"
 import { encodeUtf8Unchecked } from "./internal/utf8.js"
 
@@ -23,9 +24,9 @@ import { encodeUtf8Unchecked } from "./internal/utf8.js"
  */
 export const Value = Schema.String.pipe(
   // The final base64 sextet contains four data bits and two zero pad bits.
-  Schema.pattern(/^[A-Za-z0-9_-]{42}[AEIMQUYcgkosw048]$/),
+  Schema.check(Schema.isPattern(/^[A-Za-z0-9_-]{42}[AEIMQUYcgkosw048]$/)),
   Schema.brand("@scenesystems/digest/ContentDigest/Value")
-).annotations({ identifier: "@scenesystems/digest/ContentDigest/Value" })
+).annotate({ identifier: "@scenesystems/digest/ContentDigest/Value" })
 
 /**
  * A validated canonical 256-bit digest encoding.
@@ -46,7 +47,15 @@ export type Value = typeof Value.Type
 export class ContentDigest extends Schema.Class<ContentDigest>("@scenesystems/digest/ContentDigest")({
   algorithm: Digest.Algorithm,
   digest: Value
-}) {}
+}) {
+  [Equal.symbol](that: Equal.Equal): boolean {
+    return Schema.is(ContentDigest)(that) && this.algorithm === that.algorithm && this.digest === that.digest
+  }
+
+  [Hash.symbol](): number {
+    return Hash.combine(Hash.string(this.algorithm))(Hash.string(this.digest))
+  }
+}
 
 /**
  * A content identity paired with its exact canonical UTF-8 preimage byte count.
@@ -57,8 +66,17 @@ export class ContentDigest extends Schema.Class<ContentDigest>("@scenesystems/di
  */
 export class Result extends Schema.Class<Result>("@scenesystems/digest/ContentDigest/Result")({
   digest: ContentDigest,
-  canonicalByteLength: Schema.NonNegativeInt
-}) {}
+  canonicalByteLength: Schema.Number.check(Schema.isInt(), Schema.isGreaterThanOrEqualTo(0))
+}) {
+  [Equal.symbol](that: Equal.Equal): boolean {
+    return Schema.is(Result)(that) && Equal.equals(this.digest, that.digest) &&
+      this.canonicalByteLength === that.canonicalByteLength
+  }
+
+  [Hash.symbol](): number {
+    return Hash.combine(Hash.hash(this.digest))(Hash.number(this.canonicalByteLength))
+  }
+}
 
 /**
  * Converts an identity to the stable `<algorithm>:<base64url>` string used by
@@ -70,20 +88,21 @@ export class Result extends Schema.Class<Result>("@scenesystems/digest/ContentDi
 export const toString = (self: ContentDigest): string => `${self.algorithm}:${self.digest}`
 
 const fromHash = (algorithm: Digest.Algorithm, bytes: Uint8Array): ContentDigest =>
-  new ContentDigest({ algorithm, digest: Value.make(Encoding.encodeBase64Url(bytes)) })
+  new ContentDigest({ algorithm, digest: Value.make(Base64Url.encode(bytes)) })
 
 /**
- * Hashes an exact byte preimage into an algorithm-tagged identity. Synchronous
- * and pure; no canonicalization or text encoding is performed.
+ * Lazily hashes an exact byte preimage into an algorithm-tagged identity; no
+ * canonicalization or text encoding is performed.
  *
  * @since 0.7.0
  * @category constructors
  */
-export const fromBytes = (algorithm: Digest.Algorithm, bytes: Uint8Array): ContentDigest =>
-  fromHash(algorithm, Digest.hash(algorithm, bytes))
+export const fromBytes = (algorithm: Digest.Algorithm, bytes: Uint8Array): Effect.Effect<ContentDigest> =>
+  Digest.hash(algorithm, bytes).pipe(Effect.map((hash) => fromHash(algorithm, hash)))
 
 /**
- * Admits JSON-visible data and hashes its RFC 8785 UTF-8 encoding. Inherits
+ * Admits JSON-visible data and incrementally hashes its RFC 8785 UTF-8 segments
+ * without collecting the whole encoded preimage. Inherits
  * CanonicalJson's cooperative traversal, stable-input requirement, and failures.
  *
  * @since 0.7.0
@@ -93,25 +112,35 @@ export const fromUnknown = (
   algorithm: Digest.Algorithm,
   value: unknown
 ): Effect.Effect<ContentDigest, CanonicalJson.Error> =>
-  Effect.map(CanonicalJson.encodeBytes(value), (bytes) => fromBytes(algorithm, bytes))
+  Effect.acquireUseRelease(
+    Effect.sync(() => makeHasher(algorithm)),
+    (hasher) =>
+      canonicalizeInto(value, (segment) =>
+        Effect.asVoid(Effect.map(encodeUtf8Unchecked(segment), (bytes) => hasher.update(bytes)))).pipe(
+          Effect.map(() =>
+            fromHash(algorithm, hasher.digest())
+          )
+        ),
+    (hasher) => Effect.sync(() => hasher.destroy())
+  )
 
 /**
  * Hashes the Schema-encoded representation, not the runtime value. Delegates
- * encoding exactly once per execution to `Schema.encode`, preserving `R`,
- * ParseError, defects, and interruption. Synchronous Schema transforms are not
+ * encoding exactly once per execution to `Schema.encodeEffect`, preserving encoding
+ * requirements, SchemaError, defects, and interruption. Synchronous Schema transforms are not
  * made cooperative. Defaults to BLAKE3-256.
  *
  * @since 0.7.0
  * @category constructors
  */
-export const fromSchema = <A, I, R>(
-  schema: Schema.Schema<A, I, R>,
+export const fromSchema = <A, I, RD, RE>(
+  schema: Schema.Codec<A, I, RD, RE>,
   value: A,
   algorithm: Digest.Algorithm = "blake3-256"
-): Effect.Effect<ContentDigest, CanonicalJson.Error | ParseResult.ParseError, R> =>
-  Effect.flatMap(Effect.suspend(() => Schema.encode(schema)(value)), (encoded) => fromUnknown(algorithm, encoded))
+): Effect.Effect<ContentDigest, CanonicalJson.Error | Schema.SchemaError, RE> =>
+  Effect.flatMap(Effect.suspend(() => Schema.encodeEffect(schema)(value)), (encoded) => fromUnknown(algorithm, encoded))
 
-const isByteLimit = Schema.is(Schema.NonNegativeInt)
+const isByteLimit = Schema.is(Schema.Number.check(Schema.isInt(), Schema.isGreaterThanOrEqualTo(0)))
 
 /**
  * Encodes once and incrementally hashes canonical segments under an inclusive
@@ -129,24 +158,26 @@ const isByteLimit = Schema.is(Schema.NonNegativeInt)
  * @since 0.7.0
  * @category constructors
  */
-export const fromSchemaWithByteLimit = <A, I, R>(
-  schema: Schema.Schema<A, I, R>,
+export const fromSchemaWithByteLimit = <A, I, RD, RE>(
+  schema: Schema.Codec<A, I, RD, RE>,
   value: A,
   maximumBytes: number,
   algorithm: Digest.Algorithm = "blake3-256"
-): Effect.Effect<Result, CanonicalJson.ByteLimitError | CanonicalJson.Error | ParseResult.ParseError, R> =>
+): Effect.Effect<Result, CanonicalJson.ByteLimitError | CanonicalJson.Error | Schema.SchemaError, RE> =>
   Boolean.match(isByteLimit(maximumBytes), {
     onTrue: () =>
       Effect.flatMap(
-        Effect.suspend(() => Schema.encode(schema)(value)),
+        Effect.suspend(() => Schema.encodeEffect(schema)(value)),
         (encoded) =>
           Effect.acquireUseRelease(
             Effect.sync(() => makeHasher(algorithm)),
             (hasher) =>
               Effect.map(
-                canonicalizeWithByteLimit(encoded, maximumBytes, (segment) => {
-                  hasher.update(encodeUtf8Unchecked(segment))
-                }),
+                canonicalizeWithByteLimit(
+                  encoded,
+                  maximumBytes,
+                  (segment) => Effect.asVoid(Effect.map(encodeUtf8Unchecked(segment), (bytes) => hasher.update(bytes)))
+                ),
                 (canonicalByteLength) =>
                   new Result({ digest: fromHash(algorithm, hasher.digest()), canonicalByteLength })
               ),
@@ -154,36 +185,4 @@ export const fromSchemaWithByteLimit = <A, I, R>(
           )
       ),
     onFalse: () => Effect.fail(new CanonicalJson.InvalidByteLimit({}))
-  })
-
-/**
- * Synchronous bounded identity construction through `Schema.encodeEither`, with
- * the same encoded-preimage and inclusive segment-counting law. Blocks the
- * current JavaScript turn for encoding, traversal, sorting, and hashing. Use an
- * owner-controlled limit for small context-free values; no Effect runtime starts.
- * Invalid limits fail before encoding. Defaults to BLAKE3-256.
- *
- * @since 0.7.0
- * @category constructors
- */
-export const fromSchemaWithByteLimitEither = <A, I>(
-  schema: Schema.Schema<A, I>,
-  value: A,
-  maximumBytes: number,
-  algorithm: Digest.Algorithm = "blake3-256"
-): Either.Either<Result, CanonicalJson.ByteLimitError | CanonicalJson.Error | ParseResult.ParseError> =>
-  Boolean.match(isByteLimit(maximumBytes), {
-    onTrue: () =>
-      Either.flatMap(Schema.encodeEither(schema)(value), (encoded) => {
-        const hasher = makeHasher(algorithm)
-        const result = Either.map(
-          canonicalizeWithByteLimitEither(encoded, maximumBytes, (segment) => {
-            hasher.update(encodeUtf8Unchecked(segment))
-          }),
-          (canonicalByteLength) => new Result({ digest: fromHash(algorithm, hasher.digest()), canonicalByteLength })
-        )
-        hasher.destroy()
-        return result
-      }),
-    onFalse: () => Either.left(new CanonicalJson.InvalidByteLimit({}))
   })

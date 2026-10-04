@@ -13,7 +13,7 @@ import * as SearchSpace from "../../../src/SearchSpace.js"
  * @since 0.1.0
  * @category models
  */
-export const PromptInstructionChoices = Schema.Literal("baseline", "rewrite", "counterexample", "socratic").literals
+export const PromptInstructionChoices = Schema.Literals(["baseline", "rewrite", "counterexample", "socratic"]).literals
 
 /**
  * Lists the demonstration-set choices used by the schema and search space.
@@ -21,7 +21,7 @@ export const PromptInstructionChoices = Schema.Literal("baseline", "rewrite", "c
  * @since 0.1.0
  * @category models
  */
-export const PromptDemoChoices = Schema.Literal("none", "few", "curated").literals
+export const PromptDemoChoices = Schema.Literals(["none", "few", "curated"]).literals
 
 /**
  * Lists the scoring strategies used by the schema and search space.
@@ -29,7 +29,7 @@ export const PromptDemoChoices = Schema.Literal("none", "few", "curated").litera
  * @since 0.1.0
  * @category models
  */
-export const PromptScoringChoices = Schema.Literal("strict", "balanced", "recall").literals
+export const PromptScoringChoices = Schema.Literals(["strict", "balanced", "recall"]).literals
 
 /**
  * Decodes one declared instruction, demonstration-set, and scoring choice.
@@ -39,11 +39,11 @@ export const PromptScoringChoices = Schema.Literal("strict", "balanced", "recall
  */
 export const PromptCategoricalConfig = Schema.Struct({
   /** Prompt instruction strategy. */
-  instruction: Schema.Literal(...PromptInstructionChoices),
+  instruction: Schema.Literals(PromptInstructionChoices),
   /** Demonstration-set selection. */
-  demos: Schema.Literal(...PromptDemoChoices),
+  demos: Schema.Literals(PromptDemoChoices),
   /** Output scoring strategy. */
-  scoring: Schema.Literal(...PromptScoringChoices)
+  scoring: Schema.Literals(PromptScoringChoices)
 })
 
 /**
@@ -60,7 +60,7 @@ export type PromptCategoricalConfig = Schema.Schema.Type<typeof PromptCategorica
  * @since 0.1.0
  * @category utils
  */
-export const decodePromptCategoricalConfig = Schema.decodeUnknown(PromptCategoricalConfig)
+export const decodePromptCategoricalConfig = Schema.decodeUnknownEffect(PromptCategoricalConfig)
 
 /**
  * Builds a categorical space from the exported instruction, demonstration, and scoring choices.
@@ -68,9 +68,8 @@ export const decodePromptCategoricalConfig = Schema.decodeUnknown(PromptCategori
  * @since 0.1.0
  * @category constructors
  */
-export const makePromptCategoricalSpace = () =>
-  SearchSpace.make({
-    instruction: SearchSpace.categorical(PromptInstructionChoices),
-    demos: SearchSpace.categorical(PromptDemoChoices),
-    scoring: SearchSpace.categorical(PromptScoringChoices)
-  })
+export const makePromptCategoricalSpace = SearchSpace.make({
+  instruction: SearchSpace.categorical(PromptInstructionChoices),
+  demos: SearchSpace.categorical(PromptDemoChoices),
+  scoring: SearchSpace.categorical(PromptScoringChoices)
+})

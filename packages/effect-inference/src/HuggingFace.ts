@@ -4,10 +4,9 @@
  * @since 0.5.0
  * @module
  */
-import type * as EmbeddingModel from "@effect/ai/EmbeddingModel"
-import type * as LanguageModel from "@effect/ai/LanguageModel"
+import type * as EmbeddingModel from "effect/ai/EmbeddingModel"
+import type * as LanguageModel from "effect/ai/LanguageModel"
 import * as ConfigEffect from "effect/Config"
-import * as ConfigError from "effect/ConfigError"
 import * as ConfigProvider from "effect/ConfigProvider"
 import * as Data from "effect/Data"
 import * as Effect from "effect/Effect"
@@ -71,19 +70,16 @@ export class Config extends Data.Class<{
   readonly configProvider?: ConfigProvider.ConfigProvider
 }> {}
 
-const optionalString = (name: string) => ConfigEffect.option(ConfigEffect.string(name))
-const optionalRedacted = (name: string) => ConfigEffect.option(ConfigEffect.redacted(name))
+const optionalString = (name: string) => ConfigEffect.option(ConfigEffect.String(name))
+const optionalRedacted = (name: string) => ConfigEffect.option(ConfigEffect.Redacted(name))
 
-const required = <A>(value: Option.Option<A>, message: string): Effect.Effect<A, ConfigError.ConfigError> =>
-  Option.match(value, {
-    onNone: () => Effect.fail(ConfigError.MissingData([], message)),
-    onSome: Effect.succeed
-  })
+const required = <A>(value: Option.Option<A>, message: string): Effect.Effect<A, ConfigEffect.ConfigError> =>
+  Effect.fromOption(value, () => new ConfigEffect.ConfigError(new ConfigProvider.SourceError({ message })))
 
 const merge = <A>(configured: Option.Option<A>, override?: A): Option.Option<A> =>
-  Option.fromNullable(override).pipe(Option.orElse(() => configured))
+  Option.fromNullishOr(override).pipe(Option.orElse(() => configured))
 
-const selectionPolicy = (value: string): Effect.Effect<Route.SelectionPolicy, ConfigError.ConfigError> =>
+const selectionPolicy = (value: string): Effect.Effect<Route.SelectionPolicy, ConfigEffect.ConfigError> =>
   Match.value(value).pipe(
     Match.when("auto", () => Effect.succeed<Route.SelectionPolicy>("auto")),
     Match.when("fastest", () => Effect.succeed<Route.SelectionPolicy>("fastest")),
@@ -93,10 +89,14 @@ const selectionPolicy = (value: string): Effect.Effect<Route.SelectionPolicy, Co
       Option.liftPredicate(String.startsWith(explicitProviderPrefix))(raw).pipe(
         Option.match({
           onNone: () =>
-            Effect.fail(ConfigError.InvalidData(
-              [],
-              "Unsupported huggingfaceSelectionPolicy. Use auto, fastest, cheapest, preferred, or provider:<name>."
-            )),
+            Effect.fail(
+              new ConfigEffect.ConfigError(
+                new ConfigProvider.SourceError({
+                  message:
+                    "Unsupported huggingfaceSelectionPolicy. Use auto, fastest, cheapest, preferred, or provider:<name>."
+                })
+              )
+            ),
           onSome: () => Effect.succeed(Route.explicitProvider(String.slice(String.length(explicitProviderPrefix))(raw)))
         })
       )
@@ -116,8 +116,8 @@ const commonToken = (config: Config) =>
 const resolvedSelection = (
   config: Config,
   configured: Option.Option<string>
-): Effect.Effect<Option.Option<Route.SelectionPolicy>, ConfigError.ConfigError> =>
-  Option.match(Option.fromNullable(config.selectionPolicy), {
+): Effect.Effect<Option.Option<Route.SelectionPolicy>, ConfigEffect.ConfigError> =>
+  Option.match(Option.fromNullishOr(config.selectionPolicy), {
     onSome: Effect.succeedSome,
     onNone: () =>
       Option.match(configured, {
@@ -126,7 +126,7 @@ const resolvedSelection = (
       })
   })
 
-const routedConfig = (config: Config): Effect.Effect<Options, ConfigError.ConfigError> =>
+const routedConfig = (config: Config): Effect.Effect<Options, ConfigEffect.ConfigError> =>
   Effect.gen(function*() {
     const routedModel = yield* optionalString("huggingfaceRoutedModel")
     const genericModel = yield* optionalString("huggingfaceModel")
@@ -157,14 +157,14 @@ const routedConfig = (config: Config): Effect.Effect<Options, ConfigError.Config
         onSome: (gatewayId) => ({ gatewayId })
       }),
       ...Option.match(policy, { onNone: () => ({}), onSome: (selectionPolicy) => ({ selectionPolicy }) }),
-      ...Option.match(Option.fromNullable(config.capabilities), {
+      ...Option.match(Option.fromNullishOr(config.capabilities), {
         onNone: () => ({}),
         onSome: (capabilities) => ({ capabilities })
       })
     })
   })
 
-const endpointConfig = (config: Config): Effect.Effect<Options, ConfigError.ConfigError> =>
+const endpointConfig = (config: Config): Effect.Effect<Options, ConfigEffect.ConfigError> =>
   Effect.gen(function*() {
     const endpointModel = yield* optionalString("huggingfaceEndpointModel")
     const genericModel = yield* optionalString("huggingfaceModel")
@@ -184,7 +184,7 @@ const endpointConfig = (config: Config): Effect.Effect<Options, ConfigError.Conf
     const endpointId = yield* optionalString("huggingfaceEndpointId")
     const deploymentId = yield* optionalString("huggingfaceDeploymentId")
     const runtimeFlavor = yield* ConfigEffect.option(
-      ConfigEffect.literal(...Route.Flavor.literals)("huggingfaceRuntimeFlavor")
+      ConfigEffect.Literals(Route.Flavor.literals, "huggingfaceRuntimeFlavor")
     )
 
     return new EndpointOptions({
@@ -204,7 +204,7 @@ const endpointConfig = (config: Config): Effect.Effect<Options, ConfigError.Conf
         onNone: () => ({}),
         onSome: (runtimeFlavorHint) => ({ runtimeFlavorHint })
       }),
-      ...Option.match(Option.fromNullable(config.capabilities), {
+      ...Option.match(Option.fromNullishOr(config.capabilities), {
         onNone: () => ({}),
         onSome: (capabilities) => ({ capabilities })
       })
@@ -220,10 +220,10 @@ const endpointConfig = (config: Config): Effect.Effect<Options, ConfigError.Conf
  */
 export const fromConfig = (config: Config = new Config({})): Effect.Effect<Options, InvalidRuntimeConfig> =>
   ConfigEffect.withDefault(
-    ConfigEffect.literal("routed-marketplace", "dedicated-endpoint")("huggingfaceServeMode"),
+    ConfigEffect.Literals(["routed-marketplace", "dedicated-endpoint"], "huggingfaceServeMode"),
     "routed-marketplace"
   ).pipe(
-    Effect.map((configured) => Option.getOrElse(Option.fromNullable(config.serveMode), () => configured)),
+    Effect.map((configured) => Option.getOrElse(Option.fromNullishOr(config.serveMode), () => configured)),
     Effect.flatMap((serveMode) =>
       Match.value(serveMode).pipe(
         Match.when("routed-marketplace", () => routedConfig(config)),
@@ -231,8 +231,9 @@ export const fromConfig = (config: Config = new Config({})): Effect.Effect<Optio
         Match.exhaustive
       )
     ),
-    Effect.withConfigProvider(
-      Option.getOrElse(Option.fromNullable(config.configProvider), () => defaultConfigProvider)
+    Effect.provideService(
+      ConfigProvider.ConfigProvider,
+      Option.getOrElse(Option.fromNullishOr(config.configProvider), () => defaultConfigProvider)
     ),
     Effect.mapError((error) => new InvalidRuntimeConfig({ reason: Inspectable.toStringUnknown(error) }))
   )
@@ -243,18 +244,18 @@ export const request = (options: Options): RuntimeRequest.RuntimeRequest =>
     Match.when({ serveMode: "routed-marketplace" }, (options) => ({
       model: { modelRef: options.model },
       route: Routed.route({
-        baseUrl: Option.getOrElse(Option.fromNullable(options.baseUrl), () => defaultRoutedBaseUrl),
+        baseUrl: Option.getOrElse(Option.fromNullishOr(options.baseUrl), () => defaultRoutedBaseUrl),
         authMethod: "hf-token",
-        ...Option.match(Option.fromNullable(options.gatewayId), {
+        ...Option.match(Option.fromNullishOr(options.gatewayId), {
           onNone: () => ({}),
           onSome: (gatewayId) => ({ gatewayId })
         }),
-        ...Option.match(Option.fromNullable(options.selectionPolicy), {
+        ...Option.match(Option.fromNullishOr(options.selectionPolicy), {
           onNone: () => ({}),
           onSome: (selectionPolicy) => ({ selectionPolicy })
         })
       }),
-      ...Option.match(Option.fromNullable(options.capabilities), {
+      ...Option.match(Option.fromNullishOr(options.capabilities), {
         onNone: () => ({}),
         onSome: (capabilities) => ({ capabilities })
       })
@@ -264,20 +265,20 @@ export const request = (options: Options): RuntimeRequest.RuntimeRequest =>
       route: Endpoint.route({
         baseUrl: options.baseUrl,
         authMethod: "hf-token",
-        ...Option.match(Option.fromNullable(options.endpointId), {
+        ...Option.match(Option.fromNullishOr(options.endpointId), {
           onNone: () => ({}),
           onSome: (endpointId) => ({ endpointId })
         }),
-        ...Option.match(Option.fromNullable(options.deploymentId), {
+        ...Option.match(Option.fromNullishOr(options.deploymentId), {
           onNone: () => ({}),
           onSome: (deploymentId) => ({ deploymentId })
         }),
-        ...Option.match(Option.fromNullable(options.runtimeFlavorHint), {
+        ...Option.match(Option.fromNullishOr(options.runtimeFlavorHint), {
           onNone: () => ({}),
           onSome: (runtimeFlavorHint) => ({ runtimeFlavorHint })
         })
       }),
-      ...Option.match(Option.fromNullable(options.capabilities), {
+      ...Option.match(Option.fromNullishOr(options.capabilities), {
         onNone: () => ({}),
         onSome: (capabilities) => ({ capabilities })
       })
@@ -297,7 +298,7 @@ export const resolve = (options: Options): Effect.Effect<Runtime.Resolution, Cap
     Match.when({ serveMode: "routed-marketplace" }, (options) =>
       Routed.resolve(
         runtimeRequest,
-        Option.fromNullable(runtimeRequest.route).pipe(
+        Option.fromNullishOr(runtimeRequest.route).pipe(
           Option.map((route) => route.baseUrl),
           Option.getOrElse(() => defaultRoutedBaseUrl)
         ),
@@ -310,7 +311,7 @@ export const resolve = (options: Options): Effect.Effect<Runtime.Resolution, Cap
     Match.exhaustive
   )
   return ensureCapabilityRequirements(
-    Option.fromNullable(runtimeRequest.capabilities),
+    Option.fromNullishOr(runtimeRequest.capabilities),
     resolution.capabilities
   ).pipe(Effect.as(resolution))
 }
@@ -328,16 +329,10 @@ const missingCapability = (capability: string) =>
 export const languageModel = (
   resolution: Runtime.Resolution
 ): Effect.Effect<Layer.Layer<LanguageModel.LanguageModel>, CapabilityMismatch> =>
-  Option.match(resolution.models.languageModel, {
-    onNone: () => Effect.fail(missingCapability("textGeneration")),
-    onSome: Effect.succeed
-  })
+  Effect.fromOption(resolution.models.languageModel, () => missingCapability("textGeneration"))
 
 /** Retrieves the resolved embedding layer or fails with a capability mismatch. @since 0.5.0 @category getters */
 export const embeddingModel = (
   resolution: Runtime.Resolution
 ): Effect.Effect<Layer.Layer<EmbeddingModel.EmbeddingModel>, CapabilityMismatch> =>
-  Option.match(resolution.models.embeddingModel, {
-    onNone: () => Effect.fail(missingCapability("embeddings")),
-    onSome: Effect.succeed
-  })
+  Effect.fromOption(resolution.models.embeddingModel, () => missingCapability("embeddings"))

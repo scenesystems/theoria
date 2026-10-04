@@ -41,7 +41,7 @@ export class ReduceOptions<I extends Schema.Struct.Fields, O extends Schema.Stru
   /** Original decoded input passed to every selected module. */
   readonly input: ProgramInput<I>
   /** Successful outputs in selected-program order. */
-  readonly outputs: Schema.Array$<Schema.Struct<O>>["Type"]
+  readonly outputs: ReadonlyArray<Schema.Schema.Type<Schema.Struct<O>>>
 }> {}
 
 /**

@@ -3,7 +3,6 @@
  *
  * @since 0.1.0
  */
-import type { Schema } from "effect"
 import {
   Array as Arr,
   Boolean as Bool,
@@ -11,6 +10,7 @@ import {
   Match,
   Number as Num,
   Option,
+  Queue,
   Ref,
   String as Str,
   SynchronizedRef,
@@ -72,7 +72,7 @@ export const ensureRunning = <Config>(
 export const publishCompletion = <Space extends SearchSpace.SearchSpace>(
   state: HandleRuntime<Space>,
   completionReason: OptimizationEvent.CompletionReason,
-  lifecycle: Schema.Schema.Type<Schema.Literal<["Completed", "Cancelled"]>>
+  lifecycle: "Completed" | "Cancelled"
 ): Effect.Effect<void, Journal.Failure> =>
   Effect.gen(function*() {
     yield* Ref.update(state.runtime.completionReasonRef, (current) =>
@@ -93,12 +93,14 @@ export const publishCompletion = <Space extends SearchSpace.SearchSpace>(
       )))
 
     yield* SynchronizedRef.updateEffect(state.completionPublishedRef, (published) =>
-      Effect.if(published, {
-        onTrue: () => Effect.succeed(true),
-        onFalse: () =>
-          appendEvent(state.runtime, OptimizationEvent.Completed({ completionReason })).pipe(Effect.as(true))
+      Effect.gen(function*() {
+        return published
+          ? true
+          : yield* appendEvent(state.runtime, OptimizationEvent.Completed({ completionReason })).pipe(
+            Effect.andThen(Queue.end(state.eventQueue)),
+            Effect.as(true)
+          )
       }))
-    yield* state.eventQueue.end
   })
 
 /**
@@ -116,9 +118,9 @@ export const completeIfBudgetReached = <Space extends SearchSpace.SearchSpace>(
     const pendingTrials = pendingTrialsFromState(runtimeState.history)
     const canComplete = Bool.every(Arr.make(
       Str.Equivalence(runtimeState.lifecycle, "Running"),
-      Num.greaterThanOrEqualTo(trialCount, state.settings.trials),
-      Arr.isEmptyArray(pendingTrials)
+      Num.isGreaterThanOrEqualTo(trialCount, state.settings.trials),
+      Arr.length(pendingTrials) === 0
     ))
 
-    yield* Effect.when(publishCompletion(state, "budgetExhausted", "Completed"), () => canComplete)
+    yield* Effect.when(publishCompletion(state, "budgetExhausted", "Completed"), Effect.succeed(canComplete))
   })

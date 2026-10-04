@@ -1,15 +1,15 @@
-import { Boolean, Schema } from "effect"
+import { Boolean, Schema, Struct } from "effect"
 import * as Arr from "effect/Array"
 
-const NonEmptyString = Schema.String.pipe(Schema.minLength(1))
-const UnitInterval = Schema.Number.pipe(Schema.between(0, 1))
+const NonEmptyString = Schema.String.pipe(Schema.check(Schema.isMinLength(1)))
+const UnitInterval = Schema.Finite.pipe(Schema.check(Schema.isBetween({ minimum: 0, maximum: 1 })))
 
 /**
  * Recorded place patterns a visitor can start from.
  *
  * @since 0.3.0
  */
-export const PlaceScenario = Schema.Literal("unfinished-light", "lost-market", "drowned-library")
+export const PlaceScenario = Schema.Literals(["unfinished-light", "lost-market", "drowned-library"])
 export type PlaceScenario = typeof PlaceScenario.Type
 export const placeScenarios = PlaceScenario.literals
 
@@ -21,10 +21,10 @@ export const placeScenarios = PlaceScenario.literals
  *
  * @since 0.3.0
  */
-export const placeScenarioMeta = Schema.Record({
-  key: PlaceScenario,
-  value: Schema.Struct({ label: Schema.String, brief: Schema.String })
-}).make({
+export const placeScenarioMeta = Schema.Record(
+  PlaceScenario,
+  Schema.Struct({ label: Schema.String, brief: Schema.String })
+).make({
   "unfinished-light": {
     label: "Unfinished light",
     brief:
@@ -48,7 +48,7 @@ export const placeScenarioMeta = Schema.Record({
  *
  * @since 0.3.0
  */
-export const ParticipantRole = Schema.Literal("author", "neighbor", "program")
+export const ParticipantRole = Schema.Literals(["author", "neighbor", "program"])
 export type ParticipantRole = typeof ParticipantRole.Type
 
 export const PlaceFeature = Schema.Struct({
@@ -67,7 +67,7 @@ export const PlaceComposition = Schema.Struct({
   title: NonEmptyString,
   summary: NonEmptyString,
   atmosphere: NonEmptyString,
-  features: Schema.Array(PlaceFeature).pipe(Schema.minItems(3))
+  features: Schema.Array(PlaceFeature).pipe(Schema.check(Schema.isMinLength(3)))
 })
 export type PlaceComposition = typeof PlaceComposition.Type
 
@@ -120,7 +120,7 @@ export type PlaceArtifact = typeof PlaceArtifact.Type
  *
  * @since 0.3.0
  */
-export const PlaceOutline = PlaceArtifact.pipe(Schema.pick("composition", "accepted"))
+export const PlaceOutline = PlaceArtifact.mapFields(Struct.pick(["composition", "accepted"]))
 export type PlaceOutline = typeof PlaceOutline.Type
 
 /**
@@ -171,7 +171,7 @@ export type VersionShape = typeof VersionShape.Type
  */
 export const versionShapes = (place: PlaceOutline): Arr.NonEmptyReadonlyArray<VersionShape> => {
   const origin = VersionShape.make({ version: 1, featureCount: Arr.length(place.composition.features) })
-  return Boolean.match(Arr.isEmptyReadonlyArray(place.accepted), {
+  return Boolean.match(Arr.match(place.accepted, { onEmpty: () => true, onNonEmpty: () => false }), {
     onTrue: () => Arr.of(origin),
     onFalse: () => Arr.make(origin, VersionShape.make({ version: 2, featureCount: Arr.length(placeFeatures(place)) }))
   })
@@ -201,7 +201,7 @@ export type PlaceAcceptances = typeof PlaceAcceptances.Type
  */
 export const PlaceBuildRequest = Schema.Struct({
   scenario: PlaceScenario,
-  brief: NonEmptyString.pipe(Schema.maxLength(briefMaxLength)),
+  brief: NonEmptyString.pipe(Schema.check(Schema.isMaxLength(briefMaxLength))),
   ...PlaceAcceptances.fields
 })
 export type PlaceBuildRequest = typeof PlaceBuildRequest.Type
@@ -423,6 +423,6 @@ export const placeScenarioRecordings: Record<PlaceScenario, PlaceScenarioRecordi
 export class PlaceBuildError extends Schema.TaggedError<PlaceBuildError>(
   "@theoria/app/contracts/ImaginedPlace/PlaceBuildError"
 )("PlaceBuildError", {
-  stage: Schema.Literal("compose", "propose", "identity", "render", "signature", "seal"),
+  stage: Schema.Literals(["compose", "propose", "identity", "render", "signature", "seal"]),
   message: Schema.String
 }) {}

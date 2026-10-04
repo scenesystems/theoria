@@ -6,20 +6,20 @@ import * as Module from "@scenesystems/effect-dsp/Module"
 import * as ModuleGraph from "@scenesystems/effect-dsp/ModuleGraph"
 import { Array as Arr, Effect, Number as Num, Option, Schema, Tuple } from "effect"
 
-const makeGraph = (children: ReadonlyArray<Schema.Array$<typeof Schema.String>["Type"]>) =>
+const makeGraph = (children: ReadonlyArray<ReadonlyArray<string>>) =>
   Effect.gen(function*() {
     const rows = yield* Effect.forEach(children, (row) =>
-      Effect.forEach(row, (value) => Schema.decodeUnknown(Module.Id)(value)))
+      Effect.forEach(row, (value) => Schema.decodeEffect(Module.Id)(value)))
     const nodes = yield* Effect.forEach(rows, (row) =>
       Effect.gen(function*() {
-        const moduleId = yield* Arr.head(row)
+        const moduleId = Option.getOrThrow(Arr.head(row))
         return new ModuleGraph.Node({
           moduleId,
           signature: new Module.NodeSignature({ description: "graph", instructions: "graph" }),
           subModuleIds: Arr.drop(row, 1)
         })
       }))
-    const root = yield* Arr.head(nodes)
+    const root = Option.getOrThrow(Arr.head(nodes))
     return new ModuleGraph.ModuleGraph({ rootId: root.moduleId, nodes, edges: Arr.empty() })
   })
 
@@ -27,10 +27,12 @@ describe("ModuleGraph", () => {
   it.effect("walks a deep wire graph without recursive stack growth", () =>
     Effect.gen(function*() {
       const ids = yield* Effect.forEach(Arr.range(0, 3999), (index) =>
-        Schema.encode(Schema.NumberFromString)(index).pipe(
-          Effect.flatMap((value) => Schema.decodeUnknown(Module.Id)(Arr.join(Arr.make("node-", value), "")))
+        Schema.encodeEffect(Schema.FiniteFromString)(index).pipe(
+          Effect.flatMap((value) =>
+            Schema.decodeEffect(Module.Id)(Arr.join(Arr.make("node-", value), ""))
+          )
         ))
-      const rootId = yield* Arr.head(ids)
+      const rootId = Option.getOrThrow(Arr.head(ids))
       const nodes = Arr.map(ids, (moduleId, index) =>
         new ModuleGraph.Node({
           moduleId,
@@ -55,11 +57,11 @@ describe("ModuleGraph", () => {
         Arr.make("a-last", "target"),
         Arr.make("unreachable")
       ))
-      const target = yield* Schema.decodeUnknown(Module.Id)("target")
-      const missing = yield* Schema.decodeUnknown(Module.Id)("unreachable")
+      const target = yield* Schema.decodeEffect(Module.Id)("target")
+      const missing = yield* Schema.decodeEffect(Module.Id)("unreachable")
       const projection = ModuleGraph.project(graph)
       expect(projection.traversal).toEqual(Arr.make("root", "z-first", "deep", "target", "sibling", "a-last"))
-      expect((yield* ModuleGraph.lineage(graph, target)).path).toEqual(
+      expect((Option.getOrThrow(ModuleGraph.lineage(graph, target))).path).toEqual(
         Arr.make("root", "z-first", "deep", "target")
       )
       expect(Option.isNone(ModuleGraph.lineage(graph, missing))).toBe(true)
@@ -79,8 +81,8 @@ describe("ModuleGraph", () => {
         Arr.make("root", "stale"),
         Arr.make("root", "missing")
       ))
-      const target = yield* Schema.decodeUnknown(Module.Id)("missing")
+      const target = yield* Schema.decodeEffect(Module.Id)("missing")
       expect(ModuleGraph.traversal(graph)).toEqual(Arr.make("root", "missing"))
-      expect((yield* ModuleGraph.lineage(graph, target)).path).toEqual(Arr.make("root", "missing"))
+      expect((Option.getOrThrow(ModuleGraph.lineage(graph, target))).path).toEqual(Arr.make("root", "missing"))
     }))
 })

@@ -3,14 +3,14 @@ import { Effect, Match, Number, Schema } from "effect"
 
 import * as Policy from "../../src/Policy.js"
 
-const deterministic = Schema.decodeUnknownSync(Policy.DeterministicOptions)({
+const deterministic = Schema.decodeSync(Policy.DeterministicOptions)({
   seed: Policy.Seed.make(42),
   precision: "strict",
   backend: "compensated",
   diagnostics: "enabled"
 })
 
-const nondeterministic = Schema.decodeUnknownSync(Policy.NondeterministicOptions)({
+const nondeterministic = Schema.decodeSync(Policy.NondeterministicOptions)({
   precision: "relaxed",
   backend: "scalar",
   diagnostics: "disabled"
@@ -22,8 +22,8 @@ describe("Policy", () => {
       const seeded = yield* Policy.snapshot.pipe(Effect.provide(Policy.layerDeterministic(deterministic)))
       const unseeded = yield* Policy.snapshot.pipe(Effect.provide(Policy.layerNondeterministic(nondeterministic)))
 
-      expect(yield* Schema.decodeUnknown(Policy.Settings)(seeded)).toStrictEqual(seeded)
-      expect(yield* Schema.decodeUnknown(Policy.Settings)(unseeded)).toStrictEqual(unseeded)
+      expect(yield* Schema.decodeEffect(Policy.Settings)(seeded)).toStrictEqual(seeded)
+      expect(yield* Schema.decodeEffect(Policy.Settings)(unseeded)).toStrictEqual(unseeded)
       expect(
         Match.value(seeded.rngPolicy).pipe(
           Match.when({ policy: "deterministic" }, ({ seed }) => Number.Equivalence(seed, deterministic.seed)),
@@ -38,13 +38,13 @@ describe("Policy", () => {
 
   it.effect("rejects deterministic-only fields on nondeterministic policy input", () =>
     Effect.gen(function*() {
-      const decoded = yield* Effect.either(
-        Schema.decodeUnknown(Policy.RandomnessPolicy)(
+      const decoded = yield* Effect.result(
+        Schema.decodeUnknownEffect(Policy.RandomnessPolicy)(
           { policy: "nondeterministic", seed: Policy.Seed.make(7) },
           { onExcessProperty: "error" }
         )
       )
 
-      expect(decoded._tag).toStrictEqual("Left")
+      expect(decoded._tag).toStrictEqual("Failure")
     }))
 })

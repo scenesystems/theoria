@@ -1,5 +1,5 @@
 import { describe, expect, it } from "@effect/vitest"
-import { Array as Arr, Effect, Either, Number as Num, Option, Schema, Tuple } from "effect"
+import { Array as Arr, Effect, Option, Result, Schema, Tuple } from "effect"
 
 import * as Acquisition from "../../src/Acquisition.js"
 import * as Direction from "../../src/Direction.js"
@@ -23,12 +23,12 @@ describe("domain schemas", () => {
     Effect.sync(() => {
       const distribution: Distribution.Distribution = {
         type: "float",
-        low: Num.negate(1),
+        low: -1,
         high: 1,
         scale: "linear"
       }
-      const annotated = Distribution.annotate(Schema.Number, distribution)
-      const invalid = Schema.Number.annotations({
+      const annotated = Distribution.annotate(Schema.Finite, distribution)
+      const invalid = Schema.Finite.annotate({
         "@scenesystems/effect-search/Distribution": { type: "unknown" }
       })
 
@@ -43,7 +43,7 @@ describe("domain schemas", () => {
         direction: "minimize",
         directions: Tuple.make(Direction.maximize, Direction.minimize)
       })
-      const decoded = yield* Schema.decode(Objective.Value)(Arr.make(1, Number.POSITIVE_INFINITY))
+      const decoded = yield* Schema.decodeEffect(Objective.Value)(Arr.make(1, Number.POSITIVE_INFINITY))
 
       expect(Objective.dimensions(scalar)).toBe(1)
       expect(Objective.dimensions(vector)).toBe(2)
@@ -57,7 +57,7 @@ describe("domain schemas", () => {
 
   it.effect("rejects unknown directions", () =>
     Effect.gen(function*() {
-      const result = yield* Schema.decodeUnknown(Direction.Direction)("ascending").pipe(Effect.either)
-      expect(Either.isLeft(result)).toBe(true)
+      const result = yield* Schema.decodeUnknownEffect(Direction.Direction)("ascending").pipe(Effect.result)
+      expect(Result.isFailure(result)).toBe(true)
     }))
 })

@@ -1,5 +1,5 @@
 import { describe, expect, it } from "@effect/vitest"
-import { Array as Arr, Effect, Number, Option, Schema } from "effect"
+import { Array as Arr, Effect, Option, Schema } from "effect"
 
 import * as RuntimeEvidence from "@scenesystems/effect-inference/RuntimeEvidence"
 import * as Testing from "@scenesystems/effect-inference/Testing"
@@ -25,19 +25,19 @@ describe("RuntimeEvidence", () => {
           }
         })
       )
-      const encoded = yield* Schema.encode(RuntimeEvidence.RuntimeEvidence)(evidence)
+      const encoded = yield* Schema.encodeEffect(RuntimeEvidence.RuntimeEvidence)(evidence)
       const decoded = yield* RuntimeEvidence.decodeUnknown(encoded)
-      const metadata = yield* Option.fromNullable(decoded.response.providerMetadata)
-      const provider = yield* Option.fromNullable(metadata.provider)
-      const nested = consumeMetadataValue(yield* Option.fromNullable(provider.nested))
+      const metadata = yield* Effect.fromOption(Option.fromNullishOr(decoded.response.providerMetadata))
+      const provider = yield* Effect.fromOption(Option.fromNullishOr(metadata.provider))
+      const nested = consumeMetadataValue(yield* Effect.fromOption(Option.fromNullishOr(provider.nested)))
 
       expect(decoded.request.model.modelRef).toBe("requested/model")
       expect(decoded.response.responseModel).toBe("reported/model")
-      expect(Option.fromNullable(decoded.response.usage).pipe(Option.map((usage) => usage.totalTokens))).toEqual(
+      expect(Option.fromNullishOr(decoded.response.usage).pipe(Option.map((usage) => usage.totalTokens))).toEqual(
         Option.some(16)
       )
       expect(
-        Option.fromNullable(provider.requestId)
+        Option.fromNullishOr(provider.requestId)
       ).toEqual(Option.some("request-1"))
       expect(nested).toEqual({ values: ["text", 42, true, null, { cached: false }] })
       expect(encoded.response.providerMetadata).toEqual(evidence.response.providerMetadata)
@@ -45,7 +45,7 @@ describe("RuntimeEvidence", () => {
 
   it.effect("rejects functions, undefined values, and non-finite numbers from persisted metadata", () =>
     Effect.forEach(
-      Arr.make(Effect.void, undefined, Number.unsafeDivide(1, 0), Number.unsafeDivide(0, 0)),
+      Arr.make(() => Effect.void, undefined, Infinity, NaN),
       (invalid) =>
         RuntimeEvidence.decodeUnknown({
           request: { model: { modelRef: "model" } },

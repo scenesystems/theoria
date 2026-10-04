@@ -80,21 +80,21 @@ describe("LinearAlgebra / normL2", () => {
     Effect.gen(function*() {
       const result = normL2(Chunk.make(1e308, 1e308))
       expect(Schema.is(Schema.Finite)(result)).toBe(true)
-      expect(Number.greaterThan(result, 1e308)).toBe(true)
+      expect(Number.isGreaterThan(result, 1e308)).toBe(true)
     }))
 })
 
 describe("LinearAlgebra / normL1", () => {
   it.effect("computes L1 norm", () =>
     Effect.gen(function*() {
-      expect(normL1(Chunk.make(Number.negate(1), 2, Number.negate(3)))).toStrictEqual(6)
+      expect(normL1(Chunk.make(Number.multiply(-1, 1), 2, Number.multiply(-1, 3)))).toStrictEqual(6)
     }))
 })
 
 describe("LinearAlgebra / normLinf", () => {
   it.effect("computes infinity norm", () =>
     Effect.gen(function*() {
-      expect(normLinf(Chunk.make(Number.negate(1), 5, Number.negate(3)))).toStrictEqual(5)
+      expect(normLinf(Chunk.make(Number.multiply(-1, 1), 5, Number.multiply(-1, 3)))).toStrictEqual(5)
     }))
 })
 
@@ -187,14 +187,14 @@ describe("LinearAlgebra / cholesky", () => {
   it.effect("preserves row-major pivot order for a three-dimensional factor", () =>
     Effect.gen(function*() {
       const decomposed = cholesky(
-        Chunk.make(25, 15, Number.negate(5), 15, 18, 0, Number.negate(5), 0, 11),
+        Chunk.make(25, 15, Number.multiply(-1, 5), 15, 18, 0, Number.multiply(-1, 5), 0, 11),
         3
       )
       expect(Option.isSome(decomposed)).toBe(true)
       Option.map(decomposed, (lower) =>
         expect(Equal.equals(
           lower,
-          Chunk.make(5, 0, 0, 3, 3, 0, Number.negate(1), 1, 3)
+          Chunk.make(5, 0, 0, 3, 3, 0, Number.multiply(-1, 1), 1, 3)
         )).toBe(true))
     }))
 })
@@ -232,8 +232,8 @@ describe("LinearAlgebra / solveSpd", () => {
       expect(Option.isSome(solved)).toStrictEqual(true)
 
       Option.map(solved, (values) => {
-        expect(Option.getOrElse(Chunk.get(values, 0), () => 0)).toBeCloseTo(Number.unsafeDivide(1, 11))
-        expect(Option.getOrElse(Chunk.get(values, 1), () => 0)).toBeCloseTo(Number.unsafeDivide(7, 11))
+        expect(Option.getOrElse(Chunk.get(values, 0), () => 0)).toBeCloseTo(Number.divideUnsafe(1, 11))
+        expect(Option.getOrElse(Chunk.get(values, 1), () => 0)).toBeCloseTo(Number.divideUnsafe(7, 11))
       })
     }))
 
@@ -252,14 +252,14 @@ describe("LinearAlgebra / solveSpd", () => {
   it.effect("solves an asymmetric-value three-dimensional SPD system in row-major order", () =>
     Effect.gen(function*() {
       const solved = solveSpd(
-        Chunk.make(25, 15, Number.negate(5), 15, 18, 0, Number.negate(5), 0, 11),
+        Chunk.make(25, 15, Number.multiply(-1, 5), 15, 18, 0, Number.multiply(-1, 5), 0, 11),
         3,
         Chunk.make(40, 51, 28)
       )
       expect(Option.isSome(solved)).toBe(true)
       Option.map(solved, (solution) => {
         Chunk.forEach(Chunk.zip(solution, Chunk.make(1, 2, 3)), (pair) =>
-          expect(Tuple.getFirst(pair)).toBeCloseTo(Tuple.getSecond(pair)))
+          expect(Tuple.get(pair, 0)).toBeCloseTo(Tuple.get(pair, 1)))
       })
     }))
 })
@@ -342,13 +342,19 @@ describe("LinearAlgebra / normValidated", () => {
 
   it.effect("computes L1 norm via schema-validated input", () =>
     Effect.gen(function*() {
-      const result = yield* normValidated({ values: Array.make(Number.negate(1), 2, Number.negate(3)), kind: "L1" })
+      const result = yield* normValidated({
+        values: Array.make(Number.multiply(-1, 1), 2, Number.multiply(-1, 3)),
+        kind: "L1"
+      })
       expect(result).toStrictEqual(6)
     }))
 
   it.effect("computes Linf norm via schema-validated input", () =>
     Effect.gen(function*() {
-      const result = yield* normValidated({ values: Array.make(Number.negate(1), 5, Number.negate(3)), kind: "Linf" })
+      const result = yield* normValidated({
+        values: Array.make(Number.multiply(-1, 1), 5, Number.multiply(-1, 3)),
+        kind: "Linf"
+      })
       expect(result).toStrictEqual(5)
     }))
 

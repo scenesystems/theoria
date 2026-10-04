@@ -5,7 +5,7 @@
  * @module
  */
 import * as StudyArtifact from "@scenesystems/effect-study/Artifact"
-import { Data, Schema } from "effect"
+import { Data, Schema, Struct } from "effect"
 
 import * as Events from "./OptimizationEvent.js"
 import * as Snapshots from "./OptimizationSnapshot.js"
@@ -17,9 +17,8 @@ import * as Trial from "./Trial.js"
  * @since 0.4.4
  * @category schemas
  */
-export const Source = StudyArtifact.Source.pipe(
-  Schema.omit("origin"),
-  Schema.extend(Schema.Struct({ origin: Schema.Literal("effect-search", "external") }))
+export const Source = StudyArtifact.Source.mapFields(
+  Struct.evolve({ origin: () => Schema.Literals(["effect-search", "external"]) })
 )
 
 /** Search source provenance decoded by {@link Source}. @since 0.4.4 @category models */
@@ -31,7 +30,7 @@ export type Source = typeof Source.Type
  * @since 0.4.4
  * @category schemas
  */
-export const Producer = Schema.Union(
+export const Producer = Schema.Union([
   Schema.TaggedStruct("EffectSearch", {
     packageVersion: StudyArtifact.PackageVersion,
     component: StudyArtifact.ComponentPath,
@@ -41,7 +40,7 @@ export const Producer = Schema.Union(
     name: Schema.NonEmptyString,
     version: Schema.NonEmptyString
   })
-)
+])
 
 /** Search artifact producer decoded by {@link Producer}. @since 0.4.4 @category models */
 export type Producer = typeof Producer.Type
@@ -68,20 +67,26 @@ export const Lineage = StudyArtifact.Lineage(Source)
 /** Search artifact lineage decoded by {@link Lineage}. @since 0.4.4 @category models */
 export type Lineage = typeof Lineage.Type
 
-const envelopePayload = Schema.Union(
-  Schema.TaggedStruct("TrialLog", { trial: Trial.Trial(Schema.Unknown) }),
-  Schema.TaggedStruct("OptimizationSnapshot", { snapshot: Snapshots.OptimizationSnapshot }),
-  Schema.TaggedStruct("OptimizationEvent", { event: Events.OptimizationEvent }),
-  Schema.TaggedStruct("Custom", { payload: StudyArtifact.Payload })
-)
-
 /**
  * Search artifact envelope composed from shared artifact schemas.
  *
  * @since 0.4.4
  * @category schemas
  */
-export const Envelope = StudyArtifact.Envelope(Producer, Lineage, envelopePayload)
+export const Envelope = Schema.Union([
+  StudyArtifact.Envelope(Producer, Lineage, Schema.TaggedStruct("TrialLog", { trial: Trial.Trial(Schema.Unknown) })),
+  StudyArtifact.Envelope(
+    Producer,
+    Lineage,
+    Schema.TaggedStruct("OptimizationSnapshot", { snapshot: Snapshots.OptimizationSnapshot })
+  ),
+  StudyArtifact.Envelope(
+    Producer,
+    Lineage,
+    Schema.TaggedStruct("OptimizationEvent", { event: Events.OptimizationEvent })
+  ),
+  StudyArtifact.Envelope(Producer, Lineage, Schema.TaggedStruct("Custom", { payload: StudyArtifact.Payload }))
+])
 
 /** Search artifact envelope decoded by {@link Envelope}. @since 0.4.4 @category models */
 export type Envelope = typeof Envelope.Type

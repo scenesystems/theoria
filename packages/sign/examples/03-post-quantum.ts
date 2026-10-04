@@ -5,19 +5,20 @@
  * Run: bun run examples/03-post-quantum.ts
  */
 
-import * as BunRuntime from "@effect/platform-bun/BunRuntime"
+import { BunRuntime } from "@effect/platform-bun"
 import { Bytes, Entropy, MlDsa, XWing } from "@scenesystems/sign"
-import { Effect, Encoding } from "effect"
+import { Effect } from "effect"
+import { Hex } from "effect/encoding"
 
 const program = Effect.gen(function*() {
-  const sigKeys = yield* MlDsa.generateKeyPair65()
+  const sigKeys = yield* MlDsa.generateKeyPair65
   yield* Effect.log("ML-DSA-65 key pair", {
     publicKeyBytes: sigKeys.publicKey.byteLength,
     secretKeyBytes: sigKeys.secretKey.byteLength
   })
 
-  const message = Bytes.fromString("quantum-resistant document signing")
-  const context = yield* Encoding.decodeHex("")
+  const message = yield* Bytes.fromString("quantum-resistant document signing")
+  const context = yield* Effect.fromResult(Hex.decode(""))
   const entropy32 = yield* Entropy.bytes(MlDsa.entropyBytes)
   const sig = yield* MlDsa.sign65Hedged(message, sigKeys.secretKey, sigKeys.publicKey, context, entropy32)
   const valid = yield* MlDsa.verify65(sig.signature, message, sigKeys.publicKey, context)
@@ -26,7 +27,7 @@ const program = Effect.gen(function*() {
     verified: valid
   })
 
-  const recipient = yield* XWing.generateKeyPair()
+  const recipient = yield* XWing.generateKeyPair
   yield* Effect.log("XWing key pair", {
     publicKeyBytes: recipient.publicKey.byteLength,
     secretKeyBytes: recipient.secretKey.byteLength

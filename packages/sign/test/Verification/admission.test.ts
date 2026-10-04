@@ -3,9 +3,7 @@ import { Bytes, Ed25519, Entropy, MlDsa, P256, Rsa, Signature, Verification } fr
 import {
   Array as Arr,
   Boolean as B,
-  Data,
   Effect,
-  Encoding,
   identity,
   Iterable,
   Match,
@@ -14,18 +12,20 @@ import {
   Schema,
   Tuple
 } from "effect"
+import * as Encoding from "effect/encoding"
+
+const decodeHex = (value: string) => Effect.fromResult(Encoding.Hex.decode(value))
 import { Ed25519Fixture, P256Fixture, RsaWycheproofFixture } from "../../scripts/fixture-contract.js"
 import ed25519Corpus from "../fixtures/conformance/ed25519.json" with { type: "json" }
 import p256Corpus from "../fixtures/conformance/p256.json" with { type: "json" }
 import rsaCorpus from "../fixtures/conformance/rsa-wycheproof.json" with { type: "json" }
 
-const copyBytes = (bytes: Uint8Array) =>
-  Schema.encode(Schema.Uint8Array)(bytes).pipe(Effect.flatMap(Schema.decode(Schema.Uint8Array)))
+const copyBytes = (bytes: Uint8Array) => Effect.succeed(new Uint8Array(bytes))
 
 /** Test-only host operation: detach real storage, including an empty buffer. */
 const detachedBytes = (bytes: Uint8Array) =>
   Effect.gen(function*() {
-    const buffer = yield* Schema.decodeUnknown(Schema.instanceOf(ArrayBuffer))(bytes.buffer)
+    const buffer = yield* Schema.decodeUnknownEffect(Schema.instanceOf(ArrayBuffer))(bytes.buffer)
     yield* Effect.sync(() => buffer.transfer())
     return bytes
   })
@@ -34,14 +34,14 @@ const detachedBytes = (bytes: Uint8Array) =>
 const uncopyableBytes = (bytes: Uint8Array, unreadableLength = false) =>
   Effect.sync(() =>
     new Proxy(bytes, {
-      get: (target, property) =>
+      get: (target, property): unknown =>
         Match.value(property).pipe(
           Match.when("length", () =>
             B.match(unreadableLength, {
               onTrue: () => Schema.decodeUnknownSync(Schema.Never)(target.length),
               onFalse: () => target.length
             })),
-          Match.orElse(() => Reflect.get(target, property))
+          Match.orElse((): unknown => Reflect.get(target, property))
         )
     })
   )
@@ -50,10 +50,10 @@ const uncopyableBytes = (bytes: Uint8Array, unreadableLength = false) =>
 const misreportedBytes = (bytes: Uint8Array, length: number, transform: (byte: number) => number = identity) =>
   Effect.sync(() => {
     const pulls = MutableRef.make(0)
-    return Data.struct({
+    return ({
       pulls,
       bytes: new Proxy(bytes, {
-        get: (target, property) =>
+        get: (target, property): unknown =>
           Match.value(property).pipe(
             Match.when("length", () => length),
             Match.when(Symbol.iterator, () => () =>
@@ -61,7 +61,7 @@ const misreportedBytes = (bytes: Uint8Array, length: number, transform: (byte: n
                 MutableRef.update(pulls, N.increment)
                 return transform(byte)
               })[Symbol.iterator]()),
-            Match.orElse(() => Reflect.get(target, property))
+            Match.orElse((): unknown => Reflect.get(target, property))
           )
       })
     })
@@ -70,9 +70,9 @@ const misreportedBytes = (bytes: Uint8Array, length: number, transform: (byte: n
 describe("strict direct verification admission", () => {
   it.effect("rejects fractional iterator values instead of truncating them into authentic bytes", () =>
     Effect.gen(function*() {
-      const seed = yield* Encoding.decodeHex("9d61b19deffd5a60ba844af492ec2cc44449c5697b326919703bac031cae7f60")
+      const seed = yield* decodeHex("9d61b19deffd5a60ba844af492ec2cc44449c5697b326919703bac031cae7f60")
       const keys = yield* Ed25519.keyPairFromSeed(seed)
-      const message = Bytes.fromString("a")
+      const message = yield* Bytes.fromString("a")
       const signed = yield* Ed25519.sign(message, keys.secretKey, keys.publicKey)
       const fractionalMessage = yield* misreportedBytes(message, message.length, N.sum(0.5))
       expect(yield* Effect.flip(Ed25519.verify(signed.signature, fractionalMessage.bytes, keys.publicKey)))
@@ -80,15 +80,15 @@ describe("strict direct verification admission", () => {
       const fractionalSeed = yield* misreportedBytes(seed, seed.length, N.sum(0.5))
       expect(yield* Effect.flip(Ed25519.keyPairFromSeed(fractionalSeed.bytes)))
         .toEqual(new Ed25519.InvalidSeed({}))
-      const pqKeys = yield* MlDsa.generateKeyPair65()
-      const entropy = yield* Schema.decode(Schema.Uint8Array)(Arr.replicate(0x42, MlDsa.entropyBytes))
+      const pqKeys = yield* MlDsa.generateKeyPair65
+      const entropy = new Uint8Array(Arr.replicate(0x42, MlDsa.entropyBytes))
       const fractionalEntropy = yield* misreportedBytes(entropy, entropy.length, N.sum(0.5))
       expect(
         yield* Effect.flip(MlDsa.sign65Hedged(
           message,
           pqKeys.secretKey,
           pqKeys.publicKey,
-          Bytes.fromString(""),
+          yield* Bytes.fromString(""),
           fractionalEntropy.bytes
         ))
       ).toEqual(new Signature.SigningFailed({ algorithm: "ml-dsa-65", reason: "invalid input" }))
@@ -97,28 +97,28 @@ describe("strict direct verification admission", () => {
   it.effect("bounds traversal and rejects lengths that disagree with the snapshot across strict suites", () =>
     Effect.gen(function*() {
       const ed25519 = Arr.headNonEmpty(
-        (yield* Schema.decodeUnknown(Schema.typeSchema(Ed25519Fixture))(ed25519Corpus)).cases
+        (yield* Schema.decodeUnknownEffect(Schema.toType(Ed25519Fixture))(ed25519Corpus)).cases
       )
       const p256 = Arr.headNonEmpty(
-        (yield* Schema.decodeUnknown(Schema.typeSchema(P256Fixture))(p256Corpus)).cases
+        (yield* Schema.decodeUnknownEffect(Schema.toType(P256Fixture))(p256Corpus)).cases
       )
-      const keys = yield* MlDsa.generateKeyPair65()
-      const empty = Bytes.fromString("")
+      const keys = yield* MlDsa.generateKeyPair65
+      const empty = yield* Bytes.fromString("")
       const signed = yield* MlDsa.sign65Deterministic(empty, keys.secretKey, keys.publicKey)
-      const overLimit = yield* Schema.decode(Schema.Uint8Array)(
+      const overLimit = new Uint8Array(
         Arr.replicate(0x71, N.increment(Verification.maxMessageBytes))
       )
       yield* Effect.forEach(
         Arr.make(
           Tuple.make(
             Ed25519.verify,
-            yield* Encoding.decodeHex(ed25519.signature),
-            yield* Encoding.decodeHex(ed25519.publicKey)
+            yield* decodeHex(ed25519.signature),
+            yield* decodeHex(ed25519.publicKey)
           ),
           Tuple.make(
             P256.verify,
-            yield* Encoding.decodeHex(p256.signature),
-            yield* Encoding.decodeHex(p256.publicKey.uncompressed)
+            yield* decodeHex(p256.signature),
+            yield* decodeHex(p256.publicKey.uncompressed)
           ),
           Tuple.make(
             (signature: Uint8Array, message: Uint8Array, publicKey: Uint8Array) =>
@@ -134,10 +134,10 @@ describe("strict direct verification admission", () => {
               .toEqual(new Verification.InvalidInput({}))
             expect(MutableRef.get(hiddenMessage.pulls)).toBe(1)
 
-            const excessSignature = yield* Schema.decode(Schema.Uint8Array)(
+            const excessSignature = new Uint8Array(
               Arr.append(Arr.fromIterable(signature), 0)
             )
-            const excessKey = yield* Schema.decode(Schema.Uint8Array)(Arr.append(Arr.fromIterable(publicKey), 0))
+            const excessKey = new Uint8Array(Arr.append(Arr.fromIterable(publicKey), 0))
             const honestSignature = yield* misreportedBytes(excessSignature, excessSignature.length)
             const honestKey = yield* misreportedBytes(excessKey, excessKey.length)
             expect(yield* Effect.flip(verify(honestSignature.bytes, empty, publicKey)))
@@ -157,10 +157,10 @@ describe("strict direct verification admission", () => {
       )
 
       const rsa = Arr.headNonEmpty(
-        (yield* Schema.decodeUnknown(Schema.typeSchema(RsaWycheproofFixture))(rsaCorpus)).testGroups
+        (yield* Schema.decodeUnknownEffect(Schema.toType(RsaWycheproofFixture))(rsaCorpus)).testGroups
       )
       const rsaKey = yield* Rsa.publicKeyFromJwk(rsa.keyJwk)
-      const rsaSignature = yield* Schema.decode(Schema.Uint8Array)(Arr.replicate(0, 256))
+      const rsaSignature = new Uint8Array(Arr.replicate(0, 256))
       const hiddenMessage = yield* misreportedBytes(overLimit, 0)
       expect(yield* Effect.flip(Rsa.verify(rsaSignature, hiddenMessage.bytes, rsaKey)))
         .toEqual(new Verification.InvalidInput({}))
@@ -169,14 +169,14 @@ describe("strict direct verification admission", () => {
 
   it.effect("classifies inconsistent seed, context, and entropy snapshots as invalid input", () =>
     Effect.gen(function*() {
-      const seed = yield* Encoding.decodeHex("9d61b19deffd5a60ba844af492ec2cc44449c5697b326919703bac031cae7f60")
-      const hiddenSeed = yield* misreportedBytes(Bytes.fromString("short"), seed.length)
+      const seed = yield* decodeHex("9d61b19deffd5a60ba844af492ec2cc44449c5697b326919703bac031cae7f60")
+      const hiddenSeed = yield* misreportedBytes(yield* Bytes.fromString("short"), seed.length)
       expect(yield* Effect.flip(Ed25519.keyPairFromSeed(hiddenSeed.bytes))).toEqual(new Ed25519.InvalidSeed({}))
-      const keys = yield* MlDsa.generateKeyPair65()
-      const empty = Bytes.fromString("")
-      const entropy = yield* Schema.decode(Schema.Uint8Array)(Arr.replicate(0x42, MlDsa.entropyBytes))
-      const hiddenEntropy = yield* misreportedBytes(Bytes.fromString("short"), MlDsa.entropyBytes)
-      const context = yield* misreportedBytes(Bytes.fromString("not empty"), 0)
+      const keys = yield* MlDsa.generateKeyPair65
+      const empty = yield* Bytes.fromString("")
+      const entropy = new Uint8Array(Arr.replicate(0x42, MlDsa.entropyBytes))
+      const hiddenEntropy = yield* misreportedBytes(yield* Bytes.fromString("short"), MlDsa.entropyBytes)
+      const context = yield* misreportedBytes(yield* Bytes.fromString("not empty"), 0)
       const signed = yield* MlDsa.sign65Hedged(empty, keys.secretKey, keys.publicKey, empty, entropy)
       expect(yield* Effect.flip(MlDsa.verify65(signed.signature, empty, keys.publicKey, context.bytes)))
         .toEqual(new Verification.InvalidInput({}))
@@ -196,14 +196,14 @@ describe("strict direct verification admission", () => {
   it.effect("rejects one unreadable input in otherwise genuine verification, including detachment after construction", () =>
     Effect.gen(function*() {
       const ed25519 = Arr.headNonEmpty(
-        (yield* Schema.decodeUnknown(Schema.typeSchema(Ed25519Fixture))(ed25519Corpus)).cases
+        (yield* Schema.decodeUnknownEffect(Schema.toType(Ed25519Fixture))(ed25519Corpus)).cases
       )
       const p256 = Arr.headNonEmpty(
-        (yield* Schema.decodeUnknown(Schema.typeSchema(P256Fixture))(p256Corpus)).cases
+        (yield* Schema.decodeUnknownEffect(Schema.toType(P256Fixture))(p256Corpus)).cases
       )
-      const keys = yield* MlDsa.generateKeyPair65()
-      const empty = Bytes.fromString("")
-      const entropy = yield* Schema.decode(Schema.Uint8Array)(Arr.replicate(0x42, MlDsa.entropyBytes))
+      const keys = yield* MlDsa.generateKeyPair65
+      const empty = yield* Bytes.fromString("")
+      const entropy = new Uint8Array(Arr.replicate(0x42, MlDsa.entropyBytes))
       const signed = yield* MlDsa.sign65Hedged(empty, keys.secretKey, keys.publicKey, empty, entropy)
       const verifyMlDsa = (signature: Uint8Array, message: Uint8Array, publicKey: Uint8Array) =>
         MlDsa.verify65(signature, message, publicKey, empty)
@@ -213,16 +213,16 @@ describe("strict direct verification admission", () => {
           Tuple.make(
             "Ed25519",
             Ed25519.verify,
-            yield* Encoding.decodeHex(ed25519.signature),
-            yield* Encoding.decodeHex(ed25519.message),
-            yield* Encoding.decodeHex(ed25519.publicKey)
+            yield* decodeHex(ed25519.signature),
+            yield* decodeHex(ed25519.message),
+            yield* decodeHex(ed25519.publicKey)
           ),
           Tuple.make(
             "P-256",
             P256.verify,
-            yield* Encoding.decodeHex(p256.signature),
-            yield* Encoding.decodeHex(p256.message),
-            yield* Encoding.decodeHex(p256.publicKey.uncompressed)
+            yield* decodeHex(p256.signature),
+            yield* decodeHex(p256.message),
+            yield* decodeHex(p256.publicKey.uncompressed)
           ),
           Tuple.make("ML-DSA-65", verifyMlDsa, signed.signature, empty, keys.publicKey)
         ),
@@ -251,8 +251,8 @@ describe("strict direct verification admission", () => {
             yield* detachedBytes(pendingMessage)
             expect(yield* Effect.flip(pending), name).toEqual(new Verification.InvalidInput({}))
 
-            const atLimit = yield* Schema.decode(Schema.Uint8Array)(Arr.replicate(0, Verification.maxMessageBytes))
-            const overLimit = yield* Schema.decode(Schema.Uint8Array)(
+            const atLimit = new Uint8Array(Arr.replicate(0, Verification.maxMessageBytes))
+            const overLimit = new Uint8Array(
               Arr.replicate(0, N.increment(Verification.maxMessageBytes))
             )
             expect(yield* verify(signature, atLimit, publicKey), name).toBe(false)
@@ -276,12 +276,12 @@ describe("strict direct verification admission", () => {
   it.effect("rejects unreadable RSA verification bytes and Ed25519 reconstruction seeds as admission failures", () =>
     Effect.gen(function*() {
       const rsa = Arr.headNonEmpty(
-        (yield* Schema.decodeUnknown(Schema.typeSchema(RsaWycheproofFixture))(rsaCorpus)).testGroups
+        (yield* Schema.decodeUnknownEffect(Schema.toType(RsaWycheproofFixture))(rsaCorpus)).testGroups
       )
       const rsaKey = yield* Rsa.publicKeyFromJwk(rsa.keyJwk)
-      const rsaSignature = yield* Schema.decode(Schema.Uint8Array)(Arr.replicate(0, 256))
-      const message = Bytes.fromString("")
-      const seed = yield* Encoding.decodeHex("9d61b19deffd5a60ba844af492ec2cc44449c5697b326919703bac031cae7f60")
+      const rsaSignature = new Uint8Array(Arr.replicate(0, 256))
+      const message = yield* Bytes.fromString("")
+      const seed = yield* decodeHex("9d61b19deffd5a60ba844af492ec2cc44449c5697b326919703bac031cae7f60")
 
       yield* Effect.forEach(
         Arr.make(detachedBytes, uncopyableBytes, (bytes: Uint8Array) => uncopyableBytes(bytes, true)),
@@ -311,10 +311,10 @@ describe("strict direct verification admission", () => {
 
   it.effect("hedged signing rejects each unreadable input without throwing or misclassifying it as a backend failure", () =>
     Effect.gen(function*() {
-      const keys = yield* MlDsa.generateKeyPair65()
-      const message = Bytes.fromString("")
-      const context = Bytes.fromString("")
-      const entropy = yield* Schema.decode(Schema.Uint8Array)(Arr.replicate(0x42, MlDsa.entropyBytes))
+      const keys = yield* MlDsa.generateKeyPair65
+      const message = yield* Bytes.fromString("")
+      const context = yield* Bytes.fromString("")
+      const entropy = new Uint8Array(Arr.replicate(0x42, MlDsa.entropyBytes))
       const signed = yield* MlDsa.sign65Hedged(message, keys.secretKey, keys.publicKey, context, entropy)
       expect(yield* MlDsa.verify65(signed.signature, message, keys.publicKey, context)).toBe(true)
 

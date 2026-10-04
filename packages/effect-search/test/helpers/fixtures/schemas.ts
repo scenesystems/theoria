@@ -19,35 +19,32 @@ const FixtureMetadata = Schema.Struct({
   })
 })
 
-const NumericSentinel = Schema.Literal("NaN", "Infinity", "-Infinity")
+const NumericSentinel = Schema.Literals(["NaN", "Infinity", "-Infinity"])
 
-const NumericTraceValue = Schema.Union(Schema.Number, NumericSentinel)
+const NumericTraceValue = Schema.Union([Schema.Finite, NumericSentinel])
 
 const IntermediateValue = Schema.Struct({
-  step: Schema.Number,
+  step: Schema.Finite,
   value: NumericTraceValue
 })
 
-const PrimitiveConfig = Schema.Record({
-  key: Schema.String,
-  value: Choice
-})
+const PrimitiveConfig = Schema.Record(Schema.String, Choice)
 
-const ObjectivePoint = Schema.Array(Schema.Number)
+const ObjectivePoint = Schema.Array(Schema.Finite)
 
-const CategoricalParzenFixtureName = Schema.Literal(
+const CategoricalParzenFixtureName = Schema.Literals([
   "categorical-parzen.basic",
   "categorical-parzen.distance",
   "categorical-parzen.recency-ramp"
-)
+])
 
 const CategoricalDistanceMetric = Schema.Literal("absolute")
 
 const CategoricalParzenExpected = Schema.Struct({
-  kernelWeights: Schema.Array(Schema.Number),
-  probabilities: Schema.Array(Schema.Number),
-  kernels: Schema.Array(Schema.Array(Schema.Number)),
-  candidateRolls: Schema.Array(Schema.Number),
+  kernelWeights: Schema.Array(Schema.Finite),
+  probabilities: Schema.Array(Schema.Finite),
+  kernels: Schema.Array(Schema.Array(Schema.Finite)),
+  candidateRolls: Schema.Array(Schema.Finite),
   expectedCandidates: Schema.Array(Choice)
 })
 
@@ -65,16 +62,16 @@ export const CategoricalParzenFixture = Schema.Struct({
 export type CategoricalParzenFixture = Schema.Schema.Type<typeof CategoricalParzenFixture>
 
 const GammaCase = Schema.Struct({
-  nTrials: Schema.Number,
-  defaultGamma: Schema.Number,
-  hyperoptGamma: Schema.Number
+  nTrials: Schema.Finite,
+  defaultGamma: Schema.Finite,
+  hyperoptGamma: Schema.Finite
 })
 
 export const GammaFixture = Schema.Struct({
   fixture: Schema.Literal("gamma.default-gamma"),
   metadata: FixtureMetadata,
   payload: Schema.Struct({
-    cap: Schema.Number,
+    cap: Schema.Finite,
     cases: Schema.Array(GammaCase)
   })
 })
@@ -82,8 +79,8 @@ export const GammaFixture = Schema.Struct({
 export type GammaFixture = Schema.Schema.Type<typeof GammaFixture>
 
 const SplitTrial = Schema.Struct({
-  trialNumber: Schema.Number,
-  state: Schema.Literal("complete", "pruned", "running"),
+  trialNumber: Schema.Finite,
+  state: Schema.Literals(["complete", "pruned", "running"]),
   value: Schema.optional(NumericTraceValue),
   intermediateValues: Schema.Array(IntermediateValue),
   liarValue: Schema.optional(NumericTraceValue),
@@ -93,10 +90,10 @@ const SplitTrial = Schema.Struct({
 const SplitTrialsCase = Schema.Struct({
   id: Schema.String,
   direction: Direction,
-  nBelow: Schema.Number,
+  nBelow: Schema.Finite,
   trials: Schema.Array(SplitTrial),
-  expectedBelow: Schema.Array(Schema.Number),
-  expectedAbove: Schema.Array(Schema.Number)
+  expectedBelow: Schema.Array(Schema.Finite),
+  expectedAbove: Schema.Array(Schema.Finite)
 })
 
 export const SplitTrialsFixture = Schema.Struct({
@@ -111,9 +108,9 @@ export type SplitTrialsFixture = Schema.Schema.Type<typeof SplitTrialsFixture>
 
 const PrunedScoreCase = Schema.Struct({
   id: Schema.String,
-  trialNumber: Schema.Number,
+  trialNumber: Schema.Finite,
   intermediateValues: Schema.Array(IntermediateValue),
-  expectedStep: Schema.Number,
+  expectedStep: Schema.Finite,
   expectedScore: NumericTraceValue
 })
 
@@ -123,19 +120,19 @@ export const PrunedScoreFixture = Schema.Struct({
   payload: Schema.Struct({
     direction: Direction,
     cases: Schema.Array(PrunedScoreCase),
-    expectedOrder: Schema.Array(Schema.Number)
+    expectedOrder: Schema.Array(Schema.Finite)
   })
 })
 
 export type PrunedScoreFixture = Schema.Schema.Type<typeof PrunedScoreFixture>
 
-const EiFixtureName = Schema.Literal("ei.basic", "ei.mixed-trace")
+const EiFixtureName = Schema.Literals(["ei.basic", "ei.mixed-trace"])
 
 const EiScoreTrace = Schema.Struct({
   candidate: Schema.String,
-  logL: Schema.Number,
-  logG: Schema.Number,
-  expected: Schema.Number
+  logL: Schema.Finite,
+  logG: Schema.Finite,
+  expected: Schema.Finite
 })
 
 export const EiCategoricalFixture = Schema.Struct({
@@ -143,20 +140,20 @@ export const EiCategoricalFixture = Schema.Struct({
   metadata: FixtureMetadata,
   payload: Schema.Struct({
     scoreTrace: Schema.Array(EiScoreTrace),
-    scoreVector: Schema.Array(Schema.Number),
-    expectedBestIndex: Schema.Number
+    scoreVector: Schema.Array(Schema.Finite),
+    expectedBestIndex: Schema.Finite
   })
 })
 
 export type EiCategoricalFixture = Schema.Schema.Type<typeof EiCategoricalFixture>
 
 const ContinuousKernelExpectation = Schema.Struct({
-  mean: Schema.Number,
-  sigma: Schema.Number,
-  weight: Schema.Number
+  mean: Schema.Finite,
+  sigma: Schema.Finite,
+  weight: Schema.Finite
 })
 
-const ContinuousKdeFixtureName = Schema.Literal(
+const ContinuousKdeFixtureName = Schema.Literals([
   "continuous-kde.basic",
   "continuous-kde.bimodal-separated",
   "continuous-kde.boundary-high-skew",
@@ -175,27 +172,27 @@ const ContinuousKdeFixtureName = Schema.Literal(
   "continuous-kde.tiny-cross-zero-span",
   "continuous-kde.upper-boundary-cluster",
   "continuous-kde.wide-negative-range"
-)
+])
 
 const ContinuousLogDensityTrace = Schema.Struct({
-  probe: Schema.Number,
-  expected: Schema.Number
+  probe: Schema.Finite,
+  expected: Schema.Finite
 })
 
 const ContinuousExpected = Schema.Struct({
   kernels: Schema.Array(ContinuousKernelExpectation),
   logDensities: Schema.Array(ContinuousLogDensityTrace),
   candidateRolls: Schema.Array(CandidateRollPair),
-  expectedSamples: Schema.Array(Schema.Number)
+  expectedSamples: Schema.Array(Schema.Finite)
 })
 
 export const ContinuousKdeFixture = Schema.Struct({
   fixture: ContinuousKdeFixtureName,
   metadata: FixtureMetadata,
   payload: Schema.Struct({
-    observations: Schema.Array(Schema.Number),
-    low: Schema.Number,
-    high: Schema.Number,
+    observations: Schema.Array(Schema.Finite),
+    low: Schema.Finite,
+    high: Schema.Finite,
     expected: ContinuousExpected
   })
 })
@@ -203,18 +200,18 @@ export const ContinuousKdeFixture = Schema.Struct({
 export type ContinuousKdeFixture = Schema.Schema.Type<typeof ContinuousKdeFixture>
 
 const NoiseBandwidthExpected = Schema.Struct({
-  baseSigmas: Schema.Array(Schema.Number),
-  normalizedNoise: Schema.Number,
-  bandwidthScale: Schema.Number,
-  adjustedSigmas: Schema.Array(Schema.Number)
+  baseSigmas: Schema.Array(Schema.Finite),
+  normalizedNoise: Schema.Finite,
+  bandwidthScale: Schema.Finite,
+  adjustedSigmas: Schema.Array(Schema.Finite)
 })
 
 const NoiseBandwidthCase = Schema.Struct({
   id: Schema.String,
-  observations: Schema.Array(Schema.Number),
-  low: Schema.Number,
-  high: Schema.Number,
-  alpha: Schema.Number,
+  observations: Schema.Array(Schema.Finite),
+  low: Schema.Finite,
+  high: Schema.Finite,
+  alpha: Schema.Finite,
   expected: NoiseBandwidthExpected
 })
 
@@ -230,37 +227,37 @@ export type NoiseBandwidthFixture = Schema.Schema.Type<typeof NoiseBandwidthFixt
 
 const MultivariateGaussianDensityCase = Schema.Struct({
   id: Schema.String,
-  point: Schema.Array(Schema.Number),
-  mean: Schema.Array(Schema.Number),
-  sigmas: Schema.Array(Schema.Number),
-  expectedLogDensity: Schema.Number
+  point: Schema.Array(Schema.Finite),
+  mean: Schema.Array(Schema.Finite),
+  sigmas: Schema.Array(Schema.Finite),
+  expectedLogDensity: Schema.Finite
 })
 
 const MultivariateGaussianBandwidthCase = Schema.Struct({
   id: Schema.String,
-  sampleCount: Schema.Number,
-  dimensions: Schema.Number,
-  stddev: Schema.Number,
-  expectedFactor: Schema.Number,
-  expectedBandwidth: Schema.Number
+  sampleCount: Schema.Finite,
+  dimensions: Schema.Finite,
+  stddev: Schema.Finite,
+  expectedFactor: Schema.Finite,
+  expectedBandwidth: Schema.Finite
 })
 
 const MultivariateGaussianSamplingCase = Schema.Struct({
   id: Schema.String,
-  mean: Schema.Array(Schema.Number),
-  sigmas: Schema.Array(Schema.Number),
-  rolls: Schema.Array(Schema.Number),
-  expectedSample: Schema.Array(Schema.Number)
+  mean: Schema.Array(Schema.Finite),
+  sigmas: Schema.Array(Schema.Finite),
+  rolls: Schema.Array(Schema.Finite),
+  expectedSample: Schema.Array(Schema.Finite)
 })
 
 const MultivariateGaussianMixtureCase = Schema.Struct({
-  means: Schema.Array(Schema.Array(Schema.Number)),
-  sigmas: Schema.Array(Schema.Array(Schema.Number)),
-  weights: Schema.Array(Schema.Number),
-  componentRoll: Schema.Number,
-  valueRolls: Schema.Array(Schema.Number),
-  expectedSample: Schema.Array(Schema.Number),
-  expectedLogDensity: Schema.Number
+  means: Schema.Array(Schema.Array(Schema.Finite)),
+  sigmas: Schema.Array(Schema.Array(Schema.Finite)),
+  weights: Schema.Array(Schema.Finite),
+  componentRoll: Schema.Finite,
+  valueRolls: Schema.Array(Schema.Finite),
+  expectedSample: Schema.Array(Schema.Finite),
+  expectedLogDensity: Schema.Finite
 })
 
 export const MultivariateGaussianFixture = Schema.Struct({
@@ -279,17 +276,17 @@ export type MultivariateGaussianFixture = Schema.Schema.Type<typeof Multivariate
 const TruncatedNormalCase = Schema.Struct({
   id: Schema.String,
   params: Schema.Struct({
-    mean: Schema.Number,
-    sigma: Schema.Number,
-    low: Schema.Number,
-    high: Schema.Number
+    mean: Schema.Finite,
+    sigma: Schema.Finite,
+    low: Schema.Finite,
+    high: Schema.Finite
   }),
-  sampleQuantiles: Schema.Array(Schema.Number),
-  sampleExpected: Schema.Array(Schema.Number),
-  cdfProbes: Schema.Array(Schema.Number),
-  cdfExpected: Schema.Array(Schema.Number),
-  logPdfProbes: Schema.Array(Schema.Number),
-  logPdfExpected: Schema.Array(Schema.Number)
+  sampleQuantiles: Schema.Array(Schema.Finite),
+  sampleExpected: Schema.Array(Schema.Finite),
+  cdfProbes: Schema.Array(Schema.Finite),
+  cdfExpected: Schema.Array(Schema.Finite),
+  logPdfProbes: Schema.Array(Schema.Finite),
+  logPdfExpected: Schema.Array(Schema.Finite)
 })
 
 export const TruncatedNormalFixture = Schema.Struct({
@@ -307,10 +304,10 @@ const ReplayConfig = PromptCategoricalConfig
 export type ReplayConfig = Schema.Schema.Type<typeof ReplayConfig>
 
 const TpeReplaySampler = Schema.Struct({
-  seed: Schema.Number,
-  nStartupTrials: Schema.Number,
-  nEiCandidates: Schema.Number,
-  trials: Schema.Number
+  seed: Schema.Finite,
+  nStartupTrials: Schema.Finite,
+  nEiCandidates: Schema.Finite,
+  trials: Schema.Finite
 })
 
 export const TpeCategoricalStudyReplayFixture = Schema.Struct({
@@ -319,7 +316,7 @@ export const TpeCategoricalStudyReplayFixture = Schema.Struct({
   payload: Schema.Struct({
     sampler: TpeReplaySampler,
     expected: Schema.Struct({
-      bestValue: Schema.Number,
+      bestValue: Schema.Finite,
       configTrace: Schema.Array(ReplayConfig)
     })
   })
@@ -327,52 +324,52 @@ export const TpeCategoricalStudyReplayFixture = Schema.Struct({
 
 export type TpeCategoricalStudyReplayFixture = Schema.Schema.Type<typeof TpeCategoricalStudyReplayFixture>
 
-const MixedSpaceTraceName = Schema.Literal(
+const MixedSpaceTraceName = Schema.Literals([
   "mixed-space.joint-trace",
   "mixed-space.joint-trace.recency-shift"
-)
+])
 
 const MixedSpaceTrial = Schema.Struct({
-  trialNumber: Schema.Number,
+  trialNumber: Schema.Finite,
   config: PrimitiveConfig,
-  value: Schema.Number
+  value: Schema.Finite
 })
 
 const MixedSpaceCategoricalDimensionTrace = Schema.Struct({
   kind: Schema.Literal("categorical"),
   name: Schema.String,
-  candidateRolls: Schema.Array(Schema.Number),
+  candidateRolls: Schema.Array(Schema.Finite),
   candidates: Schema.Array(Choice),
-  logL: Schema.Array(Schema.Number),
-  logG: Schema.Array(Schema.Number),
-  scores: Schema.Array(Schema.Number)
+  logL: Schema.Array(Schema.Finite),
+  logG: Schema.Array(Schema.Finite),
+  scores: Schema.Array(Schema.Finite)
 })
 
 const MixedSpaceFloatDimensionTrace = Schema.Struct({
   kind: Schema.Literal("float"),
   name: Schema.String,
   candidateRolls: Schema.Array(CandidateRollPair),
-  candidates: Schema.Array(Schema.Number),
-  logL: Schema.Array(Schema.Number),
-  logG: Schema.Array(Schema.Number),
-  scores: Schema.Array(Schema.Number)
+  candidates: Schema.Array(Schema.Finite),
+  logL: Schema.Array(Schema.Finite),
+  logG: Schema.Array(Schema.Finite),
+  scores: Schema.Array(Schema.Finite)
 })
 
 const MixedSpaceIntDimensionTrace = Schema.Struct({
   kind: Schema.Literal("int"),
   name: Schema.String,
   candidateRolls: Schema.Array(CandidateRollPair),
-  candidates: Schema.Array(Schema.Number),
-  logL: Schema.Array(Schema.Number),
-  logG: Schema.Array(Schema.Number),
-  scores: Schema.Array(Schema.Number)
+  candidates: Schema.Array(Schema.Finite),
+  logL: Schema.Array(Schema.Finite),
+  logG: Schema.Array(Schema.Finite),
+  scores: Schema.Array(Schema.Finite)
 })
 
-const MixedSpaceDimensionTrace = Schema.Union(
+const MixedSpaceDimensionTrace = Schema.Union([
   MixedSpaceCategoricalDimensionTrace,
   MixedSpaceFloatDimensionTrace,
   MixedSpaceIntDimensionTrace
-)
+])
 
 const MixedSpaceSearchSpace = Schema.Struct({
   optimizer: Schema.Struct({
@@ -381,30 +378,30 @@ const MixedSpaceSearchSpace = Schema.Struct({
   }),
   lr: Schema.Struct({
     type: Schema.Literal("float"),
-    low: Schema.Number,
-    high: Schema.Number,
-    scale: Schema.Literal("linear", "log"),
-    step: Schema.optional(Schema.Number)
+    low: Schema.Finite,
+    high: Schema.Finite,
+    scale: Schema.Literals(["linear", "log"]),
+    step: Schema.optional(Schema.Finite)
   }),
   depth: Schema.Struct({
     type: Schema.Literal("int"),
-    low: Schema.Number,
-    high: Schema.Number,
-    step: Schema.Number
+    low: Schema.Finite,
+    high: Schema.Finite,
+    step: Schema.Finite
   })
 })
 
 const MixedSpaceSampler = Schema.Struct({
-  seed: Schema.Number,
-  nStartupTrials: Schema.Number,
-  nEiCandidates: Schema.Number,
-  nextTrialNumber: Schema.Number
+  seed: Schema.Finite,
+  nStartupTrials: Schema.Finite,
+  nEiCandidates: Schema.Finite,
+  nextTrialNumber: Schema.Finite
 })
 
 const MixedSpaceExpected = Schema.Struct({
   candidateConfigs: Schema.Array(PrimitiveConfig),
-  jointScores: Schema.Array(Schema.Number),
-  expectedBestIndex: Schema.Number,
+  jointScores: Schema.Array(Schema.Finite),
+  expectedBestIndex: Schema.Finite,
   expectedSuggestion: PrimitiveConfig
 })
 
@@ -426,11 +423,11 @@ export const MixedSpaceJointTraceFixture = Schema.Struct({
 export type MixedSpaceJointTraceFixture = Schema.Schema.Type<typeof MixedSpaceJointTraceFixture>
 
 const MotpeSplitTrial = Schema.Struct({
-  trialNumber: Schema.Number,
+  trialNumber: Schema.Finite,
   values: ObjectivePoint,
   feasible: Schema.Boolean,
-  rank: Schema.Number,
-  hsspScore: Schema.Number
+  rank: Schema.Finite,
+  hsspScore: Schema.Finite
 })
 
 export const MotpeSplitFixture = Schema.Struct({
@@ -438,10 +435,10 @@ export const MotpeSplitFixture = Schema.Struct({
   metadata: FixtureMetadata,
   payload: Schema.Struct({
     directions: Schema.Array(Direction),
-    nBelow: Schema.Number,
+    nBelow: Schema.Finite,
     trials: Schema.Array(MotpeSplitTrial),
-    expectedBelow: Schema.Array(Schema.Number),
-    expectedAbove: Schema.Array(Schema.Number)
+    expectedBelow: Schema.Array(Schema.Finite),
+    expectedAbove: Schema.Array(Schema.Finite)
   })
 })
 
@@ -458,18 +455,18 @@ export const MotpeReferenceFixture = Schema.Struct({
   fixture: Schema.Literal("motpe-reference.reference-point"),
   metadata: FixtureMetadata,
   payload: Schema.Struct({
-    epsilon: Schema.Number,
+    epsilon: Schema.Finite,
     cases: Schema.Array(MotpeReferenceCase)
   })
 })
 
 export type MotpeReferenceFixture = Schema.Schema.Type<typeof MotpeReferenceFixture>
 
-const MotpeWeightsFixtureName = Schema.Literal(
+const MotpeWeightsFixtureName = Schema.Literals([
   "motpe-weights.2obj",
   "motpe-weights.mixed-directions",
   "motpe-weights.zero-contribution"
-)
+])
 
 export const MotpeWeightsFixture = Schema.Struct({
   fixture: MotpeWeightsFixtureName,
@@ -478,8 +475,8 @@ export const MotpeWeightsFixture = Schema.Struct({
     directions: Schema.Array(Direction),
     points: Schema.Array(ObjectivePoint),
     referencePoint: ObjectivePoint,
-    expectedContributions: Schema.Array(Schema.Number),
-    expectedWeights: Schema.Array(Schema.Number)
+    expectedContributions: Schema.Array(Schema.Finite),
+    expectedWeights: Schema.Array(Schema.Finite)
   })
 })
 
@@ -492,7 +489,7 @@ export const MotpeStudyFixture = Schema.Struct({
     sampler: TpeReplaySampler,
     directions: Schema.Array(Direction),
     expected: Schema.Struct({
-      paretoTrialNumbers: Schema.Array(Schema.Number),
+      paretoTrialNumbers: Schema.Array(Schema.Finite),
       paretoValues: Schema.Array(ObjectivePoint),
       configTrace: Schema.Array(ReplayConfig)
     })
@@ -503,24 +500,24 @@ export type MotpeStudyFixture = Schema.Schema.Type<typeof MotpeStudyFixture>
 
 const ConstrainedDensityCase = Schema.Struct({
   id: Schema.String,
-  observations: Schema.Array(Schema.Array(Schema.Number)),
-  probes: Schema.Array(Schema.Array(Schema.Number)),
-  expectedRatioProducts: Schema.Array(Schema.Number),
-  expectedOrder: Schema.Array(Schema.Number)
+  observations: Schema.Array(Schema.Array(Schema.Finite)),
+  probes: Schema.Array(Schema.Array(Schema.Finite)),
+  expectedRatioProducts: Schema.Array(Schema.Finite),
+  expectedOrder: Schema.Array(Schema.Finite)
 })
 
 const ConstrainedSplitTrial = Schema.Struct({
-  trialNumber: Schema.Number,
-  value: Schema.Number,
-  constraints: Schema.Array(Schema.Number)
+  trialNumber: Schema.Finite,
+  value: Schema.Finite,
+  constraints: Schema.Array(Schema.Finite)
 })
 
 const ConstrainedSplitCase = Schema.Struct({
   direction: Direction,
-  nBelow: Schema.Number,
+  nBelow: Schema.Finite,
   trials: Schema.Array(ConstrainedSplitTrial),
-  expectedBelow: Schema.Array(Schema.Number),
-  expectedAbove: Schema.Array(Schema.Number)
+  expectedBelow: Schema.Array(Schema.Finite),
+  expectedAbove: Schema.Array(Schema.Finite)
 })
 
 export const ConstrainedTpeFixture = Schema.Struct({
@@ -539,12 +536,12 @@ const ConditionalFilteringCase = Schema.Struct({
   requiredParams: Schema.Array(Schema.String),
   trials: Schema.Array(
     Schema.Struct({
-      trialNumber: Schema.Number,
+      trialNumber: Schema.Finite,
       params: PrimitiveConfig
     })
   ),
-  expectedIncluded: Schema.Array(Schema.Number),
-  expectedExcluded: Schema.Array(Schema.Number)
+  expectedIncluded: Schema.Array(Schema.Finite),
+  expectedExcluded: Schema.Array(Schema.Finite)
 })
 
 export const ConditionalFilteringFixture = Schema.Struct({
@@ -581,8 +578,8 @@ const PruningReportCase = Schema.Struct({
   initialReports: Schema.Array(IntermediateValue),
   reportAttempt: IntermediateValue,
   expectedReports: Schema.Array(IntermediateValue),
-  expectedOutcome: Schema.Literal("accepted", "duplicate-ignored", "error"),
-  expectedErrorTag: Schema.optional(Schema.Literal("InvalidReportStep", "InvalidReportValue"))
+  expectedOutcome: Schema.Literals(["accepted", "duplicate-ignored", "error"]),
+  expectedErrorTag: Schema.optional(Schema.Literals(["InvalidReportStep", "InvalidReportValue"]))
 })
 
 export const PruningReportContractFixture = Schema.Struct({
@@ -598,12 +595,12 @@ export type PruningReportContractFixture = Schema.Schema.Type<typeof PruningRepo
 const PercentilePrunerCase = Schema.Struct({
   id: Schema.String,
   settings: PercentileOptions,
-  trialNumber: Schema.Number,
-  step: Schema.Number,
-  currentValue: Schema.Number,
+  trialNumber: Schema.Finite,
+  step: Schema.Finite,
+  currentValue: Schema.Finite,
   history: Schema.Array(
     Schema.Struct({
-      trialNumber: Schema.Number,
+      trialNumber: Schema.Finite,
       state: PercentileTrialState,
       reports: Schema.Array(IntermediateValue)
     })
@@ -623,20 +620,20 @@ export const PercentilePrunerFixture = Schema.Struct({
 export type PercentilePrunerFixture = Schema.Schema.Type<typeof PercentilePrunerFixture>
 
 const AdvancedSamplerSpace = Schema.Struct({
-  x: Schema.Struct({ low: Schema.Number, high: Schema.Number }),
-  y: Schema.Struct({ low: Schema.Number, high: Schema.Number })
+  x: Schema.Struct({ low: Schema.Finite, high: Schema.Finite }),
+  y: Schema.Struct({ low: Schema.Finite, high: Schema.Finite })
 })
 
 const AdvancedSamplerContext = Schema.Struct({
-  nextTrialNumber: Schema.Number,
+  nextTrialNumber: Schema.Finite,
   completed: Schema.Array(
     Schema.Struct({
-      trialNumber: Schema.Number,
+      trialNumber: Schema.Finite,
       config: Schema.Struct({
-        x: Schema.Number,
-        y: Schema.Number
+        x: Schema.Finite,
+        y: Schema.Finite
       }),
-      value: Schema.Number
+      value: Schema.Finite
     })
   )
 })
@@ -648,13 +645,13 @@ export const AdvancedCmaEsFixture = Schema.Struct({
     space: AdvancedSamplerSpace,
     context: AdvancedSamplerContext,
     sampler: Schema.Struct({
-      seed: Schema.Number,
-      sigma: Schema.Number,
-      populationSize: Schema.Number
+      seed: Schema.Finite,
+      sigma: Schema.Finite,
+      populationSize: Schema.Finite
     }),
     expected: Schema.Struct({
-      x: Schema.Number,
-      y: Schema.Number
+      x: Schema.Finite,
+      y: Schema.Finite
     })
   })
 })
@@ -668,23 +665,23 @@ export const AdvancedGpBoFixture = Schema.Struct({
     space: AdvancedSamplerSpace,
     context: AdvancedSamplerContext,
     sampler: Schema.Struct({
-      seed: Schema.Number,
-      nStartupTrials: Schema.Number,
-      nCandidates: Schema.Number,
-      lengthScale: Schema.Number,
-      noise: Schema.Number,
+      seed: Schema.Finite,
+      nStartupTrials: Schema.Finite,
+      nCandidates: Schema.Finite,
+      lengthScale: Schema.Finite,
+      noise: Schema.Finite,
       acquisition: Name
     }),
     expected: Schema.Struct({
-      x: Schema.Number,
-      y: Schema.Number
+      x: Schema.Finite,
+      y: Schema.Finite
     })
   })
 })
 
 export type AdvancedGpBoFixture = Schema.Schema.Type<typeof AdvancedGpBoFixture>
 
-export const FixtureName = Schema.Literal(
+export const FixtureName = Schema.Literals([
   "gamma.default-gamma",
   "split-trials.single-and-liar",
   "pruned-score.pruned-ordering",
@@ -730,7 +727,7 @@ export const FixtureName = Schema.Literal(
   "constrained-tpe.parity",
   "advanced-samplers.cmaes-parity",
   "advanced-samplers.gpbo-parity"
-)
+])
 
 export type FixtureName = Schema.Schema.Type<typeof FixtureName>
 
@@ -757,7 +754,7 @@ export const FixtureManifest = Schema.Struct({
 
 export type FixtureManifest = Schema.Schema.Type<typeof FixtureManifest>
 
-export const KnownFixture = Schema.Union(
+export const KnownFixture = Schema.Union([
   GammaFixture,
   SplitTrialsFixture,
   PrunedScoreFixture,
@@ -780,6 +777,6 @@ export const KnownFixture = Schema.Union(
   ConstrainedTpeFixture,
   AdvancedCmaEsFixture,
   AdvancedGpBoFixture
-)
+])
 
 export type KnownFixture = Schema.Schema.Type<typeof KnownFixture>

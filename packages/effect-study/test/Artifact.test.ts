@@ -1,25 +1,35 @@
 import { describe, expect, it } from "@effect/vitest"
 import * as ContentDigest from "@scenesystems/digest/ContentDigest"
-import { Array as Arr, Context, DateTime, Effect, Either, Schema, String as Str } from "effect"
+import {
+  Array as Arr,
+  Context,
+  DateTime,
+  Effect,
+  Number as Num,
+  Result,
+  Schema,
+  SchemaGetter,
+  String as Str
+} from "effect"
 
 import * as Artifact from "@scenesystems/effect-study/Artifact"
 
-class CodecKey extends Context.Tag("effect-study/test/CodecKey")<CodecKey, string>() {}
+class DecodeKey extends Context.Service<DecodeKey, string>()("effect-study/test/DecodeKey") {}
+class EncodeKey extends Context.Service<EncodeKey, string>()("effect-study/test/EncodeKey") {}
 
 const Producer = Schema.TaggedStruct("IndependentProducer", {
   name: Schema.NonEmptyString
 })
 
-const Label = Schema.transformOrFail(Schema.String, Schema.String, {
-  strict: true,
-  decode: (encoded) => CodecKey.pipe(Effect.as(Str.toLowerCase(encoded))),
-  encode: (label) => CodecKey.pipe(Effect.as(Str.toUpperCase(label)))
-})
+const Label = Schema.String.pipe(Schema.decode({
+  decode: SchemaGetter.transformEffect((encoded) => DecodeKey.pipe(Effect.as(Str.toLowerCase(encoded)))),
+  encode: SchemaGetter.transformEffect((label) => EncodeKey.pipe(Effect.as(Str.toUpperCase(label))))
+}))
 
 const Payload = Schema.TaggedStruct("Measurement", {
   payload: Schema.Struct({
     label: Label,
-    value: Schema.NumberFromString
+    value: Schema.FiniteFromString
   })
 })
 
@@ -27,10 +37,26 @@ const Lineage = Artifact.Lineage(Artifact.Source)
 const Envelope = Artifact.Envelope(Producer, Lineage, Payload)
 
 describe("Artifact", () => {
+  it.effect("retains cross-field payload checks when composing envelope metadata", () =>
+    Effect.gen(function*() {
+      const Range = Schema.Struct({ lower: Schema.FiniteFromString, upper: Schema.FiniteFromString }).check(
+        Schema.makeFilter((range) => Num.isLessThan(range.lower, range.upper))
+      )
+      const envelope = Artifact.Envelope(Schema.String, Schema.String, Range)
+      const encoded = { producer: "sensor", lineage: "run", lower: "2", upper: "5" }
+      const decoded = yield* Schema.decodeEffect(envelope)(encoded)
+      expect(decoded).toEqual({ producer: "sensor", lineage: "run", lower: 2, upper: 5 })
+      expect(yield* Schema.encodeEffect(envelope)(decoded)).toEqual(encoded)
+      expect(Result.isFailure(yield* Schema.decodeEffect(envelope)({ ...encoded, upper: "1" }).pipe(Effect.result)))
+        .toBe(true)
+      expect(Result.isFailure(yield* Schema.encodeEffect(envelope)({ ...decoded, upper: 1 }).pipe(Effect.result)))
+        .toBe(true)
+    }))
+
   it.effect("composes an independent producer and transformed payload without losing codec requirements", () =>
     Effect.gen(function*() {
-      const runId = yield* Schema.decode(Artifact.RunId)("01ARZ3NDEKTSV4RRFFQ69G5FAV")
-      const emittedAt = yield* DateTime.make("2026-09-15T00:00:00Z")
+      const runId = yield* Schema.decodeEffect(Artifact.RunId)("01ARZ3NDEKTSV4RRFFQ69G5FAV")
+      const emittedAt = yield* Effect.fromOption(DateTime.make("2026-09-15T00:00:00Z"))
       const value: typeof Envelope.Type = {
         _tag: "Measurement",
         producer: { _tag: "IndependentProducer", name: "laboratory" },
@@ -42,8 +68,8 @@ describe("Artifact", () => {
         payload: { label: "signal", value: 2.5 }
       }
 
-      const encoded = yield* Schema.encode(Envelope)(value).pipe(Effect.provideService(CodecKey, "key"))
-      const decoded = yield* Schema.decode(Envelope)(encoded).pipe(Effect.provideService(CodecKey, "key"))
+      const encoded = yield* Schema.encodeEffect(Envelope)(value).pipe(Effect.provideService(EncodeKey, "encode"))
+      const decoded = yield* Schema.decodeEffect(Envelope)(encoded).pipe(Effect.provideService(DecodeKey, "decode"))
 
       expect(encoded.payload).toEqual({ label: "SIGNAL", value: "2.5" })
       expect(decoded).toEqual(value)
@@ -59,21 +85,21 @@ describe("Artifact", () => {
         // Independent BLAKE3 vector for the UTF-8 preimage {"x":1}.
         integrity: { algorithm: "blake3-256", digest: "aQJY8iIqoTY1e28B_KqoLHTkXHk5qTbKfQTnW9n-bHY" }
       }
-      const decoded = yield* Schema.decodeUnknown(Lineage)(encoded)
+      const decoded = yield* Schema.decodeUnknownEffect(Lineage)(encoded)
       const integrity = yield* ContentDigest.fromUnknown("blake3-256", { x: 1 })
       expect(decoded.integrity).toEqual(integrity)
-      expect(yield* Schema.encode(Lineage)(decoded)).toEqual(encoded)
-      expect(Either.isLeft(
-        yield* Schema.decodeUnknown(Lineage)({
+      expect(yield* Schema.encodeEffect(Lineage)(decoded)).toEqual(encoded)
+      expect(Result.isFailure(
+        yield* Schema.decodeUnknownEffect(Lineage)({
           ...encoded,
           integrity: ContentDigest.toString(integrity)
-        }).pipe(Effect.either)
+        }).pipe(Effect.result)
       )).toBe(true)
-      expect(Either.isLeft(
-        yield* Schema.decodeUnknown(Lineage)({
+      expect(Result.isFailure(
+        yield* Schema.decodeEffect(Lineage)({
           ...encoded,
           integrity: { algorithm: "blake3-256", digest: "invalid" }
-        }).pipe(Effect.either)
+        }).pipe(Effect.result)
       )).toBe(true)
     }))
 
@@ -81,24 +107,24 @@ describe("Artifact", () => {
     Effect.gen(function*() {
       const ClosedSource = Schema.Struct({ ...Artifact.Source.fields, origin: Schema.Literal("first-party") })
       const ClosedLineage = Artifact.Lineage(ClosedSource)
-      const valid = yield* Schema.decodeUnknown(ClosedSource)({
+      const valid = yield* Schema.decodeEffect(ClosedSource)({
         origin: "first-party",
         domain: "study",
         segments: Arr.of("result")
       })
-      const invalid = yield* Schema.decodeUnknown(ClosedLineage)({
+      const invalid = yield* Schema.decodeUnknownEffect(ClosedLineage)({
         sourceRef: { origin: "other", domain: "study", segments: Arr.of("result") },
         artifactId: { runId: "01ARZ3NDEKTSV4RRFFQ69G5FAV", sequence: 0 },
         emittedAt: "2026-09-15T00:00:00.000Z"
-      }).pipe(Effect.either)
+      }).pipe(Effect.result)
 
       expect(valid.origin).toBe("first-party")
-      expect(invalid._tag).toBe("Left")
+      expect(invalid._tag).toBe("Failure")
     }))
 
   it.effect("constructs and exhaustively matches generic relations", () =>
     Effect.gen(function*() {
-      const runId = yield* Schema.decode(Artifact.RunId)("01ARZ3NDEKTSV4RRFFQ69G5FAV")
+      const runId = yield* Schema.decodeEffect(Artifact.RunId)("01ARZ3NDEKTSV4RRFFQ69G5FAV")
       const relation = Artifact.Run({ ref: runId })
       const label = Artifact.matchRelation({
         Run: ({ ref }) => ref,
@@ -115,23 +141,24 @@ describe("Artifact", () => {
   it.effect("preserves own prototype-named payload keys", () =>
     Effect.gen(function*() {
       const json = "[{\"__proto__\":{\"nested\":[true,null]},\"constructor\":\"own\",\"toString\":7}]"
-      const codec = Schema.parseJson(Artifact.Payload)
-      const decoded = yield* Schema.decode(codec)(json)
+      const codec = Schema.fromJsonString(Artifact.Payload)
+      const decoded = yield* Schema.decodeEffect(codec)(json)
 
-      expect(yield* Schema.encode(codec)(decoded)).toBe(json)
+      expect(yield* Schema.encodeEffect(codec)(decoded)).toBe(json)
     }))
 
   it.effect("retains numerical leaves outside JSON and rejects unsupported leaves", () =>
     Effect.gen(function*() {
       const payload: Artifact.Payload = { values: Arr.make(Number.NaN, Number.POSITIVE_INFINITY, -0) }
-      const roundTrip = yield* Schema.encode(Artifact.Payload)(payload).pipe(
-        Effect.flatMap(Schema.decode(Artifact.Payload))
+      const roundTrip = yield* Schema.encodeEffect(Artifact.Payload)(payload).pipe(
+        Effect.flatMap(Schema.decodeEffect(Artifact.Payload))
       )
-      const invalid = yield* Schema.decodeUnknown(Artifact.Payload)({ nested: Arr.of({ value: undefined }) }).pipe(
-        Effect.either
-      )
+      const invalid = yield* Schema.decodeUnknownEffect(Artifact.Payload)({ nested: Arr.of({ value: undefined }) })
+        .pipe(
+          Effect.result
+        )
 
       expect(roundTrip).toEqual(payload)
-      expect(Either.isLeft(invalid)).toBe(true)
+      expect(Result.isFailure(invalid)).toBe(true)
     }))
 })

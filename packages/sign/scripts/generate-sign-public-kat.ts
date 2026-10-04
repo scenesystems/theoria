@@ -4,22 +4,23 @@
  *
  * Usage: bun run scripts/generate-sign-public-kat.ts
  */
-import { FetchHttpClient, FileSystem, HttpClient, HttpClientResponse, Path, Url } from "@effect/platform"
-import * as BunContext from "@effect/platform-bun/BunContext"
-import * as BunRuntime from "@effect/platform-bun/BunRuntime"
+import { BunRuntime, BunServices } from "@effect/platform-bun"
 import * as Digest from "@scenesystems/digest/Digest"
 import {
   Array as Arr,
   Boolean as B,
   Effect,
-  Encoding,
+  FileSystem,
   Layer,
   Number as N,
-  Option,
+  type Option,
+  Path,
   Schema,
   String as Str,
   Struct
 } from "effect"
+import { Hex } from "effect/encoding"
+import { FetchHttpClient, HttpClient, HttpClientResponse } from "effect/http"
 import {
   ConformanceManifest,
   ConformanceManifestData,
@@ -107,7 +108,7 @@ const EcdsaCorpus = Schema.Struct({
       tcId: PositiveInt,
       msg: Schema.String,
       sig: Schema.NonEmptyString,
-      result: Schema.Literal("valid", "invalid", "acceptable")
+      result: Schema.Literals(["valid", "invalid", "acceptable"])
     }))
   }))
 })
@@ -118,24 +119,21 @@ const SelectedBipRow = Schema.Struct({
   auxiliaryRandomness: Schema.String,
   message: Schema.String,
   signature: Schema.NonEmptyString,
-  verificationResult: Schema.Literal("TRUE", "FALSE")
+  verificationResult: Schema.Literals(["TRUE", "FALSE"])
 })
 
 const fetchResponse = (url: string) => HttpClient.get(url).pipe(Effect.flatMap(HttpClientResponse.filterStatusOk))
 
-const fetchJson = <A, I>(url: string, schema: Schema.Schema<A, I>) =>
+const fetchJson = <S extends Schema.Constraint>(url: string, schema: S) =>
   fetchResponse(url).pipe(
     Effect.flatMap((response) => response.json),
-    Effect.flatMap(Schema.decodeUnknown(schema))
+    Effect.flatMap(Schema.decodeUnknownEffect(schema))
   )
 
 const fetchText = (url: string) => fetchResponse(url).pipe(Effect.flatMap((response) => response.text))
 
 const required = <A>(value: Option.Option<A>, operation: string) =>
-  Option.match(value, {
-    onNone: () => Effect.fail(new FixtureGenerationFailed({ operation })),
-    onSome: Effect.succeed
-  })
+  Effect.fromOption(value, () => new FixtureGenerationFailed({ operation }))
 
 const firstTest = <A>(tests: Iterable<A>) => required(Arr.head(Arr.fromIterable(tests)), "find ACVP test")
 
@@ -161,10 +159,10 @@ const mlKeyPair = (
     const sourceId = Arr.join(
       Arr.make(
         "acvp-tgId-",
-        yield* Schema.encode(Schema.NumberFromString)(tgId),
+        yield* Schema.encodeEffect(Schema.FiniteFromString)(tgId),
         "-tcId-",
-        yield* Schema.encode(
-          Schema.NumberFromString
+        yield* Schema.encodeEffect(
+          Schema.FiniteFromString
         )(input.tcId)
       ),
       ""
@@ -200,10 +198,10 @@ const slhKeyPair = (
     const sourceId = Arr.join(
       Arr.make(
         "acvp-tgId-",
-        yield* Schema.encode(Schema.NumberFromString)(tgId),
+        yield* Schema.encodeEffect(Schema.FiniteFromString)(tgId),
         "-tcId-",
-        yield* Schema.encode(
-          Schema.NumberFromString
+        yield* Schema.encodeEffect(
+          Schema.FiniteFromString
         )(input.tcId)
       ),
       ""
@@ -230,7 +228,7 @@ const ecdsaCase = (corpus: typeof EcdsaCorpus.Type, tcId: number) =>
       "find Wycheproof test"
     )
     return PublicSignatureKatVerification.make({
-      sourceId: Str.concat("wycheproof-tcId-", yield* Schema.encode(Schema.NumberFromString)(tcId)),
+      sourceId: Str.concat("wycheproof-tcId-", yield* Schema.encodeEffect(Schema.FiniteFromString)(tcId)),
       publicKey: group.publicKey.uncompressed,
       message: test.msg,
       signature: test.sig,
@@ -240,14 +238,14 @@ const ecdsaCase = (corpus: typeof EcdsaCorpus.Type, tcId: number) =>
 
 const bipRow = (csv: string, index: number) =>
   Effect.gen(function*() {
-    const prefix = Str.concat(yield* Schema.encode(Schema.NumberFromString)(index), ",")
+    const prefix = Str.concat(yield* Schema.encodeEffect(Schema.FiniteFromString)(index), ",")
     const row = yield* required(
       Arr.findFirst(Str.split(/\r?\n/)(csv), Str.startsWith(prefix)),
       "find BIP-340 row"
     )
     const columns = Str.split(",")(row)
     const column = (position: number) => required(Arr.get(columns, position), "read BIP-340 column")
-    return yield* Schema.decodeUnknown(SelectedBipRow)({
+    return yield* Schema.decodeUnknownEffect(SelectedBipRow)({
       secretKey: yield* column(1),
       publicKey: yield* column(2),
       auxiliaryRandomness: yield* column(3),
@@ -269,7 +267,7 @@ const program = Effect.gen(function*() {
   const bipPositive = yield* bipRow(bip, 0)
   const bipNegative = yield* bipRow(bip, 7)
 
-  const fixture = yield* Schema.decodeUnknown(PublicSignatureKat)({
+  const fixture = yield* Schema.decodeUnknownEffect(PublicSignatureKat)({
     schema: "@scenesystems/sign public signature KAT conformance v1",
     secp256k1: {
       ecdsa: Arr.make(yield* ecdsaCase(ecdsa, 60), yield* ecdsaCase(ecdsa, 4)),
@@ -300,16 +298,18 @@ const program = Effect.gen(function*() {
       yield* slhKeyPair(slhPrompt, slhResults, 11)
     )
   })
-  const root = yield* path.fromFileUrl(yield* Url.fromString("../test/fixtures/conformance/", import.meta.url))
+  const script = yield* path.fromFileUrl(yield* Schema.decodeEffect(Schema.URLFromString)(import.meta.url))
+  const root = path.resolve(path.dirname(script), "../test/fixtures/conformance")
   yield* fileSystem.writeFileString(
     path.join(root, "sign-public-kat.json"),
-    Str.concat(yield* Schema.encode(PublicSignatureKatFixture)(fixture), "\n")
+    Str.concat(yield* Schema.encodeEffect(PublicSignatureKatFixture)(fixture), "\n")
   )
   const sha256 = yield* readConformanceFixtureBytes("sign-public-kat.json").pipe(
-    Effect.map((bytes) => Encoding.encodeHex(Digest.hash("sha256", bytes)))
+    Effect.flatMap((bytes) => Digest.hash("sha256", bytes)),
+    Effect.map(Hex.encode)
   )
   const manifest = yield* fileSystem.readFileString(path.join(root, "sources.manifest.json")).pipe(
-    Effect.flatMap(Schema.decode(ConformanceManifest))
+    Effect.flatMap(Schema.decodeEffect(ConformanceManifest))
   )
   const payloads = Arr.map(
     manifest.payloads,
@@ -322,8 +322,8 @@ const program = Effect.gen(function*() {
   const updated = ConformanceManifestData.make(Struct.evolve(manifest, { payloads: () => payloads }))
   yield* fileSystem.writeFileString(
     path.join(root, "sources.manifest.json"),
-    Str.concat(yield* Schema.encode(ConformanceManifest)(updated), "\n")
+    Str.concat(yield* Schema.encodeEffect(ConformanceManifest)(updated), "\n")
   )
-}).pipe(Effect.provide(Layer.merge(FetchHttpClient.layer, BunContext.layer)))
+}).pipe(Effect.provide(Layer.merge(FetchHttpClient.layer, BunServices.layer)))
 
 BunRuntime.runMain(program)

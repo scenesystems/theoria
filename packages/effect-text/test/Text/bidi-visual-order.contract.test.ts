@@ -1,5 +1,5 @@
 import { describe, expect, it } from "@effect/vitest"
-import { Effect, Layer, Number, Option, String, Tuple } from "effect"
+import { Effect, Layer, Number, Option, String } from "effect"
 import * as Arr from "effect/Array"
 
 import * as MeasurementCache from "../../src/MeasurementCache.js"
@@ -89,9 +89,9 @@ describe("Text bidi visual ordering contracts", () => {
         }
       ))
       expect(
-        Option.map(nextLine, (step) => ({
-          cursor: Tuple.getSecond(step),
-          line: Tuple.getFirst(step)
+        Option.map(nextLine, ([line, cursor]) => ({
+          cursor,
+          line
         }))
       ).toEqual(
         Option.some({

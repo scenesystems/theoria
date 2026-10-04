@@ -4,7 +4,7 @@
  * @since 0.1.0
  * @module
  */
-import { Option, Record, Schema, type SchemaAST } from "effect"
+import { Option, Schema, SchemaAST } from "effect"
 
 /**
  * Primitive categorical choice.
@@ -12,7 +12,7 @@ import { Option, Record, Schema, type SchemaAST } from "effect"
  * @since 0.1.0
  * @category schemas
  */
-export const Choice = Schema.Union(Schema.String, Schema.Number, Schema.Boolean, Schema.Null)
+export const Choice = Schema.Union([Schema.String, Schema.Finite, Schema.Boolean, Schema.Null])
 
 /** A categorical choice decoded by {@link Choice}. @since 0.1.0 @category models */
 export type Choice = typeof Choice.Type
@@ -25,10 +25,10 @@ export type Choice = typeof Choice.Type
  */
 export const Float = Schema.Struct({
   type: Schema.Literal("float"),
-  low: Schema.Number,
-  high: Schema.Number,
-  scale: Schema.optional(Schema.Literal("linear", "log")),
-  step: Schema.optional(Schema.Number)
+  low: Schema.Finite,
+  high: Schema.Finite,
+  scale: Schema.optional(Schema.Literals(["linear", "log"])),
+  step: Schema.optional(Schema.Finite)
 })
 
 /** A floating-point distribution decoded by {@link Float}. @since 0.1.0 @category models */
@@ -42,9 +42,9 @@ export type Float = typeof Float.Type
  */
 export const Int = Schema.Struct({
   type: Schema.Literal("int"),
-  low: Schema.Number,
-  high: Schema.Number,
-  step: Schema.optional(Schema.Number)
+  low: Schema.Finite,
+  high: Schema.Finite,
+  step: Schema.optional(Schema.Finite)
 })
 
 /** An integer distribution decoded by {@link Int}. @since 0.1.0 @category models */
@@ -58,8 +58,8 @@ export type Int = typeof Int.Type
  */
 export const Fidelity = Schema.Struct({
   type: Schema.Literal("fidelity"),
-  low: Schema.Number,
-  high: Schema.Number
+  low: Schema.Finite,
+  high: Schema.Finite
 })
 
 /** A fidelity distribution decoded by {@link Fidelity}. @since 0.1.0 @category models */
@@ -85,7 +85,7 @@ export type Categorical = typeof Categorical.Type
  * @since 0.1.0
  * @category schemas
  */
-export const Distribution = Schema.Union(Float, Int, Fidelity, Categorical)
+export const Distribution = Schema.Union([Float, Int, Fidelity, Categorical])
 
 /** Distribution metadata decoded by {@link Distribution}. @since 0.1.0 @category models */
 export type Distribution = typeof Distribution.Type
@@ -98,10 +98,10 @@ const annotationKey = "@scenesystems/effect-search/Distribution"
  * @since 0.1.0
  * @category annotations
  */
-export const annotate = <A, I, R>(
-  schema: Schema.Schema<A, I, R>,
+export const annotate = <A, I, RD, RE>(
+  schema: Schema.Codec<A, I, RD, RE>,
   distribution: Distribution
-): Schema.Schema<A, I, R> => schema.annotations({ [annotationKey]: distribution })
+): Schema.Codec<A, I, RD, RE> => schema.annotate({ [annotationKey]: distribution })
 
 /**
  * Decodes distribution metadata from a schema AST annotation.
@@ -111,6 +111,6 @@ export const annotate = <A, I, R>(
  * @category annotations
  */
 export const fromAST = (ast: SchemaAST.AST): Option.Option<Distribution> =>
-  Record.get(ast.annotations, annotationKey).pipe(
+  Option.fromNullishOr(SchemaAST.resolveAt<unknown>(annotationKey)(ast)).pipe(
     Option.flatMap(Schema.decodeUnknownOption(Distribution))
   )

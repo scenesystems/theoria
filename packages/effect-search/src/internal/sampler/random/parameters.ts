@@ -31,7 +31,7 @@ export const sampleParameters = (
   const parameters = Arr.fromIterable(parametersInput)
   return Effect.reduce(
     parameters,
-    emptyConfigValues(),
+    emptyConfigValues,
     (raw, parameter) =>
       Match.value(SearchSpace.isParameterActive(parameter, configObject(raw))).pipe(
         Match.when(false, () => Effect.succeed(raw)),

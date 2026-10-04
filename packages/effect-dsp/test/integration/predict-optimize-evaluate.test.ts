@@ -1,7 +1,6 @@
 /**
  * End-to-end predict → optimize → evaluate integration contract.
  */
-import * as LanguageModel from "@effect/ai/LanguageModel"
 import { describe, expect, it } from "@effect/vitest"
 import * as BootstrapFewShot from "@scenesystems/effect-dsp/BootstrapFewShot"
 import * as Evaluate from "@scenesystems/effect-dsp/Evaluate"
@@ -12,6 +11,7 @@ import * as Module from "@scenesystems/effect-dsp/Module"
 import { ModuleParameters } from "@scenesystems/effect-dsp/ModuleParameters"
 import * as Signature from "@scenesystems/effect-dsp/Signature"
 import { Array as Arr, Effect, Layer, Ref, Schema } from "effect"
+import * as LanguageModel from "effect/ai/LanguageModel"
 
 const trainset = Arr.make(
   new Example({
@@ -60,33 +60,39 @@ describe("integration/predict-optimize-evaluate", () => {
       )
       const layer = Layer.succeed(LanguageModel.LanguageModel, mock.service)
 
-      const baselineReport = yield* Evaluate.run({
-        module,
-        examples: trainset,
-        metrics: {
-          exactMatch: Metric.exactMatch("answer")
-        },
-        concurrency: 1
-      }).pipe(Effect.provide(layer))
+      const baselineReport = yield* Evaluate.run(
+        new Evaluate.Options({
+          module,
+          examples: trainset,
+          metrics: {
+            exactMatch: Metric.exactMatch("answer")
+          },
+          concurrency: 1
+        })
+      ).pipe(Effect.provide(layer))
 
-      yield* BootstrapFewShot.run({
-        module,
-        trainset,
-        metric: Metric.exactMatch("answer"),
-        maxRounds: 2,
-        maxBootstrappedDemos: 2,
-        threshold: 1,
-        fallbackToLabeledFewShot: false
-      }).pipe(Effect.provide(layer))
+      yield* BootstrapFewShot.run(
+        new BootstrapFewShot.Options({
+          module,
+          trainset,
+          metric: Metric.exactMatch("answer"),
+          maxRounds: 2,
+          maxBootstrappedDemos: 2,
+          threshold: 1,
+          fallbackToLabeledFewShot: false
+        })
+      ).pipe(Effect.provide(layer))
 
-      const optimizedReport = yield* Evaluate.run({
-        module,
-        examples: trainset,
-        metrics: {
-          exactMatch: Metric.exactMatch("answer")
-        },
-        concurrency: 1
-      }).pipe(Effect.provide(layer))
+      const optimizedReport = yield* Evaluate.run(
+        new Evaluate.Options({
+          module,
+          examples: trainset,
+          metrics: {
+            exactMatch: Metric.exactMatch("answer")
+          },
+          concurrency: 1
+        })
+      ).pipe(Effect.provide(layer))
 
       const optimizedParams = yield* Ref.get(module.params)
       const prediction = yield* module.forward({ question: "What is the capital of France?" }).pipe(

@@ -17,7 +17,7 @@ const paramsForKernel = (parzen: ContinuousParzen, kernel: ContinuousKernel): Tr
   })
 
 const kernelLogWeight = (kernel: ContinuousKernel): number =>
-  Match.value(Num.greaterThan(kernel.weight, 0)).pipe(
+  Match.value(Num.isGreaterThan(kernel.weight, 0)).pipe(
     Match.when(true, () => logStrict(kernel.weight)),
     Match.orElse(() => Number.NEGATIVE_INFINITY)
   )

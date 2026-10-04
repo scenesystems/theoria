@@ -1,50 +1,34 @@
 import { describe, expect, it } from "@effect/vitest"
-import { Array as Arr, Boolean as Bool, Effect, FastCheck as fc, Number as Num, Option, Tuple } from "effect"
+import { Arbitrary, Array as Arr, Boolean as Bool, Effect, Number as Num, Option, Schema, Tuple } from "effect"
 
 import * as Numeric from "@scenesystems/effect-math/Numeric"
 import { buildContinuousParzen, logDensity, sampleFromParzen } from "../../../src/internal/tpe/continuousParzen.js"
 import { prepareLogDensity } from "../../../src/internal/tpe/continuousParzen/density.js"
 
-const boundsInputArbitrary = fc.record({
-  center: fc.double({
-    min: Num.negate(20),
-    max: 20,
-    noNaN: true,
-    noDefaultInfinity: true
-  }),
-  span: fc.double({
-    min: 1e-6,
-    max: 8,
-    noNaN: true,
-    noDefaultInfinity: true
-  })
+const boundsInputArbitrary = Arbitrary.all({
+  center: Arbitrary.schema(
+    Schema.Finite.check(Schema.isBetween({ minimum: Num.multiply(-1, 20), maximum: 20 }))
+  ),
+  span: Arbitrary.schema(Schema.Finite.check(Schema.isBetween({ minimum: 1e-6, maximum: 8 })))
 })
 
-const quantileArbitrary = fc.double({
-  min: 0,
-  max: 1,
-  noNaN: true,
-  noDefaultInfinity: true
-})
+const quantileArbitrary = Arbitrary.schema(Schema.Finite.check(Schema.isBetween({ minimum: 0, maximum: 1 })))
 
-const observationQuantilesArbitrary = fc.array(quantileArbitrary, {
+const observationQuantilesArbitrary = Arbitrary.array(quantileArbitrary, {
   minLength: 0,
   maxLength: 40
 })
 
-const probeQuantilesArbitrary = fc.array(quantileArbitrary, {
+const probeQuantilesArbitrary = Arbitrary.array(quantileArbitrary, {
   minLength: 1,
   maxLength: 64
 })
 
-const rollArbitrary = fc.double({
-  min: Num.negate(2),
-  max: 2,
-  noNaN: true,
-  noDefaultInfinity: true
-})
+const rollArbitrary = Arbitrary.schema(
+  Schema.Finite.check(Schema.isBetween({ minimum: Num.multiply(-1, 2), maximum: 2 }))
+)
 
-const rollPairsArbitrary = fc.array(fc.tuple(rollArbitrary, rollArbitrary), {
+const rollPairsArbitrary = Arbitrary.array(Arbitrary.all([rollArbitrary, rollArbitrary]), {
   minLength: 1,
   maxLength: 128
 })
@@ -62,10 +46,10 @@ const deterministicEdgeScenarios = Arr.make(
   },
   {
     id: "bimodal-separated",
-    observations: Arr.make(Num.negate(8.5), Num.negate(7.9), 7.4, 8.1),
-    low: Num.negate(10),
+    observations: Arr.make(Num.multiply(-1, 8.5), Num.multiply(-1, 7.9), 7.4, 8.1),
+    low: Num.multiply(-1, 10),
     high: 10,
-    probes: Arr.make(Num.negate(9.5), Num.negate(8), 0, 8, 9.5)
+    probes: Arr.make(Num.multiply(-1, 9.5), Num.multiply(-1, 8), 0, 8, 9.5)
   },
   {
     id: "narrow-support",
@@ -76,10 +60,10 @@ const deterministicEdgeScenarios = Arr.make(
   },
   {
     id: "tiny-cross-zero-span",
-    observations: Arr.make(Num.negate(0.0008), Num.negate(0.0002), 0.0003, 0.0007),
-    low: Num.negate(0.001),
+    observations: Arr.make(Num.multiply(-1, 0.0008), Num.multiply(-1, 0.0002), 0.0003, 0.0007),
+    low: Num.multiply(-1, 0.001),
     high: 0.001,
-    probes: Arr.make(Num.negate(0.001), Num.negate(0.0004), 0, 0.0004, 0.001)
+    probes: Arr.make(Num.multiply(-1, 0.001), Num.multiply(-1, 0.0004), 0, 0.0004, 0.001)
   },
   {
     id: "offset-positive-range",
@@ -97,10 +81,10 @@ const deterministicEdgeScenarios = Arr.make(
   },
   {
     id: "extreme-asymmetric-range",
-    observations: Arr.make(Num.negate(49.5), Num.negate(48.9), Num.negate(30.2), 0.6),
-    low: Num.negate(50),
+    observations: Arr.make(Num.multiply(-1, 49.5), Num.multiply(-1, 48.9), Num.multiply(-1, 30.2), 0.6),
+    low: Num.multiply(-1, 50),
     high: 1,
-    probes: Arr.make(Num.negate(50), Num.negate(49), Num.negate(35), Num.negate(5), 1)
+    probes: Arr.make(Num.multiply(-1, 50), Num.multiply(-1, 49), Num.multiply(-1, 35), Num.multiply(-1, 5), 1)
   },
   {
     id: "upper-boundary-cluster",
@@ -138,13 +122,13 @@ describe("continuous KDE invariants", () => {
         expect(Numeric.abs(Num.subtract(weightSum, 1))).toBeLessThanOrEqual(WEIGHT_ABSOLUTE_TOLERANCE)
         expect(
           Arr.every(parzen.kernels, (kernel) =>
-            Bool.and(Numeric.isFinite(kernel.weight), Num.greaterThanOrEqualTo(kernel.weight, 0)))
+            Bool.and(Numeric.isFinite(kernel.weight), Num.isGreaterThanOrEqualTo(kernel.weight, 0)))
         ).toBe(true)
         expect(
           Arr.every(
             parzen.kernels,
             (kernel) =>
-              Bool.and(Numeric.isFinite(kernel.sigma), Num.greaterThan(kernel.sigma, 0))
+              Bool.and(Numeric.isFinite(kernel.sigma), Num.isGreaterThan(kernel.sigma, 0))
           )
         ).toBe(true)
       })
@@ -165,11 +149,11 @@ describe("continuous KDE invariants", () => {
 
         expect(
           Arr.every(parzen.kernels, (kernel) =>
-            Bool.and(Num.greaterThanOrEqualTo(kernel.mean, low), Num.lessThanOrEqualTo(kernel.mean, high)))
+            Bool.and(Num.isGreaterThanOrEqualTo(kernel.mean, low), Num.isLessThanOrEqualTo(kernel.mean, high)))
         ).toBe(true)
         expect(Option.isSome(priorKernelOption)).toBe(true)
 
-        const midpoint = Num.unsafeDivide(Num.sum(low, high), 2)
+        const midpoint = Num.divideUnsafe(Num.sum(low, high), 2)
         const priorMean = Option.match(priorKernelOption, {
           onNone: () =>
             Number.NaN,
@@ -226,12 +210,12 @@ describe("continuous KDE invariants", () => {
         expect(
           Arr.every(
             draws,
-            (value) => Bool.and(Num.greaterThanOrEqualTo(value, low), Num.lessThanOrEqualTo(value, high))
+            (value) => Bool.and(Num.isGreaterThanOrEqualTo(value, low), Num.isLessThanOrEqualTo(value, high))
           )
         ).toBe(true)
         expect(
           Arr.every(draws, (value, index) =>
-            Num.lessThanOrEqualTo(
+            Num.isLessThanOrEqualTo(
               Numeric.abs(
                 Num.subtract(value, Arr.get(replay, index).pipe(Option.getOrElse(() => Number.NaN)))
               ),
@@ -265,7 +249,7 @@ describe("continuous KDE invariants", () => {
               maximum: 1
             })
 
-            return Num.lessThanOrEqualTo(
+            return Num.isLessThanOrEqualTo(
               Numeric.abs(
                 Num.subtract(
                   sampleFromParzen(parzen, kernelRoll, valueRoll),
@@ -296,7 +280,7 @@ describe("continuous KDE invariants", () => {
             Arr.every(
               draws,
               (value) =>
-                Bool.and(Num.greaterThanOrEqualTo(value, scenario.low), Num.lessThanOrEqualTo(value, scenario.high))
+                Bool.and(Num.isGreaterThanOrEqualTo(value, scenario.low), Num.isLessThanOrEqualTo(value, scenario.high))
             )
           ).toBe(true)
         }),

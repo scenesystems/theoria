@@ -1,17 +1,23 @@
 /** ML-DSA FIPS 204 behavior through the public concern API. */
 import { describe, expect, it } from "@effect/vitest"
 import { Bytes, Entropy, MlDsa } from "@scenesystems/sign"
-import { Array as Arr, Data, Effect, Encoding, Layer, Match, Number as N, Schema } from "effect"
+import { Array as Arr, Boolean as B, Effect, Layer, Match, Number as N, Schema } from "effect"
+import * as Encoding from "effect/encoding"
+
+const modifyBytes = (bytes: Iterable<number>, index: number, f: (byte: number) => number) =>
+  Arr.map(
+    Arr.fromIterable(bytes),
+    (byte, current) => B.match(N.Equivalence(current, index), { onFalse: () => byte, onTrue: () => f(byte) })
+  )
+
+const decodeHex = (value: string) => Effect.fromResult(Encoding.Hex.decode(value))
 import { PublicSignatureKatFixture } from "../scripts/fixture-contract.js"
 import katCorpus from "./fixtures/conformance/sign-public-kat.json" with { type: "json" }
-
-const message = Bytes.fromString("post-quantum hello")
-const emptyContext = Bytes.fromString("")
 
 const deterministicEntropy = (entropy: Uint8Array) =>
   Layer.succeed(
     Entropy.Entropy,
-    Data.struct({
+    {
       bytes: (length: number) =>
         Effect.succeed(entropy).pipe(
           Effect.filterOrFail(
@@ -19,27 +25,27 @@ const deterministicEntropy = (entropy: Uint8Array) =>
             () => new Entropy.GenerationFailed({ length, reason: "unexpected deterministic entropy request" })
           )
         )
-    })
+    }
   )
 
 describe("ML-DSA independent ACVP conformance", () => {
   it.effect("reproduces ML-DSA-44 and ML-DSA-87 FIPS 204 key-generation answers", () =>
     Effect.gen(function*() {
-      const fixture = yield* Schema.decodeUnknown(Schema.typeSchema(PublicSignatureKatFixture))(katCorpus)
+      const fixture = yield* Schema.decodeUnknownEffect(Schema.toType(PublicSignatureKatFixture))(katCorpus)
       yield* Effect.forEach(fixture.mlDsa, (vector) =>
         Effect.gen(function*() {
-          const entropy = yield* Encoding.decodeHex(vector.entropy)
+          const entropy = yield* decodeHex(vector.entropy)
           const keys = yield* Match.value(vector.parameterSet).pipe(
-            Match.when("ML-DSA-44", () => MlDsa.generateKeyPair44()),
-            Match.when("ML-DSA-87", () => MlDsa.generateKeyPair87()),
+            Match.when("ML-DSA-44", () => MlDsa.generateKeyPair44),
+            Match.when("ML-DSA-87", () => MlDsa.generateKeyPair87),
             Match.exhaustive,
             Effect.provide(deterministicEntropy(entropy))
           )
-          expect(Encoding.encodeHex(keys.publicKey)).toBe(
-            Encoding.encodeHex(yield* Encoding.decodeHex(vector.publicKey))
+          expect(Encoding.Hex.encode(keys.publicKey)).toBe(
+            Encoding.Hex.encode(yield* decodeHex(vector.publicKey))
           )
-          expect(Encoding.encodeHex(keys.secretKey)).toBe(
-            Encoding.encodeHex(yield* Encoding.decodeHex(vector.secretKey))
+          expect(Encoding.Hex.encode(keys.secretKey)).toBe(
+            Encoding.Hex.encode(yield* decodeHex(vector.secretKey))
           )
         }))
     }))
@@ -48,7 +54,8 @@ describe("ML-DSA independent ACVP conformance", () => {
 describe("ML-DSA-44", () => {
   it.effect("signs and verifies with the specified carrier sizes", () =>
     Effect.gen(function*() {
-      const keys = yield* MlDsa.generateKeyPair44()
+      const message = yield* Bytes.fromString("post-quantum hello")
+      const keys = yield* MlDsa.generateKeyPair44
       const signed = yield* MlDsa.sign44(message, keys.secretKey, keys.publicKey)
       expect(yield* MlDsa.verify44(signed.signature, message, keys.publicKey)).toBe(true)
       expect(keys.publicKey.length).toBe(1_312)
@@ -59,8 +66,9 @@ describe("ML-DSA-44", () => {
 
   it.effect("rejects a signature under another public key", () =>
     Effect.gen(function*() {
-      const first = yield* MlDsa.generateKeyPair44()
-      const second = yield* MlDsa.generateKeyPair44()
+      const message = yield* Bytes.fromString("post-quantum hello")
+      const first = yield* MlDsa.generateKeyPair44
+      const second = yield* MlDsa.generateKeyPair44
       const signed = yield* MlDsa.sign44(message, first.secretKey, first.publicKey)
       expect(yield* MlDsa.verify44(signed.signature, message, second.publicKey)).toBe(false)
     }).pipe(Effect.provide(Entropy.layer)))
@@ -69,7 +77,9 @@ describe("ML-DSA-44", () => {
 describe("ML-DSA-65", () => {
   it.effect("deterministically signs and verifies with the specified carrier sizes", () =>
     Effect.gen(function*() {
-      const keys = yield* MlDsa.generateKeyPair65()
+      const message = yield* Bytes.fromString("post-quantum hello")
+      const emptyContext = yield* Bytes.fromString("")
+      const keys = yield* MlDsa.generateKeyPair65
       const first = yield* MlDsa.sign65Deterministic(message, keys.secretKey, keys.publicKey)
       const second = yield* MlDsa.sign65Deterministic(message, keys.secretKey, keys.publicKey)
       expect(first.signature).toEqual(second.signature)
@@ -82,11 +92,13 @@ describe("ML-DSA-65", () => {
 
   it.effect("rejects tampered signatures and a wrong public key", () =>
     Effect.gen(function*() {
-      const first = yield* MlDsa.generateKeyPair65()
-      const second = yield* MlDsa.generateKeyPair65()
+      const message = yield* Bytes.fromString("post-quantum hello")
+      const emptyContext = yield* Bytes.fromString("")
+      const first = yield* MlDsa.generateKeyPair65
+      const second = yield* MlDsa.generateKeyPair65
       const signed = yield* MlDsa.sign65Deterministic(message, first.secretKey, first.publicKey)
-      const tampered = yield* Schema.decode(Schema.Uint8Array)(
-        Arr.modify(Arr.fromIterable(signed.signature), 0, (byte) => N.subtract(255, byte))
+      const tampered = new Uint8Array(
+        modifyBytes(Arr.fromIterable(signed.signature), 0, (byte) => N.subtract(255, byte))
       )
       expect(yield* MlDsa.verify65(tampered, message, first.publicKey, emptyContext)).toBe(false)
       expect(yield* MlDsa.verify65(signed.signature, message, second.publicKey, emptyContext)).toBe(false)
@@ -96,7 +108,8 @@ describe("ML-DSA-65", () => {
 describe("ML-DSA-87", () => {
   it.effect("signs and verifies with the specified carrier sizes", () =>
     Effect.gen(function*() {
-      const keys = yield* MlDsa.generateKeyPair87()
+      const message = yield* Bytes.fromString("post-quantum hello")
+      const keys = yield* MlDsa.generateKeyPair87
       const signed = yield* MlDsa.sign87(message, keys.secretKey, keys.publicKey)
       expect(yield* MlDsa.verify87(signed.signature, message, keys.publicKey)).toBe(true)
       expect(keys.publicKey.length).toBe(2_592)
@@ -107,8 +120,8 @@ describe("ML-DSA-87", () => {
 
   it.effect("generates independent key pairs", () =>
     Effect.gen(function*() {
-      const first = yield* MlDsa.generateKeyPair87()
-      const second = yield* MlDsa.generateKeyPair87()
+      const first = yield* MlDsa.generateKeyPair87
+      const second = yield* MlDsa.generateKeyPair87
       expect(first.secretKey).not.toEqual(second.secretKey)
       expect(first.publicKey).not.toEqual(second.publicKey)
     }).pipe(Effect.provide(Entropy.layer)))

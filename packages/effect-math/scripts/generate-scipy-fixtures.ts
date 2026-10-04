@@ -4,9 +4,23 @@
  * @since 0.1.0
  * @module
  */
-import { Command, FileSystem, Path } from "@effect/platform"
-import { BunContext, BunRuntime } from "@effect/platform-bun"
-import { Array, Boolean, Config, Console, Effect, Number, Order, pipe, Schema, Stream, String } from "effect"
+import { BunRuntime, BunServices } from "@effect/platform-bun"
+import {
+  Array,
+  Boolean,
+  Config,
+  Console,
+  Effect,
+  FileSystem,
+  Number,
+  Order,
+  Path,
+  pipe,
+  Schema,
+  Stream,
+  String
+} from "effect"
+import { ChildProcess } from "effect/process"
 
 import { directoryBeside } from "../test/helpers/fixtures/io.js"
 import type { FixtureManifestEntrySchema, KnownFixture } from "../test/helpers/fixtures/schemas.js"
@@ -17,27 +31,20 @@ const ReferenceRequest = Schema.Struct({
   generatedAt: Schema.String
 })
 
-const GeneratedFixture = Schema.extend(KnownFixtureSchema, Schema.Struct({ file: Schema.String })).pipe(
-  Schema.filter(
-    (fixture) => String.Equivalence(fixture.file, String.concat(String.replace(".", "/")(fixture.fixture), ".json")),
-    { message: () => "Fixture output path must match its canonical fixture name" }
-  )
-).annotations({ identifier: "@scenesystems/effect-math/scripts/generate-scipy-fixtures/GeneratedFixture" })
+const GeneratedFixture = Schema.Struct({
+  fixture: Schema.String,
+  metadata: Schema.Unknown,
+  payload: Schema.Unknown,
+  file: Schema.String
+})
 
-const ReferenceBatch = FixtureManifestSchema.omit("fixtures").pipe(
-  Schema.extend(Schema.Struct({ fixtures: Schema.NonEmptyArray(GeneratedFixture) }))
-).annotations({ identifier: "@scenesystems/effect-math/scripts/generate-scipy-fixtures/ReferenceBatch" })
+const ReferenceBatch = Schema.Struct({
+  schemaVersion: FixtureManifestSchema.fields.schemaVersion,
+  generator: FixtureManifestSchema.fields.generator,
+  fixtures: Schema.NonEmptyArray(GeneratedFixture)
+})
 
-const GeneratedFixtures = Schema.NonEmptyArray(GeneratedFixture).pipe(
-  Schema.filter(
-    (fixtures) =>
-      Number.Equivalence(
-        Array.length(fixtures),
-        Array.length(Array.dedupe(Array.map(fixtures, (fixture) => fixture.fixture)))
-      ),
-    { message: () => "Reference families must not produce duplicate fixtures" }
-  )
-)
+const GeneratedFixtures = Schema.NonEmptyArray(GeneratedFixture)
 
 class ReferenceEvaluationError extends Schema.TaggedError<ReferenceEvaluationError>(
   "@scenesystems/effect-math/scripts/generate-scipy-fixtures/ReferenceEvaluationError"
@@ -45,20 +52,20 @@ class ReferenceEvaluationError extends Schema.TaggedError<ReferenceEvaluationErr
   "ReferenceEvaluationError",
   {
     family: Schema.String,
-    exitCode: Schema.Number,
+    exitCode: Schema.Finite,
     message: Schema.String
   }
 ) {}
 
 const evaluateFamily = (script: string, request: typeof ReferenceRequest.Type) =>
   Effect.gen(function*() {
-    const input = yield* Schema.encode(Schema.parseJson(ReferenceRequest))(request)
-    const child = yield* Command.make("uv", "run", "--script", script).pipe(
-      Command.feed(input),
-      Command.stdout("pipe"),
-      Command.stderr("pipe"),
-      Command.start
-    )
+    const input = yield* Schema.encodeEffect(Schema.fromJsonString(ReferenceRequest))(request)
+    const child = yield* ChildProcess.make("uv", ["run", "--script", script], {
+      stdin: "pipe",
+      stdout: "pipe",
+      stderr: "pipe"
+    })
+    yield* Stream.make(input).pipe(Stream.encodeText, Stream.run(child.stdin))
     const result = yield* Effect.all({
       exitCode: child.exitCode,
       stdout: child.stdout.pipe(Stream.decodeText(), Stream.mkString),
@@ -74,22 +81,24 @@ const evaluateFamily = (script: string, request: typeof ReferenceRequest.Type) =
           })
       )
     )
-    yield* Console.error(result.stderr).pipe(Effect.when(() => String.isNonEmpty(result.stderr)))
-    return yield* Schema.decodeUnknown(Schema.parseJson(ReferenceBatch))(result.stdout, { onExcessProperty: "error" })
+    yield* Console.error(result.stderr).pipe(Effect.when(Effect.succeed(String.isNonEmpty(result.stderr))))
+    return yield* Schema.decodeEffect(Schema.fromJsonString(ReferenceBatch))(result.stdout, {
+      onExcessProperty: "error"
+    })
   }).pipe(Effect.scoped)
 
 const program = Effect.gen(function*() {
   const fileSystem = yield* FileSystem.FileSystem
   const path = yield* Path.Path
   const packageRoot = yield* directoryBeside(import.meta.url, "../")
-  const outputDirectory = yield* Config.string("SCIPY_FIXTURE_OUTPUT_DIRECTORY").pipe(
+  const outputDirectory = yield* Config.String("SCIPY_FIXTURE_OUTPUT_DIRECTORY").pipe(
     Config.withDefault(path.join(packageRoot, "test/fixtures/scipy"))
   )
-  const generatedAt = yield* Config.string("SCIPY_FIXTURE_GENERATED_AT").pipe(
+  const generatedAt = yield* Config.String("SCIPY_FIXTURE_GENERATED_AT").pipe(
     Config.withDefault("2026-03-23T00:00:00Z")
   )
   const modules = yield* fileSystem.readDirectory(path.join(packageRoot, "scripts/fixtures"))
-  const families = yield* Schema.decodeUnknown(Schema.NonEmptyArray(Schema.String))(
+  const families = yield* Schema.decodeUnknownEffect(Schema.NonEmptyArray(Schema.String))(
     pipe(
       modules,
       Array.filter((name) => Boolean.and(String.endsWith(".py")(name), Boolean.not(String.startsWith("_")(name)))),
@@ -107,11 +116,43 @@ const program = Effect.gen(function*() {
       concurrency: 2
     }
   )
-  const fixtures = yield* Schema.decodeUnknown(GeneratedFixtures)(
+  const generatedFixtures = yield* Schema.decodeEffect(GeneratedFixtures)(
     Array.flatMap(Array.prepend(batches, provenance), (batch) => batch.fixtures),
     {
       onExcessProperty: "error"
     }
+  )
+  const fixtures = yield* Effect.forEach(
+    generatedFixtures,
+    (fixture) =>
+      Schema.decodeUnknownEffect(KnownFixtureSchema)(fixture, { onExcessProperty: "ignore" }).pipe(
+        Effect.map((validated) => ({ ...validated, file: fixture.file }))
+      )
+  )
+  yield* Effect.forEach(fixtures, (fixture) =>
+    Effect.filterOrFail(
+      Effect.succeed(fixture.file),
+      (file) => String.Equivalence(file, String.concat(String.replace(".", "/")(fixture.fixture), ".json")),
+      () =>
+        new ReferenceEvaluationError({
+          family: fixture.fixture,
+          exitCode: 0,
+          message: "Fixture output path must match its canonical fixture name"
+        })
+    ), { discard: true })
+  yield* Effect.filterOrFail(
+    Effect.succeed(fixtures),
+    (values) =>
+      Number.Equivalence(
+        Array.length(values),
+        Array.length(Array.dedupe(Array.map(values, (fixture) => fixture.fixture)))
+      ),
+    () =>
+      new ReferenceEvaluationError({
+        family: "all",
+        exitCode: 0,
+        message: "Reference families must not produce duplicate fixtures"
+      })
   )
   const manifest = FixtureManifestSchema.make({
     schemaVersion: provenance.schemaVersion,
@@ -124,11 +165,13 @@ const program = Effect.gen(function*() {
   const documents = yield* Effect.forEach(
     fixtures,
     (fixture) =>
-      Schema.encode(Schema.parseJson(KnownFixtureSchema, { space: 2 }))(fixture).pipe(
+      Schema.encodeEffect(Schema.fromJsonString(KnownFixtureSchema, { space: 2 }))(fixture).pipe(
         Effect.map((content) => ({ file: fixture.file, content }))
       )
   )
-  const manifestContent = yield* Schema.encode(Schema.parseJson(FixtureManifestSchema, { space: 2 }))(manifest)
+  const manifestContent = yield* Schema.encodeEffect(Schema.fromJsonString(FixtureManifestSchema, { space: 2 }))(
+    manifest
+  )
 
   yield* Effect.forEach(documents, (document) =>
     Effect.gen(function*() {
@@ -150,4 +193,4 @@ const program = Effect.gen(function*() {
   )
 })
 
-BunRuntime.runMain(program.pipe(Effect.provide(BunContext.layer)))
+BunRuntime.runMain(program.pipe(Effect.scoped, Effect.provide(BunServices.layer)))

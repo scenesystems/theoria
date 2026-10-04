@@ -1,6 +1,8 @@
 import { describe, expect, it } from "@effect/vitest"
 import { Array, Boolean, Chunk, Effect, Exit, MutableRef, Number, Option, Schema, String } from "effect"
 
+import { nan, positiveInfinity } from "../helpers/nonFinite.js"
+
 import {
   directionalDerivative,
   directionalDerivativeValidated,
@@ -43,14 +45,14 @@ const relaxedPolicies = Policy.layerDeterministic({
 const point = Chunk.make(1, 2)
 
 const scalarSurface = (coordinates: Chunk.Chunk<number>) => {
-  const x = Chunk.unsafeGet(coordinates, 0)
-  const y = Chunk.unsafeGet(coordinates, 1)
+  const x = Chunk.getUnsafe(coordinates, 0)
+  const y = Chunk.getUnsafe(coordinates, 1)
   return Number.sum(Number.sum(Number.multiply(x, x), Number.multiply(3, Number.multiply(x, y))), Number.multiply(y, y))
 }
 
 const vectorField = (coordinates: Chunk.Chunk<number>) => {
-  const x = Chunk.unsafeGet(coordinates, 0)
-  const y = Chunk.unsafeGet(coordinates, 1)
+  const x = Chunk.getUnsafe(coordinates, 0)
+  const y = Chunk.getUnsafe(coordinates, 1)
   return Chunk.make(
     Number.sum(Number.multiply(x, x), y),
     Number.sum(Number.multiply(x, y), Numeric.sin(x))
@@ -64,8 +66,7 @@ const expectVectorClose = (actual: Chunk.Chunk<number>, expected: Chunk.Chunk<nu
   expect(Chunk.size(actual)).toStrictEqual(Chunk.size(expected))
   Chunk.forEach(
     actual,
-    (value, index) =>
-      expectClose(value, Option.getOrElse(Chunk.get(expected, index), () => Number.unsafeDivide(0, 0)), tolerance)
+    (value, index) => expectClose(value, Option.getOrElse(Chunk.get(expected, index), () => nan), tolerance)
   )
 }
 
@@ -165,7 +166,7 @@ describe("Calculus / multivariate operators", () => {
 
       const upper = Option.flatMap(Chunk.get(result, 0), (row) => Chunk.get(row, 1))
       const lower = Option.flatMap(Chunk.get(result, 1), (row) => Chunk.get(row, 0))
-      expect(Option.getEquivalence(Number.Equivalence)(upper, lower)).toStrictEqual(true)
+      expect(Option.makeEquivalence(Number.Equivalence)(upper, lower)).toStrictEqual(true)
       expect(MutableRef.get(counter)).toStrictEqual(10)
     }))
 
@@ -238,7 +239,7 @@ describe("Calculus / multivariate validation", () => {
   it.effect("gradientValidated maps callback throws to typed kernel errors", () =>
     Effect.gen(function*() {
       const error = yield* Effect.flip(gradientValidated(
-        () => Schema.decodeUnknownSync(Schema.Number)({ invalid: true }),
+        () => Schema.decodeUnknownSync(Schema.Finite)({ invalid: true }),
         {
           point: Array.make(1, 2)
         }
@@ -253,7 +254,7 @@ describe("Calculus / multivariate validation", () => {
 describe("Calculus / multivariate policy behavior", () => {
   it.effect("strict precision rejects non-finite gradient outputs", () =>
     Effect.gen(function*() {
-      const nonFiniteSurface = (_point: Chunk.Chunk<number>) => Number.unsafeDivide(1, 0)
+      const nonFiniteSurface = (_point: Chunk.Chunk<number>) => positiveInfinity
       const result = yield* Effect.exit(gradientWithPolicies(nonFiniteSurface, point))
 
       expect(Exit.isFailure(result)).toStrictEqual(true)
@@ -276,9 +277,8 @@ describe("Calculus / multivariate policy behavior", () => {
 
   it.effect("relaxed precision permits non-finite Jacobian and Hessian outputs", () =>
     Effect.gen(function*() {
-      const nonFiniteField = (_point: Chunk.Chunk<number>) =>
-        Chunk.make(Number.unsafeDivide(1, 0), Number.unsafeDivide(0, 0))
-      const nonFiniteSurface = (_point: Chunk.Chunk<number>) => Number.unsafeDivide(1, 0)
+      const nonFiniteField = (_point: Chunk.Chunk<number>) => Chunk.make(positiveInfinity, nan)
+      const nonFiniteSurface = (_point: Chunk.Chunk<number>) => positiveInfinity
 
       const jacobianResult = yield* jacobianWithPolicies(nonFiniteField, point)
       const hessianResult = yield* hessianWithPolicies(nonFiniteSurface, point)
@@ -292,7 +292,7 @@ describe("Calculus / multivariate policy behavior", () => {
   it.effect("policy wrappers map callback throws to typed kernel errors", () =>
     Effect.gen(function*() {
       const error = yield* Effect.flip(gradientWithPolicies(
-        () => Schema.decodeUnknownSync(Schema.Number)({ invalid: true }),
+        () => Schema.decodeUnknownSync(Schema.Finite)({ invalid: true }),
         point
       ))
 

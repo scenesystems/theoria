@@ -4,25 +4,48 @@
  * @since 0.1.0
  * @module
  */
-import * as AiError from "@effect/ai/AiError"
-import * as LanguageModel from "@effect/ai/LanguageModel"
-import * as Prompt from "@effect/ai/Prompt"
-import * as Response from "@effect/ai/Response"
-import * as Toolkit from "@effect/ai/Toolkit"
-import { Array as Arr, Data, Effect, Layer, Match, Number, Option, Predicate, Ref, Schema, Stream } from "effect"
-import { encode } from "./Payload.js"
+import {
+  Array as Arr,
+  Data,
+  Effect,
+  Inspectable,
+  Layer,
+  Match,
+  Number,
+  Option,
+  Predicate,
+  Ref,
+  Result,
+  Schema,
+  Stream
+} from "effect"
+import * as AiError from "effect/ai/AiError"
+import * as LanguageModel from "effect/ai/LanguageModel"
+import * as Prompt from "effect/ai/Prompt"
+import * as Response from "effect/ai/Response"
+import * as Toolkit from "effect/ai/Toolkit"
+import * as Payload from "./Payload.js"
 
-const MethodSchema = Schema.Literal("generateText", "generateObject")
+const MethodSchema = Schema.Literals(["generateText", "generateObject"])
 type Method = typeof MethodSchema.Type
 
-const mockError = (method: string, description: string, cause?: unknown): AiError.UnknownError =>
-  new AiError.UnknownError({
+const mockError = (method: string, description: string, cause?: unknown): AiError.AiError =>
+  AiError.make({
     module: "MockLanguageModel",
     method,
-    description,
-    ...Option.match(Option.fromNullable(cause), {
-      onNone: () => ({}),
-      onSome: (value) => ({ cause: value })
+    reason: new AiError.UnknownError({
+      description,
+      metadata: { cause: Inspectable.toStringUnknown(cause) }
+    })
+  })
+
+const structuredOutputError = (response: unknown): AiError.AiError =>
+  AiError.make({
+    module: "MockLanguageModel",
+    method: "generateObject",
+    reason: new AiError.StructuredOutputError({
+      description: "MockLanguageModel response contains a value unsupported by JSON",
+      responseText: Inspectable.toStringUnknown(response)
     })
   })
 
@@ -59,7 +82,7 @@ class SequenceResponse extends Data.TaggedClass("Sequence")<{
 }> {}
 
 class FunctionResponse extends Data.TaggedClass("Function")<{
-  readonly resolve: (prompt: string) => Effect.Effect<unknown, unknown>
+  readonly resolve: (prompt: string) => Effect.Effect<unknown, AiError.AiError>
 }> {}
 
 class Failing extends Data.TaggedClass("Failing")<{
@@ -97,7 +120,7 @@ type Calls = typeof Calls.Type
  */
 export class Runtime extends Data.TaggedClass("MockLanguageModelRuntime")<{
   /** Language-model service supplied to code under test. */
-  readonly service: LanguageModel.Service
+  readonly service: LanguageModel.LanguageModel
   /** Append-only successful-call log owned by this runtime. */
   readonly calls: Ref.Ref<Calls>
 }> {}
@@ -108,12 +131,14 @@ const textFromPart = Match.type<Prompt.Part>().pipe(
     reasoning: () => Option.none<string>(),
     file: () => Option.none<string>(),
     "tool-call": () => Option.none<string>(),
-    "tool-result": () => Option.none<string>()
+    "tool-result": () => Option.none<string>(),
+    "tool-approval-request": () => Option.none<string>(),
+    "tool-approval-response": () => Option.none<string>()
   })
 )
 
 const textFromParts = (parts: Iterable<Prompt.Part>): string =>
-  Arr.join(Arr.filterMap(Arr.fromIterable(parts), textFromPart), "\n")
+  Arr.join(Arr.filterMap(Arr.fromIterable(parts), (part) => Result.fromOption(textFromPart(part), () => void 0)), "\n")
 
 const textFromMessage = Match.type<Prompt.Message>().pipe(
   Match.discriminatorsExhaustive("role")({
@@ -136,7 +161,7 @@ const appendCall = (
 const resolveSequenceResponse = (
   responses: StrategyResponses,
   sequenceIndex: Ref.Ref<number>
-): Effect.Effect<unknown, AiError.UnknownError> =>
+): Effect.Effect<unknown, AiError.AiError> =>
   Arr.match(responses, {
     onEmpty: () =>
       Effect.fail(
@@ -159,7 +184,7 @@ const resolveStrategyResponse = (
   strategy: Strategy,
   prompt: string,
   sequenceIndex: Ref.Ref<number>
-): Effect.Effect<unknown, AiError.UnknownError> =>
+): Effect.Effect<unknown, AiError.AiError> =>
   strategies.$match({
     Fixed: ({ response }) => Effect.succeed(response),
     Map: ({ resolve }) =>
@@ -193,33 +218,23 @@ const resolveStrategyResponse = (
       )
   })(strategy)
 
-const encodeJson = <A, I, R>(response: unknown, schema: Schema.Schema<A, I, R>) => {
-  const encoded = Schema.encodedSchema(schema)
-  return Schema.decodeUnknown(encoded)(response, { onExcessProperty: "error" }).pipe(
-    Effect.mapError((error) =>
-      AiError.MalformedOutput.fromParseError({ module: "MockLanguageModel", method: "generateObject", error })
-    ),
+const encodeJson = (response: unknown, schema: Schema.Top): Effect.Effect<string, AiError.AiError> => {
+  const encoded = Schema.toEncoded(schema)
+  return Schema.decodeUnknownEffect(encoded)(response, { onExcessProperty: "error" }).pipe(
+    Effect.mapError(structuredOutputError),
     Effect.flatMap((value) =>
-      encode(encoded, value).pipe(
-        Effect.mapError((cause) =>
-          mockError("generateObject", "MockLanguageModel JSON encoding would lose response information", cause)
-        )
+      Payload.encode(encoded, value).pipe(
+        Effect.mapError((cause) => mockError("generateObject", "MockLanguageModel JSON encoding failed", cause))
       )
     )
   )
 }
 
-const encodeTextResponse = (response: unknown): Effect.Effect<string, AiError.UnknownError> =>
+const encodeTextResponse = (response: unknown): Effect.Effect<string, AiError.AiError> =>
   Match.value(response).pipe(
     Match.when(Predicate.isString, (value) => Effect.succeed(value)),
-    Match.when(Schema.is(Schema.Finite), (value) =>
-      Schema.encode(Schema.NumberFromString)(value).pipe(
-        Effect.mapError((cause) => mockError("generateText", "Could not encode numeric strategy output", cause))
-      )),
-    Match.when(Predicate.isBoolean, (value) =>
-      Schema.encode(Schema.BooleanFromString)(value).pipe(
-        Effect.mapError((cause) => mockError("generateText", "Could not encode boolean strategy output", cause))
-      )),
+    Match.when(Schema.is(Schema.Finite), (value) => Effect.succeed(Inspectable.toStringUnknown(value))),
+    Match.when(Predicate.isBoolean, (value) => Effect.succeed(Inspectable.toStringUnknown(value))),
     Match.orElse((cause) =>
       Effect.fail(
         mockError(
@@ -244,31 +259,26 @@ const toProviderText = (
 
 const unknownUsage = (): Response.Usage =>
   new Response.Usage({
-    inputTokens: undefined,
-    outputTokens: undefined,
-    totalTokens: undefined,
-    reasoningTokens: undefined,
-    cachedInputTokens: undefined
+    inputTokens: {},
+    outputTokens: {}
   })
 
 const ProviderResponseCandidate = Schema.Array(Schema.Unknown)
 
 const encodeProviderParts = (payload: unknown, options: LanguageModel.ProviderOptions) => {
-  const parts = Schema.mutable(Schema.Array(Response.Part(Toolkit.make(...options.tools))))
+  const parts = Schema.mutable(Schema.Array(Schema.toEncoded(Response.Part(Toolkit.make(...options.tools)))))
 
-  return Schema.decodeUnknown(Schema.Union(Schema.typeSchema(parts), parts))(payload).pipe(
-    Effect.map((decoded) =>
-      Option.match(Arr.findFirst(decoded, Schema.is(Response.FinishPart)), {
-        onSome: () => decoded,
-        onNone: () => Arr.append(decoded, Response.finishPart({ reason: "stop", usage: unknownUsage() }))
-      })
-    ),
-    Effect.flatMap(Schema.encode(parts)),
-    Effect.mapError((cause) =>
-      mockError(
-        "generateText",
-        "MockLanguageModel received invalid provider response parts",
-        cause
+  return Match.value(payload).pipe(
+    Match.when(Schema.is(parts), (decoded) =>
+      Effect.succeed(
+        Option.match(Arr.findFirst(decoded, Schema.is(Response.FinishPart)), {
+          onSome: () => decoded,
+          onNone: () => Arr.append(decoded, Response.makePart("finish", { reason: "stop", usage: unknownUsage() }))
+        })
+      )),
+    Match.orElse((cause) =>
+      Effect.fail(
+        mockError("generateText", "MockLanguageModel received invalid provider response parts", cause)
       )
     )
   )
@@ -277,8 +287,8 @@ const encodeProviderParts = (payload: unknown, options: LanguageModel.ProviderOp
 const makeProviderResponse = (text: string, options: LanguageModel.ProviderOptions) =>
   encodeProviderParts(
     Arr.make(
-      Response.textPart({ text }),
-      Response.finishPart({
+      Response.makePart("text", { text }),
+      Response.makePart("finish", {
         reason: "stop",
         usage: unknownUsage()
       })
@@ -307,7 +317,7 @@ const makeService = (
   strategy: Strategy,
   calls: Ref.Ref<Calls>,
   sequenceIndex: Ref.Ref<number>
-): Effect.Effect<LanguageModel.Service> =>
+): Effect.Effect<LanguageModel.LanguageModel> =>
   LanguageModel.make({
     generateText: (options) =>
       Effect.gen(function*() {
@@ -355,7 +365,7 @@ export const sequence = (responses: StrategyResponses): Strategy => new Sequence
  * @category constructors
  */
 export const fromFunction = (
-  resolve: (prompt: string) => Effect.Effect<unknown, unknown>
+  resolve: (prompt: string) => Effect.Effect<unknown, AiError.AiError>
 ): Strategy => new FunctionResponse({ resolve })
 
 /**

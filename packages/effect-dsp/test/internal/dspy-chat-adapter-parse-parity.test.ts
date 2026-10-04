@@ -11,7 +11,7 @@ describe("internal/parse DSPy contract parity", () => {
   it.effect("matches DSPy section extraction + parsed field contract", () =>
     Effect.gen(function*() {
       const rawFixture = yield* loadFixture("dspy.chat.parse-sections.basic")
-      const fixture = yield* Schema.decodeUnknown(ChatParseSectionsFixtureSchema)(rawFixture)
+      const fixture = yield* Schema.decodeUnknownEffect(ChatParseSectionsFixtureSchema)(rawFixture)
 
       const parsed = yield* parseTextOutput("qa", AnswerSchema, fixture.payload.completion)
       const extracted = extractMarkedRecord(fixture.payload.completion)

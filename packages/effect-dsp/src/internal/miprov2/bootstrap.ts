@@ -48,17 +48,17 @@ export const generateDemoCandidates = <
     const allLabeled = sortDemos(labeledDemos(options.trainset))
     const maxLabeledDemos = normalizePositiveCount(
       Option.getOrElse(
-        Option.fromNullable(options.maxLabeledDemos),
+        Option.fromNullishOr(options.maxLabeledDemos),
         () => Numeric.max(1, Numeric.min(4, Arr.length(allLabeled)))
       )
     )
     const maxBootstrappedDemos = normalizePositiveCount(
       Option.getOrElse(
-        Option.fromNullable(options.maxBootstrappedDemos),
+        Option.fromNullishOr(options.maxBootstrappedDemos),
         () => Numeric.max(1, Numeric.min(4, Arr.length(allLabeled)))
       )
     )
-    const seed = normalizeDeterministicSeed(Option.getOrElse(Option.fromNullable(options.seed), () => 1))
+    const seed = normalizeDeterministicSeed(Option.getOrElse(Option.fromNullishOr(options.seed), () => 1))
 
     return yield* Effect.forEach(refs, (ref, predictorIndex) =>
       Effect.gen(function*() {

@@ -33,8 +33,8 @@ const advance = (
   state: GoldenSectionState
 ): GoldenSectionState => {
   const complete = Boolean.or(
-    Number.lessThan(Numeric.abs(Number.subtract(state.b, state.a)), tolerance),
-    Number.greaterThanOrEqualTo(state.iteration, maxIterations)
+    Number.isLessThan(Numeric.abs(Number.subtract(state.b, state.a)), tolerance),
+    Number.isGreaterThanOrEqualTo(state.iteration, maxIterations)
   )
   return Boolean.match(complete, {
     onTrue: () =>
@@ -42,7 +42,7 @@ const advance = (
         Struct.evolve(state, { result: () => Option.some(midpoint(state.a, state.b)) })
       ),
     onFalse: () =>
-      Boolean.match(Number.lessThan(state.f1, state.f2), {
+      Boolean.match(Number.isLessThan(state.f1, state.f2), {
         onTrue: () => {
           const b = state.x2
           const x1 = Number.sum(state.a, Number.multiply(complement, Number.subtract(b, state.a)))

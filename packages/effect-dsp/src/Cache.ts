@@ -6,7 +6,7 @@
  */
 import * as ContentDigest from "@scenesystems/digest/ContentDigest"
 import * as SearchCache from "@scenesystems/effect-search/Cache"
-import { Data, Effect, FiberRef, Layer, Schema, String as Str } from "effect"
+import { Context, Data, Effect, Layer, Schema, String as Str } from "effect"
 
 import { RolloutRef } from "./internal/cache/rollout.js"
 
@@ -26,7 +26,7 @@ export class Key extends Schema.Class<Key>("@scenesystems/effect-dsp/Cache/Key")
   runtimeFingerprint: Schema.String,
   inputHash: Schema.String,
   paramsHash: Schema.String,
-  rolloutId: Schema.Option(Schema.Number)
+  rolloutId: Schema.Option(Schema.Finite)
 }) {}
 
 const namespace = "effect-dsp/lm-cache"
@@ -65,7 +65,7 @@ export class Request<Input, Params, Output, Failure, Requirement, EncodedOutput 
   readonly runtimeFingerprint: string
   readonly input: Input
   readonly params: Params
-  readonly outputSchema: Schema.Schema<Output, EncodedOutput, never>
+  readonly outputSchema: Schema.Codec<Output, EncodedOutput>
   readonly compute: Effect.Effect<Output, Failure, Requirement>
 }> {}
 
@@ -82,14 +82,14 @@ export class Request<Input, Params, Output, Failure, Requirement, EncodedOutput 
  * @since 0.1.0
  * @category services
  */
-export class Cache extends Effect.Tag("@scenesystems/effect-dsp/Cache")<
+export class Cache extends Context.Service<
   Cache,
   {
     readonly resolve: <Input, Params, Output, Failure, Requirement, EncodedOutput = Output>(
       request: Request<Input, Params, Output, Failure, Requirement, EncodedOutput>
     ) => Effect.Effect<SearchCache.Result<Output>, Failure | SearchCache.Error, Requirement>
   }
->() {}
+>()("@scenesystems/effect-dsp/Cache") {}
 
 const fingerprint = <Value>(value: Value, label: string): Effect.Effect<string, SearchCache.Corrupt> =>
   ContentDigest.fromUnknown("blake3-256", value).pipe(
@@ -112,7 +112,7 @@ export const key = <Input, Params>(request: KeyRequest<Input, Params>): Effect.E
   Effect.all({
     inputHash: fingerprint(request.input, "input"),
     paramsHash: fingerprint(request.params, "params"),
-    rolloutId: FiberRef.get(RolloutRef)
+    rolloutId: RolloutRef
   }).pipe(
     Effect.map(({ inputHash, paramsHash, rolloutId }) =>
       new Key({
@@ -141,7 +141,7 @@ export const layer: Layer.Layer<Cache, never, SearchCache.Cache> = Layer.effect(
   Cache,
   Effect.gen(function*() {
     const cache = yield* SearchCache.Cache
-    return Cache.of({
+    return {
       resolve: <Input, Params, Output, Failure, Requirement, EncodedOutput = Output>(
         request: Request<Input, Params, Output, Failure, Requirement, EncodedOutput>
       ) =>
@@ -160,7 +160,7 @@ export const layer: Layer.Layer<Cache, never, SearchCache.Cache> = Layer.effect(
             )
           )
         )
-    })
+    }
   })
 )
 

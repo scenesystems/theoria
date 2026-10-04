@@ -12,7 +12,7 @@ import { Match, Schema } from "effect"
  *
  * @since 0.1.0
  */
-export const SurfaceRole = Schema.Literal("canvas", "instrument", "overlay", "sheet", "drawer")
+export const SurfaceRole = Schema.Literals(["canvas", "instrument", "overlay", "sheet", "drawer"])
 
 /**
  * @since 0.1.0
@@ -27,7 +27,7 @@ export type SurfaceRole = typeof SurfaceRole.Type
  *
  * @since 0.4.0
  */
-export const Radius = Schema.Literal("mark", "control", "instrument", "sheet")
+export const Radius = Schema.Literals(["mark", "control", "instrument", "sheet"])
 
 /**
  * @since 0.4.0
@@ -52,7 +52,7 @@ export const radiusCss = (radius: Radius): string =>
  *
  * @since 0.4.0
  */
-export const Measure = Schema.Literal("card", "reading", "page", "workbench")
+export const Measure = Schema.Literals(["card", "reading", "page", "workbench"])
 
 /**
  * @since 0.4.0
@@ -77,7 +77,7 @@ export const measureCss = (measure: Measure): string =>
  *
  * @since 0.1.0
  */
-export const ArtifactStageFrame = Schema.Literal("none", "instrument")
+export const ArtifactStageFrame = Schema.Literals(["none", "instrument"])
 
 /**
  * @since 0.1.0
@@ -97,7 +97,7 @@ export type ArtifactStageFrame = typeof ArtifactStageFrame.Type
  *
  * @since 0.3.0
  */
-export const Elevation = Schema.Literal("band", "answer", "preview", "header", "backdrop", "sheet", "menu")
+export const Elevation = Schema.Literals(["band", "answer", "preview", "header", "backdrop", "sheet", "menu"])
 
 /**
  * @since 0.3.0
@@ -129,7 +129,7 @@ export const elevationIndex = (elevation: Elevation): number =>
  *
  * @since 0.3.0
  */
-export const StepSpine = Schema.Literal("spine", "none")
+export const StepSpine = Schema.Literals(["spine", "none"])
 
 /**
  * @since 0.3.0

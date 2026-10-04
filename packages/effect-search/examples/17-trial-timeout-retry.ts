@@ -8,7 +8,6 @@ import { BunRuntime } from "@effect/platform-bun"
 import {
   Array as Arr,
   Boolean as Bool,
-  Chunk,
   Data,
   Effect,
   Match,
@@ -32,30 +31,31 @@ const program = Effect.gen(function*() {
   })
   const attemptsRef = yield* Ref.make(0)
 
-  const events = yield* Optimization.stream({
-    space,
-    sampler: Sampler.grid({ seed: 17 }),
-    direction: "minimize",
-    trials: 2,
-    retrySchedule: Schedule.exponential("10 millis").pipe(Schedule.intersect(Schedule.recurs(2))),
-    trialTimeout: "40 millis",
-    objective: (config) =>
-      Match.value(config.mode).pipe(
-        Match.when("transient", () =>
-          Ref.updateAndGet(attemptsRef, Num.increment).pipe(
-            Effect.flatMap((attempt) =>
-              Bool.match(Num.lessThanOrEqualTo(attempt, 2), {
-                onFalse: () => Effect.succeed(0.25),
-                onTrue: () => Effect.fail(new TransientFailure({ attempt }))
-              })
-            )
-          )),
-        Match.when("timeout", () => Effect.sleep("120 millis").pipe(Effect.as(0.9))),
-        Match.exhaustive
-      )
-  }).pipe(
-    Stream.runCollect,
-    Effect.map(Chunk.toReadonlyArray)
+  const events = yield* Optimization.stream(
+    new Optimization.FlatOptions({
+      space,
+      sampler: Sampler.grid({ seed: 17 }),
+      direction: "minimize",
+      trials: 2,
+      retrySchedule: Schedule.max(Arr.make(Schedule.exponential("10 millis"), Schedule.recurs(2))),
+      trialTimeout: "40 millis",
+      objective: (config) =>
+        Match.value(config.mode).pipe(
+          Match.when("transient", () =>
+            Ref.updateAndGet(attemptsRef, Num.increment).pipe(
+              Effect.flatMap((attempt) =>
+                Bool.match(Num.isLessThanOrEqualTo(attempt, 2), {
+                  onFalse: () => Effect.succeed(0.25),
+                  onTrue: () => Effect.fail(new TransientFailure({ attempt }))
+                })
+              )
+            )),
+          Match.when("timeout", () => Effect.sleep("120 millis").pipe(Effect.as(0.9))),
+          Match.exhaustive
+        )
+    })
+  ).pipe(
+    Stream.runCollect
   )
   const attempts = yield* Ref.get(attemptsRef)
 

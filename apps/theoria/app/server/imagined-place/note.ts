@@ -1,7 +1,7 @@
-import { Effect, Inspectable, Option, Stream, String, Struct } from "effect"
+import { Effect, Inspectable, Number, Option, Stream } from "effect"
 
 import * as Hkdf from "@scenesystems/digest/Hkdf"
-import { type Cipher, Envelope } from "@scenesystems/seal"
+import { Cipher } from "@scenesystems/seal"
 import { Bytes, X25519 } from "@scenesystems/sign"
 
 import { SealedNote } from "../../contracts/imagined-place-result.js"
@@ -21,7 +21,7 @@ const noteContext = Bytes.fromString("theoria/imagined-place/sealed-note/v1")
 const sealingKey = (mine: ParticipantKeys, theirs: ParticipantKeys) =>
   Effect.gen(function*() {
     const shared = yield* X25519.deriveSharedSecret(mine.agreement.secretKey, theirs.agreement.publicKey)
-    return yield* Hkdf.sha256(shared.sharedSecret, Option.none(), noteContext, 32)
+    return yield* Hkdf.sha256(shared.sharedSecret, Option.none(), yield* noteContext, 32)
   })
 
 /**
@@ -35,18 +35,16 @@ export const sendSealedNote = (
 ): Effect.Effect<SealedNote, PlaceBuildError, Participants | Cipher.Cipher> =>
   Effect.gen(function*() {
     const participants = yield* Participants
-    const sender = Struct.get(from)(participants)
-    const recipient = Struct.get(to)(participants)
-    const plaintext = Bytes.fromString(text)
+    const sender = participants[from]
+    const recipient = participants[to]
+    const plaintext = yield* Bytes.fromString(text)
 
-    const envelope = yield* Envelope.encrypt(
+    const encrypted = yield* Cipher.encrypt(
       "xchacha20-poly1305",
       yield* sealingKey(sender, recipient),
       plaintext
     )
-    const packed = yield* Envelope.toBytes(envelope)
-
-    const opened = yield* Envelope.decrypt(envelope, yield* sealingKey(recipient, sender))
+    const opened = yield* Cipher.decrypt(encrypted, yield* sealingKey(recipient, sender))
 
     return SealedNote.make({
       from,
@@ -54,10 +52,10 @@ export const sendSealedNote = (
       agreement: "x25519",
       kdf: "hkdf-sha256",
       algorithm: "xchacha20-poly1305",
-      envelopeBytes: packed.length,
+      envelopeBytes: Number.sum(encrypted.nonce.length, encrypted.ciphertext.length),
       openedText: yield* Stream.make(opened).pipe(
         Stream.decodeText(),
-        Stream.runFold("", String.concat)
+        Stream.mkString
       )
     })
   }).pipe(

@@ -1,5 +1,5 @@
 import { describe, expect, it } from "@effect/vitest"
-import { ConfigError, ConfigProvider, Effect, Layer, Option, Schema } from "effect"
+import { Config, ConfigProvider, Effect, Option, Schema } from "effect"
 
 import { analyticsTags, injectAnalytics } from "../../app/server/analytics.js"
 import {
@@ -12,7 +12,7 @@ import {
 import { contentSecurityPolicy } from "../../app/server/security-headers.js"
 
 const withEnvironment = (variables: Record<string, string>) =>
-  Layer.setConfigProvider(ConfigProvider.fromJson(variables))
+  ConfigProvider.layer(ConfigProvider.fromUnknown(variables))
 
 const measurementId = "G-ABC123XYZ"
 const beaconToken = "0123456789abcdef0123456789abcdef"
@@ -38,7 +38,7 @@ describe("analytics configuration", () => {
     Effect.gen(function*() {
       const error = yield* Effect.flip(analyticsConfig)
 
-      expect(ConfigError.isInvalidData(error)).toBe(true)
+      expect(error).toBeInstanceOf(Config.ConfigError)
     }).pipe(Effect.provide(withEnvironment({ CF_WEB_ANALYTICS_TOKEN: "not-a-token" }))))
 })
 

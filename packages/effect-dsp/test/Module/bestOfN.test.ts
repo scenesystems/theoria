@@ -1,8 +1,6 @@
 /**
  * Module.bestOfN contracts.
  */
-import type * as AiError from "@effect/ai/AiError"
-import * as LanguageModel from "@effect/ai/LanguageModel"
 import { describe, expect, expectTypeOf, it } from "@effect/vitest"
 import * as Cache from "@scenesystems/effect-dsp/Cache"
 import type { DspError } from "@scenesystems/effect-dsp/DspError"
@@ -15,12 +13,10 @@ import * as Signature from "@scenesystems/effect-dsp/Signature"
 import * as Trace from "@scenesystems/effect-dsp/Trace"
 import {
   Array as Arr,
-  Cause,
   Context,
   Effect,
   Equal,
   identity,
-  Layer,
   Match,
   Option,
   Record,
@@ -28,16 +24,17 @@ import {
   Schema,
   String as Str
 } from "effect"
+import * as AiError from "effect/ai/AiError"
+import * as LanguageModel from "effect/ai/LanguageModel"
 
 class RewardRejected extends Schema.TaggedError<RewardRejected>()(
   "RewardRejected",
   { message: Schema.String }
 ) {}
 
-class RewardBehavior extends Context.Tag("effect-dsp/test/bestOfN/RewardBehavior")<
-  RewardBehavior,
-  Effect.Effect<Result, RewardRejected>
->() {}
+class RewardBehavior extends Context.Service<RewardBehavior, Effect.Effect<Result, RewardRejected>>()(
+  "effect-dsp/test/bestOfN/RewardBehavior"
+) {}
 
 const QaInput = Schema.Struct({
   question: Signature.describe(Schema.String, "The question to answer")
@@ -59,21 +56,25 @@ describe("Module.bestOfN", () => {
     Effect.gen(function*() {
       const signature = yield* makeQaSignature()
       const predictor = yield* Module.predict("best-discovery-predictor", signature)
-      const inner = yield* Module.compose({
-        name: "best-discovery-pipeline",
-        signature,
-        subModules: Record.singleton("predictor", predictor),
-        forward: ({ input }) => predictor.forward(input)
-      })
-      const wrapper = yield* Module.bestOfN({
-        name: "best-discovery-wrapper",
-        module: inner,
-        N: Module.RolloutCount.make(1),
-        reward: () => Effect.succeed(new Result({ score: 1 }))
-      })
-      const wrapperId = yield* Schema.decodeUnknown(Module.Id)(wrapper.name)
-      const innerId = yield* Schema.decodeUnknown(Module.Id)(inner.name)
-      const predictorId = yield* Schema.decodeUnknown(Module.Id)(predictor.name)
+      const inner = yield* Module.compose(
+        new Module.ComposeOptions({
+          name: "best-discovery-pipeline",
+          signature,
+          subModules: Record.singleton("predictor", predictor),
+          forward: ({ input }) => predictor.forward(input)
+        })
+      )
+      const wrapper = yield* Module.bestOfN(
+        new Module.BestOfNOptions({
+          name: "best-discovery-wrapper",
+          module: inner,
+          N: Module.RolloutCount.make(1),
+          reward: () => Effect.succeed(new Result({ score: 1 }))
+        })
+      )
+      const wrapperId = yield* Schema.decodeEffect(Module.Id)(wrapper.name)
+      const innerId = yield* Schema.decodeEffect(Module.Id)(inner.name)
+      const predictorId = yield* Schema.decodeEffect(Module.Id)(predictor.name)
       const model = yield* MockLanguageModel.make(MockLanguageModel.succeed({ answer: "Observed" }))
 
       const graph = yield* Module.discoverModuleGraph(
@@ -82,7 +83,7 @@ describe("Module.bestOfN", () => {
           Effect.provideService(LanguageModel.LanguageModel, model.service)
         )
       )
-      const lineage = yield* ModuleGraph.lineage(graph, predictorId)
+      const lineage = Option.getOrThrow(ModuleGraph.lineage(graph, predictorId))
 
       expect(lineage.path).toEqual(Arr.make(wrapperId, innerId, predictorId))
       expect(yield* Ref.get(model.calls)).toHaveLength(1)
@@ -93,18 +94,22 @@ describe("Module.bestOfN", () => {
       const signature = yield* makeQaSignature()
       const predictor = yield* Module.predict("predictor", signature)
       yield* Ref.update(predictor.params, (params) => withInstructions(params, "Answer saved-city"))
-      const inner = yield* Module.compose({
-        name: "pipeline",
-        signature,
-        subModules: Record.singleton("predictor", predictor),
-        forward: ({ input }) => predictor.forward(input)
-      })
-      const wrapper = yield* Module.bestOfN({
-        name: "best-pipeline",
-        module: inner,
-        N: Module.RolloutCount.make(1),
-        reward: () => Effect.succeed(new Result({ score: 1 }))
-      })
+      const inner = yield* Module.compose(
+        new Module.ComposeOptions({
+          name: "pipeline",
+          signature,
+          subModules: Record.singleton("predictor", predictor),
+          forward: ({ input }) => predictor.forward(input)
+        })
+      )
+      const wrapper = yield* Module.bestOfN(
+        new Module.BestOfNOptions({
+          name: "best-pipeline",
+          module: inner,
+          N: Module.RolloutCount.make(1),
+          reward: () => Effect.succeed(new Result({ score: 1 }))
+        })
+      )
       const saved = yield* Module.save(wrapper)
       const original = yield* Ref.get(inner.params)
       yield* Ref.update(inner.params, (params) => withInstructions(params, "Changed pipeline"))
@@ -127,12 +132,14 @@ describe("Module.bestOfN", () => {
     Effect.gen(function*() {
       const signature = yield* makeQaSignature()
       const inner = yield* Module.predict("same-owner", signature)
-      const error = yield* Module.bestOfN({
-        name: "same-owner",
-        module: inner,
-        N: Module.RolloutCount.make(1),
-        reward: () => Effect.succeed(new Result({ score: 1 }))
-      }).pipe(Effect.flip)
+      const error = yield* Module.bestOfN(
+        new Module.BestOfNOptions({
+          name: "same-owner",
+          module: inner,
+          N: Module.RolloutCount.make(1),
+          reward: () => Effect.succeed(new Result({ score: 1 }))
+        })
+      ).pipe(Effect.flip)
       expect(error._tag).toBe("CompositionError")
     }))
 
@@ -142,18 +149,20 @@ describe("Module.bestOfN", () => {
       const mock = yield* MockLanguageModel.make(MockLanguageModel.succeed({ answer: "Candidate" }))
       const inner = yield* Module.predict("qa-reward-channels", qa)
       const failure = new RewardRejected({ message: "reward unavailable" })
-      const bestOf = yield* Module.bestOfN({
-        name: "qa-best-of-reward-channels",
-        module: inner,
-        N: Module.RolloutCount.make(1),
-        reward: () => Effect.flatMap(RewardBehavior, identity)
-      })
+      const bestOf = yield* Module.bestOfN(
+        new Module.BestOfNOptions({
+          name: "qa-best-of-reward-channels",
+          module: inner,
+          N: Module.RolloutCount.make(1),
+          reward: () => Effect.flatMap(RewardBehavior, identity)
+        })
+      )
       const operation = bestOf.forward({ question: "Score this" })
 
-      expectTypeOf<Effect.Effect.Error<typeof operation>>().toEqualTypeOf<
+      expectTypeOf<Effect.Error<typeof operation>>().toEqualTypeOf<
         AiError.AiError | DspError | RewardRejected
       >()
-      expectTypeOf<Effect.Effect.Context<typeof operation>>().toEqualTypeOf<
+      expectTypeOf<Effect.Services<typeof operation>>().toEqualTypeOf<
         LanguageModel.LanguageModel | RewardBehavior
       >()
 
@@ -163,7 +172,7 @@ describe("Module.bestOfN", () => {
         Effect.flip
       )
 
-      expect(Cause.originalError(observed)).toBe(failure)
+      expect(observed).toBe(failure)
     }))
 
   it.effect("returns the highest-scoring candidate across N rollouts", () =>
@@ -191,17 +200,19 @@ describe("Module.bestOfN", () => {
         return Effect.succeed(new Result({ score }))
       }
 
-      const bestOf = yield* Module.bestOfN({
-        name: "qa-best-of-3",
-        module: inner,
-        N: Module.RolloutCount.make(3),
-        reward
-      })
+      const bestOf = yield* Module.bestOfN(
+        new Module.BestOfNOptions({
+          name: "qa-best-of-3",
+          module: inner,
+          N: Module.RolloutCount.make(3),
+          reward
+        })
+      )
 
       const result = yield* bestOf.forward({
         question: "What is the capital of France?"
       }).pipe(
-        Effect.provide(Layer.succeed(LanguageModel.LanguageModel, mock.service))
+        Effect.provideService(LanguageModel.LanguageModel, mock.service)
       )
 
       expect(result).toEqual({ answer: "Great answer" })
@@ -213,7 +224,21 @@ describe("Module.bestOfN", () => {
       const rolloutValues = yield* Ref.make(Arr.empty<Option.Option<number>>())
       const mock = yield* MockLanguageModel.make(
         MockLanguageModel.fromFunction((prompt) =>
-          Cache.key({ moduleFingerprint: "best-of", runtimeFingerprint: "mock", input: prompt, params: {} }).pipe(
+          Cache.key(
+            new Cache.KeyRequest({
+              moduleFingerprint: "best-of",
+              runtimeFingerprint: "mock",
+              input: prompt,
+              params: {}
+            })
+          ).pipe(
+            Effect.mapError((error) =>
+              AiError.make({
+                module: "BestOfNRolloutTest",
+                method: "generateText",
+                reason: new AiError.InvalidRequestError({ description: error.message })
+              })
+            ),
             Effect.tap((cacheKey) => Ref.update(rolloutValues, Arr.append(cacheKey.rolloutId))),
             Effect.as({ answer: "Some answer" })
           )
@@ -226,23 +251,25 @@ describe("Module.bestOfN", () => {
         typeof QaOutput.fields
       > = () => Effect.succeed(new Result({ score: 0.5 }))
 
-      const bestOf = yield* Module.bestOfN({
-        name: "qa-rollout-test",
-        module: inner,
-        N: Module.RolloutCount.make(3),
-        reward
-      })
+      const bestOf = yield* Module.bestOfN(
+        new Module.BestOfNOptions({
+          name: "qa-rollout-test",
+          module: inner,
+          N: Module.RolloutCount.make(3),
+          reward
+        })
+      )
 
       yield* bestOf.forward({
         question: "Test question"
       }).pipe(
-        Effect.provide(Layer.succeed(LanguageModel.LanguageModel, mock.service))
+        Effect.provideService(LanguageModel.LanguageModel, mock.service)
       )
 
       const observed = yield* Ref.get(rolloutValues)
-      const first = yield* Arr.get(observed, 0)
-      const second = yield* Arr.get(observed, 1)
-      const third = yield* Arr.get(observed, 2)
+      const first = Option.getOrThrow(Arr.get(observed, 0))
+      const second = Option.getOrThrow(Arr.get(observed, 1))
+      const third = Option.getOrThrow(Arr.get(observed, 2))
       expect(observed).toHaveLength(3)
       expect(first).toEqual(Option.some(0))
       expect(second).toEqual(Option.some(1))
@@ -272,18 +299,20 @@ describe("Module.bestOfN", () => {
         return Effect.succeed(new Result({ score }))
       }
 
-      const bestOf = yield* Module.bestOfN({
-        name: "qa-threshold",
-        module: inner,
-        N: Module.RolloutCount.make(3),
-        reward,
-        threshold: 0.7
-      })
+      const bestOf = yield* Module.bestOfN(
+        new Module.BestOfNOptions({
+          name: "qa-threshold",
+          module: inner,
+          N: Module.RolloutCount.make(3),
+          reward,
+          threshold: 0.7
+        })
+      )
 
       const result = yield* bestOf.forward({
         question: "Threshold test"
       }).pipe(
-        Effect.provide(Layer.succeed(LanguageModel.LanguageModel, mock.service))
+        Effect.provideService(LanguageModel.LanguageModel, mock.service)
       )
 
       expect(result).toEqual({ answer: "High quality" })
@@ -311,18 +340,20 @@ describe("Module.bestOfN", () => {
         return Effect.succeed(new Result({ score }))
       }
 
-      const bestOf = yield* Module.bestOfN({
-        name: "qa-fallback",
-        module: inner,
-        N: Module.RolloutCount.make(2),
-        reward,
-        threshold: 0.9
-      })
+      const bestOf = yield* Module.bestOfN(
+        new Module.BestOfNOptions({
+          name: "qa-fallback",
+          module: inner,
+          N: Module.RolloutCount.make(2),
+          reward,
+          threshold: 0.9
+        })
+      )
 
       const result = yield* bestOf.forward({
         question: "Fallback test"
       }).pipe(
-        Effect.provide(Layer.succeed(LanguageModel.LanguageModel, mock.service))
+        Effect.provideService(LanguageModel.LanguageModel, mock.service)
       )
 
       expect(result).toEqual({ answer: "Better" })
@@ -345,17 +376,19 @@ describe("Module.bestOfN", () => {
         typeof QaOutput.fields
       > = () => Effect.succeed(new Result({ score: 0.5 }))
 
-      const bestOf = yield* Module.bestOfN({
-        name: "qa-tiebreak",
-        module: inner,
-        N: Module.RolloutCount.make(3),
-        reward
-      })
+      const bestOf = yield* Module.bestOfN(
+        new Module.BestOfNOptions({
+          name: "qa-tiebreak",
+          module: inner,
+          N: Module.RolloutCount.make(3),
+          reward
+        })
+      )
 
       const result = yield* bestOf.forward({
         question: "Tiebreak test"
       }).pipe(
-        Effect.provide(Layer.succeed(LanguageModel.LanguageModel, mock.service))
+        Effect.provideService(LanguageModel.LanguageModel, mock.service)
       )
 
       expect(result).toEqual({ answer: "First" })
@@ -372,26 +405,28 @@ describe("Module.bestOfN", () => {
         ))
       )
       const inner = yield* Module.predict("qa", qa)
-      const nan = yield* Schema.decode(Schema.NumberFromString)("NaN")
+      const nan = Number.NaN
 
-      const bestOf = yield* Module.bestOfN({
-        name: "qa-best-of-nan-between-valid-scores",
-        module: inner,
-        N: Module.RolloutCount.make(3),
-        reward: (_input, output) =>
-          Effect.succeed(
-            new Result({
-              score: Match.value(output.answer).pipe(
-                Match.when("Valid first", () => 0.4),
-                Match.when("Better last", () => 0.8),
-                Match.orElse(() => nan)
-              )
-            })
-          )
-      })
+      const bestOf = yield* Module.bestOfN(
+        new Module.BestOfNOptions({
+          name: "qa-best-of-nan-between-valid-scores",
+          module: inner,
+          N: Module.RolloutCount.make(3),
+          reward: (_input, output) =>
+            Effect.succeed(
+              new Result({
+                score: Match.value(output.answer).pipe(
+                  Match.when("Valid first", () => 0.4),
+                  Match.when("Better last", () => 0.8),
+                  Match.orElse(() => nan)
+                )
+              })
+            )
+        })
+      )
 
       const result = yield* bestOf.forward({ question: "NaN candidate" }).pipe(
-        Effect.provide(Layer.succeed(LanguageModel.LanguageModel, mock.service))
+        Effect.provideService(LanguageModel.LanguageModel, mock.service)
       )
 
       expect(result).toEqual({ answer: "Better last" })
@@ -407,17 +442,19 @@ describe("Module.bestOfN", () => {
         ))
       )
       const inner = yield* Module.predict("qa", qa)
-      const nan = yield* Schema.decode(Schema.NumberFromString)("NaN")
+      const nan = Number.NaN
 
-      const bestOf = yield* Module.bestOfN({
-        name: "qa-best-of-all-nan",
-        module: inner,
-        N: Module.RolloutCount.make(2),
-        reward: () => Effect.succeed(new Result({ score: nan }))
-      })
+      const bestOf = yield* Module.bestOfN(
+        new Module.BestOfNOptions({
+          name: "qa-best-of-all-nan",
+          module: inner,
+          N: Module.RolloutCount.make(2),
+          reward: () => Effect.succeed(new Result({ score: nan }))
+        })
+      )
 
       const result = yield* bestOf.forward({ question: "All NaN scores" }).pipe(
-        Effect.provide(Layer.succeed(LanguageModel.LanguageModel, mock.service))
+        Effect.provideService(LanguageModel.LanguageModel, mock.service)
       )
 
       expect(result).toEqual({ answer: "First" })
@@ -440,20 +477,22 @@ describe("Module.bestOfN", () => {
         typeof QaOutput.fields
       > = () => Effect.succeed(new Result({ score: 0.5 }))
 
-      const bestOf = yield* Module.bestOfN({
-        name: "qa-traced",
-        module: inner,
-        N: Module.RolloutCount.make(2),
-        reward
-      })
+      const bestOf = yield* Module.bestOfN(
+        new Module.BestOfNOptions({
+          name: "qa-traced",
+          module: inner,
+          N: Module.RolloutCount.make(2),
+          reward
+        })
+      )
 
       const traced = yield* Trace.withTracing(
         bestOf.forward({ question: "Traced test" }).pipe(
-          Effect.provide(Layer.succeed(LanguageModel.LanguageModel, mock.service))
+          Effect.provideService(LanguageModel.LanguageModel, mock.service)
         )
       )
 
-      const entries = yield* Arr.get(traced, 1)
+      const entries = Option.getOrThrow(Arr.get(traced, 1))
       expect(entries).toHaveLength(2)
     }))
 })

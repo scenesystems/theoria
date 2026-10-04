@@ -33,7 +33,7 @@ describe("Pareto hypervolume properties", () => {
       const contributions = Pareto.hypervolumeContribution2d(points, reference)
 
       expect(contributions).toHaveLength(Arr.length(points))
-      expect(Arr.every(contributions, Num.greaterThanOrEqualTo(0))).toBe(true)
+      expect(Arr.every(contributions, Num.isGreaterThanOrEqualTo(0))).toBe(true)
       expectApprox(Arr.get(contributions, 3).pipe(Option.getOrElse(() => 0)), 0)
     }))
 

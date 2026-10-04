@@ -1,5 +1,5 @@
 import { Drawer } from "@base-ui/react/drawer"
-import { useAtomSet, useAtomValue } from "@effect-atom/atom-react"
+import { useAtomSet, useAtomValue } from "@effect/atom-react"
 import { XMarkIcon } from "@heroicons/react/20/solid"
 import { Option } from "effect"
 

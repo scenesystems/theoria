@@ -11,6 +11,10 @@
 
 import babelParser from "@babel/eslint-parser"
 
+/**
+ * @param {ReadonlyArray<string>} plugins
+ * @returns {import('eslint').Linter.ParserOptions}
+ */
 const parserOptions = (plugins) => ({
   sourceType: "module",
   requireConfigFile: false,

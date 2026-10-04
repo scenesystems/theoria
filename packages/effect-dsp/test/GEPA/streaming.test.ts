@@ -1,8 +1,6 @@
 /**
  * GEPA streaming contracts.
  */
-import * as LanguageModel from "@effect/ai/LanguageModel"
-import * as Response from "@effect/ai/Response"
 import { describe, expect, it } from "@effect/vitest"
 import { Example } from "@scenesystems/effect-dsp/Example"
 import * as GEPA from "@scenesystems/effect-dsp/GEPA"
@@ -11,6 +9,8 @@ import * as MockLanguageModel from "@scenesystems/effect-dsp/MockLanguageModel"
 import * as Module from "@scenesystems/effect-dsp/Module"
 import * as Signature from "@scenesystems/effect-dsp/Signature"
 import { Array as Arr, Effect, Layer, Match, Option, Schema, Stream, String as Str } from "effect"
+import * as LanguageModel from "effect/ai/LanguageModel"
+import * as Response from "effect/ai/Response"
 import {
   GepaOrchestrationEventOrderFixtureSchema,
   GepaSelectionWeightsFixtureSchema,
@@ -22,7 +22,8 @@ class AnswerResponse extends Schema.Class<AnswerResponse>("AnswerResponse")({
 }) {}
 
 const reflectiveResponse = Arr.of(
-  Response.textPart({
+  Response.TextPart.make({
+    metadata: {},
     text: "```\nAnswer each question with a concise, factually accurate answer.\n```"
   })
 )
@@ -55,26 +56,28 @@ const runSeededStream = (moduleName: string, seed: number) =>
     const layer = Layer.succeed(LanguageModel.LanguageModel, mock.service)
 
     return yield* Stream.runCollect(
-      GEPA.stream({
-        module,
-        trainset: Arr.make(
-          new Example({
-            input: { question: "What is the capital of France?" },
-            output: { answer: "Paris" }
-          }),
-          new Example({
-            input: { question: "What is the capital of Japan?" },
-            output: { answer: "Tokyo" }
-          }),
-          new Example({
-            input: { question: "What is the capital of Germany?" },
-            output: { answer: "Berlin" }
-          })
-        ),
-        metric: Metric.exactMatch("answer"),
-        maxIterations: 3,
-        seed
-      })
+      GEPA.stream(
+        new GEPA.Options({
+          module,
+          trainset: Arr.make(
+            new Example({
+              input: { question: "What is the capital of France?" },
+              output: { answer: "Paris" }
+            }),
+            new Example({
+              input: { question: "What is the capital of Japan?" },
+              output: { answer: "Tokyo" }
+            }),
+            new Example({
+              input: { question: "What is the capital of Germany?" },
+              output: { answer: "Berlin" }
+            })
+          ),
+          metric: Metric.exactMatch("answer"),
+          maxIterations: 3,
+          seed
+        })
+      )
     ).pipe(Effect.provide(layer))
   })
 
@@ -85,8 +88,10 @@ describe("GEPA.stream", () => {
       Effect.gen(function*() {
         const rawSelectionFixture = yield* loadFixture("dspy.gepa.selection.weights.seed-42")
         const rawEventOrderFixture = yield* loadFixture("dspy.gepa.orchestration.event-order.seed-0")
-        const selectionFixture = yield* Schema.decodeUnknown(GepaSelectionWeightsFixtureSchema)(rawSelectionFixture)
-        const eventOrderFixture = yield* Schema.decodeUnknown(GepaOrchestrationEventOrderFixtureSchema)(
+        const selectionFixture = yield* Schema.decodeUnknownEffect(GepaSelectionWeightsFixtureSchema)(
+          rawSelectionFixture
+        )
+        const eventOrderFixture = yield* Schema.decodeUnknownEffect(GepaOrchestrationEventOrderFixtureSchema)(
           rawEventOrderFixture
         )
         const firstRun = yield* runSeededStream("qa-seeded", selectionFixture.payload.seed)

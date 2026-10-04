@@ -1,6 +1,5 @@
-import { FileSystem, Path, Url } from "@effect/platform"
-import { BunContext } from "@effect/platform-bun"
-import { Effect, Option, Schema } from "effect"
+import { BunServices } from "@effect/platform-bun"
+import { Effect, FileSystem, Option, Path, Schema } from "effect"
 
 import {
   FixtureFileReadError,
@@ -13,15 +12,15 @@ import {
 import { FixtureManifestSchema, KnownFixtureSchema } from "./schemas.js"
 import type { FixtureManifest, FixtureManifestEntrySchema, FixtureName, KnownFixture } from "./schemas.js"
 
-const decodeJsonUnknown = Schema.decodeUnknown(Schema.parseJson(Schema.Unknown))
+const decodeJsonUnknown = Schema.decodeUnknownEffect(Schema.fromJsonString(Schema.Unknown))
 
 /** The directory `relative` names beside the module at `moduleUrl`, as a filesystem path. */
 export const directoryBeside = (moduleUrl: string, relative: string): Effect.Effect<string> =>
   Effect.gen(function*() {
     const path = yield* Path.Path
-    const url = yield* Url.fromString(relative, moduleUrl)
-    return yield* path.fromFileUrl(url)
-  }).pipe(Effect.orDie, Effect.provide(BunContext.layer))
+    const modulePath = yield* path.fromFileUrl(yield* Schema.decodeEffect(Schema.URLFromString)(moduleUrl))
+    return path.resolve(path.dirname(modulePath), relative)
+  }).pipe(Effect.orDie, Effect.provide(BunServices.layer))
 
 /** Reads `file` under `rootDirectory`, returning the text and the path it was read from. */
 const readText = <E>(
@@ -36,7 +35,7 @@ const readText = <E>(
     const raw = yield* fileSystem.readFileString(filePath).pipe(Effect.mapError((cause) => onError(filePath, cause)))
 
     return { path: filePath, raw }
-  }).pipe(Effect.provide(BunContext.layer))
+  }).pipe(Effect.provide(BunServices.layer))
 
 const parseJson = (
   path: string,
@@ -56,7 +55,7 @@ const decodeManifest = (
   path: string,
   payload: unknown
 ): Effect.Effect<FixtureManifest, FixtureManifestDecodeError> =>
-  Schema.decodeUnknown(FixtureManifestSchema)(payload).pipe(
+  Schema.decodeUnknownEffect(FixtureManifestSchema)(payload).pipe(
     Effect.mapError(
       (cause) =>
         new FixtureManifestDecodeError({
@@ -85,14 +84,14 @@ export const findManifestEntry = (
   manifest: FixtureManifest,
   name: FixtureName
 ): Option.Option<Schema.Schema.Type<typeof FixtureManifestEntrySchema>> =>
-  Option.fromNullable(manifest.fixtures.find((entry) => entry.name === name))
+  Option.fromNullishOr(manifest.fixtures.find((entry) => entry.name === name))
 
 const decodeFixture = (
   fixtureName: FixtureName,
   path: string,
   payload: unknown
 ): Effect.Effect<KnownFixture, FixtureSchemaDecodeError> =>
-  Schema.decodeUnknown(KnownFixtureSchema)(payload).pipe(
+  Schema.decodeUnknownEffect(KnownFixtureSchema)(payload).pipe(
     Effect.mapError(
       (cause) =>
         new FixtureSchemaDecodeError({

@@ -50,7 +50,7 @@ export class FixtureNotFoundError extends Schema.TaggedError<FixtureNotFoundErro
   fixture: FixtureNameSchema
 }) {}
 
-export const FixtureRegistryError = Schema.Union(
+export const FixtureRegistryError = Schema.Union([
   FixtureRootResolutionError,
   FixtureManifestReadError,
   FixtureFileReadError,
@@ -58,6 +58,6 @@ export const FixtureRegistryError = Schema.Union(
   FixtureManifestDecodeError,
   FixtureSchemaDecodeError,
   FixtureNotFoundError
-)
+])
 
 export type FixtureRegistryError = typeof FixtureRegistryError.Type

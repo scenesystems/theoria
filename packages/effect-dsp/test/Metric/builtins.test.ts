@@ -32,9 +32,9 @@ describe("Metric built-ins", () => {
         { answer: "alpha gamma delta" }
       )
 
-      expect(score.score).toBeCloseTo(Number.unsafeDivide(2, 3), 6)
-      expect(Number.greaterThanOrEqualTo(score.score, 0)).toBe(true)
-      expect(Number.lessThanOrEqualTo(score.score, 1)).toBe(true)
+      expect(score.score).toBeCloseTo(Number.divideUnsafe(2, 3), 6)
+      expect(Number.isGreaterThanOrEqualTo(score.score, 0)).toBe(true)
+      expect(Number.isLessThanOrEqualTo(score.score, 1)).toBe(true)
     }))
 
   it.effect("contains emits 1 for membership and 0 for absence", () =>
@@ -56,7 +56,7 @@ describe("Metric built-ins", () => {
 
   it.effect("normalizes scalars selected from records and class instances without validating unrelated fields", () =>
     Effect.gen(function*() {
-      class Answer extends Schema.Class<Answer>("MetricAnswer")({ answer: Schema.Number }) {}
+      class Answer extends Schema.Class<Answer>("MetricAnswer")({ answer: Schema.Finite }) {}
       const exact = Metric.exactMatch("answer")
       expect((yield* exact.score(new Answer({ answer: 42 }), { answer: " 42 " })).score).toBe(1)
       expect((yield* exact.score({ answer: false }, { answer: " FALSE " })).score).toBe(1)
@@ -79,9 +79,9 @@ describe("Metric built-ins", () => {
     Effect.gen(function*() {
       const f1 = Metric.f1("answer")
       const result = yield* f1.score({ answer: "red red red blue" }, { answer: "red green" })
-      expect(result.score).toBeCloseTo(Number.unsafeDivide(1, 3), 12)
+      expect(result.score).toBeCloseTo(Number.divideUnsafe(1, 3), 12)
       const reversed = yield* f1.score({ answer: "red green" }, { answer: "red red red blue" })
-      expect(reversed.score).toBeCloseTo(Number.unsafeDivide(1, 3), 12)
+      expect(reversed.score).toBeCloseTo(Number.divideUnsafe(1, 3), 12)
       expect((yield* f1.score({ answer: " \n " }, { answer: " " })).score).toBe(0)
       expect((yield* f1.score({ answer: "red" }, { answer: "blue" })).score).toBe(0)
     }))

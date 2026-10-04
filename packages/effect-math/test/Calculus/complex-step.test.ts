@@ -1,4 +1,4 @@
-import { BunContext } from "@effect/platform-bun"
+import { BunServices } from "@effect/platform-bun"
 import { describe, expect, it } from "@effect/vitest"
 import { Array, Effect, Match, Number, Schema } from "effect"
 
@@ -8,7 +8,7 @@ import * as Numeric from "../../src/Numeric.js"
 import * as Policy from "../../src/Policy.js"
 import { ComplexArithmeticParityFixtureSchema, loadFixture } from "../helpers/fixtures/index.js"
 
-const DerivativeName = Schema.Literal("square", "cube", "sin", "cos", "exp")
+const DerivativeName = Schema.Literals(["square", "cube", "sin", "cos", "exp"])
 
 const strict = Policy.layerDeterministic({
   seed: Policy.Seed.make(42),
@@ -31,7 +31,7 @@ describe("Calculus / complex-step differentiation", () => {
   it.effect("matches all complex-step SciPy fixtures", () =>
     Effect.gen(function*() {
       const raw = yield* loadFixture("complex.arithmetic-parity")
-      const fixture = yield* Schema.decodeUnknown(ComplexArithmeticParityFixtureSchema)(raw, {
+      const fixture = yield* Schema.decodeUnknownEffect(ComplexArithmeticParityFixtureSchema)(raw, {
         onExcessProperty: "error"
       })
 
@@ -39,14 +39,14 @@ describe("Calculus / complex-step differentiation", () => {
         Match.value(c).pipe(
           Match.when({ operation: "complexDerivative" }, (value) =>
             Effect.gen(function*() {
-              const name = yield* Schema.decodeUnknown(DerivativeName)(value.input.fn)
+              const name = yield* Schema.decodeUnknownEffect(DerivativeName)(value.input.fn)
               expect(
                 Numeric.abs(Number.subtract(Calculus.complexStep(resolve(name), value.input.x), value.expected))
               ).toBeLessThanOrEqual(1e-12)
             })),
           Match.orElse(() => Effect.void)
         ))
-    }).pipe(Effect.provide(BunContext.layer)))
+    }).pipe(Effect.provide(BunServices.layer)))
 
   it.effect("decodes the canonical input and captures callback failures", () =>
     Effect.gen(function*() {

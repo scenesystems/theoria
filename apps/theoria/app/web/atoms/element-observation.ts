@@ -1,8 +1,8 @@
-import { Atom, Result } from "@effect-atom/atom"
-import type { Atom as AtomType } from "@effect-atom/atom"
-import { RegistryContext, useAtom, useAtomSubscribe } from "@effect-atom/atom-react"
-import { Boolean, Data, Effect, Equal, Number, Option, Stream, String } from "effect"
+import { RegistryContext, useAtom, useAtomSubscribe } from "@effect/atom-react"
+import { Boolean, type Cause, Data, Effect, Equal, Number, Option, Stream, String } from "effect"
 import * as Arr from "effect/Array"
+import { AsyncResult as Result, Atom } from "effect/reactivity"
+import type * as AtomType from "effect/reactivity/Atom"
 import { type RefCallback, useCallback, useContext, useMemo } from "react"
 
 import { nextFrame } from "../platform/AnimationFrame.js"
@@ -18,20 +18,27 @@ import { appRuntime } from "./runtime.js"
  * the family lets go of the atom with the element. The observer disconnects
  * when the last subscriber leaves.
  */
-export const elementWidthAtom: (element: HTMLElement) => AtomType.Atom<Result.Result<number>> = Atom.family(
+const elementWidthFamily: (
+  element: HTMLElement
+) => AtomType.Atom<Result.AsyncResult<number, Cause.NoSuchElementError>> = Atom.family(
   (element: HTMLElement) =>
-    appRuntime.atom(ElementSize.contentWidths(element).pipe(Stream.filter(Number.greaterThan(0)))).pipe(
+    appRuntime.atom(ElementSize.contentWidths(element).pipe(Stream.filter(Number.isGreaterThan(0)))).pipe(
       Atom.setIdleTTL(0)
     )
 )
 
+/** DOM identity is reference-based; never traverse a mutable host object as a structural family key. */
+export const elementWidthAtom = (element: HTMLElement) => elementWidthFamily(Equal.byReferenceUnsafe(element))
+
 /** The width of an element that has not mounted: never measured. */
-const unmountedWidthAtom: AtomType.Atom<Result.Result<number>> = Atom.make(() => Result.initial<number>())
+const unmountedWidthAtom: AtomType.Atom<Result.AsyncResult<number, Cause.NoSuchElementError>> = Atom.make(() =>
+  Result.initial<number>()
+)
 
 /** The mount-scoped measure of an element: the ref that mounts it and the atom that follows its width. */
 export class ElementWidthHandle extends Data.Class<{
   readonly ref: RefCallback<HTMLElement>
-  readonly width: AtomType.Atom<Result.Result<number>>
+  readonly width: AtomType.Atom<Result.AsyncResult<number, Cause.NoSuchElementError>>
 }> {}
 
 /**
@@ -41,7 +48,7 @@ export class ElementWidthHandle extends Data.Class<{
  */
 export const observeOnMount =
   <E extends HTMLElement>(observe: (element: E) => () => void): RefCallback<E> => (element) =>
-    Option.match(Option.fromNullable(element), {
+    Option.match(Option.fromNullishOr(element), {
       onNone: () => {},
       onSome: observe
     })
@@ -85,7 +92,8 @@ const immediately: { readonly immediate: boolean } = { immediate: true }
 export const useElementWidthReporter = (onWidth: (width: number) => void): RefCallback<HTMLElement> => {
   const handle = useElementWidth()
   const report = useCallback(
-    (width: Result.Result<number>) => Option.match(Result.value(width), { onNone: () => {}, onSome: onWidth }),
+    (width: Result.AsyncResult<number, Cause.NoSuchElementError>) =>
+      Option.match(Result.value(width), { onNone: () => {}, onSome: onWidth }),
     [onWidth]
   )
   useAtomSubscribe(handle.width, report, immediately)
@@ -111,7 +119,7 @@ const activeAnchor = (
           Effect.filter(ids, (id) =>
             Effect.map(
               BrowserDocument.elementById(id),
-              Option.exists((element) => Number.lessThanOrEqualTo(element.getBoundingClientRect().top, 128))
+              Option.exists((element) => Number.isLessThanOrEqualTo(element.getBoundingClientRect().top, 128))
             )),
           (passed) => Arr.last(passed).pipe(Option.getOrElse(() => first))
         )
@@ -131,6 +139,8 @@ const activeAnchors = (
  * by `key` (ids joined with NUL). Observation runs while any component reads
  * the atom and stops when the last one lets go.
  */
-export const activeAnchorAtom: (key: string) => AtomType.Atom<Result.Result<string>> = Atom.family((key: string) =>
+export const activeAnchorAtom: (
+  key: string
+) => AtomType.Atom<Result.AsyncResult<string, Cause.NoSuchElementError>> = Atom.family((key: string) =>
   appRuntime.atom(activeAnchors(anchorIdsFromKey(key)))
 )

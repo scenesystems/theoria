@@ -1,6 +1,6 @@
 // @vitest-environment node
 import { expect, layer } from "@effect/vitest"
-import { Chunk, Duration, Effect, Fiber, Layer, Option, Schedule, Stream } from "effect"
+import { Duration, Effect, Fiber, Layer, Option, Result, Schedule, Stream } from "effect"
 import * as Arr from "effect/Array"
 
 import { renderTrials } from "../../app/contracts/demo/imagined-place-search.js"
@@ -63,7 +63,7 @@ layer(Layer.merge(SiteLive, BrowserLive), { excludeTestServices: true, timeout: 
      * to move on before then — the bound on the rest is for a signal that never
      * comes, far past any hand-off a slow page makes.
      */
-    it.scoped("on a processor four times slower, a changed story's discs still wait for its lines", () =>
+    it("on a processor four times slower, a changed story's discs still wait for its lines", () =>
       Effect.gen(function*() {
         const { failures, moved, newLines, overlaps, sampled, twoSets } = yield* changeStory({ cpuSlowdown: 4 })
         expect(Option.isSome(moved)).toBe(true)
@@ -75,11 +75,11 @@ layer(Layer.merge(SiteLive, BrowserLive), { excludeTestServices: true, timeout: 
         expect(yield* failures).toEqual([])
       }))
 
-    it.scoped("the search trace draws any trial, returns to the kept one, and content IDs open in full", () =>
+    it("the search trace draws any trial, returns to the kept one, and content IDs open in full", () =>
       Effect.gen(function*() {
         const { failures, page } = yield* openPage({ viewport: { width: 390, height: 844 } })
         // Sample every frame from before the page is asked for until the place is drawn.
-        const told = yield* Effect.fork(stageFailuresUntilRendered(page))
+        const told = yield* Effect.forkChild(stageFailuresUntilRendered(page))
         yield* recordPaper(page)
         yield* goto(page, "/")
         yield* drawn(page)
@@ -88,7 +88,8 @@ layer(Layer.merge(SiteLive, BrowserLive), { excludeTestServices: true, timeout: 
         // The paper is cut to size before the first trial is in, and holds that size until the drawing lands.
         const papers = yield* paperUntilLanding(page)
         expect(Arr.some(papers, (sample) => Option.isSome(sample.height) && Option.isNone(sample.phase))).toBe(true)
-        expect(Arr.dedupe(Arr.filterMap(papers, (sample) => sample.height))).toHaveLength(1)
+        expect(Arr.dedupe(Arr.filterMap(papers, (sample) => Result.fromOption(sample.height, () => undefined))))
+          .toHaveLength(1)
         yield* count(page.locator("[data-place-step]"), placeStepDefinitions.length)
         yield* visible(page.locator("[data-place-marker]").first())
 
@@ -134,7 +135,7 @@ layer(Layer.merge(SiteLive, BrowserLive), { excludeTestServices: true, timeout: 
         // The Arrange code answers for the drawing on the stage — this trial, not the kept one —
         // so its line count, the popup it opens, and the prose on the paper agree.
         const built = page.locator("[data-place-how-its-built]")
-        const arrange = yield* Arr.findFirst(placeStepDefinitions, (step) => step.id === "arrange")
+        const arrange = yield* Effect.fromOption(Arr.findFirst(placeStepDefinitions, (step) => step.id === "arrange"))
         yield* click(built.getByRole("tab", { name: arrange.name }))
         const layoutLine = built.locator("[data-place-code-step='arrange'] [data-code-annotation]", {
           hasText: "lines at"
@@ -172,7 +173,7 @@ layer(Layer.merge(SiteLive, BrowserLive), { excludeTestServices: true, timeout: 
         expect(yield* failures).toEqual([])
       }))
 
-    it.scoped("the neighbor's note is a fold, and a merged proposal stands beside its line of prose", () =>
+    it("the neighbor's note is a fold, and a merged proposal stands beside its line of prose", () =>
       Effect.gen(function*() {
         const { failures, page } = yield* openPage()
         yield* goto(page, "/")
@@ -207,7 +208,7 @@ layer(Layer.merge(SiteLive, BrowserLive), { excludeTestServices: true, timeout: 
         expect(yield* failures).toEqual([])
       }))
 
-    it.scoped("a merged feature fills the room the search made for it, never over the prose", () =>
+    it("a merged feature fills the room the search made for it, never over the prose", () =>
       Effect.gen(function*() {
         const { arrivals, failures, filledInPlace, overlaps, sampled } = yield* mergeProgramProposal("no-preference")
         expect(filledInPlace).toBe(true)
@@ -217,7 +218,7 @@ layer(Layer.merge(SiteLive, BrowserLive), { excludeTestServices: true, timeout: 
         expect(yield* failures).toEqual([])
       }))
 
-    it.scoped("under reduced motion the feature is placed outright, never over the prose", () =>
+    it("under reduced motion the feature is placed outright, never over the prose", () =>
       Effect.gen(function*() {
         const { arrivals, failures, filledInPlace, overlaps, placed, sampled } = yield* mergeProgramProposal("reduce")
         // Nothing travels: the drawing is placed outright at every best, and the disc fills the
@@ -231,7 +232,7 @@ layer(Layer.merge(SiteLive, BrowserLive), { excludeTestServices: true, timeout: 
         expect(yield* failures).toEqual([])
       }))
 
-    it.scoped("a changed story's discs wait for its lines: the old set leaves, the new set stands, then the drawing moves and the old discs shrink away", () =>
+    it("a changed story's discs wait for its lines: the old set leaves, the new set stands, then the drawing moves and the old discs shrink away", () =>
       Effect.gen(function*() {
         const { failures, frames, leaversShrink, moved, newLines, overlaps, sampled, twoSets } = yield* changeStory()
         // The drawing moved, and the new lines were painted, within the frames sampled.
@@ -263,7 +264,7 @@ layer(Layer.merge(SiteLive, BrowserLive), { excludeTestServices: true, timeout: 
      * it paints that trial's discs and no other's, so no feature is painted
      * twice and no line is set over a disc of the drawing just left.
      */
-    it.scoped("at the narrowest column every trial keeps the gap between prose and discs", () =>
+    it("at the narrowest column every trial keeps the gap between prose and discs", () =>
       Effect.gen(function*() {
         const { failures, page } = yield* openPage({ viewport: { width: 320, height: 700 }, reducedMotion: "reduce" })
         yield* goto(page, "/")
@@ -279,10 +280,10 @@ layer(Layer.merge(SiteLive, BrowserLive), { excludeTestServices: true, timeout: 
             yield* attribute(slider, "aria-valuenow", String(trial))
             const frame = yield* until(
               act(() => demo.evaluate(stageFrame)),
-              (sampled) => sampled.trial === String(trial) && Arr.isNonEmptyReadonlyArray(sampled.clearance),
+              (sampled) => sampled.trial === String(trial) && sampled.clearance.length > 0,
               `trial ${String(trial + 1)} drawn with its lines`
             )
-            yield* Effect.when(press(page, "ArrowRight"), () => trial < renderTrials - 1)
+            yield* Effect.when(press(page, "ArrowRight"), Effect.succeed(trial < renderTrials - 1))
             return frame
           }))
         expect(trials).toHaveLength(renderTrials)
@@ -302,7 +303,7 @@ layer(Layer.merge(SiteLive, BrowserLive), { excludeTestServices: true, timeout: 
      * motion it is drawn whole from its first frame; the wash is colour alone,
      * which reduced motion keeps.
      */
-    it.scoped("a merge washes the changed version and the settled search draws the walk once; under reduced motion the walk is whole at once", () =>
+    it("a merge washes the changed version and the settled search draws the walk once; under reduced motion the walk is whole at once", () =>
       Effect.gen(function*() {
         const finishing = (reducedMotion: ReducedMotion) =>
           Effect.gen(function*() {
@@ -315,18 +316,17 @@ layer(Layer.merge(SiteLive, BrowserLive), { excludeTestServices: true, timeout: 
             yield* act(() => merge.scrollIntoViewIfNeeded())
             // The kept drawing and its walk stand until the merged build lands; sampling starts once the new
             // search is drawing, or the first sample would be the old walk, already whole.
-            const rebuilt = yield* Effect.fork(nextResponse(page, "POST", "/api/imagined-place/build"))
+            const rebuilt = yield* Effect.forkChild(nextResponse(page, "POST", "/api/imagined-place/build"))
             yield* click(merge)
             expect((yield* Fiber.join(rebuilt)).status()).toBe(200)
             yield* attribute(paper, "data-place-drawn", "sketch")
             // Every frame from the merged search's first trial until the walk is whole.
-            const frames = yield* Stream.repeatEffectWithSchedule(
+            const frames = yield* Stream.fromEffectSchedule(
               act(() => page.evaluate(finishingTouches)),
-              Schedule.spaced("16 millis").pipe(Schedule.upTo("14 seconds"))
+              Schedule.spaced("16 millis").pipe(Schedule.upTo({ duration: "14 seconds" }))
             ).pipe(
               Stream.takeUntil((frame) => frame.walk === 1),
-              Stream.runCollect,
-              Effect.map(Chunk.toReadonlyArray)
+              Stream.runCollect
             )
             yield* animationsSettled(page)
             const settled = yield* act(() => page.evaluate(finishingTouches))
@@ -335,7 +335,7 @@ layer(Layer.merge(SiteLive, BrowserLive), { excludeTestServices: true, timeout: 
               walks: Arr.dedupe(Arr.filter(Arr.map(frames, (frame) => frame.walk), (walk) => walk >= 0)),
               washes: Arr.dedupe(
                 Arr.filterMap(frames, (frame) =>
-                  frame.wash.changes === "1" ? Option.some(frame.wash.opacity) : Option.none())
+                  frame.wash.changes === "1" ? Result.succeed(frame.wash.opacity) : Result.failVoid)
               ),
               settled
             }
@@ -357,7 +357,7 @@ layer(Layer.merge(SiteLive, BrowserLive), { excludeTestServices: true, timeout: 
      * does not reach: it takes its place at once under reduced motion by the
      * page's own rule, and eases across otherwise.
      */
-    it.scoped("a switch's thumb eases across, and under reduced motion takes its place at once", () =>
+    it("a switch's thumb eases across, and under reduced motion takes its place at once", () =>
       Effect.gen(function*() {
         const thumbTransition = (reducedMotion: ReducedMotion) =>
           Effect.gen(function*() {
@@ -378,7 +378,7 @@ layer(Layer.merge(SiteLive, BrowserLive), { excludeTestServices: true, timeout: 
         expect(yield* thumbTransition("reduce")).toMatchObject({ property: "none" })
       }))
 
-    it.scoped("under reduced motion the band places its discs where they stand; nothing slides", () =>
+    it("under reduced motion the band places its discs where they stand; nothing slides", () =>
       Effect.gen(function*() {
         const { failures, page } = yield* openPage({ reducedMotion: "reduce", viewport: { width: 390, height: 844 } })
         yield* goto(page, "/")
@@ -387,12 +387,14 @@ layer(Layer.merge(SiteLive, BrowserLive), { excludeTestServices: true, timeout: 
         const band = page.locator("[data-place-band]")
         const proposal = demo.locator("[data-place-proposal='program']")
         const feature = proposal.locator("[data-place-feature]")
-        const name = yield* Option.fromNullable(yield* act(() => feature.getAttribute("data-place-feature")))
+        const name = yield* Effect.fromOption(
+          Option.fromNullishOr(yield* act(() => feature.getAttribute("data-place-feature")))
+        )
         yield* act(() => proposal.scrollIntoViewIfNeeded())
         yield* visible(band)
 
         // The program's feature merged, its disc stands last in the row, after the neighbor's.
-        const merge = yield* Effect.fork(nextResponse(page, "POST", "/api/imagined-place/build"))
+        const merge = yield* Effect.forkChild(nextResponse(page, "POST", "/api/imagined-place/build"))
         yield* click(proposal.getByRole("switch"))
         expect((yield* Fiber.join(merge)).status()).toBe(200)
         yield* eventually(() => band.evaluate(bandShowsKept, name), true, searchSettlesWithin)
@@ -402,9 +404,9 @@ layer(Layer.merge(SiteLive, BrowserLive), { excludeTestServices: true, timeout: 
         // Every centre it is drawn at, sampled a frame apart, from the decline until the neighbor's disc
         // has left the band and the drawing is the kept one again.
         const neighbor = demo.locator("[data-place-proposal='neighbor']")
-        const neighborName = yield* Option.fromNullable(
+        const neighborName = yield* Effect.fromOption(Option.fromNullishOr(
           yield* act(() => neighbor.locator("[data-place-feature]").getAttribute("data-place-feature"))
-        )
+        ))
         const landed = Effect.map(
           Effect.all([
             act(() => band.evaluate(bandDiscCentre, neighborName)),
@@ -412,16 +414,15 @@ layer(Layer.merge(SiteLive, BrowserLive), { excludeTestServices: true, timeout: 
           ]),
           ([neighborCentre, kept]) => neighborCentre === "" && kept
         )
-        const decline = yield* Effect.fork(nextResponse(page, "POST", "/api/imagined-place/build"))
+        const decline = yield* Effect.forkChild(nextResponse(page, "POST", "/api/imagined-place/build"))
         yield* click(neighbor.getByRole("switch"))
-        const sampled = yield* Effect.fork(
-          Stream.repeatEffectWithSchedule(
+        const sampled = yield* Effect.forkChild(
+          Stream.fromEffectSchedule(
             act(() => band.evaluate(bandDiscCentre, name)),
-            Schedule.spaced("16 millis").pipe(Schedule.upTo(Duration.seconds(12)))
+            Schedule.spaced("16 millis").pipe(Schedule.upTo({ duration: Duration.seconds(12) }))
           ).pipe(
             Stream.takeUntilEffect(() => landed),
-            Stream.runCollect,
-            Effect.map(Chunk.toReadonlyArray)
+            Stream.runCollect
           )
         )
         expect((yield* Fiber.join(decline)).status()).toBe(200)

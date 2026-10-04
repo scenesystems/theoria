@@ -41,7 +41,7 @@ const executePlan = <Space extends SearchSpace.SearchSpace>(
  * @category combinators
  */
 export const run = <Space extends SearchSpace.SearchSpace>(
-  options: Optimization.Options<SearchSpace.Type<Space>, Space>
+  options: Optimization.Options<Space>
 ): Effect.Effect<Optimization.Result<SearchSpace.Type<Space>>, SearchError> =>
   optimizePlanFromOptions(options).pipe(
     Effect.flatMap((optimizePlan) => executePlan(optimizePlan, Option.none())),
@@ -80,7 +80,7 @@ export const snapshot = <Config>(
  * @category combinators
  */
 export const resume = <Space extends SearchSpace.SearchSpace>(
-  options: Optimization.ResumeOptions<SearchSpace.Type<Space>, Space>
+  options: Optimization.ResumeOptions<Space>
 ): Effect.Effect<Optimization.Result<SearchSpace.Type<Space>>, SearchError> =>
   resumeExecutionSeedFromOptions(options).pipe(
     Effect.flatMap(({ optimizePlan, seed }) => executePlan(optimizePlan, Option.some(seed))),
@@ -99,7 +99,7 @@ export const resume = <Space extends SearchSpace.SearchSpace>(
  * @category combinators
  */
 export const resumeFromStorage = <Space extends SearchSpace.SearchSpace>(
-  options: Optimization.StorageResumeOptions<SearchSpace.Type<Space>, Space>
+  options: Optimization.StorageResumeOptions<Space>
 ): Effect.Effect<Optimization.Result<SearchSpace.Type<Space>>, SearchError, OptimizationStorage.OptimizationStorage> =>
   resumeExecutionSeedFromStorageOptions(options).pipe(
     Effect.flatMap(({ optimizePlan, seed }) => executePlan(optimizePlan, Option.some(seed))),

@@ -27,98 +27,98 @@ export const commonPlanFields = <Config>(options: {
   readonly priorWeight?: number
   readonly maxCost?: number
   readonly evaluationsPerTrial?: number
-  readonly maxDuration?: Duration.DurationInput
+  readonly maxDuration?: Duration.Input
   readonly targetValue?: number
   readonly noImprovementWindow?: number
   readonly epsilon?: number
   readonly retrySchedule?: RetrySchedule
-  readonly trialTimeout?: Duration.DurationInput
+  readonly trialTimeout?: Duration.Input
 }) => ({
-  ...Option.fromNullable(options.direction).pipe(
+  ...Option.fromNullishOr(options.direction).pipe(
     Option.match({
       onNone: () => ({}),
       onSome: (direction) => ({ direction })
     })
   ),
-  ...Option.fromNullable(options.directions).pipe(
+  ...Option.fromNullishOr(options.directions).pipe(
     Option.match({
       onNone: () => ({}),
       onSome: (directions) => ({ directions })
     })
   ),
-  ...Option.fromNullable(options.pruningPolicy).pipe(
+  ...Option.fromNullishOr(options.pruningPolicy).pipe(
     Option.match({
       onNone: () => ({}),
       onSome: (pruningPolicy) => ({ pruningPolicy })
     })
   ),
-  ...Option.fromNullable(options.stopMode).pipe(
+  ...Option.fromNullishOr(options.stopMode).pipe(
     Option.match({
       onNone: () => ({}),
       onSome: (stopMode) => ({ stopMode })
     })
   ),
-  ...Option.fromNullable(options.concurrency).pipe(
+  ...Option.fromNullishOr(options.concurrency).pipe(
     Option.match({
       onNone: () => ({}),
       onSome: (concurrency) => ({ concurrency })
     })
   ),
-  ...Option.fromNullable(options.priorTrials).pipe(
+  ...Option.fromNullishOr(options.priorTrials).pipe(
     Option.match({
       onNone: () => ({}),
       onSome: (priorTrials) => ({ priorTrials })
     })
   ),
-  ...Option.fromNullable(options.priorWeight).pipe(
+  ...Option.fromNullishOr(options.priorWeight).pipe(
     Option.match({
       onNone: () => ({}),
       onSome: (priorWeight) => ({ priorWeight })
     })
   ),
-  ...Option.fromNullable(options.maxCost).pipe(
+  ...Option.fromNullishOr(options.maxCost).pipe(
     Option.match({
       onNone: () => ({}),
       onSome: (maxCost) => ({ maxCost })
     })
   ),
-  ...Option.fromNullable(options.evaluationsPerTrial).pipe(
+  ...Option.fromNullishOr(options.evaluationsPerTrial).pipe(
     Option.match({
       onNone: () => ({}),
       onSome: (evaluationsPerTrial) => ({ evaluationsPerTrial })
     })
   ),
-  ...Option.fromNullable(options.maxDuration).pipe(
+  ...Option.fromNullishOr(options.maxDuration).pipe(
     Option.match({
       onNone: () => ({}),
       onSome: (maxDuration) => ({ maxDuration })
     })
   ),
-  ...Option.fromNullable(options.targetValue).pipe(
+  ...Option.fromNullishOr(options.targetValue).pipe(
     Option.match({
       onNone: () => ({}),
       onSome: (targetValue) => ({ targetValue })
     })
   ),
-  ...Option.fromNullable(options.noImprovementWindow).pipe(
+  ...Option.fromNullishOr(options.noImprovementWindow).pipe(
     Option.match({
       onNone: () => ({}),
       onSome: (noImprovementWindow) => ({ noImprovementWindow })
     })
   ),
-  ...Option.fromNullable(options.epsilon).pipe(
+  ...Option.fromNullishOr(options.epsilon).pipe(
     Option.match({
       onNone: () => ({}),
       onSome: (epsilon) => ({ epsilon })
     })
   ),
-  ...Option.fromNullable(options.retrySchedule).pipe(
+  ...Option.fromNullishOr(options.retrySchedule).pipe(
     Option.match({
       onNone: () => ({}),
       onSome: (retrySchedule) => ({ retrySchedule })
     })
   ),
-  ...Option.fromNullable(options.trialTimeout).pipe(
+  ...Option.fromNullishOr(options.trialTimeout).pipe(
     Option.match({
       onNone: () => ({}),
       onSome: (trialTimeout) => ({ trialTimeout })

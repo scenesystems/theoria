@@ -4,7 +4,7 @@ import { Chunk, Effect, Number as Num, Ref, Schema } from "effect"
 import * as Cache from "../../src/Cache.js"
 import * as ObjectiveCache from "../../src/ObjectiveCache.js"
 
-const Configuration = Schema.Struct({ x: Schema.Number })
+const Configuration = Schema.Struct({ x: Schema.Finite })
 
 it.effect("resolves, observes, invalidates, and recomputes objective values", () =>
   Effect.gen(function*() {

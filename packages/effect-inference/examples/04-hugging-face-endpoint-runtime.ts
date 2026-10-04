@@ -3,9 +3,9 @@
  * the configured deployment and observed embedding width. EmbeddingModel does
  * not expose a response model identity, so this does not invent one.
  */
-import * as EmbeddingModel from "@effect/ai/EmbeddingModel"
 import { BunRuntime } from "@effect/platform-bun"
 import { Array as Arr, Boolean, Effect, Function, Option } from "effect"
+import { EmbeddingModel } from "effect/ai"
 
 import * as HuggingFace from "@scenesystems/effect-inference/HuggingFace"
 
@@ -21,12 +21,12 @@ export const program = Effect.gen(function*() {
     Effect.flatMap((model) => model.embedMany(Arr.make("runtime provenance", "package-owned evidence"))),
     Effect.provide(embeddingLayer)
   )
-  const dimensions = Option.map(Arr.head(embeddings), Arr.length)
+  const dimensions = Option.map(Arr.head(embeddings.embeddings), (embedding) => Arr.length(embedding.vector))
 
   return yield* Effect.log({
     requestedModel: resolution.request.model.modelRef,
-    endpointId: Option.fromNullable(resolution.route.route.endpointId),
-    deployment: Option.fromNullable(resolution.route.selectedDeployment),
+    endpointId: Option.fromNullishOr(resolution.route.route.endpointId),
+    deployment: Option.fromNullishOr(resolution.route.selectedDeployment),
     embeddingDimensions: dimensions
   })
 })

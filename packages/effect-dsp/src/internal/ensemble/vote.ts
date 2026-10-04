@@ -4,7 +4,7 @@
  *
  * @since 0.1.0
  */
-import { Array as Arr, Boolean as Bool, Chunk, Data, Effect, Number as Num, Option, Order, Schema } from "effect"
+import { Array as Arr, Boolean as Bool, Chunk, Data, Effect, Number as Num, Option, Order, Schema, Tuple } from "effect"
 import type { Equivalence } from "effect"
 import { AllTrialsFailed } from "../../DspError.js"
 import type { ProgramOutput } from "../../Ensemble.js"
@@ -39,7 +39,7 @@ const appendVote = <O extends Schema.Struct.Fields>(
 const voteOrder = <O extends Schema.Struct.Fields>(): Order.Order<VoteBucket<O>> =>
   Order.combine(
     Order.mapInput(Num.Order, (bucket: VoteBucket<O>) => bucket.count),
-    Order.reverse(Order.mapInput(Num.Order, (bucket: VoteBucket<O>) => bucket.firstIndex))
+    Order.mapInput(Num.Order, (bucket: VoteBucket<O>) => Num.multiply(-1, bucket.firstIndex))
   )
 
 const winningVote = <O extends Schema.Struct.Fields>(
@@ -67,11 +67,11 @@ const winningVote = <O extends Schema.Struct.Fields>(
  * @category constructors
  */
 export const majorityVote = <O extends Schema.Struct.Fields>(
-  outputs: Schema.Array$<Schema.Struct<O>>["Type"],
-  schema: Schema.Struct<O>
+  outputs: ReadonlyArray<ProgramOutput<O>>,
+  schema: Schema.Schema<ProgramOutput<O>>
 ): Effect.Effect<ProgramOutput<O>, AllTrialsFailed> => {
-  const indexedOutputs = Arr.map(outputs, (output, index) => Data.tuple(output, index))
-  const equivalent = Schema.equivalence(schema)
+  const indexedOutputs = Arr.map(outputs, (output, index) => Tuple.make(output, index))
+  const equivalent = Schema.toEquivalence(schema)
   const votes = Arr.reduce(
     indexedOutputs,
     Chunk.empty<VoteBucket<O>>(),

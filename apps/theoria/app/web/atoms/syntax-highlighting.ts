@@ -1,7 +1,7 @@
-import { Atom, Result } from "@effect-atom/atom"
-import type { Atom as AtomType } from "@effect-atom/atom"
 import type { HighlighterCore } from "@shikijs/core"
 import { Match, Schema } from "effect"
+import { AsyncResult as Result, Atom } from "effect/reactivity"
+import type * as AtomType from "effect/reactivity/Atom"
 
 import {
   CodeLanguage,
@@ -14,8 +14,9 @@ import {
 
 import { appRuntime } from "./runtime.js"
 
-export const syntaxHighlighterAtom: AtomType.Atom<Result.Result<HighlighterCore, SyntaxHighlightingError>> = appRuntime
-  .atom(makeSyntaxHighlighter)
+export const syntaxHighlighterAtom: AtomType.Atom<Result.AsyncResult<HighlighterCore, SyntaxHighlightingError>> =
+  appRuntime
+    .atom(makeSyntaxHighlighter)
 
 /** One piece of source in one language: what a highlighting is of. Structural, so the same code is one key. */
 export class CodeSource extends Schema.Class<CodeSource>("@theoria/app/web/atoms/SyntaxHighlighting/CodeSource")({
@@ -30,7 +31,7 @@ export class CodeSource extends Schema.Class<CodeSource>("@theoria/app/web/atoms
  */
 export const highlightedLinesAtom = Atom.family(
   (code: CodeSource): AtomType.Atom<ReadonlyArray<ReadonlyArray<HighlightToken>>> =>
-    Atom.make((get: AtomType.Context) =>
+    Atom.make((get: AtomType.AtomContext) =>
       Result.match(get(syntaxHighlighterAtom), {
         onInitial: () => plainCode(code.source),
         onFailure: () => plainCode(code.source),

@@ -2,7 +2,7 @@ import { Schema } from "effect"
 
 import { Id } from "./id.js"
 
-const NonEmptyString = Schema.String.pipe(Schema.minLength(1))
+const NonEmptyString = Schema.String.pipe(Schema.check(Schema.isMinLength(1)))
 
 /**
  * Package grouping shared by the package index and the demo cards.
@@ -12,7 +12,7 @@ const NonEmptyString = Schema.String.pipe(Schema.minLength(1))
  *
  * @since 0.1.0
  */
-export const PackageGroup = Schema.Literal("effect", "scenesystems")
+export const PackageGroup = Schema.Literals(["effect", "scenesystems"])
 
 export type PackageGroup = typeof PackageGroup.Type
 

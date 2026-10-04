@@ -1,3 +1,4 @@
+import { Hex } from "effect/encoding"
 /**
  * Byte conversions for test vectors: hex golden vectors into `Uint8Array`,
  * fixture text into UTF-8 bytes, and the runtime's own UTF-8 bytes as an
@@ -7,7 +8,7 @@
  * @since 0.1.0
  * @category test-helpers
  */
-import { Chunk, Effect, Encoding, type ParseResult, Schema, Stream } from "effect"
+import { Effect, Schema, Stream } from "effect"
 
 /**
  * Encode known well-formed fixture text as UTF-8 bytes.
@@ -20,7 +21,7 @@ import { Chunk, Effect, Encoding, type ParseResult, Schema, Stream } from "effec
  * @category test-helpers
  */
 export const encodeFixtureUtf8 = (text: string): Uint8Array =>
-  Schema.decodeSync(Schema.Uint8ArrayFromHex)(Encoding.encodeHex(text))
+  Schema.decodeSync(Schema.Uint8ArrayFromHex)(Hex.encode(text))
 
 /**
  * The runtime's own UTF-8 bytes for `text`, reached through Effect's
@@ -30,11 +31,11 @@ export const encodeFixtureUtf8 = (text: string): Uint8Array =>
  * @since 0.3.0
  * @category test-helpers
  */
-export const oracleUtf8 = (text: string): Effect.Effect<Uint8Array, ParseResult.ParseError> =>
+export const oracleUtf8 = (text: string): Effect.Effect<Uint8Array, Schema.SchemaError> =>
   Stream.encodeText(Stream.make(text)).pipe(
     Stream.flatMap(Stream.fromIterable),
     Stream.runCollect,
-    Effect.flatMap((bytes) => Schema.decode(Schema.Uint8Array)(Chunk.toReadonlyArray(bytes)))
+    Effect.map((bytes) => Uint8Array.from(bytes))
   )
 
 /**
@@ -52,4 +53,4 @@ export const hexToBytes = Schema.decodeSync(Schema.Uint8ArrayFromHex)
  * @since 0.1.0
  * @category test-helpers
  */
-export const bytesToHex = (bytes: Uint8Array): string => Encoding.encodeHex(bytes)
+export const bytesToHex = (bytes: Uint8Array): string => Hex.encode(bytes)

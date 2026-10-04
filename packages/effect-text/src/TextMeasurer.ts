@@ -15,11 +15,11 @@ import type * as Text from "./Text.js"
  * @since 0.5.0
  * @category errors
  */
-export class Failed extends Schema.TaggedError<Failed>("@scenesystems/effect-text/TextMeasurer/Failed")(
+export class Failed extends Schema.TaggedError<Failed>()(
   "MeasurementFailed",
   {
     fontFamily: Schema.String,
-    fontSize: Schema.Number.pipe(Schema.finite()),
+    fontSize: Schema.Finite,
     text: Schema.String,
     reason: Schema.String
   }
@@ -32,16 +32,15 @@ export class Failed extends Schema.TaggedError<Failed>("@scenesystems/effect-tex
  * @since 0.5.0
  * @category services
  */
-export class TextMeasurer extends Context.Tag("@scenesystems/effect-text/TextMeasurer")<
-  TextMeasurer,
-  { readonly measure: (font: Text.Font, text: string) => Effect.Effect<number, Failed> }
->() {}
+export class TextMeasurer extends Context.Service<TextMeasurer, {
+  readonly measure: (font: Text.Font, text: string) => Effect.Effect<number, Failed>
+}>()("@scenesystems/effect-text/TextMeasurer") {}
 
-const isWhitespace = Schema.is(Schema.String.pipe(Schema.pattern(/^\s$/u)))
-const isWide = Schema.is(Schema.String.pipe(Schema.pattern(/[A-Z0-9]/u)))
+const isWhitespace = Schema.is(Schema.String.check(Schema.isPattern(/^\s$/u)))
+const isWide = Schema.is(Schema.String.check(Schema.isPattern(/[A-Z0-9]/u)))
 
 const weightScale = (weight: number): number =>
-  Boolean.match(Number.lessThanOrEqualTo(weight, 400), {
+  Boolean.match(Number.isLessThanOrEqualTo(weight, 400), {
     onTrue: () => 1,
     onFalse: () => Number.sum(1, Number.multiply(Number.subtract(weight, 400), 0.0003))
   })
@@ -52,7 +51,7 @@ const characterWidth = (font: Text.Font, character: string): number => {
     Match.when(isWide, () => Number.multiply(font.size, 0.64)),
     Match.orElse(() => Number.multiply(font.size, 0.58))
   )
-  const weight = Option.fromNullable(font.weight).pipe(Option.getOrElse(() => 400))
+  const weight = Option.fromNullishOr(font.weight).pipe(Option.getOrElse(() => 400))
   return Number.multiply(base, weightScale(weight))
 }
 

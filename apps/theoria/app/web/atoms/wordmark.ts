@@ -1,5 +1,5 @@
-import { Atom } from "@effect-atom/atom"
-import type { Atom as AtomType } from "@effect-atom/atom"
+import { Atom } from "effect/reactivity"
+import type * as AtomType from "effect/reactivity/Atom"
 
 import type { WordmarkEvent, WordmarkPhase } from "../view/primitives/wordmarkMorph.js"
 import { wordmarkPhaseAfter } from "../view/primitives/wordmarkMorph.js"
@@ -13,7 +13,7 @@ const phaseState = Atom.make<WordmarkPhase>("intro").pipe(Atom.keepAlive)
  * `replayAsked` to a running pass leaves that pass to finish.
  */
 export const wordmarkPhaseAtom: AtomType.Writable<WordmarkPhase, WordmarkEvent> = Atom.writable(
-  (get: AtomType.Context) => get(phaseState),
+  (get: AtomType.AtomContext) => get(phaseState),
   (ctx: AtomType.WriteContext<WordmarkPhase>, event: WordmarkEvent) => {
     ctx.set(phaseState, wordmarkPhaseAfter(ctx.get(phaseState), event))
   }

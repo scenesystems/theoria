@@ -1,6 +1,7 @@
-import { FetchHttpClient, HttpClient, type HttpClientError } from "@effect/platform"
-import { Effect, Match, Schema } from "effect"
-import * as ParseResult from "effect/ParseResult"
+import { BrowserHttpClient } from "@effect/platform-browser"
+import { Context, Effect, Layer, Schema } from "effect"
+import * as HttpClient from "effect/http/HttpClient"
+import type * as HttpClientError from "effect/http/HttpClientError"
 
 import {
   type DocsApiExportPage,
@@ -8,7 +9,6 @@ import {
   type DocsApiModuleIndex,
   DocsApiModuleIndexJson,
   DocsDataError,
-  type DocsManifest,
   DocsManifestJson,
   type DocsSearchIndex,
   DocsSearchIndexJson,
@@ -16,33 +16,26 @@ import {
   GuidePageJson
 } from "@theoria/docs-model"
 
-const parseErrorMessage = (error: ParseResult.ParseError): string => ParseResult.TreeFormatter.formatErrorSync(error)
+const parseErrorMessage = (error: Schema.SchemaError): string => error.message
 
-const requestErrorMessage = (error: HttpClientError.HttpClientError): string =>
-  Match.value(error).pipe(
-    Match.tag("ResponseError", (failure) =>
-      `Documentation data request failed with status ${String(failure.response.status)}`),
-    Match.orElse((failure) =>
-      failure.message
-    )
-  )
+const requestErrorMessage = (error: HttpClientError.HttpClientError): string => error.message
 
 const make = Effect.gen(function*() {
   const http = (yield* HttpClient.HttpClient).pipe(HttpClient.filterStatusOk)
 
-  const request = <A>(path: string, schema: Schema.Schema<A, string>): Effect.Effect<A, DocsDataError> =>
+  const request = <A>(path: string, schema: Schema.Codec<A, string>) =>
     http.get(path, { headers: { accept: "application/json" } }).pipe(
       Effect.flatMap((response) => response.text),
       Effect.mapError((error) => new DocsDataError({ path, message: requestErrorMessage(error) })),
       Effect.flatMap((content) =>
-        Schema.decode(schema)(content).pipe(
+        Schema.decodeEffect(schema)(content).pipe(
           Effect.mapError((error) => new DocsDataError({ path, message: parseErrorMessage(error) }))
         )
       )
     )
 
   return {
-    manifest: (): Effect.Effect<DocsManifest, DocsDataError> => request("/docs-data/manifest.json", DocsManifestJson),
+    manifest: request("/docs-data/manifest.json", DocsManifestJson),
     apiModuleIndex: (asset: string): Effect.Effect<DocsApiModuleIndex, DocsDataError> =>
       request(asset, DocsApiModuleIndexJson),
     apiExport: (asset: string): Effect.Effect<DocsApiExportPage, DocsDataError> =>
@@ -57,7 +50,9 @@ const make = Effect.gen(function*() {
  * platform `HttpClient`, so the production layer uses `fetch` while tests
  * provide an in-memory client through `DocsClient.DefaultWithoutDependencies`.
  */
-export class DocsClient extends Effect.Service<DocsClient>()("@theoria/app/web/services/DocsClient", {
-  effect: make,
-  dependencies: [FetchHttpClient.layer]
-}) {}
+export class DocsClient extends Context.Service<DocsClient, Effect.Success<typeof make>>()(
+  "@theoria/app/web/services/DocsClient"
+) {
+  static readonly DefaultWithoutDependencies = Layer.effect(DocsClient, make)
+  static readonly Default = DocsClient.DefaultWithoutDependencies.pipe(Layer.provide(BrowserHttpClient.layerFetch))
+}

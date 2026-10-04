@@ -1,8 +1,8 @@
 import { Popover } from "@base-ui/react/popover"
-import { Result } from "@effect-atom/atom"
-import { useAtomValue } from "@effect-atom/atom-react"
+import { useAtomValue } from "@effect/atom-react"
 import { ArrowRightIcon } from "@heroicons/react/20/solid"
 import { Boolean as Bool, Equal, Match, Option, Predicate } from "effect"
+import { AsyncResult as Result } from "effect/reactivity"
 import type { ComponentProps, MouseEvent as ReactMouseEvent, ReactNode } from "react"
 import { useRef } from "react"
 

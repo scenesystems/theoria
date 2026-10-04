@@ -1,6 +1,6 @@
 // @vitest-environment node
 import { expect, layer } from "@effect/vitest"
-import { Boolean, Clock, Deferred, Duration, Effect, Layer, Number, Predicate, Runtime, Schema } from "effect"
+import { Boolean, Clock, Deferred, Duration, Effect, Layer, Number, Predicate, Schema } from "effect"
 import * as Arr from "effect/Array"
 import * as Str from "effect/String"
 
@@ -55,7 +55,7 @@ import { SiteLive } from "./site.js"
 layer(Layer.merge(SiteLive, BrowserLive), { excludeTestServices: true, timeout: "2 minutes" })(
   "Theoria docs in Chromium",
   (it) => {
-    it.scoped("the package picker keeps its field height when API navigation overflows the sidebar", () =>
+    it("the package picker keeps its field height when API navigation overflows the sidebar", () =>
       Effect.gen(function*() {
         const { failures, page } = yield* openPage({ reducedMotion: "reduce" })
         yield* Effect.forEach([1200, 720, 500], (height) =>
@@ -83,7 +83,7 @@ layer(Layer.merge(SiteLive, BrowserLive), { excludeTestServices: true, timeout: 
         expect(yield* failures).toEqual([])
       }))
 
-    it.scoped("docs chrome reaches both edges and the package index shares the header's left alignment", () =>
+    it("docs chrome reaches both edges and the package index shares the header's left alignment", () =>
       Effect.gen(function*() {
         const { failures, page } = yield* openPage({ reducedMotion: "reduce" })
         yield* Effect.forEach([1440, 1920, 2560], (width) =>
@@ -119,7 +119,7 @@ layer(Layer.merge(SiteLive, BrowserLive), { excludeTestServices: true, timeout: 
         expect(yield* failures).toEqual([])
       }))
 
-    it.scoped("package cards answer hover and press with their background, never a title underline", () =>
+    it("package cards answer hover and press with their background, never a title underline", () =>
       Effect.gen(function*() {
         const { failures, page } = yield* openPage({ reducedMotion: "reduce" })
         yield* Effect.forEach(ColorMode.literals, (scheme) =>
@@ -150,7 +150,7 @@ layer(Layer.merge(SiteLive, BrowserLive), { excludeTestServices: true, timeout: 
         expect(yield* failures).toEqual([])
       }))
 
-    it.scoped("docs use the home logo's scale, showing only its mark below the sidebar breakpoint", () =>
+    it("docs use the home logo's scale, showing only its mark below the sidebar breakpoint", () =>
       Effect.gen(function*() {
         const { failures, page } = yield* openPage({ reducedMotion: "reduce" })
         yield* goto(page, "/")
@@ -168,17 +168,14 @@ layer(Layer.merge(SiteLive, BrowserLive), { excludeTestServices: true, timeout: 
             expect(docsType.weight).toBe(homeType.weight)
             expect((yield* act(() => logo.locator("svg").evaluate(boxOf))).height).toBe(homeMark.height)
             const wordmark = logo.getByText("Theoria", { exact: true })
-            yield* Effect.if(Number.lessThan(width, 1024), {
-              onTrue: () => hidden(wordmark),
-              onFalse: () => visible(wordmark)
-            })
+            yield* Number.isLessThan(width, 1024) ? hidden(wordmark) : visible(wordmark)
             expect((yield* act(() => page.locator("header").evaluate(boxOf))).height).toBe(73)
             expect(yield* fitsViewport(page)).toBe(true)
           }))
         expect(yield* failures).toEqual([])
       }))
 
-    it.scoped("guide, module and export pages share title and prose metrics in both modes and across the narrow breakpoint", () =>
+    it("guide, module and export pages share title and prose metrics in both modes and across the narrow breakpoint", () =>
       Effect.gen(function*() {
         const { failures, page } = yield* openPage({ reducedMotion: "reduce" })
         const pages = [
@@ -246,12 +243,13 @@ layer(Layer.merge(SiteLive, BrowserLive), { excludeTestServices: true, timeout: 
                       weight: "600",
                       color: (yield* act(() => source.evaluate(typographyOf))).color
                     })
-                    expect(yield* act(() => page.locator("main code").first().evaluate(typographyOf))).toMatchObject({
-                      family: expect.stringContaining("Geist Mono Variable"),
+                    const codeTypography = yield* act(() => page.locator("main code").first().evaluate(typographyOf))
+                    expect(codeTypography).toMatchObject({
                       size: "12px",
                       leading: "18px",
                       tracking: "normal"
                     })
+                    expect(codeTypography.family).toContain("Geist Mono Variable")
                     expect(yield* fitsViewport(page)).toBe(true)
                   }))
               }))
@@ -259,15 +257,17 @@ layer(Layer.merge(SiteLive, BrowserLive), { excludeTestServices: true, timeout: 
         expect(yield* failures).toEqual([])
       }))
 
-    it.scoped("a delayed docs renderer loads on demand and preserves navigation focus", () =>
+    it("a delayed docs renderer loads on demand and preserves navigation focus", () =>
       Effect.gen(function*() {
         const { failures, page } = yield* openPage({ reducedMotion: "reduce" })
-        const runtime = yield* Effect.runtime<never>()
+        const runtime = yield* Effect.context<never>()
         const gate = yield* Deferred.make<void>()
         const modules = yield* observeRequests(page, (request) => Str.includes("/assets/DocsPage-")(request.url))
         yield* act(() =>
           page.route("**/assets/DocsPage-*.js", (route) =>
-            Runtime.runPromise(runtime)(Deferred.await(gate).pipe(Effect.andThen(act(() => route.continue())))))
+            Effect.runPromiseWith(runtime)(
+              Deferred.await(gate).pipe(Effect.andThen(act(() => route.continue())))
+            ))
         )
         yield* goto(page, "/")
         const browse = page.getByRole("link", { name: "Browse the packages", exact: true })
@@ -278,9 +278,7 @@ layer(Layer.merge(SiteLive, BrowserLive), { excludeTestServices: true, timeout: 
         yield* Deferred.succeed(gate, undefined)
         yield* visible(page.getByRole("heading", { level: 1, name: "Packages" }))
         yield* until(
-          act(() =>
-            page.locator("main").evaluate(isActiveElement)
-          ),
+          act(() => page.locator("main").evaluate(isActiveElement)),
           (focused) => focused,
           "loaded route focus"
         )
@@ -288,7 +286,7 @@ layer(Layer.merge(SiteLive, BrowserLive), { excludeTestServices: true, timeout: 
         expect(yield* failures).toEqual([])
       }))
 
-    it.scoped("a failed docs renderer can be retried after the network recovers", () =>
+    it("a failed docs renderer can be retried after the network recovers", () =>
       Effect.gen(function*() {
         const { failures, page } = yield* openPage({ reducedMotion: "reduce" })
         yield* act(() => page.route("**/assets/DocsPage-*.js", (route) => route.abort("failed"), { times: 1 }))
@@ -305,7 +303,7 @@ layer(Layer.merge(SiteLive, BrowserLive), { excludeTestServices: true, timeout: 
         expect(yield* failures).toEqual([])
       }))
 
-    it.scoped("landing links enter the package documentation without a reload", () =>
+    it("landing links enter the package documentation without a reload", () =>
       Effect.gen(function*() {
         const { failures, page } = yield* openPage()
         const documents = yield* observeRequests(page, (request) => Str.Equivalence(request.resourceType, "document"))
@@ -336,7 +334,7 @@ layer(Layer.merge(SiteLive, BrowserLive), { excludeTestServices: true, timeout: 
         expect(yield* failures).toEqual([])
       }))
 
-    it.scoped("a route's content rises in, or under reduced motion is placed outright with the wordmark at rest", () =>
+    it("a route's content rises in, or under reduced motion is placed outright with the wordmark at rest", () =>
       Effect.gen(function*() {
         const full = yield* openPage()
         yield* goto(full.page, "/")
@@ -348,7 +346,9 @@ layer(Layer.merge(SiteLive, BrowserLive), { excludeTestServices: true, timeout: 
         yield* attached(entrance)
         // Arriving: the first frames after the route mounts are the fade in.
         const arriving = yield* Effect.forEach(Arr.range(1, 12), () => act(() => entrance.evaluate(presence)))
-        expect(Arr.some(arriving, (sample) => Boolean.or(Number.lessThan(sample.opacity, 1), sample.fading))).toBe(true)
+        expect(Arr.some(arriving, (sample) => Boolean.or(Number.isLessThan(sample.opacity, 1), sample.fading))).toBe(
+          true
+        )
         yield* visible(full.page.getByRole("heading", { level: 1, name: "Packages" }))
 
         const reduced = yield* openPage({ reducedMotion: "reduce" })
@@ -370,13 +370,13 @@ layer(Layer.merge(SiteLive, BrowserLive), { excludeTestServices: true, timeout: 
         expect(yield* reduced.failures).toEqual([])
       }))
 
-    it.scoped("the wordmark plays one pass as the session begins, rests Latin, and plays again at once when met", () =>
+    it("the wordmark plays one pass as the session begins, rests Latin, and plays again at once when met", () =>
       Effect.gen(function*() {
         const { failures, page } = yield* openPage()
         yield* goto(page, "/")
         const wordmark = page.locator("header").getByRole("img", { name: "Theoria" })
         const greek = act(() => wordmark.evaluate(greekFaceOpacities))
-        const someGreek = Arr.some<number>(Number.greaterThan(0))
+        const someGreek = Arr.some<number>(Number.isGreaterThan(0))
         const allLatin = Predicate.and(
           Arr.every<number>((opacity) => Number.Equivalence(opacity, 0)),
           (opacities) => Number.Equivalence(Arr.length(opacities), 6)
@@ -405,7 +405,7 @@ layer(Layer.merge(SiteLive, BrowserLive), { excludeTestServices: true, timeout: 
         expect(yield* failures).toEqual([])
       }))
 
-    it.scoped("docs navigation, package selection, and focused API caching stay coherent", () =>
+    it("docs navigation, package selection, and focused API caching stay coherent", () =>
       Effect.gen(function*() {
         const { failures, page } = yield* openPage({ viewport: { width: 1440, height: 900 } })
         const docsData = yield* observeRequests(page, (request) => Str.includes("/docs-data/")(request.url))
@@ -459,7 +459,7 @@ layer(Layer.merge(SiteLive, BrowserLive), { excludeTestServices: true, timeout: 
         expect(yield* failures).toEqual([])
       }))
 
-    it.scoped("the workbench's chrome resolves to the layout and motion contracts' tokens", () =>
+    it("the workbench's chrome resolves to the layout and motion contracts' tokens", () =>
       Effect.gen(function*() {
         const { failures, page } = yield* openPage({ viewport: { width: 1440, height: 900 } })
         yield* goto(page, "/docs/effect-search")
@@ -468,7 +468,7 @@ layer(Layer.merge(SiteLive, BrowserLive), { excludeTestServices: true, timeout: 
         // The workbench header is sticky at the header elevation, not a hand-typed z-index.
         const header = yield* act(() => page.locator("header").first().evaluate(resolvedChrome))
         expect(header.position).toBe("sticky")
-        expect(header.zIndex).toBe(yield* Schema.encode(Schema.NumberFromString)(elevationIndex("header")))
+        expect(header.zIndex).toBe(yield* Schema.encodeEffect(Schema.FiniteFromString)(elevationIndex("header")))
 
         // A picker trigger is an instrument's corner and answers the pointer by the respond relation.
         const trigger = yield* act(() =>
@@ -485,14 +485,14 @@ layer(Layer.merge(SiteLive, BrowserLive), { excludeTestServices: true, timeout: 
         // The package menu opens at the menu elevation, above the header.
         yield* click(page.getByRole("button", { name: "Choose package" }))
         const menu = yield* act(() => page.getByRole("menu").locator("xpath=..").evaluate(resolvedChrome))
-        expect(menu.zIndex).toBe(yield* Schema.encode(Schema.NumberFromString)(elevationIndex("menu")))
+        expect(menu.zIndex).toBe(yield* Schema.encodeEffect(Schema.FiniteFromString)(elevationIndex("menu")))
         expect(yield* failures).toEqual([])
       }))
 
-    it.scoped("guide navigation preserves a useful loading shell", () =>
+    it("guide navigation preserves a useful loading shell", () =>
       Effect.gen(function*() {
         const { failures, page } = yield* openPage()
-        const runtime = yield* Effect.runtime<never>()
+        const runtime = yield* Effect.context<never>()
         const gate = yield* Deferred.make<void>()
 
         // Hold the real guide response until the skeleton has been observed.
@@ -500,7 +500,7 @@ layer(Layer.merge(SiteLive, BrowserLive), { excludeTestServices: true, timeout: 
           page.route(
             "**/packages/effect-search/guides/getting-started.json",
             (route) =>
-              Runtime.runPromise(runtime)(Deferred.await(gate).pipe(Effect.andThen(act(() => route.continue()))))
+              Effect.runPromiseWith(runtime)(Deferred.await(gate).pipe(Effect.andThen(act(() => route.continue()))))
           )
         )
 
@@ -513,7 +513,7 @@ layer(Layer.merge(SiteLive, BrowserLive), { excludeTestServices: true, timeout: 
         expect(yield* failures).toEqual([])
       }))
 
-    it.scoped("package guides keep runnable examples and public API links in the documentation", () =>
+    it("package guides keep runnable examples and public API links in the documentation", () =>
       Effect.gen(function*() {
         const { failures, page } = yield* openPage()
 
@@ -549,7 +549,7 @@ layer(Layer.merge(SiteLive, BrowserLive), { excludeTestServices: true, timeout: 
         expect(yield* failures).toEqual([])
       }))
 
-    it.scoped("search shortcuts cancel synchronously only while docs are mounted", () =>
+    it("search shortcuts cancel synchronously only while docs are mounted", () =>
       Effect.gen(function*() {
         const { failures, page } = yield* openPage({ reducedMotion: "reduce" })
         yield* goto(page, "/docs")
@@ -587,7 +587,7 @@ layer(Layer.merge(SiteLive, BrowserLive), { excludeTestServices: true, timeout: 
         expect(yield* failures).toEqual([])
       }))
 
-    it.scoped("search is typo-tolerant, fast, cached, and routable", () =>
+    it("search is typo-tolerant, fast, cached, and routable", () =>
       Effect.gen(function*() {
         const { failures, page } = yield* openPage()
         const indexLoads = yield* observeRequests(page, (request) => Str.endsWith("/search-index.json")(request.url))
@@ -613,7 +613,7 @@ layer(Layer.merge(SiteLive, BrowserLive), { excludeTestServices: true, timeout: 
         expect(yield* failures).toEqual([])
       }))
 
-    it.scoped("focused signatures highlight and copy their real source", () =>
+    it("focused signatures highlight and copy their real source", () =>
       Effect.gen(function*() {
         const { failures, page } = yield* openPage({ permissions: ["clipboard-read", "clipboard-write"] })
 
@@ -628,7 +628,7 @@ layer(Layer.merge(SiteLive, BrowserLive), { excludeTestServices: true, timeout: 
         expect(yield* failures).toEqual([])
       }))
 
-    it.scoped("mobile navigation changes packages and guides without page overflow", () =>
+    it("mobile navigation changes packages and guides without page overflow", () =>
       Effect.gen(function*() {
         const { failures, page } = yield* openPage({ viewport: { width: 390, height: 844 } })
 
@@ -657,7 +657,7 @@ layer(Layer.merge(SiteLive, BrowserLive), { excludeTestServices: true, timeout: 
         expect(yield* failures).toEqual([])
       }))
 
-    it.scoped("focused signatures remain reachable at short height and increased text", () =>
+    it("focused signatures remain reachable at short height and increased text", () =>
       Effect.gen(function*() {
         const { failures, page } = yield* openPage({ viewport: { width: 1440, height: 500 } })
 

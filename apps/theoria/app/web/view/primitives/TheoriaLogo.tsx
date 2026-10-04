@@ -8,12 +8,12 @@ import { semanticClassName } from "./semanticTextClasses.js"
 import { WordmarkMorph } from "./WordmarkMorph.js"
 
 /** How the wordmark behaves: still, or crossfading between "Theoria" and "θεωρία". */
-export const LogoAnimation = Schema.Literal("glossary", "none")
+export const LogoAnimation = Schema.Literals(["glossary", "none"])
 
 export type LogoAnimation = typeof LogoAnimation.Type
 
 /** The full signature, or just its mark below the workbench's desktop breakpoint. */
-export const LogoVariant = Schema.Literal("full", "responsive")
+export const LogoVariant = Schema.Literals(["full", "responsive"])
 export type LogoVariant = typeof LogoVariant.Type
 
 const CubeMark = ({ className }: { readonly className: string }) => (

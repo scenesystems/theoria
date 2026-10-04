@@ -33,22 +33,24 @@ import type { Tone } from "./theme.js"
  * an error is not a voice.
  */
 
-export const ColorMode = Schema.Literal("light", "dark")
+export const ColorMode = Schema.Literals(["light", "dark"])
 
 export type ColorMode = typeof ColorMode.Type
 
-const Unit = Schema.Number.pipe(Schema.between(0, 1))
+const Unit = Schema.Finite.pipe(Schema.check(Schema.isBetween({ minimum: 0, maximum: 1 })))
 
-const Chroma = Schema.Number.pipe(Schema.nonNegative())
+const Chroma = Schema.Finite.pipe(Schema.check(Schema.isGreaterThanOrEqualTo(0)))
 
-const Hue = Schema.Number.pipe(Schema.greaterThanOrEqualTo(0), Schema.lessThan(360))
+const Hue = Schema.Finite.pipe(Schema.check(Schema.isGreaterThanOrEqualTo(0)), Schema.check(Schema.isLessThan(360)))
 
 /** A colour in OKLCH: perceptual lightness in `[0, 1]`, chroma, and hue in degrees. */
 export class Oklch
   extends Schema.Class<Oklch>("@theoria/app/contracts/Palette/Oklch")({ l: Unit, c: Chroma, h: Hue })
 {}
 
-const Channel = Schema.Number.pipe(Schema.int(), Schema.between(0, 255))
+const Channel = Schema.Int.pipe(
+  Schema.check(Schema.isBetween({ minimum: 0, maximum: 255 }))
+)
 
 /** A colour as the browser paints it: 8-bit sRGB. */
 export class Srgb
@@ -119,7 +121,7 @@ const inkBlack = stop(0.1729, 0.028, 235)
  * The three families a colour belongs to: the grey the neutrals are drawn
  * from, the brand every tone is a saturation of, and danger.
  */
-export const Family = Schema.Literal("grey", "brand", "danger")
+export const Family = Schema.Literals(["grey", "brand", "danger"])
 
 export type Family = typeof Family.Type
 
@@ -220,7 +222,7 @@ const brand = (saturation: number) => (light: number, dark: number): Paint =>
  *   so it is the same in every tone — the one colour at full saturation — and holds 3:1 on every
  *   ground a control may stand on — each neutral surface and each tone's surface, wash and edge.
  */
-export const NeutralRole = Schema.Literal(
+export const NeutralRole = Schema.Literals([
   "canvas",
   "paper",
   "instrument",
@@ -236,7 +238,7 @@ export const NeutralRole = Schema.Literal(
   "emphasis-pressed",
   "on-emphasis",
   "focus"
-)
+])
 
 export type NeutralRole = typeof NeutralRole.Type
 
@@ -287,7 +289,7 @@ export const neutralColor = (role: NeutralRole, mode: ColorMode): Oklch => paint
  * - `glass`: a wash — a control lit under the pointer, a ring on a disc, a soft rule.
  * - `mist`: a tint — a chip's ground, a disabled fill, the scrim that dims the page under a sheet.
  */
-export const Translucency = Schema.Literal("solid", "veil", "glass", "mist")
+export const Translucency = Schema.Literals(["solid", "veil", "glass", "mist"])
 
 export type Translucency = typeof Translucency.Type
 
@@ -320,7 +322,7 @@ export const translucentLevels: ReadonlyArray<Translucency> = ["veil", "glass", 
  * - `ink`, `ink-strong`: the tone's text and its heading, each unmistakably the tone's and AA wherever it stands;
  *   the ink is also a filled mark deepened under the pointer.
  */
-export const ToneRole = Schema.Literal("surface", "wash", "edge", "accent-soft", "accent", "ink", "ink-strong")
+export const ToneRole = Schema.Literals(["surface", "wash", "edge", "accent-soft", "accent", "ink", "ink-strong"])
 
 export type ToneRole = typeof ToneRole.Type
 
@@ -387,7 +389,7 @@ export const toneColor = (tone: Tone, role: ToneRole, mode: ColorMode): Oklch =>
  *
  * Focus is not a slot: every control wears the neutral `focus` ring, whatever its tone.
  */
-export const ToneSlot = Schema.Literal(
+export const ToneSlot = Schema.Literals([
   "border",
   "borderHover",
   "borderSubtle",
@@ -400,7 +402,7 @@ export const ToneSlot = Schema.Literal(
   "bgTinted",
   "bgTintedHover",
   "wash"
-)
+])
 
 export type ToneSlot = typeof ToneSlot.Type
 
@@ -476,7 +478,7 @@ export const toneSlotTranslucency = (slot: ToneSlot): Translucency =>
  * - `bandArrivingStroke`: the dashed ring the band draws while the search still makes room for it.
  * - `bandFill`, `bandStroke`, `bandFocusedStroke`: the band's flat disc, its edge, and the edge deepened under focus — each stroke a boundary (3:1) on the fill.
  */
-export const DiscSlot = Schema.Literal(
+export const DiscSlot = Schema.Literals([
   "ring",
   "actOutline",
   "focusRing",
@@ -485,7 +487,7 @@ export const DiscSlot = Schema.Literal(
   "bandFill",
   "bandStroke",
   "bandFocusedStroke"
-)
+])
 
 export type DiscSlot = typeof DiscSlot.Type
 
@@ -517,7 +519,7 @@ export const discSlotTranslucency = (slot: DiscSlot): Translucency =>
 // ---------------------------------------------------------------------------
 
 /** Danger plays two roles: a mark (a status dot) and the text beside it. */
-export const DangerRole = Schema.Literal("accent", "ink")
+export const DangerRole = Schema.Literals(["accent", "ink"])
 
 export type DangerRole = typeof DangerRole.Type
 
@@ -535,7 +537,7 @@ export const dangerColor = (role: DangerRole, mode: ColorMode): Oklch => paintCo
 // ---------------------------------------------------------------------------
 
 /** The kinds of token the highlighter paints in a colour of their own; `plain` is the ink. */
-export const CodePaint = Schema.Literal("comment", "keyword", "string", "number", "type", "function", "operator")
+export const CodePaint = Schema.Literals(["comment", "keyword", "string", "number", "type", "function", "operator"])
 
 export type CodePaint = typeof CodePaint.Type
 
@@ -566,7 +568,7 @@ export const codeColor = (kind: CodePaint, mode: ColorMode): Oklch => paintColor
 // ---------------------------------------------------------------------------
 
 /** The three depths a surface may sit at: a card, the hero's paper, a chip. */
-export const ShadowRole = Schema.Literal("surface", "hero", "chip")
+export const ShadowRole = Schema.Literals(["surface", "hero", "chip"])
 
 export type ShadowRole = typeof ShadowRole.Type
 
@@ -616,7 +618,7 @@ const NeutralStop = Schema.TaggedStruct("Neutral", { role: NeutralRole })
 const ToneStop = Schema.TaggedStruct("Tone", { role: ToneRole })
 
 /** A stop of a disc's gradient: a neutral role, or a role of the disc's own tone. */
-export const DiscStop = Schema.Union(NeutralStop, ToneStop)
+export const DiscStop = Schema.Union([NeutralStop, ToneStop])
 
 export type DiscStop = typeof DiscStop.Type
 
@@ -699,19 +701,19 @@ const gamutTolerance = 1e-6
 export const inSrgbGamut = (color: Oklch): boolean =>
   Chunk.every(
     linearSrgb(color),
-    Numeric.between({ minimum: Num.negate(gamutTolerance), maximum: Num.sum(1, gamutTolerance) })
+    Numeric.between({ minimum: Num.multiply(gamutTolerance, -1), maximum: Num.sum(1, gamutTolerance) })
   )
 
 /** The sRGB transfer function: linear light to the encoded component. */
 const encodeComponent = (linear: number): number =>
-  Bool.match(Num.lessThanOrEqualTo(linear, 0.0031308), {
+  Bool.match(Num.isLessThanOrEqualTo(linear, 0.0031308), {
     onTrue: () => Num.multiply(linear, 12.92),
     onFalse: () => Num.subtract(Num.multiply(1.055, Numeric.pow(linear, Numeric.unsafeDivide(1, 2.4))), 0.055)
   })
 
 /** Its inverse: an encoded component back to linear light. */
 const decodeComponent = (encoded: number): number =>
-  Bool.match(Num.lessThanOrEqualTo(encoded, 0.04045), {
+  Bool.match(Num.isLessThanOrEqualTo(encoded, 0.04045), {
     onTrue: () => Numeric.unsafeDivide(encoded, 12.92),
     onFalse: () => Numeric.pow(Numeric.unsafeDivide(Num.sum(encoded, 0.055), 1.055), 2.4)
   })
@@ -723,9 +725,9 @@ const toChannel = (linear: number): number =>
 export const toSrgb = (color: Oklch): Srgb => {
   const channels = Chunk.map(linearSrgb(color), toChannel)
   return new Srgb({
-    r: Chunk.unsafeGet(channels, 0),
-    g: Chunk.unsafeGet(channels, 1),
-    b: Chunk.unsafeGet(channels, 2)
+    r: Chunk.getUnsafe(channels, 0),
+    g: Chunk.getUnsafe(channels, 1),
+    b: Chunk.getUnsafe(channels, 2)
   })
 }
 

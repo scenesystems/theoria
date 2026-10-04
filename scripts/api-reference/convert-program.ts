@@ -1,5 +1,4 @@
-import { FileSystem, Path } from "@effect/platform"
-import { Effect, Option, Schema } from "effect"
+import { Effect, FileSystem, Option, Path, Schema } from "effect"
 import { type Application, normalizePath, type ProjectReflection } from "typedoc"
 
 import {
@@ -32,7 +31,7 @@ const writeProject = (input: {
     const path = yield* Path.Path
     const absoluteOutput = path.join(input.outputDirectory, input.relativeOutput)
     const serialized = input.app.serializer.projectToObject(input.project, normalizePath(input.repositoryRoot))
-    const text = yield* Schema.encode(TypeDocProjectJsonText)(serialized)
+    const text = yield* Schema.encodeEffect(TypeDocProjectJsonText)(serialized)
     yield* fileSystem.makeDirectory(path.dirname(absoluteOutput), { recursive: true })
     yield* fileSystem.writeFileString(absoluteOutput, text)
     return input.relativeOutput
@@ -48,14 +47,18 @@ const writeModule = (input: {
   Effect.gen(function*() {
     const path = yield* Path.Path
     const project = yield* writeProject({
-      ...input,
+      app: input.app,
+      repositoryRoot: input.repositoryRoot,
+      outputDirectory: input.outputDirectory,
       relativeOutput: moduleOutputPath(path, input.packageSlug, input.module.source.canonicalSubpath),
       project: input.module.project
     })
     const sourceProjects = yield* Effect.forEach(input.module.sourceProjects, (sourceProject: ApiSourceProject) =>
       Effect.map(
         writeProject({
-          ...input,
+          app: input.app,
+          repositoryRoot: input.repositoryRoot,
+          outputDirectory: input.outputDirectory,
           relativeOutput: path.join(
             "packages",
             input.packageSlug,
@@ -91,15 +94,21 @@ export const convertPackageProgram = Effect.gen(function*() {
     Effect.flatMap(
       Option.match({
         onNone: () =>
-          new ApiReferenceGenerationError({
-            packageName: request.packageDirectory,
-            detail: "is not a public package"
-          }),
+          Effect.fail(
+            new ApiReferenceGenerationError({
+              packageName: request.packageDirectory,
+              detail: "is not a public package"
+            })
+          ),
         onSome: Effect.succeed
       })
     )
   )
-  const conversion = yield* convertApiPackage({ ...request, sourcePackage })
+  const conversion = yield* convertApiPackage({
+    repositoryRoot: request.repositoryRoot,
+    revision: request.revision,
+    sourcePackage
+  })
   const modules = yield* Effect.forEach(conversion.modules, (module) =>
     writeModule({
       app: conversion.app,
@@ -109,7 +118,10 @@ export const convertPackageProgram = Effect.gen(function*() {
       module
     }))
   const converted: ConvertedPackage = { sourcePackage, modules }
-  const text = yield* Schema.encode(ConvertedPackageText)(converted)
+  const text = yield* Schema.encodeEffect(ConvertedPackageText)(converted)
+  yield* fileSystem.makeDirectory(path.join(request.outputDirectory, "packages", sourcePackage.directoryName), {
+    recursive: true
+  })
   yield* fileSystem.writeFileString(
     path.join(request.outputDirectory, convertedPackagePath(path, sourcePackage.directoryName)),
     text

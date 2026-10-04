@@ -1,4 +1,4 @@
-import { useAtomValue } from "@effect-atom/atom-react"
+import { useAtomValue } from "@effect/atom-react"
 import { Boolean as Bool, Equal, Match, Option, Schema } from "effect"
 import * as Arr from "effect/Array"
 
@@ -43,7 +43,7 @@ const isCurrentShape = (shapes: ReadonlyArray<VersionShape>, shape: VersionShape
   Option.exists(Arr.last(shapes), (last) => Equal.equals(last.version, shape.version))
 
 /** Where a knot is drawn: on the strand itself, or small on the pinned stage. */
-const KnotSize = Schema.Literal("strand", "stage")
+const KnotSize = Schema.Literals(["strand", "stage"])
 type KnotSize = typeof KnotSize.Type
 
 const knotSizeClassName = (size: KnotSize): string =>

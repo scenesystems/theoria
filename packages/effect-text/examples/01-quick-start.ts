@@ -4,8 +4,8 @@
  *
  * Run with `bun run packages/effect-text/examples/01-quick-start.ts`.
  */
-import * as BunContext from "@effect/platform-bun/BunContext"
 import * as BunRuntime from "@effect/platform-bun/BunRuntime"
+import * as BunServices from "@effect/platform-bun/BunServices"
 import { Effect, Layer } from "effect"
 
 import { Text } from "@scenesystems/effect-text"
@@ -31,6 +31,6 @@ const program = Effect.gen(function*() {
     narrowSummary,
     wideLines
   })
-}).pipe(Effect.provide(Layer.merge(Text.layer, BunContext.layer)))
+}).pipe(Effect.provide(Layer.merge(Text.layer, BunServices.layer)))
 
 BunRuntime.runMain(program)

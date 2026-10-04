@@ -1,10 +1,9 @@
 import { expect, it } from "@effect/vitest"
 import {
   Array as Arr,
+  Cause,
   Deferred,
   Effect,
-  Either,
-  Encoding,
   Exit,
   Fiber,
   Number as N,
@@ -19,6 +18,9 @@ import * as CanonicalJson from "@scenesystems/digest/CanonicalJson"
 import * as ContentDigest from "@scenesystems/digest/ContentDigest"
 import * as Digest from "@scenesystems/digest/Digest"
 import * as Utf8 from "@scenesystems/digest/Utf8"
+import { Base64Url } from "effect/encoding"
+
+const isInterrupted = (exit: Exit.Exit<unknown, unknown>) => Exit.isFailure(exit) && Cause.hasInterrupts(exit.cause)
 
 const longText = Str.repeat(65_536)("value")
 const workloads = Arr.make(
@@ -28,7 +30,7 @@ const workloads = Arr.make(
     Record.fromEntries(
       Arr.makeBy(
         4_096,
-        (index) => Tuple.make(Str.concat("key-", Schema.encodeSync(Schema.NumberFromString)(index)), index)
+        (index) => Tuple.make(Str.concat("key-", Schema.encodeSync(Schema.FiniteFromString)(index)), index)
       )
     )
   ),
@@ -44,12 +46,15 @@ it.live.each(workloads)(
       const started = yield* Deferred.make<void>()
       yield* Effect.forkScoped(
         Deferred.succeed(started, undefined).pipe(
-          Effect.zipRight(
-            Effect.forever(Effect.sleep("1 millis").pipe(Effect.zipRight(Ref.update(ticks, N.increment))))
+          Effect.andThen(
+            Effect.forever(Effect.sleep("1 millis").pipe(Effect.andThen(Ref.update(ticks, N.increment))))
           )
         )
       )
       yield* Deferred.await(started)
+      // Deferred completion can resume this fiber inline in v4. Let the timer
+      // fiber register its sleep before measuring traversal cooperation.
+      yield* Effect.yieldNow
       const ticksBefore = yield* Ref.get(ticks)
       const result = yield* CanonicalJson.encodeBytes(value)
       expect(result.byteLength).toBeGreaterThan(0)
@@ -66,10 +71,11 @@ it.live("interrupts canonical byte traversal without publishing a partial result
     const fiber = yield* CanonicalJson.encodeBytes(value).pipe(
       Effect.tap(() => Ref.set(published, true)),
       Effect.ensuring(Ref.set(finalized, true)),
-      Effect.fork
+      Effect.forkChild
     )
     yield* Effect.sleep(0)
-    expect(yield* Fiber.interrupt(fiber)).toSatisfy(Exit.isInterrupted)
+    yield* Fiber.interrupt(fiber)
+    expect(yield* Fiber.await(fiber)).toSatisfy(isInterrupted)
     expect(yield* Ref.get(published)).toBe(false)
     expect(yield* Ref.get(finalized)).toBe(true)
   }), 30_000)
@@ -83,10 +89,11 @@ it.live("interrupts bounded hashing without publishing a partial digest", () =>
       100_000_000
     ).pipe(
       Effect.tap(() => Ref.set(published, true)),
-      Effect.fork
+      Effect.forkChild
     )
     yield* Effect.sleep(0)
-    expect(yield* Fiber.interrupt(fiber)).toSatisfy(Exit.isInterrupted)
+    yield* Fiber.interrupt(fiber)
+    expect(yield* Fiber.await(fiber)).toSatisfy(isInterrupted)
     expect(yield* Ref.get(published)).toBe(false)
   }), 30_000)
 
@@ -99,12 +106,11 @@ it.effect("preserves multibyte and escaped text across incremental hash segments
     expect(yield* CanonicalJson.encodeBytes(value)).toStrictEqual(bytes)
     yield* Effect.forEach(Digest.Algorithm.literals, (algorithm) =>
       Effect.gen(function*() {
-        const expected = Str.concat(Str.concat(algorithm, ":"), Encoding.encodeBase64Url(Digest.hash(algorithm, bytes)))
+        const expected = Str.concat(Str.concat(algorithm, ":"), Base64Url.encode(yield* Digest.hash(algorithm, bytes)))
+        expect(ContentDigest.toString(yield* ContentDigest.fromUnknown(algorithm, value))).toBe(expected)
         const bounded = yield* ContentDigest.fromSchemaWithByteLimit(Schema.String, value, 65_546, algorithm)
-        const synchronous = ContentDigest.fromSchemaWithByteLimitEither(Schema.String, value, 65_546, algorithm)
         expect(ContentDigest.toString(bounded.digest)).toBe(expected)
         expect(bounded.canonicalByteLength).toBe(65_546)
-        expect(synchronous).toStrictEqual(Either.right(bounded))
         expect(yield* Effect.exit(ContentDigest.fromSchemaWithByteLimit(Schema.String, value, 65_545, algorithm)))
           .toStrictEqual(
             Exit.fail(new CanonicalJson.ByteLimitExceeded({}))
@@ -130,7 +136,6 @@ it.effect("stops at the byte limit before a later invalid value is traversed", (
     expect(yield* Effect.exit(ContentDigest.fromSchemaWithByteLimit(Schema.Unknown, value, 64))).toStrictEqual(
       Exit.fail(expected)
     )
-    expect(ContentDigest.fromSchemaWithByteLimitEither(Schema.Unknown, value, 64)).toStrictEqual(Either.left(expected))
   }))
 
 it.effect("one encodeBytes Effect produces the complete result on repeated execution", () =>

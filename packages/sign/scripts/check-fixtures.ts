@@ -5,23 +5,11 @@
  *
  * Usage: bun run fixtures:check
  */
-import * as BunContext from "@effect/platform-bun/BunContext"
-import * as BunRuntime from "@effect/platform-bun/BunRuntime"
-import type * as PlatformError from "@effect/platform/Error"
+import { BunRuntime, BunServices } from "@effect/platform-bun"
 import * as Digest from "@scenesystems/digest/Digest"
-import {
-  Array as Arr,
-  type Cause,
-  Console,
-  Data,
-  Effect,
-  Encoding,
-  Match,
-  Option,
-  type ParseResult,
-  Schema,
-  String as Str
-} from "effect"
+import { Array as Arr, Console, Data, Effect, Match, Option, Schema, String as Str } from "effect"
+import { Hex } from "effect/encoding"
+import type * as PlatformError from "effect/PlatformError"
 import type { ConformancePayload } from "./fixture-contract.js"
 import {
   ConformanceManifest,
@@ -39,7 +27,7 @@ import { JwtFixture } from "./jwt-fixture-contract.js"
 class FixtureCheckError extends Data.TaggedError("FixtureCheckError")<{
   readonly file: string
   readonly reason: string
-  readonly cause: Option.Option<PlatformError.PlatformError | ParseResult.ParseError | Cause.IllegalArgumentException>
+  readonly cause: Option.Option<PlatformError.PlatformError | PlatformError.BadArgument | Schema.SchemaError>
 }> {
   override get message() {
     return Arr.join(
@@ -65,8 +53,8 @@ const decodePayload = (file: typeof ConformancePayload.fields.file.Type) =>
     Match.when("sign-public-kat.json", (name) => decodeConformanceFixture(name, PublicSignatureKatFixture)),
     Match.when("rsa-wycheproof.json", (name) => decodeConformanceFixture(name, RsaWycheproofFixture)),
     Match.when("rsa-openssl.json", (name) => decodeConformanceFixture(name, RsaOpenSslFixture)),
-    Match.when("jwt-openssl.json", (name) => decodeConformanceFixture(name, Schema.parseJson(JwtFixture))),
-    Match.when("jwt-access-openssl.json", (name) => decodeConformanceFixture(name, Schema.parseJson(JwtFixture))),
+    Match.when("jwt-openssl.json", (name) => decodeConformanceFixture(name, Schema.fromJsonString(JwtFixture))),
+    Match.when("jwt-access-openssl.json", (name) => decodeConformanceFixture(name, Schema.fromJsonString(JwtFixture))),
     Match.exhaustive
   )
 
@@ -84,15 +72,18 @@ const checkPayload = (payload: typeof ConformancePayload.Type) =>
       )
     )
 
-    yield* Effect.succeed(Encoding.encodeHex(Digest.hash("sha256", bytes))).pipe(Effect.filterOrFail(
-      (actual) => Str.Equivalence(actual, payload.sha256),
-      (actual) =>
-        new FixtureCheckError({
-          file: payload.file,
-          reason: Arr.join(Arr.make("sha256 mismatch: expected ", payload.sha256, ", got ", actual), ""),
-          cause: Option.none()
-        })
-    ))
+    yield* Digest.hash("sha256", bytes).pipe(
+      Effect.map(Hex.encode),
+      Effect.filterOrFail(
+        (actual) => Str.Equivalence(actual, payload.sha256),
+        (actual) =>
+          new FixtureCheckError({
+            file: payload.file,
+            reason: Arr.join(Arr.make("sha256 mismatch: expected ", payload.sha256, ", got ", actual), ""),
+            cause: Option.none()
+          })
+      )
+    )
 
     return payload.file
   })
@@ -108,8 +99,8 @@ const program = Effect.gen(function*() {
     )
   )
 
-  const results = yield* Effect.forEach(manifest.payloads, (payload) => Effect.either(checkPayload(payload)))
-  const [errors, passed] = Arr.separate(results)
+  const results = yield* Effect.forEach(manifest.payloads, (payload) => Effect.result(checkPayload(payload)))
+  const [passed, errors] = Arr.separate(results)
 
   yield* Console.log("Checking", Arr.length(manifest.payloads), "conformance payloads...")
   yield* Console.log()
@@ -124,7 +115,7 @@ const program = Effect.gen(function*() {
       reason: "conformance fixture check failed",
       cause: Option.none()
     })
-  ).pipe(Effect.when(() => Arr.isNonEmptyArray(errors)))
+  ).pipe(Effect.when(Effect.succeed(Arr.isArrayNonEmpty(errors))))
 })
 
-BunRuntime.runMain(program.pipe(Effect.provide(BunContext.layer)))
+BunRuntime.runMain(program.pipe(Effect.provide(BunServices.layer)))

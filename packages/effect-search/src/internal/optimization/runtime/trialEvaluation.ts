@@ -4,9 +4,9 @@
  * @since 0.1.0
  */
 import * as Journal from "@scenesystems/effect-study/Journal"
-import { Array as Arr, Cause, Chunk, Effect, Exit, Match, Option, Schema } from "effect"
+import { Array as Arr, Cause, Effect, Exit, Match, Option, Schema } from "effect"
 
-import { type TrialError } from "../../../SearchError.js"
+import { TrialError } from "../../../SearchError.js"
 import type * as SearchSpace from "../../../SearchSpace.js"
 import type * as Trial from "../../../Trial.js"
 import type { OptimizePlan, OptimizeSettings } from "../options/plan.js"
@@ -60,23 +60,29 @@ const liftStorageFailure = (
   Exit.match(exit, {
     onSuccess: (attempt) => Effect.succeed(Exit.succeed(attempt)),
     onFailure: (cause) =>
-      Chunk.findFirst(Cause.failures(cause), isJournalFailure).pipe(
-        Option.match({
-          onSome: () => Effect.failCause(cause),
-          onNone: () =>
-            Effect.succeed(
-              Exit.failCause(
-                Cause.flatMap(cause, (error) =>
-                  Match.value(error).pipe(
-                    Match.tag("effect-search/TrialError", (trial) => Cause.fail(trial)),
-                    // Unreachable: every Journal.Failure was found above.
-                    Match.tag("effect-study/JournalError", (storage) => Cause.die(storage)),
-                    Match.exhaustive
-                  ))
+      Arr.findFirst(cause.reasons, (reason) =>
+        Match.value(reason).pipe(
+          Match.when({ _tag: "Fail" }, ({ error }) => isJournalFailure(error)),
+          Match.orElse(() => false)
+        )).pipe(
+          Option.match({
+            onSome: () => Effect.failCause(cause),
+            onNone: () =>
+              Effect.succeed(
+                Exit.failCause(
+                  Cause.map(cause, (error) =>
+                    Match.value(error).pipe(
+                      Match.tag("effect-search/TrialError", (trial) => trial),
+                      Match.tag(
+                        "effect-study/JournalError",
+                        (storage) => new TrialError({ trialNumber: -1, message: storage.message, cause: storage })
+                      ),
+                      Match.exhaustive
+                    ))
+                )
               )
-            )
-        })
-      )
+          })
+        )
   })
 
 /**
@@ -108,7 +114,7 @@ export const evaluateObjectiveWithPolicy = <Space extends SearchSpace.SearchSpac
     resolveCachedValue
   )
 
-  return Option.fromNullable(settings.trialTimeout).pipe(
+  return Option.fromNullishOr(settings.trialTimeout).pipe(
     Option.match({
       onNone: () => objectiveEffect.pipe(Effect.exit, Effect.asSome),
       onSome: (trialTimeout) => evaluateObjectiveWithTimeout(objectiveEffect, trialTimeout)

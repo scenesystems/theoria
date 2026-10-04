@@ -5,7 +5,7 @@
  */
 import { standardNormalCdf, standardNormalPdf, standardNormalTransform } from "@scenesystems/effect-math/Distribution"
 import { sqrt } from "@scenesystems/effect-math/Numeric"
-import { Array as Arr, Data, Effect, Match, Number as Num, Option, Order } from "effect"
+import { Array as Arr, Data, Effect, Match, Number as Num, Option, Order, Result } from "effect"
 
 import type { Vector } from "../../../Objective.js"
 
@@ -46,7 +46,7 @@ const explorationEpsilon = 0.01
 const defaultAcquisition: Name = "ei"
 
 const sampleUniformVector = (rng: Rng.Rng, dimensions: number) =>
-  Match.value(Num.lessThanOrEqualTo(dimensions, 0)).pipe(
+  Match.value(Num.isLessThanOrEqualTo(dimensions, 0)).pipe(
     Match.when(true, () => Effect.succeed(Arr.empty<number>())),
     Match.orElse(() => Effect.forEach(Arr.makeBy(dimensions, (index) => index), () => Rng.nextFloat(rng, 0, 1)))
   )
@@ -54,7 +54,7 @@ const sampleUniformVector = (rng: Rng.Rng, dimensions: number) =>
 const expectedImprovementScore = (mean: number, best: number, variance: number): number => {
   const standardDeviation = sqrt(Num.max(variance, 1e-12))
   const improvement = Num.subtract(Num.subtract(best, mean), explorationEpsilon)
-  const z = Num.unsafeDivide(improvement, standardDeviation)
+  const z = Num.divideUnsafe(improvement, standardDeviation)
   return Num.sum(
     Num.multiply(improvement, standardNormalCdf(z)),
     Num.multiply(standardDeviation, standardNormalPdf(z))
@@ -64,7 +64,7 @@ const expectedImprovementScore = (mean: number, best: number, variance: number):
 const probabilityImprovementScore = (mean: number, best: number, variance: number): number => {
   const standardDeviation = sqrt(Num.max(variance, 1e-12))
   return standardNormalCdf(
-    Num.unsafeDivide(Num.subtract(Num.subtract(best, mean), explorationEpsilon), standardDeviation)
+    Num.divideUnsafe(Num.subtract(Num.subtract(best, mean), explorationEpsilon), standardDeviation)
   )
 }
 
@@ -91,7 +91,7 @@ const acquisitionScore = (
     Match.exhaustive
   )
 
-const observationOrder = Order.mapInput(Order.number, (observation: GpObservation) => observation.value)
+const observationOrder = Order.mapInput(Order.Number, (observation: GpObservation) => observation.value)
 
 /**
  * Suggests the next GP-BO candidate for continuous single-objective search
@@ -121,11 +121,12 @@ export const suggest = (
             vector,
             value: entry.value
           })
-        )
+        ),
+        Result.fromOption(() => void 0)
       ))
-    const rng = rngByTrial("gpbo", seed, context.nextTrialNumber)
+    const rng = yield* rngByTrial("gpbo", seed, context.nextTrialNumber)
 
-    return yield* Match.value(Num.lessThan(Arr.length(observations), nStartupTrials)).pipe(
+    return yield* Match.value(Num.isLessThan(Arr.length(observations), nStartupTrials)).pipe(
       Match.when(true, () =>
         sampleUniformVector(rng, Arr.length(dimensions)).pipe(
           Effect.map((startupCandidate) => denormalizeVector(dimensions, startupCandidate))
@@ -171,7 +172,7 @@ export const suggest = (
                     onNone: () => Arr.empty<number>(),
                     onSome: (first) =>
                       Arr.reduce(Arr.drop(scored, 1), first, (currentBest, candidate) =>
-                        Match.value(Num.greaterThan(candidate.score, currentBest.score)).pipe(
+                        Match.value(Num.isGreaterThan(candidate.score, currentBest.score)).pipe(
                           Match.when(true, () => candidate),
                           Match.orElse(() =>
                             currentBest

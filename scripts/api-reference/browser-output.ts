@@ -43,7 +43,7 @@ export const writeBrowserApiModule = (input: {
     )
 
     const [route, page] = yield* Option.match(canonical, {
-      onNone: () => Effect.dieMessage(`${input.packageName} module has no canonical documentation route`),
+      onNone: () => Effect.die(`${input.packageName} module has no canonical documentation route`),
       onSome: Effect.succeed
     })
     const moduleIndex = makeBrowserApiModuleIndex(page, input.revision, route.page)

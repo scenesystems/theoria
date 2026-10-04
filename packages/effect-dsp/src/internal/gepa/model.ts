@@ -5,7 +5,7 @@
  * @see {@link https://arxiv.org/abs/2507.19457 | Agrawal et al., "GEPA: Reflective Prompt Evolution Can Outperform Reinforcement Learning", 2025}
  * @since 0.1.0
  */
-import { Schema } from "effect"
+import { Effect, Schema } from "effect"
 import { Result as MetricResult } from "../../Metric.js"
 import { Payload } from "../../Payload.js"
 
@@ -15,7 +15,7 @@ import { Payload } from "../../Payload.js"
  * @since 0.1.0
  * @category schemas
  */
-export const CandidateScoreVector = Schema.Array(Schema.Number)
+export const CandidateScoreVector = Schema.Array(MetricResult.fields.score)
 
 /**
  * Per-example score array for one candidate program across the validation set.
@@ -32,13 +32,13 @@ export const CandidateScoreMatrix = Schema.Array(CandidateScoreVector)
 export type CandidateScoreMatrix = typeof CandidateScoreMatrix.Type
 
 /** @internal */
-export const CandidateIndices = Schema.Array(Schema.Number)
+export const CandidateIndices = Schema.Array(MetricResult.fields.score)
 
 /** @internal */
 export type CandidateIndices = typeof CandidateIndices.Type
 
 /** @internal */
-export const ParentPairIndices = Schema.Tuple(Schema.Number, Schema.Number)
+export const ParentPairIndices = Schema.Tuple([Schema.Finite, Schema.Finite])
 
 /** @internal */
 export type ParentPairIndices = typeof ParentPairIndices.Type
@@ -54,12 +54,12 @@ export type ParentPairIndices = typeof ParentPairIndices.Type
 export class MutationAcceptance extends Schema.Class<MutationAcceptance>(
   "@scenesystems/effect-dsp/internal/gepa/model/MutationAcceptance"
 )({
-  previousSubsampleSum: Schema.Number,
-  mutatedSubsampleSum: Schema.Number,
+  previousSubsampleSum: MetricResult.fields.score,
+  mutatedSubsampleSum: MetricResult.fields.score,
   gate1Passed: Schema.Boolean,
   fullValsetEvaluated: Schema.Boolean,
-  fullValsetScores: Schema.OptionFromSelf(CandidateScoreVector),
-  fullValsetSum: Schema.OptionFromSelf(Schema.Number)
+  fullValsetScores: Schema.Option(CandidateScoreVector),
+  fullValsetSum: Schema.Option(Schema.Finite)
 }) {}
 
 /**
@@ -72,8 +72,8 @@ export class MutationAcceptance extends Schema.Class<MutationAcceptance>(
 export class MergeAcceptance extends Schema.Class<MergeAcceptance>(
   "@scenesystems/effect-dsp/internal/gepa/model/MergeAcceptance"
 )({
-  mergedSubsampleSum: Schema.Number,
-  bestParentSubsampleSum: Schema.Number,
+  mergedSubsampleSum: MetricResult.fields.score,
+  bestParentSubsampleSum: MetricResult.fields.score,
   accepted: Schema.Boolean
 }) {}
 
@@ -87,9 +87,9 @@ export class MergeAcceptance extends Schema.Class<MergeAcceptance>(
 export class ExampleFrontierHolding extends Schema.Class<ExampleFrontierHolding>(
   "@scenesystems/effect-dsp/internal/gepa/model/ExampleFrontierHolding"
 )({
-  exampleIndex: Schema.Number,
-  bestScore: Schema.Number,
-  holders: Schema.Array(Schema.Number)
+  exampleIndex: Schema.Finite,
+  bestScore: MetricResult.fields.score,
+  holders: Schema.Array(MetricResult.fields.score)
 }) {}
 
 /**
@@ -102,8 +102,8 @@ export class ExampleFrontierHolding extends Schema.Class<ExampleFrontierHolding>
 export class ParentSelectionWeight extends Schema.Class<ParentSelectionWeight>(
   "@scenesystems/effect-dsp/internal/gepa/model/ParentSelectionWeight"
 )({
-  candidateIndex: Schema.Number,
-  weight: Schema.Number
+  candidateIndex: Schema.Finite,
+  weight: Schema.Finite
 }) {}
 
 /** @internal */
@@ -129,7 +129,7 @@ export class ParetoKernelSnapshot extends Schema.Class<ParetoKernelSnapshot>(
 }) {}
 
 /** @internal */
-export const ReflectiveEvidenceScope = Schema.Literal("predictor-execution", "program")
+export const ReflectiveEvidenceScope = Schema.Literals(["predictor-execution", "program"])
 
 /**
  * A frozen reflective-example row for mutation prompts — shows the model its
@@ -143,14 +143,12 @@ export class ReflectiveExample extends Schema.Class<ReflectiveExample>(
 )({
   exampleId: Schema.String,
   predictorName: Schema.String,
-  evidenceScope: Schema.optionalWith(ReflectiveEvidenceScope, {
-    default: () => "program"
-  }),
+  evidenceScope: ReflectiveEvidenceScope.pipe(Schema.withConstructorDefault(Effect.succeed("program"))),
   inputs: Payload,
   generatedOutputs: Payload,
   expectedOutput: Payload,
   feedback: Schema.String,
-  score: Schema.Number
+  score: MetricResult.fields.score
 }) {}
 
 /**
@@ -166,9 +164,7 @@ export class ReflectiveDatasetSample extends Schema.Class<ReflectiveDatasetSampl
 )({
   exampleId: Schema.String,
   predictorName: Schema.String,
-  evidenceScope: Schema.optionalWith(ReflectiveEvidenceScope, {
-    default: () => "program"
-  }),
+  evidenceScope: ReflectiveEvidenceScope.pipe(Schema.withConstructorDefault(Effect.succeed("program"))),
   inputs: Payload,
   generatedOutputs: Payload,
   expectedOutput: Payload,
@@ -227,8 +223,8 @@ export class MergeComparison extends Schema.Class<MergeComparison>(
   "@scenesystems/effect-dsp/internal/gepa/model/MergeComparison"
 )({
   exampleId: Schema.String,
-  parentAScore: Schema.Number,
-  parentBScore: Schema.Number
+  parentAScore: MetricResult.fields.score,
+  parentBScore: MetricResult.fields.score
 }) {}
 
 /** @internal */
@@ -244,7 +240,7 @@ export type MergeComparisons = typeof MergeComparisons.Type
  * @since 0.1.0
  * @category schemas
  */
-export const MergeComparisonBucket = Schema.Literal("parent-a-better", "parent-b-better", "tie")
+export const MergeComparisonBucket = Schema.Literals(["parent-a-better", "parent-b-better", "tie"])
 
 /**
  * Bucket classification for balanced merge subsampling — determines whether
@@ -264,7 +260,7 @@ export type MergeComparisonBucket = typeof MergeComparisonBucket.Type
  */
 export class MergeState extends Schema.Class<MergeState>("@scenesystems/effect-dsp/internal/gepa/model/MergeState")({
   candidates: ProgramCandidates,
-  mergeBudgetRemaining: Schema.Number
+  mergeBudgetRemaining: Schema.Finite
 }) {}
 
 /**
@@ -276,11 +272,11 @@ export class MergeState extends Schema.Class<MergeState>("@scenesystems/effect-d
  * @category models
  */
 export class GEPAState extends Schema.Class<GEPAState>("@scenesystems/effect-dsp/internal/gepa/model/GEPAState")({
-  iteration: Schema.Number,
+  iteration: Schema.Finite,
   candidates: ProgramCandidates,
   scoreVectors: CandidateScoreMatrix,
   paretoSnapshot: ParetoKernelSnapshot,
-  mergeBudgetRemaining: Schema.Number,
+  mergeBudgetRemaining: Schema.Finite,
   lastIterationFoundNew: Schema.Boolean,
-  seed: Schema.Number
+  seed: Schema.Finite
 }) {}

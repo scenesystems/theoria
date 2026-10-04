@@ -5,9 +5,22 @@
  * @since 0.1.0
  * @module
  */
-import { FileSystem, Path } from "@effect/platform"
-import { BunContext, BunRuntime } from "@effect/platform-bun"
-import { Array, Boolean, Chunk, Console, Effect, Either, Inspectable, Match, Option, Schema, String } from "effect"
+import { BunRuntime, BunServices } from "@effect/platform-bun"
+import {
+  Array,
+  Boolean,
+  Chunk,
+  Console,
+  Effect,
+  FileSystem,
+  Inspectable,
+  Match,
+  Option,
+  Path,
+  Result,
+  Schema,
+  String
+} from "effect"
 
 import { directoryBeside, loadFixtureByEntry, loadManifest } from "../test/helpers/fixtures/io.js"
 
@@ -45,19 +58,19 @@ const findJsonFiles = (
   pathService: Path.Path,
   root: string,
   prefix: string
-): Effect.Effect<Chunk.Chunk<Either.Either<string, FixtureCheckError>>> =>
+): Effect.Effect<Chunk.Chunk<Result.Result<string, FixtureCheckError>>> =>
   Effect.gen(function*() {
     const directory = Boolean.match(String.isEmpty(prefix), {
       onFalse: () => pathService.join(root, prefix),
       onTrue: () => root
     })
-    const entries = yield* Effect.either(fileSystem.readDirectory(directory))
+    const entries = yield* Effect.result(fileSystem.readDirectory(directory))
 
-    return yield* Either.match(entries, {
-      onLeft: (cause) =>
+    return yield* Result.match(entries, {
+      onFailure: (cause) =>
         Effect.succeed(
           Chunk.of(
-            Either.left(
+            Result.fail(
               new FixtureCheckError({
                 name: "scan",
                 file: directory,
@@ -67,7 +80,7 @@ const findJsonFiles = (
             )
           )
         ),
-      onRight: (names) =>
+      onSuccess: (names) =>
         Effect.map(
           Effect.forEach(names, (name) =>
             Effect.gen(function*() {
@@ -76,13 +89,13 @@ const findJsonFiles = (
                 onTrue: () => name
               })
               const absolute = pathService.join(root, relative)
-              const stat = yield* Effect.either(fileSystem.stat(absolute))
+              const stat = yield* Effect.result(fileSystem.stat(absolute))
 
-              return yield* Either.match(stat, {
-                onLeft: (cause) =>
+              return yield* Result.match(stat, {
+                onFailure: (cause) =>
                   Effect.succeed(
                     Chunk.of(
-                      Either.left(
+                      Result.fail(
                         new FixtureCheckError({
                           name: "scan",
                           file: absolute,
@@ -92,7 +105,7 @@ const findJsonFiles = (
                       )
                     )
                   ),
-                onRight: (info) =>
+                onSuccess: (info) =>
                   Match.value(info.type).pipe(
                     Match.when("Directory", () => findJsonFiles(fileSystem, pathService, root, relative)),
                     Match.when(
@@ -100,8 +113,8 @@ const findJsonFiles = (
                       () =>
                         Effect.succeed(
                           Boolean.match(String.endsWith(".json")(name), {
-                            onFalse: () => Chunk.empty<Either.Either<string, FixtureCheckError>>(),
-                            onTrue: () => Chunk.of(Either.right(relative))
+                            onFalse: () => Chunk.empty<Result.Result<string, FixtureCheckError>>(),
+                            onTrue: () => Chunk.of(Result.succeed(relative))
                           })
                         )
                     ),
@@ -165,21 +178,21 @@ const program = Effect.gen(function*() {
             cause: Option.some(cause)
           })
       ),
-      Effect.either
+      Effect.result
     ))
 
   const manifestFiles = Array.map(manifest.fixtures, (entry) => entry.file)
   const scanned = yield* findJsonFiles(fileSystem, pathService, root, "")
-  const [scanErrors, discoveredFiles] = Array.separate(scanned)
+  const [discoveredFiles, scanErrors] = Array.separate(scanned)
   const orphanErrors = Array.filterMap(discoveredFiles, (file) => {
     const normalized = String.replaceAll(pathService.sep, "/")(file)
     const declared = Array.some(manifestFiles, (manifestFile) => String.Equivalence(manifestFile, normalized))
     return Boolean.match(
       Boolean.and(Boolean.not(String.Equivalence(normalized, manifestFile)), Boolean.not(declared)),
       {
-        onFalse: () => Option.none<FixtureCheckError>(),
+        onFalse: () => Result.failVoid,
         onTrue: () =>
-          Option.some(
+          Result.succeed(
             new FixtureCheckError({
               name: "orphan",
               file: normalized,
@@ -190,7 +203,7 @@ const program = Effect.gen(function*() {
       }
     )
   })
-  const [fixtureErrors, passed] = Array.separate(fixtureResults)
+  const [passed, fixtureErrors] = Array.separate(fixtureResults)
   const allErrors = Array.appendAll(Array.appendAll(fixtureErrors, scanErrors), orphanErrors)
 
   yield* Console.log("Checking", Array.length(manifest.fixtures), "fixtures from manifest...")
@@ -207,7 +220,7 @@ const program = Effect.gen(function*() {
       reason: String.concat(Inspectable.toStringUnknown(Array.length(allErrors), 0), " fixture check failure(s)"),
       cause: Option.none()
     })
-  ).pipe(Effect.when(() => Array.isNonEmptyArray(allErrors)))
+  ).pipe(Effect.when(Effect.succeed(Array.isArrayNonEmpty(allErrors))))
 })
 
-BunRuntime.runMain(program.pipe(Effect.provide(BunContext.layer)))
+BunRuntime.runMain(program.pipe(Effect.provide(BunServices.layer)))

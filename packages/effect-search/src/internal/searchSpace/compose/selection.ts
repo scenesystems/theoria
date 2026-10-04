@@ -123,7 +123,7 @@ export const resolvePickProjectionNames = (
   const names = Arr.fromIterable(namesInput)
   return validateProjectionNames("pick", space, names).pipe(
     Effect.filterOrFail(
-      (requested) => Num.greaterThan(Arr.length(requested), 0),
+      (requested) => Num.isGreaterThan(Arr.length(requested), 0),
       () => projectionFailure("pick", "pick requires at least one parameter name")
     ),
     Effect.flatMap((requested) => dependencyClosure("pick", space, requested))

@@ -74,18 +74,18 @@ export type TipVocabulary = typeof TipVocabulary.Type
  * @since 0.1.0
  * @category events
  */
-export const Event = Schema.Union(
-  Schema.TaggedStruct("Phase1Started", { numCandidates: Schema.Number }),
-  Schema.TaggedStruct("DemoCandidate", { predictorIndex: Schema.Number, candidateIndex: Schema.Number }),
-  Schema.TaggedStruct("Phase1Completed", { totalCandidates: Schema.Number }),
-  Schema.TaggedStruct("Phase2Started", { numInstructions: Schema.Number }),
-  Schema.TaggedStruct("InstructionProposed", { predictorIndex: Schema.Number, instruction: Schema.String }),
-  Schema.TaggedStruct("Phase2Completed", { totalInstructions: Schema.Number }),
-  Schema.TaggedStruct("Phase3Started", { numTrials: Schema.Number }),
-  Schema.TaggedStruct("TrialEvaluated", { trial: Schema.Number, score: Schema.Number }),
-  Schema.TaggedStruct("FullEvalCompleted", { bestScore: Schema.Number }),
-  Schema.TaggedStruct("Phase3Completed", { bestScore: Schema.Number, totalTrials: Schema.Number })
-)
+export const Event = Schema.Union([
+  Schema.TaggedStruct("Phase1Started", { numCandidates: Schema.Finite }),
+  Schema.TaggedStruct("DemoCandidate", { predictorIndex: Schema.Finite, candidateIndex: Schema.Finite }),
+  Schema.TaggedStruct("Phase1Completed", { totalCandidates: Schema.Finite }),
+  Schema.TaggedStruct("Phase2Started", { numInstructions: Schema.Finite }),
+  Schema.TaggedStruct("InstructionProposed", { predictorIndex: Schema.Finite, instruction: Schema.String }),
+  Schema.TaggedStruct("Phase2Completed", { totalInstructions: Schema.Finite }),
+  Schema.TaggedStruct("Phase3Started", { numTrials: Schema.Finite }),
+  Schema.TaggedStruct("TrialEvaluated", { trial: Schema.Finite, score: Schema.Finite }),
+  Schema.TaggedStruct("FullEvalCompleted", { bestScore: Schema.Finite }),
+  Schema.TaggedStruct("Phase3Completed", { bestScore: Schema.Finite, totalTrials: Schema.Finite })
+])
 
 /** MIPROv2 lifecycle event.
  * @since 0.1.0
@@ -104,7 +104,7 @@ export const events = Data.taggedEnum<Event>()
  * @category models
  */
 export class ProgressLine extends Schema.Class<ProgressLine>("@scenesystems/effect-dsp/MIPROv2/ProgressLine")({
-  tag: Schema.typeSchema(Schema.pluck(Event, "_tag")),
+  tag: Schema.String,
   details: Schema.String,
   text: Schema.String
 }) {}
@@ -164,17 +164,17 @@ export const tapProgress =
  * @category models
  */
 export class EventSummary extends Schema.Class<EventSummary>("@scenesystems/effect-dsp/MIPROv2/EventSummary")({
-  totalEvents: Schema.Number,
-  demoCandidateCount: Schema.Number,
-  instructionProposedCount: Schema.Number,
-  trialEvaluatedCount: Schema.Number,
-  fullEvalCompletedCount: Schema.Number,
+  totalEvents: Schema.Finite,
+  demoCandidateCount: Schema.Finite,
+  instructionProposedCount: Schema.Finite,
+  trialEvaluatedCount: Schema.Finite,
+  fullEvalCompletedCount: Schema.Finite,
   phase3StartedSeen: Schema.Boolean,
   phase3CompletedSeen: Schema.Boolean,
-  phase3ConfiguredTrials: Schema.Number,
-  phase3CompletedTrials: Schema.Number,
+  phase3ConfiguredTrials: Schema.Finite,
+  phase3CompletedTrials: Schema.Finite,
   phase3BestScoreSeen: Schema.Boolean,
-  phase3BestScore: Schema.Number
+  phase3BestScore: Schema.Finite
 }) {}
 
 const emptySummary = new EventSummary({
@@ -192,7 +192,7 @@ const emptySummary = new EventSummary({
 })
 const withScore = (summary: EventSummary, score: number): EventSummary =>
   new EventSummary({
-    ...summary,
+    ...(Schema.encodeSync(EventSummary)(summary)),
     phase3BestScoreSeen: true,
     phase3BestScore: Bool.match(summary.phase3BestScoreSeen, {
       onFalse: () => score,
@@ -206,28 +206,55 @@ const withScore = (summary: EventSummary, score: number): EventSummary =>
  */
 export const summarizeEvents = (input: Iterable<Event>): EventSummary =>
   Arr.reduce(input, emptySummary, (summary, event) => {
-    const next = new EventSummary({ ...summary, totalEvents: Num.increment(summary.totalEvents) })
+    const next = new EventSummary({
+      ...(Schema.encodeSync(EventSummary)(summary)),
+      totalEvents: Num.increment(summary.totalEvents)
+    })
     return Match.value(event).pipe(
       Match.tagsExhaustive({
         Phase1Started: () => next,
-        DemoCandidate: () => new EventSummary({ ...next, demoCandidateCount: Num.increment(next.demoCandidateCount) }),
+        DemoCandidate: () =>
+          new EventSummary({
+            ...(Schema.encodeSync(EventSummary)(next)),
+            demoCandidateCount: Num.increment(next.demoCandidateCount)
+          }),
         Phase1Completed: () => next,
         Phase2Started: () => next,
         InstructionProposed: () =>
-          new EventSummary({ ...next, instructionProposedCount: Num.increment(next.instructionProposedCount) }),
+          new EventSummary({
+            ...(Schema.encodeSync(EventSummary)(next)),
+            instructionProposedCount: Num.increment(next.instructionProposedCount)
+          }),
         Phase2Completed: () => next,
         Phase3Started: ({ numTrials }) =>
-          new EventSummary({ ...next, phase3StartedSeen: true, phase3ConfiguredTrials: numTrials }),
+          new EventSummary({
+            ...(Schema.encodeSync(EventSummary)(next)),
+            phase3StartedSeen: true,
+            phase3ConfiguredTrials: numTrials
+          }),
         TrialEvaluated: ({ score }) =>
-          withScore(new EventSummary({ ...next, trialEvaluatedCount: Num.increment(next.trialEvaluatedCount) }), score),
+          withScore(
+            new EventSummary({
+              ...(Schema.encodeSync(EventSummary)(next)),
+              trialEvaluatedCount: Num.increment(next.trialEvaluatedCount)
+            }),
+            score
+          ),
         FullEvalCompleted: ({ bestScore }) =>
           withScore(
-            new EventSummary({ ...next, fullEvalCompletedCount: Num.increment(next.fullEvalCompletedCount) }),
+            new EventSummary({
+              ...(Schema.encodeSync(EventSummary)(next)),
+              fullEvalCompletedCount: Num.increment(next.fullEvalCompletedCount)
+            }),
             bestScore
           ),
         Phase3Completed: ({ bestScore, totalTrials }) =>
           withScore(
-            new EventSummary({ ...next, phase3CompletedSeen: true, phase3CompletedTrials: totalTrials }),
+            new EventSummary({
+              ...(Schema.encodeSync(EventSummary)(next)),
+              phase3CompletedSeen: true,
+              phase3CompletedTrials: totalTrials
+            }),
             bestScore
           )
       })
@@ -240,13 +267,13 @@ export const summarizeEvents = (input: Iterable<Event>): EventSummary =>
  */
 export class OptimizationObservability
   extends Schema.Class<OptimizationObservability>("@scenesystems/effect-dsp/MIPROv2/OptimizationObservability")({
-    baselineScore: Schema.Number,
-    optimizedScore: Schema.Number,
+    baselineScore: Schema.Finite,
+    optimizedScore: Schema.Finite,
     searchBestScoreSeen: Schema.Boolean,
-    searchBestScore: Schema.Number,
-    searchGain: Schema.Number,
-    retainedGain: Schema.Number,
-    retainedVsSearchGap: Schema.Number,
+    searchBestScore: Schema.Finite,
+    searchGain: Schema.Finite,
+    retainedGain: Schema.Finite,
+    retainedVsSearchGap: Schema.Finite,
     searchImprovedButRetainedFlat: Schema.Boolean
   })
 {}
@@ -275,8 +302,8 @@ export const summarizeOptimization = (options: {
     retainedGain,
     retainedVsSearchGap: Num.subtract(searchBestScore, options.optimizedScore),
     searchImprovedButRetainedFlat: Bool.and(
-      Num.greaterThan(searchGain, 0),
-      Num.lessThanOrEqualTo(retainedGain, 0)
+      Num.isGreaterThan(searchGain, 0),
+      Num.isLessThanOrEqualTo(retainedGain, 0)
     )
   })
 }

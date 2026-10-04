@@ -4,10 +4,9 @@
  * @since 0.7.0
  * @module
  */
-import type * as SqlClient from "@effect/sql/SqlClient"
 import * as ContentDigest from "@scenesystems/digest/ContentDigest"
-import { Data, Effect, Layer, Match, Option, ParseResult, Schema, String as Str } from "effect"
-import type * as Context from "effect/Context"
+import { Context, Data, Effect, Layer, Match, Option, Schema, String as Str } from "effect"
+import type * as SqlClient from "effect/sql/SqlClient"
 
 import * as Cache from "./Cache.js"
 import { Value } from "./Objective.js"
@@ -31,7 +30,7 @@ export class Options extends Schema.Class<Options>("@scenesystems/effect-search/
  * @category models
  */
 export class Request<Configuration, Encoded, ComputeError, Requirements> extends Data.Class<{
-  readonly schema: Schema.Schema<Configuration, Encoded, never>
+  readonly schema: Schema.Codec<Configuration, Encoded>
   readonly config: Configuration
   readonly compute: Effect.Effect<Value, ComputeError, Requirements>
 }> {}
@@ -46,11 +45,11 @@ class PreparedKey<Encoded> extends Data.Class<{
 
 const keySpaceFor = <Configuration, Encoded>(
   options: Options,
-  schema: Schema.Schema<Configuration, Encoded, never>
+  schema: Schema.Codec<Configuration, Encoded>
 ): Cache.KeySpace<Encoded, Value, Encoded> =>
   new Cache.KeySpace({
     namespace: Str.concat(options.scope, "/objective"),
-    keySchema: Schema.encodedSchema(schema),
+    keySchema: Schema.toEncoded(schema),
     valueSchema: Value
   })
 
@@ -59,15 +58,15 @@ const keySpacePrefix = <Encoded>(keySpace: Cache.KeySpace<Encoded, Value, Encode
 
 const prepareKey = <Configuration, Encoded>(
   options: Options,
-  schema: Schema.Schema<Configuration, Encoded, never>,
+  schema: Schema.Codec<Configuration, Encoded>,
   config: Configuration
 ) => {
   const keySpace = keySpaceFor(options, schema)
-  return Effect.suspend(() => Schema.encode(schema)(config)).pipe(
+  return Effect.suspend(() => Schema.encodeEffect(schema)(config)).pipe(
     Effect.mapError((error) =>
       new Cache.Corrupt({
         key: keySpacePrefix(keySpace),
-        reason: ParseResult.TreeFormatter.formatIssueSync(error.issue)
+        reason: error.message
       })
     ),
     Effect.flatMap((encoded) =>
@@ -91,21 +90,21 @@ const prepareKey = <Configuration, Encoded>(
  * @since 0.7.0
  * @category services
  */
-export class ObjectiveCache extends Effect.Tag("@scenesystems/effect-search/ObjectiveCache")<
+export class ObjectiveCache extends Context.Service<
   ObjectiveCache,
   {
     readonly resolve: <Configuration, Encoded, ComputeError, Requirements>(
       request: Request<Configuration, Encoded, ComputeError, Requirements>
     ) => Effect.Effect<Cache.Result<Value>, Cache.Error | ComputeError, Requirements>
     readonly invalidate: <Configuration, Encoded>(
-      schema: Schema.Schema<Configuration, Encoded, never>,
+      schema: Schema.Codec<Configuration, Encoded>,
       config: Configuration
     ) => Effect.Effect<void, Cache.Error>
   }
->() {}
+>()("@scenesystems/effect-search/ObjectiveCache") {}
 
 /** Objective-cache service implementation. @since 0.7.0 @category models */
-export type Service = Context.Tag.Service<typeof ObjectiveCache>
+export type Service = ObjectiveCache["Service"]
 
 /** Expected objective-cache failure. @since 0.7.0 @category models */
 export type Error = Cache.Error

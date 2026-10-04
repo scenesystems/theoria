@@ -25,12 +25,12 @@ export class PlaceBuildLimiterError
   )
 {}
 
-export class PlaceBuildLimiter extends Context.Tag("@theoria/app/server/config/PlaceBuildLimiter")<
+export class PlaceBuildLimiter extends Context.Service<
   PlaceBuildLimiter,
   {
     readonly admit: (actor: string) => Effect.Effect<Admission, PlaceBuildLimiterError>
   }
->() {}
+>()("@theoria/app/server/config/PlaceBuildLimiter") {}
 
 export const admitted: Admission = { _tag: "Admitted" }
 

@@ -5,7 +5,7 @@ export default defineConfig({
   test: {
     pool: "forks",
     maxWorkers: Effect.runSync(Effect.gen(function*() {
-      const ci = yield* Config.option(Config.string("CI"))
+      const ci = yield* Config.option(Config.String("CI"))
       return Boolean.match(Option.exists(ci, String.isNonEmpty), { onTrue: () => 2, onFalse: () => 4 })
     })),
     fileParallelism: true,
@@ -22,7 +22,7 @@ export default defineConfig({
         extends: true,
         test: {
           name: "packages",
-          include: ["packages/*/test/**/*.test.ts", "scripts/api-reference/**/*.test.ts"],
+          include: ["packages/*/test/**/*.test.ts", "scripts/**/*.test.ts"],
           exclude: ["**/node_modules/**"]
         }
       },

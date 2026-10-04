@@ -2,10 +2,10 @@ import { describe, expect, it } from "@effect/vitest"
 import { Jwt } from "@scenesystems/sign"
 import {
   Array as Arr,
+  Boolean as B,
   Data,
   Deferred,
   Effect,
-  Encoding,
   Exit,
   Fiber,
   Match,
@@ -13,13 +13,23 @@ import {
   Redacted,
   Ref,
   Schema,
+  SchemaGetter,
   String as Str,
-  Struct,
-  TestClock
+  Struct
 } from "effect"
+import * as Encoding from "effect/encoding"
+import * as TestClock from "effect/testing/TestClock"
+
+const decodeBase64Url = (value: string) => Effect.fromResult(Encoding.Base64Url.decode(value))
 import { JwtFixture } from "../scripts/jwt-fixture-contract.js"
 import accessCorpus from "./fixtures/conformance/jwt-access-openssl.json" with { type: "json" }
 import corpus from "./fixtures/conformance/jwt-openssl.json" with { type: "json" }
+
+const modifyBytes = (bytes: Iterable<number>, index: number, f: (byte: number) => number) =>
+  Arr.map(
+    Arr.fromIterable(bytes),
+    (byte, current) => B.match(N.Equivalence(current, index), { onFalse: () => byte, onTrue: () => f(byte) })
+  )
 
 const Identity = Schema.Struct({ sub: Schema.NonEmptyString, email: Schema.Literal("reader@example.test") })
 const policy = new Jwt.Policy({ issuer: "https://team.example", audience: "app", maxLifetimeSeconds: 3600 })
@@ -31,7 +41,7 @@ describe("Jwt RS256 protocol", () => {
   it.effect("enforces the Access identity, issuer, audience, time, and 24-hour lifetime profile", () =>
     Effect.gen(function*() {
       yield* TestClock.setTime(150_000)
-      const fixture = yield* Schema.decodeUnknown(JwtFixture)(accessCorpus)
+      const fixture = yield* Schema.decodeUnknownEffect(JwtFixture)(accessCorpus)
       yield* Effect.forEach(fixture.cases, (vector) =>
         Effect.gen(function*() {
           const result = yield* Jwt.verifyRs256(
@@ -39,15 +49,18 @@ describe("Jwt RS256 protocol", () => {
             { keys: Arr.of(fixture.jwk) },
             accessPolicy,
             Identity
-          ).pipe(Effect.either)
+          ).pipe(Effect.result)
           yield* Match.value(vector.expected).pipe(
             Match.when("valid", () =>
               Effect.gen(function*() {
-                expect(yield* result, vector.name).toEqual({ sub: "user-7", email: "reader@example.test" })
+                expect(yield* Effect.fromResult(result), vector.name).toEqual({
+                  sub: "user-7",
+                  email: "reader@example.test"
+                })
               })),
             Match.whenOr("Claims", "MalformedToken", (reason) =>
               Effect.gen(function*() {
-                expect(yield* Effect.flip(result), vector.name).toEqual(new Jwt.Rejected({ reason }))
+                expect(yield* Effect.flip(Effect.fromResult(result)), vector.name).toEqual(new Jwt.Rejected({ reason }))
               })),
             Match.exhaustive
           )
@@ -57,7 +70,7 @@ describe("Jwt RS256 protocol", () => {
   it.effect("rejects Access tokens unless one verification-use key matches", () =>
     Effect.gen(function*() {
       yield* TestClock.setTime(150_000)
-      const fixture = yield* Schema.decodeUnknown(JwtFixture)(accessCorpus)
+      const fixture = yield* Schema.decodeUnknownEffect(JwtFixture)(accessCorpus)
       const token = Redacted.make(Arr.headNonEmpty(fixture.cases).token)
       yield* Effect.forEach(
         Arr.make(
@@ -82,7 +95,7 @@ describe("Jwt RS256 protocol", () => {
   it.effect("authenticates independent signatures and enforces claims before downstream access", () =>
     Effect.gen(function*() {
       yield* TestClock.setTime(150_000)
-      const fixture = yield* Schema.decodeUnknown(JwtFixture)(corpus)
+      const fixture = yield* Schema.decodeUnknownEffect(JwtFixture)(corpus)
       yield* Effect.forEach(fixture.cases, (vector) =>
         Effect.gen(function*() {
           const accessed = yield* Ref.make(false)
@@ -93,17 +106,20 @@ describe("Jwt RS256 protocol", () => {
             Identity
           ).pipe(
             Effect.tap(() => Ref.set(accessed, true)),
-            Effect.either
+            Effect.result
           )
           yield* Match.value(vector.expected).pipe(
             Match.when("valid", () =>
               Effect.gen(function*() {
-                expect(yield* result, vector.name).toEqual({ sub: "user-7", email: "reader@example.test" })
+                expect(yield* Effect.fromResult(result), vector.name).toEqual({
+                  sub: "user-7",
+                  email: "reader@example.test"
+                })
                 expect(yield* Ref.get(accessed), vector.name).toBe(true)
               })),
             Match.whenOr("Claims", "MalformedToken", (reason) =>
               Effect.gen(function*() {
-                expect(yield* Effect.flip(result), vector.name).toEqual(new Jwt.Rejected({ reason }))
+                expect(yield* Effect.flip(Effect.fromResult(result)), vector.name).toEqual(new Jwt.Rejected({ reason }))
                 expect(yield* Ref.get(accessed), vector.name).toBe(false)
               })),
             Match.exhaustive
@@ -114,7 +130,7 @@ describe("Jwt RS256 protocol", () => {
   it.effect("requires unique trusted key selection, even for identical duplicates", () =>
     Effect.gen(function*() {
       yield* TestClock.setTime(150_000)
-      const fixture = yield* Schema.decodeUnknown(JwtFixture)(corpus)
+      const fixture = yield* Schema.decodeUnknownEffect(JwtFixture)(corpus)
       const token = Redacted.make(Arr.headNonEmpty(fixture.cases).token)
       yield* Effect.forEach(
         Arr.make(
@@ -143,7 +159,7 @@ describe("Jwt RS256 protocol", () => {
   it.effect("classifies unreadable JWKS and candidate key identifiers as key-selection failures", () =>
     Effect.gen(function*() {
       yield* TestClock.setTime(150_000)
-      const fixture = yield* Schema.decodeUnknown(JwtFixture)(corpus)
+      const fixture = yield* Schema.decodeUnknownEffect(JwtFixture)(corpus)
       const token = Redacted.make(Arr.headNonEmpty(fixture.cases).token)
       const unreadableJwks = {
         get keys() {
@@ -170,7 +186,7 @@ describe("Jwt RS256 protocol", () => {
 
   it.effect("uses inclusive issuance/not-before and exclusive expiry boundaries on every execution", () =>
     Effect.gen(function*() {
-      const fixture = yield* Schema.decodeUnknown(JwtFixture)(corpus)
+      const fixture = yield* Schema.decodeUnknownEffect(JwtFixture)(corpus)
       const verify = Jwt.verifyRs256(
         Redacted.make(Arr.headNonEmpty(fixture.cases).token),
         { keys: Arr.of(fixture.jwk) },
@@ -199,21 +215,24 @@ describe("Jwt RS256 protocol", () => {
   it.effect("does not execute application policy for a tampered token", () =>
     Effect.gen(function*() {
       yield* TestClock.setTime(150_000)
-      const fixture = yield* Schema.decodeUnknown(JwtFixture)(corpus)
-      const [header, payload, signature] = yield* Schema.decodeUnknown(
-        Schema.Tuple(Schema.String, Schema.String, Schema.String)
+      const fixture = yield* Schema.decodeUnknownEffect(JwtFixture)(corpus)
+      const [header, payload, signature] = yield* Schema.decodeUnknownEffect(
+        Schema.Tuple([Schema.String, Schema.String, Schema.String])
       )(
         Str.split(Arr.headNonEmpty(fixture.cases).token, ".")
       )
       const called = yield* Ref.make(0)
       const application = Identity.pipe(
-        Schema.filterEffect(() => Ref.update(called, N.increment).pipe(Effect.as(true)))
+        Schema.decodeTo(Identity, {
+          decode: SchemaGetter.checkEffect(() => Ref.update(called, N.increment).pipe(Effect.as(true))),
+          encode: SchemaGetter.passthrough()
+        })
       )
-      const signatureBytes = yield* Encoding.decodeBase64Url(signature)
-      const tampered = yield* Schema.decode(Schema.Uint8Array)(
-        Arr.modify(Arr.fromIterable(signatureBytes), 32, (byte) => N.remainder(N.increment(byte), 256))
+      const signatureBytes = yield* decodeBase64Url(signature)
+      const tampered = new Uint8Array(
+        modifyBytes(Arr.fromIterable(signatureBytes), 32, (byte) => N.remainder(N.increment(byte), 256))
       )
-      const token = Redacted.make(Arr.join(Arr.make(header, payload, Encoding.encodeBase64Url(tampered)), "."))
+      const token = Redacted.make(Arr.join(Arr.make(header, payload, Encoding.Base64Url.encode(tampered)), "."))
       expect(yield* Effect.flip(Jwt.verifyRs256(token, { keys: Arr.of(fixture.jwk) }, policy, application))).toEqual(
         new Jwt.Rejected({ reason: "Signature" })
       )
@@ -223,32 +242,39 @@ describe("Jwt RS256 protocol", () => {
   it.effect("interrupts an application's effectful claim policy and runs its finalizer", () =>
     Effect.gen(function*() {
       yield* TestClock.setTime(150_000)
-      const fixture = yield* Schema.decodeUnknown(JwtFixture)(corpus)
+      const fixture = yield* Schema.decodeUnknownEffect(JwtFixture)(corpus)
       const entered = yield* Deferred.make<void>()
       const finalized = yield* Ref.make(false)
-      const application = Identity.pipe(Schema.filterEffect(() =>
-        Deferred.succeed(entered, undefined).pipe(
-          Effect.zipRight(Effect.never),
-          Effect.ensuring(Ref.set(finalized, true))
-        )
-      ))
+      const application = Identity.pipe(Schema.decodeTo(Identity, {
+        decode: SchemaGetter.checkEffect(() =>
+          Deferred.succeed(entered, undefined).pipe(
+            Effect.andThen(Effect.never),
+            Effect.ensuring(Ref.set(finalized, true))
+          )
+        ),
+        encode: SchemaGetter.passthrough()
+      }))
       const fiber = yield* Jwt.verifyRs256(
         Redacted.make(Arr.headNonEmpty(fixture.cases).token),
         { keys: Arr.of(fixture.jwk) },
         policy,
         application
-      ).pipe(Effect.fork)
+      ).pipe(Effect.forkChild)
       yield* Deferred.await(entered)
       yield* Fiber.interrupt(fiber)
+      yield* Fiber.await(fiber)
       expect(yield* Ref.get(finalized)).toBe(true)
     }))
 
   it.effect("preserves defects from an application's effectful claim policy", () =>
     Effect.gen(function*() {
       yield* TestClock.setTime(150_000)
-      const fixture = yield* Schema.decodeUnknown(JwtFixture)(corpus)
+      const fixture = yield* Schema.decodeUnknownEffect(JwtFixture)(corpus)
       const defect = new ApplicationPolicyDefect()
-      const application = Identity.pipe(Schema.filterEffect(() => Effect.die(defect)))
+      const application = Identity.pipe(Schema.decodeTo(Identity, {
+        decode: SchemaGetter.checkEffect(() => Effect.die(defect)),
+        encode: SchemaGetter.passthrough()
+      }))
       const exit = yield* Jwt.verifyRs256(
         Redacted.make(Arr.headNonEmpty(fixture.cases).token),
         { keys: Arr.of(fixture.jwk) },

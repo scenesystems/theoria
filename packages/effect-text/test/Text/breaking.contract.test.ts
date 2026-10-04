@@ -1,5 +1,5 @@
 import { describe, expect, it } from "@effect/vitest"
-import { Effect, FastCheck, Layer, Number, String, Tuple } from "effect"
+import { Arbitrary, Effect, Layer, Number, Schema, String, Tuple } from "effect"
 import * as Arr from "effect/Array"
 
 import * as MeasurementCache from "../../src/MeasurementCache.js"
@@ -30,8 +30,8 @@ describe("Text breaking contracts", () => {
   it.effect.prop(
     "grapheme cursor widths preserve every character on both sides of a line-fit boundary",
     Tuple.make(
-      FastCheck.array(FastCheck.constantFrom("a", "b", "c"), { minLength: 1, maxLength: 80 }),
-      FastCheck.integer({ min: 2, max: 9 })
+      Arbitrary.array(Arbitrary.schema(Schema.Literals(["a", "b", "c"])), { minLength: 1, maxLength: 80 }),
+      Arbitrary.schema(Schema.Int.check(Schema.isBetween({ minimum: 2, maximum: 9 })))
     ),
     ([characters, slots]) =>
       Effect.gen(function*() {
@@ -61,7 +61,7 @@ describe("Text breaking contracts", () => {
       const lines = Text.lines(prepared, { maxWidth: 12, lineHeight: 12 })
 
       expect(Arr.map(lines, (line) => line.text)).toEqual(Arr.make("al", "ph", "ab", "et"))
-      expect(Arr.every(lines, (line) => Number.lessThanOrEqualTo(line.width, 12.01))).toBe(true)
+      expect(Arr.every(lines, (line) => Number.isLessThanOrEqualTo(line.width, 12.01))).toBe(true)
     }))
 
   it.effect("prefers soft-hyphen discretionary breaks before grapheme fallback when both fit", () =>

@@ -172,5 +172,5 @@ export const docsApiModuleIndexFixture: DocsApiModuleIndex = {
 export const docsApiExportPageFixture = (index: number): DocsApiExportPage => ({
   schemaVersion: 1,
   kind: "api-export",
-  export: Option.getOrThrow(Option.fromNullable(apiPageFixture.exports[index]))
+  export: Option.getOrThrow(Option.fromNullishOr(apiPageFixture.exports[index]))
 })

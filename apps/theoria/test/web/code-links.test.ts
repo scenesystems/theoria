@@ -1,5 +1,5 @@
 import { describe, expect, it } from "@effect/vitest"
-import { Effect, Match, Option } from "effect"
+import { Effect, Match, Option, Result } from "effect"
 import * as Arr from "effect/Array"
 
 import { CodeLink, type LineSegment, segmentLine, TokensSegment } from "../../app/web/view/primitives/code/codeLinks.js"
@@ -11,8 +11,8 @@ const text = (segment: LineSegment): string => Arr.join(Arr.map(segment.tokens, 
 const linked = (segments: Iterable<LineSegment>) =>
   Arr.filterMap(segments, (segment) =>
     Match.value(segment).pipe(
-      Match.tag("Link", () => Option.some(text(segment))),
-      Match.tag("Tokens", () => Option.none()),
+      Match.tag("Link", () => Result.succeed(text(segment))),
+      Match.tag("Tokens", () => Result.fail(undefined)),
       Match.exhaustive
     ))
 
@@ -92,10 +92,10 @@ describe("segmentLine", () => {
         const highlighter = yield* makeSyntaxHighlighter
         const lines = highlightCode(
           highlighter,
-          "const envelope = yield* Envelope.encrypt(\"xchacha20-poly1305\", key, Bytes.fromString(note)) // Envelope.encrypt",
+          "const envelope = yield* Envelope.encrypt(\"xchacha20-poly1305\", key, yield* Bytes.fromString(note)) // Envelope.encrypt",
           "typescript"
         )
-        const line = yield* Arr.head(lines)
+        const line = Option.getOrThrow(Arr.head(lines))
         const segments = segmentLine(
           line,
           Arr.make(

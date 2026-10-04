@@ -1,15 +1,13 @@
 import { describe, expect, it } from "@effect/vitest"
-import { Array as Arr, Effect, Number as Num, Option } from "effect"
+import { Array as Arr, Effect, Number as Num, Option, Stream, Struct } from "effect"
 
 import * as Optimization from "../../src/Optimization.js"
 import {
   baselineSnapshotTailEvents,
-  collectSnapshotEvents,
   pruneStopObjective,
   pruneStopPolicy,
   pruneStopSampler,
   pruneStopSpace,
-  resumeSnapshotWithEvents,
   snapshotEventTrace,
   snapshotSingleObjectiveResult
 } from "../helpers/optimizationSnapshots.js"
@@ -20,7 +18,7 @@ describe("Optimization snapshot-resume prune/stop replay", () => {
       const totalTrials = 8
       const firstLegTrials = 3
       const secondLegTrials = Num.subtract(totalTrials, firstLegTrials)
-      const runOptions: Optimization.Options = {
+      const runOptions = new Optimization.FlatOptions({
         space: yield* pruneStopSpace,
         sampler: pruneStopSampler,
         direction: "minimize",
@@ -28,47 +26,52 @@ describe("Optimization snapshot-resume prune/stop replay", () => {
         stopMode: "Drain",
         pruningPolicy: pruneStopPolicy,
         objective: pruneStopObjective
-      }
+      })
 
       const baselineResult = yield* Optimization.run(runOptions)
       const baselineSingle = snapshotSingleObjectiveResult(baselineResult)
       expect(Option.isSome(baselineSingle)).toBe(true)
-      const baseline = yield* baselineSingle
+      const baseline = yield* Effect.fromOption(baselineSingle)
 
-      const baselineEvents = yield* collectSnapshotEvents(runOptions)
-      const firstLegResult = yield* Optimization.run({
-        ...runOptions,
-        trials: firstLegTrials
-      })
+      const baselineEvents = yield* Stream.runCollect(Optimization.stream(runOptions))
+      const firstLegResult = yield* Optimization.run(
+        new Optimization.FlatOptions(Struct.assign(runOptions, {
+          trials: firstLegTrials
+        }))
+      )
       const firstLegSingle = snapshotSingleObjectiveResult(firstLegResult)
       expect(Option.isSome(firstLegSingle)).toBe(true)
-      const firstLeg = yield* firstLegSingle
+      const firstLeg = yield* Effect.fromOption(firstLegSingle)
 
       const snapshot = yield* Optimization.snapshot(firstLeg)
-      const resumedResult = yield* Optimization.resume({
-        space: yield* pruneStopSpace,
-        sampler: pruneStopSampler,
-        snapshot,
-        direction: "minimize",
-        trials: secondLegTrials,
-        stopMode: "Drain",
-        pruningPolicy: pruneStopPolicy,
-        objective: pruneStopObjective
-      })
+      const resumedResult = yield* Optimization.resume(
+        new Optimization.ResumeOptions({
+          space: yield* pruneStopSpace,
+          sampler: pruneStopSampler,
+          snapshot,
+          direction: "minimize",
+          trials: secondLegTrials,
+          stopMode: "Drain",
+          pruningPolicy: pruneStopPolicy,
+          objective: pruneStopObjective
+        })
+      )
       const resumedSingle = snapshotSingleObjectiveResult(resumedResult)
       expect(Option.isSome(resumedSingle)).toBe(true)
-      const resumed = yield* resumedSingle
+      const resumed = yield* Effect.fromOption(resumedSingle)
 
-      const resumedWithEventLog = yield* resumeSnapshotWithEvents({
-        space: yield* pruneStopSpace,
-        sampler: pruneStopSampler,
-        snapshot,
-        direction: "minimize",
-        trials: secondLegTrials,
-        stopMode: "Drain",
-        pruningPolicy: pruneStopPolicy,
-        objective: pruneStopObjective
-      })
+      const resumedEvents = yield* Stream.runCollect(Optimization.resumeStream(
+        new Optimization.ResumeOptions({
+          space: yield* pruneStopSpace,
+          sampler: pruneStopSampler,
+          snapshot,
+          direction: "minimize",
+          trials: secondLegTrials,
+          stopMode: "Drain",
+          pruningPolicy: pruneStopPolicy,
+          objective: pruneStopObjective
+        })
+      ))
 
       const baselineTail = baselineSnapshotTailEvents(baselineEvents, firstLegTrials)
 
@@ -80,6 +83,6 @@ describe("Optimization snapshot-resume prune/stop replay", () => {
         Arr.map(Arr.fromIterable(baseline.trials), (trial) => trial.state._tag)
       )
       expect(resumed.bestTrial.trialNumber).toBe(baseline.bestTrial.trialNumber)
-      expect(snapshotEventTrace(baselineTail)).toEqual(snapshotEventTrace(resumedWithEventLog.events))
+      expect(snapshotEventTrace(baselineTail)).toEqual(snapshotEventTrace(resumedEvents))
     }))
 })

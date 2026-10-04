@@ -3,7 +3,6 @@
  *
  * @since 0.1.0
  */
-import type { Schema } from "effect"
 import { Array as Arr, Number, Option, String } from "effect"
 import { Result } from "../../Metric.js"
 import { make } from "./constructors.js"
@@ -25,7 +24,7 @@ const singleScoreResult = (score: number): Result => new Result({ score })
  * @category metrics
  */
 export const exactMatch = (field: string) =>
-  make(String.concat(String.concat("exactMatch(", field), ")"), (prediction: typeof Schema.Object.Type, expected) => {
+  make(String.concat(String.concat("exactMatch(", field), ")"), (prediction: object, expected) => {
     const score = Option.match(
       fieldString(prediction, field),
       {
@@ -58,7 +57,7 @@ const safeDivision = (numerator: number, denominator: number): number =>
  * @category metrics
  */
 export const f1 = (field: string) =>
-  make(String.concat(String.concat("f1(", field), ")"), (prediction: typeof Schema.Object.Type, expected) => {
+  make(String.concat(String.concat("f1(", field), ")"), (prediction: object, expected) => {
     const score = Option.match(
       tokenizedField(prediction, field),
       {
@@ -100,7 +99,7 @@ export const contains = (field: string, target: string) => {
 
   return make(
     Arr.join(Arr.make("contains(", field, ",", normalizedTarget, ")"), ""),
-    (prediction: typeof Schema.Object.Type) => {
+    (prediction: object) => {
       const score = Option.match(fieldString(prediction, field), {
         onNone: () => 0,
         onSome: (value) => binaryScore(String.includes(normalizedTarget)(value))

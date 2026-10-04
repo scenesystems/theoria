@@ -1,4 +1,4 @@
-import { BunContext } from "@effect/platform-bun"
+import { BunServices } from "@effect/platform-bun"
 import { describe, expect, it } from "@effect/vitest"
 import { Array, Boolean, Effect, Match, Number, Schema } from "effect"
 
@@ -7,7 +7,7 @@ import * as Numeric from "../../src/Numeric.js"
 import { ComplexArithmeticParityFixtureSchema, loadFixture } from "../helpers/fixtures/index.js"
 
 const expectParity = (actual: number, expected: number, absoluteTolerance: number = 1e-12) => {
-  const tolerance = Boolean.match(Number.greaterThan(Numeric.abs(expected), 1), {
+  const tolerance = Boolean.match(Number.isGreaterThan(Numeric.abs(expected), 1), {
     onTrue: () => Number.multiply(Numeric.abs(expected), 1e-12),
     onFalse: () => absoluteTolerance
   })
@@ -23,7 +23,7 @@ describe("Complex SciPy fixture parity", () => {
   it.effect("matches every arithmetic, polar, and trigonometric fixture", () =>
     Effect.gen(function*() {
       const raw = yield* loadFixture("complex.arithmetic-parity")
-      const fixture = yield* Schema.decodeUnknown(ComplexArithmeticParityFixtureSchema)(raw, {
+      const fixture = yield* Schema.decodeUnknownEffect(ComplexArithmeticParityFixtureSchema)(raw, {
         onExcessProperty: "error"
       })
 
@@ -120,5 +120,5 @@ describe("Complex SciPy fixture parity", () => {
             Match.exhaustive
           )
         ))
-    }).pipe(Effect.provide(BunContext.layer)))
+    }).pipe(Effect.provide(BunServices.layer)))
 })

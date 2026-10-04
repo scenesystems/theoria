@@ -32,7 +32,7 @@ export const sin = (re: number, im: number): Cartesian =>
 export const cos = (re: number, im: number): Cartesian =>
   Tuple.make(
     Number.multiply(Numeric.cos(re), Numeric.cosh(im)),
-    Number.negate(Number.multiply(Numeric.sin(re), Numeric.sinh(im)))
+    Number.multiply(-1, Number.multiply(Numeric.sin(re), Numeric.sinh(im)))
   )
 
 /**

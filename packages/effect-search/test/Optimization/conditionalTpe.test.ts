@@ -14,10 +14,10 @@ import {
 type ConditionalConfig = Schema.Schema.Type<typeof LinearTreeConditionalConfig>
 
 const decodeConditional = decodeLinearTreeConditionalConfig
-const encodeConfigTrace = Schema.encodeSync(Schema.parseJson(Schema.Array(LinearTreeConditionalConfig)))
-const encodeValueTrace = Schema.encodeSync(Schema.parseJson(Schema.Array(Schema.Number)))
+const encodeConfigTrace = Schema.encodeSync(Schema.fromJsonString(Schema.Array(LinearTreeConditionalConfig)))
+const encodeValueTrace = Schema.encodeSync(Schema.fromJsonString(Schema.Array(Schema.Finite)))
 
-const makeSpace = () => makeLinearTreeConditionalSpace()
+const makeSpace = () => makeLinearTreeConditionalSpace
 
 const objectiveValue = (config: ConditionalConfig): number =>
   Match.value(config).pipe(
@@ -63,14 +63,16 @@ const valueTrace = (result: Optimization.SingleObjectiveResult) =>
 const runWith = (concurrency: number) =>
   Effect.gen(function*() {
     const space = yield* makeSpace()
-    return yield* Optimization.run({
-      space,
-      sampler: Sampler.tpe({ seed: 212, nStartupTrials: 4, nEiCandidates: 16 }),
-      direction: "minimize",
-      trials: 10,
-      concurrency,
-      objective
-    })
+    return yield* Optimization.run(
+      new Optimization.FlatOptions({
+        space,
+        sampler: Sampler.tpe(new Sampler.TpeOptions({ seed: 212, nStartupTrials: 4, nEiCandidates: 16 })),
+        direction: "minimize",
+        trials: 10,
+        concurrency,
+        objective
+      })
+    )
   })
 
 describe("integration conditional TPE optimization", () => {
@@ -90,12 +92,12 @@ describe("integration conditional TPE optimization", () => {
       expect(Option.isSome(parallelAOption)).toBe(true)
       expect(Option.isSome(parallelBOption)).toBe(true)
 
-      const tracedRuns = yield* Option.all({
+      const tracedRuns = yield* Effect.fromOption(Option.all({
         singleThreadedAOption,
         singleThreadedBOption,
         parallelAOption,
         parallelBOption
-      })
+      }))
 
       expect(encodeConfigTrace(yield* configTrace(tracedRuns.singleThreadedAOption))).toBe(
         encodeConfigTrace(yield* configTrace(tracedRuns.singleThreadedBOption))
@@ -120,7 +122,7 @@ describe("integration conditional TPE optimization", () => {
 
       expect(Option.isSome(single)).toBe(true)
 
-      const verifiedRun = yield* single
+      const verifiedRun = yield* Effect.fromOption(single)
 
       const decodedConfigs = yield* Effect.forEach(verifiedRun.trials, (trial) => decodeConditional(trial.config))
       Arr.forEach(decodedConfigs, (decoded) => {
@@ -144,28 +146,32 @@ describe("integration conditional TPE optimization", () => {
 
   it.effect("preserves conditional branch traces across snapshot and resume", () =>
     Effect.gen(function*() {
-      const options = {
+      const options = new Sampler.TpeOptions({
         seed: 404,
         nStartupTrials: 4,
         nEiCandidates: 16
-      }
+      })
       const totalTrials = 8
       const firstLegTrials = 5
       const secondLegTrials = Num.subtract(totalTrials, firstLegTrials)
-      const baselineResult = yield* Optimization.run({
-        space: yield* makeSpace(),
-        sampler: Sampler.tpe(options),
-        direction: "minimize",
-        trials: totalTrials,
-        objective
-      })
-      const firstLegResult = yield* Optimization.run({
-        space: yield* makeSpace(),
-        sampler: Sampler.tpe(options),
-        direction: "minimize",
-        trials: firstLegTrials,
-        objective
-      })
+      const baselineResult = yield* Optimization.run(
+        new Optimization.FlatOptions({
+          space: yield* makeSpace(),
+          sampler: Sampler.tpe(options),
+          direction: "minimize",
+          trials: totalTrials,
+          objective
+        })
+      )
+      const firstLegResult = yield* Optimization.run(
+        new Optimization.FlatOptions({
+          space: yield* makeSpace(),
+          sampler: Sampler.tpe(options),
+          direction: "minimize",
+          trials: firstLegTrials,
+          objective
+        })
+      )
 
       const baselineSingle = asSingleObjective(baselineResult)
       const firstLegSingle = asSingleObjective(firstLegResult)
@@ -173,25 +179,27 @@ describe("integration conditional TPE optimization", () => {
       expect(Option.isSome(baselineSingle)).toBe(true)
       expect(Option.isSome(firstLegSingle)).toBe(true)
 
-      const partialRuns = yield* Option.all({
+      const partialRuns = yield* Effect.fromOption(Option.all({
         baselineSingle,
         firstLegSingle
-      })
+      }))
 
       const snapshot = yield* Optimization.snapshot(partialRuns.firstLegSingle)
-      const resumedResult = yield* Optimization.resume({
-        space: yield* makeSpace(),
-        sampler: Sampler.tpe(options),
-        snapshot,
-        direction: "minimize",
-        trials: secondLegTrials,
-        objective
-      })
+      const resumedResult = yield* Optimization.resume(
+        new Optimization.ResumeOptions({
+          space: yield* makeSpace(),
+          sampler: Sampler.tpe(options),
+          snapshot,
+          direction: "minimize",
+          trials: secondLegTrials,
+          objective
+        })
+      )
       const resumedSingle = asSingleObjective(resumedResult)
 
       expect(Option.isSome(resumedSingle)).toBe(true)
 
-      const resumedRun = yield* resumedSingle
+      const resumedRun = yield* Effect.fromOption(resumedSingle)
 
       expect(encodeConfigTrace(yield* configTrace(resumedRun))).toBe(
         encodeConfigTrace(yield* configTrace(partialRuns.baselineSingle))
@@ -204,37 +212,41 @@ describe("integration conditional TPE optimization", () => {
 
   it.effect("supports grouped multivariate conditional decomposition deterministically", () =>
     Effect.gen(function*() {
-      const options = {
+      const options = new Sampler.TpeOptions({
         seed: 515,
         nStartupTrials: 4,
         nEiCandidates: 16,
         multivariate: true,
         groupDimensions: true
-      }
-      const left = yield* Optimization.run({
-        space: yield* makeSpace(),
-        sampler: Sampler.tpe(options),
-        direction: "minimize",
-        trials: 10,
-        objective
       })
-      const right = yield* Optimization.run({
-        space: yield* makeSpace(),
-        sampler: Sampler.tpe(options),
-        direction: "minimize",
-        trials: 10,
-        objective
-      })
+      const left = yield* Optimization.run(
+        new Optimization.FlatOptions({
+          space: yield* makeSpace(),
+          sampler: Sampler.tpe(options),
+          direction: "minimize",
+          trials: 10,
+          objective
+        })
+      )
+      const right = yield* Optimization.run(
+        new Optimization.FlatOptions({
+          space: yield* makeSpace(),
+          sampler: Sampler.tpe(options),
+          direction: "minimize",
+          trials: 10,
+          objective
+        })
+      )
       const leftSingle = asSingleObjective(left)
       const rightSingle = asSingleObjective(right)
 
       expect(Option.isSome(leftSingle)).toBe(true)
       expect(Option.isSome(rightSingle)).toBe(true)
 
-      const runs = yield* Option.all({
+      const runs = yield* Effect.fromOption(Option.all({
         leftSingle,
         rightSingle
-      })
+      }))
 
       const decodedConfigs = yield* Effect.forEach(runs.leftSingle.trials, (trial) => decodeConditional(trial.config))
       Arr.forEach(decodedConfigs, (decoded) => {

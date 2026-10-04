@@ -1,8 +1,7 @@
 /** Fixed-input evaluation with a persistent, schema-encoded observation log. */
-import { FileSystem } from "@effect/platform"
-import { BunContext, BunRuntime } from "@effect/platform-bun"
+import { BunRuntime, BunServices } from "@effect/platform-bun"
 import { Evaluation, Journal, Trial } from "@scenesystems/effect-study"
-import { Array as Arr, Effect, Schema, Stream, String as Str } from "effect"
+import { Array as Arr, Effect, FileSystem, Schema, Stream, String as Str } from "effect"
 
 const Observation = Schema.Struct({ normalized: Schema.String })
 const CompletedTrial = Trial.Trial(Schema.String, Trial.Completed(Observation))
@@ -21,4 +20,4 @@ const program = Effect.scoped(
   })
 )
 
-BunRuntime.runMain(program.pipe(Effect.provide(BunContext.layer)))
+BunRuntime.runMain(program.pipe(Effect.provide(BunServices.layer)))

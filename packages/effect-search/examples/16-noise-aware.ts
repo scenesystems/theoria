@@ -33,17 +33,21 @@ const program = Effect.gen(function*() {
       })
     )
 
-  const result = yield* Optimization.minimize({
-    space,
-    sampler: Sampler.tpe({
-      seed: 117,
-      noiseAware: true,
-      noiseAlpha: 2
-    }),
-    trials: 40,
-    evaluationsPerTrial: 3,
-    objective: noisyObjective
-  })
+  const result = yield* Optimization.minimize(
+    new Optimization.FlatOptions({
+      space,
+      sampler: Sampler.tpe(
+        new Sampler.TpeOptions({
+          seed: 117,
+          noiseAware: true,
+          noiseAlpha: 2
+        })
+      ),
+      trials: 40,
+      evaluationsPerTrial: 3,
+      objective: noisyObjective
+    })
+  )
   const objectiveCalls = yield* Ref.get(objectiveCallsRef)
 
   yield* Match.value(result).pipe(

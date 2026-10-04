@@ -7,7 +7,7 @@
 import type { Schema } from "effect"
 import { Effect, Record, Ref } from "effect"
 import type { CompositionError } from "../../../DspError.js"
-import { type BestOfNOptions, Module } from "../../../Module.js"
+import { type BestOfNOptions, ComposeGraphOptions, Module } from "../../../Module.js"
 import { make as makeDefaultModuleParameters } from "../../../ModuleParameters.js"
 import { buildCompositionGraph } from "../compose/graph.js"
 import { ComposeForwardOptions, makeComposeForward } from "../compose/runtime.js"
@@ -60,11 +60,13 @@ export const bestOfN = <
   options: BestOfNOptions<I, O, ModuleE, ModuleR, RewardE, RewardR>
 ): Effect.Effect<Module<I, O, ModuleE | RewardE, ModuleR | RewardR>, CompositionError> =>
   Effect.gen(function*() {
-    const composition = yield* buildCompositionGraph({
-      name: options.name,
-      signature: options.module.signature,
-      subModules: Record.singleton("inner", options.module)
-    })
+    const composition = yield* buildCompositionGraph(
+      new ComposeGraphOptions({
+        name: options.name,
+        signature: options.module.signature,
+        subModules: Record.singleton("inner", options.module)
+      })
+    )
     const paramsRef = yield* Ref.make(
       makeDefaultModuleParameters(options.module.signature.instructions)
     )

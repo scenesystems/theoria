@@ -29,7 +29,7 @@ const defaultConfig = new NormalizedRidderConfig({
   safetyFactor: 2.5
 })
 
-const positiveInfinity = Number.unsafeDivide(1, 0)
+const positiveInfinity = Option.getOrElse(Number.parse("Infinity"), () => 0)
 
 /**
  * Produces one central-difference estimate for a positive step.
@@ -72,11 +72,11 @@ export class StatefulRidderResult<State> extends Data.Class<{
 const isFinite = Schema.is(Schema.Finite)
 const isInteger = Schema.is(Schema.Int)
 
-const isFinitePositive = (value: number): boolean => Boolean.and(isFinite(value), Number.greaterThan(value, 0))
+const isFinitePositive = (value: number): boolean => Boolean.and(isFinite(value), Number.isGreaterThan(value, 0))
 
-const isFiniteGreaterThanOne = (value: number): boolean => Boolean.and(isFinite(value), Number.greaterThan(value, 1))
+const isFiniteGreaterThanOne = (value: number): boolean => Boolean.and(isFinite(value), Number.isGreaterThan(value, 1))
 
-const isPositiveInteger = (value: number): boolean => Boolean.and(isInteger(value), Number.greaterThan(value, 0))
+const isPositiveInteger = (value: number): boolean => Boolean.and(isInteger(value), Number.isGreaterThan(value, 0))
 
 const selectOrDefault = (
   value: Option.Option<number>,
@@ -85,41 +85,41 @@ const selectOrDefault = (
 ): number => Option.getOrElse(Option.filter(value, isValid), () => fallback)
 
 const normalizeConfig = (config?: RidderMethodInput): NormalizedRidderConfig => {
-  const decoded = Option.fromNullable(config)
+  const decoded = Option.fromNullishOr(config)
 
   return new NormalizedRidderConfig({
     initialStep: selectOrDefault(
-      Option.flatMap(decoded, (value) => Option.fromNullable(value.initialStep)),
+      Option.flatMap(decoded, (value) => Option.fromNullishOr(value.initialStep)),
       isFinitePositive,
       defaultConfig.initialStep
     ),
     contractionFactor: selectOrDefault(
-      Option.flatMap(decoded, (value) => Option.fromNullable(value.contractionFactor)),
+      Option.flatMap(decoded, (value) => Option.fromNullishOr(value.contractionFactor)),
       isFiniteGreaterThanOne,
       defaultConfig.contractionFactor
     ),
     maxIterations: selectOrDefault(
-      Option.flatMap(decoded, (value) => Option.fromNullable(value.maxIterations)),
+      Option.flatMap(decoded, (value) => Option.fromNullishOr(value.maxIterations)),
       isPositiveInteger,
       defaultConfig.maxIterations
     ),
     absoluteTolerance: selectOrDefault(
-      Option.flatMap(decoded, (value) => Option.fromNullable(value.absoluteTolerance)),
+      Option.flatMap(decoded, (value) => Option.fromNullishOr(value.absoluteTolerance)),
       isFinitePositive,
       defaultConfig.absoluteTolerance
     ),
     relativeTolerance: selectOrDefault(
-      Option.flatMap(decoded, (value) => Option.fromNullable(value.relativeTolerance)),
+      Option.flatMap(decoded, (value) => Option.fromNullishOr(value.relativeTolerance)),
       isFinitePositive,
       defaultConfig.relativeTolerance
     ),
     minimumStep: selectOrDefault(
-      Option.flatMap(decoded, (value) => Option.fromNullable(value.minimumStep)),
+      Option.flatMap(decoded, (value) => Option.fromNullishOr(value.minimumStep)),
       isFinitePositive,
       defaultConfig.minimumStep
     ),
     safetyFactor: selectOrDefault(
-      Option.flatMap(decoded, (value) => Option.fromNullable(value.safetyFactor)),
+      Option.flatMap(decoded, (value) => Option.fromNullishOr(value.safetyFactor)),
       isFiniteGreaterThanOne,
       defaultConfig.safetyFactor
     )
@@ -175,13 +175,13 @@ const refineRow = (
   })
   const final = Iterable.reduce(
     Iterable.unfold(initial, (state) =>
-      Boolean.match(Number.greaterThan(state.column, depth), {
+      Boolean.match(Number.isGreaterThan(state.column, depth), {
         onTrue: Option.none,
         onFalse: () => {
           const current = lastOr(state.row, firstColumn)
           const previous = Option.getOrElse(Chunk.get(previousRow, Number.decrement(state.column)), () => current)
           const denominator = Number.subtract(state.factor, 1)
-          const refined = Number.unsafeDivide(
+          const refined = Number.divideUnsafe(
             Number.subtract(Number.multiply(current, state.factor), previous),
             denominator
           )
@@ -209,7 +209,7 @@ const selectBetterEstimate = (
   current: DerivativeLimitEstimate,
   candidate: DerivativeLimitEstimate
 ): DerivativeLimitEstimate =>
-  Boolean.match(Number.lessThan(candidate.absoluteError, current.absoluteError), {
+  Boolean.match(Number.isLessThan(candidate.absoluteError, current.absoluteError), {
     onTrue: () => candidate,
     onFalse: () => current
   })
@@ -239,11 +239,11 @@ const advance = <State>(
   contractionSquared: number,
   state: RidderState<State>
 ): RidderState<State> =>
-  Boolean.match(Number.greaterThanOrEqualTo(state.depth, normalized.maxIterations), {
+  Boolean.match(Number.isGreaterThanOrEqualTo(state.depth, normalized.maxIterations), {
     onTrue: () => finish(state, state.best),
     onFalse: () => {
-      const nextStep = Number.unsafeDivide(state.currentStep, normalized.contractionFactor)
-      return Boolean.match(Number.lessThanOrEqualTo(nextStep, normalized.minimumStep), {
+      const nextStep = Number.divideUnsafe(state.currentStep, normalized.contractionFactor)
+      return Boolean.match(Number.isLessThanOrEqualTo(nextStep, normalized.minimumStep), {
         onTrue: () => finish(state, state.best),
         onFalse: () => {
           const stepResult = kernel(nextStep, state.kernelState)
@@ -267,12 +267,12 @@ const advance = <State>(
               )
               const diagonalShift = Numeric.abs(Number.subtract(diagonal, previousDiagonal))
               const candidateError = Number.min(diagonalShift, refinement.rowError)
-              const converged = Number.lessThanOrEqualTo(candidateError, toleranceFor(diagonal, normalized))
+              const converged = Number.isLessThanOrEqualTo(candidateError, toleranceFor(diagonal, normalized))
               const candidate = makeEstimate(diagonal, candidateError, Number.increment(state.depth), converged)
               const bestCandidate = selectBetterEstimate(state.best, candidate)
               const runaway = Boolean.and(
-                Number.greaterThan(state.depth, 1),
-                Number.greaterThanOrEqualTo(
+                Number.isGreaterThan(state.depth, 1),
+                Number.isGreaterThanOrEqualTo(
                   diagonalShift,
                   Number.multiply(bestCandidate.absoluteError, normalized.safetyFactor)
                 )

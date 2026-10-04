@@ -55,7 +55,7 @@ describe("Special / erfinv", () => {
 
   it.effect("erfinv is odd: erfinv(-x) = -erfinv(x)", () =>
     Effect.gen(function*() {
-      expectClose(erfinv(-0.5), Number.negate(erfinv(0.5)), kernelTolerance)
+      expectClose(erfinv(-0.5), Number.multiply(-1, erfinv(0.5)), kernelTolerance)
     }))
 
   it.effect("erfinv(0.99) ≈ 1.8214", () =>

@@ -1,5 +1,5 @@
 import { describe, expect, it } from "@effect/vitest"
-import { Array as Arr, Effect, Either, Match, Number as Num, Option, Schema } from "effect"
+import { Array as Arr, Effect, Match, Number as Num, Option, Result, Schema } from "effect"
 
 import * as Numeric from "@scenesystems/effect-math/Numeric"
 
@@ -10,21 +10,16 @@ import { SamplerObjectiveUnsupported } from "../../src/SearchError.js"
 import * as SearchSpace from "../../src/SearchSpace.js"
 
 const objectiveSpace = SearchSpace.make({
-  x: SearchSpace.float(Num.negate(5), 5),
-  y: SearchSpace.float(Num.negate(5), 5)
+  x: SearchSpace.float(Num.multiply(-1, 5), 5),
+  y: SearchSpace.float(Num.multiply(-1, 5), 5)
 })
 
-const objective = (space: SearchSpace.SearchSpace) => {
-  const decode = Schema.decodeUnknownSync(space.schema)
-
-  return (raw: unknown) =>
-    Effect.sync(() => {
-      const config = decode(raw)
-      const xDistance = Num.subtract(config.x, 1.2)
-      const yDistance = Num.sum(config.y, 0.7)
-      return Num.sum(Num.multiply(xDistance, xDistance), Num.multiply(yDistance, yDistance))
-    })
-}
+const objective = (_space: SearchSpace.SearchSpace) => (config: { readonly x: number; readonly y: number }) =>
+  Effect.sync(() => {
+    const xDistance = Num.subtract(config.x, 1.2)
+    const yDistance = Num.sum(config.y, 0.7)
+    return Num.sum(Num.multiply(xDistance, xDistance), Num.multiply(yDistance, yDistance))
+  })
 
 const asSingleObjective = (result: Optimization.Result): Option.Option<Optimization.SingleObjectiveResult> =>
   Match.value(result).pipe(
@@ -37,25 +32,29 @@ describe("integration advanced samplers", () => {
     Effect.gen(function*() {
       const space = yield* objectiveSpace
       const objectiveEffect = objective(space)
-      const cmaResult = yield* Optimization.minimize({
-        space,
-        sampler: Sampler.cmaEs({ seed: 71, sigma: 0.6, populationSize: 10 }),
-        objective: objectiveEffect,
-        trials: 18
-      })
-      const gpResult = yield* Optimization.minimize({
-        space,
-        sampler: Sampler.gpBo({ seed: 71, nStartupTrials: 4, nCandidates: 32, acquisition: "ei" }),
-        objective: objectiveEffect,
-        trials: 18
-      })
+      const cmaResult = yield* Optimization.minimize(
+        new Optimization.FlatOptions({
+          space,
+          sampler: Sampler.cmaEs({ seed: 71, sigma: 0.6, populationSize: 10 }),
+          objective: objectiveEffect,
+          trials: 18
+        })
+      )
+      const gpResult = yield* Optimization.minimize(
+        new Optimization.FlatOptions({
+          space,
+          sampler: Sampler.gpBo({ seed: 71, nStartupTrials: 4, nCandidates: 32, acquisition: "ei" }),
+          objective: objectiveEffect,
+          trials: 18
+        })
+      )
 
       const cmaSingle = asSingleObjective(cmaResult)
       const gpSingle = asSingleObjective(gpResult)
       expect(Option.isSome(cmaSingle)).toBe(true)
       expect(Option.isSome(gpSingle)).toBe(true)
-      const cma = yield* cmaSingle
-      const gp = yield* gpSingle
+      const cma = yield* Effect.fromOption(cmaSingle)
+      const gp = yield* Effect.fromOption(gpSingle)
 
       expect(Numeric.isFinite(cma.bestTrial.state.value)).toBe(true)
       expect(Numeric.isFinite(gp.bestTrial.state.value)).toBe(true)
@@ -67,28 +66,32 @@ describe("integration advanced samplers", () => {
     Effect.gen(function*() {
       const space = yield* objectiveSpace
       const objectiveEffect = objective(space)
-      const firstLeg = yield* Optimization.minimize({
-        space,
-        sampler: Sampler.gpBo({ seed: 24, nStartupTrials: 3, nCandidates: 20, acquisition: "thompson" }),
-        objective: objectiveEffect,
-        trials: 8
-      })
+      const firstLeg = yield* Optimization.minimize(
+        new Optimization.FlatOptions({
+          space,
+          sampler: Sampler.gpBo({ seed: 24, nStartupTrials: 3, nCandidates: 20, acquisition: "thompson" }),
+          objective: objectiveEffect,
+          trials: 8
+        })
+      )
       const firstSingle = asSingleObjective(firstLeg)
       expect(Option.isSome(firstSingle)).toBe(true)
-      const first = yield* firstSingle
+      const first = yield* Effect.fromOption(firstSingle)
 
       const snapshot = yield* Optimization.snapshot(first)
-      const resumed = yield* Optimization.resume({
-        space,
-        sampler: Sampler.gpBo({ seed: 24, nStartupTrials: 3, nCandidates: 20, acquisition: "thompson" }),
-        snapshot,
-        direction: "minimize",
-        trials: 6,
-        objective: objectiveEffect
-      })
+      const resumed = yield* Optimization.resume(
+        new Optimization.ResumeOptions({
+          space,
+          sampler: Sampler.gpBo({ seed: 24, nStartupTrials: 3, nCandidates: 20, acquisition: "thompson" }),
+          snapshot,
+          direction: "minimize",
+          trials: 6,
+          objective: objectiveEffect
+        })
+      )
       const resumedSingle = asSingleObjective(resumed)
       expect(Option.isSome(resumedSingle)).toBe(true)
-      const completed = yield* resumedSingle
+      const completed = yield* Effect.fromOption(resumedSingle)
 
       expect(Arr.length(Arr.fromIterable(completed.trials))).toBe(14)
       expect(Arr.map(Arr.fromIterable(completed.trials), (trial) => trial.trialNumber)).toEqual(Arr.make(
@@ -112,19 +115,21 @@ describe("integration advanced samplers", () => {
   it.effect("fails Optimization.run with typed sampler errors for unsupported multi-objective runs", () =>
     Effect.gen(function*() {
       const space = yield* objectiveSpace
-      const outcome = yield* Effect.either(
-        Optimization.run({
-          space,
-          sampler: Sampler.cmaEs({ seed: 19, sigma: 0.5, populationSize: 8 }),
-          directions: Arr.make<Arr.NonEmptyArray<Direction>>("minimize", "minimize"),
-          trials: 4,
-          objective: (raw) =>
-            Schema.decodeUnknown(space.schema)(raw).pipe(
-              Effect.map((config) => Arr.make(Num.multiply(config.x, config.x), Num.multiply(config.y, config.y)))
-            )
-        })
+      const outcome = yield* Effect.result(
+        Optimization.run(
+          new Optimization.FlatOptions({
+            space,
+            sampler: Sampler.cmaEs({ seed: 19, sigma: 0.5, populationSize: 8 }),
+            directions: Arr.make<Arr.NonEmptyArray<Direction>>("minimize", "minimize"),
+            trials: 4,
+            objective: (raw) =>
+              Schema.decodeEffect(space.schema)(raw).pipe(
+                Effect.map((config) => Arr.make(Num.multiply(config.x, config.x), Num.multiply(config.y, config.y)))
+              )
+          })
+        )
       )
 
-      expect(Either.getOrThrow(Either.flip(outcome))).toBeInstanceOf(SamplerObjectiveUnsupported)
+      expect(Result.getOrThrow(Result.flip(outcome))).toBeInstanceOf(SamplerObjectiveUnsupported)
     }))
 })

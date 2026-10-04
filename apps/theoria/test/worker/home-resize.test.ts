@@ -47,20 +47,20 @@ import { SiteLive } from "./site.js"
 
 /** One report of the drawing and its paper in their frame; see `recordFrameFit`. */
 const FrameFit = Schema.Struct({
-  frame: Schema.Number,
-  drawing: Schema.Number,
-  paper: Schema.Number,
-  offCentre: Schema.Number
+  frame: Schema.Finite,
+  drawing: Schema.Finite,
+  paper: Schema.Finite,
+  offCentre: Schema.Finite
 })
 type FrameFit = typeof FrameFit.Type
 
 const frameFit = (reported: string): FrameFit => {
   const [frame = "0", drawing = "0", paper = "0", offCentre = "0"] = reported.split(" ")
   return FrameFit.make({
-    frame: Number(frame),
-    drawing: Number(drawing),
-    paper: Number(paper),
-    offCentre: Number(offCentre)
+    frame: Schema.decodeSync(Schema.FiniteFromString)(frame),
+    drawing: Schema.decodeSync(Schema.FiniteFromString)(drawing),
+    paper: Schema.decodeSync(Schema.FiniteFromString)(paper),
+    offCentre: Schema.decodeSync(Schema.FiniteFromString)(offCentre)
   })
 }
 
@@ -88,7 +88,7 @@ const stageFillsItsStep = (page: Page, where: string) =>
 
 layer(Layer.merge(SiteLive, BrowserLive), { excludeTestServices: true, timeout: "3 minutes" })(
   (it) => {
-    it.scoped("wide screens leave reading margins while Arrange reaches 720px, with chrome on the same edges", () =>
+    it("wide screens leave reading margins while Arrange reaches 720px, with chrome on the same edges", () =>
       Effect.gen(function*() {
         const { failures, page } = yield* openPage({ viewport: { width: 1920, height: 1080 } })
         yield* goto(page, "/")
@@ -113,7 +113,7 @@ layer(Layer.merge(SiteLive, BrowserLive), { excludeTestServices: true, timeout: 
         expect(yield* failures).toEqual([])
       }))
 
-    it.scoped("below lg the stage takes the whole reading column, as wide as the widest stage, and centres beyond it", () =>
+    it("below lg the stage takes the whole reading column, as wide as the widest stage, and centres beyond it", () =>
       Effect.gen(function*() {
         const { failures, page } = yield* openPage({ viewport: { width: 1440, height: 900 } })
         yield* goto(page, "/")
@@ -134,7 +134,7 @@ layer(Layer.merge(SiteLive, BrowserLive), { excludeTestServices: true, timeout: 
         expect(yield* failures).toEqual([])
       }))
 
-    it.scoped("while the column is resized neither the drawing nor its paper stands wider than the frame, and the frame stays centred", () =>
+    it("while the column is resized neither the drawing nor its paper stands wider than the frame, and the frame stays centred", () =>
       Effect.gen(function*() {
         const { failures, page } = yield* openPage({ viewport: { width: 1400, height: 900 } })
         yield* act(() => page.addInitScript(recordFrameFit))
@@ -171,7 +171,7 @@ layer(Layer.merge(SiteLive, BrowserLive), { excludeTestServices: true, timeout: 
      * rules before the prose is flowed around it. Every frame from the
      * narrowing until the new arrangement lands keeps the gap.
      */
-    it.scoped("from the widest column to the narrowest, every frame keeps the gap between prose and discs", () =>
+    it("from the widest column to the narrowest, every frame keeps the gap between prose and discs", () =>
       Effect.gen(function*() {
         const { failures, page } = yield* openPage({ viewport: { width: 1400, height: 900 } })
         yield* goto(page, "/")
@@ -201,7 +201,7 @@ layer(Layer.merge(SiteLive, BrowserLive), { excludeTestServices: true, timeout: 
         expect(yield* failures).toEqual([])
       }))
 
-    it.scoped("a landed drawing is redrawn for another width or another build only, never for the reader's presence", () =>
+    it("a landed drawing is redrawn for another width or another build only, never for the reader's presence", () =>
       Effect.gen(function*() {
         const { failures, page } = yield* openPage({ viewport: { width: 1280, height: 900 } })
         yield* act(() => page.addInitScript(recordPaperFrames))

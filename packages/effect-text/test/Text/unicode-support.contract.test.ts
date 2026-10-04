@@ -21,7 +21,7 @@ const makeTestLayer = Layer.mergeAll(
 
 const visibleText = (text: string): string => String.replace(/\u200b/gu, "")(text)
 const normalizedVisibleText = (text: string): string => String.replace(/ /gu, "")(visibleText(text))
-const isWideText = Schema.is(Schema.String.pipe(Schema.pattern(/^W+$/u)))
+const isWideText = Schema.is(Schema.String.check(Schema.isPattern(/^W+$/u)))
 
 describe("Text unicode support fixtures", () => {
   it.effect("matches explicit segmentation results through the public Segmenter contract", () =>
@@ -53,7 +53,7 @@ describe("Text unicode support fixtures", () => {
               fixture.name
             ).toBe(normalizedVisibleText(fixture.text))
             expect(
-              Arr.every(lines, (line) => Number.lessThanOrEqualTo(line.width, Number.sum(fixture.maxWidth, 0.01))),
+              Arr.every(lines, (line) => Number.isLessThanOrEqualTo(line.width, Number.sum(fixture.maxWidth, 0.01))),
               fixture.name
             ).toBe(true)
           })

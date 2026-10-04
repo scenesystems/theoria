@@ -1,8 +1,8 @@
-import { Atom, Result } from "@effect-atom/atom"
-import type { Atom as AtomType } from "@effect-atom/atom"
-import { Boolean as Bool, Data, Duration, Effect, Equal, type Layer, Option, Schema, Stream } from "effect"
+import { Boolean as Bool, Duration, Effect, Equal, type Layer, Option, Schema, Stream } from "effect"
 import * as Arr from "effect/Array"
 import * as Num from "effect/Number"
+import { AsyncResult as Result, Atom } from "effect/reactivity"
+import type * as AtomType from "effect/reactivity/Atom"
 import * as Str from "effect/String"
 
 import type { DemoError } from "../../contracts/demo-error.js"
@@ -39,7 +39,11 @@ export const defaultPlaceScenario: PlaceScenario = "unfinished-light"
  * Each is a decision, built the moment it is made. The brief is not here: it
  * is typed, and typing settles before it is built.
  */
-export const PlaceControls = PlaceBuildRequest.pipe(Schema.omit("brief"))
+export const PlaceControls = Schema.Struct({
+  scenario: PlaceBuildRequest.fields.scenario,
+  acceptNeighbor: PlaceBuildRequest.fields.acceptNeighbor,
+  acceptProgram: PlaceBuildRequest.fields.acceptProgram
+})
 export type PlaceControls = typeof PlaceControls.Type
 
 export const defaultPlaceControls: PlaceControls = {
@@ -88,12 +92,12 @@ const briefFor = (scenario: PlaceScenario, draft: Option.Option<BriefDraft>): st
   })
 
 /** The brief as the field shows it: every keystroke. */
-export const placeBriefAtom: AtomType.Atom<string> = Atom.make((get: AtomType.Context) =>
+export const placeBriefAtom: AtomType.Atom<string> = Atom.make((get: AtomType.AtomContext) =>
   briefFor(get(placeControlsAtom).scenario, get(placeBriefDraftAtom))
 )
 
 /** Whether the brief shown is no longer the one the story was recorded with. */
-export const placeBriefEditedAtom: AtomType.Atom<boolean> = Atom.make((get: AtomType.Context) =>
+export const placeBriefEditedAtom: AtomType.Atom<boolean> = Atom.make((get: AtomType.AtomContext) =>
   Bool.not(Equal.equals(get(placeBriefAtom), placeScenarioMeta[get(placeControlsAtom).scenario].brief))
 )
 
@@ -107,15 +111,14 @@ export const briefSettleDelay: Duration.Duration = Duration.millis(400)
  * nothing. Alive while the request is read, since that is what settling is
  * for.
  */
-const briefSettlingAtom: AtomType.Atom<Result.Result<void>> = Atom.make((get: AtomType.Context) =>
+const briefSettlingAtom: AtomType.Atom<Result.AsyncResult<void>> = Atom.make((get: AtomType.AtomContext) =>
   get.stream(placeBriefDraftAtom).pipe(
-    Stream.flatMap(
+    Stream.switchMap(
       (draft) =>
         Option.match(draft, {
           onNone: () => Stream.empty,
           onSome: () => Stream.fromEffect(Effect.as(Effect.sleep(briefSettleDelay), draft))
-        }),
-      { switch: true }
+        })
     ),
     Stream.runForEach((settled) =>
       Effect.sync(() => {
@@ -130,11 +133,11 @@ const briefSettlingAtom: AtomType.Atom<Result.Result<void>> = Atom.make((get: At
  * A value, so a settled draft that changed nothing is the same request and
  * builds nothing again.
  */
-export const placeBuildRequestAtom: AtomType.Atom<PlaceBuildRequest> = Atom.make((get: AtomType.Context) => {
+export const placeBuildRequestAtom: AtomType.Atom<PlaceBuildRequest> = Atom.make((get: AtomType.AtomContext) => {
   get(briefSettlingAtom)
   const controls = get(placeControlsAtom)
-  return Data.struct({ ...controls, brief: briefFor(controls.scenario, get(settledBriefDraftState)) })
-})
+  return { ...controls, brief: briefFor(controls.scenario, get(settledBriefDraftState)) }
+}).pipe(Atom.withEquality(Schema.toEquivalence(PlaceBuildRequest)))
 
 /**
  * The layer the place build's client comes from. The app leaves it at the
@@ -147,13 +150,13 @@ export const placeClientLayerAtom: AtomType.Writable<Layer.Layer<ImaginedPlaceCl
 
 /** The home page's own runtime: the place build does not share the docs workbench's client. */
 const placeRuntime: AtomType.AtomRuntime<ImaginedPlaceClient> = Atom.runtime(
-  (get: AtomType.Context) => get(placeClientLayerAtom)
+  (get: AtomType.AtomContext) => get(placeClientLayerAtom)
 )
 
 /** The server's whole answer, metadata included. Refresh this one to build again after a failure. */
-export const placeBuildEnvelopeAtom: AtomType.Atom<Result.Result<SuccessEnvelopeData<PlaceBuild>, DemoError>> =
+export const placeBuildEnvelopeAtom: AtomType.Atom<Result.AsyncResult<SuccessEnvelopeData<PlaceBuild>, DemoError>> =
   placeRuntime.atom(
-    (get: AtomType.Context) => {
+    (get: AtomType.AtomContext) => {
       const request = get(placeBuildRequestAtom)
       return Effect.gen(function*() {
         const client = yield* ImaginedPlaceClient
@@ -162,8 +165,8 @@ export const placeBuildEnvelopeAtom: AtomType.Atom<Result.Result<SuccessEnvelope
     }
   )
 
-export const placeBuildAtom: AtomType.Atom<Result.Result<PlaceBuild, DemoError>> = Atom.make(
-  (get: AtomType.Context) => Result.map(get(placeBuildEnvelopeAtom), (envelope) => envelope.data)
+export const placeBuildAtom: AtomType.Atom<Result.AsyncResult<PlaceBuild, DemoError>> = Atom.make(
+  (get: AtomType.AtomContext) => Result.map(get(placeBuildEnvelopeAtom), (envelope) => envelope.data)
 )
 
 /**
@@ -180,7 +183,7 @@ export const placeBuiltAtom: AtomType.Atom<Option.Option<PlaceBuild>> = Atom.map
  * the same outline the server replays — so every act stands at the shape of
  * what is coming, and what arrives is its evidence.
  */
-export const placeOutlineAtom: AtomType.Atom<PlaceOutline> = Atom.make((get: AtomType.Context) =>
+export const placeOutlineAtom: AtomType.Atom<PlaceOutline> = Atom.make((get: AtomType.AtomContext) =>
   Option.match(get(placeBuiltAtom), {
     onNone: () => {
       const controls = get(placeControlsAtom)
@@ -191,7 +194,7 @@ export const placeOutlineAtom: AtomType.Atom<PlaceOutline> = Atom.make((get: Ato
 )
 
 /** The proposals before the author, on the same terms as `placeOutlineAtom`: recorded once built, offered before. */
-export const placeOfferedAtom: AtomType.Atom<ReadonlyArray<OfferedProposal>> = Atom.make((get: AtomType.Context) =>
+export const placeOfferedAtom: AtomType.Atom<ReadonlyArray<OfferedProposal>> = Atom.make((get: AtomType.AtomContext) =>
   Option.match(get(placeBuiltAtom), {
     onNone: () => {
       const controls = get(placeControlsAtom)
@@ -203,7 +206,8 @@ export const placeOfferedAtom: AtomType.Atom<ReadonlyArray<OfferedProposal>> = A
 
 /** The commit the server was built from, so links into the source show exactly the code that ran. */
 export const placeBuildShaAtom: AtomType.Atom<Option.Option<string>> = Atom.make(
-  (get: AtomType.Context) => Option.map(Result.value(get(placeBuildEnvelopeAtom)), (envelope) => envelope.meta.buildSha)
+  (get: AtomType.AtomContext) =>
+    Option.map(Result.value(get(placeBuildEnvelopeAtom)), (envelope) => envelope.meta.buildSha)
 )
 
 /**
@@ -216,17 +220,17 @@ export const placeBuildShaAtom: AtomType.Atom<Option.Option<string>> = Atom.make
  */
 const PlaceVersion = Schema.Struct({ scenario: PlaceScenario, contentId: Schema.String })
 export const PlaceVersionChange = Schema.Struct({
-  current: Schema.OptionFromSelf(PlaceVersion),
-  changes: Schema.Number
+  current: Schema.Option(PlaceVersion),
+  changes: Schema.Finite
 })
 export type PlaceVersionChange = typeof PlaceVersionChange.Type
 
-const sameVersion = Option.getEquivalence<{ readonly scenario: PlaceScenario; readonly contentId: string }>(
+const sameVersion = Option.makeEquivalence<{ readonly scenario: PlaceScenario; readonly contentId: string }>(
   (a, b) => Bool.and(Equal.equals(a.scenario, b.scenario), Str.Equivalence(a.contentId, b.contentId))
 )
 
 export const placeVersionChangeAtom: AtomType.Atom<PlaceVersionChange> = Atom.make(
-  (get: AtomType.Context): PlaceVersionChange => {
+  (get: AtomType.AtomContext): PlaceVersionChange => {
     const current = Option.flatMap(
       get(placeBuiltAtom),
       (build) =>
@@ -289,7 +293,7 @@ export const placeStageFrameBorderPx = artifactStageBorderPx(placeStageFrame)
  * share; the widest stage there is until the column has been measured, so
  * every preset is offered from the first render.
  */
-export const placeStageMaxDrawableAtom: AtomType.Atom<number> = Atom.make((get: AtomType.Context) =>
+export const placeStageMaxDrawableAtom: AtomType.Atom<number> = Atom.make((get: AtomType.AtomContext) =>
   Option.match(get(placeStageContainerWidthAtom), {
     onNone: () => stageMaxWidth,
     onSome: (container) =>
@@ -302,7 +306,8 @@ export const placeStageMaxDrawableAtom: AtomType.Atom<number> = Atom.make((get: 
 
 /** The stage width that is drawn: the request, cut to the column, clamped to the stage's range. */
 export const placeStageWidthAtom: AtomType.Atom<number> = Atom.make(
-  (get: AtomType.Context) => stageFor(Num.min(get(placeStageRequestAtom), get(placeStageMaxDrawableAtom))).stageWidth
+  (get: AtomType.AtomContext) =>
+    stageFor(Num.min(get(placeStageRequestAtom), get(placeStageMaxDrawableAtom))).stageWidth
 )
 
 /**
@@ -313,7 +318,7 @@ export const placeStageWidthAtom: AtomType.Atom<number> = Atom.make(
  * from its placeholder would shrink around it and then jump to the paper.
  */
 export const placeStageFrameWidthAtom: AtomType.Atom<string> = Atom.make(
-  (get: AtomType.Context) =>
+  (get: AtomType.AtomContext) =>
     `min(100%, ${String(Num.sum(get(placeStageRequestAtom), Num.multiply(placeStageFrameBorderPx, 2)))}px)`
 )
 
@@ -322,9 +327,9 @@ export const placeStageFrameWidthAtom: AtomType.Atom<string> = Atom.make(
  * before. Nothing is cut or drawn for a width that was only guessed: a paper
  * cut for the widest stage would be recut a frame later for the column.
  */
-export const placeStageMeasuredWidthAtom: AtomType.Atom<Option.Option<number>> = Atom.make((get: AtomType.Context) =>
-  Option.map(get(placeStageContainerWidthAtom), () => get(placeStageWidthAtom))
-)
+export const placeStageMeasuredWidthAtom: AtomType.Atom<Option.Option<number>> = Atom.make((
+  get: AtomType.AtomContext
+) => Option.map(get(placeStageContainerWidthAtom), () => get(placeStageWidthAtom)))
 
 /** Which step of the story the visitor is looking at; the code panel follows it. */
 export const placeStepAtom: AtomType.Writable<PlaceStep> = Atom.make<PlaceStep>("compose")

@@ -6,7 +6,7 @@
  */
 
 import { blake3 } from "@noble/hashes/blake3.js"
-import { Either, Number, Schema } from "effect"
+import { Effect, Number, Result, Schema } from "effect"
 
 import * as Utf8 from "./Utf8.js"
 
@@ -20,9 +20,9 @@ export class InvalidKeyLength extends Schema.TaggedError<InvalidKeyLength>()(
   "InvalidKeyLength",
   {
     /** Required key length in bytes. */
-    expected: Schema.Number,
+    expected: Schema.Finite,
     /** Supplied key length in bytes; no key material is retained. */
-    actual: Schema.Number
+    actual: Schema.Finite
   },
   { identifier: "@scenesystems/digest/Blake3/InvalidKeyLength" }
 ) {}
@@ -50,11 +50,15 @@ export class InvalidLength extends Schema.TaggedError<InvalidLength>()(
 export const mac = (
   key: Uint8Array,
   message: Uint8Array
-): Either.Either<Uint8Array, InvalidKeyLength> =>
-  Either.liftPredicate(
-    (key: Uint8Array) => Number.Equivalence(key.length, 32),
-    (key) => new InvalidKeyLength({ expected: 32, actual: key.length })
-  )(key).pipe(Either.map((key) => blake3(message, { key })))
+): Effect.Effect<Uint8Array, InvalidKeyLength> =>
+  Effect.suspend(() =>
+    Effect.fromResult(
+      Result.liftPredicate(
+        (key: Uint8Array) => Number.Equivalence(key.length, 32),
+        (key) => new InvalidKeyLength({ expected: 32, actual: key.length })
+      )(key)
+    ).pipe(Effect.map((key) => blake3(message, { key })))
+  )
 
 /**
  * Derives key material under a strictly encoded UTF-8 context.
@@ -72,9 +76,16 @@ export const deriveKey = (
   context: string,
   input: Uint8Array,
   length = 32
-): Either.Either<Uint8Array, Utf8.InvalidUnicode | InvalidLength> =>
-  Either.gen(function*() {
-    yield* Either.liftPredicate(Schema.is(Schema.NonNegativeInt), () => new InvalidLength({}))(length)
+): Effect.Effect<Uint8Array, Utf8.InvalidUnicode | InvalidLength> =>
+  Effect.gen(function*() {
+    yield* Effect.suspend(() =>
+      Effect.fromResult(
+        Result.liftPredicate(
+          Schema.is(Schema.Number.check(Schema.isInt(), Schema.isGreaterThanOrEqualTo(0))),
+          () => new InvalidLength({})
+        )(length)
+      )
+    )
     const encodedContext = yield* Utf8.encode(context)
-    return blake3(input, { context: encodedContext, dkLen: length })
+    return yield* Effect.sync(() => blake3(input, { context: encodedContext, dkLen: length }))
   })

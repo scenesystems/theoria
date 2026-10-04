@@ -1,5 +1,5 @@
 import { describe, expect, it } from "@effect/vitest"
-import { Array as Arr, Chunk, Effect, Option, Ref, Schedule, Stream, Tuple } from "effect"
+import { Array as Arr, Effect, Option, Ref, Schedule, Stream, Tuple } from "effect"
 
 import * as Optimization from "../../src/Optimization.js"
 import * as Pruning from "../../src/Pruning.js"
@@ -18,21 +18,24 @@ import {
 
 const requireSome = <A>(option: Option.Option<A>): Effect.Effect<A> =>
   Option.match(option, {
-    onNone: () => Effect.dieMessage("expected Some"),
+    onNone: () => Effect.die("expected Some"),
     onSome: Effect.succeed
   })
 
 describe("Optimization pruning and early stop contracts", () => {
   it.effect("marks pruned trials with typed metadata and excludes them from best selection", () =>
     Effect.gen(function*() {
-      const optimized = yield* Optimization.run({
-        space: yield* pruningSlotSpace,
-        sampler: sequentialSlotSampler,
-        direction: "minimize",
-        trials: 4,
-        pruningPolicy: pruneSlotsBelowTwo,
-        objective: reportedSlotObjective
-      })
+      const space = yield* pruningSlotSpace
+      const optimized = yield* Optimization.run(
+        new Optimization.FlatOptions({
+          space,
+          sampler: sequentialSlotSampler,
+          direction: "minimize",
+          trials: 4,
+          pruningPolicy: pruneSlotsBelowTwo,
+          objective: reportedSlotObjective
+        })
+      )
 
       const resultOption = pruningSingleObjectiveResult(optimized)
       expect(Option.isSome(resultOption)).toBe(true)
@@ -57,14 +60,17 @@ describe("Optimization pruning and early stop contracts", () => {
 
   it.effect("surfaces invalid report semantics through typed InvalidObjectiveReport failures", () =>
     Effect.gen(function*() {
-      const optimized = yield* Optimization.run({
-        space: yield* pruningSlotSpace,
-        sampler: sequentialSlotSampler,
-        direction: "minimize",
-        trials: 4,
-        retrySchedule: Schedule.recurs(0),
-        objective: invalidReportObjective
-      })
+      const space = yield* pruningSlotSpace
+      const optimized = yield* Optimization.run(
+        new Optimization.FlatOptions({
+          space,
+          sampler: sequentialSlotSampler,
+          direction: "minimize",
+          trials: 4,
+          retrySchedule: Schedule.recurs(0),
+          objective: invalidReportObjective
+        })
+      )
 
       const resultOption = pruningSingleObjectiveResult(optimized)
       expect(Option.isSome(resultOption)).toBe(true)
@@ -83,23 +89,28 @@ describe("Optimization pruning and early stop contracts", () => {
     Effect.gen(function*() {
       const drainHeartbeatRef = yield* Ref.make<Iterable<string>>(Arr.empty())
       const interruptHeartbeatRef = yield* Ref.make<Iterable<string>>(Arr.empty())
+      const space = yield* pruningSlotSpace
 
-      const drainResult = yield* Optimization.run({
-        space: yield* pruningSlotSpace,
-        sampler: sequentialSlotSampler,
-        direction: "minimize",
-        trials: 3,
-        stopMode: "Drain",
-        objective: stoppingSlotObjective(drainHeartbeatRef, "drain-stop")
-      })
-      const interruptResult = yield* Optimization.run({
-        space: yield* pruningSlotSpace,
-        sampler: sequentialSlotSampler,
-        direction: "minimize",
-        trials: 3,
-        stopMode: "Interrupt",
-        objective: stoppingSlotObjective(interruptHeartbeatRef, "interrupt-stop")
-      })
+      const drainResult = yield* Optimization.run(
+        new Optimization.FlatOptions({
+          space,
+          sampler: sequentialSlotSampler,
+          direction: "minimize",
+          trials: 3,
+          stopMode: "Drain",
+          objective: stoppingSlotObjective(drainHeartbeatRef, "drain-stop")
+        })
+      )
+      const interruptResult = yield* Optimization.run(
+        new Optimization.FlatOptions({
+          space,
+          sampler: sequentialSlotSampler,
+          direction: "minimize",
+          trials: 3,
+          stopMode: "Interrupt",
+          objective: stoppingSlotObjective(interruptHeartbeatRef, "interrupt-stop")
+        })
+      )
 
       const drainOption = pruningSingleObjectiveResult(drainResult)
       const interruptOption = pruningSingleObjectiveResult(interruptResult)
@@ -122,33 +133,36 @@ describe("Optimization pruning and early stop contracts", () => {
 
   it.effect("emits pruning and stop lifecycle events for semantic replay assertions", () =>
     Effect.gen(function*() {
+      const space = yield* pruningSlotSpace
       const events = yield* Stream.runCollect(
-        Optimization.stream({
-          space: yield* pruningSlotSpace,
-          sampler: sequentialSlotSampler,
-          direction: "minimize",
-          trials: 3,
-          stopMode: "Drain",
-          pruningPolicy: {
-            name: "always-prune",
-            decide: ({ latestReport }) =>
-              Pruning.prune({
-                step: latestReport.step,
-                reason: "always",
-                policy: "always-prune"
+        Optimization.stream(
+          new Optimization.FlatOptions({
+            space,
+            sampler: sequentialSlotSampler,
+            direction: "minimize",
+            trials: 3,
+            stopMode: "Drain",
+            pruningPolicy: new Pruning.Policy({
+              name: "always-prune",
+              decide: ({ latestReport }) =>
+                Pruning.prune({
+                  step: latestReport.step,
+                  reason: "always",
+                  policy: "always-prune"
+                })
+            }),
+            objective: (raw, runtime) =>
+              Effect.gen(function*() {
+                const config = yield* decodeSlotConfig(raw)
+                yield* runtime.report(0, config.slot)
+                yield* runtime.requestStop("stream-stop")
+                return config.slot
               })
-          },
-          objective: (raw, runtime) =>
-            Effect.gen(function*() {
-              const config = yield* decodeSlotConfig(raw)
-              yield* runtime.report(0, config.slot)
-              yield* runtime.requestStop("stream-stop")
-              return config.slot
-            })
-        })
+          })
+        )
       )
 
-      const tags = Arr.map(Chunk.toReadonlyArray(events), (event) => event._tag)
+      const tags = Arr.map(events, (event) => event._tag)
 
       expect(tags).toContain("TrialReported")
       expect(tags).toContain("TrialPruned")

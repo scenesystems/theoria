@@ -32,7 +32,7 @@ const conditionalGroupKey = (parameter: Parameter): string =>
 
 const discriminantFromGroupedParameters = (parametersInput: Iterable<Parameter>): string => {
   const parameters = Arr.fromIterable(parametersInput)
-  return Arr.findFirst(parameters, (parameter) => Num.greaterThan(Arr.length(parameter.activeWhen), 0)).pipe(
+  return Arr.findFirst(parameters, (parameter) => Num.isGreaterThan(Arr.length(parameter.activeWhen), 0)).pipe(
     Option.flatMap((parameter) => Arr.head(parameter.activeWhen)),
     Option.match({
       onNone: () => "",
@@ -84,13 +84,13 @@ const excludeDimensions = (
 
 const branchAdditions = (space: SearchSpace) => {
   const grouped = Arr.groupBy(
-    Arr.filter(space.params, (parameter) => Num.greaterThan(Arr.length(parameter.activeWhen), 0)),
+    Arr.filter(space.params, (parameter) => Num.isGreaterThan(Arr.length(parameter.activeWhen), 0)),
     conditionalGroupKey
   )
 
-  const nonEmptyGroups = Arr.filter(Record.toEntries(grouped), ([key]) => Num.greaterThan(Str.length(key), 0))
+  const nonEmptyGroups = Arr.filter(Record.toEntries(grouped), ([key]) => Num.isGreaterThan(Str.length(key), 0))
   const groupedParameterOrder: Order.Order<(typeof nonEmptyGroups)[number]> = Order.mapInput(
-    Order.string,
+    Order.String,
     ([key]) => key
   )
   const orderedGroups = Arr.sort(nonEmptyGroups, groupedParameterOrder)
@@ -99,14 +99,14 @@ const branchAdditions = (space: SearchSpace) => {
     return uniqueDimensions(Arr.prepend(Arr.map(parameters, (parameter) => parameter.name), discriminant))
   })
 
-  return Arr.filter(additions, (addition) => Num.greaterThan(Arr.length(addition), 0))
+  return Arr.filter(additions, (addition) => Num.isGreaterThan(Arr.length(addition), 0))
 }
 
 const conditionalAdditions = (space: SearchSpace) => {
   const root = uniqueDimensions(rootDimensions(space))
   const branches = branchAdditions(space)
 
-  return Match.value(Num.greaterThan(Arr.length(root), 0)).pipe(
+  return Match.value(Num.isGreaterThan(Arr.length(root), 0)).pipe(
     Match.when(true, () => Arr.prepend(branches, root)),
     Match.orElse(() => branches)
   )
@@ -138,12 +138,12 @@ const splitByAddition = (
       const nextGroups = Arr.appendAll(
         Arr.appendAll(
           state.groups,
-          Match.value(Num.greaterThan(Arr.length(overlap), 0)).pipe(
+          Match.value(Num.isGreaterThan(Arr.length(overlap), 0)).pipe(
             Match.when(true, () => Arr.of(overlap)),
             Match.orElse(() => emptyGroupDimensions())
           )
         ),
-        Match.value(Num.greaterThan(Arr.length(groupOnly), 0)).pipe(
+        Match.value(Num.isGreaterThan(Arr.length(groupOnly), 0)).pipe(
           Match.when(true, () => Arr.of(groupOnly)),
           Match.orElse(() => emptyGroupDimensions())
         )
@@ -156,7 +156,7 @@ const splitByAddition = (
     }
   )
 
-  return Match.value(Num.greaterThan(Arr.length(reduced.remaining), 0)).pipe(
+  return Match.value(Num.isGreaterThan(Arr.length(reduced.remaining), 0)).pipe(
     Match.when(true, () => Arr.append(reduced.groups, reduced.remaining)),
     Match.orElse(() => Arr.fromIterable(reduced.groups))
   )
@@ -175,13 +175,12 @@ const canonicalConditionalGroups = (
   groupsInput: Iterable<typeof Dimensions.Type>
 ) => {
   const groups = Arr.fromIterable(groupsInput)
+  const orderedGroups = Arr.sort(
+    Arr.map(groups, (dimensions) => Arr.sort(uniqueDimensions(dimensions), Order.String)),
+    Order.mapInput(Order.String, (dimensions: ReadonlyArray<string>) => Arr.join(dimensions, "|"))
+  )
   return Arr.map(
-    Arr.sortBy(Order.mapInput(Order.string, (dimensionsInput: Iterable<string>) => {
-      const dimensions = Arr.fromIterable(dimensionsInput)
-      return Arr.join(dimensions, "|")
-    }))(
-      Arr.map(groups, (dimensions) => Arr.sort(uniqueDimensions(dimensions), Order.string))
-    ),
+    orderedGroups,
     (dimensions) =>
       new ConditionalGroup({
         key: Arr.join(dimensions, "|"),

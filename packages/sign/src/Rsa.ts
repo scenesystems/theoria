@@ -7,19 +7,10 @@
 import { pow } from "@noble/curves/abstract/modular.js"
 import { bitLen, numberToBytesBE } from "@noble/curves/utils.js"
 import * as Digest from "@scenesystems/digest/Digest"
-import {
-  Array as Arr,
-  BigInt as BI,
-  Boolean as B,
-  Effect,
-  Encoding,
-  identity,
-  Number as N,
-  Option,
-  Schema,
-  String as Str
-} from "effect"
+import { Array as Arr, BigInt as BI, Boolean as B, Effect, Number as N, Option, Schema, String as Str } from "effect"
+import { Base64Url, Hex } from "effect/encoding"
 import * as Bytes from "./Bytes.js"
+import { lengthAtMost } from "./internal/schema.js"
 import { copyBytes } from "./internal/verificationInput.js"
 import * as Verification from "./Verification.js"
 
@@ -30,16 +21,15 @@ import * as Verification from "./Verification.js"
  * @since 0.5.0
  * @category errors
  */
-export class InvalidPublicKey extends Schema.TaggedError<InvalidPublicKey>(
-  "@scenesystems/sign/Rsa/InvalidPublicKey"
-)("InvalidRsaPublicKey", {}, {
+export class InvalidPublicKey extends Schema.TaggedError<InvalidPublicKey>()("InvalidRsaPublicKey", {}, {
   title: "Invalid RSA public key",
-  description: "The supplied RSA key is malformed or outside the supported RS256 profile."
+  description: "The supplied RSA key is malformed or outside the supported RS256 profile.",
+  identifier: "@scenesystems/sign/Rsa/InvalidPublicKey"
 }) {}
 
-const OddPositive = Schema.BigIntFromSelf.pipe(
-  Schema.positiveBigInt(),
-  Schema.filter((value) => BI.Equivalence(BI.gcd(value, 2n), 1n))
+const OddPositive = Schema.BigInt.check(
+  Schema.isGreaterThanBigInt(0n),
+  Schema.makeFilter((value) => BI.Equivalence(BI.gcd(value, 2n), 1n))
 )
 
 /**
@@ -52,8 +42,8 @@ const OddPositive = Schema.BigIntFromSelf.pipe(
  * @category schemas
  */
 export class PublicKey extends Schema.Class<PublicKey>("@scenesystems/sign/Rsa/PublicKey")({
-  modulus: OddPositive.pipe(Schema.filter((value) => N.between(bitLen(value), { minimum: 2048, maximum: 4096 }))),
-  exponent: OddPositive.pipe(Schema.betweenBigInt(3n, 4_294_967_295n))
+  modulus: OddPositive.check(Schema.makeFilter((value) => N.between(bitLen(value), { minimum: 2048, maximum: 4096 }))),
+  exponent: OddPositive.check(Schema.isBetweenBigInt({ minimum: 3n, maximum: 4_294_967_295n }))
 }, {
   title: "RSA public key",
   description: "An odd 2048–4096-bit modulus and supported odd public exponent."
@@ -61,27 +51,27 @@ export class PublicKey extends Schema.Class<PublicKey>("@scenesystems/sign/Rsa/P
 
 const Jwk = Schema.Struct({
   kty: Schema.Literal("RSA"),
-  n: Schema.String.pipe(Schema.minLength(342), Schema.maxLength(683)),
-  e: Schema.String.pipe(Schema.minLength(1), Schema.maxLength(6)),
+  n: Schema.String.check(Schema.isMinLength(342), Schema.isMaxLength(683)),
+  e: Schema.String.check(Schema.isMinLength(1), Schema.isMaxLength(6)),
   alg: Schema.optional(Schema.Literal("RS256")),
   use: Schema.optional(Schema.Literal("sig")),
-  key_ops: Schema.optional(Schema.Tuple(Schema.Literal("verify")))
+  key_ops: Schema.optional(Schema.Tuple([Schema.Literal("verify")]))
 })
 
 const decodeInteger = (encoded: string) =>
   Effect.gen(function*() {
-    const bytes = yield* Encoding.decodeBase64Url(encoded)
+    const bytes = yield* Effect.fromResult(Base64Url.decode(encoded))
     yield* Effect.succeed(bytes).pipe(
       Effect.filterOrFail(
         (value) =>
           B.and(
-            Str.Equivalence(Encoding.encodeBase64Url(value), encoded),
-            Option.exists(Arr.head(Arr.fromIterable(value)), N.greaterThan(0))
+            Str.Equivalence(Base64Url.encode(value), encoded),
+            Option.exists(Arr.head(Arr.fromIterable(value)), N.isGreaterThan(0))
           ),
         () => new InvalidPublicKey({})
       )
     )
-    return yield* Schema.decode(Schema.BigInt)(Str.concat("0x", Encoding.encodeHex(bytes)))
+    return yield* Effect.fromOption(BI.fromString(Str.concat("0x", Hex.encode(bytes))), () => new InvalidPublicKey({}))
   })
 
 /**
@@ -97,10 +87,10 @@ const decodeInteger = (encoded: string) =>
 export const publicKeyFromJwk = (input: unknown): Effect.Effect<PublicKey, InvalidPublicKey> =>
   Effect.gen(function*() {
     const jwk = yield* Effect.try({
-      try: () => Schema.decodeUnknownEither(Jwk)(input),
+      try: () => Schema.decodeUnknownResult(Jwk)(input),
       catch: () => new InvalidPublicKey({})
-    }).pipe(Effect.flatMap(identity))
-    return yield* Schema.decode(PublicKey)({
+    }).pipe(Effect.flatMap(Effect.fromResult))
+    return yield* Schema.decodeEffect(PublicKey)({
       modulus: yield* decodeInteger(jwk.n),
       exponent: yield* decodeInteger(jwk.e)
     })
@@ -129,49 +119,49 @@ export const verify = (
 ): Effect.Effect<boolean, Verification.InvalidInput | Verification.Unavailable> =>
   Effect.gen(function*() {
     const key = yield* Effect.try({
-      try: () => Schema.decodeUnknownEither(PublicKey)({ modulus: publicKey.modulus, exponent: publicKey.exponent }),
+      try: () => Schema.decodeResult(PublicKey)({ modulus: publicKey.modulus, exponent: publicKey.exponent }),
       catch: () => new Verification.InvalidInput({})
     }).pipe(
-      Effect.flatMap(identity),
+      Effect.flatMap(Effect.fromResult),
       Effect.mapError(() => new Verification.InvalidInput({}))
     )
     const bits = bitLen(key.modulus)
     const remainingBits = N.remainder(bits, 8)
     const width = N.sum(
-      N.unsafeDivide(N.subtract(bits, remainingBits), 8),
+      N.divideUnsafe(N.subtract(bits, remainingBits), 8),
       B.match(N.Equivalence(remainingBits, 0), { onTrue: () => 0, onFalse: () => 1 })
     )
     const detachedSignature = yield* copyBytes(signature, Schema.Literal(width))
     const detachedMessage = yield* copyBytes(
       message,
-      Schema.NonNegativeInt.pipe(Schema.lessThanOrEqualTo(Verification.maxMessageBytes))
+      lengthAtMost(Verification.maxMessageBytes)
     )
-    const representative = yield* Schema.decode(Schema.BigInt)(
-      Str.concat("0x", Encoding.encodeHex(detachedSignature))
-    ).pipe(Effect.mapError(() => new Verification.InvalidInput({})))
+    const representative = yield* Effect.fromOption(
+      BI.fromString(Str.concat("0x", Hex.encode(detachedSignature))),
+      () => new Verification.InvalidInput({})
+    )
     yield* Effect.succeed(detachedSignature).pipe(
       Effect.filterOrFail(
-        () => BI.lessThan(representative, key.modulus),
+        () => BI.isLessThan(representative, key.modulus),
         () => new Verification.InvalidInput({})
       )
     )
-    const digestInfoPrefix = yield* Encoding.decodeHex("3031300d060960864801650304020105000420").pipe(
+    const digestInfoPrefix = yield* Effect.fromResult(Hex.decode("3031300d060960864801650304020105000420")).pipe(
       Effect.mapError(() => new Verification.Unavailable({}))
     )
     const actual = yield* Effect.try({
       try: () => numberToBytesBE(pow(representative, key.exponent, key.modulus), width),
       catch: () => new Verification.Unavailable({})
     })
-    const digest = yield* Effect.try({
-      try: () => Digest.hash("sha256", detachedMessage),
-      catch: () => new Verification.Unavailable({})
-    })
-    const expected = yield* Schema.decode(Schema.Uint8Array)(Arr.flatten(Arr.make(
+    const digest = yield* Digest.hash("sha256", detachedMessage).pipe(
+      Effect.catchDefect(() => Effect.fail(new Verification.Unavailable({})))
+    )
+    const expected = new Uint8Array(Arr.flatten(Arr.make(
       Arr.make(0, 1),
       Arr.replicate(255, N.subtract(width, 54)),
       Arr.of(0),
       Arr.fromIterable(digestInfoPrefix),
       Arr.fromIterable(digest)
-    ))).pipe(Effect.mapError(() => new Verification.Unavailable({})))
+    )))
     return Bytes.equal(actual, expected)
   })

@@ -7,7 +7,7 @@ import { classNames } from "./classNames.js"
 import { semanticClassName } from "./semanticTextClasses.js"
 
 /** The elements arbitrary content may be set in with a text role's glyphs. */
-export const SemanticContentElement = Schema.Literal(
+export const SemanticContentElement = Schema.Literals([
   "span",
   "p",
   "h1",
@@ -19,7 +19,7 @@ export const SemanticContentElement = Schema.Literal(
   "dt",
   "dd",
   "code"
-)
+])
 export type SemanticContentElement = typeof SemanticContentElement.Type
 
 export const SemanticContent = ({
@@ -42,7 +42,7 @@ export const SemanticContent = ({
       className={classNames(
         semanticClassName(role, variant),
         "whitespace-normal",
-        Option.getOrElse(Option.fromNullable(className), () => "")
+        Option.getOrElse(Option.fromNullishOr(className), () => "")
       )}
     >
       {children}

@@ -9,51 +9,51 @@ import * as Option from "effect/Option"
 import * as Schema from "effect/Schema"
 
 /** Schema for stable inference transport families. @since 0.5.0 @category schemas */
-export const Family = Schema.Literal("OpenAiCompatible", "OpenAiResponses", "AnthropicMessages", "HuggingFace")
-  .annotations({ identifier: "@scenesystems/effect-inference/Route/Family" })
+export const Family = Schema.Literals(["OpenAiCompatible", "OpenAiResponses", "AnthropicMessages", "HuggingFace"])
+  .annotate({ identifier: "@scenesystems/effect-inference/Route/Family" })
 /** Stable transport family inferred from its schema. @since 0.5.0 @category models */
 export type Family = typeof Family.Type
 
 /** Schema for where and how a route is served. @since 0.5.0 @category schemas */
-export const ServeMode = Schema.Literal(
+export const ServeMode = Schema.Literals([
   "hosted-api",
   "routed-marketplace",
   "dedicated-endpoint",
   "self-hosted",
   "local-runtime"
-).annotations({ identifier: "@scenesystems/effect-inference/Route/ServeMode" })
+]).annotate({ identifier: "@scenesystems/effect-inference/Route/ServeMode" })
 /** Route serving mode inferred from its schema. @since 0.5.0 @category models */
 export type ServeMode = typeof ServeMode.Type
 
 /** Schema for authentication methods carried by routes. @since 0.5.0 @category schemas */
-export const AuthMethod = Schema.Literal(
+export const AuthMethod = Schema.Literals([
   "none",
   "api-key",
   "bearer-token",
   "hf-token",
   "provider-key",
   "credentials-include"
-).annotations({ identifier: "@scenesystems/effect-inference/Route/AuthMethod" })
+]).annotate({ identifier: "@scenesystems/effect-inference/Route/AuthMethod" })
 /** Route authentication method inferred from its schema. @since 0.5.0 @category models */
 export type AuthMethod = typeof AuthMethod.Type
 
 /** Schema for an explicit inference-provider selection. @since 0.5.0 @category schemas */
 export const ExplicitProvider = Schema.TaggedStruct("provider", { provider: Schema.String })
-  .annotations({ identifier: "@scenesystems/effect-inference/Route/ExplicitProvider" })
+  .annotate({ identifier: "@scenesystems/effect-inference/Route/ExplicitProvider" })
 /** Explicit provider selection inferred from its schema. @since 0.5.0 @category models */
 export type ExplicitProvider = typeof ExplicitProvider.Type
 
 /** Schema for automatic and explicit provider-selection policies. @since 0.5.0 @category schemas */
-export const SelectionPolicy = Schema.Union(
-  Schema.Literal("auto", "fastest", "cheapest", "preferred"),
+export const SelectionPolicy = Schema.Union([
+  Schema.Literals(["auto", "fastest", "cheapest", "preferred"]),
   ExplicitProvider
-).annotations({ identifier: "@scenesystems/effect-inference/Route/SelectionPolicy" })
+]).annotate({ identifier: "@scenesystems/effect-inference/Route/SelectionPolicy" })
 /** Provider-selection policy inferred from its schema. @since 0.5.0 @category models */
 export type SelectionPolicy = typeof SelectionPolicy.Type
 
 /** Schema for recognized runtime implementation flavors. @since 0.5.0 @category schemas */
-export const Flavor = Schema.Literal("unknown", "vllm", "tgi", "ollama", "lm-studio")
-  .annotations({ identifier: "@scenesystems/effect-inference/Route/Flavor" })
+export const Flavor = Schema.Literals(["unknown", "vllm", "tgi", "ollama", "lm-studio"])
+  .annotate({ identifier: "@scenesystems/effect-inference/Route/Flavor" })
 /** Runtime implementation flavor inferred from its schema. @since 0.5.0 @category models */
 export type Flavor = typeof Flavor.Type
 
@@ -73,7 +73,7 @@ export const Route = Schema.Struct({
   gatewayId: Schema.optional(Schema.String),
   selectionPolicy: Schema.optional(SelectionPolicy),
   runtimeFlavorHint: Schema.optional(Flavor)
-}).annotations({ identifier: "@scenesystems/effect-inference/Route" })
+}).annotate({ identifier: "@scenesystems/effect-inference/Route" })
 /** Stable execution route inferred from its schema. @since 0.5.0 @category models */
 export type Route = typeof Route.Type
 
@@ -92,7 +92,7 @@ export const provenanceVersion = "resolved-route/v1"
  * @category schemas
  */
 export const ProvenanceVersion = Schema.Literal(provenanceVersion)
-  .annotations({ identifier: "@scenesystems/effect-inference/Route/ProvenanceVersion" })
+  .annotate({ identifier: "@scenesystems/effect-inference/Route/ProvenanceVersion" })
 /** Resolved-route provenance version inferred from its schema. @since 0.5.0 @category models */
 export type ProvenanceVersion = typeof ProvenanceVersion.Type
 
@@ -110,7 +110,7 @@ export const Resolved = Schema.Struct({
   runtimeFlavor: Schema.optional(Flavor),
   selectionReason: Schema.String,
   schemaVersion: ProvenanceVersion
-}).annotations({ identifier: "@scenesystems/effect-inference/Route/Resolved" })
+}).annotate({ identifier: "@scenesystems/effect-inference/Route/Resolved" })
 /** Pre-execution route decision inferred from its schema. @since 0.5.0 @category models */
 export type Resolved = typeof Resolved.Type
 

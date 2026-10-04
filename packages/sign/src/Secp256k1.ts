@@ -5,8 +5,9 @@
  * @module
  */
 import { schnorr, secp256k1 } from "@noble/curves/secp256k1.js"
-import { Cause, Effect, Schema } from "effect"
+import { Cause, Effect } from "effect"
 import * as Entropy from "./Entropy.js"
+import { nonNegativeInt } from "./internal/schema.js"
 import { copyBytes } from "./internal/verificationInput.js"
 import * as KeyPair from "./KeyPair.js"
 import * as Signature from "./Signature.js"
@@ -66,26 +67,25 @@ export const verifyEcdsa = (
  * @since 0.5.0
  * @category keys
  */
-export const generateEcdsaKeyPair = (): Effect.Effect<
+export const generateEcdsaKeyPair: Effect.Effect<
   KeyPair.KeyPair,
   KeyPair.GenerationFailed,
   Entropy.Entropy
-> =>
-  Entropy.bytes(48).pipe(
-    Effect.mapError(() =>
-      new KeyPair.GenerationFailed({ algorithm: "secp256k1-ecdsa", reason: "Key generation entropy unavailable" })
-    ),
-    Effect.flatMap((seed) =>
-      Effect.try({
-        try: () => {
-          const { secretKey, publicKey } = secp256k1.keygen(seed)
-          return new KeyPair.KeyPair({ algorithm: "secp256k1-ecdsa", publicKey, secretKey })
-        },
-        catch: (cause) =>
-          new KeyPair.GenerationFailed({ algorithm: "secp256k1-ecdsa", reason: Cause.pretty(Cause.fail(cause)) })
-      })
-    )
+> = Entropy.bytes(48).pipe(
+  Effect.mapError(() =>
+    new KeyPair.GenerationFailed({ algorithm: "secp256k1-ecdsa", reason: "Key generation entropy unavailable" })
+  ),
+  Effect.flatMap((seed) =>
+    Effect.try({
+      try: () => {
+        const { secretKey, publicKey } = secp256k1.keygen(seed)
+        return new KeyPair.KeyPair({ algorithm: "secp256k1-ecdsa", publicKey, secretKey })
+      },
+      catch: (cause) =>
+        new KeyPair.GenerationFailed({ algorithm: "secp256k1-ecdsa", reason: Cause.pretty(Cause.fail(cause)) })
+    })
   )
+)
 
 /**
  * Signs exact message bytes with BIP-340 Schnorr and auxiliary entropy.
@@ -106,9 +106,9 @@ export const signSchnorr = (
   publicKey: Uint8Array
 ): Effect.Effect<Signature.Signature, Signature.SigningFailed, Entropy.Entropy> =>
   Effect.all({
-    message: copyBytes(message, Schema.NonNegativeInt),
-    secretKey: copyBytes(secretKey, Schema.NonNegativeInt),
-    publicKey: copyBytes(publicKey, Schema.NonNegativeInt)
+    message: copyBytes(message, nonNegativeInt),
+    secretKey: copyBytes(secretKey, nonNegativeInt),
+    publicKey: copyBytes(publicKey, nonNegativeInt)
   }).pipe(
     Effect.mapError(() => new Signature.SigningFailed({ algorithm: "secp256k1-schnorr", reason: "invalid input" })),
     Effect.flatMap((input) =>
@@ -160,23 +160,22 @@ export const verifySchnorr = (
  * @since 0.5.0
  * @category keys
  */
-export const generateSchnorrKeyPair = (): Effect.Effect<
+export const generateSchnorrKeyPair: Effect.Effect<
   KeyPair.KeyPair,
   KeyPair.GenerationFailed,
   Entropy.Entropy
-> =>
-  Entropy.bytes(48).pipe(
-    Effect.mapError(() =>
-      new KeyPair.GenerationFailed({ algorithm: "secp256k1-schnorr", reason: "Key generation entropy unavailable" })
-    ),
-    Effect.flatMap((seed) =>
-      Effect.try({
-        try: () => {
-          const { secretKey, publicKey } = schnorr.keygen(seed)
-          return new KeyPair.KeyPair({ algorithm: "secp256k1-schnorr", publicKey, secretKey })
-        },
-        catch: (cause) =>
-          new KeyPair.GenerationFailed({ algorithm: "secp256k1-schnorr", reason: Cause.pretty(Cause.fail(cause)) })
-      })
-    )
+> = Entropy.bytes(48).pipe(
+  Effect.mapError(() =>
+    new KeyPair.GenerationFailed({ algorithm: "secp256k1-schnorr", reason: "Key generation entropy unavailable" })
+  ),
+  Effect.flatMap((seed) =>
+    Effect.try({
+      try: () => {
+        const { secretKey, publicKey } = schnorr.keygen(seed)
+        return new KeyPair.KeyPair({ algorithm: "secp256k1-schnorr", publicKey, secretKey })
+      },
+      catch: (cause) =>
+        new KeyPair.GenerationFailed({ algorithm: "secp256k1-schnorr", reason: Cause.pretty(Cause.fail(cause)) })
+    })
   )
+)

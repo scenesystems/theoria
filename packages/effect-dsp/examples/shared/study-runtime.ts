@@ -24,7 +24,7 @@ export class StudyProgressOptions extends Data.Class<{
 }> {}
 
 const resolveCachePrefix = (options: StudyRuntimeOptions): string =>
-  Option.getOrElse(Option.fromNullable(options.cachePrefix), () => DEFAULT_CACHE_PREFIX)
+  Option.getOrElse(Option.fromNullishOr(options.cachePrefix), () => DEFAULT_CACHE_PREFIX)
 
 export const studyCacheLayer = (cachePrefix: string = DEFAULT_CACHE_PREFIX) =>
   ObjectiveCache.layerMemory(new ObjectiveCache.Options({ scope: cachePrefix }))
@@ -61,8 +61,8 @@ export const withStudyRuntime = <A, E, R>(
 
 export const withStudyProgress = <E, R>(
   stream: Stream.Stream<OptimizationEvent.OptimizationEvent, E, R>,
-  options: StudyProgressOptions = {}
+  options: StudyProgressOptions = new StudyProgressOptions({})
 ) =>
   stream.pipe(
-    Progress.tap(Option.getOrElse(Option.fromNullable(options.sink), () => Progress.defaultSink))
+    Progress.tap(Option.getOrElse(Option.fromNullishOr(options.sink), () => Progress.defaultSink))
   )

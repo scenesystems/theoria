@@ -5,13 +5,13 @@ import { defaultGamma } from "./gammaSplit.js"
 export class CompletedTrialForSplit extends Schema.Class<CompletedTrialForSplit>(
   "@scenesystems/effect-search/internal/tpe/splitTrials/CompletedTrialForSplit"
 )({
-  trialNumber: Schema.Number,
-  config: Schema.Record({ key: Schema.String, value: Schema.Unknown }),
+  trialNumber: Schema.Finite,
+  config: Schema.Record(Schema.String, Schema.Unknown),
   value: Schema.Number,
-  observationWeight: Schema.optional(Schema.Number),
-  cost: Schema.optional(Schema.Number),
-  variance: Schema.optional(Schema.Number),
-  sortStep: Schema.optional(Schema.Number)
+  observationWeight: Schema.optional(Schema.Finite),
+  cost: Schema.optional(Schema.Finite),
+  variance: Schema.optional(Schema.Finite),
+  sortStep: Schema.optional(Schema.Finite)
 }) {}
 
 export const TrialSplitSchema = Schema.Struct({
@@ -22,16 +22,16 @@ export const TrialSplitSchema = Schema.Struct({
 export type TrialSplit = Schema.Schema.Type<typeof TrialSplitSchema>
 
 const splitOrder = Order.mapInput(
-  Order.tuple(Order.number, Order.number, Order.number),
+  Order.Tuple([Order.Number, Order.Number, Order.Number]),
   (trial: CompletedTrialForSplit) =>
     Tuple.make(
       trial.value,
-      Option.fromNullable(trial.sortStep).pipe(Option.getOrElse(() => Num.negate(1))),
+      Option.fromNullishOr(trial.sortStep).pipe(Option.getOrElse(() => Num.multiply(-1, 1))),
       trial.trialNumber
     )
 )
 
-const trialNumberOrder = Order.mapInput(Order.number, (trial: CompletedTrialForSplit) => trial.trialNumber)
+const trialNumberOrder = Order.mapInput(Order.Number, (trial: CompletedTrialForSplit) => trial.trialNumber)
 
 const splitCount = (size: number, gamma: (nCompletedTrials: number) => number): number =>
   Num.clamp(gamma(size), {

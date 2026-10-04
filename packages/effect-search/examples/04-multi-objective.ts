@@ -47,27 +47,29 @@ const program = Effect.gen(function*() {
     scoring: SearchSpace.categorical(Tuple.make("strict", "balanced", "recall"))
   })
 
-  const result = yield* Optimization.run({
-    space,
-    sampler: Sampler.tpe({ seed: 919 }),
-    directions: Arr.replicate<Direction.Direction>("minimize", 2),
-    trials: 27,
-    objective: (config) => {
-      const valueOrZero = (values: Readonly<Record<string, number>>, key: string) =>
-        Option.getOrElse(Record.get(values, key), () => 0)
-      const latency = Num.sumAll(Arr.make(
-        valueOrZero(latencyCost, config.instruction),
-        valueOrZero(latencyCost, config.demos),
-        valueOrZero(latencyCost, config.scoring)
-      ))
-      const quality = Num.sumAll(Arr.make(
-        valueOrZero(qualityLoss, config.instruction),
-        valueOrZero(qualityLoss, config.demos),
-        valueOrZero(qualityLoss, config.scoring)
-      ))
-      return Effect.succeed(Tuple.make(latency, quality))
-    }
-  })
+  const result = yield* Optimization.run(
+    new Optimization.FlatOptions({
+      space,
+      sampler: Sampler.tpe(new Sampler.TpeOptions({ seed: 919 })),
+      directions: Arr.replicate<Direction.Direction>("minimize", 2),
+      trials: 27,
+      objective: (config) => {
+        const valueOrZero = (values: Readonly<Record<string, number>>, key: string) =>
+          Option.getOrElse(Record.get(values, key), () => 0)
+        const latency = Num.sumAll(Arr.make(
+          valueOrZero(latencyCost, config.instruction),
+          valueOrZero(latencyCost, config.demos),
+          valueOrZero(latencyCost, config.scoring)
+        ))
+        const quality = Num.sumAll(Arr.make(
+          valueOrZero(qualityLoss, config.instruction),
+          valueOrZero(qualityLoss, config.demos),
+          valueOrZero(qualityLoss, config.scoring)
+        ))
+        return Effect.succeed(Tuple.make(latency, quality))
+      }
+    })
+  )
 
   yield* Match.value(result).pipe(
     Match.tag("MultiObjective", (r) =>

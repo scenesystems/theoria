@@ -4,7 +4,8 @@ import * as GEPA from "@scenesystems/effect-dsp/GEPA"
 import * as MIPROv2 from "@scenesystems/effect-dsp/MIPROv2"
 import * as OptimizerEvent from "@scenesystems/effect-dsp/OptimizerEvent"
 import * as Payload from "@scenesystems/effect-dsp/Payload"
-import { Effect, Number, ParseResult, Schema } from "effect"
+import { Effect, Schema } from "effect"
+import type { Error as EffectError } from "effect/Effect"
 
 describe("integration/optimizer events", () => {
   it.effect("wraps canonical optimizer events and preserves their owners", () =>
@@ -27,7 +28,7 @@ describe("integration/optimizer events", () => {
       expect(yield* Payload.decode(MIPROv2.Event, miproEnvelope.payload)).toEqual(mipro)
       expect(yield* Payload.decode(GEPA.Event, gepaEnvelope.payload)).toEqual(gepa)
       expect(
-        yield* Schema.decodeUnknown(OptimizerEvent.OptimizerEvent)(
+        yield* Schema.decodeEffect(OptimizerEvent.OptimizerEvent)(
           OptimizerEvent.events.GEPA({ event: gepa })
         )
       ).toEqual({ _tag: "GEPA", event: gepa })
@@ -35,10 +36,11 @@ describe("integration/optimizer events", () => {
 
   it.effect("rejects lossy event payload encoding in the checked error channel", () =>
     Effect.gen(function*() {
+      const infinity = Number.POSITIVE_INFINITY
       const encoding = OptimizerEvent.fromMIPROv2(
-        MIPROv2.events.TrialEvaluated({ trial: 2, score: Number.unsafeDivide(1, 0) })
+        MIPROv2.events.TrialEvaluated({ trial: 2, score: infinity })
       )
-      expectTypeOf<Effect.Effect.Error<typeof encoding>>().toEqualTypeOf<ParseResult.ParseError>()
-      expect(yield* Effect.flip(encoding)).toBeInstanceOf(ParseResult.ParseError)
+      expectTypeOf<EffectError<typeof encoding>>().toEqualTypeOf<Schema.SchemaError>()
+      expect(yield* Effect.flip(encoding)).toBeInstanceOf(Schema.SchemaError)
     }))
 })

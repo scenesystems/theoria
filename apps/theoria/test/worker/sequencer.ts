@@ -36,11 +36,11 @@ export class BalancedSequencer implements TestSequencer {
 
   shard(files: Array<TestSpecification>): Array<TestSpecification> {
     const { root, shard } = this.ctx.config
-    return Option.match(Option.fromNullable(shard), {
+    return Option.match(Option.fromNullishOr(shard), {
       onNone: () => files,
       onSome: (shard) => {
         const weightOf = (spec: TestSpecification): number =>
-          Option.match(Option.fromNullable(this.ctx.cache.getFileStats(statsKey(root, spec))), {
+          Option.match(Option.fromNullishOr(this.ctx.cache.getFileStats(statsKey(root, spec))), {
             onNone: () => 0,
             onSome: (stats) => stats.size
           })

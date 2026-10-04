@@ -4,6 +4,7 @@ import { Chunk, Effect, Number, Schema } from "effect"
 import * as Complex from "../../src/Complex.js"
 import * as Numeric from "../../src/Numeric.js"
 import * as Policy from "../../src/Policy.js"
+import { nan, negativeInfinity, positiveInfinity } from "../helpers/nonFinite.js"
 
 const strict = Policy.layerDeterministic({
   seed: Policy.Seed.make(42),
@@ -38,6 +39,7 @@ describe("Complex arithmetic", () => {
     Effect.gen(function*() {
       expectComplex(Complex.exp(Complex.make(0, Numeric.pi)), -1, 0, 1e-14)
       expectComplex(Complex.log(Complex.make(-1, 0)), 0, Numeric.pi)
+      expectComplex(Complex.log(Complex.make(-1, -0)), 0, Number.multiply(-1, Numeric.pi))
       expectComplex(Complex.sqrt(Complex.make(-1, 0)), 0, 1)
       expectComplex(Complex.pow(Complex.make(1, 1), Complex.make(2, 0)), 0, 2, 1e-10)
     }))
@@ -53,8 +55,8 @@ describe("Complex arithmetic", () => {
     Effect.gen(function*() {
       expectComplex(Complex.sin(Complex.i), 0, Numeric.sinh(1))
       expectComplex(Complex.cos(Complex.zero), 1, 0)
-      expectComplex(Complex.tan(Complex.make(Number.unsafeDivide(Numeric.pi, 4), 0)), 1, 0)
-      expectComplex(Complex.tanh(Complex.make(1, 0)), Number.unsafeDivide(Numeric.sinh(1), Numeric.cosh(1)), 0)
+      expectComplex(Complex.tan(Complex.make(Number.divideUnsafe(Numeric.pi, 4), 0)), 1, 0)
+      expectComplex(Complex.tanh(Complex.make(1, 0)), Number.divideUnsafe(Numeric.sinh(1), Numeric.cosh(1)), 0)
     }))
 })
 
@@ -70,7 +72,7 @@ describe("Complex vectors", () => {
     Effect.gen(function*() {
       const values = Chunk.make(Complex.make(1, 2), Complex.make(3, 4))
       const scaled = Complex.scale(Complex.i)(values)
-      expectComplex(Chunk.unsafeGet(scaled, 0), -2, 1)
+      expectComplex(Chunk.getUnsafe(scaled, 0), -2, 1)
       expect(Complex.toRealChunk(values)).toStrictEqual(Chunk.make(1, 3))
       expect(Complex.toImaginaryChunk(values)).toStrictEqual(Chunk.make(2, 4))
       expect(Complex.toMagnitudeChunk(values)).toStrictEqual(Chunk.make(Numeric.sqrt(5), 5))
@@ -78,10 +80,26 @@ describe("Complex vectors", () => {
 })
 
 describe("Complex validation and policies", () => {
+  it.effect("admits IEEE values in base schemas but rejects them at validated boundaries", () =>
+    Effect.gen(function*() {
+      const value = yield* Schema.decodeEffect(Complex.Complex)({ re: positiveInfinity, im: nan })
+      expect(value.re).toBe(positiveInfinity)
+      expect(value.im).toBeNaN()
+      const polar = yield* Schema.decodeEffect(Complex.Polar)([positiveInfinity, negativeInfinity])
+      expect(polar).toStrictEqual([positiveInfinity, negativeInfinity])
+      const error = yield* Effect.flip(Complex.addValidated({
+        aRe: positiveInfinity,
+        aIm: 0,
+        bRe: 1,
+        bIm: 2
+      }))
+      expect(error._tag).toBe("ComplexDecodeError")
+    }))
+
   it.effect("round-trips the canonical Schema class", () =>
     Effect.gen(function*() {
-      const encoded = yield* Schema.encode(Complex.Complex)(Complex.make(3, 4))
-      const decoded = yield* Schema.decode(Complex.Complex)(encoded)
+      const encoded = yield* Schema.encodeEffect(Complex.Complex)(Complex.make(3, 4))
+      const decoded = yield* Schema.decodeEffect(Complex.Complex)(encoded)
       expectComplex(decoded, 3, 4)
     }))
 
@@ -101,6 +119,6 @@ describe("Complex validation and policies", () => {
   it.effect("applies strict precision to finite scalar results", () =>
     Effect.gen(function*() {
       expectClose(yield* Complex.absWithPolicies(Complex.make(3, 4)), 5)
-      expectClose(yield* Complex.argWithPolicies(Complex.make(1, 1)), Number.unsafeDivide(Numeric.pi, 4))
+      expectClose(yield* Complex.argWithPolicies(Complex.make(1, 1)), Number.divideUnsafe(Numeric.pi, 4))
     }).pipe(Effect.provide(strict)))
 })

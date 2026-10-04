@@ -1,7 +1,7 @@
-import { FileSystem, Path, Url } from "@effect/platform"
-import { BunContext, BunRuntime } from "@effect/platform-bun"
-import { Console, Effect } from "effect"
+import { BunRuntime, BunServices } from "@effect/platform-bun"
+import { Console, Effect, FileSystem, Path } from "effect"
 import * as Arr from "effect/Array"
+import { Url } from "effect/http"
 import * as Str from "effect/String"
 
 import { renderFaviconSvg, renderThemeColorMetas, renderWebManifest } from "../app/web/brand/brandAssets.js"
@@ -25,15 +25,15 @@ const withThemeColorMetas = (html: string): string =>
 const program = Effect.gen(function*() {
   const fileSystem = yield* FileSystem.FileSystem
   const path = yield* Path.Path
-  const appRoot = yield* Effect.flatMap(Url.fromString("../", import.meta.url), path.fromFileUrl)
+  const appRoot = yield* Effect.flatMap(Effect.fromResult(Url.fromString("../", import.meta.url)), path.fromFileUrl)
   const publicRoot = path.join(appRoot, "public")
   const indexPath = path.join(appRoot, "index.html")
 
   yield* fileSystem.writeFileString(path.join(publicRoot, "favicon.svg"), renderFaviconSvg())
-  yield* fileSystem.writeFileString(path.join(publicRoot, "manifest.webmanifest"), yield* renderWebManifest())
+  yield* fileSystem.writeFileString(path.join(publicRoot, "manifest.webmanifest"), yield* renderWebManifest)
   yield* fileSystem.writeFileString(indexPath, withThemeColorMetas(yield* fileSystem.readFileString(indexPath)))
 
   yield* Console.log(`Rendered favicon.svg, manifest.webmanifest and the theme-color metas under ${appRoot}`)
 })
 
-BunRuntime.runMain(program.pipe(Effect.provide(BunContext.layer)))
+BunRuntime.runMain(program.pipe(Effect.provide(BunServices.layer)))

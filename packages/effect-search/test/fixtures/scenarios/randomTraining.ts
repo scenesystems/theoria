@@ -13,7 +13,7 @@ import * as SearchSpace from "../../../src/SearchSpace.js"
  * @since 0.1.0
  * @category models
  */
-export const RandomTrainingOptimizerChoices = Schema.Literal("adam", "sgd", "adamw").literals
+export const RandomTrainingOptimizerChoices = Schema.Literals(["adam", "sgd", "adamw"]).literals
 
 /**
  * Decodes the field shapes used by the random-training fixture.
@@ -26,9 +26,9 @@ export const RandomTrainingOptimizerChoices = Schema.Literal("adam", "sgd", "ada
  */
 export const RandomTrainingConfig = Schema.Struct({
   /** Learning rate; standalone decoding does not enforce the sampling range. */
-  lr: Schema.Number,
+  lr: Schema.Finite,
   /** Optimizer selected from {@link RandomTrainingOptimizerChoices}. */
-  optimizer: Schema.Literal(...RandomTrainingOptimizerChoices),
+  optimizer: Schema.Literals(RandomTrainingOptimizerChoices),
   /** Integer batch size; standalone decoding does not enforce range or step alignment. */
   batchSize: Schema.Int,
   /** Whether the evaluated training configuration uses batch normalization. */
@@ -49,7 +49,7 @@ export type RandomTrainingConfig = Schema.Schema.Type<typeof RandomTrainingConfi
  * @since 0.1.0
  * @category utils
  */
-export const decodeRandomTrainingConfig = Schema.decodeUnknown(RandomTrainingConfig)
+export const decodeRandomTrainingConfig = Schema.decodeUnknownEffect(RandomTrainingConfig)
 
 /**
  * Builds a training space with configurable learning-rate and batch-size bounds.
@@ -83,7 +83,7 @@ export const makeRandomTrainingSpace = (maxBatchSize = 128, minLearningRate = 1e
  */
 export const LogLearningRateConfig = Schema.Struct({
   /** Learning rate; standalone decoding does not enforce the sampling range. */
-  lr: Schema.Number
+  lr: Schema.Finite
 })
 
 /**
@@ -100,7 +100,7 @@ export type LogLearningRateConfig = Schema.Schema.Type<typeof LogLearningRateCon
  * @since 0.1.0
  * @category utils
  */
-export const decodeLogLearningRateConfig = Schema.decodeUnknown(LogLearningRateConfig)
+export const decodeLogLearningRateConfig = Schema.decodeUnknownEffect(LogLearningRateConfig)
 
 /**
  * Builds a log-scaled learning-rate space from `0.0001` through `0.1`.
@@ -108,7 +108,6 @@ export const decodeLogLearningRateConfig = Schema.decodeUnknown(LogLearningRateC
  * @since 0.1.0
  * @category constructors
  */
-export const makeLogLearningRateSpace = () =>
-  SearchSpace.make({
-    lr: SearchSpace.float(1e-4, 1e-1, { scale: "log" })
-  })
+export const makeLogLearningRateSpace = SearchSpace.make({
+  lr: SearchSpace.float(1e-4, 1e-1, { scale: "log" })
+})

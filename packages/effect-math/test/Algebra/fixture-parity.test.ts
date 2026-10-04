@@ -1,4 +1,4 @@
-import { BunContext } from "@effect/platform-bun"
+import { BunServices } from "@effect/platform-bun"
 import { describe, expect, it } from "@effect/vitest"
 import { Array, Chunk, Effect, Equal, Match, Schema } from "effect"
 
@@ -9,7 +9,7 @@ describe("Algebra SciPy fixture parity", () => {
   it.effect("all polynomial-parity cases match SciPy reference values", () =>
     Effect.gen(function*() {
       const raw = yield* loadFixture("algebra.polynomial-parity")
-      const fixture = yield* Schema.decodeUnknown(AlgebraPolynomialParityFixtureSchema)(raw, {
+      const fixture = yield* Schema.decodeUnknownEffect(AlgebraPolynomialParityFixtureSchema)(raw, {
         onExcessProperty: "error"
       })
 
@@ -36,5 +36,5 @@ describe("Algebra SciPy fixture parity", () => {
             Match.exhaustive
           )
         ))
-    }).pipe(Effect.provide(BunContext.layer)))
+    }).pipe(Effect.provide(BunServices.layer)))
 })

@@ -39,7 +39,7 @@ export class ChooseProgramsOptions<I extends Schema.Struct.Fields, O extends Sch
  */
 export const resolveSelectionSize = (programCount: number, requested: Option.Option<number>): number =>
   Match.value(programCount).pipe(
-    Match.when((count) => Num.lessThanOrEqualTo(count, 0), () => 0),
+    Match.when((count) => Num.isLessThanOrEqualTo(count, 0), () => 0),
     Match.orElse((count) =>
       Option.match(requested, {
         onNone: () => count,

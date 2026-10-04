@@ -1,13 +1,14 @@
-import type * as Generated from "@effect/ai-openai/Generated"
 import * as OpenAiClient from "@effect/ai-openai/OpenAiClient"
-import type * as AiResponse from "@effect/ai/Response"
-import * as HttpClient from "@effect/platform/HttpClient"
+import type * as OpenAiSchema from "@effect/ai-openai/OpenAiSchema"
 import { describe, expect, it } from "@effect/vitest"
+import type * as AiResponse from "effect/ai/Response"
 import * as Arr from "effect/Array"
 import * as Chunk from "effect/Chunk"
 import * as Effect from "effect/Effect"
+import * as HttpClient from "effect/http/HttpClient"
 import * as Option from "effect/Option"
 import * as Ref from "effect/Ref"
+import * as Schema from "effect/Schema"
 import * as Stream from "effect/Stream"
 
 import * as OpenAiUsage from "@scenesystems/effect-inference/OpenAiUsage"
@@ -46,32 +47,41 @@ const makeClient = (httpClient: HttpClient.HttpClient) =>
   )
 
 describe("OpenAiUsage.observe", () => {
+  it.effect("projects disjoint token components and retains the raw report through encoding", () =>
+    Effect.gen(function*() {
+      const raw = { ...usage, output_tokens: 12 }
+      const observation = yield* Schema.decodeEffect(OpenAiUsage.Observation)(raw)
+      expect(observation.usage.inputTokens).toMatchObject({ total: 17, uncached: 14, cacheRead: 3 })
+      expect(observation.usage.outputTokens).toEqual({ total: 12, text: 5, reasoning: 7 })
+      expect(yield* Schema.encodeEffect(OpenAiUsage.Observation)(observation)).toEqual(raw)
+    }))
   it.effect("observes all five native Responses API counters", () =>
     Effect.scoped(Effect.gen(function*() {
       const observed = yield* Ref.make(Arr.empty<AiResponse.Usage>())
-      const rawObserved = yield* Ref.make(Option.none<Generated.ResponseUsage>())
+      const rawObserved = yield* Ref.make(Option.none<OpenAiSchema.ResponseUsage>())
       const nativeClient = yield* makeClient(jsonHttpClient(response(usage)))
       const decorated = OpenAiUsage.observe(
         nativeClient,
         (usage, raw) =>
           Ref.update(observed, Arr.append(usage)).pipe(
-            Effect.zipRight(Ref.set(rawObserved, raw))
+            Effect.andThen(Ref.set(rawObserved, raw))
           )
       )
 
-      const result = yield* decorated.createResponse({ model: "gpt-4o", input: "hello" })
+      const [result] = yield* decorated.createResponse({ model: "gpt-4o", input: "hello" })
       const usages = yield* Ref.get(observed)
-      const observedUsage = yield* Arr.head(usages)
-      const raw = yield* Ref.get(rawObserved).pipe(Effect.flatten)
+      const observedUsage = Option.getOrThrow(Arr.head(usages))
+      const raw = Option.getOrThrow(yield* Ref.get(rawObserved))
 
       expect(result.id).toBe("response-1")
       expect(raw).toBe(result.usage)
       expect(Arr.length(usages)).toBe(1)
-      expect(observedUsage.inputTokens).toBe(17)
-      expect(observedUsage.outputTokens).toBe(5)
-      expect(observedUsage.totalTokens).toBe(29)
-      expect(Option.fromNullable(observedUsage.reasoningTokens)).toEqual(Option.some(7))
-      expect(Option.fromNullable(observedUsage.cachedInputTokens)).toEqual(Option.some(3))
+      expect(observedUsage.inputTokens.total).toBe(17)
+      expect(observedUsage.inputTokens.uncached).toBe(14)
+      expect(observedUsage.inputTokens.cacheRead).toBe(3)
+      expect(observedUsage.outputTokens.total).toBe(5)
+      expect(observedUsage.outputTokens.text).toBeUndefined()
+      expect(observedUsage.outputTokens.reasoning).toBe(7)
     })))
 
   it.effect("preserves terminal stream chunks and explicit zero counters", () =>
@@ -94,22 +104,42 @@ describe("OpenAiUsage.observe", () => {
         (usage) => Ref.update(observed, Arr.append(usage))
       )
 
-      const chunks = yield* decorated.createResponseStream({
+      const [, stream] = yield* decorated.createResponseStream({
         model: "gpt-4o",
         input: "hello"
-      }).pipe(Stream.runCollect)
+      })
+      const chunks = yield* stream.pipe(Stream.runCollect)
       const usages = yield* Ref.get(observed)
-      const observedUsage = yield* Arr.head(usages)
+      const observedUsage = Option.getOrThrow(Arr.head(usages))
 
-      expect(Chunk.map(chunks, (event) => event.type)).toEqual(
-        Chunk.make("response.created", "response.completed")
+      expect(Arr.map(chunks, (event) => event.type)).toEqual(
+        Arr.make("response.created", "response.completed")
       )
       expect(Arr.length(usages)).toBe(1)
-      expect(observedUsage.inputTokens).toBe(0)
-      expect(observedUsage.outputTokens).toBe(0)
-      expect(observedUsage.totalTokens).toBe(0)
-      expect(Option.fromNullable(observedUsage.reasoningTokens)).toEqual(Option.some(0))
-      expect(Option.fromNullable(observedUsage.cachedInputTokens)).toEqual(Option.some(0))
+      expect(observedUsage.inputTokens.total).toBe(0)
+      expect(observedUsage.inputTokens.cacheRead).toBe(0)
+      expect(observedUsage.outputTokens.total).toBe(0)
+      expect(observedUsage.outputTokens.reasoning).toBe(0)
+    })))
+
+  it.effect("does not invent detail counters when OpenAI omits them", () =>
+    Effect.scoped(Effect.gen(function*() {
+      const observed = yield* Ref.make(Option.none<AiResponse.Usage>())
+      const nativeClient = yield* makeClient(jsonHttpClient(response({
+        input_tokens: 17,
+        output_tokens: 5,
+        total_tokens: 22
+      })))
+      yield* OpenAiUsage.observe(nativeClient, (current) => Ref.set(observed, Option.some(current)))
+        .createResponse({ model: "gpt-4o", input: "hello" })
+      const current = Option.getOrThrow(yield* Ref.get(observed))
+
+      expect(current.inputTokens.total).toBe(17)
+      expect(current.inputTokens.uncached).toBeUndefined()
+      expect(current.inputTokens.cacheRead).toBeUndefined()
+      expect(current.outputTokens.total).toBe(5)
+      expect(current.outputTokens.text).toBeUndefined()
+      expect(current.outputTokens.reasoning).toBeUndefined()
     })))
 
   it.effect("preserves downstream cancellation before terminal usage", () =>
@@ -125,17 +155,18 @@ describe("OpenAiUsage.observe", () => {
         (usage) => Ref.update(observed, Arr.append(usage))
       )
 
-      const chunks = yield* decorated.createResponseStream({
+      const [, stream] = yield* decorated.createResponseStream({
         model: "gpt-4o",
         input: "hello"
-      }).pipe(
+      })
+      const chunks = yield* stream.pipe(
         Stream.take(1),
         Stream.runCollect
       )
       const usages = yield* Ref.get(observed)
 
-      expect(Chunk.map(chunks, (event) => event.type)).toEqual(Chunk.make("response.created"))
-      expect(Arr.isEmptyArray(usages)).toBe(true)
+      expect(Arr.map(chunks, (event) => event.type)).toEqual(Arr.make("response.created"))
+      expect(Arr.length(usages)).toBe(0)
     })))
 
   it.effect.each(Arr.make(1, 2))(
@@ -150,16 +181,17 @@ describe("OpenAiUsage.observe", () => {
         const nativeClient = yield* makeClient(sseHttpClient(encodeSse(events)))
         const decorated = OpenAiUsage.observe(nativeClient, (usage) => Ref.update(observed, Arr.append(usage)))
 
-        yield* decorated.createResponseStream({ model: "gpt-4o", input: "hello" }).pipe(
+        const [, stream] = yield* decorated.createResponseStream({ model: "gpt-4o", input: "hello" })
+        yield* stream.pipe(
           Stream.take(count),
           Stream.runDrain
         )
         const usages = yield* Ref.get(observed)
-        const received = yield* Arr.head(usages)
+        const received = Option.getOrThrow(Arr.head(usages))
 
         expect(Arr.length(usages)).toBe(1)
-        expect(received.totalTokens).toBe(29)
-        expect(received.reasoningTokens).toBe(7)
+        expect(received.inputTokens.total).toBe(17)
+        expect(received.outputTokens.reasoning).toBe(7)
       }))
   )
 })

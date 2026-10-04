@@ -6,7 +6,7 @@ import * as Optimization from "../../src/Optimization.js"
 import * as Sampler from "../../src/Sampler.js"
 import * as SearchSpace from "../../src/SearchSpace.js"
 
-const AcquisitionNameSchema = Schema.Literal("ei", "pi", "thompson")
+const AcquisitionNameSchema = Schema.Literals(["ei", "pi", "thompson"])
 
 const acquisitionModes = Schema.decodeUnknownSync(Schema.Array(AcquisitionNameSchema))(Arr.make(
   "ei",
@@ -15,7 +15,7 @@ const acquisitionModes = Schema.decodeUnknownSync(Schema.Array(AcquisitionNameSc
 ))
 
 const acquisitionOptimizationSpace = SearchSpace.make({
-  x: SearchSpace.float(Num.negate(2), 2),
+  x: SearchSpace.float(Num.multiply(-1, 2), 2),
   branch: SearchSpace.categorical(Arr.make("left", "center", "right"))
 })
 
@@ -26,16 +26,9 @@ const branchPenalty = (branch: string): number =>
     Match.orElse(() => 0.35)
   )
 
-const objectiveForSpace = (space: SearchSpace.SearchSpace) => {
-  const decode = Schema.decodeUnknownSync(space.schema)
-
-  return (raw: unknown) =>
-    Effect.sync(() => {
-      const config = decode(raw)
-
-      return Num.sum(Numeric.abs(Num.subtract(config.x, 0.32)), branchPenalty(config.branch))
-    })
-}
+const objectiveForSpace =
+  (_space: SearchSpace.SearchSpace) => (config: { readonly x: number; readonly branch: string }) =>
+    Effect.succeed(Num.sum(Numeric.abs(Num.subtract(config.x, 0.32)), branchPenalty(config.branch)))
 
 const asSingleObjective = (result: Optimization.Result): Option.Option<Optimization.SingleObjectiveResult> =>
   Match.value(result).pipe(
@@ -50,31 +43,37 @@ const runWithAcquisition = (
   Effect.gen(function*() {
     const space = yield* acquisitionOptimizationSpace
 
-    return yield* Optimization.run({
-      space,
-      sampler: Sampler.tpe({
-        seed,
-        nStartupTrials: 4,
-        nEiCandidates: 16,
-        acquisition
-      }),
-      direction: "minimize",
-      trials: 10,
-      objective: objectiveForSpace(space)
-    })
+    return yield* Optimization.run(
+      new Optimization.FlatOptions({
+        space,
+        sampler: Sampler.tpe(
+          new Sampler.TpeOptions({
+            seed,
+            nStartupTrials: 4,
+            nEiCandidates: 16,
+            acquisition
+          })
+        ),
+        direction: "minimize",
+        trials: 10,
+        objective: objectiveForSpace(space)
+      })
+    )
   })
 
 const runRandom = (seed: number) =>
   Effect.gen(function*() {
     const space = yield* acquisitionOptimizationSpace
 
-    return yield* Optimization.run({
-      space,
-      sampler: Sampler.random({ seed }),
-      direction: "minimize",
-      trials: 10,
-      objective: objectiveForSpace(space)
-    })
+    return yield* Optimization.run(
+      new Optimization.FlatOptions({
+        space,
+        sampler: Sampler.random({ seed }),
+        direction: "minimize",
+        trials: 10,
+        objective: objectiveForSpace(space)
+      })
+    )
   })
 
 const configTrace = (result: Optimization.SingleObjectiveResult) =>
@@ -93,8 +92,8 @@ describe("integration tpe acquisition strategies", () => {
 
           expect(Option.isSome(leftOption), acquisition).toBe(true)
           expect(Option.isSome(rightOption), acquisition).toBe(true)
-          const leftResult = yield* leftOption
-          const rightResult = yield* rightOption
+          const leftResult = yield* Effect.fromOption(leftOption)
+          const rightResult = yield* Effect.fromOption(rightOption)
 
           expect(configTrace(leftResult), acquisition).toEqual(configTrace(rightResult))
           expect(leftResult.bestTrial.state.value, acquisition).toBe(rightResult.bestTrial.state.value)
@@ -116,8 +115,8 @@ describe("integration tpe acquisition strategies", () => {
 
             expect(Option.isSome(optimizedOption), acquisition).toBe(true)
             expect(Option.isSome(randomOption), acquisition).toBe(true)
-            const optimizedResult = yield* optimizedOption
-            const randomResult = yield* randomOption
+            const optimizedResult = yield* Effect.fromOption(optimizedOption)
+            const randomResult = yield* Effect.fromOption(randomOption)
 
             expect(Numeric.isFinite(optimizedResult.bestTrial.state.value), acquisition).toBe(true)
             expect(optimizedResult.bestTrial.state.value, acquisition).toBeLessThanOrEqual(0.85)

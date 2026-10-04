@@ -5,11 +5,11 @@
  * @example
  * ```ts
  * import { Cipher, Envelope } from "@scenesystems/seal"
- * import { Array, Effect, Schema } from "effect"
+ * import { Effect, Schema } from "effect"
  *
  * export const program = Effect.gen(function* () {
  *   const key = yield* Cipher.generateKey
- *   const plaintext = yield* Schema.decode(Schema.Uint8Array)(Array.make(0, 1, 2, 255))
+ *   const plaintext = yield* Schema.decodeEffect(Schema.Uint8ArrayFromHex)("000102ff")
  *   const envelope = yield* Envelope.encrypt("xchacha20-poly1305", key, plaintext)
  *   return yield* Envelope.decrypt(envelope, key)
  * }).pipe(Effect.provide(Cipher.layer))
@@ -28,7 +28,7 @@
 export * as Cipher from "./Cipher.js"
 
 /**
- * JSON-compatible ciphertext, conversions, and envelope encryption/decryption.
+ * Base64url ciphertext codec and envelope encryption/decryption.
  *
  * @since 0.3.0
  * @category modules

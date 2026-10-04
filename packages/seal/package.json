@@ -52,6 +52,6 @@
     "@noble/ciphers": "^2.4.0"
   },
   "peerDependencies": {
-    "effect": "^3.22.1"
+    "effect": "^4.0.0"
   }
 }

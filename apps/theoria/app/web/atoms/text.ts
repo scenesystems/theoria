@@ -1,22 +1,31 @@
-import { Atom } from "@effect-atom/atom"
-import type { Atom as AtomType } from "@effect-atom/atom"
-import { Result } from "@effect-atom/atom"
-import { useAtomValue } from "@effect-atom/atom-react"
+import { useAtomValue } from "@effect/atom-react"
 import type { PreparationKey, Text, TextMeasurer } from "@scenesystems/effect-text"
-import { Data, Effect, Number, Option, Schema } from "effect"
+import type * as PreparationKeyModel from "@scenesystems/effect-text/PreparationKey"
+import { Context, Data, Effect, Number, Option, Schema } from "effect"
+import { AsyncResult as Result, Atom } from "effect/reactivity"
+import type * as AtomType from "effect/reactivity/Atom"
 
 import { maxWidthFor, type TextProjection, TextProjectionRequest } from "../../contracts/text.js"
 import type { CanvasUnavailable } from "../platform/BrowserDocument.js"
-import { type BrowserTextLayout, FontReadiness } from "../text/browserTextLayout.js"
+import { type BrowserTextLayout, type FontReadiness } from "../text/browserTextLayout.js"
 import {
   prepareIdentityForTextProjection,
   prepareTextProjection,
   projectPreparedText,
-  type ProjectPreparedTextOptions
+  ProjectPreparedTextOptions
 } from "../view/text/authority.js"
 
 import { type ElementWidthHandle, useElementWidth } from "./element-observation.js"
 import { textLayoutRuntime } from "./text-layout.js"
+
+class FontReadinessValue extends Data.Class<{
+  readonly revision: PreparationKeyModel.Revision
+  readonly facesArrived: Effect.Effect<void>
+}> {}
+
+const FontReadinessService = Context.Service<FontReadiness, FontReadinessValue>(
+  "@theoria/app/web/text/FontReadiness"
+)
 
 /**
  * What a surface asks the projection for: the contract request and the width
@@ -26,7 +35,7 @@ import { textLayoutRuntime } from "./text-layout.js"
 export class TextProjectionKey
   extends Schema.Class<TextProjectionKey>("@theoria/app/web/atoms/Text/TextProjectionKey")({
     ...TextProjectionRequest.fields,
-    maxWidth: Schema.Number
+    maxWidth: Schema.Finite
   })
 {}
 
@@ -36,7 +45,8 @@ export class TextProjectionKey
  * handle, prepared at whatever revision of the faces the runtime measures at.
  */
 class TextPrepareKey extends Schema.Class<TextPrepareKey>("@theoria/app/web/atoms/Text/TextPrepareKey")({
-  ...TextProjectionRequest.pick("role", "text").fields
+  role: TextProjectionRequest.fields.role,
+  text: TextProjectionRequest.fields.text
 }) {}
 
 /** Why a projection is missing: the text could not be measured, or the document has no canvas to measure on. */
@@ -49,7 +59,7 @@ export type TextProjectionError = TextMeasurer.Failed | CanvasUnavailable
  * marks the failure so it is visible in the document rather than swallowed.
  */
 export class TextProjectionHandle extends Data.Class<{
-  readonly projection: Result.Result<TextProjection, TextProjectionError>
+  readonly projection: Result.AsyncResult<TextProjection, TextProjectionError>
   readonly ref: ElementWidthHandle["ref"]
 }> {}
 
@@ -67,26 +77,28 @@ const defaultTextProjectionAuthority: TextProjectionAuthority = new TextProjecti
 
 export const makeTextProjectionAtom = (
   authority: TextProjectionAuthority = defaultTextProjectionAuthority
-): (key: TextProjectionKey) => AtomType.Atom<Result.Result<TextProjection, TextProjectionError>> => {
+): (key: TextProjectionKey) => AtomType.Atom<Result.AsyncResult<TextProjection, TextProjectionError>> => {
   // The handle is the revision's: the runtime is built again at the faces'
   // arrival, and prepares the text again in the face the page now shows.
   const preparedResultAtom = Atom.family((key: TextPrepareKey) =>
     textLayoutRuntime.atom(
-      Effect.flatMap(FontReadiness, (readiness) =>
+      Effect.flatMap(FontReadinessService, (readiness) =>
         authority.prepare(prepareIdentityForTextProjection(key, readiness.revision)))
     )
   )
 
   return Atom.family((key: TextProjectionKey) =>
-    Atom.make((get: AtomType.Context) => {
+    Atom.make((get: AtomType.AtomContext) => {
       const prepared = get(preparedResultAtom(new TextPrepareKey({ role: key.role, text: key.text })))
 
       return Result.map(prepared, (prepared) =>
-        authority.project({
-          prepared,
-          request: TextProjectionRequest.make({ role: key.role, variant: key.variant, text: key.text }),
-          maxWidth: key.maxWidth
-        }))
+        authority.project(
+          new ProjectPreparedTextOptions({
+            prepared,
+            request: TextProjectionRequest.make({ role: key.role, variant: key.variant, text: key.text }),
+            maxWidth: key.maxWidth
+          })
+        ))
     })
   )
 }

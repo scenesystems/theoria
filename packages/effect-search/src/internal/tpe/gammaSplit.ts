@@ -1,7 +1,7 @@
 import { ceil, sqrt } from "@scenesystems/effect-math/Numeric"
 import { Match, Number as Num, Schema } from "effect"
 
-export const GammaValueSchema = Schema.NonNegative
+export const GammaValueSchema = Schema.Finite.check(Schema.isGreaterThanOrEqualTo(0))
 
 export type GammaValue = Schema.Schema.Type<typeof GammaValueSchema>
 
@@ -17,7 +17,7 @@ export const defaultGamma = (nCompletedTrials: number): GammaValue =>
   boundedGamma(ceil(Num.multiply(0.1, nCompletedTrials)))
 
 export const hyperoptDefaultGamma = (nCompletedTrials: number): GammaValue =>
-  Match.value(Num.lessThanOrEqualTo(nCompletedTrials, 0)).pipe(
+  Match.value(Num.isLessThanOrEqualTo(nCompletedTrials, 0)).pipe(
     Match.when(true, () => 0),
     Match.orElse(() => boundedGamma(ceil(Num.multiply(0.25, sqrt(nCompletedTrials)))))
   )

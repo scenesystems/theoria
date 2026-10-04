@@ -1,7 +1,7 @@
-import { Atom, Result } from "@effect-atom/atom"
-import type { Atom as AtomType } from "@effect-atom/atom"
 import { Boolean as Bool, Effect, Equal, Match, Option, Schema, Stream } from "effect"
 import * as Num from "effect/Number"
+import { AsyncResult as Result, Atom } from "effect/reactivity"
+import type * as AtomType from "effect/reactivity/Atom"
 import * as Str from "effect/String"
 
 import type { DocsManifest } from "@theoria/docs-model"
@@ -27,7 +27,7 @@ export const pageRouteAtom: AtomType.Writable<PageRoute> = Atom.make(parsePathna
 
 const docsMetadataForRoute = (
   route: PageRoute,
-  manifest: Result.Result<DocsManifest, unknown>
+  manifest: Result.AsyncResult<DocsManifest, unknown>
 ): Option.Option<PageMetadata> =>
   Result.match(manifest, {
     onInitial: Option.none,
@@ -43,7 +43,7 @@ const browserMetadataAtom = Atom.make((get) =>
 )
 
 /** Writes the current route's metadata into the shell's `<head>` whenever the route or manifest changes. */
-export const browserMetadataMountAtom: AtomType.Atom<Result.Result<void>> = appRuntime.atom((get) =>
+export const browserMetadataMountAtom: AtomType.Atom<Result.AsyncResult<void>> = appRuntime.atom((get) =>
   Option.match(get(browserMetadataAtom), {
     onNone: () => Effect.void,
     onSome: applyBrowserMetadata
@@ -57,7 +57,7 @@ const locationUrls: Stream.Stream<URL, never, BrowserWindow.BrowserWindow> = Str
 )
 
 /** Keeps `pageRouteAtom` and the docs fragment in step with the window while the app shell is mounted. */
-export const browserNavigationMountAtom: AtomType.Atom<Result.Result<void>> = appRuntime.atom((get) =>
+export const browserNavigationMountAtom: AtomType.Atom<Result.AsyncResult<void>> = appRuntime.atom((get) =>
   Stream.runForEach(locationUrls, (url) =>
     Effect.sync(() => {
       get.set(pageRouteAtom, routeForUrl(url))
@@ -97,7 +97,7 @@ const settleAfterNavigation = (
     })
   })
 
-const FragmentJourney = Schema.Literal("same-document", "different-document")
+const FragmentJourney = Schema.Literals(["same-document", "different-document"])
 type FragmentJourney = typeof FragmentJourney.Type
 
 const fragmentJourney = (destination: URL, current: URL): FragmentJourney =>
@@ -155,10 +155,13 @@ const enterAppRoute = (
   Bool.match(Equal.equals(relativeReference(destination), relativeReference(current)), {
     onTrue: () => Effect.void,
     onFalse: () =>
-      Effect.andThen(BrowserWindow.pushState(destination), () => {
-        ctx.set(pageRouteAtom, routeForUrl(destination))
-        ctx.set(docsLocationHashAtom, destination.hash)
-      })
+      Effect.andThen(
+        BrowserWindow.pushState(destination),
+        Effect.sync(() => {
+          ctx.set(pageRouteAtom, routeForUrl(destination))
+          ctx.set(docsLocationHashAtom, destination.hash)
+        })
+      )
   })
 
 /**
@@ -169,7 +172,7 @@ const enterAppRoute = (
 export const navigateAtom = appRuntime.fn<string>()((href, ctx) =>
   Effect.gen(function*() {
     const current = yield* BrowserWindow.currentUrl
-    const destination = yield* Effect.orDie(BrowserWindow.resolveAgainst(href, current))
+    const destination = yield* Effect.orDie(Effect.fromResult(BrowserWindow.resolveAgainst(href, current)))
 
     yield* Bool.match(isAppDestination(destination, current), {
       onFalse: () => BrowserWindow.assign(destination),
@@ -200,7 +203,7 @@ export type ElementNavigation = typeof ElementNavigation.Type
 export const navigateToElementAtom = appRuntime.fn<ElementNavigation>()((navigation, ctx) =>
   Effect.gen(function*() {
     const current = yield* BrowserWindow.currentUrl
-    const destination = yield* Effect.orDie(BrowserWindow.resolveAgainst(navigation.href, current))
+    const destination = yield* Effect.orDie(Effect.fromResult(BrowserWindow.resolveAgainst(navigation.href, current)))
     yield* enterAppRoute(destination, current, ctx)
     yield* settleOnElement(navigation.selector, navigation.behavior)
   })

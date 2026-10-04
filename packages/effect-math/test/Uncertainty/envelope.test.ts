@@ -6,8 +6,8 @@ import * as Uncertainty from "../../src/Uncertainty.js"
 describe("Uncertainty.Envelope", () => {
   it.effect("rejects intervals whose lower endpoint exceeds the upper endpoint", () =>
     Effect.gen(function*() {
-      const float64 = yield* Effect.either(
-        Schema.decodeUnknown(Uncertainty.Envelope)({
+      const float64 = yield* Effect.result(
+        Schema.decodeEffect(Uncertainty.Envelope)({
           scalarKind: "float64",
           value: 1,
           absoluteError: 0,
@@ -15,8 +15,8 @@ describe("Uncertainty.Envelope", () => {
           interval: { lower: 2, upper: 1 }
         }, { onExcessProperty: "error" })
       )
-      const bigDecimal = yield* Effect.either(
-        Schema.decodeUnknown(Uncertainty.Envelope)({
+      const bigDecimal = yield* Effect.result(
+        Schema.decodeEffect(Uncertainty.Envelope)({
           scalarKind: "bigdecimal",
           value: "1.0",
           absoluteError: "0.1",
@@ -25,14 +25,14 @@ describe("Uncertainty.Envelope", () => {
         }, { onExcessProperty: "error" })
       )
 
-      expect(float64._tag).toStrictEqual("Left")
-      expect(bigDecimal._tag).toStrictEqual("Left")
+      expect(float64._tag).toStrictEqual("Failure")
+      expect(bigDecimal._tag).toStrictEqual("Failure")
     }))
 
   it.effect("rejects negative BigDecimal errors", () =>
     Effect.gen(function*() {
-      const decoded = yield* Effect.either(
-        Schema.decodeUnknown(Uncertainty.Envelope)({
+      const decoded = yield* Effect.result(
+        Schema.decodeEffect(Uncertainty.Envelope)({
           scalarKind: "bigdecimal",
           value: "1.0",
           absoluteError: "-0.1",
@@ -40,19 +40,19 @@ describe("Uncertainty.Envelope", () => {
         }, { onExcessProperty: "error" })
       )
 
-      expect(decoded._tag).toStrictEqual("Left")
+      expect(decoded._tag).toStrictEqual("Failure")
     }))
 
   it.effect("serializes BigDecimal envelope fields to canonical decimal strings", () =>
     Effect.gen(function*() {
-      const decoded = yield* Schema.decodeUnknown(Uncertainty.Envelope)({
+      const decoded = yield* Schema.decodeEffect(Uncertainty.Envelope)({
         scalarKind: "bigdecimal",
         value: "1.00",
         absoluteError: "0.10",
         relativeError: "0.050",
         interval: { lower: "0.90", upper: "1.10" }
       }, { onExcessProperty: "error" })
-      const encoded = yield* Schema.encode(Uncertainty.Envelope)(decoded)
+      const encoded = yield* Schema.encodeEffect(Uncertainty.Envelope)(decoded)
 
       expect(encoded).toStrictEqual({
         scalarKind: "bigdecimal",

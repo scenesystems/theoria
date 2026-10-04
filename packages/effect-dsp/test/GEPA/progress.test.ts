@@ -1,6 +1,6 @@
 import { describe, expect, it } from "@effect/vitest"
 import * as GEPA from "@scenesystems/effect-dsp/GEPA"
-import { Array as Arr, Effect, Ref, Stream } from "effect"
+import { Array as Arr, Effect, Option, Ref, Stream } from "effect"
 
 const events = Arr.make(
   GEPA.events.IterationStarted({ iteration: 1, frontierSize: 1 }),
@@ -33,7 +33,7 @@ describe("GEPA progress", () => {
       const output = yield* Ref.get(lines)
       expect(Arr.fromIterable(collected)).toEqual(events)
       expect(output).toHaveLength(5)
-      expect(yield* Arr.last(output)).toBe(
+      expect(Option.getOrThrow(Arr.last(output))).toBe(
         "OptimizationCompleted iterations=1 bestCandidateId=candidate-1 frontierSize=2"
       )
     }))

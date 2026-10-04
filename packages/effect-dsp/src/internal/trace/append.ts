@@ -17,7 +17,7 @@ import { CallCollector, EntryCollector } from "./refs.js"
  * @category combinators
  */
 export const append = (entry: Entry): Effect.Effect<void> =>
-  Effect.serviceOption(EntryCollector).pipe(
+  EntryCollector.pipe(
     Effect.flatMap(
       Option.match({
         onNone: () => Effect.void,
@@ -42,7 +42,7 @@ export const append = (entry: Entry): Effect.Effect<void> =>
  * @category combinators
  */
 export const appendCall = (call: Call): Effect.Effect<void> =>
-  Effect.serviceOption(CallCollector).pipe(
+  CallCollector.pipe(
     Effect.flatMap(
       Option.match({
         onNone: () => Effect.void,

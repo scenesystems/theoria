@@ -3,15 +3,15 @@
  *
  * @since 0.1.0
  */
-import type * as Response from "@effect/ai/Response"
-import { Boolean, Cause, Clock, Context, Data, Effect, Exit, Number, Option, Ref } from "effect"
+import { Boolean, Cause, Clock, Context, Effect, Exit, Number, Option, Ref, Tuple } from "effect"
+import type * as Response from "effect/ai/Response"
 import { Call } from "../../Trace.js"
 import { appendCall } from "./append.js"
 
-class InvocationUsage extends Context.Tag("@scenesystems/effect-dsp/internal/trace/call/InvocationUsage")<
-  InvocationUsage,
-  Ref.Ref<Option.Option<Response.Usage>>
->() {}
+const InvocationUsage = Context.Reference<Option.Option<Ref.Ref<Option.Option<Response.Usage>>>>(
+  "@scenesystems/effect-dsp/internal/trace/call/InvocationUsage",
+  { defaultValue: Option.none }
+)
 
 /**
  * Retains provider usage for the innermost tracked model invocation.
@@ -23,7 +23,7 @@ class InvocationUsage extends Context.Tag("@scenesystems/effect-dsp/internal/tra
  * @category combinators
  */
 export const observeUsage = (usage: Response.Usage): Effect.Effect<void> =>
-  Effect.serviceOption(InvocationUsage).pipe(
+  InvocationUsage.pipe(
     Effect.flatMap(
       Option.match({
         onNone: () => Effect.void,
@@ -36,7 +36,7 @@ const outcomeFromExit = <A, E>(exit: Exit.Exit<A, E>): Call["outcome"] =>
   Exit.match(exit, {
     onSuccess: () => "success",
     onFailure: (cause) =>
-      Boolean.match(Cause.isInterruptedOnly(cause), {
+      Boolean.match(Cause.hasInterruptsOnly(cause), {
         onFalse: () => "failure",
         onTrue: () => "interrupted"
       })
@@ -67,11 +67,11 @@ export const trackCall = <A, E, R>(
       const startedAt = yield* Clock.currentTimeMillis
       const usageRef = yield* Ref.make<Option.Option<Response.Usage>>(Option.none())
       const invocation: Effect.Effect<A, E, R> = restore(program).pipe(
-        Effect.provideService(InvocationUsage, usageRef)
+        Effect.provideService(InvocationUsage, Option.some(usageRef))
       )
       const exit = yield* Effect.exit(invocation)
       const observed = yield* Ref.get(usageRef)
-      const result = Exit.map(exit, (value) => Data.tuple(value, Option.getOrElse(observed, () => usageOf(value))))
+      const result = Exit.map(exit, (value) => Tuple.make(value, Option.getOrElse(observed, () => usageOf(value))))
       const timestamp = yield* Clock.currentTimeMillis
 
       yield* appendCall(

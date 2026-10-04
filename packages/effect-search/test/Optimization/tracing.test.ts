@@ -1,6 +1,6 @@
 import { describe, expect, it } from "@effect/vitest"
 import { abs } from "@scenesystems/effect-math/Numeric"
-import { Array as Arr, Chunk, Effect, MutableRef, Number as Num, Schema, Stream, Tracer, Tuple } from "effect"
+import { Array as Arr, Effect, MutableRef, Number as Num, Stream, Tracer, Tuple } from "effect"
 
 import * as Optimization from "../../src/Optimization.js"
 import { emptyContext } from "../../src/Sampler.js"
@@ -9,31 +9,28 @@ import * as SearchSpace from "../../src/SearchSpace.js"
 
 const makeSpace = () =>
   SearchSpace.make({
-    x: SearchSpace.float(Num.negate(1), 1),
+    x: SearchSpace.float(Num.multiply(-1, 1), 1),
     depth: SearchSpace.int(1, 3)
   })
 
-const objectiveValue = <Space extends SearchSpace.SearchSpace>(space: Space) => {
-  const decode = Schema.decodeUnknownSync(space.schema)
-
-  return (raw: unknown) => {
-    const config = decode(raw)
-    return Effect.succeed(Num.sum(abs(config.x), config.depth))
-  }
+const objectiveValue = <Space extends SearchSpace.SearchSpace>(_space: Space) =>
+(
+  config: { readonly x: number; readonly depth: number }
+) => {
+  return Effect.succeed(Num.sum(abs(config.x), config.depth))
 }
 
 const collectSpanNames = <A, E, R>(
   effect: Effect.Effect<A, E, R>
 ) =>
   Effect.gen(function*() {
-    const spanNamesRef = MutableRef.make(Chunk.empty<string>())
+    const spanNamesRef = MutableRef.make(Arr.empty<string>())
     const baseTracer = yield* Effect.tracer
     const collectingTracer = Tracer.make({
-      span: (name, parent, context, links, startTime, kind, options) => {
-        MutableRef.update(spanNamesRef, (names) => Chunk.append(names, name))
-        return baseTracer.span(name, parent, context, links, startTime, kind, options)
-      },
-      context: (run, fiber) => baseTracer.context(run, fiber)
+      span: (options) => {
+        MutableRef.update(spanNamesRef, Arr.append(options.name))
+        return baseTracer.span(options)
+      }
     })
     const result = yield* effect.pipe(
       Effect.withTracer(collectingTracer),
@@ -50,31 +47,37 @@ describe("Optimization and Sampler tracing", () => {
         Effect.gen(function*() {
           const space = yield* makeSpace()
           const objective = objectiveValue(space)
-          const optimizeResult = yield* Optimization.run({
-            space,
-            sampler: Sampler.random({ seed: 11 }),
-            direction: "minimize",
-            trials: 3,
-            objective
-          })
+          const optimizeResult = yield* Optimization.run(
+            new Optimization.FlatOptions({
+              space,
+              sampler: Sampler.random({ seed: 11 }),
+              direction: "minimize",
+              trials: 3,
+              objective
+            })
+          )
           const checkpoint = yield* Optimization.snapshot(optimizeResult)
 
-          yield* Optimization.resume({
-            space,
-            sampler: Sampler.random({ seed: 11 }),
-            snapshot: checkpoint,
-            direction: "minimize",
-            trials: 1,
-            objective
-          })
-          yield* Stream.runDrain(
-            Optimization.stream({
+          yield* Optimization.resume(
+            new Optimization.ResumeOptions({
               space,
-              sampler: Sampler.random({ seed: 21 }),
+              sampler: Sampler.random({ seed: 11 }),
+              snapshot: checkpoint,
               direction: "minimize",
               trials: 1,
               objective
             })
+          )
+          yield* Stream.runDrain(
+            Optimization.stream(
+              new Optimization.FlatOptions({
+                space,
+                sampler: Sampler.random({ seed: 21 }),
+                direction: "minimize",
+                trials: 1,
+                objective
+              })
+            )
           )
         })
       )

@@ -62,13 +62,17 @@ const splitSections = (
     (accumulator, node): SectionAccumulator => {
       const appendNode = (): SectionAccumulator =>
         Option.match(Chunk.last(accumulator.sections), {
-          onNone: () => new SectionAccumulator({ ...accumulator, intro: Chunk.append(accumulator.intro, node) }),
+          onNone: () =>
+            new SectionAccumulator({
+              intro: Chunk.append(accumulator.intro, node),
+              sections: accumulator.sections
+            }),
           onSome: (section) =>
             new SectionAccumulator({
-              ...accumulator,
+              intro: accumulator.intro,
               sections: Chunk.append(
                 Chunk.dropRight(accumulator.sections, 1),
-                new MarkdownSection({ ...section, nodes: Chunk.append(section.nodes, node) })
+                new MarkdownSection({ title: section.title, nodes: Chunk.append(section.nodes, node) })
               )
             })
         })
@@ -78,7 +82,7 @@ const splitSections = (
         Match.when({ type: "heading", depth: 1 }, () => accumulator),
         Match.when({ type: "heading", depth: 2 }, (heading) =>
           new SectionAccumulator({
-            ...accumulator,
+            intro: accumulator.intro,
             sections: Chunk.append(
               accumulator.sections,
               new MarkdownSection({
@@ -224,7 +228,7 @@ const guidePath = (packageSlug: string, slug: string): string =>
     ""
   )
 
-const makePage = (input: MakePageInput): typeof GuidePageSchema.Type => ({
+const makePage = (input: ConstructorParameters<typeof MakePageInput>[0]): typeof GuidePageSchema.Type => ({
   schemaVersion: 1,
   kind: "guide",
   path: guidePath(input.sourcePackage.directoryName, input.slug),
@@ -247,12 +251,12 @@ const makePage = (input: MakePageInput): typeof GuidePageSchema.Type => ({
     ""
   ),
   blocks: input.blocks,
-  anchors: Array.filterMap(input.blocks, (block) =>
+  anchors: Array.getSomes(Array.map(input.blocks, (block) =>
     Match.value(block).pipe(
       Match.when({ kind: "heading" }, ({ depth, id, text }) => Option.some({ id, label: text, depth })),
       Match.when({ kind: Match.is("code", "list", "math", "paragraph", "quote", "table") }, () => Option.none()),
       Match.exhaustive
-    ))
+    )))
 })
 
 const summaryForPage = (
@@ -296,7 +300,9 @@ const searchEntry = (
   }
 }
 
-export const buildPackageGuides = (input: BuildPackageGuidesInput): typeof PackageGuideData.Type => {
+export const buildPackageGuides = (
+  input: ConstructorParameters<typeof BuildPackageGuidesInput>[0]
+): typeof PackageGuideData.Type => {
   // Authorized Markdown syntax boundary; Effect owns the guide transformations.
   const root = unified().use(remarkParse).use(remarkGfm).use(remarkMath).parse(input.markdown)
   const split = splitSections(root.children, input.sourcePackage.directoryName, input.revision)

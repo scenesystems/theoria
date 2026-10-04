@@ -1,24 +1,13 @@
 /** Shared generated Unicode laws for every public text and canonicalization path. */
 
 import { describe, expect, it } from "@effect/vitest"
-import {
-  Array as Arr,
-  Boolean as B,
-  Effect,
-  Exit,
-  FastCheck as fc,
-  Record,
-  Schema,
-  Stream,
-  String as Str,
-  Tuple
-} from "effect"
+import { Array as Arr, Boolean as B, Effect, Exit, Record, Schema, Stream, String as Str, Tuple } from "effect"
 
 import { CanonicalJson, ContentDigest, Digest, Utf8 } from "@scenesystems/digest"
 import { oracleUtf8 } from "../helpers/bytes.js"
 
-const wellFormedString = fc.fullUnicodeString({ maxLength: 64 })
-const JsonString = Schema.parseJson(Schema.String)
+const wellFormedString = Schema.String.check(Schema.isPattern(/^(?:[^\uD800-\uDFFF]|[\uD800-\uDBFF][\uDC00-\uDFFF])*$/))
+const JsonString = Schema.fromJsonString(Schema.String)
 
 const unicodeOperations = (text: string, chunks: Stream.Stream<string>) =>
   Record.toEntries({
@@ -46,9 +35,9 @@ describe("public text and canonicalization surface — generated Unicode laws", 
 
         const encodedText = yield* Utf8.encode(text)
         const canonical = yield* CanonicalJson.encode(text)
-        const decodedCanonical = yield* Schema.decodeUnknown(JsonString)(canonical)
+        const decodedCanonical = yield* Schema.decodeEffect(JsonString)(canonical)
         const canonicalBytes = yield* CanonicalJson.encodeBytes(text)
-        const canonicalDigest = ContentDigest.fromBytes("blake3-256", canonicalBytes)
+        const canonicalDigest = yield* ContentDigest.fromBytes("blake3-256", canonicalBytes)
         const unknownDigest = yield* ContentDigest.fromUnknown("blake3-256", text)
         const schemaDigest = yield* ContentDigest.fromSchema(Schema.String, text)
         const textHash = yield* Digest.hashString("blake3-256", text)
@@ -60,12 +49,12 @@ describe("public text and canonicalization surface — generated Unicode laws", 
         expect(schemaDigest).toStrictEqual(canonicalDigest)
         expect(yield* Digest.hashStringStream("blake3-256", Stream.make(text))).toStrictEqual(textHash)
       }),
-    { fastCheck: { numRuns: 100, seed: 3629 } }
+    { arbitrary: { runs: 100, seed: 3629 } }
   )
 
   it.effect.prop(
     "rejects injected unpaired surrogates with the exact public-origin index",
-    Tuple.make(wellFormedString, wellFormedString, fc.boolean()),
+    Tuple.make(wellFormedString, wellFormedString, Schema.Boolean),
     ([prefix, suffix, injectHigh]) => {
       const surrogate = B.match(injectHigh, { onTrue: () => "\uD800", onFalse: () => "\uDC00" })
       const malformed = Str.concat(Str.concat(prefix, surrogate), suffix)
@@ -86,6 +75,6 @@ describe("public text and canonicalization surface — generated Unicode laws", 
         )
       )
     },
-    { fastCheck: { numRuns: 100, seed: 3629 } }
+    { arbitrary: { runs: 100, seed: 3629 } }
   )
 })

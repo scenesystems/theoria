@@ -1,7 +1,9 @@
 import { describe, expect, it } from "@effect/vitest"
-import { Array as Arr, Effect, Either, Equal, Option, Schema } from "effect"
+import { Array as Arr, Effect, Equal, Number as Num, Option, Ref, Result, Schema, SchemaGetter } from "effect"
 
-import { fromAST } from "../../src/Distribution.js"
+import { annotate, fromAST } from "../../src/Distribution.js"
+import * as Optimization from "../../src/Optimization.js"
+import * as Sampler from "../../src/Sampler.js"
 import * as SearchSpace from "../../src/SearchSpace.js"
 
 const distributionFor = (space: SearchSpace.SearchSpace, name: string) =>
@@ -9,13 +11,14 @@ const distributionFor = (space: SearchSpace.SearchSpace, name: string) =>
     Option.map((parameter) => parameter.distribution)
   )
 
-const decodeSpace = (space: SearchSpace.SearchSpace, value: unknown) => Schema.decodeUnknownEither(space.schema)(value)
+const decodeSpace = (space: SearchSpace.SearchSpace, value: unknown) =>
+  Schema.decodeUnknownResult(Schema.toType(space.schema))(value)
 
 const expectOptionValue = <A>(option: Option.Option<A>, expected: A) => {
   expect(option).toEqual(Option.some(expected))
 }
 
-const expectReadDistribution = (schema: Schema.Schema.AnyNoContext, expected: unknown) => {
+const expectReadDistribution = (schema: Schema.Top, expected: unknown) => {
   const distribution = fromAST(schema.ast)
   expect(distribution).toEqual(Option.some(expected))
 }
@@ -119,7 +122,7 @@ describe("SearchSpace.make", () => {
       })
 
       expect(
-        Either.isRight(
+        Result.isSuccess(
           decodeSpace(space, {
             lr: 0.01,
             optimizer: "adam",
@@ -129,7 +132,7 @@ describe("SearchSpace.make", () => {
       ).toBe(true)
 
       expect(
-        Either.isLeft(
+        Result.isFailure(
           decodeSpace(space, {
             lr: 0.01,
             batchSize: 32
@@ -138,7 +141,7 @@ describe("SearchSpace.make", () => {
       ).toBe(true)
 
       expect(
-        Either.isLeft(
+        Result.isFailure(
           decodeSpace(space, {
             lr: 0.01,
             optimizer: "rmsprop",
@@ -146,5 +149,31 @@ describe("SearchSpace.make", () => {
           })
         )
       ).toBe(true)
+    }))
+
+  it.effect("decodes dimension transformations before optimization evaluates a config", () =>
+    Effect.gen(function*() {
+      const transformed = annotate(
+        SearchSpace.float(1, 1).pipe(
+          Schema.decodeTo(SearchSpace.float(1, 1), {
+            decode: SchemaGetter.transform((value) => Num.sum(value, 10)),
+            encode: SchemaGetter.transform((value) => Num.subtract(value, 10))
+          })
+        ),
+        { type: "float", low: 1, high: 1 }
+      )
+      const space = yield* SearchSpace.make({ value: transformed })
+      const observed = yield* Ref.make(0)
+      yield* Optimization.run(
+        new Optimization.FlatOptions({
+          space,
+          sampler: Sampler.random({ seed: 1 }),
+          direction: "minimize",
+          trials: 1,
+          objective: (config) => Ref.set(observed, config.value).pipe(Effect.as(config.value))
+        })
+      )
+
+      expect(yield* Ref.get(observed)).toBe(11)
     }))
 })

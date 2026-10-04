@@ -1,9 +1,21 @@
 /** Finite Linux workerd-process CPU and HTTP wall-latency baseline for the packed package. */
-import { Command, FetchHttpClient, FileSystem, Path, Url } from "@effect/platform"
-import * as BunContext from "@effect/platform-bun/BunContext"
-import * as BunRuntime from "@effect/platform-bun/BunRuntime"
+import { BunRuntime, BunServices } from "@effect/platform-bun"
 import { Jwt } from "@scenesystems/sign"
-import { Array as Arr, Console, Duration, Effect, Encoding, Layer, Number as N, Schema, String as Str } from "effect"
+import {
+  Array as Arr,
+  Console,
+  Duration,
+  Effect,
+  FileSystem,
+  Layer,
+  Number as N,
+  Path,
+  Schema,
+  String as Str
+} from "effect"
+import { Base64Url, Hex } from "effect/encoding"
+import { FetchHttpClient } from "effect/http"
+import { ChildProcess, ChildProcessSpawner } from "effect/process"
 
 import { Sample, UnexpectedVerdict } from "./benchmark.js"
 import { decodeConformanceFixture, RsaOpenSslFixture } from "./fixture-contract.js"
@@ -11,20 +23,21 @@ import { JwtFixture } from "./jwt-fixture-contract.js"
 import { Identity, RequestBody, Result } from "./worker/protocol.js"
 import { startWorker } from "./worker/runtime.js"
 
-const Measurement = Sample.pipe(Schema.extend(Schema.Struct({
-  processCpuMillis: Schema.Number,
-  meanProcessCpuMillis: Schema.Number,
-  p50WallMillis: Schema.Number,
-  p95WallMillis: Schema.Number,
-  requestsPerSecond: Schema.Number
-})))
-const Report = Schema.parseJson(
+const Measurement = Schema.Struct({
+  ...Sample.fields,
+  processCpuMillis: Schema.Finite,
+  meanProcessCpuMillis: Schema.Finite,
+  p50WallMillis: Schema.Finite,
+  p95WallMillis: Schema.Finite,
+  requestsPerSecond: Schema.Finite
+})
+const Report = Schema.fromJsonString(
   Schema.Struct({
     runtime: Schema.String,
     driver: Schema.String,
     effect: Schema.String,
     host: Schema.String,
-    clockTicksPerSecond: Schema.Number,
+    clockTicksPerSecond: Schema.Finite,
     method: Schema.String,
     results: Schema.Array(Measurement)
   }),
@@ -33,23 +46,24 @@ const Report = Schema.parseJson(
 
 const program = Effect.gen(function*() {
   const worker = yield* startWorker
-  const runtime = Str.trim(yield* Command.string(Command.make(worker.binary, "--version")))
-  const driver = Str.concat("Bun ", Str.trim(yield* Command.string(Command.make("bun", "--version"))))
-  const host = Str.trim(yield* Command.string(Command.make("uname", "-sm")))
-  const ticksPerSecond = yield* Command.string(Command.make("getconf", "CLK_TCK")).pipe(
+  const spawner = yield* ChildProcessSpawner.ChildProcessSpawner
+  const runtime = Str.trim(yield* spawner.string(ChildProcess.make(worker.binary, ["--version"])))
+  const driver = Str.concat("Bun ", Str.trim(yield* spawner.string(ChildProcess.make("bun", ["--version"]))))
+  const host = Str.trim(yield* spawner.string(ChildProcess.make("uname", ["-sm"])))
+  const ticksPerSecond = yield* spawner.string(ChildProcess.make("getconf", ["CLK_TCK"])).pipe(
     Effect.map(Str.trim),
-    Effect.flatMap(Schema.decode(Schema.NumberFromString.pipe(Schema.positive())))
+    Effect.flatMap(Schema.decodeEffect(Schema.FiniteFromString.check(Schema.isGreaterThan(0))))
   )
   const path = yield* Path.Path
   const fs = yield* FileSystem.FileSystem
-  const root = yield* path.fromFileUrl(yield* Url.fromString("../", import.meta.url))
+  const root = path.resolve(import.meta.dirname, "../")
   const { version } = yield* fs.readFileString(path.join(root, "node_modules/effect/package.json")).pipe(
-    Effect.flatMap(Schema.decode(Schema.parseJson(Schema.Struct({ version: Schema.String }))))
+    Effect.flatMap(Schema.decodeEffect(Schema.fromJsonString(Schema.Struct({ version: Schema.String }))))
   )
   const measure = (name: string, body: typeof RequestBody.Type, expected: typeof Result.Type) =>
     Effect.gen(function*() {
       const operation = worker.request(body).pipe(Effect.filterOrFail(
-        (actual) => Schema.equivalence(Result)(actual, expected),
+        (actual) => Schema.toEquivalence(Result)(actual, expected),
         () => new UnexpectedVerdict({ name })
       ))
       yield* Effect.replicateEffect(operation, 50, { concurrency: 1, discard: true })
@@ -60,50 +74,54 @@ const program = Effect.gen(function*() {
         { concurrency: 1 }
       ).pipe(Effect.timed)
       const after = yield* worker.cpuTicks
-      const cpu = N.unsafeDivide(N.multiply(N.subtract(after, before), 1000), ticksPerSecond)
+      const cpu = N.divideUnsafe(N.multiply(N.subtract(after, before), 1000), ticksPerSecond)
       const ordered = Arr.sort(samples, N.Order)
-      return yield* Schema.decode(Measurement)({
+      return yield* Schema.decodeEffect(Measurement)({
         name,
         warmups: 50,
         samples: Arr.length(samples),
         processCpuMillis: cpu,
-        meanProcessCpuMillis: N.unsafeDivide(cpu, Arr.length(samples)),
+        meanProcessCpuMillis: N.divideUnsafe(cpu, Arr.length(samples)),
         // Nearest-rank p50 and p95 of exactly 500 observations.
-        p50WallMillis: yield* Arr.get(ordered, 249),
-        p95WallMillis: yield* Arr.get(ordered, 474),
-        requestsPerSecond: N.unsafeDivide(Arr.length(samples), Duration.toSeconds(batch))
+        p50WallMillis: yield* Effect.fromOption(Arr.get(ordered, 249)),
+        p95WallMillis: yield* Effect.fromOption(Arr.get(ordered, 474)),
+        requestsPerSecond: N.divideUnsafe(Arr.length(samples), Duration.toSeconds(batch))
       })
     })
-  const jwt = yield* decodeConformanceFixture("jwt-access-openssl.json", Schema.parseJson(JwtFixture))
+  const jwt = yield* decodeConformanceFixture("jwt-access-openssl.json", Schema.fromJsonString(JwtFixture))
   const token = Arr.headNonEmpty(jwt.cases).token
-  const [header, payload, signature] = yield* Schema.decodeUnknown(
-    Schema.Tuple(Schema.String, Schema.String, Schema.String)
+  const [header, payload, signature] = yield* Schema.decodeUnknownEffect(
+    Schema.Tuple([Schema.String, Schema.String, Schema.String])
   )(
     Str.split(token, ".")
   )
-  const signatureBytes = yield* Encoding.decodeBase64Url(signature)
-  const changed = yield* Schema.decode(Schema.Uint8Array)(Arr.modify(
-    signatureBytes,
-    N.decrement(signatureBytes.byteLength),
-    (byte) => N.remainder(N.increment(byte), 256)
-  ))
-  const ordinaryMessage = Encoding.encodeHex(Arr.join(Arr.make(header, payload), "."))
+  const signatureBytes = yield* Effect.fromResult(Base64Url.decode(signature))
+  const changed = new Uint8Array(
+    yield* Effect.fromOption(Arr.modify(
+      signatureBytes,
+      N.decrement(signatureBytes.byteLength),
+      (byte) => N.remainder(N.increment(byte), 256)
+    ))
+  )
+  const ordinaryMessage = Hex.encode(Arr.join(Arr.make(header, payload), "."))
   const rsa = yield* decodeConformanceFixture("rsa-openssl.json", RsaOpenSslFixture)
-  const largest = yield* Arr.findFirst(rsa.groups, (group) => N.Equivalence(group.bits, 4096))
-  const maximum = yield* Arr.findFirst(largest.cases, (vector) => Str.Equivalence(vector.name, "8192 bytes"))
-  const decodeRequest = Schema.decode(RequestBody)
+  const largest = yield* Effect.fromOption(Arr.findFirst(rsa.groups, (group) => N.Equivalence(group.bits, 4096)))
+  const maximum = yield* Effect.fromOption(
+    Arr.findFirst(largest.cases, (vector) => Str.Equivalence(vector.name, "8192 bytes"))
+  )
+  const decodeRequest = Schema.decodeEffect(RequestBody)
   const ping = yield* decodeRequest({ _tag: "Ping" })
   const ordinaryGenuine = yield* decodeRequest({
     _tag: "Rsa",
     jwk: jwt.jwk,
     message: ordinaryMessage,
-    signature: Encoding.encodeHex(signatureBytes)
+    signature: Hex.encode(signatureBytes)
   })
   const ordinaryNonmatch = yield* decodeRequest({
     _tag: "Rsa",
     jwk: jwt.jwk,
     message: ordinaryMessage,
-    signature: Encoding.encodeHex(changed)
+    signature: Hex.encode(changed)
   })
   const maximumGenuine = yield* decodeRequest({
     _tag: "Rsa",
@@ -127,7 +145,7 @@ const program = Effect.gen(function*() {
     _tag: "Jwt",
     jwks: { keys: Arr.of(jwt.jwk) },
     nowMillis: 150_000,
-    token: Arr.join(Arr.make(header, payload, Encoding.encodeBase64Url(changed)), ".")
+    token: Arr.join(Arr.make(header, payload, Base64Url.encode(changed)), ".")
   })
   const results = yield* Effect.all(
     Arr.make(
@@ -149,7 +167,7 @@ const program = Effect.gen(function*() {
     { concurrency: 1 }
   )
   yield* Console.log(
-    yield* Schema.encode(Report)({
+    yield* Schema.encodeEffect(Report)({
       runtime,
       driver,
       effect: version,
@@ -160,6 +178,6 @@ const program = Effect.gen(function*() {
       results
     })
   )
-}).pipe(Effect.scoped, Effect.provide(Layer.merge(BunContext.layer, FetchHttpClient.layer)))
+}).pipe(Effect.scoped, Effect.provide(Layer.merge(BunServices.layer, FetchHttpClient.layer)))
 
 BunRuntime.runMain(program)

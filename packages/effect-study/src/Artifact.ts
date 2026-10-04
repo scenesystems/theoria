@@ -5,7 +5,7 @@
  * @module
  */
 import * as ContentDigest from "@scenesystems/digest/ContentDigest"
-import { Data, Effect, ParseResult, Predicate, Record, Schema, type SchemaAST, Tuple } from "effect"
+import { Data, Schema } from "effect"
 
 /**
  * Canonical ULID execution identifier.
@@ -13,9 +13,11 @@ import { Data, Effect, ParseResult, Predicate, Record, Schema, type SchemaAST, T
  * @since 0.1.0
  * @category schemas
  */
-export const RunId = Schema.ULID.pipe(
-  Schema.brand("@scenesystems/effect-study/Artifact/RunId")
-).annotations({ identifier: "@scenesystems/effect-study/Artifact/RunId" })
+export const RunId = Schema.String.pipe(
+  Schema.check(Schema.isULID()),
+  Schema.brand("@scenesystems/effect-study/Artifact/RunId"),
+  Schema.annotate({ identifier: "@scenesystems/effect-study/Artifact/RunId" })
+)
 
 /**
  * An execution identifier decoded by {@link RunId}.
@@ -32,9 +34,10 @@ export type RunId = typeof RunId.Type
  * @category schemas
  */
 export const PackageVersion = Schema.NonEmptyString.pipe(
-  Schema.pattern(/^\d+\.\d+\.\d+/),
-  Schema.brand("@scenesystems/effect-study/Artifact/PackageVersion")
-).annotations({ identifier: "@scenesystems/effect-study/Artifact/PackageVersion" })
+  Schema.check(Schema.isPattern(/^\d+\.\d+\.\d+/)),
+  Schema.brand("@scenesystems/effect-study/Artifact/PackageVersion"),
+  Schema.annotate({ identifier: "@scenesystems/effect-study/Artifact/PackageVersion" })
+)
 
 /**
  * A package version decoded by {@link PackageVersion}.
@@ -50,9 +53,9 @@ export type PackageVersion = typeof PackageVersion.Type
  * @since 0.1.0
  * @category schemas
  */
-export const ComponentPath = Schema.NonEmptyArray(Schema.NonEmptyString).annotations({
-  identifier: "@scenesystems/effect-study/Artifact/ComponentPath"
-})
+export const ComponentPath = Schema.NonEmptyArray(Schema.NonEmptyString).pipe(
+  Schema.annotate({ identifier: "@scenesystems/effect-study/Artifact/ComponentPath" })
+)
 
 /**
  * A component path decoded by {@link ComponentPath}.
@@ -62,13 +65,12 @@ export const ComponentPath = Schema.NonEmptyArray(Schema.NonEmptyString).annotat
  */
 export type ComponentPath = typeof ComponentPath.Type
 
-const payloadArray = Schema.Array(Schema.suspend((): Schema.Schema<Payload> => Payload)).annotations({
-  identifier: "@scenesystems/effect-study/Artifact/PayloadArray"
-})
-const payloadRecord = Schema.Record({
-  key: Schema.String,
-  value: Schema.suspend((): Schema.Schema<Payload> => Payload)
-}).annotations({ identifier: "@scenesystems/effect-study/Artifact/PayloadRecord" })
+const payloadArray = Schema.Array(Schema.suspend((): Schema.Codec<Payload> => Payload)).pipe(
+  Schema.annotate({ identifier: "@scenesystems/effect-study/Artifact/PayloadArray" })
+)
+const payloadRecord = Schema.Record(Schema.String, Schema.suspend((): Schema.Codec<Payload> => Payload)).pipe(
+  Schema.annotate({ identifier: "@scenesystems/effect-study/Artifact/PayloadRecord" })
+)
 
 /** Recursive payload sequence. @since 0.1.0 @category models */
 export interface PayloadArray extends Schema.Schema.Type<typeof payloadArray> {}
@@ -76,33 +78,14 @@ export interface PayloadArray extends Schema.Schema.Type<typeof payloadArray> {}
 /** Recursive own-key payload record. @since 0.1.0 @category models */
 export interface PayloadRecord extends Schema.Schema.Type<typeof payloadRecord> {}
 
-const recordInput = Schema.declare(Predicate.isRecord).annotations({
-  identifier: "@scenesystems/effect-study/Artifact/RecordInput"
-})
-const payloadEntries = Schema.Array(Schema.Tuple(payloadRecord.key, payloadRecord.value)).annotations({
-  identifier: "@scenesystems/effect-study/Artifact/PayloadEntries"
-})
-
-const parseRecord = (input: unknown, options: SchemaAST.ParseOptions) =>
-  ParseResult.decodeUnknown(recordInput)(input, options).pipe(
-    Effect.map(Record.toEntries),
-    Effect.flatMap((entries) => ParseResult.decodeUnknown(payloadEntries)(entries, options)),
-    Effect.map(Record.fromEntries)
-  )
-
-const payloadRecordCodec = Schema.declare<PayloadRecord, PayloadRecord, []>(Tuple.make(), {
-  decode: () => parseRecord,
-  encode: () => parseRecord
-}).annotations({ identifier: "@scenesystems/effect-study/Artifact/PayloadRecordCodec" })
-
-const payload = Schema.Union(
+const payload = Schema.Union([
   Schema.String,
   Schema.Number,
   Schema.Boolean,
   Schema.Null,
-  Schema.suspend((): Schema.Schema<PayloadArray> => payloadArray),
-  Schema.suspend((): Schema.Schema<PayloadRecord> => payloadRecordCodec)
-).annotations({ identifier: "@scenesystems/effect-study/Artifact/Payload" })
+  Schema.suspend((): Schema.Codec<PayloadArray> => payloadArray),
+  Schema.suspend((): Schema.Codec<PayloadRecord> => payloadRecord)
+]).pipe(Schema.annotate({ identifier: "@scenesystems/effect-study/Artifact/Payload" }))
 
 /**
  * Recursive artifact payload made from primitive, array, and own-key record
@@ -121,7 +104,7 @@ export type Payload = typeof payload.Type
  * @since 0.1.0
  * @category schemas
  */
-export const Payload: Schema.Schema<Payload> = payload
+export const Payload: Schema.Codec<Payload> = payload
 
 /**
  * Artifact identity within one run.
@@ -131,7 +114,7 @@ export const Payload: Schema.Schema<Payload> = payload
  */
 export class Id extends Schema.Class<Id>("@scenesystems/effect-study/Artifact/Id")({
   runId: RunId,
-  sequence: Schema.NonNegativeInt
+  sequence: Schema.Int.pipe(Schema.check(Schema.isGreaterThanOrEqualTo(0)))
 }) {}
 
 /**
@@ -145,7 +128,7 @@ export const Source = Schema.Struct({
   origin: Schema.NonEmptyString,
   domain: Schema.NonEmptyString,
   segments: Schema.NonEmptyArray(Schema.NonEmptyString)
-}).annotations({ identifier: "@scenesystems/effect-study/Artifact/Source" })
+}).pipe(Schema.annotate({ identifier: "@scenesystems/effect-study/Artifact/Source" }))
 
 /**
  * Source provenance decoded by {@link Source}.
@@ -157,10 +140,10 @@ export type Source = typeof Source.Type
 
 const LineageMetadata = Schema.Struct({
   artifactId: Id,
-  emittedAt: Schema.DateTimeUtc,
+  emittedAt: Schema.DateTimeUtcFromString,
   derivedFrom: Schema.optional(Schema.Array(Id)),
   integrity: Schema.optional(ContentDigest.ContentDigest)
-}).annotations({ identifier: "@scenesystems/effect-study/Artifact/LineageMetadata" })
+}).pipe(Schema.annotate({ identifier: "@scenesystems/effect-study/Artifact/LineageMetadata" }))
 
 /**
  * Builds artifact lineage around a caller-selected source schema.
@@ -168,11 +151,11 @@ const LineageMetadata = Schema.Struct({
  * @since 0.1.0
  * @category schemas
  */
-export const Lineage = <SourceSchema extends Schema.Schema.All>(sourceSchema: SourceSchema) =>
+export const Lineage = <SourceSchema extends Schema.Constraint>(sourceSchema: SourceSchema) =>
   Schema.Struct({
     ...LineageMetadata.fields,
     sourceRef: sourceSchema
-  }).annotations({ identifier: "@scenesystems/effect-study/Artifact/Lineage" })
+  }).pipe(Schema.annotate({ identifier: "@scenesystems/effect-study/Artifact/Lineage" }))
 
 /**
  * Artifact lineage decoded from the canonical factory.
@@ -181,7 +164,7 @@ export const Lineage = <SourceSchema extends Schema.Schema.All>(sourceSchema: So
  * @category models
  */
 export type Lineage<SourceValue> = Schema.Schema.Type<
-  Schema.extend<typeof LineageMetadata, Schema.Struct<{ sourceRef: Schema.Schema<SourceValue> }>>
+  Schema.Struct<typeof LineageMetadata.fields & { readonly sourceRef: Schema.Schema<SourceValue> }>
 >
 
 /**
@@ -191,10 +174,10 @@ export type Lineage<SourceValue> = Schema.Schema.Type<
  * @since 0.1.0
  * @category schemas
  */
-export const Relation = Schema.Union(
+export const Relation = Schema.Union([
   Schema.TaggedStruct("Run", { ref: RunId }),
   Schema.TaggedStruct("External", { ref: Schema.NonEmptyString, namespace: Schema.NonEmptyString })
-).annotations({ identifier: "@scenesystems/effect-study/Artifact/Relation" })
+]).pipe(Schema.annotate({ identifier: "@scenesystems/effect-study/Artifact/Relation" }))
 
 /**
  * An artifact association decoded by {@link Relation}.
@@ -220,28 +203,28 @@ export const matchRelation = Relations.$match
 
 const EnvelopeMetadata = Schema.Struct({
   relations: Schema.optional(Schema.Array(Relation))
-}).annotations({ identifier: "@scenesystems/effect-study/Artifact/EnvelopeMetadata" })
+}).pipe(Schema.annotate({ identifier: "@scenesystems/effect-study/Artifact/EnvelopeMetadata" }))
 
 /**
- * Composes caller-owned producer, lineage, and payload schemas. Encoded forms
- * and schema requirements from every component are retained.
+ * Extends a caller-owned payload struct with producer and lineage schemas.
+ * Field codecs and payload checks are retained. Payload checks must remain valid
+ * with the added metadata; reserve `producer`, `lineage`, and `relations` for the envelope.
  *
  * @since 0.1.0
  * @category schemas
  */
 export const Envelope = <
-  Producer extends Schema.Schema.Any,
-  LineageSchema extends Schema.Schema.Any,
-  Payload extends Schema.Schema.Any
->(producerSchema: Producer, lineageSchema: LineageSchema, payloadSchema: Payload) =>
-  payloadSchema.pipe(
-    Schema.extend(Schema.Struct({
-      ...EnvelopeMetadata.fields,
-      producer: producerSchema,
-      lineage: lineageSchema
-    })),
-    Schema.annotations({ identifier: "@scenesystems/effect-study/Artifact/Envelope" })
-  )
+  Producer extends Schema.Constraint,
+  LineageSchema extends Schema.Constraint,
+  Fields extends Schema.Struct.Fields
+>(producerSchema: Producer, lineageSchema: LineageSchema, payloadSchema: Schema.Struct<Fields>) =>
+  payloadSchema.mapFields((fields) => ({
+    ...fields,
+    ...EnvelopeMetadata.fields,
+    producer: producerSchema,
+    lineage: lineageSchema
+  }), { unsafePreserveChecks: true })
+    .annotate({ identifier: "@scenesystems/effect-study/Artifact/Envelope" })
 
 /**
  * An artifact envelope decoded from the canonical factory.
@@ -249,15 +232,13 @@ export const Envelope = <
  * @since 0.1.0
  * @category models
  */
-export type Envelope<ProducerValue, LineageValue, PayloadValue> = Schema.Schema.Type<
-  Schema.extend<
-    Schema.extend<
-      typeof EnvelopeMetadata,
-      Schema.Struct<{
-        producer: Schema.Schema<ProducerValue>
-        lineage: Schema.Schema<LineageValue>
-      }>
-    >,
-    Schema.Schema<PayloadValue>
+export type Envelope<ProducerValue, LineageValue, PayloadValue> =
+  & PayloadValue
+  & Schema.Schema.Type<
+    Schema.Struct<
+      typeof EnvelopeMetadata.fields & {
+        readonly producer: Schema.Schema<ProducerValue>
+        readonly lineage: Schema.Schema<LineageValue>
+      }
+    >
   >
->

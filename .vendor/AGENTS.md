@@ -13,21 +13,22 @@ Read .vendor/effect/packages/effect/src/Schema.ts
 Read .vendor/effect/packages/effect/src/Effect.ts
 Read .vendor/effect/packages/effect/src/Data.ts
 Read .vendor/effect/packages/effect/src/Match.ts
-Read .vendor/effect/packages/experimental/src/VariantSchema.ts
+Read .vendor/effect/packages/effect/src/schema/VariantSchema.ts
 ```
 
 | npm package            | Source directory                              |
 | ---------------------- | -------------------------------------------- |
 | `effect`               | `.vendor/effect/packages/effect/src/`        |
-| `@effect/experimental` | `.vendor/effect/packages/experimental/src/`  |
-| `@effect/platform`     | `.vendor/effect/packages/platform/src/`      |
-| `@effect/platform-bun` | `.vendor/effect/packages/platform-bun/src/`  |
+| `effect/http`, `effect/process`, `effect/reactivity` | `.vendor/effect/packages/effect/src/` |
+| `@effect/platform-bun` | `.vendor/effect/packages/platform/bun/src/`  |
+| `@effect/platform-browser` | `.vendor/effect/packages/platform/browser/src/` |
+| `@effect/atom-react` | `.vendor/effect/packages/atom/react/src/` |
 | `@effect/vitest`       | `.vendor/effect/packages/vitest/src/`        |
-| `@effect/typeclass`    | `.vendor/effect/packages/typeclass/src/`     |
-| `@effect/printer-ansi` | `.vendor/effect/packages/printer-ansi/src/`  |
-| `@effect/ai`           | `.vendor/effect/packages/ai/ai/src/`         |
+| `effect/ai`           | `.vendor/effect/packages/effect/src/ai/`         |
 | `@effect/ai-openai`    | `.vendor/effect/packages/ai/openai/src/`     |
 | `@effect/ai-anthropic` | `.vendor/effect/packages/ai/anthropic/src/`  |
+| `@effect/ai-openrouter` | `.vendor/effect/packages/ai/openrouter/src/` |
+| `@effect/sql-sqlite-node` | `.vendor/effect/packages/sql/sqlite-node/src/` |
 
 ### Noble Cryptography
 
@@ -45,7 +46,6 @@ Read .vendor/noble-curves/src/ed25519.ts
 Read .vendor/noble-ciphers/src/aes.ts
 Read .vendor/noble-post-quantum/src/ml-kem.ts
 Read .vendor/noble-post-quantum/src/ml-dsa.ts
-Read .vendor/scure-base/src/index.ts
 ```
 
 | npm package            | Source directory               | Used by         |
@@ -54,7 +54,6 @@ Read .vendor/scure-base/src/index.ts
 | `@noble/curves`        | `.vendor/noble-curves/src/`   | sign            |
 | `@noble/ciphers`       | `.vendor/noble-ciphers/src/`  | seal            |
 | `@noble/post-quantum`  | `.vendor/noble-post-quantum/src/` | sign        |
-| `@scure/base`          | `.vendor/scure-base/src/`     | digest, seal    |
 
 ### Critical: Noble v2 Import Paths
 

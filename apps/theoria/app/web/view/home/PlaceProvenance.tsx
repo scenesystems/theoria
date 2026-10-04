@@ -1,6 +1,6 @@
 import { Button } from "@base-ui/react/button"
 import { Popover } from "@base-ui/react/popover"
-import { useAtomMount, useAtomSet, useAtomValue } from "@effect-atom/atom-react"
+import { useAtomMount, useAtomSet, useAtomValue } from "@effect/atom-react"
 import { Boolean as Bool, Equal, Option } from "effect"
 import * as Arr from "effect/Array"
 import { type ComponentProps, Fragment, useId, useMemo, useRef } from "react"
@@ -84,7 +84,7 @@ export const ProvenanceMark = ({
   const encoded = encodeMark(mark)
   const focused = useAtomValue(placeMarkFocusedAtom(encoded))
   const generatedId = useId()
-  const triggerId = Option.getOrElse(Option.fromNullable(id), () => `place-mark-${generatedId}`)
+  const triggerId = Option.getOrElse(Option.fromNullishOr(id), () => `place-mark-${generatedId}`)
   const markLeft = useAtomSet(placeMarkLeftAtom)
   // The mark says it has left at the commit its element leaves the page, so
   // an answer about it goes with it rather than lingering over nothing.
@@ -314,7 +314,7 @@ const Answer = ({ provenance }: { readonly provenance: Provenance }) => {
 
 /** The mark a press landed on, read back from the trigger the popover names. */
 const pressOn = (details: Popover.Root.ChangeEventDetails): Option.Option<MarkTrigger> =>
-  Option.flatMap(Option.fromNullable(details.trigger), (trigger) =>
+  Option.flatMap(Option.fromNullishOr(details.trigger), (trigger) =>
     Option.all({
       triggerId: Option.some(trigger.id),
       mark: decodeMark(trigger.getAttribute(provenanceAttribute))

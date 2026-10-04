@@ -39,8 +39,8 @@ export class CandidateEvaluation extends Schema.Class<CandidateEvaluation>(
 export class CandidateEvaluationWindow extends Schema.Class<CandidateEvaluationWindow>(
   "@scenesystems/effect-dsp/internal/gepa/runtime/evaluate/CandidateEvaluationWindow"
 )({
-  startIndex: Schema.Number,
-  rowCount: Schema.OptionFromSelf(Schema.Number)
+  startIndex: Schema.Finite,
+  rowCount: Schema.OptionFromNullishOr(Schema.Finite)
 }) {}
 
 const FULL_CANDIDATE_EVALUATION_WINDOW = new CandidateEvaluationWindow({
@@ -51,7 +51,7 @@ const FULL_CANDIDATE_EVALUATION_WINDOW = new CandidateEvaluationWindow({
 class CandidateEvaluationRow extends Schema.Class<CandidateEvaluationRow>(
   "@scenesystems/effect-dsp/internal/gepa/runtime/evaluate/CandidateEvaluationRow"
 )({
-  score: Schema.Number,
+  score: Schema.Finite,
   samples: Schema.Array(ReflectiveDatasetSample)
 }) {}
 
@@ -65,7 +65,7 @@ const candidateParams = (
     Option.getOrElse(instructionForPredictor(candidate, owner.name), () => params.instructions)
   )
 
-type ParameterSnapshot = Schema.Tuple2<Schema.Schema<ModuleParamRef>, typeof ModuleParameters>["Type"]
+type ParameterSnapshot = readonly [ModuleParamRef, ModuleParameters]
 
 const setCandidateInstructions = (
   snapshots: Iterable<ParameterSnapshot>,
@@ -102,8 +102,8 @@ const resolveValset = <I extends Schema.Struct.Fields, O extends Schema.Struct.F
   options: GEPAOptions<I, O, ME, MR, E, R>
 ): Examples =>
   Arr.filter(
-    Option.getOrElse(Option.fromNullable(options.valset), () => options.trainset),
-    (example) => Option.isSome(Option.fromNullable(example.output))
+    Option.getOrElse(Option.fromNullishOr(options.valset), () => options.trainset),
+    (example) => Option.isSome(Option.fromNullishOr(example.output))
   )
 
 const selectEvaluationRows = (
@@ -140,12 +140,12 @@ export const evaluateCandidate = <I extends Schema.Struct.Fields, O extends Sche
         )
       ),
     () => {
-      const decodeInput = Schema.decodeUnknown(options.module.signature.inputSchema)
-      const decodeOutput = Schema.decodeUnknown(options.module.signature.outputSchema)
+      const decodeInput = Schema.decodeUnknownEffect(options.module.signature.inputSchema)
+      const decodeOutput = Schema.decodeUnknownEffect(options.module.signature.outputSchema)
 
       return Effect.forEach(selectEvaluationRows(resolveValset(options), window), ([index, example]) =>
         Effect.gen(function*() {
-          const expectedOutputRaw = Option.getOrElse(Option.fromNullable(example.output), () =>
+          const expectedOutputRaw = Option.getOrElse(Option.fromNullishOr(example.output), () =>
             example.input)
           const moduleInput = yield* decodeInput(example.input)
           const expectedOutput = yield* decodeOutput(expectedOutputRaw)
@@ -154,7 +154,7 @@ export const evaluateCandidate = <I extends Schema.Struct.Fields, O extends Sche
           const programGeneratedOutputs = yield* encodePayload(options.module.signature.outputSchema, prediction)
           const expectedDocument = yield* encodePayload(options.module.signature.outputSchema, expectedOutput)
           const metricResult = yield* options.metric.score(prediction, expectedOutput)
-          const normalizedMetric = Option.match(Option.fromNullable(metricResult.feedback), {
+          const normalizedMetric = Option.match(Option.fromNullishOr(metricResult.feedback), {
             onNone: () => new MetricResult({ score: metricResult.score }),
             onSome: (feedback) => new MetricResult({ score: metricResult.score, feedback })
           })
@@ -197,7 +197,7 @@ export const evaluateCandidate = <I extends Schema.Struct.Fields, O extends Sche
             score: metricResult.score,
             samples
           })
-        }), { concurrency: "inherit" }).pipe(
+        }), { concurrency: "unbounded" }).pipe(
           Effect.map((rows) =>
             new CandidateEvaluation({
               scores: Arr.map(rows, (row) =>

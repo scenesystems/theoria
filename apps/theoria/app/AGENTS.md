@@ -16,7 +16,7 @@ The single canonical definition for every type shared between server and web. Bo
 
 ### Patterns
 
-- **Schema → Type extraction**: `Schema.Struct({...})` then `type X = typeof X.Type`.
+- **Schema → Type extraction**: `Schema.Struct({...})` then `type X = typeof X.Type`; use the `decodeEffect` / `decodeUnknownEffect` and `encodeEffect` families at boundaries.
 - **Envelope protocol**: `Envelope(DataSchema)` produces a `Success | Failure` union with typed `meta` and discriminated `ok` field.
 - **Tagged errors**: `Schema.TaggedError` with `_tag` discrimination. The `DemoError` union (`demo-error.ts`) covers `DemoRequestError | DemoDecodeError | DemoExecutionError` and is the browser client's failure type.
 - **Imagined Place**: `imagined-place.ts` is the request (`PlaceBuildRequest`, scenarios), `imagined-place-result.ts` the result (`PlaceBuild`, `PlaceBuildEnvelope`), and `demo/imagined-place-*.ts` the arrangement and flow projections shared by server rendering and the browser.
@@ -64,7 +64,7 @@ Effect-native HTTP handlers, independent of the host runtime: `apps/theoria/serv
 - Importing anything from `web/`.
 - Adding routes without a `Match` arm in `router.ts` (and, for the Worker, without the path in `assets.run_worker_first` in `wrangler.jsonc`).
 - Using `async/await` in handlers — all handlers are `Effect.gen`.
-- Reading `process.env` or Bun/Node APIs in `server/` — the same code runs in workerd. Use `Config` and the `StaticStore`/`FileSystem` services.
+- Reading `process.env` or Bun/Node APIs in `server/` — the same code runs in workerd. Use `Config`, `StaticStore`, and `FileSystem` / `Path` from Effect core; Bun hosts provide them with `BunServices`.
 - Hand-building envelopes — encode through the `Envelope` schema in `contracts/envelope.ts`.
 
 ---
@@ -99,8 +99,8 @@ The only place the app reads a host global. `BrowserWindow.ts` and `BrowserDocum
 
 ### Services: `services/`
 
-- `ImaginedPlaceClient`: `Effect.Service` with `build`. Encodes the request through `PlaceBuildRequest` and decodes the response through `PlaceBuildEnvelope`.
-- `DocsClient`: `Effect.Service` that fetches and decodes the docs manifest and per-page assets.
+- `ImaginedPlaceClient`: `Context.Service` with `build`. Encodes the request through `PlaceBuildRequest` and decodes the response through `PlaceBuildEnvelope`.
+- `DocsClient`: `Context.Service` that fetches and decodes the docs manifest and per-page assets.
 - `envelopeRequest.ts`: `requestEnvelope` — sends through the platform `HttpClient`; maps `HttpClientError` and decode failures to `DemoError`.
 - `browser-metadata.ts`: applies per-route `<head>` metadata.
 - `path.ts`: `PageRoute` parsing and printing (`/` and the `/docs` family).
@@ -179,5 +179,5 @@ This applies to all concerns:
 1. Define request and response schemas in `contracts/` and wrap the response in `Envelope(...)`.
 2. Add `routes/<name>.ts` returning `HttpServerResponse`, and a `Match.when` arm in `server/router.ts`.
 3. Add the path to `assets.run_worker_first` in `wrangler.jsonc` so the Worker, not the asset layer, answers it.
-4. Add the client method to the owning `Effect.Service` in `web/services/` and reach it from an atom through that feature's `Atom.runtime`.
+4. Add the client method to the owning `Context.Service` in `web/services/` and reach it from an atom through that feature's `Atom.runtime`.
 5. Cover it in `test/server/` (handler) and `test/worker/site.test.ts` (routing through the real Worker bundle).

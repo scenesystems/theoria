@@ -8,7 +8,7 @@
 npm install @scenesystems/digest effect
 ```
 
-Effect `^3.22.1` is a required peer dependency.
+Effect `^4.0.0` is a required peer dependency.
 
 ## Imports
 
@@ -31,36 +31,35 @@ Supported names are `Digest`, `ContentDigest`, `CanonicalJson`, `Utf8`, `Blake3`
 
 The API distinguishes deterministic work from validation and cooperative effects:
 
-| Shape    | Operations                                                                                                            |
-| -------- | --------------------------------------------------------------------------------------------------------------------- |
-| Pure     | `Digest.hash`, `ContentDigest.fromBytes`, `Hmac.sha256`, `Hmac.sha1`                                                  |
-| `Either` | `Utf8.encode`, `Utf8.fromScalar`, `Digest.hashString`, `Blake3.mac`, `Blake3.deriveKey`, `Hkdf.sha256`, `Hkdf.sha512` |
-| `Effect` | stream hashing, canonical JSON, unknown-value digests, and Schema-value digests                                       |
+| Shape    | Operations                                                                                         |
+| -------- | -------------------------------------------------------------------------------------------------- |
+| `Effect` | hashing, strict text encoding, keyed primitives, canonical JSON, streams, and Schema-value digests |
 
-This keeps raw byte hashing allocation-only, makes local input validation explicit, and leaves interruption, upstream failures, and service requirements in `Effect`.
+Operations are lazy, typed validation remains explicit, and interruption, upstream failures, and service requirements stay in `Effect`.
 
 ## Raw bytes and strict text
 
-`Digest.hash(algorithm, bytes)` returns raw 32-byte output. `Digest.hashString` first performs strict UTF-8 validation and therefore returns an `Either` with `Utf8.InvalidUnicode`.
+`Digest.hash(algorithm, bytes)` lazily produces raw 32-byte output in an Effect. `Digest.hashString` first performs strict UTF-8 validation and returns an `Effect` with `Utf8.InvalidUnicode`.
 
 ```ts typecheck
 import * as Digest from "@scenesystems/digest/Digest"
 import * as Utf8 from "@scenesystems/digest/Utf8"
-import { Effect, Encoding } from "effect"
+import { Effect } from "effect"
+import { Base64Url, Hex } from "effect/encoding"
 
 export const program = Effect.gen(function* () {
   const bytes = yield* Utf8.encode("hello")
-  const byteHash = Digest.hash("blake3-256", bytes)
+  const byteHash = yield* Digest.hash("blake3-256", bytes)
   const textHash = yield* Digest.hashString("sha256", "hello")
 
   return {
-    blake3Hex: Encoding.encodeHex(byteHash),
-    sha256Base64Url: Encoding.encodeBase64Url(textHash)
+    blake3Hex: Hex.encode(byteHash),
+    sha256Base64Url: Base64Url.encode(textHash)
   }
 })
 ```
 
-There are no package-specific hex or base64 conveniences. Compose `Encoding.encodeHex`, `Encoding.encodeBase64Url`, `Encoding.decodeHex`, or `Encoding.decodeBase64Url` from Effect.
+There are no package-specific hex or base64 conveniences. Compose `Hex.encode`, `Base64Url.encode`, `Hex.decode`, or `Base64Url.decode` from `effect/encoding`.
 
 `Digest.hashStream(algorithm, byteStream)` and `Digest.hashStringStream(algorithm, textStream)` hash incrementally. Both preserve the stream's error and requirement types. The text stream handles surrogate pairs split across chunks and reports malformed text at its absolute UTF-16 code-unit index.
 
@@ -81,7 +80,7 @@ export const identify = (value: unknown) =>
   ContentDigest.fromUnknown("blake3-256", value).pipe(Effect.map(ContentDigest.toString))
 ```
 
-`ContentDigest.fromBytes` hashes its input bytes directly and is pure. `ContentDigest.fromUnknown` canonicalizes an admitted runtime value before hashing and returns an `Effect<ContentDigest, CanonicalJson.Error>`. For a durable fingerprint, use `fromUnknown("blake3-256", value)` and then `toString`; there is no separate fingerprint helper.
+`ContentDigest.fromBytes` hashes its input bytes directly and is effectful. `ContentDigest.fromUnknown` incrementally hashes canonical segments without collecting the complete preimage and returns an `Effect<ContentDigest, CanonicalJson.Error>`. For a durable fingerprint, use `fromUnknown("blake3-256", value)` and then `toString`; there is no separate fingerprint helper.
 
 ### Schema values
 
@@ -100,9 +99,9 @@ export const eventId = (event: typeof Event.Type) =>
   ContentDigest.fromSchema(Event, event).pipe(Effect.map(ContentDigest.toString))
 ```
 
-`fromSchema(schema, value, algorithm?)` delegates to `Schema.encode`, preserves the Schema's service requirements, and defaults to BLAKE3-256. Its error channel includes `ParseResult.ParseError` and `CanonicalJson.Error`.
+`fromSchema(schema, value, algorithm?)` delegates to `Schema.encodeEffect`, preserves the codec's encoding service requirements (independently of decoding requirements), and defaults to BLAKE3-256. Its error channel includes `Schema.SchemaError` and `CanonicalJson.Error`.
 
-For large preimages, `fromSchemaWithByteLimit(schema, value, maximumBytes, algorithm?)` returns a `ContentDigest.Result` containing `digest` and exact `canonicalByteLength`. `fromSchemaWithByteLimitEither` has the same arguments and uses `Schema.encodeEither` for synchronous, service-free schemas.
+For large preimages, `fromSchemaWithByteLimit(schema, value, maximumBytes, algorithm?)` returns a `ContentDigest.Result` containing `digest` and exact `canonicalByteLength`. The `ContentDigest.Result` model is distinct from Effect's success/failure `Result` container.
 
 ```ts typecheck
 import * as ContentDigest from "@scenesystems/digest/ContentDigest"
@@ -140,25 +139,26 @@ Byte-limit failures use `CanonicalJson.ByteLimitError`: `InvalidByteLimit` or `B
 
 ## UTF-8 and Unicode scalars
 
-`Utf8.encode(text)` returns `Either<Uint8Array, Utf8.InvalidUnicode>`. It preserves valid text exactly and reports a lone surrogate's UTF-16 code-unit index.
+`Utf8.encode(text)` returns `Effect<Uint8Array, Utf8.InvalidUnicode>`. It preserves valid text exactly and reports a lone surrogate's UTF-16 code-unit index.
 
-`Utf8.Scalar` is the numeric Schema and brand for Unicode scalar values: integers from 0 through `0x10FFFF`, excluding the surrogate range. `Utf8.fromScalar(number)` validates before constructing text and returns `Either<string, ParseResult.ParseError>`. NUL, controls, unassigned scalars, noncharacters, and U+FEFF remain valid; no normalization occurs.
+`Utf8.Scalar` is the numeric Schema and brand for Unicode scalar values: integers from 0 through `0x10FFFF`, excluding the surrogate range. `Utf8.fromScalar(number)` validates before constructing text and returns `Effect<string, Schema.SchemaError>`. NUL, controls, unassigned scalars, noncharacters, and U+FEFF remain valid; no normalization occurs.
 
 ## Authentication and key derivation
 
-Hashing does not authenticate. `Hmac.sha256(key, message)` and protocol-compatibility `Hmac.sha1(key, message)` return bytes directly. `Blake3.mac(key, message)` returns an `Either` because BLAKE3 keyed mode requires a 32-byte key.
+Hashing does not authenticate. `Hmac.sha256(key, message)` and protocol-compatibility `Hmac.sha1(key, message)` lazily return bytes. `Blake3.mac(key, message)` additionally reports invalid key length in its Effect error channel.
 
-`Hkdf.sha256(ikm, salt, info, length)` and `Hkdf.sha512` accept `Option<Uint8Array>` salt and return `Either<Uint8Array, Hkdf.InvalidLength>`. `Option.none()` supplies a hash-length zero salt. The inclusive output ranges are 0–8160 and 0–16320 bytes respectively. `Blake3.deriveKey(context, input, length?)` defaults to 32 bytes and admits non-negative safe-integer lengths; impose an application-specific allocation limit for external requests. It reports `Utf8.InvalidUnicode` or `Blake3.InvalidLength`; allocation failures remain runtime defects.
+`Hkdf.sha256(ikm, salt, info, length)` and `Hkdf.sha512` accept `Option<Uint8Array>` salt and return `Effect<Uint8Array, Hkdf.InvalidLength>`. `Option.none()` supplies a hash-length zero salt. The inclusive output ranges are 0–8160 and 0–16320 bytes respectively. `Blake3.deriveKey(context, input, length?)` defaults to 32 bytes and admits non-negative safe-integer lengths; impose an application-specific allocation limit for external requests. It reports `Utf8.InvalidUnicode` or `Blake3.InvalidLength`; allocation failures remain runtime defects.
 
 ```ts typecheck
 import * as Hmac from "@scenesystems/digest/Hmac"
 import * as Utf8 from "@scenesystems/digest/Utf8"
-import { Effect, Encoding } from "effect"
+import { Effect } from "effect"
+import { Base64Url } from "effect/encoding"
 
 export const authenticate = Effect.gen(function* () {
   const key = yield* Utf8.encode("shared secret")
   const message = yield* Utf8.encode("webhook body")
-  return Encoding.encodeBase64Url(Hmac.sha256(key, message))
+  return Base64Url.encode(yield* Hmac.sha256(key, message))
 })
 ```
 

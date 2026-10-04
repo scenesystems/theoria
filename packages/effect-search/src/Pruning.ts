@@ -7,7 +7,7 @@
 import * as Numeric from "@scenesystems/effect-math/Numeric"
 import type * as Journal from "@scenesystems/effect-study/Journal"
 import type * as Stop from "@scenesystems/effect-study/Stop"
-import { Array as Arr, Boolean as Bool, Data, Match, Number as Num, Option, Predicate, Schema } from "effect"
+import { Array as Arr, Boolean as Bool, Data, Match, Number as Num, Option, Predicate, Result, Schema } from "effect"
 import type { Effect } from "effect"
 
 import { Direction } from "./Direction.js"
@@ -15,21 +15,21 @@ import type { InvalidObjectiveReport } from "./SearchError.js"
 
 /** One accepted intermediate objective value. @since 0.7.0 @category schemas */
 export class Report extends Schema.Class<Report>("@scenesystems/effect-search/Pruning/Report")({
-  step: Schema.NonNegativeInt,
-  value: Schema.JsonNumber
+  step: Schema.Number.check(Schema.isInt(), Schema.isGreaterThanOrEqualTo(0)),
+  value: Schema.Number.check(Schema.isFinite())
 }) {}
 
 const Reports = Schema.Array(Report)
 
 /** Continue evaluation or prune it with provenance. @since 0.7.0 @category schemas */
-export const Decision = Schema.Union(
+export const Decision = Schema.Union([
   Schema.TaggedStruct("Continue", {}),
   Schema.TaggedStruct("Prune", {
-    step: Schema.NonNegativeInt,
+    step: Schema.Number.check(Schema.isInt(), Schema.isGreaterThanOrEqualTo(0)),
     reason: Schema.String,
     policy: Schema.String
   })
-)
+])
 /** Decoded instruction to continue or prune an evaluation. @since 0.7.0 @category models */
 export type Decision = typeof Decision.Type
 /** Terminal pruning decision with its step, reason, and policy. @since 0.7.0 @category models */
@@ -64,7 +64,7 @@ export const never = new Policy({ name: "never-prune", decide: () => continueEva
 const directionFactor = (direction: Direction): number =>
   Match.value(direction).pipe(
     Match.when("minimize", () => 1),
-    Match.when("maximize", () => Num.negate(1)),
+    Match.when("maximize", () => Num.multiply(-1, 1)),
     Match.exhaustive
   )
 
@@ -73,11 +73,11 @@ export const threshold = (limit: number, direction: Direction = "minimize", minS
   new Policy({
     name: "threshold",
     decide: ({ latestReport }) =>
-      Match.value(Num.lessThan(latestReport.step, minStep)).pipe(
+      Match.value(Num.isLessThan(latestReport.step, minStep)).pipe(
         Match.when(true, () => continueEvaluation()),
         Match.orElse(() =>
           Match.value(
-            Num.greaterThanOrEqualTo(
+            Num.isGreaterThanOrEqualTo(
               Num.multiply(latestReport.value, directionFactor(direction)),
               Num.multiply(limit, directionFactor(direction))
             )
@@ -109,15 +109,15 @@ export class Runtime extends Data.Class<{
 export class PercentileOptions extends Schema.Class<PercentileOptions>(
   "@scenesystems/effect-search/Pruning/PercentileOptions"
 )({
-  percentile: Schema.Number,
-  startupTrials: Schema.Number,
-  warmupSteps: Schema.Number,
-  intervalSteps: Schema.Number,
-  nMinTrials: Schema.Number
+  percentile: Schema.Finite,
+  startupTrials: Schema.Finite,
+  warmupSteps: Schema.Finite,
+  intervalSteps: Schema.Finite,
+  nMinTrials: Schema.Finite
 }) {}
 
 /** Historical report state used by percentile pruning. @since 0.7.0 @category schemas */
-export const PercentileTrialState = Schema.Literal("complete", "pruned", "running")
+export const PercentileTrialState = Schema.Literals(["complete", "pruned", "running"])
 /** Lifecycle state of a trial in percentile-pruning history. @since 0.7.0 @category models */
 export type PercentileTrialState = typeof PercentileTrialState.Type
 
@@ -125,7 +125,7 @@ export type PercentileTrialState = typeof PercentileTrialState.Type
 export class PercentileTrial extends Schema.Class<PercentileTrial>(
   "@scenesystems/effect-search/Pruning/PercentileTrial"
 )({
-  trialNumber: Schema.Number,
+  trialNumber: Schema.Finite,
   state: PercentileTrialState,
   reports: Schema.Array(Report)
 }) {}
@@ -138,8 +138,8 @@ export class PercentileContext extends Schema.Class<PercentileContext>(
 )({
   direction: Direction,
   settings: PercentileOptions,
-  trialNumber: Schema.Number,
-  step: Schema.Number,
+  trialNumber: Schema.Finite,
+  step: Schema.Finite,
   history: PercentileTrials,
   currentReports: Reports
 }) {}
@@ -151,7 +151,7 @@ const percentileValue = (values: Iterable<number>, percentile: number): Option.O
   return Arr.head(ordered).pipe(
     Option.map(() => {
       const rank = Num.multiply(
-        Num.unsafeDivide(Num.clamp(percentile, { minimum: 0, maximum: 100 }), 100),
+        Num.divideUnsafe(Num.clamp(percentile, { minimum: 0, maximum: 100 }), 100),
         Num.decrement(Arr.length(ordered))
       )
       const lowerIndex = Numeric.floor(rank)
@@ -183,22 +183,22 @@ export const shouldPruneByPercentile = (context: PercentileContext): boolean => 
       Match.when("complete", () => true),
       Match.orElse(() => false)
     ))
-  const intervalSteps = Match.value(Num.greaterThan(context.settings.intervalSteps, 0)).pipe(
+  const intervalSteps = Match.value(Num.isGreaterThan(context.settings.intervalSteps, 0)).pipe(
     Match.when(true, () => Numeric.floor(context.settings.intervalSteps)),
     Match.orElse(() => 1)
   )
   const interval = Num.subtract(context.step, context.settings.warmupSteps)
   const nearestLower = Num.sum(
-    Num.multiply(Numeric.floor(Num.unsafeDivide(interval, intervalSteps)), intervalSteps),
+    Num.multiply(Numeric.floor(Num.divideUnsafe(interval, intervalSteps)), intervalSteps),
     context.settings.warmupSteps
   )
   const previousStep = Arr.reduce(
     context.currentReports,
-    Num.negate(1),
+    Num.multiply(-1, 1),
     (current, report) =>
       Match.value(Bool.and(
         Bool.not(Num.Equivalence(report.step, context.step)),
-        Num.greaterThan(report.step, current)
+        Num.isGreaterThan(report.step, current)
       )).pipe(
         Match.when(true, () => report.step),
         Match.orElse(() => current)
@@ -208,16 +208,17 @@ export const shouldPruneByPercentile = (context: PercentileContext): boolean => 
     completed,
     (trial) =>
       Arr.findFirst(trial.reports, (report) => Num.Equivalence(report.step, context.step)).pipe(
-        Option.map((report) => report.value)
+        Option.map((report) => report.value),
+        Result.fromOption(() => "missing report")
       )
   )
   const eligible = Arr.every(
     Arr.make(
-      Num.greaterThan(Arr.length(completed), 0),
-      Num.greaterThanOrEqualTo(Arr.length(completed), context.settings.startupTrials),
-      Num.greaterThanOrEqualTo(context.step, context.settings.warmupSteps),
-      Num.lessThan(previousStep, nearestLower),
-      Num.greaterThanOrEqualTo(Arr.length(peers), context.settings.nMinTrials)
+      Num.isGreaterThan(Arr.length(completed), 0),
+      Num.isGreaterThanOrEqualTo(Arr.length(completed), context.settings.startupTrials),
+      Num.isGreaterThanOrEqualTo(context.step, context.settings.warmupSteps),
+      Num.isLessThan(previousStep, nearestLower),
+      Num.isGreaterThanOrEqualTo(Arr.length(peers), context.settings.nMinTrials)
     ),
     (value) => value
   )
@@ -225,7 +226,7 @@ export const shouldPruneByPercentile = (context: PercentileContext): boolean => 
   return Match.value(eligible).pipe(
     Match.when(false, () => false),
     Match.orElse(() =>
-      Match.value(Arr.some(context.currentReports, (report) => Predicate.not(Schema.is(Schema.NonNaN))(report.value)))
+      Match.value(Arr.some(context.currentReports, (report) => Predicate.not(Numeric.isFinite)(report.value)))
         .pipe(
           Match.when(true, () => true),
           Match.orElse(() =>
@@ -244,8 +245,8 @@ export const shouldPruneByPercentile = (context: PercentileContext): boolean => 
                 onNone: () => false,
                 onSome: ({ best, threshold }) =>
                   Match.value(context.direction).pipe(
-                    Match.when("minimize", () => Num.greaterThan(best, threshold)),
-                    Match.when("maximize", () => Num.lessThan(best, threshold)),
+                    Match.when("minimize", () => Num.isGreaterThan(best, threshold)),
+                    Match.when("maximize", () => Num.isLessThan(best, threshold)),
                     Match.exhaustive
                   )
               })

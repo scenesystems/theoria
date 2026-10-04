@@ -1,5 +1,5 @@
 import { describe, expect, it } from "@effect/vitest"
-import { Deferred, Effect, Exit, Fiber, Number as Num, Ref, Schema, Scope } from "effect"
+import { Context, Deferred, Effect, Exit, Fiber, Layer, Number as Num, Ref, Schema, Scope } from "effect"
 import * as Arr from "effect/Array"
 
 import * as SearchError from "@scenesystems/effect-search/SearchError"
@@ -16,20 +16,27 @@ import { OpenedStudy, PlaceSearchStudies } from "../../app/web/services/PlaceSea
  */
 
 /** A loss told to one study. */
-const Told = Schema.Struct({ study: Schema.Number, trial: Schema.Number, loss: Schema.Number })
+const Told = Schema.Struct({ study: Schema.Finite, trial: Schema.Finite, loss: Schema.Finite })
 type Told = typeof Told.Type
 
 /** What the fake opener saw: studies opened, study scopes closed, and every loss told. */
-class Openings extends Effect.Service<Openings>()("test/Openings", {
-  effect: Effect.all({ opened: Ref.make(0), closed: Ref.make(0), told: Ref.make(Arr.empty<Told>()) })
-}) {}
+class Openings extends Context.Service<Openings, {
+  readonly opened: Ref.Ref<number>
+  readonly closed: Ref.Ref<number>
+  readonly told: Ref.Ref<ReadonlyArray<Told>>
+}>()("test/Openings") {
+  static readonly Default = Layer.effect(
+    Openings,
+    Effect.all({ opened: Ref.make(0), closed: Ref.make(0), told: Ref.make<ReadonlyArray<Told>>(Arr.empty()) })
+  )
+}
 
 const meander = { edge: 0.7, swing: 0.1, phase: 0, turns: 1, top: 0.2, step: 0.1 }
 
 /** An opener whose study answers every ask with its own number, so asks are seen to reach the study asked. */
 const openingStudies: Effect.Effect<OpenedStudy, SearchError.SearchError, Scope.Scope | Openings> = Effect.gen(
   function*() {
-    const openings = yield* Openings
+    const openings = yield* Effect.service(Openings)
     const number = yield* Ref.updateAndGet(openings.opened, Num.increment)
     yield* Effect.addFinalizer(() => Ref.update(openings.closed, Num.increment))
     return new OpenedStudy({
@@ -44,7 +51,7 @@ const refusing = Effect.fail(new SearchError.InvalidSearchSpace({ reason: "no ro
 /** An opener that registers its finalizer, then waits on the gate before returning the study. */
 const gatedBy = (gate: Deferred.Deferred<void>) =>
   Effect.gen(function*() {
-    const openings = yield* Openings
+    const openings = yield* Effect.service(Openings)
     yield* Effect.addFinalizer(() => Ref.update(openings.closed, Num.increment))
     yield* Deferred.await(gate)
     return yield* openingStudies
@@ -53,17 +60,17 @@ const gatedBy = (gate: Deferred.Deferred<void>) =>
 /** An opener whose study takes its time letting go: its finalizer waits on the gate before counting itself closed. */
 const slowToLetGo = (gate: Deferred.Deferred<void>) =>
   Effect.gen(function*() {
-    const openings = yield* Openings
-    yield* Effect.addFinalizer(() => Effect.zipRight(Deferred.await(gate), Ref.update(openings.closed, Num.increment)))
+    const openings = yield* Effect.service(Openings)
+    yield* Effect.addFinalizer(() => Effect.andThen(Deferred.await(gate), Ref.update(openings.closed, Num.increment)))
     return yield* openingStudies
   })
 
 const failure = (search: PlaceSearchId) => new PlaceSearchFailed({ message: `no open search ${String(search)}` })
 
 describe("PlaceSearchStudies", () => {
-  it.scoped("a study that opens is asked under its own name, and let go when closed", () =>
+  it.effect("a study that opens is asked under its own name, and let go when closed", () =>
     Effect.gen(function*() {
-      const openings = yield* Openings
+      const openings = yield* Effect.service(Openings)
       const studies = yield* PlaceSearchStudies.make(openingStudies)
       const first = yield* studies.open
       const second = yield* studies.open
@@ -79,11 +86,11 @@ describe("PlaceSearchStudies", () => {
       expect((yield* studies.ask(second)).trial).toBe(2)
     }).pipe(Effect.provide(Openings.Default)))
 
-  it.scoped("a study that fails to open is let go with its scope, and nothing is kept", () =>
+  it.effect("a study that fails to open is let go with its scope, and nothing is kept", () =>
     Effect.gen(function*() {
-      const openings = yield* Openings
+      const openings = yield* Effect.service(Openings)
       const studies = yield* PlaceSearchStudies.make(
-        Effect.zipRight(Effect.addFinalizer(() => Ref.update(openings.closed, Num.increment)), refusing)
+        Effect.andThen(Effect.addFinalizer(() => Ref.update(openings.closed, Num.increment)), refusing)
       )
       const failed = yield* Effect.flip(studies.open)
       expect(failed._tag).toBe("PlaceSearchFailed")
@@ -91,32 +98,32 @@ describe("PlaceSearchStudies", () => {
       expect(yield* studies.openCount).toBe(0)
     }).pipe(Effect.provide(Openings.Default)))
 
-  it.scoped("an opening given up on is let go with its scope, and nothing is kept", () =>
+  it.effect("an opening given up on is let go with its scope, and nothing is kept", () =>
     Effect.gen(function*() {
-      const openings = yield* Openings
+      const openings = yield* Effect.service(Openings)
       const gate = yield* Deferred.make<void>()
       const studies = yield* PlaceSearchStudies.make(gatedBy(gate))
-      const opening = yield* Effect.fork(studies.open)
-      yield* Effect.yieldNow()
+      const opening = yield* Effect.forkChild(studies.open)
+      yield* Effect.yieldNow
       expect(yield* Ref.get(openings.closed)).toBe(0)
       yield* Fiber.interrupt(opening)
       expect(yield* Ref.get(openings.closed)).toBe(1)
       expect(yield* studies.openCount).toBe(0)
     }).pipe(Effect.provide(Openings.Default)))
 
-  it.scoped("a close given up on still lets the study go whole: nothing is forgotten half let go", () =>
+  it.effect("a close given up on still lets the study go whole: nothing is forgotten half let go", () =>
     Effect.gen(function*() {
-      const openings = yield* Openings
+      const openings = yield* Effect.service(Openings)
       const gate = yield* Deferred.make<void>()
       const studies = yield* PlaceSearchStudies.make(slowToLetGo(gate))
       const search = yield* studies.open
-      const closing = yield* Effect.fork(studies.close(search))
-      yield* Effect.yieldNow()
+      const closing = yield* Effect.forkChild(studies.close(search))
+      yield* Effect.yieldNow
       // The table has let go of the study; its scope is closing, held at the gate.
       expect(yield* studies.openCount).toBe(0)
       expect(yield* Ref.get(openings.closed)).toBe(1)
-      const interrupting = yield* Effect.fork(Fiber.interrupt(closing))
-      yield* Effect.yieldNow()
+      const interrupting = yield* Effect.forkChild(Fiber.interrupt(closing))
+      yield* Effect.yieldNow
       expect(yield* Ref.get(openings.closed)).toBe(1)
       yield* Deferred.succeed(gate, undefined)
       yield* Fiber.join(interrupting)
@@ -126,9 +133,9 @@ describe("PlaceSearchStudies", () => {
 
   it.effect("every study still open when the worker is let go is closed with it", () =>
     Effect.gen(function*() {
-      const openings = yield* Openings
+      const openings = yield* Effect.service(Openings)
       const scope = yield* Scope.make()
-      const studies = yield* PlaceSearchStudies.make(openingStudies).pipe(Scope.extend(scope))
+      const studies = yield* PlaceSearchStudies.make(openingStudies).pipe(Effect.provideService(Scope.Scope, scope))
       yield* studies.open
       yield* studies.open
       const closed = yield* studies.open

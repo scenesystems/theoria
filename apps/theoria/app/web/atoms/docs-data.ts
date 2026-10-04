@@ -1,5 +1,5 @@
-import { Atom } from "@effect-atom/atom"
 import { Effect } from "effect"
+import { Atom } from "effect/reactivity"
 
 import { prepareDocsSearchIndex } from "@theoria/docs-model"
 import { DocsClient } from "../services/DocsClient.js"
@@ -9,7 +9,7 @@ export const docsRuntime = Atom.runtime(DocsClient.Default)
 export const docsManifestAtom = docsRuntime.atom(
   Effect.gen(function*() {
     const client = yield* DocsClient
-    return yield* client.manifest()
+    return yield* client.manifest
   })
 ).pipe(Atom.keepAlive)
 

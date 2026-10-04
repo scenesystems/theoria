@@ -115,14 +115,14 @@ const trialName = (search: PlaceSearch, index: number): string =>
   })
 
 /** Two markers are the same disc: the same feature, at the same place, the same size. */
-const sameDisc: Equivalence.Equivalence<PlaceMarker> = Equivalence.struct({
-  name: Equivalence.string,
-  x: Equivalence.number,
-  y: Equivalence.number,
-  radius: Equivalence.number
+const sameDisc: Equivalence.Equivalence<PlaceMarker> = Equivalence.Struct({
+  name: Equivalence.String,
+  x: Equivalence.Number,
+  y: Equivalence.Number,
+  radius: Equivalence.Number
 })
 
-const sameDiscs = Arr.getEquivalence(sameDisc)
+const sameDiscs = Arr.makeEquivalence(sameDisc)
 
 /**
  * Whether the drawing on the paper is the frame's trial itself, or a
@@ -263,10 +263,10 @@ const digestAnswer = (mark: PlaceMark, build: PlaceBuild, contentId: string): Op
             fact("Over", `${String(version.featureCount)} features`),
             fact(
               "Parent",
-              Option.match(Option.fromNullable(version.parent), { onNone: () => "None · origin", onSome: shortId })
+              Option.match(Option.fromNullishOr(version.parent), { onNone: () => "None · origin", onSome: shortId })
             )
           ]),
-          Bool.match(Option.isNone(Option.fromNullable(version.parent)), {
+          Bool.match(Option.isNone(Option.fromNullishOr(version.parent)), {
             onTrue: () => originDigestSite,
             onFalse: () => mergedDigestSite
           }),
@@ -320,7 +320,7 @@ const composedNames = (build: PlaceBuild): ReadonlyArray<string> =>
  * merged into it, which is what the place draws.
  */
 const featuresOfVersion = (build: PlaceBuild, version: Version): ReadonlyArray<string> =>
-  Bool.match(Option.isNone(Option.fromNullable(version.parent)), {
+  Bool.match(Option.isNone(Option.fromNullishOr(version.parent)), {
     onTrue: () => composedNames(build),
     onFalse: () => Arr.map(placeFeatures(build.artifact), (feature) => feature.name)
   })
@@ -434,21 +434,21 @@ const lineAnswer = (mark: PlaceMark, frame: PlaceRenderFrame, index: number): Op
         [
           fact(
             "Room",
-            Bool.match(Arr.isNonEmptyReadonlyArray(besideIt), {
-              onTrue: () => `${String(Num.round(line.maxWidth, 0))} of ${String(full)} px · beside a disc`,
-              onFalse: () => `${String(full)} px · full`
+            Arr.match(besideIt, {
+              onNonEmpty: () => `${String(Num.round(line.maxWidth, 0))} of ${String(full)} px · beside a disc`,
+              onEmpty: () => `${String(full)} px · full`
             })
           ),
           fact("Set", `${String(Num.round(line.width, 0))} px`)
         ],
         Arr.appendAll(
-          Bool.match(Arr.isNonEmptyReadonlyArray(besideIt), {
-            onTrue: () => [fact("Beside", Arr.join(Arr.map(besideIt, (marker) => marker.name), ", "))],
-            onFalse: () => []
+          Arr.match(besideIt, {
+            onNonEmpty: () => [fact("Beside", Arr.join(Arr.map(besideIt, (marker) => marker.name), ", "))],
+            onEmpty: () => []
           }),
-          Bool.match(Arr.isNonEmptyReadonlyArray(adds), {
-            onTrue: () => [fact("Adds", Arr.join(adds, ", "))],
-            onFalse: () => []
+          Arr.match(adds, {
+            onNonEmpty: () => [fact("Adds", Arr.join(adds, ", "))],
+            onEmpty: () => []
           })
         )
       ),
@@ -483,7 +483,7 @@ const narrowedLine = (frame: PlaceRenderFrame): Option.Option<number> =>
   Option.orElse(
     Arr.findFirstIndex(
       frame.rendering.projection.lines,
-      (_, index) => Arr.isNonEmptyReadonlyArray(beside(frame, index))
+      (_, index) => Arr.match(beside(frame, index), { onEmpty: () => false, onNonEmpty: () => true })
     ),
     () => Option.map(Arr.head(frame.rendering.projection.lines), () => 0)
   )

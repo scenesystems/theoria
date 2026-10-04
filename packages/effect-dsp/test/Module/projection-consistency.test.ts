@@ -5,7 +5,15 @@ import { describe, expect, it } from "@effect/vitest"
 import * as Module from "@scenesystems/effect-dsp/Module"
 import { make as makeParameters } from "@scenesystems/effect-dsp/ModuleParameters"
 import * as Signature from "@scenesystems/effect-dsp/Signature"
-import { Array as Arr, Data, Effect, HashMap, Record, Ref, Schema, Tuple } from "effect"
+import { Array as Arr, Data, Effect, HashMap, Option, Record, Ref, Schema, Tuple } from "effect"
+
+class Owners<S, X, Y, F, O> extends Data.Class<{
+  readonly signature: S
+  readonly x: X
+  readonly y: Y
+  readonly first: F
+  readonly second: O
+}> {}
 
 const makeOwners = () =>
   Effect.gen(function*() {
@@ -28,8 +36,14 @@ const makeOwners = () =>
         forward: () => Effect.succeed({ answer: "unused" })
       })
     )
-    const second = new Module.Module({ ...other, params: first.params })
-    return Data.struct({ signature, x, y, first, second })
+    const second = new Module.Module({
+      name: other.name,
+      signature: other.signature,
+      params: first.params,
+      subModules: other.subModules,
+      forward: other.forward
+    })
+    return new Owners({ signature, x, y, first, second })
   })
 
 describe("shared owner projection consistency", () => {
@@ -38,8 +52,19 @@ describe("shared owner projection consistency", () => {
       const { signature, x, y, first, second } = yield* makeOwners()
       const distinctX = yield* Module.predict("x", signature)
       const sameIdDifferentOwner = new Module.Module({
-        ...first,
-        subModules: HashMap.map(first.subModules, (node) => new Module.Node({ ...node, params: distinctX.params }))
+        name: first.name,
+        signature: first.signature,
+        params: first.params,
+        subModules: HashMap.map(first.subModules, (node) =>
+          new Module.Node({
+            moduleId: node.moduleId,
+            name: node.name,
+            signature: node.signature,
+            demonstrationCodec: node.demonstrationCodec,
+            params: distinctX.params,
+            subModules: node.subModules
+          })),
+        forward: first.forward
       })
       const refs = Arr.make(first.params, x.params, y.params, distinctX.params)
       const before = yield* Effect.forEach(refs, (ref) => Ref.get(ref))
@@ -107,15 +132,29 @@ describe("shared owner projection consistency", () => {
         })
       )
       const second = new Module.Module({
-        ...first,
+        name: first.name,
+        signature: first.signature,
+        params: first.params,
         subModules: HashMap.fromIterable(
           Arr.reverse(
             Arr.map(
               HashMap.toEntries(first.subModules),
-              ([id, node]) => Tuple.make(id, new Module.Node({ ...node }))
+              ([id, node]) =>
+                Tuple.make(
+                  id,
+                  new Module.Node({
+                    moduleId: node.moduleId,
+                    name: node.name,
+                    signature: node.signature,
+                    demonstrationCodec: node.demonstrationCodec,
+                    params: node.params,
+                    subModules: node.subModules
+                  })
+                )
             )
           )
-        )
+        ),
+        forward: first.forward
       })
       const left = yield* Module.compose(
         new Module.ComposeOptions({
@@ -168,7 +207,7 @@ describe("shared owner projection consistency", () => {
   it.effect("rejects changed metadata or demonstration contracts on deep projections of the same Ref", () =>
     Effect.gen(function*() {
       const { signature, first } = yield* makeOwners()
-      const otherSignature = yield* Signature.make("Answer", { question: Schema.Number }, { answer: Schema.String })
+      const otherSignature = yield* Signature.make("Answer", { question: Schema.Finite }, { answer: Schema.String })
       const left = yield* Module.compose(
         new Module.ComposeOptions({
           name: "left",
@@ -177,13 +216,17 @@ describe("shared owner projection consistency", () => {
           forward: () => Effect.succeed({ answer: "unused" })
         })
       )
-      const sharedId = yield* Schema.decodeUnknown(Module.Id)("shared")
-      const node = yield* HashMap.get(left.subModules, sharedId)
+      const sharedId = yield* Schema.decodeEffect(Module.Id)("shared")
+      const node = Option.getOrThrow(HashMap.get(left.subModules, sharedId))
       yield* Effect.forEach(
         Arr.make(
           Tuple.make(
             new Module.Node({
-              ...node,
+              moduleId: node.moduleId,
+              name: node.name,
+              demonstrationCodec: node.demonstrationCodec,
+              params: node.params,
+              subModules: node.subModules,
               signature: new Module.NodeSignature({
                 description: "changed description",
                 instructions: signature.instructions
@@ -193,7 +236,11 @@ describe("shared owner projection consistency", () => {
           ),
           Tuple.make(
             new Module.Node({
-              ...node,
+              moduleId: node.moduleId,
+              name: node.name,
+              demonstrationCodec: node.demonstrationCodec,
+              params: node.params,
+              subModules: node.subModules,
               signature: new Module.NodeSignature({
                 description: signature.description,
                 instructions: "changed instructions"
@@ -202,7 +249,14 @@ describe("shared owner projection consistency", () => {
             "inconsistent signature metadata"
           ),
           Tuple.make(
-            new Module.Node({ ...node, demonstrationCodec: otherSignature.demonstrationCodec }),
+            new Module.Node({
+              moduleId: node.moduleId,
+              name: node.name,
+              signature: node.signature,
+              demonstrationCodec: otherSignature.demonstrationCodec,
+              params: node.params,
+              subModules: node.subModules
+            }),
             "inconsistent demonstration contract"
           )
         ),

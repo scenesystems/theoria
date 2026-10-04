@@ -1,4 +1,4 @@
-import { useAtomSet, useAtomValue } from "@effect-atom/atom-react"
+import { useAtomSet, useAtomValue } from "@effect/atom-react"
 import { Boolean as Bool, Equal, Function, Match, Schema } from "effect"
 import * as Arr from "effect/Array"
 import type { AnimationDefinition, Variants } from "motion/react"
@@ -27,7 +27,7 @@ const SEGMENTS: ReadonlyArray<{ readonly en: string; readonly gr: string }> = [
 ]
 
 /** Which face of the wordmark a layer shows: the Latin `en` or the Greek `gr`. */
-const Face = Schema.Literal("en", "gr")
+const Face = Schema.Literals(["en", "gr"])
 type Face = typeof Face.Type
 
 /**

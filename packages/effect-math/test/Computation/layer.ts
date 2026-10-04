@@ -6,7 +6,7 @@ import * as Policy from "../../src/Policy.js"
 import * as Precision from "../../src/Precision.js"
 import * as Scalar from "../../src/Scalar.js"
 
-class Options extends Data.Class<{
+export class Options extends Data.Class<{
   readonly scalar?: Scalar.Settings
   readonly precision?: Precision.Policy
   readonly backend?: Policy.BackendPolicy["policy"]
@@ -20,20 +20,20 @@ export const layer = (options: Options = defaults) =>
     Computation.layerPlanner,
     Layer.succeed(
       Scalar.Scalar,
-      Option.getOrElse(Option.fromNullable(options.scalar), () => Scalar.defaultSettings)
+      Option.getOrElse(Option.fromNullishOr(options.scalar), () => Scalar.defaultSettings)
     ),
     Layer.succeed(
       Precision.Precision,
-      Option.getOrElse(Option.fromNullable(options.precision), () => Precision.defaultPolicy)
+      Option.getOrElse(Option.fromNullishOr(options.precision), () => Precision.defaultPolicy)
     ),
     Layer.succeed(Policy.Backend, {
       policy: Option.getOrElse(
-        Option.fromNullable(options.backend),
-        () => Schema.decodeUnknownSync(Policy.BackendPolicy.fields.policy)("scalar")
+        Option.fromNullishOr(options.backend),
+        () => Schema.decodeSync(Policy.BackendPolicy.fields.policy)("scalar")
       )
     }),
     Layer.succeed(
       Autodiff.Autodiff,
-      Option.getOrElse(Option.fromNullable(options.autodiff), () => Autodiff.defaultSettings)
+      Option.getOrElse(Option.fromNullishOr(options.autodiff), () => Autodiff.defaultSettings)
     )
   )

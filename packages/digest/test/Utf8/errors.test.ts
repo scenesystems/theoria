@@ -10,7 +10,7 @@ it.effect.each(Arr.make(
   Effect.gen(function*() {
     expect(
       yield* Effect.exit(
-        Schema.decodeUnknown(Utf8.InvalidUnicode)({
+        Schema.decodeEffect(Utf8.InvalidUnicode)({
           _tag: "InvalidUnicode",
           kind: "lone-low-surrogate",
           codeUnitIndex
@@ -18,7 +18,7 @@ it.effect.each(Arr.make(
       )
     ).toSatisfy(Exit.isFailure)
     expect(
-      yield* Schema.decode(Utf8.InvalidUnicode)({
+      yield* Schema.decodeEffect(Utf8.InvalidUnicode)({
         _tag: "InvalidUnicode",
         kind: "lone-low-surrogate",
         codeUnitIndex: 0

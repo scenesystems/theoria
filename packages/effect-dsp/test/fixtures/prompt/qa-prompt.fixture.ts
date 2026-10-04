@@ -1,8 +1,8 @@
 /**
  * Golden prompt fixtures for prompt-construction contracts.
  */
-import * as Prompt from "@effect/ai/Prompt"
 import { Array as Arr } from "effect"
+import * as Prompt from "effect/ai/Prompt"
 
 const system = Prompt.systemMessage({
   content: Arr.join(

@@ -59,26 +59,23 @@ export const registrationsToModuleGraph = (
 ): Effect.Effect<ModuleGraph, CompositionError> =>
   Effect.suspend(() => {
     const snapshot = Arr.fromIterable(registrations)
-    return Effect.if(hasRootRegistration(rootId, snapshot), {
-      onTrue: () =>
-        Effect.sync(() =>
-          makeModuleGraph({
-            rootId,
-            nodes: Arr.map(snapshot, registrationNode),
-            edges: Arr.flatMap(snapshot, registrationEdges)
-          })
-        ),
-      onFalse: () =>
-        Effect.fail(
-          new CompositionError({
-            message: Arr.join(
-              Arr.make("Discovery root '", rootId, "' was not observed in registry snapshot"),
-              ""
-            ),
-            moduleName: rootId
-          })
-        )
-    })
+    return hasRootRegistration(rootId, snapshot) ?
+      Effect.sync(() =>
+        makeModuleGraph({
+          rootId,
+          nodes: Arr.map(snapshot, registrationNode),
+          edges: Arr.flatMap(snapshot, registrationEdges)
+        })
+      ) :
+      Effect.fail(
+        new CompositionError({
+          message: Arr.join(
+            Arr.make("Discovery root '", rootId, "' was not observed in registry snapshot"),
+            ""
+          ),
+          moduleName: rootId
+        })
+      )
   })
 
 /**
@@ -102,7 +99,7 @@ export const registrationsToModuleGraph = (
  */
 export const discoverModules = <A, E, R>(
   program: Effect.Effect<A, E, R>
-) => withDiscoveryScope(program.pipe(Effect.zipRight(registrySnapshot)))
+) => withDiscoveryScope(program.pipe(Effect.andThen(registrySnapshot)))
 
 /**
  * Runs a program and projects its registrations into a module graph.
@@ -153,8 +150,5 @@ export const withDiscoveryScope = <A, E, R>(
 ): Effect.Effect<A, E, R> =>
   Effect.flatMap(
     SynchronizedRef.make(HashMap.empty<Id, Registration>()),
-    (collector) =>
-      program.pipe(
-        Effect.locally(ModuleRegistryRef, Option.some(collector))
-      )
+    (collector) => Effect.provideService(program, ModuleRegistryRef, Option.some(collector))
   )

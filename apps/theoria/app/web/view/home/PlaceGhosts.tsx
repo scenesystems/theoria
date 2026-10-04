@@ -1,4 +1,4 @@
-import { useAtomValue } from "@effect-atom/atom-react"
+import { useAtomValue } from "@effect/atom-react"
 import { Match } from "effect"
 import * as Arr from "effect/Array"
 import * as Num from "effect/Number"

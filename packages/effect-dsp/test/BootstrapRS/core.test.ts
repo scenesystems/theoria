@@ -1,7 +1,6 @@
 /**
  * BootstrapRS optimizer contracts.
  */
-import * as LanguageModel from "@effect/ai/LanguageModel"
 import { describe, expect, it } from "@effect/vitest"
 import * as BootstrapRS from "@scenesystems/effect-dsp/BootstrapRS"
 import { AllTrialsFailed } from "@scenesystems/effect-dsp/DspError"
@@ -11,7 +10,8 @@ import * as MockLanguageModel from "@scenesystems/effect-dsp/MockLanguageModel"
 import * as Module from "@scenesystems/effect-dsp/Module"
 import { ModuleParameters } from "@scenesystems/effect-dsp/ModuleParameters"
 import * as Signature from "@scenesystems/effect-dsp/Signature"
-import { Effect, Either, Layer, Ref, Schema } from "effect"
+import { Effect, Layer, Ref, Result, Schema } from "effect"
+import * as LanguageModel from "effect/ai/LanguageModel"
 
 const makeQaSignature = () =>
   Signature.make(
@@ -72,23 +72,25 @@ describe("BootstrapRS.run", () => {
       )
       const lmLayer = Layer.succeed(LanguageModel.LanguageModel, mock.service)
 
-      const optimized = yield* BootstrapRS.run({
-        module,
-        trainset,
-        valset: [
-          new Example({
-            input: { question: "Name the capital of Japan in one word" },
-            output: { answer: "Tokyo" }
-          })
-        ],
-        metric: Metric.exactMatch("answer"),
-        numCandidates: 2,
-        seeds: [0, 1],
-        maxRounds: 1,
-        maxBootstrappedDemos: 1,
-        threshold: 1,
-        fallbackToLabeledFewShot: false
-      }).pipe(Effect.provide(lmLayer))
+      const optimized = yield* BootstrapRS.run(
+        new BootstrapRS.Options({
+          module,
+          trainset,
+          valset: [
+            new Example({
+              input: { question: "Name the capital of Japan in one word" },
+              output: { answer: "Tokyo" }
+            })
+          ],
+          metric: Metric.exactMatch("answer"),
+          numCandidates: 2,
+          seeds: [0, 1],
+          maxRounds: 1,
+          maxBootstrappedDemos: 1,
+          threshold: 1,
+          fallbackToLabeledFewShot: false
+        })
+      ).pipe(Effect.provide(lmLayer))
 
       const params = yield* Ref.get(optimized.params)
 
@@ -105,29 +107,31 @@ describe("BootstrapRS.run", () => {
       )
       const lmLayer = Layer.succeed(LanguageModel.LanguageModel, mock.service)
 
-      const result = yield* Effect.either(
-        BootstrapRS.run({
-          module,
-          trainset,
-          valset: [
-            new Example({
-              input: { question: "This validation example has no label" }
-            })
-          ],
-          metric: Metric.exactMatch("answer"),
-          numCandidates: 1,
-          seeds: [0],
-          maxRounds: 1,
-          maxBootstrappedDemos: 1,
-          threshold: 1,
-          fallbackToLabeledFewShot: false
-        }).pipe(Effect.provide(lmLayer))
+      const result = yield* Effect.result(
+        BootstrapRS.run(
+          new BootstrapRS.Options({
+            module,
+            trainset,
+            valset: [
+              new Example({
+                input: { question: "This validation example has no label" }
+              })
+            ],
+            metric: Metric.exactMatch("answer"),
+            numCandidates: 1,
+            seeds: [0],
+            maxRounds: 1,
+            maxBootstrappedDemos: 1,
+            threshold: 1,
+            fallbackToLabeledFewShot: false
+          })
+        ).pipe(Effect.provide(lmLayer))
       )
 
-      expect(Either.isLeft(result)).toBe(true)
+      expect(Result.isFailure(result)).toBe(true)
 
-      if (Either.isLeft(result)) {
-        expect(result.left).toEqual(
+      if (Result.isFailure(result)) {
+        expect(result.failure).toEqual(
           new AllTrialsFailed({
             message: "BootstrapRS failed to evaluate any candidate",
             trialCount: 0

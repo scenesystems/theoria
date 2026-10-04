@@ -1,8 +1,9 @@
 /** Verification entrypoint, never deployed: bundled from an isolated packed installation. */
-import { HttpApp, HttpServerRequest, HttpServerResponse } from "@effect/platform"
 import { Jwt } from "@scenesystems/sign"
 import * as Rsa from "@scenesystems/sign/Rsa"
-import { Effect, Match, Redacted, TestClock, TestContext } from "effect"
+import { Effect, Match, Redacted } from "effect"
+import { HttpEffect, HttpServerRequest, HttpServerResponse } from "effect/http"
+import * as TestClock from "effect/testing/TestClock"
 
 import { Identity, Request, Result } from "./protocol.js"
 
@@ -20,8 +21,8 @@ const app = Effect.gen(function*() {
     ),
     Match.tag("Jwt", ({ token, jwks, nowMillis }) =>
       TestClock.setTime(nowMillis).pipe(
-        Effect.zipRight(Jwt.verifyRs256(Redacted.make(token), jwks, policy, Identity)),
-        Effect.provide(TestContext.TestContext)
+        Effect.andThen(Jwt.verifyRs256(Redacted.make(token), jwks, policy, Identity)),
+        Effect.provide(TestClock.layer())
       )),
     Match.exhaustive,
     Effect.matchEffect({
@@ -31,4 +32,4 @@ const app = Effect.gen(function*() {
   )
 })
 
-export default { fetch: HttpApp.toWebHandler(app) }
+export default { fetch: HttpEffect.toWebHandler(app) }

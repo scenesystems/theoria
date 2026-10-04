@@ -62,7 +62,7 @@ const maxInstructionCandidateCount = (candidateSets: PredictorInstructionCandida
  */
 export const resolveValset = <I extends Schema.Struct.Fields, O extends Schema.Struct.Fields, ME, MR, E, R>(
   options: MIPROOptionLike<I, O, ME, MR, E, R>
-) => Option.getOrElse(Option.fromNullable(options.valset), () => options.trainset)
+) => Option.getOrElse(Option.fromNullishOr(options.valset), () => options.trainset)
 
 /**
  * Determines how many Phase 3 trials to run.
@@ -87,7 +87,7 @@ export const resolvePhase3TrialBudget = <
   instructionCandidates: PredictorInstructionCandidateSets
 ): number =>
   Option.getOrElse(
-    Option.fromNullable(options.trialBudget),
+    Option.fromNullishOr(options.trialBudget),
     () =>
       phase3TrialBudget({
         predictorCount: Arr.length(demoCandidates),
@@ -122,15 +122,15 @@ export const toPhase1Options = <
     module: options.module,
     trainset: options.trainset,
     numCandidates: options.numCandidates,
-    ...Option.match(Option.fromNullable(options.seed), {
+    ...Option.match(Option.fromNullishOr(options.seed), {
       onNone: () => ({}),
       onSome: (seed) => ({ seed })
     }),
-    ...Option.match(Option.fromNullable(options.maxLabeledDemos), {
+    ...Option.match(Option.fromNullishOr(options.maxLabeledDemos), {
       onNone: () => ({}),
       onSome: (maxLabeledDemos) => ({ maxLabeledDemos })
     }),
-    ...Option.match(Option.fromNullable(options.maxBootstrappedDemos), {
+    ...Option.match(Option.fromNullishOr(options.maxBootstrappedDemos), {
       onNone: () => ({}),
       onSome: (maxBootstrappedDemos) => ({ maxBootstrappedDemos })
     })
@@ -164,15 +164,15 @@ export const toPhase2Options = <
     trainset: options.trainset,
     demoCandidates,
     numInstructions: options.numInstructions,
-    ...Option.match(Option.fromNullable(options.seed), {
+    ...Option.match(Option.fromNullishOr(options.seed), {
       onNone: () => ({}),
       onSome: (seed) => ({ seed })
     }),
-    ...Option.match(Option.fromNullable(options.diversityTemperature), {
+    ...Option.match(Option.fromNullishOr(options.diversityTemperature), {
       onNone: () => ({}),
       onSome: (diversityTemperature) => ({ diversityTemperature })
     }),
-    ...Option.match(Option.fromNullable(options.tipVocabulary), {
+    ...Option.match(Option.fromNullishOr(options.tipVocabulary), {
       onNone: () => ({}),
       onSome: (tipVocabulary) => ({ tipVocabulary })
     })
@@ -213,19 +213,19 @@ export const toPhase3Options = <
     trialBudget,
     demoCandidates,
     instructionCandidates,
-    ...Option.match(Option.fromNullable(options.minibatchSize), {
+    ...Option.match(Option.fromNullishOr(options.minibatchSize), {
       onNone: () => ({}),
       onSome: (minibatchSize) => ({ minibatchSize })
     }),
-    ...Option.match(Option.fromNullable(options.fullEvalEvery), {
+    ...Option.match(Option.fromNullishOr(options.fullEvalEvery), {
       onNone: () => ({}),
       onSome: (fullEvalEvery) => ({ fullEvalEvery })
     }),
-    ...Option.match(Option.fromNullable(options.seed), {
+    ...Option.match(Option.fromNullishOr(options.seed), {
       onNone: () => ({}),
       onSome: (seed) => ({ seed })
     }),
-    ...Option.match(Option.fromNullable(emit), {
+    ...Option.match(Option.fromNullishOr(emit), {
       onNone: () => ({}),
       onSome: (phase3Emit) => ({ emit: phase3Emit })
     })

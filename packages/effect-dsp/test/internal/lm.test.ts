@@ -1,10 +1,10 @@
 /**
  * LM adapter tests: ensure generateObject/generateText dispatch paths.
  */
-import * as LanguageModel from "@effect/ai/LanguageModel"
 import { describe, expect, it } from "@effect/vitest"
 import * as MockLanguageModel from "@scenesystems/effect-dsp/MockLanguageModel"
-import { Effect, Layer, Ref, Schema } from "effect"
+import { Effect, Ref, Schema } from "effect"
+import * as LanguageModel from "effect/ai/LanguageModel"
 import { callLm, callLmText } from "../../src/internal/lm.js"
 
 const AnswerSchema = Schema.Struct({ answer: Schema.String })
@@ -20,7 +20,7 @@ describe("internal/lm", () => {
         "What is the capital of France?",
         AnswerSchema
       ).pipe(
-        Effect.provide(Layer.succeed(LanguageModel.LanguageModel, mock.service))
+        Effect.provideService(LanguageModel.LanguageModel, mock.service)
       )
 
       const calls = yield* Ref.get(mock.calls)
@@ -37,7 +37,7 @@ describe("internal/lm", () => {
       )
 
       const result = yield* callLmText("Answer with one token").pipe(
-        Effect.provide(Layer.succeed(LanguageModel.LanguageModel, mock.service))
+        Effect.provideService(LanguageModel.LanguageModel, mock.service)
       )
 
       const calls = yield* Ref.get(mock.calls)
@@ -54,8 +54,8 @@ describe("internal/lm", () => {
       )
 
       const recovered = yield* callLmText("Answer with one token").pipe(
-        Effect.provide(Layer.succeed(LanguageModel.LanguageModel, mock.service)),
-        Effect.catchTag("UnknownError", (error) => Effect.succeed(error.message))
+        Effect.provideService(LanguageModel.LanguageModel, mock.service),
+        Effect.catchTag("AiError", (error) => Effect.succeed(error.message))
       )
 
       const calls = yield* Ref.get(mock.calls)
@@ -71,8 +71,8 @@ describe("internal/lm", () => {
       )
 
       const recovered = yield* callLmText("Answer with one token").pipe(
-        Effect.provide(Layer.succeed(LanguageModel.LanguageModel, mock.service)),
-        Effect.catchTag("UnknownError", (error) => Effect.succeed(error.message))
+        Effect.provideService(LanguageModel.LanguageModel, mock.service),
+        Effect.catchTag("AiError", (error) => Effect.succeed(error.message))
       )
 
       const calls = yield* Ref.get(mock.calls)

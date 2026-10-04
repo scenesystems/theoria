@@ -1,4 +1,4 @@
-import { BunContext } from "@effect/platform-bun"
+import { BunServices } from "@effect/platform-bun"
 import { describe, expect, it } from "@effect/vitest"
 import { Chunk, Effect, Match, Number, Schema } from "effect"
 
@@ -17,7 +17,7 @@ describe("Numeric logspace SciPy fixture parity", () => {
   it.effect("all logspace-parity cases match SciPy reference values", () =>
     Effect.gen(function*() {
       const raw = yield* loadFixture("numeric.logspace-parity")
-      const fixture = yield* Schema.decodeUnknown(NumericLogspaceParityFixtureSchema)(raw, {
+      const fixture = yield* Schema.decodeUnknownEffect(NumericLogspaceParityFixtureSchema)(raw, {
         onExcessProperty: "error"
       })
 
@@ -35,5 +35,5 @@ describe("Numeric logspace SciPy fixture parity", () => {
             Match.exhaustive
           )
         ))
-    }).pipe(Effect.provide(BunContext.layer)))
+    }).pipe(Effect.provide(BunServices.layer)))
 })

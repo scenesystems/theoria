@@ -1,4 +1,4 @@
-import { BunContext } from "@effect/platform-bun"
+import { BunServices } from "@effect/platform-bun"
 import { describe, expect, it } from "@effect/vitest"
 import { Effect, Match, Number, Schema } from "effect"
 
@@ -15,7 +15,7 @@ describe("Numeric SciPy fixture parity", () => {
   it.effect("all scalar-parity cases match SciPy reference values", () =>
     Effect.gen(function*() {
       const raw = yield* loadFixture("numeric.scalar-parity")
-      const fixture = yield* Schema.decodeUnknown(NumericScalarParityFixtureSchema)(raw, {
+      const fixture = yield* Schema.decodeUnknownEffect(NumericScalarParityFixtureSchema)(raw, {
         onExcessProperty: "error"
       })
 
@@ -31,5 +31,5 @@ describe("Numeric SciPy fixture parity", () => {
             Match.exhaustive
           )
         ))
-    }).pipe(Effect.provide(BunContext.layer)))
+    }).pipe(Effect.provide(BunServices.layer)))
 })

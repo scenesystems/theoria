@@ -1,8 +1,6 @@
 /**
  * Example contract: GEPA multi-objective mock optimization flow.
  */
-import * as LanguageModel from "@effect/ai/LanguageModel"
-import * as Response from "@effect/ai/Response"
 import { describe, expect, it } from "@effect/vitest"
 import * as Evaluate from "@scenesystems/effect-dsp/Evaluate"
 import { Example } from "@scenesystems/effect-dsp/Example"
@@ -25,14 +23,17 @@ import {
   Stream,
   String as Str
 } from "effect"
+import * as LanguageModel from "effect/ai/LanguageModel"
+import * as Response from "effect/ai/Response"
 
 const AnswerResponse = Schema.Struct({
   answer: Signature.describe(Schema.String, "The capital city name")
 })
 
 const reflectiveResponse = Arr.of(
-  Response.textPart({
-    text: "```\nAnswer geography questions with the exact, concise capital city name.\n```"
+  Response.TextPart.make({
+    text: "```\nAnswer geography questions with the exact, concise capital city name.\n```",
+    metadata: {}
   })
 )
 
@@ -105,19 +106,26 @@ const runGepaMultiObjective = Effect.gen(function*() {
   const layer = Layer.succeed(LanguageModel.LanguageModel, mock.service)
 
   const events = yield* Stream.runCollect(
-    GEPA.stream({
-      module,
-      trainset,
-      metric: feedbackMetric,
-      maxIterations: 3,
-      seed: 42
-    })
+    GEPA.stream(
+      new GEPA.Options({
+        module,
+        trainset,
+        metric: feedbackMetric,
+        maxIterations: 3,
+        seed: 42
+      })
+    )
   ).pipe(Effect.provide(layer))
 
   const eventList = Arr.fromIterable(events)
   const params = yield* Ref.get(module.params)
 
-  return Data.struct({ eventList, params, module, layer })
+  return new (class extends Data.Class<{
+    readonly eventList: typeof eventList
+    readonly params: typeof params
+    readonly module: typeof module
+    readonly layer: typeof layer
+  }> {})({ eventList, params, module, layer })
 })
 
 describe("examples/15-gepa-multi-objective-mock", () => {
@@ -133,7 +141,7 @@ describe("examples/15-gepa-multi-objective-mock", () => {
 
       const iterationStartIndex = Arr.findFirstIndex(tags, (tag) => Str.Equivalence(tag, "IterationStarted"))
       const completedIndex = Arr.findFirstIndex(tags, (tag) => Str.Equivalence(tag, "OptimizationCompleted"))
-      const ordered = Option.zipWith(iterationStartIndex, completedIndex, Num.lessThan)
+      const ordered = Option.zipWith(iterationStartIndex, completedIndex, Num.isLessThan)
 
       expect(ordered).toEqual(Option.some(true))
     }))
@@ -170,12 +178,14 @@ describe("examples/15-gepa-multi-objective-mock", () => {
 
       const exactMatchMetric = Metric.exactMatch("answer")
       const composedMetric = Metric.compose({ exactMatch: exactMatchMetric, feedback: feedbackMetric })
-      const report = yield* Evaluate.run({
-        module,
-        examples: valset,
-        metrics: { exactMatch: exactMatchMetric, composed: composedMetric },
-        concurrency: 1
-      }).pipe(Effect.provide(layer))
+      const report = yield* Evaluate.run(
+        new Evaluate.Options({
+          module,
+          examples: valset,
+          metrics: { exactMatch: exactMatchMetric, composed: composedMetric },
+          concurrency: 1
+        })
+      ).pipe(Effect.provide(layer))
 
       expect(report.successCount).toBe(1)
       expect(report.overallScores.exactMatch).toBe(1)

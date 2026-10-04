@@ -1,7 +1,8 @@
-import { Command, FileSystem, Path, Url } from "@effect/platform"
-import { BunContext, BunRuntime } from "@effect/platform-bun"
-import { Boolean as Bool, Console, Effect, Equal, Option, Schema } from "effect"
+import { BunRuntime, BunServices } from "@effect/platform-bun"
+import { Boolean as Bool, Console, Effect, Equal, FileSystem, Option, Path, Schema } from "effect"
 import * as Arr from "effect/Array"
+import { Url } from "effect/http"
+import { ChildProcess, ChildProcessSpawner } from "effect/process"
 import * as Str from "effect/String"
 
 import { mark } from "../app/contracts/brand.js"
@@ -26,30 +27,26 @@ import { favicon, Fonts, packageCard, siteCard, solidIcon } from "./social-asset
  *   bun run gen:social-assets
  */
 
-const PackageManifest = Schema.parseJson(Schema.Struct({
+const PackageManifest = Schema.fromJsonString(Schema.Struct({
   name: Schema.String,
   description: Schema.String,
-  private: Schema.optionalWith(Schema.Boolean, { as: "Option" })
+  private: Schema.OptionFromOptionalKey(Schema.Boolean)
 }))
 
 const magick = (args: ReadonlyArray<string>, cwd: string) =>
   Effect.gen(function*() {
-    const exitCode = yield* Command.make("magick", ...args).pipe(
-      Command.workingDirectory(cwd),
-      Command.stderr("inherit"),
-      Command.exitCode
-    )
+    const spawner = yield* ChildProcessSpawner.ChildProcessSpawner
+    const exitCode = yield* spawner.exitCode(ChildProcess.make("magick", args, { cwd, stderr: "inherit" }))
     return yield* Bool.match(Equal.equals(exitCode, 0), {
       onTrue: () => Effect.void,
-      onFalse: () =>
-        Effect.dieMessage(`magick exited with ${String(exitCode)} for ${Arr.join(Arr.takeRight(args, 1), "")}`)
+      onFalse: () => Effect.die(`magick exited with ${String(exitCode)} for ${Arr.join(Arr.takeRight(args, 1), "")}`)
     })
   })
 
 const program = Effect.gen(function*() {
   const fileSystem = yield* FileSystem.FileSystem
   const path = yield* Path.Path
-  const appRoot = yield* Effect.flatMap(Url.fromString("../", import.meta.url), path.fromFileUrl)
+  const appRoot = yield* Effect.flatMap(Effect.fromResult(Url.fromString("../", import.meta.url)), path.fromFileUrl)
   const repositoryRoot = path.join(appRoot, "..", "..")
   const publicRoot = path.join(appRoot, "public")
   const fontsRoot = path.join(appRoot, "scripts", "social-assets", "fonts")
@@ -58,13 +55,13 @@ const program = Effect.gen(function*() {
     sansSemiBold: path.join(fontsRoot, "Figtree-SemiBold.ttf"),
     mono: path.join(fontsRoot, "GeistMono-Medium.ttf")
   })
-  const host = yield* Effect.map(Url.fromString(siteMetadata.siteUrl), (url) => url.host)
+  const host = yield* Effect.map(Effect.fromResult(Url.fromString(siteMetadata.siteUrl)), (url) => url.host)
 
   const packageDirectories = yield* fileSystem.readDirectory(path.join(repositoryRoot, "packages"))
   const packages = yield* Effect.forEach(Arr.sort(packageDirectories, Str.Order), (slug) => {
     const manifestPath = path.join(repositoryRoot, "packages", slug, "package.json")
     return fileSystem.readFileString(manifestPath).pipe(
-      Effect.flatMap(Schema.decode(PackageManifest)),
+      Effect.flatMap(Schema.decodeUnknownEffect(PackageManifest)),
       Effect.map((manifest) =>
         Bool.match(Option.getOrElse(manifest.private, () => false), {
           onTrue: Option.none,
@@ -72,7 +69,7 @@ const program = Effect.gen(function*() {
         })
       ),
       // Entries under packages/ that are not package directories (`.gitkeep`).
-      Effect.catchTag("SystemError", () => Effect.succeedNone)
+      Effect.catchTag("PlatformError", () => Effect.succeedNone)
     )
   }).pipe(Effect.map(Arr.getSomes))
 
@@ -100,4 +97,4 @@ const program = Effect.gen(function*() {
   yield* Console.log(`Rendered ${String(Arr.length(jobs))} images into ${publicRoot}`)
 })
 
-BunRuntime.runMain(program.pipe(Effect.provide(BunContext.layer)))
+BunRuntime.runMain(program.pipe(Effect.provide(BunServices.layer)))

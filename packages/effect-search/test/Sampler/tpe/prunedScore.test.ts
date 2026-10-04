@@ -1,5 +1,5 @@
 import { describe, expect, it } from "@effect/vitest"
-import { Array as Arr, Boolean as Bool, Effect, Match, Order, Schema } from "effect"
+import { Array as Arr, Boolean as Bool, Effect, Equal, Match, Order, Schema } from "effect"
 
 import type { PrunedTrialScore } from "../../../src/internal/tpe/prunedScore.js"
 import {
@@ -10,9 +10,8 @@ import {
 import { FixtureRegistryLive, loadFixture, PrunedScoreFixture } from "../../helpers/fixtures/index.js"
 
 type TraceValue = PrunedScoreFixture["payload"]["cases"][number]["intermediateValues"][number]["value"]
-type ExpectedScore = PrunedScoreFixture["payload"]["cases"][number]["expectedScore"]
 
-const traceValueToNumber = (value: TraceValue | ExpectedScore): number =>
+const traceValueToNumber = (value: TraceValue): number =>
   Match.value(value).pipe(
     Match.when("NaN", () => Number.NaN),
     Match.when("Infinity", () => Number.POSITIVE_INFINITY),
@@ -21,13 +20,13 @@ const traceValueToNumber = (value: TraceValue | ExpectedScore): number =>
   )
 
 const expectNumericValue = (actual: number, expected: number): void =>
-  Match.value(Bool.not(Schema.is(Schema.NonNaN)(expected))).pipe(
+  Match.value(Bool.not(Equal.equals(expected, expected))).pipe(
     Match.when(true, () => expect(actual).toBeNaN()),
     Match.orElse(() => expect(actual).toBe(expected))
   )
 
 const prunedOrdering = Order.mapInput(
-  Order.tuple(Order.number, Order.number, Order.number),
+  Order.Tuple([Order.Number, Order.Number, Order.Number]),
   (entry: { readonly trialNumber: number; readonly score: PrunedTrialScore }) =>
     prunedTrialOrderKey(entry.trialNumber, entry.score)
 )
@@ -36,7 +35,7 @@ describe("pruned-score fixture parity", () => {
   it.effect("replays pruned score traces and deterministic ordering", () =>
     Effect.gen(function*() {
       const loaded = yield* loadFixture("pruned-score.pruned-ordering").pipe(Effect.provide(FixtureRegistryLive))
-      const fixture = yield* Schema.decodeUnknown(PrunedScoreFixture)(loaded)
+      const fixture = yield* Schema.decodeUnknownEffect(PrunedScoreFixture)(loaded)
 
       const scored = Arr.map(fixture.payload.cases, (fixtureCase) => {
         const intermediateValues = Arr.map(

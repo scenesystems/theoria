@@ -1,5 +1,5 @@
 import { describe, expect, it } from "@effect/vitest"
-import { Array as Arr, Effect, Either, Equal, Match, Option, Schema } from "effect"
+import { Array as Arr, Effect, Equal, Match, Option, Result, Schema } from "effect"
 
 import { numericValuesForParameter, primitiveValuesForParameter } from "../../../src/internal/tpe/dimensions/values.js"
 import { CompletedTrialForSplit } from "../../../src/internal/tpe/splitTrials.js"
@@ -12,7 +12,7 @@ import {
   makeLinearTreeConditionalSpace
 } from "../../fixtures/scenarios/conditionalLinearTree.js"
 
-const conditionalSpace = makeLinearTreeConditionalSpace()
+const conditionalSpace = makeLinearTreeConditionalSpace
 
 const splitHistory = () =>
   Arr.make(
@@ -77,11 +77,11 @@ describe("TPE conditional branch-aware density behavior", () => {
       expect(Option.isSome(learningRate)).toBe(true)
       expect(Option.isSome(maxDepth)).toBe(true)
 
-      const tracked = yield* Option.all({
+      const tracked = Option.getOrThrow(Option.all({
         model,
         learningRate,
         maxDepth
-      })
+      }))
 
       const history = splitHistory()
 
@@ -93,7 +93,7 @@ describe("TPE conditional branch-aware density behavior", () => {
   it.effect("emits only branch-consistent conditional assignments in model-driven mode", () =>
     Effect.gen(function*() {
       const space = yield* conditionalSpace
-      const sampler = Sampler.tpe({ seed: 77, nStartupTrials: 0, nEiCandidates: 40 })
+      const sampler = Sampler.tpe(new Sampler.TpeOptions({ seed: 77, nStartupTrials: 0, nEiCandidates: 40 }))
       const context = new Context({
         completed: completedHistory(),
         pending: Arr.empty(),
@@ -103,11 +103,11 @@ describe("TPE conditional branch-aware density behavior", () => {
       })
 
       const suggested = yield* Sampler.suggest(sampler, space, context)
-      const decoded = Schema.decodeUnknownEither(LinearTreeConditionalConfig)(suggested)
+      const decoded = Schema.decodeUnknownResult(LinearTreeConditionalConfig)(suggested)
 
-      expect(Either.isRight(decoded)).toBe(true)
+      expect(Result.isSuccess(decoded)).toBe(true)
 
-      const branchConfig = yield* decoded
+      const branchConfig = yield* Effect.fromResult(decoded)
 
       Match.value(branchConfig.model).pipe(
         Match.when("linear", () => {
@@ -129,7 +129,7 @@ describe("TPE conditional branch-aware density behavior", () => {
   it.effect("remains deterministic and decodable with sparse branch history", () =>
     Effect.gen(function*() {
       const space = yield* conditionalSpace
-      const sampler = Sampler.tpe({ seed: 91, nStartupTrials: 0, nEiCandidates: 32 })
+      const sampler = Sampler.tpe(new Sampler.TpeOptions({ seed: 91, nStartupTrials: 0, nEiCandidates: 32 }))
       const context = new Context({
         completed: Arr.of(
           new Observation({
@@ -146,13 +146,13 @@ describe("TPE conditional branch-aware density behavior", () => {
 
       const left = yield* Sampler.suggest(sampler, space, context)
       const right = yield* Sampler.suggest(
-        Sampler.tpe({ seed: 91, nStartupTrials: 0, nEiCandidates: 32 }),
+        Sampler.tpe(new Sampler.TpeOptions({ seed: 91, nStartupTrials: 0, nEiCandidates: 32 })),
         space,
         context
       )
 
-      expect(Either.isRight(Schema.decodeUnknownEither(LinearTreeConditionalConfig)(left))).toBe(true)
-      expect(Either.isRight(Schema.decodeUnknownEither(LinearTreeConditionalConfig)(right))).toBe(true)
+      expect(Result.isSuccess(Schema.decodeUnknownResult(LinearTreeConditionalConfig)(left))).toBe(true)
+      expect(Result.isSuccess(Schema.decodeUnknownResult(LinearTreeConditionalConfig)(right))).toBe(true)
       expect(left).toEqual(right)
     }))
 })

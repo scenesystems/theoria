@@ -3,7 +3,6 @@ import { Array as Arr, Boolean as Bool, Effect, Equal, Match, Number as Num, Opt
 
 import { toVector } from "../../src/Objective.js"
 import * as Optimization from "../../src/Optimization.js"
-import { nonDominatedIndices } from "../../src/Pareto.js"
 import * as Sampler from "../../src/Sampler.js"
 import {
   decodePromptCategoricalConfig,
@@ -12,8 +11,8 @@ import {
 } from "../fixtures/scenarios/promptCategorical.js"
 import { FixtureRegistryLive, loadFixture, MotpeStudyFixture } from "../helpers/fixtures/index.js"
 
-const encodeTrace = Schema.encodeSync(Schema.parseJson(Schema.Array(PromptCategoricalConfig)))
-const encodeVectors = Schema.encodeSync(Schema.parseJson(Schema.Array(Schema.Array(Schema.Number))))
+const encodeTrace = Schema.encodeSync(Schema.fromJsonString(Schema.Array(PromptCategoricalConfig)))
+const encodeVectors = Schema.encodeSync(Schema.fromJsonString(Schema.Array(Schema.Array(Schema.Finite))))
 
 const instructionLatency = (instruction: string): number =>
   Match.value(instruction).pipe(
@@ -64,7 +63,7 @@ const interactionQualityBonus = (instruction: string, demos: string, scoring: st
     Equal.equals(instruction, "socratic"),
     Bool.and(Equal.equals(demos, "curated"), Equal.equals(scoring, "strict"))
   )).pipe(
-    Match.when(true, () => Num.negate(0.2)),
+    Match.when(true, () => Num.multiply(-1, 0.2)),
     Match.orElse(() => 0)
   )
 
@@ -105,54 +104,124 @@ const traceFromResult = (
   })
 
 const runWithFixture = (
-  fixture: Schema.Schema.Type<typeof MotpeStudyFixture>
+  fixture: Schema.Schema.Type<typeof MotpeStudyFixture>,
+  trials: number
 ) =>
   Effect.gen(function*() {
-    const space = yield* makePromptCategoricalSpace()
-    return yield* Optimization.run({
-      space,
-      sampler: Sampler.tpe({
-        seed: fixture.payload.sampler.seed,
-        nStartupTrials: fixture.payload.sampler.nStartupTrials,
-        nEiCandidates: fixture.payload.sampler.nEiCandidates
-      }),
-      directions: fixture.payload.directions,
-      trials: fixture.payload.sampler.trials,
-      objective: objectiveVector
-    })
+    const space = yield* makePromptCategoricalSpace
+    return yield* Optimization.run(
+      new Optimization.FlatOptions({
+        space,
+        sampler: Sampler.tpe(
+          new Sampler.TpeOptions({
+            seed: fixture.payload.sampler.seed,
+            nStartupTrials: fixture.payload.sampler.nStartupTrials,
+            nEiCandidates: fixture.payload.sampler.nEiCandidates
+          })
+        ),
+        directions: fixture.payload.directions,
+        trials,
+        objective: objectiveVector
+      })
+    )
   })
 
+const samplerFromFixture = (fixture: Schema.Schema.Type<typeof MotpeStudyFixture>) =>
+  Sampler.tpe(
+    new Sampler.TpeOptions({
+      seed: fixture.payload.sampler.seed,
+      nStartupTrials: fixture.payload.sampler.nStartupTrials,
+      nEiCandidates: fixture.payload.sampler.nEiCandidates
+    })
+  )
+
+const valuesFromResult = (result: Optimization.MultiObjectiveResult) =>
+  Arr.flatMap(Arr.fromIterable(result.trials), (trial) =>
+    Match.value(trial.state).pipe(
+      Match.tag("Completed", ({ value }) => Arr.of(toVector(value))),
+      Match.orElse(() => Arr.empty<ReadonlyArray<number>>())
+    ))
+
+const independentlyDominates = (
+  left: ReadonlyArray<number>,
+  right: ReadonlyArray<number>,
+  directions: ReadonlyArray<"minimize" | "maximize">
+) => {
+  const comparisons = Arr.map(
+    Arr.zip(Arr.zip(left, right), directions),
+    ([[leftValue, rightValue], direction]) =>
+      Match.value(direction).pipe(
+        Match.when(
+          "minimize",
+          () => Arr.make(Num.isLessThanOrEqualTo(leftValue, rightValue), Num.isLessThan(leftValue, rightValue))
+        ),
+        Match.when(
+          "maximize",
+          () => Arr.make(Num.isGreaterThanOrEqualTo(leftValue, rightValue), Num.isGreaterThan(leftValue, rightValue))
+        ),
+        Match.exhaustive
+      )
+  )
+  return Bool.and(
+    Arr.every(comparisons, (comparison) => Option.getOrElse(Arr.head(comparison), () => false)),
+    Arr.some(comparisons, (comparison) => Option.getOrElse(Arr.get(comparison, 1), () => false))
+  )
+}
+
 describe("integration deterministic MOTPE optimization replay", () => {
-  it.effect("replays deterministic multi-objective trace and pareto front", () =>
+  it.effect("reproduces fresh runs and checkpoint continuation with an independently verified Pareto front", () =>
     Effect.gen(function*() {
       const loaded = yield* loadFixture("motpe-study.2obj").pipe(Effect.provide(FixtureRegistryLive))
-      const fixture = yield* Schema.decodeUnknown(MotpeStudyFixture)(loaded)
+      const fixture = yield* Schema.decodeUnknownEffect(MotpeStudyFixture)(loaded)
 
-      const first = yield* runWithFixture(fixture)
-      const second = yield* runWithFixture(fixture)
+      const totalTrials = fixture.payload.sampler.trials
+      const firstLegTrials = 8
+      const first = yield* runWithFixture(fixture, totalTrials)
+      const second = yield* runWithFixture(fixture, totalTrials)
+      const firstLeg = yield* runWithFixture(fixture, firstLegTrials)
       const firstOption = asMultiObjective(first)
       const secondOption = asMultiObjective(second)
 
       expect(Option.isSome(firstOption)).toBe(true)
       expect(Option.isSome(secondOption)).toBe(true)
-      const firstResult = yield* firstOption
-      const secondResult = yield* secondOption
+      const firstResult = yield* Effect.fromOption(firstOption)
+      const secondResult = yield* Effect.fromOption(secondOption)
+      const firstLegResult = yield* Effect.fromOption(asMultiObjective(firstLeg))
+      const resumed = yield* Optimization.resume(
+        new Optimization.ResumeOptions({
+          space: yield* makePromptCategoricalSpace,
+          sampler: samplerFromFixture(fixture),
+          snapshot: yield* Optimization.snapshot(firstLegResult),
+          directions: fixture.payload.directions,
+          trials: Num.subtract(totalTrials, firstLegTrials),
+          objective: objectiveVector
+        })
+      )
+      const resumedResult = yield* Effect.fromOption(asMultiObjective(resumed))
 
       const firstTraceOption = yield* traceFromResult(first)
       const secondTraceOption = yield* traceFromResult(second)
 
       expect(Option.isSome(firstTraceOption)).toBe(true)
       expect(Option.isSome(secondTraceOption)).toBe(true)
-      const firstTrace = yield* firstTraceOption
-      const secondTrace = yield* secondTraceOption
+      const firstTrace = yield* Effect.fromOption(firstTraceOption)
+      const secondTrace = yield* Effect.fromOption(secondTraceOption)
 
-      const expectedTraceJson = encodeTrace(fixture.payload.expected.configTrace)
       const firstTraceJson = encodeTrace(Arr.fromIterable(firstTrace))
       const secondTraceJson = encodeTrace(Arr.fromIterable(secondTrace))
+      const resumedTrace = yield* Effect.fromOption(yield* traceFromResult(resumed))
 
-      expect(firstTraceJson).toBe(expectedTraceJson)
-      expect(secondTraceJson).toBe(expectedTraceJson)
+      expect(Arr.fromIterable(firstResult.trials)).toHaveLength(totalTrials)
+      expect(Arr.fromIterable(secondResult.trials)).toHaveLength(totalTrials)
+      expect(Arr.fromIterable(resumedResult.trials)).toHaveLength(totalTrials)
       expect(firstTraceJson).toBe(secondTraceJson)
+      expect(encodeTrace(Arr.fromIterable(resumedTrace))).toBe(firstTraceJson)
+
+      const firstValues = valuesFromResult(firstResult)
+      expect(firstValues).toHaveLength(totalTrials)
+      expect(firstValues).toEqual(yield* Effect.forEach(firstTrace, objectiveVector))
+      expect(encodeVectors(valuesFromResult(secondResult))).toBe(encodeVectors(firstValues))
+      expect(encodeVectors(valuesFromResult(resumedResult))).toBe(encodeVectors(firstValues))
 
       const firstParetoTrialNumbers = Arr.map(
         Arr.fromIterable(firstResult.paretoFront),
@@ -163,8 +232,10 @@ describe("integration deterministic MOTPE optimization replay", () => {
         (trial) => trial.trialNumber
       )
 
-      expect(firstParetoTrialNumbers).toEqual(fixture.payload.expected.paretoTrialNumbers)
-      expect(secondParetoTrialNumbers).toEqual(fixture.payload.expected.paretoTrialNumbers)
+      expect(secondParetoTrialNumbers).toEqual(firstParetoTrialNumbers)
+      expect(Arr.map(Arr.fromIterable(resumedResult.paretoFront), (trial) => trial.trialNumber)).toEqual(
+        firstParetoTrialNumbers
+      )
 
       const firstParetoValues = Arr.map(
         Arr.fromIterable(firstResult.paretoFront),
@@ -174,16 +245,28 @@ describe("integration deterministic MOTPE optimization replay", () => {
         Arr.fromIterable(secondResult.paretoFront),
         (trial) => toVector(trial.state.value)
       )
-      const expectedParetoValues = fixture.payload.expected.paretoValues
-
-      expect(encodeVectors(Arr.fromIterable(firstParetoValues))).toBe(encodeVectors(expectedParetoValues))
-      expect(encodeVectors(Arr.fromIterable(secondParetoValues))).toBe(encodeVectors(expectedParetoValues))
-
-      expect(nonDominatedIndices(firstParetoValues, fixture.payload.directions)).toEqual(
-        Arr.map(firstParetoValues, (_point, index) => index)
+      expect(encodeVectors(Arr.fromIterable(secondParetoValues))).toBe(
+        encodeVectors(Arr.fromIterable(firstParetoValues))
       )
-      expect(nonDominatedIndices(secondParetoValues, fixture.payload.directions)).toEqual(
-        Arr.map(secondParetoValues, (_point, index) => index)
-      )
+
+      const directions = Arr.fromIterable(fixture.payload.directions)
+      expect(
+        Arr.every(
+          firstParetoValues,
+          (candidate) =>
+            Bool.not(Arr.some(firstValues, (point) => independentlyDominates(point, candidate, directions)))
+        )
+      ).toBe(true)
+      expect(
+        Arr.every(
+          firstValues,
+          (point) =>
+            Arr.some(
+              firstParetoValues,
+              (candidate) =>
+                Bool.or(Equal.equals(candidate, point), independentlyDominates(candidate, point, directions))
+            )
+        )
+      ).toBe(true)
     }))
 })

@@ -1,4 +1,3 @@
-import * as LanguageModel from "@effect/ai/LanguageModel"
 import { describe, expect, it } from "@effect/vitest"
 import * as Evaluate from "@scenesystems/effect-dsp/Evaluate"
 import { Example } from "@scenesystems/effect-dsp/Example"
@@ -6,7 +5,8 @@ import * as Metric from "@scenesystems/effect-dsp/Metric"
 import * as MockLanguageModel from "@scenesystems/effect-dsp/MockLanguageModel"
 import * as Module from "@scenesystems/effect-dsp/Module"
 import * as Signature from "@scenesystems/effect-dsp/Signature"
-import { Array as Arr, Chunk, Effect, Layer, Option, Schema, Stream } from "effect"
+import { Array as Arr, Effect, Layer, Option, Schema, Stream } from "effect"
+import * as LanguageModel from "effect/ai/LanguageModel"
 
 import {
   EvaluateEventOrderFixtureSchema,
@@ -52,8 +52,8 @@ describe("Evaluate DSPy parity", () => {
     Effect.gen(function*() {
       const rawReportFixture = yield* loadFixture("dspy.evaluate.report-shape.basic")
       const rawEventFixture = yield* loadFixture("dspy.evaluate.event-order.basic")
-      const reportFixture = yield* Schema.decodeUnknown(EvaluateReportShapeFixtureSchema)(rawReportFixture)
-      const eventFixture = yield* Schema.decodeUnknown(EvaluateEventOrderFixtureSchema)(rawEventFixture)
+      const reportFixture = yield* Schema.decodeUnknownEffect(EvaluateReportShapeFixtureSchema)(rawReportFixture)
+      const eventFixture = yield* Schema.decodeUnknownEffect(EvaluateEventOrderFixtureSchema)(rawEventFixture)
 
       const fixtureExamples = reportFixture.payload.examples
       const signature = yield* makeQaSignature()
@@ -61,7 +61,7 @@ describe("Evaluate DSPy parity", () => {
       const answerForQuestion = (question: string): string =>
         Option.getOrElse(
           Arr.findFirst(fixtureExamples, (example) => question.includes(example.question)).pipe(
-            Option.flatMap((example) => Option.fromNullable(example.predictedAnswer))
+            Option.flatMap((example) => Option.fromNullishOr(example.predictedAnswer))
           ),
           () => ""
         )
@@ -79,17 +79,17 @@ describe("Evaluate DSPy parity", () => {
             input: {
               question: example.question
             },
-            ...exampleOutput(Option.fromNullable(example.expectedAnswer))
+            ...exampleOutput(Option.fromNullishOr(example.expectedAnswer))
           })
       )
-      const options = {
+      const options = new Evaluate.Options({
         module,
         examples,
         metrics: {
           exact: Metric.exactMatch("answer")
         },
         concurrency: 1
-      }
+      })
 
       const report = yield* Evaluate.run(options).pipe(
         Effect.provide(layer)
@@ -98,7 +98,7 @@ describe("Evaluate DSPy parity", () => {
         Stream.runCollect,
         Effect.provide(layer)
       )
-      const events = Chunk.toReadonlyArray(eventsChunk)
+      const events = eventsChunk
       const projectedEvents = Arr.map(events, projectedEvent)
       const projectedReportExamples = Arr.map(report.results, (result) => ({
         index: result.index,
@@ -123,16 +123,16 @@ describe("Evaluate DSPy parity", () => {
       expect(projectedEvents).toStrictEqual(eventFixture.payload.events)
       expect(projectedEvents).toHaveLength(eventFixture.payload.eventCount)
       expect(
-        Arr.filterMap(projectedEvents, (event) =>
+        Arr.getSomes(Arr.map(projectedEvents, (event) =>
           event._tag === "ExampleCompleted" && "index" in event
             ? Option.some(event.index)
-            : Option.none<number>())
+            : Option.none<number>()))
       ).toStrictEqual(eventFixture.payload.completedIndices)
       expect(
-        Arr.filterMap(projectedEvents, (event) =>
+        Arr.getSomes(Arr.map(projectedEvents, (event) =>
           event._tag === "ExampleFailed" && "index" in event
             ? Option.some(event.index)
-            : Option.none<number>())
+            : Option.none<number>()))
       ).toStrictEqual(eventFixture.payload.failedIndices)
     }))
 })

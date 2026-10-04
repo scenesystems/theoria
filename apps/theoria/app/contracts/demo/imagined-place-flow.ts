@@ -1,4 +1,4 @@
-import { Boolean as Bool, Chunk, Equal, Number as Num, Option, Schema, Tuple } from "effect"
+import { Boolean as Bool, Chunk, Equal, Number as Num, Option, Schema, Struct, Tuple } from "effect"
 import * as Arr from "effect/Array"
 
 import * as Geometry from "@scenesystems/effect-math/Geometry"
@@ -19,10 +19,10 @@ import type { Meander } from "./imagined-place-search.js"
  * text measurer differs.
  */
 export const Stage = Schema.Struct({
-  stageWidth: Schema.Number,
-  stageHeight: Schema.Number,
-  padding: Schema.Number,
-  lineHeight: Schema.Number
+  stageWidth: Schema.Finite,
+  stageHeight: Schema.Finite,
+  padding: Schema.Finite,
+  lineHeight: Schema.Finite
 })
 export type Stage = typeof Stage.Type
 
@@ -32,13 +32,13 @@ type PlaceMarkers = typeof PlaceMarkers.Type
 const PlaceFeatures = Schema.Array(PlaceFeature)
 type PlaceFeatures = typeof PlaceFeatures.Type
 
-const OptionalParticipants = Schema.Array(Schema.OptionFromSelf(ParticipantRole))
+const OptionalParticipants = Schema.Array(Schema.Option(ParticipantRole))
 type OptionalParticipants = typeof OptionalParticipants.Type
 
 const PlaceLines = Schema.Array(PlaceLine)
 type PlaceLines = typeof PlaceLines.Type
 
-const MarkerPair = Schema.Tuple(PlaceMarker, PlaceMarker)
+const MarkerPair = Schema.Tuple([PlaceMarker, PlaceMarker])
 type MarkerPair = typeof MarkerPair.Type
 
 const MarkerPairs = Schema.Array(MarkerPair)
@@ -101,7 +101,7 @@ const leastX = (stage: Stage, radius: number): number =>
  * holds at every step and not only where the drawing lands.
  */
 const largestRadius = (stage: Stage): number =>
-  Num.unsafeDivide(Num.subtract(Num.subtract(stage.stageWidth, stage.padding), leastX(stage, 0)), 2)
+  Numeric.unsafeDivide(Num.subtract(Num.subtract(stage.stageWidth, stage.padding), leastX(stage, 0)), 2)
 
 /** Between 4.5% and 8% of the stage width: big enough for a name at 640 px, a number at 240 px. */
 export const markerRadius = (stage: Stage, weight: number): number =>
@@ -118,7 +118,7 @@ export const minimumTouchTarget = 44
  * discs themselves apart, so a touch beside a small disc is that disc's alone.
  */
 export const touchReach = (radius: number): number =>
-  Num.max(0, Num.subtract(Num.unsafeDivide(minimumTouchTarget, 2), radius))
+  Num.max(0, Num.subtract(Numeric.unsafeDivide(minimumTouchTarget, 2), radius))
 
 /** Two touch targets never meet: a touch at the edge of one is not a coin toss between it and its neighbour. */
 export const touchGap = 2
@@ -137,7 +137,7 @@ const clearanceBelow = (placed: PlaceMarkers, x: number, radius: number, reach: 
       Num.sumAll(Arr.make(other.radius, other.reach, radius, reach, touchGap))
     )
     const dx = Numeric.abs(Num.subtract(other.x, x))
-    return Bool.match(Num.greaterThanOrEqualTo(dx, needed), {
+    return Bool.match(Num.isGreaterThanOrEqualTo(dx, needed), {
       onTrue: () => y,
       onFalse: () =>
         Num.max(
@@ -164,7 +164,7 @@ export const placeMarkers = (
   const w = stage.stageWidth
   const span = Num.max(1, Num.decrement(Arr.length(features)))
   return Arr.reduce(features, Arr.empty<PlaceMarker>(), (placed, feature, index) => {
-    const t = Num.unsafeDivide(index, span)
+    const t = Numeric.unsafeDivide(index, span)
     const radius = markerRadius(stage, feature.weight)
     const reach = touchReach(radius)
     const x = Num.clamp(
@@ -251,7 +251,7 @@ export const markersBetween = (stage: Stage) => (from: PlaceMarkers, to: PlaceMa
     (placed, target) => place(placed, Option.getOrElse(named(from, target.name), () => absent(target)), target)
   )
   const leaving = Arr.filter(from, (marker) => Option.isNone(named(to, marker.name)))
-  return Bool.match(Num.greaterThanOrEqualTo(t, 1), {
+  return Bool.match(Num.isGreaterThanOrEqualTo(t, 1), {
     onTrue: () => staying,
     onFalse: () => Arr.reduce(leaving, staying, (placed, start) => place(placed, start, absent(start)))
   })
@@ -267,7 +267,7 @@ export const markersBetween = (stage: Stage) => (from: PlaceMarkers, to: PlaceMa
  */
 export class PlaceDrawing extends Schema.Class<PlaceDrawing>("@theoria/app/contracts/ImaginedPlaceFlow/PlaceDrawing")({
   markers: PlaceMarkers,
-  paper: Schema.Number
+  paper: Schema.Finite
 }) {}
 
 /**
@@ -337,8 +337,8 @@ export const paperExpected = (
     return Num.sum(
       lines,
       Num.multiply(
-        Num.unsafeDivide(Num.sum(diameter, Num.multiply(2, markerGap)), stage.lineHeight),
-        Num.unsafeDivide(Num.sum(diameter, markerGap), column)
+        Numeric.unsafeDivide(Num.sum(diameter, Num.multiply(2, markerGap)), stage.lineHeight),
+        Numeric.unsafeDivide(Num.sum(diameter, markerGap), column)
       )
     )
   })
@@ -362,7 +362,7 @@ export const drawingBetween = (stage: Stage) => {
 }
 
 /** The lines of prose are set from the padding down, one line height each; this is what a line's band is. */
-export const LineBands = Stage.pick("padding", "lineHeight")
+export const LineBands = Stage.mapFields(Struct.pick(["padding", "lineHeight"]))
 export type LineBands = typeof LineBands.Type
 
 /**
@@ -387,10 +387,10 @@ export const markersBeside = (
     markers,
     (marker) =>
       Bool.match(
-        Num.lessThan(Num.subtract(Num.subtract(marker.y, marker.radius), markerGap), bottom),
+        Num.isLessThan(Num.subtract(Num.subtract(marker.y, marker.radius), markerGap), bottom),
         {
           onFalse: () => false,
-          onTrue: () => Num.greaterThan(Num.sumAll(Arr.make(marker.y, marker.radius, markerGap)), top)
+          onTrue: () => Num.isGreaterThan(Num.sumAll(Arr.make(marker.y, marker.radius, markerGap)), top)
         }
       )
   )
@@ -443,12 +443,12 @@ const pairs = (markers: PlaceMarkers): MarkerPairs =>
 
 /** Smallest centre-to-centre distance as a fraction of the stage width. */
 export const minimumSeparation = (stage: Stage, markers: PlaceMarkers): number =>
-  Num.unsafeDivide(
+  Numeric.unsafeDivide(
     Option.getOrElse(
       Statistics.minimum(
         Chunk.fromIterable(
           Arr.map(pairs(markers), (pair) =>
-            Geometry.euclideanDistance(centre(Tuple.getFirst(pair)), centre(Tuple.getSecond(pair))))
+            Geometry.euclideanDistance(centre(((pair) => pair[0])(pair)), centre(((pair) => pair[1])(pair))))
         )
       ),
       () =>
@@ -458,10 +458,10 @@ export const minimumSeparation = (stage: Stage, markers: PlaceMarkers): number =
   )
 
 export const FlowQuality = Schema.Struct({
-  loss: Schema.Number,
-  lineCount: Schema.Number,
-  narrowestLine: Schema.Number,
-  raggedness: Schema.Number
+  loss: Schema.Finite,
+  lineCount: Schema.Int,
+  narrowestLine: Schema.Finite,
+  raggedness: Schema.Finite
 })
 export type FlowQuality = typeof FlowQuality.Type
 
@@ -480,14 +480,14 @@ export const flowQuality = (
   const column = Num.subtract(w, Num.multiply(2, stage.padding))
 
   const offStage = Arr.reduce(markers, 0, (total, m) => {
-    const over = Num.unsafeDivide(
+    const over = Numeric.unsafeDivide(
       Num.max(0, Num.subtract(Num.sum(m.y, m.radius), Num.subtract(stage.stageHeight, stage.padding))),
       w
     )
     return Num.sum(total, Num.multiplyAll(Arr.make(over, over, 200)))
   })
 
-  const fractions = Arr.map(lines, (line) => Num.unsafeDivide(line.maxWidth, column))
+  const fractions = Arr.map(lines, (line) => Numeric.unsafeDivide(line.maxWidth, column))
   const narrowestLine = Option.getOrElse(Statistics.minimum(Chunk.fromIterable(fractions)), () => 1)
   const squeeze = Arr.reduce(fractions, 0, (total, fraction) => {
     const narrowed = Num.max(0, Num.subtract(0.4, fraction))
@@ -500,17 +500,17 @@ export const flowQuality = (
       Num.sum(
         total,
         Bool.match(
-          Num.greaterThan(Num.sum(line.y, stage.lineHeight), Num.subtract(stage.stageHeight, stage.padding)),
+          Num.isGreaterThan(Num.sum(line.y, stage.lineHeight), Num.subtract(stage.stageHeight, stage.padding)),
           { onTrue: () => 1, onFalse: () => 0 }
         )
       )
   )
-  const body = Arr.dropRight(Arr.map(lines, (line) => Num.unsafeDivide(line.width, column)), 1)
-  const raggedness = Bool.match(Num.greaterThan(Arr.length(body), 1), {
+  const body = Arr.dropRight(Arr.map(lines, (line) => Numeric.unsafeDivide(line.width, column)), 1)
+  const raggedness = Bool.match(Num.isGreaterThan(Arr.length(body), 1), {
     onTrue: () => Statistics.standardDeviation(Chunk.fromIterable(body)),
     onFalse: () => 0
   })
-  const compactness = Num.unsafeDivide(occupiedHeight(stage, markers, lines), w)
+  const compactness = Numeric.unsafeDivide(occupiedHeight(stage, markers, lines), w)
 
   return {
     loss: Num.sumAll(

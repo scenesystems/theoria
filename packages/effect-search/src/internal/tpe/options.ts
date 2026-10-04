@@ -58,7 +58,7 @@ export const acquisitionFromOptions = (
 export const constraintEvaluatorsFromOptions = (
   options: TpeOptions
 ) =>
-  Option.fromNullable(options.constraints).pipe(
+  Option.fromNullishOr(options.constraints).pipe(
     Option.match({ onNone: Arr.empty<Constraint>, onSome: Arr.fromIterable })
   )
 
@@ -77,39 +77,39 @@ export const snapshotSafeOptionsFromRuntime = (
   options: TpeOptions
 ) => {
   const baseOptions = {
-    ...Option.match(Option.fromNullable(options.nStartupTrials), {
+    ...Option.match(Option.fromNullishOr(options.nStartupTrials), {
       onNone: () => ({}),
       onSome: (nStartupTrials) => ({ nStartupTrials })
     }),
-    ...Option.match(Option.fromNullable(options.nEiCandidates), {
+    ...Option.match(Option.fromNullishOr(options.nEiCandidates), {
       onNone: () => ({}),
       onSome: (nEiCandidates) => ({ nEiCandidates })
     }),
-    ...Option.match(Option.fromNullable(options.multivariate), {
+    ...Option.match(Option.fromNullishOr(options.multivariate), {
       onNone: () => ({}),
       onSome: (multivariate) => ({ multivariate })
     }),
-    ...Option.match(Option.fromNullable(options.groupDimensions), {
+    ...Option.match(Option.fromNullishOr(options.groupDimensions), {
       onNone: () => ({}),
       onSome: (groupDimensions) => ({ groupDimensions })
     }),
-    ...Option.match(Option.fromNullable(options.noiseAware), {
+    ...Option.match(Option.fromNullishOr(options.noiseAware), {
       onNone: () => ({}),
       onSome: (noiseAware) => ({ noiseAware })
     }),
-    ...Option.match(Option.fromNullable(options.noiseAlpha), {
+    ...Option.match(Option.fromNullishOr(options.noiseAlpha), {
       onNone: () => ({}),
       onSome: (noiseAlpha) => ({ noiseAlpha })
     }),
-    ...Option.match(Option.fromNullable(options.seed), {
+    ...Option.match(Option.fromNullishOr(options.seed), {
       onNone: () => ({}),
       onSome: (seed) => ({ seed })
     })
   }
-  const constraints = Option.map(Option.fromNullable(options.constraints), Arr.fromIterable)
+  const constraints = Option.map(Option.fromNullishOr(options.constraints), Arr.fromIterable)
 
   return constraints.pipe(
-    Option.filter((constraints) => Num.greaterThan(Arr.length(constraints), 0)),
+    Option.filter((constraints) => Num.isGreaterThan(Arr.length(constraints), 0)),
     Option.match({
       onNone: () => baseOptions,
       onSome: (constraints) => ({
@@ -133,7 +133,7 @@ export const snapshotSafeOptionsFromRuntime = (
  * @category configuration
  */
 export const startupTrialsFromOptions = (options: TpeOptions): number =>
-  numberOptionOr(Option.fromNullable(options.nStartupTrials), 10)
+  numberOptionOr(Option.fromNullishOr(options.nStartupTrials), 10)
 
 /**
  * Reads the number of EI candidates to draw per suggestion step, defaulting
@@ -148,7 +148,7 @@ export const startupTrialsFromOptions = (options: TpeOptions): number =>
  * @category configuration
  */
 export const candidatesFromOptions = (options: TpeOptions): number =>
-  numberOptionOr(Option.fromNullable(options.nEiCandidates), 24)
+  numberOptionOr(Option.fromNullishOr(options.nEiCandidates), 24)
 
 /**
  * Reads the RNG seed for deterministic sampling, defaulting to 0.
@@ -160,7 +160,7 @@ export const candidatesFromOptions = (options: TpeOptions): number =>
  * @since 0.1.0
  * @category configuration
  */
-export const seedFromOptions = (options: TpeOptions): number => numberOptionOr(Option.fromNullable(options.seed), 0)
+export const seedFromOptions = (options: TpeOptions): number => numberOptionOr(Option.fromNullishOr(options.seed), 0)
 
 /**
  * Reads whether correlated multivariate continuous sampling is enabled,
@@ -175,7 +175,7 @@ export const seedFromOptions = (options: TpeOptions): number => numberOptionOr(O
  * @category configuration
  */
 export const multivariateFromOptions = (options: TpeOptions): boolean =>
-  Option.fromNullable(options.multivariate).pipe(Option.getOrElse(() => false))
+  Option.fromNullishOr(options.multivariate).pipe(Option.getOrElse(() => false))
 
 /**
  * Reads whether dimension grouping is enabled for mixed-type search spaces,
@@ -190,7 +190,7 @@ export const multivariateFromOptions = (options: TpeOptions): boolean =>
  * @category configuration
  */
 export const groupDimensionsFromOptions = (options: TpeOptions): boolean =>
-  Option.fromNullable(options.groupDimensions).pipe(Option.getOrElse(() => false))
+  Option.fromNullishOr(options.groupDimensions).pipe(Option.getOrElse(() => false))
 
 /**
  * Reads whether noise-aware bandwidth estimation is enabled, falling back to
@@ -205,7 +205,7 @@ export const groupDimensionsFromOptions = (options: TpeOptions): boolean =>
  * @category configuration
  */
 export const noiseAwareFromOptions = (options: TpeOptions): boolean =>
-  Option.fromNullable(options.noiseAware).pipe(
+  Option.fromNullishOr(options.noiseAware).pipe(
     Option.getOrElse(() => defaultNoiseBandwidthOptions.noiseAware)
   )
 
@@ -223,7 +223,7 @@ export const noiseAwareFromOptions = (options: TpeOptions): boolean =>
  */
 export const noiseAlphaFromOptions = (options: TpeOptions): number =>
   numberOptionOr(
-    Option.fromNullable(options.noiseAlpha),
+    Option.fromNullishOr(options.noiseAlpha),
     Bool.match(Bool.not(Num.Equivalence(defaultNoiseBandwidthOptions.noiseAlpha, 0)), {
       onFalse: () => defaultNoiseAlpha,
       onTrue: () => defaultNoiseBandwidthOptions.noiseAlpha
@@ -295,11 +295,12 @@ export const validateOptions = (
           sampler: "tpe"
         })
       ),
-      () =>
+      Effect.succeed(
         Bool.or(
-          Bool.or(Bool.not(isFinite(startup)), Bool.not(Schema.is(Schema.Number.pipe(Schema.int()))(startup))),
-          Num.lessThan(startup, 0)
+          Bool.or(Bool.not(isFinite(startup)), Bool.not(Schema.is(Schema.Int)(startup))),
+          Num.isLessThan(startup, 0)
         )
+      )
     )
 
     yield* Effect.when(
@@ -309,11 +310,12 @@ export const validateOptions = (
           sampler: "tpe"
         })
       ),
-      () =>
+      Effect.succeed(
         Bool.or(
-          Bool.or(Bool.not(isFinite(candidates)), Bool.not(Schema.is(Schema.Number.pipe(Schema.int()))(candidates))),
-          Num.lessThan(candidates, 1)
+          Bool.or(Bool.not(isFinite(candidates)), Bool.not(Schema.is(Schema.Int)(candidates))),
+          Num.isLessThan(candidates, 1)
         )
+      )
     )
 
     yield* Effect.when(
@@ -323,7 +325,7 @@ export const validateOptions = (
           sampler: "tpe"
         })
       ),
-      () => Bool.not(isFinite(noiseAlpha))
+      Effect.succeed(Bool.not(isFinite(noiseAlpha)))
     )
 
     yield* Effect.when(
@@ -333,6 +335,6 @@ export const validateOptions = (
           sampler: "tpe"
         })
       ),
-      () => Bool.or(Num.lessThan(noiseAlpha, 0), Num.greaterThan(noiseAlpha, maximumNoiseAlpha))
+      Effect.succeed(Bool.or(Num.isLessThan(noiseAlpha, 0), Num.isGreaterThan(noiseAlpha, maximumNoiseAlpha)))
     )
   })

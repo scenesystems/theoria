@@ -57,7 +57,7 @@ describe("Geometry / euclideanDistance", () => {
     Effect.gen(function*() {
       const result = euclideanDistance(Chunk.make(1e308, 1e308), Chunk.make(0, 0))
       expect(Schema.is(Schema.Finite)(result)).toBe(true)
-      expect(Number.greaterThan(result, 1e308)).toBe(true)
+      expect(Number.isGreaterThan(result, 1e308)).toBe(true)
     }))
 })
 
@@ -86,7 +86,7 @@ describe("Geometry / manhattanDistance", () => {
 
   it.effect("handles negative coordinates", () =>
     Effect.gen(function*() {
-      const a = Chunk.make(Number.negate(1), Number.negate(2))
+      const a = Chunk.make(Number.multiply(-1, 1), Number.multiply(-1, 2))
       const b = Chunk.make(1, 2)
       expect(manhattanDistance(a, b)).toStrictEqual(6)
     }))

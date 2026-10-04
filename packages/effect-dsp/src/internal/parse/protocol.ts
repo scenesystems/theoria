@@ -27,7 +27,7 @@ export const extractMarkedRecord = (raw: string): Record.ReadonlyRecord<string, 
   return Arr.reduce(matches, Record.empty<string, string>(), (acc, match, index) => {
     const marker = Option.all({
       field: markerField(match),
-      index: Option.fromNullable(match.index),
+      index: Option.fromNullishOr(match.index),
       text: Arr.head(match)
     })
 
@@ -36,7 +36,7 @@ export const extractMarkedRecord = (raw: string): Record.ReadonlyRecord<string, 
       onSome: (marker) => {
         const contentStart = Number.sum(marker.index, String.length(marker.text))
         const contentEnd = Arr.get(matches, Number.increment(index)).pipe(
-          Option.flatMap((next) => Option.fromNullable(next.index)),
+          Option.flatMap((next) => Option.fromNullishOr(next.index)),
           Option.getOrElse(() => String.length(raw))
         )
 
@@ -47,30 +47,33 @@ export const extractMarkedRecord = (raw: string): Record.ReadonlyRecord<string, 
 }
 
 const duplicateFieldDiagnostics = (raw: string): ParseOutputError["fieldDiagnostics"] => {
-  const fields = Arr.filterMap(markerMatches(raw), markerField)
+  const fields = Arr.flatMap(markerMatches(raw), (match) => Option.toArray(markerField(match)))
   const counts = Record.map(Arr.groupBy(fields, Function.identity), Arr.length)
 
-  return Arr.filterMap(Record.toEntries(counts), ([field, count]) =>
-    Boolean.match(Number.greaterThan(count, 1), {
-      onFalse: () => Option.none<ParseFieldDiagnostic>(),
-      onTrue: () =>
-        Option.some(
-          new ParseFieldDiagnostic({
-            field,
-            issue: "duplicate-field",
-            message: Arr.join(
-              Arr.make(
-                "Marker ",
-                renderFieldMarker(field),
-                " appeared ",
-                Schema.encodeSync(Schema.NumberFromString)(count),
-                " times"
-              ),
-              ""
-            )
-          })
-        )
-    }))
+  return Arr.flatMap(
+    Record.toEntries(counts),
+    ([field, count]) =>
+      Option.toArray(Boolean.match(Number.isGreaterThan(count, 1), {
+        onFalse: () => Option.none<ParseFieldDiagnostic>(),
+        onTrue: () =>
+          Option.some(
+            new ParseFieldDiagnostic({
+              field,
+              issue: "duplicate-field",
+              message: Arr.join(
+                Arr.make(
+                  "Marker ",
+                  renderFieldMarker(field),
+                  " appeared ",
+                  Schema.encodeSync(Schema.FiniteFromString)(count),
+                  " times"
+                ),
+                ""
+              )
+            })
+          )
+      }))
+  )
 }
 
 const missingFieldDiagnostics = (

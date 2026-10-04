@@ -8,11 +8,11 @@
 import { BunRuntime } from "@effect/platform-bun"
 import * as Cipher from "@scenesystems/seal/Cipher"
 import * as Envelope from "@scenesystems/seal/Envelope"
-import { Array, Effect, Encoding, Schema, String } from "effect"
+import { Effect, Schema, String } from "effect"
 
 const program = Effect.gen(function*() {
   const key = yield* Cipher.generateKey
-  const plaintext = yield* Schema.decode(Schema.Uint8Array)(Array.make(0, 1, 2, 127, 128, 255))
+  const plaintext = yield* Schema.decodeEffect(Schema.Uint8ArrayFromHex)("0001027f80ff")
 
   yield* Effect.forEach(
     Cipher.Algorithm.literals,
@@ -23,7 +23,10 @@ const program = Effect.gen(function*() {
         yield* Effect.log(algorithm, {
           nonceChars: envelope.nonce.length,
           ciphertextChars: envelope.ciphertext.length,
-          roundTrip: String.Equivalence(Encoding.encodeHex(recovered), "0001027f80ff")
+          roundTrip: String.Equivalence(
+            yield* Schema.encodeEffect(Schema.Uint8ArrayFromHex)(recovered),
+            "0001027f80ff"
+          )
         })
       }),
     { concurrency: 1 }
@@ -39,7 +42,7 @@ const program = Effect.gen(function*() {
   )
   yield* Effect.log("Wrong key", { result: wrongKeyResult })
 
-  const badKey = yield* Schema.decode(Schema.Uint8Array)(Array.replicate(0, 16))
+  const badKey = yield* Schema.decodeEffect(Schema.Uint8ArrayFromHex)("00000000000000000000000000000000")
   const badKeyResult = yield* Envelope.encrypt("aes-256-gcm", badKey, plaintext).pipe(
     Effect.catchTag("InvalidKey", (e) => Effect.succeed(`caught InvalidKey: expected ${e.expected}, got ${e.received}`))
   )

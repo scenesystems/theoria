@@ -5,7 +5,7 @@
  */
 import { Effect } from "effect"
 
-import type * as Optimization from "../../../../Optimization.js"
+import * as Optimization from "../../../../Optimization.js"
 import type * as OptimizationSnapshot from "../../../../OptimizationSnapshot.js"
 import type { InvalidOptimizationConfig } from "../../../../SearchError.js"
 import type * as SearchSpace from "../../../../SearchSpace.js"
@@ -23,7 +23,7 @@ import { commonPlanFields } from "./fields.js"
  * @category constructors
  */
 export const resumePlanFromOptions = <Space extends SearchSpace.SearchSpace>(
-  options: Optimization.ResumeOptions<SearchSpace.Type<Space>, Space>
+  options: Optimization.ResumeOptions<Space>
 ): Effect.Effect<ResumePlan<SearchSpace.Type<Space>, Space>, InvalidOptimizationConfig> =>
   Effect.succeed(
     new ResumePlan({
@@ -65,12 +65,17 @@ export const optimizePlanFromResume = <Space extends SearchSpace.SearchSpace>(
  * @category constructors
  */
 export const resumeOptionsWithSnapshot = <Space extends SearchSpace.SearchSpace>(
-  options: Optimization.StorageResumeOptions<SearchSpace.Type<Space>, Space>,
+  options: Optimization.StorageResumeOptions<Space>,
   snapshot: OptimizationSnapshot.OptimizationSnapshot
-): Optimization.ResumeOptions<SearchSpace.Type<Space>, Space> => ({
-  ...options,
-  snapshot
-})
+): Optimization.ResumeOptions<Space> =>
+  new Optimization.ResumeOptions({
+    space: options.space,
+    sampler: options.sampler,
+    snapshot,
+    objective: options.objective,
+    trials: options.trials,
+    ...commonPlanFields(options)
+  })
 
 /**
  * Removes the snapshot and copies continuation fields into flat optimization
@@ -82,11 +87,12 @@ export const resumeOptionsWithSnapshot = <Space extends SearchSpace.SearchSpace>
  * @category constructors
  */
 export const optimizeOptionsFromResume = <Space extends SearchSpace.SearchSpace>(
-  options: Optimization.ResumeOptions<SearchSpace.Type<Space>, Space>
-): Optimization.Options<SearchSpace.Type<Space>, Space> => ({
-  space: options.space,
-  sampler: options.sampler,
-  objective: options.objective,
-  trials: options.trials,
-  ...commonPlanFields(options)
-})
+  options: Optimization.ResumeOptions<Space>
+): Optimization.Options<Space> =>
+  new Optimization.FlatOptions({
+    space: options.space,
+    sampler: options.sampler,
+    objective: options.objective,
+    trials: options.trials,
+    ...commonPlanFields(options)
+  })

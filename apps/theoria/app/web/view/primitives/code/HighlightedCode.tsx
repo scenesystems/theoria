@@ -1,4 +1,4 @@
-import { useAtomValue } from "@effect-atom/atom-react"
+import { useAtomValue } from "@effect/atom-react"
 import { Boolean as Bool, Equal, Number as Num, Option, Schema } from "effect"
 import * as Arr from "effect/Array"
 import { Fragment, type ReactNode } from "react"
@@ -91,7 +91,7 @@ const defaultAnnotation = (annotation: CodeAnnotation): ReactNode => <CodeAnnota
 
 /** A line of the sample as the gutter has it: its number, from one, and its text. */
 export class GutterLine extends Schema.Class<GutterLine>("@theoria/app/web/view/HighlightedCode/GutterLine")({
-  number: Schema.Int.pipe(Schema.positive()),
+  number: Schema.Int.check(Schema.isGreaterThan(0)),
   text: Schema.String
 }) {}
 

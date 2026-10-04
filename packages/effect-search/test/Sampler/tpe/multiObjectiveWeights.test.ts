@@ -26,7 +26,7 @@ describe("Wave 2 / MOTPE selection-depth parity", () => {
       const loaded = yield* loadAllFixtures("motpe-weights.")
       const fixtures = yield* Effect.forEach(
         loaded,
-        (fixture) => Schema.decodeUnknown(MotpeWeightsFixture)(fixture)
+        (fixture) => Schema.decodeUnknownEffect(MotpeWeightsFixture)(fixture)
       )
 
       Arr.forEach(fixtures, (fixture) => {
@@ -57,7 +57,7 @@ describe("Wave 2 / MOTPE selection-depth parity", () => {
   it.effect("FM-5: computes fixture-backed reference points including zero-to-epsilon handling", () =>
     Effect.gen(function*() {
       const loaded = yield* loadFixture("motpe-reference.reference-point")
-      const fixture = yield* Schema.decodeUnknown(MotpeReferenceFixture)(loaded)
+      const fixture = yield* Schema.decodeUnknownEffect(MotpeReferenceFixture)(loaded)
 
       Arr.forEach(fixture.payload.cases, (entry) => {
         const reference = referencePoint(Arr.of(entry.worstPoint), entry.directions)
@@ -83,7 +83,7 @@ describe("Wave 2 / MOTPE selection-depth parity", () => {
   it.effect("FM-4: preserves rank boundaries and HSSP tie-break membership at split boundaries", () =>
     Effect.gen(function*() {
       const loaded = yield* loadFixture("motpe-split.multi-rank-hssp")
-      const fixture = yield* Schema.decodeUnknown(MotpeSplitFixture)(loaded)
+      const fixture = yield* Schema.decodeUnknownEffect(MotpeSplitFixture)(loaded)
 
       const points = Arr.map(fixture.payload.trials, (trial) => trial.values)
       const ranks = nonDominatedRanks(points, fixture.payload.directions)
@@ -113,7 +113,7 @@ describe("Wave 2 / MOTPE selection-depth parity", () => {
         fixture.payload.trials,
         0,
         (count, trial) =>
-          Match.value(Num.lessThan(trial.rank, selectedBoundaryRank)).pipe(
+          Match.value(Num.isLessThan(trial.rank, selectedBoundaryRank)).pipe(
             Match.when(true, () => Num.increment(count)),
             Match.orElse(() => count)
           )
@@ -124,17 +124,17 @@ describe("Wave 2 / MOTPE selection-depth parity", () => {
       )
       const rankedBoundaryTrials = Arr.sortBy(
         Order.mapInput(
-          Order.number,
-          (trial: (typeof boundaryTrials)[number]) => Num.negate(trial.hsspScore)
+          Order.Number,
+          (trial: (typeof boundaryTrials)[number]) => Num.multiply(-1, trial.hsspScore)
         ),
         Order.mapInput(
-          Order.number,
+          Order.Number,
           (trial: (typeof boundaryTrials)[number]) => trial.trialNumber
         )
       )(boundaryTrials)
       const expectedBoundarySelection = Arr.map(
         Arr.take(rankedBoundaryTrials, neededFromBoundary),
-        (trial) => trial.trialNumber
+        (trial: (typeof boundaryTrials)[number]) => trial.trialNumber
       )
 
       const completed = Arr.map(fixture.payload.trials, (trial) =>

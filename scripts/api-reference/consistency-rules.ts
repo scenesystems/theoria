@@ -25,7 +25,7 @@ export class DocumentationRecord extends Data.Class<{
   readonly docs: ApiDocumentation
 }> {}
 
-const numberText = Schema.encodeSync(Schema.NumberFromString)
+const numberText = Schema.encodeSync(Schema.FiniteFromString)
 
 const docsParts = (docs: ApiDocumentation): ReadonlyArray<ApiDocPart> => {
   const sections: ReadonlyArray<ReadonlyArray<ApiDocPart>> = Arr.appendAll(
@@ -99,7 +99,17 @@ export const documentationLinkDiagnostics = (
 ): ReadonlyArray<string> =>
   Arr.dedupe(Arr.flatMap(records, ({ owner, docs }) => linkDiagnostics(owner, docsParts(docs), targets)))
 
-const ExpectedSearchEntrySchema = DocsSearchEntrySchema.omit("kind")
+const ExpectedSearchEntrySchema = Schema.Struct({
+  id: DocsSearchEntrySchema.fields.id,
+  package: DocsSearchEntrySchema.fields.package,
+  packageSlug: DocsSearchEntrySchema.fields.packageSlug,
+  name: DocsSearchEntrySchema.fields.name,
+  qualifiedName: DocsSearchEntrySchema.fields.qualifiedName,
+  category: DocsSearchEntrySchema.fields.category,
+  summary: DocsSearchEntrySchema.fields.summary,
+  path: DocsSearchEntrySchema.fields.path,
+  anchor: DocsSearchEntrySchema.fields.anchor
+})
 
 export type ExpectedSearchEntry = typeof ExpectedSearchEntrySchema.Type
 

@@ -24,17 +24,16 @@ export const sourceDocumentationFiles = (
   module: ApiSourceModule,
   publicExports: ReadonlyArray<PackagePublicExport>
 ): ReadonlyArray<SourceFilePath> => {
-  const contributing: ReadonlyArray<SourceFilePath> = Arr.filterMap(
-    publicExports,
-    (entry) =>
+  const contributing: ReadonlyArray<SourceFilePath> = Arr.getSomes(
+    Arr.map(publicExports, (entry) =>
       Bool.match(Str.Equivalence(entry.sourceFile.relative, module.relative), {
         onTrue: Option.none,
         onFalse: () => Option.some(entry.sourceFile)
-      })
+      }))
   )
   const distinct = Arr.dedupeWith(contributing, (left, right) => Str.Equivalence(left.relative, right.relative))
 
-  return Arr.sort(distinct, Order.mapInput(Order.string, (file: SourceFilePath) => file.relative))
+  return Arr.sort(distinct, Order.mapInput(Order.String, (file: SourceFilePath) => file.relative))
 }
 
 export const documentationPathForExport = (input: {

@@ -5,15 +5,15 @@
  * @since 0.1.0
  * @category internal
  */
-import { Boolean, Number, Schema } from "effect"
+import { Boolean, Number } from "effect"
 
 import { log } from "../../Numeric.js"
 
-const isNonNaN = Schema.is(Schema.NonNaN)
+const isNonNaN = (value: number): boolean => Boolean.not(Number.Equivalence(value, NaN))
 const hasOrderedInputs = (x: number, low: number, high: number): boolean =>
   Boolean.and(
     Boolean.and(isNonNaN(x), Boolean.and(isNonNaN(low), isNonNaN(high))),
-    Boolean.and(Number.greaterThanOrEqualTo(x, low), Number.lessThanOrEqualTo(x, high))
+    Boolean.and(Number.isGreaterThanOrEqualTo(x, low), Number.isLessThanOrEqualTo(x, high))
   )
 
 /**
@@ -24,7 +24,7 @@ const hasOrderedInputs = (x: number, low: number, high: number): boolean =>
  */
 export const uniformPdf = (x: number, low: number, high: number): number =>
   Boolean.match(hasOrderedInputs(x, low, high), {
-    onTrue: () => Number.unsafeDivide(1, Number.subtract(high, low)),
+    onTrue: () => Number.divideUnsafe(1, Number.subtract(high, low)),
     onFalse: () => 0
   })
 
@@ -36,7 +36,7 @@ export const uniformPdf = (x: number, low: number, high: number): number =>
  */
 export const uniformLogpdf = (x: number, low: number, high: number): number =>
   Boolean.match(hasOrderedInputs(x, low, high), {
-    onTrue: () => Number.negate(log(Number.subtract(high, low))),
+    onTrue: () => Number.multiply(-1, log(Number.subtract(high, low))),
     onFalse: () => -Infinity
   })
 
@@ -48,12 +48,12 @@ export const uniformLogpdf = (x: number, low: number, high: number): number =>
  * @category internal
  */
 export const uniformCdf = (x: number, low: number, high: number): number =>
-  Boolean.match(Number.lessThan(x, low), {
+  Boolean.match(Number.isLessThan(x, low), {
     onTrue: () => 0,
     onFalse: () =>
-      Boolean.match(Number.greaterThan(x, high), {
+      Boolean.match(Number.isGreaterThan(x, high), {
         onTrue: () => 1,
-        onFalse: () => Number.unsafeDivide(Number.subtract(x, low), Number.subtract(high, low))
+        onFalse: () => Number.divideUnsafe(Number.subtract(x, low), Number.subtract(high, low))
       })
   })
 
@@ -72,7 +72,7 @@ export const uniformQuantile = (p: number, low: number, high: number): number =>
  * @since 0.1.0
  * @category internal
  */
-export const uniformMean = (low: number, high: number): number => Number.unsafeDivide(Number.sum(low, high), 2)
+export const uniformMean = (low: number, high: number): number => Number.divideUnsafe(Number.sum(low, high), 2)
 
 /**
  * Uniform variance: Var(X) = (b − a)² / 12.
@@ -82,7 +82,7 @@ export const uniformMean = (low: number, high: number): number => Number.unsafeD
  */
 export const uniformVariance = (low: number, high: number): number => {
   const range = Number.subtract(high, low)
-  return Number.unsafeDivide(Number.multiply(range, range), 12)
+  return Number.divideUnsafe(Number.multiply(range, range), 12)
 }
 
 /**

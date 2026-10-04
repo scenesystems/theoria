@@ -4,10 +4,10 @@
  * @see {@link https://arxiv.org/abs/2406.11695 | Opsahl-Ong et al., "Optimizing Instructions and Demonstrations for Multi-Stage Language Model Programs", 2024}
  * @since 0.1.0
  */
-import type * as LanguageModel from "@effect/ai/LanguageModel"
 import { Optimization, Sampler as SearchSampler, SearchSpace } from "@scenesystems/effect-search"
 import { Array as Arr, Effect, Number as Num, Option, Ref } from "effect"
 import type { Schema } from "effect"
+import type { LanguageModel } from "effect/ai"
 import { AllTrialsFailed } from "../../DspError.js"
 import * as Evaluate from "../../Evaluate.js"
 import { projectSingleObjective } from "../../EvaluationObjective.js"
@@ -93,10 +93,12 @@ export const runPhase3Search = <
       | MR
       | R
       | ER
-      | Schema.Schema.Context<Schema.Struct<I>>
-      | Schema.Schema.Context<Schema.Struct<O>>
+      | Schema.Struct<I>["DecodingServices"]
+      | Schema.Struct<O>["DecodingServices"]
+      | Schema.Struct<I>["EncodingServices"]
+      | Schema.Struct<O>["EncodingServices"]
     >()
-    const emit = Option.getOrElse(Option.fromNullable(options.emit), () => noEvents)
+    const emit = Option.getOrElse(Option.fromNullishOr(options.emit), () => noEvents)
     const bindings = yield* resolveBindings(
       new ResolveBindingsOptions({
         module: options.module,
@@ -107,15 +109,15 @@ export const runPhase3Search = <
     const dimensions = yield* buildSearchDimensions(bindings)
     const space = yield* SearchSpace.make(dimensions)
     const cadence = resolvePhase3Cadence({
-      ...Option.match(Option.fromNullable(options.seed), {
+      ...Option.match(Option.fromNullishOr(options.seed), {
         onNone: () => ({}),
         onSome: (seed) => ({ seed })
       }),
-      ...Option.match(Option.fromNullable(options.minibatchSize), {
+      ...Option.match(Option.fromNullishOr(options.minibatchSize), {
         onNone: () => ({}),
         onSome: (minibatchSize) => ({ minibatchSize })
       }),
-      ...Option.match(Option.fromNullable(options.fullEvalEvery), {
+      ...Option.match(Option.fromNullishOr(options.fullEvalEvery), {
         onNone: () => ({}),
         onSome: (fullEvalEvery) => ({ fullEvalEvery })
       })
@@ -125,7 +127,7 @@ export const runPhase3Search = <
       Arr.length(binding.instructions.candidates))
     const trialBudget = normalizePositive(
       Option.getOrElse(
-        Option.fromNullable(options.trialBudget),
+        Option.fromNullishOr(options.trialBudget),
         () =>
           phase3TrialBudgetFormula({
             predictorCount: Arr.length(bindings),
@@ -147,14 +149,16 @@ export const runPhase3Search = <
           })
         )
 
-        const report = yield* Evaluate.run({
-          module: options.module,
-          examples,
-          metrics: {
-            miprov2: options.metric
-          },
-          concurrency: 1
-        }).pipe(Effect.provide(evaluationContext))
+        const report = yield* Evaluate.run(
+          new Evaluate.Options({
+            module: options.module,
+            examples,
+            metrics: {
+              miprov2: options.metric
+            },
+            concurrency: 1
+          })
+        ).pipe(Effect.provide(evaluationContext))
         yield* Effect.when(
           Effect.fail(
             new AllTrialsFailed({
@@ -162,8 +166,7 @@ export const runPhase3Search = <
               trialCount: Arr.length(examples)
             })
           ),
-          () =>
-            Num.lessThanOrEqualTo(report.successCount, 0)
+          Effect.succeed(Num.isLessThanOrEqualTo(report.successCount, 0))
         )
         const projection = yield* projectSingleObjective(report, Option.some("miprov2"))
 
@@ -179,25 +182,27 @@ export const runPhase3Search = <
       })
     )
 
-    const optimizationResult = yield* Optimization.maximize({
-      space,
-      sampler: SearchSampler.tpe({ seed: cadence.seed, multivariate: true }),
-      trials: trialBudget,
-      objective: (config) =>
-        evaluateTrial(
-          new EvaluateTrialOptions({
-            config,
-            refs,
-            minibatchExamples,
-            valset: options.valset,
-            fullEvalEvery: cadence.fullEvalEvery,
-            emit,
-            evaluateOn
-          })
-        ).pipe(Effect.provide(evaluationContext)),
-      priorTrials: Arr.make(priorTrial),
-      concurrency: 1
-    })
+    const optimizationResult = yield* Optimization.maximize(
+      new Optimization.FlatOptions({
+        space,
+        sampler: SearchSampler.tpe(new SearchSampler.TpeOptions({ seed: cadence.seed, multivariate: true })),
+        trials: trialBudget,
+        objective: (config) =>
+          evaluateTrial(
+            new EvaluateTrialOptions({
+              config,
+              refs,
+              minibatchExamples,
+              valset: options.valset,
+              fullEvalEvery: cadence.fullEvalEvery,
+              emit,
+              evaluateOn
+            })
+          ).pipe(Effect.provide(evaluationContext)),
+        priorTrials: Arr.make(priorTrial),
+        concurrency: 1
+      })
+    )
 
     const bestConfig = yield* resolveBestConfig(optimizationResult, trialBudget)
 
@@ -211,7 +216,8 @@ export const runPhase3Search = <
 
     const fullEvalTrialNumbers = yield* Ref.get(refs.fullEvalTrialsRef)
     const minibatchTrialNumbers = yield* Ref.get(refs.minibatchTrialsRef)
-    const bestScore = Option.getOrElse(yield* Ref.get(refs.bestScoreRef), () => baselineObjective)
+    const bestScore = Option.getOrElse(yield* Ref.get(refs.bestScoreRef), () =>
+      baselineObjective)
 
     return new Result<I, O, E, R>({
       module: options.module,

@@ -1,5 +1,5 @@
-import { HttpMiddleware, HttpServerResponse } from "@effect/platform"
 import { Boolean as Bool, Effect } from "effect"
+import { HttpMiddleware, HttpServerResponse } from "effect/http"
 
 import { requestIsCanonical } from "./canonical-host.js"
 

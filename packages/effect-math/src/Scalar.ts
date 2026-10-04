@@ -14,7 +14,7 @@ import { Array, Boolean, Context, Effect, Layer, Match, Option, Schema, String }
  * @since 0.1.0
  * @category schemas
  */
-export const Kind = Schema.Literal("float64", "bigdecimal").annotations({
+export const Kind = Schema.Literals(["float64", "bigdecimal"]).annotate({
   identifier: "@scenesystems/effect-math/Scalar/Kind"
 })
 
@@ -32,12 +32,12 @@ export type Kind = typeof Kind.Type
  * @since 0.1.0
  * @category schemas
  */
-export const OperationCategory = Schema.Literal(
+export const OperationCategory = Schema.Literals([
   "numeric",
   "linear-algebra",
   "calculus",
   "optimization"
-).annotations({ identifier: "@scenesystems/effect-math/Scalar/OperationCategory" })
+]).annotate({ identifier: "@scenesystems/effect-math/Scalar/OperationCategory" })
 
 /**
  * A decoded operation family used to select scalar capabilities.
@@ -61,7 +61,7 @@ export const Capability = Schema.Struct({
   supportedCategories: Schema.NonEmptyArray(OperationCategory),
   deterministic: Schema.Boolean,
   supportsExactArithmetic: Schema.Boolean
-}).annotations({ identifier: "@scenesystems/effect-math/Scalar/Capability" })
+}).annotate({ identifier: "@scenesystems/effect-math/Scalar/Capability" })
 
 /**
  * Decoded capability metadata for one scalar lane.
@@ -83,7 +83,7 @@ export type Capability = typeof Capability.Type
 export const Policy = Schema.Struct({
   primaryKind: Kind,
   fallbackOrder: Schema.NonEmptyArray(Kind)
-}).annotations({ identifier: "@scenesystems/effect-math/Scalar/Policy" })
+}).annotate({ identifier: "@scenesystems/effect-math/Scalar/Policy" })
 
 /**
  * A decoded scalar lane selection policy.
@@ -99,7 +99,7 @@ export type Policy = typeof Policy.Type
  * @since 0.1.0
  * @category schemas
  */
-export const ResolutionSource = Schema.Literal("requested", "policy-primary", "policy-fallback").annotations({
+export const ResolutionSource = Schema.Literals(["requested", "policy-primary", "policy-fallback"]).annotate({
   identifier: "@scenesystems/effect-math/Scalar/ResolutionSource"
 })
 
@@ -117,7 +117,7 @@ export type ResolutionSource = typeof ResolutionSource.Type
  * @since 0.1.0
  * @category schemas
  */
-export const Resolution = Schema.Struct({ kind: Kind, source: ResolutionSource }).annotations({
+export const Resolution = Schema.Struct({ kind: Kind, source: ResolutionSource }).annotate({
   identifier: "@scenesystems/effect-math/Scalar/Resolution"
 })
 
@@ -141,7 +141,7 @@ export type Resolution = typeof Resolution.Type
 export const Settings = Schema.Struct({
   policy: Policy,
   capabilities: Schema.NonEmptyArray(Capability)
-}).annotations({ identifier: "@scenesystems/effect-math/Scalar/Settings" })
+}).annotate({ identifier: "@scenesystems/effect-math/Scalar/Settings" })
 
 /**
  * Decoded policy and capability state consumed by scalar selection.
@@ -165,7 +165,7 @@ export const Request = Schema.Struct({
   operationCategory: OperationCategory,
   requestedKind: Schema.optional(Kind),
   enforceRequestedKind: Schema.optional(Schema.Boolean)
-}).annotations({ identifier: "@scenesystems/effect-math/Scalar/Request" })
+}).annotate({ identifier: "@scenesystems/effect-math/Scalar/Request" })
 
 /**
  * A decoded scalar selection request.
@@ -199,7 +199,7 @@ export class UnsupportedError extends Schema.TaggedError<UnsupportedError>(
  * @since 0.1.0
  * @category services
  */
-export class Scalar extends Context.Tag("@scenesystems/effect-math/Scalar")<Scalar, Settings>() {}
+export class Scalar extends Context.Service<Scalar, Settings>()("@scenesystems/effect-math/Scalar") {}
 
 /**
  * Selects Float64 before BigDecimal for every declared operation family.
@@ -248,7 +248,8 @@ const sourceFromPolicy = (kind: Kind, primaryKind: Kind): ResolutionSource =>
     Match.when(false, () => "policy-fallback"),
     Match.exhaustive
   )
-const dedupe = Array.dedupeWith((self: Resolution, that: Resolution) => String.Equivalence(self.kind, that.kind))
+const dedupe = (resolutions: ReadonlyArray<Resolution>): Array<Resolution> =>
+  Array.dedupeWith(resolutions, (self: Resolution, that: Resolution) => String.Equivalence(self.kind, that.kind))
 const supports = (capability: Capability, category: OperationCategory): boolean =>
   Array.containsWith(String.Equivalence)(capability.supportedCategories, category)
 
@@ -270,7 +271,7 @@ export const resolve = (request: Request) =>
       Array.filter(settings.capabilities, (capability) => supports(capability, request.operationCategory)),
       (capability) => capability.kind
     )
-    const requested = Option.match(Option.fromNullable(request.requestedKind), {
+    const requested = Option.match(Option.fromNullishOr(request.requestedKind), {
       onNone: () => Array.empty<Resolution>(),
       onSome: (kind) => Array.of(makeRequested(kind))
     })
@@ -285,8 +286,8 @@ export const resolve = (request: Request) =>
     )
     const ordered = Match.value(
       Boolean.and(
-        Option.getOrElse(Option.fromNullable(request.enforceRequestedKind), () => false),
-        Option.isSome(Option.fromNullable(request.requestedKind))
+        Option.getOrElse(Option.fromNullishOr(request.enforceRequestedKind), () => false),
+        Option.isSome(Option.fromNullishOr(request.requestedKind))
       )
     ).pipe(
       Match.when(true, () => requested),
@@ -304,22 +305,20 @@ export const resolve = (request: Request) =>
       ))
     const attempted = Array.join(Array.map(ordered, (candidate) => candidate.kind), " -> ")
 
-    return yield* Option.match(resolved, {
-      onNone: () =>
-        Effect.fail(
-          new UnsupportedError({
-            operation: request.operation,
-            requestedKind: Option.getOrElse(
-              Option.fromNullable(request.requestedKind),
-              () => settings.policy.primaryKind
-            ),
-            availableKinds,
-            message: Array.join(
-              Array.make("No scalar lane resolved for ", request.operationCategory, "; attempted order: ", attempted),
-              ""
-            )
-          })
-        ),
-      onSome: Effect.succeed
-    })
+    return yield* Effect.fromOption(
+      resolved,
+      () =>
+        new UnsupportedError({
+          operation: request.operation,
+          requestedKind: Option.getOrElse(
+            Option.fromNullishOr(request.requestedKind),
+            () => settings.policy.primaryKind
+          ),
+          availableKinds,
+          message: Array.join(
+            Array.make("No scalar lane resolved for ", request.operationCategory, "; attempted order: ", attempted),
+            ""
+          )
+        })
+    )
   })

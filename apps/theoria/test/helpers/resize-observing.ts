@@ -1,4 +1,4 @@
-import { Context, Effect, Layer, MutableHashMap, MutableHashSet, MutableRef, Option, Schema } from "effect"
+import { Context, Effect, Equal, Layer, MutableHashMap, MutableHashSet, MutableRef, Option, Schema } from "effect"
 import * as Arr from "effect/Array"
 
 import { BrowserWindow } from "../../app/web/platform/BrowserWindow.js"
@@ -12,25 +12,25 @@ import { BrowserWindow } from "../../app/web/platform/BrowserWindow.js"
  */
 
 /** A content box, in CSS pixels. */
-export const ContentBox = Schema.Struct({ width: Schema.Number, height: Schema.Number })
+export const ContentBox = Schema.Struct({ width: Schema.Finite, height: Schema.Finite })
 export type ContentBox = typeof ContentBox.Type
 
 const unmeasured: ContentBox = { width: 0, height: 0 }
 
-export class ResizeObserving extends Context.Tag("test/ResizeObserving")<ResizeObserving, {
+export class ResizeObserving extends Context.Service<ResizeObserving, {
   /** Delivers `box` as the size of `target` to every observer watching it. */
   readonly report: (target: Element, box: ContentBox) => Effect.Effect<void>
   /** Active observers, so tests can verify that detached elements stop being observed. */
   readonly count: (target: Element) => Effect.Effect<number>
-}>() {}
+}>()("test/ResizeObserving") {}
 
-export const layer: Layer.Layer<ResizeObserving, never, BrowserWindow> = Layer.scoped(
+export const layer: Layer.Layer<ResizeObserving, never, BrowserWindow> = Layer.effect(
   ResizeObserving,
   Effect.gen(function*() {
     const browserWindow = yield* BrowserWindow
     const sizes = MutableHashMap.empty<Element, ContentBox>()
     const sizeOf = (target: Element): ContentBox =>
-      Option.getOrElse(MutableHashMap.get(sizes, target), () => unmeasured)
+      Option.getOrElse(MutableHashMap.get(sizes, Equal.byReferenceUnsafe(target)), () => unmeasured)
 
     const entryFor = (target: Element, box: ContentBox): ResizeObserverEntry => {
       const size: ResizeObserverSize = { blockSize: box.height, inlineSize: box.width }
@@ -49,7 +49,7 @@ export const layer: Layer.Layer<ResizeObserving, never, BrowserWindow> = Layer.s
       private readonly watching = MutableRef.make(Arr.empty<Element>())
 
       constructor(private readonly callback: ResizeObserverCallback) {
-        MutableHashSet.add(observers, this)
+        MutableHashSet.add(observers, Equal.byReferenceUnsafe(this))
       }
 
       observe(target: Element): void {
@@ -92,7 +92,7 @@ export const layer: Layer.Layer<ResizeObserving, never, BrowserWindow> = Layer.s
 
     const report = (target: Element, box: ContentBox): Effect.Effect<void> =>
       Effect.sync(() => {
-        MutableHashMap.set(sizes, target, box)
+        MutableHashMap.set(sizes, Equal.byReferenceUnsafe(target), box)
         Arr.forEach(Arr.fromIterable(observers), (observer) => {
           observer.deliver(target, box)
         })

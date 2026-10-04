@@ -1,4 +1,4 @@
-import { BunContext } from "@effect/platform-bun"
+import { BunServices } from "@effect/platform-bun"
 import { describe, expect, it } from "@effect/vitest"
 import { Array, Boolean, Effect, Match, Number, Schema } from "effect"
 
@@ -13,7 +13,7 @@ const digammaAbsoluteTolerance = 2e-12
 
 const expectParity = (actual: number, expected: number, absoluteTol: number = absoluteTolerance) => {
   const absExpected = abs(expected)
-  const tolerance = Boolean.match(Number.greaterThan(absExpected, 1), {
+  const tolerance = Boolean.match(Number.isGreaterThan(absExpected, 1), {
     onTrue: () => Number.multiply(absExpected, relativeTolerance),
     onFalse: () => absoluteTol
   })
@@ -24,7 +24,7 @@ describe("Special SciPy fixture parity", () => {
   it.effect("all function-parity cases match SciPy reference values", () =>
     Effect.gen(function*() {
       const raw = yield* loadFixture("special.function-parity")
-      const fixture = yield* Schema.decodeUnknown(SpecialFunctionParityFixtureSchema)(raw, {
+      const fixture = yield* Schema.decodeUnknownEffect(SpecialFunctionParityFixtureSchema)(raw, {
         onExcessProperty: "error"
       })
 
@@ -41,5 +41,5 @@ describe("Special SciPy fixture parity", () => {
             Match.exhaustive
           )
         ))
-    }).pipe(Effect.provide(BunContext.layer)))
+    }).pipe(Effect.provide(BunServices.layer)))
 })

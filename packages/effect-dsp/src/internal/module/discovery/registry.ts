@@ -7,11 +7,11 @@ import type { Ref } from "effect"
 import {
   Array as Arr,
   Boolean,
+  Context,
   Data,
   Effect,
   Equal,
   Equivalence,
-  FiberRef,
   HashMap,
   Option,
   Schema,
@@ -37,12 +37,14 @@ import { canonicalModuleRegistrations, canonicalSubModuleIds } from "./normaliza
  * @since 0.1.0
  * @category refs
  */
-export const ModuleRegistryRef: FiberRef.FiberRef<
+export const ModuleRegistryRef = Context.Reference<
   Option.Option<SynchronizedRef.SynchronizedRef<HashMap.HashMap<Id, Registration>>>
-> = FiberRef.unsafeMake(Option.none())
+>("@scenesystems/effect-dsp/internal/module/discovery/ModuleRegistryRef", {
+  defaultValue: Option.none
+})
 
 const decodeModuleId = (moduleName: string): Effect.Effect<Id, CompositionError> =>
-  Schema.decodeUnknown(Id)(moduleName).pipe(
+  Schema.decodeEffect(Id)(moduleName).pipe(
     Effect.mapError(() =>
       new CompositionError({
         message: Arr.join(
@@ -59,11 +61,11 @@ const signaturesMatch = (
   right: NodeSignature
 ): boolean => Equal.equals(left, right)
 
-const moduleIdEquivalence: Equivalence.Equivalence<Id> = Equivalence.string
+const moduleIdEquivalence: Equivalence.Equivalence<Id> = Equivalence.String
 
-const moduleIdListEquivalence = Arr.getEquivalence(moduleIdEquivalence)
+const moduleIdListEquivalence = Arr.makeEquivalence(moduleIdEquivalence)
 
-const paramsIdentity = Equivalence.strict<Ref.Ref<ModuleParameters>>()
+const paramsIdentity = Equivalence.strictEqual<Ref.Ref<ModuleParameters>>()
 
 const sameSubModuleIds = (
   left: ModuleGraphNode["subModuleIds"],
@@ -131,19 +133,17 @@ export const register = (
   registration: Registration
 ): Effect.Effect<void, CompositionError> =>
   Effect.gen(function*() {
-    const current = yield* FiberRef.get(ModuleRegistryRef)
-    const collector = yield* Option.match(current, {
-      onNone: () =>
-        Effect.gen(function*() {
-          const initialized = yield* SynchronizedRef.make(
-            HashMap.empty<Id, Registration>()
+    const collector = yield* Effect.withFiber((fiber) =>
+      Option.match(Context.get(fiber.context, ModuleRegistryRef), {
+        onSome: Effect.succeed,
+        onNone: () =>
+          SynchronizedRef.make(HashMap.empty<Id, Registration>()).pipe(
+            Effect.tap((collector) =>
+              Effect.sync(() => fiber.setContext(Context.add(fiber.context, ModuleRegistryRef, Option.some(collector))))
+            )
           )
-          yield* FiberRef.set(ModuleRegistryRef, Option.some(initialized))
-
-          return initialized
-        }),
-      onSome: Effect.succeed
-    })
+      })
+    )
 
     return yield* SynchronizedRef.updateEffect(
       collector,
@@ -186,7 +186,7 @@ export const registerRuntime = (options: RuntimeRegistrationOptions): Effect.Eff
   Effect.gen(function*() {
     const moduleId = yield* decodeModuleId(options.moduleName)
     const subModuleIds = Option.getOrElse(
-      Option.fromNullable(options.subModuleIds),
+      Option.fromNullishOr(options.subModuleIds),
       () => Arr.empty<Id>()
     )
 
@@ -236,7 +236,7 @@ export const registerModule = <
  * @since 0.1.0
  * @category combinators
  */
-export const registrySnapshot = FiberRef.get(ModuleRegistryRef).pipe(
+export const registrySnapshot = ModuleRegistryRef.pipe(
   Effect.flatMap(Option.match({
     onNone: () => Effect.succeed(HashMap.empty<Id, Registration>()),
     onSome: SynchronizedRef.get

@@ -7,13 +7,13 @@ import * as SearchSpace from "../../src/SearchSpace.js"
 
 const makeScalarSpace = () =>
   SearchSpace.make({
-    x: SearchSpace.float(Num.negate(2), 2)
+    x: SearchSpace.float(Num.multiply(-1, 2), 2)
   })
 
 const makeTypedSpace = () =>
   SearchSpace.make({
     lr: SearchSpace.float(0.0001, 0.1),
-    optimizer: SearchSpace.categorical(Schema.Literal("adam", "sgd").literals)
+    optimizer: SearchSpace.categorical(Schema.Literals(["adam", "sgd"]).literals)
   })
 
 const expectTypedConfig = (config: { readonly lr: number; readonly optimizer: "adam" | "sgd" }) => config
@@ -32,25 +32,29 @@ describe("Optimization convenience combinators", () => {
       const space = yield* makeScalarSpace()
       const objective = (config: SearchSpace.Type<typeof space>) => Effect.succeed(config.x)
 
-      const minimized = yield* Optimization.minimize({
-        space,
-        sampler: Sampler.random({ seed: 111 }),
-        trials: 14,
-        objective
-      })
+      const minimized = yield* Optimization.minimize(
+        new Optimization.FlatOptions({
+          space,
+          sampler: Sampler.random({ seed: 111 }),
+          trials: 14,
+          objective
+        })
+      )
 
-      const optimized = yield* Optimization.run({
-        space,
-        sampler: Sampler.random({ seed: 111 }),
-        direction: "minimize",
-        trials: 14,
-        objective
-      })
+      const optimized = yield* Optimization.run(
+        new Optimization.FlatOptions({
+          space,
+          sampler: Sampler.random({ seed: 111 }),
+          direction: "minimize",
+          trials: 14,
+          objective
+        })
+      )
 
       expect(minimized._tag).toBe("SingleObjective")
       expect(optimized._tag).toBe("SingleObjective")
-      const minimizedSingle = yield* asSingleObjective(minimized)
-      const optimizedSingle = yield* asSingleObjective(optimized)
+      const minimizedSingle = yield* Effect.fromOption(asSingleObjective(minimized))
+      const optimizedSingle = yield* Effect.fromOption(asSingleObjective(optimized))
 
       expect(minimizedSingle.bestTrial.state.value).toBe(optimizedSingle.bestTrial.state.value)
       expect(minimizedSingle.trials).toHaveLength(Arr.length(Arr.fromIterable(optimizedSingle.trials)))
@@ -61,25 +65,29 @@ describe("Optimization convenience combinators", () => {
       const space = yield* makeScalarSpace()
       const objective = (config: SearchSpace.Type<typeof space>) => Effect.succeed(config.x)
 
-      const maximized = yield* Optimization.maximize({
-        space,
-        sampler: Sampler.random({ seed: 222 }),
-        trials: 14,
-        objective
-      })
+      const maximized = yield* Optimization.maximize(
+        new Optimization.FlatOptions({
+          space,
+          sampler: Sampler.random({ seed: 222 }),
+          trials: 14,
+          objective
+        })
+      )
 
-      const optimized = yield* Optimization.run({
-        space,
-        sampler: Sampler.random({ seed: 222 }),
-        direction: "maximize",
-        trials: 14,
-        objective
-      })
+      const optimized = yield* Optimization.run(
+        new Optimization.FlatOptions({
+          space,
+          sampler: Sampler.random({ seed: 222 }),
+          direction: "maximize",
+          trials: 14,
+          objective
+        })
+      )
 
       expect(maximized._tag).toBe("SingleObjective")
       expect(optimized._tag).toBe("SingleObjective")
-      const maximizedSingle = yield* asSingleObjective(maximized)
-      const optimizedSingle = yield* asSingleObjective(optimized)
+      const maximizedSingle = yield* Effect.fromOption(asSingleObjective(maximized))
+      const optimizedSingle = yield* Effect.fromOption(asSingleObjective(optimized))
 
       expect(maximizedSingle.bestTrial.state.value).toBe(optimizedSingle.bestTrial.state.value)
       expect(maximizedSingle.trials).toHaveLength(Arr.length(Arr.fromIterable(optimizedSingle.trials)))
@@ -97,19 +105,23 @@ describe("Optimization convenience combinators", () => {
           )
         ))
 
-      const minimized = yield* Optimization.minimize({
-        space,
-        sampler: Sampler.random({ seed: 5 }),
-        trials: 6,
-        objective: (config) => score(expectTypedConfig(config))
-      })
+      const minimized = yield* Optimization.minimize(
+        new Optimization.FlatOptions({
+          space,
+          sampler: Sampler.random({ seed: 5 }),
+          trials: 6,
+          objective: (config) => score(expectTypedConfig(config))
+        })
+      )
 
-      const maximized = yield* Optimization.maximize({
-        space,
-        sampler: Sampler.random({ seed: 5 }),
-        trials: 6,
-        objective: (config) => score(expectTypedConfig(config))
-      })
+      const maximized = yield* Optimization.maximize(
+        new Optimization.FlatOptions({
+          space,
+          sampler: Sampler.random({ seed: 5 }),
+          trials: 6,
+          objective: (config) => score(expectTypedConfig(config))
+        })
+      )
 
       expect(minimized._tag).toBe("SingleObjective")
       expect(maximized._tag).toBe("SingleObjective")

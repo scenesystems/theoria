@@ -33,12 +33,12 @@ import {
  * @since 0.1.0
  * @category models
  */
-export const Phase1CandidateKind = Schema.Literal(
+export const Phase1CandidateKind = Schema.Literals([
   "zero-shot",
   "labels-only",
   "bootstrap-unshuffled",
   "bootstrap-shuffled"
-)
+])
 
 /** @internal */
 export type Phase1CandidateKind = typeof Phase1CandidateKind.Type
@@ -59,7 +59,7 @@ export class CandidateAssembly extends Schema.Class<CandidateAssembly>(
 }) {}
 
 const demoOrder: Order.Order<Demo> = Order.mapInput(
-  Order.number,
+  Order.Number,
   (demo) => Num.sum(Arr.length(Record.keys(demo.input)), Arr.length(Record.keys(demo.output)))
 )
 
@@ -78,10 +78,10 @@ export const AssemblePredictorCandidatesOptions = Schema.Struct({
   params: ModuleParameters,
   demos: ModuleParameters.fields.demos,
   bootstrappedDemos: ModuleParameters.fields.demos,
-  requestedCandidates: Schema.Number,
-  maxLabeledDemos: Schema.Number,
-  maxBootstrappedDemos: Schema.Number,
-  seed: Schema.Number
+  requestedCandidates: Schema.Finite,
+  maxLabeledDemos: Schema.Finite,
+  maxBootstrappedDemos: Schema.Finite,
+  seed: Schema.Finite
 })
 
 /** @internal */
@@ -94,10 +94,13 @@ export type AssemblePredictorCandidatesOptions = typeof AssemblePredictorCandida
  * @since 0.1.0
  * @category constructors
  */
-export const labeledDemos = (trainset: Schema.Array$<typeof Example>["Type"]): ModuleParameters["demos"] =>
-  Arr.filterMap(
+export const labeledDemos = (trainset: ReadonlyArray<Example>): ModuleParameters["demos"] =>
+  Arr.flatMap(
     trainset,
-    (example) => Option.map(Option.fromNullable(example.output), (output) => new Demo({ input: example.input, output }))
+    (example) =>
+      Option.toArray(
+        Option.map(Option.fromNullishOr(example.output), (output) => new Demo({ input: example.input, output }))
+      )
   )
 
 /**
@@ -126,7 +129,7 @@ export const sortDemos = (demos: ModuleParameters["demos"]): ModuleParameters["d
  */
 export const assemblePredictorCandidates = (
   options: AssemblePredictorCandidatesOptions
-): Schema.Array$<typeof CandidateAssembly>["Type"] => {
+): ReadonlyArray<CandidateAssembly> => {
   const normalizedRequested = normalizePositiveCount(options.requestedCandidates)
   const candidate = (kind: Phase1CandidateKind, demos: ModuleParameters["demos"], marker: string) =>
     new CandidateAssembly({

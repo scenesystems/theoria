@@ -18,30 +18,32 @@ const maximizeDirections = Schema.decodeUnknownSync(Schema.Array(Direction.Direc
 const program = Effect.scoped(
   Effect.gen(function*() {
     const space = yield* SearchSpace.make({
-      x: SearchSpace.float(Num.negate(2), 2),
-      y: SearchSpace.float(Num.negate(2), 2)
+      x: SearchSpace.float(Num.multiply(-1, 2), 2),
+      y: SearchSpace.float(Num.multiply(-1, 2), 2)
     })
 
     const objective = (config: SearchSpace.Type<typeof space>) =>
       Effect.succeed(
-        Num.negate(
-          Num.sum(Num.multiply(config.x, config.x), Num.multiply(config.y, config.y))
-        )
+        Num.multiply(-1, Num.sum(Num.multiply(config.x, config.x), Num.multiply(config.y, config.y)))
       )
 
-    const sampler = Sampler.tpe({
-      seed: 345,
-      acquisition: "thompson"
-    })
+    const sampler = Sampler.tpe(
+      new Sampler.TpeOptions({
+        seed: 345,
+        acquisition: "thompson"
+      })
+    )
 
-    const handle = yield* Optimization.open({
-      direction: "maximize",
-      space,
-      sampler,
-      trials: 2,
-      objective,
-      concurrency: 1
-    })
+    const handle = yield* Optimization.open(
+      new Optimization.FlatOptions({
+        direction: "maximize",
+        space,
+        sampler,
+        trials: 2,
+        objective,
+        concurrency: 1
+      })
+    )
 
     const progressLinesRef = yield* Ref.make(Arr.empty<string>())
     const progressFiber = yield* Optimization.events(handle).pipe(
@@ -51,7 +53,7 @@ const program = Effect.scoped(
         })
       ),
       Stream.runCollect,
-      Effect.fork
+      Effect.forkChild
     )
 
     const askAndTellInteropTrial = Effect.fn("askAndTellInteropTrial")(function*() {

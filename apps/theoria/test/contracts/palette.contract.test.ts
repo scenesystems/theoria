@@ -1,9 +1,9 @@
-import { FileSystem, Path, Url } from "@effect/platform"
-import { BunContext } from "@effect/platform-bun"
+import { BunFileSystem } from "@effect/platform-bun"
 import { describe, expect, it } from "@effect/vitest"
-import { Effect, Equal, Match, Number as Num, Option, Order, Tuple } from "effect"
+import { Effect, Equal, FileSystem, Layer, Match, Number as Num, Option, Order, Path, Tuple } from "effect"
 import * as Arr from "effect/Array"
 import * as Chunk from "effect/Chunk"
+import * as Url from "effect/http/Url"
 import * as Str from "effect/String"
 
 import type { DiscSlot, Family, ToneSlot } from "../../app/contracts/palette.js"
@@ -43,7 +43,7 @@ import { discSlotClassName, neutralToneClasses, toneClassesFor } from "../../app
 /** The app's `app/web` directory, from this file rather than the working directory: the root test run starts elsewhere. */
 const webRoot: Effect.Effect<string, never, Path.Path> = Effect.gen(function*() {
   const path = yield* Path.Path
-  return yield* path.fromFileUrl(yield* Url.fromString("../../app/web/", import.meta.url))
+  return yield* path.fromFileUrl(yield* Effect.fromResult(Url.fromString("../../app/web/", import.meta.url)))
 }).pipe(Effect.orDie)
 
 const white = new Oklch({ l: 1, c: 0, h: 0 })
@@ -58,7 +58,7 @@ const neutralInks: ReadonlyArray<NeutralRole> = ["ink-tertiary", "ink-secondary"
 const toneOrder: ReadonlyArray<ToneRole> = ["surface", "wash", "edge", "accent-soft", "accent", "ink", "ink-strong"]
 
 const lightnessDescends = (values: ReadonlyArray<number>): boolean =>
-  Arr.every(Arr.zip(values, Arr.drop(values, 1)), ([above, below]) => Order.greaterThan(Num.Order)(above, below))
+  Arr.every(Arr.zip(values, Arr.drop(values, 1)), ([above, below]) => Order.isGreaterThan(Num.Order)(above, below))
 
 const toneTexts: ReadonlyArray<ToneRole> = ["ink", "ink-strong"]
 /** The roles that carry a tone's voice: its marks and its text. Pale grounds sit too near white to read a saturation. */
@@ -86,8 +86,8 @@ const hoverSteps: ReadonlyArray<readonly [rest: ToneSlot, hover: ToneSlot]> = [
 /** Further from the paper: darker in light mode, lighter in dark. */
 const deeperThan = (mode: ColorMode) =>
   Match.value(mode).pipe(
-    Match.when("light", () => Order.lessThan(Num.Order)),
-    Match.when("dark", () => Order.greaterThan(Num.Order)),
+    Match.when("light", () => Order.isLessThan(Num.Order)),
+    Match.when("dark", () => Order.isGreaterThan(Num.Order)),
     Match.exhaustive
   )
 /** The tone roles a focused control may stand on: a chosen pill's fill, a changed value's wash, a toggle's edge. */
@@ -165,7 +165,7 @@ describe("palette contract", () => {
       // Between the ghost white (c .006) and the light blue (c .023) the grey gathers chroma as it darkens.
       const paleGrey = familyColor("grey", "light", 0.9)
       expect(within(paleGrey.c, 0.006, 0.023), `chroma ${paleGrey.c}`).toBe(true)
-      expect(Order.greaterThan(Num.Order)(paleGrey.c, familyColor("grey", "light", 0.95).c)).toBe(true)
+      expect(Order.isGreaterThan(Num.Order)(paleGrey.c, familyColor("grey", "light", 0.95).c)).toBe(true)
       // Above the light blue the brand's light ramp ends: a paler brand keeps the light blue's chroma and hue.
       const aboveTop = familyColor("brand", "light", 0.95)
       expect(aboveTop).toStrictEqual(new Oklch({ l: 0.95, c: 0.023, h: 207.1 }))
@@ -175,10 +175,12 @@ describe("palette contract", () => {
       const dusk = familyColor("grey", "dark", 0.3056)
       const inkBlack = familyColor("grey", "dark", 0.1729)
       expect(within(nearInk.h, dusk.h, inkBlack.h)).toBe(true)
-      expect(Order.greaterThan(Num.Order)(nearInk.h, dusk.h), `hue ${nearInk.h} leans towards the ink black's`).toBe(
+      expect(Order.isGreaterThan(Num.Order)(nearInk.h, dusk.h), `hue ${nearInk.h} leans towards the ink black's`).toBe(
         true
       )
-      expect(Order.lessThan(Num.Order)(nearInk.h, inkBlack.h), `hue ${nearInk.h} is not yet the ink black's`).toBe(true)
+      expect(Order.isLessThan(Num.Order)(nearInk.h, inkBlack.h), `hue ${nearInk.h} is not yet the ink black's`).toBe(
+        true
+      )
     }))
 
   it.effect("the grey never competes with the colour: every neutral keeps to the teal's hue band and carries less chroma than the brand at its lightness", () =>
@@ -199,12 +201,12 @@ describe("palette contract", () => {
         const neighbor = toneColor("secondary", role, mode)
         const program = toneColor("tertiary", role, mode)
         expect(
-          Order.greaterThan(Num.Order)(neighbor.c, program.c),
+          Order.isGreaterThan(Num.Order)(neighbor.c, program.c),
           `${role} ${mode}: the neighbor carries more colour than the program`
         )
           .toBe(true)
         expect(
-          Order.greaterThan(Num.Order)(reader.c, neighbor.c),
+          Order.isGreaterThan(Num.Order)(reader.c, neighbor.c),
           `${role} ${mode}: the reader carries more colour than the neighbor`
         )
           .toBe(true)
@@ -256,7 +258,7 @@ describe("palette contract", () => {
         expect(neighbor.l, `${role} ${mode}: the neighbor stands at the reader's lightness`).toBe(reader.l)
         expect(program.l, `${role} ${mode}: the program stands at the reader's lightness`).toBe(reader.l)
         expect(neighbor.h, `${role} ${mode}: the neighbor speaks in the reader's hue`).toBe(reader.h)
-        expect(Order.greaterThan(Num.Order)(reader.c, neighbor.c), `${role} ${mode}: the reader carries more colour`)
+        expect(Order.isGreaterThan(Num.Order)(reader.c, neighbor.c), `${role} ${mode}: the reader carries more colour`)
           .toBe(
             true
           )
@@ -552,5 +554,5 @@ describe("Generated palette tokens", () => {
       const generated = yield* fileSystem.readFileString(path.join(root, "palette-tokens.generated.css"))
 
       expect(generated).toBe(renderPaletteTokensCss())
-    }).pipe(Effect.provide(BunContext.layer)))
+    }).pipe(Effect.provide(Layer.merge(BunFileSystem.layer, Path.layer))))
 })

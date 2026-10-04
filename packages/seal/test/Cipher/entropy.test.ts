@@ -1,99 +1,121 @@
 import { describe, expect, it, vi } from "@effect/vitest"
 import { Cipher } from "@scenesystems/seal"
-import { Array, Deferred, Effect, Encoding, Exit, Fiber, Number, Ref, Schema, String } from "effect"
+import { Array, Cause, Deferred, Effect, Exit, Fiber, Number, Ref, Schema, String } from "effect"
 import * as internal from "../../src/internal/cipher.js"
-import { key, plaintext, vectors } from "../fixtures/vectors.js"
+import { key as keyFixture, plaintext as plaintextFixture, vectors } from "../fixtures/vectors.js"
 
-// Exercise Noble's real missing-CSPRNG exception, restoring the host even if an assertion fails.
+const bytes = Schema.decodeEffect(Schema.Uint8ArrayFromHex)
 const unavailableEntropy = Effect.acquireRelease(
   Effect.sync(() => vi.stubGlobal("crypto", undefined)),
   () => Effect.sync(() => vi.unstubAllGlobals())
 )
 
-describe.sequential("Cipher entropy failures", () => {
-  it.scoped("reports host key entropy failure without a defect or backend diagnostics", () =>
+describe("Cipher entropy failures", { concurrent: false }, () => {
+  it.effect("reports missing host key entropy as a typed failure", () =>
     Effect.gen(function*() {
       yield* unavailableEntropy
       expect(yield* Effect.exit(Cipher.generateKey)).toStrictEqual(Exit.fail(new Cipher.KeyGenerationFailed()))
     }).pipe(Effect.provide(Cipher.layer)))
 
-  it.scoped("validates keys before attempting entropy and reports host nonce entropy failure", () =>
+  it.effect("validates keys before entropy and reports missing nonce entropy", () =>
     Effect.gen(function*() {
       yield* unavailableEntropy
+      const key = yield* bytes(keyFixture)
+      const plaintext = yield* bytes(plaintextFixture)
       yield* Effect.forEach(Cipher.Algorithm.literals, (algorithm) =>
         Effect.gen(function*() {
           expect(yield* Effect.exit(Cipher.encrypt(algorithm, key, plaintext)))
             .toStrictEqual(Exit.fail(new Cipher.EncryptionFailed({ algorithm })))
-          const invalid = yield* Schema.decode(Schema.Uint8Array)(Array.replicate(0, 31))
-          const recovered = yield* Cipher.encrypt(algorithm, invalid, plaintext).pipe(
-            Effect.catchTag("InvalidKey", (error) => Effect.succeed(error.received))
-          )
-          expect(recovered).toBe(31)
+          const invalid = yield* bytes(String.repeat(31)("00"))
+          expect(
+            yield* Cipher.encrypt(algorithm, invalid, plaintext).pipe(
+              Effect.catchTag("InvalidKey", (error) => Effect.succeed(error.received))
+            )
+          ).toBe(31)
         }))
     }).pipe(Effect.provide(Cipher.layer)))
 
-  it.scoped("decrypts published ciphertext without host entropy", () =>
+  it.effect("decrypts published ciphertext without entropy", () =>
     Effect.gen(function*() {
       yield* unavailableEntropy
       yield* Effect.forEach(vectors, (vector) =>
         Effect.gen(function*() {
-          const secret = yield* Encoding.decodeHex(vector.key)
-          const raw = yield* Encoding.decodeHex(String.concat(vector.nonce, vector.ciphertext))
-          expect(Encoding.encodeHex(yield* Cipher.decrypt(vector.algorithm, secret, raw))).toBe(vector.plaintext)
+          const encrypted = new Cipher.Encrypted({
+            algorithm: vector.algorithm,
+            nonce: yield* bytes(vector.nonce),
+            ciphertext: yield* bytes(vector.ciphertext)
+          })
+          const opened = yield* Cipher.decrypt(encrypted, yield* bytes(vector.key))
+          expect(yield* Schema.encodeEffect(Schema.Uint8ArrayFromHex)(opened)).toBe(vector.plaintext)
         }))
     }).pipe(Effect.provide(Cipher.layer)))
 
-  it.effect("rejects generated material that violates key policy", () =>
-    Effect.forEach(Array.make(Array.replicate(0, 32), Array.replicate(5, 31)), (input) =>
+  it.effect("rejects generated material violating key policy", () =>
+    Effect.forEach(Array.make(String.repeat(32)("00"), String.repeat(31)("05")), (fixture) =>
       Effect.gen(function*() {
-        const bytes = yield* Schema.decode(Schema.Uint8Array)(input)
         const result = yield* Effect.exit(Cipher.generateKey.pipe(
-          Effect.provideService(Cipher.Cipher, internal.make(() => Effect.succeed(bytes)))
+          Effect.provideService(
+            Cipher.Cipher,
+            internal.make(() => bytes(fixture).pipe(Effect.mapError(() => new internal.EntropyFailed())))
+          )
         ))
         expect(result).toStrictEqual(Exit.fail(new Cipher.KeyGenerationFailed()))
       })))
 
-  it.effect("acquires entropy lazily on each execution, after key validation", () =>
+  it.effect("acquires fresh entropy lazily on every execution after key validation", () =>
     Effect.gen(function*() {
+      const key = yield* bytes(keyFixture)
+      const plaintext = yield* bytes(plaintextFixture)
       const requests = yield* Ref.make(Array.empty<number>())
       const backend = internal.make((length) =>
         Ref.update(requests, Array.append(length)).pipe(
-          Effect.as(Schema.decodeSync(Schema.Uint8Array)(Array.replicate(7, length)))
+          Effect.andThen(
+            bytes(String.repeat(length)("07")).pipe(
+              Effect.mapError(() => new internal.EntropyFailed())
+            )
+          )
         )
       )
       const generate = Cipher.generateKey.pipe(Effect.provideService(Cipher.Cipher, backend))
-      const encrypt = Cipher.encrypt("aes-256-gcm", key, plaintext).pipe(
-        Effect.provideService(Cipher.Cipher, backend)
-      )
+      const encrypt = Cipher.encrypt("aes-256-gcm", key, plaintext).pipe(Effect.provideService(Cipher.Cipher, backend))
       expect(yield* Ref.get(requests)).toEqual(Array.empty())
-      yield* generate
-      yield* generate
-      yield* encrypt
-      yield* encrypt
-      const zero = yield* Schema.decode(Schema.Uint8Array)(Array.replicate(0, 32))
-      yield* Cipher.encrypt("aes-256-gcm", zero, plaintext).pipe(
+      const first = yield* generate
+      const second = yield* generate
+      expect(first).not.toBe(second)
+      const firstEncrypted = yield* encrypt
+      const secondEncrypted = yield* encrypt
+      expect(firstEncrypted.nonce).not.toBe(secondEncrypted.nonce)
+      yield* Cipher.encrypt("aes-256-gcm", yield* bytes(String.repeat(32)("00")), plaintext).pipe(
         Effect.provideService(Cipher.Cipher, backend),
         Effect.exit
       )
       expect(yield* Ref.get(requests)).toEqual(Array.make(32, 32, 12, 12))
     }))
 
-  it.effect("rejects a nonce whose length differs from the algorithm's wire boundary", () =>
-    Effect.forEach(Cipher.Algorithm.literals, (algorithm) =>
-      Effect.gen(function*() {
-        const backend = internal.make((length) =>
-          Effect.succeed(Schema.decodeSync(Schema.Uint8Array)(Array.replicate(7, Number.increment(length))))
-        )
-        expect(
-          yield* Cipher.encrypt(algorithm, key, plaintext).pipe(
-            Effect.provideService(Cipher.Cipher, backend),
-            Effect.exit
-          )
-        ).toStrictEqual(Exit.fail(new Cipher.EncryptionFailed({ algorithm })))
-      })))
-
-  it.effect("interrupts pending entropy acquisition and releases its scope without producing ciphertext", () =>
+  it.effect("rejects entropy with the wrong nonce length", () =>
     Effect.gen(function*() {
+      const key = yield* bytes(keyFixture)
+      const plaintext = yield* bytes(plaintextFixture)
+      yield* Effect.forEach(Cipher.Algorithm.literals, (algorithm) =>
+        Effect.gen(function*() {
+          const backend = internal.make((length) =>
+            bytes(String.repeat(Number.increment(length))("07")).pipe(
+              Effect.mapError(() => new internal.EntropyFailed())
+            )
+          )
+          expect(
+            yield* Cipher.encrypt(algorithm, key, plaintext).pipe(
+              Effect.provideService(Cipher.Cipher, backend),
+              Effect.exit
+            )
+          ).toStrictEqual(Exit.fail(new Cipher.EncryptionFailed({ algorithm })))
+        }))
+    }))
+
+  it.effect("interrupts pending entropy acquisition and releases its scope", () =>
+    Effect.gen(function*() {
+      const key = yield* bytes(keyFixture)
+      const plaintext = yield* bytes(plaintextFixture)
       const started = yield* Deferred.make<void>()
       const released = yield* Ref.make(false)
       const backend = internal.make(() =>
@@ -105,10 +127,12 @@ describe.sequential("Cipher entropy failures", () => {
       )
       const fiber = yield* Cipher.encrypt("aes-256-gcm", key, plaintext).pipe(
         Effect.provideService(Cipher.Cipher, backend),
-        Effect.fork
+        Effect.forkChild
       )
       yield* Deferred.await(started)
-      expect(Exit.isInterrupted(yield* Fiber.interrupt(fiber))).toBe(true)
+      yield* Fiber.interrupt(fiber)
+      expect(Exit.match(yield* Fiber.await(fiber), { onFailure: Cause.hasInterruptsOnly, onSuccess: () => false }))
+        .toBe(true)
       expect(yield* Ref.get(released)).toBe(true)
     }))
 })

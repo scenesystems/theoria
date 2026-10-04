@@ -90,8 +90,8 @@ export const modify = <Config, TrialState, A, E, R>(
   SubscriptionRef.modifyEffect(self.state, (state) =>
     transaction(state).pipe(
       Effect.flatMap((resultAndNext) => {
-        const result = Tuple.getFirst(resultAndNext)
-        const next = Tuple.getSecond(resultAndNext)
+        const result = Tuple.get(resultAndNext, 0)
+        const next = Tuple.get(resultAndNext, 1)
         return Match.value(
           Bool.or(
             Str.Equivalence(state.lifecycle, next.lifecycle),
@@ -139,4 +139,4 @@ export const transition = <Config, TrialState>(
  */
 export const changes = <Config, TrialState>(
   self: Study<Config, TrialState>
-): Stream.Stream<State<Config, TrialState>> => self.state.changes
+): Stream.Stream<State<Config, TrialState>> => SubscriptionRef.changes(self.state)

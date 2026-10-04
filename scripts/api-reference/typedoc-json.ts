@@ -7,7 +7,7 @@ import { type JSONOutput } from "typedoc"
 // revives one, so it is declared rather than re-described here.
 const isProjectJson = (value: unknown): value is JSONOutput.ProjectReflection =>
   Match.value(value).pipe(
-    Match.when(Predicate.isRecord, (record) =>
+    Match.when(Predicate.isObject, (record) =>
       Bool.every(Arr.make(
         Option.liftPredicate(Predicate.isString)(record.variant).pipe(
           Option.exists((variant) => Str.Equivalence(variant, "project"))
@@ -21,9 +21,9 @@ const isProjectJson = (value: unknown): value is JSONOutput.ProjectReflection =>
 
 export type TypeDocProjectJson = JSONOutput.ProjectReflection
 
-export const TypeDocProjectJson: Schema.Schema<TypeDocProjectJson> = Schema.declare(isProjectJson, {
+export const TypeDocProjectJson = Schema.declare(isProjectJson, {
   identifier: "@theoria/scripts/api-reference/TypeDocProjectJson",
   description: "A project reflection serialized by TypeDoc"
 })
 
-export const TypeDocProjectJsonText = Schema.parseJson(TypeDocProjectJson)
+export const TypeDocProjectJsonText = Schema.fromJsonString(TypeDocProjectJson)

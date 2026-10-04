@@ -1,5 +1,5 @@
-import { HttpServerRequest, HttpServerResponse } from "@effect/platform"
 import { Clock, Effect, Match, Option } from "effect"
+import { HttpServerRequest, HttpServerResponse } from "effect/http"
 import * as Str from "effect/String"
 
 import { httpStatus } from "../contracts/error.js"

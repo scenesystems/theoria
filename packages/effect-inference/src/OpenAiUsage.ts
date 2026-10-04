@@ -4,13 +4,15 @@
  * @since 0.4.0
  * @module
  */
-import * as Generated from "@effect/ai-openai/Generated"
 import type * as OpenAiClient from "@effect/ai-openai/OpenAiClient"
-import * as AiResponse from "@effect/ai/Response"
+import * as OpenAiSchema from "@effect/ai-openai/OpenAiSchema"
+import * as AiResponse from "effect/ai/Response"
 import * as Effect from "effect/Effect"
 import * as Match from "effect/Match"
 import * as Option from "effect/Option"
+import * as Predicate from "effect/Predicate"
 import * as Schema from "effect/Schema"
+import * as SchemaGetter from "effect/SchemaGetter"
 import * as Stream from "effect/Stream"
 import * as Struct from "effect/Struct"
 
@@ -20,54 +22,82 @@ import * as Struct from "effect/Struct"
  * @since 0.5.0
  * @category models
  */
-export const Observation = Schema.transform(
-  Schema.typeSchema(Generated.ResponseUsage),
-  Schema.Struct({
-    usage: Schema.typeSchema(AiResponse.Usage),
-    raw: Schema.typeSchema(Generated.ResponseUsage)
-  }),
-  {
-    strict: true,
-    decode: (raw) => ({
-      usage: new AiResponse.Usage({
-        inputTokens: raw.input_tokens,
-        outputTokens: raw.output_tokens,
-        totalTokens: raw.total_tokens,
-        reasoningTokens: raw.output_tokens_details.reasoning_tokens,
-        cachedInputTokens: raw.input_tokens_details.cached_tokens
-      }),
-      raw
-    }),
-    encode: (_encoded, observation) => observation.raw
-  }
-)
+const tokenDetail = (details: unknown, key: string): Option.Option<number> =>
+  Predicate.hasProperty(details, key) && Predicate.isNumber(details[key]) ? Option.some(details[key]) : Option.none()
 
-/** Canonical and raw OpenAI usage observation inferred from its schema. @since 0.5.0 @category models */
+const projectUsage = (raw: OpenAiSchema.ResponseUsage): AiResponse.Usage => {
+  const cached = tokenDetail(raw.input_tokens_details, "cached_tokens")
+  const reasoning = tokenDetail(raw.output_tokens_details, "reasoning_tokens")
+  return new AiResponse.Usage({
+    inputTokens: {
+      total: raw.input_tokens,
+      ...Option.match(cached, {
+        onNone: () => ({}),
+        onSome: (cacheRead) => ({
+          cacheRead,
+          ...Option.match(Option.liftPredicate((value: number) => value <= raw.input_tokens)(cacheRead), {
+            onNone: () => ({}),
+            onSome: (value) => ({ uncached: raw.input_tokens - value })
+          })
+        })
+      }),
+      ...Option.match(tokenDetail(raw.input_tokens_details, "cache_write_tokens"), {
+        onNone: () => ({}),
+        onSome: (cacheWrite) => ({ cacheWrite })
+      })
+    },
+    outputTokens: {
+      total: raw.output_tokens,
+      ...Option.match(reasoning, {
+        onNone: () => ({}),
+        onSome: (reasoning) => ({
+          reasoning,
+          ...Option.match(Option.liftPredicate((value: number) => value <= raw.output_tokens)(reasoning), {
+            onNone: () => ({}),
+            onSome: (value) => ({ text: raw.output_tokens - value })
+          })
+        })
+      })
+    }
+  })
+}
+
+/** Canonical usage with its retained provider report. @since 0.5.0 @category schemas */
+export const Observation = Schema.toType(OpenAiSchema.ResponseUsage).pipe(
+  Schema.decodeTo(
+    Schema.Struct({ usage: Schema.toType(AiResponse.Usage), raw: Schema.toType(OpenAiSchema.ResponseUsage) }),
+    {
+      decode: SchemaGetter.transform((raw) => ({ usage: projectUsage(raw), raw })),
+      encode: SchemaGetter.transform((observation) => observation.raw)
+    }
+  )
+)
+/** Canonical and raw usage observation. @since 0.5.0 @category models */
 export type Observation = typeof Observation.Type
 
 const decodeObservation = Schema.decodeSync(Observation)
 
 const observeOptional = (
-  usage: Option.Option<Generated.ResponseUsage>,
-  observe: (usage: AiResponse.Usage, raw: Option.Option<Generated.ResponseUsage>) => Effect.Effect<void>
+  usage: Option.Option<OpenAiSchema.ResponseUsage>,
+  observe: (usage: AiResponse.Usage, raw: Option.Option<OpenAiSchema.ResponseUsage>) => Effect.Effect<void>
 ): Effect.Effect<void> =>
   usage.pipe(
     Option.match({
       onNone: () =>
         observe(
-          new AiResponse.Usage({ inputTokens: undefined, outputTokens: undefined, totalTokens: undefined }),
+          new AiResponse.Usage({ inputTokens: {}, outputTokens: {} }),
           Option.none()
         ),
       onSome: (raw) => observe(decodeObservation(raw).usage, Option.some(raw))
     })
   )
 
-const responseUsage = (response: Generated.Response): Option.Option<Generated.ResponseUsage> =>
-  Option.fromNullable(response.usage)
+const responseUsage = (response: OpenAiSchema.Response): Option.Option<OpenAiSchema.ResponseUsage> =>
+  Option.fromNullishOr(response.usage)
 
 const streamUsage = (
   event: OpenAiClient.ResponseStreamEvent
-): Option.Option<Generated.ResponseUsage> =>
+): Option.Option<OpenAiSchema.ResponseUsage> =>
   Match.value(event).pipe(
     Match.discriminator("type")(
       "response.created",
@@ -124,30 +154,35 @@ const streamUsage = (
       "error",
       () => Option.none()
     ),
-    Match.exhaustive
+    Match.orElse(() => Option.none())
   )
 
 const decorateCreateResponse = (
   createResponse: OpenAiClient.Service["createResponse"],
-  observe: (usage: AiResponse.Usage, raw: Option.Option<Generated.ResponseUsage>) => Effect.Effect<void>
+  observe: (usage: AiResponse.Usage, raw: Option.Option<OpenAiSchema.ResponseUsage>) => Effect.Effect<void>
 ): OpenAiClient.Service["createResponse"] =>
 (options) =>
   createResponse(options).pipe(
-    Effect.tap((response) => observeOptional(responseUsage(response), observe))
+    Effect.tap(([response]) => observeOptional(responseUsage(response), observe))
   )
 
 const decorateCreateResponseStream = (
   createResponseStream: OpenAiClient.Service["createResponseStream"],
-  observe: (usage: AiResponse.Usage, raw: Option.Option<Generated.ResponseUsage>) => Effect.Effect<void>
+  observe: (usage: AiResponse.Usage, raw: Option.Option<OpenAiSchema.ResponseUsage>) => Effect.Effect<void>
 ): OpenAiClient.Service["createResponseStream"] =>
 (options) =>
   createResponseStream(options).pipe(
-    Stream.tap((event) =>
-      Option.match(streamUsage(event), {
-        onNone: () => Effect.void,
-        onSome: (raw) => observe(decodeObservation(raw).usage, Option.some(raw))
-      })
-    )
+    Effect.map(([response, stream]) => [
+      response,
+      stream.pipe(
+        Stream.tap((event) =>
+          Option.match(streamUsage(event), {
+            onNone: () => Effect.void,
+            onSome: (raw) => observe(decodeObservation(raw).usage, Option.some(raw))
+          })
+        )
+      )
+    ])
   )
 
 /**
@@ -181,7 +216,7 @@ const decorateCreateResponseStream = (
  */
 export const observe = (
   client: OpenAiClient.Service,
-  observe: (usage: AiResponse.Usage, raw: Option.Option<Generated.ResponseUsage>) => Effect.Effect<void>
+  observe: (usage: AiResponse.Usage, raw: Option.Option<OpenAiSchema.ResponseUsage>) => Effect.Effect<void>
 ): OpenAiClient.Service =>
   Struct.evolve(client, {
     createResponse: (createResponse) => decorateCreateResponse(createResponse, observe),

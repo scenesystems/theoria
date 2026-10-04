@@ -12,7 +12,7 @@ import type { Signature } from "../../../Signature.js"
 import { append, Entry, noScore } from "../../../Trace.js"
 import type { ForwardExecution } from "./model.js"
 
-const TraceCarrier = Schema.Literal("input", "output")
+const TraceCarrier = Schema.Literals(["input", "output"])
 
 const traceCarrierError = (
   moduleName: string,
@@ -24,10 +24,10 @@ const traceCarrierError = (
   })
 
 /** @internal */
-export class PayloadOptions<A, I, R> extends Data.Class<{
+export class PayloadOptions<A, I, DR, ER> extends Data.Class<{
   readonly moduleName: string
   readonly carrier: typeof TraceCarrier.Type
-  readonly schema: Schema.Schema<A, I, R>
+  readonly schema: Schema.Codec<A, I, DR, ER>
   readonly value: A
 }> {}
 
@@ -37,10 +37,10 @@ export class PayloadOptions<A, I, R> extends Data.Class<{
  * @since 0.1.0
  * @internal
  */
-export const tracePayloadFromEncoded = <A, I, R>(options: PayloadOptions<A, I, R>): Effect.Effect<
+export const tracePayloadFromEncoded = <A, I, DR, ER>(options: PayloadOptions<A, I, DR, ER>): Effect.Effect<
   Payload,
   TraceError,
-  R
+  ER
 > =>
   encode(options.schema, options.value).pipe(
     Effect.mapError(() => traceCarrierError(options.moduleName, options.carrier))
@@ -50,7 +50,7 @@ export const tracePayloadFromEncoded = <A, I, R>(options: PayloadOptions<A, I, R
 export class TraceOptions<I extends Schema.Struct.Fields, O extends Schema.Struct.Fields> extends Data.Class<{
   readonly moduleName: string
   readonly signature: Signature<I, O>
-  readonly inputSchema: Schema.Struct<I>
+  readonly inputSchema: Signature<I, O>["inputSchema"]
   readonly input: Schema.Schema.Type<Schema.Struct<I>>
   readonly execution: ForwardExecution<Schema.Schema.Type<Schema.Struct<O>>>
   readonly startedAt: number
@@ -82,6 +82,7 @@ export const appendTraceEntry = <
       signatureDescription: options.signature.description,
       input: traceInput,
       output: options.execution.traceOutput,
+      outcome: "completed",
       prompt: options.execution.promptText,
       rawResponse: options.execution.rawResponse,
       usage: options.execution.usage,

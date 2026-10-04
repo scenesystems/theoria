@@ -1,8 +1,8 @@
-import { WorkerRunner } from "@effect/platform"
-import { BrowserRuntime, BrowserWorkerRunner } from "@effect/platform-browser"
+import { BrowserRuntime } from "@effect/platform-browser"
+import * as BrowserWorkerRunner from "@effect/platform-browser/BrowserWorkerRunner"
 import * as Optimization from "@scenesystems/effect-search/Optimization"
 import type { SearchError } from "@scenesystems/effect-search/SearchError"
-import { Effect, type Scope } from "effect"
+import { Effect, Layer, type Scope } from "effect"
 
 import { meanderSpace, renderSampler } from "../contracts/demo/imagined-place-optimization.js"
 import { AskedMeander, renderTrials } from "../contracts/demo/imagined-place-search.js"
@@ -18,13 +18,15 @@ import { OpenedStudy, PlaceSearchStudies } from "./services/PlaceSearchStudies.j
 
 const openStudy: Effect.Effect<OpenedStudy, SearchError, Scope.Scope> = Effect.gen(function*() {
   const space = yield* meanderSpace
-  const handle = yield* Optimization.open({
-    space,
-    sampler: renderSampler(),
-    objective: () => Effect.dieMessage("the page scores every trial; the search only proposes them"),
-    trials: renderTrials,
-    direction: "minimize"
-  })
+  const handle = yield* Optimization.open(
+    new Optimization.FlatOptions({
+      space,
+      sampler: renderSampler(),
+      objective: () => Effect.die("the page scores every trial; the search only proposes them"),
+      trials: renderTrials,
+      direction: "minimize"
+    })
+  )
   return new OpenedStudy({
     ask: Effect.map(
       Optimization.ask(handle),
@@ -34,6 +36,6 @@ const openStudy: Effect.Effect<OpenedStudy, SearchError, Scope.Scope> = Effect.g
   })
 })
 
-const main = WorkerRunner.launch(PlaceSearchStudies.layer(openStudy)).pipe(Effect.provide(BrowserWorkerRunner.layer))
+const main = Layer.launch(PlaceSearchStudies.layer(openStudy)).pipe(Effect.provide(BrowserWorkerRunner.layer))
 
 BrowserRuntime.runMain(main)

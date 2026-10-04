@@ -4,11 +4,10 @@
  *
  * Usage: bun run fixtures:check
  */
-import { FileSystem, Path, Url } from "@effect/platform"
-import { BunContext, BunRuntime } from "@effect/platform-bun"
-import type * as PlatformError from "@effect/platform/Error"
-import type { ParseResult } from "effect"
-import { Array as Arr, Console, Data, Effect, Either, Encoding, Option, Schema, Stream } from "effect"
+import { BunRuntime, BunServices } from "@effect/platform-bun"
+import { Array as Arr, Console, Data, Effect, FileSystem, Option, Path, Result, Schema, Stream } from "effect"
+import type { PlatformError } from "effect"
+import { Hex } from "effect/encoding"
 
 import * as Digest from "@scenesystems/digest/Digest"
 import * as Fixtures from "./fixtures.js"
@@ -17,7 +16,7 @@ class FixtureCheckError extends Data.TaggedError("FixtureCheckError")<{
   readonly name: string
   readonly file: string
   readonly reason: string
-  readonly cause: Option.Option<PlatformError.PlatformError | ParseResult.ParseError>
+  readonly cause: Option.Option<PlatformError.PlatformError | Schema.SchemaError>
 }> {
   override get message() {
     return `${this.name} (${this.file}): ${this.reason}${
@@ -32,8 +31,7 @@ class FixtureCheckError extends Data.TaggedError("FixtureCheckError")<{
 /** The fixture bytes as text; the same bytes are hashed, so the file is read once. */
 const toText = (bytes: Uint8Array): Effect.Effect<string> => Stream.decodeText(Stream.make(bytes)).pipe(Stream.mkString)
 
-const toSha256Hex = (bytes: Uint8Array): Effect.Effect<string> =>
-  Effect.succeed(Encoding.encodeHex(Digest.hash("sha256", bytes)))
+const toSha256Hex = (bytes: Uint8Array): Effect.Effect<string> => Effect.map(Digest.hash("sha256", bytes), Hex.encode)
 
 const normalizeRelativePath = (pathService: Path.Path, value: string): string => value.split(pathService.sep).join("/")
 
@@ -53,7 +51,7 @@ const readJsonContent = (
       )
     )
 
-    yield* Schema.decodeUnknown(Schema.parseJson(Schema.Unknown))(content).pipe(
+    yield* Schema.decodeEffect(Schema.fromJsonString(Schema.Unknown))(content).pipe(
       Effect.mapError((error) =>
         new FixtureCheckError({ name: "json", file: absolutePath, reason: "malformed JSON", cause: Option.some(error) })
       )
@@ -67,42 +65,42 @@ const findJsonFiles = (
   pathService: Path.Path,
   root: string,
   prefix: string
-): Effect.Effect<Array<Either.Either<string, FixtureCheckError>>, never> =>
+): Effect.Effect<Array<Result.Result<string, FixtureCheckError>>, never> =>
   Effect.gen(function*() {
     const directory = prefix === "" ? root : pathService.join(root, prefix)
-    const entries = yield* Effect.either(fileSystem.readDirectory(directory))
-    if (Either.isLeft(entries)) {
-      return [Either.left(
+    const entries = yield* Effect.result(fileSystem.readDirectory(directory))
+    if (Result.isFailure(entries)) {
+      return [Result.fail(
         new FixtureCheckError({
           name: "scan",
           file: directory,
           reason: "could not read directory",
-          cause: Option.some(entries.left)
+          cause: Option.some(entries.failure)
         })
       )]
     }
 
-    const nested = yield* Effect.forEach(entries.right, (entry) =>
+    const nested = yield* Effect.forEach(entries.success, (entry) =>
       Effect.gen(function*() {
         const relative = prefix === "" ? entry : `${prefix}/${entry}`
         const absolute = pathService.join(root, relative)
-        const stat = yield* Effect.either(fileSystem.stat(absolute))
-        if (Either.isLeft(stat)) {
-          return [Either.left(
+        const stat = yield* Effect.result(fileSystem.stat(absolute))
+        if (Result.isFailure(stat)) {
+          return [Result.fail(
             new FixtureCheckError({
               name: "scan",
               file: absolute,
               reason: "could not stat",
-              cause: Option.some(stat.left)
+              cause: Option.some(stat.failure)
             })
           )]
         }
 
-        if (stat.right.type === "Directory") {
+        if (stat.success.type === "Directory") {
           return yield* findJsonFiles(fileSystem, pathService, root, relative)
         }
 
-        return entry.endsWith(".json") ? [Either.right(relative)] : Arr.empty()
+        return entry.endsWith(".json") ? [Result.succeed(relative)] : Arr.empty()
       }))
 
     return Arr.flatten(nested)
@@ -111,16 +109,15 @@ const findJsonFiles = (
 const program = Effect.gen(function*() {
   const fileSystem = yield* FileSystem.FileSystem
   const pathService = yield* Path.Path
-  const packageRoot = yield* Url.fromString("../", import.meta.url).pipe(
-    Effect.flatMap((url) => pathService.fromFileUrl(url)),
-    Effect.orDie
-  )
+  const scriptUrl = yield* Schema.decodeEffect(Schema.URLFromString)(import.meta.url).pipe(Effect.orDie)
+  const scriptPath = yield* pathService.fromFileUrl(scriptUrl).pipe(Effect.orDie)
+  const packageRoot = pathService.resolve(pathService.dirname(scriptPath), "..")
 
   const externalRoot = pathService.join(packageRoot, Fixtures.root)
   const manifestPath = pathService.join(externalRoot, Fixtures.manifestFile)
 
   const manifestContent = yield* readJsonContent(manifestPath)
-  const manifest = yield* Schema.decodeUnknown(Fixtures.Manifest)(manifestContent, {
+  const manifest = yield* Schema.decodeEffect(Fixtures.Manifest)(manifestContent, {
     onExcessProperty: "error"
   }).pipe(
     Effect.mapError((error) =>
@@ -170,7 +167,7 @@ const program = Effect.gen(function*() {
       }
 
       return source.id
-    }).pipe(Effect.either))
+    }).pipe(Effect.result))
 
   const expectedFixturePaths = Arr.map(
     manifest.sources,
@@ -178,7 +175,7 @@ const program = Effect.gen(function*() {
   )
 
   const externalJsonFiles = yield* findJsonFiles(fileSystem, pathService, externalRoot, "")
-  const [scanErrors, discoveredJsonFiles] = Arr.separate(externalJsonFiles)
+  const [discoveredJsonFiles, scanErrors] = Arr.separate(externalJsonFiles)
   const scannedFixturePaths = Arr.filter(
     Arr.map(discoveredJsonFiles, (file) => normalizeRelativePath(pathService, file)),
     (file) => file !== Fixtures.manifestFile
@@ -188,8 +185,8 @@ const program = Effect.gen(function*() {
     scannedFixturePaths,
     (fixturePath) =>
       Arr.some(expectedFixturePaths, (expected) => expected === fixturePath)
-        ? Option.none<FixtureCheckError>()
-        : Option.some(
+        ? Result.failVoid
+        : Result.succeed(
           new FixtureCheckError({
             name: "orphan",
             file: fixturePath,
@@ -199,7 +196,7 @@ const program = Effect.gen(function*() {
         )
   )
 
-  const [resultErrors, passedNames] = Arr.separate(fixtureResults)
+  const [passedNames, resultErrors] = Arr.separate(fixtureResults)
   const allErrors = [...resultErrors, ...scanErrors, ...orphanErrors]
 
   yield* Console.log(`Checking ${manifest.sources.length} fixture sources...`)
@@ -211,7 +208,7 @@ const program = Effect.gen(function*() {
   yield* Console.log()
   yield* Console.log(`Results: ${passedNames.length} passed, ${allErrors.length} failed`)
 
-  if (Arr.isNonEmptyArray(allErrors)) {
+  if (allErrors.length > 0) {
     return yield* new FixtureCheckError({
       name: "summary",
       file: "",
@@ -221,6 +218,6 @@ const program = Effect.gen(function*() {
   }
 })
 
-const main = program.pipe(Effect.provide(BunContext.layer))
+const main = program.pipe(Effect.provide(BunServices.layer))
 
 BunRuntime.runMain(main)

@@ -12,13 +12,13 @@ import type { Vector } from "../Objective.js"
 import { Holding } from "../Pareto.js"
 import { dominatesNormalized, normalizeMatrix, validateRectangular } from "./paretoDominance.js"
 
-const Fronts = Schema.Array(Schema.Array(Schema.Number))
+const Fronts = Schema.Array(Schema.Array(Schema.Finite))
 type Fronts = typeof Fronts.Type
 
-const isNonNaN = Schema.is(Schema.NonNaN)
+const isNonNaN = (value: number): boolean => Bool.not(Num.Equivalence(value, Number.NaN))
 
 const buildIndices = (count: number) =>
-  Match.value(Num.lessThanOrEqualTo(count, 0)).pipe(
+  Match.value(Num.isLessThanOrEqualTo(count, 0)).pipe(
     Match.when(true, () => Arr.empty<number>()),
     Match.orElse(() => Arr.range(0, Num.decrement(count)))
   )
@@ -59,8 +59,8 @@ const isBetter = (a: number, b: number, d: Direction): boolean =>
   Bool.and(
     Bool.and(isNonNaN(a), isNonNaN(b)),
     Match.value(d).pipe(
-      Match.when("maximize", () => Num.greaterThan(a, b)),
-      Match.when("minimize", () => Num.lessThan(a, b)),
+      Match.when("maximize", () => Num.isGreaterThan(a, b)),
+      Match.when("minimize", () => Num.isLessThan(a, b)),
       Match.exhaustive
     )
   )
@@ -137,8 +137,10 @@ export const nonDominatedSort = (
             Match.orElse(() =>
               Match.value(dominatesNormalized(normalizedAt(normalized, i), normalizedAt(normalized, j), epsilon)).pipe(
                 Match.when(true, () => ({
-                  counts: Arr.modify(acc.counts, j, Num.increment),
-                  dominated: Arr.modify(acc.dominated, i, (dominated) => Arr.append(dominated, j))
+                  counts: Arr.modify(acc.counts, j, Num.increment).pipe(Option.getOrElse(() => acc.counts)),
+                  dominated: Arr.modify(acc.dominated, i, (dominated) => Arr.append(dominated, j)).pipe(
+                    Option.getOrElse(() => acc.dominated)
+                  )
                 })),
                 Match.orElse(() => acc)
               )
@@ -152,7 +154,7 @@ export const nonDominatedSort = (
       ): Fronts => {
         const counts = Arr.fromIterable(countsInput)
         const fronts = Arr.fromIterable(frontsInput)
-        return Match.value(Num.lessThanOrEqualTo(HashSet.size(remaining), 0)).pipe(
+        return Match.value(Num.isLessThanOrEqualTo(HashSet.size(remaining), 0)).pipe(
           Match.when(true, () => fronts),
           Match.orElse(() => {
             const front = Arr.filter(
@@ -164,7 +166,7 @@ export const nonDominatedSort = (
                 )
             )
 
-            return Match.value(Arr.isEmptyReadonlyArray(front)).pipe(
+            return Match.value(Arr.isReadonlyArrayEmpty(front)).pipe(
               Match.when(true, () => fronts),
               Match.orElse(() => {
                 const nextRemaining = HashSet.difference(remaining, HashSet.fromIterable(front))
@@ -172,7 +174,7 @@ export const nonDominatedSort = (
                   Arr.reduce(
                     Arr.get(initial.dominated, i).pipe(Option.getOrElse(() => Arr.empty<number>())),
                     cs,
-                    (inner, j) => Arr.modify(inner, j, Num.decrement)
+                    (inner, j) => Arr.modify(inner, j, Num.decrement).pipe(Option.getOrElse(() => inner))
                   ))
 
                 return peel(nextCounts, nextRemaining, Arr.append(fronts, front))
@@ -253,10 +255,10 @@ export const objectiveFrontierHoldings = (
 
         const holders = Arr.filter(allIndices, (ci) => {
           const v = coordinateAt(pointAt(points, ci), objectiveIndex, direction)
-          return Match.value(Num.greaterThan(epsilon, 0)).pipe(
+          return Match.value(Num.isGreaterThan(epsilon, 0)).pipe(
             Match.when(true, () =>
               Bool.and(
-                Num.lessThanOrEqualTo(abs(Num.subtract(v, bestValue)), epsilon),
+                Num.isLessThanOrEqualTo(abs(Num.subtract(v, bestValue)), epsilon),
                 Bool.or(Equal.equals(v, bestValue), isBetter(v, bestValue, direction))
               )),
             Match.orElse(() => Equal.equals(v, bestValue))

@@ -4,18 +4,7 @@
  * @since 0.1.0
  */
 import type { Exit } from "effect"
-import {
-  Array as Arr,
-  Boolean as Bool,
-  Cause,
-  Data,
-  Effect,
-  Inspectable,
-  Match,
-  Number as Num,
-  Option,
-  Schema
-} from "effect"
+import { Array as Arr, Boolean as Bool, Cause, Effect, Inspectable, Match, Number as Num, Option, Schema } from "effect"
 
 import { match, type Objective } from "../../../Objective.js"
 import { dimensionCount, isFiniteValue, type Value } from "../../../Objective.js"
@@ -27,7 +16,7 @@ const isObjectiveCompatibleWithSpec = (objectiveSpec: Objective, value: Value): 
   match({
     Single: () =>
       Match.value(value).pipe(
-        Match.when(Match.number, Schema.is(Schema.JsonNumber)),
+        Match.when(Match.number, Schema.is(Schema.Finite)),
         Match.orElse(() => false)
       ),
     Multi: ({ directions }) =>
@@ -71,18 +60,29 @@ const isTrialError = Schema.is(TrialError)
  * so nothing the objective did on its way out is lost.
  */
 const trialErrorFromFailure = (trialNumber: number, cause: Cause.Cause<unknown>): TrialError =>
-  Match.value(cause).pipe(
-    Match.when({ _tag: "Fail", error: isTrialError }, ({ error }) => error),
-    Match.orElse(() =>
-      Cause.failureOption(cause).pipe(
-        Option.filter(isTrialError),
-        Option.match({
-          onNone: () => objectiveFailure(trialNumber, cause),
-          onSome: (error) => new TrialError({ trialNumber, message: error.message, cause })
-        })
+  Arr.match(cause.reasons, {
+    onEmpty: () => objectiveFailure(trialNumber, cause),
+    onNonEmpty: ([reason, ...remaining]) =>
+      Match.value(reason).pipe(
+        Match.when(
+          { _tag: "Fail", error: isTrialError },
+          ({ error }) =>
+            Bool.match(Num.Equivalence(Arr.length(remaining), 0), {
+              onTrue: () => error,
+              onFalse: () => new TrialError({ trialNumber, message: error.message, cause })
+            })
+        ),
+        Match.orElse(() =>
+          Cause.findErrorOption(cause).pipe(
+            Option.filter(isTrialError),
+            Option.match({
+              onNone: () => objectiveFailure(trialNumber, cause),
+              onSome: (error) => new TrialError({ trialNumber, message: error.message, cause })
+            })
+          )
+        )
       )
-    )
-  )
+  })
 
 const withEvaluationMetadata = <Config>(
   trial: Trial.Trial<Config>,
@@ -94,20 +94,19 @@ const withEvaluationMetadata = <Config>(
     Failed: () => trial,
     Pruned: () => trial,
     Cancelled: () => trial,
-    Completed: (state) =>
-      Data.struct({
-        ...trial,
-        state: Trial.Completed({
-          ...state,
-          evaluationCount,
-          ...variance.pipe(
-            Option.match({
-              onNone: () => ({}),
-              onSome: (resolvedVariance) => ({ variance: resolvedVariance })
-            })
-          )
-        })
+    Completed: (state) => ({
+      ...trial,
+      state: Trial.Completed({
+        ...state,
+        evaluationCount,
+        ...variance.pipe(
+          Option.match({
+            onNone: () => ({}),
+            onSome: (resolvedVariance) => ({ variance: resolvedVariance })
+          })
+        )
       })
+    })
   })(trial.state)
 
 /**

@@ -42,11 +42,11 @@ export const TIME_RANDOMNESS_RULES = [
 export const JSON_BUILTINS_RULES = [
   {
     selector: "CallExpression[callee.object.name='JSON'][callee.property.name='parse']",
-    message: "Do not use 'JSON.parse()'. Use Schema.decode or Schema.decodeUnknown."
+    message: "Do not use 'JSON.parse()'. Use Schema.decodeEffect or Schema.decodeUnknownEffect."
   },
   {
     selector: "CallExpression[callee.object.name='JSON'][callee.property.name='stringify']",
-    message: "Do not use 'JSON.stringify()'. Use Schema.encode."
+    message: "Do not use 'JSON.stringify()'. Use Schema.encodeEffect."
   }
 ]
 
@@ -113,6 +113,10 @@ export const ARRAY_BUILTINS_RULES = [
  * alias as a reference, so a type parameter may not share a name with one of
  * these globals. That is no loss: a type parameter called `Event` or `Node`
  * shadows the DOM type of the same name for every reader.
+ */
+/**
+ * @param {string} name
+ * @returns {{ readonly name: string, readonly message: string }}
  */
 const windowMember = (name) => ({
   name,
@@ -235,7 +239,7 @@ export const HOST_GLOBAL_RULES = [
   },
   {
     selector: "MemberExpression[object.name='Bun']",
-    message: "Do not use the 'Bun' global. Use BunContext, BunHttpServer and BunRuntime from '@effect/platform-bun'."
+    message: "Do not use the 'Bun' global. Use BunServices, BunHttpServer and BunRuntime from '@effect/platform-bun'."
   },
   {
     selector: "MemberExpression[object.name='crypto']",

@@ -78,32 +78,22 @@ export const applyPhase3Config = (options: ApplyPhase3ConfigOptions) =>
     Effect.gen(function*() {
       const demoIndex = yield* configIndex(options.config, demoDimensionName(binding.predictorName))
       const instructionIndex = yield* configIndex(options.config, instructionDimensionName(binding.predictorName))
-      const demo = yield* Option.match(Arr.get(binding.demos.candidates, demoIndex), {
-        onNone: () =>
-          Effect.fail(
-            new AllTrialsFailed({
-              message: Str.concat(
-                Str.concat("Missing demo candidate index ", Inspectable.toStringUnknown(demoIndex)),
-                Str.concat(" for predictor '", Str.concat(binding.predictorName, "'"))
-              ),
-              trialCount: options.trialBudget
-            })
+      const demo = yield* Effect.fromOption(Arr.get(binding.demos.candidates, demoIndex), () =>
+        new AllTrialsFailed({
+          message: Str.concat(
+            Str.concat("Missing demo candidate index ", Inspectable.toStringUnknown(demoIndex)),
+            Str.concat(" for predictor '", Str.concat(binding.predictorName, "'"))
           ),
-        onSome: (candidate) => Effect.succeed(candidate)
-      })
-      const instruction = yield* Option.match(Arr.get(binding.instructions.candidates, instructionIndex), {
-        onNone: () =>
-          Effect.fail(
-            new AllTrialsFailed({
-              message: Str.concat(
-                Str.concat("Missing instruction candidate index ", Inspectable.toStringUnknown(instructionIndex)),
-                Str.concat(" for predictor '", Str.concat(binding.predictorName, "'"))
-              ),
-              trialCount: options.trialBudget
-            })
+          trialCount: options.trialBudget
+        }))
+      const instruction = yield* Effect.fromOption(Arr.get(binding.instructions.candidates, instructionIndex), () =>
+        new AllTrialsFailed({
+          message: Str.concat(
+            Str.concat("Missing instruction candidate index ", Inspectable.toStringUnknown(instructionIndex)),
+            Str.concat(" for predictor '", Str.concat(binding.predictorName, "'"))
           ),
-        onSome: (candidate) => Effect.succeed(candidate)
-      })
+          trialCount: options.trialBudget
+        }))
 
       return yield* Ref.set(
         binding.paramsRef,
@@ -165,7 +155,7 @@ export const evaluateBaseline = <E, R>(options: EvaluateBaselineOptions<E, R>) =
  */
 export const evaluateTrial = <E, R, EE, ER>(options: EvaluateTrialOptions<E, R, EE, ER>) =>
   Effect.gen(function*() {
-    const trial = yield* Ref.modify(options.refs.trialCounter, (count) => Data.tuple(count, Num.increment(count)))
+    const trial = yield* Ref.modify(options.refs.trialCounter, (count) => Tuple.make(count, Num.increment(count)))
     const score = yield* options.evaluateOn(options.config, options.minibatchExamples)
     const currentCandidate = yield* Ref.get(options.refs.bestAveragingRef)
     const nextCandidate = Option.match(Option.liftPredicate(Schema.is(Schema.Finite))(score), {
@@ -174,27 +164,22 @@ export const evaluateTrial = <E, R, EE, ER>(options: EvaluateTrialOptions<E, R, 
         Option.some(Option.match(currentCandidate, {
           onNone: () => new BestAveragingCandidate({ config: options.config, score }),
           onSome: (candidate) =>
-            Bool.match(Num.greaterThanOrEqualTo(score, candidate.score), {
+            Bool.match(Num.isGreaterThanOrEqualTo(score, candidate.score), {
               onTrue: () => new BestAveragingCandidate({ config: options.config, score }),
               onFalse: () => candidate
             })
         }))
     })
-    const checkpointCandidate = yield* Option.match(nextCandidate, {
-      onNone: () =>
-        Effect.fail(
-          new AllTrialsFailed({
-            message: "MIPROv2 Phase 3 has no successful finite checkpoint candidate",
-            trialCount: Num.increment(trial)
-          })
-        ),
-      onSome: Effect.succeed
-    })
+    const checkpointCandidate = yield* Effect.fromOption(nextCandidate, () =>
+      new AllTrialsFailed({
+        message: "MIPROv2 Phase 3 has no successful finite checkpoint candidate",
+        trialCount: Num.increment(trial)
+      }))
 
     yield* Ref.update(options.refs.minibatchTrialsRef, (trials) => Arr.append(trials, trial))
     yield* options.emit(events.TrialEvaluated({ trial, score }))
 
-    const fullEvalScore = yield* Effect.if(
+    const fullEvalScore = yield* Bool.match(
       Num.Equivalence(Num.remainder(Num.increment(trial), options.fullEvalEvery), 0),
       {
         onTrue: () =>
@@ -203,7 +188,7 @@ export const evaluateTrial = <E, R, EE, ER>(options: EvaluateTrialOptions<E, R, 
               Ref.update(
                 options.refs.bestAveragingRef,
                 Option.filter((candidate) =>
-                  Bool.not(Schema.equivalence(Phase3Config)(candidate.config, checkpointCandidate.config))
+                  Bool.not(Schema.toEquivalence(Phase3Config)(candidate.config, checkpointCandidate.config))
                 )
               )
             ),
@@ -222,13 +207,13 @@ export const evaluateTrial = <E, R, EE, ER>(options: EvaluateTrialOptions<E, R, 
         onNone: () => minibatchBest,
         onSome: (value) => Num.max(minibatchBest, value)
       })
-      return Data.tuple(next, Option.some(next))
+      return Tuple.make(next, Option.some(next))
     })
     yield* Option.match(fullEvalScore, {
       onNone: () => Effect.void,
       onSome: () =>
         Ref.update(options.refs.fullEvalTrialsRef, (trials) => Arr.append(trials, trial)).pipe(
-          Effect.zipRight(options.emit(events.FullEvalCompleted({ bestScore })))
+          Effect.andThen(options.emit(events.FullEvalCompleted({ bestScore })))
         )
     })
 

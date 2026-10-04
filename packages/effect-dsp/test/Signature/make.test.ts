@@ -23,7 +23,7 @@ describe("Signature", () => {
       Effect.gen(function*() {
         const sig = yield* Signature.make(
           "test",
-          { x: Schema.Number },
+          { x: Schema.Finite },
           { y: Schema.String }
         )
 
@@ -42,7 +42,7 @@ describe("Signature", () => {
           { answer: Signature.describe(Schema.String, "A concise answer") }
         )
         const questionField = sig.fields.find((f) => f.name === "question")
-        const description = Option.flatMap(Option.fromNullable(questionField), (field) => field.description)
+        const description = Option.flatMap(Option.fromNullishOr(questionField), (field) => field.description)
 
         expect(description).toEqual(Option.some("The question to answer"))
       }))

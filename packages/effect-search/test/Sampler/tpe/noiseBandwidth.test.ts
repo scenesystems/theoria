@@ -1,5 +1,5 @@
 import { describe, expect, it } from "@effect/vitest"
-import { Array as Arr, Effect, Either, Number as Num, Option } from "effect"
+import { Array as Arr, Effect, Number as Num, Option, Result } from "effect"
 
 import * as Numeric from "@scenesystems/effect-math/Numeric"
 
@@ -9,6 +9,7 @@ import { traceForParameter } from "../../../src/internal/tpe/mixed.js"
 import { defaultNoiseBandwidthOptions, NoiseBandwidthOptions } from "../../../src/internal/tpe/noiseEstimator.js"
 import { validateOptions } from "../../../src/internal/tpe/options.js"
 import { CompletedTrialForSplit } from "../../../src/internal/tpe/splitTrials.js"
+import * as Sampler from "../../../src/Sampler.js"
 import * as SearchSpace from "../../../src/SearchSpace.js"
 
 const sigmaAt = (valuesInput: Iterable<number>, index: number): number => {
@@ -34,11 +35,11 @@ describe("noise-aware bandwidth", () => {
       const widenedSigmas = Arr.map(noiseAware.kernels, (kernel) => kernel.sigma)
 
       expect(
-        Arr.every(widenedSigmas, (sigma, index) => Num.greaterThanOrEqualTo(sigma, sigmaAt(baselineSigmas, index)))
+        Arr.every(widenedSigmas, (sigma, index) => Num.isGreaterThanOrEqualTo(sigma, sigmaAt(baselineSigmas, index)))
       ).toBe(true)
       expect(
         Arr.some(widenedSigmas, (sigma, index) =>
-          Num.greaterThan(Num.subtract(sigma, sigmaAt(baselineSigmas, index)), 1e-12))
+          Num.isGreaterThan(Num.subtract(sigma, sigmaAt(baselineSigmas, index)), 1e-12))
       ).toBe(true)
     }))
 
@@ -56,7 +57,7 @@ describe("noise-aware bandwidth", () => {
 
       expect(
         Arr.some(empiricalSigmas, (sigma, index) =>
-          Num.greaterThan(Num.subtract(sigma, sigmaAt(bootstrapSigmas, index)), 1e-12))
+          Num.isGreaterThan(Num.subtract(sigma, sigmaAt(bootstrapSigmas, index)), 1e-12))
       ).toBe(true)
     }))
 
@@ -133,14 +134,14 @@ describe("noise-aware bandwidth", () => {
       }
 
       const baselineTrace = yield* traceForParameter(
-        rngByTrial("tpe", 91, 7),
+        yield* rngByTrial("tpe", 91, 7),
         24,
         parameter,
         split,
         defaultNoiseBandwidthOptions
       )
       const noiseAwareTrace = yield* traceForParameter(
-        rngByTrial("tpe", 91, 7),
+        yield* rngByTrial("tpe", 91, 7),
         24,
         parameter,
         split,
@@ -153,7 +154,7 @@ describe("noise-aware bandwidth", () => {
       yield* Effect.sync(() => {
         expect(
           Arr.some(baselineTrace.trace.scores, (score, index) =>
-            Num.greaterThan(
+            Num.isGreaterThan(
               Numeric.abs(Num.subtract(score, sigmaAt(noiseAwareTrace.trace.scores, index))),
               1e-10
             ))
@@ -163,28 +164,30 @@ describe("noise-aware bandwidth", () => {
 
   it.effect("rejects out-of-range noiseAlpha values", () =>
     Effect.gen(function*() {
-      const result = yield* Effect.either(
-        validateOptions({
-          noiseAware: true,
-          noiseAlpha: 100
-        })
+      const result = yield* Effect.result(
+        validateOptions(
+          new Sampler.TpeOptions({
+            noiseAware: true,
+            noiseAlpha: 100
+          })
+        )
       )
 
-      expect(Either.isLeft(result)).toBe(true)
+      expect(Result.isFailure(result)).toBe(true)
     }))
 
   it.effect("rejects non-finite and fractional trial counts", () =>
     Effect.gen(function*() {
       const outcomes = yield* Effect.forEach(
         Arr.make(
-          validateOptions({ nStartupTrials: Number.NaN }),
-          validateOptions({ nStartupTrials: 1.5 }),
-          validateOptions({ nEiCandidates: Number.POSITIVE_INFINITY }),
-          validateOptions({ nEiCandidates: 2.5 })
+          validateOptions(new Sampler.TpeOptions({ nStartupTrials: Number.NaN })),
+          validateOptions(new Sampler.TpeOptions({ nStartupTrials: 1.5 })),
+          validateOptions(new Sampler.TpeOptions({ nEiCandidates: Number.POSITIVE_INFINITY })),
+          validateOptions(new Sampler.TpeOptions({ nEiCandidates: 2.5 }))
         ),
-        Effect.either
+        Effect.result
       )
 
-      expect(Arr.every(outcomes, Either.isLeft)).toBe(true)
+      expect(Arr.every(outcomes, Result.isFailure)).toBe(true)
     }))
 })

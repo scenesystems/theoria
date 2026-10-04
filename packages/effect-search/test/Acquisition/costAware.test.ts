@@ -12,8 +12,8 @@ import { CompletedTrialForSplit } from "../../src/internal/tpe/splitTrials.js"
 describe("tpe cost-aware acquisition", () => {
   it.effect("applies EI / estimated_cost weighting in log-space scoring", () =>
     Effect.sync(() => {
-      const logL = Num.negate(0.2)
-      const logG = Num.negate(0.8)
+      const logL = Num.multiply(-1, 0.2)
+      const logG = Num.multiply(-1, 0.8)
 
       const baseline = expectedImprovementScore(logL, logG)
       const cheap = costWeightedExpectedImprovementScore(logL, logG, Option.some(1))
@@ -30,8 +30,8 @@ describe("tpe cost-aware acquisition", () => {
           name: "x",
           trace: new DimensionScoreTrace({
             candidates: Chunk.make({ x: 0.1 }, { x: 0.9 }),
-            logL: Arr.make(Num.negate(0.2), Num.negate(0.2)),
-            logG: Arr.make(Num.negate(0.7), Num.negate(0.7)),
+            logL: Arr.make(Num.multiply(-1, 0.2), Num.multiply(-1, 0.2)),
+            logG: Arr.make(Num.multiply(-1, 0.7), Num.multiply(-1, 0.7)),
             scores: Arr.make(0.5, 0.5)
           })
         })

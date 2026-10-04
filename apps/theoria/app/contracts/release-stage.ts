@@ -5,6 +5,6 @@ import { Schema } from "effect"
  * at `theoria.scenesystems.io`; `preview` marks staging and pull request
  * previews, which the server tells crawlers not to index.
  */
-export const ReleaseStage = Schema.Literal("preview", "production")
+export const ReleaseStage = Schema.Literals(["preview", "production"])
 
 export type ReleaseStage = typeof ReleaseStage.Type

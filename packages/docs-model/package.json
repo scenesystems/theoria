@@ -9,6 +9,8 @@
   },
   "scripts": {
     "check": "tsc -b tsconfig.src.json",
+    "check:tests": "tsc -b tsconfig.test.json",
+    "test": "vitest run --root ../.. --project packages packages/docs-model/test",
     "lint": "cd ../.. && oxlint packages/docs-model && eslint --cache --cache-location node_modules/.cache/eslint/ --max-warnings=0 packages/docs-model && dprint check \"packages/docs-model/**\"",
     "lint:fix": "cd ../.. && oxlint --fix packages/docs-model && eslint --cache --cache-location node_modules/.cache/eslint/ --max-warnings=0 --fix packages/docs-model && dprint fmt \"packages/docs-model/**\"",
     "build": "tsc -b tsconfig.build.json",
@@ -16,6 +18,6 @@
   },
   "dependencies": {
     "@scenesystems/effect-math": "workspace:^",
-    "effect": "3.22.1"
+    "effect": "4.0.0"
   }
 }

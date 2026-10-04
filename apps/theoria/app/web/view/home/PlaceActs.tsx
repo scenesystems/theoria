@@ -1,6 +1,6 @@
-import { Result } from "@effect-atom/atom"
-import { useAtomValue } from "@effect-atom/atom-react"
+import { useAtomValue } from "@effect/atom-react"
 import type { Option } from "effect"
+import { AsyncResult as Result } from "effect/reactivity"
 
 import type { PlaceBuild } from "../../../contracts/imagined-place-result.js"
 import type { OfferedProposal, PlaceOutline } from "../../../contracts/imagined-place.js"

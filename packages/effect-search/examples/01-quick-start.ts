@@ -16,18 +16,20 @@ const program = Effect.gen(function*() {
     y: SearchSpace.float(-5, 5)
   })
 
-  const result = yield* Optimization.minimize({
-    space,
-    sampler: Sampler.tpe({ seed: 42 }),
-    objective: (config) =>
-      Effect.succeed(
-        Num.sum(
-          Numeric.pow(Num.subtract(config.x, 2), 2),
-          Numeric.pow(Num.sum(config.y, 1), 2)
-        )
-      ),
-    trials: 50
-  })
+  const result = yield* Optimization.minimize(
+    new Optimization.FlatOptions({
+      space,
+      sampler: Sampler.tpe(new Sampler.TpeOptions({ seed: 42 })),
+      objective: (config) =>
+        Effect.succeed(
+          Num.sum(
+            Numeric.pow(Num.subtract(config.x, 2), 2),
+            Numeric.pow(Num.sum(config.y, 1), 2)
+          )
+        ),
+      trials: 50
+    })
+  )
 
   yield* Match.value(result).pipe(
     Match.tag("SingleObjective", ({ bestTrial, completionReason, trials }) =>

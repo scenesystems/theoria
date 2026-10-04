@@ -78,7 +78,6 @@
     "@scenesystems/effect-inference": "workspace:^"
   },
   "peerDependencies": {
-    "@effect/ai": ">=0.37.0",
-    "effect": "^3.22.1"
+    "effect": "^4.0.0"
   }
 }

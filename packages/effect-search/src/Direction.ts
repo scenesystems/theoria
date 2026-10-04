@@ -12,7 +12,7 @@ import { Option, Schema } from "effect"
  * @since 0.1.0
  * @category schemas
  */
-export const Direction = Schema.Literal("minimize", "maximize")
+export const Direction = Schema.Literals(["minimize", "maximize"])
 
 /**
  * Comparison polarity decoded by {@link Direction}.

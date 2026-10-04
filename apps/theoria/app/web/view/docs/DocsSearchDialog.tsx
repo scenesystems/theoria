@@ -1,11 +1,11 @@
 import { Button } from "@base-ui/react/button"
 import { Combobox } from "@base-ui/react/combobox"
 import { Dialog } from "@base-ui/react/dialog"
-import { Result } from "@effect-atom/atom"
-import { useAtomRefresh, useAtomSet, useAtomValue } from "@effect-atom/atom-react"
+import { useAtomRefresh, useAtomSet, useAtomValue } from "@effect/atom-react"
 import { MagnifyingGlassIcon, XMarkIcon } from "@heroicons/react/20/solid"
 import { Option } from "effect"
 import * as Arr from "effect/Array"
+import { AsyncResult as Result } from "effect/reactivity"
 
 import { type DocsManifest, type DocsSearchEntry, searchDocs } from "@theoria/docs-model"
 import { docsSearchIndexAtom } from "../../atoms/docs-data.js"
@@ -82,7 +82,7 @@ const SearchCombobox = ({
       items={results}
       onInputValueChange={setQuery}
       onValueChange={(entry) => {
-        Option.fromNullable(entry).pipe(
+        Option.fromNullishOr(entry).pipe(
           Option.map((value) => {
             navigate(resultHref(value))
             setOpen(false)

@@ -1,8 +1,6 @@
 /**
  * GEPA deterministic replay and fixture-manifest parity contracts.
  */
-import * as LanguageModel from "@effect/ai/LanguageModel"
-import * as Response from "@effect/ai/Response"
 import { describe, expect, it } from "@effect/vitest"
 import * as Utf8 from "@scenesystems/digest/Utf8"
 import { Example } from "@scenesystems/effect-dsp/Example"
@@ -11,31 +9,39 @@ import * as Metric from "@scenesystems/effect-dsp/Metric"
 import * as MockLanguageModel from "@scenesystems/effect-dsp/MockLanguageModel"
 import * as Module from "@scenesystems/effect-dsp/Module"
 import * as Signature from "@scenesystems/effect-dsp/Signature"
-import { Array as Arr, Data, Effect, Either, Layer, Match, Option, Schema, Stream, String as Str } from "effect"
+import { Array as Arr, Data, Effect, Layer, Match, Option, Schema, Stream, String as Str } from "effect"
+import * as LanguageModel from "effect/ai/LanguageModel"
+import * as Response from "effect/ai/Response"
 
 import { GepaReplaySeedContractFixtureSchema, loadFixture } from "../helpers/dspy-fixtures/index.js"
 
-const encodeSavedStateJson = Schema.encode(Schema.parseJson(Module.SavedState))
+const encodeSavedStateJson = Schema.encodeEffect(Schema.fromJsonString(Module.SavedState))
 const ParetoSnapshotSchema = Schema.Struct({
-  frontierIndices: Schema.Array(Schema.Number),
-  dominatedIndices: Schema.Array(Schema.Number),
+  frontierIndices: Schema.Array(Schema.Finite),
+  dominatedIndices: Schema.Array(Schema.Finite),
   parentWeights: Schema.Array(
     Schema.Struct({
-      candidateIndex: Schema.Number,
-      weight: Schema.Number
+      candidateIndex: Schema.Finite,
+      weight: Schema.Finite
     })
   )
 })
-const encodeParetoSnapshotJson = Schema.encode(Schema.parseJson(ParetoSnapshotSchema))
+const encodeParetoSnapshotJson = Schema.encodeEffect(Schema.fromJsonString(ParetoSnapshotSchema))
 
 class MissingParetoUpdatedEvent extends Data.TaggedError("MissingParetoUpdatedEvent") {}
+
+class ReplayArtifacts extends Data.Class<{
+  readonly savedStateBytes: ReadonlyArray<number>
+  readonly paretoSnapshotBytes: ReadonlyArray<number>
+}> {}
 
 class AnswerResponse extends Schema.Class<AnswerResponse>("AnswerResponse")({
   answer: Schema.String
 }) {}
 
 const reflectiveResponse = Arr.of(
-  Response.textPart({
+  Response.TextPart.make({
+    metadata: {},
     text: "```\nAnswer each geography question with the concise, correct capital city.\n```"
   })
 )
@@ -59,8 +65,7 @@ const makeQaSignature = () =>
     }
   )
 
-const toUtf8Bytes = (value: string) =>
-  Either.match(Utf8.encode(value), { onLeft: Effect.fail, onRight: (bytes) => Effect.succeed(Arr.fromIterable(bytes)) })
+const toUtf8Bytes = (value: string) => Effect.map(Utf8.encode(value), Arr.fromIterable)
 
 const runSeededReplay = (moduleName: string, seed: number, maxIterations: number) =>
   Effect.gen(function*() {
@@ -71,17 +76,19 @@ const runSeededReplay = (moduleName: string, seed: number, maxIterations: number
     )
     const layer = Layer.succeed(LanguageModel.LanguageModel, mock.service)
     const events = yield* Stream.runCollect(
-      GEPA.stream({
-        module,
-        trainset: Arr.make(
-          new Example({ input: { question: "What is the capital of France?" }, output: { answer: "Paris" } }),
-          new Example({ input: { question: "What is the capital of Japan?" }, output: { answer: "Tokyo" } }),
-          new Example({ input: { question: "What is the capital of Germany?" }, output: { answer: "Berlin" } })
-        ),
-        metric: Metric.exactMatch("answer"),
-        maxIterations,
-        seed
-      })
+      GEPA.stream(
+        new GEPA.Options({
+          module,
+          trainset: Arr.make(
+            new Example({ input: { question: "What is the capital of France?" }, output: { answer: "Paris" } }),
+            new Example({ input: { question: "What is the capital of Japan?" }, output: { answer: "Tokyo" } }),
+            new Example({ input: { question: "What is the capital of Germany?" }, output: { answer: "Berlin" } })
+          ),
+          metric: Metric.exactMatch("answer"),
+          maxIterations,
+          seed
+        })
+      )
     ).pipe(Effect.provide(layer))
     const eventList = Arr.fromIterable(events)
     const finalPareto = Arr.last(Arr.filter(eventList, GEPA.events.$is("ParetoUpdated")))
@@ -100,7 +107,7 @@ const runSeededReplay = (moduleName: string, seed: number, maxIterations: number
           const savedStateBytes = yield* toUtf8Bytes(savedStateJson)
           const paretoSnapshotBytes = yield* toUtf8Bytes(paretoJson)
 
-          return Data.struct({ savedStateBytes, paretoSnapshotBytes })
+          return new ReplayArtifacts({ savedStateBytes, paretoSnapshotBytes })
         })
     })
   })
@@ -111,7 +118,7 @@ describe("GEPA deterministic replay", () => {
     () =>
       Effect.gen(function*() {
         const rawReplayContract = yield* loadFixture("dspy.gepa.replay.seed-0.contract")
-        const replayContract = yield* Schema.decodeUnknown(GepaReplaySeedContractFixtureSchema)(
+        const replayContract = yield* Schema.decodeUnknownEffect(GepaReplaySeedContractFixtureSchema)(
           rawReplayContract
         )
 

@@ -12,15 +12,15 @@ import * as Estimators from "./internal/statistics/estimators.js"
 import { sqrt } from "./Numeric.js"
 import * as Policy from "./Policy.js"
 
-const encodeNumber = Schema.encodeSync(Schema.NumberFromString)
+const encodeNumber = String.String
 const finite = Schema.Finite
-const sample = Schema.NonEmptyChunk(finite)
+const sample = Schema.toCodecJson(Schema.Chunk(finite)).pipe(Schema.refine(Chunk.isNonEmpty))
 
 /** Non-empty finite numeric sample.
  * @since 0.1.0
  * @category schemas
  */
-export const SampleInput = Schema.Struct({ values: sample }).annotations({
+export const SampleInput = Schema.Struct({ values: sample }).annotate({
   identifier: "@scenesystems/effect-math/Statistics/SampleInput"
 })
 
@@ -28,7 +28,7 @@ export const SampleInput = Schema.Struct({ values: sample }).annotations({
  * @since 0.1.0
  * @category schemas
  */
-export const TwoSampleInput = Schema.Struct({ a: sample, b: sample }).annotations({
+export const TwoSampleInput = Schema.Struct({ a: sample, b: sample }).annotate({
   identifier: "@scenesystems/effect-math/Statistics/TwoSampleInput"
 })
 
@@ -58,7 +58,7 @@ export class SummaryStatistics
       standardDeviation: finite,
       min: finite,
       max: finite,
-      count: Schema.Int.pipe(Schema.greaterThanOrEqualTo(1))
+      count: Schema.Int.check(Schema.isGreaterThanOrEqualTo(1))
     }
   )
 {}
@@ -69,7 +69,7 @@ export class SummaryStatistics
  */
 export class DecodeError
   extends Schema.TaggedError<DecodeError>("@scenesystems/effect-math/Statistics/DecodeError")("StatisticsDecodeError", {
-    operation: Schema.Literal("mean", "variance", "summaryStatistics", "covariance", "minimum", "maximum"),
+    operation: Schema.Literals(["mean", "variance", "summaryStatistics", "covariance", "minimum", "maximum"]),
     message: Schema.String
   })
 {}
@@ -80,14 +80,14 @@ export class DecodeError
  */
 export class ShapeError
   extends Schema.TaggedError<ShapeError>("@scenesystems/effect-math/Statistics/ShapeError")("StatisticsShapeError", {
-    operation: Schema.Literal(
+    operation: Schema.Literals([
       "variance",
       "summaryStatistics",
       "covariance",
       "summaryStatisticsWithPolicies",
       "varianceWithPolicies",
       "covarianceWithPolicies"
-    ),
+    ]),
     expected: Schema.String,
     actual: Schema.String,
     message: Schema.String
@@ -102,12 +102,12 @@ export class DomainViolationError
   extends Schema.TaggedError<DomainViolationError>("@scenesystems/effect-math/Statistics/DomainViolationError")(
     "StatisticsDomainViolationError",
     {
-      operation: Schema.Literal(
+      operation: Schema.Literals([
         "summaryStatisticsWithPolicies",
         "meanWithPolicies",
         "varianceWithPolicies",
         "covarianceWithPolicies"
-      ),
+      ]),
       message: Schema.String
     }
   )
@@ -235,7 +235,7 @@ export const maximum: (values: Chunk.Chunk<number>) => Option.Option<number> = E
  */
 export const meanValidated = (input: unknown) =>
   Effect.gen(function*() {
-    const decoded = yield* Schema.decodeUnknown(SampleInput)(input, {
+    const decoded = yield* Schema.decodeUnknownEffect(SampleInput)(input, {
       onExcessProperty: "error"
     }).pipe(
       Effect.mapError((error) =>
@@ -261,7 +261,7 @@ export const meanValidated = (input: unknown) =>
  */
 export const varianceValidated = (input: unknown) =>
   Effect.gen(function*() {
-    const decoded = yield* Schema.decodeUnknown(SampleInput)(input, {
+    const decoded = yield* Schema.decodeUnknownEffect(SampleInput)(input, {
       onExcessProperty: "error"
     }).pipe(
       Effect.mapError((error) =>
@@ -274,7 +274,7 @@ export const varianceValidated = (input: unknown) =>
 
     yield* Effect.filterOrFail(
       Effect.succeed(decoded),
-      (d) => Number.greaterThanOrEqualTo(Chunk.size(d.values), 2),
+      (d) => Number.isGreaterThanOrEqualTo(Chunk.size(d.values), 2),
       () =>
         new ShapeError({
           operation: "variance",
@@ -314,7 +314,7 @@ export const varianceValidated = (input: unknown) =>
  */
 export const summaryStatisticsValidated = (input: unknown) =>
   Effect.gen(function*() {
-    const decoded = yield* Schema.decodeUnknown(SampleInput)(input, {
+    const decoded = yield* Schema.decodeUnknownEffect(SampleInput)(input, {
       onExcessProperty: "error"
     }).pipe(
       Effect.mapError((error) =>
@@ -327,7 +327,7 @@ export const summaryStatisticsValidated = (input: unknown) =>
 
     yield* Effect.filterOrFail(
       Effect.succeed(decoded),
-      (d) => Number.greaterThanOrEqualTo(Chunk.size(d.values), 2),
+      (d) => Number.isGreaterThanOrEqualTo(Chunk.size(d.values), 2),
       () =>
         new ShapeError({
           operation: "summaryStatistics",
@@ -367,7 +367,7 @@ export const summaryStatisticsValidated = (input: unknown) =>
  */
 export const covarianceValidated = (input: unknown) =>
   Effect.gen(function*() {
-    const decoded = yield* Schema.decodeUnknown(TwoSampleInput)(input, {
+    const decoded = yield* Schema.decodeUnknownEffect(TwoSampleInput)(input, {
       onExcessProperty: "error"
     }).pipe(
       Effect.mapError((error) =>
@@ -392,7 +392,7 @@ export const covarianceValidated = (input: unknown) =>
 
     yield* Effect.filterOrFail(
       Effect.succeed(decoded),
-      (d) => Number.greaterThanOrEqualTo(Chunk.size(d.a), 2),
+      (d) => Number.isGreaterThanOrEqualTo(Chunk.size(d.a), 2),
       () =>
         new ShapeError({
           operation: "covariance",
@@ -416,7 +416,7 @@ export const covarianceValidated = (input: unknown) =>
  */
 export const minimumValidated = (input: unknown) =>
   Effect.gen(function*() {
-    const decoded = yield* Schema.decodeUnknown(SampleInput)(input, {
+    const decoded = yield* Schema.decodeUnknownEffect(SampleInput)(input, {
       onExcessProperty: "error"
     }).pipe(
       Effect.mapError((error) =>
@@ -441,7 +441,7 @@ export const minimumValidated = (input: unknown) =>
  */
 export const maximumValidated = (input: unknown) =>
   Effect.gen(function*() {
-    const decoded = yield* Schema.decodeUnknown(SampleInput)(input, {
+    const decoded = yield* Schema.decodeUnknownEffect(SampleInput)(input, {
       onExcessProperty: "error"
     }).pipe(
       Effect.mapError((error) =>
@@ -507,7 +507,7 @@ export const summaryStatisticsWithPolicies = (values: Chunk.Chunk<number>) =>
 
     yield* Effect.filterOrFail(
       Effect.succeed(Chunk.size(values)),
-      Number.greaterThanOrEqualTo(2),
+      Number.isGreaterThanOrEqualTo(2),
       (n) =>
         new ShapeError({
           operation: "summaryStatisticsWithPolicies",
@@ -520,12 +520,12 @@ export const summaryStatisticsWithPolicies = (values: Chunk.Chunk<number>) =>
     const m = Estimators.mean(values)
     const v = Estimators.variance(values)
     const sd = sqrt(v)
-    const first = Chunk.unsafeHead(values)
+    const first = Chunk.headUnsafe(values)
     const minVal = Chunk.reduce(values, first, Number.min)
     const maxVal = Chunk.reduce(values, first, Number.max)
     const count = Chunk.size(values)
 
-    const result = yield* Schema.decodeUnknown(SummaryStatistics)(
+    const result = yield* Schema.decodeEffect(SummaryStatistics)(
       {
         _tag: "SummaryStatistics",
         mean: m,
@@ -605,7 +605,7 @@ export const varianceWithPolicies = (values: Chunk.Chunk<number>) =>
   Effect.gen(function*() {
     yield* Effect.filterOrFail(
       Effect.succeed(Chunk.size(values)),
-      Number.greaterThanOrEqualTo(2),
+      Number.isGreaterThanOrEqualTo(2),
       (n) =>
         new ShapeError({
           operation: "varianceWithPolicies",
@@ -656,7 +656,7 @@ export const covarianceWithPolicies = (a: Chunk.Chunk<number>, b: Chunk.Chunk<nu
 
     yield* Effect.filterOrFail(
       Effect.succeed(Chunk.size(a)),
-      Number.greaterThanOrEqualTo(2),
+      Number.isGreaterThanOrEqualTo(2),
       (n) =>
         new ShapeError({
           operation: "covarianceWithPolicies",

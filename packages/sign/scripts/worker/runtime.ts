@@ -1,6 +1,19 @@
 /** Scoped workerd process and HTTP transport shared by verification and measurement. */
-import { Command, FileSystem, HttpClient, HttpClientRequest, HttpClientResponse, Path, Url } from "@effect/platform"
-import { Array as Arr, Config, Data, Effect, Number as N, Option, Schema, Stream, String as Str } from "effect"
+import {
+  Array as Arr,
+  Config,
+  Data,
+  Effect,
+  FileSystem,
+  Number as N,
+  Option,
+  Path,
+  Schema,
+  Stream,
+  String as Str
+} from "effect"
+import { HttpClient, HttpClientRequest, HttpClientResponse } from "effect/http"
+import { ChildProcess, ChildProcessSpawner } from "effect/process"
 
 import { RequestBody, Result } from "./protocol.js"
 
@@ -8,29 +21,29 @@ class WorkerUnavailable extends Data.TaggedError("WorkerUnavailable")<{
   readonly reason: string
 }> {}
 
-const Listening = Schema.parseJson(Schema.Struct({
+const Listening = Schema.fromJsonString(Schema.Struct({
   event: Schema.Literal("listen"),
   socket: Schema.Literal("http"),
-  port: Schema.Int.pipe(Schema.positive())
+  port: Schema.Int.check(Schema.isGreaterThan(0))
 }))
 
 export const startWorker = Effect.gen(function*() {
-  const binary = yield* Config.string("SIGN_WORKERD")
+  const binary = yield* Config.String("SIGN_WORKERD")
   const path = yield* Path.Path
-  const root = yield* path.fromFileUrl(yield* Url.fromString("../../", import.meta.url))
-  const child = yield* Command.start(
-    Command.make(
+  const script = yield* path.fromFileUrl(yield* Schema.decodeEffect(Schema.URLFromString)(import.meta.url))
+  const root = path.resolve(path.dirname(script), "../..")
+  const spawner = yield* ChildProcessSpawner.ChildProcessSpawner
+  const child = yield* spawner.spawn(
+    ChildProcess.make(
       binary,
-      "serve",
-      path.join(root, "config.capnp"),
-      "--socket-addr=http=127.0.0.1:0",
-      "--control-fd=1"
-    ).pipe(Command.stderr("inherit"))
+      ["serve", path.join(root, "config.capnp"), "--socket-addr=http=127.0.0.1:0", "--control-fd=1"],
+      { stderr: "inherit" }
+    )
   )
   const listening = yield* child.stdout.pipe(
     Stream.decodeText(),
     Stream.splitLines,
-    Stream.mapEffect(Schema.decode(Listening)),
+    Stream.mapEffect((line) => Schema.decodeEffect(Listening)(line)),
     Stream.runHead,
     Effect.flatMap(Option.match({
       onNone: () => Effect.fail(new WorkerUnavailable({ reason: "workerd exited before listening" })),
@@ -38,7 +51,7 @@ export const startWorker = Effect.gen(function*() {
     })),
     Effect.timeout("10 seconds")
   )
-  const origin = Str.concat("http://127.0.0.1:", yield* Schema.encode(Schema.NumberFromString)(listening.port))
+  const origin = Str.concat("http://127.0.0.1:", yield* Schema.encodeEffect(Schema.FiniteFromString)(listening.port))
   const client = yield* HttpClient.HttpClient
   const request = (body: typeof RequestBody.Type) =>
     HttpClientRequest.schemaBodyJson(RequestBody)(HttpClientRequest.post(origin), body).pipe(
@@ -46,7 +59,7 @@ export const startWorker = Effect.gen(function*() {
       Effect.flatMap(HttpClientResponse.schemaBodyJson(Result))
     )
   const fs = yield* FileSystem.FileSystem
-  const pid = yield* Schema.encode(Schema.NumberFromString)(child.pid)
+  const pid = yield* Schema.encodeEffect(Schema.FiniteFromString)(child.pid)
   const cpuTicks = fs.readFileString(path.join("/proc", pid, "stat")).pipe(
     // The command name is parenthesized and may itself contain spaces or ')'.
     Effect.flatMap((stat) =>
@@ -55,9 +68,11 @@ export const startWorker = Effect.gen(function*() {
         onSome: (suffix) => Effect.succeed(Str.split(/\s+/)(Str.trim(suffix)))
       })
     ),
-    Effect.flatMap((fields) => Effect.all(Arr.make(Arr.get(fields, 11), Arr.get(fields, 12)))),
-    Effect.flatMap(Effect.forEach((field) => Schema.decode(Schema.NumberFromString)(field))),
+    Effect.flatMap((fields) =>
+      Effect.forEach(Arr.make(Arr.get(fields, 11), Arr.get(fields, 12)), (field) => Effect.fromOption(field))
+    ),
+    Effect.flatMap(Effect.forEach((field) => Schema.decodeEffect(Schema.FiniteFromString)(field))),
     Effect.map(N.sumAll)
   )
-  return Data.struct({ request, cpuTicks, binary })
+  return { request, cpuTicks, binary }
 })

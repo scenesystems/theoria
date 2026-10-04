@@ -30,8 +30,8 @@ const advance = (
 ): BisectState => {
   const mid = midpoint(state.a, state.b)
   const complete = Boolean.or(
-    Number.lessThan(Numeric.abs(Number.subtract(state.b, state.a)), tolerance),
-    Number.greaterThanOrEqualTo(state.iteration, maxIterations)
+    Number.isLessThan(Numeric.abs(Number.subtract(state.b, state.a)), tolerance),
+    Number.isGreaterThanOrEqualTo(state.iteration, maxIterations)
   )
   return Boolean.match(complete, {
     onTrue: () => new BisectState(Struct.evolve(state, { result: () => Option.some(mid) })),
@@ -40,7 +40,7 @@ const advance = (
       return Boolean.match(Number.Equivalence(fmid, 0), {
         onTrue: () => new BisectState(Struct.evolve(state, { result: () => Option.some(mid) })),
         onFalse: () =>
-          Boolean.match(Number.lessThanOrEqualTo(Number.multiply(state.fa, fmid), 0), {
+          Boolean.match(Number.isLessThanOrEqualTo(Number.multiply(state.fa, fmid), 0), {
             onTrue: () =>
               new BisectState({
                 a: state.a,

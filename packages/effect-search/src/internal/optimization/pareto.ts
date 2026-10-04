@@ -23,14 +23,14 @@ export const paretoFrontFromCompleted = <Config>(
 ) => {
   const completedTrials = Arr.fromIterable(completed)
   return Arr.sort(
-    Arr.filterMap(
+    Arr.getSomes(Arr.map(
       nonDominatedIndices(
         Arr.map(completedTrials, (trial) => toVector(trial.state.value)),
         directions,
         epsilon
       ),
       (index) => Arr.get(completedTrials, index)
-    ),
+    )),
     Order.mapInput(Num.Order, (trial: Trial.CompletedTrial<Config>) => trial.trialNumber)
   )
 }

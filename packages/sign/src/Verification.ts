@@ -22,9 +22,10 @@ export const maxMessageBytes = 8_192
  * @since 0.5.0
  * @category errors
  */
-export class InvalidInput extends Schema.TaggedError<InvalidInput>("@scenesystems/sign/Verification/InvalidInput")(
+export class InvalidInput extends Schema.TaggedError<InvalidInput>()(
   "InvalidVerificationInput",
-  {}
+  {},
+  { identifier: "@scenesystems/sign/Verification/InvalidInput" }
 ) {}
 
 /**
@@ -33,7 +34,8 @@ export class InvalidInput extends Schema.TaggedError<InvalidInput>("@scenesystem
  * @since 0.5.0
  * @category errors
  */
-export class Unavailable extends Schema.TaggedError<Unavailable>("@scenesystems/sign/Verification/Unavailable")(
+export class Unavailable extends Schema.TaggedError<Unavailable>()(
   "VerificationUnavailable",
-  {}
+  {},
+  { identifier: "@scenesystems/sign/Verification/Unavailable" }
 ) {}

@@ -20,18 +20,22 @@ const mergeBuckets = HashMap.make(
 describe("Sampler stratified utilities", () => {
   it.effect("samples deterministic round-robin subsets with seeded per-bucket shuffling", () =>
     Effect.sync(() => {
-      const first = Sampler.sampleStratifiedRoundRobin({
-        buckets: mergeBuckets,
-        bucketOrder,
-        targetSize: 5,
-        seed: 42
-      })
-      const second = Sampler.sampleStratifiedRoundRobin({
-        buckets: mergeBuckets,
-        bucketOrder,
-        targetSize: 5,
-        seed: 42
-      })
+      const first = Sampler.sampleStratifiedRoundRobin(
+        new Sampler.StratifiedRoundRobinOptions({
+          buckets: mergeBuckets,
+          bucketOrder,
+          targetSize: 5,
+          seed: 42
+        })
+      )
+      const second = Sampler.sampleStratifiedRoundRobin(
+        new Sampler.StratifiedRoundRobinOptions({
+          buckets: mergeBuckets,
+          bucketOrder,
+          targetSize: 5,
+          seed: 42
+        })
+      )
       const unique = Arr.reduce(
         first,
         Arr.empty<string>(),
@@ -51,24 +55,30 @@ describe("Sampler stratified utilities", () => {
 
   it.effect("handles empty bucket orders and clamps oversized/negative target sizes", () =>
     Effect.sync(() => {
-      const emptyOrder = Sampler.sampleStratifiedRoundRobin({
-        buckets: mergeBuckets,
-        bucketOrder: Chunk.empty<Bucket>(),
-        targetSize: 5,
-        seed: 11
-      })
-      const negativeTarget = Sampler.sampleStratifiedRoundRobin({
-        buckets: mergeBuckets,
-        bucketOrder,
-        targetSize: Num.negate(1),
-        seed: 11
-      })
-      const oversizedTarget = Sampler.sampleStratifiedRoundRobin({
-        buckets: mergeBuckets,
-        bucketOrder,
-        targetSize: 99,
-        seed: 11
-      })
+      const emptyOrder = Sampler.sampleStratifiedRoundRobin(
+        new Sampler.StratifiedRoundRobinOptions({
+          buckets: mergeBuckets,
+          bucketOrder: Chunk.empty<Bucket>(),
+          targetSize: 5,
+          seed: 11
+        })
+      )
+      const negativeTarget = Sampler.sampleStratifiedRoundRobin(
+        new Sampler.StratifiedRoundRobinOptions({
+          buckets: mergeBuckets,
+          bucketOrder,
+          targetSize: Num.multiply(-1, 1),
+          seed: 11
+        })
+      )
+      const oversizedTarget = Sampler.sampleStratifiedRoundRobin(
+        new Sampler.StratifiedRoundRobinOptions({
+          buckets: mergeBuckets,
+          bucketOrder,
+          targetSize: 99,
+          seed: 11
+        })
+      )
 
       expect(Chunk.isEmpty(emptyOrder)).toBe(true)
       expect(Chunk.isEmpty(negativeTarget)).toBe(true)

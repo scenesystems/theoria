@@ -12,7 +12,7 @@ import { exp } from "../../exponential.js"
 import * as Rng from "../../rng.js"
 
 const quantize = (value: number, low: number, high: number, step: number): number => {
-  const steps = Num.round(Num.unsafeDivide(Num.subtract(value, low), step), 0)
+  const steps = Num.round(Num.divideUnsafe(Num.subtract(value, low), step), 0)
   const snapped = Num.sum(low, Num.multiply(steps, step))
 
   return Num.clamp(snapped, {
@@ -27,7 +27,7 @@ const categoricalChoices = (
   choicesInput: Iterable<unknown>
 ) => {
   const choices = Arr.fromIterable(choicesInput)
-  return Match.value(Num.greaterThan(Arr.length(choices), 0)).pipe(
+  return Match.value(Num.isGreaterThan(Arr.length(choices), 0)).pipe(
     Match.when(true, () => Effect.succeed(choices)),
     Match.orElse(() =>
       Effect.fail(
@@ -46,16 +46,12 @@ const sampledCategoricalAt = (
 ): Effect.Effect<unknown, InvalidSamplerConfig> => {
   const choices = Arr.fromIterable(choicesInput)
   return Arr.get(choices, index).pipe(
-    Option.match({
-      onNone: () =>
-        Effect.fail(
-          new InvalidSamplerConfig({
-            reason: "random categorical index resolved outside available choices",
-            sampler: "random"
-          })
-        ),
-      onSome: Effect.succeed
-    })
+    Effect.fromOption(() =>
+      new InvalidSamplerConfig({
+        reason: "random categorical index resolved outside available choices",
+        sampler: "random"
+      })
+    )
   )
 }
 
@@ -107,7 +103,7 @@ const sampleLogFloat = (
   high: number,
   step: Option.Option<number>
 ): Effect.Effect<number, InvalidSamplerConfig> =>
-  Match.value(Bool.or(Num.lessThanOrEqualTo(low, 0), Num.lessThanOrEqualTo(high, 0))).pipe(
+  Match.value(Bool.or(Num.isLessThanOrEqualTo(low, 0), Num.isLessThanOrEqualTo(high, 0))).pipe(
     Match.when(
       true,
       () =>
@@ -168,9 +164,9 @@ export const sampleDistribution = (
 ): Effect.Effect<unknown, InvalidSamplerConfig> =>
   Match.value(distribution).pipe(
     Match.when({ type: "categorical" }, ({ choices }) => sampleCategorical(rng, choices)),
-    Match.when({ type: "int" }, ({ low, high, step }) => sampleInt(rng, low, high, Option.fromNullable(step))),
+    Match.when({ type: "int" }, ({ low, high, step }) => sampleInt(rng, low, high, Option.fromNullishOr(step))),
     Match.when({ type: "fidelity" }, ({ low, high }) => sampleInt(rng, low, high, Option.none())),
     Match.when({ type: "float" }, ({ low, high, scale, step }) =>
-      sampleFloat(rng, low, high, Option.fromNullable(scale), Option.fromNullable(step))),
+      sampleFloat(rng, low, high, Option.fromNullishOr(scale), Option.fromNullishOr(step))),
     Match.exhaustive
   )

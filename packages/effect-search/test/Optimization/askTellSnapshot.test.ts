@@ -7,7 +7,7 @@ import * as SearchSpace from "../../src/SearchSpace.js"
 
 const makeSpace = () =>
   SearchSpace.make({
-    x: SearchSpace.float(Num.negate(1), 1),
+    x: SearchSpace.float(Num.multiply(-1, 1), 1),
     depth: SearchSpace.int(1, 3)
   })
 
@@ -32,13 +32,15 @@ describe("Optimization ask-tell snapshot compatibility", () => {
     Effect.scoped(
       Effect.gen(function*() {
         const space = yield* makeSpace()
-        const handle = yield* Optimization.open({
-          space,
-          sampler: Sampler.random({ seed: 333 }),
-          direction: "minimize",
-          trials: 2,
-          objective: () => Effect.succeed(0)
-        })
+        const handle = yield* Optimization.open(
+          new Optimization.FlatOptions({
+            space,
+            sampler: Sampler.random({ seed: 333 }),
+            direction: "minimize",
+            trials: 2,
+            objective: () => Effect.succeed(0)
+          })
+        )
 
         const first = yield* Optimization.ask(handle)
         const firstValue = objective(first.config)
@@ -50,14 +52,16 @@ describe("Optimization ask-tell snapshot compatibility", () => {
 
         const checkpoint = yield* Optimization.snapshot(handle)
 
-        const resumed = yield* Optimization.resume({
-          space,
-          sampler: Sampler.random({ seed: 333 }),
-          snapshot: checkpoint,
-          direction: "minimize",
-          trials: 1,
-          objective: (config) => Effect.succeed(objective(config))
-        })
+        const resumed = yield* Optimization.resume(
+          new Optimization.ResumeOptions({
+            space,
+            sampler: Sampler.random({ seed: 333 }),
+            snapshot: checkpoint,
+            direction: "minimize",
+            trials: 1,
+            objective: (config) => Effect.succeed(objective(config))
+          })
+        )
 
         const firstRecovered = valueForTrial(resumed, first.trialNumber)
         const secondRecovered = valueForTrial(resumed, second.trialNumber)

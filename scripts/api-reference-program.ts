@@ -1,5 +1,6 @@
-import { Command, Path, Url } from "@effect/platform"
-import { Array as Arr, Console, Effect, Match, Number, String } from "effect"
+import { Array as Arr, Console, Effect, Match, Number, Path, Stream, String } from "effect"
+import { Url } from "effect/http"
+import { ChildProcess } from "effect/process"
 
 import { checkApiReferenceConsistency } from "./api-reference/consistency.js"
 import { loadDocsData } from "./api-reference/docs-data.js"
@@ -10,13 +11,19 @@ import { discoverApiSourcePackages } from "./api-reference/source.js"
 export const apiReferenceProgram = Effect.gen(function*() {
   const path = yield* Path.Path
   const repositoryRoot = yield* Effect.flatMap(
-    Url.fromString("../", import.meta.url).pipe(Effect.orDie),
+    Url.fromString("../", import.meta.url).pipe(Effect.fromResult, Effect.orDie),
     path.fromFileUrl
   )
-  const revision = yield* Command.make("git", "rev-parse", "HEAD").pipe(
-    Command.workingDirectory(repositoryRoot),
-    Command.string,
-    Effect.map(String.trim)
+  const revision = yield* Effect.scoped(
+    Effect.gen(function*() {
+      const running = yield* ChildProcess.make("git", ["rev-parse", "HEAD"], { cwd: repositoryRoot })
+      return yield* running.stdout.pipe(
+        Stream.decodeText(),
+        Stream.runCollect,
+        Effect.map(Arr.join("")),
+        Effect.map(String.trim)
+      )
+    })
   )
   const sourcePackages = yield* discoverApiSourcePackages(path.join(repositoryRoot, "packages"))
   const browserOutputRoot = path.join(repositoryRoot, "apps", "theoria", "public", "docs-data")

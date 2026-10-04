@@ -1,8 +1,9 @@
 import { describe, expect, it } from "@effect/vitest"
-import { Cause, Effect, Exit, Layer, Logger, LogLevel, MutableRef, Schema } from "effect"
+import { Cause, Effect, Exit, Layer, Logger, MutableRef, References, Schema } from "effect"
 
 import * as PolicyGuard from "../../src/internal/policyGuard.js"
 import * as Policy from "../../src/Policy.js"
+import { nan } from "../helpers/nonFinite.js"
 
 class InvalidResult extends Schema.TaggedError<InvalidResult>()("InvalidResult", { message: Schema.String }) {}
 
@@ -39,7 +40,7 @@ describe("policyGuard", () => {
       const error = yield* Effect.flip(
         PolicyGuard.scalar({
           operation: "strict",
-          compute: () => Schema.decodeUnknownSync(Schema.NumberFromString)("NaN"),
+          compute: () => nan,
           makeError: (message) => new InvalidResult({ message }),
           annotations: () => ({ result: "NaN" })
         }).pipe(Effect.provide(strictDisabled))
@@ -53,16 +54,16 @@ describe("policyGuard", () => {
     Effect.gen(function*() {
       const count = MutableRef.make(0)
       const logger = Logger.make(() => MutableRef.increment(count))
-      const logging = Layer.mergeAll(strictEnabled, Logger.replace(Logger.defaultLogger, logger))
+      const logging = Layer.mergeAll(strictEnabled, Logger.layer([logger]))
       const error = yield* Effect.flip(
         PolicyGuard.scalar({
           operation: "rejected",
-          compute: () => Schema.decodeUnknownSync(Schema.NumberFromString)("NaN"),
+          compute: () => nan,
           makeError: (message) => new InvalidResult({ message }),
           annotations: () => ({ result: "NaN" })
         }).pipe(
           Effect.provide(logging),
-          Logger.withMinimumLogLevel(LogLevel.Debug)
+          Effect.provideService(References.MinimumLogLevel, "Debug")
         )
       )
 
@@ -76,7 +77,7 @@ describe("policyGuard", () => {
         annotations: () => ({ result: "42" })
       }).pipe(
         Effect.provide(logging),
-        Logger.withMinimumLogLevel(LogLevel.Debug)
+        Effect.provideService(References.MinimumLogLevel, "Debug")
       )
 
       expect(result).toStrictEqual(42)
@@ -96,6 +97,6 @@ describe("policyGuard", () => {
       )
 
       expect(Exit.isFailure(exit)).toStrictEqual(true)
-      expect(Exit.match(exit, { onFailure: Cause.isDie, onSuccess: () => false })).toStrictEqual(true)
+      expect(Exit.match(exit, { onFailure: Cause.hasDies, onSuccess: () => false })).toStrictEqual(true)
     }))
 })

@@ -1,5 +1,5 @@
-import type { Cookies } from "@effect/platform"
 import { DateTime, Duration, Equal, Option, Schema } from "effect"
+import type { Cookie } from "effect/http/Cookies"
 
 import { type HeadEntry, HeadRootClass } from "./head.js"
 import type { ColorMode } from "./palette.js"
@@ -14,7 +14,7 @@ import type { ColorMode } from "./palette.js"
  */
 
 /** What the reader asked for: a fixed mode, or whatever the operating system says, followed live. */
-export const ColorModePreference = Schema.Literal("system", "light", "dark")
+export const ColorModePreference = Schema.Literals(["system", "light", "dark"])
 
 export type ColorModePreference = typeof ColorModePreference.Type
 
@@ -29,7 +29,7 @@ export const colorModeCookieLifetime: Duration.Duration = Duration.days(365)
  * carries no secret, so it is neither `HttpOnly` (the browser writes it) nor
  * bound to a session.
  */
-export const colorModeCookieOptions: Cookies.Cookie["options"] = {
+export const colorModeCookieOptions: Cookie["options"] = {
   path: "/",
   maxAge: colorModeCookieLifetime,
   sameSite: "lax"
@@ -40,10 +40,10 @@ export const colorModeCookieOptions: Cookies.Cookie["options"] = {
  * `Max-Age` and `Expires` are set: every browser honours the first, and every
  * DOM host honours the second.
  */
-export const preferenceCookieRemoval: Cookies.Cookie["options"] = {
+export const preferenceCookieRemoval: Cookie["options"] = {
   path: "/",
   maxAge: Duration.zero,
-  expires: DateTime.toDate(DateTime.unsafeMake(0)),
+  expires: DateTime.toDate(DateTime.makeUnsafe(0)),
   sameSite: "lax"
 }
 
@@ -53,7 +53,7 @@ export const preferenceCookieRemoval: Cookies.Cookie["options"] = {
  * malformed value fails to decode and is treated as absent by the caller.
  */
 export const ColorModeCookies = Schema.Struct({
-  [colorModeCookieName]: Schema.optionalWith(Schema.parseJson(ColorModePreference), { as: "Option" })
+  [colorModeCookieName]: Schema.OptionFromOptional(Schema.fromJsonString(ColorModePreference))
 })
 
 /** The class on `<html>` that switches the palette to its dark values; light is its absence. */

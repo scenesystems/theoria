@@ -1,35 +1,34 @@
-import { FileSystem, Path, Url } from "@effect/platform"
-import { BunContext } from "@effect/platform-bun"
-import { Array as Arr, Effect, Schema, String as Str } from "effect"
-import type { Option } from "effect"
+import { BunServices } from "@effect/platform-bun"
+import { Array as Arr, Effect, FileSystem, Path, Schema, String as Str } from "effect"
+import type { Option, PlatformError } from "effect"
+import { Url } from "effect/http"
 
 import {
   FixtureFileReadError,
   FixtureMalformedJsonError,
   FixtureManifestDecodeError,
   FixtureManifestReadError,
-  type FixtureRegistryError,
   FixtureSchemaDecodeError
 } from "./errors.js"
 import { FixtureManifest, KnownFixture } from "./schemas.js"
 import type { FixtureManifestEntry, FixtureName } from "./schemas.js"
 
-const decodeJsonUnknown = Schema.decodeUnknown(Schema.parseJson(Schema.Unknown))
+const decodeJsonUnknown = Schema.decodeUnknownEffect(Schema.fromJsonString(Schema.Unknown))
 
 /** The directory `relative` names beside the module at `moduleUrl`, as a filesystem path. */
-export const directoryBeside = (moduleUrl: string, relative: string): Effect.Effect<string> =>
+export const directoryBeside = (moduleUrl: string, relative: string) =>
   Effect.gen(function*() {
     const path = yield* Path.Path
-    const url = yield* Url.fromString(relative, moduleUrl)
+    const url = yield* Effect.fromResult(Url.fromString(relative, moduleUrl))
     return yield* path.fromFileUrl(url)
-  }).pipe(Effect.orDie, Effect.provide(BunContext.layer))
+  }).pipe(Effect.orDie, Effect.provide(BunServices.layer))
 
 /** Reads `file` under `rootDirectory`, returning the text and the path it was read from. */
 const readText = <E>(
   rootDirectory: string,
   file: string,
-  onError: (path: string, cause: unknown) => E
-): Effect.Effect<{ readonly path: string; readonly raw: string }, E> =>
+  onError: (path: string, cause: PlatformError.PlatformError) => E
+) =>
   Effect.gen(function*() {
     const fileSystem = yield* FileSystem.FileSystem
     const path = yield* Path.Path
@@ -37,7 +36,7 @@ const readText = <E>(
     const raw = yield* fileSystem.readFileString(filePath).pipe(Effect.mapError((cause) => onError(filePath, cause)))
 
     return { path: filePath, raw }
-  }).pipe(Effect.provide(BunContext.layer))
+  })
 
 const parseJson = (
   path: string,
@@ -57,7 +56,7 @@ const decodeManifest = (
   path: string,
   payload: unknown
 ): Effect.Effect<FixtureManifest, FixtureManifestDecodeError> =>
-  Schema.decodeUnknown(FixtureManifest)(payload).pipe(
+  Schema.decodeUnknownEffect(FixtureManifest)(payload).pipe(
     Effect.mapError(
       (cause) =>
         new FixtureManifestDecodeError({
@@ -70,7 +69,7 @@ const decodeManifest = (
 export const loadManifest = (
   rootDirectory: string,
   manifestFileName: string
-): Effect.Effect<FixtureManifest, FixtureRegistryError> =>
+) =>
   Effect.gen(function*() {
     const { path, raw } = yield* readText(
       rootDirectory,
@@ -80,7 +79,7 @@ export const loadManifest = (
     const parsed = yield* parseJson(path, raw)
 
     return yield* decodeManifest(path, parsed)
-  })
+  }).pipe(Effect.provide(BunServices.layer))
 
 export const findManifestEntry = (
   manifest: FixtureManifest,
@@ -91,8 +90,8 @@ const decodeFixture = (
   fixtureName: FixtureName,
   path: string,
   payload: unknown
-): Effect.Effect<KnownFixture, FixtureSchemaDecodeError> =>
-  Schema.decodeUnknown(KnownFixture)(payload).pipe(
+) =>
+  Schema.decodeUnknownEffect(KnownFixture)(payload).pipe(
     Effect.mapError(
       (cause) =>
         new FixtureSchemaDecodeError({
@@ -115,7 +114,7 @@ const decodeFixture = (
 export const loadFixtureByEntry = (
   rootDirectory: string,
   entry: FixtureManifestEntry
-): Effect.Effect<KnownFixture, FixtureRegistryError> =>
+) =>
   Effect.gen(function*() {
     const { path, raw } = yield* readText(
       rootDirectory,
@@ -125,4 +124,4 @@ export const loadFixtureByEntry = (
     const parsed = yield* parseJson(path, raw)
 
     return yield* decodeFixture(entry.name, path, parsed)
-  })
+  }).pipe(Effect.provide(BunServices.layer))

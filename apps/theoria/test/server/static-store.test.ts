@@ -1,7 +1,7 @@
-import { FileSystem, HttpPlatform, HttpServerResponse } from "@effect/platform"
-import { BunContext } from "@effect/platform-bun"
+import { BunServices } from "@effect/platform-bun"
 import { expect, it } from "@effect/vitest"
-import { Effect, Layer, Option } from "effect"
+import { Effect, FileSystem, Layer, Option } from "effect"
+import { HttpPlatform, HttpServerResponse } from "effect/http"
 
 import { contentTypeForPath, StaticStore } from "../../app/server/config/static-store.js"
 import * as BunStaticStore from "../../app/server/platform/bun-static-store.js"
@@ -14,7 +14,7 @@ const bodyText = (response: HttpServerResponse.HttpServerResponse) =>
 // Bun store (dist/ then public/ on disk)
 // ---------------------------------------------------------------------------
 
-const withDist = <A, E>(use: (store: StaticStore["Type"]) => Effect.Effect<A, E>) =>
+const withDist = <A, E>(use: (store: StaticStore["Service"]) => Effect.Effect<A, E>) =>
   Effect.gen(function*() {
     const fileSystem = yield* FileSystem.FileSystem
     const distRoot = yield* fileSystem.makeTempDirectoryScoped()
@@ -35,7 +35,7 @@ const withDist = <A, E>(use: (store: StaticStore["Type"]) => Effect.Effect<A, E>
     const store = yield* Effect.provide(StaticStore, BunStaticStore.layer([distRoot, publicRoot]))
 
     return yield* use(store)
-  }).pipe(Effect.scoped, Effect.provide(Layer.provideMerge(HttpPlatform.layer, BunContext.layer)))
+  }).pipe(Effect.scoped, Effect.provide(Layer.provideMerge(HttpPlatform.layer, BunServices.layer)))
 
 it.effect("Bun store searches roots in order and falls back to later roots", () =>
   withDist((store) =>
@@ -43,7 +43,7 @@ it.effect("Bun store searches roots in order and falls back to later roots", () 
       expect(yield* store.text("/index.html")).toBe("<title>x</title>")
       expect(yield* store.text("/extra/data.json")).toBe("{\"public\":true}")
 
-      const fallback = yield* yield* store.response("/extra/data.json")
+      const fallback = yield* Effect.flatMap(store.response("/extra/data.json"), Effect.fromOption)
       expect(fallback.headers["content-type"]).toBe("application/json; charset=utf-8")
       expect(yield* bodyText(fallback)).toBe("{\"public\":true}")
     })
@@ -62,7 +62,7 @@ it.effect("Bun store reads assets as text and reports missing ones", () =>
 it.effect("Bun store streams assets with a content type", () =>
   withDist((store) =>
     Effect.gen(function*() {
-      const plain = yield* yield* store.response("/assets/app.js")
+      const plain = yield* Effect.flatMap(store.response("/assets/app.js"), Effect.fromOption)
       expect(plain.headers["content-type"]).toBe("application/javascript; charset=utf-8")
       expect(plain.headers["content-encoding"]).toBeUndefined()
       expect(yield* bodyText(plain)).toBe("console.log(1)")
@@ -76,7 +76,7 @@ it.effect("Bun store serves typefaces as woff2, and the site keeps them for a ye
     Effect.gen(function*() {
       const pathname = "/assets/figtree-latin-wght-normal-D4qk9tSy.woff2"
       expect(contentTypeForPath(pathname)).toEqual(Option.some("font/woff2"))
-      const font = yield* yield* store.response(pathname)
+      const font = yield* Effect.flatMap(store.response(pathname), Effect.fromOption)
       expect(font.headers["content-type"]).toBe("font/woff2")
       // A build asset, named by content hash, so a new file is a new URL.
       expect(cacheControlForPath(pathname)).toBe("public, max-age=31536000, immutable")

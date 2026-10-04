@@ -1,6 +1,5 @@
-import { FileSystem, Path } from "@effect/platform"
-import type { PlatformError } from "@effect/platform/Error"
-import { Context, Data, Effect, Layer, Option, type ParseResult, Schema } from "effect"
+import { Context, Data, Effect, FileSystem, Layer, Option, Path, Schema } from "effect"
+import type { PlatformError } from "effect/PlatformError"
 import { Application, FileRegistry, normalizePath, type ProjectReflection } from "typedoc"
 
 import { type ConvertedModule } from "./conversion.js"
@@ -23,10 +22,10 @@ class TypeDocReflectionService extends Data.Class<{
   readonly serialize: (project: ProjectReflection) => TypeDocProjectJson
 }> {}
 
-export class TypeDocReflections extends Context.Tag("@theoria/scripts/api-reference/TypeDocReflections")<
+export class TypeDocReflections extends Context.Service<
   TypeDocReflections,
   TypeDocReflectionService
->() {}
+>()("@theoria/scripts/api-reference/TypeDocReflections") {}
 
 export const typeDocReflectionsLayer = (repositoryRoot: string) =>
   Layer.effect(
@@ -60,7 +59,7 @@ const readProject = (packageName: string, absolutePath: string) =>
     const fileSystem = yield* FileSystem.FileSystem
     const reflections = yield* TypeDocReflections
     const text = yield* fileSystem.readFileString(absolutePath)
-    const project = yield* Schema.decode(TypeDocProjectJsonText)(text)
+    const project = yield* Schema.decodeEffect(TypeDocProjectJsonText)(text)
     return yield* reflections.revive(packageName, project)
   })
 
@@ -71,7 +70,7 @@ export const reviveConvertedModule = (input: {
   readonly module: ConvertedModule
 }): Effect.Effect<
   ApiConvertedModule,
-  ApiReferenceGenerationError | ParseResult.ParseError | PlatformError,
+  ApiReferenceGenerationError | Schema.SchemaError | PlatformError,
   FileSystem.FileSystem | Path.Path | TypeDocReflections
 > =>
   Effect.gen(function*() {
@@ -86,7 +85,7 @@ export const reviveConvertedModule = (input: {
       Effect.gen(function*() {
         const revived = yield* readProject(input.packageName, path.join(input.conversionRoot, sourceProject.project))
         const comment = yield* Option.match(
-          Option.flatMap(moduleReflection(revived), (module) => Option.fromNullable(module.comment)),
+          Option.flatMap(moduleReflection(revived), (module) => Option.fromNullishOr(module.comment)),
           {
             onNone: () => missing(`${sourceProject.source} has no module comment after revival`),
             onSome: Effect.succeed

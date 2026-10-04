@@ -59,7 +59,7 @@ const toneSlotClassName = (tone: Tone, slot: ToneSlot): string =>
 const neutralSlotClassName = (slot: ToneSlot): string =>
   `${slotUtility(slot)}-${neutralColorName(neutralSlotRole(slot), toneSlotTranslucency(slot))}`
 
-export const ToneClasses = Schema.Record({ key: ToneSlot, value: Schema.String })
+export const ToneClasses = Schema.Record(ToneSlot, Schema.String)
 export type ToneClasses = typeof ToneClasses.Type
 
 const slotClasses = (className: (slot: ToneSlot) => string): ToneClasses => ({
@@ -313,7 +313,7 @@ const segmentedControlRailBaseClassName = `grid min-w-0 gap-1 ${
  */
 export const segmentedControlRailClassName = (count: number): string =>
   Match.value(count).pipe(
-    Match.when(Num.lessThanOrEqualTo(2), () => `${segmentedControlRailBaseClassName} grid-cols-2`),
+    Match.when(Num.isLessThanOrEqualTo(2), () => `${segmentedControlRailBaseClassName} grid-cols-2`),
     Match.when(3, () => `${segmentedControlRailBaseClassName} grid-cols-3`),
     Match.orElse(() => `${segmentedControlRailBaseClassName} grid-cols-2 sm:grid-cols-4`)
   )

@@ -1,6 +1,6 @@
-import type { HttpServerResponse } from "@effect/platform"
 import { Context, type Effect, HashMap, Option, Schema } from "effect"
 import * as Arr from "effect/Array"
+import type { HttpServerResponse } from "effect/http"
 import * as Num from "effect/Number"
 import * as Str from "effect/String"
 
@@ -19,7 +19,7 @@ import * as Str from "effect/String"
  * the filesystem or assets binding could not deliver it, which is a server
  * fault and never a 404.
  */
-export const StaticStoreFailureReason = Schema.Literal("NotFound", "InvalidPathname", "Unreadable")
+export const StaticStoreFailureReason = Schema.Literals(["NotFound", "InvalidPathname", "Unreadable"])
 
 export class StaticStoreError
   extends Schema.TaggedError<StaticStoreError>("@theoria/app/server/config/StaticStore/Error")("StaticStoreError", {
@@ -30,7 +30,7 @@ export class StaticStoreError
   })
 {}
 
-export class StaticStore extends Context.Tag("@theoria/app/server/config/StaticStore")<
+export class StaticStore extends Context.Service<
   StaticStore,
   {
     /** Read an asset as UTF-8 text. Fails when the asset does not exist or cannot be read. */
@@ -44,7 +44,7 @@ export class StaticStore extends Context.Tag("@theoria/app/server/config/StaticS
       pathname: string
     ) => Effect.Effect<Option.Option<HttpServerResponse.HttpServerResponse>, StaticStoreError>
   }
->() {}
+>()("@theoria/app/server/config/StaticStore") {}
 
 export const htmlContentType = "text/html; charset=utf-8"
 export const textContentType = "text/plain; charset=utf-8"
@@ -73,7 +73,7 @@ const contentTypes = HashMap.make(
 const extensionOf = (pathname: string): Option.Option<string> =>
   Option.flatMap(Arr.last(Str.split(pathname, "/")), (name) =>
     Option.map(
-      Option.filter(Str.lastIndexOf(".")(name), Num.greaterThan(0)),
+      Option.filter(Str.lastIndexOf(".")(name), Num.isGreaterThan(0)),
       (dot) => Str.slice(dot)(name)
     ))
 

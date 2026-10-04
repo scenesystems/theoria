@@ -1,13 +1,13 @@
 import { Match, Schema } from "effect"
 
-export const ErrorCode = Schema.Literal(
+export const ErrorCode = Schema.Literals([
   "invalid-request",
   "method-not-allowed",
   "cross-site-request",
   "rate-limited",
   "execution-failed",
   "route-not-found"
-)
+])
 
 export type ErrorCode = typeof ErrorCode.Type
 

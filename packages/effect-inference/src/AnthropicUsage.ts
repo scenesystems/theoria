@@ -4,11 +4,10 @@
  * @since 0.4.0
  * @module
  */
-import * as AnthropicClient from "@effect/ai-anthropic/AnthropicClient"
+import type * as AnthropicClient from "@effect/ai-anthropic/AnthropicClient"
 import * as Generated from "@effect/ai-anthropic/Generated"
-import type * as AiError from "@effect/ai/AiError"
-import * as AiResponse from "@effect/ai/Response"
-import * as Data from "effect/Data"
+import type * as AiError from "effect/ai/AiError"
+import * as AiResponse from "effect/ai/Response"
 import * as Effect from "effect/Effect"
 import * as Match from "effect/Match"
 import * as Option from "effect/Option"
@@ -27,20 +26,20 @@ import * as Struct from "effect/Struct"
  * @since 0.4.0
  * @category schemas
  */
-export const Observation = Schema.Union(
+export const Observation = Schema.Union([
   Schema.TaggedStruct("Response", {
-    usage: Schema.typeSchema(AiResponse.Usage),
-    raw: Schema.typeSchema(Generated.BetaUsage)
+    usage: Schema.toType(AiResponse.Usage),
+    raw: Schema.toType(Generated.BetaMessage.fields.usage)
   }),
   Schema.TaggedStruct("MessageStart", {
-    usage: Schema.typeSchema(AiResponse.Usage),
-    raw: Schema.typeSchema(Generated.BetaUsage)
+    usage: Schema.toType(AiResponse.Usage),
+    raw: Schema.toType(Generated.BetaMessage.fields.usage)
   }),
   Schema.TaggedStruct("MessageDelta", {
-    usage: Schema.typeSchema(AiResponse.Usage),
-    raw: Schema.typeSchema(AnthropicClient.MessageDeltaUsage)
+    usage: Schema.toType(AiResponse.Usage),
+    raw: Schema.toType(Generated.BetaMessageDeltaEvent.fields.usage)
   })
-)
+])
 
 /**
  * A source-tagged Anthropic usage observation.
@@ -50,40 +49,66 @@ export const Observation = Schema.Union(
  */
 export type Observation = typeof Observation.Type
 
-/**
- * Constructs and exhaustively matches Anthropic usage observations by `_tag`.
- *
- * @since 0.4.0
- * @category models
- */
-const observations = Data.taggedEnum<Observation>()
-
-const projectUsage = (raw: Generated.BetaUsage): AiResponse.Usage =>
+const projectUsage = (raw: Generated.BetaMessage["usage"]): AiResponse.Usage =>
   new AiResponse.Usage({
-    inputTokens: raw.input_tokens,
-    outputTokens: raw.output_tokens,
-    totalTokens: undefined,
-    ...Option.match(Option.fromNullable(raw.cache_read_input_tokens), {
-      onNone: () => ({}),
-      onSome: (cachedInputTokens) => ({ cachedInputTokens })
-    })
+    inputTokens: {
+      ...Option.match(
+        Option.all([
+          Option.fromNullishOr(raw.cache_read_input_tokens),
+          Option.fromNullishOr(raw.cache_creation_input_tokens)
+        ]),
+        {
+          onNone: () => ({}),
+          onSome: ([read, write]) => ({ total: raw.input_tokens + read + write })
+        }
+      ),
+      uncached: raw.input_tokens,
+      ...Option.match(Option.fromNullishOr(raw.cache_read_input_tokens), {
+        onNone: () => ({}),
+        onSome: (cacheRead) => ({ cacheRead })
+      }),
+      ...Option.match(Option.fromNullishOr(raw.cache_creation_input_tokens), {
+        onNone: () => ({}),
+        onSome: (cacheWrite) => ({ cacheWrite })
+      })
+    },
+    outputTokens: { total: raw.output_tokens }
   })
 
 const mergeUsage = (
   current: AiResponse.Usage,
-  update: AnthropicClient.MessageDeltaUsage
+  update: Generated.BetaMessageDeltaEvent["usage"]
 ): AiResponse.Usage =>
   new AiResponse.Usage({
-    inputTokens: Option.fromNullable(update.input_tokens).pipe(
-      Option.getOrElse(() => current.inputTokens)
-    ),
-    outputTokens: Option.fromNullable(update.output_tokens).pipe(
-      Option.getOrElse(() => current.outputTokens)
-    ),
-    totalTokens: undefined,
-    cachedInputTokens: Option.fromNullable(update.cache_read_input_tokens).pipe(
-      Option.getOrElse(() => current.cachedInputTokens)
-    )
+    inputTokens: (() => {
+      const uncached = Option.getOrElse(Option.fromNullishOr(update.input_tokens), () => current.inputTokens.uncached)
+      const cacheRead = Option.getOrElse(Option.fromNullishOr(update.cache_read_input_tokens), () =>
+        current.inputTokens.cacheRead)
+      const cacheWrite = Option.getOrElse(Option.fromNullishOr(update.cache_creation_input_tokens), () =>
+        current.inputTokens.cacheWrite)
+      const total = Option.all({
+        uncached: Option.fromNullishOr(uncached),
+        cacheRead: Option.fromNullishOr(cacheRead),
+        cacheWrite: Option.fromNullishOr(cacheWrite)
+      }).pipe(
+        Option.map(({ cacheRead, cacheWrite, uncached }) =>
+          uncached + cacheRead + cacheWrite
+        )
+      )
+      return {
+        uncached,
+        cacheRead,
+        cacheWrite,
+        ...Option.match(total, {
+          onNone: () => ({}),
+          onSome: (total) => ({ total })
+        })
+      }
+    })(),
+    outputTokens: {
+      total: update.output_tokens,
+      reasoning: current.outputTokens.reasoning
+    }
   })
 
 const observeStream = (
@@ -93,9 +118,8 @@ const observeStream = (
   Stream.unwrap(
     Ref.make(
       new AiResponse.Usage({
-        inputTokens: undefined,
-        outputTokens: undefined,
-        totalTokens: undefined
+        inputTokens: {},
+        outputTokens: {}
       })
     ).pipe(
       Effect.map((state) =>
@@ -105,10 +129,9 @@ const observeStream = (
               Match.when({ type: "message_start" }, (event) => {
                 const usage = projectUsage(event.message.usage)
                 return Ref.set(state, usage).pipe(
-                  Effect.zipRight(observe(observations.MessageStart({
-                    usage,
-                    raw: event.message.usage
-                  })))
+                  Effect.andThen(observe(
+                    { _tag: "MessageStart", usage, raw: event.message.usage }
+                  ))
                 )
               }),
               Match.when({ type: "message_delta" }, (event) =>
@@ -117,14 +140,12 @@ const observeStream = (
                   (current) => mergeUsage(current, event.usage)
                 ).pipe(
                   Effect.flatMap((usage) =>
-                    observe(observations.MessageDelta({
-                      usage,
-                      raw: event.usage
-                    }))
+                    observe(
+                      { _tag: "MessageDelta", usage, raw: event.usage }
+                    )
                   )
                 )),
               Match.discriminator("type")(
-                "ping",
                 "error",
                 "message_stop",
                 "content_block_start",
@@ -146,11 +167,10 @@ const decorateCreateMessage = (
 ): AnthropicClient.Service["createMessage"] =>
 (options) =>
   createMessage(options).pipe(
-    Effect.tap((message) =>
-      observe(observations.Response({
-        usage: projectUsage(message.usage),
-        raw: message.usage
-      }))
+    Effect.tap(([message]) =>
+      observe(
+        { _tag: "Response", usage: projectUsage(message.usage), raw: message.usage }
+      )
     )
   )
 
@@ -158,7 +178,10 @@ const decorateCreateMessageStream = (
   createMessageStream: AnthropicClient.Service["createMessageStream"],
   observe: (observation: Observation) => Effect.Effect<void>
 ): AnthropicClient.Service["createMessageStream"] =>
-(options) => observeStream(createMessageStream(options), observe)
+(options) =>
+  createMessageStream(options).pipe(
+    Effect.map(([response, stream]) => [response, observeStream(stream, observe)])
+  )
 
 /**
  * Decorates a native Anthropic client so message usage is observed before the
@@ -174,11 +197,11 @@ const decorateCreateMessageStream = (
  * particular, a `MessageDelta` retains `MessageDeltaUsage`, including server tool
  * evidence, rather than fabricating a complete `BetaUsage` from prior values.
  *
- * Like the native Anthropic model, `inputTokens` retains `input_tokens` without
- * folding cache reads or cache creation into it. Cache reads remain independently
- * available as `cachedInputTokens`. No overall total or separate reasoning count
- * is reported by this protocol, so those fields remain absent. These observations
- * do not infer totals supplied by a later native model transformation.
+ * `inputTokens.uncached` retains `input_tokens`; cache reads and writes remain
+ * separate. The input total is derived only when all three components are known.
+ * Output totals include reasoning, but this protocol does not report the split,
+ * so text-only and reasoning counters remain absent. Null delta fields retain
+ * prior observations; explicit zero replaces them.
  *
  * @example
  * ```ts

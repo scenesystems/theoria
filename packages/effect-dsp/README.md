@@ -8,10 +8,10 @@ and demonstrations without owning provider configuration.
 ## Installation
 
 ```sh
-npm install @scenesystems/effect-dsp effect @effect/ai
+bun add @scenesystems/effect-dsp effect
 ```
 
-Bring any `LanguageModel` layer from `@effect/ai`. Provider setup can come from
+Bring any `LanguageModel` layer for Effect v4's `effect/ai/LanguageModel`. Provider setup can come from
 `@scenesystems/effect-inference`, but DSP production code does not depend on it.
 
 ## Typed programs
@@ -60,15 +60,17 @@ export const program = Effect.gen(function* () {
   )
   const metric = Metric.exactMatch("answer")
 
-  yield* BootstrapFewShot.run({
-    module: qa,
-    trainset: examples,
-    metric,
-    maxRounds: 1,
-    maxBootstrappedDemos: 1
-  })
+  yield* BootstrapFewShot.run(
+    new BootstrapFewShot.Options({
+      module: qa,
+      trainset: examples,
+      metric,
+      maxRounds: 1,
+      maxBootstrappedDemos: 1
+    })
+  )
 
-  return yield* Evaluate.run({ module: qa, examples, metrics: { exactMatch: metric } })
+  return yield* Evaluate.run(new Evaluate.Options({ module: qa, examples, metrics: { exactMatch: metric } }))
 })
 ```
 
@@ -100,7 +102,7 @@ effect-study:
 ```ts typecheck
 import { Optimization, Pareto, Sampler } from "@scenesystems/effect-search"
 
-export const sampler = Sampler.tpe({ seed: 17 })
+export const sampler = Sampler.tpe(new Sampler.TpeOptions({ seed: 17 }))
 export const frontier = Pareto.nonDominatedIndices
 export const optimize = Optimization.run
 ```
@@ -131,7 +133,7 @@ their original channels when an operation exposes them separately.
 Testing code imports the flat `MockLanguageModel` subpath:
 
 ```ts typecheck
-import * as LanguageModel from "@effect/ai/LanguageModel"
+import * as LanguageModel from "effect/ai/LanguageModel"
 import * as MockLanguageModel from "@scenesystems/effect-dsp/MockLanguageModel"
 
 export const layer = MockLanguageModel.layer(

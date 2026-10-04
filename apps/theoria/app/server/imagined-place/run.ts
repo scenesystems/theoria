@@ -71,7 +71,7 @@ export const buildPlace = (
 
     // Record
     const accepted = Arr.map(Arr.filter(proposals, (record) => record.accepted), (record) => record.proposal)
-    const artifact = Boolean.match(Arr.isEmptyReadonlyArray(accepted), {
+    const artifact = Boolean.match(Number.Equivalence(Arr.length(accepted), 0), {
       onTrue: () => origin,
       onFalse: () => PlaceArtifact.make({ ...origin, parent: originId, accepted })
     })

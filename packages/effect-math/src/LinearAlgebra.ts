@@ -13,19 +13,19 @@ import * as Vector from "./internal/linearAlgebra/vector.js"
 import * as PolicyGuard from "./internal/policyGuard.js"
 import * as Policy from "./Policy.js"
 
-const encodeNumber = Schema.encodeSync(Schema.NumberFromString)
+const encodeNumber = String.String
 const finite = Schema.Finite
-const finiteChunk = Schema.Chunk(finite)
+const finiteChunk = Schema.toCodecJson(Schema.Chunk(finite))
 
 /** Positive finite vector or matrix dimension.
  * @since 0.1.0
  * @category schemas
  */
-export const Dimension = Schema.Number.pipe(
-  Schema.finite(),
-  Schema.int(),
-  Schema.greaterThanOrEqualTo(1)
-).annotations({ identifier: "@scenesystems/effect-math/LinearAlgebra/Dimension" }).pipe(
+export const Dimension = Schema.Number.check(
+  Schema.isFinite(),
+  Schema.isInt(),
+  Schema.isGreaterThanOrEqualTo(1)
+).annotate({ identifier: "@scenesystems/effect-math/LinearAlgebra/Dimension" }).pipe(
   Schema.brand("@scenesystems/effect-math/LinearAlgebra/Dimension")
 )
 
@@ -33,11 +33,11 @@ export const Dimension = Schema.Number.pipe(
  * @since 0.1.0
  * @category schemas
  */
-export const Axis = Schema.Number.pipe(
-  Schema.finite(),
-  Schema.int(),
-  Schema.greaterThanOrEqualTo(0)
-).annotations({ identifier: "@scenesystems/effect-math/LinearAlgebra/Axis" }).pipe(
+export const Axis = Schema.Number.check(
+  Schema.isFinite(),
+  Schema.isInt(),
+  Schema.isGreaterThanOrEqualTo(0)
+).annotate({ identifier: "@scenesystems/effect-math/LinearAlgebra/Axis" }).pipe(
   Schema.brand("@scenesystems/effect-math/LinearAlgebra/Axis")
 )
 
@@ -45,7 +45,7 @@ export const Axis = Schema.Number.pipe(
  * @since 0.1.0
  * @category schemas
  */
-export const StorageOrder = Schema.Literal("row-major", "column-major").annotations({
+export const StorageOrder = Schema.Literals(["row-major", "column-major"]).annotate({
   identifier: "@scenesystems/effect-math/LinearAlgebra/StorageOrder"
 })
 
@@ -70,7 +70,7 @@ export class DenseMatrix
     rows: Dimension,
     cols: Dimension,
     stride: Dimension,
-    offset: Schema.Int.pipe(Schema.greaterThanOrEqualTo(0)).annotations({
+    offset: Schema.Int.check(Schema.isGreaterThanOrEqualTo(0)).annotate({
       identifier: "@scenesystems/effect-math/LinearAlgebra/MatrixOffset"
     }),
     order: StorageOrder
@@ -81,7 +81,7 @@ export class DenseMatrix
  * @since 0.1.0
  * @category schemas
  */
-export const DotProductInput = Schema.Struct({ a: finiteChunk, b: finiteChunk }).annotations({
+export const DotProductInput = Schema.Struct({ a: finiteChunk, b: finiteChunk }).annotate({
   identifier: "@scenesystems/effect-math/LinearAlgebra/DotProductInput"
 })
 
@@ -94,7 +94,7 @@ export const MatvecInput = Schema.Struct({
   cols: Dimension,
   data: finiteChunk,
   x: finiteChunk
-}).annotations({ identifier: "@scenesystems/effect-math/LinearAlgebra/MatvecInput" })
+}).annotate({ identifier: "@scenesystems/effect-math/LinearAlgebra/MatvecInput" })
 
 /** Finite vector and norm selection.
  * @since 0.1.0
@@ -102,8 +102,8 @@ export const MatvecInput = Schema.Struct({
  */
 export const NormInput = Schema.Struct({
   values: finiteChunk,
-  kind: Schema.Literal("L1", "L2", "Linf")
-}).annotations({ identifier: "@scenesystems/effect-math/LinearAlgebra/NormInput" })
+  kind: Schema.Literals(["L1", "L2", "Linf"])
+}).annotate({ identifier: "@scenesystems/effect-math/LinearAlgebra/NormInput" })
 
 /** Dense row-major transposition input.
  * @since 0.1.0
@@ -113,7 +113,7 @@ export const TransposeInput = Schema.Struct({
   rows: Dimension,
   cols: Dimension,
   data: finiteChunk
-}).annotations({ identifier: "@scenesystems/effect-math/LinearAlgebra/TransposeInput" })
+}).annotate({ identifier: "@scenesystems/effect-math/LinearAlgebra/TransposeInput" })
 
 /**
  * Decoded positive dimension.
@@ -165,7 +165,7 @@ export type TransposeInput = typeof TransposeInput.Type
 export class DecodeError extends Schema.TaggedError<DecodeError>("@scenesystems/effect-math/LinearAlgebra/DecodeError")(
   "LinearAlgebraDecodeError",
   {
-    operation: Schema.Literal("dot", "matvec", "norm", "transpose"),
+    operation: Schema.Literals(["dot", "matvec", "norm", "transpose"]),
     message: Schema.String
   }
 ) {}
@@ -178,7 +178,7 @@ export class ShapeMismatchError
   extends Schema.TaggedError<ShapeMismatchError>("@scenesystems/effect-math/LinearAlgebra/ShapeMismatchError")(
     "ShapeMismatchError",
     {
-      operation: Schema.Literal("dot", "matvec", "transpose"),
+      operation: Schema.Literals(["dot", "matvec", "transpose"]),
       expected: Schema.String,
       actual: Schema.String,
       message: Schema.String
@@ -194,7 +194,7 @@ export class DomainViolationError
   extends Schema.TaggedError<DomainViolationError>("@scenesystems/effect-math/LinearAlgebra/DomainViolationError")(
     "LinearAlgebraDomainViolationError",
     {
-      operation: Schema.Literal("dotWithPolicies", "normWithPolicies"),
+      operation: Schema.Literals(["dotWithPolicies", "normWithPolicies"]),
       message: Schema.String
     }
   )
@@ -439,7 +439,7 @@ export const solveSpd = (
  */
 export const dotValidated = (input: unknown) =>
   Effect.gen(function*() {
-    const decoded = yield* Schema.decodeUnknown(DotProductInput)(input, {
+    const decoded = yield* Schema.decodeUnknownEffect(DotProductInput)(input, {
       onExcessProperty: "error"
     }).pipe(
       Effect.mapError((error) =>
@@ -494,7 +494,7 @@ export const dotValidated = (input: unknown) =>
  */
 export const matvecValidated = (input: unknown) =>
   Effect.gen(function*() {
-    const decoded = yield* Schema.decodeUnknown(MatvecInput)(input, {
+    const decoded = yield* Schema.decodeUnknownEffect(MatvecInput)(input, {
       onExcessProperty: "error"
     }).pipe(
       Effect.mapError((error) =>
@@ -552,7 +552,7 @@ export const matvecValidated = (input: unknown) =>
  */
 export const normValidated = (input: unknown) =>
   Effect.gen(function*() {
-    const decoded = yield* Schema.decodeUnknown(NormInput)(input, {
+    const decoded = yield* Schema.decodeUnknownEffect(NormInput)(input, {
       onExcessProperty: "error"
     }).pipe(
       Effect.mapError((error) =>
@@ -584,7 +584,7 @@ export const normValidated = (input: unknown) =>
  */
 export const transposeValidated = (input: unknown) =>
   Effect.gen(function*() {
-    const decoded = yield* Schema.decodeUnknown(TransposeInput)(input, {
+    const decoded = yield* Schema.decodeUnknownEffect(TransposeInput)(input, {
       onExcessProperty: "error"
     }).pipe(
       Effect.mapError((error) =>

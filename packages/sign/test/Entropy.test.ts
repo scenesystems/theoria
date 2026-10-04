@@ -11,17 +11,17 @@ import {
   X25519,
   XWing
 } from "@scenesystems/sign"
-import { Array as Arr, Cause, Chunk, Data, Deferred, Effect, Encoding, Exit, Fiber, Ref, Schema, Tuple } from "effect"
+import { Array as Arr, Cause, Chunk, Data, Deferred, Effect, Exit, Fiber, Option, Ref, Tuple } from "effect"
+import * as Encoding from "effect/encoding"
 
 const deterministicBytes = (byte: number, length: number) =>
-  Schema.decode(Schema.Uint8Array)(Arr.take(Arr.replicate(byte, length), length)).pipe(
-    Effect.mapError(() => new Entropy.GenerationFailed({ length, reason: "invalid deterministic byte fixture" }))
-  )
+  Effect.succeed(new Uint8Array(Arr.take(Arr.replicate(byte, length), length)))
 
-const copyBytes = (bytes: Uint8Array) =>
-  Schema.encode(Schema.Uint8Array)(bytes).pipe(Effect.flatMap(Schema.decode(Schema.Uint8Array)))
+const copyBytes = (bytes: Uint8Array) => Effect.succeed(new Uint8Array(bytes))
 
 const overwriteBytes = (target: Uint8Array, source: Uint8Array) => Effect.sync(() => target.set(source))
+
+class EntropyProviderDefect extends Data.TaggedError("EntropyProviderDefect") {}
 
 const pendingEntropy = (
   requested: Deferred.Deferred<void>,
@@ -31,8 +31,8 @@ const pendingEntropy = (
   Entropy.Entropy.of({
     bytes: (length) =>
       Deferred.succeed(requested, undefined).pipe(
-        Effect.zipRight(Deferred.await(release)),
-        Effect.zipRight(deterministicBytes(byte, length))
+        Effect.andThen(Deferred.await(release)),
+        Effect.andThen(deterministicBytes(byte, length))
       )
   })
 
@@ -44,24 +44,27 @@ describe("Entropy", () => {
           "9d61b19deffd5a60ba844af492ec2cc44449c5697b326919703bac031cae7f60",
           "4ccd089b28ff96da9db6c346ec114e0f5b8a319f35aba624da8cf6ed4fb8a6fb"
         ),
-        Encoding.decodeHex
+        (seed) => Effect.fromResult(Encoding.Hex.decode(seed))
       )
       const remaining = yield* Ref.make(Chunk.fromIterable(seeds))
       const requests = yield* Ref.make(Arr.empty<number>())
-      const generate = Ed25519.generateKeyPair().pipe(Effect.provideService(Entropy.Entropy, {
+      const generate = Ed25519.generateKeyPair.pipe(Effect.provideService(Entropy.Entropy, {
         bytes: (length) =>
           Ref.update(requests, Arr.append(length)).pipe(
-            Effect.zipRight(
-              Ref.modify(remaining, (values) => Tuple.make(Chunk.unsafeHead(values), Chunk.drop(values, 1)))
+            Effect.andThen(
+              Ref.modify(
+                remaining,
+                (values) => Tuple.make(Option.getOrThrow(Chunk.head(values)), Chunk.drop(values, 1))
+              )
             )
           )
       }))
       expect(yield* Ref.get(requests)).toEqual(Arr.empty())
       const first = yield* generate
       const second = yield* generate
-      expect(Encoding.encodeHex(first.publicKey))
+      expect(Encoding.Hex.encode(first.publicKey))
         .toBe("d75a980182b10ab7d54bfed3c964073a0ee172f3daa62325af021a68f707511a")
-      expect(Encoding.encodeHex(second.publicKey))
+      expect(Encoding.Hex.encode(second.publicKey))
         .toBe("3d4017c3e843895a92b70aa74d1b7ebc9c982ccf2ec4968cc0cd55f12af4660c")
       expect(yield* Ref.get(requests)).toEqual(Arr.make(32, 32))
     }))
@@ -69,18 +72,18 @@ describe("Entropy", () => {
   it.effect("requests each suite's seed width and fails closed when the entropy provider fails", () =>
     Effect.forEach(
       Arr.make(
-        Tuple.make(Ed25519.generateKeyPair(), "ed25519", 32),
-        Tuple.make(X25519.generateKeyPair(), "x25519", 32),
-        Tuple.make(XWing.generateKeyPair(), "xwing", 32),
-        Tuple.make(Secp256k1.generateEcdsaKeyPair(), "secp256k1-ecdsa", 48),
-        Tuple.make(Secp256k1.generateSchnorrKeyPair(), "secp256k1-schnorr", 48),
-        Tuple.make(MlDsa.generateKeyPair44(), "ml-dsa-44", 32),
-        Tuple.make(MlDsa.generateKeyPair65(), "ml-dsa-65", 32),
-        Tuple.make(MlDsa.generateKeyPair87(), "ml-dsa-87", 32),
-        Tuple.make(SlhDsa.generateSha2128fKeyPair(), "slh-dsa-sha2-128f", 48),
-        Tuple.make(SlhDsa.generateSha2128sKeyPair(), "slh-dsa-sha2-128s", 48),
-        Tuple.make(SlhDsa.generateSha2192fKeyPair(), "slh-dsa-sha2-192f", 72),
-        Tuple.make(SlhDsa.generateSha2256fKeyPair(), "slh-dsa-sha2-256f", 96)
+        Tuple.make(Ed25519.generateKeyPair, "ed25519", 32),
+        Tuple.make(X25519.generateKeyPair, "x25519", 32),
+        Tuple.make(XWing.generateKeyPair, "xwing", 32),
+        Tuple.make(Secp256k1.generateEcdsaKeyPair, "secp256k1-ecdsa", 48),
+        Tuple.make(Secp256k1.generateSchnorrKeyPair, "secp256k1-schnorr", 48),
+        Tuple.make(MlDsa.generateKeyPair44, "ml-dsa-44", 32),
+        Tuple.make(MlDsa.generateKeyPair65, "ml-dsa-65", 32),
+        Tuple.make(MlDsa.generateKeyPair87, "ml-dsa-87", 32),
+        Tuple.make(SlhDsa.generateSha2128fKeyPair, "slh-dsa-sha2-128f", 48),
+        Tuple.make(SlhDsa.generateSha2128sKeyPair, "slh-dsa-sha2-128s", 48),
+        Tuple.make(SlhDsa.generateSha2192fKeyPair, "slh-dsa-sha2-192f", 72),
+        Tuple.make(SlhDsa.generateSha2256fKeyPair, "slh-dsa-sha2-256f", 96)
       ),
       ([generate, algorithm, expectedLength]) =>
         Effect.gen(function*() {
@@ -88,7 +91,7 @@ describe("Entropy", () => {
           const error = yield* Effect.flip(generate.pipe(Effect.provideService(Entropy.Entropy, {
             bytes: (length) =>
               Ref.update(requests, Arr.append(length)).pipe(
-                Effect.zipRight(
+                Effect.andThen(
                   Effect.fail(new Entropy.GenerationFailed({ length, reason: "test source unavailable" }))
                 )
               )
@@ -101,12 +104,12 @@ describe("Entropy", () => {
 
   it.effect("fails signing and encapsulation before using keys when the entropy provider fails", () =>
     Effect.gen(function*() {
-      const empty = Bytes.fromString("")
+      const empty = yield* Bytes.fromString("")
       const requests = yield* Ref.make(Arr.empty<number>())
       const source = Entropy.Entropy.of({
         bytes: (length) =>
           Ref.update(requests, Arr.append(length)).pipe(
-            Effect.zipRight(Effect.fail(new Entropy.GenerationFailed({ length, reason: "source unavailable" })))
+            Effect.andThen(Effect.fail(new Entropy.GenerationFailed({ length, reason: "source unavailable" })))
           )
       })
       // Invalid keys make premature backend execution distinguishable from source failure.
@@ -138,7 +141,7 @@ describe("Entropy", () => {
     Effect.gen(function*() {
       const started = yield* Deferred.make<void>()
       const released = yield* Deferred.make<Exit.Exit<never>>()
-      const empty = Bytes.fromString("")
+      const empty = yield* Bytes.fromString("")
       const fiber = yield* MlDsa.sign44(empty, empty, empty).pipe(
         Effect.provideService(Entropy.Entropy, {
           bytes: () =>
@@ -148,20 +151,22 @@ describe("Entropy", () => {
               (_, exit) => Deferred.succeed(released, exit)
             )
         }),
-        Effect.fork
+        Effect.forkChild
       )
       yield* Deferred.await(started)
-      const exit = yield* Fiber.interrupt(fiber)
+      yield* Fiber.interrupt(fiber)
+      const exit = yield* Fiber.await(fiber)
       expect(yield* Deferred.isDone(released)).toBe(true)
       const providerExit = yield* Deferred.await(released)
-      expect(Exit.match(providerExit, { onFailure: Cause.isInterruptedOnly, onSuccess: () => false })).toBe(true)
-      expect(Exit.match(exit, { onFailure: Cause.isInterruptedOnly, onSuccess: () => false })).toBe(true)
+      expect(Exit.match(providerExit, { onFailure: Cause.hasInterruptsOnly, onSuccess: () => false })).toBe(true)
+      expect(Exit.match(exit, { onFailure: Cause.hasInterruptsOnly, onSuccess: () => false })).toBe(true)
     }))
 
   it.effect("preserves provider defects rather than relabeling them as typed operation failures", () =>
     Effect.gen(function*() {
-      const defect = new Cause.RuntimeException("entropy provider defect")
-      const exit = yield* XWing.encapsulate(Bytes.fromString("")).pipe(
+      const defect = new EntropyProviderDefect()
+      const empty = yield* Bytes.fromString("")
+      const exit = yield* XWing.encapsulate(empty).pipe(
         Effect.provideService(Entropy.Entropy, { bytes: () => Effect.die(defect) }),
         Effect.exit
       )
@@ -170,7 +175,7 @@ describe("Entropy", () => {
 
   it.effect("randomized signatures depend on supplied entropy, not ambient defaults", () =>
     Effect.gen(function*() {
-      const message = Bytes.fromString("asymmetric signing entropy fixture")
+      const message = yield* Bytes.fromString("asymmetric signing entropy fixture")
       yield* Effect.forEach(
         Arr.make(
           Tuple.make(Secp256k1.generateSchnorrKeyPair, Secp256k1.signSchnorr, Secp256k1.verifySchnorr, 32),
@@ -183,7 +188,7 @@ describe("Entropy", () => {
         ),
         ([generate, sign, verify, expectedLength]) =>
           Effect.gen(function*() {
-            const keys = yield* generate().pipe(Effect.provideService(Entropy.Entropy, {
+            const keys = yield* generate.pipe(Effect.provideService(Entropy.Entropy, {
               bytes: (length) => deterministicBytes(0x31, length)
             }))
             const signWith = (byte: number) =>
@@ -209,10 +214,10 @@ describe("Entropy", () => {
 
   it.effect("snapshots Schnorr inputs before pending entropy and again on each execution", () =>
     Effect.gen(function*() {
-      const originalKeys = yield* Secp256k1.generateSchnorrKeyPair()
-      const mutatedKeys = yield* Secp256k1.generateSchnorrKeyPair()
-      const originalMessage = Bytes.fromString("original message payload")
-      const mutatedMessage = Bytes.fromString("mutated! message payload")
+      const originalKeys = yield* Secp256k1.generateSchnorrKeyPair
+      const mutatedKeys = yield* Secp256k1.generateSchnorrKeyPair
+      const originalMessage = yield* Bytes.fromString("original message payload")
+      const mutatedMessage = yield* Bytes.fromString("mutated! message payload")
       const inputMessage = yield* copyBytes(originalMessage)
       const inputSecretKey = yield* copyBytes(originalKeys.secretKey)
       const inputPublicKey = yield* copyBytes(originalKeys.publicKey)
@@ -221,7 +226,7 @@ describe("Entropy", () => {
       const signing = Secp256k1.signSchnorr(inputMessage, inputSecretKey, inputPublicKey).pipe(
         Effect.provideService(Entropy.Entropy, pendingEntropy(requested, release, 0x42))
       )
-      const fiber = yield* Effect.fork(signing)
+      const fiber = yield* Effect.forkChild(signing)
       yield* Deferred.await(requested)
       yield* overwriteBytes(inputMessage, mutatedMessage)
       yield* overwriteBytes(inputSecretKey, mutatedKeys.secretKey)
@@ -238,10 +243,10 @@ describe("Entropy", () => {
 
   it.effect("snapshots shared post-quantum signing inputs before pending entropy", () =>
     Effect.gen(function*() {
-      const originalKeys = yield* MlDsa.generateKeyPair44()
-      const mutatedKeys = yield* MlDsa.generateKeyPair44()
-      const originalMessage = Bytes.fromString("original message payload")
-      const mutatedMessage = Bytes.fromString("mutated! message payload")
+      const originalKeys = yield* MlDsa.generateKeyPair44
+      const mutatedKeys = yield* MlDsa.generateKeyPair44
+      const originalMessage = yield* Bytes.fromString("original message payload")
+      const mutatedMessage = yield* Bytes.fromString("mutated! message payload")
       const inputMessage = yield* copyBytes(originalMessage)
       const inputSecretKey = yield* copyBytes(originalKeys.secretKey)
       const inputPublicKey = yield* copyBytes(originalKeys.publicKey)
@@ -250,7 +255,7 @@ describe("Entropy", () => {
       const signing = MlDsa.sign44(inputMessage, inputSecretKey, inputPublicKey).pipe(
         Effect.provideService(Entropy.Entropy, pendingEntropy(requested, release, 0x42))
       )
-      const fiber = yield* Effect.fork(signing)
+      const fiber = yield* Effect.forkChild(signing)
       yield* Deferred.await(requested)
       yield* overwriteBytes(inputMessage, mutatedMessage)
       yield* overwriteBytes(inputSecretKey, mutatedKeys.secretKey)
@@ -267,7 +272,7 @@ describe("Entropy", () => {
 
   it.effect("X-Wing uses exactly 64 supplied bytes for reproducible encapsulation", () =>
     Effect.gen(function*() {
-      const keys = yield* XWing.generateKeyPair().pipe(Effect.provideService(Entropy.Entropy, {
+      const keys = yield* XWing.generateKeyPair.pipe(Effect.provideService(Entropy.Entropy, {
         bytes: (length) => deterministicBytes(0x31, length)
       }))
       const encapsulate = (byte: number) =>
@@ -292,15 +297,15 @@ describe("Entropy", () => {
 
   it.effect("snapshots each X-Wing recipient before pending entropy", () =>
     Effect.gen(function*() {
-      const originalKeys = yield* XWing.generateKeyPair()
-      const mutatedKeys = yield* XWing.generateKeyPair()
+      const originalKeys = yield* XWing.generateKeyPair
+      const mutatedKeys = yield* XWing.generateKeyPair
       const inputPublicKey = yield* copyBytes(originalKeys.publicKey)
       const requested = yield* Deferred.make<void>()
       const release = yield* Deferred.make<void>()
       const encapsulation = XWing.encapsulate(inputPublicKey).pipe(
         Effect.provideService(Entropy.Entropy, pendingEntropy(requested, release, 0x42))
       )
-      const fiber = yield* Effect.fork(encapsulation)
+      const fiber = yield* Effect.forkChild(encapsulation)
       yield* Deferred.await(requested)
       yield* overwriteBytes(inputPublicKey, mutatedKeys.publicKey)
       yield* Deferred.succeed(release, undefined)
@@ -324,12 +329,27 @@ describe("Entropy", () => {
       expect(Bytes.equal(first, second)).toBe(false)
     }).pipe(Effect.provide(Entropy.layer)))
 
+  it.effect("rejects non-finite lengths through GenerationFailed rather than a schema defect", () =>
+    Effect.forEach(
+      Arr.make(
+        { length: NaN, expected: "NaN" },
+        { length: Infinity, expected: "Infinity" },
+        { length: -Infinity, expected: "-Infinity" }
+      ),
+      ({ length, expected }) =>
+        Effect.gen(function*() {
+          const error = yield* Effect.flip(Entropy.bytes(length).pipe(Effect.provide(Entropy.layer)))
+          expect(error).toBeInstanceOf(Entropy.GenerationFailed)
+          expect(error.length).toBe(expected)
+        })
+    ))
+
   it.effect("preserves the rejected length and source diagnostic in GenerationFailed", () =>
     Effect.forEach(
       Arr.make(
-        Data.struct({ length: -1, reason: "RangeError: \"bytesLength\" expected integer >= 0, got -1" }),
-        Data.struct({ length: 1.5, reason: "RangeError: \"bytesLength\" expected integer >= 0, got 1.5" }),
-        Data.struct({ length: 65_537, reason: "RangeError: \"bytesLength\" expected <= 65536, got 65537" })
+        { length: -1, reason: "RangeError: \"bytesLength\" expected integer >= 0, got -1" },
+        { length: 1.5, reason: "RangeError: \"bytesLength\" expected integer >= 0, got 1.5" },
+        { length: 65_537, reason: "RangeError: \"bytesLength\" expected <= 65536, got 65537" }
       ),
       ({ length, reason }) =>
         Effect.gen(function*() {

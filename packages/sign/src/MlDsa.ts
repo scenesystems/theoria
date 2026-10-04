@@ -11,6 +11,7 @@ import { ml_dsa44, ml_dsa65, ml_dsa87 } from "@noble/post-quantum/ml-dsa.js"
 import { Boolean as B, Effect, Record, Schema } from "effect"
 import { hasInvalidMlDsa65HintEncoding } from "./internal/mlDsa65.js"
 import { makeDeterministicPqSign, makePqOps } from "./internal/pqSignatureOps.js"
+import { lengthAtMost } from "./internal/schema.js"
 import { copyBytes, detachVerificationInputs } from "./internal/verificationInput.js"
 import * as Signature from "./Signature.js"
 import * as Verification from "./Verification.js"
@@ -35,7 +36,7 @@ const publicKeyBytes65 = 1_952
 const secretKeyBytes65 = 4_032
 const signatureBytes65 = 3_309
 
-const ContextLength = Schema.NonNegativeInt.pipe(Schema.lessThanOrEqualTo(maxContextBytes))
+const ContextLength = lengthAtMost(maxContextBytes)
 
 const dsa44 = makePqOps("ml-dsa-44", ml_dsa44, 32, entropyBytes)
 const dsa65 = makePqOps("ml-dsa-65", ml_dsa65, 32, entropyBytes)
@@ -105,7 +106,7 @@ export const sign65Hedged = (
   entropy32: Uint8Array
 ): Effect.Effect<Signature.Signature, Signature.SigningFailed> =>
   Effect.all({
-    message: copyBytes(message, Schema.NonNegativeInt.pipe(Schema.lessThanOrEqualTo(Verification.maxMessageBytes))),
+    message: copyBytes(message, lengthAtMost(Verification.maxMessageBytes)),
     secretKey: copyBytes(secretKey, Schema.Literal(secretKeyBytes65)),
     publicKey: copyBytes(publicKey, Schema.Literal(publicKeyBytes65)),
     context: copyBytes(context, ContextLength),

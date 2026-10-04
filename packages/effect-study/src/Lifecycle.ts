@@ -13,14 +13,14 @@ import { dual } from "effect/Function"
  * @since 0.1.0
  * @category schemas
  */
-export const Lifecycle = Schema.Literal(
+export const Lifecycle = Schema.Literals([
   "Created",
   "Running",
   "Paused",
   "Completed",
   "Failed",
   "Cancelled"
-).annotations({ identifier: "@scenesystems/effect-study/Lifecycle" })
+]).annotate({ identifier: "@scenesystems/effect-study/Lifecycle" })
 
 /**
  * A lifecycle phase decoded by the study schema.

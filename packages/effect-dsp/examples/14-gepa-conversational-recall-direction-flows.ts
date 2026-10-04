@@ -34,13 +34,14 @@ import {
   Predicate,
   Record,
   Ref,
+  Result,
   Schema,
   Stream,
   String as Str
 } from "effect"
 import { liveTeacherLayer, withLiveLanguageModel } from "./shared/live-provider-runtime.js"
 
-const FieldRecord = Schema.Record({ key: Schema.String, value: Schema.Unknown })
+const FieldRecord = Schema.Record(Schema.String, Schema.Unknown)
 type FieldRecord = typeof FieldRecord.Type
 
 /**
@@ -274,7 +275,7 @@ const logExampleEvent = (
 
 const readStringField = (record: unknown, field: string): string =>
   Match.value(record).pipe(
-    Match.when(Predicate.isRecord, (fields) =>
+    Match.when(Predicate.isObject, (fields) =>
       Option.getOrElse(
         Record.get(fields, field).pipe(Option.filter(Predicate.isString)),
         () => ""
@@ -387,9 +388,9 @@ const clampUnitScore = (score: number): number => Numeric.clamp(score, { minimum
 
 const averageScore = (scores: Iterable<number>): number => {
   const values = Arr.fromIterable(scores)
-  return Match.value(Arr.isEmptyReadonlyArray(values)).pipe(
+  return Match.value(Arr.isArrayEmpty(values)).pipe(
     Match.when(true, () => 0),
-    Match.orElse(() => Num.unsafeDivide(Arr.reduce(values, 0, Num.sum), Arr.length(values)))
+    Match.orElse(() => Num.divideUnsafe(Arr.reduce(values, 0, Num.sum), Arr.length(values)))
   )
 }
 
@@ -406,14 +407,14 @@ const narrativeTokens = (value: string) =>
   dedupeTokens(
     Arr.filter(
       Str.split(normalizeNarrative(value), " "),
-      (token) => Bool.and(Num.greaterThan(Str.length(token), 3), Bool.not(Arr.contains(STOP_WORDS, token)))
+      (token) => Bool.and(Num.isGreaterThan(Str.length(token), 3), Bool.not(Arr.contains(STOP_WORDS, token)))
     )
   )
 
 const tokenOverlapScore = (predicted: string, expected: string): number => {
   const expectedTokens = narrativeTokens(expected)
 
-  return Match.value(Arr.isEmptyReadonlyArray(expectedTokens)).pipe(
+  return Match.value(Arr.isArrayEmpty(expectedTokens)).pipe(
     Match.when(true, () => 0),
     Match.orElse(() => {
       const predictedTokens = narrativeTokens(predicted)
@@ -427,12 +428,12 @@ const tokenOverlapScore = (predicted: string, expected: string): number => {
           })
       )
 
-      return Num.unsafeDivide(overlapCount, Arr.length(expectedTokens))
+      return Num.divideUnsafe(overlapCount, Arr.length(expectedTokens))
     })
   )
 }
 
-const numberText = Schema.encodeSync(Schema.NumberFromString)
+const numberText = Schema.encodeSync(Schema.FiniteFromString)
 
 const exactScore = (left: string, right: string): number =>
   Bool.match(Equal.equals(left, right), { onTrue: () => 1, onFalse: () => 0 })
@@ -512,7 +513,7 @@ const protocolMetric = Metric.fromEffect(
         Str.isNonEmpty
       )
 
-      const mismatchSummary = Match.value(Arr.isNonEmptyReadonlyArray(mismatchLines)).pipe(
+      const mismatchSummary = Match.value(Arr.isArrayNonEmpty(mismatchLines)).pipe(
         Match.when(true, () => Arr.join(mismatchLines, "; ")),
         Match.orElse(() => "decisionLabels=aligned")
       )
@@ -623,40 +624,42 @@ const program = Effect.gen(function*() {
   const teacherLayer = yield* liveTeacherLayer()
 
   // Compose the analyst and planner into one optimizable panel.
-  const methodsPanel = yield* Module.compose({
-    name: "example14-conversational-recall-panel",
-    signature: panelSignature,
-    subModules: {
-      dynamicsAnalyst,
-      protocolPlanner
-    },
-    forward: ({ input }) =>
-      Effect.gen(function*() {
-        const dynamics = yield* dynamicsAnalyst
-          .forward({
+  const methodsPanel = yield* Module.compose(
+    new Module.ComposeOptions({
+      name: "example14-conversational-recall-panel",
+      signature: panelSignature,
+      subModules: {
+        dynamicsAnalyst,
+        protocolPlanner
+      },
+      forward: ({ input }) =>
+        Effect.gen(function*() {
+          const dynamics = yield* dynamicsAnalyst
+            .forward({
+              objective: input.objective,
+              baselineCondition: input.baselineCondition,
+              conversationSchedule: input.conversationSchedule,
+              turnTakingConstraint: input.turnTakingConstraint,
+              analysisFocus: input.analysisFocus,
+              protocolConstraint: input.protocolConstraint
+            })
+            .pipe(Effect.provide(teacherLayer))
+
+          return yield* protocolPlanner.forward({
             objective: input.objective,
             baselineCondition: input.baselineCondition,
             conversationSchedule: input.conversationSchedule,
             turnTakingConstraint: input.turnTakingConstraint,
             analysisFocus: input.analysisFocus,
-            protocolConstraint: input.protocolConstraint
+            protocolConstraint: input.protocolConstraint,
+            rsProfile: dynamics.rsProfile,
+            distanceSignal: dynamics.distanceSignal,
+            turnRisk: dynamics.turnRisk,
+            diagnosis: dynamics.diagnosis
           })
-          .pipe(Effect.provide(teacherLayer))
-
-        return yield* protocolPlanner.forward({
-          objective: input.objective,
-          baselineCondition: input.baselineCondition,
-          conversationSchedule: input.conversationSchedule,
-          turnTakingConstraint: input.turnTakingConstraint,
-          analysisFocus: input.analysisFocus,
-          protocolConstraint: input.protocolConstraint,
-          rsProfile: dynamics.rsProfile,
-          distanceSignal: dynamics.distanceSignal,
-          turnRisk: dynamics.turnRisk,
-          diagnosis: dynamics.diagnosis
         })
-      })
-  })
+    })
+  )
 
   const demonstrationTurn = yield* methodsPanel.forward({
     objective: "Maximize post-conversational convergence while preserving interpretable distance effects.",
@@ -682,12 +685,14 @@ const program = Effect.gen(function*() {
     evalExampleCount: Arr.length(evalset)
   })
 
-  const baseline = yield* Evaluate.run({
-    module: methodsPanel,
-    examples: evalset,
-    metrics: { protocolFit: protocolMetric },
-    concurrency: 1
-  })
+  const baseline = yield* Evaluate.run(
+    new Evaluate.Options({
+      module: methodsPanel,
+      examples: evalset,
+      metrics: { protocolFit: protocolMetric },
+      concurrency: 1
+    })
+  )
 
   // Evolve planner instructions with GEPA.
   yield* logExampleStage("gepa-stream-started", {
@@ -697,25 +702,29 @@ const program = Effect.gen(function*() {
     seed: 140
   })
 
-  const gepaEventsChunk = yield* GEPA.stream({
-    module: methodsPanel,
-    trainset,
-    valset: evalset,
-    metric: protocolMetric,
-    maxIterations: 4,
-    maxMergeInvocations: 4,
-    seed: 140
-  }).pipe(
+  const gepaEventsChunk = yield* GEPA.stream(
+    new GEPA.Options({
+      module: methodsPanel,
+      trainset,
+      valset: evalset,
+      metric: protocolMetric,
+      maxIterations: 4,
+      maxMergeInvocations: 4,
+      seed: 140
+    })
+  ).pipe(
     GEPA.tapProgress((line) => logExampleEvent("gepa", line.text)),
     Stream.runCollect
   )
 
-  const optimized = yield* Evaluate.run({
-    module: methodsPanel,
-    examples: evalset,
-    metrics: { protocolFit: protocolMetric },
-    concurrency: 1
-  })
+  const optimized = yield* Evaluate.run(
+    new Evaluate.Options({
+      module: methodsPanel,
+      examples: evalset,
+      metrics: { protocolFit: protocolMetric },
+      concurrency: 1
+    })
+  )
 
   const gepaEvents = Arr.fromIterable(gepaEventsChunk)
   const gepaEventSummary = GEPA.summarizeEvents(gepaEvents)
@@ -783,7 +792,7 @@ const program = Effect.gen(function*() {
    */
   const evaluateProtocolDynamics = (config: SearchSpace.Type<typeof protocolSpace>) => {
     const scenarioScores = Arr.map(conversationalRecallScenarios, (scenario) => {
-      const scheduleIntensity = Num.unsafeDivide(
+      const scheduleIntensity = Num.divideUnsafe(
         Num.multiply(scenario.conversationsPerParticipant, 60),
         scenario.conversationSeconds
       )
@@ -791,10 +800,10 @@ const program = Effect.gen(function*() {
         onTrue: () => Num.subtract(0.48, Num.multiply(scenario.diameterPressure, 0.08)),
         onFalse: () => Num.sum(0.37, Num.multiply(scenario.diameterPressure, 0.06))
       })
-      const bridgeRoundFactor = Num.unsafeDivide(Num.subtract(4, config.bridgeRound), 3)
+      const bridgeRoundFactor = Num.divideUnsafe(Num.subtract(4, config.bridgeRound), 3)
       const bridgeDiffusion = Num.multiply(Num.multiply(config.bridgeTieFraction, bridgeRoundFactor), 0.24)
       const reinforcementGain = Num.multiply(config.reinforcementWeight, 0.14)
-      const recapGain = Num.multiply(Num.unsafeDivide(config.recapWindowSeconds, 60), 0.07)
+      const recapGain = Num.multiply(Num.divideUnsafe(config.recapWindowSeconds, 60), 0.07)
       const turnPenalty = Num.multiply(
         config.turnInequality,
         Num.sum(0.18, Num.multiply(scenario.turnRigidityDemand, 0.1))
@@ -806,7 +815,7 @@ const program = Effect.gen(function*() {
 
       const conditionAlignment = Bool.match(Equal.equals(config.topology, priorCondition), {
         onTrue: () => 0.03,
-        onFalse: () => Num.negate(0.02)
+        onFalse: () => Num.multiply(-1, 0.02)
       })
       const sequencingLabel = Bool.match(Num.Equivalence(config.bridgeRound, 1), {
         onTrue: () => "bridge-early",
@@ -814,7 +823,7 @@ const program = Effect.gen(function*() {
       })
       const sequencingAlignment = Bool.match(Equal.equals(sequencingLabel, priorSequencing), {
         onTrue: () => 0.02,
-        onFalse: () => Num.negate(0.01)
+        onFalse: () => Num.multiply(-1, 0.01)
       })
       const turnPolicyAlignment = Match.value(priorTurnPolicy).pipe(
         Match.when("strict-alternation", () => Num.subtract(0.02, Num.multiply(config.turnInequality, 0.05))),
@@ -847,7 +856,7 @@ const program = Effect.gen(function*() {
 
       const realizedSlope = Numeric.sum(Arr.make(
         Bool.match(Equal.equals(config.topology, "clustered"), { onTrue: () => 0.2, onFalse: () => 0.12 }),
-        Num.multiply(Num.unsafeDivide(Num.subtract(config.bridgeRound, 1), 2), 0.07),
+        Num.multiply(Num.divideUnsafe(Num.subtract(config.bridgeRound, 1), 2), 0.07),
         Num.multiply(Num.subtract(1, config.bridgeTieFraction), 0.05),
         Num.multiply(config.turnInequality, 0.05)
       ))
@@ -914,21 +923,21 @@ const program = Effect.gen(function*() {
     const scenarioCount = Arr.length(conversationalRecallScenarios)
 
     return {
-      convergenceLift: Num.unsafeDivide(sums.convergenceLift, scenarioCount),
-      slopeError: Num.unsafeDivide(sums.slopeError, scenarioCount),
-      turnInequality: Num.unsafeDivide(sums.turnInequality, scenarioCount),
-      suppressionRisk: Num.unsafeDivide(sums.suppressionRisk, scenarioCount),
-      bridgePropagation: Num.unsafeDivide(sums.bridgePropagation, scenarioCount)
+      convergenceLift: Num.divideUnsafe(sums.convergenceLift, scenarioCount),
+      slopeError: Num.divideUnsafe(sums.slopeError, scenarioCount),
+      turnInequality: Num.divideUnsafe(sums.turnInequality, scenarioCount),
+      suppressionRisk: Num.divideUnsafe(sums.suppressionRisk, scenarioCount),
+      bridgePropagation: Num.divideUnsafe(sums.bridgePropagation, scenarioCount)
     }
   }
 
   // Run the convergence-priority direction flow.
-  const convergencePriorityDirections = yield* Schema.decodeUnknown(Schema.Array(Direction.Direction))(
+  const convergencePriorityDirections = yield* Schema.decodeUnknownEffect(Schema.Array(Direction.Direction))(
     Arr.make("maximize", "minimize", "minimize", "minimize")
   )
 
   // Run the bridge-amplification direction flow.
-  const bridgeAmplificationDirections = yield* Schema.decodeUnknown(Schema.Array(Direction.Direction))(
+  const bridgeAmplificationDirections = yield* Schema.decodeUnknownEffect(Schema.Array(Direction.Direction))(
     Arr.make("maximize", "maximize", "minimize")
   )
 
@@ -940,28 +949,32 @@ const program = Effect.gen(function*() {
     acquisition: "thompson"
   })
 
-  const convergenceFlowResult = yield* Optimization.run({
-    space: protocolSpace,
-    sampler: Sampler.tpe({
-      seed: 4401,
-      multivariate: true,
-      acquisition: "thompson"
-    }),
-    directions: convergencePriorityDirections,
-    trials: 48,
-    concurrency: 2,
-    objective: (config) => {
-      const scores = evaluateProtocolDynamics(config)
-      return Effect.succeed(
-        Arr.make(
-          scores.convergenceLift,
-          scores.slopeError,
-          scores.turnInequality,
-          scores.suppressionRisk
+  const convergenceFlowResult = yield* Optimization.run(
+    new Optimization.FlatOptions({
+      space: protocolSpace,
+      sampler: Sampler.tpe(
+        new Sampler.TpeOptions({
+          seed: 4401,
+          multivariate: true,
+          acquisition: "thompson"
+        })
+      ),
+      directions: convergencePriorityDirections,
+      trials: 48,
+      concurrency: 2,
+      objective: (config) => {
+        const scores = evaluateProtocolDynamics(config)
+        return Effect.succeed(
+          Arr.make(
+            scores.convergenceLift,
+            scores.slopeError,
+            scores.turnInequality,
+            scores.suppressionRisk
+          )
         )
-      )
-    }
-  })
+      }
+    })
+  )
 
   yield* Match.value(convergenceFlowResult).pipe(
     Match.tag("MultiObjective", ({ paretoFront, completionReason, trials }) =>
@@ -972,8 +985,8 @@ const program = Effect.gen(function*() {
           allTrials,
           (trial) =>
             Match.value(trial.state).pipe(
-              Match.tag("Completed", ({ value }) => Option.some(Objective.toVector(value))),
-              Match.orElse(() => Option.none())
+              Match.tag("Completed", ({ value }) => Result.succeed(Objective.toVector(value))),
+              Match.orElse(() => Result.failVoid)
             )
         )
         const recomputedFrontierIndices = Pareto.nonDominatedIndices(
@@ -1023,27 +1036,31 @@ const program = Effect.gen(function*() {
     acquisition: "pi"
   })
 
-  const bridgeFlowResult = yield* Optimization.run({
-    space: protocolSpace,
-    sampler: Sampler.tpe({
-      seed: 4402,
-      multivariate: true,
-      acquisition: "pi"
-    }),
-    directions: bridgeAmplificationDirections,
-    trials: 48,
-    concurrency: 2,
-    objective: (config) => {
-      const scores = evaluateProtocolDynamics(config)
-      return Effect.succeed(
-        Arr.make(
-          scores.bridgePropagation,
-          scores.convergenceLift,
-          scores.suppressionRisk
+  const bridgeFlowResult = yield* Optimization.run(
+    new Optimization.FlatOptions({
+      space: protocolSpace,
+      sampler: Sampler.tpe(
+        new Sampler.TpeOptions({
+          seed: 4402,
+          multivariate: true,
+          acquisition: "pi"
+        })
+      ),
+      directions: bridgeAmplificationDirections,
+      trials: 48,
+      concurrency: 2,
+      objective: (config) => {
+        const scores = evaluateProtocolDynamics(config)
+        return Effect.succeed(
+          Arr.make(
+            scores.bridgePropagation,
+            scores.convergenceLift,
+            scores.suppressionRisk
+          )
         )
-      )
-    }
-  })
+      }
+    })
+  )
 
   const convergenceFlowParetoCount = Match.value(convergenceFlowResult).pipe(
     Match.tag("MultiObjective", ({ paretoFront }) => Arr.length(Arr.fromIterable(paretoFront))),
@@ -1065,8 +1082,8 @@ const program = Effect.gen(function*() {
           allTrials,
           (trial) =>
             Match.value(trial.state).pipe(
-              Match.tag("Completed", ({ value }) => Option.some(Objective.toVector(value))),
-              Match.orElse(() => Option.none())
+              Match.tag("Completed", ({ value }) => Result.succeed(Objective.toVector(value))),
+              Match.orElse(() => Result.failVoid)
             )
         )
         const recomputedFrontierIndices = Pareto.nonDominatedIndices(

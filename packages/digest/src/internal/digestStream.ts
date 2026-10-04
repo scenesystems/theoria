@@ -42,8 +42,8 @@ const foldTextChunk = (state: TextState, chunk: string): Effect.Effect<TextState
 
   return Option.match(unicodeFault(emit), {
     onNone: () =>
-      Effect.sync(() => {
-        state.hasher.update(encodeUtf8Unchecked(emit))
+      Effect.map(encodeUtf8Unchecked(emit), (bytes) => {
+        state.hasher.update(bytes)
         return new TextState({
           hasher: state.hasher,
           carriedHighSurrogate: Option.liftPredicate(Str.isNonEmpty)(nextCarry).pipe(
@@ -93,7 +93,7 @@ export const hashStringStream = <E, R>(
     (hasher) =>
       chunks.pipe(
         Stream.runFoldEffect(
-          new TextState({ hasher, carriedHighSurrogate: Option.none(), consumedCodeUnits: 0 }),
+          () => new TextState({ hasher, carriedHighSurrogate: Option.none(), consumedCodeUnits: 0 }),
           foldTextChunk
         ),
         Effect.flatMap(finishText)

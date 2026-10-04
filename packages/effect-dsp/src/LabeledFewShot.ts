@@ -67,7 +67,7 @@ export const run = <
   R = never
 >(options: Options<I, O, E, R>) =>
   Effect.gen(function*() {
-    const seed = Option.getOrElse(Option.fromNullable(options.seed), () => 1)
+    const seed = Option.getOrElse(Option.fromUndefinedOr(options.seed), () => 1)
     const demos = selectRandomDemos(labeledDemos(options.trainset), options.k, seed)
     const refs = collectModuleParamRefs(options.module)
 

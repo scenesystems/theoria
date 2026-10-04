@@ -50,8 +50,8 @@ export const bidiMirrorPairs = Arr.make(
 class CodePointRange extends Schema.Class<CodePointRange>(
   "@scenesystems/effect-text/internal/bidiData/CodePointRange"
 )({
-  end: Schema.Number,
-  start: Schema.Number
+  end: Schema.Finite,
+  start: Schema.Finite
 }) {}
 
 const CodePointRanges = Schema.Array(CodePointRange)
@@ -79,7 +79,7 @@ export const containsMirroredCharacters = (text: string): boolean =>
   Arr.some(Arr.fromIterable(text), isMirroredCharacter)
 
 const codePointIsInRange = (codePoint: number, range: CodePointRange): boolean =>
-  Boolean.and(Number.greaterThanOrEqualTo(codePoint, range.start), Number.lessThanOrEqualTo(codePoint, range.end))
+  Boolean.and(Number.isGreaterThanOrEqualTo(codePoint, range.start), Number.isLessThanOrEqualTo(codePoint, range.end))
 
 /** Detects bidi control characters that stay outside the shipped visual-order envelope. */
 export const isUnsupportedBidiControl = (character: string): boolean =>

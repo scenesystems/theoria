@@ -20,6 +20,4 @@ import { xlogy } from "../../Numeric.js"
  * @category internal
  */
 export const entropy = (probabilities: Chunk.Chunk<number>): number =>
-  Number.negate(
-    Chunk.reduce(probabilities, 0, (acc, p) => Number.sum(acc, xlogy(p, p)))
-  )
+  Number.multiply(-1, Chunk.reduce(probabilities, 0, (acc, p) => Number.sum(acc, xlogy(p, p))))

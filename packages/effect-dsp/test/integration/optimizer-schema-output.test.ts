@@ -1,22 +1,23 @@
 /**
  * Optimizers score decoded outputs and retain encoded demonstration documents.
  */
-import * as LanguageModel from "@effect/ai/LanguageModel"
 import { describe, expect, expectTypeOf, it } from "@effect/vitest"
 import * as BootstrapFewShot from "@scenesystems/effect-dsp/BootstrapFewShot"
 import { BootstrapFailed } from "@scenesystems/effect-dsp/DspError"
 import { Example } from "@scenesystems/effect-dsp/Example"
+import * as GEPA from "@scenesystems/effect-dsp/GEPA"
 import * as Metric from "@scenesystems/effect-dsp/Metric"
 import * as MockLanguageModel from "@scenesystems/effect-dsp/MockLanguageModel"
 import * as Module from "@scenesystems/effect-dsp/Module"
 import { decode as decodePayload } from "@scenesystems/effect-dsp/Payload"
 import * as Signature from "@scenesystems/effect-dsp/Signature"
-import { Array as Arr, Effect, Number, ParseResult, Ref, Schema } from "effect"
+import { Array as Arr, Effect, Number, Option, Ref, Schema } from "effect"
+import * as LanguageModel from "effect/ai/LanguageModel"
 import { PredictorInstruction, ProgramCandidate } from "../../src/internal/gepa/model.js"
 import { evaluateCandidate } from "../../src/internal/gepa/runtime/evaluate.js"
 
-const Input = Schema.Struct({ seed: Schema.NumberFromString })
-const Output = Schema.Struct({ result: Schema.Struct({ count: Schema.NumberFromString }) })
+const Input = Schema.Struct({ seed: Schema.FiniteFromString })
+const Output = Schema.Struct({ result: Schema.Struct({ count: Schema.FiniteFromString }) })
 const example = new Example({ input: { seed: "04" }, output: { result: { count: "03" } } })
 const invalidExample = new Example({ input: { seed: "04" }, output: { result: { count: "invalid" } } })
 const candidate = new ProgramCandidate({
@@ -44,20 +45,22 @@ describe("optimizer schema-derived metric values", () => {
     Effect.gen(function*() {
       const module = yield* makeModule
       const mock = yield* MockLanguageModel.make(MockLanguageModel.succeed({ result: { count: "7" } }))
-      yield* BootstrapFewShot.run({
-        module,
-        trainset: Arr.make(example),
-        metric,
-        maxRounds: 1,
-        maxBootstrappedDemos: 1,
-        threshold: 4,
-        fallbackToLabeledFewShot: false
-      }).pipe(Effect.provideService(LanguageModel.LanguageModel, mock.service))
+      yield* BootstrapFewShot.run(
+        new BootstrapFewShot.Options({
+          module,
+          trainset: Arr.make(example),
+          metric,
+          maxRounds: 1,
+          maxBootstrappedDemos: 1,
+          threshold: 4,
+          fallbackToLabeledFewShot: false
+        })
+      ).pipe(Effect.provideService(LanguageModel.LanguageModel, mock.service))
       const params = yield* Ref.get(module.params)
-      const demo = yield* Arr.head(params.demos)
+      const demo = Option.getOrThrow(Arr.head(params.demos))
       expect(demo.input).toEqual({ seed: "4" })
       expect(demo.output).toEqual({ result: { count: "7" } })
-      expect(yield* Schema.decodeUnknown(Output)(demo.output)).toEqual({ result: { count: 7 } })
+      expect(yield* Schema.decodeUnknownEffect(Output)(demo.output)).toEqual({ result: { count: 7 } })
     }))
 
   it.effect("rejects malformed bootstrap labels through the checked failure channel before model execution", () =>
@@ -65,13 +68,15 @@ describe("optimizer schema-derived metric values", () => {
       const module = yield* makeModule
       const original = yield* Ref.get(module.params)
       const mock = yield* MockLanguageModel.make(MockLanguageModel.succeed({ result: { count: "7" } }))
-      const failure = yield* BootstrapFewShot.run({
-        module,
-        trainset: Arr.make(invalidExample),
-        metric,
-        maxRounds: 1,
-        maxBootstrappedDemos: 1
-      }).pipe(Effect.provideService(LanguageModel.LanguageModel, mock.service), Effect.flip)
+      const failure = yield* BootstrapFewShot.run(
+        new BootstrapFewShot.Options({
+          module,
+          trainset: Arr.make(invalidExample),
+          metric,
+          maxRounds: 1,
+          maxBootstrappedDemos: 1
+        })
+      ).pipe(Effect.provideService(LanguageModel.LanguageModel, mock.service), Effect.flip)
       expect(failure).toBeInstanceOf(BootstrapFailed)
       expect(Arr.length(yield* Ref.get(mock.calls))).toBe(0)
       expect(yield* Ref.get(module.params)).toEqual(original)
@@ -83,15 +88,15 @@ describe("optimizer schema-derived metric values", () => {
       const original = yield* Ref.get(module.params)
       const mock = yield* MockLanguageModel.make(MockLanguageModel.succeed({ result: { count: "7" } }))
       const evaluation = yield* evaluateCandidate(
-        { module, trainset: Arr.make(example), metric, maxIterations: 0 },
+        new GEPA.Options({ module, trainset: Arr.make(example), metric, maxIterations: 0 }),
         candidate
       ).pipe(
         Effect.provideService(LanguageModel.LanguageModel, mock.service)
       )
       expect(evaluation.scores).toEqual(Arr.make(4))
-      const sample = yield* Arr.head(evaluation.samples)
-      expect(yield* decodePayload(Schema.encodedSchema(Input), sample.inputs)).toEqual({ seed: "4" })
-      expect(yield* decodePayload(Schema.encodedSchema(Output), sample.generatedOutputs)).toEqual({
+      const sample = Option.getOrThrow(Arr.head(evaluation.samples))
+      expect(yield* decodePayload(Schema.toEncoded(Input), sample.inputs)).toEqual({ seed: "4" })
+      expect(yield* decodePayload(Schema.toEncoded(Output), sample.generatedOutputs)).toEqual({
         result: { count: "7" }
       })
       expect(yield* decodePayload(Output, sample.expectedOutput)).toEqual({ result: { count: 3 } })
@@ -104,13 +109,13 @@ describe("optimizer schema-derived metric values", () => {
       const original = yield* Ref.get(module.params)
       const mock = yield* MockLanguageModel.make(MockLanguageModel.succeed({ result: { count: "7" } }))
       const failure = yield* evaluateCandidate(
-        { module, trainset: Arr.make(invalidExample), metric, maxIterations: 0 },
+        new GEPA.Options({ module, trainset: Arr.make(invalidExample), metric, maxIterations: 0 }),
         candidate
       ).pipe(
         Effect.provideService(LanguageModel.LanguageModel, mock.service),
         Effect.flip
       )
-      expect(failure).toBeInstanceOf(ParseResult.ParseError)
+      expect(failure).toBeInstanceOf(Schema.SchemaError)
       expect(Arr.length(yield* Ref.get(mock.calls))).toBe(0)
       expect(yield* Ref.get(module.params)).toEqual(original)
     }))

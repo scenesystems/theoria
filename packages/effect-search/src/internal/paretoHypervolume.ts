@@ -37,8 +37,8 @@ const computeHypervolume2d = (
       Arr.map(frontIndices, (index) => normalizePoint(pointAt(points, index), directions)),
       (point) =>
         Bool.and(
-          Num.lessThanOrEqualTo(valueAt(point, 0), valueAt(normalizedReference, 0)),
-          Num.lessThanOrEqualTo(valueAt(point, 1), valueAt(normalizedReference, 1))
+          Num.isLessThanOrEqualTo(valueAt(point, 0), valueAt(normalizedReference, 0)),
+          Num.isLessThanOrEqualTo(valueAt(point, 1), valueAt(normalizedReference, 1))
         )
     )
   )
@@ -49,12 +49,17 @@ const computeHypervolume2d = (
       prevY: valueAt(normalizedReference, 1),
       area: 0
     },
-    (state, point) => {
-      const width = Num.max(Num.subtract(valueAt(normalizedReference, 0), valueAt(point, 0)), 0)
-      const height = Num.max(Num.subtract(state.prevY, valueAt(point, 1)), 0)
+    (state: { readonly prevY: number; readonly area: number }, point: Vector) => {
+      const rawWidth = Num.subtract(valueAt(normalizedReference, 0), valueAt(point, 0))
+      const rawHeight = Num.subtract(state.prevY, valueAt(point, 1))
+      const width = Bool.match(Num.isGreaterThan(rawWidth, 0), { onFalse: () => 0, onTrue: () => rawWidth })
+      const height = Bool.match(Num.isGreaterThan(rawHeight, 0), { onFalse: () => 0, onTrue: () => rawHeight })
 
       return {
-        prevY: Num.min(state.prevY, valueAt(point, 1)),
+        prevY: Bool.match(Num.isLessThan(state.prevY, valueAt(point, 1)), {
+          onFalse: () => valueAt(point, 1),
+          onTrue: () => state.prevY
+        }),
         area: Num.sum(state.area, Num.multiply(width, height))
       }
     }

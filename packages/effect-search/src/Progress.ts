@@ -16,18 +16,18 @@ const ansiYellow = "\u001b[33m"
 const ansiRed = "\u001b[31m"
 
 /** Plain or ANSI terminal rendering. @since 0.7.0 @category schemas */
-export const RenderMode = Schema.Literal("plain", "tty")
+export const RenderMode = Schema.Literals(["plain", "tty"])
 /** Terminal rendering mode decoded by {@link RenderMode}. @since 0.7.0 @category models */
 export type RenderMode = typeof RenderMode.Type
 
 /** One routed terminal line. @since 0.7.0 @category schemas */
 export class Line extends Schema.Class<Line>("@scenesystems/effect-search/Progress/Line")({
-  channel: Schema.Literal("stdout", "stderr"),
+  channel: Schema.Literals(["stdout", "stderr"]),
   text: Schema.String
 }) {}
 
 const Lines = Schema.Array(Line)
-const numberText = Schema.encodeSync(Schema.NumberFromString)
+const numberText = Schema.encodeSync(Schema.FiniteFromString)
 
 const valueText = (value: Value): string =>
   Match.value(value).pipe(
@@ -53,9 +53,9 @@ export class SinkOptions extends Data.Class<{
 /** Creates a terminal sink, defaulting to the fiber Console. @since 0.7.0 @category constructors */
 export const makeSink = (options: SinkOptions = new SinkOptions({})): Sink =>
   new Sink({
-    supportsAnsi: Option.fromNullable(options.supportsAnsi).pipe(Option.getOrElse(() => Effect.succeed(false))),
-    writeStdout: Option.fromNullable(options.writeStdout).pipe(Option.getOrElse(() => Console.log)),
-    writeStderr: Option.fromNullable(options.writeStderr).pipe(Option.getOrElse(() => Console.error))
+    supportsAnsi: Option.fromNullishOr(options.supportsAnsi).pipe(Option.getOrElse(() => Effect.succeed(false))),
+    writeStdout: Option.fromNullishOr(options.writeStdout).pipe(Option.getOrElse(() => Console.log)),
+    writeStderr: Option.fromNullishOr(options.writeStderr).pipe(Option.getOrElse(() => Console.error))
   })
 
 /** Default plain-text Console sink. @since 0.7.0 @category constants */
@@ -129,7 +129,7 @@ const formatEvent = (event: OptimizationEvent.OptimizationEvent, mode: RenderMod
           mode,
           ansiGreen,
           `bracket#${bracketIndex} completed rounds=${rounds} best=${
-            Option.fromNullable(bestValue).pipe(Option.match({
+            Option.fromNullishOr(bestValue).pipe(Option.match({
               onNone: () => "none",
               onSome: numberText
             }))

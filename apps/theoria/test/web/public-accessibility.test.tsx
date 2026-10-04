@@ -20,7 +20,7 @@ describe("public-site accessibility", () => {
         />
       )
 
-      const toggle = yield* waitForValue(() => Option.fromNullable(container.querySelector("[role=\"switch\"]")))
+      const toggle = yield* waitForValue(() => Option.fromNullishOr(container.querySelector("[role=\"switch\"]")))
       expect(toggle.getAttribute("aria-label")).toBe("Obstacles")
       expect(toggle.getAttribute("aria-checked")).toBe("false")
     }).pipe(Effect.scoped, Effect.provide(BrowserDocument.layer)))

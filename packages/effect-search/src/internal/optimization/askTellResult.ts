@@ -4,8 +4,7 @@
  * @since 0.1.0
  */
 import * as History from "@scenesystems/effect-study/History"
-import type { Stream } from "effect"
-import { Effect, Mailbox, Ref, String as Str } from "effect"
+import { Effect, Ref, Stream, String as Str } from "effect"
 
 import * as GenericStudy from "@scenesystems/effect-study/Study"
 import type { Result } from "../../Optimization.js"
@@ -41,7 +40,7 @@ export const result = <Space extends SearchSpace.SearchSpace>(
     const runtimeState = yield* GenericStudy.read(state.runtime.study)
     yield* Effect.when(
       Effect.fail(invalid("Optimization.result requires a completed or cancelled ask/tell handle")),
-      () => Str.Equivalence(runtimeState.lifecycle, "Running")
+      Effect.sync(() => Str.Equivalence(runtimeState.lifecycle, "Running"))
     )
 
     const samplerCheckpoint = yield* Sampler.checkpoint(state.optimizePlan.sampler)
@@ -76,4 +75,4 @@ export const result = <Space extends SearchSpace.SearchSpace>(
  */
 export const events = <Space extends SearchSpace.SearchSpace>(
   state: HandleRuntime<Space>
-): Stream.Stream<OptimizationEvent.OptimizationEvent> => Mailbox.toStream(state.eventQueue)
+): Stream.Stream<OptimizationEvent.OptimizationEvent> => Stream.fromQueue(state.eventQueue)

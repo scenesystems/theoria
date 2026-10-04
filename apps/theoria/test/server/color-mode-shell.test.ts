@@ -1,7 +1,7 @@
-import { HttpServerRequest, HttpServerResponse } from "@effect/platform"
 import { describe, expect, it } from "@effect/vitest"
 import { Data, Effect, Equal, Layer, Option } from "effect"
 import * as Arr from "effect/Array"
+import { HttpServerRequest, HttpServerResponse } from "effect/http"
 
 import { colorModeCookieName } from "../../app/contracts/color-mode.js"
 import { Analytics, disabledAnalytics } from "../../app/server/config/analytics.js"

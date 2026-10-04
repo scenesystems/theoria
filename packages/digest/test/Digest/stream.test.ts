@@ -8,14 +8,15 @@ import * as Utf8 from "@scenesystems/digest/Utf8"
 import {
   Array as Arr,
   Boolean as B,
+  Cause,
   Deferred,
   Effect,
   Exit,
-  FastCheck as fc,
   Fiber,
   Number as N,
   Option,
   Ref,
+  Result,
   Schema,
   Stream,
   String as Str,
@@ -23,13 +24,13 @@ import {
 } from "effect"
 import { encodeFixtureUtf8 } from "../helpers/bytes.js"
 
-const ByteChunks = Schema.Array(Schema.Uint8ArrayFromSelf)
-const SplitPoints = Schema.Array(Schema.NonNegativeInt)
+const ByteChunks = Schema.Array(Schema.Uint8Array)
+const SplitPoints = Schema.Array(Schema.Int.check(Schema.isGreaterThanOrEqualTo(0)))
 const SplitDecisions = Schema.Array(Schema.Boolean)
 const Partitions = Schema.Array(SplitPoints)
 
 const concatBytes = (chunks: typeof ByteChunks.Type) =>
-  Schema.decode(Schema.Uint8Array)(Arr.flatMap(chunks, Arr.fromIterable))
+  Effect.succeed(Uint8Array.from(Arr.flatMap(chunks, Arr.fromIterable)))
 
 const partitionAt = (text: string, cuts: typeof SplitPoints.Type) => {
   const boundaries = Arr.append(Arr.prepend(cuts, 0), Str.length(text))
@@ -63,15 +64,16 @@ const randomPartition = (text: string, splitAfter: typeof SplitDecisions.Type) =
     )
   )
 
-const wellFormedString = fc.fullUnicodeString({ maxLength: 64 })
-const randomChunkBoundaries = fc.array(fc.boolean(), { maxLength: 64 })
+const wellFormedString = Schema.String.check(Schema.isPattern(/^(?:[^\uD800-\uDFFF]|[\uD800-\uDBFF][\uDC00-\uDFFF])*$/))
+const randomChunkBoundaries = Schema.Array(Schema.Boolean)
+const isInterrupted = (exit: Exit.Exit<unknown, unknown>) => Exit.isFailure(exit) && Cause.hasInterrupts(exit.cause)
 
 describe("Digest.hashStream", () => {
   it.effect("matches one-shot hashing for BLAKE3", () =>
     Effect.gen(function*() {
       const chunks = Arr.make(encodeFixtureUtf8("hello "), encodeFixtureUtf8("streaming "), encodeFixtureUtf8("digest"))
       const streamed = yield* Digest.hashStream("blake3-256", Stream.fromIterable(chunks))
-      const oneShot = Digest.hash("blake3-256", yield* concatBytes(chunks))
+      const oneShot = yield* Digest.hash("blake3-256", yield* concatBytes(chunks))
       expect(streamed).toEqual(oneShot)
     }))
 
@@ -79,14 +81,14 @@ describe("Digest.hashStream", () => {
     Effect.gen(function*() {
       const chunks = Arr.make(encodeFixtureUtf8("hello "), encodeFixtureUtf8("streaming "), encodeFixtureUtf8("digest"))
       const streamed = yield* Digest.hashStream("sha256", Stream.fromIterable(chunks))
-      const oneShot = Digest.hash("sha256", yield* concatBytes(chunks))
+      const oneShot = yield* Digest.hash("sha256", yield* concatBytes(chunks))
       expect(streamed).toEqual(oneShot)
     }))
 
   it.effect("empty stream matches empty-input digest", () =>
     Effect.gen(function*() {
       const streamed = yield* Digest.hashStream("blake3-256", Stream.empty)
-      const oneShot = Digest.hash("blake3-256", yield* Schema.decode(Schema.Uint8Array)(Arr.empty()))
+      const oneShot = yield* Digest.hash("blake3-256", new Uint8Array())
       expect(streamed).toEqual(oneShot)
     }))
 
@@ -94,7 +96,7 @@ describe("Digest.hashStream", () => {
     Effect.gen(function*() {
       const whole = Arr.fromIterable(encodeFixtureUtf8("boundary-invariant-payload"))
       const splitA = yield* Effect.forEach(Arr.make(Arr.take(whole, 8), Arr.drop(whole, 8)), (bytes) =>
-        Schema.decode(Schema.Uint8Array)(bytes))
+        Effect.succeed(Uint8Array.from(bytes)))
       const splitB = yield* Effect.forEach(
         Arr.make(
           Arr.take(whole, 1),
@@ -103,7 +105,7 @@ describe("Digest.hashStream", () => {
           Arr.drop(whole, 13)
         ),
         (bytes) =>
-          Schema.decode(Schema.Uint8Array)(bytes)
+          Effect.succeed(Uint8Array.from(bytes))
       )
 
       const a = yield* Digest.hashStream("sha256", Stream.fromIterable(splitA))
@@ -149,7 +151,9 @@ describe("Digest.hashStringStream", () => {
   it.effect("preserves a carried pair across empty chunks and retains an initial U+FEFF", () =>
     Effect.gen(function*() {
       const chunks = Stream.make("", "\ufeffA\ud83d", "", "", "\ude00B", "")
-      expect(yield* Digest.hashStringStream("sha256", chunks)).toEqual(yield* Digest.hashString("sha256", "\ufeffA😀B"))
+      expect(yield* Digest.hashStringStream("sha256", chunks)).toEqual(
+        yield* Digest.hashString("sha256", "\ufeffA😀B")
+      )
       expect(yield* Digest.hashStringStream("sha256", Stream.make("", ""))).toEqual(
         yield* Digest.hashString("sha256", "")
       )
@@ -161,11 +165,12 @@ describe("Digest.hashStringStream", () => {
       const finalized = yield* Ref.make(false)
       const chunks = Stream.concat(
         Stream.make("x\ud800"),
-        Stream.fromEffect(Deferred.succeed(waiting, undefined).pipe(Effect.zipRight(Effect.never)))
+        Stream.fromEffect(Deferred.succeed(waiting, undefined).pipe(Effect.andThen(Effect.never)))
       ).pipe(Stream.ensuring(Ref.set(finalized, true)))
-      const fiber = yield* Digest.hashStringStream("sha256", chunks).pipe(Effect.fork)
+      const fiber = yield* Digest.hashStringStream("sha256", chunks).pipe(Effect.forkChild)
       yield* Deferred.await(waiting)
-      expect(Exit.isInterrupted(yield* Fiber.interrupt(fiber))).toBe(true)
+      yield* Fiber.interrupt(fiber)
+      expect(isInterrupted(yield* Fiber.await(fiber))).toBe(true)
       expect(yield* Ref.get(finalized)).toBe(true)
     }))
 
@@ -212,9 +217,9 @@ describe("Digest.hashStringStream", () => {
   it.effect("preserves upstream failures", () =>
     Effect.gen(function*() {
       const chunks = Stream.concat(Stream.make("valid"), Stream.fail("stream failed"))
-      const result = yield* Effect.either(Digest.hashStringStream("blake3-256", chunks))
+      const result = yield* Effect.result(Digest.hashStringStream("blake3-256", chunks))
 
-      expect(result).toMatchObject({ _tag: "Left", left: "stream failed" })
+      expect(result).toStrictEqual(Result.fail("stream failed"))
     }))
 
   it.effect.prop(
@@ -230,7 +235,7 @@ describe("Digest.hashStringStream", () => {
 
         expect(streamed).toEqual(oneShot)
       }),
-    { fastCheck: { numRuns: 200, seed: 3629 } }
+    { arbitrary: { runs: 200, seed: 3629 } }
   )
 
   it.effect("malformed kind and absolute index are partition invariant", () =>
@@ -261,7 +266,7 @@ describe("Digest.hashStringStream", () => {
 describe("stream failure propagation", () => {
   it.effect("hashStream preserves upstream stream errors", () =>
     Effect.gen(function*() {
-      const result = yield* Effect.either(Digest.hashStream("sha256", Stream.fail("stream failed")))
-      expect(result).toMatchObject({ _tag: "Left", left: "stream failed" })
+      const result = yield* Effect.result(Digest.hashStream("sha256", Stream.fail("stream failed")))
+      expect(result).toStrictEqual(Result.fail("stream failed"))
     }))
 })

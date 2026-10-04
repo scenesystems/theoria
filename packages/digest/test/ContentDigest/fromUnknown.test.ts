@@ -9,7 +9,7 @@ describe("ContentDigest.fromUnknown", () => {
     Effect.gen(function*() {
       const value = { key: "value" }
       const bytes = yield* CanonicalJson.encodeBytes(value)
-      const expected = ContentDigest.fromBytes("blake3-256", bytes)
+      const expected = yield* ContentDigest.fromBytes("blake3-256", bytes)
       const actual = yield* ContentDigest.fromUnknown("blake3-256", value)
 
       expect(actual).toStrictEqual(expected)

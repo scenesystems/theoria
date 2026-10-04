@@ -1,199 +1,162 @@
-import { Worker, type WorkerError } from "@effect/platform"
 import {
   Boolean as Bool,
+  Context,
   Data,
+  Deferred,
   Duration,
   Effect,
   Equal,
-  ExecutionStrategy,
   Exit,
+  Fiber,
+  Layer,
   Option,
-  type ParseResult,
   Predicate,
   Schema,
   Scope,
   SynchronizedRef
 } from "effect"
+import { RpcClient } from "effect/rpc"
+import type { RpcClientError } from "effect/rpc/RpcClientError"
+import * as Worker from "effect/workers/Worker"
+import type { WorkerError } from "effect/workers/WorkerError"
 
 import type { AskedMeander, PlaceSearchFailed } from "../../contracts/demo/imagined-place-search.js"
-import {
-  AskSearch,
-  CloseSearch,
-  OpenSearch,
-  type PlaceSearchRequest,
-  TellSearch
-} from "../../contracts/demo/imagined-place-search.js"
+import { PlaceSearchRequest } from "../../contracts/demo/imagined-place-search.js"
 import * as PlaceSearchWorker from "../platform/PlaceSearchWorker.js"
 
-/**
- * A request the worker never answered. A worker that has closed itself or
- * been reclaimed by the browser says nothing to the page — only a script
- * error is reported — so silence past `after` is how its death is known.
- */
 export class PlaceSearchUnanswered
   extends Schema.TaggedError<PlaceSearchUnanswered>("@theoria/app/web/services/PlaceSearcher/Unanswered")(
     "PlaceSearchUnanswered",
-    {
-      request: Schema.String,
-      after: Schema.DurationFromSelf
-    }
+    { request: Schema.String, after: Schema.Duration }
   )
 {}
 
-/**
- * Why a search could not go on: the search itself refused, the worker
- * failed, a message did not decode, or the worker never answered.
- */
-export type PlaceSearchError =
-  | PlaceSearchFailed
-  | PlaceSearchUnanswered
-  | WorkerError.WorkerError
-  | ParseResult.ParseError
+export type PlaceSearchError = PlaceSearchFailed | PlaceSearchUnanswered | RpcClientError | WorkerError
 
-/**
- * How long a request may go unanswered before the worker is given up on.
- * A trial is proposed within milliseconds even late in a search, so this is
- * far past any honest answer and well short of a reader giving up.
- */
 export const answerWithin: Duration.Duration = Duration.seconds(3)
-
-/**
- * How long a worker may take to boot — its script fetched, its sampler
- * loaded, its readiness posted — before it is given up on. A script that
- * never loads reports only to the console; the platform waits on its
- * readiness without bound, so this bound is the only way its absence is
- * known, and the search is refused instead of the page waiting forever.
- */
 export const bootWithin: Duration.Duration = Duration.seconds(10)
 
-/**
- * Whether the error means the worker itself is gone — everything but the
- * search refusing what it was asked, which is the worker answering properly.
- */
 export const workerGone: Predicate.Predicate<PlaceSearchError> = Predicate.not(Predicate.isTagged("PlaceSearchFailed"))
 
-/** One search, open on the worker: ask for the next meander, tell what it scored. */
 export class OpenedPlaceSearch extends Data.Class<{
   readonly ask: Effect.Effect<AskedMeander, PlaceSearchError>
   readonly tell: (trial: number, loss: number) => Effect.Effect<void, PlaceSearchError>
 }> {}
 
-type SearchWorker = Worker.SerializedWorker<PlaceSearchRequest>
+const clientEffect = RpcClient.make(PlaceSearchRequest)
+type SearchClient = Effect.Success<typeof clientEffect>
 
-/** A worker in use, and the scope that ends it. */
 class Kept extends Data.Class<{
-  readonly worker: SearchWorker
-  readonly scope: Scope.CloseableScope
+  readonly client: Fiber.Fiber<SearchClient, SpawnError>
+  readonly generation: number
+  readonly scope: Scope.Closeable
 }> {}
 
-/** The worker to use, and the worker to remember. */
 type Spawned = readonly [use: Kept, remember: Option.Option<Kept>]
-
-/** Why no worker could be had: it failed to spawn, or was not ready within the bound. */
-type SpawnError = WorkerError.WorkerError | PlaceSearchUnanswered
+type SpawnError = WorkerError | PlaceSearchUnanswered
 
 const make = Effect.gen(function*() {
   const scope = yield* Effect.scope
-  const platform = yield* Effect.context<Worker.WorkerManager | Worker.Spawner>()
+  const platform = yield* Effect.map(
+    Effect.context<Worker.WorkerPlatform | Worker.Spawner>(),
+    Context.pick(Worker.WorkerPlatform, Worker.Spawner)
+  )
+  const originalPlatform = yield* Worker.WorkerPlatform
   const kept = yield* SynchronizedRef.make(Option.none<Kept>())
+  const generation = yield* SynchronizedRef.make(0)
 
-  // Each worker lives in its own fork of the service's scope, so one can be
-  // let go — ended with its thread — while the service goes on. A worker
-  // that fails to boot, is not ready within the bound, or is given up on
-  // while booting is ended with its fork, so nothing of it is kept.
-  const spawn: Effect.Effect<Kept, SpawnError> = Effect.gen(function*() {
-    const forked = yield* Scope.fork(scope, ExecutionStrategy.sequential)
-    const worker = yield* Worker.makeSerialized<PlaceSearchRequest>({}).pipe(
-      Scope.extend(forked),
+  const spawn = Effect.gen(function*() {
+    const forked = yield* Scope.fork(scope, "sequential")
+    const ready = yield* Deferred.make<void>()
+    const wrapWorker = <O, I>(backing: Worker.Worker<O, I>): Worker.Worker<O, I> => ({
+      send: backing.send,
+      run: (handler, options) =>
+        backing.run(handler, {
+          onSpawn: Effect.andThen(options?.onSpawn ?? Effect.void, Deferred.succeed(ready, undefined))
+        })
+    })
+    const readyPlatform = Worker.WorkerPlatform.of({
+      spawn: <O, I>(id: number) => originalPlatform.spawn<O, I>(id).pipe(Effect.map(wrapWorker))
+    })
+    const nextGeneration = yield* SynchronizedRef.updateAndGet(generation, (value) => value + 1)
+    const acquire = Effect.gen(function*() {
+      const protocol = yield* Layer.build(RpcClient.layerProtocolWorker({ size: 1 }))
+      const rpc = yield* clientEffect.pipe(Effect.provide(protocol))
+      // The protocol receiver is forked lazily; register it before the first request can fail.
+      yield* Effect.yieldNow
+      return rpc
+    }).pipe(
+      Effect.provideService(Worker.WorkerPlatform, readyPlatform),
       Effect.provide(platform),
-      Effect.timeoutFail({
+      Scope.provide(forked),
+      Effect.tap(() => Deferred.await(ready)),
+      Effect.timeoutOrElse({
         duration: bootWithin,
-        onTimeout: () => new PlaceSearchUnanswered({ request: "spawn", after: bootWithin })
+        orElse: () => Effect.fail(new PlaceSearchUnanswered({ request: "spawn", after: bootWithin }))
       }),
       Effect.onError((cause) => Scope.close(forked, Exit.failCause(cause)))
     )
-    return new Kept({ worker, scope: forked })
+    const client = yield* Effect.forkIn(acquire, forked, { startImmediately: true })
+    return new Kept({ client, generation: nextGeneration, scope: forked })
   })
 
-  // One worker for the page, kept for every search until it fails or falls
-  // silent; then the next search spawns another. A spawn that fails is tried
-  // again next time.
-  const worker: Effect.Effect<Kept, SpawnError> = SynchronizedRef.modifyEffect(
+  const client: Effect.Effect<Kept> = SynchronizedRef.modifyEffect(
     kept,
     (current) =>
       Option.match(current, {
-        onSome: (found): Effect.Effect<Spawned, SpawnError> => Effect.succeed([found, current]),
-        onNone: (): Effect.Effect<Spawned, SpawnError> => Effect.map(spawn, (found) => [found, Option.some(found)])
+        onSome: (found): Effect.Effect<Spawned> => Effect.succeed([found, current]),
+        onNone: (): Effect.Effect<Spawned> => Effect.map(spawn, (found) => [found, Option.some(found)])
       })
-  )
+  ).pipe(Effect.uninterruptible)
 
-  // The first worker is spawned as the service is, so it is booted — its
-  // chunk and its sampler loaded — while the artifact is still on its way,
-  // and the first search finds it ready instead of waiting for it. A search
-  // that opens meanwhile waits on the same spawn, not a second one.
-  yield* Effect.forkIn(Effect.ignore(worker), scope)
+  yield* client
 
-  // Forgets a worker that is gone and ends its scope, unless another has
-  // already taken its place.
   const forget = (gone: Kept): Effect.Effect<void> =>
     SynchronizedRef.updateEffect(
       kept,
       (current) =>
-        Bool.match(Option.exists(current, (found) => Equal.equals(found.worker.id, gone.worker.id)), {
+        Bool.match(Option.exists(current, (found) => Equal.equals(found.generation, gone.generation)), {
           onTrue: () => Effect.as(Scope.close(gone.scope, Exit.void), Option.none()),
           onFalse: () => Effect.succeed(current)
         })
     )
 
-  /** Whether the worker is still the page's: not forgotten, not replaced. */
   const stillKept = (on: Kept): Effect.Effect<boolean> =>
-    Effect.map(SynchronizedRef.get(kept), Option.exists((found) => Equal.equals(found.worker.id, on.worker.id)))
+    Effect.map(
+      SynchronizedRef.get(kept),
+      Option.exists((found) => Equal.equals(found.generation, on.generation))
+    )
 
-  // Every request is bounded: a worker that never answers is forgotten, as
-  // is one that fails or answers in a shape the page does not know. The
-  // bound can only cut a request that may be interrupted, so the wait on
-  // the answer is made interruptible whatever region asks — a finalizer
-  // runs with interruption off, and its close must still be given up on.
   const answered = <A>(
     on: Kept,
-    request: PlaceSearchRequest["_tag"],
+    request: string,
     answer: Effect.Effect<A, PlaceSearchError>
   ): Effect.Effect<A, PlaceSearchError> =>
     Effect.interruptible(answer).pipe(
-      Effect.timeoutFail({
+      Effect.timeoutOrElse({
         duration: answerWithin,
-        onTimeout: () => new PlaceSearchUnanswered({ request, after: answerWithin })
+        orElse: () => Effect.fail(new PlaceSearchUnanswered({ request, after: answerWithin }))
       }),
-      Effect.tapError((error) => Effect.when(forget(on), () => workerGone(error)))
+      Effect.tapError((error) => Effect.when(forget(on), Effect.succeed(workerGone(error))))
     )
 
-  // Opening a search and promising to close it are one step: nothing can
-  // come between the worker answering with the search and the finalizer
-  // that closes it. Waiting on the worker and on its answer stay
-  // interruptible — a search given up on while opening must not hold the
-  // page — and an open interrupted while the worker may already have the
-  // study is resolved by forgetting the worker: its thread ends and takes
-  // whatever it had opened, and the next search spawns another. A worker
-  // forgotten while the search was open — it failed an ask, or fell silent —
-  // has ended with everything it had, so the close is not posted to it: a
-  // gone worker never answers, and the scope would wait out the bound.
   const open: Effect.Effect<OpenedPlaceSearch, PlaceSearchError, Scope.Scope> = Effect.uninterruptibleMask(
     (restore) =>
       Effect.gen(function*() {
-        const found = yield* restore(worker)
-        const search = yield* restore(
-          answered(found, "OpenSearch", found.worker.executeEffect(new OpenSearch()))
-        ).pipe(Effect.onInterrupt(() => forget(found)))
+        const found = yield* restore(client)
+        const rpc = yield* restore(Fiber.join(found.client)).pipe(Effect.onError(() => forget(found)))
+        const search = yield* restore(answered(found, "OpenSearch", rpc.OpenSearch({}))).pipe(
+          Effect.onInterrupt(() => forget(found))
+        )
         yield* Effect.addFinalizer(() =>
-          Effect.whenEffect(
-            Effect.ignore(answered(found, "CloseSearch", found.worker.executeEffect(new CloseSearch({ search })))),
+          Effect.when(
+            Effect.ignore(answered(found, "CloseSearch", rpc.CloseSearch({ search }))),
             stillKept(found)
           )
         )
         return new OpenedPlaceSearch({
-          ask: answered(found, "AskSearch", found.worker.executeEffect(new AskSearch({ search }))),
-          tell: (trial, loss) =>
-            answered(found, "TellSearch", found.worker.executeEffect(new TellSearch({ search, trial, loss })))
+          ask: answered(found, "AskSearch", rpc.AskSearch({ search })),
+          tell: (trial, loss) => answered(found, "TellSearch", rpc.TellSearch({ search, trial, loss }))
         })
       })
   )
@@ -201,19 +164,9 @@ const make = Effect.gen(function*() {
   return { open }
 })
 
-/**
- * The page's side of the arrangement search (`contracts/demo/imagined-place-search.ts`):
- * opens a search on the search worker and drives it ask by ask, so the
- * sampler's work leaves the thread that draws. The search is open for as
- * long as the scope it was opened in — the render stream's — and closed
- * with it. A worker is ready within `bootWithin` and every request is
- * answered within `answerWithin`, or the worker is taken for gone and the
- * next search spawns a fresh one; the caller decides whether to search
- * again. The production layer spawns the worker through
- * the platform module; another layer can answer the same requests in the
- * thread.
- */
-export class PlaceSearcher extends Effect.Service<PlaceSearcher>()("@theoria/app/web/services/PlaceSearcher", {
-  scoped: make,
-  dependencies: [PlaceSearchWorker.layer]
-}) {}
+export class PlaceSearcher extends Context.Service<PlaceSearcher, Effect.Success<typeof make>>()(
+  "@theoria/app/web/services/PlaceSearcher"
+) {
+  static readonly DefaultWithoutDependencies = Layer.effect(PlaceSearcher, make)
+  static readonly Default = PlaceSearcher.DefaultWithoutDependencies.pipe(Layer.provide(PlaceSearchWorker.layer))
+}

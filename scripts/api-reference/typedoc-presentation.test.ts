@@ -25,8 +25,8 @@ describe("TypeDoc presentation adapter", () => {
           ["@scenesystems/example", "Report", "/docs/example/api/Report#api-Report"]
         ]
       })
-      const page = yield* Arr.head(presentation.pages)
-      const snapshotExport = yield* Arr.head(page.exports)
+      const page = yield* Effect.fromOption(Arr.head(presentation.pages))
+      const snapshotExport = yield* Effect.fromOption(Arr.head(page.exports))
       const outcomeExport = page.exports[1]
 
       expect(page).toMatchObject({

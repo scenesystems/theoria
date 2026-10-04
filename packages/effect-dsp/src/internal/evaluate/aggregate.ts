@@ -5,7 +5,7 @@
  * @category internal
  * @internal
  */
-import { Array as Arr, Boolean, Data, Number, Option, Record, Tuple } from "effect"
+import { Array as Arr, Boolean, Data, Number, Option, Record, Result } from "effect"
 import { type Failure, Report } from "../../Evaluate.js"
 import { averageNumbers } from "../metric/score.js"
 import type { ExampleOutcome, MetricEntry } from "./example.js"
@@ -21,8 +21,11 @@ const overallScores = <ME, MR, A>(
   outcomes: Iterable<ExampleOutcome>
 ): Record.ReadonlyRecord<string, number> =>
   Arr.reduce(metricEntries, Record.empty<string, number>(), (scores, entry) => {
-    const metricName = Tuple.getFirst(entry)
-    const values = Arr.filterMap(outcomes, (outcome) => outcomeScore(metricName, outcome))
+    const metricName = entry[0]
+    const values = Arr.filterMap(
+      outcomes,
+      (outcome) => Result.fromOption(outcomeScore(metricName, outcome), () => void 0)
+    )
 
     return Record.set(scores, metricName, averageNumbers(values))
   })
@@ -52,7 +55,7 @@ export const aggregateOutcomes = <ME, MR, A>(options: AggregateOptions<ME, MR, A
   const metricEntries = Arr.fromIterable(options.metricEntries)
   const outcomes = Arr.fromIterable(options.outcomes)
   const results = Arr.map(outcomes, (outcome) => outcome.result)
-  const failures = Arr.filterMap(outcomes, outcomeFailure)
+  const failures = Arr.filterMap(outcomes, (outcome) => Result.fromOption(outcomeFailure(outcome), () => void 0))
   const successCount = Arr.reduce(
     outcomes,
     0,
@@ -65,10 +68,13 @@ export const aggregateOutcomes = <ME, MR, A>(options: AggregateOptions<ME, MR, A
   const failureCount = Number.subtract(options.total, successCount)
   const averageScore = averageNumbers(
     Arr.filterMap(outcomes, (outcome) =>
-      Boolean.match(outcome.success, {
-        onTrue: () => Option.some(outcome.averageScore),
-        onFalse: () => Option.none<number>()
-      }))
+      Result.fromOption(
+        Boolean.match(outcome.success, {
+          onTrue: () => Option.some(outcome.averageScore),
+          onFalse: () => Option.none<number>()
+        }),
+        () => void 0
+      ))
   )
 
   return new AggregateResult({

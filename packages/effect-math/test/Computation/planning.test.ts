@@ -4,7 +4,7 @@ import { Array, Effect, Option, Schema } from "effect"
 import * as Autodiff from "../../src/Autodiff.js"
 import * as Computation from "../../src/Computation.js"
 import * as Precision from "../../src/Precision.js"
-import { layer } from "./layer.js"
+import { layer, Options } from "./layer.js"
 
 const divergent = {
   absoluteError: 1e-4,
@@ -46,7 +46,7 @@ describe("Computation.plan", () => {
         convergence: divergent,
         requiresAutodiff: false,
         requiresUncertaintyEnvelope: true
-      }).pipe(Effect.provide(layer({ backend: "compensated" })))
+      }).pipe(Effect.provide(layer(new Options({ backend: "compensated" }))))
 
       expect(plan.scalarKind).toStrictEqual("bigdecimal")
       expect(plan.precisionEscalationSource).toStrictEqual("escalation-order")
@@ -63,7 +63,7 @@ describe("Computation.plan", () => {
         escalationAttempt: 0,
         requiresAutodiff: true,
         requiresUncertaintyEnvelope: false
-      }).pipe(Effect.provide(layer({ autodiff: unavailableAutodiff })))
+      }).pipe(Effect.provide(layer(new Options({ autodiff: unavailableAutodiff }))))
 
       expect(plan.differentiationMethod).toStrictEqual("finite-difference")
       expect(plan.autodiffMode).toStrictEqual(Option.none())
@@ -79,7 +79,7 @@ describe("Computation.plan", () => {
         convergence: divergent,
         requiresAutodiff: false,
         requiresUncertaintyEnvelope: false
-      }).pipe(Effect.provide(layer({ precision: primaryBigDecimal })))
+      }).pipe(Effect.provide(layer(new Options({ precision: primaryBigDecimal }))))
 
       expect(plan.scalarResolutionSource).toStrictEqual("policy-primary")
       expect(plan.scalarKind).toStrictEqual("bigdecimal")

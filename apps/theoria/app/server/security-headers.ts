@@ -1,6 +1,6 @@
-import { HttpMiddleware, HttpServerResponse } from "@effect/platform"
 import { Effect, Option, Schema } from "effect"
 import * as Arr from "effect/Array"
+import { HttpMiddleware, HttpServerResponse } from "effect/http"
 
 import {
   cloudflareInsightsBeaconHost,

@@ -1,10 +1,9 @@
-import { FileSystem } from "@effect/platform"
-import { BunContext } from "@effect/platform-bun"
+import { BunServices } from "@effect/platform-bun"
 import { describe, expect, it } from "@effect/vitest"
 import * as Numeric from "@scenesystems/effect-math/Numeric"
 import { OptimizationStorage, Sampler } from "@scenesystems/effect-search"
 import { StudyStorage } from "@scenesystems/effect-study"
-import { Array as Arr, Effect, Number as Num, Option, Schema } from "effect"
+import { Array as Arr, Effect, FileSystem, Number as Num, Option, Schema } from "effect"
 
 import {
   calibrationServices,
@@ -95,8 +94,8 @@ describe("Calibration reporting contracts", () => {
         }))
       ).toEqual(Arr.make(
         {
-          lineCountDelta: Num.negate(1),
-          maxLineWidthDelta: Num.negate(1),
+          lineCountDelta: Num.subtract(0, 1),
+          maxLineWidthDelta: Num.subtract(0, 1),
           lineMismatchCount: 0,
           matched: false
         },
@@ -231,7 +230,7 @@ describe("Calibration reporting contracts", () => {
         ).toEqual(Option.some("Completed"))
         expect(persistedSnapshot.pipe(Option.map((snapshot) => snapshot.completedCount))).toEqual(Option.some(4))
         expect(persistedSnapshot.pipe(Option.map((snapshot) => snapshot.nextTrialNumber))).toEqual(Option.some(4))
-      }).pipe(Effect.provide(BunContext.layer))
+      }).pipe(Effect.provide(BunServices.layer))
     ))
 
   it.effect("score weights and objective metadata are explicit inputs rather than hidden constants", () =>

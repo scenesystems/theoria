@@ -42,12 +42,7 @@ const independentTraceValue = <A>(
   reason: string
 ): Effect.Effect<A, InvalidSamplerConfig> => {
   const values = Arr.fromIterable(valuesInput)
-  return Arr.get(values, index).pipe(
-    Option.match({
-      onNone: () => Effect.fail(invalidConfig(reason)),
-      onSome: Effect.succeed
-    })
-  )
+  return Effect.fromOption(Arr.get(values, index), () => invalidConfig(reason))
 }
 
 const multivariateTraceForGroup = (
@@ -63,7 +58,7 @@ const multivariateTraceForGroup = (
     Match.when(false, () => Effect.succeedNone),
     Match.orElse(() => {
       const continuous = Arr.filter(parameters, (parameter) => isContinuousParameter(parameter))
-      return Match.value(Num.greaterThanOrEqualTo(Arr.length(continuous), 2)).pipe(
+      return Match.value(Num.isGreaterThanOrEqualTo(Arr.length(continuous), 2)).pipe(
         Match.when(false, () => Effect.succeedNone),
         Match.orElse(() => multivariateContinuousCandidateTrace(rng, nCandidates, continuous, split, acquisition))
       )
@@ -84,11 +79,11 @@ export const mergeConfigs = (left: unknown, right: unknown): unknown =>
   Record.fromEntries(
     Arr.appendAll(
       Match.value(left).pipe(
-        Match.when(Predicate.isRecord, (record) => Record.toEntries(record)),
+        Match.when(Predicate.isObject, (record) => Record.toEntries(record)),
         Match.orElse(() => Arr.empty<readonly [string, unknown]>())
       ),
       Match.value(right).pipe(
-        Match.when(Predicate.isRecord, (record) => Record.toEntries(record)),
+        Match.when(Predicate.isObject, (record) => Record.toEntries(record)),
         Match.orElse(() => Arr.empty<readonly [string, unknown]>())
       )
     )
@@ -224,11 +219,9 @@ export const suggestGroup = (
       independentParameters,
       (parameter) => traceForParameter(rng, nCandidates, parameter, groupSplit, noiseOptions, acquisition)
     )
-    const resolvedCount = yield* candidateCount(independentTraces, multivariateTrace).pipe(
-      Option.match({
-        onNone: () => Effect.fail(invalidConfig("tpe grouped candidate selection requires at least one trace")),
-        onSome: Effect.succeed
-      })
+    const resolvedCount = yield* Effect.fromOption(
+      candidateCount(independentTraces, multivariateTrace),
+      () => invalidConfig("tpe grouped candidate selection requires at least one trace")
     )
     const indices = Arr.makeBy(resolvedCount, (index) => index)
     const scoredCandidates = yield* Effect.forEach(

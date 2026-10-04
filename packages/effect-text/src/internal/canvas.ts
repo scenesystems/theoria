@@ -4,7 +4,22 @@
  * @internal
  * @since 0.5.0
  */
-import { Boolean, Cache, Data, Effect, Equal, Exit, Inspectable, Match, Number, Option, Schema, String } from "effect"
+import {
+  Boolean,
+  Cache,
+  Cause,
+  Data,
+  Effect,
+  Equal,
+  Exit,
+  Inspectable,
+  Match,
+  Number,
+  Option,
+  Schema,
+  Semaphore,
+  String
+} from "effect"
 
 import type * as CanvasTextMeasurer from "../CanvasTextMeasurer.js"
 import type * as Text from "../Text.js"
@@ -36,7 +51,7 @@ const hostFailed = (font: Text.Font, text: string, operation: string, cause: unk
   failed(font, text, String.concat(operation, String.concat(" failed: ", Inspectable.toStringUnknown(cause, 0))))
 
 const canvasFont = (font: Text.Font): string => {
-  const weight = Option.fromNullable(font.weight).pipe(Option.getOrElse(() => 400))
+  const weight = Option.fromNullishOr(font.weight).pipe(Option.getOrElse(() => 400))
   const sizeAndFamily = String.concat(
     Inspectable.toStringUnknown(font.size, 0),
     String.concat("px ", font.family)
@@ -102,7 +117,7 @@ const readWidth = (
         catch: (cause) => hostFailed(font, text, "measureText", cause)
       }).pipe(
         Effect.filterOrFail(
-          Schema.is(Schema.NonNegative.pipe(Schema.finite())),
+          Schema.is(Schema.Finite.check(Schema.isGreaterThanOrEqualTo(0))),
           (width) => failed(font, text, String.concat("measureText returned ", Inspectable.toStringUnknown(width, 0)))
         )
       ),
@@ -121,14 +136,23 @@ const measure = (
       Effect.uninterruptibleMask((interruptible) =>
         interruptible(
           assign(context, prior, font, text, direction, textBaseline).pipe(
-            Effect.zipRight(readWidth(context, font, text))
+            Effect.andThen(readWidth(context, font, text))
           )
         ).pipe(
           Effect.exit,
           Effect.flatMap((useExit) =>
             restore(context, prior, font, text).pipe(
               Effect.exit,
-              Effect.flatMap((restorationExit) => Exit.zipLeft(useExit, restorationExit))
+              Effect.flatMap((restorationExit) =>
+                Exit.match(restorationExit, {
+                  onFailure: (restorationCause) =>
+                    Exit.match(useExit, {
+                      onFailure: (useCause) => Exit.failCause(Cause.combine(useCause, restorationCause)),
+                      onSuccess: () => Exit.failCause(restorationCause)
+                    }),
+                  onSuccess: () => useExit
+                })
+              )
             )
           )
         )
@@ -147,8 +171,8 @@ const normalizeCorrection = (
         Match.orElse((custom) =>
           Option.some(
             new Correction({
-              probe: Option.fromNullable(custom.probe).pipe(Option.getOrElse(() => "🙂")),
-              minimumAdvanceMultiplier: Option.fromNullable(custom.minimumAdvanceMultiplier).pipe(
+              probe: Option.fromNullishOr(custom.probe).pipe(Option.getOrElse(() => "🙂")),
+              minimumAdvanceMultiplier: Option.fromNullishOr(custom.minimumAdvanceMultiplier).pipe(
                 Option.getOrElse(() => 1)
               )
             })
@@ -183,11 +207,11 @@ const corrected = (
 /** @internal */
 export const make = (options: CanvasTextMeasurer.Options) =>
   Effect.gen(function*() {
-    const semaphore = yield* Effect.makeSemaphore(1)
+    const semaphore = yield* Semaphore.make(1)
     const owner = yield* Effect.scope
-    const direction = Option.fromNullable(options.direction)
-    const textBaseline = Option.fromNullable(options.textBaseline)
-    const correction = normalizeCorrection(Option.fromNullable(options.emojiCorrection))
+    const direction = Option.fromNullishOr(options.direction)
+    const textBaseline = Option.fromNullishOr(options.textBaseline)
+    const correction = normalizeCorrection(Option.fromNullishOr(options.emojiCorrection))
     const probeCache = yield* Option.match(correction, {
       onNone: () => Effect.succeedNone,
       onSome: (settings) =>
@@ -203,7 +227,7 @@ export const make = (options: CanvasTextMeasurer.Options) =>
 
     return TextMeasurer.TextMeasurer.of({
       measure: (font: Text.Font, text: string) =>
-        semaphore.withPermits(1)(
+        Semaphore.withPermits(semaphore, 1)(
           measure(options.context, font, text, direction, textBaseline).pipe(
             Effect.flatMap((rawWidth) =>
               Option.match(probeCache, {

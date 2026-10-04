@@ -1,7 +1,7 @@
-import { FileSystem, HttpPlatform, HttpServerResponse } from "@effect/platform"
-import type { PlatformError } from "@effect/platform/Error"
-import { Boolean as Bool, Effect, Layer, Option, Schema } from "effect"
+import { Boolean as Bool, Effect, FileSystem, Layer, Option, Schema } from "effect"
 import * as Arr from "effect/Array"
+import { HttpPlatform, HttpServerResponse } from "effect/http"
+import type { PlatformError } from "effect/PlatformError"
 import * as Str from "effect/String"
 
 import { contentTypeForPath, StaticStore, StaticStoreError } from "../config/static-store.js"
@@ -16,9 +16,11 @@ import { contentTypeForPath, StaticStore, StaticStoreError } from "../config/sta
  */
 
 const AssetPathname = Schema.String.pipe(
-  Schema.pattern(/^\/[A-Za-z0-9._/-]+$/u),
-  Schema.filter((value) =>
-    Bool.not(Bool.some([Str.endsWith("/")(value), Str.includes("..")(value), Str.includes("//")(value)]))
+  Schema.check(Schema.isPattern(/^\/[A-Za-z0-9._/-]+$/u)),
+  Schema.check(
+    Schema.makeFilter((value) =>
+      Bool.not(Bool.some([Str.endsWith("/")(value), Str.includes("..")(value), Str.includes("//")(value)]))
+    )
   )
 )
 

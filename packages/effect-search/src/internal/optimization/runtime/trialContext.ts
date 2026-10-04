@@ -4,7 +4,7 @@
  * @since 0.1.0
  */
 import type * as Stop from "@scenesystems/effect-study/Stop"
-import { Data, FiberRef, Option } from "effect"
+import { Context, Data, Option } from "effect"
 
 import type { Policy } from "../../../Pruning.js"
 import type { EventRuntime } from "../events.js"
@@ -32,4 +32,7 @@ export class TrialContext extends Data.Class<{
  * @since 0.1.0
  * @category models
  */
-export const CurrentTrialContext = FiberRef.unsafeMake<Option.Option<TrialContext>>(Option.none())
+export const CurrentTrialContext = Context.Reference<Option.Option<TrialContext>>(
+  "@scenesystems/effect-search/internal/optimization/CurrentTrialContext",
+  { defaultValue: () => Option.none() }
+)

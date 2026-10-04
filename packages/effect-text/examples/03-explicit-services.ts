@@ -4,7 +4,7 @@
  *
  * Run with `bun run packages/effect-text/examples/03-explicit-services.ts`.
  */
-import { BunContext, BunRuntime } from "@effect/platform-bun"
+import { BunRuntime } from "@effect/platform-bun"
 import { Effect, Layer } from "effect"
 
 import { Hyphenation, MeasurementCache, Text, TextMeasurer } from "@scenesystems/effect-text"
@@ -35,4 +35,4 @@ const program = Effect.gen(function*() {
   })
 })
 
-BunRuntime.runMain(program.pipe(Effect.provide(BunContext.layer)))
+BunRuntime.runMain(program)

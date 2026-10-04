@@ -1,19 +1,7 @@
-import {
-  FetchHttpClient,
-  FileSystem,
-  Headers,
-  HttpClient,
-  HttpClientRequest,
-  HttpMethod,
-  Path,
-  Url
-} from "@effect/platform"
-import { BunContext } from "@effect/platform-bun"
+import { BunServices } from "@effect/platform-bun"
 import {
   BigDecimal,
-  Chunk,
   Config,
-  type ConfigError,
   Context,
   Data,
   DateTime,
@@ -29,16 +17,13 @@ import {
   Struct
 } from "effect"
 import * as Arr from "effect/Array"
+import * as FileSystem from "effect/FileSystem"
+import { FetchHttpClient, Headers, HttpClient, HttpClientRequest, HttpMethod, Url } from "effect/http"
 import * as Num from "effect/Number"
+import * as Path from "effect/Path"
 import * as Record from "effect/Record"
 import * as Str from "effect/String"
-import {
-  convertV4MiniflareOptions,
-  Miniflare,
-  NoOpLog,
-  type V4ModuleDefinition,
-  type WorkerdStructuredLog
-} from "miniflare"
+import { convertV4MiniflareOptions, Miniflare, NoOpLog, type V4ModuleDefinition } from "miniflare"
 import { unstable_getMiniflareWorkerOptions } from "wrangler"
 
 import { type DocsManifest, DocsManifestJson } from "@theoria/docs-model"
@@ -76,9 +61,9 @@ const SiteHttpMethod = Schema.declare(HttpMethod.isHttpMethod)
 
 /** Request shape the tests need. */
 export class SiteRequest extends Schema.Class<SiteRequest>("test/worker/SiteRequest")({
-  method: Schema.optionalWith(SiteHttpMethod, { exact: true }),
-  headers: Schema.optionalWith(Schema.Record({ key: Schema.String, value: Schema.String }), { exact: true }),
-  body: Schema.optionalWith(Schema.String, { exact: true })
+  method: Schema.optionalKey(SiteHttpMethod),
+  headers: Schema.optionalKey(Schema.Record(Schema.String, Schema.String)),
+  body: Schema.optionalKey(Schema.String)
 }) {}
 
 /** Response shape the tests read: the status, the headers, and the body read once as text or JSON. */
@@ -106,8 +91,14 @@ const operationalError = (cause: unknown) =>
 
 const SiteLogLines = Schema.Array(Schema.String)
 type SiteLogLines = typeof SiteLogLines.Type
+const SiteLog = Schema.Struct({
+  timestamp: Schema.Finite,
+  level: Schema.String,
+  message: Schema.String
+})
+const decodeSiteLog = Schema.decodeUnknownOption(SiteLog)
 
-export class Site extends Context.Tag("test/worker/Site")<Site, {
+export class Site extends Context.Service<Site, {
   /** Origin of the site, without a trailing slash. */
   readonly url: string
   readonly fetch: (input: string, init?: SiteRequest) => Effect.Effect<SiteResponse, SiteError>
@@ -133,14 +124,14 @@ export class Site extends Context.Tag("test/worker/Site")<Site, {
    * deployment's logs are not readable from outside it, so they are empty.
    */
   readonly logs: Effect.Effect<SiteLogLines>
-}>() {}
+}>()("test/worker/Site") {}
 
 export const text = (response: SiteResponse) => response.text
 export const json = (response: SiteResponse) => response.json
 /** One response header, as the site sent it. */
 export const header = (response: SiteResponse, name: string) => Headers.get(response.headers, name)
 
-type SiteService = Context.Tag.Service<Site>
+type SiteService = typeof Site.Service
 
 /** A response whose body has been read: `json` parses that one text. */
 const respond = (status: number, headers: Headers.Headers, body: string) =>
@@ -148,7 +139,9 @@ const respond = (status: number, headers: Headers.Headers, body: string) =>
     status,
     headers,
     text: Effect.succeed(body),
-    json: Schema.decodeUnknown(Schema.parseJson())(body).pipe(Effect.mapError(operationalError))
+    json: Schema.decodeEffect(Schema.fromJsonString(Schema.Unknown))(body).pipe(
+      Effect.mapError(operationalError)
+    )
   })
 
 /** Visitor addresses are drawn from TEST-NET-3 (203.0.113.0/24) and the documentation nets above it. */
@@ -157,10 +150,17 @@ const visitorAddress = (visitor: number): string =>
     Arr.make(
       "203",
       "0",
-      Schema.encodeSync(Schema.NumberFromString)(
-        Num.sum(113, BigDecimal.unsafeToNumber(BigDecimal.floor(BigDecimal.fromNumber(Num.unsafeDivide(visitor, 256)))))
+      Schema.encodeSync(Schema.FiniteFromString)(
+        Num.sum(
+          113,
+          BigDecimal.toNumberUnsafe(
+            BigDecimal.floor(
+              BigDecimal.divideUnsafe(BigDecimal.fromNumberUnsafe(visitor), BigDecimal.fromNumberUnsafe(256))
+            )
+          )
+        )
       ),
-      Schema.encodeSync(Schema.NumberFromString)(Num.remainder(visitor, 256))
+      Schema.encodeSync(Schema.FiniteFromString)(Num.remainder(visitor, 256))
     ),
     "."
   )
@@ -177,22 +177,19 @@ const describeSite = (serve: SiteService["fetch"]) =>
   Effect.gen(function*() {
     const manifest = yield* serve("/docs-data/manifest.json").pipe(
       Effect.flatMap(text),
-      Effect.flatMap(Schema.decode(DocsManifestJson)),
+      Effect.flatMap(Schema.decodeEffect(DocsManifestJson)),
       Effect.mapError(operationalError)
     )
     const shell = yield* serve("/").pipe(Effect.flatMap(text))
     const hashedScript = yield* Str.match(shellScript)(shell).pipe(
       Option.flatMap((found) => Arr.get(found, 1)),
-      Option.match({
-        onNone: () => Effect.fail(new SiteError({ message: "The shell names no hashed script.", cause: shell })),
-        onSome: Effect.succeed
-      })
+      Effect.fromOption(() => new SiteError({ message: "The shell names no hashed script.", cause: shell }))
     )
     return { manifest, hashedScript }
   })
 
 const missingBuild = (file: string) =>
-  Effect.dieMessage(
+  Effect.die(
     Arr.join(
       Arr.make(
         file,
@@ -207,10 +204,7 @@ const requireFile = (file: string) =>
   Effect.gen(function*() {
     const fileSystem = yield* FileSystem.FileSystem
     const exists = yield* fileSystem.exists(file).pipe(Effect.mapError(operationalError))
-    return yield* Effect.if(exists, {
-      onTrue: () => Effect.void,
-      onFalse: () => missingBuild(file)
-    })
+    return yield* (exists ? Effect.void : missingBuild(file))
   })
 
 /** The entry module `wrangler deploy --dry-run --outdir` writes; every other module is named relative to it. */
@@ -242,19 +236,22 @@ const bundleModules = (workerDir: string) =>
     const path = yield* Path.Path
     const fileSystem = yield* FileSystem.FileSystem
     const files = yield* fileSystem.readDirectory(workerDir).pipe(Effect.mapError(operationalError))
-    const [others, entry] = Arr.partition(Arr.sort(files, Str.Order), (file) => Str.Equivalence(file, workerEntry))
-    return Arr.filterMap(Arr.appendAll(entry, others), bundleModule(path, workerDir))
+    const sorted = Arr.sort(files, Str.Order)
+    const entry = Arr.filter(sorted, (file) => Str.Equivalence(file, workerEntry))
+    const others = Arr.filter(sorted, (file) => !Str.Equivalence(file, workerEntry))
+    return Arr.flatMap(Arr.appendAll(entry, others), (file: string) =>
+      Option.toArray(bundleModule(path, workerDir)(file)))
   })
 
 /**
  * The harness for the whole layer. Nothing in a test can respond to workerd
  * failing to shut down, so that failure surfaces as a defect in the scope's exit.
  */
-export const SiteLive: Layer.Layer<Site, SiteError> = Layer.scoped(
+export const SiteLive: Layer.Layer<Site, SiteError> = Layer.effect(
   Site,
   Effect.gen(function*() {
     const path = yield* Path.Path
-    const projectRoot = yield* Url.fromString("../../", import.meta.url).pipe(
+    const projectRoot = yield* Effect.fromResult(Url.fromString("../../", import.meta.url)).pipe(
       Effect.flatMap((url) => path.fromFileUrl(url)),
       Effect.orDie
     )
@@ -277,8 +274,8 @@ export const SiteLive: Layer.Layer<Site, SiteError> = Layer.scoped(
     // The runtime's structured logs — the Worker's own and workerd's —
     // arrive on a callback; the queue receives them, and `logs` folds
     // what has arrived into the record so far, so nothing is cleared.
-    const arriving = yield* Queue.unbounded<WorkerdStructuredLog>()
-    const recorded = yield* Ref.make(Chunk.empty<string>())
+    const arriving = yield* Queue.unbounded<typeof SiteLog.Type>()
+    const recorded = yield* Ref.make(Arr.empty<string>())
     const runtime = yield* Effect.acquireRelease(
       Effect.try({
         try: () =>
@@ -286,14 +283,14 @@ export const SiteLive: Layer.Layer<Site, SiteError> = Layer.scoped(
             log: new NoOpLog(),
             logRequests: false,
             handleStructuredLogs: (log) => {
-              Queue.unsafeOffer(arriving, log)
+              Option.map(decodeSiteLog(log), (decoded) => Queue.offerUnsafe(arriving, decoded))
             },
             workers: Arr.prepend(externalWorkers, {
-              ...Struct.omit(workerOptions, "modulesRules"),
+              ...Struct.omit(workerOptions, ["modulesRules"]),
               modulesRoot: workerDir,
               modules,
               bindings: {
-                ...Option.getOrElse(Option.fromNullable(workerOptions.bindings), Record.empty),
+                ...Option.getOrElse(Option.fromNullishOr(workerOptions.bindings), Record.empty),
                 BUILD_SHA: buildSha,
                 GA_MEASUREMENT_ID: testMeasurementId,
                 CF_WEB_ANALYTICS_TOKEN: testBeaconToken
@@ -316,7 +313,7 @@ export const SiteLive: Layer.Layer<Site, SiteError> = Layer.scoped(
     // Miniflare dispatches to the runtime whatever host the URL names, and
     // the Worker sees that host — so absolute URLs still choose the hostname.
     const fetch: SiteService["fetch"] = (input, init) =>
-      Url.fromString(input, listening).pipe(
+      Effect.fromResult(Url.fromString(input, listening)).pipe(
         Effect.mapError(operationalError),
         Effect.flatMap((target) =>
           Effect.tryPromise({
@@ -344,35 +341,35 @@ export const SiteLive: Layer.Layer<Site, SiteError> = Layer.scoped(
       visitorHeaders: (visitor) => Record.singleton("cf-connecting-ip", visitorAddress(visitor)),
       logs: Effect.gen(function*() {
         const fresh = yield* Queue.takeAll(arriving)
-        const lines = Chunk.map(
+        const lines = Arr.map(
           fresh,
           (log) =>
             Arr.join(
-              Arr.make(DateTime.formatIso(DateTime.unsafeMake(log.timestamp)), " ", log.level, ": ", log.message),
+              Arr.make(DateTime.formatIso(DateTime.makeUnsafe(log.timestamp)), " ", log.level, ": ", log.message),
               Str.empty
             )
         )
-        return Chunk.toReadonlyArray(yield* Ref.updateAndGet(recorded, Chunk.appendAll(lines)))
+        return yield* Ref.updateAndGet(recorded, Arr.appendAll(lines))
       })
     })
   })
-).pipe(Layer.provide(BunContext.layer))
+).pipe(Layer.provide(BunServices.layer))
 
 /** The deployment `THEORIA_SITE_URL` names, reached through the platform `HttpClient`. */
-export const SiteRemote: Layer.Layer<Site, SiteError | ConfigError.ConfigError> = Layer.effect(
+export const SiteRemote: Layer.Layer<Site, SiteError | Config.ConfigError> = Layer.effect(
   Site,
   Effect.gen(function*() {
-    const origin = yield* Config.url("THEORIA_SITE_URL")
+    const origin = yield* Config.URL("THEORIA_SITE_URL")
     const client = yield* HttpClient.HttpClient
 
     const fetch: SiteService["fetch"] = (input, init = new SiteRequest({})) =>
       Effect.gen(function*() {
-        const target = yield* Url.fromString(input, origin)
+        const target = yield* Effect.fromResult(Url.fromString(input, origin))
         const request = HttpClientRequest.make(
-          Option.getOrElse(Option.fromNullable(init.method), () => "GET")
+          Option.getOrElse(Option.fromNullishOr(init.method), () => "GET")
         )(target, { headers: init.headers })
         const response = yield* client.execute(
-          Option.match(Option.fromNullable(init.body), {
+          Option.match(Option.fromNullishOr(init.body), {
             onNone: () => request,
             onSome: (body) => HttpClientRequest.bodyText(request, body)
           })
@@ -397,11 +394,11 @@ export const SiteRemote: Layer.Layer<Site, SiteError | ConfigError.ConfigError> 
  * The site a profile runs against: the deployment `THEORIA_SITE_URL` names
  * when it is set (`bun run test:worker:staging`), else the harness.
  */
-export const SiteUnderTest: Layer.Layer<Site, SiteError | ConfigError.ConfigError> = Layer.unwrapEffect(
+export const SiteUnderTest: Layer.Layer<Site, SiteError | Config.ConfigError> = Layer.unwrap(
   Effect.map(
-    Config.option(Config.url("THEORIA_SITE_URL")),
+    Config.option(Config.URL("THEORIA_SITE_URL")),
     Option.match({
-      onNone: (): Layer.Layer<Site, SiteError | ConfigError.ConfigError> => SiteLive,
+      onNone: (): Layer.Layer<Site, SiteError | Config.ConfigError> => SiteLive,
       onSome: () => SiteRemote
     })
   )

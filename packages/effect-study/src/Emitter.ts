@@ -4,7 +4,8 @@
  * @since 0.1.0
  * @module
  */
-import { Effect, Mailbox, Stream } from "effect"
+import type { Cause } from "effect"
+import { Effect, Queue, Stream } from "effect"
 
 /**
  * Emits one value from a producer into its stream.
@@ -34,14 +35,14 @@ export type Emitter<A> = (value: A) => Effect.Effect<void>
 export const toStream = <A, Done, E, R>(
   self: (emitter: Emitter<A>) => Effect.Effect<Done, E, R>
 ): Stream.Stream<A, E, R> =>
-  Stream.unwrapScoped(
+  Stream.unwrap(
     Effect.gen(function*() {
-      const mailbox = yield* Mailbox.make<A, E>()
-      yield* Effect.addFinalizer(() => mailbox.shutdown)
-      yield* Effect.suspend(() => self((value) => mailbox.offer(value).pipe(Effect.asVoid))).pipe(
-        Mailbox.into(mailbox),
+      const queue = yield* Queue.make<A, E | Cause.Done>()
+      yield* Effect.addFinalizer(() => Queue.shutdown(queue))
+      yield* Effect.suspend(() => self((value) => Queue.offer(queue, value).pipe(Effect.asVoid))).pipe(
+        Queue.into(queue),
         Effect.forkScoped
       )
-      return Mailbox.toStream(mailbox)
+      return Stream.fromQueue(queue)
     })
   )

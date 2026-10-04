@@ -4,9 +4,9 @@
  * @since 0.4.0
  * @module
  */
-import { Effect, Either, ParseResult, Schema, type SchemaAST } from "effect"
+import { Effect, Result, Schema, type SchemaAST, SchemaIssue } from "effect"
 
-const parseJson = Schema.decodeUnknownEither(Schema.parseJson())
+const parseJson = Schema.decodeUnknownResult(Schema.fromJsonString(Schema.Unknown))
 
 /**
  * A syntactically valid JSON document. Its domain type belongs to the schema
@@ -18,7 +18,9 @@ const parseJson = Schema.decodeUnknownEither(Schema.parseJson())
  * @category schemas
  */
 export const Payload = Schema.String.pipe(
-  Schema.filter((text) => Either.isRight(parseJson(text)), { description: "a valid JSON document" }),
+  Schema.check(
+    Schema.makeFilter((text) => Result.isSuccess(parseJson(text)), { description: "a valid JSON document" })
+  ),
   Schema.brand("@scenesystems/effect-dsp/Payload")
 )
 
@@ -43,47 +45,47 @@ export type Payload = typeof Payload.Type
  * @since 0.4.0
  * @category encoding
  */
-export const encode = <A, I, R>(
-  schema: Schema.Schema<A, I, R>,
+export const encode = <A, I, RD, RE>(
+  schema: Schema.Codec<A, I, RD, RE>,
   value: A
-): Effect.Effect<Payload, ParseResult.ParseError, R> =>
+): Effect.Effect<Payload, Schema.SchemaError, RE> =>
   Effect.gen(function*() {
-    const encoded = yield* Schema.encode(schema)(value)
-    const wireSchema = Schema.encodedSchema(schema)
-    const codec = Schema.parseJson(wireSchema)
-    const text = yield* Schema.encode(codec)(encoded)
-    const restored = yield* Schema.decode(codec)(text)
+    const encoded = yield* Schema.encodeEffect(schema)(value)
+    const wireSchema = Schema.toEncoded(schema)
+    const codec = Schema.fromJsonString(wireSchema)
+    const text = yield* Schema.encodeEffect(codec)(encoded)
+    const restored = yield* Schema.decodeEffect(codec)(text)
     const equivalent = yield* Effect.try({
-      try: () => Schema.equivalence(wireSchema)(encoded, restored),
+      try: () => Schema.toEquivalence(wireSchema)(encoded, restored),
       catch: () =>
-        new ParseResult.ParseError({
-          issue: new ParseResult.Type(wireSchema.ast, encoded, "Encoded schema equivalence is unavailable")
-        })
+        new Schema.SchemaError(
+          new SchemaIssue.InvalidValue({
+            message: "Encoded schema equivalence is unavailable"
+          }, encoded)
+        )
     })
-    return yield* Schema.decode(Payload)(text).pipe(Effect.filterOrFail(
+    return yield* Schema.decodeEffect(Payload)(text).pipe(Effect.filterOrFail(
       () => equivalent,
       () =>
-        new ParseResult.ParseError({
-          issue: new ParseResult.Type(
-            wireSchema.ast,
-            encoded,
-            "JSON encoding did not preserve encoded schema equivalence"
-          )
-        })
+        new Schema.SchemaError(
+          new SchemaIssue.InvalidValue({
+            message: "JSON encoding did not preserve encoded schema equivalence"
+          }, encoded)
+        )
     ))
   })
 
 /**
  * Restores a document through its domain schema, preserving decoded types,
  * expected parse failures, and schema service requirements. Supply
- * `Schema.encodedSchema(schema)` when inspecting the wire representation.
+ * `Schema.toEncoded(schema)` when inspecting the wire representation.
  * Native parse options control policies such as rejecting excess fields.
  *
  * @since 0.4.0
  * @category decoding
  */
-export const decode = <A, I, R>(
-  schema: Schema.Schema<A, I, R>,
+export const decode = <A, I, RD, RE>(
+  schema: Schema.Codec<A, I, RD, RE>,
   document: Payload,
   options?: SchemaAST.ParseOptions
-): Effect.Effect<A, ParseResult.ParseError, R> => Schema.decode(Schema.parseJson(schema))(document, options)
+): Effect.Effect<A, Schema.SchemaError, RD> => Schema.decodeEffect(Schema.fromJsonString(schema))(document, options)

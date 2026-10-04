@@ -30,7 +30,7 @@ class BetaincState extends Data.Class<{
 
 /** Clamp tiny values away from zero to prevent division overflow. */
 const guard = (value: number): number =>
-  Boolean.match(Number.lessThan(abs(value), minimumPositive), {
+  Boolean.match(Number.isLessThan(abs(value), minimumPositive), {
     onTrue: () => minimumPositive,
     onFalse: () => value
   })
@@ -49,7 +49,7 @@ const betacf = (a: number, b: number, x: number): number => {
   const qap = Number.sum(a, 1)
   const qam = Number.subtract(a, 1)
 
-  const d0 = Number.unsafeDivide(1, guard(Number.subtract(1, Number.unsafeDivide(Number.multiply(qab, x), qap))))
+  const d0 = Number.divideUnsafe(1, guard(Number.subtract(1, Number.divideUnsafe(Number.multiply(qab, x), qap))))
   return betacfLoop(a, b, x, qab, qap, qam, d0, 1, d0, 1)
 }
 
@@ -78,32 +78,33 @@ const betacfLoop = (
     Iterable.unfold(
       initial,
       (state) =>
-        Boolean.match(Boolean.or(state.converged, Number.greaterThan(state.iteration, maxIterations)), {
+        Boolean.match(Boolean.or(state.converged, Number.isGreaterThan(state.iteration, maxIterations)), {
           onTrue: Option.none,
           onFalse: () => {
             const twoM = Number.multiply(2, state.iteration)
-            const numEven = Number.unsafeDivide(
+            const numEven = Number.divideUnsafe(
               Number.multiply(Number.multiply(state.iteration, Number.subtract(b, state.iteration)), x),
               Number.multiply(Number.sum(qam, twoM), Number.sum(a, twoM))
             )
-            const d1 = Number.unsafeDivide(1, guard(Number.sum(1, Number.multiply(numEven, state.d))))
-            const c1 = guard(Number.sum(1, Number.unsafeDivide(numEven, state.c)))
+            const d1 = Number.divideUnsafe(1, guard(Number.sum(1, Number.multiply(numEven, state.d))))
+            const c1 = guard(Number.sum(1, Number.divideUnsafe(numEven, state.c)))
             const h1 = Number.multiply(state.value, Number.multiply(d1, c1))
-            const numOdd = Number.negate(
-              Number.unsafeDivide(
+            const numOdd = Number.multiply(
+              -1,
+              Number.divideUnsafe(
                 Number.multiply(Number.multiply(Number.sum(a, state.iteration), Number.sum(qab, state.iteration)), x),
                 Number.multiply(Number.sum(a, twoM), Number.sum(qap, twoM))
               )
             )
-            const d2 = Number.unsafeDivide(1, guard(Number.sum(1, Number.multiply(numOdd, d1))))
-            const c2 = guard(Number.sum(1, Number.unsafeDivide(numOdd, c1)))
+            const d2 = Number.divideUnsafe(1, guard(Number.sum(1, Number.multiply(numOdd, d1))))
+            const c2 = guard(Number.sum(1, Number.divideUnsafe(numOdd, c1)))
             const delta = Number.multiply(d2, c2)
             const next = new BetaincState({
               value: Number.multiply(h1, delta),
               c: c2,
               d: d2,
               iteration: Number.sum(state.iteration, 1),
-              converged: Number.lessThan(abs(Number.subtract(delta, 1)), epsilon)
+              converged: Number.isLessThan(abs(Number.subtract(delta, 1)), epsilon)
             })
             return Option.some(Tuple.make(next, next))
           }
@@ -131,7 +132,7 @@ export const betainc = (a: number, b: number, x: number): number => {
         onTrue: () => 1,
         onFalse: () =>
           Boolean.match(
-            Number.greaterThan(x, Number.unsafeDivide(Number.sum(a, 1), Number.sum(Number.sum(a, b), 2))),
+            Number.isGreaterThan(x, Number.divideUnsafe(Number.sum(a, 1), Number.sum(Number.sum(a, b), 2))),
             {
               onTrue: () => Number.subtract(1, betainc(b, a, Number.subtract(1, x))),
               onFalse: () => {

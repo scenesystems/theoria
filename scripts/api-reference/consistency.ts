@@ -226,8 +226,7 @@ export const checkApiReferenceConsistency = (
     Arr.flatMap(sources, (page) => sourceDiagnostics(manifest, targets, page)),
     searchIndexDiagnostics(expectedSearch, searchIndex.entries)
   ))
-  return Effect.if(Arr.isNonEmptyReadonlyArray(diagnostics), {
-    onTrue: () => Effect.fail(new ApiReferenceConsistencyError({ diagnostics })),
-    onFalse: () => Effect.succeed(Arr.length(expectedSearch))
-  })
+  return Arr.isReadonlyArrayNonEmpty(diagnostics)
+    ? Effect.fail(new ApiReferenceConsistencyError({ diagnostics }))
+    : Effect.succeed(Arr.length(expectedSearch))
 }

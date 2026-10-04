@@ -11,7 +11,7 @@ const paragraph: GuideBlock = {
 }
 
 const sourcePackage = (directoryName: string, name: string) =>
-  Schema.decodeUnknown(ApiSourcePackage)({
+  Schema.decodeEffect(ApiSourcePackage)({
     directoryName,
     root: "/workspace/packages",
     description: "Package description.",
@@ -51,7 +51,7 @@ describe("documentation guide generation", () => {
 
   it.effect("does not duplicate code already maintained in the package guide", () =>
     Effect.gen(function*() {
-      const code = yield* Schema.decodeUnknown(GuideBlockSchema)({
+      const code = yield* Schema.decodeEffect(GuideBlockSchema)({
         kind: "code",
         language: "ts",
         source: "Effect.succeed(1)"
@@ -72,7 +72,9 @@ describe("documentation guide generation", () => {
         "effect-search",
         "@scenesystems/effect-search"
       )
-      const page = yield* Array.findFirst(generated.pages, (candidate) => String.Equivalence(candidate.title, "API"))
+      const page = yield* Effect.fromOption(
+        Array.findFirst(generated.pages, (candidate) => String.Equivalence(candidate.title, "API"))
+      )
 
       expect(page.blocks).toEqual(Array.of({
         kind: "paragraph",
@@ -87,7 +89,9 @@ describe("documentation guide generation", () => {
         "effect-math",
         "@scenesystems/effect-math"
       )
-      const page = yield* Array.findFirst(generated.pages, (candidate) => String.Equivalence(candidate.title, "API"))
+      const page = yield* Effect.fromOption(
+        Array.findFirst(generated.pages, (candidate) => String.Equivalence(candidate.title, "API"))
+      )
 
       expect(page.blocks).toEqual(Array.of({
         kind: "paragraph",
@@ -105,18 +109,18 @@ describe("documentation guide generation", () => {
         revision: "revision",
         sourcePackage: source
       })
-      const overview = yield* Array.findFirst(
+      const overview = yield* Effect.fromOption(Array.findFirst(
         generated.pages,
         (page) => String.Equivalence(page.title, "@scenesystems/effect-math")
-      )
-      const gettingStarted = yield* Array.findFirst(
+      ))
+      const gettingStarted = yield* Effect.fromOption(Array.findFirst(
         generated.pages,
         (page) => String.Equivalence(page.title, "Getting started")
-      )
-      const examples = yield* Array.findFirst(
+      ))
+      const examples = yield* Effect.fromOption(Array.findFirst(
         generated.pages,
         (page) => String.Equivalence(page.title, "Examples and reference")
-      )
+      ))
 
       expect(Array.map(generated.pages, (page) => page.title)).toEqual(
         Array.make("@scenesystems/effect-math", "Getting started", "Examples and reference")
@@ -209,10 +213,10 @@ describe("documentation guide generation", () => {
         "effect-math",
         "@scenesystems/effect-math"
       )
-      const page = yield* Array.findFirst(
+      const page = yield* Effect.fromOption(Array.findFirst(
         generated.pages,
         (candidate) => String.Equivalence(candidate.title, "Mathematics")
-      )
+      ))
 
       expect(page.blocks).toEqual(Array.make(
         {
@@ -238,10 +242,10 @@ describe("documentation guide generation", () => {
         "effect-math",
         "@scenesystems/effect-math"
       )
-      const page = yield* Array.findFirst(
+      const page = yield* Effect.fromOption(Array.findFirst(
         generated.pages,
         (candidate) => String.Equivalence(candidate.title, "Mathematics")
-      )
+      ))
 
       expect(page.blocks).toEqual(Array.make(
         {

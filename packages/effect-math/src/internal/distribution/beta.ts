@@ -7,7 +7,7 @@
  * @since 0.1.0
  * @category internal
  */
-import { Boolean, Data, Iterable, Match, Number, Option, Schema, Tuple } from "effect"
+import { Boolean, Data, Iterable, Match, Number, Option, Tuple } from "effect"
 
 import { exp, isFinite, log } from "../../Numeric.js"
 import { betainc, digamma, lnGamma } from "../../Special.js"
@@ -19,7 +19,7 @@ class BetaQuantileState extends Data.Class<{
   readonly remaining: number
 }> {}
 
-const isNonNaN = Schema.is(Schema.NonNaN)
+const isNonNaN = (value: number): boolean => Boolean.not(Number.Equivalence(value, NaN))
 
 /**
  * Log of the Beta function B(a,b) = Γ(a)Γ(b)/Γ(a+b).
@@ -45,19 +45,19 @@ export const betaLogNorm = (a: number, b: number): number =>
 export const betaPdf = (x: number, alpha: number, beta: number): number => {
   return Match.value(x).pipe(
     Match.when((value) => Boolean.not(isNonNaN(value)), () => NaN),
-    Match.when(Number.lessThan(0), () => 0),
-    Match.when(Number.greaterThan(1), () => 0),
+    Match.when(Number.isLessThan(0), () => 0),
+    Match.when(Number.isGreaterThan(1), () => 0),
     Match.when((value) => Number.Equivalence(value, 0), () =>
       Match.value(Number.Order(alpha, 1)).pipe(
         Match.when(-1, () => Infinity),
-        Match.when(0, () => exp(Number.negate(betaLogNorm(alpha, beta)))),
+        Match.when(0, () => exp(Number.multiply(-1, betaLogNorm(alpha, beta)))),
         Match.when(1, () => 0),
         Match.exhaustive
       )),
     Match.when((value) => Number.Equivalence(value, 1), () =>
       Match.value(Number.Order(beta, 1)).pipe(
         Match.when(-1, () => Infinity),
-        Match.when(0, () => exp(Number.negate(betaLogNorm(alpha, beta)))),
+        Match.when(0, () => exp(Number.multiply(-1, betaLogNorm(alpha, beta)))),
         Match.when(1, () => 0),
         Match.exhaustive
       )),
@@ -84,19 +84,19 @@ export const betaPdf = (x: number, alpha: number, beta: number): number => {
 export const betaLogpdf = (x: number, alpha: number, beta: number): number => {
   return Match.value(x).pipe(
     Match.when((value) => Boolean.not(isNonNaN(value)), () => NaN),
-    Match.when(Number.lessThan(0), () => -Infinity),
-    Match.when(Number.greaterThan(1), () => -Infinity),
+    Match.when(Number.isLessThan(0), () => -Infinity),
+    Match.when(Number.isGreaterThan(1), () => -Infinity),
     Match.when((value) => Number.Equivalence(value, 0), () =>
       Match.value(Number.Order(alpha, 1)).pipe(
         Match.when(-1, () => Infinity),
-        Match.when(0, () => Number.negate(betaLogNorm(alpha, beta))),
+        Match.when(0, () => Number.multiply(-1, betaLogNorm(alpha, beta))),
         Match.when(1, () => -Infinity),
         Match.exhaustive
       )),
     Match.when((value) => Number.Equivalence(value, 1), () =>
       Match.value(Number.Order(beta, 1)).pipe(
         Match.when(-1, () => Infinity),
-        Match.when(0, () => Number.negate(betaLogNorm(alpha, beta))),
+        Match.when(0, () => Number.multiply(-1, betaLogNorm(alpha, beta))),
         Match.when(1, () => -Infinity),
         Match.exhaustive
       )),
@@ -122,10 +122,10 @@ export const betaCdf = (x: number, alpha: number, beta: number): number => {
   return Boolean.match(isNonNaN(x), {
     onFalse: () => NaN,
     onTrue: () =>
-      Boolean.match(Number.lessThanOrEqualTo(x, 0), {
+      Boolean.match(Number.isLessThanOrEqualTo(x, 0), {
         onTrue: () => 0,
         onFalse: () =>
-          Boolean.match(Number.greaterThanOrEqualTo(x, 1), {
+          Boolean.match(Number.isGreaterThanOrEqualTo(x, 1), {
             onTrue: () => 1,
             onFalse: () => betainc(alpha, beta, x)
           })
@@ -145,7 +145,7 @@ const betaQuantileLoop = (
   beta: number,
   initialX: number
 ): number => {
-  const upperTail = Number.greaterThan(p, 0.5)
+  const upperTail = Number.isGreaterThan(p, 0.5)
   const target = Boolean.match(upperTail, {
     onTrue: () => Number.subtract(1, p),
     onFalse: () => p
@@ -159,7 +159,7 @@ const betaQuantileLoop = (
   return Iterable.reduce(
     Iterable.unfold(initial, (state) => {
       const width = Number.subtract(state.upper, state.lower)
-      const bracketMidpoint = Number.unsafeDivide(Number.sum(state.lower, state.upper), 2)
+      const bracketMidpoint = Number.divideUnsafe(Number.sum(state.lower, state.upper), 2)
       const exhaustedPrecision = Boolean.or(
         Number.Equivalence(bracketMidpoint, state.lower),
         Number.Equivalence(bracketMidpoint, state.upper)
@@ -167,20 +167,20 @@ const betaQuantileLoop = (
       return Boolean.match(
         Boolean.or(
           Number.Equivalence(state.remaining, 0),
-          Boolean.or(Number.lessThanOrEqualTo(width, 5e-324), exhaustedPrecision)
+          Boolean.or(Number.isLessThanOrEqualTo(width, 5e-324), exhaustedPrecision)
         ),
         {
           onTrue: Option.none,
           onFalse: () => {
             const difference = probabilityError(state.x)
-            const below = Number.lessThan(difference, 0)
+            const below = Number.isLessThan(difference, 0)
             const lower = Boolean.match(below, { onTrue: () => state.x, onFalse: () => state.lower })
             const upper = Boolean.match(below, { onTrue: () => state.upper, onFalse: () => state.x })
-            const midpoint = Number.unsafeDivide(Number.sum(lower, upper), 2)
-            const candidate = Number.subtract(state.x, Number.unsafeDivide(difference, betaPdf(state.x, alpha, beta)))
+            const midpoint = Number.divideUnsafe(Number.sum(lower, upper), 2)
+            const candidate = Number.subtract(state.x, Number.divideUnsafe(difference, betaPdf(state.x, alpha, beta)))
             const useCandidate = Boolean.and(
               isFinite(candidate),
-              Boolean.and(Number.greaterThan(candidate, lower), Number.lessThan(candidate, upper))
+              Boolean.and(Number.isGreaterThan(candidate, lower), Number.isLessThan(candidate, upper))
             )
             const next = new BetaQuantileState({
               lower,
@@ -211,17 +211,17 @@ const betaQuantileLoop = (
 export const betaQuantile = (p: number, alpha: number, beta: number): number =>
   Match.value(p).pipe(
     Match.when((value) => Boolean.not(isNonNaN(value)), () => NaN),
-    Match.when(Number.lessThanOrEqualTo(0), () => 0),
-    Match.when(Number.greaterThanOrEqualTo(1), () => 1),
+    Match.when(Number.isLessThanOrEqualTo(0), () => 0),
+    Match.when(Number.isGreaterThanOrEqualTo(1), () => 1),
     Match.orElse((p) => {
-      const upperTail = Number.greaterThan(p, 0.5)
+      const upperTail = Number.isGreaterThan(p, 0.5)
       const tailProbability = Boolean.match(upperTail, {
         onTrue: () => Number.subtract(1, p),
         onFalse: () => p
       })
       const tailShape = Boolean.match(upperTail, { onTrue: () => beta, onFalse: () => alpha })
       const oppositeShape = Boolean.match(upperTail, { onTrue: () => alpha, onFalse: () => beta })
-      const distance = exp(Number.unsafeDivide(
+      const distance = exp(Number.divideUnsafe(
         Number.sum(
           Number.sum(log(tailProbability), log(tailShape)),
           betaLogNorm(tailShape, oppositeShape)
@@ -232,10 +232,10 @@ export const betaQuantile = (p: number, alpha: number, beta: number): number =>
         onTrue: () => Number.subtract(1, distance),
         onFalse: () => distance
       })
-      const interior = Boolean.and(Number.greaterThan(estimate, 0), Number.lessThan(estimate, 1))
+      const interior = Boolean.and(Number.isGreaterThan(estimate, 0), Number.isLessThan(estimate, 1))
       const initial = Boolean.match(interior, {
         onTrue: () => estimate,
-        onFalse: () => Number.unsafeDivide(alpha, Number.sum(alpha, beta))
+        onFalse: () => Number.divideUnsafe(alpha, Number.sum(alpha, beta))
       })
       // An underflowed tail distance already rounds to its support endpoint.
       return Boolean.match(Number.Equivalence(distance, 0), {
@@ -251,7 +251,7 @@ export const betaQuantile = (p: number, alpha: number, beta: number): number =>
  * @since 0.1.0
  * @category internal
  */
-export const betaMean = (alpha: number, beta: number): number => Number.unsafeDivide(alpha, Number.sum(alpha, beta))
+export const betaMean = (alpha: number, beta: number): number => Number.divideUnsafe(alpha, Number.sum(alpha, beta))
 
 /**
  * Beta variance: αβ / ((α+β)²(α+β+1)).
@@ -261,7 +261,7 @@ export const betaMean = (alpha: number, beta: number): number => Number.unsafeDi
  */
 export const betaVariance = (alpha: number, beta: number): number => {
   const ab = Number.sum(alpha, beta)
-  return Number.unsafeDivide(
+  return Number.divideUnsafe(
     Number.multiply(alpha, beta),
     Number.multiply(Number.multiply(ab, ab), Number.sum(ab, 1))
   )

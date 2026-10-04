@@ -4,7 +4,7 @@
  *
  * Run with `bun run packages/effect-text/examples/06-synthetic-regression-artifacts.ts`.
  */
-import { BunContext, BunRuntime } from "@effect/platform-bun"
+import { BunRuntime, BunServices } from "@effect/platform-bun"
 import { Data, Effect } from "effect"
 import * as Arr from "effect/Array"
 
@@ -29,6 +29,6 @@ const renderProfile = (profile: CanvasProfile.CanvasProfile) =>
 const program = Effect.gen(function*() {
   const reports = yield* Effect.forEach(Arr.make(CanvasProfile.monospace, CanvasProfile.systemUi), renderProfile)
   yield* Effect.log("effect-text synthetic regression results", { reports })
-}).pipe(Effect.provide(BunContext.layer))
+}).pipe(Effect.provide(BunServices.layer))
 
 BunRuntime.runMain(program)

@@ -45,7 +45,7 @@ const asDistanceInput = (value: Option.Option<unknown>): number =>
   })
 
 const absoluteDistance = (left: unknown, right: unknown): number =>
-  Numeric.abs(Num.subtract(asDistanceInput(Option.fromNullable(left)), asDistanceInput(Option.fromNullable(right))))
+  Numeric.abs(Num.subtract(asDistanceInput(Option.fromNullishOr(left)), asDistanceInput(Option.fromNullishOr(right))))
 
 describe("fixture-backed parity", () => {
   it.effect("replays categorical parzen probabilities, kernel weights, and candidate rolls", () =>
@@ -53,7 +53,7 @@ describe("fixture-backed parity", () => {
       const loaded = yield* loadAllFixtures("categorical-parzen.").pipe(Effect.provide(FixtureRegistryLive))
       const fixtures = yield* Effect.forEach(
         loaded,
-        (entry) => Schema.decodeUnknown(CategoricalParzenFixture)(entry)
+        (entry) => Schema.decodeUnknownEffect(CategoricalParzenFixture)(entry)
       )
 
       yield* Effect.forEach(
@@ -96,7 +96,7 @@ describe("fixture-backed parity", () => {
               fixture.payload.expected.kernels,
               (expectedKernel, kernelIndex) =>
                 Effect.gen(function*() {
-                  const actualKernel = yield* Arr.get(parzen.kernels, kernelIndex)
+                  const actualKernel = Option.getOrThrow(Arr.get(parzen.kernels, kernelIndex))
 
                   yield* Effect.forEach(
                     expectedKernel,
@@ -131,7 +131,7 @@ describe("fixture-backed parity", () => {
   it.effect("replays EI score traces and deterministic argmax selection", () =>
     Effect.gen(function*() {
       const loaded = yield* loadAllFixtures("ei.").pipe(Effect.provide(FixtureRegistryLive))
-      const fixtures = yield* Effect.forEach(loaded, (entry) => Schema.decodeUnknown(EiCategoricalFixture)(entry))
+      const fixtures = yield* Effect.forEach(loaded, (entry) => Schema.decodeUnknownEffect(EiCategoricalFixture)(entry))
 
       yield* Effect.forEach(
         fixtures,
@@ -161,7 +161,7 @@ describe("fixture-backed parity", () => {
   it.effect("replays continuous KDE kernels, log-density traces, and sample rolls", () =>
     Effect.gen(function*() {
       const loaded = yield* loadAllFixtures("continuous-kde.").pipe(Effect.provide(FixtureRegistryLive))
-      const fixtures = yield* Effect.forEach(loaded, (entry) => Schema.decodeUnknown(ContinuousKdeFixture)(entry))
+      const fixtures = yield* Effect.forEach(loaded, (entry) => Schema.decodeUnknownEffect(ContinuousKdeFixture)(entry))
 
       yield* Effect.forEach(
         fixtures,
@@ -178,7 +178,7 @@ describe("fixture-backed parity", () => {
               fixture.payload.expected.kernels,
               (expectedKernel, kernelIndex) =>
                 Effect.gen(function*() {
-                  const actualKernel = yield* Arr.get(parzen.kernels, kernelIndex)
+                  const actualKernel = Option.getOrThrow(Arr.get(parzen.kernels, kernelIndex))
 
                   expectWithinTolerance(actualKernel.mean, expectedKernel.mean, SCORE_TOLERANCE)
                   expectWithinTolerance(actualKernel.sigma, expectedKernel.sigma, SIGMA_TOLERANCE)

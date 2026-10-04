@@ -15,7 +15,7 @@ import type * as Text from "./Text.js"
  * @since 0.5.0
  * @category schemas
  */
-export const Revision = Schema.Number.pipe(Schema.int(), Schema.greaterThanOrEqualTo(0))
+export const Revision = Schema.Int.check(Schema.isGreaterThanOrEqualTo(0))
 
 /**
  * A font-readiness generation.
@@ -54,22 +54,26 @@ export class Options extends Data.Class<{
   readonly fontReadinessRevision: Revision
 }> {}
 
+class FontKey extends Data.Class<Text.Font> {}
+class InputKey extends Data.Class<Text.Input> {}
+class ProfileKey extends Data.Class<Text.Profile> {}
+
 /**
  * Structural cache identity for one preparation input and its environment.
  *
  * @remarks
  * Equal keys hash alike and can be used directly in `HashMap`. Omitted font
  * weight remains distinct from explicit weight `400`. Construction captures
- * nested inputs with `Data.struct`; callers need not pre-normalize them.
+ * nested inputs with structural `Data.Class` values; callers need not pre-normalize them.
  *
  * @since 0.5.0
  * @category models
  */
-export class PreparationKey extends Data.Class<Options> {
+export class PreparationKey extends Data.Class<ConstructorParameters<typeof Options>[0]> {
   constructor(options: Options) {
     super({
-      prepare: Data.struct({ ...options.prepare, font: Data.struct(options.prepare.font) }),
-      engineProfile: Data.struct(options.engineProfile),
+      prepare: new InputKey({ ...options.prepare, font: new FontKey(options.prepare.font) }),
+      engineProfile: new ProfileKey(options.engineProfile),
       supportProfileId: options.supportProfileId,
       fontReadinessRevision: options.fontReadinessRevision
     })

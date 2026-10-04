@@ -5,7 +5,8 @@
  * @category internal
  * @internal
  */
-import { Array as Arr, Boolean, Data, Effect, Number, Option, Ref, Schema, String } from "effect"
+import { Array as Arr, Boolean, Data, Effect, Equivalence, Number, Option, Ref, Schema, String } from "effect"
+import type { Semaphore } from "effect"
 import type { Result } from "../../../Metric.js"
 import type { Module } from "../../../Module.js"
 import type { RefineOptions } from "../../../Module.js"
@@ -17,6 +18,16 @@ class RefineLoopState<O> extends Data.Class<{
   readonly bestScore: number
   readonly feedbackAccumulator: string
 }> {}
+
+const iterateEffect = <A, E, R>(
+  state: A,
+  predicate: (state: A) => boolean,
+  body: (state: A) => Effect.Effect<A, E, R>
+): Effect.Effect<A, E, R> =>
+  Boolean.match(predicate(state), {
+    onFalse: () => Effect.succeed(state),
+    onTrue: () => Effect.flatMap(body(state), (next) => Effect.suspend(() => iterateEffect(next, predicate, body)))
+  })
 
 const appendFeedback = (
   params: ModuleParameters,
@@ -45,24 +56,30 @@ export const makeRefineForward = <
   RewardR
 >(
   options: RefineOptions<I, O, ModuleE, ModuleR, RewardE, RewardR>,
-  forwardLock: Effect.Semaphore
+  forwardLock: Semaphore.Semaphore
 ): Module<I, O, ModuleE | RewardE, ModuleR | RewardR>["forward"] => {
   type Output = Schema.Schema.Type<Schema.Struct<O>>
 
   const meetsThreshold = (score: number) =>
-    Boolean.match(Boolean.and(Schema.is(Schema.NonNaN)(score), Schema.is(Schema.NonNaN)(options.threshold)), {
-      onTrue: () => Number.greaterThanOrEqualTo(score, options.threshold),
-      onFalse: () => false
-    })
+    Boolean.match(
+      Boolean.and(
+        Equivalence.strictEqual<number>()(score, score),
+        Equivalence.strictEqual<number>()(options.threshold, options.threshold)
+      ),
+      {
+        onTrue: () => Number.isGreaterThanOrEqualTo(score, options.threshold),
+        onFalse: () => false
+      }
+    )
 
   const encodeNumber = (value: number) =>
     Option.getOrElse(
-      Schema.encodeOption(Schema.NumberFromString)(value),
+      Schema.encodeOption(Schema.FiniteFromString)(value),
       () => "NaN"
     )
 
   const attemptFeedback = (attempt: number, result: Result) =>
-    Option.match(Option.fromNullable(result.feedback), {
+    Option.match(Option.fromNullishOr(result.feedback), {
       onSome: (feedback) =>
         Arr.join(
           Arr.make(
@@ -97,7 +114,7 @@ export const makeRefineForward = <
         onFalse: () => feedbackText
       })
 
-      yield* Effect.if(Boolean.not(meetsThreshold(bestScore)), {
+      yield* Boolean.match(Boolean.not(meetsThreshold(bestScore)), {
         onTrue: () =>
           Ref.update(
             options.module.params,
@@ -130,21 +147,22 @@ export const makeRefineForward = <
               feedbackAccumulator: firstFeedback
             })
 
-            const finalState = yield* Effect.iterate(seeded, {
-              while: (state) =>
+            const finalState = yield* iterateEffect(
+              seeded,
+              (state) =>
                 Boolean.and(
-                  Number.lessThan(state.attempt, options.N),
+                  Number.isLessThan(state.attempt, options.N),
                   Boolean.not(meetsThreshold(state.bestScore))
                 ),
-              body: (state) =>
+              (state) =>
                 Effect.gen(function*() {
                   const output = yield* options.module.forward(input)
                   const result = yield* options.reward(input, output)
 
-                  const newBest = Boolean.match(Schema.is(Schema.NonNaN)(result.score), {
+                  const newBest = Boolean.match(Equivalence.strictEqual<number>()(result.score, result.score), {
                     onTrue: () =>
-                      Boolean.match(Schema.is(Schema.NonNaN)(state.bestScore), {
-                        onTrue: () => Number.greaterThan(result.score, state.bestScore),
+                      Boolean.match(Equivalence.strictEqual<number>()(state.bestScore, state.bestScore), {
+                        onTrue: () => Number.isGreaterThan(result.score, state.bestScore),
                         onFalse: () => true
                       }),
                     onFalse: () => false
@@ -171,7 +189,7 @@ export const makeRefineForward = <
                     feedbackAccumulator: nextFeedback
                   })
                 })
-            })
+            )
 
             return finalState.bestOutput
           }),

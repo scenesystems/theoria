@@ -21,10 +21,10 @@ export class ObjectiveAttempt extends Schema.Class<ObjectiveAttempt>(
   "@scenesystems/effect-search/internal/optimization/runtime/trialEvaluation/outcome/ObjectiveAttempt"
 )({
   value: Value,
-  retryCount: Schema.Number,
-  evaluationCount: Schema.Number,
-  cost: Schema.optional(Schema.Number),
-  variance: Schema.optional(Schema.Number)
+  retryCount: Schema.Finite,
+  evaluationCount: Schema.Finite,
+  cost: Schema.optional(Schema.Finite),
+  variance: Schema.optional(Schema.Finite)
 }) {}
 
 /**
@@ -37,8 +37,8 @@ export class ObjectiveSample extends Schema.Class<ObjectiveSample>(
   "@scenesystems/effect-search/internal/optimization/runtime/trialEvaluation/outcome/ObjectiveSample"
 )({
   value: Value,
-  retryCount: Schema.Number,
-  cost: Schema.optional(Schema.Number)
+  retryCount: Schema.Finite,
+  cost: Schema.optional(Schema.Finite)
 }) {}
 
 /**
@@ -51,10 +51,10 @@ export type CacheResolve = Service["resolve"]
  * @since 0.1.0
  * @category type-level
  */
-export type CacheResolveForTrial<SpaceSchema extends Schema.Schema.AnyNoContext> = <R>(
+export type CacheResolveForTrial<SpaceSchema extends Schema.Constraint> = <R>(
   request: Request<
-    Schema.Schema.Type<SpaceSchema>,
-    Schema.Schema.Encoded<SpaceSchema>,
+    SpaceSchema["Type"],
+    SpaceSchema["Encoded"],
     TrialError | Journal.Failure,
     R
   >

@@ -1,27 +1,30 @@
 // @vitest-environment node
-import { Path, Url } from "@effect/platform"
-import { BunContext } from "@effect/platform-bun"
+import { BunServices } from "@effect/platform-bun"
 import { expect, it } from "@effect/vitest"
-import { Effect, Option } from "effect"
+import { Effect, Option, Path, Schema } from "effect"
 import * as Arr from "effect/Array"
-import { type Unstable_Config, unstable_readConfig } from "wrangler"
+import { Url } from "effect/http"
+import { unstable_readConfig } from "wrangler"
 
 const projectRoot: Effect.Effect<string, never, Path.Path> = Effect.gen(function*() {
   const path = yield* Path.Path
-  return yield* path.fromFileUrl(yield* Url.fromString("../../", import.meta.url))
+  return yield* path.fromFileUrl(yield* Effect.fromResult(Url.fromString("../../", import.meta.url)))
 }).pipe(Effect.orDie)
 
+const RateLimitConfig = Schema.Struct({
+  ratelimits: Schema.Array(Schema.Struct({ name: Schema.String, namespace_id: Schema.String }))
+})
+
 /** Loads `wrangler.jsonc` through Wrangler itself so environment inheritance matches deploy time. */
-const readConfig = (env: Option.Option<string>): Effect.Effect<Unstable_Config> =>
+const readConfig = (env: Option.Option<string>) =>
   projectRoot.pipe(
-    Effect.map((projectRoot) =>
-      Option.match(env, {
-        onNone: () => unstable_readConfig({ config: `${projectRoot}/wrangler.jsonc` }, { hideWarnings: true }),
-        onSome: (name) =>
-          unstable_readConfig({ config: `${projectRoot}/wrangler.jsonc`, env: name }, { hideWarnings: true })
-      })
+    Effect.flatMap((projectRoot) =>
+      Schema.decodeUnknownEffect(RateLimitConfig)(unstable_readConfig({
+        config: `${projectRoot}/wrangler.jsonc`,
+        ...Option.match(env, { onNone: () => ({}), onSome: (env) => ({ env }) })
+      }, { hideWarnings: true }))
     ),
-    Effect.provide(BunContext.layer)
+    Effect.provide(BunServices.layer)
   )
 
 const production = readConfig(Option.none())

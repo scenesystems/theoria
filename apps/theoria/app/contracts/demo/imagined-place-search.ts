@@ -1,4 +1,5 @@
 import { Schema } from "effect"
+import { Rpc, RpcGroup } from "effect/rpc"
 
 /**
  * The arrangement search as driven from another thread. The sampler (TPE,
@@ -18,12 +19,12 @@ import { Schema } from "effect"
  * All values are fractions of the stage width.
  */
 export const Meander = Schema.Struct({
-  edge: Schema.Number,
-  swing: Schema.Number,
-  phase: Schema.Number,
-  turns: Schema.Number,
-  top: Schema.Number,
-  step: Schema.Number
+  edge: Schema.Finite,
+  swing: Schema.Finite,
+  phase: Schema.Finite,
+  turns: Schema.Finite,
+  top: Schema.Finite,
+  step: Schema.Finite
 })
 export type Meander = typeof Meander.Type
 
@@ -37,7 +38,7 @@ export const renderSeed = 42
 export const renderTrials = 36
 
 /** One open search on the worker, of possibly several: a new one for every artifact and every stage width. */
-export const PlaceSearchId = Schema.Number.pipe(
+export const PlaceSearchId = Schema.Int.pipe(
   Schema.brand("@theoria/app/contracts/demo/ImaginedPlaceSearch/PlaceSearchId")
 )
 
@@ -51,10 +52,8 @@ export class PlaceSearchFailed extends Schema.TaggedError<PlaceSearchFailed>(
 }) {}
 
 /** Opens a search with the render sampler, seed and trial budget the server uses, and names it. */
-export class OpenSearch extends Schema.TaggedRequest<OpenSearch>(
-  "@theoria/app/contracts/demo/ImaginedPlaceSearch/OpenSearch"
-)("OpenSearch", {
-  failure: PlaceSearchFailed,
+export class OpenSearch extends Rpc.make("OpenSearch", {
+  error: PlaceSearchFailed,
   success: PlaceSearchId,
   payload: {}
 }) {}
@@ -62,38 +61,32 @@ export class OpenSearch extends Schema.TaggedRequest<OpenSearch>(
 /** A meander the search proposes, and the trial it is, so its loss can be told back. */
 export class AskedMeander
   extends Schema.Class<AskedMeander>("@theoria/app/contracts/demo/ImaginedPlaceSearch/AskedMeander")({
-    trial: Schema.Number,
+    trial: Schema.Int,
     meander: Meander
   })
 {}
 
 /** Asks the search for its next meander to try. */
-export class AskSearch extends Schema.TaggedRequest<AskSearch>(
-  "@theoria/app/contracts/demo/ImaginedPlaceSearch/AskSearch"
-)("AskSearch", {
-  failure: PlaceSearchFailed,
+export class AskSearch extends Rpc.make("AskSearch", {
+  error: PlaceSearchFailed,
   success: AskedMeander,
   payload: { search: PlaceSearchId }
 }) {}
 
 /** Tells the search what a trial scored. */
-export class TellSearch extends Schema.TaggedRequest<TellSearch>(
-  "@theoria/app/contracts/demo/ImaginedPlaceSearch/TellSearch"
-)("TellSearch", {
-  failure: PlaceSearchFailed,
+export class TellSearch extends Rpc.make("TellSearch", {
+  error: PlaceSearchFailed,
   success: Schema.Void,
-  payload: { search: PlaceSearchId, trial: Schema.Number, loss: Schema.Number }
+  payload: { search: PlaceSearchId, trial: Schema.Int, loss: Schema.Finite }
 }) {}
 
 /** Closes a search, letting the worker forget it. */
-export class CloseSearch extends Schema.TaggedRequest<CloseSearch>(
-  "@theoria/app/contracts/demo/ImaginedPlaceSearch/CloseSearch"
-)("CloseSearch", {
-  failure: PlaceSearchFailed,
+export class CloseSearch extends Rpc.make("CloseSearch", {
+  error: PlaceSearchFailed,
   success: Schema.Void,
   payload: { search: PlaceSearchId }
 }) {}
 
-export const PlaceSearchRequest = Schema.Union(OpenSearch, AskSearch, TellSearch, CloseSearch)
+export const PlaceSearchRequest = RpcGroup.make(OpenSearch, AskSearch, TellSearch, CloseSearch)
 
-export type PlaceSearchRequest = typeof PlaceSearchRequest.Type
+export type PlaceSearchRequest = RpcGroup.Rpcs<typeof PlaceSearchRequest>

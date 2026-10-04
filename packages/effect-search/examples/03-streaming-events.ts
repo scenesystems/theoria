@@ -5,7 +5,7 @@
  * Run: bun run examples/03-streaming-events.ts
  */
 import { BunRuntime } from "@effect/platform-bun"
-import { Array as Arr, Chunk, Effect, Number as Num, Option, Stream } from "effect"
+import { Array as Arr, Effect, Number as Num, Option, Stream } from "effect"
 
 import * as Numeric from "@scenesystems/effect-math/Numeric"
 import { Optimization, OptimizationEvent, Progress, Sampler, SearchSpace } from "@scenesystems/effect-search"
@@ -26,16 +26,17 @@ const program = Effect.gen(function*() {
 
   yield* Effect.log("Starting stream run with terminal progress")
 
-  const optimizeEvents = yield* Optimization.stream({
-    space,
-    sampler: Sampler.tpe({ seed: 99 }),
-    objective,
-    direction: "minimize",
-    trials: 12
-  }).pipe(
+  const optimizeEvents = yield* Optimization.stream(
+    new Optimization.FlatOptions({
+      space,
+      sampler: Sampler.tpe(new Sampler.TpeOptions({ seed: 99 })),
+      objective,
+      direction: "minimize",
+      trials: 12
+    })
+  ).pipe(
     Progress.tap(),
-    Stream.runCollect,
-    Effect.map(Chunk.toReadonlyArray)
+    Stream.runCollect
   )
 
   const optimizeCompleted = Arr.length(Arr.filter(optimizeEvents, OptimizationEvent.is("TrialCompleted")))
@@ -43,25 +44,28 @@ const program = Effect.gen(function*() {
 
   yield* Effect.log("Preparing snapshot for resumeStream terminal progress demo")
 
-  const baseline = yield* Optimization.minimize({
-    space,
-    sampler: Sampler.random({ seed: 90210 }),
-    objective,
-    trials: 6
-  })
+  const baseline = yield* Optimization.minimize(
+    new Optimization.FlatOptions({
+      space,
+      sampler: Sampler.random({ seed: 90210 }),
+      objective,
+      trials: 6
+    })
+  )
   const snapshot = yield* Optimization.snapshot(baseline)
 
-  const resumeEvents = yield* Optimization.resumeStream({
-    space,
-    sampler: Sampler.random({ seed: 90210 }),
-    snapshot,
-    direction: "minimize",
-    trials: 4,
-    objective
-  }).pipe(
+  const resumeEvents = yield* Optimization.resumeStream(
+    new Optimization.ResumeOptions({
+      space,
+      sampler: Sampler.random({ seed: 90210 }),
+      snapshot,
+      direction: "minimize",
+      trials: 4,
+      objective
+    })
+  ).pipe(
     Progress.tap(),
-    Stream.runCollect,
-    Effect.map(Chunk.toReadonlyArray)
+    Stream.runCollect
   )
 
   const resumeCompleted = Arr.length(Arr.filter(resumeEvents, OptimizationEvent.is("TrialCompleted")))

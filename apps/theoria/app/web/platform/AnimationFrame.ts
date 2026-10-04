@@ -9,7 +9,7 @@ import { cancelFrame, frame } from "motion"
  *
  * @since 0.2.0
  */
-export const nextFrame: Effect.Effect<void> = Effect.async<void>((resume) => {
+export const nextFrame: Effect.Effect<void> = Effect.callback<void>((resume) => {
   const process = frame.read(() => {
     resume(Effect.void)
   })
@@ -27,4 +27,4 @@ export const nextFrame: Effect.Effect<void> = Effect.async<void>((resume) => {
  *
  * @since 0.3.0
  */
-export const frames: Stream.Stream<void> = Stream.repeatEffect(nextFrame)
+export const frames: Stream.Stream<void> = Stream.forever(Stream.fromEffect(nextFrame))

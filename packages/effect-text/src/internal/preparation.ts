@@ -3,8 +3,7 @@
  *
  * @since 0.1.0
  */
-import { Boolean, Chunk, Data, Effect, Match, Number, Option, Schema, String, Tuple } from "effect"
-import type { Context } from "effect"
+import { Boolean, Chunk, Data, Effect, Match, Number, Option, Result, Schema, String, Tuple } from "effect"
 import * as Arr from "effect/Array"
 
 import type * as Hyphenation from "../Hyphenation.js"
@@ -36,7 +35,7 @@ import * as Prepared from "./prepared.js"
 type Measure = (text: string) => Effect.Effect<number, TextMeasurer.Failed>
 type HyphenateWord = (word: string) => Effect.Effect<Hyphenation.BreakPoints>
 
-const WhitespaceSegmentKind = Prepared.SegmentKind.pipe(Schema.pickLiteral("space", "tab"))
+const WhitespaceSegmentKind = Schema.Literals(["space", "tab"])
 type WhitespaceSegmentKind = typeof WhitespaceSegmentKind.Type
 type HyphenatedPieces = Chunk.Chunk<HyphenatedPiece>
 type StringValues = Chunk.Chunk<string>
@@ -79,7 +78,7 @@ class PreparedSegmentsCompilation extends Data.Class<{
 
 const isZeroWidthControlText = (text: string): boolean =>
   Boolean.or(String.Equivalence(text, zeroWidthSpace), String.Equivalence(text, wordJoiner))
-const isHyphenatableText = Schema.is(Schema.String.pipe(Schema.pattern(/^[\p{Letter}\p{Mark}\u200c\u200d]+$/u)))
+const isHyphenatableText = Schema.is(Schema.String.check(Schema.isPattern(/^[\p{Letter}\p{Mark}\u200c\u200d]+$/u)))
 
 const lastWidthOrElse = (values: WidthValues, fallback: number): number =>
   Chunk.last(values).pipe(Option.getOrElse(() => fallback))
@@ -90,13 +89,13 @@ const valueAtOrZero = (values: WidthValues, index: number): number =>
 const widthFromPrefixMeasurements = (measuredWidths: WidthValues, index: number): number =>
   Number.subtract(valueAtOrZero(measuredWidths, index), valueAtOrZero(measuredWidths, Number.decrement(index)))
 
-const prefixWidthsFor = (widths: WidthValues): WidthValues =>
-  Tuple.getSecond(
-    Chunk.mapAccum(widths, 0, (total, width) => {
-      const next = Number.sum(total, width)
-      return Tuple.make(next, next)
-    })
-  )
+const prefixWidthsFor = (widths: WidthValues): WidthValues => {
+  const accumulated = Chunk.mapAccum(widths, 0, (total, width) => {
+    const next = Number.sum(total, width)
+    return Tuple.make(next, next)
+  })
+  return Tuple.get(accumulated, 1)
+}
 
 const resolvedTextDirection = (
   direction: TextDirection,
@@ -235,13 +234,13 @@ const makeHardBreakSegment = (baseDirection: Text.Direction): Prepared.Segment =
     mirroredGraphemes: Chunk.empty()
   })
 
-const cumulativeTexts = (parts: StringValues): StringValues =>
-  Tuple.getSecond(
-    Chunk.mapAccum<string, string, string>(parts, String.empty, (prefix, part) => {
-      const next = String.concat(prefix, part)
-      return Tuple.make(next, next)
-    })
-  )
+const cumulativeTexts = (parts: StringValues): StringValues => {
+  const accumulated = Chunk.mapAccum(parts, String.empty, (prefix: string, part) => {
+    const next = String.concat(prefix, part)
+    return Tuple.make(next, next)
+  })
+  return Tuple.get(accumulated, 1)
+}
 
 const hyphenationRuns = (text: string): HyphenationRuns =>
   Arr.match(graphemeClusters(text), {
@@ -374,7 +373,7 @@ const prepareTextSegment = (
 
     const pieceTexts = Chunk.map(pieces, (piece) => piece.text)
     const useCumulativeMeasurements = Boolean.and(
-      Number.greaterThan(pieces.length, 1),
+      Number.isGreaterThan(pieces.length, 1),
       context.engineProfile.preferPrefixWidthsForBreakableRuns
     )
     const fitMeasurementTexts = Boolean.match(useCumulativeMeasurements, {
@@ -491,11 +490,11 @@ const lineChunksFor = (segments: Prepared.Segments): Prepared.LineChunks => {
     segments,
     (segment, index) =>
       Match.value(segment.kind).pipe(
-        Match.withReturnType<Option.Option<number>>(),
-        Match.when("hard-break", () => Option.some(index)),
-        Match.when("text", () => Option.none()),
-        Match.when("space", () => Option.none()),
-        Match.when("tab", () => Option.none()),
+        Match.withReturnType<Result.Result<number, string>>(),
+        Match.when("hard-break", () => Result.succeed(index)),
+        Match.when("text", () => Result.fail("text")),
+        Match.when("space", () => Result.fail("space")),
+        Match.when("tab", () => Result.fail("tab")),
         Match.exhaustive
       )
   )
@@ -625,21 +624,21 @@ export const prepareSegments = (
 /** Acquires measurements and compiles the complete prepared handle state. */
 export const compile = (
   input: Text.Input,
-  segmenter: Context.Tag.Service<typeof Text.Segmenter>,
-  cache: Context.Tag.Service<typeof MeasurementCache.MeasurementCache>,
+  segmenter: (typeof Text.Segmenter)["Service"],
+  cache: (typeof MeasurementCache.MeasurementCache)["Service"],
   profile: Text.Profile,
-  hyphenationOption: Option.Option<Context.Tag.Service<typeof Hyphenation.Hyphenation>>
+  hyphenationOption: Option.Option<(typeof Hyphenation.Hyphenation)["Service"]>
 ): Effect.Effect<Prepared.Compilation, TextMeasurer.Failed> =>
   Effect.gen(function*() {
     const normalizedFont: Text.Font = {
       ...input.font,
-      weight: Option.fromNullable(input.font.weight).pipe(Option.getOrElse(() => 400))
+      weight: Option.fromNullishOr(input.font.weight).pipe(Option.getOrElse(() => 400))
     }
-    const localeOption = Option.fromNullable(input.hyphenationLocale).pipe(Option.map(normalizeLocale))
+    const localeOption = Option.fromNullishOr(input.hyphenationLocale).pipe(Option.map(normalizeLocale))
     const hyphenationActive = yield* Option.match(Option.product(hyphenationOption, localeOption), {
       onNone: () => Effect.succeed(false),
       onSome: ([hyphenation, locale]) =>
-        Option.fromNullable(hyphenation.supportsLocale).pipe(Option.match({
+        Option.fromNullishOr(hyphenation.supportsLocale).pipe(Option.match({
           onNone: () => Effect.succeed(true),
           onSome: (supportsLocale) => supportsLocale(locale)
         }))

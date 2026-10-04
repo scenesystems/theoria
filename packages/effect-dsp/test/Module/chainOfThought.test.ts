@@ -1,14 +1,17 @@
 /**
  * Module.chainOfThought contracts.
  */
-import * as LanguageModel from "@effect/ai/LanguageModel"
-import { describe, expect, it } from "@effect/vitest"
+import { describe, expect, expectTypeOf, it } from "@effect/vitest"
 import { Demonstration } from "@scenesystems/effect-dsp/Demonstration"
 import * as MockLanguageModel from "@scenesystems/effect-dsp/MockLanguageModel"
 import * as Module from "@scenesystems/effect-dsp/Module"
 import { ModuleParameters } from "@scenesystems/effect-dsp/ModuleParameters"
 import * as Signature from "@scenesystems/effect-dsp/Signature"
-import { Effect, Layer, Record, Ref, Schema } from "effect"
+import { Context, Effect, Number, Record, Ref, Schema, SchemaGetter } from "effect"
+import * as LanguageModel from "effect/ai/LanguageModel"
+
+class DecodeOffset extends Context.Service<DecodeOffset, number>()("chainOfThought/DecodeOffset") {}
+class EncodeOffset extends Context.Service<EncodeOffset, number>()("chainOfThought/EncodeOffset") {}
 
 const makeQaSignature = () =>
   Signature.make(
@@ -22,6 +25,59 @@ const makeQaSignature = () =>
   )
 
 describe("Module.chainOfThought", () => {
+  it.effect("retains independent codec service channels and optional defaulted fields", () =>
+    Effect.gen(function*() {
+      const count = Schema.Finite.pipe(Schema.decodeTo(Schema.Finite, {
+        decode: SchemaGetter.transformEffect((value) =>
+          Effect.map(DecodeOffset, (offset) => Number.sum(value, offset))
+        ),
+        encode: SchemaGetter.transformEffect((value) =>
+          Effect.map(EncodeOffset, (offset) => Number.subtract(value, offset))
+        )
+      }))
+      const signature = yield* Signature.fromSchemas(
+        "Count",
+        Schema.Struct({ question: Schema.String }),
+        Schema.Struct({
+          count,
+          label: Schema.String.pipe(Schema.withDecodingDefaultKey(Effect.succeed("default")))
+        }).pipe(Schema.encodeKeys({ count: "total" }))
+      )
+      const cot = yield* Module.chainOfThought("service-cot", signature)
+      const decode = Schema.decodeEffect(cot.signature.outputSchema)({ reasoning: "Counted", total: 3 })
+      expectTypeOf(decode).toEqualTypeOf<
+        Effect.Effect<
+          { readonly reasoning: string; readonly count: number; readonly label: string },
+          Schema.SchemaError,
+          DecodeOffset
+        >
+      >()
+      const result = yield* decode.pipe(Effect.provideService(DecodeOffset, 7))
+      const encode = Schema.encodeEffect(cot.signature.outputSchema)(result)
+      expectTypeOf<Effect.Services<typeof encode>>().toEqualTypeOf<EncodeOffset>()
+      const wire = yield* encode.pipe(Effect.provideService(EncodeOffset, 2))
+      expect(result).toEqual({ reasoning: "Counted", count: 10, label: "default" })
+      expect(wire).toEqual({ reasoning: "Counted", total: 8, label: "default" })
+    }))
+
+  it.effect("preserves renamed input and output codecs when adding reasoning", () =>
+    Effect.gen(function*() {
+      const signature = yield* Signature.fromSchemas(
+        "Count a question",
+        Schema.Struct({ question: Schema.String }).pipe(Schema.encodeKeys({ question: "prompt" })),
+        Schema.Struct({ count: Schema.FiniteFromString }).pipe(Schema.encodeKeys({ count: "total" }))
+      )
+      const cot = yield* Module.chainOfThought("renamed-cot", signature)
+      const encodedInput = yield* Schema.encodeEffect(cot.signature.inputSchema)({ question: "Three?" })
+      const output = yield* Schema.decodeEffect(cot.signature.outputSchema)({ reasoning: "Counted", total: "3" })
+      const encodedOutput = yield* Schema.encodeEffect(cot.signature.outputSchema)(output)
+      expect(encodedInput).toEqual({ prompt: "Three?" })
+      expect(output).toEqual({ reasoning: "Counted", count: 3 })
+      expect(encodedOutput).toEqual({ reasoning: "Counted", total: "3" })
+      expect(cot.signature.instructions).toContain("prompt")
+      expect(cot.signature.instructions).toContain("total")
+    }))
+
   it.effect("extends the output contract with reasoning and preserves structured predict runtime behavior", () =>
     Effect.gen(function*() {
       const qa = yield* makeQaSignature()
@@ -36,7 +92,7 @@ describe("Module.chainOfThought", () => {
       const result = yield* cot.forward({
         question: "What is the capital of France?"
       }).pipe(
-        Effect.provide(Layer.succeed(LanguageModel.LanguageModel, mock.service))
+        Effect.provideService(LanguageModel.LanguageModel, mock.service)
       )
       const calls = yield* Ref.get(mock.calls)
 
@@ -81,7 +137,7 @@ describe("Module.chainOfThought", () => {
       const result = yield* cot.forward({
         question: "What is the capital of Japan?"
       }).pipe(
-        Effect.provide(Layer.succeed(LanguageModel.LanguageModel, mock.service))
+        Effect.provideService(LanguageModel.LanguageModel, mock.service)
       )
       const calls = yield* Ref.get(mock.calls)
 

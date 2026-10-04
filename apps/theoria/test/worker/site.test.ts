@@ -1,6 +1,6 @@
 // @vitest-environment node
 import { expect, layer } from "@effect/vitest"
-import { ConfigProvider, Effect, Layer, Option, Schema } from "effect"
+import { ConfigProvider, Effect, Layer, Option, Schema, Struct } from "effect"
 import * as Arr from "effect/Array"
 import * as Str from "effect/String"
 
@@ -27,14 +27,16 @@ import {
 /** The header's text; a test that reads it expects the header to be present. */
 const headerText = (response: SiteResponse, name: string) => Option.getOrThrow(header(response, name))
 
-const PartialRequest = PlaceBuildRequest.pick("scenario")
+const PartialRequest = PlaceBuildRequest.mapFields(Struct.pick(["scenario"]))
 
 /** Every `/assets/…` path the shell names — scripts, styles, preloaded fonts — once each. */
 const shellAssets = (shell: string): ReadonlyArray<string> =>
-  Arr.dedupe(Arr.filterMap(Arr.fromIterable(shell.matchAll(/(\/assets\/[^"' )]+)/g)), (found) => Arr.get(found, 1)))
+  Arr.dedupe(
+    Arr.flatMap(Arr.fromIterable(shell.matchAll(/(\/assets\/[^"' )]+)/g)), (found) => Option.toArray(Arr.get(found, 1)))
+  )
 
 layer(SiteLive, { timeout: "2 minutes" })("Theoria Worker in workerd", (it) => {
-  it.effect("answers API routes from the Worker with the deploy-time build SHA", () =>
+  it("answers API routes from the Worker with the deploy-time build SHA", () =>
     Effect.gen(function*() {
       const site = yield* Site
 
@@ -51,10 +53,10 @@ layer(SiteLive, { timeout: "2 minutes" })("Theoria Worker in workerd", (it) => {
       expect(yield* json(unknown)).toMatchObject({ ok: false, error: { code: "route-not-found" } })
     }))
 
-  it.effect("renders the HTML shell through the Worker with per-route metadata", () =>
+  it("renders the HTML shell through the Worker with per-route metadata", () =>
     Effect.gen(function*() {
       const site = yield* Site
-      const firstPackage = yield* Arr.head(site.manifest.packages)
+      const firstPackage = yield* Effect.fromOption(Arr.head(site.manifest.packages))
 
       const home = yield* site.fetch(`${productionHost}/`)
       expect(home.status).toBe(200)
@@ -95,7 +97,7 @@ layer(SiteLive, { timeout: "2 minutes" })("Theoria Worker in workerd", (it) => {
       expect((yield* site.fetch(`${productionHost}/no-such-file.js`)).status).toBe(404)
     }))
 
-  it.effect("serves hashed assets from the edge with the _headers policy", () =>
+  it("serves hashed assets from the edge with the _headers policy", () =>
     Effect.gen(function*() {
       const site = yield* Site
 
@@ -122,7 +124,7 @@ layer(SiteLive, { timeout: "2 minutes" })("Theoria Worker in workerd", (it) => {
       expect((yield* site.fetch("/robots.txt")).status).toBe(200)
     }))
 
-  it.effect("answers every shell asset 200 across concurrent page loads", () =>
+  it("answers every shell asset 200 across concurrent page loads", { timeout: 120_000 }, () =>
     Effect.gen(function*() {
       const site = yield* Site
       const shell = yield* site.fetch("/").pipe(Effect.flatMap(text))
@@ -145,9 +147,9 @@ layer(SiteLive, { timeout: "2 minutes" })("Theoria Worker in workerd", (it) => {
       ).pipe(Effect.map(Arr.flatten))
       expect(Arr.filter(answers, (answer) => answer.status !== 200)).toEqual([])
       expect(answers.length).toBe(200 * assets.length)
-    }), { timeout: 120_000 })
+    }))
 
-  it.effect("serves its own typefaces, preloaded by the shell, so no text is set twice", () =>
+  it("serves its own typefaces, preloaded by the shell, so no text is set twice", () =>
     Effect.gen(function*() {
       const site = yield* Site
 
@@ -165,8 +167,8 @@ layer(SiteLive, { timeout: "2 minutes" })("Theoria Worker in workerd", (it) => {
       // The faces are build assets: the stylesheet's URLs and the preloads are
       // the same content-hashed files, and a new file is a new URL.
       const stylesheet = yield* Option.match(
-        Option.fromNullable(/<link rel="stylesheet" crossorigin href="([^"]+\.css)">/u.exec(homeHtml)?.[1]),
-        { onNone: () => Effect.dieMessage("the shell links no stylesheet"), onSome: Effect.succeed }
+        Option.fromNullishOr(/<link rel="stylesheet" crossorigin href="([^"]+\.css)">/u.exec(homeHtml)?.[1]),
+        { onNone: () => Effect.die("the shell links no stylesheet"), onSome: Effect.succeed }
       )
       const css = yield* text(yield* site.fetch(stylesheet))
       const declared = Arr.fromIterable(
@@ -197,7 +199,7 @@ layer(SiteLive, { timeout: "2 minutes" })("Theoria Worker in workerd", (it) => {
       )
     }))
 
-  it.effect("serves a spec-shaped llms.txt from the shipped docs manifest", () =>
+  it("serves a spec-shaped llms.txt from the shipped docs manifest", () =>
     Effect.gen(function*() {
       const site = yield* Site
 
@@ -221,7 +223,7 @@ layer(SiteLive, { timeout: "2 minutes" })("Theoria Worker in workerd", (it) => {
       expect(header(yield* site.fetch("/"), "link")).toEqual(Option.some(`</llms.txt>; rel="describedby"`))
     }))
 
-  it.effect("serves the shell already in the reader's colour mode, from the cookie the app writes", () =>
+  it("serves the shell already in the reader's colour mode, from the cookie the app writes", () =>
     Effect.gen(function*() {
       const site = yield* Site
       const shellFor = (cookie: Option.Option<string>) =>
@@ -250,7 +252,7 @@ layer(SiteLive, { timeout: "2 minutes" })("Theoria Worker in workerd", (it) => {
       expect(yield* text(garbage)).not.toContain("class=\"dark\"")
     }))
 
-  it.effect("keeps non-production hostnames out of search indexes", () =>
+  it("keeps non-production hostnames out of search indexes", () =>
     Effect.gen(function*() {
       const site = yield* Site
       const robots = (url: string) => Effect.map(site.fetch(url), (response) => header(response, "x-robots-tag"))
@@ -265,7 +267,7 @@ layer(SiteLive, { timeout: "2 minutes" })("Theoria Worker in workerd", (it) => {
       expect(yield* robots(`${previewHost}${site.hashedScript}`)).toEqual(Option.some("noindex"))
     }))
 
-  it.effect("reports analytics from the production hostname only, with a matching policy", () =>
+  it("reports analytics from the production hostname only, with a matching policy", () =>
     Effect.gen(function*() {
       const site = yield* Site
 
@@ -288,7 +290,7 @@ layer(SiteLive, { timeout: "2 minutes" })("Theoria Worker in workerd", (it) => {
       expect(headerText(staging, "content-security-policy")).not.toContain("googletagmanager")
     }))
 
-  it.effect("builds the sitemap from the shipped docs manifest", () =>
+  it("builds the sitemap from the shipped docs manifest", () =>
     Effect.gen(function*() {
       const site = yield* Site
 
@@ -302,7 +304,7 @@ layer(SiteLive, { timeout: "2 minutes" })("Theoria Worker in workerd", (it) => {
       })
     }))
 
-  it.effect("runs the Imagined Place build inside workerd", () =>
+  it("runs the Imagined Place build inside workerd", () =>
     Effect.gen(function*() {
       const site = yield* Site
       const post = (body: string) =>
@@ -316,7 +318,7 @@ layer(SiteLive, { timeout: "2 minutes" })("Theoria Worker in workerd", (it) => {
         )
 
       const built = yield* post(
-        yield* Schema.encode(Schema.parseJson(PlaceBuildRequest))({
+        yield* Schema.encodeEffect(Schema.fromJsonString(PlaceBuildRequest))({
           scenario: "lost-market",
           brief: "a quiet corner for two",
           acceptNeighbor: true,
@@ -324,22 +326,24 @@ layer(SiteLive, { timeout: "2 minutes" })("Theoria Worker in workerd", (it) => {
         })
       )
       expect(built.status).toBe(200)
-      const envelope = yield* Schema.decodeUnknown(PlaceBuildEnvelope)(yield* json(built))
+      const envelope = yield* Schema.decodeUnknownEffect(PlaceBuildEnvelope)(yield* json(built))
       expect(envelope.ok).toBe(true)
       expect(envelope.ok && envelope.data.artifact.scenario).toBe("lost-market")
       expect(envelope.ok && envelope.data.artifact.accepted).toHaveLength(2)
 
-      const invalid = yield* post(yield* Schema.encode(Schema.parseJson(PartialRequest))({ scenario: "lost-market" }))
+      const invalid = yield* post(
+        yield* Schema.encodeEffect(Schema.fromJsonString(PartialRequest))({ scenario: "lost-market" })
+      )
       expect(invalid.status).toBe(400)
       expect(yield* json(invalid)).toMatchObject({ ok: false, error: { code: "invalid-request" } })
 
       expect((yield* site.fetch(`${productionHost}/api/imagined-place/build`)).status).toBe(405)
     }))
 
-  it.effect("a named deployment is the same site as the harness, read over the network", () =>
+  it("a named deployment is the same site as the harness, read over the network", () =>
     Effect.gen(function*() {
       const site = yield* Site
-      const named = Layer.setConfigProvider(ConfigProvider.fromJson({ THEORIA_SITE_URL: site.url }))
+      const named = ConfigProvider.layer(ConfigProvider.fromUnknown({ THEORIA_SITE_URL: site.url }))
       const remote = yield* Site.pipe(Effect.provide(SiteRemote.pipe(Layer.provide(named))))
 
       expect(remote.url).toBe(site.url)
@@ -369,7 +373,7 @@ layer(SiteLive, { timeout: "2 minutes" })("Theoria Worker in workerd", (it) => {
         new SiteRequest({
           method: "POST",
           headers: { "content-type": "application/json" },
-          body: yield* Schema.encode(Schema.parseJson(PartialRequest))({ scenario: "lost-market" })
+          body: yield* Schema.encodeEffect(Schema.fromJsonString(PartialRequest))({ scenario: "lost-market" })
         })
       )
       expect(posted.status).toBe(400)

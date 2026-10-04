@@ -28,12 +28,12 @@ export type BrowserTextLayout = Text.Segmenter | MeasurementCache.MeasurementCac
  * from within. So it tells, and the teller builds it again at the next
  * revision (`fontReadinessRevisionAtom`).
  */
-export class FontReadiness extends Context.Tag("@theoria/app/web/text/FontReadiness")<FontReadiness, {
+export class FontReadiness extends Context.Service<FontReadiness, {
   /** The generation of the widths this layout's cache keeps; advanced by each arrival told. */
   readonly revision: PreparationKey.Revision
   /** Told when a served face arrives after this layout was built without it; once for each face that does. */
   readonly facesArrived: Effect.Effect<void>
-}>() {}
+}>()("@theoria/app/web/text/FontReadiness") {}
 
 /**
  * Text layout measured by the deterministic estimator instead of a canvas.
@@ -43,7 +43,7 @@ export class FontReadiness extends Context.Tag("@theoria/app/web/text/FontReadin
 export const deterministicTextLayoutLive: Layer.Layer<BrowserTextLayout> = Text.layer
 
 const canvasTextLayoutLayer = (context: CanvasRenderingContext2D): Layer.Layer<BrowserTextLayout> => {
-  const canvasMeasurer = CanvasTextMeasurer.layer({ context })
+  const canvasMeasurer = CanvasTextMeasurer.layer(new CanvasTextMeasurer.Options({ context }))
 
   return Layer.mergeAll(
     Text.layerSegmenter,
@@ -57,7 +57,7 @@ const canvasTextLayoutLayer = (context: CanvasRenderingContext2D): Layer.Layer<B
 const servedFaces = Arr.make(measuredFont("body"), measuredFont("mono"))
 
 /** Whether the face landed: a face that fails to load is noted, and the page keeps the stand-in it shows. */
-const faceLanded = (fonts: Context.Tag.Service<BrowserFonts.BrowserFonts>) => (font: string): Effect.Effect<boolean> =>
+const faceLanded = (fonts: BrowserFonts.BrowserFonts["Service"]) => (font: string): Effect.Effect<boolean> =>
   fonts.load(font).pipe(
     Effect.as(true),
     Effect.catchTag(
@@ -97,18 +97,21 @@ export const servedFacesWatched: Effect.Effect<
   // Interruptible in its own right: a layer built in an uninterruptible region
   // would otherwise hand that region to the watcher, and a layout left behind
   // for a newer one could not let go of it before the faces settled.
-  yield* Effect.unless(
+  yield* Effect.when(
     Effect.forkScoped(
       Effect.interruptible(
         Effect.forEach(
           inFlight,
           (font) =>
-            Effect.flatMap(faceLanded(fonts)(font), (landed) => Effect.when(readiness.facesArrived, () => landed)),
+            Effect.flatMap(
+              faceLanded(fonts)(font),
+              (landed) => Effect.when(readiness.facesArrived, Effect.succeed(landed))
+            ),
           { concurrency: "unbounded", discard: true }
         )
       )
     ),
-    () => Arr.isEmptyReadonlyArray(inFlight)
+    Effect.succeed(Arr.isReadonlyArrayNonEmpty(inFlight))
   )
 })
 
@@ -126,7 +129,7 @@ export const browserTextLayoutLayer: Layer.Layer<
   BrowserTextLayout,
   BrowserDocument.CanvasUnavailable,
   BrowserDocument.BrowserDocument | BrowserFonts.BrowserFonts | FontReadiness
-> = Layer.unwrapScoped(
+> = Layer.unwrap(
   Effect.gen(function*() {
     const context = yield* BrowserDocument.canvasContext2d
     yield* servedFacesWatched

@@ -17,7 +17,7 @@ import {
 
 import { events, type EventSink, type Options as GEPAOptions } from "../../../GEPA.js"
 import { extractInstruction, generateText } from "../../module/textGeneration.js"
-import { evaluateMutationAcceptance } from "../accept.js"
+import { evaluateMutationAcceptance, EvaluateMutationAcceptanceOptions } from "../accept.js"
 import { GEPAState, PredictorInstruction, ProgramCandidate } from "../model.js"
 import {
   buildReflectiveDataset,
@@ -137,22 +137,24 @@ export const runMutationPhase = <I extends Schema.Struct.Fields, O extends Schem
         rowCount: Option.some(subsampleSize)
       })
     )
-    const acceptance = yield* evaluateMutationAcceptance({
-      previousSubsampleScores: Arr.take(parentEvaluation.scores, subsampleSize),
-      mutatedSubsampleScores: mutatedSubsampleEvaluation.scores,
-      evaluateFullValset: evaluateCandidate(
-        options,
-        mutatedCandidate,
-        new CandidateEvaluationWindow({
-          startIndex: subsampleSize,
-          rowCount: Option.none()
-        })
-      ).pipe(
-        Effect.map((remainingEvaluation) =>
-          Arr.appendAll(mutatedSubsampleEvaluation.scores, remainingEvaluation.scores)
+    const acceptance = yield* evaluateMutationAcceptance(
+      new EvaluateMutationAcceptanceOptions({
+        previousSubsampleScores: Arr.take(parentEvaluation.scores, subsampleSize),
+        mutatedSubsampleScores: mutatedSubsampleEvaluation.scores,
+        evaluateFullValset: evaluateCandidate(
+          options,
+          mutatedCandidate,
+          new CandidateEvaluationWindow({
+            startIndex: subsampleSize,
+            rowCount: Option.none()
+          })
+        ).pipe(
+          Effect.map((remainingEvaluation) =>
+            Arr.appendAll(mutatedSubsampleEvaluation.scores, remainingEvaluation.scores)
+          )
         )
-      )
-    })
+      })
+    )
     const accepted = Bool.match(acceptance.gate1Passed, {
       onFalse: () => false,
       onTrue: () => Option.isSome(acceptance.fullValsetScores)

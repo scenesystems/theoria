@@ -4,9 +4,9 @@
  *
  * Run: bun run examples/24-rate-limiter.ts
  */
-import * as RateLimiter from "@effect/experimental/RateLimiter"
 import { BunRuntime } from "@effect/platform-bun"
 import { Effect, Iterable, Layer, Match, Number as Num, Ref } from "effect"
+import { RateLimiter } from "effect/persistence"
 
 import * as Numeric from "@scenesystems/effect-math/Numeric"
 import { Optimization, Sampler, SearchSpace } from "@scenesystems/effect-search"
@@ -28,7 +28,7 @@ const program = Effect.gen(function*() {
         Effect.sleep("40 millis").pipe(
           Effect.map(() => {
             const quality = Num.subtract(1, Numeric.abs(Num.subtract(config.temperature, 0.65)))
-            const tokenPenalty = Num.unsafeDivide(config.maxTokens, 4096)
+            const tokenPenalty = Num.divideUnsafe(config.maxTokens, 4096)
 
             return Num.subtract(quality, tokenPenalty)
           })
@@ -48,13 +48,15 @@ const program = Effect.gen(function*() {
       })
     )
 
-  const result = yield* Optimization.maximize({
-    space,
-    sampler: Sampler.tpe({ seed: 24 }),
-    trials: 18,
-    concurrency: 6,
-    objective: limitedObjective
-  })
+  const result = yield* Optimization.maximize(
+    new Optimization.FlatOptions({
+      space,
+      sampler: Sampler.tpe(new Sampler.TpeOptions({ seed: 24 })),
+      trials: 18,
+      concurrency: 6,
+      objective: limitedObjective
+    })
+  )
   const maxInFlight = yield* Ref.get(maxInFlightRef)
 
   yield* Match.value(result).pipe(

@@ -7,29 +7,24 @@ import type { FixtureName, KnownFixture } from "./schemas.js"
 const defaultRootDirectory = directoryBeside(import.meta.url, "../../fixtures/optuna/")
 const DEFAULT_MANIFEST_FILE = "manifest.json"
 
-export class FixtureRegistry extends Context.Tag(
-  "@scenesystems/effect-search/test/helpers/fixtures/registry/FixtureRegistry"
-)<
-  FixtureRegistry,
-  {
-    readonly load: (
-      name: FixtureName
-    ) => Effect.Effect<KnownFixture, FixtureRegistryError>
-    readonly loadAll: (
-      namespace: string
-    ) => Effect.Effect<Iterable<KnownFixture>, FixtureRegistryError>
-    readonly validateManifest: Effect.Effect<void, FixtureRegistryError>
-  }
->() {}
+export class FixtureRegistry extends Context.Service<FixtureRegistry, {
+  readonly load: (
+    name: FixtureName
+  ) => Effect.Effect<KnownFixture, FixtureRegistryError>
+  readonly loadAll: (
+    namespace: string
+  ) => Effect.Effect<Iterable<KnownFixture>, FixtureRegistryError>
+  readonly validateManifest: Effect.Effect<void, FixtureRegistryError>
+}>()("@scenesystems/effect-search/test/helpers/fixtures/registry/FixtureRegistry") {}
 
 export const makeFixtureRegistry = (
   options: {
     readonly rootDirectory: string
     readonly manifestFileName?: string
   }
-): FixtureRegistry["Type"] => {
+): FixtureRegistry["Service"] => {
   const rootDirectory = options.rootDirectory
-  const manifestFileName = Option.fromNullable(options.manifestFileName).pipe(
+  const manifestFileName = Option.fromNullishOr(options.manifestFileName).pipe(
     Option.getOrElse(() => DEFAULT_MANIFEST_FILE)
   )
 

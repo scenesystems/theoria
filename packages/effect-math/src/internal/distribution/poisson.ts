@@ -15,7 +15,7 @@ import { Boolean, Number, Schema } from "effect"
 import { exp, log } from "../../Numeric.js"
 import { gammaincc, lnGamma } from "../../Special.js"
 
-const Integer = Schema.Number.pipe(Schema.int())
+const Integer = Schema.Number.check(Schema.isInt())
 
 /**
  * Log-PMF: k·ln(μ) − μ − ln(Γ(k+1)).
@@ -25,7 +25,7 @@ const Integer = Schema.Number.pipe(Schema.int())
  * @category internal
  */
 export const poissonLogpmf = (k: number, mu: number): number => {
-  return Boolean.match(Boolean.or(Number.lessThan(k, 0), Boolean.not(Schema.is(Integer)(k))), {
+  return Boolean.match(Boolean.or(Number.isLessThan(k, 0), Boolean.not(Schema.is(Integer)(k))), {
     onTrue: () => -Infinity,
     onFalse: () =>
       Boolean.match(Number.Equivalence(mu, 0), {
@@ -46,7 +46,7 @@ export const poissonLogpmf = (k: number, mu: number): number => {
  * @category internal
  */
 export const poissonPmf = (k: number, mu: number): number => {
-  return Boolean.match(Boolean.or(Number.lessThan(k, 0), Boolean.not(Schema.is(Integer)(k))), {
+  return Boolean.match(Boolean.or(Number.isLessThan(k, 0), Boolean.not(Schema.is(Integer)(k))), {
     onTrue: () => 0,
     onFalse: () => exp(poissonLogpmf(k, mu))
   })
@@ -60,7 +60,7 @@ export const poissonPmf = (k: number, mu: number): number => {
  * @category internal
  */
 export const poissonCdf = (k: number, mu: number): number => {
-  return Boolean.match(Number.lessThan(k, 0), {
+  return Boolean.match(Number.isLessThan(k, 0), {
     onTrue: () => 0,
     onFalse: () =>
       Boolean.match(Number.Equivalence(mu, 0), {

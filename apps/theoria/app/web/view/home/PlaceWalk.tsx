@@ -1,4 +1,4 @@
-import { useAtomValue } from "@effect-atom/atom-react"
+import { useAtomValue } from "@effect/atom-react"
 import { Boolean as Bool, Match } from "effect"
 import * as Arr from "effect/Array"
 import * as Num from "effect/Number"
@@ -29,7 +29,7 @@ const walkPath = (markers: ReadonlyArray<PlaceMarker>): string =>
 const pathCommand = (index: number): string => Bool.match(isFirst(index), { onTrue: () => "M", onFalse: () => "L" })
 
 /** One point is a place, not a walk: the line needs two to go between. */
-const walkable = (markers: ReadonlyArray<PlaceMarker>): boolean => Num.greaterThanOrEqualTo(Arr.length(markers), 2)
+const walkable = (markers: ReadonlyArray<PlaceMarker>): boolean => Num.isGreaterThanOrEqualTo(Arr.length(markers), 2)
 
 const undrawn = { pathLength: 0 }
 const drawn = { pathLength: 1 }

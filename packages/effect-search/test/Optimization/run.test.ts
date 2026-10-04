@@ -1,19 +1,18 @@
-import * as KeyValueStore from "@effect/platform/KeyValueStore"
 import { describe, expect, it } from "@effect/vitest"
 import {
   Array as Arr,
-  Chunk,
   Effect,
-  Either,
   Layer,
   Match,
   Number as Num,
   Option,
-  Predicate,
+  Result,
   Schedule,
+  Schema,
   Stream,
   Tuple
 } from "effect"
+import { KeyValueStore } from "effect/persistence"
 
 import * as Numeric from "@scenesystems/effect-math/Numeric"
 import * as Cache from "../../src/Cache.js"
@@ -28,26 +27,23 @@ import * as Trial from "../../src/Trial.js"
 
 const makeSpace = () =>
   SearchSpace.make({
-    x: SearchSpace.float(Num.negate(2), 2),
+    x: SearchSpace.float(Num.multiply(-1, 2), 2),
     depth: SearchSpace.int(1, 5),
     optimizer: SearchSpace.categorical(Arr.make("adam", "sgd"))
   })
 
 const completedValues = (trials: Iterable<Trial.Trial<unknown>>) =>
   Arr.flatMap(Arr.fromIterable(trials), (trial) =>
-    Trial.matchState({
-      Running: Arr.empty,
-      Completed: ({ value }) =>
-        Option.liftPredicate(value, Predicate.isNumber).pipe(
+    Match.value(trial.state).pipe(
+      Match.tag("Completed", ({ value }) =>
+        Schema.decodeUnknownOption(Schema.Finite)(value).pipe(
           Option.match({
             onNone: Arr.empty,
             onSome: Arr.of
           })
-        ),
-      Pruned: Arr.empty,
-      Failed: Arr.empty,
-      Cancelled: Arr.empty
-    })(trial.state))
+        )),
+      Match.orElse(() => Arr.empty<number>())
+    ))
 
 const failedCount = (trials: Iterable<Trial.Trial<unknown>>) =>
   Arr.length(Arr.filter(trials, (trial) => Trial.isState("Failed")(trial.state)))
@@ -104,25 +100,27 @@ describe("Optimization.run", () => {
 
   it.effect("runs with random sampling and returns a single-objective result", () =>
     Effect.gen(function*() {
-      const optimized = yield* Optimization.run({
-        space: yield* makeSpace(),
-        sampler: Sampler.random({ seed: 21 }),
-        direction: "minimize",
-        trials: 12,
-        objective: (raw) => {
-          const config = raw
-          const optimizerPenalty = Match.value(config.optimizer).pipe(
-            Match.when("adam", () => 0),
-            Match.orElse(() => 0.25)
-          )
-          const score = Num.sumAll(Arr.make(Numeric.abs(config.x), config.depth, optimizerPenalty))
-          return Effect.succeed(score)
-        }
-      })
+      const optimized = yield* Optimization.run(
+        new Optimization.FlatOptions({
+          space: yield* makeSpace(),
+          sampler: Sampler.random({ seed: 21 }),
+          direction: "minimize",
+          trials: 12,
+          objective: (raw) => {
+            const config = raw
+            const optimizerPenalty = Match.value(config.optimizer).pipe(
+              Match.when("adam", () => 0),
+              Match.orElse(() => 0.25)
+            )
+            const score = Num.sumAll(Arr.make(Numeric.abs(config.x), config.depth, optimizerPenalty))
+            return Effect.succeed(score)
+          }
+        })
+      )
 
       const resultOption = asSingleObjective(optimized)
       expect(Option.isSome(resultOption)).toBe(true)
-      const result = yield* resultOption
+      const result = yield* Effect.fromOption(resultOption)
       expect(result._tag).toBe("SingleObjective")
       expect(result.completionReason).toBe("budgetExhausted")
       expect(result.trials).toHaveLength(12)
@@ -151,34 +149,38 @@ describe("Optimization.run", () => {
 
   it.effect("honors optimization direction for minimize and maximize", () =>
     Effect.gen(function*() {
-      const minimizeOptimized = yield* Optimization.run({
-        space: yield* makeSpace(),
-        sampler: Sampler.random({ seed: 55 }),
-        direction: "minimize",
-        trials: 15,
-        objective: (raw) => {
-          const config = raw
-          return Effect.succeed(config.x)
-        }
-      })
+      const minimizeOptimized = yield* Optimization.run(
+        new Optimization.FlatOptions({
+          space: yield* makeSpace(),
+          sampler: Sampler.random({ seed: 55 }),
+          direction: "minimize",
+          trials: 15,
+          objective: (raw) => {
+            const config = raw
+            return Effect.succeed(config.x)
+          }
+        })
+      )
 
-      const maximizeOptimized = yield* Optimization.run({
-        space: yield* makeSpace(),
-        sampler: Sampler.random({ seed: 55 }),
-        direction: "maximize",
-        trials: 15,
-        objective: (raw) => {
-          const config = raw
-          return Effect.succeed(config.x)
-        }
-      })
+      const maximizeOptimized = yield* Optimization.run(
+        new Optimization.FlatOptions({
+          space: yield* makeSpace(),
+          sampler: Sampler.random({ seed: 55 }),
+          direction: "maximize",
+          trials: 15,
+          objective: (raw) => {
+            const config = raw
+            return Effect.succeed(config.x)
+          }
+        })
+      )
 
       const minimizeResultOption = asSingleObjective(minimizeOptimized)
       const maximizeResultOption = asSingleObjective(maximizeOptimized)
       expect(Option.isSome(minimizeResultOption)).toBe(true)
       expect(Option.isSome(maximizeResultOption)).toBe(true)
-      const minimizeResult = yield* minimizeResultOption
-      const maximizeResult = yield* maximizeResultOption
+      const minimizeResult = yield* Effect.fromOption(minimizeResultOption)
+      const maximizeResult = yield* Effect.fromOption(maximizeResultOption)
       const minimizeValues = completedValues(minimizeResult.trials)
       const maximizeValues = completedValues(maximizeResult.trials)
       const minBaseline = Arr.head(minimizeValues).pipe(Option.getOrElse(() => Number.POSITIVE_INFINITY))
@@ -193,25 +195,27 @@ describe("Optimization.run", () => {
 
   it.effect("marks NaN objective values as failed while continuing the optimization", () =>
     Effect.gen(function*() {
-      const optimized = yield* Optimization.run({
-        space: yield* makeSpace(),
-        sampler: Sampler.random({ seed: 77 }),
-        direction: "minimize",
-        trials: 20,
-        objective: (raw) => {
-          const config = raw
-          return Effect.succeed(
-            Match.value(Num.greaterThan(config.x, 0)).pipe(
-              Match.when(true, () => Number.NaN),
-              Match.orElse(() => Numeric.abs(config.x))
+      const optimized = yield* Optimization.run(
+        new Optimization.FlatOptions({
+          space: yield* makeSpace(),
+          sampler: Sampler.random({ seed: 77 }),
+          direction: "minimize",
+          trials: 20,
+          objective: (raw) => {
+            const config = raw
+            return Effect.succeed(
+              Match.value(Num.isGreaterThan(config.x, 0)).pipe(
+                Match.when(true, () => Number.NaN),
+                Match.orElse(() => Numeric.abs(config.x))
+              )
             )
-          )
-        }
-      })
+          }
+        })
+      )
 
       const resultOption = asSingleObjective(optimized)
       expect(Option.isSome(resultOption)).toBe(true)
-      const result = yield* resultOption
+      const result = yield* Effect.fromOption(resultOption)
       expect(failedCount(result.trials)).toBeGreaterThan(0)
       expect(Arr.length(completedValues(result.trials))).toBeGreaterThan(0)
       expect(Trial.isState("Completed")(result.bestTrial.state)).toBe(true)
@@ -219,25 +223,27 @@ describe("Optimization.run", () => {
 
   it.effect("marks Infinity objective values as failed while continuing the optimization", () =>
     Effect.gen(function*() {
-      const optimized = yield* Optimization.run({
-        space: yield* makeSpace(),
-        sampler: Sampler.random({ seed: 88 }),
-        direction: "minimize",
-        trials: 20,
-        objective: (raw) => {
-          const config = raw
-          return Effect.succeed(
-            Match.value(Num.greaterThan(config.x, 0)).pipe(
-              Match.when(true, () => Number.POSITIVE_INFINITY),
-              Match.orElse(() => Numeric.abs(config.x))
+      const optimized = yield* Optimization.run(
+        new Optimization.FlatOptions({
+          space: yield* makeSpace(),
+          sampler: Sampler.random({ seed: 88 }),
+          direction: "minimize",
+          trials: 20,
+          objective: (raw) => {
+            const config = raw
+            return Effect.succeed(
+              Match.value(Num.isGreaterThan(config.x, 0)).pipe(
+                Match.when(true, () => Number.POSITIVE_INFINITY),
+                Match.orElse(() => Numeric.abs(config.x))
+              )
             )
-          )
-        }
-      })
+          }
+        })
+      )
 
       const resultOption = asSingleObjective(optimized)
       expect(Option.isSome(resultOption)).toBe(true)
-      const result = yield* resultOption
+      const result = yield* Effect.fromOption(resultOption)
       expect(failedCount(result.trials)).toBeGreaterThan(0)
       expect(Arr.length(completedValues(result.trials))).toBeGreaterThan(0)
       expect(Trial.isState("Completed")(result.bestTrial.state)).toBe(true)
@@ -245,17 +251,19 @@ describe("Optimization.run", () => {
 
   it.effect("fails with NoSuccessfulTrials when every trial is invalid", () =>
     Effect.gen(function*() {
-      const outcome = yield* Effect.either(
-        Optimization.run({
-          space: yield* makeSpace(),
-          sampler: Sampler.random({ seed: 13 }),
-          direction: "minimize",
-          trials: 8,
-          objective: () => Effect.succeed(Number.NaN)
-        })
+      const outcome = yield* Effect.result(
+        Optimization.run(
+          new Optimization.FlatOptions({
+            space: yield* makeSpace(),
+            sampler: Sampler.random({ seed: 13 }),
+            direction: "minimize",
+            trials: 8,
+            objective: () => Effect.succeed(Number.NaN)
+          })
+        )
       )
 
-      expect(Either.getOrThrow(Either.flip(outcome))).toBeInstanceOf(NoSuccessfulTrials)
+      expect(Result.getOrThrow(Result.flip(outcome))).toBeInstanceOf(NoSuccessfulTrials)
     }))
 
   it.effect("maps cache corruption failures into trial failures in run path", () =>
@@ -265,7 +273,7 @@ describe("Optimization.run", () => {
         reason: "forced-corruption"
       })
 
-      const failingCacheLayer = Layer.scoped(
+      const failingCacheLayer = Layer.effect(
         Cache.Cache,
         Cache.make().pipe(
           Effect.map((cache) => ({
@@ -281,23 +289,25 @@ describe("Optimization.run", () => {
       ).pipe(Layer.provide(failingCacheLayer))
 
       const result = yield* Stream.runCollect(
-        Optimization.stream({
-          space: yield* makeSpace(),
-          sampler: Sampler.random({ seed: 21 }),
-          direction: "minimize",
-          trials: 1,
-          retrySchedule: Schedule.recurs(0),
-          objective: (raw) => {
-            const config = raw
-            return Effect.succeed(Num.sum(Numeric.abs(config.x), config.depth))
-          }
-        }).pipe(
-          Stream.provideLayer(objectiveCacheLayer)
+        Optimization.stream(
+          new Optimization.FlatOptions({
+            space: yield* makeSpace(),
+            sampler: Sampler.random({ seed: 21 }),
+            direction: "minimize",
+            trials: 1,
+            retrySchedule: Schedule.recurs(0),
+            objective: (raw) => {
+              const config = raw
+              return Effect.succeed(Num.sum(Numeric.abs(config.x), config.depth))
+            }
+          })
+        ).pipe(
+          Stream.provide(objectiveCacheLayer)
         )
       )
 
-      const events = Chunk.toReadonlyArray(result)
-      const failedTrialEvent = yield* Arr.findFirst(events, OptimizationEvent.is("TrialFailed"))
+      const events = result
+      const failedTrialEvent = yield* Effect.fromOption(Arr.findFirst(events, OptimizationEvent.is("TrialFailed")))
 
       expect(failedTrialEvent._tag).toBe("TrialFailed")
       expect(failedTrialEvent.error).toBeInstanceOf(TrialError)
@@ -312,7 +322,7 @@ describe("Optimization.run", () => {
         reason: "forced-backend-failure"
       })
 
-      const failingCacheLayer = Layer.scoped(
+      const failingCacheLayer = Layer.effect(
         Cache.Cache,
         Cache.make().pipe(
           Effect.map((cache) => ({
@@ -328,23 +338,25 @@ describe("Optimization.run", () => {
       ).pipe(Layer.provide(failingCacheLayer))
 
       const result = yield* Stream.runCollect(
-        Optimization.stream({
-          space: yield* makeSpace(),
-          sampler: Sampler.random({ seed: 21 }),
-          direction: "minimize",
-          trials: 1,
-          retrySchedule: Schedule.recurs(0),
-          objective: (raw) => {
-            const config = raw
-            return Effect.succeed(Num.sum(Numeric.abs(config.x), config.depth))
-          }
-        }).pipe(
-          Stream.provideLayer(objectiveCacheLayer)
+        Optimization.stream(
+          new Optimization.FlatOptions({
+            space: yield* makeSpace(),
+            sampler: Sampler.random({ seed: 21 }),
+            direction: "minimize",
+            trials: 1,
+            retrySchedule: Schedule.recurs(0),
+            objective: (raw) => {
+              const config = raw
+              return Effect.succeed(Num.sum(Numeric.abs(config.x), config.depth))
+            }
+          })
+        ).pipe(
+          Stream.provide(objectiveCacheLayer)
         )
       )
 
-      const events = Chunk.toReadonlyArray(result)
-      const failedTrialEvent = yield* Arr.findFirst(events, OptimizationEvent.is("TrialFailed"))
+      const events = result
+      const failedTrialEvent = yield* Effect.fromOption(Arr.findFirst(events, OptimizationEvent.is("TrialFailed")))
 
       expect(failedTrialEvent._tag).toBe("TrialFailed")
       expect(failedTrialEvent.error).toBeInstanceOf(TrialError)
@@ -360,20 +372,28 @@ describe("Optimization.run", () => {
         objective: () => Effect.succeed(0)
       }
       const results = yield* Effect.all(Tuple.make(
-        Effect.either(Optimization.run({ ...base, direction: "minimize", trials: 1.5 })),
-        Effect.either(Optimization.run({ ...base, direction: "minimize", trials: 1, concurrency: 1.5 })),
-        Effect.either(Optimization.run({
-          ...base,
-          directions: Arr.make<Arr.NonEmptyArray<Direction>>("minimize", "maximize"),
-          trials: 1,
-          targetValue: 0
-        })),
-        Effect.either(Optimization.run({ ...base, direction: "minimize", trials: 1, epsilon: 0.1 }))
+        Effect.result(Optimization.run(new Optimization.FlatOptions({ ...base, direction: "minimize", trials: 1.5 }))),
+        Effect.result(
+          Optimization.run(
+            new Optimization.FlatOptions({ ...base, direction: "minimize", trials: 1, concurrency: 1.5 })
+          )
+        ),
+        Effect.result(Optimization.run(
+          new Optimization.FlatOptions({
+            ...base,
+            directions: Arr.make<Arr.NonEmptyArray<Direction>>("minimize", "maximize"),
+            trials: 1,
+            targetValue: 0
+          })
+        )),
+        Effect.result(
+          Optimization.run(new Optimization.FlatOptions({ ...base, direction: "minimize", trials: 1, epsilon: 0.1 }))
+        )
       ))
 
       Arr.forEach(results, (result) => {
-        expect(Either.isLeft(result)).toBe(true)
-        expect(Either.getOrThrow(Either.flip(result))._tag).toBe("effect-search/InvalidOptimizationConfig")
+        expect(Result.isFailure(result)).toBe(true)
+        expect(Result.getOrThrow(Result.flip(result))._tag).toBe("effect-search/InvalidOptimizationConfig")
       })
     }))
 })

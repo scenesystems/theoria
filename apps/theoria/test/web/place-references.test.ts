@@ -1,5 +1,5 @@
 import { describe, expect, it } from "@effect/vitest"
-import { Effect, Match, Option } from "effect"
+import { Effect, Match, Option, Result } from "effect"
 import * as Arr from "effect/Array"
 
 import { codeSiteOnLine } from "../../app/contracts/demo/imagined-place-provenance.js"
@@ -21,8 +21,8 @@ describe("How it's built references", () => {
               segmentLine(line, referenceLinks(step)),
               (segment) =>
                 Match.value(segment).pipe(
-                  Match.tag("Link", ({ link }) => Option.some(link.text)),
-                  Match.tag("Tokens", () => Option.none()),
+                  Match.tag("Link", ({ link }) => Result.succeed(link.text)),
+                  Match.tag("Tokens", () => Result.fail(undefined)),
                   Match.exhaustive
                 )
             ))
@@ -38,8 +38,8 @@ describe("How it's built references", () => {
       Effect.gen(function*() {
         const highlighter = yield* makeSyntaxHighlighter
         const line = "const signed = yield* Ed25519.sign(message, secretKey, publicKey)"
-        const proposalSite = yield* codeSiteOnLine("propose", line)
-        const versionSite = yield* codeSiteOnLine("record", line)
+        const proposalSite = Option.getOrThrow(codeSiteOnLine("propose", line))
+        const versionSite = Option.getOrThrow(codeSiteOnLine("record", line))
         expect(proposalSite.id).toBe("proposal-signature")
         expect(versionSite.id).toBe("version-signature")
         expect(codeSiteOnLine("compose", line)).toEqual(Option.none())
@@ -50,8 +50,8 @@ describe("How it's built references", () => {
               segmentLine(line, referenceLinks(site.step)),
               (segment) =>
                 Match.value(segment).pipe(
-                  Match.tag("Link", (segment) => Option.some(segment.link.href)),
-                  Match.tag("Tokens", () => Option.none()),
+                  Match.tag("Link", (segment) => Result.succeed(segment.link.href)),
+                  Match.tag("Tokens", () => Result.fail(undefined)),
                   Match.exhaustive
                 )
             ))

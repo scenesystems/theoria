@@ -111,7 +111,7 @@ const pageNodes = (metadata: PageMetadata): ReadonlyArray<JsonValue> =>
     Match.exhaustive
   )
 
-const encodeJson = Schema.encodeSync(Schema.parseJson(Schema.Unknown))
+const encodeJson = Schema.encodeSync(Schema.fromJsonString(Schema.Unknown))
 
 /**
  * The JSON-LD document for a page, safe to place inside a `<script>` element:
