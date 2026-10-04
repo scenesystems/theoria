@@ -54,11 +54,11 @@ Encoding and cryptographic execution use lazy Effects; pure model accessors rema
 
 ## Effect and test discipline
 
-- Owner-approved v4 exception: direct `Uint8Array` construction is permitted solely for byte materialization in this package's implementation and tests. Effect 4.0.0's `Schema.Uint8Array` validates existing bytes, and its derived JSON codec accepts base64 rather than v3's number arrays. This does not authorize general native adapters, bypassing input validation, or lint suppressions.
+- Direct `Uint8Array` construction is permitted solely for byte materialization in this package's implementation and tests. `Schema.Uint8Array` validates existing bytes; use Effect codecs for transport encoding. This does not authorize general native adapters, bypassing input validation, or lint suppressions.
 - Public errors and encoded values are Schema-owned. `Digest.Algorithm` owns the hash algorithm type.
-- `ContentDigest.ContentDigest` and `ContentDigest.Result` explicitly implement their structural equality and hashing contracts. Effect v4 also supplies structural equality for Schema classes by default.
-- Property tests use v4 Schema/Arbitrary inputs and `arbitrary` options on `it.effect.prop`.
-- Private traversal variants use `Data.TaggedEnum`; they have no serialization contract. This corrects the former blanket ban on that Effect abstraction.
+- `ContentDigest.ContentDigest` and `ContentDigest.Result` explicitly implement their structural equality and hashing contracts.
+- Property tests use Schema/Arbitrary inputs and `arbitrary` options on `it.effect.prop`.
+- Private traversal variants use `Data.TaggedEnum`; they have no serialization contract.
 - Use `@effect/vitest`, `it.effect`, and `Effect.exit`; do not use `Effect.run*` in source or tests.
 - Tests import only the root or supported subpaths. Test behavior, known answers, interruption, service requirements, and typed failures—not export inventories or implementation files.
 - Delete tests that would only retest Effect's encoding helpers. Wire encodings belong to Effect.

@@ -74,7 +74,7 @@ See `.vendor/AGENTS.md` for the full package→directory map.
 
 Every TypeScript file in the repository must consume native Effect public APIs — packages, apps, tests, benchmarks, and tooling alike, including pure computations and callbacks. Framework-required configuration syntax is permitted, but configuration logic is not exempt. Use `it.effect()` in tests. Lint coverage is not an authorization boundary: an unavailable native operation requires research and explicit user approval, not an agent-created adapter exception.
 
-Effect's public APIs are supported here regardless of upstream stability labels. `@stability unstable` is informational, not a restriction or migration blocker; update consumers when those APIs change. `effecttsgo/unstable-api-usage` is disabled repository-wide for this reason. This does not authorize importing Effect internals.
+Effect's public APIs are supported here regardless of upstream stability labels. `@stability unstable` is informational, not a restriction. `effecttsgo/unstable-api-usage` is disabled repository-wide for this reason. This does not authorize importing Effect internals.
 
 Enforcement is split by tool, each owning one concern, all wired into `bun run lint`:
 
@@ -83,7 +83,7 @@ Enforcement is split by tool, each owning one concern, all wired into `bun run l
 - `.dprint.json` owns formatting.
 - `@effect/tsgo` supplies the patched compiler and strict Effect diagnostics through type-aware oxlint. The tsconfig plugin disables duplicate diagnostics during `tsc` runs.
 
-- Never import Node builtins (`node:*`, `fs`, `path`, `url`, `crypto`) from TypeScript. Use Effect 4 core services (`effect/FileSystem`, `effect/Path`), `BunServices` from `@effect/platform-bun`, or package-owned abstractions instead.
+- Never import Node builtins (`node:*`, `fs`, `path`, `url`, `crypto`) from TypeScript. Use Effect core services (`effect/FileSystem`, `effect/Path`), `BunServices` from `@effect/platform-bun`, or package-owned abstractions instead.
 - Tests must exercise behavior, numerical parity, protocol conformance, lifecycle, interruption, typed failures, persistence, or a real integration boundary. Do not test source structure, file inventories, export-map shape, package metadata, generated distribution layout, or checked-in release snapshots.
 - Documentation syntax dependencies are explicitly authorized: unified/Remark parses Markdown, `remark-math` recognizes LaTeX expressions, and KaTeX typesets them. This permission covers those syntax operations only; surrounding models, transformations, failure handling, and tests remain Effect-native. Render mathematical expressions as accessible MathML with untrusted commands disabled; do not weaken the site's content security policy to accommodate inline styles.
 
@@ -105,7 +105,7 @@ Enforcement is split by tool, each owning one concern, all wired into `bun run l
 | `Promise.*`, `.then()`, `.catch()`                                | `Effect.all`, `Effect.map`, `Effect.catch`                                                                                                                                                                                             |
 | `Effect.runPromise/runSync`                                       | `Runtime.runMain` at entry points only                                                                                                                                                                                                 |
 | Handwritten interface models                                      | `Schema.Class` for encodable data; `Data.Class` / `Data.TaggedClass` for non-encoded relationships; empty interfaces extending only `Schema.Schema.Type<typeof schema>` / `Schema.Schema.Encoded<typeof schema>` for recursive schemas |
-| `Partial<>`, `Pick<>`, `Omit<>`                                   | Schema 4 struct operations (`schema.mapFields(Struct.pick(...))`, `schema.mapFields(Struct.omit(...))`, field-level `Schema.optional`)                                                                                                 |
+| `Partial<>`, `Pick<>`, `Omit<>`                                   | Schema struct operations (`schema.mapFields(Struct.pick(...))`, `schema.mapFields(Struct.omit(...))`, field-level `Schema.optional`)                                                                                                   |
 | `Readonly<{…}>`, `type X = {…}`, `type X = A & {…}`               | `Schema.Struct` for data; `Data.Class<{…}>` for records that carry functions, Effects, Layers or generics                                                                                                                              |
 | `\| null`, `\| undefined`, `=== null`, `typeof x === "undefined"` | `Option<A>`; `Schema.OptionFromNullOr` where JSON carries `null`                                                                                                                                                                       |
 | `Option.getOrUndefined/getOrNull`, `onNone: () => undefined`      | Keep the `Option`; spread `Option.match(o, { onNone: () => ({}), onSome: (v) => ({ field: v }) })` into third-party optional fields                                                                                                    |
@@ -197,7 +197,7 @@ git commit -m "feat(effect-search): add TPE categorical sampler"
 - RED → GREEN → REFACTOR. Tests first.
 - Golden fixtures from reference implementations (Optuna, DSPy).
 - Fixture generation uses `uv run` — never `python3` directly.
-- Property-based tests run through `it.effect.prop` from `@effect/vitest`, with arbitraries from `effect`'s `FastCheck` re-export; the repo carries no direct `fast-check` dependency.
+- Property-based tests use `it.effect.prop` from `@effect/vitest` with Schema or Effect `Arbitrary` inputs, or `Arbitrary.checkEffect` for explicit checks. Import `fast-check` directly only where its own API is needed.
 - Tolerances: exact for integers/categories; mixed absolute + relative for continuous math.
 
 ---

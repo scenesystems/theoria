@@ -22,7 +22,7 @@ Standalone, MIT-licensed, Effect-native black-box optimization for TypeScript. I
 | Lock fixture deps | `bun run fixtures:lock`     |
 | Verify fixtures   | `bun run fixtures:verify`   |
 
-Use the narrowest package or owned-file checks that validate work in progress. The four repository gates (`check:all`, `lint`, `test`, `build`) are required before integration or release, not before a package-local handoff when downstream consumer migration is explicitly deferred. Report deferred consumer failures rather than editing packages outside the assigned scope.
+Use the narrowest package or owned-file checks that validate work in progress. The four repository gates (`check:all`, `lint`, `test`, `build`) are required before integration or release. Report failures outside the assigned scope explicitly.
 
 ## Python Tooling (Fixture Generation Only)
 

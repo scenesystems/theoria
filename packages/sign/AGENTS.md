@@ -11,17 +11,17 @@ Effect-native signatures, key agreement, encapsulation, and JWT verification.
 ## Design and ownership
 
 - Design representative imports and call sites before changing a concern. Use version-aligned Effect public declarations, implementations, tests, usage, and exports as the architectural reference.
-- Public concerns live in flat PascalCase modules; root namespace and exact-case package subpath expose the same canonical declarations. The explicit export allowlist omits private and obsolete paths. This package is no longer single-entrypoint.
+- Public concerns live in flat PascalCase modules; root namespace and exact-case package subpath expose the same canonical declarations. The explicit export allowlist exposes only supported public concerns.
 - Suite modules own operations and suite-specific models/errors. `Signature` owns signature carriers and signing failures; `KeyPair` owns common keys and generation failures; `Verification` owns strict-verifier resource policy and material-free errors.
 - There is no generic algorithm dispatcher, self-trusting signature verifier, separate schemas directory, or compatibility alias surface. Related variants remain together, such as the parameter sets in `MlDsa` and `SlhDsa`.
 - Small coherent implementations may stay public. Substantial private mechanics belong in camelCase files under `internal/`; private code must not redefine public models or leak Noble types into public declarations.
-- Models with codec semantics use Schema; capabilities use Context and Layers. Schema is not required for every TypeScript relationship. This corrects the former local blanket rule; Effect also uses Data values and type-only declarations.
+- Models with codec semantics use Schema; capabilities use Context and Layers. Use Data values and type-only declarations for relationships without codec semantics.
 - Semantic roles determine casing. Constants are not automatically UPPER_SNAKE_CASE. Use qualified schema identifiers, brands, and service keys; preserve compatibility-sensitive wire tags independently of local names.
 - `index.ts` is maintained with the explicit source export map. The existing build-utils `pack-v3` workflow generates distribution manifests; do not hand-edit those outputs.
 
 ## Native Effect implementation
 
-- Consume installed Effect v4 public APIs throughout pure computations, callbacks, private mechanics, tests, examples, and tooling. An Effect return type does not exempt its body.
+- Consume installed Effect public APIs throughout pure computations, callbacks, private mechanics, tests, examples, and tooling. An Effect return type does not exempt its body.
 - Use native Boolean/Match/Option/Result control flow, Number/BigInt/String operations, and Effect collections rather than native operators, branches, loops, collection methods, or handwritten record/array carriers. This is Theoria policy, not a claim about Effect's internal implementation style.
 - Schema owns validated and encoded data; Data owns structural values without codecs. Construct typed internal values through their constructors and decode untrusted representations at admission boundaries. Derive representations from the canonical schema.
 - Research public signatures, tests, usage, and ecosystem integrations against the installed version before selecting an API. Effect internals and lint exclusions do not authorize substitutes. A remaining external operation needs explicit user approval for that exact gap, not a blanket adapter exception.
@@ -29,13 +29,13 @@ Effect-native signatures, key agreement, encapsulation, and JWT verification.
 
 ### User-approved exceptions
 
-The owner explicitly approved retaining the following existing operations in the [sign review thread](https://ampcode.com/threads/T-01a0a72a-7df6-753f-9893-647538504fdd), after research found no equivalent public Effect v3 APIs preserving their contracts:
+The following operations are permitted within this package:
 
 1. Noble cryptographic randomness, curve/signature/key-agreement/post-quantum/KEM primitives, and equal-length byte comparison without data-dependent early exit. JavaScript execution is not guaranteed constant-time.
 2. RSA public-integer `bitLen`, modular `pow`, and fixed-width big-endian `numberToBytesBE`. Byte-to-bigint admission continues to use native Encoding and Schema APIs.
 3. Test-only hostile host objects: `ArrayBuffer.transfer`, Proxy/Reflect interception, and throwing property getters used to exercise input-admission failures.
 
-For the Effect v4 migration, the owner also approved direct `Uint8Array` construction solely for byte materialization in this package's implementation, tests, and tooling. Effect v4's `Schema.Uint8Array` validates existing bytes; its JSON codec uses base64, not number arrays. Preserve input validation, bounded traversal, hostile-input handling, and material-free errors.
+Direct `Uint8Array` construction is permitted solely for byte materialization in this package's implementation, tests, and tooling. `Schema.Uint8Array` validates existing bytes; use Effect codecs for transport encoding. Preserve input validation, bounded traversal, hostile-input handling, and material-free errors.
 
 This approval is limited to those operations in this package. It does not exempt surrounding models, control flow, callbacks, error handling, state, or composition, authorize substitutes where Effect supplies the required API, or grant an exception to an entire adapter or dependency. Additional gaps require separate explicit approval.
 

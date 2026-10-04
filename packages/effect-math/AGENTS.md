@@ -28,12 +28,12 @@ All code must be idiomatic Effect. See root `AGENTS.md` for the full banned-patt
 - **Tagged errors** — use `Data.TaggedError` when no codec is needed and `Schema.TaggedError` when the error crosses an encoded boundary; no `throw`, no `new Error()`
 - **`Match.exhaustive`** for all dispatch — no `switch`, no `if/else` chains
 - **`Effect.filterOrFail`** for all validation — no `if` statements
-- **`onExcessProperty: "error"`** on all `Schema.decodeUnknown` boundary calls
+- **`onExcessProperty: "error"`** on all `Schema.decodeUnknownEffect` boundary calls
 - **No implicit math exceptions.** Deterministic IEEE 754 behavior does not authorize `Math.sqrt` or other JavaScript substitutes. Research Effect's public APIs and ecosystem integrations; obtain explicit authorization for any operation that remains unavailable before introducing a non-Effect implementation.
 
 Approved exceptions:
 
-- Only the private `negativeZero` predicate in `src/internal/numeric/transcendental.ts` may use `Object.is(value, -0)`. Effect v4 has no suitable public signed-zero predicate; its division APIs reject zero divisors. Replace this predicate with a public Effect numeric API when available. This does not authorize other native numerical operations.
+- Only the private `negativeZero` predicate in `src/internal/numeric/transcendental.ts` may use `Object.is(value, -0)` to distinguish signed zero. This does not authorize other native numerical operations.
 - `src/Complex.ts` intentionally uses `Schema.Number` for IEEE-valued base models. The root Oxlint configuration disables only `effecttsgo/schema-number` for this file. Validated operation inputs still require finite values; do not broaden this exception to other modules.
 
 ## Flat Concern Architecture

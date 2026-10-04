@@ -16,7 +16,7 @@ The single canonical definition for every type shared between server and web. Bo
 
 ### Patterns
 
-- **Schema → Type extraction**: `Schema.Struct({...})` then `type X = typeof X.Type`; use the Effect 4 `decodeEffect` / `decodeUnknownEffect` and `encodeEffect` families at boundaries.
+- **Schema → Type extraction**: `Schema.Struct({...})` then `type X = typeof X.Type`; use the `decodeEffect` / `decodeUnknownEffect` and `encodeEffect` families at boundaries.
 - **Envelope protocol**: `Envelope(DataSchema)` produces a `Success | Failure` union with typed `meta` and discriminated `ok` field.
 - **Tagged errors**: `Schema.TaggedError` with `_tag` discrimination. The `DemoError` union (`demo-error.ts`) covers `DemoRequestError | DemoDecodeError | DemoExecutionError` and is the browser client's failure type.
 - **Imagined Place**: `imagined-place.ts` is the request (`PlaceBuildRequest`, scenarios), `imagined-place-result.ts` the result (`PlaceBuild`, `PlaceBuildEnvelope`), and `demo/imagined-place-*.ts` the arrangement and flow projections shared by server rendering and the browser.

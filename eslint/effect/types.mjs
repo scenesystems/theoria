@@ -56,18 +56,6 @@ export const UTILITY_TYPE_RULES = [
   }
 ]
 
-export const SCHEMA_V4_MIGRATION_RULES = [
-  {
-    selector: "MemberExpression[object.name='Schema'][property.name='decodeUnknown']",
-    message: "Schema.decodeUnknown is an Effect 3 API. Use the Effect 4 decodeUnknownEffect/Sync/Result variant."
-  },
-  {
-    selector: "MemberExpression[object.name='Schema'][property.name=/^(partial|pick|omit)$/]",
-    message:
-      "This is an Effect 3 Schema API. In Effect 4 transform Struct fields with schema.mapFields and effect/Struct helpers."
-  }
-]
-
 export const MODULE_STUB_RULES = [
   {
     selector: "ExportNamedDeclaration[declaration=null][source=null][specifiers.length=0]",
