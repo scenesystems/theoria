@@ -1,7 +1,7 @@
 import { BunServices } from "@effect/platform-bun"
 import { describe, expect, it } from "@effect/vitest"
 import * as Digest from "@scenesystems/digest/Digest"
-import { Array, Effect, Match, Option, Redacted, Ref, Schema, String } from "effect"
+import { Array, Effect, Match, Option, Redacted, Ref, Schema, Stream, String } from "effect"
 import { Base64 } from "effect/encoding"
 import * as FileSystem from "effect/FileSystem"
 import { Headers, HttpClient, HttpClientResponse, HttpServerResponse } from "effect/http"
@@ -31,6 +31,36 @@ const candidate = Schema.decodeSync(Candidate.Record)({
 })
 
 describe("bootstrap publication admission", () => {
+  it.effect("accepts the workflow's anonymous CLI invocation and requires a token only with --authenticated", () =>
+    Effect.gen(function*() {
+      const fs = yield* FileSystem.FileSystem
+      const path = yield* Path.Path
+      const directory = yield* fs.makeTempDirectoryScoped()
+      const file = path.join(directory, "candidate.json")
+      yield* Candidate.write(file, Candidate.Record, candidate)
+      yield* Effect.forEach([
+        { flags: Array.empty<string>(), expected: "Select unique, nonempty package names from the staged candidate." },
+        { flags: ["--authenticated"], expected: "NODE_AUTH_TOKEN" }
+      ], ({ flags, expected }) =>
+        Effect.gen(function*() {
+          const child = yield* ChildProcess.make("bun", ["scripts/release.ts", "bootstrap-check", ...flags], {
+            extendEnv: true,
+            env: {
+              CANDIDATE: file,
+              BOOTSTRAP_PACKAGES: "[\"@scenesystems/not-in-candidate\"]",
+              NODE_AUTH_TOKEN: ""
+            }
+          })
+          const result = yield* Effect.all({
+            stdout: child.stdout.pipe(Stream.decodeText(), Stream.mkString),
+            stderr: child.stderr.pipe(Stream.decodeText(), Stream.mkString),
+            exitCode: child.exitCode
+          }, { concurrency: "unbounded" })
+          expect(result.exitCode).toBe(1)
+          expect(String.concat(result.stdout, result.stderr)).toContain(expected)
+        }))
+    }).pipe(Effect.scoped, Effect.provide(BunServices.layer)))
+
   it.effect("admits only the explicitly selected new package and queries the package root", () =>
     Effect.gen(function*() {
       const requests = yield* Ref.make(Array.empty<string>())
