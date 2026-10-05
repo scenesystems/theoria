@@ -11,7 +11,7 @@ it.effect("discards an interrupted overlay and installs only on explicit request
     const signature = yield* Signature.make("Answer", { question: Schema.String }, { answer: Schema.String })
     const leaf = yield* Module.predict("generate", signature)
     const before = yield* ParameterSet.snapshot(leaf)
-    const candidate = Record.map(before, (params) => withInstructions(params, "candidate"))
+    const candidate = Record.map(before, (parameters) => withInstructions(parameters, "candidate"))
     const entered = yield* Deferred.make<void>()
     const fiber = yield* assertNoMutation(
       leaf,

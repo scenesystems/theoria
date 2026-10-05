@@ -15,7 +15,7 @@ import { withPredictors } from "../../parameterBinding.js"
 import { buildCompositionGraph } from "./graph.js"
 import { ComposeForwardOptions, makeComposeForward } from "./runtime.js"
 
-const makeInitialParams = <
+const makeInitialParameters = <
   I extends Schema.Struct.Fields,
   O extends Schema.Struct.Fields
 >(
@@ -60,7 +60,7 @@ export const compose = <
   R = never
 >(options: ComposeOptions<I, O, E, R>): Effect.Effect<Module<I, O, E, R>, CompositionError> =>
   Effect.gen(function*() {
-    const paramsRef = yield* Ref.make(makeInitialParams(options.signature))
+    const parametersRef = yield* Ref.make(makeInitialParameters(options.signature))
     const composition = yield* buildCompositionGraph(
       new ComposeGraphOptions({
         name: options.name,
@@ -72,14 +72,14 @@ export const compose = <
     return new Module({
       name: options.name,
       signature: options.signature,
-      params: paramsRef,
+      parameters: parametersRef,
       subModules: composition.subModulesById,
       declarations: composition.declarations,
       forward: makeComposeForward(
         new ComposeForwardOptions({
           moduleName: options.name,
           signature: options.signature,
-          paramsRef,
+          parametersRef,
           rootChildIds: composition.rootChildIds,
           graph: composition.graph,
           subModules: composition.subModulesById,
@@ -88,7 +88,7 @@ export const compose = <
               new ComposableModule({
                 name: options.name,
                 signature: options.signature,
-                params: paramsRef,
+                parameters: parametersRef,
                 subModules: composition.subModulesById,
                 declarations: composition.declarations
               })

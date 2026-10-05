@@ -137,14 +137,14 @@ describe("Trace provider integration", () => {
             })
           )
           yield* Ref.update(
-            module.params,
-            (params) =>
+            module.parameters,
+            (parameters) =>
               new ModuleParameters({
-                instructions: params.instructions,
-                demos: params.demos,
+                instructions: parameters.instructions,
+                demos: parameters.demos,
                 outputStrategy: "text",
-                temperature: params.temperature,
-                maxTokens: params.maxTokens
+                temperature: parameters.temperature,
+                maxTokens: parameters.maxTokens
               })
           )
           const [[[output, entries], calls], aggregate] = yield* Trace.withUsageTracking(

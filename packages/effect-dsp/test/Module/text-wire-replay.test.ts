@@ -63,13 +63,13 @@ const makeTextPredict = <O extends Schema.Struct.Fields>(output: Schema.Struct<O
   Effect.gen(function*() {
     const signature = yield* Signature.make("Replay encoded fields", Input.fields, output.fields)
     const module = yield* Module.predict(name, signature, noRetries)
-    yield* Ref.update(module.params, (params) =>
+    yield* Ref.update(module.parameters, (parameters) =>
       new ModuleParameters({
-        instructions: params.instructions,
-        demos: params.demos,
+        instructions: parameters.instructions,
+        demos: parameters.demos,
         outputStrategy: "text",
-        temperature: params.temperature,
-        maxTokens: params.maxTokens
+        temperature: parameters.temperature,
+        maxTokens: parameters.maxTokens
       }))
     return module
   })
@@ -86,12 +86,12 @@ describe("Module marker wire replay", () => {
             Module.react(new Module.ReactOptions({ name: "renamed-react", signature, toolkit, maxIterations: 1 }))),
           Match.exhaustive
         )
-        yield* Ref.update(module.params, (params) =>
+        yield* Ref.update(module.parameters, (parameters) =>
           new ModuleParameters({
-            instructions: params.instructions,
-            outputStrategy: params.outputStrategy,
-            temperature: params.temperature,
-            maxTokens: params.maxTokens,
+            instructions: parameters.instructions,
+            outputStrategy: parameters.outputStrategy,
+            temperature: parameters.temperature,
+            maxTokens: parameters.maxTokens,
             demos: Arr.make(new Demonstration({ input: { prompt: "training" }, output: { wire: { count: "03" } } }))
           }))
         const mock = yield* MockLanguageModel.make(MockLanguageModel.fromFunction((prompt) =>
@@ -121,13 +121,13 @@ describe("Module marker wire replay", () => {
     Effect.gen(function*() {
       const signature = yield* renamedSignature
       const module = yield* Module.predict("renamed-errors", signature, noRetries)
-      yield* Ref.update(module.params, (params) =>
+      yield* Ref.update(module.parameters, (parameters) =>
         new ModuleParameters({
-          instructions: params.instructions,
-          demos: params.demos,
+          instructions: parameters.instructions,
+          demos: parameters.demos,
           outputStrategy: "text",
-          temperature: params.temperature,
-          maxTokens: params.maxTokens
+          temperature: parameters.temperature,
+          maxTokens: parameters.maxTokens
         }))
       const mock = yield* MockLanguageModel.make(MockLanguageModel.succeed("[[ ## result ## ]]\n{}"))
       const failure = yield* module.forward({ question: "count" }).pipe(
@@ -174,9 +174,9 @@ describe("Module marker wire replay", () => {
           fallbackToLabeledFewShot: false
         })
       ).pipe(Effect.provideService(LanguageModel.LanguageModel, teacher.service))
-      const params = Option.getOrThrow(Record.get(optimized.parameters, module.name))
-      const demo = Option.getOrThrow(Arr.head(params.demos))
-      expect(params.outputStrategy).toBe("auto")
+      const parameters = Option.getOrThrow(Record.get(optimized.parameters, module.name))
+      const demo = Option.getOrThrow(Arr.head(parameters.demos))
+      expect(parameters.outputStrategy).toBe("auto")
       expect(demo.output).toEqual({ result: { count: "7" } })
 
       const replay = yield* MockLanguageModel.make(
@@ -416,13 +416,13 @@ describe("Module marker wire replay", () => {
           })
         })
       )
-      yield* Ref.update(module.params, (params) =>
+      yield* Ref.update(module.parameters, (parameters) =>
         new ModuleParameters({
-          instructions: params.instructions,
-          demos: params.demos,
+          instructions: parameters.instructions,
+          demos: parameters.demos,
           outputStrategy: "text",
-          temperature: params.temperature,
-          maxTokens: params.maxTokens
+          temperature: parameters.temperature,
+          maxTokens: parameters.maxTokens
         }))
       const invalid = "[[ ## result ## ]]\n{\"count\":"
       const mock = yield* MockLanguageModel.make(MockLanguageModel.sequence(Arr.make(

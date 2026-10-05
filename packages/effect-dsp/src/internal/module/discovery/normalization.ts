@@ -34,7 +34,7 @@ const registrationOrder: Order.Order<Discovered> = Order.mapInput(
 const canonicalRegistration = (registration: Discovered): Discovered =>
   new Discovered({
     id: registration.id,
-    params: registration.params,
+    parameters: registration.parameters,
     signature: registration.signature,
     subModuleIds: canonicalSubModuleIds(registration.subModuleIds)
   })

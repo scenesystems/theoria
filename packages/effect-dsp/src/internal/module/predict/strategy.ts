@@ -28,7 +28,7 @@ const runStructuredForward = <
   O extends Schema.Struct.Fields
 >(options: ForwardOptions<I, O>) =>
   Effect.gen(function*() {
-    const prompt = yield* buildPrompt(options.signature, options.params, options.input)
+    const prompt = yield* buildPrompt(options.signature, options.parameters, options.input)
     const [response, usage] = yield* callLmResponse(prompt, options.outputSchema)
     yield* appendAttempt(
       new Attempt({
@@ -73,7 +73,7 @@ const runTextForward = <
         feedbackTemplate: parsePolicy.feedbackTemplate,
         readText: (feedback) =>
           Effect.gen(function*() {
-            const prompt = yield* buildPrompt(options.signature, options.params, options.input, feedback)
+            const prompt = yield* buildPrompt(options.signature, options.parameters, options.input, feedback)
             const [response, usage] = yield* callLmTextResponse(prompt)
 
             return new PreparedText({ prompt, response, usage })
@@ -125,7 +125,7 @@ export const runForward = <
   I extends Schema.Struct.Fields,
   O extends Schema.Struct.Fields
 >(options: ForwardOptions<I, O>) =>
-  Match.value(resolveStrategy(options.params.outputStrategy, Arr.length(options.params.demos))).pipe(
+  Match.value(resolveStrategy(options.parameters.outputStrategy, Arr.length(options.parameters.demos))).pipe(
     Match.when("structured", () => runStructuredForward(options)),
     Match.when("text", () => runTextForward(options)),
     Match.exhaustive

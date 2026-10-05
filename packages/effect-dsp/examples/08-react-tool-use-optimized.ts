@@ -191,7 +191,7 @@ const program = Effect.gen(function*() {
   )
 
   yield* Module.install(solver, compiled.parameters)
-  const optimizedParams = yield* Ref.get(solver.params)
+  const optimizedParameters = yield* Ref.get(solver.parameters)
 
   // 6. Post-optimization evaluation
   const optimized = yield* Evaluate.run(
@@ -208,14 +208,14 @@ const program = Effect.gen(function*() {
 
   yield* Effect.log("Optimized evaluation", {
     exactMatch: optimizedScore,
-    learnedDemoCount: optimizedParams.demos.length,
+    learnedDemoCount: optimizedParameters.demos.length,
     improvement: optimizedScore - baselineScore
   })
 
   yield* Effect.log("react-tool-use-optimized summary", {
     baselineExactMatch: baseline.overallScores.exactMatch,
     optimizedExactMatch: optimized.overallScores.exactMatch,
-    demoCount: optimizedParams.demos.length,
+    demoCount: optimizedParameters.demos.length,
     tools: ["Calculator", "UnitConverter"],
     moduleType: "react",
     maxIterations: 5

@@ -400,8 +400,8 @@ export const runWithEvents = <
     const paramRefs = Arr.filter(Arr.fromIterable(predictors(options.module)), (predictor) => !predictor.frozen)
     const initialInstructions = yield* Effect.forEach(paramRefs, (predictor) =>
       Binding.read(predictor.parameters, predictor.path).pipe(
-        Effect.map((params) =>
-          new PredictorInstruction({ predictorName: predictor.name, instruction: params.instructions })
+        Effect.map((parameters) =>
+          new PredictorInstruction({ predictorName: predictor.name, instruction: parameters.instructions })
         )
       )).pipe(Binding.withPredictors(predictors(options.module)))
     const initialCandidate = new ProgramCandidate({

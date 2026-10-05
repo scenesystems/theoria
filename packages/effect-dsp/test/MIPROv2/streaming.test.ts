@@ -49,13 +49,13 @@ const forceStructuredOutputStrategy = <
   module: Module.Module<I, O>
 ) =>
   Effect.gen(function*() {
-    const params = yield* Ref.get(module.params)
+    const parameters = yield* Ref.get(module.parameters)
 
     yield* Ref.set(
-      module.params,
+      module.parameters,
       new ModuleParameters({
-        instructions: params.instructions,
-        demos: params.demos,
+        instructions: parameters.instructions,
+        demos: parameters.demos,
         outputStrategy: "structured"
       })
     )

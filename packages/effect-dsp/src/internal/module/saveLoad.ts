@@ -49,12 +49,12 @@ export const load = <I extends Schema.Struct.Fields, O extends Schema.Struct.Fie
         onNone: () =>
           Effect.fail(
             new SaveLoadError({
-              message: `Saved state is missing params for predictor '${target.path}'`,
+              message: `Saved state is missing parameters for predictor '${target.path}'`,
               operation: "load"
             })
           ),
-        onSome: (params) =>
-          Effect.forEach(params.demos, target.demonstrationCodec.decode, { discard: true }).pipe(
+        onSome: (parameters) =>
+          Effect.forEach(parameters.demos, target.demonstrationCodec.decode, { discard: true }).pipe(
             Effect.mapError(() =>
               new SaveLoadError({
                 message: `Saved demonstrations do not match predictor '${target.path}'`,

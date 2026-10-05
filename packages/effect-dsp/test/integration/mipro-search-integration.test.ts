@@ -41,7 +41,7 @@ describe("MIPROv2/effect-search integration", () => {
     Effect.gen(function*() {
       const signature = yield* makeQaSignature()
       const module = yield* Module.predict("qa", signature)
-      const baselineParams = yield* Ref.get(module.params)
+      const baselineParameters = yield* Ref.get(module.parameters)
       const demoCandidates = Arr.make(
         new PredictorDemoCandidates({
           predictorName: "qa",
@@ -49,8 +49,8 @@ describe("MIPROv2/effect-search integration", () => {
             new DemoCandidate({
               predictorName: "qa",
               kind: "zero-shot",
-              params: new ModuleParameters({
-                instructions: baselineParams.instructions,
+              parameters: new ModuleParameters({
+                instructions: baselineParameters.instructions,
                 demos: [],
                 outputStrategy: "structured"
               })
@@ -58,8 +58,8 @@ describe("MIPROv2/effect-search integration", () => {
             new DemoCandidate({
               predictorName: "qa",
               kind: "bootstrap-unshuffled",
-              params: new ModuleParameters({
-                instructions: baselineParams.instructions,
+              parameters: new ModuleParameters({
+                instructions: baselineParameters.instructions,
                 demos: [],
                 outputStrategy: "structured"
               })
@@ -73,7 +73,7 @@ describe("MIPROv2/effect-search integration", () => {
           candidates: Arr.make(
             new InstructionCandidate({
               predictorName: "qa",
-              instruction: baselineParams.instructions,
+              instruction: baselineParameters.instructions,
               tip: "baseline",
               cacheBustMarker: "[miprov2-proposal:qa:0:seed:1]",
               prompt: "baseline",

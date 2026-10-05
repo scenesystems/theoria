@@ -29,7 +29,7 @@ import type { Metric } from "../../../Metric.js"
 import * as Module from "../../../Module.js"
 import type { Module as DspModule } from "../../../Module.js"
 import { predictors } from "../../../ModuleGraph.js"
-import { withDemos as withModuleParamsDemos } from "../../../ModuleParameters.js"
+import { withDemos as withModuleParametersDemos } from "../../../ModuleParameters.js"
 import * as ParameterSet from "../../../ParameterSet.js"
 import { labeledDemos, selectRandomDemos } from "../../labeledFewShot/sampling.js"
 
@@ -256,7 +256,7 @@ export const buildCandidateStates = <
             Effect.map((compatible) =>
               Tuple.make(
                 entry.path,
-                withModuleParamsDemos(
+                withModuleParametersDemos(
                   Option.getOrThrow(Record.get(options.initialState, entry.path)),
                   selectRandomDemos(Arr.getSomes(compatible), options.baselineLabeledCount, seed)
                 )

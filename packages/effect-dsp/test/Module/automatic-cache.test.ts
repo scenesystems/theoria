@@ -82,14 +82,14 @@ describe("automatic predictor cache", () => {
         yield* teacher.forward({ question: "q" })
         yield* limited.forward({ question: "q" })
         yield* otherSignature.forward({ question: "q" })
-        const edited = Record.map(base, (params) =>
-          new ModuleParameters(Struct.assign(params, {
+        const edited = Record.map(base, (parameters) =>
+          new ModuleParameters(Struct.assign(parameters, {
             fields: { question: { prefix: Option.some("Edited prefix"), description: Option.none() } }
           })))
         const output = yield* module.forward({ question: "q" }).pipe(Module.withParameters(edited))
         expect(output.answer).toContain("Edited prefix")
-        yield* module.forward({ question: "q" }).pipe(Module.withParameters(Record.map(base, (params) =>
-          new ModuleParameters(Struct.assign(params, { instructions: "Different instructions" })))))
+        yield* module.forward({ question: "q" }).pipe(Module.withParameters(Record.map(base, (parameters) =>
+          new ModuleParameters(Struct.assign(parameters, { instructions: "Different instructions" })))))
         yield* Cache.withRollout(9, module.forward({ question: "q" }))
         expect(yield* Ref.get(lm.calls)).toHaveLength(7)
       }).pipe(ModelBinder.withBinder(lm.binder), Effect.provideService(LanguageModel.LanguageModel, lm.service))

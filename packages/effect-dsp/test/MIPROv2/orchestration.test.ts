@@ -28,13 +28,13 @@ const makeQaSignature = () =>
 const makeStructuredQaModule = Effect.gen(function*() {
   const signature = yield* makeQaSignature()
   const module = yield* Module.predict("qa", signature)
-  const baselineParams = yield* Ref.get(module.params)
+  const baselineParameters = yield* Ref.get(module.parameters)
 
   yield* Ref.set(
-    module.params,
+    module.parameters,
     new ModuleParameters({
-      instructions: baselineParams.instructions,
-      demos: baselineParams.demos,
+      instructions: baselineParameters.instructions,
+      demos: baselineParameters.demos,
       outputStrategy: "structured"
     })
   )

@@ -24,7 +24,7 @@ export class ForwardOptions<I extends Schema.Struct.Fields, O extends Schema.Str
   readonly executionId: typeof Execution.Id.Type
   readonly moduleName: string
   readonly signature: Signature<I, O>
-  readonly params: ModuleParameters
+  readonly parameters: ModuleParameters
   readonly input: Schema.Schema.Type<Schema.Struct<I>>
   readonly outputSchema: Signature<I, O>["outputSchema"]
   readonly policy: PredictPolicy

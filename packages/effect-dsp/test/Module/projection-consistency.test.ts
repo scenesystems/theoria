@@ -39,7 +39,7 @@ const makeModules = () =>
     const second = new Module.Module({
       name: other.name,
       signature: other.signature,
-      params: first.params,
+      parameters: first.parameters,
       subModules: other.subModules,
       forward: other.forward
     })
@@ -54,7 +54,7 @@ describe("shared module projection consistency", () => {
       const sameIdDifferentPredictor = new Module.Module({
         name: first.name,
         signature: first.signature,
-        params: first.params,
+        parameters: first.parameters,
         subModules: HashMap.map(first.subModules, (module) =>
           new Module.Structure({
             id: module.id,
@@ -62,12 +62,12 @@ describe("shared module projection consistency", () => {
             signature: module.signature,
             signatureDigest: module.signatureDigest,
             demonstrationCodec: module.demonstrationCodec,
-            parameters: distinctX.params,
+            parameters: distinctX.parameters,
             subModules: module.subModules
           })),
         forward: first.forward
       })
-      const refs = Arr.make(first.params, x.params, y.params, distinctX.params)
+      const refs = Arr.make(first.parameters, x.parameters, y.parameters, distinctX.parameters)
       const before = yield* Effect.forEach(refs, (ref) => Ref.get(ref))
       yield* Effect.forEach(Arr.make(second, sameIdDifferentPredictor), (conflicting) =>
         Effect.gen(function*() {
@@ -105,7 +105,7 @@ describe("shared module projection consistency", () => {
           forward: () => Effect.succeed({ answer: "unused" })
         })
       )
-      const refs = Arr.make(left.params, right.params, first.params, x.params, y.params)
+      const refs = Arr.make(left.parameters, right.parameters, first.parameters, x.parameters, y.parameters)
       const before = yield* Effect.forEach(refs, (ref) => Ref.get(ref))
       const error = yield* Effect.flip(Module.compose(
         new Module.ComposeOptions({
@@ -135,7 +135,7 @@ describe("shared module projection consistency", () => {
       const second = new Module.Module({
         name: first.name,
         signature: first.signature,
-        params: first.params,
+        parameters: first.parameters,
         subModules: HashMap.fromIterable(
           Arr.reverse(
             Arr.map(
@@ -183,8 +183,8 @@ describe("shared module projection consistency", () => {
         })
       )
       const expected = Arr.make(
-        Tuple.make(x.params, "x params"),
-        Tuple.make(y.params, "y params")
+        Tuple.make(x.parameters, "x parameters"),
+        Tuple.make(y.parameters, "y parameters")
       )
       yield* Effect.forEach(
         expected,
@@ -192,7 +192,7 @@ describe("shared module projection consistency", () => {
       )
       const saved = yield* Module.save(root)
       expect(Arr.map(Record.values(saved.parameters), (entry) => entry.instructions)).toEqual(
-        Arr.make("x params", "y params")
+        Arr.make("x parameters", "y parameters")
       )
       yield* Effect.forEach(expected, ([ref]) => Ref.set(ref, makeParameters("changed")))
       yield* Module.load(root, saved)
@@ -266,11 +266,11 @@ describe("shared module projection consistency", () => {
             const right = new Module.Module({
               name: "right",
               signature,
-              params: yield* Ref.make(makeParameters("right")),
+              parameters: yield* Ref.make(makeParameters("right")),
               subModules: HashMap.make(Tuple.make(sharedId, projection)),
               forward: () => Effect.succeed({ answer: "unused" })
             })
-            const before = yield* Ref.get(first.params)
+            const before = yield* Ref.get(first.parameters)
             const error = yield* Effect.flip(Module.compose(
               new Module.ComposeOptions({
                 name: "root",
@@ -282,7 +282,7 @@ describe("shared module projection consistency", () => {
             expect(error._tag).toBe("CompositionError")
             expect(error.moduleName).toBe("shared")
             expect(error.message).toContain(message)
-            expect(yield* Ref.get(first.params)).toEqual(before)
+            expect(yield* Ref.get(first.parameters)).toEqual(before)
           })
       )
     }))

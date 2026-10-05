@@ -16,7 +16,7 @@ export const defaultBootstrapFallbackDemoCount = 3
 
 export class PredictorDemos extends Data.Class<{
   readonly predictor: Predictor.Predictor
-  readonly params: ModuleParameters
+  readonly parameters: ModuleParameters
 }> {}
 
 export class AcceptedDemo extends Schema.Class<AcceptedDemo>(
@@ -68,4 +68,4 @@ export class BootstrapState extends Data.Class<{
 }> {}
 
 export const demoCount = (predictors: Iterable<PredictorDemos>): number =>
-  Arr.reduce(predictors, 0, (count, predictor) => Number.sum(count, Arr.length(predictor.params.demos)))
+  Arr.reduce(predictors, 0, (count, predictor) => Number.sum(count, Arr.length(predictor.parameters.demos)))

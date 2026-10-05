@@ -29,7 +29,8 @@ export const snapshot = Effect.fnUntraced(function*(root: ComposableModule, opti
   )
   const entries = yield* Effect.forEach(
     selected,
-    (entry) => Binding.read(entry.parameters, entry.path).pipe(Effect.map((params) => Tuple.make(entry.path, params)))
+    (entry) =>
+      Binding.read(entry.parameters, entry.path).pipe(Effect.map((parameters) => Tuple.make(entry.path, parameters)))
   ).pipe(
     Binding.withPredictors(predictors(root))
   )

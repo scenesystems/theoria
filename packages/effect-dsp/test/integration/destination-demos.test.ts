@@ -43,13 +43,13 @@ describe("destination-owned demonstrations", () => {
   it.effect("rejects incompatible labeled demos before changing any predictor", () =>
     Effect.gen(function*() {
       const { root, child } = yield* makePipeline
-      const initialRoot = yield* Ref.get(root.params)
-      const initialChild = yield* Ref.get(child.params)
+      const initialRoot = yield* Ref.get(root.parameters)
+      const initialChild = yield* Ref.get(child.parameters)
       const failure = yield* LabeledFewShot.run(new LabeledFewShot.Options({ module: root, trainset: rows, k: 1 }))
         .pipe(Effect.flip)
       expect(failure._tag).toBe("SchemaError")
-      expect(yield* Ref.get(root.params)).toBe(initialRoot)
-      expect(yield* Ref.get(child.params)).toBe(initialChild)
+      expect(yield* Ref.get(root.parameters)).toBe(initialRoot)
+      expect(yield* Ref.get(child.parameters)).toBe(initialChild)
     }))
 
   it.effect("builds the automatic labeled baseline independently for each destination", () =>
@@ -69,7 +69,7 @@ describe("destination-owned demonstrations", () => {
 
       expect(Record.keys(compiled.parameters)).toEqual(["pipeline.child"])
       expect(Option.getOrThrow(Record.get(compiled.parameters, "pipeline.child")).demos).toEqual(Arr.empty())
-      expect((yield* Ref.get(child.params)).demos).toEqual(Arr.empty())
+      expect((yield* Ref.get(child.parameters)).demos).toEqual(Arr.empty())
     }))
 
   it.effect("bootstraps stage traces and replays the heterogeneous child with automatic text mode", () =>
@@ -89,7 +89,7 @@ describe("destination-owned demonstrations", () => {
           fallbackToLabeledFewShot: false
         })
       ).pipe(Effect.provideService(LanguageModel.LanguageModel, mock.service))
-      expect((yield* Ref.get(child.params)).demos).toEqual(Arr.empty())
+      expect((yield* Ref.get(child.parameters)).demos).toEqual(Arr.empty())
       expect(Option.getOrThrow(Record.get(compiled.parameters, "pipeline.child")).demos).toEqual(Arr.make(
         new Demonstration({ input: { question: "France", context: "Cities" }, output: { analysis: "Paris" } })
       ))
@@ -110,7 +110,7 @@ describe("destination-owned demonstrations", () => {
         input: { question: "France", context: "Cities" },
         output: { analysis: "Paris" }
       })
-      yield* Ref.update(child.params, (params) => withDemos(params, Arr.make(stage)))
+      yield* Ref.update(child.parameters, (parameters) => withDemos(parameters, Arr.make(stage)))
       const sets = yield* MIPROv2Candidates.generateDemoCandidates(
         new MIPROv2Candidates.GenerateDemoCandidatesOptions({ module: root, trainset: rows, numCandidates: 4 })
       )
@@ -119,11 +119,11 @@ describe("destination-owned demonstrations", () => {
       )
       const labeled = Option.getOrThrow(Arr.get(childSet.candidates, 1))
       const bootstrapped = Option.getOrThrow(Arr.get(childSet.candidates, 2))
-      expect(labeled.params.demos).toEqual(Arr.empty())
-      expect(bootstrapped.params.demos).toEqual(Arr.make(stage))
+      expect(labeled.parameters.demos).toEqual(Arr.empty())
+      expect(bootstrapped.parameters.demos).toEqual(Arr.make(stage))
       yield* Effect.forEach(
         childSet.candidates,
-        (candidate) => Effect.forEach(candidate.params.demos, child.signature.demonstrationCodec.decode)
+        (candidate) => Effect.forEach(candidate.parameters.demos, child.signature.demonstrationCodec.decode)
       )
     }))
 
@@ -141,7 +141,7 @@ describe("destination-owned demonstrations", () => {
           trialBudget: 2
         })
       ).pipe(Effect.provideService(LanguageModel.LanguageModel, mock.service))
-      expect((yield* Ref.get(child.params)).demos).toEqual(Arr.empty())
+      expect((yield* Ref.get(child.parameters)).demos).toEqual(Arr.empty())
       expect(
         yield* compiled.program.forward({ question: "France" }).pipe(
           Effect.provideService(LanguageModel.LanguageModel, mock.service)
@@ -181,7 +181,7 @@ describe("destination-owned demonstrations", () => {
           teacher: Layer.succeed(LanguageModel.LanguageModel, teacher.service)
         })
       ).pipe(Effect.provideService(LanguageModel.LanguageModel, mock.service))
-      expect((yield* Ref.get(child.params)).demos).toEqual(Arr.empty())
+      expect((yield* Ref.get(child.parameters)).demos).toEqual(Arr.empty())
       expect(Option.getOrThrow(Record.get(compiled.parameters, "pipeline.child")).demos).toEqual(Arr.make(
         new Demonstration({
           input: { question: "France", context: "Cities" },
@@ -232,8 +232,8 @@ describe("destination-owned demonstrations", () => {
   it.effect("restores every predictor after interrupting a teacher run", () =>
     Effect.gen(function*() {
       const { root, child } = yield* makePipeline
-      const rootBefore = yield* Ref.get(root.params)
-      const childBefore = yield* Ref.get(child.params)
+      const rootBefore = yield* Ref.get(root.parameters)
+      const childBefore = yield* Ref.get(child.parameters)
       const entered = yield* Deferred.make<void>()
       const mock = yield* MockLanguageModel.make(
         MockLanguageModel.fromFunction(() => Deferred.complete(entered, Effect.void).pipe(Effect.andThen(Effect.never)))
@@ -248,9 +248,9 @@ describe("destination-owned demonstrations", () => {
         })
       ).pipe(Effect.provideService(LanguageModel.LanguageModel, mock.service), Effect.forkScoped)
       yield* Deferred.await(entered)
-      expect(yield* Ref.get(child.params)).toBe(childBefore)
+      expect(yield* Ref.get(child.parameters)).toBe(childBefore)
       yield* Fiber.interrupt(fiber)
-      expect(yield* Ref.get(root.params)).toEqual(rootBefore)
-      expect(yield* Ref.get(child.params)).toEqual(childBefore)
+      expect(yield* Ref.get(root.parameters)).toEqual(rootBefore)
+      expect(yield* Ref.get(child.parameters)).toEqual(childBefore)
     }))
 })

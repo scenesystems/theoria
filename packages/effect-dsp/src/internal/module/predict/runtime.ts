@@ -30,7 +30,7 @@ export class RuntimeOptions<I extends Schema.Struct.Fields, O extends Schema.Str
   readonly signature: Signature<I, O>
   readonly inputSchema: Signature<I, O>["inputSchema"]
   readonly outputSchema: Signature<I, O>["outputSchema"]
-  readonly paramsRef: Ref.Ref<ModuleParameters>
+  readonly parametersRef: Ref.Ref<ModuleParameters>
   readonly policy: PredictPolicy
   readonly invocation: PredictOptions
 }> {}
@@ -50,7 +50,7 @@ export const makeForward = <
       yield* registerRuntime(
         new RuntimeRegistrationOptions({
           moduleName: options.moduleName,
-          params: options.paramsRef,
+          parameters: options.parametersRef,
           signature: new Text({
             description: options.signature.description,
             instructions: options.signature.instructions
@@ -59,27 +59,27 @@ export const makeForward = <
         })
       )
 
-      const params = yield* read(options.paramsRef, options.moduleName)
+      const parameters = yield* read(options.parametersRef, options.moduleName)
       const id = yield* executionId
       const startedAt = yield* Clock.currentTimeMillis
       const forward = new ForwardOptions<I, O>({
         executionId: id,
         moduleName: options.moduleName,
         signature: options.signature,
-        params,
+        parameters,
         input,
         outputSchema: options.outputSchema,
         policy: options.policy
       })
       const request = new ModelBinder.Request({
-        settings: ModelSettings.merge(settings(params), options.invocation.settings ?? ModelSettings.empty),
+        settings: ModelSettings.merge(settings(parameters), options.invocation.settings ?? ModelSettings.empty),
         role: options.invocation.role ?? (yield* CurrentRole),
         rolloutId: yield* RolloutRef
       })
       const compute = runForward(forward)
       const enabled = options.invocation.cache !== "never"
       const execution = yield* (enabled
-        ? cached(forward, request, yield* path(options.paramsRef, options.moduleName), compute)
+        ? cached(forward, request, yield* path(options.parametersRef, options.moduleName), compute)
         : compute).pipe(ModelBinder.bind(request))
       const completedAt = yield* Clock.currentTimeMillis
 

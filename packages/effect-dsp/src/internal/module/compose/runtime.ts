@@ -21,7 +21,7 @@ class ComposeForwardOptions<
 > extends Data.Class<{
   readonly moduleName: string
   readonly signature: Signature<I, O>
-  readonly paramsRef: Ref.Ref<ModuleParameters>
+  readonly parametersRef: Ref.Ref<ModuleParameters>
   readonly rootChildIds: ModuleGraphNode["subModuleIds"]
   readonly graph: ModuleGraph
   readonly subModules: HashMap.HashMap<Id, Structure>
@@ -45,7 +45,7 @@ export const makeComposeForward = <
       yield* registerRuntime(
         new RuntimeRegistrationOptions({
           moduleName: options.moduleName,
-          params: options.paramsRef,
+          parameters: options.parametersRef,
           signature: new Text({
             description: options.signature.description,
             instructions: options.signature.instructions

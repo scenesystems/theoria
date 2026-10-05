@@ -115,7 +115,7 @@ describe("examples/07-miprov2-resume-from-storage", () => {
           const config = yield* Schema.decodeUnknownEffect(space.schema)(raw)
 
           yield* Ref.set(
-            module.params,
+            module.parameters,
             new ModuleParameters({
               instructions: instructionCandidate(config.instructionIndex),
               demos: demoCandidate(config.demoIndex),

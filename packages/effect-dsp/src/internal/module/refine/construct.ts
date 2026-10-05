@@ -68,7 +68,7 @@ export const refine = <
         subModules: Record.singleton("inner", options.module)
       })
     )
-    const paramsRef = yield* Ref.make(
+    const parametersRef = yield* Ref.make(
       makeDefaultModuleParameters(options.module.signature.instructions)
     )
     const forwardLock = yield* Semaphore.make(1)
@@ -77,14 +77,14 @@ export const refine = <
     return new Module({
       name: options.name,
       signature: options.module.signature,
-      params: paramsRef,
+      parameters: parametersRef,
       subModules: composition.subModulesById,
       declarations: composition.declarations,
       forward: makeComposeForward(
         new ComposeForwardOptions({
           moduleName: options.name,
           signature: options.module.signature,
-          paramsRef,
+          parametersRef,
           rootChildIds: composition.rootChildIds,
           graph: composition.graph,
           subModules: composition.subModulesById,
@@ -93,7 +93,7 @@ export const refine = <
               new ComposableModule({
                 name: options.name,
                 signature: options.module.signature,
-                params: paramsRef,
+                parameters: parametersRef,
                 subModules: composition.subModulesById,
                 declarations: composition.declarations
               })

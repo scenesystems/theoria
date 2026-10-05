@@ -19,7 +19,7 @@ const normalizeMaxIterations = (maxIterations: number): number =>
     Match.orElse(() => 1)
   )
 
-const makeInitialParams = <
+const makeInitialParameters = <
   I extends Schema.Struct.Fields,
   O extends Schema.Struct.Fields
 >(
@@ -64,7 +64,7 @@ export const react = <
   options: ReactOptions<I, O, Tools>
 ): Effect.Effect<Module<I, O, Tool.HandlerError<Tools[keyof Tools]>, Tool.HandlerServices<Tools[keyof Tools]>>> =>
   Effect.gen(function*() {
-    const paramsRef = yield* Ref.make(makeInitialParams(options.signature))
+    const parametersRef = yield* Ref.make(makeInitialParameters(options.signature))
     const maxIterations = normalizeMaxIterations(
       Option.getOrElse(Option.fromNullishOr(options.maxIterations), () => defaultReactMaxIterations)
     )
@@ -72,7 +72,7 @@ export const react = <
     return new Module({
       name: options.name,
       signature: options.signature,
-      params: paramsRef,
+      parameters: parametersRef,
       subModules: HashMap.empty<Id, Structure>(),
       forward: makeReactForward(
         new ReactRuntimeOptions({
@@ -80,7 +80,7 @@ export const react = <
           signature: options.signature,
           inputSchema: options.signature.inputSchema,
           outputSchema: options.signature.outputSchema,
-          paramsRef,
+          parametersRef,
           toolkit: options.toolkit,
           maxIterations
         })

@@ -48,8 +48,8 @@ describe("editable signature metadata", () => {
       const module = yield* Module.predict("qa", signature)
       const parameters = Record.map(
         yield* ParameterSet.snapshot(module),
-        (params) =>
-          new ModuleParameters(Struct.assign(params, {
+        (parameters) =>
+          new ModuleParameters(Struct.assign(parameters, {
             fields: { question: { prefix: Option.some("Question supplied:"), description: Option.some("User query") } }
           }))
       )
@@ -79,8 +79,8 @@ describe("editable signature metadata", () => {
         })
       )
       const before = yield* ParameterSet.snapshot(root)
-      const parameters = Record.map(before, (params, path) =>
-        new ModuleParameters(Struct.assign(params, {
+      const parameters = Record.map(before, (parameters, path) =>
+        new ModuleParameters(Struct.assign(parameters, {
           fields: { question: { prefix: Option.some(path), description: Option.none() } }
         })))
       const lm = yield* MockLanguageModel.make(MockLanguageModel.map((prompt) => ({ answer: prompt })))

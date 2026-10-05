@@ -13,7 +13,7 @@ import * as Example from "./Example.js"
 import { type LabeledExamples } from "./internal/labeledFewShot/sampling.js"
 import { bound, type Module } from "./Module.js"
 import { predictors } from "./ModuleGraph.js"
-import { withDemos as withModuleParamsDemos } from "./ModuleParameters.js"
+import { withDemos as withModuleParametersDemos } from "./ModuleParameters.js"
 import * as Optimized from "./Optimized.js"
 import * as ParameterSet from "./ParameterSet.js"
 
@@ -104,7 +104,7 @@ export const run = <
         const validated = yield* Effect.forEach(selected, entry.demonstrationCodec.labeled)
         return Tuple.make(
           entry.path,
-          withModuleParamsDemos(Option.getOrThrow(Record.get(before, entry.path)), validated)
+          withModuleParametersDemos(Option.getOrThrow(Record.get(before, entry.path)), validated)
         )
       })).pipe(Random.withSeed(seed))
     const parameters = { ...before, ...Record.fromEntries(replacements) }

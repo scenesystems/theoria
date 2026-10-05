@@ -112,7 +112,7 @@ describe("Module.compose", () => {
     Effect.gen(function*() {
       const signature = yield* makeQaSignature()
       const loopId = yield* decodeModuleId("loop")
-      const paramsRef = yield* Ref.make(makeParameters(signature.instructions))
+      const parametersRef = yield* Ref.make(makeParameters(signature.instructions))
       const loopSignature = new Signature.Text({
         description: signature.description,
         instructions: signature.instructions
@@ -130,14 +130,14 @@ describe("Module.compose", () => {
         signature: loopSignature,
         signatureDigest: signature.digest,
         demonstrationCodec: signature.demonstrationCodec,
-        parameters: paramsRef,
+        parameters: parametersRef,
         subModules: HashMap.empty()
       })
       MutableRef.set(cycle, Option.some(loopStructure))
       const loopModule = new Module.Module({
         name: "loop",
         signature,
-        params: paramsRef,
+        parameters: parametersRef,
         subModules: HashMap.set(HashMap.empty(), loopId, loopStructure),
         forward: () => Effect.succeed({ answer: "unreachable" })
       })
@@ -153,7 +153,7 @@ describe("Module.compose", () => {
       expect(error.message).toContain("cycle detected")
     }))
 
-  it.effect("rejects direct and nested children that collide with the root before touching params", () =>
+  it.effect("rejects direct and nested children that collide with the root before touching parameters", () =>
     Effect.gen(function*() {
       const signature = yield* makeQaSignature()
       const child = yield* Module.predict("root", signature)
@@ -165,7 +165,7 @@ describe("Module.compose", () => {
           forward: ({ input }) => child.forward(input)
         })
       )
-      const before = yield* Ref.get(child.params)
+      const before = yield* Ref.get(child.parameters)
       yield* Effect.forEach(Arr.make(child, branch), (subModule) =>
         Effect.gen(function*() {
           const error = yield* Effect.flip(Module.compose(
@@ -177,7 +177,7 @@ describe("Module.compose", () => {
             })
           ))
           expect(error.message).toContain("collides with composed module id")
-          expect(yield* Ref.get(child.params)).toEqual(before)
+          expect(yield* Ref.get(child.parameters)).toEqual(before)
         }))
     }))
 
@@ -188,7 +188,7 @@ describe("Module.compose", () => {
       const renamed = new Module.Module({
         name: "renamed",
         signature: child.signature,
-        params: child.params,
+        parameters: child.parameters,
         subModules: child.subModules,
         forward: child.forward
       })
@@ -262,7 +262,7 @@ describe("Module.compose", () => {
               signature: metadata,
               signatureDigest: signature.digest,
               demonstrationCodec: signature.demonstrationCodec,
-              parameters: leaf.params,
+              parameters: leaf.parameters,
               subModules: HashMap.empty()
             })
             const branch = new Module.Structure({
@@ -277,7 +277,7 @@ describe("Module.compose", () => {
             const parent = new Module.Module({
               name: "parent",
               signature,
-              params: yield* Ref.make(makeParameters(signature.instructions)),
+              parameters: yield* Ref.make(makeParameters(signature.instructions)),
               subModules: HashMap.make(Tuple.make(branchId, branch)),
               forward: () => Effect.succeed({ answer: "unused" })
             })

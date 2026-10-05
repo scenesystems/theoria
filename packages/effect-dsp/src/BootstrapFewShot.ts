@@ -40,7 +40,7 @@ import { Options as LabeledFewShotOptions, run as labeledFewShot } from "./Label
 import { type Metric, Score } from "./Metric.js"
 import { bound, type Module } from "./Module.js"
 import { predictors } from "./ModuleGraph.js"
-import { withDemos as withModuleParamsDemos } from "./ModuleParameters.js"
+import { withDemos as withModuleParametersDemos } from "./ModuleParameters.js"
 import * as Optimized from "./Optimized.js"
 import * as ParameterSet from "./ParameterSet.js"
 
@@ -349,7 +349,8 @@ export const runWithEvents = <
     const before = yield* ParameterSet.snapshot(options.module)
     const snapshots = Arr.map(
       Arr.filter(Arr.fromIterable(predictors(options.module)), (predictor) => !predictor.frozen),
-      (predictor) => new PredictorDemos({ predictor, params: Option.getOrThrow(Record.get(before, predictor.path)) })
+      (predictor) =>
+        new PredictorDemos({ predictor, parameters: Option.getOrThrow(Record.get(before, predictor.path)) })
     )
     const recorded = yield* Ref.make(Arr.empty<Event>())
     const emit: EventSink<EE, ER> = (event) =>
@@ -371,14 +372,14 @@ export const runWithEvents = <
       const teacher = Option.fromUndefinedOr(options.teacher)
       const initialPredictors = yield* Effect.forEach(snapshots, (snapshot) =>
         Effect.forEach(
-          Arr.take(snapshot.params.demos, maxBootstrappedDemos),
+          Arr.take(snapshot.parameters.demos, maxBootstrappedDemos),
           snapshot.predictor.demonstrationCodec.decode
         )
           .pipe(
             Effect.map((demos) =>
               new PredictorDemos({
                 predictor: snapshot.predictor,
-                params: withModuleParamsDemos(snapshot.params, demos)
+                parameters: withModuleParametersDemos(snapshot.parameters, demos)
               })
             )
           ))
@@ -420,7 +421,7 @@ export const runWithEvents = <
               (state) =>
                 Arr.some(
                   state.predictors,
-                  (predictor) => Num.isLessThan(Arr.length(predictor.params.demos), maxBootstrappedDemos)
+                  (predictor) => Num.isLessThan(Arr.length(predictor.parameters.demos), maxBootstrappedDemos)
                 )
             )(state),
             {
@@ -456,7 +457,7 @@ export const runWithEvents = <
             ).pipe(Effect.as({
               ...before,
               ...Record.fromEntries(
-                Arr.map(finalState.predictors, (entry) => Tuple.make(entry.predictor.path, entry.params))
+                Arr.map(finalState.predictors, (entry) => Tuple.make(entry.predictor.path, entry.parameters))
               )
             })),
           onTrue: () =>
@@ -491,8 +492,11 @@ export const runWithEvents = <
                           k: fallbackLabeledDemoCount
                         })
                       )
-                      const fallbackDemos = Arr.reduce(Record.values(optimized.parameters), 0, (total, params) =>
-                        Num.sum(total, Arr.length(params.demos)))
+                      const fallbackDemos = Arr.reduce(
+                        Record.values(optimized.parameters),
+                        0,
+                        (total, parameters) => Num.sum(total, Arr.length(parameters.demos))
+                      )
 
                       return yield* Effect.suspend((): Effect.Effect<
                         ParameterSet.ParameterSet,

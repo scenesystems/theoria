@@ -35,7 +35,7 @@ describe("predictor model settings", () => {
             })
           )
           yield* Ref.set(
-            left.params,
+            left.parameters,
             new ModuleParameters({
               instructions: "left",
               demos: [],
@@ -45,7 +45,7 @@ describe("predictor model settings", () => {
             })
           )
           yield* Ref.set(
-            right.params,
+            right.parameters,
             new ModuleParameters({
               instructions: "right",
               demos: [],
@@ -86,11 +86,11 @@ describe("predictor model settings", () => {
       const left = yield* Module.react(new Module.ReactOptions({ name: "left", signature, toolkit }))
       const right = yield* Module.react(new Module.ReactOptions({ name: "right", signature, toolkit }))
       yield* Ref.set(
-        left.params,
+        left.parameters,
         new ModuleParameters({ instructions: "left", demos: [], temperature: 0.17, maxTokens: 73 })
       )
       yield* Ref.set(
-        right.params,
+        right.parameters,
         new ModuleParameters({ instructions: "right", demos: [], temperature: 0.83, maxTokens: 211 })
       )
       const outputs = yield* Effect.forEach([left, right], (module) => module.forward({ question: "answer" })).pipe(

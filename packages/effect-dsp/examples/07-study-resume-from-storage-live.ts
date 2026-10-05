@@ -98,7 +98,7 @@ const program = Effect.gen(function*() {
       const config = yield* Schema.decodeUnknownEffect(space.schema)(raw)
 
       yield* Ref.set(
-        qa.params,
+        qa.parameters,
         new ModuleParameters.ModuleParameters({
           instructions: instructionCandidate(config.instructionIndex),
           demos: demoCandidate(config.demoIndex),
@@ -164,7 +164,7 @@ const program = Effect.gen(function*() {
       concurrency: 1
     })
   )
-  const optimizedParams = yield* Ref.get(qa.params)
+  const optimizedParameters = yield* Ref.get(qa.parameters)
   const moduleSavedState = yield* Module.save(qa)
   const optimizedScore = Option.getOrElse(
     Option.fromNullishOr(optimized.overallScores.exactMatch),
@@ -189,8 +189,8 @@ const program = Effect.gen(function*() {
       seed: 64
     },
     evalsetSize: Arr.length(italyEvalset),
-    instructionAfter: optimizedParams.instructions,
-    demoCountAfter: Arr.length(optimizedParams.demos),
+    instructionAfter: optimizedParameters.instructions,
+    demoCountAfter: Arr.length(optimizedParameters.demos),
     extras: {
       optimized,
       firstLegEventTags: firstLegTags,

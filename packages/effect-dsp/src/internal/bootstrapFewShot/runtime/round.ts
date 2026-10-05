@@ -27,8 +27,8 @@ import type { Example } from "../../../Example.js"
 import { Context, type Metric } from "../../../Metric.js"
 import { call, type Module, withParameters } from "../../../Module.js"
 import {
-  withDemos as withModuleParamsDemos,
-  withDemosAndInstructions as withModuleParamsDemosAndInstructions
+  withDemos as withModuleParametersDemos,
+  withDemosAndInstructions as withModuleParametersDemosAndInstructions
 } from "../../../ModuleParameters.js"
 import { CurrentRole } from "../../modelRole.js"
 import { mergeAcceptedDemos, MergeAcceptedDemosOptions, roundInstructions } from "./demos.js"
@@ -195,10 +195,10 @@ export const bootstrapRound = <I extends Schema.Struct.Fields, O extends Schema.
     const parameters = Record.fromEntries(Arr.map(options.state.predictors, (predictor) =>
       Tuple.make(
         predictor.predictor.path,
-        withModuleParamsDemosAndInstructions(
-          predictor.params,
-          predictor.params.demos,
-          roundInstructions(predictor.params.instructions, options.state.round)
+        withModuleParametersDemosAndInstructions(
+          predictor.parameters,
+          predictor.parameters.demos,
+          roundInstructions(predictor.parameters.instructions, options.state.round)
         )
       )))
     const round = aggregateRound(
@@ -209,7 +209,7 @@ export const bootstrapRound = <I extends Schema.Struct.Fields, O extends Schema.
     const predictors = yield* Effect.forEach(options.state.predictors, (predictor) =>
       mergeAcceptedDemos(
         new MergeAcceptedDemosOptions({
-          existing: predictor.params.demos,
+          existing: predictor.parameters.demos,
           accepted: Arr.map(
             Arr.filter(round.acceptedDemos, (entry) => String.Equivalence(entry.name, predictor.predictor.name)),
             (entry) => entry.demo
@@ -220,7 +220,7 @@ export const bootstrapRound = <I extends Schema.Struct.Fields, O extends Schema.
       ).pipe(Effect.map((merged) =>
         new PredictorDemos({
           predictor: predictor.predictor,
-          params: withModuleParamsDemos(predictor.params, merged.demos)
+          parameters: withModuleParametersDemos(predictor.parameters, merged.demos)
         })
       )))
     yield* options.emit(

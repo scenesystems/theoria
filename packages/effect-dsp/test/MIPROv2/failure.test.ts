@@ -20,7 +20,7 @@ const makeModule = Effect.gen(function*() {
   const signature = yield* Signature.make("Baseline instruction", { question: Schema.String }, Output.fields)
   const module = yield* Module.predict("qa", signature)
   yield* Ref.set(
-    module.params,
+    module.parameters,
     new ModuleParameters({
       instructions: "Baseline instruction",
       demos: Arr.empty(),

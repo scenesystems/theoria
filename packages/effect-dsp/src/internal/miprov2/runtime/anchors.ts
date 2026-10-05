@@ -16,7 +16,7 @@ import { Demonstration as Demo } from "../../../Demonstration.js"
 import type { Example } from "../../../Example.js"
 import {
   ModuleParameters,
-  withDemosAndInstructions as withModuleParamsDemosAndInstructions
+  withDemosAndInstructions as withModuleParametersDemosAndInstructions
 } from "../../../ModuleParameters.js"
 
 /**
@@ -55,7 +55,7 @@ export class CandidateAssembly extends Schema.Class<CandidateAssembly>(
   "@scenesystems/effect-dsp/internal/miprov2/runtime/anchors/CandidateAssembly"
 )({
   kind: Phase1CandidateKind,
-  params: ModuleParameters
+  parameters: ModuleParameters
 }) {}
 
 const demoOrder: Order.Order<Demo> = Order.mapInput(
@@ -75,7 +75,7 @@ const candidateInstructions = (baseInstructions: string, predictorName: string, 
  */
 export const AssemblePredictorCandidatesOptions = Schema.Struct({
   predictorName: Schema.String,
-  params: ModuleParameters,
+  parameters: ModuleParameters,
   demos: ModuleParameters.fields.demos,
   bootstrappedDemos: ModuleParameters.fields.demos,
   requestedCandidates: Schema.Finite,
@@ -134,10 +134,10 @@ export const assemblePredictorCandidates = (
   const candidate = (kind: Phase1CandidateKind, demos: ModuleParameters["demos"], marker: string) =>
     new CandidateAssembly({
       kind,
-      params: withModuleParamsDemosAndInstructions(
-        options.params,
+      parameters: withModuleParametersDemosAndInstructions(
+        options.parameters,
         demos,
-        candidateInstructions(options.params.instructions, options.predictorName, marker)
+        candidateInstructions(options.parameters.instructions, options.predictorName, marker)
       )
     })
   const anchors = Arr.make(

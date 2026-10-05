@@ -167,11 +167,11 @@ const buildSubModule = (module: ComposableModule, id: Id): Structure =>
     }),
     signatureDigest: module.signature.digest,
     demonstrationCodec: module.signature.demonstrationCodec,
-    parameters: module.params,
+    parameters: module.parameters,
     subModules: module.subModules,
     declarations: module.declarations ?? Record.fromEntries(HashMap.toEntries(module.subModules)),
     frozen: module.frozen ?? false,
-    boundParameters: module.parameters ?? {}
+    boundParameters: module.boundParameters ?? {}
   })
 
 /**

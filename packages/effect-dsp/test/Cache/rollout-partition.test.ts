@@ -18,7 +18,7 @@ describe("Cache rollout partition", () => {
           moduleFingerprint: "qa-module",
           runtimeFingerprint: "runtime-v1",
           input: { question: "What is 2+2?" },
-          params: { instructions: "Answer concisely", demos: [] },
+          parameters: { instructions: "Answer concisely", demos: [] },
           outputSchema: Schema.Struct({ answer: Schema.String }),
           compute: Ref.updateAndGet(computeCount, (n) => n + 1).pipe(
             Effect.as({ answer })
@@ -47,7 +47,7 @@ describe("Cache rollout partition", () => {
         moduleFingerprint: "qa-module",
         runtimeFingerprint: "runtime-v1",
         input: { question: "What is 2+2?" },
-        params: { instructions: "Answer concisely", demos: [] },
+        parameters: { instructions: "Answer concisely", demos: [] },
         outputSchema: Schema.Struct({ answer: Schema.String }),
         compute: Ref.updateAndGet(computeCount, (n) => n + 1).pipe(
           Effect.as({ answer: "4" })
@@ -71,7 +71,7 @@ describe("Cache rollout partition", () => {
         moduleFingerprint: "qa-module",
         runtimeFingerprint: "runtime-v1",
         input: { question: "What is 2+2?" },
-        params: { instructions: "Answer concisely", demos: [] },
+        parameters: { instructions: "Answer concisely", demos: [] },
         outputSchema: Schema.Struct({ answer: Schema.String }),
         compute: Ref.updateAndGet(computeCount, (n) => n + 1).pipe(
           Effect.as({ answer: "4" })
@@ -96,7 +96,7 @@ describe("Cache rollout partition", () => {
           moduleFingerprint: "qa-module",
           runtimeFingerprint: "runtime-v1",
           input: { question: "What is 2+2?" },
-          params: { instructions: "Answer concisely", demos: [] },
+          parameters: { instructions: "Answer concisely", demos: [] },
           outputSchema: Schema.Struct({ answer: Schema.String }),
           compute: Ref.updateAndGet(computeCount, (n) => n + 1).pipe(
             Effect.as({ answer })

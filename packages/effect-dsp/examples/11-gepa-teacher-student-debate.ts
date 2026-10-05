@@ -253,7 +253,7 @@ const program = Effect.gen(function*() {
       concurrency: 1
     })
   )
-  const judgeParamsBeforeOptimization = yield* Ref.get(judge.params)
+  const judgeParametersBeforeOptimization = yield* Ref.get(judge.parameters)
 
   yield* logExampleStage("gepa-stream-started", {
     trainExampleCount: Arr.length(trainset),
@@ -289,7 +289,7 @@ const program = Effect.gen(function*() {
 
   const gepaEvents = yield* Ref.get(gepaLog)
   const gepaEventSummary = GEPA.summarizeEvents(gepaEvents)
-  const judgeParams = yield* Ref.get(judge.params)
+  const judgeParameters = yield* Ref.get(judge.parameters)
   const debateSavedState = yield* Module.save(debateModule)
 
   const baselineScore = Option.getOrElse(Record.get(baseline.overallScores, "exactMatch"), () => 0)
@@ -300,10 +300,10 @@ const program = Effect.gen(function*() {
     optimizedExactMatch: optimizedScore,
     scoreDelta: Number.subtract(optimizedScore, baselineScore),
     instructionChanged: Boolean.not(
-      String.Equivalence(judgeParamsBeforeOptimization.instructions, judgeParams.instructions)
+      String.Equivalence(judgeParametersBeforeOptimization.instructions, judgeParameters.instructions)
     ),
-    instructionLengthBeforeOptimization: String.length(judgeParamsBeforeOptimization.instructions),
-    instructionLengthAfterOptimization: String.length(judgeParams.instructions)
+    instructionLengthBeforeOptimization: String.length(judgeParametersBeforeOptimization.instructions),
+    instructionLengthAfterOptimization: String.length(judgeParameters.instructions)
   }
   const summaryArtifact = makeStandardSummary({
     exampleName: EXAMPLE_NAME,
@@ -324,13 +324,13 @@ const program = Effect.gen(function*() {
     trainsetSize: Arr.length(trainset),
     valsetSize: Arr.length(evalset),
     evalsetSize: Arr.length(evalset),
-    instructionBefore: judgeParamsBeforeOptimization.instructions,
-    instructionAfter: judgeParams.instructions,
-    demoCountBefore: Arr.length(judgeParamsBeforeOptimization.demos),
-    demoCountAfter: Arr.length(judgeParams.demos),
+    instructionBefore: judgeParametersBeforeOptimization.instructions,
+    instructionAfter: judgeParameters.instructions,
+    demoCountBefore: Arr.length(judgeParametersBeforeOptimization.demos),
+    demoCountAfter: Arr.length(judgeParameters.demos),
     demosLearnedDuringOptimization: Number.subtract(
-      Arr.length(judgeParams.demos),
-      Arr.length(judgeParamsBeforeOptimization.demos)
+      Arr.length(judgeParameters.demos),
+      Arr.length(judgeParametersBeforeOptimization.demos)
     ),
     extras: {
       baseline,
@@ -367,7 +367,7 @@ const program = Effect.gen(function*() {
     instructionChanged: outcomeSummary.instructionChanged,
     instructionLengthBeforeOptimization: outcomeSummary.instructionLengthBeforeOptimization,
     instructionLengthAfterOptimization: outcomeSummary.instructionLengthAfterOptimization,
-    evolvedInstructionPreview: String.slice(0, 180)(judgeParams.instructions),
+    evolvedInstructionPreview: String.slice(0, 180)(judgeParameters.instructions),
     acceptanceEvaluatedCount: outcomeSummary.eventSummary.acceptanceEvaluatedCount,
     acceptanceAcceptedCount: outcomeSummary.eventSummary.acceptanceAcceptedCount,
     gate1PassedCount: outcomeSummary.eventSummary.gate1PassedCount,

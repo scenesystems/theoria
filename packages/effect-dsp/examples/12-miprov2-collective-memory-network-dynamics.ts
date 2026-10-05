@@ -544,7 +544,7 @@ const program = Effect.gen(function*() {
         })
     })
   )
-  const paramsBeforeBootstrap = yield* Ref.get(protocolPlanner.params)
+  const parametersBeforeBootstrap = yield* Ref.get(protocolPlanner.parameters)
 
   // Quick sanity turn before formal evaluation/optimization.
   const demonstrationTurn = yield* protocolPanel.forward({
@@ -605,10 +605,10 @@ const program = Effect.gen(function*() {
   yield* Module.install(protocolPanel, bootstrapped.parameters)
   const bootstrapEvents = yield* Ref.get(bootstrapLog)
   const bootstrapSummary = BootstrapFewShot.summarizeEvents(bootstrapEvents)
-  const paramsAfterBootstrap = yield* Ref.get(protocolPlanner.params)
+  const parametersAfterBootstrap = yield* Ref.get(protocolPlanner.parameters)
   const demosAddedDuringBootstrap = Number.subtract(
-    Arr.length(paramsAfterBootstrap.demos),
-    Arr.length(paramsBeforeBootstrap.demos)
+    Arr.length(parametersAfterBootstrap.demos),
+    Arr.length(parametersBeforeBootstrap.demos)
   )
 
   yield* logExampleStage("bootstrap-warm-start-completed", {
@@ -620,8 +620,8 @@ const program = Effect.gen(function*() {
     fallbackActivatedSeen: bootstrapSummary.fallbackActivatedSeen,
     fallbackCompletedSeen: bootstrapSummary.fallbackCompletedSeen,
     fallbackUsed: bootstrapSummary.fallbackUsed,
-    demoCountBeforeBootstrap: Arr.length(paramsBeforeBootstrap.demos),
-    demoCountAfterBootstrap: Arr.length(paramsAfterBootstrap.demos),
+    demoCountBeforeBootstrap: Arr.length(parametersBeforeBootstrap.demos),
+    demoCountAfterBootstrap: Arr.length(parametersAfterBootstrap.demos),
     demosAddedDuringBootstrap,
     totalDemos: bootstrapSummary.totalDemos,
     roundsUsed: bootstrapSummary.roundsUsed
@@ -665,7 +665,7 @@ const program = Effect.gen(function*() {
     })
   )
 
-  const optimizedParams = yield* Ref.get(protocolPlanner.params)
+  const optimizedParameters = yield* Ref.get(protocolPlanner.parameters)
 
   const baselineScore = Option.getOrElse(Record.get(baseline.overallScores, "protocolFit"), () => 0)
   const optimizedScore = Option.getOrElse(Record.get(optimized.overallScores, "protocolFit"), () => 0)
@@ -673,11 +673,11 @@ const program = Effect.gen(function*() {
     baselineExactMatch: baselineScore,
     optimizedExactMatch: optimizedScore,
     scoreDelta: Number.subtract(optimizedScore, baselineScore),
-    demoCountBeforeOptimization: Arr.length(paramsAfterBootstrap.demos),
-    demoCountAfterOptimization: Arr.length(optimizedParams.demos),
+    demoCountBeforeOptimization: Arr.length(parametersAfterBootstrap.demos),
+    demoCountAfterOptimization: Arr.length(optimizedParameters.demos),
     demosLearnedDuringMIPROv2: Number.subtract(
-      Arr.length(optimizedParams.demos),
-      Arr.length(paramsAfterBootstrap.demos)
+      Arr.length(optimizedParameters.demos),
+      Arr.length(parametersAfterBootstrap.demos)
     )
   }
   const optimizationObservability = MIPROv2.summarizeOptimization({
@@ -718,10 +718,10 @@ const program = Effect.gen(function*() {
     trainsetSize: Arr.length(trainset),
     valsetSize: Arr.length(evalset),
     evalsetSize: Arr.length(evalset),
-    instructionBefore: paramsAfterBootstrap.instructions,
-    instructionAfter: optimizedParams.instructions,
-    demoCountBefore: Arr.length(paramsAfterBootstrap.demos),
-    demoCountAfter: Arr.length(optimizedParams.demos),
+    instructionBefore: parametersAfterBootstrap.instructions,
+    instructionAfter: optimizedParameters.instructions,
+    demoCountBefore: Arr.length(parametersAfterBootstrap.demos),
+    demoCountAfter: Arr.length(optimizedParameters.demos),
     demosLearnedDuringOptimization: miproOutcome.demosLearnedDuringMIPROv2,
     extras: {
       baseline,
@@ -768,14 +768,14 @@ const program = Effect.gen(function*() {
     searchGain: optimizationObservability.searchGain,
     retainedVsSearchGap: optimizationObservability.retainedVsSearchGap,
     searchImprovedButRetainedFlat: optimizationObservability.searchImprovedButRetainedFlat,
-    demoCountBeforeBootstrap: Arr.length(paramsBeforeBootstrap.demos),
-    demoCountAfterBootstrap: Arr.length(paramsAfterBootstrap.demos),
+    demoCountBeforeBootstrap: Arr.length(parametersBeforeBootstrap.demos),
+    demoCountAfterBootstrap: Arr.length(parametersAfterBootstrap.demos),
     demosAddedDuringBootstrap,
     demoCountBeforeMIPROv2: miproOutcome.demoCountBeforeOptimization,
     demoCountAfterMIPROv2: miproOutcome.demoCountAfterOptimization,
     demosLearnedDuringMIPROv2: miproOutcome.demosLearnedDuringMIPROv2,
     bootstrapFallbackUsed: bootstrapSummary.fallbackUsed,
-    learnedInstructionPreview: String.slice(0, 180)(optimizedParams.instructions),
+    learnedInstructionPreview: String.slice(0, 180)(optimizedParameters.instructions),
     eventCount: miproEventSummary.totalEvents,
     trialEvaluatedCount: miproEventSummary.trialEvaluatedCount,
     fullEvalCompletedCount: miproEventSummary.fullEvalCompletedCount,

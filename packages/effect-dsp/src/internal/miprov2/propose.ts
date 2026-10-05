@@ -111,7 +111,7 @@ class ResolvedPredictor extends Data.Class<{
   readonly ref: Predictor.Predictor
   readonly predictorIndex: number
   readonly demoSet: PredictorDemoCandidates
-  readonly params: ModuleParameters
+  readonly parameters: ModuleParameters
 }> {}
 
 const RenderedDemos = Schema.Array(DemoDocuments)
@@ -120,7 +120,7 @@ const RenderedDemoCandidates = Schema.Array(RenderedDemos)
 class PreparedPredictor extends Data.Class<{
   readonly ref: Predictor.Predictor
   readonly predictorIndex: number
-  readonly params: ModuleParameters
+  readonly parameters: ModuleParameters
   readonly renderedDemoCandidates: typeof RenderedDemoCandidates.Type
   readonly firstDemos: typeof RenderedDemos.Type
 }> {}
@@ -141,15 +141,15 @@ const resolvePredictor = (
         message: Str.concat(Str.concat("Demo candidate set for predictor '", ref.name), "' is empty"),
         predictorIndex
       })))
-    const params = yield* Binding.read(ref.parameters, ref.name)
-    return new ResolvedPredictor({ ref, predictorIndex, demoSet, params })
+    const parameters = yield* Binding.read(ref.parameters, ref.name)
+    return new ResolvedPredictor({ ref, predictorIndex, demoSet, parameters })
   })
 
 const preparePredictor = (resolved: ResolvedPredictor) =>
   Effect.gen(function*() {
     const renderedDemoCandidates = yield* Effect.forEach(
       resolved.demoSet.candidates,
-      (candidate) => Effect.forEach(candidate.params.demos, resolved.ref.demonstrationCodec.encode)
+      (candidate) => Effect.forEach(candidate.parameters.demos, resolved.ref.demonstrationCodec.encode)
     )
     const firstDemos = yield* Effect.fromOption(Arr.head(renderedDemoCandidates), () =>
       new InstructionProposalFailed({
@@ -159,7 +159,7 @@ const preparePredictor = (resolved: ResolvedPredictor) =>
     return new PreparedPredictor({
       ref: resolved.ref,
       predictorIndex: resolved.predictorIndex,
-      params: resolved.params,
+      parameters: resolved.parameters,
       renderedDemoCandidates,
       firstDemos
     })
@@ -211,7 +211,7 @@ export const proposeInstructionCandidates = <
     )
     const prepared = yield* Effect.forEach(resolved, preparePredictor, { concurrency: 1 })
 
-    return yield* Effect.forEach(prepared, ({ firstDemos, params, predictorIndex, ref, renderedDemoCandidates }) =>
+    return yield* Effect.forEach(prepared, ({ firstDemos, parameters, predictorIndex, ref, renderedDemoCandidates }) =>
       Effect.gen(function*() {
         const generated = yield* Effect.forEach(
           requested,
@@ -236,7 +236,7 @@ export const proposeInstructionCandidates = <
                   summary,
                   tip,
                   demos,
-                  baselineInstruction: params.instructions,
+                  baselineInstruction: parameters.instructions,
                   diversityTemperature
                 })
               )
@@ -268,7 +268,7 @@ export const proposeInstructionCandidates = <
 
         return new PredictorInstructionCandidates({
           predictorName: ref.name,
-          candidates: Arr.appendAll(Arr.make(baselineCandidate(ref.name, params.instructions)), generated)
+          candidates: Arr.appendAll(Arr.make(baselineCandidate(ref.name, parameters.instructions)), generated)
         })
       }), { concurrency: 1 })
   }).pipe(Binding.withPredictors(predictors(options.module)))

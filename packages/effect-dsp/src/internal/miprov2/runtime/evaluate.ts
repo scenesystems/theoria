@@ -24,7 +24,7 @@ import { AllTrialsFailed } from "../../../DspError.js"
 import type { Examples } from "../../../MIPROv2.js"
 import { events } from "../../../MIPROv2.js"
 import type { EventSink } from "../../../MIPROv2Search.js"
-import { withDemosAndInstructions as withModuleParamsDemosAndInstructions } from "../../../ModuleParameters.js"
+import { withDemosAndInstructions as withModuleParametersDemosAndInstructions } from "../../../ModuleParameters.js"
 import type { TrialRefs } from "../phase3State.js"
 import {
   BestAveragingCandidate,
@@ -97,7 +97,7 @@ export const parametersForConfig = (options: ParametersForConfigOptions) =>
 
       return Tuple.make(
         binding.predictorId,
-        withModuleParamsDemosAndInstructions(demo.params, demo.params.demos, instruction.instruction)
+        withModuleParametersDemosAndInstructions(demo.parameters, demo.parameters.demos, instruction.instruction)
       )
     })).pipe(Effect.map(Record.fromEntries))
 

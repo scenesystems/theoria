@@ -63,14 +63,14 @@ export const generateDemoCandidates = <
 
     return yield* Effect.forEach(refs, (ref, predictorIndex) =>
       Effect.gen(function*() {
-        const params = yield* Binding.read(ref.parameters, ref.name)
+        const parameters = yield* Binding.read(ref.parameters, ref.name)
         const compatibleLabels = Arr.getSomes(
           yield* Effect.forEach(allLabeled, (demo) => ref.demonstrationCodec.decode(demo).pipe(Effect.option))
         )
-        const existing = yield* Effect.forEach(params.demos, ref.demonstrationCodec.decode)
+        const existing = yield* Effect.forEach(parameters.demos, ref.demonstrationCodec.decode)
         const assembledCandidates = assemblePredictorCandidates({
           predictorName: ref.name,
-          params,
+          parameters,
           demos: compatibleLabels,
           bootstrappedDemos: Arr.appendAll(existing, compatibleLabels),
           requestedCandidates,
@@ -87,7 +87,7 @@ export const generateDemoCandidates = <
               new DemoCandidate({
                 predictorName: ref.name,
                 kind: candidate.kind,
-                params: candidate.params
+                parameters: candidate.parameters
               })
           )
         })

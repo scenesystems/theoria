@@ -20,9 +20,13 @@ describe("predictor attempt evidence", () => {
         })
       )
       yield* Ref.update(
-        module.params,
-        (params) =>
-          new ModuleParameters({ instructions: params.instructions, demos: params.demos, outputStrategy: "text" })
+        module.parameters,
+        (parameters) =>
+          new ModuleParameters({
+            instructions: parameters.instructions,
+            demos: parameters.demos,
+            outputStrategy: "text"
+          })
       )
       const lm = yield* MockLanguageModel.make(
         MockLanguageModel.sequence(["unparseable", "[[ ## answer ## ]]\nParis", "[[ ## answer ## ]]\nTokyo"])

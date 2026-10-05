@@ -18,7 +18,7 @@ describe("Cache authority contract", () => {
           moduleFingerprint: "qa-module",
           runtimeFingerprint: "runtime-v1",
           input: { question: "What is 2+2?" },
-          params: { instructions: "Answer concisely", demos: [] },
+          parameters: { instructions: "Answer concisely", demos: [] },
           outputSchema: Schema.Struct({ answer: Schema.String }),
           compute: Ref.updateAndGet(computeCount, (n) => n + 1).pipe(
             Effect.as({ answer: "4" })
@@ -41,7 +41,7 @@ describe("Cache authority contract", () => {
         moduleFingerprint: "qa-module",
         runtimeFingerprint: "runtime-v1",
         input: { question: "What is 2+2?" },
-        params: { instructions: "Answer concisely", demos: [] },
+        parameters: { instructions: "Answer concisely", demos: [] },
         outputSchema: Schema.Struct({ answer: Schema.String }),
         compute: Ref.updateAndGet(computeCount, (n) => n + 1).pipe(
           Effect.as({ answer: "4" })
@@ -67,7 +67,7 @@ describe("Cache authority contract", () => {
           moduleFingerprint: "qa-module",
           runtimeFingerprint: "runtime-v1",
           input: { question },
-          params: { instructions: "Answer concisely", demos: [] },
+          parameters: { instructions: "Answer concisely", demos: [] },
           outputSchema: Schema.Struct({ answer: Schema.String }),
           compute: Ref.updateAndGet(computeCount, (n) => n + 1).pipe(
             Effect.as({ answer: question })
@@ -82,7 +82,7 @@ describe("Cache authority contract", () => {
       expect(yield* Ref.get(computeCount)).toBe(2)
     }).pipe(Effect.provide(layerMemory)))
 
-  it.effect("different params produce different cache keys", () =>
+  it.effect("different parameters produce different cache keys", () =>
     Effect.gen(function*() {
       const computeCount = yield* Ref.make(0)
 
@@ -93,7 +93,7 @@ describe("Cache authority contract", () => {
           moduleFingerprint: "qa-module",
           runtimeFingerprint: "runtime-v1",
           input: { question: "What is 2+2?" },
-          params: { instructions, demos: [] },
+          parameters: { instructions, demos: [] },
           outputSchema: Schema.Struct({ answer: Schema.String }),
           compute: Ref.updateAndGet(computeCount, (n) => n + 1).pipe(
             Effect.as({ answer: "4" })
@@ -117,7 +117,7 @@ describe("Cache authority contract", () => {
           moduleFingerprint: "delegation-test",
           runtimeFingerprint: "v1",
           input: { x: 1 },
-          params: { instructions: "test", demos: [] },
+          parameters: { instructions: "test", demos: [] },
           outputSchema: Schema.Struct({ y: Schema.Finite }),
           compute: Effect.succeed({ y: 42 })
         })
@@ -131,7 +131,7 @@ describe("Cache authority contract", () => {
           moduleFingerprint: "delegation-test",
           runtimeFingerprint: "v1",
           input: { x: 1 },
-          params: { instructions: "test", demos: [] },
+          parameters: { instructions: "test", demos: [] },
           outputSchema: Schema.Struct({ y: Schema.Finite }),
           compute: Effect.succeed({ y: 999 })
         })

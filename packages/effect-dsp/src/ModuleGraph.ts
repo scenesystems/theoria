@@ -79,11 +79,11 @@ export const predictors = (root: ComposableModule): Chunk.Chunk<Predictor.Predic
       }),
       signatureDigest: root.signature.digest,
       demonstrationCodec: root.signature.demonstrationCodec,
-      parameters: root.params,
+      parameters: root.parameters,
       subModules: root.subModules,
       declarations: root.declarations ?? Record.fromEntries(HashMap.toEntries(root.subModules)),
       frozen: root.frozen ?? false,
-      boundParameters: root.parameters ?? {}
+      boundParameters: root.boundParameters ?? {}
     }),
     root.name,
     false

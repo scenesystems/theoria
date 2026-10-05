@@ -446,7 +446,7 @@ const program = Effect.gen(function*() {
     protocolAdjustment: demonstrationTurn.protocolAdjustment
   })
 
-  const plannerParamsBeforeOptimization = yield* Ref.get(protocolPlanner.params)
+  const plannerParametersBeforeOptimization = yield* Ref.get(protocolPlanner.parameters)
 
   yield* logExampleStage("baseline-evaluation-started", {
     evalExampleCount: Arr.length(evalset)
@@ -497,7 +497,7 @@ const program = Effect.gen(function*() {
 
   const gepaEvents = yield* Ref.get(gepaLog)
   const gepaEventSummary = GEPA.summarizeEvents(gepaEvents)
-  const plannerParamsAfterOptimization = yield* Ref.get(protocolPlanner.params)
+  const plannerParametersAfterOptimization = yield* Ref.get(protocolPlanner.parameters)
   const plannerSavedState = yield* Module.save(protocolPlanner)
 
   const baselineScore = Option.getOrElse(Record.get(baseline.overallScores, "protocolFit"), () => 0)
@@ -508,10 +508,13 @@ const program = Effect.gen(function*() {
     optimizedExactMatch: optimizedScore,
     scoreDelta: Number.subtract(optimizedScore, baselineScore),
     instructionChanged: Boolean.not(
-      String.Equivalence(plannerParamsBeforeOptimization.instructions, plannerParamsAfterOptimization.instructions)
+      String.Equivalence(
+        plannerParametersBeforeOptimization.instructions,
+        plannerParametersAfterOptimization.instructions
+      )
     ),
-    instructionLengthBeforeOptimization: String.length(plannerParamsBeforeOptimization.instructions),
-    instructionLengthAfterOptimization: String.length(plannerParamsAfterOptimization.instructions)
+    instructionLengthBeforeOptimization: String.length(plannerParametersBeforeOptimization.instructions),
+    instructionLengthAfterOptimization: String.length(plannerParametersAfterOptimization.instructions)
   }
   const summaryArtifact = makeStandardSummary({
     exampleName: EXAMPLE_NAME,
@@ -533,13 +536,13 @@ const program = Effect.gen(function*() {
     trainsetSize: Arr.length(trainset),
     valsetSize: Arr.length(evalset),
     evalsetSize: Arr.length(evalset),
-    instructionBefore: plannerParamsBeforeOptimization.instructions,
-    instructionAfter: plannerParamsAfterOptimization.instructions,
-    demoCountBefore: Arr.length(plannerParamsBeforeOptimization.demos),
-    demoCountAfter: Arr.length(plannerParamsAfterOptimization.demos),
+    instructionBefore: plannerParametersBeforeOptimization.instructions,
+    instructionAfter: plannerParametersAfterOptimization.instructions,
+    demoCountBefore: Arr.length(plannerParametersBeforeOptimization.demos),
+    demoCountAfter: Arr.length(plannerParametersAfterOptimization.demos),
     demosLearnedDuringOptimization: Number.subtract(
-      Arr.length(plannerParamsAfterOptimization.demos),
-      Arr.length(plannerParamsBeforeOptimization.demos)
+      Arr.length(plannerParametersAfterOptimization.demos),
+      Arr.length(plannerParametersBeforeOptimization.demos)
     ),
     extras: {
       baseline,
@@ -576,7 +579,7 @@ const program = Effect.gen(function*() {
     instructionChanged: outcomeSummary.instructionChanged,
     instructionLengthBeforeOptimization: outcomeSummary.instructionLengthBeforeOptimization,
     instructionLengthAfterOptimization: outcomeSummary.instructionLengthAfterOptimization,
-    evolvedInstructionPreview: String.slice(0, 180)(plannerParamsAfterOptimization.instructions),
+    evolvedInstructionPreview: String.slice(0, 180)(plannerParametersAfterOptimization.instructions),
     iterationStartedCount: outcomeSummary.eventSummary.iterationStartedCount,
     mergeCheckedCount: outcomeSummary.eventSummary.mergeCheckedCount,
     mutationProposedCount: outcomeSummary.eventSummary.mutationProposedCount,

@@ -28,13 +28,13 @@ describe("BootstrapFewShot.run teacher/student", () => {
     Effect.gen(function*() {
       const signature = yield* makeQaSignature()
       const module = yield* Module.predict("qa", signature)
-      const initialParams = yield* Ref.get(module.params)
+      const initialParameters = yield* Ref.get(module.parameters)
 
       yield* Ref.set(
-        module.params,
+        module.parameters,
         new ModuleParameters({
-          instructions: initialParams.instructions,
-          demos: initialParams.demos,
+          instructions: initialParameters.instructions,
+          demos: initialParameters.demos,
           outputStrategy: "structured"
         })
       )
@@ -67,12 +67,12 @@ describe("BootstrapFewShot.run teacher/student", () => {
         })
       ).pipe(Effect.provide(studentLayer))
 
-      const paramsAfterBootstrap = Option.getOrThrow(Record.get(optimized.parameters, "qa"))
+      const parametersAfterBootstrap = Option.getOrThrow(Record.get(optimized.parameters, "qa"))
       const teacherCallsAfterBootstrap = yield* Ref.get(teacher.calls)
       const studentCallsAfterBootstrap = yield* Ref.get(student.calls)
 
-      expect(paramsAfterBootstrap.demos).toHaveLength(1)
-      expect(paramsAfterBootstrap.demos[0]?.output).toEqual({ answer: "Paris" })
+      expect(parametersAfterBootstrap.demos).toHaveLength(1)
+      expect(parametersAfterBootstrap.demos[0]?.output).toEqual({ answer: "Paris" })
       expect(teacherCallsAfterBootstrap).toHaveLength(1)
       expect(studentCallsAfterBootstrap).toHaveLength(0)
 

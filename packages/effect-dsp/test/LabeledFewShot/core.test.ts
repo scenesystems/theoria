@@ -92,11 +92,11 @@ describe("LabeledFewShot.run", () => {
         )
       ).pipe(Effect.provide(layer))
 
-      const params = Option.getOrThrow(Rec.get(optimized.parameters, "qa"))
+      const parameters = Option.getOrThrow(Rec.get(optimized.parameters, "qa"))
       const calls = yield* Ref.get(mock.calls)
 
-      expect(params.demos).toHaveLength(2)
-      expect(Arr.every(params.demos, (demo) => Arr.length(Rec.keys(demo.output)) > 0)).toBe(true)
+      expect(parameters.demos).toHaveLength(2)
+      expect(Arr.every(parameters.demos, (demo) => Arr.length(Rec.keys(demo.output)) > 0)).toBe(true)
       expect(calls).toHaveLength(0)
       expect(optimized.report).toEqual(new LabeledFewShot.Report({ k: 2, sampled: 2, seed: 11 }))
       expect(yield* ParameterSet.snapshot(optimized.program)).toEqual(optimized.parameters)

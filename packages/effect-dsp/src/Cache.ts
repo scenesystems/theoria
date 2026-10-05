@@ -32,7 +32,7 @@ export class Key extends Schema.Class<Key>("@scenesystems/effect-dsp/Cache/Key")
   moduleFingerprint: Schema.String,
   runtimeFingerprint: Schema.String,
   inputHash: Schema.String,
-  paramsHash: Schema.String,
+  parametersHash: Schema.String,
   settings: Schema.toCodecJson(ModelSettings),
   role: Role,
   predictorId: Schema.String,
@@ -46,18 +46,18 @@ const namespace = "effect-dsp/lm-cache"
  * Carries request identity before durable canonicalization.
  *
  * @remarks
- * {@link key} hashes `input` and `params` canonically and adds the active
+ * {@link key} hashes `input` and `parameters` canonically and adds the active
  * rollout partition. Fingerprints identify the module implementation and
  * language-model runtime independently of request content.
  *
  * @since 0.1.0
  * @category models
  */
-export class KeyRequest<Input, Params> extends Data.Class<{
+export class KeyRequest<Input, ParameterValues> extends Data.Class<{
   readonly moduleFingerprint: string
   readonly runtimeFingerprint: string
   readonly input: Input
-  readonly params: Params
+  readonly parameters: ParameterValues
   readonly settings?: ModelSettings
   readonly role?: Role
   readonly predictorId?: string
@@ -75,11 +75,11 @@ export class KeyRequest<Input, Params> extends Data.Class<{
  * @since 0.1.0
  * @category models
  */
-export class Request<Input, Params, Output, Failure, Requirement, EncodedOutput = Output> extends Data.Class<{
+export class Request<Input, ParameterValues, Output, Failure, Requirement, EncodedOutput = Output> extends Data.Class<{
   readonly moduleFingerprint: string
   readonly runtimeFingerprint: string
   readonly input: Input
-  readonly params: Params
+  readonly parameters: ParameterValues
   readonly settings?: ModelSettings
   readonly role?: Role
   readonly predictorId?: string
@@ -106,8 +106,8 @@ export class Cache extends Context.Service<
   {
     readonly get: <A, I>(key: Key, schema: Schema.Codec<A, I>) => Effect.Effect<Option.Option<A>, SearchCache.Error>
     readonly set: <A, I>(key: Key, schema: Schema.Codec<A, I>, value: A) => Effect.Effect<void, SearchCache.Error>
-    readonly resolve: <Input, Params, Output, Failure, Requirement, EncodedOutput = Output>(
-      request: Request<Input, Params, Output, Failure, Requirement, EncodedOutput>
+    readonly resolve: <Input, ParameterValues, Output, Failure, Requirement, EncodedOutput = Output>(
+      request: Request<Input, ParameterValues, Output, Failure, Requirement, EncodedOutput>
     ) => Effect.Effect<SearchCache.Result<Output>, Failure | SearchCache.Error, Requirement>
   }
 >()("@scenesystems/effect-dsp/Cache") {}
@@ -129,13 +129,15 @@ const fingerprint = <Value>(value: Value, label: string): Effect.Effect<string, 
  * @since 0.1.0
  * @category constructors
  */
-export const key = <Input, Params>(request: KeyRequest<Input, Params>): Effect.Effect<Key, SearchCache.Corrupt> =>
+export const key = <Input, ParameterValues>(
+  request: KeyRequest<Input, ParameterValues>
+): Effect.Effect<Key, SearchCache.Corrupt> =>
   Effect.all({
     inputHash: fingerprint(request.input, "input"),
-    paramsHash: fingerprint(request.params, "params"),
+    parametersHash: fingerprint(request.parameters, "parameters"),
     rolloutId: RolloutRef
   }).pipe(
-    Effect.map(({ inputHash, paramsHash, rolloutId }) =>
+    Effect.map(({ inputHash, parametersHash, rolloutId }) =>
       new Key({
         moduleFingerprint: request.moduleFingerprint,
         runtimeFingerprint: request.runtimeFingerprint,
@@ -144,7 +146,7 @@ export const key = <Input, Params>(request: KeyRequest<Input, Params>): Effect.E
         predictorId: request.predictorId ?? request.moduleFingerprint,
         signatureDigest: request.signatureDigest ?? request.moduleFingerprint,
         inputHash,
-        paramsHash,
+        parametersHash,
         rolloutId
       })
     )
@@ -178,8 +180,8 @@ export const layer: Layer.Layer<Cache, never, SearchCache.Cache> = Layer.effect(
           key,
           value
         ),
-      resolve: <Input, Params, Output, Failure, Requirement, EncodedOutput = Output>(
-        request: Request<Input, Params, Output, Failure, Requirement, EncodedOutput>
+      resolve: <Input, ParameterValues, Output, Failure, Requirement, EncodedOutput = Output>(
+        request: Request<Input, ParameterValues, Output, Failure, Requirement, EncodedOutput>
       ) =>
         key(request).pipe(
           Effect.flatMap((cacheKey) =>

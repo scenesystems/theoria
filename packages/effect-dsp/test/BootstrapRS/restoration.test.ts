@@ -36,7 +36,7 @@ const makeTree = Effect.gen(function*() {
   const signature = yield* Signature.make("Answer", { question: Schema.String }, Output.fields)
   const child = yield* Module.predict("child", signature)
   yield* Ref.set(
-    child.params,
+    child.parameters,
     new ModuleParameters({
       instructions: "Child original",
       demos: Arr.make(new Demonstration({ input: { question: "old child" }, output: { answer: "child answer" } })),
@@ -54,7 +54,7 @@ const makeTree = Effect.gen(function*() {
     })
   )
   yield* Ref.set(
-    module.params,
+    module.parameters,
     new ModuleParameters({
       instructions: "Root original",
       demos: Arr.empty(),
@@ -70,8 +70,8 @@ describe("BootstrapRS.run transactional restoration", () => {
   it.effect("restores root and child refs when every candidate evaluation fails", () =>
     Effect.gen(function*() {
       const { module, child } = yield* makeTree
-      const originalRoot = yield* Ref.get(module.params)
-      const originalChild = yield* Ref.get(child.params)
+      const originalRoot = yield* Ref.get(module.parameters)
+      const originalChild = yield* Ref.get(child.parameters)
       const mock = yield* MockLanguageModel.make(MockLanguageModel.succeed({ answer: "answer" }))
       const failure = yield* BootstrapRS.run(
         new BootstrapRS.Options({
@@ -84,8 +84,8 @@ describe("BootstrapRS.run transactional restoration", () => {
       ).pipe(Effect.provideService(LanguageModel.LanguageModel, mock.service), Effect.flip)
 
       expect(failure).toBeInstanceOf(AllTrialsFailed)
-      expect(yield* Ref.get(module.params)).toBe(originalRoot)
-      expect(yield* Ref.get(child.params)).toBe(originalChild)
+      expect(yield* Ref.get(module.parameters)).toBe(originalRoot)
+      expect(yield* Ref.get(child.parameters)).toBe(originalChild)
     }))
 
   it.effect("preserves a checked storage failure and scorer requirements after candidate mutation", () =>
@@ -117,7 +117,7 @@ describe("BootstrapRS.run transactional restoration", () => {
 
       expect(Equal.equals(failure, storageFailure)).toBe(true)
       expect(yield* Module.save(module)).toEqual(original)
-      expect((yield* Ref.get(child.params)).demos).toEqual(
+      expect((yield* Ref.get(child.parameters)).demos).toEqual(
         Option.getOrThrow(Record.get(original.parameters, "root.child")).demos
       )
     }))
@@ -125,8 +125,8 @@ describe("BootstrapRS.run transactional restoration", () => {
   it.effect("restores the entire tree after interruption at a mutated-candidate scoring barrier", () =>
     Effect.gen(function*() {
       const { module, child } = yield* makeTree
-      const originalRoot = yield* Ref.get(module.params)
-      const originalChild = yield* Ref.get(child.params)
+      const originalRoot = yield* Ref.get(module.parameters)
+      const originalChild = yield* Ref.get(child.parameters)
       const entered = yield* Deferred.make<boolean>()
       const resume = yield* Deferred.make<boolean>()
       const calls = yield* Ref.make(0)
@@ -146,14 +146,14 @@ describe("BootstrapRS.run transactional restoration", () => {
           Effect.forkScoped
         )
       yield* Deferred.await(entered)
-      expect(yield* Ref.get(module.params)).toBe(originalRoot)
-      expect(yield* Ref.get(child.params)).toBe(originalChild)
+      expect(yield* Ref.get(module.parameters)).toBe(originalRoot)
+      expect(yield* Ref.get(child.parameters)).toBe(originalChild)
       yield* Fiber.interrupt(fiber)
       const exit = yield* Fiber.await(fiber)
 
       expect(Exit.hasInterrupts(exit)).toBe(true)
-      expect(yield* Ref.get(module.params)).toBe(originalRoot)
-      expect(yield* Ref.get(child.params)).toBe(originalChild)
+      expect(yield* Ref.get(module.parameters)).toBe(originalRoot)
+      expect(yield* Ref.get(child.parameters)).toBe(originalChild)
     }))
 
   it.effect("retains the winning tree on successful optimization", () =>
@@ -178,6 +178,6 @@ describe("BootstrapRS.run transactional restoration", () => {
       )
       expect(yield* Module.save(module)).toEqual(original)
       expect(selected.temperature).toBe(0.3)
-      expect((yield* Ref.get(child.params)).maxTokens).toBe(11)
+      expect((yield* Ref.get(child.parameters)).maxTokens).toBe(11)
     }))
 })

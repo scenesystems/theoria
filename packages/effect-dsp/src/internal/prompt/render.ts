@@ -78,18 +78,18 @@ const renderFieldBlock = <A extends Record.ReadonlyRecord<string, unknown>>(sche
  */
 export const buildPrompt = <I extends Schema.Struct.Fields, O extends Schema.Struct.Fields>(
   signature: Signature<I, O>,
-  params: ModuleParameters,
+  parameters: ModuleParameters,
   input: Schema.Schema.Type<Schema.Struct<I>>,
   feedback: Option.Option<string> = Option.none()
 ): Effect.Effect<Prompt.Prompt, AiError.AiError, Schema.Struct<I>["EncodingServices"]> =>
   Effect.gen(function*() {
-    const composed = effective(signature, params)
+    const composed = effective(signature, parameters)
     const inputFields = promptFields(signature.inputSchema, composed.fields)
     const outputFields = promptFields(signature.outputSchema, composed.fields)
     const outputNames = Arr.map(outputFields, (field) => field.name)
     const encoded = yield* Schema.encodeEffect(signature.inputSchema)(input).pipe(Effect.mapError(promptError))
     const content = yield* renderFieldBlock(Schema.toEncoded(signature.inputSchema), encoded)
-    const demonstrations = yield* Effect.forEach(params.demos, (demo) =>
+    const demonstrations = yield* Effect.forEach(parameters.demos, (demo) =>
       Effect.gen(function*() {
         const validated = yield* signature.demonstrationCodec.decode(demo).pipe(Effect.mapError(promptError))
         const input = yield* renderFieldBlock(Schema.toEncoded(signature.inputSchema), validated.input)
@@ -105,7 +105,7 @@ export const buildPrompt = <I extends Schema.Struct.Fields, O extends Schema.Str
           content: Arr.join(
             Arr.make(
               String.concat("Task: ", signature.description),
-              String.concat("Instructions: ", params.instructions),
+              String.concat("Instructions: ", parameters.instructions),
               String.concat("Input fields:\n", renderFieldSection(inputFields)),
               String.concat("Output fields:\n", renderFieldSection(outputFields)),
               String.concat("Output template:\n", renderOutputTemplate(outputNames))

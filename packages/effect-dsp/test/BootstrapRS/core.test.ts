@@ -41,10 +41,10 @@ describe("BootstrapRS.run", () => {
     Effect.gen(function*() {
       const signature = yield* makeQaSignature()
       const module = yield* Module.predict("qa", signature)
-      const initial = yield* Ref.get(module.params)
+      const initial = yield* Ref.get(module.parameters)
 
       yield* Ref.set(
-        module.params,
+        module.parameters,
         new ModuleParameters({
           instructions: initial.instructions,
           demos: initial.demos,
@@ -96,10 +96,10 @@ describe("BootstrapRS.run", () => {
         )
       ).pipe(Effect.provide(lmLayer))
 
-      const params = Option.getOrThrow(Record.get(optimized.parameters, "qa"))
+      const parameters = Option.getOrThrow(Record.get(optimized.parameters, "qa"))
 
-      expect(params.demos).toHaveLength(1)
-      expect(params.demos[0]?.output).toEqual({ answer: "Tokyo" })
+      expect(parameters.demos).toHaveLength(1)
+      expect(parameters.demos[0]?.output).toEqual({ answer: "Tokyo" })
     }))
 
   it.effect("fails with AllTrialsFailed when all candidate evaluations fail", () =>

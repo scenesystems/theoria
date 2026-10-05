@@ -21,12 +21,12 @@ const Predictors = Context.Reference<ReadonlyArray<readonly [Ref.Ref<ModuleParam
 // Ref values are structurally equal in Effect 4; shared predictors require identity.
 const predictorPath = (
   predictors: ReadonlyArray<readonly [Ref.Ref<ModuleParameters>, Predictor.Path]>,
-  params: Ref.Ref<ModuleParameters>
-) => Option.map(Arr.findFirst(predictors, ([ref]) => ref === params), ([, path]) => path)
+  parameters: Ref.Ref<ModuleParameters>
+) => Option.map(Arr.findFirst(predictors, ([ref]) => ref === parameters), ([, path]) => path)
 
 /** Root-relative predictor identity, falling back to its standalone name. @internal */
-export const path = (params: Ref.Ref<ModuleParameters>, name: string) =>
-  Effect.map(Predictors, (predictors) => Option.getOrElse(predictorPath(predictors, params), () => name))
+export const path = (parameters: Ref.Ref<ModuleParameters>, name: string) =>
+  Effect.map(Predictors, (predictors) => Option.getOrElse(predictorPath(predictors, parameters), () => name))
 
 /** @internal */
 export const withPredictors =
@@ -36,10 +36,10 @@ export const withPredictors =
       (outer) =>
         Effect.provideService(
           effect.pipe(withDefaults(Record.fromEntries(Arr.flatMap(Arr.fromIterable(predictors), (entry) =>
-            Option.toArray(Option.map(entry.boundParameters, (params) =>
+            Option.toArray(Option.map(entry.boundParameters, (parameters) =>
               Tuple.make(
                 Option.getOrElse(predictorPath(outer, entry.parameters), () => entry.path),
-                params
+                parameters
               ))))))),
           Predictors,
           Arr.dedupeWith(
@@ -54,12 +54,12 @@ export const withPredictors =
     )
 
 /** @internal */
-export const read = Effect.fnUntraced(function*(params: Ref.Ref<ModuleParameters>, name: string) {
+export const read = Effect.fnUntraced(function*(parameters: Ref.Ref<ModuleParameters>, name: string) {
   const predictors = yield* Predictors
   const binding = yield* Binding
-  const id = Option.getOrElse(predictorPath(predictors, params), () => name)
+  const id = Option.getOrElse(predictorPath(predictors, parameters), () => name)
   return yield* Option.match(Option.flatMap(binding, (set) => Record.get(set, id)), {
-    onNone: () => Ref.get(params),
+    onNone: () => Ref.get(parameters),
     onSome: Effect.succeed
   })
 })
@@ -67,17 +67,17 @@ export const read = Effect.fnUntraced(function*(params: Ref.Ref<ModuleParameters
 /** @internal */
 export const mapParameters = (
   predictors: Iterable<Predictor.Predictor>,
-  f: (params: ModuleParameters) => ModuleParameters
+  f: (parameters: ModuleParameters) => ModuleParameters
 ) =>
   Effect.gen(function*() {
     const outer = yield* Predictors
     return Record.fromEntries(
       yield* Effect.forEach(predictors, (entry) =>
-        read(entry.parameters, entry.path).pipe(Effect.map((params) =>
+        read(entry.parameters, entry.path).pipe(Effect.map((parameters) =>
           Tuple.make(
             Option.getOrElse(predictorPath(outer, entry.parameters), () =>
               entry.path),
-            f(params)
+            f(parameters)
           )
         )))
     )

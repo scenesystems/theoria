@@ -63,7 +63,7 @@ describe("MIPROv2 Phase 2", () => {
       const module = yield* Module.predict("qa", signature)
 
       yield* Ref.set(
-        module.params,
+        module.parameters,
         new ModuleParameters({
           instructions: "Original baseline instruction",
           demos: [],
@@ -191,7 +191,7 @@ describe("MIPROv2 Phase 2", () => {
         yield* Schema.decodeEffect(counted)("007").pipe(Effect.provideService(Offset, 0))
       ).toBe(7)
       yield* Ref.set(
-        module.params,
+        module.parameters,
         new ModuleParameters({
           instructions: "Use every value",
           demos: Arr.make(
@@ -265,10 +265,10 @@ describe("MIPROv2 Phase 2", () => {
       const invalidCandidate = new DemoCandidate({
         predictorName: candidate.predictorName,
         kind: candidate.kind,
-        params: new ModuleParameters({
-          instructions: candidate.params.instructions,
+        parameters: new ModuleParameters({
+          instructions: candidate.parameters.instructions,
           demos: Arr.make(new Demonstration({ input: { question: 17 }, output: { answer: "invalid" } })),
-          outputStrategy: candidate.params.outputStrategy
+          outputStrategy: candidate.parameters.outputStrategy
         })
       })
       const invalid = Arr.make(
@@ -339,12 +339,12 @@ describe("MIPROv2 Phase 2", () => {
           new DemoCandidate({
             predictorName: childCandidate.predictorName,
             kind: childCandidate.kind,
-            params: new ModuleParameters({
-              instructions: childCandidate.params.instructions,
+            parameters: new ModuleParameters({
+              instructions: childCandidate.parameters.instructions,
               demos: Arr.make(
                 new Demonstration({ input: { question: "France", context: 17 }, output: { analysis: "Paris" } })
               ),
-              outputStrategy: childCandidate.params.outputStrategy
+              outputStrategy: childCandidate.parameters.outputStrategy
             })
           })
         )
@@ -380,8 +380,8 @@ describe("MIPROv2 Phase 2", () => {
           forward: ({ input }) => child.forward(input)
         })
       )
-      const rootParams = yield* Ref.get(root.params)
-      const childParams = yield* Ref.get(child.params)
+      const rootParameters = yield* Ref.get(root.parameters)
+      const childParameters = yield* Ref.get(child.parameters)
       const generated = yield* generateDemoCandidates(
         new GenerateDemoCandidatesOptions({
           module: root,
@@ -397,10 +397,10 @@ describe("MIPROv2 Phase 2", () => {
       const rootCandidate = new DemoCandidate({
         predictorName: "wrong-predictor",
         kind: rootBaseline.kind,
-        params: new ModuleParameters({
-          instructions: rootBaseline.params.instructions,
+        parameters: new ModuleParameters({
+          instructions: rootBaseline.parameters.instructions,
           demos: Arr.make(new Demonstration({ input: { question: "France?" }, output: { answer: "Paris" } })),
-          outputStrategy: rootBaseline.params.outputStrategy
+          outputStrategy: rootBaseline.parameters.outputStrategy
         })
       })
       const misboundChildSet = new PredictorDemoCandidates({
@@ -413,7 +413,7 @@ describe("MIPROv2 Phase 2", () => {
           new DemoCandidate({
             predictorName: "unknown",
             kind: rootCandidate.kind,
-            params: rootCandidate.params
+            parameters: rootCandidate.parameters
           })
         )
       })
@@ -444,8 +444,8 @@ describe("MIPROv2 Phase 2", () => {
               expect(result.failure._tag).toBe("InstructionProposalFailed")
             }
             expect(yield* Ref.get(mock.calls)).toHaveLength(0)
-            expect(yield* Ref.get(root.params)).toBe(rootParams)
-            expect(yield* Ref.get(child.params)).toBe(childParams)
+            expect(yield* Ref.get(root.parameters)).toBe(rootParameters)
+            expect(yield* Ref.get(child.parameters)).toBe(childParameters)
           })
       )
 
@@ -460,7 +460,7 @@ describe("MIPROv2 Phase 2", () => {
 
       expect(Arr.map(proposals, (set) => set.predictorName)).toEqual(Arr.make(child.name))
       expect(yield* Ref.get(mock.calls)).toHaveLength(1)
-      expect(yield* Ref.get(root.params)).toBe(rootParams)
-      expect(yield* Ref.get(child.params)).toBe(childParams)
+      expect(yield* Ref.get(root.parameters)).toBe(rootParameters)
+      expect(yield* Ref.get(child.parameters)).toBe(childParameters)
     }))
 })

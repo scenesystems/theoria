@@ -61,8 +61,8 @@ describe("optimizer schema-derived metric values", () => {
           fallbackToLabeledFewShot: false
         })
       ).pipe(Effect.provideService(LanguageModel.LanguageModel, mock.service))
-      const params = Option.getOrThrow(Record.get(compiled.parameters, module.name))
-      const demo = Option.getOrThrow(Arr.head(params.demos))
+      const parameters = Option.getOrThrow(Record.get(compiled.parameters, module.name))
+      const demo = Option.getOrThrow(Arr.head(parameters.demos))
       expect(demo.input).toEqual({ seed: "4" })
       expect(demo.output).toEqual({ result: { count: "7" } })
       expect(yield* Schema.decodeUnknownEffect(Output)(demo.output)).toEqual({ result: { count: 7 } })
@@ -71,7 +71,7 @@ describe("optimizer schema-derived metric values", () => {
   it.effect("preserves the scorer's checked label validation failure after model execution", () =>
     Effect.gen(function*() {
       const module = yield* makeModule
-      const original = yield* Ref.get(module.params)
+      const original = yield* Ref.get(module.parameters)
       const mock = yield* MockLanguageModel.make(MockLanguageModel.succeed({ result: { count: "7" } }))
       const failure = yield* BootstrapFewShot.run(
         new BootstrapFewShot.Options({
@@ -84,13 +84,13 @@ describe("optimizer schema-derived metric values", () => {
       ).pipe(Effect.provideService(LanguageModel.LanguageModel, mock.service), Effect.flip)
       expect(failure).toBeInstanceOf(Schema.SchemaError)
       expect(Arr.length(yield* Ref.get(mock.calls))).toBe(1)
-      expect(yield* Ref.get(module.params)).toEqual(original)
+      expect(yield* Ref.get(module.parameters)).toEqual(original)
     }))
 
   it.effect("scores decoded GEPA outputs and stores schema-encoded reflection documents", () =>
     Effect.gen(function*() {
       const module = yield* makeModule
-      const original = yield* Ref.get(module.params)
+      const original = yield* Ref.get(module.parameters)
       const mock = yield* MockLanguageModel.make(MockLanguageModel.succeed({ result: { count: "7" } }))
       const evaluation = yield* evaluateCandidate(
         new GEPA.Options({ module, trainset: Arr.make(example), metric, maxIterations: 0 }),
@@ -105,13 +105,13 @@ describe("optimizer schema-derived metric values", () => {
         result: { count: "7" }
       })
       expect(yield* decodePayload(Output, sample.expectedOutput)).toEqual({ result: { count: 3 } })
-      expect(yield* Ref.get(module.params)).toEqual(original)
+      expect(yield* Ref.get(module.parameters)).toEqual(original)
     }))
 
   it.effect("preserves GEPA parameters when the scorer rejects raw labels", () =>
     Effect.gen(function*() {
       const module = yield* makeModule
-      const original = yield* Ref.get(module.params)
+      const original = yield* Ref.get(module.parameters)
       const mock = yield* MockLanguageModel.make(MockLanguageModel.succeed({ result: { count: "7" } }))
       const failure = yield* evaluateCandidate(
         new GEPA.Options({ module, trainset: Arr.make(invalidExample), metric, maxIterations: 0 }),
@@ -122,6 +122,6 @@ describe("optimizer schema-derived metric values", () => {
       )
       expect(failure).toBeInstanceOf(Schema.SchemaError)
       expect(Arr.length(yield* Ref.get(mock.calls))).toBe(1)
-      expect(yield* Ref.get(module.params)).toEqual(original)
+      expect(yield* Ref.get(module.parameters)).toEqual(original)
     }))
 })

@@ -1,5 +1,5 @@
 /**
- * Module params + Ref mutation contracts.
+ * Module parameters + Ref mutation contracts.
  */
 import { describe, expect, it } from "@effect/vitest"
 import { Demonstration } from "@scenesystems/effect-dsp/Demonstration"
@@ -24,15 +24,15 @@ const makeQaSignature = () =>
     }
   )
 
-describe("Module params", () => {
-  it.effect("allocates params Ref with default instructions and empty demos", () =>
+describe("Module parameters", () => {
+  it.effect("allocates parameters Ref with default instructions and empty demos", () =>
     Effect.gen(function*() {
       const qa = yield* makeQaSignature()
       const module = yield* Module.predict("qa", qa)
-      const params = yield* Ref.get(module.params)
+      const parameters = yield* Ref.get(module.parameters)
 
-      expect(params.instructions).toBe(qa.instructions)
-      expect(params.demos).toEqual(Arr.empty())
+      expect(parameters.instructions).toBe(qa.instructions)
+      expect(parameters.demos).toEqual(Arr.empty())
     }))
 
   it.effect("supports Ref mutation/read-back for demos and instructions", () =>
@@ -41,7 +41,7 @@ describe("Module params", () => {
       const module = yield* Module.predict("qa", qa)
 
       yield* Ref.set(
-        module.params,
+        module.parameters,
         new ModuleParameters({
           instructions: "Use one token answers.",
           demos: Arr.make(
@@ -53,7 +53,7 @@ describe("Module params", () => {
         })
       )
 
-      const updated = yield* Ref.get(module.params)
+      const updated = yield* Ref.get(module.parameters)
       const demo = Option.getOrThrow(Arr.head(updated.demos))
 
       expect(updated.instructions).toBe("Use one token answers.")
@@ -77,10 +77,10 @@ describe("Module params", () => {
       const demosOnly = withDemos(original, demos)
       const both = withDemosAndInstructions(original, demos, "Answer with a city")
 
-      Arr.forEach(Arr.make(instructionOnly, demosOnly, both), (params) => {
-        expect(params.outputStrategy).toBe("text")
-        expect(params.temperature).toBe(0)
-        expect(params.maxTokens).toBe(512)
+      Arr.forEach(Arr.make(instructionOnly, demosOnly, both), (parameters) => {
+        expect(parameters.outputStrategy).toBe("text")
+        expect(parameters.temperature).toBe(0)
+        expect(parameters.maxTokens).toBe(512)
       })
       expect(instructionOnly.instructions).toBe("Answer precisely")
       expect(instructionOnly.demos).toEqual(original.demos)

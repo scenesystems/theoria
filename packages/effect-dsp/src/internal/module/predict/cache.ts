@@ -65,14 +65,14 @@ export const cached = <I extends Schema.Struct.Fields, O extends Schema.Struct.F
     if (Option.isNone(cache)) return yield* compute
     const prepared = yield* optional(
       Effect.gen(function*() {
-        const signature = effective(options.signature, options.params)
+        const signature = effective(options.signature, options.parameters)
         const signatureDigest = yield* Signature.digest(signature)
         return yield* Cache.key(
           new Cache.KeyRequest({
             moduleFingerprint: options.moduleName,
             runtimeFingerprint: yield* hash(yield* runtimeIdentity),
             input: yield* Schema.encodeEffect(options.signature.inputSchema)(options.input),
-            params: options.params,
+            parameters: options.parameters,
             settings: ModelSettings.merge(yield* ModelSettings.Current, request.settings),
             role: request.role,
             predictorId,

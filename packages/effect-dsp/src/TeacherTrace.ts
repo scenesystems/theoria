@@ -159,10 +159,10 @@ export const collect = <I extends Schema.Struct.Fields, O extends Schema.Struct.
           const trials = yield* Evaluation.runCollecting(remaining, (row) =>
             Effect.gen(function*() {
               if (options.stopWhen?.(yield* Ref.get(accepted))) return Option.none<Accepted | Rejected>()
-              const overlay = Record.map(parameters, (params) =>
+              const overlay = Record.map(parameters, (parameters) =>
                 ModuleParameters.withDemos(
-                  params,
-                  Arr.filter(params.demos, (demo) => !Option.contains(row.id)(demo.exampleId))
+                  parameters,
+                  Arr.filter(parameters.demos, (demo) => !Option.contains(row.id)(demo.exampleId))
                 ))
               const input = yield* Schema.decodeEffect(teacher.signature.inputSchema)(row.example.input)
               const teacherBinder = new ModelBinder.Binder({

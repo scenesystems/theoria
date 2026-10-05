@@ -172,7 +172,7 @@ export const structure = (roots: Iterable<Structure>): Graph.DirectedGraph<Struc
  */
 export class Discovered extends Data.TaggedClass("ModuleDiscovered")<{
   readonly id: Id
-  readonly params: Ref.Ref<ModuleParameters>
+  readonly parameters: Ref.Ref<ModuleParameters>
   readonly signature: Text
   readonly subModuleIds: ReadonlyArray<Id>
 }> {}
@@ -229,7 +229,7 @@ export class Module<
   /** Runtime schemas and prompt metadata for this module boundary. */
   readonly signature: Signature<I, O>
   /** Mutable instruction, demonstration, rendering, and generation state. */
-  readonly params: Ref.Ref<ModuleParameters>
+  readonly parameters: Ref.Ref<ModuleParameters>
   /** Sub-modules used for composition and parameter persistence. */
   readonly subModules: HashMap.HashMap<Id, Structure>
   /** Caller-local declaration aliases retained for predictor paths. */
@@ -237,7 +237,7 @@ export class Module<
   /** Excludes this subtree from optimization without preventing execution. */
   readonly frozen?: boolean
   /** Defaults carried by a bound program without modifying its predictors. */
-  readonly parameters?: ParameterSet
+  readonly boundParameters?: ParameterSet
   /** Executes the module for one already-decoded input value. */
   readonly forward: (
     input: Schema.Schema.Type<Schema.Struct<I>>
@@ -306,11 +306,11 @@ export class ComposableModule extends Data.Class<{
     readonly digest: Effect.Effect<string, SignatureError>
     readonly demonstrationCodec: DemonstrationCodec
   }
-  readonly params: Ref.Ref<ModuleParameters>
+  readonly parameters: Ref.Ref<ModuleParameters>
   readonly subModules: HashMap.HashMap<Id, Structure>
   readonly declarations?: Record.ReadonlyRecord<string, Structure>
   readonly frozen?: boolean
-  readonly parameters?: ParameterSet
+  readonly boundParameters?: ParameterSet
 }> {}
 
 /** Declares direct modules under caller-local aliases.
@@ -672,11 +672,11 @@ export const bound = <I extends Schema.Struct.Fields, O extends Schema.Struct.Fi
   const copy: Module<I, O, E, R> = new Module({
     name: root.name,
     signature: root.signature,
-    params: root.params,
+    parameters: root.parameters,
     subModules: root.subModules,
     declarations: root.declarations ?? Record.fromEntries(HashMap.toEntries(root.subModules)),
     frozen: root.frozen ?? false,
-    parameters: { ...root.parameters, ...parameters },
+    boundParameters: { ...root.boundParameters, ...parameters },
     forward: (input) => root.forward(input).pipe(ParameterBinding.withPredictors(predictors(copy)))
   })
   return copy
@@ -692,10 +692,10 @@ export const freeze = <I extends Schema.Struct.Fields, O extends Schema.Struct.F
   new Module({
     name: root.name,
     signature: root.signature,
-    params: root.params,
+    parameters: root.parameters,
     subModules: root.subModules,
     declarations: root.declarations ?? Record.fromEntries(HashMap.toEntries(root.subModules)),
-    parameters: root.parameters ?? {},
+    boundParameters: root.boundParameters ?? {},
     forward: root.forward,
     frozen: true
   })
@@ -708,6 +708,6 @@ export const install = Effect.fnUntraced(function*(root: ComposableModule, param
   yield* Effect.forEach(predictors(root), (entry) =>
     Option.match(Record.get(parameters, entry.path), {
       onNone: () => Effect.void,
-      onSome: (params) => Ref.set(entry.parameters, params)
+      onSome: (parameters) => Ref.set(entry.parameters, parameters)
     }), { discard: true }).pipe(Effect.uninterruptible)
 })

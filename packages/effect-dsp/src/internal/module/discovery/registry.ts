@@ -66,7 +66,7 @@ const moduleIdEquivalence: Equivalence.Equivalence<Id> = Equivalence.String
 
 const moduleIdListEquivalence = Arr.makeEquivalence(moduleIdEquivalence)
 
-const paramsIdentity = Equivalence.strictEqual<Ref.Ref<ModuleParameters>>()
+const parametersIdentity = Equivalence.strictEqual<Ref.Ref<ModuleParameters>>()
 
 const sameSubModuleIds = (
   left: ModuleGraphNode["subModuleIds"],
@@ -78,7 +78,7 @@ const sameRegistration = (
   right: Discovered
 ): boolean =>
   Boolean.every(Arr.make(
-    paramsIdentity(left.params, right.params),
+    parametersIdentity(left.parameters, right.parameters),
     signaturesMatch(left.signature, right.signature),
     sameSubModuleIds(left.subModuleIds, right.subModuleIds)
   ))
@@ -162,7 +162,7 @@ export class RuntimeRegistrationOptions extends Data.Class<{
   /** Untrusted identity decoded with the public `Module.Id` schema. */
   readonly moduleName: string
   /** Parameter ref retained in the discovery record. */
-  readonly params: Ref.Ref<ModuleParameters>
+  readonly parameters: Ref.Ref<ModuleParameters>
   /** Signature description and instructions retained for graph projection. */
   readonly signature: Text
   /** Direct children; omission records no children. */
@@ -194,7 +194,7 @@ export const registerRuntime = (options: RuntimeRegistrationOptions): Effect.Eff
     return yield* register(
       new Discovered({
         id: moduleId,
-        params: options.params,
+        parameters: options.parameters,
         signature: options.signature,
         subModuleIds: canonicalSubModuleIds(subModuleIds)
       })
@@ -219,7 +219,7 @@ export const registerModule = <
   registerRuntime(
     new RuntimeRegistrationOptions({
       moduleName: module.name,
-      params: module.params,
+      parameters: module.parameters,
       signature: new Text({
         description: module.signature.description,
         instructions: module.signature.instructions

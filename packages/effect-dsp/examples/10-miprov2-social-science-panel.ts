@@ -179,7 +179,7 @@ const program = Effect.gen(function*() {
   })
 
   const metrics = { exactMatch: Metric.exactMatch("intervention") }
-  const baselineParams = yield* Ref.get(planner.params)
+  const baselineParameters = yield* Ref.get(planner.parameters)
 
   yield* logExampleStage("baseline-evaluation-started", {
     evalExampleCount: evalset.length
@@ -268,7 +268,7 @@ const program = Effect.gen(function*() {
       concurrency: 1
     })
   )
-  const optimizedParams = yield* Ref.get(planner.params)
+  const optimizedParameters = yield* Ref.get(planner.parameters)
 
   const baselineScore = baseline.overallScores.exactMatch ?? 0
   const optimizedScore = optimized.overallScores.exactMatch ?? 0
@@ -277,9 +277,9 @@ const program = Effect.gen(function*() {
     baselineExactMatch: baselineScore,
     optimizedExactMatch: optimizedScore,
     scoreDelta: optimizedScore - baselineScore,
-    demoCountBeforeOptimization: baselineParams.demos.length,
-    demoCountAfterOptimization: optimizedParams.demos.length,
-    demosLearnedDuringMIPROv2: optimizedParams.demos.length - baselineParams.demos.length
+    demoCountBeforeOptimization: baselineParameters.demos.length,
+    demoCountAfterOptimization: optimizedParameters.demos.length,
+    demosLearnedDuringMIPROv2: optimizedParameters.demos.length - baselineParameters.demos.length
   }
   const plannerSavedState = yield* Module.save(planner)
   const summaryArtifact = makeStandardSummary({
@@ -311,10 +311,10 @@ const program = Effect.gen(function*() {
     trainsetSize: trainset.length,
     valsetSize: evalset.length,
     evalsetSize: evalset.length,
-    instructionBefore: baselineParams.instructions,
-    instructionAfter: optimizedParams.instructions,
-    demoCountBefore: baselineParams.demos.length,
-    demoCountAfter: optimizedParams.demos.length,
+    instructionBefore: baselineParameters.instructions,
+    instructionAfter: optimizedParameters.instructions,
+    demoCountBefore: baselineParameters.demos.length,
+    demoCountAfter: optimizedParameters.demos.length,
     demosLearnedDuringOptimization: outcomeSummary.demosLearnedDuringMIPROv2,
     extras: {
       baseline,

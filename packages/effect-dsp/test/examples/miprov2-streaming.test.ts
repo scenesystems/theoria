@@ -41,13 +41,13 @@ const runMiproTagTrace = Effect.gen(function*() {
     }
   )
   const module = yield* Module.predict("qa-mipro-stream", signature)
-  const params = yield* Ref.get(module.params)
+  const parameters = yield* Ref.get(module.parameters)
 
   yield* Ref.set(
-    module.params,
+    module.parameters,
     new ModuleParameters({
-      instructions: params.instructions,
-      demos: params.demos,
+      instructions: parameters.instructions,
+      demos: parameters.demos,
       outputStrategy: "structured"
     })
   )

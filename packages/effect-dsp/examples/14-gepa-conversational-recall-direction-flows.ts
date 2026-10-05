@@ -676,7 +676,7 @@ const program = Effect.gen(function*() {
     protocolAdjustment: demonstrationTurn.protocolAdjustment
   })
 
-  const panelParamsBeforeGEPA = yield* Ref.get(protocolPlanner.params)
+  const panelParametersBeforeGEPA = yield* Ref.get(protocolPlanner.parameters)
 
   // Evaluate baseline protocol quality.
   yield* logExampleStage("baseline-evaluation-started", {
@@ -729,7 +729,7 @@ const program = Effect.gen(function*() {
 
   const gepaEvents = yield* Ref.get(gepaLog)
   const gepaEventSummary = GEPA.summarizeEvents(gepaEvents)
-  const panelParamsAfterGEPA = yield* Ref.get(protocolPlanner.params)
+  const panelParametersAfterGEPA = yield* Ref.get(protocolPlanner.parameters)
 
   const baselineScore = baseline.overallScores.protocolFit ?? 0
   const optimizedScore = optimized.overallScores.protocolFit ?? 0
@@ -738,10 +738,10 @@ const program = Effect.gen(function*() {
     optimizedExactMatch: optimizedScore,
     scoreDelta: Num.subtract(optimizedScore, baselineScore),
     instructionChanged: Bool.not(
-      Str.Equivalence(panelParamsBeforeGEPA.instructions, panelParamsAfterGEPA.instructions)
+      Str.Equivalence(panelParametersBeforeGEPA.instructions, panelParametersAfterGEPA.instructions)
     ),
-    instructionLengthBeforeOptimization: Str.length(panelParamsBeforeGEPA.instructions),
-    instructionLengthAfterOptimization: Str.length(panelParamsAfterGEPA.instructions)
+    instructionLengthBeforeOptimization: Str.length(panelParametersBeforeGEPA.instructions),
+    instructionLengthAfterOptimization: Str.length(panelParametersAfterGEPA.instructions)
   }
 
   yield* logExampleStage("gepa-summary", {

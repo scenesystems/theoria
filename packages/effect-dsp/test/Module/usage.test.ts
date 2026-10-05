@@ -65,13 +65,13 @@ describe("Module usage evidence", () => {
           })
         })
       )
-      yield* Ref.update(module.params, (params) =>
+      yield* Ref.update(module.parameters, (parameters) =>
         new ModuleParameters({
-          instructions: params.instructions,
-          demos: params.demos,
+          instructions: parameters.instructions,
+          demos: parameters.demos,
           outputStrategy: "text",
-          temperature: params.temperature,
-          maxTokens: params.maxTokens
+          temperature: parameters.temperature,
+          maxTokens: parameters.maxTokens
         }))
       const mock = yield* MockLanguageModel.make(MockLanguageModel.fromFunction((prompt) =>
         Match.value(prompt).pipe(
@@ -111,13 +111,13 @@ describe("Module usage evidence", () => {
           })
         })
       )
-      yield* Ref.update(module.params, (params) =>
+      yield* Ref.update(module.parameters, (parameters) =>
         new ModuleParameters({
-          instructions: params.instructions,
-          demos: params.demos,
+          instructions: parameters.instructions,
+          demos: parameters.demos,
           outputStrategy: "text",
-          temperature: params.temperature,
-          maxTokens: params.maxTokens
+          temperature: parameters.temperature,
+          maxTokens: parameters.maxTokens
         }))
       const mock = yield* MockLanguageModel.make(MockLanguageModel.succeed(response("malformed", usage)))
       const [[failure, entries], aggregate] = yield* Trace.withUsageTracking(

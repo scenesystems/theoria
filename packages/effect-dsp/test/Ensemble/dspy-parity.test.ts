@@ -72,7 +72,7 @@ const makeProgram = <I extends Schema.Struct.Fields, O extends Schema.Struct.Fie
     const program = yield* Module.predict(name, signature)
 
     yield* Ref.set(
-      program.params,
+      program.parameters,
       new ModuleParameters({
         instructions,
         demos: Arr.empty(),

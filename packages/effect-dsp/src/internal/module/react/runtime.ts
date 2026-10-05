@@ -53,7 +53,7 @@ export class ReactRuntimeOptions<
   readonly signature: Signature<I, O>
   readonly inputSchema: Signature<I, O>["inputSchema"]
   readonly outputSchema: Signature<I, O>["outputSchema"]
-  readonly paramsRef: Ref.Ref<ModuleParameters>
+  readonly parametersRef: Ref.Ref<ModuleParameters>
   readonly toolkit: Toolkit.WithHandler<Tools>
   readonly maxIterations: number
 }> {}
@@ -79,7 +79,7 @@ export const makeReactForward = <
       yield* registerRuntime(
         new RuntimeRegistrationOptions({
           moduleName: options.moduleName,
-          params: options.paramsRef,
+          parameters: options.parametersRef,
           signature: new Text({
             description: options.signature.description,
             instructions: options.signature.instructions
@@ -88,7 +88,7 @@ export const makeReactForward = <
         })
       )
 
-      const params = yield* read(options.paramsRef, options.moduleName)
+      const parameters = yield* read(options.parametersRef, options.moduleName)
       const id = yield* executionId
       const traceInput = yield* tracePayloadFromEncoded(
         new PayloadOptions({
@@ -101,7 +101,7 @@ export const makeReactForward = <
 
       const initialState = new ReactLoopState<Schema.Schema.Type<Schema.Struct<O>>>({
         iteration: 0,
-        prompt: yield* buildPrompt(options.signature, params, input),
+        prompt: yield* buildPrompt(options.signature, parameters, input),
         output: Option.none(),
         lastRawResponse: Option.none(),
         lastDiagnostics: Arr.empty(),
@@ -123,7 +123,7 @@ export const makeReactForward = <
               })
             ).pipe(ModelBinder.bind(
               new ModelBinder.Request({
-                settings: settings(params),
+                settings: settings(parameters),
                 role: yield* CurrentRole,
                 rolloutId: yield* RolloutRef
               })

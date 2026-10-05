@@ -32,13 +32,13 @@ const iterateEffect = <A, E, R>(
   })
 
 const appendFeedback = (
-  params: ModuleParameters,
+  parameters: ModuleParameters,
   feedback: string
 ): ModuleParameters =>
   withInstructions(
-    params,
+    parameters,
     Arr.join(
-      Arr.make(params.instructions, "\n\n[Refinement feedback]\n", feedback),
+      Arr.make(parameters.instructions, "\n\n[Refinement feedback]\n", feedback),
       ""
     )
   )
@@ -147,7 +147,7 @@ export const makeRefineForward = <
             Effect.gen(function*() {
               const parameters = yield* Binding.mapParameters(
                 predictors(options.module),
-                (params) => appendFeedback(params, state.feedbackAccumulator)
+                (parameters) => appendFeedback(parameters, state.feedbackAccumulator)
               )
               const output = yield* options.module.forward(input).pipe(
                 Binding.withParameters(parameters),

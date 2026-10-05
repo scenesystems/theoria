@@ -169,8 +169,8 @@ describe("GEPA.run orchestration", () => {
             )
         })
       )
-      const rootParams = yield* Ref.get(root.params)
-      const childParams = yield* Ref.get(child.params)
+      const rootParameters = yield* Ref.get(root.parameters)
+      const childParameters = yield* Ref.get(child.parameters)
       const mock = yield* MockLanguageModel.make(
         MockLanguageModel.succeed(new DraftResponse({ draft: "correct", sources: Arr.make("trace-source") }))
       )
@@ -184,8 +184,8 @@ describe("GEPA.run orchestration", () => {
       })
       const metric = Metric.withFeedback(() =>
         Effect.gen(function*() {
-          expect(yield* Ref.get(root.params)).toBe(rootParams)
-          expect(yield* Ref.get(child.params)).toBe(childParams)
+          expect(yield* Ref.get(root.parameters)).toBe(rootParameters)
+          expect(yield* Ref.get(child.parameters)).toBe(childParameters)
           return yield* new Gate2MetricFailure()
         }), "composedFailure")
 
@@ -206,8 +206,8 @@ describe("GEPA.run orchestration", () => {
 
       expect(failure).toBeInstanceOf(Gate2MetricFailure)
       expect(Option.getOrThrow(Arr.head(yield* Ref.get(mock.calls))).prompt).toContain("changed child")
-      expect(yield* Ref.get(root.params)).toEqual(rootParams)
-      expect(yield* Ref.get(child.params)).toEqual(childParams)
+      expect(yield* Ref.get(root.parameters)).toEqual(rootParameters)
+      expect(yield* Ref.get(child.parameters)).toEqual(childParameters)
     }))
 
   it.effect("preserves every composed predictor after candidate evaluation is interrupted", () =>
@@ -226,8 +226,8 @@ describe("GEPA.run orchestration", () => {
             )
         })
       )
-      const rootParams = yield* Ref.get(root.params)
-      const childParams = yield* Ref.get(child.params)
+      const rootParameters = yield* Ref.get(root.parameters)
+      const childParameters = yield* Ref.get(child.parameters)
       const metricStarted = yield* Deferred.make<boolean>()
       const mock = yield* MockLanguageModel.make(
         MockLanguageModel.succeed(new DraftResponse({ draft: "correct", sources: Arr.make("trace-source") }))
@@ -261,18 +261,18 @@ describe("GEPA.run orchestration", () => {
 
       yield* Deferred.await(metricStarted)
       expect(Option.getOrThrow(Arr.head(yield* Ref.get(mock.calls))).prompt).toContain("interrupted child")
-      expect(yield* Ref.get(child.params)).toBe(childParams)
+      expect(yield* Ref.get(child.parameters)).toBe(childParameters)
       yield* Fiber.interrupt(fiber)
 
-      expect(yield* Ref.get(root.params)).toEqual(rootParams)
-      expect(yield* Ref.get(child.params)).toEqual(childParams)
+      expect(yield* Ref.get(root.parameters)).toEqual(rootParameters)
+      expect(yield* Ref.get(child.parameters)).toEqual(childParameters)
     }))
 
   it.effect("keeps full-valset row identities when evaluating a continuation window", () =>
     Effect.gen(function*() {
       const signature = yield* makeQaSignature()
       const module = yield* Module.predict("counting-qa", signature)
-      const originalParams = yield* Ref.get(module.params)
+      const originalParameters = yield* Ref.get(module.parameters)
       const mock = yield* MockLanguageModel.make(
         MockLanguageModel.succeed(new AnswerResponse({ answer: "correct" }))
       )
@@ -292,7 +292,7 @@ describe("GEPA.run orchestration", () => {
           trainset: makeEvaluationExamples(),
           metric: Metric.withFeedback((example, prediction, context) =>
             Effect.gen(function*() {
-              expect(yield* Ref.get(module.params)).toEqual(originalParams)
+              expect(yield* Ref.get(module.parameters)).toEqual(originalParameters)
               return yield* Metric.exactMatch("answer").score(example, prediction, context)
             }), "immutable"),
           maxIterations: 0
@@ -309,7 +309,7 @@ describe("GEPA.run orchestration", () => {
         Arr.make("example-2", "example-3")
       )
       expect(Arr.length(yield* Ref.get(mock.calls))).toBe(2)
-      expect(yield* Ref.get(module.params)).toEqual(originalParams)
+      expect(yield* Ref.get(module.parameters)).toEqual(originalParameters)
     }))
 
   it.effect("uses only the three-row gate-1 prefix when a public gepa mutation is rejected", () =>
@@ -327,7 +327,7 @@ describe("GEPA.run orchestration", () => {
             )
         })
       )
-      const originalParams = yield* Ref.get(module.params)
+      const originalParameters = yield* Ref.get(module.parameters)
       const mock = yield* MockLanguageModel.make(MockLanguageModel.succeed(improvingReflectiveResponse))
 
       yield* GEPA.run(
@@ -341,7 +341,7 @@ describe("GEPA.run orchestration", () => {
       ).pipe(Effect.provideService(LanguageModel.LanguageModel, mock.service))
 
       expect(yield* Ref.get(evaluatedRows)).toBe(REJECTED_MUTATION_ROW_COUNT)
-      expect(yield* Ref.get(module.params)).toEqual(originalParams)
+      expect(yield* Ref.get(module.parameters)).toEqual(originalParameters)
     }))
 
   it.effect("streams gate work accurately and reuses the scored prefix after gate 1 passes", () =>
@@ -366,7 +366,7 @@ describe("GEPA.run orchestration", () => {
     Effect.gen(function*() {
       const signature = yield* makeQaSignature()
       const module = yield* Module.predict("counting-qa", signature)
-      const originalParams = yield* Ref.get(module.params)
+      const originalParameters = yield* Ref.get(module.parameters)
       const evaluatedRows = yield* Ref.make(0)
       const scoredRows = yield* Ref.make(0)
       const mock = yield* makeCountingModel(evaluatedRows, true)
@@ -398,14 +398,14 @@ describe("GEPA.run orchestration", () => {
 
       expect(failure).toBeInstanceOf(Gate2MetricFailure)
       expect(yield* Ref.get(evaluatedRows)).toBe(ACCEPTED_MUTATION_ROW_COUNT)
-      expect(yield* Ref.get(module.params)).toEqual(originalParams)
+      expect(yield* Ref.get(module.parameters)).toEqual(originalParameters)
     }))
 
   it.effect("restores parameters when accepted gate-2 evaluation is interrupted", () =>
     Effect.gen(function*() {
       const signature = yield* makeQaSignature()
       const module = yield* Module.predict("counting-qa", signature)
-      const originalParams = yield* Ref.get(module.params)
+      const originalParameters = yield* Ref.get(module.parameters)
       const gate2Started = yield* Deferred.make<boolean>()
       const mock = yield* MockLanguageModel.make(
         MockLanguageModel.fromFunction((prompt) =>
@@ -453,6 +453,6 @@ describe("GEPA.run orchestration", () => {
       yield* Deferred.await(gate2Started)
       yield* Fiber.interrupt(fiber)
 
-      expect(yield* Ref.get(module.params)).toEqual(originalParams)
+      expect(yield* Ref.get(module.parameters)).toEqual(originalParameters)
     }))
 })

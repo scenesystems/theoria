@@ -85,7 +85,7 @@ describe("MIPROv2 Phase 3", () => {
     Effect.gen(function*() {
       const signature = yield* makeQaSignature()
       const module = yield* Module.predict("qa", signature)
-      const baselineParams = yield* Ref.get(module.params)
+      const baselineParameters = yield* Ref.get(module.parameters)
       const demoCandidates = Arr.make(
         new PredictorDemoCandidates({
           predictorName: "qa",
@@ -93,8 +93,8 @@ describe("MIPROv2 Phase 3", () => {
             new DemoCandidate({
               predictorName: "qa",
               kind: "zero-shot",
-              params: new ModuleParameters({
-                instructions: baselineParams.instructions,
+              parameters: new ModuleParameters({
+                instructions: baselineParameters.instructions,
                 demos: Arr.empty(),
                 outputStrategy: "structured"
               })
@@ -102,8 +102,8 @@ describe("MIPROv2 Phase 3", () => {
             new DemoCandidate({
               predictorName: "qa",
               kind: "bootstrap-unshuffled",
-              params: new ModuleParameters({
-                instructions: baselineParams.instructions,
+              parameters: new ModuleParameters({
+                instructions: baselineParameters.instructions,
                 demos: Arr.empty(),
                 outputStrategy: "structured"
               })
@@ -117,7 +117,7 @@ describe("MIPROv2 Phase 3", () => {
           candidates: Arr.make(
             new InstructionCandidate({
               predictorName: "qa",
-              instruction: baselineParams.instructions,
+              instruction: baselineParameters.instructions,
               tip: "baseline",
               cacheBustMarker: "[miprov2-proposal:qa:0:seed:1]",
               prompt: "baseline",
@@ -145,7 +145,7 @@ describe("MIPROv2 Phase 3", () => {
           valset: trainset,
           metric: Metric.withFeedback((example, prediction, context) =>
             Effect.gen(function*() {
-              expect(yield* Ref.get(module.params)).toEqual(baselineParams)
+              expect(yield* Ref.get(module.parameters)).toEqual(baselineParameters)
               return yield* Metric.exactMatch("answer").score(example, prediction, context)
             }), "immutable"),
           demoCandidates,
@@ -186,8 +186,8 @@ describe("MIPROv2 Phase 3", () => {
             )
         })
       )
-      const originalRootParams = yield* Ref.get(root.params)
-      const originalChildParams = yield* Ref.get(child.params)
+      const originalRootParameters = yield* Ref.get(root.parameters)
+      const originalChildParameters = yield* Ref.get(child.parameters)
       const demoCandidates = Arr.make(
         new PredictorDemoCandidates({
           predictorName: "child",
@@ -195,20 +195,20 @@ describe("MIPROv2 Phase 3", () => {
             new DemoCandidate({
               predictorName: "child",
               kind: "zero-shot",
-              params: originalChildParams
+              parameters: originalChildParameters
             }),
             new DemoCandidate({
               predictorName: "child",
               kind: "bootstrap-unshuffled",
-              params: new ModuleParameters({
-                instructions: originalChildParams.instructions,
+              parameters: new ModuleParameters({
+                instructions: originalChildParameters.instructions,
                 demos: Arr.make(
                   new Demonstration({
                     input: { question: "What is the capital of France?" },
                     output: { answer: "Paris" }
                   })
                 ),
-                outputStrategy: originalChildParams.outputStrategy
+                outputStrategy: originalChildParameters.outputStrategy
               })
             })
           )
@@ -220,7 +220,7 @@ describe("MIPROv2 Phase 3", () => {
           candidates: Arr.make(
             new InstructionCandidate({
               predictorName: "child",
-              instruction: originalChildParams.instructions,
+              instruction: originalChildParameters.instructions,
               tip: "baseline",
               cacheBustMarker: "[miprov2-proposal:child:0:seed:1]",
               prompt: "baseline",
@@ -248,22 +248,22 @@ describe("MIPROv2 Phase 3", () => {
 
       expect(report.message).toContain("destination contract for predictor 'child'")
       expect(yield* Ref.get(mock.calls)).toEqual(Arr.empty())
-      expect(yield* Ref.get(root.params)).toBe(originalRootParams)
-      expect(yield* Ref.get(child.params)).toBe(originalChildParams)
+      expect(yield* Ref.get(root.parameters)).toBe(originalRootParameters)
+      expect(yield* Ref.get(child.parameters)).toBe(originalChildParameters)
     }))
 
   it.effect("rejects ambiguous, unknown, and internally mismatched candidate identities", () =>
     Effect.gen(function*() {
       const signature = yield* makeQaSignature()
       const module = yield* Module.predict("qa", signature)
-      const originalParams = yield* Ref.get(module.params)
+      const originalParameters = yield* Ref.get(module.parameters)
       const demoSet = new PredictorDemoCandidates({
         predictorName: "qa",
         candidates: Arr.make(
           new DemoCandidate({
             predictorName: "qa",
             kind: "zero-shot",
-            params: originalParams
+            parameters: originalParameters
           })
         )
       })
@@ -273,7 +273,7 @@ describe("MIPROv2 Phase 3", () => {
           candidates: Arr.make(
             new InstructionCandidate({
               predictorName: "qa",
-              instruction: originalParams.instructions,
+              instruction: originalParameters.instructions,
               tip: "baseline",
               cacheBustMarker: "[miprov2-proposal:qa:0:seed:1]",
               prompt: "baseline",
@@ -288,7 +288,7 @@ describe("MIPROv2 Phase 3", () => {
           candidates: Arr.make(
             new InstructionCandidate({
               predictorName: "other",
-              instruction: originalParams.instructions,
+              instruction: originalParameters.instructions,
               tip: "baseline",
               cacheBustMarker: "[miprov2-proposal:other:0:seed:1]",
               prompt: "baseline",
@@ -303,7 +303,7 @@ describe("MIPROv2 Phase 3", () => {
           new DemoCandidate({
             predictorName: "other",
             kind: "zero-shot",
-            params: originalParams
+            parameters: originalParameters
           })
         )
       })
@@ -358,14 +358,14 @@ describe("MIPROv2 Phase 3", () => {
       expect(mismatchedReport.message).toContain("identifies predictor 'other'")
       expect(unknownReport.message).toContain("Unknown phase-3 demo candidates for predictor 'other'")
       expect(yield* Ref.get(mock.calls)).toEqual(Arr.empty())
-      expect(yield* Ref.get(module.params)).toBe(originalParams)
+      expect(yield* Ref.get(module.parameters)).toBe(originalParameters)
     }))
 
   it.effect("tracks minibatch cadence, periodic full evals, and baseline-prior registration", () =>
     Effect.gen(function*() {
       const signature = yield* makeQaSignature()
       const module = yield* Module.predict("qa", signature)
-      const baselineParams = yield* Ref.get(module.params)
+      const baselineParameters = yield* Ref.get(module.parameters)
       const demoCandidates = Arr.make(
         new PredictorDemoCandidates({
           predictorName: "qa",
@@ -373,8 +373,8 @@ describe("MIPROv2 Phase 3", () => {
             new DemoCandidate({
               predictorName: "qa",
               kind: "zero-shot",
-              params: new ModuleParameters({
-                instructions: baselineParams.instructions,
+              parameters: new ModuleParameters({
+                instructions: baselineParameters.instructions,
                 demos: Arr.empty(),
                 outputStrategy: "structured"
               })
@@ -382,8 +382,8 @@ describe("MIPROv2 Phase 3", () => {
             new DemoCandidate({
               predictorName: "qa",
               kind: "bootstrap-shuffled",
-              params: new ModuleParameters({
-                instructions: baselineParams.instructions,
+              parameters: new ModuleParameters({
+                instructions: baselineParameters.instructions,
                 demos: Arr.empty(),
                 outputStrategy: "structured"
               })
@@ -397,7 +397,7 @@ describe("MIPROv2 Phase 3", () => {
           candidates: Arr.make(
             new InstructionCandidate({
               predictorName: "qa",
-              instruction: baselineParams.instructions,
+              instruction: baselineParameters.instructions,
               tip: "baseline",
               cacheBustMarker: "[miprov2-proposal:qa:0:seed:1]",
               prompt: "baseline",

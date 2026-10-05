@@ -101,14 +101,14 @@ const runGepaMultiObjective = Effect.gen(function*() {
   ).pipe(Effect.provide(layer))
 
   const eventList = yield* Ref.get(recorded)
-  const params = Option.getOrThrow(Record.get(compiled.parameters, module.name))
+  const parameters = Option.getOrThrow(Record.get(compiled.parameters, module.name))
 
   return new (class extends Data.Class<{
     readonly eventList: typeof eventList
-    readonly params: typeof params
+    readonly parameters: typeof parameters
     readonly module: typeof module
     readonly layer: typeof layer
-  }> {})({ eventList, params, module: compiled.program, layer })
+  }> {})({ eventList, parameters, module: compiled.program, layer })
 })
 
 describe("examples/15-gepa-multi-objective-mock", () => {
@@ -139,9 +139,9 @@ describe("examples/15-gepa-multi-objective-mock", () => {
 
   it.effect("optimized module retains non-empty instructions", () =>
     Effect.gen(function*() {
-      const { params } = yield* runGepaMultiObjective
+      const { parameters } = yield* runGepaMultiObjective
 
-      expect(Str.length(params.instructions)).toBeGreaterThan(0)
+      expect(Str.length(parameters.instructions)).toBeGreaterThan(0)
     }))
 
   it.effect("seeded execution is deterministic across runs", () =>

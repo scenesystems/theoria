@@ -27,8 +27,8 @@ const trainingSet = Arr.make(
   new Example({ input: { question: "What is the capital of Italy?" }, labels: Option.some({ answer: "Rome" }) })
 )
 
-const uniqueParams = (params: ReadonlyArray<ModuleParameters>) =>
-  Arr.dedupeWith(Arr.fromIterable(params), Schema.toEquivalence(ModuleParameters))
+const uniqueParameters = (parameters: ReadonlyArray<ModuleParameters>) =>
+  Arr.dedupeWith(Arr.fromIterable(parameters), Schema.toEquivalence(ModuleParameters))
 
 const uniqueNumbers = (numbers: ReadonlyArray<number>) => Arr.dedupeWith(Arr.fromIterable(numbers), Num.Equivalence)
 
@@ -39,7 +39,7 @@ describe("MIPROv2 Phase 1", () => {
       const module = yield* Module.predict("qa", signature)
 
       yield* Ref.set(
-        module.params,
+        module.parameters,
         new ModuleParameters({
           instructions: "Answer with one factual phrase",
           demos: Arr.empty(),
@@ -63,7 +63,7 @@ describe("MIPROv2 Phase 1", () => {
         onSome: Effect.succeed
       })
       const shuffled = Arr.drop(root.candidates, 3)
-      const shuffledDemoCounts = Arr.map(shuffled, (candidate) => Arr.length(candidate.params.demos))
+      const shuffledDemoCounts = Arr.map(shuffled, (candidate) => Arr.length(candidate.parameters.demos))
 
       expect(root.candidates).toHaveLength(6)
       expect(Arr.map(Arr.take(root.candidates, 3), (candidate) => candidate.kind)).toEqual(
@@ -106,7 +106,7 @@ describe("MIPROv2 Phase 1", () => {
       })
 
       expect(second).toEqual(first)
-      expect(uniqueParams(Arr.map(firstRoot.candidates, (candidate) => candidate.params))).toHaveLength(
+      expect(uniqueParameters(Arr.map(firstRoot.candidates, (candidate) => candidate.parameters))).toHaveLength(
         Arr.length(firstRoot.candidates)
       )
     }))
@@ -132,7 +132,7 @@ describe("MIPROv2 Phase 1", () => {
       expect(
         Arr.every(candidateSets, (candidateSet) =>
           Arr.every(candidateSet.candidates, (candidate) =>
-            Schema.is(ModuleParameters)(candidate.params)))
+            Schema.is(ModuleParameters)(candidate.parameters)))
       ).toBe(true)
     }))
 })

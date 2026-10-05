@@ -18,7 +18,7 @@ import { ModuleParameters } from "../../../ModuleParameters.js"
 import type { Signature } from "../../../Signature.js"
 import { makeForward, RuntimeOptions } from "./runtime.js"
 
-const makeInitialParams = <
+const makeInitialParameters = <
   I extends Schema.Struct.Fields,
   O extends Schema.Struct.Fields
 >(
@@ -72,12 +72,12 @@ export const predict = <
         () => new PredictPolicyOverrides({})
       )
     )
-    const paramsRef = yield* Ref.make(makeInitialParams(signature))
+    const parametersRef = yield* Ref.make(makeInitialParameters(signature))
 
     return new Module({
       name,
       signature,
-      params: paramsRef,
+      parameters: parametersRef,
       subModules: HashMap.empty<Id, Structure>(),
       forward: makeForward(
         new RuntimeOptions({
@@ -85,7 +85,7 @@ export const predict = <
           signature,
           inputSchema: signature.inputSchema,
           outputSchema: signature.outputSchema,
-          paramsRef,
+          parametersRef,
           policy,
           invocation: options
         })

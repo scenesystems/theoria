@@ -36,7 +36,7 @@ export class DemoCandidate
   extends Schema.Class<DemoCandidate>("@scenesystems/effect-dsp/MIPROv2Candidates/DemoCandidate")({
     predictorName: Schema.String,
     kind: DemoCandidateKind,
-    params: ModuleParameters
+    parameters: ModuleParameters
   })
 {}
 

@@ -38,13 +38,13 @@ describe("integration/predict-optimize-evaluate", () => {
         }
       )
       const module = yield* Module.predict("qa-e2e", signature)
-      const initialParams = yield* Ref.get(module.params)
+      const initialParameters = yield* Ref.get(module.parameters)
 
       yield* Ref.set(
-        module.params,
+        module.parameters,
         new ModuleParameters({
-          instructions: initialParams.instructions,
-          demos: initialParams.demos,
+          instructions: initialParameters.instructions,
+          demos: initialParameters.demos,
           outputStrategy: "structured"
         })
       )
@@ -88,7 +88,7 @@ describe("integration/predict-optimize-evaluate", () => {
         })
       ).pipe(Effect.provide(layer))
 
-      const optimizedParams = Option.getOrThrow(Record.get(compiled.parameters, module.name))
+      const optimizedParameters = Option.getOrThrow(Record.get(compiled.parameters, module.name))
       const prediction = yield* compiled.program.forward({ question: "What is the capital of France?" }).pipe(
         Effect.provide(layer)
       )
@@ -96,7 +96,7 @@ describe("integration/predict-optimize-evaluate", () => {
 
       expect(baselineReport.totalExamples).toBe(trainset.length)
       expect(baselineReport.failureCount).toBe(0)
-      expect(optimizedParams.demos.length).toBeGreaterThan(0)
+      expect(optimizedParameters.demos.length).toBeGreaterThan(0)
       expect(optimizedReport.successCount).toBe(optimizedReport.totalExamples)
       expect(optimizedReport.failureCount).toBe(0)
       expect(optimizedReport.successCount).toBeGreaterThanOrEqual(baselineReport.successCount)

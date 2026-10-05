@@ -27,7 +27,7 @@ const makeQaSignature = () =>
   )
 
 describe("BootstrapFewShot.run", () => {
-  it.effect("promotes accepted trace demos into module params with deterministic round prompt context", () =>
+  it.effect("promotes accepted trace demos into module parameters with deterministic round prompt context", () =>
     Effect.gen(function*() {
       const signature = yield* makeQaSignature()
       const module = yield* Module.predict("qa", signature)
@@ -64,12 +64,14 @@ describe("BootstrapFewShot.run", () => {
         )
       ).pipe(Effect.provide(layer))
 
-      const params = Option.getOrThrow(Record.get(optimized.parameters, "qa"))
+      const parameters = Option.getOrThrow(Record.get(optimized.parameters, "qa"))
       const calls = yield* Ref.get(mock.calls)
 
-      expect(params.demos).toHaveLength(2)
+      expect(parameters.demos).toHaveLength(2)
       expect(yield* ParameterSet.snapshot(optimized.program)).toEqual(optimized.parameters)
-      expect(Arr.map(params.demos, (demo) => demo.output)).toEqual(Arr.make({ answer: "Paris" }, { answer: "Tokyo" }))
+      expect(Arr.map(parameters.demos, (demo) => demo.output)).toEqual(
+        Arr.make({ answer: "Paris" }, { answer: "Tokyo" })
+      )
       expect(calls).toHaveLength(2)
       expect(Arr.every(calls, (call) => Str.includes("[bootstrap-round:1]")(call.prompt))).toBe(true)
     }))
@@ -78,13 +80,13 @@ describe("BootstrapFewShot.run", () => {
     Effect.gen(function*() {
       const signature = yield* makeQaSignature()
       const module = yield* Module.predict("qa", signature)
-      const initialParams = yield* Ref.get(module.params)
+      const initialParameters = yield* Ref.get(module.parameters)
 
       yield* Ref.set(
-        module.params,
+        module.parameters,
         new ModuleParameters({
-          instructions: initialParams.instructions,
-          demos: initialParams.demos,
+          instructions: initialParameters.instructions,
+          demos: initialParameters.demos,
           outputStrategy: "text"
         })
       )
@@ -123,11 +125,11 @@ describe("BootstrapFewShot.run", () => {
         })
       ).pipe(Effect.provide(layer))
 
-      const params = Option.getOrThrow(Record.get(optimized.parameters, "qa"))
+      const parameters = Option.getOrThrow(Record.get(optimized.parameters, "qa"))
       const calls = yield* Ref.get(mock.calls)
       const japanCalls = Arr.filter(calls, (call) => Str.includes("What is the capital of Japan?")(call.prompt))
 
-      expect(params.demos).toHaveLength(2)
+      expect(parameters.demos).toHaveLength(2)
       expect(calls).toHaveLength(4)
       expect(japanCalls).toHaveLength(2)
       expect(Arr.some(calls, (call) => Str.includes("[bootstrap-round:1]")(call.prompt))).toBe(true)
@@ -163,12 +165,12 @@ describe("BootstrapFewShot.run", () => {
         ).pipe(Effect.provide(layer))
       )
       const calls = yield* Ref.get(mock.calls)
-      const params = Option.getOrThrow(Record.get(Result.getOrThrow(result).parameters, module.name))
+      const parameters = Option.getOrThrow(Record.get(Result.getOrThrow(result).parameters, module.name))
 
       expect(Result.isSuccess(result)).toBe(true)
       expect(calls).toHaveLength(1)
-      expect(params.demos).toHaveLength(1)
-      expect(Arr.map(params.demos, (demo) => demo.output)).toEqual(Arr.make({ answer: "Paris" }))
+      expect(parameters.demos).toHaveLength(1)
+      expect(Arr.map(parameters.demos, (demo) => demo.output)).toEqual(Arr.make({ answer: "Paris" }))
     }))
 
   it.effect("fails with BootstrapFailed when fallback is disabled", () =>

@@ -73,11 +73,11 @@ it.effect("mutation guard checks reachable child refs on checked failure and int
         forward: ({ input }) => child.forward(input)
       })
     )
-    const original = yield* Ref.get(child.params)
-    const mutate = Ref.set(child.params, withInstructions(original, "changed"))
+    const original = yield* Ref.get(child.parameters)
+    const mutate = Ref.set(child.parameters, withInstructions(original, "changed"))
     const failed = yield* assertNoMutation(root, mutate.pipe(Effect.andThen(Effect.fail("checked")))).pipe(Effect.exit)
     expect(Exit.hasDies(failed)).toBe(true)
-    yield* Ref.set(child.params, original)
+    yield* Ref.set(child.parameters, original)
     const started = yield* Deferred.make<void>()
     const fiber = yield* assertNoMutation(
       root,
@@ -88,6 +88,6 @@ it.effect("mutation guard checks reachable child refs on checked failure and int
     yield* Fiber.interrupt(fiber)
     const interrupted = yield* Fiber.await(fiber)
     expect(Exit.hasDies(interrupted)).toBe(true)
-    yield* Ref.set(child.params, original)
+    yield* Ref.set(child.parameters, original)
     expect(yield* assertNoMutation(root, Effect.succeed("unchanged"))).toBe("unchanged")
   }))

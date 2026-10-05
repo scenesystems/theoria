@@ -9,7 +9,7 @@ import * as Signature from "@scenesystems/effect-dsp/Signature"
 import { Array as Arr, Effect, Record, Ref, Schema, Tuple } from "effect"
 
 const makeSignature = () => Signature.make("Answer", { question: Schema.String }, { answer: Schema.String })
-const params = (instructions: string) => new ModuleParameters({ instructions, demos: Arr.empty() })
+const parameters = (instructions: string) => new ModuleParameters({ instructions, demos: Arr.empty() })
 
 describe("graph parameter persistence", () => {
   it.effect("round-trips every distinct Ref through projected diamonds and direct shared children", () =>
@@ -42,16 +42,16 @@ describe("graph parameter persistence", () => {
         })
       )
       const expected = Arr.make(
-        Tuple.make(leaf.params, params("shared value")),
-        Tuple.make(extra.params, params("extra value"))
+        Tuple.make(leaf.parameters, parameters("shared value")),
+        Tuple.make(extra.parameters, parameters("extra value"))
       )
       yield* Effect.forEach(expected, ([ref, value]) => Ref.set(ref, value))
       const saved = yield* Module.save(root)
       expect(saved.parameters).toEqual({
-        "root.left.leaf": params("shared value"),
-        "root.right.extra": params("extra value")
+        "root.left.leaf": parameters("shared value"),
+        "root.right.extra": parameters("extra value")
       })
-      yield* Effect.forEach(expected, ([ref]) => Ref.set(ref, params("mutated")))
+      yield* Effect.forEach(expected, ([ref]) => Ref.set(ref, parameters("mutated")))
       yield* Module.load(root, saved)
       yield* Effect.forEach(expected, ([ref, value]) =>
         Effect.gen(function*() {
@@ -71,11 +71,11 @@ describe("graph parameter persistence", () => {
           forward: ({ input }) => leaf.forward(input)
         })
       )
-      const originalRoot = yield* Ref.get(root.params)
-      const originalLeaf = yield* Ref.get(leaf.params)
+      const originalRoot = yield* Ref.get(root.parameters)
+      const originalLeaf = yield* Ref.get(leaf.parameters)
       yield* Effect.forEach(
         Arr.make(
-          { parameters: { "root.leaf": params("changed leaf"), stranger: params("bad") } },
+          { parameters: { "root.leaf": parameters("changed leaf"), stranger: parameters("bad") } },
           { parameters: {} },
           { parameters: { "root.leaf": { instructions: 42, demos: Arr.empty() } } }
         ),
@@ -83,8 +83,8 @@ describe("graph parameter persistence", () => {
           Effect.gen(function*() {
             const error = yield* Effect.flip(Module.load(root, invalid))
             expect(error._tag).toBe("SaveLoadError")
-            expect(yield* Ref.get(root.params)).toBe(originalRoot)
-            expect(yield* Ref.get(leaf.params)).toBe(originalLeaf)
+            expect(yield* Ref.get(root.parameters)).toBe(originalRoot)
+            expect(yield* Ref.get(leaf.parameters)).toBe(originalLeaf)
           })
       )
     }))
@@ -104,8 +104,8 @@ describe("graph parameter persistence", () => {
           forward: () => Effect.succeed({ answer: "unused" })
         })
       )
-      const originalRoot = yield* Ref.get(root.params)
-      const originalLeaf = yield* Ref.get(leaf.params)
+      const originalRoot = yield* Ref.get(root.parameters)
+      const originalLeaf = yield* Ref.get(leaf.parameters)
       const invalidDemos = Arr.make(
         new Demonstration({ input: { facts: { count: 7 } }, output: { result: { count: "3" } } }),
         new Demonstration({
@@ -126,8 +126,8 @@ describe("graph parameter persistence", () => {
           ).pipe(Effect.flip)
           expect(failure._tag).toBe("SaveLoadError")
           expect(failure.message).toContain("leaf")
-          expect(yield* Ref.get(root.params)).toBe(originalRoot)
-          expect(yield* Ref.get(leaf.params)).toBe(originalLeaf)
+          expect(yield* Ref.get(root.parameters)).toBe(originalRoot)
+          expect(yield* Ref.get(leaf.parameters)).toBe(originalLeaf)
         }))
       const valid = new Demonstration({ input: { facts: { count: "007" } }, output: { result: { count: "03" } } })
       yield* Module.load(
@@ -138,8 +138,8 @@ describe("graph parameter persistence", () => {
           }
         })
       )
-      expect(yield* Ref.get(root.params)).toBe(originalRoot)
-      expect((yield* Ref.get(leaf.params)).demos).toEqual(Arr.make(valid))
+      expect(yield* Ref.get(root.parameters)).toBe(originalRoot)
+      expect((yield* Ref.get(leaf.parameters)).demos).toEqual(Arr.make(valid))
     }))
 
   it.effect("rejects a non-predictor root path before installing any leaf", () =>
@@ -154,14 +154,14 @@ describe("graph parameter persistence", () => {
           forward: ({ input }) => leaf.forward(input)
         })
       )
-      const before = yield* Ref.get(leaf.params)
+      const before = yield* Ref.get(leaf.parameters)
       const error = yield* Effect.flip(Module.load(
         root,
         new Module.SavedState({
-          parameters: { root: params("not a predictor"), "root.leaf": params("replacement") }
+          parameters: { root: parameters("not a predictor"), "root.leaf": parameters("replacement") }
         })
       ))
       expect(error.message).toBe("Saved state contains unknown predictor path 'root'")
-      expect(yield* Ref.get(leaf.params)).toBe(before)
+      expect(yield* Ref.get(leaf.parameters)).toBe(before)
     }))
 })

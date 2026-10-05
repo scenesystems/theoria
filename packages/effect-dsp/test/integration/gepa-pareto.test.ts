@@ -82,8 +82,8 @@ describe("GEPA integration", () => {
             )
         })
       )
-      const initialRootParams = yield* Ref.get(root.params)
-      const initialChildParams = yield* Ref.get(child.params)
+      const initialRootParameters = yield* Ref.get(root.parameters)
+      const initialChildParameters = yield* Ref.get(child.parameters)
       const improvedChildInstruction = "Use the weighted query to produce the correct executable child draft."
       const composedMock = yield* MockLanguageModel.make(
         MockLanguageModel.fromFunction((prompt) =>
@@ -140,8 +140,8 @@ describe("GEPA integration", () => {
       const finalOutput = yield* compiled.program.forward({ question: "What result should the child produce?" }).pipe(
         Effect.provideService(LanguageModel.LanguageModel, composedMock.service)
       )
-      const childParams = Option.getOrThrow(Record.get(compiled.parameters, "composed-qa.child"))
-      const rootParams = yield* Ref.get(root.params)
+      const childParameters = Option.getOrThrow(Record.get(compiled.parameters, "composed-qa.child"))
+      const rootParameters = yield* Ref.get(root.parameters)
       const mutationEvents = Arr.filter(yield* Ref.get(recorded), GEPA.events.$is("MutationProposed"))
       const childReflection = yield* Effect.fromOption(
         yield* Ref.get(composedMock.calls).pipe(
@@ -153,10 +153,10 @@ describe("GEPA integration", () => {
       expect(Arr.map(mutationEvents, (event) => event.predictorName)).toEqual(
         Arr.make("child-drafter", "child-drafter")
       )
-      expect(childParams.instructions).toBe(improvedChildInstruction)
-      expect(yield* Ref.get(child.params)).toBe(initialChildParams)
-      expect(rootParams).toEqual(initialRootParams)
-      expect(childParams.demos).toEqual(initialChildParams.demos)
+      expect(childParameters.instructions).toBe(improvedChildInstruction)
+      expect(yield* Ref.get(child.parameters)).toBe(initialChildParameters)
+      expect(rootParameters).toEqual(initialRootParameters)
+      expect(childParameters.demos).toEqual(initialChildParameters.demos)
       expect(finalOutput.answer).toBe("correct")
       expect(childReflection.prompt).toContain("## Inputs (Actual Target Predictor Execution)")
       expect(childReflection.prompt).toContain("\"confidence\":\"7\"")
@@ -223,10 +223,10 @@ describe("GEPA integration", () => {
 
         const eventList = Arr.fromIterable(events)
         const paretoEvents = Arr.filter(eventList, GEPA.events.$is("ParetoUpdated"))
-        const params = yield* Ref.get(module.params)
+        const parameters = yield* Ref.get(module.parameters)
 
         expect(Num.isGreaterThan(Arr.length(paretoEvents), 0)).toBe(true)
-        expect(Num.isGreaterThan(Str.length(params.instructions), 0)).toBe(true)
+        expect(Num.isGreaterThan(Str.length(parameters.instructions), 0)).toBe(true)
         expect(Option.isSome(Arr.findFirst(eventList, GEPA.events.$is("AcceptanceEvaluated")))).toBe(true)
       })
   )

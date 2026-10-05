@@ -72,12 +72,12 @@ export const candidateParameters = (
     const replacements = Arr.map(
       Arr.filter(Arr.fromIterable(predictors(root)), (predictor) => !predictor.frozen),
       (predictor) => {
-        const params = Option.getOrThrow(Record.get(before, predictor.path))
+        const parameters = Option.getOrThrow(Record.get(before, predictor.path))
         return Tuple.make(
           predictor.path,
           withInstructions(
-            params,
-            Option.getOrElse(instructionForPredictor(candidate, predictor.name), () => params.instructions)
+            parameters,
+            Option.getOrElse(instructionForPredictor(candidate, predictor.name), () => parameters.instructions)
           )
         )
       }

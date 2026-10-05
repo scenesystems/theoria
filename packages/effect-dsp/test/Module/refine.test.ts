@@ -135,7 +135,7 @@ describe("Module.refine", () => {
     Effect.gen(function*() {
       const signature = yield* makeQaSignature()
       const predictor = yield* Module.predict("predictor", signature)
-      yield* Ref.update(predictor.params, (params) => withInstructions(params, "Answer saved-city"))
+      yield* Ref.update(predictor.parameters, (parameters) => withInstructions(parameters, "Answer saved-city"))
       const inner = yield* Module.compose(
         new Module.ComposeOptions({
           name: "pipeline",
@@ -154,8 +154,8 @@ describe("Module.refine", () => {
         })
       )
       const saved = yield* Module.save(wrapper)
-      yield* Ref.update(inner.params, (params) => withInstructions(params, "Changed pipeline"))
-      yield* Ref.update(predictor.params, (params) => withInstructions(params, "Answer changed-city"))
+      yield* Ref.update(inner.parameters, (parameters) => withInstructions(parameters, "Changed pipeline"))
+      yield* Ref.update(predictor.parameters, (parameters) => withInstructions(parameters, "Answer changed-city"))
       yield* Module.load(wrapper, saved)
       const model = yield* MockLanguageModel.make(MockLanguageModel.map((prompt) => ({
         answer: Boolean.match(Str.includes("Answer saved-city")(prompt), {
@@ -167,7 +167,7 @@ describe("Module.refine", () => {
         Effect.provideService(LanguageModel.LanguageModel, model.service)
       )
       expect(result.answer).toBe("saved-city")
-      expect((yield* Ref.get(inner.params)).instructions).toBe("Changed pipeline")
+      expect((yield* Ref.get(inner.parameters)).instructions).toBe("Changed pipeline")
       expect(yield* Ref.get(model.calls)).toHaveLength(2)
     }))
 
@@ -187,7 +187,7 @@ describe("Module.refine", () => {
       expect(error._tag).toBe("CompositionError")
     }))
 
-  it.effect("restores params while preserving reward service and checked failure channels", () =>
+  it.effect("restores parameters while preserving reward service and checked failure channels", () =>
     Effect.gen(function*() {
       const qa = yield* makeQaSignature()
       const mock = yield* MockLanguageModel.make(
@@ -197,7 +197,7 @@ describe("Module.refine", () => {
         ))
       )
       const inner = yield* Module.predict("qa-refine-reward-channels", qa)
-      const baseParams = yield* Ref.get(inner.params)
+      const baseParameters = yield* Ref.get(inner.parameters)
       const rewardCalls = yield* Ref.make(0)
       const failure = new RefineRewardRejected({ message: "reward rejected" })
       const refined = yield* Module.refine(
@@ -232,10 +232,10 @@ describe("Module.refine", () => {
         Effect.provideService(LanguageModel.LanguageModel, mock.service),
         Effect.flip
       )
-      const restoredParams = yield* Ref.get(inner.params)
+      const restoredParameters = yield* Ref.get(inner.parameters)
 
       expect(observed).toBe(failure)
-      expect(restoredParams).toEqual(baseParams)
+      expect(restoredParameters).toEqual(baseParameters)
     }))
 
   it.effect("feedback from attempt N appears in the prompt for attempt N+1", () =>
@@ -374,7 +374,7 @@ describe("Module.refine", () => {
       expect(entries).toHaveLength(2)
     }))
 
-  it.effect("restores base params after refinement to prevent cross-call drift", () =>
+  it.effect("restores base parameters after refinement to prevent cross-call drift", () =>
     Effect.gen(function*() {
       const qa = yield* makeQaSignature()
       const mock = yield* MockLanguageModel.make(
@@ -386,7 +386,7 @@ describe("Module.refine", () => {
         ))
       )
       const inner = yield* Module.predict("qa", qa)
-      const baseParams = yield* Ref.get(inner.params)
+      const baseParameters = yield* Ref.get(inner.parameters)
 
       const reward: Module.RewardFn<
         typeof QaInput.fields,
@@ -407,18 +407,18 @@ describe("Module.refine", () => {
         Effect.provideService(LanguageModel.LanguageModel, mock.service)
       )
 
-      const paramsAfterFirst = yield* Ref.get(inner.params)
-      expect(paramsAfterFirst.instructions).toBe(baseParams.instructions)
+      const parametersAfterFirst = yield* Ref.get(inner.parameters)
+      expect(parametersAfterFirst.instructions).toBe(baseParameters.instructions)
 
       yield* refined.forward({ question: "Second call" }).pipe(
         Effect.provideService(LanguageModel.LanguageModel, mock.service)
       )
 
-      const paramsAfterSecond = yield* Ref.get(inner.params)
-      expect(paramsAfterSecond.instructions).toBe(baseParams.instructions)
+      const parametersAfterSecond = yield* Ref.get(inner.parameters)
+      expect(parametersAfterSecond.instructions).toBe(baseParameters.instructions)
     }))
 
-  it.effect("restores base params when refinement is interrupted", () =>
+  it.effect("restores base parameters when refinement is interrupted", () =>
     Effect.gen(function*() {
       const qa = yield* makeQaSignature()
       const mock = yield* MockLanguageModel.make(
@@ -428,7 +428,7 @@ describe("Module.refine", () => {
         ))
       )
       const inner = yield* Module.predict("qa", qa)
-      const baseParams = yield* Ref.get(inner.params)
+      const baseParameters = yield* Ref.get(inner.parameters)
       const rewardCalls = yield* Ref.make(0)
       const secondRewardStarted = yield* Deferred.make<void>()
 
@@ -467,8 +467,8 @@ describe("Module.refine", () => {
       yield* Deferred.await(secondRewardStarted)
       yield* Fiber.interrupt(fiber)
 
-      const paramsAfterInterruption = yield* Ref.get(inner.params)
-      expect(paramsAfterInterruption).toEqual(baseParams)
+      const parametersAfterInterruption = yield* Ref.get(inner.parameters)
+      expect(parametersAfterInterruption).toEqual(baseParameters)
     }))
 
   it.effect("serializes concurrent calls through the same wrapper", () =>

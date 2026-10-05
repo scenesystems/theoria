@@ -23,7 +23,7 @@ describe("parameter overlays", () => {
       const before = yield* ParameterSet.snapshot(root)
       const lm = yield* MockLanguageModel.make(MockLanguageModel.map((prompt) => ({ answer: prompt })))
       const outputs = yield* Effect.forEach(Arr.range(0, 7), (index) => {
-        const parameters = Record.map(before, (params) => withInstructions(params, `candidate-${index}`))
+        const parameters = Record.map(before, (parameters) => withInstructions(parameters, `candidate-${index}`))
         return Module.bound(root, parameters).forward({ question: "q" })
       }, { concurrency: "unbounded" }).pipe(Effect.provideService(LanguageModel.LanguageModel, lm.service))
       yield* Effect.forEach(outputs, (output, index) =>
@@ -35,15 +35,15 @@ describe("parameter overlays", () => {
           )).toBe(true)
         }))
       expect(yield* ParameterSet.snapshot(root)).toEqual(before)
-      expect((yield* Ref.get(leaf.params)).instructions).toBe(signature.instructions)
+      expect((yield* Ref.get(leaf.parameters)).instructions).toBe(signature.instructions)
     }))
 
   it.effect("preserves bound defaults when composed and lets root overlays win", () =>
     Effect.gen(function*() {
       const signature = yield* Signature.make("Answer", { question: Schema.String }, { answer: Schema.String })
       const leaf = yield* Module.predict("generate", signature)
-      const defaults = Record.map(yield* ParameterSet.snapshot(leaf), (params) =>
-        withInstructions(params, "bound-default"))
+      const defaults = Record.map(yield* ParameterSet.snapshot(leaf), (parameters) =>
+        withInstructions(parameters, "bound-default"))
       const bound = Module.bound(leaf, defaults)
       const root = yield* Module.compose(
         new Module.ComposeOptions({
@@ -61,13 +61,13 @@ describe("parameter overlays", () => {
       ).toContain("bound-default")
       const snapshot = yield* ParameterSet.snapshot(root)
       expect(Record.get(snapshot, "qa.child")).toEqual(Record.get(defaults, "generate"))
-      const override = Record.map(snapshot, (params) => withInstructions(params, "explicit-override"))
+      const override = Record.map(snapshot, (parameters) => withInstructions(parameters, "explicit-override"))
       const output = yield* root.forward({ question: "q" }).pipe(
         Module.withParameters(override),
         Effect.provideService(LanguageModel.LanguageModel, lm.service)
       )
       expect(output.answer).toContain("explicit-override")
       expect(output.answer).not.toContain("bound-default")
-      expect((yield* Ref.get(leaf.params)).instructions).toBe(signature.instructions)
+      expect((yield* Ref.get(leaf.parameters)).instructions).toBe(signature.instructions)
     }))
 })

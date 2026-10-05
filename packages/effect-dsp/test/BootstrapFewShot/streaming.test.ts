@@ -28,13 +28,13 @@ describe("BootstrapFewShot.stream", () => {
     Effect.gen(function*() {
       const signature = yield* makeQaSignature()
       const module = yield* Module.predict("qa", signature)
-      const initialParams = yield* Ref.get(module.params)
+      const initialParameters = yield* Ref.get(module.parameters)
 
       yield* Ref.set(
-        module.params,
+        module.parameters,
         new ModuleParameters({
-          instructions: initialParams.instructions,
-          demos: initialParams.demos,
+          instructions: initialParameters.instructions,
+          demos: initialParameters.demos,
           outputStrategy: "structured"
         })
       )
@@ -100,13 +100,13 @@ describe("BootstrapFewShot.stream", () => {
       const signature = yield* makeQaSignature()
       const module = yield* Module.predict("qa", signature)
 
-      const initialParams = yield* Ref.get(module.params)
+      const initialParameters = yield* Ref.get(module.parameters)
 
       yield* Ref.set(
-        module.params,
+        module.parameters,
         new ModuleParameters({
-          instructions: initialParams.instructions,
-          demos: initialParams.demos,
+          instructions: initialParameters.instructions,
+          demos: initialParameters.demos,
           outputStrategy: "structured"
         })
       )

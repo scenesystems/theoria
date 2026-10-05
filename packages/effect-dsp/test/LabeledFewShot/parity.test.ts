@@ -34,8 +34,8 @@ it.effect("labeledfewshot-001: resets demos, samples each predictor independentl
       root,
       Record.map(
         yield* ParameterSet.snapshot(root),
-        (params) =>
-          withDemos(params, [new Demonstration({ input: { question: "stale" }, output: { answer: "stale" } })])
+        (parameters) =>
+          withDemos(parameters, [new Demonstration({ input: { question: "stale" }, output: { answer: "stale" } })])
       )
     )
     const trainset = Arr.map(

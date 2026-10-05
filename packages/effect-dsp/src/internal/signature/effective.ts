@@ -7,12 +7,12 @@ import { FieldInfo, Signature } from "../../Signature.js"
 /** Apply parameter metadata without changing field types, names or order. @internal */
 export const effective = <I extends Schema.Struct.Fields, O extends Schema.Struct.Fields>(
   signature: Signature<I, O>,
-  params: ModuleParameters
+  parameters: ModuleParameters
 ): Signature<I, O> =>
   new Signature(Struct.assign(signature, {
-    instructions: params.instructions,
+    instructions: parameters.instructions,
     fields: Arr.map(signature.fields, (field) =>
-      Option.match(Record.get(params.fields, field.name), {
+      Option.match(Record.get(parameters.fields, field.name), {
         onNone: () => field,
         onSome: (metadata) =>
           new FieldInfo(Struct.assign(field, {

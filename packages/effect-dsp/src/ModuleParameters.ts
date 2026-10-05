@@ -85,8 +85,8 @@ export class ModuleParameters extends Schema.Class<ModuleParameters>("@scenesyst
  * @since 0.6.0
  * @category getters
  */
-export const settings = (params: ModuleParameters): ModelSettings =>
-  new ModelSettings({ temperature: params.temperature, maxTokens: params.maxTokens })
+export const settings = (parameters: ModuleParameters): ModelSettings =>
+  new ModelSettings({ temperature: parameters.temperature, maxTokens: parameters.maxTokens })
 
 /**
  * Creates default parameters with no demonstrations and automatic output selection.
@@ -109,55 +109,55 @@ export const make = (instructions: string): ModuleParameters =>
  * @remarks
  * The constructor validates the replacement; array identity is not guaranteed.
  *
- * @param params - Existing parameter state.
+ * @param parameters - Existing parameter state.
  * @param demos - Ordered replacement demonstrations.
- * @returns A copy that retains `instructions`, `outputStrategy`, `temperature`, and `maxTokens` from `params`.
+ * @returns A copy that retains `instructions`, `outputStrategy`, `temperature`, and `maxTokens` from `parameters`.
  *
  * @since 0.1.0
  * @category combinators
  */
 export const withDemos = (
-  params: ModuleParameters,
+  parameters: ModuleParameters,
   demos: ModuleParameters["demos"]
 ): ModuleParameters =>
   new ModuleParameters({
-    fields: params.fields,
-    instructions: params.instructions,
+    fields: parameters.fields,
+    instructions: parameters.instructions,
     demos,
-    outputStrategy: params.outputStrategy,
-    temperature: params.temperature,
-    maxTokens: params.maxTokens
+    outputStrategy: parameters.outputStrategy,
+    temperature: parameters.temperature,
+    maxTokens: parameters.maxTokens
   })
 
 /**
  * Replaces instructions and demonstrations while retaining rendering and generation settings.
  *
- * @param params - Existing parameter state.
+ * @param parameters - Existing parameter state.
  * @param demos - Ordered replacement demonstrations, validated by the constructor.
  * @param instructions - Replacement instruction text.
- * @returns A copy that retains `outputStrategy`, `temperature`, and `maxTokens` from `params`.
+ * @returns A copy that retains `outputStrategy`, `temperature`, and `maxTokens` from `parameters`.
  *
  * @since 0.1.0
  * @category combinators
  */
 export const withDemosAndInstructions = (
-  params: ModuleParameters,
+  parameters: ModuleParameters,
   demos: ModuleParameters["demos"],
   instructions: string
 ): ModuleParameters =>
   new ModuleParameters({
-    fields: params.fields,
+    fields: parameters.fields,
     instructions,
     demos,
-    outputStrategy: params.outputStrategy,
-    temperature: params.temperature,
-    maxTokens: params.maxTokens
+    outputStrategy: parameters.outputStrategy,
+    temperature: parameters.temperature,
+    maxTokens: parameters.maxTokens
   })
 
 /**
  * Replaces instructions while retaining demonstrations and generation settings.
  *
- * @param params - Existing parameter state.
+ * @param parameters - Existing parameter state.
  * @param instructions - Replacement instruction text.
  * @returns A validated parameter value retaining the original demonstrations.
  *
@@ -165,16 +165,16 @@ export const withDemosAndInstructions = (
  * @category combinators
  */
 export const withInstructions = (
-  params: ModuleParameters,
+  parameters: ModuleParameters,
   instructions: string
 ): ModuleParameters =>
   new ModuleParameters({
-    fields: params.fields,
+    fields: parameters.fields,
     instructions,
-    demos: params.demos,
-    outputStrategy: params.outputStrategy,
-    temperature: params.temperature,
-    maxTokens: params.maxTokens
+    demos: parameters.demos,
+    outputStrategy: parameters.outputStrategy,
+    temperature: parameters.temperature,
+    maxTokens: parameters.maxTokens
   })
 
 /**
@@ -205,13 +205,13 @@ export class Dimension extends Schema.Class<Dimension>("@scenesystems/effect-dsp
  * @since 0.1.0
  * @category combinators
  */
-export const project = (params: ModuleParameters): Projection =>
+export const project = (parameters: ModuleParameters): Projection =>
   new Projection({
-    instructions: params.instructions,
-    demoCount: Arr.length(params.demos),
-    outputStrategy: params.outputStrategy,
-    temperature: Option.fromNullishOr(params.temperature),
-    maxTokens: Option.fromNullishOr(params.maxTokens)
+    instructions: parameters.instructions,
+    demoCount: Arr.length(parameters.demos),
+    outputStrategy: parameters.outputStrategy,
+    temperature: Option.fromNullishOr(parameters.temperature),
+    maxTokens: Option.fromNullishOr(parameters.maxTokens)
   })
 
 const optionalDimension = (name: string, value: Option.Option<number>) =>
@@ -225,8 +225,8 @@ const optionalDimension = (name: string, value: Option.Option<number>) =>
  * @since 0.1.0
  * @category combinators
  */
-export const dimensions = (params: ModuleParameters) => {
-  const projection = project(params)
+export const dimensions = (parameters: ModuleParameters) => {
+  const projection = project(parameters)
   const required = Arr.make(
     new Dimension({ name: "instructions", value: projection.instructions }),
     new Dimension({ name: "demoCount", value: projection.demoCount }),

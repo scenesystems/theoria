@@ -13,7 +13,7 @@ export const assertNoMutation = <I extends Schema.Struct.Fields, O extends Schem
       Arr.fromIterable(Graph.nodes(Module.structure(HashMap.values(module.subModules)))),
       ([, subModule]) => subModule.parameters
     ),
-    module.params
+    module.parameters
   )
   const snapshot = Effect.forEach(
     refs,

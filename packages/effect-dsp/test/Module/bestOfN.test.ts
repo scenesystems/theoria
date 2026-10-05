@@ -93,7 +93,7 @@ describe("Module.bestOfN", () => {
     Effect.gen(function*() {
       const signature = yield* makeQaSignature()
       const predictor = yield* Module.predict("predictor", signature)
-      yield* Ref.update(predictor.params, (params) => withInstructions(params, "Answer saved-city"))
+      yield* Ref.update(predictor.parameters, (parameters) => withInstructions(parameters, "Answer saved-city"))
       const inner = yield* Module.compose(
         new Module.ComposeOptions({
           name: "pipeline",
@@ -111,8 +111,8 @@ describe("Module.bestOfN", () => {
         })
       )
       const saved = yield* Module.save(wrapper)
-      yield* Ref.update(inner.params, (params) => withInstructions(params, "Changed pipeline"))
-      yield* Ref.update(predictor.params, (params) => withInstructions(params, "Answer changed-city"))
+      yield* Ref.update(inner.parameters, (parameters) => withInstructions(parameters, "Changed pipeline"))
+      yield* Ref.update(predictor.parameters, (parameters) => withInstructions(parameters, "Answer changed-city"))
       yield* Module.load(wrapper, saved)
       const model = yield* MockLanguageModel.make(MockLanguageModel.map((prompt) => ({
         answer: Match.value(Str.includes("Answer saved-city")(prompt)).pipe(
@@ -124,7 +124,7 @@ describe("Module.bestOfN", () => {
         Effect.provideService(LanguageModel.LanguageModel, model.service)
       )
       expect(result.answer).toBe("saved-city")
-      expect((yield* Ref.get(inner.params)).instructions).toBe("Changed pipeline")
+      expect((yield* Ref.get(inner.parameters)).instructions).toBe("Changed pipeline")
     }))
 
   it.effect("rejects a wrapper identity that collides with the inner predictor", () =>
@@ -228,7 +228,7 @@ describe("Module.bestOfN", () => {
               moduleFingerprint: "best-of",
               runtimeFingerprint: "mock",
               input: prompt,
-              params: {}
+              parameters: {}
             })
           ).pipe(
             Effect.mapError((error) =>

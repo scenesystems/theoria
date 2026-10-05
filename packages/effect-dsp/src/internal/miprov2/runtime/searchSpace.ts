@@ -207,7 +207,7 @@ const validateDemoCandidateSet = (
       (candidate) =>
         validateCandidateIdentity("demo", candidateSet.predictorName, candidate.predictorName).pipe(
           Effect.andThen(
-            Effect.forEach(candidate.params.demos, destination.demonstrationCodec.decode, { discard: true }).pipe(
+            Effect.forEach(candidate.parameters.demos, destination.demonstrationCodec.decode, { discard: true }).pipe(
               Effect.mapError(() =>
                 bindingFailure(
                   Str.concat(
