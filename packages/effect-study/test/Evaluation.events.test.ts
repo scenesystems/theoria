@@ -7,6 +7,46 @@ import * as Evaluation from "@scenesystems/effect-study/Evaluation"
 class Sink extends Context.Service<Sink, string>()("study-test/EventSink") {}
 class Evaluator extends Context.Service<Evaluator, number>()("study-test/Evaluator") {}
 
+it.effect("does not admit evaluation on a provisional append before the observer's commit completes", () =>
+  Effect.gen(function*() {
+    const appended = yield* Deferred.make<void>()
+    const commit = yield* Deferred.make<void>()
+    const executed = yield* Ref.make(Arr.empty<string>())
+    const committed = yield* Ref.make(Arr.empty<string>())
+    const task = yield* Evaluation.runWithEvents(
+      ["first", "second"],
+      (input) => Ref.update(executed, Arr.append(input)).pipe(Effect.as(input)),
+      {},
+      (event) =>
+        Effect.gen(function*() {
+          // The caller's append has returned within its transaction, but commit has
+          // not. This gate models that boundary, not a transactional storage backend.
+          if (event._tag === "TrialStarted" && Num.Equivalence(event.trialNumber, 0)) {
+            yield* Deferred.succeed(appended, undefined)
+            yield* Deferred.await(commit)
+          }
+          yield* Ref.update(committed, Arr.append(event._tag))
+        })
+    ).pipe(Effect.forkChild)
+    yield* Deferred.await(appended)
+    expect(yield* Ref.get(executed)).toEqual([])
+    expect(yield* Ref.get(committed)).toEqual(["Planned"])
+    yield* Deferred.succeed(commit, undefined)
+    expect(Arr.map(yield* Fiber.join(task), (trial) => trial.state)).toEqual([
+      { _tag: "Completed", value: "first", duration: 0 },
+      { _tag: "Completed", value: "second", duration: 0 }
+    ])
+    expect(yield* Ref.get(executed)).toEqual(["first", "second"])
+    expect(yield* Ref.get(committed)).toEqual([
+      "Planned",
+      "TrialStarted",
+      "TrialSettled",
+      "TrialStarted",
+      "TrialSettled",
+      "Completed"
+    ])
+  }))
+
 it.effect("allows interruption of blocked best-effort termination telemetry", () =>
   Effect.gen(function*() {
     const entered = yield* Deferred.make<void>()

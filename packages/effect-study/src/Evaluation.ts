@@ -280,7 +280,10 @@ export const runSettled = <Config, Value, E, R>(
  * As in runSettled, compound fatal causes preserve their E reasons alongside OE.
  *
  * Observation order is independent of returned input order. Acknowledgment means
- * whatever the sink guarantees, not necessarily durability. Termination reporting
+ * whatever the sink guarantees, not necessarily durability. A transactional observer
+ * must await its enclosing commit, not just an append's provisional receipt. Keep
+ * that transaction local to each observation rather than the entire evaluation.
+ * Termination reporting
  * is best effort and interruptible, including inside cleanup; an already-pending
  * interruption may skip it entirely. No hidden timeout or detached callback is
  * introduced. Unavailable observers leave starts unresolved. Local interruption

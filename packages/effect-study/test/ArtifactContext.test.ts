@@ -1,13 +1,49 @@
 import { describe, expect, it } from "@effect/vitest"
-import { Array as Arr, Context, Effect, Number as Num, Ref, Result, Schema, String as Str } from "effect"
+import { Array as Arr, Context, Effect, Number as Num, Option, Ref, Result, Schema, String as Str } from "effect"
 
 import * as Artifact from "@scenesystems/effect-study/Artifact"
 import * as ArtifactContext from "@scenesystems/effect-study/ArtifactContext"
 import * as PersistenceError from "@scenesystems/effect-study/PersistenceError"
 
 class Sequence extends Context.Service<Sequence, Ref.Ref<number>>()("effect-study/test/ArtifactContext/Sequence") {}
+class Transaction extends Context.Service<Transaction, {
+  readonly name: string
+  readonly open: Ref.Ref<boolean>
+}>()("effect-study/test/ArtifactContext/Transaction") {}
 
 describe("ArtifactContext", () => {
+  it.effect("uses each current transaction-like scope when constructed outside those scopes", () =>
+    Effect.gen(function*() {
+      const runId = yield* Schema.decodeEffect(Artifact.RunId)("01HZ0000000000000000000000")
+      const packageVersion = yield* Schema.decodeEffect(Artifact.PackageVersion)("0.1.0")
+      const sequence = yield* Ref.make(11)
+      const seen = yield* Ref.make(Arr.empty<string>())
+      const closed = yield* Ref.make(Arr.empty<string>())
+      const allocate = Effect.gen(function*() {
+        const transaction = yield* Effect.serviceOption(Transaction)
+        if (Option.isNone(transaction) || !(yield* Ref.get(transaction.value.open))) {
+          return yield* new PersistenceError.Failure({
+            reason: "Backend",
+            operation: "write",
+            detail: "transaction is not open"
+          })
+        }
+        yield* Ref.update(seen, Arr.append(transaction.value.name))
+        return yield* Ref.getAndUpdate(yield* Sequence, Num.increment)
+      })
+      const context = yield* ArtifactContext.make(new ArtifactContext.Options({ runId, packageVersion, allocate }))
+        .pipe(Effect.provideService(Sequence, sequence))
+      const ids = yield* Effect.forEach(["first", "second"], (name) =>
+        Effect.scoped(Effect.gen(function*() {
+          const open = yield* Effect.acquireRelease(Ref.make(true), (open) =>
+            Ref.set(open, false).pipe(Effect.andThen(Ref.update(closed, Arr.append(name)))))
+          return yield* context.nextId.pipe(Effect.provideService(Transaction, { name, open }))
+        })))
+      expect(Arr.map(ids, (id) => id.sequence)).toEqual([11, 12])
+      expect(yield* Ref.get(seen)).toEqual(["first", "second"])
+      expect(yield* Ref.get(closed)).toEqual(["first", "second"])
+    }))
+
   it.effect("starts at the restored next sequence without reusing committed identities", () =>
     Effect.gen(function*() {
       const runId = yield* Schema.decodeEffect(Artifact.RunId)("01HZ0000000000000000000000")

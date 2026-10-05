@@ -44,6 +44,10 @@ export class ArtifactContext extends Context.Service<
 /**
  * Builds a context using the restored sequence or caller-owned allocator. Allocator
  * services are captured at construction; allocation occurs only when nextId runs.
+ * Construct long-lived contexts outside short-lived transactions. Captured services
+ * take precedence when merged with the allocation's current environment: capturing
+ * a transaction can retain its released connection and override a later transaction.
+ * Transaction services absent at construction remain available from each caller.
  * Allocation does not store a payload. Failed or interrupted delivery may leave gaps;
  * retry delivery with the allocated artifact, not another call to nextId.
  * Memory allocation is atomic within this context, not durable across process loss.

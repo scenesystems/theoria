@@ -100,14 +100,20 @@ export const layerFileSystem = (
 /** Installs an existing generic study storage service. @since 0.1.0 @category layers */
 export const layer = (storage: Service): Layer.Layer<StudyStorage> => Layer.succeed(StudyStorage, storage)
 
-/** A committed event's identity and one-based run-local position. @since 0.1.0 @category schemas */
+/**
+ * An appended event's identity and one-based run-local position. Within a caller-owned
+ * transaction this receipt is provisional until the enclosing transaction commits;
+ * do not publish it as an observation acknowledgment before that boundary.
+ * @since 0.1.0
+ * @category schemas
+ */
 export const Receipt = Schema.Struct({
   runId: Schema.NonEmptyString,
   recordId: Schema.NonEmptyString,
   cursor: Schema.Int.check(Schema.isGreaterThan(0))
 }).annotate({ identifier: "@scenesystems/effect-study/StudyStorage/Receipt" })
 
-/** Committed identity, independent of append request retries. @since 0.1.0 @category models */
+/** Append identity, subject to the backend's enclosing commit boundary. @since 0.1.0 @category models */
 export type Receipt = typeof Receipt.Type
 
 /** A decoded event and its committed receipt. @since 0.1.0 @category models */
@@ -164,6 +170,9 @@ export const ReadOptions = Schema.Struct({ after: Schema.optional(Schema.Int.che
  * Run-bound recording. Writes require only encoding services; reads only decoding
  * services. An identical encoded retry returns its original receipt before cursor
  * validation. Reads are finite snapshots, not live subscriptions.
+ * Custom transactional backends may return provisional receipts inside a caller's
+ * transaction. The observer must await outer commit before acknowledging. Use short
+ * per-observation transactions, not one transaction around the entire evaluation.
  * @since 0.1.0
  * @category models
  */
