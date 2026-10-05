@@ -4,7 +4,7 @@
  * @since 0.1.0
  * @module
  */
-import { Cause, Duration, Effect, Exit, Match, Schema, Tuple } from "effect"
+import { Cause, Duration, Effect, Exit, Match, Result, Schema, Tuple } from "effect"
 
 import * as History from "./History.js"
 import * as Study from "./Study.js"
@@ -19,6 +19,47 @@ import type * as Trial from "./Trial.js"
 export const Options = Schema.Struct({
   concurrency: Schema.optional(Schema.Int.check(Schema.isGreaterThan(0)))
 }).annotate({ identifier: "@scenesystems/effect-study/Evaluation/Options" })
+
+/** An expected outcome, retaining caller-owned values and failures. @since 0.1.0 @category models */
+export type SettledTrial<Config, Value, E> = Trial.Trial<Config, Trial.Completed<Value> | Trial.Failed<E>>
+
+const settle = <Config, Value, E, R>(
+  config: Config,
+  trialNumber: number,
+  evaluate: (config: Config, trialNumber: number) => Effect.Effect<Value, E, R>
+): Effect.Effect<SettledTrial<Config, Value, E>, never, R> =>
+  Effect.suspend(() => evaluate(config, trialNumber)).pipe(
+    Effect.result,
+    Effect.timed,
+    Effect.map(([duration, outcome]) => ({
+      config,
+      trialNumber,
+      state: Result.match(outcome, {
+        onSuccess: (value): Trial.Completed<Value> => ({
+          _tag: "Completed",
+          value,
+          duration: Duration.toMillis(duration)
+        }),
+        onFailure: (error): Trial.Failed<E> => ({ _tag: "Failed", error, duration: Duration.toMillis(duration) })
+      })
+    }))
+  )
+
+/**
+ * Returns every expected outcome in input order, including typed evaluator failures.
+ * Empty inputs succeed with no records. Defects and interruption terminate the Effect
+ * and await active sibling finalizers; they never become failed trial records.
+ * Duration measures evaluation only. Services required by the evaluator are retained.
+ *
+ * @since 0.1.0
+ * @category operations
+ */
+export const runSettled = <Config, Value, E, R>(
+  inputs: Iterable<Config>,
+  evaluate: (config: Config, trialNumber: number) => Effect.Effect<Value, E, R>,
+  options: typeof Options.Type = {}
+): Effect.Effect<ReadonlyArray<SettledTrial<Config, Value, E>>, never, R> =>
+  Effect.forEach(inputs, (config, trialNumber) => settle(config, trialNumber, evaluate), options)
 
 /**
  * Evaluates supplied inputs and returns completed trials in input order, numbered
