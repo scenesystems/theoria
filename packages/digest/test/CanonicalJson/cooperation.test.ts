@@ -107,7 +107,7 @@ it.effect("preserves multibyte and escaped text across incremental hash segments
     yield* Effect.forEach(Digest.Algorithm.literals, (algorithm) =>
       Effect.gen(function*() {
         const expected = Str.concat(Str.concat(algorithm, ":"), Base64Url.encode(yield* Digest.hash(algorithm, bytes)))
-        expect(ContentDigest.toString(yield* ContentDigest.fromUnknown(algorithm, value))).toBe(expected)
+        expect(ContentDigest.toString(yield* ContentDigest.fromSchema(Schema.String, value, algorithm))).toBe(expected)
         const bounded = yield* ContentDigest.fromSchemaWithByteLimit(Schema.String, value, 65_546, algorithm)
         expect(ContentDigest.toString(bounded.digest)).toBe(expected)
         expect(bounded.canonicalByteLength).toBe(65_546)

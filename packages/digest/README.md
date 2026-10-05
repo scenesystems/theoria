@@ -74,13 +74,17 @@ The model is not the wire string. Call `ContentDigest.toString(model)` at protoc
 
 ```ts typecheck
 import * as ContentDigest from "@scenesystems/digest/ContentDigest"
-import { Effect } from "effect"
+import { Effect, Schema } from "effect"
 
-export const identify = (value: unknown) =>
-  ContentDigest.fromUnknown("blake3-256", value).pipe(Effect.map(ContentDigest.toString))
+const Document = Schema.Struct({ domain: Schema.Literal("document"), version: Schema.Literal(1), text: Schema.String })
+
+export const identify = (value: typeof Document.Type) =>
+  ContentDigest.fromSchema(Document, value).pipe(Effect.map(ContentDigest.toString))
 ```
 
-`ContentDigest.fromBytes` hashes its input bytes directly and is effectful. `ContentDigest.fromUnknown` incrementally hashes canonical segments without collecting the complete preimage and returns an `Effect<ContentDigest, CanonicalJson.Error>`. For a durable fingerprint, use `fromUnknown("blake3-256", value)` and then `toString`; there is no separate fingerprint helper.
+`ContentDigest.fromBytes` hashes exact bytes directly. Structured identities require an owner-selected codec through `fromSchema` or `fromSchemaWithByteLimit`; both incrementally hash canonical segments without collecting the complete preimage. The owner chooses identity fields, transformations, and domain/version markers. Schema identifiers are not automatically included in the preimage.
+
+Migration from 0.7: `ContentDigest.fromUnknown` is removed. Select the actual domain codec rather than wrapping arbitrary values in `Schema.Unknown`. Digests remain identical only when the encoded canonical preimage remains identical. Changing identity fields or transformations requires the domain owner to plan its identity/cache migration. `CanonicalJson` remains available for lower-level strict JSON encoding, not implicit domain identity.
 
 ### Schema values
 

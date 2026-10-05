@@ -100,14 +100,10 @@ export const fromBytes = (algorithm: Digest.Algorithm, bytes: Uint8Array): Effec
   Digest.hash(algorithm, bytes).pipe(Effect.map((hash) => fromHash(algorithm, hash)))
 
 /**
- * Admits JSON-visible data and incrementally hashes its RFC 8785 UTF-8 segments
- * without collecting the whole encoded preimage. Inherits
- * CanonicalJson's cooperative traversal, stable-input requirement, and failures.
- *
- * @since 0.7.0
- * @category constructors
+ * Hashes an already Schema-encoded representation without collecting its preimage.
+ * Kept private so public structured identities require an owner-selected codec.
  */
-export const fromUnknown = (
+const fromEncoded = (
   algorithm: Digest.Algorithm,
   value: unknown
 ): Effect.Effect<ContentDigest, CanonicalJson.Error> =>
@@ -137,7 +133,7 @@ export const fromSchema = <A, I, RD, RE>(
   value: A,
   algorithm: Digest.Algorithm = "blake3-256"
 ): Effect.Effect<ContentDigest, CanonicalJson.Error | Schema.SchemaError, RE> =>
-  Effect.flatMap(Effect.suspend(() => Schema.encodeEffect(schema)(value)), (encoded) => fromUnknown(algorithm, encoded))
+  Effect.flatMap(Effect.suspend(() => Schema.encodeEffect(schema)(value)), (encoded) => fromEncoded(algorithm, encoded))
 
 const isByteLimit = Schema.is(Schema.Number.check(Schema.isInt(), Schema.isGreaterThanOrEqualTo(0)))
 

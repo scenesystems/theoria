@@ -25,7 +25,7 @@ Strict canonical JSON, content identities, hashing, MACs, and KDFs for Effect pr
 The root exports namespace objects, and each namespace has an exact matching subpath:
 
 - `Digest` / `@scenesystems/digest/Digest` — algorithm schema plus raw byte, strict text, and stream hashing
-- `ContentDigest` / `@scenesystems/digest/ContentDigest` — canonical digest model and unknown/Schema pipelines
+- `ContentDigest` / `@scenesystems/digest/ContentDigest` — canonical digest model, explicit Schema representations, and exact bytes
 - `CanonicalJson` / `@scenesystems/digest/CanonicalJson` — strict RFC 8785 text and bytes
 - `Utf8` / `@scenesystems/digest/Utf8` — strict encoding and Unicode scalar construction
 - `Blake3`, `Hmac`, and `Hkdf` with matching subpaths — keyed primitives
@@ -39,6 +39,11 @@ Encoding and cryptographic execution use lazy Effects; pure model accessors rema
 - cooperative traversal, streams, and Schema encoding use `Effect`
 
 `ContentDigest.ContentDigest` is the runtime and encoded model. Convert it to the `<algorithm>:<base64url>` protocol string only at the boundary with `ContentDigest.toString`.
+
+Structured identities require an owner-selected codec. Do not restore a public
+unknown-value identity shortcut or migrate domain callers using Schema.Unknown.
+Owners select fields, transformations, and domain/version markers; the digest
+package does not inject them. CanonicalJson remains lower-level encoding.
 
 ## Canonicalization law
 

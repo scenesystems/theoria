@@ -17,6 +17,8 @@ describe("Cache rollout partition", () => {
         new Request({
           moduleFingerprint: "qa-module",
           runtimeFingerprint: "runtime-v1",
+          inputSchema: Schema.Struct({ question: Schema.String }),
+          paramsSchema: Schema.Struct({ instructions: Schema.String, demos: Schema.Array(Schema.Never) }),
           input: { question: "What is 2+2?" },
           params: { instructions: "Answer concisely", demos: [] },
           outputSchema: Schema.Struct({ answer: Schema.String }),
@@ -46,6 +48,8 @@ describe("Cache rollout partition", () => {
       const request = new Request({
         moduleFingerprint: "qa-module",
         runtimeFingerprint: "runtime-v1",
+        inputSchema: Schema.Struct({ question: Schema.String }),
+        paramsSchema: Schema.Struct({ instructions: Schema.String, demos: Schema.Array(Schema.Never) }),
         input: { question: "What is 2+2?" },
         params: { instructions: "Answer concisely", demos: [] },
         outputSchema: Schema.Struct({ answer: Schema.String }),
@@ -70,6 +74,8 @@ describe("Cache rollout partition", () => {
       const request = new Request({
         moduleFingerprint: "qa-module",
         runtimeFingerprint: "runtime-v1",
+        inputSchema: Schema.Struct({ question: Schema.String }),
+        paramsSchema: Schema.Struct({ instructions: Schema.String, demos: Schema.Array(Schema.Never) }),
         input: { question: "What is 2+2?" },
         params: { instructions: "Answer concisely", demos: [] },
         outputSchema: Schema.Struct({ answer: Schema.String }),
@@ -95,6 +101,8 @@ describe("Cache rollout partition", () => {
         new Request({
           moduleFingerprint: "qa-module",
           runtimeFingerprint: "runtime-v1",
+          inputSchema: Schema.Struct({ question: Schema.String }),
+          paramsSchema: Schema.Struct({ instructions: Schema.String, demos: Schema.Array(Schema.Never) }),
           input: { question: "What is 2+2?" },
           params: { instructions: "Answer concisely", demos: [] },
           outputSchema: Schema.Struct({ answer: Schema.String }),

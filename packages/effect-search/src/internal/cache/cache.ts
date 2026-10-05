@@ -43,24 +43,14 @@ const resolvedKey = <Key, Value, EncodedKey = Key, EncodedValue = Value>(
   keySpace: KeySpace<Key, Value, EncodedKey, EncodedValue>,
   key: Key
 ): Effect.Effect<string, Corrupt> =>
-  Effect.suspend(() => Schema.encodeEffect(keySpace.keySchema)(key)).pipe(
-    Effect.mapError((error) =>
+  ContentDigest.fromSchema(keySpace.keySchema, key).pipe(
+    Effect.map(ContentDigest.toString),
+    Effect.map((fingerprint) => Str.concat(keyPrefix(keySpace.namespace), fingerprint)),
+    Effect.mapError((cause) =>
       new Corrupt({
         key: keyPrefix(keySpace.namespace),
-        reason: error.message
+        reason: Schema.isSchemaError(cause) ? cause.message : Str.concat("fingerprint failure: ", cause._tag)
       })
-    ),
-    Effect.flatMap((encoded) =>
-      ContentDigest.fromUnknown("blake3-256", encoded).pipe(
-        Effect.map(ContentDigest.toString),
-        Effect.map((fingerprint) => Str.concat(keyPrefix(keySpace.namespace), fingerprint)),
-        Effect.mapError((cause) =>
-          new Corrupt({
-            key: keyPrefix(keySpace.namespace),
-            reason: Str.concat("fingerprint failure: ", cause._tag)
-          })
-        )
-      )
     )
   )
 
