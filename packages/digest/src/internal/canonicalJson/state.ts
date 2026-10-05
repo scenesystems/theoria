@@ -7,7 +7,6 @@ import {
   Equal,
   Equivalence,
   Hash,
-  Match,
   MutableList,
   MutableRef,
   Number as N,
@@ -26,15 +25,12 @@ export class Ancestor extends Data.Class<{ readonly identity: object }> {
   }
 
   [Equal.symbol](that: Equal.Equal): boolean {
-    return Match.value(that).pipe(
-      Match.when(
-        Schema.is(Schema.instanceOf(Ancestor)),
-        (other) => Equivalence.strictEqual<object>()(this.identity, other.identity)
-      ),
-      Match.orElse(() => false)
-    )
+    return isAncestor(that) && sameReference(this.identity, that.identity)
   }
 }
+
+const isAncestor = Schema.is(Schema.instanceOf(Ancestor))
+const sameReference = Equivalence.strictEqual<object>()
 
 export type Frame = Data.TaggedEnum<{
   Visit: { readonly value: unknown }

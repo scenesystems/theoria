@@ -68,7 +68,8 @@ export const CanonicalJson = Schema.fromJsonString(
       Schema.Struct({
         id: Schema.NonEmptyString,
         input: Schema.Unknown,
-        expectedCanonical: Schema.String
+        expectedCanonical: Schema.String,
+        expectedBlake3: Schema.optional(Schema.String.check(Schema.isPattern(/^[A-Za-z0-9_-]{43}$/)))
       })
     )
   })

@@ -8,6 +8,7 @@ import {
   Equivalence,
   Match,
   MutableHashSet,
+  MutableRef,
   Number as N,
   Option,
   Predicate,
@@ -25,6 +26,7 @@ import { Ancestor, emit, fail, Frame, push, type State } from "./state.js"
 const encodeScalar = Schema.encodeUnknownResult(
   Schema.fromJsonString(Schema.Union([Schema.Null, Schema.Boolean, Schema.Finite, Schema.String]))
 )
+const encodeString = Schema.encodeResult(Schema.fromJsonString(Schema.String))
 const isNaN = Predicate.and(Predicate.isNumber, (value: number) => !Equivalence.strictEqual<number>()(value, value))
 const isFinite = Schema.is(Schema.Finite)
 const isHighSurrogate = N.between({ minimum: 0xd800, maximum: 0xdbff })
@@ -46,11 +48,16 @@ const open = <E>(state: State<E>, identity: object, token: string, cursor: Frame
 
 const startString = <E>(state: State<E>, text: string, suffix: string): void => {
   emit(state, "\"")
-  push(state, Frame.String({ text, at: 0, suffix }))
+  const frame = Frame.String({ text, at: 0, suffix })
+  B.match(N.isLessThanOrEqualTo(Str.length(text), 1_024) && Option.isNone(MutableRef.get(state.failure)), {
+    onTrue: () => processString(state, frame),
+    onFalse: () => push(state, frame)
+  })
 }
 
-const visit = <E>(state: State<E>, value: unknown): void => {
-  Match.value(value).pipe(
+const makeVisit = <E>(state: State<E>): (value: unknown) => void =>
+  Match.type<unknown>().pipe(
+    Match.when(Predicate.isString, (text) => startString(state, text, "")),
     Match.when(Predicate.isUndefined, () => reject(state, "undefined")),
     Match.when(Predicate.isBigInt, () => reject(state, "bigint")),
     Match.when(Predicate.isFunction, () => reject(state, "function")),
@@ -63,7 +70,6 @@ const visit = <E>(state: State<E>, value: unknown): void => {
     Match.when(Predicate.isPromise, () => reject(state, "promise")),
     Match.when(isNaN, () => reject(state, "nan")),
     Match.when(Predicate.and(Predicate.isNumber, Predicate.not(isFinite)), () => reject(state, "non-finite-number")),
-    Match.when(Predicate.isString, (text) => startString(state, text, "")),
     Match.when(Arr.isArray, (identity) => open(state, identity, "[", Frame.Array({ identity, at: 0 }))),
     Match.when(Predicate.isObject, (identity) =>
       open(
@@ -83,7 +89,6 @@ const visit = <E>(state: State<E>, value: unknown): void => {
       })
     )
   )
-}
 
 const processString = <E>(state: State<E>, frame: Data.TaggedEnum.Value<Frame, "String">): void =>
   B.match(N.Equivalence(frame.at, Str.length(frame.text)), {
@@ -100,20 +105,24 @@ const processString = <E>(state: State<E>, frame: Data.TaggedEnum.Value<Frame, "
         onSome: (error) =>
           fail(state, new InvalidUnicode({ kind: error.kind, codeUnitIndex: N.sum(frame.at, error.codeUnitIndex) })),
         onNone: () =>
-          Result.match(encodeScalar(text), {
+          Result.match(encodeString(text), {
             onFailure: () => reject(state, "unsupported-value"),
             onSuccess: (encoded) => {
               emit(state, Str.slice(1, -1)(encoded))
-              push(state, Frame.String({ text: frame.text, at: end, suffix: frame.suffix }))
+              B.match(N.Equivalence(end, Str.length(frame.text)) && Option.isNone(MutableRef.get(state.failure)), {
+                onTrue: () => emit(state, Str.concat("\"", frame.suffix)),
+                onFalse: () => push(state, Frame.String({ text: frame.text, at: end, suffix: frame.suffix }))
+              })
             }
           })
       })
     }
   })
 
-export const process = <E>(state: State<E>, frame: Frame): void =>
-  Frame.$match(frame, {
-    Visit: ({ value }) => visit(state, value),
+export const makeProcessor = <E>(state: State<E>): (frame: Frame) => void => {
+  const visit = makeVisit(state)
+  return Frame.$match({
+    Visit: ({ value }) => visit(value),
     String: (value) => processString(state, value),
     Close: ({ identity, token }) => {
       emit(state, token)
@@ -143,3 +152,4 @@ export const process = <E>(state: State<E>, frame: Frame): void =>
         }
       })
   })
+}

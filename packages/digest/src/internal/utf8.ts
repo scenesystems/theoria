@@ -39,22 +39,22 @@ export const unicodeFaultAt = (text: string, codeUnitIndex: number): Option.Opti
 
 /** @internal */
 export const unicodeFault = (text: string): Option.Option<InvalidUnicode> =>
-  Iterable.findFirst(
-    Str.matchAll(/[\ud800-\udfff]/g)(text),
-    (match) => Option.flatMap(Option.fromNullishOr(match.index), (index) => unicodeFaultAt(text, index))
-  )
+  // Unicode mode skips valid pairs but still reports UTF-16 indices for lone halves.
+  Option.flatMap(Str.search(text, /[\ud800-\udfff]/u), (index) => unicodeFaultAt(text, index))
 
 /** Encode one validated segment through Effect's public text stream codec. @internal */
 export const encodeUtf8Unchecked = (text: string): Effect.Effect<Uint8Array> =>
   Stream.make(text).pipe(Stream.encodeText, Stream.mkUint8Array)
 
+const characterWidth = Match.type<string>().pipe(
+  Match.when((character) => Option.exists(Str.charCodeAt(character, 0), N.isLessThan(0x80)), () => 1),
+  Match.when((character) => Option.exists(Str.charCodeAt(character, 0), N.isLessThan(0x800)), () => 2),
+  Match.orElse((character) => B.match(N.Equivalence(Str.length(character), 2), { onTrue: () => 4, onFalse: () => 3 }))
+)
+
 /** Measure well-formed text using the package's canonical UTF-8 law. @internal */
 export const utf8ByteLengthUnchecked = (text: string): number =>
-  Iterable.reduce(text, 0, (length, character) => {
-    const width = Match.value(Str.charCodeAt(character, 0)).pipe(
-      Match.when((codeUnit) => Option.exists(codeUnit, N.isLessThan(0x80)), () => 1),
-      Match.when((codeUnit) => Option.exists(codeUnit, N.isLessThan(0x800)), () => 2),
-      Match.orElse(() => B.match(N.Equivalence(Str.length(character), 2), { onTrue: () => 4, onFalse: () => 3 }))
-    )
-    return N.sum(length, width)
+  Option.match(Str.search(text, /[\u0080-\u{10ffff}]/u), {
+    onNone: () => Str.length(text),
+    onSome: () => Iterable.reduce(text, 0, (length, character) => N.sum(length, characterWidth(character)))
   })
