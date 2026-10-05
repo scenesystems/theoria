@@ -1,4 +1,4 @@
-# DSPy compatibility ledger
+# DSPy parity ledger
 
 Target: DSPy 3.4.0, GEPA 0.1.4, Optuna 4.9.0. Wave 0 is evidence infrastructure,
 not a parity release. **No API is verified yet.** `implemented` means a related
@@ -20,12 +20,14 @@ primitive ran. `local-regression` is reserved for future intentional Theoria-onl
 behavior: **there are zero such entries in Wave 0**. The former 36 fixtures and
 their fixture-only consumers were removed, not promoted into upstream evidence.
 
-Use Python 3.12.14 on Linux x86_64 (the recorded runtime and CI platform):
+Use Python 3.12.14 on Linux x86_64 (the recorded runtime and CI platform).
+All generators and verifiers use the root `pyproject.toml`, `.python-version`,
+and `uv.lock`: one environment, no script-specific locks or symlinks.
 
 ```sh
-uv run --python 3.12.14 packages/effect-dsp/scripts/generate-dspy-fixtures.py
-uv run --python 3.12.14 packages/effect-dsp/scripts/verify-dspy-fixtures.py --check
-uv run --python 3.12.14 packages/effect-search/scripts/generate-optuna-fixtures.py --check
+uv run --locked packages/effect-dsp/scripts/generate-dspy-fixtures.py
+uv run --locked packages/effect-dsp/scripts/verify-dspy-fixtures.py --check
+uv run --locked packages/effect-search/scripts/generate-optuna-fixtures.py --check
 ```
 
 Checks rerun upstream and compare bytes and SHA-256 hashes. The test kit also
@@ -47,49 +49,62 @@ delegate to the original methods and Evaluate; GEPA uses upstream callbacks.
 | `gepa-aggregate-best-001`                      | 3           | The first frontier member is returned instead of the aggregate-best generalist.                                                                                                                                                                                         |
 | `optuna-mipro-categorical-001` (effect-search) | 3           | Joint categorical kernel differs structurally: Theoria smooths entire tuples; Optuna uses a mixture of product categorical kernels. This is not merely RNG draw order. The fixed-history joint-distribution comparison remains an expected failure, not a parity claim. |
 
+The bootstrap witness retains one second-stage demo instead of two. The GEPA
+witness returns the specialist vector `[1, 0]` (mean 0.5) instead of the generalist
+`[0.8, 0.8]` (mean 0.8), an aggregate-score loss of 0.3.
+
 Five DSPy tests and the Optuna differential use `it.effect.fails`; ordinary
 companion tests validate fixture decoding and execution preconditions. Flip
 these in the owning waves. Optuna compares 512 independent seeded draws after
 replaying a history with one failed trial; failed observations are omitted from
-fitting. The numerical corpus and MIPRO kernel now share the Optuna 4.9.0
-generator and canonical lock. The verifier's lock path is a symlink to that lock;
-there is no older pin or legacy generator.
+fitting. The numerical corpus and MIPRO kernel share the Optuna 4.9.0
+generator and root lock with DSPy. CI's `fixtures-verify` job runs both locked
+checks; neither check accepts unowned corpus files.
 
 GEPA's minimal aggregate discriminator disables merges; callback recording
 supports merge events, but this fixture does not establish merge parity.
 Teacher/student signatures must match including instructions, as required by
-DSPy's compiler. The TypeScript recorder's settings/role/rollout fields remain
-`Option.none` until the Wave 1 model-binding contract exists. Fixture IDs are
-carried in example input/output until Example gains its own identity field.
+DSPy's compiler. The TypeScript recorder records native provider options;
+settings/role/rollout capture requires the Wave 1 model-binding contract. There
+are no placeholder fields. Fixture IDs are carried in example input/output
+until Example gains its own identity field.
 
 ## effect-search: Optuna 4.9 differences owned by Wave 3
 
-Regeneration covers all 45 numerical/scenario payloads (50 JSON files including
-the manifest and four invalid-input documents), plus the MIPRO kernel. Four
-existing tests changed to `it.effect.fails`; together with the MIPRO discriminator,
-effect-search has five expected failures. An ordinary manifest test decodes every
+Regeneration covers all 45 numerical/scenario payloads and their manifest,
+plus the MIPRO kernel and its manifest. Unused invalid-input documents were
+deleted. Eight existing tests changed to `it.effect.fails`; together with the
+MIPRO discriminator, effect-search has nine expected failures. An ordinary manifest test decodes every
 payload independently, so schema failures cannot masquerade as expected mismatches.
 The generator's `--check` compares every generated payload and manifest byte,
 including SHA-256 hashes. No implementation changes or tolerance increases were made.
-Both Python entrypoints disable NumPy AVX2/FMA3/AVX512F dispatch before import:
+The Optuna entrypoints disable NumPy AVX2/FMA3/AVX512F dispatch before import:
 otherwise CPU-specific math paths differ in the last bits (observed up to
 3.6e-15 in truncated-normal values). Values are not rounded to hide that drift.
 
 These are measured first-failure witnesses, not an exhaustive bound on each
 algorithm's error. Flip the owning test only after its entire scenario set passes.
 
-| Sampler / component          | Scenario                                                         | Theoria               | Optuna 4.9                             | Magnitude / test                                                                                                                  |
-| ---------------------------- | ---------------------------------------------------------------- | --------------------- | -------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------- |
-| TPE continuous Parzen        | `continuous-kde.basic`, kernel at observation 0.4                | sigma 0.2             | sigma 0.29999999999999993              | Absolute difference 0.1; `Sampler/tpe/fixtureParity.test.ts` continuous test; tolerance 1e-10.                                    |
-| Constrained TPE density      | `constrained-tpe.parity`, `two-constraints`, probe [-0.3, -0.1]  | 1.3471343219460463    | 1.1856949945071253                     | Absolute difference 0.16143932743892098; `Sampler/tpe/constrainedParity.test.ts`; tolerance 1e-9.                                 |
-| TPE mixed-space EI           | `mixed-space.joint-trace`, learning-rate above-density `logG[0]` | -3.850077439599117    | -4.322409229408983                     | Absolute difference 0.472331789809866; `Sampler/tpe/mixedSpaceParity.test.ts`; tolerance 1e-9.                                    |
-| TPE noise-aware bandwidth    | `noise-bandwidth.parity`, `low-noise-smooth`, first base sigma   | 0.31                  | 0.125                                  | Absolute difference 0.185 before the local noise adjustment; `Sampler/tpe/noiseBandwidthParity.test.ts`; precision 9.             |
-| Multivariate categorical TPE | `optuna-mipro-categorical-001`, 512 fixed-history draws          | Joint-tuple smoothing | Mixture of product categorical kernels | Total variation 0.943359375 versus bound 0.15; `Sampler/tpe-optuna-kernel.test.ts`; pre-existing expected failure from this wave. |
+| Sampler / component          | Scenario                                                                   | Theoria                                             | Optuna 4.9                                            | Magnitude / test                                                                                                                                                                                 |
+| ---------------------------- | -------------------------------------------------------------------------- | --------------------------------------------------- | ----------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| TPE continuous Parzen        | `continuous-kde.basic`, kernel at observation 0.4                          | sigma 0.2                                           | sigma 0.29999999999999993                             | Absolute difference 0.1; `Sampler/tpe/fixtureParity.test.ts` continuous test; tolerance 1e-10.                                                                                                   |
+| Constrained TPE density      | `constrained-tpe.parity`, `two-constraints`, feasible dimension 1, probe 0 | -0.9639332032565622                                 | -1.121658980054194                                    | Absolute difference 0.1577257767976319; `Sampler/tpe/constrainedParity.test.ts`; precision 9.                                                                                                    |
+| TPE mixed-space sampling     | `mixed-space.joint-trace`, first categorical candidate batch               | `[adamw, adam, adam, adam, adam, adam, adam, adam]` | `[adamw, adam, adamw, adam, adam, adamw, adam, adam]` | 2 of 8 choices differ; independent marginal draws versus upstream shared mixture draws; `Sampler/tpe/mixedSpaceParity.test.ts`. This witness alone does not establish distributional divergence. |
+| TPE noise-aware bandwidth    | `noise-bandwidth.parity`, `low-noise-smooth`, first base sigma             | 0.31                                                | 0.125                                                 | Absolute difference 0.185 before the local noise adjustment; `Sampler/tpe/noiseBandwidthParity.test.ts`; precision 9.                                                                            |
+| Multivariate categorical TPE | `optuna-mipro-categorical-001`, 512 fixed-history draws                    | Joint-tuple smoothing                               | Mixture of product categorical kernels                | Total variation 0.943359375 versus bound 0.15; `Sampler/tpe-optuna-kernel.test.ts`; pre-existing expected failure from this wave.                                                                |
+| Trial reporting              | `pruning.report-contract`, duplicate step 0                                | Checked failure                                     | Ignores duplicate and retains 0.81                    | Accepted/rejected outcome differs for 1 repeated step; decreasing new steps also accepted upstream; `Pruning/fixtureReplay.test.ts`.                                                             |
+| TPE trial split              | `split-trials.single-and-liar`, minimize, two below                        | `[0, 2]`                                            | `[0, 1]`                                              | 1 of 2 memberships differs: upstream exhausts completed trials before pruned; `Sampler/tpe/splitTrials.test.ts`.                                                                                 |
+| TPE pruned score             | `pruned-score.pruned-ordering`, no intermediate values                     | Infinity                                            | 0                                                     | Unbounded score difference; upstream ordering tuple is `(1, 0)`; `Sampler/tpe/prunedScore.test.ts`.                                                                                              |
+| MOTPE HSSP split             | `motpe-split.multi-rank-hssp`, two below                                   | `[31, 32]`                                          | `[30, 31]`                                            | 1 of 2 memberships differs; `Sampler/tpe/multiObjectiveWeights.test.ts` FM-4 test.                                                                                                               |
 
-The numerical corpus includes mathematical and Theoria-extension scenarios, not
-only full upstream sampler executions. In particular, noise adjustment is local;
-its base Parzen widths come from Optuna. Scenario/replay fixtures do not establish
-RNG trajectory equivalence. None of these results promotes an API to `verified`.
+Every recorded expected result now comes from upstream execution: Parzen and
+truncated-normal kernels, trial splitting/scoring/reporting, hypervolume weights,
+study optimization, or sampler asks. Noise fixtures contain only upstream base
+widths, not a recreated Theoria noise policy. Unbounded Gaussian fixtures execute
+Optuna's product-normal kernel, not a hand-written density or Scott rule.
+CMA-ES/GP-BO and study-replay consumers currently test local reproducibility and
+checkpoint behavior, not equality of upstream trajectories. Those fixtures do
+not establish sampler parity. None of these results promotes an API to `verified`.
 
 ## Public surface
 

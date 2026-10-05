@@ -1,11 +1,11 @@
 import { expect, it } from "@effect/vitest"
-import { Array as Arr, Effect } from "effect"
+import { Array as Arr, Effect, Equal } from "effect"
 import * as Fixtures from "../kit/Fixtures.js"
 
 it.effect("verifies the content hash and evidence claim before returning every fixture", () =>
   Effect.gen(function*() {
     const manifest = yield* Fixtures.manifest
-    expect(Arr.filter(manifest.fixtures, (entry) => entry.evidence === "local-regression")).toHaveLength(0)
+    expect(Arr.filter(manifest.fixtures, (entry) => Equal.equals(entry.evidence, "local-regression"))).toHaveLength(0)
     yield* Effect.forEach(manifest.fixtures, (entry) => Fixtures.fixture(entry.id, entry.evidence))
     yield* Effect.forEach([
       "eval-failure-inclusive-001",

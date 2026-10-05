@@ -142,14 +142,14 @@ describe("GEPA integration", () => {
       const childParams = yield* Ref.get(child.params)
       const rootParams = yield* Ref.get(root.params)
       const mutationEvents = Arr.filter(Arr.fromIterable(events), GEPA.events.$is("MutationProposed"))
-      const childReflection = Option.getOrThrow(
+      const childReflection = yield* Effect.fromOption(
         yield* Ref.get(composedMock.calls).pipe(
           Effect.map((calls) =>
             Arr.findFirst(calls, (call) => Str.includes("Target predictor: child-drafter")(call.prompt))
           )
         )
       )
-      const rootReflection = Option.getOrThrow(
+      const rootReflection = yield* Effect.fromOption(
         yield* Ref.get(composedMock.calls).pipe(
           Effect.map((calls) =>
             Arr.findFirst(calls, (call) => Str.includes("Target predictor: composed-qa")(call.prompt))

@@ -4,7 +4,7 @@ import * as Module from "@scenesystems/effect-dsp/Module"
 import { decode } from "@scenesystems/effect-dsp/Payload"
 import * as Signature from "@scenesystems/effect-dsp/Signature"
 import * as Trace from "@scenesystems/effect-dsp/Trace"
-import { Array as Arr, Effect, Layer, Option, Record, Schema } from "effect"
+import { Array as Arr, Effect, Layer, Record, Schema } from "effect"
 import * as LanguageModel from "effect/ai/LanguageModel"
 
 import { fixture } from "../kit/Fixtures.js"
@@ -46,11 +46,11 @@ describe("Module.chainOfThought DSPy parity", () => {
           Effect.provide(lmLayer)
         )
       )
-      const firstEntry = Option.getOrThrow(Arr.head(entries))
+      const firstEntry = yield* Effect.fromOption(Arr.head(entries))
 
       expect(Record.keys(cot.signature.outputFields)).toStrictEqual(Record.keys(payload.prediction))
       expect(result).toStrictEqual(payload.prediction)
-      expect(entries).toHaveLength(payload.trace.length)
+      expect(entries).toHaveLength(Arr.length(payload.trace))
       expect(yield* decode(cot.signature.inputSchema, firstEntry.input)).toStrictEqual(
         sampleInput
       )

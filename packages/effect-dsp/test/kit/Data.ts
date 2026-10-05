@@ -1,5 +1,5 @@
 import { Example } from "@scenesystems/effect-dsp/Example"
-import { Array as Arr, Effect, Random, Schema } from "effect"
+import { Array as Arr, Boolean as Bool, Effect, Random, Schema } from "effect"
 
 const Options = Schema.Struct({ labeled: Schema.Boolean, seed: Schema.Finite })
 
@@ -11,6 +11,9 @@ export const dataset = (n: number, options: typeof Options.Type) =>
       const value = yield* Random.nextIntBetween(0, 1000000)
       return new Example({
         input: { id, question: `question-${value}` },
-        ...(options.labeled ? { output: { id, answer: `answer-${value}` } } : {})
+        ...Bool.match(options.labeled, {
+          onTrue: () => ({ output: { id, answer: `answer-${value}` } }),
+          onFalse: () => ({})
+        })
       })
     })).pipe(Random.withSeed(options.seed))

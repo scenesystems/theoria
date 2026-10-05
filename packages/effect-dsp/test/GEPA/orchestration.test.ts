@@ -372,8 +372,8 @@ describe("GEPA.run orchestration", () => {
     Effect.gen(function*() {
       const rejected = yield* runCountingStream(false)
       const accepted = yield* runCountingStream(true)
-      const rejectedAcceptance = Option.getOrThrow(rejected.acceptance)
-      const acceptedAcceptance = Option.getOrThrow(accepted.acceptance)
+      const rejectedAcceptance = yield* Effect.fromOption(rejected.acceptance)
+      const acceptedAcceptance = yield* Effect.fromOption(accepted.acceptance)
 
       expect(rejected.evaluatedRows).toBe(REJECTED_MUTATION_ROW_COUNT)
       expect(rejectedAcceptance.accepted).toBe(false)

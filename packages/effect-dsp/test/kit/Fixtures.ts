@@ -1,6 +1,6 @@
 import { BunServices } from "@effect/platform-bun"
 import * as Digest from "@scenesystems/digest/Digest"
-import { Array as Arr, Data, Effect, Equal, FileSystem, Path, Schema } from "effect"
+import { Array as Arr, Boolean as Bool, Data, Effect, Equal, FileSystem, Path, Schema } from "effect"
 import * as Hex from "effect/encoding/Hex"
 
 export const Evidence = Schema.Literals(["upstream-execution", "upstream-kernel", "local-regression"])
@@ -53,18 +53,18 @@ export const fixture = Effect.fnUntraced(function*(id: string, expectedEvidence:
     Arr.findFirst(index.fixtures, (e) => Equal.equals(e.id, id)),
     () => new FixtureError({ id, reason: "missing" })
   )
-  if (!Equal.equals(entry.evidence, expectedEvidence)) {
+  if (Bool.not(Equal.equals(entry.evidence, expectedEvidence))) {
     return yield* new FixtureError({ id, reason: "evidence" })
   }
   const fs = yield* FileSystem.FileSystem
   const path = yield* Path.Path
   const raw = yield* fs.readFileString(path.join(yield* root, entry.file))
   const digest = Hex.encode(yield* Digest.hashString("sha256", raw))
-  if (!Equal.equals(digest, entry.sha256)) return yield* new FixtureError({ id, reason: "hash" })
+  if (Bool.not(Equal.equals(digest, entry.sha256))) return yield* new FixtureError({ id, reason: "hash" })
   const doc = yield* Schema.decodeEffect(Schema.fromJsonString(Schema.Struct({
     fixture: Schema.String,
     payload: Schema.Unknown
   })))(raw)
-  if (!Equal.equals(doc.fixture, id)) return yield* new FixtureError({ id, reason: "identity" })
+  if (Bool.not(Equal.equals(doc.fixture, id))) return yield* new FixtureError({ id, reason: "identity" })
   return doc
 }, Effect.provide(BunServices.layer))

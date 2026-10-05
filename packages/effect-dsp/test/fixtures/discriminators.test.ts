@@ -8,7 +8,19 @@ import { trialBudget } from "@scenesystems/effect-dsp/MIPROv2Search"
 import * as MockLanguageModel from "@scenesystems/effect-dsp/MockLanguageModel"
 import * as Module from "@scenesystems/effect-dsp/Module"
 import * as Signature from "@scenesystems/effect-dsp/Signature"
-import { Array as Arr, Effect, Layer, Option, Record, Ref, Schema, String as Str } from "effect"
+import {
+  Array as Arr,
+  Boolean as Bool,
+  Effect,
+  Layer,
+  Match,
+  Number as Num,
+  Option,
+  Record,
+  Ref,
+  Schema,
+  String as Str
+} from "effect"
 import * as LanguageModel from "effect/ai/LanguageModel"
 import { makeTrialRefs } from "../../src/internal/miprov2/phase3State.js"
 import {
@@ -116,9 +128,9 @@ it.effect.fails("mipro-trial-budget-001: auto light uses upstream trial count (W
     const instructions = yield* Effect.fromOption(Arr.head(counts))
     expect(
       trialBudget({
-        predictorCount: counts.length,
+        predictorCount: Arr.length(counts),
         demoCandidateCount: 6,
-        instructionCandidateCount: instructions.length
+        instructionCandidateCount: Arr.length(instructions)
       })
     )
       .toBe(reference.trialCount)
@@ -130,10 +142,16 @@ const checkpoint = Effect.gen(function*() {
   )
   const baseline = Arr.headNonEmpty(reference.evaluations)
   const minibatch = yield* Effect.fromOption(
-    Arr.findFirst(reference.evaluations, (e) => !e.fullValidation && e.score > baseline.score)
+    Arr.findFirst(
+      reference.evaluations,
+      (e) => Bool.and(Bool.not(e.fullValidation), Num.isGreaterThan(e.score, baseline.score))
+    )
   )
   const full = yield* Effect.fromOption(
-    Arr.findFirst(reference.evaluations, (e) => e.fullValidation && e.instruction === minibatch.instruction)
+    Arr.findFirst(
+      reference.evaluations,
+      (e) => Bool.and(e.fullValidation, Str.Equivalence(e.instruction, minibatch.instruction))
+    )
   )
   const refs = yield* makeTrialRefs
   const baselineConfig = Phase3Config.make({ qa__instruction: 0, qa__demo: 0 })
@@ -150,7 +168,11 @@ const checkpoint = Effect.gen(function*() {
       minibatchExamples: Arr.take(valset, 1),
       fullEvalEvery: 1,
       emit: () => Effect.void,
-      evaluateOn: (_config, rows) => Effect.succeed(rows.length === valset.length ? full.score : minibatch.score)
+      evaluateOn: (_config, rows) =>
+        Effect.succeed(Bool.match(Num.Equivalence(Arr.length(rows), Arr.length(valset)), {
+          onTrue: () => full.score,
+          onFalse: () => minibatch.score
+        }))
     })
   )
   return {
@@ -176,9 +198,15 @@ const gepa = Effect.gen(function*() {
   const module = yield* Module.predict("qa", yield* signature)
   const mock = yield* MockLanguageModel.make(
     MockLanguageModel.map((prompt) =>
-      Str.includes("Your task is to write a new instruction")(prompt) ?
-        "```generalist```" :
-        { answer: Str.includes("generalist")(prompt) ? "generalist" : "specialist" }
+      Match.value(prompt).pipe(
+        Match.when(Str.includes("Your task is to write a new instruction"), () => "```generalist```"),
+        Match.orElse(() => ({
+          answer: Bool.match(Str.includes("generalist")(prompt), {
+            onTrue: () => "generalist",
+            onFalse: () => "specialist"
+          })
+        }))
+      )
     )
   )
   const accepted = yield* Ref.make(false)
@@ -193,12 +221,24 @@ const gepa = Effect.gen(function*() {
         (prediction: { readonly answer: string }, expected: { readonly answer: string }) =>
           Effect.succeed(
             new Metric.Result({
-              score: prediction.answer === "generalist" ? 0.8 : expected.answer === "label-0" ? 1 : 0
+              score: Match.value(prediction.answer).pipe(
+                Match.when("generalist", () => 0.8),
+                Match.orElse(() =>
+                  Bool.match(Str.Equivalence(expected.answer, "label-0"), {
+                    onTrue: () => 1,
+                    onFalse: () => 0
+                  })
+                )
+              )
             })
           )
       )
     }),
-    (event) => event._tag === "AcceptanceEvaluated" ? Ref.set(accepted, event.accepted) : Effect.void
+    (event) =>
+      Match.value(event).pipe(
+        Match.tag("AcceptanceEvaluated", (acceptedEvent) => Ref.set(accepted, acceptedEvent.accepted)),
+        Match.orElse(() => Effect.void)
+      )
   )
     .pipe(Effect.provideService(LanguageModel.LanguageModel, mock.service))
   return {
