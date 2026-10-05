@@ -60,6 +60,7 @@ describe("shared owner projection consistency", () => {
             moduleId: node.moduleId,
             name: node.name,
             signature: node.signature,
+            signatureDigest: node.signatureDigest,
             demonstrationCodec: node.demonstrationCodec,
             params: distinctX.params,
             subModules: node.subModules
@@ -146,6 +147,7 @@ describe("shared owner projection consistency", () => {
                     moduleId: node.moduleId,
                     name: node.name,
                     signature: node.signature,
+                    signatureDigest: node.signatureDigest,
                     demonstrationCodec: node.demonstrationCodec,
                     params: node.params,
                     subModules: node.subModules
@@ -220,6 +222,7 @@ describe("shared owner projection consistency", () => {
             new Module.Node({
               moduleId: node.moduleId,
               name: node.name,
+              signatureDigest: node.signatureDigest,
               demonstrationCodec: node.demonstrationCodec,
               params: node.params,
               subModules: node.subModules,
@@ -234,6 +237,7 @@ describe("shared owner projection consistency", () => {
             new Module.Node({
               moduleId: node.moduleId,
               name: node.name,
+              signatureDigest: node.signatureDigest,
               demonstrationCodec: node.demonstrationCodec,
               params: node.params,
               subModules: node.subModules,
@@ -249,6 +253,7 @@ describe("shared owner projection consistency", () => {
               moduleId: node.moduleId,
               name: node.name,
               signature: node.signature,
+              signatureDigest: otherSignature.digest,
               demonstrationCodec: otherSignature.demonstrationCodec,
               params: node.params,
               subModules: node.subModules

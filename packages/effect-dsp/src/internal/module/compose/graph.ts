@@ -162,6 +162,7 @@ const buildSubModuleNode = (module: ComposableModule, moduleId: Id): Node =>
       description: module.signature.description,
       instructions: module.signature.instructions
     }),
+    signatureDigest: module.signature.digest,
     demonstrationCodec: module.signature.demonstrationCodec,
     params: module.params,
     subModules: module.subModules,

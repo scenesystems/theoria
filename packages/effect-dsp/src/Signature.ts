@@ -4,10 +4,12 @@
  * @since 0.1.0
  * @module
  */
+import * as ContentDigest from "@scenesystems/digest/ContentDigest"
 import type { Record } from "effect"
 import { Array as Arr, Data, Effect, Option, Schema, Struct } from "effect"
 import { dual } from "effect/Function"
 import { type Codec, codec } from "./Demonstration.js"
+import { SignatureError } from "./DspError.js"
 import { fromSchemas as fromSchemasInternal, make as makeInternal } from "./internal/signature/constructors.js"
 import { deriveInstruction as deriveInstructionInternal } from "./internal/signature/instructions.js"
 
@@ -94,6 +96,14 @@ export class Signature<
   /** Input metadata followed by output metadata, preserving field order. */
   readonly fields: ReadonlyArray<FieldInfo>
 }> {
+  /** Computes structural identity lazily, without making graph traversal effectful.
+   * @since 0.7.0
+   * @category accessors
+   */
+  get digest(): Effect.Effect<string, SignatureError> {
+    return digest(this)
+  }
+
   /**
    * Destination-owned demonstration operations derived from the retained schemas.
    * Compiled once so projections of this signature retain the same contract.
@@ -183,3 +193,23 @@ export const withFieldDescription = <I extends Schema.Struct.Fields, O extends S
     fields: Arr.map(signature.fields, (info) =>
       info.name === field ? new FieldInfo(Struct.assign(info, { description: Option.some(description) })) : info)
   }))
+
+/** Hashes encoded input/output JSON schemas and all prompt metadata. Conversion
+ * failures remain typed, allowing cache users to treat unsupported schemas as misses.
+ * @since 0.7.0
+ * @category operations
+ */
+export const digest = <I extends Schema.Struct.Fields, O extends Schema.Struct.Fields>(
+  signature: Signature<I, O>
+): Effect.Effect<string, SignatureError> =>
+  Effect.try(() => ({
+    input: Schema.toJsonSchemaDocument(Schema.toEncoded(signature.inputSchema)),
+    output: Schema.toJsonSchemaDocument(Schema.toEncoded(signature.outputSchema)),
+    description: signature.description,
+    instructions: signature.instructions,
+    fields: signature.fields
+  })).pipe(
+    Effect.flatMap((value) => ContentDigest.fromUnknown("blake3-256", value)),
+    Effect.map(ContentDigest.toString),
+    Effect.mapError(() => new SignatureError({ reason: "Cannot encode signature identity" }))
+  )

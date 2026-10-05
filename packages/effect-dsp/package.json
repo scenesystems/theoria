@@ -44,6 +44,7 @@
     "./EvaluationObjective": "./src/EvaluationObjective.ts",
     "./Artifact": "./src/Artifact.ts",
     "./Trace": "./src/Trace.ts",
+    "./TeacherTrace": "./src/TeacherTrace.ts",
     "./Cache": "./src/Cache.ts",
     "./Payload": "./src/Payload.ts",
     "./DspError": "./src/DspError.ts",

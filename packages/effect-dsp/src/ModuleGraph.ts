@@ -40,6 +40,7 @@ export const predictors = (root: ComposableModule): Chunk.Chunk<Predictor.Ref> =
           aliases: Chunk.empty(),
           ownership: excluded ? "frozen" : "owned",
           signature: node.signature,
+          signatureDigest: node.signatureDigest,
           params: node.params,
           demonstrationCodec: node.demonstrationCodec,
           boundParameters: Option.none()
@@ -56,6 +57,7 @@ export const predictors = (root: ComposableModule): Chunk.Chunk<Predictor.Ref> =
         aliases: entry.aliases,
         ownership: entry.ownership,
         signature: entry.signature,
+        signatureDigest: entry.signatureDigest,
         params: entry.params,
         demonstrationCodec: entry.demonstrationCodec,
         boundParameters: Option.orElse(
@@ -72,6 +74,7 @@ export const predictors = (root: ComposableModule): Chunk.Chunk<Predictor.Ref> =
         description: root.signature.description,
         instructions: root.signature.instructions
       }),
+      signatureDigest: root.signature.digest,
       demonstrationCodec: root.signature.demonstrationCodec,
       params: root.params,
       subModules: root.subModules,
@@ -94,6 +97,7 @@ export const predictors = (root: ComposableModule): Chunk.Chunk<Predictor.Ref> =
             aliases: Chunk.append(owner.aliases, entry.id),
             ownership: owner.ownership === "frozen" || entry.ownership === "frozen" ? "frozen" : "shared",
             signature: owner.signature,
+            signatureDigest: owner.signatureDigest,
             params: owner.params,
             demonstrationCodec: owner.demonstrationCodec,
             boundParameters: owner.boundParameters

@@ -1,5 +1,4 @@
 import { expect, it } from "@effect/vitest"
-import * as BootstrapFewShot from "@scenesystems/effect-dsp/BootstrapFewShot"
 import * as Evaluate from "@scenesystems/effect-dsp/Evaluate"
 import { Example, Id } from "@scenesystems/effect-dsp/Example"
 import * as GEPA from "@scenesystems/effect-dsp/GEPA"
@@ -8,11 +7,13 @@ import { trialBudget } from "@scenesystems/effect-dsp/MIPROv2Search"
 import * as MockLanguageModel from "@scenesystems/effect-dsp/MockLanguageModel"
 import * as Module from "@scenesystems/effect-dsp/Module"
 import * as Signature from "@scenesystems/effect-dsp/Signature"
+import * as TeacherTrace from "@scenesystems/effect-dsp/TeacherTrace"
+import * as ModelBinder from "@scenesystems/effect-lm/ModelBinder"
 import {
   Array as Arr,
   Boolean as Bool,
+  Chunk,
   Effect,
-  Layer,
   Match,
   Number as Num,
   Option,
@@ -272,24 +273,37 @@ const bootstrap = Effect.gen(function*() {
   )
   const teacher = yield* MockLanguageModel.make(MockLanguageModel.succeed({ answer: "teacher" }))
   const student = yield* MockLanguageModel.make(MockLanguageModel.succeed({ answer: "student" }))
-  const compiled = yield* BootstrapFewShot.run(
-    new BootstrapFewShot.Options({
-      module,
-      trainset: examples(reference.splits.train),
+  const compiled = yield* TeacherTrace.collect(
+    new TeacherTrace.Options({
+      student: module,
+      trainset: Chunk.fromIterable(examples(reference.splits.train)),
       maxRounds: 1,
-      maxBootstrappedDemos: 2,
-      fallbackToLabeledFewShot: false,
-      threshold: 0,
-      teacher: Layer.succeed(LanguageModel.LanguageModel, teacher.service),
+      stopWhen: (accepted) => Chunk.size(accepted) >= 2,
       metric: Metric.withFeedback(
         () => Effect.succeed(new Metric.Score({ value: 0.8, feedback: Option.none() })),
         "accept"
       )
     })
-  ).pipe(Effect.provideService(LanguageModel.LanguageModel, student.service))
+  ).pipe(
+    ModelBinder.withBinder(
+      new ModelBinder.Binder({
+        bind: (request) => (effect) =>
+          effect.pipe(
+            Effect.provideService(
+              LanguageModel.LanguageModel,
+              request.role === "teacher" ? teacher.service : student.service
+            )
+          )
+      })
+    ),
+    Effect.provideService(LanguageModel.LanguageModel, student.service)
+  )
   return {
     actual: Arr.map(
-      Option.getOrThrow(Record.get(compiled.parameters, "pipeline.second")).demos,
+      Arr.flatMap(
+        Arr.fromIterable(compiled.accepted),
+        (entry) => Arr.fromIterable(Option.getOrThrow(Record.get(entry.demosByPredictor, "pipeline.second")))
+      ),
       (demo) => ({ question: demo.input.question, answer: demo.output.answer })
     ),
     expected: reference.state.second.demos,
@@ -302,7 +316,7 @@ it.effect("bootstrap discriminator uses teacher outputs rather than labels", () 
     expect(result.actual).toContainEqual({ question: "teacher", answer: "teacher" })
     expect(result.studentCalls).toHaveLength(0)
   }))
-it.effect.fails("bootstrap-teacher-trace-001: retain repeated teacher trace demos (Wave 2)", () =>
+it.effect("bootstrap-teacher-trace-001: retain repeated teacher trace demos (Wave 2)", () =>
   Effect.gen(function*() {
     const result = yield* bootstrap
     expect(result.actual).toEqual(result.expected)

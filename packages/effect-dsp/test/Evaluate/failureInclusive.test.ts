@@ -61,12 +61,21 @@ it.effect("enforces maxErrors and retains every failure when unlimited", () =>
     const failure = yield* Evaluate.run(
       new Evaluate.Options({
         module,
-        examples: [row("bad"), row("bad")],
+        examples: [row("bad")],
         metrics: { accuracy: metric },
         maxErrors: Option.some(1)
       })
     ).pipe(Effect.provideService(LanguageModel.LanguageModel, mock.service), Effect.flip)
-    expect(failure).toEqual(new Evaluate.TooManyErrors({ count: 2, limit: 1 }))
+    expect(failure).toEqual(new Evaluate.TooManyErrors({ count: 1, limit: 1 }))
+    const tolerated = yield* Evaluate.run(
+      new Evaluate.Options({
+        module,
+        examples: [row("bad")],
+        metrics: { accuracy: metric },
+        maxErrors: Option.some(2)
+      })
+    ).pipe(Effect.provideService(LanguageModel.LanguageModel, mock.service))
+    expect(tolerated.failureCount).toBe(1)
     const report = yield* Evaluate.run(
       new Evaluate.Options({
         module,

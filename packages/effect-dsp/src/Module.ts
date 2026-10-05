@@ -30,7 +30,7 @@ import type * as Tool from "effect/ai/Tool"
 import type * as Toolkit from "effect/ai/Toolkit"
 import * as Schedule from "effect/Schedule"
 import type { Codec as DemonstrationCodec } from "./Demonstration.js"
-import type { DspError, ParseOutputError } from "./DspError.js"
+import type { DspError, ParseOutputError, SignatureError } from "./DspError.js"
 import { bestOfN as bestOfNInternal } from "./internal/module/bestOfN/construct.js"
 import { chainOfThought as chainOfThoughtInternal } from "./internal/module/chainOfThought/construct.js"
 import { toChainOfThoughtSignature as toChainOfThoughtSignatureInternal } from "./internal/module/chainOfThought/schema.js"
@@ -103,6 +103,7 @@ export class Node extends Data.Class<{
   readonly moduleId: Id
   readonly name: string
   readonly signature: NodeSignature
+  readonly signatureDigest: Effect.Effect<string, SignatureError>
   readonly demonstrationCodec: DemonstrationCodec
   readonly params: Ref.Ref<ModuleParameters>
   readonly subModules: HashMap.HashMap<Id, Node>
@@ -311,6 +312,7 @@ export class ComposableModule extends Data.Class<{
   readonly signature: {
     readonly description: string
     readonly instructions: string
+    readonly digest: Effect.Effect<string, SignatureError>
     readonly demonstrationCodec: DemonstrationCodec
   }
   readonly params: Ref.Ref<ModuleParameters>

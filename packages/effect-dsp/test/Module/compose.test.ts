@@ -39,9 +39,19 @@ describe("Module.compose", () => {
       )
       const qaId = yield* decodeModuleId("qa")
       const node = Option.getOrThrow(HashMap.get(root.subModules, qaId))
-      const demo = yield* node.demonstrationCodec.decode({ input: { question: "Where?" }, output: { answer: "Here" } })
+      const demo = yield* node.demonstrationCodec.decode({
+        input: { question: "Where?" },
+        output: { answer: "Here" },
+        exampleId: Option.none(),
+        incomplete: false
+      })
       const invalid = yield* Effect.flip(
-        node.demonstrationCodec.decode({ input: { question: 42 }, output: { answer: "Here" } })
+        node.demonstrationCodec.decode({
+          input: { question: 42 },
+          output: { answer: "Here" },
+          exampleId: Option.none(),
+          incomplete: false
+        })
       )
       expect(demo.input).toEqual({ question: "Where?" })
       expect(invalid._tag).toBe("SchemaError")
@@ -118,6 +128,7 @@ describe("Module.compose", () => {
         moduleId: loopId,
         name: "loop",
         signature: loopSignature,
+        signatureDigest: signature.digest,
         demonstrationCodec: signature.demonstrationCodec,
         params: paramsRef,
         subModules: HashMap.empty()
@@ -249,6 +260,7 @@ describe("Module.compose", () => {
               moduleId,
               name,
               signature: metadata,
+              signatureDigest: signature.digest,
               demonstrationCodec: signature.demonstrationCodec,
               params: leaf.params,
               subModules: HashMap.empty()
@@ -257,6 +269,7 @@ describe("Module.compose", () => {
               moduleId: branchId,
               name: "branch",
               signature: metadata,
+              signatureDigest: signature.digest,
               demonstrationCodec: signature.demonstrationCodec,
               params: yield* Ref.make(makeParameters(signature.instructions)),
               subModules: HashMap.make(Tuple.make(declaredId, badNode))

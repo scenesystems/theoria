@@ -167,3 +167,8 @@ export * as Payload from "./Payload.js"
  * @category testing
  */
 export * as MockLanguageModel from "./MockLanguageModel.js"
+/** Collects immutable teacher execution evidence for prompt optimizers.
+ * @since 0.7.0
+ * @category optimizers
+ */
+export * as TeacherTrace from "./TeacherTrace.js"

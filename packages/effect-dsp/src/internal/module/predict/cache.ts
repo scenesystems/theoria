@@ -8,6 +8,7 @@ import { defaultIdGenerator } from "effect/ai/IdGenerator"
 import * as LanguageModel from "effect/ai/LanguageModel"
 import * as Cache from "../../../Cache.js"
 import * as Payload from "../../../Payload.js"
+import * as Signature from "../../../Signature.js"
 import { emptyUsage } from "../../../Trace.js"
 import { effective } from "../../signature/effective.js"
 import { ForwardExecution, type ForwardOptions } from "./model.js"
@@ -65,16 +66,7 @@ export const cached = <I extends Schema.Struct.Fields, O extends Schema.Struct.F
     const prepared = yield* optional(
       Effect.gen(function*() {
         const signature = effective(options.signature, options.params)
-        const schemas = yield* Effect.try(() => ({
-          input: Schema.toJsonSchemaDocument(Schema.toEncoded(signature.inputSchema)),
-          output: Schema.toJsonSchemaDocument(Schema.toEncoded(signature.outputSchema))
-        }))
-        const signatureDigest = yield* hash({
-          ...schemas,
-          description: signature.description,
-          instructions: signature.instructions,
-          fields: signature.fields
-        })
+        const signatureDigest = yield* Signature.digest(signature)
         return yield* Cache.key(
           new Cache.KeyRequest({
             moduleFingerprint: options.moduleName,

@@ -3,11 +3,12 @@
  * @since 0.6.0
  * @module
  */
-import type { Chunk } from "effect"
+import type { Chunk, Effect } from "effect"
 import { Data, Schema } from "effect"
 import type { Option } from "effect"
 import type * as EffectRef from "effect/Ref"
 import type { Codec } from "./Demonstration.js"
+import type { SignatureError } from "./DspError.js"
 import type { NodeSignature } from "./Module.js"
 import type { ModuleParameters } from "./ModuleParameters.js"
 
@@ -30,6 +31,7 @@ export class Ref extends Data.Class<{
   readonly aliases: Chunk.Chunk<Id>
   readonly ownership: Ownership
   readonly signature: NodeSignature
+  readonly signatureDigest: Effect.Effect<string, SignatureError>
   readonly params: EffectRef.Ref<ModuleParameters>
   readonly demonstrationCodec: Codec
   readonly boundParameters: Option.Option<ModuleParameters>

@@ -7,6 +7,7 @@ import * as Evaluation from "@scenesystems/effect-study/Evaluation"
 import { Array as Arr, Effect, Option } from "effect"
 import type { Schema } from "effect"
 import { events, Failed, type Options, type Outcome, Scored, TooManyErrors } from "../../Evaluate.js"
+import { maxFailures } from "../maxErrors.js"
 import { aggregateOutcomes } from "./aggregate.js"
 import { evaluateExample, EvaluateExampleOptions, type EvaluationEventSink, sortedMetricEntries } from "./example.js"
 
@@ -47,10 +48,15 @@ export const evaluateKernel = <
         ),
       {
         concurrency: Option.getOrElse(Option.fromNullishOr(options.concurrency), () => 1),
-        maxFailures: Option.getOrElse(Option.fromUndefinedOr(options.maxErrors), Option.none),
+        maxFailures: maxFailures(options.maxErrors ?? Option.none()),
         onFailure: "record"
       }
-    ).pipe(Effect.mapError((error) => new TooManyErrors({ count: error.count, limit: error.limit })))
+    ).pipe(Effect.mapError((error) =>
+      new TooManyErrors({
+        count: error.count,
+        limit: Option.getOrElse(options.maxErrors ?? Option.none(), () => error.limit + 1)
+      })
+    ))
     const outcomes = Arr.map(Arr.fromIterable(trials), (trial): Outcome =>
       trial.state._tag === "Completed"
         ? new Scored({

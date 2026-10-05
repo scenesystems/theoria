@@ -6,6 +6,7 @@
  */
 import type { Record } from "effect"
 import { Data, Effect, Schema } from "effect"
+import { Id } from "./Example.js"
 import { decode, encode, Payload } from "./Payload.js"
 
 /**
@@ -15,7 +16,11 @@ import { decode, encode, Payload } from "./Payload.js"
  */
 export class Demonstration extends Schema.Class<Demonstration>("@scenesystems/effect-dsp/Demonstration")({
   input: Schema.Record(Schema.String, Schema.Unknown),
-  output: Schema.Record(Schema.String, Schema.Unknown)
+  output: Schema.Record(Schema.String, Schema.Unknown),
+  /** Source row identity for leave-one-out teacher execution. */
+  exampleId: Schema.Option(Id).pipe(Schema.withConstructorDefault(Effect.succeedNone)),
+  /** Labeled outputs may omit fields required by a destination predictor. */
+  incomplete: Schema.Boolean.pipe(Schema.withConstructorDefault(Effect.succeed(false)))
 }) {}
 
 /**
@@ -69,7 +74,12 @@ export const codec = <I, O, IDR, IER, ODR, OER>(
 ): Codec => {
   const input = Schema.toEncoded(inputSchema)
   const output = Schema.toEncoded(outputSchema)
-  const wire = Schema.Struct({ input, output })
+  const wire = Schema.Struct({
+    input,
+    output,
+    exampleId: Demonstration.fields.exampleId,
+    incomplete: Demonstration.fields.incomplete
+  })
   return new Codec({
     decode: (value) =>
       Schema.decodeUnknownEffect(wire)(value, { onExcessProperty: "error" }).pipe(
