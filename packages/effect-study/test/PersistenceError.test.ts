@@ -9,7 +9,17 @@ import * as StudyStorage from "@scenesystems/effect-study/StudyStorage"
 it.effect("distinguishes codec failures from backend failures without requiring filesystem paths", () =>
   Effect.gen(function*() {
     const storage = yield* StudyStorage.makeMemory
-    const result = yield* storage.appendTrial(Schema.NonEmptyString, "").pipe(Effect.result)
+    const run = yield* storage.open(
+      new StudyStorage.OpenOptions({
+        runId: "errors",
+        definitionDigest: "nonempty",
+        eventSchema: Schema.NonEmptyString,
+        checkpointSchema: Schema.Int
+      })
+    )
+    const result = yield* run.append(new StudyStorage.Append({ recordId: "one", expectedCursor: 0, event: "" })).pipe(
+      Effect.result
+    )
     const failure = yield* Effect.fromResult(Result.flip(result))
     expect(failure.reason).toBe("Codec")
     expect(failure.operation).toBe("write")
@@ -27,12 +37,11 @@ it.effect("preserves filesystem codec versus backend failures and physical diagn
     const path = yield* Path.Path
     const directory = yield* fs.makeTempDirectoryScoped()
     const journal = yield* Journal.make(Schema.Int, directory, "values.jsonl")
-    const encode = yield* journal.append(1.5).pipe(Effect.mapError(PersistenceError.fromJournal), Effect.result)
+    const encode = yield* journal.append(1.5).pipe(Effect.result)
     expect((yield* Effect.fromResult(Result.flip(encode))).reason).toBe("Codec")
     yield* fs.writeFileString(journal.path, "7\n\"not-an-integer\"\n")
     const decode = yield* journal.read.pipe(
       Stream.runCollect,
-      Effect.mapError(PersistenceError.fromJournal),
       Effect.result
     )
     const invalid = yield* Effect.fromResult(Result.flip(decode))
@@ -40,7 +49,6 @@ it.effect("preserves filesystem codec versus backend failures and physical diagn
     expect(invalid.path).toBe(journal.path)
     expect(invalid.line).toBe(2)
     const backend = yield* Journal.make(Schema.Int, path.join(journal.path, "blocked"), "values.jsonl").pipe(
-      Effect.mapError(PersistenceError.fromJournal),
       Effect.result
     )
     expect((yield* Effect.fromResult(Result.flip(backend))).reason).toBe("Backend")

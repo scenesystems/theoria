@@ -69,7 +69,7 @@ it.effect("round-trips independent codec services and stable receipts through me
     const directory = yield* fs.makeTempDirectoryScoped()
     const path = yield* Path.Path
     const config = StudyStorage.fileSystemOptions(directory, "records.jsonl")
-    const file = path.join(directory, "records.jsonl.recordings")
+    const file = path.join(directory, "records.jsonl")
     const memory = yield* StudyStorage.makeMemory
     const disk = yield* StudyStorage.makeFileSystem(config)
     yield* Effect.forEach(Arr.make(memory, disk), (store) =>
@@ -107,7 +107,7 @@ it.effect("rejects malformed middle records, torn tails, and parseable but uncom
     const directory = yield* fs.makeTempDirectoryScoped()
     const path = yield* Path.Path
     const config = StudyStorage.fileSystemOptions(directory, "records.jsonl")
-    const file = path.join(directory, "records.jsonl.recordings")
+    const file = path.join(directory, "records.jsonl")
     const store = yield* StudyStorage.makeFileSystem(config)
     const run = yield* store.open(options)
     const header = yield* fs.readFileString(file)

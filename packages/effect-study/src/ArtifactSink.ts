@@ -46,7 +46,6 @@ export const makeFileSystem = (
   fileName = defaultFileName
 ): Effect.Effect<Service, PersistenceError.Failure, FileSystem.FileSystem | Path.Path> =>
   Journal.make(Schema.Unknown, directory, fileName).pipe(
-    Effect.mapError(PersistenceError.fromJournal),
     Effect.map((journal) => ({
       emit: <A, I, RD, RE>(
         schema: Schema.Codec<A, I, RD, RE>,
@@ -54,7 +53,7 @@ export const makeFileSystem = (
       ): Effect.Effect<void, PersistenceError.Failure, RE> =>
         Schema.encodeEffect(schema)(artifact).pipe(
           Effect.mapError(PersistenceError.codec("write")),
-          Effect.flatMap((encoded) => journal.append(encoded).pipe(Effect.mapError(PersistenceError.fromJournal)))
+          Effect.flatMap(journal.append)
         )
     }))
   )
@@ -82,7 +81,6 @@ export const read = <A, I, RD, RE>(
   path: string
 ): Stream.Stream<A, PersistenceError.Failure, FileSystem.FileSystem | RD> =>
   Journal.read(Schema.Unknown, path).pipe(
-    Stream.mapError(PersistenceError.fromJournal),
     Stream.mapEffect((encoded) =>
       Schema.decodeUnknownEffect(schema)(encoded).pipe(Effect.mapError(PersistenceError.codec("read")))
     )

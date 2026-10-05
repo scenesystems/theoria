@@ -1,42 +1,16 @@
 /**
- * Schema-parameterized trial logs and study snapshots.
+ * Run-bound event recordings and cursor-bound checkpoints.
  *
  * @since 0.1.0
  * @module
  */
-import {
-  Array as Arr,
-  Context,
-  Data,
-  Effect,
-  type FileSystem,
-  Layer,
-  Option,
-  type Path,
-  Ref,
-  Schema,
-  Stream,
-  String as Str
-} from "effect"
+import { Context, Data, Effect, type FileSystem, Layer, Option, Path, Schema, Stream } from "effect"
 
 import * as fileSystemRecording from "./internal/fileSystemRecording.js"
 import * as recording from "./internal/recording.js"
-import * as Journal from "./Journal.js"
-import * as PersistenceError from "./PersistenceError.js"
+import type * as PersistenceError from "./PersistenceError.js"
 
 const defaultFileName = "study-storage.jsonl"
-const memoryPath = "memory://effect-study/StudyStorage"
-
-const PersistedRecord = Schema.Union([
-  Schema.TaggedStruct("Trial", {
-    payload: Schema.Unknown
-  }),
-  Schema.TaggedStruct("Snapshot", {
-    payload: Schema.Unknown
-  })
-]).pipe(Schema.annotate({ identifier: "@scenesystems/effect-study/StudyStorage/PersistedRecord" }))
-
-type PersistedRecord = typeof PersistedRecord.Type
 
 /**
  * Filesystem location for a generic storage journal.
@@ -61,7 +35,7 @@ export const fileSystemOptions = (
 ): FileSystemOptions => new FileSystemOptions({ directory, fileName })
 
 /**
- * Persists and loads trials and snapshots through caller-owned schemas.
+ * Opens run-bound recordings through caller-owned event and checkpoint schemas.
  * Codec requirements remain on each operation.
  *
  * @since 0.1.0
@@ -73,110 +47,22 @@ export class StudyStorage extends Context.Service<
     readonly open: <Events extends Schema.Constraint, State extends Schema.Constraint>(
       options: OpenOptions<Events, State>
     ) => Effect.Effect<Recording<Events, State>, PersistenceError.Failure>
-    readonly appendTrial: <A, I, RD, RE>(
-      schema: Schema.Codec<A, I, RD, RE>,
-      trial: A
-    ) => Effect.Effect<void, PersistenceError.Failure, RE>
-    readonly writeSnapshot: <A, I, RD, RE>(
-      schema: Schema.Codec<A, I, RD, RE>,
-      snapshot: A
-    ) => Effect.Effect<void, PersistenceError.Failure, RE>
-    readonly loadSnapshot: <A, I, RD, RE>(
-      schema: Schema.Codec<A, I, RD, RE>
-    ) => Effect.Effect<Option.Option<A>, PersistenceError.Failure, RD>
-    readonly loadTrialLog: <A, I, RD, RE>(
-      schema: Schema.Codec<A, I, RD, RE>
-    ) => Effect.Effect<ReadonlyArray<A>, PersistenceError.Failure, RD>
   }
 >()("@scenesystems/effect-study/StudyStorage") {}
 
 /** Generic study storage implementation. @since 0.1.0 @category services */
 export type Service = StudyStorage["Service"]
 
-const codecFailure =
-  (operation: PersistenceError.Failure["operation"], path: string) =>
-  (cause: Schema.SchemaError): PersistenceError.Failure =>
-    new PersistenceError.Failure({
-      reason: "Codec",
-      operation,
-      path,
-      detail: cause.message
-    })
-
-const encodeRecord = <A, I, RD, RE>(
-  path: string,
-  tag: PersistedRecord["_tag"],
-  schema: Schema.Codec<A, I, RD, RE>,
-  value: A
-): Effect.Effect<PersistedRecord, PersistenceError.Failure, RE> =>
-  Schema.encodeEffect(schema)(value).pipe(
-    Effect.mapError(codecFailure("write", path)),
-    Effect.map((payload) => ({ _tag: tag, payload }))
-  )
-
-const decodeRecord = <A, I, RD, RE>(
-  path: string,
-  schema: Schema.Codec<A, I, RD, RE>,
-  record: PersistedRecord
-): Effect.Effect<A, PersistenceError.Failure, RD> =>
-  Schema.decodeUnknownEffect(schema)(record.payload).pipe(Effect.mapError(codecFailure("read", path)))
-
-const service = (
-  path: string,
-  append: (record: PersistedRecord) => Effect.Effect<void, PersistenceError.Failure>,
-  load: Effect.Effect<ReadonlyArray<PersistedRecord>, PersistenceError.Failure>,
-  open: Service["open"]
-): Service => ({
-  open,
-  appendTrial: <A, I, RD, RE>(
-    schema: Schema.Codec<A, I, RD, RE>,
-    trial: A
-  ): Effect.Effect<void, PersistenceError.Failure, RE> =>
-    encodeRecord(path, "Trial", schema, trial).pipe(Effect.flatMap(append)),
-  writeSnapshot: <A, I, RD, RE>(
-    schema: Schema.Codec<A, I, RD, RE>,
-    snapshot: A
-  ): Effect.Effect<void, PersistenceError.Failure, RE> =>
-    encodeRecord(path, "Snapshot", schema, snapshot).pipe(Effect.flatMap(append)),
-  loadSnapshot: <A, I, RD, RE>(
-    schema: Schema.Codec<A, I, RD, RE>
-  ): Effect.Effect<Option.Option<A>, PersistenceError.Failure, RD> =>
-    load.pipe(
-      Effect.map((records) => Arr.findLast(records, (record) => Str.Equivalence(record._tag, "Snapshot"))),
-      Effect.flatMap(
-        Option.match({
-          onNone: () => Effect.succeed(Option.none<A>()),
-          onSome: (record) => decodeRecord(path, schema, record).pipe(Effect.asSome)
-        })
-      )
-    ),
-  loadTrialLog: <A, I, RD, RE>(
-    schema: Schema.Codec<A, I, RD, RE>
-  ): Effect.Effect<ReadonlyArray<A>, PersistenceError.Failure, RD> =>
-    load.pipe(
-      Effect.map((records) => Arr.filter(records, (record) => Str.Equivalence(record._tag, "Trial"))),
-      Effect.flatMap((records) => Effect.forEach(records, (record) => decodeRecord(path, schema, record)))
-    )
-})
-
 /**
- * Creates isolated in-memory trial, snapshot, and run-bound recording persistence.
+ * Creates isolated in-memory run-bound recording persistence.
  *
  * @since 0.1.0
  * @category constructors
  */
-export const makeMemory: Effect.Effect<Service> = Effect.gen(function*() {
-  const records = yield* Ref.make(Arr.empty<PersistedRecord>())
-  return service(
-    memoryPath,
-    (record) => Ref.update(records, Arr.append(record)),
-    Ref.get(records),
-    yield* recording.makeMemory
-  )
-})
+export const makeMemory: Effect.Effect<Service> = recording.makeMemory.pipe(Effect.map((open) => ({ open })))
 
 /**
- * Provides isolated in-memory trial and snapshot persistence.
+ * Provides isolated in-memory recordings.
  *
  * @since 0.1.0
  * @category layers
@@ -184,8 +70,7 @@ export const makeMemory: Effect.Effect<Service> = Effect.gen(function*() {
 export const layerMemory: Layer.Layer<StudyStorage> = Layer.fresh(Layer.effect(StudyStorage, makeMemory))
 
 /**
- * Creates trial/snapshot persistence over a JSON-lines journal and strict run
- * recordings in a separate .recordings file. Use one owning service per location; its
+ * Creates strict run recordings at the configured file. Use one owning service per location; its
  * semaphore is not a cross-process lock. Recording acknowledgment means a complete
  * newline-terminated append returned, not fsync or power-loss durability. Damaged
  * recordings fail without repair, truncation, or further appends.
@@ -196,22 +81,13 @@ export const layerMemory: Layer.Layer<StudyStorage> = Layer.fresh(Layer.effect(S
 export const makeFileSystem = (
   options: FileSystemOptions
 ): Effect.Effect<Service, PersistenceError.Failure, FileSystem.FileSystem | Path.Path> =>
-  Journal.make(PersistedRecord, options.directory, options.fileName).pipe(
-    Effect.mapError(PersistenceError.fromJournal),
-    Effect.flatMap((journal) =>
-      Effect.gen(function*() {
-        return service(
-          journal.path,
-          (record) => journal.append(record).pipe(Effect.mapError(PersistenceError.fromJournal)),
-          journal.read.pipe(Stream.runCollect, Effect.mapError(PersistenceError.fromJournal)),
-          yield* fileSystemRecording.makeFileSystem(Str.concat(journal.path, ".recordings"))
-        )
-      })
-    )
-  )
+  Effect.gen(function*() {
+    const path = yield* Path.Path
+    return { open: yield* fileSystemRecording.makeFileSystem(path.join(options.directory, options.fileName)) }
+  })
 
 /**
- * Provides generic filesystem-backed trial and snapshot persistence.
+ * Provides filesystem-backed run recordings.
  *
  * @since 0.1.0
  * @category layers
@@ -223,32 +99,6 @@ export const layerFileSystem = (
 
 /** Installs an existing generic study storage service. @since 0.1.0 @category layers */
 export const layer = (storage: Service): Layer.Layer<StudyStorage> => Layer.succeed(StudyStorage, storage)
-
-/** Appends a trial through ambient generic storage. @since 0.1.0 @category operations */
-export const appendTrial = <A, I, RD, RE>(
-  schema: Schema.Codec<A, I, RD, RE>,
-  trial: A
-): Effect.Effect<void, PersistenceError.Failure, StudyStorage | RE> =>
-  StudyStorage.pipe(Effect.flatMap((storage) => storage.appendTrial(schema, trial)))
-
-/** Writes a snapshot through ambient generic storage. @since 0.1.0 @category operations */
-export const writeSnapshot = <A, I, RD, RE>(
-  schema: Schema.Codec<A, I, RD, RE>,
-  snapshot: A
-): Effect.Effect<void, PersistenceError.Failure, StudyStorage | RE> =>
-  StudyStorage.pipe(Effect.flatMap((storage) => storage.writeSnapshot(schema, snapshot)))
-
-/** Loads the latest snapshot through ambient generic storage. @since 0.1.0 @category operations */
-export const loadSnapshot = <A, I, RD, RE>(
-  schema: Schema.Codec<A, I, RD, RE>
-): Effect.Effect<Option.Option<A>, PersistenceError.Failure, StudyStorage | RD> =>
-  StudyStorage.pipe(Effect.flatMap((storage) => storage.loadSnapshot(schema)))
-
-/** Loads the complete trial log through ambient generic storage. @since 0.1.0 @category operations */
-export const loadTrialLog = <A, I, RD, RE>(
-  schema: Schema.Codec<A, I, RD, RE>
-): Effect.Effect<ReadonlyArray<A>, PersistenceError.Failure, StudyStorage | RD> =>
-  StudyStorage.pipe(Effect.flatMap((storage) => storage.loadTrialLog(schema)))
 
 /** A committed event's identity and one-based run-local position. @since 0.1.0 @category schemas */
 export const Receipt = Schema.Struct({

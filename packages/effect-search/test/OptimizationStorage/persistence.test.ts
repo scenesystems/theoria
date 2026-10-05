@@ -25,6 +25,23 @@ const asSingleObjective = <Config>(
   )
 
 describe("OptimizationStorage", () => {
+  it.effect("serializes recording appends and keeps the tail after retrying an earlier trial", () =>
+    Effect.gen(function*() {
+      const fs = yield* FileSystem.FileSystem
+      const options = StudyStorage.fileSystemOptions(yield* fs.makeTempDirectoryScoped())
+      const storage = yield* OptimizationStorage.makeFileSystem(options)
+      const first: OptimizationSnapshot.Trial = { trialNumber: 7, config: "first", state: { _tag: "Cancelled" } }
+      const second: OptimizationSnapshot.Trial = { trialNumber: 2, config: "second", state: { _tag: "Cancelled" } }
+      const third: OptimizationSnapshot.Trial = { trialNumber: 9, config: "third", state: { _tag: "Cancelled" } }
+      yield* Effect.all([storage.appendTrial(first), storage.appendTrial(second)], { concurrency: 2 })
+      yield* storage.appendTrial(first)
+      yield* storage.appendTrial(third)
+      const conflict = yield* storage.appendTrial({ ...first, config: "different" }).pipe(Effect.result)
+      expect((yield* Effect.fromResult(Result.flip(conflict))).reason).toBe("RecordConflict")
+      const reopened = yield* OptimizationStorage.makeFileSystem(options)
+      expect(yield* reopened.loadTrialLog()).toEqual([first, second, third])
+    }).pipe(Effect.provide(BunServices.layer)))
+
   it.effect("replays append-only trials at and after snapshot.nextTrialNumber", () =>
     Effect.gen(function*() {
       const fileSystem = yield* FileSystem.FileSystem
@@ -92,9 +109,8 @@ describe("OptimizationStorage", () => {
 
       expect(persistedTrials).toHaveLength(3)
       expect(Option.isSome(persistedSnapshot)).toBe(true)
-      expect(raw).toContain("\"_tag\":\"Trial\"")
-      expect(raw).toContain("\"_tag\":\"Snapshot\"")
-      expect(options.fileName).toBe("study-storage.jsonl")
+      expect(raw).toContain("\"_tag\":\"Event\"")
+      expect(raw).toContain("\"_tag\":\"Checkpoint\"")
 
       const snapshot = yield* Effect.fromOption(persistedSnapshot)
       expect(snapshot.nextTrialNumber).toBe(3)
@@ -110,15 +126,13 @@ describe("OptimizationStorage", () => {
       })
       const options = StudyStorage.fileSystemOptions(directory, "corrupt.jsonl")
       const journalPath = path.join(directory, options.fileName)
+      const storage = yield* OptimizationStorage.makeFileSystem(options)
+      const header = yield* fileSystem.readFileString(journalPath)
       yield* fileSystem.writeFileString(
         journalPath,
-        Str.concat(
-          "{\"_tag\":\"Trial\",\"payload\":{}}\n",
-          "{\"_tag\":\"Trial\""
-        )
+        Str.concat(header, "{bad}\n")
       )
 
-      const storage = yield* OptimizationStorage.makeFileSystem(options)
       const outcome = yield* storage.loadTrialLog().pipe(Effect.result)
       const failure = yield* Schema.decodeEffect(PersistenceError.Failure)(Result.getOrThrow(Result.flip(outcome)))
 
@@ -129,7 +143,7 @@ describe("OptimizationStorage", () => {
       expect(failure.line).toBe(2)
     }).pipe(Effect.provide(BunServices.layer)))
 
-  it.effect("reports an independent typed write failure when the journal directory disappears", () =>
+  it.effect("rejects a missing bound run rather than silently recreating its journal", () =>
     Effect.gen(function*() {
       const fileSystem = yield* FileSystem.FileSystem
       const path = yield* Path.Path
@@ -158,9 +172,9 @@ describe("OptimizationStorage", () => {
       const failure = yield* Schema.decodeEffect(PersistenceError.Failure)(Result.getOrThrow(Result.flip(outcome)))
 
       expect(failure).toBeInstanceOf(PersistenceError.Failure)
-      expect(failure.reason).toBe("Backend")
-      expect(failure.operation).toBe("write")
-      expect(failure.path).toBe(journalPath)
-      expect(Option.isNone(Option.fromNullishOr(failure.line))).toBe(true)
+      expect(failure.reason).toBe("Incompatible")
+      expect(failure.operation).toBe("read")
+      expect(failure.detail).toContain("Bound recording disappeared")
+      expect(yield* fileSystem.exists(journalPath)).toBe(false)
     }).pipe(Effect.provide(BunServices.layer)))
 })

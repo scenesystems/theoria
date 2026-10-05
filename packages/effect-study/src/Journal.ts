@@ -7,24 +7,7 @@
 import { Data, Effect, FileSystem, Match, Number as Num, Path, Schema, Semaphore, Stream, String as Str } from "effect"
 import type { PlatformError } from "effect/PlatformError"
 
-/**
- * Reports a journal codec or filesystem failure.
- * A decoding failure carries its one-based physical line number.
- * Its wire tag remains `effect-study/JournalError`.
- *
- * @since 0.1.0
- * @category errors
- */
-export class Failure extends Schema.TaggedError<Failure>("@scenesystems/effect-study/Journal/Failure")(
-  "effect-study/JournalError",
-  {
-    reason: Schema.Literals(["Codec", "Backend"]),
-    operation: Schema.Union([Schema.Literal("write"), Schema.Literal("read")]),
-    path: Schema.String,
-    line: Schema.optional(Schema.Int.pipe(Schema.check(Schema.isGreaterThan(0)))),
-    detail: Schema.String
-  }
-) {}
+import * as PersistenceError from "./PersistenceError.js"
 
 /**
  * A single append/read capability whose append operations share one serialization lock.
@@ -36,18 +19,24 @@ export class Failure extends Schema.TaggedError<Failure>("@scenesystems/effect-s
 export class Journal<A, I, RD, RE> extends Data.Class<{
   readonly path: string
   readonly schema: Schema.Codec<A, I, RD, RE>
-  readonly append: (entry: A) => Effect.Effect<void, Failure, RE>
-  readonly read: Stream.Stream<A, Failure, RD>
+  readonly append: (entry: A) => Effect.Effect<void, PersistenceError.Failure, RE>
+  readonly read: Stream.Stream<A, PersistenceError.Failure, RD>
 }> {}
 
 const numberText = Schema.encodeSync(Schema.FiniteFromString)
 
 const storageFailure =
-  (operation: Failure["operation"], path: string) => (cause: PlatformError | Schema.SchemaError): Failure =>
-    new Failure({ reason: Schema.isSchemaError(cause) ? "Codec" : "Backend", operation, path, detail: cause.message })
+  (operation: PersistenceError.Failure["operation"], path: string) =>
+  (cause: PlatformError | Schema.SchemaError): PersistenceError.Failure =>
+    new PersistenceError.Failure({
+      reason: Schema.isSchemaError(cause) ? "Codec" : "Backend",
+      operation,
+      path,
+      detail: cause.message
+    })
 
-const decodeFailure = (path: string, line: number) => (cause: Schema.SchemaError): Failure =>
-  new Failure({
+const decodeFailure = (path: string, line: number) => (cause: Schema.SchemaError): PersistenceError.Failure =>
+  new PersistenceError.Failure({
     reason: "Codec",
     operation: "read",
     path,
@@ -62,7 +51,7 @@ const readWith = <A, I, RD, RE>(
   fileSystem: FileSystem.FileSystem,
   schema: Schema.Codec<A, I, RD, RE>,
   filePath: string
-): Stream.Stream<A, Failure, RD> => {
+): Stream.Stream<A, PersistenceError.Failure, RD> => {
   const codec = Schema.fromJsonString(schema)
   return Stream.unwrap(
     fileSystem.exists(filePath).pipe(
@@ -93,7 +82,7 @@ const readWith = <A, I, RD, RE>(
 /**
  * Reads a UTF-8 JSON-lines file in physical line order.
  * Missing files are empty, blank lines are ignored, and every malformed line fails
- * with a {@link Failure} carrying its one-based physical line number.
+ * with PersistenceError.Failure carrying its one-based physical line number.
  *
  * @since 0.1.0
  * @category operations
@@ -101,7 +90,7 @@ const readWith = <A, I, RD, RE>(
 export const read = <A, I, RD, RE>(
   schema: Schema.Codec<A, I, RD, RE>,
   filePath: string
-): Stream.Stream<A, Failure, FileSystem.FileSystem | RD> =>
+): Stream.Stream<A, PersistenceError.Failure, FileSystem.FileSystem | RD> =>
   Stream.unwrap(FileSystem.FileSystem.pipe(Effect.map((fileSystem) => readWith(fileSystem, schema, filePath))))
 
 /**
@@ -116,7 +105,7 @@ export const make = <A, I, RD, RE>(
   schema: Schema.Codec<A, I, RD, RE>,
   directory: string,
   fileName: string
-): Effect.Effect<Journal<A, I, RD, RE>, Failure, FileSystem.FileSystem | Path.Path> =>
+): Effect.Effect<Journal<A, I, RD, RE>, PersistenceError.Failure, FileSystem.FileSystem | Path.Path> =>
   Effect.gen(function*() {
     const fileSystem = yield* FileSystem.FileSystem
     const path = yield* Path.Path

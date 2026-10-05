@@ -153,11 +153,11 @@ describe("recovery crash residue", () => {
       )
 
       expect(failure).toBeInstanceOf(PersistenceError.Failure)
-      expect(failure.reason).toBe("Codec")
+      expect(failure.reason).toBe("Backend")
       expect(failure.operation).toBe("read")
       expect(failure.path).toBe(journalPath)
       expect(failure.line).toBe(Arr.length(Str.split("\n")(intact)))
-      expect(failure.detail).toContain("is not a journal entry")
+      expect(failure.detail).toContain("Incomplete committed-record boundary")
     }).pipe(Effect.provide(BunServices.layer)))
 
   it.effect("fails resumeFromStorage with typed InvalidOptimizationConfig when snapshot is missing", () =>
@@ -195,7 +195,7 @@ describe("recovery crash residue", () => {
       const storageOptions = StudyStorage.fileSystemOptions(directory)
       const journalPath = path.join(directory, storageOptions.fileName)
 
-      yield* fileSystem.writeFileString(journalPath, "{\"_tag\":\"Snapshot\",\"payload\":")
+      yield* fileSystem.writeFileString(journalPath, "{\"_tag\":\"Snapshot\",\"payload\":{}}\n")
 
       const outcome = yield* Effect.result(
         Optimization.resumeFromStorage(

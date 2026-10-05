@@ -38,7 +38,7 @@ it.effect("binds filesystem checkpoints to exact committed boundaries and reject
     const fs = yield* FileSystem.FileSystem
     const path = yield* Path.Path
     const config = StudyStorage.fileSystemOptions(yield* fs.makeTempDirectoryScoped(), "study.jsonl")
-    const file = path.join(config.directory, "study.jsonl.recordings")
+    const file = path.join(config.directory, "study.jsonl")
     const store = yield* StudyStorage.makeFileSystem(config)
     const run = yield* store.open(options)
     yield* run.append(new StudyStorage.Append({ recordId: "first", expectedCursor: 0, event: 7 }))
