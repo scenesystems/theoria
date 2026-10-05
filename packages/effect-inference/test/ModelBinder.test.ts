@@ -1,8 +1,5 @@
-import * as AnthropicClient from "@effect/ai-anthropic/AnthropicClient"
 import * as AnthropicLanguageModel from "@effect/ai-anthropic/AnthropicLanguageModel"
-import * as OpenAiClient from "@effect/ai-openai/OpenAiClient"
 import * as OpenAiLanguageModel from "@effect/ai-openai/OpenAiLanguageModel"
-import * as OpenRouterClient from "@effect/ai-openrouter/OpenRouterClient"
 import * as OpenRouterLanguageModel from "@effect/ai-openrouter/OpenRouterLanguageModel"
 import { describe, expect, it } from "@effect/vitest"
 import * as Binding from "@scenesystems/effect-lm/ModelBinder"
@@ -29,6 +26,18 @@ import * as ModelBinder from "../src/ModelBinder.js"
 import * as Testing from "../src/Testing.js"
 import * as TextProvider from "../src/TextProvider.js"
 
+const config = (provider: TextProvider.Provider, model: string, defaults: ModelSettings) =>
+  new TextProvider.Config({
+    provider,
+    model,
+    defaults,
+    apiKey: Redacted.make("test"),
+    apiUrl: Option.none(),
+    anthropicVersion: Option.none(),
+    openrouterReferrer: Option.none(),
+    openrouterTitle: Option.none()
+  })
+
 describe("ModelBinder", () => {
   it.effect("binds declared defaults, ambient overrides and request settings in wire precedence order", () =>
     Effect.forEach(TextProvider.Provider.literals, (provider) =>
@@ -43,29 +52,9 @@ describe("ModelBinder", () => {
             )
           ))
         )
-        const languageModel = Match.value(provider).pipe(
-          Match.when("openai", () =>
-            OpenAiLanguageModel.layer({ model: "same", config: { temperature: 0.91 } }).pipe(
-              Layer.provide(OpenAiClient.layer({ apiKey: Redacted.make("test") }))
-            )),
-          Match.when("anthropic", () =>
-            AnthropicLanguageModel.layer({ model: "same", config: { temperature: 0.91 } }).pipe(
-              Layer.provide(AnthropicClient.layer({ apiKey: Redacted.make("test") }))
-            )),
-          Match.when("openrouter", () =>
-            OpenRouterLanguageModel.layer({ model: "same", config: { temperature: 0.91 } }).pipe(
-              Layer.provide(OpenRouterClient.layer({ apiKey: Redacted.make("test") }))
-            )),
-          Match.exhaustive,
-          Layer.provide(Layer.succeed(HttpClient.HttpClient, client))
-        )
         const runtime = (temperature: number) =>
           new TextProvider.Runtime({
-            provider,
-            model: "same",
-            defaults: new ModelSettings({ temperature }),
-            request: { model: { modelRef: "same" } },
-            languageModel
+            config: config(provider, "same", new ModelSettings({ temperature }))
           })
         const run = (temperature: number, settings: ModelSettings) =>
           Effect.gen(function*() {
@@ -82,8 +71,14 @@ describe("ModelBinder", () => {
                 ModelBinder.layer(HashMap.fromIterable<Role, TextProvider.Runtime>([["task", runtime(temperature)]])),
                 Testing.languageModel()
               )
-            )
+            ),
+            Effect.provideService(HttpClient.HttpClient, client)
           )
+        yield* LanguageModel.generateText({ prompt: "unbound" }).pipe(
+          Effect.result,
+          Effect.provide(runtime(0.2).languageModel),
+          Effect.provideService(HttpClient.HttpClient, client)
+        )
         yield* run(0.2, new ModelSettings({}))
         yield* run(0.2, new ModelSettings({ temperature: 0.7 }))
         yield* run(0.5, new ModelSettings({}))
@@ -110,7 +105,7 @@ describe("ModelBinder", () => {
             )
           ))
         expect(Arr.map(bodies, (body) =>
-          body.temperature)).toEqual([0.2, 0.7, 0.5, 0.4])
+          body.temperature)).toEqual([0.2, 0.2, 0.7, 0.5, 0.4])
         expect(Arr.map(yield* Ref.get(observed), (settings) =>
           settings.temperature)).toEqual([0.2, 0.7, 0.5, 0.4])
       })))
@@ -129,29 +124,7 @@ describe("ModelBinder", () => {
         )
         const runtime = (model: string) =>
           new TextProvider.Runtime({
-            provider,
-            model,
-            defaults: new ModelSettings({ temperature: 0.91, maxTokens: 900, topP: 0.8 }),
-            request: { model: { modelRef: model } },
-            languageModel: Match.value(provider).pipe(
-              Match.when("openai", () =>
-                OpenAiLanguageModel.layer({
-                  model,
-                  config: { temperature: 0.91, max_output_tokens: 900, top_p: 0.8 }
-                }).pipe(Layer.provide(OpenAiClient.layer({ apiKey: Redacted.make("test") })))),
-              Match.when("anthropic", () =>
-                AnthropicLanguageModel.layer({
-                  model,
-                  config: { temperature: 0.91, max_tokens: 900, top_p: 0.8 }
-                }).pipe(Layer.provide(AnthropicClient.layer({ apiKey: Redacted.make("test") })))),
-              Match.when("openrouter", () =>
-                OpenRouterLanguageModel.layer({
-                  model,
-                  config: { temperature: 0.91, max_tokens: 900, top_p: 0.8 }
-                }).pipe(Layer.provide(OpenRouterClient.layer({ apiKey: Redacted.make("test") })))),
-              Match.exhaustive,
-              Layer.provide(Layer.succeed(HttpClient.HttpClient, client))
-            )
+            config: config(provider, model, new ModelSettings({ temperature: 0.91, maxTokens: 900, topP: 0.8 }))
           })
         const runtimes = HashMap.fromIterable<Role, TextProvider.Runtime>([
           ["task", runtime("task-model")],
@@ -167,7 +140,10 @@ describe("ModelBinder", () => {
               })
             ),
             Effect.result
-          )).pipe(Effect.provide(Layer.merge(ModelBinder.layer(runtimes), Testing.languageModel())))
+          )).pipe(
+            Effect.provide(Layer.merge(ModelBinder.layer(runtimes), Testing.languageModel())),
+            Effect.provideService(HttpClient.HttpClient, client)
+          )
         const bodies = yield* Effect.forEach(yield* Ref.get(requests), (request) =>
           Match.value(request.body).pipe(
             Match.tag("Uint8Array", (body) =>
@@ -197,22 +173,7 @@ describe("ModelBinder", () => {
           )
         )
         const runtime = new TextProvider.Runtime({
-          provider,
-          model: "test",
-          defaults: new ModelSettings({}),
-          request: { model: { modelRef: "test" } },
-          languageModel: Match.value(provider).pipe(
-            Match.when("openai", () =>
-              OpenAiLanguageModel.layer({ model: "test" }).pipe(
-                Layer.provide(OpenAiClient.layer({ apiKey: Redacted.make("test") }))
-              )),
-            Match.when("anthropic", () =>
-              AnthropicLanguageModel.layer({ model: "test" }).pipe(
-                Layer.provide(AnthropicClient.layer({ apiKey: Redacted.make("test") }))
-              )),
-            Match.exhaustive,
-            Layer.provide(Layer.succeed(HttpClient.HttpClient, client))
-          )
+          config: config(provider, "test", new ModelSettings({}))
         })
         const settings = Match.value(provider).pipe(
           Match.when("openai", () => new ModelSettings({ stop: [] })),
@@ -250,14 +211,17 @@ describe("ModelBinder", () => {
                   ModelBinder.layer(
                     HashMap.fromIterable<Role, TextProvider.Runtime>([[
                       "task",
-                      new TextProvider.Runtime(
-                        Struct.assign(runtime, { defaults: source === "defaults" ? settings : new ModelSettings({}) })
-                      )
+                      new TextProvider.Runtime({
+                        config: new TextProvider.Config(Struct.assign(runtime.config, {
+                          defaults: source === "defaults" ? settings : new ModelSettings({})
+                        }))
+                      })
                     ]])
                   ),
                   Testing.languageModel()
                 )
-              )
+              ),
+              Effect.provideService(HttpClient.HttpClient, client)
             ))
         expect(yield* Ref.get(requests)).toBe(0)
       })))

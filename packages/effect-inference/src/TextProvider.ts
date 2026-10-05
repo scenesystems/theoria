@@ -17,6 +17,7 @@ import * as ConfigProvider from "effect/ConfigProvider"
 import * as Data from "effect/Data"
 import * as Effect from "effect/Effect"
 import * as FetchHttpClient from "effect/http/FetchHttpClient"
+import * as HttpClient from "effect/http/HttpClient"
 import * as Layer from "effect/Layer"
 import * as Match from "effect/Match"
 import * as Option from "effect/Option"
@@ -58,18 +59,31 @@ export class Config extends Schema.Class<Config>("@scenesystems/effect-inference
   openrouterTitle: Schema.Option(Schema.String)
 }) {}
 
-/** Resolved hosted-provider request and executable language layer. @since 0.5.0 @category models */
+/** Hosted-provider runtime derived from one validated configuration.
+ * Model identity, defaults, request intent and the executable layer share that
+ * configuration. A supplied HttpClient service overrides the default fetch transport.
+ * @since 0.5.0
+ * @category models
+ */
 export class Runtime extends Data.Class<{
-  readonly provider: Provider
-  readonly model: string
-  /** Source of truth for defined ModelSettings fields, overridden at bind time.
-   * Custom opaque layers must also declare captured ModelSettings values here
-   * for authoritative binding and cache identity; absent fields fall through.
-   * TextProvider-created layers derive configuration from defaults and cannot disagree. */
-  readonly defaults: ModelSettings
-  readonly request: RuntimeRequest.RuntimeRequest
-  readonly languageModel: Layer.Layer<LanguageModel.LanguageModel>
-}> {}
+  readonly config: Config
+}> {
+  get provider(): Provider {
+    return this.config.provider
+  }
+  get model(): string {
+    return this.config.model
+  }
+  get defaults(): ModelSettings {
+    return this.config.defaults
+  }
+  get request(): RuntimeRequest.RuntimeRequest {
+    return request(this.config)
+  }
+  get languageModel(): Layer.Layer<LanguageModel.LanguageModel> {
+    return providerLayer(this.config)
+  }
+}
 
 const defaultConfigProvider = ConfigProvider.fromEnv().pipe(ConfigProvider.constantCase)
 
@@ -214,6 +228,16 @@ export const request = (config: Config): RuntimeRequest.RuntimeRequest =>
     Match.exhaustive
   )
 
+const transport = Layer.unwrap(
+  Effect.map(
+    Effect.serviceOption(HttpClient.HttpClient),
+    Option.match({
+      onNone: () => FetchHttpClient.layer,
+      onSome: (client) => Layer.succeed(HttpClient.HttpClient, client)
+    })
+  )
+)
+
 const providerLayer = (config: Config): Layer.Layer<LanguageModel.LanguageModel> =>
   Match.value(config.provider).pipe(
     Match.when("openai", () =>
@@ -225,7 +249,7 @@ const providerLayer = (config: Config): Layer.Layer<LanguageModel.LanguageModel>
             ...Option.match(config.apiUrl, { onNone: () => ({}), onSome: (apiUrl) => ({ apiUrl }) })
           })
         ),
-        FetchHttpClient.layer
+        transport
       )),
     Match.when("anthropic", () =>
       Layer.provide(
@@ -240,7 +264,7 @@ const providerLayer = (config: Config): Layer.Layer<LanguageModel.LanguageModel>
             })
           })
         ),
-        FetchHttpClient.layer
+        transport
       )),
     Match.when("openrouter", () =>
       Layer.provide(
@@ -256,22 +280,14 @@ const providerLayer = (config: Config): Layer.Layer<LanguageModel.LanguageModel>
             ...Option.match(config.openrouterTitle, { onNone: () => ({}), onSome: (title) => ({ title }) })
           })
         ),
-        FetchHttpClient.layer
+        transport
       )),
     Match.exhaustive
   )
 
 /** Acquires configuration and resolves a hosted-provider language runtime. @since 0.5.0 @category constructors */
 export const resolve = (options: Options = new Options({})): Effect.Effect<Runtime, InvalidRuntimeConfig> =>
-  fromConfig(options).pipe(Effect.map((config) =>
-    new Runtime({
-      provider: config.provider,
-      model: config.model,
-      defaults: config.defaults,
-      request: request(config),
-      languageModel: providerLayer(config)
-    })
-  ))
+  fromConfig(options).pipe(Effect.map((config) => new Runtime({ config })))
 
 /** Builds a language-model layer from checked hosted-provider configuration. @since 0.5.0 @category layers */
 export const layerConfig = (
