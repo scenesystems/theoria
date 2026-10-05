@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from typing import Any
 
+import warnings
 import optuna
 from optuna.trial import TrialState, create_trial
 
@@ -56,7 +57,7 @@ def generate(generated_at: str) -> list[dict[str, Any]]:
 
 
 def _report_contract(generated_at: str) -> dict[str, Any]:
-    return {
+    document = {
         "fixture": "pruning.report-contract",
         "file": "pruning/report-contract.json",
         "metadata": metadata(generated_at),
@@ -66,35 +67,37 @@ def _report_contract(generated_at: str) -> dict[str, Any]:
                     "id": "accepts-first-report",
                     "initialReports": [],
                     "reportAttempt": {"step": 0, "value": 0.81},
-                    "expectedReports": [{"step": 0, "value": 0.81}],
-                    "expectedOutcome": "accepted",
                 },
                 {
                     "id": "accepts-ascending-step",
                     "initialReports": [{"step": 0, "value": 0.81}],
                     "reportAttempt": {"step": 1, "value": 0.72},
-                    "expectedReports": [{"step": 0, "value": 0.81}, {"step": 1, "value": 0.72}],
-                    "expectedOutcome": "accepted",
                 },
                 {
-                    "id": "rejects-duplicate-step",
+                    "id": "ignores-duplicate-step",
                     "initialReports": [{"step": 0, "value": 0.81}],
                     "reportAttempt": {"step": 0, "value": 0.55},
-                    "expectedReports": [{"step": 0, "value": 0.81}],
-                    "expectedOutcome": "error",
-                    "expectedErrorTag": "InvalidReportStep",
                 },
                 {
-                    "id": "rejects-decreasing-step",
+                    "id": "accepts-decreasing-step",
                     "initialReports": [{"step": 0, "value": 0.81}, {"step": 2, "value": 0.72}],
                     "reportAttempt": {"step": 1, "value": 0.6},
-                    "expectedReports": [{"step": 0, "value": 0.81}, {"step": 2, "value": 0.72}],
-                    "expectedOutcome": "error",
-                    "expectedErrorTag": "InvalidReportStep",
                 },
             ],
         },
     }
+    for case in document["payload"]["cases"]:
+        study = optuna.create_study()
+        trial = study.ask()
+        with warnings.catch_warnings(record=True):
+            for report in [*case["initialReports"], case["reportAttempt"]]:
+                trial.report(report["value"], report["step"])
+        case["expectedOutcome"] = "accepted"
+        case["expectedReports"] = [
+            {"step": step, "value": value}
+            for step, value in study.trials[0].intermediate_values.items()
+        ]
+    return document
 
 
 def _percentile_pruner(generated_at: str) -> dict[str, Any]:

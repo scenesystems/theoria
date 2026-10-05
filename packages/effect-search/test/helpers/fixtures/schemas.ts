@@ -1,6 +1,5 @@
 import { Schema } from "effect"
 
-import { Name } from "../../../src/Acquisition.js"
 import { Direction } from "../../../src/Direction.js"
 import { Choice } from "../../../src/Distribution.js"
 import { CandidateRollPair } from "../../../src/internal/tpe/dimensions/trace.js"
@@ -199,10 +198,7 @@ export const ContinuousKdeFixture = Schema.Struct({
 export type ContinuousKdeFixture = Schema.Schema.Type<typeof ContinuousKdeFixture>
 
 const NoiseBandwidthExpected = Schema.Struct({
-  baseSigmas: Schema.Array(Schema.Finite),
-  normalizedNoise: Schema.Finite,
-  bandwidthScale: Schema.Finite,
-  adjustedSigmas: Schema.Array(Schema.Finite)
+  baseSigmas: Schema.Array(Schema.Finite)
 })
 
 const NoiseBandwidthCase = Schema.Struct({
@@ -210,7 +206,6 @@ const NoiseBandwidthCase = Schema.Struct({
   observations: Schema.Array(Schema.Finite),
   low: Schema.Finite,
   high: Schema.Finite,
-  alpha: Schema.Finite,
   expected: NoiseBandwidthExpected
 })
 
@@ -230,15 +225,6 @@ const MultivariateGaussianDensityCase = Schema.Struct({
   mean: Schema.Array(Schema.Finite),
   sigmas: Schema.Array(Schema.Finite),
   expectedLogDensity: Schema.Finite
-})
-
-const MultivariateGaussianBandwidthCase = Schema.Struct({
-  id: Schema.String,
-  sampleCount: Schema.Finite,
-  dimensions: Schema.Finite,
-  stddev: Schema.Finite,
-  expectedFactor: Schema.Finite,
-  expectedBandwidth: Schema.Finite
 })
 
 const MultivariateGaussianSamplingCase = Schema.Struct({
@@ -264,7 +250,6 @@ export const MultivariateGaussianFixture = Schema.Struct({
   metadata: FixtureMetadata,
   payload: Schema.Struct({
     densityCases: Schema.Array(MultivariateGaussianDensityCase),
-    bandwidthCases: Schema.Array(MultivariateGaussianBandwidthCase),
     samplingCases: Schema.Array(MultivariateGaussianSamplingCase),
     mixtureCase: MultivariateGaussianMixtureCase
   })
@@ -282,8 +267,6 @@ const TruncatedNormalCase = Schema.Struct({
   }),
   sampleQuantiles: Schema.Array(Schema.Finite),
   sampleExpected: Schema.Array(Schema.Finite),
-  cdfProbes: Schema.Array(Schema.Finite),
-  cdfExpected: Schema.Array(Schema.Finite),
   logPdfProbes: Schema.Array(Schema.Finite),
   logPdfExpected: Schema.Array(Schema.Finite)
 })
@@ -424,9 +407,7 @@ export type MixedSpaceJointTraceFixture = Schema.Schema.Type<typeof MixedSpaceJo
 const MotpeSplitTrial = Schema.Struct({
   trialNumber: Schema.Finite,
   values: ObjectivePoint,
-  feasible: Schema.Boolean,
-  rank: Schema.Finite,
-  hsspScore: Schema.Finite
+  rank: Schema.Finite
 })
 
 export const MotpeSplitFixture = Schema.Struct({
@@ -501,8 +482,11 @@ const ConstrainedDensityCase = Schema.Struct({
   id: Schema.String,
   observations: Schema.Array(Schema.Array(Schema.Finite)),
   probes: Schema.Array(Schema.Array(Schema.Finite)),
-  expectedRatioProducts: Schema.Array(Schema.Finite),
-  expectedOrder: Schema.Array(Schema.Finite)
+  bounds: Schema.Array(Schema.Struct({ low: Schema.Finite, high: Schema.Finite })),
+  expectedLogDensities: Schema.Array(Schema.Struct({
+    feasible: Schema.Array(Schema.Finite),
+    infeasible: Schema.Array(Schema.Finite)
+  }))
 })
 
 const ConstrainedSplitTrial = Schema.Struct({
@@ -665,11 +649,7 @@ export const AdvancedGpBoFixture = Schema.Struct({
     context: AdvancedSamplerContext,
     sampler: Schema.Struct({
       seed: Schema.Finite,
-      nStartupTrials: Schema.Finite,
-      nCandidates: Schema.Finite,
-      lengthScale: Schema.Finite,
-      noise: Schema.Finite,
-      acquisition: Name
+      nStartupTrials: Schema.Finite
     }),
     expected: Schema.Struct({
       x: Schema.Finite,

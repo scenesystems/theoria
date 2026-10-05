@@ -97,7 +97,7 @@ describe("fixture-backed parity", () => {
               fixture.payload.expected.kernels,
               (expectedKernel, kernelIndex) =>
                 Effect.gen(function*() {
-                  const actualKernel = Option.getOrThrow(Arr.get(parzen.kernels, kernelIndex))
+                  const actualKernel = yield* Effect.fromOption(Arr.get(parzen.kernels, kernelIndex))
 
                   yield* Effect.forEach(
                     expectedKernel,
@@ -180,7 +180,7 @@ describe("fixture-backed parity", () => {
               fixture.payload.expected.kernels,
               (expectedKernel, kernelIndex) =>
                 Effect.gen(function*() {
-                  const actualKernel = Option.getOrThrow(Arr.get(parzen.kernels, kernelIndex))
+                  const actualKernel = yield* Effect.fromOption(Arr.get(parzen.kernels, kernelIndex))
 
                   expectWithinTolerance(actualKernel.mean, expectedKernel.mean, SCORE_TOLERANCE)
                   expectWithinTolerance(actualKernel.sigma, expectedKernel.sigma, SIGMA_TOLERANCE)

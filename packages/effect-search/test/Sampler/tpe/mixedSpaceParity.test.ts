@@ -178,7 +178,7 @@ const decodedConfigs = (
 ) => Effect.forEach(configs, (config) => decodeMixedOptimizerConfig(config))
 
 describe("mixed-space fixture parity", () => {
-  // Wave 3: the learning-rate above-density differs under Optuna 4.9.
+  // Wave 3: independent marginal rolls do not replay Optuna's shared mixture draws.
   it.effect.fails("replays per-dimension rolls and joint EI argmax decisions from mixed-space fixtures", () =>
     Effect.gen(function*() {
       const loaded = yield* loadAllFixtures("mixed-space.").pipe(Effect.provide(FixtureRegistryLive))

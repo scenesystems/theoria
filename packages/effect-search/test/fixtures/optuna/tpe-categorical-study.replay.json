@@ -15,34 +15,24 @@
       "bestValue": -0.25,
       "configTrace": [
         {
-          "demos": "few",
-          "instruction": "rewrite",
-          "scoring": "recall"
-        },
-        {
           "demos": "none",
-          "instruction": "socratic",
-          "scoring": "strict"
+          "instruction": "baseline",
+          "scoring": "balanced"
         },
         {
           "demos": "few",
           "instruction": "socratic",
-          "scoring": "recall"
+          "scoring": "balanced"
         },
         {
-          "demos": "curated",
-          "instruction": "socratic",
-          "scoring": "recall"
-        },
-        {
-          "demos": "none",
-          "instruction": "counterexample",
-          "scoring": "recall"
+          "demos": "few",
+          "instruction": "baseline",
+          "scoring": "balanced"
         },
         {
           "demos": "none",
           "instruction": "baseline",
-          "scoring": "recall"
+          "scoring": "balanced"
         },
         {
           "demos": "curated",
@@ -51,57 +41,67 @@
         },
         {
           "demos": "curated",
-          "instruction": "baseline",
+          "instruction": "socratic",
           "scoring": "recall"
         },
         {
-          "demos": "few",
-          "instruction": "rewrite",
+          "demos": "curated",
+          "instruction": "counterexample",
           "scoring": "recall"
         },
         {
-          "demos": "none",
+          "demos": "curated",
           "instruction": "rewrite",
           "scoring": "balanced"
         },
         {
-          "demos": "few",
+          "demos": "curated",
+          "instruction": "rewrite",
+          "scoring": "strict"
+        },
+        {
+          "demos": "curated",
+          "instruction": "rewrite",
+          "scoring": "balanced"
+        },
+        {
+          "demos": "none",
+          "instruction": "rewrite",
+          "scoring": "strict"
+        },
+        {
+          "demos": "curated",
+          "instruction": "rewrite",
+          "scoring": "balanced"
+        },
+        {
+          "demos": "curated",
+          "instruction": "rewrite",
+          "scoring": "balanced"
+        },
+        {
+          "demos": "curated",
+          "instruction": "rewrite",
+          "scoring": "balanced"
+        },
+        {
+          "demos": "curated",
           "instruction": "rewrite",
           "scoring": "recall"
         },
         {
           "demos": "few",
           "instruction": "rewrite",
-          "scoring": "recall"
+          "scoring": "balanced"
+        },
+        {
+          "demos": "curated",
+          "instruction": "rewrite",
+          "scoring": "balanced"
         },
         {
           "demos": "curated",
           "instruction": "socratic",
-          "scoring": "balanced"
-        },
-        {
-          "demos": "few",
-          "instruction": "counterexample",
-          "scoring": "strict"
-        },
-        {
-          "demos": "none",
-          "instruction": "rewrite",
-          "scoring": "recall"
-        },
-        {
-          "demos": "few",
-          "instruction": "rewrite",
-          "scoring": "recall"
-        },
-        {
-          "demos": "curated",
-          "instruction": "baseline",
-          "scoring": "balanced"
-        },
-        {
-          "demos": "curated",
-          "instruction": "rewrite",
           "scoring": "balanced"
         }
       ]

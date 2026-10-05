@@ -99,15 +99,19 @@ it.effect.fails("optuna-mipro-categorical-001: fixed-history joint distribution 
     const draws = yield* Effect.forEach(
       Arr.makeBy(reference.distribution.draws, (i) => i),
       (seed) =>
-        Sampler.suggest(sampler(reference, seed), space, context(reference.sequence, reference.sequence.length)).pipe(
-          Effect.flatMap(Schema.decodeUnknownEffect(Schema.Record(Schema.String, Schema.Int)))
-        )
+        Sampler.suggest(sampler(reference, seed), space, context(reference.sequence, Arr.length(reference.sequence)))
+          .pipe(
+            Effect.flatMap(Schema.decodeUnknownEffect(Schema.Record(Schema.String, Schema.Int)))
+          )
     )
     const variation = Num.divideUnsafe(
       Arr.reduce(reference.distribution.joint, 0, (sum, cell) => {
-        const count = Arr.filter(draws, (draw) =>
-          Arr.every(Arr.zip(keys, cell.choices), ([key, choice]) =>
-            Equal.equals(draw[key], choice))).length
+        const count = Arr.length(
+          Arr.filter(
+            draws,
+            (draw) => Arr.every(Arr.zip(keys, cell.choices), ([key, choice]) => Equal.equals(draw[key], choice))
+          )
+        )
         return Num.sum(sum, Numeric.abs(Num.subtract(count, cell.count)))
       }),
       Num.multiply(2, reference.distribution.draws)

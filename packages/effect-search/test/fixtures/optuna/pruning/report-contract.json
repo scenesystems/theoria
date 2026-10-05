@@ -52,15 +52,14 @@
         }
       },
       {
-        "expectedErrorTag": "InvalidReportStep",
-        "expectedOutcome": "error",
+        "expectedOutcome": "accepted",
         "expectedReports": [
           {
             "step": 0,
             "value": 0.81
           }
         ],
-        "id": "rejects-duplicate-step",
+        "id": "ignores-duplicate-step",
         "initialReports": [
           {
             "step": 0,
@@ -73,8 +72,7 @@
         }
       },
       {
-        "expectedErrorTag": "InvalidReportStep",
-        "expectedOutcome": "error",
+        "expectedOutcome": "accepted",
         "expectedReports": [
           {
             "step": 0,
@@ -83,9 +81,13 @@
           {
             "step": 2,
             "value": 0.72
+          },
+          {
+            "step": 1,
+            "value": 0.6
           }
         ],
-        "id": "rejects-decreasing-step",
+        "id": "accepts-decreasing-step",
         "initialReports": [
           {
             "step": 0,

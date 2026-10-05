@@ -49,15 +49,11 @@
       "nextTrialNumber": 4
     },
     "expected": {
-      "x": 0.6702243383686168,
-      "y": -1.0708754314465607
+      "x": 1.2334089017677705,
+      "y": -1.134429147384534
     },
     "sampler": {
-      "acquisition": "ei",
-      "lengthScale": 0.25,
-      "nCandidates": 16,
       "nStartupTrials": 2,
-      "noise": 0.01,
       "seed": 23
     },
     "space": {

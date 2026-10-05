@@ -15,12 +15,12 @@
       {
         "direction": "minimize",
         "expectedAbove": [
-          1,
+          2,
           3
         ],
         "expectedBelow": [
           0,
-          2
+          1
         ],
         "id": "single-objective-minimize",
         "nBelow": 2,
@@ -63,12 +63,12 @@
       {
         "direction": "maximize",
         "expectedAbove": [
-          10,
+          12,
           13
         ],
         "expectedBelow": [
-          11,
-          12
+          10,
+          11
         ],
         "id": "single-objective-maximize",
         "nBelow": 2,

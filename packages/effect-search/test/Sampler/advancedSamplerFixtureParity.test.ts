@@ -55,7 +55,7 @@ const expectValidVariedSequence = (
     expect(decoded).not.toEqual(Arr.makeBy(count, () => decoded[0]))
   })
 
-describe("advanced samplers v4 reproducibility", () => {
+describe("advanced sampler reproducibility", () => {
   it.effect("replays valid CMA-ES sequences and resumes from a checkpoint", () =>
     Effect.gen(function*() {
       const loaded = yield* loadFixture("advanced-samplers.cmaes-parity")

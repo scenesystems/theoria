@@ -13,7 +13,7 @@
   "payload": {
     "cases": [
       {
-        "expectedScore": "Infinity",
+        "expectedScore": 0.0,
         "expectedStep": -1,
         "id": "no-intermediate-values",
         "intermediateValues": [],
@@ -51,8 +51,8 @@
     "direction": "minimize",
     "expectedOrder": [
       22,
-      20,
-      21
+      21,
+      20
     ]
   }
 }

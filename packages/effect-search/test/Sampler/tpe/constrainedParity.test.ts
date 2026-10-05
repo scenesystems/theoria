@@ -1,87 +1,48 @@
 import { describe, expect, it } from "@effect/vitest"
-import { Array as Arr, Effect, Number as Num, Option, Order, Schema } from "effect"
+import { Array as Arr, Effect, Schema } from "effect"
 
-import * as Numeric from "@scenesystems/effect-math/Numeric"
-
-import {
-  buildConstraintDensityModels,
-  constraintDensityRatioProduct
-} from "../../../src/internal/tpe/constrainedDensity.js"
+import { buildConstraintDensityModels } from "../../../src/internal/tpe/constrainedDensity.js"
+import { logDensity } from "../../../src/internal/tpe/continuousParzen.js"
 import { splitSingleObjective } from "../../../src/internal/tpe/split/singleSplit.js"
 import { observation } from "../../../src/Sampler.js"
 import { ConstrainedTpeFixture, FixtureRegistryLive, loadFixture } from "../../helpers/fixtures/index.js"
 
-const SCORE_TOLERANCE = 1e-9
+const fixture = loadFixture("constrained-tpe.parity").pipe(
+  Effect.flatMap(Schema.decodeUnknownEffect(ConstrainedTpeFixture)),
+  Effect.provide(FixtureRegistryLive)
+)
 
-const valueAt = (valuesInput: Iterable<number>, index: number): number => {
-  const values = Arr.fromIterable(valuesInput)
-  return Arr.get(values, index).pipe(
-    Option.getOrElse(() => Number.NaN)
-  )
-}
-
-const expectWithinTolerance = (
-  actual: number,
-  expected: number,
-  tolerance: number
-): void => {
-  expect(Numeric.abs(Num.subtract(actual, expected)), `actual=${actual}, upstream=${expected}`)
-    .toBeLessThanOrEqual(tolerance)
-}
-
-const descendingRatioOrder = (ratiosInput: Iterable<number>) => {
-  const ratios = Arr.fromIterable(ratiosInput)
-  return Arr.map(
-    Arr.sortBy(
-      Order.mapInput(
-        Order.Number,
-        (entry: { readonly index: number; readonly ratio: number }) => Num.multiply(-1, entry.ratio)
-      ),
-      Order.mapInput(Order.Number, (entry: { readonly index: number; readonly ratio: number }) => entry.index)
-    )(
-      Arr.makeBy(Arr.length(ratios), (index) => ({
-        index,
-        ratio: valueAt(ratios, index)
-      }))
-    ),
-    (entry: { readonly index: number; readonly ratio: number }) => entry.index
-  )
-}
-
-describe("constrained fixture parity", () => {
-  // Wave 3: Optuna 4.9 bandwidths change the two-constraint density product.
-  it.effect.fails("matches Optuna-derived constrained density ratios and feasibility ordering", () =>
+describe("constraint observations against Optuna kernels", () => {
+  // Wave 3: the Parzen bandwidth differs; the density-product policy is not Optuna's.
+  it.effect.fails("matches feasible and infeasible Parzen log densities", () =>
     Effect.gen(function*() {
-      const loaded = yield* loadFixture("constrained-tpe.parity").pipe(Effect.provide(FixtureRegistryLive))
-      const fixture = yield* Schema.decodeUnknownEffect(ConstrainedTpeFixture)(loaded)
+      const reference = yield* fixture
+      yield* Effect.forEach(reference.payload.densityCases, (entry) =>
+        Effect.gen(function*() {
+          const models = buildConstraintDensityModels(entry.observations)
+          yield* Effect.forEach(entry.expectedLogDensities, (expected, dimension) =>
+            Effect.gen(function*() {
+              const model = yield* Effect.fromOption(Arr.get(models, dimension))
+              const bounds = yield* Effect.fromOption(Arr.get(entry.bounds, dimension))
+              expect(model.feasibleParzen.low).toBe(bounds.low)
+              expect(model.feasibleParzen.high).toBe(bounds.high)
+              yield* Effect.forEach(entry.probes, (probe, index) =>
+                Effect.gen(function*() {
+                  const value = yield* Effect.fromOption(Arr.get(probe, dimension))
+                  const feasible = yield* Effect.fromOption(Arr.get(expected.feasible, index))
+                  const infeasible = yield* Effect.fromOption(Arr.get(expected.infeasible, index))
+                  expect(logDensity(model.feasibleParzen, value), `${entry.id} feasible ${dimension}/${index}`)
+                    .toBeCloseTo(feasible, 9)
+                  expect(logDensity(model.infeasibleParzen, value), `${entry.id} infeasible ${dimension}/${index}`)
+                    .toBeCloseTo(infeasible, 9)
+                }))
+            }))
+        }))
+    }))
 
-      yield* Effect.forEach(
-        fixture.payload.densityCases,
-        (densityCase) =>
-          Effect.gen(function*() {
-            const models = buildConstraintDensityModels(densityCase.observations)
-            const ratios = Arr.map(
-              densityCase.probes,
-              (probe) => constraintDensityRatioProduct(models, probe)
-            )
-
-            yield* Effect.forEach(
-              densityCase.expectedRatioProducts,
-              (expectedRatio, index) =>
-                Effect.sync(() => {
-                  expectWithinTolerance(valueAt(ratios, index), expectedRatio, SCORE_TOLERANCE)
-                }),
-              { discard: true }
-            )
-
-            yield* Effect.sync(() => {
-              expect(descendingRatioOrder(ratios)).toEqual(densityCase.expectedOrder)
-            })
-          }),
-        { discard: true }
-      )
-
-      const splitCase = fixture.payload.splitCase
+  it.effect("matches the feasibility-first split", () =>
+    Effect.gen(function*() {
+      const { payload: { splitCase } } = yield* fixture
       const split = splitSingleObjective(
         Arr.map(splitCase.trials, (trial) =>
           observation(
@@ -92,10 +53,7 @@ describe("constrained fixture parity", () => {
           )),
         splitCase.direction
       )
-
-      yield* Effect.sync(() => {
-        expect(Arr.map(split.below, (trial) => trial.trialNumber)).toEqual(splitCase.expectedBelow)
-        expect(Arr.map(split.above, (trial) => trial.trialNumber)).toEqual(splitCase.expectedAbove)
-      })
+      expect(Arr.map(split.below, (trial) => trial.trialNumber)).toEqual(splitCase.expectedBelow)
+      expect(Arr.map(split.above, (trial) => trial.trialNumber)).toEqual(splitCase.expectedAbove)
     }))
 })
