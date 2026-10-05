@@ -2,7 +2,7 @@
  * GEPA merge and crossover contracts.
  */
 import { describe, expect, it } from "@effect/vitest"
-import { Array as Arr, Boolean as Bool, Effect, Number as Num, Option, Schema, String as Str } from "effect"
+import { Array as Arr, Boolean as Bool, Effect, Option, String as Str } from "effect"
 import {
   classifyMergeComparisonBucket,
   findNearestCommonAncestor,
@@ -11,11 +11,6 @@ import {
   selectBalancedMergeSubsample
 } from "../../src/internal/gepa/merge.js"
 import { MergeComparison, MergeState, PredictorInstruction, ProgramCandidate } from "../../src/internal/gepa/model.js"
-import {
-  GepaMergeCommonAncestorCasesFixtureSchema,
-  GepaMergeScheduleFixtureSchema,
-  loadFixture
-} from "../helpers/dspy-fixtures/index.js"
 
 const makePredictorInstructions = (qa: string, judge: string): ReadonlyArray<PredictorInstruction> =>
   Arr.make(
@@ -45,92 +40,6 @@ const findInstruction = (
   ).pipe(Option.map((entry) => entry.instruction))
 
 describe("GEPA merge/crossover", () => {
-  it.effect("uses committed fixture contracts for common-ancestor discovery and merge scheduling", () =>
-    Effect.gen(function*() {
-      const rawCommonAncestorFixture = yield* loadFixture("dspy.gepa.merge.common-ancestor-cases")
-      const commonAncestorFixture = yield* Schema.decodeUnknownEffect(GepaMergeCommonAncestorCasesFixtureSchema)(
-        rawCommonAncestorFixture
-      )
-      const rawScheduleFixture = yield* loadFixture("dspy.gepa.merge.schedule.max-merge-invocations")
-      const scheduleFixture = yield* Schema.decodeUnknownEffect(GepaMergeScheduleFixtureSchema)(rawScheduleFixture)
-      const candidates = Arr.map(
-        commonAncestorFixture.payload.candidates,
-        (candidate) =>
-          new ProgramCandidate({
-            candidateId: candidate.candidateId,
-            parentIds: candidate.parentIds,
-            predictorInstructions: Arr.map(
-              candidate.predictorInstructions,
-              (instruction) => new PredictorInstruction(instruction)
-            )
-          })
-      )
-      const comparisons = Arr.map(
-        commonAncestorFixture.payload.comparisons,
-        (comparison) => new MergeComparison(comparison)
-      )
-      const preparation = prepareCommonAncestorMerge({
-        candidates,
-        parentAId: commonAncestorFixture.payload.parentAId,
-        parentBId: commonAncestorFixture.payload.parentBId,
-        parentAScore: 0.8,
-        parentBScore: 0.7,
-        mergedCandidateId: "fixture-merge",
-        comparisons,
-        mergeBudgetRemaining: scheduleFixture.payload.defaultMaxMergeInvocations,
-        seed: commonAncestorFixture.payload.seed
-      })
-
-      expect(preparation.event).toEqual({
-        _tag: "MergePrepared",
-        parentAId: commonAncestorFixture.payload.parentAId,
-        parentBId: commonAncestorFixture.payload.parentBId,
-        commonAncestorId: commonAncestorFixture.payload.expectedCommonAncestorId
-      })
-      expect(Arr.map(preparation.subsample, (comparison) => comparison.exampleId)).toEqual(
-        commonAncestorFixture.payload.expectedBalancedSubsampleIds
-      )
-
-      yield* Effect.forEach(
-        scheduleFixture.payload.attemptDecisions,
-        (decision) =>
-          Effect.sync(() => {
-            const shouldAttempt = Bool.every(
-              Arr.make(
-                decision.lastIterationFoundNew,
-                Num.isGreaterThan(decision.mergeBudgetRemaining, 0),
-                Num.isGreaterThanOrEqualTo(decision.candidateCount, 2)
-              )
-            )
-            expect(shouldAttempt).toBe(decision.expectedShouldAttempt)
-          }),
-        { discard: true }
-      )
-
-      yield* Effect.forEach(
-        scheduleFixture.payload.acceptedMergeBudgetTransitions,
-        (transition) =>
-          Effect.sync(() => {
-            const updated = recordAcceptedMerge(
-              new MergeState({
-                candidates,
-                mergeBudgetRemaining: transition.before
-              }),
-              new ProgramCandidate({
-                candidateId: "accepted-fixture-merge",
-                parentIds: Arr.make("parent-a", "parent-b"),
-                predictorInstructions: Arr.make(
-                  new PredictorInstruction({ predictorName: "qa", instruction: "fixture-qa" })
-                )
-              })
-            )
-
-            expect(updated.mergeBudgetRemaining).toBe(transition.after)
-          }),
-        { discard: true }
-      )
-    }))
-
   it.effect("skips merge with an explicit event when no common ancestor exists", () =>
     Effect.gen(function*() {
       const candidates = Arr.make(

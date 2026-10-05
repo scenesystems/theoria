@@ -1,0 +1,26 @@
+{
+  "fixture": "majority-001",
+  "payload": {
+    "cases": [
+      {
+        "name": "majority",
+        "question": "choose",
+        "programAnswers": [
+          "a",
+          "b",
+          "b"
+        ],
+        "expectedAnswer": "b"
+      },
+      {
+        "name": "tie",
+        "question": "choose",
+        "programAnswers": [
+          "b",
+          "a"
+        ],
+        "expectedAnswer": "b"
+      }
+    ]
+  }
+}

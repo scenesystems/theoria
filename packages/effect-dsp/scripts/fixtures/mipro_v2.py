@@ -1,126 +1,106 @@
-from __future__ import annotations
+"""Delegate-only observations of all three MIPRO phases."""
 
-import math
-from typing import Any
+from unittest.mock import patch
 
-from ._common import metadata
+import dspy
+from dspy.teleprompt import mipro_optimizer_v2 as upstream
+from dspy.utils import DummyLM
 
-PHASE_ORDER = ["phase1", "phase2", "phase3"]
-PHASE1_ANCHOR_KINDS = ["zero-shot", "labels-only", "bootstrap-unshuffled", "bootstrap-shuffled"]
-DEFAULT_TIP_VOCABULARY = ["none", "creative", "simple", "description", "high_stakes", "persona"]
-PHASE3_TRIAL_BUDGET_FORMULA = "max(ceil(max(2*M*log(N), 3*N/2)), minimum)"
-
-TRIAL_BUDGET_CASES = [
-    {
-        "name": "baseline-no-minimum",
-        "predictorCount": 2,
-        "demoCandidateCount": 4,
-        "instructionCandidateCount": 3,
-        "minimum": None,
-    },
-    {
-        "name": "baseline-with-minimum",
-        "predictorCount": 2,
-        "demoCandidateCount": 4,
-        "instructionCandidateCount": 3,
-        "minimum": 8,
-    },
-    {
-        "name": "logarithmic-dominant",
-        "predictorCount": 5,
-        "demoCandidateCount": 3,
-        "instructionCandidateCount": 3,
-        "minimum": None,
-    },
-    {
-        "name": "exploration-dominant",
-        "predictorCount": 1,
-        "demoCandidateCount": 8,
-        "instructionCandidateCount": 5,
-        "minimum": None,
-    },
-    {
-        "name": "zero-input-normalization",
-        "predictorCount": 0,
-        "demoCandidateCount": 0,
-        "instructionCandidateCount": 0,
-        "minimum": None,
-    },
-]
+from ._common import examples, history, lm, splits, state
 
 
-def _trial_budget(case: dict[str, Any]) -> int:
-    predictor_count = max(1, int(case["predictorCount"]))
-    candidate_count = max(1, max(int(case["demoCandidateCount"]), int(case["instructionCandidateCount"])))
-    logarithmic_budget = 2 * predictor_count * math.log(candidate_count)
-    exploration_budget = (3 * candidate_count) / 2
-    minimum = int(case["minimum"]) if isinstance(case.get("minimum"), int) else 1
+class ObservedMIPRO(dspy.MIPROv2):
+    def _bootstrap_fewshot_examples(self, *args, **kwargs):
+        value = super()._bootstrap_fewshot_examples(*args, **kwargs)
+        self.demo_sets = {i: [[e.toDict() for e in demos] for demos in sets] for i, sets in value.items()}
+        return value
 
-    return max(minimum, math.ceil(max(logarithmic_budget, exploration_budget)))
+    def _propose_instructions(self, *args, **kwargs):
+        value = super()._propose_instructions(*args, **kwargs)
+        self.instructions = value
+        return value
 
-
-def _phase_config_payload() -> dict[str, Any]:
-    return {
-        "phaseOrder": PHASE_ORDER,
-        "phase1AnchorKinds": PHASE1_ANCHOR_KINDS,
-        "phase3TrialBudgetFormula": PHASE3_TRIAL_BUDGET_FORMULA,
-        "phase3CadenceDefaults": {
-            "seed": 1,
-            "minibatchSize": 50,
-            "fullEvalEvery": 5,
-        },
-        "phase3Sampler": {
-            "kind": "tpe",
-            "multivariate": True,
-        },
-        "phase3PriorTrialCount": 1,
-    }
+    def _select_and_insert_instructions_and_demos(self, *args, **kwargs):
+        value = super()._select_and_insert_instructions_and_demos(*args, **kwargs)
+        trial = args[3]
+        self.current_trial = trial.number
+        self.params.append({"number": trial.number, "params": dict(trial.params)})
+        return value
 
 
-def _tips_payload() -> dict[str, Any]:
-    return {
-        "defaultTips": DEFAULT_TIP_VOCABULARY,
-        "baselineTip": "baseline",
-        "proposalMarkerTemplate": "[miprov2-proposal:{predictorName}:{proposalIndex}:seed:{seed}]",
-        "diversityTemperatureDefault": 1,
-    }
+def run(auto, discriminator=False):
+    train, val = examples("train", 4), examples("val", 6)
+    task = lm()
+    proposer = DummyLM([{"proposed_instruction": f"candidate-{i}"} for i in range(100)])
+    program = dspy.Predict("question -> answer")
+    program.signature = program.signature.with_instructions("baseline")
+    optimizer = ObservedMIPRO(
+        metric=lambda e, p, trace=None: 0.8,
+        prompt_model=proposer, task_model=task, auto=auto,
+        num_candidates=3 if auto is None else None,
+        max_bootstrapped_demos=1, max_labeled_demos=1,
+        num_threads=1, seed=9,
+    )
+    optimizer.params = []
+    optimizer.current_trial = None
+    evaluations = []
+    proposer_rollouts = []
+    real_copy = proposer.copy
+
+    def observed_copy(**kwargs):
+        copied = real_copy(**kwargs)
+        proposer_rollouts.append(copied)
+        return copied
+
+    real_evaluate = upstream.eval_candidate_program
+
+    def observed_evaluate(batch_size, dataset, candidate, evaluate, rng=None):
+        # Observe membership at the Evaluate boundary; no extra RNG draws.
+        def evaluate_batch(p, devset, **kwargs):
+            instruction = p.predictors()[0].signature.instructions
+            def metric(e, prediction, trace=None):
+                if not discriminator or instruction == "baseline":
+                    return 0.8
+                # A specialist can win a minibatch yet lose on full validation.
+                return 1.0 if e.id in ("val-0", "val-1", "val-2") else 0.0
+            result = evaluate(p, devset=devset, metric=metric, **kwargs)
+            evaluations.append({"trial": optimizer.current_trial, "ids": [e.id for e in devset],
+                                "fullValidation": len(devset) == len(dataset),
+                                "instruction": instruction, "score": result.score / 100,
+                                "state": state(p)})
+            return result
+        return real_evaluate(batch_size, dataset, candidate, evaluate_batch, rng)
+
+    with (dspy.context(lm=task), patch.object(upstream, "eval_candidate_program", observed_evaluate),
+          patch.object(proposer, "copy", observed_copy)):
+        compiled = optimizer.compile(
+            program, trainset=train, valset=val, num_trials=12 if auto is None else None,
+            minibatch=True, minibatch_size=1, minibatch_full_eval_steps=2,
+            program_aware_proposer=False, data_aware_proposer=False,
+            tip_aware_proposer=False, fewshot_aware_proposer=False,
+        )
+    return {"auto": auto, "seed": 9, "splits": splits(train, val),
+            "demoSets": optimizer.demo_sets, "instructions": optimizer.instructions,
+            "trials": optimizer.params, "evaluations": evaluations,
+            "trialLogs": {number: {key: state(value) if isinstance(value, dspy.Module) else value
+                                   for key, value in log.items() if not key.endswith("_path")}
+                          for number, log in compiled.trial_logs.items()},
+            "trialCount": len(optimizer.params), "bestFullValidationScore": compiled.score / 100,
+            "state": state(compiled), "taskHistory": history(task),
+            "proposerHistory": [entry for model in proposer_rollouts for entry in history(model)]}
 
 
-def _trial_budget_payload() -> dict[str, Any]:
-    return {
-        "formula": PHASE3_TRIAL_BUDGET_FORMULA,
-        "cases": [
-            {
-                "name": case["name"],
-                "predictorCount": int(case["predictorCount"]),
-                "demoCandidateCount": int(case["demoCandidateCount"]),
-                "instructionCandidateCount": int(case["instructionCandidateCount"]),
-                "minimum": case["minimum"],
-                "expectedBudget": _trial_budget(case),
-            }
-            for case in TRIAL_BUDGET_CASES
-        ],
-    }
-
-
-def generate(generated_at: str) -> list[dict[str, Any]]:
-    return [
-        {
-            "fixture": "dspy.mipro.phase-config",
-            "file": "mipro/phase-config.json",
-            "metadata": metadata(generated_at),
-            "payload": _phase_config_payload(),
-        },
-        {
-            "fixture": "dspy.mipro.tips-vocabulary",
-            "file": "mipro/tips-vocabulary.json",
-            "metadata": metadata(generated_at),
-            "payload": _tips_payload(),
-        },
-        {
-            "fixture": "dspy.mipro.trial-budget-cases",
-            "file": "mipro/trial-budget-cases.json",
-            "metadata": metadata(generated_at),
-            "payload": _trial_budget_payload(),
-        },
-    ]
+def generate():
+    docs = []
+    for auto in ["light", "medium", "heavy", None]:
+        payload = run(auto, discriminator=auto is None)
+        name = "mipro-trial-budget-001" if auto == "light" else f"miprov2-{auto or 'explicit'}-001"
+        docs.append({"id": name, "description": "Real MIPRO compile phases, Optuna params and validation checkpoints.",
+                     "payload": payload})
+        if auto is None:
+            assert max(e["score"] for e in payload["evaluations"] if not e["fullValidation"]) > payload["bestFullValidationScore"]
+            assert payload["state"]["signature"]["instructions"] == "baseline"
+            docs.append({"id": "mipro-best-fullval-001",
+                         "description": "A minibatch specialist loses to the baseline full-validation checkpoint.",
+                         "payload": payload})
+    return docs

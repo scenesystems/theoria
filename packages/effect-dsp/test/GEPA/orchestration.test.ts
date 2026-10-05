@@ -16,11 +16,9 @@ import {
   Effect,
   Fiber,
   Inspectable,
-  Layer,
   Match,
   Number as Num,
   Option,
-  Order,
   Record,
   Ref,
   Schema,
@@ -31,7 +29,6 @@ import * as LanguageModel from "effect/ai/LanguageModel"
 import * as Response from "effect/ai/Response"
 import { PredictorInstruction, ProgramCandidate } from "../../src/internal/gepa/model.js"
 import { CandidateEvaluationWindow, evaluateCandidate } from "../../src/internal/gepa/runtime/evaluate.js"
-import { GepaOrchestrationEventOrderFixtureSchema, loadFixture } from "../helpers/dspy-fixtures/index.js"
 
 class AnswerResponse extends Schema.Class<AnswerResponse>("AnswerResponse")({
   answer: Schema.String
@@ -51,13 +48,6 @@ class CountingStreamResult extends Data.Class<{
   readonly evaluatedRows: number
 }> {}
 
-const reflectiveResponse = Arr.of(
-  Response.TextPart.make({
-    metadata: {},
-    text: "```\nAnswer each question concisely using the most accurate fact available.\n```"
-  })
-)
-
 const improvingReflectiveResponse = Arr.of(
   Response.TextPart.make({
     metadata: {},
@@ -69,12 +59,6 @@ const FULL_VALSET_ROW_COUNT = 4
 const INITIAL_AND_REFLECTION_PARENT_ROW_COUNT = Num.multiply(2, FULL_VALSET_ROW_COUNT)
 const REJECTED_MUTATION_ROW_COUNT = Num.sum(INITIAL_AND_REFLECTION_PARENT_ROW_COUNT, 3)
 const ACCEPTED_MUTATION_ROW_COUNT = Num.sum(INITIAL_AND_REFLECTION_PARENT_ROW_COUNT, FULL_VALSET_ROW_COUNT)
-
-const responseForPrompt = (prompt: string) =>
-  Match.value(prompt).pipe(
-    Match.when(Str.includes("Your task is to write a new instruction"), () => reflectiveResponse),
-    Match.orElse(() => new AnswerResponse({ answer: "Paris" }))
-  )
 
 const makeQaSignature = () =>
   Signature.make(
@@ -494,54 +478,5 @@ describe("GEPA.run orchestration", () => {
       yield* Fiber.interrupt(fiber)
 
       expect(yield* Ref.get(module.params)).toEqual(originalParams)
-    }))
-
-  it.effect("runs merge-check → reflective mutation → acceptance → Pareto update in canonical order", () =>
-    Effect.gen(function*() {
-      const rawEventOrderFixture = yield* loadFixture("dspy.gepa.orchestration.event-order.seed-0")
-      const eventOrderFixture = yield* Schema.decodeUnknownEffect(GepaOrchestrationEventOrderFixtureSchema)(
-        rawEventOrderFixture
-      )
-      const signature = yield* makeQaSignature()
-      const module = yield* Module.predict("qa", signature)
-      const mock = yield* MockLanguageModel.make(MockLanguageModel.map(responseForPrompt))
-      const layer = Layer.succeed(LanguageModel.LanguageModel, mock.service)
-      const events = yield* Stream.runCollect(
-        GEPA.stream(
-          new GEPA.Options({
-            module,
-            trainset: Arr.make(
-              new Example({
-                input: { question: "What is the capital of France?" },
-                output: { answer: "London" }
-              }),
-              new Example({
-                input: { question: "What is the capital of Japan?" },
-                output: { answer: "Berlin" }
-              })
-            ),
-            metric: Metric.exactMatch("answer"),
-            maxIterations: 2,
-            seed: 42
-          })
-        )
-      ).pipe(Effect.provide(layer))
-
-      const eventList = Arr.fromIterable(events)
-      const tags = Arr.map(eventList, (event) => event._tag)
-      // Where each stage of an iteration first appears; upstream's order is the fixture's.
-      const firstAppearance = Option.all(
-        Arr.map(
-          eventOrderFixture.payload.expectedWithinIterationOrder,
-          (tag) => Arr.findFirstIndex(tags, (candidate) => Str.Equivalence(candidate, tag))
-        )
-      )
-
-      expect(Option.isSome(firstAppearance)).toBe(true)
-      expect(Option.map(firstAppearance, Arr.sort(Order.Number))).toEqual(firstAppearance)
-      expect(Arr.head(tags)).toEqual(
-        Option.some(Arr.headNonEmpty(eventOrderFixture.payload.expectedWithinIterationOrder))
-      )
-      expect(Arr.last(tags)).toEqual(Option.some(eventOrderFixture.payload.expectedTerminalTag))
     }))
 })

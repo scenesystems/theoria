@@ -7,7 +7,7 @@ import * as Trace from "@scenesystems/effect-dsp/Trace"
 import { Array as Arr, Effect, Layer, Option, Record, Schema } from "effect"
 import * as LanguageModel from "effect/ai/LanguageModel"
 
-import { ChainOfThoughtReasoningFixtureSchema, loadFixture } from "../helpers/dspy-fixtures/index.js"
+import { fixture } from "../kit/Fixtures.js"
 
 const makeQaSignature = () =>
   Signature.make(
@@ -23,31 +23,39 @@ const makeQaSignature = () =>
 describe("Module.chainOfThought DSPy parity", () => {
   it.effect("matches the DSPy reasoning-field and trace contracts", () =>
     Effect.gen(function*() {
-      const rawFixture = yield* loadFixture("dspy.cot.reasoning-field.basic")
-      const fixture = yield* Schema.decodeUnknownEffect(ChainOfThoughtReasoningFixtureSchema)(rawFixture)
+      const reference = yield* fixture("predict-trace-001", "upstream-execution")
+      const Output = Schema.Struct({ reasoning: Schema.String, answer: Schema.String })
+      const payload = yield* Schema.decodeUnknownEffect(Schema.Struct({
+        prediction: Output,
+        trace: Schema.NonEmptyArray(Schema.Struct({
+          inputs: Schema.Struct({ question: Schema.String }),
+          outputs: Output
+        }))
+      }))(reference.payload)
+      const sampleInput = Arr.headNonEmpty(payload.trace).inputs
 
       const qa = yield* makeQaSignature()
       const cot = yield* Module.chainOfThought("qa-cot-dspy-parity", qa)
       const mock = yield* MockLanguageModel.make(
-        MockLanguageModel.succeed(fixture.payload.sampleOutput)
+        MockLanguageModel.succeed(payload.prediction)
       )
       const lmLayer = Layer.succeed(LanguageModel.LanguageModel, mock.service)
 
       const [result, entries] = yield* Trace.withTracing(
-        cot.forward(fixture.payload.sampleInput).pipe(
+        cot.forward(sampleInput).pipe(
           Effect.provide(lmLayer)
         )
       )
       const firstEntry = Option.getOrThrow(Arr.head(entries))
 
-      expect(Record.keys(cot.signature.outputFields)).toStrictEqual(fixture.payload.outputFieldOrder)
-      expect(result).toStrictEqual(fixture.payload.sampleOutput)
-      expect(entries).toHaveLength(fixture.payload.traceLength)
+      expect(Record.keys(cot.signature.outputFields)).toStrictEqual(Record.keys(payload.prediction))
+      expect(result).toStrictEqual(payload.prediction)
+      expect(entries).toHaveLength(payload.trace.length)
       expect(yield* decode(cot.signature.inputSchema, firstEntry.input)).toStrictEqual(
-        fixture.payload.sampleInput
+        sampleInput
       )
       expect(yield* decode(cot.signature.outputSchema, firstEntry.output)).toStrictEqual(
-        fixture.payload.sampleOutput
+        Arr.headNonEmpty(payload.trace).outputs
       )
     }))
 })

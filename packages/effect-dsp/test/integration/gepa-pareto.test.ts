@@ -23,7 +23,7 @@ import {
 } from "effect"
 import * as LanguageModel from "effect/ai/LanguageModel"
 import * as Response from "effect/ai/Response"
-import { GepaSelectionWeightsFixtureSchema, loadFixture } from "../helpers/dspy-fixtures/index.js"
+import { fixture } from "../kit/Fixtures.js"
 
 const AnswerResponse = Schema.Struct({
   answer: Signature.describe(Schema.String, "A concise factual answer")
@@ -176,10 +176,8 @@ describe("GEPA integration", () => {
     "runs end-to-end with deterministic mock LM and feedback-aware metric",
     () =>
       Effect.gen(function*() {
-        const rawSelectionFixture = yield* loadFixture("dspy.gepa.selection.weights.seed-42")
-        const selectionFixture = yield* Schema.decodeUnknownEffect(GepaSelectionWeightsFixtureSchema)(
-          rawSelectionFixture
-        )
+        const reference = yield* fixture("gepa-aggregate-best-001", "upstream-execution")
+        const { seed } = yield* Schema.decodeUnknownEffect(Schema.Struct({ seed: Schema.Int }))(reference.payload)
         const signature = yield* makeQaSignature()
         const module = yield* Module.predict("qa", signature)
         const mock = yield* MockLanguageModel.make(
@@ -229,7 +227,7 @@ describe("GEPA integration", () => {
               ),
               metric: feedbackMetric,
               maxIterations: 3,
-              seed: selectionFixture.payload.seed
+              seed
             })
           )
         ).pipe(Effect.provide(layer))

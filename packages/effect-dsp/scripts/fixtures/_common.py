@@ -1,32 +1,65 @@
-from __future__ import annotations
+"""Serialization and test inputs only; no optimizer policy lives here."""
 
+import hashlib
+import importlib.metadata
 import json
-from pathlib import Path
-from typing import Any
+import platform
 
-SCHEMA_VERSION = "1.0.0"
-GENERATOR_VERSION = "0.2.0"
-DEFAULT_GENERATED_AT = "2026-03-18T00:00:00Z"
-GENERATOR_SCRIPT = "scripts/generate-dspy-fixtures.py"
-UPSTREAM_NAME = "dspy"
-UPSTREAM_VERSION = "3.1.3"
-PYTHON_VERSION = "3.11"
+import dspy
+from dspy.utils import DummyLM
 
-
-def metadata(generated_at: str) -> dict[str, Any]:
-    return {
-        "generatedAt": generated_at,
-        "upstream": {
-            "name": UPSTREAM_NAME,
-            "version": UPSTREAM_VERSION,
-        },
-        "generator": {
-            "script": GENERATOR_SCRIPT,
-            "version": GENERATOR_VERSION,
-        },
-    }
+VERSIONS = {"dspy": "3.4.0", "gepa": "0.1.4", "optuna": "4.9.0"}
+COMMITS = {
+    "dspy": "2413b67a4d08a476e4bc6f40b9f8f42f87711ee7",
+    "gepa": "8b0ce6cd99a234f6b74daf37558a2ac0ce18f975",
+}
 
 
-def write_json(path: Path, payload: dict[str, Any]) -> None:
-    path.parent.mkdir(parents=True, exist_ok=True)
-    path.write_text(json.dumps(payload, indent=2, sort_keys=False) + "\n", encoding="utf-8")
+def assert_runtime_version():
+    for package, version in VERSIONS.items():
+        if importlib.metadata.version(package) != version:
+            raise RuntimeError(f"{package}: expected {version}")
+    assert dspy.__version__ == VERSIONS["dspy"]
+    return {**VERSIONS, "commits": COMMITS,
+            "python": platform.python_version(),
+            "platform": f"{platform.system()}-{platform.machine()}"}
+
+
+def render(value):
+    return (json.dumps(value, indent=2, ensure_ascii=False, allow_nan=False) + "\n").encode()
+
+
+def document(item, generator):
+    payload = render({"fixture": item["id"], "payload": item["payload"]})
+    return ({"id": item["id"], "file": f"upstream/{item['id']}.json",
+             "evidence": item.get("evidence", "upstream-execution"),
+             "sha256": hashlib.sha256(payload).hexdigest(), "generator": generator,
+             "description": item["description"]}, payload)
+
+
+def examples(split, n):
+    return [dspy.Example(id=f"{split}-{i}", question=f"{split}-{i}", answer=f"label-{i}")
+            .with_inputs("question") for i in range(n)]
+
+
+def lm(answer="teacher", temperature=0.17, max_tokens=73):
+    model = DummyLM([{"answer": answer}] * 20000)
+    model.kwargs.update(temperature=temperature, max_tokens=max_tokens)
+    return model
+
+
+def history(model):
+    # Discard only nondeterministic transport metadata (UUID, timestamp, latency).
+    return [{"messages": h["messages"],
+             "kwargs": {**{k: v for k, v in {**model.kwargs, **h["kwargs"]}.items()
+                            if k in ("temperature", "max_tokens", "rollout_id")},
+                        "model": h.get("model", model.model)},
+             "response": h["outputs"]} for h in model.history]
+
+
+def state(program):
+    return program.dump_state()
+
+
+def splits(train, val=()):
+    return {"train": [e.toDict() for e in train], "val": [e.toDict() for e in val]}

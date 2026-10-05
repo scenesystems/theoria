@@ -13,7 +13,7 @@ import { Array as Arr, Data, Effect, Layer, Match, Option, Schema, Stream, Strin
 import * as LanguageModel from "effect/ai/LanguageModel"
 import * as Response from "effect/ai/Response"
 
-import { GepaReplaySeedContractFixtureSchema, loadFixture } from "../helpers/dspy-fixtures/index.js"
+import { fixture } from "../kit/Fixtures.js"
 
 const encodeSavedStateJson = Schema.encodeEffect(Schema.fromJsonString(Module.SavedState))
 const ParetoSnapshotSchema = Schema.Struct({
@@ -117,21 +117,10 @@ describe("GEPA deterministic replay", () => {
     "replays seeded runs with byte-stable outputs",
     () =>
       Effect.gen(function*() {
-        const rawReplayContract = yield* loadFixture("dspy.gepa.replay.seed-0.contract")
-        const replayContract = yield* Schema.decodeUnknownEffect(GepaReplaySeedContractFixtureSchema)(
-          rawReplayContract
-        )
-
-        const firstRun = yield* runSeededReplay(
-          replayContract.payload.moduleName,
-          replayContract.payload.seed,
-          replayContract.payload.maxIterations
-        )
-        const secondRun = yield* runSeededReplay(
-          replayContract.payload.moduleName,
-          replayContract.payload.seed,
-          replayContract.payload.maxIterations
-        )
+        const reference = yield* fixture("gepa-aggregate-best-001", "upstream-execution")
+        const { seed } = yield* Schema.decodeUnknownEffect(Schema.Struct({ seed: Schema.Int }))(reference.payload)
+        const firstRun = yield* runSeededReplay("qa", seed, 3)
+        const secondRun = yield* runSeededReplay("qa", seed, 3)
 
         expect(secondRun.savedStateBytes).toEqual(firstRun.savedStateBytes)
         expect(secondRun.paretoSnapshotBytes).toEqual(firstRun.paretoSnapshotBytes)

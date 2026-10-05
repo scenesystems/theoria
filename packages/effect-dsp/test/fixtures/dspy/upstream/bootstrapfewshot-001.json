@@ -1,0 +1,232 @@
+{
+  "fixture": "bootstrapfewshot-001",
+  "payload": {
+    "splits": {
+      "train": [
+        {
+          "id": "train-0",
+          "question": "train-0",
+          "answer": "label-0"
+        },
+        {
+          "id": "train-1",
+          "question": "train-1",
+          "answer": "label-1"
+        },
+        {
+          "id": "train-2",
+          "question": "train-2",
+          "answer": "label-2"
+        },
+        {
+          "id": "train-3",
+          "question": "train-3",
+          "answer": "label-3"
+        }
+      ],
+      "val": []
+    },
+    "metricThreshold": null,
+    "maxErrors": 1,
+    "teacher": false,
+    "metricCalls": [
+      {
+        "id": "train-0",
+        "prediction": {
+          "answer": "teacher"
+        },
+        "trace": [
+          {
+            "predictor": 0,
+            "inputs": {
+              "question": "train-0"
+            },
+            "outputs": {
+              "answer": "teacher"
+            }
+          },
+          {
+            "predictor": 1,
+            "inputs": {
+              "question": "teacher"
+            },
+            "outputs": {
+              "answer": "teacher"
+            }
+          }
+        ]
+      },
+      {
+        "id": "train-1",
+        "prediction": {
+          "answer": "teacher"
+        },
+        "trace": [
+          {
+            "predictor": 0,
+            "inputs": {
+              "question": "train-1"
+            },
+            "outputs": {
+              "answer": "teacher"
+            }
+          },
+          {
+            "predictor": 1,
+            "inputs": {
+              "question": "teacher"
+            },
+            "outputs": {
+              "answer": "teacher"
+            }
+          }
+        ]
+      }
+    ],
+    "history": [
+      {
+        "messages": [
+          {
+            "role": "system",
+            "content": "Your input fields are:\n1. `question` (str):\nYour output fields are:\n1. `answer` (str):\nAll interactions will be structured in the following way, with the appropriate values filled in.\n\n[[ ## question ## ]]\n{question}\n\n[[ ## answer ## ]]\n{answer}\n\n[[ ## completed ## ]]\nIn adhering to this structure, your objective is: \n        Given the fields `question`, produce the fields `answer`."
+          },
+          {
+            "role": "user",
+            "content": "[[ ## question ## ]]\ntrain-0\n\nRespond with the corresponding output fields, starting with the field `[[ ## answer ## ]]`, and then ending with the marker for `[[ ## completed ## ]]`."
+          }
+        ],
+        "kwargs": {
+          "temperature": 0.17,
+          "max_tokens": 73,
+          "model": "dummy"
+        },
+        "response": [
+          "[[ ## answer ## ]]\nteacher"
+        ]
+      },
+      {
+        "messages": [
+          {
+            "role": "system",
+            "content": "Your input fields are:\n1. `question` (str):\nYour output fields are:\n1. `answer` (str):\nAll interactions will be structured in the following way, with the appropriate values filled in.\n\n[[ ## question ## ]]\n{question}\n\n[[ ## answer ## ]]\n{answer}\n\n[[ ## completed ## ]]\nIn adhering to this structure, your objective is: \n        Given the fields `question`, produce the fields `answer`."
+          },
+          {
+            "role": "user",
+            "content": "[[ ## question ## ]]\nteacher\n\nRespond with the corresponding output fields, starting with the field `[[ ## answer ## ]]`, and then ending with the marker for `[[ ## completed ## ]]`."
+          }
+        ],
+        "kwargs": {
+          "temperature": 0.17,
+          "max_tokens": 73,
+          "model": "dummy"
+        },
+        "response": [
+          "[[ ## answer ## ]]\nteacher"
+        ]
+      },
+      {
+        "messages": [
+          {
+            "role": "system",
+            "content": "Your input fields are:\n1. `question` (str):\nYour output fields are:\n1. `answer` (str):\nAll interactions will be structured in the following way, with the appropriate values filled in.\n\n[[ ## question ## ]]\n{question}\n\n[[ ## answer ## ]]\n{answer}\n\n[[ ## completed ## ]]\nIn adhering to this structure, your objective is: \n        Given the fields `question`, produce the fields `answer`."
+          },
+          {
+            "role": "user",
+            "content": "[[ ## question ## ]]\ntrain-1\n\nRespond with the corresponding output fields, starting with the field `[[ ## answer ## ]]`, and then ending with the marker for `[[ ## completed ## ]]`."
+          }
+        ],
+        "kwargs": {
+          "temperature": 0.17,
+          "max_tokens": 73,
+          "model": "dummy"
+        },
+        "response": [
+          "[[ ## answer ## ]]\nteacher"
+        ]
+      },
+      {
+        "messages": [
+          {
+            "role": "system",
+            "content": "Your input fields are:\n1. `question` (str):\nYour output fields are:\n1. `answer` (str):\nAll interactions will be structured in the following way, with the appropriate values filled in.\n\n[[ ## question ## ]]\n{question}\n\n[[ ## answer ## ]]\n{answer}\n\n[[ ## completed ## ]]\nIn adhering to this structure, your objective is: \n        Given the fields `question`, produce the fields `answer`."
+          },
+          {
+            "role": "user",
+            "content": "[[ ## question ## ]]\nteacher\n\nRespond with the corresponding output fields, starting with the field `[[ ## answer ## ]]`, and then ending with the marker for `[[ ## completed ## ]]`."
+          }
+        ],
+        "kwargs": {
+          "temperature": 0.17,
+          "max_tokens": 73,
+          "model": "dummy"
+        },
+        "response": [
+          "[[ ## answer ## ]]\nteacher"
+        ]
+      }
+    ],
+    "studentHistory": [],
+    "state": {
+      "first": {
+        "traces": [],
+        "train": [],
+        "demos": [
+          {
+            "augmented": true,
+            "question": "train-0",
+            "answer": "teacher"
+          },
+          {
+            "augmented": true,
+            "question": "train-1",
+            "answer": "teacher"
+          }
+        ],
+        "signature": {
+          "instructions": "Given the fields `question`, produce the fields `answer`.",
+          "fields": [
+            {
+              "prefix": "Question:",
+              "description": "${question}"
+            },
+            {
+              "prefix": "Answer:",
+              "description": "${answer}"
+            }
+          ]
+        },
+        "lm": null
+      },
+      "second": {
+        "traces": [],
+        "train": [],
+        "demos": [
+          {
+            "augmented": true,
+            "question": "teacher",
+            "answer": "teacher"
+          },
+          {
+            "augmented": true,
+            "question": "teacher",
+            "answer": "teacher"
+          }
+        ],
+        "signature": {
+          "instructions": "Given the fields `question`, produce the fields `answer`.",
+          "fields": [
+            {
+              "prefix": "Question:",
+              "description": "${question}"
+            },
+            {
+              "prefix": "Answer:",
+              "description": "${answer}"
+            }
+          ]
+        },
+        "lm": null
+      }
+    }
+  }
+}

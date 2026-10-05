@@ -18,7 +18,7 @@ import {
 } from "effect"
 import * as LanguageModel from "effect/ai/LanguageModel"
 
-import { EnsembleMajorityVoteFixtureSchema, loadFixture } from "../helpers/dspy-fixtures/index.js"
+import { fixture } from "../kit/Fixtures.js"
 
 const QaInput = Schema.Struct({
   question: Signature.describe(Schema.String, "The question to answer")
@@ -86,11 +86,18 @@ const makeProgram = <I extends Schema.Struct.Fields, O extends Schema.Struct.Fie
 describe("Ensemble.make DSPy parity", () => {
   it.effect("matches fixture-backed majority vote and tie-break contracts", () =>
     Effect.gen(function*() {
-      const rawFixture = yield* loadFixture("dspy.ensemble.majority-vote.basic")
-      const fixture = yield* Schema.decodeUnknownEffect(EnsembleMajorityVoteFixtureSchema)(rawFixture)
+      const reference = yield* fixture("majority-001", "upstream-kernel")
+      const payload = yield* Schema.decodeUnknownEffect(Schema.Struct({
+        cases: Schema.Array(Schema.Struct({
+          name: Schema.String,
+          question: Schema.String,
+          programAnswers: Schema.Array(Schema.String),
+          expectedAnswer: Schema.String
+        }))
+      }))(reference.payload)
 
       yield* Effect.forEach(
-        fixture.payload.cases,
+        payload.cases,
         (fixtureCase) =>
           Effect.gen(function*() {
             const signature = yield* makeQaSignature()

@@ -1,157 +1,143 @@
 {
-  "schemaVersion": "1.0.0",
-  "generator": {
-    "script": "scripts/generate-dspy-fixtures.py",
-    "generatorVersion": "0.2.0",
-    "upstream": "dspy",
-    "upstreamVersion": "3.1.3",
-    "pythonVersion": "3.11",
-    "generatedAt": "2026-03-18T00:00:00Z"
+  "upstream": {
+    "dspy": "3.4.0",
+    "gepa": "0.1.4",
+    "optuna": "4.9.0",
+    "commits": {
+      "dspy": "2413b67a4d08a476e4bc6f40b9f8f42f87711ee7",
+      "gepa": "8b0ce6cd99a234f6b74daf37558a2ac0ce18f975"
+    },
+    "python": "3.12.14",
+    "platform": "Linux-x86_64"
   },
   "fixtures": [
     {
-      "name": "dspy.bootstrap.demo-budget.basic",
-      "file": "bootstrap/demo-budget.basic.json"
+      "id": "bootstrap-teacher-trace-001",
+      "file": "upstream/bootstrap-teacher-trace-001.json",
+      "evidence": "upstream-execution",
+      "sha256": "1520f5e8d6a531fafb4461b6e465b40394989a817e813745a4179f16f28dd036",
+      "generator": "fixtures.bootstrap_family",
+      "description": "Real two-predictor teacher traces, quotas and acceptance."
     },
     {
-      "name": "dspy.bootstrap.threshold-filtering.basic",
-      "file": "bootstrap/threshold-filtering.basic.json"
+      "id": "bootstrapfewshot-001",
+      "file": "upstream/bootstrapfewshot-001.json",
+      "evidence": "upstream-execution",
+      "sha256": "859ab118ee8bd58c0ec986d66ed7cae05d4f7d418492f35f4ff919df1a19fefd",
+      "generator": "fixtures.bootstrap_family",
+      "description": "Real two-predictor teacher traces, quotas and acceptance."
     },
     {
-      "name": "dspy.bootstraprs.candidate-catalog.seed-9",
-      "file": "bootstraprs/candidate-catalog.seed-9.json"
+      "id": "bootstrapfewshot-errors-001",
+      "file": "upstream/bootstrapfewshot-errors-001.json",
+      "evidence": "upstream-execution",
+      "sha256": "029bdbe9d91aef53045e325b7900f57aca747ed28da1b8cb4213a94f26c821fc",
+      "generator": "fixtures.bootstrap_family",
+      "description": "Real two-predictor teacher traces, quotas and acceptance."
     },
     {
-      "name": "dspy.chat.output-requirements.basic",
-      "file": "chat/output-requirements.basic.json"
+      "id": "bootstrapfewshot-threshold-001",
+      "file": "upstream/bootstrapfewshot-threshold-001.json",
+      "evidence": "upstream-execution",
+      "sha256": "1b4880d0ceea4a763f89cb6ae7adffc0f12a6408488caa8b9ee3bc16ffded2fe",
+      "generator": "fixtures.bootstrap_family",
+      "description": "Real two-predictor teacher traces, quotas and acceptance."
     },
     {
-      "name": "dspy.chat.parse-fallback.contract",
-      "file": "chat/parse-fallback.contract.json"
+      "id": "bootstraprs-001",
+      "file": "upstream/bootstraprs-001.json",
+      "evidence": "upstream-execution",
+      "sha256": "f08f7b1fbca191d3a8e705327ea9e4d098222d81c3f580de48b18b27566c8291",
+      "generator": "fixtures.bootstrap_family",
+      "description": "Full upstream random-search seed catalog and winner."
     },
     {
-      "name": "dspy.chat.parse-sections.basic",
-      "file": "chat/parse-sections.basic.json"
+      "id": "chat-adapter-001",
+      "file": "upstream/chat-adapter-001.json",
+      "evidence": "upstream-kernel",
+      "sha256": "300a66e52ec8101e96b582b010f1a5a68fe993271d93e7cb28da029e9c0d6b7a",
+      "generator": "fixtures.chat_adapter",
+      "description": "ChatAdapter formats a labeled demo and parses its completion."
     },
     {
-      "name": "dspy.chat.qa-basic",
-      "file": "chat/qa-basic.json"
+      "id": "eval-failure-inclusive-001",
+      "file": "upstream/eval-failure-inclusive-001.json",
+      "evidence": "upstream-execution",
+      "sha256": "2d3263254c4054c7b27772f6973a3a9d6611e44554916db3f297f555a79e22ac",
+      "generator": "fixtures.evaluate_runtime",
+      "description": "Evaluate includes a failed row in its denominator and enforces max_errors."
     },
     {
-      "name": "dspy.chat.qa-output-requirements",
-      "file": "chat/qa-output-requirements.json"
+      "id": "gepa-aggregate-best-001",
+      "file": "upstream/gepa-aggregate-best-001.json",
+      "evidence": "upstream-execution",
+      "sha256": "57060d19f40da11a053544292da4c455a6be08d133bdf2185c146d00e3502c10",
+      "generator": "fixtures.gepa",
+      "description": "GEPA.compile selects aggregate best, not first per-instance frontier winner; merge disabled."
     },
     {
-      "name": "dspy.chat.qa-with-demo",
-      "file": "chat/qa-with-demo.json"
+      "id": "labeledfewshot-001",
+      "file": "upstream/labeledfewshot-001.json",
+      "evidence": "upstream-execution",
+      "sha256": "f28576c4a6d59e129cc8ade24b393302a8ff0a4ecc8a6e978cba5d3aed14559c",
+      "generator": "fixtures.bootstrap_family",
+      "description": "Seeded upstream labeled sampling."
     },
     {
-      "name": "dspy.chat.system-message.basic",
-      "file": "chat/system-message.basic.json"
+      "id": "majority-001",
+      "file": "upstream/majority-001.json",
+      "evidence": "upstream-kernel",
+      "sha256": "9df0f7cbcc9ead2abe6a5da2e6d786ef486d68f6822b0f7f15b1b76a31fd32ab",
+      "generator": "fixtures.predict_runtime",
+      "description": "Upstream majority reduction including a first-seen tie."
     },
     {
-      "name": "dspy.cot.reasoning-field.basic",
-      "file": "cot/reasoning-field.basic.json"
+      "id": "mipro-best-fullval-001",
+      "file": "upstream/mipro-best-fullval-001.json",
+      "evidence": "upstream-execution",
+      "sha256": "b50db6d69e44a0f6831c36d0b9cb574db72f1fbdd397146d5a8bc8c6d5d354b8",
+      "generator": "fixtures.mipro_v2",
+      "description": "A minibatch specialist loses to the baseline full-validation checkpoint."
     },
     {
-      "name": "dspy.ensemble.majority-vote.basic",
-      "file": "ensemble/majority-vote.basic.json"
+      "id": "mipro-trial-budget-001",
+      "file": "upstream/mipro-trial-budget-001.json",
+      "evidence": "upstream-execution",
+      "sha256": "205d91a237016cbc4585adc035a3befd2b80662cd4ba8156dc2f7cde861ff694",
+      "generator": "fixtures.mipro_v2",
+      "description": "Real MIPRO compile phases, Optuna params and validation checkpoints."
     },
     {
-      "name": "dspy.evaluate.event-order.basic",
-      "file": "evaluate/event-order.basic.json"
+      "id": "miprov2-explicit-001",
+      "file": "upstream/miprov2-explicit-001.json",
+      "evidence": "upstream-execution",
+      "sha256": "504e3c1ab7c8b2844f584bf933199346026ec95c9d068212aab6512a91c82bda",
+      "generator": "fixtures.mipro_v2",
+      "description": "Real MIPRO compile phases, Optuna params and validation checkpoints."
     },
     {
-      "name": "dspy.evaluate.report-shape.basic",
-      "file": "evaluate/report-shape.basic.json"
+      "id": "miprov2-heavy-001",
+      "file": "upstream/miprov2-heavy-001.json",
+      "evidence": "upstream-execution",
+      "sha256": "859aaa1c4faf97e5695d657ab37dadd44b9cd54812f242f08dbed841c3c78c78",
+      "generator": "fixtures.mipro_v2",
+      "description": "Real MIPRO compile phases, Optuna params and validation checkpoints."
     },
     {
-      "name": "dspy.gepa.accept.merge-non-strict",
-      "file": "gepa/accept/merge-non-strict.json"
+      "id": "miprov2-medium-001",
+      "file": "upstream/miprov2-medium-001.json",
+      "evidence": "upstream-execution",
+      "sha256": "7e3103d60054edec444a2916ffa1911a96fb19c57793facfeb919a5f74474f72",
+      "generator": "fixtures.mipro_v2",
+      "description": "Real MIPRO compile phases, Optuna params and validation checkpoints."
     },
     {
-      "name": "dspy.gepa.accept.mutation-strict-greater",
-      "file": "gepa/accept/mutation-strict-greater.json"
-    },
-    {
-      "name": "dspy.gepa.merge.common-ancestor-cases",
-      "file": "gepa/merge/common-ancestor-cases.json"
-    },
-    {
-      "name": "dspy.gepa.merge.schedule.max-merge-invocations",
-      "file": "gepa/merge/schedule.max-merge-invocations.json"
-    },
-    {
-      "name": "dspy.gepa.orchestration.event-order.seed-0",
-      "file": "gepa/orchestration/event-order.seed-0.json"
-    },
-    {
-      "name": "dspy.gepa.orchestration.state-transitions.basic",
-      "file": "gepa/orchestration/state-transitions.basic.json"
-    },
-    {
-      "name": "dspy.gepa.pareto.score-matrix.basic",
-      "file": "gepa/pareto/score-matrix.basic.json"
-    },
-    {
-      "name": "dspy.gepa.pareto.score-matrix.ties",
-      "file": "gepa/pareto/score-matrix.ties.json"
-    },
-    {
-      "name": "dspy.gepa.reflect.dataset-shape",
-      "file": "gepa/reflect/dataset-shape.json"
-    },
-    {
-      "name": "dspy.gepa.reflect.format-failure-feedback",
-      "file": "gepa/reflect/format-failure-feedback.json"
-    },
-    {
-      "name": "dspy.gepa.reflect.prompt-template.basic",
-      "file": "gepa/reflect/prompt-template.basic.json"
-    },
-    {
-      "name": "dspy.gepa.replay.frontier-snapshots.seed-0",
-      "file": "gepa/replay/frontier-snapshots.seed-0.json"
-    },
-    {
-      "name": "dspy.gepa.replay.params.seed-0",
-      "file": "gepa/replay/params.seed-0.json"
-    },
-    {
-      "name": "dspy.gepa.replay.seed-0.contract",
-      "file": "gepa/replay/seed-0.contract.json"
-    },
-    {
-      "name": "dspy.gepa.selection.weights.seed-42",
-      "file": "gepa/selection/weights.seed-42.json"
-    },
-    {
-      "name": "dspy.labeledfewshot.sample-k.seed-9",
-      "file": "labeledfewshot/sample-k.seed-9.json"
-    },
-    {
-      "name": "dspy.metric.score-feedback.contract",
-      "file": "metric/score-feedback.contract.json"
-    },
-    {
-      "name": "dspy.mipro.phase-config",
-      "file": "mipro/phase-config.json"
-    },
-    {
-      "name": "dspy.mipro.tips-vocabulary",
-      "file": "mipro/tips-vocabulary.json"
-    },
-    {
-      "name": "dspy.mipro.trial-budget-cases",
-      "file": "mipro/trial-budget-cases.json"
-    },
-    {
-      "name": "dspy.trace.entry-shape.basic",
-      "file": "trace/entry-shape.basic.json"
-    },
-    {
-      "name": "dspy.trace.fiber-isolation.seed-0",
-      "file": "trace/fiber-isolation.seed-0.json"
+      "id": "predict-trace-001",
+      "file": "upstream/predict-trace-001.json",
+      "evidence": "upstream-execution",
+      "sha256": "052c04fefc3c9aae39b5c205f3c0766505899781dcdf793fc24612a67bfbce5c",
+      "generator": "fixtures.predict_runtime",
+      "description": "ChainOfThought execution and selected predictor trace."
     }
   ]
 }

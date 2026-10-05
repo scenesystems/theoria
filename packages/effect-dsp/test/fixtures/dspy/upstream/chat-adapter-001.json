@@ -1,0 +1,27 @@
+{
+  "fixture": "chat-adapter-001",
+  "payload": {
+    "completion": "[[ ## answer ## ]]\nd\n\n[[ ## completed ## ]]",
+    "messages": [
+      {
+        "role": "system",
+        "content": "Your input fields are:\n1. `question` (str):\nYour output fields are:\n1. `answer` (str):\nAll interactions will be structured in the following way, with the appropriate values filled in.\n\n[[ ## question ## ]]\n{question}\n\n[[ ## answer ## ]]\n{answer}\n\n[[ ## completed ## ]]\nIn adhering to this structure, your objective is: \n        Given the fields `question`, produce the fields `answer`."
+      },
+      {
+        "role": "user",
+        "content": "[[ ## question ## ]]\na"
+      },
+      {
+        "role": "assistant",
+        "content": "[[ ## answer ## ]]\nb\n\n[[ ## completed ## ]]\n"
+      },
+      {
+        "role": "user",
+        "content": "[[ ## question ## ]]\nc\n\nRespond with the corresponding output fields, starting with the field `[[ ## answer ## ]]`, and then ending with the marker for `[[ ## completed ## ]]`."
+      }
+    ],
+    "parsed": {
+      "answer": "d"
+    }
+  }
+}

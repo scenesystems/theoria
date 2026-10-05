@@ -1,0 +1,67 @@
+{
+  "fixture": "predict-trace-001",
+  "payload": {
+    "prediction": {
+      "reasoning": "because",
+      "answer": "b"
+    },
+    "trace": [
+      {
+        "inputs": {
+          "question": "a"
+        },
+        "outputs": {
+          "reasoning": "because",
+          "answer": "b"
+        }
+      }
+    ],
+    "history": [
+      {
+        "messages": [
+          {
+            "role": "system",
+            "content": "Your input fields are:\n1. `question` (str):\nYour output fields are:\n1. `reasoning` (str): \n2. `answer` (str):\nAll interactions will be structured in the following way, with the appropriate values filled in.\n\n[[ ## question ## ]]\n{question}\n\n[[ ## reasoning ## ]]\n{reasoning}\n\n[[ ## answer ## ]]\n{answer}\n\n[[ ## completed ## ]]\nIn adhering to this structure, your objective is: \n        Given the fields `question`, produce the fields `answer`."
+          },
+          {
+            "role": "user",
+            "content": "[[ ## question ## ]]\na\n\nRespond with the corresponding output fields, starting with the field `[[ ## reasoning ## ]]`, then `[[ ## answer ## ]]`, and then ending with the marker for `[[ ## completed ## ]]`."
+          }
+        ],
+        "kwargs": {
+          "temperature": 0.0,
+          "max_tokens": 1000,
+          "model": "dummy"
+        },
+        "response": [
+          "[[ ## reasoning ## ]]\nbecause\n\n[[ ## answer ## ]]\nb"
+        ]
+      }
+    ],
+    "state": {
+      "predict": {
+        "traces": [],
+        "train": [],
+        "demos": [],
+        "signature": {
+          "instructions": "Given the fields `question`, produce the fields `answer`.",
+          "fields": [
+            {
+              "prefix": "Question:",
+              "description": "${question}"
+            },
+            {
+              "prefix": "Reasoning:",
+              "description": "${reasoning}"
+            },
+            {
+              "prefix": "Answer:",
+              "description": "${answer}"
+            }
+          ]
+        },
+        "lm": null
+      }
+    }
+  }
+}

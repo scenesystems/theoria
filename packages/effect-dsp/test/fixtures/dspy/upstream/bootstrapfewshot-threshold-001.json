@@ -1,0 +1,177 @@
+{
+  "fixture": "bootstrapfewshot-threshold-001",
+  "payload": {
+    "splits": {
+      "train": [
+        {
+          "id": "train-0",
+          "question": "train-0",
+          "answer": "label-0"
+        },
+        {
+          "id": "train-1",
+          "question": "train-1",
+          "answer": "label-1"
+        },
+        {
+          "id": "train-2",
+          "question": "train-2",
+          "answer": "label-2"
+        },
+        {
+          "id": "train-3",
+          "question": "train-3",
+          "answer": "label-3"
+        }
+      ],
+      "val": []
+    },
+    "metricThreshold": 0.5,
+    "maxErrors": 1,
+    "teacher": true,
+    "metricCalls": [
+      {
+        "id": "train-0",
+        "prediction": {
+          "answer": "teacher"
+        },
+        "trace": [
+          {
+            "predictor": 0,
+            "inputs": {
+              "question": "train-0"
+            },
+            "outputs": {
+              "answer": "teacher"
+            }
+          },
+          {
+            "predictor": 1,
+            "inputs": {
+              "question": "teacher"
+            },
+            "outputs": {
+              "answer": "teacher"
+            }
+          }
+        ]
+      },
+      {
+        "id": "train-1",
+        "prediction": {
+          "answer": "teacher"
+        },
+        "trace": [
+          {
+            "predictor": 0,
+            "inputs": {
+              "question": "train-1"
+            },
+            "outputs": {
+              "answer": "teacher"
+            }
+          },
+          {
+            "predictor": 1,
+            "inputs": {
+              "question": "teacher"
+            },
+            "outputs": {
+              "answer": "teacher"
+            }
+          }
+        ]
+      },
+      {
+        "id": "train-2",
+        "prediction": {
+          "answer": "teacher"
+        },
+        "trace": [
+          {
+            "predictor": 0,
+            "inputs": {
+              "question": "train-2"
+            },
+            "outputs": {
+              "answer": "teacher"
+            }
+          },
+          {
+            "predictor": 1,
+            "inputs": {
+              "question": "teacher"
+            },
+            "outputs": {
+              "answer": "teacher"
+            }
+          }
+        ]
+      }
+    ],
+    "history": [],
+    "studentHistory": [],
+    "state": {
+      "first": {
+        "traces": [],
+        "train": [],
+        "demos": [
+          {
+            "augmented": true,
+            "question": "train-1",
+            "answer": "teacher"
+          },
+          {
+            "augmented": true,
+            "question": "train-2",
+            "answer": "teacher"
+          }
+        ],
+        "signature": {
+          "instructions": "Given the fields `question`, produce the fields `answer`.",
+          "fields": [
+            {
+              "prefix": "Question:",
+              "description": "${question}"
+            },
+            {
+              "prefix": "Answer:",
+              "description": "${answer}"
+            }
+          ]
+        },
+        "lm": null
+      },
+      "second": {
+        "traces": [],
+        "train": [],
+        "demos": [
+          {
+            "augmented": true,
+            "question": "teacher",
+            "answer": "teacher"
+          },
+          {
+            "augmented": true,
+            "question": "teacher",
+            "answer": "teacher"
+          }
+        ],
+        "signature": {
+          "instructions": "Given the fields `question`, produce the fields `answer`.",
+          "fields": [
+            {
+              "prefix": "Question:",
+              "description": "${question}"
+            },
+            {
+              "prefix": "Answer:",
+              "description": "${answer}"
+            }
+          ]
+        },
+        "lm": null
+      }
+    }
+  }
+}

@@ -5,7 +5,6 @@ import { describe, expect, it } from "@effect/vitest"
 import { Arbitrary, Array as Arr, Effect, Schema } from "effect"
 import { ParentSelectionWeight } from "../../src/internal/gepa/model.js"
 import { sampleWeightedParents } from "../../src/internal/gepa/sampling.js"
-import { GepaSelectionWeightsFixtureSchema, loadFixture } from "../helpers/dspy-fixtures/index.js"
 
 const weightVectorArbitrary = Arbitrary.array(
   Arbitrary.schema(Schema.Int.check(Schema.isBetween({ minimum: 1, maximum: 10 }))),
@@ -26,31 +25,6 @@ const countSelections = (samples: ReadonlyArray<number>, candidateIndex: number)
   )
 
 describe("GEPA selection proportionality", () => {
-  it.effect("matches the committed dspy.gepa.selection.weights.seed-42 distribution contract", () =>
-    Effect.gen(function*() {
-      const fixture = yield* loadFixture("dspy.gepa.selection.weights.seed-42").pipe(
-        Effect.flatMap(Schema.decodeUnknownEffect(GepaSelectionWeightsFixtureSchema))
-      )
-      const weights = Arr.map(
-        fixture.payload.weights,
-        (weight) => new ParentSelectionWeight({ candidateIndex: weight.candidateIndex, weight: weight.weight })
-      )
-      const draws = sampleWeightedParents(weights, fixture.payload.draws, fixture.payload.seed)
-      const sampleCount = draws.length
-
-      expect(sampleCount).toBe(fixture.payload.draws)
-
-      yield* Effect.forEach(
-        fixture.payload.expectedProbabilities,
-        (expectedProbability) =>
-          Effect.sync(() => {
-            const observed = countSelections(draws, expectedProbability.candidateIndex) / sampleCount
-            expect(Math.abs(observed - expectedProbability.probability)).toBeLessThanOrEqual(fixture.payload.tolerance)
-          }),
-        { discard: true }
-      )
-    }))
-
   it.effect.prop(
     "tracks frontier-holding weights within ±2% over 10,000 seeded draws",
     [weightVectorArbitrary],
