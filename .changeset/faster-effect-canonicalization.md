@@ -10,3 +10,7 @@ long-string processing, byte-limit admission, cooperative yields, and reference-
 cycle detection. Add independent full-digest Unicode vectors, escaping boundary
 checks, and hostile equality coverage without changing the public API or canonical
 bytes.
+
+Reject all typed-array views and DataView, including empty views, rather than
+canonicalizing non-Uint8Array views as records. Use an owner-approved intrinsic
+view predicate through Schema because Effect 4.0.0 has no public equivalent.

@@ -55,6 +55,7 @@ Encoding and cryptographic execution use lazy Effects; pure model accessors rema
 ## Effect and test discipline
 
 - Direct `Uint8Array` construction is permitted solely for byte materialization in this package's implementation and tests. `Schema.Uint8Array` validates existing bytes; use Effect codecs for transport encoding. This does not authorize general native adapters, bypassing input validation, or lint suppressions.
+- Owner-approved exception: use `ArrayBuffer.isView` inside `Schema.declare` solely to reject typed arrays and `DataView` during canonicalization. Effect 4.0.0 has no public hook-free, cross-realm view predicate. Native view construction is permitted for rejection fixtures. This does not authorize native traversal, encoding, or other adapters.
 - Public errors and encoded values are Schema-owned. `Digest.Algorithm` owns the hash algorithm type.
 - `ContentDigest.ContentDigest` and `ContentDigest.Result` explicitly implement their structural equality and hashing contracts.
 - Property tests use Schema/Arbitrary inputs and `arbitrary` options on `it.effect.prop`.

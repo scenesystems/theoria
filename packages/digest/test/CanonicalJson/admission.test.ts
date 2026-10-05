@@ -1,5 +1,6 @@
 import { describe, expect, it } from "@effect/vitest"
 import { Array as Arr, Data, DateTime, Effect, Equal, Exit, Hash, MutableRef, Number as N, Schema, Tuple } from "effect"
+import * as fc from "fast-check"
 
 import * as CanonicalJson from "@scenesystems/digest/CanonicalJson"
 import * as Utf8 from "@scenesystems/digest/Utf8"
@@ -30,7 +31,60 @@ const unsupportedValues = Schema.decodeSync(Rejections)(Arr.make(
 class DataRecord extends Data.Class<{ readonly value: unknown }> {}
 class CompositeData extends Data.Class<{ readonly z: ReadonlyArray<number>; readonly a: boolean }> {}
 
+const views: ReadonlyArray<readonly [string, fc.Arbitrary<ArrayBufferView>]> = Arr.make(
+  Tuple.make("Int8Array", fc.int8Array({ maxLength: 8 })),
+  Tuple.make("Uint8Array", fc.uint8Array({ maxLength: 8 })),
+  Tuple.make("Uint8ClampedArray", fc.uint8ClampedArray({ maxLength: 8 })),
+  Tuple.make("Int16Array", fc.int16Array({ maxLength: 8 })),
+  Tuple.make("Uint16Array", fc.uint16Array({ maxLength: 8 })),
+  Tuple.make("Int32Array", fc.int32Array({ maxLength: 8 })),
+  Tuple.make("Uint32Array", fc.uint32Array({ maxLength: 8 })),
+  Tuple.make("Float32Array", fc.float32Array({ maxLength: 8 })),
+  Tuple.make("Float64Array", fc.float64Array({ maxLength: 8 })),
+  Tuple.make("BigInt64Array", fc.bigInt64Array({ maxLength: 8 })),
+  Tuple.make("BigUint64Array", fc.bigUint64Array({ maxLength: 8 })),
+  Tuple.make("DataView", fc.uint8Array({ maxLength: 8 }).map((bytes) => new DataView(bytes.buffer)))
+)
+
 describe("CanonicalJson.encode — admission", () => {
+  it.effect.each(views)(
+    "rejects generated %s before inspecting elements",
+    ([, arbitrary]) =>
+      Effect.forEach(fc.sample(arbitrary, { seed: 8785, numRuns: 30 }), (value) =>
+        Effect.gen(function*() {
+          expect(yield* Effect.exit(CanonicalJson.encode(value))).toStrictEqual(
+            Exit.fail(new CanonicalJson.UnsupportedValue({ reason: "typed-array" }))
+          )
+          expect(yield* Effect.exit(CanonicalJson.encode({ nested: value }))).toStrictEqual(
+            Exit.fail(new CanonicalJson.UnsupportedValue({ reason: "typed-array" }))
+          )
+        }))
+  )
+
+  it.effect("classifies views without consulting a spoofed or hostile toStringTag", () =>
+    Effect.gen(function*() {
+      const reads = MutableRef.make(0)
+      class HostileView extends DataView<ArrayBuffer> {
+        override get [Symbol.toStringTag]() {
+          MutableRef.update(reads, N.increment)
+          return "Object"
+        }
+      }
+      const view = new HostileView(Uint8Array.of(1).buffer)
+      expect(yield* Effect.exit(CanonicalJson.encode(view))).toStrictEqual(
+        Exit.fail(new CanonicalJson.UnsupportedValue({ reason: "typed-array" }))
+      )
+      const record = {
+        value: 1,
+        get [Symbol.toStringTag]() {
+          MutableRef.update(reads, N.increment)
+          return "Uint8Array"
+        }
+      }
+      expect(yield* CanonicalJson.encode(record)).toBe("{\"value\":1}")
+      expect(MutableRef.get(reads)).toBe(0)
+    }))
+
   it.effect("never reads hostile Hash or Equal hooks, even on distinct ancestor objects", () =>
     Effect.gen(function*() {
       const reads = MutableRef.make(0)
