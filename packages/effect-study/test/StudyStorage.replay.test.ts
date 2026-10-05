@@ -4,12 +4,12 @@ import { Arbitrary, Array as Arr, Effect, FileSystem, Number as Num, Path, Resul
 
 import * as StudyStorage from "@scenesystems/effect-study/StudyStorage"
 
-const options = {
+const options = new StudyStorage.OpenOptions({
   runId: "run",
   definitionDigest: "definition",
   eventSchema: Schema.Int,
   checkpointSchema: Schema.Array(Schema.Int)
-}
+})
 const numberText = Schema.encodeSync(Schema.FiniteFromString)
 
 it.effect.prop("checkpoint plus tail equals the full ordered log despite repeated append delivery", {
@@ -19,16 +19,16 @@ it.effect.prop("checkpoint plus tail equals the full ordered log despite repeate
   split: Arbitrary.schema(Schema.Int.check(Schema.isBetween({ minimum: 0, maximum: 12 })))
 }, ({ values, split }) =>
   Effect.gen(function*() {
-    const run = yield* (yield* StudyStorage.makeMemoryRecordings).open(options)
+    const run = yield* (yield* StudyStorage.makeMemory).open(options)
     yield* Effect.forEach(values, (event, index) =>
-      run.append({ recordId: numberText(index), expectedCursor: index, event }))
+      run.append(new StudyStorage.Append({ recordId: numberText(index), expectedCursor: index, event })))
     yield* Effect.forEach(values, (event, index) =>
-      run.append({ recordId: numberText(index), expectedCursor: index, event }))
+      run.append(new StudyStorage.Append({ recordId: numberText(index), expectedCursor: index, event })))
     const full = yield* StudyStorage.replay(run, Arr.empty<number>(), Arr.append)
     expect(full.state).toEqual(values)
     expect(full.through).toBe(Arr.length(values))
     const through = Num.min(split, Arr.length(values))
-    yield* run.writeCheckpoint({ through, state: Arr.take(values, through) })
+    yield* run.writeCheckpoint(new StudyStorage.CheckpointWrite({ through, state: Arr.take(values, through) }))
     const tail = yield* StudyStorage.replay(run, Arr.empty<number>(), Arr.append)
     expect(tail).toEqual(full)
   }))
@@ -37,18 +37,28 @@ it.effect("binds filesystem checkpoints to exact committed boundaries and reject
   Effect.gen(function*() {
     const fs = yield* FileSystem.FileSystem
     const path = yield* Path.Path
-    const file = path.join(yield* fs.makeTempDirectoryScoped(), "recordings.jsonl")
-    const store = yield* StudyStorage.makeFileSystemRecordings(file)
+    const config = StudyStorage.fileSystemOptions(yield* fs.makeTempDirectoryScoped(), "study.jsonl")
+    const file = path.join(config.directory, "study.jsonl.recordings")
+    const store = yield* StudyStorage.makeFileSystem(config)
     const run = yield* store.open(options)
-    yield* run.append({ recordId: "first", expectedCursor: 0, event: 7 })
-    const invalid = yield* run.writeCheckpoint({ through: 2, state: [7, 99] }).pipe(Effect.result)
+    yield* run.append(new StudyStorage.Append({ recordId: "first", expectedCursor: 0, event: 7 }))
+    const invalid = yield* run.writeCheckpoint(new StudyStorage.CheckpointWrite({ through: 2, state: [7, 99] })).pipe(
+      Effect.result
+    )
     expect((yield* Effect.fromResult(Result.flip(invalid))).reason).toBe("Incompatible")
-    yield* run.writeCheckpoint({ through: 1, state: [7] })
-    yield* run.append({ recordId: "second", expectedCursor: 1, event: -3 })
-    const reopenedStore = yield* StudyStorage.makeFileSystemRecordings(file)
+    yield* run.writeCheckpoint(new StudyStorage.CheckpointWrite({ through: 1, state: [7] }))
+    yield* run.append(new StudyStorage.Append({ recordId: "second", expectedCursor: 1, event: -3 }))
+    const reopenedStore = yield* StudyStorage.makeFileSystem(config)
     const reopened = yield* reopenedStore.open(options)
     expect((yield* StudyStorage.replay(reopened, Arr.empty<number>(), Arr.append)).state).toEqual([7, -3])
-    const incompatible = yield* reopenedStore.open({ ...options, definitionDigest: "different" }).pipe(Effect.result)
+    const incompatible = yield* reopenedStore.open(
+      new StudyStorage.OpenOptions({
+        runId: options.runId,
+        eventSchema: options.eventSchema,
+        checkpointSchema: options.checkpointSchema,
+        definitionDigest: "different"
+      })
+    ).pipe(Effect.result)
     expect((yield* Effect.fromResult(Result.flip(incompatible))).reason).toBe("Incompatible")
     const valid = yield* fs.readFileString(file)
     const encode = Schema.encodeEffect(Schema.fromJsonString(Schema.Unknown))
@@ -62,7 +72,7 @@ it.effect("binds filesystem checkpoints to exact committed boundaries and reject
       (record) =>
         Effect.gen(function*() {
           yield* fs.writeFileString(file, Str.concat(valid, Str.concat(yield* encode(record), "\n")))
-          const result = yield* StudyStorage.makeFileSystemRecordings(file).pipe(Effect.result)
+          const result = yield* StudyStorage.makeFileSystem(config).pipe(Effect.result)
           expect((yield* Effect.fromResult(Result.flip(result))).line).toBe(5)
         })
     )

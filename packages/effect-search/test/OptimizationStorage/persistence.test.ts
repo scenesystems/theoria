@@ -123,7 +123,7 @@ describe("OptimizationStorage", () => {
       const failure = yield* Schema.decodeEffect(PersistenceError.Failure)(Result.getOrThrow(Result.flip(outcome)))
 
       expect(failure).toBeInstanceOf(PersistenceError.Failure)
-      expect(failure.reason).toBe("Backend")
+      expect(failure.reason).toBe("Codec")
       expect(failure.operation).toBe("read")
       expect(failure.path).toBe(journalPath)
       expect(failure.line).toBe(2)

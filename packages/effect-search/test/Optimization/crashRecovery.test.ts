@@ -153,7 +153,7 @@ describe("recovery crash residue", () => {
       )
 
       expect(failure).toBeInstanceOf(PersistenceError.Failure)
-      expect(failure.reason).toBe("Backend")
+      expect(failure.reason).toBe("Codec")
       expect(failure.operation).toBe("read")
       expect(failure.path).toBe(journalPath)
       expect(failure.line).toBe(Arr.length(Str.split("\n")(intact)))
@@ -215,7 +215,7 @@ describe("recovery crash residue", () => {
         Result.getOrThrow(Result.flip(outcome))
       )
       expect(failure).toBeInstanceOf(PersistenceError.Failure)
-      expect(failure.reason).toBe("Backend")
+      expect(failure.reason).toBe("Codec")
       expect(failure.operation).toBe("read")
       expect(failure.path).toBe(journalPath)
       expect(failure.line).toBe(1)

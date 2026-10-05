@@ -7,6 +7,34 @@ import * as Evaluation from "@scenesystems/effect-study/Evaluation"
 class Sink extends Context.Service<Sink, string>()("study-test/EventSink") {}
 class Evaluator extends Context.Service<Evaluator, number>()("study-test/Evaluator") {}
 
+it.effect("allows interruption of blocked best-effort termination telemetry", () =>
+  Effect.gen(function*() {
+    const entered = yield* Deferred.make<void>()
+    const release = yield* Deferred.make<void>()
+    const interrupted = yield* Deferred.make<void>()
+    const task = yield* Evaluation.runWithEvents(
+      ["input"],
+      () => Effect.die("original-defect"),
+      {},
+      (event) =>
+        event._tag === "Terminated"
+          ? Deferred.succeed(entered, undefined).pipe(Effect.andThen(Deferred.await(release)))
+          : Effect.void
+    ).pipe(Effect.forkChild)
+    yield* Deferred.await(entered)
+    yield* Fiber.interrupt(task).pipe(Effect.andThen(Deferred.succeed(interrupted, undefined)), Effect.forkChild)
+    yield* Effect.gen(function*() {
+      yield* TestClock.adjust(1)
+      expect(yield* Deferred.isDone(interrupted)).toBe(true)
+    }).pipe(Effect.ensuring(Deferred.succeed(release, undefined)))
+    const exit = yield* Fiber.await(task)
+    expect(Exit.isFailure(exit)).toBe(true)
+    if (Exit.isFailure(exit)) {
+      expect(Arr.some(exit.cause.reasons, (reason) => reason._tag === "Die" && reason.defect === "original-defect"))
+        .toBe(true)
+    }
+  }))
+
 it.effect("awaits start and terminal acknowledgments before execution and completion", () =>
   Effect.gen(function*() {
     const start = yield* Deferred.make<void>()

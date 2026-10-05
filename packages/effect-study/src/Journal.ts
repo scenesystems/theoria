@@ -18,6 +18,7 @@ import type { PlatformError } from "effect/PlatformError"
 export class Failure extends Schema.TaggedError<Failure>("@scenesystems/effect-study/Journal/Failure")(
   "effect-study/JournalError",
   {
+    reason: Schema.Literals(["Codec", "Backend"]),
     operation: Schema.Union([Schema.Literal("write"), Schema.Literal("read")]),
     path: Schema.String,
     line: Schema.optional(Schema.Int.pipe(Schema.check(Schema.isGreaterThan(0)))),
@@ -43,10 +44,11 @@ const numberText = Schema.encodeSync(Schema.FiniteFromString)
 
 const storageFailure =
   (operation: Failure["operation"], path: string) => (cause: PlatformError | Schema.SchemaError): Failure =>
-    new Failure({ operation, path, detail: cause.message })
+    new Failure({ reason: Schema.isSchemaError(cause) ? "Codec" : "Backend", operation, path, detail: cause.message })
 
 const decodeFailure = (path: string, line: number) => (cause: Schema.SchemaError): Failure =>
   new Failure({
+    reason: "Codec",
     operation: "read",
     path,
     line,

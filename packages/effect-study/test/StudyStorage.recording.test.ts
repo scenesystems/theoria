@@ -13,12 +13,15 @@ const options = (runId: string, definitionDigest = "definition-v1") =>
 
 it.effect("isolates runs and returns the original receipt after a lost acknowledgment", () =>
   Effect.gen(function*() {
-    const store = yield* StudyStorage.makeMemoryRecordings
+    const store = yield* StudyStorage.makeMemory
     const first = yield* store.open(options("first"))
     const second = yield* store.open(options("second"))
-    const receipt = yield* first.append({ recordId: "request-1", expectedCursor: 0, event: "alpha" })
-    yield* first.append({ recordId: "request-2", expectedCursor: 1, event: "beta" })
-    expect(yield* first.append({ recordId: "request-1", expectedCursor: 0, event: "alpha" })).toEqual(receipt)
+    const receipt = yield* first.append(
+      new StudyStorage.Append({ recordId: "request-1", expectedCursor: 0, event: "alpha" })
+    )
+    yield* first.append(new StudyStorage.Append({ recordId: "request-2", expectedCursor: 1, event: "beta" }))
+    expect(yield* first.append(new StudyStorage.Append({ recordId: "request-1", expectedCursor: 0, event: "alpha" })))
+      .toEqual(receipt)
     expect(receipt).toEqual({ runId: "first", recordId: "request-1", cursor: 1 })
     expect(yield* second.read().pipe(Stream.runCollect)).toEqual([])
     const reopened = yield* store.open(options("first"))
@@ -30,15 +33,18 @@ it.effect("isolates runs and returns the original receipt after a lost acknowled
 
 it.effect("rejects conflicting identities before stale cursors and admits only one racing append", () =>
   Effect.gen(function*() {
-    const store = yield* StudyStorage.makeMemoryRecordings
+    const store = yield* StudyStorage.makeMemory
     const run = yield* store.open(options("run"))
-    yield* run.append({ recordId: "one", expectedCursor: 0, event: "first" })
-    const conflict = yield* run.append({ recordId: "one", expectedCursor: 0, event: "different" }).pipe(Effect.result)
+    yield* run.append(new StudyStorage.Append({ recordId: "one", expectedCursor: 0, event: "first" }))
+    const conflict = yield* run.append(
+      new StudyStorage.Append({ recordId: "one", expectedCursor: 0, event: "different" })
+    ).pipe(Effect.result)
     expect((yield* Effect.fromResult(Result.flip(conflict))).reason).toBe("RecordConflict")
     const raced = yield* Effect.all(
       Arr.map(
         Arr.make("two", "three"),
-        (recordId) => run.append({ recordId, expectedCursor: 1, event: recordId }).pipe(Effect.result)
+        (recordId) =>
+          run.append(new StudyStorage.Append({ recordId, expectedCursor: 1, event: recordId })).pipe(Effect.result)
       ),
       { concurrency: 2 }
     )

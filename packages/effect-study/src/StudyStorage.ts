@@ -70,6 +70,9 @@ export const fileSystemOptions = (
 export class StudyStorage extends Context.Service<
   StudyStorage,
   {
+    readonly open: <Events extends Schema.Constraint, State extends Schema.Constraint>(
+      options: OpenOptions<Events, State>
+    ) => Effect.Effect<Recording<Events, State>, PersistenceError.Failure>
     readonly appendTrial: <A, I, RD, RE>(
       schema: Schema.Codec<A, I, RD, RE>,
       trial: A
@@ -121,8 +124,10 @@ const decodeRecord = <A, I, RD, RE>(
 const service = (
   path: string,
   append: (record: PersistedRecord) => Effect.Effect<void, PersistenceError.Failure>,
-  load: Effect.Effect<ReadonlyArray<PersistedRecord>, PersistenceError.Failure>
+  load: Effect.Effect<ReadonlyArray<PersistedRecord>, PersistenceError.Failure>,
+  open: Service["open"]
 ): Service => ({
+  open,
   appendTrial: <A, I, RD, RE>(
     schema: Schema.Codec<A, I, RD, RE>,
     trial: A
@@ -155,20 +160,20 @@ const service = (
 })
 
 /**
- * Creates isolated in-memory trial and snapshot persistence.
+ * Creates isolated in-memory trial, snapshot, and run-bound recording persistence.
  *
  * @since 0.1.0
  * @category constructors
  */
-export const makeMemory: Effect.Effect<Service> = Ref.make(Arr.empty<PersistedRecord>()).pipe(
-  Effect.map((records) =>
-    service(
-      memoryPath,
-      (record) => Ref.update(records, Arr.append(record)),
-      Ref.get(records)
-    )
+export const makeMemory: Effect.Effect<Service> = Effect.gen(function*() {
+  const records = yield* Ref.make(Arr.empty<PersistedRecord>())
+  return service(
+    memoryPath,
+    (record) => Ref.update(records, Arr.append(record)),
+    Ref.get(records),
+    yield* recording.makeMemory
   )
-)
+})
 
 /**
  * Provides isolated in-memory trial and snapshot persistence.
@@ -179,7 +184,11 @@ export const makeMemory: Effect.Effect<Service> = Ref.make(Arr.empty<PersistedRe
 export const layerMemory: Layer.Layer<StudyStorage> = Layer.fresh(Layer.effect(StudyStorage, makeMemory))
 
 /**
- * Creates generic persistence over one append-only JSON-lines journal.
+ * Creates trial/snapshot persistence over a JSON-lines journal and strict run
+ * recordings in a separate .recordings file. Use one owning service per location; its
+ * semaphore is not a cross-process lock. Recording acknowledgment means a complete
+ * newline-terminated append returned, not fsync or power-loss durability. Damaged
+ * recordings fail without repair, truncation, or further appends.
  *
  * @since 0.1.0
  * @category constructors
@@ -189,12 +198,15 @@ export const makeFileSystem = (
 ): Effect.Effect<Service, PersistenceError.Failure, FileSystem.FileSystem | Path.Path> =>
   Journal.make(PersistedRecord, options.directory, options.fileName).pipe(
     Effect.mapError(PersistenceError.fromJournal),
-    Effect.map((journal) =>
-      service(
-        journal.path,
-        (record) => journal.append(record).pipe(Effect.mapError(PersistenceError.fromJournal)),
-        journal.read.pipe(Stream.runCollect, Effect.mapError(PersistenceError.fromJournal))
-      )
+    Effect.flatMap((journal) =>
+      Effect.gen(function*() {
+        return service(
+          journal.path,
+          (record) => journal.append(record).pipe(Effect.mapError(PersistenceError.fromJournal)),
+          journal.read.pipe(Stream.runCollect, Effect.mapError(PersistenceError.fromJournal)),
+          yield* fileSystemRecording.makeFileSystem(Str.concat(journal.path, ".recordings"))
+        )
+      })
     )
   )
 
@@ -259,7 +271,13 @@ export class Checkpoint<A> extends Data.Class<{
   readonly state: A
 }> {}
 
-/** Schema-owned opening options; definition identity is supplied, never inferred from code. @since 0.1.0 @category models */
+/**
+ * Structural opening options carrying caller codecs and explicit definition identity.
+ * Construct with new OpenOptions({...}); open requires an instance, including its
+ * Effect Data pipe method, rather than a plain object.
+ * @since 0.1.0
+ * @category models
+ */
 export class OpenOptions<Events extends Schema.Constraint, State extends Schema.Constraint> extends Data.Class<{
   readonly runId: string
   readonly definitionDigest: string
@@ -267,14 +285,25 @@ export class OpenOptions<Events extends Schema.Constraint, State extends Schema.
   readonly checkpointSchema: State
 }> {}
 
-/** Stable append identity and optimistic expected tail cursor (zero for an empty run). @since 0.1.0 @category models */
+/**
+ * Stable append identity and optimistic expected tail cursor (zero for an empty run).
+ * Construct with new Append({...}); append requires this Data instance.
+ * @since 0.1.0
+ * @category models
+ */
 export class Append<A> extends Data.Class<{
   readonly recordId: string
   readonly expectedCursor: number
   readonly event: A
 }> {}
 
-/** State reduced through a committed event cursor (zero for the initial state). @since 0.1.0 @category models */
+/**
+ * State reduced through a committed event cursor (zero for the initial state).
+ * Construct with new CheckpointWrite({...}), or use replay's returned instance.
+ * writeCheckpoint requires this Data instance, not a plain object.
+ * @since 0.1.0
+ * @category models
+ */
 export class CheckpointWrite<A> extends Data.Class<{ readonly through: number; readonly state: A }> {}
 
 /** Read events strictly after this cursor. @since 0.1.0 @category schemas */
@@ -290,13 +319,13 @@ export const ReadOptions = Schema.Struct({ after: Schema.optional(Schema.Int.che
  */
 export class Recording<Events extends Schema.Constraint, State extends Schema.Constraint> extends Data.Class<{
   readonly append: (
-    request: ConstructorParameters<typeof Append<Events["Type"]>>[0]
+    request: Append<Events["Type"]>
   ) => Effect.Effect<Receipt, PersistenceError.Failure, Events["EncodingServices"]>
   readonly read: (
     options?: typeof ReadOptions.Type
   ) => Stream.Stream<StoredEvent<Events["Type"]>, PersistenceError.Failure, Events["DecodingServices"]>
   readonly writeCheckpoint: (
-    request: ConstructorParameters<typeof CheckpointWrite<State["Type"]>>[0]
+    request: CheckpointWrite<State["Type"]>
   ) => Effect.Effect<void, PersistenceError.Failure, State["EncodingServices"]>
   readonly loadCheckpoint: Effect.Effect<
     Option.Option<Checkpoint<State["Type"]>>,
@@ -305,30 +334,10 @@ export class Recording<Events extends Schema.Constraint, State extends Schema.Co
   >
 }> {}
 
-/** Independently usable run recordings, separate from legacy trial/snapshot storage. @since 0.1.0 @category services */
-export class Recordings extends Context.Service<Recordings, {
-  readonly open: <Events extends Schema.Constraint, State extends Schema.Constraint>(
-    options: ConstructorParameters<typeof OpenOptions<Events, State>>[0]
-  ) => Effect.Effect<Recording<Events, State>, PersistenceError.Failure>
-}>()("@scenesystems/effect-study/StudyStorage/Recordings") {}
-
-/** Allocates isolated, schema-encoded in-memory recordings. @since 0.1.0 @category constructors */
-export const makeMemoryRecordings: Effect.Effect<Recordings["Service"]> = recording.makeMemory
-
-/**
- * Opens a strict append-only recording file. Use exactly one owning store per file;
- * its semaphore is not a cross-process lock. Acknowledgment means the platform
- * append returned for a complete newline-terminated record, not fsync or power-loss
- * durability. Damaged files fail without repair, truncation, or further appends.
- * @since 0.1.0
- * @category constructors
- */
-export const makeFileSystemRecordings = fileSystemRecording.makeFileSystem
-
 /** Opens or validates a run through the ambient recording store. @since 0.1.0 @category operations */
 export const open = <Events extends Schema.Constraint, State extends Schema.Constraint>(
-  options: ConstructorParameters<typeof OpenOptions<Events, State>>[0]
-) => Recordings.pipe(Effect.flatMap((store) => store.open(options)))
+  options: OpenOptions<Events, State>
+) => StudyStorage.pipe(Effect.flatMap((store) => store.open(options)))
 
 /**
  * Reduces only the tail after the latest bound checkpoint, or the full log when

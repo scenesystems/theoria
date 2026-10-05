@@ -27,7 +27,7 @@ export class Failure extends Schema.TaggedError<Failure>("@scenesystems/effect-s
 /** Preserves journal diagnostics at a generic persistence boundary. @since 0.1.0 @category conversions */
 export const fromJournal = (failure: Journal.Failure): Failure =>
   new Failure({
-    reason: "Backend",
+    reason: failure.reason,
     operation: failure.operation,
     detail: failure.detail,
     path: failure.path,
