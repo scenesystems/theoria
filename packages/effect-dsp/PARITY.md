@@ -6,6 +6,10 @@ Theoria API exists, not that its behavior matches upstream. `planned` identifies
 later-wave work; `non-goal` identifies an intentional exclusion. `verified` is
 reserved for completed differential coverage in the owning wave.
 
+Wave 1.0 removes format-version fields from module snapshots, example reports,
+and inference route provenance. Saved state retains caller metadata. This is
+contract cleanup, not additional DSPy parity evidence; status claims stay unchanged.
+
 Inventory: every non-private, non-module value exported by the six DSPy 3.4.0
 package namespaces below (including aliases and re-exported types). Namespace
 modules themselves are navigation, not separate API claims. Inventory was read

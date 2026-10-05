@@ -57,7 +57,7 @@ describe("graph parameter persistence", () => {
         Arr.make("root value", "left value", "shared value", "right value", "extra value")
       )
       yield* Effect.forEach(expected, ([ref]) => Ref.set(ref, params("mutated")))
-      yield* Module.load(root, new Module.SavedState({ version: 1, modules: Arr.reverse(saved.modules) }))
+      yield* Module.load(root, new Module.SavedState({ modules: Arr.reverse(saved.modules) }))
       yield* Effect.forEach(expected, ([ref, value]) =>
         Effect.gen(function*() {
           expect(yield* Ref.get(ref)).toEqual(value)
@@ -82,11 +82,10 @@ describe("graph parameter persistence", () => {
       const leafEntry = { name: "leaf", params: params("changed leaf") }
       yield* Effect.forEach(
         Arr.make(
-          { version: 1, modules: Arr.make(rootEntry, leafEntry, leafEntry) },
-          { version: 1, modules: Arr.make(rootEntry, leafEntry, { name: "stranger", params: params("bad") }) },
-          { version: 1, modules: Arr.make(rootEntry) },
+          { modules: Arr.make(rootEntry, leafEntry, leafEntry) },
+          { modules: Arr.make(rootEntry, leafEntry, { name: "stranger", params: params("bad") }) },
+          { modules: Arr.make(rootEntry) },
           {
-            version: 1,
             modules: Arr.make(rootEntry, { name: "leaf", params: { instructions: 42, demos: Arr.empty() } })
           }
         ),
@@ -131,7 +130,6 @@ describe("graph parameter persistence", () => {
           const failure = yield* Module.load(
             root,
             new Module.SavedState({
-              version: 1,
               modules: Arr.make(rootEntry, {
                 name: "leaf",
                 params: new ModuleParameters({ instructions: "invalid child", demos: Arr.make(demo) })
@@ -147,7 +145,6 @@ describe("graph parameter persistence", () => {
       yield* Module.load(
         root,
         new Module.SavedState({
-          version: 1,
           modules: Arr.make(rootEntry, {
             name: "leaf",
             params: new ModuleParameters({ instructions: "valid child", demos: Arr.make(valid) })
@@ -182,7 +179,6 @@ describe("graph parameter persistence", () => {
       const error = yield* Effect.flip(Module.load(
         root,
         new Module.SavedState({
-          version: 1,
           modules: Arr.make({ name: "same", params: params("replacement") })
         })
       ))

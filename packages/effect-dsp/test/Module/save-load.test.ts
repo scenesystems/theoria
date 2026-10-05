@@ -137,7 +137,6 @@ describe("Module.save / Module.load", () => {
       )
 
       const invalid = new Module.SavedState({
-        version: 1,
         modules: Arr.make(
           {
             name: "qa-root",

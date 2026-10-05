@@ -160,10 +160,10 @@ export class Registration extends Data.TaggedClass("ModuleRegistration")<{
 }> {}
 
 /**
- * Captures module parameter values in the version 1 persistence envelope.
+ * Captures module parameter values and optional caller metadata.
  *
  * @remarks
- * Schema decoding accepts only version `1`. {@link load} additionally requires
+ * {@link load} requires
  * exactly one entry for each name in the target parameter tree and rejects
  * duplicate, missing, or unknown names. Metadata is preserved by the schema but
  * ignored by `load`; `save` omits it.
@@ -172,8 +172,6 @@ export class Registration extends Data.TaggedClass("ModuleRegistration")<{
  * @category models
  */
 export class SavedState extends Schema.Class<SavedState>("@scenesystems/effect-dsp/Module/SavedState")({
-  /** Envelope format version; only `1` is accepted. */
-  version: Schema.Literal(1),
   /** Parameter entries matched to a target module tree by exact name. */
   modules: Schema.Array(
     Schema.Struct({

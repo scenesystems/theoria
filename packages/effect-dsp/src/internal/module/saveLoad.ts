@@ -1,5 +1,5 @@
 /**
- * Versioned snapshots of module parameter ownership trees.
+ * Snapshots of module parameter ownership trees.
  *
  * @since 0.1.0
  */
@@ -61,7 +61,7 @@ class ParameterUpdate extends Data.Class<{
 }> {}
 
 /**
- * Reads the root and owned child parameters into a version-1 snapshot.
+ * Reads the root and owned child parameters into a snapshot.
  *
  * @remarks
  * Traversal is depth-first, with siblings sorted by module name. Each Ref is
@@ -94,7 +94,6 @@ export const save = <I extends Schema.Struct.Fields, O extends Schema.Struct.Fie
       ))
 
     return new SavedState({
-      version: 1,
       modules
     })
   })
@@ -103,7 +102,7 @@ export const save = <I extends Schema.Struct.Fields, O extends Schema.Struct.Fie
  * Restores a module parameter tree from saved state.
  *
  * @remarks
- * Accepts a version-1 {@link SavedState} or an unknown value that decodes as
+ * Accepts a {@link SavedState} or an unknown value that decodes as
  * one. Before writing, it rejects duplicate names, unknown names, and missing
  * target names, and validates every demo against its destination's encoded
  * schemas, rejecting excess fields. Validated refs are updated in canonical target
