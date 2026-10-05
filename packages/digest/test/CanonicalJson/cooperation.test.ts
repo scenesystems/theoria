@@ -129,6 +129,30 @@ it.effect("preserves a surrogate pair spanning a text batch and absolute indices
     )
   }))
 
+it.effect("matches scalar JSON escaping on both sides of the short-string boundary", () =>
+  Effect.gen(function*() {
+    const encode = Schema.encodeEffect(Schema.fromJsonString(Schema.String))
+    const suffixes = Arr.make(
+      "a漢😀\u{10ffff}",
+      "\"\\/\b\t\n\f\r\u0000\u0001\u001f",
+      "\u0020\u007f\u0080\u2028\u2029\ud7ff\ue000"
+    )
+    yield* Effect.forEach(Arr.make(0, 1_019, 1_023, 1_024, 1_025), (length) =>
+      Effect.forEach(suffixes, (suffix) =>
+        Effect.gen(function*() {
+          const text = Str.concat(Str.repeat(length)("x"), suffix)
+          const quoted = yield* encode(text)
+          expect(yield* CanonicalJson.encode(text)).toBe(quoted)
+          expect(yield* CanonicalJson.encode(Record.singleton(text, text)))
+            .toBe(Str.concat(Str.concat(Str.concat("{", quoted), Str.concat(":", quoted)), "}"))
+          const bytes = yield* Utf8.encode(quoted)
+          const bounded = yield* ContentDigest.fromSchemaWithByteLimit(Schema.String, text, bytes.byteLength)
+          expect(bounded.canonicalByteLength).toBe(bytes.byteLength)
+          expect(yield* Effect.exit(ContentDigest.fromSchemaWithByteLimit(Schema.String, text, bytes.byteLength - 1)))
+            .toStrictEqual(Exit.fail(new CanonicalJson.ByteLimitExceeded({})))
+        })))
+  }))
+
 it.effect("stops at the byte limit before a later invalid value is traversed", () =>
   Effect.gen(function*() {
     const value = Arr.make(longText, undefined)
