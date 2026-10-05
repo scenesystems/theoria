@@ -170,8 +170,8 @@ describe("Module marker wire replay", () => {
           metric,
           maxRounds: 1,
           maxBootstrappedDemos: 1,
-          threshold: 1,
-          fallbackToLabeledFewShot: false
+          metricThreshold: Option.some(1),
+          maxLabeledDemos: 0
         })
       ).pipe(Effect.provideService(LanguageModel.LanguageModel, teacher.service))
       const parameters = Option.getOrThrow(Record.get(optimized.parameters, module.name))

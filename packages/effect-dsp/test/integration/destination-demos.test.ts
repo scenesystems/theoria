@@ -3,7 +3,7 @@ import { describe, expect, it } from "@effect/vitest"
 import * as BootstrapFewShot from "@scenesystems/effect-dsp/BootstrapFewShot"
 import * as BootstrapRS from "@scenesystems/effect-dsp/BootstrapRS"
 import { Demonstration } from "@scenesystems/effect-dsp/Demonstration"
-import { Example } from "@scenesystems/effect-dsp/Example"
+import { Example, Id } from "@scenesystems/effect-dsp/Example"
 import * as LabeledFewShot from "@scenesystems/effect-dsp/LabeledFewShot"
 import * as Metric from "@scenesystems/effect-dsp/Metric"
 import * as MIPROv2 from "@scenesystems/effect-dsp/MIPROv2"
@@ -11,12 +11,19 @@ import * as MockLanguageModel from "@scenesystems/effect-dsp/MockLanguageModel"
 import * as Module from "@scenesystems/effect-dsp/Module"
 import { withDemos } from "@scenesystems/effect-dsp/ModuleParameters"
 import * as Signature from "@scenesystems/effect-dsp/Signature"
-import { Array as Arr, Boolean, Deferred, Effect, Fiber, Layer, Option, Record, Ref, Schema, String } from "effect"
+import * as ModelBinder from "@scenesystems/effect-lm/ModelBinder"
+import { Array as Arr, Boolean, Deferred, Effect, Fiber, Option, Record, Ref, Schema, String } from "effect"
 import * as LanguageModel from "effect/ai/LanguageModel"
 import * as Toolkit from "effect/ai/Toolkit"
 import * as MIPROv2Candidates from "../../src/MIPROv2Candidates.js"
 
-const rows = Arr.make(new Example({ input: { question: "France" }, labels: Option.some({ answer: "Paris" }) }))
+const rows = Arr.make(
+  new Example({
+    id: Option.some(Id.make("france")),
+    input: { question: "France" },
+    labels: Option.some({ answer: "Paris" })
+  })
+)
 
 const makePipeline = Effect.gen(function*() {
   const rootSignature = yield* Signature.make("Answer", { question: Schema.String }, { answer: Schema.String })
@@ -86,12 +93,16 @@ describe("destination-owned demonstrations", () => {
           metric: Metric.exactMatch("answer"),
           maxRounds: 1,
           maxBootstrappedDemos: 1,
-          fallbackToLabeledFewShot: false
+          maxLabeledDemos: 0
         })
       ).pipe(Effect.provideService(LanguageModel.LanguageModel, mock.service))
       expect((yield* Ref.get(child.parameters)).demos).toEqual(Arr.empty())
       expect(Option.getOrThrow(Record.get(compiled.parameters, "pipeline.child")).demos).toEqual(Arr.make(
-        new Demonstration({ input: { question: "France", context: "Cities" }, output: { analysis: "Paris" } })
+        new Demonstration({
+          input: { question: "France", context: "Cities" },
+          output: { analysis: "Paris" },
+          exampleId: Option.some(Id.make("france"))
+        })
       ))
       expect(
         yield* compiled.program.forward({ question: "France" }).pipe(
@@ -178,14 +189,28 @@ describe("destination-owned demonstrations", () => {
           trainset: rows,
           metric,
           numCandidates: 1,
-          teacher: Layer.succeed(LanguageModel.LanguageModel, teacher.service)
+          maxLabeledDemos: 0
         })
-      ).pipe(Effect.provideService(LanguageModel.LanguageModel, mock.service))
+      ).pipe(
+        ModelBinder.withBinder(
+          new ModelBinder.Binder({
+            bind: (request) => (effect) =>
+              effect.pipe(
+                Effect.provideService(
+                  LanguageModel.LanguageModel,
+                  request.role === "teacher" ? teacher.service : mock.service
+                )
+              )
+          })
+        ),
+        Effect.provideService(LanguageModel.LanguageModel, mock.service)
+      )
       expect((yield* Ref.get(child.parameters)).demos).toEqual(Arr.empty())
       expect(Option.getOrThrow(Record.get(compiled.parameters, "pipeline.child")).demos).toEqual(Arr.make(
         new Demonstration({
           input: { question: "France", context: "Cities" },
-          output: { analysis: "training-stage-marker" }
+          output: { analysis: "training-stage-marker" },
+          exampleId: Option.some(Id.make("france"))
         })
       ))
       expect(
@@ -221,11 +246,15 @@ describe("destination-owned demonstrations", () => {
           metric: Metric.exactMatch("answer"),
           maxRounds: 1,
           maxBootstrappedDemos: 3,
-          fallbackToLabeledFewShot: false
+          maxLabeledDemos: 0
         })
       ).pipe(Effect.provideService(LanguageModel.LanguageModel, mock.service))
       expect(Option.getOrThrow(Record.get(compiled.parameters, "reasoning-pipeline.child")).demos).toEqual(Arr.make(
-        new Demonstration({ input: { question: "France" }, output: { answer: "Paris" } })
+        new Demonstration({
+          input: { question: "France" },
+          output: { answer: "Paris" },
+          exampleId: Option.some(Id.make("france"))
+        })
       ))
     }))
 
@@ -244,7 +273,8 @@ describe("destination-owned demonstrations", () => {
           trainset: rows,
           metric: Metric.exactMatch("answer"),
           maxRounds: 1,
-          maxBootstrappedDemos: 1
+          maxBootstrappedDemos: 1,
+          maxLabeledDemos: 0
         })
       ).pipe(Effect.provideService(LanguageModel.LanguageModel, mock.service), Effect.forkScoped)
       yield* Deferred.await(entered)

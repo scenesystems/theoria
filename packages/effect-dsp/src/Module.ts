@@ -94,7 +94,7 @@ export class Structure extends Data.Class<{
   readonly id: Id
   readonly name: string
   readonly signature: Text
-  readonly signatureDigest: Effect.Effect<string, SignatureError>
+  readonly signatureDigest: (parameters: ModuleParameters) => Effect.Effect<string, SignatureError>
   readonly demonstrationCodec: DemonstrationCodec
   readonly parameters: Ref.Ref<ModuleParameters>
   readonly subModules: HashMap.HashMap<Id, Structure>
@@ -303,7 +303,7 @@ export class ComposableModule extends Data.Class<{
   readonly signature: {
     readonly description: string
     readonly instructions: string
-    readonly digest: Effect.Effect<string, SignatureError>
+    readonly digest: (parameters: ModuleParameters) => Effect.Effect<string, SignatureError>
     readonly demonstrationCodec: DemonstrationCodec
   }
   readonly parameters: Ref.Ref<ModuleParameters>

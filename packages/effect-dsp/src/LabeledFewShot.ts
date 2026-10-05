@@ -8,9 +8,7 @@
 import * as Numeric from "@scenesystems/effect-math/Numeric"
 import { normalizeDeterministicSeed } from "@scenesystems/effect-search/Sampler"
 import { Array as Arr, Data, Effect, Option, Random, Record, Schema, Tuple } from "effect"
-import { Demonstration } from "./Demonstration.js"
-import * as Example from "./Example.js"
-import { type LabeledExamples } from "./internal/labeledFewShot/sampling.js"
+import { type LabeledExamples, sampleLabeled } from "./internal/labeledFewShot/sampling.js"
 import { bound, type Module } from "./Module.js"
 import { predictors } from "./ModuleGraph.js"
 import { withDemos as withModuleParametersDemos } from "./ModuleParameters.js"
@@ -85,22 +83,11 @@ export const run = <
     const seed = normalizeDeterministicSeed(options.seed ?? 1)
     const requested = options.k ?? 16
     const k = Numeric.isFinite(requested) ? Numeric.max(0, Numeric.floor(requested)) : 0
-    const demos = yield* Effect.forEach(
-      Arr.filter(options.trainset, (example) => Option.isSome(example.labels)),
-      (example) =>
-        Example.id(example).pipe(Effect.map((id) =>
-          new Demonstration({
-            input: example.input,
-            output: Option.getOrThrow(example.labels),
-            exampleId: Option.some(id)
-          })
-        ))
-    )
     const before = yield* ParameterSet.snapshot(options.module)
     const refs = Arr.filter(Arr.fromIterable(predictors(options.module)), (entry) => !entry.frozen)
     const replacements = yield* Effect.forEach(refs, (entry) =>
       Effect.gen(function*() {
-        const selected = Arr.take(options.sample === false ? demos : yield* Random.shuffle(demos), k)
+        const selected = yield* sampleLabeled(options.trainset, k, options.sample ?? true)
         const validated = yield* Effect.forEach(selected, entry.demonstrationCodec.labeled)
         return Tuple.make(
           entry.path,
@@ -111,6 +98,10 @@ export const run = <
     return new Optimized.Result({
       program: bound(options.module, parameters),
       parameters,
-      report: new Report({ k, sampled: Numeric.min(k, Arr.length(demos)), seed })
+      report: new Report({
+        k,
+        sampled: Numeric.min(k, Arr.length(Arr.filter(options.trainset, (example) => Option.isSome(example.labels)))),
+        seed
+      })
     })
   })

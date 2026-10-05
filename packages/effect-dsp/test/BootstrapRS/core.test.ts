@@ -90,8 +90,8 @@ describe("BootstrapRS.run", () => {
             seeds: [0, 1],
             maxRounds: 1,
             maxBootstrappedDemos: 1,
-            threshold: 1,
-            fallbackToLabeledFewShot: false
+            metricThreshold: Option.some(1),
+            maxLabeledDemos: 0
           })
         )
       ).pipe(Effect.provide(lmLayer))
@@ -126,8 +126,8 @@ describe("BootstrapRS.run", () => {
             seeds: [0],
             maxRounds: 1,
             maxBootstrappedDemos: 1,
-            threshold: 1,
-            fallbackToLabeledFewShot: false
+            metricThreshold: Option.some(1),
+            maxLabeledDemos: 0
           })
         ).pipe(Effect.provide(lmLayer))
       )

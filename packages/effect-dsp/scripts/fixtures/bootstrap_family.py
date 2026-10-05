@@ -60,6 +60,22 @@ def generate():
                                  "history": history(model),
                                  "studentHistory": history(student_model) if teacher else [], **result}})
     model = lm()
+    calls = []
+
+    def labeled_metric(e, p, trace=None):
+        calls.append({"id": e.id, "prediction": p.toDict()})
+        return e.id == "train-3"
+
+    with dspy.context(lm=model):
+        compiled = dspy.BootstrapFewShot(
+            metric=labeled_metric, max_bootstrapped_demos=1,
+            max_labeled_demos=2, max_rounds=1,
+        ).compile(dspy.Predict("question -> answer"), trainset=train)
+    docs.append({"id": "bootstrapfewshot-labeled-001",
+                 "description": "Default teacher labeled prewarming, leave-one-out prompts, and labeled student fill.",
+                 "payload": {"splits": splits(train), "metricCalls": calls,
+                             "history": history(model), "state": state(compiled)}})
+    model = lm()
     with dspy.context(lm=model):
         compiled = dspy.BootstrapFewShotWithRandomSearch(
             metric=lambda e, p, trace=None: float(p.answer == "teacher"),

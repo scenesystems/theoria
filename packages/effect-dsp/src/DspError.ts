@@ -63,28 +63,6 @@ export class CompositionError extends Schema.TaggedError<CompositionError>(
   }
 ) {}
 
-/** Terminal BootstrapFewShot failure.
- * @since 0.1.0
- * @category errors
- */
-export class BootstrapFailed extends Schema.TaggedError<BootstrapFailed>(
-  "@scenesystems/effect-dsp/DspError/BootstrapFailed"
-)(
-  "BootstrapFailed",
-  {
-    message: Schema.String,
-    roundsAttempted: Schema.Finite,
-    totalTraces: Schema.Finite,
-    threshold: Schema.Finite.pipe(Schema.withDecodingDefaultType(Effect.succeed(0))),
-    acceptedTraces: Schema.Finite.pipe(Schema.withDecodingDefaultType(Effect.succeed(0))),
-    rejectedTraces: Schema.Finite.pipe(Schema.withDecodingDefaultType(Effect.succeed(0))),
-    evaluatedExamples: Schema.Finite.pipe(Schema.withDecodingDefaultType(Effect.succeed(0))),
-    bestScoreSeen: Schema.Boolean.pipe(Schema.withDecodingDefaultType(Effect.succeed(false))),
-    bestScore: Schema.Finite.pipe(Schema.withDecodingDefaultType(Effect.succeed(0))),
-    averageScore: Schema.Finite.pipe(Schema.withDecodingDefaultType(Effect.succeed(0)))
-  }
-) {}
-
 /** Failure to produce a MIPROv2 instruction proposal.
  * @since 0.1.0
  * @category errors
@@ -200,7 +178,6 @@ export const DspError = Schema.Union([
   SignatureError,
   ParseOutputError,
   CompositionError,
-  BootstrapFailed,
   InstructionProposalFailed,
   AllTrialsFailed,
   MergeRejected,

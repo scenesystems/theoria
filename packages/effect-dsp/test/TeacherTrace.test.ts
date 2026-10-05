@@ -7,7 +7,7 @@ import * as Module from "@scenesystems/effect-dsp/Module"
 import * as ModuleParameters from "@scenesystems/effect-dsp/ModuleParameters"
 import * as ParameterSet from "@scenesystems/effect-dsp/ParameterSet"
 import * as Signature from "@scenesystems/effect-dsp/Signature"
-import { Array as Arr, Chunk, Deferred, Effect, Exit, Fiber, Option, Record, Ref, Schema } from "effect"
+import { Array as Arr, Chunk, Deferred, Effect, Exit, Fiber, Option, Record, Ref, Schema, Struct } from "effect"
 import * as LanguageModel from "effect/ai/LanguageModel"
 import * as TeacherTrace from "../src/TeacherTrace.js"
 import { assertNoMutation } from "./kit/Mutation.js"
@@ -82,6 +82,66 @@ it.effect("retains every invocation of a repeated predictor and supplies bootstr
       Chunk.size(Option.getOrThrow(Record.get(TeacherTrace.firstPerPredictor(first).demosByPredictor, "pipeline.leaf")))
     ).toBe(1)
     expect(yield* Ref.get(mock.calls)).toHaveLength(2)
+  }))
+
+it.effect("rejects the identical teacher executable but accepts an immutable bound copy", () =>
+  Effect.gen(function*() {
+    const student = yield* Module.predict(
+      "qa",
+      yield* Signature.make("answer", { question: Schema.String }, { answer: Schema.String })
+    )
+    const mock = yield* MockLanguageModel.make(MockLanguageModel.succeed({ answer: "teacher" }))
+    const options = new TeacherTrace.Options({
+      student,
+      teacher: Option.some(student),
+      trainset: Chunk.of(new Example.Example({ input: { question: "q" } })),
+      metric: Metric.fromSync(() => 1)
+    })
+    const failure = yield* TeacherTrace.collect(options).pipe(
+      Effect.provideService(LanguageModel.LanguageModel, mock.service),
+      Effect.flip
+    )
+    expect(failure._tag).toBe("IncompatibleTeacher")
+    expect(yield* Ref.get(mock.calls)).toHaveLength(0)
+    const copy = Module.bound(student, yield* ParameterSet.snapshot(student))
+    const result = yield* TeacherTrace.collect(
+      new TeacherTrace.Options(Struct.assign(options, { teacher: Option.some(copy) }))
+    ).pipe(Effect.provideService(LanguageModel.LanguageModel, mock.service))
+    expect(Chunk.size(result.accepted)).toBe(1)
+  }))
+
+it.effect("compares effective instructions and field metadata under each bound parameter set", () =>
+  Effect.gen(function*() {
+    const student = yield* Module.predict(
+      "qa",
+      yield* Signature.make("answer", { question: Schema.String }, { answer: Schema.String })
+    )
+    const before = yield* ParameterSet.snapshot(student)
+    const mock = yield* MockLanguageModel.make(MockLanguageModel.succeed({ answer: "teacher" }))
+    yield* Effect.forEach([
+      Record.map(before, (parameters) => ModuleParameters.withInstructions(parameters, "different instructions")),
+      Record.map(
+        before,
+        (parameters) =>
+          new ModuleParameters.ModuleParameters(
+            Struct.assign(parameters, {
+              fields: { answer: { prefix: Option.some("Different:"), description: Option.none() } }
+            })
+          )
+      )
+    ], (parameters) =>
+      Effect.gen(function*() {
+        const failure = yield* TeacherTrace.collect(
+          new TeacherTrace.Options({
+            student,
+            teacher: Option.some(Module.bound(student, parameters)),
+            trainset: Chunk.of(new Example.Example({ input: { question: "q" } })),
+            metric: Metric.fromSync(() => 1)
+          })
+        ).pipe(Effect.provideService(LanguageModel.LanguageModel, mock.service), Effect.flip)
+        expect(failure._tag).toBe("IncompatibleTeacher")
+      }))
+    expect(yield* Ref.get(mock.calls)).toHaveLength(0)
   }))
 
 it.effect("truthy scores accept without a threshold; an explicit threshold rejects lower scores", () =>
@@ -193,4 +253,40 @@ it.effect("maxErrors reaches its limit on the first failure and interruption pre
     yield* Deferred.await(started)
     yield* Fiber.interrupt(fiber)
     expect(Exit.hasInterrupts(yield* Fiber.await(fiber))).toBe(true)
+  }))
+
+it.effect("emits teacher events in execution order and excludes observer errors from the error budget", () =>
+  Effect.gen(function*() {
+    const student = yield* Module.predict(
+      "qa",
+      yield* Signature.make("answer", { question: Schema.String }, { answer: Schema.String })
+    )
+    const history = yield* Ref.make(Arr.empty<string>())
+    const mock = yield* MockLanguageModel.make(MockLanguageModel.succeed({ answer: "teacher" }))
+    const options = new TeacherTrace.Options({
+      student,
+      trainset: Chunk.fromIterable(
+        Arr.map(["a", "b", "c"], (question) => new Example.Example({ input: { question } }))
+      ),
+      maxErrors: Option.some(1),
+      metric: Metric.withFeedback((example) =>
+        Ref.update(history, Arr.append(`metric:${Schema.decodeUnknownSync(Schema.String)(example.input.question)}`))
+          .pipe(
+            Effect.as(new Metric.Score({ value: example.input.question === "b" ? 0 : 1, feedback: Option.none() }))
+          )
+      )
+    })
+    const error = yield* TeacherTrace.collect(options, (event) =>
+      Ref.update(history, Arr.append(event._tag)).pipe(
+        Effect.andThen(event._tag === "ExampleRejected" ? Effect.fail("observer failed") : Effect.void)
+      )).pipe(Effect.provideService(LanguageModel.LanguageModel, mock.service), Effect.flip)
+    expect(error).toBe("observer failed")
+    expect(yield* Ref.get(history)).toEqual([
+      "RoundStarted",
+      "metric:a",
+      "ExampleAccepted",
+      "metric:b",
+      "ExampleRejected"
+    ])
+    expect(yield* Ref.get(mock.calls)).toHaveLength(2)
   }))

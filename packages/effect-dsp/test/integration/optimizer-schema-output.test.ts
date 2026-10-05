@@ -10,6 +10,7 @@ import * as MockLanguageModel from "@scenesystems/effect-dsp/MockLanguageModel"
 import * as Module from "@scenesystems/effect-dsp/Module"
 import { decode as decodePayload } from "@scenesystems/effect-dsp/Payload"
 import * as Signature from "@scenesystems/effect-dsp/Signature"
+import * as TeacherTrace from "@scenesystems/effect-dsp/TeacherTrace"
 import { Array as Arr, Effect, Number, Option, Record, Ref, Schema } from "effect"
 import * as LanguageModel from "effect/ai/LanguageModel"
 import { PredictorInstruction, ProgramCandidate } from "../../src/internal/gepa/model.js"
@@ -57,8 +58,8 @@ describe("optimizer schema-derived metric values", () => {
           metric,
           maxRounds: 1,
           maxBootstrappedDemos: 1,
-          threshold: 4,
-          fallbackToLabeledFewShot: false
+          metricThreshold: Option.some(4),
+          maxLabeledDemos: 0
         })
       ).pipe(Effect.provideService(LanguageModel.LanguageModel, mock.service))
       const parameters = Option.getOrThrow(Record.get(compiled.parameters, module.name))
@@ -68,7 +69,7 @@ describe("optimizer schema-derived metric values", () => {
       expect(yield* Schema.decodeUnknownEffect(Output)(demo.output)).toEqual({ result: { count: 7 } })
     }))
 
-  it.effect("preserves the scorer's checked label validation failure after model execution", () =>
+  it.effect("counts the scorer's checked label validation failure against the error budget", () =>
     Effect.gen(function*() {
       const module = yield* makeModule
       const original = yield* Ref.get(module.parameters)
@@ -79,10 +80,11 @@ describe("optimizer schema-derived metric values", () => {
           trainset: Arr.make(invalidExample),
           metric,
           maxRounds: 1,
-          maxBootstrappedDemos: 1
+          maxBootstrappedDemos: 1,
+          maxErrors: Option.some(1)
         })
       ).pipe(Effect.provideService(LanguageModel.LanguageModel, mock.service), Effect.flip)
-      expect(failure).toBeInstanceOf(Schema.SchemaError)
+      expect(failure).toEqual(new TeacherTrace.TooManyErrors({ count: 1, limit: 1 }))
       expect(Arr.length(yield* Ref.get(mock.calls))).toBe(1)
       expect(yield* Ref.get(module.parameters)).toEqual(original)
     }))

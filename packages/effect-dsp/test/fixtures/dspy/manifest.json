@@ -36,6 +36,14 @@
       "description": "Real two-predictor teacher traces, quotas and acceptance."
     },
     {
+      "id": "bootstrapfewshot-labeled-001",
+      "file": "upstream/bootstrapfewshot-labeled-001.json",
+      "evidence": "upstream-execution",
+      "sha256": "06f9207e3964d138e8ab26cac02ac0fcca7000420a99ba27e4381936ef8ff1b4",
+      "generator": "fixtures.bootstrap_family",
+      "description": "Default teacher labeled prewarming, leave-one-out prompts, and labeled student fill."
+    },
+    {
       "id": "bootstrapfewshot-threshold-001",
       "file": "upstream/bootstrapfewshot-threshold-001.json",
       "evidence": "upstream-execution",

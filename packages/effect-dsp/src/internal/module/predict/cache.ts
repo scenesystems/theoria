@@ -10,7 +10,6 @@ import * as Cache from "../../../Cache.js"
 import * as Payload from "../../../Payload.js"
 import * as Signature from "../../../Signature.js"
 import { emptyUsage } from "../../../Trace.js"
-import { effective } from "../../signature/effective.js"
 import { ForwardExecution, type ForwardOptions } from "./model.js"
 
 class LocalIdentity extends Data.Class<{
@@ -65,8 +64,7 @@ export const cached = <I extends Schema.Struct.Fields, O extends Schema.Struct.F
     if (Option.isNone(cache)) return yield* compute
     const prepared = yield* optional(
       Effect.gen(function*() {
-        const signature = effective(options.signature, options.parameters)
-        const signatureDigest = yield* Signature.digest(signature)
+        const signatureDigest = yield* Signature.digest(options.signature, options.parameters)
         return yield* Cache.key(
           new Cache.KeyRequest({
             moduleFingerprint: options.moduleName,

@@ -185,8 +185,8 @@ const program = Effect.gen(function*() {
       metric: Metric.exactMatch("answer"),
       maxRounds: 2,
       maxBootstrappedDemos: 3,
-      threshold: 1,
-      fallbackToLabeledFewShot: false
+      metricThreshold: Option.some(1),
+      maxLabeledDemos: 0
     })
   )
 

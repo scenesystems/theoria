@@ -5,6 +5,7 @@
  * @since 0.1.0
  * @internal
  */
+import type { ModelSettings } from "@scenesystems/effect-lm/ModelSettings"
 import * as Numeric from "@scenesystems/effect-math/Numeric"
 import {
   Array as Arr,
@@ -19,8 +20,6 @@ import {
   String as Str,
   Tuple
 } from "effect"
-import type * as LanguageModel from "effect/ai/LanguageModel"
-import type * as Layer from "effect/Layer"
 import { Options as BootstrapFewShotOptions, run as bootstrapFewShot } from "../../../BootstrapFewShot.js"
 import { AllTrialsFailed } from "../../../DspError.js"
 import * as Evaluate from "../../../Evaluate.js"
@@ -166,10 +165,10 @@ export class BuildCandidateStatesOptions<
   readonly maxRounds: number
   readonly maxBootstrappedDemos: number
   readonly maxLabeledDemos?: number
-  readonly threshold?: number
-  readonly fallbackToLabeledFewShot?: boolean
-  readonly fallbackLabeledDemoCount?: number
-  readonly teacher?: Layer.Layer<LanguageModel.LanguageModel, never, never>
+  readonly metricThreshold: Option.Option<number>
+  readonly maxErrors: Option.Option<number>
+  readonly teacherSettings: ModelSettings
+  readonly teacher?: DspModule<I, O, E, R>
   readonly baselineLabeledCount: number
 }> {}
 
@@ -287,21 +286,12 @@ export const buildCandidateStates = <
                 onNone: () => ({}),
                 onSome: (value) => ({ maxLabeledDemos: value })
               }),
-              ...Option.match(Option.fromNullishOr(options.threshold), {
-                onNone: () => ({}),
-                onSome: (value) => ({ threshold: value })
-              }),
+              metricThreshold: options.metricThreshold,
+              maxErrors: options.maxErrors,
+              teacherSettings: options.teacherSettings,
               ...Option.match(Option.fromNullishOr(options.teacher), {
                 onNone: () => ({}),
                 onSome: (teacher) => ({ teacher })
-              }),
-              ...Option.match(Option.fromNullishOr(options.fallbackToLabeledFewShot), {
-                onNone: () => ({ fallbackToLabeledFewShot: false }),
-                onSome: (fallbackToLabeledFewShot) => ({ fallbackToLabeledFewShot })
-              }),
-              ...Option.match(Option.fromNullishOr(options.fallbackLabeledDemoCount), {
-                onNone: () => ({}),
-                onSome: (fallbackLabeledDemoCount) => ({ fallbackLabeledDemoCount })
               })
             })
           )

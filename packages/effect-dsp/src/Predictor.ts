@@ -27,7 +27,7 @@ export class Predictor extends Data.Class<{
   readonly aliases: Chunk.Chunk<Path>
   readonly frozen: boolean
   readonly signature: Text
-  readonly signatureDigest: Effect.Effect<string, SignatureError>
+  readonly signatureDigest: (parameters: ModuleParameters) => Effect.Effect<string, SignatureError>
   readonly parameters: EffectRef.Ref<ModuleParameters>
   readonly demonstrationCodec: Codec
   readonly boundParameters: Option.Option<ModuleParameters>

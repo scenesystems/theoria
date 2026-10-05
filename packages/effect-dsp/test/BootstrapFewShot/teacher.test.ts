@@ -9,6 +9,7 @@ import * as MockLanguageModel from "@scenesystems/effect-dsp/MockLanguageModel"
 import * as Module from "@scenesystems/effect-dsp/Module"
 import { ModuleParameters } from "@scenesystems/effect-dsp/ModuleParameters"
 import * as Signature from "@scenesystems/effect-dsp/Signature"
+import * as ModelBinder from "@scenesystems/effect-lm/ModelBinder"
 import { Effect, Layer, Option, Record, Ref, Schema } from "effect"
 import * as LanguageModel from "effect/ai/LanguageModel"
 
@@ -46,7 +47,6 @@ describe("BootstrapFewShot.run teacher/student", () => {
         MockLanguageModel.succeed({ answer: "London" })
       )
 
-      const teacherLayer = Layer.succeed(LanguageModel.LanguageModel, teacher.service)
       const studentLayer = Layer.succeed(LanguageModel.LanguageModel, student.service)
 
       const optimized = yield* BootstrapFewShot.run(
@@ -61,11 +61,23 @@ describe("BootstrapFewShot.run teacher/student", () => {
           metric: Metric.exactMatch("answer"),
           maxRounds: 2,
           maxBootstrappedDemos: 1,
-          threshold: 1,
-          fallbackToLabeledFewShot: false,
-          teacher: teacherLayer
+          metricThreshold: Option.some(1),
+          maxLabeledDemos: 0
         })
-      ).pipe(Effect.provide(studentLayer))
+      ).pipe(
+        ModelBinder.withBinder(
+          new ModelBinder.Binder({
+            bind: (request) => (effect) =>
+              effect.pipe(
+                Effect.provideService(
+                  LanguageModel.LanguageModel,
+                  request.role === "teacher" ? teacher.service : student.service
+                )
+              )
+          })
+        ),
+        Effect.provide(studentLayer)
+      )
 
       const parametersAfterBootstrap = Option.getOrThrow(Record.get(optimized.parameters, "qa"))
       const teacherCallsAfterBootstrap = yield* Ref.get(teacher.calls)

@@ -11,7 +11,9 @@ import { dual } from "effect/Function"
 import { type Codec, codec } from "./Demonstration.js"
 import { SignatureError } from "./DspError.js"
 import { fromSchemas as fromSchemasInternal, make as makeInternal } from "./internal/signature/constructors.js"
+import { effective } from "./internal/signature/effective.js"
 import { deriveInstruction as deriveInstructionInternal } from "./internal/signature/instructions.js"
+import type { ModuleParameters } from "./ModuleParameters.js"
 
 /** Natural-language description and instructions without field schemas.
  * @since 0.6.0
@@ -109,8 +111,8 @@ export class Signature<
    * @since 0.7.0
    * @category accessors
    */
-  get digest(): Effect.Effect<string, SignatureError> {
-    return digest(this)
+  get digest(): (parameters: ModuleParameters) => Effect.Effect<string, SignatureError> {
+    return (parameters) => digest(this, parameters)
   }
 
   /**
@@ -209,15 +211,19 @@ export const withFieldDescription = <I extends Schema.Struct.Fields, O extends S
  * @category operations
  */
 export const digest = <I extends Schema.Struct.Fields, O extends Schema.Struct.Fields>(
-  signature: Signature<I, O>
+  signature: Signature<I, O>,
+  parameters: ModuleParameters
 ): Effect.Effect<string, SignatureError> =>
-  Effect.try(() => ({
-    input: Schema.toJsonSchemaDocument(Schema.toEncoded(signature.inputSchema)),
-    output: Schema.toJsonSchemaDocument(Schema.toEncoded(signature.outputSchema)),
-    description: signature.description,
-    instructions: signature.instructions,
-    fields: signature.fields
-  })).pipe(
+  Effect.try(() => {
+    const composed = effective(signature, parameters)
+    return {
+      input: Schema.toJsonSchemaDocument(Schema.toEncoded(signature.inputSchema)),
+      output: Schema.toJsonSchemaDocument(Schema.toEncoded(signature.outputSchema)),
+      description: signature.description,
+      instructions: composed.instructions,
+      fields: composed.fields
+    }
+  }).pipe(
     Effect.flatMap((value) => ContentDigest.fromUnknown("blake3-256", value)),
     Effect.map(ContentDigest.toString),
     Effect.mapError(() => new SignatureError({ reason: "Cannot encode signature identity" }))

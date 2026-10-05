@@ -72,8 +72,8 @@ describe("integration/predict-optimize-evaluate", () => {
           metric: Metric.exactMatch("answer"),
           maxRounds: 2,
           maxBootstrappedDemos: 2,
-          threshold: 1,
-          fallbackToLabeledFewShot: false
+          metricThreshold: Option.some(1),
+          maxLabeledDemos: 0
         })
       ).pipe(Effect.provide(layer))
 

@@ -65,7 +65,8 @@ describe("BootstrapFewShot.stream", () => {
             metric: Metric.exactMatch("answer"),
             maxRounds: 3,
             maxBootstrappedDemos: 1,
-            threshold: 1
+            metricThreshold: Option.some(1),
+            maxLabeledDemos: 0
           })
         )
       ).pipe(Effect.provide(lmLayer))
@@ -78,9 +79,6 @@ describe("BootstrapFewShot.stream", () => {
       expect(Option.isSome(Arr.findFirst(eventList, BootstrapFewShot.events.$is("TraceAccepted")))).toBe(true)
       expect(Option.isSome(Arr.findFirst(eventList, BootstrapFewShot.events.$is("RoundCompleted")))).toBe(true)
       expect(Option.isSome(Arr.findFirst(eventList, BootstrapFewShot.events.$is("BootstrapCompleted")))).toBe(true)
-      expect(Option.isNone(Arr.findFirst(eventList, BootstrapFewShot.events.$is("BootstrapFallbackActivated")))).toBe(
-        true
-      )
       expect(
         Option.match(firstEvent, {
           onNone: () => false,
@@ -95,7 +93,7 @@ describe("BootstrapFewShot.stream", () => {
       ).toBe(true)
     }))
 
-  it.effect("emits fallback lifecycle events when trace acceptance stays at zero", () =>
+  it.effect("reports labeled completion when trace acceptance stays at zero", () =>
     Effect.gen(function*() {
       const signature = yield* makeQaSignature()
       const module = yield* Module.predict("qa", signature)
@@ -129,7 +127,7 @@ describe("BootstrapFewShot.stream", () => {
             metric: Metric.exactMatch("answer"),
             maxRounds: 1,
             maxBootstrappedDemos: 2,
-            threshold: 1
+            metricThreshold: Option.some(1)
           })
         )
       ).pipe(Effect.provide(lmLayer))
@@ -137,18 +135,7 @@ describe("BootstrapFewShot.stream", () => {
       const eventList = Arr.fromIterable(events)
       const completionEvent = Arr.findFirst(eventList, BootstrapFewShot.events.$is("BootstrapCompleted"))
 
-      expect(Option.isSome(Arr.findFirst(eventList, BootstrapFewShot.events.$is("BootstrapFallbackActivated")))).toBe(
-        true
-      )
-      expect(Option.isSome(Arr.findFirst(eventList, BootstrapFewShot.events.$is("BootstrapFallbackCompleted")))).toBe(
-        true
-      )
       expect(Option.isSome(completionEvent)).toBe(true)
-      expect(
-        Option.match(completionEvent, {
-          onNone: () => false,
-          onSome: (event) => event.fallbackUsed
-        })
-      ).toBe(true)
+      expect(Option.getOrThrow(completionEvent).labeledCount).toBe(1)
     }))
 })

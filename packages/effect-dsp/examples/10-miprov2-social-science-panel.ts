@@ -14,6 +14,7 @@
  */
 import { BunRuntime, BunServices } from "@effect/platform-bun"
 import { BootstrapFewShot, Evaluate, Example, Metric, MIPROv2, Module, Signature } from "@scenesystems/effect-dsp"
+import * as ModelBinder from "@scenesystems/effect-lm/ModelBinder"
 import { Array as Arr, Effect, Layer, Option, Ref, Schema } from "effect"
 import {
   makeStandardEvents,
@@ -201,6 +202,7 @@ const program = Effect.gen(function*() {
   })
 
   const bootstrapLog = yield* Ref.make(Arr.empty<BootstrapFewShot.Event>())
+  const binder = yield* ModelBinder.Current
   const bootstrapped = yield* BootstrapFewShot.runWithEvents(
     new BootstrapFewShot.Options({
       module: planner,
@@ -208,14 +210,18 @@ const program = Effect.gen(function*() {
       metric: Metric.exactMatch("intervention"),
       maxRounds: 1,
       maxBootstrappedDemos: 3,
-      threshold: 1,
-      teacher: teacherLayer
+      metricThreshold: Option.some(1)
     }),
     (event) =>
       Ref.update(bootstrapLog, Arr.append(event)).pipe(
         Effect.andThen(logExampleEvent("bootstrapFewShot", BootstrapFewShot.formatEvent(event).text))
       )
-  )
+  ).pipe(ModelBinder.withBinder(
+    new ModelBinder.Binder({
+      bind: (request) =>
+        request.role === "teacher" ? (effect) => effect.pipe(Effect.provide(teacherLayer)) : binder.bind(request)
+    })
+  ))
   yield* Module.install(planner, bootstrapped.parameters)
   const bootstrapEvents = yield* Ref.get(bootstrapLog)
   const bootstrapSummary = BootstrapFewShot.summarizeEvents(bootstrapEvents)
@@ -226,9 +232,7 @@ const program = Effect.gen(function*() {
     roundsCompleted: bootstrapSummary.roundsCompleted,
     traceAcceptedCount: bootstrapSummary.traceAcceptedCount,
     traceRejectedCount: bootstrapSummary.traceRejectedCount,
-    fallbackActivatedSeen: bootstrapSummary.fallbackActivatedSeen,
-    fallbackCompletedSeen: bootstrapSummary.fallbackCompletedSeen,
-    fallbackUsed: bootstrapSummary.fallbackUsed,
+    labeledCount: bootstrapSummary.labeledCount,
     totalDemos: bootstrapSummary.totalDemos,
     roundsUsed: bootstrapSummary.roundsUsed
   })
@@ -299,7 +303,7 @@ const program = Effect.gen(function*() {
       bootstrap: {
         maxRounds: 1,
         maxBootstrappedDemos: 3,
-        threshold: 1
+        metricThreshold: 1
       },
       miprov2: {
         numCandidates: 4,
@@ -359,7 +363,7 @@ const program = Effect.gen(function*() {
     demoCountBeforeOptimization: outcomeSummary.demoCountBeforeOptimization,
     demoCountAfterOptimization: outcomeSummary.demoCountAfterOptimization,
     demosLearnedDuringMIPROv2: outcomeSummary.demosLearnedDuringMIPROv2,
-    bootstrapFallbackUsed: bootstrapSummary.fallbackUsed,
+    bootstrapLabeledCount: bootstrapSummary.labeledCount,
     trialEvaluatedCount: outcomeSummary.eventSummary.trialEvaluatedCount,
     fullEvalCompletedCount: outcomeSummary.eventSummary.fullEvalCompletedCount,
     phase3ConfiguredTrials: outcomeSummary.eventSummary.phase3ConfiguredTrials,

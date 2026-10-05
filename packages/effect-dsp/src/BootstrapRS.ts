@@ -5,9 +5,8 @@
  * @since 0.1.0
  * @module
  */
+import { empty as emptySettings, type ModelSettings } from "@scenesystems/effect-lm/ModelSettings"
 import { Array as Arr, Data, Effect, Option, Schema } from "effect"
-import type * as LanguageModel from "effect/ai/LanguageModel"
-import type * as Layer from "effect/Layer"
 import { AllTrialsFailed } from "./DspError.js"
 import {
   type BootstrapRSExamples,
@@ -73,13 +72,13 @@ export class Options<
   /** Labeled cap for bootstrap and each destination's compatible baseline; defaults to `1`. */
   readonly maxLabeledDemos?: number
   /** Acceptance threshold forwarded to BootstrapFewShot. */
-  readonly threshold?: number
-  /** Enables labeled fallback inside each bootstrap restart. */
-  readonly fallbackToLabeledFewShot?: boolean
-  /** Labeled fallback count forwarded to each bootstrap restart. */
-  readonly fallbackLabeledDemoCount?: number
-  /** Language model Layer used during bootstrap trace collection. */
-  readonly teacher?: Layer.Layer<LanguageModel.LanguageModel, never, never>
+  readonly metricThreshold?: Option.Option<number>
+  /** Failure count that raises TooManyErrors. */
+  readonly maxErrors?: Option.Option<number>
+  /** Teacher program used during bootstrap trace collection. */
+  readonly teacher?: DspModule<I, O, E, R>
+  /** Generation settings for the teacher role. */
+  readonly teacherSettings?: ModelSettings
 }> {}
 
 const noCandidateError = () =>
@@ -154,21 +153,12 @@ export const run = <
           onNone: () => ({}),
           onSome: (maxLabeledDemos) => ({ maxLabeledDemos })
         }),
-        ...Option.match(Option.fromUndefinedOr(options.threshold), {
-          onNone: () => ({}),
-          onSome: (threshold) => ({ threshold })
-        }),
+        metricThreshold: options.metricThreshold ?? Option.none(),
+        maxErrors: options.maxErrors ?? Option.none(),
+        teacherSettings: options.teacherSettings ?? emptySettings,
         ...Option.match(Option.fromUndefinedOr(options.teacher), {
           onNone: () => ({}),
           onSome: (teacher) => ({ teacher })
-        }),
-        ...Option.match(Option.fromUndefinedOr(options.fallbackToLabeledFewShot), {
-          onNone: () => ({}),
-          onSome: (fallbackToLabeledFewShot) => ({ fallbackToLabeledFewShot })
-        }),
-        ...Option.match(Option.fromUndefinedOr(options.fallbackLabeledDemoCount), {
-          onNone: () => ({}),
-          onSome: (fallbackLabeledDemoCount) => ({ fallbackLabeledDemoCount })
         }),
         baselineLabeledCount
       })
