@@ -1,25 +1,26 @@
 version = 1
-revision = 3
+revision = 5
 requires-python = ">=3.12"
 resolution-markers = [
     "python_full_version >= '3.14' and sys_platform != 'darwin'",
-    "python_full_version < '3.14' and sys_platform != 'darwin'",
     "python_full_version >= '3.14' and sys_platform == 'darwin'",
+    "python_full_version < '3.14' and sys_platform != 'darwin'",
     "python_full_version < '3.14' and sys_platform == 'darwin'",
 ]
 
-[manifest]
-
 [manifest.dependency-groups]
 dev = [
-    { name = "cmaes", specifier = ">=0.12" },
-    { name = "dspy", specifier = "==3.4.0" },
-    { name = "gepa", specifier = "==0.1.4" },
-    { name = "numpy", specifier = ">=1.26,<2" },
-    { name = "optuna", specifier = "==4.9.0" },
-    { name = "scipy" },
-    { name = "torch", index = "https://download.pytorch.org/whl/cpu" },
+    { name = "cmaes", marker = "python_full_version >= '3.12'", specifier = ">=0.12" },
+    { name = "dspy", marker = "python_full_version >= '3.12'", specifier = "==3.4.0" },
+    { name = "gepa", marker = "python_full_version >= '3.12'", specifier = "==0.1.4" },
+    { name = "numpy", marker = "python_full_version >= '3.12'", specifier = ">=1.26,<2" },
+    { name = "optuna", marker = "python_full_version >= '3.12'", specifier = "==4.9.0" },
+    { name = "scipy", marker = "python_full_version >= '3.12'" },
+    { name = "torch", marker = "python_full_version >= '3.12'", index = "https://download.pytorch.org/whl/cpu" },
 ]
+
+[manifest.group-requires-python]
+dev = ">=3.12"
 
 [[package]]
 name = "aiohappyeyeballs"
