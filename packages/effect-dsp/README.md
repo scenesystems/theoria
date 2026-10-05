@@ -124,6 +124,14 @@ Provide an effect-search `Cache` layer to `Cache.layer` for filesystem or SQL
 storage. Resolutions contain `value` and `resolution`; failed computations are
 not cached, and rollout partitions remain isolated.
 
+`Cache.Request` and `Cache.KeyRequest` require `inputSchema` and `paramsSchema`.
+Use the module signature's input codec and the parameter owner's codec (for
+example, `ModuleParameters`). Cache identity follows their encoded wire values,
+not incidental runtime fields. Codecs are service-free, like the existing cache
+key/output codecs. Preserve the encoded preimage to preserve existing keys;
+change the module/runtime fingerprint when changing identity semantics. Do not
+use `Schema.Unknown` to bypass representation selection.
+
 ## Errors and testing
 
 `DspError.DspError` is the schema union of package-owned tagged failures. Native

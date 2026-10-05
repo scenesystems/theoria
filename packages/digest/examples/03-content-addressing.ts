@@ -16,8 +16,9 @@ const program = Effect.gen(function*() {
   const canonicalBytes = yield* CanonicalJson.encodeBytes(first)
   yield* Effect.log("Canonical form", { canonical, byteLength: canonicalBytes.length })
 
-  const firstDigest = yield* ContentDigest.fromUnknown("blake3-256", first)
-  const reorderedDigest = yield* ContentDigest.fromUnknown("blake3-256", reordered)
+  const Coordinates = Schema.Struct({ a: Schema.Finite, m: Schema.Finite, z: Schema.Finite })
+  const firstDigest = yield* ContentDigest.fromSchema(Coordinates, first)
+  const reorderedDigest = yield* ContentDigest.fromSchema(Coordinates, reordered)
   yield* Effect.log("Content address", {
     digest: ContentDigest.toString(firstDigest),
     orderIndependent: ContentDigest.toString(firstDigest) === ContentDigest.toString(reorderedDigest)

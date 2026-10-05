@@ -70,7 +70,7 @@ const prepareKey = <Configuration, Encoded>(
       })
     ),
     Effect.flatMap((encoded) =>
-      ContentDigest.fromUnknown("blake3-256", encoded).pipe(
+      ContentDigest.fromSchema(Schema.toEncoded(schema), encoded).pipe(
         Effect.map(ContentDigest.toString),
         Effect.map((fingerprint) => new PreparedKey({ encoded, fingerprint, keySpace })),
         Effect.mapError((cause) =>
