@@ -329,3 +329,33 @@ export const makeFileSystemRecordings = fileSystemRecording.makeFileSystem
 export const open = <Events extends Schema.Constraint, State extends Schema.Constraint>(
   options: ConstructorParameters<typeof OpenOptions<Events, State>>[0]
 ) => Recordings.pipe(Effect.flatMap((store) => store.open(options)))
+
+/**
+ * Reduces only the tail after the latest bound checkpoint, or the full log when
+ * absent. Returns state and the exact consumed cursor, suitable for writeCheckpoint.
+ * The reducer must be pure; replay never invokes an evaluator or authorizes retrying
+ * external work. The caller owns checkpoint state correctness and definition versions.
+ * @since 0.1.0
+ * @category operations
+ */
+export const replay = <Events extends Schema.Constraint, State extends Schema.Constraint>(
+  self: Recording<Events, State>,
+  initial: State["Type"],
+  reduce: (state: State["Type"], event: Events["Type"]) => State["Type"]
+): Effect.Effect<
+  CheckpointWrite<State["Type"]>,
+  PersistenceError.Failure,
+  Events["DecodingServices"] | State["DecodingServices"]
+> =>
+  Effect.gen(function*() {
+    const checkpoint = yield* self.loadCheckpoint
+    const start = Option.match(checkpoint, {
+      onNone: () => new CheckpointWrite({ through: 0, state: initial }),
+      onSome: (entry) => new CheckpointWrite({ through: entry.through, state: entry.state })
+    })
+    return yield* self.read({ after: start.through }).pipe(Stream.runFold(
+      () => start,
+      (previous, entry) =>
+        new CheckpointWrite({ through: entry.receipt.cursor, state: reduce(previous.state, entry.event) })
+    ))
+  })
