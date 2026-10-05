@@ -1,5 +1,5 @@
 import { BunServices } from "@effect/platform-bun"
-import { expect, it } from "@effect/vitest"
+import { describe, expect, it } from "@effect/vitest"
 import {
   Array as Arr,
   Context,
@@ -22,6 +22,15 @@ import {
 } from "effect"
 
 import * as StudyStorage from "@scenesystems/effect-study/StudyStorage"
+import { conformance } from "./fixtures/recording.js"
+
+describe("filesystem recording", () =>
+  conformance(
+    Effect.gen(function*() {
+      const fs = yield* FileSystem.FileSystem
+      return yield* StudyStorage.makeFileSystem(StudyStorage.fileSystemOptions(yield* fs.makeTempDirectoryScoped()))
+    }).pipe(Effect.provide(BunServices.layer))
+  ))
 
 class Encode extends Context.Service<Encode, string>()("effect-study/test/recording/Encode") {}
 class Decode extends Context.Service<Decode, string>()("effect-study/test/recording/Decode") {}
@@ -204,30 +213,25 @@ it.effect("indexes a recording once and does not reread acknowledged prefixes on
     expect(yield* Ref.get(reads)).toHaveLength(1)
   }).pipe(Effect.provide(BunServices.layer)))
 
-it.effect("round-trips independent codec services and stable receipts through memory and reopened files", () =>
+it.effect("reopens encoded filesystem payloads with independent codec services and stable receipts", () =>
   Effect.gen(function*() {
     const fs = yield* FileSystem.FileSystem
     const directory = yield* fs.makeTempDirectoryScoped()
     const path = yield* Path.Path
     const config = StudyStorage.fileSystemOptions(directory, "records.jsonl")
     const file = path.join(directory, "records.jsonl")
-    const memory = yield* StudyStorage.makeMemory
     const disk = yield* StudyStorage.makeFileSystem(config)
-    yield* Effect.forEach(Arr.make(memory, disk), (store) =>
-      Effect.gen(function*() {
-        const run = yield* store.open(options)
-        yield* run.append(new StudyStorage.Append({ recordId: "one", expectedCursor: 0, event: "hello" })).pipe(
-          Effect.provideService(Encode, "encode")
-        )
-        yield* run.writeCheckpoint(new StudyStorage.CheckpointWrite({ through: 1, state: "state" })).pipe(
-          Effect.provideService(Encode, "encode")
-        )
-        expect(Arr.map(yield* run.read().pipe(Stream.runCollect, Effect.provideService(Decode, "decode")), (entry) =>
-          entry.event)).toEqual(["hello"])
-        expect(Option.map(yield* run.loadCheckpoint.pipe(Effect.provideService(Decode, "decode")), (entry) =>
-          entry.state)).toEqual(Option.some("state"))
-      }))
+    const run = yield* disk.open(options)
+    yield* run.append(new StudyStorage.Append({ recordId: "one", expectedCursor: 0, event: "hello" })).pipe(
+      Effect.provideService(Encode, "encode")
+    )
+    yield* run.writeCheckpoint(new StudyStorage.CheckpointWrite({ through: 1, state: "state" })).pipe(
+      Effect.provideService(Encode, "encode")
+    )
     const reopened = yield* (yield* StudyStorage.makeFileSystem(config)).open(options)
+    expect(
+      Option.map(yield* reopened.loadCheckpoint.pipe(Effect.provideService(Decode, "decode")), (entry) => entry.state)
+    ).toEqual(Option.some("state"))
     expect(
       yield* reopened.append(new StudyStorage.Append({ recordId: "one", expectedCursor: 0, event: "hello" })).pipe(
         Effect.provideService(Encode, "encode")

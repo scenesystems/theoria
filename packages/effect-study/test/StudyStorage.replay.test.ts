@@ -1,6 +1,6 @@
 import { BunServices } from "@effect/platform-bun"
 import { expect, it } from "@effect/vitest"
-import { Arbitrary, Array as Arr, Effect, FileSystem, Number as Num, Path, Result, Schema, String as Str } from "effect"
+import { Array as Arr, Effect, FileSystem, Path, Result, Schema, String as Str } from "effect"
 
 import * as StudyStorage from "@scenesystems/effect-study/StudyStorage"
 
@@ -10,28 +10,6 @@ const options = new StudyStorage.OpenOptions({
   eventSchema: Schema.Int,
   checkpointSchema: Schema.Array(Schema.Int)
 })
-const numberText = Schema.encodeSync(Schema.FiniteFromString)
-
-it.effect.prop("checkpoint plus tail equals the full ordered log despite repeated append delivery", {
-  values: Arbitrary.array(Arbitrary.schema(Schema.Int.check(Schema.isBetween({ minimum: -100, maximum: 100 }))), {
-    maxLength: 12
-  }),
-  split: Arbitrary.schema(Schema.Int.check(Schema.isBetween({ minimum: 0, maximum: 12 })))
-}, ({ values, split }) =>
-  Effect.gen(function*() {
-    const run = yield* (yield* StudyStorage.makeMemory).open(options)
-    yield* Effect.forEach(values, (event, index) =>
-      run.append(new StudyStorage.Append({ recordId: numberText(index), expectedCursor: index, event })))
-    yield* Effect.forEach(values, (event, index) =>
-      run.append(new StudyStorage.Append({ recordId: numberText(index), expectedCursor: index, event })))
-    const full = yield* StudyStorage.replay(run, Arr.empty<number>(), Arr.append)
-    expect(full.state).toEqual(values)
-    expect(full.through).toBe(Arr.length(values))
-    const through = Num.min(split, Arr.length(values))
-    yield* run.writeCheckpoint(new StudyStorage.CheckpointWrite({ through, state: Arr.take(values, through) }))
-    const tail = yield* StudyStorage.replay(run, Arr.empty<number>(), Arr.append)
-    expect(tail).toEqual(full)
-  }))
 
 it.effect("binds filesystem checkpoints to exact committed boundaries and rejects incompatible state", () =>
   Effect.gen(function*() {

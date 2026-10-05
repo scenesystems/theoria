@@ -27,6 +27,8 @@ Artifact journals retain the destination path for schema encoding failures and t
 
 For transactional custom backends, append receipts are provisional until the caller's outer commit. Observers must await short per-observation transactions, not hold a transaction around an evaluation. Construct long-lived artifact contexts outside short-lived transactions so captured services do not retain a released transaction connection.
 
+Retry identity compares the exact schema-produced JSON string, not semantic object equality or database-normalized JSON. The latest checkpoint is the latest written, including a lower-boundary checkpoint. Callers coordinate checkpoint writers and own state correctness; custom backends must provide coherent checkpoint/tail reads and retain event and identity history. No compaction protocol is supplied. Memory and filesystem stores share test-only protocol conformance coverage.
+
 ### Allocate artifact identities and inspect cost completeness
 
 `ArtifactContext` accepts a restored `nextSequence` or a caller-owned allocator. Durable, unique reservations belong to the caller; the built-in memory allocator is not durable. Allocation does not store a payload. Delivery retries reuse the artifact's identity, and unused sequence gaps are valid. Sink fanout is sequential and awaited, but a later sink failure does not undo earlier delivery.

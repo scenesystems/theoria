@@ -131,6 +131,7 @@ export class Checkpoint<A> extends Data.Class<{
  * Structural opening options carrying caller codecs and explicit definition identity.
  * Construct with new OpenOptions({...}); open requires an instance, including its
  * Effect Data pipe method, rather than a plain object.
+ * The caller must change definition identity when encoding or interpretation changes.
  * @since 0.1.0
  * @category models
  */
@@ -144,6 +145,8 @@ export class OpenOptions<Events extends Schema.Constraint, State extends Schema.
 /**
  * Stable append identity and optimistic expected tail cursor (zero for an empty run).
  * Construct with new Append({...}); append requires this Data instance.
+ * Retry equality is the exact JSON string produced by the event schema, not semantic
+ * object equality. Backend JSON normalization must not redefine record identity.
  * @since 0.1.0
  * @category models
  */
@@ -157,6 +160,8 @@ export class Append<A> extends Data.Class<{
  * State reduced through a committed event cursor (zero for the initial state).
  * Construct with new CheckpointWrite({...}), or use replay's returned instance.
  * writeCheckpoint requires this Data instance, not a plain object.
+ * The latest written checkpoint wins, even at a lower boundary. Coordinate writers
+ * per run; the caller owns state correctness, and event history must remain retained.
  * @since 0.1.0
  * @category models
  */
@@ -173,6 +178,8 @@ export const ReadOptions = Schema.Struct({ after: Schema.optional(Schema.Int.che
  * Custom transactional backends may return provisional receipts inside a caller's
  * transaction. The observer must await outer commit before acknowledging. Use short
  * per-observation transactions, not one transaction around the entire evaluation.
+ * loadCheckpoint returns the latest written checkpoint, not the greatest cursor.
+ * Backends retain events and identity receipts; no compaction protocol is supplied.
  * @since 0.1.0
  * @category models
  */
@@ -203,6 +210,9 @@ export const open = <Events extends Schema.Constraint, State extends Schema.Cons
  * absent. Returns state and the exact consumed cursor, suitable for writeCheckpoint.
  * The reducer must be pure; replay never invokes an evaluator or authorizes retrying
  * external work. The caller owns checkpoint state correctness and definition versions.
+ * Checkpoint loading and tail reading are separate operations. A custom backend must
+ * preserve a coherent retained tail after the loaded boundary while appends or checkpoint
+ * writes proceed; replay itself adds no transaction or snapshot-pinning protocol.
  * @since 0.1.0
  * @category operations
  */
