@@ -1,44 +1,17 @@
 /** Invocation-local state for stack-safe canonical traversal. @internal */
 
-import type { Chunk, MutableHashSet } from "effect"
-import {
-  Boolean as B,
-  Data,
-  Equal,
-  Equivalence,
-  Hash,
-  MutableList,
-  MutableRef,
-  Number as N,
-  Option,
-  Result,
-  Schema,
-  String as Str
-} from "effect"
+import type { MutableHashSet } from "effect"
+import { Boolean as B, Data, MutableList, MutableRef, Number as N, Option, String as Str } from "effect"
 
 import type { Error as CanonicalizationError } from "../../CanonicalJson.js"
 
-/** Cycle detection compares input references, never their structural Hash/Equal implementations. */
-export class Ancestor extends Data.Class<{ readonly identity: object }> {
-  [Hash.symbol](): number {
-    return Hash.random(this.identity)
-  }
-
-  [Equal.symbol](that: Equal.Equal): boolean {
-    return isAncestor(that) && sameReference(this.identity, that.identity)
-  }
-}
-
-const isAncestor = Schema.is(Schema.instanceOf(Ancestor))
-const sameReference = Equivalence.strictEqual<object>()
-
 export type Frame = Data.TaggedEnum<{
   Visit: { readonly value: unknown }
-  Array: { readonly identity: ReadonlyArray<unknown>; readonly at: number }
+  Array: { readonly identity: ReadonlyArray<unknown>; readonly at: MutableRef.MutableRef<number> }
   Record: {
     readonly identity: Readonly<Record<string, unknown>>
-    readonly keys: Chunk.Chunk<string>
-    readonly at: number
+    readonly keys: ReadonlyArray<string>
+    readonly at: MutableRef.MutableRef<number>
   }
   String: { readonly text: string; readonly at: number; readonly suffix: string }
   Close: { readonly identity: object; readonly token: string }
@@ -48,9 +21,10 @@ export const Frame = Data.taggedEnum<Frame>()
 
 export class State<E> extends Data.Class<{
   readonly stack: MutableList.MutableList<Frame>
-  readonly active: MutableHashSet.MutableHashSet<Ancestor>
+  readonly active: MutableHashSet.MutableHashSet<number>
+  readonly identity: (value: object) => number
   readonly segments: MutableList.MutableList<string>
-  readonly admit: (text: string) => Result.Result<void, E>
+  readonly write: (state: State<E>, text: string) => void
   readonly pending: MutableRef.MutableRef<string>
   readonly failure: MutableRef.MutableRef<Option.Option<CanonicalizationError | E>>
 }> {}
@@ -74,15 +48,12 @@ export const flushPending = <E>(state: State<E>): void => {
   })
 }
 
-export const emit = <E>(state: State<E>, text: string): void => {
-  Result.match(state.admit(text), {
-    onFailure: (error) => fail(state, error),
-    onSuccess: () => {
-      MutableRef.update(state.pending, Str.concat(text))
-      B.match(N.isGreaterThanOrEqualTo(Str.length(MutableRef.get(state.pending)), 32_768), {
-        onTrue: () => flushPending(state),
-        onFalse: () => undefined
-      })
-    }
+export const append = <E>(state: State<E>, text: string): void => {
+  MutableRef.set(state.pending, Str.concat(MutableRef.get(state.pending), text))
+  B.match(N.isGreaterThanOrEqualTo(Str.length(MutableRef.get(state.pending)), 32_768), {
+    onTrue: () => flushPending(state),
+    onFalse: () => undefined
   })
 }
+
+export const emit = <E>(state: State<E>, text: string): void => state.write(state, text)
