@@ -71,6 +71,9 @@ effect-search has five expected failures. An ordinary manifest test decodes ever
 payload independently, so schema failures cannot masquerade as expected mismatches.
 The generator's `--check` compares every generated payload and manifest byte,
 including SHA-256 hashes. No implementation changes or tolerance increases were made.
+Both Python entrypoints disable NumPy AVX2/FMA3/AVX512F dispatch before import:
+otherwise CPU-specific math paths differ in the last bits (observed up to
+3.6e-15 in truncated-normal values). Values are not rounded to hide that drift.
 
 These are measured first-failure witnesses, not an exhaustive bound on each
 algorithm's error. Flip the owning test only after its entire scenario set passes.

@@ -18,7 +18,7 @@
     {
       "file": "categorical-parzen/distance.json",
       "name": "categorical-parzen.distance",
-      "sha256": "61f1db2268fd96301f56b125126dfe9b043985b11c50c811c61c276374baced0"
+      "sha256": "ebadbd41085862c4979bf9212eacbfa1da5c4c68cdd14189e244f0ec17040931"
     },
     {
       "file": "categorical-parzen/recency-ramp.json",
@@ -38,17 +38,17 @@
     {
       "file": "constrained-tpe/parity.json",
       "name": "constrained-tpe.parity",
-      "sha256": "49709a5163496e52427f388ecfc20d3f7da232f35e401367523a3bdf36d58e32"
+      "sha256": "b0ca087f7fe3de0698e6737889f356a756b7427e873de6b30876fcb474558bea"
     },
     {
       "file": "continuous-kde/basic.json",
       "name": "continuous-kde.basic",
-      "sha256": "4b42db8d6a855d45b7f8dab24b418c8472b14d5d164dd80682dce6bc23234bfe"
+      "sha256": "9d11120845eb3d51b286e067ab41c5705df66b954b1358a276024cb4c9a2a5ff"
     },
     {
       "file": "continuous-kde/bimodal-separated.json",
       "name": "continuous-kde.bimodal-separated",
-      "sha256": "544e5b3094b5d892da8ebe70f34039e111ecf0bc8792f02617ccedfdbd8e10f9"
+      "sha256": "9018f31e2ffaa19155cfc675e13ce86d8ad04a76b96e84f29979ffce9cab8aa9"
     },
     {
       "file": "continuous-kde/boundary-high-skew.json",
@@ -58,17 +58,17 @@
     {
       "file": "continuous-kde/boundary-low-skew.json",
       "name": "continuous-kde.boundary-low-skew",
-      "sha256": "226e671186e02e24852d3312dc9d27d40c6c04818f12542b1f0f041c861472e0"
+      "sha256": "fe0db6f0e09ebf5410470ec6f61d64152dbea79f1315a89f833b70c45afeff8c"
     },
     {
       "file": "continuous-kde/endpoint-observations.json",
       "name": "continuous-kde.endpoint-observations",
-      "sha256": "6685751b6fac6411b785b04bcde9f22c78faf8f5d3fbee45555832575a3104a1"
+      "sha256": "a7fe0b27272a0fe82d22d6e2319c607552944e5647c7564abe09a9653d839867"
     },
     {
       "file": "continuous-kde/extreme-asymmetric-range.json",
       "name": "continuous-kde.extreme-asymmetric-range",
-      "sha256": "24193244e0841c5b567d92d98a8e6a7c6e10d2eee1bbce3fa2b71d8ff8a0855c"
+      "sha256": "3beb660b1ab5a352b18b84ef65104857425e5c2e25612b90639d359ebe827c2c"
     },
     {
       "file": "continuous-kde/magic-clip.json",
@@ -78,42 +78,42 @@
     {
       "file": "continuous-kde/micro-positive-span.json",
       "name": "continuous-kde.micro-positive-span",
-      "sha256": "977f1f0850c8ba2279d7940888a589525b48c8015ab798941c9e64df4b88649f"
+      "sha256": "36b3827af03b85524e26572cbf0a66cfba3fbe31709191f9974560573e88ef66"
     },
     {
       "file": "continuous-kde/narrow-support.json",
       "name": "continuous-kde.narrow-support",
-      "sha256": "daf162ada05d92b3f02a64486221d8d3e1db66f85bb928c582d12fe8ca663ad8"
+      "sha256": "fe1e654a041809de5cdc99987a6dfe16bb8b62877ab02f7f09c954d06bafb58a"
     },
     {
       "file": "continuous-kde/offset-positive-range.json",
       "name": "continuous-kde.offset-positive-range",
-      "sha256": "133e834e6c25a6afffd8a8fe98bd16ca26242f2ccfa4707b39e69689d57f8716"
+      "sha256": "b8d59f25c78bb416fbf06b359917d67ab8182c689b44ad207f44c154dc3faf1c"
     },
     {
       "file": "continuous-kde/outlier-cluster.json",
       "name": "continuous-kde.outlier-cluster",
-      "sha256": "54d04864aecea104c8957a64a3d5ae1093185598b3d56c0dd8aecff8af4a63e9"
+      "sha256": "8b51895d9e7c637f11c5fa72cd7d3d0679e82dc39aae7779a5cd380812c15455"
     },
     {
       "file": "continuous-kde/prior-only.json",
       "name": "continuous-kde.prior-only",
-      "sha256": "3fe79bf08bcdb7d1b6a08b074ea750c50d5bf3cf204b42b6cecd700947bfec35"
+      "sha256": "81400945091f92a3d3b539514b10822a260568d7b9e131bb246227a782a8071e"
     },
     {
       "file": "continuous-kde/recency-ramp.json",
       "name": "continuous-kde.recency-ramp",
-      "sha256": "5a788633751d8ca1c136a1b24b7dd10cea5fcb28cf7c5872f3c34c3dedf39b57"
+      "sha256": "31aa0be8110fcf7c3c3b1bf77028c67e01e124dd17f35d891badc9b69be7972d"
     },
     {
       "file": "continuous-kde/repeated-support-point.json",
       "name": "continuous-kde.repeated-support-point",
-      "sha256": "587586d5d0048bb703e373f0ced92cacd814504101b68e1794375471a54282de"
+      "sha256": "1a95baa55045c1e8d2a2e7f851b637b3b37765ff8864ffab1e7d28add6a6552f"
     },
     {
       "file": "continuous-kde/single-observation.json",
       "name": "continuous-kde.single-observation",
-      "sha256": "9cff46e951173b915455170a66211e14ca59b3a4019c214520620ed7f00f706d"
+      "sha256": "cf8b50b45936360976f54d7a2dd9936a4d8895208aee5c151b57e311d74c6357"
     },
     {
       "file": "continuous-kde/tiny-cross-zero-span.json",
@@ -123,22 +123,22 @@
     {
       "file": "continuous-kde/upper-boundary-cluster.json",
       "name": "continuous-kde.upper-boundary-cluster",
-      "sha256": "10b51c2aa8d421a873ef99c905c228de1ae1f55352478355bcd00b121daaabac"
+      "sha256": "12c76852ecd6a5bd7e1b0107e6f521dbbde60529beac75b147988907e4fdc2a4"
     },
     {
       "file": "continuous-kde/wide-negative-range.json",
       "name": "continuous-kde.wide-negative-range",
-      "sha256": "7ffa39b68e4249ab4717e8eaa71062165a29cb840758485bda7e70e0593b3ccb"
+      "sha256": "f9fc6693a122ddbd313022ea38a03b59b6728e217f686d44fdd5f1cd3b579d9b"
     },
     {
       "file": "ei/basic.json",
       "name": "ei.basic",
-      "sha256": "21d192c369ead8b3409090ef68053c1f9382bba6d9e9ae475eda8ebbee3d1c13"
+      "sha256": "5ea19ef7988777f42a1684329bedd140df292d9d3c5b4ccf6b7fc5c54c9bf12e"
     },
     {
       "file": "ei/mixed-trace.json",
       "name": "ei.mixed-trace",
-      "sha256": "417cd94c5f4f68f5cad47f6b2db683ad7c5c6ce00564d741db11b6dc47cc25f0"
+      "sha256": "d3d6b4962ee253ebf015b054ccc5872d3181317fe0bcec64da09167191810863"
     },
     {
       "file": "gamma/default-gamma.json",
@@ -148,12 +148,12 @@
     {
       "file": "mixed-space/joint-trace.json",
       "name": "mixed-space.joint-trace",
-      "sha256": "2c1f61f5b62688b30feab3a7ecbea0fd3656efe28cd77594c58c2db2d13fc442"
+      "sha256": "f2231a1841ccf3a4080da0d6c975bd802ab4b5d0cbb35381fe6904a0b7625e8d"
     },
     {
       "file": "mixed-space/joint-trace-recency-shift.json",
       "name": "mixed-space.joint-trace.recency-shift",
-      "sha256": "1f65b634c4c5d2a35ee02226160a0e01653c57ce76520bae4a4f7202e325ae32"
+      "sha256": "607c5e1b3f9071a64bb5e5e2435204556f5f8ef4a3e3083b26a752b2c2f54e4c"
     },
     {
       "file": "motpe-reference/reference-point.json",
@@ -223,7 +223,7 @@
     {
       "file": "truncated-normal/edge-cases.json",
       "name": "truncated-normal.edge-cases",
-      "sha256": "0c0a35c8380bbf2fa4285924ee73ded17c5af566c257c98310e6865c1ad4bdc7"
+      "sha256": "6f3ac318cec38172547f913e7bbb6bb941069fbb49fb2977d56af4c680d7903e"
     }
   ],
   "generator": "scripts/generate-optuna-fixtures.py",

@@ -20,9 +20,13 @@ from __future__ import annotations
 
 import json
 import math
+import os
 import sys
 from pathlib import Path
 from typing import Any
+
+# Match the generator's CPU-independent NumPy path before importing NumPy.
+os.environ["NPY_DISABLE_CPU_FEATURES"] = "AVX2,FMA3,AVX512F"
 
 import numpy as np
 import optuna

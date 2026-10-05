@@ -8,9 +8,13 @@
 import argparse
 import hashlib
 import json
+import os
 import platform
 import runpy
 from pathlib import Path
+
+# Use the same NumPy math path on orb and CI CPUs; SIMD dispatch changes last bits.
+os.environ["NPY_DISABLE_CPU_FEATURES"] = "AVX2,FMA3,AVX512F"
 
 import optuna
 
