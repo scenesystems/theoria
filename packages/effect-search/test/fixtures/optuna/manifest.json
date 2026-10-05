@@ -8,7 +8,7 @@
     {
       "file": "advanced-samplers/gpbo-parity.json",
       "name": "advanced-samplers.gpbo-parity",
-      "sha256": "6a8321a2681bb733ab8e8acdd7a86d6751d91e0fd4f3e77ea3aa26cfd27b774a"
+      "sha256": "8ae84f247394d68bec6d02c55b7e3d1a262014db00b2bddb5b81d355c7f6cdd4"
     },
     {
       "file": "categorical-parzen/basic.json",

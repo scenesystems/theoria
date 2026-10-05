@@ -2,6 +2,7 @@
 """Generate / byte-check all Optuna reference fixtures with one pinned runtime."""
 
 import argparse
+import difflib
 import hashlib
 import json
 import os
@@ -10,6 +11,11 @@ from pathlib import Path
 
 # Use the same NumPy math path on orb and CI CPUs; SIMD dispatch changes last bits.
 os.environ["NPY_DISABLE_CPU_FEATURES"] = "AVX2,FMA3,AVX512F"
+# GPSampler also uses PyTorch/MKL and SciPy/OpenBLAS. Fix dispatch and reduction
+# order before importing any numerical library; never round reference outputs.
+os.environ.update(ATEN_CPU_CAPABILITY="default", MKL_CBWR="COMPATIBLE",
+                  OPENBLAS_CORETYPE="HASWELL", OPENBLAS_NUM_THREADS="1",
+                  MKL_NUM_THREADS="1", OMP_NUM_THREADS="1")
 
 import optuna
 
@@ -64,7 +70,9 @@ def run(check=False):
     for path, raw in outputs.items():
         if check:
             if path.read_bytes() != raw:
-                raise ValueError(f"Optuna fixture differs: {path.relative_to(ROOT)}")
+                diff = "".join(difflib.unified_diff(path.read_text().splitlines(True), raw.decode().splitlines(True),
+                                                  fromfile="committed", tofile="upstream"))
+                raise ValueError(f"Optuna fixture differs: {path.relative_to(ROOT)}\n{diff}")
         else:
             path.parent.mkdir(parents=True, exist_ok=True)
             path.write_bytes(raw)

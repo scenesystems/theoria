@@ -81,6 +81,9 @@ including SHA-256 hashes. No implementation changes or tolerance increases were 
 The Optuna entrypoints disable NumPy AVX2/FMA3/AVX512F dispatch before import:
 otherwise CPU-specific math paths differ in the last bits (observed up to
 3.6e-15 in truncated-normal values). Values are not rounded to hide that drift.
+GP reproduction also fixes PyTorch dispatch to `default`, MKL to its
+cross-CPU reproducibility mode, and OpenBLAS to `HASWELL`, with one BLAS/OpenMP
+thread. This reference runtime requires an AVX2-capable Linux x86_64 CPU.
 
 These are measured first-failure witnesses, not an exhaustive bound on each
 algorithm's error. Flip the owning test only after its entire scenario set passes.
