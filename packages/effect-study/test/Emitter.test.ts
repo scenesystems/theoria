@@ -2,13 +2,29 @@
  * Study stream bridge contracts.
  */
 import { describe, expect, it } from "@effect/vitest"
-import { Array as Arr, Data, Deferred, Effect, Exit, Fiber, Ref, Stream, String as Str } from "effect"
+import { Array as Arr, Context, Data, Deferred, Effect, Exit, Fiber, Ref, Stream, String as Str } from "effect"
 
 import * as Emitter from "@scenesystems/effect-study/Emitter"
 
 class StreamBridgeFailure extends Data.TaggedError("StreamBridgeFailure")<{
   readonly message: string
 }> {}
+
+class Sink extends Context.Service<Sink, string>()("study-test/Sink") {}
+
+it.effect("retains observer errors and services through composition", () =>
+  Effect.gen(function*() {
+    const observe: Emitter.Emitter<string, StreamBridgeFailure, Sink> = (value) =>
+      Effect.gen(function*() {
+        const prefix = yield* Sink
+        return yield* new StreamBridgeFailure({ message: Str.concat(prefix, value) })
+      })
+    const composed: Effect.Effect<void, StreamBridgeFailure, Sink> = Effect.succeed("event").pipe(
+      Effect.flatMap(observe)
+    )
+    expect(yield* composed.pipe(Effect.provideService(Sink, "sink: "), Effect.exit))
+      .toEqual(Exit.fail(new StreamBridgeFailure({ message: "sink: event" })))
+  }))
 
 describe("Emitter.toStream", () => {
   it.effect("streams emitted events in-order then completes", () =>
