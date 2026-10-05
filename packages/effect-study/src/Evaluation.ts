@@ -55,16 +55,25 @@ export type EvaluationEvent<Config, Value, E> = Data.TaggedEnum<{
   TrialStarted: { readonly trialNumber: number; readonly config: Config }
   TrialSettled: { readonly trial: SettledTrial<Config, Value, E> }
   Completed: { readonly completionReason: "Settled" }
-  Terminated: { readonly cause: Cause.Cause<never> }
+  Terminated: { readonly cause: Cause.Cause<E> }
 }>
 
 const settle = <Config, Value, E, R>(
   config: Config,
   trialNumber: number,
   evaluate: (config: Config, trialNumber: number) => Effect.Effect<Value, E, R>
-): Effect.Effect<SettledTrial<Config, Value, E>, never, R> =>
+): Effect.Effect<SettledTrial<Config, Value, E>, E, R> =>
   Effect.suspend(() => evaluate(config, trialNumber)).pipe(
-    Effect.result,
+    Effect.matchCauseEffect({
+      onSuccess: (value) => Effect.succeed(Result.succeed(value)),
+      onFailure: (cause) => {
+        if (Cause.hasDies(cause) || Cause.hasInterrupts(cause)) return Effect.failCause(cause)
+        return Result.match(Cause.findError(cause), {
+          onSuccess: (error) => Effect.succeed(Result.fail(error)),
+          onFailure: Effect.failCause
+        })
+      }
+    }),
     Effect.timed,
     Effect.map(([duration, outcome]) => ({
       config,
@@ -85,6 +94,8 @@ const settle = <Config, Value, E, R>(
  * Empty inputs succeed with no records. Defects and interruption terminate the Effect
  * and await active sibling finalizers; they never become failed trial records.
  * Duration measures evaluation only. Services required by the evaluator are retained.
+ * E remains in the error channel solely for compound causes that also contain a
+ * defect or interruption: their original typed failure reasons are not discarded.
  *
  * @since 0.1.0
  * @category operations
@@ -93,7 +104,7 @@ export const runSettled = <Config, Value, E, R>(
   inputs: Iterable<Config>,
   evaluate: (config: Config, trialNumber: number) => Effect.Effect<Value, E, R>,
   options: typeof Options.Type = {}
-): Effect.Effect<ReadonlyArray<SettledTrial<Config, Value, E>>, never, R> =>
+): Effect.Effect<ReadonlyArray<SettledTrial<Config, Value, E>>, E, R> =>
   Effect.forEach(inputs, (config, trialNumber) => settle(config, trialNumber, evaluate), options)
 
 /**
@@ -103,6 +114,7 @@ export const runSettled = <Config, Value, E, R>(
  * Observer failure closes admission before releasing the observer serializer and
  * interrupts active local work, awaiting its finalizers. It is never a trial failure
  * and is never reported recursively to the same observer.
+ * As in runSettled, compound fatal causes preserve their E reasons alongside OE.
  *
  * Observation order is independent of returned input order. Acknowledgment means
  * whatever the sink guarantees, not necessarily durability. Termination reporting
@@ -118,11 +130,12 @@ export const runWithEvents = <Config, Value, E, R, OE, OR>(
   evaluate: (config: Config, trialNumber: number) => Effect.Effect<Value, E, R>,
   options: typeof Options.Type,
   observe: Emitter.Emitter<EvaluationEvent<Config, Value, E>, OE, OR>
-): Effect.Effect<ReadonlyArray<SettledTrial<Config, Value, E>>, OE, R | OR> =>
+): Effect.Effect<ReadonlyArray<SettledTrial<Config, Value, E>>, E | OE, R | OR> =>
   Effect.gen(function*() {
     const plan = Arr.fromIterable(inputs)
     const serializer = yield* Semaphore.make(1)
     const closed = yield* Ref.make(Option.none<Cause.Cause<OE>>())
+    const termination = yield* Ref.make(Option.none<Cause.Cause<E>>())
     const emit = (event: EvaluationEvent<Config, Value, E>): Effect.Effect<void, OE, OR> =>
       serializer.withPermit(Effect.gen(function*() {
         const failure = yield* Ref.get(closed)
@@ -136,11 +149,13 @@ export const runWithEvents = <Config, Value, E, R, OE, OR>(
       const trials = yield* Effect.forEach(plan, (config, trialNumber) =>
         Effect.gen(function*() {
           yield* emit({ _tag: "TrialStarted", config, trialNumber })
-          const trial = yield* Effect.suspend(() => {
-            const failure = Ref.getUnsafe(closed)
-            if (Option.isSome(failure)) return Effect.failCause(failure.value)
-            return settle(config, trialNumber, evaluate)
-          })
+          const trial = yield* settle(
+            config,
+            trialNumber,
+            (input, number) => Option.isSome(Ref.getUnsafe(closed)) ? Effect.interrupt : evaluate(input, number)
+          ).pipe(
+            Effect.onError((cause) => Ref.update(termination, Option.orElse(() => Option.some(cause))))
+          )
           yield* emit({ _tag: "TrialSettled", trial })
           return trial
         }), options)
@@ -148,7 +163,14 @@ export const runWithEvents = <Config, Value, E, R, OE, OR>(
       return trials
     }).pipe(Effect.onError((cause) =>
       Effect.gen(function*() {
-        if (Option.isSome(yield* Ref.get(closed))) return
+        if (Option.isSome(yield* Ref.get(closed))) {
+          return
+        }
+        const original = yield* Ref.get(termination)
+        if (Option.isSome(original)) {
+          yield* emit({ _tag: "Terminated", cause: original.value }).pipe(Effect.ignoreCause)
+          return
+        }
         yield* Result.match(Cause.findError(cause), {
           onSuccess: () => Effect.void,
           onFailure: (termination) => emit({ _tag: "Terminated", cause: termination }).pipe(Effect.ignoreCause)

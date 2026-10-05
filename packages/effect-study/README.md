@@ -34,11 +34,33 @@ Empty input is valid. Settled evaluation means every input reaches an expected o
 
 `Evaluation.runSettled(inputs, evaluate, options)` returns `SettledTrial<C, A, E>` records whose states are `Trial.Completed<A> | Trial.Failed<E>`. Expected evaluator errors become retained data; defects and interruption still terminate through the Effect cause. No score or grading policy is imposed.
 
-`Evaluation.runWithEvents(inputs, evaluate, options, observe)` returns the same records with the observer's error channel and both evaluator/observer service requirements. Its `Evaluation.EvaluationEvent<C, A, E>` sequence contains `Planned` (the complete input array), `TrialStarted`, `TrialSettled` (the complete trial record), and `Completed` with reason `Settled`. `Terminated` carries a native defect/interruption cause when the observer remains available. Generic events require no serialization schema; callers choose codecs at persistence boundaries.
+Settled operations retain `E` in the Effect error channel for **compound fatal causes**: for example, a typed evaluator failure followed by a defect in its finalizer. Ordinary typed failures become records, but a cause containing any defect or interruption terminates unchanged, including its typed failure reasons. Using `Effect.result` alone would incorrectly swallow the defect in this case.
+
+`Evaluation.runWithEvents(inputs, evaluate, options, observe)` returns the same records with error channel `E | OE` and service requirements `R | OR`. Its `Evaluation.EvaluationEvent<C, A, E>` sequence contains `Planned` (the complete input array), `TrialStarted`, `TrialSettled` (the complete trial record), and `Completed` with reason `Settled`. `Terminated` carries the first evaluator termination cause when the observer remains available (or the caller interruption cause if no evaluator captured one). The returned Effect preserves the full execution cause. Generic events require no serialization schema; callers choose codecs at persistence boundaries.
 
 Observer calls are serialized within a run. A start must be acknowledged before evaluation, and a terminal record before it is returned as recorded. Final completion waits for all terminal acknowledgments. Slow observers apply backpressure without preventing bounded concurrent evaluation. Observer failure closes admission and interrupts active local work, waiting for finalizers; it is not a trial failure and is not recursively reported to that observer. Already acknowledged evidence remains in the caller's sink. Cleanup observations are not guaranteed after sink failure or process loss: a start without a terminal record remains unresolved.
 
 For an event stream, pass the emitter supplied by `Emitter.toStream` directly to `runWithEvents`. Ending stream consumption interrupts the local producer and waits for finalizers; it says nothing about remote execution.
+
+```ts typecheck
+import { Array as Arr, Effect, Number as Num, Ref } from "effect"
+import { Emitter, Evaluation } from "@scenesystems/effect-study"
+
+const evaluate = (input: number) =>
+  Num.Equivalence(input, 2) ? Effect.fail("unavailable") : Effect.succeed(Num.multiply(input, 10))
+
+export const retained = Effect.gen(function* () {
+  const evidence = yield* Ref.make(Arr.empty<Evaluation.EvaluationEvent<number, number, string>>())
+  const trials = yield* Evaluation.runWithEvents(Arr.make(3, 2, 1), evaluate, { concurrency: 2 }, (event) =>
+    Ref.update(evidence, Arr.append(event))
+  )
+  return { trials, evidence: yield* Ref.get(evidence) }
+})
+
+export const events = Emitter.toStream((emit: Emitter.Emitter<Evaluation.EvaluationEvent<number, number, string>>) =>
+  Evaluation.runWithEvents(Arr.make(3, 2, 1), evaluate, { concurrency: 2 }, emit)
+)
+```
 
 An observer acknowledges an event by successfully completing its Effect. Memory acceptance, file append, and a durable database commit are different guarantees chosen by the observer. Serialized observation order need not match input order; returned trial records remain in input order. Queue insertion is not a persistence acknowledgment.
 
