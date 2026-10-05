@@ -34,3 +34,7 @@ fields and transformations explicitly, and version changed domain representation
 Reject all typed-array views and DataView, including empty views, rather than
 canonicalizing non-Uint8Array views as records. Use an owner-approved intrinsic
 view predicate through Schema because Effect 4.0.0 has no public equivalent.
+
+Reject sparse arrays even when a numeric property is inherited. Check own-index
+presence through Effect before reading an element, so inherited getters cannot
+contribute canonical content.

@@ -47,6 +47,27 @@ const views: ReadonlyArray<readonly [string, fc.Arbitrary<ArrayBufferView>]> = A
 )
 
 describe("CanonicalJson.encode — admission", () => {
+  it.effect("rejects inherited array indices without reading their getters", () =>
+    Effect.gen(function*() {
+      const reads = MutableRef.make(0)
+      class InheritedIndex extends Array<number> {
+        get 0() {
+          MutableRef.update(reads, N.increment)
+          return 7
+        }
+      }
+      const value = new InheritedIndex(1)
+      const expected = Exit.fail(new CanonicalJson.UnsupportedValue({ reason: "sparse-array" }))
+      expect(yield* Effect.exit(CanonicalJson.encode(value))).toStrictEqual(expected)
+      expect(yield* Effect.exit(CanonicalJson.encode({ nested: value }))).toStrictEqual(expected)
+      expect(MutableRef.get(reads)).toBe(0)
+      expect(yield* CanonicalJson.encode(Arr.make(7))).toBe("[7]")
+      expect(yield* Effect.exit(CanonicalJson.encode(Arr.make(undefined)))).toStrictEqual(
+        Exit.fail(new CanonicalJson.UnsupportedValue({ reason: "undefined" }))
+      )
+      expect(yield* CanonicalJson.encode(Arr.empty())).toBe("[]")
+    }))
+
   it.effect.each(views)(
     "rejects generated %s before inspecting elements",
     ([, arbitrary]) =>

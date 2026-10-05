@@ -197,16 +197,18 @@ export const makeProcessor = <E>(state: State<E>): (frame: Frame) => void => {
     Array: (frame) => {
       const identity = frame.identity
       const at = MutableRef.getAndIncrement(frame.at)
-      const value = Arr.get(identity, at)
-      if (Option.isNone(value)) {
+      if (N.isGreaterThanOrEqualTo(at, identity.length)) {
         MutableList.take(state.stack)
         emit(state, "]")
         MutableHashSet.remove(state.active, state.identity(identity))
         return
       }
-      if (!Predicate.hasProperty(identity, at)) return reject(state, "sparse-array")
+      const index = Str.String(at)
+      if (!Predicate.hasProperty(identity, index) || !Record.has<string, unknown>(identity, index)) {
+        return reject(state, "sparse-array")
+      }
       if (N.isGreaterThan(at, 0)) emit(state, ",")
-      if (Option.isNone(MutableRef.get(state.failure))) visit(value.value)
+      if (Option.isNone(MutableRef.get(state.failure))) visit(Arr.getUnsafe(identity, at))
     },
     Record: (frame) => {
       const { identity, keys } = frame
