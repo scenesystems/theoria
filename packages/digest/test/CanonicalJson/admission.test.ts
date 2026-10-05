@@ -1,5 +1,5 @@
 import { describe, expect, it } from "@effect/vitest"
-import { Array as Arr, Data, DateTime, Effect, Exit, MutableRef, Schema, Tuple } from "effect"
+import { Array as Arr, Data, DateTime, Effect, Equal, Exit, Hash, MutableRef, Number as N, Schema, Tuple } from "effect"
 
 import * as CanonicalJson from "@scenesystems/digest/CanonicalJson"
 import * as Utf8 from "@scenesystems/digest/Utf8"
@@ -31,6 +31,44 @@ class DataRecord extends Data.Class<{ readonly value: unknown }> {}
 class CompositeData extends Data.Class<{ readonly z: ReadonlyArray<number>; readonly a: boolean }> {}
 
 describe("CanonicalJson.encode — admission", () => {
+  it.effect("never reads hostile Hash or Equal hooks, even on distinct ancestor objects", () =>
+    Effect.gen(function*() {
+      const reads = MutableRef.make(0)
+      const hooks = {
+        get [Hash.symbol]() {
+          MutableRef.update(reads, N.increment)
+          return () => 0
+        },
+        get [Equal.symbol]() {
+          MutableRef.update(reads, N.increment)
+          return () => true
+        }
+      }
+      class Hostile extends Data.Class<{ readonly child: unknown }> {
+        get [Hash.symbol]() {
+          return hooks[Hash.symbol]
+        }
+        get [Equal.symbol]() {
+          return hooks[Equal.symbol]
+        }
+      }
+      expect(yield* CanonicalJson.encode(new Hostile({ child: new Hostile({ child: 1 }) })))
+        .toBe("{\"child\":{\"child\":1}}")
+      const cycle = {
+        get child(): unknown {
+          return cycle
+        },
+        get [Hash.symbol]() {
+          return hooks[Hash.symbol]
+        },
+        get [Equal.symbol]() {
+          return hooks[Equal.symbol]
+        }
+      }
+      expect(yield* Effect.exit(CanonicalJson.encode(cycle))).toStrictEqual(Exit.fail(new CanonicalJson.CyclicValue()))
+      expect(MutableRef.get(reads)).toBe(0)
+    }))
+
   it.effect.each(unsupportedValues)("rejects unencoded %s", ([, value, reason]) =>
     Effect.gen(function*() {
       expect(yield* Effect.exit(CanonicalJson.encode(value))).toStrictEqual(

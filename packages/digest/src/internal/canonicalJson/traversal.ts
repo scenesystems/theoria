@@ -12,13 +12,14 @@ import {
   Number as N,
   Option,
   Result,
-  Stream
+  Stream,
+  Tuple
 } from "effect"
 import { constVoid } from "effect/Function"
 
 import { ByteLimitExceeded, type Error as CanonicalizationError } from "../../CanonicalJson.js"
 import { utf8ByteLengthUnchecked } from "../utf8.js"
-import { process } from "./serialization.js"
+import { makeProcessor } from "./serialization.js"
 import { flushPending, Frame, State } from "./state.js"
 
 const makeState = <E>(
@@ -40,15 +41,17 @@ const makeState = <E>(
 const stopped = <E>(state: State<E>): boolean =>
   B.or(N.Equivalence(state.stack.length, 0), Option.isSome(MutableRef.get(state.failure)))
 
-const processBatch = <E>(state: State<E>): void => {
-  Iterable.forEach(
-    Iterable.takeWhile(Iterable.range(1, 256), () => B.not(stopped(state))),
-    () =>
-      Match.value(MutableList.take(state.stack)).pipe(
-        Match.when(MutableList.Empty, constVoid),
-        Match.orElse((frame) => process(state, frame))
-      )
+const makeBatch = <E>(state: State<E>): () => void => {
+  const process = makeProcessor(state)
+  const advance = Match.type<Frame | MutableList.Empty>().pipe(
+    Match.when(MutableList.Empty, constVoid),
+    Match.orElse(process)
   )
+  return () =>
+    Iterable.forEach(
+      Iterable.takeWhile(Iterable.range(1, 256), () => B.not(stopped(state))),
+      () => advance(MutableList.take(state.stack))
+    )
 }
 
 const complete = <E>(state: State<E>): Result.Result<void, CanonicalizationError | E> =>
@@ -60,12 +63,12 @@ const complete = <E>(state: State<E>): Result.Result<void, CanonicalizationError
     }
   })
 
-const execute = <E>(state: State<E>): Effect.Effect<void, CanonicalizationError | E> =>
+const execute = <E>(state: State<E>, batch: () => void): Effect.Effect<void, CanonicalizationError | E> =>
   Effect.suspend(() => {
-    processBatch(state)
+    batch()
     return B.match(stopped(state), {
       onTrue: () => Effect.fromResult(complete(state)),
-      onFalse: () => Effect.andThen(Effect.yieldNow, execute(state))
+      onFalse: () => Effect.andThen(Effect.yieldNow, execute(state, batch))
     })
   })
 
@@ -85,40 +88,43 @@ const admitBounded =
 export const canonicalizeSegments = (value: unknown): Effect.Effect<Chunk.Chunk<string>, CanonicalizationError> =>
   Effect.suspend(() => {
     const state = makeState(value, () => Result.succeed(undefined))
-    return Effect.map(execute(state), () => Chunk.fromIterable(MutableList.toArray(state.segments)))
+    return Effect.map(execute(state, makeBatch(state)), () => Chunk.fromIterable(MutableList.toArray(state.segments)))
   })
 
-const executeInto = <E>(
-  state: State<E>,
-  sink: (segment: string) => Effect.Effect<void>
-): Effect.Effect<void, CanonicalizationError | E> =>
-  Effect.gen(function*() {
-    processBatch(state)
-    yield* Effect.fromResult(complete(state))
-    const segments = MutableList.toArray(state.segments)
-    MutableList.clear(state.segments)
-    yield* Effect.forEach(segments, sink, { discard: true })
-    yield* B.match(stopped(state), {
-      onTrue: () => Effect.void,
-      onFalse: () => Effect.andThen(Effect.yieldNow, executeInto(state, sink))
+const byteStream = <E>(state: State<E>): Stream.Stream<Uint8Array, CanonicalizationError | E> => {
+  const batch = makeBatch(state)
+  return Stream.paginate(
+    false,
+    Effect.fnUntraced(function*(shouldYield) {
+      yield* B.match(shouldYield, { onTrue: () => Effect.yieldNow, onFalse: () => Effect.void })
+      batch()
+      yield* Effect.fromResult(complete(state))
+      return Tuple.make(
+        MutableList.takeAll(state.segments),
+        Option.liftPredicate(B.not)(stopped(state)).pipe(Option.map(() => true))
+      )
     })
-  })
+  ).pipe(Stream.encodeText)
+}
 
 export const canonicalizeInto = (
   value: unknown,
-  sink: (segment: string) => Effect.Effect<void>
+  sink: (segment: Uint8Array) => Effect.Effect<void>
 ): Effect.Effect<void, CanonicalizationError> =>
-  Effect.suspend(() => executeInto(makeState(value, () => Result.succeed(undefined)), sink))
+  Effect.suspend(() => {
+    const state = makeState(value, () => Result.succeed(undefined))
+    return Stream.runForEach(byteStream(state), sink)
+  })
 
 export const canonicalizeWithByteLimit = (
   value: unknown,
   maximumBytes: number,
-  sink: (segment: string) => Effect.Effect<void>
+  sink: (segment: Uint8Array) => Effect.Effect<void>
 ): Effect.Effect<number, CanonicalizationError | ByteLimitExceeded> =>
   Effect.suspend(() => {
     const length = MutableRef.make(0)
     const state = makeState(value, admitBounded(maximumBytes, length))
-    return Effect.map(executeInto(state, sink), () => MutableRef.get(length))
+    return Effect.map(Stream.runForEach(byteStream(state), sink), () => MutableRef.get(length))
   })
 
 export const canonicalizeValue = (value: unknown): Effect.Effect<string, CanonicalizationError> =>

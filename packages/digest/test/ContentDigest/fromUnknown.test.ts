@@ -1,10 +1,55 @@
+import { BunServices } from "@effect/platform-bun"
 import { describe, expect, it } from "@effect/vitest"
-import { Array as Arr, Effect, Exit } from "effect"
+import { Array as Arr, Effect, Exit, Option, Schema, String as Str, Tuple } from "effect"
 
 import * as CanonicalJson from "@scenesystems/digest/CanonicalJson"
 import * as ContentDigest from "@scenesystems/digest/ContentDigest"
+import * as Utf8 from "@scenesystems/digest/Utf8"
+import * as Fixtures from "../../scripts/fixtures.js"
 
 describe("ContentDigest.fromUnknown", () => {
+  it.effect("matches independent full BLAKE3 digests for ASCII, BMP, astral and mixed values", () =>
+    Effect.gen(function*() {
+      const fixture = yield* Fixtures.read("jcs-corpus/content-digests.json").pipe(
+        Effect.flatMap(Schema.decodeEffect(Fixtures.CanonicalJson))
+      )
+      yield* Effect.forEach(fixture.cases, (vector) =>
+        Effect.gen(function*() {
+          const expected = Str.concat("blake3-256:", Option.getOrThrow(Option.fromNullishOr(vector.expectedBlake3)))
+          expect(ContentDigest.toString(yield* ContentDigest.fromUnknown("blake3-256", vector.input))).toBe(expected)
+          const bytes = yield* Utf8.encode(vector.expectedCanonical)
+          const bounded = yield* ContentDigest.fromSchemaWithByteLimit(Schema.Unknown, vector.input, bytes.byteLength)
+          expect(ContentDigest.toString(bounded.digest)).toBe(expected)
+          expect(bounded.canonicalByteLength).toBe(bytes.byteLength)
+          expect(
+            yield* Effect.exit(
+              ContentDigest.fromSchemaWithByteLimit(Schema.Unknown, vector.input, bytes.byteLength - 1)
+            )
+          ).toStrictEqual(Exit.fail(new CanonicalJson.ByteLimitExceeded({})))
+        }))
+    }).pipe(Effect.provide(BunServices.layer)))
+
+  it.effect.each(Arr.make(
+    Tuple.make(Str.concat(Str.repeat(511)("😀"), "x\ud800"), 1023, "lone-high-surrogate"),
+    Tuple.make(Str.concat(Str.repeat(512)("😀"), "x\udfff"), 1025, "lone-low-surrogate")
+  ))(
+    "reports exact surrogate indices after valid astral pairs: %s",
+    ([text, codeUnitIndex, kind]) =>
+      Effect.gen(function*() {
+        const expected = Exit.fail(Utf8.InvalidUnicode.make({ kind, codeUnitIndex }))
+        expect(yield* Effect.exit(Utf8.encode(text))).toStrictEqual(expected)
+        expect(yield* Effect.exit(ContentDigest.fromUnknown("blake3-256", { text }))).toStrictEqual(expected)
+      })
+  )
+
+  it.effect("keeps opening-quote byte admission before malformed short-string validation", () =>
+    Effect.gen(function*() {
+      expect(yield* Effect.exit(ContentDigest.fromSchemaWithByteLimit(Schema.String, "\ud800", 0)))
+        .toStrictEqual(Exit.fail(new CanonicalJson.ByteLimitExceeded({})))
+      expect(yield* Effect.exit(ContentDigest.fromSchemaWithByteLimit(Schema.String, "\ud800", 1)))
+        .toStrictEqual(Exit.fail(new Utf8.InvalidUnicode({ kind: "lone-high-surrogate", codeUnitIndex: 0 })))
+    }))
+
   it.effect("matches the explicit canonical-byte pipeline", () =>
     Effect.gen(function*() {
       const value = { key: "value" }

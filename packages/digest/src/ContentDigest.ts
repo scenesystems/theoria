@@ -13,7 +13,6 @@ import * as CanonicalJson from "./CanonicalJson.js"
 import * as Digest from "./Digest.js"
 import { canonicalizeInto, canonicalizeWithByteLimit } from "./internal/canonicalJson/traversal.js"
 import { makeHasher } from "./internal/digest.js"
-import { encodeUtf8Unchecked } from "./internal/utf8.js"
 
 /**
  * Canonical unpadded base64url encoding of 32 digest bytes. Decoding validates
@@ -115,11 +114,11 @@ export const fromUnknown = (
   Effect.acquireUseRelease(
     Effect.sync(() => makeHasher(algorithm)),
     (hasher) =>
-      canonicalizeInto(value, (segment) =>
-        Effect.asVoid(Effect.map(encodeUtf8Unchecked(segment), (bytes) => hasher.update(bytes)))).pipe(
-          Effect.map(() =>
-            fromHash(algorithm, hasher.digest())
-          )
+      canonicalizeInto(value, (bytes) =>
+        Effect.sync(() => {
+          hasher.update(bytes)
+        })).pipe(
+          Effect.map(() => fromHash(algorithm, hasher.digest()))
         ),
     (hasher) => Effect.sync(() => hasher.destroy())
   )
@@ -176,7 +175,10 @@ export const fromSchemaWithByteLimit = <A, I, RD, RE>(
                 canonicalizeWithByteLimit(
                   encoded,
                   maximumBytes,
-                  (segment) => Effect.asVoid(Effect.map(encodeUtf8Unchecked(segment), (bytes) => hasher.update(bytes)))
+                  (bytes) =>
+                    Effect.sync(() => {
+                      hasher.update(bytes)
+                    })
                 ),
                 (canonicalByteLength) =>
                   new Result({ digest: fromHash(algorithm, hasher.digest()), canonicalByteLength })

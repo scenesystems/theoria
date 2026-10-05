@@ -1,6 +1,28 @@
 {
   "sources": [
     {
+      "id": "independent-content-digests",
+      "kind": "jcs",
+      "fixturePath": "jcs-corpus/content-digests.json",
+      "origin": "local-adversarial",
+      "sourceLocator": "https://pypi.org/project/blake3/1.0.8/",
+      "revision": "blake3-py-1.0.8",
+      "sourcePaths": ["Python json.dumps", "blake3.blake3"],
+      "sourceSelectors": ["ASCII, BMP, astral and mixed string values with UTF-16-ordered nested record keys"],
+      "retrievedAt": "2026-10-05",
+      "sourceLicense": "CC0-1.0 OR Apache-2.0",
+      "licenseUrl": "https://github.com/oconnor663/blake3-py/blob/1.0.8/LICENSE",
+      "sourceNotice": "Locally authored inputs and generated outputs; no upstream vector text is copied. Python blake3 uses the independent Rust BLAKE3 implementation, not Noble or digest.",
+      "transformations": [
+        "Generated with uv run --with blake3==1.0.8 python. Recursively rebuild dictionaries with keys sorted by key.encode('utf-16be'); preserve array order.",
+        "Serialize using json.dumps(value, ensure_ascii=False, separators=(',', ':')). The selected numbers are integers, avoiding Python/ECMAScript float spelling differences.",
+        "Hash text.encode('utf-8') using blake3.blake3(...).digest(); render the full 32-byte digest with base64.urlsafe_b64encode(...).decode().rstrip('=')."
+      ],
+      "exclusions": [],
+      "localVerdictRemaps": [],
+      "contentSha256": "b49495fba4d389828da6f62a7bb4b47e25712d37478f8080db1b4c5a2934d789"
+    },
+    {
       "id": "blake3-official-vectors",
       "kind": "blake3",
       "fixturePath": "blake3/test-vectors.json",
