@@ -66,6 +66,8 @@ An observer acknowledges an event by successfully completing its Effect. Memory 
 
 `History` keeps the latest record for each trial number in an Effect `HashMap`; `History.values` returns records sorted by trial number. Replacing a record replaces its cost contribution rather than charging it twice. Absent, negative, and non-finite costs in trusted in-memory records contribute zero. Trial and event codecs require finite numerical metadata. Applications choose cost units.
 
+`History.costs(history)` returns a `History.Cost` projection with `reportedTotal`, `reportedCount`, `missingCount`, and `invalidCount`. A finite nonnegative cost, including zero, is reported; an absent cost is missing; a negative or non-finite cost is invalid. Each current trial contributes to exactly one count, regardless of its outcome. Replacing a trial replaces its evidence. Both `reportedTotal` and `cumulativeCost` summarize valid reported trial costs, not provider attempts, financial reservations, or billing truth. No cost, score, or grading denominator is imputed.
+
 ## Schemas and persistence
 
 `Trial.Trial(config, state)` is the canonical generic trial schema factory. `Trial.Completed(value)` and `Trial.Failed(error)` support structured observations and typed failures, while `Trial.Running` and `Trial.Cancelled` provide the fixed states. Encoded forms and schema service requirements are preserved.
@@ -89,6 +91,12 @@ export const ReadingEnvelope = Artifact.Envelope(Producer, Lineage, Payload)
 `Journal.make(schema, directory, fileName)` creates a schema-driven JSON-lines journal. Appends through one journal instance are serialized, including encoding. Reads preserve physical order, skip blank lines, treat missing files as empty, and fail with `PersistenceError.Failure` on malformed or torn records. Decoding errors include the one-based physical line number. Separate instances do not share a lock, and append completion does not promise an fsync or transaction.
 
 `ArtifactContext` owns run identity and atomic artifact sequence allocation. `ArtifactSink` owns schema-encoded artifact delivery, including filesystem journals and ordered fanout. These abstractions are generic: producers supply the artifact schema and retain its codec environment.
+
+Construct `new ArtifactContext.Options({ runId, packageVersion, nextSequence, allocate })`. Omit `allocate` for atomic in-memory allocation starting at `nextSequence` (zero by default). Restore `nextSequence` from the reservation high-water mark, including reservations whose delivery failed or never started; delivered payloads alone cannot determine a safe restart point. Memory allocation is not durable, and separate contexts for the same run do not coordinate.
+
+For durable or multi-writer reservations, supply an `allocate` Effect returning an atomic unique sequence with `PersistenceError.Failure` as its typed error. The caller owns reservation persistence and maps backend errors explicitly. `make` and `layer` capture allocator services at construction; `nextId` executes the allocator lazily. Invalid restored sequences and allocated values below the restored floor fail with reason `Codec`. Construction and `nextId` can fail; consumers retain the failure channel rather than converting infrastructure failures to observations.
+
+Allocation does not store payloads. Gaps are valid; do not reclaim an uncertain reservation. Build the artifact once and retain its identity when retrying delivery. `ArtifactSink.fanout(left, right)` awaits the left sink before the right, stops on failure, and provides neither rollback nor retries. A right failure leaves the left delivery intact; retrying may deliver the same artifact to the left again. Each sink owns deduplication, and the filesystem sink appends rather than deduplicates.
 
 `StudyStorage` owns run-bound event recordings and cursor-bound checkpoints. Both its memory and filesystem implementations schema-encode every write and schema-decode every read, preserving codec service requirements. Its single protocol contains `Opened`, `Event`, and `Checkpoint` records. `effect-search` stores optimization trials as events and snapshots as checkpoint state.
 
@@ -128,11 +136,22 @@ Scope finalization changes the local Study lifecycle, not arbitrary external exe
 
 Import this package directly for new evaluation or artifact consumers that do not need optimization. No search-space or numeric-objective placeholder is required.
 
+## Runnable examples
+
+Run these from the repository root with `bun packages/effect-study/examples/<file>.ts`:
+
+- [`evaluation.ts`](examples/evaluation.ts): pure Effect evaluation and schema-encoded observations.
+- [`structured-evaluation.ts`](examples/structured-evaluation.ts): DSP-shaped predictions, caller grading of a completed wrong answer, typed producer failure, and missing-cost evidence.
+- [`recorded-evaluation.ts`](examples/recorded-evaluation.ts): task-shaped values, awaited recording, a checkpoint, sink failure, and reopening with checkpoint-plus-tail replay. The retained plan has one completed, one failed, one unresolved, and one not-started input.
+- [`artifact-persistence.ts`](examples/artifact-persistence.ts): producer-owned transformed codecs, artifact delivery, and cursor-bound checkpoints.
+
+The domain-shaped examples use local fixtures, not model calls or remote submissions. They require no domain-package dependencies or credentials. A completed value is evidence of the evaluator's return, not an assertion that its answer is correct or its task succeeded. Callers grade retained values and reconcile unresolved work; replay does neither.
+
 ## Public modules
 
 - `Trial`: schema-composed records and outcomes.
 - `Evaluation`: fixed-input evaluation.
-- `History`: ordered trial history and cost accounting.
+- `History`: ordered trial history and reported-cost completeness.
 - `Lifecycle`: legal phase transitions.
 - `Stop`: deterministic cooperative stop requests.
 - `Emitter`: scoped producer-to-stream composition.
