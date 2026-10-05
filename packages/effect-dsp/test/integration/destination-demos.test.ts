@@ -59,23 +59,22 @@ describe("destination-owned demonstrations", () => {
       expect(yield* Ref.get(child.parameters)).toBe(initialChild)
     }))
 
-  it.effect("builds the automatic labeled baseline independently for each destination", () =>
+  it.effect("rejects an incompatible labeled baseline without changing the destination", () =>
     Effect.gen(function*() {
       const { root, child } = yield* makePipeline
       const mock = yield* MockLanguageModel.make(MockLanguageModel.succeed({ analysis: "Paris" }))
       const metric = Metric.exactMatch("answer")
 
-      const compiled = yield* BootstrapRS.run(
+      const failure = yield* BootstrapRS.run(
         new BootstrapRS.Options({
           module: root,
           trainset: rows,
           metric,
-          numCandidates: 0
+          numCandidatePrograms: 0
         })
-      ).pipe(Effect.provideService(LanguageModel.LanguageModel, mock.service))
+      ).pipe(Effect.provideService(LanguageModel.LanguageModel, mock.service), Effect.flip)
 
-      expect(Record.keys(compiled.parameters)).toEqual(["pipeline.child"])
-      expect(Option.getOrThrow(Record.get(compiled.parameters, "pipeline.child")).demos).toEqual(Arr.empty())
+      expect(failure._tag).toBe("SchemaError")
       expect((yield* Ref.get(child.parameters)).demos).toEqual(Arr.empty())
     }))
 
@@ -188,7 +187,7 @@ describe("destination-owned demonstrations", () => {
           module: root,
           trainset: rows,
           metric,
-          numCandidates: 1,
+          numCandidatePrograms: 1,
           maxLabeledDemos: 0
         })
       ).pipe(

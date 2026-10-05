@@ -2,29 +2,14 @@
 import { describe, expect, expectTypeOf, it } from "@effect/vitest"
 import * as BootstrapRS from "@scenesystems/effect-dsp/BootstrapRS"
 import { Demonstration } from "@scenesystems/effect-dsp/Demonstration"
-import { AllTrialsFailed } from "@scenesystems/effect-dsp/DspError"
+import * as Evaluate from "@scenesystems/effect-dsp/Evaluate"
 import { Example } from "@scenesystems/effect-dsp/Example"
 import * as Metric from "@scenesystems/effect-dsp/Metric"
 import * as MockLanguageModel from "@scenesystems/effect-dsp/MockLanguageModel"
 import * as Module from "@scenesystems/effect-dsp/Module"
 import { ModuleParameters } from "@scenesystems/effect-dsp/ModuleParameters"
 import * as Signature from "@scenesystems/effect-dsp/Signature"
-import * as OptimizationStorage from "@scenesystems/effect-search/OptimizationStorage"
-import { Failure as ArtifactStorageError } from "@scenesystems/effect-study/Journal"
-import {
-  Array as Arr,
-  Context,
-  Deferred,
-  Effect,
-  Equal,
-  Exit,
-  Fiber,
-  Number,
-  Option,
-  Record,
-  Ref,
-  Schema
-} from "effect"
+import { Array as Arr, Context, Deferred, Effect, Exit, Fiber, Number, Option, Record, Ref, Schema } from "effect"
 import * as LanguageModel from "effect/ai/LanguageModel"
 import type { Services as EffectServices } from "effect/Effect"
 
@@ -79,43 +64,37 @@ describe("BootstrapRS.run transactional restoration", () => {
           trainset,
           valset: Arr.make(new Example({ input: { question: 73 } })),
           metric: Metric.exactMatch("answer"),
-          numCandidates: 0
+          numCandidatePrograms: 0,
+          maxErrors: Option.some(1)
         })
       ).pipe(Effect.provideService(LanguageModel.LanguageModel, mock.service), Effect.flip)
 
-      expect(failure).toBeInstanceOf(AllTrialsFailed)
+      expect(failure).toEqual(new Evaluate.TooManyErrors({ count: 1, limit: 1 }))
       expect(yield* Ref.get(module.parameters)).toBe(originalRoot)
       expect(yield* Ref.get(child.parameters)).toBe(originalChild)
     }))
 
-  it.effect("preserves a checked storage failure and scorer requirements after candidate mutation", () =>
+  it.effect("preserves scorer requirements and caller parameters when the metric exhausts maxErrors", () =>
     Effect.gen(function*() {
       const { module, child } = yield* makeTree
       const original = yield* Module.save(module)
       const mock = yield* MockLanguageModel.make(MockLanguageModel.succeed({ answer: "answer" }))
-      const storageFailure = new ArtifactStorageError({ operation: "write", path: "candidate", detail: "unavailable" })
-      const storage = OptimizationStorage.OptimizationStorage.of({
-        appendTrial: () => Effect.fail(storageFailure),
-        writeSnapshot: () => Effect.void,
-        loadSnapshot: () => Effect.succeedNone,
-        loadTrialLog: () => Effect.succeed(Arr.empty()),
-        replayTrialLog: () => Effect.succeed(Arr.empty())
-      })
       const metric = Metric.withFeedback(() =>
         Effect.gen(function*() {
           const score = yield* Scoring
-          return new Metric.Score({ value: score.value, feedback: Option.none() })
+          return yield* Effect.fail(score.value)
         }), "service-score")
-      const program = BootstrapRS.run(new BootstrapRS.Options({ module, trainset, metric, numCandidates: 0 }))
+      const program = BootstrapRS.run(
+        new BootstrapRS.Options({ module, trainset, metric, numCandidatePrograms: 0, maxErrors: Option.some(1) })
+      )
       expectTypeOf<EffectServices<typeof program>>().toEqualTypeOf<LanguageModel.LanguageModel | Scoring>()
       const failure = yield* program.pipe(
         Effect.provideService(Scoring, { value: Number.multiply(2, -1) }),
         Effect.provideService(LanguageModel.LanguageModel, mock.service),
-        Effect.provideService(OptimizationStorage.OptimizationStorage, storage),
         Effect.flip
       )
 
-      expect(Equal.equals(failure, storageFailure)).toBe(true)
+      expect(failure).toEqual(new Evaluate.TooManyErrors({ count: 1, limit: 1 }))
       expect(yield* Module.save(module)).toEqual(original)
       expect((yield* Ref.get(child.parameters)).demos).toEqual(
         Option.getOrThrow(Record.get(original.parameters, "root.child")).demos
@@ -140,7 +119,9 @@ describe("BootstrapRS.run transactional restoration", () => {
           )
           return new Metric.Score({ value: call, feedback: Option.none() })
         }), "barrier")
-      const fiber = yield* BootstrapRS.run(new BootstrapRS.Options({ module, trainset, metric, numCandidates: 0 }))
+      const fiber = yield* BootstrapRS.run(
+        new BootstrapRS.Options({ module, trainset, metric, numCandidatePrograms: 0 })
+      )
         .pipe(
           Effect.provideService(LanguageModel.LanguageModel, mock.service),
           Effect.forkScoped
@@ -164,17 +145,19 @@ describe("BootstrapRS.run transactional restoration", () => {
       const calls = yield* Ref.make(0)
       const metric = Metric.withFeedback(() =>
         Ref.updateAndGet(calls, Number.increment).pipe(Effect.map((score) =>
-          new Metric.Score({ value: score, feedback: Option.none() })
+          new Metric.Score({ value: score / 2, feedback: Option.none() })
         )), "candidate-score")
-      const optimized = yield* BootstrapRS.run(new BootstrapRS.Options({ module, trainset, metric, numCandidates: 0 }))
+      const optimized = yield* BootstrapRS.run(
+        new BootstrapRS.Options({ module, trainset, metric, numCandidatePrograms: 0, stopAtScore: Option.some(1) })
+      )
         .pipe(
           Effect.provideService(LanguageModel.LanguageModel, mock.service)
         )
       const selected = Option.getOrThrow(Record.get(optimized.parameters, "root.child"))
 
       expect(optimized.program).not.toBe(module)
-      expect(selected.demos).toEqual(
-        Arr.make(new Demonstration({ input: { question: "new" }, output: { answer: "answer" } }))
+      expect(Arr.map(selected.demos, (demo) => ({ input: demo.input, output: demo.output }))).toEqual(
+        [{ input: { question: "new" }, output: { answer: "answer" } }]
       )
       expect(yield* Module.save(module)).toEqual(original)
       expect(selected.temperature).toBe(0.3)

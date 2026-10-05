@@ -3,14 +3,13 @@
  */
 import { describe, expect, it } from "@effect/vitest"
 import * as BootstrapRS from "@scenesystems/effect-dsp/BootstrapRS"
-import { AllTrialsFailed } from "@scenesystems/effect-dsp/DspError"
 import { Example } from "@scenesystems/effect-dsp/Example"
 import * as Metric from "@scenesystems/effect-dsp/Metric"
 import * as MockLanguageModel from "@scenesystems/effect-dsp/MockLanguageModel"
 import * as Module from "@scenesystems/effect-dsp/Module"
 import { ModuleParameters } from "@scenesystems/effect-dsp/ModuleParameters"
 import * as Signature from "@scenesystems/effect-dsp/Signature"
-import { Effect, Layer, Option, Record, Ref, Result, Schema } from "effect"
+import { Array as Arr, Effect, Layer, Option, Record, Ref, Schema } from "effect"
 import * as LanguageModel from "effect/ai/LanguageModel"
 import { assertNoMutation } from "../kit/Mutation.js"
 
@@ -86,8 +85,7 @@ describe("BootstrapRS.run", () => {
               })
             ],
             metric: Metric.exactMatch("answer"),
-            numCandidates: 2,
-            seeds: [0, 1],
+            numCandidatePrograms: 2,
             maxRounds: 1,
             maxBootstrappedDemos: 1,
             metricThreshold: Option.some(1),
@@ -102,7 +100,7 @@ describe("BootstrapRS.run", () => {
       expect(parameters.demos[0]?.output).toEqual({ answer: "Tokyo" })
     }))
 
-  it.effect("fails with AllTrialsFailed when all candidate evaluations fail", () =>
+  it.effect("retains zero scores and the earliest candidate when every validation row fails", () =>
     Effect.gen(function*() {
       const signature = yield* makeQaSignature()
       const module = yield* Module.predict("qa", signature)
@@ -111,7 +109,8 @@ describe("BootstrapRS.run", () => {
       )
       const lmLayer = Layer.succeed(LanguageModel.LanguageModel, mock.service)
 
-      const result = yield* Effect.result(
+      const result = yield* assertNoMutation(
+        module,
         BootstrapRS.run(
           new BootstrapRS.Options({
             module,
@@ -122,8 +121,7 @@ describe("BootstrapRS.run", () => {
               })
             ],
             metric: Metric.exactMatch("answer"),
-            numCandidates: 1,
-            seeds: [0],
+            numCandidatePrograms: 1,
             maxRounds: 1,
             maxBootstrappedDemos: 1,
             metricThreshold: Option.some(1),
@@ -132,15 +130,8 @@ describe("BootstrapRS.run", () => {
         ).pipe(Effect.provide(lmLayer))
       )
 
-      expect(Result.isFailure(result)).toBe(true)
-
-      if (Result.isFailure(result)) {
-        expect(result.failure).toEqual(
-          new AllTrialsFailed({
-            message: "BootstrapRS failed to evaluate any candidate",
-            trialCount: 0
-          })
-        )
-      }
+      expect(result.report.winnerSeed).toBe(-3)
+      expect(Arr.map(result.report.candidates, (candidate) => candidate.score)).toEqual([0, 0, 0, 0])
+      expect(Arr.map(result.report.candidates, (candidate) => candidate.evaluation.failureCount)).toEqual([1, 1, 1, 1])
     }))
 })
