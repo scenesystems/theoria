@@ -1,7 +1,12 @@
 /** Invocation-local state for stack-safe canonical traversal. @internal */
 
-import type { MutableHashSet } from "effect"
-import { Boolean as B, Data, MutableList, MutableRef, Number as N, Option, String as Str } from "effect"
+import * as Data from "effect/Data"
+import type * as MutableHashSet from "effect/MutableHashSet"
+import * as MutableList from "effect/MutableList"
+import * as MutableRef from "effect/MutableRef"
+import * as N from "effect/Number"
+import * as Option from "effect/Option"
+import * as Str from "effect/String"
 
 import type { Error as CanonicalizationError } from "../../CanonicalJson.js"
 
@@ -39,21 +44,15 @@ export const push = <E>(state: State<E>, frame: Frame): void => {
 
 export const flushPending = <E>(state: State<E>): void => {
   const pending = MutableRef.get(state.pending)
-  B.match(Str.isNonEmpty(pending), {
-    onFalse: () => undefined,
-    onTrue: () => {
-      MutableList.append(state.segments, pending)
-      MutableRef.set(state.pending, "")
-    }
-  })
+  if (Str.isNonEmpty(pending)) {
+    MutableList.append(state.segments, pending)
+    MutableRef.set(state.pending, "")
+  }
 }
 
 export const append = <E>(state: State<E>, text: string): void => {
-  MutableRef.set(state.pending, Str.concat(MutableRef.get(state.pending), text))
-  B.match(N.isGreaterThanOrEqualTo(Str.length(MutableRef.get(state.pending)), 32_768), {
-    onTrue: () => flushPending(state),
-    onFalse: () => undefined
-  })
+  MutableRef.set(state.pending, Str.ReducerConcat.combine(MutableRef.get(state.pending), text))
+  if (N.isGreaterThanOrEqualTo(Str.length(MutableRef.get(state.pending)), 32_768)) flushPending(state)
 }
 
 export const emit = <E>(state: State<E>, text: string): void => state.write(state, text)

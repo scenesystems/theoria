@@ -13,6 +13,11 @@ cycle detection. Add independent full-digest Unicode vectors, escaping boundary
 checks, and hostile equality coverage without changing canonical bytes for unchanged
 wire representations.
 
+Reduce cold traversal allocation by retaining collection cursors in Effect mutable
+lists and caching at most 128 validated short keys per invocation. Use direct public
+Effect imports, string reducers, and a Schema boolean compiler operation for view
+classification, without dynamic code generation or changing caller codecs.
+
 Breaking pre-1.0 change: remove ContentDigest.fromUnknown. Structured identities
 require an owner-selected codec through fromSchema or fromSchemaWithByteLimit;
 fromBytes remains the explicit byte-identity boundary. DSP cache Request and

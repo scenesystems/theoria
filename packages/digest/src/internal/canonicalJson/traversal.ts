@@ -1,21 +1,19 @@
 /** Cooperative drivers over canonical traversal. @internal */
 
-import {
-  Array as Arr,
-  Boolean as B,
-  Chunk,
-  Effect,
-  Match,
-  MutableHashSet,
-  MutableList,
-  MutableRef,
-  Number as N,
-  Option,
-  Result,
-  Stream,
-  Tuple
-} from "effect"
+import * as Arr from "effect/Array"
+import * as B from "effect/Boolean"
+import * as Chunk from "effect/Chunk"
+import * as Effect from "effect/Effect"
 import { memoize } from "effect/Function"
+import * as MutableHashSet from "effect/MutableHashSet"
+import * as MutableList from "effect/MutableList"
+import * as MutableRef from "effect/MutableRef"
+import * as N from "effect/Number"
+import * as Option from "effect/Option"
+import * as Predicate from "effect/Predicate"
+import * as Result from "effect/Result"
+import * as Stream from "effect/Stream"
+import * as Tuple from "effect/Tuple"
 
 import { ByteLimitExceeded, type Error as CanonicalizationError } from "../../CanonicalJson.js"
 import { utf8ByteLengthUnchecked } from "../utf8.js"
@@ -49,13 +47,11 @@ const batchSteps = Arr.range(0, 127)
 
 const makeBatch = <E>(state: State<E>): Effect.Effect<void> => {
   const process = makeProcessor(state)
-  const advance = Match.type<Frame | MutableList.Empty>().pipe(
-    Match.when(MutableList.Empty, () => undefined),
-    Match.orElse(process)
-  )
   return Effect.sync(() => {
     Arr.every(batchSteps, () => {
-      advance(MutableList.take(state.stack))
+      // Keep collection cursors in their existing bucket until exhausted.
+      const head = state.stack.head
+      if (!Predicate.isUndefined(head)) process(Arr.getUnsafe(head.array, head.offset))
       return !stopped(state)
     })
   })
