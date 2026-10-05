@@ -1,6 +1,6 @@
 import { describe, expect, it } from "@effect/vitest"
 import * as MIPROv2 from "@scenesystems/effect-dsp/MIPROv2"
-import { Array as Arr, Effect, Ref, Stream } from "effect"
+import { Array as Arr, Effect, Ref, Schema, Stream } from "effect"
 
 const events = Arr.make(
   MIPROv2.events.Phase3Started({ numTrials: 6 }),
@@ -41,22 +41,15 @@ describe("MIPROv2 progress", () => {
     }))
 
   it.effect("separates learned demonstrations and retained gain from search quality", () =>
-    Effect.sync(() => {
-      const eventSummary = MIPROv2.summarizeEvents(events)
-      const outcome = MIPROv2.summarizeOutcome({
-        baselineScore: 0.2,
-        optimizedScore: 0.6,
-        demoCountBefore: 1,
-        demoCountAfter: 3,
-        events: eventSummary
-      })
+    Effect.gen(function*() {
+      const codec = Schema.fromJsonString(MIPROv2.Report)
+      const encoded = yield* Schema.encodeEffect(codec)(MIPROv2.summarizeEvents(events))
+      const eventSummary = yield* Schema.decodeEffect(codec)(encoded)
       const observability = MIPROv2.summarizeOptimization({
         baselineScore: 0.5,
         optimizedScore: 0.5,
         eventSummary
       })
-      expect(outcome.scoreDelta).toBeCloseTo(0.4, 15)
-      expect(outcome.demosLearnedDuringMIPROv2).toBe(2)
       expect(observability.searchBestScore).toBe(0.8)
       expect(observability.searchGain).toBeCloseTo(0.3, 15)
       expect(observability.retainedGain).toBe(0)

@@ -149,7 +149,11 @@ describe("MIPROv2 Phase 3", () => {
         new Options({
           module,
           valset: trainset,
-          metric: Metric.exactMatch("answer"),
+          metric: Metric.fromEffect("immutable", (prediction: object, expected: object) =>
+            Effect.gen(function*() {
+              expect(yield* Ref.get(module.params)).toEqual(baselineParams)
+              return yield* Metric.exactMatch("answer").score(prediction, expected)
+            })),
           demoCandidates,
           instructionCandidates,
           trialBudget: 4,
@@ -192,16 +196,6 @@ describe("MIPROv2 Phase 3", () => {
       const originalChildParams = yield* Ref.get(child.params)
       const demoCandidates = Arr.make(
         new PredictorDemoCandidates({
-          predictorName: "root",
-          candidates: Arr.make(
-            new DemoCandidate({
-              predictorName: "root",
-              kind: "zero-shot",
-              params: originalRootParams
-            })
-          )
-        }),
-        new PredictorDemoCandidates({
           predictorName: "child",
           candidates: Arr.make(
             new DemoCandidate({
@@ -227,19 +221,6 @@ describe("MIPROv2 Phase 3", () => {
         })
       )
       const instructionCandidates = Arr.make(
-        new PredictorInstructionCandidates({
-          predictorName: "root",
-          candidates: Arr.make(
-            new InstructionCandidate({
-              predictorName: "root",
-              instruction: originalRootParams.instructions,
-              tip: "baseline",
-              cacheBustMarker: "[miprov2-proposal:root:0:seed:1]",
-              prompt: "baseline",
-              isBaseline: true
-            })
-          )
-        }),
         new PredictorInstructionCandidates({
           predictorName: "child",
           candidates: Arr.make(

@@ -18,9 +18,9 @@ import {
   Match,
   Number as Num,
   Option,
+  Record,
   Ref,
   Schema,
-  Stream,
   String as Str
 } from "effect"
 import * as LanguageModel from "effect/ai/LanguageModel"
@@ -105,27 +105,27 @@ const runGepaMultiObjective = Effect.gen(function*() {
   const mock = yield* MockLanguageModel.make(MockLanguageModel.map(responseForPrompt))
   const layer = Layer.succeed(LanguageModel.LanguageModel, mock.service)
 
-  const events = yield* Stream.runCollect(
-    GEPA.stream(
-      new GEPA.Options({
-        module,
-        trainset,
-        metric: feedbackMetric,
-        maxIterations: 3,
-        seed: 42
-      })
-    )
+  const recorded = yield* Ref.make(Arr.empty<GEPA.Event>())
+  const compiled = yield* GEPA.runWithEvents(
+    new GEPA.Options({
+      module,
+      trainset,
+      metric: feedbackMetric,
+      maxIterations: 3,
+      seed: 42
+    }),
+    (event) => Ref.update(recorded, Arr.append(event))
   ).pipe(Effect.provide(layer))
 
-  const eventList = Arr.fromIterable(events)
-  const params = yield* Ref.get(module.params)
+  const eventList = yield* Ref.get(recorded)
+  const params = Option.getOrThrow(Record.get(compiled.parameters, module.name))
 
   return new (class extends Data.Class<{
     readonly eventList: typeof eventList
     readonly params: typeof params
     readonly module: typeof module
     readonly layer: typeof layer
-  }> {})({ eventList, params, module, layer })
+  }> {})({ eventList, params, module: compiled.program, layer })
 })
 
 describe("examples/15-gepa-multi-objective-mock", () => {

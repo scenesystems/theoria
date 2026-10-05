@@ -242,7 +242,7 @@ const gepa = Effect.gen(function*() {
   )
     .pipe(Effect.provideService(LanguageModel.LanguageModel, mock.service))
   return {
-    actual: (yield* Ref.get(optimized.params)).instructions,
+    actual: Option.getOrThrow(Record.get(optimized.parameters, module.name)).instructions,
     expected: reference.state.signature.instructions,
     accepted: yield* Ref.get(accepted)
   }
@@ -275,7 +275,7 @@ const bootstrap = Effect.gen(function*() {
   )
   const teacher = yield* MockLanguageModel.make(MockLanguageModel.succeed({ answer: "teacher" }))
   const student = yield* MockLanguageModel.make(MockLanguageModel.succeed({ answer: "student" }))
-  yield* BootstrapFewShot.run(
+  const compiled = yield* BootstrapFewShot.run(
     new BootstrapFewShot.Options({
       module,
       trainset: examples(reference.splits.train),
@@ -289,7 +289,7 @@ const bootstrap = Effect.gen(function*() {
   ).pipe(Effect.provideService(LanguageModel.LanguageModel, student.service))
   return {
     actual: Arr.map(
-      (yield* Ref.get(second.params)).demos,
+      Option.getOrThrow(Record.get(compiled.parameters, "pipeline.second")).demos,
       (demo) => ({ question: demo.input.question, answer: demo.output.answer })
     ),
     expected: reference.state.second.demos,

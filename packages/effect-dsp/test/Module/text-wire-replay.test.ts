@@ -20,6 +20,7 @@ import {
   Match,
   Number,
   Option,
+  Record,
   Ref,
   Schedule,
   Schema,
@@ -155,7 +156,7 @@ describe("Module marker wire replay", () => {
             onFalse: () => 0
           })
         }))
-      yield* BootstrapFewShot.run(
+      const optimized = yield* BootstrapFewShot.run(
         new BootstrapFewShot.Options({
           module,
           trainset: Arr.make(new Example({ input: { question: "training" }, output: { result: { count: "7" } } })),
@@ -166,7 +167,7 @@ describe("Module marker wire replay", () => {
           fallbackToLabeledFewShot: false
         })
       ).pipe(Effect.provideService(LanguageModel.LanguageModel, teacher.service))
-      const params = yield* Ref.get(module.params)
+      const params = Option.getOrThrow(Record.get(optimized.parameters, module.name))
       const demo = Option.getOrThrow(Arr.head(params.demos))
       expect(params.outputStrategy).toBe("auto")
       expect(demo.output).toEqual({ result: { count: "7" } })
@@ -174,7 +175,7 @@ describe("Module marker wire replay", () => {
       const replay = yield* MockLanguageModel.make(
         MockLanguageModel.succeed("[[ ## result ## ]]\n{\"count\":\"7\"}")
       )
-      const result = yield* module.forward({ question: "replay" }).pipe(
+      const result = yield* optimized.program.forward({ question: "replay" }).pipe(
         Effect.provideService(LanguageModel.LanguageModel, replay.service)
       )
       const teacherCall = Option.getOrThrow(Arr.head(yield* Ref.get(teacher.calls)))

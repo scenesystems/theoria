@@ -12,7 +12,6 @@ import {
   HashMap,
   Number as Num,
   Option,
-  Ref,
   Schema,
   String as Str
 } from "effect"
@@ -25,10 +24,12 @@ import {
   PredictorInstructionCandidates,
   type ProposeInstructionCandidatesOptions
 } from "../../MIPROv2Candidates.js"
+import { predictors } from "../../ModuleGraph.js"
 import type { ModuleParameters } from "../../ModuleParameters.js"
+import type * as Predictor from "../../Predictor.js"
 import { CurrentRole } from "../modelRole.js"
 import { generateText } from "../module/textGeneration.js"
-import { collectModuleParamRefs, type ModuleParamRef } from "../moduleParameters.js"
+import * as Binding from "../parameterBinding.js"
 import {
   proposalIndices,
   proposalMarker,
@@ -40,7 +41,7 @@ import {
 import { buildProposalPrompt, datasetSummary, ProposalPromptOptions } from "./runtime/prompt.js"
 
 const indexDemoCandidateSets = (
-  refs: Arr.NonEmptyReadonlyArray<ModuleParamRef>,
+  refs: ReadonlyArray<Predictor.Ref>,
   candidateSets: PredictorDemoCandidateSets
 ) =>
   Effect.reduce(
@@ -107,7 +108,7 @@ const baselineCandidate = (predictorName: string, instruction: string): Instruct
   })
 
 class ResolvedPredictor extends Data.Class<{
-  readonly ref: ModuleParamRef
+  readonly ref: Predictor.Ref
   readonly predictorIndex: number
   readonly demoSet: PredictorDemoCandidates
   readonly params: ModuleParameters
@@ -117,7 +118,7 @@ const RenderedDemos = Schema.Array(DemoDocuments)
 const RenderedDemoCandidates = Schema.Array(RenderedDemos)
 
 class PreparedPredictor extends Data.Class<{
-  readonly ref: ModuleParamRef
+  readonly ref: Predictor.Ref
   readonly predictorIndex: number
   readonly params: ModuleParameters
   readonly renderedDemoCandidates: typeof RenderedDemoCandidates.Type
@@ -125,7 +126,7 @@ class PreparedPredictor extends Data.Class<{
 }> {}
 
 const resolvePredictor = (
-  ref: ModuleParamRef,
+  ref: Predictor.Ref,
   predictorIndex: number,
   candidateSets: HashMap.HashMap<string, PredictorDemoCandidates>
 ) =>
@@ -140,7 +141,7 @@ const resolvePredictor = (
         message: Str.concat(Str.concat("Demo candidate set for predictor '", ref.name), "' is empty"),
         predictorIndex
       })))
-    const params = yield* Ref.get(ref.params)
+    const params = yield* Binding.read(ref.params, ref.name)
     return new ResolvedPredictor({ ref, predictorIndex, demoSet, params })
   })
 
@@ -196,7 +197,7 @@ export const proposeInstructionCandidates = <
   options: ProposeInstructionCandidatesOptions<I, O, E, R>
 ) =>
   Effect.gen(function*() {
-    const refs = collectModuleParamRefs(options.module)
+    const refs = Arr.filter(Arr.fromIterable(predictors(options.module)), (entry) => entry.ownership !== "frozen")
     const requested = proposalIndices(options.numInstructions)
     const seed = resolveSeed(options.seed)
     const tips = resolveTipVocabulary(options.tipVocabulary)
@@ -270,4 +271,4 @@ export const proposeInstructionCandidates = <
           candidates: Arr.appendAll(Arr.make(baselineCandidate(ref.name, params.instructions)), generated)
         })
       }), { concurrency: 1 })
-  })
+  }).pipe(Binding.withOwners(predictors(options.module)))

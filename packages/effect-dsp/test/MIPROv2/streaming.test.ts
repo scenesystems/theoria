@@ -157,16 +157,18 @@ describe("MIPROv2.stream", () => {
       const layerA = Layer.succeed(LanguageModel.LanguageModel, mockA.service)
       const layerB = Layer.succeed(LanguageModel.LanguageModel, mockB.service)
 
-      yield* MIPROv2.run(makeOptimizerOptions(moduleA)).pipe(Effect.provide(layerA))
-      yield* Stream.runDrain(
+      const beforeA = yield* Module.save(moduleA)
+      const beforeB = yield* Module.save(moduleB)
+      const compiled = yield* MIPROv2.run(makeOptimizerOptions(moduleA)).pipe(Effect.provide(layerA))
+      const events = yield* Stream.runCollect(
         MIPROv2.stream(makeOptimizerOptions(moduleB))
       ).pipe(Effect.provide(layerB))
 
       const stateA = yield* Module.save(moduleA)
       const stateB = yield* Module.save(moduleB)
 
-      expect(Arr.map(stateA.modules, (entry) => entry.params)).toEqual(
-        Arr.map(stateB.modules, (entry) => entry.params)
-      )
+      expect(compiled.report).toEqual(MIPROv2.summarizeEvents(events))
+      expect(stateA).toEqual(beforeA)
+      expect(stateB).toEqual(beforeB)
     }))
 })

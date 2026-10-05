@@ -16,6 +16,7 @@ import {
   Match,
   Number as Num,
   Option,
+  Record,
   Ref,
   Schema,
   Stream,
@@ -120,28 +121,28 @@ describe("GEPA integration", () => {
           )
         )
       )
-      const events = yield* Stream.runCollect(
-        GEPA.stream(
-          new GEPA.Options({
-            module: root,
-            trainset: Arr.make(
-              new Example({
-                input: { question: "What result should the child produce?" },
-                output: { answer: "correct" }
-              })
-            ),
-            metric: Metric.exactMatch("answer"),
-            maxIterations: 2,
-            seed: 42
-          })
-        )
+      const recorded = yield* Ref.make(Arr.empty<GEPA.Event>())
+      const compiled = yield* GEPA.runWithEvents(
+        new GEPA.Options({
+          module: root,
+          trainset: Arr.make(
+            new Example({
+              input: { question: "What result should the child produce?" },
+              output: { answer: "correct" }
+            })
+          ),
+          metric: Metric.exactMatch("answer"),
+          maxIterations: 2,
+          seed: 42
+        }),
+        (event) => Ref.update(recorded, Arr.append(event))
       ).pipe(Effect.provideService(LanguageModel.LanguageModel, composedMock.service))
-      const finalOutput = yield* root.forward({ question: "What result should the child produce?" }).pipe(
+      const finalOutput = yield* compiled.program.forward({ question: "What result should the child produce?" }).pipe(
         Effect.provideService(LanguageModel.LanguageModel, composedMock.service)
       )
-      const childParams = yield* Ref.get(child.params)
+      const childParams = Option.getOrThrow(Record.get(compiled.parameters, "composed-qa.child"))
       const rootParams = yield* Ref.get(root.params)
-      const mutationEvents = Arr.filter(Arr.fromIterable(events), GEPA.events.$is("MutationProposed"))
+      const mutationEvents = Arr.filter(yield* Ref.get(recorded), GEPA.events.$is("MutationProposed"))
       const childReflection = yield* Effect.fromOption(
         yield* Ref.get(composedMock.calls).pipe(
           Effect.map((calls) =>
@@ -149,18 +150,11 @@ describe("GEPA integration", () => {
           )
         )
       )
-      const rootReflection = yield* Effect.fromOption(
-        yield* Ref.get(composedMock.calls).pipe(
-          Effect.map((calls) =>
-            Arr.findFirst(calls, (call) => Str.includes("Target predictor: composed-qa")(call.prompt))
-          )
-        )
-      )
-
       expect(Arr.map(mutationEvents, (event) => event.predictorName)).toEqual(
-        Arr.make("composed-qa", "child-drafter")
+        Arr.make("child-drafter", "child-drafter")
       )
       expect(childParams.instructions).toBe(improvedChildInstruction)
+      expect(yield* Ref.get(child.params)).toBe(initialChildParams)
       expect(rootParams).toEqual(initialRootParams)
       expect(childParams.demos).toEqual(initialChildParams.demos)
       expect(finalOutput.answer).toBe("correct")
@@ -168,8 +162,6 @@ describe("GEPA integration", () => {
       expect(childReflection.prompt).toContain("\"confidence\":\"7\"")
       expect(childReflection.prompt).toContain("\"sources\":[\"child-trace-source\"]")
       expect(childReflection.prompt).toContain("Expected Output (Program-level; Not a Child Predictor Label)")
-      expect(rootReflection.prompt).toContain("## Inputs (Program-level Evidence)")
-      expect(rootReflection.prompt).toContain("\"question\":\"What result should the child produce?\"")
     }))
 
   it.effect(

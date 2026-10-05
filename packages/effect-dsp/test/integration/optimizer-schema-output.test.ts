@@ -11,7 +11,7 @@ import * as MockLanguageModel from "@scenesystems/effect-dsp/MockLanguageModel"
 import * as Module from "@scenesystems/effect-dsp/Module"
 import { decode as decodePayload } from "@scenesystems/effect-dsp/Payload"
 import * as Signature from "@scenesystems/effect-dsp/Signature"
-import { Array as Arr, Effect, Number, Option, Ref, Schema } from "effect"
+import { Array as Arr, Effect, Number, Option, Record, Ref, Schema } from "effect"
 import * as LanguageModel from "effect/ai/LanguageModel"
 import { PredictorInstruction, ProgramCandidate } from "../../src/internal/gepa/model.js"
 import { evaluateCandidate } from "../../src/internal/gepa/runtime/evaluate.js"
@@ -45,7 +45,7 @@ describe("optimizer schema-derived metric values", () => {
     Effect.gen(function*() {
       const module = yield* makeModule
       const mock = yield* MockLanguageModel.make(MockLanguageModel.succeed({ result: { count: "7" } }))
-      yield* BootstrapFewShot.run(
+      const compiled = yield* BootstrapFewShot.run(
         new BootstrapFewShot.Options({
           module,
           trainset: Arr.make(example),
@@ -56,7 +56,7 @@ describe("optimizer schema-derived metric values", () => {
           fallbackToLabeledFewShot: false
         })
       ).pipe(Effect.provideService(LanguageModel.LanguageModel, mock.service))
-      const params = yield* Ref.get(module.params)
+      const params = Option.getOrThrow(Record.get(compiled.parameters, module.name))
       const demo = Option.getOrThrow(Arr.head(params.demos))
       expect(demo.input).toEqual({ seed: "4" })
       expect(demo.output).toEqual({ result: { count: "7" } })

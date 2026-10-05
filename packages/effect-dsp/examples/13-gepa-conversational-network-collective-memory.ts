@@ -28,7 +28,6 @@ import {
   Record,
   Ref,
   Schema,
-  Stream,
   String
 } from "effect"
 import {
@@ -470,7 +469,8 @@ const program = Effect.gen(function*() {
     seed: 41
   })
 
-  const gepaEventsChunk = yield* GEPA.stream(
+  const gepaLog = yield* Ref.make(Arr.empty<GEPA.Event>())
+  const compiled = yield* GEPA.runWithEvents(
     new GEPA.Options({
       module: protocolPlanner,
       trainset,
@@ -479,11 +479,13 @@ const program = Effect.gen(function*() {
       maxIterations: 4,
       maxMergeInvocations: 4,
       seed: 41
-    })
-  ).pipe(
-    GEPA.tapProgress((line) => logExampleEvent("gepa", line.text)),
-    Stream.runCollect
+    }),
+    (event) =>
+      Ref.update(gepaLog, Arr.append(event)).pipe(
+        Effect.andThen(logExampleEvent("gepa", GEPA.formatEvent(event).text))
+      )
   )
+  yield* Module.install(protocolPlanner, compiled.parameters)
 
   const optimized = yield* Evaluate.run(
     new Evaluate.Options({
@@ -494,20 +496,24 @@ const program = Effect.gen(function*() {
     })
   )
 
-  const gepaEvents = Arr.fromIterable(gepaEventsChunk)
+  const gepaEvents = yield* Ref.get(gepaLog)
   const gepaEventSummary = GEPA.summarizeEvents(gepaEvents)
   const plannerParamsAfterOptimization = yield* Ref.get(protocolPlanner.params)
   const plannerSavedState = yield* Module.save(protocolPlanner)
 
   const baselineScore = Option.getOrElse(Record.get(baseline.overallScores, "protocolFit"), () => 0)
   const optimizedScore = Option.getOrElse(Record.get(optimized.overallScores, "protocolFit"), () => 0)
-  const outcomeSummary = GEPA.summarizeOutcome({
-    baselineScore,
-    optimizedScore,
-    instructionBefore: plannerParamsBeforeOptimization.instructions,
-    instructionAfter: plannerParamsAfterOptimization.instructions,
-    events: gepaEventSummary
-  })
+  const outcomeSummary = {
+    eventSummary: gepaEventSummary,
+    baselineExactMatch: baselineScore,
+    optimizedExactMatch: optimizedScore,
+    scoreDelta: Number.subtract(optimizedScore, baselineScore),
+    instructionChanged: Boolean.not(
+      String.Equivalence(plannerParamsBeforeOptimization.instructions, plannerParamsAfterOptimization.instructions)
+    ),
+    instructionLengthBeforeOptimization: String.length(plannerParamsBeforeOptimization.instructions),
+    instructionLengthAfterOptimization: String.length(plannerParamsAfterOptimization.instructions)
+  }
   const summaryArtifact = makeStandardSummary({
     exampleName: EXAMPLE_NAME,
     optimizer: "gepa",

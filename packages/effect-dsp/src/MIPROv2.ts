@@ -15,6 +15,7 @@ import {
   Inspectable,
   Match,
   Number as Num,
+  Ref,
   Schema,
   Stream,
   String as Str
@@ -37,6 +38,7 @@ import {
 } from "./MIPROv2Candidates.js"
 import { run as runPhase3Search } from "./MIPROv2Search.js"
 import type { Module as DspModule } from "./Module.js"
+import * as Optimized from "./Optimized.js"
 
 /**
  * Ordered dataset rows consumed by all MIPROv2 phases.
@@ -163,7 +165,7 @@ export const tapProgress =
  * @since 0.1.0
  * @category models
  */
-export class EventSummary extends Schema.Class<EventSummary>("@scenesystems/effect-dsp/MIPROv2/EventSummary")({
+export class Report extends Schema.Class<Report>("@scenesystems/effect-dsp/MIPROv2/Report")({
   totalEvents: Schema.Finite,
   demoCandidateCount: Schema.Finite,
   instructionProposedCount: Schema.Finite,
@@ -177,7 +179,7 @@ export class EventSummary extends Schema.Class<EventSummary>("@scenesystems/effe
   phase3BestScore: Schema.Finite
 }) {}
 
-const emptySummary = new EventSummary({
+const emptySummary = new Report({
   totalEvents: 0,
   demoCandidateCount: 0,
   instructionProposedCount: 0,
@@ -190,75 +192,46 @@ const emptySummary = new EventSummary({
   phase3BestScoreSeen: false,
   phase3BestScore: 0
 })
-const withScore = (summary: EventSummary, score: number): EventSummary =>
-  new EventSummary({
-    ...(Schema.encodeSync(EventSummary)(summary)),
-    phase3BestScoreSeen: true,
-    phase3BestScore: Bool.match(summary.phase3BestScoreSeen, {
-      onFalse: () => score,
-      onTrue: () => Numeric.max(summary.phase3BestScore, score)
-    })
-  })
+const scoreFields = (summary: Report, score: number) => ({
+  phase3BestScoreSeen: true,
+  phase3BestScore: summary.phase3BestScoreSeen ? Numeric.max(summary.phase3BestScore, score) : score
+})
 
 /** Summarizes MIPROv2 lifecycle events.
  * @since 0.1.0
  * @category combinators
  */
-export const summarizeEvents = (input: Iterable<Event>): EventSummary =>
+export const summarizeEvents = (input: Iterable<Event>): Report =>
   Arr.reduce(input, emptySummary, (summary, event) => {
-    const next = new EventSummary({
-      ...(Schema.encodeSync(EventSummary)(summary)),
-      totalEvents: Num.increment(summary.totalEvents)
-    })
-    return Match.value(event).pipe(
+    const fields = Match.value(event).pipe(
       Match.tagsExhaustive({
-        Phase1Started: () => next,
-        DemoCandidate: () =>
-          new EventSummary({
-            ...(Schema.encodeSync(EventSummary)(next)),
-            demoCandidateCount: Num.increment(next.demoCandidateCount)
-          }),
-        Phase1Completed: () => next,
-        Phase2Started: () => next,
-        InstructionProposed: () =>
-          new EventSummary({
-            ...(Schema.encodeSync(EventSummary)(next)),
-            instructionProposedCount: Num.increment(next.instructionProposedCount)
-          }),
-        Phase2Completed: () => next,
-        Phase3Started: ({ numTrials }) =>
-          new EventSummary({
-            ...(Schema.encodeSync(EventSummary)(next)),
-            phase3StartedSeen: true,
-            phase3ConfiguredTrials: numTrials
-          }),
-        TrialEvaluated: ({ score }) =>
-          withScore(
-            new EventSummary({
-              ...(Schema.encodeSync(EventSummary)(next)),
-              trialEvaluatedCount: Num.increment(next.trialEvaluatedCount)
-            }),
-            score
-          ),
-        FullEvalCompleted: ({ bestScore }) =>
-          withScore(
-            new EventSummary({
-              ...(Schema.encodeSync(EventSummary)(next)),
-              fullEvalCompletedCount: Num.increment(next.fullEvalCompletedCount)
-            }),
-            bestScore
-          ),
-        Phase3Completed: ({ bestScore, totalTrials }) =>
-          withScore(
-            new EventSummary({
-              ...(Schema.encodeSync(EventSummary)(next)),
-              phase3CompletedSeen: true,
-              phase3CompletedTrials: totalTrials
-            }),
-            bestScore
-          )
+        Phase1Started: () => ({}),
+        DemoCandidate: () => ({ demoCandidateCount: Num.increment(summary.demoCandidateCount) }),
+        Phase1Completed: () => ({}),
+        Phase2Started: () => ({}),
+        InstructionProposed: () => ({ instructionProposedCount: Num.increment(summary.instructionProposedCount) }),
+        Phase2Completed: () => ({}),
+        Phase3Started: ({ numTrials }) => ({ phase3StartedSeen: true, phase3ConfiguredTrials: numTrials }),
+        TrialEvaluated: ({ score }) => ({
+          ...scoreFields(summary, score),
+          trialEvaluatedCount: Num.increment(summary.trialEvaluatedCount)
+        }),
+        FullEvalCompleted: ({ bestScore }) => ({
+          ...scoreFields(summary, bestScore),
+          fullEvalCompletedCount: Num.increment(summary.fullEvalCompletedCount)
+        }),
+        Phase3Completed: ({ bestScore, totalTrials }) => ({
+          ...scoreFields(summary, bestScore),
+          phase3CompletedSeen: true,
+          phase3CompletedTrials: totalTrials
+        })
       })
     )
+    return new Report({
+      ...Schema.encodeSync(Report)(summary),
+      totalEvents: Num.increment(summary.totalEvents),
+      ...fields
+    })
   })
 
 /** Compares retained and search scores with a supplied baseline.
@@ -285,7 +258,7 @@ export class OptimizationObservability
 export const summarizeOptimization = (options: {
   readonly baselineScore: number
   readonly optimizedScore: number
-  readonly eventSummary: EventSummary
+  readonly eventSummary: Report
 }): OptimizationObservability => {
   const searchBestScore = Bool.match(options.eventSummary.phase3BestScoreSeen, {
     onFalse: () => options.optimizedScore,
@@ -327,7 +300,7 @@ export class Options<
   E = never,
   R = never
 > extends Data.Class<{
-  /** Module tree mutated during evaluation and left with the selected configuration on success. */
+  /** Program evaluated under immutable predictor overlays. */
   readonly module: DspModule<I, O, E, R>
   /** Examples used for proposal context; only entries with `output` become demonstrations. */
   readonly trainset: Examples
@@ -428,10 +401,9 @@ const totalInstructionCandidates = (
  * Periodic full-set evaluations update diagnostics without changing the TPE
  * objective or selected trial.
  *
- * The selected instruction and demonstration indexes are written to the same
- * module instance. Search evaluation mutates parameter refs as it runs, so a
- * failure or interruption can leave the most recently applied configuration in
- * place. Instruction generation failures become `InstructionProposalFailed`.
+ * The selected instructions and demonstrations are returned in a bound copy.
+ * Success, failure, and interruption leave caller parameter refs unchanged.
+ * Instruction generation failures become `InstructionProposalFailed`.
  * Candidate mismatch and an absence of successful trials become
  * `AllTrialsFailed`. Effect-search optimization failures retain their `SearchError`
  * variants. Module, metric, Schema, and language-model failures retain their
@@ -439,7 +411,7 @@ const totalInstructionCandidates = (
  *
  * @param options - Candidate, proposal, validation, and search settings.
  * @param emit - Sink awaited once for each emitted lifecycle event.
- * @returns The supplied module after the selected configuration is applied.
+ * @returns The bound program, immutable parameters, and serializable search report.
  * @typeParam I - Input fields accepted by the optimized module.
  * @typeParam O - Output fields scored by the configured metric.
  * @typeParam ME - Expected failure from the configured metric.
@@ -460,9 +432,12 @@ export const runWithEvents = <
   ER = never
 >(
   options: Options<I, O, ME, MR, E, R>,
-  emit: EventSink<EE, ER>
+  observe: EventSink<EE, ER>
 ) =>
   Effect.gen(function*() {
+    const recorded = yield* Ref.make(Arr.empty<Event>())
+    const emit: EventSink<EE, ER> = (event) =>
+      Ref.update(recorded, Arr.append(event)).pipe(Effect.andThen(observe(event)))
     const optionBag: MIPROOptionLike<I, O, ME, MR, E, R> = options
 
     yield* emit(events.Phase1Started({ numCandidates: options.numCandidates }))
@@ -504,7 +479,11 @@ export const runWithEvents = <
       })
     )
 
-    return options.module
+    return new Optimized.Result({
+      program: phase3.program,
+      parameters: phase3.parameters,
+      report: summarizeEvents(yield* Ref.get(recorded))
+    })
   })
 
 /**
@@ -558,38 +537,3 @@ export const stream = <
 >(
   options: Options<I, O, ME, MR, E, R>
 ) => streamMIPROv2Events((emit) => runWithEvents(options, emit))
-
-/** Caller-observed score, demonstration, and event outcomes.
- * @since 0.5.0
- * @category models
- */
-export class OutcomeSummary extends Data.Class<{
-  readonly baselineExactMatch: number
-  readonly optimizedExactMatch: number
-  readonly scoreDelta: number
-  readonly demoCountBeforeOptimization: number
-  readonly demoCountAfterOptimization: number
-  readonly demosLearnedDuringMIPROv2: number
-  readonly eventSummary: EventSummary
-}> {}
-
-/** Summarizes externally evaluated MIPROv2 outcomes.
- * @since 0.5.0
- * @category constructors
- */
-export const summarizeOutcome = (options: {
-  readonly baselineScore: number
-  readonly optimizedScore: number
-  readonly demoCountBefore: number
-  readonly demoCountAfter: number
-  readonly events: EventSummary
-}): OutcomeSummary =>
-  new OutcomeSummary({
-    baselineExactMatch: options.baselineScore,
-    optimizedExactMatch: options.optimizedScore,
-    scoreDelta: Num.subtract(options.optimizedScore, options.baselineScore),
-    demoCountBeforeOptimization: options.demoCountBefore,
-    demoCountAfterOptimization: options.demoCountAfter,
-    demosLearnedDuringMIPROv2: Num.subtract(options.demoCountAfter, options.demoCountBefore),
-    eventSummary: options.events
-  })

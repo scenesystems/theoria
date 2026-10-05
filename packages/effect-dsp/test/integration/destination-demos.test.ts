@@ -11,7 +11,7 @@ import * as MockLanguageModel from "@scenesystems/effect-dsp/MockLanguageModel"
 import * as Module from "@scenesystems/effect-dsp/Module"
 import { withDemos } from "@scenesystems/effect-dsp/ModuleParameters"
 import * as Signature from "@scenesystems/effect-dsp/Signature"
-import { Array as Arr, Boolean, Deferred, Effect, Fiber, Layer, Number, Option, Ref, Schema, String } from "effect"
+import { Array as Arr, Boolean, Deferred, Effect, Fiber, Layer, Option, Record, Ref, Schema, String } from "effect"
 import * as LanguageModel from "effect/ai/LanguageModel"
 import * as Toolkit from "effect/ai/Toolkit"
 import * as MIPROv2Candidates from "../../src/MIPROv2Candidates.js"
@@ -56,14 +56,9 @@ describe("destination-owned demonstrations", () => {
     Effect.gen(function*() {
       const { root, child } = yield* makePipeline
       const mock = yield* MockLanguageModel.make(MockLanguageModel.succeed({ analysis: "Paris" }))
-      const metric = Metric.fromEffect("root-label-count", (_prediction: Signature.Output<typeof root.signature>) =>
-        Ref.get(root.params).pipe(
-          Effect.map((params) =>
-            new Metric.Result({ score: Arr.length(params.demos) })
-          )
-        ))
+      const metric = Metric.exactMatch("answer")
 
-      yield* BootstrapRS.run(
+      const compiled = yield* BootstrapRS.run(
         new BootstrapRS.Options({
           module: root,
           trainset: rows,
@@ -72,9 +67,8 @@ describe("destination-owned demonstrations", () => {
         })
       ).pipe(Effect.provideService(LanguageModel.LanguageModel, mock.service))
 
-      expect((yield* Ref.get(root.params)).demos).toEqual(Arr.make(
-        new Demonstration({ input: { question: "France" }, output: { answer: "Paris" } })
-      ))
+      expect(Record.keys(compiled.parameters)).toEqual(["pipeline.child"])
+      expect(Option.getOrThrow(Record.get(compiled.parameters, "pipeline.child")).demos).toEqual(Arr.empty())
       expect((yield* Ref.get(child.params)).demos).toEqual(Arr.empty())
     }))
 
@@ -85,7 +79,7 @@ describe("destination-owned demonstrations", () => {
         { analysis: "Paris" },
         "[[ ## analysis ## ]]\nParis"
       )))
-      yield* BootstrapFewShot.run(
+      const compiled = yield* BootstrapFewShot.run(
         new BootstrapFewShot.Options({
           module: root,
           trainset: rows,
@@ -95,14 +89,12 @@ describe("destination-owned demonstrations", () => {
           fallbackToLabeledFewShot: false
         })
       ).pipe(Effect.provideService(LanguageModel.LanguageModel, mock.service))
-      expect((yield* Ref.get(root.params)).demos).toEqual(Arr.make(
-        new Demonstration({ input: { question: "France" }, output: { answer: "Paris" } })
-      ))
-      expect((yield* Ref.get(child.params)).demos).toEqual(Arr.make(
+      expect((yield* Ref.get(child.params)).demos).toEqual(Arr.empty())
+      expect(Option.getOrThrow(Record.get(compiled.parameters, "pipeline.child")).demos).toEqual(Arr.make(
         new Demonstration({ input: { question: "France", context: "Cities" }, output: { analysis: "Paris" } })
       ))
       expect(
-        yield* root.forward({ question: "France" }).pipe(
+        yield* compiled.program.forward({ question: "France" }).pipe(
           Effect.provideService(LanguageModel.LanguageModel, mock.service)
         )
       ).toEqual({ answer: "Paris" })
@@ -139,7 +131,7 @@ describe("destination-owned demonstrations", () => {
     Effect.gen(function*() {
       const { root, child } = yield* makePipeline
       const mock = yield* MockLanguageModel.make(MockLanguageModel.succeed({ analysis: "Paris" }))
-      yield* MIPROv2.run(
+      const compiled = yield* MIPROv2.run(
         new MIPROv2.Options({
           module: root,
           trainset: rows,
@@ -151,7 +143,7 @@ describe("destination-owned demonstrations", () => {
       ).pipe(Effect.provideService(LanguageModel.LanguageModel, mock.service))
       expect((yield* Ref.get(child.params)).demos).toEqual(Arr.empty())
       expect(
-        yield* root.forward({ question: "France" }).pipe(
+        yield* compiled.program.forward({ question: "France" }).pipe(
           Effect.provideService(LanguageModel.LanguageModel, mock.service)
         )
       ).toEqual({ answer: "Paris" })
@@ -164,7 +156,7 @@ describe("destination-owned demonstrations", () => {
         MockLanguageModel.map((prompt) =>
           Boolean.match(String.includes("training-stage-marker")(prompt), {
             onTrue: () => "[[ ## analysis ## ]]\nParis",
-            onFalse: () => ({ analysis: "Paris" })
+            onFalse: () => ({ analysis: "incorrect" })
           })
         )
       )
@@ -173,12 +165,21 @@ describe("destination-owned demonstrations", () => {
       const teacher = yield* MockLanguageModel.make(MockLanguageModel.succeed({ analysis: "training-stage-marker" }))
       const metric = Metric.fromEffect(
         "stage-evidence",
-        (_prediction: Signature.Output<typeof root.signature>) =>
-          Ref.get(child.params).pipe(
-            Effect.map((params) => new Metric.Result({ score: Number.increment(Arr.length(params.demos)) }))
+        (prediction: Signature.Output<typeof root.signature>) =>
+          Effect.succeed(
+            new Metric.Result({
+              score: Boolean.match(String.Equivalence(prediction.answer, "Paris"), {
+                onTrue: () => 2,
+                onFalse: () =>
+                  Boolean.match(String.Equivalence(prediction.answer, "training-stage-marker"), {
+                    onTrue: () => 1,
+                    onFalse: () => 0
+                  })
+              })
+            })
           )
       )
-      yield* BootstrapRS.run(
+      const compiled = yield* BootstrapRS.run(
         new BootstrapRS.Options({
           module: root,
           trainset: rows,
@@ -187,15 +188,15 @@ describe("destination-owned demonstrations", () => {
           teacher: Layer.succeed(LanguageModel.LanguageModel, teacher.service)
         })
       ).pipe(Effect.provideService(LanguageModel.LanguageModel, mock.service))
-      expect((yield* Ref.get(root.params)).demos).toHaveLength(1)
-      expect((yield* Ref.get(child.params)).demos).toEqual(Arr.make(
+      expect((yield* Ref.get(child.params)).demos).toEqual(Arr.empty())
+      expect(Option.getOrThrow(Record.get(compiled.parameters, "pipeline.child")).demos).toEqual(Arr.make(
         new Demonstration({
           input: { question: "France", context: "Cities" },
           output: { analysis: "training-stage-marker" }
         })
       ))
       expect(
-        yield* root.forward({ question: "France" }).pipe(
+        yield* compiled.program.forward({ question: "France" }).pipe(
           Effect.provideService(LanguageModel.LanguageModel, mock.service)
         )
       ).toEqual({ answer: "Paris" })
@@ -220,7 +221,7 @@ describe("destination-owned demonstrations", () => {
         "not an answer",
         "[[ ## answer ## ]]\nParis"
       )))
-      yield* BootstrapFewShot.run(
+      const compiled = yield* BootstrapFewShot.run(
         new BootstrapFewShot.Options({
           module: root,
           trainset: rows,
@@ -230,7 +231,7 @@ describe("destination-owned demonstrations", () => {
           fallbackToLabeledFewShot: false
         })
       ).pipe(Effect.provideService(LanguageModel.LanguageModel, mock.service))
-      expect((yield* Ref.get(child.params)).demos).toEqual(Arr.make(
+      expect(Option.getOrThrow(Record.get(compiled.parameters, "reasoning-pipeline.child")).demos).toEqual(Arr.make(
         new Demonstration({ input: { question: "France" }, output: { answer: "Paris" } })
       ))
     }))
@@ -254,7 +255,7 @@ describe("destination-owned demonstrations", () => {
         })
       ).pipe(Effect.provideService(LanguageModel.LanguageModel, mock.service), Effect.forkScoped)
       yield* Deferred.await(entered)
-      expect((yield* Ref.get(child.params)).instructions).toContain("bootstrap-round")
+      expect(yield* Ref.get(child.params)).toBe(childBefore)
       yield* Fiber.interrupt(fiber)
       expect(yield* Ref.get(root.params)).toEqual(rootBefore)
       expect(yield* Ref.get(child.params)).toEqual(childBefore)

@@ -9,7 +9,7 @@ import * as MockLanguageModel from "@scenesystems/effect-dsp/MockLanguageModel"
 import * as Module from "@scenesystems/effect-dsp/Module"
 import { ModuleParameters } from "@scenesystems/effect-dsp/ModuleParameters"
 import * as Signature from "@scenesystems/effect-dsp/Signature"
-import { Effect, Layer, Ref, Schema } from "effect"
+import { Effect, Layer, Option, Record, Ref, Schema } from "effect"
 import * as LanguageModel from "effect/ai/LanguageModel"
 
 const makeQaSignature = () =>
@@ -67,7 +67,7 @@ describe("BootstrapFewShot.run teacher/student", () => {
         })
       ).pipe(Effect.provide(studentLayer))
 
-      const paramsAfterBootstrap = yield* Ref.get(optimized.params)
+      const paramsAfterBootstrap = Option.getOrThrow(Record.get(optimized.parameters, "qa"))
       const teacherCallsAfterBootstrap = yield* Ref.get(teacher.calls)
       const studentCallsAfterBootstrap = yield* Ref.get(student.calls)
 
@@ -76,7 +76,7 @@ describe("BootstrapFewShot.run teacher/student", () => {
       expect(teacherCallsAfterBootstrap).toHaveLength(1)
       expect(studentCallsAfterBootstrap).toHaveLength(0)
 
-      const studentInference = yield* optimized.forward({
+      const studentInference = yield* optimized.program.forward({
         question: "What is the capital of France?"
       }).pipe(Effect.provide(studentLayer))
 

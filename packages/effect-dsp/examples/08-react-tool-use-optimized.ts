@@ -178,7 +178,7 @@ const program = Effect.gen(function*() {
   })
 
   // 5. Optimize with BootstrapFewShot
-  yield* BootstrapFewShot.run(
+  const compiled = yield* BootstrapFewShot.run(
     new BootstrapFewShot.Options({
       module: solver,
       trainset,
@@ -190,6 +190,7 @@ const program = Effect.gen(function*() {
     })
   )
 
+  yield* Module.install(solver, compiled.parameters)
   const optimizedParams = yield* Ref.get(solver.params)
 
   // 6. Post-optimization evaluation

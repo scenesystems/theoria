@@ -13,7 +13,6 @@ import {
   Boolean,
   Data,
   Effect,
-  Equal,
   Inspectable,
   Match,
   Number as Num,
@@ -29,13 +28,15 @@ import type { DspError } from "./DspError.js"
 import { Example } from "./Example.js"
 import { deriveParetoKernelSnapshot } from "./internal/gepa/frontier.js"
 import { GEPAState, PredictorInstruction, ProgramCandidate } from "./internal/gepa/model.js"
-import { commitCandidateInstructions, evaluateCandidate } from "./internal/gepa/runtime/evaluate.js"
+import { candidateParameters, evaluateCandidate } from "./internal/gepa/runtime/evaluate.js"
 import { runMergePhase } from "./internal/gepa/runtime/mergePhase.js"
 import { runMutationPhase } from "./internal/gepa/runtime/mutation.js"
 import { streamGEPAEvents } from "./internal/gepa/runtime/stream.js"
-import { collectModuleParamRefs } from "./internal/moduleParameters.js"
+import * as Binding from "./internal/parameterBinding.js"
 import type { Metric } from "./Metric.js"
-import type { Module as DspModule } from "./Module.js"
+import { bound, type Module as DspModule } from "./Module.js"
+import { predictors } from "./ModuleGraph.js"
+import * as Optimized from "./Optimized.js"
 
 const normalizeNonNegativeCount = (value: number): number =>
   Match.value(value).pipe(
@@ -247,7 +248,7 @@ export const tapProgress =
  * @since 0.1.0
  * @category models
  */
-export class EventSummary extends Schema.Class<EventSummary>("@scenesystems/effect-dsp/GEPA/EventSummary")({
+export class Report extends Schema.Class<Report>("@scenesystems/effect-dsp/GEPA/Report")({
   totalEvents: Schema.Finite,
   iterationStartedCount: Schema.Finite,
   mergeCheckedCount: Schema.Finite,
@@ -268,7 +269,7 @@ export class EventSummary extends Schema.Class<EventSummary>("@scenesystems/effe
   maxFrontierSize: Schema.Finite,
   parentWeightEntriesObserved: Schema.Finite
 }) {}
-const emptySummary = new EventSummary({
+const emptySummary = new Report({
   totalEvents: 0,
   iterationStartedCount: 0,
   mergeCheckedCount: 0,
@@ -293,80 +294,63 @@ const emptySummary = new EventSummary({
  * @since 0.1.0
  * @category combinators
  */
-export const summarizeEvents = (input: Iterable<Event>): EventSummary =>
+export const summarizeEvents = (input: Iterable<Event>): Report =>
   Arr.reduce(input, emptySummary, (summary, event) => {
-    const next = new EventSummary({
-      ...(Schema.encodeSync(EventSummary)(summary)),
-      totalEvents: Num.increment(summary.totalEvents)
-    })
-    return Match.value(event).pipe(
+    const fields = Match.value(event).pipe(
       Match.tagsExhaustive({
-        IterationStarted: ({ frontierSize }) =>
-          new EventSummary({
-            ...(Schema.encodeSync(EventSummary)(next)),
-            iterationStartedCount: Num.increment(next.iterationStartedCount),
-            lastReportedFrontierSize: frontierSize,
-            maxFrontierSize: Num.max(next.maxFrontierSize, frontierSize)
-          }),
-        MergeChecked: () =>
-          new EventSummary({
-            ...(Schema.encodeSync(EventSummary)(next)),
-            mergeCheckedCount: Num.increment(next.mergeCheckedCount)
-          }),
-        MutationProposed: () =>
-          new EventSummary({
-            ...(Schema.encodeSync(EventSummary)(next)),
-            mutationProposedCount: Num.increment(next.mutationProposedCount)
-          }),
-        AcceptanceEvaluated: ({ accepted, gate1Passed, fullValsetEvaluated }) =>
-          new EventSummary({
-            ...(Schema.encodeSync(EventSummary)(next)),
-            acceptanceEvaluatedCount: Num.increment(next.acceptanceEvaluatedCount),
-            acceptanceAcceptedCount: Num.sum(
-              next.acceptanceAcceptedCount,
-              Boolean.match(accepted, { onFalse: () => 0, onTrue: () => 1 })
-            ),
-            gate1PassedCount: Num.sum(
-              next.gate1PassedCount,
-              Boolean.match(gate1Passed, { onFalse: () => 0, onTrue: () => 1 })
-            ),
-            fullValsetEvaluatedCount: Num.sum(
-              next.fullValsetEvaluatedCount,
-              Boolean.match(fullValsetEvaluated, { onFalse: () => 0, onTrue: () => 1 })
-            )
-          }),
-        ParetoUpdated: ({ frontierIndices, parentWeights }) =>
-          new EventSummary({
-            ...(Schema.encodeSync(EventSummary)(next)),
-            paretoUpdatedCount: Num.increment(next.paretoUpdatedCount),
-            lastReportedFrontierSize: Arr.length(frontierIndices),
-            maxFrontierSize: Num.max(next.maxFrontierSize, Arr.length(frontierIndices)),
-            parentWeightEntriesObserved: Num.sum(next.parentWeightEntriesObserved, Arr.length(parentWeights))
-          }),
-        IterationCompleted: ({ acceptedCandidate, frontierSize }) =>
-          new EventSummary({
-            ...(Schema.encodeSync(EventSummary)(next)),
-            iterationCompletedCount: Num.increment(next.iterationCompletedCount),
-            iterationWithAcceptedCandidateCount: Num.sum(
-              next.iterationWithAcceptedCandidateCount,
-              Boolean.match(acceptedCandidate, { onFalse: () => 0, onTrue: () => 1 })
-            ),
-            lastReportedFrontierSize: frontierSize,
-            maxFrontierSize: Num.max(next.maxFrontierSize, frontierSize)
-          }),
-        OptimizationCompleted: ({ iterations, bestCandidateId, frontierSize }) =>
-          new EventSummary({
-            ...(Schema.encodeSync(EventSummary)(next)),
-            optimizationCompletedSeen: true,
-            optimizationIterationCount: iterations,
-            optimizationBestCandidateIdSeen: true,
-            optimizationBestCandidateId: bestCandidateId,
-            optimizationFrontierSize: frontierSize,
-            lastReportedFrontierSize: frontierSize,
-            maxFrontierSize: Num.max(next.maxFrontierSize, frontierSize)
-          })
+        IterationStarted: ({ frontierSize }) => ({
+          iterationStartedCount: Num.increment(summary.iterationStartedCount),
+          lastReportedFrontierSize: frontierSize,
+          maxFrontierSize: Num.max(summary.maxFrontierSize, frontierSize)
+        }),
+        MergeChecked: () => ({ mergeCheckedCount: Num.increment(summary.mergeCheckedCount) }),
+        MutationProposed: () => ({ mutationProposedCount: Num.increment(summary.mutationProposedCount) }),
+        AcceptanceEvaluated: ({ accepted, gate1Passed, fullValsetEvaluated }) => ({
+          acceptanceEvaluatedCount: Num.increment(summary.acceptanceEvaluatedCount),
+          acceptanceAcceptedCount: Num.sum(
+            summary.acceptanceAcceptedCount,
+            Boolean.match(accepted, { onFalse: () => 0, onTrue: () => 1 })
+          ),
+          gate1PassedCount: Num.sum(
+            summary.gate1PassedCount,
+            Boolean.match(gate1Passed, { onFalse: () => 0, onTrue: () => 1 })
+          ),
+          fullValsetEvaluatedCount: Num.sum(
+            summary.fullValsetEvaluatedCount,
+            Boolean.match(fullValsetEvaluated, { onFalse: () => 0, onTrue: () => 1 })
+          )
+        }),
+        ParetoUpdated: ({ frontierIndices, parentWeights }) => ({
+          paretoUpdatedCount: Num.increment(summary.paretoUpdatedCount),
+          lastReportedFrontierSize: Arr.length(frontierIndices),
+          maxFrontierSize: Num.max(summary.maxFrontierSize, Arr.length(frontierIndices)),
+          parentWeightEntriesObserved: Num.sum(summary.parentWeightEntriesObserved, Arr.length(parentWeights))
+        }),
+        IterationCompleted: ({ acceptedCandidate, frontierSize }) => ({
+          iterationCompletedCount: Num.increment(summary.iterationCompletedCount),
+          iterationWithAcceptedCandidateCount: Num.sum(
+            summary.iterationWithAcceptedCandidateCount,
+            Boolean.match(acceptedCandidate, { onFalse: () => 0, onTrue: () => 1 })
+          ),
+          lastReportedFrontierSize: frontierSize,
+          maxFrontierSize: Num.max(summary.maxFrontierSize, frontierSize)
+        }),
+        OptimizationCompleted: ({ iterations, bestCandidateId, frontierSize }) => ({
+          optimizationCompletedSeen: true,
+          optimizationIterationCount: iterations,
+          optimizationBestCandidateIdSeen: true,
+          optimizationBestCandidateId: bestCandidateId,
+          optimizationFrontierSize: frontierSize,
+          lastReportedFrontierSize: frontierSize,
+          maxFrontierSize: Num.max(summary.maxFrontierSize, frontierSize)
+        })
       })
     )
+    return new Report({
+      ...Schema.encodeSync(Report)(summary),
+      totalEvents: Num.increment(summary.totalEvents),
+      ...fields
+    })
   })
 
 /**
@@ -381,10 +365,10 @@ export const summarizeEvents = (input: Iterable<Event>): EventSummary =>
  * Mutation-proposal language-model failures remain checked failures; no
  * replacement instruction is invented. Module, metric, and Schema failures
  * remain in the Effect error channel, including candidate decoding failures.
- * Temporary candidate instructions are restored after each evaluation. At
- * completion, all owned instructions from the first index in the final Pareto
- * frontier are written to the root and descendant parameter refs; the same
- * module object is returned. GEPA does not reduce the final frontier to a
+ * Candidate instructions are applied through scoped overlays. At completion,
+ * unfrozen leaf instructions from the first index in the final Pareto frontier
+ * are returned in a bound program with parameters and a serializable report.
+ * Caller refs remain unchanged. GEPA does not reduce the final frontier to a
  * scalar score ranking.
  *
  * @typeParam I - Input fields accepted by the optimized module.
@@ -407,16 +391,19 @@ export const runWithEvents = <
   ER = never
 >(
   options: Options<I, O, ME, MR, E, R>,
-  emit: EventSink<EE, ER>
+  observe: EventSink<EE, ER>
 ) =>
   Effect.gen(function*() {
-    const paramRefs = collectModuleParamRefs(options.module)
+    const recorded = yield* Ref.make(Arr.empty<Event>())
+    const emit: EventSink<EE, ER> = (event) =>
+      Ref.update(recorded, Arr.append(event)).pipe(Effect.andThen(observe(event)))
+    const paramRefs = Arr.filter(Arr.fromIterable(predictors(options.module)), (owner) => owner.ownership !== "frozen")
     const initialInstructions = yield* Effect.forEach(paramRefs, (owner) =>
-      Ref.get(owner.params).pipe(
+      Binding.read(owner.params, owner.id).pipe(
         Effect.map((params) =>
           new PredictorInstruction({ predictorName: owner.name, instruction: params.instructions })
         )
-      ))
+      )).pipe(Binding.withOwners(predictors(options.module)))
     const initialCandidate = new ProgramCandidate({
       candidateId: "candidate-0",
       parentIds: Arr.empty<string>(),
@@ -513,7 +500,7 @@ export const runWithEvents = <
     const finalState = yield* Ref.get(stateRef)
     const bestIndex = Option.getOrElse(Arr.head(finalState.paretoSnapshot.frontierIndices), () => 0)
     const bestCandidate = Option.getOrElse(Arr.get(finalState.candidates, bestIndex), () => initialCandidate)
-    yield* commitCandidateInstructions(paramRefs, bestCandidate)
+    const parameters = yield* candidateParameters(options.module, bestCandidate)
 
     yield* emit(
       events.OptimizationCompleted({
@@ -523,7 +510,11 @@ export const runWithEvents = <
       })
     )
 
-    return options.module
+    return new Optimized.Result({
+      program: bound(options.module, parameters),
+      parameters,
+      report: summarizeEvents(yield* Ref.get(recorded))
+    })
   })
 
 /**
@@ -555,9 +546,9 @@ export const run = <
  * Emits GEPA lifecycle events while stream consumption drives optimization.
  *
  * @remarks
- * The stream completes after `OptimizationCompleted`. The optimized module is
- * retained through mutation of its owned parameter graph and is not a stream
- * element. Module and metric failures fail the stream.
+ * The stream completes after `OptimizationCompleted` and contains events only.
+ * Use `runWithEvents` to retain the bound result. Module and metric failures
+ * fail the stream; caller parameters remain unchanged.
  *
  * @typeParam I - Input fields accepted by the optimized module.
  * @typeParam O - Output fields scored during candidate evaluation.
@@ -577,38 +568,3 @@ export const stream = <
 >(
   options: Options<I, O, ME, MR, E, R>
 ) => streamGEPAEvents((emit) => runWithEvents(options, emit))
-
-/** Caller-observed score, instruction, and event outcomes.
- * @since 0.5.0
- * @category models
- */
-export class OutcomeSummary extends Data.Class<{
-  readonly baselineExactMatch: number
-  readonly optimizedExactMatch: number
-  readonly scoreDelta: number
-  readonly instructionChanged: boolean
-  readonly instructionLengthBeforeOptimization: number
-  readonly instructionLengthAfterOptimization: number
-  readonly eventSummary: EventSummary
-}> {}
-
-/** Summarizes externally evaluated GEPA outcomes.
- * @since 0.5.0
- * @category constructors
- */
-export const summarizeOutcome = (options: {
-  readonly baselineScore: number
-  readonly optimizedScore: number
-  readonly instructionBefore: string
-  readonly instructionAfter: string
-  readonly events: EventSummary
-}): OutcomeSummary =>
-  new OutcomeSummary({
-    baselineExactMatch: options.baselineScore,
-    optimizedExactMatch: options.optimizedScore,
-    scoreDelta: Num.subtract(options.optimizedScore, options.baselineScore),
-    instructionChanged: Boolean.not(Equal.equals(options.instructionBefore, options.instructionAfter)),
-    instructionLengthBeforeOptimization: String.length(options.instructionBefore),
-    instructionLengthAfterOptimization: String.length(options.instructionAfter),
-    eventSummary: options.events
-  })

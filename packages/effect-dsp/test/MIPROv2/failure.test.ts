@@ -8,7 +8,7 @@ import * as MockLanguageModel from "@scenesystems/effect-dsp/MockLanguageModel"
 import * as Module from "@scenesystems/effect-dsp/Module"
 import { ModuleParameters } from "@scenesystems/effect-dsp/ModuleParameters"
 import * as Signature from "@scenesystems/effect-dsp/Signature"
-import { Array as Arr, Boolean, Effect, Fiber, Number, Ref, Schema, String } from "effect"
+import { Array as Arr, Boolean, Effect, Fiber, Number, Option, Record, Ref, Schema, String } from "effect"
 import * as LanguageModel from "effect/ai/LanguageModel"
 import * as TestClock from "effect/testing/TestClock"
 
@@ -113,7 +113,7 @@ describe("MIPROv2.run failure-aware scores", () => {
       const optimized = yield* Fiber.join(fiber)
 
       expect(yield* Ref.get(rejected)).toBeGreaterThan(0)
-      expect((yield* Ref.get(optimized.params)).instructions).toBe("Baseline instruction")
+      expect(Option.getOrThrow(Record.get(optimized.parameters, "qa")).instructions).toBe("Baseline instruction")
     }))
 
   it.effect("retains genuine partial-failure reports and the successful baseline when all minibatches fail", () =>
@@ -139,8 +139,8 @@ describe("MIPROv2.run failure-aware scores", () => {
       yield* TestClock.adjust("1 minute")
       const optimized = yield* Fiber.join(fiber)
 
-      expect(optimized).toBe(module)
-      expect((yield* Ref.get(optimized.params)).instructions).toBe("Baseline instruction")
+      expect(optimized.program).not.toBe(module)
+      expect(Option.getOrThrow(Record.get(optimized.parameters, "qa")).instructions).toBe("Baseline instruction")
       // Label preflight excludes the invalid row before execution; only the valid baseline row runs.
       expect(yield* Ref.get(mock.calls)).toHaveLength(1)
     }))

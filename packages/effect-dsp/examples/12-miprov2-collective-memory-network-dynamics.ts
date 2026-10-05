@@ -31,7 +31,6 @@ import {
   Record,
   Ref,
   Schema,
-  Stream,
   String
 } from "effect"
 import {
@@ -546,7 +545,7 @@ const program = Effect.gen(function*() {
         })
     })
   )
-  const paramsBeforeBootstrap = yield* Ref.get(protocolPanel.params)
+  const paramsBeforeBootstrap = yield* Ref.get(protocolPlanner.params)
 
   // Quick sanity turn before formal evaluation/optimization.
   const demonstrationTurn = yield* protocolPanel.forward({
@@ -586,7 +585,8 @@ const program = Effect.gen(function*() {
     threshold: Number.divideUnsafe(2, 3)
   })
 
-  const bootstrapEventsChunk = yield* BootstrapFewShot.stream(
+  const bootstrapLog = yield* Ref.make(Arr.empty<BootstrapFewShot.Event>())
+  const bootstrapped = yield* BootstrapFewShot.runWithEvents(
     new BootstrapFewShot.Options({
       module: protocolPanel,
       trainset,
@@ -597,14 +597,16 @@ const program = Effect.gen(function*() {
       teacher: teacherLayer,
       fallbackToLabeledFewShot: true,
       fallbackLabeledDemoCount: 3
-    })
-  ).pipe(
-    BootstrapFewShot.tapProgress((line) => logExampleEvent("bootstrapFewShot", line.text)),
-    Stream.runCollect
+    }),
+    (event) =>
+      Ref.update(bootstrapLog, Arr.append(event)).pipe(
+        Effect.andThen(logExampleEvent("bootstrapFewShot", BootstrapFewShot.formatEvent(event).text))
+      )
   )
-  const bootstrapEvents = Arr.fromIterable(bootstrapEventsChunk)
+  yield* Module.install(protocolPanel, bootstrapped.parameters)
+  const bootstrapEvents = yield* Ref.get(bootstrapLog)
   const bootstrapSummary = BootstrapFewShot.summarizeEvents(bootstrapEvents)
-  const paramsAfterBootstrap = yield* Ref.get(protocolPanel.params)
+  const paramsAfterBootstrap = yield* Ref.get(protocolPlanner.params)
   const demosAddedDuringBootstrap = Number.subtract(
     Arr.length(paramsAfterBootstrap.demos),
     Arr.length(paramsBeforeBootstrap.demos)
@@ -634,7 +636,8 @@ const program = Effect.gen(function*() {
     seed: 33
   })
 
-  const miproEventsChunk = yield* MIPROv2.stream(
+  const miproLog = yield* Ref.make(Arr.empty<MIPROv2.Event>())
+  const compiled = yield* MIPROv2.runWithEvents(
     new MIPROv2.Options({
       module: protocolPanel,
       trainset,
@@ -644,12 +647,14 @@ const program = Effect.gen(function*() {
       numInstructions: 4,
       trialBudget: 6,
       seed: 33
-    })
-  ).pipe(
-    MIPROv2.tapProgress((line) => logExampleEvent("miprov2", line.text)),
-    Stream.runCollect
+    }),
+    (event) =>
+      Ref.update(miproLog, Arr.append(event)).pipe(
+        Effect.andThen(logExampleEvent("miprov2", MIPROv2.formatEvent(event).text))
+      )
   )
-  const miproEvents = Arr.fromIterable(miproEventsChunk)
+  yield* Module.install(protocolPanel, compiled.parameters)
+  const miproEvents = yield* Ref.get(miproLog)
   const miproEventSummary = MIPROv2.summarizeEvents(miproEvents)
 
   const optimized = yield* Evaluate.run(
@@ -661,17 +666,21 @@ const program = Effect.gen(function*() {
     })
   )
 
-  const optimizedParams = yield* Ref.get(protocolPanel.params)
+  const optimizedParams = yield* Ref.get(protocolPlanner.params)
 
   const baselineScore = Option.getOrElse(Record.get(baseline.overallScores, "protocolFit"), () => 0)
   const optimizedScore = Option.getOrElse(Record.get(optimized.overallScores, "protocolFit"), () => 0)
-  const miproOutcome = MIPROv2.summarizeOutcome({
-    baselineScore,
-    optimizedScore,
-    demoCountBefore: Arr.length(paramsAfterBootstrap.demos),
-    demoCountAfter: Arr.length(optimizedParams.demos),
-    events: miproEventSummary
-  })
+  const miproOutcome = {
+    baselineExactMatch: baselineScore,
+    optimizedExactMatch: optimizedScore,
+    scoreDelta: Number.subtract(optimizedScore, baselineScore),
+    demoCountBeforeOptimization: Arr.length(paramsAfterBootstrap.demos),
+    demoCountAfterOptimization: Arr.length(optimizedParams.demos),
+    demosLearnedDuringMIPROv2: Number.subtract(
+      Arr.length(optimizedParams.demos),
+      Arr.length(paramsAfterBootstrap.demos)
+    )
+  }
   const optimizationObservability = MIPROv2.summarizeOptimization({
     baselineScore,
     optimizedScore,

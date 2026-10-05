@@ -5,8 +5,7 @@
  * @since 0.1.0
  * @module
  */
-import { Array as Arr, Data, Effect, Exit, Option, Ref, Tuple } from "effect"
-import type { Schema } from "effect"
+import { Array as Arr, Data, Effect, Option, Schema } from "effect"
 import type * as LanguageModel from "effect/ai/LanguageModel"
 import type * as Layer from "effect/Layer"
 import { AllTrialsFailed } from "./DspError.js"
@@ -20,10 +19,21 @@ import {
   ResolveSeedsOptions
 } from "./internal/bootstrapRS/runtime/candidates.js"
 import { scoreCandidates, ScoreCandidatesOptions, selectBestCandidate } from "./internal/bootstrapRS/runtime/search.js"
-import { collectModuleParamRefs } from "./internal/moduleParameters.js"
 import type { Metric } from "./Metric.js"
 import * as Module from "./Module.js"
 import type { Module as DspModule } from "./Module.js"
+import * as Optimized from "./Optimized.js"
+import * as ParameterSet from "./ParameterSet.js"
+
+/** Candidate validation scores and the selected index in construction order.
+ * A missing score denotes a candidate with no successful evaluation rows.
+ * @since 1.0.0
+ * @category models
+ */
+export class Report extends Schema.Class<Report>("@scenesystems/effect-dsp/BootstrapRS/Report")({
+  candidates: Schema.Array(Schema.Struct({ label: Schema.String, score: Schema.Option(Schema.Finite) })),
+  selectedIndex: Schema.Int
+}) {}
 
 /**
  * Configures seeded bootstrap candidates and their validation comparison.
@@ -44,7 +54,7 @@ export class Options<
   E = never,
   R = never
 > extends Data.Class<{
-  /** Module loaded with each candidate in turn, then left in the winning state. */
+  /** Program evaluated under overlays without changing its parameter refs. */
   readonly module: DspModule<I, O, E, R>
   /** Bootstrap input; each seed deterministically rotates this sequence. */
   readonly trainset: BootstrapRSExamples
@@ -79,7 +89,7 @@ const noCandidateError = () =>
   })
 
 /**
- * Evaluates baseline and seeded bootstrap states and loads the highest score.
+ * Evaluates baseline and seeded bootstrap states and binds the highest score.
  *
  * @remarks
  * Candidate construction starts with the initial state and one destination-aware
@@ -89,20 +99,19 @@ const noCandidateError = () =>
  * compatible. Construction failures propagate. Every state is evaluated
  * sequentially on `valset`, or `trainset` when omitted; candidates with zero
  * successful examples are excluded. The first highest-scoring state wins and is
- * loaded into the supplied module.
+ * returned as a bound copy of the supplied module.
  *
  * `AllTrialsFailed` means no candidate completed evaluation. Other setup and
- * final-load failures retain their typed channels. Candidate evaluation mutates
- * the module while states are compared. Failure or interruption restores every
- * original parameter Ref, including children, before the effect exits. Success
- * retains the selected state. Concurrent use of the module remains unsafe.
+ * evaluation failures retain their typed channels. Each candidate executes with
+ * its own immutable overlay. Success, failure, and interruption leave the
+ * caller's parameter refs unchanged.
  *
  * @typeParam I - Module input fields decoded during evaluation.
  * @typeParam O - Module output fields scored by the metric.
  * @typeParam ME - Expected failure type of the metric.
  * @typeParam MR - Services required by the metric.
  * @param options - Candidate generation, validation, metric, and bootstrap settings.
- * @returns The supplied module loaded with the selected parameter snapshot.
+ * @returns A bound program, selected parameters, and candidate scores.
  *
  * @see {@link https://arxiv.org/abs/2310.03714 | Khattab et al. (2023)}
  * @since 0.1.0
@@ -116,92 +125,97 @@ export const run = <
   E = never,
   R = never
 >(options: Options<I, O, ME, MR, E, R>) =>
-  Effect.acquireUseRelease(
-    Effect.forEach(collectModuleParamRefs(options.module), (entry) =>
-      Ref.get(entry.params).pipe(Effect.map((params) => Tuple.make(entry.params, params)))),
-    () =>
-      Effect.gen(function*() {
-        const seeds = resolveSeeds(
-          new ResolveSeedsOptions({
-            numCandidates: normalizeNonNegative(options.numCandidates),
-            ...Option.match(Option.fromUndefinedOr(options.seeds), {
-              onNone: () => ({}),
-              onSome: (provided) => ({ seeds: provided })
-            })
-          })
-        )
-        const valset = Option.getOrElse(Option.fromUndefinedOr(options.valset), () =>
-          options.trainset)
-        const maxRounds = Option.getOrElse(Option.fromUndefinedOr(options.maxRounds), () => 1)
-        const maxBootstrappedDemos = Option.getOrElse(Option.fromUndefinedOr(options.maxBootstrappedDemos), () => 1)
-        const baselineLabeledCount = Option.getOrElse(Option.fromUndefinedOr(options.maxLabeledDemos), () => 1)
-        const initialState = yield* Module.save(options.module)
-
-        const allCandidates = yield* buildCandidateStates(
-          new BuildCandidateStatesOptions({
-            module: options.module,
-            initialState,
-            trainset: options.trainset,
-            metric: options.metric,
-            seeds,
-            maxRounds,
-            maxBootstrappedDemos,
-            ...Option.match(Option.fromUndefinedOr(options.maxLabeledDemos), {
-              onNone: () => ({}),
-              onSome: (maxLabeledDemos) => ({ maxLabeledDemos })
-            }),
-            ...Option.match(Option.fromUndefinedOr(options.threshold), {
-              onNone: () => ({}),
-              onSome: (threshold) => ({ threshold })
-            }),
-            ...Option.match(Option.fromUndefinedOr(options.teacher), {
-              onNone: () => ({}),
-              onSome: (teacher) => ({ teacher })
-            }),
-            ...Option.match(Option.fromUndefinedOr(options.fallbackToLabeledFewShot), {
-              onNone: () => ({}),
-              onSome: (fallbackToLabeledFewShot) => ({ fallbackToLabeledFewShot })
-            }),
-            ...Option.match(Option.fromUndefinedOr(options.fallbackLabeledDemoCount), {
-              onNone: () => ({}),
-              onSome: (fallbackLabeledDemoCount) => ({ fallbackLabeledDemoCount })
-            }),
-            baselineLabeledCount
-          })
-        )
-
-        yield* Effect.suspend(() =>
-          Option.match(Arr.head(allCandidates), {
-            onSome: () => Effect.void,
-            onNone: noCandidateError
-          })
-        )
-
-        const scoredCandidates = yield* scoreCandidates(
-          new ScoreCandidatesOptions({
-            module: options.module,
-            candidates: allCandidates,
-            valset,
-            metric: options.metric
-          })
-        )
-
-        yield* Effect.suspend(() =>
-          Option.match(Arr.head(scoredCandidates), {
-            onSome: () => Effect.void,
-            onNone: noCandidateError
-          })
-        )
-
-        const selectedCandidate = yield* selectBestCandidate(scoredCandidates)
-
-        yield* Module.load(options.module, selectedCandidate.state)
-
-        return options.module
-      }),
-    (snapshot, exit) =>
-      Exit.match(exit, {
-        onFailure: () => Effect.forEach(snapshot, ([ref, params]) => Ref.set(ref, params), { discard: true }),
-        onSuccess: () => Effect.void
+  Effect.gen(function*() {
+    const seeds = resolveSeeds(
+      new ResolveSeedsOptions({
+        numCandidates: normalizeNonNegative(options.numCandidates),
+        ...Option.match(Option.fromUndefinedOr(options.seeds), {
+          onNone: () => ({}),
+          onSome: (provided) => ({ seeds: provided })
+        })
       })
-  )
+    )
+    const valset = Option.getOrElse(Option.fromUndefinedOr(options.valset), () => options.trainset)
+    const maxRounds = Option.getOrElse(Option.fromUndefinedOr(options.maxRounds), () => 1)
+    const maxBootstrappedDemos = Option.getOrElse(Option.fromUndefinedOr(options.maxBootstrappedDemos), () => 1)
+    const baselineLabeledCount = Option.getOrElse(Option.fromUndefinedOr(options.maxLabeledDemos), () => 1)
+    const initialState = yield* ParameterSet.snapshot(options.module)
+
+    const allCandidates = yield* buildCandidateStates(
+      new BuildCandidateStatesOptions({
+        module: options.module,
+        initialState,
+        trainset: options.trainset,
+        metric: options.metric,
+        seeds,
+        maxRounds,
+        maxBootstrappedDemos,
+        ...Option.match(Option.fromUndefinedOr(options.maxLabeledDemos), {
+          onNone: () => ({}),
+          onSome: (maxLabeledDemos) => ({ maxLabeledDemos })
+        }),
+        ...Option.match(Option.fromUndefinedOr(options.threshold), {
+          onNone: () => ({}),
+          onSome: (threshold) => ({ threshold })
+        }),
+        ...Option.match(Option.fromUndefinedOr(options.teacher), {
+          onNone: () => ({}),
+          onSome: (teacher) => ({ teacher })
+        }),
+        ...Option.match(Option.fromUndefinedOr(options.fallbackToLabeledFewShot), {
+          onNone: () => ({}),
+          onSome: (fallbackToLabeledFewShot) => ({ fallbackToLabeledFewShot })
+        }),
+        ...Option.match(Option.fromUndefinedOr(options.fallbackLabeledDemoCount), {
+          onNone: () => ({}),
+          onSome: (fallbackLabeledDemoCount) => ({ fallbackLabeledDemoCount })
+        }),
+        baselineLabeledCount
+      })
+    )
+
+    yield* Effect.suspend(() =>
+      Option.match(Arr.head(allCandidates), {
+        onSome: () => Effect.void,
+        onNone: noCandidateError
+      })
+    )
+
+    const scoredCandidates = yield* scoreCandidates(
+      new ScoreCandidatesOptions({
+        module: options.module,
+        candidates: allCandidates,
+        valset,
+        metric: options.metric
+      })
+    )
+
+    yield* Effect.suspend(() =>
+      Option.match(Arr.head(scoredCandidates), {
+        onSome: () => Effect.void,
+        onNone: noCandidateError
+      })
+    )
+
+    const selectedCandidate = yield* selectBestCandidate(scoredCandidates)
+
+    return new Optimized.Result({
+      program: Module.bound(options.module, selectedCandidate.state),
+      parameters: selectedCandidate.state,
+      report: new Report({
+        candidates: Arr.map(
+          allCandidates,
+          (candidate) => ({
+            label: candidate.label,
+            score: Option.map(
+              Arr.findFirst(scoredCandidates, ([entry]) => entry === candidate),
+              ([, score]) => score
+            )
+          })
+        ),
+        selectedIndex: Option.getOrThrow(
+          Arr.findFirstIndex(allCandidates, (candidate) => candidate === selectedCandidate)
+        )
+      })
+    })
+  })

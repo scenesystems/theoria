@@ -14,6 +14,7 @@ import {
   Inspectable,
   Number as Num,
   Option,
+  Record,
   Ref,
   Schema,
   String as Str,
@@ -35,7 +36,7 @@ import {
 import { configIndex } from "./searchSpace.js"
 
 /** @internal */
-export class ApplyPhase3ConfigOptions extends Data.Class<{
+export class ParametersForConfigOptions extends Data.Class<{
   readonly config: Phase3Config
   readonly bindings: Iterable<PredictorBinding>
   readonly trialBudget: number
@@ -61,8 +62,7 @@ export class EvaluateTrialOptions<E, R, EE, ER> extends Data.Class<{
 }> {}
 
 /**
- * Writes the instruction and demo candidates selected by a trial
- * configuration into each predictor's mutable `Ref`.
+ * Builds the immutable instruction and demonstration overlay selected by a trial.
  *
  * For every binding the corresponding demo and instruction indices are
  * looked up from the config record and the matching candidates are
@@ -73,7 +73,7 @@ export class EvaluateTrialOptions<E, R, EE, ER> extends Data.Class<{
  * @category combinators
  * @see {@link evaluateTrial} — calls this before scoring
  */
-export const applyPhase3Config = (options: ApplyPhase3ConfigOptions) =>
+export const parametersForConfig = (options: ParametersForConfigOptions) =>
   Effect.forEach(options.bindings, (binding) =>
     Effect.gen(function*() {
       const demoIndex = yield* configIndex(options.config, demoDimensionName(binding.predictorName))
@@ -95,11 +95,11 @@ export const applyPhase3Config = (options: ApplyPhase3ConfigOptions) =>
           trialCount: options.trialBudget
         }))
 
-      return yield* Ref.set(
-        binding.paramsRef,
+      return Tuple.make(
+        binding.predictorId,
         withModuleParamsDemosAndInstructions(demo.params, demo.params.demos, instruction.instruction)
       )
-    }), { discard: true })
+    })).pipe(Effect.map(Record.fromEntries))
 
 /**
  * Scores the baseline (all index-0) configuration on the **full**

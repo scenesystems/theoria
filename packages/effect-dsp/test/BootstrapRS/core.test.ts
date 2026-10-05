@@ -10,8 +10,9 @@ import * as MockLanguageModel from "@scenesystems/effect-dsp/MockLanguageModel"
 import * as Module from "@scenesystems/effect-dsp/Module"
 import { ModuleParameters } from "@scenesystems/effect-dsp/ModuleParameters"
 import * as Signature from "@scenesystems/effect-dsp/Signature"
-import { Effect, Layer, Ref, Result, Schema } from "effect"
+import { Effect, Layer, Option, Record, Ref, Result, Schema } from "effect"
 import * as LanguageModel from "effect/ai/LanguageModel"
+import { assertNoMutation } from "../kit/Mutation.js"
 
 const makeQaSignature = () =>
   Signature.make(
@@ -72,27 +73,30 @@ describe("BootstrapRS.run", () => {
       )
       const lmLayer = Layer.succeed(LanguageModel.LanguageModel, mock.service)
 
-      const optimized = yield* BootstrapRS.run(
-        new BootstrapRS.Options({
-          module,
-          trainset,
-          valset: [
-            new Example({
-              input: { question: "Name the capital of Japan in one word" },
-              output: { answer: "Tokyo" }
-            })
-          ],
-          metric: Metric.exactMatch("answer"),
-          numCandidates: 2,
-          seeds: [0, 1],
-          maxRounds: 1,
-          maxBootstrappedDemos: 1,
-          threshold: 1,
-          fallbackToLabeledFewShot: false
-        })
+      const optimized = yield* assertNoMutation(
+        module,
+        BootstrapRS.run(
+          new BootstrapRS.Options({
+            module,
+            trainset,
+            valset: [
+              new Example({
+                input: { question: "Name the capital of Japan in one word" },
+                output: { answer: "Tokyo" }
+              })
+            ],
+            metric: Metric.exactMatch("answer"),
+            numCandidates: 2,
+            seeds: [0, 1],
+            maxRounds: 1,
+            maxBootstrappedDemos: 1,
+            threshold: 1,
+            fallbackToLabeledFewShot: false
+          })
+        )
       ).pipe(Effect.provide(lmLayer))
 
-      const params = yield* Ref.get(optimized.params)
+      const params = Option.getOrThrow(Record.get(optimized.parameters, "qa"))
 
       expect(params.demos).toHaveLength(1)
       expect(params.demos[0]?.output).toEqual({ answer: "Tokyo" })

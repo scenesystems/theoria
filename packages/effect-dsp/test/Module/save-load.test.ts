@@ -7,7 +7,7 @@ import { SaveLoadError } from "@scenesystems/effect-dsp/DspError"
 import * as Module from "@scenesystems/effect-dsp/Module"
 import { ModuleParameters } from "@scenesystems/effect-dsp/ModuleParameters"
 import * as Signature from "@scenesystems/effect-dsp/Signature"
-import { Array as Arr, Effect, Option, Order, Ref, Schema } from "effect"
+import { Array as Arr, Effect, Record, Ref, Schema } from "effect"
 
 const makeQaSignature = () =>
   Signature.make(
@@ -54,8 +54,7 @@ describe("Module.save / Module.load", () => {
 
       const restored = yield* Ref.get(module.params)
 
-      expect(saved.modules).toHaveLength(1)
-      expect((Option.getOrThrow(Arr.head(saved.modules))).name).toBe("qa")
+      expect(Record.keys(saved.parameters)).toEqual(["qa"])
       expect(restored).toEqual(expectedParams)
     }))
 
@@ -118,8 +117,8 @@ describe("Module.save / Module.load", () => {
       const restoredRoot = yield* Ref.get(root.params)
       const restoredQa = yield* Ref.get(qa.params)
 
-      expect(Arr.sort(Arr.map(saved.modules, (entry) => entry.name), Order.String)).toEqual(Arr.make("qa", "qa-root"))
-      expect(restoredRoot).toEqual(rootExpected)
+      expect(Record.keys(saved.parameters)).toEqual(["qa-root.qa"])
+      expect(restoredRoot.instructions).toBe("mutated-root")
       expect(restoredQa).toEqual(qaExpected)
     }))
 
@@ -137,15 +136,7 @@ describe("Module.save / Module.load", () => {
       )
 
       const invalid = new Module.SavedState({
-        modules: Arr.make(
-          {
-            name: "qa-root",
-            params: new ModuleParameters({
-              instructions: "root-only",
-              demos: Arr.empty()
-            })
-          }
-        )
+        parameters: {}
       })
       const originalRootParams = yield* Ref.get(root.params)
 
@@ -154,7 +145,7 @@ describe("Module.save / Module.load", () => {
 
       expect(result).toEqual(
         new SaveLoadError({
-          message: "Saved state is missing params for module 'qa'",
+          message: "Saved state is missing params for predictor 'qa-root.qa'",
           operation: "load"
         })
       )

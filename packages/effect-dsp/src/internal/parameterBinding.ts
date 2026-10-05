@@ -1,5 +1,5 @@
 /** Fiber-local immutable parameter overlays and root-relative owner paths. */
-import { Array as Arr, Context, Effect, HashMap, Option, Record, Ref, Tuple } from "effect"
+import { Array as Arr, Context, Effect, Option, Record, Ref, Tuple } from "effect"
 import type { ModuleParameters } from "../ModuleParameters.js"
 import type { ParameterSet } from "../ParameterSet.js"
 import type * as Predictor from "../Predictor.js"
@@ -11,12 +11,18 @@ export const Binding = Context.Reference<Option.Option<ParameterSet>>(
     defaultValue: Option.none
   }
 )
-const Owners = Context.Reference<HashMap.HashMap<Ref.Ref<ModuleParameters>, Predictor.Id>>(
+const Owners = Context.Reference<ReadonlyArray<readonly [Ref.Ref<ModuleParameters>, Predictor.Id]>>(
   "@scenesystems/effect-dsp/internal/parameterBinding/Owners",
   {
-    defaultValue: HashMap.empty
+    defaultValue: Arr.empty
   }
 )
+
+// Ref values are structurally equal in Effect 4; ownership requires identity.
+const ownerPath = (
+  owners: ReadonlyArray<readonly [Ref.Ref<ModuleParameters>, Predictor.Id]>,
+  params: Ref.Ref<ModuleParameters>
+) => Option.map(Arr.findFirst(owners, ([ref]) => ref === params), ([, id]) => id)
 
 /** @internal */
 export const withOwners = (predictors: Iterable<Predictor.Ref>) => <A, E, R>(effect: Effect.Effect<A, E, R>) =>
@@ -27,15 +33,18 @@ export const withOwners = (predictors: Iterable<Predictor.Ref>) => <A, E, R>(eff
         effect.pipe(withDefaults(Record.fromEntries(Arr.flatMap(Arr.fromIterable(predictors), (entry) =>
           Option.toArray(Option.map(entry.boundParameters, (params) =>
             Tuple.make(
-              Option.getOrElse(HashMap.get(outer, entry.params), () =>
+              Option.getOrElse(ownerPath(outer, entry.params), () =>
                 entry.id),
               params
             ))))))),
         Owners,
-        HashMap.union(
-          HashMap.fromIterable(Arr.map(Arr.fromIterable(predictors), (entry) =>
-            Tuple.make(entry.params, entry.id))),
-          outer
+        Arr.dedupeWith(
+          Arr.appendAll(
+            outer,
+            Arr.map(Arr.fromIterable(predictors), (entry) =>
+              Tuple.make(entry.params, entry.id))
+          ),
+          ([left], [right]) => left === right
         )
       )
   )
@@ -44,12 +53,27 @@ export const withOwners = (predictors: Iterable<Predictor.Ref>) => <A, E, R>(eff
 export const read = Effect.fnUntraced(function*(params: Ref.Ref<ModuleParameters>, name: string) {
   const owners = yield* Owners
   const binding = yield* Binding
-  const id = Option.getOrElse(HashMap.get(owners, params), () => name)
+  const id = Option.getOrElse(ownerPath(owners, params), () => name)
   return yield* Option.match(Option.flatMap(binding, (set) => Record.get(set, id)), {
     onNone: () => Ref.get(params),
     onSome: Effect.succeed
   })
 })
+
+/** @internal */
+export const mapParameters = (predictors: Iterable<Predictor.Ref>, f: (params: ModuleParameters) => ModuleParameters) =>
+  Effect.gen(function*() {
+    const owners = yield* Owners
+    return Record.fromEntries(
+      yield* Effect.forEach(predictors, (entry) =>
+        read(entry.params, entry.id).pipe(Effect.map((params) =>
+          Tuple.make(
+            Option.getOrElse(ownerPath(owners, entry.params), () => entry.id),
+            f(params)
+          )
+        )))
+    )
+  }).pipe(withOwners(predictors))
 
 /** @internal */
 export const withParameters = (parameters: ParameterSet) => <A, E, R>(effect: Effect.Effect<A, E, R>) =>

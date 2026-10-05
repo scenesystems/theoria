@@ -13,6 +13,7 @@ import type { Metric } from "./Metric.js"
 import type { Event, Examples } from "./MIPROv2.js"
 import type { PredictorDemoCandidateSets, PredictorInstructionCandidateSets } from "./MIPROv2Candidates.js"
 import type { Module as DspModule } from "./Module.js"
+import type { ParameterSet } from "./ParameterSet.js"
 
 /** Records the configured search shape and observed evaluation indexes.
  * @since 0.4.0
@@ -70,7 +71,7 @@ export class Options<
   readonly emit?: EventSink<EE, ER>
 }> {}
 
-/** Pairs the mutated module with its raw optimization result and diagnostics.
+/** Pairs a bound program and parameters with its raw search result and diagnostics.
  * @since 0.4.0
  * @category models
  */
@@ -80,7 +81,8 @@ export class Result<
   E = never,
   R = never
 > extends Data.Class<{
-  readonly module: DspModule<I, O, E, R>
+  readonly program: DspModule<I, O, E, R>
+  readonly parameters: ParameterSet
   readonly optimizationResult: Optimization.Result<Phase3Config>
   readonly diagnostics: Diagnostics
 }> {}

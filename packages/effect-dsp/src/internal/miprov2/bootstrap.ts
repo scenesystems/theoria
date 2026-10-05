@@ -7,10 +7,11 @@
  */
 import * as Numeric from "@scenesystems/effect-math/Numeric"
 import { normalizeDeterministicSeed, normalizePositiveCount } from "@scenesystems/effect-search/Sampler"
-import { Array as Arr, Effect, Number as Num, Option, Ref } from "effect"
+import { Array as Arr, Effect, Number as Num, Option } from "effect"
 import type { Schema } from "effect"
 import { DemoCandidate, type GenerateDemoCandidatesOptions, PredictorDemoCandidates } from "../../MIPROv2Candidates.js"
-import { collectModuleParamRefs } from "../moduleParameters.js"
+import { predictors } from "../../ModuleGraph.js"
+import * as Binding from "../parameterBinding.js"
 import { assemblePredictorCandidates, labeledDemos, sortDemos } from "./runtime/anchors.js"
 
 /**
@@ -43,7 +44,7 @@ export const generateDemoCandidates = <
   options: GenerateDemoCandidatesOptions<I, O, E, R>
 ) =>
   Effect.gen(function*() {
-    const refs = collectModuleParamRefs(options.module)
+    const refs = Arr.filter(Arr.fromIterable(predictors(options.module)), (entry) => entry.ownership !== "frozen")
     const requestedCandidates = normalizePositiveCount(options.numCandidates)
     const allLabeled = sortDemos(labeledDemos(options.trainset))
     const maxLabeledDemos = normalizePositiveCount(
@@ -62,7 +63,7 @@ export const generateDemoCandidates = <
 
     return yield* Effect.forEach(refs, (ref, predictorIndex) =>
       Effect.gen(function*() {
-        const params = yield* Ref.get(ref.params)
+        const params = yield* Binding.read(ref.params, ref.name)
         const compatibleLabels = Arr.getSomes(
           yield* Effect.forEach(allLabeled, (demo) => ref.demonstrationCodec.decode(demo).pipe(Effect.option))
         )
@@ -91,4 +92,4 @@ export const generateDemoCandidates = <
           )
         })
       }))
-  })
+  }).pipe(Binding.withOwners(predictors(options.module)))

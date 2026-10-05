@@ -9,9 +9,23 @@ import * as Metric from "@scenesystems/effect-dsp/Metric"
 import * as MockLanguageModel from "@scenesystems/effect-dsp/MockLanguageModel"
 import * as Module from "@scenesystems/effect-dsp/Module"
 import { ModuleParameters } from "@scenesystems/effect-dsp/ModuleParameters"
+import * as ParameterSet from "@scenesystems/effect-dsp/ParameterSet"
 import * as Signature from "@scenesystems/effect-dsp/Signature"
-import { Array as Arr, Boolean, Effect, Layer, Number as Num, Ref, Result, Schema, String as Str } from "effect"
+import {
+  Array as Arr,
+  Boolean,
+  Effect,
+  Layer,
+  Number as Num,
+  Option,
+  Record,
+  Ref,
+  Result,
+  Schema,
+  String as Str
+} from "effect"
 import * as LanguageModel from "effect/ai/LanguageModel"
+import { assertNoMutation } from "../kit/Mutation.js"
 
 const makeQaSignature = () =>
   Signature.make(
@@ -39,30 +53,34 @@ describe("BootstrapFewShot.run", () => {
       )
       const layer = Layer.succeed(LanguageModel.LanguageModel, mock.service)
 
-      const optimized = yield* BootstrapFewShot.run(
-        new BootstrapFewShot.Options({
-          module,
-          trainset: Arr.make(
-            new Example({
-              input: { question: "What is the capital of France?" },
-              output: { answer: "Paris" }
-            }),
-            new Example({
-              input: { question: "What is the capital of Japan?" },
-              output: { answer: "Tokyo" }
-            })
-          ),
-          metric: Metric.exactMatch("answer"),
-          maxRounds: 5,
-          maxBootstrappedDemos: 2,
-          threshold: 1
-        })
+      const optimized = yield* assertNoMutation(
+        module,
+        BootstrapFewShot.run(
+          new BootstrapFewShot.Options({
+            module,
+            trainset: Arr.make(
+              new Example({
+                input: { question: "What is the capital of France?" },
+                output: { answer: "Paris" }
+              }),
+              new Example({
+                input: { question: "What is the capital of Japan?" },
+                output: { answer: "Tokyo" }
+              })
+            ),
+            metric: Metric.exactMatch("answer"),
+            maxRounds: 5,
+            maxBootstrappedDemos: 2,
+            threshold: 1
+          })
+        )
       ).pipe(Effect.provide(layer))
 
-      const params = yield* Ref.get(optimized.params)
+      const params = Option.getOrThrow(Record.get(optimized.parameters, "qa"))
       const calls = yield* Ref.get(mock.calls)
 
       expect(params.demos).toHaveLength(2)
+      expect(yield* ParameterSet.snapshot(optimized.program)).toEqual(optimized.parameters)
       expect(Arr.map(params.demos, (demo) => demo.output)).toEqual(Arr.make({ answer: "Paris" }, { answer: "Tokyo" }))
       expect(calls).toHaveLength(2)
       expect(Arr.every(calls, (call) => Str.includes("[bootstrap-round:1]")(call.prompt))).toBe(true)
@@ -117,7 +135,7 @@ describe("BootstrapFewShot.run", () => {
         })
       ).pipe(Effect.provide(layer))
 
-      const params = yield* Ref.get(optimized.params)
+      const params = Option.getOrThrow(Record.get(optimized.parameters, "qa"))
       const calls = yield* Ref.get(mock.calls)
       const japanCalls = Arr.filter(calls, (call) => Str.includes("What is the capital of Japan?")(call.prompt))
 
@@ -157,7 +175,7 @@ describe("BootstrapFewShot.run", () => {
         ).pipe(Effect.provide(layer))
       )
       const calls = yield* Ref.get(mock.calls)
-      const params = yield* Ref.get(module.params)
+      const params = Option.getOrThrow(Record.get(Result.getOrThrow(result).parameters, module.name))
 
       expect(Result.isSuccess(result)).toBe(true)
       expect(calls).toHaveLength(1)
@@ -275,7 +293,7 @@ describe("BootstrapFewShot.run", () => {
           fallbackToLabeledFewShot: false
         })
       ).pipe(Effect.provide(layer))
-      const params = yield* Ref.get(optimized.params)
+      const params = Option.getOrThrow(Record.get(optimized.parameters, "qa"))
 
       expect(Arr.length(params.demos)).toBe(1)
     }))

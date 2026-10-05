@@ -48,8 +48,8 @@ import * as ParameterBinding from "./internal/parameterBinding.js"
 import type { Result as MetricResult } from "./Metric.js"
 import type { ModuleGraph } from "./ModuleGraph.js"
 import { predictors } from "./ModuleGraph.js"
-import { ModuleParameters } from "./ModuleParameters.js"
-import type { ParameterSet } from "./ParameterSet.js"
+import type { ModuleParameters } from "./ModuleParameters.js"
+import { ParameterSet } from "./ParameterSet.js"
 import type { Signature } from "./Signature.js"
 
 /** Validated identity used by module ownership and discovery graphs.
@@ -186,23 +186,16 @@ export class Registration extends Data.TaggedClass("ModuleRegistration")<{
  *
  * @remarks
  * {@link load} requires
- * exactly one entry for each name in the target parameter tree and rejects
- * duplicate, missing, or unknown names. Metadata is preserved by the schema but
+ * exactly one entry for each predictor path and rejects
+ * missing or unknown paths. Metadata is preserved by the schema but
  * ignored by `load`; `save` omits it.
  *
  * @since 0.1.0
  * @category models
  */
 export class SavedState extends Schema.Class<SavedState>("@scenesystems/effect-dsp/Module/SavedState")({
-  /** Parameter entries matched to a target module tree by exact name. */
-  modules: Schema.Array(
-    Schema.Struct({
-      /** Module name used by persistence matching. */
-      name: Schema.String,
-      /** Complete parameter value restored into the module ref. */
-      params: ModuleParameters
-    })
-  ),
+  /** Effective parameter values keyed by canonical leaf predictor paths. */
+  parameters: ParameterSet,
   /** Caller-defined envelope metadata ignored by module restoration. */
   metadata: Schema.optional(Schema.Record(Schema.String, Schema.Unknown))
 }) {}

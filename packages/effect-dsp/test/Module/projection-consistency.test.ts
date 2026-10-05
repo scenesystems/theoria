@@ -181,10 +181,6 @@ describe("shared owner projection consistency", () => {
         })
       )
       const expected = Arr.make(
-        Tuple.make(root.params, "root params"),
-        Tuple.make(left.params, "left params"),
-        Tuple.make(right.params, "right params"),
-        Tuple.make(first.params, "shared params"),
         Tuple.make(x.params, "x params"),
         Tuple.make(y.params, "y params")
       )
@@ -193,8 +189,8 @@ describe("shared owner projection consistency", () => {
         ([ref, instructions]) => Ref.set(ref, makeParameters(instructions))
       )
       const saved = yield* Module.save(root)
-      expect(Arr.map(saved.modules, (entry) => entry.params.instructions)).toEqual(
-        Arr.make("root params", "left params", "shared params", "x params", "y params", "right params")
+      expect(Arr.map(Record.values(saved.parameters), (entry) => entry.instructions)).toEqual(
+        Arr.make("x params", "y params")
       )
       yield* Effect.forEach(expected, ([ref]) => Ref.set(ref, makeParameters("changed")))
       yield* Module.load(root, saved)

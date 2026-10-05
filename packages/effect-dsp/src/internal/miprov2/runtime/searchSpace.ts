@@ -32,7 +32,8 @@ import type {
   PredictorInstructionCandidateSets
 } from "../../../MIPROv2Candidates.js"
 import type { Module as DspModule } from "../../../Module.js"
-import { collectModuleParamRefs, type ModuleParamRef } from "../../moduleParameters.js"
+import { predictors } from "../../../ModuleGraph.js"
+import type * as Predictor from "../../../Predictor.js"
 import {
   demoDimensionName,
   instructionDimensionName,
@@ -154,7 +155,7 @@ const indexInstructionCandidateSets = (candidateSets: PredictorInstructionCandid
   )
 
 const requireDestination = (
-  refsByName: HashMap.HashMap<string, ModuleParamRef>,
+  refsByName: HashMap.HashMap<string, Predictor.Ref>,
   predictorName: string,
   candidateKind: string
 ) =>
@@ -196,7 +197,7 @@ const validateCandidateIdentity = (
   })
 
 const validateDemoCandidateSet = (
-  refsByName: HashMap.HashMap<string, ModuleParamRef>,
+  refsByName: HashMap.HashMap<string, Predictor.Ref>,
   candidateSet: PredictorDemoCandidates
 ) =>
   Effect.gen(function*() {
@@ -226,7 +227,7 @@ const validateDemoCandidateSet = (
   })
 
 const validateInstructionCandidateSet = (
-  refsByName: HashMap.HashMap<string, ModuleParamRef>,
+  refsByName: HashMap.HashMap<string, Predictor.Ref>,
   candidateSet: PredictorInstructionCandidates
 ) =>
   requireDestination(refsByName, candidateSet.predictorName, "instruction").pipe(
@@ -247,7 +248,7 @@ const validateInstructionCandidateSet = (
  * destination. Unknown or duplicate sets and mismatched candidate identities
  * fail with `AllTrialsFailed`. Every demonstration in every candidate is
  * validated through the destination's wire-level demo contract. Validation
- * completes before Phase 3 can write any parameter ref.
+ * completes before Phase 3 evaluates any candidate overlay.
  *
  * @since 0.1.0
  * @category constructors
@@ -260,10 +261,10 @@ export const resolveBindings = <
   R
 >(options: ResolveBindingsOptions<I, O, E, R>) =>
   Effect.gen(function*() {
-    const refs = collectModuleParamRefs(options.module)
+    const refs = Arr.filter(Arr.fromIterable(predictors(options.module)), (entry) => entry.ownership !== "frozen")
     const refsByName = Arr.reduce(
       refs,
-      HashMap.empty<string, ModuleParamRef>(),
+      HashMap.empty<string, Predictor.Ref>(),
       (byName, ref) => HashMap.set(byName, ref.name, ref)
     )
     const demosByName = yield* indexDemoCandidateSets(options.demoCandidates)
@@ -298,7 +299,7 @@ export const resolveBindings = <
 
         return new PredictorBinding({
           predictorName: ref.name,
-          paramsRef: ref.params,
+          predictorId: ref.id,
           demos,
           instructions
         })

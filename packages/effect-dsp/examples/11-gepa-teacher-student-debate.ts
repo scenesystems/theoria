@@ -14,7 +14,7 @@
  */
 import { BunRuntime, BunServices } from "@effect/platform-bun"
 import { Evaluate, Example, GEPA, Metric, Module, Signature } from "@scenesystems/effect-dsp"
-import { Array as Arr, Boolean, Effect, Layer, Number, Option, Record, Ref, Schema, Stream, String } from "effect"
+import { Array as Arr, Boolean, Effect, Layer, Number, Option, Record, Ref, Schema, String } from "effect"
 import {
   makeStandardEvents,
   makeStandardModuleState,
@@ -265,7 +265,8 @@ const program = Effect.gen(function*() {
     seed: 29
   })
 
-  const gepaEventsChunk = yield* GEPA.stream(
+  const gepaLog = yield* Ref.make(Arr.empty<GEPA.Event>())
+  const compiled = yield* GEPA.runWithEvents(
     new GEPA.Options({
       module: debateModule,
       trainset,
@@ -273,11 +274,13 @@ const program = Effect.gen(function*() {
       metric: recommendationMetric,
       maxIterations: 3,
       seed: 29
-    })
-  ).pipe(
-    GEPA.tapProgress((line) => logExampleEvent("gepa", line.text)),
-    Stream.runCollect
+    }),
+    (event) =>
+      Ref.update(gepaLog, Arr.append(event)).pipe(
+        Effect.andThen(logExampleEvent("gepa", GEPA.formatEvent(event).text))
+      )
   )
+  yield* Module.install(debateModule, compiled.parameters)
 
   const optimized = yield* Evaluate.run(
     new Evaluate.Options({
@@ -288,20 +291,24 @@ const program = Effect.gen(function*() {
     })
   )
 
-  const gepaEvents = Arr.fromIterable(gepaEventsChunk)
+  const gepaEvents = yield* Ref.get(gepaLog)
   const gepaEventSummary = GEPA.summarizeEvents(gepaEvents)
   const judgeParams = yield* Ref.get(judge.params)
   const debateSavedState = yield* Module.save(debateModule)
 
   const baselineScore = Option.getOrElse(Record.get(baseline.overallScores, "exactMatch"), () => 0)
   const optimizedScore = Option.getOrElse(Record.get(optimized.overallScores, "exactMatch"), () => 0)
-  const outcomeSummary = GEPA.summarizeOutcome({
-    baselineScore,
-    optimizedScore,
-    instructionBefore: judgeParamsBeforeOptimization.instructions,
-    instructionAfter: judgeParams.instructions,
-    events: gepaEventSummary
-  })
+  const outcomeSummary = {
+    eventSummary: gepaEventSummary,
+    baselineExactMatch: baselineScore,
+    optimizedExactMatch: optimizedScore,
+    scoreDelta: Number.subtract(optimizedScore, baselineScore),
+    instructionChanged: Boolean.not(
+      String.Equivalence(judgeParamsBeforeOptimization.instructions, judgeParams.instructions)
+    ),
+    instructionLengthBeforeOptimization: String.length(judgeParamsBeforeOptimization.instructions),
+    instructionLengthAfterOptimization: String.length(judgeParams.instructions)
+  }
   const summaryArtifact = makeStandardSummary({
     exampleName: EXAMPLE_NAME,
     optimizer: "gepa",

@@ -7,8 +7,10 @@
 import type { Schema } from "effect"
 import { Effect, Record, Ref } from "effect"
 import type { CompositionError } from "../../../DspError.js"
-import { type BestOfNOptions, ComposeGraphOptions, Module } from "../../../Module.js"
+import { type BestOfNOptions, ComposableModule, ComposeGraphOptions, Module } from "../../../Module.js"
+import { predictors } from "../../../ModuleGraph.js"
 import { make as makeDefaultModuleParameters } from "../../../ModuleParameters.js"
+import { withOwners } from "../../parameterBinding.js"
 import { buildCompositionGraph } from "../compose/graph.js"
 import { ComposeForwardOptions, makeComposeForward } from "../compose/runtime.js"
 import { makeBestOfNForward } from "./runtime.js"
@@ -77,6 +79,7 @@ export const bestOfN = <
       signature: options.module.signature,
       params: paramsRef,
       subModules: composition.subModuleNodesById,
+      declarations: composition.declarations,
       forward: makeComposeForward(
         new ComposeForwardOptions({
           moduleName: options.name,
@@ -85,7 +88,16 @@ export const bestOfN = <
           rootChildIds: composition.rootChildIds,
           graph: composition.graph,
           subModuleNodes: composition.subModuleNodesById,
-          forward: ({ input }) => bestOfNForward(input)
+          forward: ({ input }) =>
+            bestOfNForward(input).pipe(withOwners(predictors(
+              new ComposableModule({
+                name: options.name,
+                signature: options.module.signature,
+                params: paramsRef,
+                subModules: composition.subModuleNodesById,
+                declarations: composition.declarations
+              })
+            )))
         })
       )
     })

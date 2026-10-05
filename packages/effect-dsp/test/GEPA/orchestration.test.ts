@@ -176,7 +176,6 @@ describe("GEPA.run orchestration", () => {
       )
       const rootParams = yield* Ref.get(root.params)
       const childParams = yield* Ref.get(child.params)
-      const observedCandidate = yield* Ref.make(false)
       const mock = yield* MockLanguageModel.make(
         MockLanguageModel.succeed(new DraftResponse({ draft: "correct", sources: Arr.make("trace-source") }))
       )
@@ -191,18 +190,11 @@ describe("GEPA.run orchestration", () => {
       const metric = Metric.fromEffect(
         "composedFailure",
         () =>
-          Effect.all({ root: Ref.get(root.params), child: Ref.get(child.params) }).pipe(
-            Effect.flatMap((current) =>
-              Ref.set(
-                observedCandidate,
-                Bool.and(
-                  Str.Equivalence(current.root.instructions, "changed root"),
-                  Str.Equivalence(current.child.instructions, "changed child")
-                )
-              )
-            ),
-            Effect.andThen(Effect.fail(new Gate2MetricFailure()))
-          )
+          Effect.gen(function*() {
+            expect(yield* Ref.get(root.params)).toBe(rootParams)
+            expect(yield* Ref.get(child.params)).toBe(childParams)
+            return yield* new Gate2MetricFailure()
+          })
       )
 
       const failure = yield* evaluateCandidate(
@@ -221,7 +213,7 @@ describe("GEPA.run orchestration", () => {
       )
 
       expect(failure).toBeInstanceOf(Gate2MetricFailure)
-      expect(yield* Ref.get(observedCandidate)).toBe(true)
+      expect(Option.getOrThrow(Arr.head(yield* Ref.get(mock.calls))).prompt).toContain("changed child")
       expect(yield* Ref.get(root.params)).toEqual(rootParams)
       expect(yield* Ref.get(child.params)).toEqual(childParams)
     }))
@@ -258,21 +250,7 @@ describe("GEPA.run orchestration", () => {
       })
       const metric = Metric.fromEffect(
         "composedInterruption",
-        () =>
-          Effect.all({ root: Ref.get(root.params), child: Ref.get(child.params) }).pipe(
-            Effect.flatMap((current) =>
-              Bool.match(
-                Bool.and(
-                  Str.Equivalence(current.root.instructions, "interrupted root"),
-                  Str.Equivalence(current.child.instructions, "interrupted child")
-                ),
-                {
-                  onFalse: () => Effect.never,
-                  onTrue: () => Deferred.succeed(metricStarted, true).pipe(Effect.andThen(Effect.never))
-                }
-              )
-            )
-          )
+        () => Deferred.succeed(metricStarted, true).pipe(Effect.andThen(Effect.never))
       )
       const fiber = yield* evaluateCandidate(
         new GEPA.Options({
@@ -290,6 +268,8 @@ describe("GEPA.run orchestration", () => {
       )
 
       yield* Deferred.await(metricStarted)
+      expect(Option.getOrThrow(Arr.head(yield* Ref.get(mock.calls))).prompt).toContain("interrupted child")
+      expect(yield* Ref.get(child.params)).toBe(childParams)
       yield* Fiber.interrupt(fiber)
 
       expect(yield* Ref.get(root.params)).toEqual(rootParams)
@@ -318,7 +298,11 @@ describe("GEPA.run orchestration", () => {
         new GEPA.Options({
           module,
           trainset: makeEvaluationExamples(),
-          metric: Metric.exactMatch("answer"),
+          metric: Metric.fromEffect("immutable", (prediction: object, expected: object) =>
+            Effect.gen(function*() {
+              expect(yield* Ref.get(module.params)).toEqual(originalParams)
+              return yield* Metric.exactMatch("answer").score(prediction, expected)
+            })),
           maxIterations: 0
         }),
         candidate,

@@ -4,10 +4,9 @@
  * @since 0.1.0
  * @internal
  */
-import type { Ref } from "effect"
 import { Data, Schema, String } from "effect"
 import type { PredictorDemoCandidates, PredictorInstructionCandidates } from "../../../MIPROv2Candidates.js"
-import type { ModuleParameters } from "../../../ModuleParameters.js"
+import type * as Predictor from "../../../Predictor.js"
 
 /**
  * Finite index type representing a single categorical choice within a
@@ -39,17 +38,15 @@ export type Phase3Config = typeof Phase3Config.Type
 /**
  * Live binding for a single predictor during Phase 3 search.
  *
- * Holds a mutable `Ref` to the current `ModuleParameters` along with the
- * complete demo and instruction candidate sets produced by Phases 1 and 2.
- * The search loop writes to `paramsRef` each trial to apply the chosen
- * configuration.
+ * Pairs a stable predictor path with the complete demo and instruction
+ * candidate sets produced by Phases 1 and 2.
  *
  * @since 0.1.0
  * @category models
  */
 export class PredictorBinding extends Data.Class<{
   readonly predictorName: string
-  readonly paramsRef: Ref.Ref<ModuleParameters>
+  readonly predictorId: Predictor.Id
   readonly demos: PredictorDemoCandidates
   readonly instructions: PredictorInstructionCandidates
 }> {}

@@ -4,10 +4,10 @@
 import { describe, expect, it } from "@effect/vitest"
 import { Example } from "@scenesystems/effect-dsp/Example"
 import * as Module from "@scenesystems/effect-dsp/Module"
+import { predictors } from "@scenesystems/effect-dsp/ModuleGraph"
 import { ModuleParameters } from "@scenesystems/effect-dsp/ModuleParameters"
 import * as Signature from "@scenesystems/effect-dsp/Signature"
 import { Array as Arr, Effect, Equal, Number as Num, Option, Ref, Schema } from "effect"
-import { collectModuleParamRefs } from "../../src/internal/moduleParameters.js"
 import { generateDemoCandidates, GenerateDemoCandidatesOptions } from "../../src/MIPROv2Candidates.js"
 
 const makeQaSignature = () =>
@@ -124,7 +124,7 @@ describe("MIPROv2 Phase 1", () => {
     Effect.gen(function*() {
       const signature = yield* makeQaSignature()
       const module = yield* Module.predict("qa", signature)
-      const refs = collectModuleParamRefs(module)
+      const refs = Arr.fromIterable(predictors(module))
       const candidateSets = yield* generateDemoCandidates(
         new GenerateDemoCandidatesOptions({
           module,

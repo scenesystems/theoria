@@ -85,7 +85,7 @@ describe("MIPROv2 orchestration", () => {
 
       const tags = yield* Ref.get(events)
 
-      expect(optimized).toBe(module)
+      expect(optimized.program).not.toBe(module)
       expect(tags).toContain("Phase1Started")
       expect(tags).toContain("Phase2Started")
       expect(tags).toContain("Phase3Started")

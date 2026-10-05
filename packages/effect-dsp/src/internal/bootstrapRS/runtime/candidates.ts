@@ -14,7 +14,7 @@ import {
   Match,
   Number as Num,
   Option,
-  Ref,
+  Record,
   Schema,
   String as Str,
   Tuple
@@ -28,9 +28,10 @@ import { Example } from "../../../Example.js"
 import type { Metric } from "../../../Metric.js"
 import * as Module from "../../../Module.js"
 import type { Module as DspModule } from "../../../Module.js"
+import { predictors } from "../../../ModuleGraph.js"
 import { withDemos as withModuleParamsDemos } from "../../../ModuleParameters.js"
+import * as ParameterSet from "../../../ParameterSet.js"
 import { labeledDemos, selectRandomDemos } from "../../labeledFewShot/sampling.js"
-import { collectModuleParamRefs } from "../../moduleParameters.js"
 
 /** @internal */
 export const BootstrapRSExamples = Schema.Array(Example)
@@ -124,7 +125,7 @@ export class CandidateState extends Schema.Class<CandidateState>(
   "@scenesystems/effect-dsp/internal/bootstrapRS/runtime/candidates/CandidateState"
 )({
   label: Schema.String,
-  state: Module.SavedState
+  state: ParameterSet.ParameterSet
 }) {}
 
 /** @internal */
@@ -158,7 +159,7 @@ export class BuildCandidateStatesOptions<
   R
 > extends Data.Class<{
   readonly module: DspModule<I, O, E, R>
-  readonly initialState: Module.SavedState
+  readonly initialState: ParameterSet.ParameterSet
   readonly trainset: BootstrapRSExamples
   readonly metric: Metric<ME, MR, Schema.Schema.Type<Schema.Struct<O>>>
   readonly seeds: BootstrapRSSeeds
@@ -173,7 +174,7 @@ export class BuildCandidateStatesOptions<
 }> {}
 
 /**
- * Loads a candidate's saved parameters into the module, runs the evaluation
+ * Binds a candidate's parameters to a copy of the module, runs the evaluation
  * metric against the validation set, and returns the aggregate score.
  *
  * Fails with `AllTrialsFailed` when the evaluation produces zero successful
@@ -192,10 +193,9 @@ export const evaluateCandidate = <
   R
 >(options: EvaluateCandidateOptions<I, O, ME, MR, E, R>) =>
   Effect.gen(function*() {
-    yield* Module.load(options.module, options.candidate.state)
     const report = yield* Evaluate.run(
       new Evaluate.Options({
-        module: options.module,
+        module: Module.bound(options.module, options.candidate.state),
         examples: options.valset,
         metrics: {
           bootstrapRS: options.metric
@@ -230,7 +230,7 @@ export const evaluateCandidate = <
  * incompatible examples are omitted for that destination, and a destination
  * with no compatible labels receives an empty demonstration array.
  *
- * A bootstrap that fails to load, train or save fails candidate generation;
+ * A bootstrap that fails to train fails candidate generation;
  * the optimizer does not report a winner from a partially built pool.
  *
  * @since 0.1.0
@@ -247,26 +247,24 @@ export const buildCandidateStates = <
 >(options: BuildCandidateStatesOptions<I, O, ME, MR, E, R>) =>
   Effect.gen(function*() {
     const labeledBaseline = yield* Effect.gen(function*() {
-      yield* Module.load(options.module, options.initialState)
       const seed = Option.getOrElse(Arr.head(options.seeds), () => 0)
       const labels = labeledDemos(options.trainset)
-      const replacements = yield* Effect.forEach(collectModuleParamRefs(options.module), (entry) =>
-        Effect.forEach(labels, (demo) =>
-          entry.demonstrationCodec.decode(demo).pipe(Effect.option)).pipe(
+      const replacements = yield* Effect.forEach(
+        Arr.filter(Arr.fromIterable(predictors(options.module)), (entry) => entry.ownership !== "frozen"),
+        (entry) =>
+          Effect.forEach(labels, (demo) => entry.demonstrationCodec.decode(demo).pipe(Effect.option)).pipe(
             Effect.map((compatible) =>
               Tuple.make(
-                entry.params,
-                selectRandomDemos(Arr.getSomes(compatible), options.baselineLabeledCount, seed)
+                entry.id,
+                withModuleParamsDemos(
+                  Option.getOrThrow(Record.get(options.initialState, entry.id)),
+                  selectRandomDemos(Arr.getSomes(compatible), options.baselineLabeledCount, seed)
+                )
               )
             )
-          ))
-      yield* Effect.forEach(
-        replacements,
-        ([params, demos]) =>
-          Ref.update(params, (current) => withModuleParamsDemos(current, demos)),
-        { discard: true }
-      ).pipe(Effect.uninterruptible)
-      const state = yield* Module.save(options.module)
+          )
+      )
+      const state = { ...options.initialState, ...Record.fromEntries(replacements) }
 
       return new CandidateState({
         label: "labeled-few-shot",
@@ -278,10 +276,9 @@ export const buildCandidateStates = <
       options.seeds,
       (seed) =>
         Effect.gen(function*() {
-          yield* Module.load(options.module, options.initialState)
-          yield* bootstrapFewShot(
+          const optimized = yield* bootstrapFewShot(
             new BootstrapFewShotOptions({
-              module: options.module,
+              module: Module.bound(options.module, options.initialState),
               trainset: rotateExamples(options.trainset, seed),
               metric: options.metric,
               maxRounds: options.maxRounds,
@@ -308,11 +305,9 @@ export const buildCandidateStates = <
               })
             })
           )
-          const state = yield* Module.save(options.module)
-
           return new CandidateState({
             label: Str.concat("bootstrap-", Inspectable.toStringUnknown(seed)),
-            state
+            state: optimized.parameters
           })
         }),
       { concurrency: 1 }

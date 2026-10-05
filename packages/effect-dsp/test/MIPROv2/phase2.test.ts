@@ -337,10 +337,6 @@ describe("MIPROv2 Phase 2", () => {
           seed: 3
         })
       )
-      const rootSet = yield* requireSome(
-        Arr.findFirst(generated, (candidateSet) => String.Equivalence(candidateSet.predictorName, "pipeline")),
-        "missing root demo candidates"
-      )
       const childSet = yield* requireSome(
         Arr.findFirst(generated, (candidateSet) => String.Equivalence(candidateSet.predictorName, "analyzer")),
         "missing child demo candidates"
@@ -368,7 +364,7 @@ describe("MIPROv2 Phase 2", () => {
         new ProposeInstructionCandidatesOptions({
           module: root,
           trainset: trainingSet,
-          demoCandidates: Arr.make(rootSet, invalidChildSet),
+          demoCandidates: Arr.make(invalidChildSet),
           numInstructions: 2,
           seed: 5
         })
@@ -402,17 +398,13 @@ describe("MIPROv2 Phase 2", () => {
           numCandidates: 1
         })
       )
-      const rootSet = yield* requireSome(
-        Arr.findFirst(generated, (set) => String.Equivalence(set.predictorName, root.name)),
-        "missing root candidates"
-      )
       const childSet = yield* requireSome(
         Arr.findFirst(generated, (set) => String.Equivalence(set.predictorName, child.name)),
         "missing child candidates"
       )
-      const rootBaseline = yield* requireSome(Arr.head(rootSet.candidates), "missing root baseline")
+      const rootBaseline = yield* requireSome(Arr.head(childSet.candidates), "missing child baseline")
       const rootCandidate = new DemoCandidate({
-        predictorName: rootBaseline.predictorName,
+        predictorName: "wrong-owner",
         kind: rootBaseline.kind,
         params: new ModuleParameters({
           instructions: rootBaseline.params.instructions,
@@ -438,9 +430,9 @@ describe("MIPROv2 Phase 2", () => {
 
       yield* Effect.forEach(
         Arr.make(
-          Arr.make(rootSet, misboundChildSet),
-          Arr.make(rootSet, childSet, rootSet),
-          Arr.make(rootSet, childSet, unknownSet)
+          Arr.make(misboundChildSet),
+          Arr.make(childSet, childSet),
+          Arr.make(childSet, unknownSet)
         ),
         (demoCandidates) =>
           Effect.gen(function*() {
@@ -475,8 +467,8 @@ describe("MIPROv2 Phase 2", () => {
         })
       ).pipe(Effect.provideService(LanguageModel.LanguageModel, mock.service))
 
-      expect(Arr.map(proposals, (set) => set.predictorName)).toEqual(Arr.make(root.name, child.name))
-      expect(yield* Ref.get(mock.calls)).toHaveLength(2)
+      expect(Arr.map(proposals, (set) => set.predictorName)).toEqual(Arr.make(child.name))
+      expect(yield* Ref.get(mock.calls)).toHaveLength(1)
       expect(yield* Ref.get(root.params)).toBe(rootParams)
       expect(yield* Ref.get(child.params)).toBe(childParams)
     }))

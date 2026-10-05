@@ -55,6 +55,44 @@ const makeQaSignature = () =>
   )
 
 describe("Module.refine", () => {
+  it.effect("applies retry feedback to every composed leaf without changing the base", () =>
+    Effect.gen(function*() {
+      const signature = yield* makeQaSignature()
+      const first = yield* Module.predict("first", signature)
+      const second = yield* Module.predict("second", signature)
+      const inner = yield* Module.compose(
+        new Module.ComposeOptions({
+          name: "pipeline",
+          signature,
+          subModules: { first, second },
+          forward: ({ input }) => first.forward(input).pipe(Effect.andThen(second.forward(input)))
+        })
+      )
+      const before = yield* Module.save(inner)
+      const wrapper = yield* Module.refine(
+        new Module.RefineOptions({
+          name: "refined",
+          module: inner,
+          N: Module.RolloutCount.make(2),
+          threshold: 1,
+          reward: () => Effect.succeed(new Result({ score: 0, feedback: "Verify each claim" }))
+        })
+      )
+      const mock = yield* MockLanguageModel.make(MockLanguageModel.succeed({ answer: "answer" }))
+      yield* wrapper.forward({ question: "Question" }).pipe(
+        Effect.provideService(LanguageModel.LanguageModel, mock.service)
+      )
+      const calls = yield* Ref.get(mock.calls)
+      expect(calls).toHaveLength(4)
+      yield* Effect.forEach(Arr.take(calls, 2), (call) =>
+        Effect.sync(() => expect(call.prompt).not.toContain("Verify each claim")))
+      yield* Effect.forEach(Arr.drop(calls, 2), (call) =>
+        Effect.sync(() =>
+          expect(call.prompt).toContain("Verify each claim")
+        ))
+      expect(yield* Module.save(inner)).toEqual(before)
+    }))
+
   it.effect("discovers the executed wrapper, inner composition, and descendant", () =>
     Effect.gen(function*() {
       const signature = yield* makeQaSignature()
@@ -116,7 +154,6 @@ describe("Module.refine", () => {
         })
       )
       const saved = yield* Module.save(wrapper)
-      const original = yield* Ref.get(inner.params)
       yield* Ref.update(inner.params, (params) => withInstructions(params, "Changed pipeline"))
       yield* Ref.update(predictor.params, (params) => withInstructions(params, "Answer changed-city"))
       yield* Module.load(wrapper, saved)
@@ -130,7 +167,7 @@ describe("Module.refine", () => {
         Effect.provideService(LanguageModel.LanguageModel, model.service)
       )
       expect(result.answer).toBe("saved-city")
-      expect(yield* Ref.get(inner.params)).toEqual(original)
+      expect((yield* Ref.get(inner.params)).instructions).toBe("Changed pipeline")
       expect(yield* Ref.get(model.calls)).toHaveLength(2)
     }))
 

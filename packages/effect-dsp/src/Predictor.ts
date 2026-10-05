@@ -26,6 +26,7 @@ export type Ownership = typeof Ownership.Type
  */
 export class Ref extends Data.Class<{
   readonly id: Id
+  readonly name: string
   readonly aliases: Chunk.Chunk<Id>
   readonly ownership: Ownership
   readonly signature: NodeSignature

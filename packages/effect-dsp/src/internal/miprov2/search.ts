@@ -13,6 +13,8 @@ import * as Evaluate from "../../Evaluate.js"
 import { projectSingleObjective } from "../../EvaluationObjective.js"
 import type { Examples } from "../../MIPROv2.js"
 import { Diagnostics, noEvents, type Options, Result } from "../../MIPROv2Search.js"
+import { bound } from "../../Module.js"
+import * as ParameterSet from "../../ParameterSet.js"
 import { makeTrialRefs } from "./phase3State.js"
 import {
   normalizePositive,
@@ -20,12 +22,12 @@ import {
   resolvePhase3Cadence
 } from "./runtime/budget.js"
 import {
-  applyPhase3Config,
-  ApplyPhase3ConfigOptions,
   evaluateBaseline,
   EvaluateBaselineOptions,
   evaluateTrial,
-  EvaluateTrialOptions
+  EvaluateTrialOptions,
+  parametersForConfig,
+  ParametersForConfigOptions
 } from "./runtime/evaluate.js"
 import { demoDimensionName, instructionDimensionName, type Phase3Config } from "./runtime/model.js"
 import {
@@ -50,9 +52,8 @@ import {
  *
  * Full-set checkpoints evaluate the best minibatch candidate seen so far and
  * update `diagnostics.bestScore`. They do not replace the objective reported to
- * TPE. The optimization's best trial is applied to the supplied module after
- * search. Parameter writes are sequential and are not rolled back after
- * failure or interruption.
+ * TPE. The optimization's best trial is returned as an immutable parameter
+ * snapshot bound to a program copy. Caller refs never change.
  *
  * Missing candidate sets, unsupported dimension sizes, malformed sampled
  * indexes, and an empty winning result fail with `AllTrialsFailed`. Failures
@@ -65,7 +66,7 @@ import {
  * language-model error channels.
  *
  * @param options - Module, validation set, candidate sets, metric, and search settings.
- * @returns The supplied module, raw optimization result, and a diagnostic snapshot.
+ * @returns A bound program, parameters, raw optimization result, and diagnostics.
  * @typeParam I - Input fields accepted by the evaluated module.
  * @typeParam O - Output fields scored by the configured metric.
  * @typeParam ME - Expected failure from the configured metric.
@@ -138,11 +139,12 @@ export const runPhase3Search = <
       1
     )
     const minibatchExamples = Arr.take(options.valset, cadence.minibatchSize)
+    const initialParameters = yield* ParameterSet.snapshot(options.module)
     const refs = yield* makeTrialRefs
     const evaluateOn = (config: Phase3Config, examples: Examples) =>
       Effect.gen(function*() {
-        yield* applyPhase3Config(
-          new ApplyPhase3ConfigOptions({
+        const parameters = yield* parametersForConfig(
+          new ParametersForConfigOptions({
             config,
             bindings,
             trialBudget
@@ -151,7 +153,7 @@ export const runPhase3Search = <
 
         const report = yield* Evaluate.run(
           new Evaluate.Options({
-            module: options.module,
+            module: bound(options.module, parameters),
             examples,
             metrics: {
               miprov2: options.metric
@@ -206,8 +208,8 @@ export const runPhase3Search = <
 
     const bestConfig = yield* resolveBestConfig(optimizationResult, trialBudget)
 
-    yield* applyPhase3Config(
-      new ApplyPhase3ConfigOptions({
+    const selectedParameters = yield* parametersForConfig(
+      new ParametersForConfigOptions({
         config: bestConfig,
         bindings,
         trialBudget
@@ -220,7 +222,8 @@ export const runPhase3Search = <
       baselineObjective)
 
     return new Result<I, O, E, R>({
-      module: options.module,
+      program: bound(options.module, { ...initialParameters, ...selectedParameters }),
+      parameters: { ...initialParameters, ...selectedParameters },
       optimizationResult,
       diagnostics: new Diagnostics({
         dimensionNames: Arr.flatMap(

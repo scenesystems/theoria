@@ -14,9 +14,10 @@ import {
   Number as Num,
   Option,
   Predicate,
-  Ref,
+  Record,
   Schema,
-  String
+  String,
+  Tuple
 } from "effect"
 import type * as LanguageModel from "effect/ai/LanguageModel"
 import type * as Layer from "effect/Layer"
@@ -25,7 +26,7 @@ import { Demonstration as Demo } from "../../../Demonstration.js"
 import { BootstrapFailed } from "../../../DspError.js"
 import type { Example } from "../../../Example.js"
 import type { Metric } from "../../../Metric.js"
-import type { Module } from "../../../Module.js"
+import { type Module, withParameters } from "../../../Module.js"
 import {
   withDemos as withModuleParamsDemos,
   withDemosAndInstructions as withModuleParamsDemosAndInstructions
@@ -217,30 +218,19 @@ export const bootstrapRound = <I extends Schema.Struct.Fields, O extends Schema.
 ) =>
   Effect.gen(function*() {
     yield* options.emit(events.RoundStarted({ round: options.state.round, maxRounds: options.maxRounds }))
-    const round = yield* Effect.acquireUseRelease(
-      Effect.forEach(options.state.predictors, (predictor) =>
-        Ref.get(predictor.owner.params).pipe(
-          Effect.map((params) => new PredictorDemos({ owner: predictor.owner, params }))
-        )),
-      () =>
-        Effect.gen(function*() {
-          yield* Effect.forEach(options.state.predictors, (predictor) =>
-            Ref.set(
-              predictor.owner.params,
-              withModuleParamsDemosAndInstructions(
-                predictor.params,
-                predictor.params.demos,
-                roundInstructions(predictor.params.instructions, options.state.round)
-              )
-            ), { discard: true })
-          return aggregateRound(
-            yield* Effect.forEach(options.trainset, (example) => evaluateExample(options, example), {
-              concurrency: "unbounded"
-            })
-          )
-        }),
-      (snapshots) =>
-        Effect.forEach(snapshots, (snapshot) => Ref.set(snapshot.owner.params, snapshot.params), { discard: true })
+    const parameters = Record.fromEntries(Arr.map(options.state.predictors, (predictor) =>
+      Tuple.make(
+        predictor.owner.id,
+        withModuleParamsDemosAndInstructions(
+          predictor.params,
+          predictor.params.demos,
+          roundInstructions(predictor.params.instructions, options.state.round)
+        )
+      )))
+    const round = aggregateRound(
+      yield* Effect.forEach(options.trainset, (example) => evaluateExample(options, example), {
+        concurrency: "unbounded"
+      }).pipe(withParameters(parameters))
     )
     const predictors = yield* Effect.forEach(options.state.predictors, (predictor) =>
       mergeAcceptedDemos(
@@ -259,10 +249,6 @@ export const bootstrapRound = <I extends Schema.Struct.Fields, O extends Schema.
           params: withModuleParamsDemos(predictor.params, merged.demos)
         })
       )))
-    yield* Effect.forEach(predictors, (predictor) => Ref.set(predictor.owner.params, predictor.params), {
-      discard: true
-    })
-      .pipe(Effect.uninterruptible)
     yield* options.emit(
       events.RoundCompleted({ round: options.state.round, demosCollected: demoCount(predictors) })
     )

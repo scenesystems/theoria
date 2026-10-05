@@ -11,7 +11,20 @@ import { ModuleParameters } from "@scenesystems/effect-dsp/ModuleParameters"
 import * as Signature from "@scenesystems/effect-dsp/Signature"
 import * as OptimizationStorage from "@scenesystems/effect-search/OptimizationStorage"
 import { Failure as ArtifactStorageError } from "@scenesystems/effect-study/Journal"
-import { Array as Arr, Context, Deferred, Effect, Equal, Exit, Fiber, Number, Ref, Schema } from "effect"
+import {
+  Array as Arr,
+  Context,
+  Deferred,
+  Effect,
+  Equal,
+  Exit,
+  Fiber,
+  Number,
+  Option,
+  Record,
+  Ref,
+  Schema
+} from "effect"
 import * as LanguageModel from "effect/ai/LanguageModel"
 import type { Services as EffectServices } from "effect/Effect"
 
@@ -105,7 +118,7 @@ describe("BootstrapRS.run transactional restoration", () => {
       expect(Equal.equals(failure, storageFailure)).toBe(true)
       expect(yield* Module.save(module)).toEqual(original)
       expect((yield* Ref.get(child.params)).demos).toEqual(
-        (yield* Effect.fromOption(Arr.last(original.modules))).params.demos
+        Option.getOrThrow(Record.get(original.parameters, "root.child")).demos
       )
     }))
 
@@ -133,13 +146,8 @@ describe("BootstrapRS.run transactional restoration", () => {
           Effect.forkScoped
         )
       yield* Deferred.await(entered)
-      expect((yield* Ref.get(module.params)).demos).toHaveLength(1)
-      expect((yield* Ref.get(child.params)).demos).toEqual(Arr.make(
-        new Demonstration({
-          input: { question: "new" },
-          output: { answer: "answer" }
-        })
-      ))
+      expect(yield* Ref.get(module.params)).toBe(originalRoot)
+      expect(yield* Ref.get(child.params)).toBe(originalChild)
       yield* Fiber.interrupt(fiber)
       const exit = yield* Fiber.await(fiber)
 
@@ -153,23 +161,23 @@ describe("BootstrapRS.run transactional restoration", () => {
       const { module, child } = yield* makeTree
       const original = yield* Module.save(module)
       const mock = yield* MockLanguageModel.make(MockLanguageModel.succeed({ answer: "answer" }))
-      const metric = Metric.fromEffect("demo-count", (_prediction: typeof Output.Type) =>
-        Ref.get(module.params).pipe(Effect.map((params) =>
-          new Metric.Result({ score: Arr.length(params.demos) })
+      const calls = yield* Ref.make(0)
+      const metric = Metric.fromEffect("candidate-score", (_prediction: typeof Output.Type) =>
+        Ref.updateAndGet(calls, Number.increment).pipe(Effect.map((score) =>
+          new Metric.Result({ score })
         )))
       const optimized = yield* BootstrapRS.run(new BootstrapRS.Options({ module, trainset, metric, numCandidates: 0 }))
         .pipe(
           Effect.provideService(LanguageModel.LanguageModel, mock.service)
         )
-      const selected = yield* Ref.get(optimized.params)
+      const selected = Option.getOrThrow(Record.get(optimized.parameters, "root.child"))
 
-      expect(optimized).toBe(module)
+      expect(optimized.program).not.toBe(module)
       expect(selected.demos).toEqual(
         Arr.make(new Demonstration({ input: { question: "new" }, output: { answer: "answer" } }))
       )
-      expect((yield* Ref.get(child.params)).demos).toEqual(selected.demos)
-      expect(yield* Module.save(module)).not.toEqual(original)
-      expect(selected.temperature).toBe(0.7)
+      expect(yield* Module.save(module)).toEqual(original)
+      expect(selected.temperature).toBe(0.3)
       expect((yield* Ref.get(child.params)).maxTokens).toBe(11)
     }))
 })

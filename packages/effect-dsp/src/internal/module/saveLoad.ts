@@ -1,127 +1,30 @@
 /**
- * Snapshots of module parameter ownership trees.
- *
+ * Effective leaf-predictor snapshots and validated installation.
  * @since 0.1.0
  */
-import { Array as Arr, Boolean, Data, Effect, HashMap, Option, Ref, Schema } from "effect"
+import { Array as Arr, Boolean, Effect, Option, Record, Schema } from "effect"
 import { SaveLoadError } from "../../DspError.js"
-import { SavedState } from "../../Module.js"
+import { install, SavedState } from "../../Module.js"
 import type { Module } from "../../Module.js"
-import type { ModuleParameters } from "../../ModuleParameters.js"
-import { collectModuleParamRefs, type ModuleParamRef } from "../moduleParameters.js"
-
-const decodeSavedState = (input: unknown) =>
-  Schema.decodeUnknownEffect(SavedState)(input).pipe(
-    Effect.mapError(
-      () =>
-        new SaveLoadError({
-          message: "Saved state failed schema validation",
-          operation: "load"
-        })
-    )
-  )
-
-const entryRecord = (entries: SavedState["modules"]) =>
-  Effect.reduce(
-    entries,
-    () => HashMap.empty<string, ModuleParameters>(),
-    (state, entry) =>
-      Boolean.match(HashMap.has(state, entry.name), {
-        onTrue: () =>
-          Effect.fail(
-            new SaveLoadError({
-              message: Arr.join(Arr.make("Saved state has duplicate module entry '", entry.name, "'"), ""),
-              operation: "load"
-            })
-          ),
-        onFalse: () => Effect.succeed(HashMap.set(state, entry.name, entry.params))
-      })
-  )
-
-const refsRecord = (refs: Iterable<ModuleParamRef>) =>
-  Effect.reduce(
-    refs,
-    () => HashMap.empty<string, Ref.Ref<ModuleParameters>>(),
-    (state, ref) =>
-      Boolean.match(HashMap.has(state, ref.name), {
-        onTrue: () =>
-          Effect.fail(
-            new SaveLoadError({
-              message: Arr.join(Arr.make("Multiple target module owners share name '", ref.name, "'"), ""),
-              operation: "load"
-            })
-          ),
-        onFalse: () => Effect.succeed(HashMap.set(state, ref.name, ref.params))
-      })
-  )
-
-class ParameterUpdate extends Data.Class<{
-  readonly ref: Ref.Ref<ModuleParameters>
-  readonly params: ModuleParameters
-}> {}
+import { predictors } from "../../ModuleGraph.js"
+import * as ParameterSet from "../../ParameterSet.js"
 
 /**
- * Reads the root and owned child parameters into a snapshot.
- *
- * @remarks
- * Traversal is depth-first, with siblings sorted by module name. Each Ref is
- * read separately, so callers must prevent concurrent parameter updates when
- * they require a point-in-time snapshot of the complete tree. The result omits
- * metadata.
- *
- * @typeParam I - Root module input fields.
- * @typeParam O - Root module output fields.
- * @param module - Root of the parameter tree to snapshot.
- * @returns Current parameter values in canonical ownership order.
- *
- * @see {@link load}
- * @see {@link SavedState}
- *
+ * Reads effective parameters, including bound defaults and invocation overlays.
+ * Shared leaves are stored once under their canonical path; non-predictor roots
+ * have no persistence entry. Optional caller metadata is omitted.
  * @since 0.1.0
  * @category constructors
  */
 export const save = <I extends Schema.Struct.Fields, O extends Schema.Struct.Fields, E, R>(
   module: Module<I, O, E, R>
-) =>
-  Effect.gen(function*() {
-    const refs = collectModuleParamRefs(module)
-    const modules = yield* Effect.forEach(refs, (entry) =>
-      Ref.get(entry.params).pipe(
-        Effect.map((params) => ({
-          name: entry.name,
-          params
-        }))
-      ))
-
-    return new SavedState({
-      modules
-    })
-  })
+) => ParameterSet.snapshot(module).pipe(Effect.map((parameters) => new SavedState({ parameters })))
 
 /**
- * Restores a module parameter tree from saved state.
- *
- * @remarks
- * Accepts a {@link SavedState} or an unknown value that decodes as
- * one. Before writing, it rejects duplicate names, unknown names, and missing
- * target names, and validates every demo against its destination's encoded
- * schemas, rejecting excess fields. Validated refs are updated in canonical target
- * order without interruption, so validation failure and cancellation before
- * the write phase leave the tree unchanged.
- *
- * Compatibility is by module name, envelope, and demonstration schemas, not
- * object identity or composition alias. Metadata is ignored. Concurrent writes by other effects
- * are not coordinated.
- *
- * @typeParam I - Root module input fields.
- * @typeParam O - Root module output fields.
- * @param module - Target parameter tree.
- * @param state - Candidate serialized envelope.
- * @returns Completion after every target Ref contains its matching saved value.
- *
- * @see {@link save}
- * @see {@link SavedState}
- *
+ * Validates every predictor path and demonstration before explicit installation.
+ * Unknown paths (including non-predictor roots), missing paths, and invalid
+ * demonstrations fail without writing any ref. Metadata does not affect loading.
+ * Installation is uninterruptible; concurrent explicit installations are not coordinated.
  * @since 0.1.0
  * @category constructors
  */
@@ -130,54 +33,35 @@ export const load = <I extends Schema.Struct.Fields, O extends Schema.Struct.Fie
   state: unknown
 ) =>
   Effect.gen(function*() {
-    const decoded = yield* decodeSavedState(state)
-    const refs = collectModuleParamRefs(module)
-    const savedByName = yield* entryRecord(decoded.modules)
-    const targetByName = yield* refsRecord(refs)
-
-    yield* Effect.forEach(
-      HashMap.keys(savedByName),
-      (savedName) =>
-        Boolean.match(HashMap.has(targetByName, savedName), {
-          onTrue: () => Effect.void,
-          onFalse: () =>
-            Effect.fail(
-              new SaveLoadError({
-                message: Arr.join(Arr.make("Saved state contains unknown module '", savedName, "'"), ""),
-                operation: "load"
-              })
-            )
-        }),
-      { discard: true }
+    const decoded = yield* Schema.decodeUnknownEffect(SavedState)(state).pipe(
+      Effect.mapError(() => new SaveLoadError({ message: "Saved state failed schema validation", operation: "load" }))
     )
-
-    const updates = yield* Effect.forEach(
-      refs,
-      (target) =>
-        Option.match(HashMap.get(savedByName, target.name), {
-          onNone: () =>
-            Effect.fail(
-              new SaveLoadError({
-                message: Arr.join(Arr.make("Saved state is missing params for module '", target.name, "'"), ""),
-                operation: "load"
-              })
-            ),
-          onSome: (params) =>
-            Effect.forEach(params.demos, target.demonstrationCodec.decode, { discard: true }).pipe(
-              Effect.mapError(() =>
-                new SaveLoadError({
-                  message: Arr.join(Arr.make("Saved demonstrations do not match module '", target.name, "'"), ""),
-                  operation: "load"
-                })
-              ),
-              Effect.as(new ParameterUpdate({ ref: target.params, params }))
-            )
+    const targets = Arr.fromIterable(predictors(module))
+    yield* Effect.forEach(Record.keys(decoded.parameters), (id) =>
+      Effect.fail(
+        new SaveLoadError({
+          message: `Saved state contains unknown predictor path '${id}'`,
+          operation: "load"
         })
-    )
-
-    yield* Effect.forEach(
-      updates,
-      (update) => Ref.set(update.ref, update.params),
-      { discard: true }
-    ).pipe(Effect.uninterruptible)
+      ).pipe(Effect.when(Effect.succeed(Boolean.not(Arr.some(targets, (entry) => entry.id === id))))))
+    yield* Effect.forEach(targets, (target) =>
+      Option.match(Record.get(decoded.parameters, target.id), {
+        onNone: () =>
+          Effect.fail(
+            new SaveLoadError({
+              message: `Saved state is missing params for predictor '${target.id}'`,
+              operation: "load"
+            })
+          ),
+        onSome: (params) =>
+          Effect.forEach(params.demos, target.demonstrationCodec.decode, { discard: true }).pipe(
+            Effect.mapError(() =>
+              new SaveLoadError({
+                message: `Saved demonstrations do not match predictor '${target.id}'`,
+                operation: "load"
+              })
+            )
+          )
+      }))
+    yield* install(module, decoded.parameters)
   })

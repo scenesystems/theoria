@@ -8,14 +8,14 @@
 import { Array as Arr, Data, Number, Schema } from "effect"
 import { Demonstration as Demo } from "../../../Demonstration.js"
 import type { ModuleParameters } from "../../../ModuleParameters.js"
-import type { ModuleParamRef } from "../../moduleParameters.js"
+import type * as Predictor from "../../../Predictor.js"
 
 export const defaultBootstrapThreshold = 1
 
 export const defaultBootstrapFallbackDemoCount = 3
 
 export class PredictorDemos extends Data.Class<{
-  readonly owner: ModuleParamRef
+  readonly owner: Predictor.Ref
   readonly params: ModuleParameters
 }> {}
 
@@ -55,7 +55,7 @@ export class DemoMerge extends Data.Class<{
 export class BootstrapState extends Data.Class<{
   readonly round: number
   readonly roundsAttempted: number
-  readonly predictors: Arr.NonEmptyReadonlyArray<PredictorDemos>
+  readonly predictors: ReadonlyArray<PredictorDemos>
   readonly totalTraces: number
   readonly acceptedTraces: number
   readonly rejectedTraces: number

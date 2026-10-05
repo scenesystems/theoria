@@ -111,7 +111,6 @@ describe("Module.bestOfN", () => {
         })
       )
       const saved = yield* Module.save(wrapper)
-      const original = yield* Ref.get(inner.params)
       yield* Ref.update(inner.params, (params) => withInstructions(params, "Changed pipeline"))
       yield* Ref.update(predictor.params, (params) => withInstructions(params, "Answer changed-city"))
       yield* Module.load(wrapper, saved)
@@ -125,7 +124,7 @@ describe("Module.bestOfN", () => {
         Effect.provideService(LanguageModel.LanguageModel, model.service)
       )
       expect(result.answer).toBe("saved-city")
-      expect(yield* Ref.get(inner.params)).toEqual(original)
+      expect((yield* Ref.get(inner.params)).instructions).toBe("Changed pipeline")
     }))
 
   it.effect("rejects a wrapper identity that collides with the inner owner", () =>

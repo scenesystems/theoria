@@ -10,7 +10,7 @@ import * as MockLanguageModel from "@scenesystems/effect-dsp/MockLanguageModel"
 import * as Module from "@scenesystems/effect-dsp/Module"
 import { ModuleParameters } from "@scenesystems/effect-dsp/ModuleParameters"
 import * as Signature from "@scenesystems/effect-dsp/Signature"
-import { Array as Arr, Effect, Layer, Ref, Schema } from "effect"
+import { Array as Arr, Effect, Layer, Option, Record, Ref, Schema } from "effect"
 import * as LanguageModel from "effect/ai/LanguageModel"
 
 const trainset = Arr.make(
@@ -71,7 +71,7 @@ describe("integration/predict-optimize-evaluate", () => {
         })
       ).pipe(Effect.provide(layer))
 
-      yield* BootstrapFewShot.run(
+      const compiled = yield* BootstrapFewShot.run(
         new BootstrapFewShot.Options({
           module,
           trainset,
@@ -85,7 +85,7 @@ describe("integration/predict-optimize-evaluate", () => {
 
       const optimizedReport = yield* Evaluate.run(
         new Evaluate.Options({
-          module,
+          module: compiled.program,
           examples: trainset,
           metrics: {
             exactMatch: Metric.exactMatch("answer")
@@ -94,8 +94,8 @@ describe("integration/predict-optimize-evaluate", () => {
         })
       ).pipe(Effect.provide(layer))
 
-      const optimizedParams = yield* Ref.get(module.params)
-      const prediction = yield* module.forward({ question: "What is the capital of France?" }).pipe(
+      const optimizedParams = Option.getOrThrow(Record.get(compiled.parameters, module.name))
+      const prediction = yield* compiled.program.forward({ question: "What is the capital of France?" }).pipe(
         Effect.provide(layer)
       )
       const calls = yield* Ref.get(mock.calls)

@@ -36,6 +36,7 @@ export const predictors = (root: ComposableModule): Chunk.Chunk<Predictor.Ref> =
       ? [
         new Predictor.Ref({
           id: path,
+          name: node.name,
           aliases: Chunk.empty(),
           ownership: excluded ? "frozen" : "owned",
           signature: node.signature,
@@ -51,6 +52,7 @@ export const predictors = (root: ComposableModule): Chunk.Chunk<Predictor.Ref> =
     return Arr.map(leaves, (entry) =>
       new Predictor.Ref({
         id: entry.id,
+        name: entry.name,
         aliases: entry.aliases,
         ownership: entry.ownership,
         signature: entry.signature,
@@ -88,6 +90,7 @@ export const predictors = (root: ComposableModule): Chunk.Chunk<Predictor.Ref> =
         Arr.map(owners, (owner, position) =>
           position !== index ? owner : new Predictor.Ref({
             id: owner.id,
+            name: owner.name,
             aliases: Chunk.append(owner.aliases, entry.id),
             ownership: owner.ownership === "frozen" || entry.ownership === "frozen" ? "frozen" : "shared",
             signature: owner.signature,

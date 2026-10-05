@@ -36,7 +36,6 @@ import {
   Ref,
   Result,
   Schema,
-  Stream,
   String as Str
 } from "effect"
 import { liveTeacherLayer, withLiveLanguageModel } from "./shared/live-provider-runtime.js"
@@ -678,7 +677,7 @@ const program = Effect.gen(function*() {
     protocolAdjustment: demonstrationTurn.protocolAdjustment
   })
 
-  const panelParamsBeforeGEPA = yield* Ref.get(methodsPanel.params)
+  const panelParamsBeforeGEPA = yield* Ref.get(protocolPlanner.params)
 
   // Evaluate baseline protocol quality.
   yield* logExampleStage("baseline-evaluation-started", {
@@ -702,7 +701,8 @@ const program = Effect.gen(function*() {
     seed: 140
   })
 
-  const gepaEventsChunk = yield* GEPA.stream(
+  const gepaLog = yield* Ref.make(Arr.empty<GEPA.Event>())
+  const compiled = yield* GEPA.runWithEvents(
     new GEPA.Options({
       module: methodsPanel,
       trainset,
@@ -711,11 +711,13 @@ const program = Effect.gen(function*() {
       maxIterations: 4,
       maxMergeInvocations: 4,
       seed: 140
-    })
-  ).pipe(
-    GEPA.tapProgress((line) => logExampleEvent("gepa", line.text)),
-    Stream.runCollect
+    }),
+    (event) =>
+      Ref.update(gepaLog, Arr.append(event)).pipe(
+        Effect.andThen(logExampleEvent("gepa", GEPA.formatEvent(event).text))
+      )
   )
+  yield* Module.install(methodsPanel, compiled.parameters)
 
   const optimized = yield* Evaluate.run(
     new Evaluate.Options({
@@ -726,19 +728,22 @@ const program = Effect.gen(function*() {
     })
   )
 
-  const gepaEvents = Arr.fromIterable(gepaEventsChunk)
+  const gepaEvents = yield* Ref.get(gepaLog)
   const gepaEventSummary = GEPA.summarizeEvents(gepaEvents)
-  const panelParamsAfterGEPA = yield* Ref.get(methodsPanel.params)
+  const panelParamsAfterGEPA = yield* Ref.get(protocolPlanner.params)
 
   const baselineScore = baseline.overallScores.protocolFit ?? 0
   const optimizedScore = optimized.overallScores.protocolFit ?? 0
-  const gepaOutcome = GEPA.summarizeOutcome({
-    baselineScore,
-    optimizedScore,
-    instructionBefore: panelParamsBeforeGEPA.instructions,
-    instructionAfter: panelParamsAfterGEPA.instructions,
-    events: gepaEventSummary
-  })
+  const gepaOutcome = {
+    baselineExactMatch: baselineScore,
+    optimizedExactMatch: optimizedScore,
+    scoreDelta: Num.subtract(optimizedScore, baselineScore),
+    instructionChanged: Bool.not(
+      Str.Equivalence(panelParamsBeforeGEPA.instructions, panelParamsAfterGEPA.instructions)
+    ),
+    instructionLengthBeforeOptimization: Str.length(panelParamsBeforeGEPA.instructions),
+    instructionLengthAfterOptimization: Str.length(panelParamsAfterGEPA.instructions)
+  }
 
   yield* logExampleStage("gepa-summary", {
     baselineProtocolFit: gepaOutcome.baselineExactMatch,
@@ -747,10 +752,10 @@ const program = Effect.gen(function*() {
     instructionChanged: gepaOutcome.instructionChanged,
     instructionLengthBeforeOptimization: gepaOutcome.instructionLengthBeforeOptimization,
     instructionLengthAfterOptimization: gepaOutcome.instructionLengthAfterOptimization,
-    optimizationBestCandidateId: gepaOutcome.eventSummary.optimizationBestCandidateId,
-    optimizationFrontierSize: gepaOutcome.eventSummary.optimizationFrontierSize,
-    acceptanceAcceptedCount: gepaOutcome.eventSummary.acceptanceAcceptedCount,
-    gate1PassedCount: gepaOutcome.eventSummary.gate1PassedCount
+    optimizationBestCandidateId: gepaEventSummary.optimizationBestCandidateId,
+    optimizationFrontierSize: gepaEventSummary.optimizationFrontierSize,
+    acceptanceAcceptedCount: gepaEventSummary.acceptanceAcceptedCount,
+    gate1PassedCount: gepaEventSummary.gate1PassedCount
   })
 
   const protocolPriorTurn = yield* methodsPanel.forward({

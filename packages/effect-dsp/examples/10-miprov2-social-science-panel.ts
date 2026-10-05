@@ -14,7 +14,7 @@
  */
 import { BunRuntime, BunServices } from "@effect/platform-bun"
 import { BootstrapFewShot, Evaluate, Example, Metric, MIPROv2, Module, Signature } from "@scenesystems/effect-dsp"
-import { Array as Arr, Effect, Layer, Ref, Schema, Stream } from "effect"
+import { Array as Arr, Effect, Layer, Ref, Schema } from "effect"
 import {
   makeStandardEvents,
   makeStandardModuleState,
@@ -200,7 +200,8 @@ const program = Effect.gen(function*() {
     maxBootstrappedDemos: 3
   })
 
-  const bootstrapEventsChunk = yield* BootstrapFewShot.stream(
+  const bootstrapLog = yield* Ref.make(Arr.empty<BootstrapFewShot.Event>())
+  const bootstrapped = yield* BootstrapFewShot.runWithEvents(
     new BootstrapFewShot.Options({
       module: planner,
       trainset,
@@ -209,12 +210,14 @@ const program = Effect.gen(function*() {
       maxBootstrappedDemos: 3,
       threshold: 1,
       teacher: teacherLayer
-    })
-  ).pipe(
-    BootstrapFewShot.tapProgress((line) => logExampleEvent("bootstrapFewShot", line.text)),
-    Stream.runCollect
+    }),
+    (event) =>
+      Ref.update(bootstrapLog, Arr.append(event)).pipe(
+        Effect.andThen(logExampleEvent("bootstrapFewShot", BootstrapFewShot.formatEvent(event).text))
+      )
   )
-  const bootstrapEvents = Arr.fromIterable(bootstrapEventsChunk)
+  yield* Module.install(planner, bootstrapped.parameters)
+  const bootstrapEvents = yield* Ref.get(bootstrapLog)
   const bootstrapSummary = BootstrapFewShot.summarizeEvents(bootstrapEvents)
 
   yield* logExampleStage("bootstrap-warm-start-completed", {
@@ -237,7 +240,8 @@ const program = Effect.gen(function*() {
     seed: 17
   })
 
-  const miproEventsChunk = yield* MIPROv2.stream(
+  const miproLog = yield* Ref.make(Arr.empty<MIPROv2.Event>())
+  const compiled = yield* MIPROv2.runWithEvents(
     new MIPROv2.Options({
       module: planner,
       trainset,
@@ -247,13 +251,14 @@ const program = Effect.gen(function*() {
       numInstructions: 4,
       trialBudget: 6,
       seed: 17
-    })
-  ).pipe(
-    MIPROv2.tapProgress((line) => logExampleEvent("miprov2", line.text)),
-    Stream.runCollect
+    }),
+    (event) =>
+      Ref.update(miproLog, Arr.append(event)).pipe(
+        Effect.andThen(logExampleEvent("miprov2", MIPROv2.formatEvent(event).text))
+      )
   )
-
-  const miproEvents = Arr.fromIterable(miproEventsChunk)
+  yield* Module.install(planner, compiled.parameters)
+  const miproEvents = yield* Ref.get(miproLog)
   const miproEventSummary = MIPROv2.summarizeEvents(miproEvents)
   const optimized = yield* Evaluate.run(
     new Evaluate.Options({
@@ -267,13 +272,15 @@ const program = Effect.gen(function*() {
 
   const baselineScore = baseline.overallScores.exactMatch ?? 0
   const optimizedScore = optimized.overallScores.exactMatch ?? 0
-  const outcomeSummary = MIPROv2.summarizeOutcome({
-    baselineScore,
-    optimizedScore,
-    demoCountBefore: baselineParams.demos.length,
-    demoCountAfter: optimizedParams.demos.length,
-    events: miproEventSummary
-  })
+  const outcomeSummary = {
+    eventSummary: miproEventSummary,
+    baselineExactMatch: baselineScore,
+    optimizedExactMatch: optimizedScore,
+    scoreDelta: optimizedScore - baselineScore,
+    demoCountBeforeOptimization: baselineParams.demos.length,
+    demoCountAfterOptimization: optimizedParams.demos.length,
+    demosLearnedDuringMIPROv2: optimizedParams.demos.length - baselineParams.demos.length
+  }
   const plannerSavedState = yield* Module.save(planner)
   const summaryArtifact = makeStandardSummary({
     exampleName: EXAMPLE_NAME,
