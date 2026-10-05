@@ -26,6 +26,9 @@ const encodeScalar = Schema.encodeUnknownResult(
   Schema.fromJsonString(Schema.Union([Schema.Null, Schema.Boolean, Schema.Finite, Schema.String]))
 )
 const encodeString = Schema.encodeResult(Schema.fromJsonString(Schema.String))
+// Intrinsic view classification also covers cross-realm and future typed arrays,
+// without reading user properties, Symbol.toStringTag, or Hash/Equal hooks.
+const isBufferView = Schema.is(Schema.declare((value): value is ArrayBufferView => ArrayBuffer.isView(value)))
 const isNaN = Predicate.and(Predicate.isNumber, (value: number) => !Equivalence.strictEqual<number>()(value, value))
 const isFinite = Schema.is(Schema.Finite)
 const isHighSurrogate = N.between({ minimum: 0xd800, maximum: 0xdbff })
@@ -72,7 +75,7 @@ const makeVisit = <E>(state: State<E>): (value: unknown) => void =>
     Match.when(Predicate.isSymbol, () => reject(state, "symbol")),
     Match.when(Predicate.isDate, () => reject(state, "date")),
     Match.when(Predicate.isRegExp, () => reject(state, "regexp")),
-    Match.when(Predicate.isUint8Array, () => reject(state, "typed-array")),
+    Match.when(isBufferView, () => reject(state, "typed-array")),
     Match.when(Predicate.isMap, () => reject(state, "map")),
     Match.when(Predicate.isSet, () => reject(state, "set")),
     Match.when(Predicate.isPromise, () => reject(state, "promise")),
