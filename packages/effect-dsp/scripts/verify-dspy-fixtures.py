@@ -1,8 +1,4 @@
-#!/usr/bin/env -S uv run --script
-# /// script
-# requires-python = ">=3.12"
-# dependencies = ["dspy==3.4.0", "gepa==0.1.4", "optuna==4.9.0"]
-# ///
+#!/usr/bin/env -S uv run --locked
 """Re-execute the pinned reference; verify every payload hash without writing."""
 
 import logging

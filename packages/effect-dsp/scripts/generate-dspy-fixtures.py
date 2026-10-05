@@ -1,9 +1,5 @@
-#!/usr/bin/env -S uv run --script
-# /// script
-# requires-python = ">=3.12"
-# dependencies = ["dspy==3.4.0", "gepa==0.1.4", "optuna==4.9.0"]
-# ///
-"""Offline upstream execution. Run from any directory; --check never writes."""
+#!/usr/bin/env -S uv run --locked
+"""Offline upstream execution in the repository's pinned uv project; --check never writes."""
 
 import argparse
 import logging

@@ -22,8 +22,6 @@ jobs:
     name: Pinned DSPy and Optuna evidence
     runs-on: ubuntu-latest
     timeout-minutes: 15
-    env:
-      UV_PYTHON: "3.12.14"
     steps:
       - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
       - uses: astral-sh/setup-uv@d0d8abe699bfb85fec6de9f7adb5ae17292296ff # v6

@@ -127,7 +127,7 @@
       "id": "miprov2-medium-001",
       "file": "upstream/miprov2-medium-001.json",
       "evidence": "upstream-execution",
-      "sha256": "7e3103d60054edec444a2916ffa1911a96fb19c57793facfeb919a5f74474f72",
+      "sha256": "843819c7f98cd98be02d3222a5fa08a17fd06f38e3887d67141fd5f8c4a85a56",
       "generator": "fixtures.mipro_v2",
       "description": "Real MIPRO compile phases, Optuna params and validation checkpoints."
     },

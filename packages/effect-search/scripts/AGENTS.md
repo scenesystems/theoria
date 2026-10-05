@@ -6,7 +6,7 @@ alwaysApply: true
 
 # effect-search/scripts
 
-Scripts for fixture generation, verification, and schema checking. Python scripts use [uv](https://docs.astral.sh/uv/) with PEP 723 inline metadata — never invoke `python3` directly.
+Scripts for fixture generation, verification, and schema checking. Python scripts use `uv run --locked` with the repository-root `pyproject.toml`, `uv.lock`, and `.python-version` — never invoke `python3` directly.
 
 The Python fixture generator and its family modules are the authoritative Optuna reference implementation. The TypeScript/JavaScript Effect mandate applies to TS tooling; it does not require rewriting the Python generator.
 
@@ -27,7 +27,7 @@ Run all commands from `effect-search/`.
 - `generate-optuna-fixtures.py` — orchestrator; imports family modules, writes JSON + manifest
 - `verify-optuna-fixtures.py` — re-derives values from live Optuna, asserts committed fixtures match
 - `fixtures/` — one module per FM family, each exports `generate(generated_at: str) -> list[dict]`
-- `fixtures/_common.py` — shared `metadata()`, `write_json()`, constants
+- `fixtures/_common.py` — shared metadata and observed NumPy random draws
 
 ## Prerequisites
 
@@ -35,8 +35,8 @@ Verify `uv` is installed before running any script: `uv --version`. If missing, 
 
 ## Rules
 
-1. **Never hardcode expected values** — derive from Optuna APIs or document the mathematical source.
+1. **Never hardcode expected values** — execute Optuna APIs; mathematical reimplementations are not upstream evidence.
 2. **One family per module** — new FM fixtures get a new file in `fixtures/`, not inline in the orchestrator.
 3. **Fixture output must match TS schemas** — field names and shapes must align with `test/helpers/fixtures/schemas.ts`.
-4. **Run `fixtures:lock` after changing dependencies** — commit the `.lock` files for reproducibility.
+4. **Run `fixtures:lock` after changing dependencies** — commit the single root `uv.lock` for reproducibility.
 5. **Run `fixtures:verify` after regenerating** — proves committed values match live Optuna.

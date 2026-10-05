@@ -1,8 +1,4 @@
-#!/usr/bin/env -S uv run --script
-# /// script
-# requires-python = ">=3.12"
-# dependencies = ["optuna==4.9.0", "numpy>=1.26,<2"]
-# ///
+#!/usr/bin/env -S uv run --locked
 """Generate / byte-check all Optuna reference fixtures with one pinned runtime."""
 
 import argparse
@@ -10,7 +6,6 @@ import hashlib
 import json
 import os
 import platform
-import runpy
 from pathlib import Path
 
 # Use the same NumPy math path on orb and CI CPUs; SIMD dispatch changes last bits.
@@ -62,6 +57,10 @@ def run(check=False):
             "description": "TPESampler ask/tell plus fixed-history joint categorical frequencies; includes FAIL.",
         }],
     })
+    actual_paths = {path for directory in (ROOT / "optuna", ROOT / "optuna-mipro")
+                    for path in directory.rglob("*") if path.is_file()}
+    if actual_paths - outputs.keys():
+        raise ValueError(f"Unowned fixture files: {actual_paths - outputs.keys()}")
     for path, raw in outputs.items():
         if check:
             if path.read_bytes() != raw:
@@ -69,9 +68,6 @@ def run(check=False):
         else:
             path.parent.mkdir(parents=True, exist_ok=True)
             path.write_bytes(raw)
-    if check:
-        verifier = runpy.run_path(str(Path(__file__).with_name("verify-optuna-fixtures.py")))
-        verifier["main"]()
     print(f"{'Verified' if check else 'Generated'} {len(entries)} Optuna 4.9.0 fixtures and MIPRO kernel with hashes")
 
 
