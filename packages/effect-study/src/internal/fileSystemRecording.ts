@@ -25,7 +25,11 @@ class Stamp extends Data.Class<{
   readonly modified: Option.Option<number>
   readonly inode: Option.Option<number>
 }> {}
-class Cached extends Data.Class<{ readonly stamp: Stamp; readonly runs: HashMap.HashMap<string, Run> }> {}
+class Cached extends Data.Class<{
+  readonly stamp: Stamp
+  readonly runs: HashMap.HashMap<string, Run>
+  readonly lines: number
+}> {}
 const stamp = (info: FileSystem.File.Info) =>
   new Stamp({
     size: info.size,
@@ -54,6 +58,7 @@ export const makeFileSystem = (
       })
     const read = Effect.gen(function*() {
       if (!(yield* fs.exists(filePath).pipe(Effect.mapError(backendFailure("read"))))) {
+        yield* Ref.set(cache, Option.none())
         return HashMap.empty<string, Run>()
       }
       const current = stamp(yield* fs.stat(filePath).pipe(Effect.mapError(backendFailure("read"))))
@@ -78,11 +83,14 @@ export const makeFileSystem = (
         (runs, line, index) =>
           Schema.decodeEffect(codec)(line).pipe(
             Effect.mapError(PersistenceError.codec("read")),
-            Effect.flatMap((record) => accept(runs, record)),
+            Effect.flatMap((record) => accept(runs, record, { path: filePath, line: Num.increment(index) })),
             Effect.mapError(atLine(Num.increment(index)))
           )
       )
-      yield* Ref.set(cache, Option.some(new Cached({ stamp: current, runs })))
+      yield* Ref.set(
+        cache,
+        Option.some(new Cached({ stamp: current, runs, lines: Arr.length(Arr.dropRight(lines, 1)) }))
+      )
       return runs
     })
     yield* fs.makeDirectory(path.dirname(filePath), { recursive: true }).pipe(Effect.mapError(backendFailure("write")))
@@ -93,7 +101,12 @@ export const makeFileSystem = (
         read,
         append: (record) =>
           Effect.gen(function*() {
-            const runs = yield* accept(yield* read, record)
+            const priorRuns = yield* read
+            const lines = Num.increment(Option.match(yield* Ref.get(cache), {
+              onNone: () => 0,
+              onSome: (cached) => cached.lines
+            }))
+            const runs = yield* accept(priorRuns, record, { path: filePath, line: lines })
             const encoded = yield* Schema.encodeEffect(codec)(record).pipe(
               Effect.mapError(PersistenceError.codec("write"))
             )
@@ -103,7 +116,7 @@ export const makeFileSystem = (
               Effect.mapError(backendFailure("write"))
             )
             const current = stamp(yield* fs.stat(filePath).pipe(Effect.mapError(backendFailure("write"))))
-            yield* Ref.set(cache, Option.some(new Cached({ stamp: current, runs })))
+            yield* Ref.set(cache, Option.some(new Cached({ stamp: current, runs, lines })))
           })
       })
     )

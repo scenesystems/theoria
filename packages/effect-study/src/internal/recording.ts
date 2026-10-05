@@ -34,18 +34,25 @@ const CheckpointRecord = Schema.TaggedStruct("Checkpoint", {
 })
 export const Wire = Schema.Union([Schema.TaggedStruct("Opened", Identity.fields), EventRecord, CheckpointRecord])
 
+const Source = Schema.Struct({ path: PersistenceError.Failure.fields.path, line: PersistenceError.Failure.fields.line })
+const Event = Schema.Struct({ ...EventRecord.fields, source: Source })
+const Checkpoint = Schema.Struct({ ...CheckpointRecord.fields, source: Source })
+const payloadFailure = (source: typeof Source.Type) => (cause: Schema.SchemaError) =>
+  new PersistenceError.Failure({ reason: "Codec", operation: "read", detail: cause.message, ...source })
+
 /** Indexed retained run, updated once per accepted wire record. @since 0.1.0 @category models */
 export class Run extends Data.Class<{
   readonly definitionDigest: string
-  readonly events: Chunk.Chunk<typeof EventRecord.Type>
+  readonly events: Chunk.Chunk<typeof Event.Type>
   readonly identities: HashMap.HashMap<string, typeof EventRecord.Type>
-  readonly checkpoint: Option.Option<typeof CheckpointRecord.Type>
+  readonly checkpoint: Option.Option<typeof Checkpoint.Type>
 }> {}
 
 /** Validates and indexes one committed record without rescanning its prefix. @since 0.1.0 @category operations */
 export const accept = (
   runs: HashMap.HashMap<string, Run>,
-  record: typeof Wire.Type
+  record: typeof Wire.Type,
+  source: typeof Source.Type = {}
 ): Effect.Effect<HashMap.HashMap<string, Run>, PersistenceError.Failure> =>
   Effect.gen(function*() {
     const existing = HashMap.get(runs, record.runId)
@@ -77,7 +84,7 @@ export const accept = (
         new Run({
           definitionDigest: run.definitionDigest,
           checkpoint: run.checkpoint,
-          events: Chunk.append(run.events, record),
+          events: Chunk.append(run.events, { ...record, source }),
           identities: HashMap.set(run.identities, record.recordId, record)
         })
       )
@@ -92,7 +99,7 @@ export const accept = (
         definitionDigest: run.definitionDigest,
         events: run.events,
         identities: run.identities,
-        checkpoint: Option.some(record)
+        checkpoint: Option.some({ ...record, source })
       })
     )
   })
@@ -173,7 +180,7 @@ export const make =
             return Stream.fromIterable(Chunk.drop(run.events, after)).pipe(
               Stream.mapEffect((record) =>
                 Schema.decodeEffect(eventCodec)(record.payload).pipe(
-                  Effect.mapError(PersistenceError.codec("read")),
+                  Effect.mapError(payloadFailure(record.source)),
                   Effect.map((event) =>
                     new Storage.StoredEvent({
                       receipt: { runId: record.runId, recordId: record.recordId, cursor: record.cursor },
@@ -204,7 +211,7 @@ export const make =
             onNone: () => Effect.succeedNone,
             onSome: (record) =>
               Schema.decodeEffect(stateCodec)(record.payload).pipe(
-                Effect.mapError(PersistenceError.codec("read")),
+                Effect.mapError(payloadFailure(record.source)),
                 Effect.map((state) =>
                   Option.some(new Storage.Checkpoint({ ...identity, through: record.through, state }))
                 )

@@ -74,3 +74,24 @@ it.effect("reports known zero separately from missing and invalid costs", () =>
     expect(replaced.cumulativeCost).toBe(4)
     expect(History.costs(History.set(replaced, trial(2, Option.some(1.25))))).toEqual(History.costs(replaced))
   }))
+
+it.effect("retains valid cost counts when the aggregate overflows and recomputes after replacement", () =>
+  Effect.gen(function*() {
+    const history = History.fromIterable(Arr.make(
+      trial(0, Option.some(1e308)),
+      trial(1, Option.some(1e308)),
+      trial(2, Option.some(0)),
+      trial(3, Option.none()),
+      trial(4, Option.some(-1))
+    ))
+    const summary = History.costs(history)
+    expect(summary).toEqual({ reportedTotal: "Overflow", reportedCount: 3, missingCount: 1, invalidCount: 1 })
+    const codec = Schema.fromJsonString(History.Cost)
+    expect(yield* Schema.decodeEffect(codec)(yield* Schema.encodeEffect(codec)(summary))).toEqual(summary)
+    expect(History.costs(History.set(history, trial(1, Option.some(3))))).toEqual({
+      reportedTotal: 1e308,
+      reportedCount: 3,
+      missingCount: 1,
+      invalidCount: 1
+    })
+  }))

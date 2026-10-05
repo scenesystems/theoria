@@ -29,13 +29,14 @@ const cost = <Config, State>(trial: Trial.Trial<Config, State>): number =>
 /**
  * Cost evidence across current trial records. A known zero is reported; absent
  * costs are missing, and negative or non-finite costs are invalid. Reported totals
- * are not provider billing or attempt accounting.
+ * are not provider billing or attempt accounting. reportedTotal is "Overflow"
+ * when summing valid costs exceeds finite number range; counts remain intact.
  *
  * @since 0.1.0
  * @category models
  */
 export const Cost = Schema.Struct({
-  reportedTotal: Schema.Finite.check(Schema.isGreaterThanOrEqualTo(0)),
+  reportedTotal: Schema.Union([Schema.Finite.check(Schema.isGreaterThanOrEqualTo(0)), Schema.Literal("Overflow")]),
   reportedCount: Schema.Int.check(Schema.isGreaterThanOrEqualTo(0)),
   missingCount: Schema.Int.check(Schema.isGreaterThanOrEqualTo(0)),
   invalidCount: Schema.Int.check(Schema.isGreaterThanOrEqualTo(0))
@@ -52,6 +53,8 @@ export type Cost = typeof Cost.Type
 /**
  * Summarizes the latest cost for each trial, independently of completion state.
  * Replaced trials contribute only their current evidence. No cost is imputed.
+ * Recomputing from current records permits recovery from aggregate overflow when
+ * a trial is replaced. Finite totals use ordinary floating-point summation.
  *
  * @since 0.1.0
  * @category accessors
@@ -63,14 +66,15 @@ export const costs = <Config, State>(self: History<Config, State>): Cost =>
     (summary, trial) =>
       Option.match(Option.fromNullishOr(trial.cost), {
         onNone: () => Cost.make({ ...summary, missingCount: Num.increment(summary.missingCount) }),
-        onSome: (value) =>
-          validCost(value)
-            ? Cost.make({
-              ...summary,
-              reportedTotal: Num.sum(summary.reportedTotal, value),
-              reportedCount: Num.increment(summary.reportedCount)
-            })
-            : Cost.make({ ...summary, invalidCount: Num.increment(summary.invalidCount) })
+        onSome: (value) => {
+          if (!validCost(value)) return Cost.make({ ...summary, invalidCount: Num.increment(summary.invalidCount) })
+          const total = summary.reportedTotal === "Overflow" ? Infinity : Num.sum(summary.reportedTotal, value)
+          return Cost.make({
+            ...summary,
+            reportedTotal: validCost(total) ? total : "Overflow",
+            reportedCount: Num.increment(summary.reportedCount)
+          })
+        }
       })
   )
 

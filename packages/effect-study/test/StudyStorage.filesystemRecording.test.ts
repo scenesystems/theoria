@@ -3,11 +3,16 @@ import { expect, it } from "@effect/vitest"
 import {
   Array as Arr,
   Context,
+  Deferred,
   Effect,
+  Exit,
+  Fiber,
   FileSystem,
   Number as Num,
   Option,
   Path,
+  pipe,
+  PlatformError,
   Ref,
   Result,
   Schema,
@@ -31,6 +36,142 @@ const options = new StudyStorage.OpenOptions({
   checkpointSchema: Label
 })
 const numberText = Schema.encodeSync(Schema.FiniteFromString)
+
+it.effect("retains physical locations for event and checkpoint payload failures across interleaved runs", () =>
+  Effect.gen(function*() {
+    const fs = yield* FileSystem.FileSystem
+    const path = yield* Path.Path
+    const config = StudyStorage.fileSystemOptions(yield* fs.makeTempDirectoryScoped())
+    const file = path.join(config.directory, config.fileName)
+    const store = yield* StudyStorage.makeFileSystem(config)
+    const integers = new StudyStorage.OpenOptions({
+      runId: "run",
+      definitionDigest: "v1",
+      eventSchema: Schema.Int,
+      checkpointSchema: Schema.Int
+    })
+    const run = yield* store.open(integers)
+    const other = yield* store.open(
+      new StudyStorage.OpenOptions({
+        runId: "other",
+        definitionDigest: "v1",
+        eventSchema: Schema.Int,
+        checkpointSchema: Schema.Int
+      })
+    )
+    yield* other.writeCheckpoint(new StudyStorage.CheckpointWrite({ through: 0, state: 3 }))
+    yield* run.append(new StudyStorage.Append({ recordId: "one", expectedCursor: 0, event: 7 }))
+    yield* other.append(new StudyStorage.Append({ recordId: "other-one", expectedCursor: 0, event: 9 }))
+    yield* run.writeCheckpoint(new StudyStorage.CheckpointWrite({ through: 1, state: 11 }))
+
+    // Decode the just-appended cached payloads with an incompatible caller codec.
+    // Locations must survive cache population as well as physical reconstruction.
+    const strings = yield* store.open(
+      new StudyStorage.OpenOptions({
+        runId: "run",
+        definitionDigest: "v1",
+        eventSchema: Schema.String,
+        checkpointSchema: Schema.String
+      })
+    )
+    const event = yield* Effect.fromResult(Result.flip(yield* strings.read().pipe(Stream.runCollect, Effect.result)))
+    const checkpoint = yield* Effect.fromResult(Result.flip(yield* strings.loadCheckpoint.pipe(Effect.result)))
+    expect(event).toMatchObject({ reason: "Codec", operation: "read", path: file, line: 4 })
+    expect(checkpoint).toMatchObject({ reason: "Codec", operation: "read", path: file, line: 6 })
+
+    const original = yield* fs.readFileString(file)
+    const json = Schema.encodeEffect(Schema.fromJsonString(Schema.String))
+    const badEvent = yield* json("invalid-event").pipe(Effect.flatMap(json))
+    const badCheckpoint = yield* json("invalid-checkpoint").pipe(Effect.flatMap(json))
+    yield* fs.writeFileString(
+      file,
+      pipe(
+        original,
+        Str.replace("\"payload\":\"7\"", Str.concat("\"payload\":", badEvent)),
+        Str.replace("\"payload\":\"11\"", Str.concat("\"payload\":", badCheckpoint))
+      )
+    )
+    const reopened = yield* (yield* StudyStorage.makeFileSystem(config)).open(integers)
+    const corruptEvent = yield* Effect.fromResult(
+      Result.flip(yield* reopened.read().pipe(Stream.runCollect, Effect.result))
+    )
+    const corruptCheckpoint = yield* Effect.fromResult(Result.flip(yield* reopened.loadCheckpoint.pipe(Effect.result)))
+    expect(corruptEvent).toMatchObject({ reason: "Codec", operation: "read", path: file, line: 4 })
+    expect(corruptCheckpoint).toMatchObject({ reason: "Codec", operation: "read", path: file, line: 6 })
+  }).pipe(Effect.provide(BunServices.layer)))
+
+it.effect("revalidates committed, uncommitted, and partial writes after lost acknowledgment or in-flight interruption", () =>
+  Effect.forEach(Arr.make("LostAck", "Uncommitted", "Committed", "Partial"), (mode) =>
+    Effect.gen(function*() {
+      const fs = yield* FileSystem.FileSystem
+      const path = yield* Path.Path
+      const config = StudyStorage.fileSystemOptions(yield* fs.makeTempDirectoryScoped())
+      const file = path.join(config.directory, config.fileName)
+      const armed = yield* Ref.make(false)
+      const reads = yield* Ref.make(0)
+      const entered = yield* Deferred.make<void>()
+      const observed = FileSystem.FileSystem.of({
+        ...fs,
+        readFileString: (file, encoding) =>
+          Ref.update(reads, Num.increment).pipe(Effect.andThen(fs.readFileString(file, encoding))),
+        writeFileString: (file, content, options) =>
+          Effect.gen(function*() {
+            if (!(yield* Ref.getAndSet(armed, false))) return yield* fs.writeFileString(file, content, options)
+            if (mode !== "Uncommitted") {
+              yield* fs.writeFileString(file, mode === "Partial" ? Str.slice(0, -1)(content) : content, options)
+            }
+            if (mode === "LostAck") {
+              return yield* PlatformError.systemError({
+                _tag: "Unknown",
+                module: "FileSystem",
+                method: "writeFileString",
+                description: "acknowledgment lost after commit"
+              })
+            }
+            yield* Deferred.succeed(entered, undefined)
+            return yield* Effect.never
+          })
+      })
+      const store = yield* StudyStorage.makeFileSystem(config).pipe(
+        Effect.provideService(FileSystem.FileSystem, observed)
+      )
+      const request = new StudyStorage.OpenOptions({
+        runId: "run",
+        definitionDigest: "v1",
+        eventSchema: Schema.Int,
+        checkpointSchema: Schema.Int
+      })
+      const run = yield* store.open(request)
+      const append = new StudyStorage.Append({ recordId: "one", expectedCursor: 0, event: 17 })
+      yield* Ref.set(armed, true)
+      if (mode === "LostAck") {
+        const failure = yield* Effect.fromResult(Result.flip(yield* run.append(append).pipe(Effect.result)))
+        expect(failure).toMatchObject({ reason: "Backend", operation: "write", path: file })
+      } else {
+        const pending = yield* run.append(append).pipe(Effect.forkChild)
+        yield* Deferred.await(entered)
+        yield* Fiber.interrupt(pending)
+        expect(Exit.hasInterrupts(yield* Fiber.await(pending))).toBe(true)
+      }
+      const beforeRetry = yield* fs.readFileString(file)
+      expect(yield* Ref.get(reads)).toBe(0)
+      if (mode === "Partial") {
+        const failure = yield* Effect.fromResult(Result.flip(yield* run.append(append).pipe(Effect.result)))
+        expect(failure).toMatchObject({ reason: "Backend", operation: "read", path: file, line: 2 })
+        expect(yield* Ref.get(reads)).toBe(1)
+        expect(Result.isFailure(yield* StudyStorage.makeFileSystem(config).pipe(Effect.result))).toBe(true)
+        expect(yield* fs.readFileString(file)).toBe(beforeRetry)
+        return
+      }
+      expect(yield* run.append(append)).toEqual({ runId: "run", recordId: "one", cursor: 1 })
+      expect(yield* Ref.get(reads)).toBe(1)
+      if (mode !== "Uncommitted") expect(yield* fs.readFileString(file)).toBe(beforeRetry)
+      const reopened = yield* (yield* StudyStorage.makeFileSystem(config)).open(request)
+      expect(yield* reopened.append(append)).toEqual({ runId: "run", recordId: "one", cursor: 1 })
+      expect(Arr.map(yield* reopened.read().pipe(Stream.runCollect), (entry) => entry.event)).toEqual([17])
+      expect(yield* reopened.append(new StudyStorage.Append({ recordId: "two", expectedCursor: 1, event: 23 })))
+        .toEqual({ runId: "run", recordId: "two", cursor: 2 })
+    })).pipe(Effect.provide(BunServices.layer)))
 
 it.effect("indexes a recording once and does not reread acknowledged prefixes on every append", () =>
   Effect.gen(function*() {
