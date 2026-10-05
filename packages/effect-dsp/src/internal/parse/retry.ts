@@ -33,6 +33,7 @@ export class ParseTextWithRetryOptions<
   readonly feedbackTemplate: (error: ParseOutputError) => string
   readonly readText: (feedback: Option.Option<string>) => Effect.Effect<A, RE, RR>
   readonly text: (response: A) => string
+  readonly observe?: (response: A, error: Option.Option<ParseOutputError>) => Effect.Effect<void>
 }> {}
 
 /**
@@ -86,6 +87,8 @@ export const parseTextWithRetry = <
             Option.some(options.feedbackTemplate(error))
           )
         ),
+        Effect.tapError((error) => options.observe?.(response, Option.some(error)) ?? Effect.void),
+        Effect.tap(() => options.observe?.(response, Option.none()) ?? Effect.void),
         Effect.map((output) => Tuple.make(output, response))
       )
     }).pipe(

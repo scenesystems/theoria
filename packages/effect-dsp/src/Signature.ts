@@ -5,7 +5,7 @@
  * @module
  */
 import type { Record } from "effect"
-import { Data, Schema } from "effect"
+import { Array as Arr, Data, Effect, Option, Schema, Struct } from "effect"
 import { dual } from "effect/Function"
 import { type Codec, codec } from "./Demonstration.js"
 import { fromSchemas as fromSchemasInternal, make as makeInternal } from "./internal/signature/constructors.js"
@@ -43,6 +43,8 @@ export const describe: {
 export class FieldInfo extends Schema.Class<FieldInfo>("@scenesystems/effect-dsp/Signature/FieldInfo")({
   /** Property key rendered in the derived instructions. */
   name: Schema.String,
+  /** Optional human-facing label; never replaces the response protocol key. */
+  prefix: Schema.Option(Schema.String).pipe(Schema.withConstructorDefault(Effect.succeedNone)),
   /** Caller-authored field meaning, when the field schema has a description annotation. */
   description: Schema.Option(Schema.String),
   /** Whether the struct property may be omitted from decoded values. */
@@ -137,3 +139,47 @@ export const fromSchemas = fromSchemasInternal
  * @category constructors
  */
 export const deriveInstruction = deriveInstructionInternal
+
+/** Constructs an output-only signature accepting an empty input record.
+ * @since 0.6.0
+ * @category constructors
+ */
+export const outputOnly = <O extends Schema.Struct.Fields>(outputFields: O) =>
+  fromSchemasInternal("", Schema.Struct({}), Schema.Struct(outputFields), true)
+
+/** Replaces construction-time instructions without changing schemas.
+ * @since 0.6.0
+ * @category combinators
+ */
+export const withInstruction = <I extends Schema.Struct.Fields, O extends Schema.Struct.Fields>(
+  signature: Signature<I, O>,
+  instructions: string
+): Signature<I, O> => new Signature(Struct.assign(signature, { instructions }))
+
+/** Replaces a field's human-facing prefix without changing its wire name.
+ * @since 0.6.0
+ * @category combinators
+ */
+export const withFieldPrefix = <I extends Schema.Struct.Fields, O extends Schema.Struct.Fields>(
+  signature: Signature<I, O>,
+  field: keyof I | keyof O,
+  prefix: string
+): Signature<I, O> =>
+  new Signature(Struct.assign(signature, {
+    fields: Arr.map(signature.fields, (info) =>
+      info.name === field ? new FieldInfo(Struct.assign(info, { prefix: Option.some(prefix) })) : info)
+  }))
+
+/** Replaces a field description without changing its schema.
+ * @since 0.6.0
+ * @category combinators
+ */
+export const withFieldDescription = <I extends Schema.Struct.Fields, O extends Schema.Struct.Fields>(
+  signature: Signature<I, O>,
+  field: keyof I | keyof O,
+  description: string
+): Signature<I, O> =>
+  new Signature(Struct.assign(signature, {
+    fields: Arr.map(signature.fields, (info) =>
+      info.name === field ? new FieldInfo(Struct.assign(info, { description: Option.some(description) })) : info)
+  }))

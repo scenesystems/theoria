@@ -93,6 +93,6 @@ describe("Module params", () => {
 
       const defaults = new ModuleParameters({ instructions: "Default", demos: Arr.empty() })
       const encoded = yield* Schema.encodeEffect(ModuleParameters)(withInstructions(defaults, "Replaced"))
-      expect(encoded).toEqual({ instructions: "Replaced", demos: Arr.empty(), outputStrategy: "auto" })
+      expect(encoded).toEqual({ instructions: "Replaced", demos: Arr.empty(), fields: {}, outputStrategy: "auto" })
     }))
 })

@@ -14,7 +14,8 @@ const failSignature = (reason: string, field?: string): Effect.Effect<never, Sig
 
 const validateFieldCollections = (
   inputFields: Schema.Struct.Fields,
-  outputFields: Schema.Struct.Fields
+  outputFields: Schema.Struct.Fields,
+  allowEmptyInput: boolean
 ): Effect.Effect<void, SignatureError> =>
   Effect.gen(function*() {
     const inputFieldNames = Record.keys(inputFields)
@@ -22,7 +23,7 @@ const validateFieldCollections = (
 
     yield* Option.match(Arr.head(inputFieldNames), {
       onSome: () => Effect.void,
-      onNone: () => failSignature("input fields must not be empty")
+      onNone: () => allowEmptyInput ? Effect.void : failSignature("input fields must not be empty")
     })
 
     yield* Option.match(Arr.head(outputFieldNames), {
@@ -106,12 +107,13 @@ export const fromSchemas = <
 >(
   description: string,
   inputSchema: Schema.Struct<I> | Schema.encodeKeys<Schema.Struct<I>, IM>,
-  outputSchema: Schema.Struct<O> | Schema.encodeKeys<Schema.Struct<O>, OM>
+  outputSchema: Schema.Struct<O> | Schema.encodeKeys<Schema.Struct<O>, OM>,
+  allowEmptyInput = false
 ): Effect.Effect<Signature<I, O>, SignatureError> =>
   Effect.gen(function*() {
     const inputFields = "fields" in inputSchema ? inputSchema.fields : inputSchema.to.fields
     const outputFields = "fields" in outputSchema ? outputSchema.fields : outputSchema.to.fields
-    yield* validateFieldCollections(inputFields, outputFields)
+    yield* validateFieldCollections(inputFields, outputFields, allowEmptyInput)
 
     const inputFieldInfo = fieldsToInfoArray(inputSchema)
     const outputFieldInfo = fieldsToInfoArray(outputSchema)

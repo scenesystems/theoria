@@ -24,6 +24,10 @@ const ownerPath = (
   params: Ref.Ref<ModuleParameters>
 ) => Option.map(Arr.findFirst(owners, ([ref]) => ref === params), ([, id]) => id)
 
+/** Root-relative predictor identity, falling back to its standalone name. @internal */
+export const path = (params: Ref.Ref<ModuleParameters>, name: string) =>
+  Effect.map(Owners, (owners) => Option.getOrElse(ownerPath(owners, params), () => name))
+
 /** @internal */
 export const withOwners = (predictors: Iterable<Predictor.Ref>) => <A, E, R>(effect: Effect.Effect<A, E, R>) =>
   Effect.flatMap(

@@ -1,11 +1,18 @@
 /**
  * Cache keys and the service contract for language-model call memoization.
+ * Automatic caching is durable across processes only when ModelIdentity is
+ * declared (effect-inference always declares it). Otherwise runtime object
+ * identity partitions process-local entries. Automatic cache failures warn and
+ * behave as misses or skipped writes; explicit resolve retains typed errors.
  *
  * @since 0.1.0
  * @module
  */
 import * as ContentDigest from "@scenesystems/digest/ContentDigest"
+import { empty, ModelSettings } from "@scenesystems/effect-lm/ModelSettings"
+import { Role } from "@scenesystems/effect-lm/Role"
 import * as SearchCache from "@scenesystems/effect-search/Cache"
+import type { Option } from "effect"
 import { Context, Data, Effect, Layer, Schema, String as Str } from "effect"
 
 import { RolloutRef } from "./internal/cache/rollout.js"
@@ -26,6 +33,10 @@ export class Key extends Schema.Class<Key>("@scenesystems/effect-dsp/Cache/Key")
   runtimeFingerprint: Schema.String,
   inputHash: Schema.String,
   paramsHash: Schema.String,
+  settings: Schema.toCodecJson(ModelSettings),
+  role: Role,
+  predictorId: Schema.String,
+  signatureDigest: Schema.String,
   rolloutId: Schema.Option(Schema.Finite)
 }) {}
 
@@ -47,6 +58,10 @@ export class KeyRequest<Input, Params> extends Data.Class<{
   readonly runtimeFingerprint: string
   readonly input: Input
   readonly params: Params
+  readonly settings?: ModelSettings
+  readonly role?: Role
+  readonly predictorId?: string
+  readonly signatureDigest?: string
 }> {}
 
 /**
@@ -65,6 +80,10 @@ export class Request<Input, Params, Output, Failure, Requirement, EncodedOutput 
   readonly runtimeFingerprint: string
   readonly input: Input
   readonly params: Params
+  readonly settings?: ModelSettings
+  readonly role?: Role
+  readonly predictorId?: string
+  readonly signatureDigest?: string
   readonly outputSchema: Schema.Codec<Output, EncodedOutput>
   readonly compute: Effect.Effect<Output, Failure, Requirement>
 }> {}
@@ -85,6 +104,8 @@ export class Request<Input, Params, Output, Failure, Requirement, EncodedOutput 
 export class Cache extends Context.Service<
   Cache,
   {
+    readonly get: <A, I>(key: Key, schema: Schema.Codec<A, I>) => Effect.Effect<Option.Option<A>, SearchCache.Error>
+    readonly set: <A, I>(key: Key, schema: Schema.Codec<A, I>, value: A) => Effect.Effect<void, SearchCache.Error>
     readonly resolve: <Input, Params, Output, Failure, Requirement, EncodedOutput = Output>(
       request: Request<Input, Params, Output, Failure, Requirement, EncodedOutput>
     ) => Effect.Effect<SearchCache.Result<Output>, Failure | SearchCache.Error, Requirement>
@@ -118,6 +139,10 @@ export const key = <Input, Params>(request: KeyRequest<Input, Params>): Effect.E
       new Key({
         moduleFingerprint: request.moduleFingerprint,
         runtimeFingerprint: request.runtimeFingerprint,
+        settings: request.settings ?? empty,
+        role: request.role ?? "task",
+        predictorId: request.predictorId ?? request.moduleFingerprint,
+        signatureDigest: request.signatureDigest ?? request.moduleFingerprint,
         inputHash,
         paramsHash,
         rolloutId
@@ -142,6 +167,17 @@ export const layer: Layer.Layer<Cache, never, SearchCache.Cache> = Layer.effect(
   Effect.gen(function*() {
     const cache = yield* SearchCache.Cache
     return {
+      get: <A, I>(key: Key, schema: Schema.Codec<A, I>) =>
+        cache.get(
+          new SearchCache.KeySpace({ namespace, keySchema: Key, valueSchema: schema }),
+          key
+        ),
+      set: <A, I>(key: Key, schema: Schema.Codec<A, I>, value: A) =>
+        cache.set(
+          new SearchCache.KeySpace({ namespace, keySchema: Key, valueSchema: schema }),
+          key,
+          value
+        ),
       resolve: <Input, Params, Output, Failure, Requirement, EncodedOutput = Output>(
         request: Request<Input, Params, Output, Failure, Requirement, EncodedOutput>
       ) =>

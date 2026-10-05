@@ -22,6 +22,18 @@ export type OutputStrategy = typeof OutputStrategy.Type
 
 const ConcreteStrategy = OutputStrategy.pick(["text", "structured"])
 
+/** Editable prompt metadata keyed by schema field name. Empty means as constructed.
+ * @since 0.6.0
+ * @category schemas
+ */
+export const Fields = Schema.Record(
+  Schema.String,
+  Schema.Struct({
+    prefix: Schema.Option(Schema.String),
+    description: Schema.Option(Schema.String)
+  })
+)
+
 /** Resolves automatic output selection from the demonstration count.
  * @since 0.1.0
  * @category combinators
@@ -54,6 +66,10 @@ export class ModuleParameters extends Schema.Class<ModuleParameters>("@scenesyst
   instructions: Schema.String,
   /** Ordered few-shot demonstrations rendered into text-mode prompts. */
   demos: Schema.Array(Demonstration),
+  /** Predictor-owned overrides of constructed signature metadata. */
+  fields: Fields.pipe(
+    Schema.withConstructorDefault(Effect.succeed({}))
+  ),
   /** Output rendering policy; omitted encoded values decode to `"auto"`. */
   outputStrategy: OutputStrategy.pipe(
     Schema.withDecodingDefaultTypeKey(Effect.succeed("auto")),
@@ -105,6 +121,7 @@ export const withDemos = (
   demos: ModuleParameters["demos"]
 ): ModuleParameters =>
   new ModuleParameters({
+    fields: params.fields,
     instructions: params.instructions,
     demos,
     outputStrategy: params.outputStrategy,
@@ -129,6 +146,7 @@ export const withDemosAndInstructions = (
   instructions: string
 ): ModuleParameters =>
   new ModuleParameters({
+    fields: params.fields,
     instructions,
     demos,
     outputStrategy: params.outputStrategy,
@@ -151,6 +169,7 @@ export const withInstructions = (
   instructions: string
 ): ModuleParameters =>
   new ModuleParameters({
+    fields: params.fields,
     instructions,
     demos: params.demos,
     outputStrategy: params.outputStrategy,

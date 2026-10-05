@@ -23,6 +23,7 @@ import { CurrentRole } from "../../modelRole.js"
 import { read } from "../../parameterBinding.js"
 import { parseTextOutput } from "../../parse/decode.js"
 import { buildPrompt } from "../../prompt/render.js"
+import { executionId } from "../../trace/attempts.js"
 import { registerRuntime, RuntimeRegistrationOptions } from "../discovery/registry.js"
 import { PayloadOptions, tracePayloadFromEncoded } from "../predict/trace.js"
 import {
@@ -89,6 +90,7 @@ export const makeReactForward = <
       )
 
       const params = yield* read(options.paramsRef, options.moduleName)
+      const id = yield* executionId
       const traceInput = yield* tracePayloadFromEncoded(
         new PayloadOptions({
           moduleName: options.moduleName,
@@ -134,6 +136,7 @@ export const makeReactForward = <
               onTrue: () =>
                 appendReactTraceEntry(
                   new ReactTraceOptions<I, O, Tools>({
+                    executionId: id,
                     moduleName: options.moduleName,
                     signature: options.signature,
                     traceInput,
@@ -168,6 +171,7 @@ export const makeReactForward = <
                     onSuccess: (output) =>
                       appendReactTraceEntry(
                         new ReactTraceOptions<I, O, Tools>({
+                          executionId: id,
                           moduleName: options.moduleName,
                           signature: options.signature,
                           traceInput,
@@ -195,6 +199,7 @@ export const makeReactForward = <
                     onFailure: (parseError) =>
                       appendReactTraceEntry(
                         new ReactTraceOptions<I, O, Tools>({
+                          executionId: id,
                           moduleName: options.moduleName,
                           signature: options.signature,
                           traceInput,

@@ -21,6 +21,16 @@ decoded predictions, invocation evidence, phase context, and finite scores with
 optional feedback. Independent tests cover normalization and passage-token
 boundaries; these additions do not claim upstream differential verification.
 
+Wave 1.5 Cache follows DSPy's `cache=True` default at every temperature;
+`rollout_id` partitions otherwise identical sampling requests. `cache: "never"`
+opts out, and calls executing toolkit handlers are not memoized. Automatic keys
+include declared model identity, resolved defaults plus request settings, role,
+predictor path, composed signature metadata, instructions, demonstrations and input.
+Undeclared native runtimes use process-local object identity. Cache failures warn
+and continue; explicit cache operations retain typed errors. Trace attempts retain
+failed parse evidence separately from selected completed invocations. These are
+local contract tests, not a full cache/adapter differential parity claim.
+
 Inventory: every non-private, non-module value exported by the six DSPy 3.4.0
 package namespaces below (including aliases and re-exported types). Namespace
 modules themselves are navigation, not separate API claims. Inventory was read

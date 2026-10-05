@@ -8,7 +8,7 @@ import * as Metric from "@scenesystems/effect-dsp/Metric"
 import * as MockLanguageModel from "@scenesystems/effect-dsp/MockLanguageModel"
 import * as Module from "@scenesystems/effect-dsp/Module"
 import * as Signature from "@scenesystems/effect-dsp/Signature"
-import { Effect, Layer, Option, Schema } from "effect"
+import { Array as Arr, Effect, Layer, Option, Schema } from "effect"
 import * as LanguageModel from "effect/ai/LanguageModel"
 
 const makeQaSignature = () =>
@@ -147,7 +147,8 @@ describe("Evaluate.run", () => {
       ).pipe(Effect.provide(layer))
 
       expect(reportA.overallScores).toEqual(reportB.overallScores)
-      expect(reportA.outcomes).toEqual(reportB.outcomes)
+      expect(Arr.map(reportA.outcomes, (outcome) => outcome._tag === "Scored" ? outcome.score : outcome.failure))
+        .toEqual(Arr.map(reportB.outcomes, (outcome) => outcome._tag === "Scored" ? outcome.score : outcome.failure))
       expect(reportA.failures).toEqual(reportB.failures)
     }))
 })

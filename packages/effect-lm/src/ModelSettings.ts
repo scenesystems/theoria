@@ -3,7 +3,7 @@
  * @since 0.1.0
  * @module
  */
-import { Schema } from "effect"
+import { Context, Schema } from "effect"
 
 /** Generation overrides; omitted fields retain provider defaults.
  * @since 0.1.0
@@ -19,6 +19,14 @@ export class ModelSettings extends Schema.Class<ModelSettings>("@scenesystems/ef
 
 /** No generation overrides. @since 0.1.0 @category constants */
 export const empty = new ModelSettings({})
+
+/** Resolved generation settings exposed by the active model binder.
+ * @since 0.1.0
+ * @category references
+ */
+export const Current = Context.Reference<ModelSettings>("@scenesystems/effect-lm/ModelSettings/Current", {
+  defaultValue: () => empty
+})
 
 /** Defined override fields win; zero and empty stop lists are explicit values.
  * @since 0.1.0

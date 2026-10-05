@@ -9,3 +9,5 @@ export * as ModelSettings from "./ModelSettings.js"
 export * as Role from "./Role.js"
 /** Scoped model binding. @since 0.1.0 @category exports */
 export * as ModelBinder from "./ModelBinder.js"
+/** Declared provider/model identity. @since 0.1.0 @category exports */
+export * as ModelIdentity from "./ModelIdentity.js"

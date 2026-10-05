@@ -1,4 +1,5 @@
 import { describe, expect, expectTypeOf, it } from "@effect/vitest"
+import { ModelSettings } from "@scenesystems/effect-lm/ModelSettings"
 import { ConfigProvider, Effect, Option, Redacted } from "effect"
 import type { Layer } from "effect"
 import type { LanguageModel } from "effect/ai"
@@ -7,6 +8,26 @@ import type { InvalidRuntimeConfig } from "@scenesystems/effect-inference/Infere
 import * as TextProvider from "@scenesystems/effect-inference/TextProvider"
 
 describe("TextProvider", () => {
+  it.effect("decodes model defaults and lets explicit settings replace configured defaults", () =>
+    Effect.gen(function*() {
+      const configProvider = ConfigProvider.fromUnknown({
+        DSP_MODEL_SETTINGS: "{\"temperature\":0.2,\"maxTokens\":73}"
+      }).pipe(ConfigProvider.constantCase)
+      const configured = yield* TextProvider.fromConfig(
+        new TextProvider.Options({ provider: "openai", apiKey: Redacted.make("test"), configProvider })
+      )
+      expect(configured.defaults).toEqual(new ModelSettings({ temperature: 0.2, maxTokens: 73 }))
+      const explicit = yield* TextProvider.fromConfig(
+        new TextProvider.Options({
+          provider: "openai",
+          apiKey: Redacted.make("test"),
+          configProvider,
+          defaults: new ModelSettings({ temperature: 0.7 })
+        })
+      )
+      expect(explicit.defaults).toEqual(new ModelSettings({ temperature: 0.7 }))
+    }))
+
   it.effect("uses provider-specific values before generic values and preserves redaction", () =>
     Effect.gen(function*() {
       const config = yield* TextProvider.fromConfig(

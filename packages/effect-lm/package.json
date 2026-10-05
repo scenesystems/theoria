@@ -17,6 +17,7 @@
     "./ModelSettings": "./src/ModelSettings.ts",
     "./Role": "./src/Role.ts",
     "./ModelBinder": "./src/ModelBinder.ts",
+    "./ModelIdentity": "./src/ModelIdentity.ts",
     "./internal/*": null
   },
   "scripts": {

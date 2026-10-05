@@ -10,6 +10,7 @@ import * as OpenAiClient from "@effect/ai-openai/OpenAiClient"
 import * as OpenAiLanguageModel from "@effect/ai-openai/OpenAiLanguageModel"
 import * as OpenRouterClient from "@effect/ai-openrouter/OpenRouterClient"
 import * as OpenRouterLanguageModel from "@effect/ai-openrouter/OpenRouterLanguageModel"
+import { empty, ModelSettings } from "@scenesystems/effect-lm/ModelSettings"
 import type * as LanguageModel from "effect/ai/LanguageModel"
 import * as ConfigEffect from "effect/Config"
 import * as ConfigProvider from "effect/ConfigProvider"
@@ -24,6 +25,7 @@ import * as Schema from "effect/Schema"
 import * as String from "effect/String"
 
 import { InvalidRuntimeConfig } from "./InferenceError.js"
+import * as Settings from "./internal/modelSettings.js"
 import type * as RuntimeRequest from "./RuntimeRequest.js"
 
 /** Schema for hosted text-provider identifiers. @since 0.5.0 @category schemas */
@@ -35,6 +37,7 @@ export type Provider = typeof Provider.Type
 export class Options extends Data.Class<{
   readonly provider?: Provider
   readonly model?: string
+  readonly defaults?: ModelSettings
   readonly apiKey?: Redacted.Redacted
   readonly apiUrl?: string
   readonly anthropicVersion?: string
@@ -47,6 +50,7 @@ export class Options extends Data.Class<{
 export class Config extends Schema.Class<Config>("@scenesystems/effect-inference/TextProvider/Config")({
   provider: Provider,
   model: Schema.String,
+  defaults: ModelSettings,
   apiKey: Schema.Redacted(Schema.String),
   apiUrl: Schema.Option(Schema.String),
   anthropicVersion: Schema.Option(Schema.String),
@@ -58,6 +62,11 @@ export class Config extends Schema.Class<Config>("@scenesystems/effect-inference
 export class Runtime extends Data.Class<{
   readonly provider: Provider
   readonly model: string
+  /** Source of truth for defined ModelSettings fields, overridden at bind time.
+   * Custom opaque layers must also declare captured ModelSettings values here
+   * for authoritative binding and cache identity; absent fields fall through.
+   * TextProvider-created layers derive configuration from defaults and cannot disagree. */
+  readonly defaults: ModelSettings
   readonly request: RuntimeRequest.RuntimeRequest
   readonly languageModel: Layer.Layer<LanguageModel.LanguageModel>
 }> {}
@@ -143,6 +152,10 @@ const configured = (options: Options) =>
     return new Config({
       provider,
       model,
+      defaults: options.defaults ?? (yield* ConfigEffect.withDefault(
+        ConfigEffect.schema(Schema.fromJsonString(Schema.toCodecJson(ModelSettings)), "dspModelSettings"),
+        empty
+      )),
       apiKey,
       apiUrl: mergeString(providerApiUrl, genericApiUrl, options.apiUrl),
       anthropicVersion: mergeString(anthropicVersion, genericAnthropicVersion, options.anthropicVersion),
@@ -206,7 +219,7 @@ const providerLayer = (config: Config): Layer.Layer<LanguageModel.LanguageModel>
     Match.when("openai", () =>
       Layer.provide(
         Layer.provide(
-          OpenAiLanguageModel.layer({ model: config.model }),
+          OpenAiLanguageModel.layer({ model: config.model, config: Settings.openai(config.defaults) }),
           OpenAiClient.layer({
             apiKey: config.apiKey,
             ...Option.match(config.apiUrl, { onNone: () => ({}), onSome: (apiUrl) => ({ apiUrl }) })
@@ -217,7 +230,7 @@ const providerLayer = (config: Config): Layer.Layer<LanguageModel.LanguageModel>
     Match.when("anthropic", () =>
       Layer.provide(
         Layer.provide(
-          AnthropicLanguageModel.layer({ model: config.model }),
+          AnthropicLanguageModel.layer({ model: config.model, config: Settings.anthropic(config.defaults) }),
           AnthropicClient.layer({
             apiKey: config.apiKey,
             ...Option.match(config.apiUrl, { onNone: () => ({}), onSome: (apiUrl) => ({ apiUrl }) }),
@@ -232,7 +245,7 @@ const providerLayer = (config: Config): Layer.Layer<LanguageModel.LanguageModel>
     Match.when("openrouter", () =>
       Layer.provide(
         Layer.provide(
-          OpenRouterLanguageModel.layer({ model: config.model }),
+          OpenRouterLanguageModel.layer({ model: config.model, config: Settings.openrouter(config.defaults) }),
           OpenRouterClient.layer({
             apiKey: config.apiKey,
             ...Option.match(config.apiUrl, { onNone: () => ({}), onSome: (apiUrl) => ({ apiUrl }) }),
@@ -254,6 +267,7 @@ export const resolve = (options: Options = new Options({})): Effect.Effect<Runti
     new Runtime({
       provider: config.provider,
       model: config.model,
+      defaults: config.defaults,
       request: request(config),
       languageModel: providerLayer(config)
     })

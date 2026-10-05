@@ -3,8 +3,8 @@
  * schema decode failure surfacing, and typed key composition.
  */
 import { describe, expect, it } from "@effect/vitest"
-import { Cache, Key, layerMemory, Request } from "@scenesystems/effect-dsp/Cache"
-import { Effect, Option, Ref, Schema } from "effect"
+import { Cache, layerMemory, Request } from "@scenesystems/effect-dsp/Cache"
+import { Effect, Ref, Schema } from "effect"
 
 describe("Cache authority contract", () => {
   it.effect("resolve returns miss + computed value on first call", () =>
@@ -107,36 +107,6 @@ describe("Cache authority contract", () => {
       expect(res2).toBe("miss")
       expect(yield* Ref.get(computeCount)).toBe(2)
     }).pipe(Effect.provide(layerMemory)))
-
-  it.effect("Key schema includes all five components", () =>
-    Effect.gen(function*() {
-      const key = new Key({
-        moduleFingerprint: "qa-module",
-        runtimeFingerprint: "runtime-v1",
-        inputHash: "abc123",
-        paramsHash: "def456",
-        rolloutId: Option.some(2)
-      })
-
-      expect(key.moduleFingerprint).toBe("qa-module")
-      expect(key.runtimeFingerprint).toBe("runtime-v1")
-      expect(key.inputHash).toBe("abc123")
-      expect(key.paramsHash).toBe("def456")
-      expect(key.rolloutId).toEqual(Option.some(2))
-    }))
-
-  it.effect("Key without rollout defaults to Option.none()", () =>
-    Effect.gen(function*() {
-      const key = new Key({
-        moduleFingerprint: "qa-module",
-        runtimeFingerprint: "runtime-v1",
-        inputHash: "abc123",
-        paramsHash: "def456",
-        rolloutId: Option.none()
-      })
-
-      expect(key.rolloutId).toEqual(Option.none())
-    }))
 
   it.effect("delegates to effect-search Cache for storage", () =>
     Effect.gen(function*() {

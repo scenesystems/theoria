@@ -17,8 +17,10 @@ import { type ModuleParameters, settings } from "../../../ModuleParameters.js"
 import type { Signature } from "../../../Signature.js"
 import { RolloutRef } from "../../cache/rollout.js"
 import { CurrentRole } from "../../modelRole.js"
-import { read } from "../../parameterBinding.js"
+import { path, read } from "../../parameterBinding.js"
+import { executionId } from "../../trace/attempts.js"
 import { registerRuntime, RuntimeRegistrationOptions } from "../discovery/registry.js"
+import { cached } from "./cache.js"
 import { ForwardOptions } from "./model.js"
 import { runForward } from "./strategy.js"
 import { appendTraceEntry, TraceOptions } from "./trace.js"
@@ -59,27 +61,32 @@ export const makeForward = <
       )
 
       const params = yield* read(options.paramsRef, options.moduleName)
+      const id = yield* executionId
       const startedAt = yield* Clock.currentTimeMillis
-      const execution = yield* runForward(
-        new ForwardOptions<I, O>({
-          moduleName: options.moduleName,
-          signature: options.signature,
-          params,
-          input,
-          outputSchema: options.outputSchema,
-          policy: options.policy
-        })
-      ).pipe(ModelBinder.bind(
-        new ModelBinder.Request({
-          settings: ModelSettings.merge(settings(params), options.invocation.settings ?? ModelSettings.empty),
-          role: options.invocation.role ?? (yield* CurrentRole),
-          rolloutId: yield* RolloutRef
-        })
-      ))
+      const forward = new ForwardOptions<I, O>({
+        executionId: id,
+        moduleName: options.moduleName,
+        signature: options.signature,
+        params,
+        input,
+        outputSchema: options.outputSchema,
+        policy: options.policy
+      })
+      const request = new ModelBinder.Request({
+        settings: ModelSettings.merge(settings(params), options.invocation.settings ?? ModelSettings.empty),
+        role: options.invocation.role ?? (yield* CurrentRole),
+        rolloutId: yield* RolloutRef
+      })
+      const compute = runForward(forward)
+      const enabled = options.invocation.cache !== "never"
+      const execution = yield* (enabled
+        ? cached(forward, request, yield* path(options.paramsRef, options.moduleName), compute)
+        : compute).pipe(ModelBinder.bind(request))
       const completedAt = yield* Clock.currentTimeMillis
 
       yield* appendTraceEntry(
         new TraceOptions<I, O>({
+          executionId: id,
           moduleName: options.moduleName,
           signature: options.signature,
           inputSchema: options.inputSchema,

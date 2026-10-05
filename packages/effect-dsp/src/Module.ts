@@ -46,6 +46,7 @@ import { react as reactInternal } from "./internal/module/react/construct.js"
 import { refine as refineInternal } from "./internal/module/refine/construct.js"
 import { load as loadInternal, save as saveInternal } from "./internal/module/saveLoad.js"
 import * as ParameterBinding from "./internal/parameterBinding.js"
+import { withAttempts } from "./internal/trace/attempts.js"
 import type { Score as MetricResult } from "./Metric.js"
 import type { ModuleGraph } from "./ModuleGraph.js"
 import { predictors } from "./ModuleGraph.js"
@@ -435,6 +436,8 @@ export class PredictOptions extends Data.Class<{
   readonly policy?: PredictPolicyOverrides
   readonly settings?: ModelSettings
   readonly role?: Role
+  /** Auto caches predictor calls at every temperature when a Cache layer is present. */
+  readonly cache?: "auto" | "never"
 }> {}
 
 /** Default maximum additional parse attempts.
@@ -625,8 +628,16 @@ export const call = <I extends Schema.Struct.Fields, O extends Schema.Struct.Fie
   input: Schema.Schema.Type<Schema.Struct<I>>
 ) =>
   Effect.gen(function*() {
-    const [[output, selected], usage] = yield* module.forward(input).pipe(Trace.withTracing, Trace.withUsageTracking)
-    const trace = new Trace.Program({ selected: Chunk.fromIterable(selected), attempts: Chunk.empty(), usage })
+    const [[[output, entries], attempts], usage] = yield* module.forward(input).pipe(
+      Trace.withTracing,
+      withAttempts,
+      Trace.withUsageTracking
+    )
+    const trace = new Trace.Program({
+      selected: Chunk.fromIterable(Arr.filter(entries, (entry) => entry.outcome === "completed")),
+      attempts,
+      usage
+    })
     return new Prediction({ output, trace, usage })
   })
 

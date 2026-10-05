@@ -5,7 +5,8 @@
  * @module
  */
 import * as ModelBinder from "@scenesystems/effect-lm/ModelBinder"
-import { empty, ModelSettings } from "@scenesystems/effect-lm/ModelSettings"
+import * as ModelIdentity from "@scenesystems/effect-lm/ModelIdentity"
+import { Current as CurrentSettings, empty, merge, ModelSettings } from "@scenesystems/effect-lm/ModelSettings"
 import { Role } from "@scenesystems/effect-lm/Role"
 import {
   Array as Arr,
@@ -408,7 +409,7 @@ export const fail = (error: unknown): Strategy => new Failing({ error })
  * @since 0.1.0
  * @category constructors
  */
-export const make = (strategy: Strategy): Effect.Effect<Runtime> =>
+export const make = (strategy: Strategy, model = "mock", defaults: ModelSettings = empty): Effect.Effect<Runtime> =>
   Effect.gen(function*() {
     const calls = yield* Ref.make<Calls>(Arr.empty())
     const sequenceIndex = yield* Ref.make(0)
@@ -417,7 +418,24 @@ export const make = (strategy: Strategy): Effect.Effect<Runtime> =>
     return new Runtime({
       service,
       calls,
-      binder: new ModelBinder.Binder({ bind: (request) => Effect.provideService(CurrentRequest, request) })
+      binder: new ModelBinder.Binder({
+        bind: (request) => (effect) =>
+          effect.pipe(
+            Effect.provideService(
+              CurrentRequest,
+              new ModelBinder.Request({
+                role: request.role,
+                rolloutId: request.rolloutId,
+                settings: merge(defaults, request.settings)
+              })
+            ),
+            Effect.provideService(CurrentSettings, merge(defaults, request.settings)),
+            Effect.provideService(
+              ModelIdentity.Current,
+              Option.some(new ModelIdentity.Identity({ provider: "mock", model }))
+            )
+          )
+      })
     })
   })
 

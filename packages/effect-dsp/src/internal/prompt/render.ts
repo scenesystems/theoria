@@ -4,13 +4,14 @@
  * @since 0.1.0
  * @internal
  */
-import { Array as Arr, Effect, Option, Predicate, Record, Schema, String } from "effect"
+import { Array as Arr, Effect, Option, Predicate, Record, Schema, String, Struct } from "effect"
 import * as AiError from "effect/ai/AiError"
 import * as Prompt from "effect/ai/Prompt"
 import type { ModuleParameters } from "../../ModuleParameters.js"
 import { encode } from "../../Payload.js"
-import type { FieldInfo, Signature } from "../../Signature.js"
-import { encodedFieldSchema, encodedFieldsToInfoArray } from "../signature/fields.js"
+import { FieldInfo, type Signature } from "../../Signature.js"
+import { effective } from "../signature/effective.js"
+import { encodedFieldSchema, encodedFieldsToInfoArray, fieldsToInfoArray } from "../signature/fields.js"
 import { renderFieldMarker, renderOutputRequirements, renderOutputTemplate } from "./protocol.js"
 
 const promptError = () =>
@@ -36,8 +37,25 @@ const renderFieldLine = (name: string, description: Option.Option<string>): stri
 
 const renderFieldSection = (fields: Iterable<FieldInfo>): string =>
   Arr.join(
-    Arr.map(Arr.fromIterable(fields), (field) => renderFieldLine(field.name, field.description)),
+    Arr.map(Arr.fromIterable(fields), (field) =>
+      renderFieldLine(
+        Option.match(field.prefix, { onNone: () => field.name, onSome: (prefix) => `${field.name} (${prefix})` }),
+        field.description
+      )),
     "\n"
+  )
+
+// Signature constructors accept Struct and encodeKeys(Struct), both preserving
+// field order. Pair decoded metadata with its wire key rather than renaming markers.
+const promptFields = (schema: Schema.Top, fields: ReadonlyArray<FieldInfo>) =>
+  Arr.zipWith(
+    fieldsToInfoArray(schema),
+    encodedFieldsToInfoArray(schema),
+    (decoded, encoded) =>
+      new FieldInfo(Struct.assign(
+        Option.getOrElse(Arr.findFirst(fields, (field) => field.name === decoded.name), () => decoded),
+        { name: encoded.name }
+      ))
   )
 
 const renderFieldBlock = <A extends Record.ReadonlyRecord<string, unknown>>(schema: Schema.Schema<A>, values: A) =>
@@ -65,8 +83,9 @@ export const buildPrompt = <I extends Schema.Struct.Fields, O extends Schema.Str
   feedback: Option.Option<string> = Option.none()
 ): Effect.Effect<Prompt.Prompt, AiError.AiError, Schema.Struct<I>["EncodingServices"]> =>
   Effect.gen(function*() {
-    const inputFields = encodedFieldsToInfoArray(signature.inputSchema)
-    const outputFields = encodedFieldsToInfoArray(signature.outputSchema)
+    const composed = effective(signature, params)
+    const inputFields = promptFields(signature.inputSchema, composed.fields)
+    const outputFields = promptFields(signature.outputSchema, composed.fields)
     const outputNames = Arr.map(outputFields, (field) => field.name)
     const encoded = yield* Schema.encodeEffect(signature.inputSchema)(input).pipe(Effect.mapError(promptError))
     const content = yield* renderFieldBlock(Schema.toEncoded(signature.inputSchema), encoded)

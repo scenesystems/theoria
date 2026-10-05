@@ -47,6 +47,8 @@ export const UnparsedOutput = Schema.Struct({
  * @category models
  */
 export class Entry extends Schema.Class<Entry>("@scenesystems/effect-dsp/Trace/Entry")({
+  /** Predictor invocation shared with its attempts. */
+  execution: Execution.Id,
   /** Invoked module name. */
   moduleName: Schema.String,
   /** Description from the module signature. */
@@ -121,6 +123,8 @@ export class Attempt extends Schema.Class<Attempt>("@scenesystems/effect-dsp/Tra
   execution: Execution.Id,
   rawResponse: Schema.String,
   parseError: Schema.Option(Schema.String),
+  /** Failed parse/tool-turn evidence; absent for a parsed answer. */
+  unparsed: Schema.Option(UnparsedOutput),
   usage: Response.Usage
 }) {}
 

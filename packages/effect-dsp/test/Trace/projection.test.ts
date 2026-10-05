@@ -25,6 +25,7 @@ const makeTraceEntry = Effect.gen(function*() {
   })
   const output = yield* encode(Output, { answer: "Paris" })
   return new Trace.Entry({
+    execution: yield* Schema.decodeEffect(Trace.Execution.Id)("qa-1"),
     moduleName: "qa",
     signatureDescription: "Answer questions with concise factual answers",
     input,
