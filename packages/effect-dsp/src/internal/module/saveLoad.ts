@@ -43,13 +43,13 @@ export const load = <I extends Schema.Struct.Fields, O extends Schema.Struct.Fie
           message: `Saved state contains unknown predictor path '${id}'`,
           operation: "load"
         })
-      ).pipe(Effect.when(Effect.succeed(Boolean.not(Arr.some(targets, (entry) => entry.id === id))))))
+      ).pipe(Effect.when(Effect.succeed(Boolean.not(Arr.some(targets, (entry) => entry.path === id))))))
     yield* Effect.forEach(targets, (target) =>
-      Option.match(Record.get(decoded.parameters, target.id), {
+      Option.match(Record.get(decoded.parameters, target.path), {
         onNone: () =>
           Effect.fail(
             new SaveLoadError({
-              message: `Saved state is missing params for predictor '${target.id}'`,
+              message: `Saved state is missing params for predictor '${target.path}'`,
               operation: "load"
             })
           ),
@@ -57,7 +57,7 @@ export const load = <I extends Schema.Struct.Fields, O extends Schema.Struct.Fie
           Effect.forEach(params.demos, target.demonstrationCodec.decode, { discard: true }).pipe(
             Effect.mapError(() =>
               new SaveLoadError({
-                message: `Saved demonstrations do not match predictor '${target.id}'`,
+                message: `Saved demonstrations do not match predictor '${target.path}'`,
                 operation: "load"
               })
             )

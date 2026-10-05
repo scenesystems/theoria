@@ -27,7 +27,7 @@ export class Accepted extends Schema.Class<Accepted>("@scenesystems/effect-dsp/T
   round: Schema.Int,
   trace: Trace.Program,
   score: Metric.Score,
-  demosByPredictor: Schema.Record(Predictor.Id, Schema.Chunk(Demonstration))
+  demosByPredictor: Schema.Record(Predictor.Path, Schema.Chunk(Demonstration))
 }) {}
 
 /** A rejected score or expected execution failure; defects remain defects.
@@ -121,7 +121,7 @@ export const collect = <I extends Schema.Struct.Fields, O extends Schema.Struct.
     if (
       studentRefs.length !== teacherRefs.length || Arr.some(studentRefs, (student, index) => {
         const other = teacherRefs[index]
-        return !other || student.id !== other.id || student.signature.description !== other.signature.description ||
+        return !other || student.path !== other.path || student.signature.description !== other.signature.description ||
           student.signature.instructions !== other.signature.instructions
       })
     ) {
@@ -133,7 +133,7 @@ export const collect = <I extends Schema.Struct.Fields, O extends Schema.Struct.
       Effect.gen(function*() {
         const other = Option.getOrThrow(Arr.get(teacherRefs, index))
         if ((yield* student.signatureDigest) !== (yield* other.signatureDigest)) {
-          return yield* new IncompatibleTeacher({ message: `Teacher signature differs at ${student.id}` })
+          return yield* new IncompatibleTeacher({ message: `Teacher signature differs at ${student.path}` })
         }
       }))
     const parameters = yield* ParameterSet.snapshot(teacher)
@@ -219,7 +219,7 @@ export const collect = <I extends Schema.Struct.Fields, O extends Schema.Struct.
                         new Demonstration(Struct.assign(demo, { exampleId: Option.some(row.id) }))
                       )
                     ))
-                  return Tuple.make(predictor.id, Chunk.fromIterable(values))
+                  return Tuple.make(predictor.path, Chunk.fromIterable(values))
                 }))
               const result = new Accepted({
                 exampleId: row.id,

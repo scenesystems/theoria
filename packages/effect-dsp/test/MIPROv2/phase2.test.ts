@@ -395,7 +395,7 @@ describe("MIPROv2 Phase 2", () => {
       )
       const rootBaseline = yield* requireSome(Arr.head(childSet.candidates), "missing child baseline")
       const rootCandidate = new DemoCandidate({
-        predictorName: "wrong-owner",
+        predictorName: "wrong-predictor",
         kind: rootBaseline.kind,
         params: new ModuleParameters({
           instructions: rootBaseline.params.instructions,

@@ -13,6 +13,15 @@ import { SignatureError } from "./DspError.js"
 import { fromSchemas as fromSchemasInternal, make as makeInternal } from "./internal/signature/constructors.js"
 import { deriveInstruction as deriveInstructionInternal } from "./internal/signature/instructions.js"
 
+/** Natural-language description and instructions without field schemas.
+ * @since 0.6.0
+ * @category models
+ */
+export class Text extends Schema.Class<Text>("@scenesystems/effect-dsp/Signature/Text")({
+  description: Schema.String,
+  instructions: Schema.String
+}) {}
+
 /** Annotation identifier used for field descriptions.
  * @since 0.1.0
  * @category annotations

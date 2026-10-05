@@ -42,7 +42,7 @@ export class Options<
   E = never,
   R = never
 > extends Data.Class<{
-  /** Program whose optimizable leaves receive demonstrations in a bound copy. */
+  /** Program whose trainable predictors receive demonstrations in a bound copy. */
   readonly module: Module<I, O, E, R>
   /** Source examples; entries without labels are ignored. */
   readonly trainset: LabeledExamples
@@ -61,7 +61,7 @@ export class Options<
  * Entries without labels are ignored. Each unfrozen leaf draws without replacement
  * from a seeded Effect Random stream, or takes the first k rows when sample is false.
  * Labels are projected onto destination fields and missing output fields mark a
- * demonstration incomplete. Shared owners are sampled once. Caller refs are unchanged.
+ * demonstration incomplete. Shared predictors are sampled once. Caller refs are unchanged.
  *
  * Incompatible input fields fail with a checked SchemaError; use trace bootstrapping
  * to derive stage-specific demonstrations. No model or metric calls are performed.
@@ -97,12 +97,15 @@ export const run = <
         ))
     )
     const before = yield* ParameterSet.snapshot(options.module)
-    const refs = Arr.filter(Arr.fromIterable(predictors(options.module)), (entry) => entry.ownership !== "frozen")
+    const refs = Arr.filter(Arr.fromIterable(predictors(options.module)), (entry) => !entry.frozen)
     const replacements = yield* Effect.forEach(refs, (entry) =>
       Effect.gen(function*() {
         const selected = Arr.take(options.sample === false ? demos : yield* Random.shuffle(demos), k)
         const validated = yield* Effect.forEach(selected, entry.demonstrationCodec.labeled)
-        return Tuple.make(entry.id, withModuleParamsDemos(Option.getOrThrow(Record.get(before, entry.id)), validated))
+        return Tuple.make(
+          entry.path,
+          withModuleParamsDemos(Option.getOrThrow(Record.get(before, entry.path)), validated)
+        )
       })).pipe(Random.withSeed(seed))
     const parameters = { ...before, ...Record.fromEntries(replacements) }
     return new Optimized.Result({

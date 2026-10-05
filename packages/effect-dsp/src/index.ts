@@ -42,7 +42,7 @@ export * as ModuleGraph from "./ModuleGraph.js"
  */
 export * as ModuleParameters from "./ModuleParameters.js"
 
-/** Leaf ownership and stable declaration paths. @since 0.6.0 @category modules */
+/** Named predictors and stable program paths. @since 0.6.0 @category modules */
 export * as Predictor from "./Predictor.js"
 /** Immutable parameter snapshots. @since 0.6.0 @category modules */
 export * as ParameterSet from "./ParameterSet.js"

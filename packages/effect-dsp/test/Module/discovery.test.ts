@@ -28,11 +28,11 @@ const makeQaSignature = () =>
 
 class RegistrationProjection extends Data.Class<{
   readonly id: string
-  readonly subModuleIds: Module.Registration["subModuleIds"]
+  readonly subModuleIds: Module.Discovered["subModuleIds"]
 }> {}
 
 const registrationProjection = (
-  registrations: Iterable<Module.Registration>
+  registrations: Iterable<Module.Discovered>
 ) =>
   Arr.map(Arr.fromIterable(registrations), (registration) =>
     new RegistrationProjection({
@@ -41,9 +41,9 @@ const registrationProjection = (
     }))
 
 const registrationById = (
-  registrations: Iterable<Module.Registration>,
+  registrations: Iterable<Module.Discovered>,
   moduleId: string
-): Option.Option<Module.Registration> =>
+): Option.Option<Module.Discovered> =>
   Arr.findFirst(
     Arr.fromIterable(registrations),
     (registration) => Equal.equals(registration.id, moduleId)
@@ -80,7 +80,7 @@ describe("Module discovery", () => {
       expect(ModuleGraph.traversal(graph)).toEqual(Arr.make("observed"))
     }))
 
-  it.effect("collects both concurrent ensemble lineages and their live parameters", () =>
+  it.effect("collects both concurrent ensemble lineages and their parameters", () =>
     Effect.gen(function*() {
       const signature = yield* makeQaSignature()
       const leafA = yield* Module.compose(

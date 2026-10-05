@@ -10,7 +10,7 @@ import type { CompositionError } from "../../../DspError.js"
 import { ComposableModule, ComposeGraphOptions, Module, type RefineOptions } from "../../../Module.js"
 import { predictors } from "../../../ModuleGraph.js"
 import { make as makeDefaultModuleParameters } from "../../../ModuleParameters.js"
-import { withOwners } from "../../parameterBinding.js"
+import { withPredictors } from "../../parameterBinding.js"
 import { buildCompositionGraph } from "../compose/graph.js"
 import { ComposeForwardOptions, makeComposeForward } from "../compose/runtime.js"
 import { makeRefineForward } from "./runtime.js"
@@ -27,7 +27,7 @@ import { makeRefineForward } from "./runtime.js"
  * use and optimization of the inner module remain isolated from the feedback.
  *
  * The wrapper has a separate parameter Ref that this execution path does not
- * read. Its validated child graph exposes the inner owner and all descendants
+ * read. Its validated child graph exposes the inner module and all descendants
  * to discovery, optimization, and persistence. Wrapper and child names must be
  * distinct; invalid graphs fail with `CompositionError`.
  * Reward failures and requirements are composed with the inner module's
@@ -78,7 +78,7 @@ export const refine = <
       name: options.name,
       signature: options.module.signature,
       params: paramsRef,
-      subModules: composition.subModuleNodesById,
+      subModules: composition.subModulesById,
       declarations: composition.declarations,
       forward: makeComposeForward(
         new ComposeForwardOptions({
@@ -87,14 +87,14 @@ export const refine = <
           paramsRef,
           rootChildIds: composition.rootChildIds,
           graph: composition.graph,
-          subModuleNodes: composition.subModuleNodesById,
+          subModules: composition.subModulesById,
           forward: ({ input }) =>
-            refineForward(input).pipe(withOwners(predictors(
+            refineForward(input).pipe(withPredictors(predictors(
               new ComposableModule({
                 name: options.name,
                 signature: options.module.signature,
                 params: paramsRef,
-                subModules: composition.subModuleNodesById,
+                subModules: composition.subModulesById,
                 declarations: composition.declarations
               })
             )))

@@ -41,7 +41,7 @@ import {
 import { buildProposalPrompt, datasetSummary, ProposalPromptOptions } from "./runtime/prompt.js"
 
 const indexDemoCandidateSets = (
-  refs: ReadonlyArray<Predictor.Ref>,
+  refs: ReadonlyArray<Predictor.Predictor>,
   candidateSets: PredictorDemoCandidateSets
 ) =>
   Effect.reduce(
@@ -108,7 +108,7 @@ const baselineCandidate = (predictorName: string, instruction: string): Instruct
   })
 
 class ResolvedPredictor extends Data.Class<{
-  readonly ref: Predictor.Ref
+  readonly ref: Predictor.Predictor
   readonly predictorIndex: number
   readonly demoSet: PredictorDemoCandidates
   readonly params: ModuleParameters
@@ -118,7 +118,7 @@ const RenderedDemos = Schema.Array(DemoDocuments)
 const RenderedDemoCandidates = Schema.Array(RenderedDemos)
 
 class PreparedPredictor extends Data.Class<{
-  readonly ref: Predictor.Ref
+  readonly ref: Predictor.Predictor
   readonly predictorIndex: number
   readonly params: ModuleParameters
   readonly renderedDemoCandidates: typeof RenderedDemoCandidates.Type
@@ -126,7 +126,7 @@ class PreparedPredictor extends Data.Class<{
 }> {}
 
 const resolvePredictor = (
-  ref: Predictor.Ref,
+  ref: Predictor.Predictor,
   predictorIndex: number,
   candidateSets: HashMap.HashMap<string, PredictorDemoCandidates>
 ) =>
@@ -141,7 +141,7 @@ const resolvePredictor = (
         message: Str.concat(Str.concat("Demo candidate set for predictor '", ref.name), "' is empty"),
         predictorIndex
       })))
-    const params = yield* Binding.read(ref.params, ref.name)
+    const params = yield* Binding.read(ref.parameters, ref.name)
     return new ResolvedPredictor({ ref, predictorIndex, demoSet, params })
   })
 
@@ -197,7 +197,7 @@ export const proposeInstructionCandidates = <
   options: ProposeInstructionCandidatesOptions<I, O, E, R>
 ) =>
   Effect.gen(function*() {
-    const refs = Arr.filter(Arr.fromIterable(predictors(options.module)), (entry) => entry.ownership !== "frozen")
+    const refs = Arr.filter(Arr.fromIterable(predictors(options.module)), (entry) => !entry.frozen)
     const requested = proposalIndices(options.numInstructions)
     const seed = resolveSeed(options.seed)
     const tips = resolveTipVocabulary(options.tipVocabulary)
@@ -271,4 +271,4 @@ export const proposeInstructionCandidates = <
           candidates: Arr.appendAll(Arr.make(baselineCandidate(ref.name, params.instructions)), generated)
         })
       }), { concurrency: 1 })
-  }).pipe(Binding.withOwners(predictors(options.module)))
+  }).pipe(Binding.withPredictors(predictors(options.module)))

@@ -11,10 +11,9 @@ import type { Schema } from "effect"
 import { Array as Arr, Clock, Data, Effect } from "effect"
 import type { Ref } from "effect"
 import type { Module } from "../../../Module.js"
-import { NodeSignature } from "../../../Module.js"
 import type { PredictOptions, PredictPolicy } from "../../../Module.js"
 import { type ModuleParameters, settings } from "../../../ModuleParameters.js"
-import type { Signature } from "../../../Signature.js"
+import { type Signature, Text } from "../../../Signature.js"
 import { RolloutRef } from "../../cache/rollout.js"
 import { CurrentRole } from "../../modelRole.js"
 import { path, read } from "../../parameterBinding.js"
@@ -52,7 +51,7 @@ export const makeForward = <
         new RuntimeRegistrationOptions({
           moduleName: options.moduleName,
           params: options.paramsRef,
-          signature: new NodeSignature({
+          signature: new Text({
             description: options.signature.description,
             instructions: options.signature.instructions
           }),

@@ -16,7 +16,7 @@ describe("prediction and metric contracts", () => {
     Effect.gen(function*() {
       const trace = new Trace.Program({ selected: Chunk.empty(), attempts: Chunk.empty(), usage: Trace.emptyUsage })
       const target = new Metric.Target({
-        predictorId: yield* Schema.decodeEffect(Predictor.Id)("qa.answer"),
+        predictorId: yield* Schema.decodeEffect(Predictor.Path)("qa.answer"),
         execution: yield* Schema.decodeEffect(Trace.Execution.Id)("attempt-17")
       })
       const context = new Metric.Context({ phase: "reflect", trace: Option.some(trace), target: Option.some(target) })

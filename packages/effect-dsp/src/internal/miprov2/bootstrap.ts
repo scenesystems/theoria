@@ -44,7 +44,7 @@ export const generateDemoCandidates = <
   options: GenerateDemoCandidatesOptions<I, O, E, R>
 ) =>
   Effect.gen(function*() {
-    const refs = Arr.filter(Arr.fromIterable(predictors(options.module)), (entry) => entry.ownership !== "frozen")
+    const refs = Arr.filter(Arr.fromIterable(predictors(options.module)), (entry) => !entry.frozen)
     const requestedCandidates = normalizePositiveCount(options.numCandidates)
     const allLabeled = sortDemos(labeledDemos(options.trainset))
     const maxLabeledDemos = normalizePositiveCount(
@@ -63,7 +63,7 @@ export const generateDemoCandidates = <
 
     return yield* Effect.forEach(refs, (ref, predictorIndex) =>
       Effect.gen(function*() {
-        const params = yield* Binding.read(ref.params, ref.name)
+        const params = yield* Binding.read(ref.parameters, ref.name)
         const compatibleLabels = Arr.getSomes(
           yield* Effect.forEach(allLabeled, (demo) => ref.demonstrationCodec.decode(demo).pipe(Effect.option))
         )
@@ -92,4 +92,4 @@ export const generateDemoCandidates = <
           )
         })
       }))
-  }).pipe(Binding.withOwners(predictors(options.module)))
+  }).pipe(Binding.withPredictors(predictors(options.module)))

@@ -250,14 +250,14 @@ export const buildCandidateStates = <
       const seed = Option.getOrElse(Arr.head(options.seeds), () => 0)
       const labels = labeledDemos(options.trainset)
       const replacements = yield* Effect.forEach(
-        Arr.filter(Arr.fromIterable(predictors(options.module)), (entry) => entry.ownership !== "frozen"),
+        Arr.filter(Arr.fromIterable(predictors(options.module)), (entry) => !entry.frozen),
         (entry) =>
           Effect.forEach(labels, (demo) => entry.demonstrationCodec.decode(demo).pipe(Effect.option)).pipe(
             Effect.map((compatible) =>
               Tuple.make(
-                entry.id,
+                entry.path,
                 withModuleParamsDemos(
-                  Option.getOrThrow(Record.get(options.initialState, entry.id)),
+                  Option.getOrThrow(Record.get(options.initialState, entry.path)),
                   selectRandomDemos(Arr.getSomes(compatible), options.baselineLabeledCount, seed)
                 )
               )

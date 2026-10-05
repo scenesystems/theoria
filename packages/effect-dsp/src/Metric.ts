@@ -27,7 +27,7 @@ export type Phase = typeof Phase.Type
  * @category models
  */
 export class Target extends Schema.Class<Target>("@scenesystems/effect-dsp/Metric/Target")({
-  predictorId: Predictor.Id,
+  predictorId: Predictor.Path,
   execution: Trace.Execution.Id
 }) {}
 

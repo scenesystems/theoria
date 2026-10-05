@@ -131,7 +131,7 @@ describe("Module.refine", () => {
       expect(yield* Ref.get(model.calls)).toHaveLength(1)
     }))
 
-  it.effect("loads the live inner graph and retains its loaded state after refinement", () =>
+  it.effect("loads the inner predictor parameters and retains their state after refinement", () =>
     Effect.gen(function*() {
       const signature = yield* makeQaSignature()
       const predictor = yield* Module.predict("predictor", signature)
@@ -171,13 +171,13 @@ describe("Module.refine", () => {
       expect(yield* Ref.get(model.calls)).toHaveLength(2)
     }))
 
-  it.effect("rejects a wrapper identity that collides with the inner owner", () =>
+  it.effect("rejects a wrapper identity that collides with the inner predictor", () =>
     Effect.gen(function*() {
       const signature = yield* makeQaSignature()
-      const inner = yield* Module.predict("same-owner", signature)
+      const inner = yield* Module.predict("same-predictor", signature)
       const error = yield* Module.refine(
         new Module.RefineOptions({
-          name: "same-owner",
+          name: "same-predictor",
           module: inner,
           N: Module.RolloutCount.make(1),
           threshold: 0.9,

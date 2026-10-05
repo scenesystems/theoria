@@ -4,7 +4,7 @@
  * @since 0.1.0
  */
 import { Array as Arr, Equivalence, Order } from "effect"
-import { type Id, Registration } from "../../../Module.js"
+import { Discovered, type Id } from "../../../Module.js"
 import type { Node as ModuleGraphNode } from "../../../ModuleGraph.js"
 
 const moduleIdOrder: Order.Order<Id> = Order.mapInput(Order.String, (moduleId: Id) => moduleId)
@@ -26,13 +26,13 @@ const uniqueSortedModuleIds = (moduleIds: Iterable<Id>): ModuleGraphNode["subMod
 export const canonicalSubModuleIds = (subModuleIds: Iterable<Id>): ModuleGraphNode["subModuleIds"] =>
   uniqueSortedModuleIds(subModuleIds)
 
-const registrationOrder: Order.Order<Registration> = Order.mapInput(
+const registrationOrder: Order.Order<Discovered> = Order.mapInput(
   moduleIdOrder,
   (registration) => registration.id
 )
 
-const canonicalRegistration = (registration: Registration): Registration =>
-  new Registration({
+const canonicalRegistration = (registration: Discovered): Discovered =>
+  new Discovered({
     id: registration.id,
     params: registration.params,
     signature: registration.signature,
@@ -44,7 +44,7 @@ const canonicalRegistration = (registration: Registration): Registration =>
  *
  * @remarks
  * Duplicate registration ids remain present, and conflicts are not detected.
- * Use {@link register} when adding entries to the live registry.
+ * Use {@link register} when adding entries to the discovery registry.
  *
  * @param registrations - Snapshot values to copy and sort.
  * @returns New registration values in ascending id order.
@@ -53,5 +53,5 @@ const canonicalRegistration = (registration: Registration): Registration =>
  * @category combinators
  */
 export const canonicalModuleRegistrations = (
-  registrations: Iterable<Registration>
+  registrations: Iterable<Discovered>
 ) => Arr.sort(Arr.map(Arr.fromIterable(registrations), canonicalRegistration), registrationOrder)

@@ -36,7 +36,7 @@ export const Phase3Config = Schema.Record(Schema.String, Phase3DimensionIndex)
 export type Phase3Config = typeof Phase3Config.Type
 
 /**
- * Live binding for a single predictor during Phase 3 search.
+ * Candidate binding for a single predictor during Phase 3 search.
  *
  * Pairs a stable predictor path with the complete demo and instruction
  * candidate sets produced by Phases 1 and 2.
@@ -46,7 +46,7 @@ export type Phase3Config = typeof Phase3Config.Type
  */
 export class PredictorBinding extends Data.Class<{
   readonly predictorName: string
-  readonly predictorId: Predictor.Id
+  readonly predictorId: Predictor.Path
   readonly demos: PredictorDemoCandidates
   readonly instructions: PredictorInstructionCandidates
 }> {}

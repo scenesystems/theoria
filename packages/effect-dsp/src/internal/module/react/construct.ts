@@ -8,7 +8,7 @@ import * as Numeric from "@scenesystems/effect-math/Numeric"
 import { Effect, HashMap, Match, Number, Option, Ref, Schema } from "effect"
 import type { Record } from "effect"
 import type * as Tool from "effect/ai/Tool"
-import { defaultReactMaxIterations, type Id, Module, type Node, type ReactOptions } from "../../../Module.js"
+import { defaultReactMaxIterations, type Id, Module, type ReactOptions, type Structure } from "../../../Module.js"
 import { make as makeDefaultModuleParameters, type ModuleParameters } from "../../../ModuleParameters.js"
 import type { Signature } from "../../../Signature.js"
 import { makeReactForward, ReactRuntimeOptions } from "./runtime.js"
@@ -73,7 +73,7 @@ export const react = <
       name: options.name,
       signature: options.signature,
       params: paramsRef,
-      subModules: HashMap.empty<Id, Node>(),
+      subModules: HashMap.empty<Id, Structure>(),
       forward: makeReactForward(
         new ReactRuntimeOptions({
           moduleName: options.name,

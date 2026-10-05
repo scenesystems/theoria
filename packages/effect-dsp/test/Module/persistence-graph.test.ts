@@ -1,5 +1,5 @@
 /**
- * Live shared-owner persistence and validation atomicity.
+ * Shared-predictor persistence and validation atomicity.
  */
 import { describe, expect, it } from "@effect/vitest"
 import { Demonstration } from "@scenesystems/effect-dsp/Demonstration"

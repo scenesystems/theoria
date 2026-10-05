@@ -15,7 +15,7 @@ export const defaultBootstrapThreshold = 1
 export const defaultBootstrapFallbackDemoCount = 3
 
 export class PredictorDemos extends Data.Class<{
-  readonly owner: Predictor.Ref
+  readonly predictor: Predictor.Predictor
   readonly params: ModuleParameters
 }> {}
 

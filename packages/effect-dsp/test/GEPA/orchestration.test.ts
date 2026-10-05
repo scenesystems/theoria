@@ -153,7 +153,7 @@ const runCountingStream = (mutatedIsBetter: boolean) =>
   })
 
 describe("GEPA.run orchestration", () => {
-  it.effect("restores every composed parameter owner after a checked candidate-evaluation failure", () =>
+  it.effect("preserves every composed predictor after a checked candidate-evaluation failure", () =>
     Effect.gen(function*() {
       const rootSignature = yield* makeQaSignature()
       const draftSignature = yield* makeDraftSignature()
@@ -210,7 +210,7 @@ describe("GEPA.run orchestration", () => {
       expect(yield* Ref.get(child.params)).toEqual(childParams)
     }))
 
-  it.effect("restores every composed parameter owner after candidate evaluation is interrupted", () =>
+  it.effect("preserves every composed predictor after candidate evaluation is interrupted", () =>
     Effect.gen(function*() {
       const rootSignature = yield* makeQaSignature()
       const draftSignature = yield* makeDraftSignature()

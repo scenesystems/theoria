@@ -12,7 +12,7 @@ import { predictors } from "../../../ModuleGraph.js"
 import { withInstructions } from "../../../ModuleParameters.js"
 import * as ParameterSet from "../../../ParameterSet.js"
 import { encode as encodePayload } from "../../../Payload.js"
-import { withOwners } from "../../parameterBinding.js"
+import { withPredictors } from "../../parameterBinding.js"
 import { ReflectiveDatasetSample } from "../model.js"
 import { CandidateScoreVector, type ProgramCandidate } from "../model.js"
 
@@ -70,14 +70,14 @@ export const candidateParameters = (
   Effect.gen(function*() {
     const before = yield* ParameterSet.snapshot(root)
     const replacements = Arr.map(
-      Arr.filter(Arr.fromIterable(predictors(root)), (owner) => owner.ownership !== "frozen"),
-      (owner) => {
-        const params = Option.getOrThrow(Record.get(before, owner.id))
+      Arr.filter(Arr.fromIterable(predictors(root)), (predictor) => !predictor.frozen),
+      (predictor) => {
+        const params = Option.getOrThrow(Record.get(before, predictor.path))
         return Tuple.make(
-          owner.id,
+          predictor.path,
           withInstructions(
             params,
-            Option.getOrElse(instructionForPredictor(candidate, owner.name), () => params.instructions)
+            Option.getOrElse(instructionForPredictor(candidate, predictor.name), () => params.instructions)
           )
         )
       }
@@ -192,6 +192,6 @@ export const evaluateCandidate = <I extends Schema.Struct.Fields, O extends Sche
           })
         ),
         withParameters(parameters),
-        withOwners(predictors(options.module))
+        withPredictors(predictors(options.module))
       )
   })

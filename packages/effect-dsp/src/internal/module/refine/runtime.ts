@@ -151,7 +151,7 @@ export const makeRefineForward = <
               )
               const output = yield* options.module.forward(input).pipe(
                 Binding.withParameters(parameters),
-                Binding.withOwners(predictors(options.module))
+                Binding.withPredictors(predictors(options.module))
               )
               const result = yield* options.reward(input, output)
 

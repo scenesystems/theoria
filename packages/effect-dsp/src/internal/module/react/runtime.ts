@@ -14,9 +14,8 @@ import type * as Tool from "effect/ai/Tool"
 import type * as Toolkit from "effect/ai/Toolkit"
 import { type ParseFieldDiagnostic, ParseOutputError } from "../../../DspError.js"
 import type { Module } from "../../../Module.js"
-import { NodeSignature } from "../../../Module.js"
 import { type ModuleParameters, settings } from "../../../ModuleParameters.js"
-import type { Signature } from "../../../Signature.js"
+import { type Signature, Text } from "../../../Signature.js"
 import { RolloutRef } from "../../cache/rollout.js"
 import { callLmTextResponse } from "../../lm.js"
 import { CurrentRole } from "../../modelRole.js"
@@ -81,7 +80,7 @@ export const makeReactForward = <
         new RuntimeRegistrationOptions({
           moduleName: options.moduleName,
           params: options.paramsRef,
-          signature: new NodeSignature({
+          signature: new Text({
             description: options.signature.description,
             instructions: options.signature.instructions
           }),

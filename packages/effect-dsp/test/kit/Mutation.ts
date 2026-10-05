@@ -10,8 +10,8 @@ export const assertNoMutation = <I extends Schema.Struct.Fields, O extends Schem
 ) => {
   const refs = Arr.prepend(
     Arr.map(
-      Arr.fromIterable(Graph.nodes(Module.nodeGraph(HashMap.values(module.subModules)))),
-      ([, node]) => node.params
+      Arr.fromIterable(Graph.nodes(Module.structure(HashMap.values(module.subModules)))),
+      ([, subModule]) => subModule.parameters
     ),
     module.params
   )

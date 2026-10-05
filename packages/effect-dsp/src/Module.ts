@@ -1,5 +1,5 @@
 /**
- * Executable modules, live ownership nodes, and module operations.
+ * Executable modules, program structure, and module operations.
  *
  * @since 0.1.0
  * @module
@@ -53,10 +53,10 @@ import { predictors } from "./ModuleGraph.js"
 import type { ModuleParameters } from "./ModuleParameters.js"
 import { ParameterSet } from "./ParameterSet.js"
 import { Prediction } from "./Prediction.js"
-import type { Signature } from "./Signature.js"
+import type { Signature, Text } from "./Signature.js"
 import * as Trace from "./Trace.js"
 
-/** Validated identity used by module ownership and discovery graphs.
+/** Validated module identity used by composition and discovery.
  * @since 0.1.0
  * @category schemas
  */
@@ -86,87 +86,78 @@ export const RolloutCount = Schema.Int.pipe(
  */
 export type RolloutCount = typeof RolloutCount.Type
 
-/** Prompt metadata retained by a live ownership node.
+/** A module and its sub-modules used for composition, optimization, and persistence.
  * @since 0.1.0
  * @category models
  */
-export class NodeSignature extends Schema.Class<NodeSignature>("@scenesystems/effect-dsp/Module/NodeSignature")({
-  description: Schema.String,
-  instructions: Schema.String
-}) {}
-
-/** Live ownership view used for composition, optimization, and persistence.
- * @since 0.1.0
- * @category models
- */
-export class Node extends Data.Class<{
-  readonly moduleId: Id
+export class Structure extends Data.Class<{
+  readonly id: Id
   readonly name: string
-  readonly signature: NodeSignature
+  readonly signature: Text
   readonly signatureDigest: Effect.Effect<string, SignatureError>
   readonly demonstrationCodec: DemonstrationCodec
-  readonly params: Ref.Ref<ModuleParameters>
-  readonly subModules: HashMap.HashMap<Id, Node>
-  readonly declarations?: Record.ReadonlyRecord<string, Node>
+  readonly parameters: Ref.Ref<ModuleParameters>
+  readonly subModules: HashMap.HashMap<Id, Structure>
+  readonly declarations?: Record.ReadonlyRecord<string, Structure>
   readonly frozen?: boolean
-  readonly parameters?: ParameterSet
+  readonly boundParameters?: ParameterSet
 }> {}
 
-/** One retained child declaration in a normalized live ownership graph.
+/** A named sub-module in a program's structure.
  * @since 0.4.0
  * @category models
  */
-export class Declaration extends Data.Class<{
-  readonly declaredId: Id
-  readonly child: Node
+export class SubModule extends Data.Class<{
+  readonly name: Id
+  readonly module: Structure
 }> {}
 
 class NormalizationWorklist extends Data.Class<{
-  readonly pending: Iterable<Node>
-  readonly expanded: Iterable<Node>
+  readonly pending: Iterable<Structure>
+  readonly expanded: Iterable<Structure>
 }> {}
 
-const nodeIdentity = Equivalence.strictEqual<Node>()
-const ownerIdentity = Equivalence.strictEqual<Node["params"]>()
-const declarationOrder: Order.Order<Declaration> = Order.mapInput(Order.String, (edge) => edge.declaredId)
+const moduleIdentity = Equivalence.strictEqual<Structure>()
+const predictorIdentity = Equivalence.strictEqual<Structure["parameters"]>()
+const subModuleOrder: Order.Order<SubModule> = Order.mapInput(Order.String, (entry) => entry.name)
 
-/** Materializes recursive ownership into a directed graph without reading parameters.
+/** Projects recursive program structure into a directed graph without reading parameters.
  * @since 0.4.0
  * @category constructors
  */
-export const nodeGraph = (roots: Iterable<Node>): Graph.DirectedGraph<Node, Declaration> =>
-  Graph.directed<Node, Declaration>((mutable) => {
-    const register = (node: Node) =>
+export const structure = (roots: Iterable<Structure>): Graph.DirectedGraph<Structure, SubModule> =>
+  Graph.directed<Structure, SubModule>((mutable) => {
+    const register = (module: Structure) =>
       Option.getOrElse(
-        Graph.findNode(mutable, (existing) => ownerIdentity(existing.params, node.params)),
-        () => Graph.addNode(mutable, node)
+        Graph.findNode(mutable, (existing) => predictorIdentity(existing.parameters, module.parameters)),
+        () => Graph.addNode(mutable, module)
       )
     const initial = Arr.fromIterable(roots)
     Arr.forEach(initial, register)
     Arr.unfold(
       new NormalizationWorklist({ pending: initial, expanded: Arr.empty() }),
       (state) =>
-        Option.map(Arr.head(Arr.fromIterable(state.pending)), (node) => {
+        Option.map(Arr.head(Arr.fromIterable(state.pending)), (module) => {
           const rest = Arr.drop(state.pending, 1)
           return Tuple.make(
-            node,
-            Boolean.match(Arr.containsWith(nodeIdentity)(state.expanded, node), {
+            module,
+            Boolean.match(Arr.containsWith(moduleIdentity)(state.expanded, module), {
               onTrue: () => new NormalizationWorklist({ pending: rest, expanded: state.expanded }),
               onFalse: () => {
-                const source = register(node)
-                const declarations = Arr.sort(
+                const source = register(module)
+                const subModules = Arr.sort(
                   Arr.map(
-                    HashMap.toEntries(node.subModules),
-                    ([declaredId, child]) => new Declaration({ declaredId, child })
+                    HashMap.toEntries(module.subModules),
+                    ([name, module]) => new SubModule({ name, module })
                   ),
-                  declarationOrder
+                  subModuleOrder
                 )
-                Arr.forEach(declarations, (declaration) => {
-                  Graph.addEdge(mutable, source, register(declaration.child), declaration)
+                Arr.forEach(subModules, (subModule) => {
+                  Graph.addEdge(mutable, source, register(subModule.module), subModule)
                 })
                 return new NormalizationWorklist({
-                  pending: Arr.appendAll(rest, Arr.map(declarations, (declaration) => declaration.child)),
-                  expanded: Arr.append(state.expanded, node)
+                  pending: Arr.appendAll(rest, Arr.map(subModules, (subModule) => subModule.module)),
+                  expanded: Arr.append(state.expanded, module)
                 })
               }
             })
@@ -175,14 +166,14 @@ export const nodeGraph = (roots: Iterable<Node>): Graph.DirectedGraph<Node, Decl
     )
   })
 
-/** Runtime registration captured while a module executes.
+/** A module observed during program execution.
  * @since 0.1.0
  * @category models
  */
-export class Registration extends Data.TaggedClass("ModuleRegistration")<{
+export class Discovered extends Data.TaggedClass("ModuleDiscovered")<{
   readonly id: Id
   readonly params: Ref.Ref<ModuleParameters>
-  readonly signature: NodeSignature
+  readonly signature: Text
   readonly subModuleIds: ReadonlyArray<Id>
 }> {}
 
@@ -215,7 +206,7 @@ export class SavedState extends Schema.Class<SavedState>("@scenesystems/effect-d
  * may use a language-model service and any Schema context, and may fail with an
  * AI provider error or package-owned `DspError`.
  *
- * Parameters remain mutable through a `Ref`. The child map records owned nodes
+ * Parameters remain mutable through a `Ref`. The child map records sub-modules
  * for composition, discovery, optimization, and persistence. Operational
  * wrappers include the inner modules whose parameters their execution reads.
  *
@@ -239,13 +230,13 @@ export class Module<
   readonly signature: Signature<I, O>
   /** Mutable instruction, demonstration, rendering, and generation state. */
   readonly params: Ref.Ref<ModuleParameters>
-  /** Child nodes owned for composition and parameter persistence. */
-  readonly subModules: HashMap.HashMap<Id, Node>
+  /** Sub-modules used for composition and parameter persistence. */
+  readonly subModules: HashMap.HashMap<Id, Structure>
   /** Caller-local declaration aliases retained for predictor paths. */
-  readonly declarations?: Record.ReadonlyRecord<string, Node>
+  readonly declarations?: Record.ReadonlyRecord<string, Structure>
   /** Excludes this subtree from optimization without preventing execution. */
   readonly frozen?: boolean
-  /** Defaults carried by a bound program without modifying its owners. */
+  /** Defaults carried by a bound program without modifying its predictors. */
   readonly parameters?: ParameterSet
   /** Executes the module for one already-decoded input value. */
   readonly forward: (
@@ -303,7 +294,7 @@ export type ChainOfThoughtOutputFields<O extends Schema.Struct.Fields> =
   & O
   & Record.ReadonlyRecord<"reasoning", typeof Schema.String>
 
-/** Live module shape accepted by composition declarations.
+/** Module contract accepted by composition declarations.
  * @since 0.1.0
  * @category models
  */
@@ -316,8 +307,8 @@ export class ComposableModule extends Data.Class<{
     readonly demonstrationCodec: DemonstrationCodec
   }
   readonly params: Ref.Ref<ModuleParameters>
-  readonly subModules: HashMap.HashMap<Id, Node>
-  readonly declarations?: Record.ReadonlyRecord<string, Node>
+  readonly subModules: HashMap.HashMap<Id, Structure>
+  readonly declarations?: Record.ReadonlyRecord<string, Structure>
   readonly frozen?: boolean
   readonly parameters?: ParameterSet
 }> {}
@@ -328,13 +319,13 @@ export class ComposableModule extends Data.Class<{
  */
 export type ComposeSubModules = Record.ReadonlyRecord<string, ComposableModule>
 
-/** Carries decoded input and ownership metadata into a composed callback.
+/** Carries decoded input and sub-module metadata into a composed callback.
  * @since 0.1.0
  * @category models
  */
 export class ComposeForwardContext<I extends Schema.Struct.Fields> extends Data.Class<{
   readonly input: Schema.Schema.Type<Schema.Struct<I>>
-  readonly subModuleNodes: HashMap.HashMap<Id, Node>
+  readonly subModules: HashMap.HashMap<Id, Structure>
   readonly graph: ModuleGraph
 }> {}
 
@@ -376,7 +367,7 @@ export class ComposeOptions<
   readonly forward: ComposeForward<I, O, E, R>
 }> {}
 
-/** Declares root metadata and direct owners for graph validation.
+/** Declares root metadata and direct sub-modules for graph validation.
  * @since 0.1.0
  * @category models
  */
@@ -589,12 +580,12 @@ export const chainOfThought = chainOfThoughtInternal
  * @category combinators
  */
 export const toChainOfThoughtSignature = toChainOfThoughtSignatureInternal
-/** Constructs a module with validated child ownership.
+/** Constructs a module with validated sub-modules.
  * @since 0.1.0
  * @category constructors
  */
 export const compose = composeInternal
-/** Returns a validated ownership graph.
+/** Returns a validated module composition graph.
  * @since 0.1.0
  * @category constructors
  */
@@ -686,7 +677,7 @@ export const bound = <I extends Schema.Struct.Fields, O extends Schema.Struct.Fi
     declarations: root.declarations ?? Record.fromEntries(HashMap.toEntries(root.subModules)),
     frozen: root.frozen ?? false,
     parameters: { ...root.parameters, ...parameters },
-    forward: (input) => root.forward(input).pipe(ParameterBinding.withOwners(predictors(copy)))
+    forward: (input) => root.forward(input).pipe(ParameterBinding.withPredictors(predictors(copy)))
   })
   return copy
 }
@@ -715,8 +706,8 @@ export const freeze = <I extends Schema.Struct.Fields, O extends Schema.Struct.F
  */
 export const install = Effect.fnUntraced(function*(root: ComposableModule, parameters: ParameterSet) {
   yield* Effect.forEach(predictors(root), (entry) =>
-    Option.match(Record.get(parameters, entry.id), {
+    Option.match(Record.get(parameters, entry.path), {
       onNone: () => Effect.void,
-      onSome: (params) => Ref.set(entry.params, params)
+      onSome: (params) => Ref.set(entry.parameters, params)
     }), { discard: true }).pipe(Effect.uninterruptible)
 })

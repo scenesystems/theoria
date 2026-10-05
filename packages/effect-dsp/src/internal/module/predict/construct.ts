@@ -10,9 +10,9 @@ import {
   type Id,
   makePredictPolicy,
   Module,
-  type Node,
   PredictOptions,
-  PredictPolicyOverrides
+  PredictPolicyOverrides,
+  type Structure
 } from "../../../Module.js"
 import { ModuleParameters } from "../../../ModuleParameters.js"
 import type { Signature } from "../../../Signature.js"
@@ -52,7 +52,7 @@ const makeInitialParams = <
  *   pattern; an invalid name fails during discovery registration on `forward`.
  * @param signature - Input/output contract and initial instructions.
  * @param options - Per-module text-parse policy overrides.
- * @returns A module with an independent parameter `Ref` and no child nodes.
+ * @returns A module with an independent parameter `Ref` and no sub-modules.
  *
  * @since 0.1.0
  * @category constructors
@@ -78,7 +78,7 @@ export const predict = <
       name,
       signature,
       params: paramsRef,
-      subModules: HashMap.empty<Id, Node>(),
+      subModules: HashMap.empty<Id, Structure>(),
       forward: makeForward(
         new RuntimeOptions({
           moduleName: name,

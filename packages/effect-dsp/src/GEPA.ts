@@ -397,13 +397,13 @@ export const runWithEvents = <
     const recorded = yield* Ref.make(Arr.empty<Event>())
     const emit: EventSink<EE, ER> = (event) =>
       Ref.update(recorded, Arr.append(event)).pipe(Effect.andThen(observe(event)))
-    const paramRefs = Arr.filter(Arr.fromIterable(predictors(options.module)), (owner) => owner.ownership !== "frozen")
-    const initialInstructions = yield* Effect.forEach(paramRefs, (owner) =>
-      Binding.read(owner.params, owner.id).pipe(
+    const paramRefs = Arr.filter(Arr.fromIterable(predictors(options.module)), (predictor) => !predictor.frozen)
+    const initialInstructions = yield* Effect.forEach(paramRefs, (predictor) =>
+      Binding.read(predictor.parameters, predictor.path).pipe(
         Effect.map((params) =>
-          new PredictorInstruction({ predictorName: owner.name, instruction: params.instructions })
+          new PredictorInstruction({ predictorName: predictor.name, instruction: params.instructions })
         )
-      )).pipe(Binding.withOwners(predictors(options.module)))
+      )).pipe(Binding.withPredictors(predictors(options.module)))
     const initialCandidate = new ProgramCandidate({
       candidateId: "candidate-0",
       parentIds: Arr.empty<string>(),
@@ -420,11 +420,13 @@ export const runWithEvents = <
         mergeBudgetRemaining: normalizeNonNegativeCount(
           Option.getOrElse(
             Option.fromUndefinedOr(options.maxMergeInvocations),
-            () => defaultMaxMergeInvocations
+            () =>
+              defaultMaxMergeInvocations
           )
         ),
         lastIterationFoundNew: false,
-        seed: normalizeDeterministicSeed(Option.getOrElse(Option.fromUndefinedOr(options.seed), () => 1))
+        seed: normalizeDeterministicSeed(Option.getOrElse(Option.fromUndefinedOr(options.seed), () =>
+          1))
       })
     )
 

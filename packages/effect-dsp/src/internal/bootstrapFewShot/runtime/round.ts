@@ -89,7 +89,8 @@ const evaluateExample = <I extends Schema.Struct.Fields, O extends Schema.Struct
       Predicate.and(
         (entry) => String.Equivalence(entry.outcome, "completed"),
         (entry) =>
-          Arr.some(options.state.predictors, (predictor) => String.Equivalence(predictor.owner.name, entry.moduleName))
+          Arr.some(options.state.predictors, (predictor) =>
+            String.Equivalence(predictor.predictor.name, entry.moduleName))
       )
     )
     const accepted = Bool.and(
@@ -100,7 +101,8 @@ const evaluateExample = <I extends Schema.Struct.Fields, O extends Schema.Struct
       Num.isGreaterThanOrEqualTo(metric.value, options.threshold)
     )
     const demos = yield* Bool.match(accepted, {
-      onFalse: () => Effect.succeed(Arr.empty<AcceptedDemo>()),
+      onFalse: () =>
+        Effect.succeed(Arr.empty<AcceptedDemo>()),
       onTrue: () =>
         Effect.gen(function*() {
           // A composed root need not make an LM call. Its successful typed result
@@ -123,14 +125,14 @@ const evaluateExample = <I extends Schema.Struct.Fields, O extends Schema.Struct
           const stages = yield* Effect.forEach(
             Arr.filter(
               options.state.predictors,
-              (predictor) => Bool.not(String.Equivalence(predictor.owner.name, options.module.name))
+              (predictor) => Bool.not(String.Equivalence(predictor.predictor.name, options.module.name))
             ),
             (predictor) =>
               Effect.forEach(
-                Arr.filter(entries, (entry) => String.Equivalence(entry.moduleName, predictor.owner.name)),
+                Arr.filter(entries, (entry) => String.Equivalence(entry.moduleName, predictor.predictor.name)),
                 (entry) =>
-                  predictor.owner.demonstrationCodec.decodeDocuments(entry.input, entry.output).pipe(
-                    Effect.map((demo) => new AcceptedDemo({ name: predictor.owner.name, demo }))
+                  predictor.predictor.demonstrationCodec.decodeDocuments(entry.input, entry.output).pipe(
+                    Effect.map((demo) => new AcceptedDemo({ name: predictor.predictor.name, demo }))
                   )
               )
           )
@@ -192,7 +194,7 @@ export const bootstrapRound = <I extends Schema.Struct.Fields, O extends Schema.
     yield* options.emit(events.RoundStarted({ round: options.state.round, maxRounds: options.maxRounds }))
     const parameters = Record.fromEntries(Arr.map(options.state.predictors, (predictor) =>
       Tuple.make(
-        predictor.owner.id,
+        predictor.predictor.path,
         withModuleParamsDemosAndInstructions(
           predictor.params,
           predictor.params.demos,
@@ -209,15 +211,15 @@ export const bootstrapRound = <I extends Schema.Struct.Fields, O extends Schema.
         new MergeAcceptedDemosOptions({
           existing: predictor.params.demos,
           accepted: Arr.map(
-            Arr.filter(round.acceptedDemos, (entry) => String.Equivalence(entry.name, predictor.owner.name)),
+            Arr.filter(round.acceptedDemos, (entry) => String.Equivalence(entry.name, predictor.predictor.name)),
             (entry) => entry.demo
           ),
           maxBootstrappedDemos: options.maxBootstrappedDemos,
-          contract: predictor.owner.demonstrationCodec
+          contract: predictor.predictor.demonstrationCodec
         })
       ).pipe(Effect.map((merged) =>
         new PredictorDemos({
-          owner: predictor.owner,
+          predictor: predictor.predictor,
           params: withModuleParamsDemos(predictor.params, merged.demos)
         })
       )))

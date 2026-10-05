@@ -31,7 +31,7 @@ const toComposeSubModules = <I extends Schema.Struct.Fields, O extends Schema.St
  *
  * @remarks
  * An empty `programs` array fails with `AllTrialsFailed`. Composition may also
- * fail when program names do not form a valid ownership graph. The selected
+ * fail when program names do not form a valid composition graph. The selected
  * subset and its order remain fixed for the ensemble's lifetime. Selected
  * member and reducer checked failures and service requirements are combined in
  * the returned module without recovery or conversion to defects.

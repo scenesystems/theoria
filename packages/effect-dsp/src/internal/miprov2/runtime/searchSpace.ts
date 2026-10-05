@@ -155,7 +155,7 @@ const indexInstructionCandidateSets = (candidateSets: PredictorInstructionCandid
   )
 
 const requireDestination = (
-  refsByName: HashMap.HashMap<string, Predictor.Ref>,
+  refsByName: HashMap.HashMap<string, Predictor.Predictor>,
   predictorName: string,
   candidateKind: string
 ) =>
@@ -197,7 +197,7 @@ const validateCandidateIdentity = (
   })
 
 const validateDemoCandidateSet = (
-  refsByName: HashMap.HashMap<string, Predictor.Ref>,
+  refsByName: HashMap.HashMap<string, Predictor.Predictor>,
   candidateSet: PredictorDemoCandidates
 ) =>
   Effect.gen(function*() {
@@ -227,7 +227,7 @@ const validateDemoCandidateSet = (
   })
 
 const validateInstructionCandidateSet = (
-  refsByName: HashMap.HashMap<string, Predictor.Ref>,
+  refsByName: HashMap.HashMap<string, Predictor.Predictor>,
   candidateSet: PredictorInstructionCandidates
 ) =>
   requireDestination(refsByName, candidateSet.predictorName, "instruction").pipe(
@@ -261,10 +261,10 @@ export const resolveBindings = <
   R
 >(options: ResolveBindingsOptions<I, O, E, R>) =>
   Effect.gen(function*() {
-    const refs = Arr.filter(Arr.fromIterable(predictors(options.module)), (entry) => entry.ownership !== "frozen")
+    const refs = Arr.filter(Arr.fromIterable(predictors(options.module)), (entry) => !entry.frozen)
     const refsByName = Arr.reduce(
       refs,
-      HashMap.empty<string, Predictor.Ref>(),
+      HashMap.empty<string, Predictor.Predictor>(),
       (byName, ref) => HashMap.set(byName, ref.name, ref)
     )
     const demosByName = yield* indexDemoCandidateSets(options.demoCandidates)
@@ -299,7 +299,7 @@ export const resolveBindings = <
 
         return new PredictorBinding({
           predictorName: ref.name,
-          predictorId: ref.id,
+          predictorId: ref.path,
           demos,
           instructions
         })

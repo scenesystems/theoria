@@ -89,7 +89,7 @@ describe("Module.bestOfN", () => {
       expect(yield* Ref.get(model.calls)).toHaveLength(1)
     }))
 
-  it.effect("restores the live inner parameter graph before executing a loaded wrapper", () =>
+  it.effect("restores the inner predictor parameters before executing a loaded wrapper", () =>
     Effect.gen(function*() {
       const signature = yield* makeQaSignature()
       const predictor = yield* Module.predict("predictor", signature)
@@ -127,13 +127,13 @@ describe("Module.bestOfN", () => {
       expect((yield* Ref.get(inner.params)).instructions).toBe("Changed pipeline")
     }))
 
-  it.effect("rejects a wrapper identity that collides with the inner owner", () =>
+  it.effect("rejects a wrapper identity that collides with the inner predictor", () =>
     Effect.gen(function*() {
       const signature = yield* makeQaSignature()
-      const inner = yield* Module.predict("same-owner", signature)
+      const inner = yield* Module.predict("same-predictor", signature)
       const error = yield* Module.bestOfN(
         new Module.BestOfNOptions({
-          name: "same-owner",
+          name: "same-predictor",
           module: inner,
           N: Module.RolloutCount.make(1),
           reward: () => Effect.succeed(new Score({ value: 1, feedback: Option.none() }))

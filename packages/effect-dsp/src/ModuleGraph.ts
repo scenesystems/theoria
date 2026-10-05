@@ -18,89 +18,92 @@ import {
   String as Str,
   Tuple
 } from "effect"
-import { type ComposableModule, Id, Node as LiveNode, NodeSignature } from "./Module.js"
+import { type ComposableModule, Id, Structure } from "./Module.js"
 import * as Predictor from "./Predictor.js"
+import { Text } from "./Signature.js"
 
 const moduleIdOrder: Order.Order<Id> = Order.mapInput(Order.String, (moduleId: Id) => moduleId)
 
-/** Enumerates leaf owners in sorted declaration order, retaining shared aliases.
- * A frozen path freezes its owner even when another path is not frozen.
+/** Enumerates predictors in sorted path order, retaining shared aliases.
+ * A frozen path freezes its predictor even when another path is not frozen.
  * @since 0.6.0
  * @category combinators
  */
-export const predictors = (root: ComposableModule): Chunk.Chunk<Predictor.Ref> => {
-  const visit = (node: LiveNode, path: string, frozen: boolean): ReadonlyArray<Predictor.Ref> => {
-    const declarations = Record.toEntries(node.declarations ?? Record.fromEntries(HashMap.toEntries(node.subModules)))
-    const excluded = frozen || (node.frozen ?? false)
+export const predictors = (root: ComposableModule): Chunk.Chunk<Predictor.Predictor> => {
+  const visit = (module: Structure, path: string, frozen: boolean): ReadonlyArray<Predictor.Predictor> => {
+    const declarations = Record.toEntries(
+      module.declarations ?? Record.fromEntries(HashMap.toEntries(module.subModules))
+    )
+    const excluded = frozen || (module.frozen ?? false)
     const leaves = Arr.isArrayEmpty(declarations)
       ? [
-        new Predictor.Ref({
-          id: path,
-          name: node.name,
+        new Predictor.Predictor({
+          path,
+          name: module.name,
           aliases: Chunk.empty(),
-          ownership: excluded ? "frozen" : "owned",
-          signature: node.signature,
-          signatureDigest: node.signatureDigest,
-          params: node.params,
-          demonstrationCodec: node.demonstrationCodec,
+          frozen: excluded,
+          signature: module.signature,
+          signatureDigest: module.signatureDigest,
+          parameters: module.parameters,
+          demonstrationCodec: module.demonstrationCodec,
           boundParameters: Option.none()
         })
       ]
       : Arr.flatMap(
-        Arr.sort(declarations, Order.mapInput(Order.String, (entry: readonly [string, LiveNode]) => entry[0])),
-        ([alias, child]: readonly [string, LiveNode]) => visit(child, `${path}.${alias}`, excluded)
+        Arr.sort(declarations, Order.mapInput(Order.String, (entry: readonly [string, Structure]) => entry[0])),
+        ([alias, child]: readonly [string, Structure]) => visit(child, `${path}.${alias}`, excluded)
       )
     return Arr.map(leaves, (entry) =>
-      new Predictor.Ref({
-        id: entry.id,
+      new Predictor.Predictor({
+        path: entry.path,
         name: entry.name,
         aliases: entry.aliases,
-        ownership: entry.ownership,
+        frozen: entry.frozen,
         signature: entry.signature,
         signatureDigest: entry.signatureDigest,
-        params: entry.params,
+        parameters: entry.parameters,
         demonstrationCodec: entry.demonstrationCodec,
         boundParameters: Option.orElse(
-          Record.get(node.parameters ?? {}, `${node.name}${Str.slice(Str.length(path))(entry.id)}`),
+          Record.get(module.boundParameters ?? {}, `${module.name}${Str.slice(Str.length(path))(entry.path)}`),
           () => entry.boundParameters
         )
       }))
   }
   const entries = visit(
-    new LiveNode({
-      moduleId: Schema.decodeSync(Id)(root.name),
+    new Structure({
+      id: Schema.decodeSync(Id)(root.name),
       name: root.name,
-      signature: new NodeSignature({
+      signature: new Text({
         description: root.signature.description,
         instructions: root.signature.instructions
       }),
       signatureDigest: root.signature.digest,
       demonstrationCodec: root.signature.demonstrationCodec,
-      params: root.params,
+      parameters: root.params,
       subModules: root.subModules,
       declarations: root.declarations ?? Record.fromEntries(HashMap.toEntries(root.subModules)),
       frozen: root.frozen ?? false,
-      parameters: root.parameters ?? {}
+      boundParameters: root.parameters ?? {}
     }),
     root.name,
     false
   )
-  return Chunk.fromIterable(Arr.reduce(entries, Arr.empty<Predictor.Ref>(), (owners, entry) => {
-    const existing = Arr.findFirstIndex(owners, (owner) => owner.params === entry.params)
+  return Chunk.fromIterable(Arr.reduce(entries, Arr.empty<Predictor.Predictor>(), (predictors, entry) => {
+    const existing = Arr.findFirstIndex(predictors, (predictor) => predictor.parameters === entry.parameters)
     return Option.match(existing, {
-      onNone: () => Arr.append(owners, entry),
+      onNone: () => Arr.append(predictors, entry),
       onSome: (index) =>
-        Arr.map(owners, (owner, position) =>
-          position !== index ? owner : new Predictor.Ref({
-            id: owner.id,
-            name: owner.name,
-            aliases: Chunk.append(owner.aliases, entry.id),
-            ownership: owner.ownership === "frozen" || entry.ownership === "frozen" ? "frozen" : "shared",
-            signature: owner.signature,
-            signatureDigest: owner.signatureDigest,
-            params: owner.params,
-            demonstrationCodec: owner.demonstrationCodec,
-            boundParameters: owner.boundParameters
+        Arr.map(predictors, (predictor, position) =>
+          position !== index ? predictor : new Predictor.Predictor({
+            path: predictor.path,
+            name: predictor.name,
+            aliases: Chunk.append(predictor.aliases, entry.path),
+            frozen: predictor.frozen || entry.frozen,
+            signature: predictor.signature,
+            signatureDigest: predictor.signatureDigest,
+            parameters: predictor.parameters,
+            demonstrationCodec: predictor.demonstrationCodec,
+            boundParameters: predictor.boundParameters
           }))
     })
   }))
@@ -201,7 +204,7 @@ export class Node extends Schema.Class<Node>("@scenesystems/effect-dsp/ModuleGra
   /** Identity used by graph lookup and traversal. */
   moduleId: Schema.suspend(() => Id),
   /** Prompt metadata retained for optimizer inspection. */
-  signature: Schema.suspend(() => NodeSignature),
+  signature: Schema.suspend(() => Text),
   /** Immediate child identities followed by pre-order traversal. */
   subModuleIds: Schema.Array(Schema.suspend(() => Id))
 }) {}

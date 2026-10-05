@@ -310,7 +310,7 @@ const streamBootstrapFewShotEvents = <A, E, R>(
  * Events are awaited in execution order. A round evaluates every retained
  * example and accepts the completed stage traces when the root score meets the
  * threshold. Each destination validates and structurally deduplicates its own
- * encoded values. Only leaf owners retain demonstrations.
+ * encoded values. Only predictors retain demonstrations.
  * Collection stops when every destination reaches its cap, the round cap is
  * reached, or a round adds no demos. Intermediate ReAct turns are not demos.
  *
@@ -348,8 +348,8 @@ export const runWithEvents = <
   Effect.gen(function*() {
     const before = yield* ParameterSet.snapshot(options.module)
     const snapshots = Arr.map(
-      Arr.filter(Arr.fromIterable(predictors(options.module)), (owner) => owner.ownership !== "frozen"),
-      (owner) => new PredictorDemos({ owner, params: Option.getOrThrow(Record.get(before, owner.id)) })
+      Arr.filter(Arr.fromIterable(predictors(options.module)), (predictor) => !predictor.frozen),
+      (predictor) => new PredictorDemos({ predictor, params: Option.getOrThrow(Record.get(before, predictor.path)) })
     )
     const recorded = yield* Ref.make(Arr.empty<Event>())
     const emit: EventSink<EE, ER> = (event) =>
@@ -372,12 +372,12 @@ export const runWithEvents = <
       const initialPredictors = yield* Effect.forEach(snapshots, (snapshot) =>
         Effect.forEach(
           Arr.take(snapshot.params.demos, maxBootstrappedDemos),
-          snapshot.owner.demonstrationCodec.decode
+          snapshot.predictor.demonstrationCodec.decode
         )
           .pipe(
             Effect.map((demos) =>
               new PredictorDemos({
-                owner: snapshot.owner,
+                predictor: snapshot.predictor,
                 params: withModuleParamsDemos(snapshot.params, demos)
               })
             )
@@ -455,7 +455,9 @@ export const runWithEvents = <
               })
             ).pipe(Effect.as({
               ...before,
-              ...Record.fromEntries(Arr.map(finalState.predictors, (entry) => Tuple.make(entry.owner.id, entry.params)))
+              ...Record.fromEntries(
+                Arr.map(finalState.predictors, (entry) => Tuple.make(entry.predictor.path, entry.params))
+              )
             })),
           onTrue: () =>
             Effect.suspend(() =>

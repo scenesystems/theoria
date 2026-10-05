@@ -8,7 +8,7 @@ import { Effect, Schema } from "effect"
 import type { Error as EffectError } from "effect/Effect"
 
 describe("integration/optimizer events", () => {
-  it.effect("wraps canonical optimizer events and preserves their owners", () =>
+  it.effect("wraps canonical optimizer events and preserves their algorithm", () =>
     Effect.gen(function*() {
       const bootstrap = BootstrapFewShot.events.RoundStarted({ round: 1, maxRounds: 2 })
       const mipro = MIPROv2.events.Phase3Started({ numTrials: 4 })
