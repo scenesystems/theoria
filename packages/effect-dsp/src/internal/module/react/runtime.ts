@@ -5,6 +5,7 @@
  * @category internal
  * @internal
  */
+import * as ModelBinder from "@scenesystems/effect-lm/ModelBinder"
 import type { Record } from "effect"
 import { Array as Arr, Boolean, Clock, Data, Effect, Number, Option, Ref, Result, Schema } from "effect"
 import * as Prompt from "effect/ai/Prompt"
@@ -13,9 +14,11 @@ import type * as Toolkit from "effect/ai/Toolkit"
 import { type ParseFieldDiagnostic, ParseOutputError } from "../../../DspError.js"
 import type { Module } from "../../../Module.js"
 import { NodeSignature } from "../../../Module.js"
-import type { ModuleParameters } from "../../../ModuleParameters.js"
+import { type ModuleParameters, settings } from "../../../ModuleParameters.js"
 import type { Signature } from "../../../Signature.js"
+import { RolloutRef } from "../../cache/rollout.js"
 import { callLmTextResponse } from "../../lm.js"
+import { CurrentRole } from "../../modelRole.js"
 import { parseTextOutput } from "../../parse/decode.js"
 import { buildPrompt } from "../../prompt/render.js"
 import { registerRuntime, RuntimeRegistrationOptions } from "../discovery/registry.js"
@@ -115,7 +118,13 @@ export const makeReactForward = <
                 onTrue: () => Option.none(),
                 onFalse: () => Option.some(options.toolkit)
               })
-            )
+            ).pipe(ModelBinder.bind(
+              new ModelBinder.Request({
+                settings: settings(params),
+                role: yield* CurrentRole,
+                rolloutId: yield* RolloutRef
+              })
+            ))
             const completedAt = yield* Clock.currentTimeMillis
             const continuation = Prompt.concat(prompt, Prompt.fromResponseParts(response.content))
 

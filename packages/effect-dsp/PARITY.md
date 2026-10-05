@@ -10,6 +10,12 @@ Wave 1.0 removes format-version fields from module snapshots, example reports,
 and inference route provenance. Saved state retains caller metadata. This is
 contract cleanup, not additional DSPy parity evidence; status claims stay unchanged.
 
+Wave 1.1 binds effective generation settings and semantic roles to model requests.
+Independent transport tests cover provider field mappings, retained defaults, role
+fallback, and unsupported-setting failures before HTTP. Predictor tests cover
+text, structured, tool turns, invocation overrides, and rollout identity. These
+tests establish local contracts, not additional upstream parity claims.
+
 Inventory: every non-private, non-module value exported by the six DSPy 3.4.0
 package namespaces below (including aliases and re-exported types). Namespace
 modules themselves are navigation, not separate API claims. Inventory was read

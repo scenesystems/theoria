@@ -86,7 +86,8 @@ export const predict = <
           inputSchema: signature.inputSchema,
           outputSchema: signature.outputSchema,
           paramsRef,
-          policy
+          policy,
+          invocation: options
         })
       )
     })

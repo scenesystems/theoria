@@ -3,9 +3,24 @@
  *
  * @since 0.1.0
  */
-import { Array as Arr, Boolean, Option, String as Str } from "effect"
+import * as ModelBinder from "@scenesystems/effect-lm/ModelBinder"
+import { empty } from "@scenesystems/effect-lm/ModelSettings"
+import { Array as Arr, Boolean, Effect, Option, String as Str } from "effect"
+import type * as Prompt from "effect/ai/Prompt"
+import { RolloutRef } from "../cache/rollout.js"
+import { callLmText } from "../lm.js"
+import { CurrentRole } from "../modelRole.js"
 
-export { callLmText as generateText } from "../lm.js"
+/** @internal */
+export const generateText = Effect.fnUntraced(function*(prompt: Prompt.RawInput) {
+  return yield* callLmText(prompt).pipe(ModelBinder.bind(
+    new ModelBinder.Request({
+      settings: empty,
+      role: yield* CurrentRole,
+      rolloutId: yield* RolloutRef
+    })
+  ))
+})
 
 /**
  * Extract an instruction block from an LLM response.

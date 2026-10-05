@@ -26,6 +26,7 @@ import {
   type ProposeInstructionCandidatesOptions
 } from "../../MIPROv2Candidates.js"
 import type { ModuleParameters } from "../../ModuleParameters.js"
+import { CurrentRole } from "../modelRole.js"
 import { generateText } from "../module/textGeneration.js"
 import { collectModuleParamRefs, type ModuleParamRef } from "../moduleParameters.js"
 import {
@@ -239,6 +240,7 @@ export const proposeInstructionCandidates = <
                 })
               )
               const proposed = yield* generateText(prompt).pipe(
+                Effect.provideService(CurrentRole, "proposer"),
                 Effect.mapError(
                   () =>
                     new InstructionProposalFailed({

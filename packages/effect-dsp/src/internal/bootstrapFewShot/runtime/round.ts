@@ -31,6 +31,7 @@ import {
   withDemosAndInstructions as withModuleParamsDemosAndInstructions
 } from "../../../ModuleParameters.js"
 import { withTracing } from "../../../Trace.js"
+import { CurrentRole } from "../../modelRole.js"
 import { mergeAcceptedDemos, MergeAcceptedDemosOptions, roundInstructions } from "./demos.js"
 import { AcceptedDemo, BootstrapState, demoCount, ExampleEvaluation, PredictorDemos, RoundEvaluation } from "./model.js"
 
@@ -105,7 +106,9 @@ const evaluateExample = <I extends Schema.Struct.Fields, O extends Schema.Struct
           )
         )
     })
-    const traced = yield* withTracing(provideTeacherLayer(options.module.forward(input), options.teacher))
+    const traced = yield* withTracing(provideTeacherLayer(options.module.forward(input), options.teacher)).pipe(
+      Effect.provideService(CurrentRole, "teacher")
+    )
     const result = traced[0]
     const metric = yield* options.metric.score(result, expected)
     const entries = Arr.filter(

@@ -11,6 +11,7 @@ Effect-native scientific computing monorepo.
 | Package              | Directory                    | npm                              | Deps                                                                                |
 | -------------------- | ---------------------------- | -------------------------------- | ----------------------------------------------------------------------------------- |
 | effect-study         | `packages/effect-study/`     | `@scenesystems/effect-study`     | effect, @scenesystems/digest                                                        |
+| effect-lm            | `packages/effect-lm/`        | `@scenesystems/effect-lm`        | effect                                                                             |
 | effect-search        | `packages/effect-search/`    | `@scenesystems/effect-search`    | effect, @scenesystems/effect-study, @scenesystems/effect-math, @scenesystems/digest |
 | effect-dsp           | `packages/effect-dsp/`       | `@scenesystems/effect-dsp`       | @scenesystems/effect-search, @scenesystems/effect-study, effect                     |
 | effect-text          | `packages/effect-text/`      | `@scenesystems/effect-text`      | effect, @scenesystems/effect-search, @scenesystems/effect-study                     |

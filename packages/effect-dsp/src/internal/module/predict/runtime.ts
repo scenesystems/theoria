@@ -5,13 +5,17 @@
  * @category internal
  * @internal
  */
+import * as ModelBinder from "@scenesystems/effect-lm/ModelBinder"
+import * as ModelSettings from "@scenesystems/effect-lm/ModelSettings"
 import type { Schema } from "effect"
 import { Array as Arr, Clock, Data, Effect, Ref } from "effect"
 import type { Module } from "../../../Module.js"
 import { NodeSignature } from "../../../Module.js"
-import type { PredictPolicy } from "../../../Module.js"
-import type { ModuleParameters } from "../../../ModuleParameters.js"
+import type { PredictOptions, PredictPolicy } from "../../../Module.js"
+import { type ModuleParameters, settings } from "../../../ModuleParameters.js"
 import type { Signature } from "../../../Signature.js"
+import { RolloutRef } from "../../cache/rollout.js"
+import { CurrentRole } from "../../modelRole.js"
 import { registerRuntime, RuntimeRegistrationOptions } from "../discovery/registry.js"
 import { ForwardOptions } from "./model.js"
 import { runForward } from "./strategy.js"
@@ -25,6 +29,7 @@ export class RuntimeOptions<I extends Schema.Struct.Fields, O extends Schema.Str
   readonly outputSchema: Signature<I, O>["outputSchema"]
   readonly paramsRef: Ref.Ref<ModuleParameters>
   readonly policy: PredictPolicy
+  readonly invocation: PredictOptions
 }> {}
 
 /**
@@ -62,7 +67,13 @@ export const makeForward = <
           outputSchema: options.outputSchema,
           policy: options.policy
         })
-      )
+      ).pipe(ModelBinder.bind(
+        new ModelBinder.Request({
+          settings: ModelSettings.merge(settings(params), options.invocation.settings ?? ModelSettings.empty),
+          role: options.invocation.role ?? (yield* CurrentRole),
+          rolloutId: yield* RolloutRef
+        })
+      ))
       const completedAt = yield* Clock.currentTimeMillis
 
       yield* appendTraceEntry(

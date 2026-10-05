@@ -1,0 +1,35 @@
+{
+  "name": "@scenesystems/effect-lm",
+  "version": "0.1.0",
+  "type": "module",
+  "description": "Effect-native model settings and scoped model binding",
+  "license": "MIT",
+  "homepage": "https://github.com/scenesystems/theoria/tree/main/packages/effect-lm",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/scenesystems/theoria.git",
+    "directory": "packages/effect-lm"
+  },
+  "bugs": { "url": "https://github.com/scenesystems/theoria/issues" },
+  "publishConfig": { "access": "public", "provenance": true, "directory": "dist" },
+  "exports": {
+    ".": "./src/index.ts",
+    "./ModelSettings": "./src/ModelSettings.ts",
+    "./Role": "./src/Role.ts",
+    "./ModelBinder": "./src/ModelBinder.ts",
+    "./internal/*": null
+  },
+  "scripts": {
+    "check": "tsc -b tsconfig.src.json",
+    "check:tests": "tsc -b tsconfig.test.json",
+    "check:examples": "tsc -b tsconfig.examples.json",
+    "lint": "cd ../.. && oxlint packages/effect-lm && eslint --cache --cache-location node_modules/.cache/eslint/ --max-warnings=0 packages/effect-lm && dprint check \"packages/effect-lm/**\"",
+    "test": "vitest run --root ../.. packages/effect-lm/test",
+    "build-esm": "tsc -b tsconfig.build.json",
+    "build-annotate": "babel build/esm --plugins annotate-pure-calls --out-dir build/esm --source-maps",
+    "build-cjs": "babel build/esm --plugins @babel/transform-export-namespace-from --plugins @babel/transform-modules-commonjs --out-dir build/cjs --source-maps",
+    "build": "bun run build-esm && bun run build-annotate && bun run build-cjs && build-utils pack-v3",
+    "clean": "rm -rf build dist .tsbuildinfo"
+  },
+  "peerDependencies": { "effect": "^4.0.0" }
+}

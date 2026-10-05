@@ -4,6 +4,7 @@
  * @since 0.1.0
  * @module
  */
+import { ModelSettings } from "@scenesystems/effect-lm/ModelSettings"
 import { Array as Arr, Boolean, Effect, Match, Number, Option, Schema } from "effect"
 import { Demonstration } from "./Demonstration.js"
 
@@ -42,8 +43,8 @@ export const resolveStrategy = (strategy: OutputStrategy, demoCount: number): ty
  * Stores the replaceable state behind each module's parameter `Ref`.
  *
  * @remarks
- * Numeric generation settings are passed through without range or integer
- * validation. Provider-specific acceptance remains the provider's responsibility.
+ * Generation settings share the model settings contract. Token limits are
+ * integers; provider-specific range acceptance remains the provider's responsibility.
  *
  * @since 0.1.0
  * @category models
@@ -59,10 +60,17 @@ export class ModuleParameters extends Schema.Class<ModuleParameters>("@scenesyst
     Schema.withConstructorDefault(Effect.succeed<OutputStrategy>("auto"))
   ),
   /** Optional provider sampling temperature with no contract-level range check. */
-  temperature: Schema.optional(Schema.Finite),
-  /** Optional provider output-token limit with no contract-level integer or range check. */
-  maxTokens: Schema.optional(Schema.Finite)
+  temperature: ModelSettings.fields.temperature,
+  /** Optional integer provider output-token limit. */
+  maxTokens: ModelSettings.fields.maxTokens
 }) {}
+
+/** Projects predictor generation settings for model binding.
+ * @since 0.6.0
+ * @category getters
+ */
+export const settings = (params: ModuleParameters): ModelSettings =>
+  new ModelSettings({ temperature: params.temperature, maxTokens: params.maxTokens })
 
 /**
  * Creates default parameters with no demonstrations and automatic output selection.

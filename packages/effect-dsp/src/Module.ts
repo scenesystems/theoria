@@ -4,6 +4,8 @@
  * @since 0.1.0
  * @module
  */
+import type { ModelSettings } from "@scenesystems/effect-lm/ModelSettings"
+import type { Role } from "@scenesystems/effect-lm/Role"
 import * as Numeric from "@scenesystems/effect-math/Numeric"
 import { Array as Arr, Boolean, Data, Equivalence, Graph, HashMap, Match, Option, Order, Schema, Tuple } from "effect"
 import type { Effect, Record, Ref } from "effect"
@@ -404,7 +406,11 @@ export class PredictPolicyOverrides extends Data.Class<{ readonly parse?: ParseP
  * @since 0.1.0
  * @category models
  */
-export class PredictOptions extends Data.Class<{ readonly policy?: PredictPolicyOverrides }> {}
+export class PredictOptions extends Data.Class<{
+  readonly policy?: PredictPolicyOverrides
+  readonly settings?: ModelSettings
+  readonly role?: Role
+}> {}
 
 /** Default maximum additional parse attempts.
  * @since 0.1.0

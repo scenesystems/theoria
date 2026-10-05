@@ -1,4 +1,7 @@
-import { Chunk, Data, Effect, Layer, Ref, Stream } from "effect"
+import * as ModelBinder from "@scenesystems/effect-lm/ModelBinder"
+import type { ModelSettings } from "@scenesystems/effect-lm/ModelSettings"
+import type { Role } from "@scenesystems/effect-lm/Role"
+import { Chunk, Context, Data, Effect, Layer, Option, Ref, Stream } from "effect"
 import * as AiError from "effect/ai/AiError"
 import * as LanguageModel from "effect/ai/LanguageModel"
 import type * as Response from "effect/ai/Response"
@@ -7,7 +10,14 @@ export class RecordedRequest extends Data.Class<{
   readonly prompt: LanguageModel.ProviderOptions["prompt"]
   readonly responseFormat: LanguageModel.ProviderOptions["responseFormat"]
   readonly tools: LanguageModel.ProviderOptions["tools"]
+  readonly settings: Option.Option<ModelSettings>
+  readonly role: Option.Option<Role>
+  readonly rolloutId: Option.Option<number>
 }> {}
+
+const CurrentRequest = Context.Reference<Option.Option<ModelBinder.Request>>("test/kit/Lm/Request", {
+  defaultValue: Option.none
+})
 
 export type Script = (
   request: LanguageModel.ProviderOptions,
@@ -20,13 +30,17 @@ export const recordingLm = Effect.fnUntraced(function*(script: Script) {
   const service = yield* LanguageModel.make({
     generateText: (options) =>
       Effect.gen(function*() {
+        const request = yield* CurrentRequest
         const prior = yield* Ref.getAndUpdate(
           requests,
           Chunk.append(
             new RecordedRequest({
               prompt: options.prompt,
               responseFormat: options.responseFormat,
-              tools: options.tools
+              tools: options.tools,
+              settings: Option.map(request, (value) => value.settings),
+              role: Option.map(request, (value) => value.role),
+              rolloutId: Option.flatMap(request, (value) => value.rolloutId)
             })
           )
         )
@@ -39,5 +53,16 @@ export const recordingLm = Effect.fnUntraced(function*(script: Script) {
         reason: new AiError.UnknownError({ description: "Wave 0 recorder does not implement streaming" })
       }))
   })
-  return { layer: Layer.succeed(LanguageModel.LanguageModel, service), requests }
+  return {
+    layer: Layer.merge(
+      Layer.succeed(LanguageModel.LanguageModel, service),
+      Layer.succeed(
+        ModelBinder.Current,
+        new ModelBinder.Binder({
+          bind: (request) => Effect.provideService(CurrentRequest, Option.some(request))
+        })
+      )
+    ),
+    requests
+  }
 })

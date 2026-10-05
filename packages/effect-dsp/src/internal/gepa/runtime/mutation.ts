@@ -16,6 +16,7 @@ import {
 } from "effect"
 
 import { events, type EventSink, type Options as GEPAOptions } from "../../../GEPA.js"
+import { CurrentRole } from "../../modelRole.js"
 import { extractInstruction, generateText } from "../../module/textGeneration.js"
 import { evaluateMutationAcceptance, EvaluateMutationAcceptanceOptions } from "../accept.js"
 import { GEPAState, PredictorInstruction, ProgramCandidate } from "../model.js"
@@ -113,7 +114,7 @@ export const runMutationPhase = <I extends Schema.Struct.Fields, O extends Schem
       examples: buildReflectiveDataset(selectReflectiveSamples(parentEvaluation.samples, predictorName))
     })
     const mutatedInstruction = yield* Effect.map(
-      generateText(reflectivePrompt),
+      generateText(reflectivePrompt).pipe(Effect.provideService(CurrentRole, "critic")),
       (response) => extractInstruction(response, currentInstruction)
     )
     const mutatedCandidate = buildMutationCandidate(parentCandidate, predictorName, mutatedInstruction, iteration)
