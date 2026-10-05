@@ -21,7 +21,6 @@ def _parameters(
     distance_functions: dict[str, DistanceFunction] | None = None,
 ) -> _ParzenEstimatorParameters:
     return _ParzenEstimatorParameters(
-        True,
         1.0,
         True,
         False,

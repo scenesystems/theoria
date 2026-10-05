@@ -11,11 +11,10 @@ const FixtureMetadata = Schema.Struct({
   generatedAt: Schema.String,
   upstream: Schema.Struct({
     name: Schema.Literal("optuna"),
-    version: Schema.String
+    version: Schema.Literal("4.9.0")
   }),
   generator: Schema.Struct({
-    script: Schema.String,
-    version: Schema.String
+    script: Schema.String
   })
 })
 
@@ -731,15 +730,6 @@ export const FixtureName = Schema.Literals([
 
 export type FixtureName = Schema.Schema.Type<typeof FixtureName>
 
-const FixtureManifestGenerator = Schema.Struct({
-  script: Schema.String,
-  generatorVersion: Schema.String,
-  upstream: Schema.Literal("optuna"),
-  upstreamVersion: Schema.String,
-  pythonVersion: Schema.String,
-  generatedAt: Schema.String
-})
-
 export const FixtureManifestEntry = Schema.Struct({
   name: FixtureName,
   file: Schema.String
@@ -748,7 +738,12 @@ export const FixtureManifestEntry = Schema.Struct({
 export type FixtureManifestEntry = Schema.Schema.Type<typeof FixtureManifestEntry>
 
 export const FixtureManifest = Schema.Struct({
-  generator: FixtureManifestGenerator,
+  generator: Schema.String,
+  upstream: Schema.Struct({
+    optuna: Schema.Literal("4.9.0"),
+    python: Schema.String,
+    platform: Schema.String
+  }),
   fixtures: Schema.Array(FixtureManifestEntry)
 })
 

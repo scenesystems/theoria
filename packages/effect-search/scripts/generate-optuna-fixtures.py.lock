@@ -3,7 +3,10 @@ revision = 3
 requires-python = ">=3.12"
 
 [manifest]
-requirements = [{ name = "optuna", specifier = "==4.9.0" }]
+requirements = [
+    { name = "numpy", specifier = ">=1.26,<2" },
+    { name = "optuna", specifier = "==4.9.0" },
+]
 
 [[package]]
 name = "alembic"

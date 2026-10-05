@@ -6,11 +6,10 @@ import json
 from pathlib import Path
 from typing import Any
 
-GENERATOR_VERSION = "2.0.0"
 DEFAULT_GENERATED_AT = "2026-03-15T00:00:00Z"
 
 UPSTREAM_NAME = "optuna"
-UPSTREAM_VERSION = "4.3.0"
+UPSTREAM_VERSION = "4.9.0"
 
 
 def metadata(generated_at: str) -> dict[str, Any]:
@@ -23,7 +22,6 @@ def metadata(generated_at: str) -> dict[str, Any]:
         },
         "generator": {
             "script": "scripts/generate-optuna-fixtures.py",
-            "version": GENERATOR_VERSION,
         },
     }
 

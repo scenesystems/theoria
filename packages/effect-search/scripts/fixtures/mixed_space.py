@@ -10,6 +10,7 @@ from optuna.samplers._tpe import _truncnorm
 from optuna.samplers._tpe.parzen_estimator import _ParzenEstimator, _ParzenEstimatorParameters
 from optuna.samplers._tpe.probability_distributions import (
     _BatchedCategoricalDistributions,
+    _BatchedTruncLogNormDistributions,
     _BatchedTruncNormDistributions,
 )
 from optuna.samplers._tpe.sampler import default_weights
@@ -138,7 +139,6 @@ SCENARIOS: list[dict[str, Any]] = [
 
 def _parameters() -> _ParzenEstimatorParameters:
     return _ParzenEstimatorParameters(
-        True,
         1.0,
         True,
         False,
@@ -192,14 +192,14 @@ def _sample_log_float_from_roll(estimator: _ParzenEstimator, roll: tuple[float, 
     mixture = estimator._mixture_distribution
     distribution = mixture.distributions[0]
 
-    if not isinstance(distribution, _BatchedTruncNormDistributions):
-        raise TypeError("expected batched truncnorm distribution")
+    if not isinstance(distribution, _BatchedTruncLogNormDistributions):
+        raise TypeError("expected batched truncated lognormal distribution")
 
     index = _pick_index_by_roll(mixture.weights, roll[0])
     mu = float(distribution.mu[index])
     sigma = float(distribution.sigma[index])
-    a = (distribution.low - mu) / sigma
-    b = (distribution.high - mu) / sigma
+    a = (np.log(distribution.low) - mu) / sigma
+    b = (np.log(distribution.high) - mu) / sigma
     quantile = _truncnorm.ppf(
         np.asarray([roll[1]], dtype=np.float64),
         np.asarray([a]),

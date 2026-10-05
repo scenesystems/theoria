@@ -51,8 +51,9 @@ Five DSPy tests and the Optuna differential use `it.effect.fails`; ordinary
 companion tests validate fixture decoding and execution preconditions. Flip
 these in the owning waves. Optuna compares 512 independent seeded draws after
 replaying a history with one failed trial; failed observations are omitted from
-fitting. Its separate pre-existing 4.3 numerical corpus is not evidence for this
-DSPy target and retains its own legacy generator.
+fitting. The numerical corpus and MIPRO kernel now share the Optuna 4.9.0
+generator and canonical lock. The verifier's lock path is a symlink to that lock;
+there is no older pin or legacy generator.
 
 GEPA's minimal aggregate discriminator disables merges; callback recording
 supports merge events, but this fixture does not establish merge parity.
@@ -60,6 +61,32 @@ Teacher/student signatures must match including instructions, as required by
 DSPy's compiler. The TypeScript recorder's settings/role/rollout fields remain
 `Option.none` until the Wave 1 model-binding contract exists. Fixture IDs are
 carried in example input/output until Example gains its own identity field.
+
+## effect-search: Optuna 4.9 differences owned by Wave 3
+
+Regeneration covers all 45 numerical/scenario payloads (50 JSON files including
+the manifest and four invalid-input documents), plus the MIPRO kernel. Four
+existing tests changed to `it.effect.fails`; together with the MIPRO discriminator,
+effect-search has five expected failures. An ordinary manifest test decodes every
+payload independently, so schema failures cannot masquerade as expected mismatches.
+The generator's `--check` compares every generated payload and manifest byte,
+including SHA-256 hashes. No implementation changes or tolerance increases were made.
+
+These are measured first-failure witnesses, not an exhaustive bound on each
+algorithm's error. Flip the owning test only after its entire scenario set passes.
+
+| Sampler / component          | Scenario                                                         | Theoria               | Optuna 4.9                             | Magnitude / test                                                                                                                  |
+| ---------------------------- | ---------------------------------------------------------------- | --------------------- | -------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------- |
+| TPE continuous Parzen        | `continuous-kde.basic`, kernel at observation 0.4                | sigma 0.2             | sigma 0.29999999999999993              | Absolute difference 0.1; `Sampler/tpe/fixtureParity.test.ts` continuous test; tolerance 1e-10.                                    |
+| Constrained TPE density      | `constrained-tpe.parity`, `two-constraints`, probe [-0.3, -0.1]  | 1.3471343219460463    | 1.1856949945071253                     | Absolute difference 0.16143932743892098; `Sampler/tpe/constrainedParity.test.ts`; tolerance 1e-9.                                 |
+| TPE mixed-space EI           | `mixed-space.joint-trace`, learning-rate above-density `logG[0]` | -3.850077439599117    | -4.322409229408983                     | Absolute difference 0.472331789809866; `Sampler/tpe/mixedSpaceParity.test.ts`; tolerance 1e-9.                                    |
+| TPE noise-aware bandwidth    | `noise-bandwidth.parity`, `low-noise-smooth`, first base sigma   | 0.31                  | 0.125                                  | Absolute difference 0.185 before the local noise adjustment; `Sampler/tpe/noiseBandwidthParity.test.ts`; precision 9.             |
+| Multivariate categorical TPE | `optuna-mipro-categorical-001`, 512 fixed-history draws          | Joint-tuple smoothing | Mixture of product categorical kernels | Total variation 0.943359375 versus bound 0.15; `Sampler/tpe-optuna-kernel.test.ts`; pre-existing expected failure from this wave. |
+
+The numerical corpus includes mathematical and Theoria-extension scenarios, not
+only full upstream sampler executions. In particular, noise adjustment is local;
+its base Parzen widths come from Optuna. Scenario/replay fixtures do not establish
+RNG trajectory equivalence. None of these results promotes an API to `verified`.
 
 ## Public surface
 

@@ -3,23 +3,39 @@
   "metadata": {
     "generatedAt": "2026-03-15T00:00:00Z",
     "generator": {
-      "script": "scripts/generate-optuna-fixtures.py",
-      "version": "2.0.0"
+      "script": "scripts/generate-optuna-fixtures.py"
     },
     "upstream": {
       "name": "optuna",
-      "version": "4.3.0"
+      "version": "4.9.0"
     }
   },
   "payload": {
     "expected": {
       "candidateRolls": [
-        [0.1, 0.5],
-        [0.35, 0.2],
-        [0.6, 0.9],
-        [0.95, 0.4]
+        [
+          0.1,
+          0.5
+        ],
+        [
+          0.35,
+          0.2
+        ],
+        [
+          0.6,
+          0.9
+        ],
+        [
+          0.95,
+          0.4
+        ]
       ],
-      "expectedSamples": [0.11241495810729214, 0.12079359257053845, 0.940042212467399, 0.4038670919519788],
+      "expectedSamples": [
+        0.1124149581072921,
+        0.1719687439918846,
+        0.9143328930041796,
+        0.4038670919519788
+      ],
       "kernels": [
         {
           "mean": 0.0,
@@ -28,12 +44,12 @@
         },
         {
           "mean": 0.0,
-          "sigma": 0.5,
+          "sigma": 1.0,
           "weight": 0.2
         },
         {
           "mean": 1.0,
-          "sigma": 0.5,
+          "sigma": 1.0,
           "weight": 0.2
         },
         {
@@ -49,29 +65,34 @@
       ],
       "logDensities": [
         {
-          "expected": 0.4193437118594314,
+          "expected": 0.41664640804606834,
           "probe": 0.0
         },
         {
-          "expected": 0.4193615410962751,
+          "expected": 0.4166617009455843,
           "probe": 0.0001
         },
         {
-          "expected": -0.45374119258378043,
+          "expected": -0.44285327323044377,
           "probe": 0.5
         },
         {
-          "expected": 0.4193615410962751,
+          "expected": 0.4166617009455844,
           "probe": 0.9999
         },
         {
-          "expected": 0.4193437118594312,
+          "expected": 0.41664640804606845,
           "probe": 1.0
         }
       ]
     },
     "high": 1.0,
     "low": 0.0,
-    "observations": [0.0, 0.0, 1.0, 1.0]
+    "observations": [
+      0.0,
+      0.0,
+      1.0,
+      1.0
+    ]
   }
 }

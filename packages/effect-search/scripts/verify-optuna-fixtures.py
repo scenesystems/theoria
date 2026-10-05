@@ -1,12 +1,10 @@
 #!/usr/bin/env -S uv run --script
 # /// script
-# requires-python = ">=3.11"
+# requires-python = ">=3.12"
 # dependencies = [
-#   "optuna==4.3.0",
+#   "optuna==4.9.0",
 #   "numpy>=1.26,<2",
 # ]
-# [tool.uv]
-# exclude-newer = "2026-03-15T00:00:00Z"
 # ///
 """Verify committed fixture JSON against live Optuna computation.
 
@@ -35,6 +33,7 @@ from optuna.samplers._tpe import _truncnorm
 from optuna.samplers._tpe.parzen_estimator import _ParzenEstimator, _ParzenEstimatorParameters
 from optuna.samplers._tpe.probability_distributions import (
     _BatchedCategoricalDistributions,
+    _BatchedTruncLogNormDistributions,
     _BatchedTruncNormDistributions,
 )
 from optuna.samplers._tpe.sampler import (  # type: ignore[import-untyped]
@@ -54,7 +53,7 @@ SIGMA_ABS_TOL = 1e-10
 LOG_DENSITY_ABS_TOL = 1e-9
 TRUNCATED_SAMPLE_ABS_TOL = 1e-10
 
-FIXTURE_DIR = Path("test/fixtures/optuna")
+FIXTURE_DIR = Path(__file__).resolve().parents[1] / "test/fixtures/optuna"
 NOISE_FLOOR = 1e-12
 NOISE_BOOTSTRAP_REPLICATES = 8
 MAX_NOISE_BANDWIDTH_SCALE = 5.0
@@ -118,7 +117,6 @@ def parzen_parameters(
     categorical_distance_func: dict[str, Any] | None = None,
 ) -> _ParzenEstimatorParameters:
     return _ParzenEstimatorParameters(
-        True,
         1.0,
         True,
         False,
@@ -1060,7 +1058,7 @@ def verify_mixed_space_joint_trace() -> list[str]:
             parzen_parameters(),
         )
         below_float_distribution = below_float_estimator._mixture_distribution.distributions[0]
-        if not isinstance(below_float_distribution, _BatchedTruncNormDistributions):
+        if not isinstance(below_float_distribution, _BatchedTruncLogNormDistributions):
             errors.append(f"  FAIL {fixture_name}: float trace expected batched truncnorm distribution")
             continue
 
@@ -1070,8 +1068,8 @@ def verify_mixed_space_joint_trace() -> list[str]:
             component_index = pick_index_by_roll(below_float_estimator._mixture_distribution.weights, kernel_roll)
             mu = float(below_float_distribution.mu[component_index])
             sigma = float(below_float_distribution.sigma[component_index])
-            a = (below_float_distribution.low - mu) / sigma
-            b = (below_float_distribution.high - mu) / sigma
+            a = (np.log(below_float_distribution.low) - mu) / sigma
+            b = (np.log(below_float_distribution.high) - mu) / sigma
             quantile = _truncnorm.ppf(
                 np.asarray([value_roll], dtype=np.float64),
                 np.asarray([a]),

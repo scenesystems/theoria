@@ -19,7 +19,6 @@ MAX_BANDWIDTH_SCALE = 5.0
 
 def _parameters() -> _ParzenEstimatorParameters:
     return _ParzenEstimatorParameters(
-        True,
         1.0,
         True,
         False,

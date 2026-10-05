@@ -3,12 +3,11 @@
   "metadata": {
     "generatedAt": "2026-03-15T00:00:00Z",
     "generator": {
-      "script": "scripts/generate-optuna-fixtures.py",
-      "version": "2.0.0"
+      "script": "scripts/generate-optuna-fixtures.py"
     },
     "upstream": {
       "name": "optuna",
-      "version": "4.3.0"
+      "version": "4.9.0"
     }
   },
   "payload": {
@@ -50,6 +49,10 @@
       }
     ],
     "direction": "minimize",
-    "expectedOrder": [22, 20, 21]
+    "expectedOrder": [
+      22,
+      20,
+      21
+    ]
   }
 }

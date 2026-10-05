@@ -20,7 +20,6 @@ BOUNDS_PADDING_RATIO = 0.05
 
 def _parzen_parameters() -> _ParzenEstimatorParameters:
     return _ParzenEstimatorParameters(
-        True,
         1.0,
         True,
         False,

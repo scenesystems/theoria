@@ -3,23 +3,39 @@
   "metadata": {
     "generatedAt": "2026-03-15T00:00:00Z",
     "generator": {
-      "script": "scripts/generate-optuna-fixtures.py",
-      "version": "2.0.0"
+      "script": "scripts/generate-optuna-fixtures.py"
     },
     "upstream": {
       "name": "optuna",
-      "version": "4.3.0"
+      "version": "4.9.0"
     }
   },
   "payload": {
     "expected": {
       "candidateRolls": [
-        [0.1, 0.5],
-        [0.35, 0.2],
-        [0.6, 0.9],
-        [0.95, 0.4]
+        [
+          0.1,
+          0.5
+        ],
+        [
+          0.35,
+          0.2
+        ],
+        [
+          0.6,
+          0.9
+        ],
+        [
+          0.95,
+          0.4
+        ]
       ],
-      "expectedSamples": [0.5000000000000001, 0.20794562032692798, 0.8938929684383989, 0.4038670919519788],
+      "expectedSamples": [
+        0.4999999999999999,
+        0.2079456203269277,
+        0.8938929684383989,
+        0.4038670919519788
+      ],
       "kernels": [
         {
           "mean": 0.5,

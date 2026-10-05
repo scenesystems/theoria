@@ -2,191 +2,234 @@
   "fixtures": [
     {
       "file": "advanced-samplers/cmaes-parity.json",
-      "name": "advanced-samplers.cmaes-parity"
+      "name": "advanced-samplers.cmaes-parity",
+      "sha256": "1969d5397c2a3d07029414745d1faf4a568f9950c2f13cc53d170a20c884ee76"
     },
     {
       "file": "advanced-samplers/gpbo-parity.json",
-      "name": "advanced-samplers.gpbo-parity"
+      "name": "advanced-samplers.gpbo-parity",
+      "sha256": "85c4b1ba932e1ad591bf4202680f201795c4ecfa42544682ab7546e374f4b1fc"
     },
     {
       "file": "categorical-parzen/basic.json",
-      "name": "categorical-parzen.basic"
+      "name": "categorical-parzen.basic",
+      "sha256": "fb9196d428c16c3123db42ec853af4da3c78556e7165c607cf79da7cfc00bff9"
     },
     {
       "file": "categorical-parzen/distance.json",
-      "name": "categorical-parzen.distance"
+      "name": "categorical-parzen.distance",
+      "sha256": "61f1db2268fd96301f56b125126dfe9b043985b11c50c811c61c276374baced0"
     },
     {
       "file": "categorical-parzen/recency-ramp.json",
-      "name": "categorical-parzen.recency-ramp"
+      "name": "categorical-parzen.recency-ramp",
+      "sha256": "ec1c387ed413d4852ec0fdc2ede4d70dace6a30b2929ff854bebd486c216871e"
     },
     {
       "file": "conditional/filtering.json",
-      "name": "conditional.filtering"
+      "name": "conditional.filtering",
+      "sha256": "d3b382d472124ea3522b1f99707e8f29633d4cbee00375e326106ca876661cb9"
     },
     {
       "file": "conditional/group-decomposition.json",
-      "name": "conditional.group-decomposition"
+      "name": "conditional.group-decomposition",
+      "sha256": "209304f95e2898418f7381832daf86cd3b3f70956c4aa62db8bf41c7026bfabe"
     },
     {
       "file": "constrained-tpe/parity.json",
-      "name": "constrained-tpe.parity"
+      "name": "constrained-tpe.parity",
+      "sha256": "49709a5163496e52427f388ecfc20d3f7da232f35e401367523a3bdf36d58e32"
     },
     {
       "file": "continuous-kde/basic.json",
-      "name": "continuous-kde.basic"
+      "name": "continuous-kde.basic",
+      "sha256": "4b42db8d6a855d45b7f8dab24b418c8472b14d5d164dd80682dce6bc23234bfe"
     },
     {
       "file": "continuous-kde/bimodal-separated.json",
-      "name": "continuous-kde.bimodal-separated"
+      "name": "continuous-kde.bimodal-separated",
+      "sha256": "544e5b3094b5d892da8ebe70f34039e111ecf0bc8792f02617ccedfdbd8e10f9"
     },
     {
       "file": "continuous-kde/boundary-high-skew.json",
-      "name": "continuous-kde.boundary-high-skew"
+      "name": "continuous-kde.boundary-high-skew",
+      "sha256": "7ec2d034f4b870227871fc279c22483bb1f6ac16447db56c8aadb706589490c5"
     },
     {
       "file": "continuous-kde/boundary-low-skew.json",
-      "name": "continuous-kde.boundary-low-skew"
+      "name": "continuous-kde.boundary-low-skew",
+      "sha256": "226e671186e02e24852d3312dc9d27d40c6c04818f12542b1f0f041c861472e0"
     },
     {
       "file": "continuous-kde/endpoint-observations.json",
-      "name": "continuous-kde.endpoint-observations"
+      "name": "continuous-kde.endpoint-observations",
+      "sha256": "6685751b6fac6411b785b04bcde9f22c78faf8f5d3fbee45555832575a3104a1"
     },
     {
       "file": "continuous-kde/extreme-asymmetric-range.json",
-      "name": "continuous-kde.extreme-asymmetric-range"
+      "name": "continuous-kde.extreme-asymmetric-range",
+      "sha256": "24193244e0841c5b567d92d98a8e6a7c6e10d2eee1bbce3fa2b71d8ff8a0855c"
     },
     {
       "file": "continuous-kde/magic-clip.json",
-      "name": "continuous-kde.magic-clip"
+      "name": "continuous-kde.magic-clip",
+      "sha256": "abf7ff9d667e16f7904a6dfe9c754308a5f629d2ffa04ccd3f2721b06803e8e8"
     },
     {
       "file": "continuous-kde/micro-positive-span.json",
-      "name": "continuous-kde.micro-positive-span"
+      "name": "continuous-kde.micro-positive-span",
+      "sha256": "977f1f0850c8ba2279d7940888a589525b48c8015ab798941c9e64df4b88649f"
     },
     {
       "file": "continuous-kde/narrow-support.json",
-      "name": "continuous-kde.narrow-support"
+      "name": "continuous-kde.narrow-support",
+      "sha256": "daf162ada05d92b3f02a64486221d8d3e1db66f85bb928c582d12fe8ca663ad8"
     },
     {
       "file": "continuous-kde/offset-positive-range.json",
-      "name": "continuous-kde.offset-positive-range"
+      "name": "continuous-kde.offset-positive-range",
+      "sha256": "133e834e6c25a6afffd8a8fe98bd16ca26242f2ccfa4707b39e69689d57f8716"
     },
     {
       "file": "continuous-kde/outlier-cluster.json",
-      "name": "continuous-kde.outlier-cluster"
+      "name": "continuous-kde.outlier-cluster",
+      "sha256": "54d04864aecea104c8957a64a3d5ae1093185598b3d56c0dd8aecff8af4a63e9"
     },
     {
       "file": "continuous-kde/prior-only.json",
-      "name": "continuous-kde.prior-only"
+      "name": "continuous-kde.prior-only",
+      "sha256": "3fe79bf08bcdb7d1b6a08b074ea750c50d5bf3cf204b42b6cecd700947bfec35"
     },
     {
       "file": "continuous-kde/recency-ramp.json",
-      "name": "continuous-kde.recency-ramp"
+      "name": "continuous-kde.recency-ramp",
+      "sha256": "5a788633751d8ca1c136a1b24b7dd10cea5fcb28cf7c5872f3c34c3dedf39b57"
     },
     {
       "file": "continuous-kde/repeated-support-point.json",
-      "name": "continuous-kde.repeated-support-point"
+      "name": "continuous-kde.repeated-support-point",
+      "sha256": "587586d5d0048bb703e373f0ced92cacd814504101b68e1794375471a54282de"
     },
     {
       "file": "continuous-kde/single-observation.json",
-      "name": "continuous-kde.single-observation"
+      "name": "continuous-kde.single-observation",
+      "sha256": "9cff46e951173b915455170a66211e14ca59b3a4019c214520620ed7f00f706d"
     },
     {
       "file": "continuous-kde/tiny-cross-zero-span.json",
-      "name": "continuous-kde.tiny-cross-zero-span"
+      "name": "continuous-kde.tiny-cross-zero-span",
+      "sha256": "52005136b709121a61f487d2fc8f8fd77ac68cb1a8bb8e9a612a2456b2746ffc"
     },
     {
       "file": "continuous-kde/upper-boundary-cluster.json",
-      "name": "continuous-kde.upper-boundary-cluster"
+      "name": "continuous-kde.upper-boundary-cluster",
+      "sha256": "10b51c2aa8d421a873ef99c905c228de1ae1f55352478355bcd00b121daaabac"
     },
     {
       "file": "continuous-kde/wide-negative-range.json",
-      "name": "continuous-kde.wide-negative-range"
+      "name": "continuous-kde.wide-negative-range",
+      "sha256": "7ffa39b68e4249ab4717e8eaa71062165a29cb840758485bda7e70e0593b3ccb"
     },
     {
       "file": "ei/basic.json",
-      "name": "ei.basic"
+      "name": "ei.basic",
+      "sha256": "21d192c369ead8b3409090ef68053c1f9382bba6d9e9ae475eda8ebbee3d1c13"
     },
     {
       "file": "ei/mixed-trace.json",
-      "name": "ei.mixed-trace"
+      "name": "ei.mixed-trace",
+      "sha256": "417cd94c5f4f68f5cad47f6b2db683ad7c5c6ce00564d741db11b6dc47cc25f0"
     },
     {
       "file": "gamma/default-gamma.json",
-      "name": "gamma.default-gamma"
+      "name": "gamma.default-gamma",
+      "sha256": "403bbf2bb33223470c17a172fcb306365787dc17b075c316f9909dedd21fed2d"
     },
     {
       "file": "mixed-space/joint-trace.json",
-      "name": "mixed-space.joint-trace"
+      "name": "mixed-space.joint-trace",
+      "sha256": "2c1f61f5b62688b30feab3a7ecbea0fd3656efe28cd77594c58c2db2d13fc442"
     },
     {
       "file": "mixed-space/joint-trace-recency-shift.json",
-      "name": "mixed-space.joint-trace.recency-shift"
+      "name": "mixed-space.joint-trace.recency-shift",
+      "sha256": "1f65b634c4c5d2a35ee02226160a0e01653c57ce76520bae4a4f7202e325ae32"
     },
     {
       "file": "motpe-reference/reference-point.json",
-      "name": "motpe-reference.reference-point"
+      "name": "motpe-reference.reference-point",
+      "sha256": "21bff3a55c3b7ad365c5e5eda962cfac4b4f5adc6f74153b2a6936f22ef731c6"
     },
     {
       "file": "motpe-split/multi-rank-hssp.json",
-      "name": "motpe-split.multi-rank-hssp"
+      "name": "motpe-split.multi-rank-hssp",
+      "sha256": "e1e3cd2deacb811e55d3a79ab54fd35e4174deb5b9a1515f99f65350bb34f916"
     },
     {
       "file": "motpe-study.2obj.json",
-      "name": "motpe-study.2obj"
+      "name": "motpe-study.2obj",
+      "sha256": "e79d9dda4ae56496a548ce06f798175976251dc03c8030fbfe22a1893cbb2263"
     },
     {
       "file": "motpe-weights.2obj.json",
-      "name": "motpe-weights.2obj"
+      "name": "motpe-weights.2obj",
+      "sha256": "9df11805d3f918e5b8c18c18b58a7a60c44286bd84e4b9420c76f8f789a9f7fc"
     },
     {
       "file": "motpe-weights.mixed-directions.json",
-      "name": "motpe-weights.mixed-directions"
+      "name": "motpe-weights.mixed-directions",
+      "sha256": "91987cdc476af34f1b7663e87acfb40604c11e5c62685ff1a4026e634a46961e"
     },
     {
       "file": "motpe-weights.zero-contribution.json",
-      "name": "motpe-weights.zero-contribution"
+      "name": "motpe-weights.zero-contribution",
+      "sha256": "24faa6e1e401e49d363a82407c552623cc00ded553b325ad79f2239847bdfa87"
     },
     {
       "file": "multivariate-gaussian/parity.json",
-      "name": "multivariate-gaussian.parity"
+      "name": "multivariate-gaussian.parity",
+      "sha256": "065e4a31644afa1c78f28916773b67bd53cb9a3dc686b717d95ae0c29f5ae65f"
     },
     {
       "file": "noise-bandwidth/parity.json",
-      "name": "noise-bandwidth.parity"
+      "name": "noise-bandwidth.parity",
+      "sha256": "bf9d0ab159e0a4f1e7f16517974a6565c69097a25357de433ea6b9b2a40ee93e"
     },
     {
       "file": "pruned-score/pruned-ordering.json",
-      "name": "pruned-score.pruned-ordering"
+      "name": "pruned-score.pruned-ordering",
+      "sha256": "3342730334faf8623ab121c1e66bca68883d02f48da1d60807e92f22435344ff"
     },
     {
       "file": "pruning/percentile-pruner.json",
-      "name": "pruning.percentile-pruner"
+      "name": "pruning.percentile-pruner",
+      "sha256": "2f6948deb59db19fe7c676f8636a4ca9a1fa0eaca15fb4a4f4cb9f2831e34a19"
     },
     {
       "file": "pruning/report-contract.json",
-      "name": "pruning.report-contract"
+      "name": "pruning.report-contract",
+      "sha256": "c26da8282bc82ed6da514fe1147190231b1dee5b3236a71e3232eacab87aed08"
     },
     {
       "file": "split-trials/single-and-liar.json",
-      "name": "split-trials.single-and-liar"
+      "name": "split-trials.single-and-liar",
+      "sha256": "2207ad12d1dd7b4d9e151b61029ffe0d2551aed57b1b792a7cb7a055e4cc250d"
     },
     {
       "file": "tpe-categorical-study.replay.json",
-      "name": "tpe-categorical-study.replay"
+      "name": "tpe-categorical-study.replay",
+      "sha256": "666efb8bfbeee36869c3f992964bf733637451e9bbbe32d7f78b125f117d93de"
     },
     {
       "file": "truncated-normal/edge-cases.json",
-      "name": "truncated-normal.edge-cases"
+      "name": "truncated-normal.edge-cases",
+      "sha256": "0c0a35c8380bbf2fa4285924ee73ded17c5af566c257c98310e6865c1ad4bdc7"
     }
   ],
-  "generator": {
-    "generatedAt": "2026-03-15T00:00:00Z",
-    "generatorVersion": "2.0.0",
-    "pythonVersion": "3.11",
-    "script": "scripts/generate-optuna-fixtures.py",
-    "upstream": "optuna",
-    "upstreamVersion": "4.3.0"
+  "generator": "scripts/generate-optuna-fixtures.py",
+  "upstream": {
+    "optuna": "4.9.0",
+    "platform": "Linux-x86_64",
+    "python": "3.12.14"
   }
 }

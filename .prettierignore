@@ -28,6 +28,7 @@ logs
 .amp/portals
 # Byte-for-byte upstream evidence; formatting is owned by the pinned uv harness.
 packages/effect-dsp/test/fixtures/dspy
+packages/effect-search/test/fixtures/optuna
 packages/effect-search/test/fixtures/optuna-mipro
 
 # Vendored source

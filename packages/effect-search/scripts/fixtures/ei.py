@@ -14,7 +14,6 @@ from ._common import metadata
 
 def _parameters() -> _ParzenEstimatorParameters:
     return _ParzenEstimatorParameters(
-        True,
         1.0,
         True,
         False,

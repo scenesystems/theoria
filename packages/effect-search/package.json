@@ -67,8 +67,8 @@
     "build": "bun run build-esm && bun run build-annotate && bun run build-cjs && build-utils pack-v3",
     "clean": "rm -rf build dist .tsbuildinfo",
     "fixtures:check": "bun run scripts/check-fixtures.ts",
-    "fixtures:generate": "uv run scripts/generate-optuna-legacy-fixtures.py && uv run scripts/generate-optuna-fixtures.py",
-    "fixtures:lock": "uv lock --script scripts/generate-optuna-legacy-fixtures.py && uv lock --script scripts/generate-optuna-fixtures.py && uv lock --script scripts/verify-optuna-fixtures.py",
+    "fixtures:generate": "uv run scripts/generate-optuna-fixtures.py",
+    "fixtures:lock": "uv lock --script scripts/generate-optuna-fixtures.py",
     "fixtures:verify": "uv run scripts/verify-optuna-fixtures.py && uv run scripts/generate-optuna-fixtures.py --check"
   },
   "dependencies": {
