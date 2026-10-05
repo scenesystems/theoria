@@ -18,6 +18,12 @@ lists and caching at most 128 validated short keys per invocation. Use direct pu
 Effect imports, string reducers, and a Schema boolean compiler operation for view
 classification, without dynamic code generation or changing caller codecs.
 
+Separate bounded traversal yields from output flushing, consume encoded batches
+through Effect's chunk consumer, and align ASCII-only output before UTF-8 encoding.
+Reuse identical own-key ordering, close exhausted cursors without another frame,
+and count validated UTF-8 widths with Effect string operations. Preserve exact
+inclusive limits, final output tails, and malformed-Unicode diagnostics.
+
 Breaking pre-1.0 change: remove ContentDigest.fromUnknown. Structured identities
 require an owner-selected codec through fromSchema or fromSchemaWithByteLimit;
 fromBytes remains the explicit byte-identity boundary. DSP cache Request and

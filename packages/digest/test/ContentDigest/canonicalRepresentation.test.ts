@@ -63,6 +63,44 @@ describe("ContentDigest canonical representations", () => {
       expect(ContentDigest.toString(actual)).toMatch(/^blake3-256:[A-Za-z0-9_-]{43}$/)
     }))
 
+  it.effect("counts every UTF-8 width and escaped control before inclusive admission", () =>
+    Effect.gen(function*() {
+      const text = "\u007f\u0080\u07ff\u0800\ud7ff\ue000\uffff😀\u{10ffff}\n\"\\\u0000\u001f"
+      // 25 scalar bytes + 6 short-escape bytes + 12 control-escape bytes + 2 quotes.
+      const admitted = yield* ContentDigest.fromSchemaWithByteLimit(Schema.String, text, 45)
+      expect(admitted.canonicalByteLength).toBe(45)
+      expect(admitted.digest).toStrictEqual(yield* ContentDigest.fromSchema(Schema.String, text))
+      expect(yield* Effect.exit(ContentDigest.fromSchemaWithByteLimit(Schema.String, text, 44)))
+        .toStrictEqual(Exit.fail(new CanonicalJson.ByteLimitExceeded({})))
+    }))
+
+  it.effect("retains every ASCII tail across bounded output and final flushes", () =>
+    Effect.forEach([32_703, 32_704, 32_705, 32_766, 32_767, 32_768, 65_537], (length) =>
+      Effect.gen(function*() {
+        const text = Str.repeat(length)("a")
+        const expected = Str.concat(Str.concat("\"", text), "\"")
+        expect(yield* CanonicalJson.encode(text)).toBe(expected)
+        const bytes = yield* Utf8.encode(expected)
+        const bounded = yield* ContentDigest.fromSchemaWithByteLimit(Schema.String, text, bytes.byteLength)
+        expect(bounded.canonicalByteLength).toBe(bytes.byteLength)
+        expect(bounded.digest).toStrictEqual(yield* ContentDigest.fromBytes("blake3-256", bytes))
+        expect(yield* Effect.exit(ContentDigest.fromSchemaWithByteLimit(Schema.String, text, bytes.byteLength - 1)))
+          .toStrictEqual(Exit.fail(new CanonicalJson.ByteLimitExceeded({})))
+      })))
+
+  it.effect("keeps reused key layouts independent of member values and later layouts", () =>
+    Effect.gen(function*() {
+      const input = [
+        { z: "last", a: "first" },
+        { z: "first", a: "last" },
+        { y: { z: 9, a: 2 }, b: 7 },
+        { a: "reordered", z: "again" }
+      ]
+      const expected =
+        "[{\"a\":\"first\",\"z\":\"last\"},{\"a\":\"last\",\"z\":\"first\"},{\"b\":7,\"y\":{\"a\":2,\"z\":9}},{\"a\":\"reordered\",\"z\":\"again\"}]"
+      expect(yield* CanonicalJson.encode(input)).toBe(expected)
+    }))
+
   it.effect("is deterministic and invariant to record insertion order", () =>
     Effect.gen(function*() {
       const coordinates = Schema.Struct({ a: Schema.Finite, b: Schema.Finite })
