@@ -135,7 +135,10 @@ it.effect("matches scalar JSON escaping on both sides of the short-string bounda
     const suffixes = Arr.make(
       "a漢😀\u{10ffff}",
       "\"\\/\b\t\n\f\r\u0000\u0001\u001f",
-      "\u0020\u007f\u0080\u2028\u2029\ud7ff\ue000"
+      "\u0020\u007f\u0080\u2028\u2029\ud7ff\ue000",
+      "\n",
+      "\r",
+      "\r\n"
     )
     yield* Effect.forEach(Arr.make(0, 1_019, 1_023, 1_024, 1_025), (length) =>
       Effect.forEach(suffixes, (suffix) =>
@@ -153,6 +156,33 @@ it.effect("matches scalar JSON escaping on both sides of the short-string bounda
         })))
   }))
 
+it.effect("resumes parent collections after sliced keys and nested strings", () =>
+  Effect.gen(function*() {
+    const key = Str.concat(Str.repeat(1_023)("k"), "😀z")
+    const text = Str.concat(Str.repeat(1_024)("v"), "\n漢")
+    const value = Record.fromEntries(Arr.make(
+      Tuple.make<[string, unknown]>("z", 3),
+      Tuple.make<[string, unknown]>(key, Arr.make({ z: "line\n", a: "😀" }, Arr.empty(), { k: text })),
+      Tuple.make<[string, unknown]>("a", "first")
+    ))
+    const quote = Schema.encodeEffect(Schema.fromJsonString(Schema.String))
+    const expected = Arr.join(
+      Arr.make(
+        "{\"a\":\"first\",",
+        yield* quote(key),
+        ":[{\"a\":\"😀\",\"z\":\"line\\n\"},[],{\"k\":",
+        yield* quote(text),
+        "}],\"z\":3}"
+      ),
+      ""
+    )
+    expect(yield* CanonicalJson.encode(value)).toBe(expected)
+    const bytes = yield* Utf8.encode(expected)
+    const bounded = yield* ContentDigest.fromSchemaWithByteLimit(Schema.Unknown, value, bytes.byteLength)
+    expect(bounded.digest).toStrictEqual(yield* ContentDigest.fromBytes("blake3-256", bytes))
+    expect(bounded.canonicalByteLength).toBe(bytes.byteLength)
+  }))
+
 it.effect("stops at the byte limit before a later invalid value is traversed", () =>
   Effect.gen(function*() {
     const value = Arr.make(longText, undefined)
@@ -160,6 +190,25 @@ it.effect("stops at the byte limit before a later invalid value is traversed", (
     expect(yield* Effect.exit(ContentDigest.fromSchemaWithByteLimit(Schema.Unknown, value, 64))).toStrictEqual(
       Exit.fail(expected)
     )
+  }))
+
+it.effect("preserves repeated keys and Unicode failures after wide record traversal", () =>
+  Effect.gen(function*() {
+    const records = Arr.makeBy(257, (index) => Record.singleton(Str.concat("key-", Str.String(index)), index))
+    const shared = { constructor: 7, toString: 9 }
+    const value = Arr.appendAll(records, Arr.make(shared, shared, { "😀": 11 }))
+    // Each record's keys already have canonical order, so scalar JSON encoding
+    // is an independent reference here, without a second canonicalizer.
+    const schema = Schema.Array(Schema.Record(Schema.String, Schema.Finite))
+    const expected = yield* Schema.encodeEffect(Schema.fromJsonString(schema))(value)
+    expect(yield* CanonicalJson.encode(value)).toBe(expected)
+    const bytes = yield* Utf8.encode(expected)
+    const bounded = yield* ContentDigest.fromSchemaWithByteLimit(schema, value, bytes.byteLength)
+    expect(bounded.digest).toStrictEqual(yield* ContentDigest.fromBytes("blake3-256", bytes))
+    expect(yield* Effect.exit(ContentDigest.fromSchemaWithByteLimit(schema, value, bytes.byteLength - 1)))
+      .toStrictEqual(Exit.fail(new CanonicalJson.ByteLimitExceeded({})))
+    expect(yield* Effect.exit(CanonicalJson.encode(Arr.append(value, { "😀x\udfff": 12 }))))
+      .toStrictEqual(Exit.fail(new Utf8.InvalidUnicode({ kind: "lone-low-surrogate", codeUnitIndex: 3 })))
   }))
 
 it.effect("one encodeBytes Effect produces the complete result on repeated execution", () =>
