@@ -42,17 +42,18 @@ const makeState = <E>(
 const stopped = <E>(state: State<E>): boolean =>
   B.or(N.Equivalence(state.stack.length, 0), Option.isSome(MutableRef.get(state.failure)))
 
-// A record advance can consume both a short key and its value.
-const batchSteps = Arr.range(0, 127)
+// Bound both structural work and emitted text before yielding.
+const batchSteps = Arr.range(0, 1023)
 
 const makeBatch = <E>(state: State<E>): Effect.Effect<void> => {
   const process = makeProcessor(state)
   return Effect.sync(() => {
+    const initialSegments = state.segments.length
     Arr.every(batchSteps, () => {
       // Keep collection cursors in their existing bucket until exhausted.
       const head = state.stack.head
       if (!Predicate.isUndefined(head)) process(Arr.getUnsafe(head.array, head.offset))
-      return !stopped(state)
+      return !stopped(state) && state.segments.length === initialSegments
     })
   })
 }
@@ -61,7 +62,9 @@ const complete = <E>(state: State<E>): Result.Result<void, CanonicalizationError
   Option.match(MutableRef.get(state.failure), {
     onSome: Result.fail,
     onNone: () => {
-      flushPending(state)
+      // Yielding need not flush a partial output segment. paginate accepts
+      // empty pages while traversal continues under its own work bound.
+      if (stopped(state)) flushPending(state, true)
       return Result.succeed(undefined)
     }
   })
@@ -111,17 +114,17 @@ const byteStream = <E>(state: State<E>): Stream.Stream<Uint8Array, Canonicalizat
 
 export const canonicalizeInto = (
   value: unknown,
-  sink: (segment: Uint8Array) => Effect.Effect<void>
+  sink: (segment: Uint8Array) => void
 ): Effect.Effect<void, CanonicalizationError> =>
   Effect.suspend(() => {
     const state = makeState<never>(value, append)
-    return Stream.runForEach(byteStream(state), sink)
+    return Stream.runForEachArray(byteStream(state), (segments) => Effect.sync(() => Arr.forEach(segments, sink)))
   })
 
 export const canonicalizeWithByteLimit = (
   value: unknown,
   maximumBytes: number,
-  sink: (segment: Uint8Array) => Effect.Effect<void>
+  sink: (segment: Uint8Array) => void
 ): Effect.Effect<number, CanonicalizationError | ByteLimitExceeded> =>
   Effect.suspend(() => {
     const length = MutableRef.make(0)
@@ -132,7 +135,10 @@ export const canonicalizeWithByteLimit = (
         onSuccess: () => append(state, text)
       })
     })
-    return Effect.map(Stream.runForEach(byteStream(state), sink), () => MutableRef.get(length))
+    return Effect.map(
+      Stream.runForEachArray(byteStream(state), (segments) => Effect.sync(() => Arr.forEach(segments, sink))),
+      () => MutableRef.get(length)
+    )
   })
 
 export const canonicalizeValue = (value: unknown): Effect.Effect<string, CanonicalizationError> =>

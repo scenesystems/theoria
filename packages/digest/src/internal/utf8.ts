@@ -7,7 +7,7 @@
  * @internal
  */
 
-import { Boolean as B, type Effect, Iterable, Match, Number as N, Option, Stream, String as Str } from "effect"
+import { Boolean as B, type Effect, Match, Number as N, Option, Stream, String as Str } from "effect"
 
 import { InvalidUnicode } from "../Utf8.js"
 
@@ -46,15 +46,21 @@ export const unicodeFault = (text: string): Option.Option<InvalidUnicode> =>
 export const encodeUtf8Unchecked = (text: string): Effect.Effect<Uint8Array> =>
   Stream.make(text).pipe(Stream.encodeText, Stream.mkUint8Array)
 
-const characterWidth = Match.type<string>().pipe(
-  Match.when((character) => Option.exists(Str.charCodeAt(character, 0), N.isLessThan(0x80)), () => 1),
-  Match.when((character) => Option.exists(Str.charCodeAt(character, 0), N.isLessThan(0x800)), () => 2),
-  Match.orElse((character) => B.match(N.Equivalence(Str.length(character), 2), { onTrue: () => 4, onFalse: () => 3 }))
-)
-
-/** Measure well-formed text using the package's canonical UTF-8 law. @internal */
+/**
+ * Measure already validated text: every non-ASCII code unit contributes one
+ * extra byte, and every non-surrogate BMP unit above U+07FF contributes another.
+ * A valid surrogate pair therefore contributes four bytes, not six.
+ * @internal
+ */
 export const utf8ByteLengthUnchecked = (text: string): number =>
   Option.match(Str.search(text, /[\u0080-\u{10ffff}]/u), {
     onNone: () => Str.length(text),
-    onSome: () => Iterable.reduce(text, 0, (length, character) => N.sum(length, characterWidth(character)))
+    onSome: () =>
+      N.sum(
+        Str.length(text),
+        N.sum(
+          Str.length(Str.replace(/[^\u0080-\uffff]/g, "")(text)),
+          Str.length(Str.replace(/[^\u0800-\ud7ff\ue000-\uffff]/g, "")(text))
+        )
+      )
   })

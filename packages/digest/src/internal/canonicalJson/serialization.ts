@@ -74,7 +74,19 @@ const startString = <E>(state: State<E>, text: string, suffix: string): void => 
   }
 }
 
+const sameKeys = Equivalence.Array(Str.Equivalence)
+
 const makeVisit = <E>(state: State<E>): (value: unknown) => void => {
+  const previousKeys = MutableRef.make<ReadonlyArray<string>>([])
+  const previousSorted = MutableRef.make<ReadonlyArray<string>>([])
+  const sortedKeys = (identity: object): ReadonlyArray<string> => {
+    const keys = Record.keys(identity)
+    if (sameKeys(keys, MutableRef.get(previousKeys))) return MutableRef.get(previousSorted)
+    const sorted = Arr.sort(keys, Str.Order)
+    MutableRef.set(previousKeys, keys)
+    MutableRef.set(previousSorted, sorted)
+    return sorted
+  }
   const visit = Match.type<unknown>().pipe(
     Match.when(Predicate.isUndefined, () => reject(state, "undefined")),
     Match.when(Predicate.isBigInt, () => reject(state, "bigint")),
@@ -99,7 +111,7 @@ const makeVisit = <E>(state: State<E>): (value: unknown) => void => {
         "{",
         Frame.Record({
           identity,
-          keys: Arr.sort(Record.keys(identity), Str.Order),
+          keys: sortedKeys(identity),
           at: MutableRef.make(0)
         })
       )),
@@ -162,17 +174,16 @@ const processString = <E>(state: State<E>, frame: Data.TaggedEnum.Value<Frame, "
 export const makeProcessor = <E>(state: State<E>): (frame: Frame) => void => {
   const visit = makeVisit(state)
   const keyCache = MutableHashMap.empty<string, string>()
-  const startKey = (key: string): void => {
+  const quotedKey = (key: string): Option.Option<string> => {
     const cached = MutableHashMap.get(keyCache, key)
-    if (Option.isSome(cached)) return emit(state, cached.value)
+    if (Option.isSome(cached)) return cached
     if (Option.isNone(unsafeCharacter(key))) {
       const quoted = concat(concat("\"", key), "\":")
       if (N.isGreaterThanOrEqualTo(MutableHashMap.size(keyCache), 128)) MutableHashMap.clear(keyCache)
       MutableHashMap.set(keyCache, key, quoted)
-      emit(state, quoted)
-    } else {
-      startString(state, key, "\":")
+      return Option.some(quoted)
     }
+    return Option.none()
   }
   return Frame.$match({
     Visit: ({ value }) => {
@@ -183,18 +194,15 @@ export const makeProcessor = <E>(state: State<E>): (frame: Frame) => void => {
       MutableList.take(state.stack)
       processString(state, value)
     },
-    Close: ({ identity, token }) => {
-      MutableList.take(state.stack)
-      emit(state, token)
-      MutableHashSet.remove(state.active, state.identity(identity))
-    },
     Array: (frame) => {
       const identity = frame.identity
       const at = MutableRef.getAndIncrement(frame.at)
       const value = Arr.get(identity, at)
       if (Option.isNone(value)) {
         MutableList.take(state.stack)
-        return push(state, Frame.Close({ identity, token: "]" }))
+        emit(state, "]")
+        MutableHashSet.remove(state.active, state.identity(identity))
+        return
       }
       if (!Predicate.hasProperty(identity, at)) return reject(state, "sparse-array")
       if (N.isGreaterThan(at, 0)) emit(state, ",")
@@ -205,16 +213,28 @@ export const makeProcessor = <E>(state: State<E>): (frame: Frame) => void => {
       const at = MutableRef.getAndIncrement(frame.at)
       if (N.isGreaterThanOrEqualTo(at, keys.length)) {
         MutableList.take(state.stack)
-        return push(state, Frame.Close({ identity, token: "}" }))
+        emit(state, "}")
+        MutableHashSet.remove(state.active, state.identity(identity))
+        return
       }
       const key = Arr.getUnsafe(keys, at)
-      if (N.isGreaterThan(at, 0)) emit(state, ",")
       // keys is our own-key snapshot; the input graph must remain stable.
       const value = Struct.get(identity, key)
       if (N.isLessThanOrEqualTo(Str.length(key), 1_024)) {
-        startKey(key)
+        const quoted = quotedKey(key)
+        if (Option.isSome(quoted)) {
+          const prefix = at > 0 ? concat(",", quoted.value) : quoted.value
+          if (Predicate.isString(value) && Str.length(value) <= 1_024 && Option.isNone(unsafeCharacter(value))) {
+            return emit(state, concat(prefix, concat(concat("\"", value), "\"")))
+          }
+          emit(state, prefix)
+        } else {
+          if (at > 0) emit(state, ",")
+          startString(state, key, "\":")
+        }
         if (Option.isNone(MutableRef.get(state.failure))) visit(value)
       } else {
+        if (at > 0) emit(state, ",")
         push(state, Frame.Visit({ value }))
         startString(state, key, "\":")
       }

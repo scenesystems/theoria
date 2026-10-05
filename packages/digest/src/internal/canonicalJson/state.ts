@@ -19,7 +19,6 @@ export type Frame = Data.TaggedEnum<{
     readonly at: MutableRef.MutableRef<number>
   }
   String: { readonly text: string; readonly at: number; readonly suffix: string }
-  Close: { readonly identity: object; readonly token: string }
 }>
 
 export const Frame = Data.taggedEnum<Frame>()
@@ -42,11 +41,17 @@ export const push = <E>(state: State<E>, frame: Frame): void => {
   MutableList.prepend(state.stack, frame)
 }
 
-export const flushPending = <E>(state: State<E>): void => {
+export const flushPending = <E>(state: State<E>, final = false): void => {
   const pending = MutableRef.get(state.pending)
   if (Str.isNonEmpty(pending)) {
-    MutableList.append(state.segments, pending)
-    MutableRef.set(state.pending, "")
+    // ASCII-only preimages can preserve the hashers' 64-byte block alignment
+    // before UTF-8 encoding, without a copying byte-rechunking stage.
+    const remainder = !final && Option.isNone(Str.search(pending, /[\u0080-\uffff]/))
+      ? N.remainder(Str.length(pending), 64)
+      : 0
+    const end = N.subtract(Str.length(pending), remainder)
+    MutableList.append(state.segments, Str.slice(0, end)(pending))
+    MutableRef.set(state.pending, Str.slice(end)(pending))
   }
 }
 

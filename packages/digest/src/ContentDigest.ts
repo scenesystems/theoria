@@ -110,12 +110,11 @@ const fromEncoded = (
   Effect.acquireUseRelease(
     Effect.sync(() => makeHasher(algorithm)),
     (hasher) =>
-      canonicalizeInto(value, (bytes) =>
-        Effect.sync(() => {
-          hasher.update(bytes)
-        })).pipe(
-          Effect.map(() => fromHash(algorithm, hasher.digest()))
-        ),
+      canonicalizeInto(value, (bytes) => {
+        hasher.update(bytes)
+      }).pipe(
+        Effect.map(() => fromHash(algorithm, hasher.digest()))
+      ),
     (hasher) => Effect.sync(() => hasher.destroy())
   )
 
@@ -171,10 +170,9 @@ export const fromSchemaWithByteLimit = <A, I, RD, RE>(
                 canonicalizeWithByteLimit(
                   encoded,
                   maximumBytes,
-                  (bytes) =>
-                    Effect.sync(() => {
-                      hasher.update(bytes)
-                    })
+                  (bytes) => {
+                    hasher.update(bytes)
+                  }
                 ),
                 (canonicalByteLength) =>
                   new Result({ digest: fromHash(algorithm, hasher.digest()), canonicalByteLength })
