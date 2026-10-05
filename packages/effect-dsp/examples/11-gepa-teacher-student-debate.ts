@@ -33,40 +33,40 @@ const trainset = Arr.make(
         "Students under-report stress because they think everyone else is coping, and they avoid campus counseling.",
       population: "first-year undergraduates"
     },
-    output: {
+    labels: Option.some({
       intervention: "norms",
       rationale: "Norm correction can reduce misperceived stigma around help-seeking."
-    }
+    })
   }),
   new Example.Example({
     input: {
       observation: "Factory operators complete safety recertification only after attendance bonuses are introduced.",
       population: "shift-based manufacturing workers"
     },
-    output: {
+    labels: Option.some({
       intervention: "incentives",
       rationale: "Behavior is tightly coupled to immediate compensation signals."
-    }
+    })
   }),
   new Example.Example({
     input: {
       observation: "Caregivers skip nutrition workshops because materials are dense and schedules are hard to decode.",
       population: "low-income caregivers"
     },
-    output: {
+    labels: Option.some({
       intervention: "information",
       rationale: "Comprehension and access barriers dominate participation decisions."
-    }
+    })
   }),
   new Example.Example({
     input: {
       observation: "Tenants recycle more when building lobbies show floor-level participation dashboards.",
       population: "urban apartment residents"
     },
-    output: {
+    labels: Option.some({
       intervention: "norms",
       rationale: "Visible social comparison cues raise compliance with pro-social behavior."
-    }
+    })
   })
 )
 
@@ -77,10 +77,10 @@ const evalset = Arr.make(
         "Nurses adopt optional handoff checklists only when completion is tied to preferred shift assignments.",
       population: "hospital nursing teams"
     },
-    output: {
+    labels: Option.some({
       intervention: "incentives",
       rationale: "Tangible immediate rewards alter compliance behavior."
-    }
+    })
   }),
   new Example.Example({
     input: {
@@ -88,10 +88,10 @@ const evalset = Arr.make(
         "Community members join cleanup drives after weekly signs display how many neighbors already registered.",
       population: "mixed-income neighborhoods"
     },
-    output: {
+    labels: Option.some({
       intervention: "norms",
       rationale: "Descriptive norm visibility changes expectations about peer participation."
-    }
+    })
   }),
   new Example.Example({
     input: {
@@ -99,10 +99,10 @@ const evalset = Arr.make(
         "Parents miss telehealth follow-ups because appointment instructions use jargon and lack clear next steps.",
       population: "parents of pediatric patients"
     },
-    output: {
+    labels: Option.some({
       intervention: "information",
       rationale: "Clarity improvements reduce execution friction for follow-up behavior."
-    }
+    })
   })
 )
 
@@ -111,35 +111,31 @@ const Recommendation = Schema.Struct({
   rationale: Signature.describe(Schema.String, "Decision rationale that references both analysts")
 })
 
-const recommendationMetric = Metric.fromEffect(
-  "recommendationExactMatchWithFeedback",
-  (prediction: typeof Recommendation.Type, expected) =>
-    Effect.sync(() => {
-      const predictedIntervention = prediction.intervention
-      const expectedIntervention = expected.intervention
-      const correct = String.Equivalence(predictedIntervention, expectedIntervention)
-      const score = Boolean.match(correct, { onTrue: () => 1, onFalse: () => 0 })
-      const feedback = Boolean.match(correct, {
-        onTrue: () => Arr.join(Arr.make("Correctly selected intervention '", expectedIntervention, "'."), ""),
-        onFalse: () =>
-          Arr.join(
-            Arr.make(
-              "Expected '",
-              expectedIntervention,
-              "' but produced '",
-              predictedIntervention,
-              "'. Prioritize mechanism-level fit over stylistic rhetoric."
-            ),
-            ""
-          )
-      })
-
-      return new Metric.Result({
-        score,
-        feedback
-      })
+const recommendationMetric = Metric.withFeedback((example, result) =>
+  Effect.gen(function*() {
+    const prediction = yield* Schema.decodeUnknownEffect(Schema.toType(Recommendation))(result.output)
+    const expected = yield* Schema.decodeUnknownEffect(Recommendation)(Option.getOrElse(example.labels, () => ({})))
+    const predictedIntervention = prediction.intervention
+    const expectedIntervention = expected.intervention
+    const correct = String.Equivalence(predictedIntervention, expectedIntervention)
+    const score = Boolean.match(correct, { onTrue: () => 1, onFalse: () => 0 })
+    const feedback = Boolean.match(correct, {
+      onTrue: () => Arr.join(Arr.make("Correctly selected intervention '", expectedIntervention, "'."), ""),
+      onFalse: () =>
+        Arr.join(
+          Arr.make(
+            "Expected '",
+            expectedIntervention,
+            "' but produced '",
+            predictedIntervention,
+            "'. Prioritize mechanism-level fit over stylistic rhetoric."
+          ),
+          ""
+        )
     })
-)
+
+    return new Metric.Score({ value: score, feedback: Option.some(feedback) })
+  }), "recommendationExactMatchWithFeedback")
 
 const logExampleStage = (
   stage: string,

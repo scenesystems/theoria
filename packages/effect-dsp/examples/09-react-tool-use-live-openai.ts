@@ -9,7 +9,7 @@
  */
 import { BunRuntime } from "@effect/platform-bun"
 import { Evaluate, Example, Metric, Module, Signature, Trace } from "@scenesystems/effect-dsp"
-import { Array as Arr, Effect, Schema } from "effect"
+import { Array as Arr, Effect, Option, Schema } from "effect"
 import * as Tool from "effect/ai/Tool"
 import * as Toolkit from "effect/ai/Toolkit"
 import { withLiveLanguageModel } from "./shared/live-provider-runtime.js"
@@ -77,15 +77,15 @@ const tools = Toolkit.make(KnowledgeBase, Calculator)
 const evalset = Arr.make(
   new Example.Example({
     input: { question: "What is the capital of Japan?" },
-    output: { answer: "Tokyo" }
+    labels: Option.some({ answer: "Tokyo" })
   }),
   new Example.Example({
     input: { question: "What is the combined population of France and Germany in millions?" },
-    output: { answer: "152" }
+    labels: Option.some({ answer: "152" })
   }),
   new Example.Example({
     input: { question: "What is the boiling point of water in Celsius?" },
-    output: { answer: "100" }
+    labels: Option.some({ answer: "100" })
   })
 )
 

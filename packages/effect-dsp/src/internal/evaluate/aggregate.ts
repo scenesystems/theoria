@@ -16,8 +16,8 @@ const outcomeScore = (metricName: string, outcome: ExampleOutcome): Option.Optio
     onFalse: () => Option.none<number>()
   })
 
-const overallScores = <ME, MR, A>(
-  metricEntries: Iterable<MetricEntry<ME, MR, A>>,
+const overallScores = <ME, MR>(
+  metricEntries: Iterable<MetricEntry<ME, MR>>,
   outcomes: Iterable<ExampleOutcome>
 ): Record.ReadonlyRecord<string, number> =>
   Arr.reduce(metricEntries, Record.empty<string, number>(), (scores, entry) => {
@@ -41,8 +41,8 @@ export class AggregateResult extends Data.Class<{
   readonly averageScore: number
 }> {}
 
-export class AggregateOptions<ME, MR, A> extends Data.Class<{
-  readonly metricEntries: Iterable<MetricEntry<ME, MR, A>>
+export class AggregateOptions<ME, MR> extends Data.Class<{
+  readonly metricEntries: Iterable<MetricEntry<ME, MR>>
   readonly outcomes: Iterable<ExampleOutcome>
   readonly total: number
 }> {}
@@ -51,7 +51,7 @@ export class AggregateOptions<ME, MR, A> extends Data.Class<{
  * @since 0.1.0
  * @internal
  */
-export const aggregateOutcomes = <ME, MR, A>(options: AggregateOptions<ME, MR, A>): AggregateResult => {
+export const aggregateOutcomes = <ME, MR>(options: AggregateOptions<ME, MR>): AggregateResult => {
   const metricEntries = Arr.fromIterable(options.metricEntries)
   const outcomes = Arr.fromIterable(options.outcomes)
   const results = Arr.map(outcomes, (outcome) => outcome.result)

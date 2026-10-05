@@ -10,22 +10,13 @@ import * as MockLanguageModel from "@scenesystems/effect-dsp/MockLanguageModel"
 import * as Module from "@scenesystems/effect-dsp/Module"
 import { ModuleParameters } from "@scenesystems/effect-dsp/ModuleParameters"
 import * as Signature from "@scenesystems/effect-dsp/Signature"
-import { Array as Arr, Effect, Layer, Ref, Schema, Stream } from "effect"
+import { Array as Arr, Effect, Layer, Option, Ref, Schema, Stream } from "effect"
 import * as LanguageModel from "effect/ai/LanguageModel"
 
 const trainset = Arr.make(
-  new Example({
-    input: { question: "What is the capital of France?" },
-    output: { answer: "Paris" }
-  }),
-  new Example({
-    input: { question: "What is the capital of Japan?" },
-    output: { answer: "Tokyo" }
-  }),
-  new Example({
-    input: { question: "What is the capital of Italy?" },
-    output: { answer: "Rome" }
-  })
+  new Example({ input: { question: "What is the capital of France?" }, labels: Option.some({ answer: "Paris" }) }),
+  new Example({ input: { question: "What is the capital of Japan?" }, labels: Option.some({ answer: "Tokyo" }) }),
+  new Example({ input: { question: "What is the capital of Italy?" }, labels: Option.some({ answer: "Rome" }) })
 )
 
 const responseForPrompt = (prompt: string) =>

@@ -16,7 +16,7 @@
 import { BunRuntime } from "@effect/platform-bun"
 import { BootstrapFewShot, Evaluate, Example, Metric, Module, Signature, Trace } from "@scenesystems/effect-dsp"
 import * as Numeric from "@scenesystems/effect-math/Numeric"
-import { Array as Arr, Effect, Ref, Schema } from "effect"
+import { Array as Arr, Effect, Option, Ref, Schema } from "effect"
 import * as Tool from "effect/ai/Tool"
 import * as Toolkit from "effect/ai/Toolkit"
 import { withLiveLanguageModel } from "./shared/live-provider-runtime.js"
@@ -81,34 +81,34 @@ const tools = Toolkit.make(Calculator, UnitConverter)
 const trainset = Arr.make(
   new Example.Example({
     input: { problem: "A store has 15 apples and receives 27 more. How many apples total?" },
-    output: { answer: "42" }
+    labels: Option.some({ answer: "42" })
   }),
   new Example.Example({
     input: { problem: "A factory produces 120 widgets per hour for 8 hours. How many widgets?" },
-    output: { answer: "960" }
+    labels: Option.some({ answer: "960" })
   }),
   new Example.Example({
     input: { problem: "A runner covers 26 miles. How many kilometers is that? Round to 2 decimal places." },
-    output: { answer: "41.84" }
+    labels: Option.some({ answer: "41.84" })
   }),
   new Example.Example({
     input: { problem: "A baker has 84 cookies and gives away 39. How many remain?" },
-    output: { answer: "45" }
+    labels: Option.some({ answer: "45" })
   })
 )
 
 const evalset = Arr.make(
   new Example.Example({
     input: { problem: "A garden has 48 flowers and 23 more are planted. How many flowers total?" },
-    output: { answer: "71" }
+    labels: Option.some({ answer: "71" })
   }),
   new Example.Example({
     input: { problem: "A warehouse ships 250 boxes but 78 are returned. How many net shipped?" },
-    output: { answer: "172" }
+    labels: Option.some({ answer: "172" })
   }),
   new Example.Example({
     input: { problem: "A cyclist rides 100 km. How many miles is that? Round to 2 decimal places." },
-    output: { answer: "62.14" }
+    labels: Option.some({ answer: "62.14" })
   })
 )
 

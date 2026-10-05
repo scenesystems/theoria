@@ -38,11 +38,11 @@ describe("Evaluate.run", () => {
           examples: [
             new Example({
               input: { question: "What is the capital of France?" },
-              output: { answer: "Paris" }
+              labels: Option.some({ answer: "Paris" })
             }),
             new Example({
               input: { question: "What is the capital of Japan?" },
-              output: { answer: "Tokyo" }
+              labels: Option.some({ answer: "Tokyo" })
             })
           ],
           metrics: {
@@ -61,7 +61,7 @@ describe("Evaluate.run", () => {
       expect(report.overallScores.exact).toBe(0.5)
     }))
 
-  it.effect("records failed examples when expected output is missing", () =>
+  it.effect("records failed examples when inputs do not match the signature", () =>
     Effect.gen(function*() {
       const signature = yield* makeQaSignature()
       const module = yield* Module.predict("qa", signature)
@@ -76,10 +76,10 @@ describe("Evaluate.run", () => {
           examples: [
             new Example({
               input: { question: "What is the capital of France?" },
-              output: { answer: "Paris" }
+              labels: Option.some({ answer: "Paris" })
             }),
             new Example({
-              input: { question: "What is the capital of Japan?" }
+              input: { question: 73 }
             })
           ],
           metrics: {
@@ -114,11 +114,11 @@ describe("Evaluate.run", () => {
       const examples = [
         new Example({
           input: { question: "What is the capital of France?" },
-          output: { answer: "Paris" }
+          labels: Option.some({ answer: "Paris" })
         }),
         new Example({
           input: { question: "What is the capital of Japan?" },
-          output: { answer: "Tokyo" }
+          labels: Option.some({ answer: "Tokyo" })
         })
       ]
 

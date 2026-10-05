@@ -58,14 +58,8 @@ const makeQaSignature = () =>
   )
 
 const trainset = Arr.make(
-  new Example({
-    input: { question: "What is the capital of France?" },
-    output: { answer: "Paris" }
-  }),
-  new Example({
-    input: { question: "What is the capital of Japan?" },
-    output: { answer: "Tokyo" }
-  })
+  new Example({ input: { question: "What is the capital of France?" }, labels: Option.some({ answer: "Paris" }) }),
+  new Example({ input: { question: "What is the capital of Japan?" }, labels: Option.some({ answer: "Tokyo" }) })
 )
 
 describe("MIPROv2 Phase 3", () => {
@@ -149,11 +143,11 @@ describe("MIPROv2 Phase 3", () => {
         new Options({
           module,
           valset: trainset,
-          metric: Metric.fromEffect("immutable", (prediction: object, expected: object) =>
+          metric: Metric.withFeedback((example, prediction, context) =>
             Effect.gen(function*() {
               expect(yield* Ref.get(module.params)).toEqual(baselineParams)
-              return yield* Metric.exactMatch("answer").score(prediction, expected)
-            })),
+              return yield* Metric.exactMatch("answer").score(example, prediction, context)
+            }), "immutable"),
           demoCandidates,
           instructionCandidates,
           trialBudget: 4,

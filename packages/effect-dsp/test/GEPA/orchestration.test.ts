@@ -85,11 +85,14 @@ const makeDraftSignature = () =>
   )
 
 const makeEvaluationExamples = () =>
-  Arr.map(Arr.range(1, FULL_VALSET_ROW_COUNT), (index) =>
-    new Example({
-      input: { question: Str.concat("Question ", Inspectable.toStringUnknown(index)) },
-      output: { answer: "correct" }
-    }))
+  Arr.map(
+    Arr.range(1, FULL_VALSET_ROW_COUNT),
+    (index) =>
+      new Example({
+        input: { question: Str.concat("Question ", Inspectable.toStringUnknown(index)) },
+        labels: Option.some({ answer: "correct" })
+      })
+  )
 
 const makeCountingModel = (
   evaluatedRows: Ref.Ref<number>,
@@ -149,14 +152,6 @@ const runCountingStream = (mutatedIsBetter: boolean) =>
     })
   })
 
-const scoreAnswer = (prediction: AnswerResponse, expected: AnswerResponse) =>
-  new Metric.Result({
-    score: Bool.match(Str.Equivalence(prediction.answer, expected.answer), {
-      onFalse: () => 0,
-      onTrue: () => 1
-    })
-  })
-
 describe("GEPA.run orchestration", () => {
   it.effect("restores every composed parameter owner after a checked candidate-evaluation failure", () =>
     Effect.gen(function*() {
@@ -187,21 +182,18 @@ describe("GEPA.run orchestration", () => {
           new PredictorInstruction({ predictorName: child.name, instruction: "changed child" })
         )
       })
-      const metric = Metric.fromEffect(
-        "composedFailure",
-        () =>
-          Effect.gen(function*() {
-            expect(yield* Ref.get(root.params)).toBe(rootParams)
-            expect(yield* Ref.get(child.params)).toBe(childParams)
-            return yield* new Gate2MetricFailure()
-          })
-      )
+      const metric = Metric.withFeedback(() =>
+        Effect.gen(function*() {
+          expect(yield* Ref.get(root.params)).toBe(rootParams)
+          expect(yield* Ref.get(child.params)).toBe(childParams)
+          return yield* new Gate2MetricFailure()
+        }), "composedFailure")
 
       const failure = yield* evaluateCandidate(
         new GEPA.Options({
           module: root,
           trainset: Arr.make(
-            new Example({ input: { question: "Compose this" }, output: { answer: "correct" } })
+            new Example({ input: { question: "Compose this" }, labels: Option.some({ answer: "correct" }) })
           ),
           metric,
           maxIterations: 0
@@ -248,15 +240,15 @@ describe("GEPA.run orchestration", () => {
           new PredictorInstruction({ predictorName: child.name, instruction: "interrupted child" })
         )
       })
-      const metric = Metric.fromEffect(
-        "composedInterruption",
-        () => Deferred.succeed(metricStarted, true).pipe(Effect.andThen(Effect.never))
+      const metric = Metric.withFeedback(
+        () => Deferred.succeed(metricStarted, true).pipe(Effect.andThen(Effect.never)),
+        "composedInterruption"
       )
       const fiber = yield* evaluateCandidate(
         new GEPA.Options({
           module: root,
           trainset: Arr.make(
-            new Example({ input: { question: "Interrupt this" }, output: { answer: "correct" } })
+            new Example({ input: { question: "Interrupt this" }, labels: Option.some({ answer: "correct" }) })
           ),
           metric,
           maxIterations: 0
@@ -298,11 +290,11 @@ describe("GEPA.run orchestration", () => {
         new GEPA.Options({
           module,
           trainset: makeEvaluationExamples(),
-          metric: Metric.fromEffect("immutable", (prediction: object, expected: object) =>
+          metric: Metric.withFeedback((example, prediction, context) =>
             Effect.gen(function*() {
               expect(yield* Ref.get(module.params)).toEqual(originalParams)
-              return yield* Metric.exactMatch("answer").score(prediction, expected)
-            })),
+              return yield* Metric.exactMatch("answer").score(example, prediction, context)
+            }), "immutable"),
           maxIterations: 0
         }),
         candidate,
@@ -378,17 +370,17 @@ describe("GEPA.run orchestration", () => {
       const evaluatedRows = yield* Ref.make(0)
       const scoredRows = yield* Ref.make(0)
       const mock = yield* makeCountingModel(evaluatedRows, true)
-      const metric = Metric.fromEffect(
-        "gate2Failure",
-        (prediction: AnswerResponse, expected) =>
+      const metric = Metric.withFeedback(
+        (example, prediction, context) =>
           Ref.updateAndGet(scoredRows, Num.increment).pipe(
             Effect.flatMap((rowCount) =>
               Bool.match(Num.Equivalence(rowCount, ACCEPTED_MUTATION_ROW_COUNT), {
-                onFalse: () => Effect.succeed(scoreAnswer(prediction, expected)),
+                onFalse: () => Metric.exactMatch("answer").score(example, prediction, context),
                 onTrue: () => Effect.fail(new Gate2MetricFailure())
               })
             )
-          )
+          ),
+        "gate2Failure"
       )
 
       const failure = yield* GEPA.run(

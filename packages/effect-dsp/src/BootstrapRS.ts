@@ -61,7 +61,7 @@ export class Options<
   /** Candidate-scoring examples. Defaults to `trainset`. */
   readonly valset?: BootstrapRSExamples
   /** Metric used by both bootstrapping and candidate evaluation. */
-  readonly metric: Metric<ME, MR, Schema.Schema.Type<Schema.Struct<O>>>
+  readonly metric: Metric<ME, MR>
   /** Bootstrap restart count; zero still evaluates uncompiled and labeled baselines. */
   readonly numCandidates: number
   /** Bootstrap seeds; a supplied array shorter than the restart count reduces the candidate count. */

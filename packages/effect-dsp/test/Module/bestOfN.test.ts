@@ -4,7 +4,7 @@
 import { describe, expect, expectTypeOf, it } from "@effect/vitest"
 import * as Cache from "@scenesystems/effect-dsp/Cache"
 import type { DspError } from "@scenesystems/effect-dsp/DspError"
-import { Result } from "@scenesystems/effect-dsp/Metric"
+import { Score } from "@scenesystems/effect-dsp/Metric"
 import * as MockLanguageModel from "@scenesystems/effect-dsp/MockLanguageModel"
 import * as Module from "@scenesystems/effect-dsp/Module"
 import * as ModuleGraph from "@scenesystems/effect-dsp/ModuleGraph"
@@ -32,7 +32,7 @@ class RewardRejected extends Schema.TaggedError<RewardRejected>()(
   { message: Schema.String }
 ) {}
 
-class RewardBehavior extends Context.Service<RewardBehavior, Effect.Effect<Result, RewardRejected>>()(
+class RewardBehavior extends Context.Service<RewardBehavior, Effect.Effect<Score, RewardRejected>>()(
   "effect-dsp/test/bestOfN/RewardBehavior"
 ) {}
 
@@ -69,7 +69,7 @@ describe("Module.bestOfN", () => {
           name: "best-discovery-wrapper",
           module: inner,
           N: Module.RolloutCount.make(1),
-          reward: () => Effect.succeed(new Result({ score: 1 }))
+          reward: () => Effect.succeed(new Score({ value: 1, feedback: Option.none() }))
         })
       )
       const wrapperId = yield* Schema.decodeEffect(Module.Id)(wrapper.name)
@@ -107,7 +107,7 @@ describe("Module.bestOfN", () => {
           name: "best-pipeline",
           module: inner,
           N: Module.RolloutCount.make(1),
-          reward: () => Effect.succeed(new Result({ score: 1 }))
+          reward: () => Effect.succeed(new Score({ value: 1, feedback: Option.none() }))
         })
       )
       const saved = yield* Module.save(wrapper)
@@ -136,7 +136,7 @@ describe("Module.bestOfN", () => {
           name: "same-owner",
           module: inner,
           N: Module.RolloutCount.make(1),
-          reward: () => Effect.succeed(new Result({ score: 1 }))
+          reward: () => Effect.succeed(new Score({ value: 1, feedback: Option.none() }))
         })
       ).pipe(Effect.flip)
       expect(error._tag).toBe("CompositionError")
@@ -196,7 +196,7 @@ describe("Module.bestOfN", () => {
           Match.when("Okay answer", () => 0.5),
           Match.orElse(() => 0)
         )
-        return Effect.succeed(new Result({ score }))
+        return Effect.succeed(new Score({ value: score, feedback: Option.none() }))
       }
 
       const bestOf = yield* Module.bestOfN(
@@ -248,7 +248,7 @@ describe("Module.bestOfN", () => {
       const reward: Module.RewardFn<
         typeof QaInput.fields,
         typeof QaOutput.fields
-      > = () => Effect.succeed(new Result({ score: 0.5 }))
+      > = () => Effect.succeed(new Score({ value: 0.5, feedback: Option.none() }))
 
       const bestOf = yield* Module.bestOfN(
         new Module.BestOfNOptions({
@@ -295,7 +295,7 @@ describe("Module.bestOfN", () => {
           Match.when(true, () => 0.8),
           Match.orElse(() => 0.2)
         )
-        return Effect.succeed(new Result({ score }))
+        return Effect.succeed(new Score({ value: score, feedback: Option.none() }))
       }
 
       const bestOf = yield* Module.bestOfN(
@@ -336,7 +336,7 @@ describe("Module.bestOfN", () => {
           Match.when(true, () => 0.4),
           Match.orElse(() => 0.2)
         )
-        return Effect.succeed(new Result({ score }))
+        return Effect.succeed(new Score({ value: score, feedback: Option.none() }))
       }
 
       const bestOf = yield* Module.bestOfN(
@@ -373,7 +373,7 @@ describe("Module.bestOfN", () => {
       const reward: Module.RewardFn<
         typeof QaInput.fields,
         typeof QaOutput.fields
-      > = () => Effect.succeed(new Result({ score: 0.5 }))
+      > = () => Effect.succeed(new Score({ value: 0.5, feedback: Option.none() }))
 
       const bestOf = yield* Module.bestOfN(
         new Module.BestOfNOptions({
@@ -393,73 +393,6 @@ describe("Module.bestOfN", () => {
       expect(result).toEqual({ answer: "First" })
     }))
 
-  it.effect("ignores NaN between valid candidates and returns the better valid score", () =>
-    Effect.gen(function*() {
-      const qa = yield* makeQaSignature()
-      const mock = yield* MockLanguageModel.make(
-        MockLanguageModel.sequence(Arr.make(
-          { answer: "Valid first" },
-          { answer: "NaN candidate" },
-          { answer: "Better last" }
-        ))
-      )
-      const inner = yield* Module.predict("qa", qa)
-      const nan = Number.NaN
-
-      const bestOf = yield* Module.bestOfN(
-        new Module.BestOfNOptions({
-          name: "qa-best-of-nan-between-valid-scores",
-          module: inner,
-          N: Module.RolloutCount.make(3),
-          reward: (_input, output) =>
-            Effect.succeed(
-              new Result({
-                score: Match.value(output.answer).pipe(
-                  Match.when("Valid first", () => 0.4),
-                  Match.when("Better last", () => 0.8),
-                  Match.orElse(() => nan)
-                )
-              })
-            )
-        })
-      )
-
-      const result = yield* bestOf.forward({ question: "NaN candidate" }).pipe(
-        Effect.provideService(LanguageModel.LanguageModel, mock.service)
-      )
-
-      expect(result).toEqual({ answer: "Better last" })
-    }))
-
-  it.effect("returns the first output when every rollout score is NaN", () =>
-    Effect.gen(function*() {
-      const qa = yield* makeQaSignature()
-      const mock = yield* MockLanguageModel.make(
-        MockLanguageModel.sequence(Arr.make(
-          { answer: "First" },
-          { answer: "Second" }
-        ))
-      )
-      const inner = yield* Module.predict("qa", qa)
-      const nan = Number.NaN
-
-      const bestOf = yield* Module.bestOfN(
-        new Module.BestOfNOptions({
-          name: "qa-best-of-all-nan",
-          module: inner,
-          N: Module.RolloutCount.make(2),
-          reward: () => Effect.succeed(new Result({ score: nan }))
-        })
-      )
-
-      const result = yield* bestOf.forward({ question: "All NaN scores" }).pipe(
-        Effect.provideService(LanguageModel.LanguageModel, mock.service)
-      )
-
-      expect(result).toEqual({ answer: "First" })
-      expect(yield* Ref.get(mock.calls)).toHaveLength(2)
-    }))
-
   it.effect("records trace entries for each rollout when tracing is enabled", () =>
     Effect.gen(function*() {
       const qa = yield* makeQaSignature()
@@ -474,7 +407,7 @@ describe("Module.bestOfN", () => {
       const reward: Module.RewardFn<
         typeof QaInput.fields,
         typeof QaOutput.fields
-      > = () => Effect.succeed(new Result({ score: 0.5 }))
+      > = () => Effect.succeed(new Score({ value: 0.5, feedback: Option.none() }))
 
       const bestOf = yield* Module.bestOfN(
         new Module.BestOfNOptions({

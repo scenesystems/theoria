@@ -80,9 +80,18 @@ const runSeededReplay = (moduleName: string, seed: number, maxIterations: number
         new GEPA.Options({
           module,
           trainset: Arr.make(
-            new Example({ input: { question: "What is the capital of France?" }, output: { answer: "Paris" } }),
-            new Example({ input: { question: "What is the capital of Japan?" }, output: { answer: "Tokyo" } }),
-            new Example({ input: { question: "What is the capital of Germany?" }, output: { answer: "Berlin" } })
+            new Example({
+              input: { question: "What is the capital of France?" },
+              labels: Option.some({ answer: "Paris" })
+            }),
+            new Example({
+              input: { question: "What is the capital of Japan?" },
+              labels: Option.some({ answer: "Tokyo" })
+            }),
+            new Example({
+              input: { question: "What is the capital of Germany?" },
+              labels: Option.some({ answer: "Berlin" })
+            })
           ),
           metric: Metric.exactMatch("answer"),
           maxIterations,

@@ -22,18 +22,9 @@ const makeQaSignature = () =>
   )
 
 const trainingSet = Arr.make(
-  new Example({
-    input: { question: "What is the capital of France?" },
-    output: { answer: "Paris" }
-  }),
-  new Example({
-    input: { question: "What is the capital of Japan?" },
-    output: { answer: "Tokyo" }
-  }),
-  new Example({
-    input: { question: "What is the capital of Italy?" },
-    output: { answer: "Rome" }
-  })
+  new Example({ input: { question: "What is the capital of France?" }, labels: Option.some({ answer: "Paris" }) }),
+  new Example({ input: { question: "What is the capital of Japan?" }, labels: Option.some({ answer: "Tokyo" }) }),
+  new Example({ input: { question: "What is the capital of Italy?" }, labels: Option.some({ answer: "Rome" }) })
 )
 
 const uniqueParams = (params: ReadonlyArray<ModuleParameters>) =>

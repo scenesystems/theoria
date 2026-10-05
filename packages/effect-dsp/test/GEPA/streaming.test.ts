@@ -58,15 +58,15 @@ const runSeededStream = (moduleName: string, seed: number) =>
           trainset: Arr.make(
             new Example({
               input: { question: "What is the capital of France?" },
-              output: { answer: "Paris" }
+              labels: Option.some({ answer: "Paris" })
             }),
             new Example({
               input: { question: "What is the capital of Japan?" },
-              output: { answer: "Tokyo" }
+              labels: Option.some({ answer: "Tokyo" })
             }),
             new Example({
               input: { question: "What is the capital of Germany?" },
-              output: { answer: "Berlin" }
+              labels: Option.some({ answer: "Berlin" })
             })
           ),
           metric: Metric.exactMatch("answer"),

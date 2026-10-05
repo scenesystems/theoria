@@ -9,6 +9,14 @@ import * as Response from "effect/ai/Response"
 import { Id } from "./Module.js"
 import { Payload } from "./Payload.js"
 
+/** Predictor invocation identity, shared by its parse attempts and selection.
+ * @since 1.0.0
+ * @category schemas
+ */
+export const Execution = {
+  Id: Schema.String.pipe(Schema.brand("@scenesystems/effect-dsp/Trace/Execution/Id"))
+}
+
 /**
  * The output document of a ReAct iteration that has no decoded answer yet.
  * Decode intermediate entry output with this schema; completed answers use
@@ -103,6 +111,27 @@ export const noScore: Option.Option<number> = Option.none()
 export class Usage extends Schema.Class<Usage>("@scenesystems/effect-dsp/Trace/Usage")({
   tokens: Response.Usage,
   callCount: Schema.Int
+}) {}
+
+/** One parsed or unparsed response within a predictor invocation.
+ * @since 1.0.0
+ * @category models
+ */
+export class Attempt extends Schema.Class<Attempt>("@scenesystems/effect-dsp/Trace/Attempt")({
+  execution: Execution.Id,
+  rawResponse: Schema.String,
+  parseError: Schema.Option(Schema.String),
+  usage: Response.Usage
+}) {}
+
+/** Selected executions, all observed attempts and aggregate provider usage.
+ * @since 1.0.0
+ * @category models
+ */
+export class Program extends Schema.Class<Program>("@scenesystems/effect-dsp/Trace/Program")({
+  selected: Schema.Chunk(Entry),
+  attempts: Schema.Chunk(Attempt),
+  usage: Usage
 }) {}
 
 const sumCounter = (current: Option.Option<number>, sample: Option.Option<number>): Option.Option<number> =>

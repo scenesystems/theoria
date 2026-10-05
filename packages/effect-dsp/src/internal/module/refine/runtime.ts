@@ -7,7 +7,7 @@
  */
 import { Array as Arr, Boolean, Data, Effect, Equivalence, Number, Option, Schema, String } from "effect"
 import type { Semaphore } from "effect"
-import type { Result } from "../../../Metric.js"
+import type { Score } from "../../../Metric.js"
 import type { Module } from "../../../Module.js"
 import type { RefineOptions } from "../../../Module.js"
 import { predictors } from "../../../ModuleGraph.js"
@@ -80,15 +80,15 @@ export const makeRefineForward = <
       () => "NaN"
     )
 
-  const attemptFeedback = (attempt: number, result: Result) =>
-    Option.match(Option.fromNullishOr(result.feedback), {
+  const attemptFeedback = (attempt: number, result: Score) =>
+    Option.match(result.feedback, {
       onSome: (feedback) =>
         Arr.join(
           Arr.make(
             "Attempt ",
             encodeNumber(attempt),
             " (score: ",
-            encodeNumber(result.score),
+            encodeNumber(result.value),
             "): ",
             feedback
           ),
@@ -100,7 +100,7 @@ export const makeRefineForward = <
             "Attempt ",
             encodeNumber(attempt),
             " scored ",
-            encodeNumber(result.score),
+            encodeNumber(result.value),
             "; threshold: ",
             encodeNumber(options.threshold),
             "."
@@ -132,7 +132,7 @@ export const makeRefineForward = <
         const seeded = new RefineLoopState<Output>({
           attempt: 1,
           bestOutput: firstOutput,
-          bestScore: firstResult.score,
+          bestScore: firstResult.value,
           feedbackAccumulator: firstFeedback
         })
 
@@ -155,10 +155,10 @@ export const makeRefineForward = <
               )
               const result = yield* options.reward(input, output)
 
-              const newBest = Boolean.match(Equivalence.strictEqual<number>()(result.score, result.score), {
+              const newBest = Boolean.match(Equivalence.strictEqual<number>()(result.value, result.value), {
                 onTrue: () =>
                   Boolean.match(Equivalence.strictEqual<number>()(state.bestScore, state.bestScore), {
-                    onTrue: () => Number.isGreaterThan(result.score, state.bestScore),
+                    onTrue: () => Number.isGreaterThan(result.value, state.bestScore),
                     onFalse: () => true
                   }),
                 onFalse: () => false
@@ -168,7 +168,7 @@ export const makeRefineForward = <
                 onFalse: () => state.bestOutput
               })
               const nextScore = Boolean.match(newBest, {
-                onTrue: () => result.score,
+                onTrue: () => result.value,
                 onFalse: () => state.bestScore
               })
 

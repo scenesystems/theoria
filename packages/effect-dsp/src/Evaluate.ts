@@ -90,7 +90,7 @@ export class Options<
 > extends Data.Class<{
   readonly module: Module<I, O, E, R>
   readonly examples: Examples
-  readonly metrics: Record.ReadonlyRecord<string, Metric<ME, MR, Schema.Schema.Type<Schema.Struct<O>>>>
+  readonly metrics: Record.ReadonlyRecord<string, Metric<ME, MR>>
   readonly concurrency?: number
 }> {}
 

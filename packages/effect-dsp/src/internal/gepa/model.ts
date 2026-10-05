@@ -6,7 +6,7 @@
  * @since 0.1.0
  */
 import { Effect, Schema } from "effect"
-import { Result as MetricResult } from "../../Metric.js"
+import { Score } from "../../Metric.js"
 import { Payload } from "../../Payload.js"
 
 /**
@@ -15,7 +15,7 @@ import { Payload } from "../../Payload.js"
  * @since 0.1.0
  * @category schemas
  */
-export const CandidateScoreVector = Schema.Array(MetricResult.fields.score)
+export const CandidateScoreVector = Schema.Array(Score.fields.value)
 
 /**
  * Per-example score array for one candidate program across the validation set.
@@ -32,7 +32,7 @@ export const CandidateScoreMatrix = Schema.Array(CandidateScoreVector)
 export type CandidateScoreMatrix = typeof CandidateScoreMatrix.Type
 
 /** @internal */
-export const CandidateIndices = Schema.Array(MetricResult.fields.score)
+export const CandidateIndices = Schema.Array(Score.fields.value)
 
 /** @internal */
 export type CandidateIndices = typeof CandidateIndices.Type
@@ -54,8 +54,8 @@ export type ParentPairIndices = typeof ParentPairIndices.Type
 export class MutationAcceptance extends Schema.Class<MutationAcceptance>(
   "@scenesystems/effect-dsp/internal/gepa/model/MutationAcceptance"
 )({
-  previousSubsampleSum: MetricResult.fields.score,
-  mutatedSubsampleSum: MetricResult.fields.score,
+  previousSubsampleSum: Score.fields.value,
+  mutatedSubsampleSum: Score.fields.value,
   gate1Passed: Schema.Boolean,
   fullValsetEvaluated: Schema.Boolean,
   fullValsetScores: Schema.Option(CandidateScoreVector),
@@ -72,8 +72,8 @@ export class MutationAcceptance extends Schema.Class<MutationAcceptance>(
 export class MergeAcceptance extends Schema.Class<MergeAcceptance>(
   "@scenesystems/effect-dsp/internal/gepa/model/MergeAcceptance"
 )({
-  mergedSubsampleSum: MetricResult.fields.score,
-  bestParentSubsampleSum: MetricResult.fields.score,
+  mergedSubsampleSum: Score.fields.value,
+  bestParentSubsampleSum: Score.fields.value,
   accepted: Schema.Boolean
 }) {}
 
@@ -88,8 +88,8 @@ export class ExampleFrontierHolding extends Schema.Class<ExampleFrontierHolding>
   "@scenesystems/effect-dsp/internal/gepa/model/ExampleFrontierHolding"
 )({
   exampleIndex: Schema.Finite,
-  bestScore: MetricResult.fields.score,
-  holders: Schema.Array(MetricResult.fields.score)
+  bestScore: Score.fields.value,
+  holders: Schema.Array(Score.fields.value)
 }) {}
 
 /**
@@ -148,7 +148,7 @@ export class ReflectiveExample extends Schema.Class<ReflectiveExample>(
   generatedOutputs: Payload,
   expectedOutput: Payload,
   feedback: Schema.String,
-  score: MetricResult.fields.score
+  score: Score.fields.value
 }) {}
 
 /**
@@ -168,7 +168,7 @@ export class ReflectiveDatasetSample extends Schema.Class<ReflectiveDatasetSampl
   inputs: Payload,
   generatedOutputs: Payload,
   expectedOutput: Payload,
-  metricResult: MetricResult,
+  metricResult: Score,
   parseFailureStructure: Schema.optional(Schema.String)
 }) {}
 
@@ -223,8 +223,8 @@ export class MergeComparison extends Schema.Class<MergeComparison>(
   "@scenesystems/effect-dsp/internal/gepa/model/MergeComparison"
 )({
   exampleId: Schema.String,
-  parentAScore: MetricResult.fields.score,
-  parentBScore: MetricResult.fields.score
+  parentAScore: Score.fields.value,
+  parentBScore: Score.fields.value
 }) {}
 
 /** @internal */

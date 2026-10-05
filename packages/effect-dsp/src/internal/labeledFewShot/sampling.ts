@@ -44,7 +44,7 @@ export const labeledDemos = (trainset: LabeledExamples): LabeledDemos =>
     trainset,
     (example) =>
       Option.map(
-        Option.fromNullishOr(example.output),
+        example.labels,
         (output) => new Demo({ input: example.input, output })
       ).pipe(Option.toArray)
   )

@@ -10,6 +10,7 @@ import * as Numeric from "@scenesystems/effect-math/Numeric"
 import {
   Array as Arr,
   Boolean,
+  Chunk,
   Data,
   Effect,
   Equivalence,
@@ -45,12 +46,14 @@ import { react as reactInternal } from "./internal/module/react/construct.js"
 import { refine as refineInternal } from "./internal/module/refine/construct.js"
 import { load as loadInternal, save as saveInternal } from "./internal/module/saveLoad.js"
 import * as ParameterBinding from "./internal/parameterBinding.js"
-import type { Result as MetricResult } from "./Metric.js"
+import type { Score as MetricResult } from "./Metric.js"
 import type { ModuleGraph } from "./ModuleGraph.js"
 import { predictors } from "./ModuleGraph.js"
 import type { ModuleParameters } from "./ModuleParameters.js"
 import { ParameterSet } from "./ParameterSet.js"
+import { Prediction } from "./Prediction.js"
 import type { Signature } from "./Signature.js"
+import * as Trace from "./Trace.js"
 
 /** Validated identity used by module ownership and discovery graphs.
  * @since 0.1.0
@@ -611,6 +614,22 @@ export const withDiscoveryScope = withDiscoveryScopeInternal
  * @category constructors
  */
 export const predict = predictInternal
+
+/** Invokes a module while collecting its decoded output, trace and usage.
+ * Expected failures, defects and interruption propagate from forward unchanged.
+ * @since 1.0.0
+ * @category execution
+ */
+export const call = <I extends Schema.Struct.Fields, O extends Schema.Struct.Fields, E, R>(
+  module: Module<I, O, E, R>,
+  input: Schema.Schema.Type<Schema.Struct<I>>
+) =>
+  Effect.gen(function*() {
+    const [[output, selected], usage] = yield* module.forward(input).pipe(Trace.withTracing, Trace.withUsageTracking)
+    const trace = new Trace.Program({ selected: Chunk.fromIterable(selected), attempts: Chunk.empty(), usage })
+    return new Prediction({ output, trace, usage })
+  })
+
 /** Allocates a tool-capable predictor.
  * @since 0.1.0
  * @category constructors

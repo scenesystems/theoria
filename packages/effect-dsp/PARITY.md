@@ -16,6 +16,11 @@ fallback, and unsupported-setting failures before HTTP. Predictor tests cover
 text, structured, tool turns, invocation overrides, and rollout identity. These
 tests establish local contracts, not additional upstream parity claims.
 
+Wave 1.3 gives examples stable identities and raw optional labels, and gives metrics
+decoded predictions, invocation evidence, phase context, and finite scores with
+optional feedback. Independent tests cover normalization and passage-token
+boundaries; these additions do not claim upstream differential verification.
+
 Inventory: every non-private, non-module value exported by the six DSPy 3.4.0
 package namespaces below (including aliases and re-exported types). Namespace
 modules themselves are navigation, not separate API claims. Inventory was read

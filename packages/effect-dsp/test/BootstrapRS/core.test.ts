@@ -28,11 +28,11 @@ const makeQaSignature = () =>
 const trainset = [
   new Example({
     input: { question: "What is the capital of France?" },
-    output: { answer: "Paris" }
+    labels: Option.some({ answer: "Paris" })
   }),
   new Example({
     input: { question: "What is the capital of Japan?" },
-    output: { answer: "Tokyo" }
+    labels: Option.some({ answer: "Tokyo" })
   })
 ]
 
@@ -82,7 +82,7 @@ describe("BootstrapRS.run", () => {
             valset: [
               new Example({
                 input: { question: "Name the capital of Japan in one word" },
-                output: { answer: "Tokyo" }
+                labels: Option.some({ answer: "Tokyo" })
               })
             ],
             metric: Metric.exactMatch("answer"),
@@ -118,7 +118,7 @@ describe("BootstrapRS.run", () => {
             trainset,
             valset: [
               new Example({
-                input: { question: "This validation example has no label" }
+                input: { question: 73 }
               })
             ],
             metric: Metric.exactMatch("answer"),

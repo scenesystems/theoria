@@ -82,6 +82,12 @@ export * as Artifact from "./Artifact.js"
  */
 export * as Example from "./Example.js"
 
+/** Decoded invocation output with collected trace and usage.
+ * @since 1.0.0
+ * @category models
+ */
+export * as Prediction from "./Prediction.js"
+
 /**
  * Collects module-call records and usage totals in fiber-local scopes.
  *

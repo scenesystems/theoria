@@ -14,8 +14,8 @@ import * as TestClock from "effect/testing/TestClock"
 
 const Output = Schema.Struct({ answer: Schema.String })
 class ScorerFailed extends Schema.TaggedError<ScorerFailed>()("ScorerFailed", {}) {}
-const trainset = Arr.make(new Example({ input: { question: "question" }, output: { answer: "answer" } }))
-const invalid = new Example({ input: { question: "invalid label" }, output: { answer: 42 } })
+const trainset = Arr.make(new Example({ input: { question: "question" }, labels: Option.some({ answer: "answer" }) }))
+const invalid = new Example({ input: { question: 42 }, labels: Option.some({ answer: "answer" }) })
 const makeModule = Effect.gen(function*() {
   const signature = yield* Signature.make("Baseline instruction", { question: Schema.String }, Output.fields)
   const module = yield* Module.predict("qa", signature)
@@ -36,8 +36,10 @@ describe("MIPROv2.run failure-aware scores", () => {
       const module = yield* makeModule
       const mock = yield* MockLanguageModel.make(MockLanguageModel.succeed({ answer: "answer" }))
       const calls = yield* Ref.make(0)
-      const metric = Metric.fromEffect("failed", (_prediction: typeof Output.Type) =>
-        Ref.update(calls, Number.increment).pipe(Effect.andThen(Effect.fail(new ScorerFailed()))))
+      const metric = Metric.withFeedback(
+        () => Ref.update(calls, Number.increment).pipe(Effect.andThen(Effect.fail(new ScorerFailed()))),
+        "failed"
+      )
       const failure = yield* MIPROv2.run(
         new MIPROv2.Options({
           module,
@@ -53,7 +55,7 @@ describe("MIPROv2.run failure-aware scores", () => {
       expect(yield* Ref.get(calls)).toBe(1)
     }))
 
-  it.effect("rejects entirely malformed validation labels instead of projecting a zero score", () =>
+  it.effect("rejects entirely malformed validation inputs instead of projecting a zero score", () =>
     Effect.gen(function*() {
       const module = yield* makeModule
       const mock = yield* MockLanguageModel.make(MockLanguageModel.succeed({ answer: "answer" }))
@@ -90,13 +92,15 @@ describe("MIPROv2.run failure-aware scores", () => {
           })
         })
       ))
-      const metric = Metric.fromEffect("negative", (prediction: typeof Output.Type) =>
-        Boolean.match(String.Equivalence(prediction.answer, "failed"), {
-          onTrue: () =>
-            Ref.update(rejected, Number.increment).pipe(Effect.andThen(Effect.fail(new ScorerFailed()))),
-          onFalse: () =>
-            Effect.succeed(new Metric.Result({ score: Number.multiply(7, -1) }))
-        }))
+      const metric = Metric.withFeedback((_example, result) =>
+        Effect.gen(function*() {
+          const prediction = yield* Schema.decodeUnknownEffect(Output)(result.output)
+          return yield* Boolean.match(String.Equivalence(prediction.answer, "failed"), {
+            onTrue: () =>
+              Ref.update(rejected, Number.increment).pipe(Effect.andThen(Effect.fail(new ScorerFailed()))),
+            onFalse: () => Effect.succeed(new Metric.Score({ value: Number.multiply(7, -1), feedback: Option.none() }))
+          })
+        }), "negative")
       const fiber = yield* MIPROv2.run(
         new MIPROv2.Options({
           module,
@@ -125,10 +129,7 @@ describe("MIPROv2.run failure-aware scores", () => {
           module,
           trainset,
           valset: Arr.prepend(trainset, invalid),
-          metric: Metric.make(
-            "negative",
-            (_prediction: typeof Output.Type) => new Metric.Result({ score: Number.multiply(3, -1) })
-          ),
+          metric: Metric.fromSync(() => Number.multiply(3, -1), "negative"),
           numCandidates: 1,
           numInstructions: 1,
           trialBudget: 3,
@@ -141,7 +142,7 @@ describe("MIPROv2.run failure-aware scores", () => {
 
       expect(optimized.program).not.toBe(module)
       expect(Option.getOrThrow(Record.get(optimized.parameters, "qa")).instructions).toBe("Baseline instruction")
-      // Label preflight excludes the invalid row before execution; only the valid baseline row runs.
+      // Input validation excludes the invalid row before execution; only the valid baseline row runs.
       expect(yield* Ref.get(mock.calls)).toHaveLength(1)
     }))
 })

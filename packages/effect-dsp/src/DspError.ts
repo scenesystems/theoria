@@ -5,7 +5,6 @@
  * @module
  */
 import { Array as Arr, Effect, Schema } from "effect"
-import { Result as MetricResult } from "./Metric.js"
 
 /** Structural validation failure from signature construction.
  * @since 0.1.0
@@ -76,13 +75,13 @@ export class BootstrapFailed extends Schema.TaggedError<BootstrapFailed>(
     message: Schema.String,
     roundsAttempted: Schema.Finite,
     totalTraces: Schema.Finite,
-    threshold: MetricResult.fields.score.pipe(Schema.withDecodingDefaultType(Effect.succeed(0))),
+    threshold: Schema.Finite.pipe(Schema.withDecodingDefaultType(Effect.succeed(0))),
     acceptedTraces: Schema.Finite.pipe(Schema.withDecodingDefaultType(Effect.succeed(0))),
     rejectedTraces: Schema.Finite.pipe(Schema.withDecodingDefaultType(Effect.succeed(0))),
     evaluatedExamples: Schema.Finite.pipe(Schema.withDecodingDefaultType(Effect.succeed(0))),
     bestScoreSeen: Schema.Boolean.pipe(Schema.withDecodingDefaultType(Effect.succeed(false))),
-    bestScore: MetricResult.fields.score.pipe(Schema.withDecodingDefaultType(Effect.succeed(0))),
-    averageScore: MetricResult.fields.score.pipe(Schema.withDecodingDefaultType(Effect.succeed(0)))
+    bestScore: Schema.Finite.pipe(Schema.withDecodingDefaultType(Effect.succeed(0))),
+    averageScore: Schema.Finite.pipe(Schema.withDecodingDefaultType(Effect.succeed(0)))
   }
 ) {}
 

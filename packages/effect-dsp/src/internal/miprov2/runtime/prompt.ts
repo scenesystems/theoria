@@ -44,7 +44,7 @@ const renderDemoBlock = (demo: DemoDocumentsType): string =>
  */
 export const datasetSummary = (trainset: ReadonlyArray<Example>): string => {
   const total = Arr.length(trainset)
-  const labeled = Arr.length(Arr.filter(trainset, (example) => Option.isSome(Option.fromNullishOr(example.output))))
+  const labeled = Arr.length(Arr.filter(trainset, (example) => Option.isSome(example.labels)))
   const unlabeled = Num.subtract(total, labeled)
 
   return Arr.join(

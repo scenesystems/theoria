@@ -16,7 +16,7 @@ import * as LanguageModel from "effect/ai/LanguageModel"
 import * as Toolkit from "effect/ai/Toolkit"
 import * as MIPROv2Candidates from "../../src/MIPROv2Candidates.js"
 
-const rows = Arr.make(new Example({ input: { question: "France" }, output: { answer: "Paris" } }))
+const rows = Arr.make(new Example({ input: { question: "France" }, labels: Option.some({ answer: "Paris" }) }))
 
 const makePipeline = Effect.gen(function*() {
   const rootSignature = yield* Signature.make("Answer", { question: Schema.String }, { answer: Schema.String })
@@ -163,22 +163,15 @@ describe("destination-owned demonstrations", () => {
       // A compatible stage demonstration makes the bootstrap candidate observably
       // better than either baseline, and teaches the mock's automatic text replay.
       const teacher = yield* MockLanguageModel.make(MockLanguageModel.succeed({ analysis: "training-stage-marker" }))
-      const metric = Metric.fromEffect(
-        "stage-evidence",
-        (prediction: Signature.Output<typeof root.signature>) =>
-          Effect.succeed(
-            new Metric.Result({
-              score: Boolean.match(String.Equivalence(prediction.answer, "Paris"), {
-                onTrue: () => 2,
-                onFalse: () =>
-                  Boolean.match(String.Equivalence(prediction.answer, "training-stage-marker"), {
-                    onTrue: () => 1,
-                    onFalse: () => 0
-                  })
-              })
+      const metric = Metric.fromSync((_labels, prediction) =>
+        Boolean.match(prediction.answer === "Paris", {
+          onTrue: () => 2,
+          onFalse: () =>
+            Boolean.match(prediction.answer === "training-stage-marker", {
+              onTrue: () => 1,
+              onFalse: () => 0
             })
-          )
-      )
+        }), "stage-evidence")
       const compiled = yield* BootstrapRS.run(
         new BootstrapRS.Options({
           module: root,

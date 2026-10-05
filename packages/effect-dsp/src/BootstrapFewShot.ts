@@ -37,7 +37,7 @@ import {
 } from "./internal/bootstrapFewShot/runtime/model.js"
 import { bootstrapRound, BootstrapRoundOptions } from "./internal/bootstrapFewShot/runtime/round.js"
 import { Options as LabeledFewShotOptions, run as labeledFewShot } from "./LabeledFewShot.js"
-import { type Metric, Result as MetricResult } from "./Metric.js"
+import { type Metric, Score } from "./Metric.js"
 import { bound, type Module } from "./Module.js"
 import { predictors } from "./ModuleGraph.js"
 import { withDemos as withModuleParamsDemos } from "./ModuleParameters.js"
@@ -72,21 +72,21 @@ export type Examples = typeof Examples.Type
  */
 export const Event = Schema.Union([
   Schema.TaggedStruct("RoundStarted", { round: Schema.Finite, maxRounds: Schema.Finite }),
-  Schema.TaggedStruct("TraceAccepted", { moduleName: Schema.String, score: MetricResult.fields.score }),
+  Schema.TaggedStruct("TraceAccepted", { moduleName: Schema.String, score: Score.fields.value }),
   Schema.TaggedStruct("TraceRejected", {
     moduleName: Schema.String,
-    score: MetricResult.fields.score,
-    threshold: MetricResult.fields.score
+    score: Score.fields.value,
+    threshold: Score.fields.value
   }),
   Schema.TaggedStruct("RoundCompleted", { round: Schema.Finite, demosCollected: Schema.Finite }),
   Schema.TaggedStruct("BootstrapFallbackActivated", {
-    threshold: MetricResult.fields.score,
+    threshold: Score.fields.value,
     roundsAttempted: Schema.Finite,
     acceptedTraces: Schema.Finite,
     rejectedTraces: Schema.Finite,
     bestScoreSeen: Schema.Boolean,
-    bestScore: MetricResult.fields.score,
-    averageScore: MetricResult.fields.score,
+    bestScore: Score.fields.value,
+    averageScore: Score.fields.value,
     fallbackLabeledDemoCount: Schema.Finite
   }),
   Schema.TaggedStruct("BootstrapFallbackCompleted", {
@@ -274,7 +274,7 @@ export class Options<
   /** Training examples used for teacher runs and labeled fallback. */
   readonly trainset: Examples
   /** Scores each module output; values greater than or equal to `threshold` are accepted. */
-  readonly metric: Metric<ME, MR, Schema.Schema.Type<Schema.Struct<O>>>
+  readonly metric: Metric<ME, MR>
   /** Maximum filtered-trainset passes. Zero skips trace collection. */
   readonly maxRounds: number
   /** Trace-demo cap, including retained existing demos but excluding labeled fallback. */

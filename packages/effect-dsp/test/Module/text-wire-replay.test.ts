@@ -149,17 +149,24 @@ describe("Module marker wire replay", () => {
       const signature = yield* Signature.make("Count", Input.fields, output.fields)
       const module = yield* Module.predict("bootstrap-replay", signature, noRetries)
       const teacher = yield* MockLanguageModel.make(MockLanguageModel.succeed({ result: { count: "7" } }))
-      const metric = Metric.make("exact-count", (prediction: typeof output.Type, expected) =>
-        new Metric.Result({
-          score: Boolean.match(Equal.equals(prediction.result.count, expected.result.count), {
-            onTrue: () => 1,
-            onFalse: () => 0
+      const metric = Metric.withFeedback((example, result) =>
+        Effect.gen(function*() {
+          const prediction = yield* Schema.decodeUnknownEffect(Schema.toType(output))(result.output)
+          const expected = yield* Schema.decodeUnknownEffect(output)(Option.getOrElse(example.labels, () => ({})))
+          return new Metric.Score({
+            value: Boolean.match(Equal.equals(prediction.result.count, expected.result.count), {
+              onTrue: () => 1,
+              onFalse: () => 0
+            }),
+            feedback: Option.none()
           })
-        }))
+        }), "exact-count")
       const optimized = yield* BootstrapFewShot.run(
         new BootstrapFewShot.Options({
           module,
-          trainset: Arr.make(new Example({ input: { question: "training" }, output: { result: { count: "7" } } })),
+          trainset: Arr.make(
+            new Example({ input: { question: "training" }, labels: Option.some({ result: { count: "7" } }) })
+          ),
           metric,
           maxRounds: 1,
           maxBootstrappedDemos: 1,

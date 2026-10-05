@@ -60,7 +60,7 @@ export const labeledTrainset = (
   trainset: Iterable<Example>,
   maxLabeledDemos: Option.Option<number>
 ) => {
-  const labeled = Arr.filter(trainset, (example) => Option.isSome(Option.fromNullishOr(example.output)))
+  const labeled = Arr.filter(trainset, (example) => Option.isSome(example.labels))
   const normalizedLimit = Option.filter(
     maxLabeledDemos,
     (limit) => Number.isGreaterThan(normalizeNonNegative(limit), 0)

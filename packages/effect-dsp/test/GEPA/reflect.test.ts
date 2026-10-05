@@ -2,7 +2,7 @@
  * GEPA reflection preserves schema-owned examples and meaningful feedback.
  */
 import { describe, expect, it } from "@effect/vitest"
-import { Result as MetricResult } from "@scenesystems/effect-dsp/Metric"
+import { Score } from "@scenesystems/effect-dsp/Metric"
 import { encode as encodePayload } from "@scenesystems/effect-dsp/Payload"
 import { Array as Arr, Effect, Number, Option, Schema } from "effect"
 import { ReflectiveDatasetSample } from "../../src/internal/gepa/model.js"
@@ -32,7 +32,7 @@ const reflectiveSamples = Effect.gen(function*() {
       inputs,
       generatedOutputs,
       expectedOutput,
-      metricResult: new MetricResult({ score: 0, feedback: " Needs correction " })
+      metricResult: new Score({ value: 0, feedback: Option.some(" Needs correction ") })
     }),
     new ReflectiveDatasetSample({
       exampleId: "ex-2",
@@ -40,7 +40,7 @@ const reflectiveSamples = Effect.gen(function*() {
       inputs,
       generatedOutputs: expectedOutput,
       expectedOutput,
-      metricResult: new MetricResult({ score: 1 })
+      metricResult: new Score({ value: 1, feedback: Option.none() })
     }),
     new ReflectiveDatasetSample({
       exampleId: "ex-3",
@@ -48,7 +48,7 @@ const reflectiveSamples = Effect.gen(function*() {
       inputs,
       generatedOutputs,
       expectedOutput,
-      metricResult: new MetricResult({ score: 0, feedback: "Must not hide parse failure" }),
+      metricResult: new Score({ value: 0, feedback: Option.some("Must not hide parse failure") }),
       parseFailureStructure: "[[ ## answer ## ]]"
     })
   )

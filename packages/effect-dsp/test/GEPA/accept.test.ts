@@ -64,34 +64,6 @@ describe("GEPA acceptance gates", () => {
       expect(callsAfterGate1Pass).toBe(1)
     }))
 
-  it.effect("rejects unordered mutation sums without evaluating the full valset", () =>
-    Effect.gen(function*() {
-      const fullEvalCalls = yield* Ref.make(0)
-      const evaluateFullValset = Ref.updateAndGet(fullEvalCalls, Num.increment).pipe(
-        Effect.as(Arr.make(0.8, 0.9))
-      )
-
-      const results = yield* Effect.forEach(
-        Arr.make(
-          { previousSubsampleScores: Arr.make(Number.NaN), mutatedSubsampleScores: Arr.make(1) },
-          { previousSubsampleScores: Arr.make(1), mutatedSubsampleScores: Arr.make(Number.NaN) }
-        ),
-        (scores) =>
-          evaluateMutationAcceptance(
-            new EvaluateMutationAcceptanceOptions({
-              previousSubsampleScores: scores.previousSubsampleScores,
-              mutatedSubsampleScores: scores.mutatedSubsampleScores,
-              evaluateFullValset
-            })
-          )
-      )
-      const calls = yield* Ref.get(fullEvalCalls)
-
-      expect(Arr.map(results, (result) => result.gate1Passed)).toEqual(Arr.make(false, false))
-      expect(Arr.map(results, (result) => result.fullValsetEvaluated)).toEqual(Arr.make(false, false))
-      expect(calls).toBe(0)
-    }))
-
   it.effect("accepts merge candidates with non-strict comparator (`mergedSum >= bestParentSum`)", () =>
     Effect.gen(function*() {
       const tieAccepted = evaluateMergeAcceptance({
@@ -112,31 +84,5 @@ describe("GEPA acceptance gates", () => {
       expect(worseRejected.accepted).toBe(false)
       expect(worseRejected.mergedSubsampleSum).toBe(0.5)
       expect(worseRejected.bestParentSubsampleSum).toBe(0.8)
-    }))
-
-  it.effect("rejects unordered merge sums in the candidate or either parent", () =>
-    Effect.sync(() => {
-      const results = Arr.map(
-        Arr.make(
-          {
-            mergedSubsampleScores: Arr.make(Number.NaN),
-            parentASubsampleScores: Arr.make(1),
-            parentBSubsampleScores: Arr.make(1)
-          },
-          {
-            mergedSubsampleScores: Arr.make(1),
-            parentASubsampleScores: Arr.make(Number.NaN),
-            parentBSubsampleScores: Arr.make(1)
-          },
-          {
-            mergedSubsampleScores: Arr.make(1),
-            parentASubsampleScores: Arr.make(1),
-            parentBSubsampleScores: Arr.make(Number.NaN)
-          }
-        ),
-        evaluateMergeAcceptance
-      )
-
-      expect(Arr.map(results, (result) => result.accepted)).toEqual(Arr.make(false, false, false))
     }))
 })

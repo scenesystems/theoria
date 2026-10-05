@@ -4,7 +4,7 @@
 import { describe, expect, it } from "@effect/vitest"
 import { Demonstration } from "@scenesystems/effect-dsp/Demonstration"
 import { Example } from "@scenesystems/effect-dsp/Example"
-import { Effect, Schema } from "effect"
+import { Effect, Option, Schema } from "effect"
 
 const expectSchemaRoundTrip = <A, I>(
   schema: Schema.Codec<A, I>,
@@ -26,9 +26,9 @@ describe("Example", () => {
         input: {
           question: "What is the capital of France?"
         },
-        output: {
+        labels: Option.some({
           answer: "Paris"
-        }
+        })
       })
     ))
 

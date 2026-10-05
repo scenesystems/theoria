@@ -62,7 +62,7 @@ export class ScoreCandidatesOptions<
   readonly module: DspModule<I, O, E, R>
   readonly candidates: CandidateStates
   readonly valset: BootstrapRSExamples
-  readonly metric: Metric<ME, MR, Schema.Schema.Type<Schema.Struct<O>>>
+  readonly metric: Metric<ME, MR>
 }> {}
 
 /**

@@ -62,7 +62,7 @@ const trainset = Arr.make(
       diagnosis:
         "Strong reinforcement with short alignment reach implies clusters trap overlap unless bridge ties are scheduled early."
     },
-    output: {
+    labels: Option.some({
       networkCondition: "nonclustered",
       sequencingPolicy: "bridge-early",
       convergenceForecast: "high",
@@ -70,7 +70,7 @@ const trainset = Arr.make(
         "Schedule bridge ties in early rounds so reinforced details propagate before local repetition hardens clusters.",
       rationale:
         "Shorter average path lengths spread reinforced items network-wide and increase post-conversation convergence."
-    }
+    })
   }),
   new Example.Example({
     input: {
@@ -84,7 +84,7 @@ const trainset = Arr.make(
       diagnosis:
         "To preserve inferential contrast, maintain modular structure long enough to keep path-length variance measurable."
     },
-    output: {
+    labels: Option.some({
       networkCondition: "clustered",
       sequencingPolicy: "cluster-first",
       convergenceForecast: "moderate",
@@ -92,7 +92,7 @@ const trainset = Arr.make(
         "Preserve modular clusters during early rounds to retain longer path distances for inferential contrast.",
       rationale:
         "Clustered topology provides wider separation ranges, making distance-dependent alignment effects easier to measure."
-    }
+    })
   }),
   new Example.Example({
     input: {
@@ -106,14 +106,14 @@ const trainset = Arr.make(
       diagnosis:
         "Local reinforcement dominates but fails to diffuse globally when bridges are delayed in the interaction schedule."
     },
-    output: {
+    labels: Option.some({
       networkCondition: "nonclustered",
       sequencingPolicy: "bridge-early",
       convergenceForecast: "high",
       protocolAdjustment:
         "Front-load cross-cluster conversations so high-value items become central in the network memory graph.",
       rationale: "Early bridge exposure increases item centrality and accelerates community-wide mnemonic convergence."
-    }
+    })
   }),
   new Example.Example({
     input: {
@@ -127,14 +127,14 @@ const trainset = Arr.make(
       diagnosis:
         "Early bridging under suppression pressure can erase minority traces, so preserve subgroup exchanges first."
     },
-    output: {
+    labels: Option.some({
       networkCondition: "clustered",
       sequencingPolicy: "cluster-first",
       convergenceForecast: "moderate",
       protocolAdjustment:
         "Prioritize within-cluster exchanges before any bridge rounds to protect subgroup-specific memory traces.",
       rationale: "Cluster-first ordering supports local alignment while limiting immediate network-wide convergence."
-    }
+    })
   })
 )
 
@@ -153,14 +153,14 @@ const evalset = Arr.make(
       alignmentReach: "local-only",
       diagnosis: "Current ordering overweights local loops; reducing effective diameter should improve global overlap."
     },
-    output: {
+    labels: Option.some({
       networkCondition: "nonclustered",
       sequencingPolicy: "bridge-early",
       convergenceForecast: "high",
       protocolAdjustment: "Reduce effective diameter first, then repeat key items inside local neighborhoods.",
       rationale:
         "Bridge-first scheduling amplifies global spread of reinforced memories under fixed interaction budgets."
-    }
+    })
   }),
   new Example.Example({
     input: {
@@ -173,13 +173,13 @@ const evalset = Arr.make(
       alignmentReach: "mixed",
       diagnosis: "Maintaining cluster modularity preserves the distance gradient needed for slope estimation."
     },
-    output: {
+    labels: Option.some({
       networkCondition: "clustered",
       sequencingPolicy: "cluster-first",
       convergenceForecast: "moderate",
       protocolAdjustment: "Keep clusters intact through early rounds to preserve measurable distance gradients.",
       rationale: "Clustered structure sustains longer paths, improving identification of degree-of-separation effects."
-    }
+    })
   }),
   new Example.Example({
     input: {
@@ -193,13 +193,13 @@ const evalset = Arr.make(
       diagnosis:
         "Triad-level reinforcement is strong but stranded; early bridge exposure is required for network-level convergence."
     },
-    output: {
+    labels: Option.some({
       networkCondition: "nonclustered",
       sequencingPolicy: "bridge-early",
       convergenceForecast: "high",
       protocolAdjustment: "Assign early bridge conversations among triads before repeating content within each triad.",
       rationale: "Early bridging converts local reinforcement into community-level convergence more efficiently."
-    }
+    })
   })
 )
 
@@ -265,78 +265,77 @@ const normalizeConvergenceForecast = (value: string): string =>
 /**
  * Protocol-fit metric with rich feedback for GEPA reflection.
  */
-const protocolMetric = Metric.fromEffect(
-  "collectiveMemoryProtocolFit",
-  (prediction: typeof ProtocolOutput.Type, expected) =>
-    Effect.sync(() => {
-      const predictedConditionRaw = prediction.networkCondition
-      const predictedSequenceRaw = prediction.sequencingPolicy
-      const predictedForecastRaw = prediction.convergenceForecast
+const protocolMetric = Metric.withFeedback((example, result) =>
+  Effect.gen(function*() {
+    const prediction = yield* Schema.decodeUnknownEffect(Schema.toType(ProtocolOutput))(result.output)
+    const expected = yield* Schema.decodeUnknownEffect(ProtocolOutput)(Option.getOrElse(example.labels, () => ({})))
+    const predictedConditionRaw = prediction.networkCondition
+    const predictedSequenceRaw = prediction.sequencingPolicy
+    const predictedForecastRaw = prediction.convergenceForecast
 
-      const expectedConditionRaw = expected.networkCondition
-      const expectedSequenceRaw = expected.sequencingPolicy
-      const expectedForecastRaw = expected.convergenceForecast
+    const expectedConditionRaw = expected.networkCondition
+    const expectedSequenceRaw = expected.sequencingPolicy
+    const expectedForecastRaw = expected.convergenceForecast
 
-      const predictedCondition = normalizeNetworkCondition(predictedConditionRaw)
-      const predictedSequence = normalizeSequencingPolicy(predictedSequenceRaw)
-      const predictedForecast = normalizeConvergenceForecast(predictedForecastRaw)
+    const predictedCondition = normalizeNetworkCondition(predictedConditionRaw)
+    const predictedSequence = normalizeSequencingPolicy(predictedSequenceRaw)
+    const predictedForecast = normalizeConvergenceForecast(predictedForecastRaw)
 
-      const expectedCondition = normalizeNetworkCondition(expectedConditionRaw)
-      const expectedSequence = normalizeSequencingPolicy(expectedSequenceRaw)
-      const expectedForecast = normalizeConvergenceForecast(expectedForecastRaw)
+    const expectedCondition = normalizeNetworkCondition(expectedConditionRaw)
+    const expectedSequence = normalizeSequencingPolicy(expectedSequenceRaw)
+    const expectedForecast = normalizeConvergenceForecast(expectedForecastRaw)
 
-      const conditionScore = Boolean.match(String.Equivalence(predictedCondition, expectedCondition), {
-        onTrue: () => 1,
-        onFalse: () => 0
-      })
-      const sequenceScore = Boolean.match(String.Equivalence(predictedSequence, expectedSequence), {
-        onTrue: () => 1,
-        onFalse: () => 0
-      })
-      const forecastScore = Boolean.match(String.Equivalence(predictedForecast, expectedForecast), {
-        onTrue: () => 1,
-        onFalse: () => 0
-      })
-      const score = Number.divideUnsafe(Number.sumAll(Arr.make(conditionScore, sequenceScore, forecastScore)), 3)
-
-      const feedback = Boolean.match(Number.Equivalence(score, 1), {
-        onTrue: () => "Protocol decisions match target network method and convergence forecast.",
-        onFalse: () =>
-          Arr.join(
-            Arr.make(
-              "Expected condition '",
-              expectedCondition,
-              "' (raw='",
-              expectedConditionRaw,
-              "'), sequence '",
-              expectedSequence,
-              "' (raw='",
-              expectedSequenceRaw,
-              "'), forecast '",
-              expectedForecast,
-              "' (raw='",
-              expectedForecastRaw,
-              "'), but received '",
-              predictedCondition,
-              "' (raw='",
-              predictedConditionRaw,
-              "'), '",
-              predictedSequence,
-              "' (raw='",
-              predictedSequenceRaw,
-              "'), '",
-              predictedForecast,
-              "' (raw='",
-              predictedForecastRaw,
-              "')."
-            ),
-            ""
-          )
-      })
-
-      return new Metric.Result({ score, feedback })
+    const conditionScore = Boolean.match(String.Equivalence(predictedCondition, expectedCondition), {
+      onTrue: () => 1,
+      onFalse: () => 0
     })
-)
+    const sequenceScore = Boolean.match(String.Equivalence(predictedSequence, expectedSequence), {
+      onTrue: () => 1,
+      onFalse: () => 0
+    })
+    const forecastScore = Boolean.match(String.Equivalence(predictedForecast, expectedForecast), {
+      onTrue: () => 1,
+      onFalse: () => 0
+    })
+    const score = Number.divideUnsafe(Number.sumAll(Arr.make(conditionScore, sequenceScore, forecastScore)), 3)
+
+    const feedback = Boolean.match(Number.Equivalence(score, 1), {
+      onTrue: () => "Protocol decisions match target network method and convergence forecast.",
+      onFalse: () =>
+        Arr.join(
+          Arr.make(
+            "Expected condition '",
+            expectedCondition,
+            "' (raw='",
+            expectedConditionRaw,
+            "'), sequence '",
+            expectedSequence,
+            "' (raw='",
+            expectedSequenceRaw,
+            "'), forecast '",
+            expectedForecast,
+            "' (raw='",
+            expectedForecastRaw,
+            "'), but received '",
+            predictedCondition,
+            "' (raw='",
+            predictedConditionRaw,
+            "'), '",
+            predictedSequence,
+            "' (raw='",
+            predictedSequenceRaw,
+            "'), '",
+            predictedForecast,
+            "' (raw='",
+            predictedForecastRaw,
+            "')."
+          ),
+          ""
+        )
+    })
+
+    return new Metric.Score({ value: score, feedback: Option.some(feedback) })
+  }), "collectiveMemoryProtocolFit")
 
 const program = Effect.gen(function*() {
   const artifacts = yield* createExampleArtifacts(EXAMPLE_NAME)

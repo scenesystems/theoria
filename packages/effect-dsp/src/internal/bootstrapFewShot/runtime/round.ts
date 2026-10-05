@@ -23,15 +23,13 @@ import type * as LanguageModel from "effect/ai/LanguageModel"
 import type * as Layer from "effect/Layer"
 import { events, type EventSink, type Examples } from "../../../BootstrapFewShot.js"
 import { Demonstration as Demo } from "../../../Demonstration.js"
-import { BootstrapFailed } from "../../../DspError.js"
 import type { Example } from "../../../Example.js"
-import type { Metric } from "../../../Metric.js"
-import { type Module, withParameters } from "../../../Module.js"
+import { Context, type Metric } from "../../../Metric.js"
+import { call, type Module, withParameters } from "../../../Module.js"
 import {
   withDemos as withModuleParamsDemos,
   withDemosAndInstructions as withModuleParamsDemosAndInstructions
 } from "../../../ModuleParameters.js"
-import { withTracing } from "../../../Trace.js"
 import { CurrentRole } from "../../modelRole.js"
 import { mergeAcceptedDemos, MergeAcceptedDemosOptions, roundInstructions } from "./demos.js"
 import { AcceptedDemo, BootstrapState, demoCount, ExampleEvaluation, PredictorDemos, RoundEvaluation } from "./model.js"
@@ -50,7 +48,7 @@ export class BootstrapRoundOptions<
   readonly state: BootstrapState
   readonly module: Module<I, O, E, R>
   readonly trainset: Examples
-  readonly metric: Metric<ME, MR, Schema.Schema.Type<Schema.Struct<O>>>
+  readonly metric: Metric<ME, MR>
   readonly threshold: number
   readonly emit: EventSink<EE, ER>
   readonly teacher: Option.Option<Layer.Layer<LanguageModel.LanguageModel, never, never>>
@@ -73,47 +71,21 @@ const evaluateExample = <I extends Schema.Struct.Fields, O extends Schema.Struct
 ) =>
   Effect.gen(function*() {
     const input = yield* Schema.decodeEffect(options.module.signature.inputSchema)(example.input)
-    const expected = yield* Option.match(Option.fromNullishOr(example.output), {
-      onNone: () =>
-        Effect.fail(
-          new BootstrapFailed({
-            message: "BootstrapFewShot requires labeled examples",
-            roundsAttempted: options.state.roundsAttempted,
-            totalTraces: options.state.totalTraces,
-            threshold: options.threshold,
-            acceptedTraces: options.state.acceptedTraces,
-            rejectedTraces: options.state.rejectedTraces,
-            evaluatedExamples: options.state.evaluatedExamples,
-            bestScoreSeen: options.state.bestScoreSeen,
-            bestScore: options.state.bestScore,
-            averageScore: 0
-          })
-        ),
-      onSome: (output) =>
-        Schema.decodeEffect(options.module.signature.outputSchema)(output).pipe(
-          Effect.mapError(() =>
-            new BootstrapFailed({
-              message: "expected output does not match module output schema",
-              roundsAttempted: options.state.roundsAttempted,
-              totalTraces: options.state.totalTraces,
-              threshold: options.threshold,
-              acceptedTraces: options.state.acceptedTraces,
-              rejectedTraces: options.state.rejectedTraces,
-              evaluatedExamples: options.state.evaluatedExamples,
-              bestScoreSeen: options.state.bestScoreSeen,
-              bestScore: options.state.bestScore,
-              averageScore: 0
-            })
-          )
-        )
-    })
-    const traced = yield* withTracing(provideTeacherLayer(options.module.forward(input), options.teacher)).pipe(
+    const prediction = yield* provideTeacherLayer(call(options.module, input), options.teacher).pipe(
       Effect.provideService(CurrentRole, "teacher")
     )
-    const result = traced[0]
-    const metric = yield* options.metric.score(result, expected)
+    const result = prediction.output
+    const metric = yield* options.metric.score(
+      example,
+      prediction,
+      new Context({
+        phase: "bootstrap",
+        trace: Option.some(prediction.trace),
+        target: Option.none()
+      })
+    )
     const entries = Arr.filter(
-      traced[1],
+      prediction.trace.selected,
       Predicate.and(
         (entry) => String.Equivalence(entry.outcome, "completed"),
         (entry) =>
@@ -122,10 +94,10 @@ const evaluateExample = <I extends Schema.Struct.Fields, O extends Schema.Struct
     )
     const accepted = Bool.and(
       Bool.and(
-        Equivalence.strictEqual<number>()(metric.score, metric.score),
+        Equivalence.strictEqual<number>()(metric.value, metric.value),
         Equivalence.strictEqual<number>()(options.threshold, options.threshold)
       ),
-      Num.isGreaterThanOrEqualTo(metric.score, options.threshold)
+      Num.isGreaterThanOrEqualTo(metric.value, options.threshold)
     )
     const demos = yield* Bool.match(accepted, {
       onFalse: () => Effect.succeed(Arr.empty<AcceptedDemo>()),
@@ -167,11 +139,11 @@ const evaluateExample = <I extends Schema.Struct.Fields, O extends Schema.Struct
     })
     yield* Effect.forEach(entries, (entry) =>
       options.emit(Bool.match(accepted, {
-        onTrue: () => events.TraceAccepted({ moduleName: entry.moduleName, score: metric.score }),
+        onTrue: () => events.TraceAccepted({ moduleName: entry.moduleName, score: metric.value }),
         onFalse: () =>
           events.TraceRejected({
             moduleName: entry.moduleName,
-            score: metric.score,
+            score: metric.value,
             threshold: options.threshold
           })
       })), { discard: true })
@@ -180,7 +152,7 @@ const evaluateExample = <I extends Schema.Struct.Fields, O extends Schema.Struct
       traceCount: Arr.length(entries),
       acceptedCount: Bool.match(accepted, { onTrue: () => Arr.length(entries), onFalse: () => 0 }),
       rejectedCount: Bool.match(accepted, { onFalse: () => Arr.length(entries), onTrue: () => 0 }),
-      score: metric.score
+      score: metric.value
     })
   })
 

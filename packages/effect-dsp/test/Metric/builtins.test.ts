@@ -1,88 +1,59 @@
-/**
- * Built-in metric contracts.
- */
 import { describe, expect, it } from "@effect/vitest"
 import * as Metric from "@scenesystems/effect-dsp/Metric"
-import { Effect, Number, Schema } from "effect"
+import { Effect, Schema } from "effect"
+import { score } from "../kit/Metric.js"
 
 describe("Metric built-ins", () => {
-  it.effect("exactMatch scores 1 for exact equality and 0 for mismatch", () =>
+  it.effect("requires a reference for exact matching and preserves Python whitespace normalization", () =>
     Effect.gen(function*() {
-      const exact = Metric.exactMatch("answer")
-
-      const match = yield* exact.score(
-        { answer: "Paris" },
-        { answer: "Paris" }
+      const failure = yield* score(Metric.answerExactMatch(), { answer: [] }, { answer: "York" }).pipe(Effect.flip)
+      expect(failure).toBeInstanceOf(Schema.SchemaError)
+      expect((yield* score(Metric.answerExactMatch(), { answer: "new york" }, { answer: "New\u001cYork" })).value).toBe(
+        1
       )
-      const mismatch = yield* exact.score(
-        { answer: "Lyon" },
-        { answer: "Paris" }
-      )
-
-      expect(match.score).toBe(1)
-      expect(mismatch.score).toBe(0)
+      expect((yield* score(Metric.answerPassageMatch(), { answer: [] }, { context: ["York"] })).value).toBe(0)
     }))
 
-  it.effect("f1 returns bounded overlap score for tokenized outputs", () =>
-    Effect.gen(function*() {
-      const f1 = Metric.f1("answer")
-
-      const score = yield* f1.score(
-        { answer: "alpha beta gamma" },
-        { answer: "alpha gamma delta" }
-      )
-
-      expect(score.score).toBeCloseTo(Number.divideUnsafe(2, 3), 6)
-      expect(Number.isGreaterThanOrEqualTo(score.score, 0)).toBe(true)
-      expect(Number.isLessThanOrEqualTo(score.score, 1)).toBe(true)
-    }))
-
-  it.effect("contains emits 1 for membership and 0 for absence", () =>
-    Effect.gen(function*() {
-      const containsParis = Metric.contains("answer", "Paris")
-
-      const hit = yield* containsParis.score(
-        { answer: "The capital is Paris." },
-        { answer: "unused" }
-      )
-      const miss = yield* containsParis.score(
-        { answer: "The capital is Tokyo." },
-        { answer: "unused" }
-      )
-
-      expect(hit.score).toBe(1)
-      expect(miss.score).toBe(0)
-    }))
-
-  it.effect("normalizes scalars selected from records and class instances without validating unrelated fields", () =>
+  it.effect("compares normalized scalar fields independently of unrelated fields", () =>
     Effect.gen(function*() {
       class Answer extends Schema.Class<Answer>("MetricAnswer")({ answer: Schema.Finite }) {}
       const exact = Metric.exactMatch("answer")
-      expect((yield* exact.score(new Answer({ answer: 42 }), { answer: " 42 " })).score).toBe(1)
-      expect((yield* exact.score({ answer: false }, { answer: " FALSE " })).score).toBe(1)
-      expect((yield* exact.score({ answer: "  PARIS ", extra: Effect.void }, { answer: "paris" })).score).toBe(1)
-      expect((yield* Metric.contains("answer", "  AL ").score({ answer: false }, {})).score).toBe(1)
-      expect((yield* Metric.contains("answer", "").score({ answer: "" }, {})).score).toBe(1)
+      expect((yield* score(exact, { answer: "Paris" }, { answer: "Paris" })).value).toBe(1)
+      expect((yield* score(exact, { answer: "Paris" }, { answer: "Lyon" })).value).toBe(0)
+      expect((yield* score(exact, { answer: " 42 " }, new Answer({ answer: 42 }))).value).toBe(1)
+      expect((yield* score(exact, { answer: " FALSE " }, { answer: false })).value).toBe(1)
+      expect((yield* score(exact, { answer: "paris" }, { answer: "  PARIS ", extra: Effect.void })).value).toBe(1)
     }))
 
-  it.effect("returns zero for absent and non-scalar fields even when both sides share them", () =>
+  it.effect("returns zero for absent or non-scalar fields", () =>
     Effect.gen(function*() {
       const exact = Metric.exactMatch("answer")
-      expect((yield* exact.score({}, {})).score).toBe(0)
-      expect((yield* exact.score({ answer: "Paris" }, {})).score).toBe(0)
-      expect((yield* exact.score({ answer: { city: "Paris" } }, { answer: { city: "Paris" } })).score).toBe(0)
-      expect((yield* Metric.f1("answer").score({}, { answer: "Paris" })).score).toBe(0)
-      expect((yield* Metric.contains("answer", "").score({}, {})).score).toBe(0)
+      expect((yield* score(exact, {}, {})).value).toBe(0)
+      expect((yield* score(exact, {}, { answer: "Paris" })).value).toBe(0)
+      expect((yield* score(exact, { answer: { city: "Paris" } }, { answer: { city: "Paris" } })).value).toBe(0)
+      expect((yield* score(Metric.f1("answer"), { answer: "Paris" }, {})).value).toBe(0)
+      expect((yield* score(Metric.contains("answer", ""), {}, {})).value).toBe(0)
     }))
 
-  it.effect("counts duplicate tokens only up to their multiplicity on the other side", () =>
+  it.effect("contains normalizes its target and matches empty targets only against scalar fields", () =>
+    Effect.gen(function*() {
+      const contains = Metric.contains("answer", "Paris")
+      expect((yield* score(contains, {}, { answer: "The capital is Paris." })).value).toBe(1)
+      expect((yield* score(contains, {}, { answer: "The capital is Tokyo." })).value).toBe(0)
+      expect((yield* score(Metric.contains("answer", "  AL "), {}, { answer: false })).value).toBe(1)
+      expect((yield* score(Metric.contains("answer", ""), {}, { answer: "" })).value).toBe(1)
+    }))
+
+  it.effect("computes multiset token F1 including asymmetric duplicate counts and empty values", () =>
     Effect.gen(function*() {
       const f1 = Metric.f1("answer")
-      const result = yield* f1.score({ answer: "red red red blue" }, { answer: "red green" })
-      expect(result.score).toBeCloseTo(Number.divideUnsafe(1, 3), 12)
-      const reversed = yield* f1.score({ answer: "red green" }, { answer: "red red red blue" })
-      expect(reversed.score).toBeCloseTo(Number.divideUnsafe(1, 3), 12)
-      expect((yield* f1.score({ answer: " \n " }, { answer: " " })).score).toBe(0)
-      expect((yield* f1.score({ answer: "red" }, { answer: "blue" })).score).toBe(0)
+      expect((yield* score(f1, { answer: "alpha gamma delta" }, { answer: "alpha beta gamma" })).value).toBeCloseTo(
+        2 / 3,
+        12
+      )
+      expect((yield* score(f1, { answer: "red green" }, { answer: "red red red blue" })).value).toBeCloseTo(1 / 3, 12)
+      expect((yield* score(f1, { answer: "red red red blue" }, { answer: "red green" })).value).toBeCloseTo(1 / 3, 12)
+      expect((yield* score(f1, { answer: " " }, { answer: " \n " })).value).toBe(0)
+      expect((yield* score(f1, { answer: "blue" }, { answer: "red" })).value).toBe(0)
     }))
 })

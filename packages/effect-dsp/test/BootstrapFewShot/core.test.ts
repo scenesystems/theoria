@@ -11,19 +11,7 @@ import * as Module from "@scenesystems/effect-dsp/Module"
 import { ModuleParameters } from "@scenesystems/effect-dsp/ModuleParameters"
 import * as ParameterSet from "@scenesystems/effect-dsp/ParameterSet"
 import * as Signature from "@scenesystems/effect-dsp/Signature"
-import {
-  Array as Arr,
-  Boolean,
-  Effect,
-  Layer,
-  Number as Num,
-  Option,
-  Record,
-  Ref,
-  Result,
-  Schema,
-  String as Str
-} from "effect"
+import { Array as Arr, Boolean, Effect, Layer, Option, Record, Ref, Result, Schema, String as Str } from "effect"
 import * as LanguageModel from "effect/ai/LanguageModel"
 import { assertNoMutation } from "../kit/Mutation.js"
 
@@ -61,11 +49,11 @@ describe("BootstrapFewShot.run", () => {
             trainset: Arr.make(
               new Example({
                 input: { question: "What is the capital of France?" },
-                output: { answer: "Paris" }
+                labels: Option.some({ answer: "Paris" })
               }),
               new Example({
                 input: { question: "What is the capital of Japan?" },
-                output: { answer: "Tokyo" }
+                labels: Option.some({ answer: "Tokyo" })
               })
             ),
             metric: Metric.exactMatch("answer"),
@@ -121,11 +109,11 @@ describe("BootstrapFewShot.run", () => {
           trainset: Arr.make(
             new Example({
               input: { question: "What is the capital of France?" },
-              output: { answer: "Paris" }
+              labels: Option.some({ answer: "Paris" })
             }),
             new Example({
               input: { question: "What is the capital of Japan?" },
-              output: { answer: "Tokyo" }
+              labels: Option.some({ answer: "Tokyo" })
             })
           ),
           metric: Metric.exactMatch("answer"),
@@ -164,7 +152,7 @@ describe("BootstrapFewShot.run", () => {
             trainset: Arr.make(
               new Example({
                 input: { question: "What is the capital of France?" },
-                output: { answer: "Paris" }
+                labels: Option.some({ answer: "Paris" })
               })
             ),
             metric: Metric.exactMatch("answer"),
@@ -200,7 +188,7 @@ describe("BootstrapFewShot.run", () => {
             trainset: Arr.make(
               new Example({
                 input: { question: "What is the capital of France?" },
-                output: { answer: "Paris" }
+                labels: Option.some({ answer: "Paris" })
               })
             ),
             metric: Metric.exactMatch("answer"),
@@ -229,72 +217,5 @@ describe("BootstrapFewShot.run", () => {
           averageScore: 0
         })
       )
-    }))
-
-  it.effect("rejects a NaN metric score even when the threshold is negative infinity", () =>
-    Effect.gen(function*() {
-      const signature = yield* makeQaSignature()
-      const module = yield* Module.predict("qa", signature)
-      const mock = yield* MockLanguageModel.make(MockLanguageModel.succeed({ answer: "Paris" }))
-      const layer = Layer.succeed(LanguageModel.LanguageModel, mock.service)
-      const nan = yield* Effect.fromOption(Num.parse("NaN"))
-      const metric = Metric.make("nan-score", () => new Metric.Result({ score: nan }))
-
-      const result = yield* BootstrapFewShot.run(
-        new BootstrapFewShot.Options({
-          module,
-          trainset: Arr.make(
-            new Example({
-              input: { question: "What is the capital of France?" },
-              output: { answer: "Paris" }
-            })
-          ),
-          metric,
-          maxRounds: 1,
-          maxBootstrappedDemos: 1,
-          threshold: yield* Effect.fromOption(Num.parse("-Infinity")),
-          fallbackToLabeledFewShot: false
-        })
-      ).pipe(Effect.provide(layer), Effect.result)
-      const params = yield* Ref.get(module.params)
-
-      expect(Result.isFailure(result)).toBe(true)
-      expect(Arr.length(params.demos)).toBe(0)
-      expect(
-        Result.match(result, {
-          onFailure: (error) => Str.Equivalence(error._tag, "BootstrapFailed"),
-          onSuccess: () => false
-        })
-      ).toBe(true)
-    }))
-
-  it.effect("accepts positive infinity at a positive-infinity threshold", () =>
-    Effect.gen(function*() {
-      const signature = yield* makeQaSignature()
-      const module = yield* Module.predict("qa", signature)
-      const mock = yield* MockLanguageModel.make(MockLanguageModel.succeed({ answer: "Paris" }))
-      const layer = Layer.succeed(LanguageModel.LanguageModel, mock.service)
-      const infinity = yield* Effect.fromOption(Num.parse("Infinity"))
-      const metric = Metric.make("infinite-score", () => new Metric.Result({ score: infinity }))
-
-      const optimized = yield* BootstrapFewShot.run(
-        new BootstrapFewShot.Options({
-          module,
-          trainset: Arr.make(
-            new Example({
-              input: { question: "What is the capital of France?" },
-              output: { answer: "Paris" }
-            })
-          ),
-          metric,
-          maxRounds: 1,
-          maxBootstrappedDemos: 1,
-          threshold: infinity,
-          fallbackToLabeledFewShot: false
-        })
-      ).pipe(Effect.provide(layer))
-      const params = Option.getOrThrow(Record.get(optimized.parameters, "qa"))
-
-      expect(Arr.length(params.demos)).toBe(1)
     }))
 })

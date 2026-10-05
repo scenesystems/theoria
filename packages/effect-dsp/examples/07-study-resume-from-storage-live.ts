@@ -36,10 +36,7 @@ import { studyCacheLayer, studyStorageLayer, withStudyProgress } from "./shared/
 const EXAMPLE_NAME = "07-study-resume-from-storage-live"
 
 const italyEvalset = Arr.make(
-  new Example.Example({
-    input: { question: "What is the capital of Italy?" },
-    output: { answer: "Rome" }
-  })
+  new Example.Example({ input: { question: "What is the capital of Italy?" }, labels: Option.some({ answer: "Rome" }) })
 )
 
 const franceDemo = new Demonstration.Demonstration({

@@ -128,7 +128,7 @@ describe("GEPA integration", () => {
           trainset: Arr.make(
             new Example({
               input: { question: "What result should the child produce?" },
-              output: { answer: "correct" }
+              labels: Option.some({ answer: "correct" })
             })
           ),
           metric: Metric.exactMatch("answer"),
@@ -176,28 +176,25 @@ describe("GEPA integration", () => {
           MockLanguageModel.map(responseForPrompt)
         )
         const layer = Layer.succeed(LanguageModel.LanguageModel, mock.service)
-        const feedbackMetric = Metric.fromEffect(
-          "feedbackExactMatch",
-          (prediction: typeof AnswerResponse.Type, expected) =>
-            Effect.sync(() => {
-              const predicted = prediction.answer
-              const expectedAnswer = expected.answer
-              const correct = Str.Equivalence(predicted, expectedAnswer)
+        const feedbackMetric = Metric.withFeedback((example, result) =>
+          Effect.gen(function*() {
+            const prediction = yield* Schema.decodeUnknownEffect(Schema.toType(AnswerResponse))(result.output)
+            const expected = yield* Schema.decodeUnknownEffect(AnswerResponse)(
+              Option.getOrElse(example.labels, () => ({}))
+            )
+            const predicted = prediction.answer
+            const expectedAnswer = expected.answer
+            const correct = Str.Equivalence(predicted, expectedAnswer)
 
-              return Bool.match(correct, {
-                onFalse: () =>
-                  new Metric.Result({
-                    score: 0,
-                    feedback: Arr.join(Arr.make("expected ", expectedAnswer, ", got ", predicted), "")
-                  }),
-                onTrue: () =>
-                  new Metric.Result({
-                    score: 1,
-                    feedback: "correct"
-                  })
-              })
+            return Bool.match(correct, {
+              onFalse: () =>
+                new Metric.Score({
+                  value: 0,
+                  feedback: Option.some(Arr.join(Arr.make("expected ", expectedAnswer, ", got ", predicted), ""))
+                }),
+              onTrue: () => new Metric.Score({ value: 1, feedback: Option.some("correct") })
             })
-        )
+          }), "feedbackExactMatch")
 
         const events = yield* Stream.runCollect(
           GEPA.stream(
@@ -206,15 +203,15 @@ describe("GEPA integration", () => {
               trainset: Arr.make(
                 new Example({
                   input: { question: "What is the capital of France?" },
-                  output: { answer: "Paris" }
+                  labels: Option.some({ answer: "Paris" })
                 }),
                 new Example({
                   input: { question: "What is the capital of Japan?" },
-                  output: { answer: "Tokyo" }
+                  labels: Option.some({ answer: "Tokyo" })
                 }),
                 new Example({
                   input: { question: "What is the capital of Germany?" },
-                  output: { answer: "Berlin" }
+                  labels: Option.some({ answer: "Berlin" })
                 })
               ),
               metric: feedbackMetric,

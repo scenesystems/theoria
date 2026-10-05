@@ -1,8 +1,11 @@
 import { expect, it } from "@effect/vitest"
+import * as Metric from "@scenesystems/effect-dsp/Metric"
 import * as Module from "@scenesystems/effect-dsp/Module"
 import { withInstructions } from "@scenesystems/effect-dsp/ModuleParameters"
+import { Prediction } from "@scenesystems/effect-dsp/Prediction"
 import * as Signature from "@scenesystems/effect-dsp/Signature"
-import { Array as Arr, Chunk, Deferred, Effect, Exit, Fiber, Ref, Schema } from "effect"
+import * as Trace from "@scenesystems/effect-dsp/Trace"
+import { Array as Arr, Chunk, Deferred, Effect, Exit, Fiber, Option, Ref, Schema } from "effect"
 import * as LanguageModel from "effect/ai/LanguageModel"
 import * as Response from "effect/ai/Response"
 import { dataset } from "./Data.js"
@@ -15,14 +18,29 @@ it.effect("datasets replay stable ids and metrics count successful and failed at
     const rows = yield* dataset(3, { labeled: true, seed: 7 })
     expect(rows).toEqual(yield* dataset(3, { labeled: true, seed: 7 }))
     expect(Arr.map(rows, (row) => row.input.id)).toEqual(["example-7-0", "example-7-1", "example-7-2"])
-    expect(Arr.map(yield* dataset(2, { labeled: false, seed: 7 }), (row) => row.output)).toEqual([undefined, undefined])
+    expect(Arr.map(yield* dataset(2, { labeled: false, seed: 7 }), (row) => row.labels)).toEqual([
+      Option.none(),
+      Option.none()
+    ])
     const counted = yield* countingMetric(scriptedMetric({ "example-7-0": 0.2, "example-7-1": 0.9 }))
-    const results = yield* Effect.forEach(rows, (row) => counted.metric.score({}, row.output).pipe(Effect.exit))
+    const trace = new Trace.Program({ selected: Chunk.empty(), attempts: Chunk.empty(), usage: Trace.emptyUsage })
+    const prediction = new Prediction({ output: {}, trace, usage: trace.usage })
+    const context = new Metric.Context({ phase: "evaluate", trace: Option.some(trace), target: Option.none() })
+    const results = yield* Effect.forEach(
+      rows,
+      (row) => counted.metric.score(row, prediction, context).pipe(Effect.exit)
+    )
     expect(yield* Ref.get(counted.calls)).toBe(3)
     expect(Arr.map(results, Exit.isSuccess)).toEqual([true, true, false])
-    const score = yield* counted.metric.score({}, { id: "example-7-1" })
-    expect(score.score).toBe(0.9)
-    expect(Exit.isFailure(yield* failingOn(["example-7-0"]).score({}, { id: "example-7-0" }).pipe(Effect.exit))).toBe(
+    const score = yield* counted.metric.score(Option.getOrThrow(Arr.get(rows, 1)), prediction, context)
+    expect(score.value).toBe(0.9)
+    expect(
+      Exit.isFailure(
+        yield* failingOn(["example-7-0"]).score(Option.getOrThrow(Arr.head(rows)), prediction, context).pipe(
+          Effect.exit
+        )
+      )
+    ).toBe(
       true
     )
   }))

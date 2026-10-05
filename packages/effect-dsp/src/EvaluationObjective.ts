@@ -7,7 +7,7 @@
 import { Value as SearchObjectiveValue } from "@scenesystems/effect-search/Objective"
 import { Array as Arr, Match, Number, Option, Order, Record, Schema } from "effect"
 import { Failure, Report } from "./Evaluate.js"
-import { Result as MetricResult } from "./Metric.js"
+import { Score } from "./Metric.js"
 
 /** Scalar or vector projection mode.
  * @since 0.4.0
@@ -21,7 +21,7 @@ export const Mode = Schema.Literals(["single", "multi"])
  */
 export class MetricScore extends Schema.Class<MetricScore>("@scenesystems/effect-dsp/EvaluationObjective/MetricScore")({
   name: Schema.String,
-  score: MetricResult.fields.score
+  score: Score.fields.value
 }) {}
 
 /** Evaluation context retained beside a projected objective.
@@ -52,7 +52,7 @@ export class Projection extends Schema.Class<Projection>("@scenesystems/effect-d
  */
 export type ObjectiveValue = SearchObjectiveValue
 
-const Entry = Schema.Tuple([Schema.String, MetricResult.fields.score])
+const Entry = Schema.Tuple([Schema.String, Score.fields.value])
 const Names = Schema.Array(Schema.String)
 const entryOrder: Order.Order<typeof Entry.Type> = Order.mapInput(Order.String, ([name]) => name)
 const entries = (report: Report) => Arr.sort(Record.toEntries(report.overallScores), entryOrder)

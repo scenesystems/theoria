@@ -14,7 +14,7 @@
  */
 import { BunRuntime, BunServices } from "@effect/platform-bun"
 import { BootstrapFewShot, Evaluate, Example, Metric, MIPROv2, Module, Signature } from "@scenesystems/effect-dsp"
-import { Array as Arr, Effect, Layer, Ref, Schema } from "effect"
+import { Array as Arr, Effect, Layer, Option, Ref, Schema } from "effect"
 import {
   makeStandardEvents,
   makeStandardModuleState,
@@ -33,10 +33,10 @@ const trainset = Arr.make(
         "Residents skip local elections because they believe turnout is always low and nobody in their block votes.",
       inferredConstruct: "pluralistic ignorance around civic participation norms"
     },
-    output: {
+    labels: Option.some({
       intervention: "norms",
       justification: "Public norm signals can correct false beliefs about what peers actually do."
-    }
+    })
   }),
   new Example.Example({
     input: {
@@ -44,20 +44,20 @@ const trainset = Arr.make(
         "Gig workers ignore retirement enrollment because fee disclosures are hard to compare and terms are confusing.",
       inferredConstruct: "information frictions and low institutional clarity"
     },
-    output: {
+    labels: Option.some({
       intervention: "information",
       justification: "Simplified, trusted explanations reduce comprehension barriers."
-    }
+    })
   }),
   new Example.Example({
     input: {
       fieldNote: "Households sharply reduced home-energy conservation once the rebate expired.",
       inferredConstruct: "high sensitivity to immediate financial rewards"
     },
-    output: {
+    labels: Option.some({
       intervention: "incentives",
       justification: "Behavior tracks immediate costs and rewards, so incentives dominate."
-    }
+    })
   }),
   new Example.Example({
     input: {
@@ -65,10 +65,10 @@ const trainset = Arr.make(
         "Students attend peer tutoring consistently only after team captains publicly commit to weekly attendance.",
       inferredConstruct: "peer accountability and visible commitment cues"
     },
-    output: {
+    labels: Option.some({
       intervention: "norms",
       justification: "Visible commitments create social expectation pressure."
-    }
+    })
   })
 )
 
@@ -78,20 +78,20 @@ const evalset = Arr.make(
       fieldNote: "Clinic attendance rose when neighborhoods published weekly participation rates by block.",
       inferredConstruct: "behavior responds to descriptive norm visibility"
     },
-    output: {
+    labels: Option.some({
       intervention: "norms",
       justification: "Public participation signals shift expectations about common behavior."
-    }
+    })
   }),
   new Example.Example({
     input: {
       fieldNote: "Workers only completed optional training when a completion bonus was added to the monthly paycheck.",
       inferredConstruct: "short-term compensation salience"
     },
-    output: {
+    labels: Option.some({
       intervention: "incentives",
       justification: "Immediate rewards increase uptake when time costs are salient."
-    }
+    })
   }),
   new Example.Example({
     input: {
@@ -99,10 +99,10 @@ const evalset = Arr.make(
         "Parents delayed vaccine appointments because reminder letters used technical language and unclear scheduling instructions.",
       inferredConstruct: "instructional complexity and comprehension barriers"
     },
-    output: {
+    labels: Option.some({
       intervention: "information",
       justification: "Clear, concrete instructions reduce decision friction."
-    }
+    })
   })
 )
 

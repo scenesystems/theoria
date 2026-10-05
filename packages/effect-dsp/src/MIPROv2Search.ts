@@ -61,7 +61,7 @@ export class Options<
 > extends Data.Class<{
   readonly module: DspModule<I, O, E, R>
   readonly valset: Examples
-  readonly metric: Metric<ME, MR, Schema.Schema.Type<Schema.Struct<O>>>
+  readonly metric: Metric<ME, MR>
   readonly demoCandidates: PredictorDemoCandidateSets
   readonly instructionCandidates: PredictorInstructionCandidateSets
   readonly trialBudget?: number

@@ -1,7 +1,7 @@
 import { expect, it } from "@effect/vitest"
 import * as BootstrapFewShot from "@scenesystems/effect-dsp/BootstrapFewShot"
 import * as Evaluate from "@scenesystems/effect-dsp/Evaluate"
-import { Example } from "@scenesystems/effect-dsp/Example"
+import { Example, Id } from "@scenesystems/effect-dsp/Example"
 import * as GEPA from "@scenesystems/effect-dsp/GEPA"
 import * as Metric from "@scenesystems/effect-dsp/Metric"
 import { trialBudget } from "@scenesystems/effect-dsp/MIPROv2Search"
@@ -36,11 +36,15 @@ import { failingOn } from "../kit/Metric.js"
 const Row = Schema.Struct({ id: Schema.String, question: Schema.String, answer: Schema.String })
 const Splits = Schema.Struct({ train: Schema.Array(Row), val: Schema.Array(Row) })
 const examples = (rows: ReadonlyArray<typeof Row.Type>) =>
-  Arr.map(rows, (row) =>
-    new Example({
-      input: { question: row.question },
-      output: { id: row.id, answer: row.answer }
-    }))
+  Arr.map(
+    rows,
+    (row) =>
+      new Example({
+        id: Option.some(Id.make(row.id)),
+        input: { question: row.question },
+        labels: Option.some({ id: row.id, answer: row.answer })
+      })
+  )
 const signature = Signature.make("specialist", { question: Schema.String }, { answer: Schema.String })
 const Eval = Schema.Struct({
   splits: Splits,
@@ -216,23 +220,16 @@ const gepa = Effect.gen(function*() {
       trainset: examples(reference.splits.val),
       maxIterations: 1,
       seed: reference.seed,
-      metric: Metric.fromEffect(
-        "score",
-        (prediction: { readonly answer: string }, expected: { readonly answer: string }) =>
-          Effect.succeed(
-            new Metric.Result({
-              score: Match.value(prediction.answer).pipe(
-                Match.when("generalist", () => 0.8),
-                Match.orElse(() =>
-                  Bool.match(Str.Equivalence(expected.answer, "label-0"), {
-                    onTrue: () => 1,
-                    onFalse: () => 0
-                  })
-                )
-              )
+      metric: Metric.fromSync((expected, prediction) =>
+        Match.value(prediction.answer).pipe(
+          Match.when("generalist", () => 0.8),
+          Match.orElse(() =>
+            Bool.match(expected.answer === "label-0", {
+              onTrue: () => 1,
+              onFalse: () => 0
             })
           )
-      )
+        ), "score")
     }),
     (event) =>
       Match.value(event).pipe(
@@ -284,7 +281,10 @@ const bootstrap = Effect.gen(function*() {
       fallbackToLabeledFewShot: false,
       threshold: 0,
       teacher: Layer.succeed(LanguageModel.LanguageModel, teacher.service),
-      metric: Metric.fromEffect("accept", () => Effect.succeed(new Metric.Result({ score: 0.8 })))
+      metric: Metric.withFeedback(
+        () => Effect.succeed(new Metric.Score({ value: 0.8, feedback: Option.none() })),
+        "accept"
+      )
     })
   ).pipe(Effect.provideService(LanguageModel.LanguageModel, student.service))
   return {

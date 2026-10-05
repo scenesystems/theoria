@@ -6,13 +6,12 @@
 import { Array as Arr, Boolean, Effect, Inspectable, Option, Record, Schema, String as Str, Tuple } from "effect"
 
 import type { Examples, Options as GEPAOptions } from "../../../GEPA.js"
-import { Result as MetricResult } from "../../../Metric.js"
-import { type ComposableModule, withParameters } from "../../../Module.js"
+import { Context } from "../../../Metric.js"
+import { call, type ComposableModule, withParameters } from "../../../Module.js"
 import { predictors } from "../../../ModuleGraph.js"
 import { withInstructions } from "../../../ModuleParameters.js"
 import * as ParameterSet from "../../../ParameterSet.js"
 import { encode as encodePayload } from "../../../Payload.js"
-import { withTracing } from "../../../Trace.js"
 import { withOwners } from "../../parameterBinding.js"
 import { ReflectiveDatasetSample } from "../model.js"
 import { CandidateScoreVector, type ProgramCandidate } from "../model.js"
@@ -91,7 +90,7 @@ const resolveValset = <I extends Schema.Struct.Fields, O extends Schema.Struct.F
 ): Examples =>
   Arr.filter(
     Option.getOrElse(Option.fromNullishOr(options.valset), () => options.trainset),
-    (example) => Option.isSome(Option.fromNullishOr(example.output))
+    (example) => Option.isSome(example.labels)
   )
 
 const selectEvaluationRows = (
@@ -122,26 +121,31 @@ export const evaluateCandidate = <I extends Schema.Struct.Fields, O extends Sche
 ) =>
   Effect.flatMap(candidateParameters(options.module, candidate), (parameters) => {
     const decodeInput = Schema.decodeUnknownEffect(options.module.signature.inputSchema)
-    const decodeOutput = Schema.decodeUnknownEffect(options.module.signature.outputSchema)
 
     return Effect.forEach(selectEvaluationRows(resolveValset(options), window), ([index, example]) =>
       Effect.gen(function*() {
-        const expectedOutputRaw = Option.getOrElse(Option.fromNullishOr(example.output), () =>
-          example.input)
+        const labels = Option.getOrElse(example.labels, Record.empty)
         const moduleInput = yield* decodeInput(example.input)
-        const expectedOutput = yield* decodeOutput(expectedOutputRaw)
-        const [prediction, traceEntries] = yield* withTracing(options.module.forward(moduleInput))
+        const prediction = yield* call(options.module, moduleInput)
         const programInputs = yield* encodePayload(options.module.signature.inputSchema, moduleInput)
-        const programGeneratedOutputs = yield* encodePayload(options.module.signature.outputSchema, prediction)
-        const expectedDocument = yield* encodePayload(options.module.signature.outputSchema, expectedOutput)
-        const metricResult = yield* options.metric.score(prediction, expectedOutput)
-        const normalizedMetric = Option.match(Option.fromNullishOr(metricResult.feedback), {
-          onNone: () => new MetricResult({ score: metricResult.score }),
-          onSome: (feedback) => new MetricResult({ score: metricResult.score, feedback })
-        })
+        const programGeneratedOutputs = yield* encodePayload(options.module.signature.outputSchema, prediction.output)
+        const expectedDocument = yield* encodePayload(
+          Schema.Json,
+          yield* Schema.decodeUnknownEffect(Schema.Json)(labels)
+        )
+        const metricResult = yield* options.metric.score(
+          example,
+          prediction,
+          new Context({
+            phase: "search",
+            trace: Option.some(prediction.trace),
+            target: Option.none()
+          })
+        )
 
         const executionSamples = Arr.map(
-          Arr.filter(traceEntries, (entry) => Str.Equivalence(entry.outcome, "completed")),
+          Arr.filter(prediction.trace.selected, (entry) =>
+            Str.Equivalence(entry.outcome, "completed")),
           (entry) =>
             new ReflectiveDatasetSample({
               exampleId: Str.concat("example-", Inspectable.toStringUnknown(index)),
@@ -150,7 +154,7 @@ export const evaluateCandidate = <I extends Schema.Struct.Fields, O extends Sche
               inputs: entry.input,
               generatedOutputs: entry.output,
               expectedOutput: expectedDocument,
-              metricResult: normalizedMetric
+              metricResult
             })
         )
         const hasRootExecution = Arr.some(
@@ -169,13 +173,13 @@ export const evaluateCandidate = <I extends Schema.Struct.Fields, O extends Sche
                 inputs: programInputs,
                 generatedOutputs: programGeneratedOutputs,
                 expectedOutput: expectedDocument,
-                metricResult: normalizedMetric
+                metricResult
               })
             )
         })
 
         return new CandidateEvaluationRow({
-          score: metricResult.score,
+          score: metricResult.value,
           samples
         })
       }), { concurrency: "unbounded" }).pipe(

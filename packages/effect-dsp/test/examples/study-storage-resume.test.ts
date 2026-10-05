@@ -29,10 +29,7 @@ const makeSpace = SearchSpace.make({
 })
 
 const italyEvalset = Arr.make(
-  new Example({
-    input: { question: "What is the capital of Italy?" },
-    output: { answer: "Rome" }
-  })
+  new Example({ input: { question: "What is the capital of Italy?" }, labels: Option.some({ answer: "Rome" }) })
 )
 
 const franceDemo = new Demonstration({

@@ -70,7 +70,7 @@ export class Options<
   readonly module: DspModule<I, O, E, R>
   readonly trainset: Examples
   readonly valset?: Examples
-  readonly metric: Metric<ME, MR, Schema.Schema.Type<Schema.Struct<O>>>
+  readonly metric: Metric<ME, MR>
   readonly maxIterations: number
   readonly maxMergeInvocations?: number
   readonly seed?: number

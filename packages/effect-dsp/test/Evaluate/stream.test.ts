@@ -36,14 +36,14 @@ describe("Evaluate.stream", () => {
         examples: [
           new Example({
             input: { question: "What is the capital of France?" },
-            output: { answer: "Paris" }
+            labels: Option.some({ answer: "Paris" })
           }),
           new Example({
             input: { question: "What is the capital of Japan?" },
-            output: { answer: "Tokyo" }
+            labels: Option.some({ answer: "Tokyo" })
           }),
           new Example({
-            input: { question: "What is the capital of Canada?" }
+            input: { question: 73 }
           })
         ],
         metrics: {

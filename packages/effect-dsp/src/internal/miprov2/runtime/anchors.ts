@@ -99,7 +99,7 @@ export const labeledDemos = (trainset: ReadonlyArray<Example>): ModuleParameters
     trainset,
     (example) =>
       Option.toArray(
-        Option.map(Option.fromNullishOr(example.output), (output) => new Demo({ input: example.input, output }))
+        Option.map(example.labels, (output) => new Demo({ input: example.input, output }))
       )
   )
 

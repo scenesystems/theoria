@@ -31,7 +31,7 @@ import type { Services as EffectServices } from "effect/Effect"
 const Output = Schema.Struct({ answer: Schema.String })
 const Scores = Schema.Struct({ value: Schema.Finite })
 class Scoring extends Context.Service<Scoring, typeof Scores.Type>()("BootstrapRSRestorationScoring") {}
-const trainset = Arr.make(new Example({ input: { question: "new" }, output: { answer: "answer" } }))
+const trainset = Arr.make(new Example({ input: { question: "new" }, labels: Option.some({ answer: "answer" }) }))
 const makeTree = Effect.gen(function*() {
   const signature = yield* Signature.make("Answer", { question: Schema.String }, Output.fields)
   const child = yield* Module.predict("child", signature)
@@ -77,7 +77,7 @@ describe("BootstrapRS.run transactional restoration", () => {
         new BootstrapRS.Options({
           module,
           trainset,
-          valset: Arr.make(new Example({ input: { question: "unlabeled" } })),
+          valset: Arr.make(new Example({ input: { question: 73 } })),
           metric: Metric.exactMatch("answer"),
           numCandidates: 0
         })
@@ -101,11 +101,11 @@ describe("BootstrapRS.run transactional restoration", () => {
         loadTrialLog: () => Effect.succeed(Arr.empty()),
         replayTrialLog: () => Effect.succeed(Arr.empty())
       })
-      const metric = Metric.fromEffect("service-score", (_prediction: typeof Output.Type) =>
+      const metric = Metric.withFeedback(() =>
         Effect.gen(function*() {
           const score = yield* Scoring
-          return new Metric.Result({ score: score.value })
-        }))
+          return new Metric.Score({ value: score.value, feedback: Option.none() })
+        }), "service-score")
       const program = BootstrapRS.run(new BootstrapRS.Options({ module, trainset, metric, numCandidates: 0 }))
       expectTypeOf<EffectServices<typeof program>>().toEqualTypeOf<LanguageModel.LanguageModel | Scoring>()
       const failure = yield* program.pipe(
@@ -131,15 +131,15 @@ describe("BootstrapRS.run transactional restoration", () => {
       const resume = yield* Deferred.make<boolean>()
       const calls = yield* Ref.make(0)
       const mock = yield* MockLanguageModel.make(MockLanguageModel.succeed({ answer: "answer" }))
-      const metric = Metric.fromEffect("barrier", (_prediction: typeof Output.Type) =>
+      const metric = Metric.withFeedback(() =>
         Effect.gen(function*() {
           const call = yield* Ref.updateAndGet(calls, Number.increment)
           yield* Effect.when(
             Deferred.succeed(entered, true).pipe(Effect.andThen(Deferred.await(resume))),
             Effect.succeed(Number.Equivalence(call, 2))
           )
-          return new Metric.Result({ score: call })
-        }))
+          return new Metric.Score({ value: call, feedback: Option.none() })
+        }), "barrier")
       const fiber = yield* BootstrapRS.run(new BootstrapRS.Options({ module, trainset, metric, numCandidates: 0 }))
         .pipe(
           Effect.provideService(LanguageModel.LanguageModel, mock.service),
@@ -162,10 +162,10 @@ describe("BootstrapRS.run transactional restoration", () => {
       const original = yield* Module.save(module)
       const mock = yield* MockLanguageModel.make(MockLanguageModel.succeed({ answer: "answer" }))
       const calls = yield* Ref.make(0)
-      const metric = Metric.fromEffect("candidate-score", (_prediction: typeof Output.Type) =>
+      const metric = Metric.withFeedback(() =>
         Ref.updateAndGet(calls, Number.increment).pipe(Effect.map((score) =>
-          new Metric.Result({ score })
-        )))
+          new Metric.Score({ value: score, feedback: Option.none() })
+        )), "candidate-score")
       const optimized = yield* BootstrapRS.run(new BootstrapRS.Options({ module, trainset, metric, numCandidates: 0 }))
         .pipe(
           Effect.provideService(LanguageModel.LanguageModel, mock.service)

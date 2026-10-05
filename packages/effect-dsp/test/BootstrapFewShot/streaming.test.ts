@@ -55,11 +55,11 @@ describe("BootstrapFewShot.stream", () => {
             trainset: [
               new Example({
                 input: { question: "What is the capital of France?" },
-                output: { answer: "Paris" }
+                labels: Option.some({ answer: "Paris" })
               }),
               new Example({
                 input: { question: "What is the capital of Japan?" },
-                output: { answer: "Tokyo" }
+                labels: Option.some({ answer: "Tokyo" })
               })
             ],
             metric: Metric.exactMatch("answer"),
@@ -123,7 +123,7 @@ describe("BootstrapFewShot.stream", () => {
             trainset: [
               new Example({
                 input: { question: "What is the capital of France?" },
-                output: { answer: "Paris" }
+                labels: Option.some({ answer: "Paris" })
               })
             ],
             metric: Metric.exactMatch("answer"),

@@ -55,7 +55,7 @@ describe("BootstrapFewShot.run teacher/student", () => {
           trainset: [
             new Example({
               input: { question: "What is the capital of France?" },
-              output: { answer: "Paris" }
+              labels: Option.some({ answer: "Paris" })
             })
           ],
           metric: Metric.exactMatch("answer"),

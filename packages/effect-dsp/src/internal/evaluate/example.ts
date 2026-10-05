@@ -23,8 +23,8 @@ import { EvaluationFailed } from "../../DspError.js"
 import { events, ExampleResult, Failure } from "../../Evaluate.js"
 import type { Event } from "../../Evaluate.js"
 import type { Example as ExampleModel } from "../../Example.js"
-import type { Metric } from "../../Metric.js"
-import type { Module } from "../../Module.js"
+import { Context, type Metric } from "../../Metric.js"
+import { call, type Module } from "../../Module.js"
 import { averageNumbers } from "../metric/score.js"
 
 /**
@@ -37,7 +37,7 @@ export type EvaluationEventSink = (event: Event) => Effect.Effect<void>
  * @since 0.1.0
  * @internal
  */
-export type MetricEntry<ME, MR, A> = readonly [string, Metric<ME, MR, A>]
+export type MetricEntry<ME, MR> = readonly [string, Metric<ME, MR>]
 
 /**
  * @since 0.1.0
@@ -52,15 +52,15 @@ export class ExampleOutcome extends Data.Class<{
 
 type ExampleScore = ExampleResult["scores"]
 
-const metricEntryOrder = <ME, MR, A>(): Order.Order<MetricEntry<ME, MR, A>> =>
-  Order.mapInput(Order.String, (entry: MetricEntry<ME, MR, A>) => entry[0])
+const metricEntryOrder = <ME, MR>(): Order.Order<MetricEntry<ME, MR>> =>
+  Order.mapInput(Order.String, (entry: MetricEntry<ME, MR>) => entry[0])
 
 /**
  * @since 0.1.0
  * @internal
  */
-export const sortedMetricEntries = <ME, MR, A>(metrics: Record.ReadonlyRecord<string, Metric<ME, MR, A>>) =>
-  Arr.sort(Record.toEntries(metrics), metricEntryOrder<ME, MR, A>())
+export const sortedMetricEntries = <ME, MR>(metrics: Record.ReadonlyRecord<string, Metric<ME, MR>>) =>
+  Arr.sort(Record.toEntries(metrics), metricEntryOrder<ME, MR>())
 
 const failureMessageFromUnknown = (error: unknown): string =>
   Match.value(error).pipe(
@@ -82,14 +82,6 @@ const exampleFailureFromUnknown = (index: number, error: unknown): Failure =>
     message: failureMessageFromUnknown(error)
   })
 
-const evaluateMissingOutput = (index: number) =>
-  Effect.fail(
-    new EvaluationFailed({
-      index,
-      message: "Missing expected output for evaluation example"
-    })
-  )
-
 /** @internal */
 export class EvaluateExampleOptions<
   I extends Schema.Struct.Fields,
@@ -103,7 +95,7 @@ export class EvaluateExampleOptions<
   readonly total: number
   readonly example: ExampleModel
   readonly module: Module<I, O, E, R>
-  readonly metrics: Iterable<MetricEntry<ME, MR, Schema.Schema.Type<Schema.Struct<O>>>>
+  readonly metrics: Iterable<MetricEntry<ME, MR>>
   readonly emit: EvaluationEventSink
 }> {}
 
@@ -120,22 +112,13 @@ const scoreExample = <I extends Schema.Struct.Fields, O extends Schema.Struct.Fi
           })
         )
       )
-    const expected = yield* Option.match(Option.fromNullishOr(options.example.output), {
-      onNone: () => evaluateMissingOutput(options.index),
-      onSome: (value) => Effect.succeed(value)
-    })
-    const expectedOutput = yield* Schema.decodeEffect(options.module.signature.outputSchema)(expected).pipe(
-      Effect.mapError(() =>
-        new EvaluationFailed({
-          index: options.index,
-          message: "expected output does not match module output schema"
-        })
-      )
-    )
-    const prediction = yield* options.module.forward(decodedInput)
+    const prediction = yield* call(options.module, decodedInput)
+    const context = new Context({ phase: "evaluate", trace: Option.some(prediction.trace), target: Option.none() })
     const scores = yield* Effect.forEach(options.metrics, (entry) =>
-      entry[1].score(prediction, expectedOutput).pipe(
-        Effect.map((result) => Tuple.make(entry[0], result.score))
+      entry[1].score(options.example, prediction, context).pipe(
+        Effect.map((result) =>
+          Tuple.make(entry[0], result.value)
+        )
       ))
 
     const scoresByName: ExampleScore = Record.fromEntries(scores)

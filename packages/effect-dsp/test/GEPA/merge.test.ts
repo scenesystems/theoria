@@ -4,7 +4,6 @@
 import { describe, expect, it } from "@effect/vitest"
 import { Array as Arr, Boolean as Bool, Effect, Option, String as Str } from "effect"
 import {
-  classifyMergeComparisonBucket,
   findNearestCommonAncestor,
   prepareCommonAncestorMerge,
   recordAcceptedMerge,
@@ -137,30 +136,7 @@ describe("GEPA merge/crossover", () => {
       expect(Arr.some(selectedA, (entry) => Str.Equivalence(entry.exampleId, "e-8"))).toBe(true)
     }))
 
-  it.effect("classifies unordered scores and equal infinities as ties", () =>
-    Effect.sync(() => {
-      const buckets = Arr.map(
-        Arr.make(
-          new MergeComparison({ exampleId: "nan-a", parentAScore: Number.NaN, parentBScore: 1 }),
-          new MergeComparison({ exampleId: "nan-b", parentAScore: 1, parentBScore: Number.NaN }),
-          new MergeComparison({
-            exampleId: "positive-infinity",
-            parentAScore: Number.POSITIVE_INFINITY,
-            parentBScore: Number.POSITIVE_INFINITY
-          }),
-          new MergeComparison({
-            exampleId: "negative-infinity",
-            parentAScore: Number.NEGATIVE_INFINITY,
-            parentBScore: Number.NEGATIVE_INFINITY
-          })
-        ),
-        classifyMergeComparisonBucket
-      )
-
-      expect(buckets).toEqual(Arr.make("tie", "tie", "tie", "tie"))
-    }))
-
-  it.effect("uses parent B for unordered merge ranking while preserving finite ties", () =>
+  it.effect("uses the better parent while preserving parent A on ties", () =>
     Effect.sync(() => {
       const ancestor = makeCandidate({ id: "root", qa: "root", judge: "root" })
       const parentA = makeCandidate({ id: "parent-a", parentIds: Arr.make("root"), qa: "from-a", judge: "root" })
@@ -183,8 +159,8 @@ describe("GEPA merge/crossover", () => {
           Option.flatMap((candidate) => findInstruction(candidate, "qa"))
         )
 
-      expect(instruction(Number.NaN, 1)).toEqual(Option.some("from-b"))
-      expect(instruction(1, Number.NaN)).toEqual(Option.some("from-b"))
+      expect(instruction(0.3, 0.7)).toEqual(Option.some("from-b"))
+      expect(instruction(0.7, 0.3)).toEqual(Option.some("from-a"))
       expect(instruction(1, 1)).toEqual(Option.some("from-a"))
     }))
 

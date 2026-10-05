@@ -38,25 +38,13 @@ const reflectiveResponse = Arr.of(
 )
 
 const trainset = Arr.make(
-  new Example({
-    input: { question: "What is the capital of France?" },
-    output: { answer: "Paris" }
-  }),
-  new Example({
-    input: { question: "What is the capital of Japan?" },
-    output: { answer: "Tokyo" }
-  }),
-  new Example({
-    input: { question: "What is the capital of Germany?" },
-    output: { answer: "Berlin" }
-  })
+  new Example({ input: { question: "What is the capital of France?" }, labels: Option.some({ answer: "Paris" }) }),
+  new Example({ input: { question: "What is the capital of Japan?" }, labels: Option.some({ answer: "Tokyo" }) }),
+  new Example({ input: { question: "What is the capital of Germany?" }, labels: Option.some({ answer: "Berlin" }) })
 )
 
 const valset = Arr.make(
-  new Example({
-    input: { question: "What is the capital of Italy?" },
-    output: { answer: "Rome" }
-  })
+  new Example({ input: { question: "What is the capital of Italy?" }, labels: Option.some({ answer: "Rome" }) })
 )
 
 const responseForPrompt = (prompt: string) =>
@@ -69,28 +57,23 @@ const responseForPrompt = (prompt: string) =>
     Match.orElse(() => AnswerResponse.make({ answer: "Unknown" }))
   )
 
-const feedbackMetric = Metric.fromEffect(
-  "feedback-exact",
-  (prediction: typeof AnswerResponse.Type, expected) =>
-    Effect.sync(() => {
-      const predicted = prediction.answer
-      const expectedAnswer = expected.answer
-      const correct = Str.Equivalence(predicted, expectedAnswer)
+const feedbackMetric = Metric.withFeedback((example, result) =>
+  Effect.gen(function*() {
+    const prediction = yield* Schema.decodeUnknownEffect(Schema.toType(AnswerResponse))(result.output)
+    const expected = yield* Schema.decodeUnknownEffect(AnswerResponse)(Option.getOrElse(example.labels, () => ({})))
+    const predicted = prediction.answer
+    const expectedAnswer = expected.answer
+    const correct = Str.Equivalence(predicted, expectedAnswer)
 
-      return Bool.match(correct, {
-        onFalse: () =>
-          new Metric.Result({
-            score: 0,
-            feedback: Arr.join(Arr.make("expected ", expectedAnswer, ", got ", predicted), "")
-          }),
-        onTrue: () =>
-          new Metric.Result({
-            score: 1,
-            feedback: "correct"
-          })
-      })
+    return Bool.match(correct, {
+      onFalse: () =>
+        new Metric.Score({
+          value: 0,
+          feedback: Option.some(Arr.join(Arr.make("expected ", expectedAnswer, ", got ", predicted), ""))
+        }),
+      onTrue: () => new Metric.Score({ value: 1, feedback: Option.some("correct") })
     })
-)
+  }), "feedback-exact")
 
 const runGepaMultiObjective = Effect.gen(function*() {
   const signature = yield* Signature.make(

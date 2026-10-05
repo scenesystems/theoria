@@ -3,7 +3,6 @@
  */
 import { describe, expect, expectTypeOf, it } from "@effect/vitest"
 import * as BootstrapFewShot from "@scenesystems/effect-dsp/BootstrapFewShot"
-import { BootstrapFailed } from "@scenesystems/effect-dsp/DspError"
 import { Example } from "@scenesystems/effect-dsp/Example"
 import * as GEPA from "@scenesystems/effect-dsp/GEPA"
 import * as Metric from "@scenesystems/effect-dsp/Metric"
@@ -18,8 +17,8 @@ import { evaluateCandidate } from "../../src/internal/gepa/runtime/evaluate.js"
 
 const Input = Schema.Struct({ seed: Schema.FiniteFromString })
 const Output = Schema.Struct({ result: Schema.Struct({ count: Schema.FiniteFromString }) })
-const example = new Example({ input: { seed: "04" }, output: { result: { count: "03" } } })
-const invalidExample = new Example({ input: { seed: "04" }, output: { result: { count: "invalid" } } })
+const example = new Example({ input: { seed: "04" }, labels: Option.some({ result: { count: "03" } }) })
+const invalidExample = new Example({ input: { seed: "04" }, labels: Option.some({ result: { count: "invalid" } }) })
 const candidate = new ProgramCandidate({
   candidateId: "candidate",
   parentIds: Arr.empty(),
@@ -33,12 +32,18 @@ const makeModule = Effect.gen(function*() {
   return yield* Module.predict("counter", signature)
 })
 
-const metric = Metric.make("difference", (prediction: typeof Output.Type, expected) => {
-  expectTypeOf(expected).toEqualTypeOf<typeof Output.Type>()
-  expect(prediction.result.count).toBe(7)
-  expect(expected.result.count).toBe(3)
-  return new Metric.Result({ score: Number.subtract(prediction.result.count, expected.result.count) })
-})
+const metric = Metric.withFeedback((example, result) =>
+  Effect.gen(function*() {
+    const prediction = yield* Schema.decodeUnknownEffect(Schema.toType(Output))(result.output)
+    const expected = yield* Schema.decodeUnknownEffect(Output)(Option.getOrElse(example.labels, () => ({})))
+    expectTypeOf(expected).toEqualTypeOf<typeof Output.Type>()
+    expect(prediction.result.count).toBe(7)
+    expect(expected.result.count).toBe(3)
+    return new Metric.Score({
+      value: Number.subtract(prediction.result.count, expected.result.count),
+      feedback: Option.none()
+    })
+  }), "difference")
 
 describe("optimizer schema-derived metric values", () => {
   it.effect("scores transformed bootstrap outputs and promotes wire values into replayable demos", () =>
@@ -63,7 +68,7 @@ describe("optimizer schema-derived metric values", () => {
       expect(yield* Schema.decodeUnknownEffect(Output)(demo.output)).toEqual({ result: { count: 7 } })
     }))
 
-  it.effect("rejects malformed bootstrap labels through the checked failure channel before model execution", () =>
+  it.effect("preserves the scorer's checked label validation failure after model execution", () =>
     Effect.gen(function*() {
       const module = yield* makeModule
       const original = yield* Ref.get(module.params)
@@ -77,8 +82,8 @@ describe("optimizer schema-derived metric values", () => {
           maxBootstrappedDemos: 1
         })
       ).pipe(Effect.provideService(LanguageModel.LanguageModel, mock.service), Effect.flip)
-      expect(failure).toBeInstanceOf(BootstrapFailed)
-      expect(Arr.length(yield* Ref.get(mock.calls))).toBe(0)
+      expect(failure).toBeInstanceOf(Schema.SchemaError)
+      expect(Arr.length(yield* Ref.get(mock.calls))).toBe(1)
       expect(yield* Ref.get(module.params)).toEqual(original)
     }))
 
@@ -103,7 +108,7 @@ describe("optimizer schema-derived metric values", () => {
       expect(yield* Ref.get(module.params)).toEqual(original)
     }))
 
-  it.effect("restores GEPA parameters when expected output decoding fails", () =>
+  it.effect("preserves GEPA parameters when the scorer rejects raw labels", () =>
     Effect.gen(function*() {
       const module = yield* makeModule
       const original = yield* Ref.get(module.params)
@@ -116,7 +121,7 @@ describe("optimizer schema-derived metric values", () => {
         Effect.flip
       )
       expect(failure).toBeInstanceOf(Schema.SchemaError)
-      expect(Arr.length(yield* Ref.get(mock.calls))).toBe(0)
+      expect(Arr.length(yield* Ref.get(mock.calls))).toBe(1)
       expect(yield* Ref.get(module.params)).toEqual(original)
     }))
 })

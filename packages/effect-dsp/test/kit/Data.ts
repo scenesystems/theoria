@@ -1,18 +1,19 @@
-import { Example } from "@scenesystems/effect-dsp/Example"
-import { Array as Arr, Boolean as Bool, Effect, Random, Schema } from "effect"
+import { Example, Id } from "@scenesystems/effect-dsp/Example"
+import { Array as Arr, Boolean as Bool, Effect, Option, Random, Schema } from "effect"
 
 const Options = Schema.Struct({ labeled: Schema.Boolean, seed: Schema.Finite })
 
-/** IDs are carried in input/output until Example gains a first-class id in Wave 1. */
+/** Seeded data with explicit stable example identities. */
 export const dataset = (n: number, options: typeof Options.Type) =>
   Effect.forEach(Arr.makeBy(n, (i) => i), (i) =>
     Effect.gen(function*() {
       const id = `example-${options.seed}-${i}`
       const value = yield* Random.nextIntBetween(0, 1000000)
       return new Example({
+        id: Option.some(yield* Schema.decodeEffect(Id)(id)),
         input: { id, question: `question-${value}` },
         ...Bool.match(options.labeled, {
-          onTrue: () => ({ output: { id, answer: `answer-${value}` } }),
+          onTrue: () => ({ labels: Option.some({ id, answer: `answer-${value}` }) }),
           onFalse: () => ({})
         })
       })

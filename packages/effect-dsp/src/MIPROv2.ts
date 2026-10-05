@@ -307,7 +307,7 @@ export class Options<
   /** Phase 3 evaluation set. Defaults to `trainset`; no automatic split is performed. */
   readonly valset?: Examples
   /** Single objective used for baseline, minibatch, and full-set evaluations. */
-  readonly metric: Metric<ME, MR, Schema.Schema.Type<Schema.Struct<O>>>
+  readonly metric: Metric<ME, MR>
   /** Total demonstration candidates per predictor; fractional values round down and invalid counts become one. */
   readonly numCandidates: number
   /** Total instruction candidates per predictor, including the baseline at index zero. */

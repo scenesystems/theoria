@@ -38,6 +38,7 @@
     "./Optimized": "./src/Optimized.ts",
     "./Demonstration": "./src/Demonstration.ts",
     "./Example": "./src/Example.ts",
+    "./Prediction": "./src/Prediction.ts",
     "./Metric": "./src/Metric.ts",
     "./Evaluate": "./src/Evaluate.ts",
     "./EvaluationObjective": "./src/EvaluationObjective.ts",

@@ -76,8 +76,8 @@ describe("bootstrap demonstration helpers", () => {
 
   it.effect("filters unlabeled examples, normalizes limits, and retains round markers", () =>
     Effect.gen(function*() {
-      const first = new Example({ input: { question: "France" }, output: { answer: "Paris" } })
-      const second = new Example({ input: { question: "Japan" }, output: { answer: "Tokyo" } })
+      const first = new Example({ input: { question: "France" }, labels: Option.some({ answer: "Paris" }) })
+      const second = new Example({ input: { question: "Japan" }, labels: Option.some({ answer: "Tokyo" }) })
       const rows = Arr.make(new Example({ input: { question: "Unlabeled" } }), first, second)
       expect(labeledTrainset(rows, Option.some(1.8))).toEqual(Arr.make(first))
       expect(labeledTrainset(rows, Option.some(0))).toEqual(Arr.make(first, second))

@@ -3,8 +3,9 @@
  */
 import { describe, expect, it } from "@effect/vitest"
 import * as Metric from "@scenesystems/effect-dsp/Metric"
-import { Array as Arr, Chunk, Data, Effect, Number, Ref, Result, Schema, Tuple } from "effect"
+import { Array as Arr, Chunk, Data, Effect, Number, Option, Record, Ref, Result, Schema, Tuple } from "effect"
 import { composedScoreMap } from "../../src/internal/metric/compose.js"
+import { score } from "../kit/Metric.js"
 
 describe("Metric.compose", () => {
   it.effect("aggregates child metrics into a deterministic score", () =>
@@ -13,12 +14,9 @@ describe("Metric.compose", () => {
       const mentionsParis = Metric.contains("answer", "Paris")
       const composed = Metric.compose({ accuracy, mentionsParis })
 
-      const result = yield* composed.score(
-        { answer: "The capital is Paris." },
-        { answer: "Paris" }
-      )
+      const result = yield* score(composed, { answer: "Paris" }, { answer: "The capital is Paris." })
 
-      expect(result.score).toBe(0.5)
+      expect(result.value).toBe(0.5)
     }))
 
   it.effect("returns stable outputs for identical inputs", () =>
@@ -28,14 +26,8 @@ describe("Metric.compose", () => {
         f1: Metric.f1("answer")
       })
 
-      const first = yield* composed.score(
-        { answer: "alpha beta" },
-        { answer: "alpha gamma" }
-      )
-      const second = yield* composed.score(
-        { answer: "alpha beta" },
-        { answer: "alpha gamma" }
-      )
+      const first = yield* score(composed, { answer: "alpha gamma" }, { answer: "alpha beta" })
+      const second = yield* score(composed, { answer: "alpha gamma" }, { answer: "alpha beta" })
 
       expect(first).toEqual(second)
     }))
@@ -45,17 +37,23 @@ describe("Metric.compose", () => {
       const Output = Schema.Struct({ value: Schema.Finite })
       const calls = yield* Ref.make(Arr.empty<string>())
       const metric = (name: string, feedback: string) =>
-        Metric.fromEffect(name, (prediction: typeof Output.Type, expected) =>
-          Ref.update(calls, Arr.append(name)).pipe(
-            Effect.as(new Metric.Result({ score: Number.subtract(prediction.value, expected.value), feedback }))
-          ))
+        Metric.withFeedback((example, prediction) =>
+          Effect.gen(function*() {
+            yield* Ref.update(calls, Arr.append(name))
+            const output = yield* Schema.decodeUnknownEffect(Output)(prediction.output)
+            const expected = yield* Schema.decodeUnknownEffect(Output)(Option.getOrElse(example.labels, Record.empty))
+            return new Metric.Score({
+              value: Number.subtract(output.value, expected.value),
+              feedback: Option.some(feedback)
+            })
+          }), name)
       const composed = Metric.compose({ z: metric("z", "last"), a: metric("a", "") })
 
-      expect(yield* composed.score({ value: 7 }, { value: 3 })).toEqual(
-        new Metric.Result({ score: 4, feedback: "[a] \n[z] last" })
+      expect(yield* score(composed, { value: 3 }, { value: 7 })).toEqual(
+        new Metric.Score({ value: 4, feedback: Option.some("[a] \n[z] last") })
       )
       expect(yield* Ref.get(calls)).toEqual(Arr.make("a", "z"))
-      expect(yield* Metric.compose({}).score({}, {})).toEqual(new Metric.Result({ score: 0 }))
+      expect(yield* score(Metric.compose({}), {}, {})).toEqual(new Metric.Score({ value: 0, feedback: Option.none() }))
     }))
 
   it.effect("stops at a checked scorer failure without running later children", () =>
@@ -64,22 +62,24 @@ describe("Metric.compose", () => {
       const calls = yield* Ref.make(Arr.empty<string>())
       const failure = new Rejected()
       const composed = Metric.compose({
-        z: Metric.fromEffect("z", () =>
-          Ref.update(calls, Arr.append("z")).pipe(Effect.as(new Metric.Result({ score: 1 })))),
-        a: Metric.fromEffect("a", () =>
-          Ref.update(calls, Arr.append("a")).pipe(Effect.andThen(Effect.fail(failure))))
+        z: Metric.withFeedback(
+          () =>
+            Ref.update(calls, Arr.append("z")).pipe(Effect.as(new Metric.Score({ value: 1, feedback: Option.none() }))),
+          "z"
+        ),
+        a: Metric.withFeedback(() => Ref.update(calls, Arr.append("a")).pipe(Effect.andThen(Effect.fail(failure))), "a")
       })
 
-      expect(yield* Effect.result(composed.score({}, {}))).toEqual(Result.fail(failure))
+      expect(yield* Effect.result(score(composed, {}, {}))).toEqual(Result.fail(failure))
       expect(yield* Ref.get(calls)).toEqual(Arr.make("a"))
     }))
 
   it.effect("projects iterable named results with the final score for each repeated name", () =>
     Effect.gen(function*() {
       const results = Chunk.make(
-        Tuple.make("first", new Metric.Result({ score: 0.2 })),
-        Tuple.make("second", new Metric.Result({ score: 0.7 })),
-        Tuple.make("first", new Metric.Result({ score: 0.9 }))
+        Tuple.make("first", new Metric.Score({ value: 0.2, feedback: Option.none() })),
+        Tuple.make("second", new Metric.Score({ value: 0.7, feedback: Option.none() })),
+        Tuple.make("first", new Metric.Score({ value: 0.9, feedback: Option.none() }))
       )
 
       expect(composedScoreMap(results)).toEqual({ first: 0.9, second: 0.7 })
