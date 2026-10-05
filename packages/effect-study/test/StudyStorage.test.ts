@@ -44,14 +44,15 @@ it.effect("writes the run protocol directly to the configured file and reopens i
     expect(yield* reopened.read().pipe(Stream.runCollect)).toHaveLength(1)
   }).pipe(Effect.provide(BunServices.layer)))
 
-it.effect("rejects the superseded trial/snapshot format rather than reading or migrating it", () =>
+it.effect("rejects unknown record kinds without modifying the file", () =>
   Effect.gen(function*() {
     const fs = yield* FileSystem.FileSystem
     const path = yield* Path.Path
     const directory = yield* fs.makeTempDirectoryScoped()
     const config = StudyStorage.fileSystemOptions(directory)
     const file = path.join(directory, config.fileName)
-    const content = "{\"_tag\":\"Trial\",\"payload\":{\"sample\":\"old\"}}\n"
+    const content =
+      "{\"_tag\":\"UnknownRecord\",\"runId\":\"observations\",\"definitionDigest\":\"observations-definition\"}\n"
     yield* fs.writeFileString(file, content)
     const result = yield* StudyStorage.makeFileSystem(config).pipe(Effect.result)
     const failure = yield* Effect.fromResult(Result.flip(result))
