@@ -91,14 +91,9 @@ export const buildPrompt = <I extends Schema.Struct.Fields, O extends Schema.Str
     const content = yield* renderFieldBlock(Schema.toEncoded(signature.inputSchema), encoded)
     const demonstrations = yield* Effect.forEach(params.demos, (demo) =>
       Effect.gen(function*() {
-        const input = yield* Schema.decodeEffect(Schema.toEncoded(signature.inputSchema))(demo.input).pipe(
-          Effect.mapError(promptError),
-          Effect.flatMap((record) => renderFieldBlock(Schema.toEncoded(signature.inputSchema), record))
-        )
-        const output = yield* Schema.decodeEffect(Schema.toEncoded(signature.outputSchema))(demo.output).pipe(
-          Effect.mapError(promptError),
-          Effect.flatMap((record) => renderFieldBlock(Schema.toEncoded(signature.outputSchema), record))
-        )
+        const validated = yield* signature.demonstrationCodec.decode(demo).pipe(Effect.mapError(promptError))
+        const input = yield* renderFieldBlock(Schema.toEncoded(signature.inputSchema), validated.input)
+        const output = yield* renderFieldBlock(Schema.toEncoded(signature.outputSchema), validated.output)
         return Arr.make(
           Prompt.userMessage({ content: Arr.make(Prompt.textPart({ text: input })) }),
           Prompt.assistantMessage({ content: Arr.make(Prompt.textPart({ text: output })) })

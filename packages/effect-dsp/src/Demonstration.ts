@@ -4,9 +4,9 @@
  * @since 0.4.0
  * @module
  */
-import type { Record } from "effect"
-import { Data, Effect, Schema } from "effect"
+import { Array as Arr, Data, Effect, Option, Record, Schema, Tuple } from "effect"
 import { Id } from "./Example.js"
+import { encodedFieldSchema, encodedFieldsToInfoArray } from "./internal/signature/fields.js"
 import { decode, encode, Payload } from "./Payload.js"
 
 /**
@@ -44,6 +44,8 @@ export type Documents = typeof Documents.Type
  * @category models
  */
 export class Codec extends Data.Class<{
+  /** Projects labels onto destination fields, retaining missing outputs as incomplete. */
+  readonly labeled: (value: Demonstration) => Effect.Effect<Demonstration, Schema.SchemaError>
   readonly decode: (value: unknown) => Effect.Effect<Demonstration, Schema.SchemaError>
   readonly encode: (value: Demonstration) => Effect.Effect<Documents, Schema.SchemaError>
   readonly decodeDocuments: (
@@ -74,20 +76,51 @@ export const codec = <I, O, IDR, IER, ODR, OER>(
 ): Codec => {
   const input = Schema.toEncoded(inputSchema)
   const output = Schema.toEncoded(outputSchema)
-  const wire = Schema.Struct({
+  const partialOutput = Schema.Struct(
+    Record.fromEntries(
+      Arr.map(
+        encodedFieldsToInfoArray(outputSchema),
+        (field) => Tuple.make(field.name, Schema.optionalKey(Option.getOrThrow(encodedFieldSchema(output, field.name))))
+      )
+    )
+  )
+  const full = Schema.Struct({
     input,
     output,
     exampleId: Demonstration.fields.exampleId,
-    incomplete: Demonstration.fields.incomplete
+    incomplete: Schema.Literal(false)
   })
+  const partial = Schema.Struct({
+    input,
+    output: partialOutput,
+    exampleId: Demonstration.fields.exampleId,
+    incomplete: Schema.Literal(true)
+  })
+  const wire = Schema.Union([full, partial])
   return new Codec({
+    labeled: (value) =>
+      Effect.gen(function*() {
+        const inputs = yield* Schema.decodeEffect(input)(value.input)
+        const labels = yield* Schema.decodeEffect(partialOutput)(value.output)
+        return new Demonstration({
+          input: inputs,
+          output: labels,
+          exampleId: value.exampleId,
+          incomplete: !Schema.is(output)(labels)
+        })
+      }),
     decode: (value) =>
       Schema.decodeUnknownEffect(wire)(value, { onExcessProperty: "error" }).pipe(
         Effect.map((demonstration) => new Demonstration(demonstration))
       ),
     encode: (demonstration) =>
       Schema.decodeEffect(wire)(demonstration, { onExcessProperty: "error" }).pipe(
-        Effect.flatMap((validated) => Effect.zip(encode(input, validated.input), encode(output, validated.output)))
+        Effect.flatMap((validated) =>
+          Effect.zip(
+            encode(input, validated.input),
+            encode(validated.incomplete ? partialOutput : output, validated.output)
+          )
+        )
       ),
     decodeDocuments: (inputDocument, outputDocument) =>
       Effect.gen(function*() {

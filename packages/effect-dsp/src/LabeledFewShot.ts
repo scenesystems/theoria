@@ -7,8 +7,10 @@
  */
 import * as Numeric from "@scenesystems/effect-math/Numeric"
 import { normalizeDeterministicSeed } from "@scenesystems/effect-search/Sampler"
-import { Array as Arr, Data, Effect, Option, Record, Schema, Tuple } from "effect"
-import { labeledDemos, type LabeledExamples, selectRandomDemos } from "./internal/labeledFewShot/sampling.js"
+import { Array as Arr, Data, Effect, Option, Random, Record, Schema, Tuple } from "effect"
+import { Demonstration } from "./Demonstration.js"
+import * as Example from "./Example.js"
+import { type LabeledExamples } from "./internal/labeledFewShot/sampling.js"
 import { bound, type Module } from "./Module.js"
 import { predictors } from "./ModuleGraph.js"
 import { withDemos as withModuleParamsDemos } from "./ModuleParameters.js"
@@ -42,24 +44,26 @@ export class Options<
 > extends Data.Class<{
   /** Program whose optimizable leaves receive demonstrations in a bound copy. */
   readonly module: Module<I, O, E, R>
-  /** Source examples; entries without `output` are ignored. */
+  /** Source examples; entries without labels are ignored. */
   readonly trainset: LabeledExamples
-  /** Selection cap, rounded down; negative and non-finite values select none. */
-  readonly k: number
+  /** Selection cap, default 16; negative and non-finite values select none. */
+  readonly k?: number
+  /** Random sampling by default; false selects the first k labeled rows. */
+  readonly sample?: boolean
   /** Pseudo-random selection seed. Defaults to `1`. */
   readonly seed?: number
 }> {}
 
 /**
- * Replaces demonstrations across a module ownership tree with one labeled subset.
+ * Replaces demonstrations with independently sampled per-predictor subsets.
  *
  * @remarks
- * Entries without `output` are ignored. The remaining examples receive seeded
- * pseudo-random scores, are sorted by score, and are truncated to the normalized
- * `k`. Each unfrozen leaf validates the selected wire values with its own
- * encoded signature. Shared owners are sampled once. Caller refs are unchanged.
+ * Entries without labels are ignored. Each unfrozen leaf draws without replacement
+ * from a seeded Effect Random stream, or takes the first k rows when sample is false.
+ * Labels are projected onto destination fields and missing output fields mark a
+ * demonstration incomplete. Shared owners are sampled once. Caller refs are unchanged.
  *
- * Incompatible stages fail with a checked ParseError; use trace bootstrapping
+ * Incompatible input fields fail with a checked SchemaError; use trace bootstrapping
  * to derive stage-specific demonstrations. No model or metric calls are performed.
  *
  * @typeParam I - Root module input fields, used only to retain its type.
@@ -79,20 +83,31 @@ export const run = <
 >(options: Options<I, O, E, R>) =>
   Effect.gen(function*() {
     const seed = normalizeDeterministicSeed(options.seed ?? 1)
-    const k = Numeric.isFinite(options.k) ? Numeric.max(0, Numeric.floor(options.k)) : 0
-    const demos = selectRandomDemos(labeledDemos(options.trainset), k, seed)
+    const requested = options.k ?? 16
+    const k = Numeric.isFinite(requested) ? Numeric.max(0, Numeric.floor(requested)) : 0
+    const demos = yield* Effect.forEach(
+      Arr.filter(options.trainset, (example) => Option.isSome(example.labels)),
+      (example) =>
+        Example.id(example).pipe(Effect.map((id) =>
+          new Demonstration({
+            input: example.input,
+            output: Option.getOrThrow(example.labels),
+            exampleId: Option.some(id)
+          })
+        ))
+    )
     const before = yield* ParameterSet.snapshot(options.module)
     const refs = Arr.filter(Arr.fromIterable(predictors(options.module)), (entry) => entry.ownership !== "frozen")
     const replacements = yield* Effect.forEach(refs, (entry) =>
-      Effect.forEach(demos, entry.demonstrationCodec.decode).pipe(
-        Effect.map((validated) =>
-          Tuple.make(entry.id, withModuleParamsDemos(Option.getOrThrow(Record.get(before, entry.id)), validated))
-        )
-      ))
+      Effect.gen(function*() {
+        const selected = Arr.take(options.sample === false ? demos : yield* Random.shuffle(demos), k)
+        const validated = yield* Effect.forEach(selected, entry.demonstrationCodec.labeled)
+        return Tuple.make(entry.id, withModuleParamsDemos(Option.getOrThrow(Record.get(before, entry.id)), validated))
+      })).pipe(Random.withSeed(seed))
     const parameters = { ...before, ...Record.fromEntries(replacements) }
     return new Optimized.Result({
       program: bound(options.module, parameters),
       parameters,
-      report: new Report({ k, sampled: Arr.length(demos), seed })
+      report: new Report({ k, sampled: Numeric.min(k, Arr.length(demos)), seed })
     })
   })
