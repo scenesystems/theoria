@@ -10,7 +10,7 @@ import * as Module from "@scenesystems/effect-dsp/Module"
 import { ModuleParameters } from "@scenesystems/effect-dsp/ModuleParameters"
 import * as Signature from "@scenesystems/effect-dsp/Signature"
 import * as OptimizationStorage from "@scenesystems/effect-search/OptimizationStorage"
-import { Failure as ArtifactStorageError } from "@scenesystems/effect-study/Journal"
+import { Failure as ArtifactStorageError } from "@scenesystems/effect-study/PersistenceError"
 import { Array as Arr, Context, Deferred, Effect, Equal, Exit, Fiber, Number, Ref, Schema } from "effect"
 import * as LanguageModel from "effect/ai/LanguageModel"
 import type { Services as EffectServices } from "effect/Effect"
@@ -80,7 +80,7 @@ describe("BootstrapRS.run transactional restoration", () => {
       const { module, child } = yield* makeTree
       const original = yield* Module.save(module)
       const mock = yield* MockLanguageModel.make(MockLanguageModel.succeed({ answer: "answer" }))
-      const storageFailure = new ArtifactStorageError({ operation: "write", path: "candidate", detail: "unavailable" })
+      const storageFailure = new ArtifactStorageError({ reason: "Backend", operation: "write", detail: "unavailable" })
       const storage = OptimizationStorage.OptimizationStorage.of({
         appendTrial: () => Effect.fail(storageFailure),
         writeSnapshot: () => Effect.void,

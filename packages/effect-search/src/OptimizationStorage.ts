@@ -4,7 +4,7 @@
  * @since 0.7.0
  * @module
  */
-import type * as Journal from "@scenesystems/effect-study/Journal"
+import type * as PersistenceError from "@scenesystems/effect-study/PersistenceError"
 import * as StudyStorage from "@scenesystems/effect-study/StudyStorage"
 import type { FileSystem, Path } from "effect"
 import { Array as Arr, Context, Effect, Layer, Number as Num, Option, Schema, Tuple } from "effect"
@@ -17,16 +17,16 @@ const Trials = Schema.Array(OptimizationSnapshot.Trial)
 export class OptimizationStorage extends Context.Service<
   OptimizationStorage,
   {
-    readonly appendTrial: (trial: OptimizationSnapshot.Trial) => Effect.Effect<void, Journal.Failure>
+    readonly appendTrial: (trial: OptimizationSnapshot.Trial) => Effect.Effect<void, PersistenceError.Failure>
     readonly writeSnapshot: (
       snapshot: OptimizationSnapshot.OptimizationSnapshot
-    ) => Effect.Effect<void, Journal.Failure>
+    ) => Effect.Effect<void, PersistenceError.Failure>
     readonly loadSnapshot: (_?: void) => Effect.Effect<
       Option.Option<OptimizationSnapshot.OptimizationSnapshot>,
-      Journal.Failure
+      PersistenceError.Failure
     >
-    readonly loadTrialLog: (_?: void) => Effect.Effect<typeof Trials.Type, Journal.Failure>
-    readonly replayTrialLog: (_?: void) => Effect.Effect<typeof Trials.Type, Journal.Failure>
+    readonly loadTrialLog: (_?: void) => Effect.Effect<typeof Trials.Type, PersistenceError.Failure>
+    readonly replayTrialLog: (_?: void) => Effect.Effect<typeof Trials.Type, PersistenceError.Failure>
   }
 >()("@scenesystems/effect-search/OptimizationStorage") {}
 
@@ -71,7 +71,7 @@ export const make: Effect.Effect<Service, never, StudyStorage.StudyStorage> = St
  */
 export const makeFileSystem = (
   options: StudyStorage.FileSystemOptions
-): Effect.Effect<Service, Journal.Failure, FileSystem.FileSystem | Path.Path> =>
+): Effect.Effect<Service, PersistenceError.Failure, FileSystem.FileSystem | Path.Path> =>
   StudyStorage.makeFileSystem(options).pipe(Effect.map(specialize))
 
 /** Provides optimization policy over an ambient generic storage service. @since 0.7.0 @category layers */
@@ -83,22 +83,22 @@ export const layer: Layer.Layer<OptimizationStorage, never, StudyStorage.StudySt
 /** Provides filesystem-backed optimization storage. @since 0.7.0 @category layers */
 export const layerFileSystem = (
   options: StudyStorage.FileSystemOptions
-): Layer.Layer<OptimizationStorage, Journal.Failure, FileSystem.FileSystem | Path.Path> =>
+): Layer.Layer<OptimizationStorage, PersistenceError.Failure, FileSystem.FileSystem | Path.Path> =>
   Layer.effect(OptimizationStorage, makeFileSystem(options))
 
 const optional = <A>(
-  present: (storage: Service) => Effect.Effect<A, Journal.Failure>,
+  present: (storage: Service) => Effect.Effect<A, PersistenceError.Failure>,
   absent: Effect.Effect<A>
-): Effect.Effect<A, Journal.Failure> =>
+): Effect.Effect<A, PersistenceError.Failure> =>
   Effect.serviceOption(OptimizationStorage).pipe(
     Effect.flatMap(Option.match({ onNone: () => absent, onSome: present }))
   )
 
 /** Appends only when optimization storage is present in the ambient context. @since 0.7.0 @category combinators */
-export const appendIfAvailable = (trial: OptimizationSnapshot.Trial): Effect.Effect<void, Journal.Failure> =>
+export const appendIfAvailable = (trial: OptimizationSnapshot.Trial): Effect.Effect<void, PersistenceError.Failure> =>
   optional((storage) => storage.appendTrial(trial), Effect.void)
 
 /** Writes only when optimization storage is present in the ambient context. @since 0.7.0 @category combinators */
 export const writeIfAvailable = (
   snapshot: OptimizationSnapshot.OptimizationSnapshot
-): Effect.Effect<void, Journal.Failure> => optional((storage) => storage.writeSnapshot(snapshot), Effect.void)
+): Effect.Effect<void, PersistenceError.Failure> => optional((storage) => storage.writeSnapshot(snapshot), Effect.void)

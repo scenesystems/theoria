@@ -3,7 +3,7 @@
  *
  * @since 0.1.0
  */
-import * as Journal from "@scenesystems/effect-study/Journal"
+import * as PersistenceError from "@scenesystems/effect-study/PersistenceError"
 import {
   Array as Arr,
   Boolean as Bool,
@@ -34,7 +34,7 @@ import { type CacheResolveForTrial, ObjectiveSample } from "./outcome.js"
 
 type ConfigFor<Space extends SearchSpace.SearchSpace> = SearchSpace.Type<Space>
 
-const isJournalFailure = Schema.is(Journal.Failure)
+const isPersistenceFailure = Schema.is(PersistenceError.Failure)
 const isTrialError = Schema.is(TrialError)
 
 /**
@@ -44,7 +44,7 @@ const isTrialError = Schema.is(TrialError)
  * undone by evaluating the objective again.
  */
 const retryableTrialError = (
-  cause: Cause.Cause<TrialError | Journal.Failure>
+  cause: Cause.Cause<TrialError | PersistenceError.Failure>
 ): Option.Option<TrialError> => {
   const failures = Arr.filter(cause.reasons, Cause.isFailReason)
   const trialFailures = Arr.filter(Arr.map(failures, ({ error }) => error), isTrialError)
@@ -67,7 +67,7 @@ const retryableTrialError = (
  *
  * An objective that fails because `runtime.report` or `runtime.requestStop` could not
  * persist an envelope has not failed as an objective: a cause carrying an
- * {@link Journal.Failure} passes through whole and unretried so the optimization fails
+ * {@link PersistenceError.Failure} passes through whole and unretried so the optimization fails
  * with it, and so does a cause carrying a defect or an interruption. When the retry
  * schedule is exhausted the last attempt's cause is the result.
  *
@@ -82,26 +82,27 @@ export const evaluateObjectiveWithRetry = <Space extends SearchSpace.SearchSpace
   running: Trial.Trial<ConfigFor<Space>>,
   trialContext: TrialContext,
   resolveCachedValue: CacheResolveForTrial<Space["schema"]>
-): Effect.Effect<ObjectiveSample, TrialError | Journal.Failure> =>
+): Effect.Effect<ObjectiveSample, TrialError | PersistenceError.Failure> =>
   Effect.gen(function*() {
     const retryStep = yield* Schedule.toStepWithSleep(settings.retrySchedule)
 
-    const evaluateUncached: Effect.Effect<ObjectiveEvaluation, TrialError | Journal.Failure> = options.objective(
-      running.config,
-      objectiveRuntime
-    ).pipe(
-      Effect.flatMap((result) => decodeObjectiveResult(trialNumber, result)),
-      Effect.catchCause((cause) =>
-        Effect.failCause(Cause.map(cause, (error) =>
-          Option.liftPredicate(error, isJournalFailure).pipe(
-            Option.match({
-              onNone: () => objectiveFailure(trialNumber, error),
-              onSome: (failure) => failure
-            })
-          )))
-      ),
-      Effect.provideService(CurrentTrialContext, Option.some(trialContext))
-    )
+    const evaluateUncached: Effect.Effect<ObjectiveEvaluation, TrialError | PersistenceError.Failure> = options
+      .objective(
+        running.config,
+        objectiveRuntime
+      ).pipe(
+        Effect.flatMap((result) => decodeObjectiveResult(trialNumber, result)),
+        Effect.catchCause((cause) =>
+          Effect.failCause(Cause.map(cause, (error) =>
+            Option.liftPredicate(error, isPersistenceFailure).pipe(
+              Option.match({
+                onNone: () => objectiveFailure(trialNumber, error),
+                onSome: (failure) => failure
+              })
+            )))
+        ),
+        Effect.provideService(CurrentTrialContext, Option.some(trialContext))
+      )
 
     const evaluateWithCache = Effect.gen(function*() {
       const lastEvaluation = yield* Ref.make<Option.Option<ObjectiveEvaluation>>(Option.none())
@@ -109,7 +110,7 @@ export const evaluateObjectiveWithRetry = <Space extends SearchSpace.SearchSpace
         new CacheRequest<
           Space["schema"]["Type"],
           Space["schema"]["Encoded"],
-          TrialError | Journal.Failure,
+          TrialError | PersistenceError.Failure,
           never
         >({
           schema: options.space.schema,
@@ -124,7 +125,7 @@ export const evaluateObjectiveWithRetry = <Space extends SearchSpace.SearchSpace
       return Option.getOrElse(captured, () => new ObjectiveEvaluation({ value }))
     })
 
-    const retryLoop = (attempt: number): Effect.Effect<ObjectiveSample, TrialError | Journal.Failure> =>
+    const retryLoop = (attempt: number): Effect.Effect<ObjectiveSample, TrialError | PersistenceError.Failure> =>
       evaluateWithCache.pipe(
         Effect.map((evaluation) =>
           new ObjectiveSample({

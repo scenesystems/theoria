@@ -20,6 +20,7 @@ import {
 } from "effect"
 
 import * as Journal from "./Journal.js"
+import * as PersistenceError from "./PersistenceError.js"
 
 const defaultFileName = "study-storage.jsonl"
 const memoryPath = "memory://effect-study/StudyStorage"
@@ -70,17 +71,17 @@ export class StudyStorage extends Context.Service<
     readonly appendTrial: <A, I, RD, RE>(
       schema: Schema.Codec<A, I, RD, RE>,
       trial: A
-    ) => Effect.Effect<void, Journal.Failure, RE>
+    ) => Effect.Effect<void, PersistenceError.Failure, RE>
     readonly writeSnapshot: <A, I, RD, RE>(
       schema: Schema.Codec<A, I, RD, RE>,
       snapshot: A
-    ) => Effect.Effect<void, Journal.Failure, RE>
+    ) => Effect.Effect<void, PersistenceError.Failure, RE>
     readonly loadSnapshot: <A, I, RD, RE>(
       schema: Schema.Codec<A, I, RD, RE>
-    ) => Effect.Effect<Option.Option<A>, Journal.Failure, RD>
+    ) => Effect.Effect<Option.Option<A>, PersistenceError.Failure, RD>
     readonly loadTrialLog: <A, I, RD, RE>(
       schema: Schema.Codec<A, I, RD, RE>
-    ) => Effect.Effect<ReadonlyArray<A>, Journal.Failure, RD>
+    ) => Effect.Effect<ReadonlyArray<A>, PersistenceError.Failure, RD>
   }
 >()("@scenesystems/effect-study/StudyStorage") {}
 
@@ -88,8 +89,10 @@ export class StudyStorage extends Context.Service<
 export type Service = StudyStorage["Service"]
 
 const codecFailure =
-  (operation: Journal.Failure["operation"], path: string) => (cause: Schema.SchemaError): Journal.Failure =>
-    new Journal.Failure({
+  (operation: PersistenceError.Failure["operation"], path: string) =>
+  (cause: Schema.SchemaError): PersistenceError.Failure =>
+    new PersistenceError.Failure({
+      reason: "Codec",
       operation,
       path,
       detail: cause.message
@@ -100,7 +103,7 @@ const encodeRecord = <A, I, RD, RE>(
   tag: PersistedRecord["_tag"],
   schema: Schema.Codec<A, I, RD, RE>,
   value: A
-): Effect.Effect<PersistedRecord, Journal.Failure, RE> =>
+): Effect.Effect<PersistedRecord, PersistenceError.Failure, RE> =>
   Schema.encodeEffect(schema)(value).pipe(
     Effect.mapError(codecFailure("write", path)),
     Effect.map((payload) => ({ _tag: tag, payload }))
@@ -110,27 +113,27 @@ const decodeRecord = <A, I, RD, RE>(
   path: string,
   schema: Schema.Codec<A, I, RD, RE>,
   record: PersistedRecord
-): Effect.Effect<A, Journal.Failure, RD> =>
+): Effect.Effect<A, PersistenceError.Failure, RD> =>
   Schema.decodeUnknownEffect(schema)(record.payload).pipe(Effect.mapError(codecFailure("read", path)))
 
 const service = (
   path: string,
-  append: (record: PersistedRecord) => Effect.Effect<void, Journal.Failure>,
-  load: Effect.Effect<ReadonlyArray<PersistedRecord>, Journal.Failure>
+  append: (record: PersistedRecord) => Effect.Effect<void, PersistenceError.Failure>,
+  load: Effect.Effect<ReadonlyArray<PersistedRecord>, PersistenceError.Failure>
 ): Service => ({
   appendTrial: <A, I, RD, RE>(
     schema: Schema.Codec<A, I, RD, RE>,
     trial: A
-  ): Effect.Effect<void, Journal.Failure, RE> =>
+  ): Effect.Effect<void, PersistenceError.Failure, RE> =>
     encodeRecord(path, "Trial", schema, trial).pipe(Effect.flatMap(append)),
   writeSnapshot: <A, I, RD, RE>(
     schema: Schema.Codec<A, I, RD, RE>,
     snapshot: A
-  ): Effect.Effect<void, Journal.Failure, RE> =>
+  ): Effect.Effect<void, PersistenceError.Failure, RE> =>
     encodeRecord(path, "Snapshot", schema, snapshot).pipe(Effect.flatMap(append)),
   loadSnapshot: <A, I, RD, RE>(
     schema: Schema.Codec<A, I, RD, RE>
-  ): Effect.Effect<Option.Option<A>, Journal.Failure, RD> =>
+  ): Effect.Effect<Option.Option<A>, PersistenceError.Failure, RD> =>
     load.pipe(
       Effect.map((records) => Arr.findLast(records, (record) => Str.Equivalence(record._tag, "Snapshot"))),
       Effect.flatMap(
@@ -142,7 +145,7 @@ const service = (
     ),
   loadTrialLog: <A, I, RD, RE>(
     schema: Schema.Codec<A, I, RD, RE>
-  ): Effect.Effect<ReadonlyArray<A>, Journal.Failure, RD> =>
+  ): Effect.Effect<ReadonlyArray<A>, PersistenceError.Failure, RD> =>
     load.pipe(
       Effect.map((records) => Arr.filter(records, (record) => Str.Equivalence(record._tag, "Trial"))),
       Effect.flatMap((records) => Effect.forEach(records, (record) => decodeRecord(path, schema, record)))
@@ -181,13 +184,14 @@ export const layerMemory: Layer.Layer<StudyStorage> = Layer.fresh(Layer.effect(S
  */
 export const makeFileSystem = (
   options: FileSystemOptions
-): Effect.Effect<Service, Journal.Failure, FileSystem.FileSystem | Path.Path> =>
+): Effect.Effect<Service, PersistenceError.Failure, FileSystem.FileSystem | Path.Path> =>
   Journal.make(PersistedRecord, options.directory, options.fileName).pipe(
+    Effect.mapError(PersistenceError.fromJournal),
     Effect.map((journal) =>
       service(
         journal.path,
-        journal.append,
-        journal.read.pipe(Stream.runCollect)
+        (record) => journal.append(record).pipe(Effect.mapError(PersistenceError.fromJournal)),
+        journal.read.pipe(Stream.runCollect, Effect.mapError(PersistenceError.fromJournal))
       )
     )
   )
@@ -200,7 +204,7 @@ export const makeFileSystem = (
  */
 export const layerFileSystem = (
   options: FileSystemOptions
-): Layer.Layer<StudyStorage, Journal.Failure, FileSystem.FileSystem | Path.Path> =>
+): Layer.Layer<StudyStorage, PersistenceError.Failure, FileSystem.FileSystem | Path.Path> =>
   Layer.effect(StudyStorage, makeFileSystem(options))
 
 /** Installs an existing generic study storage service. @since 0.1.0 @category layers */
@@ -210,24 +214,24 @@ export const layer = (storage: Service): Layer.Layer<StudyStorage> => Layer.succ
 export const appendTrial = <A, I, RD, RE>(
   schema: Schema.Codec<A, I, RD, RE>,
   trial: A
-): Effect.Effect<void, Journal.Failure, StudyStorage | RE> =>
+): Effect.Effect<void, PersistenceError.Failure, StudyStorage | RE> =>
   StudyStorage.pipe(Effect.flatMap((storage) => storage.appendTrial(schema, trial)))
 
 /** Writes a snapshot through ambient generic storage. @since 0.1.0 @category operations */
 export const writeSnapshot = <A, I, RD, RE>(
   schema: Schema.Codec<A, I, RD, RE>,
   snapshot: A
-): Effect.Effect<void, Journal.Failure, StudyStorage | RE> =>
+): Effect.Effect<void, PersistenceError.Failure, StudyStorage | RE> =>
   StudyStorage.pipe(Effect.flatMap((storage) => storage.writeSnapshot(schema, snapshot)))
 
 /** Loads the latest snapshot through ambient generic storage. @since 0.1.0 @category operations */
 export const loadSnapshot = <A, I, RD, RE>(
   schema: Schema.Codec<A, I, RD, RE>
-): Effect.Effect<Option.Option<A>, Journal.Failure, StudyStorage | RD> =>
+): Effect.Effect<Option.Option<A>, PersistenceError.Failure, StudyStorage | RD> =>
   StudyStorage.pipe(Effect.flatMap((storage) => storage.loadSnapshot(schema)))
 
 /** Loads the complete trial log through ambient generic storage. @since 0.1.0 @category operations */
 export const loadTrialLog = <A, I, RD, RE>(
   schema: Schema.Codec<A, I, RD, RE>
-): Effect.Effect<ReadonlyArray<A>, Journal.Failure, StudyStorage | RD> =>
+): Effect.Effect<ReadonlyArray<A>, PersistenceError.Failure, StudyStorage | RD> =>
   StudyStorage.pipe(Effect.flatMap((storage) => storage.loadTrialLog(schema)))

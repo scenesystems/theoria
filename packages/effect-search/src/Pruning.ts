@@ -5,7 +5,7 @@
  * @module
  */
 import * as Numeric from "@scenesystems/effect-math/Numeric"
-import type * as Journal from "@scenesystems/effect-study/Journal"
+import type * as PersistenceError from "@scenesystems/effect-study/PersistenceError"
 import type * as Stop from "@scenesystems/effect-study/Stop"
 import { Array as Arr, Boolean as Bool, Data, Match, Number as Num, Option, Predicate, Result, Schema } from "effect"
 import type { Effect } from "effect"
@@ -99,9 +99,9 @@ export class Runtime extends Data.Class<{
   readonly report: (
     step: number,
     value: number
-  ) => Effect.Effect<Decision, InvalidObjectiveReport | Journal.Failure>
+  ) => Effect.Effect<Decision, InvalidObjectiveReport | PersistenceError.Failure>
   readonly heartbeat: Effect.Effect<Stop.Decision>
-  readonly requestStop: (reason?: string) => Effect.Effect<void, Journal.Failure>
+  readonly requestStop: (reason?: string) => Effect.Effect<void, PersistenceError.Failure>
   readonly resource: Effect.Effect<Option.Option<number>>
 }> {}
 

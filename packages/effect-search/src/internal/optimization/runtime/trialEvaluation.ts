@@ -3,7 +3,7 @@
  *
  * @since 0.1.0
  */
-import * as Journal from "@scenesystems/effect-study/Journal"
+import * as PersistenceError from "@scenesystems/effect-study/PersistenceError"
 import { Array as Arr, Cause, Effect, Exit, Match, Option, Schema } from "effect"
 
 import { TrialError } from "../../../SearchError.js"
@@ -21,7 +21,7 @@ export { ObjectiveAttempt }
 
 type ConfigFor<Space extends SearchSpace.SearchSpace> = SearchSpace.Type<Space>
 
-const isJournalFailure = Schema.is(Journal.Failure)
+const isPersistenceFailure = Schema.is(PersistenceError.Failure)
 
 const evaluateObjectiveWithAveraging = <Space extends SearchSpace.SearchSpace>(
   options: OptimizePlan<ConfigFor<Space>, Space>,
@@ -31,7 +31,7 @@ const evaluateObjectiveWithAveraging = <Space extends SearchSpace.SearchSpace>(
   running: Trial.Trial<ConfigFor<Space>>,
   trialContext: TrialContext,
   resolveCachedValue: CacheResolveForTrial<Space["schema"]>
-): Effect.Effect<ObjectiveAttempt, TrialError | Journal.Failure> =>
+): Effect.Effect<ObjectiveAttempt, TrialError | PersistenceError.Failure> =>
   Effect.forEach(
     Arr.makeBy(settings.evaluationsPerTrial, (index) => index),
     () =>
@@ -55,14 +55,14 @@ const evaluateObjectiveWithAveraging = <Space extends SearchSpace.SearchSpace>(
  * defects, or interruptions.
  */
 const liftStorageFailure = (
-  exit: Exit.Exit<ObjectiveAttempt, TrialError | Journal.Failure>
-): Effect.Effect<Exit.Exit<ObjectiveAttempt, TrialError>, TrialError | Journal.Failure> =>
+  exit: Exit.Exit<ObjectiveAttempt, TrialError | PersistenceError.Failure>
+): Effect.Effect<Exit.Exit<ObjectiveAttempt, TrialError>, TrialError | PersistenceError.Failure> =>
   Exit.match(exit, {
     onSuccess: (attempt) => Effect.succeed(Exit.succeed(attempt)),
     onFailure: (cause) =>
       Arr.findFirst(cause.reasons, (reason) =>
         Match.value(reason).pipe(
-          Match.when({ _tag: "Fail" }, ({ error }) => isJournalFailure(error)),
+          Match.when({ _tag: "Fail" }, ({ error }) => isPersistenceFailure(error)),
           Match.orElse(() => false)
         )).pipe(
           Option.match({
@@ -74,7 +74,7 @@ const liftStorageFailure = (
                     Match.value(error).pipe(
                       Match.tag("effect-search/TrialError", (trial) => trial),
                       Match.tag(
-                        "effect-study/JournalError",
+                        "effect-study/PersistenceError",
                         (storage) => new TrialError({ trialNumber: -1, message: storage.message, cause: storage })
                       ),
                       Match.exhaustive
@@ -101,7 +101,7 @@ export const evaluateObjectiveWithPolicy = <Space extends SearchSpace.SearchSpac
   resolveCachedValue: CacheResolveForTrial<Space["schema"]>
 ): Effect.Effect<
   Option.Option<Exit.Exit<ObjectiveAttempt, TrialError>>,
-  TrialError | Journal.Failure,
+  TrialError | PersistenceError.Failure,
   never
 > => {
   const objectiveEffect = evaluateObjectiveWithAveraging(

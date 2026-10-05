@@ -4,9 +4,10 @@
  * @since 0.1.0
  * @module
  */
-import { Context, Effect, type FileSystem, Layer, type Path, Schema, type Stream } from "effect"
+import { Context, Effect, type FileSystem, Layer, type Path, Schema, Stream } from "effect"
 
 import * as Journal from "./Journal.js"
+import * as PersistenceError from "./PersistenceError.js"
 
 const defaultFileName = "artifacts.jsonl"
 
@@ -23,15 +24,12 @@ export class ArtifactSink extends Context.Service<
     readonly emit: <A, I, RD, RE>(
       schema: Schema.Codec<A, I, RD, RE>,
       artifact: A
-    ) => Effect.Effect<void, Journal.Failure, RE>
+    ) => Effect.Effect<void, PersistenceError.Failure, RE>
   }
 >()("@scenesystems/effect-study/ArtifactSink") {}
 
 /** Artifact sink implementation. @since 0.1.0 @category services */
 export type Service = ArtifactSink["Service"]
-
-const codecFailure = (path: string) => (cause: Schema.SchemaError): Journal.Failure =>
-  new Journal.Failure({ operation: "write", path, detail: cause.message })
 
 /** Installs an existing artifact sink. @since 0.1.0 @category layers */
 export const layer = (service: Service): Layer.Layer<ArtifactSink> => Layer.succeed(ArtifactSink, service)
@@ -46,16 +44,17 @@ export const layer = (service: Service): Layer.Layer<ArtifactSink> => Layer.succ
 export const makeFileSystem = (
   directory: string,
   fileName = defaultFileName
-): Effect.Effect<Service, Journal.Failure, FileSystem.FileSystem | Path.Path> =>
+): Effect.Effect<Service, PersistenceError.Failure, FileSystem.FileSystem | Path.Path> =>
   Journal.make(Schema.Unknown, directory, fileName).pipe(
+    Effect.mapError(PersistenceError.fromJournal),
     Effect.map((journal) => ({
       emit: <A, I, RD, RE>(
         schema: Schema.Codec<A, I, RD, RE>,
         artifact: A
-      ): Effect.Effect<void, Journal.Failure, RE> =>
+      ): Effect.Effect<void, PersistenceError.Failure, RE> =>
         Schema.encodeEffect(schema)(artifact).pipe(
-          Effect.mapError(codecFailure(journal.path)),
-          Effect.flatMap(journal.append)
+          Effect.mapError(PersistenceError.codec("write")),
+          Effect.flatMap((encoded) => journal.append(encoded).pipe(Effect.mapError(PersistenceError.fromJournal)))
         )
     }))
   )
@@ -69,7 +68,7 @@ export const makeFileSystem = (
 export const layerFileSystem = (
   directory: string,
   fileName = defaultFileName
-): Layer.Layer<ArtifactSink, Journal.Failure, FileSystem.FileSystem | Path.Path> =>
+): Layer.Layer<ArtifactSink, PersistenceError.Failure, FileSystem.FileSystem | Path.Path> =>
   Layer.effect(ArtifactSink, makeFileSystem(directory, fileName))
 
 /**
@@ -81,13 +80,19 @@ export const layerFileSystem = (
 export const read = <A, I, RD, RE>(
   schema: Schema.Codec<A, I, RD, RE>,
   path: string
-): Stream.Stream<A, Journal.Failure, FileSystem.FileSystem | RD> => Journal.read(schema, path)
+): Stream.Stream<A, PersistenceError.Failure, FileSystem.FileSystem | RD> =>
+  Journal.read(Schema.Unknown, path).pipe(
+    Stream.mapError(PersistenceError.fromJournal),
+    Stream.mapEffect((encoded) =>
+      Schema.decodeUnknownEffect(schema)(encoded).pipe(Effect.mapError(PersistenceError.codec("read")))
+    )
+  )
 
 /** Delivers an artifact through the ambient sink. @since 0.1.0 @category operations */
 export const emit = <A, I, RD, RE>(
   schema: Schema.Codec<A, I, RD, RE>,
   artifact: A
-): Effect.Effect<void, Journal.Failure, ArtifactSink | RE> =>
+): Effect.Effect<void, PersistenceError.Failure, ArtifactSink | RE> =>
   ArtifactSink.pipe(Effect.flatMap((sink) => sink.emit(schema, artifact)))
 
 /**
@@ -100,6 +105,6 @@ export const fanout = (left: Service, right: Service): Service => ({
   emit: <A, I, RD, RE>(
     schema: Schema.Codec<A, I, RD, RE>,
     artifact: A
-  ): Effect.Effect<void, Journal.Failure, RE> =>
+  ): Effect.Effect<void, PersistenceError.Failure, RE> =>
     left.emit(schema, artifact).pipe(Effect.andThen(right.emit(schema, artifact)))
 })

@@ -6,7 +6,7 @@
 import * as StudyArtifact from "@scenesystems/effect-study/Artifact"
 import * as ArtifactContext from "@scenesystems/effect-study/ArtifactContext"
 import type * as ArtifactSink from "@scenesystems/effect-study/ArtifactSink"
-import type * as Journal from "@scenesystems/effect-study/Journal"
+import type * as PersistenceError from "@scenesystems/effect-study/PersistenceError"
 import { Array as Arr, Data, DateTime, Effect, Match, Number as Num, Option, PubSub, Ref, Tuple } from "effect"
 
 import * as Artifact from "../../Artifact.js"
@@ -23,14 +23,14 @@ import { betterByDirection } from "./best.js"
  * @remarks
  * `ExecuteRequest.eventPublisher` accepts one; {@link envelopeEventPublisher}
  * builds the persistent form. Publication to a persistent destination can fail
- * with {@link Journal.Failure}, and that failure is the optimization's.
+ * with {@link PersistenceError.Failure}, and that failure is the optimization's.
  *
  * @since 0.1.0
  * @category models
  */
 export class EventPublisher extends Data.Class<{
-  /** Delivers one event; a persistent destination that cannot accept it fails with {@link Journal.Failure}. */
-  readonly publish: (event: OptimizationEvent.OptimizationEvent) => Effect.Effect<void, Journal.Failure>
+  /** Delivers one event; a persistent destination that cannot accept it fails with {@link PersistenceError.Failure}. */
+  readonly publish: (event: OptimizationEvent.OptimizationEvent) => Effect.Effect<void, PersistenceError.Failure>
 }> {}
 
 /**
@@ -89,7 +89,7 @@ const eventComponent: StudyArtifact.ComponentPath = Arr.make("Optimization", "ev
  * Each call allocates the next artifact ID from the required {@link ArtifactContext.ArtifactContext},
  * records the current wall-clock time, and relates the envelope to the context's
  * run ID. The envelope identifies `effect-search` as its origin. A sink that cannot accept the envelope fails
- * publication with the sink's {@link Journal.Failure}.
+ * publication with the sink's {@link PersistenceError.Failure}.
  *
  * @since 0.1.0
  * @category constructors
@@ -131,7 +131,7 @@ export const envelopeEventPublisher = (
 export const appendEvent = (
   runtime: EventRuntime,
   event: OptimizationEvent.OptimizationEvent
-): Effect.Effect<void, Journal.Failure> => runtime.eventPublisher.publish(event)
+): Effect.Effect<void, PersistenceError.Failure> => runtime.eventPublisher.publish(event)
 
 const eventFromFinalizedTrial = <Config>(
   trial: Trial.Trial<Config>
@@ -176,7 +176,7 @@ export const emitLifecycleEvents = <Config>(
   objectiveSpec: Objective,
   finalized: Trial.Trial<Config>,
   runtime: EventRuntime
-): Effect.Effect<void, Journal.Failure> =>
+): Effect.Effect<void, PersistenceError.Failure> =>
   Effect.gen(function*() {
     yield* Option.match(eventFromFinalizedTrial(finalized), {
       onNone: () => Effect.void,

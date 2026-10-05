@@ -3,7 +3,7 @@
  *
  * @since 0.1.0
  */
-import type * as Journal from "@scenesystems/effect-study/Journal"
+import type * as PersistenceError from "@scenesystems/effect-study/PersistenceError"
 import * as Stop from "@scenesystems/effect-study/Stop"
 import { Effect, Option } from "effect"
 
@@ -43,7 +43,7 @@ export const requestOptimizationStop = (
   mode: Stop.Mode,
   trialNumber: number,
   reason: string
-): Effect.Effect<void, Journal.Failure> =>
+): Effect.Effect<void, PersistenceError.Failure> =>
   Stop.request(stopRef, new Stop.Request({ mode, requestedByTrialNumber: trialNumber, reason })).pipe(
     Effect.flatMap(
       Option.match({

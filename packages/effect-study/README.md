@@ -92,6 +92,8 @@ export const ReadingEnvelope = Artifact.Envelope(Producer, Lineage, Payload)
 
 `StudyStorage` similarly owns generic trial logs and latest snapshots. Both its memory and filesystem implementations schema-encode every write and schema-decode every read, preserving codec service requirements and reporting write and read failures separately. Its journal contains tagged `Trial` and `Snapshot` records with caller-encoded payloads. `effect-search` specializes this service with its optimization schemas.
 
+Persistence error migration: `StudyStorage`, `ArtifactSink`, and Search/DSP persistence paths now expose `PersistenceError.Failure`, with wire tag `effect-study/PersistenceError`. Replace generic `Journal.Failure` handlers and custom sink errors with this type. Its `reason` distinguishes `Codec`, `Backend`, `RecordConflict`, `CursorConflict`, and `Incompatible`; `operation` distinguishes reads from writes. Paths and physical line numbers are optional filesystem diagnostics. Direct `Journal` users retain `Journal.Failure`. Search treats all persistence failures as fatal, unretried infrastructure failures, never objective scores.
+
 Codecs carry independent decoding and encoding requirements: reads require only decoding services, writes only encoding services. `yield* StudyStorage.makeMemory` allocates fresh storage on each execution. `StudyStorage.layerMemory` and `ArtifactContext.layer(options)` allocate fresh state for each provision, including provisions within one scope. Provide once around all operations that belong to the same run; reuse the acquired service explicitly when sharing state is intended.
 
 ## Emitters and lifecycle

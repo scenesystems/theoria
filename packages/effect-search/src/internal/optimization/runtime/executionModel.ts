@@ -3,7 +3,7 @@
  *
  * @since 0.1.0
  */
-import type * as Journal from "@scenesystems/effect-study/Journal"
+import type * as PersistenceError from "@scenesystems/effect-study/PersistenceError"
 import { Array as Arr, Data, Effect } from "effect"
 
 import { type Objective } from "../../../Objective.js"
@@ -80,7 +80,7 @@ export type ConfigFor<Space extends SearchSpace.SearchSpace> = SearchSpace.Type<
  */
 export type InterruptionSnapshotSink = (
   snapshot: OptimizationSnapshot.OptimizationSnapshot
-) => Effect.Effect<void, Journal.Failure>
+) => Effect.Effect<void, PersistenceError.Failure>
 
 /**
  * @since 0.1.0

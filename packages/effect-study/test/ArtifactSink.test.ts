@@ -4,7 +4,7 @@ import { FileSystem, Path } from "effect"
 import { Array as Arr, Context, Effect, Ref, Result, Schema, SchemaGetter, Stream, String as Str } from "effect"
 
 import * as ArtifactSink from "@scenesystems/effect-study/ArtifactSink"
-import * as Journal from "@scenesystems/effect-study/Journal"
+import * as PersistenceError from "@scenesystems/effect-study/PersistenceError"
 
 class CodecPrefix extends Context.Service<CodecPrefix, string>()("effect-study/test/ArtifactSink/CodecPrefix") {}
 
@@ -42,7 +42,7 @@ describe("ArtifactSink", () => {
   it.effect("fans out in order and skips the right sink after a left failure", () =>
     Effect.gen(function*() {
       const delivered = yield* Ref.make(Arr.empty<string>())
-      const failure = new Journal.Failure({ operation: "write", path: "left", detail: "unavailable" })
+      const failure = new PersistenceError.Failure({ reason: "Backend", operation: "write", detail: "unavailable" })
       const left: ArtifactSink.Service = {
         emit: () => Ref.update(delivered, Arr.append("left")).pipe(Effect.andThen(Effect.fail(failure)))
       }
@@ -71,7 +71,7 @@ describe("ArtifactSink", () => {
       )
       const failure = yield* Effect.fromResult(Result.flip(outcome))
 
-      expect(failure).toBeInstanceOf(Journal.Failure)
+      expect(failure).toBeInstanceOf(PersistenceError.Failure)
       expect(failure.operation).toBe("read")
       expect(failure.line).toBe(1)
     }).pipe(Effect.provide(BunServices.layer)))

@@ -17,7 +17,7 @@ import {
   Tuple
 } from "effect"
 
-import type * as Journal from "@scenesystems/effect-study/Journal"
+import type * as PersistenceError from "@scenesystems/effect-study/PersistenceError"
 import * as GenericStudy from "@scenesystems/effect-study/Study"
 import * as OptimizationEvent from "../../OptimizationEvent.js"
 import { InvalidOptimizationConfig } from "../../SearchError.js"
@@ -73,7 +73,7 @@ export const publishCompletion = <Space extends SearchSpace.SearchSpace>(
   state: HandleRuntime<Space>,
   completionReason: OptimizationEvent.CompletionReason,
   lifecycle: "Completed" | "Cancelled"
-): Effect.Effect<void, Journal.Failure> =>
+): Effect.Effect<void, PersistenceError.Failure> =>
   Effect.gen(function*() {
     yield* Ref.update(state.runtime.completionReasonRef, (current) =>
       Option.orElse(
@@ -111,7 +111,7 @@ export const publishCompletion = <Space extends SearchSpace.SearchSpace>(
  */
 export const completeIfBudgetReached = <Space extends SearchSpace.SearchSpace>(
   state: HandleRuntime<Space>
-): Effect.Effect<void, Journal.Failure> =>
+): Effect.Effect<void, PersistenceError.Failure> =>
   Effect.gen(function*() {
     const runtimeState = yield* GenericStudy.read(state.runtime.study)
     const trialCount = freshTrialCountFromState(runtimeState.history)

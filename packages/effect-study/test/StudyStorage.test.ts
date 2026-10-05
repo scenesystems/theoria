@@ -14,7 +14,7 @@ import {
   String as Str
 } from "effect"
 
-import * as Journal from "@scenesystems/effect-study/Journal"
+import * as PersistenceError from "@scenesystems/effect-study/PersistenceError"
 import * as StudyStorage from "@scenesystems/effect-study/StudyStorage"
 
 class CodecPrefix extends Context.Service<CodecPrefix, string>()("effect-study/test/StudyStorage/CodecPrefix") {}
@@ -146,7 +146,7 @@ describe("StudyStorage", () => {
       const outcome = yield* storage.loadTrialLog(Observation).pipe(Effect.result)
       const failure = yield* Effect.fromResult(Result.flip(outcome))
 
-      expect(failure).toBeInstanceOf(Journal.Failure)
+      expect(failure).toBeInstanceOf(PersistenceError.Failure)
       expect(failure.operation).toBe("read")
       expect(failure.line).toBe(2)
     }).pipe(Effect.provide(BunServices.layer)))

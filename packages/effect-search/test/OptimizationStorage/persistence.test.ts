@@ -1,6 +1,6 @@
 import { BunServices } from "@effect/platform-bun"
 import { describe, expect, it } from "@effect/vitest"
-import * as Journal from "@scenesystems/effect-study/Journal"
+import * as PersistenceError from "@scenesystems/effect-study/PersistenceError"
 import * as StudyStorage from "@scenesystems/effect-study/StudyStorage"
 import { FileSystem, Path } from "effect"
 import { Array as Arr, Effect, Match, Option, Result, Schema, String as Str, Struct } from "effect"
@@ -120,10 +120,10 @@ describe("OptimizationStorage", () => {
 
       const storage = yield* OptimizationStorage.makeFileSystem(options)
       const outcome = yield* storage.loadTrialLog().pipe(Effect.result)
-      const failure = yield* Schema.decodeEffect(Journal.Failure)(Result.getOrThrow(Result.flip(outcome)))
+      const failure = yield* Schema.decodeEffect(PersistenceError.Failure)(Result.getOrThrow(Result.flip(outcome)))
 
-      expect(failure).toBeInstanceOf(Journal.Failure)
-      expect(failure._tag).toBe("effect-study/JournalError")
+      expect(failure).toBeInstanceOf(PersistenceError.Failure)
+      expect(failure.reason).toBe("Backend")
       expect(failure.operation).toBe("read")
       expect(failure.path).toBe(journalPath)
       expect(failure.line).toBe(2)
@@ -155,10 +155,10 @@ describe("OptimizationStorage", () => {
 
       yield* fileSystem.remove(journalDirectory, { recursive: true })
       const outcome = yield* storage.appendTrial(OptimizationSnapshot.fromTrial(trial)).pipe(Effect.result)
-      const failure = yield* Schema.decodeEffect(Journal.Failure)(Result.getOrThrow(Result.flip(outcome)))
+      const failure = yield* Schema.decodeEffect(PersistenceError.Failure)(Result.getOrThrow(Result.flip(outcome)))
 
-      expect(failure).toBeInstanceOf(Journal.Failure)
-      expect(failure._tag).toBe("effect-study/JournalError")
+      expect(failure).toBeInstanceOf(PersistenceError.Failure)
+      expect(failure.reason).toBe("Backend")
       expect(failure.operation).toBe("write")
       expect(failure.path).toBe(journalPath)
       expect(Option.isNone(Option.fromNullishOr(failure.line))).toBe(true)
