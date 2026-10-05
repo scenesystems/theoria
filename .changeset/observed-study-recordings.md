@@ -23,6 +23,8 @@ Filesystem recordings require one owning writer. They reject malformed records a
 
 Event and checkpoint payload decoding failures include the filesystem path and physical line, including cached records. After a failed or interrupted append, retry revalidates the file: a committed identity returns its receipt, an absent record can be appended, and an incomplete tail fails without repair.
 
+Artifact journals retain the destination path for schema encoding failures and the path plus physical line for JSON or artifact-schema decoding failures, counting blank lines. Encoding and decoding retain their independent codec service requirements.
+
 ### Allocate artifact identities and inspect cost completeness
 
 `ArtifactContext` accepts a restored `nextSequence` or a caller-owned allocator. Durable, unique reservations belong to the caller; the built-in memory allocator is not durable. Allocation does not store a payload. Delivery retries reuse the artifact's identity, and unused sequence gaps are valid. Sink fanout is sequential and awaited, but a later sink failure does not undo earlier delivery.

@@ -4,7 +4,7 @@
  * @since 0.1.0
  * @module
  */
-import { Context, Effect, type FileSystem, Layer, type Path, Schema, Stream } from "effect"
+import { Context, Effect, type FileSystem, Layer, type Path, Schema, type Stream } from "effect"
 
 import * as Journal from "./Journal.js"
 import * as PersistenceError from "./PersistenceError.js"
@@ -37,6 +37,7 @@ export const layer = (service: Service): Layer.Layer<ArtifactSink> => Layer.succ
 /**
  * Creates an append-only sink. Artifacts are schema-encoded before the unknown
  * journal serializes that encoded value exactly once as JSON.
+ * Encoding failures carry the destination journal path.
  *
  * @since 0.1.0
  * @category constructors
@@ -52,7 +53,14 @@ export const makeFileSystem = (
         artifact: A
       ): Effect.Effect<void, PersistenceError.Failure, RE> =>
         Schema.encodeEffect(schema)(artifact).pipe(
-          Effect.mapError(PersistenceError.codec("write")),
+          Effect.mapError((cause) =>
+            new PersistenceError.Failure({
+              reason: "Codec",
+              operation: "write",
+              path: journal.path,
+              detail: cause.message
+            })
+          ),
           Effect.flatMap(journal.append)
         )
     }))
@@ -72,6 +80,8 @@ export const layerFileSystem = (
 
 /**
  * Reads artifacts in physical journal order with the caller-owned schema.
+ * JSON and artifact-schema failures carry the path and physical line number,
+ * counting blank lines. Reads retain only the schema's decoding requirements.
  *
  * @since 0.1.0
  * @category operations
@@ -79,12 +89,7 @@ export const layerFileSystem = (
 export const read = <A, I, RD, RE>(
   schema: Schema.Codec<A, I, RD, RE>,
   path: string
-): Stream.Stream<A, PersistenceError.Failure, FileSystem.FileSystem | RD> =>
-  Journal.read(Schema.Unknown, path).pipe(
-    Stream.mapEffect((encoded) =>
-      Schema.decodeUnknownEffect(schema)(encoded).pipe(Effect.mapError(PersistenceError.codec("read")))
-    )
-  )
+): Stream.Stream<A, PersistenceError.Failure, FileSystem.FileSystem | RD> => Journal.read(schema, path)
 
 /** Delivers an artifact through the ambient sink. @since 0.1.0 @category operations */
 export const emit = <A, I, RD, RE>(

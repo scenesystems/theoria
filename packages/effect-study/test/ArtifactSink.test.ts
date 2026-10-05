@@ -20,11 +20,12 @@ import * as ArtifactContext from "@scenesystems/effect-study/ArtifactContext"
 import * as ArtifactSink from "@scenesystems/effect-study/ArtifactSink"
 import * as PersistenceError from "@scenesystems/effect-study/PersistenceError"
 
-class CodecPrefix extends Context.Service<CodecPrefix, string>()("effect-study/test/ArtifactSink/CodecPrefix") {}
+class EncodePrefix extends Context.Service<EncodePrefix, string>()("effect-study/test/ArtifactSink/EncodePrefix") {}
+class DecodePrefix extends Context.Service<DecodePrefix, string>()("effect-study/test/ArtifactSink/DecodePrefix") {}
 
 const Label = Schema.String.pipe(Schema.decode({
-  decode: SchemaGetter.transformEffect((encoded) => CodecPrefix.pipe(Effect.as(Str.toLowerCase(encoded)))),
-  encode: SchemaGetter.transformEffect((label) => CodecPrefix.pipe(Effect.as(Str.toUpperCase(label))))
+  decode: SchemaGetter.transformEffect((encoded) => DecodePrefix.pipe(Effect.as(Str.toLowerCase(encoded)))),
+  encode: SchemaGetter.transformEffect((label) => EncodePrefix.pipe(Effect.as(Str.toUpperCase(label))))
 }))
 
 const Artifact = Schema.Struct({ label: Label, score: Schema.FiniteFromString })
@@ -85,14 +86,14 @@ describe("ArtifactSink", () => {
       const directory = yield* fileSystem.makeTempDirectoryScoped({ prefix: "effect-study-artifact-sink-" })
       const sink = yield* ArtifactSink.makeFileSystem(directory)
       yield* sink.emit(Artifact, { label: "signal", score: 2.5 }).pipe(
-        Effect.provideService(CodecPrefix, "codec")
+        Effect.provideService(EncodePrefix, "encode")
       )
 
       const filePath = path.join(directory, "artifacts.jsonl")
       const raw = yield* fileSystem.readFileString(filePath)
       const decoded = yield* ArtifactSink.read(Artifact, filePath).pipe(
         Stream.runCollect,
-        Effect.provideService(CodecPrefix, "codec")
+        Effect.provideService(DecodePrefix, "decode")
       )
 
       expect(raw).toContain("\"label\":\"SIGNAL\"")
@@ -128,7 +129,7 @@ describe("ArtifactSink", () => {
 
       const outcome = yield* ArtifactSink.read(Artifact, filePath).pipe(
         Stream.runCollect,
-        Effect.provideService(CodecPrefix, "codec"),
+        Effect.provideService(DecodePrefix, "decode"),
         Effect.result
       )
       const failure = yield* Effect.fromResult(Result.flip(outcome))
@@ -136,5 +137,35 @@ describe("ArtifactSink", () => {
       expect(failure).toBeInstanceOf(PersistenceError.Failure)
       expect(failure.operation).toBe("read")
       expect(failure.line).toBe(1)
+    }).pipe(Effect.provide(BunServices.layer)))
+
+  it.effect("reports the physical line for schema-invalid JSON after blank lines", () =>
+    Effect.gen(function*() {
+      const fs = yield* FileSystem.FileSystem
+      const path = yield* Path.Path
+      const directory = yield* fs.makeTempDirectoryScoped()
+      const file = path.join(directory, "artifacts.jsonl")
+      yield* fs.writeFileString(file, "7\n\n\"invalid\"\n")
+      const accepted = yield* Ref.make(Arr.empty<number>())
+      const outcome = yield* ArtifactSink.read(Schema.Int, file).pipe(
+        Stream.runForEach((value) => Ref.update(accepted, Arr.append(value))),
+        Effect.result
+      )
+      const failure = yield* Effect.fromResult(Result.flip(outcome))
+      expect(yield* Ref.get(accepted)).toEqual([7])
+      expect(failure).toMatchObject({ reason: "Codec", operation: "read", path: file, line: 3 })
+    }).pipe(Effect.provide(BunServices.layer)))
+
+  it.effect("reports the artifact journal path when encoding fails without writing a payload", () =>
+    Effect.gen(function*() {
+      const fs = yield* FileSystem.FileSystem
+      const path = yield* Path.Path
+      const directory = yield* fs.makeTempDirectoryScoped()
+      const file = path.join(directory, "measurements.jsonl")
+      const sink = yield* ArtifactSink.makeFileSystem(directory, "measurements.jsonl")
+      const outcome = yield* sink.emit(Schema.Int, 1.5).pipe(Effect.result)
+      const failure = yield* Effect.fromResult(Result.flip(outcome))
+      expect(failure).toMatchObject({ reason: "Codec", operation: "write", path: file })
+      expect(yield* fs.exists(file)).toBe(false)
     }).pipe(Effect.provide(BunServices.layer)))
 })
