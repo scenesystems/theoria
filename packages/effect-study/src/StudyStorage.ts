@@ -19,6 +19,7 @@ import {
   String as Str
 } from "effect"
 
+import * as recording from "./internal/recording.js"
 import * as Journal from "./Journal.js"
 import * as PersistenceError from "./PersistenceError.js"
 
@@ -235,3 +236,85 @@ export const loadTrialLog = <A, I, RD, RE>(
   schema: Schema.Codec<A, I, RD, RE>
 ): Effect.Effect<ReadonlyArray<A>, PersistenceError.Failure, StudyStorage | RD> =>
   StudyStorage.pipe(Effect.flatMap((storage) => storage.loadTrialLog(schema)))
+
+/** A committed event's identity and one-based run-local position. @since 0.1.0 @category schemas */
+export const Receipt = Schema.Struct({
+  runId: Schema.NonEmptyString,
+  recordId: Schema.NonEmptyString,
+  cursor: Schema.Int.check(Schema.isGreaterThan(0))
+}).annotate({ identifier: "@scenesystems/effect-study/StudyStorage/Receipt" })
+
+/** Committed identity, independent of append request retries. @since 0.1.0 @category models */
+export type Receipt = typeof Receipt.Type
+
+/** A decoded event and its committed receipt. @since 0.1.0 @category models */
+export class StoredEvent<A> extends Data.Class<{ readonly receipt: Receipt; readonly event: A }> {}
+
+/** A checkpoint bound to one definition and exact committed boundary. @since 0.1.0 @category models */
+export class Checkpoint<A> extends Data.Class<{
+  readonly runId: string
+  readonly definitionDigest: string
+  readonly through: number
+  readonly state: A
+}> {}
+
+/** Schema-owned opening options; definition identity is supplied, never inferred from code. @since 0.1.0 @category models */
+export class OpenOptions<Events extends Schema.Constraint, State extends Schema.Constraint> extends Data.Class<{
+  readonly runId: string
+  readonly definitionDigest: string
+  readonly eventSchema: Events
+  readonly checkpointSchema: State
+}> {}
+
+/** Stable append identity and optimistic expected tail cursor (zero for an empty run). @since 0.1.0 @category models */
+export class Append<A> extends Data.Class<{
+  readonly recordId: string
+  readonly expectedCursor: number
+  readonly event: A
+}> {}
+
+/** State reduced through a committed event cursor (zero for the initial state). @since 0.1.0 @category models */
+export class CheckpointWrite<A> extends Data.Class<{ readonly through: number; readonly state: A }> {}
+
+/** Read events strictly after this cursor. @since 0.1.0 @category schemas */
+export const ReadOptions = Schema.Struct({ after: Schema.optional(Schema.Int.check(Schema.isGreaterThanOrEqualTo(0))) })
+  .annotate({ identifier: "@scenesystems/effect-study/StudyStorage/ReadOptions" })
+
+/**
+ * Run-bound recording. Writes require only encoding services; reads only decoding
+ * services. An identical encoded retry returns its original receipt before cursor
+ * validation. Reads are finite snapshots, not live subscriptions.
+ * @since 0.1.0
+ * @category models
+ */
+export class Recording<Events extends Schema.Constraint, State extends Schema.Constraint> extends Data.Class<{
+  readonly append: (
+    request: ConstructorParameters<typeof Append<Events["Type"]>>[0]
+  ) => Effect.Effect<Receipt, PersistenceError.Failure, Events["EncodingServices"]>
+  readonly read: (
+    options?: typeof ReadOptions.Type
+  ) => Stream.Stream<StoredEvent<Events["Type"]>, PersistenceError.Failure, Events["DecodingServices"]>
+  readonly writeCheckpoint: (
+    request: ConstructorParameters<typeof CheckpointWrite<State["Type"]>>[0]
+  ) => Effect.Effect<void, PersistenceError.Failure, State["EncodingServices"]>
+  readonly loadCheckpoint: Effect.Effect<
+    Option.Option<Checkpoint<State["Type"]>>,
+    PersistenceError.Failure,
+    State["DecodingServices"]
+  >
+}> {}
+
+/** Independently usable run recordings, separate from legacy trial/snapshot storage. @since 0.1.0 @category services */
+export class Recordings extends Context.Service<Recordings, {
+  readonly open: <Events extends Schema.Constraint, State extends Schema.Constraint>(
+    options: ConstructorParameters<typeof OpenOptions<Events, State>>[0]
+  ) => Effect.Effect<Recording<Events, State>, PersistenceError.Failure>
+}>()("@scenesystems/effect-study/StudyStorage/Recordings") {}
+
+/** Allocates isolated, schema-encoded in-memory recordings. @since 0.1.0 @category constructors */
+export const makeMemoryRecordings: Effect.Effect<Recordings["Service"]> = recording.makeMemory
+
+/** Opens or validates a run through the ambient recording store. @since 0.1.0 @category operations */
+export const open = <Events extends Schema.Constraint, State extends Schema.Constraint>(
+  options: ConstructorParameters<typeof OpenOptions<Events, State>>[0]
+) => Recordings.pipe(Effect.flatMap((store) => store.open(options)))

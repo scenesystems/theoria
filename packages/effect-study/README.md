@@ -96,6 +96,10 @@ Persistence error migration: `StudyStorage`, `ArtifactSink`, and Search/DSP pers
 
 Codecs carry independent decoding and encoding requirements: reads require only decoding services, writes only encoding services. `yield* StudyStorage.makeMemory` allocates fresh storage on each execution. `StudyStorage.layerMemory` and `ArtifactContext.layer(options)` allocate fresh state for each provision, including provisions within one scope. Provide once around all operations that belong to the same run; reuse the acquired service explicitly when sharing state is intended.
 
+`StudyStorage.makeMemoryRecordings` provides the separate `StudyStorage.Recordings` service. Open a handle with `{ runId, definitionDigest, eventSchema, checkpointSchema }`; an existing run rejects a different definition digest. The caller owns definition identity and schema compatibility. `append({ recordId, expectedCursor, event })` returns a one-based run-local receipt; zero is the empty cursor. An identical encoded retry returns its original receipt even after later appends. Reusing an ID for different encoded content fails before checking the cursor. A new ID must match the current tail. All handles from one store share serialization; separate stores are independent.
+
+`read({ after })` produces a finite decoded snapshot strictly after that cursor. `writeCheckpoint({ through, state })` binds caller-reduced state to a committed boundary, and the `loadCheckpoint` Effect returns the latest checkpoint, if any. Writes retain encoding requirements and reads retain decoding requirements. These recordings use JSON-compatible caller codecs, including in memory; no evaluator or Study is required.
+
 ## Emitters and lifecycle
 
 `Emitter.toStream` runs a producer in a scoped fiber backed by Effect's completion-aware `Queue`. Buffered events drain before success, typed failure, or defect reaches the consumer. Ending consumption interrupts the producer and waits for finalization. The queue is unbounded; this bridge does not provide backpressure.
