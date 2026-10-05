@@ -15,6 +15,44 @@ const options = new StudyStorage.OpenOptions({
 })
 const numberText = Schema.encodeSync(Schema.FiniteFromString)
 
+it.effect("retains bad answers and nonzero task exits as completed values for caller grading", () =>
+  Effect.gen(function*() {
+    const Output = Schema.Struct({ answer: Schema.String, exitCode: Schema.Int })
+    const run = yield* (yield* StudyStorage.makeMemory).open(
+      new StudyStorage.OpenOptions({
+        runId: "caller-grading",
+        definitionDigest: "answer-exit-v1",
+        eventSchema: Evaluation.RecordedEvent(Schema.String, Output, Schema.String, Schema.Defect()),
+        checkpointSchema: Evaluation.View(Schema.String, Output, Schema.String, Schema.Defect())
+      })
+    )
+    const cursor = yield* Ref.make(0)
+    yield* Evaluation.runWithEvents(
+      ["wrong-answer", "nonzero-exit", "correct"],
+      (input) =>
+        Effect.succeed({ answer: input === "wrong-answer" ? "41" : "42", exitCode: input === "nonzero-exit" ? 7 : 0 }),
+      {},
+      (event) =>
+        Effect.gen(function*() {
+          const expectedCursor = yield* Ref.get(cursor)
+          const receipt = yield* run.append(
+            new StudyStorage.Append({ recordId: numberText(expectedCursor), expectedCursor, event })
+          )
+          yield* Ref.set(cursor, receipt.cursor)
+        })
+    )
+    const retained = yield* StudyStorage.replay(run, Evaluation.empty(), Evaluation.reduce)
+    expect(Evaluation.coverage(retained.state).completed).toBe(3)
+    expect(Evaluation.coverage(retained.state).failed).toBe(0)
+    const grades = Arr.map(
+      retained.state.trials,
+      (trial) =>
+        trial.state._tag === "Completed" && trial.state.value.answer === "42" &&
+        Num.Equivalence(trial.state.value.exitCode, 0)
+    )
+    expect(grades).toEqual([false, false, true])
+  }))
+
 it.effect("reopens a missing-terminal evaluation without guessing whether unfinished effects ran", () =>
   Effect.gen(function*() {
     const fs = yield* FileSystem.FileSystem
