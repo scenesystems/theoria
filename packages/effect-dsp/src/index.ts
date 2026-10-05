@@ -42,6 +42,13 @@ export * as ModuleGraph from "./ModuleGraph.js"
  */
 export * as ModuleParameters from "./ModuleParameters.js"
 
+/** Leaf ownership and stable declaration paths. @since 1.0.0 @category modules */
+export * as Predictor from "./Predictor.js"
+/** Immutable parameter snapshots. @since 1.0.0 @category modules */
+export * as ParameterSet from "./ParameterSet.js"
+/** Bound optimizer results with algorithm-specific reports. @since 1.0.0 @category optimization */
+export * as Optimized from "./Optimized.js"
+
 /**
  * Scores predictions with effectful or synchronous metrics and composes their results.
  *

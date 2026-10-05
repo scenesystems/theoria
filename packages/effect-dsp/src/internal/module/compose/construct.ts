@@ -7,9 +7,11 @@
 import type { Schema } from "effect"
 import { Array as Arr, Effect, Ref } from "effect"
 import type { CompositionError } from "../../../DspError.js"
-import { ComposeGraphOptions, type ComposeOptions, Module } from "../../../Module.js"
+import { ComposableModule, ComposeGraphOptions, type ComposeOptions, Module } from "../../../Module.js"
+import { predictors } from "../../../ModuleGraph.js"
 import { ModuleParameters } from "../../../ModuleParameters.js"
 import type { Signature } from "../../../Signature.js"
+import { withOwners } from "../../parameterBinding.js"
 import { buildCompositionGraph } from "./graph.js"
 import { ComposeForwardOptions, makeComposeForward } from "./runtime.js"
 
@@ -72,6 +74,7 @@ export const compose = <
       signature: options.signature,
       params: paramsRef,
       subModules: composition.subModuleNodesById,
+      declarations: composition.declarations,
       forward: makeComposeForward(
         new ComposeForwardOptions({
           moduleName: options.name,
@@ -80,7 +83,16 @@ export const compose = <
           rootChildIds: composition.rootChildIds,
           graph: composition.graph,
           subModuleNodes: composition.subModuleNodesById,
-          forward: options.forward
+          forward: (context) =>
+            options.forward(context).pipe(withOwners(predictors(
+              new ComposableModule({
+                name: options.name,
+                signature: options.signature,
+                params: paramsRef,
+                subModules: composition.subModuleNodesById,
+                declarations: composition.declarations
+              })
+            )))
         })
       )
     })

@@ -3,7 +3,20 @@
  *
  * @since 0.1.0
  */
-import { Array as Arr, Boolean, Data, Effect, Equivalence, Graph, HashMap, Option, Order, Record, Schema } from "effect"
+import {
+  Array as Arr,
+  Boolean,
+  Data,
+  Effect,
+  Equivalence,
+  Graph,
+  HashMap,
+  Option,
+  Order,
+  Record,
+  Schema,
+  Tuple
+} from "effect"
 import type { Ref } from "effect"
 import type { Codec } from "../../../Demonstration.js"
 import { CompositionError } from "../../../DspError.js"
@@ -138,6 +151,7 @@ export class CompositionGraph extends Data.Class<{
   readonly rootChildIds: ModuleGraphNode["subModuleIds"]
   readonly graph: ModuleGraph
   readonly subModuleNodesById: HashMap.HashMap<Id, Node>
+  readonly declarations: Record.ReadonlyRecord<string, Node>
 }> {}
 
 const buildSubModuleNode = (module: ComposableModule, moduleId: Id): Node =>
@@ -150,7 +164,10 @@ const buildSubModuleNode = (module: ComposableModule, moduleId: Id): Node =>
     }),
     demonstrationCodec: module.signature.demonstrationCodec,
     params: module.params,
-    subModules: module.subModules
+    subModules: module.subModules,
+    declarations: module.declarations ?? Record.fromEntries(HashMap.toEntries(module.subModules)),
+    frozen: module.frozen ?? false,
+    parameters: module.parameters ?? {}
   })
 
 /**
@@ -221,7 +238,16 @@ export const buildCompositionGraph = <I extends Schema.Struct.Fields, O extends 
         Arr.map(node.subModuleIds, (childId) =>
           new ModuleGraphEdge({ parentId: node.moduleId, childId }))))
     })
-    return new CompositionGraph({ rootId, rootChildIds, graph, subModuleNodesById })
+    return new CompositionGraph({
+      rootId,
+      rootChildIds,
+      graph,
+      subModuleNodesById,
+      declarations: Record.fromEntries(
+        Arr.map(Record.toEntries(options.subModules), ([alias, module]) =>
+          Tuple.make(alias, buildSubModuleNode(module, Schema.decodeSync(Id)(module.name))))
+      )
+    })
   })
 
 /**

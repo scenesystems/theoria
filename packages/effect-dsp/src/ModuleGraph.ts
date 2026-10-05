@@ -4,10 +4,100 @@
  * @since 0.1.0
  * @module
  */
-import { Array as Arr, Data, Equivalence, Graph as NativeGraph, HashMap, Option, Order, Schema, Tuple } from "effect"
-import { Id, NodeSignature } from "./Module.js"
+import {
+  Array as Arr,
+  Chunk,
+  Data,
+  Equivalence,
+  Graph as NativeGraph,
+  HashMap,
+  Option,
+  Order,
+  Record,
+  Schema,
+  String as Str,
+  Tuple
+} from "effect"
+import { type ComposableModule, Id, Node as LiveNode, NodeSignature } from "./Module.js"
+import * as Predictor from "./Predictor.js"
 
 const moduleIdOrder: Order.Order<Id> = Order.mapInput(Order.String, (moduleId: Id) => moduleId)
+
+/** Enumerates leaf owners in sorted declaration order, retaining shared aliases.
+ * A frozen path freezes its owner even when another path is not frozen.
+ * @since 1.0.0
+ * @category combinators
+ */
+export const predictors = (root: ComposableModule): Chunk.Chunk<Predictor.Ref> => {
+  const visit = (node: LiveNode, path: string, frozen: boolean): ReadonlyArray<Predictor.Ref> => {
+    const declarations = Record.toEntries(node.declarations ?? Record.fromEntries(HashMap.toEntries(node.subModules)))
+    const excluded = frozen || (node.frozen ?? false)
+    const leaves = Arr.isArrayEmpty(declarations)
+      ? [
+        new Predictor.Ref({
+          id: path,
+          aliases: Chunk.empty(),
+          ownership: excluded ? "frozen" : "owned",
+          signature: node.signature,
+          params: node.params,
+          demonstrationCodec: node.demonstrationCodec,
+          boundParameters: Option.none()
+        })
+      ]
+      : Arr.flatMap(
+        Arr.sort(declarations, Order.mapInput(Order.String, (entry: readonly [string, LiveNode]) => entry[0])),
+        ([alias, child]: readonly [string, LiveNode]) => visit(child, `${path}.${alias}`, excluded)
+      )
+    return Arr.map(leaves, (entry) =>
+      new Predictor.Ref({
+        id: entry.id,
+        aliases: entry.aliases,
+        ownership: entry.ownership,
+        signature: entry.signature,
+        params: entry.params,
+        demonstrationCodec: entry.demonstrationCodec,
+        boundParameters: Option.orElse(
+          Record.get(node.parameters ?? {}, `${node.name}${Str.slice(Str.length(path))(entry.id)}`),
+          () => entry.boundParameters
+        )
+      }))
+  }
+  const entries = visit(
+    new LiveNode({
+      moduleId: Schema.decodeSync(Id)(root.name),
+      name: root.name,
+      signature: new NodeSignature({
+        description: root.signature.description,
+        instructions: root.signature.instructions
+      }),
+      demonstrationCodec: root.signature.demonstrationCodec,
+      params: root.params,
+      subModules: root.subModules,
+      declarations: root.declarations ?? Record.fromEntries(HashMap.toEntries(root.subModules)),
+      frozen: root.frozen ?? false,
+      parameters: root.parameters ?? {}
+    }),
+    root.name,
+    false
+  )
+  return Chunk.fromIterable(Arr.reduce(entries, Arr.empty<Predictor.Ref>(), (owners, entry) => {
+    const existing = Arr.findFirstIndex(owners, (owner) => owner.params === entry.params)
+    return Option.match(existing, {
+      onNone: () => Arr.append(owners, entry),
+      onSome: (index) =>
+        Arr.map(owners, (owner, position) =>
+          position !== index ? owner : new Predictor.Ref({
+            id: owner.id,
+            aliases: Chunk.append(owner.aliases, entry.id),
+            ownership: owner.ownership === "frozen" || entry.ownership === "frozen" ? "frozen" : "shared",
+            signature: owner.signature,
+            params: owner.params,
+            demonstrationCodec: owner.demonstrationCodec,
+            boundParameters: owner.boundParameters
+          }))
+    })
+  }))
+}
 
 const uniqueSortedModuleIds = (moduleIds: Iterable<Id>): Node["subModuleIds"] =>
   Arr.dedupeWith(Arr.sort(moduleIds, moduleIdOrder), Equivalence.String)

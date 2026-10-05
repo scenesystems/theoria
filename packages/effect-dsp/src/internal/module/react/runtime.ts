@@ -7,7 +7,8 @@
  */
 import * as ModelBinder from "@scenesystems/effect-lm/ModelBinder"
 import type { Record } from "effect"
-import { Array as Arr, Boolean, Clock, Data, Effect, Number, Option, Ref, Result, Schema } from "effect"
+import { Array as Arr, Boolean, Clock, Data, Effect, Number, Option, Result, Schema } from "effect"
+import type { Ref } from "effect"
 import * as Prompt from "effect/ai/Prompt"
 import type * as Tool from "effect/ai/Tool"
 import type * as Toolkit from "effect/ai/Toolkit"
@@ -19,6 +20,7 @@ import type { Signature } from "../../../Signature.js"
 import { RolloutRef } from "../../cache/rollout.js"
 import { callLmTextResponse } from "../../lm.js"
 import { CurrentRole } from "../../modelRole.js"
+import { read } from "../../parameterBinding.js"
 import { parseTextOutput } from "../../parse/decode.js"
 import { buildPrompt } from "../../prompt/render.js"
 import { registerRuntime, RuntimeRegistrationOptions } from "../discovery/registry.js"
@@ -86,7 +88,7 @@ export const makeReactForward = <
         })
       )
 
-      const params = yield* Ref.get(options.paramsRef)
+      const params = yield* read(options.paramsRef, options.moduleName)
       const traceInput = yield* tracePayloadFromEncoded(
         new PayloadOptions({
           moduleName: options.moduleName,

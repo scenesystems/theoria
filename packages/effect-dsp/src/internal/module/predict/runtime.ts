@@ -8,7 +8,8 @@
 import * as ModelBinder from "@scenesystems/effect-lm/ModelBinder"
 import * as ModelSettings from "@scenesystems/effect-lm/ModelSettings"
 import type { Schema } from "effect"
-import { Array as Arr, Clock, Data, Effect, Ref } from "effect"
+import { Array as Arr, Clock, Data, Effect } from "effect"
+import type { Ref } from "effect"
 import type { Module } from "../../../Module.js"
 import { NodeSignature } from "../../../Module.js"
 import type { PredictOptions, PredictPolicy } from "../../../Module.js"
@@ -16,6 +17,7 @@ import { type ModuleParameters, settings } from "../../../ModuleParameters.js"
 import type { Signature } from "../../../Signature.js"
 import { RolloutRef } from "../../cache/rollout.js"
 import { CurrentRole } from "../../modelRole.js"
+import { read } from "../../parameterBinding.js"
 import { registerRuntime, RuntimeRegistrationOptions } from "../discovery/registry.js"
 import { ForwardOptions } from "./model.js"
 import { runForward } from "./strategy.js"
@@ -56,7 +58,7 @@ export const makeForward = <
         })
       )
 
-      const params = yield* Ref.get(options.paramsRef)
+      const params = yield* read(options.paramsRef, options.moduleName)
       const startedAt = yield* Clock.currentTimeMillis
       const execution = yield* runForward(
         new ForwardOptions<I, O>({

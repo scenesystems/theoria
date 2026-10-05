@@ -7,8 +7,22 @@
 import type { ModelSettings } from "@scenesystems/effect-lm/ModelSettings"
 import type { Role } from "@scenesystems/effect-lm/Role"
 import * as Numeric from "@scenesystems/effect-math/Numeric"
-import { Array as Arr, Boolean, Data, Equivalence, Graph, HashMap, Match, Option, Order, Schema, Tuple } from "effect"
-import type { Effect, Record, Ref } from "effect"
+import {
+  Array as Arr,
+  Boolean,
+  Data,
+  Effect,
+  Equivalence,
+  Graph,
+  HashMap,
+  Match,
+  Option,
+  Order,
+  Record,
+  Ref,
+  Schema,
+  Tuple
+} from "effect"
 import type * as AiError from "effect/ai/AiError"
 import type * as LanguageModel from "effect/ai/LanguageModel"
 import type * as Tool from "effect/ai/Tool"
@@ -30,9 +44,12 @@ import { predict as predictInternal } from "./internal/module/predict/construct.
 import { react as reactInternal } from "./internal/module/react/construct.js"
 import { refine as refineInternal } from "./internal/module/refine/construct.js"
 import { load as loadInternal, save as saveInternal } from "./internal/module/saveLoad.js"
+import * as ParameterBinding from "./internal/parameterBinding.js"
 import type { Result as MetricResult } from "./Metric.js"
 import type { ModuleGraph } from "./ModuleGraph.js"
+import { predictors } from "./ModuleGraph.js"
 import { ModuleParameters } from "./ModuleParameters.js"
+import type { ParameterSet } from "./ParameterSet.js"
 import type { Signature } from "./Signature.js"
 
 /** Validated identity used by module ownership and discovery graphs.
@@ -85,6 +102,9 @@ export class Node extends Data.Class<{
   readonly demonstrationCodec: DemonstrationCodec
   readonly params: Ref.Ref<ModuleParameters>
   readonly subModules: HashMap.HashMap<Id, Node>
+  readonly declarations?: Record.ReadonlyRecord<string, Node>
+  readonly frozen?: boolean
+  readonly parameters?: ParameterSet
 }> {}
 
 /** One retained child declaration in a normalized live ownership graph.
@@ -223,6 +243,12 @@ export class Module<
   readonly params: Ref.Ref<ModuleParameters>
   /** Child nodes owned for composition and parameter persistence. */
   readonly subModules: HashMap.HashMap<Id, Node>
+  /** Caller-local declaration aliases retained for predictor paths. */
+  readonly declarations?: Record.ReadonlyRecord<string, Node>
+  /** Excludes this subtree from optimization without preventing execution. */
+  readonly frozen?: boolean
+  /** Defaults carried by a bound program without modifying its owners. */
+  readonly parameters?: ParameterSet
   /** Executes the module for one already-decoded input value. */
   readonly forward: (
     input: Schema.Schema.Type<Schema.Struct<I>>
@@ -292,6 +318,9 @@ export class ComposableModule extends Data.Class<{
   }
   readonly params: Ref.Ref<ModuleParameters>
   readonly subModules: HashMap.HashMap<Id, Node>
+  readonly declarations?: Record.ReadonlyRecord<string, Node>
+  readonly frozen?: boolean
+  readonly parameters?: ParameterSet
 }> {}
 
 /** Declares direct modules under caller-local aliases.
@@ -609,3 +638,60 @@ export const load = loadInternal
  * @category persistence
  */
 export const save = saveInternal
+
+/** Installs an immutable parameter overlay for the duration of an effect.
+ * @since 1.0.0
+ * @category combinators
+ */
+export const withParameters = ParameterBinding.withParameters
+
+/** Returns an executable copy bound to a parameter snapshot; caller refs are unchanged.
+ * @since 1.0.0
+ * @category constructors
+ */
+export const bound = <I extends Schema.Struct.Fields, O extends Schema.Struct.Fields, E, R>(
+  root: Module<I, O, E, R>,
+  parameters: ParameterSet
+): Module<I, O, E, R> => {
+  const copy: Module<I, O, E, R> = new Module({
+    name: root.name,
+    signature: root.signature,
+    params: root.params,
+    subModules: root.subModules,
+    declarations: root.declarations ?? Record.fromEntries(HashMap.toEntries(root.subModules)),
+    frozen: root.frozen ?? false,
+    parameters: { ...root.parameters, ...parameters },
+    forward: (input) => root.forward(input).pipe(ParameterBinding.withOwners(predictors(copy)))
+  })
+  return copy
+}
+
+/** Marks a subtree as excluded from optimization; its forward operation is unchanged.
+ * @since 1.0.0
+ * @category combinators
+ */
+export const freeze = <I extends Schema.Struct.Fields, O extends Schema.Struct.Fields, E, R>(
+  root: Module<I, O, E, R>
+): Module<I, O, E, R> =>
+  new Module({
+    name: root.name,
+    signature: root.signature,
+    params: root.params,
+    subModules: root.subModules,
+    declarations: root.declarations ?? Record.fromEntries(HashMap.toEntries(root.subModules)),
+    parameters: root.parameters ?? {},
+    forward: root.forward,
+    frozen: true
+  })
+
+/** Explicitly installs snapshot values into matching predictor refs.
+ * @since 1.0.0
+ * @category persistence
+ */
+export const install = Effect.fnUntraced(function*(root: ComposableModule, parameters: ParameterSet) {
+  yield* Effect.forEach(predictors(root), (entry) =>
+    Option.match(Record.get(parameters, entry.id), {
+      onNone: () => Effect.void,
+      onSome: (params) => Ref.set(entry.params, params)
+    }), { discard: true }).pipe(Effect.uninterruptible)
+})
