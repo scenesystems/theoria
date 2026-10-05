@@ -1,8 +1,22 @@
 import { BunServices } from "@effect/platform-bun"
 import { describe, expect, it } from "@effect/vitest"
 import { FileSystem, Path } from "effect"
-import { Array as Arr, Context, Effect, Ref, Result, Schema, SchemaGetter, Stream, String as Str } from "effect"
+import {
+  Array as Arr,
+  Context,
+  Deferred,
+  Effect,
+  Fiber,
+  Ref,
+  Result,
+  Schema,
+  SchemaGetter,
+  Stream,
+  String as Str
+} from "effect"
 
+import * as StudyArtifact from "@scenesystems/effect-study/Artifact"
+import * as ArtifactContext from "@scenesystems/effect-study/ArtifactContext"
 import * as ArtifactSink from "@scenesystems/effect-study/ArtifactSink"
 import * as PersistenceError from "@scenesystems/effect-study/PersistenceError"
 
@@ -16,6 +30,54 @@ const Label = Schema.String.pipe(Schema.decode({
 const Artifact = Schema.Struct({ label: Label, score: Schema.FiniteFromString })
 
 describe("ArtifactSink", () => {
+  it.effect("awaits sequential fanout and keeps the allocated identity when delivery is retried", () =>
+    Effect.gen(function*() {
+      const runId = yield* Schema.decodeEffect(StudyArtifact.RunId)("01HZ0000000000000000000000")
+      const packageVersion = yield* Schema.decodeEffect(StudyArtifact.PackageVersion)("0.1.0")
+      const first = yield* ArtifactContext.make(
+        new ArtifactContext.Options({ runId, packageVersion, nextSequence: 17 })
+      )
+      expect((yield* first.nextId).sequence).toBe(17)
+      const resumed = yield* ArtifactContext.make(
+        new ArtifactContext.Options({ runId, packageVersion, nextSequence: 18 })
+      )
+      const artifact = { id: yield* resumed.nextId, payload: "observation" }
+      const schema = Schema.Struct({ id: StudyArtifact.Id, payload: Schema.String })
+      const delivered = yield* Ref.make(Arr.empty<unknown>())
+      const entered = yield* Deferred.make<void>()
+      const release = yield* Deferred.make<void>()
+      const failure = new PersistenceError.Failure({ reason: "Backend", operation: "write", detail: "right rejected" })
+      const left: ArtifactSink.Service = {
+        emit: (schema, value) =>
+          Schema.encodeEffect(schema)(value).pipe(
+            Effect.mapError(PersistenceError.codec("write")),
+            Effect.flatMap((encoded) => Ref.update(delivered, Arr.append(encoded)))
+          )
+      }
+      const right: ArtifactSink.Service = {
+        emit: () =>
+          Deferred.succeed(entered, undefined).pipe(
+            Effect.andThen(Deferred.await(release)),
+            Effect.andThen(Effect.fail(failure))
+          )
+      }
+      const sink = ArtifactSink.fanout(left, right)
+      const acknowledged = yield* Deferred.make<void>()
+      const pending = yield* sink.emit(schema, artifact).pipe(
+        Effect.result,
+        Effect.tap(() => Deferred.succeed(acknowledged, undefined)),
+        Effect.forkScoped
+      )
+      yield* Deferred.await(entered)
+      expect(yield* Ref.get(delivered)).toEqual([artifact])
+      expect(yield* Deferred.isDone(acknowledged)).toBe(false)
+      yield* Deferred.succeed(release, undefined)
+      expect(yield* Fiber.join(pending)).toEqual(Result.fail(failure))
+      expect(yield* sink.emit(schema, artifact).pipe(Effect.result)).toEqual(Result.fail(failure))
+      expect(yield* Ref.get(delivered)).toEqual([artifact, artifact])
+      expect((yield* resumed.nextId).sequence).toBe(19)
+    }))
+
   it.effect("writes a transformed encoded artifact once and retains codec requirements", () =>
     Effect.gen(function*() {
       const fileSystem = yield* FileSystem.FileSystem

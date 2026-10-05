@@ -95,6 +95,9 @@ export const emit = <A, I, RD, RE>(
 
 /**
  * Delivers to the left sink and only then to the right sink after the left succeeds.
+ * Delivery is awaited and non-transactional: a right failure does not undo the left.
+ * Retrying may deliver to the left again; reuse the same artifact identity and let
+ * each sink own deduplication. Fanout neither allocates identities nor retries.
  *
  * @since 0.1.0
  * @category operations

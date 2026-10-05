@@ -88,8 +88,9 @@ const eventComponent: StudyArtifact.ComponentPath = Arr.make("Optimization", "ev
  * @remarks
  * Each call allocates the next artifact ID from the required {@link ArtifactContext.ArtifactContext},
  * records the current wall-clock time, and relates the envelope to the context's
- * run ID. The envelope identifies `effect-search` as its origin. A sink that cannot accept the envelope fails
- * publication with the sink's {@link PersistenceError.Failure}.
+ * run ID. The envelope identifies `effect-search` as its origin. Allocation and sink
+ * failures propagate as PersistenceError.Failure; failed allocation does not call the
+ * sink. The publisher does not retry. Delivery retries must retain an already-built envelope.
  *
  * @since 0.1.0
  * @category constructors
