@@ -60,7 +60,7 @@ const names = (report: Report) => Arr.map(entries(report), ([name]) => name)
 const score = (report: Report, name: string): number =>
   Option.getOrElse(Record.get(report.overallScores, name), () => 0)
 const averageDuration = (report: Report): number =>
-  Arr.match(report.results, {
+  Arr.match(report.outcomes, {
     onEmpty: () => 0,
     onNonEmpty: (results) =>
       Number.divideUnsafe(
@@ -79,16 +79,13 @@ const telemetry = (report: Report): Telemetry =>
   })
 const decodeProjection = Schema.decodeEffect(Projection)
 
-/** Projects one named aggregate metric, or the first name in stable order.
+/** Projects one named aggregate metric, or the report's failure-inclusive average.
  * @since 0.4.0
  * @category constructors
  */
 export const projectSingleObjective = (report: Report, metricName: Option.Option<string>) =>
   decodeProjection({
-    objective: score(
-      report,
-      Option.getOrElse(metricName, () => Option.getOrElse(Arr.head(names(report)), () => "score"))
-    ),
+    objective: Option.match(metricName, { onNone: () => report.average, onSome: (name) => score(report, name) }),
     telemetry: telemetry(report)
   })
 

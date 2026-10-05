@@ -9,12 +9,13 @@
  * @since 0.1.0
  * @module
  */
-import { Array as Arr, Data, Effect, Ref, Schema, Stream } from "effect"
-import type { Record } from "effect"
+import { Array as Arr, Data, Effect, Number, Ref, Schema, Stream } from "effect"
+import type { Option, Record } from "effect"
 import { Example } from "./Example.js"
 import { evaluateKernel, noEvents } from "./internal/evaluate/kernel.js"
-import type { Metric } from "./Metric.js"
+import { type Metric, Score } from "./Metric.js"
 import type { Module } from "./Module.js"
+import * as Prediction from "./Prediction.js"
 
 /** Captured expected failure for one example.
  * @since 0.1.0
@@ -26,29 +27,71 @@ export class Failure extends Schema.Class<Failure>("@scenesystems/effect-dsp/Eva
   message: Schema.String
 }) {}
 
-/** Scores, elapsed time, and optional failure for one example.
- * @since 0.1.0
+/** Successful prediction and named metric evidence for one input position.
+ * The singular score averages the configured metrics for this example.
+ * @since 0.6.0
  * @category models
  */
-export class ExampleResult extends Schema.Class<ExampleResult>("@scenesystems/effect-dsp/Evaluate/ExampleResult")({
-  index: Schema.Finite,
-  scores: Schema.Record(Schema.String, Schema.Finite),
-  failure: Schema.Option(Failure),
+export class Scored extends Schema.TaggedClass<Scored>("@scenesystems/effect-dsp/Evaluate/Scored")("Scored", {
+  index: Schema.Int,
+  example: Example,
+  prediction: Prediction.schema(Schema.Unknown),
+  score: Score,
+  scores: Schema.Record(Schema.String, Score),
   durationMs: Schema.Finite
 }) {}
 
+/** Expected failure for an example, without a fabricated prediction or score.
+ * @since 0.6.0
+ * @category models
+ */
+export class Failed extends Schema.TaggedClass<Failed>("@scenesystems/effect-dsp/Evaluate/Failed")("Failed", {
+  index: Schema.Int,
+  example: Example,
+  failure: Failure,
+  durationMs: Schema.Finite
+}) {}
+
+/** Ordered per-example evaluation result.
+ * @since 0.6.0
+ * @category schemas
+ */
+export const Outcome = Schema.Union([Scored, Failed])
+/** Decoded evaluation outcome. @since 0.6.0 @category models */
+export type Outcome = typeof Outcome.Type
+
+/** Expected error budget exhausted after in-flight work drains.
+ * @since 0.6.0
+ * @category errors
+ */
+export class TooManyErrors
+  extends Schema.TaggedError<TooManyErrors>("@scenesystems/effect-dsp/Evaluate/TooManyErrors")("TooManyErrors", {
+    count: Schema.Int,
+    limit: Schema.Int
+  })
+{}
+
 /** Ordered per-example outcomes and aggregate metric scores.
+ * Averages include failureScore for every failed example, in fraction units.
  * @since 0.1.0
  * @category models
  */
 export class Report extends Schema.Class<Report>("@scenesystems/effect-dsp/Evaluate/Report")({
   overallScores: Schema.Record(Schema.String, Schema.Finite),
-  results: Schema.Array(ExampleResult),
+  outcomes: Schema.Array(Outcome),
+  average: Schema.Finite,
+  units: Schema.Literal("fraction"),
   failures: Schema.Array(Failure),
   totalExamples: Schema.Finite,
   successCount: Schema.Finite,
   failureCount: Schema.Finite
 }) {}
+
+/** Converts a report's fraction average to percentage display units.
+ * @since 0.6.0
+ * @category accessors
+ */
+export const asPercent = (report: Report): number => Number.multiply(report.average, 100)
 
 /** Evaluation lifecycle event schema.
  * @since 0.1.0
@@ -92,6 +135,9 @@ export class Options<
   readonly examples: Examples
   readonly metrics: Record.ReadonlyRecord<string, Metric<ME, MR>>
   readonly concurrency?: number
+  readonly failureScore?: number
+  readonly maxErrors?: Option.Option<number>
+  readonly units?: "fraction"
 }> {}
 
 const Events = Schema.Array(Event)
@@ -107,8 +153,9 @@ const appendEvent = (eventsRef: Ref.Ref<Events>) => (event: Event): Effect.Effec
  * Examples run with the requested concurrency, while returned results retain
  * input order. Metrics run sequentially in name-sorted order. A module,
  * decoding, or metric failure is stored on that example and does not fail the
- * returned Effect. Overall metric scores average successful examples only;
- * an empty successful set scores `0`.
+ * returned Effect unless maxErrors is exceeded. Every failed example contributes
+ * failureScore (default zero) to each metric and the report average. An empty
+ * dataset scores zero. Report units are always fractions, never percentages.
  *
  * Defects and interruption remain in the Effect cause and are not converted to
  * example failures.

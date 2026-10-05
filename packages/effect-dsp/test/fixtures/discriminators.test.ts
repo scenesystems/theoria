@@ -117,7 +117,7 @@ it.effect("evaluation discriminator executes one success and one metric failure"
     expect(report.successCount).toBe(1)
     expect(report.failureCount).toBe(1)
   }))
-it.effect.fails("eval-failure-inclusive-001: failures remain in the denominator (Wave 1)", () =>
+it.effect("eval-failure-inclusive-001: failures remain in the denominator (Wave 1)", () =>
   Effect.gen(function*() {
     const { report, expected } = yield* evaluation
     expect(report.overallScores.exact).toBe(expected)

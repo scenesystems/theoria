@@ -1,203 +1,78 @@
-/**
- * Per-example evaluation runtime.
- *
- * @since 0.1.0
- * @category internal
- * @internal
- */
-import {
-  Array as Arr,
-  Clock,
-  Data,
-  Effect,
-  Match,
-  Number,
-  Option,
-  Order,
-  Predicate,
-  Record,
-  Schema,
-  Tuple
-} from "effect"
+/** Per-example scoring and lifecycle events. @since 0.1.0 @internal */
+import { Array as Arr, Data, Effect, Match, Option, Order, Predicate, Record, Schema, Tuple } from "effect"
 import { EvaluationFailed } from "../../DspError.js"
-import { events, ExampleResult, Failure } from "../../Evaluate.js"
+import { events, Failure } from "../../Evaluate.js"
 import type { Event } from "../../Evaluate.js"
-import type { Example as ExampleModel } from "../../Example.js"
-import { Context, type Metric } from "../../Metric.js"
+import type { Example } from "../../Example.js"
+import { Context, type Metric, Score } from "../../Metric.js"
 import { call, type Module } from "../../Module.js"
 import { averageNumbers } from "../metric/score.js"
 
-/**
- * @since 0.1.0
- * @internal
- */
+/** @internal */
 export type EvaluationEventSink = (event: Event) => Effect.Effect<void>
-
-/**
- * @since 0.1.0
- * @internal
- */
+/** @internal */
 export type MetricEntry<ME, MR> = readonly [string, Metric<ME, MR>]
 
-/**
- * @since 0.1.0
- * @internal
- */
-export class ExampleOutcome extends Data.Class<{
-  readonly result: ExampleResult
-  readonly success: boolean
-  readonly averageScore: number
-  readonly failure: Option.Option<Failure>
-}> {}
-
-type ExampleScore = ExampleResult["scores"]
-
-const metricEntryOrder = <ME, MR>(): Order.Order<MetricEntry<ME, MR>> =>
-  Order.mapInput(Order.String, (entry: MetricEntry<ME, MR>) => entry[0])
-
-/**
- * @since 0.1.0
- * @internal
- */
+/** @internal */
 export const sortedMetricEntries = <ME, MR>(metrics: Record.ReadonlyRecord<string, Metric<ME, MR>>) =>
-  Arr.sort(Record.toEntries(metrics), metricEntryOrder<ME, MR>())
+  Arr.sort(Record.toEntries(metrics), Order.mapInput(Order.String, (entry: MetricEntry<ME, MR>) => entry[0]))
 
-const failureMessageFromUnknown = (error: unknown): string =>
-  Match.value(error).pipe(
-    Match.when(Predicate.isString, (message) => message),
-    Match.when(Schema.is(Schema.Struct({ message: Schema.String })), (value) => value.message),
-    Match.orElse(() => "Unknown evaluation error")
-  )
-
-const failureTagFromUnknown = (error: unknown): string =>
-  Match.value(error).pipe(
-    Match.when(Schema.is(Schema.Struct({ _tag: Schema.String })), (value) => value._tag),
-    Match.orElse(() => "UnknownEvaluationError")
-  )
-
-const exampleFailureFromUnknown = (index: number, error: unknown): Failure =>
+const failureFromUnknown = (index: number, error: unknown): Failure =>
   new Failure({
     index,
-    tag: failureTagFromUnknown(error),
-    message: failureMessageFromUnknown(error)
+    tag: Match.value(error).pipe(
+      Match.when(Schema.is(Schema.Struct({ _tag: Schema.String })), (value) => value._tag),
+      Match.orElse(() => "UnknownEvaluationError")
+    ),
+    message: Match.value(error).pipe(
+      Match.when(Predicate.isString, (message) => message),
+      Match.when(Schema.is(Schema.Struct({ message: Schema.String })), (value) => value.message),
+      Match.orElse(() => "Unknown evaluation error")
+    )
   })
 
 /** @internal */
-export class EvaluateExampleOptions<
-  I extends Schema.Struct.Fields,
-  O extends Schema.Struct.Fields,
-  ME,
-  MR,
-  E,
-  R
-> extends Data.Class<{
-  readonly index: number
-  readonly total: number
-  readonly example: ExampleModel
-  readonly module: Module<I, O, E, R>
-  readonly metrics: Iterable<MetricEntry<ME, MR>>
-  readonly emit: EvaluationEventSink
-}> {}
+export class EvaluateExampleOptions<I extends Schema.Struct.Fields, O extends Schema.Struct.Fields, ME, MR, E, R>
+  extends Data.Class<{
+    readonly index: number
+    readonly total: number
+    readonly example: Example
+    readonly module: Module<I, O, E, R>
+    readonly metrics: Iterable<MetricEntry<ME, MR>>
+    readonly emit: EvaluationEventSink
+  }>
+{}
 
-const scoreExample = <I extends Schema.Struct.Fields, O extends Schema.Struct.Fields, ME, MR, E, R>(
+/** Returns scored evidence or a typed failure for effect-study to collect.
+ * @since 0.6.0
+ * @internal
+ */
+export const evaluateExample = <I extends Schema.Struct.Fields, O extends Schema.Struct.Fields, ME, MR, E, R>(
   options: EvaluateExampleOptions<I, O, ME, MR, E, R>
 ) =>
   Effect.gen(function*() {
-    const decodedInput = yield* Schema.decodeEffect(options.module.signature.inputSchema)(options.example.input)
-      .pipe(
+    yield* options.emit(events.ExampleStarted({ index: options.index, total: options.total }))
+    return yield* Effect.gen(function*() {
+      const input = yield* Schema.decodeEffect(options.module.signature.inputSchema)(options.example.input).pipe(
         Effect.mapError(() =>
-          new EvaluationFailed({
-            index: options.index,
-            message: "example input does not match module input schema"
-          })
+          new EvaluationFailed({ index: options.index, message: "example input does not match module input schema" })
         )
       )
-    const prediction = yield* call(options.module, decodedInput)
-    const context = new Context({ phase: "evaluate", trace: Option.some(prediction.trace), target: Option.none() })
-    const scores = yield* Effect.forEach(options.metrics, (entry) =>
-      entry[1].score(options.example, prediction, context).pipe(
-        Effect.map((result) =>
-          Tuple.make(entry[0], result.value)
-        )
-      ))
-
-    const scoresByName: ExampleScore = Record.fromEntries(scores)
-    return {
-      scores: scoresByName,
-      averageScore: averageNumbers(Arr.map(scores, (entry) => entry[1]))
-    }
-  })
-
-/**
- * @since 0.1.0
- * @internal
- */
-export const evaluateOutcome = <
-  I extends Schema.Struct.Fields,
-  O extends Schema.Struct.Fields,
-  ME,
-  MR,
-  E,
-  R
->(options: EvaluateExampleOptions<I, O, ME, MR, E, R>) =>
-  Effect.gen(function*() {
-    yield* options.emit(
-      events.ExampleStarted({
-        index: options.index,
-        total: options.total
-      })
-    )
-
-    const startedAt = yield* Clock.currentTimeMillis
-
-    return yield* scoreExample(options).pipe(
-      Effect.matchEffect({
-        onFailure: (error) =>
-          Effect.gen(function*() {
-            const completedAt = yield* Clock.currentTimeMillis
-            const failure = exampleFailureFromUnknown(options.index, error)
-
-            yield* options.emit(
-              events.ExampleFailed({
-                failure
-              })
-            )
-
-            return new ExampleOutcome({
-              result: new ExampleResult({
-                index: options.index,
-                scores: Record.empty(),
-                failure: Option.some(failure),
-                durationMs: Number.subtract(completedAt, startedAt)
-              }),
-              success: false,
-              averageScore: 0,
-              failure: Option.some(failure)
-            })
-          }),
-        onSuccess: ({ scores, averageScore }) =>
-          Effect.gen(function*() {
-            const completedAt = yield* Clock.currentTimeMillis
-
-            yield* options.emit(
-              events.ExampleCompleted({
-                index: options.index,
-                score: averageScore
-              })
-            )
-
-            return new ExampleOutcome({
-              result: new ExampleResult({
-                index: options.index,
-                scores,
-                failure: Option.none(),
-                durationMs: Number.subtract(completedAt, startedAt)
-              }),
-              success: true,
-              averageScore,
-              failure: Option.none<Failure>()
-            })
-          })
-      })
+      const prediction = yield* call(options.module, input)
+      const context = new Context({ phase: "evaluate", trace: Option.some(prediction.trace), target: Option.none() })
+      const entries = yield* Effect.forEach(options.metrics, ([name, metric]) =>
+        metric.score(options.example, prediction, context).pipe(Effect.map((score) =>
+          Tuple.make(name, score)
+        )))
+      const scores = Record.fromEntries(entries)
+      const values = Arr.map(entries, ([, score]) => score)
+      const score = Arr.length(values) === 1
+        ? Option.getOrThrow(Arr.head(values))
+        : new Score({ value: averageNumbers(Arr.map(values, (score) => score.value)), feedback: Option.none() })
+      yield* options.emit(events.ExampleCompleted({ index: options.index, score: score.value }))
+      return { prediction, scores, score }
+    }).pipe(
+      Effect.mapError((error) => failureFromUnknown(options.index, error)),
+      Effect.tapError((failure) => options.emit(events.ExampleFailed({ failure })))
     )
   })

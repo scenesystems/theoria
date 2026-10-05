@@ -158,7 +158,7 @@ describe("native Module E/R propagation", () => {
           metrics: { exact: metric }
         })
       )
-      expectTypeOf<Effect.Error<typeof evaluation>>().toEqualTypeOf<never>()
+      expectTypeOf<Effect.Error<typeof evaluation>>().toEqualTypeOf<Evaluate.TooManyErrors>()
       expectTypeOf<Effect.Services<typeof evaluation>>().toEqualTypeOf<
         LanguageModel.LanguageModel | NativeModuleDependency
       >()

@@ -162,10 +162,10 @@ const program = Effect.gen(function*() {
     failureCount: report.failureCount
   })
 
-  yield* Effect.forEach(report.results, (r) =>
+  yield* Effect.forEach(report.outcomes, (r) =>
     Effect.log("  Example", {
       index: r.index,
-      scores: r.scores,
+      ...r._tag === "Scored" ? { scores: r.scores } : { failure: r.failure },
       durationMs: r.durationMs
     }), { discard: true })
 })

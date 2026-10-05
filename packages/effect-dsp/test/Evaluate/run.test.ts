@@ -57,7 +57,7 @@ describe("Evaluate.run", () => {
       expect(report.totalExamples).toBe(2)
       expect(report.successCount).toBe(2)
       expect(report.failureCount).toBe(0)
-      expect(report.results).toHaveLength(2)
+      expect(report.outcomes).toHaveLength(2)
       expect(report.overallScores.exact).toBe(0.5)
     }))
 
@@ -98,7 +98,9 @@ describe("Evaluate.run", () => {
       const failure = report.failures[0]
 
       if (failure) {
-        expect(report.results[1]?.failure).toEqual(Option.some(failure))
+        const outcome = report.outcomes[1]
+        expect(outcome?._tag).toBe("Failed")
+        if (outcome?._tag === "Failed") expect(outcome.failure).toEqual(failure)
       }
     }))
 
@@ -145,7 +147,7 @@ describe("Evaluate.run", () => {
       ).pipe(Effect.provide(layer))
 
       expect(reportA.overallScores).toEqual(reportB.overallScores)
-      expect(reportA.results).toEqual(reportB.results)
+      expect(reportA.outcomes).toEqual(reportB.outcomes)
       expect(reportA.failures).toEqual(reportB.failures)
     }))
 })

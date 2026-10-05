@@ -3,11 +3,12 @@
  *
  * @since 0.1.0
  */
+import * as Evaluation from "@scenesystems/effect-study/Evaluation"
 import { Array as Arr, Effect, Option } from "effect"
 import type { Schema } from "effect"
-import { events, type Options } from "../../Evaluate.js"
-import { AggregateOptions, aggregateOutcomes } from "./aggregate.js"
-import { EvaluateExampleOptions, evaluateOutcome, type EvaluationEventSink, sortedMetricEntries } from "./example.js"
+import { events, Failed, type Options, type Outcome, Scored, TooManyErrors } from "../../Evaluate.js"
+import { aggregateOutcomes } from "./aggregate.js"
+import { evaluateExample, EvaluateExampleOptions, type EvaluationEventSink, sortedMetricEntries } from "./example.js"
 
 export { type EvaluationEventSink } from "./example.js"
 
@@ -31,10 +32,10 @@ export const evaluateKernel = <
   Effect.gen(function*() {
     const total = Arr.length(options.examples)
     const metrics = sortedMetricEntries(options.metrics)
-    const outcomes = yield* Effect.forEach(
+    const trials = yield* Evaluation.runCollecting(
       options.examples,
       (example, index) =>
-        evaluateOutcome(
+        evaluateExample(
           new EvaluateExampleOptions({
             index,
             total,
@@ -45,25 +46,39 @@ export const evaluateKernel = <
           })
         ),
       {
-        concurrency: Option.getOrElse(Option.fromNullishOr(options.concurrency), () => 1)
+        concurrency: Option.getOrElse(Option.fromNullishOr(options.concurrency), () => 1),
+        maxFailures: Option.getOrElse(Option.fromUndefinedOr(options.maxErrors), Option.none),
+        onFailure: "record"
       }
-    )
-    const aggregate = aggregateOutcomes(
-      new AggregateOptions({
-        metricEntries: metrics,
-        outcomes,
-        total
-      })
+    ).pipe(Effect.mapError((error) => new TooManyErrors({ count: error.count, limit: error.limit })))
+    const outcomes = Arr.map(Arr.fromIterable(trials), (trial): Outcome =>
+      trial.state._tag === "Completed"
+        ? new Scored({
+          index: trial.trialNumber,
+          example: trial.config,
+          durationMs: trial.state.duration,
+          ...trial.state.value
+        })
+        : new Failed({
+          index: trial.trialNumber,
+          example: trial.config,
+          durationMs: trial.state.duration,
+          failure: trial.state.error
+        }))
+    const report = aggregateOutcomes(
+      Arr.map(metrics, ([name]) => name),
+      outcomes,
+      Option.getOrElse(Option.fromUndefinedOr(options.failureScore), () => 0)
     )
 
     yield* emit(
       events.EvaluationCompleted({
-        overallScore: aggregate.averageScore,
+        overallScore: report.average,
         total
       })
     )
 
-    return aggregate.report
+    return report
   })
 
 /**
