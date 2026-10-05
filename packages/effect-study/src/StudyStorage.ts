@@ -19,6 +19,7 @@ import {
   String as Str
 } from "effect"
 
+import * as fileSystemRecording from "./internal/fileSystemRecording.js"
 import * as recording from "./internal/recording.js"
 import * as Journal from "./Journal.js"
 import * as PersistenceError from "./PersistenceError.js"
@@ -313,6 +314,16 @@ export class Recordings extends Context.Service<Recordings, {
 
 /** Allocates isolated, schema-encoded in-memory recordings. @since 0.1.0 @category constructors */
 export const makeMemoryRecordings: Effect.Effect<Recordings["Service"]> = recording.makeMemory
+
+/**
+ * Opens a strict append-only recording file. Use exactly one owning store per file;
+ * its semaphore is not a cross-process lock. Acknowledgment means the platform
+ * append returned for a complete newline-terminated record, not fsync or power-loss
+ * durability. Damaged files fail without repair, truncation, or further appends.
+ * @since 0.1.0
+ * @category constructors
+ */
+export const makeFileSystemRecordings = fileSystemRecording.makeFileSystem
 
 /** Opens or validates a run through the ambient recording store. @since 0.1.0 @category operations */
 export const open = <Events extends Schema.Constraint, State extends Schema.Constraint>(
