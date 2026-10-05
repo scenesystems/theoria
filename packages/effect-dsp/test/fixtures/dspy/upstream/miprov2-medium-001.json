@@ -267,15 +267,15 @@
       {
         "number": 17,
         "params": {
-          "0_predictor_instruction": 1,
-          "0_predictor_demos": 1
+          "0_predictor_instruction": 5,
+          "0_predictor_demos": 0
         }
       },
       {
         "number": 18,
         "params": {
-          "0_predictor_instruction": 2,
-          "0_predictor_demos": 0
+          "0_predictor_instruction": 1,
+          "0_predictor_demos": 3
         }
       }
     ],
@@ -936,20 +936,14 @@
           "val-5"
         ],
         "fullValidation": true,
-        "instruction": "candidate-1",
+        "instruction": "candidate-5",
         "score": 0.8,
         "state": {
           "traces": [],
           "train": [],
-          "demos": [
-            {
-              "id": "train-3",
-              "question": "train-3",
-              "answer": "label-3"
-            }
-          ],
+          "demos": [],
           "signature": {
-            "instructions": "candidate-1",
+            "instructions": "candidate-5",
             "fields": [
               {
                 "prefix": "Question:",
@@ -975,14 +969,20 @@
           "val-5"
         ],
         "fullValidation": true,
-        "instruction": "candidate-2",
+        "instruction": "candidate-1",
         "score": 0.8,
         "state": {
           "traces": [],
           "train": [],
-          "demos": [],
+          "demos": [
+            {
+              "augmented": true,
+              "question": "train-3",
+              "answer": "teacher"
+            }
+          ],
           "signature": {
-            "instructions": "candidate-2",
+            "instructions": "candidate-1",
             "fields": [
               {
                 "prefix": "Question:",
@@ -1507,22 +1507,16 @@
         }
       },
       "18": {
-        "0_predictor_instruction": 1,
-        "0_predictor_demos": 1,
+        "0_predictor_instruction": 5,
+        "0_predictor_demos": 0,
         "full_eval_score": 80.0,
         "total_eval_calls_so_far": 108,
         "full_eval_program": {
           "traces": [],
           "train": [],
-          "demos": [
-            {
-              "id": "train-3",
-              "question": "train-3",
-              "answer": "label-3"
-            }
-          ],
+          "demos": [],
           "signature": {
-            "instructions": "candidate-1",
+            "instructions": "candidate-5",
             "fields": [
               {
                 "prefix": "Question:",
@@ -1538,16 +1532,22 @@
         }
       },
       "19": {
-        "0_predictor_instruction": 2,
-        "0_predictor_demos": 0,
+        "0_predictor_instruction": 1,
+        "0_predictor_demos": 3,
         "full_eval_score": 80.0,
         "total_eval_calls_so_far": 114,
         "full_eval_program": {
           "traces": [],
           "train": [],
-          "demos": [],
+          "demos": [
+            {
+              "augmented": true,
+              "question": "train-3",
+              "answer": "teacher"
+            }
+          ],
           "signature": {
-            "instructions": "candidate-2",
+            "instructions": "candidate-1",
             "fields": [
               {
                 "prefix": "Question:",
@@ -4581,15 +4581,7 @@
         "messages": [
           {
             "role": "system",
-            "content": "Your input fields are:\n1. `question` (str):\nYour output fields are:\n1. `answer` (str):\nAll interactions will be structured in the following way, with the appropriate values filled in.\n\n[[ ## question ## ]]\n{question}\n\n[[ ## answer ## ]]\n{answer}\n\n[[ ## completed ## ]]\nIn adhering to this structure, your objective is: \n        candidate-1"
-          },
-          {
-            "role": "user",
-            "content": "[[ ## question ## ]]\ntrain-3"
-          },
-          {
-            "role": "assistant",
-            "content": "[[ ## answer ## ]]\nlabel-3\n\n[[ ## completed ## ]]\n"
+            "content": "Your input fields are:\n1. `question` (str):\nYour output fields are:\n1. `answer` (str):\nAll interactions will be structured in the following way, with the appropriate values filled in.\n\n[[ ## question ## ]]\n{question}\n\n[[ ## answer ## ]]\n{answer}\n\n[[ ## completed ## ]]\nIn adhering to this structure, your objective is: \n        candidate-5"
           },
           {
             "role": "user",
@@ -4609,15 +4601,7 @@
         "messages": [
           {
             "role": "system",
-            "content": "Your input fields are:\n1. `question` (str):\nYour output fields are:\n1. `answer` (str):\nAll interactions will be structured in the following way, with the appropriate values filled in.\n\n[[ ## question ## ]]\n{question}\n\n[[ ## answer ## ]]\n{answer}\n\n[[ ## completed ## ]]\nIn adhering to this structure, your objective is: \n        candidate-1"
-          },
-          {
-            "role": "user",
-            "content": "[[ ## question ## ]]\ntrain-3"
-          },
-          {
-            "role": "assistant",
-            "content": "[[ ## answer ## ]]\nlabel-3\n\n[[ ## completed ## ]]\n"
+            "content": "Your input fields are:\n1. `question` (str):\nYour output fields are:\n1. `answer` (str):\nAll interactions will be structured in the following way, with the appropriate values filled in.\n\n[[ ## question ## ]]\n{question}\n\n[[ ## answer ## ]]\n{answer}\n\n[[ ## completed ## ]]\nIn adhering to this structure, your objective is: \n        candidate-5"
           },
           {
             "role": "user",
@@ -4637,15 +4621,7 @@
         "messages": [
           {
             "role": "system",
-            "content": "Your input fields are:\n1. `question` (str):\nYour output fields are:\n1. `answer` (str):\nAll interactions will be structured in the following way, with the appropriate values filled in.\n\n[[ ## question ## ]]\n{question}\n\n[[ ## answer ## ]]\n{answer}\n\n[[ ## completed ## ]]\nIn adhering to this structure, your objective is: \n        candidate-1"
-          },
-          {
-            "role": "user",
-            "content": "[[ ## question ## ]]\ntrain-3"
-          },
-          {
-            "role": "assistant",
-            "content": "[[ ## answer ## ]]\nlabel-3\n\n[[ ## completed ## ]]\n"
+            "content": "Your input fields are:\n1. `question` (str):\nYour output fields are:\n1. `answer` (str):\nAll interactions will be structured in the following way, with the appropriate values filled in.\n\n[[ ## question ## ]]\n{question}\n\n[[ ## answer ## ]]\n{answer}\n\n[[ ## completed ## ]]\nIn adhering to this structure, your objective is: \n        candidate-5"
           },
           {
             "role": "user",
@@ -4665,15 +4641,7 @@
         "messages": [
           {
             "role": "system",
-            "content": "Your input fields are:\n1. `question` (str):\nYour output fields are:\n1. `answer` (str):\nAll interactions will be structured in the following way, with the appropriate values filled in.\n\n[[ ## question ## ]]\n{question}\n\n[[ ## answer ## ]]\n{answer}\n\n[[ ## completed ## ]]\nIn adhering to this structure, your objective is: \n        candidate-1"
-          },
-          {
-            "role": "user",
-            "content": "[[ ## question ## ]]\ntrain-3"
-          },
-          {
-            "role": "assistant",
-            "content": "[[ ## answer ## ]]\nlabel-3\n\n[[ ## completed ## ]]\n"
+            "content": "Your input fields are:\n1. `question` (str):\nYour output fields are:\n1. `answer` (str):\nAll interactions will be structured in the following way, with the appropriate values filled in.\n\n[[ ## question ## ]]\n{question}\n\n[[ ## answer ## ]]\n{answer}\n\n[[ ## completed ## ]]\nIn adhering to this structure, your objective is: \n        candidate-5"
           },
           {
             "role": "user",
@@ -4693,15 +4661,7 @@
         "messages": [
           {
             "role": "system",
-            "content": "Your input fields are:\n1. `question` (str):\nYour output fields are:\n1. `answer` (str):\nAll interactions will be structured in the following way, with the appropriate values filled in.\n\n[[ ## question ## ]]\n{question}\n\n[[ ## answer ## ]]\n{answer}\n\n[[ ## completed ## ]]\nIn adhering to this structure, your objective is: \n        candidate-1"
-          },
-          {
-            "role": "user",
-            "content": "[[ ## question ## ]]\ntrain-3"
-          },
-          {
-            "role": "assistant",
-            "content": "[[ ## answer ## ]]\nlabel-3\n\n[[ ## completed ## ]]\n"
+            "content": "Your input fields are:\n1. `question` (str):\nYour output fields are:\n1. `answer` (str):\nAll interactions will be structured in the following way, with the appropriate values filled in.\n\n[[ ## question ## ]]\n{question}\n\n[[ ## answer ## ]]\n{answer}\n\n[[ ## completed ## ]]\nIn adhering to this structure, your objective is: \n        candidate-5"
           },
           {
             "role": "user",
@@ -4721,15 +4681,7 @@
         "messages": [
           {
             "role": "system",
-            "content": "Your input fields are:\n1. `question` (str):\nYour output fields are:\n1. `answer` (str):\nAll interactions will be structured in the following way, with the appropriate values filled in.\n\n[[ ## question ## ]]\n{question}\n\n[[ ## answer ## ]]\n{answer}\n\n[[ ## completed ## ]]\nIn adhering to this structure, your objective is: \n        candidate-1"
-          },
-          {
-            "role": "user",
-            "content": "[[ ## question ## ]]\ntrain-3"
-          },
-          {
-            "role": "assistant",
-            "content": "[[ ## answer ## ]]\nlabel-3\n\n[[ ## completed ## ]]\n"
+            "content": "Your input fields are:\n1. `question` (str):\nYour output fields are:\n1. `answer` (str):\nAll interactions will be structured in the following way, with the appropriate values filled in.\n\n[[ ## question ## ]]\n{question}\n\n[[ ## answer ## ]]\n{answer}\n\n[[ ## completed ## ]]\nIn adhering to this structure, your objective is: \n        candidate-5"
           },
           {
             "role": "user",
@@ -4749,7 +4701,15 @@
         "messages": [
           {
             "role": "system",
-            "content": "Your input fields are:\n1. `question` (str):\nYour output fields are:\n1. `answer` (str):\nAll interactions will be structured in the following way, with the appropriate values filled in.\n\n[[ ## question ## ]]\n{question}\n\n[[ ## answer ## ]]\n{answer}\n\n[[ ## completed ## ]]\nIn adhering to this structure, your objective is: \n        candidate-2"
+            "content": "Your input fields are:\n1. `question` (str):\nYour output fields are:\n1. `answer` (str):\nAll interactions will be structured in the following way, with the appropriate values filled in.\n\n[[ ## question ## ]]\n{question}\n\n[[ ## answer ## ]]\n{answer}\n\n[[ ## completed ## ]]\nIn adhering to this structure, your objective is: \n        candidate-1"
+          },
+          {
+            "role": "user",
+            "content": "[[ ## question ## ]]\ntrain-3"
+          },
+          {
+            "role": "assistant",
+            "content": "[[ ## answer ## ]]\nteacher\n\n[[ ## completed ## ]]\n"
           },
           {
             "role": "user",
@@ -4769,7 +4729,15 @@
         "messages": [
           {
             "role": "system",
-            "content": "Your input fields are:\n1. `question` (str):\nYour output fields are:\n1. `answer` (str):\nAll interactions will be structured in the following way, with the appropriate values filled in.\n\n[[ ## question ## ]]\n{question}\n\n[[ ## answer ## ]]\n{answer}\n\n[[ ## completed ## ]]\nIn adhering to this structure, your objective is: \n        candidate-2"
+            "content": "Your input fields are:\n1. `question` (str):\nYour output fields are:\n1. `answer` (str):\nAll interactions will be structured in the following way, with the appropriate values filled in.\n\n[[ ## question ## ]]\n{question}\n\n[[ ## answer ## ]]\n{answer}\n\n[[ ## completed ## ]]\nIn adhering to this structure, your objective is: \n        candidate-1"
+          },
+          {
+            "role": "user",
+            "content": "[[ ## question ## ]]\ntrain-3"
+          },
+          {
+            "role": "assistant",
+            "content": "[[ ## answer ## ]]\nteacher\n\n[[ ## completed ## ]]\n"
           },
           {
             "role": "user",
@@ -4789,7 +4757,15 @@
         "messages": [
           {
             "role": "system",
-            "content": "Your input fields are:\n1. `question` (str):\nYour output fields are:\n1. `answer` (str):\nAll interactions will be structured in the following way, with the appropriate values filled in.\n\n[[ ## question ## ]]\n{question}\n\n[[ ## answer ## ]]\n{answer}\n\n[[ ## completed ## ]]\nIn adhering to this structure, your objective is: \n        candidate-2"
+            "content": "Your input fields are:\n1. `question` (str):\nYour output fields are:\n1. `answer` (str):\nAll interactions will be structured in the following way, with the appropriate values filled in.\n\n[[ ## question ## ]]\n{question}\n\n[[ ## answer ## ]]\n{answer}\n\n[[ ## completed ## ]]\nIn adhering to this structure, your objective is: \n        candidate-1"
+          },
+          {
+            "role": "user",
+            "content": "[[ ## question ## ]]\ntrain-3"
+          },
+          {
+            "role": "assistant",
+            "content": "[[ ## answer ## ]]\nteacher\n\n[[ ## completed ## ]]\n"
           },
           {
             "role": "user",
@@ -4809,7 +4785,15 @@
         "messages": [
           {
             "role": "system",
-            "content": "Your input fields are:\n1. `question` (str):\nYour output fields are:\n1. `answer` (str):\nAll interactions will be structured in the following way, with the appropriate values filled in.\n\n[[ ## question ## ]]\n{question}\n\n[[ ## answer ## ]]\n{answer}\n\n[[ ## completed ## ]]\nIn adhering to this structure, your objective is: \n        candidate-2"
+            "content": "Your input fields are:\n1. `question` (str):\nYour output fields are:\n1. `answer` (str):\nAll interactions will be structured in the following way, with the appropriate values filled in.\n\n[[ ## question ## ]]\n{question}\n\n[[ ## answer ## ]]\n{answer}\n\n[[ ## completed ## ]]\nIn adhering to this structure, your objective is: \n        candidate-1"
+          },
+          {
+            "role": "user",
+            "content": "[[ ## question ## ]]\ntrain-3"
+          },
+          {
+            "role": "assistant",
+            "content": "[[ ## answer ## ]]\nteacher\n\n[[ ## completed ## ]]\n"
           },
           {
             "role": "user",
@@ -4829,7 +4813,15 @@
         "messages": [
           {
             "role": "system",
-            "content": "Your input fields are:\n1. `question` (str):\nYour output fields are:\n1. `answer` (str):\nAll interactions will be structured in the following way, with the appropriate values filled in.\n\n[[ ## question ## ]]\n{question}\n\n[[ ## answer ## ]]\n{answer}\n\n[[ ## completed ## ]]\nIn adhering to this structure, your objective is: \n        candidate-2"
+            "content": "Your input fields are:\n1. `question` (str):\nYour output fields are:\n1. `answer` (str):\nAll interactions will be structured in the following way, with the appropriate values filled in.\n\n[[ ## question ## ]]\n{question}\n\n[[ ## answer ## ]]\n{answer}\n\n[[ ## completed ## ]]\nIn adhering to this structure, your objective is: \n        candidate-1"
+          },
+          {
+            "role": "user",
+            "content": "[[ ## question ## ]]\ntrain-3"
+          },
+          {
+            "role": "assistant",
+            "content": "[[ ## answer ## ]]\nteacher\n\n[[ ## completed ## ]]\n"
           },
           {
             "role": "user",
@@ -4849,7 +4841,15 @@
         "messages": [
           {
             "role": "system",
-            "content": "Your input fields are:\n1. `question` (str):\nYour output fields are:\n1. `answer` (str):\nAll interactions will be structured in the following way, with the appropriate values filled in.\n\n[[ ## question ## ]]\n{question}\n\n[[ ## answer ## ]]\n{answer}\n\n[[ ## completed ## ]]\nIn adhering to this structure, your objective is: \n        candidate-2"
+            "content": "Your input fields are:\n1. `question` (str):\nYour output fields are:\n1. `answer` (str):\nAll interactions will be structured in the following way, with the appropriate values filled in.\n\n[[ ## question ## ]]\n{question}\n\n[[ ## answer ## ]]\n{answer}\n\n[[ ## completed ## ]]\nIn adhering to this structure, your objective is: \n        candidate-1"
+          },
+          {
+            "role": "user",
+            "content": "[[ ## question ## ]]\ntrain-3"
+          },
+          {
+            "role": "assistant",
+            "content": "[[ ## answer ## ]]\nteacher\n\n[[ ## completed ## ]]\n"
           },
           {
             "role": "user",

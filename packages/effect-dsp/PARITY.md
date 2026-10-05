@@ -78,7 +78,7 @@ MIPRO discriminator, effect-search has nine expected failures. An ordinary manif
 payload independently, so schema failures cannot masquerade as expected mismatches.
 The generator's `--check` compares every generated payload and manifest byte,
 including SHA-256 hashes. No implementation changes or tolerance increases were made.
-The Optuna entrypoints disable NumPy AVX2/FMA3/AVX512F dispatch before import:
+Both harnesses disable NumPy AVX2/FMA3/AVX512F dispatch before import:
 otherwise CPU-specific math paths differ in the last bits (observed up to
 3.6e-15 in truncated-normal values). Values are not rounded to hide that drift.
 GP reproduction also fixes PyTorch dispatch to `default`, MKL to its

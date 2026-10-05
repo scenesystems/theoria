@@ -2,8 +2,13 @@
 """Offline upstream execution in the repository's pinned uv project; --check never writes."""
 
 import argparse
+import difflib
 import logging
+import os
 from pathlib import Path
+
+# MIPRO uses NumPy-backed Optuna scoring; CPU dispatch can change tied selections.
+os.environ["NPY_DISABLE_CPU_FEATURES"] = "AVX2,FMA3,AVX512F"
 
 from fixtures import bootstrap_family, chat_adapter, evaluate_runtime, gepa, mipro_v2, predict_runtime
 from fixtures._common import assert_runtime_version, document, render
@@ -22,7 +27,10 @@ def run(check=False):
             path = ROOT / entry["file"]
             if check:
                 if not path.exists() or path.read_bytes() != payload:
-                    raise ValueError(f"Upstream execution differs: {entry['id']}")
+                    committed = path.read_text().splitlines(True) if path.exists() else []
+                    diff = "".join(difflib.unified_diff(committed, payload.decode().splitlines(True),
+                                                      fromfile="committed", tofile="upstream"))
+                    raise ValueError(f"Upstream execution differs: {entry['id']}\n{diff}")
             else:
                 path.parent.mkdir(parents=True, exist_ok=True)
                 path.write_bytes(payload)
