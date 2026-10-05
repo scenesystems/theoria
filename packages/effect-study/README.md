@@ -32,6 +32,14 @@ export const program = Effect.gen(function* () {
 
 Empty input is valid. Settled evaluation means every input reaches an expected outcome, not that every trial succeeds; grading and nonempty-dataset requirements belong to callers. Defects and interruption must not become successful partial reports.
 
+`Evaluation.runSettled(inputs, evaluate, options)` returns `SettledTrial<C, A, E>` records whose states are `Trial.Completed<A> | Trial.Failed<E>`. Expected evaluator errors become retained data; defects and interruption still terminate through the Effect cause. No score or grading policy is imposed.
+
+`Evaluation.runWithEvents(inputs, evaluate, options, observe)` returns the same records with the observer's error channel and both evaluator/observer service requirements. Its `Evaluation.EvaluationEvent<C, A, E>` sequence contains `Planned` (the complete input array), `TrialStarted`, `TrialSettled` (the complete trial record), and `Completed` with reason `Settled`. `Terminated` carries a native defect/interruption cause when the observer remains available. Generic events require no serialization schema; callers choose codecs at persistence boundaries.
+
+Observer calls are serialized within a run. A start must be acknowledged before evaluation, and a terminal record before it is returned as recorded. Final completion waits for all terminal acknowledgments. Slow observers apply backpressure without preventing bounded concurrent evaluation. Observer failure closes admission and interrupts active local work, waiting for finalizers; it is not a trial failure and is not recursively reported to that observer. Already acknowledged evidence remains in the caller's sink. Cleanup observations are not guaranteed after sink failure or process loss: a start without a terminal record remains unresolved.
+
+For an event stream, pass the emitter supplied by `Emitter.toStream` directly to `runWithEvents`. Ending stream consumption interrupts the local producer and waits for finalizers; it says nothing about remote execution.
+
 An observer acknowledges an event by successfully completing its Effect. Memory acceptance, file append, and a durable database commit are different guarantees chosen by the observer. Serialized observation order need not match input order; returned trial records remain in input order. Queue insertion is not a persistence acknowledgment.
 
 `History` keeps the latest record for each trial number in an Effect `HashMap`; `History.values` returns records sorted by trial number. Replacing a record replaces its cost contribution rather than charging it twice. Absent, negative, and non-finite costs in trusted in-memory records contribute zero. Trial and event codecs require finite numerical metadata. Applications choose cost units.
