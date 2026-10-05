@@ -1,0 +1,538 @@
+{
+  "seed": 9,
+  "space": {
+    "0_predictor_instruction": [
+      0,
+      1,
+      2
+    ],
+    "0_predictor_demos": [
+      0,
+      1
+    ],
+    "1_predictor_instruction": [
+      0,
+      1,
+      2
+    ],
+    "1_predictor_demos": [
+      0,
+      1
+    ]
+  },
+  "options": {
+    "n_startup_trials": 4,
+    "multivariate": true,
+    "consider_prior": true,
+    "prior_weight": 1.0,
+    "n_ei_candidates": 24
+  },
+  "sequence": [
+    {
+      "number": 0,
+      "params": {
+        "0_predictor_instruction": 0,
+        "0_predictor_demos": 0,
+        "1_predictor_instruction": 0,
+        "1_predictor_demos": 0
+      },
+      "state": "COMPLETE",
+      "value": 0.4
+    },
+    {
+      "number": 1,
+      "params": {
+        "0_predictor_instruction": 1,
+        "0_predictor_demos": 1,
+        "1_predictor_instruction": 1,
+        "1_predictor_demos": 1
+      },
+      "state": "COMPLETE",
+      "value": 0.7142857142857143
+    },
+    {
+      "number": 2,
+      "params": {
+        "0_predictor_instruction": 2,
+        "0_predictor_demos": 1,
+        "1_predictor_instruction": 1,
+        "1_predictor_demos": 1
+      },
+      "state": "COMPLETE",
+      "value": 0.7857142857142857
+    },
+    {
+      "number": 3,
+      "params": {
+        "0_predictor_instruction": 2,
+        "0_predictor_demos": 1,
+        "1_predictor_instruction": 1,
+        "1_predictor_demos": 1
+      },
+      "state": "FAIL",
+      "value": null
+    },
+    {
+      "number": 4,
+      "params": {
+        "0_predictor_instruction": 2,
+        "0_predictor_demos": 1,
+        "1_predictor_instruction": 1,
+        "1_predictor_demos": 1
+      },
+      "state": "COMPLETE",
+      "value": 0.7857142857142857
+    },
+    {
+      "number": 5,
+      "params": {
+        "0_predictor_instruction": 2,
+        "0_predictor_demos": 1,
+        "1_predictor_instruction": 2,
+        "1_predictor_demos": 0
+      },
+      "state": "COMPLETE",
+      "value": 0.7142857142857143
+    },
+    {
+      "number": 6,
+      "params": {
+        "0_predictor_instruction": 2,
+        "0_predictor_demos": 0,
+        "1_predictor_instruction": 0,
+        "1_predictor_demos": 1
+      },
+      "state": "COMPLETE",
+      "value": 0.42857142857142855
+    },
+    {
+      "number": 7,
+      "params": {
+        "0_predictor_instruction": 1,
+        "0_predictor_demos": 0,
+        "1_predictor_instruction": 2,
+        "1_predictor_demos": 1
+      },
+      "state": "COMPLETE",
+      "value": 0.7857142857142857
+    },
+    {
+      "number": 8,
+      "params": {
+        "0_predictor_instruction": 2,
+        "0_predictor_demos": 0,
+        "1_predictor_instruction": 1,
+        "1_predictor_demos": 0
+      },
+      "state": "COMPLETE",
+      "value": 0.35714285714285715
+    },
+    {
+      "number": 9,
+      "params": {
+        "0_predictor_instruction": 0,
+        "0_predictor_demos": 1,
+        "1_predictor_instruction": 0,
+        "1_predictor_demos": 1
+      },
+      "state": "COMPLETE",
+      "value": 0.42857142857142855
+    },
+    {
+      "number": 10,
+      "params": {
+        "0_predictor_instruction": 1,
+        "0_predictor_demos": 1,
+        "1_predictor_instruction": 1,
+        "1_predictor_demos": 0
+      },
+      "state": "COMPLETE",
+      "value": 0.42857142857142855
+    },
+    {
+      "number": 11,
+      "params": {
+        "0_predictor_instruction": 2,
+        "0_predictor_demos": 1,
+        "1_predictor_instruction": 2,
+        "1_predictor_demos": 1
+      },
+      "state": "COMPLETE",
+      "value": 1.0
+    },
+    {
+      "number": 12,
+      "params": {
+        "0_predictor_instruction": 2,
+        "0_predictor_demos": 1,
+        "1_predictor_instruction": 2,
+        "1_predictor_demos": 1
+      },
+      "state": "COMPLETE",
+      "value": 1.0
+    },
+    {
+      "number": 13,
+      "params": {
+        "0_predictor_instruction": 2,
+        "0_predictor_demos": 1,
+        "1_predictor_instruction": 2,
+        "1_predictor_demos": 1
+      },
+      "state": "COMPLETE",
+      "value": 1.0
+    },
+    {
+      "number": 14,
+      "params": {
+        "0_predictor_instruction": 0,
+        "0_predictor_demos": 1,
+        "1_predictor_instruction": 2,
+        "1_predictor_demos": 1
+      },
+      "state": "COMPLETE",
+      "value": 0.8571428571428571
+    },
+    {
+      "number": 15,
+      "params": {
+        "0_predictor_instruction": 2,
+        "0_predictor_demos": 0,
+        "1_predictor_instruction": 2,
+        "1_predictor_demos": 1
+      },
+      "state": "COMPLETE",
+      "value": 0.8571428571428571
+    }
+  ],
+  "distribution": {
+    "draws": 512,
+    "maxTotalVariation": 0.15,
+    "joint": [
+      {
+        "choices": [
+          0,
+          0,
+          0,
+          0
+        ],
+        "count": 0
+      },
+      {
+        "choices": [
+          0,
+          0,
+          0,
+          1
+        ],
+        "count": 0
+      },
+      {
+        "choices": [
+          0,
+          0,
+          1,
+          0
+        ],
+        "count": 0
+      },
+      {
+        "choices": [
+          0,
+          0,
+          1,
+          1
+        ],
+        "count": 0
+      },
+      {
+        "choices": [
+          0,
+          0,
+          2,
+          0
+        ],
+        "count": 0
+      },
+      {
+        "choices": [
+          0,
+          0,
+          2,
+          1
+        ],
+        "count": 0
+      },
+      {
+        "choices": [
+          0,
+          1,
+          0,
+          0
+        ],
+        "count": 0
+      },
+      {
+        "choices": [
+          0,
+          1,
+          0,
+          1
+        ],
+        "count": 0
+      },
+      {
+        "choices": [
+          0,
+          1,
+          1,
+          0
+        ],
+        "count": 0
+      },
+      {
+        "choices": [
+          0,
+          1,
+          1,
+          1
+        ],
+        "count": 0
+      },
+      {
+        "choices": [
+          0,
+          1,
+          2,
+          0
+        ],
+        "count": 0
+      },
+      {
+        "choices": [
+          0,
+          1,
+          2,
+          1
+        ],
+        "count": 0
+      },
+      {
+        "choices": [
+          1,
+          0,
+          0,
+          0
+        ],
+        "count": 0
+      },
+      {
+        "choices": [
+          1,
+          0,
+          0,
+          1
+        ],
+        "count": 0
+      },
+      {
+        "choices": [
+          1,
+          0,
+          1,
+          0
+        ],
+        "count": 0
+      },
+      {
+        "choices": [
+          1,
+          0,
+          1,
+          1
+        ],
+        "count": 0
+      },
+      {
+        "choices": [
+          1,
+          0,
+          2,
+          0
+        ],
+        "count": 0
+      },
+      {
+        "choices": [
+          1,
+          0,
+          2,
+          1
+        ],
+        "count": 0
+      },
+      {
+        "choices": [
+          1,
+          1,
+          0,
+          0
+        ],
+        "count": 0
+      },
+      {
+        "choices": [
+          1,
+          1,
+          0,
+          1
+        ],
+        "count": 0
+      },
+      {
+        "choices": [
+          1,
+          1,
+          1,
+          0
+        ],
+        "count": 0
+      },
+      {
+        "choices": [
+          1,
+          1,
+          1,
+          1
+        ],
+        "count": 0
+      },
+      {
+        "choices": [
+          1,
+          1,
+          2,
+          0
+        ],
+        "count": 0
+      },
+      {
+        "choices": [
+          1,
+          1,
+          2,
+          1
+        ],
+        "count": 378
+      },
+      {
+        "choices": [
+          2,
+          0,
+          0,
+          0
+        ],
+        "count": 0
+      },
+      {
+        "choices": [
+          2,
+          0,
+          0,
+          1
+        ],
+        "count": 0
+      },
+      {
+        "choices": [
+          2,
+          0,
+          1,
+          0
+        ],
+        "count": 0
+      },
+      {
+        "choices": [
+          2,
+          0,
+          1,
+          1
+        ],
+        "count": 0
+      },
+      {
+        "choices": [
+          2,
+          0,
+          2,
+          0
+        ],
+        "count": 0
+      },
+      {
+        "choices": [
+          2,
+          0,
+          2,
+          1
+        ],
+        "count": 0
+      },
+      {
+        "choices": [
+          2,
+          1,
+          0,
+          0
+        ],
+        "count": 52
+      },
+      {
+        "choices": [
+          2,
+          1,
+          0,
+          1
+        ],
+        "count": 64
+      },
+      {
+        "choices": [
+          2,
+          1,
+          1,
+          0
+        ],
+        "count": 0
+      },
+      {
+        "choices": [
+          2,
+          1,
+          1,
+          1
+        ],
+        "count": 0
+      },
+      {
+        "choices": [
+          2,
+          1,
+          2,
+          0
+        ],
+        "count": 0
+      },
+      {
+        "choices": [
+          2,
+          1,
+          2,
+          1
+        ],
+        "count": 18
+      }
+    ]
+  }
+}

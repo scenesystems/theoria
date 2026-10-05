@@ -1,0 +1,17 @@
+{
+  "upstream": {
+    "optuna": "4.9.0",
+    "python": "3.12.14",
+    "platform": "Linux-x86_64"
+  },
+  "fixtures": [
+    {
+      "id": "optuna-mipro-categorical-001",
+      "file": "categorical.json",
+      "evidence": "upstream-kernel",
+      "sha256": "c9f1a1af45dd17e9d4a839c4f9ef7d1ca25494bc371f583fe59c4a547bbe24f1",
+      "generator": "scripts/fixtures/mipro_kernel.py",
+      "description": "TPESampler ask/tell plus fixed-history joint categorical frequencies; includes FAIL."
+    }
+  ]
+}
