@@ -9,6 +9,17 @@ class Prefix extends Context.Service<Prefix, string>()("study-test/Prefix") {}
 
 const Observation = Schema.Struct({ prefix: Schema.String, config: Schema.Finite, trialNumber: Schema.Finite })
 
+it.effect("accepts empty inputs without invoking the evaluator", () =>
+  Effect.gen(function*() {
+    expect(yield* Evaluation.run(Arr.empty<string>(), () => Effect.die("unexpected evaluation"))).toEqual([])
+  }))
+
+it.effect("propagates defects without converting them into expected failures", () =>
+  Effect.gen(function*() {
+    expect(yield* Evaluation.run(Arr.of(1), () => Effect.die("broken evaluator")).pipe(Effect.exit))
+      .toEqual(Exit.die("broken evaluator"))
+  }))
+
 it.effect("evaluates fixed inputs with typed services and preserves input order across concurrent completion", () =>
   Effect.gen(function*() {
     const fastFinished = yield* Deferred.make<void>()

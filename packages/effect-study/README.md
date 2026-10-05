@@ -30,6 +30,10 @@ export const program = Effect.gen(function* () {
 
 `Evaluation.run` numbers trials from zero, measures evaluation duration in milliseconds, and returns completed records in input order. Omitted concurrency means sequential execution. Evaluator failures retain their error type and interrupt in-flight siblings, waiting for their finalizers. No partial history is returned on failure.
 
+Empty input is valid. Settled evaluation means every input reaches an expected outcome, not that every trial succeeds; grading and nonempty-dataset requirements belong to callers. Defects and interruption must not become successful partial reports.
+
+An observer acknowledges an event by successfully completing its Effect. Memory acceptance, file append, and a durable database commit are different guarantees chosen by the observer. Serialized observation order need not match input order; returned trial records remain in input order. Queue insertion is not a persistence acknowledgment.
+
 `History` keeps the latest record for each trial number in an Effect `HashMap`; `History.values` returns records sorted by trial number. Replacing a record replaces its cost contribution rather than charging it twice. Absent, negative, and non-finite costs in trusted in-memory records contribute zero. Trial and event codecs require finite numerical metadata. Applications choose cost units.
 
 ## Schemas and persistence
@@ -69,6 +73,8 @@ Codecs carry independent decoding and encoding requirements: reads require only 
 `Study` owns the lifecycle and trial history as one serialized, observable snapshot. `Study.modify` commits and publishes only a successful complete snapshot; transaction failure or interruption leaves the prior snapshot intact and releases the serializer. A callback that returns an illegal lifecycle change violates a programmer invariant, so `modify` dies with a diagnostic before committing any lifecycle or history change. It does not broaden the typed error channel. Use `Study.transition` for lifecycle requests: invalid requests remain no-ops, terminal studies never reopen, and closing the owning scope cancels a created, running, or paused study.
 
 `StudyEvent` owns domain-generic schema factories for reservations, outcomes, retries, cancellation, cost, stop requests, and completion. Callers provide config, observation, failure, cancellation-reason, and completion-reason schemas rather than inheriting a numeric search vocabulary.
+
+Scope finalization changes the local Study lifecycle, not arbitrary external execution state. An unresolved trial remains unresolved; local interruption does not confirm remote cancellation. Reconstructing recorded evidence does not authorize repeating an external effect.
 
 ## Relationship to search and other packages
 
