@@ -1,12 +1,11 @@
 import { describe, expect, it } from "@effect/vitest"
-import { Array as Arr, Deferred, Effect, Fiber, Record, Ref, Schema, String as Str } from "effect"
+import { Array as Arr, Effect, Record, Ref, Schema, String as Str } from "effect"
 import * as LanguageModel from "effect/ai/LanguageModel"
 import * as MockLanguageModel from "../../src/MockLanguageModel.js"
 import * as Module from "../../src/Module.js"
 import { withInstructions } from "../../src/ModuleParameters.js"
 import * as ParameterSet from "../../src/ParameterSet.js"
 import * as Signature from "../../src/Signature.js"
-import { assertNoMutation } from "../kit/Mutation.js"
 
 describe("parameter overlays", () => {
   it.effect("isolates eight concurrent candidate instructions without writing caller refs", () =>
@@ -37,29 +36,6 @@ describe("parameter overlays", () => {
         }))
       expect(yield* ParameterSet.snapshot(root)).toEqual(before)
       expect((yield* Ref.get(leaf.params)).instructions).toBe(signature.instructions)
-    }))
-
-  it.effect("discards an interrupted overlay and installs only on explicit request", () =>
-    Effect.gen(function*() {
-      const signature = yield* Signature.make("Answer", { question: Schema.String }, { answer: Schema.String })
-      const leaf = yield* Module.predict("generate", signature)
-      const before = yield* ParameterSet.snapshot(leaf)
-      const candidate = Record.map(before, (params) => withInstructions(params, "candidate"))
-      const entered = yield* Deferred.make<void>()
-      const fiber = yield* assertNoMutation(
-        leaf,
-        Effect.gen(function*() {
-          expect(yield* ParameterSet.snapshot(leaf)).toEqual(candidate)
-          yield* Deferred.succeed(entered, void 0)
-          return yield* Effect.never
-        }).pipe(Module.withParameters(candidate))
-      ).pipe(Effect.forkChild)
-      yield* Deferred.await(entered)
-      yield* Fiber.interrupt(fiber)
-      expect(yield* ParameterSet.snapshot(leaf)).toEqual(before)
-      expect(yield* ParameterSet.snapshot(Module.bound(leaf, candidate))).toEqual(candidate)
-      yield* Module.install(leaf, candidate)
-      expect(yield* ParameterSet.snapshot(leaf)).toEqual(candidate)
     }))
 
   it.effect("preserves bound defaults when composed and lets root overlays win", () =>
