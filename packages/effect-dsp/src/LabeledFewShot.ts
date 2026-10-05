@@ -16,7 +16,7 @@ import * as Optimized from "./Optimized.js"
 import * as ParameterSet from "./ParameterSet.js"
 
 /** Normalized sampling request and number of selected labeled demonstrations.
- * @since 1.0.0
+ * @since 0.6.0
  * @category models
  */
 export class Report extends Schema.Class<Report>("@scenesystems/effect-dsp/LabeledFewShot/Report")({

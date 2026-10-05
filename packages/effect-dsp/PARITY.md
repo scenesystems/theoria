@@ -1,10 +1,12 @@
 # DSPy parity ledger
 
 Target: DSPy 3.4.0, GEPA 0.1.4, Optuna 4.9.0. Wave 0 is evidence infrastructure,
-not a parity release. **No API is verified yet.** `implemented` means a related
+not a parity release. Wave 1 verifies Evaluate's failure-inclusive denominator.
+`implemented` means a related
 Theoria API exists, not that its behavior matches upstream. `planned` identifies
 later-wave work; `non-goal` identifies an intentional exclusion. `verified` is
-reserved for completed differential coverage in the owning wave.
+reserved for the differential behavior covered by the cited evidence, not every
+behavior of the upstream API.
 
 Wave 1.0 removes format-version fields from module snapshots, example reports,
 and inference route provenance. Saved state retains caller metadata. This is
@@ -67,7 +69,7 @@ delegate to the original methods and Evaluate; GEPA uses upstream callbacks.
 
 | Fixture                                        | Owning wave | Current mismatch                                                                                                                                                                                                                                                        |
 | ---------------------------------------------- | ----------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `eval-failure-inclusive-001`                   | 1           | Successful-only denominator gives 1 instead of 0.5.                                                                                                                                                                                                                     |
+| `eval-failure-inclusive-001`                   | 1           | Resolved: the failure-inclusive denominator gives 0.5, matching DSPy.                                                                                                                                                                                                    |
 | `bootstrap-teacher-trace-001`                  | 2           | Teacher output provenance already works; repeated second-stage trace demos are incorrectly deduplicated. The passing companion test checks teacher outputs differ from labels and no student LM calls occur.                                                            |
 | `mipro-trial-budget-001`                       | 3           | Auto light with one predictor and demos executes 10 trials, not the current 9.                                                                                                                                                                                          |
 | `mipro-best-fullval-001`                       | 3           | A minibatch score of 1 contaminates the full-validation best, which must remain 0.8 when that candidate scores 0.5 on full validation.                                                                                                                                  |
@@ -170,7 +172,7 @@ not establish sampler parity. None of these results promotes an API to `verified
 | `predict.RLM`                                 | —                           | planned     | —                                                                                                                      | Wave 5.                                                               |
 | `evaluate.CompleteAndGrounded`                | —                           | planned     | —                                                                                                                      | Semantic metrics, Wave 4.                                             |
 | `evaluate.SemanticF1`                         | —                           | planned     | —                                                                                                                      | Semantic metrics, Wave 4.                                             |
-| `evaluate.Evaluate`                           | `Evaluate`                  | implemented | `eval-failure-inclusive-001`                                                                                           | Wave 1 failure semantics.                                             |
+| `evaluate.Evaluate`                           | `Evaluate`                  | verified    | `eval-failure-inclusive-001`                                                                                           | Failure-inclusive denominator; other semantics are locally tested.    |
 | `evaluate.EvaluationResult`                   | `Evaluate.Report`           | implemented | `eval-failure-inclusive-001`                                                                                           | Shape differs; behavioral target.                                     |
 | `evaluate.EM`                                 | `Metric.exactMatch`         | implemented | —                                                                                                                      | Normalization audit required.                                         |
 | `evaluate.answer_exact_match`                 | `Metric.exactMatch`         | implemented | —                                                                                                                      | Normalization audit required.                                         |

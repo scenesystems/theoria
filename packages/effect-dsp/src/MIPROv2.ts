@@ -410,7 +410,6 @@ const totalInstructionCandidates = (
  * declared error channels.
  *
  * @param options - Candidate, proposal, validation, and search settings.
- * @param emit - Sink awaited once for each emitted lifecycle event.
  * @returns The bound program, immutable parameters, and serializable search report.
  * @typeParam I - Input fields accepted by the optimized module.
  * @typeParam O - Output fields scored by the configured metric.

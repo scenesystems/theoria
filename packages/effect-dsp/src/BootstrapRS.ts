@@ -27,7 +27,7 @@ import * as ParameterSet from "./ParameterSet.js"
 
 /** Candidate validation scores and the selected index in construction order.
  * A missing score denotes a candidate with no successful evaluation rows.
- * @since 1.0.0
+ * @since 0.6.0
  * @category models
  */
 export class Report extends Schema.Class<Report>("@scenesystems/effect-dsp/BootstrapRS/Report")({

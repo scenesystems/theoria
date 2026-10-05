@@ -10,7 +10,7 @@ import { Id } from "./Module.js"
 import { Payload } from "./Payload.js"
 
 /** Predictor invocation identity, shared by its parse attempts and selection.
- * @since 1.0.0
+ * @since 0.6.0
  * @category schemas
  */
 export const Execution = {
@@ -116,7 +116,7 @@ export class Usage extends Schema.Class<Usage>("@scenesystems/effect-dsp/Trace/U
 }) {}
 
 /** One parsed or unparsed response within a predictor invocation.
- * @since 1.0.0
+ * @since 0.6.0
  * @category models
  */
 export class Attempt extends Schema.Class<Attempt>("@scenesystems/effect-dsp/Trace/Attempt")({
@@ -129,7 +129,7 @@ export class Attempt extends Schema.Class<Attempt>("@scenesystems/effect-dsp/Tra
 }) {}
 
 /** Selected executions, all observed attempts and aggregate provider usage.
- * @since 1.0.0
+ * @since 0.6.0
  * @category models
  */
 export class Program extends Schema.Class<Program>("@scenesystems/effect-dsp/Trace/Program")({

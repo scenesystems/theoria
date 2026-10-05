@@ -620,7 +620,7 @@ export const predict = predictInternal
 
 /** Invokes a module while collecting its decoded output, trace and usage.
  * Expected failures, defects and interruption propagate from forward unchanged.
- * @since 1.0.0
+ * @since 0.6.0
  * @category execution
  */
 export const call = <I extends Schema.Struct.Fields, O extends Schema.Struct.Fields, E, R>(
@@ -663,13 +663,13 @@ export const load = loadInternal
 export const save = saveInternal
 
 /** Installs an immutable parameter overlay for the duration of an effect.
- * @since 1.0.0
+ * @since 0.6.0
  * @category combinators
  */
 export const withParameters = ParameterBinding.withParameters
 
 /** Returns an executable copy bound to a parameter snapshot; caller refs are unchanged.
- * @since 1.0.0
+ * @since 0.6.0
  * @category constructors
  */
 export const bound = <I extends Schema.Struct.Fields, O extends Schema.Struct.Fields, E, R>(
@@ -690,7 +690,7 @@ export const bound = <I extends Schema.Struct.Fields, O extends Schema.Struct.Fi
 }
 
 /** Marks a subtree as excluded from optimization; its forward operation is unchanged.
- * @since 1.0.0
+ * @since 0.6.0
  * @category combinators
  */
 export const freeze = <I extends Schema.Struct.Fields, O extends Schema.Struct.Fields, E, R>(
@@ -708,7 +708,7 @@ export const freeze = <I extends Schema.Struct.Fields, O extends Schema.Struct.F
   })
 
 /** Explicitly installs snapshot values into matching predictor refs.
- * @since 1.0.0
+ * @since 0.6.0
  * @category persistence
  */
 export const install = Effect.fnUntraced(function*(root: ComposableModule, parameters: ParameterSet) {

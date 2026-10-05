@@ -1,13 +1,13 @@
 /**
  * Decoded program output together with the evidence collected during invocation.
- * @since 1.0.0
+ * @since 0.6.0
  * @module
  */
 import { Data, Schema } from "effect"
 import * as Trace from "./Trace.js"
 
 /** A program result retaining its trace and aggregate native usage.
- * @since 1.0.0
+ * @since 0.6.0
  * @category models
  */
 export class Prediction<O> extends Data.Class<{

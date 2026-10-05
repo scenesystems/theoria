@@ -25,7 +25,7 @@ const moduleIdOrder: Order.Order<Id> = Order.mapInput(Order.String, (moduleId: I
 
 /** Enumerates leaf owners in sorted declaration order, retaining shared aliases.
  * A frozen path freezes its owner even when another path is not frozen.
- * @since 1.0.0
+ * @since 0.6.0
  * @category combinators
  */
 export const predictors = (root: ComposableModule): Chunk.Chunk<Predictor.Ref> => {
