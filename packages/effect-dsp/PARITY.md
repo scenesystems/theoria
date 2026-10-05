@@ -15,8 +15,11 @@ contract cleanup, not additional DSPy parity evidence; status claims stay unchan
 Wave 2.0 introduces lossless TeacherTrace collection. Its upstream-execution
 discriminator retains duplicate teacher outputs from separate examples without
 student LM calls. Within one trace, `firstPerPredictor` deliberately chooses the
-first invocation; DSPy's hash-seeded earlier-versus-last selection is not
-reproduced, and no upstream fixture covers that policy. Local tests cover
+first invocation. `bootstrap-repeated-call-001` verifies exactly one retained
+demo per predictor per example and membership in that example's trace demos.
+The pick itself is not reproduced: DSPy seeds its choice with xxhash over
+Python pickle bytes (`Hasher.hash(tuple(demos))`), not a portable integer seed.
+Local tests cover
 leave-one-out prompts, signature compatibility, score thresholds, error budgets,
 and caller immutability on interruption. Evaluate and TeacherTrace now raise when
 the error count reaches maxErrors, rather than allowing one additional failure.

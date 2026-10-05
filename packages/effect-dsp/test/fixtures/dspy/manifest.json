@@ -12,6 +12,14 @@
   },
   "fixtures": [
     {
+      "id": "bootstrap-repeated-call-001",
+      "file": "upstream/bootstrap-repeated-call-001.json",
+      "evidence": "upstream-execution",
+      "sha256": "2dc39f8c43393f7862fd516f5d49b61a5273470ccaf293b9ab84e06d9289b29e",
+      "generator": "fixtures.bootstrap_family",
+      "description": "One trace-member demo per repeated predictor per example; pickle-hash pick is not serialized."
+    },
+    {
       "id": "bootstrap-teacher-trace-001",
       "file": "upstream/bootstrap-teacher-trace-001.json",
       "evidence": "upstream-execution",

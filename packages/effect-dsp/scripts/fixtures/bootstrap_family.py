@@ -14,6 +14,16 @@ class TwoStage(dspy.Module):
         return self.second(question=intermediate.answer)
 
 
+class RepeatedCall(dspy.Module):
+    def __init__(self):
+        super().__init__()
+        self.predictor = dspy.Predict("question -> answer")
+
+    def forward(self, question):
+        self.predictor(question=f"{question}/first")
+        return self.predictor(question=f"{question}/second")
+
+
 def generate():
     train, val = examples("train", 4), examples("val", 2)
     docs = []
@@ -59,6 +69,30 @@ def generate():
                                  "maxErrors": 1, "teacher": teacher, "metricCalls": calls,
                                  "history": history(model),
                                  "studentHistory": history(student_model) if teacher else [], **result}})
+    model = lm()
+    repeated_traces = []
+
+    def repeated_metric(e, p, trace=None):
+        repeated_traces.append({"id": e.id, "demos": [
+            {**inputs, **outputs.toDict()} for _, inputs, outputs in trace]})
+        return True
+
+    with dspy.context(lm=model):
+        repeated = dspy.BootstrapFewShot(
+            metric=repeated_metric, max_bootstrapped_demos=2,
+            max_labeled_demos=0, max_rounds=1,
+        ).compile(RepeatedCall(), trainset=train)
+    # Preserve the observable invariant, not the process-dependent pickle hash pick.
+    retained = repeated.predictor.demos
+    policy = []
+    for entry in repeated_traces:
+        selected = [{"question": d.question, "answer": d.answer} for d in retained
+                    if d.question.startswith(entry["id"] + "/")]
+        policy.append({**entry, "retainedCount": len(selected),
+                       "retainedFromTrace": all(d in entry["demos"] for d in selected)})
+    docs.append({"id": "bootstrap-repeated-call-001",
+                 "description": "One trace-member demo per repeated predictor per example; pickle-hash pick is not serialized.",
+                 "payload": {"splits": splits(train), "examples": policy, "history": history(model)}})
     model = lm()
     calls = []
 
