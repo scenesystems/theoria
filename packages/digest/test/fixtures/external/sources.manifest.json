@@ -8,19 +8,23 @@
       "sourceLocator": "https://pypi.org/project/blake3/1.0.8/",
       "revision": "blake3-py-1.0.8",
       "sourcePaths": ["Python json.dumps", "blake3.blake3"],
-      "sourceSelectors": ["ASCII, BMP, astral and mixed string values with UTF-16-ordered nested record keys"],
+      "sourceSelectors": [
+        "ASCII, BMP, astral and mixed string values with UTF-16-ordered nested record keys",
+        "ECMAScript finite-number spelling boundaries, negative zero, booleans and null"
+      ],
       "retrievedAt": "2026-10-05",
       "sourceLicense": "CC0-1.0 OR Apache-2.0",
       "licenseUrl": "https://github.com/oconnor663/blake3-py/blob/1.0.8/LICENSE",
       "sourceNotice": "Locally authored inputs and generated outputs; no upstream vector text is copied. Python blake3 uses the independent Rust BLAKE3 implementation, not Noble or digest.",
       "transformations": [
         "Generated with uv run --with blake3==1.0.8 python. Recursively rebuild dictionaries with keys sorted by key.encode('utf-16be'); preserve array order.",
-        "Serialize using json.dumps(value, ensure_ascii=False, separators=(',', ':')). The selected numbers are integers, avoiding Python/ECMAScript float spelling differences.",
+        "For string vectors, serialize using json.dumps(value, ensure_ascii=False, separators=(',', ':')). Their numbers are integers, avoiding Python/ECMAScript float spelling differences.",
+        "For numeric-and-scalar-boundaries, use the explicit ECMAScript canonical text checked against Node JSON.stringify, not Python float serialization; hash that exact UTF-8 text with blake3-py 1.0.8.",
         "Hash text.encode('utf-8') using blake3.blake3(...).digest(); render the full 32-byte digest with base64.urlsafe_b64encode(...).decode().rstrip('=')."
       ],
       "exclusions": [],
       "localVerdictRemaps": [],
-      "contentSha256": "b49495fba4d389828da6f62a7bb4b47e25712d37478f8080db1b4c5a2934d789"
+      "contentSha256": "ccf8eedc8ac6bc4d5bd4f6db8782afc0ae53c5939aa01be2ab69b1da25c7f6b9"
     },
     {
       "id": "blake3-official-vectors",

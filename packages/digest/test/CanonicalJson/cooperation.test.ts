@@ -35,6 +35,7 @@ const workloads = Arr.make(
     )
   ),
   Tuple.make("string", longText),
+  Tuple.make("escaped string", Str.repeat(65_536)("line\n\"\\漢😀")),
   Tuple.make("record key", Record.singleton(longText, true))
 )
 
@@ -140,7 +141,7 @@ it.effect("matches scalar JSON escaping on both sides of the short-string bounda
       "\r",
       "\r\n"
     )
-    yield* Effect.forEach(Arr.make(0, 1_019, 1_023, 1_024, 1_025), (length) =>
+    yield* Effect.forEach(Arr.make(0, 1_019, 1_023, 1_024, 1_025, 32_767, 32_768, 32_769), (length) =>
       Effect.forEach(suffixes, (suffix) =>
         Effect.gen(function*() {
           const text = Str.concat(Str.repeat(length)("x"), suffix)

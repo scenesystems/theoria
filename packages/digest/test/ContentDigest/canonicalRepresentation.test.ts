@@ -32,7 +32,9 @@ describe("ContentDigest canonical representations", () => {
 
   it.effect.each(Arr.make(
     Tuple.make(Str.concat(Str.repeat(511)("😀"), "x\ud800"), 1023, "lone-high-surrogate"),
-    Tuple.make(Str.concat(Str.repeat(512)("😀"), "x\udfff"), 1025, "lone-low-surrogate")
+    Tuple.make(Str.concat(Str.repeat(512)("😀"), "x\udfff"), 1025, "lone-low-surrogate"),
+    Tuple.make(Str.concat(Str.repeat(16_383)("😀"), "x\ud800"), 32767, "lone-high-surrogate"),
+    Tuple.make(Str.concat(Str.repeat(16_384)("😀"), "x\udfff"), 32769, "lone-low-surrogate")
   ))(
     "reports exact surrogate indices after valid astral pairs: %s",
     ([text, codeUnitIndex, kind]) =>
