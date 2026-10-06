@@ -1,12 +1,22 @@
 """Delegate-only observations of all three MIPRO phases."""
 
+from pathlib import Path
+import runpy
 from unittest.mock import patch
 
 import dspy
+import numpy
+# Resolve DSPy's lazy NumPy import before Optuna imports its submodules.
+numpy.__version__
+import optuna
 from dspy.teleprompt import mipro_optimizer_v2 as upstream
 from dspy.utils import DummyLM
 
 from ._common import examples, history, lm, splits, state
+
+# The Optuna corpus owns the passive acquisition observer; DSPy runs use it too.
+ObservedTPE = runpy.run_path(Path(__file__).resolve().parents[3] /
+                            "effect-search/scripts/fixtures/mipro_kernel.py")["ObservedTPE"]
 
 
 class ObservedMIPRO(dspy.MIPROv2):
@@ -32,8 +42,9 @@ class ObservedMIPRO(dspy.MIPROv2):
         return value
 
 
-def run(auto, discriminator=False, max_bootstrapped_demos=1, max_labeled_demos=1, minibatch=True):
-    train, val = examples("train", 4), examples("val", 6)
+def run(auto, discriminator=False, max_bootstrapped_demos=1, max_labeled_demos=1,
+        minibatch=True, expect_error=False, val_size=6, full_eval_steps=2):
+    train, val = examples("train", 4), examples("val", val_size)
     task = lm()
     proposer = DummyLM([{"proposed_instruction": f"candidate-{i}"} for i in range(100)])
     program = dspy.Predict("question -> answer")
@@ -56,7 +67,14 @@ def run(auto, discriminator=False, max_bootstrapped_demos=1, max_labeled_demos=1
     optimizer.current_trial = None
     evaluations = []
     proposer_rollouts = []
+    studies = []
+    real_create_study = optuna.create_study
     real_copy = proposer.copy
+
+    def observed_study(*args, **kwargs):
+        study = real_create_study(*args, **kwargs)
+        studies.append(study)
+        return study
 
     def observed_copy(**kwargs):
         copied = real_copy(**kwargs)
@@ -82,15 +100,42 @@ def run(auto, discriminator=False, max_bootstrapped_demos=1, max_labeled_demos=1
             return result
         return real_evaluate(batch_size, dataset, candidate, evaluate_batch, rng)
 
+    error = None
     with (dspy.context(lm=task), patch.object(upstream, "eval_candidate_program", observed_evaluate),
-          patch.object(proposer, "copy", observed_copy)):
-        compiled = optimizer.compile(
-            program, trainset=train, valset=val, num_trials=12 if auto is None else None,
-            minibatch=minibatch, minibatch_size=1, minibatch_full_eval_steps=2,
-            program_aware_proposer=False, data_aware_proposer=False,
-            tip_aware_proposer=False, fewshot_aware_proposer=False,
-        )
+          patch.object(proposer, "copy", observed_copy),
+          patch.object(optuna.samplers, "TPESampler", ObservedTPE),
+          patch.object(optuna, "create_study", observed_study)):
+        try:
+            compiled = optimizer.compile(
+                program, trainset=train, valset=val, num_trials=12 if auto is None else None,
+                minibatch=minibatch, minibatch_size=1, minibatch_full_eval_steps=full_eval_steps,
+                program_aware_proposer=False, data_aware_proposer=False,
+                tip_aware_proposer=False, fewshot_aware_proposer=False,
+            )
+        except ValueError as failure:
+            if not expect_error or str(failure) != "No valid program found in param_score_dict":
+                raise
+            error = str(failure)
+    assert (error is not None) == expect_error
+    study = studies[0]
+    trajectory = {
+        "numTrials": 12 if auto is None else len(optimizer.params),
+        "minibatch": minibatch if auto is None else val_size > upstream.MIN_MINIBATCH_SIZE,
+        "minibatchSize": 1, "minibatchFullEvalSteps": full_eval_steps,
+        "strictThroughTrial": study.sampler.strict_through(study.trials[-1].number),
+        "acquisitionGaps": study.sampler.acquisition_gaps,
+        "trialTable": [{"number": trial.number, "params": trial.params,
+                        "value": trial.value / 100 if trial.value is not None else None,
+                        "state": trial.state.name,
+                        "fullValidation": evaluations[trial.number]["fullValidation"]}
+                       for trial in study.trials],
+    }
+    if error:
+        return {**trajectory, "error": error, "seed": 9, "splits": splits(train, val),
+                "maxBootstrappedDemos": max_bootstrapped_demos, "maxLabeledDemos": max_labeled_demos,
+                "trials": optimizer.params, "evaluations": evaluations}
     return {"auto": auto, "seed": 9, "splits": splits(train, val),
+            **trajectory,
             "maxBootstrappedDemos": max_bootstrapped_demos, "maxLabeledDemos": max_labeled_demos,
             "bootstrapCalls": optimizer.bootstrap_calls, "bootstrapMetricIds": bootstrap_metrics,
             "demoSets": optimizer.demo_sets, "instructions": optimizer.instructions,
@@ -125,4 +170,22 @@ def generate():
         docs.append({"id": name,
                      "description": "Real MIPRO compile with unlabeled-only bootstrap catalog and shared RNG; zero caps retain proposer evidence but remove demo search.",
                      "payload": payload})
+    docs.append({"id": "miprov2-exhausted-full-eval-001",
+                 "description": "Three instruction candidates exhaust all not-yet-fully-evaluated combinations during twelve minibatch trials.",
+                 "payload": run(None, max_bootstrapped_demos=0, max_labeled_demos=0, expect_error=True)})
+    docs.append({"id": "miprov2-auto-minibatch-001",
+                 "description": "Auto light enables minibatching above 50 validation rows and inserts full checkpoints at the default five-trial cadence.",
+                 "payload": run("light", val_size=51, full_eval_steps=5)})
+    for doc in docs:
+        payload = doc["payload"]
+        doc["trajectory"] = {
+            "sampledTrials": len(payload["trials"]),
+            "minibatch": payload["minibatch"], "valsetSize": len(payload["splits"]["val"]),
+            "sampledEvaluation": "minibatch" if payload["minibatch"] else "fullValidation",
+            "insertedFullEvaluations": len(payload["trialTable"]) - len(payload["trials"]) - 1,
+            "baselineTrials": 1, "totalStudyRows": len(payload["trialTable"]),
+            "strictThroughTrial": payload["strictThroughTrial"],
+            "firstInadmissibleTie": next((gap for gap in payload["acquisitionGaps"]
+                                          if gap["tie"] and gap["tie"]["classification"] != "identicalInputs"), None),
+        }
     return docs

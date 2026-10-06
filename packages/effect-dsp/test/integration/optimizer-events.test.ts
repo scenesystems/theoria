@@ -38,7 +38,7 @@ describe("integration/optimizer events", () => {
     Effect.gen(function*() {
       const infinity = Number.POSITIVE_INFINITY
       const encoding = OptimizerEvent.fromMIPROv2(
-        MIPROv2.events.TrialEvaluated({ trial: 2, score: infinity })
+        MIPROv2.events.TrialEvaluated({ trial: 2, score: infinity, config: {}, fullValidation: true, sampled: true })
       )
       expectTypeOf<EffectError<typeof encoding>>().toEqualTypeOf<Schema.SchemaError>()
       expect(yield* Effect.flip(encoding)).toBeInstanceOf(Schema.SchemaError)

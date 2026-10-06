@@ -6,7 +6,6 @@
  * @internal
  */
 import * as Numeric from "@scenesystems/effect-math/Numeric"
-import type { Optimization } from "@scenesystems/effect-search"
 import { SearchSpace } from "@scenesystems/effect-search"
 import {
   Array as Arr,
@@ -14,12 +13,12 @@ import {
   Data,
   Effect,
   HashMap,
-  Inspectable,
   Match,
   Number as Num,
   Option,
   Predicate,
   Record,
+  Ref,
   String as Str
 } from "effect"
 import type { Schema } from "effect"
@@ -34,13 +33,8 @@ import type {
 import type { Module as DspModule } from "../../../Module.js"
 import { predictors } from "../../../ModuleGraph.js"
 import type * as Predictor from "../../../Predictor.js"
-import {
-  demoDimensionName,
-  instructionDimensionName,
-  type Phase3Config,
-  Phase3DimensionIndex,
-  PredictorBinding
-} from "./model.js"
+import type { Phase3DimensionIndex } from "./model.js"
+import { demoDimensionName, instructionDimensionName, type Phase3Config, PredictorBinding } from "./model.js"
 
 type Phase3CategoricalSchema = Schema.Codec<Phase3DimensionIndex, Phase3DimensionIndex, never, never>
 
@@ -57,39 +51,13 @@ export class ResolveBindingsOptions<
 }> {}
 
 const categoricalDimension = (count: number): Effect.Effect<Phase3CategoricalSchema, AllTrialsFailed> =>
-  Match.value(count).pipe(
-    Match.when((size) => Num.isLessThanOrEqualTo(size, 0), () =>
-      Effect.fail(
-        new AllTrialsFailed({
-          message: "MIPROv2 Phase 3 requires at least one candidate per dimension",
-          trialCount: 0
-        })
-      )),
-    Match.when(
-      (size) => Num.isLessThanOrEqualTo(size, Arr.length(Phase3DimensionIndex.literals)),
-      (size) =>
-        Arr.match(Arr.take(Phase3DimensionIndex.literals, size), {
-          onEmpty: () =>
-            Effect.fail(
-              new AllTrialsFailed({
-                message: "MIPROv2 Phase 3 requires at least one candidate per dimension",
-                trialCount: 0
-              })
-            ),
-          onNonEmpty: (choices) => Effect.succeed(SearchSpace.categorical(choices))
-        })
-    ),
-    Match.orElse((size) =>
-      Effect.fail(
-        new AllTrialsFailed({
-          message: Str.concat(
-            "MIPROv2 Phase 3 supports up to 10 categorical candidates per dimension (received ",
-            Str.concat(Inspectable.toStringUnknown(size), ")")
-          ),
-          trialCount: size
-        })
-      )
-    )
+  Effect.succeed(count).pipe(
+    Effect.filterOrFail(Num.isGreaterThan(0), () =>
+      new AllTrialsFailed({
+        message: "MIPROv2 Phase 3 requires at least one candidate per dimension",
+        trialCount: 0
+      })),
+    Effect.map((size) => SearchSpace.categorical(Arr.makeBy(size, (index) => index)))
   )
 
 /**
@@ -281,13 +249,17 @@ export const resolveBindings = <
       { discard: true }
     )
 
-    return yield* Effect.forEach(refs, (ref) =>
+    return yield* Effect.forEach(refs, (ref, index) =>
       Effect.gen(function*() {
-        const demos = yield* Effect.fromOption(HashMap.get(demosByName, ref.name), () =>
+        const demos = HashMap.get(demosByName, ref.name)
+        yield* Effect.fail(
           new AllTrialsFailed({
-            message: Str.concat(Str.concat("Missing phase-3 demo candidates for predictor '", ref.name), "'"),
+            message: `Missing phase-3 demo candidates for predictor '${ref.name}'`,
             trialCount: 0
-          }))
+          })
+        ).pipe(Effect.when(Effect.succeed(
+          Bool.and(Arr.isReadonlyArrayNonEmpty(options.demoCandidates), Option.isNone(demos))
+        )))
         const instructions = yield* Effect.fromOption(HashMap.get(instructionsByName, ref.name), () =>
           new AllTrialsFailed({
             message: Str.concat(
@@ -298,8 +270,13 @@ export const resolveBindings = <
           }))
 
         return new PredictorBinding({
+          index,
           predictorName: ref.name,
           predictorId: ref.path,
+          originalParameters: yield* Option.match(ref.boundParameters, {
+            onNone: () => Ref.get(ref.parameters),
+            onSome: Effect.succeed
+          }),
           demos,
           instructions
         })
@@ -310,28 +287,26 @@ export const resolveBindings = <
  * Builds the index-0 baseline configuration — every predictor uses its
  * first demo candidate and first instruction candidate.
  *
- * This config is evaluated on the full validation set before the
- * search loop to produce a `PriorTrial` for warm-starting.
+ * The unchanged program's full score is recorded at trial zero using these indexes.
  *
  * @since 0.1.0
  * @category constructors
  */
 export const baselineConfig = (bindings: Iterable<PredictorBinding>): Phase3Config =>
-  Arr.reduce(bindings, Record.empty<string, Phase3DimensionIndex>(), (config, binding) =>
-    Record.set(
-      Record.set(config, demoDimensionName(binding.predictorName), 0),
-      instructionDimensionName(binding.predictorName),
-      0
-    ))
+  Arr.reduce(bindings, Record.empty<string, Phase3DimensionIndex>(), (config, binding) => ({
+    ...config,
+    [instructionDimensionName(binding.index)]: 0,
+    ...Option.match(binding.demos, {
+      onNone: () => ({}),
+      onSome: () => ({ [demoDimensionName(binding.index)]: 0 })
+    })
+  }))
 
 /**
  * Creates the categorical search-space dimensions for `effect-search`.
  *
- * Each predictor contributes two dimensions — one for its demo
- * candidates and one for its instruction candidates — keyed by
- * `<predictorName>__demo` and `<predictorName>__instruction`.
- * Candidate counts are capped at 10; larger sets cause
- * `AllTrialsFailed`.
+ * In predictor order, instructions precede demos. Empty demo catalogs omit
+ * demonstration dimensions entirely; singletons consume no sampler randomness.
  *
  * @since 0.1.0
  * @category constructors
@@ -343,14 +318,15 @@ export const buildSearchDimensions = (bindings: Iterable<PredictorBinding>) =>
     () => Record.empty<string, Phase3CategoricalSchema>(),
     (dimensions, binding) =>
       Effect.gen(function*() {
-        const demoDimension = yield* categoricalDimension(Arr.length(binding.demos.candidates))
         const instructionDimension = yield* categoricalDimension(Arr.length(binding.instructions.candidates))
-
-        return Record.set(
-          Record.set(dimensions, demoDimensionName(binding.predictorName), demoDimension),
-          instructionDimensionName(binding.predictorName),
-          instructionDimension
-        )
+        const instructions = Record.set(dimensions, instructionDimensionName(binding.index), instructionDimension)
+        return yield* Option.match(binding.demos, {
+          onNone: () => Effect.succeed(instructions),
+          onSome: (demos) =>
+            categoricalDimension(demos.candidates.length).pipe(
+              Effect.map((dimension) => Record.set(instructions, demoDimensionName(binding.index), dimension))
+            )
+        })
       })
   )
 
@@ -389,34 +365,4 @@ export const objectiveScore = (value: ObjectiveValue) =>
         })
       )
     )
-  )
-
-/**
- * Extracts the winning `Phase3Config` from a completed optimization result.
- *
- * For single-objective results the best trial is returned directly.
- * For multi-objective results the first entry on the Pareto front is
- * used. Fails with `AllTrialsFailed` when the Pareto front is empty.
- *
- * @since 0.1.0
- * @category helpers
- */
-export const resolveBestConfig = (
-  optimizationResult: Optimization.Result<Phase3Config>,
-  trialBudget: number
-): Effect.Effect<Phase3Config, AllTrialsFailed> =>
-  Match.value(optimizationResult).pipe(
-    Match.tag("SingleObjective", ({ bestTrial }) => Effect.succeed(bestTrial.config)),
-    Match.tag("MultiObjective", ({ paretoFront }) =>
-      Option.match(Arr.head(Arr.fromIterable(paretoFront)), {
-        onNone: () =>
-          Effect.fail(
-            new AllTrialsFailed({
-              message: "MIPROv2 Phase 3 could not resolve best trial from pareto front",
-              trialCount: trialBudget
-            })
-          ),
-        onSome: (trial) => Effect.succeed(trial.config)
-      })),
-    Match.exhaustive
   )

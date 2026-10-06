@@ -70,8 +70,9 @@ describe("MIPROv2 orchestration", () => {
           valset: trainset,
           metric: Metric.exactMatch("answer"),
           numCandidates: 4,
-          numInstructions: 4,
-          trialBudget: 6,
+          auto: Option.none(),
+          minibatch: false,
+          numTrials: 6,
           seed: 31
         }),
         (event) => Ref.update(events, (tags) => Arr.append(tags, event._tag))
@@ -123,8 +124,9 @@ describe("MIPROv2 orchestration", () => {
             valset: trainset,
             metric: Metric.exactMatch("answer"),
             numCandidates: 2,
-            numInstructions: 2,
-            trialBudget: 2,
+            auto: Option.none(),
+            minibatch: false,
+            numTrials: 2,
             seed: 31
           }),
           (event) => Ref.update(events, (tags) => Arr.append(tags, event._tag))

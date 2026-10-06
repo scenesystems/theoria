@@ -91,6 +91,17 @@ export class AllTrialsFailed extends Schema.TaggedError<AllTrialsFailed>(
   }
 ) {}
 
+/** Invalid MIPRO inputs or exhausted full-validation candidates.
+ * @since 0.6.0
+ * @category errors
+ */
+export class MIPROv2Error extends Schema.TaggedError<MIPROv2Error>(
+  "@scenesystems/effect-dsp/DspError/MIPROv2Error"
+)("MIPROv2Error", {
+  reason: Schema.Literals(["invalid-options", "invalid-dataset", "exhausted-candidates"]),
+  message: Schema.String
+}) {}
+
 /** GEPA crossover rejection.
  * @since 0.1.0
  * @category errors
@@ -180,6 +191,7 @@ export const DspError = Schema.Union([
   CompositionError,
   InstructionProposalFailed,
   AllTrialsFailed,
+  MIPROv2Error,
   MergeRejected,
   MetricError,
   EvaluationFailed,

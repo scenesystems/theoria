@@ -59,6 +59,134 @@
         }
       ]
     },
+    "numTrials": 10,
+    "minibatch": false,
+    "minibatchSize": 1,
+    "minibatchFullEvalSteps": 2,
+    "strictThroughTrial": 10,
+    "acquisitionGaps": [
+      {
+        "trial": 10,
+        "dimensions": [
+          "0_predictor_demos",
+          "0_predictor_instruction"
+        ],
+        "gap": 0.544572849763,
+        "tie": null
+      }
+    ],
+    "trialTable": [
+      {
+        "number": 0,
+        "params": {
+          "0_predictor_instruction": 0,
+          "0_predictor_demos": 0
+        },
+        "value": 0.8,
+        "state": "COMPLETE",
+        "fullValidation": true
+      },
+      {
+        "number": 1,
+        "params": {
+          "0_predictor_instruction": 1,
+          "0_predictor_demos": 3
+        },
+        "value": 0.8,
+        "state": "COMPLETE",
+        "fullValidation": true
+      },
+      {
+        "number": 2,
+        "params": {
+          "0_predictor_instruction": 2,
+          "0_predictor_demos": 0
+        },
+        "value": 0.8,
+        "state": "COMPLETE",
+        "fullValidation": true
+      },
+      {
+        "number": 3,
+        "params": {
+          "0_predictor_instruction": 1,
+          "0_predictor_demos": 5
+        },
+        "value": 0.8,
+        "state": "COMPLETE",
+        "fullValidation": true
+      },
+      {
+        "number": 4,
+        "params": {
+          "0_predictor_instruction": 2,
+          "0_predictor_demos": 2
+        },
+        "value": 0.8,
+        "state": "COMPLETE",
+        "fullValidation": true
+      },
+      {
+        "number": 5,
+        "params": {
+          "0_predictor_instruction": 0,
+          "0_predictor_demos": 5
+        },
+        "value": 0.8,
+        "state": "COMPLETE",
+        "fullValidation": true
+      },
+      {
+        "number": 6,
+        "params": {
+          "0_predictor_instruction": 2,
+          "0_predictor_demos": 0
+        },
+        "value": 0.8,
+        "state": "COMPLETE",
+        "fullValidation": true
+      },
+      {
+        "number": 7,
+        "params": {
+          "0_predictor_instruction": 2,
+          "0_predictor_demos": 5
+        },
+        "value": 0.8,
+        "state": "COMPLETE",
+        "fullValidation": true
+      },
+      {
+        "number": 8,
+        "params": {
+          "0_predictor_instruction": 1,
+          "0_predictor_demos": 4
+        },
+        "value": 0.8,
+        "state": "COMPLETE",
+        "fullValidation": true
+      },
+      {
+        "number": 9,
+        "params": {
+          "0_predictor_instruction": 2,
+          "0_predictor_demos": 5
+        },
+        "value": 0.8,
+        "state": "COMPLETE",
+        "fullValidation": true
+      },
+      {
+        "number": 10,
+        "params": {
+          "0_predictor_instruction": 0,
+          "0_predictor_demos": 0
+        },
+        "value": 0.8,
+        "state": "COMPLETE",
+        "fullValidation": true
+      }
+    ],
     "maxBootstrappedDemos": 1,
     "maxLabeledDemos": 1,
     "bootstrapCalls": 4,

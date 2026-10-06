@@ -111,25 +111,132 @@
       "id": "mipro-best-fullval-001",
       "file": "upstream/mipro-best-fullval-001.json",
       "evidence": "upstream-execution",
-      "sha256": "1ce4e7a5bcf17932257f36fab0d996fb104f1e3d59426923ba757668fae35169",
+      "sha256": "d3c85b1191702904d68cc3a587949cc138425e39a3f3a69d404fdb3be8ab2c4c",
       "generator": "fixtures.mipro_v2",
-      "description": "A minibatch specialist loses to the baseline full-validation checkpoint."
+      "description": "A minibatch specialist loses to the baseline full-validation checkpoint.",
+      "trajectory": {
+        "sampledTrials": 12,
+        "minibatch": true,
+        "valsetSize": 6,
+        "sampledEvaluation": "minibatch",
+        "insertedFullEvaluations": 6,
+        "baselineTrials": 1,
+        "totalStudyRows": 19,
+        "strictThroughTrial": 10,
+        "firstInadmissibleTie": {
+          "trial": 11,
+          "dimensions": [
+            "0_predictor_demos",
+            "0_predictor_instruction"
+          ],
+          "gap": 0.0,
+          "tie": {
+            "classification": "coincidentalCancellation",
+            "winner": {
+              "0_predictor_demos": 0,
+              "0_predictor_instruction": 2
+            },
+            "other": {
+              "0_predictor_demos": 1,
+              "0_predictor_instruction": 2
+            }
+          }
+        }
+      }
     },
     {
       "id": "mipro-trial-budget-001",
       "file": "upstream/mipro-trial-budget-001.json",
       "evidence": "upstream-execution",
-      "sha256": "f567bc43a0bc53797a876572d7dc461e9b5b16dadc442aba4dfd5c18d6770433",
+      "sha256": "9e8ffaa885f94d110f8e6e18a2754624d4c8709e30b9af7207c5ac4da9d7ccea",
       "generator": "fixtures.mipro_v2",
-      "description": "Real MIPRO compile phases, Optuna params and validation checkpoints."
+      "description": "Real MIPRO compile phases, Optuna params and validation checkpoints.",
+      "trajectory": {
+        "sampledTrials": 10,
+        "minibatch": false,
+        "valsetSize": 6,
+        "sampledEvaluation": "fullValidation",
+        "insertedFullEvaluations": 0,
+        "baselineTrials": 1,
+        "totalStudyRows": 11,
+        "strictThroughTrial": 10,
+        "firstInadmissibleTie": null
+      }
+    },
+    {
+      "id": "miprov2-auto-minibatch-001",
+      "file": "upstream/miprov2-auto-minibatch-001.json",
+      "evidence": "upstream-execution",
+      "sha256": "e79aeba119f134e74eb1758f0b48197bdfd6d1cd0f1d3753c4a8fe98096605a4",
+      "generator": "fixtures.mipro_v2",
+      "description": "Auto light enables minibatching above 50 validation rows and inserts full checkpoints at the default five-trial cadence.",
+      "trajectory": {
+        "sampledTrials": 10,
+        "minibatch": true,
+        "valsetSize": 51,
+        "sampledEvaluation": "minibatch",
+        "insertedFullEvaluations": 2,
+        "baselineTrials": 1,
+        "totalStudyRows": 13,
+        "strictThroughTrial": 12,
+        "firstInadmissibleTie": null
+      }
+    },
+    {
+      "id": "miprov2-exhausted-full-eval-001",
+      "file": "upstream/miprov2-exhausted-full-eval-001.json",
+      "evidence": "upstream-execution",
+      "sha256": "f58b0f56af1857c014c2a3edac3f1b9fc7b1fdadfaa30ada7de290b6449ac889",
+      "generator": "fixtures.mipro_v2",
+      "description": "Three instruction candidates exhaust all not-yet-fully-evaluated combinations during twelve minibatch trials.",
+      "trajectory": {
+        "sampledTrials": 8,
+        "minibatch": true,
+        "valsetSize": 6,
+        "sampledEvaluation": "minibatch",
+        "insertedFullEvaluations": 3,
+        "baselineTrials": 1,
+        "totalStudyRows": 12,
+        "strictThroughTrial": 11,
+        "firstInadmissibleTie": null
+      }
     },
     {
       "id": "miprov2-explicit-001",
       "file": "upstream/miprov2-explicit-001.json",
       "evidence": "upstream-execution",
-      "sha256": "ea2335836273da3118cc70f7a0bd37bcdfde5a4a00b03ca88719b8a22f8da3fd",
+      "sha256": "4aedd6be779a64aab5b4b5425b56c330527878cc14610ccc02da7bedeae6dba9",
       "generator": "fixtures.mipro_v2",
-      "description": "Real MIPRO compile phases, Optuna params and validation checkpoints."
+      "description": "Real MIPRO compile phases, Optuna params and validation checkpoints.",
+      "trajectory": {
+        "sampledTrials": 12,
+        "minibatch": true,
+        "valsetSize": 6,
+        "sampledEvaluation": "minibatch",
+        "insertedFullEvaluations": 6,
+        "baselineTrials": 1,
+        "totalStudyRows": 19,
+        "strictThroughTrial": 10,
+        "firstInadmissibleTie": {
+          "trial": 11,
+          "dimensions": [
+            "0_predictor_demos",
+            "0_predictor_instruction"
+          ],
+          "gap": 0.0,
+          "tie": {
+            "classification": "coincidentalCancellation",
+            "winner": {
+              "0_predictor_demos": 0,
+              "0_predictor_instruction": 2
+            },
+            "other": {
+              "0_predictor_demos": 1,
+              "0_predictor_instruction": 2
+            }
+          }
+        }
+      }
     },
     {
       "id": "miprov2-grounded-proposer-001",
@@ -143,25 +250,94 @@
       "id": "miprov2-heavy-001",
       "file": "upstream/miprov2-heavy-001.json",
       "evidence": "upstream-execution",
-      "sha256": "a90b826b50cbc54206aab7b8ab17e0751f9042269f45ce0e0a7aad3ce4b7f0a0",
+      "sha256": "30888a8ec3292a1e9e87e0cc6331057954843efbb3cbeb0cc3cb9d8b7e1fc41d",
       "generator": "fixtures.mipro_v2",
-      "description": "Real MIPRO compile phases, Optuna params and validation checkpoints."
+      "description": "Real MIPRO compile phases, Optuna params and validation checkpoints.",
+      "trajectory": {
+        "sampledTrials": 27,
+        "minibatch": false,
+        "valsetSize": 6,
+        "sampledEvaluation": "fullValidation",
+        "insertedFullEvaluations": 0,
+        "baselineTrials": 1,
+        "totalStudyRows": 28,
+        "strictThroughTrial": 17,
+        "firstInadmissibleTie": {
+          "trial": 18,
+          "dimensions": [
+            "0_predictor_demos",
+            "0_predictor_instruction"
+          ],
+          "gap": 0.0,
+          "tie": {
+            "classification": "coincidentalCancellation",
+            "winner": {
+              "0_predictor_demos": 5,
+              "0_predictor_instruction": 2
+            },
+            "other": {
+              "0_predictor_demos": 3,
+              "0_predictor_instruction": 3
+            }
+          }
+        }
+      }
     },
     {
       "id": "miprov2-medium-001",
       "file": "upstream/miprov2-medium-001.json",
       "evidence": "upstream-execution",
-      "sha256": "512007592afcf51d026a6dbd1a17ff99f14a446792d838f0d97a51b76c81ce4c",
+      "sha256": "64a63282c6d84f41510e5cdc541b8d114aaa9702d91b1d12e2c2072ed3f550a3",
       "generator": "fixtures.mipro_v2",
-      "description": "Real MIPRO compile phases, Optuna params and validation checkpoints."
+      "description": "Real MIPRO compile phases, Optuna params and validation checkpoints.",
+      "trajectory": {
+        "sampledTrials": 18,
+        "minibatch": false,
+        "valsetSize": 6,
+        "sampledEvaluation": "fullValidation",
+        "insertedFullEvaluations": 0,
+        "baselineTrials": 1,
+        "totalStudyRows": 19,
+        "strictThroughTrial": 15,
+        "firstInadmissibleTie": {
+          "trial": 16,
+          "dimensions": [
+            "0_predictor_demos",
+            "0_predictor_instruction"
+          ],
+          "gap": 0.0,
+          "tie": {
+            "classification": "coincidentalCancellation",
+            "winner": {
+              "0_predictor_demos": 11,
+              "0_predictor_instruction": 0
+            },
+            "other": {
+              "0_predictor_demos": 11,
+              "0_predictor_instruction": 1
+            }
+          }
+        }
+      }
     },
     {
       "id": "miprov2-no-labels-001",
       "file": "upstream/miprov2-no-labels-001.json",
       "evidence": "upstream-execution",
-      "sha256": "087270570f353a88ff8e08399376bdb08fc3bd5b1bbfc2c660db22a77cf9622a",
+      "sha256": "5717790a2bffaf21baa38db39ceb6c237758b46f3adcd2042ff41ff6676fc1e1",
       "generator": "fixtures.mipro_v2",
-      "description": "Real MIPRO compile with unlabeled-only bootstrap catalog and shared RNG; zero caps retain proposer evidence but remove demo search."
+      "description": "Real MIPRO compile with unlabeled-only bootstrap catalog and shared RNG; zero caps retain proposer evidence but remove demo search.",
+      "trajectory": {
+        "sampledTrials": 12,
+        "minibatch": false,
+        "valsetSize": 6,
+        "sampledEvaluation": "fullValidation",
+        "insertedFullEvaluations": 0,
+        "baselineTrials": 1,
+        "totalStudyRows": 13,
+        "strictThroughTrial": 12,
+        "firstInadmissibleTie": null
+      }
     },
     {
       "id": "miprov2-proposer-no-demos-001",
@@ -183,9 +359,35 @@
       "id": "miprov2-zero-shot-001",
       "file": "upstream/miprov2-zero-shot-001.json",
       "evidence": "upstream-execution",
-      "sha256": "2cbd39e3f919814b2c5905b3d58a8e3742e5699ec651317f1fcc4de78992355c",
+      "sha256": "dec9e4033d60a39d64e5b954246a8648a29c49166423440190316305959f3698",
       "generator": "fixtures.mipro_v2",
-      "description": "Real MIPRO compile with unlabeled-only bootstrap catalog and shared RNG; zero caps retain proposer evidence but remove demo search."
+      "description": "Real MIPRO compile with unlabeled-only bootstrap catalog and shared RNG; zero caps retain proposer evidence but remove demo search.",
+      "trajectory": {
+        "sampledTrials": 12,
+        "minibatch": false,
+        "valsetSize": 6,
+        "sampledEvaluation": "fullValidation",
+        "insertedFullEvaluations": 0,
+        "baselineTrials": 1,
+        "totalStudyRows": 13,
+        "strictThroughTrial": 10,
+        "firstInadmissibleTie": {
+          "trial": 11,
+          "dimensions": [
+            "0_predictor_instruction"
+          ],
+          "gap": 0.0,
+          "tie": {
+            "classification": "coincidentalCancellation",
+            "winner": {
+              "0_predictor_instruction": 0
+            },
+            "other": {
+              "0_predictor_instruction": 1
+            }
+          }
+        }
+      }
     },
     {
       "id": "predict-trace-001",

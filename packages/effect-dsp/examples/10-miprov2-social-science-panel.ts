@@ -239,8 +239,8 @@ const program = Effect.gen(function*() {
 
   yield* logExampleStage("miprov2-stream-started", {
     numCandidates: 4,
-    numInstructions: 4,
-    trialBudget: 6,
+    numTrials: 6,
+    minibatch: false,
     seed: 17
   })
 
@@ -252,8 +252,9 @@ const program = Effect.gen(function*() {
       valset: evalset,
       metric: Metric.exactMatch("intervention"),
       numCandidates: 4,
-      numInstructions: 4,
-      trialBudget: 6,
+      auto: Option.none(),
+      minibatch: false,
+      numTrials: 6,
       seed: 17
     }),
     (event) =>
@@ -307,8 +308,8 @@ const program = Effect.gen(function*() {
       },
       miprov2: {
         numCandidates: 4,
-        numInstructions: 4,
-        trialBudget: 6,
+        numTrials: 6,
+        minibatch: false,
         seed: 17
       }
     },

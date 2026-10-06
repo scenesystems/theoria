@@ -37,8 +37,9 @@ const makeOptimizerOptions = <I extends Schema.Struct.Fields, O extends Schema.S
     valset: trainset,
     metric: Metric.exactMatch("answer"),
     numCandidates: 4,
-    numInstructions: 4,
-    trialBudget: 6,
+    auto: Option.none(),
+    minibatch: false,
+    numTrials: 6,
     seed: 37
   })
 

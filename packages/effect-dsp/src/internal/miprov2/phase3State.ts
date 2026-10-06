@@ -1,40 +1,49 @@
-/**
- * Mutable MIPROv2 Phase 3 search state.
- *
- * @since 0.4.0
- * @internal
- */
-import { Array as Arr, Data, Effect, Option, Ref } from "effect"
-import type { BestAveragingCandidate } from "./runtime/model.js"
+/** Full-validation selection and mean minibatch ranking for MIPROv2. @internal */
+import { Array as Arr, Effect, Number as Num, Option, Schema } from "effect"
+import { MIPROv2Error } from "../../DspError.js"
+import type { TrialEvaluation } from "../../MIPROv2.js"
+import { Phase3Config } from "./runtime/model.js"
 
-/** Mutable refs shared by Phase 3 trial evaluations.
- * @since 0.4.0
- * @category refs
- */
-export class TrialRefs extends Data.Class<{
-  readonly trialCounter: Ref.Ref<number>
-  readonly bestScoreRef: Ref.Ref<Option.Option<number>>
-  readonly bestAveragingRef: Ref.Ref<Option.Option<BestAveragingCandidate>>
-  readonly fullEvalTrialsRef: Ref.Ref<ReadonlyArray<number>>
-  readonly minibatchTrialsRef: Ref.Ref<ReadonlyArray<number>>
-}> {}
+const sameConfig = Schema.toEquivalence(Phase3Config)
 
-/** Allocates fresh mutable state for one Phase 3 search.
- * @since 0.4.0
- * @category constructors
- */
-export const makeTrialRefs: Effect.Effect<TrialRefs> = Effect.gen(function*() {
-  const trialCounter = yield* Ref.make(0)
-  const bestScoreRef = yield* Ref.make<Option.Option<number>>(Option.none())
-  const bestAveragingRef = yield* Ref.make<Option.Option<BestAveragingCandidate>>(Option.none())
-  const fullEvalTrialsRef = yield* Ref.make<ReadonlyArray<number>>(Arr.empty())
-  const minibatchTrialsRef = yield* Ref.make<ReadonlyArray<number>>(Arr.empty())
+/** Earliest full evaluation wins ties; minibatch scores never enter this ranking. @internal */
+export const bestFullEvaluation = (evaluations: ReadonlyArray<TrialEvaluation>): Option.Option<TrialEvaluation> =>
+  Arr.reduce(evaluations, Option.none<TrialEvaluation>(), (best, evaluation) =>
+    evaluation.fullValidation
+      ? Option.some(Option.match(best, {
+        onNone: () => evaluation,
+        onSome: (current) => Num.isGreaterThan(evaluation.score, current.score) ? evaluation : current
+      }))
+      : best)
 
-  return new TrialRefs({
-    trialCounter,
-    bestScoreRef,
-    bestAveragingRef,
-    fullEvalTrialsRef,
-    minibatchTrialsRef
+/** Highest mean minibatch score among combinations not yet checkpointed. @internal */
+export const nextFullEvaluation = (evaluations: ReadonlyArray<TrialEvaluation>) => {
+  const minibatches = Arr.filter(evaluations, (evaluation) => !evaluation.fullValidation)
+  const candidates = Arr.dedupeWith(Arr.map(minibatches, (evaluation) => evaluation.config), sameConfig)
+  const remaining = Arr.filter(
+    candidates,
+    (config) =>
+      !Arr.some(evaluations, (evaluation) =>
+        evaluation.fullValidation && !evaluation.sampled && evaluation.trial > 0 &&
+        sameConfig(config, evaluation.config))
+  )
+  const ranked = Arr.map(remaining, (config) => {
+    const scores = Arr.map(
+      Arr.filter(minibatches, (evaluation) => sameConfig(config, evaluation.config)),
+      (evaluation) => Num.multiply(evaluation.score, 100)
+    )
+    return { config, score: Num.divideUnsafe(Num.sumAll(scores), scores.length) }
   })
-})
+  return Effect.fromOption(
+    Arr.reduce(ranked, Option.none<typeof ranked[number]>(), (best, candidate) =>
+      Option.some(Option.match(best, {
+        onNone: () => candidate,
+        onSome: (current) => Num.isGreaterThan(candidate.score, current.score) ? candidate : current
+      }))),
+    () =>
+      new MIPROv2Error({
+        reason: "exhausted-candidates",
+        message: "No valid program found in param_score_dict"
+      })
+  ).pipe(Effect.map((candidate) => candidate.config))
+}

@@ -59,6 +59,316 @@
         }
       ]
     },
+    "numTrials": 18,
+    "minibatch": false,
+    "minibatchSize": 1,
+    "minibatchFullEvalSteps": 2,
+    "strictThroughTrial": 15,
+    "acquisitionGaps": [
+      {
+        "trial": 10,
+        "dimensions": [
+          "0_predictor_demos",
+          "0_predictor_instruction"
+        ],
+        "gap": 0.840304824896,
+        "tie": null
+      },
+      {
+        "trial": 11,
+        "dimensions": [
+          "0_predictor_demos",
+          "0_predictor_instruction"
+        ],
+        "gap": 1.009946651582,
+        "tie": null
+      },
+      {
+        "trial": 12,
+        "dimensions": [
+          "0_predictor_demos",
+          "0_predictor_instruction"
+        ],
+        "gap": 0.347966616047,
+        "tie": null
+      },
+      {
+        "trial": 13,
+        "dimensions": [
+          "0_predictor_demos",
+          "0_predictor_instruction"
+        ],
+        "gap": 0.105394820387,
+        "tie": null
+      },
+      {
+        "trial": 14,
+        "dimensions": [
+          "0_predictor_demos",
+          "0_predictor_instruction"
+        ],
+        "gap": 0.228743618043,
+        "tie": null
+      },
+      {
+        "trial": 15,
+        "dimensions": [
+          "0_predictor_demos",
+          "0_predictor_instruction"
+        ],
+        "gap": 0.227431864005,
+        "tie": null
+      },
+      {
+        "trial": 16,
+        "dimensions": [
+          "0_predictor_demos",
+          "0_predictor_instruction"
+        ],
+        "gap": 0.0,
+        "tie": {
+          "classification": "coincidentalCancellation",
+          "winner": {
+            "0_predictor_demos": 11,
+            "0_predictor_instruction": 0
+          },
+          "other": {
+            "0_predictor_demos": 11,
+            "0_predictor_instruction": 1
+          }
+        }
+      },
+      {
+        "trial": 17,
+        "dimensions": [
+          "0_predictor_demos",
+          "0_predictor_instruction"
+        ],
+        "gap": 0.0,
+        "tie": {
+          "classification": "coincidentalCancellation",
+          "winner": {
+            "0_predictor_demos": 0,
+            "0_predictor_instruction": 5
+          },
+          "other": {
+            "0_predictor_demos": 0,
+            "0_predictor_instruction": 4
+          }
+        }
+      },
+      {
+        "trial": 18,
+        "dimensions": [
+          "0_predictor_demos",
+          "0_predictor_instruction"
+        ],
+        "gap": 0.0,
+        "tie": {
+          "classification": "coincidentalCancellation",
+          "winner": {
+            "0_predictor_demos": 3,
+            "0_predictor_instruction": 1
+          },
+          "other": {
+            "0_predictor_demos": 0,
+            "0_predictor_instruction": 2
+          }
+        }
+      }
+    ],
+    "trialTable": [
+      {
+        "number": 0,
+        "params": {
+          "0_predictor_instruction": 0,
+          "0_predictor_demos": 0
+        },
+        "value": 0.8,
+        "state": "COMPLETE",
+        "fullValidation": true
+      },
+      {
+        "number": 1,
+        "params": {
+          "0_predictor_instruction": 1,
+          "0_predictor_demos": 6
+        },
+        "value": 0.8,
+        "state": "COMPLETE",
+        "fullValidation": true
+      },
+      {
+        "number": 2,
+        "params": {
+          "0_predictor_instruction": 4,
+          "0_predictor_demos": 2
+        },
+        "value": 0.8,
+        "state": "COMPLETE",
+        "fullValidation": true
+      },
+      {
+        "number": 3,
+        "params": {
+          "0_predictor_instruction": 0,
+          "0_predictor_demos": 6
+        },
+        "value": 0.8,
+        "state": "COMPLETE",
+        "fullValidation": true
+      },
+      {
+        "number": 4,
+        "params": {
+          "0_predictor_instruction": 2,
+          "0_predictor_demos": 4
+        },
+        "value": 0.8,
+        "state": "COMPLETE",
+        "fullValidation": true
+      },
+      {
+        "number": 5,
+        "params": {
+          "0_predictor_instruction": 3,
+          "0_predictor_demos": 5
+        },
+        "value": 0.8,
+        "state": "COMPLETE",
+        "fullValidation": true
+      },
+      {
+        "number": 6,
+        "params": {
+          "0_predictor_instruction": 4,
+          "0_predictor_demos": 6
+        },
+        "value": 0.8,
+        "state": "COMPLETE",
+        "fullValidation": true
+      },
+      {
+        "number": 7,
+        "params": {
+          "0_predictor_instruction": 5,
+          "0_predictor_demos": 1
+        },
+        "value": 0.8,
+        "state": "COMPLETE",
+        "fullValidation": true
+      },
+      {
+        "number": 8,
+        "params": {
+          "0_predictor_instruction": 3,
+          "0_predictor_demos": 3
+        },
+        "value": 0.8,
+        "state": "COMPLETE",
+        "fullValidation": true
+      },
+      {
+        "number": 9,
+        "params": {
+          "0_predictor_instruction": 3,
+          "0_predictor_demos": 10
+        },
+        "value": 0.8,
+        "state": "COMPLETE",
+        "fullValidation": true
+      },
+      {
+        "number": 10,
+        "params": {
+          "0_predictor_instruction": 0,
+          "0_predictor_demos": 0
+        },
+        "value": 0.8,
+        "state": "COMPLETE",
+        "fullValidation": true
+      },
+      {
+        "number": 11,
+        "params": {
+          "0_predictor_instruction": 1,
+          "0_predictor_demos": 6
+        },
+        "value": 0.8,
+        "state": "COMPLETE",
+        "fullValidation": true
+      },
+      {
+        "number": 12,
+        "params": {
+          "0_predictor_instruction": 1,
+          "0_predictor_demos": 8
+        },
+        "value": 0.8,
+        "state": "COMPLETE",
+        "fullValidation": true
+      },
+      {
+        "number": 13,
+        "params": {
+          "0_predictor_instruction": 1,
+          "0_predictor_demos": 0
+        },
+        "value": 0.8,
+        "state": "COMPLETE",
+        "fullValidation": true
+      },
+      {
+        "number": 14,
+        "params": {
+          "0_predictor_instruction": 0,
+          "0_predictor_demos": 7
+        },
+        "value": 0.8,
+        "state": "COMPLETE",
+        "fullValidation": true
+      },
+      {
+        "number": 15,
+        "params": {
+          "0_predictor_instruction": 5,
+          "0_predictor_demos": 9
+        },
+        "value": 0.8,
+        "state": "COMPLETE",
+        "fullValidation": true
+      },
+      {
+        "number": 16,
+        "params": {
+          "0_predictor_instruction": 0,
+          "0_predictor_demos": 11
+        },
+        "value": 0.8,
+        "state": "COMPLETE",
+        "fullValidation": true
+      },
+      {
+        "number": 17,
+        "params": {
+          "0_predictor_instruction": 5,
+          "0_predictor_demos": 0
+        },
+        "value": 0.8,
+        "state": "COMPLETE",
+        "fullValidation": true
+      },
+      {
+        "number": 18,
+        "params": {
+          "0_predictor_instruction": 1,
+          "0_predictor_demos": 3
+        },
+        "value": 0.8,
+        "state": "COMPLETE",
+        "fullValidation": true
+      }
+    ],
     "maxBootstrappedDemos": 1,
     "maxLabeledDemos": 1,
     "bootstrapCalls": 10,

@@ -3,6 +3,7 @@ import * as Evaluate from "@scenesystems/effect-dsp/Evaluate"
 import { Example, Id } from "@scenesystems/effect-dsp/Example"
 import * as GEPA from "@scenesystems/effect-dsp/GEPA"
 import * as Metric from "@scenesystems/effect-dsp/Metric"
+import { TrialEvaluation } from "@scenesystems/effect-dsp/MIPROv2"
 import { trialBudget } from "@scenesystems/effect-dsp/MIPROv2Search"
 import * as MockLanguageModel from "@scenesystems/effect-dsp/MockLanguageModel"
 import * as Module from "@scenesystems/effect-dsp/Module"
@@ -23,13 +24,7 @@ import {
   String as Str
 } from "effect"
 import * as LanguageModel from "effect/ai/LanguageModel"
-import { makeTrialRefs } from "../../src/internal/miprov2/phase3State.js"
-import {
-  evaluateBaseline,
-  EvaluateBaselineOptions,
-  evaluateTrial,
-  EvaluateTrialOptions
-} from "../../src/internal/miprov2/runtime/evaluate.js"
+import { bestFullEvaluation, nextFullEvaluation } from "../../src/internal/miprov2/phase3State.js"
 import { Phase3Config } from "../../src/internal/miprov2/runtime/model.js"
 import { fixture } from "../kit/Fixtures.js"
 import { failingOn } from "../kit/Metric.js"
@@ -124,7 +119,7 @@ it.effect("eval-failure-inclusive-001: failures remain in the denominator (Wave 
     expect(report.overallScores.exact).toBe(expected)
   }))
 
-it.effect.fails("mipro-trial-budget-001: auto light uses upstream trial count (Wave 3)", () =>
+it.effect("mipro-trial-budget-001: auto light uses upstream trial count (Wave 3)", () =>
   Effect.gen(function*() {
     const reference = yield* Schema.decodeUnknownEffect(Budget)(
       (yield* fixture("mipro-trial-budget-001", "upstream-execution")).payload
@@ -158,39 +153,41 @@ const checkpoint = Effect.gen(function*() {
       (e) => Bool.and(e.fullValidation, Str.Equivalence(e.instruction, minibatch.instruction))
     )
   )
-  const refs = yield* makeTrialRefs
-  const baselineConfig = Phase3Config.make({ qa__instruction: 0, qa__demo: 0 })
-  const candidateConfig = Phase3Config.make({ qa__instruction: 1, qa__demo: 0 })
-  const valset = examples(reference.splits.val)
-  yield* evaluateBaseline(
-    new EvaluateBaselineOptions({ baselineConfig, valset, refs, evaluateOn: () => Effect.succeed(baseline.score) })
-  )
-  yield* evaluateTrial(
-    new EvaluateTrialOptions({
+  const baselineConfig = Phase3Config.make({ "0_predictor_instruction": 0, "0_predictor_demos": 0 })
+  const candidateConfig = Phase3Config.make({ "0_predictor_instruction": 1, "0_predictor_demos": 0 })
+  const rows = [
+    new TrialEvaluation({
+      trial: 0,
+      config: baselineConfig,
+      score: baseline.score,
+      fullValidation: true,
+      sampled: false
+    }),
+    new TrialEvaluation({
+      trial: 1,
       config: candidateConfig,
-      refs,
-      valset,
-      minibatchExamples: Arr.take(valset, 1),
-      fullEvalEvery: 1,
-      emit: () => Effect.void,
-      evaluateOn: (_config, rows) =>
-        Effect.succeed(Bool.match(Num.Equivalence(Arr.length(rows), Arr.length(valset)), {
-          onTrue: () => full.score,
-          onFalse: () => minibatch.score
-        }))
+      score: minibatch.score,
+      fullValidation: false,
+      sampled: true
     })
+  ]
+  const selected = yield* nextFullEvaluation(rows)
+  expect(selected).toEqual(candidateConfig)
+  const evaluated = Arr.append(
+    rows,
+    new TrialEvaluation({ trial: 2, config: selected, score: full.score, fullValidation: true, sampled: false })
   )
   return {
     expected: reference.bestFullValidationScore,
-    actual: yield* Ref.get(refs.bestScoreRef),
-    fullTrials: yield* Ref.get(refs.fullEvalTrialsRef)
+    actual: Option.map(bestFullEvaluation(evaluated), (row) => row.score),
+    fullTrials: Arr.map(Arr.filter(evaluated, (row) => !row.sampled && row.trial > 0), (row) => row.trial)
   }
 })
 it.effect("checkpoint discriminator reaches full validation", () =>
   Effect.gen(function*() {
-    expect((yield* checkpoint).fullTrials).toEqual([0])
+    expect((yield* checkpoint).fullTrials).toEqual([2])
   }))
-it.effect.fails("mipro-best-fullval-001: minibatch best cannot replace full-val best (Wave 3)", () =>
+it.effect("mipro-best-fullval-001: minibatch best cannot replace full-val best (Wave 3)", () =>
   Effect.gen(function*() {
     const result = yield* checkpoint
     expect(result.actual).toEqual(Option.some(result.expected))

@@ -21,12 +21,13 @@ import {
   Ref,
   Schema,
   Stream,
-  String as Str
+  String as Str,
+  Struct
 } from "effect"
 import { Example } from "./Example.js"
+import { Phase3Config } from "./internal/miprov2/runtime/model.js"
 import {
-  type MIPROOptionLike,
-  resolvePhase3TrialBudget,
+  resolveOptions,
   toPhase1Options,
   toPhase2Options,
   toPhase3Options
@@ -60,6 +61,18 @@ export const Examples = Schema.Array(Example)
  */
 export type Examples = typeof Examples.Type
 
+/** A scored study row, numbered including the baseline and inserted checkpoints.
+ * @since 0.6.0
+ * @category models
+ */
+export class TrialEvaluation extends Schema.Class<TrialEvaluation>("@scenesystems/effect-dsp/MIPROv2/TrialEvaluation")({
+  trial: Schema.Int,
+  config: Phase3Config,
+  score: Schema.Finite,
+  fullValidation: Schema.Boolean,
+  sampled: Schema.Boolean
+}) {}
+
 /** Lifecycle events emitted by MIPROv2 phases.
  * @since 0.1.0
  * @category events
@@ -72,7 +85,7 @@ export const Event = Schema.Union([
   Schema.TaggedStruct("InstructionProposed", { predictorIndex: Schema.Finite, instruction: Schema.String }),
   Schema.TaggedStruct("Phase2Completed", { totalInstructions: Schema.Finite }),
   Schema.TaggedStruct("Phase3Started", { numTrials: Schema.Finite }),
-  Schema.TaggedStruct("TrialEvaluated", { trial: Schema.Finite, score: Schema.Finite }),
+  Schema.TaggedStruct("TrialEvaluated", TrialEvaluation.fields),
   Schema.TaggedStruct("FullEvalCompleted", { bestScore: Schema.Finite }),
   Schema.TaggedStruct("Phase3Completed", { bestScore: Schema.Finite, totalTrials: Schema.Finite })
 ])
@@ -164,7 +177,9 @@ export class Report extends Schema.Class<Report>("@scenesystems/effect-dsp/MIPRO
   phase3ConfiguredTrials: Schema.Finite,
   phase3CompletedTrials: Schema.Finite,
   phase3BestScoreSeen: Schema.Boolean,
-  phase3BestScore: Schema.Finite
+  phase3BestScore: Schema.Finite,
+  trials: Schema.Array(TrialEvaluation),
+  checkpoints: Schema.Array(TrialEvaluation)
 }) {}
 
 const emptySummary = new Report({
@@ -178,7 +193,9 @@ const emptySummary = new Report({
   phase3ConfiguredTrials: 0,
   phase3CompletedTrials: 0,
   phase3BestScoreSeen: false,
-  phase3BestScore: 0
+  phase3BestScore: 0,
+  trials: [],
+  checkpoints: []
 })
 const scoreFields = (summary: Report, score: number) => ({
   phase3BestScoreSeen: true,
@@ -200,9 +217,13 @@ export const summarizeEvents = (input: Iterable<Event>): Report =>
         InstructionProposed: () => ({ instructionProposedCount: Num.increment(summary.instructionProposedCount) }),
         Phase2Completed: () => ({}),
         Phase3Started: ({ numTrials }) => ({ phase3StartedSeen: true, phase3ConfiguredTrials: numTrials }),
-        TrialEvaluated: ({ score }) => ({
-          ...scoreFields(summary, score),
-          trialEvaluatedCount: Num.increment(summary.trialEvaluatedCount)
+        TrialEvaluated: (evaluation) => ({
+          ...(evaluation.fullValidation ? scoreFields(summary, evaluation.score) : {}),
+          trialEvaluatedCount: Num.increment(summary.trialEvaluatedCount),
+          trials: Arr.append(summary.trials, new TrialEvaluation(evaluation)),
+          checkpoints: evaluation.fullValidation && !evaluation.sampled && evaluation.trial > 0
+            ? Arr.append(summary.checkpoints, new TrialEvaluation(evaluation))
+            : summary.checkpoints
         }),
         FullEvalCompleted: ({ bestScore }) => ({
           ...scoreFields(summary, bestScore),
@@ -215,11 +236,10 @@ export const summarizeEvents = (input: Iterable<Event>): Report =>
         })
       })
     )
-    return new Report({
-      ...Schema.encodeSync(Report)(summary),
+    return new Report(Struct.assign(summary, {
       totalEvents: Num.increment(summary.totalEvents),
       ...fields
-    })
+    }))
   })
 
 /** Compares retained and search scores with a supplied baseline.
@@ -292,14 +312,14 @@ export class Options<
   readonly module: DspModule<I, O, E, R>
   /** Examples used for teacher bootstrapping, labeled filling and proposal context. */
   readonly trainset: Examples
-  /** Phase 3 evaluation set. Defaults to `trainset`; no automatic split is performed. */
+  /** Validation set; omission takes the last min(1000, floor(80%)) rows, at least one. */
   readonly valset?: Examples
   /** Single objective used for baseline, minibatch, and full-set evaluations. */
   readonly metric: Metric<ME, MR>
-  /** Total demonstration candidates per predictor; fractional values round down and invalid counts become one. */
-  readonly numCandidates: number
-  /** Total instruction candidates per predictor, including the baseline at index zero. */
-  readonly numInstructions: number
+  /** Auto budget, default Some("light"). None requires numCandidates and numTrials. */
+  readonly auto?: Option.Option<"light" | "medium" | "heavy">
+  /** Explicit candidate count, default absent. Mutually exclusive with auto. */
+  readonly numCandidates?: number
   /** Integer seed for one CPython stream shared across all phases. Defaults to 9. */
   readonly seed?: number
   /** Labeled-demo capacity, default 4. */
@@ -314,6 +334,8 @@ export class Options<
   readonly metricThreshold?: Option.Option<number>
   /** Raises when the bootstrap failure count reaches this limit. */
   readonly maxErrors?: Option.Option<number>
+  /** Evaluation concurrency; absent uses the evaluator's default. */
+  readonly numThreads?: number
   /** Proposal model temperature, default 1. */
   readonly initTemperature?: number
   /** Provider-independent overrides for proposer calls. */
@@ -328,12 +350,16 @@ export class Options<
   readonly fewshotAwareProposer?: boolean
   /** Rows per dataset-description call, default 10. */
   readonly viewDataBatchSize?: number
-  /** Phase 3 optimization trials; invalid counts become one and omission uses the search-space budget formula. */
-  readonly trialBudget?: number
-  /** Prefix size of `valset` used for every trial objective. Defaults to `50` and is normalized to a positive integer. */
+  /** Number of sampled objective calls, excluding baseline and checkpoints; absent in auto mode. */
+  readonly numTrials?: number
+  /** Use fresh validation minibatches, default true. Auto uses valset.length > 50 instead. */
+  readonly minibatch?: boolean
+  /** Number of validation rows sampled per objective, default 35. */
   readonly minibatchSize?: number
-  /** Trial cadence for diagnostic full-set evaluations. Defaults to `5` and is normalized to a positive integer. */
-  readonly fullEvalEvery?: number
+  /** Insert a full-validation checkpoint after this many sampled trials, default 5. */
+  readonly minibatchFullEvalSteps?: number
+  /** Optional evaluation traceback reporting, corresponding to compile's provide_traceback. */
+  readonly provideTraceback?: boolean
 }> {}
 
 /**
@@ -403,9 +429,8 @@ const totalInstructionCandidates = (
  * Phase 1 builds per-predictor candidates from teacher traces and labeled
  * examples without changing instructions. Phase 2 asks the configured language model for alternatives in
  * predictor order. Phase 3 evaluates a baseline, then runs a single-concurrency
- * TPE optimization whose trial objective uses the leading validation-set minibatch.
- * Periodic full-set evaluations update diagnostics without changing the TPE
- * objective or selected trial.
+ * TPE optimization with fresh CPython-sampled minibatches. Full-validation
+ * checkpoints are inserted into the study and alone determine the returned program.
  *
  * The selected instructions and demonstrations are returned in a bound copy.
  * Success, failure, and interruption leave caller parameter refs unchanged.
@@ -443,11 +468,11 @@ export const runWithEvents = <
     const recorded = yield* Ref.make(Arr.empty<Event>())
     const emit: EventSink<EE, ER> = (event) =>
       Ref.update(recorded, Arr.append(event)).pipe(Effect.andThen(observe(event)))
-    const optionBag: MIPROOptionLike<I, O, ME, MR, E, R> = options
+    const resolved = yield* resolveOptions(options)
 
-    yield* emit(events.Phase1Started({ numCandidates: options.numCandidates }))
+    yield* emit(events.Phase1Started({ numCandidates: resolved.numCandidates }))
 
-    const demoCandidates = yield* generateDemoCandidates(toPhase1Options(optionBag))
+    const demoCandidates = yield* generateDemoCandidates(toPhase1Options(resolved))
 
     yield* emitPhase1Candidates(demoCandidates, emit)
 
@@ -457,9 +482,9 @@ export const runWithEvents = <
       })
     )
 
-    yield* emit(events.Phase2Started({ numInstructions: options.numInstructions }))
+    yield* emit(events.Phase2Started({ numInstructions: resolved.numInstructions }))
 
-    const instructionCandidates = yield* proposeInstructionCandidates(toPhase2Options(optionBag, demoCandidates))
+    const instructionCandidates = yield* proposeInstructionCandidates(toPhase2Options(resolved, demoCandidates))
 
     yield* emitPhase2Candidates(instructionCandidates, emit)
 
@@ -469,18 +494,16 @@ export const runWithEvents = <
       })
     )
 
-    const resolvedPhase3TrialBudget = resolvePhase3TrialBudget(optionBag, demoCandidates, instructionCandidates)
-
-    yield* emit(events.Phase3Started({ numTrials: resolvedPhase3TrialBudget }))
+    yield* emit(events.Phase3Started({ numTrials: resolved.numTrials }))
 
     const phase3 = yield* runPhase3Search(
-      toPhase3Options(optionBag, emit, resolvedPhase3TrialBudget, demoCandidates, instructionCandidates)
+      toPhase3Options(resolved, emit, resolved.zeroShot ? [] : demoCandidates, instructionCandidates)
     )
 
     yield* emit(
       events.Phase3Completed({
         bestScore: phase3.diagnostics.bestScore,
-        totalTrials: phase3.diagnostics.trialBudget
+        totalTrials: phase3.diagnostics.evaluations.length
       })
     )
 

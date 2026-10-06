@@ -1,244 +1,168 @@
-/**
- * MIPROv2 option adapters — normalizes user-facing options into
- * phase-specific configurations.
- *
- * @since 0.1.0
- * @internal
- */
+/** Pinned MIPROv2 compile defaults, validation, auto budgets, and phase options. @internal */
 import * as Numeric from "@scenesystems/effect-math/Numeric"
-import { Array as Arr, Option } from "effect"
+import { Array as Arr, Chunk, Data, Effect, Match, Option, Struct } from "effect"
 import type { Schema } from "effect"
-import type { Options } from "../../../MIPROv2.js"
+import { MIPROv2Error } from "../../../DspError.js"
+import type { Examples, Options } from "../../../MIPROv2.js"
 import {
   GenerateDemoCandidatesOptions,
   type PredictorDemoCandidateSets,
   type PredictorInstructionCandidateSets,
   ProposeInstructionCandidatesOptions
 } from "../../../MIPROv2Candidates.js"
-import { Options as SearchOptions } from "../../../MIPROv2Search.js"
+import { type EventSink, Options as SearchOptions } from "../../../MIPROv2Search.js"
+import { predictors } from "../../../ModuleGraph.js"
+import * as Sampling from "../sampling.js"
 import { phase3TrialBudget } from "./budget.js"
 
-/**
- * Canonical internal alias for the user-facing MIPROv2 options.
- *
- * Phase-specific adapter functions project the public model down to exactly
- * the options each phase requires without duplicating its data contract.
- *
- * @since 0.1.0
- * @category models
- * @see {@link toPhase1Options} — demo-bootstrap projection
- * @see {@link toPhase2Options} — instruction-proposal projection
- * @see {@link toPhase3Options} — search projection
- */
-export type MIPROOptionLike<
-  I extends Schema.Struct.Fields,
-  O extends Schema.Struct.Fields,
-  ME,
-  MR,
-  E,
-  R
-> = Options<I, O, ME, MR, E, R>
+/** Resolved compile datasets and counts; source options carry generic module/metric services. @internal */
+export class ResolvedOptions<I extends Schema.Struct.Fields, O extends Schema.Struct.Fields, ME, MR, E, R>
+  extends Data.Class<{
+    readonly options: Options<I, O, ME, MR, E, R>
+    readonly trainset: Examples
+    readonly valset: Examples
+    readonly numCandidates: number
+    readonly numInstructions: number
+    readonly numTrials: number
+    readonly minibatch: boolean
+    readonly zeroShot: boolean
+  }>
+{}
 
-const maxDemoCandidateCount = (candidateSets: PredictorDemoCandidateSets): number =>
-  Arr.reduce(
-    candidateSets,
-    1,
-    (currentMax, candidateSet) => Numeric.max(currentMax, Arr.length(candidateSet.candidates))
-  )
-
-const maxInstructionCandidateCount = (candidateSets: PredictorInstructionCandidateSets): number =>
-  Arr.reduce(
-    candidateSets,
-    1,
-    (currentMax, candidateSet) => Numeric.max(currentMax, Arr.length(candidateSet.candidates))
-  )
-
-/**
- * Returns the explicit validation set when provided, falling back to the
- * training set otherwise.
- *
- * @since 0.1.0
- * @category helpers
- */
-export const resolveValset = <I extends Schema.Struct.Fields, O extends Schema.Struct.Fields, ME, MR, E, R>(
-  options: MIPROOptionLike<I, O, ME, MR, E, R>
-) => Option.getOrElse(Option.fromNullishOr(options.valset), () => options.trainset)
-
-/**
- * Determines how many Phase 3 trials to run.
- *
- * Uses the explicit `trialBudget` when the caller supplied one,
- * otherwise computes a budget from the number of predictors and the
- * largest demo / instruction candidate set via `phase3TrialBudget`.
- *
- * @since 0.1.0
- * @category helpers
- */
-export const resolvePhase3TrialBudget = <
-  I extends Schema.Struct.Fields,
-  O extends Schema.Struct.Fields,
-  ME,
-  MR,
-  E,
-  R
->(
-  options: MIPROOptionLike<I, O, ME, MR, E, R>,
-  demoCandidates: PredictorDemoCandidateSets,
-  instructionCandidates: PredictorInstructionCandidateSets
-): number =>
-  Option.getOrElse(
-    Option.fromNullishOr(options.trialBudget),
-    () =>
-      phase3TrialBudget({
-        predictorCount: Arr.length(demoCandidates),
-        demoCandidateCount: maxDemoCandidateCount(demoCandidates),
-        instructionCandidateCount: maxInstructionCandidateCount(instructionCandidates)
+/** Split is deterministic; auto sampling is the first consumer of the shared RNG. @internal */
+export const resolveOptions = <I extends Schema.Struct.Fields, O extends Schema.Struct.Fields, ME, MR, E, R>(
+  options: Options<I, O, ME, MR, E, R>
+) =>
+  Effect.gen(function*() {
+    const auto = options.auto ?? Option.some("light")
+    const explicitCounts = Option.all([
+      Option.fromUndefinedOr(options.numCandidates),
+      Option.fromUndefinedOr(options.numTrials)
+    ])
+    yield* Effect.fail(
+      new MIPROv2Error({
+        reason: "invalid-options",
+        message: "Auto requires omitted numCandidates and numTrials; explicit mode requires both."
       })
-  )
-
-/**
- * Projects `MIPROOptionLike` into the options required by Phase 1
- * (demo candidate bootstrap).
- *
- * Carries `module`, `trainset`, `numCandidates`, and any optional
- * bootstrap-specific knobs (`seed`, `maxLabeledDemos`,
- * `maxBootstrappedDemos`).
- *
- * @since 0.1.0
- * @category helpers
- * @see {@link MIPROOptionLike}
- */
-export const toPhase1Options = <
-  I extends Schema.Struct.Fields,
-  O extends Schema.Struct.Fields,
-  ME,
-  MR,
-  E,
-  R
->(
-  options: MIPROOptionLike<I, O, ME, MR, E, R>
-): GenerateDemoCandidatesOptions<I, O, E, R, ME, MR> =>
-  new GenerateDemoCandidatesOptions({
-    module: options.module,
-    trainset: options.trainset,
-    numCandidates: options.numCandidates,
-    metric: options.metric,
-    metricThreshold: options.metricThreshold ?? Option.none(),
-    maxErrors: options.maxErrors ?? Option.none(),
-    ...Option.match(Option.fromUndefinedOr(options.teacher), {
-      onNone: () => ({}),
-      onSome: (teacher) => ({ teacher })
-    }),
-    ...Option.match(Option.fromUndefinedOr(options.teacherSettings), {
-      onNone: () => ({}),
-      onSome: (teacherSettings) => ({ teacherSettings })
-    }),
-    ...Option.match(Option.fromNullishOr(options.seed), {
-      onNone: () => ({}),
-      onSome: (seed) => ({ seed })
-    }),
-    ...Option.match(Option.fromNullishOr(options.maxLabeledDemos), {
-      onNone: () => ({}),
-      onSome: (maxLabeledDemos) => ({ maxLabeledDemos })
-    }),
-    ...Option.match(Option.fromNullishOr(options.maxBootstrappedDemos), {
-      onNone: () => ({}),
-      onSome: (maxBootstrappedDemos) => ({ maxBootstrappedDemos })
+    ).pipe(
+      Effect.when(Effect.succeed(
+        Option.isSome(auto)
+          ? Option.isSome(Option.fromUndefinedOr(options.numCandidates)) ||
+            Option.isSome(Option.fromUndefinedOr(options.numTrials))
+          : Option.isNone(explicitCounts)
+      ))
+    )
+    const explicitValset = Option.fromUndefinedOr(options.valset)
+    yield* Effect.fail(
+      new MIPROv2Error({
+        reason: "invalid-dataset",
+        message: "Trainset cannot be empty; at least two examples are required without a valset."
+      })
+    ).pipe(
+      Effect.when(
+        Effect.succeed(options.trainset.length === 0 || (Option.isNone(explicitValset) && options.trainset.length < 2))
+      )
+    )
+    const cutoff = options.trainset.length -
+      Numeric.min(1000, Numeric.max(1, Numeric.floor(options.trainset.length * 0.8)))
+    const trainset = Option.isSome(explicitValset) ? options.trainset : Arr.take(options.trainset, cutoff)
+    const validation = Option.getOrElse(explicitValset, () => Arr.drop(options.trainset, cutoff))
+    yield* Effect.fail(new MIPROv2Error({ reason: "invalid-dataset", message: "Valset cannot be empty." })).pipe(
+      Effect.when(Effect.succeed(validation.length === 0))
+    )
+    const zeroShot = (options.maxBootstrappedDemos ?? 4) === 0 && (options.maxLabeledDemos ?? 4) === 0
+    const selected = yield* Option.match(auto, {
+      onNone: () =>
+        Effect.fromOption(explicitCounts).pipe(Effect.map(([numCandidates, numTrials]) => ({
+          valset: validation,
+          numCandidates,
+          numInstructions: numCandidates,
+          numTrials,
+          minibatch: options.minibatch ?? true
+        }))),
+      onSome: (mode) =>
+        Effect.gen(function*() {
+          const setting = Match.value(mode).pipe(
+            Match.when("light", () => ({ candidates: 6, valSize: 100 })),
+            Match.when("medium", () => ({ candidates: 12, valSize: 300 })),
+            Match.when("heavy", () => ({ candidates: 18, valSize: 1000 })),
+            Match.exhaustive
+          )
+          const rng = yield* Sampling.resolve(options.seed ?? 9)
+          const valset = Arr.fromIterable(
+            yield* rng.sample(Chunk.fromIterable(validation), Numeric.min(setting.valSize, validation.length))
+          )
+          const numInstructions = zeroShot ? setting.candidates : Numeric.floor(setting.candidates * 0.5)
+          const numTrials = phase3TrialBudget({
+            predictorCount: Arr.filter(Arr.fromIterable(predictors(options.module)), (predictor) =>
+              !predictor.frozen).length,
+            demoCandidateCount: zeroShot ? 0 : setting.candidates,
+            instructionCandidateCount: numInstructions
+          })
+          return {
+            valset,
+            numCandidates: setting.candidates,
+            numInstructions,
+            numTrials,
+            minibatch: valset.length > 50
+          }
+        })
     })
+    yield* Effect.fail(
+      new MIPROv2Error({ reason: "invalid-options", message: "minibatchSize cannot exceed the validation set size." })
+    ).pipe(
+      Effect.when(Effect.succeed(selected.minibatch && (options.minibatchSize ?? 35) > selected.valset.length))
+    )
+    return new ResolvedOptions({ options, trainset, zeroShot, ...selected })
   })
 
-/**
- * Projects `MIPROOptionLike` into the options required by Phase 2
- * (instruction candidate proposal).
- *
- * Carries `module`, `trainset`, `demoCandidates`, `numInstructions`,
- * and the grounded proposer awareness flags and generation settings.
- *
- * @since 0.1.0
- * @category helpers
- * @see {@link MIPROOptionLike}
- */
-export const toPhase2Options = <
-  I extends Schema.Struct.Fields,
-  O extends Schema.Struct.Fields,
-  ME,
-  MR,
-  E,
-  R
->(
-  options: MIPROOptionLike<I, O, ME, MR, E, R>,
+/** @internal */
+export const toPhase1Options = <I extends Schema.Struct.Fields, O extends Schema.Struct.Fields, ME, MR, E, R>(
+  resolved: ResolvedOptions<I, O, ME, MR, E, R>
+) =>
+  new GenerateDemoCandidatesOptions(Struct.assign(resolved.options, {
+    trainset: resolved.trainset,
+    numCandidates: resolved.numCandidates,
+    seed: resolved.options.seed ?? 9,
+    maxLabeledDemos: resolved.options.maxLabeledDemos ?? 4,
+    maxBootstrappedDemos: resolved.options.maxBootstrappedDemos ?? 4,
+    metricThreshold: resolved.options.metricThreshold ?? Option.none(),
+    maxErrors: resolved.options.maxErrors ?? Option.none()
+  }))
+
+/** @internal */
+export const toPhase2Options = <I extends Schema.Struct.Fields, O extends Schema.Struct.Fields, ME, MR, E, R>(
+  resolved: ResolvedOptions<I, O, ME, MR, E, R>,
   demoCandidates: PredictorDemoCandidateSets
-): ProposeInstructionCandidatesOptions<I, O, E, R> =>
-  new ProposeInstructionCandidatesOptions({
-    module: options.module,
-    trainset: options.trainset,
+) =>
+  new ProposeInstructionCandidatesOptions(Struct.assign(resolved.options, {
+    trainset: resolved.trainset,
     demoCandidates,
-    numInstructions: options.numInstructions,
-    ...Option.match(Option.fromNullishOr(options.seed), {
-      onNone: () => ({}),
-      onSome: (seed) => ({ seed })
-    }),
-    initTemperature: options.initTemperature ?? 1,
-    programAwareProposer: options.programAwareProposer ?? true,
-    dataAwareProposer: options.dataAwareProposer ?? true,
-    tipAwareProposer: options.tipAwareProposer ?? true,
-    fewshotAwareProposer: options.fewshotAwareProposer ?? true,
-    viewDataBatchSize: options.viewDataBatchSize ?? 10,
-    ...Option.match(Option.fromUndefinedOr(options.proposerSettings), {
-      onNone: () => ({}),
-      onSome: (proposerSettings) => ({ proposerSettings })
-    })
-  })
+    numInstructions: resolved.numInstructions,
+    seed: resolved.options.seed ?? 9,
+    initTemperature: resolved.options.initTemperature ?? 1,
+    programAwareProposer: resolved.options.programAwareProposer ?? true,
+    dataAwareProposer: resolved.options.dataAwareProposer ?? true,
+    tipAwareProposer: resolved.options.tipAwareProposer ?? true,
+    fewshotAwareProposer: resolved.options.fewshotAwareProposer ?? true,
+    viewDataBatchSize: resolved.options.viewDataBatchSize ?? 10
+  }))
 
-/**
- * Projects `MIPROOptionLike` into the options required by Phase 3
- * (Bayesian search).
- *
- * Resolves the validation set and forwards `metric`, `trialBudget`,
- * candidate sets, and any optional search-specific knobs
- * (`minibatchSize`, `fullEvalEvery`, `seed`, `emit`).
- *
- * @since 0.1.0
- * @category helpers
- * @see {@link MIPROOptionLike}
- */
-export const toPhase3Options = <
-  I extends Schema.Struct.Fields,
-  O extends Schema.Struct.Fields,
-  ME,
-  MR,
-  E,
-  R,
-  EE,
-  ER
->(
-  options: MIPROOptionLike<I, O, ME, MR, E, R>,
-  emit: SearchOptions<I, O, ME, MR, E, R, EE, ER>["emit"],
-  trialBudget: number,
+/** @internal */
+export const toPhase3Options = <I extends Schema.Struct.Fields, O extends Schema.Struct.Fields, ME, MR, E, R, EE, ER>(
+  resolved: ResolvedOptions<I, O, ME, MR, E, R>,
+  emit: EventSink<EE, ER>,
   demoCandidates: PredictorDemoCandidateSets,
   instructionCandidates: PredictorInstructionCandidateSets
-): SearchOptions<I, O, ME, MR, E, R, EE, ER> =>
-  new SearchOptions({
-    module: options.module,
-    valset: resolveValset(options),
-    metric: options.metric,
-    trialBudget,
+) =>
+  new SearchOptions(Struct.assign(resolved.options, {
+    valset: resolved.valset,
     demoCandidates,
     instructionCandidates,
-    ...Option.match(Option.fromNullishOr(options.minibatchSize), {
-      onNone: () => ({}),
-      onSome: (minibatchSize) => ({ minibatchSize })
-    }),
-    ...Option.match(Option.fromNullishOr(options.fullEvalEvery), {
-      onNone: () => ({}),
-      onSome: (fullEvalEvery) => ({ fullEvalEvery })
-    }),
-    ...Option.match(Option.fromNullishOr(options.seed), {
-      onNone: () => ({}),
-      onSome: (seed) => ({ seed })
-    }),
-    ...Option.match(Option.fromNullishOr(emit), {
-      onNone: () => ({}),
-      onSome: (phase3Emit) => ({ emit: phase3Emit })
-    })
-  })
+    emit,
+    trialBudget: resolved.numTrials,
+    minibatch: resolved.minibatch,
+    minibatchSize: resolved.options.minibatchSize ?? 35,
+    fullEvalEvery: resolved.options.minibatchFullEvalSteps ?? 5,
+    seed: resolved.options.seed ?? 9
+  }))

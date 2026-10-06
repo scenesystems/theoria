@@ -633,8 +633,8 @@ const program = Effect.gen(function*() {
   // Co-optimize instructions and demonstration use with MIPROv2.
   yield* logExampleStage("miprov2-stream-started", {
     numCandidates: 4,
-    numInstructions: 4,
-    trialBudget: 6,
+    numTrials: 6,
+    minibatch: false,
     seed: 33
   })
 
@@ -646,8 +646,9 @@ const program = Effect.gen(function*() {
       valset: evalset,
       metric: protocolMetric,
       numCandidates: 4,
-      numInstructions: 4,
-      trialBudget: 6,
+      auto: Option.none(),
+      minibatch: false,
+      numTrials: 6,
       seed: 33
     }),
     (event) =>
@@ -712,8 +713,8 @@ const program = Effect.gen(function*() {
       },
       miprov2: {
         numCandidates: 4,
-        numInstructions: 4,
-        trialBudget: 6,
+        numTrials: 6,
+        minibatch: false,
         seed: 33
       }
     },

@@ -4,18 +4,20 @@
  * @since 0.1.0
  * @internal
  */
-import { Data, Schema, String } from "effect"
+import { Data, Schema } from "effect"
+import type { Option } from "effect"
 import type { PredictorDemoCandidates, PredictorInstructionCandidates } from "../../../MIPROv2Candidates.js"
+import type { ModuleParameters } from "../../../ModuleParameters.js"
 import type * as Predictor from "../../../Predictor.js"
 
 /**
  * Finite index type representing a single categorical choice within a
- * Phase 3 search dimension. Limited to 0–9 to bound the candidate space.
+ * Phase 3 search dimension. Candidate counts are not artificially capped.
  *
  * @since 0.1.0
  * @category type-level
  */
-export const Phase3DimensionIndex = Schema.Literals([0, 1, 2, 3, 4, 5, 6, 7, 8, 9])
+export const Phase3DimensionIndex = Schema.Int.check(Schema.isGreaterThanOrEqualTo(0))
 
 /** @internal */
 export type Phase3DimensionIndex = typeof Phase3DimensionIndex.Type
@@ -23,7 +25,7 @@ export type Phase3DimensionIndex = typeof Phase3DimensionIndex.Type
 /**
  * A full trial configuration mapping each search dimension name to the
  * chosen candidate index. Dimension names follow the pattern
- * `"<predictor>__demo"` and `"<predictor>__instruction"`.
+ * `"<index>_predictor_demos"` and `"<index>_predictor_instruction"`.
  *
  * @since 0.1.0
  * @category models
@@ -45,27 +47,13 @@ export type Phase3Config = typeof Phase3Config.Type
  * @category models
  */
 export class PredictorBinding extends Data.Class<{
+  readonly index: number
   readonly predictorName: string
   readonly predictorId: Predictor.Path
-  readonly demos: PredictorDemoCandidates
+  readonly originalParameters: ModuleParameters
+  readonly demos: Option.Option<PredictorDemoCandidates>
   readonly instructions: PredictorInstructionCandidates
 }> {}
-
-/**
- * Snapshot of the best-performing trial configuration found so far,
- * capturing both the dimension→index mapping and the averaged evaluation
- * score at the time it was recorded.
- *
- * @since 0.1.0
- * @category models
- * @see {@link Phase3Config}
- */
-export class BestAveragingCandidate extends Schema.Class<BestAveragingCandidate>(
-  "@scenesystems/effect-dsp/internal/miprov2/runtime/model/BestAveragingCandidate"
-)({
-  config: Phase3Config,
-  score: Schema.Finite
-}) {}
 
 /**
  * Derives the search-space dimension name for a predictor's demo candidates.
@@ -73,7 +61,7 @@ export class BestAveragingCandidate extends Schema.Class<BestAveragingCandidate>
  * @since 0.1.0
  * @category helpers
  */
-export const demoDimensionName = (predictorName: string): string => String.concat(predictorName, "__demo")
+export const demoDimensionName = (index: number): string => `${index}_predictor_demos`
 
 /**
  * Derives the search-space dimension name for a predictor's instruction
@@ -82,4 +70,4 @@ export const demoDimensionName = (predictorName: string): string => String.conca
  * @since 0.1.0
  * @category helpers
  */
-export const instructionDimensionName = (predictorName: string): string => String.concat(predictorName, "__instruction")
+export const instructionDimensionName = (index: number): string => `${index}_predictor_instruction`

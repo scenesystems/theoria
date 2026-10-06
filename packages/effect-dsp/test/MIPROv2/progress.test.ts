@@ -4,9 +4,9 @@ import { Array as Arr, Effect, Ref, Schema, Stream } from "effect"
 
 const events = Arr.make(
   MIPROv2.events.Phase3Started({ numTrials: 6 }),
-  MIPROv2.events.TrialEvaluated({ trial: 0, score: 0.4 }),
+  MIPROv2.events.TrialEvaluated({ trial: 0, score: 0.4, config: {}, fullValidation: true, sampled: false }),
   MIPROv2.events.FullEvalCompleted({ bestScore: 0.7 }),
-  MIPROv2.events.TrialEvaluated({ trial: 1, score: 0.8 }),
+  MIPROv2.events.TrialEvaluated({ trial: 1, score: 0.8, config: {}, fullValidation: false, sampled: true }),
   MIPROv2.events.Phase3Completed({ bestScore: 0.75, totalTrials: 6 })
 )
 
@@ -28,7 +28,7 @@ describe("MIPROv2 progress", () => {
       ))
     }))
 
-  it.effect("distinguishes configured, observed, and completed trials and retains the highest search score", () =>
+  it.effect("distinguishes configured, observed, and completed trials and retains only full-evaluation scores", () =>
     Effect.sync(() => {
       const summary = MIPROv2.summarizeEvents(events)
       expect(summary.totalEvents).toBe(5)
@@ -37,7 +37,7 @@ describe("MIPROv2 progress", () => {
       expect(summary.fullEvalCompletedCount).toBe(1)
       expect(summary.phase3CompletedTrials).toBe(6)
       expect(summary.phase3BestScoreSeen).toBe(true)
-      expect(summary.phase3BestScore).toBe(0.8)
+      expect(summary.phase3BestScore).toBe(0.75)
     }))
 
   it.effect("separates learned demonstrations and retained gain from search quality", () =>
@@ -50,10 +50,10 @@ describe("MIPROv2 progress", () => {
         optimizedScore: 0.5,
         eventSummary
       })
-      expect(observability.searchBestScore).toBe(0.8)
-      expect(observability.searchGain).toBeCloseTo(0.3, 15)
+      expect(observability.searchBestScore).toBe(0.75)
+      expect(observability.searchGain).toBeCloseTo(0.25, 15)
       expect(observability.retainedGain).toBe(0)
-      expect(observability.retainedVsSearchGap).toBeCloseTo(0.3, 15)
+      expect(observability.retainedVsSearchGap).toBeCloseTo(0.25, 15)
       expect(observability.searchImprovedButRetainedFlat).toBe(true)
     }))
 

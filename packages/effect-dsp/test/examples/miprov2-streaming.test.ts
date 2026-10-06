@@ -65,8 +65,9 @@ const runMiproTagTrace = Effect.gen(function*() {
         valset: trainset,
         metric: Metric.exactMatch("answer"),
         numCandidates: 3,
-        numInstructions: 3,
-        trialBudget: 4,
+        auto: Option.none(),
+        minibatch: false,
+        numTrials: 4,
         seed: 21
       })
     )

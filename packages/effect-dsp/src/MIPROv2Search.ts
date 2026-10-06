@@ -5,12 +5,13 @@
  * @module
  */
 import type { Optimization } from "@scenesystems/effect-search"
+import type { Option } from "effect"
 import { Data, Effect, Schema } from "effect"
 import { phase3TrialBudget as phase3TrialBudgetInternal } from "./internal/miprov2/runtime/budget.js"
 import type { Phase3Config } from "./internal/miprov2/runtime/model.js"
 import { runPhase3Search as runPhase3SearchInternal } from "./internal/miprov2/search.js"
 import type { Metric } from "./Metric.js"
-import type { Event, Examples } from "./MIPROv2.js"
+import { type Event, type Examples, TrialEvaluation } from "./MIPROv2.js"
 import type { PredictorDemoCandidateSets, PredictorInstructionCandidateSets } from "./MIPROv2Candidates.js"
 import type { Module as DspModule } from "./Module.js"
 import type { ParameterSet } from "./ParameterSet.js"
@@ -30,7 +31,9 @@ export class Diagnostics extends Schema.Class<Diagnostics>("@scenesystems/effect
   minibatchTrialNumbers: Schema.Array(Schema.Finite),
   priorTrialCount: Schema.Finite,
   baselineObjective: Schema.Finite,
-  bestScore: Schema.Finite
+  bestScore: Schema.Finite,
+  bestTrial: Schema.Int,
+  evaluations: Schema.Array(Schema.suspend(() => TrialEvaluation))
 }) {}
 
 /** Receives trial and full-set events in evaluation order.
@@ -65,9 +68,13 @@ export class Options<
   readonly demoCandidates: PredictorDemoCandidateSets
   readonly instructionCandidates: PredictorInstructionCandidateSets
   readonly trialBudget?: number
+  readonly minibatch?: boolean
   readonly minibatchSize?: number
   readonly fullEvalEvery?: number
   readonly seed?: number
+  readonly numThreads?: number
+  readonly maxErrors?: Option.Option<number>
+  readonly provideTraceback?: boolean
   readonly emit?: EventSink<EE, ER>
 }> {}
 

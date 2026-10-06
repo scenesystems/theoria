@@ -34,7 +34,8 @@ def document(item, generator):
     return ({"id": item["id"], "file": f"upstream/{item['id']}.json",
              "evidence": item.get("evidence", "upstream-execution"),
              "sha256": hashlib.sha256(payload).hexdigest(), "generator": generator,
-             "description": item["description"]}, payload)
+             "description": item["description"],
+             **({"trajectory": item["trajectory"]} if "trajectory" in item else {})}, payload)
 
 
 def examples(split, n):

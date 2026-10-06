@@ -59,6 +59,164 @@
         }
       ]
     },
+    "numTrials": 12,
+    "minibatch": false,
+    "minibatchSize": 1,
+    "minibatchFullEvalSteps": 2,
+    "strictThroughTrial": 10,
+    "acquisitionGaps": [
+      {
+        "trial": 10,
+        "dimensions": [
+          "0_predictor_instruction"
+        ],
+        "gap": 0.821980052403,
+        "tie": null
+      },
+      {
+        "trial": 11,
+        "dimensions": [
+          "0_predictor_instruction"
+        ],
+        "gap": 0.0,
+        "tie": {
+          "classification": "coincidentalCancellation",
+          "winner": {
+            "0_predictor_instruction": 0
+          },
+          "other": {
+            "0_predictor_instruction": 1
+          }
+        }
+      },
+      {
+        "trial": 12,
+        "dimensions": [
+          "0_predictor_instruction"
+        ],
+        "gap": 0.207639364778,
+        "tie": null
+      }
+    ],
+    "trialTable": [
+      {
+        "number": 0,
+        "params": {
+          "0_predictor_instruction": 0
+        },
+        "value": 0.8,
+        "state": "COMPLETE",
+        "fullValidation": true
+      },
+      {
+        "number": 1,
+        "params": {
+          "0_predictor_instruction": 1
+        },
+        "value": 0.8,
+        "state": "COMPLETE",
+        "fullValidation": true
+      },
+      {
+        "number": 2,
+        "params": {
+          "0_predictor_instruction": 2
+        },
+        "value": 0.8,
+        "state": "COMPLETE",
+        "fullValidation": true
+      },
+      {
+        "number": 3,
+        "params": {
+          "0_predictor_instruction": 0
+        },
+        "value": 0.8,
+        "state": "COMPLETE",
+        "fullValidation": true
+      },
+      {
+        "number": 4,
+        "params": {
+          "0_predictor_instruction": 2
+        },
+        "value": 0.8,
+        "state": "COMPLETE",
+        "fullValidation": true
+      },
+      {
+        "number": 5,
+        "params": {
+          "0_predictor_instruction": 0
+        },
+        "value": 0.8,
+        "state": "COMPLETE",
+        "fullValidation": true
+      },
+      {
+        "number": 6,
+        "params": {
+          "0_predictor_instruction": 1
+        },
+        "value": 0.8,
+        "state": "COMPLETE",
+        "fullValidation": true
+      },
+      {
+        "number": 7,
+        "params": {
+          "0_predictor_instruction": 1
+        },
+        "value": 0.8,
+        "state": "COMPLETE",
+        "fullValidation": true
+      },
+      {
+        "number": 8,
+        "params": {
+          "0_predictor_instruction": 1
+        },
+        "value": 0.8,
+        "state": "COMPLETE",
+        "fullValidation": true
+      },
+      {
+        "number": 9,
+        "params": {
+          "0_predictor_instruction": 2
+        },
+        "value": 0.8,
+        "state": "COMPLETE",
+        "fullValidation": true
+      },
+      {
+        "number": 10,
+        "params": {
+          "0_predictor_instruction": 0
+        },
+        "value": 0.8,
+        "state": "COMPLETE",
+        "fullValidation": true
+      },
+      {
+        "number": 11,
+        "params": {
+          "0_predictor_instruction": 0
+        },
+        "value": 0.8,
+        "state": "COMPLETE",
+        "fullValidation": true
+      },
+      {
+        "number": 12,
+        "params": {
+          "0_predictor_instruction": 1
+        },
+        "value": 0.8,
+        "state": "COMPLETE",
+        "fullValidation": true
+      }
+    ],
     "maxBootstrappedDemos": 0,
     "maxLabeledDemos": 0,
     "bootstrapCalls": 5,

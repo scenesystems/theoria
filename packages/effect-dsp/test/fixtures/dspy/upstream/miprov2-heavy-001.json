@@ -59,6 +59,507 @@
         }
       ]
     },
+    "numTrials": 27,
+    "minibatch": false,
+    "minibatchSize": 1,
+    "minibatchFullEvalSteps": 2,
+    "strictThroughTrial": 17,
+    "acquisitionGaps": [
+      {
+        "trial": 10,
+        "dimensions": [
+          "0_predictor_demos",
+          "0_predictor_instruction"
+        ],
+        "gap": 0.0,
+        "tie": {
+          "classification": "identicalInputs",
+          "winner": {
+            "0_predictor_demos": 8,
+            "0_predictor_instruction": 3
+          },
+          "other": {
+            "0_predictor_demos": 15,
+            "0_predictor_instruction": 3
+          }
+        }
+      },
+      {
+        "trial": 11,
+        "dimensions": [
+          "0_predictor_demos",
+          "0_predictor_instruction"
+        ],
+        "gap": 0.595573133608,
+        "tie": null
+      },
+      {
+        "trial": 12,
+        "dimensions": [
+          "0_predictor_demos",
+          "0_predictor_instruction"
+        ],
+        "gap": 0.0,
+        "tie": {
+          "classification": "identicalInputs",
+          "winner": {
+            "0_predictor_demos": 15,
+            "0_predictor_instruction": 1
+          },
+          "other": {
+            "0_predictor_demos": 4,
+            "0_predictor_instruction": 1
+          }
+        }
+      },
+      {
+        "trial": 13,
+        "dimensions": [
+          "0_predictor_demos",
+          "0_predictor_instruction"
+        ],
+        "gap": 0.007814424021,
+        "tie": null
+      },
+      {
+        "trial": 14,
+        "dimensions": [
+          "0_predictor_demos",
+          "0_predictor_instruction"
+        ],
+        "gap": 0.02291537087,
+        "tie": null
+      },
+      {
+        "trial": 15,
+        "dimensions": [
+          "0_predictor_demos",
+          "0_predictor_instruction"
+        ],
+        "gap": 0.025110166565,
+        "tie": null
+      },
+      {
+        "trial": 16,
+        "dimensions": [
+          "0_predictor_demos",
+          "0_predictor_instruction"
+        ],
+        "gap": 0.561966125388,
+        "tie": null
+      },
+      {
+        "trial": 17,
+        "dimensions": [
+          "0_predictor_demos",
+          "0_predictor_instruction"
+        ],
+        "gap": 0.0,
+        "tie": {
+          "classification": "identicalInputs",
+          "winner": {
+            "0_predictor_demos": 7,
+            "0_predictor_instruction": 4
+          },
+          "other": {
+            "0_predictor_demos": 6,
+            "0_predictor_instruction": 4
+          }
+        }
+      },
+      {
+        "trial": 18,
+        "dimensions": [
+          "0_predictor_demos",
+          "0_predictor_instruction"
+        ],
+        "gap": 0.0,
+        "tie": {
+          "classification": "coincidentalCancellation",
+          "winner": {
+            "0_predictor_demos": 5,
+            "0_predictor_instruction": 2
+          },
+          "other": {
+            "0_predictor_demos": 3,
+            "0_predictor_instruction": 3
+          }
+        }
+      },
+      {
+        "trial": 19,
+        "dimensions": [
+          "0_predictor_demos",
+          "0_predictor_instruction"
+        ],
+        "gap": 0.0,
+        "tie": {
+          "classification": "coincidentalCancellation",
+          "winner": {
+            "0_predictor_demos": 4,
+            "0_predictor_instruction": 4
+          },
+          "other": {
+            "0_predictor_demos": 9,
+            "0_predictor_instruction": 3
+          }
+        }
+      },
+      {
+        "trial": 20,
+        "dimensions": [
+          "0_predictor_demos",
+          "0_predictor_instruction"
+        ],
+        "gap": 0.153987904605,
+        "tie": null
+      },
+      {
+        "trial": 21,
+        "dimensions": [
+          "0_predictor_demos",
+          "0_predictor_instruction"
+        ],
+        "gap": 0.363140483703,
+        "tie": null
+      },
+      {
+        "trial": 22,
+        "dimensions": [
+          "0_predictor_demos",
+          "0_predictor_instruction"
+        ],
+        "gap": 0.1542798856,
+        "tie": null
+      },
+      {
+        "trial": 23,
+        "dimensions": [
+          "0_predictor_demos",
+          "0_predictor_instruction"
+        ],
+        "gap": 0.098283175495,
+        "tie": null
+      },
+      {
+        "trial": 24,
+        "dimensions": [
+          "0_predictor_demos",
+          "0_predictor_instruction"
+        ],
+        "gap": 0.659335123307,
+        "tie": null
+      },
+      {
+        "trial": 25,
+        "dimensions": [
+          "0_predictor_demos",
+          "0_predictor_instruction"
+        ],
+        "gap": 0.208713286485,
+        "tie": null
+      },
+      {
+        "trial": 26,
+        "dimensions": [
+          "0_predictor_demos",
+          "0_predictor_instruction"
+        ],
+        "gap": 0.137331190652,
+        "tie": null
+      },
+      {
+        "trial": 27,
+        "dimensions": [
+          "0_predictor_demos",
+          "0_predictor_instruction"
+        ],
+        "gap": 0.071196935776,
+        "tie": null
+      }
+    ],
+    "trialTable": [
+      {
+        "number": 0,
+        "params": {
+          "0_predictor_instruction": 0,
+          "0_predictor_demos": 0
+        },
+        "value": 0.8,
+        "state": "COMPLETE",
+        "fullValidation": true
+      },
+      {
+        "number": 1,
+        "params": {
+          "0_predictor_instruction": 1,
+          "0_predictor_demos": 17
+        },
+        "value": 0.8,
+        "state": "COMPLETE",
+        "fullValidation": true
+      },
+      {
+        "number": 2,
+        "params": {
+          "0_predictor_instruction": 5,
+          "0_predictor_demos": 12
+        },
+        "value": 0.8,
+        "state": "COMPLETE",
+        "fullValidation": true
+      },
+      {
+        "number": 3,
+        "params": {
+          "0_predictor_instruction": 8,
+          "0_predictor_demos": 1
+        },
+        "value": 0.8,
+        "state": "COMPLETE",
+        "fullValidation": true
+      },
+      {
+        "number": 4,
+        "params": {
+          "0_predictor_instruction": 2,
+          "0_predictor_demos": 12
+        },
+        "value": 0.8,
+        "state": "COMPLETE",
+        "fullValidation": true
+      },
+      {
+        "number": 5,
+        "params": {
+          "0_predictor_instruction": 5,
+          "0_predictor_demos": 12
+        },
+        "value": 0.8,
+        "state": "COMPLETE",
+        "fullValidation": true
+      },
+      {
+        "number": 6,
+        "params": {
+          "0_predictor_instruction": 0,
+          "0_predictor_demos": 16
+        },
+        "value": 0.8,
+        "state": "COMPLETE",
+        "fullValidation": true
+      },
+      {
+        "number": 7,
+        "params": {
+          "0_predictor_instruction": 0,
+          "0_predictor_demos": 13
+        },
+        "value": 0.8,
+        "state": "COMPLETE",
+        "fullValidation": true
+      },
+      {
+        "number": 8,
+        "params": {
+          "0_predictor_instruction": 0,
+          "0_predictor_demos": 12
+        },
+        "value": 0.8,
+        "state": "COMPLETE",
+        "fullValidation": true
+      },
+      {
+        "number": 9,
+        "params": {
+          "0_predictor_instruction": 8,
+          "0_predictor_demos": 10
+        },
+        "value": 0.8,
+        "state": "COMPLETE",
+        "fullValidation": true
+      },
+      {
+        "number": 10,
+        "params": {
+          "0_predictor_instruction": 3,
+          "0_predictor_demos": 8
+        },
+        "value": 0.8,
+        "state": "COMPLETE",
+        "fullValidation": true
+      },
+      {
+        "number": 11,
+        "params": {
+          "0_predictor_instruction": 7,
+          "0_predictor_demos": 0
+        },
+        "value": 0.8,
+        "state": "COMPLETE",
+        "fullValidation": true
+      },
+      {
+        "number": 12,
+        "params": {
+          "0_predictor_instruction": 1,
+          "0_predictor_demos": 15
+        },
+        "value": 0.8,
+        "state": "COMPLETE",
+        "fullValidation": true
+      },
+      {
+        "number": 13,
+        "params": {
+          "0_predictor_instruction": 1,
+          "0_predictor_demos": 0
+        },
+        "value": 0.8,
+        "state": "COMPLETE",
+        "fullValidation": true
+      },
+      {
+        "number": 14,
+        "params": {
+          "0_predictor_instruction": 7,
+          "0_predictor_demos": 17
+        },
+        "value": 0.8,
+        "state": "COMPLETE",
+        "fullValidation": true
+      },
+      {
+        "number": 15,
+        "params": {
+          "0_predictor_instruction": 6,
+          "0_predictor_demos": 17
+        },
+        "value": 0.8,
+        "state": "COMPLETE",
+        "fullValidation": true
+      },
+      {
+        "number": 16,
+        "params": {
+          "0_predictor_instruction": 1,
+          "0_predictor_demos": 17
+        },
+        "value": 0.8,
+        "state": "COMPLETE",
+        "fullValidation": true
+      },
+      {
+        "number": 17,
+        "params": {
+          "0_predictor_instruction": 4,
+          "0_predictor_demos": 7
+        },
+        "value": 0.8,
+        "state": "COMPLETE",
+        "fullValidation": true
+      },
+      {
+        "number": 18,
+        "params": {
+          "0_predictor_instruction": 2,
+          "0_predictor_demos": 5
+        },
+        "value": 0.8,
+        "state": "COMPLETE",
+        "fullValidation": true
+      },
+      {
+        "number": 19,
+        "params": {
+          "0_predictor_instruction": 4,
+          "0_predictor_demos": 4
+        },
+        "value": 0.8,
+        "state": "COMPLETE",
+        "fullValidation": true
+      },
+      {
+        "number": 20,
+        "params": {
+          "0_predictor_instruction": 0,
+          "0_predictor_demos": 9
+        },
+        "value": 0.8,
+        "state": "COMPLETE",
+        "fullValidation": true
+      },
+      {
+        "number": 21,
+        "params": {
+          "0_predictor_instruction": 5,
+          "0_predictor_demos": 3
+        },
+        "value": 0.8,
+        "state": "COMPLETE",
+        "fullValidation": true
+      },
+      {
+        "number": 22,
+        "params": {
+          "0_predictor_instruction": 1,
+          "0_predictor_demos": 11
+        },
+        "value": 0.8,
+        "state": "COMPLETE",
+        "fullValidation": true
+      },
+      {
+        "number": 23,
+        "params": {
+          "0_predictor_instruction": 5,
+          "0_predictor_demos": 2
+        },
+        "value": 0.8,
+        "state": "COMPLETE",
+        "fullValidation": true
+      },
+      {
+        "number": 24,
+        "params": {
+          "0_predictor_instruction": 0,
+          "0_predictor_demos": 0
+        },
+        "value": 0.8,
+        "state": "COMPLETE",
+        "fullValidation": true
+      },
+      {
+        "number": 25,
+        "params": {
+          "0_predictor_instruction": 5,
+          "0_predictor_demos": 6
+        },
+        "value": 0.8,
+        "state": "COMPLETE",
+        "fullValidation": true
+      },
+      {
+        "number": 26,
+        "params": {
+          "0_predictor_instruction": 3,
+          "0_predictor_demos": 17
+        },
+        "value": 0.8,
+        "state": "COMPLETE",
+        "fullValidation": true
+      },
+      {
+        "number": 27,
+        "params": {
+          "0_predictor_instruction": 1,
+          "0_predictor_demos": 14
+        },
+        "value": 0.8,
+        "state": "COMPLETE",
+        "fullValidation": true
+      }
+    ],
     "maxBootstrappedDemos": 1,
     "maxLabeledDemos": 1,
     "bootstrapCalls": 16,

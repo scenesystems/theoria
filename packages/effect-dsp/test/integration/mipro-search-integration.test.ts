@@ -128,6 +128,7 @@ describe("MIPROv2/effect-search integration", () => {
           demoCandidates,
           instructionCandidates,
           trialBudget: 3,
+          minibatch: false,
           seed: 73
         })
       ).pipe(Effect.provide(layer))
@@ -140,16 +141,16 @@ describe("MIPROv2/effect-search integration", () => {
             Arr.fromIterable(result.optimizationResult.trials),
             (trial) =>
               Schema.is(Schema.Record(Schema.String, Schema.Unknown))(trial.config) &&
-              Record.has(trial.config, "qa__demo") &&
-              Record.has(trial.config, "qa__instruction")
+              Record.has(trial.config, "0_predictor_demos") &&
+              Record.has(trial.config, "0_predictor_instruction")
           )
         )
       ).toBe(true)
       expect(result.diagnostics.baselineObjective).toBe(projected.objective)
       expect(result.diagnostics.priorTrialCount).toBe(1)
-      expect(result.diagnostics.fullEvalTrialNumbers).toEqual(Arr.make(1, 3))
-      expect(result.diagnostics.minibatchTrialNumbers).toEqual(Arr.make(0, 1, 2, 3))
-      expect(defaultCadence.diagnostics.minibatchSize).toBe(50)
+      expect(result.diagnostics.fullEvalTrialNumbers).toEqual(Arr.make(0, 3, 6))
+      expect(result.diagnostics.minibatchTrialNumbers).toEqual(Arr.make(1, 2, 4, 5))
+      expect(defaultCadence.diagnostics.minibatchSize).toBe(35)
       expect(defaultCadence.diagnostics.fullEvalEvery).toBe(5)
     }))
 })

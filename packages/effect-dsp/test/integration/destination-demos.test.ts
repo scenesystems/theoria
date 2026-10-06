@@ -165,12 +165,14 @@ describe("destination-owned demonstrations", () => {
         new MIPROv2.Options({
           module: root,
           trainset: rows,
+          valset: rows,
           metric: Metric.exactMatch("answer"),
           numCandidates: 3,
-          numInstructions: 1,
+          auto: Option.none(),
+          minibatch: false,
           maxLabeledDemos: 0,
           maxBootstrappedDemos: 1,
-          trialBudget: 2
+          numTrials: 2
         })
       ).pipe(Effect.provideService(LanguageModel.LanguageModel, mock.service))
       expect((yield* Ref.get(child.parameters)).demos).toEqual(Arr.empty())
