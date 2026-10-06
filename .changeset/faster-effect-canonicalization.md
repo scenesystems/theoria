@@ -44,3 +44,14 @@ contribute canonical content.
 Add independent numeric/scalar digest vectors, seeded numeric and forced-escape
 equivalence properties, and a cold/warm-fresh throughput matrix with an explicit
 1.0 ratio budget against an independent sorted whole-JSON/Noble pipeline.
+
+Serialize bounded runs of admitted plain values through one Schema JSON encoding
+instead of one emission per scalar. Runs copy at most 8,192 consecutive values
+within 32 Ki text units into fresh data after each own-index check, allocate
+nothing per scalar, and halt with everything already read so the frame machine
+resumes at the exact position and reproduces the exact rejection without reading
+any field twice. Link traversal frames to their parents and detect cycles by
+ancestor reference above a bounded depth, removing per-container hash-set
+registration and the Bun garbage-collection pathology on large record arrays.
+Cache one sorted key layout across consecutive records. Add read-once and
+resume-order coverage for rejected siblings and cyclic getters.

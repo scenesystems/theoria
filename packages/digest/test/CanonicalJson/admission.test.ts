@@ -194,6 +194,54 @@ describe("CanonicalJson.encode — admission", () => {
       expect(MutableRef.get(reads)).toStrictEqual([])
     }))
 
+  it.effect("reads nested fields once when a later sibling is rejected", () =>
+    Effect.gen(function*() {
+      const reads = MutableRef.make(0)
+      const value = Arr.make(1, {
+        inner: {
+          get a(): number {
+            MutableRef.update(reads, N.increment)
+            return 1
+          },
+          b: undefined
+        }
+      })
+      expect(yield* Effect.exit(CanonicalJson.encode(value))).toStrictEqual(
+        Exit.fail(new CanonicalJson.UnsupportedValue({ reason: "undefined" }))
+      )
+      expect(MutableRef.get(reads)).toBe(1)
+    }))
+
+  it.effect("reads a cyclic getter once before failing", () =>
+    Effect.gen(function*() {
+      const reads = MutableRef.make(0)
+      const cycle = {
+        get self(): unknown {
+          MutableRef.update(reads, N.increment)
+          return cycle
+        }
+      }
+      expect(yield* Effect.exit(CanonicalJson.encode(Arr.make(cycle)))).toStrictEqual(
+        Exit.fail(new CanonicalJson.CyclicValue())
+      )
+      expect(MutableRef.get(reads)).toBe(1)
+    }))
+
+  it.effect("continues exactly after a copied prefix when a value cannot be copied", () =>
+    Effect.gen(function*() {
+      const long = "x".repeat(2_000)
+      expect(yield* CanonicalJson.encode(Arr.make(1, { b: long, a: Arr.make(1, 2), c: true }, 3))).toBe(
+        `[1,{"a":[1,2],"b":"${long}","c":true},3]`
+      )
+      expect(yield* CanonicalJson.encode(Arr.make({ a: 1 }, { b: 2, ["0"]: 1 }, "end"))).toBe(
+        "[{\"a\":1},{\"0\":1,\"b\":2},\"end\"]"
+      )
+      expect(yield* Effect.exit(CanonicalJson.encode(Arr.make(1, 2, Arr.make(3, undefined, Arr.allocate(1))))))
+        .toStrictEqual(Exit.fail(new CanonicalJson.UnsupportedValue({ reason: "undefined" })))
+      expect(yield* Effect.exit(CanonicalJson.encode(Arr.make(Arr.make(1), Arr.make(2, 3, Arr.allocate(1), 4)))))
+        .toStrictEqual(Exit.fail(new CanonicalJson.UnsupportedValue({ reason: "sparse-array" })))
+    }))
+
   it.effect("rejects malformed nested values and keys with bounded diagnostics", () =>
     Effect.gen(function*() {
       expect(yield* Effect.exit(CanonicalJson.encode({ nested: Arr.make("ok", "\ud800") }))).toStrictEqual(
