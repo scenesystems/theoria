@@ -80,8 +80,7 @@ describe("Wave 2 / MOTPE selection-depth parity", () => {
       })
     }).pipe(Effect.provide(FixtureRegistryLive)))
 
-  // Wave 3: live Optuna HSSP selects [30, 31]; Theoria selects [31, 32].
-  it.effect.fails("FM-4: preserves rank boundaries and HSSP tie-break membership at split boundaries", () =>
+  it.effect("FM-4: preserves rank boundaries and HSSP tie-break membership at split boundaries", () =>
     Effect.gen(function*() {
       const loaded = yield* loadFixture("motpe-split.multi-rank-hssp")
       const fixture = yield* Schema.decodeUnknownEffect(MotpeSplitFixture)(loaded)

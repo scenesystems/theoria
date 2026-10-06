@@ -89,9 +89,7 @@ it.effect("replays Optuna ask/tell history, excluding the failed observation fro
       }))
   }))
 
-// Not RNG-only: current joint-tuple categorical smoothing differs from Optuna's
-// mixture of product categorical kernels. Wave 3 owns the implementation change.
-it.effect.fails("optuna-mipro-categorical-001: fixed-history joint distribution matches Optuna 4.9", () =>
+it.effect("optuna-mipro-categorical-001: fixed-history joint distribution matches Optuna 4.9", () =>
   Effect.gen(function*() {
     const reference = yield* load
     const space = yield* SearchSpace.make(Record.map(reference.space, SearchSpace.categorical))

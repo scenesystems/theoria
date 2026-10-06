@@ -320,7 +320,7 @@ const MixedSpaceTrial = Schema.Struct({
 const MixedSpaceCategoricalDimensionTrace = Schema.Struct({
   kind: Schema.Literal("categorical"),
   name: Schema.String,
-  candidateRolls: Schema.Array(Schema.Finite),
+  candidateRolls: Schema.Array(CandidateRollPair),
   candidates: Schema.Array(Choice),
   logL: Schema.Array(Schema.Finite),
   logG: Schema.Array(Schema.Finite),
@@ -508,7 +508,7 @@ export const ConstrainedTpeFixture = Schema.Struct({
   metadata: FixtureMetadata,
   payload: Schema.Struct({
     densityCases: Schema.Array(ConstrainedDensityCase),
-    splitCase: ConstrainedSplitCase
+    splitCases: Schema.Array(ConstrainedSplitCase)
   })
 })
 

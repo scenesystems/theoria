@@ -25,7 +25,7 @@ const standardizeBounds = (params: TruncatedNormalParams): StandardizedBounds =>
     b: Num.divideUnsafe(Num.subtract(params.high, params.mean), params.sigma)
   })
 
-const logGaussMass = (a: number, b: number): number => {
+export const logGaussMass = (a: number, b: number): number => {
   const massCaseLeft = (left: number, right: number): number => logDiff(logNdtr(right), logNdtr(left))
   const massCaseRight = (left: number, right: number): number =>
     massCaseLeft(Num.multiply(-1, right), Num.multiply(-1, left))

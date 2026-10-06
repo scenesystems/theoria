@@ -32,8 +32,7 @@ const prunedOrdering = Order.mapInput(
 )
 
 describe("pruned-score fixture parity", () => {
-  // Wave 3: Optuna's empty-report ordering score is (1, 0), not (-step, Infinity).
-  it.effect.fails("replays pruned score traces and deterministic ordering", () =>
+  it.effect("replays pruned score traces and deterministic ordering", () =>
     Effect.gen(function*() {
       const loaded = yield* loadFixture("pruned-score.pruned-ordering").pipe(Effect.provide(FixtureRegistryLive))
       const fixture = yield* Schema.decodeUnknownEffect(PrunedScoreFixture)(loaded)

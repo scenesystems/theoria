@@ -116,7 +116,13 @@ const suggestModelDriven = (
   return Effect.gen(function*() {
     const completed = yield* enrichCompletedTrialsWithConstraints(context.completed, constraints)
     const rng = yield* rngByTrial("tpe", seed, context.nextTrialNumber)
-    const split = splitByObjective(completed, context.objectiveSpec, context.epsilon)
+    const split = splitByObjective(
+      completed,
+      context.objectiveSpec,
+      context.epsilon,
+      Option.fromNullishOr(context.pruned).pipe(Option.getOrElse(() => [])),
+      context.pending
+    )
     const dimensions = categoricalDimensions(space)
     const containsConditionalParameters = hasConditionalParameters(space)
     const groupedSettings = new GroupedMixedSettings({
@@ -186,7 +192,11 @@ export const suggestWithStartup = (
   context: Context
 ): Effect.Effect<unknown, SearchError> => {
   const constraints = Arr.fromIterable(constraintsInput)
-  return Match.value(Num.isLessThan(Arr.length(context.completed), startupTrials)).pipe(
+  const observedCount = Num.sum(
+    Arr.length(context.completed),
+    Option.fromNullishOr(context.pruned).pipe(Option.map(Arr.length), Option.getOrElse(() => 0))
+  )
+  return Match.value(Num.isLessThan(observedCount, startupTrials)).pipe(
     Match.when(true, () => randomSampler.suggest(space, context)),
     Match.orElse(() =>
       suggestModelDriven(

@@ -54,7 +54,7 @@ def generate(generated_at):
             probes = {name: samples[name]}
             log_l, log_g = marginal_below.log_pdf(probes), marginal_above.log_pdf(probes)
             dimensions.append({"name": name, "kind": kind,
-                               "candidateRolls": values if kind == "categorical" else list(zip(rng.component_rolls, values, strict=True)),
+                               "candidateRolls": list(zip(rng.component_rolls, values, strict=True)),
                                "candidates": [candidate[name] for candidate in configs],
                                "logL": log_l.tolist(), "logG": log_g.tolist(),
                                "scores": sampler._compute_acquisition_func(probes, marginal_below, marginal_above).tolist()})

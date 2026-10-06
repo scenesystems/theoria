@@ -38,7 +38,7 @@
     {
       "file": "constrained-tpe/parity.json",
       "name": "constrained-tpe.parity",
-      "sha256": "98feb446f592768bb2f216a74d9efca31d6512375d496b9978d8f3b7d0494e12"
+      "sha256": "5b1e1b3e9ac02bb8fd4fd7a9e25245316b1b365ada90af15b1207179229b98c3"
     },
     {
       "file": "continuous-kde/basic.json",
@@ -148,12 +148,12 @@
     {
       "file": "mixed-space/joint-trace.json",
       "name": "mixed-space.joint-trace",
-      "sha256": "4ed709ec9c36acbb5be3fcce91936685dcd3004cc0c601b8bca3c044fa216f03"
+      "sha256": "4d2fc5a7cf0fb95bf0c9e5731fa5fb1808069bd343b11ab0d5a8e009920bb382"
     },
     {
       "file": "mixed-space/joint-trace-recency-shift.json",
       "name": "mixed-space.joint-trace.recency-shift",
-      "sha256": "c5f1610a51e2bd085856dd8f2aeff03be24eafba8048a18b3ce966be071300fd"
+      "sha256": "a058796fafda42d13923b5befcce93dbe40ebd57821fa5917c3b9a740e82bf9b"
     },
     {
       "file": "motpe-reference/reference-point.json",

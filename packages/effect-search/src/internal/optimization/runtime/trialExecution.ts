@@ -132,6 +132,7 @@ const executeReservedTrial = Effect.fn("effect-search/Optimization.executeReserv
               finishedAt,
               objectiveExitValue(objectiveExit),
               yield* Ref.get(reportRefs.pruneRef),
+              yield* Ref.get(reportRefs.reportsRef),
               retryCount,
               objectiveCost(objectiveExit),
               objectiveEvaluationCount(objectiveExit),

@@ -52,10 +52,8 @@ export const observationSigmas = (
 ) => {
   const observations = Arr.fromIterable(observationsInput)
 
-  const priorMean = Num.divideUnsafe(Num.sum(low, high), 2)
-  const meansWithPrior = Arr.append(observations, priorMean)
   const sorted = Arr.sort(
-    Arr.map(meansWithPrior, (mean, index) => Tuple.make(index, mean)),
+    Arr.map(observations, (mean, index) => Tuple.make(index, mean)),
     Order.mapInput(Num.Order, (entry: readonly [number, number]) => entry[1])
   )
   const sortedPositionLookup = Arr.reduce(

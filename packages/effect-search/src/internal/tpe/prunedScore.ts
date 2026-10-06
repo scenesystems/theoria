@@ -1,5 +1,4 @@
-import { isFinite } from "@scenesystems/effect-math/Numeric"
-import { Array as Arr, Match, Number as Num, Option, Schema, Tuple } from "effect"
+import { Array as Arr, Equivalence, Match, Number as Num, Option, Schema, Tuple } from "effect"
 
 import type { Direction } from "../../Direction.js"
 
@@ -42,8 +41,8 @@ const directionalScore = (direction: Direction, value: number): number =>
     Match.orElse(() => value)
   )
 
-const finiteScore = (value: number): number =>
-  Match.value(isFinite(value)).pipe(
+const orderedScore = (value: number): number =>
+  Match.value(Equivalence.strictEqual<number>()(value, value)).pipe(
     Match.when(true, () => value),
     Match.orElse(() => Number.POSITIVE_INFINITY)
   )
@@ -58,12 +57,12 @@ export const prunedTrialScore = (
       onNone: () =>
         new PrunedTrialScore({
           step: Num.multiply(-1, 1),
-          value: Number.POSITIVE_INFINITY
+          value: 0
         }),
       onSome: (latest) =>
         new PrunedTrialScore({
           step: latest.step,
-          value: finiteScore(directionalScore(direction, latest.value))
+          value: orderedScore(directionalScore(direction, latest.value))
         })
     })
   )
@@ -72,4 +71,4 @@ export const prunedTrialScore = (
 export const prunedTrialOrderKey = (
   trialNumber: number,
   score: PrunedTrialScore
-): readonly [number, number, number] => Tuple.make(score.value, score.step, trialNumber)
+): readonly [number, number, number] => Tuple.make(Num.multiply(-1, score.step), score.value, trialNumber)

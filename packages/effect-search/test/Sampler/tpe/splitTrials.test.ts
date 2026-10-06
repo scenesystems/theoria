@@ -50,6 +50,7 @@ const splitTrialFromFixture = (
           new CompletedTrialForSplit({
             trialNumber: trial.trialNumber,
             config: { trialNumber: trial.trialNumber, state: trial.state },
+            state: trial.state,
             value: directionalScore(direction, value),
             sortStep: Num.multiply(-1, 1)
           })
@@ -61,6 +62,7 @@ const splitTrialFromFixture = (
           new CompletedTrialForSplit({
             trialNumber: trial.trialNumber,
             config: { trialNumber: trial.trialNumber, state: trial.state },
+            state: trial.state,
             value: directionalScore(direction, value),
             sortStep: Num.multiply(-1, 1)
           })
@@ -73,6 +75,7 @@ const splitTrialFromFixture = (
         new CompletedTrialForSplit({
           trialNumber: trial.trialNumber,
           config: { trialNumber: trial.trialNumber, state: trial.state },
+          state: trial.state,
           value: score.value,
           sortStep: score.step
         })
@@ -104,8 +107,7 @@ const makeTrial = (trialNumber: number, value: number) =>
   })
 
 describe("tpe split trials fixture parity", () => {
-  // Wave 3: Optuna exhausts completed trials before considering pruned trials.
-  it.effect.fails("replays split-trial fixture cases including pruned and liar-aware membership", () =>
+  it.effect("replays split-trial fixture cases including pruned and liar-aware membership", () =>
     Effect.gen(function*() {
       const loaded = yield* loadFixture("split-trials.single-and-liar").pipe(Effect.provide(FixtureRegistryLive))
       const fixture = yield* Schema.decodeUnknownEffect(SplitTrialsFixture)(loaded)

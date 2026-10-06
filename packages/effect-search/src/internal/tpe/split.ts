@@ -4,13 +4,13 @@
  * @since 0.1.0
  * @module
  */
-import { Array as Arr } from "effect"
+import { Array as Arr, Order } from "effect"
 
 import { match, type Objective } from "../../Objective.js"
-import type { Observation } from "../../Sampler.js"
+import type { Observation, Pending, PrunedObservation } from "../../Sampler.js"
 import { splitMultiObjective } from "./split/multiSplit.js"
 import { splitSingleObjective } from "./split/singleSplit.js"
-import type { TrialSplit } from "./splitTrials.js"
+import { CompletedTrialForSplit, type TrialSplit } from "./splitTrials.js"
 
 /**
  * Split completed TPE trials into above/below groups based on objective spec direction.
@@ -21,11 +21,29 @@ import type { TrialSplit } from "./splitTrials.js"
 export const splitByObjective = (
   completedInput: Iterable<Observation>,
   objectiveSpec: Objective,
-  epsilon = 0
+  epsilon = 0,
+  prunedInput: Iterable<PrunedObservation> = [],
+  pendingInput: Iterable<Pending> = []
 ): TrialSplit => {
   const completed = Arr.fromIterable(completedInput)
-  return match({
-    Single: ({ direction }) => splitSingleObjective(completed, direction),
+  const split = match({
+    Single: ({ direction }) => splitSingleObjective(completed, direction, prunedInput),
     Multi: ({ directions }) => splitMultiObjective(completed, directions, undefined, epsilon)
   })(objectiveSpec)
+  return {
+    below: split.below,
+    above: Arr.sort(
+      Arr.appendAll(
+        split.above,
+        Arr.map(Arr.fromIterable(pendingInput), (trial) =>
+          new CompletedTrialForSplit({
+            trialNumber: trial.trialNumber,
+            config: trial.config,
+            state: "running",
+            value: 0
+          }))
+      ),
+      Order.mapInput(Order.Number, (trial: CompletedTrialForSplit) => trial.trialNumber)
+    )
+  }
 }

@@ -3,12 +3,12 @@
  *
  * @since 0.1.0
  */
-import type * as History from "@scenesystems/effect-study/History"
-import { Array as Arr, Chunk, Effect, Match, Number as Num, Option, Schema } from "effect"
+import * as History from "@scenesystems/effect-study/History"
+import { Array as Arr, Effect, Match, Number as Num, Option, Schema } from "effect"
 
 import type { SamplerConfig } from "../../../internal/configAccess.js"
 import type { Objective } from "../../../Objective.js"
-import { Context, Observation, Pending, type PendingPolicy } from "../../../Sampler.js"
+import { Context, Observation, Pending, PrunedObservation } from "../../../Sampler.js"
 import type * as Trial from "../../../Trial.js"
 import { completedTrialsFromState, maxTrialNumberFromState, pendingTrialsFromState } from "../history.js"
 
@@ -53,7 +53,7 @@ const toSuggestPendingTrial = <Config>(trial: Trial.Trial<Config>): Pending =>
   })
 
 /**
- * Builds the sampler suggestion context from current optimization state, applying pending trial imputation.
+ * Keeps completed objectives, pruned reports and pending reservations separate.
  *
  * @since 0.1.0
  * @category constructors
@@ -62,35 +62,27 @@ export const contextForSuggestion = <Config>(
   objectiveSpec: Objective,
   state: History.History<Config, Trial.State>,
   priorWeight: number,
-  epsilon: number,
-  policy: PendingPolicy
+  epsilon: number
 ): Effect.Effect<Context> =>
   Effect.gen(function*() {
     const completed = completedTrialsFromState(state)
     const pending = pendingTrialsFromState(state)
-    const baseContext = new Context({
+    return new Context({
       completed: Arr.map(completed, (trial) => toSuggestCompletedTrial(trial, priorWeight)),
+      pruned: Arr.flatMap(History.values(state), (trial) =>
+        Match.value(trial.state).pipe(
+          Match.tag("Pruned", ({ reports }) => [
+            new PrunedObservation({
+              trialNumber: trial.trialNumber,
+              config: toSamplerConfig(trial.config),
+              reports
+            })
+          ]),
+          Match.orElse(() => Arr.empty<PrunedObservation>())
+        )),
       pending: Arr.map(pending, toSuggestPendingTrial),
       objectiveSpec,
       nextTrialNumber: Num.increment(maxTrialNumberFromState(state)),
       epsilon
-    })
-
-    const imputedCompleted = Arr.fromIterable(Chunk.map(
-      policy.impute(baseContext),
-      (observation) =>
-        new Observation({
-          trialNumber: observation.trialNumber,
-          config: observation.config,
-          value: observation.value
-        })
-    ))
-
-    return new Context({
-      completed: Arr.appendAll(baseContext.completed, imputedCompleted),
-      pending: baseContext.pending,
-      objectiveSpec: baseContext.objectiveSpec,
-      nextTrialNumber: baseContext.nextTrialNumber,
-      epsilon: baseContext.epsilon
     })
   })

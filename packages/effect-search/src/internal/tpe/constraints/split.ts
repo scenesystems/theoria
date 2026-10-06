@@ -1,5 +1,5 @@
 /**
- * Constraint-aware trial splitting — feasibility-based partitioning with density-ranked infeasible promotion.
+ * Constraint-aware trial splitting — feasible trials precede positive violation sums.
  *
  * @since 0.1.0
  */
@@ -7,11 +7,7 @@ import { Array as Arr, Boolean as Bool, Data, Equal, Match, Number as Num, Optio
 
 import type { Vector } from "../../../Objective.js"
 
-import {
-  buildConstraintDensityModels,
-  constraintDensityRatioLogProduct,
-  isConstraintVectorFeasible
-} from "../../../internal/tpe/constrainedDensity.js"
+import { isConstraintVectorFeasible } from "../../../internal/tpe/constrainedDensity.js"
 import { defaultGamma } from "../../../internal/tpe/gammaSplit.js"
 import { CompletedTrialForSplit, splitTrials, type TrialSplit } from "../../../internal/tpe/splitTrials.js"
 
@@ -58,6 +54,7 @@ const normalizeConstraints = (
   count: number
 ) => {
   const constraints = Arr.fromIterable(constraintsInput)
+  if (Equal.equals(count, 0)) return Arr.empty<number>()
   return Arr.makeBy(count, (index) =>
     Arr.get(constraints, index).pipe(
       Option.getOrElse(() => Number.POSITIVE_INFINITY)
@@ -94,13 +91,12 @@ const splitCount = (
 
 const rankedTrial = (
   trial: CompletedTrialForSplit,
-  logDensityProduct: number
+  violation: number
 ): CompletedTrialForSplit =>
   new CompletedTrialForSplit({
     trialNumber: trial.trialNumber,
     config: trial.config,
-    value: Num.multiply(-1, logDensityProduct),
-    sortStep: trial.value,
+    value: violation,
     ...Option.fromNullishOr(trial.observationWeight).pipe(
       Option.match({
         onNone: () => ({}),
@@ -143,8 +139,7 @@ const originalTrialsFromRankedSelection = (
  * Partitions trials into below/above sets using constraint feasibility.
  * Feasible trials are split first; when the target below-set size exceeds
  * the feasible count, the best infeasible trials are promoted by their
- * constraint density ratio rank. This balances objective optimization
- * with constraint satisfaction in constrained Bayesian optimization.
+ * sum of positive constraint violations, breaking ties by trial order.
  *
  * @see {@link ConstraintAwareSplitTrial} for the input trial format
  * @see {@link TrialSplit} for the output below/above partition
@@ -167,19 +162,16 @@ export const splitWithConstraintFeasibility = (
         (trial) => Bool.not(isConstraintVectorFeasible(trial.constraints))
       )
 
-      return Option.liftPredicate(feasible, (entries) => Num.isGreaterThan(Arr.length(entries), 0)).pipe(
+      return Option.some(feasible).pipe(
         Option.map((feasibleEntries) => {
           const targetBelow = splitCount(Arr.length(nonEmptyConstraints), nBelowOverride)
           const feasibleTrials = Arr.map(feasibleEntries, (trial) => trial.trial)
-          const models = buildConstraintDensityModels(
-            Arr.map(nonEmptyConstraints, (trial) => trial.constraints)
-          )
           const rankedInfeasible = Arr.map(infeasible, (trial) => {
-            const logDensityProduct = constraintDensityRatioLogProduct(models, trial.constraints)
+            const violation = Num.sumAll(Arr.map(trial.constraints, (value) => Num.max(0, value)))
 
             return new InfeasibleRankingEntry({
               original: trial.trial,
-              ranked: rankedTrial(trial.trial, logDensityProduct)
+              ranked: rankedTrial(trial.trial, violation)
             })
           })
           const infeasibleTrials = Arr.map(rankedInfeasible, (trial) => trial.original)

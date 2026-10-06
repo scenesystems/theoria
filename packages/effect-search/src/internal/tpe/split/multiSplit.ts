@@ -14,9 +14,11 @@ import { defaultGamma } from "../../../internal/tpe/gammaSplit.js"
 import { CompletedTrialForSplit, splitTrials, type TrialSplit } from "../../../internal/tpe/splitTrials.js"
 import { toVector } from "../../../Objective.js"
 import { nonDominatedSort } from "../../../Pareto.js"
-import { multiObjectiveWeights } from "../../../Pareto.js"
+import { referencePoint } from "../../../Pareto.js"
 import type { Observation } from "../../../Sampler.js"
+import { normalizePoint } from "../../paretoDominance.js"
 import { ConstraintAwareSplitTrial, splitWithConstraintFeasibility } from "../constraints/split.js"
+import { hypervolumeSubset } from "./hypervolumeSubset.js"
 
 const minimumWeight = 1e-12
 
@@ -205,8 +207,24 @@ export const splitMultiObjective = (
     Match.orElse(() => {
       const trials = asMultiObjectiveTrials(completed, Arr.length(directions))
       const points = Arr.map(trials, (trial) => trial.vector)
-      const weights = multiObjectiveWeights(points, undefined, directions)
       const fronts = nonDominatedSort(points, directions, epsilon)
+      const count = splitCount(Arr.length(trials), nBelowOverride)
+      const selected = Arr.reduce(fronts, Arr.empty<number>(), (indices, front) => {
+        const needed = Num.max(0, Num.subtract(count, Arr.length(indices)))
+        if (Num.isGreaterThanOrEqualTo(needed, Arr.length(front))) return Arr.appendAll(indices, front)
+        if (Equal.equals(needed, 0)) return indices
+        const losses = Arr.map(
+          front,
+          (index) => normalizePoint(Arr.get(points, index).pipe(Option.getOrThrow), directions)
+        )
+        const chosen = hypervolumeSubset(losses, referencePoint(losses), needed)
+        return Arr.appendAll(indices, Arr.map(chosen, (index) => Arr.get(front, index).pipe(Option.getOrThrow)))
+      })
+      const weights = Arr.map(points, (_point, index) =>
+        Bool.match(Arr.contains(selected, index), {
+          onTrue: () => 1,
+          onFalse: () => minimumWeight
+        }))
       const scalarized = Arr.flatMap(fronts, (front, rank) => weightedFrontTrials(trials, front, rank, weights))
 
       return splitWithConstraintFeasibility(scalarized, nBelowOverride).pipe(

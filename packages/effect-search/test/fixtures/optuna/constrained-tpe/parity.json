@@ -139,47 +139,192 @@
         ]
       }
     ],
-    "splitCase": {
-      "direction": "minimize",
-      "expectedAbove": [
-        1,
-        2,
-        3
-      ],
-      "expectedBelow": [
-        0
-      ],
-      "nBelow": 1,
-      "trials": [
-        {
-          "constraints": [
-            -0.4
-          ],
-          "trialNumber": 0,
-          "value": 0.2
-        },
-        {
-          "constraints": [
-            0.15
-          ],
-          "trialNumber": 1,
-          "value": 0.1
-        },
-        {
-          "constraints": [
-            -0.2
-          ],
-          "trialNumber": 2,
-          "value": 0.3
-        },
-        {
-          "constraints": [
-            0.7
-          ],
-          "trialNumber": 3,
-          "value": 0.05
-        }
-      ]
-    }
+    "splitCases": [
+      {
+        "direction": "minimize",
+        "expectedAbove": [
+          1,
+          2,
+          3
+        ],
+        "expectedBelow": [
+          0
+        ],
+        "nBelow": 1,
+        "trials": [
+          {
+            "constraints": [
+              -0.4
+            ],
+            "trialNumber": 0,
+            "value": 0.2
+          },
+          {
+            "constraints": [
+              0.15
+            ],
+            "trialNumber": 1,
+            "value": 0.1
+          },
+          {
+            "constraints": [
+              -0.2
+            ],
+            "trialNumber": 2,
+            "value": 0.3
+          },
+          {
+            "constraints": [
+              0.7
+            ],
+            "trialNumber": 3,
+            "value": 0.05
+          }
+        ]
+      },
+      {
+        "direction": "minimize",
+        "expectedAbove": [
+          1,
+          2
+        ],
+        "expectedBelow": [
+          0
+        ],
+        "nBelow": 1,
+        "trials": [
+          {
+            "constraints": [
+              0.2,
+              -100.0
+            ],
+            "trialNumber": 0,
+            "value": 100.0
+          },
+          {
+            "constraints": [
+              0.3,
+              -0.1
+            ],
+            "trialNumber": 1,
+            "value": -100.0
+          },
+          {
+            "constraints": [
+              0.1,
+              0.2
+            ],
+            "trialNumber": 2,
+            "value": 0.0
+          }
+        ]
+      },
+      {
+        "direction": "minimize",
+        "expectedAbove": [
+          2,
+          3,
+          4,
+          5,
+          6,
+          7,
+          8,
+          9,
+          10,
+          11
+        ],
+        "expectedBelow": [
+          0,
+          1
+        ],
+        "nBelow": 2,
+        "trials": [
+          {
+            "constraints": [
+              -1.0
+            ],
+            "trialNumber": 0,
+            "value": 100.0
+          },
+          {
+            "constraints": [
+              0.01
+            ],
+            "trialNumber": 1,
+            "value": 100.0
+          },
+          {
+            "constraints": [
+              2.0
+            ],
+            "trialNumber": 2,
+            "value": -2.0
+          },
+          {
+            "constraints": [
+              3.0
+            ],
+            "trialNumber": 3,
+            "value": -3.0
+          },
+          {
+            "constraints": [
+              4.0
+            ],
+            "trialNumber": 4,
+            "value": -4.0
+          },
+          {
+            "constraints": [
+              5.0
+            ],
+            "trialNumber": 5,
+            "value": -5.0
+          },
+          {
+            "constraints": [
+              6.0
+            ],
+            "trialNumber": 6,
+            "value": -6.0
+          },
+          {
+            "constraints": [
+              7.0
+            ],
+            "trialNumber": 7,
+            "value": -7.0
+          },
+          {
+            "constraints": [
+              8.0
+            ],
+            "trialNumber": 8,
+            "value": -8.0
+          },
+          {
+            "constraints": [
+              9.0
+            ],
+            "trialNumber": 9,
+            "value": -9.0
+          },
+          {
+            "constraints": [
+              10.0
+            ],
+            "trialNumber": 10,
+            "value": -10.0
+          },
+          {
+            "constraints": [
+              11.0
+            ],
+            "trialNumber": 11,
+            "value": -11.0
+          }
+        ]
+      }
+    ]
   }
 }

@@ -109,20 +109,20 @@ delegate to the original methods and Evaluate; GEPA uses upstream callbacks.
 
 ## Discriminators and known limits
 
-| Fixture                                        | Owning wave | Current mismatch                                                                                                                                                                                                                                                        |
-| ---------------------------------------------- | ----------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `eval-failure-inclusive-001`                   | 1           | Resolved: the failure-inclusive denominator gives 0.5, matching DSPy.                                                                                                                                                                                                   |
-| `mipro-trial-budget-001`                       | 3           | Auto light with one predictor and demos executes 10 trials, not the current 9.                                                                                                                                                                                          |
-| `mipro-best-fullval-001`                       | 3           | A minibatch score of 1 contaminates the full-validation best, which must remain 0.8 when that candidate scores 0.5 on full validation.                                                                                                                                  |
-| `gepa-aggregate-best-001`                      | 3           | The first frontier member is returned instead of the aggregate-best generalist.                                                                                                                                                                                         |
-| `optuna-mipro-categorical-001` (effect-search) | 3           | Joint categorical kernel differs structurally: Theoria smooths entire tuples; Optuna uses a mixture of product categorical kernels. This is not merely RNG draw order. The fixed-history joint-distribution comparison remains an expected failure, not a parity claim. |
+| Fixture                                        | Owning wave | Current mismatch                                                                                                                         |
+| ---------------------------------------------- | ----------- | ---------------------------------------------------------------------------------------------------------------------------------------- |
+| `eval-failure-inclusive-001`                   | 1           | Resolved: the failure-inclusive denominator gives 0.5, matching DSPy.                                                                    |
+| `mipro-trial-budget-001`                       | 3           | Auto light with one predictor and demos executes 10 trials, not the current 9.                                                           |
+| `mipro-best-fullval-001`                       | 3           | A minibatch score of 1 contaminates the full-validation best, which must remain 0.8 when that candidate scores 0.5 on full validation.   |
+| `gepa-aggregate-best-001`                      | 3           | The first frontier member is returned instead of the aggregate-best generalist.                                                          |
+| `optuna-mipro-categorical-001` (effect-search) | 3           | Resolved: mixture of product categorical kernels; fixed-history joint-distribution comparison passes its original total-variation bound. |
 
 The GEPA witness returns the specialist vector `[1, 0]` (mean 0.5) instead of the generalist
 `[0.8, 0.8]` (mean 0.8), an aggregate-score loss of 0.3.
 
-Three DSPy tests and the Optuna differential use `it.effect.fails`; ordinary
+Three DSPy tests still use `it.effect.fails`; ordinary
 companion tests validate fixture decoding and execution preconditions. Flip
-these in the owning waves. Optuna compares 512 independent seeded draws after
+these in the owning waves. The passing Optuna differential compares 512 independent seeded draws after
 replaying a history with one failed trial; failed observations are omitted from
 fitting. The numerical corpus and MIPRO kernel share the Optuna 4.9.0
 generator and root lock with DSPy. CI's `fixtures-verify` job runs both locked
@@ -136,15 +136,14 @@ settings/role/rollout capture uses the Wave 1 model-binding contract. There
 are no placeholder fields. Examples now have explicit or content-derived identity;
 the upstream fixtures retain their recorded input/output representation.
 
-## effect-search: Optuna 4.9 differences owned by Wave 3
+## effect-search: Optuna 4.9 kernel verification in Wave 3.0
 
 Regeneration covers all 45 numerical/scenario payloads and their manifest,
-plus the MIPRO kernel and its manifest. Unused invalid-input documents were
-deleted. Eight existing tests changed to `it.effect.fails`; together with the
-MIPRO discriminator, effect-search has nine expected failures. An ordinary manifest test decodes every
-payload independently, so schema failures cannot masquerade as expected mismatches.
+plus the MIPRO kernel and its manifest. All nine former expected failures now
+pass without relaxed assertions or tolerances. An ordinary manifest test decodes every
+payload independently.
 The generator's `--check` compares every generated payload and manifest byte,
-including SHA-256 hashes. No implementation changes or tolerance increases were made.
+including SHA-256 hashes.
 Both harnesses disable NumPy AVX2/FMA3/AVX512F dispatch before import:
 otherwise CPU-specific math paths differ in the last bits (observed up to
 3.6e-15 in truncated-normal values). Values are not rounded to hide that drift.
@@ -152,8 +151,18 @@ GP reproduction also fixes PyTorch dispatch to `default`, MKL to its
 cross-CPU reproducibility mode, and OpenBLAS to `HASWELL`, with one BLAS/OpenMP
 thread. This reference runtime requires an AVX2-capable Linux x86_64 CPU.
 
-These are measured first-failure witnesses, not an exhaustive bound on each
-algorithm's error. Flip the owning test only after its entire scenario set passes.
+The table below records the historical first-failure witnesses from Wave 0,
+not current mismatches. Every listed test now passes its entire scenario set.
+Continuous bandwidth excludes the prior from observation-neighbor distances;
+mixed and categorical sampling share mixture components across dimensions.
+Trial splitting exhausts completed trials before step-ranked pruned trials,
+then least-violation infeasible trials. Running trials stay above and do not
+count toward startup; failed trials are excluded. Optimization keeps completed,
+pruned and pending histories separate. Duplicate reports retain the first value;
+new decreasing steps are accepted. MOTPE uses greedy marginal hypervolume
+selection. Constraint fixtures additionally cover all-infeasible and
+feasible-exhausted histories. These are kernel claims, not bit-exact NumPy RNG
+or end-to-end Optuna trajectory claims.
 
 | Sampler / component          | Scenario                                                                   | Theoria                                             | Optuna 4.9                                            | Magnitude / test                                                                                                                                                                                 |
 | ---------------------------- | -------------------------------------------------------------------------- | --------------------------------------------------- | ----------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
@@ -174,7 +183,9 @@ widths, not a recreated Theoria noise policy. Unbounded Gaussian fixtures execut
 Optuna's product-normal kernel, not a hand-written density or Scott rule.
 CMA-ES/GP-BO and study-replay consumers currently test local reproducibility and
 checkpoint behavior, not equality of upstream trajectories. Those fixtures do
-not establish sampler parity. None of these results promotes an API to `verified`.
+not establish sampler parity. GP fits completed observations only; pending-aware
+acquisition is outside this wave and is not implemented. None of these results
+promotes a DSPy optimizer API to `verified`.
 
 ## Public surface
 

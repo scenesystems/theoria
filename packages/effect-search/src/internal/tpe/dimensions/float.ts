@@ -10,7 +10,7 @@ import * as Acquisition from "../../../Acquisition.js"
 import { exp } from "../../../internal/exponential.js"
 import type * as Rng from "../../../internal/rng.js"
 import { buildContinuousParzen, sampleFromParzen } from "../../../internal/tpe/continuousParzen.js"
-import { prepareLogDensity } from "../../../internal/tpe/continuousParzen/density.js"
+import { prepareKernelLogDensity, prepareLogDensity } from "../../../internal/tpe/continuousParzen/density.js"
 import { defaultNoiseBandwidthOptions, type NoiseBandwidthOptions } from "../../../internal/tpe/noiseEstimator.js"
 import type { TrialSplit } from "../../../internal/tpe/splitTrials.js"
 import type { InvalidSamplerConfig } from "../../../SearchError.js"
@@ -239,6 +239,10 @@ export const floatCandidateTraceFromRolls = (
       ),
       logL: Arr.map(logPairs, ([logL]) => logL),
       logG: Arr.map(logPairs, ([_logL, logG]) => logG),
+      kernelLogL: Arr.map(modelCandidates, prepareKernelLogDensity(belowParzen)),
+      kernelLogG: Arr.map(modelCandidates, prepareKernelLogDensity(aboveParzen)),
+      weightsL: Arr.map(belowParzen.kernels, (kernel) => kernel.weight),
+      weightsG: Arr.map(aboveParzen.kernels, (kernel) => kernel.weight),
       scores: Arr.map(logPairs, ([logL, logG], index) =>
         Acquisition.score(
           new Acquisition.Context({

@@ -12,8 +12,7 @@ import {
 import { decodePruningTraceValue, makePruningEventRuntime, pruningReportTrace } from "../helpers/pruningScenarios.js"
 
 describe("pruning fixture replay contracts", () => {
-  // Wave 3: Optuna ignores duplicate reports; Theoria returns a checked error.
-  it.effect.fails("replays FM-12 Trial.report fixture contracts", () =>
+  it.effect("replays FM-12 Trial.report fixture contracts", () =>
     Effect.gen(function*() {
       const loaded = yield* loadFixture("pruning.report-contract").pipe(Effect.provide(FixtureRegistryLive))
       const fixture = yield* Schema.decodeUnknownEffect(PruningReportContractFixture)(loaded)

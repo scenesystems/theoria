@@ -3,7 +3,7 @@
  *
  * @since 0.1.0
  */
-import { Effect, Option } from "effect"
+import { Effect, Equal, Option } from "effect"
 
 import { noPendingPolicy, type PendingPolicy, TpeOptions } from "../../Sampler.js"
 import * as Sampler from "../../Sampler.js"
@@ -83,7 +83,14 @@ export const make = (
             constraints,
             acquisition,
             space,
-            context
+            new Sampler.Context({
+              completed: context.completed,
+              pruned: Option.fromNullishOr(context.pruned).pipe(Option.getOrElse(() => [])),
+              pending: Equal.equals(pendingImputationPolicy.name, "none") ? [] : context.pending,
+              objectiveSpec: context.objectiveSpec,
+              nextTrialNumber: context.nextTrialNumber,
+              epsilon: context.epsilon
+            })
           )
         )
       )

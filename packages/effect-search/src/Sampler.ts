@@ -16,6 +16,7 @@ import * as Deterministic from "./internal/sampler/deterministic.js"
 import * as Stratified from "./internal/sampler/stratified.js"
 import * as Weighted from "./internal/sampler/weighted.js"
 import { match as matchObjective, Objective, single, Value, type Vector } from "./Objective.js"
+import { Report } from "./Pruning.js"
 import type { InvalidOptimizationConfig, SearchError } from "./SearchError.js"
 import type * as SearchSpace from "./SearchSpace.js"
 
@@ -155,6 +156,15 @@ export class Pending extends Schema.Class<Pending>("@scenesystems/effect-search/
   config: Schema.Record(Schema.String, Schema.Unknown)
 }) {}
 
+/** A pruned trial has intermediate reports, never a completed objective value. @since 0.8.0 @category schemas */
+export class PrunedObservation
+  extends Schema.Class<PrunedObservation>("@scenesystems/effect-search/Sampler/PrunedObservation")({
+    trialNumber: Schema.Finite,
+    config: Schema.Record(Schema.String, Schema.Unknown),
+    reports: Schema.Array(Report)
+  })
+{}
+
 /** Untyped sampler configuration keyed by parameter name. @since 0.7.0 @category models */
 export type Config = Observation["config"]
 
@@ -163,6 +173,7 @@ const SuggestionEpsilon = Schema.Finite.check(Schema.isGreaterThanOrEqualTo(0), 
 /** Immutable inputs for one suggestion. @since 0.7.0 @category schemas */
 export class Context extends Schema.Class<Context>("@scenesystems/effect-search/Sampler/Context")({
   completed: Schema.Array(Observation),
+  pruned: Schema.optional(Schema.Array(PrunedObservation)),
   pending: Schema.Array(Pending),
   objectiveSpec: Objective,
   nextTrialNumber: Schema.Finite,

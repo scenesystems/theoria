@@ -13,8 +13,7 @@ const fixture = loadFixture("constrained-tpe.parity").pipe(
 )
 
 describe("constraint observations against Optuna kernels", () => {
-  // Wave 3: the Parzen bandwidth differs; the density-product policy is not Optuna's.
-  it.effect.fails("matches feasible and infeasible Parzen log densities", () =>
+  it.effect("matches feasible and infeasible Parzen log densities", () =>
     Effect.gen(function*() {
       const reference = yield* fixture
       yield* Effect.forEach(reference.payload.densityCases, (entry) =>
@@ -42,18 +41,20 @@ describe("constraint observations against Optuna kernels", () => {
 
   it.effect("matches the feasibility-first split", () =>
     Effect.gen(function*() {
-      const { payload: { splitCase } } = yield* fixture
-      const split = splitSingleObjective(
-        Arr.map(splitCase.trials, (trial) =>
-          observation(
-            trial.trialNumber,
-            { trialNumber: trial.trialNumber },
-            trial.value,
-            { constraints: trial.constraints }
-          )),
-        splitCase.direction
-      )
-      expect(Arr.map(split.below, (trial) => trial.trialNumber)).toEqual(splitCase.expectedBelow)
-      expect(Arr.map(split.above, (trial) => trial.trialNumber)).toEqual(splitCase.expectedAbove)
+      const { payload: { splitCases } } = yield* fixture
+      Arr.forEach(splitCases, (splitCase) => {
+        const split = splitSingleObjective(
+          Arr.map(splitCase.trials, (trial) =>
+            observation(
+              trial.trialNumber,
+              { trialNumber: trial.trialNumber },
+              trial.value,
+              { constraints: trial.constraints }
+            )),
+          splitCase.direction
+        )
+        expect(Arr.map(split.below, (trial) => trial.trialNumber)).toEqual(splitCase.expectedBelow)
+        expect(Arr.map(split.above, (trial) => trial.trialNumber)).toEqual(splitCase.expectedAbove)
+      })
     }))
 })

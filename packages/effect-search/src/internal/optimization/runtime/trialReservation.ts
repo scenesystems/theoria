@@ -54,8 +54,7 @@ export const suggestConfigWithSampler = <SpaceSchema extends SpaceCodec>(
         settings.objectiveSpec,
         state.history,
         settings.priorWeight,
-        settings.epsilon,
-        sampler.pendingImputationPolicy
+        settings.epsilon
       )
       const rawConfig = yield* Sampler.suggest(sampler, options.space, suggestionContext)
 
@@ -82,8 +81,7 @@ const reserveTrial = Effect.fn("effect-search/Optimization.reserveTrial")(
           settings.objectiveSpec,
           state.history,
           settings.priorWeight,
-          settings.epsilon,
-          options.sampler.pendingImputationPolicy
+          settings.epsilon
         )
         const rawConfig = yield* Sampler.suggest(options.sampler, options.space, suggestionContext)
         const config = yield* decodeConfig<SpaceSchema>(
@@ -131,8 +129,7 @@ export const reserveNextTrialOrMarkSpaceExhausted = <SpaceSchema extends SpaceCo
                 settings.objectiveSpec,
                 runtimeState.history,
                 settings.priorWeight,
-                settings.epsilon,
-                options.sampler.pendingImputationPolicy
+                settings.epsilon
               )
               const rawConfig = yield* Sampler.suggest(options.sampler, options.space, suggestionContext)
               const config = yield* decodeConfig<SpaceSchema>(

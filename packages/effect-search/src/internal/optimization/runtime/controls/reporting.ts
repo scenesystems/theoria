@@ -10,6 +10,7 @@ import { Array as Arr, Boolean as Bool, Effect, Match, Number as Num, Option, Re
 import * as OptimizationEvent from "../../../../OptimizationEvent.js"
 import {
   Context as PruningContext,
+  continueEvaluation,
   type Decision,
   matchDecision,
   type Policy,
@@ -67,31 +68,6 @@ const validateValue = (
     Match.orElse(() => Effect.fail(reportError(trialNumber, "value must be finite", step, value)))
   )
 
-const validateMonotonicStep = (
-  trialNumber: number,
-  reports: Reports,
-  step: number,
-  value: number
-): Effect.Effect<void, InvalidObjectiveReport> =>
-  Arr.last(reports).pipe(
-    Option.match({
-      onNone: () => Effect.void,
-      onSome: ({ step: previousStep }) =>
-        Match.value(Num.isGreaterThan(step, previousStep)).pipe(
-          Match.when(true, () => Effect.void),
-          Match.orElse(() =>
-            Match.value(Num.Equivalence(step, previousStep)).pipe(
-              Match.when(
-                true,
-                () => Effect.fail(reportError(trialNumber, "duplicate-step", step, value, previousStep))
-              ),
-              Match.orElse(() => Effect.fail(reportError(trialNumber, "non-monotone-step", step, value, previousStep)))
-            )
-          )
-        )
-    })
-  )
-
 const appendReport = (
   reports: Reports,
   report: Report
@@ -136,7 +112,9 @@ const recordReportWithSpi = (
     const reports = yield* Ref.get(reportRefs.reportsRef)
     yield* validateStep(trialNumber, step)
     yield* validateValue(trialNumber, step, value)
-    yield* validateMonotonicStep(trialNumber, reports, step, value)
+    if (Arr.some(reports, (report) => Num.Equivalence(report.step, step))) {
+      return Option.getOrElse(yield* Ref.get(reportRefs.pruneRef), continueEvaluation)
+    }
 
     const report = new Report({ step, value })
     const nextReports = appendReport(reports, report)

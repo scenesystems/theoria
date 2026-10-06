@@ -159,8 +159,7 @@ describe("fixture-backed parity", () => {
       )
     }))
 
-  // Wave 3: Optuna 4.9 observation bandwidths differ from the current continuous Parzen model.
-  it.effect.fails("replays continuous KDE kernels, log-density traces, and sample rolls", () =>
+  it.effect("replays continuous KDE kernels, log-density traces, and sample rolls", () =>
     Effect.gen(function*() {
       const loaded = yield* loadAllFixtures("continuous-kde.").pipe(Effect.provide(FixtureRegistryLive))
       const fixtures = yield* Effect.forEach(loaded, (entry) => Schema.decodeUnknownEffect(ContinuousKdeFixture)(entry))

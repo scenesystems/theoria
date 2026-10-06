@@ -41,16 +41,25 @@ def generate(generated_at):
         {"trialNumber": 2, "value": .3, "constraints": [-.2]},
         {"trialNumber": 3, "value": .05, "constraints": [.7]},
     ]
-    study = optuna.create_study(direction="minimize")
-    for row in rows:
-        study.add_trial(create_trial(value=row["value"], system_attrs={"constraints": row["constraints"]}))
-    n_below = default_gamma(len(rows))
-    below, above = _split_trials(study, study.trials, n_below, constraints_enabled=True)
+    split_cases = []
+    for trials in [rows, [
+        {"trialNumber": 0, "value": 100., "constraints": [.2, -100.]},
+        {"trialNumber": 1, "value": -100., "constraints": [.3, -.1]},
+        {"trialNumber": 2, "value": 0., "constraints": [.1, .2]},
+    ], [
+        {"trialNumber": 0, "value": 100., "constraints": [-1.]},
+        {"trialNumber": 1, "value": 100., "constraints": [.01]},
+        *[{"trialNumber": i, "value": -float(i), "constraints": [float(i)]} for i in range(2, 12)],
+    ]]:
+        study = optuna.create_study(direction="minimize")
+        for row in trials:
+            study.add_trial(create_trial(value=row["value"], system_attrs={"constraints": row["constraints"]}))
+        n_below = default_gamma(len(trials))
+        below, above = _split_trials(study, study.trials, n_below, constraints_enabled=True)
+        split_cases.append({"direction": "minimize", "nBelow": n_below, "trials": trials,
+                            "expectedBelow": [trial.number for trial in below],
+                            "expectedAbove": [trial.number for trial in above]})
     return [{"fixture": "constrained-tpe.parity", "file": "constrained-tpe/parity.json",
              "metadata": metadata(generated_at), "payload": {
-                 "densityCases": density_cases, "splitCase": {
-                     "direction": "minimize", "nBelow": n_below, "trials": rows,
-                     "expectedBelow": [trial.number for trial in below],
-                     "expectedAbove": [trial.number for trial in above],
-                 },
+                 "densityCases": density_cases, "splitCases": split_cases,
              }}]
