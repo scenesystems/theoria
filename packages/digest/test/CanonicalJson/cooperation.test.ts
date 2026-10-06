@@ -23,6 +23,9 @@ import { Base64Url } from "effect/encoding"
 const isInterrupted = (exit: Exit.Exit<unknown, unknown>) => Exit.isFailure(exit) && Cause.hasInterrupts(exit.cause)
 
 const longText = Str.repeat(65_536)("value")
+// A sub-millisecond traversal can finish before a real timer is due even when
+// it yields. Exercise enough sliced text to observe host timer progress.
+const timerText = Str.repeat(16)(longText)
 const workloads = Arr.make(
   Tuple.make("array", Arr.makeBy(4_096, (index) => Arr.make(index, N.sum(index, 0.5)))),
   Tuple.make(
@@ -34,9 +37,9 @@ const workloads = Arr.make(
       )
     )
   ),
-  Tuple.make("string", longText),
+  Tuple.make("string", timerText),
   Tuple.make("escaped string", Str.repeat(65_536)("line\n\"\\漢😀")),
-  Tuple.make("record key", Record.singleton(longText, true))
+  Tuple.make("record key", Record.singleton(timerText, true))
 )
 
 it.live.each(workloads)(
