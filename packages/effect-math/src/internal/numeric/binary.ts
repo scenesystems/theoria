@@ -87,8 +87,8 @@ const normalizationSteps = Chunk.map(
   (exponent) => Tuple.make(exponent, powerOfTwo(exponent), powerOfTwo(Number.multiply(-1, exponent)))
 )
 
-/** Decomposes a finite nonzero number without inspecting its storage. */
-export const decompose = (value: number): Dyadic => {
+/** Exact magnitude `mantissa × 2^exponent`, with mantissa in [1, 2), for finite nonzero input. */
+export const normalize = (value: number): [mantissa: number, exponent: number] => {
   const magnitude = abs(value)
   // Lift subnormals into the normal range exactly before the ten binary
   // search steps. No division may discard low significand bits.
@@ -112,13 +112,18 @@ export const decompose = (value: number): Dyadic => {
         })
     })
   })
-  const normalized = Boolean.match(Number.isLessThan(Tuple.get(reduced, 0), 1), {
+  return Boolean.match(Number.isLessThan(Tuple.get(reduced, 0), 1), {
     onTrue: () => Tuple.make(Number.multiply(Tuple.get(reduced, 0), 2), Number.decrement(Tuple.get(reduced, 1))),
     onFalse: () => reduced
   })
+}
+
+/** Decomposes a finite nonzero number without inspecting its storage. */
+export const decompose = (value: number): Dyadic => {
+  const [mantissa, exponent] = normalize(value)
   return new Dyadic({
-    coefficient: decodeInteger(Number.multiply(Tuple.get(normalized, 0), 4_503_599_627_370_496)),
-    exponent: Number.subtract(Tuple.get(normalized, 1), 52)
+    coefficient: decodeInteger(Number.multiply(mantissa, 4_503_599_627_370_496)),
+    exponent: Number.subtract(exponent, 52)
   })
 }
 

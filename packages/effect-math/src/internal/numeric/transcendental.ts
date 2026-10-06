@@ -80,14 +80,10 @@ const decimalGuard = (value: BigDecimal.BigDecimal): BigDecimal.BigDecimal =>
   BigDecimal.round(value, { mode: "half-even", scale: 110 })
 
 const logarithmFinitePositive = (value: number): number => {
-  const dyadic = Binary.decompose(value)
-  const rawMantissa = Number.divideUnsafe(
-    Number.Number(dyadic.coefficient),
-    4_503_599_627_370_496
-  )
+  const [rawMantissa, rawExponent] = Binary.normalize(value)
   const [mantissa, exponent] = Boolean.match(Number.isGreaterThanOrEqualTo(rawMantissa, 1.4142112731933594), {
-    onTrue: () => Tuple.make(Number.divideUnsafe(rawMantissa, 2), Number.sum(dyadic.exponent, 53)),
-    onFalse: () => Tuple.make(rawMantissa, Number.sum(dyadic.exponent, 52))
+    onTrue: () => Tuple.make(Number.divideUnsafe(rawMantissa, 2), Number.increment(rawExponent)),
+    onFalse: () => Tuple.make(rawMantissa, rawExponent)
   })
   const f = Number.subtract(mantissa, 1)
   const s = Number.divideUnsafe(f, Number.sum(2, f))

@@ -2,7 +2,7 @@ import { describe, expect, it } from "@effect/vitest"
 import { Array, Effect, Number, Tuple } from "effect"
 
 import * as Numeric from "../../src/Numeric.js"
-import { positiveInfinity } from "../helpers/nonFinite.js"
+import { nan, negativeInfinity, positiveInfinity } from "../helpers/nonFinite.js"
 
 // Independent 100-digit Python Decimal references: Decimal.from_float(x) ** n
 // for powers; Taylor sin/cos with pi = 16*atan(1/5) - 4*atan(1/239) for angles.
@@ -56,6 +56,28 @@ const roots = Array.make(
   Tuple.make(1e200, 1e100)
 )
 
+// Decimal.from_float(x).ln(), evaluated with 160 decimal digits. Adjacent
+// inputs cover subnormal lifting, binades, unity and the mantissa split.
+const logarithms = Array.make(
+  Tuple.make(5e-324, -744.4400719213812),
+  Tuple.make(1e-323, -743.7469247408213),
+  Tuple.make(2.225073858507201e-308, -708.3964185322641),
+  Tuple.make(2.2250738585072014e-308, -708.3964185322641),
+  Tuple.make(2.225073858507202e-308, -708.3964185322641),
+  Tuple.make(0.49999999999999994, -0.6931471805599454),
+  Tuple.make(0.5, -0.6931471805599453),
+  Tuple.make(0.5000000000000001, -0.6931471805599451),
+  Tuple.make(0.9999999999999999, -1.1102230246251565e-16),
+  Tuple.make(1.0000000000000002, 2.2204460492503128e-16),
+  Tuple.make(1.4142112731933592, 0.346571971584148),
+  Tuple.make(1.4142112731933594, 0.3465719715841481),
+  Tuple.make(1.4142112731933596, 0.34657197158414826),
+  Tuple.make(1.9999999999999998, 0.6931471805599452),
+  Tuple.make(2, 0.6931471805599453),
+  Tuple.make(2.0000000000000004, 0.6931471805599455),
+  Tuple.make(1.7976931348623157e308, 709.782712893384)
+)
+
 const fractionalPowers = Array.make(
   Tuple.make(0.000244140625, 1.15, 7.011098358136205e-5, 3e-15),
   Tuple.make(0.37, 1.35, 0.26125964205040103, 3e-15),
@@ -75,6 +97,18 @@ describe("Numeric rounding-sensitive inputs", () => {
   it.effect("rounds scalar roots across normalization and binade boundaries", () =>
     Effect.gen(function*() {
       Array.forEach(roots, ([input, expected]) => expect(Numeric.sqrt(input)).toBe(expected))
+    }))
+
+  it.effect("retains logarithm accuracy across normalization boundaries", () =>
+    Effect.gen(function*() {
+      Array.forEach(logarithms, ([input, expected]) => close(Numeric.log(input), expected))
+      expect(Numeric.log(1)).toBe(0)
+      expect(Numeric.log(0)).toBe(negativeInfinity)
+      expect(Numeric.log(-0)).toBe(negativeInfinity)
+      expect(Numeric.log(positiveInfinity)).toBe(positiveInfinity)
+      expect(Numeric.log(negativeInfinity)).toBeNaN()
+      expect(Numeric.log(-5e-324)).toBeNaN()
+      expect(Numeric.log(nan)).toBeNaN()
     }))
 
   it.effect("retains fractional-power accuracy with exact binary64 bases and exponents", () =>
