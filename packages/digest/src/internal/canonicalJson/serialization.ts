@@ -25,9 +25,6 @@ import { InvalidUnicode } from "../../Utf8.js"
 import { unicodeFault } from "../utf8.js"
 import { emit, fail, Frame, push, type State } from "./state.js"
 
-const encodeScalar = Schema.encodeUnknownResult(
-  Schema.fromJsonString(Schema.Union([Schema.Null, Schema.Boolean, Schema.Finite, Schema.String]))
-)
 const encodeString = Schema.encodeResult(Schema.fromJsonString(Schema.String))
 // Intrinsic view classification also covers cross-realm and future typed arrays,
 // without reading user properties, Symbol.toStringTag, or Hash/Equal hooks.
@@ -88,6 +85,13 @@ const makeVisit = <E>(state: State<E>): (value: unknown) => void => {
     return sorted
   }
   const visit = Match.type<unknown>().pipe(
+    Match.when(Predicate.isNumber, (value) => {
+      if (isNaN(value)) return reject(state, "nan")
+      if (!isFinite(value)) return reject(state, "non-finite-number")
+      return emit(state, Str.String(value))
+    }),
+    Match.when(Predicate.isBoolean, (value) => emit(state, Str.String(value))),
+    Match.when(Predicate.isNull, () => emit(state, "null")),
     Match.when(Predicate.isUndefined, () => reject(state, "undefined")),
     Match.when(Predicate.isBigInt, () => reject(state, "bigint")),
     Match.when(Predicate.isFunction, () => reject(state, "function")),
@@ -98,8 +102,6 @@ const makeVisit = <E>(state: State<E>): (value: unknown) => void => {
     Match.when(Predicate.isMap, () => reject(state, "map")),
     Match.when(Predicate.isSet, () => reject(state, "set")),
     Match.when(Predicate.isPromise, () => reject(state, "promise")),
-    Match.when(isNaN, () => reject(state, "nan")),
-    Match.when(Predicate.and(Predicate.isNumber, Predicate.not(isFinite)), () => reject(state, "non-finite-number")),
     Match.when(
       Arr.isArray,
       (identity) => open(state, identity, "[", Frame.Array({ identity, at: MutableRef.make(0) }))
@@ -115,12 +117,7 @@ const makeVisit = <E>(state: State<E>): (value: unknown) => void => {
           at: MutableRef.make(0)
         })
       )),
-    Match.orElse((scalar) =>
-      Result.match(encodeScalar(scalar), {
-        onFailure: () => reject(state, "unsupported-value"),
-        onSuccess: (encoded) => emit(state, encoded)
-      })
-    )
+    Match.orElse(() => reject(state, "unsupported-value"))
   )
   return (value) => {
     if (Predicate.isString(value)) startString(state, value, "\"")
@@ -132,8 +129,8 @@ const processString = <E>(state: State<E>, frame: Data.TaggedEnum.Value<Frame, "
   B.match(N.Equivalence(frame.at, Str.length(frame.text)), {
     onTrue: () => emit(state, frame.suffix),
     onFalse: () => {
-      // Keep the native scalar encoder bounded without splitting a surrogate pair.
-      const limit = N.min(N.sum(frame.at, 1_024), Str.length(frame.text))
+      // Keep escaping work bounded without splitting a surrogate pair.
+      const limit = N.min(N.sum(frame.at, 32_768), Str.length(frame.text))
       const end = B.match(
         limit < Str.length(frame.text) &&
           Option.exists(Str.charCodeAt(frame.text, N.decrement(limit)), isHighSurrogate),

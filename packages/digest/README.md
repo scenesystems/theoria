@@ -174,6 +174,35 @@ The suite checks RFC 8785 JCS, the BLAKE3 specification, FIPS 180-4 SHA-256, RFC
 
 Tests exercise the supported concern imports. Smaller suites live in `test/Blake3.test.ts`, `test/Hmac.test.ts`, and `test/Hkdf.test.ts`; larger suites use concern directories with operation or behavior names. [`scripts/fixtures.ts`](./scripts/fixtures.ts) owns fixture decoding, provenance validation, and loading for both tests and scripts. Run `bun run fixtures:verify` from this package to check all source hashes and execute the conformance suites.
 
+## Throughput regression matrix
+
+From the repository root, on an otherwise idle host:
+
+```sh
+OUTPUT=.tmp/digest-throughput.jsonl bash packages/digest/benchmark/throughput.sh node bun
+```
+
+The runner bundles once and alternates three fresh-process pairs per case/runtime.
+It covers one million numbers, mixed scalars, small records, short escaped strings,
+and long ASCII/BMP/astral/escaped strings. Each process measures its first invocation
+and five warm invocations on freshly constructed graphs. Input construction and
+module loading are excluded; candidate Schema encoding and cooperative yields are
+included. The other engine is never run before timing, and every candidate result
+must equal the complete independent digest.
+
+The independent oracle rebuilds sorted-key trees with Effect collections, invokes
+native JSON serialization once through Schema, encodes the complete text once with
+Effect's native UTF-8 stream encoder, and hashes with Noble. It deliberately buffers
+the whole preimage and has no cooperative traversal obligation. It does not call
+the package's canonicalizer. This is an independent algorithm reached through
+Effect APIs, not a claim that Effect's wrapper overhead is zero.
+
+The output includes raw samples and a `.ratios.json` report. Cold and warm-fresh
+medians have separate **candidate/baseline ≤ 1.0** budgets; the runner exits nonzero
+if any budget is missed. This performance gate is separate from correctness CI
+because shared runners cannot establish uncontended timing. A failed ratio is not
+silently accepted or replaced with a warmed or same-object sample.
+
 ## Examples
 
 - [content hashing](./examples/01-content-hashing.ts)
