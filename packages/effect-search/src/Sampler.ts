@@ -5,6 +5,7 @@
  * @module
  */
 import { isFinite } from "@scenesystems/effect-math/Numeric"
+import * as PseudoRandom from "@scenesystems/effect-math/PseudoRandom"
 import { Array as Arr, Chunk, Data, Effect, type HashMap, Option, Schema } from "effect"
 import { dual } from "effect/Function"
 
@@ -115,12 +116,17 @@ export const matchKind = kinds.$match
 
 /** Resumable state for every built-in sampler. @since 0.7.0 @category schemas */
 export const Checkpoint = Schema.Union([
-  Schema.TaggedStruct("Random", { seed: Schema.Finite }),
+  Schema.TaggedStruct("Random", {
+    seed: Schema.Finite,
+    rng: Schema.OptionFromNullOr(Schema.toCodecJson(PseudoRandom.State))
+  }),
   Schema.TaggedStruct("Grid", { seed: Schema.Finite, shuffle: Schema.Boolean }),
   Schema.TaggedStruct("Tpe", {
     seed: Schema.Finite,
     nStartupTrials: Schema.Finite,
-    nEiCandidates: Schema.Finite
+    nEiCandidates: Schema.Finite,
+    rng: Schema.OptionFromNullOr(Schema.toCodecJson(PseudoRandom.State)),
+    startupRng: Schema.OptionFromNullOr(Schema.toCodecJson(PseudoRandom.State))
   }),
   Schema.TaggedStruct("CmaEs", {
     seed: Schema.Finite,

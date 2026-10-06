@@ -8,6 +8,7 @@
  */
 import type { ModelSettings } from "@scenesystems/effect-lm/ModelSettings"
 import * as Numeric from "@scenesystems/effect-math/Numeric"
+import * as PseudoRandom from "@scenesystems/effect-math/PseudoRandom"
 import type { Option } from "effect"
 import {
   Array as Arr,
@@ -32,7 +33,6 @@ import {
 } from "./internal/miprov2/runtime/options.js"
 import { streamMIPROv2Events } from "./internal/miprov2/runtime/stream.js"
 import * as MiproSampling from "./internal/miprov2/sampling.js"
-import * as Sampling from "./internal/sampling/cpython.js"
 import type { Metric } from "./Metric.js"
 import {
   generateDemoCandidates,
@@ -490,7 +490,7 @@ export const runWithEvents = <
       report: summarizeEvents(yield* Ref.get(recorded))
     })
   }).pipe(
-    Effect.provideServiceEffect(MiproSampling.Current, Sampling.make(options.seed ?? 9).pipe(Effect.asSome))
+    Effect.provideServiceEffect(MiproSampling.Current, PseudoRandom.makeCPython(options.seed ?? 9).pipe(Effect.asSome))
   )
 
 /**

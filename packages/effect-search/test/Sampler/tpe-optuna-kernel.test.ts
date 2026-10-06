@@ -8,6 +8,7 @@ import { maximize } from "../../src/Direction.js"
 import { Single } from "../../src/Objective.js"
 import * as Sampler from "../../src/Sampler.js"
 import * as SearchSpace from "../../src/SearchSpace.js"
+import { AcquisitionGap, withGapAssertions } from "../helpers/selectionGaps.js"
 
 const Trial = Schema.Struct({
   number: Schema.Int,
@@ -20,9 +21,22 @@ const Kernel = Schema.Struct({
   space: Schema.Record(Schema.String, Schema.Array(Schema.Int)),
   options: Schema.Struct({ n_startup_trials: Schema.Int, n_ei_candidates: Schema.Int, multivariate: Schema.Boolean }),
   sequence: Schema.Array(Trial),
+  strictThroughTrial: Schema.Int,
+  acquisitionGaps: Schema.Array(AcquisitionGap),
+  categoricalSequences: Schema.Array(Schema.Struct({
+    seed: Schema.Int,
+    multivariate: Schema.Boolean,
+    space: Schema.Record(Schema.String, Schema.Array(Schema.Int)),
+    sequence: Schema.Array(Trial),
+    nStartupTrials: Schema.Int,
+    strictThroughTrial: Schema.Int,
+    acquisitionGaps: Schema.Array(AcquisitionGap)
+  })),
   distribution: Schema.Struct({
     draws: Schema.Int,
     maxTotalVariation: Schema.Finite,
+    samples: Schema.Array(Schema.Record(Schema.String, Schema.Int)),
+    acquisitionGaps: Schema.Array(AcquisitionGap),
     joint: Schema.Array(Schema.Struct({ choices: Schema.Array(Schema.Int), count: Schema.Int }))
   })
 })
@@ -78,13 +92,72 @@ it.effect("replays Optuna ask/tell history, excluding the failed observation fro
     yield* Effect.forEach(Arr.drop(reference.sequence, 1), (trial) =>
       Effect.gen(function*() {
         const history = Arr.filter(reference.sequence, (t) => Num.isLessThan(t.number, trial.number))
-        const config = yield* Sampler.suggest(model, space, context(history, trial.number)).pipe(
+        const config = yield* withGapAssertions(
+          Sampler.suggest(model, space, context(history, trial.number)),
+          Arr.filter(reference.acquisitionGaps, (gap) => Num.Equivalence(gap.trial, trial.number))
+        ).pipe(
           Effect.flatMap(Schema.decodeUnknownEffect(Schema.Record(Schema.String, Schema.Int)))
         )
+        expect(config, `Optuna trial ${trial.number}`).toEqual(trial.params)
         yield* Schema.decodeEffect(space.schema)(config)
         yield* Effect.forEach(Record.toEntries(reference.space), ([key, values]) =>
           Effect.sync(() => {
             expect(values).toContain(config[key])
+          }))
+      }))
+  }))
+
+it.effect("matches independent and multivariate categorical trajectories, skipping singleton draws", () =>
+  Effect.gen(function*() {
+    const reference = yield* load
+    yield* Effect.forEach(reference.categoricalSequences, (entry) =>
+      Effect.gen(function*() {
+        const space = yield* SearchSpace.make(Record.map(entry.space, SearchSpace.categorical))
+        const model = Sampler.tpe(
+          new Sampler.TpeOptions({
+            seed: entry.seed,
+            multivariate: entry.multivariate,
+            nStartupTrials: entry.nStartupTrials
+          })
+        )
+        yield* Effect.forEach(Arr.drop(Arr.take(entry.sequence, Num.increment(entry.strictThroughTrial)), 1), (trial) =>
+          Effect.gen(function*() {
+            expect(
+              yield* withGapAssertions(
+                Sampler.suggest(model, space, context(Arr.take(entry.sequence, trial.number), trial.number)),
+                Arr.filter(entry.acquisitionGaps, (gap) =>
+                  Num.Equivalence(gap.trial, trial.number))
+              ),
+              `seed=${entry.seed} multivariate=${entry.multivariate} trial=${trial.number}`
+            ).toEqual(trial.params)
+          }))
+      }))
+  }))
+
+it.effect("resumes both TPE and startup NumPy streams through encoded checkpoints", () =>
+  Effect.gen(function*() {
+    const reference = yield* load
+    const space = yield* SearchSpace.make(Record.map(reference.space, SearchSpace.categorical))
+    yield* Effect.forEach([2, 8], (cutoff) =>
+      Effect.gen(function*() {
+        const model = sampler(reference, reference.seed)
+        yield* Effect.forEach(
+          Arr.filter(
+            reference.sequence,
+            (trial) => Num.isGreaterThan(trial.number, 0) && Num.isLessThan(trial.number, cutoff)
+          ),
+          (trial) => Sampler.suggest(model, space, context(Arr.take(reference.sequence, trial.number), trial.number))
+        )
+        const codec = Schema.fromJsonString(Schema.toCodecJson(Sampler.Checkpoint))
+        const wire = yield* Schema.encodeEffect(codec)(yield* Sampler.checkpoint(model))
+        const restored = sampler(reference, reference.seed)
+        yield* Sampler.restore(restored, yield* Schema.decodeEffect(codec)(wire))
+        yield* Effect.forEach(Arr.drop(reference.sequence, cutoff), (trial) =>
+          Effect.gen(function*() {
+            expect(
+              yield* Sampler.suggest(restored, space, context(Arr.take(reference.sequence, trial.number), trial.number))
+            )
+              .toEqual(trial.params)
           }))
       }))
   }))
@@ -94,14 +167,18 @@ it.effect("optuna-mipro-categorical-001: fixed-history joint distribution matche
     const reference = yield* load
     const space = yield* SearchSpace.make(Record.map(reference.space, SearchSpace.categorical))
     const keys = Record.keys(reference.space)
-    const draws = yield* Effect.forEach(
-      Arr.makeBy(reference.distribution.draws, (i) => i),
-      (seed) =>
-        Sampler.suggest(sampler(reference, seed), space, context(reference.sequence, Arr.length(reference.sequence)))
-          .pipe(
-            Effect.flatMap(Schema.decodeUnknownEffect(Schema.Record(Schema.String, Schema.Int)))
-          )
+    const draws = yield* withGapAssertions(
+      Effect.forEach(
+        Arr.makeBy(reference.distribution.draws, (i) => i),
+        (seed) =>
+          Sampler.suggest(sampler(reference, seed), space, context(reference.sequence, Arr.length(reference.sequence)))
+            .pipe(
+              Effect.flatMap(Schema.decodeUnknownEffect(Schema.Record(Schema.String, Schema.Int)))
+            )
+      ),
+      reference.distribution.acquisitionGaps
     )
+    expect(draws).toEqual(reference.distribution.samples)
     const variation = Num.divideUnsafe(
       Arr.reduce(reference.distribution.joint, 0, (sum, cell) => {
         const count = Arr.length(
@@ -114,5 +191,5 @@ it.effect("optuna-mipro-categorical-001: fixed-history joint distribution matche
       }),
       Num.multiply(2, reference.distribution.draws)
     )
-    expect(variation).toBeLessThanOrEqual(reference.distribution.maxTotalVariation)
+    expect(variation).toBe(0)
   }))

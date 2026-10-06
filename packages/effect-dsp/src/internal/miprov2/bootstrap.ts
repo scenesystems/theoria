@@ -1,6 +1,6 @@
 /** Teacher-derived MIPRO demonstration catalogs. @since 0.1.0 */
 import * as Numeric from "@scenesystems/effect-math/Numeric"
-import { Array as Arr, Effect, Equal, Number as Num, Option, Record, Schema } from "effect"
+import { Array as Arr, Chunk, Effect, Equal, Number as Num, Option, Record, Schema } from "effect"
 import * as BootstrapFewShot from "../../BootstrapFewShot.js"
 import * as LabeledFewShot from "../../LabeledFewShot.js"
 import * as Metric from "../../Metric.js"
@@ -69,7 +69,9 @@ export const generateDemoCandidates = <
             return { kind, parameters: result.parameters }
           }
           const unshuffled = Equal.equals(seed, -1)
-          const trainset = unshuffled ? options.trainset : yield* sampling.shuffle(options.trainset)
+          const trainset = unshuffled
+            ? options.trainset
+            : yield* sampling.shuffle(Chunk.fromIterable(options.trainset)).pipe(Effect.map(Arr.fromIterable))
           if (!unshuffled) yield* Schema.decodeEffect(Schema.Int.check(Schema.isGreaterThanOrEqualTo(1)))(bootstrapped)
           const cap = unshuffled ? bootstrapped : yield* sampling.randint(1, bootstrapped)
           const result = yield* BootstrapFewShot.run(

@@ -5,11 +5,11 @@
  */
 import type { ModelSettings } from "@scenesystems/effect-lm/ModelSettings"
 import * as Numeric from "@scenesystems/effect-math/Numeric"
-import { Array as Arr, Data, Effect, Option, Ref, Schema } from "effect"
+import * as PseudoRandom from "@scenesystems/effect-math/PseudoRandom"
+import { Array as Arr, Chunk, Data, Effect, Option, Ref, Schema } from "effect"
 import * as BootstrapFewShot from "./BootstrapFewShot.js"
 import * as Evaluate from "./Evaluate.js"
 import type { Example } from "./Example.js"
-import * as Sampling from "./internal/sampling/cpython.js"
 import * as LabeledFewShot from "./LabeledFewShot.js"
 import type { Metric } from "./Metric.js"
 import * as Module from "./Module.js"
@@ -135,12 +135,14 @@ export const run = <
           }
           const trainset = seed < 0
             ? options.trainset
-            : yield* Sampling.make(seed).pipe(Effect.flatMap((sampling) =>
-              sampling.shuffle(options.trainset)
+            : yield* PseudoRandom.makeCPython(seed).pipe(Effect.flatMap((sampling) =>
+              sampling.shuffle(Chunk.fromIterable(options.trainset)).pipe(Effect.map(Arr.fromIterable))
             ))
           const cap = seed < 0
             ? maxBootstrappedDemos
-            : yield* Sampling.make(seed).pipe(Effect.flatMap((sampling) => sampling.randint(1, maxBootstrappedDemos)))
+            : yield* PseudoRandom.makeCPython(seed).pipe(Effect.flatMap((sampling) =>
+              sampling.randint(1, maxBootstrappedDemos)
+            ))
           return (yield* BootstrapFewShot.run(
             new BootstrapFewShot.Options({
               module: original,

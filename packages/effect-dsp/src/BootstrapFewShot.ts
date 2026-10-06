@@ -7,6 +7,7 @@
  */
 import { empty as emptySettings, type ModelSettings } from "@scenesystems/effect-lm/ModelSettings"
 import * as Numeric from "@scenesystems/effect-math/Numeric"
+import * as PseudoRandom from "@scenesystems/effect-math/PseudoRandom"
 import * as Emitter from "@scenesystems/effect-study/Emitter"
 import {
   Array as Arr,
@@ -26,7 +27,6 @@ import {
 } from "effect"
 import { Example, Id as ExampleId, id as exampleId } from "./Example.js"
 import { sampleLabeled } from "./internal/labeledFewShot/sampling.js"
-import * as Sampling from "./internal/sampling/cpython.js"
 import * as LabeledFewShot from "./LabeledFewShot.js"
 import { type Metric, Score } from "./Metric.js"
 import { bound, type Module } from "./Module.js"
@@ -388,7 +388,7 @@ export const runWithEvents = <
       options.trainset,
       (example) => exampleId(example).pipe(Effect.map((id) => !Arr.some(accepted, (entry) => entry.exampleId === id)))
     )
-    const sampling = yield* Sampling.make(0)
+    const sampling = yield* PseudoRandom.makeCPython(0)
     const entries = yield* Effect.forEach(predictorsToTrain, (predictor) =>
       Effect.gen(function*() {
         const bootstrapped = Arr.take(

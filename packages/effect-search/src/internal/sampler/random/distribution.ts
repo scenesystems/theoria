@@ -4,12 +4,14 @@
  * @since 0.1.0
  */
 import { logStrict } from "@scenesystems/effect-math/Numeric"
+import * as PseudoRandom from "@scenesystems/effect-math/PseudoRandom"
 import { Array as Arr, Boolean as Bool, Effect, Match, Number as Num, Option } from "effect"
 
 import type { Distribution } from "../../../Distribution.js"
 import { InvalidSamplerConfig } from "../../../SearchError.js"
 import { exp } from "../../exponential.js"
 import * as Rng from "../../rng.js"
+import { argmax } from "../../tpe/expectedImprovement.js"
 
 const quantize = (value: number, low: number, high: number, step: number): number => {
   const steps = Num.round(Num.divideUnsafe(Num.subtract(value, low), step), 0)
@@ -62,9 +64,11 @@ const sampleCategorical = (
   const choices = Arr.fromIterable(choicesInput)
   return categoricalChoices(choices).pipe(
     Effect.flatMap((resolvedChoices) =>
-      Rng.nextInt(rng, 0, Num.decrement(Arr.length(resolvedChoices))).pipe(
-        Effect.flatMap((index) => sampledCategoricalAt(resolvedChoices, index))
-      )
+      (Num.Equivalence(resolvedChoices.length, 1) ? Effect.succeed(0) : rng instanceof PseudoRandom.NumPyLegacy
+        ? Effect.forEach(resolvedChoices, () => Rng.nextFloat(rng)).pipe(Effect.map(argmax))
+        : Rng.nextInt(rng, 0, Num.decrement(Arr.length(resolvedChoices)))).pipe(
+          Effect.flatMap((index) => sampledCategoricalAt(resolvedChoices, index))
+        )
     )
   )
 }

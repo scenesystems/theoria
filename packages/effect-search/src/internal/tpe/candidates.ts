@@ -6,6 +6,39 @@ export const CandidateSetSchema = Schema.Array(Choice)
 
 export type CandidateSet = Schema.Schema.Type<typeof CandidateSetSchema>
 
+/** NumPy RandomState.choice uses a normalized CDF and searchsorted(side="right"). */
+export const mixtureComponents = (
+  weights: ReadonlyArray<number>,
+  rolls: ReadonlyArray<number>
+): ReadonlyArray<number> => {
+  const cumulative = Arr.drop(Arr.scan(weights, 0, Num.sum), 1)
+  const total = Option.getOrThrow(Arr.last(cumulative))
+  const normalized = Arr.map(cumulative, (value) => Num.divideUnsafe(value, total))
+  return Arr.map(
+    rolls,
+    (roll) => Option.getOrThrow(Arr.findFirstIndex(normalized, (edge) => Num.isGreaterThan(edge, roll)))
+  )
+}
+
+/** Optuna's categorical matrix uses the first CDF entry >= roll, with its final entry set to 1. */
+export const categoricalQuantiles = (
+  choices: ReadonlyArray<Choice>,
+  probabilities: ReadonlyArray<number>,
+  rolls: ReadonlyArray<number>
+): ReadonlyArray<Choice> => {
+  const cumulative = Option.getOrThrow(
+    Arr.modify(Arr.drop(Arr.scan(probabilities, 0, Num.sum), 1), Num.decrement(probabilities.length), () => 1)
+  )
+  return Arr.map(
+    rolls,
+    (roll) =>
+      Option.getOrThrow(Arr.get(
+        choices,
+        Option.getOrThrow(Arr.findFirstIndex(cumulative, (edge) => Num.isGreaterThanOrEqualTo(edge, roll)))
+      ))
+  )
+}
+
 const sum = (valuesInput: Iterable<number>): number => {
   const values = Arr.fromIterable(valuesInput)
   return Arr.reduce(values, 0, (total, value) => Num.sum(total, value))

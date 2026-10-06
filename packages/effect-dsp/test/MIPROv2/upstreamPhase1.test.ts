@@ -1,10 +1,10 @@
 import { expect, it } from "@effect/vitest"
 import * as ModelBinder from "@scenesystems/effect-lm/ModelBinder"
-import { Array as Arr, Effect, Option, Record, Ref, Schema } from "effect"
+import * as PseudoRandom from "@scenesystems/effect-math/PseudoRandom"
+import { Array as Arr, Chunk, Effect, Option, Record, Ref, Schema } from "effect"
 import * as LanguageModel from "effect/ai/LanguageModel"
 import { Example, Id } from "../../src/Example.js"
 import * as MiproSampling from "../../src/internal/miprov2/sampling.js"
-import * as Sampling from "../../src/internal/sampling/cpython.js"
 import * as Metric from "../../src/Metric.js"
 import * as Candidates from "../../src/MIPROv2Candidates.js"
 import * as MockLanguageModel from "../../src/MockLanguageModel.js"
@@ -51,10 +51,10 @@ it.effect("matches pinned MIPRO demo identities, order and teacher cost for labe
           MockLanguageModel.succeed("[[ ## answer ## ]]\nteacher\n[[ ## completed ## ]]")
         )
         const metricIds = yield* Ref.make(Arr.empty<string>())
-        const sampling = yield* Sampling.make(reference.seed)
+        const sampling = yield* PseudoRandom.makeCPython(reference.seed)
         // Auto light samples the whole six-row validation set before Phase 1.
         if (Option.isSome(reference.auto)) {
-          yield* sampling.sample(reference.splits.val, Arr.length(reference.splits.val))
+          yield* sampling.sample(Chunk.fromIterable(reference.splits.val), Arr.length(reference.splits.val))
         }
         const actual = yield* assertNoMutation(
           module,

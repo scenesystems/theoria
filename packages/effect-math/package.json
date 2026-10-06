@@ -36,6 +36,7 @@
     "./Calculus": "./src/Calculus.ts",
     "./Special": "./src/Special.ts",
     "./Probability": "./src/Probability.ts",
+    "./PseudoRandom": "./src/PseudoRandom.ts",
     "./Statistics": "./src/Statistics.ts",
     "./Optimization": "./src/Optimization.ts",
     "./Geometry": "./src/Geometry.ts",

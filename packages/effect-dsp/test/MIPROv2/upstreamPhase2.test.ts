@@ -1,11 +1,11 @@
 import { expect, it } from "@effect/vitest"
 import * as ModelBinder from "@scenesystems/effect-lm/ModelBinder"
+import * as PseudoRandom from "@scenesystems/effect-math/PseudoRandom"
 import { Array as Arr, Effect, Option, Record, Ref, Schema, String as Str } from "effect"
 import * as LanguageModel from "effect/ai/LanguageModel"
 import { Demonstration } from "../../src/Demonstration.js"
 import { Example } from "../../src/Example.js"
 import * as MiproSampling from "../../src/internal/miprov2/sampling.js"
-import * as Sampling from "../../src/internal/sampling/cpython.js"
 import * as Candidates from "../../src/MIPROv2Candidates.js"
 import * as MockLanguageModel from "../../src/MockLanguageModel.js"
 import * as Module from "../../src/Module.js"
@@ -83,7 +83,7 @@ it.effect("matches upstream grounded proposer calls, settings, demo rotation, pr
         const mock = yield* MockLanguageModel.make(
           MockLanguageModel.sequence(Arr.map(reference.calls, (call) => call.response))
         )
-        const sampling = yield* Sampling.make(reference.seed)
+        const sampling = yield* PseudoRandom.makeCPython(reference.seed)
         const proposals = yield* assertNoMutation(
           module,
           Candidates.proposeInstructionCandidates(

@@ -1,4 +1,5 @@
 import { Array, Schema } from "effect"
+import { CPythonRandomFixture, NumPyRandomFixture } from "./randomSchemas.js"
 
 const FixtureMetadataSchema = Schema.Struct({
   generatedAt: Schema.String,
@@ -36,10 +37,16 @@ const NumericSumCaseSchema = Schema.Struct({
   expected: Schema.Finite
 })
 
+const NumericPairwiseSumCaseSchema = Schema.Struct({
+  ...NumericSumCaseSchema.fields,
+  operation: Schema.Literal("sumPairwise")
+})
+
 const NumericScalarCaseSchema = Schema.Union([
   NumericLog1pCaseSchema,
   NumericExpm1CaseSchema,
-  NumericSumCaseSchema
+  NumericSumCaseSchema,
+  NumericPairwiseSumCaseSchema
 ])
 
 export const NumericScalarParityFixtureSchema = Schema.Struct({
@@ -1723,6 +1730,8 @@ export const DistributionAlgebraParityFixtureSchema = Schema.Struct({
 // ---------------------------------------------------------------------------
 
 export const KnownFixtureSchema = Schema.Union([
+  CPythonRandomFixture,
+  NumPyRandomFixture,
   AlgebraPolynomialParityFixtureSchema,
   CalculusNumericalParityFixtureSchema,
   ComplexArithmeticParityFixtureSchema,

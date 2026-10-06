@@ -6,9 +6,9 @@
  * @module
  */
 import * as Numeric from "@scenesystems/effect-math/Numeric"
+import * as PseudoRandom from "@scenesystems/effect-math/PseudoRandom"
 import { Array as Arr, Data, Effect, Option, Record, Schema, Tuple } from "effect"
 import { type LabeledExamples, sampleLabeled } from "./internal/labeledFewShot/sampling.js"
-import * as Sampling from "./internal/sampling/cpython.js"
 import { bound, type Module } from "./Module.js"
 import { predictors } from "./ModuleGraph.js"
 import { withDemos as withModuleParametersDemos } from "./ModuleParameters.js"
@@ -82,7 +82,7 @@ export const run = <
   Effect.gen(function*() {
     const requestedSeed = options.seed ?? 0
     const seed = Numeric.isFinite(requestedSeed) ? Math.trunc(requestedSeed) : 0
-    const sampling = yield* Sampling.make(seed)
+    const sampling = yield* PseudoRandom.makeCPython(seed)
     const requested = options.k ?? 16
     const k = Numeric.isFinite(requested) ? Numeric.max(0, Numeric.floor(requested)) : 0
     const before = yield* ParameterSet.snapshot(options.module)

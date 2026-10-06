@@ -65,7 +65,8 @@ const trackedSampler = ({
     checkpoint: Ref.updateAndGet(checkpointCallsRef, Num.increment).pipe(
       Effect.map((calls) => ({
         _tag: "Random",
-        seed: calls
+        seed: calls,
+        rng: Option.none()
       }))
     ),
     restore: () => Effect.void,
@@ -102,7 +103,7 @@ describe("Optimization scoped execution", () => {
 
       expect(Option.isNone(interrupted)).toBe(true)
       expect(checkpointCalls).toBe(1)
-      expect(snapshot.samplerCheckpoint).toEqual({ _tag: "Random", seed: 1 })
+      expect(snapshot.samplerCheckpoint).toEqual({ _tag: "Random", seed: 1, rng: Option.none() })
     }))
 
   it.live("runs sampler acquire/release lifecycle in scoped execution", () =>

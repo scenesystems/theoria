@@ -8,6 +8,7 @@ import * as Settings from "@scenesystems/effect-lm/ModelSettings"
 import {
   Array as Arr,
   Boolean as Bool,
+  Chunk,
   Data,
   Effect,
   HashMap,
@@ -224,7 +225,9 @@ export const proposeInstructionCandidates = <
           requested,
           (proposalIndex) =>
             Effect.gen(function*() {
-              const tip = (options.tipAwareProposer ?? true) ? yield* sampling.choice(Record.keys(tips)) : "none"
+              const tip = (options.tipAwareProposer ?? true)
+                ? yield* sampling.choice(Chunk.fromIterable(Record.keys(tips)))
+                : "none"
               const rolloutId = yield* sampling.randint(0, 1_000_000_000)
               const demos = (options.fewshotAwareProposer ?? true) && Num.isGreaterThan(proposalIndex, 0)
                 ? Arr.take(

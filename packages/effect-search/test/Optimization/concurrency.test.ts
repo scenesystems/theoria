@@ -69,7 +69,8 @@ describe("Optimization concurrency", () => {
         pendingImputationPolicy: pendingAsZeroPolicy,
         checkpoint: Effect.succeed({
           _tag: "Random",
-          seed: 0
+          seed: 0,
+          rng: Option.none()
         }),
         restore: () => Effect.void,
         suggest: (_space, context) =>

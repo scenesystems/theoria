@@ -53,10 +53,12 @@ def run(check=False):
         "upstream": upstream, "generator": "scripts/generate-optuna-fixtures.py",
         "fixtures": sorted(entries, key=lambda entry: entry["name"]),
     }, sort_keys=True)
-    raw = render(mipro_kernel.generate())
+    kernel = mipro_kernel.generate()
+    selection = kernel.pop("trajectorySelection")
+    raw = render(kernel)
     outputs[ROOT / "optuna-mipro/categorical.json"] = raw
     outputs[ROOT / "optuna-mipro/manifest.json"] = render({
-        "upstream": upstream, "fixtures": [{
+        "upstream": upstream, "trajectorySelection": selection, "fixtures": [{
             "id": "optuna-mipro-categorical-001", "file": "categorical.json",
             "evidence": "upstream-kernel", "sha256": hashlib.sha256(raw).hexdigest(),
             "generator": "scripts/fixtures/mipro_kernel.py",

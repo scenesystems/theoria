@@ -3,19 +3,19 @@
  *
  * @since 0.1.0
  */
-import { logStrict, logSumExp } from "@scenesystems/effect-math/Numeric"
-import { Array as Arr, Chunk, Effect, Equal, Match, Number as Num, Option, Record, Schema, Tuple } from "effect"
+import { log, logSumExp } from "@scenesystems/effect-math/Numeric"
+import { Array as Arr, Chunk, Effect, Equal, Match, Number as Num, Option, Record, Tuple } from "effect"
 
 import * as Acquisition from "../../../Acquisition.js"
 import { type Choice } from "../../../Distribution.js"
 import type * as Rng from "../../../internal/rng.js"
-import { sampleWeightedCategoricalCandidatesFromRolls } from "../../../internal/tpe/candidates.js"
+import { categoricalQuantiles, mixtureComponents } from "../../../internal/tpe/candidates.js"
 import { buildCategoricalParzen } from "../../../internal/tpe/categoricalParzen.js"
 import * as Multi from "../../../internal/tpe/multivariateCategorical.js"
 import { type TrialSplit } from "../../../internal/tpe/splitTrials.js"
 import type { InvalidSamplerConfig } from "../../../SearchError.js"
 import type * as SearchSpace from "../../../SearchSpace.js"
-import { chooseBestCandidate, drawRollPairs, drawRolls } from "../candidateSelection.js"
+import { chooseBestCandidate, drawRolls } from "../candidateSelection.js"
 import { logProbability } from "../scoring.js"
 import { type CandidateRollPair, DimensionScoreTrace } from "./trace.js"
 import { primitiveValuesForParameter } from "./values.js"
@@ -65,6 +65,7 @@ export const suggestCategoricalParameter = (
   acquisition: Acquisition.Strategy = Acquisition.defaultName
 ): Effect.Effect<Choice, InvalidSamplerConfig> => {
   const choices = Arr.fromIterable(choicesInput)
+  if (Num.Equivalence(choices.length, 1)) return Effect.succeed(Option.getOrThrow(Arr.head(choices)))
   return Effect.gen(function*() {
     const trace = yield* categoricalCandidateTrace(rng, nCandidates, parameter, choices, split, acquisition)
 
@@ -102,16 +103,10 @@ export const categoricalCandidateTraceFromRolls = (
     const aboveValues = primitiveValuesForParameter(parameter, split.above)
     const belowDensity = yield* buildCategoricalParzen(choices, belowValues)
     const aboveDensity = yield* buildCategoricalParzen(choices, aboveValues)
-    const components = yield* Schema.decodeUnknownEffect(Schema.Array(Schema.Int))(
-      sampleWeightedCategoricalCandidatesFromRolls(
-        Arr.makeBy(Arr.length(belowDensity.kernels), (index) => index),
-        belowDensity.kernelWeights,
-        Arr.map(rolls, ([component]) => component)
-      )
-    ).pipe(Effect.orDie)
+    const components = mixtureComponents(belowDensity.kernelWeights, Arr.map(rolls, ([component]) => component))
     const candidates = Arr.map(rolls, ([, value], index) =>
       Arr.head(
-        sampleWeightedCategoricalCandidatesFromRolls(
+        categoricalQuantiles(
           choices,
           Arr.get(belowDensity.kernels, Arr.get(components, index).pipe(Option.getOrThrow)).pipe(Option.getOrThrow)
             .probabilities,
@@ -119,8 +114,16 @@ export const categoricalCandidateTraceFromRolls = (
         )
       ).pipe(Option.getOrThrow))
     const scoredCandidates = Arr.map(candidates, (candidate, index) => {
-      const logL = logProbability(belowDensity.choices, belowDensity.probabilities, candidate)
-      const logG = logProbability(aboveDensity.choices, aboveDensity.probabilities, candidate)
+      const density = (model: typeof belowDensity) =>
+        logSumExp(
+          Chunk.fromIterable(Arr.map(model.kernels, (kernel, component) =>
+            Num.sum(
+              logProbability(choices, kernel.probabilities, candidate),
+              log(Option.getOrThrow(Arr.get(model.kernelWeights, component)))
+            )))
+        )
+      const logL = density(belowDensity)
+      const logG = density(aboveDensity)
 
       return {
         logL,
@@ -179,9 +182,17 @@ export const categoricalCandidateTrace = (
   acquisition: Acquisition.Strategy = Acquisition.defaultName
 ): Effect.Effect<DimensionScoreTrace<Choice>, InvalidSamplerConfig> => {
   const choices = Arr.fromIterable(choicesInput)
-  return drawRollPairs(rng, nCandidates).pipe(
-    Effect.flatMap((rolls) => categoricalCandidateTraceFromRolls(parameter, choices, split, rolls, acquisition))
-  )
+  return Effect.gen(function*() {
+    const components = yield* drawRolls(rng, nCandidates)
+    const values = yield* drawRolls(rng, nCandidates)
+    return yield* categoricalCandidateTraceFromRolls(
+      parameter,
+      choices,
+      split,
+      Arr.zip(components, values),
+      acquisition
+    )
+  })
 }
 
 /**
@@ -204,7 +215,15 @@ export const suggestMultivariateCategorical = (
 ): Effect.Effect<unknown, InvalidSamplerConfig> => {
   const dimensions = Arr.fromIterable(dimensionsInput)
   return Effect.gen(function*() {
-    const models = yield* Effect.forEach(dimensions, (dimension) =>
+    const fixed = Record.fromEntries(
+      Arr.map(
+        Arr.filter(dimensions, (dimension) => Num.Equivalence(dimension.choices.length, 1)),
+        (dimension) => Tuple.make(dimension.name, Option.getOrThrow(Arr.head(dimension.choices)))
+      )
+    )
+    const variable = Arr.filter(dimensions, (dimension) => Num.isGreaterThan(dimension.choices.length, 1))
+    if (Arr.isReadonlyArrayEmpty(variable)) return fixed
+    const models = yield* Effect.forEach(variable, (dimension) =>
       Effect.gen(function*() {
         const parameter = yield* Effect.fromOption(
           Arr.findFirst(space.params, (entry) => Equal.equals(entry.name, dimension.name))
@@ -217,16 +236,13 @@ export const suggestMultivariateCategorical = (
       })).pipe(Effect.orDie)
     const first = yield* Effect.fromOption(Arr.head(models)).pipe(Effect.orDie)
     const rolls = yield* drawRolls(rng, nCandidates)
-    const indices = Arr.makeBy(Arr.length(first.below.kernels), (index) => index)
-    const components = yield* Schema.decodeUnknownEffect(Schema.Array(Schema.Int))(
-      sampleWeightedCategoricalCandidatesFromRolls(indices, first.below.kernelWeights, rolls)
-    ).pipe(Effect.orDie)
+    const components = mixtureComponents(first.below.kernelWeights, rolls)
     const values = yield* Effect.forEach(models, (model) =>
       Effect.gen(function*() {
         const valueRolls = yield* drawRolls(rng, nCandidates)
         return Arr.map(components, (component, index) => {
           const kernel = Arr.get(model.below.kernels, component).pipe(Option.getOrThrow)
-          const value = sampleWeightedCategoricalCandidatesFromRolls(
+          const value = categoricalQuantiles(
             model.below.choices,
             kernel.probabilities,
             [Arr.get(valueRolls, index).pipe(Option.getOrThrow)]
@@ -234,15 +250,17 @@ export const suggestMultivariateCategorical = (
           return Tuple.make(model.name, Arr.head(value).pipe(Option.getOrThrow))
         })
       }))
-    const candidates = Arr.makeBy(nCandidates, (index) =>
-      Record.fromEntries(
+    const candidates = Arr.makeBy(nCandidates, (index) => ({
+      ...fixed,
+      ...Record.fromEntries(
         Arr.map(values, (entries) => Arr.get(entries, index).pipe(Option.getOrThrow))
-      ))
+      )
+    }))
     const density = (candidate: Record<string, Choice>, side: "below" | "above") =>
       logSumExp(Chunk.fromIterable(
         Arr.map(first[side].kernelWeights, (weight, component) =>
           Num.sum(
-            logStrict(weight),
+            log(weight),
             Num.sumAll(Arr.map(models, (model) => {
               const kernel = Arr.get(model[side].kernels, component).pipe(Option.getOrThrow)
               return logProbability(

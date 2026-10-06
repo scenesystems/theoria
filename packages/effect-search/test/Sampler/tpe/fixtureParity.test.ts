@@ -49,6 +49,13 @@ const absoluteDistance = (left: unknown, right: unknown): number =>
   Numeric.abs(Num.subtract(asDistanceInput(Option.fromNullishOr(left)), asDistanceInput(Option.fromNullishOr(right))))
 
 describe("fixture-backed parity", () => {
+  it.effect("retains the earliest candidate among exactly equal acquisition maxima", () =>
+    Effect.gen(function*() {
+      expect(argmax([-9, 4, 4, 3])).toBe(1)
+      expect(argmax([4, 4, -9])).toBe(0)
+      expect(argmax([-9, 4, 4.000000000000001, 4])).toBe(2)
+    }))
+
   it.effect("replays categorical parzen probabilities, kernel weights, and candidate rolls", () =>
     Effect.gen(function*() {
       const loaded = yield* loadAllFixtures("categorical-parzen.").pipe(Effect.provide(FixtureRegistryLive))

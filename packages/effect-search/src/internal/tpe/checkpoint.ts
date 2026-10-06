@@ -7,6 +7,7 @@ import { Boolean as Bool, Effect, Equal, Match } from "effect"
 
 import type * as Sampler from "../../Sampler.js"
 import { InvalidOptimizationConfig } from "../../SearchError.js"
+import type * as Rng from "../rng.js"
 
 /**
  * Validates that a persisted TPE sampler checkpoint matches the current
@@ -23,17 +24,19 @@ export const restoreCheckpoint = (
   seed: number,
   startupTrials: number,
   nCandidates: number,
+  stream: Rng.NumPyStream,
+  startupStream: Rng.NumPyStream,
   checkpoint: Sampler.Checkpoint
 ): Effect.Effect<void, InvalidOptimizationConfig> =>
   Match.value(checkpoint).pipe(
-    Match.tag("Tpe", ({ seed: checkpointSeed, nStartupTrials, nEiCandidates }) =>
+    Match.tag("Tpe", ({ seed: checkpointSeed, nStartupTrials, nEiCandidates, rng, startupRng }) =>
       Match.value(
         Bool.and(
           Equal.equals(seed, checkpointSeed),
           Bool.and(Equal.equals(startupTrials, nStartupTrials), Equal.equals(nCandidates, nEiCandidates))
         )
       ).pipe(
-        Match.when(true, () => Effect.void),
+        Match.when(true, () => stream.restore(rng).pipe(Effect.andThen(startupStream.restore(startupRng)))),
         Match.orElse(() =>
           Effect.fail(
             new InvalidOptimizationConfig({

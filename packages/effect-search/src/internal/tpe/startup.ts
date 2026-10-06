@@ -3,7 +3,19 @@
  *
  * @since 0.1.0
  */
-import { Array as Arr, Boolean as Bool, Effect, Equal, HashMap, Match, Number as Num, Option, Record } from "effect"
+import {
+  Array as Arr,
+  Boolean as Bool,
+  Effect,
+  Equal,
+  HashMap,
+  Match,
+  Number as Num,
+  Option,
+  Order,
+  Record,
+  String as Str
+} from "effect"
 
 import type * as Acquisition from "../../Acquisition.js"
 import type * as Rng from "../../internal/rng.js"
@@ -12,7 +24,6 @@ import type { TrialSplit } from "../../internal/tpe/splitTrials.js"
 import type { Constraint, Context, Sampler } from "../../Sampler.js"
 import type { InvalidSamplerConfig, SearchError } from "../../SearchError.js"
 import * as SearchSpace from "../../SearchSpace.js"
-import { rngByTrial } from "../sampler/rngByTrial.js"
 import { enrichCompletedTrialsWithConstraints } from "./constraints/enrich.js"
 import {
   categoricalDimensions,
@@ -23,6 +34,7 @@ import { suggestFloatParameter } from "./dimensions/float.js"
 import { suggestIntParameter } from "./dimensions/int.js"
 import { GroupedMixedSettings, suggestGroupedMixedJoint } from "./groupedMixed.js"
 import { suggestMixedJoint } from "./mixed.js"
+import type { CategoricalDimension } from "./multivariateCategorical.js"
 import { splitByObjective } from "./split.js"
 
 const suggestIndependentParameter = (
@@ -102,7 +114,7 @@ const hasConditionalParameters = (space: SearchSpace.SearchSpace): boolean =>
   Arr.some(space.params, (parameter) => Num.isGreaterThan(Arr.length(parameter.activeWhen), 0))
 
 const suggestModelDriven = (
-  seed: number,
+  random: Effect.Effect<Rng.Rng, InvalidSamplerConfig>,
   nCandidates: number,
   multivariate: boolean,
   groupDimensions: boolean,
@@ -115,7 +127,7 @@ const suggestModelDriven = (
   const constraints = Arr.fromIterable(constraintsInput)
   return Effect.gen(function*() {
     const completed = yield* enrichCompletedTrialsWithConstraints(context.completed, constraints)
-    const rng = yield* rngByTrial("tpe", seed, context.nextTrialNumber)
+    const rng = yield* random
     const split = splitByObjective(
       completed,
       context.objectiveSpec,
@@ -123,7 +135,10 @@ const suggestModelDriven = (
       Option.fromNullishOr(context.pruned).pipe(Option.getOrElse(() => [])),
       context.pending
     )
-    const dimensions = categoricalDimensions(space)
+    const dimensions = Arr.sort(
+      categoricalDimensions(space),
+      Order.mapInput(Str.Order, (dimension: CategoricalDimension) => dimension.name)
+    )
     const containsConditionalParameters = hasConditionalParameters(space)
     const groupedSettings = new GroupedMixedSettings({
       multivariate,
@@ -135,7 +150,10 @@ const suggestModelDriven = (
       Bool.not(containsConditionalParameters)
     ))
       .pipe(
-        Match.when(true, () => suggestMultivariateCategorical(rng, nCandidates, space, split, dimensions, acquisition)),
+        Match.when(true, () =>
+          multivariate
+            ? suggestMultivariateCategorical(rng, nCandidates, space, split, dimensions, acquisition)
+            : suggestIndependent(rng, nCandidates, space, split, noiseOptions, acquisition)),
         Match.orElse(() =>
           Match.value(multivariate).pipe(
             Match.when(true, () =>
@@ -179,8 +197,8 @@ const suggestModelDriven = (
  * @category sampling
  */
 export const suggestWithStartup = (
-  randomSampler: Sampler,
-  seed: number,
+  randomSuggest: Sampler["suggest"],
+  random: Effect.Effect<Rng.Rng, InvalidSamplerConfig>,
   startupTrials: number,
   nCandidates: number,
   multivariate: boolean,
@@ -197,10 +215,10 @@ export const suggestWithStartup = (
     Option.fromNullishOr(context.pruned).pipe(Option.map(Arr.length), Option.getOrElse(() => 0))
   )
   return Match.value(Num.isLessThan(observedCount, startupTrials)).pipe(
-    Match.when(true, () => randomSampler.suggest(space, context)),
+    Match.when(true, () => randomSuggest(space, context)),
     Match.orElse(() =>
       suggestModelDriven(
-        seed,
+        random,
         nCandidates,
         multivariate,
         groupDimensions,

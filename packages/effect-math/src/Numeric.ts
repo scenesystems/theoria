@@ -584,6 +584,15 @@ export const expm1Strict: typeof Transcendental.expm1Strict = Transcendental.exp
 export const sum: (values: Iterable<number>) => number = Number.sumAll
 
 /**
+ * Adds a dense row in NumPy's float64 pairwise order: eight accumulation lanes,
+ * 128-element blocks, and aligned recursive splits. This fixes reduction order,
+ * rather than promising the correctly rounded sum of real-number inputs.
+ * @since 0.6.0
+ * @category operations
+ */
+export const sumPairwise: (values: Chunk.Chunk<number>) => number = Reduction.sumPairwise
+
+/**
  * Finds the zero-based index of the maximum element, or `None` for an empty
  * iterable. When multiple elements share the maximum value, returns
  * the index of the first occurrence.

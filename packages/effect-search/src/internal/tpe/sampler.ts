@@ -5,9 +5,10 @@
  */
 import { Effect, Equal, Option } from "effect"
 
-import { noPendingPolicy, type PendingPolicy, TpeOptions } from "../../Sampler.js"
+import { type PendingPolicy, TpeOptions } from "../../Sampler.js"
 import * as Sampler from "../../Sampler.js"
-import * as RandomSampler from "../sampler/random.js"
+import * as Rng from "../rng.js"
+import { suggest as suggestRandom } from "../sampler/random/suggest.js"
 import { restoreCheckpoint } from "./checkpoint.js"
 import {
   acquisitionFromOptions,
@@ -49,32 +50,26 @@ export const make = (
   const noiseOptions = noiseOptionsFromOptions(options)
   const constraints = constraintEvaluatorsFromOptions(options)
   const acquisition = acquisitionFromOptions(options)
-  const randomSampler = RandomSampler.make(
-    {
-      ...Option.match(Option.fromNullishOr(options.seed), {
-        onNone: () => ({}),
-        onSome: (seed) => ({ seed })
-      })
-    },
-    noPendingPolicy
-  )
+  const stream = new Rng.NumPyStream(seed)
+  const startupStream = new Rng.NumPyStream(seed)
 
   return new Sampler.Sampler({
     kind: Sampler.Tpe({ options: snapshotOptions }),
     pendingImputationPolicy,
-    checkpoint: Effect.succeed({
+    checkpoint: Effect.all({ rng: stream.snapshot, startupRng: startupStream.snapshot }).pipe(Effect.map((states) => ({
       _tag: "Tpe",
       seed,
       nStartupTrials: startupTrials,
-      nEiCandidates: nCandidates
-    }),
-    restore: (checkpoint) => restoreCheckpoint(seed, startupTrials, nCandidates, checkpoint),
+      nEiCandidates: nCandidates,
+      ...states
+    }))),
+    restore: (checkpoint) => restoreCheckpoint(seed, startupTrials, nCandidates, stream, startupStream, checkpoint),
     suggest: (space, context) =>
       validateOptions(options).pipe(
         Effect.flatMap(() =>
           suggestWithStartup(
-            randomSampler,
-            seed,
+            (space) => startupStream.get.pipe(Effect.flatMap((rng) => suggestRandom(rng, space))),
+            stream.get,
             startupTrials,
             nCandidates,
             multivariate,

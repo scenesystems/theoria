@@ -3,13 +3,18 @@
  *
  * @since 0.1.0
  */
-import { Array as Arr, Effect, Match, Number as Num, Tuple } from "effect"
+import { Array as Arr, Context, Effect, Match, Number as Num, Tuple } from "effect"
 
 import * as Rng from "../../internal/rng.js"
 import { argmax } from "../../internal/tpe/expectedImprovement.js"
 import type { InvalidSamplerConfig } from "../../SearchError.js"
 import { makeCandidateRollPair } from "./dimensions/trace.js"
 import { invalidConfig } from "./options.js"
+
+/** Passive diagnostic observer; cannot replace candidate scores or selection. */
+export const SelectionObserver = Context.Reference<
+  (candidates: ReadonlyArray<unknown>, scores: ReadonlyArray<number>, bestIndex: number) => Effect.Effect<void>
+>("@scenesystems/effect-search/internal/tpe/SelectionObserver", { defaultValue: () => () => Effect.void })
 
 const indices = (count: number) =>
   Match.value(Num.isLessThanOrEqualTo(count, 0)).pipe(
@@ -38,7 +43,12 @@ export const chooseBestCandidate = <A>(
 
   const bestIndex = argmax(scores)
 
-  return Effect.fromOption(Arr.get(candidates, bestIndex), () => invalidConfig(reason))
+  return Effect.gen(function*() {
+    const candidate = yield* Effect.fromOption(Arr.get(candidates, bestIndex), () => invalidConfig(reason))
+    const observe = yield* SelectionObserver
+    yield* observe(candidates, scores, bestIndex)
+    return candidate
+  })
 }
 
 /**

@@ -157,20 +157,27 @@ export const make = <Config>(trials: Iterable<SearchTrial.Trial<Config>>, metada
   return new OptimizationSnapshot(deriveFields(metadata, persisted))
 }
 
-/** Decodes unknown snapshot input and recomputes derived diagnostics rather than trusting them. @since 0.7.0 @category decoding */
+const decodeFields = Schema.decodeUnknownEffect(Schema.toType(Schema.Struct(Fields)))
+
+const fromContents = (contents: typeof Contents.Type) =>
+  decodeFields(deriveFields(contents, contents.trials)).pipe(
+    Effect.map((fields) => new OptimizationSnapshot(fields))
+  )
+
+/** Decodes encoded snapshot input and recomputes derived diagnostics rather than trusting them. @since 0.7.0 @category decoding */
 export const decodeUnknown = (input: unknown) =>
   Schema.decodeUnknownEffect(Contents)(input).pipe(
-    Effect.flatMap((snapshot) => Schema.decodeEffect(OptimizationSnapshot)(deriveFields(snapshot, snapshot.trials)))
+    Effect.flatMap(fromContents)
   )
 
 const invalid = (reason: string) => new InvalidOptimizationConfig({ reason })
 
 const validated = (input: unknown): Effect.Effect<OptimizationSnapshot, InvalidOptimizationConfig> =>
   Effect.gen(function*() {
-    const persisted = yield* Schema.decodeUnknownEffect(OptimizationSnapshot)(input).pipe(
+    const persisted = yield* decodeFields(input).pipe(
       Effect.mapError(() => invalid("Optimization.resume snapshot payload decode failed"))
     )
-    const decoded = yield* decodeUnknown(persisted).pipe(
+    const decoded = yield* fromContents(persisted).pipe(
       Effect.mapError(() => invalid("Optimization.resume snapshot diagnostics are invalid"))
     )
     yield* Effect.when(
@@ -231,7 +238,7 @@ export const recover = (
           })
         )
     })
-    return yield* decodeUnknown({
+    return yield* fromContents({
       spaceFingerprint: checkpoint.spaceFingerprint,
       objectiveSpec: checkpoint.objectiveSpec,
       stopMode: checkpoint.stopMode,

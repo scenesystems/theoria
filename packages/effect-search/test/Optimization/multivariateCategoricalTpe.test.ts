@@ -4,6 +4,8 @@ import { Array as Arr, Effect, Equal, Match, Number as Num, Option, Schema } fro
 import * as Optimization from "../../src/Optimization.js"
 import * as Sampler from "../../src/Sampler.js"
 import * as SearchSpace from "../../src/SearchSpace.js"
+import { expectCoupledTrace, loadCoupledOptuna } from "../helpers/coupledOptuna.js"
+import { withGapAssertions } from "../helpers/selectionGaps.js"
 
 const instructionChoices = Arr.make("i0", "i1", "i2", "i3", "i4", "i5")
 const demoChoices = Arr.make("d0", "d1", "d2", "d3", "d4", "d5")
@@ -122,28 +124,29 @@ describe("integration multivariate categorical tpe optimization", () => {
       expect(result.choice).toBe("\ud800")
     }))
 
-  it.effect("models coupled categorical dimensions and beats seeded random search", () =>
+  it.effect("replays Optuna's coupled categorical TPE and random trial tables", () =>
     Effect.gen(function*() {
-      const seed = 211
-      const tpeOptimized = yield* runWith(
-        Sampler.tpe(
-          new Sampler.TpeOptions({
-            seed,
-            nStartupTrials: 8,
-            nEiCandidates: 80
-          })
-        )
-      )
-      const randomOptimized = yield* runWith(Sampler.random({ seed }))
-      const tpeOption = asSingleObjective(tpeOptimized)
-      const randomOption = asSingleObjective(randomOptimized)
-
-      expect(Option.isSome(tpeOption)).toBe(true)
-      expect(Option.isSome(randomOption)).toBe(true)
-      const tpe = yield* Effect.fromOption(tpeOption)
-      const random = yield* Effect.fromOption(randomOption)
-
-      expect(yield* isCoupledBestPair(tpe.bestTrial.config)).toBe(true)
-      expect(tpe.bestTrial.state.value).toBeLessThanOrEqual(random.bestTrial.state.value)
+      yield* Effect.forEach(yield* loadCoupledOptuna, (reference) =>
+        Effect.gen(function*() {
+          const sampler = Equal.equals(reference.sampler, "random")
+            ? Sampler.random({ seed: 211 })
+            : Sampler.tpe(
+              new Sampler.TpeOptions({
+                seed: 211,
+                multivariate: reference.multivariate,
+                nStartupTrials: 8,
+                nEiCandidates: 80
+              })
+            )
+          const result = yield* Effect.fromOption(asSingleObjective(
+            yield* withGapAssertions(
+              runWith(sampler),
+              reference.acquisitionGaps,
+              reference.strictThroughTrial
+            )
+          ))
+          expect(yield* isCoupledBestPair(result.bestTrial.config)).toBe(true)
+          expectCoupledTrace(result, reference)
+        }))
     }))
 })

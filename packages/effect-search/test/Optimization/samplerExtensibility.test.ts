@@ -20,7 +20,7 @@ const makeExtensionSampler = (seed: number): Sampler.Sampler =>
   new Sampler.Sampler({
     kind: Sampler.Random({ options: { seed } }),
     pendingImputationPolicy: pendingAsZeroPolicy,
-    checkpoint: Effect.succeed({ _tag: "Random", seed }),
+    checkpoint: Effect.succeed({ _tag: "Random", seed, rng: Option.none() }),
     restore: (checkpoint) =>
       Match.value(checkpoint).pipe(
         Match.tag("Random", ({ seed: checkpointSeed }) =>

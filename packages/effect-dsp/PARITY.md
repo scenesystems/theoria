@@ -43,7 +43,7 @@ caps, true shuffling, and caller immutability. stopAtScore uses a fraction in [0
 DSPy's percentage stop_at_score divided by 100.
 
 Wave 2.4 implements CPython-compatible integer-seeded MT19937 and sequence
-sampling in `internal/sampling`. `cpython-random-001` establishes bit-exact
+sampling, now housed in `effect-math/PseudoRandom`. `cpython-random-001` establishes bit-exact
 random(), getrandbits (including wide integers), rejection randbelow, randint,
 choice, shuffle, and both sample branches across zero, positive, large, and
 negative seeds. LabeledFewShot uses one seed-0 stream across predictors;
@@ -51,6 +51,50 @@ BootstrapFewShot labeled fill uses its own seed-0 stream. BootstrapRS uses two
 fresh streams per candidate (shuffle and cap), with independently seed-0 labeled
 sub-optimizers. `labeledfewshot-001` asserts exact identities/order for two
 predictors, and `bootstraprs-001` does so for every candidate.
+
+Wave 3.0b shares the MT19937 engine between CPython integer-array seeding and
+NumPy legacy uint32 seeding in effect-math. `numpy-random-001` verifies exact
+random_sample, batched rand/uniform, weighted replacement choice, seed bounds,
+probability acceptance boundaries, and near-normalized CDF renormalization.
+Both RNG fixtures live in effect-math; no DSP/search engine copy remains.
+`numeric.scalar-parity` verifies NumPy's pairwise sum at the eight-lane and
+128-element block boundaries. TPE uses that order for normalization/logsumexp,
+and Numeric.log/exp for categorical mixture scoring.
+
+Seeded TPE uses two independent NumPy streams: startup RandomSampler draws one
+uniform for each categorical choice and takes argmax; the model draws mixture
+components first, then each dimension's values in sorted search-space order.
+Independent sampling retains parameter declaration order. Singletons and the
+enqueued baseline draw nothing. Checkpoints persist both stream positions.
+`optuna-mipro-categorical-001` verifies the full original seed-9 trajectory,
+all 512 fixed-history draws seed-for-seed (joint total variation zero), and
+checkpoint continuations. Its unsorted-name/singleton cases verify exact
+prefixes: seeds 0/1/uint32-max, independent/multivariate, stop before the first
+inadmissible tie; seed-9 multivariate and seed-10 independent (startup=8) cover
+all 16 trials. The manifest records the deterministic 0..99 scan and rejected
+seeds. Numeric truncated-normal/integer seeded trajectories are not yet verified.
+
+Acquisition margins are diagnostic only: recorded at 12 decimal places, with
+the unrounded scores controlling upstream selection and classification.
+`identicalInputs` ties have bit-identical ordered categorical kernel inputs on
+both sides and are reproduced by first-index argmax. `coincidentalCancellation`
+and positive sub-ulp margins below 1e-9 are libm-sensitive; exact config/value
+assertions stop at each fixture's `strictThroughTrial`. Theoria's own margins
+must be zero for identical-input ties and positive otherwise within that prefix.
+The seed-211 coupled objective is exact through trial 8 for both TPE variants;
+trial 9 is coincidental cancellation. Its remaining upstream trace is observation
+only. Upstream TPE best 0.03 versus Random best 0.01 disproves the former
+competitiveness assertion. Random's full 24-trial trace remains exact, while
+local reproducibility and coupled-best-pair checks remain independent of it.
+
+Both locked verifiers regenerate upstream results and byte-compare payloads and
+hashes. Their existing `NPY_DISABLE_CPU_FEATURES=AVX2,FMA3,AVX512F` forces scalar
+dispatch even when CPU detection lists AVX512 variants. Without that setting,
+the coordinator's NumPy 1.26.4 probe found SVML/scalar differences on 51,004 of
+200,000 log inputs and 47,563 exp inputs; with it both counts were zero.
+Scalar reference bytes still depend on glibc libm, whose final bits are not
+guaranteed to equal Numeric.log/exp. The prefix boundary makes that limitation
+explicit rather than selecting a special tie policy or changing existing bytes.
 
 Wave 3.1 builds MIPRO demo catalogs through BootstrapFewShot and TeacherTrace,
 without instruction markers or label-only substitutes for teacher evidence.

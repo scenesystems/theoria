@@ -34,6 +34,7 @@ All code must be idiomatic Effect. See root `AGENTS.md` for the full banned-patt
 Approved exceptions:
 
 - Only the private `negativeZero` predicate in `src/internal/numeric/transcendental.ts` may use `Object.is(value, -0)` to distinguish signed zero. This does not authorize other native numerical operations.
+- Only `src/internal/pseudoRandom/mersenneTwister.ts` may use native uint32 bitwise operations and `Math.imul`, to preserve the CPython/NumPy MT19937 algorithm bit-exactly. Seeding integer handling and distribution algorithms use Effect utilities.
 - `src/Complex.ts` intentionally uses `Schema.Number` for IEEE-valued base models. The root Oxlint configuration disables only `effecttsgo/schema-number` for this file. Validated operation inputs still require finite values; do not broaden this exception to other modules.
 
 ## Flat Concern Architecture

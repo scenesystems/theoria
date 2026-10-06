@@ -5,7 +5,7 @@
  */
 import { Array as Arr, Equal, Match, Number as Num, Option } from "effect"
 
-import { logStrict } from "@scenesystems/effect-math/Numeric"
+import { log } from "@scenesystems/effect-math/Numeric"
 import type { Choice } from "../../Distribution.js"
 
 /**
@@ -34,6 +34,6 @@ export const logProbability = (
 
   return Match.value(Num.isLessThanOrEqualTo(probability, 0)).pipe(
     Match.when(true, () => Number.NEGATIVE_INFINITY),
-    Match.orElse(() => logStrict(probability))
+    Match.orElse(() => log(probability))
   )
 }
