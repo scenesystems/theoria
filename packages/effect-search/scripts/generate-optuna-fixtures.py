@@ -7,7 +7,11 @@ import hashlib
 import json
 import os
 import platform
+import sys
 from pathlib import Path
+
+if os.environ.get("PYTHONHASHSEED") != "0":
+    os.execve(sys.executable, [sys.executable, *sys.argv], {**os.environ, "PYTHONHASHSEED": "0"})
 
 # Use the same NumPy math path on orb and CI CPUs; SIMD dispatch changes last bits.
 os.environ["NPY_DISABLE_CPU_FEATURES"] = "AVX2,FMA3,AVX512F"
@@ -51,6 +55,7 @@ def run(check=False):
                             "sha256": hashlib.sha256(raw).hexdigest()})
     outputs[ROOT / "optuna/manifest.json"] = render({
         "upstream": upstream, "generator": "scripts/generate-optuna-fixtures.py",
+        "environment": {"PYTHONHASHSEED": "0"},
         "fixtures": sorted(entries, key=lambda entry: entry["name"]),
     }, sort_keys=True)
     kernel = mipro_kernel.generate()
@@ -58,7 +63,7 @@ def run(check=False):
     raw = render(kernel)
     outputs[ROOT / "optuna-mipro/categorical.json"] = raw
     outputs[ROOT / "optuna-mipro/manifest.json"] = render({
-        "upstream": upstream, "trajectorySelection": selection, "fixtures": [{
+        "upstream": upstream, "environment": {"PYTHONHASHSEED": "0"}, "trajectorySelection": selection, "fixtures": [{
             "id": "optuna-mipro-categorical-001", "file": "categorical.json",
             "evidence": "upstream-kernel", "sha256": hashlib.sha256(raw).hexdigest(),
             "generator": "scripts/fixtures/mipro_kernel.py",

@@ -180,6 +180,71 @@ Explicit nonpositive trial budgets evaluate only the baseline. Defaults come
 from the pinned constructor/compile signatures, including caps 4/4, seed 9,
 minibatch size 35 and full-evaluation interval 5.
 
+Wave 3.4 verifies GEPA's default three-example epoch-shuffled training batches,
+coverage-pruned per-instance winners, frequency-expanded parent choice, strict
+minibatch improvement, aggregate-best return, and complementary merges against
+GEPA 0.1.4. Defaults come from DSPy 3.4.0's GEPA signature, not gepa.api.optimize:
+auto is absent, exactly one budget is required, seed is 0, useMerge is true,
+maxMergeInvocations is 5, skipPerfectScore is true, addFormatFailureAsFeedback
+is false, selection is pareto/roundRobin, and failure/perfect scores are 0/1.
+Reflection uses trainset; seed and accepted-candidate selection use valset.
+An omitted or empty valset falls back to training. requireDistinctValset is a
+local opt-in overlap guard. maxFullEvals counts train plus explicitly supplied
+validation rows before fallback; auto uses the upstream budget formula.
+
+The orchestration CPython stream is shared by parent choice, epoch shuffling,
+and merge draws. A separate equally seeded adapter stream chooses one actual
+target-predictor execution for feedback, even for a singleton trace. The
+coverage kernel and shared-stream batch identities are asserted in
+`gepa-selection-001`; `gepa-001` asserts all rollout and targeted-feedback
+identities, proposals and returned instructions. Feedback calls do not consume
+the metric budget: the report exposes feedbackMetricCalls separately. The
+ledger includes seed/full validation, parent and child minibatches, and merge
+subsamples. Stop checks occur only at iteration boundaries:
+
+| Fixture                   | Budget | Final ledger | Feedback calls | Iterations | Outcome                        |
+| ------------------------- | -----: | -----------: | -------------: | ---------: | ------------------------------ |
+| `gepa-001`                |     30 |           38 |              9 |          3 | Three accepted mutations       |
+| `gepa-budget-001`         |      6 |            8 |              0 |          1 | Perfect batch skips reflection |
+| `gepa-merge-accepted-001` |     34 |           45 |              6 |          3 | Two mutations, accepted merge  |
+| `gepa-merge-rejected-001` |     34 |           38 |              6 |          3 | Two mutations, rejected merge  |
+
+The two merge engine fixtures use a scripted GEPAAdapter; feedback counts in
+those rows are Theoria's separately asserted adapter calls, not engine budget
+entries. Both concrete merge outcomes skip reflection for the entire iteration;
+only acceptance decrements mergesDue and increments acceptedMerges. Exact
+validation subsamples, candidates, parents, scores, ledger and return are tested.
+`gepa-merge-001` additionally checks common-ancestor eligibility, one tied
+instruction conflict, and balanced A/B/tie sampling in ascending validation-index
+order. The generator asserts CPython's ascending contiguous-int set intersection
+for the seven-row fixture. Local tests exercise triplet/description deduplication,
+all/custom component selection, score-only feedback, actual repeated execution
+targets, format-failure evidence, critic-only settings and interruption safety.
+
+Deliberate GEPA differences: predictor traversal and merge conflicts follow stable
+Module.Structure path order, not Python's insertion/string-set order. The fixtures
+align component order and contain at most one random tied conflict; multi-conflict
+identity is not claimed. Both upstream generators restart with PYTHONHASHSEED=0
+before importing upstream libraries and record it in manifests; this stabilizes
+recorded bytes without broadening the identity claim. Parse-failure feedback uses
+the real encoded input, raw response and native prompt structure; reflective
+prompts and schema payloads are language-native, not Python prompt bytes. Without
+a critic ModelBinder, reflection falls back to the task model with a warning,
+rather than requiring a separate reflection_lm. Supplied binders control roles
+and settings; no generation overrides are invented.
+
+GEPA.State deliberately provides stronger continuation than upstream run_dir:
+it persists both RNG streams, epoch state, component cursors, merge scheduler
+counters and deduplication records. JSON checkpoint/resume tests match an
+uninterrupted Theoria run exactly in candidates, scores, ledger, parameters and
+RNG state, including accepted and rejected merges. Upstream pickles state only;
+its external RNG, epoch sampler and merge scheduler are not saved. There is no
+claim of upstream restart-trajectory identity. The accepted-merge fixture also
+records a real upstream run_dir restart with no LM calls: stop at ledger 33,
+then resume with budget 34. Restart ends at 46 with a single-parent mutation
+and no merge; uninterrupted execution ends at 45 with parents [1, 2]. This is
+observational evidence, not a target for Theoria's continuation.
+
 Wave 1.1 binds effective generation settings and semantic roles to model requests.
 Independent transport tests cover provider field mappings, retained defaults, role
 fallback, and unsupported-setting failures before HTTP. Predictor tests cover
@@ -210,7 +275,7 @@ from the pinned installed distribution, not the website's rolling API reference.
 
 `test/fixtures/dspy/manifest.json` has one Schema and no format/generator version
 counter or compatibility path. `upstream-execution`
-means a real DSPy program/optimizer ran; `upstream-kernel` means a real upstream
+means a real DSPy/GEPA program or optimizer ran; `upstream-kernel` means a real upstream
 primitive ran. `local-regression` is reserved for future intentional Theoria-only
 behavior: **there are zero such entries in Wave 0**. The former 36 fixtures and
 their fixture-only consumers were removed, not promoted into upstream evidence.
@@ -240,22 +305,21 @@ delegate to the original methods and Evaluate; GEPA uses upstream callbacks.
 | `eval-failure-inclusive-001`                   | 1           | Resolved: the failure-inclusive denominator gives 0.5, matching DSPy.                                                                    |
 | `mipro-trial-budget-001`                       | 3           | Resolved: auto light executes 10 sampled trials plus the baseline, with exact trial identities.                                          |
 | `mipro-best-fullval-001`                       | 3           | Resolved: the full-validation best remains 0.8 despite minibatch peaks of 1 and their full-validation scores of 0.5.                     |
-| `gepa-aggregate-best-001`                      | 3           | The first frontier member is returned instead of the aggregate-best generalist.                                                          |
+| `gepa-aggregate-best-001`                      | 3           | Resolved: the aggregate-best generalist is returned, even outside the coverage-pruned parent set.                                        |
 | `optuna-mipro-categorical-001` (effect-search) | 3           | Resolved: mixture of product categorical kernels; fixed-history joint-distribution comparison passes its original total-variation bound. |
 
-The GEPA witness returns the specialist vector `[1, 0]` (mean 0.5) instead of the generalist
-`[0.8, 0.8]` (mean 0.8), an aggregate-score loss of 0.3.
+The GEPA witness now returns the generalist `[0.8, 0.8]` (mean 0.8), rather than
+the first frontier specialist `[1, 0]` (mean 0.5).
 
-One DSPy test still uses `it.effect.fails`; ordinary
-companion tests validate fixture decoding and execution preconditions. Flip
-these in the owning waves. The passing Optuna differential compares 512 independent seeded draws after
+All original DSPy and Optuna expected-failure discriminators now pass as ordinary
+tests. The passing Optuna differential compares 512 independent seeded draws after
 replaying a history with one failed trial; failed observations are omitted from
 fitting. The numerical corpus and MIPRO kernel share the Optuna 4.9.0
 generator and root lock with DSPy. CI's `fixtures-verify` job runs both locked
 checks; neither check accepts unowned corpus files.
 
-GEPA's minimal aggregate discriminator disables merges; callback recording
-supports merge events, but this fixture does not establish merge parity.
+GEPA's minimal aggregate discriminator disables merges; the separate merge kernel
+and engine fixtures establish the bounded merge claims described above.
 Teacher/student signatures must match including instructions, as required by
 DSPy's compiler. The TypeScript recorder records native provider options;
 settings/role/rollout capture uses the Wave 1 model-binding contract. There
@@ -332,7 +396,7 @@ promotes a DSPy optimizer API to `verified`.
 | `teleprompt.Teleprompter`                     | Optimizer-owned Options/run                                 | non-goal    | —                                                                                                                                                                                      | Python base-class hierarchy is not the target.                                                                                                                                                        |
 | `teleprompt.BootstrapFewShotWithOptuna`       | —                                                           | planned     | —                                                                                                                                                                                      | Legacy optimizer disposition, Wave 6.                                                                                                                                                                 |
 | `teleprompt.LabeledFewShot`                   | `LabeledFewShot`                                            | verified    | `labeledfewshot-001`, `cpython-random-001`                                                                                                                                             | Exact per-predictor demo identities/order from successive sample calls on one seed-0 stream; reset.                                                                                                   |
-| `teleprompt.GEPA`                             | `GEPA`                                                      | implemented | `gepa-aggregate-best-001`                                                                                                                                                              | Wave 3.                                                                                                                                                                                               |
+| `teleprompt.GEPA`                             | `GEPA`                                                      | verified    | `gepa-aggregate-best-001`, `gepa-001`, `gepa-budget-001`, `gepa-selection-001`, `gepa-merge-001`, `gepa-merge-accepted-001`, `gepa-merge-rejected-001`                                 | Exact selection, shared-stream batching, ledger and merge evidence; native prompts, stable component order and stronger resume documented above.                                                      |
 | `predict.majority`                            | `Ensemble` reducer                                          | implemented | `majority-001`                                                                                                                                                                         | Exact strings and first-observed tie only.                                                                                                                                                            |
 | `predict.BestOfN`                             | `Module.bestOfN`                                            | implemented | —                                                                                                                                                                                      | Local selection tests; upstream parity audit remains in Wave 4.                                                                                                                                       |
 | `predict.ChainOfThought`                      | `Module.chainOfThought`                                     | implemented | `predict-trace-001`                                                                                                                                                                    | Reasoning output and trace tested; not complete surface verification.                                                                                                                                 |

@@ -37,12 +37,6 @@ export const CandidateIndices = Schema.Array(Score.fields.value)
 /** @internal */
 export type CandidateIndices = typeof CandidateIndices.Type
 
-/** @internal */
-export const ParentPairIndices = Schema.Tuple([Schema.Finite, Schema.Finite])
-
-/** @internal */
-export type ParentPairIndices = typeof ParentPairIndices.Type
-
 /**
  * Two-gate mutation acceptance result. Gate 1 requires strict minibatch
  * improvement (`newSum > oldSum`). Gate 2 runs full-valset evaluation only
@@ -211,72 +205,3 @@ export const ProgramCandidates = Schema.Array(ProgramCandidate)
 
 /** @internal */
 export type ProgramCandidates = typeof ProgramCandidates.Type
-
-/**
- * Per-example score comparison between two parent candidates during
- * merge/crossover.
- *
- * @since 0.1.0
- * @category models
- */
-export class MergeComparison extends Schema.Class<MergeComparison>(
-  "@scenesystems/effect-dsp/internal/gepa/model/MergeComparison"
-)({
-  exampleId: Schema.String,
-  parentAScore: Score.fields.value,
-  parentBScore: Score.fields.value
-}) {}
-
-/** @internal */
-export const MergeComparisons = Schema.Array(MergeComparison)
-
-/** @internal */
-export type MergeComparisons = typeof MergeComparisons.Type
-
-/**
- * Bucket classification for balanced merge subsampling — determines whether
- * parent A, parent B, or neither dominates each example.
- *
- * @since 0.1.0
- * @category schemas
- */
-export const MergeComparisonBucket = Schema.Literals(["parent-a-better", "parent-b-better", "tie"])
-
-/**
- * Bucket classification for balanced merge subsampling — determines whether
- * parent A, parent B, or neither dominates each example.
- *
- * @since 0.1.0
- * @category models
- */
-export type MergeComparisonBucket = typeof MergeComparisonBucket.Type
-
-/**
- * Mutable merge phase state — tracks accepted candidates and remaining
- * merge budget.
- *
- * @since 0.1.0
- * @category models
- */
-export class MergeState extends Schema.Class<MergeState>("@scenesystems/effect-dsp/internal/gepa/model/MergeState")({
-  candidates: ProgramCandidates,
-  mergeBudgetRemaining: Schema.Finite
-}) {}
-
-/**
- * Full GEPA optimizer state persisted in a `Ref` during orchestration —
- * iteration count, candidate population, score matrix, Pareto snapshot,
- * merge budget, and deterministic seed.
- *
- * @since 0.1.0
- * @category models
- */
-export class GEPAState extends Schema.Class<GEPAState>("@scenesystems/effect-dsp/internal/gepa/model/GEPAState")({
-  iteration: Schema.Finite,
-  candidates: ProgramCandidates,
-  scoreVectors: CandidateScoreMatrix,
-  paretoSnapshot: ParetoKernelSnapshot,
-  mergeBudgetRemaining: Schema.Finite,
-  lastIterationFoundNew: Schema.Boolean,
-  seed: Schema.Finite
-}) {}

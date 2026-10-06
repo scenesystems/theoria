@@ -9,12 +9,14 @@ import * as Metric from "@scenesystems/effect-dsp/Metric"
 import * as MockLanguageModel from "@scenesystems/effect-dsp/MockLanguageModel"
 import * as Module from "@scenesystems/effect-dsp/Module"
 import { decode as decodePayload } from "@scenesystems/effect-dsp/Payload"
+import * as Predictor from "@scenesystems/effect-dsp/Predictor"
 import * as Signature from "@scenesystems/effect-dsp/Signature"
 import * as TeacherTrace from "@scenesystems/effect-dsp/TeacherTrace"
-import { Array as Arr, Effect, Number, Option, Record, Ref, Schema } from "effect"
+import * as PseudoRandom from "@scenesystems/effect-math/PseudoRandom"
+import { Array as Arr, Chunk, Effect, Number, Option, Record, Ref, Schema } from "effect"
 import * as LanguageModel from "effect/ai/LanguageModel"
 import { PredictorInstruction, ProgramCandidate } from "../../src/internal/gepa/model.js"
-import { evaluateCandidate } from "../../src/internal/gepa/runtime/evaluate.js"
+import { evaluateCandidate, reflectiveSamples } from "../../src/internal/gepa/runtime/evaluate.js"
 
 const Input = Schema.Struct({ seed: Schema.FiniteFromString })
 const Output = Schema.Struct({ result: Schema.Struct({ count: Schema.FiniteFromString }) })
@@ -94,14 +96,21 @@ describe("optimizer schema-derived metric values", () => {
       const module = yield* makeModule
       const original = yield* Ref.get(module.parameters)
       const mock = yield* MockLanguageModel.make(MockLanguageModel.succeed({ result: { count: "7" } }))
-      const evaluation = yield* evaluateCandidate(
-        new GEPA.Options({ module, trainset: Arr.make(example), metric, maxIterations: 0 }),
-        candidate
-      ).pipe(
+      const options = new GEPA.Options({ module, trainset: Arr.make(example), metric, maxMetricCalls: 1 })
+      const evaluation = yield* evaluateCandidate(options, candidate, options.trainset, "search").pipe(
         Effect.provideService(LanguageModel.LanguageModel, mock.service)
       )
       expect(evaluation.scores).toEqual(Arr.make(4))
-      const sample = Option.getOrThrow(Arr.head(evaluation.samples))
+      const reflection = yield* reflectiveSamples(
+        options,
+        evaluation.rows,
+        Chunk.of(Predictor.Path.make("counter")),
+        yield* PseudoRandom.makeCPython(0)
+      )
+      expect(reflection.feedbackCalls).toBe(1)
+      const sample = yield* Effect.fromOption(
+        Option.flatMap(Record.get(reflection.examples, "counter"), Arr.head)
+      )
       expect(yield* decodePayload(Schema.toEncoded(Input), sample.inputs)).toEqual({ seed: "4" })
       expect(yield* decodePayload(Schema.toEncoded(Output), sample.generatedOutputs)).toEqual({
         result: { count: "7" }
@@ -110,19 +119,25 @@ describe("optimizer schema-derived metric values", () => {
       expect(yield* Ref.get(module.parameters)).toEqual(original)
     }))
 
-  it.effect("preserves GEPA parameters when the scorer rejects raw labels", () =>
+  it.effect("scores the scorer's raw-label rejection as failureScore and preserves GEPA parameters", () =>
     Effect.gen(function*() {
       const module = yield* makeModule
       const original = yield* Ref.get(module.parameters)
       const mock = yield* MockLanguageModel.make(MockLanguageModel.succeed({ result: { count: "7" } }))
-      const failure = yield* evaluateCandidate(
-        new GEPA.Options({ module, trainset: Arr.make(invalidExample), metric, maxIterations: 0 }),
-        candidate
-      ).pipe(
-        Effect.provideService(LanguageModel.LanguageModel, mock.service),
-        Effect.flip
+      const options = new GEPA.Options({
+        module,
+        trainset: Arr.make(invalidExample),
+        metric,
+        maxMetricCalls: 1,
+        failureScore: -1
+      })
+      const evaluation = yield* evaluateCandidate(options, candidate, options.trainset, "search").pipe(
+        Effect.provideService(LanguageModel.LanguageModel, mock.service)
       )
-      expect(failure).toBeInstanceOf(Schema.SchemaError)
+      const row = yield* Effect.fromOption(Arr.head(evaluation.rows))
+      expect(evaluation.scores).toEqual(Arr.make(-1))
+      expect(Option.isSome(row.failure)).toBe(true)
+      expect(Option.isNone(row.prediction)).toBe(true)
       expect(Arr.length(yield* Ref.get(mock.calls))).toBe(1)
       expect(yield* Ref.get(module.parameters)).toEqual(original)
     }))

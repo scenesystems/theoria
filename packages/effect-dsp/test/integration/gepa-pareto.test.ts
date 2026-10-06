@@ -92,7 +92,7 @@ describe("GEPA integration", () => {
               (text) =>
                 Bool.and(
                   Str.includes("Your task is to write a new instruction")(text),
-                  Str.includes("Target predictor: child-drafter")(text)
+                  Str.includes("Target predictor: composed-qa.child")(text)
                 ),
               () =>
                 Effect.succeed(
@@ -132,6 +132,7 @@ describe("GEPA integration", () => {
             })
           ),
           metric: Metric.exactMatch("answer"),
+          maxMetricCalls: 10,
           maxIterations: 2,
           seed: 42
         }),
@@ -146,13 +147,12 @@ describe("GEPA integration", () => {
       const childReflection = yield* Effect.fromOption(
         yield* Ref.get(composedMock.calls).pipe(
           Effect.map((calls) =>
-            Arr.findFirst(calls, (call) => Str.includes("Target predictor: child-drafter")(call.prompt))
+            Arr.findFirst(calls, (call) => Str.includes("Target predictor: composed-qa.child")(call.prompt))
           )
         )
       )
-      expect(Arr.map(mutationEvents, (event) => event.predictorName)).toEqual(
-        Arr.make("child-drafter", "child-drafter")
-      )
+      // skipPerfectScore defaults to true: the accepted child scores 1 in iteration 2, so no second proposal.
+      expect(Arr.map(mutationEvents, (event) => event.predictorName)).toEqual(Arr.make("composed-qa.child"))
       expect(childParameters.instructions).toBe(improvedChildInstruction)
       expect(yield* Ref.get(child.parameters)).toBe(initialChildParameters)
       expect(rootParameters).toEqual(initialRootParameters)
@@ -215,6 +215,7 @@ describe("GEPA integration", () => {
                 })
               ),
               metric: feedbackMetric,
+              maxMetricCalls: 30,
               maxIterations: 3,
               seed
             })

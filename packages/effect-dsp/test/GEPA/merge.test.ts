@@ -1,226 +1,86 @@
-/**
- * GEPA merge and crossover contracts.
- */
-import { describe, expect, it } from "@effect/vitest"
-import { Array as Arr, Boolean as Bool, Effect, Option, String as Str } from "effect"
-import {
-  findNearestCommonAncestor,
-  prepareCommonAncestorMerge,
-  recordAcceptedMerge,
-  selectBalancedMergeSubsample
-} from "../../src/internal/gepa/merge.js"
-import { MergeComparison, MergeState, PredictorInstruction, ProgramCandidate } from "../../src/internal/gepa/model.js"
+import { expect, it } from "@effect/vitest"
+import * as PseudoRandom from "@scenesystems/effect-math/PseudoRandom"
+import { Array as Arr, Effect, Option, Record, Schema, Tuple } from "effect"
+import { prepareMerge, selectMergeSubsample } from "../../src/internal/gepa/merge.js"
+import { PredictorInstruction, ProgramCandidate } from "../../src/internal/gepa/model.js"
+import { fixture } from "../kit/Fixtures.js"
 
-const makePredictorInstructions = (qa: string, judge: string): ReadonlyArray<PredictorInstruction> =>
-  Arr.make(
-    new PredictorInstruction({ predictorName: "qa", instruction: qa }),
-    new PredictorInstruction({ predictorName: "judge", instruction: judge })
-  )
-
-const makeCandidate = (options: {
-  readonly id: string
-  readonly parentIds?: ReadonlyArray<string>
-  readonly qa: string
-  readonly judge: string
-}): ProgramCandidate =>
-  new ProgramCandidate({
-    candidateId: options.id,
-    parentIds: Option.getOrElse(Option.fromNullishOr(options.parentIds), Arr.empty<string>),
-    predictorInstructions: makePredictorInstructions(options.qa, options.judge)
-  })
-
-const findInstruction = (
-  candidate: ProgramCandidate,
-  predictorName: string
-): Option.Option<string> =>
-  Arr.findFirst(
-    candidate.predictorInstructions,
-    (entry) => Str.Equivalence(entry.predictorName, predictorName)
-  ).pipe(Option.map((entry) => entry.instruction))
-
-describe("GEPA merge/crossover", () => {
-  it.effect("skips merge with an explicit event when no common ancestor exists", () =>
-    Effect.gen(function*() {
-      const candidates = Arr.make(
-        makeCandidate({ id: "root-a", qa: "root-a", judge: "root-a" }),
-        makeCandidate({ id: "a1", parentIds: Arr.make("root-a"), qa: "a1", judge: "a1" }),
-        makeCandidate({ id: "root-b", qa: "root-b", judge: "root-b" }),
-        makeCandidate({ id: "b1", parentIds: Arr.make("root-b"), qa: "b1", judge: "b1" })
-      )
-
-      const preparation = prepareCommonAncestorMerge({
-        candidates,
-        parentAId: "a1",
-        parentBId: "b1",
-        parentAScore: 0.6,
-        parentBScore: 0.5,
-        mergedCandidateId: "merge-ab",
-        comparisons: Arr.empty<MergeComparison>(),
-        mergeBudgetRemaining: 3,
-        seed: 11
-      })
-
-      expect(preparation.event._tag).toBe("MergeSkippedNoCommonAncestor")
-      expect(preparation.candidate).toEqual(Option.none())
-      expect(preparation.subsample).toEqual(Arr.empty())
-    }))
-
-  it.effect("selects the nearest discoverable common ancestor across branched lineage", () =>
-    Effect.gen(function*() {
-      const candidates = Arr.make(
-        makeCandidate({ id: "root", qa: "root", judge: "root" }),
-        makeCandidate({ id: "distant", parentIds: Arr.make("root"), qa: "distant", judge: "distant" }),
-        makeCandidate({ id: "close", parentIds: Arr.make("root"), qa: "close", judge: "close" }),
-        makeCandidate({ id: "branch-a", parentIds: Arr.make("distant"), qa: "branch-a", judge: "branch-a" }),
-        makeCandidate({
-          id: "parent-a",
-          parentIds: Arr.make("branch-a", "close"),
-          qa: "qa-parent-a",
-          judge: "judge-parent-a"
-        }),
-        makeCandidate({ id: "parent-b", parentIds: Arr.make("close"), qa: "qa-parent-b", judge: "judge-parent-b" })
-      )
-
-      const nearest = findNearestCommonAncestor(candidates, "parent-a", "parent-b")
-      const preparation = prepareCommonAncestorMerge({
-        candidates,
-        parentAId: "parent-a",
-        parentBId: "parent-b",
-        parentAScore: 0.7,
-        parentBScore: 0.6,
-        mergedCandidateId: "merged-close",
-        comparisons: Arr.empty<MergeComparison>(),
-        mergeBudgetRemaining: 4,
-        seed: 19
-      })
-
-      expect(nearest).toEqual(Option.some("close"))
-      expect(preparation.event).toEqual({
-        _tag: "MergePrepared",
-        parentAId: "parent-a",
-        parentBId: "parent-b",
-        commonAncestorId: "close"
-      })
-    }))
-
-  it.effect("selects a deterministic balanced subsample of exactly five examples with fallback policy", () =>
-    Effect.gen(function*() {
-      const comparisons = Arr.make(
-        new MergeComparison({ exampleId: "e-1", parentAScore: 0.9, parentBScore: 0.1 }),
-        new MergeComparison({ exampleId: "e-2", parentAScore: 0.8, parentBScore: 0.2 }),
-        new MergeComparison({ exampleId: "e-3", parentAScore: 0.7, parentBScore: 0.3 }),
-        new MergeComparison({ exampleId: "e-4", parentAScore: 0.6, parentBScore: 0.4 }),
-        new MergeComparison({ exampleId: "e-5", parentAScore: 0.55, parentBScore: 0.45 }),
-        new MergeComparison({ exampleId: "e-6", parentAScore: 0.65, parentBScore: 0.35 }),
-        new MergeComparison({ exampleId: "e-7", parentAScore: 0.2, parentBScore: 0.8 }),
-        new MergeComparison({ exampleId: "e-8", parentAScore: 0.5, parentBScore: 0.5 })
-      )
-
-      const selectedA = selectBalancedMergeSubsample(comparisons, 42)
-      const selectedB = selectBalancedMergeSubsample(comparisons, 42)
-      const selectedIds = Arr.map(selectedA, (entry) => entry.exampleId)
-      const uniqueIds = Arr.reduce(
-        selectedIds,
-        Arr.empty<string>(),
-        (acc, id) =>
-          Bool.match(Arr.some(acc, (knownId) => Str.Equivalence(knownId, id)), {
-            onFalse: () => Arr.append(acc, id),
-            onTrue: () => acc
-          })
-      )
-
-      expect(Arr.length(selectedA)).toBe(5)
-      expect(selectedA).toEqual(selectedB)
-      expect(Arr.length(uniqueIds)).toBe(Arr.length(selectedA))
-      expect(Arr.some(selectedA, (entry) => Str.Equivalence(entry.exampleId, "e-7"))).toBe(true)
-      expect(Arr.some(selectedA, (entry) => Str.Equivalence(entry.exampleId, "e-8"))).toBe(true)
-    }))
-
-  it.effect("uses the better parent while preserving parent A on ties", () =>
-    Effect.sync(() => {
-      const ancestor = makeCandidate({ id: "root", qa: "root", judge: "root" })
-      const parentA = makeCandidate({ id: "parent-a", parentIds: Arr.make("root"), qa: "from-a", judge: "root" })
-      const parentB = makeCandidate({ id: "parent-b", parentIds: Arr.make("root"), qa: "from-b", judge: "root" })
-      const candidates = Arr.make(ancestor, parentA, parentB)
-      const prepare = (parentAScore: number, parentBScore: number) =>
-        prepareCommonAncestorMerge({
-          candidates,
-          parentAId: "parent-a",
-          parentBId: "parent-b",
-          parentAScore,
-          parentBScore,
-          mergedCandidateId: "merged",
-          comparisons: Arr.empty<MergeComparison>(),
-          mergeBudgetRemaining: 1,
-          seed: 1
-        })
-      const instruction = (parentAScore: number, parentBScore: number) =>
-        prepare(parentAScore, parentBScore).candidate.pipe(
-          Option.flatMap((candidate) => findInstruction(candidate, "qa"))
-        )
-
-      expect(instruction(0.3, 0.7)).toEqual(Option.some("from-b"))
-      expect(instruction(0.7, 0.3)).toEqual(Option.some("from-a"))
-      expect(instruction(1, 1)).toEqual(Option.some("from-a"))
-    }))
-
-  it.effect("records lineage and decrements merge budget when merge is accepted", () =>
-    Effect.gen(function*() {
-      const seed = makeCandidate({ id: "seed", qa: "qa-seed", judge: "judge-seed" })
-      const parentA = makeCandidate({
-        id: "parent-a",
-        parentIds: Arr.make("seed"),
-        qa: "qa-from-a",
-        judge: "judge-seed"
-      })
-      const parentB = makeCandidate({
-        id: "parent-b",
-        parentIds: Arr.make("seed"),
-        qa: "qa-seed",
-        judge: "judge-from-b"
-      })
-      const pool = Arr.make(seed, parentA, parentB)
-      const preparation = prepareCommonAncestorMerge({
-        candidates: pool,
-        parentAId: "parent-a",
-        parentBId: "parent-b",
-        parentAScore: 0.8,
-        parentBScore: 0.7,
-        mergedCandidateId: "merged-1",
-        comparisons: Arr.make(
-          new MergeComparison({ exampleId: "e-1", parentAScore: 0.9, parentBScore: 0.2 }),
-          new MergeComparison({ exampleId: "e-2", parentAScore: 0.8, parentBScore: 0.3 }),
-          new MergeComparison({ exampleId: "e-3", parentAScore: 0.7, parentBScore: 0.4 }),
-          new MergeComparison({ exampleId: "e-4", parentAScore: 0.1, parentBScore: 0.9 }),
-          new MergeComparison({ exampleId: "e-5", parentAScore: 0.5, parentBScore: 0.5 }),
-          new MergeComparison({ exampleId: "e-6", parentAScore: 0.6, parentBScore: 0.4 })
-        ),
-        mergeBudgetRemaining: 2,
-        seed: 7
-      })
-
-      expect(preparation.event._tag).toBe("MergePrepared")
-      expect(Option.isSome(preparation.candidate)).toBe(true)
-
-      const acceptedCandidate = Option.getOrElse(
-        preparation.candidate,
-        () => makeCandidate({ id: "unreachable", qa: "unreachable", judge: "unreachable" })
-      )
-      const updatedState = recordAcceptedMerge(
-        new MergeState({
-          candidates: pool,
-          mergeBudgetRemaining: 2
-        }),
-        acceptedCandidate
-      )
-
-      expect(findInstruction(acceptedCandidate, "qa")).toEqual(Option.some("qa-from-a"))
-      expect(findInstruction(acceptedCandidate, "judge")).toEqual(Option.some("judge-from-b"))
-      expect(acceptedCandidate.parentIds).toEqual(Arr.make("parent-a", "parent-b"))
-      expect(updatedState.mergeBudgetRemaining).toBe(1)
-      expect(Arr.length(updatedState.candidates)).toBe(4)
-      expect(Arr.last(updatedState.candidates).pipe(Option.map((candidate) => candidate.candidateId))).toEqual(
-        Option.some("merged-1")
-      )
-    }))
+const Instructions = Schema.Record(Schema.String, Schema.String)
+const Reference = Schema.Struct({
+  seed: Schema.Int,
+  validationOrder: Schema.Array(Schema.Int),
+  buckets: Schema.Array(Schema.Array(Schema.Int)),
+  cases: Schema.Array(Schema.Struct({
+    name: Schema.String,
+    programs: Schema.Array(Instructions),
+    parents: Schema.Array(Schema.Array(Schema.OptionFromNullOr(Schema.Int))),
+    scores: Schema.Array(Schema.Finite),
+    hasSupport: Schema.Boolean,
+    merged: Schema.OptionFromNullOr(Schema.Tuple([Instructions, Schema.Int, Schema.Int, Schema.Int])),
+    subsample: Schema.Array(Schema.Int),
+    nextRandom: Schema.Finite
+  }))
 })
+
+it.effect("common-ancestor eligibility, tied conflicts and balanced samples follow the shared upstream stream", () =>
+  Effect.gen(function*() {
+    const reference = yield* Schema.decodeUnknownEffect(Reference)(
+      (yield* fixture("gepa-merge-001", "upstream-kernel")).payload
+    )
+    const left = [0.9, 0.8, 0.7, 0.6, 0.2, 0.5, 0.5], right = [0.1, 0.2, 0.3, 0.4, 0.8, 0.5, 0.5]
+    const ids = Arr.range(0, left.length - 1)
+    expect(ids).toEqual(reference.validationOrder)
+    expect([
+      Arr.filter(ids, (i) => Option.getOrThrow(Arr.get(left, i)) > Option.getOrThrow(Arr.get(right, i))),
+      Arr.filter(ids, (i) => Option.getOrThrow(Arr.get(right, i)) > Option.getOrThrow(Arr.get(left, i))),
+      Arr.filter(ids, (i) => Option.getOrThrow(Arr.get(left, i)) === Option.getOrThrow(Arr.get(right, i)))
+    ]).toEqual(reference.buckets)
+    yield* Effect.forEach(reference.cases, (entry) =>
+      Effect.gen(function*() {
+        const rng = yield* PseudoRandom.makeCPython(reference.seed)
+        const candidates = Arr.map(entry.programs, (instructions, index) =>
+          new ProgramCandidate({
+            candidateId: `candidate-${index}`,
+            parentIds: Arr.map(
+              Arr.getSomes(Option.getOrThrow(Arr.get(entry.parents, index))),
+              (parent) => `candidate-${parent}`
+            ),
+            predictorInstructions: Arr.map(
+              Record.toEntries(instructions),
+              ([predictorName, instruction]) => new PredictorInstruction({ predictorName, instruction })
+            )
+          }))
+        const proposal = yield* prepareMerge(candidates, entry.scores, [1, 2], [], [], entry.hasSupport, rng)
+        expect(
+          Option.map(proposal, (value) =>
+            Tuple.make(
+              Record.fromEntries(
+                Arr.map(
+                  value.candidate.predictorInstructions,
+                  (instruction) => Tuple.make(instruction.predictorName, instruction.instruction)
+                )
+              ),
+              value.parents[0],
+              value.parents[1],
+              value.ancestor
+            )),
+          entry.name
+        ).toEqual(entry.merged)
+        if (Option.isSome(proposal)) {
+          const batch = yield* selectMergeSubsample(left, right, rng)
+          expect(batch, entry.name).toEqual(entry.subsample)
+        }
+        expect(yield* rng.random(), entry.name).toBe(entry.nextRandom)
+        if (Option.isSome(proposal)) {
+          const { parents: [i, j], ancestor, description } = proposal.value
+          expect(yield* prepareMerge(candidates, entry.scores, [1, 2], [[i, j, ancestor]], [], true, rng)).toEqual(
+            Option.none()
+          )
+          if (entry.name === "complementary") {
+            expect(yield* prepareMerge(candidates, entry.scores, [1, 2], [], [[i, j, description]], true, rng)).toEqual(
+              Option.none()
+            )
+          }
+        }
+      }))
+  }))

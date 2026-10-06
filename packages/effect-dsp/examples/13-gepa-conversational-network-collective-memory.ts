@@ -463,6 +463,7 @@ const program = Effect.gen(function*() {
 
   yield* logExampleStage("gepa-stream-started", {
     trainExampleCount: Arr.length(trainset),
+    maxFullEvals: 6,
     maxIterations: 4,
     maxMergeInvocations: 4,
     seed: 41
@@ -475,6 +476,7 @@ const program = Effect.gen(function*() {
       trainset,
       valset: evalset,
       metric: protocolMetric,
+      maxFullEvals: 6,
       maxIterations: 4,
       maxMergeInvocations: 4,
       seed: 41
@@ -529,6 +531,7 @@ const program = Effect.gen(function*() {
     },
     seed: 41,
     optimizationConfig: {
+      maxFullEvals: 6,
       maxIterations: 4,
       maxMergeInvocations: 4,
       seed: 41

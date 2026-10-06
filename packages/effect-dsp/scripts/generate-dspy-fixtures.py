@@ -5,7 +5,13 @@ import argparse
 import difflib
 import logging
 import os
+import sys
 from pathlib import Path
+
+# String-set iteration is process-seeded, so this must precede interpreter startup.
+# runpy verification retains the verifier's argv and therefore reexecutes it too.
+if os.environ.get("PYTHONHASHSEED") != "0":
+    os.execve(sys.executable, [sys.executable, *sys.argv], {**os.environ, "PYTHONHASHSEED": "0"})
 
 # MIPRO uses NumPy-backed Optuna scoring; CPU dispatch can change tied selections.
 os.environ["NPY_DISABLE_CPU_FEATURES"] = "AVX2,FMA3,AVX512F"
@@ -41,7 +47,7 @@ def run(check=False):
     actual_paths = {str(path.relative_to(ROOT)) for path in ROOT.rglob("*.json")}
     if actual_paths - expected_paths:
         raise ValueError(f"Unowned fixture files: {actual_paths - expected_paths}")
-    manifest = render({"upstream": runtime,
+    manifest = render({"upstream": runtime, "environment": {"PYTHONHASHSEED": "0", "NPY_DISABLE_CPU_FEATURES": "AVX2,FMA3,AVX512F"},
                        "fixtures": sorted(entries, key=lambda e: e["id"])})
     if check:
         if manifest_path.read_bytes() != manifest:

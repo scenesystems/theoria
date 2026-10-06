@@ -695,6 +695,7 @@ const program = Effect.gen(function*() {
   // Evolve planner instructions with GEPA.
   yield* logExampleStage("gepa-stream-started", {
     trainExampleCount: Arr.length(trainset),
+    maxFullEvals: 6,
     maxIterations: 4,
     maxMergeInvocations: 4,
     seed: 140
@@ -707,6 +708,7 @@ const program = Effect.gen(function*() {
       trainset,
       valset: evalset,
       metric: protocolMetric,
+      maxFullEvals: 6,
       maxIterations: 4,
       maxMergeInvocations: 4,
       seed: 140

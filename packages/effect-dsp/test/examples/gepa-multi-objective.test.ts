@@ -94,6 +94,7 @@ const runGepaMultiObjective = Effect.gen(function*() {
       module,
       trainset,
       metric: feedbackMetric,
+      maxMetricCalls: 30,
       maxIterations: 3,
       seed: 42
     }),

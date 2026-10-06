@@ -3,9 +3,10 @@
  */
 import { describe, expect, it } from "@effect/vitest"
 import * as Numeric from "@scenesystems/effect-math/Numeric"
+import * as PseudoRandom from "@scenesystems/effect-math/PseudoRandom"
 import { Arbitrary, Array as Arr, Effect, Number as Num, Schema } from "effect"
 import { ParentSelectionWeight } from "../../src/internal/gepa/model.js"
-import { sampleWeightedParents } from "../../src/internal/gepa/sampling.js"
+import { selectParent } from "../../src/internal/gepa/sampling.js"
 
 const weightVectorArbitrary = Arbitrary.array(
   Arbitrary.schema(Schema.Int.check(Schema.isBetween({ minimum: 1, maximum: 10 }))),
@@ -23,9 +24,10 @@ describe("GEPA selection proportionality", () => {
     "tracks frontier-holding weights within ±2% over 10,000 seeded draws",
     [weightVectorArbitrary],
     ([weightVector]) =>
-      Effect.sync(() => {
+      Effect.gen(function*() {
         const weights = toParentSelectionWeights(weightVector)
-        const draws = sampleWeightedParents(weights, 10000, 42)
+        const rng = yield* PseudoRandom.makeCPython(42)
+        const draws = yield* Effect.forEach(Arr.range(1, 10000), () => selectParent(weights, rng))
         const totalWeight = Arr.reduce(weights, 0, (sum, weight) => Num.sum(sum, weight.weight))
         const sampleCount = Arr.length(draws)
         const withinTolerance = Arr.every(weights, (weight) => {

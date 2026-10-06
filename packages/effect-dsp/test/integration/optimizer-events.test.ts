@@ -29,7 +29,7 @@ describe("integration/optimizer events", () => {
       expect(yield* Payload.decode(GEPA.Event, gepaEnvelope.payload)).toEqual(gepa)
       expect(
         yield* Schema.decodeEffect(OptimizerEvent.OptimizerEvent)(
-          OptimizerEvent.events.GEPA({ event: gepa })
+          yield* Schema.encodeEffect(OptimizerEvent.OptimizerEvent)(OptimizerEvent.events.GEPA({ event: gepa }))
         )
       ).toEqual({ _tag: "GEPA", event: gepa })
     }))

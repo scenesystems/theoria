@@ -62,6 +62,7 @@ const Checkpoint = Schema.Struct({
 })
 const Gepa = Schema.Struct({
   seed: Schema.Int,
+  maxMetricCalls: Schema.Int,
   splits: Splits,
   state: Schema.Struct({ signature: Schema.Struct({ instructions: Schema.String }) })
 })
@@ -215,8 +216,11 @@ const gepa = Effect.gen(function*() {
   const optimized = yield* GEPA.runWithEvents(
     new GEPA.Options({
       module,
-      trainset: examples(reference.splits.val),
-      maxIterations: 1,
+      trainset: examples(reference.splits.train),
+      valset: examples(reference.splits.val),
+      maxMetricCalls: reference.maxMetricCalls,
+      reflectionMinibatchSize: 2,
+      skipPerfectScore: false,
       seed: reference.seed,
       metric: Metric.fromSync((expected, prediction) =>
         Match.value(prediction.answer).pipe(
@@ -246,7 +250,7 @@ it.effect("GEPA discriminator admits the generalist candidate", () =>
   Effect.gen(function*() {
     expect((yield* gepa).accepted).toBe(true)
   }))
-it.effect.fails("gepa-aggregate-best-001: return aggregate best, not first frontier entry (Wave 3)", () =>
+it.effect("gepa-aggregate-best-001: return aggregate best, not first frontier entry (Wave 3)", () =>
   Effect.gen(function*() {
     const result = yield* gepa
     expect(result.actual).toBe(result.expected)

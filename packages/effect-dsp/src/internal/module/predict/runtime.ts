@@ -8,8 +8,9 @@
 import * as ModelBinder from "@scenesystems/effect-lm/ModelBinder"
 import * as ModelSettings from "@scenesystems/effect-lm/ModelSettings"
 import type { Schema } from "effect"
-import { Array as Arr, Clock, Data, Effect } from "effect"
+import { Array as Arr, Clock, Data, Effect, Struct } from "effect"
 import type { Ref } from "effect"
+import { ParseOutputError } from "../../../DspError.js"
 import type { Module } from "../../../Module.js"
 import type { PredictOptions, PredictPolicy } from "../../../Module.js"
 import { type ModuleParameters, settings } from "../../../ModuleParameters.js"
@@ -17,12 +18,14 @@ import { type Signature, Text } from "../../../Signature.js"
 import { RolloutRef } from "../../cache/rollout.js"
 import { CurrentRole } from "../../modelRole.js"
 import { path, read } from "../../parameterBinding.js"
+import { buildPrompt } from "../../prompt/render.js"
+import { promptToTraceText } from "../../prompt/trace.js"
 import { executionId } from "../../trace/attempts.js"
 import { registerRuntime, RuntimeRegistrationOptions } from "../discovery/registry.js"
 import { cached } from "./cache.js"
 import { ForwardOptions } from "./model.js"
 import { runForward } from "./strategy.js"
-import { appendTraceEntry, TraceOptions } from "./trace.js"
+import { appendTraceEntry, PayloadOptions, TraceOptions, tracePayloadFromEncoded } from "./trace.js"
 
 /** @internal */
 export class RuntimeOptions<I extends Schema.Struct.Fields, O extends Schema.Struct.Fields> extends Data.Class<{
@@ -80,7 +83,29 @@ export const makeForward = <
       const enabled = options.invocation.cache !== "never"
       const execution = yield* (enabled
         ? cached(forward, request, yield* path(options.parametersRef, options.moduleName), compute)
-        : compute).pipe(ModelBinder.bind(request))
+        : compute).pipe(
+          ModelBinder.bind(request),
+          Effect.catchTag("ParseOutputError", (error) =>
+            Effect.gen(function*() {
+              return yield* new ParseOutputError(Struct.assign(error, {
+                message: error.message,
+                context: {
+                  predictorPath: yield* path(options.parametersRef, options.moduleName),
+                  input: yield* tracePayloadFromEncoded(
+                    new PayloadOptions({
+                      moduleName: options.moduleName,
+                      carrier: "input",
+                      schema: options.inputSchema,
+                      value: input
+                    })
+                  ),
+                  prompt: yield* buildPrompt(options.signature, parameters, input).pipe(
+                    Effect.flatMap(promptToTraceText)
+                  )
+                }
+              }))
+            }))
+        )
       const completedAt = yield* Clock.currentTimeMillis
 
       yield* appendTraceEntry(

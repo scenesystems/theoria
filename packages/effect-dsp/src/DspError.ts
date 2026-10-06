@@ -5,6 +5,7 @@
  * @module
  */
 import { Array as Arr, Effect, Schema } from "effect"
+import { Payload } from "./Payload.js"
 
 /** Structural validation failure from signature construction.
  * @since 0.1.0
@@ -45,6 +46,8 @@ export class ParseOutputError extends Schema.TaggedError<ParseOutputError>(
     moduleName: Schema.String,
     rawOutput: Schema.Option(Schema.String),
     retryCount: Schema.Option(Schema.Finite),
+    /** Runtime predictor evidence; absent for direct parser calls. @since 0.6.0 */
+    context: Schema.optional(Schema.Struct({ predictorPath: Schema.String, input: Payload, prompt: Schema.String })),
     fieldDiagnostics: Schema.Array(ParseFieldDiagnostic).pipe(Schema.withDecodingDefaultType(Effect.sync(Arr.empty)))
   }
 ) {}
@@ -99,6 +102,17 @@ export class MIPROv2Error extends Schema.TaggedError<MIPROv2Error>(
   "@scenesystems/effect-dsp/DspError/MIPROv2Error"
 )("MIPROv2Error", {
   reason: Schema.Literals(["invalid-options", "invalid-dataset", "exhausted-candidates"]),
+  message: Schema.String
+}) {}
+
+/** Invalid GEPA budgets, datasets, or continuation state.
+ * @since 0.6.0
+ * @category errors
+ */
+export class GEPAError extends Schema.TaggedError<GEPAError>(
+  "@scenesystems/effect-dsp/DspError/GEPAError"
+)("GEPAError", {
+  reason: Schema.Literals(["invalid-options", "invalid-dataset", "invalid-state"]),
   message: Schema.String
 }) {}
 
@@ -192,6 +206,7 @@ export const DspError = Schema.Union([
   InstructionProposalFailed,
   AllTrialsFailed,
   MIPROv2Error,
+  GEPAError,
   MergeRejected,
   MetricError,
   EvaluationFailed,

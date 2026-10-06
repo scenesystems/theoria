@@ -5,6 +5,12 @@ and optimization. Signatures retain Effect schemas, modules retain generic
 Effect error and service channels, and optimizers return immutable bound programs
 without mutating caller parameters or owning provider configuration.
 
+Core algorithm parity: Evaluate, LabeledFewShot, BootstrapFewShot, BootstrapRS,
+MIPROv2, and GEPA against DSPy 3.4.0 (GEPA 0.1.4, Optuna 4.9.0).
+This is a bounded behavioral claim, not full DSPy API or prompt-byte parity.
+[PARITY.md](./PARITY.md) lists the executable fixtures, exact seeded-prefix
+boundaries, numerical limits, and deliberate language-native differences.
+
 ## Installation
 
 ```sh
@@ -70,7 +76,9 @@ export const program = Effect.gen(function* () {
     })
   )
 
-  return yield* Evaluate.run(new Evaluate.Options({ module: optimized.program, examples, metrics: { exactMatch: metric } }))
+  return yield* Evaluate.run(
+    new Evaluate.Options({ module: optimized.program, examples, metrics: { exactMatch: metric } })
+  )
 })
 ```
 
@@ -80,7 +88,7 @@ Algorithms are independent modules rather than members of an umbrella registry:
 - `BootstrapFewShot.run`, `runWithEvents`, and `stream`
 - `BootstrapRS.run`
 - `MIPROv2.run`, `runWithEvents`, and `stream`
-- `GEPA.run`, `runWithEvents`, and `stream`
+- `GEPA.run`, `runWithEvents`, `stream`, and `resume`
 - `Ensemble.make`
 
 `MIPROv2Candidates` owns destination-bound candidate construction and validation;
@@ -98,6 +106,16 @@ success, failure, and interruption; `Module.install` explicitly installs a resul
 Evaluation retains failed examples in its ordered outcomes and denominator.
 `Report.average` uses fraction units and includes `failureScore` for failed rows;
 `maxErrors` limits expected failures without swallowing defects or interruption.
+
+GEPA requires exactly one of `auto`, `maxMetricCalls`, or `maxFullEvals`. It
+reflects on training examples and returns the highest aggregate validation score,
+not the first member of its coverage front. Its metric budget stops at iteration
+boundaries and can overshoot; `report.feedbackMetricCalls` separately counts
+targeted feedback invocations. `report.state` retains both seeded RNG streams and
+the epoch/merge schedulers. Resume it with matching module, datasets, metric and
+options; `maxIterations` is an absolute local checkpoint boundary. This stronger
+continuation contract is not upstream run_dir restart parity. Bind a `critic`
+model through ModelBinder to configure reflection independently of task calls.
 
 Search primitives are not mirrored. Import optimization, samplers, Pareto
 operations, and deterministic seed operations directly from effect-search.

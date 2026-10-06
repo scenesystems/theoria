@@ -70,6 +70,7 @@ const runSeededStream = (moduleName: string, seed: number) =>
             })
           ),
           metric: Metric.exactMatch("answer"),
+          maxMetricCalls: 30,
           maxIterations: 3,
           seed
         })

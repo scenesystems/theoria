@@ -94,6 +94,7 @@ const runSeededReplay = (moduleName: string, seed: number, maxIterations: number
             })
           ),
           metric: Metric.exactMatch("answer"),
+          maxMetricCalls: 30,
           maxIterations,
           seed
         })

@@ -10,6 +10,10 @@
     "python": "3.12.14",
     "platform": "Linux-x86_64"
   },
+  "environment": {
+    "PYTHONHASHSEED": "0",
+    "NPY_DISABLE_CPU_FEATURES": "AVX2,FMA3,AVX512F"
+  },
   "fixtures": [
     {
       "id": "bootstrap-repeated-call-001",
@@ -84,12 +88,60 @@
       "description": "Evaluate includes a failed row in its denominator and enforces max_errors."
     },
     {
+      "id": "gepa-001",
+      "file": "upstream/gepa-001.json",
+      "evidence": "upstream-execution",
+      "sha256": "8c5d6ed2c82dc860c6f70ed33f304ae329c6df9f9f60e19be6d25679e5200263",
+      "generator": "fixtures.gepa",
+      "description": "Real GEPA epoch-shuffled reflection, targeted feedback, iteration-boundary budget overshoot and aggregate selection; perfect batches skip reflection."
+    },
+    {
       "id": "gepa-aggregate-best-001",
       "file": "upstream/gepa-aggregate-best-001.json",
       "evidence": "upstream-execution",
       "sha256": "57060d19f40da11a053544292da4c455a6be08d133bdf2185c146d00e3502c10",
       "generator": "fixtures.gepa",
       "description": "GEPA.compile selects aggregate best, not first per-instance frontier winner; merge disabled."
+    },
+    {
+      "id": "gepa-budget-001",
+      "file": "upstream/gepa-budget-001.json",
+      "evidence": "upstream-execution",
+      "sha256": "6f8a11fbebe46d7754d642ff11799828bcca03a1b3809c60d5ad0d1979fb4a1a",
+      "generator": "fixtures.gepa",
+      "description": "Real GEPA epoch-shuffled reflection, targeted feedback, iteration-boundary budget overshoot and aggregate selection; perfect batches skip reflection."
+    },
+    {
+      "id": "gepa-merge-001",
+      "file": "upstream/gepa-merge-001.json",
+      "evidence": "upstream-kernel",
+      "sha256": "e73bc6cdbed6d91d7012f7af0c1f4775600b65f5d3ccf14582b569e6a6e42934",
+      "generator": "fixtures.gepa",
+      "description": "Pinned common-ancestor merge draws, eligibility, tied conflict and balanced validation sample."
+    },
+    {
+      "id": "gepa-merge-accepted-001",
+      "file": "upstream/gepa-merge-accepted-001.json",
+      "evidence": "upstream-execution",
+      "sha256": "5bf30880bc389f1fe64f070defa0091ffae94274a326d30a43dff71aa36bd920",
+      "generator": "fixtures.gepa",
+      "description": "Real GEPA engine with scripted task: complementary merge consumes a whole iteration, accepted or rejected; exact shared-stream sampling and budget ledger."
+    },
+    {
+      "id": "gepa-merge-rejected-001",
+      "file": "upstream/gepa-merge-rejected-001.json",
+      "evidence": "upstream-execution",
+      "sha256": "c8bc24cf0ebe253cc64dae6464a500f86c7f83c5806dee9b82c101fe31178fc0",
+      "generator": "fixtures.gepa",
+      "description": "Real GEPA engine with scripted task: complementary merge consumes a whole iteration, accepted or rejected; exact shared-stream sampling and budget ledger."
+    },
+    {
+      "id": "gepa-selection-001",
+      "file": "upstream/gepa-selection-001.json",
+      "evidence": "upstream-kernel",
+      "sha256": "8c7b13b50ec0044bb923ba6c71b85f5f1d5c3134c62cfd44138b11de440f7ac0",
+      "generator": "fixtures.gepa",
+      "description": "GEPA coverage pruning, parent choice and shared epoch-shuffle stream with padding, skipped and repeated iterations."
     },
     {
       "id": "labeledfewshot-001",
