@@ -41,6 +41,13 @@ const SmallRecords = Schema.Array(Schema.Struct({
 }))
 const Strings = Schema.Array(Schema.String)
 const Text = Schema.Struct({ text: Schema.String })
+const isEven = (i: number): boolean => N.Equivalence(N.remainder(i, 2), 0)
+const scalar = (i: number): (typeof Scalars)["Type"][number] =>
+  Match.value(N.remainder(i, 3)).pipe(
+    Match.when(0, () => i),
+    Match.when(1, () => isEven(i)),
+    Match.orElse(() => null)
+  )
 const makeInput = Match.type<string>().pipe(
   Match.when(
     "numbers",
@@ -52,7 +59,7 @@ const makeInput = Match.type<string>().pipe(
   ),
   Match.when(
     "scalars",
-    () => input(Scalars, Arr.makeBy(500_000, (i) => i % 3 === 0 ? i : i % 3 === 1 ? i % 2 === 0 : null))
+    () => input(Scalars, Arr.makeBy(500_000, scalar))
   ),
   Match.when("records", () =>
     input(
@@ -60,7 +67,7 @@ const makeInput = Match.type<string>().pipe(
       Arr.makeBy(200_000, (i) => ({
         id: i,
         kind: "x",
-        ok: i % 2 === 0,
+        ok: isEven(i),
         tags: ["a", "b"]
       }))
     )),
@@ -123,7 +130,11 @@ BunRuntime.runMain(Effect.gen(function*() {
         ? Effect.map(baseline(fresh.value), ({ digest }) => digest)
         : Effect.map(fresh.digest, ContentDigest.toString)
       const [elapsed, digest] = yield* Effect.timed(operation)
-      return { phase: sample === 0 ? "cold" : "warm-fresh", ms: Duration.toMillis(elapsed), digest }
+      return {
+        phase: N.Equivalence(sample, 0) ? "cold" : "warm-fresh",
+        ms: Duration.toMillis(elapsed),
+        digest
+      }
     }))
   const reference = yield* baseline(makeInput(name).value)
   if (!Arr.every(samples, (sample) => sample.digest === reference.digest)) return yield* new Mismatch()
