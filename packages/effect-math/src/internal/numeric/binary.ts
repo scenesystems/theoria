@@ -97,20 +97,23 @@ export const normalize = (value: number): [mantissa: number, exponent: number] =
     onFalse: () => Tuple.make(magnitude, 0)
   })
   const belowOne = Number.isLessThan(magnitude, 1)
-  const reduced = Iterable.reduce(normalizationSteps, initial, (state, [step, factor, reciprocal]) => {
-    const [mantissa, exponent] = state
-    return Boolean.match(belowOne, {
-      onTrue: () =>
-        Boolean.match(Number.isLessThan(mantissa, reciprocal), {
+  const reduced = Boolean.match(belowOne, {
+    onTrue: () =>
+      Iterable.reduce(normalizationSteps, initial, (state, [step, factor, reciprocal]) => {
+        const [mantissa, exponent] = state
+        return Boolean.match(Number.isLessThan(mantissa, reciprocal), {
           onTrue: () => Tuple.make(Number.multiply(mantissa, factor), Number.subtract(exponent, step)),
           onFalse: () => state
-        }),
-      onFalse: () =>
-        Boolean.match(Number.isGreaterThanOrEqualTo(mantissa, factor), {
+        })
+      }),
+    onFalse: () =>
+      Iterable.reduce(normalizationSteps, initial, (state, [step, factor]) => {
+        const [mantissa, exponent] = state
+        return Boolean.match(Number.isGreaterThanOrEqualTo(mantissa, factor), {
           onTrue: () => Tuple.make(Number.divideUnsafe(mantissa, factor), Number.sum(exponent, step)),
           onFalse: () => state
         })
-    })
+      })
   })
   return Boolean.match(Number.isLessThan(Tuple.get(reduced, 0), 1), {
     onTrue: () => Tuple.make(Number.multiply(Tuple.get(reduced, 0), 2), Number.decrement(Tuple.get(reduced, 1))),

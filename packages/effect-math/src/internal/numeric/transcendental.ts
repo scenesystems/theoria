@@ -5,7 +5,20 @@
  * @since 0.1.0
  * @category internal
  */
-import { BigDecimal, Boolean, Chunk, Data, Iterable, Match, Number, Option, Predicate, Schema, Tuple } from "effect"
+import {
+  BigDecimal,
+  Boolean,
+  Chunk,
+  Data,
+  Function,
+  Iterable,
+  Match,
+  Number,
+  Option,
+  Predicate,
+  Schema,
+  Tuple
+} from "effect"
 
 import * as Binary from "./binary.js"
 
@@ -28,22 +41,28 @@ const arctangentTerms = 52
 // granted, provided that this notice is preserved.
 const lnTwoHigh = 6.93147180369123816490e-1
 const lnTwoLow = 1.90821492927058770002e-10
-const logarithmEvenCoefficients = Chunk.make(1.531383769920937332e-1, 2.222219843214978396e-1, 3.999999999940941908e-1)
-const logarithmOddCoefficients = Chunk.make(
+// Prepare fixed polynomials once, retaining every multiply/add, including
+// the leading +0 multiplication, in the original left-fold order.
+const horner = (coefficients: Chunk.Chunk<number>): (value: number) => number =>
+  Iterable.reduce<number, (value: number) => number>(
+    coefficients,
+    Function.constant(0),
+    (previous, coefficient) => (value) => Number.sum(Number.multiply(previous(value), value), coefficient)
+  )
+const logarithmEven = horner(Chunk.make(1.531383769920937332e-1, 2.222219843214978396e-1, 3.999999999940941908e-1))
+const logarithmOdd = horner(Chunk.make(
   1.479819860511658591e-1,
   1.818357216161805012e-1,
   2.857142874366239149e-1,
   6.666666666666735130e-1
-)
-const exponentialCoefficients = Chunk.make(
+))
+const exponentialPolynomial = horner(Chunk.make(
   4.13813679705723846039e-8,
   -1.65339022054652515390e-6,
   6.61375632143793436117e-5,
   -2.77777777770155933842e-3,
   1.66666666666666019037e-1
-)
-const horner = (coefficients: Chunk.Chunk<number>, value: number): number =>
-  Iterable.reduce(coefficients, 0, (result, coefficient) => Number.sum(Number.multiply(result, value), coefficient))
+))
 
 // Decimal expansions are the constants defined by NIST DLMF §§3.12 and 4.2;
 // the additional digits are the linked OEIS reference values A002162/A002392.
@@ -90,8 +109,8 @@ const logarithmFinitePositive = (value: number): number => {
   const z = Number.multiply(s, s)
   const w = Number.multiply(z, z)
   const remainder = Number.sum(
-    Number.multiply(w, horner(logarithmEvenCoefficients, w)),
-    Number.multiply(z, horner(logarithmOddCoefficients, w))
+    Number.multiply(w, logarithmEven(w)),
+    Number.multiply(z, logarithmOdd(w))
   )
   const halfSquare = Number.multiply(0.5, Number.multiply(f, f))
   return Number.subtract(
@@ -261,7 +280,7 @@ const exponentialFinite = (value: number): number => {
   const low = Number.multiply(exponent, lnTwoLow)
   const reduced = Number.subtract(high, low)
   const square = Number.multiply(reduced, reduced)
-  const correction = Number.subtract(reduced, Number.multiply(square, horner(exponentialCoefficients, square)))
+  const correction = Number.subtract(reduced, Number.multiply(square, exponentialPolynomial(square)))
   const result = Number.subtract(
     1,
     Number.subtract(
@@ -471,21 +490,21 @@ const reducedAngle = (value: number): BigDecimal.BigDecimal => {
   )
 }
 
-const sineCoefficients = Chunk.make(
+const sinePolynomial = horner(Chunk.make(
   1.58969099521155010221e-10,
   -2.50507602534068634195e-8,
   2.75573137070700676789e-6,
   -1.98412698298579493134e-4,
   8.33333333332248946124e-3
-)
-const cosineCoefficients = Chunk.make(
+))
+const cosinePolynomial = horner(Chunk.make(
   -1.13596475577881948265e-11,
   2.08757232129817482790e-9,
   -2.75573143513906633035e-7,
   2.48015872894767294178e-5,
   -1.38888888888741095749e-3,
   4.16666666666666019037e-2
-)
+))
 
 // FDLIBM's degree-13/14 polynomials on [-pi/4, pi/4], retaining the
 // reduction tail rather than rounding the reduced angle before evaluation.
@@ -498,7 +517,7 @@ const sineReduced = (value: number, tail: number): number => {
       Number.subtract(
         Number.multiply(
           square,
-          Number.subtract(Number.multiply(0.5, tail), Number.multiply(cube, horner(sineCoefficients, square)))
+          Number.subtract(Number.multiply(0.5, tail), Number.multiply(cube, sinePolynomial(square)))
         ),
         tail
       ),
@@ -516,7 +535,7 @@ const cosineReduced = (value: number, tail: number): number => {
     Number.sum(
       Number.subtract(Number.subtract(1, leading), halfSquare),
       Number.subtract(
-        Number.multiply(Number.multiply(square, square), horner(cosineCoefficients, square)),
+        Number.multiply(Number.multiply(square, square), cosinePolynomial(square)),
         Number.multiply(value, tail)
       )
     )

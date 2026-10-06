@@ -78,6 +78,20 @@ const logarithms = Array.make(
   Tuple.make(1.7976931348623157e308, 709.782712893384)
 )
 
+// Decimal.from_float(x).exp(), evaluated with 160 decimal digits. Adjacent
+// inputs straddle the signed ln(2)/2 reduction boundaries; larger residuals
+// exercise every coefficient in the reduced exponential polynomial.
+const exponentials = Array.make(
+  Tuple.make(-0.3465735902799727, 0.7071067811865475),
+  Tuple.make(-0.34657359027997264, 0.7071067811865476),
+  Tuple.make(-0.3465735902799726, 0.7071067811865476),
+  Tuple.make(0.3465735902799726, 1.414213562373095),
+  Tuple.make(0.34657359027997264, 1.414213562373095),
+  Tuple.make(0.3465735902799727, 1.4142135623730951),
+  Tuple.make(-10.125, 4.006529739295107e-5),
+  Tuple.make(10.125, 24959.255641914595)
+)
+
 const fractionalPowers = Array.make(
   Tuple.make(0.000244140625, 1.15, 7.011098358136205e-5, 3e-15),
   Tuple.make(0.37, 1.35, 0.26125964205040103, 3e-15),
@@ -109,6 +123,16 @@ describe("Numeric rounding-sensitive inputs", () => {
       expect(Numeric.log(negativeInfinity)).toBeNaN()
       expect(Numeric.log(-5e-324)).toBeNaN()
       expect(Numeric.log(nan)).toBeNaN()
+    }))
+
+  it.effect("retains exponential rounding across signed reduction boundaries", () =>
+    Effect.gen(function*() {
+      Array.forEach(exponentials, ([input, expected]) => close(Numeric.exp(input), expected))
+      expect(Numeric.exp(0)).toBe(1)
+      expect(Numeric.exp(-0)).toBe(1)
+      expect(Numeric.exp(positiveInfinity)).toBe(positiveInfinity)
+      expect(Numeric.exp(negativeInfinity)).toBe(0)
+      expect(Numeric.exp(nan)).toBeNaN()
     }))
 
   it.effect("retains fractional-power accuracy with exact binary64 bases and exponents", () =>
