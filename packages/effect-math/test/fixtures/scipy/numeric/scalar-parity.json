@@ -1,165 +1,164 @@
 {
   "fixture": "numeric.scalar-parity",
   "metadata": {
-    "generatedAt": "2026-03-23T00:00:00Z",
+    "generatedAt": "2026-10-06T10:08:01Z",
     "generator": {
-      "script": "scripts/generate-scipy-fixtures.py",
-      "version": "1.0.0"
+      "script": "scripts/generate-scipy-fixtures.py"
     },
     "upstream": {
       "name": "scipy",
-      "version": "1.15.2"
+      "version": "1.17.1"
     }
   },
   "payload": {
     "cases": [
       {
-        "expected": 0.0,
         "id": "log1p-zero",
+        "operation": "log1p",
         "input": {
-          "x": 0.0
+          "x": 0
         },
-        "operation": "log1p"
+        "expected": 0
       },
       {
-        "expected": 9.999999999999995e-16,
         "id": "log1p-tiny-positive",
+        "operation": "log1p",
         "input": {
           "x": 1e-15
         },
-        "operation": "log1p"
+        "expected": 9.999999999999995e-16
       },
       {
-        "expected": -1.0000000000000007e-15,
         "id": "log1p-tiny-negative",
+        "operation": "log1p",
         "input": {
           "x": -1e-15
         },
-        "operation": "log1p"
+        "expected": -1.0000000000000007e-15
       },
       {
-        "expected": 0.009950330853168083,
         "id": "log1p-small",
+        "operation": "log1p",
         "input": {
           "x": 0.01
         },
-        "operation": "log1p"
+        "expected": 0.009950330853168083
       },
       {
-        "expected": 0.6931471805599453,
         "id": "log1p-one",
+        "operation": "log1p",
         "input": {
-          "x": 1.0
+          "x": 1
         },
-        "operation": "log1p"
+        "expected": 0.6931471805599453
       },
       {
-        "expected": 13.815511557963774,
         "id": "log1p-large",
+        "operation": "log1p",
         "input": {
-          "x": 1000000.0
+          "x": 1000000
         },
-        "operation": "log1p"
+        "expected": 13.815511557963774
       },
       {
-        "expected": -32.236990899346836,
         "id": "log1p-near-negative-one",
+        "operation": "log1p",
         "input": {
           "x": -0.99999999999999
         },
-        "operation": "log1p"
+        "expected": -32.236990899346836
       },
       {
-        "expected": 0.0,
         "id": "expm1-zero",
+        "operation": "expm1",
         "input": {
-          "x": 0.0
+          "x": 0
         },
-        "operation": "expm1"
+        "expected": 0
       },
       {
-        "expected": 1.0000000000000007e-15,
         "id": "expm1-tiny-positive",
+        "operation": "expm1",
         "input": {
           "x": 1e-15
         },
-        "operation": "expm1"
+        "expected": 1.0000000000000007e-15
       },
       {
-        "expected": -9.999999999999995e-16,
         "id": "expm1-tiny-negative",
+        "operation": "expm1",
         "input": {
           "x": -1e-15
         },
-        "operation": "expm1"
+        "expected": -9.999999999999995e-16
       },
       {
-        "expected": 0.010050167084168058,
         "id": "expm1-small",
+        "operation": "expm1",
         "input": {
           "x": 0.01
         },
-        "operation": "expm1"
+        "expected": 0.010050167084168058
       },
       {
-        "expected": 1.7182818284590453,
         "id": "expm1-one",
+        "operation": "expm1",
         "input": {
-          "x": 1.0
+          "x": 1
         },
-        "operation": "expm1"
+        "expected": 1.7182818284590453
       },
       {
-        "expected": 5.184705528587072e21,
         "id": "expm1-large",
+        "operation": "expm1",
         "input": {
-          "x": 50.0
+          "x": 50
         },
-        "operation": "expm1"
+        "expected": 5.184705528587072e21
       },
       {
-        "expected": -0.8646647167633873,
         "id": "expm1-negative",
+        "operation": "expm1",
         "input": {
-          "x": -2.0
+          "x": -2
         },
-        "operation": "expm1"
+        "expected": -0.8646647167633873
       },
       {
-        "expected": 15.0,
         "id": "sum-simple",
+        "operation": "sum",
         "input": {
-          "values": [1.0, 2.0, 3.0, 4.0, 5.0]
+          "values": [1, 2, 3, 4, 5]
         },
-        "operation": "sum"
+        "expected": 15
       },
       {
-        "expected": 2.0,
         "id": "sum-cancellation",
+        "operation": "sum",
         "input": {
-          "values": [1e16, 1.0, -1e16, 1.0]
+          "values": [10000000000000000, 1, -10000000000000000, 1]
         },
-        "operation": "sum"
+        "expected": 2
       },
       {
-        "expected": 42.0,
         "id": "sum-single",
+        "operation": "sum",
         "input": {
-          "values": [42.0]
+          "values": [42]
         },
-        "operation": "sum"
+        "expected": 42
       },
       {
-        "expected": 1.0,
         "id": "sum-alternating-sign",
+        "operation": "sum",
         "input": {
-          "values": [1.0, -1.0, 1.0, -1.0, 1.0]
+          "values": [1, -1, 1, -1, 1]
         },
-        "operation": "sum"
+        "expected": 1
       },
       {
-        "expected": 10.0,
         "id": "sum-large-uniform",
+        "operation": "sum",
         "input": {
           "values": [
             0.1, 0.1, 0.1, 0.1, 0.1, 0.1, 0.1, 0.1, 0.1, 0.1, 0.1, 0.1, 0.1, 0.1, 0.1, 0.1, 0.1, 0.1, 0.1, 0.1, 0.1,
@@ -169,15 +168,15 @@
             0.1, 0.1, 0.1, 0.1, 0.1, 0.1, 0.1, 0.1, 0.1, 0.1, 0.1, 0.1, 0.1, 0.1, 0.1, 0.1
           ]
         },
-        "operation": "sum"
+        "expected": 10
       },
       {
-        "expected": 2e-10,
         "id": "sum-mixed-magnitude",
+        "operation": "sum",
         "input": {
-          "values": [1e-10, 10000000000.0, 1e-10, -10000000000.0]
+          "values": [1e-10, 10000000000, 1e-10, -10000000000]
         },
-        "operation": "sum"
+        "expected": 2e-10
       }
     ]
   }

@@ -6,9 +6,6 @@ import importlib.metadata
 import platform
 from typing import Any
 
-GENERATOR_VERSION = "1.0.0"
-SCHEMA_VERSION = "1.0.0"
-
 UPSTREAM_NAME = "scipy"
 UPSTREAM_VERSION = importlib.metadata.version(UPSTREAM_NAME)
 
@@ -17,7 +14,6 @@ def generator_metadata(generated_at: str) -> dict[str, Any]:
     """Attest the versions actually used by this reference process."""
     return {
         "script": "scripts/generate-scipy-fixtures.py",
-        "generatorVersion": GENERATOR_VERSION,
         "upstream": UPSTREAM_NAME,
         "upstreamVersion": UPSTREAM_VERSION,
         "numpyVersion": importlib.metadata.version("numpy"),
@@ -36,6 +32,5 @@ def metadata(generated_at: str) -> dict[str, Any]:
         },
         "generator": {
             "script": "scripts/generate-scipy-fixtures.py",
-            "version": GENERATOR_VERSION,
         },
     }

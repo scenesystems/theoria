@@ -1,963 +1,962 @@
 {
   "fixture": "complex.arithmetic-parity",
   "metadata": {
-    "generatedAt": "2026-03-23T00:00:00Z",
+    "generatedAt": "2026-10-06T10:08:01Z",
     "generator": {
-      "script": "scripts/generate-scipy-fixtures.py",
-      "version": "1.0.0"
+      "script": "scripts/generate-scipy-fixtures.py"
     },
     "upstream": {
       "name": "scipy",
-      "version": "1.15.2"
+      "version": "1.17.1"
     }
   },
   "payload": {
     "cases": [
       {
-        "expected": {
-          "im": 6.0,
-          "re": 4.0
-        },
         "id": "add-unit",
+        "operation": "add",
         "input": {
-          "aIm": 2.0,
-          "aRe": 1.0,
-          "bIm": 4.0,
-          "bRe": 3.0
+          "aRe": 1,
+          "aIm": 2,
+          "bRe": 3,
+          "bIm": 4
         },
-        "operation": "add"
+        "expected": {
+          "re": 4,
+          "im": 6
+        }
       },
       {
-        "expected": {
-          "im": -2.0,
-          "re": -2.0
-        },
         "id": "subtract-unit",
+        "operation": "subtract",
         "input": {
-          "aIm": 2.0,
-          "aRe": 1.0,
-          "bIm": 4.0,
-          "bRe": 3.0
+          "aRe": 1,
+          "aIm": 2,
+          "bRe": 3,
+          "bIm": 4
         },
-        "operation": "subtract"
+        "expected": {
+          "re": -2,
+          "im": -2
+        }
       },
       {
-        "expected": {
-          "im": 10.0,
-          "re": -5.0
-        },
         "id": "multiply-unit",
+        "operation": "multiply",
         "input": {
-          "aIm": 2.0,
-          "aRe": 1.0,
-          "bIm": 4.0,
-          "bRe": 3.0
+          "aRe": 1,
+          "aIm": 2,
+          "bRe": 3,
+          "bIm": 4
         },
-        "operation": "multiply"
+        "expected": {
+          "re": -5,
+          "im": 10
+        }
       },
       {
-        "expected": {
-          "im": 0.08,
-          "re": 0.44
-        },
         "id": "divide-unit",
+        "operation": "divide",
         "input": {
-          "aIm": 2.0,
-          "aRe": 1.0,
-          "bIm": 4.0,
-          "bRe": 3.0
+          "aRe": 1,
+          "aIm": 2,
+          "bRe": 3,
+          "bIm": 4
         },
-        "operation": "divide"
+        "expected": {
+          "re": 0.44,
+          "im": 0.08
+        }
       },
       {
-        "expected": {
-          "im": 0.0,
-          "re": 2.0
-        },
         "id": "add-pure-real",
+        "operation": "add",
         "input": {
-          "aIm": 0.0,
-          "aRe": 5.0,
-          "bIm": 0.0,
-          "bRe": -3.0
+          "aRe": 5,
+          "aIm": 0,
+          "bRe": -3,
+          "bIm": 0
         },
-        "operation": "add"
+        "expected": {
+          "re": 2,
+          "im": 0
+        }
       },
       {
-        "expected": {
-          "im": 0.0,
-          "re": 8.0
-        },
         "id": "subtract-pure-real",
+        "operation": "subtract",
         "input": {
-          "aIm": 0.0,
-          "aRe": 5.0,
-          "bIm": 0.0,
-          "bRe": -3.0
+          "aRe": 5,
+          "aIm": 0,
+          "bRe": -3,
+          "bIm": 0
         },
-        "operation": "subtract"
+        "expected": {
+          "re": 8,
+          "im": 0
+        }
       },
       {
-        "expected": {
-          "im": 0.0,
-          "re": -15.0
-        },
         "id": "multiply-pure-real",
+        "operation": "multiply",
         "input": {
-          "aIm": 0.0,
-          "aRe": 5.0,
-          "bIm": 0.0,
-          "bRe": -3.0
+          "aRe": 5,
+          "aIm": 0,
+          "bRe": -3,
+          "bIm": 0
         },
-        "operation": "multiply"
+        "expected": {
+          "re": -15,
+          "im": 0
+        }
       },
       {
-        "expected": {
-          "im": -0.0,
-          "re": -1.6666666666666667
-        },
         "id": "divide-pure-real",
+        "operation": "divide",
         "input": {
-          "aIm": 0.0,
-          "aRe": 5.0,
-          "bIm": 0.0,
-          "bRe": -3.0
+          "aRe": 5,
+          "aIm": 0,
+          "bRe": -3,
+          "bIm": 0
         },
-        "operation": "divide"
+        "expected": {
+          "re": -1.6666666666666667,
+          "im": 0
+        }
       },
       {
-        "expected": {
-          "im": -5.0,
-          "re": 0.0
-        },
         "id": "add-pure-imag",
+        "operation": "add",
         "input": {
-          "aIm": 2.0,
-          "aRe": 0.0,
-          "bIm": -7.0,
-          "bRe": 0.0
+          "aRe": 0,
+          "aIm": 2,
+          "bRe": 0,
+          "bIm": -7
         },
-        "operation": "add"
+        "expected": {
+          "re": 0,
+          "im": -5
+        }
       },
       {
-        "expected": {
-          "im": 9.0,
-          "re": 0.0
-        },
         "id": "subtract-pure-imag",
+        "operation": "subtract",
         "input": {
-          "aIm": 2.0,
-          "aRe": 0.0,
-          "bIm": -7.0,
-          "bRe": 0.0
+          "aRe": 0,
+          "aIm": 2,
+          "bRe": 0,
+          "bIm": -7
         },
-        "operation": "subtract"
+        "expected": {
+          "re": 0,
+          "im": 9
+        }
       },
       {
-        "expected": {
-          "im": 0.0,
-          "re": 14.0
-        },
         "id": "multiply-pure-imag",
+        "operation": "multiply",
         "input": {
-          "aIm": 2.0,
-          "aRe": 0.0,
-          "bIm": -7.0,
-          "bRe": 0.0
+          "aRe": 0,
+          "aIm": 2,
+          "bRe": 0,
+          "bIm": -7
         },
-        "operation": "multiply"
+        "expected": {
+          "re": 14,
+          "im": 0
+        }
       },
       {
-        "expected": {
-          "im": 0.0,
-          "re": -0.2857142857142857
-        },
         "id": "divide-pure-imag",
+        "operation": "divide",
         "input": {
-          "aIm": 2.0,
-          "aRe": 0.0,
-          "bIm": -7.0,
-          "bRe": 0.0
+          "aRe": 0,
+          "aIm": 2,
+          "bRe": 0,
+          "bIm": -7
         },
-        "operation": "divide"
+        "expected": {
+          "re": -0.2857142857142857,
+          "im": 0
+        }
       },
       {
-        "expected": {
-          "im": -200000000.0,
-          "re": 300000000.0
-        },
         "id": "add-large",
+        "operation": "add",
         "input": {
-          "aIm": 100000000.0,
-          "aRe": 100000000.0,
-          "bIm": -300000000.0,
-          "bRe": 200000000.0
+          "aRe": 100000000,
+          "aIm": 100000000,
+          "bRe": 200000000,
+          "bIm": -300000000
         },
-        "operation": "add"
+        "expected": {
+          "re": 300000000,
+          "im": -200000000
+        }
       },
       {
-        "expected": {
-          "im": 400000000.0,
-          "re": -100000000.0
-        },
         "id": "subtract-large",
+        "operation": "subtract",
         "input": {
-          "aIm": 100000000.0,
-          "aRe": 100000000.0,
-          "bIm": -300000000.0,
-          "bRe": 200000000.0
+          "aRe": 100000000,
+          "aIm": 100000000,
+          "bRe": 200000000,
+          "bIm": -300000000
         },
-        "operation": "subtract"
+        "expected": {
+          "re": -100000000,
+          "im": 400000000
+        }
       },
       {
-        "expected": {
-          "im": -1e16,
-          "re": 5e16
-        },
         "id": "multiply-large",
+        "operation": "multiply",
         "input": {
-          "aIm": 100000000.0,
-          "aRe": 100000000.0,
-          "bIm": -300000000.0,
-          "bRe": 200000000.0
+          "aRe": 100000000,
+          "aIm": 100000000,
+          "bRe": 200000000,
+          "bIm": -300000000
         },
-        "operation": "multiply"
+        "expected": {
+          "re": 50000000000000000,
+          "im": -10000000000000000
+        }
       },
       {
-        "expected": {
-          "im": 0.38461538461538464,
-          "re": -0.07692307692307693
-        },
         "id": "divide-large",
+        "operation": "divide",
         "input": {
-          "aIm": 100000000.0,
-          "aRe": 100000000.0,
-          "bIm": -300000000.0,
-          "bRe": 200000000.0
+          "aRe": 100000000,
+          "aIm": 100000000,
+          "bRe": 200000000,
+          "bIm": -300000000
         },
-        "operation": "divide"
+        "expected": {
+          "re": -0.07692307692307693,
+          "im": 0.38461538461538464
+        }
       },
       {
-        "expected": {
-          "im": 4e-12,
-          "re": 3e-12
-        },
         "id": "add-small",
+        "operation": "add",
         "input": {
-          "aIm": 1e-12,
           "aRe": 1e-12,
-          "bIm": 3e-12,
-          "bRe": 2e-12
+          "aIm": 1e-12,
+          "bRe": 2e-12,
+          "bIm": 3e-12
         },
-        "operation": "add"
+        "expected": {
+          "re": 3e-12,
+          "im": 4e-12
+        }
       },
       {
-        "expected": {
-          "im": -2.0000000000000004e-12,
-          "re": -1e-12
-        },
         "id": "subtract-small",
+        "operation": "subtract",
         "input": {
-          "aIm": 1e-12,
           "aRe": 1e-12,
-          "bIm": 3e-12,
-          "bRe": 2e-12
+          "aIm": 1e-12,
+          "bRe": 2e-12,
+          "bIm": 3e-12
         },
-        "operation": "subtract"
+        "expected": {
+          "re": -1e-12,
+          "im": -2.0000000000000004e-12
+        }
       },
       {
-        "expected": {
-          "im": 5e-24,
-          "re": -1.0000000000000001e-24
-        },
         "id": "multiply-small",
+        "operation": "multiply",
         "input": {
-          "aIm": 1e-12,
           "aRe": 1e-12,
-          "bIm": 3e-12,
-          "bRe": 2e-12
+          "aIm": 1e-12,
+          "bRe": 2e-12,
+          "bIm": 3e-12
         },
-        "operation": "multiply"
+        "expected": {
+          "re": -1.0000000000000001e-24,
+          "im": 5e-24
+        }
       },
       {
-        "expected": {
-          "im": -0.07692307692307691,
-          "re": 0.3846153846153846
-        },
         "id": "divide-small",
+        "operation": "divide",
         "input": {
-          "aIm": 1e-12,
           "aRe": 1e-12,
-          "bIm": 3e-12,
-          "bRe": 2e-12
+          "aIm": 1e-12,
+          "bRe": 2e-12,
+          "bIm": 3e-12
         },
-        "operation": "divide"
+        "expected": {
+          "re": 0.38461538461538464,
+          "im": -0.07692307692307694
+        }
       },
       {
-        "expected": {
-          "im": -4.0,
-          "re": 3.0
-        },
         "id": "conjugate-unit",
+        "operation": "conjugate",
         "input": {
-          "im": 4.0,
-          "re": 3.0
+          "re": 3,
+          "im": 4
         },
-        "operation": "conjugate"
+        "expected": {
+          "re": 3,
+          "im": -4
+        }
       },
       {
-        "expected": 5.0,
         "id": "abs-unit",
+        "operation": "abs",
         "input": {
-          "im": 4.0,
-          "re": 3.0
+          "re": 3,
+          "im": 4
         },
-        "operation": "abs"
+        "expected": 5
       },
       {
-        "expected": 0.9272952180016122,
         "id": "arg-unit",
+        "operation": "arg",
         "input": {
-          "im": 4.0,
-          "re": 3.0
+          "re": 3,
+          "im": 4
         },
-        "operation": "arg"
+        "expected": 0.9272952180016121
       },
       {
-        "expected": {
-          "im": -0.0,
-          "re": -5.0
-        },
         "id": "conjugate-pure-real",
+        "operation": "conjugate",
         "input": {
-          "im": 0.0,
-          "re": -5.0
+          "re": -5,
+          "im": 0
         },
-        "operation": "conjugate"
+        "expected": {
+          "re": -5,
+          "im": 0
+        }
       },
       {
-        "expected": 5.0,
         "id": "abs-pure-real",
+        "operation": "abs",
         "input": {
-          "im": 0.0,
-          "re": -5.0
+          "re": -5,
+          "im": 0
         },
-        "operation": "abs"
+        "expected": 5
       },
       {
-        "expected": 3.141592653589793,
         "id": "arg-pure-real",
+        "operation": "arg",
         "input": {
-          "im": 0.0,
-          "re": -5.0
+          "re": -5,
+          "im": 0
         },
-        "operation": "arg"
+        "expected": 3.141592653589793
       },
       {
-        "expected": {
-          "im": -7.0,
-          "re": 0.0
-        },
         "id": "conjugate-pure-imag",
+        "operation": "conjugate",
         "input": {
-          "im": 7.0,
-          "re": 0.0
+          "re": 0,
+          "im": 7
         },
-        "operation": "conjugate"
+        "expected": {
+          "re": 0,
+          "im": -7
+        }
       },
       {
-        "expected": 7.0,
         "id": "abs-pure-imag",
+        "operation": "abs",
         "input": {
-          "im": 7.0,
-          "re": 0.0
+          "re": 0,
+          "im": 7
         },
-        "operation": "abs"
+        "expected": 7
       },
       {
-        "expected": 1.5707963267948966,
         "id": "arg-pure-imag",
+        "operation": "arg",
         "input": {
-          "im": 7.0,
-          "re": 0.0
+          "re": 0,
+          "im": 7
         },
-        "operation": "arg"
+        "expected": 1.5707963267948966
       },
       {
-        "expected": {
-          "im": 3.0,
-          "re": -2.0
-        },
         "id": "conjugate-negative-both",
+        "operation": "conjugate",
         "input": {
-          "im": -3.0,
-          "re": -2.0
+          "re": -2,
+          "im": -3
         },
-        "operation": "conjugate"
+        "expected": {
+          "re": -2,
+          "im": 3
+        }
       },
       {
-        "expected": 3.605551275463989,
         "id": "abs-negative-both",
+        "operation": "abs",
         "input": {
-          "im": -3.0,
-          "re": -2.0
+          "re": -2,
+          "im": -3
         },
-        "operation": "abs"
+        "expected": 3.605551275463989
       },
       {
-        "expected": -2.158798930342464,
         "id": "arg-negative-both",
+        "operation": "arg",
         "input": {
-          "im": -3.0,
-          "re": -2.0
+          "re": -2,
+          "im": -3
         },
-        "operation": "arg"
+        "expected": -2.1587989303424644
       },
       {
-        "expected": {
-          "im": 2.2873552871788423,
-          "re": 1.4686939399158851
-        },
         "id": "exp-unit",
+        "operation": "exp",
         "input": {
-          "im": 1.0,
-          "re": 1.0
+          "re": 1,
+          "im": 1
         },
-        "operation": "exp"
+        "expected": {
+          "re": 1.4686939399158851,
+          "im": 2.2873552871788423
+        }
       },
       {
-        "expected": {
-          "im": 0.7853981633974483,
-          "re": 0.34657359027997264
-        },
         "id": "log-unit",
+        "operation": "log",
         "input": {
-          "im": 1.0,
-          "re": 1.0
+          "re": 1,
+          "im": 1
         },
-        "operation": "log"
+        "expected": {
+          "re": 0.34657359027997264,
+          "im": 0.7853981633974483
+        }
       },
       {
-        "expected": {
-          "im": 0.45508986056222733,
-          "re": 1.09868411346781
-        },
         "id": "sqrt-unit",
+        "operation": "sqrt",
         "input": {
-          "im": 1.0,
-          "re": 1.0
+          "re": 1,
+          "im": 1
         },
-        "operation": "sqrt"
+        "expected": {
+          "re": 1.09868411346781,
+          "im": 0.45508986056222733
+        }
       },
       {
-        "expected": {
-          "im": 0.0,
-          "re": 0.36787944117144233
-        },
         "id": "exp-pure-real-neg",
+        "operation": "exp",
         "input": {
-          "im": 0.0,
-          "re": -1.0
+          "re": -1,
+          "im": 0
         },
-        "operation": "exp"
+        "expected": {
+          "re": 0.36787944117144233,
+          "im": 0
+        }
       },
       {
-        "expected": {
-          "im": 3.141592653589793,
-          "re": 0.0
-        },
         "id": "log-pure-real-neg",
+        "operation": "log",
         "input": {
-          "im": 0.0,
-          "re": -1.0
+          "re": -1,
+          "im": 0
         },
-        "operation": "log"
+        "expected": {
+          "re": 0,
+          "im": 3.141592653589793
+        }
       },
       {
-        "expected": {
-          "im": 1.0,
-          "re": 0.0
-        },
         "id": "sqrt-pure-real-neg",
+        "operation": "sqrt",
         "input": {
-          "im": 0.0,
-          "re": -1.0
+          "re": -1,
+          "im": 0
         },
-        "operation": "sqrt"
+        "expected": {
+          "re": 0,
+          "im": 1
+        }
       },
       {
-        "expected": {
-          "im": 0.1411200080598672,
-          "re": -0.9899924966004454
-        },
         "id": "exp-pure-imag",
+        "operation": "exp",
         "input": {
-          "im": 3.0,
-          "re": 0.0
+          "re": 0,
+          "im": 3
         },
-        "operation": "exp"
+        "expected": {
+          "re": -0.9899924966004454,
+          "im": 0.1411200080598672
+        }
       },
       {
-        "expected": {
-          "im": 1.5707963267948966,
-          "re": 1.0986122886681098
-        },
         "id": "log-pure-imag",
+        "operation": "log",
         "input": {
-          "im": 3.0,
-          "re": 0.0
+          "re": 0,
+          "im": 3
         },
-        "operation": "log"
+        "expected": {
+          "re": 1.0986122886681098,
+          "im": 1.5707963267948966
+        }
       },
       {
-        "expected": {
-          "im": 1.2247448713915892,
-          "re": 1.224744871391589
-        },
         "id": "sqrt-pure-imag",
+        "operation": "sqrt",
         "input": {
-          "im": 3.0,
-          "re": 0.0
+          "re": 0,
+          "im": 3
         },
-        "operation": "sqrt"
+        "expected": {
+          "re": 1.224744871391589,
+          "im": 1.224744871391589
+        }
       },
       {
-        "expected": {
-          "im": -1.644591201830844,
-          "re": 0.11662592901934636
-        },
         "id": "exp-general",
+        "operation": "exp",
         "input": {
-          "im": -1.5,
-          "re": 0.5
+          "re": 0.5,
+          "im": -1.5
         },
-        "operation": "exp"
+        "expected": {
+          "re": 0.11662592901934636,
+          "im": -1.644591201830844
+        }
       },
       {
-        "expected": {
-          "im": -1.2490457723982544,
-          "re": 0.45814536593707755
-        },
         "id": "log-general",
+        "operation": "log",
         "input": {
-          "im": -1.5,
-          "re": 0.5
+          "re": 0.5,
+          "im": -1.5
         },
-        "operation": "log"
+        "expected": {
+          "re": 0.45814536593707755,
+          "im": -1.2490457723982544
+        }
       },
       {
-        "expected": {
-          "im": -0.7352342586156433,
-          "re": 1.0200830432087846
-        },
         "id": "sqrt-general",
+        "operation": "sqrt",
         "input": {
-          "im": -1.5,
-          "re": 0.5
+          "re": 0.5,
+          "im": -1.5
         },
-        "operation": "sqrt"
+        "expected": {
+          "re": 1.0200830432087846,
+          "im": -0.7352342586156433
+        }
       },
       {
-        "expected": {
-          "im": 11.0,
-          "re": 2.0
-        },
         "id": "pow-int-exp",
+        "operation": "pow",
         "input": {
-          "baseIm": 1.0,
-          "baseRe": 2.0,
-          "expIm": 0.0,
-          "expRe": 3.0
+          "baseRe": 2,
+          "baseIm": 1,
+          "expRe": 3,
+          "expIm": 0
         },
-        "operation": "pow"
+        "expected": {
+          "re": 2,
+          "im": 11
+        }
       },
       {
-        "expected": {
-          "im": 0.5837007587586147,
-          "re": 0.2739572538301211
-        },
         "id": "pow-complex-exp",
+        "operation": "pow",
         "input": {
-          "baseIm": 1.0,
-          "baseRe": 1.0,
-          "expIm": 1.0,
-          "expRe": 1.0
+          "baseRe": 1,
+          "baseIm": 1,
+          "expRe": 1,
+          "expIm": 1
         },
-        "operation": "pow"
+        "expected": {
+          "re": 0.2739572538301211,
+          "im": 0.5837007587586147
+        }
       },
       {
-        "expected": {
-          "im": 1.0,
-          "re": 6.123233995736766e-17
-        },
         "id": "pow-neg-base",
+        "operation": "pow",
         "input": {
-          "baseIm": 0.0,
-          "baseRe": -1.0,
-          "expIm": 0.0,
-          "expRe": 0.5
+          "baseRe": -1,
+          "baseIm": 0,
+          "expRe": 0.5,
+          "expIm": 0
         },
-        "operation": "pow"
+        "expected": {
+          "re": 6.123233995736766e-17,
+          "im": 1
+        }
       },
       {
-        "expected": {
-          "im": 0.6349639147847361,
-          "re": 1.2984575814159773
-        },
         "id": "sin-unit",
+        "operation": "sin",
         "input": {
-          "im": 1.0,
-          "re": 1.0
+          "re": 1,
+          "im": 1
         },
-        "operation": "sin"
+        "expected": {
+          "re": 1.2984575814159773,
+          "im": 0.6349639147847361
+        }
       },
       {
-        "expected": {
-          "im": -0.9888977057628651,
-          "re": 0.8337300251311491
-        },
         "id": "cos-unit",
+        "operation": "cos",
         "input": {
-          "im": 1.0,
-          "re": 1.0
+          "re": 1,
+          "im": 1
         },
-        "operation": "cos"
+        "expected": {
+          "re": 0.8337300251311491,
+          "im": -0.9888977057628651
+        }
       },
       {
-        "expected": {
-          "im": 1.0839233273386943,
-          "re": 0.27175258531951174
-        },
         "id": "tan-unit",
+        "operation": "tan",
         "input": {
-          "im": 1.0,
-          "re": 1.0
+          "re": 1,
+          "im": 1
         },
-        "operation": "tan"
+        "expected": {
+          "re": 0.2717525853195118,
+          "im": 1.0839233273386946
+        }
       },
       {
-        "expected": {
-          "im": 3.626860407847019,
-          "re": 0.0
-        },
         "id": "sin-pure-imag",
+        "operation": "sin",
         "input": {
-          "im": 2.0,
-          "re": 0.0
+          "re": 0,
+          "im": 2
         },
-        "operation": "sin"
+        "expected": {
+          "re": 0,
+          "im": 3.626860407847019
+        }
       },
       {
-        "expected": {
-          "im": -0.0,
-          "re": 3.7621956910836314
-        },
         "id": "cos-pure-imag",
+        "operation": "cos",
         "input": {
-          "im": 2.0,
-          "re": 0.0
+          "re": 0,
+          "im": 2
         },
-        "operation": "cos"
+        "expected": {
+          "re": 3.7621956910836314,
+          "im": 0
+        }
       },
       {
-        "expected": {
-          "im": 0.9640275800758168,
-          "re": 0.0
-        },
         "id": "tan-pure-imag",
+        "operation": "tan",
         "input": {
-          "im": 2.0,
-          "re": 0.0
+          "re": 0,
+          "im": 2
         },
-        "operation": "tan"
+        "expected": {
+          "re": 0,
+          "im": 0.9640275800758168
+        }
       },
       {
-        "expected": {
-          "im": -0.4573041531842493,
-          "re": 0.5406126857131534
-        },
         "id": "sin-general",
+        "operation": "sin",
         "input": {
-          "im": -0.5,
-          "re": 0.5
+          "re": 0.5,
+          "im": -0.5
         },
-        "operation": "sin"
+        "expected": {
+          "re": 0.5406126857131534,
+          "im": -0.4573041531842493
+        }
       },
       {
-        "expected": {
-          "im": 0.24982639750046154,
-          "re": 0.9895848833999199
-        },
         "id": "cos-general",
+        "operation": "cos",
         "input": {
-          "im": -0.5,
-          "re": 0.5
+          "re": 0.5,
+          "im": -0.5
         },
-        "operation": "cos"
+        "expected": {
+          "re": 0.9895848833999199,
+          "im": 0.24982639750046154
+        }
       },
       {
-        "expected": {
-          "im": -0.5640831412674985,
-          "re": 0.4038964553160257
-        },
         "id": "tan-general",
+        "operation": "tan",
         "input": {
-          "im": -0.5,
-          "re": 0.5
+          "re": 0.5,
+          "im": -0.5
         },
-        "operation": "tan"
+        "expected": {
+          "re": 0.40389645531602575,
+          "im": -0.5640831412674985
+        }
       },
       {
-        "expected": {
-          "im": 1.2984575814159773,
-          "re": 0.6349639147847361
-        },
         "id": "sinh-unit",
+        "operation": "sinh",
         "input": {
-          "im": 1.0,
-          "re": 1.0
+          "re": 1,
+          "im": 1
         },
-        "operation": "sinh"
+        "expected": {
+          "re": 0.6349639147847361,
+          "im": 1.2984575814159773
+        }
       },
       {
-        "expected": {
-          "im": 0.9888977057628651,
-          "re": 0.8337300251311491
-        },
         "id": "cosh-unit",
+        "operation": "cosh",
         "input": {
-          "im": 1.0,
-          "re": 1.0
+          "re": 1,
+          "im": 1
         },
-        "operation": "cosh"
+        "expected": {
+          "re": 0.8337300251311491,
+          "im": 0.9888977057628651
+        }
       },
       {
-        "expected": {
-          "im": 0.27175258531951174,
-          "re": 1.0839233273386943
-        },
         "id": "tanh-unit",
+        "operation": "tanh",
         "input": {
-          "im": 1.0,
-          "re": 1.0
+          "re": 1,
+          "im": 1
         },
-        "operation": "tanh"
+        "expected": {
+          "re": 1.0839233273386946,
+          "im": 0.2717525853195118
+        }
       },
       {
-        "expected": {
-          "im": 0.9092974268256817,
-          "re": 0.0
-        },
         "id": "sinh-pure-imag",
+        "operation": "sinh",
         "input": {
-          "im": 2.0,
-          "re": 0.0
+          "re": 0,
+          "im": 2
         },
-        "operation": "sinh"
+        "expected": {
+          "re": 0,
+          "im": 0.9092974268256817
+        }
       },
       {
-        "expected": {
-          "im": 0.0,
-          "re": -0.4161468365471424
-        },
         "id": "cosh-pure-imag",
+        "operation": "cosh",
         "input": {
-          "im": 2.0,
-          "re": 0.0
+          "re": 0,
+          "im": 2
         },
-        "operation": "cosh"
+        "expected": {
+          "re": -0.4161468365471424,
+          "im": 0
+        }
       },
       {
-        "expected": {
-          "im": -2.185039863261519,
-          "re": 0.0
-        },
         "id": "tanh-pure-imag",
+        "operation": "tanh",
         "input": {
-          "im": 2.0,
-          "re": 0.0
+          "re": 0,
+          "im": 2
         },
-        "operation": "tanh"
+        "expected": {
+          "re": 0,
+          "im": -2.185039863261519
+        }
       },
       {
-        "expected": {
-          "im": 0.7397922644560138,
-          "re": -1.0313360742545512
-        },
         "id": "sinh-general",
+        "operation": "sinh",
         "input": {
-          "im": 0.5,
-          "re": -1.0
+          "re": -1,
+          "im": 0.5
         },
-        "operation": "sinh"
+        "expected": {
+          "re": -1.0313360742545512,
+          "im": 0.7397922644560138
+        }
       },
       {
-        "expected": {
-          "im": -0.5634214652309818,
-          "re": 1.3541806567045842
-        },
         "id": "cosh-general",
+        "operation": "cosh",
         "input": {
-          "im": 0.5,
-          "re": -1.0
+          "re": -1,
+          "im": 0.5
         },
-        "operation": "cosh"
-      },
-      {
         "expected": {
-          "im": 0.19557731006593398,
-          "re": -0.8429662048457831
-        },
-        "id": "tanh-general",
-        "input": {
-          "im": 0.5,
-          "re": -1.0
-        },
-        "operation": "tanh"
+          "re": 1.3541806567045842,
+          "im": -0.5634214652309818
+        }
       },
       {
+        "id": "tanh-general",
+        "operation": "tanh",
+        "input": {
+          "re": -1,
+          "im": 0.5
+        },
+        "expected": {
+          "re": -0.8429662048457833,
+          "im": 0.195577310065934
+        }
+      },
+      {
+        "id": "toPolar-unit",
+        "operation": "toPolar",
+        "input": {
+          "re": 1,
+          "im": 1
+        },
         "expected": {
           "r": 1.4142135623730951,
           "theta": 0.7853981633974483
-        },
-        "id": "toPolar-unit",
-        "input": {
-          "im": 1.0,
-          "re": 1.0
-        },
-        "operation": "toPolar"
+        }
       },
       {
-        "expected": {
-          "r": 3.0,
-          "theta": 3.141592653589793
-        },
         "id": "toPolar-pure-real-neg",
+        "operation": "toPolar",
         "input": {
-          "im": 0.0,
-          "re": -3.0
+          "re": -3,
+          "im": 0
         },
-        "operation": "toPolar"
-      },
-      {
         "expected": {
-          "r": 5.0,
-          "theta": -0.9272952180016122
-        },
+          "r": 3,
+          "theta": 3.141592653589793
+        }
+      },
+      {
         "id": "toPolar-general",
+        "operation": "toPolar",
         "input": {
-          "im": -4.0,
-          "re": 3.0
+          "re": 3,
+          "im": -4
         },
-        "operation": "toPolar"
+        "expected": {
+          "r": 5,
+          "theta": -0.9272952180016121
+        }
       },
       {
-        "expected": 0.0,
         "id": "complexDerivative-square-at-0",
+        "operation": "complexDerivative",
         "input": {
           "fn": "square",
-          "x": 0.0
+          "x": 0
         },
-        "operation": "complexDerivative"
+        "expected": 0
       },
       {
-        "expected": 2.0,
         "id": "complexDerivative-square-at-1",
+        "operation": "complexDerivative",
         "input": {
           "fn": "square",
-          "x": 1.0
+          "x": 1
         },
-        "operation": "complexDerivative"
+        "expected": 2
       },
       {
-        "expected": 4.0,
         "id": "complexDerivative-square-at-2",
+        "operation": "complexDerivative",
         "input": {
           "fn": "square",
-          "x": 2.0
+          "x": 2
         },
-        "operation": "complexDerivative"
+        "expected": 4
       },
       {
-        "expected": -1e-40,
         "id": "complexDerivative-cube-at-0",
+        "operation": "complexDerivative",
         "input": {
           "fn": "cube",
-          "x": 0.0
+          "x": 0
         },
-        "operation": "complexDerivative"
+        "expected": -1e-40
       },
       {
-        "expected": 3.0,
         "id": "complexDerivative-cube-at-1",
+        "operation": "complexDerivative",
         "input": {
           "fn": "cube",
-          "x": 1.0
+          "x": 1
         },
-        "operation": "complexDerivative"
+        "expected": 3
       },
       {
-        "expected": 12.0,
         "id": "complexDerivative-cube-at-2",
+        "operation": "complexDerivative",
         "input": {
           "fn": "cube",
-          "x": 2.0
+          "x": 2
         },
-        "operation": "complexDerivative"
+        "expected": 12
       },
       {
-        "expected": 1.0,
         "id": "complexDerivative-sin-at-0",
+        "operation": "complexDerivative",
         "input": {
           "fn": "sin",
-          "x": 0.0
+          "x": 0
         },
-        "operation": "complexDerivative"
+        "expected": 1
       },
       {
-        "expected": 0.5403023058681398,
         "id": "complexDerivative-sin-at-1",
+        "operation": "complexDerivative",
         "input": {
           "fn": "sin",
-          "x": 1.0
+          "x": 1
         },
-        "operation": "complexDerivative"
+        "expected": 0.5403023058681398
       },
       {
-        "expected": -0.41614683654714246,
         "id": "complexDerivative-sin-at-2",
+        "operation": "complexDerivative",
         "input": {
           "fn": "sin",
-          "x": 2.0
+          "x": 2
         },
-        "operation": "complexDerivative"
+        "expected": -0.41614683654714246
       },
       {
-        "expected": 1.0,
         "id": "complexDerivative-exp-at-0",
+        "operation": "complexDerivative",
         "input": {
           "fn": "exp",
-          "x": 0.0
+          "x": 0
         },
-        "operation": "complexDerivative"
+        "expected": 1
       },
       {
-        "expected": 2.718281828459045,
         "id": "complexDerivative-exp-at-1",
+        "operation": "complexDerivative",
         "input": {
           "fn": "exp",
-          "x": 1.0
+          "x": 1
         },
-        "operation": "complexDerivative"
+        "expected": 2.718281828459045
       },
       {
-        "expected": 7.389056098930651,
         "id": "complexDerivative-exp-at-2",
+        "operation": "complexDerivative",
         "input": {
           "fn": "exp",
-          "x": 2.0
+          "x": 2
         },
-        "operation": "complexDerivative"
+        "expected": 7.389056098930651
       }
     ]
   }

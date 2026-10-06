@@ -78,15 +78,15 @@ Schema is authoritative for encodable data. Abstract generic, callback, Layer, a
 
 ### Python Tooling
 
-Fixture generation uses [uv](https://docs.astral.sh/uv/) with PEP 723 inline metadata — never use `python3` directly.
+Fixture generation uses [uv](https://docs.astral.sh/uv/) with the root `pyproject.toml` and `uv.lock` through `uv run --locked` — never use `python3` directly.
 
 - Committed fixture JSON in `test/fixtures/scipy/` is the test source of truth
 - `bun run fixtures:check` schema-decodes every committed fixture through the TS `KnownFixtureSchema` union — catches generator ↔ schema drift
 - `bun run fixtures:generate` runs the Effect entrypoint `scripts/generate-scipy-fixtures.ts`
-- `bun run fixtures:lock` pins exact Python dependency versions (run after changing PEP 723 deps)
+- `bun run fixtures:lock` updates the root Python lock (run after changing root Python dependencies)
 - Python is explicitly authorized for SciPy/NumPy reference computation, result conversion, and the JSON stdin/stdout protocol. These dependencies remain Python; this authorization does not extend to TypeScript computation or orchestration.
 - Effect owns discovery, scoped Python processes, bounded concurrency, schema validation, filesystem writes, and manifest construction. `generate-scipy-fixtures.py` evaluates one requested family; `scripts/fixtures/` has one module per domain.
-- `SCIPY_FIXTURE_OUTPUT_DIRECTORY` selects an alternate output directory for review before replacing committed references. `SCIPY_FIXTURE_GENERATED_AT` overrides the reproducible default timestamp `2026-03-23T00:00:00Z`.
+- `SCIPY_FIXTURE_OUTPUT_DIRECTORY` selects an alternate output directory for review before replacing committed references. `SCIPY_FIXTURE_GENERATED_AT` overrides the reproducible default timestamp `2026-10-06T10:08:01Z`.
 - Provenance records the SciPy, NumPy, and Python versions actually used. Review numerical changes independently; do not weaken tolerances to accept regenerated output.
 
 ### Fixture Architecture

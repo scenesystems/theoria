@@ -3,8 +3,7 @@ import { Array, Schema } from "effect"
 const FixtureMetadataSchema = Schema.Struct({
   generatedAt: Schema.String,
   generator: Schema.Struct({
-    script: Schema.String,
-    version: Schema.String
+    script: Schema.String
   }),
   upstream: Schema.Struct({
     name: Schema.Literal("scipy"),
@@ -1755,10 +1754,8 @@ export const FixtureManifestEntrySchema = Schema.Struct({
 })
 
 export const FixtureManifestSchema = Schema.Struct({
-  schemaVersion: Schema.String,
   generator: Schema.Struct({
     script: Schema.String,
-    generatorVersion: Schema.String,
     upstream: Schema.String,
     upstreamVersion: Schema.String,
     numpyVersion: Schema.String,

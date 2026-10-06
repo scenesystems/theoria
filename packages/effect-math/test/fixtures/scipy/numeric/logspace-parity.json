@@ -1,317 +1,316 @@
 {
   "fixture": "numeric.logspace-parity",
   "metadata": {
-    "generatedAt": "2026-03-23T00:00:00Z",
+    "generatedAt": "2026-10-06T10:08:01Z",
     "generator": {
-      "script": "scripts/generate-scipy-fixtures.py",
-      "version": "1.0.0"
+      "script": "scripts/generate-scipy-fixtures.py"
     },
     "upstream": {
       "name": "scipy",
-      "version": "1.15.2"
+      "version": "1.17.1"
     }
   },
   "payload": {
     "cases": [
       {
-        "expected": 1.6931471805599454,
         "id": "logaddexp-equal",
+        "operation": "logaddexp",
         "input": {
-          "a": 1.0,
-          "b": 1.0
+          "a": 1,
+          "b": 1
         },
-        "operation": "logaddexp"
+        "expected": 1.6931471805599454
       },
       {
-        "expected": 10.000123402189724,
         "id": "logaddexp-one-larger",
+        "operation": "logaddexp",
         "input": {
-          "a": 10.0,
-          "b": 1.0
+          "a": 10,
+          "b": 1
         },
-        "operation": "logaddexp"
+        "expected": 10.000123402189724
       },
       {
-        "expected": -0.6867383124817772,
         "id": "logaddexp-negative",
+        "operation": "logaddexp",
         "input": {
-          "a": -1.0,
-          "b": -2.0
+          "a": -1,
+          "b": -2
         },
-        "operation": "logaddexp"
+        "expected": -0.6867383124817772
       },
       {
-        "expected": 100.0,
         "id": "logaddexp-large-magnitude",
+        "operation": "logaddexp",
         "input": {
-          "a": 100.0,
-          "b": 50.0
+          "a": 100,
+          "b": 50
         },
-        "operation": "logaddexp"
+        "expected": 100
       },
       {
-        "expected": 0.6931471805599453,
         "id": "logaddexp-zero-zero",
+        "operation": "logaddexp",
         "input": {
-          "a": 0.0,
-          "b": 0.0
+          "a": 0,
+          "b": 0
         },
-        "operation": "logaddexp"
+        "expected": 0.6931471805599453
       },
       {
-        "expected": 4.854586542131141,
         "id": "logsubexp-a-gt-b",
+        "operation": "logsubexp",
         "input": {
-          "a": 5.0,
-          "b": 3.0
+          "a": 5,
+          "b": 3
         },
-        "operation": "logsubexp"
+        "expected": 4.854586542131141
       },
       {
-        "expected": 19.999999994397204,
         "id": "logsubexp-a-much-larger",
+        "operation": "logsubexp",
         "input": {
-          "a": 20.0,
-          "b": 1.0
+          "a": 20,
+          "b": 1
         },
-        "operation": "logsubexp"
+        "expected": 19.999999994397204
       },
       {
-        "expected": -1.3521684610440916,
         "id": "logsubexp-close",
+        "operation": "logsubexp",
         "input": {
-          "a": 1.0,
+          "a": 1,
           "b": 0.9
         },
-        "operation": "logsubexp"
+        "expected": -1.3521684610440912
       },
       {
-        "expected": 100.0,
         "id": "logsubexp-large-gap",
+        "operation": "logsubexp",
         "input": {
-          "a": 100.0,
-          "b": 10.0
+          "a": 100,
+          "b": 10
         },
-        "operation": "logsubexp"
+        "expected": 100
       },
       {
-        "expected": -0.6096329315889282,
         "id": "logsubexp-small",
+        "operation": "logsubexp",
         "input": {
           "a": 0.5,
           "b": 0.1
         },
-        "operation": "logsubexp"
+        "expected": -0.6096329315889277
       },
       {
-        "expected": -2.3521684610440903,
         "id": "log1mexp-small-neg",
+        "operation": "log1mexp",
         "input": {
           "x": -0.1
         },
-        "operation": "log1mexp"
+        "expected": -2.3521684610440903
       },
       {
-        "expected": -0.9327521295671886,
         "id": "log1mexp-half",
+        "operation": "log1mexp",
         "input": {
           "x": -0.5
         },
-        "operation": "log1mexp"
+        "expected": -0.9327521295671886
       },
       {
-        "expected": -0.45867514538708193,
         "id": "log1mexp-one",
+        "operation": "log1mexp",
         "input": {
-          "x": -1.0
+          "x": -1
         },
-        "operation": "log1mexp"
+        "expected": -0.4586751453870819
       },
       {
-        "expected": -0.14541345786885906,
         "id": "log1mexp-two",
+        "operation": "log1mexp",
         "input": {
-          "x": -2.0
+          "x": -2
         },
-        "operation": "log1mexp"
+        "expected": -0.14541345786885906
       },
       {
-        "expected": -4.54009603704951e-5,
         "id": "log1mexp-ten",
+        "operation": "log1mexp",
         "input": {
-          "x": -10.0
+          "x": -10
         },
-        "operation": "log1mexp"
+        "expected": -0.0000454009603704951
       },
       {
-        "expected": 4.539889921686465e-5,
         "id": "log1pexp-neg10",
+        "operation": "log1pexp",
         "input": {
-          "x": -10.0
+          "x": -10
         },
-        "operation": "log1pexp"
+        "expected": 0.00004539889921686465
       },
       {
-        "expected": 0.6931471805599453,
         "id": "log1pexp-zero",
+        "operation": "log1pexp",
         "input": {
-          "x": 0.0
+          "x": 0
         },
-        "operation": "log1pexp"
+        "expected": 0.6931471805599453
       },
       {
-        "expected": 1.3132616875182228,
         "id": "log1pexp-one",
+        "operation": "log1pexp",
         "input": {
-          "x": 1.0
+          "x": 1
         },
-        "operation": "log1pexp"
+        "expected": 1.3132616875182228
       },
       {
-        "expected": 10.000045398899218,
         "id": "log1pexp-ten",
+        "operation": "log1pexp",
         "input": {
-          "x": 10.0
+          "x": 10
         },
-        "operation": "log1pexp"
+        "expected": 10.000045398899216
       },
       {
-        "expected": 40.0,
         "id": "log1pexp-large",
+        "operation": "log1pexp",
         "input": {
-          "x": 40.0
+          "x": 40
         },
-        "operation": "log1pexp"
+        "expected": 40
       },
       {
-        "expected": 0.0,
         "id": "xlogy-x-zero",
+        "operation": "xlogy",
         "input": {
-          "x": 0.0,
-          "y": 5.0
+          "x": 0,
+          "y": 5
         },
-        "operation": "xlogy"
+        "expected": 0
       },
       {
-        "expected": 1.0,
         "id": "xlogy-one-e",
+        "operation": "xlogy",
         "input": {
-          "x": 1.0,
+          "x": 1,
           "y": 2.718281828459045
         },
-        "operation": "xlogy"
+        "expected": 1
       },
       {
-        "expected": 4.605170185988092,
         "id": "xlogy-2-10",
+        "operation": "xlogy",
         "input": {
-          "x": 2.0,
-          "y": 10.0
+          "x": 2,
+          "y": 10
         },
-        "operation": "xlogy"
+        "expected": 4.605170185988092
       },
       {
-        "expected": -0.34657359027997264,
         "id": "xlogy-half-half",
+        "operation": "xlogy",
         "input": {
           "x": 0.5,
           "y": 0.5
         },
-        "operation": "xlogy"
+        "expected": -0.34657359027997264
       },
       {
-        "expected": 46.05170185988092,
         "id": "xlogy-large",
+        "operation": "xlogy",
         "input": {
-          "x": 10.0,
-          "y": 100.0
+          "x": 10,
+          "y": 100
         },
-        "operation": "xlogy"
+        "expected": 46.05170185988092
       },
       {
-        "expected": 0.0,
         "id": "xlog1py-x-zero",
+        "operation": "xlog1py",
         "input": {
-          "x": 0.0,
-          "y": 5.0
+          "x": 0,
+          "y": 5
         },
-        "operation": "xlog1py"
+        "expected": 0
       },
       {
-        "expected": 0.6931471805599453,
         "id": "xlog1py-one-one",
+        "operation": "xlog1py",
         "input": {
-          "x": 1.0,
-          "y": 1.0
+          "x": 1,
+          "y": 1
         },
-        "operation": "xlog1py"
+        "expected": 0.6931471805599453
       },
       {
-        "expected": 2.772588722239781,
         "id": "xlog1py-2-3",
+        "operation": "xlog1py",
         "input": {
-          "x": 2.0,
-          "y": 3.0
+          "x": 2,
+          "y": 3
         },
-        "operation": "xlog1py"
+        "expected": 2.772588722239781
       },
       {
-        "expected": 0.004975165426584042,
         "id": "xlog1py-half-small",
+        "operation": "xlog1py",
         "input": {
           "x": 0.5,
           "y": 0.01
         },
-        "operation": "xlog1py"
+        "expected": 0.004975165426584042
       },
       {
-        "expected": 46.05170185988092,
         "id": "xlog1py-large",
+        "operation": "xlog1py",
         "input": {
-          "x": 10.0,
-          "y": 99.0
+          "x": 10,
+          "y": 99
         },
-        "operation": "xlog1py"
+        "expected": 46.05170185988092
       },
       {
-        "expected": 3.40760596444438,
         "id": "logsumexp-small-array",
+        "operation": "logSumExp",
         "input": {
-          "values": [1.0, 2.0, 3.0]
+          "values": [1, 2, 3]
         },
-        "operation": "logSumExp"
+        "expected": 3.40760596444438
       },
       {
-        "expected": 2.893493315657009,
         "id": "logsumexp-large-array",
+        "operation": "logSumExp",
         "input": {
-          "values": [0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9, 1.0]
+          "values": [0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9, 1]
         },
-        "operation": "logSumExp"
+        "expected": 2.893493315657009
       },
       {
-        "expected": 6.386294361119891,
         "id": "logsumexp-all-same",
+        "operation": "logSumExp",
         "input": {
-          "values": [5.0, 5.0, 5.0, 5.0]
+          "values": [5, 5, 5, 5]
         },
-        "operation": "logSumExp"
+        "expected": 6.386294361119891
       },
       {
-        "expected": 100.0,
         "id": "logsumexp-one-dominant",
+        "operation": "logSumExp",
         "input": {
-          "values": [100.0, 1.0, 2.0, 3.0]
+          "values": [100, 1, 2, 3]
         },
-        "operation": "logSumExp"
+        "expected": 100
       },
       {
-        "expected": -0.5598103014388047,
         "id": "logsumexp-negative",
+        "operation": "logSumExp",
         "input": {
-          "values": [-1.0, -2.0, -3.0, -4.0]
+          "values": [-1, -2, -3, -4]
         },
-        "operation": "logSumExp"
+        "expected": -0.5598103014388047
       }
     ]
   }

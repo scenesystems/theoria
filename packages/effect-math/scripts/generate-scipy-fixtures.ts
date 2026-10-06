@@ -18,7 +18,8 @@ import {
   pipe,
   Schema,
   Stream,
-  String
+  String,
+  Struct
 } from "effect"
 import { ChildProcess } from "effect/process"
 
@@ -39,7 +40,6 @@ const GeneratedFixture = Schema.Struct({
 })
 
 const ReferenceBatch = Schema.Struct({
-  schemaVersion: FixtureManifestSchema.fields.schemaVersion,
   generator: FixtureManifestSchema.fields.generator,
   fixtures: Schema.NonEmptyArray(GeneratedFixture)
 })
@@ -57,10 +57,10 @@ class ReferenceEvaluationError extends Schema.TaggedError<ReferenceEvaluationErr
   }
 ) {}
 
-const evaluateFamily = (script: string, request: typeof ReferenceRequest.Type) =>
+const evaluateFamily = (repositoryRoot: string, script: string, request: typeof ReferenceRequest.Type) =>
   Effect.gen(function*() {
     const input = yield* Schema.encodeEffect(Schema.fromJsonString(ReferenceRequest))(request)
-    const child = yield* ChildProcess.make("uv", ["run", "--script", script], {
+    const child = yield* ChildProcess.make("uv", ["run", "--locked", "--project", repositoryRoot, "python", script], {
       stdin: "pipe",
       stdout: "pipe",
       stderr: "pipe"
@@ -91,11 +91,12 @@ const program = Effect.gen(function*() {
   const fileSystem = yield* FileSystem.FileSystem
   const path = yield* Path.Path
   const packageRoot = yield* directoryBeside(import.meta.url, "../")
+  const repositoryRoot = path.resolve(packageRoot, "../..")
   const outputDirectory = yield* Config.String("SCIPY_FIXTURE_OUTPUT_DIRECTORY").pipe(
     Config.withDefault(path.join(packageRoot, "test/fixtures/scipy"))
   )
   const generatedAt = yield* Config.String("SCIPY_FIXTURE_GENERATED_AT").pipe(
-    Config.withDefault("2026-03-23T00:00:00Z")
+    Config.withDefault("2026-10-06T10:08:01Z")
   )
   const modules = yield* fileSystem.readDirectory(path.join(packageRoot, "scripts/fixtures"))
   const families = yield* Schema.decodeUnknownEffect(Schema.NonEmptyArray(Schema.String))(
@@ -108,10 +109,13 @@ const program = Effect.gen(function*() {
     { onExcessProperty: "error" }
   )
   const script = path.join(packageRoot, "scripts/generate-scipy-fixtures.py")
-  const provenance = yield* evaluateFamily(script, { family: Array.headNonEmpty(families), generatedAt })
+  const provenance = yield* evaluateFamily(repositoryRoot, script, {
+    family: Array.headNonEmpty(families),
+    generatedAt
+  })
   const batches = yield* Effect.forEach(
     Array.tailNonEmpty(families),
-    (family) => evaluateFamily(script, { family, generatedAt }),
+    (family) => evaluateFamily(repositoryRoot, script, { family, generatedAt }),
     {
       concurrency: 2
     }
@@ -125,9 +129,10 @@ const program = Effect.gen(function*() {
   const fixtures = yield* Effect.forEach(
     generatedFixtures,
     (fixture) =>
-      Schema.decodeUnknownEffect(KnownFixtureSchema)(fixture, { onExcessProperty: "ignore" }).pipe(
-        Effect.map((validated) => ({ ...validated, file: fixture.file }))
-      )
+      Schema.decodeUnknownEffect(KnownFixtureSchema)(Struct.omit(fixture, ["file"]), { onExcessProperty: "error" })
+        .pipe(
+          Effect.map((validated) => ({ ...validated, file: fixture.file }))
+        )
   )
   yield* Effect.forEach(fixtures, (fixture) =>
     Effect.filterOrFail(
@@ -155,7 +160,6 @@ const program = Effect.gen(function*() {
       })
   )
   const manifest = FixtureManifestSchema.make({
-    schemaVersion: provenance.schemaVersion,
     generator: provenance.generator,
     fixtures: pipe(
       Array.map(fixtures, (fixture) => ({ name: fixture.fixture, file: fixture.file })),
