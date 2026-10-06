@@ -55,3 +55,15 @@ ancestor reference above a bounded depth, removing per-container hash-set
 registration and the Bun garbage-collection pathology on large record arrays.
 Cache one sorted key layout across consecutive records. Add read-once and
 resume-order coverage for rejected siblings and cyclic getters.
+
+Charge serialized text before each copied read so one run emits at most 32 Ki
+text units including keys, number spellings, and escape expansion, and so a
+bounded digest copies no value beyond its remaining byte allowance. Keep the
+first failure when a copied prefix crosses the byte limit before a later hole
+or rejected value, and emit the copied prefix before reporting it. Compile
+caller codecs through Effect's public Schema JIT compiler on first use, keyed
+by encoding AST, with interpreted parsing as the fallback. Compose refusal
+predicates and copied-entry counts through Effect predicates and array search.
+Replace bare numeric operators with Effect compositions outside four
+owner-accepted hot functions. Widen timer-cooperation test inputs so traversal
+yields many times while host timers become due.

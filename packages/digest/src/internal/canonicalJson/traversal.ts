@@ -18,11 +18,12 @@ import * as Tuple from "effect/Tuple"
 import { ByteLimitExceeded, type Error as CanonicalizationError } from "../../CanonicalJson.js"
 import { utf8ByteLengthUnchecked } from "../utf8.js"
 import { makeProcessor } from "./serialization.js"
-import { append, fail, flushPending, scannedDepth, Shape, State, VisitFrame } from "./state.js"
+import { append, fail, flushPending, runBytes, scannedDepth, Shape, State, VisitFrame } from "./state.js"
 
 const makeState = <E>(
   value: unknown,
-  write: (state: State<E>, text: string) => void
+  write: (state: State<E>, text: string) => void,
+  allowance: () => number = () => runBytes
 ): State<E> => {
   const nextIdentity = MutableRef.make(0)
   return new State({
@@ -31,8 +32,9 @@ const makeState = <E>(
     active: MutableHashSet.empty(),
     // Function.memoize uses reference keys, without reading input Hash/Equal hooks.
     identity: memoize<object, number>(() => MutableRef.getAndIncrement(nextIdentity)),
-    shape: MutableRef.make(new Shape({ keys: [], sorted: [], prefixes: [], plain: true })),
+    shape: MutableRef.make(new Shape({ keys: [], sorted: [], prefixes: [], costs: [], plain: true })),
     budget: MutableRef.make(0),
+    allowance,
     // Slots are overwritten before they are read; a fresh object matches no input.
     lineage: Arr.makeBy(scannedDepth, () => MutableRef.make<object>(Record.empty())),
     halt: MutableRef.make(Option.none()),
@@ -132,12 +134,17 @@ export const canonicalizeWithByteLimit = (
   Effect.suspend(() => {
     const length = MutableRef.make(0)
     const admit = admitBounded(maximumBytes, length)
-    const state = makeState<ByteLimitExceeded>(value, (state, text) => {
-      Result.match(admit(text), {
-        onFailure: (error) => fail(state, error),
-        onSuccess: () => append(state, text)
-      })
-    })
+    const state = makeState<ByteLimitExceeded>(
+      value,
+      (state, text) => {
+        Result.match(admit(text), {
+          onFailure: (error) => fail(state, error),
+          onSuccess: () => append(state, text)
+        })
+      },
+      // Bounded copies then stop where single emissions would, reading no more.
+      () => N.subtract(maximumBytes, MutableRef.get(length))
+    )
     return Effect.map(
       Stream.runForEachArray(byteStream(state), (segments) => Effect.sync(() => Arr.forEach(segments, sink))),
       () => MutableRef.get(length)

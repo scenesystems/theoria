@@ -26,11 +26,7 @@ export type Frame = Data.TaggedEnum<{
   }
   Record: {
     readonly identity: Readonly<Record<string, unknown>>
-    readonly keys: ReadonlyArray<string>
-    /** Per sorted key: `,"key":` when the key needs no escaping, else none. */
-    readonly prefixes: ReadonlyArray<Option.Option<string>>
-    /** Every key is short, needs no escaping, and is not an array index. */
-    readonly plain: boolean
+    readonly shape: Shape
     readonly at: MutableRef.MutableRef<number>
     readonly depth: number
     readonly parent: Option.Option<Container>
@@ -58,9 +54,21 @@ export const StringFrame = Frame.String
 export class Shape extends Data.Class<{
   readonly keys: ReadonlyArray<string>
   readonly sorted: ReadonlyArray<string>
+  /** Per sorted key: `,"key":` when the key needs no escaping, else none. */
   readonly prefixes: ReadonlyArray<Option.Option<string>>
+  /** Per sorted key: an upper bound of the UTF-8 bytes its prefix serializes to. */
+  readonly costs: ReadonlyArray<number>
+  /** Every key is short, needs no escaping, and is not an array index. */
   readonly plain: boolean
 }> {}
+
+/**
+ * The UTF-8 byte bound of one serialized run. Every value a copy reads is
+ * charged an upper bound of its serialized bytes beforehand, so one run never
+ * serializes more than this, holds more values than this, or crosses a byte
+ * limit that bounds it further.
+ */
+export const runBytes = 32_768
 
 /**
  * Where a bounded copy stopped, carrying every value it already read so the
@@ -99,8 +107,10 @@ export class State<E> extends Data.Class<{
   readonly identity: (value: object) => number
   /** The most recent record key layout. */
   readonly shape: MutableRef.MutableRef<Shape>
-  /** Text units a bounded copy may still spend. */
+  /** Serialized bytes the current bounded copy may still charge. */
   readonly budget: MutableRef.MutableRef<number>
+  /** Serialized bytes the output may still admit; `runBytes` when unbounded. */
+  readonly allowance: () => number
   /** The container being copied at each scanned depth, below the copying frame. */
   readonly lineage: ReadonlyArray<MutableRef.MutableRef<object>>
   /** Where the most recent bounded copy stopped, until its caller resumes it. */
@@ -111,8 +121,9 @@ export class State<E> extends Data.Class<{
   readonly failure: MutableRef.MutableRef<Option.Option<CanonicalizationError | E>>
 }> {}
 
+// The first failure is the result: later steps of the same batch keep it.
 export const fail = <E>(state: State<E>, error: CanonicalizationError | E): void => {
-  MutableRef.set(state.failure, Option.some(error))
+  if (Option.isNone(MutableRef.get(state.failure))) MutableRef.set(state.failure, Option.some(error))
 }
 
 export const push = <E>(state: State<E>, frame: Frame): void => {
