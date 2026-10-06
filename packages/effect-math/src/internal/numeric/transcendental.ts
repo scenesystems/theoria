@@ -39,6 +39,7 @@ const arctangentTerms = 52
 // Developed at SunSoft, a Sun Microsystems, Inc. business.
 // Permission to use, copy, modify, and distribute this software is freely
 // granted, provided that this notice is preserved.
+// OpenLibm argument-reduction optimizations by Bruce D. Evans.
 const lnTwoHigh = 6.93147180369123816490e-1
 const lnTwoLow = 1.90821492927058770002e-10
 // Prepare fixed polynomials once, retaining every multiply/add, including
@@ -587,11 +588,13 @@ const trigonometricFinite = Match.fn((value: number, _phase: 0 | 1) => Binary.ab
         onFalse: () => cosineReduced(value, 0)
       })
   ),
-  Match.when(Number.isLessThanOrEqualTo(1_048_576), (_magnitude, value, phase) => {
+  Match.when(Number.isLessThanOrEqualTo(1_048_576), (magnitude, value, phase) => {
     // At this bound n has at most 20 bits. Products with each 33-bit
     // pi/2 part are exact. Carry BOTH subtraction residuals when applying
     // all three parts unconditionally (unlike FDLIBM's adaptive path).
-    const n = Number.round(Number.multiply(value, 6.36619772367581382433e-1), 0)
+    // Round the magnitude before restoring the sign: signed half ties in
+    // Number.round would otherwise choose different reductions for +/-x.
+    const n = withSign(Number.round(Number.multiply(magnitude, 6.36619772367581382433e-1), 0), value)
     const first = Number.subtract(value, Number.multiply(n, 1.57079632673412561417))
     const secondPart = Number.multiply(n, 6.07710050630396597660e-11)
     const second = Number.subtract(first, secondPart)

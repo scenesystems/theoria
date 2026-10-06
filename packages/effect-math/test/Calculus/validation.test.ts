@@ -67,6 +67,22 @@ describe("Calculus validation", () => {
       expect(second.value).toBeCloseTo(-0.8660254037844386, 8)
     }))
 
+  it.effect("converges to an accurate second derivative within ten iterations", () =>
+    Effect.gen(function*() {
+      const second = yield* secondDerivativeLimitValidated(Numeric.sin, {
+        x: Number.divideUnsafe(Numeric.pi, 3),
+        initialStep: 1e-2,
+        maxIterations: 10
+      })
+
+      expect(second.converged).toStrictEqual(true)
+      expect(second.iterations).toBeGreaterThan(2)
+      expect(second.iterations).toBeLessThanOrEqual(10)
+      expect(second.absoluteError).toBeLessThanOrEqual(1e-10)
+      // Independent -sin reference at the exact binary64 point.
+      expect(second.value).toBeCloseTo(-0.8660254037844386, 9)
+    }))
+
   it.effect("accepts canonical valid multivariate boundary inputs", () =>
     Effect.gen(function*() {
       const scalarSurface = (point: Chunk.Chunk<number>) => {

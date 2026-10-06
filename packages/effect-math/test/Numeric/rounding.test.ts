@@ -41,6 +41,17 @@ const angles = Array.make(
   Tuple.make(1048576.0000000002, 0.3304931402414822, 0.9438083938243631)
 )
 
+// Half-integral quadrant quotients and their adjacent binary64 inputs.
+// The expected sign relationships follow sin(-x) = -sin(x), cos(-x) = cos(x).
+const reductionTies = Array.make(
+  14.922565104551516,
+  14.922565104551518,
+  14.92256510455152,
+  Number.subtract(18.06415775814131, 3.552713678800501e-15),
+  18.06415775814131,
+  Number.sum(18.06415775814131, 3.552713678800501e-15)
+)
+
 // Decimal.from_float(x).sqrt(), evaluated with 160 decimal digits. These
 // straddle the subnormal/normal input boundary and a root binade boundary.
 const roots = Array.make(
@@ -158,6 +169,20 @@ describe("Numeric rounding-sensitive inputs", () => {
       expect(Numeric.pow(1.0000000000000002, -3.3557816878888806e18)).toBe(5e-324)
       expect(Numeric.pow(-1, 9007199254740991)).toBe(-1)
       expect(Numeric.pow(-1, 9007199254740992)).toBe(1)
+    }))
+
+  it.effect("preserves sine oddness at signed quadrant ties and adjacent inputs", () =>
+    Effect.gen(function*() {
+      Array.forEach(reductionTies, (angle) => {
+        expect(Numeric.sin(Number.multiply(-1, angle))).toBe(Number.multiply(-1, Numeric.sin(angle)))
+      })
+    }))
+
+  it.effect("preserves cosine evenness at signed quadrant ties and adjacent inputs", () =>
+    Effect.gen(function*() {
+      Array.forEach(reductionTies, (angle) => {
+        expect(Numeric.cos(Number.multiply(-1, angle))).toBe(Numeric.cos(angle))
+      })
     }))
 
   it.effect("retains quadrant residuals across both argument-reduction boundaries", () =>
