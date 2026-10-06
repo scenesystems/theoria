@@ -145,7 +145,7 @@
     },
     "packages/effect-lm": {
       "name": "@scenesystems/effect-lm",
-      "version": "0.1.0",
+      "version": "0.0.0",
       "peerDependencies": {
         "effect": "^4.0.0",
       },

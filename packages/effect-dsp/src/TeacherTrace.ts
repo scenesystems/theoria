@@ -3,7 +3,7 @@
  * TeacherTrace uses supplied demonstrations without prewarming. Optimizers such
  * as BootstrapFewShot treat boundParameters as a compiled teacher and prewarm
  * default or plain teachers through LabeledFewShot before collection.
- * @since 0.7.0
+ * @since 0.6.0
  * @module
  */
 import * as ModelBinder from "@scenesystems/effect-lm/ModelBinder"
@@ -36,7 +36,7 @@ import * as Predictor from "./Predictor.js"
 import * as Trace from "./Trace.js"
 
 /** A successful teacher execution, retaining every completed predictor call.
- * @since 0.7.0
+ * @since 0.6.0
  * @category models
  */
 export class Accepted extends Schema.Class<Accepted>("@scenesystems/effect-dsp/TeacherTrace/Accepted")({
@@ -48,7 +48,7 @@ export class Accepted extends Schema.Class<Accepted>("@scenesystems/effect-dsp/T
 }) {}
 
 /** A rejected score or expected execution failure; defects remain defects.
- * @since 0.7.0
+ * @since 0.6.0
  * @category models
  */
 export class Rejected extends Schema.Class<Rejected>("@scenesystems/effect-dsp/TeacherTrace/Rejected")({
@@ -60,7 +60,7 @@ export class Rejected extends Schema.Class<Rejected>("@scenesystems/effect-dsp/T
 }) {}
 
 /** Ordered accepted and rejected teacher evidence.
- * @since 0.7.0
+ * @since 0.6.0
  * @category models
  */
 export class Collected extends Schema.Class<Collected>("@scenesystems/effect-dsp/TeacherTrace/Collected")({
@@ -68,7 +68,7 @@ export class Collected extends Schema.Class<Collected>("@scenesystems/effect-dsp
   rejected: Schema.Chunk(Rejected)
 }) {}
 
-/** Teacher execution lifecycle, emitted when each domain action completes. @since 0.7.0 @category events */
+/** Teacher execution lifecycle, emitted when each domain action completes. @since 0.6.0 @category events */
 export const Event = Schema.Union([
   Schema.TaggedStruct("RoundStarted", { round: Schema.Int }),
   Schema.TaggedStruct("ExampleAccepted", Accepted.fields),
@@ -76,20 +76,20 @@ export const Event = Schema.Union([
   Schema.TaggedStruct("RoundCompleted", { round: Schema.Int, acceptedCount: Schema.Int, rejectedCount: Schema.Int })
 ])
 
-/** Teacher execution event. @since 0.7.0 @category events */
+/** Teacher execution event. @since 0.6.0 @category events */
 export type Event = typeof Event.Type
 
-/** Teacher event constructors and exhaustive matching. @since 0.7.0 @category events */
+/** Teacher event constructors and exhaustive matching. @since 0.6.0 @category events */
 export const events = Data.taggedEnum<Event>()
 
-/** Awaited observer; checked observer failures never consume the model/metric budget. @since 0.7.0 @category models */
+/** Awaited observer; checked observer failures never consume the model/metric budget. @since 0.6.0 @category models */
 export type EventSink<E = never, R = never> = (event: Event) => Effect.Effect<void, E, R>
 
-/** Discards teacher events. @since 0.7.0 @category constants */
+/** Discards teacher events. @since 0.6.0 @category constants */
 export const noEvents: EventSink = () => Effect.void
 
 /** Teacher and student must have matching predictor identities and signatures.
- * @since 0.7.0
+ * @since 0.6.0
  * @category errors
  */
 export class IncompatibleTeacher extends Schema.TaggedError<IncompatibleTeacher>(
@@ -97,7 +97,7 @@ export class IncompatibleTeacher extends Schema.TaggedError<IncompatibleTeacher>
 )("IncompatibleTeacher", { message: Schema.String }) {}
 
 /** The DSPy error budget was reached after draining in-flight work.
- * @since 0.7.0
+ * @since 0.6.0
  * @category errors
  */
 export class TooManyErrors extends Schema.TaggedError<TooManyErrors>(
@@ -107,7 +107,7 @@ export class TooManyErrors extends Schema.TaggedError<TooManyErrors>(
 /** Teacher collection policy. Defaults: bound student, one round, one worker,
  * no score threshold and no error limit. stopWhen prevents new work from starting;
  * already-running examples drain normally.
- * @since 0.7.0
+ * @since 0.6.0
  * @category models
  */
 export class Options<
@@ -132,7 +132,7 @@ export class Options<
 
 /** Deterministically selects the first call per predictor within each example.
  * This is not DSPy's hash-seeded repeated-call selection policy.
- * @since 0.7.0
+ * @since 0.6.0
  * @category combinators
  */
 export const firstPerPredictor = (accepted: Accepted): Accepted =>
@@ -143,7 +143,7 @@ export const firstPerPredictor = (accepted: Accepted): Accepted =>
 /** Executes teachers under leave-one-out parameter overlays and teacher role.
  * Successful examples are not retried in later rounds; rejected examples are.
  * Every expected example failure is retained unless the error budget is reached.
- * @since 0.7.0
+ * @since 0.6.0
  * @category operations
  */
 export const collect = <
@@ -371,7 +371,7 @@ export const collect = <
     return new Collected({ accepted: yield* Ref.get(accepted), rejected: yield* Ref.get(rejected) })
   })
 
-/** Streams teacher lifecycle events as collection executes. @since 0.7.0 @category constructors */
+/** Streams teacher lifecycle events as collection executes. @since 0.6.0 @category constructors */
 export const stream = <I extends Schema.Struct.Fields, O extends Schema.Struct.Fields, E, R, ME, MR>(
   options: Options<I, O, E, R, ME, MR>
 ) => Emitter.toStream((emit: EventSink) => collect(options, emit))

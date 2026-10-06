@@ -108,7 +108,7 @@ export class Signature<
   readonly fields: ReadonlyArray<FieldInfo>
 }> {
   /** Computes structural identity lazily, without making graph traversal effectful.
-   * @since 0.7.0
+   * @since 0.6.0
    * @category accessors
    */
   get digest(): (parameters: ModuleParameters) => Effect.Effect<string, SignatureError> {
@@ -207,7 +207,7 @@ export const withFieldDescription = <I extends Schema.Struct.Fields, O extends S
 
 /** Hashes encoded input/output JSON schemas and all prompt metadata. Conversion
  * failures remain typed, allowing cache users to treat unsupported schemas as misses.
- * @since 0.7.0
+ * @since 0.6.0
  * @category operations
  */
 export const digest = <I extends Schema.Struct.Fields, O extends Schema.Struct.Fields>(

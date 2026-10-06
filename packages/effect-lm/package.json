@@ -1,6 +1,6 @@
 {
   "name": "@scenesystems/effect-lm",
-  "version": "0.1.0",
+  "version": "0.0.0",
   "type": "module",
   "description": "Effect-native model settings and scoped model binding",
   "license": "MIT",
@@ -10,8 +10,14 @@
     "url": "https://github.com/scenesystems/theoria.git",
     "directory": "packages/effect-lm"
   },
-  "bugs": { "url": "https://github.com/scenesystems/theoria/issues" },
-  "publishConfig": { "access": "public", "provenance": true, "directory": "dist" },
+  "bugs": {
+    "url": "https://github.com/scenesystems/theoria/issues"
+  },
+  "publishConfig": {
+    "access": "public",
+    "provenance": true,
+    "directory": "dist"
+  },
   "exports": {
     ".": "./src/index.ts",
     "./ModelSettings": "./src/ModelSettings.ts",
@@ -32,5 +38,7 @@
     "build": "bun run build-esm && bun run build-annotate && bun run build-cjs && build-utils pack-v3",
     "clean": "rm -rf build dist .tsbuildinfo"
   },
-  "peerDependencies": { "effect": "^4.0.0" }
+  "peerDependencies": {
+    "effect": "^4.0.0"
+  }
 }
