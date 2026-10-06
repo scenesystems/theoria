@@ -10,23 +10,101 @@ import * as Str from "effect/String"
 
 import type { Error as CanonicalizationError } from "../../CanonicalJson.js"
 
+/**
+ * The traversal stack is the chain of `parent` links from the top frame down
+ * to `None`. Open containers link to their enclosing container, so the chain
+ * above any container is exactly its ancestor path, which cycle detection
+ * scans by reference.
+ */
 export type Frame = Data.TaggedEnum<{
-  Visit: { readonly value: unknown }
-  Array: { readonly identity: ReadonlyArray<unknown>; readonly at: MutableRef.MutableRef<number> }
+  Visit: { readonly value: unknown; readonly parent: Option.Option<Container> }
+  Array: {
+    readonly identity: ReadonlyArray<unknown>
+    readonly at: MutableRef.MutableRef<number>
+    readonly depth: number
+    readonly parent: Option.Option<Container>
+  }
   Record: {
     readonly identity: Readonly<Record<string, unknown>>
     readonly keys: ReadonlyArray<string>
+    /** Per sorted key: `,"key":` when the key needs no escaping, else none. */
+    readonly prefixes: ReadonlyArray<Option.Option<string>>
+    /** Every key is short, needs no escaping, and is not an array index. */
+    readonly plain: boolean
     readonly at: MutableRef.MutableRef<number>
+    readonly depth: number
+    readonly parent: Option.Option<Container>
   }
-  String: { readonly text: string; readonly at: number; readonly suffix: string }
+  String: { readonly text: string; readonly at: number; readonly suffix: string; readonly parent: Option.Option<Frame> }
 }>
 
+/** Frames that enclose values: open collections. */
+export type Container = Extract<Frame, { readonly _tag: "Array" | "Record" }>
+
+/**
+ * Containers above this depth detect cycles by scanning their ancestors by
+ * reference. Deeper containers register identities so every check stays bounded.
+ */
+export const scannedDepth = 32
+
 export const Frame = Data.taggedEnum<Frame>()
+// Constructors are bound once; the enum's proxy would otherwise rebuild them per access.
+export const VisitFrame = Frame.Visit
+export const ArrayFrame = Frame.Array
+export const RecordFrame = Frame.Record
+export const StringFrame = Frame.String
+
+/** One record key layout: its enumeration order, sorted order, and inline key prefixes. */
+export class Shape extends Data.Class<{
+  readonly keys: ReadonlyArray<string>
+  readonly sorted: ReadonlyArray<string>
+  readonly prefixes: ReadonlyArray<Option.Option<string>>
+  readonly plain: boolean
+}> {}
+
+/**
+ * Where a bounded copy stopped, carrying every value it already read so the
+ * frame machine resumes exactly there without reading any field twice.
+ */
+export type Halt = Data.TaggedEnum<{
+  /** A value the frame machine must visit itself. */
+  Leaf: { readonly value: unknown }
+  /** An array copied up to its first halting element; none when that element is not own. */
+  Array: {
+    readonly identity: ReadonlyArray<unknown>
+    readonly elements: ReadonlyArray<unknown>
+    readonly child: Option.Option<Halt>
+  }
+  /** A record copied up to its first halting entry: `copied` sorted keys are in `fresh`. */
+  Record: {
+    readonly identity: Readonly<Record<string, unknown>>
+    readonly shape: Shape
+    readonly fresh: Readonly<Record<string, unknown>>
+    readonly copied: number
+    readonly child: Option.Option<Halt>
+  }
+}>
+
+export const Halt = Data.taggedEnum<Halt>()
+export const LeafHalt = Halt.Leaf
+export const ArrayHalt = Halt.Array
+export const RecordHalt = Halt.Record
 
 export class State<E> extends Data.Class<{
-  readonly stack: MutableList.MutableList<Frame>
+  /** The current frame; none once traversal has completed. */
+  readonly top: MutableRef.MutableRef<Option.Option<Frame>>
+  /** Open containers shallower than this depth are registered in `active`. */
+  readonly tracked: MutableRef.MutableRef<number>
   readonly active: MutableHashSet.MutableHashSet<number>
   readonly identity: (value: object) => number
+  /** The most recent record key layout. */
+  readonly shape: MutableRef.MutableRef<Shape>
+  /** Text units a bounded copy may still spend. */
+  readonly budget: MutableRef.MutableRef<number>
+  /** The container being copied at each scanned depth, below the copying frame. */
+  readonly lineage: ReadonlyArray<MutableRef.MutableRef<object>>
+  /** Where the most recent bounded copy stopped, until its caller resumes it. */
+  readonly halt: MutableRef.MutableRef<Option.Option<Halt>>
   readonly segments: MutableList.MutableList<string>
   readonly write: (state: State<E>, text: string) => void
   readonly pending: MutableRef.MutableRef<string>
@@ -38,7 +116,11 @@ export const fail = <E>(state: State<E>, error: CanonicalizationError | E): void
 }
 
 export const push = <E>(state: State<E>, frame: Frame): void => {
-  MutableList.prepend(state.stack, frame)
+  MutableRef.set(state.top, Option.some(frame))
+}
+
+export const pop = <E>(state: State<E>, frame: Frame): void => {
+  MutableRef.set(state.top, frame.parent)
 }
 
 export const flushPending = <E>(state: State<E>, final = false): void => {

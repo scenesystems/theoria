@@ -10,7 +10,7 @@ import * as MutableList from "effect/MutableList"
 import * as MutableRef from "effect/MutableRef"
 import * as N from "effect/Number"
 import * as Option from "effect/Option"
-import * as Predicate from "effect/Predicate"
+import * as Record from "effect/Record"
 import * as Result from "effect/Result"
 import * as Stream from "effect/Stream"
 import * as Tuple from "effect/Tuple"
@@ -18,20 +18,24 @@ import * as Tuple from "effect/Tuple"
 import { ByteLimitExceeded, type Error as CanonicalizationError } from "../../CanonicalJson.js"
 import { utf8ByteLengthUnchecked } from "../utf8.js"
 import { makeProcessor } from "./serialization.js"
-import { append, fail, flushPending, Frame, State } from "./state.js"
+import { append, fail, flushPending, scannedDepth, Shape, State, VisitFrame } from "./state.js"
 
 const makeState = <E>(
   value: unknown,
   write: (state: State<E>, text: string) => void
 ): State<E> => {
-  const stack = MutableList.make<Frame>()
   const nextIdentity = MutableRef.make(0)
-  MutableList.prepend(stack, Frame.Visit({ value }))
   return new State({
-    stack,
+    top: MutableRef.make(Option.some(VisitFrame({ value, parent: Option.none() }))),
+    tracked: MutableRef.make(0),
     active: MutableHashSet.empty(),
     // Function.memoize uses reference keys, without reading input Hash/Equal hooks.
     identity: memoize<object, number>(() => MutableRef.getAndIncrement(nextIdentity)),
+    shape: MutableRef.make(new Shape({ keys: [], sorted: [], prefixes: [], plain: true })),
+    budget: MutableRef.make(0),
+    // Slots are overwritten before they are read; a fresh object matches no input.
+    lineage: Arr.makeBy(scannedDepth, () => MutableRef.make<object>(Record.empty())),
+    halt: MutableRef.make(Option.none()),
     segments: MutableList.make(),
     write,
     pending: MutableRef.make(""),
@@ -40,7 +44,7 @@ const makeState = <E>(
 }
 
 const stopped = <E>(state: State<E>): boolean =>
-  B.or(N.Equivalence(state.stack.length, 0), Option.isSome(MutableRef.get(state.failure)))
+  B.or(Option.isNone(MutableRef.get(state.top)), Option.isSome(MutableRef.get(state.failure)))
 
 // Bound both structural work and emitted text before yielding.
 const batchSteps = Arr.range(0, 1023)
@@ -50,9 +54,8 @@ const makeBatch = <E>(state: State<E>): Effect.Effect<void> => {
   return Effect.sync(() => {
     const initialSegments = state.segments.length
     Arr.every(batchSteps, () => {
-      // Keep collection cursors in their existing bucket until exhausted.
-      const head = state.stack.head
-      if (!Predicate.isUndefined(head)) process(Arr.getUnsafe(head.array, head.offset))
+      const top = MutableRef.get(state.top)
+      if (Option.isSome(top)) process(top.value)
       return !stopped(state) && state.segments.length === initialSegments
     })
   })
