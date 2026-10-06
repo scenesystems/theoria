@@ -20,9 +20,8 @@ const logarithmTerms = 36
 const smallSeriesTerms = 72
 const exponentialTerms = 28
 const arctangentTerms = 52
-const trigonometricTerms = 18
 
-// FDLIBM logarithm/exponential rational approximations (OpenLibm e_log.c/e_exp.c).
+// FDLIBM approximations (OpenLibm e_log.c, e_exp.c, k_sin.c, k_cos.c, e_rem_pio2.c).
 // Copyright (C) 1993, 2004 by Sun Microsystems, Inc. All rights reserved.
 // Developed at SunSoft, a Sun Microsystems, Inc. business.
 // Permission to use, copy, modify, and distribute this software is freely
@@ -70,14 +69,6 @@ const negativeZero = (value: number): boolean => Object.is(value, -0)
 const negativeSign = Predicate.or(Number.isLessThan(0), negativeZero)
 const withSign = (magnitude: number, sign: number): number =>
   Boolean.match(negativeSign(sign), { onTrue: () => Number.multiply(magnitude, -1), onFalse: () => magnitude })
-
-class TrigSeriesState extends Data.Class<{
-  readonly cosine: number
-  readonly cosineTerm: number
-  readonly index: number
-  readonly sine: number
-  readonly sineTerm: number
-}> {}
 
 class DecimalSeriesState extends Data.Class<{
   readonly denominator: number
@@ -247,10 +238,10 @@ export const log1pStrict: (value: number) => number = log1p
 /** Relaxed precision-policy kernel; native composition is shared by both modes. */
 export const log1pRelaxed: (value: number) => number = log1p
 
-const exponentialReduced = (value: number): BigDecimal.BigDecimal => {
-  const exponent = Binary.floor(Number.sum(Number.divideUnsafe(value, lnTwo), 0.5))
+const exponentialReduced = (value: BigDecimal.BigDecimal): BigDecimal.BigDecimal => {
+  const exponent = Number.round(Number.divideUnsafe(BigDecimal.toNumberUnsafe(value), lnTwo), 0)
   const reduced = BigDecimal.subtract(
-    Binary.exactDecimal(value),
+    value,
     BigDecimal.multiply(BigDecimal.fromNumberUnsafe(exponent), lnTwoDecimal)
   )
   const series = Iterable.reduce(
@@ -273,7 +264,7 @@ const exponentialReduced = (value: number): BigDecimal.BigDecimal => {
 // FDLIBM identifies unity as a rounding-sensitive point. Compute Euler's
 // number once using the decimal series, rather than rounding its rational
 // approximation upward at each call.
-const eulerNumber = BigDecimal.toNumberUnsafe(exponentialReduced(1))
+const eulerNumber = BigDecimal.toNumberUnsafe(exponentialReduced(BigDecimal.make(1n, 0)))
 
 const exponentialFinite = (value: number): number => {
   const exponent = Number.round(Number.multiply(value, 1.44269504088896338700), 0)
@@ -310,7 +301,7 @@ export const exp = (value: number): number =>
     Match.when((value) => Number.Equivalence(value, 1), () => eulerNumber),
     Match.when(
       (value) => Number.isGreaterThan(Binary.abs(value), 700),
-      (value) => BigDecimal.toNumberUnsafe(exponentialReduced(value))
+      (value) => BigDecimal.toNumberUnsafe(exponentialReduced(Binary.exactDecimal(value)))
     ),
     Match.orElse(exponentialFinite)
   )
@@ -396,10 +387,30 @@ const positiveIntegerPower = (base: number, exponent: number): number => {
 }
 
 const integerPower = (base: number, exponent: number): number =>
-  Boolean.match(Number.isLessThan(exponent, 0), {
-    onTrue: () => positiveIntegerPower(Number.divideUnsafe(1, base), Number.multiply(exponent, -1)),
-    onFalse: () => positiveIntegerPower(base, exponent)
-  })
+  Match.value(Binary.abs(exponent)).pipe(
+    Match.when(Number.isLessThanOrEqualTo(64), () =>
+      Boolean.match(Number.isLessThan(exponent, 0), {
+        onTrue: () => positiveIntegerPower(Number.divideUnsafe(1, base), Number.multiply(exponent, -1)),
+        onFalse: () => positiveIntegerPower(base, exponent)
+      })),
+    Match.orElse(() => {
+      // Repeated binary64 squaring amplifies early rounding by the exponent.
+      // Preserve the exact input and the logarithm/product residual instead.
+      const product = BigDecimal.multiply(
+        Binary.exactDecimal(exponent),
+        logarithmDecimalFinitePositive(Binary.abs(base))
+      )
+      const magnitude = Match.value(BigDecimal.toNumberUnsafe(product)).pipe(
+        Match.when(Number.isGreaterThan(710), () => Binary.positiveInfinity),
+        Match.when(Number.isLessThan(-746), () => 0),
+        Match.orElse(() => BigDecimal.toNumberUnsafe(exponentialReduced(product)))
+      )
+      return Boolean.match(Boolean.and(negativeSign(base), oddInteger(exponent)), {
+        onTrue: () => Number.multiply(-1, magnitude),
+        onFalse: () => magnitude
+      })
+    })
+  )
 
 const zeroPower = (base: number, exponent: number): number => {
   const signed = Boolean.and(negativeZero(base), oddInteger(exponent))
@@ -476,80 +487,137 @@ const reducedAngle = (value: number): BigDecimal.BigDecimal => {
   )
 }
 
-const trigSeries = (value: number) => {
+const sineCoefficients = Chunk.make(
+  1.58969099521155010221e-10,
+  -2.50507602534068634195e-8,
+  2.75573137070700676789e-6,
+  -1.98412698298579493134e-4,
+  8.33333333332248946124e-3
+)
+const cosineCoefficients = Chunk.make(
+  -1.13596475577881948265e-11,
+  2.08757232129817482790e-9,
+  -2.75573143513906633035e-7,
+  2.48015872894767294178e-5,
+  -1.38888888888741095749e-3,
+  4.16666666666666019037e-2
+)
+
+// FDLIBM's degree-13/14 polynomials on [-pi/4, pi/4], retaining the
+// reduction tail rather than rounding the reduced angle before evaluation.
+const sineReduced = (value: number, tail: number): number => {
   const square = Number.multiply(value, value)
-  const result = Iterable.reduce(
-    Iterable.take(Iterable.makeBy(() => 0), trigonometricTerms),
-    new TrigSeriesState({ cosine: 1, cosineTerm: 1, index: 0, sine: value, sineTerm: value }),
-    (state) => {
-      const twiceIndex = Number.multiply(2, state.index)
-      const nextCosineTerm = Number.multiply(
-        -1,
-        Number.divideUnsafe(
-          Number.multiply(state.cosineTerm, square),
-          Number.multiply(Number.increment(twiceIndex), Number.sum(twiceIndex, 2))
-        )
-      )
-      const nextSineTerm = Number.multiply(
-        -1,
-        Number.divideUnsafe(
-          Number.multiply(state.sineTerm, square),
-          Number.multiply(Number.sum(twiceIndex, 2), Number.sum(twiceIndex, 3))
-        )
-      )
-      return new TrigSeriesState({
-        cosine: Number.sum(state.cosine, nextCosineTerm),
-        cosineTerm: nextCosineTerm,
-        index: Number.increment(state.index),
-        sine: Number.sum(state.sine, nextSineTerm),
-        sineTerm: nextSineTerm
-      })
-    }
+  const cube = Number.multiply(square, value)
+  return Number.subtract(
+    value,
+    Number.subtract(
+      Number.subtract(
+        Number.multiply(
+          square,
+          Number.subtract(Number.multiply(0.5, tail), Number.multiply(cube, horner(sineCoefficients, square)))
+        ),
+        tail
+      ),
+      Number.multiply(cube, -1.66666666666666324348e-1)
+    )
   )
-  return Tuple.make(result.sine, result.cosine)
 }
 
-const sinCosFinite = (value: number) => {
+const cosineReduced = (value: number, tail: number): number => {
+  const square = Number.multiply(value, value)
+  const halfSquare = Number.multiply(0.5, square)
+  const leading = Number.subtract(1, halfSquare)
+  return Number.sum(
+    leading,
+    Number.sum(
+      Number.subtract(Number.subtract(1, leading), halfSquare),
+      Number.subtract(
+        Number.multiply(Number.multiply(square, square), horner(cosineCoefficients, square)),
+        Number.multiply(value, tail)
+      )
+    )
+  )
+}
+
+const sinCosReduced = (value: number) => Tuple.make(sineReduced(value, 0), cosineReduced(value, 0))
+
+const sinCosDecimal = (value: number) => {
   const principal = reducedAngle(value)
   return Match.value(principal).pipe(
     Match.when(BigDecimal.isGreaterThan(threeQuarterPiDecimal), (angle) => {
-      const [sine, cosine] = trigSeries(BigDecimal.toNumberUnsafe(BigDecimal.subtract(piDecimal, angle)))
+      const [sine, cosine] = sinCosReduced(BigDecimal.toNumberUnsafe(BigDecimal.subtract(piDecimal, angle)))
       return Tuple.make(sine, Number.multiply(cosine, -1))
     }),
     Match.when(BigDecimal.isGreaterThan(quarterPiDecimal), (angle) => {
-      const [sine, cosine] = trigSeries(BigDecimal.toNumberUnsafe(BigDecimal.subtract(halfPiDecimal, angle)))
+      const [sine, cosine] = sinCosReduced(BigDecimal.toNumberUnsafe(BigDecimal.subtract(halfPiDecimal, angle)))
       return Tuple.make(cosine, sine)
     }),
     Match.when(BigDecimal.isLessThan(BigDecimal.negate(threeQuarterPiDecimal)), (angle) => {
-      const [sine, cosine] = trigSeries(
+      const [sine, cosine] = sinCosReduced(
         BigDecimal.toNumberUnsafe(BigDecimal.subtract(BigDecimal.negate(piDecimal), angle))
       )
       return Tuple.make(sine, Number.multiply(cosine, -1))
     }),
     Match.when(BigDecimal.isLessThan(BigDecimal.negate(quarterPiDecimal)), (angle) => {
-      const [sine, cosine] = trigSeries(
+      const [sine, cosine] = sinCosReduced(
         BigDecimal.toNumberUnsafe(BigDecimal.subtract(BigDecimal.negate(halfPiDecimal), angle))
       )
       return Tuple.make(Number.multiply(cosine, -1), Number.multiply(sine, -1))
     }),
-    Match.orElse((angle) => trigSeries(BigDecimal.toNumberUnsafe(angle)))
+    Match.orElse((angle) => sinCosReduced(BigDecimal.toNumberUnsafe(angle)))
   )
 }
 
-/** Sine with exact-decimal Payne-Hanek-style range reduction. */
+const trigonometricFinite = (value: number, phase: 0 | 1): number =>
+  Match.value(Binary.abs(value)).pipe(
+    Match.when(Number.isLessThanOrEqualTo(quarterPi), () =>
+      Boolean.match(Number.Equivalence(phase, 0), {
+        onTrue: () => sineReduced(value, 0),
+        onFalse: () => cosineReduced(value, 0)
+      })),
+    Match.when(Number.isLessThanOrEqualTo(1_048_576), () => {
+      // At this bound n has at most 20 bits. Products with each 33-bit
+      // pi/2 part are exact. Carry BOTH subtraction residuals when applying
+      // all three parts unconditionally (unlike FDLIBM's adaptive path).
+      const n = Number.round(Number.multiply(value, 6.36619772367581382433e-1), 0)
+      const first = Number.subtract(value, Number.multiply(n, 1.57079632673412561417))
+      const secondPart = Number.multiply(n, 6.07710050630396597660e-11)
+      const second = Number.subtract(first, secondPart)
+      const secondError = Number.subtract(Number.subtract(first, second), secondPart)
+      const thirdPart = Number.multiply(n, 2.02226624871116645580e-21)
+      const third = Number.subtract(second, thirdPart)
+      const thirdError = Number.subtract(Number.subtract(second, third), thirdPart)
+      const correction = Number.subtract(
+        Number.multiply(n, 8.47842766036889956997e-32),
+        Number.sum(secondError, thirdError)
+      )
+      const reduced = Number.subtract(third, correction)
+      const tail = Number.subtract(Number.subtract(third, reduced), correction)
+      const quadrant = Number.remainder(Number.sum(Number.remainder(n, 4), Number.sum(4, phase)), 4)
+      return Match.value(quadrant).pipe(
+        Match.when(0, () => sineReduced(reduced, tail)),
+        Match.when(1, () => cosineReduced(reduced, tail)),
+        Match.when(2, () => Number.multiply(-1, sineReduced(reduced, tail))),
+        Match.orElse(() => Number.multiply(-1, cosineReduced(reduced, tail)))
+      )
+    }),
+    Match.orElse(() => Tuple.get(sinCosDecimal(value), phase))
+  )
+
+/** Sine with split-constant reduction and an exact-decimal large-angle fallback. */
 export const sin = (value: number): number =>
   Match.value(value).pipe(
     Match.when(zero, (value) => value),
     Match.when(Predicate.not(finite), () => Binary.notANumber),
-    Match.orElse((value) => Tuple.get(sinCosFinite(value), 0))
+    Match.orElse((value) => trigonometricFinite(value, 0))
   )
 
-/** Cosine with exact-decimal Payne-Hanek-style range reduction. */
+/** Cosine with split-constant reduction and an exact-decimal large-angle fallback. */
 export const cos = (value: number): number =>
   Match.value(value).pipe(
     Match.when(zero, () => 1),
     Match.when(Predicate.not(finite), () => Binary.notANumber),
-    Match.orElse((value) => Tuple.get(sinCosFinite(value), 1))
+    Match.orElse((value) => trigonometricFinite(value, 1))
   )
 
 const atanSeries = (value: number): number => {
@@ -624,7 +692,10 @@ export const atan2 = (y: number, x: number): number =>
 const halfExponential = (magnitude: number): number =>
   Boolean.match(Number.isGreaterThan(magnitude, 711), {
     onTrue: () => Binary.positiveInfinity,
-    onFalse: () => BigDecimal.toNumberUnsafe(BigDecimal.multiply(exponentialReduced(magnitude), BigDecimal.make(5n, 1)))
+    onFalse: () =>
+      BigDecimal.toNumberUnsafe(
+        BigDecimal.multiply(exponentialReduced(Binary.exactDecimal(magnitude)), BigDecimal.make(5n, 1))
+      )
   })
 
 /** Hyperbolic sine using a cancellation-aware positive-magnitude formula. */
