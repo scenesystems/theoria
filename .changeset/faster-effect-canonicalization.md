@@ -66,4 +66,6 @@ by encoding AST, with interpreted parsing as the fallback. Compose refusal
 predicates and copied-entry counts through Effect predicates and array search.
 Replace bare numeric operators with Effect compositions outside four
 owner-accepted hot functions. Widen timer-cooperation test inputs so traversal
-yields many times while host timers become due.
+yields many times while host timers become due. Document the independent
+whole-preimage oracle ratio as a diagnostic and the matched published-release
+comparison as the throughput acceptance criterion.

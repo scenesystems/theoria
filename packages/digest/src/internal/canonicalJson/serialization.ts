@@ -426,16 +426,13 @@ const processString = <E>(state: State<E>, frame: Data.TaggedEnum.Value<Frame, "
   B.match(N.Equivalence(frame.at, Str.length(frame.text)), {
     onTrue: () => emit(state, frame.suffix),
     onFalse: () => {
-      // Keep escaping work bounded without splitting a surrogate pair.
+      // Keep escaping work bounded without splitting a surrogate pair: a high
+      // surrogate at the slice end carries its pair along, never past the text.
       const limit = N.min(N.sum(frame.at, 32_768), Str.length(frame.text))
-      const end = B.match(
-        limit < Str.length(frame.text) &&
-          Option.exists(Str.charCodeAt(frame.text, N.decrement(limit)), isHighSurrogate),
-        {
-          onTrue: () => N.min(N.increment(limit), Str.length(frame.text)),
-          onFalse: () => limit
-        }
-      )
+      const end = B.match(Option.exists(Str.charCodeAt(frame.text, N.decrement(limit)), isHighSurrogate), {
+        onTrue: () => N.min(N.increment(limit), Str.length(frame.text)),
+        onFalse: () => limit
+      })
       const text = Str.slice(frame.at, end)(frame.text)
       const finish = (content: string): void => {
         emit(state, content)

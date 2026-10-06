@@ -149,6 +149,8 @@ it.effect("matches scalar JSON escaping on both sides of the short-string bounda
     const encode = Schema.encodeEffect(Schema.fromJsonString(Schema.String))
     const suffixes = Arr.make(
       "a漢😀\u{10ffff}",
+      // A pair straddling the slice boundary must move with the slice.
+      "😀\n",
       "\"\\/\b\t\n\f\r\u0000\u0001\u001f",
       "\u0020\u007f\u0080\u2028\u2029\ud7ff\ue000",
       "\n",
@@ -166,7 +168,11 @@ it.effect("matches scalar JSON escaping on both sides of the short-string bounda
           const bytes = yield* Utf8.encode(quoted)
           const bounded = yield* ContentDigest.fromSchemaWithByteLimit(Schema.String, text, bytes.byteLength)
           expect(bounded.canonicalByteLength).toBe(bytes.byteLength)
-          expect(yield* Effect.exit(ContentDigest.fromSchemaWithByteLimit(Schema.String, text, bytes.byteLength - 1)))
+          expect(
+            yield* Effect.exit(
+              ContentDigest.fromSchemaWithByteLimit(Schema.String, text, N.decrement(bytes.byteLength))
+            )
+          )
             .toStrictEqual(Exit.fail(new CanonicalJson.ByteLimitExceeded({})))
         })))
   }))
@@ -293,7 +299,7 @@ it.effect("preserves repeated keys and Unicode failures after wide record traver
     const bytes = yield* Utf8.encode(expected)
     const bounded = yield* ContentDigest.fromSchemaWithByteLimit(schema, value, bytes.byteLength)
     expect(bounded.digest).toStrictEqual(yield* ContentDigest.fromBytes("blake3-256", bytes))
-    expect(yield* Effect.exit(ContentDigest.fromSchemaWithByteLimit(schema, value, bytes.byteLength - 1)))
+    expect(yield* Effect.exit(ContentDigest.fromSchemaWithByteLimit(schema, value, N.decrement(bytes.byteLength))))
       .toStrictEqual(Exit.fail(new CanonicalJson.ByteLimitExceeded({})))
     expect(yield* Effect.exit(CanonicalJson.encode(Arr.append(value, { "😀x\udfff": 12 }))))
       .toStrictEqual(Exit.fail(new Utf8.InvalidUnicode({ kind: "lone-low-surrogate", codeUnitIndex: 3 })))

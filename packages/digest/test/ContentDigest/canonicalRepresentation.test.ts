@@ -1,6 +1,6 @@
 import { BunServices } from "@effect/platform-bun"
 import { describe, expect, it } from "@effect/vitest"
-import { Array as Arr, Effect, Exit, Option, Schema, String as Str, Tuple } from "effect"
+import { Array as Arr, Effect, Exit, Number as N, Option, Schema, String as Str, Tuple } from "effect"
 
 import * as CanonicalJson from "@scenesystems/digest/CanonicalJson"
 import * as ContentDigest from "@scenesystems/digest/ContentDigest"
@@ -24,7 +24,7 @@ describe("ContentDigest canonical representations", () => {
           expect(bounded.canonicalByteLength).toBe(bytes.byteLength)
           expect(
             yield* Effect.exit(
-              ContentDigest.fromSchemaWithByteLimit(Schema.Json, input, bytes.byteLength - 1)
+              ContentDigest.fromSchemaWithByteLimit(Schema.Json, input, N.decrement(bytes.byteLength))
             )
           ).toStrictEqual(Exit.fail(new CanonicalJson.ByteLimitExceeded({})))
         }))
@@ -86,7 +86,9 @@ describe("ContentDigest canonical representations", () => {
         const bounded = yield* ContentDigest.fromSchemaWithByteLimit(Schema.String, text, bytes.byteLength)
         expect(bounded.canonicalByteLength).toBe(bytes.byteLength)
         expect(bounded.digest).toStrictEqual(yield* ContentDigest.fromBytes("blake3-256", bytes))
-        expect(yield* Effect.exit(ContentDigest.fromSchemaWithByteLimit(Schema.String, text, bytes.byteLength - 1)))
+        expect(
+          yield* Effect.exit(ContentDigest.fromSchemaWithByteLimit(Schema.String, text, N.decrement(bytes.byteLength)))
+        )
           .toStrictEqual(Exit.fail(new CanonicalJson.ByteLimitExceeded({})))
       })))
 

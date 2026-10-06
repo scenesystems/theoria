@@ -58,7 +58,7 @@ const makeBatch = <E>(state: State<E>): Effect.Effect<void> => {
     Arr.every(batchSteps, () => {
       const top = MutableRef.get(state.top)
       if (Option.isSome(top)) process(top.value)
-      return !stopped(state) && state.segments.length === initialSegments
+      return !stopped(state) && N.Equivalence(state.segments.length, initialSegments)
     })
   })
 }

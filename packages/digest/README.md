@@ -203,6 +203,21 @@ if any budget is missed. This performance gate is separate from correctness CI
 because shared runners cannot establish uncontended timing. A failed ratio is not
 silently accepted or replaced with a warmed or same-object sample.
 
+The oracle ratio is a diagnostic, not release acceptance. The oracle does less than
+the package: no strict admission or own-index check before each read, no Schema
+encoding of the caller's codec, no byte accounting, and no cooperative yielding. A
+candidate that does that work can miss 1.0 on every case while still being the
+fastest correct implementation; the miss stays visible in the report.
+
+Release acceptance compares the candidate with the previously published package:
+both bundled from the same Effect and Noble installation, driven through
+`fromSchema` with identical explicit codecs, fresh-process cold and warm-fresh
+timings on the same shapes plus the Vocabulary corpora, and every digest checked
+equal across release, candidate, and oracle. The criterion is lower time than the
+published release on each shape and runtime, not parity with a whole-preimage
+oracle. Measured matrices are recorded on the pull request that changes the
+canonicalizer, with raw samples, so a slower cell is reported rather than hidden.
+
 ## Examples
 
 - [content hashing](./examples/01-content-hashing.ts)
