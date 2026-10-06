@@ -11,7 +11,11 @@ from ._common import examples, history, lm, splits, state
 
 class ObservedMIPRO(dspy.MIPROv2):
     def _bootstrap_fewshot_examples(self, *args, **kwargs):
+        self.bootstrap_active = True
+        start = len(self.task_model.history)
         value = super()._bootstrap_fewshot_examples(*args, **kwargs)
+        self.bootstrap_active = False
+        self.bootstrap_calls = len(self.task_model.history) - start
         self.demo_sets = {i: [[e.toDict() for e in demos] for demos in sets] for i, sets in value.items()}
         return value
 
@@ -28,17 +32,24 @@ class ObservedMIPRO(dspy.MIPROv2):
         return value
 
 
-def run(auto, discriminator=False):
+def run(auto, discriminator=False, max_bootstrapped_demos=1, max_labeled_demos=1, minibatch=True):
     train, val = examples("train", 4), examples("val", 6)
     task = lm()
     proposer = DummyLM([{"proposed_instruction": f"candidate-{i}"} for i in range(100)])
     program = dspy.Predict("question -> answer")
     program.signature = program.signature.with_instructions("baseline")
+    bootstrap_metrics = []
+
+    def metric(e, p, trace=None):
+        if getattr(optimizer, "bootstrap_active", False):
+            bootstrap_metrics.append(e.id)
+        return 0.8
+
     optimizer = ObservedMIPRO(
-        metric=lambda e, p, trace=None: 0.8,
+        metric=metric,
         prompt_model=proposer, task_model=task, auto=auto,
         num_candidates=3 if auto is None else None,
-        max_bootstrapped_demos=1, max_labeled_demos=1,
+        max_bootstrapped_demos=max_bootstrapped_demos, max_labeled_demos=max_labeled_demos,
         num_threads=1, seed=9,
     )
     optimizer.params = []
@@ -75,11 +86,13 @@ def run(auto, discriminator=False):
           patch.object(proposer, "copy", observed_copy)):
         compiled = optimizer.compile(
             program, trainset=train, valset=val, num_trials=12 if auto is None else None,
-            minibatch=True, minibatch_size=1, minibatch_full_eval_steps=2,
+            minibatch=minibatch, minibatch_size=1, minibatch_full_eval_steps=2,
             program_aware_proposer=False, data_aware_proposer=False,
             tip_aware_proposer=False, fewshot_aware_proposer=False,
         )
     return {"auto": auto, "seed": 9, "splits": splits(train, val),
+            "maxBootstrappedDemos": max_bootstrapped_demos, "maxLabeledDemos": max_labeled_demos,
+            "bootstrapCalls": optimizer.bootstrap_calls, "bootstrapMetricIds": bootstrap_metrics,
             "demoSets": optimizer.demo_sets, "instructions": optimizer.instructions,
             "trials": optimizer.params, "evaluations": evaluations,
             "trialLogs": {number: {key: state(value) if isinstance(value, dspy.Module) else value
@@ -103,4 +116,13 @@ def generate():
             docs.append({"id": "mipro-best-fullval-001",
                          "description": "A minibatch specialist loses to the baseline full-validation checkpoint.",
                          "payload": payload})
+    for name, cap in [("miprov2-no-labels-001", 2), ("miprov2-zero-shot-001", 0)]:
+        payload = run(None, max_bootstrapped_demos=cap, max_labeled_demos=0, minibatch=False)
+        assert payload["bootstrapCalls"] > 0
+        assert payload["bootstrapMetricIds"]
+        if cap == 0:
+            assert all(not any("demo" in key for key in trial["params"]) for trial in payload["trials"])
+        docs.append({"id": name,
+                     "description": "Real MIPRO compile with unlabeled-only bootstrap catalog and shared RNG; zero caps retain proposer evidence but remove demo search.",
+                     "payload": payload})
     return docs

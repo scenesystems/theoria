@@ -50,9 +50,27 @@ negative seeds. LabeledFewShot uses one seed-0 stream across predictors;
 BootstrapFewShot labeled fill uses its own seed-0 stream. BootstrapRS uses two
 fresh streams per candidate (shuffle and cap), with independently seed-0 labeled
 sub-optimizers. `labeledfewshot-001` asserts exact identities/order for two
-predictors, and `bootstraprs-001` does so for every candidate. Wave 3 (spec 04)
-must reuse this generator for MIPROv2 demo-set sampling; its integration remains
-planned under the MIPROv2 entry, not part of this verification.
+predictors, and `bootstraprs-001` does so for every candidate.
+
+Wave 3.1 builds MIPRO demo catalogs through BootstrapFewShot and TeacherTrace,
+without instruction markers or label-only substitutes for teacher evidence.
+`mipro-trial-budget-001`, `miprov2-explicit-001`, `miprov2-no-labels-001` and
+`miprov2-zero-shot-001` establish exact demo identities/order, bootstrap metric
+identities and teacher-call counts. Full MIPRO verification remains pending
+phases 2–3. The phase-1 test reproduces auto's preceding full-coverage validation
+sample before invoking candidate generation.
+
+Unlike BootstrapRS, MIPRO creates one seed-9 (or caller-seeded) CPython stream
+per compile. Upstream consumes it for auto-mode validation sampling first,
+then each shuffled catalog candidate's shuffle followed by randint. Candidate
+-2 is labeled only when effective maxLabeledDemos is positive; otherwise it also
+shuffles and draws a bootstrap cap, before unshuffled candidate -1. Zero-shot
+uses effective proposer-evidence caps of zero labeled and three bootstrapped
+demos, so it still incurs teacher and metric calls. Both zero-shot and nonzero
+bootstrap caps with no labels have execution fixtures. Proposer and search
+consumers of that same stream will be integrated in the following steps;
+zero-shot's instruction-only search is recorded upstream but not yet claimed
+by the local search implementation.
 
 Wave 1.1 binds effective generation settings and semantic roles to model requests.
 Independent transport tests cover provider field mappings, retained defaults, role

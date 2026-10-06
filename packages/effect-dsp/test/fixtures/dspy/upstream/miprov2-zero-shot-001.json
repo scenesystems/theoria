@@ -1,7 +1,7 @@
 {
-  "fixture": "mipro-trial-budget-001",
+  "fixture": "miprov2-zero-shot-001",
   "payload": {
-    "auto": "light",
+    "auto": null,
     "seed": 9,
     "splits": {
       "train": [
@@ -59,40 +59,25 @@
         }
       ]
     },
-    "maxBootstrappedDemos": 1,
-    "maxLabeledDemos": 1,
-    "bootstrapCalls": 4,
+    "maxBootstrappedDemos": 0,
+    "maxLabeledDemos": 0,
+    "bootstrapCalls": 5,
     "bootstrapMetricIds": [
       "train-0",
-      "train-3",
       "train-1",
-      "train-0"
+      "train-0",
+      "train-1",
+      "train-2"
     ],
     "demoSets": {
       "0": [
         [],
         [
           {
-            "id": "train-3",
-            "question": "train-3",
-            "answer": "label-3"
-          }
-        ],
-        [
-          {
             "augmented": true,
             "question": "train-0",
             "answer": "teacher"
-          }
-        ],
-        [
-          {
-            "augmented": true,
-            "question": "train-3",
-            "answer": "teacher"
-          }
-        ],
-        [
+          },
           {
             "augmented": true,
             "question": "train-1",
@@ -103,6 +88,16 @@
           {
             "augmented": true,
             "question": "train-0",
+            "answer": "teacher"
+          },
+          {
+            "augmented": true,
+            "question": "train-1",
+            "answer": "teacher"
+          },
+          {
+            "augmented": true,
+            "question": "train-2",
             "answer": "teacher"
           }
         ]
@@ -119,71 +114,73 @@
       {
         "number": 1,
         "params": {
-          "0_predictor_instruction": 1,
-          "0_predictor_demos": 3
+          "0_predictor_instruction": 1
         }
       },
       {
         "number": 2,
         "params": {
-          "0_predictor_instruction": 2,
-          "0_predictor_demos": 0
+          "0_predictor_instruction": 2
         }
       },
       {
         "number": 3,
         "params": {
-          "0_predictor_instruction": 1,
-          "0_predictor_demos": 5
+          "0_predictor_instruction": 0
         }
       },
       {
         "number": 4,
         "params": {
-          "0_predictor_instruction": 2,
-          "0_predictor_demos": 2
+          "0_predictor_instruction": 2
         }
       },
       {
         "number": 5,
         "params": {
-          "0_predictor_instruction": 0,
-          "0_predictor_demos": 5
+          "0_predictor_instruction": 0
         }
       },
       {
         "number": 6,
         "params": {
-          "0_predictor_instruction": 2,
-          "0_predictor_demos": 0
+          "0_predictor_instruction": 1
         }
       },
       {
         "number": 7,
         "params": {
-          "0_predictor_instruction": 2,
-          "0_predictor_demos": 5
+          "0_predictor_instruction": 1
         }
       },
       {
         "number": 8,
         "params": {
-          "0_predictor_instruction": 1,
-          "0_predictor_demos": 4
+          "0_predictor_instruction": 1
         }
       },
       {
         "number": 9,
         "params": {
-          "0_predictor_instruction": 2,
-          "0_predictor_demos": 5
+          "0_predictor_instruction": 2
         }
       },
       {
         "number": 10,
         "params": {
-          "0_predictor_instruction": 0,
-          "0_predictor_demos": 0
+          "0_predictor_instruction": 0
+        }
+      },
+      {
+        "number": 11,
+        "params": {
+          "0_predictor_instruction": 0
+        }
+      },
+      {
+        "number": 12,
+        "params": {
+          "0_predictor_instruction": 1
         }
       }
     ],
@@ -191,11 +188,11 @@
       {
         "trial": null,
         "ids": [
+          "val-0",
+          "val-1",
+          "val-2",
           "val-3",
           "val-4",
-          "val-2",
-          "val-1",
-          "val-0",
           "val-5"
         ],
         "fullValidation": true,
@@ -224,11 +221,11 @@
       {
         "trial": 1,
         "ids": [
+          "val-0",
+          "val-1",
+          "val-2",
           "val-3",
           "val-4",
-          "val-2",
-          "val-1",
-          "val-0",
           "val-5"
         ],
         "fullValidation": true,
@@ -237,13 +234,7 @@
         "state": {
           "traces": [],
           "train": [],
-          "demos": [
-            {
-              "augmented": true,
-              "question": "train-3",
-              "answer": "teacher"
-            }
-          ],
+          "demos": [],
           "signature": {
             "instructions": "candidate-1",
             "fields": [
@@ -263,11 +254,11 @@
       {
         "trial": 2,
         "ids": [
+          "val-0",
+          "val-1",
+          "val-2",
           "val-3",
           "val-4",
-          "val-2",
-          "val-1",
-          "val-0",
           "val-5"
         ],
         "fullValidation": true,
@@ -296,28 +287,22 @@
       {
         "trial": 3,
         "ids": [
+          "val-0",
+          "val-1",
+          "val-2",
           "val-3",
           "val-4",
-          "val-2",
-          "val-1",
-          "val-0",
           "val-5"
         ],
         "fullValidation": true,
-        "instruction": "candidate-1",
+        "instruction": "baseline",
         "score": 0.8,
         "state": {
           "traces": [],
           "train": [],
-          "demos": [
-            {
-              "augmented": true,
-              "question": "train-0",
-              "answer": "teacher"
-            }
-          ],
+          "demos": [],
           "signature": {
-            "instructions": "candidate-1",
+            "instructions": "baseline",
             "fields": [
               {
                 "prefix": "Question:",
@@ -335,11 +320,11 @@
       {
         "trial": 4,
         "ids": [
+          "val-0",
+          "val-1",
+          "val-2",
           "val-3",
           "val-4",
-          "val-2",
-          "val-1",
-          "val-0",
           "val-5"
         ],
         "fullValidation": true,
@@ -348,13 +333,7 @@
         "state": {
           "traces": [],
           "train": [],
-          "demos": [
-            {
-              "augmented": true,
-              "question": "train-0",
-              "answer": "teacher"
-            }
-          ],
+          "demos": [],
           "signature": {
             "instructions": "candidate-2",
             "fields": [
@@ -374,11 +353,11 @@
       {
         "trial": 5,
         "ids": [
+          "val-0",
+          "val-1",
+          "val-2",
           "val-3",
           "val-4",
-          "val-2",
-          "val-1",
-          "val-0",
           "val-5"
         ],
         "fullValidation": true,
@@ -387,13 +366,7 @@
         "state": {
           "traces": [],
           "train": [],
-          "demos": [
-            {
-              "augmented": true,
-              "question": "train-0",
-              "answer": "teacher"
-            }
-          ],
+          "demos": [],
           "signature": {
             "instructions": "baseline",
             "fields": [
@@ -413,22 +386,22 @@
       {
         "trial": 6,
         "ids": [
+          "val-0",
+          "val-1",
+          "val-2",
           "val-3",
           "val-4",
-          "val-2",
-          "val-1",
-          "val-0",
           "val-5"
         ],
         "fullValidation": true,
-        "instruction": "candidate-2",
+        "instruction": "candidate-1",
         "score": 0.8,
         "state": {
           "traces": [],
           "train": [],
           "demos": [],
           "signature": {
-            "instructions": "candidate-2",
+            "instructions": "candidate-1",
             "fields": [
               {
                 "prefix": "Question:",
@@ -446,28 +419,22 @@
       {
         "trial": 7,
         "ids": [
+          "val-0",
+          "val-1",
+          "val-2",
           "val-3",
           "val-4",
-          "val-2",
-          "val-1",
-          "val-0",
           "val-5"
         ],
         "fullValidation": true,
-        "instruction": "candidate-2",
+        "instruction": "candidate-1",
         "score": 0.8,
         "state": {
           "traces": [],
           "train": [],
-          "demos": [
-            {
-              "augmented": true,
-              "question": "train-0",
-              "answer": "teacher"
-            }
-          ],
+          "demos": [],
           "signature": {
-            "instructions": "candidate-2",
+            "instructions": "candidate-1",
             "fields": [
               {
                 "prefix": "Question:",
@@ -485,11 +452,11 @@
       {
         "trial": 8,
         "ids": [
+          "val-0",
+          "val-1",
+          "val-2",
           "val-3",
           "val-4",
-          "val-2",
-          "val-1",
-          "val-0",
           "val-5"
         ],
         "fullValidation": true,
@@ -498,13 +465,7 @@
         "state": {
           "traces": [],
           "train": [],
-          "demos": [
-            {
-              "augmented": true,
-              "question": "train-1",
-              "answer": "teacher"
-            }
-          ],
+          "demos": [],
           "signature": {
             "instructions": "candidate-1",
             "fields": [
@@ -524,11 +485,11 @@
       {
         "trial": 9,
         "ids": [
+          "val-0",
+          "val-1",
+          "val-2",
           "val-3",
           "val-4",
-          "val-2",
-          "val-1",
-          "val-0",
           "val-5"
         ],
         "fullValidation": true,
@@ -537,13 +498,7 @@
         "state": {
           "traces": [],
           "train": [],
-          "demos": [
-            {
-              "augmented": true,
-              "question": "train-0",
-              "answer": "teacher"
-            }
-          ],
+          "demos": [],
           "signature": {
             "instructions": "candidate-2",
             "fields": [
@@ -563,11 +518,11 @@
       {
         "trial": 10,
         "ids": [
+          "val-0",
+          "val-1",
+          "val-2",
           "val-3",
           "val-4",
-          "val-2",
-          "val-1",
-          "val-0",
           "val-5"
         ],
         "fullValidation": true,
@@ -579,6 +534,72 @@
           "demos": [],
           "signature": {
             "instructions": "baseline",
+            "fields": [
+              {
+                "prefix": "Question:",
+                "description": "${question}"
+              },
+              {
+                "prefix": "Answer:",
+                "description": "${answer}"
+              }
+            ]
+          },
+          "lm": null
+        }
+      },
+      {
+        "trial": 11,
+        "ids": [
+          "val-0",
+          "val-1",
+          "val-2",
+          "val-3",
+          "val-4",
+          "val-5"
+        ],
+        "fullValidation": true,
+        "instruction": "baseline",
+        "score": 0.8,
+        "state": {
+          "traces": [],
+          "train": [],
+          "demos": [],
+          "signature": {
+            "instructions": "baseline",
+            "fields": [
+              {
+                "prefix": "Question:",
+                "description": "${question}"
+              },
+              {
+                "prefix": "Answer:",
+                "description": "${answer}"
+              }
+            ]
+          },
+          "lm": null
+        }
+      },
+      {
+        "trial": 12,
+        "ids": [
+          "val-0",
+          "val-1",
+          "val-2",
+          "val-3",
+          "val-4",
+          "val-5"
+        ],
+        "fullValidation": true,
+        "instruction": "candidate-1",
+        "score": 0.8,
+        "state": {
+          "traces": [],
+          "train": [],
+          "demos": [],
+          "signature": {
+            "instructions": "candidate-1",
             "fields": [
               {
                 "prefix": "Question:",
@@ -620,19 +641,12 @@
       },
       "2": {
         "0_predictor_instruction": 1,
-        "0_predictor_demos": 3,
         "full_eval_score": 80.0,
         "total_eval_calls_so_far": 12,
         "full_eval_program": {
           "traces": [],
           "train": [],
-          "demos": [
-            {
-              "augmented": true,
-              "question": "train-3",
-              "answer": "teacher"
-            }
-          ],
+          "demos": [],
           "signature": {
             "instructions": "candidate-1",
             "fields": [
@@ -651,7 +665,6 @@
       },
       "3": {
         "0_predictor_instruction": 2,
-        "0_predictor_demos": 0,
         "full_eval_score": 80.0,
         "total_eval_calls_so_far": 18,
         "full_eval_program": {
@@ -675,82 +688,13 @@
         }
       },
       "4": {
-        "0_predictor_instruction": 1,
-        "0_predictor_demos": 5,
+        "0_predictor_instruction": 0,
         "full_eval_score": 80.0,
         "total_eval_calls_so_far": 24,
         "full_eval_program": {
           "traces": [],
           "train": [],
-          "demos": [
-            {
-              "augmented": true,
-              "question": "train-0",
-              "answer": "teacher"
-            }
-          ],
-          "signature": {
-            "instructions": "candidate-1",
-            "fields": [
-              {
-                "prefix": "Question:",
-                "description": "${question}"
-              },
-              {
-                "prefix": "Answer:",
-                "description": "${answer}"
-              }
-            ]
-          },
-          "lm": null
-        }
-      },
-      "5": {
-        "0_predictor_instruction": 2,
-        "0_predictor_demos": 2,
-        "full_eval_score": 80.0,
-        "total_eval_calls_so_far": 30,
-        "full_eval_program": {
-          "traces": [],
-          "train": [],
-          "demos": [
-            {
-              "augmented": true,
-              "question": "train-0",
-              "answer": "teacher"
-            }
-          ],
-          "signature": {
-            "instructions": "candidate-2",
-            "fields": [
-              {
-                "prefix": "Question:",
-                "description": "${question}"
-              },
-              {
-                "prefix": "Answer:",
-                "description": "${answer}"
-              }
-            ]
-          },
-          "lm": null
-        }
-      },
-      "6": {
-        "0_predictor_instruction": 0,
-        "0_predictor_demos": 5,
-        "full_eval_score": 80.0,
-        "total_eval_calls_so_far": 36,
-        "full_eval_program": {
-          "traces": [],
-          "train": [],
-          "demos": [
-            {
-              "augmented": true,
-              "question": "train-0",
-              "answer": "teacher"
-            }
-          ],
+          "demos": [],
           "signature": {
             "instructions": "baseline",
             "fields": [
@@ -767,11 +711,10 @@
           "lm": null
         }
       },
-      "7": {
+      "5": {
         "0_predictor_instruction": 2,
-        "0_predictor_demos": 0,
         "full_eval_score": 80.0,
-        "total_eval_calls_so_far": 42,
+        "total_eval_calls_so_far": 30,
         "full_eval_program": {
           "traces": [],
           "train": [],
@@ -792,23 +735,64 @@
           "lm": null
         }
       },
+      "6": {
+        "0_predictor_instruction": 0,
+        "full_eval_score": 80.0,
+        "total_eval_calls_so_far": 36,
+        "full_eval_program": {
+          "traces": [],
+          "train": [],
+          "demos": [],
+          "signature": {
+            "instructions": "baseline",
+            "fields": [
+              {
+                "prefix": "Question:",
+                "description": "${question}"
+              },
+              {
+                "prefix": "Answer:",
+                "description": "${answer}"
+              }
+            ]
+          },
+          "lm": null
+        }
+      },
+      "7": {
+        "0_predictor_instruction": 1,
+        "full_eval_score": 80.0,
+        "total_eval_calls_so_far": 42,
+        "full_eval_program": {
+          "traces": [],
+          "train": [],
+          "demos": [],
+          "signature": {
+            "instructions": "candidate-1",
+            "fields": [
+              {
+                "prefix": "Question:",
+                "description": "${question}"
+              },
+              {
+                "prefix": "Answer:",
+                "description": "${answer}"
+              }
+            ]
+          },
+          "lm": null
+        }
+      },
       "8": {
-        "0_predictor_instruction": 2,
-        "0_predictor_demos": 5,
+        "0_predictor_instruction": 1,
         "full_eval_score": 80.0,
         "total_eval_calls_so_far": 48,
         "full_eval_program": {
           "traces": [],
           "train": [],
-          "demos": [
-            {
-              "augmented": true,
-              "question": "train-0",
-              "answer": "teacher"
-            }
-          ],
+          "demos": [],
           "signature": {
-            "instructions": "candidate-2",
+            "instructions": "candidate-1",
             "fields": [
               {
                 "prefix": "Question:",
@@ -825,19 +809,12 @@
       },
       "9": {
         "0_predictor_instruction": 1,
-        "0_predictor_demos": 4,
         "full_eval_score": 80.0,
         "total_eval_calls_so_far": 54,
         "full_eval_program": {
           "traces": [],
           "train": [],
-          "demos": [
-            {
-              "augmented": true,
-              "question": "train-1",
-              "answer": "teacher"
-            }
-          ],
+          "demos": [],
           "signature": {
             "instructions": "candidate-1",
             "fields": [
@@ -856,19 +833,12 @@
       },
       "10": {
         "0_predictor_instruction": 2,
-        "0_predictor_demos": 5,
         "full_eval_score": 80.0,
         "total_eval_calls_so_far": 60,
         "full_eval_program": {
           "traces": [],
           "train": [],
-          "demos": [
-            {
-              "augmented": true,
-              "question": "train-0",
-              "answer": "teacher"
-            }
-          ],
+          "demos": [],
           "signature": {
             "instructions": "candidate-2",
             "fields": [
@@ -887,7 +857,6 @@
       },
       "11": {
         "0_predictor_instruction": 0,
-        "0_predictor_demos": 0,
         "full_eval_score": 80.0,
         "total_eval_calls_so_far": 66,
         "full_eval_program": {
@@ -909,9 +878,57 @@
           },
           "lm": null
         }
+      },
+      "12": {
+        "0_predictor_instruction": 0,
+        "full_eval_score": 80.0,
+        "total_eval_calls_so_far": 72,
+        "full_eval_program": {
+          "traces": [],
+          "train": [],
+          "demos": [],
+          "signature": {
+            "instructions": "baseline",
+            "fields": [
+              {
+                "prefix": "Question:",
+                "description": "${question}"
+              },
+              {
+                "prefix": "Answer:",
+                "description": "${answer}"
+              }
+            ]
+          },
+          "lm": null
+        }
+      },
+      "13": {
+        "0_predictor_instruction": 1,
+        "full_eval_score": 80.0,
+        "total_eval_calls_so_far": 78,
+        "full_eval_program": {
+          "traces": [],
+          "train": [],
+          "demos": [],
+          "signature": {
+            "instructions": "candidate-1",
+            "fields": [
+              {
+                "prefix": "Question:",
+                "description": "${question}"
+              },
+              {
+                "prefix": "Answer:",
+                "description": "${answer}"
+              }
+            ]
+          },
+          "lm": null
+        }
       }
     },
-    "trialCount": 10,
+    "trialCount": 12,
     "bestFullValidationScore": 0.8,
     "state": {
       "traces": [],
@@ -941,14 +958,6 @@
           },
           {
             "role": "user",
-            "content": "[[ ## question ## ]]\ntrain-3"
-          },
-          {
-            "role": "assistant",
-            "content": "[[ ## answer ## ]]\nlabel-3\n\n[[ ## completed ## ]]\n"
-          },
-          {
-            "role": "user",
             "content": "[[ ## question ## ]]\ntrain-0\n\nRespond with the corresponding output fields, starting with the field `[[ ## answer ## ]]`, and then ending with the marker for `[[ ## completed ## ]]`."
           }
         ],
@@ -966,42 +975,6 @@
           {
             "role": "system",
             "content": "Your input fields are:\n1. `question` (str):\nYour output fields are:\n1. `answer` (str):\nAll interactions will be structured in the following way, with the appropriate values filled in.\n\n[[ ## question ## ]]\n{question}\n\n[[ ## answer ## ]]\n{answer}\n\n[[ ## completed ## ]]\nIn adhering to this structure, your objective is: \n        baseline"
-          },
-          {
-            "role": "user",
-            "content": "[[ ## question ## ]]\ntrain-0"
-          },
-          {
-            "role": "assistant",
-            "content": "[[ ## answer ## ]]\nlabel-0\n\n[[ ## completed ## ]]\n"
-          },
-          {
-            "role": "user",
-            "content": "[[ ## question ## ]]\ntrain-3\n\nRespond with the corresponding output fields, starting with the field `[[ ## answer ## ]]`, and then ending with the marker for `[[ ## completed ## ]]`."
-          }
-        ],
-        "kwargs": {
-          "temperature": 0.17,
-          "max_tokens": 73,
-          "model": "dummy"
-        },
-        "response": [
-          "[[ ## answer ## ]]\nteacher"
-        ]
-      },
-      {
-        "messages": [
-          {
-            "role": "system",
-            "content": "Your input fields are:\n1. `question` (str):\nYour output fields are:\n1. `answer` (str):\nAll interactions will be structured in the following way, with the appropriate values filled in.\n\n[[ ## question ## ]]\n{question}\n\n[[ ## answer ## ]]\n{answer}\n\n[[ ## completed ## ]]\nIn adhering to this structure, your objective is: \n        baseline"
-          },
-          {
-            "role": "user",
-            "content": "[[ ## question ## ]]\ntrain-2"
-          },
-          {
-            "role": "assistant",
-            "content": "[[ ## answer ## ]]\nlabel-2\n\n[[ ## completed ## ]]\n"
           },
           {
             "role": "user",
@@ -1025,14 +998,6 @@
           },
           {
             "role": "user",
-            "content": "[[ ## question ## ]]\ntrain-1"
-          },
-          {
-            "role": "assistant",
-            "content": "[[ ## answer ## ]]\nlabel-1\n\n[[ ## completed ## ]]\n"
-          },
-          {
-            "role": "user",
             "content": "[[ ## question ## ]]\ntrain-0\n\nRespond with the corresponding output fields, starting with the field `[[ ## answer ## ]]`, and then ending with the marker for `[[ ## completed ## ]]`."
           }
         ],
@@ -1053,7 +1018,7 @@
           },
           {
             "role": "user",
-            "content": "[[ ## question ## ]]\nval-3\n\nRespond with the corresponding output fields, starting with the field `[[ ## answer ## ]]`, and then ending with the marker for `[[ ## completed ## ]]`."
+            "content": "[[ ## question ## ]]\ntrain-1\n\nRespond with the corresponding output fields, starting with the field `[[ ## answer ## ]]`, and then ending with the marker for `[[ ## completed ## ]]`."
           }
         ],
         "kwargs": {
@@ -1073,7 +1038,7 @@
           },
           {
             "role": "user",
-            "content": "[[ ## question ## ]]\nval-4\n\nRespond with the corresponding output fields, starting with the field `[[ ## answer ## ]]`, and then ending with the marker for `[[ ## completed ## ]]`."
+            "content": "[[ ## question ## ]]\ntrain-2\n\nRespond with the corresponding output fields, starting with the field `[[ ## answer ## ]]`, and then ending with the marker for `[[ ## completed ## ]]`."
           }
         ],
         "kwargs": {
@@ -1093,7 +1058,7 @@
           },
           {
             "role": "user",
-            "content": "[[ ## question ## ]]\nval-2\n\nRespond with the corresponding output fields, starting with the field `[[ ## answer ## ]]`, and then ending with the marker for `[[ ## completed ## ]]`."
+            "content": "[[ ## question ## ]]\nval-0\n\nRespond with the corresponding output fields, starting with the field `[[ ## answer ## ]]`, and then ending with the marker for `[[ ## completed ## ]]`."
           }
         ],
         "kwargs": {
@@ -1133,7 +1098,47 @@
           },
           {
             "role": "user",
-            "content": "[[ ## question ## ]]\nval-0\n\nRespond with the corresponding output fields, starting with the field `[[ ## answer ## ]]`, and then ending with the marker for `[[ ## completed ## ]]`."
+            "content": "[[ ## question ## ]]\nval-2\n\nRespond with the corresponding output fields, starting with the field `[[ ## answer ## ]]`, and then ending with the marker for `[[ ## completed ## ]]`."
+          }
+        ],
+        "kwargs": {
+          "temperature": 0.17,
+          "max_tokens": 73,
+          "model": "dummy"
+        },
+        "response": [
+          "[[ ## answer ## ]]\nteacher"
+        ]
+      },
+      {
+        "messages": [
+          {
+            "role": "system",
+            "content": "Your input fields are:\n1. `question` (str):\nYour output fields are:\n1. `answer` (str):\nAll interactions will be structured in the following way, with the appropriate values filled in.\n\n[[ ## question ## ]]\n{question}\n\n[[ ## answer ## ]]\n{answer}\n\n[[ ## completed ## ]]\nIn adhering to this structure, your objective is: \n        baseline"
+          },
+          {
+            "role": "user",
+            "content": "[[ ## question ## ]]\nval-3\n\nRespond with the corresponding output fields, starting with the field `[[ ## answer ## ]]`, and then ending with the marker for `[[ ## completed ## ]]`."
+          }
+        ],
+        "kwargs": {
+          "temperature": 0.17,
+          "max_tokens": 73,
+          "model": "dummy"
+        },
+        "response": [
+          "[[ ## answer ## ]]\nteacher"
+        ]
+      },
+      {
+        "messages": [
+          {
+            "role": "system",
+            "content": "Your input fields are:\n1. `question` (str):\nYour output fields are:\n1. `answer` (str):\nAll interactions will be structured in the following way, with the appropriate values filled in.\n\n[[ ## question ## ]]\n{question}\n\n[[ ## answer ## ]]\n{answer}\n\n[[ ## completed ## ]]\nIn adhering to this structure, your objective is: \n        baseline"
+          },
+          {
+            "role": "user",
+            "content": "[[ ## question ## ]]\nval-4\n\nRespond with the corresponding output fields, starting with the field `[[ ## answer ## ]]`, and then ending with the marker for `[[ ## completed ## ]]`."
           }
         ],
         "kwargs": {
@@ -1173,15 +1178,7 @@
           },
           {
             "role": "user",
-            "content": "[[ ## question ## ]]\ntrain-3"
-          },
-          {
-            "role": "assistant",
-            "content": "[[ ## answer ## ]]\nteacher\n\n[[ ## completed ## ]]\n"
-          },
-          {
-            "role": "user",
-            "content": "[[ ## question ## ]]\nval-3\n\nRespond with the corresponding output fields, starting with the field `[[ ## answer ## ]]`, and then ending with the marker for `[[ ## completed ## ]]`."
+            "content": "[[ ## question ## ]]\nval-0\n\nRespond with the corresponding output fields, starting with the field `[[ ## answer ## ]]`, and then ending with the marker for `[[ ## completed ## ]]`."
           }
         ],
         "kwargs": {
@@ -1198,70 +1195,6 @@
           {
             "role": "system",
             "content": "Your input fields are:\n1. `question` (str):\nYour output fields are:\n1. `answer` (str):\nAll interactions will be structured in the following way, with the appropriate values filled in.\n\n[[ ## question ## ]]\n{question}\n\n[[ ## answer ## ]]\n{answer}\n\n[[ ## completed ## ]]\nIn adhering to this structure, your objective is: \n        candidate-1"
-          },
-          {
-            "role": "user",
-            "content": "[[ ## question ## ]]\ntrain-3"
-          },
-          {
-            "role": "assistant",
-            "content": "[[ ## answer ## ]]\nteacher\n\n[[ ## completed ## ]]\n"
-          },
-          {
-            "role": "user",
-            "content": "[[ ## question ## ]]\nval-4\n\nRespond with the corresponding output fields, starting with the field `[[ ## answer ## ]]`, and then ending with the marker for `[[ ## completed ## ]]`."
-          }
-        ],
-        "kwargs": {
-          "temperature": 0.17,
-          "max_tokens": 73,
-          "model": "dummy"
-        },
-        "response": [
-          "[[ ## answer ## ]]\nteacher"
-        ]
-      },
-      {
-        "messages": [
-          {
-            "role": "system",
-            "content": "Your input fields are:\n1. `question` (str):\nYour output fields are:\n1. `answer` (str):\nAll interactions will be structured in the following way, with the appropriate values filled in.\n\n[[ ## question ## ]]\n{question}\n\n[[ ## answer ## ]]\n{answer}\n\n[[ ## completed ## ]]\nIn adhering to this structure, your objective is: \n        candidate-1"
-          },
-          {
-            "role": "user",
-            "content": "[[ ## question ## ]]\ntrain-3"
-          },
-          {
-            "role": "assistant",
-            "content": "[[ ## answer ## ]]\nteacher\n\n[[ ## completed ## ]]\n"
-          },
-          {
-            "role": "user",
-            "content": "[[ ## question ## ]]\nval-2\n\nRespond with the corresponding output fields, starting with the field `[[ ## answer ## ]]`, and then ending with the marker for `[[ ## completed ## ]]`."
-          }
-        ],
-        "kwargs": {
-          "temperature": 0.17,
-          "max_tokens": 73,
-          "model": "dummy"
-        },
-        "response": [
-          "[[ ## answer ## ]]\nteacher"
-        ]
-      },
-      {
-        "messages": [
-          {
-            "role": "system",
-            "content": "Your input fields are:\n1. `question` (str):\nYour output fields are:\n1. `answer` (str):\nAll interactions will be structured in the following way, with the appropriate values filled in.\n\n[[ ## question ## ]]\n{question}\n\n[[ ## answer ## ]]\n{answer}\n\n[[ ## completed ## ]]\nIn adhering to this structure, your objective is: \n        candidate-1"
-          },
-          {
-            "role": "user",
-            "content": "[[ ## question ## ]]\ntrain-3"
-          },
-          {
-            "role": "assistant",
-            "content": "[[ ## answer ## ]]\nteacher\n\n[[ ## completed ## ]]\n"
           },
           {
             "role": "user",
@@ -1285,15 +1218,7 @@
           },
           {
             "role": "user",
-            "content": "[[ ## question ## ]]\ntrain-3"
-          },
-          {
-            "role": "assistant",
-            "content": "[[ ## answer ## ]]\nteacher\n\n[[ ## completed ## ]]\n"
-          },
-          {
-            "role": "user",
-            "content": "[[ ## question ## ]]\nval-0\n\nRespond with the corresponding output fields, starting with the field `[[ ## answer ## ]]`, and then ending with the marker for `[[ ## completed ## ]]`."
+            "content": "[[ ## question ## ]]\nval-2\n\nRespond with the corresponding output fields, starting with the field `[[ ## answer ## ]]`, and then ending with the marker for `[[ ## completed ## ]]`."
           }
         ],
         "kwargs": {
@@ -1313,11 +1238,43 @@
           },
           {
             "role": "user",
-            "content": "[[ ## question ## ]]\ntrain-3"
+            "content": "[[ ## question ## ]]\nval-3\n\nRespond with the corresponding output fields, starting with the field `[[ ## answer ## ]]`, and then ending with the marker for `[[ ## completed ## ]]`."
+          }
+        ],
+        "kwargs": {
+          "temperature": 0.17,
+          "max_tokens": 73,
+          "model": "dummy"
+        },
+        "response": [
+          "[[ ## answer ## ]]\nteacher"
+        ]
+      },
+      {
+        "messages": [
+          {
+            "role": "system",
+            "content": "Your input fields are:\n1. `question` (str):\nYour output fields are:\n1. `answer` (str):\nAll interactions will be structured in the following way, with the appropriate values filled in.\n\n[[ ## question ## ]]\n{question}\n\n[[ ## answer ## ]]\n{answer}\n\n[[ ## completed ## ]]\nIn adhering to this structure, your objective is: \n        candidate-1"
           },
           {
-            "role": "assistant",
-            "content": "[[ ## answer ## ]]\nteacher\n\n[[ ## completed ## ]]\n"
+            "role": "user",
+            "content": "[[ ## question ## ]]\nval-4\n\nRespond with the corresponding output fields, starting with the field `[[ ## answer ## ]]`, and then ending with the marker for `[[ ## completed ## ]]`."
+          }
+        ],
+        "kwargs": {
+          "temperature": 0.17,
+          "max_tokens": 73,
+          "model": "dummy"
+        },
+        "response": [
+          "[[ ## answer ## ]]\nteacher"
+        ]
+      },
+      {
+        "messages": [
+          {
+            "role": "system",
+            "content": "Your input fields are:\n1. `question` (str):\nYour output fields are:\n1. `answer` (str):\nAll interactions will be structured in the following way, with the appropriate values filled in.\n\n[[ ## question ## ]]\n{question}\n\n[[ ## answer ## ]]\n{answer}\n\n[[ ## completed ## ]]\nIn adhering to this structure, your objective is: \n        candidate-1"
           },
           {
             "role": "user",
@@ -1341,47 +1298,7 @@
           },
           {
             "role": "user",
-            "content": "[[ ## question ## ]]\nval-3\n\nRespond with the corresponding output fields, starting with the field `[[ ## answer ## ]]`, and then ending with the marker for `[[ ## completed ## ]]`."
-          }
-        ],
-        "kwargs": {
-          "temperature": 0.17,
-          "max_tokens": 73,
-          "model": "dummy"
-        },
-        "response": [
-          "[[ ## answer ## ]]\nteacher"
-        ]
-      },
-      {
-        "messages": [
-          {
-            "role": "system",
-            "content": "Your input fields are:\n1. `question` (str):\nYour output fields are:\n1. `answer` (str):\nAll interactions will be structured in the following way, with the appropriate values filled in.\n\n[[ ## question ## ]]\n{question}\n\n[[ ## answer ## ]]\n{answer}\n\n[[ ## completed ## ]]\nIn adhering to this structure, your objective is: \n        candidate-2"
-          },
-          {
-            "role": "user",
-            "content": "[[ ## question ## ]]\nval-4\n\nRespond with the corresponding output fields, starting with the field `[[ ## answer ## ]]`, and then ending with the marker for `[[ ## completed ## ]]`."
-          }
-        ],
-        "kwargs": {
-          "temperature": 0.17,
-          "max_tokens": 73,
-          "model": "dummy"
-        },
-        "response": [
-          "[[ ## answer ## ]]\nteacher"
-        ]
-      },
-      {
-        "messages": [
-          {
-            "role": "system",
-            "content": "Your input fields are:\n1. `question` (str):\nYour output fields are:\n1. `answer` (str):\nAll interactions will be structured in the following way, with the appropriate values filled in.\n\n[[ ## question ## ]]\n{question}\n\n[[ ## answer ## ]]\n{answer}\n\n[[ ## completed ## ]]\nIn adhering to this structure, your objective is: \n        candidate-2"
-          },
-          {
-            "role": "user",
-            "content": "[[ ## question ## ]]\nval-2\n\nRespond with the corresponding output fields, starting with the field `[[ ## answer ## ]]`, and then ending with the marker for `[[ ## completed ## ]]`."
+            "content": "[[ ## question ## ]]\nval-0\n\nRespond with the corresponding output fields, starting with the field `[[ ## answer ## ]]`, and then ending with the marker for `[[ ## completed ## ]]`."
           }
         ],
         "kwargs": {
@@ -1421,7 +1338,47 @@
           },
           {
             "role": "user",
-            "content": "[[ ## question ## ]]\nval-0\n\nRespond with the corresponding output fields, starting with the field `[[ ## answer ## ]]`, and then ending with the marker for `[[ ## completed ## ]]`."
+            "content": "[[ ## question ## ]]\nval-2\n\nRespond with the corresponding output fields, starting with the field `[[ ## answer ## ]]`, and then ending with the marker for `[[ ## completed ## ]]`."
+          }
+        ],
+        "kwargs": {
+          "temperature": 0.17,
+          "max_tokens": 73,
+          "model": "dummy"
+        },
+        "response": [
+          "[[ ## answer ## ]]\nteacher"
+        ]
+      },
+      {
+        "messages": [
+          {
+            "role": "system",
+            "content": "Your input fields are:\n1. `question` (str):\nYour output fields are:\n1. `answer` (str):\nAll interactions will be structured in the following way, with the appropriate values filled in.\n\n[[ ## question ## ]]\n{question}\n\n[[ ## answer ## ]]\n{answer}\n\n[[ ## completed ## ]]\nIn adhering to this structure, your objective is: \n        candidate-2"
+          },
+          {
+            "role": "user",
+            "content": "[[ ## question ## ]]\nval-3\n\nRespond with the corresponding output fields, starting with the field `[[ ## answer ## ]]`, and then ending with the marker for `[[ ## completed ## ]]`."
+          }
+        ],
+        "kwargs": {
+          "temperature": 0.17,
+          "max_tokens": 73,
+          "model": "dummy"
+        },
+        "response": [
+          "[[ ## answer ## ]]\nteacher"
+        ]
+      },
+      {
+        "messages": [
+          {
+            "role": "system",
+            "content": "Your input fields are:\n1. `question` (str):\nYour output fields are:\n1. `answer` (str):\nAll interactions will be structured in the following way, with the appropriate values filled in.\n\n[[ ## question ## ]]\n{question}\n\n[[ ## answer ## ]]\n{answer}\n\n[[ ## completed ## ]]\nIn adhering to this structure, your objective is: \n        candidate-2"
+          },
+          {
+            "role": "user",
+            "content": "[[ ## question ## ]]\nval-4\n\nRespond with the corresponding output fields, starting with the field `[[ ## answer ## ]]`, and then ending with the marker for `[[ ## completed ## ]]`."
           }
         ],
         "kwargs": {
@@ -1457,127 +1414,7 @@
         "messages": [
           {
             "role": "system",
-            "content": "Your input fields are:\n1. `question` (str):\nYour output fields are:\n1. `answer` (str):\nAll interactions will be structured in the following way, with the appropriate values filled in.\n\n[[ ## question ## ]]\n{question}\n\n[[ ## answer ## ]]\n{answer}\n\n[[ ## completed ## ]]\nIn adhering to this structure, your objective is: \n        candidate-1"
-          },
-          {
-            "role": "user",
-            "content": "[[ ## question ## ]]\ntrain-0"
-          },
-          {
-            "role": "assistant",
-            "content": "[[ ## answer ## ]]\nteacher\n\n[[ ## completed ## ]]\n"
-          },
-          {
-            "role": "user",
-            "content": "[[ ## question ## ]]\nval-3\n\nRespond with the corresponding output fields, starting with the field `[[ ## answer ## ]]`, and then ending with the marker for `[[ ## completed ## ]]`."
-          }
-        ],
-        "kwargs": {
-          "temperature": 0.17,
-          "max_tokens": 73,
-          "model": "dummy"
-        },
-        "response": [
-          "[[ ## answer ## ]]\nteacher"
-        ]
-      },
-      {
-        "messages": [
-          {
-            "role": "system",
-            "content": "Your input fields are:\n1. `question` (str):\nYour output fields are:\n1. `answer` (str):\nAll interactions will be structured in the following way, with the appropriate values filled in.\n\n[[ ## question ## ]]\n{question}\n\n[[ ## answer ## ]]\n{answer}\n\n[[ ## completed ## ]]\nIn adhering to this structure, your objective is: \n        candidate-1"
-          },
-          {
-            "role": "user",
-            "content": "[[ ## question ## ]]\ntrain-0"
-          },
-          {
-            "role": "assistant",
-            "content": "[[ ## answer ## ]]\nteacher\n\n[[ ## completed ## ]]\n"
-          },
-          {
-            "role": "user",
-            "content": "[[ ## question ## ]]\nval-4\n\nRespond with the corresponding output fields, starting with the field `[[ ## answer ## ]]`, and then ending with the marker for `[[ ## completed ## ]]`."
-          }
-        ],
-        "kwargs": {
-          "temperature": 0.17,
-          "max_tokens": 73,
-          "model": "dummy"
-        },
-        "response": [
-          "[[ ## answer ## ]]\nteacher"
-        ]
-      },
-      {
-        "messages": [
-          {
-            "role": "system",
-            "content": "Your input fields are:\n1. `question` (str):\nYour output fields are:\n1. `answer` (str):\nAll interactions will be structured in the following way, with the appropriate values filled in.\n\n[[ ## question ## ]]\n{question}\n\n[[ ## answer ## ]]\n{answer}\n\n[[ ## completed ## ]]\nIn adhering to this structure, your objective is: \n        candidate-1"
-          },
-          {
-            "role": "user",
-            "content": "[[ ## question ## ]]\ntrain-0"
-          },
-          {
-            "role": "assistant",
-            "content": "[[ ## answer ## ]]\nteacher\n\n[[ ## completed ## ]]\n"
-          },
-          {
-            "role": "user",
-            "content": "[[ ## question ## ]]\nval-2\n\nRespond with the corresponding output fields, starting with the field `[[ ## answer ## ]]`, and then ending with the marker for `[[ ## completed ## ]]`."
-          }
-        ],
-        "kwargs": {
-          "temperature": 0.17,
-          "max_tokens": 73,
-          "model": "dummy"
-        },
-        "response": [
-          "[[ ## answer ## ]]\nteacher"
-        ]
-      },
-      {
-        "messages": [
-          {
-            "role": "system",
-            "content": "Your input fields are:\n1. `question` (str):\nYour output fields are:\n1. `answer` (str):\nAll interactions will be structured in the following way, with the appropriate values filled in.\n\n[[ ## question ## ]]\n{question}\n\n[[ ## answer ## ]]\n{answer}\n\n[[ ## completed ## ]]\nIn adhering to this structure, your objective is: \n        candidate-1"
-          },
-          {
-            "role": "user",
-            "content": "[[ ## question ## ]]\ntrain-0"
-          },
-          {
-            "role": "assistant",
-            "content": "[[ ## answer ## ]]\nteacher\n\n[[ ## completed ## ]]\n"
-          },
-          {
-            "role": "user",
-            "content": "[[ ## question ## ]]\nval-1\n\nRespond with the corresponding output fields, starting with the field `[[ ## answer ## ]]`, and then ending with the marker for `[[ ## completed ## ]]`."
-          }
-        ],
-        "kwargs": {
-          "temperature": 0.17,
-          "max_tokens": 73,
-          "model": "dummy"
-        },
-        "response": [
-          "[[ ## answer ## ]]\nteacher"
-        ]
-      },
-      {
-        "messages": [
-          {
-            "role": "system",
-            "content": "Your input fields are:\n1. `question` (str):\nYour output fields are:\n1. `answer` (str):\nAll interactions will be structured in the following way, with the appropriate values filled in.\n\n[[ ## question ## ]]\n{question}\n\n[[ ## answer ## ]]\n{answer}\n\n[[ ## completed ## ]]\nIn adhering to this structure, your objective is: \n        candidate-1"
-          },
-          {
-            "role": "user",
-            "content": "[[ ## question ## ]]\ntrain-0"
-          },
-          {
-            "role": "assistant",
-            "content": "[[ ## answer ## ]]\nteacher\n\n[[ ## completed ## ]]\n"
+            "content": "Your input fields are:\n1. `question` (str):\nYour output fields are:\n1. `answer` (str):\nAll interactions will be structured in the following way, with the appropriate values filled in.\n\n[[ ## question ## ]]\n{question}\n\n[[ ## answer ## ]]\n{answer}\n\n[[ ## completed ## ]]\nIn adhering to this structure, your objective is: \n        baseline"
           },
           {
             "role": "user",
@@ -1597,15 +1434,87 @@
         "messages": [
           {
             "role": "system",
-            "content": "Your input fields are:\n1. `question` (str):\nYour output fields are:\n1. `answer` (str):\nAll interactions will be structured in the following way, with the appropriate values filled in.\n\n[[ ## question ## ]]\n{question}\n\n[[ ## answer ## ]]\n{answer}\n\n[[ ## completed ## ]]\nIn adhering to this structure, your objective is: \n        candidate-1"
+            "content": "Your input fields are:\n1. `question` (str):\nYour output fields are:\n1. `answer` (str):\nAll interactions will be structured in the following way, with the appropriate values filled in.\n\n[[ ## question ## ]]\n{question}\n\n[[ ## answer ## ]]\n{answer}\n\n[[ ## completed ## ]]\nIn adhering to this structure, your objective is: \n        baseline"
           },
           {
             "role": "user",
-            "content": "[[ ## question ## ]]\ntrain-0"
+            "content": "[[ ## question ## ]]\nval-1\n\nRespond with the corresponding output fields, starting with the field `[[ ## answer ## ]]`, and then ending with the marker for `[[ ## completed ## ]]`."
+          }
+        ],
+        "kwargs": {
+          "temperature": 0.17,
+          "max_tokens": 73,
+          "model": "dummy"
+        },
+        "response": [
+          "[[ ## answer ## ]]\nteacher"
+        ]
+      },
+      {
+        "messages": [
+          {
+            "role": "system",
+            "content": "Your input fields are:\n1. `question` (str):\nYour output fields are:\n1. `answer` (str):\nAll interactions will be structured in the following way, with the appropriate values filled in.\n\n[[ ## question ## ]]\n{question}\n\n[[ ## answer ## ]]\n{answer}\n\n[[ ## completed ## ]]\nIn adhering to this structure, your objective is: \n        baseline"
           },
           {
-            "role": "assistant",
-            "content": "[[ ## answer ## ]]\nteacher\n\n[[ ## completed ## ]]\n"
+            "role": "user",
+            "content": "[[ ## question ## ]]\nval-2\n\nRespond with the corresponding output fields, starting with the field `[[ ## answer ## ]]`, and then ending with the marker for `[[ ## completed ## ]]`."
+          }
+        ],
+        "kwargs": {
+          "temperature": 0.17,
+          "max_tokens": 73,
+          "model": "dummy"
+        },
+        "response": [
+          "[[ ## answer ## ]]\nteacher"
+        ]
+      },
+      {
+        "messages": [
+          {
+            "role": "system",
+            "content": "Your input fields are:\n1. `question` (str):\nYour output fields are:\n1. `answer` (str):\nAll interactions will be structured in the following way, with the appropriate values filled in.\n\n[[ ## question ## ]]\n{question}\n\n[[ ## answer ## ]]\n{answer}\n\n[[ ## completed ## ]]\nIn adhering to this structure, your objective is: \n        baseline"
+          },
+          {
+            "role": "user",
+            "content": "[[ ## question ## ]]\nval-3\n\nRespond with the corresponding output fields, starting with the field `[[ ## answer ## ]]`, and then ending with the marker for `[[ ## completed ## ]]`."
+          }
+        ],
+        "kwargs": {
+          "temperature": 0.17,
+          "max_tokens": 73,
+          "model": "dummy"
+        },
+        "response": [
+          "[[ ## answer ## ]]\nteacher"
+        ]
+      },
+      {
+        "messages": [
+          {
+            "role": "system",
+            "content": "Your input fields are:\n1. `question` (str):\nYour output fields are:\n1. `answer` (str):\nAll interactions will be structured in the following way, with the appropriate values filled in.\n\n[[ ## question ## ]]\n{question}\n\n[[ ## answer ## ]]\n{answer}\n\n[[ ## completed ## ]]\nIn adhering to this structure, your objective is: \n        baseline"
+          },
+          {
+            "role": "user",
+            "content": "[[ ## question ## ]]\nval-4\n\nRespond with the corresponding output fields, starting with the field `[[ ## answer ## ]]`, and then ending with the marker for `[[ ## completed ## ]]`."
+          }
+        ],
+        "kwargs": {
+          "temperature": 0.17,
+          "max_tokens": 73,
+          "model": "dummy"
+        },
+        "response": [
+          "[[ ## answer ## ]]\nteacher"
+        ]
+      },
+      {
+        "messages": [
+          {
+            "role": "system",
+            "content": "Your input fields are:\n1. `question` (str):\nYour output fields are:\n1. `answer` (str):\nAll interactions will be structured in the following way, with the appropriate values filled in.\n\n[[ ## question ## ]]\n{question}\n\n[[ ## answer ## ]]\n{answer}\n\n[[ ## completed ## ]]\nIn adhering to this structure, your objective is: \n        baseline"
           },
           {
             "role": "user",
@@ -1629,15 +1538,7 @@
           },
           {
             "role": "user",
-            "content": "[[ ## question ## ]]\ntrain-0"
-          },
-          {
-            "role": "assistant",
-            "content": "[[ ## answer ## ]]\nteacher\n\n[[ ## completed ## ]]\n"
-          },
-          {
-            "role": "user",
-            "content": "[[ ## question ## ]]\nval-3\n\nRespond with the corresponding output fields, starting with the field `[[ ## answer ## ]]`, and then ending with the marker for `[[ ## completed ## ]]`."
+            "content": "[[ ## question ## ]]\nval-0\n\nRespond with the corresponding output fields, starting with the field `[[ ## answer ## ]]`, and then ending with the marker for `[[ ## completed ## ]]`."
           }
         ],
         "kwargs": {
@@ -1654,70 +1555,6 @@
           {
             "role": "system",
             "content": "Your input fields are:\n1. `question` (str):\nYour output fields are:\n1. `answer` (str):\nAll interactions will be structured in the following way, with the appropriate values filled in.\n\n[[ ## question ## ]]\n{question}\n\n[[ ## answer ## ]]\n{answer}\n\n[[ ## completed ## ]]\nIn adhering to this structure, your objective is: \n        candidate-2"
-          },
-          {
-            "role": "user",
-            "content": "[[ ## question ## ]]\ntrain-0"
-          },
-          {
-            "role": "assistant",
-            "content": "[[ ## answer ## ]]\nteacher\n\n[[ ## completed ## ]]\n"
-          },
-          {
-            "role": "user",
-            "content": "[[ ## question ## ]]\nval-4\n\nRespond with the corresponding output fields, starting with the field `[[ ## answer ## ]]`, and then ending with the marker for `[[ ## completed ## ]]`."
-          }
-        ],
-        "kwargs": {
-          "temperature": 0.17,
-          "max_tokens": 73,
-          "model": "dummy"
-        },
-        "response": [
-          "[[ ## answer ## ]]\nteacher"
-        ]
-      },
-      {
-        "messages": [
-          {
-            "role": "system",
-            "content": "Your input fields are:\n1. `question` (str):\nYour output fields are:\n1. `answer` (str):\nAll interactions will be structured in the following way, with the appropriate values filled in.\n\n[[ ## question ## ]]\n{question}\n\n[[ ## answer ## ]]\n{answer}\n\n[[ ## completed ## ]]\nIn adhering to this structure, your objective is: \n        candidate-2"
-          },
-          {
-            "role": "user",
-            "content": "[[ ## question ## ]]\ntrain-0"
-          },
-          {
-            "role": "assistant",
-            "content": "[[ ## answer ## ]]\nteacher\n\n[[ ## completed ## ]]\n"
-          },
-          {
-            "role": "user",
-            "content": "[[ ## question ## ]]\nval-2\n\nRespond with the corresponding output fields, starting with the field `[[ ## answer ## ]]`, and then ending with the marker for `[[ ## completed ## ]]`."
-          }
-        ],
-        "kwargs": {
-          "temperature": 0.17,
-          "max_tokens": 73,
-          "model": "dummy"
-        },
-        "response": [
-          "[[ ## answer ## ]]\nteacher"
-        ]
-      },
-      {
-        "messages": [
-          {
-            "role": "system",
-            "content": "Your input fields are:\n1. `question` (str):\nYour output fields are:\n1. `answer` (str):\nAll interactions will be structured in the following way, with the appropriate values filled in.\n\n[[ ## question ## ]]\n{question}\n\n[[ ## answer ## ]]\n{answer}\n\n[[ ## completed ## ]]\nIn adhering to this structure, your objective is: \n        candidate-2"
-          },
-          {
-            "role": "user",
-            "content": "[[ ## question ## ]]\ntrain-0"
-          },
-          {
-            "role": "assistant",
-            "content": "[[ ## answer ## ]]\nteacher\n\n[[ ## completed ## ]]\n"
           },
           {
             "role": "user",
@@ -1741,211 +1578,7 @@
           },
           {
             "role": "user",
-            "content": "[[ ## question ## ]]\ntrain-0"
-          },
-          {
-            "role": "assistant",
-            "content": "[[ ## answer ## ]]\nteacher\n\n[[ ## completed ## ]]\n"
-          },
-          {
-            "role": "user",
-            "content": "[[ ## question ## ]]\nval-0\n\nRespond with the corresponding output fields, starting with the field `[[ ## answer ## ]]`, and then ending with the marker for `[[ ## completed ## ]]`."
-          }
-        ],
-        "kwargs": {
-          "temperature": 0.17,
-          "max_tokens": 73,
-          "model": "dummy"
-        },
-        "response": [
-          "[[ ## answer ## ]]\nteacher"
-        ]
-      },
-      {
-        "messages": [
-          {
-            "role": "system",
-            "content": "Your input fields are:\n1. `question` (str):\nYour output fields are:\n1. `answer` (str):\nAll interactions will be structured in the following way, with the appropriate values filled in.\n\n[[ ## question ## ]]\n{question}\n\n[[ ## answer ## ]]\n{answer}\n\n[[ ## completed ## ]]\nIn adhering to this structure, your objective is: \n        candidate-2"
-          },
-          {
-            "role": "user",
-            "content": "[[ ## question ## ]]\ntrain-0"
-          },
-          {
-            "role": "assistant",
-            "content": "[[ ## answer ## ]]\nteacher\n\n[[ ## completed ## ]]\n"
-          },
-          {
-            "role": "user",
-            "content": "[[ ## question ## ]]\nval-5\n\nRespond with the corresponding output fields, starting with the field `[[ ## answer ## ]]`, and then ending with the marker for `[[ ## completed ## ]]`."
-          }
-        ],
-        "kwargs": {
-          "temperature": 0.17,
-          "max_tokens": 73,
-          "model": "dummy"
-        },
-        "response": [
-          "[[ ## answer ## ]]\nteacher"
-        ]
-      },
-      {
-        "messages": [
-          {
-            "role": "system",
-            "content": "Your input fields are:\n1. `question` (str):\nYour output fields are:\n1. `answer` (str):\nAll interactions will be structured in the following way, with the appropriate values filled in.\n\n[[ ## question ## ]]\n{question}\n\n[[ ## answer ## ]]\n{answer}\n\n[[ ## completed ## ]]\nIn adhering to this structure, your objective is: \n        baseline"
-          },
-          {
-            "role": "user",
-            "content": "[[ ## question ## ]]\ntrain-0"
-          },
-          {
-            "role": "assistant",
-            "content": "[[ ## answer ## ]]\nteacher\n\n[[ ## completed ## ]]\n"
-          },
-          {
-            "role": "user",
-            "content": "[[ ## question ## ]]\nval-3\n\nRespond with the corresponding output fields, starting with the field `[[ ## answer ## ]]`, and then ending with the marker for `[[ ## completed ## ]]`."
-          }
-        ],
-        "kwargs": {
-          "temperature": 0.17,
-          "max_tokens": 73,
-          "model": "dummy"
-        },
-        "response": [
-          "[[ ## answer ## ]]\nteacher"
-        ]
-      },
-      {
-        "messages": [
-          {
-            "role": "system",
-            "content": "Your input fields are:\n1. `question` (str):\nYour output fields are:\n1. `answer` (str):\nAll interactions will be structured in the following way, with the appropriate values filled in.\n\n[[ ## question ## ]]\n{question}\n\n[[ ## answer ## ]]\n{answer}\n\n[[ ## completed ## ]]\nIn adhering to this structure, your objective is: \n        baseline"
-          },
-          {
-            "role": "user",
-            "content": "[[ ## question ## ]]\ntrain-0"
-          },
-          {
-            "role": "assistant",
-            "content": "[[ ## answer ## ]]\nteacher\n\n[[ ## completed ## ]]\n"
-          },
-          {
-            "role": "user",
-            "content": "[[ ## question ## ]]\nval-4\n\nRespond with the corresponding output fields, starting with the field `[[ ## answer ## ]]`, and then ending with the marker for `[[ ## completed ## ]]`."
-          }
-        ],
-        "kwargs": {
-          "temperature": 0.17,
-          "max_tokens": 73,
-          "model": "dummy"
-        },
-        "response": [
-          "[[ ## answer ## ]]\nteacher"
-        ]
-      },
-      {
-        "messages": [
-          {
-            "role": "system",
-            "content": "Your input fields are:\n1. `question` (str):\nYour output fields are:\n1. `answer` (str):\nAll interactions will be structured in the following way, with the appropriate values filled in.\n\n[[ ## question ## ]]\n{question}\n\n[[ ## answer ## ]]\n{answer}\n\n[[ ## completed ## ]]\nIn adhering to this structure, your objective is: \n        baseline"
-          },
-          {
-            "role": "user",
-            "content": "[[ ## question ## ]]\ntrain-0"
-          },
-          {
-            "role": "assistant",
-            "content": "[[ ## answer ## ]]\nteacher\n\n[[ ## completed ## ]]\n"
-          },
-          {
-            "role": "user",
             "content": "[[ ## question ## ]]\nval-2\n\nRespond with the corresponding output fields, starting with the field `[[ ## answer ## ]]`, and then ending with the marker for `[[ ## completed ## ]]`."
-          }
-        ],
-        "kwargs": {
-          "temperature": 0.17,
-          "max_tokens": 73,
-          "model": "dummy"
-        },
-        "response": [
-          "[[ ## answer ## ]]\nteacher"
-        ]
-      },
-      {
-        "messages": [
-          {
-            "role": "system",
-            "content": "Your input fields are:\n1. `question` (str):\nYour output fields are:\n1. `answer` (str):\nAll interactions will be structured in the following way, with the appropriate values filled in.\n\n[[ ## question ## ]]\n{question}\n\n[[ ## answer ## ]]\n{answer}\n\n[[ ## completed ## ]]\nIn adhering to this structure, your objective is: \n        baseline"
-          },
-          {
-            "role": "user",
-            "content": "[[ ## question ## ]]\ntrain-0"
-          },
-          {
-            "role": "assistant",
-            "content": "[[ ## answer ## ]]\nteacher\n\n[[ ## completed ## ]]\n"
-          },
-          {
-            "role": "user",
-            "content": "[[ ## question ## ]]\nval-1\n\nRespond with the corresponding output fields, starting with the field `[[ ## answer ## ]]`, and then ending with the marker for `[[ ## completed ## ]]`."
-          }
-        ],
-        "kwargs": {
-          "temperature": 0.17,
-          "max_tokens": 73,
-          "model": "dummy"
-        },
-        "response": [
-          "[[ ## answer ## ]]\nteacher"
-        ]
-      },
-      {
-        "messages": [
-          {
-            "role": "system",
-            "content": "Your input fields are:\n1. `question` (str):\nYour output fields are:\n1. `answer` (str):\nAll interactions will be structured in the following way, with the appropriate values filled in.\n\n[[ ## question ## ]]\n{question}\n\n[[ ## answer ## ]]\n{answer}\n\n[[ ## completed ## ]]\nIn adhering to this structure, your objective is: \n        baseline"
-          },
-          {
-            "role": "user",
-            "content": "[[ ## question ## ]]\ntrain-0"
-          },
-          {
-            "role": "assistant",
-            "content": "[[ ## answer ## ]]\nteacher\n\n[[ ## completed ## ]]\n"
-          },
-          {
-            "role": "user",
-            "content": "[[ ## question ## ]]\nval-0\n\nRespond with the corresponding output fields, starting with the field `[[ ## answer ## ]]`, and then ending with the marker for `[[ ## completed ## ]]`."
-          }
-        ],
-        "kwargs": {
-          "temperature": 0.17,
-          "max_tokens": 73,
-          "model": "dummy"
-        },
-        "response": [
-          "[[ ## answer ## ]]\nteacher"
-        ]
-      },
-      {
-        "messages": [
-          {
-            "role": "system",
-            "content": "Your input fields are:\n1. `question` (str):\nYour output fields are:\n1. `answer` (str):\nAll interactions will be structured in the following way, with the appropriate values filled in.\n\n[[ ## question ## ]]\n{question}\n\n[[ ## answer ## ]]\n{answer}\n\n[[ ## completed ## ]]\nIn adhering to this structure, your objective is: \n        baseline"
-          },
-          {
-            "role": "user",
-            "content": "[[ ## question ## ]]\ntrain-0"
-          },
-          {
-            "role": "assistant",
-            "content": "[[ ## answer ## ]]\nteacher\n\n[[ ## completed ## ]]\n"
-          },
-          {
-            "role": "user",
-            "content": "[[ ## question ## ]]\nval-5\n\nRespond with the corresponding output fields, starting with the field `[[ ## answer ## ]]`, and then ending with the marker for `[[ ## completed ## ]]`."
           }
         ],
         "kwargs": {
@@ -1986,66 +1619,6 @@
           {
             "role": "user",
             "content": "[[ ## question ## ]]\nval-4\n\nRespond with the corresponding output fields, starting with the field `[[ ## answer ## ]]`, and then ending with the marker for `[[ ## completed ## ]]`."
-          }
-        ],
-        "kwargs": {
-          "temperature": 0.17,
-          "max_tokens": 73,
-          "model": "dummy"
-        },
-        "response": [
-          "[[ ## answer ## ]]\nteacher"
-        ]
-      },
-      {
-        "messages": [
-          {
-            "role": "system",
-            "content": "Your input fields are:\n1. `question` (str):\nYour output fields are:\n1. `answer` (str):\nAll interactions will be structured in the following way, with the appropriate values filled in.\n\n[[ ## question ## ]]\n{question}\n\n[[ ## answer ## ]]\n{answer}\n\n[[ ## completed ## ]]\nIn adhering to this structure, your objective is: \n        candidate-2"
-          },
-          {
-            "role": "user",
-            "content": "[[ ## question ## ]]\nval-2\n\nRespond with the corresponding output fields, starting with the field `[[ ## answer ## ]]`, and then ending with the marker for `[[ ## completed ## ]]`."
-          }
-        ],
-        "kwargs": {
-          "temperature": 0.17,
-          "max_tokens": 73,
-          "model": "dummy"
-        },
-        "response": [
-          "[[ ## answer ## ]]\nteacher"
-        ]
-      },
-      {
-        "messages": [
-          {
-            "role": "system",
-            "content": "Your input fields are:\n1. `question` (str):\nYour output fields are:\n1. `answer` (str):\nAll interactions will be structured in the following way, with the appropriate values filled in.\n\n[[ ## question ## ]]\n{question}\n\n[[ ## answer ## ]]\n{answer}\n\n[[ ## completed ## ]]\nIn adhering to this structure, your objective is: \n        candidate-2"
-          },
-          {
-            "role": "user",
-            "content": "[[ ## question ## ]]\nval-1\n\nRespond with the corresponding output fields, starting with the field `[[ ## answer ## ]]`, and then ending with the marker for `[[ ## completed ## ]]`."
-          }
-        ],
-        "kwargs": {
-          "temperature": 0.17,
-          "max_tokens": 73,
-          "model": "dummy"
-        },
-        "response": [
-          "[[ ## answer ## ]]\nteacher"
-        ]
-      },
-      {
-        "messages": [
-          {
-            "role": "system",
-            "content": "Your input fields are:\n1. `question` (str):\nYour output fields are:\n1. `answer` (str):\nAll interactions will be structured in the following way, with the appropriate values filled in.\n\n[[ ## question ## ]]\n{question}\n\n[[ ## answer ## ]]\n{answer}\n\n[[ ## completed ## ]]\nIn adhering to this structure, your objective is: \n        candidate-2"
-          },
-          {
-            "role": "user",
-            "content": "[[ ## question ## ]]\nval-0\n\nRespond with the corresponding output fields, starting with the field `[[ ## answer ## ]]`, and then ending with the marker for `[[ ## completed ## ]]`."
           }
         ],
         "kwargs": {
@@ -2081,127 +1654,7 @@
         "messages": [
           {
             "role": "system",
-            "content": "Your input fields are:\n1. `question` (str):\nYour output fields are:\n1. `answer` (str):\nAll interactions will be structured in the following way, with the appropriate values filled in.\n\n[[ ## question ## ]]\n{question}\n\n[[ ## answer ## ]]\n{answer}\n\n[[ ## completed ## ]]\nIn adhering to this structure, your objective is: \n        candidate-2"
-          },
-          {
-            "role": "user",
-            "content": "[[ ## question ## ]]\ntrain-0"
-          },
-          {
-            "role": "assistant",
-            "content": "[[ ## answer ## ]]\nteacher\n\n[[ ## completed ## ]]\n"
-          },
-          {
-            "role": "user",
-            "content": "[[ ## question ## ]]\nval-3\n\nRespond with the corresponding output fields, starting with the field `[[ ## answer ## ]]`, and then ending with the marker for `[[ ## completed ## ]]`."
-          }
-        ],
-        "kwargs": {
-          "temperature": 0.17,
-          "max_tokens": 73,
-          "model": "dummy"
-        },
-        "response": [
-          "[[ ## answer ## ]]\nteacher"
-        ]
-      },
-      {
-        "messages": [
-          {
-            "role": "system",
-            "content": "Your input fields are:\n1. `question` (str):\nYour output fields are:\n1. `answer` (str):\nAll interactions will be structured in the following way, with the appropriate values filled in.\n\n[[ ## question ## ]]\n{question}\n\n[[ ## answer ## ]]\n{answer}\n\n[[ ## completed ## ]]\nIn adhering to this structure, your objective is: \n        candidate-2"
-          },
-          {
-            "role": "user",
-            "content": "[[ ## question ## ]]\ntrain-0"
-          },
-          {
-            "role": "assistant",
-            "content": "[[ ## answer ## ]]\nteacher\n\n[[ ## completed ## ]]\n"
-          },
-          {
-            "role": "user",
-            "content": "[[ ## question ## ]]\nval-4\n\nRespond with the corresponding output fields, starting with the field `[[ ## answer ## ]]`, and then ending with the marker for `[[ ## completed ## ]]`."
-          }
-        ],
-        "kwargs": {
-          "temperature": 0.17,
-          "max_tokens": 73,
-          "model": "dummy"
-        },
-        "response": [
-          "[[ ## answer ## ]]\nteacher"
-        ]
-      },
-      {
-        "messages": [
-          {
-            "role": "system",
-            "content": "Your input fields are:\n1. `question` (str):\nYour output fields are:\n1. `answer` (str):\nAll interactions will be structured in the following way, with the appropriate values filled in.\n\n[[ ## question ## ]]\n{question}\n\n[[ ## answer ## ]]\n{answer}\n\n[[ ## completed ## ]]\nIn adhering to this structure, your objective is: \n        candidate-2"
-          },
-          {
-            "role": "user",
-            "content": "[[ ## question ## ]]\ntrain-0"
-          },
-          {
-            "role": "assistant",
-            "content": "[[ ## answer ## ]]\nteacher\n\n[[ ## completed ## ]]\n"
-          },
-          {
-            "role": "user",
-            "content": "[[ ## question ## ]]\nval-2\n\nRespond with the corresponding output fields, starting with the field `[[ ## answer ## ]]`, and then ending with the marker for `[[ ## completed ## ]]`."
-          }
-        ],
-        "kwargs": {
-          "temperature": 0.17,
-          "max_tokens": 73,
-          "model": "dummy"
-        },
-        "response": [
-          "[[ ## answer ## ]]\nteacher"
-        ]
-      },
-      {
-        "messages": [
-          {
-            "role": "system",
-            "content": "Your input fields are:\n1. `question` (str):\nYour output fields are:\n1. `answer` (str):\nAll interactions will be structured in the following way, with the appropriate values filled in.\n\n[[ ## question ## ]]\n{question}\n\n[[ ## answer ## ]]\n{answer}\n\n[[ ## completed ## ]]\nIn adhering to this structure, your objective is: \n        candidate-2"
-          },
-          {
-            "role": "user",
-            "content": "[[ ## question ## ]]\ntrain-0"
-          },
-          {
-            "role": "assistant",
-            "content": "[[ ## answer ## ]]\nteacher\n\n[[ ## completed ## ]]\n"
-          },
-          {
-            "role": "user",
-            "content": "[[ ## question ## ]]\nval-1\n\nRespond with the corresponding output fields, starting with the field `[[ ## answer ## ]]`, and then ending with the marker for `[[ ## completed ## ]]`."
-          }
-        ],
-        "kwargs": {
-          "temperature": 0.17,
-          "max_tokens": 73,
-          "model": "dummy"
-        },
-        "response": [
-          "[[ ## answer ## ]]\nteacher"
-        ]
-      },
-      {
-        "messages": [
-          {
-            "role": "system",
-            "content": "Your input fields are:\n1. `question` (str):\nYour output fields are:\n1. `answer` (str):\nAll interactions will be structured in the following way, with the appropriate values filled in.\n\n[[ ## question ## ]]\n{question}\n\n[[ ## answer ## ]]\n{answer}\n\n[[ ## completed ## ]]\nIn adhering to this structure, your objective is: \n        candidate-2"
-          },
-          {
-            "role": "user",
-            "content": "[[ ## question ## ]]\ntrain-0"
-          },
-          {
-            "role": "assistant",
-            "content": "[[ ## answer ## ]]\nteacher\n\n[[ ## completed ## ]]\n"
+            "content": "Your input fields are:\n1. `question` (str):\nYour output fields are:\n1. `answer` (str):\nAll interactions will be structured in the following way, with the appropriate values filled in.\n\n[[ ## question ## ]]\n{question}\n\n[[ ## answer ## ]]\n{answer}\n\n[[ ## completed ## ]]\nIn adhering to this structure, your objective is: \n        baseline"
           },
           {
             "role": "user",
@@ -2221,15 +1674,87 @@
         "messages": [
           {
             "role": "system",
-            "content": "Your input fields are:\n1. `question` (str):\nYour output fields are:\n1. `answer` (str):\nAll interactions will be structured in the following way, with the appropriate values filled in.\n\n[[ ## question ## ]]\n{question}\n\n[[ ## answer ## ]]\n{answer}\n\n[[ ## completed ## ]]\nIn adhering to this structure, your objective is: \n        candidate-2"
+            "content": "Your input fields are:\n1. `question` (str):\nYour output fields are:\n1. `answer` (str):\nAll interactions will be structured in the following way, with the appropriate values filled in.\n\n[[ ## question ## ]]\n{question}\n\n[[ ## answer ## ]]\n{answer}\n\n[[ ## completed ## ]]\nIn adhering to this structure, your objective is: \n        baseline"
           },
           {
             "role": "user",
-            "content": "[[ ## question ## ]]\ntrain-0"
+            "content": "[[ ## question ## ]]\nval-1\n\nRespond with the corresponding output fields, starting with the field `[[ ## answer ## ]]`, and then ending with the marker for `[[ ## completed ## ]]`."
+          }
+        ],
+        "kwargs": {
+          "temperature": 0.17,
+          "max_tokens": 73,
+          "model": "dummy"
+        },
+        "response": [
+          "[[ ## answer ## ]]\nteacher"
+        ]
+      },
+      {
+        "messages": [
+          {
+            "role": "system",
+            "content": "Your input fields are:\n1. `question` (str):\nYour output fields are:\n1. `answer` (str):\nAll interactions will be structured in the following way, with the appropriate values filled in.\n\n[[ ## question ## ]]\n{question}\n\n[[ ## answer ## ]]\n{answer}\n\n[[ ## completed ## ]]\nIn adhering to this structure, your objective is: \n        baseline"
           },
           {
-            "role": "assistant",
-            "content": "[[ ## answer ## ]]\nteacher\n\n[[ ## completed ## ]]\n"
+            "role": "user",
+            "content": "[[ ## question ## ]]\nval-2\n\nRespond with the corresponding output fields, starting with the field `[[ ## answer ## ]]`, and then ending with the marker for `[[ ## completed ## ]]`."
+          }
+        ],
+        "kwargs": {
+          "temperature": 0.17,
+          "max_tokens": 73,
+          "model": "dummy"
+        },
+        "response": [
+          "[[ ## answer ## ]]\nteacher"
+        ]
+      },
+      {
+        "messages": [
+          {
+            "role": "system",
+            "content": "Your input fields are:\n1. `question` (str):\nYour output fields are:\n1. `answer` (str):\nAll interactions will be structured in the following way, with the appropriate values filled in.\n\n[[ ## question ## ]]\n{question}\n\n[[ ## answer ## ]]\n{answer}\n\n[[ ## completed ## ]]\nIn adhering to this structure, your objective is: \n        baseline"
+          },
+          {
+            "role": "user",
+            "content": "[[ ## question ## ]]\nval-3\n\nRespond with the corresponding output fields, starting with the field `[[ ## answer ## ]]`, and then ending with the marker for `[[ ## completed ## ]]`."
+          }
+        ],
+        "kwargs": {
+          "temperature": 0.17,
+          "max_tokens": 73,
+          "model": "dummy"
+        },
+        "response": [
+          "[[ ## answer ## ]]\nteacher"
+        ]
+      },
+      {
+        "messages": [
+          {
+            "role": "system",
+            "content": "Your input fields are:\n1. `question` (str):\nYour output fields are:\n1. `answer` (str):\nAll interactions will be structured in the following way, with the appropriate values filled in.\n\n[[ ## question ## ]]\n{question}\n\n[[ ## answer ## ]]\n{answer}\n\n[[ ## completed ## ]]\nIn adhering to this structure, your objective is: \n        baseline"
+          },
+          {
+            "role": "user",
+            "content": "[[ ## question ## ]]\nval-4\n\nRespond with the corresponding output fields, starting with the field `[[ ## answer ## ]]`, and then ending with the marker for `[[ ## completed ## ]]`."
+          }
+        ],
+        "kwargs": {
+          "temperature": 0.17,
+          "max_tokens": 73,
+          "model": "dummy"
+        },
+        "response": [
+          "[[ ## answer ## ]]\nteacher"
+        ]
+      },
+      {
+        "messages": [
+          {
+            "role": "system",
+            "content": "Your input fields are:\n1. `question` (str):\nYour output fields are:\n1. `answer` (str):\nAll interactions will be structured in the following way, with the appropriate values filled in.\n\n[[ ## question ## ]]\n{question}\n\n[[ ## answer ## ]]\n{answer}\n\n[[ ## completed ## ]]\nIn adhering to this structure, your objective is: \n        baseline"
           },
           {
             "role": "user",
@@ -2253,15 +1778,7 @@
           },
           {
             "role": "user",
-            "content": "[[ ## question ## ]]\ntrain-1"
-          },
-          {
-            "role": "assistant",
-            "content": "[[ ## answer ## ]]\nteacher\n\n[[ ## completed ## ]]\n"
-          },
-          {
-            "role": "user",
-            "content": "[[ ## question ## ]]\nval-3\n\nRespond with the corresponding output fields, starting with the field `[[ ## answer ## ]]`, and then ending with the marker for `[[ ## completed ## ]]`."
+            "content": "[[ ## question ## ]]\nval-0\n\nRespond with the corresponding output fields, starting with the field `[[ ## answer ## ]]`, and then ending with the marker for `[[ ## completed ## ]]`."
           }
         ],
         "kwargs": {
@@ -2278,70 +1795,6 @@
           {
             "role": "system",
             "content": "Your input fields are:\n1. `question` (str):\nYour output fields are:\n1. `answer` (str):\nAll interactions will be structured in the following way, with the appropriate values filled in.\n\n[[ ## question ## ]]\n{question}\n\n[[ ## answer ## ]]\n{answer}\n\n[[ ## completed ## ]]\nIn adhering to this structure, your objective is: \n        candidate-1"
-          },
-          {
-            "role": "user",
-            "content": "[[ ## question ## ]]\ntrain-1"
-          },
-          {
-            "role": "assistant",
-            "content": "[[ ## answer ## ]]\nteacher\n\n[[ ## completed ## ]]\n"
-          },
-          {
-            "role": "user",
-            "content": "[[ ## question ## ]]\nval-4\n\nRespond with the corresponding output fields, starting with the field `[[ ## answer ## ]]`, and then ending with the marker for `[[ ## completed ## ]]`."
-          }
-        ],
-        "kwargs": {
-          "temperature": 0.17,
-          "max_tokens": 73,
-          "model": "dummy"
-        },
-        "response": [
-          "[[ ## answer ## ]]\nteacher"
-        ]
-      },
-      {
-        "messages": [
-          {
-            "role": "system",
-            "content": "Your input fields are:\n1. `question` (str):\nYour output fields are:\n1. `answer` (str):\nAll interactions will be structured in the following way, with the appropriate values filled in.\n\n[[ ## question ## ]]\n{question}\n\n[[ ## answer ## ]]\n{answer}\n\n[[ ## completed ## ]]\nIn adhering to this structure, your objective is: \n        candidate-1"
-          },
-          {
-            "role": "user",
-            "content": "[[ ## question ## ]]\ntrain-1"
-          },
-          {
-            "role": "assistant",
-            "content": "[[ ## answer ## ]]\nteacher\n\n[[ ## completed ## ]]\n"
-          },
-          {
-            "role": "user",
-            "content": "[[ ## question ## ]]\nval-2\n\nRespond with the corresponding output fields, starting with the field `[[ ## answer ## ]]`, and then ending with the marker for `[[ ## completed ## ]]`."
-          }
-        ],
-        "kwargs": {
-          "temperature": 0.17,
-          "max_tokens": 73,
-          "model": "dummy"
-        },
-        "response": [
-          "[[ ## answer ## ]]\nteacher"
-        ]
-      },
-      {
-        "messages": [
-          {
-            "role": "system",
-            "content": "Your input fields are:\n1. `question` (str):\nYour output fields are:\n1. `answer` (str):\nAll interactions will be structured in the following way, with the appropriate values filled in.\n\n[[ ## question ## ]]\n{question}\n\n[[ ## answer ## ]]\n{answer}\n\n[[ ## completed ## ]]\nIn adhering to this structure, your objective is: \n        candidate-1"
-          },
-          {
-            "role": "user",
-            "content": "[[ ## question ## ]]\ntrain-1"
-          },
-          {
-            "role": "assistant",
-            "content": "[[ ## answer ## ]]\nteacher\n\n[[ ## completed ## ]]\n"
           },
           {
             "role": "user",
@@ -2365,11 +1818,83 @@
           },
           {
             "role": "user",
-            "content": "[[ ## question ## ]]\ntrain-1"
+            "content": "[[ ## question ## ]]\nval-2\n\nRespond with the corresponding output fields, starting with the field `[[ ## answer ## ]]`, and then ending with the marker for `[[ ## completed ## ]]`."
+          }
+        ],
+        "kwargs": {
+          "temperature": 0.17,
+          "max_tokens": 73,
+          "model": "dummy"
+        },
+        "response": [
+          "[[ ## answer ## ]]\nteacher"
+        ]
+      },
+      {
+        "messages": [
+          {
+            "role": "system",
+            "content": "Your input fields are:\n1. `question` (str):\nYour output fields are:\n1. `answer` (str):\nAll interactions will be structured in the following way, with the appropriate values filled in.\n\n[[ ## question ## ]]\n{question}\n\n[[ ## answer ## ]]\n{answer}\n\n[[ ## completed ## ]]\nIn adhering to this structure, your objective is: \n        candidate-1"
           },
           {
-            "role": "assistant",
-            "content": "[[ ## answer ## ]]\nteacher\n\n[[ ## completed ## ]]\n"
+            "role": "user",
+            "content": "[[ ## question ## ]]\nval-3\n\nRespond with the corresponding output fields, starting with the field `[[ ## answer ## ]]`, and then ending with the marker for `[[ ## completed ## ]]`."
+          }
+        ],
+        "kwargs": {
+          "temperature": 0.17,
+          "max_tokens": 73,
+          "model": "dummy"
+        },
+        "response": [
+          "[[ ## answer ## ]]\nteacher"
+        ]
+      },
+      {
+        "messages": [
+          {
+            "role": "system",
+            "content": "Your input fields are:\n1. `question` (str):\nYour output fields are:\n1. `answer` (str):\nAll interactions will be structured in the following way, with the appropriate values filled in.\n\n[[ ## question ## ]]\n{question}\n\n[[ ## answer ## ]]\n{answer}\n\n[[ ## completed ## ]]\nIn adhering to this structure, your objective is: \n        candidate-1"
+          },
+          {
+            "role": "user",
+            "content": "[[ ## question ## ]]\nval-4\n\nRespond with the corresponding output fields, starting with the field `[[ ## answer ## ]]`, and then ending with the marker for `[[ ## completed ## ]]`."
+          }
+        ],
+        "kwargs": {
+          "temperature": 0.17,
+          "max_tokens": 73,
+          "model": "dummy"
+        },
+        "response": [
+          "[[ ## answer ## ]]\nteacher"
+        ]
+      },
+      {
+        "messages": [
+          {
+            "role": "system",
+            "content": "Your input fields are:\n1. `question` (str):\nYour output fields are:\n1. `answer` (str):\nAll interactions will be structured in the following way, with the appropriate values filled in.\n\n[[ ## question ## ]]\n{question}\n\n[[ ## answer ## ]]\n{answer}\n\n[[ ## completed ## ]]\nIn adhering to this structure, your objective is: \n        candidate-1"
+          },
+          {
+            "role": "user",
+            "content": "[[ ## question ## ]]\nval-5\n\nRespond with the corresponding output fields, starting with the field `[[ ## answer ## ]]`, and then ending with the marker for `[[ ## completed ## ]]`."
+          }
+        ],
+        "kwargs": {
+          "temperature": 0.17,
+          "max_tokens": 73,
+          "model": "dummy"
+        },
+        "response": [
+          "[[ ## answer ## ]]\nteacher"
+        ]
+      },
+      {
+        "messages": [
+          {
+            "role": "system",
+            "content": "Your input fields are:\n1. `question` (str):\nYour output fields are:\n1. `answer` (str):\nAll interactions will be structured in the following way, with the appropriate values filled in.\n\n[[ ## question ## ]]\n{question}\n\n[[ ## answer ## ]]\n{answer}\n\n[[ ## completed ## ]]\nIn adhering to this structure, your objective is: \n        candidate-1"
           },
           {
             "role": "user",
@@ -2393,11 +1918,203 @@
           },
           {
             "role": "user",
-            "content": "[[ ## question ## ]]\ntrain-1"
+            "content": "[[ ## question ## ]]\nval-1\n\nRespond with the corresponding output fields, starting with the field `[[ ## answer ## ]]`, and then ending with the marker for `[[ ## completed ## ]]`."
+          }
+        ],
+        "kwargs": {
+          "temperature": 0.17,
+          "max_tokens": 73,
+          "model": "dummy"
+        },
+        "response": [
+          "[[ ## answer ## ]]\nteacher"
+        ]
+      },
+      {
+        "messages": [
+          {
+            "role": "system",
+            "content": "Your input fields are:\n1. `question` (str):\nYour output fields are:\n1. `answer` (str):\nAll interactions will be structured in the following way, with the appropriate values filled in.\n\n[[ ## question ## ]]\n{question}\n\n[[ ## answer ## ]]\n{answer}\n\n[[ ## completed ## ]]\nIn adhering to this structure, your objective is: \n        candidate-1"
           },
           {
-            "role": "assistant",
-            "content": "[[ ## answer ## ]]\nteacher\n\n[[ ## completed ## ]]\n"
+            "role": "user",
+            "content": "[[ ## question ## ]]\nval-2\n\nRespond with the corresponding output fields, starting with the field `[[ ## answer ## ]]`, and then ending with the marker for `[[ ## completed ## ]]`."
+          }
+        ],
+        "kwargs": {
+          "temperature": 0.17,
+          "max_tokens": 73,
+          "model": "dummy"
+        },
+        "response": [
+          "[[ ## answer ## ]]\nteacher"
+        ]
+      },
+      {
+        "messages": [
+          {
+            "role": "system",
+            "content": "Your input fields are:\n1. `question` (str):\nYour output fields are:\n1. `answer` (str):\nAll interactions will be structured in the following way, with the appropriate values filled in.\n\n[[ ## question ## ]]\n{question}\n\n[[ ## answer ## ]]\n{answer}\n\n[[ ## completed ## ]]\nIn adhering to this structure, your objective is: \n        candidate-1"
+          },
+          {
+            "role": "user",
+            "content": "[[ ## question ## ]]\nval-3\n\nRespond with the corresponding output fields, starting with the field `[[ ## answer ## ]]`, and then ending with the marker for `[[ ## completed ## ]]`."
+          }
+        ],
+        "kwargs": {
+          "temperature": 0.17,
+          "max_tokens": 73,
+          "model": "dummy"
+        },
+        "response": [
+          "[[ ## answer ## ]]\nteacher"
+        ]
+      },
+      {
+        "messages": [
+          {
+            "role": "system",
+            "content": "Your input fields are:\n1. `question` (str):\nYour output fields are:\n1. `answer` (str):\nAll interactions will be structured in the following way, with the appropriate values filled in.\n\n[[ ## question ## ]]\n{question}\n\n[[ ## answer ## ]]\n{answer}\n\n[[ ## completed ## ]]\nIn adhering to this structure, your objective is: \n        candidate-1"
+          },
+          {
+            "role": "user",
+            "content": "[[ ## question ## ]]\nval-4\n\nRespond with the corresponding output fields, starting with the field `[[ ## answer ## ]]`, and then ending with the marker for `[[ ## completed ## ]]`."
+          }
+        ],
+        "kwargs": {
+          "temperature": 0.17,
+          "max_tokens": 73,
+          "model": "dummy"
+        },
+        "response": [
+          "[[ ## answer ## ]]\nteacher"
+        ]
+      },
+      {
+        "messages": [
+          {
+            "role": "system",
+            "content": "Your input fields are:\n1. `question` (str):\nYour output fields are:\n1. `answer` (str):\nAll interactions will be structured in the following way, with the appropriate values filled in.\n\n[[ ## question ## ]]\n{question}\n\n[[ ## answer ## ]]\n{answer}\n\n[[ ## completed ## ]]\nIn adhering to this structure, your objective is: \n        candidate-1"
+          },
+          {
+            "role": "user",
+            "content": "[[ ## question ## ]]\nval-5\n\nRespond with the corresponding output fields, starting with the field `[[ ## answer ## ]]`, and then ending with the marker for `[[ ## completed ## ]]`."
+          }
+        ],
+        "kwargs": {
+          "temperature": 0.17,
+          "max_tokens": 73,
+          "model": "dummy"
+        },
+        "response": [
+          "[[ ## answer ## ]]\nteacher"
+        ]
+      },
+      {
+        "messages": [
+          {
+            "role": "system",
+            "content": "Your input fields are:\n1. `question` (str):\nYour output fields are:\n1. `answer` (str):\nAll interactions will be structured in the following way, with the appropriate values filled in.\n\n[[ ## question ## ]]\n{question}\n\n[[ ## answer ## ]]\n{answer}\n\n[[ ## completed ## ]]\nIn adhering to this structure, your objective is: \n        candidate-1"
+          },
+          {
+            "role": "user",
+            "content": "[[ ## question ## ]]\nval-0\n\nRespond with the corresponding output fields, starting with the field `[[ ## answer ## ]]`, and then ending with the marker for `[[ ## completed ## ]]`."
+          }
+        ],
+        "kwargs": {
+          "temperature": 0.17,
+          "max_tokens": 73,
+          "model": "dummy"
+        },
+        "response": [
+          "[[ ## answer ## ]]\nteacher"
+        ]
+      },
+      {
+        "messages": [
+          {
+            "role": "system",
+            "content": "Your input fields are:\n1. `question` (str):\nYour output fields are:\n1. `answer` (str):\nAll interactions will be structured in the following way, with the appropriate values filled in.\n\n[[ ## question ## ]]\n{question}\n\n[[ ## answer ## ]]\n{answer}\n\n[[ ## completed ## ]]\nIn adhering to this structure, your objective is: \n        candidate-1"
+          },
+          {
+            "role": "user",
+            "content": "[[ ## question ## ]]\nval-1\n\nRespond with the corresponding output fields, starting with the field `[[ ## answer ## ]]`, and then ending with the marker for `[[ ## completed ## ]]`."
+          }
+        ],
+        "kwargs": {
+          "temperature": 0.17,
+          "max_tokens": 73,
+          "model": "dummy"
+        },
+        "response": [
+          "[[ ## answer ## ]]\nteacher"
+        ]
+      },
+      {
+        "messages": [
+          {
+            "role": "system",
+            "content": "Your input fields are:\n1. `question` (str):\nYour output fields are:\n1. `answer` (str):\nAll interactions will be structured in the following way, with the appropriate values filled in.\n\n[[ ## question ## ]]\n{question}\n\n[[ ## answer ## ]]\n{answer}\n\n[[ ## completed ## ]]\nIn adhering to this structure, your objective is: \n        candidate-1"
+          },
+          {
+            "role": "user",
+            "content": "[[ ## question ## ]]\nval-2\n\nRespond with the corresponding output fields, starting with the field `[[ ## answer ## ]]`, and then ending with the marker for `[[ ## completed ## ]]`."
+          }
+        ],
+        "kwargs": {
+          "temperature": 0.17,
+          "max_tokens": 73,
+          "model": "dummy"
+        },
+        "response": [
+          "[[ ## answer ## ]]\nteacher"
+        ]
+      },
+      {
+        "messages": [
+          {
+            "role": "system",
+            "content": "Your input fields are:\n1. `question` (str):\nYour output fields are:\n1. `answer` (str):\nAll interactions will be structured in the following way, with the appropriate values filled in.\n\n[[ ## question ## ]]\n{question}\n\n[[ ## answer ## ]]\n{answer}\n\n[[ ## completed ## ]]\nIn adhering to this structure, your objective is: \n        candidate-1"
+          },
+          {
+            "role": "user",
+            "content": "[[ ## question ## ]]\nval-3\n\nRespond with the corresponding output fields, starting with the field `[[ ## answer ## ]]`, and then ending with the marker for `[[ ## completed ## ]]`."
+          }
+        ],
+        "kwargs": {
+          "temperature": 0.17,
+          "max_tokens": 73,
+          "model": "dummy"
+        },
+        "response": [
+          "[[ ## answer ## ]]\nteacher"
+        ]
+      },
+      {
+        "messages": [
+          {
+            "role": "system",
+            "content": "Your input fields are:\n1. `question` (str):\nYour output fields are:\n1. `answer` (str):\nAll interactions will be structured in the following way, with the appropriate values filled in.\n\n[[ ## question ## ]]\n{question}\n\n[[ ## answer ## ]]\n{answer}\n\n[[ ## completed ## ]]\nIn adhering to this structure, your objective is: \n        candidate-1"
+          },
+          {
+            "role": "user",
+            "content": "[[ ## question ## ]]\nval-4\n\nRespond with the corresponding output fields, starting with the field `[[ ## answer ## ]]`, and then ending with the marker for `[[ ## completed ## ]]`."
+          }
+        ],
+        "kwargs": {
+          "temperature": 0.17,
+          "max_tokens": 73,
+          "model": "dummy"
+        },
+        "response": [
+          "[[ ## answer ## ]]\nteacher"
+        ]
+      },
+      {
+        "messages": [
+          {
+            "role": "system",
+            "content": "Your input fields are:\n1. `question` (str):\nYour output fields are:\n1. `answer` (str):\nAll interactions will be structured in the following way, with the appropriate values filled in.\n\n[[ ## question ## ]]\n{question}\n\n[[ ## answer ## ]]\n{answer}\n\n[[ ## completed ## ]]\nIn adhering to this structure, your objective is: \n        candidate-1"
           },
           {
             "role": "user",
@@ -2421,15 +2138,7 @@
           },
           {
             "role": "user",
-            "content": "[[ ## question ## ]]\ntrain-0"
-          },
-          {
-            "role": "assistant",
-            "content": "[[ ## answer ## ]]\nteacher\n\n[[ ## completed ## ]]\n"
-          },
-          {
-            "role": "user",
-            "content": "[[ ## question ## ]]\nval-3\n\nRespond with the corresponding output fields, starting with the field `[[ ## answer ## ]]`, and then ending with the marker for `[[ ## completed ## ]]`."
+            "content": "[[ ## question ## ]]\nval-0\n\nRespond with the corresponding output fields, starting with the field `[[ ## answer ## ]]`, and then ending with the marker for `[[ ## completed ## ]]`."
           }
         ],
         "kwargs": {
@@ -2446,70 +2155,6 @@
           {
             "role": "system",
             "content": "Your input fields are:\n1. `question` (str):\nYour output fields are:\n1. `answer` (str):\nAll interactions will be structured in the following way, with the appropriate values filled in.\n\n[[ ## question ## ]]\n{question}\n\n[[ ## answer ## ]]\n{answer}\n\n[[ ## completed ## ]]\nIn adhering to this structure, your objective is: \n        candidate-2"
-          },
-          {
-            "role": "user",
-            "content": "[[ ## question ## ]]\ntrain-0"
-          },
-          {
-            "role": "assistant",
-            "content": "[[ ## answer ## ]]\nteacher\n\n[[ ## completed ## ]]\n"
-          },
-          {
-            "role": "user",
-            "content": "[[ ## question ## ]]\nval-4\n\nRespond with the corresponding output fields, starting with the field `[[ ## answer ## ]]`, and then ending with the marker for `[[ ## completed ## ]]`."
-          }
-        ],
-        "kwargs": {
-          "temperature": 0.17,
-          "max_tokens": 73,
-          "model": "dummy"
-        },
-        "response": [
-          "[[ ## answer ## ]]\nteacher"
-        ]
-      },
-      {
-        "messages": [
-          {
-            "role": "system",
-            "content": "Your input fields are:\n1. `question` (str):\nYour output fields are:\n1. `answer` (str):\nAll interactions will be structured in the following way, with the appropriate values filled in.\n\n[[ ## question ## ]]\n{question}\n\n[[ ## answer ## ]]\n{answer}\n\n[[ ## completed ## ]]\nIn adhering to this structure, your objective is: \n        candidate-2"
-          },
-          {
-            "role": "user",
-            "content": "[[ ## question ## ]]\ntrain-0"
-          },
-          {
-            "role": "assistant",
-            "content": "[[ ## answer ## ]]\nteacher\n\n[[ ## completed ## ]]\n"
-          },
-          {
-            "role": "user",
-            "content": "[[ ## question ## ]]\nval-2\n\nRespond with the corresponding output fields, starting with the field `[[ ## answer ## ]]`, and then ending with the marker for `[[ ## completed ## ]]`."
-          }
-        ],
-        "kwargs": {
-          "temperature": 0.17,
-          "max_tokens": 73,
-          "model": "dummy"
-        },
-        "response": [
-          "[[ ## answer ## ]]\nteacher"
-        ]
-      },
-      {
-        "messages": [
-          {
-            "role": "system",
-            "content": "Your input fields are:\n1. `question` (str):\nYour output fields are:\n1. `answer` (str):\nAll interactions will be structured in the following way, with the appropriate values filled in.\n\n[[ ## question ## ]]\n{question}\n\n[[ ## answer ## ]]\n{answer}\n\n[[ ## completed ## ]]\nIn adhering to this structure, your objective is: \n        candidate-2"
-          },
-          {
-            "role": "user",
-            "content": "[[ ## question ## ]]\ntrain-0"
-          },
-          {
-            "role": "assistant",
-            "content": "[[ ## answer ## ]]\nteacher\n\n[[ ## completed ## ]]\n"
           },
           {
             "role": "user",
@@ -2533,15 +2178,7 @@
           },
           {
             "role": "user",
-            "content": "[[ ## question ## ]]\ntrain-0"
-          },
-          {
-            "role": "assistant",
-            "content": "[[ ## answer ## ]]\nteacher\n\n[[ ## completed ## ]]\n"
-          },
-          {
-            "role": "user",
-            "content": "[[ ## question ## ]]\nval-0\n\nRespond with the corresponding output fields, starting with the field `[[ ## answer ## ]]`, and then ending with the marker for `[[ ## completed ## ]]`."
+            "content": "[[ ## question ## ]]\nval-2\n\nRespond with the corresponding output fields, starting with the field `[[ ## answer ## ]]`, and then ending with the marker for `[[ ## completed ## ]]`."
           }
         ],
         "kwargs": {
@@ -2561,11 +2198,43 @@
           },
           {
             "role": "user",
-            "content": "[[ ## question ## ]]\ntrain-0"
+            "content": "[[ ## question ## ]]\nval-3\n\nRespond with the corresponding output fields, starting with the field `[[ ## answer ## ]]`, and then ending with the marker for `[[ ## completed ## ]]`."
+          }
+        ],
+        "kwargs": {
+          "temperature": 0.17,
+          "max_tokens": 73,
+          "model": "dummy"
+        },
+        "response": [
+          "[[ ## answer ## ]]\nteacher"
+        ]
+      },
+      {
+        "messages": [
+          {
+            "role": "system",
+            "content": "Your input fields are:\n1. `question` (str):\nYour output fields are:\n1. `answer` (str):\nAll interactions will be structured in the following way, with the appropriate values filled in.\n\n[[ ## question ## ]]\n{question}\n\n[[ ## answer ## ]]\n{answer}\n\n[[ ## completed ## ]]\nIn adhering to this structure, your objective is: \n        candidate-2"
           },
           {
-            "role": "assistant",
-            "content": "[[ ## answer ## ]]\nteacher\n\n[[ ## completed ## ]]\n"
+            "role": "user",
+            "content": "[[ ## question ## ]]\nval-4\n\nRespond with the corresponding output fields, starting with the field `[[ ## answer ## ]]`, and then ending with the marker for `[[ ## completed ## ]]`."
+          }
+        ],
+        "kwargs": {
+          "temperature": 0.17,
+          "max_tokens": 73,
+          "model": "dummy"
+        },
+        "response": [
+          "[[ ## answer ## ]]\nteacher"
+        ]
+      },
+      {
+        "messages": [
+          {
+            "role": "system",
+            "content": "Your input fields are:\n1. `question` (str):\nYour output fields are:\n1. `answer` (str):\nAll interactions will be structured in the following way, with the appropriate values filled in.\n\n[[ ## question ## ]]\n{question}\n\n[[ ## answer ## ]]\n{answer}\n\n[[ ## completed ## ]]\nIn adhering to this structure, your objective is: \n        candidate-2"
           },
           {
             "role": "user",
@@ -2589,6 +2258,66 @@
           },
           {
             "role": "user",
+            "content": "[[ ## question ## ]]\nval-0\n\nRespond with the corresponding output fields, starting with the field `[[ ## answer ## ]]`, and then ending with the marker for `[[ ## completed ## ]]`."
+          }
+        ],
+        "kwargs": {
+          "temperature": 0.17,
+          "max_tokens": 73,
+          "model": "dummy"
+        },
+        "response": [
+          "[[ ## answer ## ]]\nteacher"
+        ]
+      },
+      {
+        "messages": [
+          {
+            "role": "system",
+            "content": "Your input fields are:\n1. `question` (str):\nYour output fields are:\n1. `answer` (str):\nAll interactions will be structured in the following way, with the appropriate values filled in.\n\n[[ ## question ## ]]\n{question}\n\n[[ ## answer ## ]]\n{answer}\n\n[[ ## completed ## ]]\nIn adhering to this structure, your objective is: \n        baseline"
+          },
+          {
+            "role": "user",
+            "content": "[[ ## question ## ]]\nval-1\n\nRespond with the corresponding output fields, starting with the field `[[ ## answer ## ]]`, and then ending with the marker for `[[ ## completed ## ]]`."
+          }
+        ],
+        "kwargs": {
+          "temperature": 0.17,
+          "max_tokens": 73,
+          "model": "dummy"
+        },
+        "response": [
+          "[[ ## answer ## ]]\nteacher"
+        ]
+      },
+      {
+        "messages": [
+          {
+            "role": "system",
+            "content": "Your input fields are:\n1. `question` (str):\nYour output fields are:\n1. `answer` (str):\nAll interactions will be structured in the following way, with the appropriate values filled in.\n\n[[ ## question ## ]]\n{question}\n\n[[ ## answer ## ]]\n{answer}\n\n[[ ## completed ## ]]\nIn adhering to this structure, your objective is: \n        baseline"
+          },
+          {
+            "role": "user",
+            "content": "[[ ## question ## ]]\nval-2\n\nRespond with the corresponding output fields, starting with the field `[[ ## answer ## ]]`, and then ending with the marker for `[[ ## completed ## ]]`."
+          }
+        ],
+        "kwargs": {
+          "temperature": 0.17,
+          "max_tokens": 73,
+          "model": "dummy"
+        },
+        "response": [
+          "[[ ## answer ## ]]\nteacher"
+        ]
+      },
+      {
+        "messages": [
+          {
+            "role": "system",
+            "content": "Your input fields are:\n1. `question` (str):\nYour output fields are:\n1. `answer` (str):\nAll interactions will be structured in the following way, with the appropriate values filled in.\n\n[[ ## question ## ]]\n{question}\n\n[[ ## answer ## ]]\n{answer}\n\n[[ ## completed ## ]]\nIn adhering to this structure, your objective is: \n        baseline"
+          },
+          {
+            "role": "user",
             "content": "[[ ## question ## ]]\nval-3\n\nRespond with the corresponding output fields, starting with the field `[[ ## answer ## ]]`, and then ending with the marker for `[[ ## completed ## ]]`."
           }
         ],
@@ -2629,7 +2358,27 @@
           },
           {
             "role": "user",
-            "content": "[[ ## question ## ]]\nval-2\n\nRespond with the corresponding output fields, starting with the field `[[ ## answer ## ]]`, and then ending with the marker for `[[ ## completed ## ]]`."
+            "content": "[[ ## question ## ]]\nval-5\n\nRespond with the corresponding output fields, starting with the field `[[ ## answer ## ]]`, and then ending with the marker for `[[ ## completed ## ]]`."
+          }
+        ],
+        "kwargs": {
+          "temperature": 0.17,
+          "max_tokens": 73,
+          "model": "dummy"
+        },
+        "response": [
+          "[[ ## answer ## ]]\nteacher"
+        ]
+      },
+      {
+        "messages": [
+          {
+            "role": "system",
+            "content": "Your input fields are:\n1. `question` (str):\nYour output fields are:\n1. `answer` (str):\nAll interactions will be structured in the following way, with the appropriate values filled in.\n\n[[ ## question ## ]]\n{question}\n\n[[ ## answer ## ]]\n{answer}\n\n[[ ## completed ## ]]\nIn adhering to this structure, your objective is: \n        baseline"
+          },
+          {
+            "role": "user",
+            "content": "[[ ## question ## ]]\nval-0\n\nRespond with the corresponding output fields, starting with the field `[[ ## answer ## ]]`, and then ending with the marker for `[[ ## completed ## ]]`."
           }
         ],
         "kwargs": {
@@ -2669,7 +2418,7 @@
           },
           {
             "role": "user",
-            "content": "[[ ## question ## ]]\nval-0\n\nRespond with the corresponding output fields, starting with the field `[[ ## answer ## ]]`, and then ending with the marker for `[[ ## completed ## ]]`."
+            "content": "[[ ## question ## ]]\nval-2\n\nRespond with the corresponding output fields, starting with the field `[[ ## answer ## ]]`, and then ending with the marker for `[[ ## completed ## ]]`."
           }
         ],
         "kwargs": {
@@ -2686,6 +2435,166 @@
           {
             "role": "system",
             "content": "Your input fields are:\n1. `question` (str):\nYour output fields are:\n1. `answer` (str):\nAll interactions will be structured in the following way, with the appropriate values filled in.\n\n[[ ## question ## ]]\n{question}\n\n[[ ## answer ## ]]\n{answer}\n\n[[ ## completed ## ]]\nIn adhering to this structure, your objective is: \n        baseline"
+          },
+          {
+            "role": "user",
+            "content": "[[ ## question ## ]]\nval-3\n\nRespond with the corresponding output fields, starting with the field `[[ ## answer ## ]]`, and then ending with the marker for `[[ ## completed ## ]]`."
+          }
+        ],
+        "kwargs": {
+          "temperature": 0.17,
+          "max_tokens": 73,
+          "model": "dummy"
+        },
+        "response": [
+          "[[ ## answer ## ]]\nteacher"
+        ]
+      },
+      {
+        "messages": [
+          {
+            "role": "system",
+            "content": "Your input fields are:\n1. `question` (str):\nYour output fields are:\n1. `answer` (str):\nAll interactions will be structured in the following way, with the appropriate values filled in.\n\n[[ ## question ## ]]\n{question}\n\n[[ ## answer ## ]]\n{answer}\n\n[[ ## completed ## ]]\nIn adhering to this structure, your objective is: \n        baseline"
+          },
+          {
+            "role": "user",
+            "content": "[[ ## question ## ]]\nval-4\n\nRespond with the corresponding output fields, starting with the field `[[ ## answer ## ]]`, and then ending with the marker for `[[ ## completed ## ]]`."
+          }
+        ],
+        "kwargs": {
+          "temperature": 0.17,
+          "max_tokens": 73,
+          "model": "dummy"
+        },
+        "response": [
+          "[[ ## answer ## ]]\nteacher"
+        ]
+      },
+      {
+        "messages": [
+          {
+            "role": "system",
+            "content": "Your input fields are:\n1. `question` (str):\nYour output fields are:\n1. `answer` (str):\nAll interactions will be structured in the following way, with the appropriate values filled in.\n\n[[ ## question ## ]]\n{question}\n\n[[ ## answer ## ]]\n{answer}\n\n[[ ## completed ## ]]\nIn adhering to this structure, your objective is: \n        baseline"
+          },
+          {
+            "role": "user",
+            "content": "[[ ## question ## ]]\nval-5\n\nRespond with the corresponding output fields, starting with the field `[[ ## answer ## ]]`, and then ending with the marker for `[[ ## completed ## ]]`."
+          }
+        ],
+        "kwargs": {
+          "temperature": 0.17,
+          "max_tokens": 73,
+          "model": "dummy"
+        },
+        "response": [
+          "[[ ## answer ## ]]\nteacher"
+        ]
+      },
+      {
+        "messages": [
+          {
+            "role": "system",
+            "content": "Your input fields are:\n1. `question` (str):\nYour output fields are:\n1. `answer` (str):\nAll interactions will be structured in the following way, with the appropriate values filled in.\n\n[[ ## question ## ]]\n{question}\n\n[[ ## answer ## ]]\n{answer}\n\n[[ ## completed ## ]]\nIn adhering to this structure, your objective is: \n        candidate-1"
+          },
+          {
+            "role": "user",
+            "content": "[[ ## question ## ]]\nval-0\n\nRespond with the corresponding output fields, starting with the field `[[ ## answer ## ]]`, and then ending with the marker for `[[ ## completed ## ]]`."
+          }
+        ],
+        "kwargs": {
+          "temperature": 0.17,
+          "max_tokens": 73,
+          "model": "dummy"
+        },
+        "response": [
+          "[[ ## answer ## ]]\nteacher"
+        ]
+      },
+      {
+        "messages": [
+          {
+            "role": "system",
+            "content": "Your input fields are:\n1. `question` (str):\nYour output fields are:\n1. `answer` (str):\nAll interactions will be structured in the following way, with the appropriate values filled in.\n\n[[ ## question ## ]]\n{question}\n\n[[ ## answer ## ]]\n{answer}\n\n[[ ## completed ## ]]\nIn adhering to this structure, your objective is: \n        candidate-1"
+          },
+          {
+            "role": "user",
+            "content": "[[ ## question ## ]]\nval-1\n\nRespond with the corresponding output fields, starting with the field `[[ ## answer ## ]]`, and then ending with the marker for `[[ ## completed ## ]]`."
+          }
+        ],
+        "kwargs": {
+          "temperature": 0.17,
+          "max_tokens": 73,
+          "model": "dummy"
+        },
+        "response": [
+          "[[ ## answer ## ]]\nteacher"
+        ]
+      },
+      {
+        "messages": [
+          {
+            "role": "system",
+            "content": "Your input fields are:\n1. `question` (str):\nYour output fields are:\n1. `answer` (str):\nAll interactions will be structured in the following way, with the appropriate values filled in.\n\n[[ ## question ## ]]\n{question}\n\n[[ ## answer ## ]]\n{answer}\n\n[[ ## completed ## ]]\nIn adhering to this structure, your objective is: \n        candidate-1"
+          },
+          {
+            "role": "user",
+            "content": "[[ ## question ## ]]\nval-2\n\nRespond with the corresponding output fields, starting with the field `[[ ## answer ## ]]`, and then ending with the marker for `[[ ## completed ## ]]`."
+          }
+        ],
+        "kwargs": {
+          "temperature": 0.17,
+          "max_tokens": 73,
+          "model": "dummy"
+        },
+        "response": [
+          "[[ ## answer ## ]]\nteacher"
+        ]
+      },
+      {
+        "messages": [
+          {
+            "role": "system",
+            "content": "Your input fields are:\n1. `question` (str):\nYour output fields are:\n1. `answer` (str):\nAll interactions will be structured in the following way, with the appropriate values filled in.\n\n[[ ## question ## ]]\n{question}\n\n[[ ## answer ## ]]\n{answer}\n\n[[ ## completed ## ]]\nIn adhering to this structure, your objective is: \n        candidate-1"
+          },
+          {
+            "role": "user",
+            "content": "[[ ## question ## ]]\nval-3\n\nRespond with the corresponding output fields, starting with the field `[[ ## answer ## ]]`, and then ending with the marker for `[[ ## completed ## ]]`."
+          }
+        ],
+        "kwargs": {
+          "temperature": 0.17,
+          "max_tokens": 73,
+          "model": "dummy"
+        },
+        "response": [
+          "[[ ## answer ## ]]\nteacher"
+        ]
+      },
+      {
+        "messages": [
+          {
+            "role": "system",
+            "content": "Your input fields are:\n1. `question` (str):\nYour output fields are:\n1. `answer` (str):\nAll interactions will be structured in the following way, with the appropriate values filled in.\n\n[[ ## question ## ]]\n{question}\n\n[[ ## answer ## ]]\n{answer}\n\n[[ ## completed ## ]]\nIn adhering to this structure, your objective is: \n        candidate-1"
+          },
+          {
+            "role": "user",
+            "content": "[[ ## question ## ]]\nval-4\n\nRespond with the corresponding output fields, starting with the field `[[ ## answer ## ]]`, and then ending with the marker for `[[ ## completed ## ]]`."
+          }
+        ],
+        "kwargs": {
+          "temperature": 0.17,
+          "max_tokens": 73,
+          "model": "dummy"
+        },
+        "response": [
+          "[[ ## answer ## ]]\nteacher"
+        ]
+      },
+      {
+        "messages": [
+          {
+            "role": "system",
+            "content": "Your input fields are:\n1. `question` (str):\nYour output fields are:\n1. `answer` (str):\nAll interactions will be structured in the following way, with the appropriate values filled in.\n\n[[ ## question ## ]]\n{question}\n\n[[ ## answer ## ]]\n{answer}\n\n[[ ## completed ## ]]\nIn adhering to this structure, your objective is: \n        candidate-1"
           },
           {
             "role": "user",
@@ -2717,7 +2626,7 @@
         "kwargs": {
           "temperature": 1.0,
           "max_tokens": 1000,
-          "rollout_id": 168746217,
+          "rollout_id": 148755562,
           "model": "dummy"
         },
         "response": [
@@ -2738,7 +2647,7 @@
         "kwargs": {
           "temperature": 1.0,
           "max_tokens": 1000,
-          "rollout_id": 180848161,
+          "rollout_id": 199871617,
           "model": "dummy"
         },
         "response": [
@@ -2759,7 +2668,7 @@
         "kwargs": {
           "temperature": 1.0,
           "max_tokens": 1000,
-          "rollout_id": 255563659,
+          "rollout_id": 930463701,
           "model": "dummy"
         },
         "response": [

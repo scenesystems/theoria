@@ -1,36 +1,28 @@
-/**
- * Builds Phase 1 demonstration candidates from labeled examples.
- *
- * @see {@link https://arxiv.org/abs/2310.03714 | Khattab et al., "DSPy: Compiling Declarative Language Model Calls into Self-Improving Pipelines", 2023}
- * @see {@link https://arxiv.org/abs/2406.11695 | Opsahl-Ong et al., "Optimizing Instructions and Demonstrations for Multi-Stage Language Model Programs", 2024}
- * @since 0.1.0
- */
+/** Teacher-derived MIPRO demonstration catalogs. @since 0.1.0 */
 import * as Numeric from "@scenesystems/effect-math/Numeric"
-import { normalizeDeterministicSeed, normalizePositiveCount } from "@scenesystems/effect-search/Sampler"
-import { Array as Arr, Effect, Number as Num, Option } from "effect"
-import type { Schema } from "effect"
-import { DemoCandidate, type GenerateDemoCandidatesOptions, PredictorDemoCandidates } from "../../MIPROv2Candidates.js"
+import { Array as Arr, Effect, Equal, Number as Num, Option, Record, Schema } from "effect"
+import * as BootstrapFewShot from "../../BootstrapFewShot.js"
+import * as LabeledFewShot from "../../LabeledFewShot.js"
+import * as Metric from "../../Metric.js"
+import {
+  DemoCandidate,
+  type DemoCandidateKind,
+  type GenerateDemoCandidatesOptions,
+  PredictorDemoCandidates
+} from "../../MIPROv2Candidates.js"
+import * as Module from "../../Module.js"
 import { predictors } from "../../ModuleGraph.js"
-import * as Binding from "../parameterBinding.js"
-import { assemblePredictorCandidates, labeledDemos, sortDemos } from "./runtime/anchors.js"
+import { withDemos } from "../../ModuleParameters.js"
+import * as ParameterSet from "../../ParameterSet.js"
+import * as Sampling from "./sampling.js"
+
+const count = (value: number) => Numeric.isFinite(value) ? Num.max(0, Numeric.floor(value)) : 0
 
 /**
- * Snapshots every owned predictor and builds its demonstration candidates.
- *
- * @remarks
- * Labeled examples are sorted by total input and output field count. Candidate
- * order begins with zero-shot, labels-only, and original-order bootstrap
- * layouts, truncated when `numCandidates` is below three. Additional slots use
- * seeded orderings and a seeded demonstration count. Inputs and outputs are
- * validated against each destination's encoded signature. Incompatible labels
- * are not candidates for that stage; existing invalid demos fail with a checked
- * ParseError. Stages with no compatible evidence remain zero-shot. Parameter
- * refs remain unchanged; run BootstrapFewShot first to collect stage evidence.
- *
- * @param options - Module tree, labeled-example source, candidate count, and limits.
- * @returns Candidate sets in the module tree's parameter-ref order.
- * @typeParam I - Input fields accepted by the module tree.
- * @typeParam O - Output fields carried by labeled demonstrations.
+ * Executes the pinned catalog: reset, labeled (if enabled), unshuffled
+ * bootstrap, then shuffled bootstrap. With no labeled capacity, candidate -2
+ * also shuffles and bootstraps. Zero-shot optimization still builds proposer
+ * evidence with three bootstrapped demonstrations and no labels.
  *
  * @since 0.1.0
  * @category constructors
@@ -39,57 +31,78 @@ export const generateDemoCandidates = <
   I extends Schema.Struct.Fields,
   O extends Schema.Struct.Fields,
   E = never,
-  R = never
->(
-  options: GenerateDemoCandidatesOptions<I, O, E, R>
-) =>
+  R = never,
+  ME = never,
+  MR = never
+>(options: GenerateDemoCandidatesOptions<I, O, E, R, ME, MR>) =>
   Effect.gen(function*() {
-    const refs = Arr.filter(Arr.fromIterable(predictors(options.module)), (entry) => !entry.frozen)
-    const requestedCandidates = normalizePositiveCount(options.numCandidates)
-    const allLabeled = sortDemos(labeledDemos(options.trainset))
-    const maxLabeledDemos = normalizePositiveCount(
-      Option.getOrElse(
-        Option.fromNullishOr(options.maxLabeledDemos),
-        () => Numeric.max(1, Numeric.min(4, Arr.length(allLabeled)))
-      )
-    )
-    const maxBootstrappedDemos = normalizePositiveCount(
-      Option.getOrElse(
-        Option.fromNullishOr(options.maxBootstrappedDemos),
-        () => Numeric.max(1, Numeric.min(4, Arr.length(allLabeled)))
-      )
-    )
-    const seed = normalizeDeterministicSeed(Option.getOrElse(Option.fromNullishOr(options.seed), () => 1))
-
-    return yield* Effect.forEach(refs, (ref, predictorIndex) =>
-      Effect.gen(function*() {
-        const parameters = yield* Binding.read(ref.parameters, ref.name)
-        const compatibleLabels = Arr.getSomes(
-          yield* Effect.forEach(allLabeled, (demo) => ref.demonstrationCodec.decode(demo).pipe(Effect.option))
-        )
-        const existing = yield* Effect.forEach(parameters.demos, ref.demonstrationCodec.decode)
-        const assembledCandidates = assemblePredictorCandidates({
-          predictorName: ref.name,
-          parameters,
-          demos: compatibleLabels,
-          bootstrappedDemos: Arr.appendAll(existing, compatibleLabels),
-          requestedCandidates,
-          maxLabeledDemos,
-          maxBootstrappedDemos,
-          seed: Num.sum(seed, predictorIndex)
-        })
-
-        return new PredictorDemoCandidates({
-          predictorName: ref.name,
-          candidates: Arr.map(
-            assembledCandidates,
-            (candidate) =>
-              new DemoCandidate({
-                predictorName: ref.name,
-                kind: candidate.kind,
-                parameters: candidate.parameters
+    const before = yield* ParameterSet.snapshot(options.module)
+    const original = Module.bound(options.module, before)
+    const refs = Arr.filter(Arr.fromIterable(predictors(original)), (entry) => !entry.frozen)
+    const sampling = yield* Sampling.resolve(options.seed ?? 9)
+    const labeled = count(options.maxLabeledDemos ?? 4)
+    const requestedBootstrap = count(options.maxBootstrappedDemos ?? 4)
+    const bootstrapped = Equal.equals(labeled, 0) && Equal.equals(requestedBootstrap, 0) ? 3 : requestedBootstrap
+    const catalog = yield* Effect.forEach(
+      Arr.makeBy(Num.max(1, count(options.numCandidates)), (index) => Num.subtract(index, 3)),
+      (seed) =>
+        Effect.gen(function*() {
+          if (Equal.equals(seed, -3)) {
+            const kind: DemoCandidateKind = "zero-shot"
+            return {
+              kind,
+              parameters: Record.map(before, (parameters, path) =>
+                Arr.some(refs, (ref) => Equal.equals(ref.path, path))
+                  ? withDemos(parameters, [])
+                  : parameters)
+            }
+          }
+          if (Equal.equals(seed, -2) && Num.isGreaterThan(labeled, 0)) {
+            const result = yield* LabeledFewShot.run(
+              new LabeledFewShot.Options({
+                module: original,
+                trainset: options.trainset,
+                k: labeled
               })
+            )
+            const kind: DemoCandidateKind = "labels-only"
+            return { kind, parameters: result.parameters }
+          }
+          const unshuffled = Equal.equals(seed, -1)
+          const trainset = unshuffled ? options.trainset : yield* sampling.shuffle(options.trainset)
+          if (!unshuffled) yield* Schema.decodeEffect(Schema.Int.check(Schema.isGreaterThanOrEqualTo(1)))(bootstrapped)
+          const cap = unshuffled ? bootstrapped : yield* sampling.randint(1, bootstrapped)
+          const result = yield* BootstrapFewShot.run(
+            new BootstrapFewShot.Options({
+              module: original,
+              trainset,
+              metric: options.metric ?? Metric.fromSync(() => 1),
+              maxBootstrappedDemos: cap,
+              maxLabeledDemos: labeled,
+              metricThreshold: options.metricThreshold ?? Option.none(),
+              maxErrors: options.maxErrors ?? Option.none(),
+              ...Option.match(Option.fromUndefinedOr(options.teacher), {
+                onNone: () => ({}),
+                onSome: (teacher) => ({ teacher })
+              }),
+              ...Option.match(Option.fromUndefinedOr(options.teacherSettings), {
+                onNone: () => ({}),
+                onSome: (teacherSettings) => ({ teacherSettings })
+              })
+            })
           )
+          const kind: DemoCandidateKind = unshuffled ? "bootstrap-unshuffled" : "bootstrap-shuffled"
+          return { kind, parameters: result.parameters }
         })
+    )
+    return Arr.map(refs, (ref) =>
+      new PredictorDemoCandidates({
+        predictorName: ref.name,
+        candidates: Arr.map(catalog, (candidate) =>
+          new DemoCandidate({
+            predictorName: ref.name,
+            kind: candidate.kind,
+            parameters: Option.getOrThrow(Record.get(candidate.parameters, ref.path))
+          }))
       }))
-  }).pipe(Binding.withPredictors(predictors(options.module)))
+  })

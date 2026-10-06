@@ -9,7 +9,7 @@ import * as Metric from "@scenesystems/effect-dsp/Metric"
 import * as MIPROv2 from "@scenesystems/effect-dsp/MIPROv2"
 import * as MockLanguageModel from "@scenesystems/effect-dsp/MockLanguageModel"
 import * as Module from "@scenesystems/effect-dsp/Module"
-import { withDemos } from "@scenesystems/effect-dsp/ModuleParameters"
+import { ModuleParameters } from "@scenesystems/effect-dsp/ModuleParameters"
 import * as Signature from "@scenesystems/effect-dsp/Signature"
 import * as ModelBinder from "@scenesystems/effect-lm/ModelBinder"
 import { Array as Arr, Boolean, Deferred, Effect, Fiber, Option, Record, Ref, Schema, String } from "effect"
@@ -113,24 +113,33 @@ describe("destination-owned demonstrations", () => {
       )
     }))
 
-  it.effect("uses only destination-valid labels and stage demos in MIPRO phase one", () =>
+  it.effect("derives destination-specific MIPRO demos from teacher calls rather than root labels", () =>
     Effect.gen(function*() {
       const { root, child } = yield* makePipeline
       const stage = new Demonstration({
         input: { question: "France", context: "Cities" },
-        output: { analysis: "Paris" }
+        output: { analysis: "Paris" },
+        exampleId: Option.some(Id.make("france"))
       })
-      yield* Ref.update(child.parameters, (parameters) => withDemos(parameters, Arr.make(stage)))
+      const mock = yield* MockLanguageModel.make(MockLanguageModel.succeed({ analysis: "Paris" }))
       const sets = yield* MIPROv2Candidates.generateDemoCandidates(
-        new MIPROv2Candidates.GenerateDemoCandidatesOptions({ module: root, trainset: rows, numCandidates: 4 })
-      )
+        new MIPROv2Candidates.GenerateDemoCandidatesOptions({
+          module: root,
+          trainset: rows,
+          numCandidates: 4,
+          maxLabeledDemos: 0,
+          maxBootstrappedDemos: 1
+        })
+      ).pipe(Effect.provideService(LanguageModel.LanguageModel, mock.service))
       const childSet = Option.getOrThrow(
         Arr.findFirst(sets, (set) => Schema.is(Schema.Literal("analyzer"))(set.predictorName))
       )
-      const labeled = Option.getOrThrow(Arr.get(childSet.candidates, 1))
+      const shuffled = Option.getOrThrow(Arr.get(childSet.candidates, 1))
       const bootstrapped = Option.getOrThrow(Arr.get(childSet.candidates, 2))
-      expect(labeled.parameters.demos).toEqual(Arr.empty())
+      expect(shuffled.kind).toBe("bootstrap-shuffled")
+      expect(shuffled.parameters.demos).toEqual(Arr.make(stage))
       expect(bootstrapped.parameters.demos).toEqual(Arr.make(stage))
+      expect((yield* Ref.get(child.parameters)).demos).toEqual([])
       yield* Effect.forEach(
         childSet.candidates,
         (candidate) => Effect.forEach(candidate.parameters.demos, child.signature.demonstrationCodec.decode)
@@ -140,7 +149,16 @@ describe("destination-owned demonstrations", () => {
   it.effect("returns an executable heterogeneous program from public MIPRO optimization", () =>
     Effect.gen(function*() {
       const { root, child } = yield* makePipeline
-      const mock = yield* MockLanguageModel.make(MockLanguageModel.succeed({ analysis: "Paris" }))
+      yield* Module.install(root, {
+        "pipeline.child": new ModuleParameters({
+          instructions: (yield* Ref.get(child.parameters)).instructions,
+          demos: [],
+          outputStrategy: "text"
+        })
+      })
+      const mock = yield* MockLanguageModel.make(
+        MockLanguageModel.succeed("[[ ## analysis ## ]]\nParis\n[[ ## completed ## ]]")
+      )
       const compiled = yield* MIPROv2.run(
         new MIPROv2.Options({
           module: root,
@@ -148,6 +166,8 @@ describe("destination-owned demonstrations", () => {
           metric: Metric.exactMatch("answer"),
           numCandidates: 3,
           numInstructions: 1,
+          maxLabeledDemos: 0,
+          maxBootstrappedDemos: 1,
           trialBudget: 2
         })
       ).pipe(Effect.provideService(LanguageModel.LanguageModel, mock.service))

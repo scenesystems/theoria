@@ -119,7 +119,7 @@
       "id": "mipro-best-fullval-001",
       "file": "upstream/mipro-best-fullval-001.json",
       "evidence": "upstream-execution",
-      "sha256": "b50db6d69e44a0f6831c36d0b9cb574db72f1fbdd397146d5a8bc8c6d5d354b8",
+      "sha256": "1ce4e7a5bcf17932257f36fab0d996fb104f1e3d59426923ba757668fae35169",
       "generator": "fixtures.mipro_v2",
       "description": "A minibatch specialist loses to the baseline full-validation checkpoint."
     },
@@ -127,7 +127,7 @@
       "id": "mipro-trial-budget-001",
       "file": "upstream/mipro-trial-budget-001.json",
       "evidence": "upstream-execution",
-      "sha256": "205d91a237016cbc4585adc035a3befd2b80662cd4ba8156dc2f7cde861ff694",
+      "sha256": "f567bc43a0bc53797a876572d7dc461e9b5b16dadc442aba4dfd5c18d6770433",
       "generator": "fixtures.mipro_v2",
       "description": "Real MIPRO compile phases, Optuna params and validation checkpoints."
     },
@@ -135,7 +135,7 @@
       "id": "miprov2-explicit-001",
       "file": "upstream/miprov2-explicit-001.json",
       "evidence": "upstream-execution",
-      "sha256": "504e3c1ab7c8b2844f584bf933199346026ec95c9d068212aab6512a91c82bda",
+      "sha256": "ea2335836273da3118cc70f7a0bd37bcdfde5a4a00b03ca88719b8a22f8da3fd",
       "generator": "fixtures.mipro_v2",
       "description": "Real MIPRO compile phases, Optuna params and validation checkpoints."
     },
@@ -143,7 +143,7 @@
       "id": "miprov2-heavy-001",
       "file": "upstream/miprov2-heavy-001.json",
       "evidence": "upstream-execution",
-      "sha256": "859aaa1c4faf97e5695d657ab37dadd44b9cd54812f242f08dbed841c3c78c78",
+      "sha256": "a90b826b50cbc54206aab7b8ab17e0751f9042269f45ce0e0a7aad3ce4b7f0a0",
       "generator": "fixtures.mipro_v2",
       "description": "Real MIPRO compile phases, Optuna params and validation checkpoints."
     },
@@ -151,9 +151,25 @@
       "id": "miprov2-medium-001",
       "file": "upstream/miprov2-medium-001.json",
       "evidence": "upstream-execution",
-      "sha256": "7e3103d60054edec444a2916ffa1911a96fb19c57793facfeb919a5f74474f72",
+      "sha256": "512007592afcf51d026a6dbd1a17ff99f14a446792d838f0d97a51b76c81ce4c",
       "generator": "fixtures.mipro_v2",
       "description": "Real MIPRO compile phases, Optuna params and validation checkpoints."
+    },
+    {
+      "id": "miprov2-no-labels-001",
+      "file": "upstream/miprov2-no-labels-001.json",
+      "evidence": "upstream-execution",
+      "sha256": "087270570f353a88ff8e08399376bdb08fc3bd5b1bbfc2c660db22a77cf9622a",
+      "generator": "fixtures.mipro_v2",
+      "description": "Real MIPRO compile with unlabeled-only bootstrap catalog and shared RNG; zero caps retain proposer evidence but remove demo search."
+    },
+    {
+      "id": "miprov2-zero-shot-001",
+      "file": "upstream/miprov2-zero-shot-001.json",
+      "evidence": "upstream-execution",
+      "sha256": "2cbd39e3f919814b2c5905b3d58a8e3742e5699ec651317f1fcc4de78992355c",
+      "generator": "fixtures.mipro_v2",
+      "description": "Real MIPRO compile with unlabeled-only bootstrap catalog and shared RNG; zero caps retain proposer evidence but remove demo search."
     },
     {
       "id": "predict-trace-001",

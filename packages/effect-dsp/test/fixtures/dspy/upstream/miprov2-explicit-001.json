@@ -59,6 +59,12 @@
         }
       ]
     },
+    "maxBootstrappedDemos": 1,
+    "maxLabeledDemos": 1,
+    "bootstrapCalls": 1,
+    "bootstrapMetricIds": [
+      "train-0"
+    ],
     "demoSets": {
       "0": [
         [],

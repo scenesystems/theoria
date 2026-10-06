@@ -117,11 +117,22 @@ export const toPhase1Options = <
   R
 >(
   options: MIPROOptionLike<I, O, ME, MR, E, R>
-): GenerateDemoCandidatesOptions<I, O, E, R> =>
+): GenerateDemoCandidatesOptions<I, O, E, R, ME, MR> =>
   new GenerateDemoCandidatesOptions({
     module: options.module,
     trainset: options.trainset,
     numCandidates: options.numCandidates,
+    metric: options.metric,
+    metricThreshold: options.metricThreshold ?? Option.none(),
+    maxErrors: options.maxErrors ?? Option.none(),
+    ...Option.match(Option.fromUndefinedOr(options.teacher), {
+      onNone: () => ({}),
+      onSome: (teacher) => ({ teacher })
+    }),
+    ...Option.match(Option.fromUndefinedOr(options.teacherSettings), {
+      onNone: () => ({}),
+      onSome: (teacherSettings) => ({ teacherSettings })
+    }),
     ...Option.match(Option.fromNullishOr(options.seed), {
       onNone: () => ({}),
       onSome: (seed) => ({ seed })

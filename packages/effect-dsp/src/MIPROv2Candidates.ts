@@ -4,9 +4,12 @@
  * @since 0.4.0
  * @module
  */
+import type { ModelSettings } from "@scenesystems/effect-lm/ModelSettings"
+import type { Option } from "effect"
 import { Data, Schema } from "effect"
 import { generateDemoCandidates as generateDemoCandidatesInternal } from "./internal/miprov2/bootstrap.js"
 import { proposeInstructionCandidates as proposeInstructionCandidatesInternal } from "./internal/miprov2/propose.js"
+import type { Metric } from "./Metric.js"
 import type { Examples, TipVocabulary } from "./MIPROv2.js"
 import type { Module as DspModule } from "./Module.js"
 import { ModuleParameters } from "./ModuleParameters.js"
@@ -63,7 +66,7 @@ export const PredictorDemoCandidateSets = Schema.Array(PredictorDemoCandidates)
  */
 export type PredictorDemoCandidateSets = typeof PredictorDemoCandidateSets.Type
 
-/** Configures labeled demonstration selection for every owned predictor.
+/** Configures teacher bootstrapping and labeled candidate selection.
  * @since 0.4.0
  * @category models
  */
@@ -71,7 +74,9 @@ export class GenerateDemoCandidatesOptions<
   I extends Schema.Struct.Fields,
   O extends Schema.Struct.Fields,
   E = never,
-  R = never
+  R = never,
+  ME = never,
+  MR = never
 > extends Data.Class<{
   readonly module: DspModule<I, O, E, R>
   readonly trainset: Examples
@@ -79,6 +84,12 @@ export class GenerateDemoCandidatesOptions<
   readonly seed?: number
   readonly maxLabeledDemos?: number
   readonly maxBootstrappedDemos?: number
+  /** Defaults to accepting every successfully executed teacher example. */
+  readonly metric?: Metric<ME, MR>
+  readonly teacher?: DspModule<I, O, E, R>
+  readonly teacherSettings?: ModelSettings
+  readonly metricThreshold?: Option.Option<number>
+  readonly maxErrors?: Option.Option<number>
 }> {}
 
 /** Snapshots every owned predictor and builds its demonstration candidates.

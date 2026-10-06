@@ -1,12 +1,14 @@
 /**
- * Searches labeled demonstration subsets and generated instructions in three
+ * Searches teacher-derived demonstrations and generated instructions in three
  * ordered phases.
  *
  * @see {@link https://arxiv.org/abs/2406.11695 | Opsahl-Ong et al., "Optimizing Instructions and Demonstrations for Multi-Stage Language Model Programs", 2024}
  * @since 0.1.0
  * @module
  */
+import type { ModelSettings } from "@scenesystems/effect-lm/ModelSettings"
 import * as Numeric from "@scenesystems/effect-math/Numeric"
+import type { Option } from "effect"
 import {
   Array as Arr,
   Boolean as Bool,
@@ -29,6 +31,8 @@ import {
   toPhase3Options
 } from "./internal/miprov2/runtime/options.js"
 import { streamMIPROv2Events } from "./internal/miprov2/runtime/stream.js"
+import * as MiproSampling from "./internal/miprov2/sampling.js"
+import * as Sampling from "./internal/sampling/cpython.js"
 import type { Metric } from "./Metric.js"
 import {
   generateDemoCandidates,
@@ -302,7 +306,7 @@ export class Options<
 > extends Data.Class<{
   /** Program evaluated under immutable predictor overlays. */
   readonly module: DspModule<I, O, E, R>
-  /** Examples used for proposal context; only entries with `output` become demonstrations. */
+  /** Examples used for teacher bootstrapping, labeled filling and proposal context. */
   readonly trainset: Examples
   /** Phase 3 evaluation set. Defaults to `trainset`; no automatic split is performed. */
   readonly valset?: Examples
@@ -312,12 +316,20 @@ export class Options<
   readonly numCandidates: number
   /** Total instruction candidates per predictor, including the baseline at index zero. */
   readonly numInstructions: number
-  /** Seed shared by candidate ordering, proposal selection, and TPE; normalized to a positive integer. */
+  /** Integer seed for one CPython stream shared across all phases. Defaults to 9. */
   readonly seed?: number
-  /** Labeled-demo cap for the `labels-only` candidate. Defaults to the labeled count clamped from one through four. */
+  /** Labeled-demo capacity, default 4. */
   readonly maxLabeledDemos?: number
-  /** Labeled-demo cap for bootstrap-named candidates. Defaults to the labeled count clamped from one through four. */
+  /** Accepted teacher-demo cap, default 4. Zero-shot still bootstraps proposer evidence. */
   readonly maxBootstrappedDemos?: number
+  /** Teacher program; defaults to an immutable student snapshot. */
+  readonly teacher?: DspModule<I, O, E, R>
+  /** Generation settings applied only to teacher calls. */
+  readonly teacherSettings?: ModelSettings
+  /** Optional bootstrap acceptance threshold; absent accepts nonzero scores. */
+  readonly metricThreshold?: Option.Option<number>
+  /** Raises when the bootstrap failure count reaches this limit. */
+  readonly maxErrors?: Option.Option<number>
   /** Numeric hint rendered into each proposal prompt. Defaults to `1`; it does not configure the model provider. */
   readonly diversityTemperature?: number
   /** Proposal hints selected cyclically. An empty or omitted array uses the built-in vocabulary. */
@@ -394,8 +406,8 @@ const totalInstructionCandidates = (
  * Runs all MIPROv2 phases and reports their lifecycle events.
  *
  * @remarks
- * Phase 1 snapshots every owned predictor and builds candidates from labeled
- * examples. Phase 2 asks the configured language model for alternatives in
+ * Phase 1 builds per-predictor candidates from teacher traces and labeled
+ * examples without changing instructions. Phase 2 asks the configured language model for alternatives in
  * predictor order. Phase 3 evaluates a baseline, then runs a single-concurrency
  * TPE optimization whose trial objective uses the leading validation-set minibatch.
  * Periodic full-set evaluations update diagnostics without changing the TPE
@@ -483,7 +495,9 @@ export const runWithEvents = <
       parameters: phase3.parameters,
       report: summarizeEvents(yield* Ref.get(recorded))
     })
-  })
+  }).pipe(
+    Effect.provideServiceEffect(MiproSampling.Current, Sampling.make(options.seed ?? 9).pipe(Effect.asSome))
+  )
 
 /**
  * Runs MIPROv2 with lifecycle reporting disabled.

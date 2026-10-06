@@ -6,7 +6,9 @@ import { Demonstration } from "@scenesystems/effect-dsp/Demonstration"
 import { Example } from "@scenesystems/effect-dsp/Example"
 import * as MockLanguageModel from "@scenesystems/effect-dsp/MockLanguageModel"
 import * as Module from "@scenesystems/effect-dsp/Module"
+import { predictors } from "@scenesystems/effect-dsp/ModuleGraph"
 import { ModuleParameters } from "@scenesystems/effect-dsp/ModuleParameters"
+import * as ParameterSet from "@scenesystems/effect-dsp/ParameterSet"
 import * as Signature from "@scenesystems/effect-dsp/Signature"
 import {
   Array as Arr,
@@ -17,6 +19,7 @@ import {
   MutableRef,
   Number,
   Option,
+  Record,
   Ref,
   Result,
   Schema,
@@ -26,7 +29,6 @@ import {
 import * as LanguageModel from "effect/ai/LanguageModel"
 import {
   DemoCandidate,
-  generateDemoCandidates,
   GenerateDemoCandidatesOptions,
   PredictorDemoCandidates,
   proposeInstructionCandidates,
@@ -55,6 +57,35 @@ const canonicalTipVocabulary = Arr.make("none", "creative", "simple", "descripti
 class Offset extends Context.Service<Offset, number>()("MIPROv2Phase2Test/Offset") {}
 
 const requireSome = <A>(value: Option.Option<A>, message: string) => Effect.fromOption(value, () => message)
+
+// Proposer unit tests supply fixed candidate evidence, without executing Phase 1.
+const generateDemoCandidates = <I extends Schema.Struct.Fields, O extends Schema.Struct.Fields, E, R>(
+  options: GenerateDemoCandidatesOptions<I, O, E, R>
+) =>
+  Effect.gen(function*() {
+    const parameters = yield* ParameterSet.snapshot(options.module)
+    const labels = Arr.flatMap(options.trainset, (example) =>
+      Option.toArray(Option.map(example.labels, (output) =>
+        new Demonstration({ input: example.input, output }))))
+    return Arr.map(Arr.fromIterable(predictors(options.module)), (predictor) => {
+      const original = Option.getOrThrow(Record.get(parameters, predictor.path))
+      return new PredictorDemoCandidates({
+        predictorName: predictor.name,
+        candidates: Arr.makeBy(options.numCandidates, (index) =>
+          new DemoCandidate({
+            predictorName: predictor.name,
+            kind: Equal.equals(index, 0) ? "zero-shot" : "bootstrap-unshuffled",
+            parameters: new ModuleParameters({
+              instructions: original.instructions,
+              outputStrategy: original.outputStrategy,
+              demos: Arr.fromIterable(
+                Equal.equals(index, 0) ? [] : Arr.isReadonlyArrayEmpty(original.demos) ? labels : original.demos
+              )
+            })
+          }))
+      })
+    })
+  })
 
 describe("MIPROv2 Phase 2", () => {
   it.effect("keeps baseline instruction at index 0 and enforces canonical tip vocabulary", () =>

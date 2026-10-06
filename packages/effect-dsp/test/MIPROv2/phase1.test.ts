@@ -3,11 +3,13 @@
  */
 import { describe, expect, it } from "@effect/vitest"
 import { Example } from "@scenesystems/effect-dsp/Example"
+import * as MockLanguageModel from "@scenesystems/effect-dsp/MockLanguageModel"
 import * as Module from "@scenesystems/effect-dsp/Module"
 import { predictors } from "@scenesystems/effect-dsp/ModuleGraph"
 import { ModuleParameters } from "@scenesystems/effect-dsp/ModuleParameters"
 import * as Signature from "@scenesystems/effect-dsp/Signature"
-import { Array as Arr, Effect, Equal, Number as Num, Option, Ref, Schema } from "effect"
+import { Array as Arr, Effect, Equal, Layer, Option, Ref, Schema } from "effect"
+import * as LanguageModel from "effect/ai/LanguageModel"
 import { generateDemoCandidates, GenerateDemoCandidatesOptions } from "../../src/MIPROv2Candidates.js"
 
 const makeQaSignature = () =>
@@ -27,25 +29,26 @@ const trainingSet = Arr.make(
   new Example({ input: { question: "What is the capital of Italy?" }, labels: Option.some({ answer: "Rome" }) })
 )
 
-const uniqueParameters = (parameters: ReadonlyArray<ModuleParameters>) =>
-  Arr.dedupeWith(Arr.fromIterable(parameters), Schema.toEquivalence(ModuleParameters))
-
-const uniqueNumbers = (numbers: ReadonlyArray<number>) => Arr.dedupeWith(Arr.fromIterable(numbers), Num.Equivalence)
+const teacher = Layer.effect(
+  LanguageModel.LanguageModel,
+  MockLanguageModel.make(MockLanguageModel.succeed("[[ ## answer ## ]]\nteacher\n[[ ## completed ## ]]")).pipe(
+    Effect.map((mock) => mock.service)
+  )
+)
 
 describe("MIPROv2 Phase 1", () => {
-  it.effect("includes anchor candidates, then N-3 shuffled bootstrap variants with bounded random demo counts", () =>
+  it.effect("includes anchors and fills shuffled bootstrap candidates up to labeled capacity", () =>
     Effect.gen(function*() {
       const signature = yield* makeQaSignature()
       const module = yield* Module.predict("qa", signature)
 
-      yield* Ref.set(
-        module.parameters,
-        new ModuleParameters({
+      yield* Module.install(module, {
+        qa: new ModuleParameters({
           instructions: "Answer with one factual phrase",
           demos: Arr.empty(),
           outputStrategy: "text"
         })
-      )
+      })
 
       const candidateSets = yield* generateDemoCandidates(
         new GenerateDemoCandidatesOptions({
@@ -71,14 +74,14 @@ describe("MIPROv2 Phase 1", () => {
       )
       expect(shuffled).toHaveLength(3)
       expect(Arr.every(shuffled, (candidate) => Equal.equals(candidate.kind, "bootstrap-shuffled"))).toBe(true)
-      expect(Arr.every(shuffledDemoCounts, Num.between({ minimum: 1, maximum: 2 }))).toBe(true)
-      expect(Arr.length(uniqueNumbers(shuffledDemoCounts))).toBeGreaterThan(1)
-    }))
+      expect(shuffledDemoCounts).toEqual([2, 2, 2])
+    }).pipe(Effect.provide(teacher)))
 
-  it.effect("is unique and deterministic for a fixed seed", () =>
+  it.effect("is deterministic without changing instructions to force candidate uniqueness", () =>
     Effect.gen(function*() {
       const signature = yield* makeQaSignature()
       const module = yield* Module.predict("qa", signature)
+      const baseline = yield* Ref.get(module.parameters)
 
       const first = yield* generateDemoCandidates(
         new GenerateDemoCandidatesOptions({
@@ -106,10 +109,10 @@ describe("MIPROv2 Phase 1", () => {
       })
 
       expect(second).toEqual(first)
-      expect(uniqueParameters(Arr.map(firstRoot.candidates, (candidate) => candidate.parameters))).toHaveLength(
-        Arr.length(firstRoot.candidates)
+      expect(Arr.map(firstRoot.candidates, (candidate) => candidate.parameters.instructions)).toEqual(
+        Arr.map(firstRoot.candidates, () => baseline.instructions)
       )
-    }))
+    }).pipe(Effect.provide(teacher)))
 
   it.effect("keeps candidate payloads schema-valid and predictor-compatible", () =>
     Effect.gen(function*() {
@@ -134,5 +137,5 @@ describe("MIPROv2 Phase 1", () => {
           Arr.every(candidateSet.candidates, (candidate) =>
             Schema.is(ModuleParameters)(candidate.parameters)))
       ).toBe(true)
-    }))
+    }).pipe(Effect.provide(teacher)))
 })
