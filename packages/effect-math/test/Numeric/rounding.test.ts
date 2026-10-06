@@ -41,12 +41,51 @@ const angles = Array.make(
   Tuple.make(1048576.0000000002, 0.3304931402414822, 0.9438083938243631)
 )
 
+// Decimal.from_float(x).sqrt(), evaluated with 160 decimal digits. These
+// straddle the subnormal/normal input boundary and a root binade boundary.
+const roots = Array.make(
+  Tuple.make(2.225073858507201e-308, 1.4916681462400412e-154),
+  Tuple.make(2.2250738585072014e-308, 1.4916681462400413e-154),
+  Tuple.make(2.225073858507202e-308, 1.4916681462400413e-154),
+  Tuple.make(1e-300, 1e-150),
+  Tuple.make(1e-10, 1e-5),
+  Tuple.make(3.9999999999999996, 1.9999999999999998),
+  Tuple.make(4, 2),
+  Tuple.make(4.000000000000001, 2),
+  Tuple.make(17.3, 4.159326868617084),
+  Tuple.make(1e200, 1e100)
+)
+
+const fractionalPowers = Array.make(
+  Tuple.make(0.000244140625, 1.15, 7.011098358136205e-5, 3e-15),
+  Tuple.make(0.37, 1.35, 0.26125964205040103, 3e-15),
+  Tuple.make(0.81, 2.2, 0.6290237473288554, 3e-15),
+  Tuple.make(1.0000000000000002, 1.65, 1.0000000000000004, 3e-15),
+  // log(base) is about -36.6: log/product rounding is amplified by exp.
+  // The established binary64 composition has about 4.2e-15 relative error.
+  Tuple.make(1.2246467991473532e-16, 1.15, 5.025884218126268e-19, 1e-14)
+)
+
 const close = (actual: number, expected: number) =>
   expect(Numeric.abs(Number.subtract(actual, expected))).toBeLessThanOrEqual(
     Number.multiply(Numeric.abs(expected), 3e-16)
   )
 
 describe("Numeric rounding-sensitive inputs", () => {
+  it.effect("rounds scalar roots across normalization and binade boundaries", () =>
+    Effect.gen(function*() {
+      Array.forEach(roots, ([input, expected]) => expect(Numeric.sqrt(input)).toBe(expected))
+    }))
+
+  it.effect("retains fractional-power accuracy with exact binary64 bases and exponents", () =>
+    Effect.gen(function*() {
+      Array.forEach(fractionalPowers, ([base, exponent, expected, tolerance]) => {
+        expect(Numeric.abs(Number.subtract(Numeric.pow(base, exponent), expected))).toBeLessThanOrEqual(
+          Number.multiply(Numeric.abs(expected), tolerance)
+        )
+      })
+    }))
+
   it.effect("retains near-unity residuals through large signed integer powers", () =>
     Effect.gen(function*() {
       Array.forEach(powers, ([base, exponent, expected]) => close(Numeric.pow(base, exponent), expected))
