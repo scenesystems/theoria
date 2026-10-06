@@ -1,4 +1,5 @@
 import { describe, expect, it } from "@effect/vitest"
+import { ContentDigest } from "@scenesystems/digest"
 import { Cipher } from "@scenesystems/seal"
 import {
   Array as Arr,
@@ -52,6 +53,31 @@ const build = (variant: PlaceBuildRequest = request) =>
   buildPlace(variant).pipe(Effect.provide([ParticipantsLive, Cipher.layer]))
 
 describe("server/imagined-place", () => {
+  it.effect("addresses only place content and parent lineage", () =>
+    Effect.gen(function*() {
+      const result = yield* build()
+      const { scenario, brief, composition, accepted } = result.artifact
+      const originId = ContentDigest.toString(
+        yield* ContentDigest.fromUnknown("blake3-256", {
+          scenario,
+          brief,
+          composition,
+          accepted: []
+        })
+      )
+      const mergedId = ContentDigest.toString(
+        yield* ContentDigest.fromUnknown("blake3-256", {
+          parent: originId,
+          scenario,
+          brief,
+          composition,
+          accepted
+        })
+      )
+      expect(Arr.map(result.evidence.lineage, (version) => version.contentId)).toEqual([originId, mergedId])
+      expect(result.artifact.parent).toBe(originId)
+    }))
+
   it.effect("composes and proposes for every scenario through the typed programs", () =>
     Effect.forEach(placeScenarios, (scenario) =>
       Effect.gen(function*() {

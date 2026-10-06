@@ -102,7 +102,6 @@ export type Proposal = typeof Proposal.Type
  * @since 0.3.0
  */
 export const PlaceArtifact = Schema.Struct({
-  schemaVersion: Schema.Literal(1),
   parent: Schema.optional(NonEmptyString),
   scenario: PlaceScenario,
   brief: NonEmptyString,

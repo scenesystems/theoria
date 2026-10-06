@@ -38,7 +38,6 @@ export const buildPlace = (
     // Compose
     const composed = yield* compose(scenario, request.brief)
     const origin = PlaceArtifact.make({
-      schemaVersion: 1,
       scenario: scenario.id,
       brief: request.brief,
       composition: composed.composition,
