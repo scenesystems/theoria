@@ -17,7 +17,11 @@ it.effect("labeledfewshot-001: resets demos, samples each predictor independentl
     const Row = Schema.Struct({ id: Schema.String, question: Schema.String, answer: Schema.String })
     const reference = yield* Schema.decodeUnknownEffect(Schema.Struct({
       splits: Schema.Struct({ train: Schema.Array(Row) }),
-      state: Schema.Struct({ demos: Schema.Array(Row) })
+      state: Schema.Struct({ demos: Schema.Array(Row) }),
+      predictors: Schema.Struct({
+        first: Schema.Struct({ demos: Schema.Array(Row) }),
+        second: Schema.Struct({ demos: Schema.Array(Row) })
+      })
     }))((yield* fixture("labeledfewshot-001", "upstream-execution")).payload)
     const signature = yield* Signature.make("answer", { question: Schema.String }, { answer: Schema.String })
     const a = yield* Module.predict("a", signature)
@@ -50,12 +54,14 @@ it.effect("labeledfewshot-001: resets demos, samples each predictor independentl
     const k = reference.state.demos.length
     const result = yield* assertNoMutation(
       module,
-      LabeledFewShot.run(new LabeledFewShot.Options({ module, trainset, k, seed: 7 }))
+      LabeledFewShot.run(new LabeledFewShot.Options({ module, trainset, k }))
     )
     const first = Option.getOrThrow(Record.get(result.parameters, "root.a")).demos
     const second = Option.getOrThrow(Record.get(result.parameters, "root.b")).demos
-    expect(first).toHaveLength(k)
-    expect(second).toHaveLength(k)
+    expect(Arr.map(first, (demo) => ({ question: demo.input.question, answer: demo.output.answer })))
+      .toEqual(Arr.map(reference.predictors.first.demos, ({ question, answer }) => ({ question, answer })))
+    expect(Arr.map(second, (demo) => ({ question: demo.input.question, answer: demo.output.answer })))
+      .toEqual(Arr.map(reference.predictors.second.demos, ({ question, answer }) => ({ question, answer })))
     expect(first).not.toEqual(second)
     expect(Arr.some(first, (demo) => demo.input.question === "stale")).toBe(false)
     const prefix = yield* LabeledFewShot.run(new LabeledFewShot.Options({ module, trainset, k, sample: false }))

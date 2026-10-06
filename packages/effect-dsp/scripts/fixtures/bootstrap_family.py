@@ -28,8 +28,10 @@ def generate():
     train, val = examples("train", 4), examples("val", 2)
     docs = []
     labeled = dspy.LabeledFewShot(k=2).compile(dspy.Predict("question -> answer"), trainset=train)
+    labeled_multi = dspy.LabeledFewShot(k=2).compile(TwoStage(), trainset=train)
     docs.append({"id": "labeledfewshot-001", "description": "Seeded upstream labeled sampling.",
-                 "payload": {"splits": splits(train), "state": state(labeled), "history": []}})
+                 "payload": {"splits": splits(train), "state": state(labeled),
+                             "predictors": state(labeled_multi), "history": []}})
     for name, teacher, threshold, fail in [
         ("bootstrapfewshot-001", False, None, False),
         ("bootstrap-teacher-trace-001", True, None, False),

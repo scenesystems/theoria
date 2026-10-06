@@ -5,10 +5,11 @@
  */
 import type { ModelSettings } from "@scenesystems/effect-lm/ModelSettings"
 import * as Numeric from "@scenesystems/effect-math/Numeric"
-import { Array as Arr, Data, Effect, Option, Random, Ref, Schema } from "effect"
+import { Array as Arr, Data, Effect, Option, Ref, Schema } from "effect"
 import * as BootstrapFewShot from "./BootstrapFewShot.js"
 import * as Evaluate from "./Evaluate.js"
 import type { Example } from "./Example.js"
+import * as Sampling from "./internal/sampling/cpython.js"
 import * as LabeledFewShot from "./LabeledFewShot.js"
 import type { Metric } from "./Metric.js"
 import * as Module from "./Module.js"
@@ -81,7 +82,7 @@ const count = (value: number) => Numeric.isFinite(value) ? Numeric.max(0, Numeri
  *
  * Seeds -3, -2, and -1 are zero-shot, labeled-only, and unshuffled bootstrap.
  * Nonnegative seeds shuffle training rows and uniformly sample a cap in [1, max].
- * Randomness uses seeded Effect Random; Python RNG-sequence equality is not claimed.
+ * Shuffle and cap use separate CPython-compatible streams initialized with the same seed.
  * Every candidate starts independently from the supplied program. Evaluate.average
  * includes failed rows in its denominator. The highest fraction score wins, with
  * earliest-candidate ties. stopAtScore prevents construction of subsequent candidates.
@@ -134,10 +135,12 @@ export const run = <
           }
           const trainset = seed < 0
             ? options.trainset
-            : yield* Random.shuffle(options.trainset).pipe(Random.withSeed(seed))
+            : yield* Sampling.make(seed).pipe(Effect.flatMap((sampling) =>
+              sampling.shuffle(options.trainset)
+            ))
           const cap = seed < 0
             ? maxBootstrappedDemos
-            : yield* Random.nextIntBetween(1, maxBootstrappedDemos).pipe(Random.withSeed(seed))
+            : yield* Sampling.make(seed).pipe(Effect.flatMap((sampling) => sampling.randint(1, maxBootstrappedDemos)))
           return (yield* BootstrapFewShot.run(
             new BootstrapFewShot.Options({
               module: original,

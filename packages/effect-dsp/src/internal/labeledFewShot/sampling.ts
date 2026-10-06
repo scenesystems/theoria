@@ -6,9 +6,10 @@
  */
 import * as Numeric from "@scenesystems/effect-math/Numeric"
 import { nextDeterministicSeed, normalizeDeterministicSeed } from "@scenesystems/effect-search/Sampler"
-import { Array as Arr, Effect, Match, Number as Num, Option, Order, Random, Schema } from "effect"
+import { Array as Arr, Effect, Match, Number as Num, Option, Order, Schema } from "effect"
 import { Demonstration as Demo } from "../../Demonstration.js"
 import { Example, id } from "../../Example.js"
+import type { Sampling } from "../sampling/cpython.js"
 
 class ScoredDemo extends Schema.Class<ScoredDemo>(
   "@scenesystems/effect-dsp/internal/labeledFewShot/sampling/ScoredDemo"
@@ -38,11 +39,11 @@ export const LabeledDemos = Schema.Array(Demo)
 /** @internal */
 export type LabeledDemos = typeof LabeledDemos.Type
 
-/** Samples labeled rows under the caller's Random stream before decoding destinations. @internal */
-export const sampleLabeled = (trainset: LabeledExamples, k: number, sample = true) =>
+/** Samples labeled rows under the caller's CPython stream before decoding destinations. @internal */
+export const sampleLabeled = (trainset: LabeledExamples, k: number, sampling: Sampling, sample = true) =>
   Effect.gen(function*() {
     const labeled = Arr.filter(trainset, (example) => Option.isSome(example.labels))
-    const selected = Arr.take(sample ? yield* Random.shuffle(labeled) : labeled, k)
+    const selected = sample ? yield* sampling.sample(labeled, Numeric.min(k, labeled.length)) : Arr.take(labeled, k)
     return yield* Effect.forEach(selected, (example) =>
       id(example).pipe(Effect.map((exampleId) =>
         new Demo({

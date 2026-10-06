@@ -10,11 +10,11 @@ from pathlib import Path
 # MIPRO uses NumPy-backed Optuna scoring; CPU dispatch can change tied selections.
 os.environ["NPY_DISABLE_CPU_FEATURES"] = "AVX2,FMA3,AVX512F"
 
-from fixtures import bootstrap_family, chat_adapter, evaluate_runtime, gepa, mipro_v2, predict_runtime
+from fixtures import bootstrap_family, chat_adapter, cpython_sampling, evaluate_runtime, gepa, mipro_v2, predict_runtime
 from fixtures._common import assert_runtime_version, document, render
 
 ROOT = Path(__file__).resolve().parents[1] / "test/fixtures/dspy"
-FAMILIES = [chat_adapter, predict_runtime, evaluate_runtime, bootstrap_family, mipro_v2, gepa]
+FAMILIES = [chat_adapter, predict_runtime, evaluate_runtime, bootstrap_family, cpython_sampling, mipro_v2, gepa]
 
 
 def run(check=False):

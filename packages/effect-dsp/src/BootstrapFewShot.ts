@@ -16,7 +16,6 @@ import {
   Match,
   Number as Num,
   Option,
-  Random,
   Record,
   Ref,
   Schema,
@@ -27,6 +26,7 @@ import {
 } from "effect"
 import { Example, Id as ExampleId, id as exampleId } from "./Example.js"
 import { sampleLabeled } from "./internal/labeledFewShot/sampling.js"
+import * as Sampling from "./internal/sampling/cpython.js"
 import * as LabeledFewShot from "./LabeledFewShot.js"
 import { type Metric, Score } from "./Metric.js"
 import { bound, type Module } from "./Module.js"
@@ -388,6 +388,7 @@ export const runWithEvents = <
       options.trainset,
       (example) => exampleId(example).pipe(Effect.map((id) => !Arr.some(accepted, (entry) => entry.exampleId === id)))
     )
+    const sampling = yield* Sampling.make(0)
     const entries = yield* Effect.forEach(predictorsToTrain, (predictor) =>
       Effect.gen(function*() {
         const bootstrapped = Arr.take(
@@ -398,7 +399,7 @@ export const runWithEvents = <
           ),
           maxBootstrappedDemos
         )
-        const selected = yield* sampleLabeled(raw, Numeric.max(0, maxLabeledDemos - bootstrapped.length))
+        const selected = yield* sampleLabeled(raw, Numeric.max(0, maxLabeledDemos - bootstrapped.length), sampling)
         const labels = yield* Effect.forEach(selected, predictor.demonstrationCodec.labeled)
         return {
           id: predictor.path,
@@ -409,7 +410,7 @@ export const runWithEvents = <
             Arr.appendAll(bootstrapped, labels)
           )
         }
-      })).pipe(Random.withSeed(0))
+      }))
     const parameters = {
       ...before,
       ...Record.fromEntries(Arr.map(entries, (entry) => Tuple.make(entry.id, entry.parameters)))

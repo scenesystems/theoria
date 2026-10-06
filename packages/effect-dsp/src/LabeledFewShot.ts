@@ -6,9 +6,9 @@
  * @module
  */
 import * as Numeric from "@scenesystems/effect-math/Numeric"
-import { normalizeDeterministicSeed } from "@scenesystems/effect-search/Sampler"
-import { Array as Arr, Data, Effect, Option, Random, Record, Schema, Tuple } from "effect"
+import { Array as Arr, Data, Effect, Option, Record, Schema, Tuple } from "effect"
 import { type LabeledExamples, sampleLabeled } from "./internal/labeledFewShot/sampling.js"
+import * as Sampling from "./internal/sampling/cpython.js"
 import { bound, type Module } from "./Module.js"
 import { predictors } from "./ModuleGraph.js"
 import { withDemos as withModuleParametersDemos } from "./ModuleParameters.js"
@@ -48,7 +48,7 @@ export class Options<
   readonly k?: number
   /** Random sampling by default; false selects the first k labeled rows. */
   readonly sample?: boolean
-  /** Pseudo-random selection seed. Defaults to `1`. */
+  /** Integer selection seed for CPython-compatible sampling. Defaults to `0`. */
   readonly seed?: number
 }> {}
 
@@ -57,7 +57,7 @@ export class Options<
  *
  * @remarks
  * Entries without labels are ignored. Each unfrozen leaf draws without replacement
- * from a seeded Effect Random stream, or takes the first k rows when sample is false.
+ * from one CPython-compatible seeded stream, or takes the first k rows when sample is false.
  * Labels are projected onto destination fields and missing output fields mark a
  * demonstration incomplete. Shared predictors are sampled once. Caller refs are unchanged.
  *
@@ -80,20 +80,22 @@ export const run = <
   R = never
 >(options: Options<I, O, E, R>) =>
   Effect.gen(function*() {
-    const seed = normalizeDeterministicSeed(options.seed ?? 1)
+    const requestedSeed = options.seed ?? 0
+    const seed = Numeric.isFinite(requestedSeed) ? Math.trunc(requestedSeed) : 0
+    const sampling = yield* Sampling.make(seed)
     const requested = options.k ?? 16
     const k = Numeric.isFinite(requested) ? Numeric.max(0, Numeric.floor(requested)) : 0
     const before = yield* ParameterSet.snapshot(options.module)
     const refs = Arr.filter(Arr.fromIterable(predictors(options.module)), (entry) => !entry.frozen)
     const replacements = yield* Effect.forEach(refs, (entry) =>
       Effect.gen(function*() {
-        const selected = yield* sampleLabeled(options.trainset, k, options.sample ?? true)
+        const selected = yield* sampleLabeled(options.trainset, k, sampling, options.sample ?? true)
         const validated = yield* Effect.forEach(selected, entry.demonstrationCodec.labeled)
         return Tuple.make(
           entry.path,
           withModuleParametersDemos(Option.getOrThrow(Record.get(before, entry.path)), validated)
         )
-      })).pipe(Random.withSeed(seed))
+      }))
     const parameters = { ...before, ...Record.fromEntries(replacements) }
     return new Optimized.Result({
       program: bound(options.module, parameters),

@@ -18,7 +18,11 @@ it.effect("bootstraprs-001: exact candidate catalog, fraction scores, reset and 
   Effect.gen(function*() {
     const reference = yield* Schema.decodeUnknownEffect(Schema.Struct({
       splits: Schema.Struct({ train: Schema.Array(Row), val: Schema.Array(Row) }),
-      candidates: Schema.Array(Schema.Struct({ seed: Schema.Int, score: Schema.Finite })),
+      candidates: Schema.Array(Schema.Struct({
+        seed: Schema.Int,
+        score: Schema.Finite,
+        state: Schema.Struct({ demos: Schema.Array(Schema.Struct({ question: Schema.String, answer: Schema.String })) })
+      })),
       winnerSeed: Schema.Int
     }))((yield* fixture("bootstraprs-001", "upstream-execution")).payload)
     const module = yield* Module.predict(
@@ -55,7 +59,19 @@ it.effect("bootstraprs-001: exact candidate catalog, fraction scores, reset and 
         })
       )
     ).pipe(Effect.provideService(LanguageModel.LanguageModel, mock.service))
-    expect(Arr.map(result.report.candidates, ({ seed, score }) => ({ seed, score }))).toEqual(reference.candidates)
+    expect(Arr.map(result.report.candidates, ({ seed, score }) => ({ seed, score })))
+      .toEqual(Arr.map(reference.candidates, ({ seed, score }) => ({ seed, score })))
+    expect(
+      Arr.map(
+        result.report.candidates,
+        (candidate) =>
+          Arr.map(Option.getOrThrow(Record.get(candidate.parameters, "qa")).demos, (demo) => ({
+            question: demo.input.question,
+            answer: demo.output.answer
+          }))
+      )
+    )
+      .toEqual(Arr.map(reference.candidates, (candidate) => candidate.state.demos))
     expect(result.report.winnerSeed).toBe(reference.winnerSeed)
     expect(Option.getOrThrow(Record.get(result.parameters, "qa")).demos).toEqual([])
     yield* Effect.forEach(result.report.candidates, (candidate) =>

@@ -76,6 +76,14 @@
       "description": "ChatAdapter formats a labeled demo and parses its completion."
     },
     {
+      "id": "cpython-random-001",
+      "file": "upstream/cpython-random-001.json",
+      "evidence": "upstream-kernel",
+      "sha256": "bf4c858d7d2805e885b59e92ca9cd1500bdcf67c56380b08739d0d344159dca8",
+      "generator": "fixtures.cpython_sampling",
+      "description": "Pinned CPython MT19937 integer seeds and exact mixed-operation state consumption."
+    },
+    {
       "id": "eval-failure-inclusive-001",
       "file": "upstream/eval-failure-inclusive-001.json",
       "evidence": "upstream-execution",
@@ -95,7 +103,7 @@
       "id": "labeledfewshot-001",
       "file": "upstream/labeledfewshot-001.json",
       "evidence": "upstream-execution",
-      "sha256": "f28576c4a6d59e129cc8ade24b393302a8ff0a4ecc8a6e978cba5d3aed14559c",
+      "sha256": "ba43c09e5aeab5b9c58d58b48feffb572206f30d10d278492ef4a5d2396479e0",
       "generator": "fixtures.bootstrap_family",
       "description": "Seeded upstream labeled sampling."
     },
