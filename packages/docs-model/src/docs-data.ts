@@ -87,7 +87,6 @@ export const GuideAnchorSchema = Schema.Struct({
 })
 
 export const GuidePageSchema = Schema.Struct({
-  schemaVersion: Schema.Literal(1),
   kind: Schema.Literal("guide"),
   path: NonEmptyString,
   package: ApiPagePackageSchema,
@@ -133,7 +132,6 @@ export const DocsApiExportSummarySchema = Schema.Struct({
 })
 
 export const DocsApiModuleIndexSchema = Schema.Struct({
-  schemaVersion: Schema.Literal(2),
   kind: Schema.Literal("api-module-index"),
   path: NonEmptyString,
   canonical: Schema.Boolean,
@@ -146,7 +144,6 @@ export const DocsApiModuleIndexSchema = Schema.Struct({
 })
 
 export const DocsApiExportPageSchema = Schema.Struct({
-  schemaVersion: Schema.Literal(1),
   kind: Schema.Literal("api-export"),
   export: ApiExportSchema
 })
@@ -164,7 +161,6 @@ export const DocsPackageSummarySchema = Schema.Struct({
 })
 
 export const DocsManifestSchema = Schema.Struct({
-  schemaVersion: Schema.Literal(3),
   revision: NonEmptyString,
   searchIndexAsset: DocsAssetPath,
   packages: Schema.Array(DocsPackageSummarySchema)
@@ -184,7 +180,6 @@ export const DocsSearchEntrySchema = Schema.Struct({
 })
 
 export const DocsSearchIndexSchema = Schema.Struct({
-  schemaVersion: Schema.Literal(1),
   entries: Schema.Array(DocsSearchEntrySchema)
 })
 

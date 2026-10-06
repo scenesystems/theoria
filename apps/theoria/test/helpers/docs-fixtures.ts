@@ -7,7 +7,6 @@ const packageRoot = `/docs-data/${revision}/packages/effect-search`
 const sourceUrl = `https://github.com/scenesystems/theoria/blob/${revision}/packages/effect-search/src/index.ts`
 
 export const docsManifestFixture: DocsManifest = {
-  schemaVersion: 3,
   revision,
   searchIndexAsset: `/docs-data/${revision}/search-index.json`,
   packages: [{
@@ -70,7 +69,6 @@ const emptyDocs: ApiDocumentation = {
 }
 
 export const apiPageFixture: ApiPage = {
-  schemaVersion: 2,
   kind: "api-module",
   path: "/docs/effect-search/api/Study",
   canonical: true,
@@ -194,7 +192,6 @@ export const apiPageFixture: ApiPage = {
 }
 
 export const docsSearchIndexFixture: DocsSearchIndex = {
-  schemaVersion: 1,
   entries: [{
     id: "effect-search",
     kind: "package",

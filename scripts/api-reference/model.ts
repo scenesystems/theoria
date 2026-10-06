@@ -45,7 +45,6 @@ export const ApiReferencePackageSchema = Schema.Struct({
 })
 
 export const ApiReferenceManifestSchema = Schema.Struct({
-  schemaVersion: Schema.Literal(3),
   typedocVersion: Schema.String,
   revision: Schema.String,
   packages: Schema.Array(ApiReferencePackageSchema)
