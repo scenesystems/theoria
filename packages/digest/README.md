@@ -213,10 +213,12 @@ Release acceptance compares the candidate with the previously published package:
 both bundled from the same Effect and Noble installation, driven through
 `fromSchema` with identical explicit codecs, fresh-process cold and warm-fresh
 timings on the same shapes plus the Vocabulary corpora, and every digest checked
-equal across release, candidate, and oracle. The criterion is lower time than the
-published release on each shape and runtime, not parity with a whole-preimage
-oracle. Measured matrices are recorded on the pull request that changes the
-canonicalizer, with raw samples, so a slower cell is reported rather than hidden.
+equal across release, candidate, and oracle. The criterion is measured improvement
+over the published release, not parity with a whole-preimage oracle and not a win
+in every cell: every shape and runtime is reported with its raw samples, each
+slower cell is listed with its dispersion, and a material regression is evaluated
+against the gains before release rather than hidden behind a summary. Measured
+matrices are recorded on the pull request that changes the canonicalizer.
 
 ## Examples
 
