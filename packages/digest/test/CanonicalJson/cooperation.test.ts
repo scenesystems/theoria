@@ -6,6 +6,7 @@ import {
   Effect,
   Exit,
   Fiber,
+  MutableRef,
   Number as N,
   Record,
   Ref,
@@ -23,23 +24,33 @@ import { Base64Url } from "effect/encoding"
 const isInterrupted = (exit: Exit.Exit<unknown, unknown>) => Exit.isFailure(exit) && Cause.hasInterrupts(exit.cause)
 
 const longText = Str.repeat(65_536)("value")
-// A sub-millisecond traversal can finish before a real timer is due even when
-// it yields. Exercise enough sliced text to observe host timer progress.
+// A traversal that yields only once or twice can finish before a real 1 ms
+// timer is due even though it yields. Exercise enough values and sliced text
+// that traversal yields many times while host timers become due.
 const timerText = Str.repeat(16)(longText)
 const workloads = Arr.make(
-  Tuple.make("array", Arr.makeBy(4_096, (index) => Arr.make(index, N.sum(index, 0.5)))),
+  Tuple.make("array", Arr.makeBy(65_536, (index) => Arr.make(index, N.sum(index, 0.5)))),
   Tuple.make(
     "record",
     Record.fromEntries(
       Arr.makeBy(
-        4_096,
+        65_536,
         (index) => Tuple.make(Str.concat("key-", Schema.encodeSync(Schema.FiniteFromString)(index)), index)
       )
     )
   ),
   Tuple.make("string", timerText),
   Tuple.make("escaped string", Str.repeat(65_536)("line\n\"\\漢😀")),
-  Tuple.make("record key", Record.singleton(timerText, true))
+  Tuple.make("record key", Record.singleton(timerText, true)),
+  // Copied runs are bounded by charged text, so long keys and dense escapes
+  // still yield between runs.
+  Tuple.make(
+    "long-key record",
+    Record.fromEntries(
+      Arr.makeBy(2_048, (index) => Tuple.make(Str.concat(Str.repeat(1_000)("k"), Str.String(index)), index))
+    )
+  ),
+  Tuple.make("dense escape array", Arr.makeBy(2_048, () => Str.repeat(300)("\n")))
 )
 
 it.live.each(workloads)(
@@ -195,6 +206,79 @@ it.effect("stops at the byte limit before a later invalid value is traversed", (
       Exit.fail(expected)
     )
   }))
+
+it.effect("reports the byte limit crossed by a copied prefix before a later hole", () =>
+  Effect.gen(function*() {
+    // Array concatenation keeps the hole that Effect's spreading constructors fill.
+    const holed = Arr.make<[unknown, ...Array<unknown>]>(1, 2, 3).concat(Arr.allocate(1))
+    const expected = Exit.fail(new CanonicalJson.ByteLimitExceeded({}))
+    expect(yield* Effect.exit(ContentDigest.fromSchemaWithByteLimit(Schema.Unknown, holed, 16)))
+      .toStrictEqual(Exit.fail(new CanonicalJson.UnsupportedValue({ reason: "sparse-array" })))
+    // `[1,2` already exceeds four bytes; the hole at index 3 is never reached.
+    expect(yield* Effect.exit(ContentDigest.fromSchemaWithByteLimit(Schema.Unknown, holed, 4)))
+      .toStrictEqual(expected)
+    expect(yield* Effect.exit(ContentDigest.fromSchemaWithByteLimit(Schema.Unknown, Arr.make(1, NaN), 2)))
+      .toStrictEqual(expected)
+    expect(yield* Effect.exit(ContentDigest.fromSchemaWithByteLimit(Schema.Unknown, { a: 1, b: NaN }, 8)))
+      .toStrictEqual(expected)
+    expect(yield* Effect.exit(ContentDigest.fromSchemaWithByteLimit(Schema.Unknown, { a: 1, b: NaN }, 11)))
+      .toStrictEqual(Exit.fail(new CanonicalJson.UnsupportedValue({ reason: "nan" })))
+  }))
+
+// Every field read before the limit is crossed, and no field after it, exactly
+// as when each value is emitted on its own.
+const counted = (reads: MutableRef.MutableRef<number>) => ({
+  get v(): number {
+    MutableRef.update(reads, N.increment)
+    return 1
+  }
+})
+
+const readsBeforeLimit: ReadonlyArray<
+  readonly [string, (reads: MutableRef.MutableRef<number>) => unknown, number, number]
+> = Arr.make(
+  Tuple.make(
+    "long keys",
+    (reads: MutableRef.MutableRef<number>) =>
+      Record.fromEntries(
+        Arr.makeBy(50, (index) => Tuple.make(Str.concat(Str.repeat(1_000)("k"), Str.String(index)), counted(reads)))
+      ),
+    // `{"k…0":{"v":1},"k…1":{"v":1}` fits; the third key prefix crosses the limit before its record opens.
+    2_500,
+    2
+  ),
+  Tuple.make(
+    "worst-case numbers",
+    (reads: MutableRef.MutableRef<number>) =>
+      Arr.append(Arr.makeBy(2_000, () => -1.2345678901234567e+308), counted(reads)),
+    20_000,
+    0
+  ),
+  Tuple.make(
+    "dense escapes",
+    (reads: MutableRef.MutableRef<number>) =>
+      Arr.flatten(Arr.make(
+        Arr.makeBy<unknown>(150, () => Str.repeat(300)("\n")),
+        Arr.make(counted(reads)),
+        Arr.makeBy<unknown>(50, () => Str.repeat(300)("\n"))
+      )),
+    70_000,
+    0
+  )
+)
+
+it.effect.each(readsBeforeLimit)(
+  "reads no %s field after the byte limit is crossed",
+  ([, make, limit, expectedReads]) =>
+    Effect.gen(function*() {
+      const reads = MutableRef.make(0)
+      const value = make(reads)
+      expect(yield* Effect.exit(ContentDigest.fromSchemaWithByteLimit(Schema.Unknown, value, limit))).toStrictEqual(
+        Exit.fail(new CanonicalJson.ByteLimitExceeded({}))
+      )
+      expect(MutableRef.get(reads)).toBe(expectedReads)
+    })
+)
 
 it.effect("preserves repeated keys and Unicode failures after wide record traversal", () =>
   Effect.gen(function*() {

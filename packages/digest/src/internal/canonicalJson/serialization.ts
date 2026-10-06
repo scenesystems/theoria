@@ -35,6 +35,7 @@ import {
   push,
   RecordFrame,
   RecordHalt,
+  runBytes,
   scannedDepth,
   Shape,
   type State,
@@ -58,27 +59,27 @@ SchemaCompiler.set(BufferView.ast, {
 })
 const isBufferView = Schema.is(BufferView)
 const isNaN = Predicate.and(Predicate.isNumber, (value: number) => !Equivalence.strictEqual<number>()(value, value))
-// Exactly the `Schema.Finite` check: Schema.is would allocate a parse exit per number.
+// Exactly the `Schema.Finite` check through Effect's public `Number` export:
+// `Schema.is(Schema.Finite)` would allocate a parse exit per number.
 const isFinite = N.Number.isFinite
 const isHighSurrogate = N.between({ minimum: 0xd800, maximum: 0xdbff })
 // Quotes, backslashes, lone surrogates, and code points below U+0020 require
 // Schema escaping or the precise Unicode error validator. Valid pairs do not match.
 const needsStringEncoding = /["\\\ud800-\udfff]|[^\u0020-\u{10ffff}]/u
+// Non-matching text yields the shared `None` without allocating.
 const unsafeCharacter = Str.match(needsStringEncoding)
 // Canonical array indices enumerate before other keys regardless of insertion order.
 const isIndexKey = (key: string): boolean => Option.isSome(Str.match(/^(?:0|[1-9][0-9]*)$/)(key))
 const concat = Str.ReducerConcat.combine
 const shortText = 1_024
+const sameObject = Equivalence.strictEqual<object>()
+const isPositive = N.isGreaterThan(0)
 
 // Objects of these kinds are refused before array or record admission, in this order.
-const isRefused = Predicate.some<unknown>([
-  Predicate.isDate,
-  Predicate.isRegExp,
-  isBufferView,
-  Predicate.isMap,
-  Predicate.isSet,
-  Predicate.isPromise
-])
+const isRefused = Predicate.or(
+  Predicate.or(Predicate.or(Predicate.isDate, Predicate.isRegExp), Predicate.or(isBufferView, Predicate.isMap)),
+  Predicate.or(Predicate.isSet, Predicate.isPromise)
+)
 const reason = (reason: UnsupportedValue["reason"]) => (): UnsupportedValue["reason"] => reason
 const refusal = Match.type<unknown>().pipe(
   Match.when(Predicate.isUndefined, reason("undefined")),
@@ -142,12 +143,22 @@ const startString = <E>(state: State<E>, text: string, prefix: string, suffix: s
 
 const sameKeys = Equivalence.Array(Str.Equivalence)
 
-const quoteKey = (key: string, at: number): string => concat(at > 0 ? ",\"" : "\"", concat(key, "\":"))
+const quoteKey = (key: string, at: number): string => concat(isPositive(at) ? ",\"" : "\"", concat(key, "\":"))
 
 const keyPrefix = (key: string, at: number): Option.Option<string> =>
   N.isLessThanOrEqualTo(Str.length(key), shortText) && Option.isNone(unsafeCharacter(key))
     ? Option.some(quoteKey(key, at))
     : Option.none()
+
+/*
+ * Serialized byte bounds charged before any further read. Unescaped text is
+ * at most three UTF-8 bytes per code unit, escaped text at most six, a number
+ * spells in at most 24 characters, and each bound includes the separator.
+ */
+const numberBytes = 25
+const unescapedBytes = (units: number): number => N.sum(N.multiply(units, 3), 3)
+const escapedBytes = (units: number): number => N.sum(N.multiply(units, 6), 3)
+const keyBytes = (key: string): number => N.sum(N.multiply(Str.length(key), 3), 4)
 
 // Consecutive records usually share one key layout; sort and quote it once.
 const shapeOf = <E>(state: State<E>, identity: Readonly<Record<string, unknown>>): Shape => {
@@ -159,38 +170,41 @@ const shapeOf = <E>(state: State<E>, identity: Readonly<Record<string, unknown>>
   // Fresh objects enumerate index-like keys first, so only index-free layouts
   // keep sorted insertion order under Schema's JSON serializer.
   const plain = Arr.every(prefixes, Option.isSome) && !Arr.some(sorted, isIndexKey)
-  const shape = new Shape({ keys, sorted, prefixes, plain })
+  const shape = new Shape({ keys, sorted, prefixes, costs: Arr.map(sorted, keyBytes), plain })
   MutableRef.set(state.shape, shape)
   return shape
 }
 
 /*
  * Bounded canonical copies. A run of consecutive plain values (admitted
- * scalars, dense arrays, and index-free records within a text bound and the
- * scanned depth) is copied into fresh JSON data and serialized by Schema in
- * one call. Copies read every element exactly once, after its own-index check,
- * and never carry prototypes, hooks, or hidden properties. A copy that cannot
- * continue halts with everything it already read; the frame machine resumes
- * from that exact position and reproduces the exact rejection.
+ * scalars, dense arrays, and index-free records within the scanned depth) is
+ * copied into fresh JSON data and serialized by Schema in one call. Copies
+ * read every element exactly once, after its own-index check, and never carry
+ * prototypes, hooks, or hidden properties. Each value is charged an upper
+ * bound of its serialized bytes before the next read, against `runBytes` or
+ * the remaining byte limit if smaller, so a run never crosses a limit and the
+ * reads stop exactly where single emissions would. A copy that cannot continue
+ * halts with everything it already read; the frame machine resumes from that
+ * exact position and reproduces the exact rejection.
  *
  * Copying allocates nothing per scalar: halts travel through `state.halt`,
  * elements accumulate in one mutable list per container, and entries are
  * assigned into one fresh record per container.
  */
-const runUnits = 32_768
 const runElements = 8_192
 
 const encloses = (parent: Option.Option<Container>, identity: object): boolean =>
-  Option.isSome(parent) && (parent.value.identity === identity || encloses(parent.value.parent, identity))
+  Option.isSome(parent) && (sameObject(parent.value.identity, identity) || encloses(parent.value.parent, identity))
 
 // Copied containers occupy the lineage slots between the copying frame and `depth`.
 const within = <E>(state: State<E>, identity: object, depth: number, frame: Container): boolean =>
-  withinSlots(state, identity, N.increment(frame.depth), depth) || frame.identity === identity ||
+  withinSlots(state, identity, N.increment(frame.depth), depth) || sameObject(frame.identity, identity) ||
   encloses(frame.parent, identity)
 
 const withinSlots = <E>(state: State<E>, identity: object, from: number, to: number): boolean =>
   from < to &&
-  (MutableRef.get(Arr.getUnsafe(state.lineage, from)) === identity || withinSlots(state, identity, from + 1, to))
+  (sameObject(MutableRef.get(Arr.getUnsafe(state.lineage, from)), identity) ||
+    withinSlots(state, identity, from + 1, to))
 
 const halted = <E>(state: State<E>): boolean => Option.isSome(MutableRef.get(state.halt))
 
@@ -203,24 +217,39 @@ const stop = <E>(state: State<E>, value: unknown): unknown => {
   return value
 }
 
-const spend = <E>(state: State<E>, units: number): boolean => {
-  const left = MutableRef.get(state.budget) - units
+// Owner-accepted native arithmetic and comparisons: `spend`, `open`, `copy`, and `withinSlots` run per value.
+const spend = <E>(state: State<E>, bytes: number): boolean => {
+  const left = MutableRef.get(state.budget) - bytes
   if (left < 0) return false
   MutableRef.set(state.budget, left)
   return true
 }
 
+// Printable ASCII without quotes or backslashes serializes byte for byte.
+const nonPlainCharacter = Str.match(/[^\u0020\u0021\u0023-\u005b\u005d-\u007e]/)
+
+// No run budget admits this charge, so a string charged with it is visited on
+// its own, where it is validated exactly. Charges allocate nothing per string.
+const uncopyableBytes = N.increment(runBytes)
+
+const stringBytes = (text: string): number =>
+  N.isGreaterThan(Str.length(text), shortText)
+    ? uncopyableBytes
+    : Option.isNone(nonPlainCharacter(text))
+    ? N.sum(Str.length(text), 3)
+    : Option.isNone(unsafeCharacter(text))
+    ? unescapedBytes(Str.length(text))
+    : Option.isNone(unicodeFault(text))
+    ? escapedBytes(Str.length(text))
+    : uncopyableBytes
+
 const copyString = <E>(state: State<E>, text: string): unknown =>
-  Str.length(text) <= shortText &&
-    (Option.isNone(unsafeCharacter(text)) || Option.isNone(unicodeFault(text))) &&
-    spend(state, Str.length(text) + 3)
-    ? text
-    : stop(state, text)
+  spend(state, stringBytes(text)) ? text : stop(state, text)
 
 // Returns the admitted copy, or any value after recording a halt.
 const copy = <E>(state: State<E>, value: unknown, depth: number, frame: Container): unknown => {
   if (Predicate.isString(value)) return copyString(state, value)
-  if (Predicate.isNumber(value)) return isFinite(value) && spend(state, 8) ? value : stop(state, value)
+  if (Predicate.isNumber(value)) return isFinite(value) && spend(state, numberBytes) ? value : stop(state, value)
   if (Predicate.isBoolean(value)) return spend(state, 6) ? value : stop(state, value)
   if (Predicate.isNull(value)) return spend(state, 5) ? value : stop(state, value)
   if (depth >= scannedDepth) return stop(state, value)
@@ -239,7 +268,7 @@ const copy = <E>(state: State<E>, value: unknown, depth: number, frame: Containe
 const runOffsets = Arr.range(0, N.decrement(runElements))
 const shortOffsets = Arr.makeBy(65, (count) => Arr.take(runOffsets, count))
 const offsets = (count: number): ReadonlyArray<number> =>
-  count < shortOffsets.length
+  N.isLessThan(count, shortOffsets.length)
     ? Arr.getUnsafe(shortOffsets, count)
     : N.Equivalence(count, runElements)
     ? runOffsets
@@ -255,8 +284,10 @@ const copyElements = <E>(
   depth: number,
   frame: Container
 ): void => {
+  // One data-last partial per run: elements then add without a dual dispatch.
+  const at = N.sum(from)
   Arr.every(offsets(count), (offset) => {
-    const index = from + offset
+    const index = at(offset)
     // Holes and inherited indices are both absent from own properties.
     if (!Record.has<`${number}`, unknown>(identity, `${index}`)) return false
     const value = copy(state, Arr.getUnsafe(identity, index), depth, frame)
@@ -266,10 +297,10 @@ const copyElements = <E>(
   })
 }
 
-// Charge the brackets first: nothing may fail after its children were read.
+// Charge the separator and brackets first: nothing may fail after its children were read.
 const open = <E>(state: State<E>, depth: number, identity: object, size: number): boolean => {
-  const left = MutableRef.get(state.budget) - 2
-  // Every element spends at least one unit, so the budget bounds index checks too.
+  const left = MutableRef.get(state.budget) - 3
+  // Every element charges at least one byte, so the budget bounds index checks too.
   if (left < size) return false
   MutableRef.set(state.budget, left)
   MutableRef.set(Arr.getUnsafe(state.lineage, depth), identity)
@@ -291,30 +322,36 @@ const copyEntry = <E>(
   state: State<E>,
   fresh: Record<string, unknown>,
   identity: Readonly<Record<string, unknown>>,
-  key: string,
+  shape: Shape,
+  at: number,
   depth: number,
   frame: Container
 ): boolean => {
-  const value = copy(state, Struct.get(identity, key), depth, frame)
+  const key = Arr.getUnsafe(shape.sorted, at)
+  // The value is read before its key prefix is charged, as single emissions do.
+  const read = Struct.get(identity, key)
+  const value = spend(state, Arr.getUnsafe(shape.costs, at)) ? copy(state, read, depth, frame) : stop(state, read)
   if (halted(state)) return false
   // Insertion order is the sorted order; `__proto__` becomes an own data property.
   Record.assignProperty(fresh, key, value)
   return true
 }
 
+// Returns how many entries were copied: the first offset that halted, else all.
 const copyEntries = <E>(
   state: State<E>,
   fresh: Record<string, unknown>,
   identity: Readonly<Record<string, unknown>>,
-  keys: ReadonlyArray<string>,
+  shape: Shape,
   from: number,
   count: number,
   depth: number,
   frame: Container
-): void => {
-  Arr.every(
-    offsets(count),
-    (offset) => copyEntry(state, fresh, identity, Arr.getUnsafe(keys, from + offset), depth, frame)
+): number => {
+  const at = N.sum(from)
+  return Option.getOrElse(
+    Arr.findFirstIndex(offsets(count), (offset) => !copyEntry(state, fresh, identity, shape, at(offset), depth, frame)),
+    () => count
   )
 }
 
@@ -327,17 +364,9 @@ const copyRecord = <E>(
   const shape = shapeOf(state, identity)
   if (!shape.plain || !open(state, depth, identity, shape.sorted.length)) return stop(state, identity)
   const fresh = Record.empty<string, unknown>()
-  if (Arr.every(shape.sorted, (key) => copyEntry(state, fresh, identity, key, N.increment(depth), frame))) return fresh
-  halt(
-    state,
-    RecordHalt({
-      identity,
-      shape,
-      fresh,
-      copied: Record.size(fresh),
-      child: MutableRef.getAndSet(state.halt, Option.none())
-    })
-  )
+  const copied = copyEntries(state, fresh, identity, shape, 0, shape.sorted.length, N.increment(depth), frame)
+  if (N.Equivalence(copied, shape.sorted.length)) return fresh
+  halt(state, RecordHalt({ identity, shape, fresh, copied, child: MutableRef.getAndSet(state.halt, Option.none()) }))
   return identity
 }
 
@@ -351,9 +380,19 @@ const emitRun = <E>(state: State<E>, run: unknown, prefix: string): void =>
 const makeVisit = <E>(
   state: State<E>
 ): (value: unknown, prefix: string, parent: Option.Option<Container>) => void => {
+  // A rejected value's separator and key were already admitted against the
+  // byte limit, so a limit crossed there is the failure.
+  const refuse = (prefix: string, reason: UnsupportedValue["reason"]): void => {
+    emit(state, prefix)
+    reject(state, reason)
+  }
+  const cyclic = (prefix: string): void => {
+    emit(state, prefix)
+    fail(state, new CyclicValue())
+  }
   const openArray = (identity: ReadonlyArray<unknown>, prefix: string, parent: Option.Option<Container>): void => {
     const depth = depthBelow(parent)
-    if (isCyclic(state, identity, depth, parent)) return fail(state, new CyclicValue())
+    if (isCyclic(state, identity, depth, parent)) return cyclic(prefix)
     emit(state, concat(prefix, "["))
     push(state, ArrayFrame({ identity, at: MutableRef.make(0), depth, parent }))
   }
@@ -363,34 +402,23 @@ const makeVisit = <E>(
     parent: Option.Option<Container>
   ): void => {
     const depth = depthBelow(parent)
-    if (isCyclic(state, identity, depth, parent)) return fail(state, new CyclicValue())
+    if (isCyclic(state, identity, depth, parent)) return cyclic(prefix)
     emit(state, concat(prefix, "{"))
     const shape = shapeOf(state, identity)
-    push(
-      state,
-      RecordFrame({
-        identity,
-        keys: shape.sorted,
-        prefixes: shape.prefixes,
-        plain: shape.plain,
-        at: MutableRef.make(0),
-        depth,
-        parent
-      })
-    )
+    push(state, RecordFrame({ identity, shape, at: MutableRef.make(0), depth, parent }))
   }
   return (value, prefix, parent) => {
     if (Predicate.isString(value)) return startString(state, value, prefix, "\"")
     if (Predicate.isNumber(value)) {
-      if (isNaN(value)) return reject(state, "nan")
-      if (!isFinite(value)) return reject(state, "non-finite-number")
+      if (isNaN(value)) return refuse(prefix, "nan")
+      if (!isFinite(value)) return refuse(prefix, "non-finite-number")
       return emit(state, concat(prefix, Str.String(value)))
     }
     if (Predicate.isBoolean(value)) return emit(state, concat(prefix, Str.String(value)))
     if (Predicate.isNull(value)) return emit(state, concat(prefix, "null"))
     if (Arr.isArray(value) && !isRefused(value)) return openArray(value, prefix, parent)
     if (Predicate.isObject(value) && !isRefused(value)) return openRecord(value, prefix, parent)
-    return reject(state, refusal(value))
+    return refuse(prefix, refusal(value))
   }
 }
 
@@ -454,22 +482,14 @@ export const makeProcessor = <E>(state: State<E>): (frame: Frame) => void => {
         if (Arr.isReadonlyArrayNonEmpty(elements)) emitRun(state, elements, "")
         if (Option.isSome(child)) {
           MutableRef.set(frame.at, N.increment(at))
-          resume(child.value, at > 0 ? "," : "", Option.some(frame))
+          resume(child.value, isPositive(at) ? "," : "", Option.some(frame))
         }
       },
       Record: ({ child, copied, fresh, identity, shape }) => {
         emit(state, concat(prefix, "{"))
-        const frame = RecordFrame({
-          identity,
-          keys: shape.sorted,
-          prefixes: shape.prefixes,
-          plain: shape.plain,
-          at: MutableRef.make(copied),
-          depth: depthBelow(parent),
-          parent
-        })
+        const frame = RecordFrame({ identity, shape, at: MutableRef.make(copied), depth: depthBelow(parent), parent })
         push(state, frame)
-        if (copied > 0) emitRun(state, fresh, "")
+        if (isPositive(copied)) emitRun(state, fresh, "")
         if (Option.isSome(child)) {
           MutableRef.set(frame.at, N.increment(copied))
           resume(child.value, quoteKey(Arr.getUnsafe(shape.sorted, copied), copied), Option.some(frame))
@@ -490,48 +510,56 @@ export const makeProcessor = <E>(state: State<E>): (frame: Frame) => void => {
       const identity = frame.identity
       const at = MutableRef.get(frame.at)
       if (N.isGreaterThanOrEqualTo(at, identity.length)) return close(state, frame, "]")
-      MutableRef.set(state.budget, runUnits)
+      MutableRef.set(state.budget, N.min(runBytes, state.allowance()))
       const count = N.min(N.subtract(identity.length, at), runElements)
       const run = MutableList.make<unknown>()
       copyElements(state, run, identity, at, count, N.increment(frame.depth), frame)
       const copied = run.length
       const next = N.sum(at, copied)
       MutableRef.set(frame.at, next)
-      if (copied > 0) emitRun(state, MutableList.takeAll(run), at > 0 ? "," : "")
+      if (isPositive(copied)) emitRun(state, MutableList.takeAll(run), isPositive(at) ? "," : "")
       const where = MutableRef.getAndSet(state.halt, Option.none())
       if (Option.isSome(where)) {
         MutableRef.set(frame.at, N.increment(next))
-        return resume(where.value, next > 0 ? "," : "", Option.some(frame))
+        return resume(where.value, isPositive(next) ? "," : "", Option.some(frame))
       }
       // Holes and inherited indices are both absent from own properties.
       if (N.isLessThan(copied, count)) reject(state, "sparse-array")
     },
     Record: (frame) => {
       const at = MutableRef.get(frame.at)
-      if (N.isGreaterThanOrEqualTo(at, frame.keys.length)) return close(state, frame, "}")
-      if (frame.plain) {
-        MutableRef.set(state.budget, runUnits)
-        const count = N.min(N.subtract(frame.keys.length, at), runElements)
+      if (N.isGreaterThanOrEqualTo(at, frame.shape.sorted.length)) return close(state, frame, "}")
+      if (frame.shape.plain) {
+        MutableRef.set(state.budget, N.min(runBytes, state.allowance()))
+        const count = N.min(N.subtract(frame.shape.sorted.length, at), runElements)
         const fresh = Record.empty<string, unknown>()
-        copyEntries(state, fresh, frame.identity, frame.keys, at, count, N.increment(frame.depth), frame)
-        const copied = Record.size(fresh)
+        const copied = copyEntries(
+          state,
+          fresh,
+          frame.identity,
+          frame.shape,
+          at,
+          count,
+          N.increment(frame.depth),
+          frame
+        )
         const next = N.sum(at, copied)
         MutableRef.set(frame.at, next)
-        if (copied > 0) emitRun(state, fresh, at > 0 ? "," : "")
+        if (isPositive(copied)) emitRun(state, fresh, isPositive(at) ? "," : "")
         const where = MutableRef.getAndSet(state.halt, Option.none())
         if (Option.isSome(where)) {
           MutableRef.set(frame.at, N.increment(next))
-          return resume(where.value, quoteKey(Arr.getUnsafe(frame.keys, next), next), Option.some(frame))
+          return resume(where.value, quoteKey(Arr.getUnsafe(frame.shape.sorted, next), next), Option.some(frame))
         }
         return
       }
       MutableRef.set(frame.at, N.increment(at))
-      const key = Arr.getUnsafe(frame.keys, at)
+      const key = Arr.getUnsafe(frame.shape.sorted, at)
       // keys is our own-key snapshot; the input graph must remain stable.
       const value = Struct.get(frame.identity, key)
-      const prefix = Arr.getUnsafe(frame.prefixes, at)
+      const prefix = Arr.getUnsafe(frame.shape.prefixes, at)
       if (Option.isSome(prefix)) return visit(value, prefix.value, Option.some(frame))
-      if (at > 0) emit(state, ",")
+      if (isPositive(at)) emit(state, ",")
       if (N.isLessThanOrEqualTo(Str.length(key), shortText)) {
         startString(state, key, "", "\":")
         if (Option.isNone(MutableRef.get(state.failure))) visit(value, "", Option.some(frame))
