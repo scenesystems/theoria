@@ -16,6 +16,10 @@ const Output = Schema.Struct({ answer: Schema.String })
 class ScorerFailed extends Schema.TaggedError<ScorerFailed>()("ScorerFailed", {}) {}
 const trainset = Arr.make(new Example({ input: { question: "question" }, labels: Option.some({ answer: "answer" }) }))
 const invalid = new Example({ input: { question: 42 }, labels: Option.some({ answer: "answer" }) })
+const makeMock = () =>
+  MockLanguageModel.make(
+    MockLanguageModel.map((prompt) => String.includes("Return only ")(prompt) ? "instruction" : { answer: "answer" })
+  )
 const makeModule = Effect.gen(function*() {
   const signature = yield* Signature.make("Baseline instruction", { question: Schema.String }, Output.fields)
   const module = yield* Module.predict("qa", signature)
@@ -34,7 +38,7 @@ describe("MIPROv2.run failure-aware scores", () => {
   it.effect("fails through the checked channel when every scorer invocation fails", () =>
     Effect.gen(function*() {
       const module = yield* makeModule
-      const mock = yield* MockLanguageModel.make(MockLanguageModel.succeed({ answer: "answer" }))
+      const mock = yield* makeMock()
       const calls = yield* Ref.make(0)
       const metric = Metric.withFeedback(
         () => Ref.update(calls, Number.increment).pipe(Effect.andThen(Effect.fail(new ScorerFailed()))),
@@ -58,7 +62,7 @@ describe("MIPROv2.run failure-aware scores", () => {
   it.effect("rejects entirely malformed validation inputs instead of projecting a zero score", () =>
     Effect.gen(function*() {
       const module = yield* makeModule
-      const mock = yield* MockLanguageModel.make(MockLanguageModel.succeed({ answer: "answer" }))
+      const mock = yield* makeMock()
       const failure = yield* MIPROv2.run(
         new MIPROv2.Options({
           module,
@@ -74,7 +78,8 @@ describe("MIPROv2.run failure-aware scores", () => {
       expect(failure).toBeInstanceOf(AllTrialsFailed)
       const report = yield* Schema.decodeUnknownEffect(AllTrialsFailed)(failure)
       expect(report.trialCount).toBe(1)
-      expect(yield* Ref.get(mock.calls)).toHaveLength(0)
+      expect(Arr.filter(yield* Ref.get(mock.calls), (call) => String.Equivalence(call.method, "generateObject")))
+        .toHaveLength(0)
     }))
 
   it.effect("does not rank a failed candidate above valid negative scores", () =>
@@ -82,7 +87,7 @@ describe("MIPROv2.run failure-aware scores", () => {
       const module = yield* makeModule
       const rejected = yield* Ref.make(0)
       const mock = yield* MockLanguageModel.make(MockLanguageModel.map((prompt) =>
-        Boolean.match(String.includes("[miprov2-proposal:")(prompt), {
+        Boolean.match(String.includes("Return only ")(prompt), {
           onTrue: () => "Unscorable instruction",
           onFalse: () => ({
             answer: Boolean.match(String.includes("Unscorable instruction")(prompt), {
@@ -106,7 +111,7 @@ describe("MIPROv2.run failure-aware scores", () => {
           module,
           trainset,
           metric,
-          numCandidates: 1,
+          numCandidates: 2,
           numInstructions: 2,
           trialBudget: 12,
           fullEvalEvery: 2,
@@ -123,7 +128,7 @@ describe("MIPROv2.run failure-aware scores", () => {
   it.effect("retains genuine partial-failure reports and the successful baseline when all minibatches fail", () =>
     Effect.gen(function*() {
       const module = yield* makeModule
-      const mock = yield* MockLanguageModel.make(MockLanguageModel.succeed({ answer: "answer" }))
+      const mock = yield* makeMock()
       const fiber = yield* MIPROv2.run(
         new MIPROv2.Options({
           module,
@@ -143,6 +148,7 @@ describe("MIPROv2.run failure-aware scores", () => {
       expect(optimized.program).not.toBe(module)
       expect(Option.getOrThrow(Record.get(optimized.parameters, "qa")).instructions).toBe("Baseline instruction")
       // Input validation excludes the invalid row before execution; only the valid baseline row runs.
-      expect(yield* Ref.get(mock.calls)).toHaveLength(1)
+      expect(Arr.filter(yield* Ref.get(mock.calls), (call) => String.Equivalence(call.method, "generateObject")))
+        .toHaveLength(1)
     }))
 })

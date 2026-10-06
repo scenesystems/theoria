@@ -60,22 +60,6 @@ export const Examples = Schema.Array(Example)
  */
 export type Examples = typeof Examples.Type
 
-/**
- * Proposal hints selected by MIPROv2 Phase 2.
- *
- * @since 0.1.0
- * @category schemas
- */
-export const TipVocabulary = Schema.Array(Schema.String)
-
-/**
- * Proposal hints selected by MIPROv2 Phase 2.
- *
- * @since 0.1.0
- * @category type-level
- */
-export type TipVocabulary = typeof TipVocabulary.Type
-
 /** Lifecycle events emitted by MIPROv2 phases.
  * @since 0.1.0
  * @category events
@@ -330,10 +314,20 @@ export class Options<
   readonly metricThreshold?: Option.Option<number>
   /** Raises when the bootstrap failure count reaches this limit. */
   readonly maxErrors?: Option.Option<number>
-  /** Numeric hint rendered into each proposal prompt. Defaults to `1`; it does not configure the model provider. */
-  readonly diversityTemperature?: number
-  /** Proposal hints selected cyclically. An empty or omitted array uses the built-in vocabulary. */
-  readonly tipVocabulary?: TipVocabulary
+  /** Proposal model temperature, default 1. */
+  readonly initTemperature?: number
+  /** Provider-independent overrides for proposer calls. */
+  readonly proposerSettings?: ModelSettings
+  /** Describe the program and predictor for every proposal, default true. */
+  readonly programAwareProposer?: boolean
+  /** Generate and cache a dataset summary, default true. */
+  readonly dataAwareProposer?: boolean
+  /** Draw a prompting tip before each rollout ID, default true. */
+  readonly tipAwareProposer?: boolean
+  /** Include up to three augmented demonstrations, default true. */
+  readonly fewshotAwareProposer?: boolean
+  /** Rows per dataset-description call, default 10. */
+  readonly viewDataBatchSize?: number
   /** Phase 3 optimization trials; invalid counts become one and omission uses the search-space budget formula. */
   readonly trialBudget?: number
   /** Prefix size of `valset` used for every trial objective. Defaults to `50` and is normalized to a positive integer. */

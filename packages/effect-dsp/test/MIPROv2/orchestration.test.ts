@@ -44,7 +44,7 @@ const makeStructuredQaModule = Effect.gen(function*() {
 
 const makeQaMock = MockLanguageModel.make(
   MockLanguageModel.map((prompt) =>
-    prompt.includes("[miprov2-proposal:")
+    prompt.includes("Return only ")
       ? "Use concise and factual answers"
       : { answer: "Paris" }
   )

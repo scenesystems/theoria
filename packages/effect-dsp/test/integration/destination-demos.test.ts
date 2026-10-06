@@ -100,6 +100,7 @@ describe("destination-owned demonstrations", () => {
         new Demonstration({
           input: { question: "France", context: "Cities" },
           output: { analysis: "Paris" },
+          augmented: true,
           exampleId: Option.some(Id.make("france"))
         })
       ))
@@ -119,6 +120,7 @@ describe("destination-owned demonstrations", () => {
       const stage = new Demonstration({
         input: { question: "France", context: "Cities" },
         output: { analysis: "Paris" },
+        augmented: true,
         exampleId: Option.some(Id.make("france"))
       })
       const mock = yield* MockLanguageModel.make(MockLanguageModel.succeed({ analysis: "Paris" }))
@@ -229,6 +231,7 @@ describe("destination-owned demonstrations", () => {
         new Demonstration({
           input: { question: "France", context: "Cities" },
           output: { analysis: "training-stage-marker" },
+          augmented: true,
           exampleId: Option.some(Id.make("france"))
         })
       ))
@@ -272,6 +275,7 @@ describe("destination-owned demonstrations", () => {
         new Demonstration({
           input: { question: "France" },
           output: { answer: "Paris" },
+          augmented: true,
           exampleId: Option.some(Id.make("france"))
         })
       ))

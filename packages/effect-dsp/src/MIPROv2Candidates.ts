@@ -10,7 +10,7 @@ import { Data, Schema } from "effect"
 import { generateDemoCandidates as generateDemoCandidatesInternal } from "./internal/miprov2/bootstrap.js"
 import { proposeInstructionCandidates as proposeInstructionCandidatesInternal } from "./internal/miprov2/propose.js"
 import type { Metric } from "./Metric.js"
-import type { Examples, TipVocabulary } from "./MIPROv2.js"
+import type { Examples } from "./MIPROv2.js"
 import type { Module as DspModule } from "./Module.js"
 import { ModuleParameters } from "./ModuleParameters.js"
 
@@ -107,7 +107,8 @@ export class InstructionCandidate
     predictorName: Schema.String,
     instruction: Schema.String,
     tip: Schema.String,
-    cacheBustMarker: Schema.String,
+    /** Shared-stream rollout partition, including the discarded first proposal. @since 0.6.0 */
+    rolloutId: Schema.Option(Schema.Int),
     prompt: Schema.String,
     isBaseline: Schema.Boolean
   })
@@ -151,8 +152,13 @@ export class ProposeInstructionCandidatesOptions<
   readonly demoCandidates: PredictorDemoCandidateSets
   readonly numInstructions: number
   readonly seed?: number
-  readonly diversityTemperature?: number
-  readonly tipVocabulary?: TipVocabulary
+  readonly initTemperature?: number
+  readonly proposerSettings?: ModelSettings
+  readonly programAwareProposer?: boolean
+  readonly dataAwareProposer?: boolean
+  readonly tipAwareProposer?: boolean
+  readonly fewshotAwareProposer?: boolean
+  readonly viewDataBatchSize?: number
 }> {}
 
 /** Generates ordered instruction candidates without mutating module parameters.

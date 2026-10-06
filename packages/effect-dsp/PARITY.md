@@ -57,7 +57,7 @@ without instruction markers or label-only substitutes for teacher evidence.
 `mipro-trial-budget-001`, `miprov2-explicit-001`, `miprov2-no-labels-001` and
 `miprov2-zero-shot-001` establish exact demo identities/order, bootstrap metric
 identities and teacher-call counts. Full MIPRO verification remains pending
-phases 2–3. The phase-1 test reproduces auto's preceding full-coverage validation
+phase 3. The phase-1 test reproduces auto's preceding full-coverage validation
 sample before invoking candidate generation.
 
 Unlike BootstrapRS, MIPRO creates one seed-9 (or caller-seeded) CPython stream
@@ -67,10 +67,34 @@ then each shuffled catalog candidate's shuffle followed by randint. Candidate
 shuffles and draws a bootstrap cap, before unshuffled candidate -1. Zero-shot
 uses effective proposer-evidence caps of zero labeled and three bootstrapped
 demos, so it still incurs teacher and metric calls. Both zero-shot and nonzero
-bootstrap caps with no labels have execution fixtures. Proposer and search
-consumers of that same stream will be integrated in the following steps;
+bootstrap caps with no labels have execution fixtures. Each subsequent proposal
+draws a tip choice first (when enabled), then randint(0, 10**9) for rollout ID.
+There is no history random() draw. Phase-1/2 tests continue the same stream and
+assert the upstream rollout sequence. Search sampling remains the next step;
 zero-shot's instruction-only search is recorded upstream but not yet claimed
 by the local search implementation.
+
+Wave 3.2 verifies grounded proposals using `miprov2-grounded-proposer-001`,
+`miprov2-proposer-no-demos-001` and `miprov2-proposer-summary-skips-001`.
+The fixture assertions cover exact call order, dataset batch identities,
+proposal identities, roles, temperatures, rollout IDs, tips, augmented demo
+rotation and the next shared-stream draw. The summary sequence is one
+DatasetDescriptor, up to nine DatasetDescriptorWithPriorObservations calls
+(stop after five cumulative COMPLETE replies), then ObservationSummarizer,
+all at temperature 1.0 and cached across proposals. Every proposal can make
+DescribeProgram and DescribeModule calls before GenerateSingleModuleInstruction;
+all three share the proposal's rollout ID. Proposal zero is generated, then
+replaced by the original instruction. Empty demo catalogs use N proposals;
+otherwise proposal count is min(N, catalog length).
+
+`Demonstration.augmented` persists teacher provenance independently of output
+completeness. Labeled/prewarmed/fill demos remain false; TeacherTrace sets true.
+The proposer gathers up to three augmented demos from current, following, then
+preceding sets, and suppresses demos for proposal zero. Equivalence remains
+encoded input/output only; the cache parameters hash includes provenance.
+Program-description prompts intentionally represent Module.Structure-derived
+predictor paths and signature text, not Python source; language-specific prompt
+serialization is not byte-identical. No synthetic cache markers enter prompts.
 
 Wave 1.1 binds effective generation settings and semantic roles to model requests.
 Independent transport tests cover provider field mappings, retained defaults, role

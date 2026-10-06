@@ -75,7 +75,7 @@ describe("MIPROv2/effect-search integration", () => {
               predictorName: "qa",
               instruction: baselineParameters.instructions,
               tip: "baseline",
-              cacheBustMarker: "[miprov2-proposal:qa:0:seed:1]",
+              rolloutId: Option.none(),
               prompt: "baseline",
               isBaseline: true
             }),
@@ -83,7 +83,7 @@ describe("MIPROv2/effect-search integration", () => {
               predictorName: "qa",
               instruction: "Use concise facts for capitals",
               tip: "focus",
-              cacheBustMarker: "[miprov2-proposal:qa:1:seed:1]",
+              rolloutId: Option.some(1),
               prompt: "proposal",
               isBaseline: false
             })

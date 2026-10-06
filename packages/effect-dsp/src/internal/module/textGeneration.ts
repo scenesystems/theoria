@@ -4,7 +4,7 @@
  * @since 0.1.0
  */
 import * as ModelBinder from "@scenesystems/effect-lm/ModelBinder"
-import { empty } from "@scenesystems/effect-lm/ModelSettings"
+import { empty, type ModelSettings } from "@scenesystems/effect-lm/ModelSettings"
 import { Array as Arr, Boolean, Effect, Option, String as Str } from "effect"
 import type * as Prompt from "effect/ai/Prompt"
 import { RolloutRef } from "../cache/rollout.js"
@@ -12,10 +12,10 @@ import { callLmText } from "../lm.js"
 import { CurrentRole } from "../modelRole.js"
 
 /** @internal */
-export const generateText = Effect.fnUntraced(function*(prompt: Prompt.RawInput) {
+export const generateText = Effect.fnUntraced(function*(prompt: Prompt.RawInput, settings: ModelSettings = empty) {
   return yield* callLmText(prompt).pipe(ModelBinder.bind(
     new ModelBinder.Request({
-      settings: empty,
+      settings,
       role: yield* CurrentRole,
       rolloutId: yield* RolloutRef
     })

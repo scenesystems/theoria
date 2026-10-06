@@ -1,10 +1,40 @@
 import { describe, expect, it } from "@effect/vitest"
+import * as Cache from "@scenesystems/effect-dsp/Cache"
 import { Demonstration } from "@scenesystems/effect-dsp/Demonstration"
+import { ModuleParameters } from "@scenesystems/effect-dsp/ModuleParameters"
+import { ParameterSet } from "@scenesystems/effect-dsp/ParameterSet"
 import { encode, Payload } from "@scenesystems/effect-dsp/Payload"
 import * as Signature from "@scenesystems/effect-dsp/Signature"
-import { Array as Arr, Effect, MutableRef, Schema, String } from "effect"
+import { Array as Arr, Effect, MutableRef, Schema, String, Struct } from "effect"
 
 describe("signature-owned demonstrations", () => {
+  it.effect("keeps complete labeled outputs distinct from augmented teacher evidence", () =>
+    Effect.gen(function*() {
+      const signature = yield* Signature.make("answer", { question: Schema.String }, { answer: Schema.String })
+      const labeled = yield* signature.demonstrationCodec.labeled(
+        new Demonstration({ input: { question: "q" }, output: { answer: "a" } })
+      )
+      expect(labeled).toMatchObject({ incomplete: false, augmented: false })
+      const teacher = new Demonstration(Struct.assign(labeled, { augmented: true }))
+      expect(yield* signature.demonstrationCodec.equivalent(labeled, teacher)).toBe(true)
+      expect(yield* signature.demonstrationCodec.decode(teacher)).toEqual(teacher)
+      const parameters = {
+        qa: new ModuleParameters({ instructions: "answer", demos: [teacher, labeled], outputStrategy: "text" })
+      }
+      const json = Schema.fromJsonString(Schema.toCodecJson(ParameterSet))
+      expect(yield* Schema.decodeEffect(json)(yield* Schema.encodeEffect(json)(parameters))).toEqual(parameters)
+      const key = (demo: Demonstration) =>
+        Cache.key(
+          new Cache.KeyRequest({
+            moduleFingerprint: "qa",
+            runtimeFingerprint: "test",
+            input: { question: "q" },
+            parameters: { demos: [demo] }
+          })
+        )
+      expect((yield* key(teacher)).parametersHash).not.toBe((yield* key(labeled)).parametersHash)
+    }))
+
   it.effect("validates destination wire fields and restores trace documents without domain decoding", () =>
     Effect.gen(function*() {
       const signature = yield* Signature.make("Nested values", {

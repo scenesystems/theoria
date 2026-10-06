@@ -4,6 +4,7 @@
  * @see {@link https://arxiv.org/abs/2406.11695 | Opsahl-Ong et al., "Optimizing Instructions and Demonstrations for Multi-Stage Language Model Programs", 2024}
  * @since 0.1.0
  */
+import * as Settings from "@scenesystems/effect-lm/ModelSettings"
 import {
   Array as Arr,
   Boolean as Bool,
@@ -15,6 +16,7 @@ import {
   Schema,
   String as Str
 } from "effect"
+import { Record, Struct } from "effect"
 import { Documents as DemoDocuments } from "../../Demonstration.js"
 import { InstructionProposalFailed } from "../../DspError.js"
 import {
@@ -25,20 +27,14 @@ import {
   type ProposeInstructionCandidatesOptions
 } from "../../MIPROv2Candidates.js"
 import { predictors } from "../../ModuleGraph.js"
-import type { ModuleParameters } from "../../ModuleParameters.js"
+import * as Payload from "../../Payload.js"
 import type * as Predictor from "../../Predictor.js"
-import { CurrentRole } from "../modelRole.js"
-import { generateText } from "../module/textGeneration.js"
+import { Text } from "../../Signature.js"
+import { RolloutRef } from "../cache/rollout.js"
 import * as Binding from "../parameterBinding.js"
-import {
-  proposalIndices,
-  proposalMarker,
-  resolveDiversityTemperature,
-  resolveSeed,
-  resolveTipVocabulary,
-  tipAt
-} from "./runtime/policy.js"
-import { buildProposalPrompt, datasetSummary, ProposalPromptOptions } from "./runtime/prompt.js"
+import { stripPrefix, tips } from "./runtime/policy.js"
+import { datasetSummary, generate, prompt } from "./runtime/prompt.js"
+import * as Sampling from "./sampling.js"
 
 const indexDemoCandidateSets = (
   refs: ReadonlyArray<Predictor.Predictor>,
@@ -97,40 +93,37 @@ const indexDemoCandidateSets = (
       })
   )
 
-const baselineCandidate = (predictorName: string, instruction: string): InstructionCandidate =>
-  new InstructionCandidate({
-    predictorName,
-    instruction,
-    tip: "baseline",
-    cacheBustMarker: proposalMarker(predictorName, 0, 0),
-    prompt: "baseline",
-    isBaseline: true
-  })
-
-class ResolvedPredictor extends Data.Class<{
-  readonly ref: Predictor.Predictor
-  readonly predictorIndex: number
-  readonly demoSet: PredictorDemoCandidates
-  readonly parameters: ModuleParameters
-}> {}
-
 const RenderedDemos = Schema.Array(DemoDocuments)
 const RenderedDemoCandidates = Schema.Array(RenderedDemos)
+const ProgramCode = Schema.Struct({
+  name: Schema.String,
+  description: Schema.String,
+  predictors: Schema.Array(Schema.Struct({ path: Schema.String, signature: Text }))
+})
 
 class PreparedPredictor extends Data.Class<{
   readonly ref: Predictor.Predictor
   readonly predictorIndex: number
-  readonly parameters: ModuleParameters
+  readonly instruction: string
   readonly renderedDemoCandidates: typeof RenderedDemoCandidates.Type
-  readonly firstDemos: typeof RenderedDemos.Type
 }> {}
 
-const resolvePredictor = (
+const preparePredictor = (
   ref: Predictor.Predictor,
   predictorIndex: number,
-  candidateSets: HashMap.HashMap<string, PredictorDemoCandidates>
+  candidateSets: HashMap.HashMap<string, PredictorDemoCandidates>,
+  hasDemos: boolean
 ) =>
   Effect.gen(function*() {
+    const parameters = yield* Binding.read(ref.parameters, ref.name)
+    if (!hasDemos) {
+      return new PreparedPredictor({
+        ref,
+        predictorIndex,
+        instruction: parameters.instructions,
+        renderedDemoCandidates: []
+      })
+    }
     const demoSet = yield* Effect.fromOption(HashMap.get(candidateSets, ref.name), () =>
       new InstructionProposalFailed({
         message: Str.concat(Str.concat("Missing demo candidates for predictor '", ref.name), "'"),
@@ -141,27 +134,23 @@ const resolvePredictor = (
         message: Str.concat(Str.concat("Demo candidate set for predictor '", ref.name), "' is empty"),
         predictorIndex
       })))
-    const parameters = yield* Binding.read(ref.parameters, ref.name)
-    return new ResolvedPredictor({ ref, predictorIndex, demoSet, parameters })
-  })
-
-const preparePredictor = (resolved: ResolvedPredictor) =>
-  Effect.gen(function*() {
     const renderedDemoCandidates = yield* Effect.forEach(
-      resolved.demoSet.candidates,
-      (candidate) => Effect.forEach(candidate.parameters.demos, resolved.ref.demonstrationCodec.encode)
+      demoSet.candidates,
+      (candidate) =>
+        Effect.gen(function*() {
+          // Validate every supplied demo before model calls, including labels not used for grounding.
+          const documents = yield* Effect.forEach(candidate.parameters.demos, ref.demonstrationCodec.encode)
+          return Arr.filter(
+            documents,
+            (_document, index) => Option.getOrThrow(Arr.get(candidate.parameters.demos, index)).augmented
+          )
+        })
     )
-    const firstDemos = yield* Effect.fromOption(Arr.head(renderedDemoCandidates), () =>
-      new InstructionProposalFailed({
-        message: Str.concat(Str.concat("Demo candidate set for predictor '", resolved.ref.name), "' is empty"),
-        predictorIndex: resolved.predictorIndex
-      }))
     return new PreparedPredictor({
-      ref: resolved.ref,
-      predictorIndex: resolved.predictorIndex,
-      parameters: resolved.parameters,
-      renderedDemoCandidates,
-      firstDemos
+      ref,
+      predictorIndex,
+      instruction: parameters.instructions,
+      renderedDemoCandidates
     })
   })
 
@@ -169,10 +158,11 @@ const preparePredictor = (resolved: ResolvedPredictor) =>
  * Generates ordered instruction candidates without mutating module parameters.
  *
  * @remarks
- * Predictors and their generated alternatives run sequentially. Each proposal
- * uses one Phase 1 candidate in cyclic order and sends a plain-text prompt to
- * the configured language model. Every supplied set must uniquely identify an
- * owned predictor, and every candidate must identify its enclosing set's predictor.
+ * Predictors and all proposals, including the discarded first proposal, run
+ * sequentially. Grounding rotates augmented demonstrations from the current,
+ * following, then preceding sets. A shared CPython stream draws a tip before
+ * the rollout ID; all calls for that proposal share its rollout partition.
+ * Every supplied set must uniquely identify a predictor.
  * Missing, empty, duplicate, unknown, or misbound Phase 1 candidates fail with
  * `InstructionProposalFailed`. All identities and destination wire demonstrations
  * are preflighted before any model call; invalid demonstrations retain their
@@ -198,77 +188,123 @@ export const proposeInstructionCandidates = <
 ) =>
   Effect.gen(function*() {
     const refs = Arr.filter(Arr.fromIterable(predictors(options.module)), (entry) => !entry.frozen)
-    const requested = proposalIndices(options.numInstructions)
-    const seed = resolveSeed(options.seed)
-    const tips = resolveTipVocabulary(options.tipVocabulary)
-    const summary = datasetSummary(options.trainset)
-    const diversityTemperature = resolveDiversityTemperature(options.diversityTemperature)
+    const sampling = yield* Sampling.resolve(options.seed ?? 9)
+    const hasDemos = Arr.isReadonlyArrayNonEmpty(options.demoCandidates)
     const candidateSetsByName = yield* indexDemoCandidateSets(refs, options.demoCandidates)
-    const resolved = yield* Effect.forEach(
+    const prepared = yield* Effect.forEach(
       refs,
-      (ref, predictorIndex) => resolvePredictor(ref, predictorIndex, candidateSetsByName),
+      (ref, predictorIndex) => preparePredictor(ref, predictorIndex, candidateSetsByName, hasDemos),
       { concurrency: 1 }
     )
-    const prepared = yield* Effect.forEach(resolved, preparePredictor, { concurrency: 1 })
-
-    return yield* Effect.forEach(prepared, ({ firstDemos, parameters, predictorIndex, ref, renderedDemoCandidates }) =>
+    const settings = Settings.merge(
+      new Settings.ModelSettings({ temperature: options.initTemperature ?? 1 }),
+      options.proposerSettings ?? Settings.empty
+    )
+    const summary = (options.dataAwareProposer ?? true)
+      ? yield* datasetSummary(
+        options.trainset,
+        options.viewDataBatchSize ?? 10,
+        Settings.merge(settings, new Settings.ModelSettings({ temperature: 1 }))
+      ).pipe(Effect.option)
+      : Option.none<string>()
+    // Predictor paths and signature text are the declarative source representation.
+    const programCode = yield* Payload.encode(ProgramCode, {
+      name: options.module.name,
+      description: options.module.signature.description,
+      predictors: Arr.map(refs, (ref) => ({ path: ref.path, signature: ref.signature }))
+    })
+    const numDemos = Option.match(Arr.head(options.demoCandidates), {
+      onNone: () => options.numInstructions,
+      onSome: (set) => Num.max(1, Arr.length(set.candidates))
+    })
+    const requested = Arr.range(0, Num.decrement(Num.min(options.numInstructions, numDemos)))
+    return yield* Effect.forEach(prepared, ({ instruction, predictorIndex, ref, renderedDemoCandidates }) =>
       Effect.gen(function*() {
         const generated = yield* Effect.forEach(
           requested,
-          (proposalOffset) =>
+          (proposalIndex) =>
             Effect.gen(function*() {
-              const proposalIndex = Num.increment(proposalOffset)
-              const tip = tipAt(tips, Num.sum(Num.sum(seed, predictorIndex), proposalIndex))
-              const marker = proposalMarker(ref.name, proposalIndex, seed)
-              const demos = Option.getOrElse(
-                Arr.get(
-                  renderedDemoCandidates,
-                  Num.remainder(proposalOffset, Arr.length(renderedDemoCandidates))
-                ),
-                () =>
-                  firstDemos
-              )
-              const prompt = buildProposalPrompt(
-                new ProposalPromptOptions({
-                  marker,
-                  predictorName: ref.name,
-                  moduleDescription: options.module.signature.description,
-                  summary,
-                  tip,
-                  demos,
-                  baselineInstruction: parameters.instructions,
-                  diversityTemperature
-                })
-              )
-              const proposed = yield* generateText(prompt).pipe(
-                Effect.provideService(CurrentRole, "proposer"),
-                Effect.mapError(
-                  () =>
-                    new InstructionProposalFailed({
-                      message: Str.concat(
-                        Str.concat("Failed to propose instruction for predictor '", ref.name),
-                        "'"
-                      ),
-                      predictorIndex
-                    })
+              const tip = (options.tipAwareProposer ?? true) ? yield* sampling.choice(Record.keys(tips)) : "none"
+              const rolloutId = yield* sampling.randint(0, 1_000_000_000)
+              const demos = (options.fewshotAwareProposer ?? true) && Num.isGreaterThan(proposalIndex, 0)
+                ? Arr.take(
+                  Arr.flatten(
+                    Arr.appendAll(
+                      Arr.drop(renderedDemoCandidates, proposalIndex),
+                      Arr.take(renderedDemoCandidates, proposalIndex)
+                    )
+                  ),
+                  3
                 )
-              )
-
-              return new InstructionCandidate({
-                predictorName: ref.name,
-                instruction: proposed,
-                tip,
-                cacheBustMarker: marker,
-                prompt,
-                isBaseline: false
-              })
+                : []
+              const taskDemos = Arr.isReadonlyArrayEmpty(demos) ?
+                "No task demos provided."
+                : Arr.join(
+                  Arr.map(demos, (demo) =>
+                    `Input:\n${demo[0]}\nOutput:\n${demo[1]}`),
+                  "\n\n"
+                )
+              return yield* Effect.gen(function*() {
+                const description = (options.programAwareProposer ?? true)
+                  ? yield* Effect.gen(function*() {
+                    const programDescription = stripPrefix(
+                      yield* generate(
+                        prompt({ program_code: programCode, program_example: taskDemos }, "program_description"),
+                        settings
+                      )
+                    )
+                    const moduleDescription = yield* generate(
+                      prompt({
+                        program_code: programCode,
+                        program_example: taskDemos,
+                        program_description: programDescription,
+                        module: ref.signature.instructions
+                      }, "module_description"),
+                      settings
+                    )
+                    return {
+                      program_code: programCode,
+                      program_description: programDescription,
+                      module: ref.signature.instructions,
+                      module_description: moduleDescription
+                    }
+                  }).pipe(Effect.option)
+                  : Option.none<Record.ReadonlyRecord<string, string>>()
+                const text = prompt({
+                  ...Option.match(summary, {
+                    onNone: () => ({}),
+                    onSome: (dataset_description) => ({ dataset_description })
+                  }),
+                  ...Option.getOrElse(description, () => ({})),
+                  task_demos: taskDemos,
+                  basic_instruction: instruction,
+                  ...(Str.isEmpty(tips[tip]) ? {} : { tip: tips[tip] })
+                }, "proposed_instruction")
+                const proposed = stripPrefix(yield* generate(text, settings))
+                return new InstructionCandidate({
+                  predictorName: ref.name,
+                  instruction: proposed,
+                  tip,
+                  rolloutId: Option.some(rolloutId),
+                  prompt: text,
+                  isBaseline: false
+                })
+              }).pipe(Effect.provideService(RolloutRef, Option.some(rolloutId)))
             }),
           { concurrency: 1 }
-        )
+        ).pipe(Effect.mapError(() =>
+          new InstructionProposalFailed({
+            message: `Failed to propose instruction for predictor '${ref.name}'`,
+            predictorIndex
+          })
+        ))
 
         return new PredictorInstructionCandidates({
           predictorName: ref.name,
-          candidates: Arr.appendAll(Arr.make(baselineCandidate(ref.name, parameters.instructions)), generated)
+          candidates: Arr.map(generated, (candidate, index) =>
+            Num.isGreaterThan(index, 0) ?
+              candidate
+              : new InstructionCandidate(Struct.assign(candidate, { instruction, isBaseline: true })))
         })
       }), { concurrency: 1 })
   }).pipe(Binding.withPredictors(predictors(options.module)))

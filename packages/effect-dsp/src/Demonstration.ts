@@ -19,6 +19,8 @@ export class Demonstration extends Schema.Class<Demonstration>("@scenesystems/ef
   output: Schema.Record(Schema.String, Schema.Unknown),
   /** Source row identity for leave-one-out teacher execution. */
   exampleId: Schema.Option(Id).pipe(Schema.withConstructorDefault(Effect.succeedNone)),
+  /** Teacher-generated evidence, independent of labeled-output completeness. @since 0.6.0 */
+  augmented: Schema.Boolean.pipe(Schema.withConstructorDefault(Effect.succeed(false))),
   /** Labeled outputs may omit fields required by a destination predictor. */
   incomplete: Schema.Boolean.pipe(Schema.withConstructorDefault(Effect.succeed(false)))
 }) {}
@@ -88,12 +90,14 @@ export const codec = <I, O, IDR, IER, ODR, OER>(
     input,
     output,
     exampleId: Demonstration.fields.exampleId,
+    augmented: Schema.Boolean,
     incomplete: Schema.Literal(false)
   })
   const partial = Schema.Struct({
     input,
     output: partialOutput,
     exampleId: Demonstration.fields.exampleId,
+    augmented: Schema.Boolean,
     incomplete: Schema.Literal(true)
   })
   const wire = Schema.Union([full, partial])

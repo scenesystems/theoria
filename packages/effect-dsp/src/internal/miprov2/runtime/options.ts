@@ -152,8 +152,7 @@ export const toPhase1Options = <
  * (instruction candidate proposal).
  *
  * Carries `module`, `trainset`, `demoCandidates`, `numInstructions`,
- * and any optional proposal-specific knobs (`seed`,
- * `diversityTemperature`, `tipVocabulary`).
+ * and the grounded proposer awareness flags and generation settings.
  *
  * @since 0.1.0
  * @category helpers
@@ -179,13 +178,15 @@ export const toPhase2Options = <
       onNone: () => ({}),
       onSome: (seed) => ({ seed })
     }),
-    ...Option.match(Option.fromNullishOr(options.diversityTemperature), {
+    initTemperature: options.initTemperature ?? 1,
+    programAwareProposer: options.programAwareProposer ?? true,
+    dataAwareProposer: options.dataAwareProposer ?? true,
+    tipAwareProposer: options.tipAwareProposer ?? true,
+    fewshotAwareProposer: options.fewshotAwareProposer ?? true,
+    viewDataBatchSize: options.viewDataBatchSize ?? 10,
+    ...Option.match(Option.fromUndefinedOr(options.proposerSettings), {
       onNone: () => ({}),
-      onSome: (diversityTemperature) => ({ diversityTemperature })
-    }),
-    ...Option.match(Option.fromNullishOr(options.tipVocabulary), {
-      onNone: () => ({}),
-      onSome: (tipVocabulary) => ({ tipVocabulary })
+      onSome: (proposerSettings) => ({ proposerSettings })
     })
   })
 

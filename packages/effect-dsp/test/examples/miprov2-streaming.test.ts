@@ -20,7 +20,7 @@ const trainset = Arr.make(
 )
 
 const responseForPrompt = (prompt: string) =>
-  prompt.includes("[miprov2-proposal:")
+  prompt.includes("Return only ")
     ? "Answer with concise factual city names"
     : prompt.includes("What is the capital of France?")
     ? { answer: "Paris" }

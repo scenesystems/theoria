@@ -74,8 +74,8 @@ it.effect("retains every invocation of a repeated predictor and supplies bootstr
     const first = Option.getOrThrow(Arr.head(accepted))
     expect(Chunk.toReadonlyArray(Option.getOrThrow(Record.get(first.demosByPredictor, "pipeline.leaf")))).toMatchObject(
       [
-        { input: { question: "start" }, output: { answer: "teacher" } },
-        { input: { question: "teacher" }, output: { answer: "teacher" } }
+        { input: { question: "start" }, output: { answer: "teacher" }, augmented: true },
+        { input: { question: "teacher" }, output: { answer: "teacher" }, augmented: true }
       ]
     )
     expect(

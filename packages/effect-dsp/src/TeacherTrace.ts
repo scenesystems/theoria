@@ -282,7 +282,7 @@ export const collect = <
                     const values = yield* Effect.forEach(entries, (entry) =>
                       predictor.demonstrationCodec.decodeDocuments(entry.input, entry.output).pipe(
                         Effect.map((demo) =>
-                          new Demonstration(Struct.assign(demo, { exampleId: Option.some(row.id) }))
+                          new Demonstration(Struct.assign(demo, { exampleId: Option.some(row.id), augmented: true }))
                         )
                       ))
                     return Tuple.make(predictor.path, Chunk.fromIterable(values))
@@ -294,7 +294,8 @@ export const collect = <
                   score,
                   demosByPredictor: Record.fromEntries(demos)
                 })
-                yield* Ref.update(accepted, (entries) => Chunk.append(entries, result))
+                yield* Ref.update(accepted, (entries) =>
+                  Chunk.append(entries, result))
                 return Option.some<Accepted | Rejected>(result)
               }).pipe(Effect.result)
               if (Result.isFailure(outcome)) {

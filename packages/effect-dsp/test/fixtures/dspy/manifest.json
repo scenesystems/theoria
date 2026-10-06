@@ -140,6 +140,14 @@
       "description": "Real MIPRO compile phases, Optuna params and validation checkpoints."
     },
     {
+      "id": "miprov2-grounded-proposer-001",
+      "file": "upstream/miprov2-grounded-proposer-001.json",
+      "evidence": "upstream-execution",
+      "sha256": "c84ad58f9196dc3fee88d997c5b99234997005c3440602a44153c5b159eff55e",
+      "generator": "fixtures.mipro_proposer",
+      "description": "Real grounded proposer call order, settings, tips, demo rotation and instruction identities."
+    },
+    {
       "id": "miprov2-heavy-001",
       "file": "upstream/miprov2-heavy-001.json",
       "evidence": "upstream-execution",
@@ -162,6 +170,22 @@
       "sha256": "087270570f353a88ff8e08399376bdb08fc3bd5b1bbfc2c660db22a77cf9622a",
       "generator": "fixtures.mipro_v2",
       "description": "Real MIPRO compile with unlabeled-only bootstrap catalog and shared RNG; zero caps retain proposer evidence but remove demo search."
+    },
+    {
+      "id": "miprov2-proposer-no-demos-001",
+      "file": "upstream/miprov2-proposer-no-demos-001.json",
+      "evidence": "upstream-execution",
+      "sha256": "2856707a15848773566181bcf3e74da2c3cfc1897104fcb8171f4c3897fd18fa",
+      "generator": "fixtures.mipro_proposer",
+      "description": "Real grounded proposer call order, settings, tips, demo rotation and instruction identities."
+    },
+    {
+      "id": "miprov2-proposer-summary-skips-001",
+      "file": "upstream/miprov2-proposer-summary-skips-001.json",
+      "evidence": "upstream-execution",
+      "sha256": "835908aa1f5757829da9f730cead93211471522ca2275c855e07a1b1c7caa8b8",
+      "generator": "fixtures.mipro_proposer",
+      "description": "Real grounded proposer call order, settings, tips, demo rotation and instruction identities."
     },
     {
       "id": "miprov2-zero-shot-001",

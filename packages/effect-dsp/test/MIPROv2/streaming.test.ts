@@ -71,7 +71,7 @@ describe("MIPROv2.stream", () => {
 
       const mock = yield* MockLanguageModel.make(
         MockLanguageModel.map((prompt) =>
-          prompt.includes("[miprov2-proposal:")
+          prompt.includes("Return only ")
             ? "Use concise factual answers"
             : { answer: "Paris" }
         )
@@ -103,7 +103,7 @@ describe("MIPROv2.stream", () => {
         MockLanguageModel.fromFunction((prompt) =>
           Effect.sleep("50 millis").pipe(
             Effect.as(
-              prompt.includes("[miprov2-proposal:")
+              prompt.includes("Return only ")
                 ? "Use concise factual answers"
                 : { answer: "Paris" }
             )
@@ -136,14 +136,14 @@ describe("MIPROv2.stream", () => {
 
       const mockA = yield* MockLanguageModel.make(
         MockLanguageModel.map((prompt) =>
-          prompt.includes("[miprov2-proposal:")
+          prompt.includes("Return only ")
             ? "Use concise factual answers"
             : { answer: "Paris" }
         )
       )
       const mockB = yield* MockLanguageModel.make(
         MockLanguageModel.map((prompt) =>
-          prompt.includes("[miprov2-proposal:")
+          prompt.includes("Return only ")
             ? "Use concise factual answers"
             : { answer: "Paris" }
         )

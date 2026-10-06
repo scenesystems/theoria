@@ -43,6 +43,7 @@ describe("Module.compose", () => {
         input: { question: "Where?" },
         output: { answer: "Here" },
         exampleId: Option.none(),
+        augmented: false,
         incomplete: false
       })
       const invalid = yield* Effect.flip(
@@ -50,6 +51,7 @@ describe("Module.compose", () => {
           input: { question: 42 },
           output: { answer: "Here" },
           exampleId: Option.none(),
+          augmented: false,
           incomplete: false
         })
       )

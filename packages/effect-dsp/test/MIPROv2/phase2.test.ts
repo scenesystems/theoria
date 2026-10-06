@@ -10,6 +10,7 @@ import { predictors } from "@scenesystems/effect-dsp/ModuleGraph"
 import { ModuleParameters } from "@scenesystems/effect-dsp/ModuleParameters"
 import * as ParameterSet from "@scenesystems/effect-dsp/ParameterSet"
 import * as Signature from "@scenesystems/effect-dsp/Signature"
+import * as ModelBinder from "@scenesystems/effect-lm/ModelBinder"
 import {
   Array as Arr,
   Context,
@@ -66,7 +67,7 @@ const generateDemoCandidates = <I extends Schema.Struct.Fields, O extends Schema
     const parameters = yield* ParameterSet.snapshot(options.module)
     const labels = Arr.flatMap(options.trainset, (example) =>
       Option.toArray(Option.map(example.labels, (output) =>
-        new Demonstration({ input: example.input, output }))))
+        new Demonstration({ input: example.input, output, augmented: true }))))
     return Arr.map(Arr.fromIterable(predictors(options.module)), (predictor) => {
       const original = Option.getOrThrow(Record.get(parameters, predictor.path))
       return new PredictorDemoCandidates({
@@ -93,14 +94,13 @@ describe("MIPROv2 Phase 2", () => {
       const signature = yield* makeQaSignature()
       const module = yield* Module.predict("qa", signature)
 
-      yield* Ref.set(
-        module.parameters,
-        new ModuleParameters({
+      yield* Module.install(module, {
+        qa: new ModuleParameters({
           instructions: "Original baseline instruction",
           demos: [],
           outputStrategy: "text"
         })
-      )
+      })
 
       const demoCandidates = yield* generateDemoCandidates(
         new GenerateDemoCandidatesOptions({
@@ -111,7 +111,10 @@ describe("MIPROv2 Phase 2", () => {
         })
       )
       const mock = yield* MockLanguageModel.make(MockLanguageModel.succeed("generated instruction"))
-      const layer = Layer.succeed(LanguageModel.LanguageModel, mock.service)
+      const layer = Layer.merge(
+        Layer.succeed(LanguageModel.LanguageModel, mock.service),
+        Layer.succeed(ModelBinder.Current, mock.binder)
+      )
 
       const proposals = yield* proposeInstructionCandidates(
         new ProposeInstructionCandidatesOptions({
@@ -135,10 +138,11 @@ describe("MIPROv2 Phase 2", () => {
           (candidate) => Arr.containsWith(Equal.equals)(canonicalTipVocabulary, candidate.tip)
         )
       ).toBe(true)
-      expect(Arr.every(calls, (call) => String.includes("Diversity Temperature: 1")(call.prompt))).toBe(true)
+      expect(root.candidates).toHaveLength(4)
+      expect(Arr.every(calls, (call) => Equal.equals(call.settings.temperature, 1))).toBe(true)
     }))
 
-  it.effect("injects grounded context signals and deterministic cache-busting markers", () =>
+  it.effect("injects grounded context and uses deterministic rollout partitions instead of cache-marker text", () =>
     Effect.gen(function*() {
       const signature = yield* makeQaSignature()
       const module = yield* Module.predict("qa", signature)
@@ -175,22 +179,24 @@ describe("MIPROv2 Phase 2", () => {
 
       expect(first).toEqual(second)
       expect(
-        Arr.every(calls, (call) =>
-          Arr.every(
-            Arr.make(
-              "Dataset Summary:",
-              "Program Description:",
-              "Bootstrapped Demos:",
-              "Tip:",
-              "[miprov2-proposal:"
-            ),
-            (fragment) => String.includes(fragment)(call.prompt)
-          ))
+        Arr.every(
+          Arr.filter(calls, (call) => String.endsWith("Return only proposed_instruction.")(call.prompt)),
+          (call) =>
+            Arr.every(
+              Arr.make(
+                "dataset_description:",
+                "program_description:",
+                "task_demos:",
+                "basic_instruction:"
+              ),
+              (fragment) => String.includes(fragment)(call.prompt)
+            )
+        )
       ).toBe(true)
       expect(
         Arr.every(
           Arr.flatMap(first, (proposalSet) => Arr.drop(proposalSet.candidates, 1)),
-          (candidate) => String.includes("[miprov2-proposal:")(candidate.cacheBustMarker)
+          (candidate) => Option.isSome(candidate.rolloutId) && !String.includes("miprov2-proposal:")(candidate.prompt)
         )
       ).toBe(true)
     }))
@@ -221,19 +227,19 @@ describe("MIPROv2 Phase 2", () => {
       expect(
         yield* Schema.decodeEffect(counted)("007").pipe(Effect.provideService(Offset, 0))
       ).toBe(7)
-      yield* Ref.set(
-        module.parameters,
-        new ModuleParameters({
+      yield* Module.install(module, {
+        structured: new ModuleParameters({
           instructions: "Use every value",
           demos: Arr.make(
             new Demonstration({
               input: { facts: { count: "007", values: Arr.make("1", "02"), missing: null } },
-              output: { answer: "seven", alternatives: Arr.make("007", "7"), missing: null }
+              output: { answer: "seven", alternatives: Arr.make("007", "7"), missing: null },
+              augmented: true
             })
           ),
           outputStrategy: "text"
         })
-      )
+      })
       const demoCandidates = yield* generateDemoCandidates(
         new GenerateDemoCandidatesOptions({
           module,
@@ -254,7 +260,12 @@ describe("MIPROv2 Phase 2", () => {
       ).pipe(Effect.provideService(LanguageModel.LanguageModel, mock.service))
       const calls = yield* Ref.get(mock.calls)
       const structuredCall = yield* requireSome(
-        Arr.findFirst(calls, (call) => String.includes("\"count\":\"007\"")(call.prompt)),
+        Arr.findFirst(
+          calls,
+          (call) =>
+            String.includes("\"count\":\"007\"")(call.prompt) &&
+            String.endsWith("Return only proposed_instruction.")(call.prompt)
+        ),
         "missing structured prompt"
       )
       const structuredCandidate = yield* requireSome(
@@ -490,7 +501,7 @@ describe("MIPROv2 Phase 2", () => {
       ).pipe(Effect.provideService(LanguageModel.LanguageModel, mock.service))
 
       expect(Arr.map(proposals, (set) => set.predictorName)).toEqual(Arr.make(child.name))
-      expect(yield* Ref.get(mock.calls)).toHaveLength(1)
+      expect(yield* Ref.get(mock.calls)).toHaveLength(5)
       expect(yield* Ref.get(root.parameters)).toBe(rootParameters)
       expect(yield* Ref.get(child.parameters)).toBe(childParameters)
     }))

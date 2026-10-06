@@ -191,7 +191,7 @@ export class Discovered extends Data.TaggedClass("ModuleDiscovered")<{
  */
 export class SavedState extends Schema.Class<SavedState>("@scenesystems/effect-dsp/Module/SavedState")({
   /** Effective parameter values keyed by canonical leaf predictor paths. */
-  parameters: ParameterSet,
+  parameters: Schema.suspend(() => ParameterSet),
   /** Caller-defined envelope metadata ignored by module restoration. */
   metadata: Schema.optional(Schema.Record(Schema.String, Schema.Unknown))
 }) {}

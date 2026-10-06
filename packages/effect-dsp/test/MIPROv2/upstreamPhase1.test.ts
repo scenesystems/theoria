@@ -1,4 +1,5 @@
 import { expect, it } from "@effect/vitest"
+import * as ModelBinder from "@scenesystems/effect-lm/ModelBinder"
 import { Array as Arr, Effect, Option, Record, Ref, Schema } from "effect"
 import * as LanguageModel from "effect/ai/LanguageModel"
 import { Example, Id } from "../../src/Example.js"
@@ -25,7 +26,9 @@ const Reference = Schema.Struct({
     train: Schema.Array(Schema.Struct({ id: Schema.String, ...Demo.fields })),
     val: Schema.Array(Demo)
   }),
-  demoSets: Schema.Record(Schema.String, Schema.Array(Schema.Array(Demo)))
+  demoSets: Schema.Record(Schema.String, Schema.Array(Schema.Array(Demo))),
+  instructions: Schema.Record(Schema.String, Schema.Array(Schema.String)),
+  proposerHistory: Schema.Array(Schema.Struct({ kwargs: Schema.Struct({ rollout_id: Schema.Int }) }))
 })
 
 it.effect("matches pinned MIPRO demo identities, order and teacher cost for labeled, no-label and zero-shot catalogs", () =>
@@ -90,5 +93,29 @@ it.effect("matches pinned MIPRO demo identities, order and teacher cost for labe
           Arr.map(expected, () => "baseline")
         )
         expect(yield* Ref.get(mock.calls)).toHaveLength(reference.bootstrapCalls)
+        const proposer = yield* MockLanguageModel.make(
+          MockLanguageModel.sequence(Arr.map(reference.proposerHistory, (_call, index) => `candidate-${index}`))
+        )
+        const proposals = yield* Candidates.proposeInstructionCandidates(
+          new Candidates.ProposeInstructionCandidatesOptions({
+            module,
+            trainset: [],
+            demoCandidates: actual,
+            numInstructions: Arr.length(Option.getOrThrow(Record.get(reference.instructions, "0"))),
+            programAwareProposer: false,
+            dataAwareProposer: false,
+            tipAwareProposer: false,
+            fewshotAwareProposer: false
+          })
+        ).pipe(
+          Effect.provideService(MiproSampling.Current, Option.some(sampling)),
+          Effect.provideService(LanguageModel.LanguageModel, proposer.service),
+          ModelBinder.withBinder(proposer.binder)
+        )
+        expect(Arr.map(yield* Ref.get(proposer.calls), (call) => Option.getOrThrow(call.rolloutId))).toEqual(
+          Arr.map(reference.proposerHistory, (call) => call.kwargs.rollout_id)
+        )
+        expect(Arr.map(Option.getOrThrow(Arr.head(proposals)).candidates, (candidate) => candidate.instruction))
+          .toEqual(Option.getOrThrow(Record.get(reference.instructions, "0")))
       })
   ))

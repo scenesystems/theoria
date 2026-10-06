@@ -119,7 +119,7 @@ describe("MIPROv2 Phase 3", () => {
               predictorName: "qa",
               instruction: baselineParameters.instructions,
               tip: "baseline",
-              cacheBustMarker: "[miprov2-proposal:qa:0:seed:1]",
+              rolloutId: Option.none(),
               prompt: "baseline",
               isBaseline: true
             }),
@@ -127,7 +127,7 @@ describe("MIPROv2 Phase 3", () => {
               predictorName: "qa",
               instruction: "Use precise one-word capitals",
               tip: "precision",
-              cacheBustMarker: "[miprov2-proposal:qa:1:seed:1]",
+              rolloutId: Option.some(1),
               prompt: "proposal",
               isBaseline: false
             })
@@ -222,7 +222,7 @@ describe("MIPROv2 Phase 3", () => {
               predictorName: "child",
               instruction: originalChildParameters.instructions,
               tip: "baseline",
-              cacheBustMarker: "[miprov2-proposal:child:0:seed:1]",
+              rolloutId: Option.none(),
               prompt: "baseline",
               isBaseline: true
             })
@@ -275,7 +275,7 @@ describe("MIPROv2 Phase 3", () => {
               predictorName: "qa",
               instruction: originalParameters.instructions,
               tip: "baseline",
-              cacheBustMarker: "[miprov2-proposal:qa:0:seed:1]",
+              rolloutId: Option.none(),
               prompt: "baseline",
               isBaseline: true
             })
@@ -290,7 +290,7 @@ describe("MIPROv2 Phase 3", () => {
               predictorName: "other",
               instruction: originalParameters.instructions,
               tip: "baseline",
-              cacheBustMarker: "[miprov2-proposal:other:0:seed:1]",
+              rolloutId: Option.none(),
               prompt: "baseline",
               isBaseline: true
             })
@@ -399,7 +399,7 @@ describe("MIPROv2 Phase 3", () => {
               predictorName: "qa",
               instruction: baselineParameters.instructions,
               tip: "baseline",
-              cacheBustMarker: "[miprov2-proposal:qa:0:seed:1]",
+              rolloutId: Option.none(),
               prompt: "baseline",
               isBaseline: true
             }),
@@ -407,7 +407,7 @@ describe("MIPROv2 Phase 3", () => {
               predictorName: "qa",
               instruction: "Always answer Paris for French capitals",
               tip: "anchor",
-              cacheBustMarker: "[miprov2-proposal:qa:1:seed:1]",
+              rolloutId: Option.some(1),
               prompt: "proposal",
               isBaseline: false
             })
