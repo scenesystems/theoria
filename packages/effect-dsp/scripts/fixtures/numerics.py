@@ -211,4 +211,20 @@ def gepa_merge_run():
 
 
 def generate():
-    return [mipro_percentage(), mipro_checkpoint(), gepa_kernels(), gepa_mutation_run(), gepa_merge_run()]
+    return [mipro_percentage(), mipro_checkpoint(), gepa_kernels(), gepa_mutation_run(), gepa_merge_run(),
+            evaluate_mean()]
+
+
+def evaluate_mean():
+    grades = [0.1, 0.2, 0.3]
+    rows = [dspy.Example(question=f"q{i}", grade=grade).with_inputs("question")
+            for i, grade in enumerate(grades)]
+    evaluated = _evaluate(rows, lambda example, prediction, trace=None: example.grade)
+    scored = [score for _, _, score in evaluated.results]
+    composed = _evaluate([dspy.Example(question="composed").with_inputs("question")],
+                         lambda example, prediction, trace=None: sum(grades) / len(grades))
+    return {"id": "eval-compensated-mean-001",
+            "description": "Evaluate raw-score mean and a user-composed arithmetic-mean metric use builtin float sum.",
+            "payload": {"grades": grades, "scores": scored,
+                        "mean": sum(scored) / len(scored), "percent": evaluated.score,
+                        "composedScore": composed.results[0][2]}}

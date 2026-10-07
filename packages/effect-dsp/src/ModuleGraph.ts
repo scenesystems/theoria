@@ -16,9 +16,9 @@ import {
   Order,
   Record,
   Schema,
-  String as Str,
   Tuple
 } from "effect"
+import * as Defaults from "./internal/module/compose/defaults.js"
 import { type ComposableModule, Id, Structure } from "./Module.js"
 import * as Predictor from "./Predictor.js"
 import { Text } from "./Signature.js"
@@ -27,19 +27,15 @@ const moduleIdOrder: Order.Order<Id> = Order.mapInput(Order.String, (moduleId: I
 
 /** Enumerates predictors in sorted path order, retaining shared aliases.
  * A frozen path freezes its predictor even when another path is not frozen.
+ * Bound defaults are resolved per predictor across every path; the outermost
+ * bound level holding a value under any path to the predictor wins.
  * @since 0.7.0
  * @category combinators
  */
 export const predictors = (root: ComposableModule): Chunk.Chunk<Predictor.Predictor> => {
   const visit = (module: Structure, path: string, frozen: boolean): ReadonlyArray<Predictor.Predictor> => {
-    const declarations = Record.toEntries(
-      Option.getOrElse(
-        Option.fromUndefinedOr(module.declarations),
-        () => Record.fromEntries(HashMap.toEntries(module.subModules))
-      )
-    )
     const excluded = frozen || Option.getOrElse(Option.fromUndefinedOr(module.frozen), () => false)
-    const leaves = Arr.match(declarations, {
+    return Arr.match(Defaults.sortedDeclarations(module), {
       onEmpty: (): ReadonlyArray<Predictor.Predictor> => [
         new Predictor.Predictor({
           path,
@@ -50,56 +46,41 @@ export const predictors = (root: ComposableModule): Chunk.Chunk<Predictor.Predic
           signatureDigest: module.signatureDigest,
           parameters: module.parameters,
           demonstrationCodec: module.demonstrationCodec,
-          boundParameters: Option.none()
+          boundParameters: Option.flatMap(
+            Arr.findFirst(defaults, (entry) => entry.parameters === module.parameters),
+            (entry) => entry.value
+          )
         })
       ],
       onNonEmpty: (entries) =>
         Arr.flatMap(
-          Arr.sort(entries, Order.mapInput(Order.String, (entry: readonly [string, Structure]) => entry[0])),
+          entries,
           ([alias, child]: readonly [string, Structure]) => visit(child, `${path}.${alias}`, excluded)
         )
     })
-    return Arr.map(leaves, (entry) =>
-      new Predictor.Predictor({
-        path: entry.path,
-        name: entry.name,
-        aliases: entry.aliases,
-        frozen: entry.frozen,
-        signature: entry.signature,
-        signatureDigest: entry.signatureDigest,
-        parameters: entry.parameters,
-        demonstrationCodec: entry.demonstrationCodec,
-        boundParameters: Option.orElse(
-          Record.get(
-            Option.getOrElse(Option.fromUndefinedOr(module.boundParameters), () => ({})),
-            `${module.name}${Str.slice(Str.length(path))(entry.path)}`
-          ),
-          () => entry.boundParameters
-        )
-      }))
   }
-  const entries = visit(
-    new Structure({
-      id: Schema.decodeSync(Id)(root.name),
-      name: root.name,
-      signature: new Text({
-        description: root.signature.description,
-        instructions: root.signature.instructions
-      }),
-      signatureDigest: root.signature.digest,
-      demonstrationCodec: root.signature.demonstrationCodec,
-      parameters: root.parameters,
-      subModules: root.subModules,
-      declarations: Option.getOrElse(
-        Option.fromUndefinedOr(root.declarations),
-        () => Record.fromEntries(HashMap.toEntries(root.subModules))
-      ),
-      frozen: Option.getOrElse(Option.fromUndefinedOr(root.frozen), () => false),
-      boundParameters: Option.getOrElse(Option.fromUndefinedOr(root.boundParameters), () => ({}))
+  const structure = new Structure({
+    id: Schema.decodeSync(Id)(root.name),
+    name: root.name,
+    signature: new Text({
+      description: root.signature.description,
+      instructions: root.signature.instructions
     }),
-    root.name,
-    false
-  )
+    signatureDigest: root.signature.digest,
+    demonstrationCodec: root.signature.demonstrationCodec,
+    parameters: root.parameters,
+    subModules: root.subModules,
+    declarations: Option.getOrElse(
+      Option.fromUndefinedOr(root.declarations),
+      () => Record.fromEntries(HashMap.toEntries(root.subModules))
+    ),
+    frozen: Option.getOrElse(Option.fromUndefinedOr(root.frozen), () => false),
+    boundParameters: Option.getOrElse(Option.fromUndefinedOr(root.boundParameters), () => ({}))
+  })
+  // Bound defaults belong to predictors, not aliases: resolve each shared
+  // predictor once across every path before projecting its canonical entry.
+  const defaults = Defaults.resolve(structure, root.name)
+  const entries = visit(structure, root.name, false)
   return Chunk.fromIterable(Arr.reduce(entries, Arr.empty<Predictor.Predictor>(), (predictors, entry) => {
     const existing = Arr.findFirstIndex(predictors, (predictor) => predictor.parameters === entry.parameters)
     return Option.match(existing, {

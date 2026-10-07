@@ -25,6 +25,11 @@ import { assertNoMutation } from "../kit/Mutation.js"
 
 const Row = Schema.Struct({ id: Schema.String, question: Schema.String, answer: Schema.String })
 const Demo = Schema.Struct({ question: Schema.String, answer: Schema.String })
+const StateDemo = Schema.Struct({
+  ...Demo.fields,
+  augmented: Schema.OptionFromOptionalKey(Schema.Boolean),
+  id: Schema.OptionFromOptionalKey(Schema.String)
+})
 const Payload = Schema.Struct({
   splits: Schema.Struct({ train: Schema.Array(Row) }),
   maxErrors: Schema.Int,
@@ -119,11 +124,10 @@ it.effect("bootstrap fixtures: retain cross-example duplicates, threshold, teach
         onFalse: () =>
           Effect.gen(function*() {
             const result = yield* compilation
+            const state = yield* Effect.fromOption(Option.fromUndefinedOr(reference.state))
+            expect(Record.keys(state)).toEqual(["first", "second"])
             yield* Effect.forEach(
-              Option.match(Option.fromUndefinedOr(reference.state), {
-                onNone: () => Arr.empty(),
-                onSome: Record.toEntries
-              }),
+              Record.toEntries(state),
               ([name, state]) =>
                 Effect.sync(() => {
                   expect(
@@ -155,7 +159,7 @@ it.effect("bootstrapfewshot-labeled-001: prewarms the default teacher and exclud
       history: Schema.Array(Schema.Struct({
         messages: Schema.Array(Schema.Struct({ role: Schema.String, content: Schema.String }))
       })),
-      state: Schema.Struct({ demos: Schema.Array(Demo) })
+      state: Schema.Struct({ demos: Schema.Array(StateDemo) })
     }))((yield* fixture("bootstrapfewshot-labeled-001", "upstream-execution")).payload)
     const signature = yield* Signature.make("answer", { question: Schema.String }, { answer: Schema.String })
     const module = yield* Module.predict("qa", signature)
@@ -216,11 +220,25 @@ it.effect("bootstrapfewshot-labeled-001: prewarms the default teacher and exclud
         expect(Arr.join(Arr.map(call.messages, (message) => message.content), "\n")).not.toContain(row.answer)
       }))
     const demos = Option.getOrThrow(Record.get(result.parameters, "qa")).demos
-    expect(demos).toHaveLength(reference.state.demos.length)
-    expect(Arr.map(Arr.filter(demos, (demo) => demo.output.answer === "teacher"), (demo) => demo.input))
-      .toEqual([{ question: "train-3" }])
-    expect(Arr.filter(demos, (demo) => demo.output.answer !== "teacher")).toHaveLength(1)
-    expect(Arr.some(demos, (demo) => demo.output.answer === "label-3")).toBe(false)
+    // Complete ordered identity: bootstrapped train-3, then upstream's shuffled-then-sampled label.
+    expect(Arr.map(demos, (demo) => ({
+      question: demo.input.question,
+      answer: demo.output.answer,
+      augmented: demo.augmented
+    }))).toEqual(Arr.map(reference.state.demos, (demo) => ({
+      question: demo.question,
+      answer: demo.answer,
+      augmented: Option.getOrElse(demo.augmented, () => false)
+    })))
+    expect(result.report.demoSources).toEqual({
+      qa: {
+        bootstrapped: Arr.flatMap(
+          reference.state.demos,
+          (demo) => Option.toArray(Option.as(Option.filter(demo.augmented, (augmented) => augmented), demo.question))
+        ),
+        labeled: Arr.flatMap(reference.state.demos, (demo) => Option.toArray(demo.id))
+      }
+    })
     expect(result.report.acceptedCount).toBe(1)
     expect(result.report.rejectedCount).toBe(3)
   }))

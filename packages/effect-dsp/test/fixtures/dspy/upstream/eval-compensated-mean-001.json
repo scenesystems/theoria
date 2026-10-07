@@ -1,0 +1,18 @@
+{
+  "fixture": "eval-compensated-mean-001",
+  "payload": {
+    "grades": [
+      0.1,
+      0.2,
+      0.3
+    ],
+    "scores": [
+      0.1,
+      0.2,
+      0.3
+    ],
+    "mean": 0.19999999999999998,
+    "percent": 20.0,
+    "composedScore": 0.19999999999999998
+  }
+}

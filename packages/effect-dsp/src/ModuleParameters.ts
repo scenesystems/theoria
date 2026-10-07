@@ -81,12 +81,25 @@ export class ModuleParameters extends Schema.Class<ModuleParameters>("@scenesyst
   maxTokens: ModelSettings.fields.maxTokens
 }) {}
 
+/** Present generation fields only. Absent settings stay absent rather than becoming own
+ * `undefined` keys, which canonical digests (and therefore automatic cache keys) reject.
+ */
+const generation = (parameters: ModuleParameters) => ({
+  ...Option.match(Option.fromUndefinedOr(parameters.temperature), {
+    onNone: () => ({}),
+    onSome: (temperature) => ({ temperature })
+  }),
+  ...Option.match(Option.fromUndefinedOr(parameters.maxTokens), {
+    onNone: () => ({}),
+    onSome: (maxTokens) => ({ maxTokens })
+  })
+})
+
 /** Projects predictor generation settings for model binding.
  * @since 0.7.0
  * @category getters
  */
-export const settings = (parameters: ModuleParameters): ModelSettings =>
-  new ModelSettings({ temperature: parameters.temperature, maxTokens: parameters.maxTokens })
+export const settings = (parameters: ModuleParameters): ModelSettings => new ModelSettings(generation(parameters))
 
 /**
  * Creates default parameters with no demonstrations and automatic output selection.
@@ -125,8 +138,7 @@ export const withDemos = (
     instructions: parameters.instructions,
     demos,
     outputStrategy: parameters.outputStrategy,
-    temperature: parameters.temperature,
-    maxTokens: parameters.maxTokens
+    ...generation(parameters)
   })
 
 /**
@@ -150,8 +162,7 @@ export const withDemosAndInstructions = (
     instructions,
     demos,
     outputStrategy: parameters.outputStrategy,
-    temperature: parameters.temperature,
-    maxTokens: parameters.maxTokens
+    ...generation(parameters)
   })
 
 /**
@@ -173,8 +184,7 @@ export const withInstructions = (
     instructions,
     demos: parameters.demos,
     outputStrategy: parameters.outputStrategy,
-    temperature: parameters.temperature,
-    maxTokens: parameters.maxTokens
+    ...generation(parameters)
   })
 
 /**

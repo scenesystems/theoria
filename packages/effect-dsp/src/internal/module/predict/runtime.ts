@@ -8,7 +8,7 @@
 import * as ModelBinder from "@scenesystems/effect-lm/ModelBinder"
 import * as ModelSettings from "@scenesystems/effect-lm/ModelSettings"
 import type { Schema } from "effect"
-import { Array as Arr, Boolean, Clock, Data, Effect, Option, Struct } from "effect"
+import { Array as Arr, Boolean, Clock, Data, Effect, Match, Option, Struct } from "effect"
 import type { Ref } from "effect"
 import { ParseOutputError } from "../../../DspError.js"
 import type { Module } from "../../../Module.js"
@@ -24,6 +24,7 @@ import { executionId } from "../../trace/attempts.js"
 import { registerRuntime, RuntimeRegistrationOptions } from "../discovery/registry.js"
 import { cached } from "./cache.js"
 import { ForwardOptions } from "./model.js"
+import { ScopedSettings } from "./scope.js"
 import { runForward } from "./strategy.js"
 import { appendTraceEntry, PayloadOptions, TraceOptions, tracePayloadFromEncoded } from "./trace.js"
 
@@ -76,8 +77,11 @@ export const makeForward = <
       })
       const request = new ModelBinder.Request({
         settings: ModelSettings.merge(
-          settings(parameters),
-          Option.getOrElse(Option.fromUndefinedOr(options.invocation.settings), () => ModelSettings.empty)
+          ModelSettings.merge(
+            settings(parameters),
+            Option.getOrElse(Option.fromUndefinedOr(options.invocation.settings), () => ModelSettings.empty)
+          ),
+          yield* ScopedSettings
         ),
         role: yield* Option.match(Option.fromUndefinedOr(options.invocation.role), {
           onNone: () => Effect.service(CurrentRole),
@@ -96,6 +100,22 @@ export const makeForward = <
       })
       const execution = yield* selected.pipe(
         ModelBinder.bind(request),
+        // A structured reply that fails the output schema is the same signature parse
+        // failure as unparseable text; other provider failures keep their AiError.
+        Effect.catchTag("AiError", (error) =>
+          Match.value(error.reason).pipe(
+            Match.tag("StructuredOutputError", (reason) =>
+              Effect.fail(
+                new ParseOutputError({
+                  message: error.message,
+                  moduleName: options.moduleName,
+                  rawOutput: Option.some(reason.responseText),
+                  retryCount: Option.none(),
+                  fieldDiagnostics: Arr.empty()
+                })
+              )),
+            Match.orElse(() => Effect.fail(error))
+          )),
         Effect.catchTag("ParseOutputError", (error) =>
           Effect.gen(function*() {
             return yield* new ParseOutputError(Struct.assign(error, {

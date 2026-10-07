@@ -122,7 +122,7 @@ export const runMutationPhase = <I extends Schema.Struct.Fields, O extends Schem
                         const response = yield* generateText(prompt, options.reflectionSettings).pipe(
                           Effect.provideService(CurrentRole, "critic")
                         )
-                        return Tuple.make(path, extractInstruction(response, current))
+                        return Tuple.make(path, extractInstruction(response))
                       })).pipe(Effect.map(Record.fromEntries))
                 })
                 const candidate = new ProgramCandidate({

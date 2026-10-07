@@ -4,7 +4,7 @@
  * @since 0.4.0
  * @module
  */
-import { Array as Arr, Boolean, Data, Effect, Option, Record, Schema, Tuple } from "effect"
+import { Array as Arr, Boolean, Data, Effect, Option, Record, Schema, Struct, Tuple } from "effect"
 import { Id } from "./Example.js"
 import { encodedFieldSchema, encodedFieldsToInfoArray } from "./internal/signature/fields.js"
 import { decode, encode, Payload } from "./Payload.js"
@@ -42,13 +42,24 @@ export type Documents = typeof Documents.Type
  * Executable demonstration operations compiled from a destination signature.
  * Validation and equivalence use the encoded schemas and never rerun domain
  * transformations.
+ *
+ * @remarks
+ * `decode` and `encode` accept raw demonstration records: input and output keys
+ * outside the destination's encoded input and output fields are ignored, as
+ * DSPy's adapters format only signature fields. The projected fields are then
+ * validated strictly: every input is required, a complete demonstration needs
+ * every output, and encoded values must match their field schemas. An
+ * incomplete demonstration may project to no output field; prompts skip it, as
+ * DSPy's adapter drops demos without an output field.
  * @since 0.4.0
  * @category models
  */
 export class Codec extends Data.Class<{
   /** Projects labels onto destination fields, retaining missing outputs as incomplete. */
   readonly labeled: (value: Demonstration) => Effect.Effect<Demonstration, Schema.SchemaError>
+  /** Projects a raw demonstration onto destination fields, then validates it strictly. */
   readonly decode: (value: unknown) => Effect.Effect<Demonstration, Schema.SchemaError>
+  /** Encodes the destination-field projection of a raw demonstration. */
   readonly encode: (value: Demonstration) => Effect.Effect<Documents, Schema.SchemaError>
   readonly decodeDocuments: (
     input: Payload,
@@ -101,6 +112,27 @@ export const codec = <I, O, IDR, IER, ODR, OER>(
     incomplete: Schema.Literal(true)
   })
   const wire = Schema.Union([full, partial])
+  const inputNames = Arr.map(encodedFieldsToInfoArray(inputSchema), (field) => field.name)
+  const outputNames = Arr.map(encodedFieldsToInfoArray(outputSchema), (field) => field.name)
+  const raw = Schema.Struct({
+    input: Demonstration.fields.input,
+    output: Demonstration.fields.output,
+    exampleId: Demonstration.fields.exampleId,
+    augmented: Schema.Boolean,
+    incomplete: Schema.Boolean
+  })
+  const project = (value: unknown) =>
+    Schema.decodeUnknownEffect(raw)(value, { onExcessProperty: "error" }).pipe(
+      Effect.flatMap((demonstration) =>
+        Schema.decodeEffect(wire)(
+          Struct.assign(demonstration, {
+            input: Record.filter(demonstration.input, (_, key) => Arr.contains(inputNames, key)),
+            output: Record.filter(demonstration.output, (_, key) => Arr.contains(outputNames, key))
+          }),
+          { onExcessProperty: "error" }
+        )
+      )
+    )
   return new Codec({
     labeled: (value) =>
       Effect.gen(function*() {
@@ -113,12 +145,9 @@ export const codec = <I, O, IDR, IER, ODR, OER>(
           incomplete: !Schema.is(output)(labels)
         })
       }),
-    decode: (value) =>
-      Schema.decodeUnknownEffect(wire)(value, { onExcessProperty: "error" }).pipe(
-        Effect.map((demonstration) => new Demonstration(demonstration))
-      ),
+    decode: (value) => project(value).pipe(Effect.map((demonstration) => new Demonstration(demonstration))),
     encode: (demonstration) =>
-      Schema.decodeEffect(wire)(demonstration, { onExcessProperty: "error" }).pipe(
+      project(demonstration).pipe(
         Effect.flatMap((validated) =>
           Effect.zip(
             encode(input, validated.input),

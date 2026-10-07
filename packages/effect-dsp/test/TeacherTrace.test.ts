@@ -1,4 +1,5 @@
 import { expect, it } from "@effect/vitest"
+import * as Cache from "@scenesystems/effect-dsp/Cache"
 import { Demonstration } from "@scenesystems/effect-dsp/Demonstration"
 import * as Example from "@scenesystems/effect-dsp/Example"
 import * as Metric from "@scenesystems/effect-dsp/Metric"
@@ -7,6 +8,8 @@ import * as Module from "@scenesystems/effect-dsp/Module"
 import * as ModuleParameters from "@scenesystems/effect-dsp/ModuleParameters"
 import * as ParameterSet from "@scenesystems/effect-dsp/ParameterSet"
 import * as Signature from "@scenesystems/effect-dsp/Signature"
+import * as ModelBinder from "@scenesystems/effect-lm/ModelBinder"
+import { ModelSettings } from "@scenesystems/effect-lm/ModelSettings"
 import {
   Array as Arr,
   Boolean as Bool,
@@ -22,6 +25,7 @@ import {
   Struct
 } from "effect"
 import * as LanguageModel from "effect/ai/LanguageModel"
+import { TestConsole } from "effect/testing"
 import * as TeacherTrace from "../src/TeacherTrace.js"
 import { assertNoMutation } from "./kit/Mutation.js"
 
@@ -165,7 +169,10 @@ it.effect("truthy scores accept without a threshold; an explicit threshold rejec
     yield* Effect.forEach([
       { value: 0, threshold: Option.none<number>(), count: 0 },
       { value: 0.01, threshold: Option.none<number>(), count: 1 },
-      { value: 0.4, threshold: Option.some(0.5), count: 0 }
+      { value: 0.4, threshold: Option.some(0.5), count: 0 },
+      // DSPy tests `if self.metric_threshold:`, so an explicit 0 falls back to score truthiness.
+      { value: 0, threshold: Option.some(0), count: 0 },
+      { value: 0.01, threshold: Option.some(0), count: 1 }
     ], ({ value, threshold, count }) =>
       Effect.gen(function*() {
         const result = yield* TeacherTrace.collect(
@@ -183,6 +190,46 @@ it.effect("truthy scores accept without a threshold; an explicit threshold rejec
         expect(Chunk.size(result.rejected)).toBe(1 - count)
       }))
   }))
+
+it.effect("keys cached teacher retries by effective teacher role, settings and rollout", () =>
+  Effect.gen(function*() {
+    const signature = yield* Signature.make("answer", { question: Schema.String }, { answer: Schema.String })
+    const student = yield* Module.predict("qa", signature)
+    const mock = yield* MockLanguageModel.make(
+      MockLanguageModel.succeed({ answer: "teacher" }),
+      "teacher-model",
+      new ModelSettings({ temperature: 0.17 })
+    )
+    const collect = TeacherTrace.collect(
+      new TeacherTrace.Options({
+        student,
+        trainset: Chunk.of(new Example.Example({ input: { question: "q" } })),
+        maxRounds: 3,
+        metric: Metric.fromSync(() => 0)
+      })
+    )
+    yield* Effect.gen(function*() {
+      const first = yield* collect
+      expect(Arr.map(Chunk.toReadonlyArray(first.rejected), (entry) => entry.round)).toEqual([0, 1, 2])
+      expect(
+        Arr.map(yield* Ref.get(mock.calls), (call) => [call.role, call.rolloutId, call.settings.temperature])
+      ).toEqual([
+        ["teacher", Option.none(), 0.17],
+        ["teacher", Option.some(1), 1],
+        ["teacher", Option.some(2), 1]
+      ])
+      yield* collect
+      expect(yield* Ref.get(mock.calls)).toHaveLength(3)
+      yield* Module.call(student, { question: "q" })
+      expect(Arr.map(yield* Ref.get(mock.calls), (call) => call.role)).toEqual([
+        "teacher",
+        "teacher",
+        "teacher",
+        "task"
+      ])
+    }).pipe(ModelBinder.withBinder(mock.binder), Effect.provideService(LanguageModel.LanguageModel, mock.service))
+    expect(yield* TestConsole.logLines).toEqual([])
+  }).pipe(Effect.provide(Cache.layerMemory)))
 
 it.effect("leaves the current labeled row out of teacher prompts without changing either caller", () =>
   Effect.gen(function*() {

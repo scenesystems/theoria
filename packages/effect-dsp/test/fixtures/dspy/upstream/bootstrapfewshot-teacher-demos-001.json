@@ -1,0 +1,88 @@
+{
+  "fixture": "bootstrapfewshot-teacher-demos-001",
+  "payload": {
+    "runtime": {
+      "python": "3.12.14",
+      "dspy": "3.4.0",
+      "PYTHONHASHSEED": "0",
+      "NPY_DISABLE_CPU_FEATURES": "AVX2,FMA3,AVX512F"
+    },
+    "splits": {
+      "train": [
+        {
+          "id": "a",
+          "question": "a",
+          "answer": "label-a"
+        }
+      ],
+      "val": []
+    },
+    "studentDemos": [
+      {
+        "question": "seed",
+        "answer": "seed-answer"
+      }
+    ],
+    "metricCalls": [
+      {
+        "id": "a"
+      }
+    ],
+    "history": [
+      {
+        "messages": [
+          {
+            "role": "system",
+            "content": "Your input fields are:\n1. `question` (str):\nYour output fields are:\n1. `answer` (str):\nAll interactions will be structured in the following way, with the appropriate values filled in.\n\n[[ ## question ## ]]\n{question}\n\n[[ ## answer ## ]]\n{answer}\n\n[[ ## completed ## ]]\nIn adhering to this structure, your objective is: \n        Given the fields `question`, produce the fields `answer`."
+          },
+          {
+            "role": "user",
+            "content": "[[ ## question ## ]]\nseed"
+          },
+          {
+            "role": "assistant",
+            "content": "[[ ## answer ## ]]\nseed-answer\n\n[[ ## completed ## ]]\n"
+          },
+          {
+            "role": "user",
+            "content": "[[ ## question ## ]]\na\n\nRespond with the corresponding output fields, starting with the field `[[ ## answer ## ]]`, and then ending with the marker for `[[ ## completed ## ]]`."
+          }
+        ],
+        "kwargs": {
+          "temperature": 0.17,
+          "max_tokens": 73,
+          "rollout_id": null,
+          "model": "dummy"
+        },
+        "response": [
+          "[[ ## answer ## ]]\nteacher"
+        ]
+      }
+    ],
+    "state": {
+      "traces": [],
+      "train": [],
+      "demos": [
+        {
+          "augmented": true,
+          "question": "a",
+          "answer": "teacher"
+        }
+      ],
+      "signature": {
+        "instructions": "Given the fields `question`, produce the fields `answer`.",
+        "fields": [
+          {
+            "prefix": "Question:",
+            "description": "${question}"
+          },
+          {
+            "prefix": "Answer:",
+            "description": "${answer}"
+          }
+        ]
+      },
+      "lm": null
+    }
+  }
+}

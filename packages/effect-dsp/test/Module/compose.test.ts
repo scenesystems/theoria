@@ -296,6 +296,85 @@ describe("Module.compose", () => {
       )
     }))
 
+  it.effect("rejects empty, dotted, and nested dotted aliases before constructing a composition", () =>
+    Effect.gen(function*() {
+      const signature = yield* makeQaSignature()
+      const leaf = yield* Module.predict("leaf", signature)
+      const nested = yield* Module.compose(
+        new Module.ComposeOptions({
+          name: "nested",
+          signature,
+          subModules: Record.singleton("x", leaf),
+          forward: ({ input }) => leaf.forward(input)
+        })
+      )
+      const dottedNested = new Module.Module({
+        name: nested.name,
+        signature: nested.signature,
+        parameters: nested.parameters,
+        subModules: nested.subModules,
+        declarations: Record.singleton(
+          "x.y",
+          Option.getOrThrow(Record.get(Option.getOrThrow(Option.fromUndefinedOr(nested.declarations)), "x"))
+        ),
+        forward: nested.forward
+      })
+      const before = yield* Ref.get(leaf.parameters)
+      yield* Effect.forEach(
+        Arr.make(
+          Tuple.make(Record.singleton("", leaf), "''"),
+          Tuple.make(Record.singleton("a.b", leaf), "'a.b'"),
+          Tuple.make(Record.singleton("inner", dottedNested), "'x.y'")
+        ),
+        ([subModules, alias]) =>
+          Effect.gen(function*() {
+            const graphError = yield* Effect.flip(Module.composeGraph(
+              new Module.ComposeGraphOptions({ name: "root", signature, subModules })
+            ))
+            const composeError = yield* Effect.flip(Module.compose(
+              new Module.ComposeOptions({
+                name: "root",
+                signature,
+                subModules,
+                forward: ({ input }) => leaf.forward(input)
+              })
+            ))
+            yield* Effect.forEach(Arr.make(graphError, composeError), (error) =>
+              Effect.sync(() => {
+                expect(error._tag).toBe("CompositionError")
+                expect(error.message).toContain(`alias ${alias}`)
+                expect(error.message).toContain("predictor path segment")
+              }))
+            expect(yield* Ref.get(leaf.parameters)).toEqual(before)
+          }),
+        { discard: true }
+      )
+    }))
+
+  it.effect("rejects a dotted alias whose canonical path collides with a nested declaration", () =>
+    Effect.gen(function*() {
+      const signature = yield* makeQaSignature()
+      const one = yield* Module.predict("one", signature)
+      const two = yield* Module.predict("two", signature)
+      const nested = yield* Module.compose(
+        new Module.ComposeOptions({
+          name: "a",
+          signature,
+          subModules: Record.singleton("b", two),
+          forward: ({ input }) => two.forward(input)
+        })
+      )
+      const error = yield* Effect.flip(Module.composeGraph(
+        new Module.ComposeGraphOptions({
+          name: "root",
+          signature,
+          subModules: Record.set(Record.singleton("a.b", one), "a", nested)
+        })
+      ))
+      expect(error._tag).toBe("CompositionError")
+      expect(error.message).toContain("canonical path 'root.a.b'")
+    }))
+
   it.effect("preserves deterministic trace order with graph lineage through composed runtime", () =>
     Effect.gen(function*() {
       const signature = yield* makeQaSignature()

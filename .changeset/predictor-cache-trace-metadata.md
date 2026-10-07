@@ -11,3 +11,5 @@ TextProvider.Runtime now accepts only a validated Config and derives model ident
 Retain parse attempts and failed response evidence under a per-invocation execution ID. Module.call returns selected completed entries separately from attempts and accounts for every model call. Cache hits do not count as new provider usage.
 
 Add output-only signatures and immutable instruction, field prefix and field description edits. Persist editable field metadata inside ModuleParameters so parameter overlays, snapshots and load/save share one state channel. Saved parameters and trace entries use the new shapes directly.
+
+Breaking: structured output schema failures now use ParseOutputError with actual predictor/input/raw-response evidence, like text parsing; unrelated provider failures remain AiError. ReAct terminal parse failures carry the same context. Demonstration codecs project away extra input/output record keys before strict field validation, and prompts omit demos with no recognized output field instead of emitting an empty assistant turn. Partial demos retain native ordering and rendering.

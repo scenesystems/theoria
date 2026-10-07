@@ -1,0 +1,323 @@
+{
+  "fixture": "bootstrapfewshot-max-errors-default-001",
+  "payload": {
+    "runtime": {
+      "python": "3.12.14",
+      "dspy": "3.4.0",
+      "PYTHONHASHSEED": "0",
+      "NPY_DISABLE_CPU_FEATURES": "AVX2,FMA3,AVX512F"
+    },
+    "splits": {
+      "train": [
+        {
+          "id": "e00",
+          "question": "e00",
+          "answer": "label-e00"
+        },
+        {
+          "id": "e01",
+          "question": "e01",
+          "answer": "label-e01"
+        },
+        {
+          "id": "e02",
+          "question": "e02",
+          "answer": "label-e02"
+        },
+        {
+          "id": "e03",
+          "question": "e03",
+          "answer": "label-e03"
+        },
+        {
+          "id": "e04",
+          "question": "e04",
+          "answer": "label-e04"
+        },
+        {
+          "id": "e05",
+          "question": "e05",
+          "answer": "label-e05"
+        },
+        {
+          "id": "e06",
+          "question": "e06",
+          "answer": "label-e06"
+        },
+        {
+          "id": "e07",
+          "question": "e07",
+          "answer": "label-e07"
+        },
+        {
+          "id": "e08",
+          "question": "e08",
+          "answer": "label-e08"
+        },
+        {
+          "id": "e09",
+          "question": "e09",
+          "answer": "label-e09"
+        },
+        {
+          "id": "e10",
+          "question": "e10",
+          "answer": "label-e10"
+        },
+        {
+          "id": "e11",
+          "question": "e11",
+          "answer": "label-e11"
+        }
+      ],
+      "val": []
+    },
+    "settingsMaxErrors": 10,
+    "metricCalls": [
+      {
+        "id": "e00"
+      },
+      {
+        "id": "e01"
+      },
+      {
+        "id": "e02"
+      },
+      {
+        "id": "e03"
+      },
+      {
+        "id": "e04"
+      },
+      {
+        "id": "e05"
+      },
+      {
+        "id": "e06"
+      },
+      {
+        "id": "e07"
+      },
+      {
+        "id": "e08"
+      },
+      {
+        "id": "e09"
+      }
+    ],
+    "history": [
+      {
+        "messages": [
+          {
+            "role": "system",
+            "content": "Your input fields are:\n1. `question` (str):\nYour output fields are:\n1. `answer` (str):\nAll interactions will be structured in the following way, with the appropriate values filled in.\n\n[[ ## question ## ]]\n{question}\n\n[[ ## answer ## ]]\n{answer}\n\n[[ ## completed ## ]]\nIn adhering to this structure, your objective is: \n        Given the fields `question`, produce the fields `answer`."
+          },
+          {
+            "role": "user",
+            "content": "[[ ## question ## ]]\ne00\n\nRespond with the corresponding output fields, starting with the field `[[ ## answer ## ]]`, and then ending with the marker for `[[ ## completed ## ]]`."
+          }
+        ],
+        "kwargs": {
+          "temperature": 0.17,
+          "max_tokens": 73,
+          "rollout_id": null,
+          "model": "dummy"
+        },
+        "response": [
+          "[[ ## answer ## ]]\nteacher"
+        ]
+      },
+      {
+        "messages": [
+          {
+            "role": "system",
+            "content": "Your input fields are:\n1. `question` (str):\nYour output fields are:\n1. `answer` (str):\nAll interactions will be structured in the following way, with the appropriate values filled in.\n\n[[ ## question ## ]]\n{question}\n\n[[ ## answer ## ]]\n{answer}\n\n[[ ## completed ## ]]\nIn adhering to this structure, your objective is: \n        Given the fields `question`, produce the fields `answer`."
+          },
+          {
+            "role": "user",
+            "content": "[[ ## question ## ]]\ne01\n\nRespond with the corresponding output fields, starting with the field `[[ ## answer ## ]]`, and then ending with the marker for `[[ ## completed ## ]]`."
+          }
+        ],
+        "kwargs": {
+          "temperature": 0.17,
+          "max_tokens": 73,
+          "rollout_id": null,
+          "model": "dummy"
+        },
+        "response": [
+          "[[ ## answer ## ]]\nteacher"
+        ]
+      },
+      {
+        "messages": [
+          {
+            "role": "system",
+            "content": "Your input fields are:\n1. `question` (str):\nYour output fields are:\n1. `answer` (str):\nAll interactions will be structured in the following way, with the appropriate values filled in.\n\n[[ ## question ## ]]\n{question}\n\n[[ ## answer ## ]]\n{answer}\n\n[[ ## completed ## ]]\nIn adhering to this structure, your objective is: \n        Given the fields `question`, produce the fields `answer`."
+          },
+          {
+            "role": "user",
+            "content": "[[ ## question ## ]]\ne02\n\nRespond with the corresponding output fields, starting with the field `[[ ## answer ## ]]`, and then ending with the marker for `[[ ## completed ## ]]`."
+          }
+        ],
+        "kwargs": {
+          "temperature": 0.17,
+          "max_tokens": 73,
+          "rollout_id": null,
+          "model": "dummy"
+        },
+        "response": [
+          "[[ ## answer ## ]]\nteacher"
+        ]
+      },
+      {
+        "messages": [
+          {
+            "role": "system",
+            "content": "Your input fields are:\n1. `question` (str):\nYour output fields are:\n1. `answer` (str):\nAll interactions will be structured in the following way, with the appropriate values filled in.\n\n[[ ## question ## ]]\n{question}\n\n[[ ## answer ## ]]\n{answer}\n\n[[ ## completed ## ]]\nIn adhering to this structure, your objective is: \n        Given the fields `question`, produce the fields `answer`."
+          },
+          {
+            "role": "user",
+            "content": "[[ ## question ## ]]\ne03\n\nRespond with the corresponding output fields, starting with the field `[[ ## answer ## ]]`, and then ending with the marker for `[[ ## completed ## ]]`."
+          }
+        ],
+        "kwargs": {
+          "temperature": 0.17,
+          "max_tokens": 73,
+          "rollout_id": null,
+          "model": "dummy"
+        },
+        "response": [
+          "[[ ## answer ## ]]\nteacher"
+        ]
+      },
+      {
+        "messages": [
+          {
+            "role": "system",
+            "content": "Your input fields are:\n1. `question` (str):\nYour output fields are:\n1. `answer` (str):\nAll interactions will be structured in the following way, with the appropriate values filled in.\n\n[[ ## question ## ]]\n{question}\n\n[[ ## answer ## ]]\n{answer}\n\n[[ ## completed ## ]]\nIn adhering to this structure, your objective is: \n        Given the fields `question`, produce the fields `answer`."
+          },
+          {
+            "role": "user",
+            "content": "[[ ## question ## ]]\ne04\n\nRespond with the corresponding output fields, starting with the field `[[ ## answer ## ]]`, and then ending with the marker for `[[ ## completed ## ]]`."
+          }
+        ],
+        "kwargs": {
+          "temperature": 0.17,
+          "max_tokens": 73,
+          "rollout_id": null,
+          "model": "dummy"
+        },
+        "response": [
+          "[[ ## answer ## ]]\nteacher"
+        ]
+      },
+      {
+        "messages": [
+          {
+            "role": "system",
+            "content": "Your input fields are:\n1. `question` (str):\nYour output fields are:\n1. `answer` (str):\nAll interactions will be structured in the following way, with the appropriate values filled in.\n\n[[ ## question ## ]]\n{question}\n\n[[ ## answer ## ]]\n{answer}\n\n[[ ## completed ## ]]\nIn adhering to this structure, your objective is: \n        Given the fields `question`, produce the fields `answer`."
+          },
+          {
+            "role": "user",
+            "content": "[[ ## question ## ]]\ne05\n\nRespond with the corresponding output fields, starting with the field `[[ ## answer ## ]]`, and then ending with the marker for `[[ ## completed ## ]]`."
+          }
+        ],
+        "kwargs": {
+          "temperature": 0.17,
+          "max_tokens": 73,
+          "rollout_id": null,
+          "model": "dummy"
+        },
+        "response": [
+          "[[ ## answer ## ]]\nteacher"
+        ]
+      },
+      {
+        "messages": [
+          {
+            "role": "system",
+            "content": "Your input fields are:\n1. `question` (str):\nYour output fields are:\n1. `answer` (str):\nAll interactions will be structured in the following way, with the appropriate values filled in.\n\n[[ ## question ## ]]\n{question}\n\n[[ ## answer ## ]]\n{answer}\n\n[[ ## completed ## ]]\nIn adhering to this structure, your objective is: \n        Given the fields `question`, produce the fields `answer`."
+          },
+          {
+            "role": "user",
+            "content": "[[ ## question ## ]]\ne06\n\nRespond with the corresponding output fields, starting with the field `[[ ## answer ## ]]`, and then ending with the marker for `[[ ## completed ## ]]`."
+          }
+        ],
+        "kwargs": {
+          "temperature": 0.17,
+          "max_tokens": 73,
+          "rollout_id": null,
+          "model": "dummy"
+        },
+        "response": [
+          "[[ ## answer ## ]]\nteacher"
+        ]
+      },
+      {
+        "messages": [
+          {
+            "role": "system",
+            "content": "Your input fields are:\n1. `question` (str):\nYour output fields are:\n1. `answer` (str):\nAll interactions will be structured in the following way, with the appropriate values filled in.\n\n[[ ## question ## ]]\n{question}\n\n[[ ## answer ## ]]\n{answer}\n\n[[ ## completed ## ]]\nIn adhering to this structure, your objective is: \n        Given the fields `question`, produce the fields `answer`."
+          },
+          {
+            "role": "user",
+            "content": "[[ ## question ## ]]\ne07\n\nRespond with the corresponding output fields, starting with the field `[[ ## answer ## ]]`, and then ending with the marker for `[[ ## completed ## ]]`."
+          }
+        ],
+        "kwargs": {
+          "temperature": 0.17,
+          "max_tokens": 73,
+          "rollout_id": null,
+          "model": "dummy"
+        },
+        "response": [
+          "[[ ## answer ## ]]\nteacher"
+        ]
+      },
+      {
+        "messages": [
+          {
+            "role": "system",
+            "content": "Your input fields are:\n1. `question` (str):\nYour output fields are:\n1. `answer` (str):\nAll interactions will be structured in the following way, with the appropriate values filled in.\n\n[[ ## question ## ]]\n{question}\n\n[[ ## answer ## ]]\n{answer}\n\n[[ ## completed ## ]]\nIn adhering to this structure, your objective is: \n        Given the fields `question`, produce the fields `answer`."
+          },
+          {
+            "role": "user",
+            "content": "[[ ## question ## ]]\ne08\n\nRespond with the corresponding output fields, starting with the field `[[ ## answer ## ]]`, and then ending with the marker for `[[ ## completed ## ]]`."
+          }
+        ],
+        "kwargs": {
+          "temperature": 0.17,
+          "max_tokens": 73,
+          "rollout_id": null,
+          "model": "dummy"
+        },
+        "response": [
+          "[[ ## answer ## ]]\nteacher"
+        ]
+      },
+      {
+        "messages": [
+          {
+            "role": "system",
+            "content": "Your input fields are:\n1. `question` (str):\nYour output fields are:\n1. `answer` (str):\nAll interactions will be structured in the following way, with the appropriate values filled in.\n\n[[ ## question ## ]]\n{question}\n\n[[ ## answer ## ]]\n{answer}\n\n[[ ## completed ## ]]\nIn adhering to this structure, your objective is: \n        Given the fields `question`, produce the fields `answer`."
+          },
+          {
+            "role": "user",
+            "content": "[[ ## question ## ]]\ne09\n\nRespond with the corresponding output fields, starting with the field `[[ ## answer ## ]]`, and then ending with the marker for `[[ ## completed ## ]]`."
+          }
+        ],
+        "kwargs": {
+          "temperature": 0.17,
+          "max_tokens": 73,
+          "rollout_id": null,
+          "model": "dummy"
+        },
+        "response": [
+          "[[ ## answer ## ]]\nteacher"
+        ]
+      }
+    ],
+    "error": "ValueError",
+    "message": "scripted bootstrap failure"
+  }
+}

@@ -4,7 +4,7 @@
  * @since 0.1.0
  * @internal
  */
-import { Array as Arr, Effect, Option, Predicate, Record, Schema, String, Struct } from "effect"
+import { Array as Arr, Boolean, Effect, Option, Predicate, Record, Schema, String, Struct } from "effect"
 import * as AiError from "effect/ai/AiError"
 import * as Prompt from "effect/ai/Prompt"
 import type { ModuleParameters } from "../../ModuleParameters.js"
@@ -89,9 +89,15 @@ export const buildPrompt = <I extends Schema.Struct.Fields, O extends Schema.Str
     const outputNames = Arr.map(outputFields, (field) => field.name)
     const encoded = yield* Schema.encodeEffect(signature.inputSchema)(input).pipe(Effect.mapError(promptError))
     const content = yield* renderFieldBlock(Schema.toEncoded(signature.inputSchema), encoded)
-    const demonstrations = yield* Effect.forEach(parameters.demos, (demo) =>
+    const projected = yield* Effect.forEach(
+      parameters.demos,
+      (demo) => signature.demonstrationCodec.decode(demo).pipe(Effect.mapError(promptError))
+    )
+    // DSPy's adapter keeps a demo only with at least one output field; an empty
+    // assistant turn would teach nothing and some providers reject it.
+    const renderable = Arr.filter(projected, (demo) => Boolean.not(Record.isEmptyRecord(demo.output)))
+    const demonstrations = yield* Effect.forEach(renderable, (validated) =>
       Effect.gen(function*() {
-        const validated = yield* signature.demonstrationCodec.decode(demo).pipe(Effect.mapError(promptError))
         const input = yield* renderFieldBlock(Schema.toEncoded(signature.inputSchema), validated.input)
         const output = yield* renderFieldBlock(Schema.toEncoded(signature.outputSchema), validated.output)
         return Arr.make(

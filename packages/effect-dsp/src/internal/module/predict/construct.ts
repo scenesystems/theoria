@@ -38,7 +38,10 @@ const makeInitialParameters = <
  * allocates the parameter `Ref`.
  *
  * Each `forward` call snapshots the current parameters before model execution.
- * Structured output delegates Schema decoding to the provider. Text output
+ * Structured output delegates Schema decoding to the provider; a reply that
+ * fails it becomes `ParseOutputError` with the raw text. Every strategy's
+ * `ParseOutputError` carries the predictor path, encoded input and first
+ * native prompt as `context`. Text output
  * parses field markers and retries parse failures according to the resolved
  * policy, adding the preceding diagnostics to the next prompt. Provider errors
  * are not retried by the parse policy. Discovery registration occurs before the

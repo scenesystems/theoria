@@ -29,6 +29,7 @@ import {
 } from "../../../ModuleGraph.js"
 import type { ModuleParameters } from "../../../ModuleParameters.js"
 import { Text } from "../../../Signature.js"
+import { type Effective, resolveDeclarations, sortedDeclarations as declarationEntries } from "./defaults.js"
 
 const predictorIdentity = Equivalence.strictEqual<Ref.Ref<ModuleParameters>>()
 const contractIdentity = Equivalence.strictEqual<Codec>()
@@ -134,6 +135,79 @@ const validateProjection = (canonical: Structure, module: Structure) =>
     })
   })
 
+// Predictor.Path segments are non-empty and dot-free; a dotted alias would
+// silently alias a nested path and an empty one would produce an invalid path.
+const PathSegment = Schema.String.check(Schema.isPattern(/^[^.]+$/))
+const aliasOrder = Order.mapInput(Order.String, (entry: readonly [string, Structure]) => entry[0])
+
+const invalidAliases = (owner: string, declarations: ReadonlyArray<readonly [string, Structure]>): ReadonlyArray<
+  readonly [string, string]
+> =>
+  Arr.flatMap(declarations, ([alias, child]) =>
+    Arr.appendAll(
+      Boolean.match(Schema.is(PathSegment)(alias), {
+        onTrue: () => Arr.empty<readonly [string, string]>(),
+        onFalse: () => Arr.make(Tuple.make(owner, alias))
+      }),
+      invalidAliases(child.name, declarationEntries(child))
+    ))
+
+const validateAliases = (rootName: string, declarations: ReadonlyArray<readonly [string, Structure]>) =>
+  Option.match(Arr.head(invalidAliases(rootName, declarations)), {
+    onNone: () => Effect.void,
+    onSome: ([owner, alias]) =>
+      Effect.fail(
+        new CompositionError({
+          message: Arr.join(
+            Arr.make("Sub-module alias '", alias, "' declared by '", owner, "' is not a predictor path segment"),
+            ""
+          ),
+          moduleName: owner
+        })
+      )
+  })
+
+const validateCanonicalPaths = (rootId: Id, predictors: ReadonlyArray<Effective>) => {
+  const paths = Arr.flatMap(predictors, (entry) => entry.paths)
+  return Option.match(
+    Arr.findFirst(paths, (path, index) => Arr.contains(Arr.take(paths, index), path)),
+    {
+      onNone: () => Effect.void,
+      onSome: (path) =>
+        Effect.fail(
+          new CompositionError({
+            message: Arr.join(Arr.make("Multiple declarations share canonical path '", path, "'"), ""),
+            moduleName: rootId
+          })
+        )
+    }
+  )
+}
+
+// One predictor has one effective default. Alternate paths that project
+// different bound defaults (or a default and none) are rejected rather than
+// resolved by alias spelling or declaration order.
+const validateDefaults = (predictors: ReadonlyArray<Effective>) =>
+  Option.match(Arr.findFirst(predictors, (entry) => !entry.consistent), {
+    onNone: () => Effect.void,
+    onSome: (entry) =>
+      Effect.fail(
+        new CompositionError({
+          message: Arr.join(
+            Arr.make(
+              "Predictor '",
+              entry.name,
+              "' has inconsistent bound defaults across paths '",
+              Arr.join(entry.paths, "', '"),
+              "'"
+            ),
+            ""
+          ),
+          moduleName: entry.name
+        })
+      )
+  })
+
 const registerModule = (modules: HashMap.HashMap<Id, Structure>, module: Structure) =>
   Option.match(HashMap.get(modules, module.id), {
     onNone: () => Effect.succeed(HashMap.set(modules, module.id, module)),
@@ -178,7 +252,9 @@ const buildSubModule = (module: ComposableModule, id: Id): Structure =>
   })
 
 /**
- * Validates all declarations and predictor identities, then native Graph acyclicity.
+ * Validates all declarations and predictor identities, then native Graph acyclicity,
+ * then predictor paths: canonical paths are unique, every alias is a valid
+ * predictor path segment, and each shared predictor projects one bound default.
  * Parameter state is never mutated while constructing or validating topology.
  * @since 0.1.0
  * @category constructors
@@ -221,6 +297,15 @@ export const buildCompositionGraph = <I extends Schema.Struct.Fields, O extends 
       onTrue: () => Effect.void,
       onFalse: () => Effect.fail(new CompositionError({ message: "Composition cycle detected", moduleName: rootId }))
     })
+    const aliasDeclarations = Arr.sort(
+      Arr.map(Record.toEntries(options.subModules), ([alias, module]) =>
+        Tuple.make(alias, buildSubModule(module, Schema.decodeSync(Id)(module.name)))),
+      aliasOrder
+    )
+    const resolved = resolveDeclarations(rootId, aliasDeclarations)
+    yield* validateCanonicalPaths(rootId, resolved)
+    yield* validateAliases(rootId, aliasDeclarations)
+    yield* validateDefaults(resolved)
 
     const rootChildIds = Arr.sort(Arr.fromIterable(HashMap.keys(subModulesById)), Order.String)
     const graphNodes = Arr.map(Arr.fromIterable(Graph.entries(Graph.nodes(program))), ([index, module]) =>
@@ -252,10 +337,7 @@ export const buildCompositionGraph = <I extends Schema.Struct.Fields, O extends 
       rootChildIds,
       graph,
       subModulesById,
-      declarations: Record.fromEntries(
-        Arr.map(Record.toEntries(options.subModules), ([alias, module]) =>
-          Tuple.make(alias, buildSubModule(module, Schema.decodeSync(Id)(module.name))))
-      )
+      declarations: Record.fromEntries(aliasDeclarations)
     })
   })
 

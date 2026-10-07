@@ -243,9 +243,12 @@ describe("Trace provider integration", () => {
       const json = yield* Schema.encodeEffect(codec)(call)
       const restored = yield* Schema.decodeEffect(codec)(json)
 
+      // The schema-invalid structured reply is a signature parse failure with its raw text.
       expect(failure).toMatchObject({
-        _tag: "AiError",
-        reason: { _tag: "StructuredOutputError" }
+        _tag: "ParseOutputError",
+        moduleName: "provider-usage",
+        rawOutput: Option.some("not-json"),
+        context: { predictorPath: "provider-usage" }
       })
       expect(failure.message).toBe(
         "LanguageModel.generateObject: Structured output validation failed: Expected a valid JSON string"

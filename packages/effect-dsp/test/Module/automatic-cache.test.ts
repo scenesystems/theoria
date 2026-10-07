@@ -6,6 +6,7 @@ import { Array as Arr, Cause, Effect, Exit, Option, Record, Ref, Schema, Struct 
 import * as LanguageModel from "effect/ai/LanguageModel"
 import { TestConsole } from "effect/testing"
 import * as Cache from "../../src/Cache.js"
+import * as LabeledFewShot from "../../src/LabeledFewShot.js"
 import * as MockLanguageModel from "../../src/MockLanguageModel.js"
 import * as Module from "../../src/Module.js"
 import { ModuleParameters } from "../../src/ModuleParameters.js"
@@ -37,6 +38,20 @@ describe("automatic predictor cache", () => {
         yield* never.forward({ question: "q" })
         expect(yield* Ref.get(lm.calls)).toHaveLength(4)
       }).pipe(ModelBinder.withBinder(lm.binder), Effect.provideService(LanguageModel.LanguageModel, lm.service))
+    }).pipe(Effect.provide(Cache.layerMemory)))
+
+  it.effect("caches an immutable optimizer result forwarded twice without digest warnings", () =>
+    Effect.gen(function*() {
+      const signature = yield* Signature.make("Answer", { question: Schema.String }, { answer: Schema.String })
+      const module = yield* Module.predict("qa", signature)
+      const lm = yield* MockLanguageModel.make(MockLanguageModel.succeed({ answer: "ok" }))
+      const result = yield* LabeledFewShot.run(new LabeledFewShot.Options({ module, trainset: [], k: 0 }))
+      yield* Effect.gen(function*() {
+        expect(yield* result.program.forward({ question: "q" })).toEqual({ answer: "ok" })
+        expect(yield* result.program.forward({ question: "q" })).toEqual({ answer: "ok" })
+      }).pipe(ModelBinder.withBinder(lm.binder), Effect.provideService(LanguageModel.LanguageModel, lm.service))
+      expect(yield* TestConsole.logLines).toEqual([])
+      expect(yield* Ref.get(lm.calls)).toHaveLength(1)
     }).pipe(Effect.provide(Cache.layerMemory)))
 
   it.effect("warns on failed reads and writes without repeating or failing the model call", () =>

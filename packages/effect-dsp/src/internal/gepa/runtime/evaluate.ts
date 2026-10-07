@@ -134,10 +134,11 @@ export const reflectiveSamples = <I extends Schema.Struct.Fields, O extends Sche
                       inputs: entry.context.input,
                       generatedOutputs: yield* encodePayload(
                         Schema.String,
+                        // Byte-identical to DSPy's make_reflective_dataset failed-parse text.
                         `Couldn't parse the output as per the expected output format. The model's raw response was:\n\`\`\`\n${
                           Option.getOrElse(entry.error.rawOutput, () =>
                             "")
-                        }\n\`\`\``
+                        }\n\`\`\`\n\n`
                       ),
                       expectedOutput: yield* encodePayload(
                         Schema.Json,

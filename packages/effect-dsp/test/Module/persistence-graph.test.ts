@@ -6,7 +6,7 @@ import { Demonstration } from "@scenesystems/effect-dsp/Demonstration"
 import * as Module from "@scenesystems/effect-dsp/Module"
 import { ModuleParameters } from "@scenesystems/effect-dsp/ModuleParameters"
 import * as Signature from "@scenesystems/effect-dsp/Signature"
-import { Array as Arr, Effect, Record, Ref, Schema, Tuple } from "effect"
+import { Array as Arr, Effect, Exit, Option, Record, Ref, Schema, Tuple } from "effect"
 
 const makeSignature = () => Signature.make("Answer", { question: Schema.String }, { answer: Schema.String })
 const parameters = (instructions: string) => new ModuleParameters({ instructions, demos: Arr.empty() })
@@ -53,6 +53,58 @@ describe("graph parameter persistence", () => {
       })
       yield* Effect.forEach(expected, ([ref]) => Ref.set(ref, parameters("mutated")))
       yield* Module.load(root, saved)
+      yield* Effect.forEach(expected, ([ref, value]) =>
+        Effect.gen(function*() {
+          expect(yield* Ref.get(ref)).toEqual(value)
+        }))
+    }))
+
+  it.effect("never round-trips two predictors through one saved path; distinct aliases restore distinct values", () =>
+    Effect.gen(function*() {
+      const signature = yield* makeSignature()
+      const one = yield* Module.predict("one", signature)
+      const two = yield* Module.predict("two", signature)
+      const nested = yield* Module.compose(
+        new Module.ComposeOptions({
+          name: "a",
+          signature,
+          subModules: Record.singleton("b", two),
+          forward: ({ input }) => two.forward(input)
+        })
+      )
+      const expected = Arr.make(
+        Tuple.make(one.parameters, parameters("ONE")),
+        Tuple.make(two.parameters, parameters("TWO"))
+      )
+      const roundTrip = (aliases: Module.ComposeSubModules) =>
+        Effect.gen(function*() {
+          yield* Effect.forEach(expected, ([ref, value]) => Ref.set(ref, value))
+          const root = yield* Module.compose(
+            new Module.ComposeOptions({
+              name: "root",
+              signature,
+              subModules: aliases,
+              forward: ({ input }) => one.forward(input)
+            })
+          )
+          const saved = yield* Module.save(root)
+          yield* Effect.forEach(expected, ([ref]) => Ref.set(ref, parameters("mutated")))
+          yield* Module.load(root, saved)
+          return saved
+        })
+      const colliding = yield* Effect.exit(roundTrip(Record.set(Record.singleton("a.b", one), "a", nested)))
+      yield* Effect.forEach(expected, ([ref, value]) =>
+        Effect.gen(function*() {
+          expect(yield* Ref.get(ref)).toEqual(value)
+        }))
+      expect(Option.map(Exit.findErrorOption(colliding), (error) => error._tag)).toEqual(
+        Option.some("CompositionError")
+      )
+      const saved = yield* roundTrip(Record.set(Record.singleton("a-b", one), "a", nested))
+      expect(saved.parameters).toEqual({
+        "root.a-b": parameters("ONE"),
+        "root.a.b": parameters("TWO")
+      })
       yield* Effect.forEach(expected, ([ref, value]) =>
         Effect.gen(function*() {
           expect(yield* Ref.get(ref)).toEqual(value)

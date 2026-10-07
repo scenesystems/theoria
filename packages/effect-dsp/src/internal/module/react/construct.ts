@@ -40,7 +40,8 @@ const makeInitialParameters = <
  * Every completed model response records trace and usage data. Provider
  * and checked tool failures retain their native types and requirements.
  * Exhausting the call cap without parsed output
- * fails with `ParseOutputError` containing the last response and diagnostics.
+ * fails with `ParseOutputError` containing the last response, diagnostics and
+ * `context` (predictor path, encoded input and first native prompt).
  * The cap defaults to {@link defaultReactMaxIterations}; finite values are
  * rounded down, while values below one and non-finite values become one.
  *

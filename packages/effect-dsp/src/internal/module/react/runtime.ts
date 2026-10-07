@@ -19,9 +19,10 @@ import { type Signature, Text } from "../../../Signature.js"
 import { RolloutRef } from "../../cache/rollout.js"
 import { callLmTextResponse } from "../../lm.js"
 import { CurrentRole } from "../../modelRole.js"
-import { read } from "../../parameterBinding.js"
+import { path, read } from "../../parameterBinding.js"
 import { parseTextOutput } from "../../parse/decode.js"
 import { buildPrompt } from "../../prompt/render.js"
+import { promptToTraceText } from "../../prompt/trace.js"
 import { executionId } from "../../trace/attempts.js"
 import { registerRuntime, RuntimeRegistrationOptions } from "../discovery/registry.js"
 import { PayloadOptions, tracePayloadFromEncoded } from "../predict/trace.js"
@@ -232,21 +233,34 @@ export const makeReactForward = <
           })
       )
 
-      return yield* Effect.fromOption(finalState.output, () =>
-        new ParseOutputError({
-          message: Arr.join(
-            Arr.make(
-              "ReAct module exhausted ",
-              Schema.encodeSync(Schema.FiniteFromString)(options.maxIterations),
-              " iterations without producing parseable output"
-            ),
-            ""
-          ),
-          moduleName: options.moduleName,
-          rawOutput: finalState.lastRawResponse,
-          retryCount: Option.some(options.maxIterations),
-          fieldDiagnostics: finalState.lastDiagnostics
-        }))
+      // The terminal failure carries the same target evidence as a predictor parse
+      // failure: actual path, encoded input and the agent's first native prompt.
+      return yield* Option.match(finalState.output, {
+        onSome: Effect.succeed,
+        onNone: () =>
+          Effect.all({
+            predictorPath: path(options.parametersRef, options.moduleName),
+            prompt: promptToTraceText(initialState.prompt)
+          }).pipe(Effect.flatMap(({ predictorPath, prompt }) =>
+            Effect.fail(
+              new ParseOutputError({
+                message: Arr.join(
+                  Arr.make(
+                    "ReAct module exhausted ",
+                    Schema.encodeSync(Schema.FiniteFromString)(options.maxIterations),
+                    " iterations without producing parseable output"
+                  ),
+                  ""
+                ),
+                moduleName: options.moduleName,
+                rawOutput: finalState.lastRawResponse,
+                retryCount: Option.some(options.maxIterations),
+                context: { predictorPath, input: traceInput, prompt },
+                fieldDiagnostics: finalState.lastDiagnostics
+              })
+            )
+          ))
+      })
     })
   )
 }

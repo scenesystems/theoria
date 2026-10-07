@@ -56,12 +56,44 @@
       "description": "Default teacher labeled prewarming, leave-one-out prompts, and labeled student fill."
     },
     {
+      "id": "bootstrapfewshot-max-errors-default-001",
+      "file": "upstream/bootstrapfewshot-max-errors-default-001.json",
+      "evidence": "upstream-execution",
+      "sha256": "3b55071f41b098beb44550b4df35d7fb4cc4d29f9d376c1b892da57aff30efad",
+      "generator": "fixtures.bootstrap_family",
+      "description": "max_errors=None inherits dspy.settings.max_errors and raises at that count."
+    },
+    {
+      "id": "bootstrapfewshot-rounds-001",
+      "file": "upstream/bootstrapfewshot-rounds-001.json",
+      "evidence": "upstream-execution",
+      "sha256": "1e9b4d754621b12651ac181261e5d19c751906a7ced6baf99aa85c14b4d57f42",
+      "generator": "fixtures.bootstrap_family",
+      "description": "Example-major retries: each example exhausts its rounds before the next; round copies use rollout_id and temperature 1.0."
+    },
+    {
+      "id": "bootstrapfewshot-teacher-demos-001",
+      "file": "upstream/bootstrapfewshot-teacher-demos-001.json",
+      "evidence": "upstream-execution",
+      "sha256": "fb2731483fb48605ea25cdc2f232218a6566a16b0da1bf1a6193f099271b0d78",
+      "generator": "fixtures.bootstrap_family",
+      "description": "Without labeled prewarming, the default deep-copied teacher keeps the student's demos."
+    },
+    {
       "id": "bootstrapfewshot-threshold-001",
       "file": "upstream/bootstrapfewshot-threshold-001.json",
       "evidence": "upstream-execution",
       "sha256": "1b4880d0ceea4a763f89cb6ae7adffc0f12a6408488caa8b9ee3bc16ffded2fe",
       "generator": "fixtures.bootstrap_family",
       "description": "Real two-predictor teacher traces, quotas and acceptance."
+    },
+    {
+      "id": "bootstrapfewshot-threshold-zero-001",
+      "file": "upstream/bootstrapfewshot-threshold-zero-001.json",
+      "evidence": "upstream-execution",
+      "sha256": "0ed72b76580d445bcd6af3fe149ebc75d1f92c5774f06c1c52bf929f7a9819d2",
+      "generator": "fixtures.bootstrap_family",
+      "description": "metric_threshold=0 is falsy, so the metric value's truthiness decides: 0 rejects."
     },
     {
       "id": "bootstraprs-001",
@@ -78,6 +110,22 @@
       "sha256": "300a66e52ec8101e96b582b010f1a5a68fe993271d93e7cb28da029e9c0d6b7a",
       "generator": "fixtures.chat_adapter",
       "description": "ChatAdapter formats a labeled demo and parses its completion."
+    },
+    {
+      "id": "chat-adapter-demo-projection-001",
+      "file": "upstream/chat-adapter-demo-projection-001.json",
+      "evidence": "upstream-execution",
+      "sha256": "f7d1bdb535328c182bf4e2a80a046c7590765c9e160ae0ca4a0b6292bffc9215",
+      "generator": "fixtures.format_feedback",
+      "description": "LabeledFewShot keeps raw dataset rows; ChatAdapter renders only signature fields, keeps a partial demo and drops a demo without output fields."
+    },
+    {
+      "id": "eval-compensated-mean-001",
+      "file": "upstream/eval-compensated-mean-001.json",
+      "evidence": "upstream-execution",
+      "sha256": "251e6a411410be84b97e63b83a124bc41884bfdb1295008cf9d4aa985f12052b",
+      "generator": "fixtures.numerics",
+      "description": "Evaluate raw-score mean and a user-composed arithmetic-mean metric use builtin float sum."
     },
     {
       "id": "eval-failure-inclusive-001",
@@ -110,6 +158,22 @@
       "sha256": "6f8a11fbebe46d7754d642ff11799828bcca03a1b3809c60d5ad0d1979fb4a1a",
       "generator": "fixtures.gepa",
       "description": "Real GEPA epoch-shuffled reflection, targeted feedback, iteration-boundary budget overshoot and aggregate selection; perfect batches skip reflection."
+    },
+    {
+      "id": "gepa-format-failure-001",
+      "file": "upstream/gepa-format-failure-001.json",
+      "evidence": "upstream-execution",
+      "sha256": "2d457859147c9c0493be241181fad269ec4dbbf2f5685fa66b85403e210b4d7b",
+      "generator": "fixtures.format_feedback",
+      "description": "dspy.GEPA with add_format_failure_as_feedback and the default adapter gives the proposer one failed-parse sample per minibatch row for Predict and ReAct."
+    },
+    {
+      "id": "gepa-instruction-extractor-001",
+      "file": "upstream/gepa-instruction-extractor-001.json",
+      "evidence": "upstream-kernel",
+      "sha256": "f044be7f60ebab799fae13950e0e6064924b08ae312e924c8a7d70c64bead836",
+      "generator": "fixtures.format_feedback",
+      "description": "GEPA InstructionProposalSignature.output_extractor on fences, language tags, incomplete blocks, empty replies and Python whitespace."
     },
     {
       "id": "gepa-merge-001",

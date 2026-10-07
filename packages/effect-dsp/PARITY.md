@@ -17,7 +17,7 @@ discriminator retains duplicate teacher outputs from separate examples without
 student LM calls. Within one trace, `firstPerPredictor` deliberately chooses the
 first invocation. `bootstrap-repeated-call-001` verifies exactly one retained
 demo per predictor per example and membership in that example's trace demos.
-The pick itself is not reproduced: DSPy seeds its choice with xxhash over
+The pick itself is not reproduced: DSPy seeds its choice with SHA-256 over
 Python pickle bytes (`Hasher.hash(tuple(demos))`), not a portable integer seed.
 Local tests cover
 leave-one-out prompts, signature compatibility, score thresholds, error budgets,
@@ -34,23 +34,41 @@ events are emitted during execution; observer failures do not consume maxErrors.
 Compatibility uses the effective instructions and field metadata under each
 program's parameter set, through the same Signature.digest operation as caching.
 
+`bootstrapfewshot-rounds-001` verifies example-major retries (`a, a, b`),
+teacher settings, rollout IDs and exact demonstrations. The labeled-fill fixture
+now asserts the entire ordered demo array after a fresh seed-0 shuffle and a
+second fresh seed-0 sampling stream. `bootstrapfewshot-teacher-demos-001`,
+`bootstrapfewshot-threshold-zero-001` and `bootstrapfewshot-max-errors-default-001`
+verify retained teacher demos, the truthy zero-threshold rule and default limit 10.
+RoundStarted occurs when an example first reaches a round; all RoundCompleted
+events follow traversal and contain cumulative counts through that round.
+Theoria deliberately stops when every trainable predictor has enough demos;
+DSPy counts accepted examples. Conditional programs may therefore collect more
+examples in Theoria and do not have a verified upstream trajectory.
+
 Wave 2.3 evaluates the BootstrapRS catalog in seed order (-3, -2, -1, then
 nonnegative seeds), preserving full validation reports and earliest-score ties.
 The upstream fixture asserts the catalog, fraction scores, winning seed, and
 exact demonstration identities and order for every candidate.
 Local tests discriminate failure-inclusive ranking, early stopping, independent
-caps, true shuffling, and caller immutability. stopAtScore uses a fraction in [0, 1], equivalent to
-DSPy's percentage stop_at_score divided by 100.
+caps, true shuffling, and caller immutability. stopAtScore uses an unrounded
+fraction in [0, 1]; DSPy compares a rounded two-decimal percentage. These are
+not equivalent near a rounding boundary, including winner ties. BootstrapRS
+retains the specified Report.average policy; exact rounded-percentage ranking
+and stopping parity are not claimed.
 
 Wave 2.4 implements CPython-compatible integer-seeded MT19937 and sequence
 sampling, now housed in `effect-math/PseudoRandom`. `cpython-random-001` establishes bit-exact
 random(), getrandbits (including wide integers), rejection randbelow, randint,
 choice, shuffle, and both sample branches across zero, positive, large, and
 negative seeds. LabeledFewShot uses one seed-0 stream across predictors;
-BootstrapFewShot labeled fill uses its own seed-0 stream. BootstrapRS uses two
+BootstrapFewShot labeled fill uses separate seed-0 shuffle and sampling streams. BootstrapRS uses two
 fresh streams per candidate (shuffle and cap), with independently seed-0 labeled
 sub-optimizers. `labeledfewshot-001` asserts exact identities/order for two
 predictors, and `bootstraprs-001` does so for every candidate.
+Shared-stream draws follow stable Module.Structure path order across LFS/BFS
+as well as GEPA. Fixtures align that order with DSPy's declaration order;
+arbitrary differently ordered declarations are not an identity-parity claim.
 
 Wave 3.0b shares the MT19937 engine between CPython integer-array seeding and
 NumPy legacy uint32 seeding in effect-math. `numpy-random-001` verifies exact
@@ -72,7 +90,8 @@ checkpoint continuations. Its unsorted-name/singleton cases verify exact
 prefixes: seeds 0/1/uint32-max, independent/multivariate, stop before the first
 inadmissible tie; seed-9 multivariate and seed-10 independent (startup=8) cover
 all 16 trials. The manifest records the deterministic 0..99 scan and rejected
-seeds. Numeric truncated-normal/integer seeded trajectories are not yet verified.
+seeds. Additional numeric replay below verifies bounded independent model-driven
+sampling, not every numeric or multivariate trajectory.
 
 Acquisition margins are diagnostic only: recorded at 12 decimal places, with
 the unrounded scores controlling upstream selection and classification.
@@ -233,6 +252,23 @@ a critic ModelBinder, reflection falls back to the task model with a warning,
 rather than requiring a separate reflection_lm. Supplied binders control roles
 and settings; no generation overrides are invented.
 
+`gepa-format-failure-001` tests targeted parse evidence through text, default
+auto/structured Predict and exhausted ReAct. `gepa-instruction-extractor-001`
+tests first-to-last fences, language tags, incomplete blocks, Python whitespace
+and empty replies (no fallback instruction). Feedback includes the upstream
+prefix followed by the actual native prompt; upstream instead formats an empty
+input/demo template. ReAct comparison covers the agent predictor, not upstream's
+additional extraction predictor. `chat-adapter-demo-projection-001` verifies
+signature-field projection and omission of demos with no recognized output;
+partial native demos keep their order and present fields rather than upstream's
+incomplete-first ordering and missing-field placeholders.
+
+A failing feedback metric, critic LM call or custom instructionProposer aborts
+GEPA with that typed error on the first attempt, without retry or parameter
+mutation. Upstream logs and skips such a proposal. Rollout/scoring failures still
+receive failureScore. These are deliberate typed-failure and prompt contracts,
+tested directly rather than represented as upstream execution identity.
+
 GEPA.State deliberately provides stronger continuation than upstream run_dir:
 it persists both RNG streams, epoch state, component cursors, merge scheduler
 counters and deduplication records. JSON checkpoint/resume tests match an
@@ -313,6 +349,11 @@ All pre-review fixture payloads retain their bytes; the canonical manifests
 gain only the new fixture entries. New numerical captures record the pinned
 interpreter, `PYTHONHASHSEED=0`, and CPU dispatch environment.
 
+`eval-compensated-mean-001` additionally verifies Evaluate raw report means,
+per-example metric means and Metric.compose using the same compensated sum.
+Evaluate intentionally retains unrounded fractions; only MIPRO applies the
+upstream rounded percentage convention for optimization.
+
 ## Discriminators and known limits
 
 | Fixture                                        | Owning wave | Current mismatch                                                                                                                         |
@@ -343,7 +384,7 @@ the upstream fixtures retain their recorded input/output representation.
 
 ## effect-search: Optuna 4.9 kernel verification in Wave 3.0
 
-Regeneration covers all 45 numerical/scenario payloads and their manifest,
+Regeneration covers all 54 numerical/scenario payloads and their manifest,
 plus the MIPRO kernel and its manifest. All nine former expected failures now
 pass without relaxed assertions or tolerances. An ordinary manifest test decodes every
 payload independently.
@@ -361,13 +402,27 @@ not current mismatches. Every listed test now passes its entire scenario set.
 Continuous bandwidth excludes the prior from observation-neighbor distances;
 mixed and categorical sampling share mixture components across dimensions.
 Trial splitting exhausts completed trials before step-ranked pruned trials,
-then least-violation infeasible trials. Running trials stay above and do not
-count toward startup; failed trials are excluded. Optimization keeps completed,
+then least-violation infeasible trials. Running trials stay above only with
+constantLiar enabled (default false) and never count toward startup; failed trials are excluded. Optimization keeps completed,
 pruned and pending histories separate. Duplicate reports retain the first value;
 new decreasing steps are accepted. MOTPE uses greedy marginal hypervolume
 selection. Constraint fixtures additionally cover all-infeasible and
 feasible-exhausted histories. These are kernel claims, not bit-exact NumPy RNG
 or end-to-end Optuna trajectory claims.
+
+Review fixtures `trial-states.*` assert default/off and explicit/on constant liar,
+feasible pruned constraints and maximum-step threshold decisions. `motpe-hssp.*`
+assert tie identities, feasible-only fronts, applied contribution weights and
+260-row/25-below splits through six objectives. The lazy splitter matches those
+exact memberships; its measured six-objective median was 233 ms versus the
+review's 257-second recursive implementation. `tpe-numeric.stepped-float` checks
+60 seeded fixed-history draws for each candidate count; `tpe-numeric.mixed-default`
+checks independent model-driven replay. Discrete choices are exact; continuous
+inverse-CDF values use 1e-10 and 3-D BLAS-dependent weights use relative 4e-15.
+The existing 18-trial `motpe-study.2obj` trace and Pareto front are now asserted.
+These cases do not establish multivariate numeric or all startup-distribution
+trajectory identity. Both Optuna manifests now record the CPU/thread settings
+already fixed by the committed generator; no historical environment is guessed.
 
 | Sampler / component          | Scenario                                                                   | Theoria                                             | Optuna 4.9                                            | Magnitude / test                                                                                                                                                                                 |
 | ---------------------------- | -------------------------------------------------------------------------- | --------------------------------------------------- | ----------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |

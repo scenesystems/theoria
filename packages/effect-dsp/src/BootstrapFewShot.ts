@@ -37,6 +37,9 @@ import * as Optimized from "./Optimized.js"
 import * as ParameterSet from "./ParameterSet.js"
 import * as TeacherTrace from "./TeacherTrace.js"
 
+/** DSPy's `max_errors=None` inherits `dspy.settings.max_errors`, pinned at 10. */
+const settingsMaxErrors = Option.some(10)
+
 const normalizeNonNegative = (value: number): number =>
   Bool.match(Numeric.isFinite(value), {
     onTrue: () => Numeric.max(0, Numeric.floor(value)),
@@ -207,10 +210,12 @@ export const summarizeEvents = (input: Iterable<Event>): Report =>
  * Configures teacher trace collection and labeled demonstration filling.
  *
  * @remarks
- * Each round visits unaccepted examples in order. Count options are rounded
- * down; negative and non-finite values become zero. A teacher with boundParameters
- * is compiled and retains its demonstrations. Default and plain teachers are
- * uncompiled and prewarmed through LabeledFewShot when maxLabeledDemos is positive.
+ * Examples are visited in order; each retries up to maxRounds times before the
+ * next starts. Count options are rounded down; negative and non-finite values
+ * become zero. A teacher with boundParameters is compiled and retains its
+ * demonstrations. Default and plain teachers are uncompiled and prewarmed through
+ * LabeledFewShot when maxLabeledDemos is positive; otherwise they keep their
+ * demonstrations (the default teacher is the student's current parameters).
  * The compiled student's demonstrations replace its existing demonstrations.
  *
  * @typeParam I - Module input fields decoded from training examples.
@@ -241,9 +246,9 @@ export class Options<
   readonly maxBootstrappedDemos?: number
   /** Total capacity up to which labeled rows fill after trace demos, default 16. */
   readonly maxLabeledDemos?: number
-  /** Optional score threshold; absent accepts nonzero scores. */
+  /** Optional score threshold; absent or zero accepts nonzero scores, as DSPy's truthiness test does. */
   readonly metricThreshold?: Option.Option<number>
-  /** Failure count that raises TooManyErrors; absent leaves the budget unlimited. */
+  /** Failure count that raises TooManyErrors; absent or none uses DSPy's settings default, 10. */
   readonly maxErrors?: Option.Option<number>
   /** Teacher program; defaults to an immutable student snapshot. */
   readonly teacher?: Module<I, O, E, R>
@@ -270,10 +275,14 @@ const streamBootstrapFewShotEvents = <A, E, R>(
  * Events are awaited during teacher execution. Accepted examples contribute
  * one demonstration per predictor through TeacherTrace.firstPerPredictor;
  * duplicate outputs from different examples are retained. Collection stops
- * when every trainable predictor reaches its cap or the round cap is reached.
- * Unaccepted labeled examples fill max(0, maxLabeledDemos - bootstrappedCount)
- * slots per predictor. Zero demonstrations is a valid result. Expected model
- * and metric failures consume maxErrors; observer errors do not.
+ * when every trainable predictor reaches its cap or the examples are exhausted.
+ * DSPy instead stops after maxBootstrappedDemos accepted examples, so programs
+ * that skip a predictor on some examples can visit more examples here.
+ * Unaccepted examples are shuffled with a fresh CPython Random(0); labeled rows
+ * then fill max(0, maxLabeledDemos - bootstrappedCount) slots per predictor from
+ * a second fresh Random(0) shared across predictors. Zero demonstrations is a
+ * valid result. Expected model and metric failures consume maxErrors; observer
+ * errors do not.
  * The returned program binds the learned parameters. No caller refs change,
  * including when a round fails or is interrupted.
  *
@@ -320,8 +329,9 @@ export const runWithEvents = <
         message: "Teacher and student must be distinct executable programs"
       })
     ).pipe(Effect.when(Effect.succeed(options.teacher === options.module)))
-    const sourceTeacher = Option.getOrElse(Option.fromUndefinedOr(options.teacher), () =>
-      bound(options.module, Record.map(before, (parameters) => withModuleParametersDemos(parameters, []))))
+    // DSPy deep-copies the student as the default teacher, keeping its demos unless
+    // labeled prewarming replaces them.
+    const sourceTeacher = Option.getOrElse(Option.fromUndefinedOr(options.teacher), () => bound(options.module, before))
     const teacher = yield* Bool.match(
       maxLabeledDemos > 0 &&
         Option.isNone(Option.fromUndefinedOr(options.teacher?.boundParameters)),
@@ -334,9 +344,7 @@ export const runWithEvents = <
               k: maxLabeledDemos,
               seed: 0
             })
-          ).pipe(Effect.map((result) =>
-            result.program
-          )),
+          ).pipe(Effect.map((result) => result.program)),
         onFalse: () => Effect.succeed(sourceTeacher)
       }
     )
@@ -351,7 +359,7 @@ export const runWithEvents = <
         trainset: Chunk.fromIterable(options.trainset),
         metric: options.metric,
         threshold: Option.flatten(Option.fromUndefinedOr(options.metricThreshold)),
-        maxErrors: Option.flatten(Option.fromUndefinedOr(options.maxErrors)),
+        maxErrors: Option.orElse(Option.flatten(Option.fromUndefinedOr(options.maxErrors)), () => settingsMaxErrors),
         maxRounds,
         concurrency: 1,
         stopWhen: (accepted) =>
@@ -405,9 +413,15 @@ export const runWithEvents = <
     )
     const accepted = Arr.map(Arr.fromIterable(collected.accepted), TeacherTrace.firstPerPredictor)
     const rejected = Arr.fromIterable(collected.rejected)
-    const raw = yield* Effect.filter(
+    const unbootstrapped = yield* Effect.filter(
       options.trainset,
       (example) => exampleId(example).pipe(Effect.map((id) => !Arr.some(accepted, (entry) => entry.exampleId === id)))
+    )
+    // DSPy bootstrap.py shuffles the unbootstrapped rows with a fresh Random(0), then
+    // _train samples every predictor's fill from a second fresh Random(0).
+    const raw = yield* PseudoRandom.makeCPython(0).pipe(
+      Effect.flatMap((shuffling) => shuffling.shuffle(Chunk.fromIterable(unbootstrapped))),
+      Effect.map(Chunk.toReadonlyArray)
     )
     const sampling = yield* PseudoRandom.makeCPython(0)
     const entries = yield* Effect.forEach(predictorsToTrain, (predictor) =>

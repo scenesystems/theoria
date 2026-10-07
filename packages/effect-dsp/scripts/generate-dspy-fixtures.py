@@ -16,11 +16,11 @@ if os.environ.get("PYTHONHASHSEED") != "0":
 # MIPRO uses NumPy-backed Optuna scoring; CPU dispatch can change tied selections.
 os.environ["NPY_DISABLE_CPU_FEATURES"] = "AVX2,FMA3,AVX512F"
 
-from fixtures import bootstrap_family, chat_adapter, evaluate_runtime, gepa, mipro_proposer, mipro_v2, numerics, predict_runtime
+from fixtures import bootstrap_family, chat_adapter, evaluate_runtime, format_feedback, gepa, mipro_proposer, mipro_v2, numerics, predict_runtime
 from fixtures._common import assert_runtime_version, document, render
 
 ROOT = Path(__file__).resolve().parents[1] / "test/fixtures/dspy"
-FAMILIES = [chat_adapter, predict_runtime, evaluate_runtime, bootstrap_family, mipro_v2, mipro_proposer, gepa, numerics]
+FAMILIES = [chat_adapter, predict_runtime, evaluate_runtime, bootstrap_family, mipro_v2, mipro_proposer, gepa, numerics, format_feedback]
 
 
 def run(check=False, root=ROOT):

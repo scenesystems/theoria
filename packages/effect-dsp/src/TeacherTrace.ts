@@ -29,7 +29,9 @@ import {
 } from "effect"
 import { Demonstration } from "./Demonstration.js"
 import * as Example from "./Example.js"
-import { maxFailures } from "./internal/maxErrors.js"
+import { RolloutRef } from "./internal/cache/rollout.js"
+import { CurrentRole } from "./internal/modelRole.js"
+import { ScopedSettings } from "./internal/module/predict/scope.js"
 import * as Metric from "./Metric.js"
 import * as Module from "./Module.js"
 import * as ModuleGraph from "./ModuleGraph.js"
@@ -107,9 +109,13 @@ export class TooManyErrors extends Schema.TaggedError<TooManyErrors>(
   "@scenesystems/effect-dsp/TeacherTrace/TooManyErrors"
 )("TooManyErrors", { count: Schema.Int, limit: Schema.Int }) {}
 
+/** Internal signal: the maxErrors budget was reached by an example's attempt. */
+class Exhausted extends Data.TaggedError("@scenesystems/effect-dsp/TeacherTrace/Exhausted") {}
+
 /** Teacher collection policy. Defaults: bound student, one round, one worker,
- * no score threshold and no error limit. stopWhen prevents new work from starting;
- * already-running examples drain normally.
+ * no score threshold and no error limit. A zero threshold behaves like an absent
+ * one (DSPy's truthiness test): nonzero scores pass. stopWhen is consulted before
+ * each example starts; already-running examples drain normally.
  * @since 0.7.0
  * @category models
  */
@@ -144,8 +150,14 @@ export const firstPerPredictor = (accepted: Accepted): Accepted =>
   }))
 
 /** Executes teachers under leave-one-out parameter overlays and teacher role.
- * Successful examples are not retried in later rounds; rejected examples are.
- * Every expected example failure is retained unless the error budget is reached.
+ * Traversal is example-major, as in DSPy: each example is attempted for up to
+ * maxRounds rounds, stopping at its first acceptance, before the next example
+ * starts. Rounds after the first use rollout `round` and temperature 1; role,
+ * settings and rollout are scoped before predictor cache keys are formed. Every
+ * expected attempt failure is retained and counts toward maxErrors; reaching the
+ * limit stops new attempts, drains running ones, and fails with TooManyErrors.
+ * RoundStarted is emitted when the first example reaches a round; RoundCompleted
+ * events follow traversal with counts cumulative through that round.
  * @since 0.7.0
  * @category operations
  */
@@ -202,11 +214,18 @@ export const collect = <
       options.trainset,
       (example) => Example.id(example).pipe(Effect.map((id) => ({ example, id })))
     )
-    const accepted = yield* Ref.make(Chunk.empty<Accepted>())
-    const rejected = yield* Ref.make(Chunk.empty<Rejected>())
+    const maxRounds = Option.getOrElse(Option.fromUndefinedOr(options.maxRounds), () => 1)
+    const limit = Option.flatten(Option.fromUndefinedOr(options.maxErrors))
+    // DSPy tests `if self.metric_threshold:`, so absent and zero thresholds both use score truthiness.
+    const threshold = Option.filter(Option.flatten(Option.fromUndefinedOr(options.threshold)), (value) => value !== 0)
+    const teacherSettings = Option.getOrElse(Option.fromUndefinedOr(options.teacherSettings), () => ModelSettings.empty)
+    // Live acceptances drive stopWhen; returned evidence is assembled in input order.
+    const live = yield* Ref.make(Chunk.empty<Accepted>())
     const errors = yield* Ref.make(0)
+    const exhausted = yield* Ref.make(false)
+    const roundsStarted = yield* Ref.make(0)
     // Expected observer failures are carried outside runCollecting, not counted as model failures.
-    // Already-running examples drain; no new examples start after the first observer failure.
+    // Already-running examples drain; no new attempts start after the first observer failure.
     const observerFailure = yield* Ref.make(Option.none<EE>())
     const emitExample = (event: Event) =>
       observe(event).pipe(
@@ -214,222 +233,217 @@ export const collect = <
           Ref.update(observerFailure, (previous) => Option.orElse(previous, () => Option.some(error)))
         )
       )
+    const halted = Effect.all([Ref.get(observerFailure), Ref.get(exhausted)]).pipe(
+      Effect.map(([failure, spent]) => Bool.or(Option.isSome(failure), spent))
+    )
+    // Predict merges ScopedSettings before cache keys are formed. LM operations that build
+    // their own requests (ReAct turns, plain text generation) receive them through this binder.
     const binder = yield* ModelBinder.Current
-    yield* Effect.forEach(
-      Arr.makeBy(Option.getOrElse(Option.fromUndefinedOr(options.maxRounds), () => 1), (round) => round),
-      (round) =>
-        Effect.gen(function*() {
-          const completed = yield* Ref.get(accepted)
-          yield* Effect.gen(function*() {
-            yield* observe(events.RoundStarted({ round }))
-            const failuresBefore = yield* Ref.get(errors)
-            const remaining = Arr.filter(rows, (row) => !Chunk.some(completed, (entry) => entry.exampleId === row.id))
-            const evaluation = yield* Evaluation.runCollecting(remaining, (row) =>
-              Effect.gen(function*() {
-                const stopped = yield* Bool.match(Option.isSome(yield* Ref.get(observerFailure)), {
-                  onTrue: () => Effect.succeed(true),
-                  onFalse: () =>
-                    Ref.get(accepted).pipe(
-                      Effect.map((entries) =>
-                        Option.exists(Option.fromUndefinedOr(options.stopWhen), (stop) => stop(entries))
-                      )
-                    )
-                })
-                return yield* Bool.match(stopped, {
-                  onTrue: () => Effect.succeed(Option.none<Accepted | Rejected>()),
-                  onFalse: () =>
-                    Effect.gen(function*() {
-                      const outcome = yield* Effect.gen(function*() {
-                        const overlay = Record.map(parameters, (parameters) =>
-                          ModuleParameters.withDemos(
-                            parameters,
-                            Arr.filter(parameters.demos, (demo) => !Option.contains(row.id)(demo.exampleId))
-                          ))
-                        const input = yield* Schema.decodeEffect(teacher.signature.inputSchema)(row.example.input)
-                        const teacherBinder = new ModelBinder.Binder({
-                          bind: (request) =>
-                            binder.bind(
-                              new ModelBinder.Request({
-                                role: "teacher",
-                                settings: ModelSettings.merge(
-                                  request.settings,
-                                  ModelSettings.merge(
-                                    Option.getOrElse(
-                                      Option.fromUndefinedOr(options.teacherSettings),
-                                      () => ModelSettings.empty
-                                    ),
-                                    Bool.match(round > 0, {
-                                      onTrue: () => new ModelSettings.ModelSettings({ temperature: 1 }),
-                                      onFalse: () => ModelSettings.empty
-                                    })
-                                  )
-                                ),
-                                rolloutId: Bool.match(round > 0, {
-                                  onTrue: () => Option.some(round),
-                                  onFalse: () => request.rolloutId
-                                })
-                              })
-                            )
-                        })
-                        const prediction = yield* Module.call(teacher, input).pipe(
-                          Module.withParameters(overlay),
-                          ModelBinder.withBinder(teacherBinder)
-                        )
-                        const score = yield* options.metric.score(
-                          row.example,
-                          prediction,
-                          new Metric.Context({
-                            phase: "bootstrap",
-                            trace: Option.some(prediction.trace),
-                            target: Option.none()
-                          })
-                        )
-                        const passes = Option.match(Option.flatten(Option.fromUndefinedOr(options.threshold)), {
-                          onNone: () => score.value !== 0,
-                          onSome: (threshold) => score.value >= threshold
-                        })
-                        return yield* Bool.match(passes, {
-                          onFalse: () =>
-                            Effect.succeedSome<Accepted | Rejected>(
-                              new Rejected({
-                                exampleId: row.id,
-                                round,
-                                reason: "score",
-                                score: Option.some(score),
-                                failure: Option.none()
-                              })
-                            ),
-                          onTrue: () =>
-                            Effect.gen(function*() {
-                              const demos = yield* Effect.forEach(studentRefs, (predictor) =>
-                                Effect.gen(function*() {
-                                  const entries = Chunk.filter(
-                                    prediction.trace.selected,
-                                    (entry) => entry.outcome === "completed" && entry.moduleName === predictor.name
-                                  )
-                                  const values = yield* Effect.forEach(entries, (entry) =>
-                                    predictor.demonstrationCodec.decodeDocuments(entry.input, entry.output).pipe(
-                                      Effect.map((demo) =>
-                                        new Demonstration(
-                                          Struct.assign(demo, { exampleId: Option.some(row.id), augmented: true })
-                                        )
-                                      )
-                                    ))
-                                  return Tuple.make(predictor.path, Chunk.fromIterable(values))
-                                }))
-                              const result = new Accepted({
-                                exampleId: row.id,
-                                round,
-                                trace: prediction.trace,
-                                score,
-                                demosByPredictor: Record.fromEntries(demos)
-                              })
-                              yield* Ref.update(accepted, (entries) => Chunk.append(entries, result))
-                              return Option.some<Accepted | Rejected>(result)
-                            })
-                        })
-                      }).pipe(Effect.result)
-                      return yield* Result.match(outcome, {
-                        onFailure: (failure) =>
-                          Effect.gen(function*() {
-                            yield* emitExample(
-                              events.ExampleRejected({
-                                exampleId: row.id,
-                                round,
-                                reason: "failure",
-                                score: Option.none(),
-                                failure: Option.some(Inspectable.toStringUnknown(failure))
-                              })
-                            )
-                            return yield* Bool.match(Option.isSome(yield* Ref.get(observerFailure)), {
-                              onTrue: () => Effect.succeed(Option.none<Accepted | Rejected>()),
-                              onFalse: () => Effect.fail(failure)
-                            })
-                          }),
-                        onSuccess: (success) =>
-                          Option.match(success, {
-                            onNone: () => Effect.succeed(success),
-                            onSome: (value) =>
-                              emitExample(
-                                Match.value(value).pipe(
-                                  Match.when(Match.instanceOfUnsafe(Accepted), events.ExampleAccepted),
-                                  Match.orElse(events.ExampleRejected)
-                                )
-                              ).pipe(Effect.as(success))
-                          })
-                      })
-                    })
-                })
-              }), {
-              concurrency: Option.getOrElse(Option.fromUndefinedOr(options.concurrency), () => 1),
-              maxFailures: Option.map(
-                maxFailures(Option.flatten(Option.fromUndefinedOr(options.maxErrors))),
-                (limit) => Num.subtract(limit, failuresBefore)
-              ),
-              onFailure: "record"
-            }).pipe(
-              Effect.mapError((error) =>
-                new TooManyErrors({
-                  count: Num.sum(failuresBefore, error.count),
-                  limit: Option.getOrElse(
-                    Option.flatten(Option.fromUndefinedOr(options.maxErrors)),
-                    () => Num.increment(Num.sum(error.limit, failuresBefore))
-                  )
-                })
-              ),
-              Effect.result
+    const teacherBinder = new ModelBinder.Binder({
+      bind: (request) => (effect) =>
+        Effect.flatMap(ScopedSettings, (scoped) =>
+          binder.bind(
+            new ModelBinder.Request({
+              role: request.role,
+              settings: ModelSettings.merge(request.settings, scoped),
+              rolloutId: request.rolloutId
+            })
+          )(effect))
+    })
+    // DSPy bootstrap.py: rounds after the first use lm.copy(rollout_id=round, temperature=1.0).
+    // Role, settings and rollout are scoped before any predictor forms its cache key.
+    const teacherScope = (round: number) => <A, X, Y>(effect: Effect.Effect<A, X, Y>) =>
+      Effect.flatMap(RolloutRef, (rollout) =>
+        effect.pipe(
+          ModelBinder.withBinder(teacherBinder),
+          Effect.provideService(CurrentRole, "teacher"),
+          Effect.provideService(
+            ScopedSettings,
+            ModelSettings.merge(
+              teacherSettings,
+              Bool.match(round > 0, {
+                onTrue: () => new ModelSettings.ModelSettings({ temperature: 1 }),
+                onFalse: () => ModelSettings.empty
+              })
             )
-            const failedObserver = yield* Ref.get(observerFailure)
-            yield* Option.match(failedObserver, { onNone: () => Effect.void, onSome: Effect.fail })
-            const trials = yield* Result.match(evaluation, { onFailure: Effect.fail, onSuccess: Effect.succeed })
-            yield* Ref.set(accepted, completed)
-            yield* Effect.forEach(trials, (trial) =>
-              Match.value(trial.state).pipe(
-                Match.tag("Failed", (state) =>
-                  Effect.gen(function*() {
-                    const failure = Inspectable.toStringUnknown(state.error)
-                    yield* Ref.update(errors, Num.increment)
-                    yield* Ref.update(rejected, (entries) =>
-                      Chunk.append(
-                        entries,
-                        new Rejected({
-                          exampleId: trial.config.id,
+          ),
+          Effect.provideService(
+            RolloutRef,
+            Bool.match(round > 0, { onTrue: () => Option.some(round), onFalse: () => rollout })
+          )
+        ))
+    const attempt = (row: (typeof rows)[number], round: number) =>
+      Effect.gen(function*() {
+        const overlay = Record.map(parameters, (parameters) =>
+          ModuleParameters.withDemos(
+            parameters,
+            Arr.filter(parameters.demos, (demo) => !Option.contains(row.id)(demo.exampleId))
+          ))
+        const input = yield* Schema.decodeEffect(teacher.signature.inputSchema)(row.example.input)
+        const prediction = yield* Module.call(teacher, input).pipe(
+          Module.withParameters(overlay),
+          teacherScope(round)
+        )
+        const score = yield* options.metric.score(
+          row.example,
+          prediction,
+          new Metric.Context({
+            phase: "bootstrap",
+            trace: Option.some(prediction.trace),
+            target: Option.none()
+          })
+        )
+        const passes = Option.match(threshold, {
+          onNone: () => score.value !== 0,
+          onSome: (minimum) => score.value >= minimum
+        })
+        return yield* Bool.match(passes, {
+          onFalse: () =>
+            Effect.succeed<Accepted | Rejected>(
+              new Rejected({
+                exampleId: row.id,
+                round,
+                reason: "score",
+                score: Option.some(score),
+                failure: Option.none()
+              })
+            ),
+          onTrue: () =>
+            Effect.gen(function*() {
+              const demos = yield* Effect.forEach(studentRefs, (predictor) =>
+                Effect.gen(function*() {
+                  const entries = Chunk.filter(
+                    prediction.trace.selected,
+                    (entry) => entry.outcome === "completed" && entry.moduleName === predictor.name
+                  )
+                  const values = yield* Effect.forEach(entries, (entry) =>
+                    predictor.demonstrationCodec.decodeDocuments(entry.input, entry.output).pipe(
+                      Effect.map((demo) =>
+                        new Demonstration(
+                          Struct.assign(demo, { exampleId: Option.some(row.id), augmented: true })
+                        )
+                      )
+                    ))
+                  return Tuple.make(predictor.path, Chunk.fromIterable(values))
+                }))
+              const result = new Accepted({
+                exampleId: row.id,
+                round,
+                trace: prediction.trace,
+                score,
+                demosByPredictor: Record.fromEntries(demos)
+              })
+              yield* Ref.update(live, (entries) => Chunk.append(entries, result))
+              return result
+            })
+        })
+      })
+    // A round starts when the first example reaches that attempt index.
+    const startRound = (round: number) =>
+      Ref.modify(roundsStarted, (started) =>
+        Bool.match(round >= started, {
+          onTrue: () => Tuple.make(true, Num.increment(round)),
+          onFalse: () => Tuple.make(false, started)
+        })).pipe(
+          Effect.flatMap((fresh) =>
+            emitExample(events.RoundStarted({ round })).pipe(Effect.when(Effect.succeed(fresh)))
+          )
+        )
+    // DSPy bootstrap.py is example-major: each example retries through its rounds until
+    // accepted before the next example starts. Every expected failure counts toward maxErrors.
+    const visit = (row: (typeof rows)[number]) =>
+      Effect.gen(function*() {
+        const outcomes = yield* Ref.make(Chunk.empty<Accepted | Rejected>())
+        const settled = yield* Ref.make(false)
+        yield* Effect.forEach(Arr.makeBy(maxRounds, (round) => round), (round) =>
+          Effect.gen(function*() {
+            const skip = Bool.or(yield* halted, yield* Ref.get(settled))
+            yield* Bool.match(skip, {
+              onTrue: () => Effect.void,
+              onFalse: () =>
+                Effect.gen(function*() {
+                  yield* startRound(round)
+                  const outcome = yield* Effect.result(attempt(row, round))
+                  yield* Result.match(outcome, {
+                    onFailure: (failure) =>
+                      Effect.gen(function*() {
+                        const rejection = new Rejected({
+                          exampleId: row.id,
                           round,
                           reason: "failure",
                           score: Option.none(),
-                          failure: Option.some(failure)
+                          failure: Option.some(Inspectable.toStringUnknown(failure))
                         })
-                      ))
-                  })),
-                Match.tag("Completed", (state) =>
-                  Option.match(state.value, {
-                    onNone: () => Effect.void,
-                    onSome: (value) =>
-                      Match.value(value).pipe(
-                        Match.when(
-                          Match.instanceOfUnsafe(Rejected),
-                          (entry) => Ref.update(rejected, (entries) => Chunk.append(entries, entry))
-                        ),
-                        Match.orElse((entry) => Ref.update(accepted, (entries) => Chunk.append(entries, entry)))
-                      )
-                  })),
-                Match.exhaustive
-              ))
-            yield* observe(
-              events.RoundCompleted({
-                round,
-                acceptedCount: Chunk.size(yield* Ref.get(accepted)),
-                rejectedCount: Chunk.size(yield* Ref.get(rejected))
-              })
-            )
-          }).pipe(
-            Effect.when(Effect.succeed(
-              !Option.exists(Option.fromUndefinedOr(options.stopWhen), (stop) => stop(completed))
-            ))
-          )
+                        const count = yield* Ref.updateAndGet(errors, Num.increment)
+                        const reached = Option.exists(limit, (maximum) => count >= maximum)
+                        yield* Ref.set(exhausted, true).pipe(Effect.when(Effect.succeed(reached)))
+                        yield* Ref.update(outcomes, Chunk.append(rejection))
+                        yield* emitExample(events.ExampleRejected(rejection))
+                        yield* Effect.fail(new Exhausted()).pipe(Effect.when(Effect.succeed(reached)))
+                      }),
+                    onSuccess: (value) =>
+                      Effect.gen(function*() {
+                        yield* Ref.update(outcomes, Chunk.append(value))
+                        yield* Match.value(value).pipe(
+                          Match.when(
+                            Match.instanceOfUnsafe(Accepted),
+                            (entry) =>
+                              Ref.set(settled, true).pipe(Effect.andThen(emitExample(events.ExampleAccepted(entry))))
+                          ),
+                          Match.orElse((entry) => emitExample(events.ExampleRejected(entry)))
+                        )
+                      })
+                  })
+                })
+            })
+          }), { discard: true })
+        return yield* Ref.get(outcomes)
+      })
+    const evaluation = yield* Evaluation.runCollecting(rows, (row) =>
+      Effect.gen(function*() {
+        const entries = yield* Ref.get(live)
+        const stopped = Bool.or(
+          yield* halted,
+          Option.exists(Option.fromUndefinedOr(options.stopWhen), (stop) => stop(entries))
+        )
+        return yield* Bool.match(stopped, {
+          onTrue: () => Effect.succeed(Chunk.empty<Accepted | Rejected>()),
+          onFalse: () => visit(row)
         })
-    )
-    return new Collected({ accepted: yield* Ref.get(accepted), rejected: yield* Ref.get(rejected) })
+      }), {
+      concurrency: Option.getOrElse(Option.fromUndefinedOr(options.concurrency), () => 1),
+      // Only an exhausted maxErrors budget fails an example: stop admitting, drain, then fail.
+      maxFailures: Option.some(0),
+      onFailure: "record"
+    }).pipe(Effect.result)
+    const failedObserver = yield* Ref.get(observerFailure)
+    yield* Option.match(failedObserver, { onNone: () => Effect.void, onSome: Effect.fail })
+    const trials = yield* Result.match(evaluation, {
+      onSuccess: Effect.succeed,
+      onFailure: () =>
+        Effect.gen(function*() {
+          const maximum = yield* Effect.fromOption(limit).pipe(Effect.orDie)
+          return yield* new TooManyErrors({ count: yield* Ref.get(errors), limit: maximum })
+        })
+    })
+    const outcomes = Chunk.flatMap(trials, (trial) =>
+      Match.value(trial.state).pipe(
+        Match.tag("Completed", (state) => state.value),
+        Match.tag("Failed", () => Chunk.empty<Accepted | Rejected>()),
+        Match.exhaustive
+      ))
+    const accepted = Chunk.filter(outcomes, Schema.is(Accepted))
+    const rejected = Chunk.filter(outcomes, Schema.is(Rejected))
+    // Rounds complete together once traversal ends; counts are cumulative through each round.
+    yield* Effect.forEach(Arr.makeBy(yield* Ref.get(roundsStarted), (round) => round), (round) =>
+      observe(
+        events.RoundCompleted({
+          round,
+          acceptedCount: Chunk.size(Chunk.filter(accepted, (entry) => entry.round <= round)),
+          rejectedCount: Chunk.size(Chunk.filter(rejected, (entry) => entry.round <= round))
+        })
+      ), { discard: true })
+    return new Collected({ accepted, rejected })
   })
 
 /** Streams teacher lifecycle events as collection executes. @since 0.7.0 @category constructors */
