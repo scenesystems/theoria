@@ -91,8 +91,13 @@ const logarithms = Array.make(
 
 // Decimal.from_float(x).exp(), evaluated with 160 decimal digits. Adjacent
 // inputs straddle the signed ln(2)/2 reduction boundaries; larger residuals
-// exercise every coefficient in the reduced exponential polynomial.
+// exercise every coefficient in the reduced exponential polynomial. The
+// extreme inputs straddle the binary-scaling/decimal-fallback boundary.
 const exponentials = Array.make(
+  Tuple.make(-700.0000000000001, 9.85967654375865e-305),
+  Tuple.make(-700, 9.85967654375977e-305),
+  Tuple.make(-699.75, 1.2660075282507491e-304),
+  Tuple.make(-350.25, 7.733172776189467e-153),
   Tuple.make(-0.3465735902799727, 0.7071067811865475),
   Tuple.make(-0.34657359027997264, 0.7071067811865476),
   Tuple.make(-0.3465735902799726, 0.7071067811865476),
@@ -100,7 +105,11 @@ const exponentials = Array.make(
   Tuple.make(0.34657359027997264, 1.414213562373095),
   Tuple.make(0.3465735902799727, 1.4142135623730951),
   Tuple.make(-10.125, 4.006529739295107e-5),
-  Tuple.make(10.125, 24959.255641914595)
+  Tuple.make(10.125, 24959.255641914595),
+  Tuple.make(350.25, 1.2931302958586573e152),
+  Tuple.make(699.75, 7.898847184437414e303),
+  Tuple.make(700, 1.0142320547350045e304),
+  Tuple.make(700.0000000000001, 1.0142320547351199e304)
 )
 
 const fractionalPowers = Array.make(

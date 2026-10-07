@@ -22,6 +22,38 @@ describe("Numeric binary64 arithmetic", () => {
       expect(toBigDecimal(positiveInfinity)).toEqual(Option.none())
     }))
 
+  it.effect("preserves exact fractions on both sides of near-unity normalization boundaries", () =>
+    Effect.gen(function*() {
+      // Integer / 1024 is exact in binary64. Decimal division supplies the
+      // reference independently of binary normalization, for either sign.
+      Chunk.forEach(
+        Chunk.make(
+          -2049,
+          -2048,
+          -2047,
+          -1025,
+          -1024,
+          -1023,
+          -513,
+          -512,
+          -511,
+          511,
+          512,
+          513,
+          1023,
+          1024,
+          1025,
+          2047,
+          2048,
+          2049
+        ),
+        (numerator) => {
+          const expected = BigDecimal.divideUnsafe(BigDecimal.fromNumberUnsafe(numerator), BigDecimal.make(1024n, 0))
+          expect(Equal.equals(toBigDecimal(Number.divideUnsafe(numerator, 1024)), Option.some(expected))).toBe(true)
+        }
+      )
+    }))
+
   it.effect("converts the exact integer rather than its shortest decimal spelling", () =>
     Effect.gen(function*() {
       // The nearest binary64 value to 10^23 is 2^23 below that decimal integer.
