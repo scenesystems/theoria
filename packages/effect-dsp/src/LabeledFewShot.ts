@@ -83,7 +83,7 @@ export const run = <
     const requestedSeed = Option.getOrElse(Option.fromUndefinedOr(options.seed), () => 0)
     const seed = Boolean.match(Numeric.isFinite(requestedSeed), {
       onFalse: () => 0,
-      onTrue: () => Math.trunc(requestedSeed)
+      onTrue: () => Numeric.truncate(requestedSeed)
     })
     const sampling = yield* PseudoRandom.makeCPython(seed)
     const requested = Option.getOrElse(Option.fromUndefinedOr(options.k), () => 16)
