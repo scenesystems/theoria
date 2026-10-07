@@ -1,5 +1,11 @@
 # @scenesystems/effect-math
 
+## 0.5.2
+
+### Patch Changes
+
+- [#130](https://github.com/scenesystems/theoria/pull/130) [`bc05e4b`](https://github.com/scenesystems/theoria/commit/bc05e4bee5f0326d5a13e1bd0f6b2e4ee0927df2) Thanks [@aridyckovsky](https://github.com/aridyckovsky)! - Reuse exact binary scaling factors and skip redundant normalization work in scalar exponential, logarithm, and square-root operations while preserving numerical behavior.
+
 ## 0.5.1
 
 ### Patch Changes
