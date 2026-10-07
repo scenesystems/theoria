@@ -2,7 +2,9 @@ import { expect, it } from "@effect/vitest"
 import * as ModelBinder from "@scenesystems/effect-lm/ModelBinder"
 import {
   Array as Arr,
+  BigDecimal,
   Boolean as Bool,
+  Data,
   Effect,
   Match,
   Number as Num,
@@ -27,6 +29,7 @@ import { ModuleParameters } from "../../src/ModuleParameters.js"
 import * as Signature from "../../src/Signature.js"
 import { fixture } from "../kit/Fixtures.js"
 import { assertNoMutation } from "../kit/Mutation.js"
+import { toldPercent } from "../kit/Percent.js"
 
 const Row = Schema.Struct({ id: Schema.String, question: Schema.String, answer: Schema.String })
 const State = Schema.Struct({
@@ -170,8 +173,18 @@ const compile = (reference: typeof Reference.Type, specialist: boolean) =>
   })
 
 const sameConfig = Schema.toEquivalence(TrialEvaluation.fields.config)
-const mean = (rows: ReadonlyArray<typeof Observed.Type>) =>
-  Num.sumAll(Arr.map(rows, (row) => row.score * 100)) / rows.length
+// Real-valued means compared by cross multiplication: equal means tie exactly, so the stable sort
+// keeps the first-observed combination as upstream's sorted(..., reverse=True) does.
+class MeanSummary
+  extends Data.Class<{ readonly total: BigDecimal.BigDecimal; readonly count: BigDecimal.BigDecimal }>
+{}
+const meanSummary = (rows: ReadonlyArray<typeof Observed.Type>) =>
+  new MeanSummary({
+    total: BigDecimal.sumAll(Arr.map(rows, (row) => toldPercent(row.score))),
+    count: Option.getOrThrow(BigDecimal.fromNumber(rows.length))
+  })
+const descendingMean: Order.Order<MeanSummary> = (self, that) =>
+  BigDecimal.Order(BigDecimal.multiply(that.total, self.count), BigDecimal.multiply(self.total, that.count))
 
 const assertPolicy = (reference: typeof Reference.Type, rows: ReadonlyArray<typeof Observed.Type>) => {
   expect(rows).toHaveLength(reference.trialTable.length)
@@ -208,9 +221,9 @@ const assertPolicy = (reference: typeof Reference.Type, rows: ReadonlyArray<type
         const ranked = Arr.sort(
           remaining,
           Order.mapInput(
-            Num.Order,
+            descendingMean,
             (config: TrialEvaluation["config"]) =>
-              -mean(Arr.filter(minibatches, (previous) => sameConfig(config, previous.config)))
+              meanSummary(Arr.filter(minibatches, (previous) => sameConfig(config, previous.config)))
           )
         )
         expect(row.config, `checkpoint ${row.trial}`).toEqual(Option.getOrThrow(Arr.head(ranked)))

@@ -1,4 +1,5 @@
 /** GEPA reflection uses training minibatches; validation only selects the return. @internal */
+import * as Numeric from "@scenesystems/effect-math/Numeric"
 import type * as PseudoRandom from "@scenesystems/effect-math/PseudoRandom"
 import {
   Array as Arr,
@@ -23,10 +24,11 @@ import { buildReflectivePrompt } from "../reflect.js"
 import { nextMinibatch, selectParent } from "../sampling.js"
 import { evaluateCandidate, reflectiveSamples } from "./evaluate.js"
 
-/** Earliest aggregate maximum, including candidates outside the coverage front. @internal */
+/** Earliest aggregate maximum, including candidates outside the coverage front.
+ * Aggregates are GEPA's `sum(scores) / len(scores)` with CPython's builtin sum. @internal */
 export const bestIndex = (scores: ReadonlyArray<ReadonlyArray<number>>) =>
   Arr.reduce(scores, { index: 0, score: Number.NEGATIVE_INFINITY }, (best, vector, index) => {
-    const score = Num.sumAll(vector) / vector.length
+    const score = Num.divideUnsafe(Numeric.sumNeumaier(vector), Arr.length(vector))
     return Boolean.match(score > best.score, { onFalse: () => best, onTrue: () => ({ index, score }) })
   }).index
 
@@ -144,8 +146,9 @@ export const runMutationPhase = <I extends Schema.Struct.Fields, O extends Schem
                     instruction
                   })))
                 const child = yield* evaluateCandidate(options, candidate, examples, "search")
-                const previousSubsampleSum = Num.sumAll(evaluation.scores)
-                const mutatedSubsampleSum = Num.sumAll(child.scores)
+                // StrictImprovementAcceptance compares builtin sums of the two minibatch score lists.
+                const previousSubsampleSum = Numeric.sumNeumaier(evaluation.scores)
+                const mutatedSubsampleSum = Numeric.sumNeumaier(child.scores)
                 const accepted = mutatedSubsampleSum > previousSubsampleSum
                 const full = yield* Boolean.match(accepted, {
                   onFalse: () => Effect.succeed({ scores: Arr.empty<number>() }),

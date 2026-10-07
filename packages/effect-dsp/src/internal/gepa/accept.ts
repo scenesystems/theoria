@@ -44,7 +44,8 @@ export const EvaluateMergeAcceptanceOptions = Schema.Struct({
  */
 export type EvaluateMergeAcceptanceOptions = typeof EvaluateMergeAcceptanceOptions.Type
 
-const sumScores = (scores: CandidateScoreVector): number => Num.sumAll(scores)
+/** GEPA acceptance compares CPython builtin sums, which keep real-valued ties. */
+const sumScores = (scores: CandidateScoreVector): number => Numeric.sumNeumaier(scores)
 const isNonNaN = Numeric.isFinite
 
 const isOrderedPair = (left: number, right: number): boolean => Bool.and(isNonNaN(left), isNonNaN(right))

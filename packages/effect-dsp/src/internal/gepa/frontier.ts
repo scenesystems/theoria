@@ -4,6 +4,7 @@
  * @see {@link https://arxiv.org/abs/2507.19457 | Agrawal et al., "GEPA: Reflective Prompt Evolution Can Outperform Reinforcement Learning", 2025}
  * @since 0.1.0
  */
+import * as Numeric from "@scenesystems/effect-math/Numeric"
 import {
   dominates,
   type Holding,
@@ -106,7 +107,8 @@ export const deriveParetoKernelSnapshot = (
     holders,
     Order.mapInput(Num.Order, (index: number) => {
       const scores = Option.getOrThrow(Arr.get(scoreVectors, index))
-      return Num.sumAll(scores) / scores.length
+      // remove_dominated_programs orders by program_full_scores_val_set: builtin sum / len.
+      return Num.divideUnsafe(Numeric.sumNeumaier(scores), Arr.length(scores))
     })
   )
   // Once a holder is indispensable, deleting other holders cannot make it redundant.

@@ -13,7 +13,7 @@ import * as Signature from "@scenesystems/effect-dsp/Signature"
 import * as PseudoRandom from "@scenesystems/effect-math/PseudoRandom"
 import { Array as Arr, Effect, Equal, Layer, Match, Option, Record as Rec, Ref, Schema, String, Struct } from "effect"
 import * as LanguageModel from "effect/ai/LanguageModel"
-import { bestFullEvaluation, nextFullEvaluation } from "../../src/internal/miprov2/phase3State.js"
+import { bestFullEvaluation, nextFullEvaluation, ToldEvaluation } from "../../src/internal/miprov2/phase3State.js"
 import * as Sampling from "../../src/internal/miprov2/sampling.js"
 import { TrialEvaluation } from "../../src/MIPROv2.js"
 import {
@@ -516,13 +516,22 @@ describe("MIPROv2 Phase 3", () => {
 
   it.effect("ranks repeated configs by mean, permits baseline replay, and permanently skips checkpoints", () =>
     Effect.gen(function*() {
-      const row = (trial: number, choice: number, score: number, fullValidation = false) =>
-        new TrialEvaluation({ trial, config: { instruction: choice }, score, fullValidation, sampled: !fullValidation })
-      const history = [row(0, 0, 0.9, true), row(1, 1, 1), row(2, 1, 0), row(3, 0, 0.7)]
+      const row = (trial: number, choice: number, score: number, percent: number, fullValidation = false) =>
+        new ToldEvaluation({
+          evaluation: new TrialEvaluation({
+            trial,
+            config: { instruction: choice },
+            score,
+            fullValidation,
+            sampled: !fullValidation
+          }),
+          percent
+        })
+      const history = [row(0, 0, 0.9, 90, true), row(1, 1, 1, 100), row(2, 1, 0, 0), row(3, 0, 0.7, 70)]
       expect(yield* nextFullEvaluation(history)).toEqual({ instruction: 0 })
-      const checkpointed = Arr.append(history, row(4, 0, 0, true))
-      expect(yield* nextFullEvaluation(Arr.append(checkpointed, row(5, 0, 1)))).toEqual({ instruction: 1 })
-      expect(Option.getOrThrow(bestFullEvaluation(checkpointed)).trial).toBe(0)
+      const checkpointed = Arr.append(history, row(4, 0, 0, 0, true))
+      expect(yield* nextFullEvaluation(Arr.append(checkpointed, row(5, 0, 1, 100)))).toEqual({ instruction: 1 })
+      expect(Option.getOrThrow(bestFullEvaluation(Arr.map(checkpointed, (told) => told.evaluation))).trial).toBe(0)
     }))
 
   it.effect("mean and full-score ties retain the first observed combination, not the latest", () =>
@@ -535,7 +544,8 @@ describe("MIPROv2 Phase 3", () => {
           fullValidation: false,
           sampled: true
         }))
-      expect(yield* nextFullEvaluation(rows)).toEqual({ instruction: 3 })
+      expect(yield* nextFullEvaluation(Arr.map(rows, (evaluation) => new ToldEvaluation({ evaluation, percent: 80 }))))
+        .toEqual({ instruction: 3 })
       const full = Arr.map(rows, (row) => new TrialEvaluation(Struct.assign(row, { fullValidation: true })))
       expect(Option.getOrThrow(bestFullEvaluation(full)).trial).toBe(0)
     }))

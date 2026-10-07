@@ -1,0 +1,33 @@
+{
+  "fixture": "mipro-percentage-rounding-001",
+  "payload": {
+    "binary": {
+      "examples": 160,
+      "correct": 23,
+      "score": 14.38,
+      "fraction": 0.1438
+    },
+    "graded": {
+      "grades": [
+        0.2,
+        1.0,
+        0.9,
+        0.7,
+        0.6,
+        0.8,
+        0.9,
+        0.8,
+        0.3,
+        0.2,
+        0.8,
+        0.9,
+        0.1,
+        0.6,
+        0.6,
+        0.5
+      ],
+      "score": 61.88,
+      "fraction": 0.6188
+    }
+  }
+}

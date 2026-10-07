@@ -298,6 +298,21 @@ responses; transport UUIDs, timestamps and durations are deliberately omitted.
 No optimizer algorithms are reimplemented by the harness. MIPRO observers
 delegate to the original methods and Evaluate; GEPA uses upstream callbacks.
 
+The review's numerical discriminators add `mipro-percentage-rounding-001`
+(real Evaluate), `mipro-checkpoint-tie-001` (upstream checkpoint kernel),
+`gepa-sum-kernels-001`, and `gepa-mutation-tie-001` / `gepa-merge-tie-001`
+(real engine runs). MIPRO computes `round(100 * sum(scores) / count, 2)` in
+that order, retains the exact told percentage internally, and ranks compensated
+means before exposing fractions. GEPA uses CPython 3.12's compensated builtin
+sum at aggregate, coverage, acceptance, and ancestor-weight sites; Python's
+`random.choices` cumulative-weight scan remains ordinary addition. The shared
+`Numeric.sumNeumaier` has independent `cpython-sum-001` interpreter evidence
+in effect-math, including cancellation and IEEE edges. These are arithmetic
+discriminators, not extensions of the libm-sensitive strict-prefix boundary.
+All pre-review fixture payloads retain their bytes; the canonical manifests
+gain only the new fixture entries. New numerical captures record the pinned
+interpreter, `PYTHONHASHSEED=0`, and CPU dispatch environment.
+
 ## Discriminators and known limits
 
 | Fixture                                        | Owning wave | Current mismatch                                                                                                                         |

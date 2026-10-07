@@ -1,4 +1,5 @@
 /** Scheduled common-ancestor merge consumes a whole iteration, accepted or not. @internal */
+import * as Numeric from "@scenesystems/effect-math/Numeric"
 import type * as PseudoRandom from "@scenesystems/effect-math/PseudoRandom"
 import { Array as Arr, Boolean, Effect, Number as Num, Option, Struct, Tuple } from "effect"
 import type { Schema } from "effect"
@@ -24,7 +25,8 @@ export const runMergePhase = <I extends Schema.Struct.Fields, O extends Schema.S
         onTrue: () =>
           prepareMerge(
             state.candidates,
-            Arr.map(state.scoreVectors, (row) => Num.sumAll(row) / row.length),
+            // GEPAState.program_full_scores_val_set: builtin sum / len; these also weight the ancestor draw.
+            Arr.map(state.scoreVectors, (row) => Num.divideUnsafe(Numeric.sumNeumaier(row), Arr.length(row))),
             state.paretoSnapshot.frontierIndices,
             state.mergeTriplets,
             state.mergeDescriptions,
@@ -61,9 +63,10 @@ export const runMergePhase = <I extends Schema.Struct.Fields, O extends Schema.S
             Arr.map(ids, (index) => Option.getOrThrow(Arr.get(valset, index))),
             "select"
           )
-          const accepted = Num.sumAll(scores.scores) >= Num.max(
-            Num.sumAll(Arr.map(ids, (index) => Option.getOrThrow(Arr.get(left, index)))),
-            Num.sumAll(Arr.map(ids, (index) => Option.getOrThrow(Arr.get(right, index))))
+          // Engine merge gate: sum(subsample_scores_after) >= max of the parents' builtin subsample sums.
+          const accepted = Numeric.sumNeumaier(scores.scores) >= Num.max(
+            Numeric.sumNeumaier(Arr.map(ids, (index) => Option.getOrThrow(Arr.get(left, index)))),
+            Numeric.sumNeumaier(Arr.map(ids, (index) => Option.getOrThrow(Arr.get(right, index))))
           )
           const full = yield* Boolean.match(accepted, {
             onFalse: () => Effect.succeed({ scores: Arr.empty<number>() }),

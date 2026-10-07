@@ -136,12 +136,36 @@
       "description": "Real GEPA engine with scripted task: complementary merge consumes a whole iteration, accepted or rejected; exact shared-stream sampling and budget ledger."
     },
     {
+      "id": "gepa-merge-tie-001",
+      "file": "upstream/gepa-merge-tie-001.json",
+      "evidence": "upstream-execution",
+      "sha256": "8fd749aa763c759577af27aa3817fd1ca3d68e61bc4f7aa41584537cbfa4c1b3",
+      "generator": "fixtures.numerics",
+      "description": "Real GEPA engine: a merge whose subsample builtin sum ties the best parent is accepted."
+    },
+    {
+      "id": "gepa-mutation-tie-001",
+      "file": "upstream/gepa-mutation-tie-001.json",
+      "evidence": "upstream-execution",
+      "sha256": "34345d93ff2fa93dafbc9c310914ecada2beba9d2f150330e76204c1bc2e6a33",
+      "generator": "fixtures.numerics",
+      "description": "Real GEPA engine: a child whose minibatch sum ties its parent under builtin sum is rejected."
+    },
+    {
       "id": "gepa-selection-001",
       "file": "upstream/gepa-selection-001.json",
       "evidence": "upstream-kernel",
       "sha256": "8c7b13b50ec0044bb923ba6c71b85f5f1d5c3134c62cfd44138b11de440f7ac0",
       "generator": "fixtures.gepa",
       "description": "GEPA coverage pruning, parent choice and shared epoch-shuffle stream with padding, skipped and repeated iterations."
+    },
+    {
+      "id": "gepa-sum-kernels-001",
+      "file": "upstream/gepa-sum-kernels-001.json",
+      "evidence": "upstream-kernel",
+      "sha256": "ac7b86b58c9d88ef25ae7cd011a4cc847e614521b2910f00671feda95002cfdd",
+      "generator": "fixtures.numerics",
+      "description": "GEPA aggregates, strict mutation gate, merge gate and Pareto pruning over builtin-sum ties."
     },
     {
       "id": "labeledfewshot-001",
@@ -195,6 +219,22 @@
           }
         }
       }
+    },
+    {
+      "id": "mipro-checkpoint-tie-001",
+      "file": "upstream/mipro-checkpoint-tie-001.json",
+      "evidence": "upstream-kernel",
+      "sha256": "6e12a22b1be1995d7bb94e41954e0315529c9381b57367a04ff91309e976bf24",
+      "generator": "fixtures.numerics",
+      "description": "get_program_with_highest_avg_score: equal real means tie to the first inserted combination."
+    },
+    {
+      "id": "mipro-percentage-rounding-001",
+      "file": "upstream/mipro-percentage-rounding-001.json",
+      "evidence": "upstream-execution",
+      "sha256": "c7fb0df8c7838a1d22bbff5148dcedbf80bedf9b566745e845aec9cb56f1c18e",
+      "generator": "fixtures.numerics",
+      "description": "dspy.Evaluate percentage: 100 * builtin-sum(metric) / n, then round half-even to 2 places."
     },
     {
       "id": "mipro-trial-budget-001",

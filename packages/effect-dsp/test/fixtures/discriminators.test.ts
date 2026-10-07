@@ -12,6 +12,7 @@ import * as TeacherTrace from "@scenesystems/effect-dsp/TeacherTrace"
 import * as ModelBinder from "@scenesystems/effect-lm/ModelBinder"
 import {
   Array as Arr,
+  BigDecimal,
   Boolean as Bool,
   Chunk,
   Effect,
@@ -24,10 +25,11 @@ import {
   String as Str
 } from "effect"
 import * as LanguageModel from "effect/ai/LanguageModel"
-import { bestFullEvaluation, nextFullEvaluation } from "../../src/internal/miprov2/phase3State.js"
+import { bestFullEvaluation, nextFullEvaluation, ToldEvaluation } from "../../src/internal/miprov2/phase3State.js"
 import { Phase3Config } from "../../src/internal/miprov2/runtime/model.js"
 import { fixture } from "../kit/Fixtures.js"
 import { failingOn } from "../kit/Metric.js"
+import { toldPercent } from "../kit/Percent.js"
 
 const Row = Schema.Struct({ id: Schema.String, question: Schema.String, answer: Schema.String })
 const Splits = Schema.Struct({ train: Schema.Array(Row), val: Schema.Array(Row) })
@@ -172,7 +174,13 @@ const checkpoint = Effect.gen(function*() {
       sampled: true
     })
   ]
-  const selected = yield* nextFullEvaluation(rows)
+  const selected = yield* nextFullEvaluation(
+    Arr.map(
+      rows,
+      (evaluation) =>
+        new ToldEvaluation({ evaluation, percent: BigDecimal.toNumberUnsafe(toldPercent(evaluation.score)) })
+    )
+  )
   expect(selected).toEqual(candidateConfig)
   const evaluated = Arr.append(
     rows,

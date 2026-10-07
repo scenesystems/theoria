@@ -14,7 +14,12 @@ from __future__ import annotations
 
 import importlib
 import json
+import os
 import sys
+
+# Establish process-seeded iteration before accepting the stdin request.
+if os.environ.get("PYTHONHASHSEED") != "0":
+    os.execve(sys.executable, [sys.executable, *sys.argv], {**os.environ, "PYTHONHASHSEED": "0"})
 
 from fixtures._common import generator_metadata
 

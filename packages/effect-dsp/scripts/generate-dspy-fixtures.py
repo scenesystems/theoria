@@ -16,21 +16,21 @@ if os.environ.get("PYTHONHASHSEED") != "0":
 # MIPRO uses NumPy-backed Optuna scoring; CPU dispatch can change tied selections.
 os.environ["NPY_DISABLE_CPU_FEATURES"] = "AVX2,FMA3,AVX512F"
 
-from fixtures import bootstrap_family, chat_adapter, evaluate_runtime, gepa, mipro_proposer, mipro_v2, predict_runtime
+from fixtures import bootstrap_family, chat_adapter, evaluate_runtime, gepa, mipro_proposer, mipro_v2, numerics, predict_runtime
 from fixtures._common import assert_runtime_version, document, render
 
 ROOT = Path(__file__).resolve().parents[1] / "test/fixtures/dspy"
-FAMILIES = [chat_adapter, predict_runtime, evaluate_runtime, bootstrap_family, mipro_v2, mipro_proposer, gepa]
+FAMILIES = [chat_adapter, predict_runtime, evaluate_runtime, bootstrap_family, mipro_v2, mipro_proposer, gepa, numerics]
 
 
-def run(check=False):
+def run(check=False, root=ROOT):
     runtime = assert_runtime_version()
-    manifest_path = ROOT / "manifest.json"
+    manifest_path = root / "manifest.json"
     entries = []
     for family in FAMILIES:
         for item in family.generate():
             entry, payload = document(item, family.__name__)
-            path = ROOT / entry["file"]
+            path = root / entry["file"]
             if check:
                 if not path.exists() or path.read_bytes() != payload:
                     committed = path.read_text().splitlines(True) if path.exists() else []
@@ -44,7 +44,7 @@ def run(check=False):
     if len({entry["id"] for entry in entries}) != len(entries):
         raise ValueError("Duplicate fixture ID")
     expected_paths = {entry["file"] for entry in entries} | {"manifest.json"}
-    actual_paths = {str(path.relative_to(ROOT)) for path in ROOT.rglob("*.json")}
+    actual_paths = {str(path.relative_to(root)) for path in root.rglob("*.json")}
     if actual_paths - expected_paths:
         raise ValueError(f"Unowned fixture files: {actual_paths - expected_paths}")
     manifest = render({"upstream": runtime, "environment": {"PYTHONHASHSEED": "0", "NPY_DISABLE_CPU_FEATURES": "AVX2,FMA3,AVX512F"},
@@ -60,9 +60,10 @@ def run(check=False):
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--check", action="store_true")
+    parser.add_argument("--output-directory", type=Path, default=ROOT)
     args = parser.parse_args()
     logging.disable(logging.CRITICAL)
-    run(args.check)
+    run(args.check, args.output_directory)
 
 
 if __name__ == "__main__":

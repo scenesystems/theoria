@@ -52,6 +52,8 @@ const drawTriplet = (
         Effect.succeed(Option.none<readonly [number, number, number]>()),
       onFalse: () =>
         Effect.gen(function*() {
+          // Weights are builtin-sum aggregates; random.choices accumulates them with
+          // itertools.accumulate, plain left-to-right addition, so this scan stays uncompensated.
           const cumulative = Arr.drop(
             Arr.scan(common, 0, (total, ancestor) => total + at(scores, ancestor)),
             1

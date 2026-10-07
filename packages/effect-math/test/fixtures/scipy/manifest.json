@@ -25,6 +25,10 @@
       "file": "cpython-random-001.json"
     },
     {
+      "name": "cpython-sum-001",
+      "file": "cpython-sum-001.json"
+    },
+    {
       "name": "distribution.algebra-parity",
       "file": "distribution/algebra-parity.json"
     },

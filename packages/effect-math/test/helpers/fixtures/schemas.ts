@@ -1,4 +1,5 @@
 import { Array, Schema } from "effect"
+import { CPythonSumFixture } from "./cpythonSumSchemas.js"
 import { CPythonRandomFixture, NumPyRandomFixture } from "./randomSchemas.js"
 
 const FixtureMetadataSchema = Schema.Struct({
@@ -1731,6 +1732,7 @@ export const DistributionAlgebraParityFixtureSchema = Schema.Struct({
 
 export const KnownFixtureSchema = Schema.Union([
   CPythonRandomFixture,
+  CPythonSumFixture,
   NumPyRandomFixture,
   AlgebraPolynomialParityFixtureSchema,
   CalculusNumericalParityFixtureSchema,
