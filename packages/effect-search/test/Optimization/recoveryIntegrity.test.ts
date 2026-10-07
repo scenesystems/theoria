@@ -45,6 +45,10 @@ describe("optimization recovery integrity", () => {
       const persisted = yield* storage.loadSnapshot().pipe(Effect.flatMap(Effect.fromOption))
       expect(snapshot.samplerCheckpoint).toEqual({ _tag: "Random", seed: 2, rng: Option.none() })
       expect(persisted.samplerCheckpoint).toEqual(snapshot.samplerCheckpoint)
+      expect(Arr.map(yield* storage.loadTrialLog(), (record) => record.samplerCheckpoint)).toEqual(Arr.make(
+        { _tag: "Random", seed: 1, rng: Option.none() },
+        { _tag: "Random", seed: 2, rng: Option.none() }
+      ))
       const resumed = yield* Optimization.resume(new Optimization.ResumeOptions(Struct.assign(options, { snapshot })))
       expect(Arr.map(Arr.fromIterable(resumed.trials), (trial) => trial.config.slot)).toEqual(Arr.make(0, 1, 2, 3))
     }))
@@ -109,7 +113,11 @@ describe("optimization recovery integrity", () => {
       const latest = yield* Optimization.snapshot(result)
       const earlier = OptimizationSnapshot.make(Arr.take(latest.trials, 1), latest)
       const storage = yield* makeStorage
-      yield* Effect.forEach(latest.trials, storage.appendTrial, { discard: true })
+      yield* Effect.forEach(
+        latest.trials,
+        (trial) => storage.appendTrial({ trial, samplerCheckpoint: latest.samplerCheckpoint }),
+        { discard: true }
+      )
       yield* storage.writeSnapshot(earlier)
       const advancing: OptimizationStorage.Service = {
         ...storage,

@@ -80,8 +80,10 @@ const recoveredSnapshotFromStorage = Effect.serviceOption(OptimizationStorage.Op
           // Pin the replay boundary to this snapshot. Loading a second snapshot
           // after a concurrent append could discard trials absent from the first.
           const trialLog = yield* storage.loadTrialLog()
-          const replayTail = Arr.filter(trialLog, (trial) =>
-            Num.isGreaterThanOrEqualTo(trial.trialNumber, snapshot.nextTrialNumber))
+          // Journal order is preserved: the last retained record carries the
+          // sampler checkpoint that supersedes the snapshot's.
+          const replayTail = Arr.filter(trialLog, (record) =>
+            Num.isGreaterThanOrEqualTo(record.trial.trialNumber, snapshot.nextTrialNumber))
 
           return yield* OptimizationSnapshot.recover(snapshot, replayTail)
         })

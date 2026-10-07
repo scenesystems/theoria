@@ -69,6 +69,22 @@ export const Trial = Schema.Struct({
 /** Persisted trial decoded by {@link Trial}. @since 0.7.0 @category models */
 export type Trial = typeof Trial.Type
 
+/**
+ * Durable journal record: one trial and its sampler checkpoint in a single storage event.
+ * Suggestions and record capture share the study transaction, so the checkpoint is the
+ * stream position after every suggestion made before the trial was recorded.
+ * Unfinished concurrent reservations are not replayed as uninterrupted evaluations.
+ *
+ * @since 0.9.0
+ * @category schemas
+ */
+export const TrialRecord = Schema.Struct({
+  trial: Trial,
+  samplerCheckpoint: Sampler.Checkpoint
+}).annotate({ identifier: "@scenesystems/effect-search/OptimizationSnapshot/TrialRecord" })
+/** Durable journal record decoded by {@link TrialRecord}. @since 0.9.0 @category models */
+export type TrialRecord = typeof TrialRecord.Type
+
 const Trials = Schema.Array(Trial).check(Schema.makeFilter(
   (trials) =>
     Num.Equivalence(
@@ -151,6 +167,12 @@ export const fromTrial = <Config>(trial: SearchTrial.Trial<Config>): Trial => ({
 /** Reconstructs a runtime trial with a caller-decoded configuration. @since 0.7.0 @category conversions */
 export const toTrial = <Config>(trial: Trial, config: Config): SearchTrial.Trial<Config> => ({ ...trial, config })
 
+/** Pairs a runtime trial with the sampler checkpoint durable alongside it. @since 0.9.0 @category constructors */
+export const makeTrialRecord = <Config>(
+  trial: SearchTrial.Trial<Config>,
+  samplerCheckpoint: Sampler.Checkpoint
+): TrialRecord => ({ trial: fromTrial(trial), samplerCheckpoint })
+
 /** Builds a replay snapshot and derives numbering, duration, retry, and prior counters. @since 0.7.0 @category constructors */
 export const make = <Config>(trials: Iterable<SearchTrial.Trial<Config>>, metadata: Metadata): OptimizationSnapshot => {
   const persisted = Arr.map(Arr.fromIterable(trials), (trial) => fromTrial(trial))
@@ -205,16 +227,30 @@ const duplicateTrialNumber = (trials: Iterable<Trial>): Option.Option<number> =>
   )
 }
 
-/** Merges an append-log tail after rejecting stale or duplicate trial numbers. @since 0.7.0 @category recovery */
+/**
+ * Merges an append-ordered journal tail after rejecting stale or duplicate trial numbers.
+ * The sampler checkpoint of the last tail record supersedes the snapshot's, because it
+ * was captured after every suggestion that preceded the most recent durable trial; an
+ * empty tail keeps the snapshot's checkpoint.
+ *
+ * @since 0.7.0
+ * @category recovery
+ */
 export const recover = (
   snapshot: OptimizationSnapshot,
-  replayTail: Iterable<Trial>
+  replayTail: Iterable<TrialRecord>
 ): Effect.Effect<OptimizationSnapshot, InvalidOptimizationConfig> =>
   Effect.gen(function*() {
     const checkpoint = yield* validated(snapshot)
-    const tail = yield* Schema.decodeEffect(Schema.Array(Trial))(Arr.fromIterable(replayTail)).pipe(
-      Effect.mapError(() => invalid("Optimization.resumeFromStorage replay tail payload decode failed"))
-    )
+    const records = yield* Schema.decodeEffect(Schema.toType(Schema.Array(TrialRecord)))(Arr.fromIterable(replayTail))
+      .pipe(
+        Effect.mapError(() => invalid("Optimization.resumeFromStorage replay tail payload decode failed"))
+      )
+    const tail = Arr.map(records, (record) => record.trial)
+    const samplerCheckpoint = Option.match(Arr.last(records), {
+      onNone: () => checkpoint.samplerCheckpoint,
+      onSome: (record) => record.samplerCheckpoint
+    })
     const stale = Arr.findFirst(tail, (trial) => Num.isLessThan(trial.trialNumber, checkpoint.nextTrialNumber))
     yield* Option.match(stale, {
       onNone: () => Effect.void,
@@ -243,7 +279,7 @@ export const recover = (
       objectiveSpec: checkpoint.objectiveSpec,
       stopMode: checkpoint.stopMode,
       samplerKind: checkpoint.samplerKind,
-      samplerCheckpoint: checkpoint.samplerCheckpoint,
+      samplerCheckpoint,
       trials
     }).pipe(
       Effect.mapError(() => invalid("Optimization.resumeFromStorage replay diagnostics are invalid"))
