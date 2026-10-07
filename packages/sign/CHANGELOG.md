@@ -1,5 +1,12 @@
 # @scenesystems/sign
 
+## 0.5.1
+
+### Patch Changes
+
+- Updated dependencies [[`6685af5`](https://github.com/scenesystems/theoria/commit/6685af5203e4e9522ad8dd4d73b1a2ac4797d2cd)]:
+  - @scenesystems/digest@0.8.0
+
 ## 0.5.0
 
 ### Minor Changes

@@ -1,5 +1,122 @@
 # effect-search
 
+## 0.8.0
+
+### Minor Changes
+
+- [#123](https://github.com/scenesystems/theoria/pull/123) [`ef4797f`](https://github.com/scenesystems/theoria/commit/ef4797f66bee0670d5ebb1cd8261805c0c89f035) Thanks [@aridyckovsky](https://github.com/aridyckovsky)! - Add evaluation recording and reconstruction to `effect-study`, with corresponding persistence integration in `effect-search` and `effect-dsp`. Callers can retain individual outcomes as an evaluation runs, reopen its recording, and distinguish finished work from unresolved or unstarted inputs without executing it again.
+
+  ### Evaluate inputs without losing expected failures
+  - `Evaluation.runSettled` returns completed values and expected typed failures in input order. `Evaluation.run` retains its fail-fast behavior.
+  - `Evaluation.runWithEvents` adds serialized, awaited observations. A trial starts only after its start observation is acknowledged, and its outcome is recorded only after terminal acknowledgment. Observer failure stops new admission and interrupts active local evaluations; previously acknowledged evidence remains available to the observer.
+  - Defects and interruption remain native Effect causes, not ordinary failed trials. Compound fatal causes can retain evaluator errors in the Effect error channel. Completed values do not imply correct answers: grading remains caller-owned.
+  - `Emitter<A, E, R>` preserves observer error and service requirements.
+
+  ### Record events and reconstruct progress
+
+  `StudyStorage.open` binds a run identity, definition digest, and caller-provided event/checkpoint codecs to a recording. Memory and filesystem implementations support append, cursor-based reads, and checkpoint-bound replay. Repeating an identical record ID returns its original receipt; conflicting content or a stale expected cursor fails explicitly. Checkpoints identify the committed cursor through which their state was reduced.
+
+  `Evaluation.RecordedEvent`, `View`, `empty`, `reduce`, and `coverage` reconstruct planned inputs and retained outcomes, including unresolved starts and inputs that never started. Replay performs no external work. An unresolved start is not proof of failure or confirmed cancellation and does not authorize a retry.
+
+  Filesystem recordings require one owning writer. They reject malformed records and incomplete tails without repair or truncation. Append acknowledgment does not promise fsync or survival of power loss.
+
+  Event and checkpoint payload decoding failures include the filesystem path and physical line, including cached records. After a failed or interrupted append, retry revalidates the file: a committed identity returns its receipt, an absent record can be appended, and an incomplete tail fails without repair.
+
+  Artifact journals retain the destination path for schema encoding failures and the path plus physical line for JSON or artifact-schema decoding failures, counting blank lines. Encoding and decoding retain their independent codec service requirements.
+
+  For transactional custom backends, append receipts are provisional until the caller's outer commit. Observers must await short per-observation transactions, not hold a transaction around an evaluation. Construct long-lived artifact contexts outside short-lived transactions so captured services do not retain a released transaction connection.
+
+  Retry identity compares the exact schema-produced JSON string, not semantic object equality or database-normalized JSON. The latest checkpoint is the latest written, including a lower-boundary checkpoint. Callers coordinate checkpoint writers and own state correctness; custom backends must provide coherent checkpoint/tail reads and retain event and identity history. No compaction protocol is supplied. Memory and filesystem stores share test-only protocol conformance coverage.
+
+  ### Allocate artifact identities and inspect cost completeness
+
+  `ArtifactContext` accepts a restored `nextSequence` or a caller-owned allocator. Durable, unique reservations belong to the caller; the built-in memory allocator is not durable. Allocation does not store a payload. Delivery retries reuse the artifact's identity, and unused sequence gaps are valid. Sink fanout is sequential and awaited, but a later sink failure does not undo earlier delivery.
+
+  `History.costs` reports `reportedTotal`, `reportedCount`, `missingCount`, and `invalidCount` for current trial records. Known zero differs from missing cost; negative and non-finite costs are invalid. Replacing a trial replaces its contribution. `cumulativeCost` remains the sum of valid reported costs, not total billed spend.
+
+  `reportedTotal` is a finite nonnegative number or `"Overflow"` when valid reported costs exceed finite number range in floating-point summation. Counts remain intact; no valid cost is reclassified or total clamped. Replacing a large cost can restore a finite summary because the projection recomputes from current records.
+
+  ### API changes for consumers
+  - `StudyStorage` exposes run-bound recordings. Its generic trial/snapshot methods are replaced by recording operations; filesystem storage uses the run-recording format. Requests use `new OpenOptions(...)`, `new Append(...)`, and `new CheckpointWrite(...)`; `read` accepts plain options.
+  - Journal, storage, and artifact delivery use `PersistenceError.Failure` instead of `Journal.Failure`. Callers can distinguish codec, backend, record-identity, cursor, and incompatible-recording failures.
+  - `ArtifactContext.make`, `layer`, and `nextId` expose typed allocation failures. Custom allocators can require services, which are captured when the context is constructed.
+  - Search's `OptimizationStorage` uses recording handles while retaining optimization-specific checkpoint and replay policy. Search/DSP consumers propagate persistence failures as infrastructure errors rather than retrying or scoring them as objective failures.
+
+  Includes runnable examples for settled evaluation, caller grading, artifact delivery, and reopening incomplete recordings.
+
+### Patch Changes
+
+- [#125](https://github.com/scenesystems/theoria/pull/125) [`6685af5`](https://github.com/scenesystems/theoria/commit/6685af5203e4e9522ad8dd4d73b1a2ac4797d2cd) Thanks [@aridyckovsky](https://github.com/aridyckovsky)! - Reduce canonicalization overhead using Effect's Unicode search, compiled matchers,
+  mutable cursors, reference-keyed memoization, and one UTF-8 stream per incremental
+  digest. Emit validated JSON-safe string content directly through Effect string
+  operations, spell finite numeric and boolean scalars through Effect String, and
+  retain Schema encoding for escaping. Amortize escaped-string encoding over
+  bounded 32 Ki-code-unit slices without splitting surrogate pairs. Keep bounded
+  long-string processing, byte-limit admission, cooperative yields, and reference-only
+  cycle detection. Add independent full-digest Unicode vectors, escaping boundary
+  checks, and hostile equality coverage without changing canonical bytes for unchanged
+  wire representations.
+
+  Reduce cold traversal allocation by retaining collection cursors in Effect mutable
+  lists and caching at most 128 validated short keys per invocation. Use direct public
+  Effect imports, string reducers, and a Schema boolean compiler operation for view
+  classification, without dynamic code generation or changing caller codecs.
+
+  Separate bounded traversal yields from output flushing, consume encoded batches
+  through Effect's chunk consumer, and align ASCII-only output before UTF-8 encoding.
+  Reuse identical own-key ordering, close exhausted cursors without another frame,
+  and count validated UTF-8 widths with Effect string operations. Preserve exact
+  inclusive limits, final output tails, and malformed-Unicode diagnostics.
+
+  Breaking pre-1.0 change: remove ContentDigest.fromUnknown. Structured identities
+  require an owner-selected codec through fromSchema or fromSchemaWithByteLimit;
+  fromBytes remains the explicit byte-identity boundary. DSP cache Request and
+  KeyRequest require inputSchema and paramsSchema. Search caches use their existing
+  key codecs. Do not substitute Schema.Unknown during migration: choose identity
+  fields and transformations explicitly, and version changed domain representations.
+
+  Reject all typed-array views and DataView, including empty views, rather than
+  canonicalizing non-Uint8Array views as records. Use an owner-approved intrinsic
+  view predicate through Schema because Effect 4.0.0 has no public equivalent.
+
+  Reject sparse arrays even when a numeric property is inherited. Check own-index
+  presence through Effect before reading an element, so inherited getters cannot
+  contribute canonical content.
+
+  Add independent numeric/scalar digest vectors, seeded numeric and forced-escape
+  equivalence properties, and a cold/warm-fresh throughput matrix with an explicit
+  1.0 ratio budget against an independent sorted whole-JSON/Noble pipeline.
+
+  Serialize bounded runs of admitted plain values through one Schema JSON encoding
+  instead of one emission per scalar. Runs copy at most 8,192 consecutive values
+  within 32 Ki text units into fresh data after each own-index check, allocate
+  nothing per scalar, and halt with everything already read so the frame machine
+  resumes at the exact position and reproduces the exact rejection without reading
+  any field twice. Link traversal frames to their parents and detect cycles by
+  ancestor reference above a bounded depth, removing per-container hash-set
+  registration and the Bun garbage-collection pathology on large record arrays.
+  Cache one sorted key layout across consecutive records. Add read-once and
+  resume-order coverage for rejected siblings and cyclic getters.
+
+  Charge serialized text before each copied read so one run emits at most 32 Ki
+  text units including keys, number spellings, and escape expansion, and so a
+  bounded digest copies no value beyond its remaining byte allowance. Keep the
+  first failure when a copied prefix crosses the byte limit before a later hole
+  or rejected value, and emit the copied prefix before reporting it. Compile
+  caller codecs through Effect's public Schema JIT compiler on first use, keyed
+  by encoding AST, with interpreted parsing as the fallback. Compose refusal
+  predicates and copied-entry counts through Effect predicates and array search.
+  Replace bare numeric operators with Effect compositions outside four
+  owner-accepted hot functions. Widen timer-cooperation test inputs so traversal
+  yields many times while host timers become due. Document the independent
+  whole-preimage oracle ratio as a diagnostic and the matched published-release
+  comparison as the throughput acceptance criterion.
+
+- Updated dependencies [[`6685af5`](https://github.com/scenesystems/theoria/commit/6685af5203e4e9522ad8dd4d73b1a2ac4797d2cd), [`ef4797f`](https://github.com/scenesystems/theoria/commit/ef4797f66bee0670d5ebb1cd8261805c0c89f035), [`e0bfd10`](https://github.com/scenesystems/theoria/commit/e0bfd10de9d82cb1015b677179d41a312e63f691)]:
+  - @scenesystems/digest@0.8.0
+  - @scenesystems/effect-study@0.2.0
+  - @scenesystems/effect-math@0.5.1
+
 ## 0.7.0
 
 ### Minor Changes
