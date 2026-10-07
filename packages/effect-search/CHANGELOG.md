@@ -1,5 +1,11 @@
 # effect-search
 
+## 0.8.1
+
+### Patch Changes
+
+- [#132](https://github.com/scenesystems/theoria/pull/132) [`bc25d00`](https://github.com/scenesystems/theoria/commit/bc25d0048fe229800781f35dd965ea8d867bdd5e) Thanks [@aridyckovsky](https://github.com/aridyckovsky)! - Update published dependency minimums to consume the exact binary scaling improvements in effect-math 0.5.2.
+
 ## 0.8.0
 
 ### Minor Changes
