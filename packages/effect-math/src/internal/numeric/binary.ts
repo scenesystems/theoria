@@ -61,26 +61,14 @@ export const abs: (value: number) => number = Match.type<number>().pipe(
   Match.orElse((value) => value)
 )
 
-const positivePowerOfTwo: (exponent: number) => number = Match.type<number>().pipe(
-  Match.when(0, () => 1),
-  Match.orElse((exponent) => {
-    // For integral exponents, round((n - 1) / 2) is floor(n / 2).
-    const half = Number.round(Number.divideUnsafe(Number.decrement(exponent), 2), 0)
-    const factor = positivePowerOfTwo(half)
-    const square = Number.multiply(factor, factor)
-    return Boolean.match(Number.Equivalence(exponent, Number.multiply(2, half)), {
-      onTrue: () => square,
-      onFalse: () => Number.multiply(2, square)
-    })
-  })
+// All 2,046 normal binary64 powers of two, prepared once. Every doubling
+// stays normal and exact; neither exponentiation nor a growing cache is needed.
+const powersOfTwo = Chunk.fromIterable(
+  Iterable.scan(Iterable.replicate(2, 2045), 2.2250738585072014e-308, Number.multiply)
 )
 
 /** Exact normal power of two for integral exponents in [-1022, 1023]. */
-export const powerOfTwo = (exponent: number): number =>
-  Boolean.match(Number.isLessThan(exponent, 0), {
-    onTrue: () => Number.divideUnsafe(1, positivePowerOfTwo(Number.multiply(-1, exponent))),
-    onFalse: () => positivePowerOfTwo(exponent)
-  })
+export const powerOfTwo = (exponent: number): number => Chunk.getUnsafe(powersOfTwo, Number.sum(exponent, 1022))
 
 const normalizationSteps = Chunk.map(
   Chunk.make(512, 256, 128, 64, 32, 16, 8, 4, 2, 1),
@@ -88,38 +76,49 @@ const normalizationSteps = Chunk.map(
 )
 
 /** Exact magnitude `mantissa × 2^exponent`, with mantissa in [1, 2), for finite nonzero input. */
-export const normalize = (value: number): [mantissa: number, exponent: number] => {
-  const magnitude = abs(value)
-  // Lift subnormals into the normal range exactly before the ten binary
-  // search steps. No division may discard low significand bits.
-  const initial: [number, number] = Boolean.match(Number.isLessThan(magnitude, 2.2250738585072014e-308), {
-    onTrue: () => Tuple.make(Number.multiply(magnitude, 18_014_398_509_481_984), -54),
-    onFalse: () => Tuple.make(magnitude, 0)
-  })
-  const belowOne = Number.isLessThan(magnitude, 1)
-  const reduced = Boolean.match(belowOne, {
-    onTrue: () =>
-      Iterable.reduce(normalizationSteps, initial, (state, [step, factor, reciprocal]) => {
-        const [mantissa, exponent] = state
-        return Boolean.match(Number.isLessThan(mantissa, reciprocal), {
-          onTrue: () => Tuple.make(Number.multiply(mantissa, factor), Number.subtract(exponent, step)),
-          onFalse: () => state
-        })
-      }),
-    onFalse: () =>
-      Iterable.reduce(normalizationSteps, initial, (state, [step, factor]) => {
-        const [mantissa, exponent] = state
-        return Boolean.match(Number.isGreaterThanOrEqualTo(mantissa, factor), {
-          onTrue: () => Tuple.make(Number.divideUnsafe(mantissa, factor), Number.sum(exponent, step)),
-          onFalse: () => state
-        })
+export const normalize: (value: number) => [mantissa: number, exponent: number] = Match.fn(abs).pipe(
+  // In these two binades every binary-search step is a no-op. Retain only
+  // the final exact doubling for values below one.
+  Match.when(
+    Predicate.and(Number.isGreaterThanOrEqualTo(0.5), Number.isLessThan(2)),
+    (magnitude) =>
+      Boolean.match(Number.isLessThan(magnitude, 1), {
+        onTrue: () => Tuple.make(Number.multiply(magnitude, 2), -1),
+        onFalse: () => Tuple.make(magnitude, 0)
       })
+  ),
+  Match.orElse((magnitude) => {
+    // Lift subnormals into the normal range exactly before the ten binary
+    // search steps. No division may discard low significand bits.
+    const initial: [number, number] = Boolean.match(Number.isLessThan(magnitude, 2.2250738585072014e-308), {
+      onTrue: () => Tuple.make(Number.multiply(magnitude, 18_014_398_509_481_984), -54),
+      onFalse: () => Tuple.make(magnitude, 0)
+    })
+    const belowOne = Number.isLessThan(magnitude, 1)
+    const reduced = Boolean.match(belowOne, {
+      onTrue: () =>
+        Iterable.reduce(normalizationSteps, initial, (state, [step, factor, reciprocal]) => {
+          const [mantissa, exponent] = state
+          return Boolean.match(Number.isLessThan(mantissa, reciprocal), {
+            onTrue: () => Tuple.make(Number.multiply(mantissa, factor), Number.subtract(exponent, step)),
+            onFalse: () => state
+          })
+        }),
+      onFalse: () =>
+        Iterable.reduce(normalizationSteps, initial, (state, [step, factor]) => {
+          const [mantissa, exponent] = state
+          return Boolean.match(Number.isGreaterThanOrEqualTo(mantissa, factor), {
+            onTrue: () => Tuple.make(Number.divideUnsafe(mantissa, factor), Number.sum(exponent, step)),
+            onFalse: () => state
+          })
+        })
+    })
+    return Boolean.match(Number.isLessThan(Tuple.get(reduced, 0), 1), {
+      onTrue: () => Tuple.make(Number.multiply(Tuple.get(reduced, 0), 2), Number.decrement(Tuple.get(reduced, 1))),
+      onFalse: () => reduced
+    })
   })
-  return Boolean.match(Number.isLessThan(Tuple.get(reduced, 0), 1), {
-    onTrue: () => Tuple.make(Number.multiply(Tuple.get(reduced, 0), 2), Number.decrement(Tuple.get(reduced, 1))),
-    onFalse: () => reduced
-  })
-}
+)
 
 /** Decomposes a finite nonzero number without inspecting its storage. */
 export const decompose = (value: number): Dyadic => {
