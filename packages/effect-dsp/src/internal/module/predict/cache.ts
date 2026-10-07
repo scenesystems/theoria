@@ -7,6 +7,7 @@ import { Array as Arr, Cause, Data, Effect, Option, Ref, Schema, Tuple } from "e
 import { defaultIdGenerator } from "effect/ai/IdGenerator"
 import * as LanguageModel from "effect/ai/LanguageModel"
 import * as Cache from "../../../Cache.js"
+import { ModuleParameters } from "../../../ModuleParameters.js"
 import * as Payload from "../../../Payload.js"
 import * as Signature from "../../../Signature.js"
 import { emptyUsage } from "../../../Trace.js"
@@ -40,7 +41,9 @@ const Cached = Schema.Struct({
   promptText: Schema.String,
   rawResponse: Schema.String
 })
-const hash = (value: unknown) => ContentDigest.fromUnknown("blake3-256", value).pipe(Effect.map(ContentDigest.toString))
+const RuntimeIdentity = Schema.Union([ModelIdentity.Identity, Schema.String])
+const hash = (value: typeof RuntimeIdentity.Type) =>
+  ContentDigest.fromSchema(RuntimeIdentity, value).pipe(Effect.map(ContentDigest.toString))
 const warn = (key: unknown) =>
   Effect.logWarning("Predictor cache operation failed").pipe(Effect.annotateLogs({ cacheKey: key }))
 
@@ -69,6 +72,8 @@ export const cached = <I extends Schema.Struct.Fields, O extends Schema.Struct.F
           new Cache.KeyRequest({
             moduleFingerprint: options.moduleName,
             runtimeFingerprint: yield* hash(yield* runtimeIdentity),
+            inputSchema: Schema.toEncoded(options.signature.inputSchema),
+            parametersSchema: ModuleParameters,
             input: yield* Schema.encodeEffect(options.signature.inputSchema)(options.input),
             parameters: options.parameters,
             settings: ModelSettings.merge(yield* ModelSettings.Current, request.settings),

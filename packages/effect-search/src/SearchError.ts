@@ -4,7 +4,7 @@
  * @since 0.1.0
  * @module
  */
-import * as Journal from "@scenesystems/effect-study/Journal"
+import * as PersistenceError from "@scenesystems/effect-study/PersistenceError"
 import { Schema } from "effect"
 
 import { Value } from "./Objective.js"
@@ -169,7 +169,7 @@ export const SearchError = Schema.Union([
   NoSuccessfulTrials,
   InvalidMathInput,
   NotImplemented,
-  Journal.Failure
+  PersistenceError.Failure
 ])
 
 /** Expected search failure decoded by {@link SearchError}. @since 0.1.0 @category models */

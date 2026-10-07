@@ -227,6 +227,8 @@ describe("Module.bestOfN", () => {
             new Cache.KeyRequest({
               moduleFingerprint: "best-of",
               runtimeFingerprint: "mock",
+              inputSchema: Schema.String,
+              parametersSchema: Schema.Struct({}),
               input: prompt,
               parameters: {}
             })

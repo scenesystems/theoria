@@ -7,6 +7,15 @@ import * as Trial from "@scenesystems/effect-study/Trial"
 
 const running = (trialNumber: number, config: string) => Trial.makeRunning(trialNumber, config, 0)
 
+it.effect("scope closure cancels lifecycle without inventing terminal trial outcomes", () =>
+  Effect.gen(function*() {
+    const trial = running(7, "external work")
+    const study = yield* Study.make(Arr.of(trial)).pipe(Effect.scoped)
+    const state = yield* Study.read(study)
+    expect(state.lifecycle).toBe("Cancelled")
+    expect(History.values(state.history)).toEqual(Arr.of(trial))
+  }))
+
 it.effect("rejects an illegal lifecycle transaction without committing or publishing its history", () =>
   Effect.gen(function*() {
     const study = yield* Study.make<string, Trial.Running>()

@@ -15,7 +15,6 @@ const unicodeOperations = (text: string, chunks: Stream.Stream<string>) =>
     "CanonicalJson.encode root string": Effect.asVoid(CanonicalJson.encode(text)),
     "CanonicalJson.encode nested string": Effect.asVoid(CanonicalJson.encode({ nested: Arr.of(text) })),
     "CanonicalJson.encode object key": Effect.asVoid(CanonicalJson.encode(Record.singleton(text, true))),
-    "ContentDigest.fromUnknown": Effect.asVoid(ContentDigest.fromUnknown("blake3-256", text)),
     "ContentDigest.fromSchema": Effect.asVoid(ContentDigest.fromSchema(Schema.String, text)),
     "CanonicalJson.encodeBytes": Effect.asVoid(CanonicalJson.encodeBytes(text)),
     "Digest.hashString": Effect.asVoid(Digest.hashString("blake3-256", text)),
@@ -38,14 +37,12 @@ describe("public text and canonicalization surface — generated Unicode laws", 
         const decodedCanonical = yield* Schema.decodeEffect(JsonString)(canonical)
         const canonicalBytes = yield* CanonicalJson.encodeBytes(text)
         const canonicalDigest = yield* ContentDigest.fromBytes("blake3-256", canonicalBytes)
-        const unknownDigest = yield* ContentDigest.fromUnknown("blake3-256", text)
         const schemaDigest = yield* ContentDigest.fromSchema(Schema.String, text)
         const textHash = yield* Digest.hashString("blake3-256", text)
 
         expect(encodedText).toStrictEqual(yield* oracleUtf8(text))
         expect(decodedCanonical).toBe(text)
         expect(canonicalBytes).toStrictEqual(yield* oracleUtf8(canonical))
-        expect(unknownDigest).toStrictEqual(canonicalDigest)
         expect(schemaDigest).toStrictEqual(canonicalDigest)
         expect(yield* Digest.hashStringStream("blake3-256", Stream.make(text))).toStrictEqual(textHash)
       }),

@@ -9,6 +9,7 @@ import * as DspArtifact from "@scenesystems/effect-dsp/Artifact"
 import * as Artifact from "@scenesystems/effect-study/Artifact"
 import * as ArtifactContext from "@scenesystems/effect-study/ArtifactContext"
 import * as ArtifactSink from "@scenesystems/effect-study/ArtifactSink"
+import type * as PersistenceError from "@scenesystems/effect-study/PersistenceError"
 import { Array as Arr, Data, DateTime, Effect, FileSystem, Path, Schema, String as Str } from "effect"
 import type { Layer } from "effect"
 
@@ -18,7 +19,7 @@ export class ExampleArtifacts extends Data.Class<{
   readonly reportsDir: string
   readonly dataDir: string
   readonly storageDir: string
-  readonly artifactContextLayer: Layer.Layer<ArtifactContext.ArtifactContext>
+  readonly artifactContextLayer: Layer.Layer<ArtifactContext.ArtifactContext, PersistenceError.Failure>
 }> {}
 
 const PACKAGE_VERSION = "0.1.0"

@@ -1,8 +1,11 @@
 import { describe, expect, it } from "@effect/vitest"
 import * as StudyArtifact from "@scenesystems/effect-study/Artifact"
-import { Array as Arr, DateTime, Effect, Schema } from "effect"
+import * as ArtifactContext from "@scenesystems/effect-study/ArtifactContext"
+import * as PersistenceError from "@scenesystems/effect-study/PersistenceError"
+import { Array as Arr, DateTime, Effect, Ref, Result, Schema } from "effect"
 
 import * as Artifact from "../../src/Artifact.js"
+import { envelopeEventPublisher } from "../../src/internal/optimization/events.js"
 import * as Optimization from "../../src/Optimization.js"
 import * as OptimizationEvent from "../../src/OptimizationEvent.js"
 import * as Sampler from "../../src/Sampler.js"
@@ -50,6 +53,31 @@ describe("Artifact", () => {
       const codec = Schema.fromJsonString(Artifact.Envelope)
       const wire = yield* Schema.encodeEffect(codec)(envelope)
       expect(yield* Schema.decodeEffect(codec)(wire)).toEqual(envelope)
+    }))
+
+  it.effect("propagates allocator failure before publishing an optimization envelope", () =>
+    Effect.gen(function*() {
+      const metadata = yield* makeMetadata
+      const calls = yield* Ref.make(0)
+      const failure = new PersistenceError.Failure({
+        reason: "Backend",
+        operation: "write",
+        detail: "allocation unavailable"
+      })
+      const publisher = yield* envelopeEventPublisher({ emit: () => Ref.set(calls, 1) }).pipe(
+        Effect.provide(ArtifactContext.layer(
+          new ArtifactContext.Options({
+            runId: metadata.producer.runId,
+            packageVersion: metadata.producer.packageVersion,
+            allocate: Effect.fail(failure)
+          })
+        ))
+      )
+      const result = yield* publisher.publish(OptimizationEvent.TrialCompleted({ trialNumber: 3, value: 0.25 })).pipe(
+        Effect.result
+      )
+      expect(result).toEqual(Result.fail(failure))
+      expect(yield* Ref.get(calls)).toBe(0)
     }))
 
   it.effect(

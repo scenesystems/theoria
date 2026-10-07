@@ -10,7 +10,7 @@ import { Array as Arr, Effect, Match, Number as Num, Stream } from "effect"
 import * as Numeric from "@scenesystems/effect-math/Numeric"
 import { Optimization, OptimizationEvent, Pruning, Sampler, SearchSpace } from "@scenesystems/effect-search"
 import type { InvalidObjectiveReport } from "@scenesystems/effect-search/SearchError"
-import type { Failure } from "@scenesystems/effect-study/Journal"
+import type { Failure } from "@scenesystems/effect-study/PersistenceError"
 
 const program = Effect.gen(function*() {
   const space = yield* SearchSpace.make({

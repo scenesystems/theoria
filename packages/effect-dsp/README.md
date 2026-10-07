@@ -159,6 +159,14 @@ signature, parameters, and input. Declared model identities permit durable reuse
 anonymous native runtimes use process-local identity. Automatic cache failures
 warn and continue; explicit cache requests retain typed failures.
 
+`Cache.Request` and `Cache.KeyRequest` require `inputSchema` and `parametersSchema`.
+Use the module signature's input codec and the parameter codec (for
+example, `ModuleParameters`). Cache identity follows their encoded wire values,
+not incidental runtime fields. Codecs are service-free, like the existing cache
+key/output codecs. Preserve the encoded preimage to preserve existing keys;
+change the module/runtime fingerprint when changing identity semantics. Do not
+use `Schema.Unknown` to bypass representation selection.
+
 ## Errors and testing
 
 `DspError.DspError` is the schema union of package-owned tagged failures. Native

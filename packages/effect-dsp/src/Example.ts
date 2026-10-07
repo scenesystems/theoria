@@ -43,6 +43,11 @@ export class Example extends Schema.Class<Example>("@scenesystems/effect-dsp/Exa
   )
 }) {}
 
+const Identity = Schema.Struct({
+  input: Example.fields.input,
+  labels: Schema.Array(Example.fields.input)
+})
+
 /** Resolves an explicit identity or hashes the canonical input and labels.
  * Non-JSON label/input values fail through digest's typed admission errors.
  * @since 0.6.0
@@ -52,7 +57,7 @@ export const id = (example: Example) =>
   Option.match(example.id, {
     onSome: Effect.succeed,
     onNone: () =>
-      ContentDigest.fromUnknown("blake3-256", {
+      ContentDigest.fromSchema(Identity, {
         input: example.input,
         labels: Option.toArray(example.labels)
       }).pipe(Effect.map((digest) => Schema.decodeSync(Id)(ContentDigest.toString(digest))))

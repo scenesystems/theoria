@@ -4,7 +4,7 @@
  * @since 0.7.0
  * @module
  */
-import type * as Journal from "@scenesystems/effect-study/Journal"
+import type * as PersistenceError from "@scenesystems/effect-study/PersistenceError"
 import type * as Stop from "@scenesystems/effect-study/Stop"
 import { Data, Match, Schema, Struct } from "effect"
 import type { Duration, Effect, Schedule, Stream } from "effect"
@@ -158,7 +158,7 @@ export class Optimization<Space extends SearchSpace.SearchSpace = SearchSpace.Se
     readonly ask: Effect.Effect<AskedTrial<SearchSpace.Type<Space>>, SearchError>
     readonly tell: (trialNumber: number, value: Value) => Effect.Effect<void, SearchError>
     readonly fail: (trialNumber: number, cause: unknown) => Effect.Effect<void, SearchError>
-    readonly cancel: Effect.Effect<void, Journal.Failure>
+    readonly cancel: Effect.Effect<void, PersistenceError.Failure>
     readonly events: Stream.Stream<OptimizationEvent.OptimizationEvent>
     readonly result: Effect.Effect<Result<SearchSpace.Type<Space>>, SearchError>
     readonly snapshot: Effect.Effect<OptimizationSnapshot.OptimizationSnapshot, SearchError>

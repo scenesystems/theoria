@@ -23,6 +23,36 @@ const JsonString = Schema.fromJsonString(Schema.String)
 const JsonUnknown = Schema.fromJsonString(Schema.Unknown)
 
 describe("CanonicalJson.encode — generated data laws", () => {
+  it.effect.prop(
+    "spells 200,000 seeded finite numbers exactly like the Schema JSON encoder",
+    [Schema.Array(Schema.Finite).check(Schema.isMinLength(1_000), Schema.isMaxLength(1_000))],
+    ([value]) =>
+      Effect.gen(function*() {
+        expect(yield* CanonicalJson.encode(value)).toBe(yield* Schema.encodeEffect(JsonUnknown)(value))
+      }),
+    { arbitrary: { runs: 200, seed: 8785 } }
+  )
+
+  it.effect.prop(
+    "escapes generated strings and keys exactly like the Schema JSON encoder",
+    [wellFormedString],
+    ([value]) =>
+      Effect.gen(function*() {
+        // Force every control and both punctuation escapes into each generated
+        // case; arbitrary Unicode alone rarely exercises the escape path.
+        const controls = Str.concat(
+          "\u0000\u0001\u0002\u0003\u0004\u0005\u0006\u0007\b\t\n\u000b\f\r\u000e\u000f",
+          "\u0010\u0011\u0012\u0013\u0014\u0015\u0016\u0017\u0018\u0019\u001a\u001b\u001c\u001d\u001e\u001f\"\\"
+        )
+        const text = Str.concat(Str.concat(value, controls), Str.concat("😀", value))
+        const quoted = yield* Schema.encodeEffect(JsonString)(text)
+        expect(yield* CanonicalJson.encode(text)).toBe(quoted)
+        expect(yield* CanonicalJson.encode(Record.singleton(text, text)))
+          .toBe(Arr.join(["{", quoted, ":", quoted, "}"], ""))
+      }),
+    { arbitrary: { runs: 500, seed: 8785 } }
+  )
+
   it.effect.prop("is invariant to record insertion order", [admittedRecord], ([record]) =>
     Effect.gen(function*() {
       const entries = Record.toEntries(record)

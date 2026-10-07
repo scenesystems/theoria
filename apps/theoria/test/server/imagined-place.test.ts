@@ -20,6 +20,7 @@ import { description, descriptionInput } from "../../app/contracts/demo/imagined
 import { renderTrials } from "../../app/contracts/demo/imagined-place-search.js"
 import {
   PlaceAcceptances,
+  PlaceArtifact,
   PlaceBuildRequest,
   placeFeatures,
   placeScenarioRecordings,
@@ -58,7 +59,7 @@ describe("server/imagined-place", () => {
       const result = yield* build()
       const { scenario, brief, composition, accepted } = result.artifact
       const originId = ContentDigest.toString(
-        yield* ContentDigest.fromUnknown("blake3-256", {
+        yield* ContentDigest.fromSchema(PlaceArtifact, {
           scenario,
           brief,
           composition,
@@ -66,7 +67,7 @@ describe("server/imagined-place", () => {
         })
       )
       const mergedId = ContentDigest.toString(
-        yield* ContentDigest.fromUnknown("blake3-256", {
+        yield* ContentDigest.fromSchema(PlaceArtifact, {
           parent: originId,
           scenario,
           brief,

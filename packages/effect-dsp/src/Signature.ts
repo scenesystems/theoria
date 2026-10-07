@@ -205,6 +205,14 @@ export const withFieldDescription = <I extends Schema.Struct.Fields, O extends S
       info.name === field ? new FieldInfo(Struct.assign(info, { description: Option.some(description) })) : info)
   }))
 
+const Identity = Schema.Struct({
+  input: Schema.Json,
+  output: Schema.Json,
+  description: Schema.String,
+  instructions: Schema.String,
+  fields: Schema.Array(FieldInfo)
+})
+
 /** Hashes encoded input/output JSON schemas and all prompt metadata. Conversion
  * failures remain typed, allowing cache users to treat unsupported schemas as misses.
  * @since 0.6.0
@@ -224,7 +232,8 @@ export const digest = <I extends Schema.Struct.Fields, O extends Schema.Struct.F
       fields: composed.fields
     }
   }).pipe(
-    Effect.flatMap((value) => ContentDigest.fromUnknown("blake3-256", value)),
+    Effect.flatMap(Schema.decodeUnknownEffect(Schema.toType(Identity))),
+    Effect.flatMap((value) => ContentDigest.fromSchema(Identity, value)),
     Effect.map(ContentDigest.toString),
     Effect.mapError(() => new SignatureError({ reason: "Cannot encode signature identity" }))
   )

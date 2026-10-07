@@ -28,6 +28,8 @@ describe("signature-owned demonstrations", () => {
           new Cache.KeyRequest({
             moduleFingerprint: "qa",
             runtimeFingerprint: "test",
+            inputSchema: signature.inputSchema,
+            parametersSchema: Schema.Struct({ demos: Schema.Array(Demonstration) }),
             input: { question: "q" },
             parameters: { demos: [demo] }
           })

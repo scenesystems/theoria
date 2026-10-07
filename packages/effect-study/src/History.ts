@@ -27,6 +27,58 @@ const cost = <Config, State>(trial: Trial.Trial<Config, State>): number =>
   Option.fromNullishOr(trial.cost).pipe(Option.filter(validCost), Option.getOrElse(() => 0))
 
 /**
+ * Cost evidence across current trial records. A known zero is reported; absent
+ * costs are missing, and negative or non-finite costs are invalid. Reported totals
+ * are not provider billing or attempt accounting. reportedTotal is "Overflow"
+ * when summing valid costs exceeds finite number range; counts remain intact.
+ *
+ * @since 0.1.0
+ * @category models
+ */
+export const Cost = Schema.Struct({
+  reportedTotal: Schema.Union([Schema.Finite.check(Schema.isGreaterThanOrEqualTo(0)), Schema.Literal("Overflow")]),
+  reportedCount: Schema.Int.check(Schema.isGreaterThanOrEqualTo(0)),
+  missingCount: Schema.Int.check(Schema.isGreaterThanOrEqualTo(0)),
+  invalidCount: Schema.Int.check(Schema.isGreaterThanOrEqualTo(0))
+})
+
+/**
+ * Cost evidence derived from its encoding schema.
+ *
+ * @since 0.1.0
+ * @category models
+ */
+export type Cost = typeof Cost.Type
+
+/**
+ * Summarizes the latest cost for each trial, independently of completion state.
+ * Replaced trials contribute only their current evidence. No cost is imputed.
+ * Recomputing from current records permits recovery from aggregate overflow when
+ * a trial is replaced. Finite totals use ordinary floating-point summation.
+ *
+ * @since 0.1.0
+ * @category accessors
+ */
+export const costs = <Config, State>(self: History<Config, State>): Cost =>
+  Arr.reduce(
+    HashMap.values(self.trials),
+    Cost.make({ reportedTotal: 0, reportedCount: 0, missingCount: 0, invalidCount: 0 }),
+    (summary, trial) =>
+      Option.match(Option.fromNullishOr(trial.cost), {
+        onNone: () => Cost.make({ ...summary, missingCount: Num.increment(summary.missingCount) }),
+        onSome: (value) => {
+          if (!validCost(value)) return Cost.make({ ...summary, invalidCount: Num.increment(summary.invalidCount) })
+          const total = summary.reportedTotal === "Overflow" ? Infinity : Num.sum(summary.reportedTotal, value)
+          return Cost.make({
+            ...summary,
+            reportedTotal: validCost(total) ? total : "Overflow",
+            reportedCount: Num.increment(summary.reportedCount)
+          })
+        }
+      })
+  )
+
+/**
  * Creates empty history without imposing an observation or error vocabulary.
  *
  * @since 0.1.0

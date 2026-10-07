@@ -9,6 +9,17 @@ class Prefix extends Context.Service<Prefix, string>()("study-test/Prefix") {}
 
 const Observation = Schema.Struct({ prefix: Schema.String, config: Schema.Finite, trialNumber: Schema.Finite })
 
+it.effect("accepts empty inputs without invoking the evaluator", () =>
+  Effect.gen(function*() {
+    expect(yield* Evaluation.run(Arr.empty<string>(), () => Effect.die("unexpected evaluation"))).toEqual([])
+  }))
+
+it.effect("propagates defects without converting them into expected failures", () =>
+  Effect.gen(function*() {
+    expect(yield* Evaluation.run(Arr.of(1), () => Effect.die("broken evaluator")).pipe(Effect.exit))
+      .toEqual(Exit.die("broken evaluator"))
+  }))
+
 it.effect("evaluates fixed inputs with typed services and preserves input order across concurrent completion", () =>
   Effect.gen(function*() {
     const fastFinished = yield* Deferred.make<void>()
@@ -71,3 +82,43 @@ it.effect("waits for all active evaluator finalizers when the caller interrupts"
     expect(yield* Ref.get(active)).toBe(0)
     expect(Exit.hasInterrupts(yield* Fiber.await(fiber))).toBe(true)
   }))
+
+it.effect("retains slow success, middle typed failure, and fast success in input order", () =>
+  Effect.gen(function*() {
+    const completed = yield* Ref.make(Arr.empty<number>())
+    const fiber = yield* Evaluation.runSettled(Arr.make(300, 200, 100), (input, trialNumber) =>
+      Effect.gen(function*() {
+        const prefix = yield* Prefix
+        yield* Effect.sleep(input)
+        yield* Ref.update(completed, Arr.append(trialNumber))
+        if (Num.Equivalence(trialNumber, 1)) return yield* new Rejected({ input })
+        return prefix
+      }), { concurrency: 3 }).pipe(Effect.provideService(Prefix, "ok"), Effect.forkChild)
+    yield* TestClock.adjust(300)
+    expect(yield* Fiber.join(fiber)).toEqual(Arr.make(
+      { trialNumber: 0, config: 300, state: { _tag: "Completed", value: "ok", duration: 300 } },
+      { trialNumber: 1, config: 200, state: { _tag: "Failed", error: new Rejected({ input: 200 }), duration: 200 } },
+      { trialNumber: 2, config: 100, state: { _tag: "Completed", value: "ok", duration: 100 } }
+    ))
+    expect(yield* Ref.get(completed)).toEqual(Arr.make(2, 1, 0))
+    expect(yield* Evaluation.runSettled(Arr.empty<number>(), () => Effect.die("empty"))).toEqual([])
+  }))
+
+it.effect("settled evaluation bounds admission and defaults to sequential execution", () =>
+  Effect.forEach(Arr.make(1, 2), (limit) =>
+    Effect.gen(function*() {
+      const admitted = yield* Ref.make(Arr.empty<number>())
+      const full = yield* Deferred.make<void>()
+      const release = yield* Deferred.make<void>()
+      const fiber = yield* Evaluation.runSettled(Arr.make(8, 3, 5), (input) =>
+        Effect.gen(function*() {
+          const seen = yield* Ref.updateAndGet(admitted, Arr.append(input))
+          if (Num.Equivalence(Arr.length(seen), limit)) yield* Deferred.succeed(full, undefined)
+          yield* Deferred.await(release)
+          return input
+        }), Num.Equivalence(limit, 1) ? {} : { concurrency: limit }).pipe(Effect.forkChild)
+      yield* Deferred.await(full)
+      expect(yield* Ref.get(admitted)).toEqual(Arr.take(Arr.make(8, 3, 5), limit))
+      yield* Deferred.succeed(release, undefined)
+      expect(Arr.map(yield* Fiber.join(fiber), (trial) => trial.config)).toEqual(Arr.make(8, 3, 5))
+    })))

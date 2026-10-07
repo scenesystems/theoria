@@ -25,7 +25,7 @@ Strict canonical JSON, content identities, hashing, MACs, and KDFs for Effect pr
 The root exports namespace objects, and each namespace has an exact matching subpath:
 
 - `Digest` / `@scenesystems/digest/Digest` — algorithm schema plus raw byte, strict text, and stream hashing
-- `ContentDigest` / `@scenesystems/digest/ContentDigest` — canonical digest model and unknown/Schema pipelines
+- `ContentDigest` / `@scenesystems/digest/ContentDigest` — canonical digest model, explicit Schema representations, and exact bytes
 - `CanonicalJson` / `@scenesystems/digest/CanonicalJson` — strict RFC 8785 text and bytes
 - `Utf8` / `@scenesystems/digest/Utf8` — strict encoding and Unicode scalar construction
 - `Blake3`, `Hmac`, and `Hkdf` with matching subpaths — keyed primitives
@@ -39,6 +39,11 @@ Encoding and cryptographic execution use lazy Effects; pure model accessors rema
 - cooperative traversal, streams, and Schema encoding use `Effect`
 
 `ContentDigest.ContentDigest` is the runtime and encoded model. Convert it to the `<algorithm>:<base64url>` protocol string only at the boundary with `ContentDigest.toString`.
+
+Structured identities require an owner-selected codec. Do not restore a public
+unknown-value identity shortcut or migrate domain callers using Schema.Unknown.
+Owners select fields, transformations, and domain/version markers; the digest
+package does not inject them. CanonicalJson remains lower-level encoding.
 
 ## Canonicalization law
 
@@ -55,6 +60,7 @@ Encoding and cryptographic execution use lazy Effects; pure model accessors rema
 ## Effect and test discipline
 
 - Direct `Uint8Array` construction is permitted solely for byte materialization in this package's implementation and tests. `Schema.Uint8Array` validates existing bytes; use Effect codecs for transport encoding. This does not authorize general native adapters, bypassing input validation, or lint suppressions.
+- Owner-approved exception: use `ArrayBuffer.isView` inside `Schema.declare` solely to reject typed arrays and `DataView` during canonicalization. Effect 4.0.0 has no public hook-free, cross-realm view predicate. Native view construction is permitted for rejection fixtures. This does not authorize native traversal, encoding, or other adapters.
 - Public errors and encoded values are Schema-owned. `Digest.Algorithm` owns the hash algorithm type.
 - `ContentDigest.ContentDigest` and `ContentDigest.Result` explicitly implement their structural equality and hashing contracts.
 - Property tests use Schema/Arbitrary inputs and `arbitrary` options on `it.effect.prop`.

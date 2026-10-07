@@ -1,5 +1,5 @@
 import { describe, expect, it } from "@effect/vitest"
-import { BigDecimal, Chunk, Effect, Equal, Iterable, Number, Option, Schema } from "effect"
+import { BigDecimal, Boolean, Chunk, Effect, Equal, Iterable, Number, Option, Schema } from "effect"
 
 import { nan, positiveInfinity } from "../helpers/nonFinite.js"
 
@@ -52,6 +52,17 @@ describe("Numeric binary64 arithmetic", () => {
       expect(sqrt(Number.multiply(root, root))).toBe(root)
     }))
 
+  it.effect.prop("rescales exact roots throughout the binary64 exponent range", {
+    exponent: Schema.Int.check(Schema.isBetween({ minimum: -537, maximum: 511 }))
+  }, ({ exponent }) =>
+    Effect.gen(function*() {
+      // Repeated exact factors construct the reference independently of the
+      // kernel's bounded scaler. The smallest square is the least subnormal.
+      const factor = Boolean.match(Number.isLessThan(exponent, 0), { onTrue: () => 0.5, onFalse: () => 2 })
+      const root = Number.multiplyAll(Iterable.take(Iterable.makeBy(() => factor), abs(exponent)))
+      expect(sqrt(Number.multiply(root, root))).toBe(root)
+    }))
+
   it.effect("preserves signed zero and dispatches exceptional roots", () =>
     Effect.gen(function*() {
       expect(sqrt(-0)).toBe(-0)
@@ -76,6 +87,15 @@ describe("Numeric binary64 arithmetic", () => {
       expect(hypot(Chunk.make(1.5e-323, 2e-323))).toBe(2.5e-323)
       expect(hypot(Chunk.make(2, 3, 6))).toBe(7)
       expect(hypot(Chunk.make(1.7976931348623157e308, 1.7976931348623157e308))).toBe(positiveInfinity)
+    }))
+
+  it.effect("rounds exact norm midpoints to the even significand", () =>
+    Effect.gen(function*() {
+      // Exact sums of squares give (1 + 2^-53)^2 and (1 + 3*2^-53)^2.
+      // The first midpoint rounds down; the second rounds up.
+      const leg = 1.4901161193847656e-8 // 2^-26
+      expect(hypot(Chunk.make(1, leg, 1.1102230246251565e-16))).toBe(1)
+      expect(hypot(Chunk.make(1, leg, leg, leg, 3.3306690738754696e-16))).toBe(1.0000000000000004)
     }))
 
   it.effect("prioritizes infinite norm components over NaN and canonicalizes zero", () =>

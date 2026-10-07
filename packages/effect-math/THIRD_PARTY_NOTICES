@@ -6,11 +6,14 @@ appears in this package.
 
 --------------------------------------------------------------------------------
 
-FDLIBM / OpenLibm — logarithm and exponential rational approximations
-(src/Numeric/internal/transcendental.ts)
+FDLIBM / OpenLibm — logarithm, exponential, and trigonometric approximations
+(src/internal/numeric/transcendental.ts)
 
 Source: https://github.com/JuliaMath/openlibm/blob/master/src/e_log.c
         https://github.com/JuliaMath/openlibm/blob/master/src/e_exp.c
+        https://github.com/JuliaMath/openlibm/blob/master/src/k_sin.c
+        https://github.com/JuliaMath/openlibm/blob/master/src/k_cos.c
+        https://github.com/JuliaMath/openlibm/blob/master/src/e_rem_pio2.c
 
 Copyright (C) 1993, 2004 by Sun Microsystems, Inc. All rights reserved.
 Developed at SunSoft, a Sun Microsystems, Inc. business.
@@ -21,7 +24,9 @@ granted, provided that this notice is preserved.
 The coefficient tables, split logarithm constants, and rational formulas
 are expressed through Effect Number arithmetic. Binary normalization uses
 exact arithmetic rather than storage inspection; extreme exponentials use
-Effect BigDecimal range reduction and rescaling.
+Effect BigDecimal range reduction and rescaling. Trigonometric polynomials
+use split pi/2 reduction for bounded angles, retaining subtraction residuals;
+large angles retain exact-decimal range reduction.
 
 --------------------------------------------------------------------------------
 

@@ -74,13 +74,17 @@ The model is not the wire string. Call `ContentDigest.toString(model)` at protoc
 
 ```ts typecheck
 import * as ContentDigest from "@scenesystems/digest/ContentDigest"
-import { Effect } from "effect"
+import { Effect, Schema } from "effect"
 
-export const identify = (value: unknown) =>
-  ContentDigest.fromUnknown("blake3-256", value).pipe(Effect.map(ContentDigest.toString))
+const Document = Schema.Struct({ domain: Schema.Literal("document"), version: Schema.Literal(1), text: Schema.String })
+
+export const identify = (value: typeof Document.Type) =>
+  ContentDigest.fromSchema(Document, value).pipe(Effect.map(ContentDigest.toString))
 ```
 
-`ContentDigest.fromBytes` hashes its input bytes directly and is effectful. `ContentDigest.fromUnknown` incrementally hashes canonical segments without collecting the complete preimage and returns an `Effect<ContentDigest, CanonicalJson.Error>`. For a durable fingerprint, use `fromUnknown("blake3-256", value)` and then `toString`; there is no separate fingerprint helper.
+`ContentDigest.fromBytes` hashes exact bytes directly. Structured identities require an owner-selected codec through `fromSchema` or `fromSchemaWithByteLimit`; both incrementally hash canonical segments without collecting the complete preimage. The owner chooses identity fields, transformations, and domain/version markers. Schema identifiers are not automatically included in the preimage.
+
+Migration from 0.7: `ContentDigest.fromUnknown` is removed. Select the actual domain codec rather than wrapping arbitrary values in `Schema.Unknown`. Digests remain identical only when the encoded canonical preimage remains identical. Changing identity fields or transformations requires the domain owner to plan its identity/cache migration. `CanonicalJson` remains available for lower-level strict JSON encoding, not implicit domain identity.
 
 ### Schema values
 
@@ -169,6 +173,52 @@ Compare authenticators using the surrounding protocol's constant-time comparison
 The suite checks RFC 8785 JCS, the BLAKE3 specification, FIPS 180-4 SHA-256, RFC 2104 HMAC, and RFC 5869 HKDF, with vectors from RFC 4231, RFC 2202, NIST CAVP, and Project Wycheproof. Fixture source revisions, licenses, transformations, exclusions, verdict mappings, and local hashes live in [`test/fixtures/external/sources.manifest.json`](./test/fixtures/external/sources.manifest.json).
 
 Tests exercise the supported concern imports. Smaller suites live in `test/Blake3.test.ts`, `test/Hmac.test.ts`, and `test/Hkdf.test.ts`; larger suites use concern directories with operation or behavior names. [`scripts/fixtures.ts`](./scripts/fixtures.ts) owns fixture decoding, provenance validation, and loading for both tests and scripts. Run `bun run fixtures:verify` from this package to check all source hashes and execute the conformance suites.
+
+## Throughput regression matrix
+
+From the repository root, on an otherwise idle host:
+
+```sh
+OUTPUT=.tmp/digest-throughput.jsonl bash packages/digest/benchmark/throughput.sh node bun
+```
+
+The runner bundles once and alternates three fresh-process pairs per case/runtime.
+It covers one million numbers, mixed scalars, small records, short escaped strings,
+and long ASCII/BMP/astral/escaped strings. Each process measures its first invocation
+and five warm invocations on freshly constructed graphs. Input construction and
+module loading are excluded; candidate Schema encoding and cooperative yields are
+included. The other engine is never run before timing, and every candidate result
+must equal the complete independent digest.
+
+The independent oracle rebuilds sorted-key trees with Effect collections, invokes
+native JSON serialization once through Schema, encodes the complete text once with
+Effect's native UTF-8 stream encoder, and hashes with Noble. It deliberately buffers
+the whole preimage and has no cooperative traversal obligation. It does not call
+the package's canonicalizer. This is an independent algorithm reached through
+Effect APIs, not a claim that Effect's wrapper overhead is zero.
+
+The output includes raw samples and a `.ratios.json` report. Cold and warm-fresh
+medians have separate **candidate/baseline ≤ 1.0** budgets; the runner exits nonzero
+if any budget is missed. This performance gate is separate from correctness CI
+because shared runners cannot establish uncontended timing. A failed ratio is not
+silently accepted or replaced with a warmed or same-object sample.
+
+The oracle ratio is a diagnostic, not release acceptance. The oracle does less than
+the package: no strict admission or own-index check before each read, no Schema
+encoding of the caller's codec, no byte accounting, and no cooperative yielding. A
+candidate that does that work can miss 1.0 on every case while still being the
+fastest correct implementation; the miss stays visible in the report.
+
+Release acceptance compares the candidate with the previously published package:
+both bundled from the same Effect and Noble installation, driven through
+`fromSchema` with identical explicit codecs, fresh-process cold and warm-fresh
+timings on the same shapes plus the Vocabulary corpora, and every digest checked
+equal across release, candidate, and oracle. The criterion is measured improvement
+over the published release, not parity with a whole-preimage oracle and not a win
+in every cell: every shape and runtime is reported with its raw samples, each
+slower cell is listed with its dispersion, and a material regression is evaluated
+against the gains before release rather than hidden behind a summary. Measured
+matrices are recorded on the pull request that changes the canonicalizer.
 
 ## Examples
 

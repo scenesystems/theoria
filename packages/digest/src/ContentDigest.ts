@@ -7,13 +7,13 @@
  * @module
  */
 
-import { Boolean, Effect, Equal, Hash, Schema } from "effect"
+import { Boolean, Effect, Equal, Function, Hash, Schema, SchemaAST } from "effect"
 import { Base64Url } from "effect/encoding"
+import * as SchemaJITCompiler from "effect/schema/SchemaJITCompiler"
 import * as CanonicalJson from "./CanonicalJson.js"
 import * as Digest from "./Digest.js"
 import { canonicalizeInto, canonicalizeWithByteLimit } from "./internal/canonicalJson/traversal.js"
 import { makeHasher } from "./internal/digest.js"
-import { encodeUtf8Unchecked } from "./internal/utf8.js"
 
 /**
  * Canonical unpadded base64url encoding of 32 digest bytes. Decoding validates
@@ -101,28 +101,45 @@ export const fromBytes = (algorithm: Digest.Algorithm, bytes: Uint8Array): Effec
   Digest.hash(algorithm, bytes).pipe(Effect.map((hash) => fromHash(algorithm, hash)))
 
 /**
- * Admits JSON-visible data and incrementally hashes its RFC 8785 UTF-8 segments
- * without collecting the whole encoded preimage. Inherits
- * CanonicalJson's cooperative traversal, stable-input requirement, and failures.
- *
- * @since 0.7.0
- * @category constructors
+ * Hashes an already Schema-encoded representation without collecting its preimage.
+ * Kept private so public structured identities require an owner-selected codec.
  */
-export const fromUnknown = (
+const fromEncoded = (
   algorithm: Digest.Algorithm,
   value: unknown
 ): Effect.Effect<ContentDigest, CanonicalJson.Error> =>
   Effect.acquireUseRelease(
     Effect.sync(() => makeHasher(algorithm)),
     (hasher) =>
-      canonicalizeInto(value, (segment) =>
-        Effect.asVoid(Effect.map(encodeUtf8Unchecked(segment), (bytes) => hasher.update(bytes)))).pipe(
-          Effect.map(() =>
-            fromHash(algorithm, hasher.digest())
-          )
-        ),
+      canonicalizeInto(value, (bytes) => {
+        hasher.update(bytes)
+      }).pipe(
+        Effect.map(() => fromHash(algorithm, hasher.digest()))
+      ),
     (hasher) => Effect.sync(() => hasher.destroy())
   )
+
+/*
+ * Encoding runs through Schema's own JIT compiler: the first execution of each
+ * codec installs generated parsers for its encoding AST in Schema's compiler
+ * registry, which every later `Schema.encodeEffect` of the same AST reuses.
+ * Results are those of the interpreted parsers; interpretation remains the
+ * fallback where dynamic code generation is unavailable. The memo is keyed by
+ * AST identity, so codecs are retained only while their owners retain them.
+ */
+const compileEncoding = Function.memoize((ast: SchemaAST.AST): SchemaAST.AST => {
+  SchemaJITCompiler.enable(ast)
+  return ast
+})
+
+const encode = <A, I, RD, RE>(
+  schema: Schema.Codec<A, I, RD, RE>,
+  value: A
+): Effect.Effect<I, Schema.SchemaError, RE> =>
+  Effect.suspend(() => {
+    compileEncoding(SchemaAST.flip(schema.ast))
+    return Schema.encodeEffect(schema)(value)
+  })
 
 /**
  * Hashes the Schema-encoded representation, not the runtime value. Delegates
@@ -138,7 +155,7 @@ export const fromSchema = <A, I, RD, RE>(
   value: A,
   algorithm: Digest.Algorithm = "blake3-256"
 ): Effect.Effect<ContentDigest, CanonicalJson.Error | Schema.SchemaError, RE> =>
-  Effect.flatMap(Effect.suspend(() => Schema.encodeEffect(schema)(value)), (encoded) => fromUnknown(algorithm, encoded))
+  Effect.flatMap(encode(schema, value), (encoded) => fromEncoded(algorithm, encoded))
 
 const isByteLimit = Schema.is(Schema.Number.check(Schema.isInt(), Schema.isGreaterThanOrEqualTo(0)))
 
@@ -167,7 +184,7 @@ export const fromSchemaWithByteLimit = <A, I, RD, RE>(
   Boolean.match(isByteLimit(maximumBytes), {
     onTrue: () =>
       Effect.flatMap(
-        Effect.suspend(() => Schema.encodeEffect(schema)(value)),
+        encode(schema, value),
         (encoded) =>
           Effect.acquireUseRelease(
             Effect.sync(() => makeHasher(algorithm)),
@@ -176,7 +193,9 @@ export const fromSchemaWithByteLimit = <A, I, RD, RE>(
                 canonicalizeWithByteLimit(
                   encoded,
                   maximumBytes,
-                  (segment) => Effect.asVoid(Effect.map(encodeUtf8Unchecked(segment), (bytes) => hasher.update(bytes)))
+                  (bytes) => {
+                    hasher.update(bytes)
+                  }
                 ),
                 (canonicalByteLength) =>
                   new Result({ digest: fromHash(algorithm, hasher.digest()), canonicalByteLength })

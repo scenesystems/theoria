@@ -3,10 +3,34 @@
  * schema decode failure surfacing, and typed key composition.
  */
 import { describe, expect, it } from "@effect/vitest"
-import { Cache, layerMemory, Request } from "@scenesystems/effect-dsp/Cache"
+import { ContentDigest, Utf8 } from "@scenesystems/digest"
+import { Cache, key, KeyRequest, layerMemory, Request } from "@scenesystems/effect-dsp/Cache"
 import { Effect, Ref, Schema } from "effect"
 
 describe("Cache authority contract", () => {
+  it.effect("identifies the selected input and parameter wire representations, not incidental fields", () =>
+    Effect.gen(function*() {
+      const input = { value: 42, incidental: "not identity" }
+      const request = {
+        moduleFingerprint: "wire-v1",
+        runtimeFingerprint: "runtime-v1",
+        inputSchema: Schema.Struct({ value: Schema.FiniteFromString }),
+        parametersSchema: Schema.FiniteFromString,
+        input,
+        parameters: 11
+      }
+      const actual = yield* key(new KeyRequest(request))
+      const inputDigest = yield* ContentDigest.fromBytes("blake3-256", yield* Utf8.encode("{\"value\":\"42\"}"))
+      const parametersDigest = yield* ContentDigest.fromBytes("blake3-256", yield* Utf8.encode("\"11\""))
+      expect(actual.inputHash).toBe(ContentDigest.toString(inputDigest))
+      expect(actual.parametersHash).toBe(ContentDigest.toString(parametersDigest))
+      const changed = { value: 42, incidental: "changed" }
+      expect(yield* key(new KeyRequest({ ...request, input: changed })))
+        .toEqual(actual)
+      expect((yield* key(new KeyRequest({ ...request, parametersSchema: Schema.Finite }))).parametersHash)
+        .not.toBe(actual.parametersHash)
+    }))
+
   it.effect("resolve returns miss + computed value on first call", () =>
     Effect.gen(function*() {
       const computeCount = yield* Ref.make(0)
@@ -19,6 +43,8 @@ describe("Cache authority contract", () => {
           runtimeFingerprint: "runtime-v1",
           input: { question: "What is 2+2?" },
           parameters: { instructions: "Answer concisely", demos: [] },
+          inputSchema: Schema.Struct({ question: Schema.String }),
+          parametersSchema: Schema.Struct({ instructions: Schema.String, demos: Schema.Array(Schema.Never) }),
           outputSchema: Schema.Struct({ answer: Schema.String }),
           compute: Ref.updateAndGet(computeCount, (n) => n + 1).pipe(
             Effect.as({ answer: "4" })
@@ -42,6 +68,8 @@ describe("Cache authority contract", () => {
         runtimeFingerprint: "runtime-v1",
         input: { question: "What is 2+2?" },
         parameters: { instructions: "Answer concisely", demos: [] },
+        inputSchema: Schema.Struct({ question: Schema.String }),
+        parametersSchema: Schema.Struct({ instructions: Schema.String, demos: Schema.Array(Schema.Never) }),
         outputSchema: Schema.Struct({ answer: Schema.String }),
         compute: Ref.updateAndGet(computeCount, (n) => n + 1).pipe(
           Effect.as({ answer: "4" })
@@ -68,6 +96,8 @@ describe("Cache authority contract", () => {
           runtimeFingerprint: "runtime-v1",
           input: { question },
           parameters: { instructions: "Answer concisely", demos: [] },
+          inputSchema: Schema.Struct({ question: Schema.String }),
+          parametersSchema: Schema.Struct({ instructions: Schema.String, demos: Schema.Array(Schema.Never) }),
           outputSchema: Schema.Struct({ answer: Schema.String }),
           compute: Ref.updateAndGet(computeCount, (n) => n + 1).pipe(
             Effect.as({ answer: question })
@@ -94,6 +124,8 @@ describe("Cache authority contract", () => {
           runtimeFingerprint: "runtime-v1",
           input: { question: "What is 2+2?" },
           parameters: { instructions, demos: [] },
+          inputSchema: Schema.Struct({ question: Schema.String }),
+          parametersSchema: Schema.Struct({ instructions: Schema.String, demos: Schema.Array(Schema.Never) }),
           outputSchema: Schema.Struct({ answer: Schema.String }),
           compute: Ref.updateAndGet(computeCount, (n) => n + 1).pipe(
             Effect.as({ answer: "4" })
@@ -119,6 +151,8 @@ describe("Cache authority contract", () => {
           input: { x: 1 },
           parameters: { instructions: "test", demos: [] },
           outputSchema: Schema.Struct({ y: Schema.Finite }),
+          inputSchema: Schema.Struct({ x: Schema.Finite }),
+          parametersSchema: Schema.Struct({ instructions: Schema.String, demos: Schema.Array(Schema.Never) }),
           compute: Effect.succeed({ y: 42 })
         })
       )
@@ -133,6 +167,8 @@ describe("Cache authority contract", () => {
           input: { x: 1 },
           parameters: { instructions: "test", demos: [] },
           outputSchema: Schema.Struct({ y: Schema.Finite }),
+          inputSchema: Schema.Struct({ x: Schema.Finite }),
+          parametersSchema: Schema.Struct({ instructions: Schema.String, demos: Schema.Array(Schema.Never) }),
           compute: Effect.succeed({ y: 999 })
         })
       )

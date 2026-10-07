@@ -4,7 +4,7 @@
  * @since 0.1.0
  */
 import { isFinite } from "@scenesystems/effect-math/Numeric"
-import type * as Journal from "@scenesystems/effect-study/Journal"
+import type * as PersistenceError from "@scenesystems/effect-study/PersistenceError"
 import { Array as Arr, Boolean as Bool, Effect, Match, Number as Num, Option, Ref, Schema } from "effect"
 
 import * as OptimizationEvent from "../../../../OptimizationEvent.js"
@@ -107,7 +107,7 @@ const recordReportWithSpi = (
   step: number,
   value: number,
   policy: Policy
-): Effect.Effect<Decision, InvalidObjectiveReport | Journal.Failure> =>
+): Effect.Effect<Decision, InvalidObjectiveReport | PersistenceError.Failure> =>
   Effect.gen(function*() {
     const reports = yield* Ref.get(reportRefs.reportsRef)
     yield* validateStep(trialNumber, step)
@@ -146,5 +146,5 @@ export const recordReport = (
   pruningPolicy: Policy,
   step: number,
   value: number
-): Effect.Effect<Decision, InvalidObjectiveReport | Journal.Failure> =>
+): Effect.Effect<Decision, InvalidObjectiveReport | PersistenceError.Failure> =>
   recordReportWithSpi(runtime, reportRefs, trialNumber, step, value, pruningPolicy)

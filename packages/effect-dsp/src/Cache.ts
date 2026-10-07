@@ -22,7 +22,7 @@ import { RolloutRef } from "./internal/cache/rollout.js"
  *
  * @remarks
  * Module and runtime fingerprints preserve caller-selected identities. Input
- * and parameter values are canonically fingerprinted, while `rolloutId`
+ * and parameter Schema-encoded values are canonically fingerprinted, while `rolloutId`
  * isolates concurrent candidate evaluations from one another.
  *
  * @since 0.1.0
@@ -46,7 +46,8 @@ const namespace = "effect-dsp/lm-cache"
  * Carries request identity before durable canonicalization.
  *
  * @remarks
- * {@link key} hashes `input` and `parameters` canonically and adds the active
+ * {@link key} encodes `input` and `parameters` using their required codecs,
+ * hashes those wire representations canonically, and adds the active
  * rollout partition. Fingerprints identify the module implementation and
  * language-model runtime independently of request content.
  *
@@ -56,6 +57,8 @@ const namespace = "effect-dsp/lm-cache"
 export class KeyRequest<Input, ParameterValues> extends Data.Class<{
   readonly moduleFingerprint: string
   readonly runtimeFingerprint: string
+  readonly inputSchema: Schema.Codec<Input, unknown>
+  readonly parametersSchema: Schema.Codec<ParameterValues, unknown>
   readonly input: Input
   readonly parameters: ParameterValues
   readonly settings?: ModelSettings
@@ -70,7 +73,8 @@ export class KeyRequest<Input, ParameterValues> extends Data.Class<{
  * @remarks
  * `compute` runs only after a miss. `outputSchema` controls durable encoding
  * and decoding, so its encoded form must remain compatible with previously
- * persisted values.
+ * persisted values. `inputSchema` and `parametersSchema` select identity fields and
+ * transformations; schema identifiers are not automatically part of the key.
  *
  * @since 0.1.0
  * @category models
@@ -78,6 +82,8 @@ export class KeyRequest<Input, ParameterValues> extends Data.Class<{
 export class Request<Input, ParameterValues, Output, Failure, Requirement, EncodedOutput = Output> extends Data.Class<{
   readonly moduleFingerprint: string
   readonly runtimeFingerprint: string
+  readonly inputSchema: Schema.Codec<Input, unknown>
+  readonly parametersSchema: Schema.Codec<ParameterValues, unknown>
   readonly input: Input
   readonly parameters: ParameterValues
   readonly settings?: ModelSettings
@@ -112,8 +118,12 @@ export class Cache extends Context.Service<
   }
 >()("@scenesystems/effect-dsp/Cache") {}
 
-const fingerprint = <Value>(value: Value, label: string): Effect.Effect<string, SearchCache.Corrupt> =>
-  ContentDigest.fromUnknown("blake3-256", value).pipe(
+const fingerprint = <Value>(
+  schema: Schema.Codec<Value, unknown>,
+  value: Value,
+  label: string
+): Effect.Effect<string, SearchCache.Corrupt> =>
+  ContentDigest.fromSchema(schema, value).pipe(
     Effect.map(ContentDigest.toString),
     Effect.mapError((cause) =>
       new SearchCache.Corrupt({
@@ -133,8 +143,8 @@ export const key = <Input, ParameterValues>(
   request: KeyRequest<Input, ParameterValues>
 ): Effect.Effect<Key, SearchCache.Corrupt> =>
   Effect.all({
-    inputHash: fingerprint(request.input, "input"),
-    parametersHash: fingerprint(request.parameters, "parameters"),
+    inputHash: fingerprint(request.inputSchema, request.input, "input"),
+    parametersHash: fingerprint(request.parametersSchema, request.parameters, "parameters"),
     rolloutId: RolloutRef
   }).pipe(
     Effect.map(({ inputHash, parametersHash, rolloutId }) =>

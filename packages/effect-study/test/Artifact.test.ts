@@ -86,7 +86,7 @@ describe("Artifact", () => {
         integrity: { algorithm: "blake3-256", digest: "aQJY8iIqoTY1e28B_KqoLHTkXHk5qTbKfQTnW9n-bHY" }
       }
       const decoded = yield* Schema.decodeUnknownEffect(Lineage)(encoded)
-      const integrity = yield* ContentDigest.fromUnknown("blake3-256", { x: 1 })
+      const integrity = yield* ContentDigest.fromSchema(Schema.Struct({ x: Schema.Finite }), { x: 1 })
       expect(decoded.integrity).toEqual(integrity)
       expect(yield* Schema.encodeEffect(Lineage)(decoded)).toEqual(encoded)
       expect(Result.isFailure(

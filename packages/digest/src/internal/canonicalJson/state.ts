@@ -1,92 +1,156 @@
 /** Invocation-local state for stack-safe canonical traversal. @internal */
 
-import type { Chunk, MutableHashSet } from "effect"
-import {
-  Boolean as B,
-  Data,
-  Equal,
-  Equivalence,
-  Hash,
-  Match,
-  MutableList,
-  MutableRef,
-  Number as N,
-  Option,
-  Result,
-  Schema,
-  String as Str
-} from "effect"
+import * as Data from "effect/Data"
+import type * as MutableHashSet from "effect/MutableHashSet"
+import * as MutableList from "effect/MutableList"
+import * as MutableRef from "effect/MutableRef"
+import * as N from "effect/Number"
+import * as Option from "effect/Option"
+import * as Str from "effect/String"
 
 import type { Error as CanonicalizationError } from "../../CanonicalJson.js"
 
-/** Cycle detection compares input references, never their structural Hash/Equal implementations. */
-export class Ancestor extends Data.Class<{ readonly identity: object }> {
-  [Hash.symbol](): number {
-    return Hash.random(this.identity)
-  }
-
-  [Equal.symbol](that: Equal.Equal): boolean {
-    return Match.value(that).pipe(
-      Match.when(
-        Schema.is(Schema.instanceOf(Ancestor)),
-        (other) => Equivalence.strictEqual<object>()(this.identity, other.identity)
-      ),
-      Match.orElse(() => false)
-    )
-  }
-}
-
+/**
+ * The traversal stack is the chain of `parent` links from the top frame down
+ * to `None`. Open containers link to their enclosing container, so the chain
+ * above any container is exactly its ancestor path, which cycle detection
+ * scans by reference.
+ */
 export type Frame = Data.TaggedEnum<{
-  Visit: { readonly value: unknown }
-  Array: { readonly identity: ReadonlyArray<unknown>; readonly at: number }
+  Visit: { readonly value: unknown; readonly parent: Option.Option<Container> }
+  Array: {
+    readonly identity: ReadonlyArray<unknown>
+    readonly at: MutableRef.MutableRef<number>
+    readonly depth: number
+    readonly parent: Option.Option<Container>
+  }
   Record: {
     readonly identity: Readonly<Record<string, unknown>>
-    readonly keys: Chunk.Chunk<string>
-    readonly at: number
+    readonly shape: Shape
+    readonly at: MutableRef.MutableRef<number>
+    readonly depth: number
+    readonly parent: Option.Option<Container>
   }
-  String: { readonly text: string; readonly at: number; readonly suffix: string }
-  Close: { readonly identity: object; readonly token: string }
+  String: { readonly text: string; readonly at: number; readonly suffix: string; readonly parent: Option.Option<Frame> }
 }>
 
+/** Frames that enclose values: open collections. */
+export type Container = Extract<Frame, { readonly _tag: "Array" | "Record" }>
+
+/**
+ * Containers above this depth detect cycles by scanning their ancestors by
+ * reference. Deeper containers register identities so every check stays bounded.
+ */
+export const scannedDepth = 32
+
 export const Frame = Data.taggedEnum<Frame>()
+// Constructors are bound once; the enum's proxy would otherwise rebuild them per access.
+export const VisitFrame = Frame.Visit
+export const ArrayFrame = Frame.Array
+export const RecordFrame = Frame.Record
+export const StringFrame = Frame.String
+
+/** One record key layout: its enumeration order, sorted order, and inline key prefixes. */
+export class Shape extends Data.Class<{
+  readonly keys: ReadonlyArray<string>
+  readonly sorted: ReadonlyArray<string>
+  /** Per sorted key: `,"key":` when the key needs no escaping, else none. */
+  readonly prefixes: ReadonlyArray<Option.Option<string>>
+  /** Per sorted key: an upper bound of the UTF-8 bytes its prefix serializes to. */
+  readonly costs: ReadonlyArray<number>
+  /** Every key is short, needs no escaping, and is not an array index. */
+  readonly plain: boolean
+}> {}
+
+/**
+ * The UTF-8 byte bound of one serialized run. Every value a copy reads is
+ * charged an upper bound of its serialized bytes beforehand, so one run never
+ * serializes more than this, holds more values than this, or crosses a byte
+ * limit that bounds it further.
+ */
+export const runBytes = 32_768
+
+/**
+ * Where a bounded copy stopped, carrying every value it already read so the
+ * frame machine resumes exactly there without reading any field twice.
+ */
+export type Halt = Data.TaggedEnum<{
+  /** A value the frame machine must visit itself. */
+  Leaf: { readonly value: unknown }
+  /** An array copied up to its first halting element; none when that element is not own. */
+  Array: {
+    readonly identity: ReadonlyArray<unknown>
+    readonly elements: ReadonlyArray<unknown>
+    readonly child: Option.Option<Halt>
+  }
+  /** A record copied up to its first halting entry: `copied` sorted keys are in `fresh`. */
+  Record: {
+    readonly identity: Readonly<Record<string, unknown>>
+    readonly shape: Shape
+    readonly fresh: Readonly<Record<string, unknown>>
+    readonly copied: number
+    readonly child: Option.Option<Halt>
+  }
+}>
+
+export const Halt = Data.taggedEnum<Halt>()
+export const LeafHalt = Halt.Leaf
+export const ArrayHalt = Halt.Array
+export const RecordHalt = Halt.Record
 
 export class State<E> extends Data.Class<{
-  readonly stack: MutableList.MutableList<Frame>
-  readonly active: MutableHashSet.MutableHashSet<Ancestor>
+  /** The current frame; none once traversal has completed. */
+  readonly top: MutableRef.MutableRef<Option.Option<Frame>>
+  /** Open containers shallower than this depth are registered in `active`. */
+  readonly tracked: MutableRef.MutableRef<number>
+  readonly active: MutableHashSet.MutableHashSet<number>
+  readonly identity: (value: object) => number
+  /** The most recent record key layout. */
+  readonly shape: MutableRef.MutableRef<Shape>
+  /** Serialized bytes the current bounded copy may still charge. */
+  readonly budget: MutableRef.MutableRef<number>
+  /** Serialized bytes the output may still admit; `runBytes` when unbounded. */
+  readonly allowance: () => number
+  /** The container being copied at each scanned depth, below the copying frame. */
+  readonly lineage: ReadonlyArray<MutableRef.MutableRef<object>>
+  /** Where the most recent bounded copy stopped, until its caller resumes it. */
+  readonly halt: MutableRef.MutableRef<Option.Option<Halt>>
   readonly segments: MutableList.MutableList<string>
-  readonly admit: (text: string) => Result.Result<void, E>
+  readonly write: (state: State<E>, text: string) => void
   readonly pending: MutableRef.MutableRef<string>
   readonly failure: MutableRef.MutableRef<Option.Option<CanonicalizationError | E>>
 }> {}
 
+// The first failure is the result: later steps of the same batch keep it.
 export const fail = <E>(state: State<E>, error: CanonicalizationError | E): void => {
-  MutableRef.set(state.failure, Option.some(error))
+  if (Option.isNone(MutableRef.get(state.failure))) MutableRef.set(state.failure, Option.some(error))
 }
 
 export const push = <E>(state: State<E>, frame: Frame): void => {
-  MutableList.prepend(state.stack, frame)
+  MutableRef.set(state.top, Option.some(frame))
 }
 
-export const flushPending = <E>(state: State<E>): void => {
+export const pop = <E>(state: State<E>, frame: Frame): void => {
+  MutableRef.set(state.top, frame.parent)
+}
+
+export const flushPending = <E>(state: State<E>, final = false): void => {
   const pending = MutableRef.get(state.pending)
-  B.match(Str.isNonEmpty(pending), {
-    onFalse: () => undefined,
-    onTrue: () => {
-      MutableList.append(state.segments, pending)
-      MutableRef.set(state.pending, "")
-    }
-  })
+  if (Str.isNonEmpty(pending)) {
+    // ASCII-only preimages can preserve the hashers' 64-byte block alignment
+    // before UTF-8 encoding, without a copying byte-rechunking stage.
+    const remainder = !final && Option.isNone(Str.search(pending, /[\u0080-\uffff]/))
+      ? N.remainder(Str.length(pending), 64)
+      : 0
+    const end = N.subtract(Str.length(pending), remainder)
+    MutableList.append(state.segments, Str.slice(0, end)(pending))
+    MutableRef.set(state.pending, Str.slice(end)(pending))
+  }
 }
 
-export const emit = <E>(state: State<E>, text: string): void => {
-  Result.match(state.admit(text), {
-    onFailure: (error) => fail(state, error),
-    onSuccess: () => {
-      MutableRef.update(state.pending, Str.concat(text))
-      B.match(N.isGreaterThanOrEqualTo(Str.length(MutableRef.get(state.pending)), 32_768), {
-        onTrue: () => flushPending(state),
-        onFalse: () => undefined
-      })
-    }
-  })
+export const append = <E>(state: State<E>, text: string): void => {
+  MutableRef.set(state.pending, Str.ReducerConcat.combine(MutableRef.get(state.pending), text))
+  if (N.isGreaterThanOrEqualTo(Str.length(MutableRef.get(state.pending)), 32_768)) flushPending(state)
 }
+
+export const emit = <E>(state: State<E>, text: string): void => state.write(state, text)

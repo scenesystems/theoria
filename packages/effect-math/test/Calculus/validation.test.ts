@@ -50,16 +50,37 @@ describe("Calculus validation", () => {
         initialStep: 1e-3,
         maxIterations: 10
       })
+      // Exhaust the refinement budget while truncation error dominates.
+      // With ten iterations the convergence flag depends on sine's last bit.
       const second = yield* secondDerivativeLimitValidated(Numeric.sin, {
         x: point,
         initialStep: 1e-3,
-        maxIterations: 10
+        maxIterations: 2
       })
 
       expect(first.converged).toStrictEqual(true)
       expect(first.value).toBeCloseTo(0.5, 9)
       expect(second.converged).toStrictEqual(false)
-      expect(second.value).toBeCloseTo(Number.multiply(-1, Numeric.sin(point)), 8)
+      expect(second.iterations).toBe(2)
+      expect(second.absoluteError).toBeGreaterThan(1e-10)
+      // High-precision -sin at the exact binary64 point, independent of Numeric.
+      expect(second.value).toBeCloseTo(-0.8660254037844386, 8)
+    }))
+
+  it.effect("converges to an accurate second derivative within ten iterations", () =>
+    Effect.gen(function*() {
+      const second = yield* secondDerivativeLimitValidated(Numeric.sin, {
+        x: Number.divideUnsafe(Numeric.pi, 3),
+        initialStep: 1e-2,
+        maxIterations: 10
+      })
+
+      expect(second.converged).toStrictEqual(true)
+      expect(second.iterations).toBeGreaterThan(2)
+      expect(second.iterations).toBeLessThanOrEqual(10)
+      expect(second.absoluteError).toBeLessThanOrEqual(1e-10)
+      // Independent -sin reference at the exact binary64 point.
+      expect(second.value).toBeCloseTo(-0.8660254037844386, 9)
     }))
 
   it.effect("accepts canonical valid multivariate boundary inputs", () =>
