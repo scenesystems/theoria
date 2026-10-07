@@ -7,7 +7,18 @@ import * as Module from "@scenesystems/effect-dsp/Module"
 import * as Signature from "@scenesystems/effect-dsp/Signature"
 import * as TeacherTrace from "@scenesystems/effect-dsp/TeacherTrace"
 import * as ModelBinder from "@scenesystems/effect-lm/ModelBinder"
-import { Array as Arr, Chunk, Effect, Number as Num, Option, Record, Ref, Schema, String as Str } from "effect"
+import {
+  Array as Arr,
+  Boolean as Bool,
+  Chunk,
+  Effect,
+  Number as Num,
+  Option,
+  Record,
+  Ref,
+  Schema,
+  String as Str
+} from "effect"
 import * as LanguageModel from "effect/ai/LanguageModel"
 import { fixture } from "../kit/Fixtures.js"
 import { assertNoMutation } from "../kit/Mutation.js"
@@ -32,6 +43,7 @@ it.effect("bootstrap fixtures: retain cross-example duplicates, threshold, teach
   ], (id) =>
     Effect.gen(function*() {
       const reference = yield* Schema.decodeUnknownEffect(Payload)((yield* fixture(id, "upstream-execution")).payload)
+      const failing = Option.isSome(Option.filter(Option.fromUndefinedOr(reference.error), Str.isNonEmpty))
       const signature = yield* Signature.make("answer", { question: Schema.String }, { answer: Schema.String })
       const first = yield* Module.predict("first", signature)
       const second = yield* Module.predict("second", signature)
@@ -69,10 +81,18 @@ it.effect("bootstrap fixtures: retain cross-example duplicates, threshold, teach
                 expect(context.phase).toBe("bootstrap")
                 expect(Chunk.size(Option.getOrThrow(context.trace).selected)).toBe(2)
                 yield* Ref.update(calls, Arr.append(Option.getOrThrow(example.id)))
-                if (reference.error) return yield* Effect.fail("metric failure")
-                return new Metric.Score({
-                  value: example.input.question === "train-0" && Option.isSome(reference.metricThreshold) ? 0.4 : 0.8,
-                  feedback: Option.none()
+                return yield* Bool.match(failing, {
+                  onFalse: () =>
+                    Effect.succeed(
+                      new Metric.Score({
+                        value: Bool.match(
+                          Bool.and(example.input.question === "train-0", Option.isSome(reference.metricThreshold)),
+                          { onFalse: () => 0.8, onTrue: () => 0.4 }
+                        ),
+                        feedback: Option.none()
+                      })
+                    ),
+                  onTrue: () => Effect.fail("metric failure")
                 })
               })
             )
@@ -85,29 +105,43 @@ it.effect("bootstrap fixtures: retain cross-example duplicates, threshold, teach
               effect.pipe(
                 Effect.provideService(
                   LanguageModel.LanguageModel,
-                  request.role === "teacher" ? teacher.service : student.service
+                  Bool.match(request.role === "teacher", {
+                    onFalse: () => student.service,
+                    onTrue: () => teacher.service
+                  })
                 )
               )
           })
         ),
         Effect.provideService(LanguageModel.LanguageModel, student.service)
       )
-      if (reference.error) {
-        expect(yield* Effect.flip(compilation)).toEqual(
-          new TeacherTrace.TooManyErrors({ count: 1, limit: reference.maxErrors })
-        )
-      } else {
-        const result = yield* compilation
-        yield* Effect.forEach(Record.toEntries(reference.state ?? {}), ([name, state]) =>
-          Effect.sync(() => {
-            expect(
-              Arr.map(
-                Option.getOrThrow(Record.get(result.parameters, `pipeline.${name}`)).demos,
-                (demo) => ({ question: demo.input.question, answer: demo.output.answer })
-              )
-            ).toEqual(state.demos)
-          }))
-      }
+      yield* Bool.match(failing, {
+        onFalse: () =>
+          Effect.gen(function*() {
+            const result = yield* compilation
+            yield* Effect.forEach(
+              Option.match(Option.fromUndefinedOr(reference.state), {
+                onNone: () => Arr.empty(),
+                onSome: Record.toEntries
+              }),
+              ([name, state]) =>
+                Effect.sync(() => {
+                  expect(
+                    Arr.map(
+                      Option.getOrThrow(Record.get(result.parameters, `pipeline.${name}`)).demos,
+                      (demo) => ({ question: demo.input.question, answer: demo.output.answer })
+                    )
+                  ).toEqual(state.demos)
+                })
+            )
+          }),
+        onTrue: () =>
+          Effect.gen(function*() {
+            expect(yield* Effect.flip(compilation)).toEqual(
+              new TeacherTrace.TooManyErrors({ count: 1, limit: reference.maxErrors })
+            )
+          })
+      })
       expect(yield* Ref.get(calls)).toEqual(Arr.map(reference.metricCalls, (call) => call.id))
       expect(yield* Ref.get(student.calls)).toHaveLength(0)
       expect(yield* Ref.get(teacher.calls)).toHaveLength(reference.metricCalls.length * 2)
@@ -146,7 +180,10 @@ it.effect("bootstrapfewshot-labeled-001: prewarms the default teacher and exclud
           metric: Metric.withFeedback((example) =>
             Ref.update(calls, Arr.append(Option.getOrThrow(example.id))).pipe(
               Effect.as(
-                new Metric.Score({ value: example.input.question === "train-3" ? 1 : 0, feedback: Option.none() })
+                new Metric.Score({
+                  value: Bool.match(example.input.question === "train-3", { onFalse: () => 0, onTrue: () => 1 }),
+                  feedback: Option.none()
+                })
               )
             )
           )

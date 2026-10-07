@@ -5,8 +5,9 @@ import * as Metric from "@scenesystems/effect-dsp/Metric"
 import * as MockLanguageModel from "@scenesystems/effect-dsp/MockLanguageModel"
 import * as Module from "@scenesystems/effect-dsp/Module"
 import * as Signature from "@scenesystems/effect-dsp/Signature"
-import { Array as Arr, Deferred, Effect, Exit, Fiber, Option, Ref, Schema } from "effect"
+import { Array as Arr, Boolean as Bool, Deferred, Effect, Exit, Fiber, Match, Option, Ref, Schema } from "effect"
 import * as LanguageModel from "effect/ai/LanguageModel"
+import { constVoid } from "effect/Function"
 import { TestClock } from "effect/testing"
 
 class Rejected extends Schema.TaggedError<Rejected>()("Rejected", {}) {}
@@ -18,9 +19,10 @@ const setup = Effect.gen(function*() {
   return { module, mock }
 })
 const metric = Metric.withFeedback((example) =>
-  example.input.question === "bad"
-    ? Effect.fail(new Rejected())
-    : Effect.succeed(new Metric.Score({ value: 1, feedback: Option.some("correct") }))
+  Bool.match(example.input.question === "bad", {
+    onFalse: () => Effect.succeed(new Metric.Score({ value: 1, feedback: Option.some("correct") })),
+    onTrue: () => Effect.fail(new Rejected())
+  })
 )
 
 it.effect("includes failures in the denominator and reports ordered prediction evidence", () =>
@@ -39,11 +41,14 @@ it.effect("includes failures in the denominator and reports ordered prediction e
     expect(Evaluate.asPercent(report)).toBe(50)
     expect(Arr.map(report.outcomes, (outcome) => outcome._tag)).toEqual(["Scored", "Failed"])
     const scored = Option.getOrThrow(Arr.head(report.outcomes))
-    if (scored._tag === "Scored") {
-      expect(scored.prediction.output).toEqual({ answer: "yes" })
-      expect(scored.score.value).toBe(1)
-      expect(scored.prediction.usage.callCount).toBe(1)
-    }
+    Match.value(scored).pipe(
+      Match.tag("Scored", (outcome) => {
+        expect(outcome.prediction.output).toEqual({ answer: "yes" })
+        expect(outcome.score.value).toBe(1)
+        expect(outcome.prediction.usage.callCount).toBe(1)
+      }),
+      Match.orElse(constVoid)
+    )
     const penalty = yield* Evaluate.run(
       new Evaluate.Options({
         module,

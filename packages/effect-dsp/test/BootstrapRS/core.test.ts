@@ -9,7 +9,7 @@ import * as MockLanguageModel from "@scenesystems/effect-dsp/MockLanguageModel"
 import * as Module from "@scenesystems/effect-dsp/Module"
 import { ModuleParameters } from "@scenesystems/effect-dsp/ModuleParameters"
 import * as Signature from "@scenesystems/effect-dsp/Signature"
-import { Array as Arr, Effect, Layer, Option, Record, Ref, Schema } from "effect"
+import { Array as Arr, Boolean as Bool, Effect, Layer, Match, Option, Record, Ref, Schema } from "effect"
 import * as LanguageModel from "effect/ai/LanguageModel"
 import { assertNoMutation } from "../kit/Mutation.js"
 
@@ -52,23 +52,27 @@ describe("BootstrapRS.run", () => {
       )
 
       const mock = yield* MockLanguageModel.make(
-        MockLanguageModel.map((prompt) => {
-          if (prompt.includes("What is the capital of France?")) {
-            return "[[ ## answer ## ]]\nParis"
-          }
-
-          if (prompt.includes("What is the capital of Japan?")) {
-            return "[[ ## answer ## ]]\nTokyo"
-          }
-
-          if (prompt.includes("Name the capital of Japan in one word")) {
-            return prompt.includes("Tokyo")
-              ? "[[ ## answer ## ]]\nTokyo"
-              : "[[ ## answer ## ]]\nLondon"
-          }
-
-          return "[[ ## answer ## ]]\nLondon"
-        })
+        MockLanguageModel.map((prompt) =>
+          Match.value(prompt).pipe(
+            Match.when(
+              (value: string) => value.includes("What is the capital of France?"),
+              () => "[[ ## answer ## ]]\nParis"
+            ),
+            Match.when(
+              (value: string) => value.includes("What is the capital of Japan?"),
+              () => "[[ ## answer ## ]]\nTokyo"
+            ),
+            Match.when(
+              (value: string) => value.includes("Name the capital of Japan in one word"),
+              (value) =>
+                Bool.match(value.includes("Tokyo"), {
+                  onFalse: () => "[[ ## answer ## ]]\nLondon",
+                  onTrue: () => "[[ ## answer ## ]]\nTokyo"
+                })
+            ),
+            Match.orElse(() => "[[ ## answer ## ]]\nLondon")
+          )
+        )
       )
       const lmLayer = Layer.succeed(LanguageModel.LanguageModel, mock.service)
 

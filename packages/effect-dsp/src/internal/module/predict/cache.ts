@@ -3,7 +3,7 @@ import * as ContentDigest from "@scenesystems/digest/ContentDigest"
 import * as ModelBinder from "@scenesystems/effect-lm/ModelBinder"
 import * as ModelIdentity from "@scenesystems/effect-lm/ModelIdentity"
 import * as ModelSettings from "@scenesystems/effect-lm/ModelSettings"
-import { Array as Arr, Cause, Data, Effect, Option, Ref, Schema, Tuple } from "effect"
+import { Array as Arr, Boolean, Cause, Data, Effect, Option, Ref, Schema, Tuple } from "effect"
 import { defaultIdGenerator } from "effect/ai/IdGenerator"
 import * as LanguageModel from "effect/ai/LanguageModel"
 import * as Cache from "../../../Cache.js"
@@ -20,9 +20,7 @@ class LocalIdentity extends Data.Class<{
 }> {}
 const identities = Ref.makeUnsafe(Arr.empty<LocalIdentity>())
 
-const runtimeIdentity = Effect.gen(function*() {
-  const declared = yield* ModelIdentity.Current
-  if (Option.isSome(declared)) return declared.value
+const localIdentity = Effect.gen(function*() {
   const model = yield* LanguageModel.LanguageModel
   const binder = yield* ModelBinder.Current
   const id = yield* defaultIdGenerator.generateId()
@@ -34,6 +32,14 @@ const runtimeIdentity = Effect.gen(function*() {
         onNone: () => Tuple.make(id, Arr.append(entries, new LocalIdentity({ model, binder, id })))
       }
     ))
+})
+
+const runtimeIdentity = Effect.gen(function*() {
+  const declared = yield* ModelIdentity.Current
+  return yield* Option.match(declared, {
+    onNone: () => localIdentity,
+    onSome: (identity) => Effect.succeed(identity)
+  })
 })
 
 const Cached = Schema.Struct({
@@ -51,7 +57,10 @@ const optional = <A, E, R>(operation: Effect.Effect<A, E, R>, key: unknown) =>
   operation.pipe(
     Effect.asSome,
     Effect.catchCause((cause) =>
-      Cause.hasInterrupts(cause) ? Effect.interrupt : warn(key).pipe(Effect.as(Option.none()))
+      Boolean.match(Cause.hasInterrupts(cause), {
+        onFalse: () => warn(key).pipe(Effect.as(Option.none<A>())),
+        onTrue: () => Effect.interrupt
+      })
     )
   )
 
@@ -64,37 +73,53 @@ export const cached = <I extends Schema.Struct.Fields, O extends Schema.Struct.F
 ) =>
   Effect.gen(function*() {
     const cache = yield* Effect.serviceOption(Cache.Cache)
-    if (Option.isNone(cache)) return yield* compute
-    const prepared = yield* optional(
-      Effect.gen(function*() {
-        const signatureDigest = yield* Signature.digest(options.signature, options.parameters)
-        return yield* Cache.key(
-          new Cache.KeyRequest({
-            moduleFingerprint: options.moduleName,
-            runtimeFingerprint: yield* hash(yield* runtimeIdentity),
-            inputSchema: Schema.toEncoded(options.signature.inputSchema),
-            parametersSchema: ModuleParameters,
-            input: yield* Schema.encodeEffect(options.signature.inputSchema)(options.input),
-            parameters: options.parameters,
-            settings: ModelSettings.merge(yield* ModelSettings.Current, request.settings),
-            role: request.role,
-            predictorId,
-            signatureDigest
+    return yield* Option.match(cache, {
+      onNone: () => compute,
+      onSome: (service) =>
+        Effect.gen(function*() {
+          const prepared = yield* optional(
+            Effect.gen(function*() {
+              const signatureDigest = yield* Signature.digest(options.signature, options.parameters)
+              return yield* Cache.key(
+                new Cache.KeyRequest({
+                  moduleFingerprint: options.moduleName,
+                  runtimeFingerprint: yield* hash(yield* runtimeIdentity),
+                  inputSchema: Schema.toEncoded(options.signature.inputSchema),
+                  parametersSchema: ModuleParameters,
+                  input: yield* Schema.encodeEffect(options.signature.inputSchema)(options.input),
+                  parameters: options.parameters,
+                  settings: ModelSettings.merge(yield* ModelSettings.Current, request.settings),
+                  role: request.role,
+                  predictorId,
+                  signatureDigest
+                })
+              )
+            }),
+            predictorId
+          )
+          return yield* Option.match(prepared, {
+            onNone: () => compute,
+            onSome: (key) =>
+              Effect.gen(function*() {
+                const hit = Option.flatten(yield* optional(Effect.suspend(() => service.get(key, Cached)), key))
+                const restored = yield* Option.match(hit, {
+                  onNone: () => Effect.succeedNone,
+                  onSome: (value) =>
+                    optional(Payload.decode(options.outputSchema, value.traceOutput), key).pipe(
+                      Effect.map(
+                        Option.map((output) => new ForwardExecution({ ...value, output, usage: emptyUsage.tokens }))
+                      )
+                    )
+                })
+                return yield* Option.match(restored, {
+                  onNone: () =>
+                    compute.pipe(
+                      Effect.tap((result) => optional(Effect.suspend(() => service.set(key, Cached, result)), key))
+                    ),
+                  onSome: (execution) => Effect.succeed(execution)
+                })
+              })
           })
-        )
-      }),
-      predictorId
-    )
-    if (Option.isNone(prepared)) return yield* compute
-    const key = prepared.value
-    const hit = Option.flatten(yield* optional(Effect.suspend(() => cache.value.get(key, Cached)), key))
-    if (Option.isSome(hit)) {
-      const restored = yield* optional(Payload.decode(options.outputSchema, hit.value.traceOutput), key)
-      if (Option.isSome(restored)) {
-        return new ForwardExecution({ ...hit.value, output: restored.value, usage: emptyUsage.tokens })
-      }
-    }
-    const result = yield* compute
-    yield* optional(Effect.suspend(() => cache.value.set(key, Cached, result)), key)
-    return result
+        })
+    })
   })

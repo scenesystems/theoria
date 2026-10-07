@@ -53,9 +53,10 @@ it.effect("matches pinned MIPRO demo identities, order and teacher cost for labe
         const metricIds = yield* Ref.make(Arr.empty<string>())
         const sampling = yield* PseudoRandom.makeCPython(reference.seed)
         // Auto light samples the whole six-row validation set before Phase 1.
-        if (Option.isSome(reference.auto)) {
-          yield* sampling.sample(Chunk.fromIterable(reference.splits.val), Arr.length(reference.splits.val))
-        }
+        yield* Option.match(reference.auto, {
+          onNone: () => Effect.void,
+          onSome: () => sampling.sample(Chunk.fromIterable(reference.splits.val), Arr.length(reference.splits.val))
+        })
         const actual = yield* assertNoMutation(
           module,
           Candidates.generateDemoCandidates(

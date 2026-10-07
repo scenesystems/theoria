@@ -1,5 +1,5 @@
 import { expect, it } from "@effect/vitest"
-import { Array as Arr, Chunk, Effect, Option, Record, Ref, Schema, String, Struct, Tuple } from "effect"
+import { Array as Arr, Boolean, Chunk, Effect, Match, Option, Record, Ref, Schema, String, Struct, Tuple } from "effect"
 import * as LanguageModel from "effect/ai/LanguageModel"
 import { Example, Id } from "../../src/Example.js"
 import * as GEPA from "../../src/GEPA.js"
@@ -87,15 +87,20 @@ const prepare = (reference: typeof Reference.Type) =>
           prediction.output
         )
         const candidate = { "root.draft": output.qa, "root.judge": output.judge }
-        const score = row.split === "train" ?
-          0.2 + 0.2 * Arr.filter([output.qa, output.judge], (instruction) => instruction !== "seed").length
-          : Option.getOrThrow(
-            Arr.get(
-              Option.getOrThrow(Record.get(reference.validationScores, `${output.qa}/${output.judge}`)),
-              row.index
+        const score = Boolean.match(row.split === "train", {
+          onTrue: () =>
+            0.2 + 0.2 * Arr.filter([output.qa, output.judge], (instruction) => instruction !== "seed").length,
+          onFalse: () =>
+            Option.getOrThrow(
+              Arr.get(
+                Option.getOrThrow(Record.get(reference.validationScores, `${output.qa}/${output.judge}`)),
+                row.index
+              )
             )
-          )
-        if (Option.isNone(context.target)) yield* Ref.update(calls, Arr.append({ id: row.id, candidate, score }))
+        })
+        yield* Ref.update(calls, Arr.append({ id: row.id, candidate, score })).pipe(
+          Effect.when(Effect.succeed(Option.isNone(context.target)))
+        )
         return new Metric.Score({ value: score, feedback: Option.some("improve") })
       })
     )
@@ -112,7 +117,11 @@ const prepare = (reference: typeof Reference.Type) =>
           const proposed = Record.fromEntries(
             Arr.map(
               Arr.fromIterable(components),
-              (component) => Tuple.make(component, component === "root.draft" ? "left" : "right")
+              (component) =>
+                Tuple.make(
+                  component,
+                  Boolean.match(component === "root.draft", { onFalse: () => "right", onTrue: () => "left" })
+                )
             )
           )
           yield* Ref.update(
@@ -159,19 +168,27 @@ Arr.forEach(["gepa-merge-accepted-001", "gepa-merge-rejected-001"], (id) => {
       )
       expect(
         Arr.getSomes(Arr.map(yield* Ref.get(events), (event) =>
-          event._tag === "Checkpoint" && event.state.iteration > 0
-            ? Option.some({ iteration: event.state.iteration, metricCalls: event.state.metricCalls }) :
-            Option.none()))
+          Match.value(event).pipe(
+            Match.tag("Checkpoint", (checkpoint) =>
+              Option.liftPredicate(
+                { iteration: checkpoint.state.iteration, metricCalls: checkpoint.state.metricCalls },
+                () => checkpoint.state.iteration > 0
+              )),
+            Match.orElse(() => Option.none())
+          )))
       ).toEqual(Arr.map(reference.iterations, Struct.pick(["iteration", "metricCalls"])))
       expect(Arr.getSomes(Arr.map(yield* Ref.get(events), (event) =>
-        event._tag === "IterationCompleted"
-          ? Option.some(event.acceptedCandidate) :
-          Option.none()))).toEqual(Arr.map(reference.iterations, (iteration) => iteration.accepted))
+        Match.value(event).pipe(
+          Match.tag("IterationCompleted", (completed) => Option.some(completed.acceptedCandidate)),
+          Match.orElse(() => Option.none())
+        )))).toEqual(Arr.map(reference.iterations, (iteration) => iteration.accepted))
       expect(state.mergeTriplets).toEqual([[1, 2, 0]])
       expect(state.mergeDescriptions).toEqual([[1, 2, [1, 2]]])
-      expect(state.acceptedMerges).toBe(reference.acceptMerge ? 1 : 0)
-      expect(state.mergesDue).toBe(reference.acceptMerge ? 1 : 2)
-      expect(state.componentCursors).toEqual(reference.acceptMerge ? [0, 1, 0, 1] : [0, 1, 0])
+      expect(state.acceptedMerges).toBe(Boolean.match(reference.acceptMerge, { onFalse: () => 0, onTrue: () => 1 }))
+      expect(state.mergesDue).toBe(Boolean.match(reference.acceptMerge, { onFalse: () => 2, onTrue: () => 1 }))
+      expect(state.componentCursors).toEqual(
+        Boolean.match(reference.acceptMerge, { onFalse: () => [0, 1, 0], onTrue: () => [0, 1, 0, 1] })
+      )
 
       const partial = yield* prepare(reference)
       const first = yield* GEPA.run(new GEPA.Options(Struct.assign(partial.options, { maxIterations: 2 }))).pipe(
@@ -198,7 +215,10 @@ it.effect("all and custom component selection scope feedback and updates to the 
       Effect.gen(function*() {
         const { options, mock, proposals } = yield* prepare(reference)
         const selector = (_: GEPA.State) => Chunk.of(Predictor.Path.make("root.judge"))
-        const componentSelector: "all" | typeof selector = all ? "all" : selector
+        const componentSelector: "all" | typeof selector = Boolean.match(all, {
+          onFalse: () => selector,
+          onTrue: (): "all" => "all"
+        })
         const result = yield* GEPA.run(
           new GEPA.Options(Struct.assign(options, {
             maxIterations: 1,
@@ -206,10 +226,12 @@ it.effect("all and custom component selection scope feedback and updates to the 
           }))
         ).pipe(Effect.provideService(LanguageModel.LanguageModel, mock.service))
         const observed = Option.getOrThrow(Arr.head(yield* Ref.get(proposals)))
-        expect(observed.components).toEqual(all ? ["root.draft", "root.judge"] : ["root.judge"])
-        expect(result.report.feedbackMetricCalls).toBe(all ? 6 : 3)
+        expect(observed.components).toEqual(
+          Boolean.match(all, { onFalse: () => ["root.judge"], onTrue: () => ["root.draft", "root.judge"] })
+        )
+        expect(result.report.feedbackMetricCalls).toBe(Boolean.match(all, { onFalse: () => 3, onTrue: () => 6 }))
         expect(Record.map(result.parameters, (parameters) => parameters.instructions)).toEqual({
-          "root.draft": all ? "left" : "seed",
+          "root.draft": Boolean.match(all, { onFalse: () => "seed", onTrue: () => "left" }),
           "root.judge": "right"
         })
       }))

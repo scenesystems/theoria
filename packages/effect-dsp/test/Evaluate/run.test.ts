@@ -8,8 +8,9 @@ import * as Metric from "@scenesystems/effect-dsp/Metric"
 import * as MockLanguageModel from "@scenesystems/effect-dsp/MockLanguageModel"
 import * as Module from "@scenesystems/effect-dsp/Module"
 import * as Signature from "@scenesystems/effect-dsp/Signature"
-import { Array as Arr, Effect, Layer, Option, Schema } from "effect"
+import { Array as Arr, Effect, Layer, Match, Option, Schema } from "effect"
 import * as LanguageModel from "effect/ai/LanguageModel"
+import { constVoid } from "effect/Function"
 
 const makeQaSignature = () =>
   Signature.make(
@@ -97,11 +98,21 @@ describe("Evaluate.run", () => {
       expect(report.failures[0]?.tag).toBe("EvaluationFailed")
       const failure = report.failures[0]
 
-      if (failure) {
-        const outcome = report.outcomes[1]
-        expect(outcome?._tag).toBe("Failed")
-        if (outcome?._tag === "Failed") expect(outcome.failure).toEqual(failure)
-      }
+      Option.match(Option.fromUndefinedOr(failure), {
+        onNone: constVoid,
+        onSome: (failure) => {
+          const outcome = report.outcomes[1]
+          expect(outcome?._tag).toBe("Failed")
+          Option.match(Option.fromUndefinedOr(outcome), {
+            onNone: constVoid,
+            onSome: (outcome) =>
+              Match.value(outcome).pipe(
+                Match.tag("Failed", (failed) => expect(failed.failure).toEqual(failure)),
+                Match.orElse(constVoid)
+              )
+          })
+        }
+      })
     }))
 
   it.effect("keeps aggregate metric folding deterministic regardless of metric declaration order", () =>
@@ -147,8 +158,20 @@ describe("Evaluate.run", () => {
       ).pipe(Effect.provide(layer))
 
       expect(reportA.overallScores).toEqual(reportB.overallScores)
-      expect(Arr.map(reportA.outcomes, (outcome) => outcome._tag === "Scored" ? outcome.score : outcome.failure))
-        .toEqual(Arr.map(reportB.outcomes, (outcome) => outcome._tag === "Scored" ? outcome.score : outcome.failure))
+      expect(
+        Arr.map(reportA.outcomes, (outcome) =>
+          Match.valueTags(outcome, {
+            Failed: (failed) => failed.failure,
+            Scored: (scored) => scored.score
+          }))
+      )
+        .toEqual(
+          Arr.map(reportB.outcomes, (outcome) =>
+            Match.valueTags(outcome, {
+              Failed: (failed) => failed.failure,
+              Scored: (scored) => scored.score
+            }))
+        )
       expect(reportA.failures).toEqual(reportB.failures)
     }))
 })

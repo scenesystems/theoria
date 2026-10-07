@@ -12,8 +12,7 @@ import * as ContentDigest from "@scenesystems/digest/ContentDigest"
 import { empty, ModelSettings } from "@scenesystems/effect-lm/ModelSettings"
 import { Role } from "@scenesystems/effect-lm/Role"
 import * as SearchCache from "@scenesystems/effect-search/Cache"
-import type { Option } from "effect"
-import { Context, Data, Effect, Layer, Schema, String as Str } from "effect"
+import { Context, Data, Effect, Layer, Option, Schema, String as Str } from "effect"
 
 import { RolloutRef } from "./internal/cache/rollout.js"
 
@@ -151,10 +150,13 @@ export const key = <Input, ParameterValues>(
       new Key({
         moduleFingerprint: request.moduleFingerprint,
         runtimeFingerprint: request.runtimeFingerprint,
-        settings: request.settings ?? empty,
-        role: request.role ?? "task",
-        predictorId: request.predictorId ?? request.moduleFingerprint,
-        signatureDigest: request.signatureDigest ?? request.moduleFingerprint,
+        settings: Option.getOrElse(Option.fromUndefinedOr(request.settings), () => empty),
+        role: Option.getOrElse(Option.fromUndefinedOr(request.role), (): Role => "task"),
+        predictorId: Option.getOrElse(Option.fromUndefinedOr(request.predictorId), () => request.moduleFingerprint),
+        signatureDigest: Option.getOrElse(
+          Option.fromUndefinedOr(request.signatureDigest),
+          () => request.moduleFingerprint
+        ),
         inputHash,
         parametersHash,
         rolloutId

@@ -1,6 +1,6 @@
 /** GEPA rollout scoring and targeted reflection feedback. @internal */
 import type * as PseudoRandom from "@scenesystems/effect-math/PseudoRandom"
-import { Array as Arr, Chunk, Effect, Option, Record, Ref, Schema, Tuple } from "effect"
+import { Array as Arr, Boolean, Chunk, Effect, Option, Record, Ref, Schema, Tuple } from "effect"
 import { ParseOutputError } from "../../../DspError.js"
 import * as Example from "../../../Example.js"
 import type { Examples, Options } from "../../../GEPA.js"
@@ -75,19 +75,26 @@ export const evaluateCandidate = <I extends Schema.Struct.Fields, O extends Sche
           parseFailure: Option.none()
         })
       }).pipe(Effect.catch((error) => {
-        const message = Schema.is(Schema.Struct({ message: Schema.String }))(error)
-          ? error.message
-          : "Candidate evaluation failed"
+        const message = Option.match(
+          Option.liftPredicate(Schema.is(Schema.Struct({ message: Schema.String })))(error),
+          {
+            onNone: () => "Candidate evaluation failed",
+            onSome: (failure) => failure.message
+          }
+        )
         return Effect.succeed(
           new CandidateRow({
             example,
             prediction: Option.none(),
-            score: new Score({ value: options.failureScore ?? 0, feedback: Option.some(message) }),
+            score: new Score({
+              value: Option.getOrElse(Option.fromUndefinedOr(options.failureScore), () => 0),
+              feedback: Option.some(message)
+            }),
             failure: Option.some(message),
-            parseFailure: Schema.is(ParseOutputError)(error) ? Option.some(error) : Option.none()
+            parseFailure: Option.liftPredicate(Schema.is(ParseOutputError))(error)
           })
         )
-      })), { concurrency: options.numThreads ?? 1 }).pipe(
+      })), { concurrency: Option.getOrElse(Option.fromUndefinedOr(options.numThreads), () => 1) }).pipe(
         withParameters(parameters),
         withPredictors(predictors(options.module))
       )
@@ -112,72 +119,91 @@ export const reflectiveSamples = <I extends Schema.Struct.Fields, O extends Sche
           Effect.gen(function*() {
             const failure = Option.flatMap(row.parseFailure, (error) =>
               Option.map(Option.fromUndefinedOr(error.context), (context) => ({ error, context })))
-            if (
-              options.addFormatFailureAsFeedback && Option.isSome(failure) &&
-              failure.value.context.predictorPath === path
-            ) {
-              return Option.some(
-                new ReflectiveDatasetSample({
-                  exampleId: yield* Example.id(row.example),
-                  predictorName: path,
-                  evidenceScope: "predictor-execution",
-                  inputs: failure.value.context.input,
-                  generatedOutputs: yield* encodePayload(
-                    Schema.String,
-                    `Couldn't parse the output as per the expected output format. The model's raw response was:\n\`\`\`\n${
-                      Option.getOrElse(failure.value.error.rawOutput, () =>
-                        "")
-                    }\n\`\`\``
-                  ),
-                  expectedOutput: yield* encodePayload(
-                    Schema.Json,
-                    yield* Schema.decodeUnknownEffect(Schema.Json)(Option.getOrElse(row.example.labels, Record.empty))
-                  ),
-                  metricResult: row.score,
-                  parseFailureStructure: failure.value.context.prompt
-                })
-              )
-            }
-            if (Option.isNone(row.prediction)) return Option.none<ReflectiveDatasetSample>()
-            const prediction = new Prediction.Prediction(row.prediction.value)
-            const executions = Chunk.filter(prediction.trace.selected, (entry) =>
-              entry.moduleName === predictor.name && entry.outcome === "completed")
-            if (Chunk.isEmpty(executions)) {
-              return Option.none<ReflectiveDatasetSample>()
-            }
-            const execution = yield* rng.choice(executions)
-            yield* Ref.update(feedbackCalls, (count) =>
-              count + 1)
-            const feedback = yield* options.metric.score(
-              row.example,
-              prediction,
-              new Context({
-                phase: "reflect",
-                trace: Option.some(prediction.trace),
-                target: Option.some(new Target({ predictorId: path, execution: execution.execution }))
-              })
-            )
-            const expectedOutput = yield* encodePayload(
-              Schema.Json,
-              yield* Schema.decodeUnknownEffect(Schema.Json)(Option.getOrElse(row.example.labels, Record.empty))
-            )
-            return Option.some(
-              new ReflectiveDatasetSample({
-                exampleId: yield* Example.id(row.example),
-                predictorName: path,
-                evidenceScope: "predictor-execution",
-                inputs: execution.input,
-                generatedOutputs: execution.output,
-                expectedOutput,
-                metricResult: new Score({
-                  value: row.score.value,
-                  feedback: Option.some(
-                    Option.getOrElse(feedback.feedback, () =>
-                      `This trajectory got a score of ${feedback.value}.`)
+            const formatFailure = Option.filter(failure, (entry) =>
+              Option.getOrElse(Option.fromUndefinedOr(options.addFormatFailureAsFeedback), () =>
+                false) &&
+              entry.context.predictorPath === path)
+            return yield* Option.match(formatFailure, {
+              onSome: (entry) =>
+                Effect.gen(function*() {
+                  return Option.some(
+                    new ReflectiveDatasetSample({
+                      exampleId: yield* Example.id(row.example),
+                      predictorName: path,
+                      evidenceScope: "predictor-execution",
+                      inputs: entry.context.input,
+                      generatedOutputs: yield* encodePayload(
+                        Schema.String,
+                        `Couldn't parse the output as per the expected output format. The model's raw response was:\n\`\`\`\n${
+                          Option.getOrElse(entry.error.rawOutput, () =>
+                            "")
+                        }\n\`\`\``
+                      ),
+                      expectedOutput: yield* encodePayload(
+                        Schema.Json,
+                        yield* Schema.decodeUnknownEffect(Schema.Json)(
+                          Option.getOrElse(row.example.labels, Record.empty)
+                        )
+                      ),
+                      metricResult: row.score,
+                      parseFailureStructure: entry.context.prompt
+                    })
                   )
+                }),
+              onNone: () =>
+                Option.match(row.prediction, {
+                  onNone: () =>
+                    Effect.succeed(Option.none<ReflectiveDatasetSample>()),
+                  onSome: (value) =>
+                    Effect.gen(function*() {
+                      const prediction = new Prediction.Prediction(value)
+                      const executions = Chunk.filter(prediction.trace.selected, (entry) =>
+                        entry.moduleName === predictor.name && entry.outcome === "completed")
+                      return yield* Boolean.match(Chunk.isEmpty(executions), {
+                        onTrue: () =>
+                          Effect.succeed(Option.none<ReflectiveDatasetSample>()),
+                        onFalse: () =>
+                          Effect.gen(function*() {
+                            const execution = yield* rng.choice(executions)
+                            yield* Ref.update(feedbackCalls, (count) =>
+                              count + 1)
+                            const feedback = yield* options.metric.score(
+                              row.example,
+                              prediction,
+                              new Context({
+                                phase: "reflect",
+                                trace: Option.some(prediction.trace),
+                                target: Option.some(new Target({ predictorId: path, execution: execution.execution }))
+                              })
+                            )
+                            const expectedOutput = yield* encodePayload(
+                              Schema.Json,
+                              yield* Schema.decodeUnknownEffect(Schema.Json)(
+                                Option.getOrElse(row.example.labels, Record.empty)
+                              )
+                            )
+                            return Option.some(
+                              new ReflectiveDatasetSample({
+                                exampleId: yield* Example.id(row.example),
+                                predictorName: path,
+                                evidenceScope: "predictor-execution",
+                                inputs: execution.input,
+                                generatedOutputs: execution.output,
+                                expectedOutput,
+                                metricResult: new Score({
+                                  value: row.score.value,
+                                  feedback: Option.some(
+                                    Option.getOrElse(feedback.feedback, () =>
+                                      `This trajectory got a score of ${feedback.value}.`)
+                                  )
+                                })
+                              })
+                            )
+                          })
+                      })
+                    })
                 })
-              })
-            )
+            })
           }))
         return Tuple.make(path, buildReflectiveDataset(Arr.getSomes(samples)))
       }))

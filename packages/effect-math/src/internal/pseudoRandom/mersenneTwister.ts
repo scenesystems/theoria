@@ -2,7 +2,7 @@
  * Approved native uint32 operations preserve the upstream algorithm bit-exactly.
  * @internal
  */
-import { Array, Data, Number, Option } from "effect"
+import { Array, Boolean, Data, Number, Option } from "effect"
 
 export class State extends Data.Class<{
   readonly words: ReadonlyArray<number>
@@ -15,9 +15,10 @@ const at = (words: ReadonlyArray<number>, index: number) => Option.getOrThrow(Ar
 const put = (words: ReadonlyArray<number>, index: number, value: number) =>
   Option.getOrThrow(Array.modify(words, index, () => value >>> 0))
 const advance = (words: ReadonlyArray<number>, index: number) =>
-  Number.Equivalence(index, 623)
-    ? new State({ words: put(words, 0, at(words, 623)), index: 1 })
-    : new State({ words, index: Number.increment(index) })
+  Boolean.match(Number.Equivalence(index, 623), {
+    onFalse: () => new State({ words, index: Number.increment(index) }),
+    onTrue: () => new State({ words: put(words, 0, at(words, 623)), index: 1 })
+  })
 
 export const initGenrand = (seed: number): State =>
   new State({
@@ -64,18 +65,21 @@ export const initByArray = (key: ReadonlyArray<number>): State => {
 
 export const uint32 = (state: State): Draw<number> => {
   // Later twist positions intentionally read already-updated earlier positions.
-  const words = Number.isLessThan(state.index, 624) ?
-    state.words :
-    Array.reduce(Array.makeBy(624, (i) => i), state.words, (words, i) => {
-      const y = (at(words, i) & 0x80000000) | (at(words, Number.remainder(Number.increment(i), 624)) & 0x7fffffff)
-      return put(
-        words,
-        i,
-        at(words, Number.remainder(Number.sum(i, 397), 624)) ^ (y >>> 1) ^
-          (Number.Equivalence(y & 1, 0) ? 0 : 0x9908b0df)
-      )
-    })
-  const index = Number.isLessThan(state.index, 624) ? state.index : 0
+  const fresh = Number.isLessThan(state.index, 624)
+  const words = Boolean.match(fresh, {
+    onFalse: () =>
+      Array.reduce(Array.makeBy(624, (i) => i), state.words, (words, i) => {
+        const y = (at(words, i) & 0x80000000) | (at(words, Number.remainder(Number.increment(i), 624)) & 0x7fffffff)
+        return put(
+          words,
+          i,
+          at(words, Number.remainder(Number.sum(i, 397), 624)) ^ (y >>> 1) ^
+            Boolean.match(Number.Equivalence(y & 1, 0), { onFalse: () => 0x9908b0df, onTrue: () => 0 })
+        )
+      }),
+    onTrue: () => state.words
+  })
+  const index = Boolean.match(fresh, { onFalse: () => 0, onTrue: () => state.index })
   const a = at(words, index)
   const b = a ^ (a >>> 11)
   const c = b ^ ((b << 7) & 0x9d2c5680)

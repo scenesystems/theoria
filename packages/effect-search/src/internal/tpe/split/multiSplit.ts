@@ -211,14 +211,21 @@ export const splitMultiObjective = (
       const count = splitCount(Arr.length(trials), nBelowOverride)
       const selected = Arr.reduce(fronts, Arr.empty<number>(), (indices, front) => {
         const needed = Num.max(0, Num.subtract(count, Arr.length(indices)))
-        if (Num.isGreaterThanOrEqualTo(needed, Arr.length(front))) return Arr.appendAll(indices, front)
-        if (Equal.equals(needed, 0)) return indices
-        const losses = Arr.map(
-          front,
-          (index) => normalizePoint(Arr.get(points, index).pipe(Option.getOrThrow), directions)
-        )
-        const chosen = hypervolumeSubset(losses, referencePoint(losses), needed)
-        return Arr.appendAll(indices, Arr.map(chosen, (index) => Arr.get(front, index).pipe(Option.getOrThrow)))
+        return Bool.match(Num.isGreaterThanOrEqualTo(needed, Arr.length(front)), {
+          onFalse: () =>
+            Bool.match(Equal.equals(needed, 0), {
+              onFalse: () => {
+                const losses = Arr.map(
+                  front,
+                  (index) => normalizePoint(Arr.get(points, index).pipe(Option.getOrThrow), directions)
+                )
+                const chosen = hypervolumeSubset(losses, referencePoint(losses), needed)
+                return Arr.appendAll(indices, Arr.map(chosen, (index) => Arr.get(front, index).pipe(Option.getOrThrow)))
+              },
+              onTrue: () => indices
+            }),
+          onTrue: () => Arr.appendAll(indices, front)
+        })
       })
       const weights = Arr.map(points, (_point, index) =>
         Bool.match(Arr.contains(selected, index), {

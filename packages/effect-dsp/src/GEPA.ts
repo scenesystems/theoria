@@ -460,40 +460,53 @@ const runOptimization = <I extends Schema.Struct.Fields, O extends Schema.Struct
   checkpoint: Option.Option<State>
 ) =>
   Effect.gen(function*() {
-    const auto = options.auto ?? Option.none()
+    const auto = Option.getOrElse(
+      Option.fromUndefinedOr(options.auto),
+      () => Option.none<"light" | "medium" | "heavy">()
+    )
     const maxMetricCalls = Option.fromUndefinedOr(options.maxMetricCalls)
     const maxFullEvals = Option.fromUndefinedOr(options.maxFullEvals)
-    if (
-      Arr.filter(
-        [Option.isSome(auto), Option.isSome(maxMetricCalls), Option.isSome(maxFullEvals)],
-        (present) => present
-      ).length !== 1
-    ) {
-      return yield* new GEPAError({
+    const explicitValset = Option.fromUndefinedOr(options.valset)
+    const seed = Option.getOrElse(Option.fromUndefinedOr(options.seed), () => 0)
+    yield* Effect.failSync(() =>
+      new GEPAError({
         reason: "invalid-options",
         message: "Exactly one of auto, maxMetricCalls, or maxFullEvals must be set"
       })
-    }
-    if (options.trainset.length === 0) {
-      return yield* new GEPAError({ reason: "invalid-dataset", message: "Trainset must be provided and non-empty" })
-    }
-    if (!Schema.is(Schema.Int.check(Schema.isGreaterThan(0)))(options.reflectionMinibatchSize ?? 3)) {
-      return yield* new GEPAError({
+    ).pipe(
+      Effect.when(Effect.succeed(
+        Arr.filter(
+          [Option.isSome(auto), Option.isSome(maxMetricCalls), Option.isSome(maxFullEvals)],
+          (present) => present
+        ).length !== 1
+      ))
+    )
+    yield* Effect.failSync(() =>
+      new GEPAError({ reason: "invalid-dataset", message: "Trainset must be provided and non-empty" })
+    ).pipe(Effect.when(Effect.succeed(options.trainset.length === 0)))
+    yield* Effect.failSync(() =>
+      new GEPAError({
         reason: "invalid-options",
         message: "reflectionMinibatchSize must be a positive integer"
       })
-    }
-    const valset = options.valset && options.valset.length > 0 ? options.valset : options.trainset
-    if (options.requireDistinctValset) {
+    ).pipe(
+      Effect.when(Effect.succeed(
+        !Schema.is(Schema.Int.check(Schema.isGreaterThan(0)))(
+          Option.getOrElse(Option.fromUndefinedOr(options.reflectionMinibatchSize), () => 3)
+        )
+      ))
+    )
+    const valset = Option.getOrElse(Option.filter(explicitValset, Arr.isReadonlyArrayNonEmpty), () => options.trainset)
+    yield* Effect.gen(function*() {
       const trainIds = yield* Effect.forEach(options.trainset, exampleId)
       const valIds = yield* Effect.forEach(valset, exampleId)
-      if (Arr.some(valIds, (id) => Arr.contains(trainIds, id))) {
-        return yield* new GEPAError({
+      yield* Effect.failSync(() =>
+        new GEPAError({
           reason: "invalid-dataset",
           message: "requireDistinctValset requires non-overlapping training and validation examples"
         })
-      }
-    }
+      ).pipe(Effect.when(Effect.succeed(Arr.some(valIds, (id) => Arr.contains(trainIds, id)))))
+    }).pipe(Effect.when(Effect.succeed(options.requireDistinctValset === true)))
     const recorded = yield* Ref.make(Arr.empty<Event>())
     const emit: EventSink<EE, ER> = (event) =>
       Ref.update(recorded, Arr.append(event)).pipe(Effect.andThen(observe(event)))
@@ -502,31 +515,45 @@ const runOptimization = <I extends Schema.Struct.Fields, O extends Schema.Struct
       onNone: () =>
         Option.match(maxFullEvals, {
           onNone: () => Option.getOrElse(maxMetricCalls, () => 0),
-          onSome: (count) => count * (options.trainset.length + (options.valset?.length ?? 0))
+          onSome: (count) =>
+            count * (options.trainset.length + Option.match(explicitValset, {
+              onNone: () => 0,
+              onSome: (examples) => examples.length
+            }))
         }),
       onSome: (mode) => {
-        const n = mode === "light" ? 6 : mode === "medium" ? 12 : 18
+        const n = Match.value(mode).pipe(
+          Match.when("light", () => 6),
+          Match.when("medium", () => 12),
+          Match.orElse(() => 18)
+        )
         const trials = Numeric.truncate(
           Numeric.max(4 * Numeric.max(paramRefs.length, 1) * Numeric.log(n) / Numeric.log(2), 1.5 * n)
         )
-        const size = options.valset?.length ?? options.trainset.length
-        return size + n * 5 + trials * 35 +
-          (Numeric.floor((trials + 1) / 5) + 1 + (trials > 0 && trials < 5 ? 1 : 0)) * size
+        const size = Option.match(explicitValset, {
+          onNone: () => options.trainset.length,
+          onSome: (examples) => examples.length
+        })
+        const shortRun = Boolean.match(trials > 0 && trials < 5, { onFalse: () => 0, onTrue: () => 1 })
+        return size + n * 5 + trials * 35 + (Numeric.floor((trials + 1) / 5) + 1 + shortRun) * size
       }
     })
-    if (!Numeric.isFinite(budget) || !Schema.is(Schema.Int)(options.seed ?? 0)) {
-      return yield* new GEPAError({
+    yield* Effect.failSync(() =>
+      new GEPAError({
         reason: "invalid-options",
         message: "Metric budget must be finite and seed must be an integer"
       })
-    }
-    if (!options.instructionProposer && (yield* ModelBinder.Current) === ModelBinder.identity) {
-      yield* Effect.logWarning(
-        "GEPA has no critic ModelBinder; reflection uses the caller's task LanguageModel and provider defaults"
-      )
-    }
-    const rng = yield* PseudoRandom.makeCPython(options.seed ?? 0)
-    const adapterRng = yield* PseudoRandom.makeCPython(options.seed ?? 0)
+    ).pipe(Effect.when(Effect.succeed(!Numeric.isFinite(budget) || !Schema.is(Schema.Int)(seed))))
+    yield* Effect.logWarning(
+      "GEPA has no critic ModelBinder; reflection uses the caller's task LanguageModel and provider defaults"
+    ).pipe(
+      Effect.when(Option.match(Option.fromUndefinedOr(options.instructionProposer), {
+        onNone: () => Effect.map(ModelBinder.Current, (binder) => binder === ModelBinder.identity),
+        onSome: () => Effect.succeed(false)
+      }))
+    )
+    const rng = yield* PseudoRandom.makeCPython(seed)
+    const adapterRng = yield* PseudoRandom.makeCPython(seed)
     const initialInstructions = yield* Effect.forEach(paramRefs, (predictor) =>
       Binding.read(predictor.parameters, predictor.path).pipe(
         Effect.map((parameters) =>
@@ -575,45 +602,52 @@ const runOptimization = <I extends Schema.Struct.Fields, O extends Schema.Struct
     })
     yield* emit(events.Checkpoint({ state: initial }))
     const stateRef = yield* Ref.make(initial)
+    const maxIterations = Option.getOrElse(Option.fromUndefinedOr(options.maxIterations), () =>
+      Number.POSITIVE_INFINITY)
     const shouldContinue = (state: State) =>
-      state.metricCalls < budget && state.iteration < (options.maxIterations ?? Number.POSITIVE_INFINITY) &&
-      paramRefs.length > 0
+      state.metricCalls < budget && state.iteration < maxIterations && paramRefs.length > 0
+    const iterate = (state: State) =>
+      Effect.gen(function*() {
+        const iteration = state.iteration + 1
+        yield* emit(events.IterationStarted({ iteration, frontierSize: state.paretoSnapshot.frontierIndices.length }))
+        const merged = yield* runMergePhase(options, state, valset, rng, emit)
+        const outcome = yield* Boolean.match(merged.attempted, {
+          onFalse: () =>
+            runMutationPhase(options, merged.state, valset, rng, adapterRng, emit),
+          onTrue: () => Effect.succeed(merged)
+        })
+        const snapshot = deriveParetoKernelSnapshot(outcome.state.scoreVectors)
+        const next = new State(Struct.assign(outcome.state, {
+          iteration,
+          paretoSnapshot: snapshot,
+          orchestrationRandom: yield* rng.snapshot,
+          adapterRandom: yield* adapterRng.snapshot
+        }))
+        yield* emit(
+          events.ParetoUpdated({
+            iteration,
+            frontierIndices: snapshot.frontierIndices,
+            dominatedIndices: snapshot.dominatedIndices,
+            parentWeights: snapshot.parentWeights
+          })
+        )
+        yield* emit(
+          events.IterationCompleted({
+            iteration,
+            acceptedCandidate: outcome.accepted,
+            frontierSize: snapshot.frontierIndices.length
+          })
+        )
+        yield* emit(events.Checkpoint({ state: next }))
+        yield* Ref.set(stateRef, next)
+        return next
+      })
     const finalState = yield* Effect.gen(function*() {
       const state = yield* Ref.get(stateRef)
-      if (!shouldContinue(state)) {
-        return state
-      }
-      const iteration = state.iteration + 1
-      yield* emit(events.IterationStarted({ iteration, frontierSize: state.paretoSnapshot.frontierIndices.length }))
-      const merged = yield* runMergePhase(options, state, valset, rng, emit)
-      const outcome = merged.attempted
-        ? merged
-        : yield* runMutationPhase(options, merged.state, valset, rng, adapterRng, emit)
-      const snapshot = deriveParetoKernelSnapshot(outcome.state.scoreVectors)
-      const next = new State(Struct.assign(outcome.state, {
-        iteration,
-        paretoSnapshot: snapshot,
-        orchestrationRandom: yield* rng.snapshot,
-        adapterRandom: yield* adapterRng.snapshot
-      }))
-      yield* emit(
-        events.ParetoUpdated({
-          iteration,
-          frontierIndices: snapshot.frontierIndices,
-          dominatedIndices: snapshot.dominatedIndices,
-          parentWeights: snapshot.parentWeights
-        })
-      )
-      yield* emit(
-        events.IterationCompleted({
-          iteration,
-          acceptedCandidate: outcome.accepted,
-          frontierSize: snapshot.frontierIndices.length
-        })
-      )
-      yield* emit(events.Checkpoint({ state: next }))
-      yield* Ref.set(stateRef, next)
-      return next
+      return yield* Boolean.match(shouldContinue(state), {
+        onFalse: () => Effect.succeed(state),
+        onTrue: () => iterate(state)
+      })
     }).pipe(Effect.repeat({ while: shouldContinue }))
     const bestCandidate = Option.getOrThrow(Arr.get(finalState.candidates, bestIndex(finalState.scoreVectors)))
     const parameters = yield* candidateParameters(options.module, bestCandidate)

@@ -9,7 +9,7 @@
  */
 import { BunRuntime } from "@effect/platform-bun"
 import { Evaluate, Example, Metric, Module, Signature, Trace } from "@scenesystems/effect-dsp"
-import { Array as Arr, Effect, Option, Schema } from "effect"
+import { Array as Arr, Effect, Match, Option, Schema } from "effect"
 import * as Tool from "effect/ai/Tool"
 import * as Toolkit from "effect/ai/Toolkit"
 import { withLiveLanguageModel } from "./shared/live-provider-runtime.js"
@@ -165,7 +165,10 @@ const program = Effect.gen(function*() {
   yield* Effect.forEach(report.outcomes, (r) =>
     Effect.log("  Example", {
       index: r.index,
-      ...r._tag === "Scored" ? { scores: r.scores } : { failure: r.failure },
+      ...Match.valueTags(r, {
+        Scored: (row) => ({ scores: row.scores }),
+        Failed: (row) => ({ failure: row.failure })
+      }),
       durationMs: r.durationMs
     }), { discard: true })
 })

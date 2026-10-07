@@ -1,5 +1,5 @@
 import { describe, expect, it } from "@effect/vitest"
-import { Array as Arr, Effect, Equal, Match, Number as Num, Option, Schema } from "effect"
+import { Array as Arr, Boolean as Bool, Effect, Equal, Match, Number as Num, Option, Schema } from "effect"
 
 import * as Optimization from "../../src/Optimization.js"
 import * as Sampler from "../../src/Sampler.js"
@@ -128,16 +128,18 @@ describe("integration multivariate categorical tpe optimization", () => {
     Effect.gen(function*() {
       yield* Effect.forEach(yield* loadCoupledOptuna, (reference) =>
         Effect.gen(function*() {
-          const sampler = Equal.equals(reference.sampler, "random")
-            ? Sampler.random({ seed: 211 })
-            : Sampler.tpe(
-              new Sampler.TpeOptions({
-                seed: 211,
-                multivariate: reference.multivariate,
-                nStartupTrials: 8,
-                nEiCandidates: 80
-              })
-            )
+          const sampler = Bool.match(Equal.equals(reference.sampler, "random"), {
+            onFalse: () =>
+              Sampler.tpe(
+                new Sampler.TpeOptions({
+                  seed: 211,
+                  multivariate: reference.multivariate,
+                  nStartupTrials: 8,
+                  nEiCandidates: 80
+                })
+              ),
+            onTrue: () => Sampler.random({ seed: 211 })
+          })
           const result = yield* Effect.fromOption(asSingleObjective(
             yield* withGapAssertions(
               runWith(sampler),

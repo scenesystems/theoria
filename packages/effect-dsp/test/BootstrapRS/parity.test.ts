@@ -7,7 +7,18 @@ import * as MockLanguageModel from "@scenesystems/effect-dsp/MockLanguageModel"
 import * as Module from "@scenesystems/effect-dsp/Module"
 import { ModuleParameters } from "@scenesystems/effect-dsp/ModuleParameters"
 import * as Signature from "@scenesystems/effect-dsp/Signature"
-import { Array as Arr, Chunk, Effect, Number as Num, Option, Record, Ref, Schema, String as Str } from "effect"
+import {
+  Array as Arr,
+  Boolean as Bool,
+  Chunk,
+  Effect,
+  Number as Num,
+  Option,
+  Record,
+  Ref,
+  Schema,
+  String as Str
+} from "effect"
 import * as LanguageModel from "effect/ai/LanguageModel"
 import { fixture } from "../kit/Fixtures.js"
 import { assertNoMutation } from "../kit/Mutation.js"
@@ -51,7 +62,9 @@ it.effect("bootstraprs-001: exact candidate catalog, fraction scores, reset and 
           module,
           trainset: rows(reference.splits.train),
           valset: rows(reference.splits.val),
-          metric: Metric.fromSync((_labels, prediction) => prediction.answer === "teacher" ? 1 : 0),
+          metric: Metric.fromSync((_labels, prediction) =>
+            Bool.match(prediction.answer === "teacher", { onFalse: () => 0, onTrue: () => 1 })
+          ),
           numCandidatePrograms: 2,
           maxBootstrappedDemos: 2,
           maxLabeledDemos: 1,
@@ -134,13 +147,24 @@ it.effect("ranks failure-inclusive averages, not the mean of successful rows", (
           trainset: [new Example({ input: { question: "train" }, labels: Option.some({ answer: "label-marker" }) })],
           valset: [new Example({ input: { question: "good" } }), new Example({ input: { question: "bad" } })],
           metric: Metric.withFeedback((row, prediction, context) =>
-            Effect.gen(function*() {
-              if (context.phase === "bootstrap") return new Metric.Score({ value: 1, feedback: Option.none() })
-              const labeled = Str.includes("label-marker")(
-                Option.getOrThrow(Chunk.head(prediction.trace.selected)).prompt
-              )
-              if (!labeled && row.input.question === "bad") return yield* Effect.fail("scripted metric failure")
-              return new Metric.Score({ value: labeled ? 0.6 : 1, feedback: Option.none() })
+            Bool.match(context.phase === "bootstrap", {
+              onFalse: () =>
+                Effect.gen(function*() {
+                  const labeled = Str.includes("label-marker")(
+                    Option.getOrThrow(Chunk.head(prediction.trace.selected)).prompt
+                  )
+                  return yield* Bool.match(Bool.and(Bool.not(labeled), row.input.question === "bad"), {
+                    onFalse: () =>
+                      Effect.succeed(
+                        new Metric.Score({
+                          value: Bool.match(labeled, { onFalse: () => 1, onTrue: () => 0.6 }),
+                          feedback: Option.none()
+                        })
+                      ),
+                    onTrue: () => Effect.fail("scripted metric failure")
+                  })
+                }),
+              onTrue: () => Effect.succeed(new Metric.Score({ value: 1, feedback: Option.none() }))
             })
           ),
           numCandidatePrograms: 0,

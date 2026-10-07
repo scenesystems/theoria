@@ -3,7 +3,7 @@
  *
  * @since 0.1.0
  */
-import { Array as Arr, Effect, Number, Option, pipe, Predicate, Record, Schema, String } from "effect"
+import { Array as Arr, Boolean, Effect, Match, Number, Option, pipe, Predicate, Record, Schema, String } from "effect"
 import { Score } from "../../Metric.js"
 import { fromSync, withFeedback } from "./constructors.js"
 import { binaryScore, fieldString, tokenizedField, tokenOverlap } from "./score.js"
@@ -126,7 +126,15 @@ const normalizeAnswer = (text: string) =>
 const Answers = Schema.Struct({ answer: Schema.Union([Schema.String, Schema.Array(Schema.String)]) })
 const answers = (labels: Record.ReadonlyRecord<string, unknown>) =>
   Schema.decodeUnknownEffect(Answers)(labels).pipe(
-    Effect.map(({ answer }) => Arr.map(Predicate.isString(answer) ? [answer] : answer, normalizeAnswer))
+    Effect.map(({ answer }) =>
+      Arr.map(
+        Match.value(answer).pipe(
+          Match.when(Predicate.isString, (single) => Arr.of(single)),
+          Match.orElse((many) => many)
+        ),
+        normalizeAnswer
+      )
+    )
   )
 
 const whitespaceTokens = (text: string) => Arr.filter(String.split(text, " "), String.isNonEmpty)
@@ -146,12 +154,15 @@ export const answerExactMatch = (fraction = 1) =>
       yield* Schema.decodeUnknownEffect(Schema.NonEmptyArray(Schema.String))(references)
       const { answer } = yield* Schema.decodeUnknownEffect(Schema.Struct({ answer: Schema.String }))(prediction.output)
       const normalized = normalizeAnswer(answer)
-      const matched = Arr.some(references, (reference) => {
-        if (fraction >= 1) return String.Equivalence(normalized, reference)
-        const left = whitespaceTokens(normalized)
-        const right = whitespaceTokens(reference)
-        return safeDivision(2 * tokenOverlap(left, right), Arr.length(left) + Arr.length(right)) >= fraction
-      })
+      const matched = Arr.some(references, (reference) =>
+        Boolean.match(fraction >= 1, {
+          onFalse: () => {
+            const left = whitespaceTokens(normalized)
+            const right = whitespaceTokens(reference)
+            return safeDivision(2 * tokenOverlap(left, right), Arr.length(left) + Arr.length(right)) >= fraction
+          },
+          onTrue: () => String.Equivalence(normalized, reference)
+        }))
       return new Score({ value: binaryScore(matched), feedback: Option.none() })
     }), "answerExactMatch")
 

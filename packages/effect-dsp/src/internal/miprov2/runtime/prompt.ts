@@ -1,6 +1,15 @@
 /** Grounding calls and plain-text proposer prompts. @internal */
 import type * as Settings from "@scenesystems/effect-lm/ModelSettings"
-import { Array as Arr, Effect, Inspectable, Number as Num, Option, Record, String as Str } from "effect"
+import {
+  Array as Arr,
+  Boolean as Bool,
+  Effect,
+  Inspectable,
+  Number as Num,
+  Option,
+  Record,
+  String as Str
+} from "effect"
 import type { Example } from "../../../Example.js"
 import { RolloutRef } from "../../cache/rollout.js"
 import { CurrentRole } from "../../modelRole.js"
@@ -25,9 +34,11 @@ export const prompt = (fields: Record.ReadonlyRecord<string, string>, output: ke
     Arr.prepend(
       Arr.append(Arr.map(Record.toEntries(fields), ([key, value]) => `${key}:\n${value}`), `Return only ${output}.`),
       `${objectives[output]}${
-        Record.has(fields, "prior_observations")
-          ? " I will also provide you with a few observations I have already made. Please add your own observations or if you feel the observations are comprehensive say 'COMPLETE'."
-          : ""
+        Bool.match(Record.has(fields, "prior_observations"), {
+          onFalse: () => "",
+          onTrue: () =>
+            " I will also provide you with a few observations I have already made. Please add your own observations or if you feel the observations are comprehensive say 'COMPLETE'."
+        })
       }`
     ),
     "\n\n"
@@ -60,13 +71,20 @@ export const datasetSummary = (
       batches,
       () => ({ observations: first, skips: 0, stopped: false }),
       (state, batch) =>
-        Effect.gen(function*() {
-          if (state.stopped || Num.isGreaterThanOrEqualTo(state.skips, 5)) return state
-          const next = yield* describe(batch, Option.some(state.observations)).pipe(Effect.option)
-          if (Option.isNone(next)) return { ...state, stopped: true }
-          return Str.startsWith("COMPLETE")(Str.toUpperCase(next.value))
-            ? { ...state, skips: Num.increment(state.skips) }
-            : { ...state, observations: Str.concat(state.observations, next.value) }
+        Bool.match(state.stopped || Num.isGreaterThanOrEqualTo(state.skips, 5), {
+          onTrue: () => Effect.succeed(state),
+          onFalse: () =>
+            describe(batch, Option.some(state.observations)).pipe(
+              Effect.option,
+              Effect.map(Option.match({
+                onNone: () => ({ ...state, stopped: true }),
+                onSome: (value) =>
+                  Bool.match(Str.startsWith("COMPLETE")(Str.toUpperCase(value)), {
+                    onFalse: () => ({ ...state, observations: Str.concat(state.observations, value) }),
+                    onTrue: () => ({ ...state, skips: Num.increment(state.skips) })
+                  })
+              }))
+            )
         })
     )
     return stripPrefix(yield* generate(prompt({ observations: result.observations }, "summary"), settings))

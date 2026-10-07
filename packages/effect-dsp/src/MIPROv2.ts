@@ -9,7 +9,6 @@
 import type { ModelSettings } from "@scenesystems/effect-lm/ModelSettings"
 import * as Numeric from "@scenesystems/effect-math/Numeric"
 import * as PseudoRandom from "@scenesystems/effect-math/PseudoRandom"
-import type { Option } from "effect"
 import {
   Array as Arr,
   Boolean as Bool,
@@ -18,6 +17,7 @@ import {
   Inspectable,
   Match,
   Number as Num,
+  Option,
   Ref,
   Schema,
   Stream,
@@ -199,7 +199,10 @@ const emptySummary = new Report({
 })
 const scoreFields = (summary: Report, score: number) => ({
   phase3BestScoreSeen: true,
-  phase3BestScore: summary.phase3BestScoreSeen ? Numeric.max(summary.phase3BestScore, score) : score
+  phase3BestScore: Bool.match(summary.phase3BestScoreSeen, {
+    onFalse: () => score,
+    onTrue: () => Numeric.max(summary.phase3BestScore, score)
+  })
 })
 
 /** Summarizes MIPROv2 lifecycle events.
@@ -218,12 +221,16 @@ export const summarizeEvents = (input: Iterable<Event>): Report =>
         Phase2Completed: () => ({}),
         Phase3Started: ({ numTrials }) => ({ phase3StartedSeen: true, phase3ConfiguredTrials: numTrials }),
         TrialEvaluated: (evaluation) => ({
-          ...(evaluation.fullValidation ? scoreFields(summary, evaluation.score) : {}),
+          ...Bool.match(evaluation.fullValidation, {
+            onFalse: () => ({}),
+            onTrue: () => scoreFields(summary, evaluation.score)
+          }),
           trialEvaluatedCount: Num.increment(summary.trialEvaluatedCount),
           trials: Arr.append(summary.trials, new TrialEvaluation(evaluation)),
-          checkpoints: evaluation.fullValidation && !evaluation.sampled && evaluation.trial > 0
-            ? Arr.append(summary.checkpoints, new TrialEvaluation(evaluation))
-            : summary.checkpoints
+          checkpoints: Bool.match(evaluation.fullValidation && !evaluation.sampled && evaluation.trial > 0, {
+            onFalse: () => summary.checkpoints,
+            onTrue: () => Arr.append(summary.checkpoints, new TrialEvaluation(evaluation))
+          })
         }),
         FullEvalCompleted: ({ bestScore }) => ({
           ...scoreFields(summary, bestScore),
@@ -497,7 +504,12 @@ export const runWithEvents = <
     yield* emit(events.Phase3Started({ numTrials: resolved.numTrials }))
 
     const phase3 = yield* runPhase3Search(
-      toPhase3Options(resolved, emit, resolved.zeroShot ? [] : demoCandidates, instructionCandidates)
+      toPhase3Options(
+        resolved,
+        emit,
+        Bool.match(resolved.zeroShot, { onFalse: () => demoCandidates, onTrue: () => Arr.empty() }),
+        instructionCandidates
+      )
     )
 
     yield* emit(
@@ -513,7 +525,10 @@ export const runWithEvents = <
       report: summarizeEvents(yield* Ref.get(recorded))
     })
   }).pipe(
-    Effect.provideServiceEffect(MiproSampling.Current, PseudoRandom.makeCPython(options.seed ?? 9).pipe(Effect.asSome))
+    Effect.provideServiceEffect(
+      MiproSampling.Current,
+      PseudoRandom.makeCPython(Option.getOrElse(Option.fromUndefinedOr(options.seed), () => 9)).pipe(Effect.asSome)
+    )
   )
 
 /**

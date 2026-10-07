@@ -6,6 +6,7 @@
  */
 import {
   Array as Arr,
+  Boolean,
   Chunk,
   Data,
   Equivalence,
@@ -32,11 +33,14 @@ const moduleIdOrder: Order.Order<Id> = Order.mapInput(Order.String, (moduleId: I
 export const predictors = (root: ComposableModule): Chunk.Chunk<Predictor.Predictor> => {
   const visit = (module: Structure, path: string, frozen: boolean): ReadonlyArray<Predictor.Predictor> => {
     const declarations = Record.toEntries(
-      module.declarations ?? Record.fromEntries(HashMap.toEntries(module.subModules))
+      Option.getOrElse(
+        Option.fromUndefinedOr(module.declarations),
+        () => Record.fromEntries(HashMap.toEntries(module.subModules))
+      )
     )
-    const excluded = frozen || (module.frozen ?? false)
-    const leaves = Arr.isArrayEmpty(declarations)
-      ? [
+    const excluded = frozen || Option.getOrElse(Option.fromUndefinedOr(module.frozen), () => false)
+    const leaves = Arr.match(declarations, {
+      onEmpty: (): ReadonlyArray<Predictor.Predictor> => [
         new Predictor.Predictor({
           path,
           name: module.name,
@@ -48,11 +52,13 @@ export const predictors = (root: ComposableModule): Chunk.Chunk<Predictor.Predic
           demonstrationCodec: module.demonstrationCodec,
           boundParameters: Option.none()
         })
-      ]
-      : Arr.flatMap(
-        Arr.sort(declarations, Order.mapInput(Order.String, (entry: readonly [string, Structure]) => entry[0])),
-        ([alias, child]: readonly [string, Structure]) => visit(child, `${path}.${alias}`, excluded)
-      )
+      ],
+      onNonEmpty: (entries) =>
+        Arr.flatMap(
+          Arr.sort(entries, Order.mapInput(Order.String, (entry: readonly [string, Structure]) => entry[0])),
+          ([alias, child]: readonly [string, Structure]) => visit(child, `${path}.${alias}`, excluded)
+        )
+    })
     return Arr.map(leaves, (entry) =>
       new Predictor.Predictor({
         path: entry.path,
@@ -64,7 +70,10 @@ export const predictors = (root: ComposableModule): Chunk.Chunk<Predictor.Predic
         parameters: entry.parameters,
         demonstrationCodec: entry.demonstrationCodec,
         boundParameters: Option.orElse(
-          Record.get(module.boundParameters ?? {}, `${module.name}${Str.slice(Str.length(path))(entry.path)}`),
+          Record.get(
+            Option.getOrElse(Option.fromUndefinedOr(module.boundParameters), () => ({})),
+            `${module.name}${Str.slice(Str.length(path))(entry.path)}`
+          ),
           () => entry.boundParameters
         )
       }))
@@ -81,9 +90,12 @@ export const predictors = (root: ComposableModule): Chunk.Chunk<Predictor.Predic
       demonstrationCodec: root.signature.demonstrationCodec,
       parameters: root.parameters,
       subModules: root.subModules,
-      declarations: root.declarations ?? Record.fromEntries(HashMap.toEntries(root.subModules)),
-      frozen: root.frozen ?? false,
-      boundParameters: root.boundParameters ?? {}
+      declarations: Option.getOrElse(
+        Option.fromUndefinedOr(root.declarations),
+        () => Record.fromEntries(HashMap.toEntries(root.subModules))
+      ),
+      frozen: Option.getOrElse(Option.fromUndefinedOr(root.frozen), () => false),
+      boundParameters: Option.getOrElse(Option.fromUndefinedOr(root.boundParameters), () => ({}))
     }),
     root.name,
     false
@@ -94,16 +106,20 @@ export const predictors = (root: ComposableModule): Chunk.Chunk<Predictor.Predic
       onNone: () => Arr.append(predictors, entry),
       onSome: (index) =>
         Arr.map(predictors, (predictor, position) =>
-          position !== index ? predictor : new Predictor.Predictor({
-            path: predictor.path,
-            name: predictor.name,
-            aliases: Chunk.append(predictor.aliases, entry.path),
-            frozen: predictor.frozen || entry.frozen,
-            signature: predictor.signature,
-            signatureDigest: predictor.signatureDigest,
-            parameters: predictor.parameters,
-            demonstrationCodec: predictor.demonstrationCodec,
-            boundParameters: predictor.boundParameters
+          Boolean.match(position === index, {
+            onFalse: () => predictor,
+            onTrue: () =>
+              new Predictor.Predictor({
+                path: predictor.path,
+                name: predictor.name,
+                aliases: Chunk.append(predictor.aliases, entry.path),
+                frozen: predictor.frozen || entry.frozen,
+                signature: predictor.signature,
+                signatureDigest: predictor.signatureDigest,
+                parameters: predictor.parameters,
+                demonstrationCodec: predictor.demonstrationCodec,
+                boundParameters: predictor.boundParameters
+              })
           }))
     })
   }))

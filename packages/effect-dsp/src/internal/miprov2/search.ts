@@ -1,7 +1,18 @@
 /** Runs MIPROv2's sequential Optuna-compatible trial scheduler. @internal */
 import * as Numeric from "@scenesystems/effect-math/Numeric"
 import { Optimization, Sampler as SearchSampler, SearchSpace } from "@scenesystems/effect-search"
-import { Array as Arr, BigDecimal, Chunk, Effect, Number as Num, Option, Record, Ref, Struct } from "effect"
+import {
+  Array as Arr,
+  BigDecimal,
+  Boolean as Bool,
+  Chunk,
+  Effect,
+  Number as Num,
+  Option,
+  Record,
+  Ref,
+  Struct
+} from "effect"
 import type { Schema } from "effect"
 import { MIPROv2Error } from "../../DspError.js"
 import * as Evaluate from "../../Evaluate.js"
@@ -36,12 +47,12 @@ export const runPhase3Search = <
   ER = never
 >(options: Options<I, O, ME, MR, E, R, EE, ER>) =>
   Effect.gen(function*() {
-    const emit = options.emit ?? noEvents
+    const emit = Option.getOrElse(Option.fromUndefinedOr(options.emit), () => noEvents)
     const bindings = yield* resolveBindings(new ResolveBindingsOptions(options))
     const dimensions = yield* buildSearchDimensions(bindings)
     const space = yield* SearchSpace.make(dimensions)
     const cadence = resolvePhase3Cadence(options)
-    const minibatch = options.minibatch ?? true
+    const minibatch = Option.getOrElse(Option.fromUndefinedOr(options.minibatch), () => true)
     yield* Effect.fail(
       new MIPROv2Error({
         reason: "invalid-dataset",
@@ -54,18 +65,23 @@ export const runPhase3Search = <
     )
     const trialBudget = Numeric.max(
       0,
-      options.trialBudget ?? phase3TrialBudget({
-        predictorCount: bindings.length,
-        demoCandidateCount: Arr.isReadonlyArrayNonEmpty(options.demoCandidates)
-          ? maxCandidateCount(
-            bindings,
-            (binding) => Option.match(binding.demos, { onNone: () => 0, onSome: (demos) => demos.candidates.length })
-          )
-          : 0,
-        instructionCandidateCount: maxCandidateCount(bindings, (binding) => binding.instructions.candidates.length)
-      })
+      Option.getOrElse(Option.fromUndefinedOr(options.trialBudget), () =>
+        phase3TrialBudget({
+          predictorCount: bindings.length,
+          demoCandidateCount: Bool.match(Arr.isReadonlyArrayNonEmpty(options.demoCandidates), {
+            onFalse: () => 0,
+            onTrue: () =>
+              maxCandidateCount(
+                bindings,
+                (binding) =>
+                  Option.match(binding.demos, { onNone: () => 0, onSome: (demos) => demos.candidates.length })
+              )
+          }),
+          instructionCandidateCount: maxCandidateCount(bindings, (binding) => binding.instructions.candidates.length)
+        }))
     )
-    const totalRows = 1 + trialBudget + (minibatch ? Numeric.ceil(trialBudget / cadence.fullEvalEvery) : 0)
+    const totalRows = 1 + trialBudget +
+      Bool.match(minibatch, { onFalse: () => 0, onTrue: () => Numeric.ceil(trialBudget / cadence.fullEvalEvery) })
     const rng = yield* Sampling.resolve(cadence.seed)
     const initialParameters = yield* ParameterSet.snapshot(options.module)
     const evaluations = yield* Ref.make(Arr.empty<TrialEvaluation>())
@@ -77,8 +93,8 @@ export const runPhase3Search = <
           module: bound(options.module, { ...initialParameters, ...selected }),
           examples,
           metrics: { miprov2: options.metric },
-          concurrency: options.numThreads ?? 1,
-          maxErrors: options.maxErrors ?? Option.none()
+          concurrency: Option.getOrElse(Option.fromUndefinedOr(options.numThreads), () => 1),
+          maxErrors: Option.getOrElse(Option.fromUndefinedOr(options.maxErrors), () => Option.none())
         })
       ).pipe(
         Effect.flatMap((report) => projectSingleObjective(report, Option.some("miprov2"))),
@@ -128,47 +144,64 @@ export const runPhase3Search = <
       })
     )
 
-    yield* Effect.forEach(trialBudget > 0 ? Arr.range(1, trialBudget) : [], (sampledNumber) =>
-      Effect.gen(function*() {
-        const trial = yield* study.ask
-        const examples = minibatch && cadence.minibatchSize < options.valset.length
-          ? Arr.fromIterable(yield* rng.sample(Chunk.fromIterable(options.valset), cadence.minibatchSize))
-          : options.valset
-        const score = yield* evaluateOn(yield* parameters(trial.config), examples)
-        yield* record(
-          new TrialEvaluation({
-            trial: trial.trialNumber,
-            config: trial.config,
-            score: score / 100,
-            fullValidation: !minibatch,
-            sampled: true
+    yield* Effect.forEach(
+      Bool.match(trialBudget > 0, { onFalse: () => Arr.empty<number>(), onTrue: () => Arr.range(1, trialBudget) }),
+      (sampledNumber) =>
+        Effect.gen(function*() {
+          const trial = yield* study.ask
+          const examples = yield* Bool.match(minibatch && cadence.minibatchSize < options.valset.length, {
+            onFalse: () => Effect.succeed(options.valset),
+            onTrue: () =>
+              rng.sample(Chunk.fromIterable(options.valset), cadence.minibatchSize).pipe(Effect.map(Arr.fromIterable))
           })
-        )
-        // Insert the full row while the objective is still pending, exactly as study.add_trial does.
-        if (minibatch && (Num.remainder(sampledNumber, cadence.fullEvalEvery) === 0 || sampledNumber === trialBudget)) {
-          const config = yield* nextFullEvaluation(yield* Ref.get(evaluations))
-          yield* Ref.set(forced, Option.some(config))
-          const full = yield* study.ask
-          const fullScore = yield* evaluateOn(yield* parameters(config), options.valset)
-          yield* study.tell(full.trialNumber, fullScore)
+          const score = yield* evaluateOn(yield* parameters(trial.config), examples)
           yield* record(
             new TrialEvaluation({
-              trial: full.trialNumber,
-              config,
-              score: fullScore / 100,
-              fullValidation: true,
-              sampled: false
+              trial: trial.trialNumber,
+              config: trial.config,
+              score: score / 100,
+              fullValidation: !minibatch,
+              sampled: true
             })
           )
-          const best = yield* Effect.fromOption(bestFullEvaluation(yield* Ref.get(evaluations)))
-          yield* emit(events.FullEvalCompleted({ bestScore: best.score }))
-        }
-        yield* study.tell(trial.trialNumber, score)
-      }), { discard: true })
+          // Insert the full row while the objective is still pending, exactly as study.add_trial does.
+          yield* Effect.gen(function*() {
+            const config = yield* nextFullEvaluation(yield* Ref.get(evaluations))
+            yield* Ref.set(forced, Option.some(config))
+            const full = yield* study.ask
+            const fullScore = yield* evaluateOn(yield* parameters(config), options.valset)
+            yield* study.tell(full.trialNumber, fullScore)
+            yield* record(
+              new TrialEvaluation({
+                trial: full.trialNumber,
+                config,
+                score: fullScore / 100,
+                fullValidation: true,
+                sampled: false
+              })
+            )
+            const best = yield* Effect.fromOption(bestFullEvaluation(yield* Ref.get(evaluations)))
+            yield* emit(events.FullEvalCompleted({ bestScore: best.score }))
+          }).pipe(
+            Effect.when(
+              Effect.succeed(
+                minibatch &&
+                  (Num.remainder(sampledNumber, cadence.fullEvalEvery) === 0 || sampledNumber === trialBudget)
+              )
+            )
+          )
+          yield* study.tell(trial.trialNumber, score)
+        }),
+      { discard: true }
+    )
 
     const rows = yield* Ref.get(evaluations)
     const best = yield* Effect.fromOption(bestFullEvaluation(rows))
-    const selected = best.trial === 0 ? initialParameters : { ...initialParameters, ...yield* parameters(best.config) }
+    const selected = yield* Bool.match(best.trial === 0, {
+      onFalse: () =>
+        parameters(best.config).pipe(Effect.map((configured) => ({ ...initialParameters, ...configured }))),
+      onTrue: () => Effect.succeed(initialParameters)
+    })
     return new Result<I, O, E, R>({
       program: bound(options.module, selected),
       parameters: selected,

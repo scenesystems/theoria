@@ -6,7 +6,7 @@
  * @internal
  */
 import * as Numeric from "@scenesystems/effect-math/Numeric"
-import { Match, Number as Num, Option, Schema } from "effect"
+import { Boolean as Bool, Match, Number as Num, Option, Schema } from "effect"
 
 const Phase3TrialBudgetOptions = Schema.Struct({
   predictorCount: Schema.Finite,
@@ -73,7 +73,10 @@ export const phase3TrialBudget = (options: Phase3TrialBudgetOptions): number => 
       normalizePositive(options.instructionCandidateCount, 1)
     )
   )
-  const dimensions = Num.multiply(safePredictorCount, Num.isGreaterThan(options.demoCandidateCount, 0) ? 2 : 1)
+  const dimensions = Num.multiply(
+    safePredictorCount,
+    Bool.match(Num.isGreaterThan(options.demoCandidateCount, 0), { onFalse: () => 1, onTrue: () => 2 })
+  )
   const logarithmicBudget = Num.multiply(
     Num.multiply(2, dimensions),
     Num.divideUnsafe(Numeric.log(safeCandidateCount), Numeric.log(2))

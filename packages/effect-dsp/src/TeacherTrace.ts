@@ -12,10 +12,13 @@ import * as Emitter from "@scenesystems/effect-study/Emitter"
 import * as Evaluation from "@scenesystems/effect-study/Evaluation"
 import {
   Array as Arr,
+  Boolean as Bool,
   Chunk,
   Data,
   Effect,
   Inspectable,
+  Match,
+  Number as Num,
   Option,
   Record,
   Ref,
@@ -161,24 +164,28 @@ export const collect = <
 ) =>
   Effect.gen(function*() {
     const studentParameters = yield* ParameterSet.snapshot(options.student)
-    const teacher = Option.getOrElse(options.teacher ?? Option.none(), () =>
+    const teacher = Option.getOrElse(Option.flatten(Option.fromUndefinedOr(options.teacher)), () =>
       Module.bound(options.student, studentParameters))
-    if (teacher === options.student) {
-      return yield* new IncompatibleTeacher({ message: "Teacher and student must be distinct executable programs" })
-    }
+    yield* Effect.failSync(() =>
+      new IncompatibleTeacher({ message: "Teacher and student must be distinct executable programs" })
+    )
+      .pipe(Effect.when(Effect.succeed(teacher === options.student)))
     const parameters = yield* ParameterSet.snapshot(teacher)
     const studentRefs = Arr.fromIterable(ModuleGraph.predictors(options.student))
     const teacherRefs = Arr.fromIterable(ModuleGraph.predictors(teacher))
-    if (
-      studentRefs.length !== teacherRefs.length || Arr.some(studentRefs, (student, index) => {
-        const other = teacherRefs[index]
-        return !other || student.path !== other.path || student.name !== other.name
-      })
-    ) {
-      return yield* new IncompatibleTeacher({
+    yield* Effect.failSync(() =>
+      new IncompatibleTeacher({
         message: "Teacher predictor identities and signatures must match the student"
       })
-    }
+    ).pipe(Effect.when(Effect.succeed(
+      studentRefs.length !== teacherRefs.length || Arr.some(studentRefs, (student, index) =>
+        Option.match(Arr.get(teacherRefs, index), {
+          onNone: () =>
+            true,
+          onSome: (other) =>
+            student.path !== other.path || student.name !== other.name
+        }))
+    )))
     yield* Effect.forEach(studentRefs, (student, index) =>
       Effect.gen(function*() {
         const other = Option.getOrThrow(Arr.get(teacherRefs, index))
@@ -186,12 +193,15 @@ export const collect = <
           Option.getOrThrow(Record.get(studentParameters, student.path))
         )
         const teacherDigest = yield* other.signatureDigest(Option.getOrThrow(Record.get(parameters, other.path)))
-        if (studentDigest !== teacherDigest) {
-          return yield* new IncompatibleTeacher({ message: `Teacher signature differs at ${student.path}` })
-        }
+        yield* Effect.failSync(() =>
+          new IncompatibleTeacher({ message: `Teacher signature differs at ${student.path}` })
+        )
+          .pipe(Effect.when(Effect.succeed(studentDigest !== teacherDigest)))
       }))
-    const rows = yield* Effect.forEach(options.trainset, (example) =>
-      Example.id(example).pipe(Effect.map((id) => ({ example, id }))))
+    const rows = yield* Effect.forEach(
+      options.trainset,
+      (example) => Example.id(example).pipe(Effect.map((id) => ({ example, id })))
+    )
     const accepted = yield* Ref.make(Chunk.empty<Accepted>())
     const rejected = yield* Ref.make(Chunk.empty<Rejected>())
     const errors = yield* Ref.make(0)
@@ -199,173 +209,223 @@ export const collect = <
     // Already-running examples drain; no new examples start after the first observer failure.
     const observerFailure = yield* Ref.make(Option.none<EE>())
     const emitExample = (event: Event) =>
-      observe(event).pipe(Effect.catch((error) =>
-        Ref.update(observerFailure, (previous) =>
-          Option.orElse(previous, () =>
-            Option.some(error)))
-      ))
+      observe(event).pipe(
+        Effect.catch((error) =>
+          Ref.update(observerFailure, (previous) => Option.orElse(previous, () => Option.some(error)))
+        )
+      )
     const binder = yield* ModelBinder.Current
     yield* Effect.forEach(
-      Arr.makeBy(options.maxRounds ?? 1, (round) =>
-        round),
+      Arr.makeBy(Option.getOrElse(Option.fromUndefinedOr(options.maxRounds), () => 1), (round) => round),
       (round) =>
         Effect.gen(function*() {
           const completed = yield* Ref.get(accepted)
-          if (options.stopWhen?.(completed)) {
-            return
-          }
-          yield* observe(events.RoundStarted({ round }))
-          const failuresBefore = yield* Ref.get(errors)
-          const remaining = Arr.filter(rows, (row) =>
-            !Chunk.some(completed, (entry) =>
-              entry.exampleId === row.id))
-          const evaluation = yield* Evaluation.runCollecting(remaining, (row) =>
-            Effect.gen(function*() {
-              if (Option.isSome(yield* Ref.get(observerFailure)) || options.stopWhen?.(yield* Ref.get(accepted))) {
-                return Option.none<Accepted | Rejected>()
-              }
-              const outcome = yield* Effect.gen(function*() {
-                const overlay = Record.map(parameters, (parameters) =>
-                  ModuleParameters.withDemos(
-                    parameters,
-                    Arr.filter(parameters.demos, (demo) => !Option.contains(row.id)(demo.exampleId))
-                  ))
-                const input = yield* Schema.decodeEffect(teacher.signature.inputSchema)(row.example.input)
-                const teacherBinder = new ModelBinder.Binder({
-                  bind: (request) =>
-                    binder.bind(
-                      new ModelBinder.Request({
-                        role: "teacher",
-                        settings: ModelSettings.merge(
-                          request.settings,
-                          ModelSettings.merge(
-                            options.teacherSettings ?? ModelSettings.empty,
-                            round > 0 ? new ModelSettings.ModelSettings({ temperature: 1 }) : ModelSettings.empty
-                          )
-                        ),
-                        rolloutId: round > 0 ? Option.some(round) : request.rolloutId
-                      })
+          yield* Effect.gen(function*() {
+            yield* observe(events.RoundStarted({ round }))
+            const failuresBefore = yield* Ref.get(errors)
+            const remaining = Arr.filter(rows, (row) => !Chunk.some(completed, (entry) => entry.exampleId === row.id))
+            const evaluation = yield* Evaluation.runCollecting(remaining, (row) =>
+              Effect.gen(function*() {
+                const stopped = yield* Bool.match(Option.isSome(yield* Ref.get(observerFailure)), {
+                  onTrue: () => Effect.succeed(true),
+                  onFalse: () =>
+                    Ref.get(accepted).pipe(
+                      Effect.map((entries) =>
+                        Option.exists(Option.fromUndefinedOr(options.stopWhen), (stop) => stop(entries))
+                      )
                     )
                 })
-                const prediction = yield* Module.call(teacher, input).pipe(
-                  Module.withParameters(overlay),
-                  ModelBinder.withBinder(teacherBinder)
-                )
-                const score = yield* options.metric.score(
-                  row.example,
-                  prediction,
-                  new Metric.Context({
-                    phase: "bootstrap",
-                    trace: Option.some(prediction.trace),
-                    target: Option.none()
-                  })
-                )
-                const passes = Option.match(options.threshold ?? Option.none(), {
-                  onNone: () => score.value !== 0,
-                  onSome: (threshold) => score.value >= threshold
-                })
-                if (!passes) {
-                  return Option.some<Accepted | Rejected>(
-                    new Rejected({
-                      exampleId: row.id,
-                      round,
-                      reason: "score",
-                      score: Option.some(score),
-                      failure: Option.none()
-                    })
-                  )
-                }
-                const demos = yield* Effect.forEach(studentRefs, (predictor) =>
-                  Effect.gen(function*() {
-                    const entries = Chunk.filter(prediction.trace.selected, (entry) =>
-                      entry.outcome === "completed" && entry.moduleName === predictor.name)
-                    const values = yield* Effect.forEach(entries, (entry) =>
-                      predictor.demonstrationCodec.decodeDocuments(entry.input, entry.output).pipe(
-                        Effect.map((demo) =>
-                          new Demonstration(Struct.assign(demo, { exampleId: Option.some(row.id), augmented: true }))
+                return yield* Bool.match(stopped, {
+                  onTrue: () => Effect.succeed(Option.none<Accepted | Rejected>()),
+                  onFalse: () =>
+                    Effect.gen(function*() {
+                      const outcome = yield* Effect.gen(function*() {
+                        const overlay = Record.map(parameters, (parameters) =>
+                          ModuleParameters.withDemos(
+                            parameters,
+                            Arr.filter(parameters.demos, (demo) => !Option.contains(row.id)(demo.exampleId))
+                          ))
+                        const input = yield* Schema.decodeEffect(teacher.signature.inputSchema)(row.example.input)
+                        const teacherBinder = new ModelBinder.Binder({
+                          bind: (request) =>
+                            binder.bind(
+                              new ModelBinder.Request({
+                                role: "teacher",
+                                settings: ModelSettings.merge(
+                                  request.settings,
+                                  ModelSettings.merge(
+                                    Option.getOrElse(
+                                      Option.fromUndefinedOr(options.teacherSettings),
+                                      () => ModelSettings.empty
+                                    ),
+                                    Bool.match(round > 0, {
+                                      onTrue: () => new ModelSettings.ModelSettings({ temperature: 1 }),
+                                      onFalse: () => ModelSettings.empty
+                                    })
+                                  )
+                                ),
+                                rolloutId: Bool.match(round > 0, {
+                                  onTrue: () => Option.some(round),
+                                  onFalse: () => request.rolloutId
+                                })
+                              })
+                            )
+                        })
+                        const prediction = yield* Module.call(teacher, input).pipe(
+                          Module.withParameters(overlay),
+                          ModelBinder.withBinder(teacherBinder)
                         )
-                      ))
-                    return Tuple.make(predictor.path, Chunk.fromIterable(values))
-                  }))
-                const result = new Accepted({
-                  exampleId: row.id,
-                  round,
-                  trace: prediction.trace,
-                  score,
-                  demosByPredictor: Record.fromEntries(demos)
-                })
-                yield* Ref.update(accepted, (entries) =>
-                  Chunk.append(entries, result))
-                return Option.some<Accepted | Rejected>(result)
-              }).pipe(Effect.result)
-              if (Result.isFailure(outcome)) {
-                yield* emitExample(
-                  events.ExampleRejected({
-                    exampleId: row.id,
-                    round,
-                    reason: "failure",
-                    score: Option.none(),
-                    failure: Option.some(Inspectable.toStringUnknown(outcome.failure))
-                  })
-                )
-                if (Option.isSome(yield* Ref.get(observerFailure))) return Option.none<Accepted | Rejected>()
-                return yield* Effect.fail(outcome.failure)
-              }
-              if (Option.isSome(outcome.success)) {
-                const value = outcome.success.value
-                yield* emitExample(
-                  value instanceof Accepted ? events.ExampleAccepted(value) : events.ExampleRejected(value)
-                )
-              }
-              return outcome.success
-            }), {
-            concurrency: options.concurrency ?? 1,
-            maxFailures: Option.map(maxFailures(options.maxErrors ?? Option.none()), (limit) => limit - failuresBefore),
-            onFailure: "record"
-          }).pipe(
-            Effect.mapError((error) =>
-              new TooManyErrors({
-                count: failuresBefore + error.count,
-                limit: Option.getOrElse(options.maxErrors ?? Option.none(), () => error.limit + failuresBefore + 1)
-              })
-            ),
-            Effect.result
-          )
-          const failedObserver = yield* Ref.get(observerFailure)
-          if (Option.isSome(failedObserver)) return yield* Effect.fail(failedObserver.value)
-          if (Result.isFailure(evaluation)) return yield* evaluation.failure
-          const trials = evaluation.success
-          yield* Ref.set(accepted, completed)
-          yield* Effect.forEach(trials, (trial) =>
-            Effect.gen(function*() {
-              if (trial.state._tag === "Failed") {
-                const failure = Inspectable.toStringUnknown(trial.state.error)
-                yield* Ref.update(errors, (count) => count + 1)
-                yield* Ref.update(rejected, (entries) =>
-                  Chunk.append(
-                    entries,
-                    new Rejected({
-                      exampleId: trial.config.id,
-                      round,
-                      reason: "failure",
-                      score: Option.none(),
-                      failure: Option.some(failure)
+                        const score = yield* options.metric.score(
+                          row.example,
+                          prediction,
+                          new Metric.Context({
+                            phase: "bootstrap",
+                            trace: Option.some(prediction.trace),
+                            target: Option.none()
+                          })
+                        )
+                        const passes = Option.match(Option.flatten(Option.fromUndefinedOr(options.threshold)), {
+                          onNone: () => score.value !== 0,
+                          onSome: (threshold) => score.value >= threshold
+                        })
+                        return yield* Bool.match(passes, {
+                          onFalse: () =>
+                            Effect.succeedSome<Accepted | Rejected>(
+                              new Rejected({
+                                exampleId: row.id,
+                                round,
+                                reason: "score",
+                                score: Option.some(score),
+                                failure: Option.none()
+                              })
+                            ),
+                          onTrue: () =>
+                            Effect.gen(function*() {
+                              const demos = yield* Effect.forEach(studentRefs, (predictor) =>
+                                Effect.gen(function*() {
+                                  const entries = Chunk.filter(
+                                    prediction.trace.selected,
+                                    (entry) => entry.outcome === "completed" && entry.moduleName === predictor.name
+                                  )
+                                  const values = yield* Effect.forEach(entries, (entry) =>
+                                    predictor.demonstrationCodec.decodeDocuments(entry.input, entry.output).pipe(
+                                      Effect.map((demo) =>
+                                        new Demonstration(
+                                          Struct.assign(demo, { exampleId: Option.some(row.id), augmented: true })
+                                        )
+                                      )
+                                    ))
+                                  return Tuple.make(predictor.path, Chunk.fromIterable(values))
+                                }))
+                              const result = new Accepted({
+                                exampleId: row.id,
+                                round,
+                                trace: prediction.trace,
+                                score,
+                                demosByPredictor: Record.fromEntries(demos)
+                              })
+                              yield* Ref.update(accepted, (entries) => Chunk.append(entries, result))
+                              return Option.some<Accepted | Rejected>(result)
+                            })
+                        })
+                      }).pipe(Effect.result)
+                      return yield* Result.match(outcome, {
+                        onFailure: (failure) =>
+                          Effect.gen(function*() {
+                            yield* emitExample(
+                              events.ExampleRejected({
+                                exampleId: row.id,
+                                round,
+                                reason: "failure",
+                                score: Option.none(),
+                                failure: Option.some(Inspectable.toStringUnknown(failure))
+                              })
+                            )
+                            return yield* Bool.match(Option.isSome(yield* Ref.get(observerFailure)), {
+                              onTrue: () => Effect.succeed(Option.none<Accepted | Rejected>()),
+                              onFalse: () => Effect.fail(failure)
+                            })
+                          }),
+                        onSuccess: (success) =>
+                          Option.match(success, {
+                            onNone: () => Effect.succeed(success),
+                            onSome: (value) =>
+                              emitExample(
+                                Match.value(value).pipe(
+                                  Match.when(Match.instanceOfUnsafe(Accepted), events.ExampleAccepted),
+                                  Match.orElse(events.ExampleRejected)
+                                )
+                              ).pipe(Effect.as(success))
+                          })
+                      })
                     })
-                  ))
-              } else if (Option.isSome(trial.state.value) && trial.state.value.value instanceof Rejected) {
-                const value = trial.state.value.value
-                yield* Ref.update(rejected, (entries) => Chunk.append(entries, value))
-              } else if (Option.isSome(trial.state.value) && trial.state.value.value instanceof Accepted) {
-                const value = trial.state.value.value
-                yield* Ref.update(accepted, (entries) => Chunk.append(entries, value))
-              }
-            }))
-          yield* observe(
-            events.RoundCompleted({
-              round,
-              acceptedCount: Chunk.size(yield* Ref.get(accepted)),
-              rejectedCount: Chunk.size(yield* Ref.get(rejected))
-            })
+                })
+              }), {
+              concurrency: Option.getOrElse(Option.fromUndefinedOr(options.concurrency), () => 1),
+              maxFailures: Option.map(
+                maxFailures(Option.flatten(Option.fromUndefinedOr(options.maxErrors))),
+                (limit) => Num.subtract(limit, failuresBefore)
+              ),
+              onFailure: "record"
+            }).pipe(
+              Effect.mapError((error) =>
+                new TooManyErrors({
+                  count: Num.sum(failuresBefore, error.count),
+                  limit: Option.getOrElse(
+                    Option.flatten(Option.fromUndefinedOr(options.maxErrors)),
+                    () => Num.increment(Num.sum(error.limit, failuresBefore))
+                  )
+                })
+              ),
+              Effect.result
+            )
+            const failedObserver = yield* Ref.get(observerFailure)
+            yield* Option.match(failedObserver, { onNone: () => Effect.void, onSome: Effect.fail })
+            const trials = yield* Result.match(evaluation, { onFailure: Effect.fail, onSuccess: Effect.succeed })
+            yield* Ref.set(accepted, completed)
+            yield* Effect.forEach(trials, (trial) =>
+              Match.value(trial.state).pipe(
+                Match.tag("Failed", (state) =>
+                  Effect.gen(function*() {
+                    const failure = Inspectable.toStringUnknown(state.error)
+                    yield* Ref.update(errors, Num.increment)
+                    yield* Ref.update(rejected, (entries) =>
+                      Chunk.append(
+                        entries,
+                        new Rejected({
+                          exampleId: trial.config.id,
+                          round,
+                          reason: "failure",
+                          score: Option.none(),
+                          failure: Option.some(failure)
+                        })
+                      ))
+                  })),
+                Match.tag("Completed", (state) =>
+                  Option.match(state.value, {
+                    onNone: () => Effect.void,
+                    onSome: (value) =>
+                      Match.value(value).pipe(
+                        Match.when(
+                          Match.instanceOfUnsafe(Rejected),
+                          (entry) => Ref.update(rejected, (entries) => Chunk.append(entries, entry))
+                        ),
+                        Match.orElse((entry) => Ref.update(accepted, (entries) => Chunk.append(entries, entry)))
+                      )
+                  })),
+                Match.exhaustive
+              ))
+            yield* observe(
+              events.RoundCompleted({
+                round,
+                acceptedCount: Chunk.size(yield* Ref.get(accepted)),
+                rejectedCount: Chunk.size(yield* Ref.get(rejected))
+              })
+            )
+          }).pipe(
+            Effect.when(Effect.succeed(
+              !Option.exists(Option.fromUndefinedOr(options.stopWhen), (stop) => stop(completed))
+            ))
           )
         })
     )

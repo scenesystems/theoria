@@ -1,5 +1,5 @@
 /** Full-validation selection and mean minibatch ranking for MIPROv2. @internal */
-import { Array as Arr, Effect, Number as Num, Option, Schema } from "effect"
+import { Array as Arr, Boolean as Bool, Effect, Number as Num, Option, Schema } from "effect"
 import { MIPROv2Error } from "../../DspError.js"
 import type { TrialEvaluation } from "../../MIPROv2.js"
 import { Phase3Config } from "./runtime/model.js"
@@ -9,12 +9,18 @@ const sameConfig = Schema.toEquivalence(Phase3Config)
 /** Earliest full evaluation wins ties; minibatch scores never enter this ranking. @internal */
 export const bestFullEvaluation = (evaluations: ReadonlyArray<TrialEvaluation>): Option.Option<TrialEvaluation> =>
   Arr.reduce(evaluations, Option.none<TrialEvaluation>(), (best, evaluation) =>
-    evaluation.fullValidation
-      ? Option.some(Option.match(best, {
-        onNone: () => evaluation,
-        onSome: (current) => Num.isGreaterThan(evaluation.score, current.score) ? evaluation : current
-      }))
-      : best)
+    Bool.match(evaluation.fullValidation, {
+      onFalse: () => best,
+      onTrue: () =>
+        Option.some(Option.match(best, {
+          onNone: () => evaluation,
+          onSome: (current) =>
+            Bool.match(Num.isGreaterThan(evaluation.score, current.score), {
+              onFalse: () => current,
+              onTrue: () => evaluation
+            })
+        }))
+    }))
 
 /** Highest mean minibatch score among combinations not yet checkpointed. @internal */
 export const nextFullEvaluation = (evaluations: ReadonlyArray<TrialEvaluation>) => {
@@ -38,7 +44,11 @@ export const nextFullEvaluation = (evaluations: ReadonlyArray<TrialEvaluation>) 
     Arr.reduce(ranked, Option.none<typeof ranked[number]>(), (best, candidate) =>
       Option.some(Option.match(best, {
         onNone: () => candidate,
-        onSome: (current) => Num.isGreaterThan(candidate.score, current.score) ? candidate : current
+        onSome: (current) =>
+          Bool.match(Num.isGreaterThan(candidate.score, current.score), {
+            onFalse: () => current,
+            onTrue: () => candidate
+          })
       }))),
     () =>
       new MIPROv2Error({

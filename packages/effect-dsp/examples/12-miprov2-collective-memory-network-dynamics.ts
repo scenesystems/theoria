@@ -604,7 +604,10 @@ const program = Effect.gen(function*() {
   ).pipe(ModelBinder.withBinder(
     new ModelBinder.Binder({
       bind: (request) =>
-        request.role === "teacher" ? (effect) => effect.pipe(Effect.provide(teacherLayer)) : binder.bind(request)
+        Boolean.match(request.role === "teacher", {
+          onTrue: () => (effect) => effect.pipe(Effect.provide(teacherLayer)),
+          onFalse: () => binder.bind(request)
+        })
     })
   ))
   yield* Module.install(protocolPanel, bootstrapped.parameters)

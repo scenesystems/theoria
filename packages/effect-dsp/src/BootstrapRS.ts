@@ -6,7 +6,7 @@
 import type { ModelSettings } from "@scenesystems/effect-lm/ModelSettings"
 import * as Numeric from "@scenesystems/effect-math/Numeric"
 import * as PseudoRandom from "@scenesystems/effect-math/PseudoRandom"
-import { Array as Arr, Chunk, Data, Effect, Option, Ref, Schema } from "effect"
+import { Array as Arr, Boolean as Bool, Chunk, Data, Effect, Number as Num, Option, Ref, Schema } from "effect"
 import * as BootstrapFewShot from "./BootstrapFewShot.js"
 import * as Evaluate from "./Evaluate.js"
 import type { Example } from "./Example.js"
@@ -75,7 +75,11 @@ export class Options<
   readonly teacherSettings?: ModelSettings
 }> {}
 
-const count = (value: number) => Numeric.isFinite(value) ? Numeric.max(0, Numeric.floor(value)) : 0
+const count = (value: number) =>
+  Bool.match(Numeric.isFinite(value), {
+    onTrue: () => Numeric.max(0, Numeric.floor(value)),
+    onFalse: () => 0
+  })
 
 /**
  * Compiles and evaluates one candidate at a time, preserving every evaluated result.
@@ -101,88 +105,114 @@ export const run = <
   R = never
 >(options: Options<I, O, ME, MR, E, R>) =>
   Effect.gen(function*() {
-    if (options.teacher === options.module) {
-      return yield* new IncompatibleTeacher({ message: "Teacher and student must be distinct executable programs" })
-    }
+    yield* Effect.failSync(() =>
+      new IncompatibleTeacher({
+        message: "Teacher and student must be distinct executable programs"
+      })
+    ).pipe(Effect.when(Effect.succeed(options.teacher === options.module)))
     yield* Effect.forEach(
-      Option.toArray(options.stopAtScore ?? Option.none()),
+      Option.toArray(Option.flatten(Option.fromUndefinedOr(options.stopAtScore))),
       (threshold) => Schema.decodeEffect(Schema.Finite.check(Schema.isBetween({ minimum: 0, maximum: 1 })))(threshold)
     )
     const original = Module.bound(options.module, yield* ParameterSet.snapshot(options.module))
-    const maxBootstrappedDemos = Numeric.max(1, count(options.maxBootstrappedDemos ?? 4))
-    const maxLabeledDemos = count(options.maxLabeledDemos ?? 16)
+    const maxBootstrappedDemos = Numeric.max(
+      1,
+      count(Option.getOrElse(Option.fromUndefinedOr(options.maxBootstrappedDemos), () => 4))
+    )
+    const maxLabeledDemos = count(Option.getOrElse(Option.fromUndefinedOr(options.maxLabeledDemos), () => 16))
     const candidates = yield* Ref.make(Arr.empty<typeof Candidate.Type>())
     const best = yield* Ref.make(Option.none<typeof Candidate.Type>())
-    yield* Effect.forEach(Arr.makeBy(count(options.numCandidatePrograms ?? 16) + 3, (index) => index - 3), (seed) =>
-      Effect.gen(function*() {
-        if (
-          Option.exists(yield* Ref.get(best), (candidate) =>
-            Option.exists(options.stopAtScore ?? Option.none(), (threshold) =>
-              candidate.score >= threshold))
-        ) {
-          return
-        }
-        const program = yield* Effect.gen(function*() {
-          if (seed === -3 || seed === -2) {
-            return (yield* LabeledFewShot.run(
-              new LabeledFewShot.Options({
-                module: original,
-                trainset: options.trainset,
-                k: seed === -3 ? 0 : maxLabeledDemos,
-                seed: 0
+    yield* Effect.forEach(
+      Arr.makeBy(
+        Num.sum(count(Option.getOrElse(Option.fromUndefinedOr(options.numCandidatePrograms), () => 16)), 3),
+        (index) => Num.subtract(index, 3)
+      ),
+      (seed) =>
+        Effect.gen(function*() {
+          const program = yield* Bool.match(seed === -3 || seed === -2, {
+            onTrue: () =>
+              LabeledFewShot.run(
+                new LabeledFewShot.Options({
+                  module: original,
+                  trainset: options.trainset,
+                  k: Bool.match(seed === -3, { onTrue: () => 0, onFalse: () => maxLabeledDemos }),
+                  seed: 0
+                })
+              ).pipe(Effect.map((result) => result.program)),
+            onFalse: () =>
+              Effect.gen(function*() {
+                const trainset = yield* Bool.match(seed < 0, {
+                  onTrue: () => Effect.succeed(options.trainset),
+                  onFalse: () =>
+                    PseudoRandom.makeCPython(seed).pipe(Effect.flatMap((sampling) =>
+                      sampling.shuffle(Chunk.fromIterable(options.trainset)).pipe(Effect.map(Arr.fromIterable))
+                    ))
+                })
+                const cap = yield* Bool.match(seed < 0, {
+                  onTrue: () =>
+                    Effect.succeed(maxBootstrappedDemos),
+                  onFalse: () =>
+                    PseudoRandom.makeCPython(seed).pipe(Effect.flatMap((sampling) =>
+                      sampling.randint(1, maxBootstrappedDemos)
+                    ))
+                })
+                return (yield* BootstrapFewShot.run(
+                  new BootstrapFewShot.Options({
+                    module: original,
+                    trainset,
+                    metric: options.metric,
+                    maxRounds: Option.getOrElse(Option.fromUndefinedOr(options.maxRounds), () => 1),
+                    maxBootstrappedDemos: cap,
+                    maxLabeledDemos,
+                    metricThreshold: Option.flatten(Option.fromUndefinedOr(options.metricThreshold)),
+                    maxErrors: Option.flatten(Option.fromUndefinedOr(options.maxErrors)),
+                    ...Option.match(Option.fromUndefinedOr(options.teacher), {
+                      onNone: () => ({}),
+                      onSome: (teacher) => ({ teacher })
+                    }),
+                    ...Option.match(Option.fromUndefinedOr(options.teacherSettings), {
+                      onNone: () => ({}),
+                      onSome: (teacherSettings) => ({ teacherSettings })
+                    })
+                  })
+                )).program
               })
-            )).program
-          }
-          const trainset = seed < 0
-            ? options.trainset
-            : yield* PseudoRandom.makeCPython(seed).pipe(Effect.flatMap((sampling) =>
-              sampling.shuffle(Chunk.fromIterable(options.trainset)).pipe(Effect.map(Arr.fromIterable))
-            ))
-          const cap = seed < 0
-            ? maxBootstrappedDemos
-            : yield* PseudoRandom.makeCPython(seed).pipe(Effect.flatMap((sampling) =>
-              sampling.randint(1, maxBootstrappedDemos)
-            ))
-          return (yield* BootstrapFewShot.run(
-            new BootstrapFewShot.Options({
-              module: original,
-              trainset,
-              metric: options.metric,
-              maxRounds: options.maxRounds ?? 1,
-              maxBootstrappedDemos: cap,
-              maxLabeledDemos,
-              metricThreshold: options.metricThreshold ?? Option.none(),
-              maxErrors: options.maxErrors ?? Option.none(),
-              ...Option.match(Option.fromUndefinedOr(options.teacher), {
-                onNone: () => ({}),
-                onSome: (teacher) => ({ teacher })
-              }),
-              ...Option.match(Option.fromUndefinedOr(options.teacherSettings), {
-                onNone: () => ({}),
-                onSome: (teacherSettings) => ({ teacherSettings })
-              })
-            })
-          )).program
-        })
-        const evaluation = yield* Evaluate.run(
-          new Evaluate.Options({
-            module: program,
-            examples: options.valset ?? options.trainset,
-            metrics: { bootstrapRS: options.metric },
-            concurrency: 1,
-            maxErrors: options.maxErrors ?? Option.none()
           })
-        )
-        const candidate = {
-          seed,
-          score: evaluation.average,
-          parameters: yield* ParameterSet.snapshot(program),
-          evaluation
-        }
-        yield* Ref.update(candidates, Arr.append(candidate))
-        yield* Ref.update(best, (previous) =>
-          Option.isNone(previous) || candidate.score > previous.value.score ? Option.some(candidate) : previous)
-      }))
+          const evaluation = yield* Evaluate.run(
+            new Evaluate.Options({
+              module: program,
+              examples: Option.getOrElse(Option.fromUndefinedOr(options.valset), () => options.trainset),
+              metrics: { bootstrapRS: options.metric },
+              concurrency: 1,
+              maxErrors: Option.flatten(Option.fromUndefinedOr(options.maxErrors))
+            })
+          )
+          const candidate = {
+            seed,
+            score: evaluation.average,
+            parameters: yield* ParameterSet.snapshot(program),
+            evaluation
+          }
+          yield* Ref.update(candidates, Arr.append(candidate))
+          yield* Ref.update(best, (previous) =>
+            Option.match(previous, {
+              onNone: () => Option.some(candidate),
+              onSome: (current) =>
+                Bool.match(candidate.score > current.score, {
+                  onTrue: () => Option.some(candidate),
+                  onFalse: () => previous
+                })
+            }))
+        }).pipe(Effect.when(
+          Ref.get(best).pipe(Effect.map((previous) =>
+            !Option.exists(previous, (candidate) =>
+              Option.exists(
+                Option.flatten(Option.fromUndefinedOr(options.stopAtScore)),
+                (threshold) => candidate.score >= threshold
+              ))
+          ))
+        ))
+    )
     const winner = Option.getOrThrow(yield* Ref.get(best))
     return new Optimized.Result({
       program: Module.bound(options.module, winner.parameters),

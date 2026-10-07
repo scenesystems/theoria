@@ -10,7 +10,7 @@ import * as Module from "@scenesystems/effect-dsp/Module"
 import { ModuleParameters } from "@scenesystems/effect-dsp/ModuleParameters"
 import * as Signature from "@scenesystems/effect-dsp/Signature"
 import * as ModelBinder from "@scenesystems/effect-lm/ModelBinder"
-import { Effect, Layer, Option, Record, Ref, Schema } from "effect"
+import { Boolean as Bool, Effect, Layer, Option, Record, Ref, Schema } from "effect"
 import * as LanguageModel from "effect/ai/LanguageModel"
 
 const makeQaSignature = () =>
@@ -71,7 +71,10 @@ describe("BootstrapFewShot.run teacher/student", () => {
               effect.pipe(
                 Effect.provideService(
                   LanguageModel.LanguageModel,
-                  request.role === "teacher" ? teacher.service : student.service
+                  Bool.match(request.role === "teacher", {
+                    onFalse: () => student.service,
+                    onTrue: () => teacher.service
+                  })
                 )
               )
           })

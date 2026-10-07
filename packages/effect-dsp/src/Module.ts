@@ -674,8 +674,11 @@ export const bound = <I extends Schema.Struct.Fields, O extends Schema.Struct.Fi
     signature: root.signature,
     parameters: root.parameters,
     subModules: root.subModules,
-    declarations: root.declarations ?? Record.fromEntries(HashMap.toEntries(root.subModules)),
-    frozen: root.frozen ?? false,
+    declarations: Option.getOrElse(
+      Option.fromUndefinedOr(root.declarations),
+      () => Record.fromEntries(HashMap.toEntries(root.subModules))
+    ),
+    frozen: Option.getOrElse(Option.fromUndefinedOr(root.frozen), () => false),
     boundParameters: { ...root.boundParameters, ...parameters },
     forward: (input) => root.forward(input).pipe(ParameterBinding.withPredictors(predictors(copy)))
   })
@@ -694,8 +697,11 @@ export const freeze = <I extends Schema.Struct.Fields, O extends Schema.Struct.F
     signature: root.signature,
     parameters: root.parameters,
     subModules: root.subModules,
-    declarations: root.declarations ?? Record.fromEntries(HashMap.toEntries(root.subModules)),
-    boundParameters: root.boundParameters ?? {},
+    declarations: Option.getOrElse(
+      Option.fromUndefinedOr(root.declarations),
+      () => Record.fromEntries(HashMap.toEntries(root.subModules))
+    ),
+    boundParameters: Option.getOrElse(Option.fromUndefinedOr(root.boundParameters), (): ParameterSet => ({})),
     forward: root.forward,
     frozen: true
   })

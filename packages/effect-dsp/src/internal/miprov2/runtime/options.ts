@@ -1,6 +1,6 @@
 /** Pinned MIPROv2 compile defaults, validation, auto budgets, and phase options. @internal */
 import * as Numeric from "@scenesystems/effect-math/Numeric"
-import { Array as Arr, Chunk, Data, Effect, Match, Option, Struct } from "effect"
+import { Array as Arr, Boolean as Bool, Chunk, Data, Effect, Match, Option, Struct } from "effect"
 import type { Schema } from "effect"
 import { MIPROv2Error } from "../../../DspError.js"
 import type { Examples, Options } from "../../../MIPROv2.js"
@@ -34,7 +34,8 @@ export const resolveOptions = <I extends Schema.Struct.Fields, O extends Schema.
   options: Options<I, O, ME, MR, E, R>
 ) =>
   Effect.gen(function*() {
-    const auto = options.auto ?? Option.some("light")
+    const auto = Option.getOrElse(Option.fromUndefinedOr(options.auto), () =>
+      Option.some<"light" | "medium" | "heavy">("light"))
     const explicitCounts = Option.all([
       Option.fromUndefinedOr(options.numCandidates),
       Option.fromUndefinedOr(options.numTrials)
@@ -46,10 +47,13 @@ export const resolveOptions = <I extends Schema.Struct.Fields, O extends Schema.
       })
     ).pipe(
       Effect.when(Effect.succeed(
-        Option.isSome(auto)
-          ? Option.isSome(Option.fromUndefinedOr(options.numCandidates)) ||
+        Option.match(auto, {
+          onNone: () =>
+            Option.isNone(explicitCounts),
+          onSome: () =>
+            Option.isSome(Option.fromUndefinedOr(options.numCandidates)) ||
             Option.isSome(Option.fromUndefinedOr(options.numTrials))
-          : Option.isNone(explicitCounts)
+        })
       ))
     )
     const explicitValset = Option.fromUndefinedOr(options.valset)
@@ -65,12 +69,16 @@ export const resolveOptions = <I extends Schema.Struct.Fields, O extends Schema.
     )
     const cutoff = options.trainset.length -
       Numeric.min(1000, Numeric.max(1, Numeric.floor(options.trainset.length * 0.8)))
-    const trainset = Option.isSome(explicitValset) ? options.trainset : Arr.take(options.trainset, cutoff)
+    const trainset = Option.match(explicitValset, {
+      onNone: () => Arr.take(options.trainset, cutoff),
+      onSome: () => options.trainset
+    })
     const validation = Option.getOrElse(explicitValset, () => Arr.drop(options.trainset, cutoff))
     yield* Effect.fail(new MIPROv2Error({ reason: "invalid-dataset", message: "Valset cannot be empty." })).pipe(
       Effect.when(Effect.succeed(validation.length === 0))
     )
-    const zeroShot = (options.maxBootstrappedDemos ?? 4) === 0 && (options.maxLabeledDemos ?? 4) === 0
+    const zeroShot = Option.getOrElse(Option.fromUndefinedOr(options.maxBootstrappedDemos), () => 4) === 0 &&
+      Option.getOrElse(Option.fromUndefinedOr(options.maxLabeledDemos), () => 4) === 0
     const selected = yield* Option.match(auto, {
       onNone: () =>
         Effect.fromOption(explicitCounts).pipe(Effect.map(([numCandidates, numTrials]) => ({
@@ -78,7 +86,7 @@ export const resolveOptions = <I extends Schema.Struct.Fields, O extends Schema.
           numCandidates,
           numInstructions: numCandidates,
           numTrials,
-          minibatch: options.minibatch ?? true
+          minibatch: Option.getOrElse(Option.fromUndefinedOr(options.minibatch), () => true)
         }))),
       onSome: (mode) =>
         Effect.gen(function*() {
@@ -88,15 +96,18 @@ export const resolveOptions = <I extends Schema.Struct.Fields, O extends Schema.
             Match.when("heavy", () => ({ candidates: 18, valSize: 1000 })),
             Match.exhaustive
           )
-          const rng = yield* Sampling.resolve(options.seed ?? 9)
+          const rng = yield* Sampling.resolve(Option.getOrElse(Option.fromUndefinedOr(options.seed), () => 9))
           const valset = Arr.fromIterable(
             yield* rng.sample(Chunk.fromIterable(validation), Numeric.min(setting.valSize, validation.length))
           )
-          const numInstructions = zeroShot ? setting.candidates : Numeric.floor(setting.candidates * 0.5)
+          const numInstructions = Bool.match(zeroShot, {
+            onFalse: () => Numeric.floor(setting.candidates * 0.5),
+            onTrue: () => setting.candidates
+          })
           const numTrials = phase3TrialBudget({
             predictorCount: Arr.filter(Arr.fromIterable(predictors(options.module)), (predictor) =>
               !predictor.frozen).length,
-            demoCandidateCount: zeroShot ? 0 : setting.candidates,
+            demoCandidateCount: Bool.match(zeroShot, { onFalse: () => setting.candidates, onTrue: () => 0 }),
             instructionCandidateCount: numInstructions
           })
           return {
@@ -111,7 +122,10 @@ export const resolveOptions = <I extends Schema.Struct.Fields, O extends Schema.
     yield* Effect.fail(
       new MIPROv2Error({ reason: "invalid-options", message: "minibatchSize cannot exceed the validation set size." })
     ).pipe(
-      Effect.when(Effect.succeed(selected.minibatch && (options.minibatchSize ?? 35) > selected.valset.length))
+      Effect.when(Effect.succeed(
+        selected.minibatch &&
+          Option.getOrElse(Option.fromUndefinedOr(options.minibatchSize), () => 35) > selected.valset.length
+      ))
     )
     return new ResolvedOptions({ options, trainset, zeroShot, ...selected })
   })
@@ -123,11 +137,11 @@ export const toPhase1Options = <I extends Schema.Struct.Fields, O extends Schema
   new GenerateDemoCandidatesOptions(Struct.assign(resolved.options, {
     trainset: resolved.trainset,
     numCandidates: resolved.numCandidates,
-    seed: resolved.options.seed ?? 9,
-    maxLabeledDemos: resolved.options.maxLabeledDemos ?? 4,
-    maxBootstrappedDemos: resolved.options.maxBootstrappedDemos ?? 4,
-    metricThreshold: resolved.options.metricThreshold ?? Option.none(),
-    maxErrors: resolved.options.maxErrors ?? Option.none()
+    seed: Option.getOrElse(Option.fromUndefinedOr(resolved.options.seed), () => 9),
+    maxLabeledDemos: Option.getOrElse(Option.fromUndefinedOr(resolved.options.maxLabeledDemos), () => 4),
+    maxBootstrappedDemos: Option.getOrElse(Option.fromUndefinedOr(resolved.options.maxBootstrappedDemos), () => 4),
+    metricThreshold: Option.getOrElse(Option.fromUndefinedOr(resolved.options.metricThreshold), () => Option.none()),
+    maxErrors: Option.getOrElse(Option.fromUndefinedOr(resolved.options.maxErrors), () => Option.none())
   }))
 
 /** @internal */
@@ -139,13 +153,13 @@ export const toPhase2Options = <I extends Schema.Struct.Fields, O extends Schema
     trainset: resolved.trainset,
     demoCandidates,
     numInstructions: resolved.numInstructions,
-    seed: resolved.options.seed ?? 9,
-    initTemperature: resolved.options.initTemperature ?? 1,
-    programAwareProposer: resolved.options.programAwareProposer ?? true,
-    dataAwareProposer: resolved.options.dataAwareProposer ?? true,
-    tipAwareProposer: resolved.options.tipAwareProposer ?? true,
-    fewshotAwareProposer: resolved.options.fewshotAwareProposer ?? true,
-    viewDataBatchSize: resolved.options.viewDataBatchSize ?? 10
+    seed: Option.getOrElse(Option.fromUndefinedOr(resolved.options.seed), () => 9),
+    initTemperature: Option.getOrElse(Option.fromUndefinedOr(resolved.options.initTemperature), () => 1),
+    programAwareProposer: Option.getOrElse(Option.fromUndefinedOr(resolved.options.programAwareProposer), () => true),
+    dataAwareProposer: Option.getOrElse(Option.fromUndefinedOr(resolved.options.dataAwareProposer), () => true),
+    tipAwareProposer: Option.getOrElse(Option.fromUndefinedOr(resolved.options.tipAwareProposer), () => true),
+    fewshotAwareProposer: Option.getOrElse(Option.fromUndefinedOr(resolved.options.fewshotAwareProposer), () => true),
+    viewDataBatchSize: Option.getOrElse(Option.fromUndefinedOr(resolved.options.viewDataBatchSize), () => 10)
   }))
 
 /** @internal */
@@ -162,7 +176,7 @@ export const toPhase3Options = <I extends Schema.Struct.Fields, O extends Schema
     emit,
     trialBudget: resolved.numTrials,
     minibatch: resolved.minibatch,
-    minibatchSize: resolved.options.minibatchSize ?? 35,
-    fullEvalEvery: resolved.options.minibatchFullEvalSteps ?? 5,
-    seed: resolved.options.seed ?? 9
+    minibatchSize: Option.getOrElse(Option.fromUndefinedOr(resolved.options.minibatchSize), () => 35),
+    fullEvalEvery: Option.getOrElse(Option.fromUndefinedOr(resolved.options.minibatchFullEvalSteps), () => 5),
+    seed: Option.getOrElse(Option.fromUndefinedOr(resolved.options.seed), () => 9)
   }))

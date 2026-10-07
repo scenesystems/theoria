@@ -6,7 +6,7 @@
  */
 import * as ContentDigest from "@scenesystems/digest/ContentDigest"
 import type { Record } from "effect"
-import { Array as Arr, Data, Effect, Option, Schema, Struct } from "effect"
+import { Array as Arr, Boolean, Data, Effect, Option, Schema, Struct } from "effect"
 import { dual } from "effect/Function"
 import { type Codec, codec } from "./Demonstration.js"
 import { SignatureError } from "./DspError.js"
@@ -188,7 +188,10 @@ export const withFieldPrefix = <I extends Schema.Struct.Fields, O extends Schema
 ): Signature<I, O> =>
   new Signature(Struct.assign(signature, {
     fields: Arr.map(signature.fields, (info) =>
-      info.name === field ? new FieldInfo(Struct.assign(info, { prefix: Option.some(prefix) })) : info)
+      Boolean.match(info.name === field, {
+        onFalse: () => info,
+        onTrue: () => new FieldInfo(Struct.assign(info, { prefix: Option.some(prefix) }))
+      }))
   }))
 
 /** Replaces a field description without changing its schema.
@@ -202,7 +205,10 @@ export const withFieldDescription = <I extends Schema.Struct.Fields, O extends S
 ): Signature<I, O> =>
   new Signature(Struct.assign(signature, {
     fields: Arr.map(signature.fields, (info) =>
-      info.name === field ? new FieldInfo(Struct.assign(info, { description: Option.some(description) })) : info)
+      Boolean.match(info.name === field, {
+        onFalse: () => info,
+        onTrue: () => new FieldInfo(Struct.assign(info, { description: Option.some(description) }))
+      }))
   }))
 
 const Identity = Schema.Struct({

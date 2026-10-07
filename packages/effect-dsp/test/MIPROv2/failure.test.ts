@@ -17,7 +17,12 @@ const trainset = Arr.make(new Example({ input: { question: "question" }, labels:
 const invalid = new Example({ input: { question: 42 }, labels: Option.some({ answer: "answer" }) })
 const makeMock = () =>
   MockLanguageModel.make(
-    MockLanguageModel.map((prompt) => String.includes("Return only ")(prompt) ? "instruction" : { answer: "answer" })
+    MockLanguageModel.map((prompt) =>
+      Boolean.match(String.includes("Return only ")(prompt), {
+        onFalse: () => ({ answer: "answer" }),
+        onTrue: () => "instruction"
+      })
+    )
   )
 const makeModule = Effect.gen(function*() {
   const signature = yield* Signature.make("Baseline instruction", { question: Schema.String }, Output.fields)

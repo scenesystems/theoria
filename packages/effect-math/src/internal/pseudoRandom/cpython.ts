@@ -1,5 +1,5 @@
 /** CPython integer seeds and sequence algorithms over pure MT19937 transitions. @internal */
-import { Array, BigInt, Data, HashSet, Number, Option, Predicate, String, Tuple } from "effect"
+import { Array, BigInt, Boolean, Data, HashSet, Match, Number, Option, Predicate, String, Tuple } from "effect"
 import * as Numeric from "../../Numeric.js"
 import * as MT from "./mersenneTwister.js"
 
@@ -8,14 +8,25 @@ const number = (value: bigint) => Option.getOrThrow(BigInt.toNumber(value))
 const indices = (size: number) => Array.take(Array.makeBy(size, (i) => i), size)
 
 export const seed = (value: number | bigint): MT.State => {
-  const magnitude = BigInt.abs(Predicate.isBigInt(value) ? value : integer(value))
-  const key = BigInt.Equivalence(magnitude, 0n) ?
-    [0] :
-    Array.unfold(magnitude, (remaining) =>
-      BigInt.Equivalence(remaining, 0n) ? Option.none() : Option.some(Tuple.make(
-        number(BigInt.remainder(remaining, 4294967296n)),
-        BigInt.divideUnsafe(remaining, 4294967296n)
-      )))
+  const magnitude = BigInt.abs(
+    Match.value(value).pipe(Match.when(Predicate.isBigInt, (big) => big), Match.orElse(integer))
+  )
+  const key = Boolean.match(BigInt.Equivalence(magnitude, 0n), {
+    onFalse: () =>
+      Array.unfold(
+        magnitude,
+        (remaining) =>
+          Option.liftPredicate(remaining, (current) => Boolean.not(BigInt.Equivalence(current, 0n))).pipe(
+            Option.map((nonzero) =>
+              Tuple.make(
+                number(BigInt.remainder(nonzero, 4294967296n)),
+                BigInt.divideUnsafe(nonzero, 4294967296n)
+              )
+            )
+          )
+      ),
+    onTrue: () => [0]
+  })
   return MT.initByArray(key)
 }
 
@@ -31,7 +42,10 @@ export const getrandbits = (state: MT.State, k: number): MT.Draw<bigint> =>
 
 export const randbelow = (state: MT.State, n: bigint): MT.Draw<bigint> => {
   const draw = getrandbits(state, String.length(n.toString(2)))
-  return BigInt.isLessThan(draw.value, n) ? draw : randbelow(draw.state, n)
+  return Boolean.match(BigInt.isLessThan(draw.value, n), {
+    onFalse: () => randbelow(draw.state, n),
+    onTrue: () => draw
+  })
 }
 
 export const randint = (state: MT.State, a: number, b: number): MT.Draw<number> => {
@@ -68,16 +82,21 @@ class Sample<A> extends Data.Class<{
 
 const unique = (state: MT.State, n: number, selected: HashSet.HashSet<number>): MT.Draw<number> => {
   const draw = randint(state, 0, Number.decrement(n))
-  return HashSet.has(selected, draw.value) ? unique(draw.state, n, selected) : draw
+  return Boolean.match(HashSet.has(selected, draw.value), {
+    onFalse: () => draw,
+    onTrue: () => unique(draw.state, n, selected)
+  })
 }
 
 export const sample = <A>(state: MT.State, population: ReadonlyArray<A>, k: number): MT.Draw<ReadonlyArray<A>> => {
   const n = population.length
   const setsize = Number.sum(
     21,
-    Number.isGreaterThan(k, 5)
-      ? Numeric.pow(4, Numeric.ceil(Number.divideUnsafe(Numeric.log(Number.multiply(k, 3)), Numeric.log(4)))) :
-      0
+    Boolean.match(Number.isGreaterThan(k, 5), {
+      onFalse: () => 0,
+      onTrue: () =>
+        Numeric.pow(4, Numeric.ceil(Number.divideUnsafe(Numeric.log(Number.multiply(k, 3)), Numeric.log(4))))
+    })
   )
   const pooled = Number.isLessThanOrEqualTo(n, setsize)
   const result = Array.reduce(
@@ -85,16 +104,24 @@ export const sample = <A>(state: MT.State, population: ReadonlyArray<A>, k: numb
     new Sample({ state, pool: population, selected: HashSet.empty<number>(), values: Array.empty<A>() }),
     (current, i) => {
       const last = Number.decrement(Number.subtract(n, i))
-      const draw = pooled ? randint(current.state, 0, last) : unique(current.state, n, current.selected)
+      const draw = Boolean.match(pooled, {
+        onFalse: () => unique(current.state, n, current.selected),
+        onTrue: () => randint(current.state, 0, last)
+      })
       const value = Option.getOrThrow(Array.get(current.pool, draw.value))
       return new Sample({
         state: draw.state,
-        pool: pooled
-          ? Option.getOrThrow(
-            Array.modify(current.pool, draw.value, () => Option.getOrThrow(Array.get(current.pool, last)))
-          )
-          : current.pool,
-        selected: pooled ? current.selected : HashSet.add(current.selected, draw.value),
+        pool: Boolean.match(pooled, {
+          onFalse: () => current.pool,
+          onTrue: () =>
+            Option.getOrThrow(
+              Array.modify(current.pool, draw.value, () => Option.getOrThrow(Array.get(current.pool, last)))
+            )
+        }),
+        selected: Boolean.match(pooled, {
+          onFalse: () => HashSet.add(current.selected, draw.value),
+          onTrue: () => current.selected
+        }),
         values: Array.append(current.values, value)
       })
     }

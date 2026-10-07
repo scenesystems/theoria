@@ -41,7 +41,10 @@ describe("Metric.withFeedback", () => {
   it.effect("fromSync receives labels before output and preserves fractional scores", () =>
     Effect.gen(function*() {
       const metric = Metric.fromSync((labels, output) =>
-        labels.answer === "Paris" && output.answer === "Lyon" ? 0.25 : 0
+        Boolean.match(Boolean.and(labels.answer === "Paris", output.answer === "Lyon"), {
+          onFalse: () => 0,
+          onTrue: () => 0.25
+        })
       )
       const result = yield* score(metric, { answer: "Paris" }, { answer: "Lyon" })
       expect(result).toEqual(new Metric.Score({ value: 0.25, feedback: Option.none() }))

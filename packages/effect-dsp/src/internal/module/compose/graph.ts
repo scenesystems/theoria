@@ -169,9 +169,12 @@ const buildSubModule = (module: ComposableModule, id: Id): Structure =>
     demonstrationCodec: module.signature.demonstrationCodec,
     parameters: module.parameters,
     subModules: module.subModules,
-    declarations: module.declarations ?? Record.fromEntries(HashMap.toEntries(module.subModules)),
-    frozen: module.frozen ?? false,
-    boundParameters: module.boundParameters ?? {}
+    declarations: Option.getOrElse(
+      Option.fromUndefinedOr(module.declarations),
+      () => Record.fromEntries(HashMap.toEntries(module.subModules))
+    ),
+    frozen: Option.getOrElse(Option.fromUndefinedOr(module.frozen), () => false),
+    boundParameters: Option.getOrElse(Option.fromUndefinedOr(module.boundParameters), () => ({}))
   })
 
 /**

@@ -3,7 +3,7 @@
  * @since 0.1.0
  * @module
  */
-import { Context, Schema } from "effect"
+import { Context, Option, Schema } from "effect"
 
 /** Generation overrides; omitted fields retain provider defaults.
  * @since 0.1.0
@@ -34,9 +34,9 @@ export const Current = Context.Reference<ModelSettings>("@scenesystems/effect-lm
  */
 export const merge = (base: ModelSettings, override: ModelSettings): ModelSettings =>
   new ModelSettings({
-    temperature: override.temperature ?? base.temperature,
-    maxTokens: override.maxTokens ?? base.maxTokens,
-    topP: override.topP ?? base.topP,
-    stop: override.stop ?? base.stop,
-    seed: override.seed ?? base.seed
+    temperature: Option.fromNullishOr(override.temperature).pipe(Option.getOrElse(() => base.temperature)),
+    maxTokens: Option.fromNullishOr(override.maxTokens).pipe(Option.getOrElse(() => base.maxTokens)),
+    topP: Option.fromNullishOr(override.topP).pipe(Option.getOrElse(() => base.topP)),
+    stop: Option.fromNullishOr(override.stop).pipe(Option.getOrElse(() => base.stop)),
+    seed: Option.fromNullishOr(override.seed).pipe(Option.getOrElse(() => base.seed))
   })

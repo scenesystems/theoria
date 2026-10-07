@@ -3,7 +3,7 @@
  *
  * @since 0.1.0
  */
-import { Effect, Equal, Option } from "effect"
+import { Array as Arr, Boolean as Bool, Effect, Equal, Option } from "effect"
 
 import { type PendingPolicy, TpeOptions } from "../../Sampler.js"
 import * as Sampler from "../../Sampler.js"
@@ -81,7 +81,10 @@ export const make = (
             new Sampler.Context({
               completed: context.completed,
               pruned: Option.fromNullishOr(context.pruned).pipe(Option.getOrElse(() => [])),
-              pending: Equal.equals(pendingImputationPolicy.name, "none") ? [] : context.pending,
+              pending: Bool.match(Equal.equals(pendingImputationPolicy.name, "none"), {
+                onFalse: () => context.pending,
+                onTrue: () => Arr.empty()
+              }),
               objectiveSpec: context.objectiveSpec,
               nextTrialNumber: context.nextTrialNumber,
               epsilon: context.epsilon

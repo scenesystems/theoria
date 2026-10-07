@@ -221,7 +221,10 @@ describe("destination-owned demonstrations", () => {
               effect.pipe(
                 Effect.provideService(
                   LanguageModel.LanguageModel,
-                  request.role === "teacher" ? teacher.service : mock.service
+                  Boolean.match(request.role === "teacher", {
+                    onFalse: () => mock.service,
+                    onTrue: () => teacher.service
+                  })
                 )
               )
           })

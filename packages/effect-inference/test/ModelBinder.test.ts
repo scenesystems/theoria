@@ -160,7 +160,10 @@ describe("ModelBinder", () => {
         expect(Arr.map(bodies, (body) => body.model)).toEqual(["teacher-model", "task-model"])
         expect(Arr.map(bodies, (body) => body.temperature)).toEqual([0, 0])
         expect(Arr.map(bodies, (body) => body.top_p)).toEqual([0.8, 0.8])
-        expect(Arr.map(bodies, (body) => body.max_output_tokens ?? body.max_tokens)).toEqual([73, 73])
+        expect(Arr.map(bodies, (body) =>
+          Option.fromNullishOr(body.max_output_tokens).pipe(Option.getOrElse(() =>
+            body.max_tokens
+          )))).toEqual([73, 73])
       })))
 
   it.effect("rejects unsupported OpenAI stop and Anthropic seed before transport for every operation", () =>
@@ -192,7 +195,10 @@ describe("ModelBinder", () => {
               Binding.bind(
                 new Binding.Request({
                   role: "task",
-                  settings: source === "request" ? settings : new ModelSettings({}),
+                  settings: Match.value(source).pipe(
+                    Match.when("request", () => settings),
+                    Match.orElse(() => new ModelSettings({}))
+                  ),
                   rolloutId: Option.none()
                 })
               ),
@@ -201,7 +207,13 @@ describe("ModelBinder", () => {
                 Effect.sync(() =>
                   expect(error).toMatchObject({
                     module: "@scenesystems/effect-inference/ModelBinder",
-                    reason: { _tag: "InvalidRequestError", parameter: provider === "openai" ? "stop" : "seed" }
+                    reason: {
+                      _tag: "InvalidRequestError",
+                      parameter: Match.value(provider).pipe(
+                        Match.when("openai", () => "stop"),
+                        Match.orElse(() => "seed")
+                      )
+                    }
                   })
                 )
               )
@@ -213,7 +225,10 @@ describe("ModelBinder", () => {
                       "task",
                       new TextProvider.Runtime({
                         config: new TextProvider.Config(Struct.assign(runtime.config, {
-                          defaults: source === "defaults" ? settings : new ModelSettings({})
+                          defaults: Match.value(source).pipe(
+                            Match.when("defaults", () => settings),
+                            Match.orElse(() => new ModelSettings({}))
+                          )
                         }))
                       })
                     ]])

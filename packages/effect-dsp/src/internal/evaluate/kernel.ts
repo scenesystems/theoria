@@ -4,7 +4,7 @@
  * @since 0.1.0
  */
 import * as Evaluation from "@scenesystems/effect-study/Evaluation"
-import { Array as Arr, Effect, Option } from "effect"
+import { Array as Arr, Effect, Match, Option } from "effect"
 import type { Schema } from "effect"
 import { events, Failed, type Options, type Outcome, Scored, TooManyErrors } from "../../Evaluate.js"
 import { maxFailures } from "../maxErrors.js"
@@ -48,29 +48,32 @@ export const evaluateKernel = <
         ),
       {
         concurrency: Option.getOrElse(Option.fromNullishOr(options.concurrency), () => 1),
-        maxFailures: maxFailures(options.maxErrors ?? Option.none()),
+        maxFailures: maxFailures(Option.flatten(Option.fromUndefinedOr(options.maxErrors))),
         onFailure: "record"
       }
     ).pipe(Effect.mapError((error) =>
       new TooManyErrors({
         count: error.count,
-        limit: Option.getOrElse(options.maxErrors ?? Option.none(), () => error.limit + 1)
+        limit: Option.getOrElse(Option.flatten(Option.fromUndefinedOr(options.maxErrors)), () => error.limit + 1)
       })
     ))
     const outcomes = Arr.map(Arr.fromIterable(trials), (trial): Outcome =>
-      trial.state._tag === "Completed"
-        ? new Scored({
-          index: trial.trialNumber,
-          example: trial.config,
-          durationMs: trial.state.duration,
-          ...trial.state.value
-        })
-        : new Failed({
-          index: trial.trialNumber,
-          example: trial.config,
-          durationMs: trial.state.duration,
-          failure: trial.state.error
-        }))
+      Match.valueTags(trial.state, {
+        Completed: (state) =>
+          new Scored({
+            index: trial.trialNumber,
+            example: trial.config,
+            durationMs: state.duration,
+            ...state.value
+          }),
+        Failed: (state) =>
+          new Failed({
+            index: trial.trialNumber,
+            example: trial.config,
+            durationMs: state.duration,
+            failure: state.error
+          })
+      }))
     const report = aggregateOutcomes(
       Arr.map(metrics, ([name]) => name),
       outcomes,

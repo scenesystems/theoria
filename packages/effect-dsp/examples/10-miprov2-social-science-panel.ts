@@ -15,7 +15,7 @@
 import { BunRuntime, BunServices } from "@effect/platform-bun"
 import { BootstrapFewShot, Evaluate, Example, Metric, MIPROv2, Module, Signature } from "@scenesystems/effect-dsp"
 import * as ModelBinder from "@scenesystems/effect-lm/ModelBinder"
-import { Array as Arr, Effect, Layer, Option, Ref, Schema } from "effect"
+import { Array as Arr, Boolean as Bool, Effect, Layer, Option, Ref, Schema } from "effect"
 import {
   makeStandardEvents,
   makeStandardModuleState,
@@ -219,7 +219,10 @@ const program = Effect.gen(function*() {
   ).pipe(ModelBinder.withBinder(
     new ModelBinder.Binder({
       bind: (request) =>
-        request.role === "teacher" ? (effect) => effect.pipe(Effect.provide(teacherLayer)) : binder.bind(request)
+        Bool.match(request.role === "teacher", {
+          onTrue: () => (effect) => effect.pipe(Effect.provide(teacherLayer)),
+          onFalse: () => binder.bind(request)
+        })
     })
   ))
   yield* Module.install(planner, bootstrapped.parameters)

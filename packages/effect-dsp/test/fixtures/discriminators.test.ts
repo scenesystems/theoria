@@ -292,7 +292,10 @@ const bootstrap = Effect.gen(function*() {
           effect.pipe(
             Effect.provideService(
               LanguageModel.LanguageModel,
-              request.role === "teacher" ? teacher.service : student.service
+              Bool.match(request.role === "teacher", {
+                onFalse: () => student.service,
+                onTrue: () => teacher.service
+              })
             )
           )
       })

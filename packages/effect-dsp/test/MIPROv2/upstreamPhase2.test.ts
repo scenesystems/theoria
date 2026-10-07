@@ -1,8 +1,9 @@
 import { expect, it } from "@effect/vitest"
 import * as ModelBinder from "@scenesystems/effect-lm/ModelBinder"
 import * as PseudoRandom from "@scenesystems/effect-math/PseudoRandom"
-import { Array as Arr, Effect, Option, Record, Ref, Schema, String as Str } from "effect"
+import { Array as Arr, Effect, Match, Option, Record, Ref, Schema, String as Str } from "effect"
 import * as LanguageModel from "effect/ai/LanguageModel"
+import { constVoid } from "effect/Function"
 import { Demonstration } from "../../src/Demonstration.js"
 import { Example } from "../../src/Example.js"
 import * as MiproSampling from "../../src/internal/miprov2/sampling.js"
@@ -72,7 +73,7 @@ it.effect("matches upstream grounded proposer calls, settings, demo rotation, pr
                       new Demonstration({
                         input: { question: demo.question },
                         output: { answer: demo.answer },
-                        augmented: demo.augmented ?? false
+                        augmented: Option.getOrElse(Option.fromUndefinedOr(demo.augmented), () => false)
                       })),
                     outputStrategy: "text"
                   })
@@ -127,26 +128,32 @@ it.effect("matches upstream grounded proposer calls, settings, demo rotation, pr
         yield* Effect.forEach(calls, (call, index) =>
           Effect.sync(() => {
             const expected = Option.getOrThrow(Arr.get(reference.calls, index))
-            if (expected.field === "observations") {
-              expect(
-                Arr.map(
-                  Arr.fromIterable(Str.matchAll(/"question":\s*"(train-\d+)"/g)(call.prompt)),
-                  (match) => Option.getOrThrow(Arr.get(match, 1))
+            Match.value(expected.field).pipe(
+              Match.when("observations", () => {
+                expect(
+                  Arr.map(
+                    Arr.fromIterable(Str.matchAll(/"question":\s*"(train-\d+)"/g)(call.prompt)),
+                    (match) => Option.getOrThrow(Arr.get(match, 1))
+                  )
+                ).toEqual(expected.dataIds)
+              }),
+              Match.when("proposed_instruction", () => {
+                expect(
+                  Arr.map(
+                    Arr.fromIterable(Str.matchAll(/"question":"(demo-\w+)"/g)(call.prompt)),
+                    (match) => Option.getOrThrow(Arr.get(match, 1))
+                  )
                 )
-              ).toEqual(expected.dataIds)
-            }
-            if (expected.field === "proposed_instruction") {
-              expect(
-                Arr.map(
-                  Arr.fromIterable(Str.matchAll(/"question":"(demo-\w+)"/g)(call.prompt)),
-                  (match) => Option.getOrThrow(Arr.get(match, 1))
-                )
-              )
-                .toEqual(expected.demoIds)
-              expect(Str.includes("\"question\":\"label\"")(call.prompt)).toBe(false)
-              expect(Str.includes("tip:")(call.prompt)).toBe(Option.isSome(expected.tip))
-              if (Option.isSome(expected.tip)) expect(call.prompt).toContain(expected.tip.value)
-            }
+                  .toEqual(expected.demoIds)
+                expect(Str.includes("\"question\":\"label\"")(call.prompt)).toBe(false)
+                expect(Str.includes("tip:")(call.prompt)).toBe(Option.isSome(expected.tip))
+                Option.match(expected.tip, {
+                  onNone: constVoid,
+                  onSome: (tip) => expect(call.prompt).toContain(tip)
+                })
+              }),
+              Match.orElse(constVoid)
+            )
             expect(call.prompt).not.toContain("miprov2-proposal:")
           }))
         expect(Arr.map(Option.getOrThrow(Arr.head(proposals)).candidates, (candidate) => candidate.instruction))

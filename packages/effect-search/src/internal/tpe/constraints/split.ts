@@ -54,11 +54,14 @@ const normalizeConstraints = (
   count: number
 ) => {
   const constraints = Arr.fromIterable(constraintsInput)
-  if (Equal.equals(count, 0)) return Arr.empty<number>()
-  return Arr.makeBy(count, (index) =>
-    Arr.get(constraints, index).pipe(
-      Option.getOrElse(() => Number.POSITIVE_INFINITY)
-    ))
+  return Bool.match(Equal.equals(count, 0), {
+    onFalse: (): Array<number> =>
+      Arr.makeBy(count, (index) =>
+        Arr.get(constraints, index).pipe(
+          Option.getOrElse(() => Number.POSITIVE_INFINITY)
+        )),
+    onTrue: () => Arr.empty<number>()
+  })
 }
 
 const normalizeTrials = (

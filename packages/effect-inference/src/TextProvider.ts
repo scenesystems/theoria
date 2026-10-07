@@ -166,10 +166,14 @@ const configured = (options: Options) =>
     return new Config({
       provider,
       model,
-      defaults: options.defaults ?? (yield* ConfigEffect.withDefault(
-        ConfigEffect.schema(Schema.fromJsonString(Schema.toCodecJson(ModelSettings)), "dspModelSettings"),
-        empty
-      )),
+      defaults: yield* Option.match(Option.fromNullishOr(options.defaults), {
+        onSome: Effect.succeed,
+        onNone: () =>
+          ConfigEffect.withDefault(
+            ConfigEffect.schema(Schema.fromJsonString(Schema.toCodecJson(ModelSettings)), "dspModelSettings"),
+            empty
+          )
+      }),
       apiKey,
       apiUrl: mergeString(providerApiUrl, genericApiUrl, options.apiUrl),
       anthropicVersion: mergeString(anthropicVersion, genericAnthropicVersion, options.anthropicVersion),

@@ -195,17 +195,22 @@ it.effect("feedback chooses actual repeated predictor executions on the independ
         useMerge: false,
         metric: Metric.withFeedback((_, prediction, context) =>
           Effect.gen(function*() {
-            if (Option.isSome(context.target)) {
-              const target = context.target.value
-              expect(target.predictorId).toBe("root.child")
-              const entry = Option.getOrThrow(
-                Chunk.findFirst(prediction.trace.selected, (entry) => entry.execution === target.execution)
-              )
-              const input = yield* Schema.decodeEffect(Schema.fromJsonString(Schema.Struct({ query: Schema.String })))(
-                entry.input
-              )
-              yield* Ref.update(targets, Arr.append(input.query))
-            }
+            yield* Option.match(context.target, {
+              onNone: () => Effect.void,
+              onSome: (target) =>
+                Effect.gen(function*() {
+                  expect(target.predictorId).toBe("root.child")
+                  const entry = Option.getOrThrow(
+                    Chunk.findFirst(prediction.trace.selected, (entry) => entry.execution === target.execution)
+                  )
+                  const input = yield* Schema.decodeEffect(
+                    Schema.fromJsonString(Schema.Struct({ query: Schema.String }))
+                  )(
+                    entry.input
+                  )
+                  yield* Ref.update(targets, Arr.append(input.query))
+                })
+            })
             return new Metric.Score({ value: 0.25, feedback: Option.none() })
           })
         ),

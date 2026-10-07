@@ -11,6 +11,7 @@ import * as PseudoRandom from "@scenesystems/effect-math/PseudoRandom"
 import * as Emitter from "@scenesystems/effect-study/Emitter"
 import {
   Array as Arr,
+  Boolean as Bool,
   Chunk,
   Data,
   Effect,
@@ -37,7 +38,10 @@ import * as ParameterSet from "./ParameterSet.js"
 import * as TeacherTrace from "./TeacherTrace.js"
 
 const normalizeNonNegative = (value: number): number =>
-  Numeric.isFinite(value) ? Numeric.max(0, Numeric.floor(value)) : 0
+  Bool.match(Numeric.isFinite(value), {
+    onTrue: () => Numeric.max(0, Numeric.floor(value)),
+    onFalse: () => 0
+  })
 
 /**
  * Ordered dataset rows consumed by BootstrapFewShot.
@@ -304,27 +308,38 @@ export const runWithEvents = <
     const recorded = yield* Ref.make(Arr.empty<Event>())
     const emit: EventSink<EE, ER> = (event) =>
       Ref.update(recorded, Arr.append(event)).pipe(Effect.andThen(observe(event)))
-    const maxRounds = normalizeNonNegative(options.maxRounds ?? 1)
-    const maxBootstrappedDemos = normalizeNonNegative(options.maxBootstrappedDemos ?? 4)
-    const maxLabeledDemos = normalizeNonNegative(options.maxLabeledDemos ?? 16)
-    if (options.teacher === options.module) {
-      return yield* new TeacherTrace.IncompatibleTeacher({
+    const maxRounds = normalizeNonNegative(Option.getOrElse(Option.fromUndefinedOr(options.maxRounds), () => 1))
+    const maxBootstrappedDemos = normalizeNonNegative(
+      Option.getOrElse(Option.fromUndefinedOr(options.maxBootstrappedDemos), () => 4)
+    )
+    const maxLabeledDemos = normalizeNonNegative(
+      Option.getOrElse(Option.fromUndefinedOr(options.maxLabeledDemos), () => 16)
+    )
+    yield* Effect.failSync(() =>
+      new TeacherTrace.IncompatibleTeacher({
         message: "Teacher and student must be distinct executable programs"
       })
-    }
-    const sourceTeacher = options.teacher ??
-      bound(options.module, Record.map(before, (parameters) => withModuleParametersDemos(parameters, [])))
-    const teacher = maxLabeledDemos > 0 &&
-        Option.isNone(Option.fromUndefinedOr(options.teacher?.boundParameters))
-      ? (yield* LabeledFewShot.run(
-        new LabeledFewShot.Options({
-          module: sourceTeacher,
-          trainset: options.trainset,
-          k: maxLabeledDemos,
-          seed: 0
-        })
-      )).program
-      : sourceTeacher
+    ).pipe(Effect.when(Effect.succeed(options.teacher === options.module)))
+    const sourceTeacher = Option.getOrElse(Option.fromUndefinedOr(options.teacher), () =>
+      bound(options.module, Record.map(before, (parameters) => withModuleParametersDemos(parameters, []))))
+    const teacher = yield* Bool.match(
+      maxLabeledDemos > 0 &&
+        Option.isNone(Option.fromUndefinedOr(options.teacher?.boundParameters)),
+      {
+        onTrue: () =>
+          LabeledFewShot.run(
+            new LabeledFewShot.Options({
+              module: sourceTeacher,
+              trainset: options.trainset,
+              k: maxLabeledDemos,
+              seed: 0
+            })
+          ).pipe(Effect.map((result) =>
+            result.program
+          )),
+        onFalse: () => Effect.succeed(sourceTeacher)
+      }
+    )
     const demoCounts = yield* Ref.make<Record.ReadonlyRecord<string, number>>(
       Record.fromEntries(Arr.map(predictorsToTrain, (predictor) => Tuple.make(predictor.path, 0)))
     )
@@ -332,20 +347,26 @@ export const runWithEvents = <
       new TeacherTrace.Options({
         student: options.module,
         teacher: Option.some(teacher),
-        teacherSettings: options.teacherSettings ?? emptySettings,
+        teacherSettings: Option.getOrElse(Option.fromUndefinedOr(options.teacherSettings), () => emptySettings),
         trainset: Chunk.fromIterable(options.trainset),
         metric: options.metric,
-        threshold: options.metricThreshold ?? Option.none(),
-        maxErrors: options.maxErrors ?? Option.none(),
+        threshold: Option.flatten(Option.fromUndefinedOr(options.metricThreshold)),
+        maxErrors: Option.flatten(Option.fromUndefinedOr(options.maxErrors)),
         maxRounds,
         concurrency: 1,
         stopWhen: (accepted) =>
           Arr.every(predictorsToTrain, (predictor) =>
             Chunk.reduce(accepted, 0, (count, entry) =>
-              count +
-              (Option.exists(Record.get(entry.demosByPredictor, predictor.path), (demos) => Chunk.isNonEmpty(demos))
-                ? 1
-                : 0)) >= maxBootstrappedDemos)
+              Num.sum(
+                count,
+                Bool.match(
+                  Option.exists(Record.get(entry.demosByPredictor, predictor.path), (demos) => Chunk.isNonEmpty(demos)),
+                  {
+                    onTrue: () => 1,
+                    onFalse: () => 0
+                  }
+                )
+              )) >= maxBootstrappedDemos)
       }),
       (event) =>
         Match.value(event).pipe(
@@ -354,9 +375,10 @@ export const runWithEvents = <
             Effect.gen(function*() {
               yield* Ref.update(demoCounts, (counts) =>
                 Record.map(counts, (count, path) =>
-                  Option.exists(Record.get(accepted.demosByPredictor, path), Chunk.isNonEmpty)
-                    ? Numeric.min(count + 1, maxBootstrappedDemos)
-                    : count))
+                  Bool.match(Option.exists(Record.get(accepted.demosByPredictor, path), Chunk.isNonEmpty), {
+                    onTrue: () => Numeric.min(Num.increment(count), maxBootstrappedDemos),
+                    onFalse: () => count
+                  })))
               yield* Effect.forEach(accepted.trace.selected, (trace) =>
                 emit(events.TraceAccepted({ moduleName: trace.moduleName, score: accepted.score.value })))
             })),
@@ -364,11 +386,10 @@ export const runWithEvents = <
             emit(events.TraceRejected({
               moduleName: options.module.name,
               score: Option.match(rejected.score, {
-                onNone: () =>
-                  0,
+                onNone: () => 0,
                 onSome: (score) => score.value
               }),
-              threshold: Option.getOrElse(options.metricThreshold ?? Option.none(), () => 0)
+              threshold: Option.getOrElse(Option.flatten(Option.fromUndefinedOr(options.metricThreshold)), () => 0)
             }))),
           Match.tag("RoundCompleted", ({ round }) =>
             Effect.gen(function*() {

@@ -10,7 +10,7 @@ import * as MockLanguageModel from "@scenesystems/effect-dsp/MockLanguageModel"
 import * as Module from "@scenesystems/effect-dsp/Module"
 import { ModuleParameters } from "@scenesystems/effect-dsp/ModuleParameters"
 import * as Signature from "@scenesystems/effect-dsp/Signature"
-import { Array as Arr, Effect, Layer, Option, Ref, Schema, Stream } from "effect"
+import { Array as Arr, Effect, Layer, Match, Option, Ref, Schema, Stream } from "effect"
 import * as LanguageModel from "effect/ai/LanguageModel"
 
 const trainset = Arr.make(
@@ -20,15 +20,13 @@ const trainset = Arr.make(
 )
 
 const responseForPrompt = (prompt: string) =>
-  prompt.includes("Return only ")
-    ? "Answer with concise factual city names"
-    : prompt.includes("What is the capital of France?")
-    ? { answer: "Paris" }
-    : prompt.includes("What is the capital of Japan?")
-    ? { answer: "Tokyo" }
-    : prompt.includes("What is the capital of Italy?")
-    ? { answer: "Rome" }
-    : { answer: "Unknown" }
+  Match.value(prompt).pipe(
+    Match.when((value: string) => value.includes("Return only "), () => "Answer with concise factual city names"),
+    Match.when((value: string) => value.includes("What is the capital of France?"), () => ({ answer: "Paris" })),
+    Match.when((value: string) => value.includes("What is the capital of Japan?"), () => ({ answer: "Tokyo" })),
+    Match.when((value: string) => value.includes("What is the capital of Italy?"), () => ({ answer: "Rome" })),
+    Match.orElse(() => ({ answer: "Unknown" }))
+  )
 
 const runMiproTagTrace = Effect.gen(function*() {
   const signature = yield* Signature.make(

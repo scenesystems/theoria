@@ -1,5 +1,5 @@
 /** Per-example scoring and lifecycle events. @since 0.1.0 @internal */
-import { Array as Arr, Data, Effect, Match, Option, Order, Predicate, Record, Schema, Tuple } from "effect"
+import { Array as Arr, Boolean, Data, Effect, Match, Option, Order, Predicate, Record, Schema, Tuple } from "effect"
 import { EvaluationFailed } from "../../DspError.js"
 import { events, Failure } from "../../Evaluate.js"
 import type { Event } from "../../Evaluate.js"
@@ -66,9 +66,11 @@ export const evaluateExample = <I extends Schema.Struct.Fields, O extends Schema
         )))
       const scores = Record.fromEntries(entries)
       const values = Arr.map(entries, ([, score]) => score)
-      const score = Arr.length(values) === 1
-        ? Option.getOrThrow(Arr.head(values))
-        : new Score({ value: averageNumbers(Arr.map(values, (score) => score.value)), feedback: Option.none() })
+      const score = Boolean.match(Arr.length(values) === 1, {
+        onFalse: () =>
+          new Score({ value: averageNumbers(Arr.map(values, (score) => score.value)), feedback: Option.none() }),
+        onTrue: () => Option.getOrThrow(Arr.head(values))
+      })
       yield* options.emit(events.ExampleCompleted({ index: options.index, score: score.value }))
       return { prediction, scores, score }
     }).pipe(

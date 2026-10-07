@@ -53,18 +53,24 @@ export const fixture = Effect.fnUntraced(function*(id: string, expectedEvidence:
     Arr.findFirst(index.fixtures, (e) => Equal.equals(e.id, id)),
     () => new FixtureError({ id, reason: "missing" })
   )
-  if (Bool.not(Equal.equals(entry.evidence, expectedEvidence))) {
-    return yield* new FixtureError({ id, reason: "evidence" })
-  }
+  yield* Bool.match(Equal.equals(entry.evidence, expectedEvidence), {
+    onFalse: () => Effect.fail(new FixtureError({ id, reason: "evidence" })),
+    onTrue: () => Effect.void
+  })
   const fs = yield* FileSystem.FileSystem
   const path = yield* Path.Path
   const raw = yield* fs.readFileString(path.join(yield* root, entry.file))
   const digest = Hex.encode(yield* Digest.hashString("sha256", raw))
-  if (Bool.not(Equal.equals(digest, entry.sha256))) return yield* new FixtureError({ id, reason: "hash" })
+  yield* Bool.match(Equal.equals(digest, entry.sha256), {
+    onFalse: () => Effect.fail(new FixtureError({ id, reason: "hash" })),
+    onTrue: () => Effect.void
+  })
   const doc = yield* Schema.decodeEffect(Schema.fromJsonString(Schema.Struct({
     fixture: Schema.String,
     payload: Schema.Unknown
   })))(raw)
-  if (Bool.not(Equal.equals(doc.fixture, id))) return yield* new FixtureError({ id, reason: "identity" })
-  return doc
+  return yield* Bool.match(Equal.equals(doc.fixture, id), {
+    onFalse: () => Effect.fail(new FixtureError({ id, reason: "identity" })),
+    onTrue: () => Effect.succeed(doc)
+  })
 }, Effect.provide(BunServices.layer))

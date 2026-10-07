@@ -11,8 +11,9 @@ import { ModuleParameters } from "@scenesystems/effect-dsp/ModuleParameters"
 import * as Signature from "@scenesystems/effect-dsp/Signature"
 import * as OptimizationStorage from "@scenesystems/effect-search/OptimizationStorage"
 import { Failure as ArtifactStorageError } from "@scenesystems/effect-study/PersistenceError"
-import { Array as Arr, Effect, Equal, Layer, Number as Num, Option, Ref, Result, Schema } from "effect"
+import { Array as Arr, Boolean as Bool, Effect, Equal, Layer, Number as Num, Option, Ref, Result, Schema } from "effect"
 import * as LanguageModel from "effect/ai/LanguageModel"
+import { constVoid } from "effect/Function"
 
 const makeQaSignature = () =>
   Signature.make(
@@ -44,9 +45,10 @@ const makeStructuredQaModule = Effect.gen(function*() {
 
 const makeQaMock = MockLanguageModel.make(
   MockLanguageModel.map((prompt) =>
-    prompt.includes("Return only ")
-      ? "Use concise and factual answers"
-      : { answer: "Paris" }
+    Bool.match(prompt.includes("Return only "), {
+      onFalse: () => ({ answer: "Paris" }),
+      onTrue: () => "Use concise and factual answers"
+    })
   )
 )
 
@@ -139,9 +141,10 @@ describe("MIPROv2 orchestration", () => {
         expect(tags).toContain("Phase3Started")
         expect(calls).toBe(1)
         expect(Result.isFailure(outcome)).toBe(true)
-        if (Result.isFailure(outcome)) {
-          expect(Equal.equals(outcome.failure, storageError)).toBe(true)
-        }
+        Result.match(outcome, {
+          onFailure: (failure) => expect(Equal.equals(failure, storageError)).toBe(true),
+          onSuccess: constVoid
+        })
       })
   )
 })

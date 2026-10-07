@@ -46,7 +46,12 @@ const rejected = (parameter: string, constraint: string) => {
     LanguageModel.LanguageModel,
     LanguageModel.make({
       generateText: (options) =>
-        Effect.fail(error(options.responseFormat.type === "json" ? "generateObject" : "generateText")),
+        Effect.fail(error(
+          Match.value(options.responseFormat.type).pipe(
+            Match.when("json", () => "generateObject"),
+            Match.orElse(() => "generateText")
+          )
+        )),
       streamText: () => Stream.fail(error("streamText"))
     })
   )

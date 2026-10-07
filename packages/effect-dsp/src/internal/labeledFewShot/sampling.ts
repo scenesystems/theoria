@@ -7,7 +7,7 @@
 import * as Numeric from "@scenesystems/effect-math/Numeric"
 import type * as PseudoRandom from "@scenesystems/effect-math/PseudoRandom"
 import { nextDeterministicSeed, normalizeDeterministicSeed } from "@scenesystems/effect-search/Sampler"
-import { Array as Arr, Chunk, Effect, Match, Number as Num, Option, Order, Schema } from "effect"
+import { Array as Arr, Boolean, Chunk, Effect, Match, Number as Num, Option, Order, Schema } from "effect"
 import { Demonstration as Demo } from "../../Demonstration.js"
 import { Example, id } from "../../Example.js"
 
@@ -43,9 +43,10 @@ export type LabeledDemos = typeof LabeledDemos.Type
 export const sampleLabeled = (trainset: LabeledExamples, k: number, sampling: PseudoRandom.CPython, sample = true) =>
   Effect.gen(function*() {
     const labeled = Arr.filter(trainset, (example) => Option.isSome(example.labels))
-    const selected = sample
-      ? yield* sampling.sample(Chunk.fromIterable(labeled), Numeric.min(k, labeled.length))
-      : Arr.take(labeled, k)
+    const selected = yield* Boolean.match(sample, {
+      onFalse: () => Effect.succeed(Arr.take(labeled, k)),
+      onTrue: () => sampling.sample(Chunk.fromIterable(labeled), Numeric.min(k, labeled.length))
+    })
     return yield* Effect.forEach(selected, (example) =>
       id(example).pipe(Effect.map((exampleId) =>
         new Demo({

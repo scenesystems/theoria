@@ -112,25 +112,27 @@ const recordReportWithSpi = (
     const reports = yield* Ref.get(reportRefs.reportsRef)
     yield* validateStep(trialNumber, step)
     yield* validateValue(trialNumber, step, value)
-    if (Arr.some(reports, (report) => Num.Equivalence(report.step, step))) {
-      return Option.getOrElse(yield* Ref.get(reportRefs.pruneRef), continueEvaluation)
-    }
+    return yield* Bool.match(Arr.some(reports, (report) => Num.Equivalence(report.step, step)), {
+      onFalse: () =>
+        Effect.gen(function*() {
+          const report = new Report({ step, value })
+          const nextReports = appendReport(reports, report)
+          yield* Ref.set(reportRefs.reportsRef, nextReports)
+          const decision = policy.decide(
+            new PruningContext({
+              trialNumber,
+              reports: nextReports,
+              latestReport: report
+            })
+          )
 
-    const report = new Report({ step, value })
-    const nextReports = appendReport(reports, report)
-    yield* Ref.set(reportRefs.reportsRef, nextReports)
-    const decision = policy.decide(
-      new PruningContext({
-        trialNumber,
-        reports: nextReports,
-        latestReport: report
-      })
-    )
+          yield* appendEvent(runtime, OptimizationEvent.TrialReported({ trialNumber, step, value, decision }))
+          yield* setPruned(reportRefs.pruneRef, decision)
 
-    yield* appendEvent(runtime, OptimizationEvent.TrialReported({ trialNumber, step, value, decision }))
-    yield* setPruned(reportRefs.pruneRef, decision)
-
-    return decision
+          return decision
+        }),
+      onTrue: () => Ref.get(reportRefs.pruneRef).pipe(Effect.map(Option.getOrElse(continueEvaluation)))
+    })
   })
 
 /**

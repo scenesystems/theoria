@@ -1,7 +1,18 @@
 import { expect, it } from "@effect/vitest"
 import * as ModelBinder from "@scenesystems/effect-lm/ModelBinder"
 import { ModelSettings } from "@scenesystems/effect-lm/ModelSettings"
-import { Array as Arr, Effect, Number as Num, Option, Record, Ref, Schema, String as Str, Struct } from "effect"
+import {
+  Array as Arr,
+  Boolean,
+  Effect,
+  Number as Num,
+  Option,
+  Record,
+  Ref,
+  Schema,
+  String as Str,
+  Struct
+} from "effect"
 import * as LanguageModel from "effect/ai/LanguageModel"
 import { Example, Id } from "../../src/Example.js"
 import * as GEPA from "../../src/GEPA.js"
@@ -55,28 +66,39 @@ const prepare = (reference: typeof Reference.Type, perfect: boolean) =>
     })
     const proposals = yield* Ref.make(0)
     const mock = yield* MockLanguageModel.make(MockLanguageModel.fromFunction((prompt) =>
-      Str.includes("Provide the new instructions")(prompt)
-        ? Ref.updateAndGet(proposals, Num.increment).pipe(Effect.map((level) => `\`\`\`quality=${level}\`\`\``))
-        : Effect.succeed(
-          `[[ ## answer ## ]]\n${
-            Option.getOrThrow(
-              Str.match(/Instructions: quality=(\d+)/)(prompt).pipe(Option.flatMap((match) => Arr.get(match, 1)))
-            )
-          }\n[[ ## completed ## ]]`
-        )
+      Boolean.match(Str.includes("Provide the new instructions")(prompt), {
+        onTrue: () =>
+          Ref.updateAndGet(proposals, Num.increment).pipe(Effect.map((level) => `\`\`\`quality=${level}\`\`\``)),
+        onFalse: () =>
+          Effect.succeed(
+            `[[ ## answer ## ]]\n${
+              Option.getOrThrow(
+                Str.match(/Instructions: quality=(\d+)/)(prompt).pipe(Option.flatMap((match) => Arr.get(match, 1)))
+              )
+            }\n[[ ## completed ## ]]`
+          )
+      })
     ))
     const calls = yield* Ref.make(Arr.empty<typeof Call.Type>())
     const metric = Metric.withFeedback((example, prediction, context) =>
       Effect.gen(function*() {
         const output = yield* Schema.decodeUnknownEffect(Schema.Struct({ answer: Schema.String }))(prediction.output)
         const level = yield* Schema.decodeEffect(Schema.FiniteFromString)(output.answer)
-        const score = perfect ? 1 : Option.getOrThrow(Arr.get([0.2, 0.4, 0.6, 0.8], level))
+        const score = Boolean.match(perfect, {
+          onFalse: () =>
+            Option.getOrThrow(Arr.get([0.2, 0.4, 0.6, 0.8], level)),
+          onTrue: () => 1
+        })
         const id = Option.getOrThrow(example.id)
-        if (Option.isSome(context.target)) {
-          expect(context.phase).toBe("reflect")
-          expect(Arr.some(Arr.fromIterable(Option.getOrThrow(context.trace).selected), (entry) =>
-            entry.execution === Option.getOrThrow(context.target).execution)).toBe(true)
-        }
+        yield* Option.match(context.target, {
+          onNone: () => Effect.void,
+          onSome: () =>
+            Effect.sync(() => {
+              expect(context.phase).toBe("reflect")
+              expect(Arr.some(Arr.fromIterable(Option.getOrThrow(context.trace).selected), (entry) =>
+                entry.execution === Option.getOrThrow(context.target).execution)).toBe(true)
+            })
+        })
         yield* Ref.update(
           calls,
           Arr.append({
@@ -126,7 +148,7 @@ Arr.forEach(["gepa-001", "gepa-budget-001"], (id) => {
         reference.state.signature.instructions
       )
       const critic = Arr.filter(yield* Ref.get(mock.calls), (call) => call.role === "critic")
-      expect(critic).toHaveLength(id === "gepa-budget-001" ? 0 : 3)
+      expect(critic).toHaveLength(Boolean.match(id === "gepa-budget-001", { onFalse: () => 3, onTrue: () => 0 }))
       Arr.forEach(critic, (call) => {
         expect(call.prompt).not.toContain("val-")
         expect(call.prompt).toContain("feedback:train-")

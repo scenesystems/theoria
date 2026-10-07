@@ -7,7 +7,7 @@
  */
 import * as Numeric from "@scenesystems/effect-math/Numeric"
 import * as PseudoRandom from "@scenesystems/effect-math/PseudoRandom"
-import { Array as Arr, Data, Effect, Option, Record, Schema, Tuple } from "effect"
+import { Array as Arr, Boolean, Data, Effect, Option, Record, Schema, Tuple } from "effect"
 import { type LabeledExamples, sampleLabeled } from "./internal/labeledFewShot/sampling.js"
 import { bound, type Module } from "./Module.js"
 import { predictors } from "./ModuleGraph.js"
@@ -80,16 +80,27 @@ export const run = <
   R = never
 >(options: Options<I, O, E, R>) =>
   Effect.gen(function*() {
-    const requestedSeed = options.seed ?? 0
-    const seed = Numeric.isFinite(requestedSeed) ? Math.trunc(requestedSeed) : 0
+    const requestedSeed = Option.getOrElse(Option.fromUndefinedOr(options.seed), () => 0)
+    const seed = Boolean.match(Numeric.isFinite(requestedSeed), {
+      onFalse: () => 0,
+      onTrue: () => Math.trunc(requestedSeed)
+    })
     const sampling = yield* PseudoRandom.makeCPython(seed)
-    const requested = options.k ?? 16
-    const k = Numeric.isFinite(requested) ? Numeric.max(0, Numeric.floor(requested)) : 0
+    const requested = Option.getOrElse(Option.fromUndefinedOr(options.k), () => 16)
+    const k = Boolean.match(Numeric.isFinite(requested), {
+      onFalse: () => 0,
+      onTrue: () => Numeric.max(0, Numeric.floor(requested))
+    })
     const before = yield* ParameterSet.snapshot(options.module)
     const refs = Arr.filter(Arr.fromIterable(predictors(options.module)), (entry) => !entry.frozen)
     const replacements = yield* Effect.forEach(refs, (entry) =>
       Effect.gen(function*() {
-        const selected = yield* sampleLabeled(options.trainset, k, sampling, options.sample ?? true)
+        const selected = yield* sampleLabeled(
+          options.trainset,
+          k,
+          sampling,
+          Option.getOrElse(Option.fromUndefinedOr(options.sample), () => true)
+        )
         const validated = yield* Effect.forEach(selected, entry.demonstrationCodec.labeled)
         return Tuple.make(
           entry.path,

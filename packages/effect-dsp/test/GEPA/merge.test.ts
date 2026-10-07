@@ -66,21 +66,29 @@ it.effect("common-ancestor eligibility, tied conflicts and balanced samples foll
             )),
           entry.name
         ).toEqual(entry.merged)
-        if (Option.isSome(proposal)) {
-          const batch = yield* selectMergeSubsample(left, right, rng)
-          expect(batch, entry.name).toEqual(entry.subsample)
-        }
+        yield* Option.match(proposal, {
+          onNone: () => Effect.void,
+          onSome: () =>
+            Effect.gen(function*() {
+              const batch = yield* selectMergeSubsample(left, right, rng)
+              expect(batch, entry.name).toEqual(entry.subsample)
+            })
+        })
         expect(yield* rng.random(), entry.name).toBe(entry.nextRandom)
-        if (Option.isSome(proposal)) {
-          const { parents: [i, j], ancestor, description } = proposal.value
-          expect(yield* prepareMerge(candidates, entry.scores, [1, 2], [[i, j, ancestor]], [], true, rng)).toEqual(
-            Option.none()
-          )
-          if (entry.name === "complementary") {
-            expect(yield* prepareMerge(candidates, entry.scores, [1, 2], [], [[i, j, description]], true, rng)).toEqual(
-              Option.none()
-            )
-          }
-        }
+        yield* Option.match(proposal, {
+          onNone: () => Effect.void,
+          onSome: ({ parents: [i, j], ancestor, description }) =>
+            Effect.gen(function*() {
+              expect(yield* prepareMerge(candidates, entry.scores, [1, 2], [[i, j, ancestor]], [], true, rng)).toEqual(
+                Option.none()
+              )
+              yield* Effect.gen(function*() {
+                expect(yield* prepareMerge(candidates, entry.scores, [1, 2], [], [[i, j, description]], true, rng))
+                  .toEqual(
+                    Option.none()
+                  )
+              }).pipe(Effect.when(Effect.succeed(entry.name === "complementary")))
+            })
+        })
       }))
   }))

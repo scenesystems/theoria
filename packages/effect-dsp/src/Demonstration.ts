@@ -4,7 +4,7 @@
  * @since 0.4.0
  * @module
  */
-import { Array as Arr, Data, Effect, Option, Record, Schema, Tuple } from "effect"
+import { Array as Arr, Boolean, Data, Effect, Option, Record, Schema, Tuple } from "effect"
 import { Id } from "./Example.js"
 import { encodedFieldSchema, encodedFieldsToInfoArray } from "./internal/signature/fields.js"
 import { decode, encode, Payload } from "./Payload.js"
@@ -122,7 +122,10 @@ export const codec = <I, O, IDR, IER, ODR, OER>(
         Effect.flatMap((validated) =>
           Effect.zip(
             encode(input, validated.input),
-            encode(validated.incomplete ? partialOutput : output, validated.output)
+            encode(
+              Boolean.match(validated.incomplete, { onFalse: () => output, onTrue: () => partialOutput }),
+              validated.output
+            )
           )
         )
       ),

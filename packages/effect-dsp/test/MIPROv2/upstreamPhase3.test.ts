@@ -1,7 +1,21 @@
 import { expect, it } from "@effect/vitest"
 import * as ModelBinder from "@scenesystems/effect-lm/ModelBinder"
-import { Array as Arr, Effect, Number as Num, Option, Order, Record, Ref, Result, Schema, String as Str } from "effect"
+import {
+  Array as Arr,
+  Boolean as Bool,
+  Effect,
+  Match,
+  Number as Num,
+  Option,
+  Order,
+  Record,
+  Ref,
+  Result,
+  Schema,
+  String as Str
+} from "effect"
 import * as LanguageModel from "effect/ai/LanguageModel"
+import { constVoid } from "effect/Function"
 import { MIPROv2Error } from "../../src/DspError.js"
 import { Example, Id } from "../../src/Example.js"
 import * as Metric from "../../src/Metric.js"
@@ -71,23 +85,31 @@ const compile = (reference: typeof Reference.Type, specialist: boolean) =>
     })
     const proposal = yield* Ref.make(0)
     const mock = yield* MockLanguageModel.make(MockLanguageModel.fromFunction((prompt) =>
-      Str.includes("Return only proposed_instruction.")(prompt)
-        ? Ref.getAndUpdate(proposal, Num.increment).pipe(Effect.map((index) => `candidate-${index}`))
-        : Effect.succeed("[[ ## answer ## ]]\nteacher\n[[ ## completed ## ]]")
+      Bool.match(Str.includes("Return only proposed_instruction.")(prompt), {
+        onFalse: () => Effect.succeed("[[ ## answer ## ]]\nteacher\n[[ ## completed ## ]]"),
+        onTrue: () => Ref.getAndUpdate(proposal, Num.increment).pipe(Effect.map((index) => `candidate-${index}`))
+      })
     ))
     const observed = yield* Ref.make(Arr.empty<typeof Observed.Type>())
     const ids = yield* Ref.make(Arr.empty<string>())
     const metric = Metric.withFeedback((example, _prediction, context) =>
-      Effect.gen(function*() {
-        if (context.phase !== "evaluate") {
-          return new Metric.Score({ value: 0.8, feedback: Option.none() })
-        }
-        yield* Ref.update(ids, Arr.append(Option.getOrThrow(example.id)))
-        const prompt = Option.getOrThrow(Arr.last(yield* Ref.get(mock.calls))).prompt
-        const score = specialist && Str.includes("candidate-")(prompt)
-          ? (Arr.contains(["val-0", "val-1", "val-2"], Option.getOrThrow(example.id)) ? 1 : 0)
-          : 0.8
-        return new Metric.Score({ value: score, feedback: Option.none() })
+      Bool.match(context.phase !== "evaluate", {
+        onFalse: () =>
+          Effect.gen(function*() {
+            yield* Ref.update(ids, Arr.append(Option.getOrThrow(example.id)))
+            const prompt = Option.getOrThrow(Arr.last(yield* Ref.get(mock.calls))).prompt
+            const score = Bool.match(specialist && Str.includes("candidate-")(prompt), {
+              onFalse: () =>
+                0.8,
+              onTrue: () =>
+                Bool.match(Arr.contains(["val-0", "val-1", "val-2"], Option.getOrThrow(example.id)), {
+                  onFalse: () => 0,
+                  onTrue: () => 1
+                })
+            })
+            return new Metric.Score({ value: score, feedback: Option.none() })
+          }),
+        onTrue: () => Effect.sync(() => new Metric.Score({ value: 0.8, feedback: Option.none() }))
       })
     )
     const outcome = yield* assertNoMutation(
@@ -98,8 +120,8 @@ const compile = (reference: typeof Reference.Type, specialist: boolean) =>
           trainset: examples(reference.splits.train),
           valset: examples(reference.splits.val),
           metric,
-          auto: reference.auto ?? Option.none(),
-          ...Option.match(reference.auto ?? Option.none(), {
+          auto: Option.getOrElse(Option.fromUndefinedOr(reference.auto), () => Option.none()),
+          ...Option.match(Option.getOrElse(Option.fromUndefinedOr(reference.auto), () => Option.none()), {
             onNone: () => ({ numCandidates: 3, numTrials: reference.numTrials }),
             onSome: () => ({})
           }),
@@ -115,29 +137,29 @@ const compile = (reference: typeof Reference.Type, specialist: boolean) =>
           fewshotAwareProposer: false
         }),
         (event) =>
-          Effect.gen(function*() {
-            if (event._tag !== "TrialEvaluated") {
-              return
-            }
-            const calls = yield* Ref.get(mock.calls)
-            const prompt = Option.getOrThrow(Arr.last(calls)).prompt
-            yield* Ref.update(
-              observed,
-              Arr.append({
-                ...event,
-                ids: yield* Ref.getAndSet(ids, []),
-                instruction: Option.getOrElse(
-                  Str.match(/candidate-\d+/)(prompt).pipe(Option.flatMap(Arr.head)),
-                  () =>
-                    "baseline"
-                ),
-                demoIds: Arr.map(
-                  Arr.fromIterable(Str.matchAll(/train-\d+/g)(prompt)),
-                  (match) => Option.getOrThrow(Arr.head(match))
+          Match.value(event).pipe(
+            Match.tag("TrialEvaluated", (event) =>
+              Effect.gen(function*() {
+                const calls = yield* Ref.get(mock.calls)
+                const prompt = Option.getOrThrow(Arr.last(calls)).prompt
+                yield* Ref.update(
+                  observed,
+                  Arr.append({
+                    ...event,
+                    ids: yield* Ref.getAndSet(ids, []),
+                    instruction: Option.getOrElse(
+                      Str.match(/candidate-\d+/)(prompt).pipe(Option.flatMap(Arr.head)),
+                      () => "baseline"
+                    ),
+                    demoIds: Arr.map(
+                      Arr.fromIterable(Str.matchAll(/train-\d+/g)(prompt)),
+                      (match) => Option.getOrThrow(Arr.head(match))
+                    )
+                  })
                 )
-              })
-            )
-          })
+              })),
+            Match.orElse(() => Effect.void)
+          )
       )
     ).pipe(
       Effect.provideService(LanguageModel.LanguageModel, mock.service),
@@ -154,38 +176,47 @@ const mean = (rows: ReadonlyArray<typeof Observed.Type>) =>
 const assertPolicy = (reference: typeof Reference.Type, rows: ReadonlyArray<typeof Observed.Type>) => {
   expect(rows).toHaveLength(reference.trialTable.length)
   expect(Arr.filter(rows, (row) => row.sampled)).toHaveLength(reference.numTrials)
-  const expectedCheckpoints = reference.minibatch
-    ? Arr.map(
-      Arr.filter(
-        Arr.range(1, reference.numTrials),
-        (n) => Num.remainder(n, reference.minibatchFullEvalSteps) === 0 || n === reference.numTrials
-      ),
-      (n, index) => n + index + 1
-    )
-    : []
+  const expectedCheckpoints = Bool.match(reference.minibatch, {
+    onFalse: () => Arr.empty<number>(),
+    onTrue: () =>
+      Arr.map(
+        Arr.filter(
+          Arr.range(1, reference.numTrials),
+          (n) => Num.remainder(n, reference.minibatchFullEvalSteps) === 0 || n === reference.numTrials
+        ),
+        (n, index) => n + index + 1
+      )
+  })
   expect(Arr.map(Arr.filter(rows, (row) => !row.sampled && row.trial > 0), (row) => row.trial)).toEqual(
     expectedCheckpoints
   )
   Arr.forEach(rows, (row) => {
     expect(row.fullValidation).toBe(!row.sampled || !reference.minibatch)
-    if (row.sampled || row.trial === 0) return
-    const history = Arr.filter(rows, (previous) => previous.trial < row.trial)
-    const minibatches = Arr.filter(history, (previous) => previous.sampled && !previous.fullValidation)
-    const candidates = Arr.dedupeWith(Arr.map(minibatches, (previous) => previous.config), sameConfig)
-    const remaining = Arr.filter(
-      candidates,
-      (config) =>
-        !Arr.some(history, (previous) => previous.trial > 0 && !previous.sampled && sameConfig(config, previous.config))
-    )
-    const ranked = Arr.sort(
-      remaining,
-      Order.mapInput(
-        Num.Order,
-        (config: TrialEvaluation["config"]) =>
-          -mean(Arr.filter(minibatches, (previous) => sameConfig(config, previous.config)))
-      )
-    )
-    expect(row.config, `checkpoint ${row.trial}`).toEqual(Option.getOrThrow(Arr.head(ranked)))
+    Bool.match(row.sampled || row.trial === 0, {
+      onFalse: () => {
+        const history = Arr.filter(rows, (previous) => previous.trial < row.trial)
+        const minibatches = Arr.filter(history, (previous) => previous.sampled && !previous.fullValidation)
+        const candidates = Arr.dedupeWith(Arr.map(minibatches, (previous) => previous.config), sameConfig)
+        const remaining = Arr.filter(
+          candidates,
+          (config) =>
+            !Arr.some(
+              history,
+              (previous) => previous.trial > 0 && !previous.sampled && sameConfig(config, previous.config)
+            )
+        )
+        const ranked = Arr.sort(
+          remaining,
+          Order.mapInput(
+            Num.Order,
+            (config: TrialEvaluation["config"]) =>
+              -mean(Arr.filter(minibatches, (previous) => sameConfig(config, previous.config)))
+          )
+        )
+        expect(row.config, `checkpoint ${row.trial}`).toEqual(Option.getOrThrow(Arr.head(ranked)))
+      },
+      onTrue: constVoid
+    })
   })
 }
 
@@ -222,7 +253,12 @@ Arr.forEach([
       const full = Arr.filter(observed, (row) =>
         row.fullValidation)
       const best = Arr.reduce(Arr.drop(full, 1), Option.getOrThrow(Arr.head(full)), (best, row) =>
-        row.score > best.score ? row : best)
+        Bool.match(row.score > best.score, {
+          onFalse: () =>
+            best,
+          onTrue: () =>
+            row
+        }))
       expect(result.report.phase3BestScore).toBe(best.score)
       expect(result.report.phase3ConfiguredTrials).toBe(reference.numTrials)
       expect(result.report.phase3CompletedTrials).toBe(observed.length)
@@ -231,14 +267,14 @@ Arr.forEach([
       expect(selected.instructions).toBe(best.instruction)
       expect(Arr.map(selected.demos, (demo) =>
         demo.input.question)).toEqual(best.demoIds)
-      if (reference.strictThroughTrial === reference.trialTable.length - 1) {
+      yield* Effect.sync(() => {
         const state = Option.getOrThrow(Option.fromUndefinedOr(reference.state))
         expect(selected.instructions).toBe(state.signature.instructions)
         expect(Arr.map(selected.demos, (demo) =>
           demo.input.question)).toEqual(Arr.map(state.demos, (demo) =>
             demo.question))
         expect(result.report.phase3BestScore).toBe(reference.bestFullValidationScore)
-      }
+      }).pipe(Effect.when(Effect.succeed(reference.strictThroughTrial === reference.trialTable.length - 1)))
       const encoded = yield* Schema.encodeEffect(Schema.fromJsonString(MIPROv2.Report))(result.report)
       expect(yield* Schema.decodeEffect(Schema.fromJsonString(MIPROv2.Report))(encoded)).toEqual(result.report)
     }), { timeout: 30000 })

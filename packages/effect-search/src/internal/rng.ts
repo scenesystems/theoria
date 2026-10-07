@@ -1,6 +1,6 @@
 import * as Numeric from "@scenesystems/effect-math/Numeric"
 import * as PseudoRandom from "@scenesystems/effect-math/PseudoRandom"
-import { Effect, Number as Num, Option, Random, Schema, SynchronizedRef, Tuple } from "effect"
+import { Effect, Match, Number as Num, Option, Random, Schema, SynchronizedRef, Tuple } from "effect"
 import { InvalidOptimizationConfig, InvalidSamplerConfig } from "../SearchError.js"
 
 export class RngState extends Schema.Class<RngState>("@scenesystems/effect-search/internal/rng/RngState")({
@@ -44,25 +44,36 @@ export class NumPyStream {
 
 export const make = (seed: string | number): Effect.Effect<Rng> => Random.Random.pipe(Random.withSeed(seed))
 
-export const nextFloat = (rng: Rng, low = 0, high = 1) =>
-  rng instanceof PseudoRandom.NumPyLegacy
-    ? rng.randomSample().pipe(Effect.map((value) => Num.sum(low, Num.multiply(Num.subtract(high, low), value))))
-    : Random.nextBetween(low, high).pipe(Effect.provideService(Random.Random, rng))
+export const isNumPyLegacy = Schema.is(Schema.instanceOf(PseudoRandom.NumPyLegacy))
 
-export const nextInt = (rng: Rng, low: number, high: number) =>
-  rng instanceof PseudoRandom.NumPyLegacy
-    ? nextFloat(rng, low, Num.increment(high)).pipe(Effect.map(Numeric.floor))
-    : Random.nextIntBetween(low, high).pipe(
-      Effect.provideService(Random.Random, rng),
-      Effect.map((value) =>
-        Num.clamp(value, {
-          minimum: low,
-          maximum: high
-        })
+export const nextFloat = (rng: Rng, low = 0, high = 1): Effect.Effect<number> =>
+  Match.value(rng).pipe(
+    Match.when(
+      isNumPyLegacy,
+      (legacy) =>
+        legacy.randomSample().pipe(Effect.map((value) => Num.sum(low, Num.multiply(Num.subtract(high, low), value))))
+    ),
+    Match.orElse((random) => Random.nextBetween(low, high).pipe(Effect.provideService(Random.Random, random)))
+  )
+
+export const nextInt = (rng: Rng, low: number, high: number): Effect.Effect<number> =>
+  Match.value(rng).pipe(
+    Match.when(isNumPyLegacy, (legacy) => nextFloat(legacy, low, Num.increment(high)).pipe(Effect.map(Numeric.floor))),
+    Match.orElse((random) =>
+      Random.nextIntBetween(low, high).pipe(
+        Effect.provideService(Random.Random, random),
+        Effect.map((value) =>
+          Num.clamp(value, {
+            minimum: low,
+            maximum: high
+          })
+        )
       )
     )
+  )
 
-export const nextBoolean = (rng: Rng) =>
-  rng instanceof PseudoRandom.NumPyLegacy
-    ? nextFloat(rng).pipe(Effect.map(Num.isGreaterThanOrEqualTo(0.5)))
-    : Random.nextBoolean.pipe(Effect.provideService(Random.Random, rng))
+export const nextBoolean = (rng: Rng): Effect.Effect<boolean> =>
+  Match.value(rng).pipe(
+    Match.when(isNumPyLegacy, (legacy) => nextFloat(legacy).pipe(Effect.map(Num.isGreaterThanOrEqualTo(0.5)))),
+    Match.orElse((random) => Random.nextBoolean.pipe(Effect.provideService(Random.Random, random)))
+  )

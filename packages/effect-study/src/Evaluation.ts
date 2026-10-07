@@ -6,6 +6,7 @@
  */
 import {
   Array as Arr,
+  Boolean as Bool,
   Cause,
   Chunk,
   Duration,
@@ -452,25 +453,35 @@ export const runCollecting = <Config, Value, E, R>(
     const trials = yield* Effect.forEach(inputs, (config, trialNumber) =>
       Effect.gen(function*() {
         const count = yield* Ref.get(failures)
-        if (Option.exists(options.maxFailures, (limit) => count > limit)) return Option.none()
-        const [duration, result] = yield* Effect.suspend(() => evaluate(config, trialNumber)).pipe(
-          Effect.result,
-          Effect.timed
-        )
-        if (Result.isFailure(result)) yield* Ref.update(failures, Num.increment)
-        const state = Result.match(result, {
-          onFailure: (error): Trial.Failed<E> => ({ _tag: "Failed", error, duration: Duration.toMillis(duration) }),
-          onSuccess: (value): Trial.Completed<Value> => ({
-            _tag: "Completed",
-            value,
-            duration: Duration.toMillis(duration)
-          })
+        return yield* Bool.match(Option.exists(options.maxFailures, (limit) => count > limit), {
+          onTrue: () => Effect.succeedNone,
+          onFalse: () =>
+            Effect.gen(function*() {
+              const [duration, result] = yield* Effect.suspend(() => evaluate(config, trialNumber)).pipe(
+                Effect.result,
+                Effect.timed
+              )
+              yield* Ref.update(failures, Num.increment).pipe(Effect.when(Effect.succeed(Result.isFailure(result))))
+              const state = Result.match(result, {
+                onFailure: (error): Trial.Failed<E> => ({
+                  _tag: "Failed",
+                  error,
+                  duration: Duration.toMillis(duration)
+                }),
+                onSuccess: (value): Trial.Completed<Value> => ({
+                  _tag: "Completed",
+                  value,
+                  duration: Duration.toMillis(duration)
+                })
+              })
+              return Option.some({ trialNumber, config, state })
+            })
         })
-        return Option.some({ trialNumber, config, state })
       }), { concurrency: Option.getOrElse(Option.fromUndefinedOr(options.concurrency), () => 1) })
     const count = yield* Ref.get(failures)
-    if (Option.isSome(options.maxFailures) && count > options.maxFailures.value) {
-      return yield* new TooManyFailures({ count, limit: options.maxFailures.value })
-    }
+    yield* Option.match(Option.filter(options.maxFailures, (limit) => count > limit), {
+      onNone: () => Effect.void,
+      onSome: (limit) => Effect.fail(new TooManyFailures({ count, limit }))
+    })
     return Chunk.fromIterable(Arr.filterMap(trials, (trial) => Result.fromOption(trial, () => void 0)))
   })

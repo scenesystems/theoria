@@ -117,36 +117,34 @@ const preparePredictor = (
 ) =>
   Effect.gen(function*() {
     const parameters = yield* Binding.read(ref.parameters, ref.name)
-    if (!hasDemos) {
-      return new PreparedPredictor({
-        ref,
-        predictorIndex,
-        instruction: parameters.instructions,
-        renderedDemoCandidates: []
-      })
-    }
-    const demoSet = yield* Effect.fromOption(HashMap.get(candidateSets, ref.name), () =>
-      new InstructionProposalFailed({
-        message: Str.concat(Str.concat("Missing demo candidates for predictor '", ref.name), "'"),
-        predictorIndex
-      }))
-    yield* Effect.asVoid(Effect.fromOption(Arr.head(demoSet.candidates), () =>
-      new InstructionProposalFailed({
-        message: Str.concat(Str.concat("Demo candidate set for predictor '", ref.name), "' is empty"),
-        predictorIndex
-      })))
-    const renderedDemoCandidates = yield* Effect.forEach(
-      demoSet.candidates,
-      (candidate) =>
+    const renderedDemoCandidates = yield* Bool.match(hasDemos, {
+      onFalse: () => Effect.succeed(Arr.empty<typeof RenderedDemos.Type>()),
+      onTrue: () =>
         Effect.gen(function*() {
-          // Validate every supplied demo before model calls, including labels not used for grounding.
-          const documents = yield* Effect.forEach(candidate.parameters.demos, ref.demonstrationCodec.encode)
-          return Arr.filter(
-            documents,
-            (_document, index) => Option.getOrThrow(Arr.get(candidate.parameters.demos, index)).augmented
+          const demoSet = yield* Effect.fromOption(HashMap.get(candidateSets, ref.name), () =>
+            new InstructionProposalFailed({
+              message: Str.concat(Str.concat("Missing demo candidates for predictor '", ref.name), "'"),
+              predictorIndex
+            }))
+          yield* Effect.asVoid(Effect.fromOption(Arr.head(demoSet.candidates), () =>
+            new InstructionProposalFailed({
+              message: Str.concat(Str.concat("Demo candidate set for predictor '", ref.name), "' is empty"),
+              predictorIndex
+            })))
+          return yield* Effect.forEach(
+            demoSet.candidates,
+            (candidate) =>
+              Effect.gen(function*() {
+                // Validate every supplied demo before model calls, including labels not used for grounding.
+                const documents = yield* Effect.forEach(candidate.parameters.demos, ref.demonstrationCodec.encode)
+                return Arr.filter(
+                  documents,
+                  (_document, index) => Option.getOrThrow(Arr.get(candidate.parameters.demos, index)).augmented
+                )
+              })
           )
         })
-    )
+    })
     return new PreparedPredictor({
       ref,
       predictorIndex,
@@ -189,7 +187,7 @@ export const proposeInstructionCandidates = <
 ) =>
   Effect.gen(function*() {
     const refs = Arr.filter(Arr.fromIterable(predictors(options.module)), (entry) => !entry.frozen)
-    const sampling = yield* Sampling.resolve(options.seed ?? 9)
+    const sampling = yield* Sampling.resolve(Option.getOrElse(Option.fromUndefinedOr(options.seed), () => 9))
     const hasDemos = Arr.isReadonlyArrayNonEmpty(options.demoCandidates)
     const candidateSetsByName = yield* indexDemoCandidateSets(refs, options.demoCandidates)
     const prepared = yield* Effect.forEach(
@@ -198,16 +196,23 @@ export const proposeInstructionCandidates = <
       { concurrency: 1 }
     )
     const settings = Settings.merge(
-      new Settings.ModelSettings({ temperature: options.initTemperature ?? 1 }),
-      options.proposerSettings ?? Settings.empty
+      new Settings.ModelSettings({
+        temperature: Option.getOrElse(Option.fromUndefinedOr(options.initTemperature), () => 1)
+      }),
+      Option.getOrElse(Option.fromUndefinedOr(options.proposerSettings), () => Settings.empty)
     )
-    const summary = (options.dataAwareProposer ?? true)
-      ? yield* datasetSummary(
-        options.trainset,
-        options.viewDataBatchSize ?? 10,
-        Settings.merge(settings, new Settings.ModelSettings({ temperature: 1 }))
-      ).pipe(Effect.option)
-      : Option.none<string>()
+    const summary = yield* Bool.match(
+      Option.getOrElse(Option.fromUndefinedOr(options.dataAwareProposer), () => true),
+      {
+        onFalse: () => Effect.succeed(Option.none<string>()),
+        onTrue: () =>
+          datasetSummary(
+            options.trainset,
+            Option.getOrElse(Option.fromUndefinedOr(options.viewDataBatchSize), () => 10),
+            Settings.merge(settings, new Settings.ModelSettings({ temperature: 1 }))
+          ).pipe(Effect.option)
+      }
+    )
     // Predictor paths and signature text are the declarative source representation.
     const programCode = yield* Payload.encode(ProgramCode, {
       name: options.module.name,
@@ -225,54 +230,71 @@ export const proposeInstructionCandidates = <
           requested,
           (proposalIndex) =>
             Effect.gen(function*() {
-              const tip = (options.tipAwareProposer ?? true)
-                ? yield* sampling.choice(Chunk.fromIterable(Record.keys(tips)))
-                : "none"
+              const tip = yield* Bool.match(
+                Option.getOrElse(Option.fromUndefinedOr(options.tipAwareProposer), () =>
+                  true),
+                {
+                  onFalse: () => Effect.succeed<keyof typeof tips>("none"),
+                  onTrue: () => sampling.choice(Chunk.fromIterable(Record.keys(tips)))
+                }
+              )
               const rolloutId = yield* sampling.randint(0, 1_000_000_000)
-              const demos = (options.fewshotAwareProposer ?? true) && Num.isGreaterThan(proposalIndex, 0)
-                ? Arr.take(
-                  Arr.flatten(
-                    Arr.appendAll(
-                      Arr.drop(renderedDemoCandidates, proposalIndex),
-                      Arr.take(renderedDemoCandidates, proposalIndex)
+              const demos = Bool.match(
+                Option.getOrElse(Option.fromUndefinedOr(options.fewshotAwareProposer), () => true) &&
+                  Num.isGreaterThan(proposalIndex, 0),
+                {
+                  onFalse: () => Arr.empty<DemoDocuments>(),
+                  onTrue: () =>
+                    Arr.take(
+                      Arr.flatten(
+                        Arr.appendAll(
+                          Arr.drop(renderedDemoCandidates, proposalIndex),
+                          Arr.take(renderedDemoCandidates, proposalIndex)
+                        )
+                      ),
+                      3
                     )
+                }
+              )
+              const taskDemos = Bool.match(Arr.isReadonlyArrayEmpty(demos), {
+                onFalse: () =>
+                  Arr.join(
+                    Arr.map(demos, (demo) => `Input:\n${demo[0]}\nOutput:\n${demo[1]}`),
+                    "\n\n"
                   ),
-                  3
-                )
-                : []
-              const taskDemos = Arr.isReadonlyArrayEmpty(demos) ?
-                "No task demos provided."
-                : Arr.join(
-                  Arr.map(demos, (demo) =>
-                    `Input:\n${demo[0]}\nOutput:\n${demo[1]}`),
-                  "\n\n"
-                )
+                onTrue: () => "No task demos provided."
+              })
               return yield* Effect.gen(function*() {
-                const description = (options.programAwareProposer ?? true)
-                  ? yield* Effect.gen(function*() {
-                    const programDescription = stripPrefix(
-                      yield* generate(
-                        prompt({ program_code: programCode, program_example: taskDemos }, "program_description"),
-                        settings
-                      )
-                    )
-                    const moduleDescription = yield* generate(
-                      prompt({
-                        program_code: programCode,
-                        program_example: taskDemos,
-                        program_description: programDescription,
-                        module: ref.signature.instructions
-                      }, "module_description"),
-                      settings
-                    )
-                    return {
-                      program_code: programCode,
-                      program_description: programDescription,
-                      module: ref.signature.instructions,
-                      module_description: moduleDescription
-                    }
-                  }).pipe(Effect.option)
-                  : Option.none<Record.ReadonlyRecord<string, string>>()
+                const description = yield* Bool.match(
+                  Option.getOrElse(Option.fromUndefinedOr(options.programAwareProposer), () => true),
+                  {
+                    onFalse: () => Effect.succeed(Option.none<Record.ReadonlyRecord<string, string>>()),
+                    onTrue: () =>
+                      Effect.gen(function*() {
+                        const programDescription = stripPrefix(
+                          yield* generate(
+                            prompt({ program_code: programCode, program_example: taskDemos }, "program_description"),
+                            settings
+                          )
+                        )
+                        const moduleDescription = yield* generate(
+                          prompt({
+                            program_code: programCode,
+                            program_example: taskDemos,
+                            program_description: programDescription,
+                            module: ref.signature.instructions
+                          }, "module_description"),
+                          settings
+                        )
+                        return {
+                          program_code: programCode,
+                          program_description: programDescription,
+                          module: ref.signature.instructions,
+                          module_description: moduleDescription
+                        }
+                      }).pipe(Effect.option)
+                  }
+                )
                 const text = prompt({
                   ...Option.match(summary, {
                     onNone: () => ({}),
@@ -281,7 +303,10 @@ export const proposeInstructionCandidates = <
                   ...Option.getOrElse(description, () => ({})),
                   task_demos: taskDemos,
                   basic_instruction: instruction,
-                  ...(Str.isEmpty(tips[tip]) ? {} : { tip: tips[tip] })
+                  ...Bool.match(Str.isEmpty(tips[tip]), {
+                    onFalse: () => ({ tip: tips[tip] }),
+                    onTrue: () => ({})
+                  })
                 }, "proposed_instruction")
                 const proposed = stripPrefix(yield* generate(text, settings))
                 return new InstructionCandidate({
@@ -305,9 +330,10 @@ export const proposeInstructionCandidates = <
         return new PredictorInstructionCandidates({
           predictorName: ref.name,
           candidates: Arr.map(generated, (candidate, index) =>
-            Num.isGreaterThan(index, 0) ?
-              candidate
-              : new InstructionCandidate(Struct.assign(candidate, { instruction, isBaseline: true })))
+            Bool.match(Num.isGreaterThan(index, 0), {
+              onFalse: () => new InstructionCandidate(Struct.assign(candidate, { instruction, isBaseline: true })),
+              onTrue: () => candidate
+            }))
         })
       }), { concurrency: 1 })
   }).pipe(Binding.withPredictors(predictors(options.module)))

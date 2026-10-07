@@ -151,9 +151,10 @@ const suggestModelDriven = (
     ))
       .pipe(
         Match.when(true, () =>
-          multivariate
-            ? suggestMultivariateCategorical(rng, nCandidates, space, split, dimensions, acquisition)
-            : suggestIndependent(rng, nCandidates, space, split, noiseOptions, acquisition)),
+          Bool.match(multivariate, {
+            onFalse: () => suggestIndependent(rng, nCandidates, space, split, noiseOptions, acquisition),
+            onTrue: () => suggestMultivariateCategorical(rng, nCandidates, space, split, dimensions, acquisition)
+          })),
         Match.orElse(() =>
           Match.value(multivariate).pipe(
             Match.when(true, () =>

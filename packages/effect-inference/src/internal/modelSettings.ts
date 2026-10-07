@@ -85,7 +85,12 @@ export const ambient = (provider: Provider): Effect.Effect<ModelSettings> =>
             }, Predicate.isNotNullish),
             ...Option.match(Option.fromNullishOr(config.stop), {
               onNone: () => ({}),
-              onSome: (stop) => ({ stop: Predicate.isString(stop) ? Arr.make(stop) : stop })
+              onSome: (stop) => ({
+                stop: Match.value(stop).pipe(
+                  Match.when(Predicate.isString, (value) => Arr.make(value)),
+                  Match.orElse((values) => values)
+                )
+              })
             })
           })
       })))),

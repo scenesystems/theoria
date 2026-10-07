@@ -7,7 +7,7 @@ import * as Module from "@scenesystems/effect-dsp/Module"
 import * as ParameterSet from "@scenesystems/effect-dsp/ParameterSet"
 import * as Signature from "@scenesystems/effect-dsp/Signature"
 import * as ModelBinder from "@scenesystems/effect-lm/ModelBinder"
-import { Array as Arr, Effect, Option, Record, Ref, Schema } from "effect"
+import { Array as Arr, Boolean as Bool, Effect, Option, Record, Ref, Schema } from "effect"
 import * as LanguageModel from "effect/ai/LanguageModel"
 import { assertNoMutation } from "../kit/Mutation.js"
 
@@ -77,7 +77,12 @@ it.effect("retries rejected examples with rollout identity and temperature rathe
         maxLabeledDemos: 0,
         metric: Metric.withFeedback(() =>
           Ref.updateAndGet(scored, (n) => n + 1).pipe(
-            Effect.map((n) => new Metric.Score({ value: n === 1 ? 0 : 1, feedback: Option.none() }))
+            Effect.map((n) =>
+              new Metric.Score({
+                value: Bool.match(n === 1, { onFalse: () => 1, onTrue: () => 0 }),
+                feedback: Option.none()
+              })
+            )
           )
         )
       })

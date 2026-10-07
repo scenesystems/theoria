@@ -133,11 +133,15 @@ export const appendReactTraceEntry = <
         execution: options.executionId,
         rawResponse: options.response.text,
         parseError: options.parseError,
-        unparsed: Option.isSome(options.output) ? Option.none() : Option.some({
-          response: options.response.text,
-          parseError: options.parseError,
-          toolCallCount: Arr.length(options.response.toolCalls),
-          toolResultCount: Arr.length(options.response.toolResults)
+        unparsed: Option.match(options.output, {
+          onNone: () =>
+            Option.some({
+              response: options.response.text,
+              parseError: options.parseError,
+              toolCallCount: Arr.length(options.response.toolCalls),
+              toolResultCount: Arr.length(options.response.toolResults)
+            }),
+          onSome: () => Option.none()
         }),
         usage: options.usage
       })

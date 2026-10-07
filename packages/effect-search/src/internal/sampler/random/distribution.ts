@@ -4,7 +4,6 @@
  * @since 0.1.0
  */
 import { logStrict } from "@scenesystems/effect-math/Numeric"
-import * as PseudoRandom from "@scenesystems/effect-math/PseudoRandom"
 import { Array as Arr, Boolean as Bool, Effect, Match, Number as Num, Option } from "effect"
 
 import type { Distribution } from "../../../Distribution.js"
@@ -64,11 +63,19 @@ const sampleCategorical = (
   const choices = Arr.fromIterable(choicesInput)
   return categoricalChoices(choices).pipe(
     Effect.flatMap((resolvedChoices) =>
-      (Num.Equivalence(resolvedChoices.length, 1) ? Effect.succeed(0) : rng instanceof PseudoRandom.NumPyLegacy
-        ? Effect.forEach(resolvedChoices, () => Rng.nextFloat(rng)).pipe(Effect.map(argmax))
-        : Rng.nextInt(rng, 0, Num.decrement(Arr.length(resolvedChoices)))).pipe(
-          Effect.flatMap((index) => sampledCategoricalAt(resolvedChoices, index))
-        )
+      Bool.match(Num.Equivalence(resolvedChoices.length, 1), {
+        onFalse: () =>
+          Match.value(rng).pipe(
+            Match.when(
+              Rng.isNumPyLegacy,
+              (legacy) => Effect.forEach(resolvedChoices, () => Rng.nextFloat(legacy)).pipe(Effect.map(argmax))
+            ),
+            Match.orElse((random) => Rng.nextInt(random, 0, Num.decrement(Arr.length(resolvedChoices))))
+          ),
+        onTrue: () => Effect.succeed(0)
+      }).pipe(
+        Effect.flatMap((index) => sampledCategoricalAt(resolvedChoices, index))
+      )
     )
   )
 }

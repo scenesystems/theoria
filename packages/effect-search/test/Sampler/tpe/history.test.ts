@@ -1,6 +1,6 @@
 import { expect, it } from "@effect/vitest"
 import * as History from "@scenesystems/effect-study/History"
-import { Array as Arr, Effect, Equal, Ref, Schedule } from "effect"
+import { Array as Arr, Boolean as Bool, Effect, Equal, Ref, Schedule } from "effect"
 
 import { contextForSuggestion } from "../../../src/internal/optimization/runtime/context.js"
 import * as Objective from "../../../src/Objective.js"
@@ -34,16 +34,19 @@ it.effect("preserves pruned reports separately from completed objectives and exc
         pruningPolicy: new Pruning.Policy({
           name: "first-only",
           decide: ({ trialNumber, latestReport }) =>
-            Equal.equals(trialNumber, 0)
-              ? Pruning.prune({ step: latestReport.step, reason: "test", policy: "first-only" })
-              : Pruning.continueEvaluation()
+            Bool.match(Equal.equals(trialNumber, 0), {
+              onFalse: () => Pruning.continueEvaluation(),
+              onTrue: () => Pruning.prune({ step: latestReport.step, reason: "test", policy: "first-only" })
+            })
         }),
         objective: (config, runtime) =>
           Effect.gen(function*() {
             yield* runtime.report(3, 0.4)
             yield* runtime.report(1, 0.9)
-            if (Equal.equals(config.x, 1)) return yield* Effect.fail("failed trial")
-            return 100
+            return yield* Bool.match(Equal.equals(config.x, 1), {
+              onFalse: () => Effect.succeed(100),
+              onTrue: () => Effect.fail("failed trial")
+            })
           })
       })
     )

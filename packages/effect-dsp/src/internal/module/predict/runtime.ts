@@ -8,7 +8,7 @@
 import * as ModelBinder from "@scenesystems/effect-lm/ModelBinder"
 import * as ModelSettings from "@scenesystems/effect-lm/ModelSettings"
 import type { Schema } from "effect"
-import { Array as Arr, Clock, Data, Effect, Struct } from "effect"
+import { Array as Arr, Boolean, Clock, Data, Effect, Option, Struct } from "effect"
 import type { Ref } from "effect"
 import { ParseOutputError } from "../../../DspError.js"
 import type { Module } from "../../../Module.js"
@@ -75,37 +75,48 @@ export const makeForward = <
         policy: options.policy
       })
       const request = new ModelBinder.Request({
-        settings: ModelSettings.merge(settings(parameters), options.invocation.settings ?? ModelSettings.empty),
-        role: options.invocation.role ?? (yield* CurrentRole),
+        settings: ModelSettings.merge(
+          settings(parameters),
+          Option.getOrElse(Option.fromUndefinedOr(options.invocation.settings), () => ModelSettings.empty)
+        ),
+        role: yield* Option.match(Option.fromUndefinedOr(options.invocation.role), {
+          onNone: () => Effect.service(CurrentRole),
+          onSome: (role) => Effect.succeed(role)
+        }),
         rolloutId: yield* RolloutRef
       })
       const compute = runForward(forward)
       const enabled = options.invocation.cache !== "never"
-      const execution = yield* (enabled
-        ? cached(forward, request, yield* path(options.parametersRef, options.moduleName), compute)
-        : compute).pipe(
-          ModelBinder.bind(request),
-          Effect.catchTag("ParseOutputError", (error) =>
-            Effect.gen(function*() {
-              return yield* new ParseOutputError(Struct.assign(error, {
-                message: error.message,
-                context: {
-                  predictorPath: yield* path(options.parametersRef, options.moduleName),
-                  input: yield* tracePayloadFromEncoded(
-                    new PayloadOptions({
-                      moduleName: options.moduleName,
-                      carrier: "input",
-                      schema: options.inputSchema,
-                      value: input
-                    })
-                  ),
-                  prompt: yield* buildPrompt(options.signature, parameters, input).pipe(
-                    Effect.flatMap(promptToTraceText)
-                  )
-                }
-              }))
+      const selected = yield* Boolean.match(enabled, {
+        onFalse: () => Effect.succeed(compute),
+        onTrue: () =>
+          path(options.parametersRef, options.moduleName).pipe(
+            Effect.map((predictorPath) => cached(forward, request, predictorPath, compute))
+          )
+      })
+      const execution = yield* selected.pipe(
+        ModelBinder.bind(request),
+        Effect.catchTag("ParseOutputError", (error) =>
+          Effect.gen(function*() {
+            return yield* new ParseOutputError(Struct.assign(error, {
+              message: error.message,
+              context: {
+                predictorPath: yield* path(options.parametersRef, options.moduleName),
+                input: yield* tracePayloadFromEncoded(
+                  new PayloadOptions({
+                    moduleName: options.moduleName,
+                    carrier: "input",
+                    schema: options.inputSchema,
+                    value: input
+                  })
+                ),
+                prompt: yield* buildPrompt(options.signature, parameters, input).pipe(
+                  Effect.flatMap(promptToTraceText)
+                )
+              }
             }))
-        )
+          }))
+      )
       const completedAt = yield* Clock.currentTimeMillis
 
       yield* appendTraceEntry(

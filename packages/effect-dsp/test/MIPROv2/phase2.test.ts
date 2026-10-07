@@ -13,6 +13,7 @@ import * as Signature from "@scenesystems/effect-dsp/Signature"
 import * as ModelBinder from "@scenesystems/effect-lm/ModelBinder"
 import {
   Array as Arr,
+  Boolean as Bool,
   Context,
   Effect,
   Equal,
@@ -28,6 +29,7 @@ import {
   String
 } from "effect"
 import * as LanguageModel from "effect/ai/LanguageModel"
+import { constVoid } from "effect/Function"
 import {
   DemoCandidate,
   GenerateDemoCandidatesOptions,
@@ -75,12 +77,25 @@ const generateDemoCandidates = <I extends Schema.Struct.Fields, O extends Schema
         candidates: Arr.makeBy(options.numCandidates, (index) =>
           new DemoCandidate({
             predictorName: predictor.name,
-            kind: Equal.equals(index, 0) ? "zero-shot" : "bootstrap-unshuffled",
+            kind: Bool.match(Equal.equals(index, 0), {
+              onFalse: () =>
+                "bootstrap-unshuffled",
+              onTrue: () =>
+                "zero-shot"
+            }),
             parameters: new ModuleParameters({
               instructions: original.instructions,
               outputStrategy: original.outputStrategy,
               demos: Arr.fromIterable(
-                Equal.equals(index, 0) ? [] : Arr.isReadonlyArrayEmpty(original.demos) ? labels : original.demos
+                Bool.match(Equal.equals(index, 0), {
+                  onFalse: () =>
+                    Bool.match(Arr.isReadonlyArrayEmpty(original.demos), {
+                      onFalse: () =>
+                        original.demos,
+                      onTrue: () => labels
+                    }),
+                  onTrue: () => Arr.empty<Demonstration>()
+                })
               )
             })
           }))
@@ -482,9 +497,10 @@ describe("MIPROv2 Phase 2", () => {
             )
 
             expect(Result.isFailure(result)).toBe(true)
-            if (Result.isFailure(result)) {
-              expect(result.failure._tag).toBe("InstructionProposalFailed")
-            }
+            Result.match(result, {
+              onFailure: (failure) => expect(failure._tag).toBe("InstructionProposalFailed"),
+              onSuccess: constVoid
+            })
             expect(yield* Ref.get(mock.calls)).toHaveLength(0)
             expect(yield* Ref.get(root.parameters)).toBe(rootParameters)
             expect(yield* Ref.get(child.parameters)).toBe(childParameters)

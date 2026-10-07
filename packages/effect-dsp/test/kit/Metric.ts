@@ -2,7 +2,7 @@ import { Example, id } from "@scenesystems/effect-dsp/Example"
 import * as Metric from "@scenesystems/effect-dsp/Metric"
 import { Prediction } from "@scenesystems/effect-dsp/Prediction"
 import * as Trace from "@scenesystems/effect-dsp/Trace"
-import { Array as Arr, Chunk, Data, Effect, Number as Num, Option, Record, Ref } from "effect"
+import { Array as Arr, Boolean as Bool, Chunk, Data, Effect, Number as Num, Option, Record, Ref } from "effect"
 
 export class ScriptedFailure extends Data.TaggedError("ScriptedFailure")<{ readonly id: string }> {}
 
@@ -31,8 +31,10 @@ export const failingOn = (ids: ReadonlyArray<string>) =>
   Metric.withFeedback((example) =>
     Effect.gen(function*() {
       const identity = yield* id(example)
-      if (Arr.contains(ids, identity)) return yield* new ScriptedFailure({ id: identity })
-      return new Metric.Score({ value: 1, feedback: Option.none() })
+      return yield* Bool.match(Arr.contains(ids, identity), {
+        onFalse: () => Effect.succeed(new Metric.Score({ value: 1, feedback: Option.none() })),
+        onTrue: () => Effect.fail(new ScriptedFailure({ id: identity }))
+      })
     }), "failingOn")
 
 /** Unit-test scoring without executing a language model. */

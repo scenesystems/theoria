@@ -4,7 +4,18 @@
  * @since 0.1.0
  */
 import { log, logSumExp } from "@scenesystems/effect-math/Numeric"
-import { Array as Arr, Chunk, Effect, Equal, Match, Number as Num, Option, Record, Tuple } from "effect"
+import {
+  Array as Arr,
+  Boolean as Bool,
+  Chunk,
+  Effect,
+  Equal,
+  Match,
+  Number as Num,
+  Option,
+  Record,
+  Tuple
+} from "effect"
 
 import * as Acquisition from "../../../Acquisition.js"
 import { type Choice } from "../../../Distribution.js"
@@ -65,15 +76,18 @@ export const suggestCategoricalParameter = (
   acquisition: Acquisition.Strategy = Acquisition.defaultName
 ): Effect.Effect<Choice, InvalidSamplerConfig> => {
   const choices = Arr.fromIterable(choicesInput)
-  if (Num.Equivalence(choices.length, 1)) return Effect.succeed(Option.getOrThrow(Arr.head(choices)))
-  return Effect.gen(function*() {
-    const trace = yield* categoricalCandidateTrace(rng, nCandidates, parameter, choices, split, acquisition)
+  return Bool.match(Num.Equivalence(choices.length, 1), {
+    onFalse: () =>
+      Effect.gen(function*() {
+        const trace = yield* categoricalCandidateTrace(rng, nCandidates, parameter, choices, split, acquisition)
 
-    return yield* chooseBestCandidate(
-      trace.candidates,
-      trace.scores,
-      `tpe categorical candidate selection produced no candidate for parameter "${parameter.name}"`
-    )
+        return yield* chooseBestCandidate(
+          trace.candidates,
+          trace.scores,
+          `tpe categorical candidate selection produced no candidate for parameter "${parameter.name}"`
+        )
+      }),
+    onTrue: () => Effect.succeed(Option.getOrThrow(Arr.head(choices)))
   })
 }
 
@@ -222,73 +236,84 @@ export const suggestMultivariateCategorical = (
       )
     )
     const variable = Arr.filter(dimensions, (dimension) => Num.isGreaterThan(dimension.choices.length, 1))
-    if (Arr.isReadonlyArrayEmpty(variable)) return fixed
-    const models = yield* Effect.forEach(variable, (dimension) =>
-      Effect.gen(function*() {
-        const parameter = yield* Effect.fromOption(
-          Arr.findFirst(space.params, (entry) => Equal.equals(entry.name, dimension.name))
-        )
-        return {
-          name: dimension.name,
-          below: yield* buildCategoricalParzen(dimension.choices, primitiveValuesForParameter(parameter, split.below)),
-          above: yield* buildCategoricalParzen(dimension.choices, primitiveValuesForParameter(parameter, split.above))
-        }
-      })).pipe(Effect.orDie)
-    const first = yield* Effect.fromOption(Arr.head(models)).pipe(Effect.orDie)
-    const rolls = yield* drawRolls(rng, nCandidates)
-    const components = mixtureComponents(first.below.kernelWeights, rolls)
-    const values = yield* Effect.forEach(models, (model) =>
-      Effect.gen(function*() {
-        const valueRolls = yield* drawRolls(rng, nCandidates)
-        return Arr.map(components, (component, index) => {
-          const kernel = Arr.get(model.below.kernels, component).pipe(Option.getOrThrow)
-          const value = categoricalQuantiles(
-            model.below.choices,
-            kernel.probabilities,
-            [Arr.get(valueRolls, index).pipe(Option.getOrThrow)]
-          )
-          return Tuple.make(model.name, Arr.head(value).pipe(Option.getOrThrow))
-        })
-      }))
-    const candidates = Arr.makeBy(nCandidates, (index) => ({
-      ...fixed,
-      ...Record.fromEntries(
-        Arr.map(values, (entries) => Arr.get(entries, index).pipe(Option.getOrThrow))
-      )
-    }))
-    const density = (candidate: Record<string, Choice>, side: "below" | "above") =>
-      logSumExp(Chunk.fromIterable(
-        Arr.map(first[side].kernelWeights, (weight, component) =>
-          Num.sum(
-            log(weight),
-            Num.sumAll(Arr.map(models, (model) => {
-              const kernel = Arr.get(model[side].kernels, component).pipe(Option.getOrThrow)
-              return logProbability(
-                model[side].choices,
-                kernel.probabilities,
-                Record.get(candidate, model.name).pipe(Option.getOrThrow)
+    return yield* Bool.match(Arr.isReadonlyArrayEmpty(variable), {
+      onFalse: () =>
+        Effect.gen(function*() {
+          const models = yield* Effect.forEach(variable, (dimension) =>
+            Effect.gen(function*() {
+              const parameter = yield* Effect.fromOption(
+                Arr.findFirst(space.params, (entry) => Equal.equals(entry.name, dimension.name))
               )
+              return {
+                name: dimension.name,
+                below: yield* buildCategoricalParzen(
+                  dimension.choices,
+                  primitiveValuesForParameter(parameter, split.below)
+                ),
+                above: yield* buildCategoricalParzen(
+                  dimension.choices,
+                  primitiveValuesForParameter(parameter, split.above)
+                )
+              }
+            })).pipe(Effect.orDie)
+          const first = yield* Effect.fromOption(Arr.head(models)).pipe(Effect.orDie)
+          const rolls = yield* drawRolls(rng, nCandidates)
+          const components = mixtureComponents(first.below.kernelWeights, rolls)
+          const values = yield* Effect.forEach(models, (model) =>
+            Effect.gen(function*() {
+              const valueRolls = yield* drawRolls(rng, nCandidates)
+              return Arr.map(components, (component, index) => {
+                const kernel = Arr.get(model.below.kernels, component).pipe(Option.getOrThrow)
+                const value = categoricalQuantiles(
+                  model.below.choices,
+                  kernel.probabilities,
+                  [Arr.get(valueRolls, index).pipe(Option.getOrThrow)]
+                )
+                return Tuple.make(model.name, Arr.head(value).pipe(Option.getOrThrow))
+              })
             }))
-          ))
-      ))
-    const scores = Arr.map(candidates, (candidate, index) => {
-      const logL = density(candidate, "below")
-      const logG = density(candidate, "above")
+          const candidates = Arr.makeBy(nCandidates, (index) => ({
+            ...fixed,
+            ...Record.fromEntries(
+              Arr.map(values, (entries) => Arr.get(entries, index).pipe(Option.getOrThrow))
+            )
+          }))
+          const density = (candidate: Record<string, Choice>, side: "below" | "above") =>
+            logSumExp(Chunk.fromIterable(
+              Arr.map(first[side].kernelWeights, (weight, component) =>
+                Num.sum(
+                  log(weight),
+                  Num.sumAll(Arr.map(models, (model) => {
+                    const kernel = Arr.get(model[side].kernels, component).pipe(Option.getOrThrow)
+                    return logProbability(
+                      model[side].choices,
+                      kernel.probabilities,
+                      Record.get(candidate, model.name).pipe(Option.getOrThrow)
+                    )
+                  }))
+                ))
+            ))
+          const scores = Arr.map(candidates, (candidate, index) => {
+            const logL = density(candidate, "below")
+            const logG = density(candidate, "above")
 
-      return Acquisition.score(
-        new Acquisition.Context({
-          logL,
-          logG,
-          estimatedCost: Option.none(),
-          roll: Arr.get(rolls, index)
+            return Acquisition.score(
+              new Acquisition.Context({
+                logL,
+                logG,
+                estimatedCost: Option.none(),
+                roll: Arr.get(rolls, index)
+              }),
+              acquisition
+            )
+          })
+          return yield* chooseBestCandidate(
+            candidates,
+            scores,
+            "tpe categorical candidate selection produced no candidate"
+          )
         }),
-        acquisition
-      )
+      onTrue: () => Effect.succeed(fixed)
     })
-    return yield* chooseBestCandidate(
-      candidates,
-      scores,
-      "tpe categorical candidate selection produced no candidate"
-    )
   })
 }

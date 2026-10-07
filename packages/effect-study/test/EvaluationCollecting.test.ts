@@ -1,6 +1,18 @@
 import { expect, it } from "@effect/vitest"
 import * as Evaluation from "@scenesystems/effect-study/Evaluation"
-import { Array as Arr, Chunk, Deferred, Effect, Exit, Fiber, Number, Option, Ref, Schema } from "effect"
+import {
+  Array as Arr,
+  Boolean as Bool,
+  Chunk,
+  Deferred,
+  Effect,
+  Exit,
+  Fiber,
+  Number,
+  Option,
+  Ref,
+  Schema
+} from "effect"
 import { TestClock } from "effect/testing"
 
 class Rejected extends Schema.TaggedError<Rejected>()("Rejected", { input: Schema.Int }) {}
@@ -11,7 +23,12 @@ it.effect("collects typed failures and retains input order despite concurrent co
       [3, 1, 2],
       (input) =>
         Effect.sleep(input * 100).pipe(
-          Effect.andThen(input === 1 ? Effect.fail(new Rejected({ input })) : Effect.succeed(input * 7))
+          Effect.andThen(
+            Bool.match(input === 1, {
+              onFalse: () => Effect.succeed(input * 7),
+              onTrue: () => Effect.fail(new Rejected({ input }))
+            })
+          )
         ),
       { concurrency: 3, maxFailures: Option.none(), onFailure: "record" }
     ).pipe(Effect.forkChild)
@@ -32,13 +49,16 @@ it.effect("stops admitting work over the limit and drains in-flight evaluations"
     const finished = yield* Ref.make(false)
     const fiber = yield* Evaluation.runCollecting([0, 1, 2, 3], (input) =>
       Ref.update(started, Number.increment).pipe(Effect.andThen(
-        input === 0
-          ? Deferred.await(secondStarted).pipe(Effect.andThen(Effect.fail(new Rejected({ input }))))
-          : Deferred.succeed(secondStarted, undefined).pipe(
-            Effect.andThen(Effect.sleep("1 second")),
-            Effect.andThen(Ref.set(finished, true)),
-            Effect.andThen(Effect.fail(new Rejected({ input })))
-          )
+        Bool.match(input === 0, {
+          onFalse: () =>
+            Deferred.succeed(secondStarted, undefined).pipe(
+              Effect.andThen(Effect.sleep("1 second")),
+              Effect.andThen(Ref.set(finished, true)),
+              Effect.andThen(Effect.fail(new Rejected({ input })))
+            ),
+          onTrue: () =>
+            Deferred.await(secondStarted).pipe(Effect.andThen(Effect.fail(new Rejected({ input }))))
+        })
       )), { concurrency: 2, maxFailures: Option.some(0), onFailure: "record" }).pipe(Effect.flip, Effect.forkChild)
     yield* Deferred.await(secondStarted)
     yield* TestClock.adjust("1 second")

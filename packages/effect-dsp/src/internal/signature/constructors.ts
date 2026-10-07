@@ -3,7 +3,7 @@
  *
  * @since 0.1.0
  */
-import { Array as Arr, Effect, Option, Record, Schema } from "effect"
+import { Array as Arr, Boolean, Effect, Option, Record, Schema } from "effect"
 import { SignatureError } from "../../DspError.js"
 import { Signature } from "../../Signature.js"
 import { encodedFieldsToInfoArray, fieldsToInfoArray } from "./fields.js"
@@ -23,7 +23,11 @@ const validateFieldCollections = (
 
     yield* Option.match(Arr.head(inputFieldNames), {
       onSome: () => Effect.void,
-      onNone: () => allowEmptyInput ? Effect.void : failSignature("input fields must not be empty")
+      onNone: () =>
+        Boolean.match(allowEmptyInput, {
+          onFalse: () => failSignature("input fields must not be empty"),
+          onTrue: () => Effect.void
+        })
     })
 
     yield* Option.match(Arr.head(outputFieldNames), {

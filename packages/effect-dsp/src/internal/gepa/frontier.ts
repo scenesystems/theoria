@@ -11,7 +11,7 @@ import {
   nonDominatedIndices,
   objectiveFrontierHoldings
 } from "@scenesystems/effect-search/Pareto"
-import { Array as Arr, Number as Num, Option, Order } from "effect"
+import { Array as Arr, Boolean, Number as Num, Option, Order } from "effect"
 
 import {
   type CandidateIndices,
@@ -114,11 +114,15 @@ export const deriveParetoKernelSnapshot = (
     ordered,
     ordered,
     (remaining, candidate) =>
-      Arr.every(exampleHoldings, (holding) =>
+      Boolean.match(
+        Arr.every(exampleHoldings, (holding) =>
           !Arr.contains(holding.holders, candidate) ||
-          Arr.some(holding.holders, (other) => other !== candidate && Arr.contains(remaining, other)))
-        ? Arr.filter(remaining, (index) => index !== candidate)
-        : remaining
+          Arr.some(holding.holders, (other) => other !== candidate && Arr.contains(remaining, other))),
+        {
+          onFalse: () => remaining,
+          onTrue: () => Arr.filter(remaining, (index) => index !== candidate)
+        }
+      )
   )
   const parentWeights = Arr.map(
     Arr.filter(holders, (index) => Arr.contains(remaining, index)),

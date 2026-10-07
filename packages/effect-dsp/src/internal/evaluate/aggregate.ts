@@ -1,5 +1,5 @@
 /** Failure-inclusive evaluation aggregates. @since 0.1.0 @internal */
-import { Array as Arr, Option, Record, Tuple } from "effect"
+import { Array as Arr, Match, Option, Record, Tuple } from "effect"
 import { type Outcome, Report } from "../../Evaluate.js"
 import { averageNumbers } from "../metric/score.js"
 
@@ -20,15 +20,19 @@ export const aggregateOutcomes = (
       Tuple.make(
         name,
         averageNumbers(
-          Arr.map(
-            outcomes,
-            (outcome) =>
-              outcome._tag === "Failed" ? failureScore : Option.getOrThrow(Record.get(outcome.scores, name)).value
-          )
+          Arr.map(outcomes, (outcome) =>
+            Match.valueTags(outcome, {
+              Failed: () => failureScore,
+              Scored: (scored) => Option.getOrThrow(Record.get(scored.scores, name)).value
+            }))
         )
       ))),
     average: averageNumbers(
-      Arr.map(outcomes, (outcome) => outcome._tag === "Failed" ? failureScore : outcome.score.value)
+      Arr.map(outcomes, (outcome) =>
+        Match.valueTags(outcome, {
+          Failed: () => failureScore,
+          Scored: (scored) => scored.score.value
+        }))
     ),
     units: "fraction",
     failures: Arr.map(failed, (outcome) => outcome.failure),

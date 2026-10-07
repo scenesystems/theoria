@@ -1,8 +1,9 @@
 import { BunServices } from "@effect/platform-bun"
 import { expect } from "@effect/vitest"
 import * as Digest from "@scenesystems/digest/Digest"
-import { Array as Arr, Effect, FileSystem, Match, Number as Num, Path, Schema } from "effect"
+import { Array as Arr, Boolean as Bool, Effect, FileSystem, Match, Number as Num, Path, Schema } from "effect"
 import * as Hex from "effect/encoding/Hex"
+import { constVoid } from "effect/Function"
 import type * as Optimization from "../../src/Optimization.js"
 import { AcquisitionGap } from "./selectionGaps.js"
 
@@ -41,14 +42,16 @@ export const expectCoupledTrace = (
   reference: typeof Sequence.Type
 ) => {
   const count = Num.increment(reference.strictThroughTrial)
-  if (Num.Equivalence(count, reference.sequence.length)) {
-    expect({
-      number: result.bestTrial.trialNumber,
-      params: result.bestTrial.config,
-      value: result.bestTrial.state.value
-    })
-      .toEqual(reference.best)
-  }
+  Bool.match(Num.Equivalence(count, reference.sequence.length), {
+    onFalse: constVoid,
+    onTrue: () =>
+      expect({
+        number: result.bestTrial.trialNumber,
+        params: result.bestTrial.config,
+        value: result.bestTrial.state.value
+      })
+        .toEqual(reference.best)
+  })
   expect(Arr.map(Arr.take(Arr.fromIterable(result.trials), count), (trial) => ({
     number: trial.trialNumber,
     params: trial.config,

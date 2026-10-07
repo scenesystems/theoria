@@ -7,7 +7,20 @@ import * as Module from "@scenesystems/effect-dsp/Module"
 import * as ModuleParameters from "@scenesystems/effect-dsp/ModuleParameters"
 import * as ParameterSet from "@scenesystems/effect-dsp/ParameterSet"
 import * as Signature from "@scenesystems/effect-dsp/Signature"
-import { Array as Arr, Chunk, Deferred, Effect, Exit, Fiber, Option, Record, Ref, Schema, Struct } from "effect"
+import {
+  Array as Arr,
+  Boolean as Bool,
+  Chunk,
+  Deferred,
+  Effect,
+  Exit,
+  Fiber,
+  Option,
+  Record,
+  Ref,
+  Schema,
+  Struct
+} from "effect"
 import * as LanguageModel from "effect/ai/LanguageModel"
 import * as TeacherTrace from "../src/TeacherTrace.js"
 import { assertNoMutation } from "./kit/Mutation.js"
@@ -272,13 +285,23 @@ it.effect("emits teacher events in execution order and excludes observer errors 
       metric: Metric.withFeedback((example) =>
         Ref.update(history, Arr.append(`metric:${Schema.decodeUnknownSync(Schema.String)(example.input.question)}`))
           .pipe(
-            Effect.as(new Metric.Score({ value: example.input.question === "b" ? 0 : 1, feedback: Option.none() }))
+            Effect.as(
+              new Metric.Score({
+                value: Bool.match(example.input.question === "b", { onFalse: () => 1, onTrue: () => 0 }),
+                feedback: Option.none()
+              })
+            )
           )
       )
     })
     const error = yield* TeacherTrace.collect(options, (event) =>
       Ref.update(history, Arr.append(event._tag)).pipe(
-        Effect.andThen(event._tag === "ExampleRejected" ? Effect.fail("observer failed") : Effect.void)
+        Effect.andThen(
+          Bool.match(event._tag === "ExampleRejected", {
+            onFalse: () => Effect.void,
+            onTrue: () => Effect.fail("observer failed")
+          })
+        )
       )).pipe(Effect.provideService(LanguageModel.LanguageModel, mock.service), Effect.flip)
     expect(error).toBe("observer failed")
     expect(yield* Ref.get(history)).toEqual([
