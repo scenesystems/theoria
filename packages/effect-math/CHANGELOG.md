@@ -1,5 +1,17 @@
 # @scenesystems/effect-math
 
+## 0.5.1
+
+### Patch Changes
+
+- [#128](https://github.com/scenesystems/theoria/pull/128) [`e0bfd10`](https://github.com/scenesystems/theoria/commit/e0bfd10de9d82cb1015b677179d41a312e63f691) Thanks [@aridyckovsky](https://github.com/aridyckovsky)! - Reduce scalar sine and cosine allocation with split-constant argument reduction and bounded polynomial evaluation through Effect public APIs, retaining exact-decimal reduction for large angles and IEEE exceptional-value behavior.
+
+  Preserve logarithm and product residuals for large integer powers, correcting amplified squaring error near unity. Document that power results are deterministic approximations rather than universally correctly rounded host-math replacements.
+
+  Prepare fixed polynomials once, avoid repeated coefficient-array copies and matcher construction, and select binary normalization direction outside the bounded fold without changing arithmetic order. Bound binary scaling and specialize scalar square-root bookkeeping while preserving exact midpoint rounding and the general exact-norm path.
+
+  Reuse floating-point normalization directly in the scalar logarithm, avoiding an exact BigInt round trip without changing result bits or dyadic consumers.
+
 ## 0.5.0
 
 ### Minor Changes
