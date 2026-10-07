@@ -493,6 +493,10 @@ export const log10: typeof Transcendental.log10 = Transcendental.log10
 /**
  * Raises `base` to `exponent`, dispatching integral exponents before the
  * logarithm/exponential path so negative bases retain their real results.
+ * Large integer exponents retain high-precision logarithm and product
+ * residuals; fractional exponents compose binary64 logarithm and exponential.
+ * Results are deterministic approximations, not universally correctly rounded
+ * values or a guarantee of bit-for-bit equality with a host's `Math.pow`.
  * @since 0.4.0
  * @category operations
  */

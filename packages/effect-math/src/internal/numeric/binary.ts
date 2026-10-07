@@ -55,35 +55,78 @@ export const integerPower = (base: bigint, exponent: number): bigint =>
   )
 
 /** Magnitude with positive zero, and NaN propagation. */
-export const abs = (value: number): number =>
-  Match.value(value).pipe(
-    Match.when((value) => Number.Equivalence(value, 0), () => 0),
-    Match.when(Number.isLessThan(0), (value) => Number.multiply(value, -1)),
-    Match.orElse((value) => value)
-  )
+export const abs: (value: number) => number = Match.type<number>().pipe(
+  Match.when((value) => Number.Equivalence(value, 0), () => 0),
+  Match.when(Number.isLessThan(0), (value) => Number.multiply(value, -1)),
+  Match.orElse((value) => value)
+)
+
+const positivePowerOfTwo: (exponent: number) => number = Match.type<number>().pipe(
+  Match.when(0, () => 1),
+  Match.orElse((exponent) => {
+    // For integral exponents, round((n - 1) / 2) is floor(n / 2).
+    const half = Number.round(Number.divideUnsafe(Number.decrement(exponent), 2), 0)
+    const factor = positivePowerOfTwo(half)
+    const square = Number.multiply(factor, factor)
+    return Boolean.match(Number.Equivalence(exponent, Number.multiply(2, half)), {
+      onTrue: () => square,
+      onFalse: () => Number.multiply(2, square)
+    })
+  })
+)
+
+/** Exact normal power of two for integral exponents in [-1022, 1023]. */
+export const powerOfTwo = (exponent: number): number =>
+  Boolean.match(Number.isLessThan(exponent, 0), {
+    onTrue: () => Number.divideUnsafe(1, positivePowerOfTwo(Number.multiply(-1, exponent))),
+    onFalse: () => positivePowerOfTwo(exponent)
+  })
+
+const normalizationSteps = Chunk.map(
+  Chunk.make(512, 256, 128, 64, 32, 16, 8, 4, 2, 1),
+  (exponent) => Tuple.make(exponent, powerOfTwo(exponent), powerOfTwo(Number.multiply(-1, exponent)))
+)
+
+/** Exact magnitude `mantissa × 2^exponent`, with mantissa in [1, 2), for finite nonzero input. */
+export const normalize = (value: number): [mantissa: number, exponent: number] => {
+  const magnitude = abs(value)
+  // Lift subnormals into the normal range exactly before the ten binary
+  // search steps. No division may discard low significand bits.
+  const initial: [number, number] = Boolean.match(Number.isLessThan(magnitude, 2.2250738585072014e-308), {
+    onTrue: () => Tuple.make(Number.multiply(magnitude, 18_014_398_509_481_984), -54),
+    onFalse: () => Tuple.make(magnitude, 0)
+  })
+  const belowOne = Number.isLessThan(magnitude, 1)
+  const reduced = Boolean.match(belowOne, {
+    onTrue: () =>
+      Iterable.reduce(normalizationSteps, initial, (state, [step, factor, reciprocal]) => {
+        const [mantissa, exponent] = state
+        return Boolean.match(Number.isLessThan(mantissa, reciprocal), {
+          onTrue: () => Tuple.make(Number.multiply(mantissa, factor), Number.subtract(exponent, step)),
+          onFalse: () => state
+        })
+      }),
+    onFalse: () =>
+      Iterable.reduce(normalizationSteps, initial, (state, [step, factor]) => {
+        const [mantissa, exponent] = state
+        return Boolean.match(Number.isGreaterThanOrEqualTo(mantissa, factor), {
+          onTrue: () => Tuple.make(Number.divideUnsafe(mantissa, factor), Number.sum(exponent, step)),
+          onFalse: () => state
+        })
+      })
+  })
+  return Boolean.match(Number.isLessThan(Tuple.get(reduced, 0), 1), {
+    onTrue: () => Tuple.make(Number.multiply(Tuple.get(reduced, 0), 2), Number.decrement(Tuple.get(reduced, 1))),
+    onFalse: () => reduced
+  })
+}
 
 /** Decomposes a finite nonzero number without inspecting its storage. */
 export const decompose = (value: number): Dyadic => {
-  const initial: [number, number] = Tuple.make(abs(value), 0)
-  const normalized = Iterable.reduce(
-    Iterable.unfold(initial, ([mantissa, exponent]) =>
-      Match.value(mantissa).pipe(
-        Match.when(Number.isGreaterThanOrEqualTo(2), () => {
-          const next = Tuple.make(Number.divideUnsafe(mantissa, 2), Number.increment(exponent))
-          return Option.some(Tuple.make(next, next))
-        }),
-        Match.when(Number.isLessThan(1), () => {
-          const next = Tuple.make(Number.multiply(mantissa, 2), Number.decrement(exponent))
-          return Option.some(Tuple.make(next, next))
-        }),
-        Match.orElse(() => Option.none())
-      )),
-    initial,
-    (_, next) => next
-  )
+  const [mantissa, exponent] = normalize(value)
   return new Dyadic({
-    coefficient: decodeInteger(Number.multiply(Tuple.get(normalized, 0), 4_503_599_627_370_496)),
-    exponent: Number.subtract(Tuple.get(normalized, 1), 52)
+    coefficient: decodeInteger(Number.multiply(mantissa, 4_503_599_627_370_496)),
+    exponent: Number.subtract(exponent, 52)
   })
 }
 
@@ -153,6 +196,22 @@ const bitLength = (value: bigint): number =>
     Number.sum
   )
 
+const roundedSqrt = Match.fn((numerator: bigint, denominator: bigint) => {
+  const lower = BigInt.sqrtUnsafe(BigInt.divideUnsafe(numerator, denominator))
+  const twiceMidpoint = BigInt.increment(BigInt.multiply(2n, lower))
+  const midpointSquare = BigInt.multiply(BigInt.multiply(twiceMidpoint, twiceMidpoint), denominator)
+  return Tuple.make(BigInt.Order(BigInt.multiply(4n, numerator), midpointSquare), lower)
+}).pipe(
+  Match.when(([order]) => Number.Equivalence(order, -1), ([, lower]) => lower),
+  Match.when(([order]) => Number.Equivalence(order, 1), ([, lower]) => BigInt.increment(lower)),
+  Match.orElse(([, lower]) =>
+    Boolean.match(BigInt.Equivalence(BigInt.remainder(lower, 2n), 0n), {
+      onTrue: () => lower,
+      onFalse: () => BigInt.increment(lower)
+    })
+  )
+)
+
 /** Rounds an exact nonnegative dyadic square root to nearest, ties to even. */
 const sqrtDyadic = (value: Dyadic): number =>
   Boolean.match(BigInt.Equivalence(value.coefficient, 0n), {
@@ -165,33 +224,36 @@ const sqrtDyadic = (value: Dyadic): number =>
       const shift = Number.subtract(value.exponent, Number.multiply(2, quantum))
       const numerator = BigInt.multiply(value.coefficient, integerPower(2n, Number.max(shift, 0)))
       const denominator = integerPower(2n, Number.max(Number.multiply(shift, -1), 0))
-      const lower = BigInt.sqrtUnsafe(BigInt.divideUnsafe(numerator, denominator))
-      const twiceMidpoint = BigInt.increment(BigInt.multiply(2n, lower))
-      const midpointSquare = BigInt.multiply(BigInt.multiply(twiceMidpoint, twiceMidpoint), denominator)
-      const fourNumerator = BigInt.multiply(4n, numerator)
-      const rounded = Match.value(BigInt.Order(fourNumerator, midpointSquare)).pipe(
-        Match.when(-1, () => lower),
-        Match.when(1, () => BigInt.increment(lower)),
-        Match.when(0, () =>
-          Boolean.match(Number.Equivalence(Number.remainder(encodeInteger(lower), 2), 0), {
-            onTrue: () => lower,
-            onFalse: () => BigInt.increment(lower)
-          })),
-        Match.exhaustive
-      )
+      const rounded = roundedSqrt(numerator, denominator)
       return BigDecimal.toNumberUnsafe(toDecimal(new Dyadic({ coefficient: rounded, exponent: quantum })))
     }
   })
 
+const sqrtFinitePositive = (value: number): number => {
+  const dyadic = decompose(value)
+  // A scalar's normalized coefficient always has 53 bits, even when its
+  // input is subnormal. Its root is normal: quantum is in [-589, 459].
+  const rootExponent = Number.round(Number.divideUnsafe(Number.sum(dyadic.exponent, 51), 2), 0)
+  const quantum = Number.subtract(rootExponent, 52)
+  const shift = Number.subtract(dyadic.exponent, Number.multiply(2, quantum))
+  const factor = Boolean.match(Number.Equivalence(shift, 52), {
+    onTrue: () => 4_503_599_627_370_496n,
+    onFalse: () => 9_007_199_254_740_992n
+  })
+  const rounded = roundedSqrt(BigInt.multiply(dyadic.coefficient, factor), 1n)
+  // The rounded integer has at most 53 significant bits (or is 2^53).
+  // Scaling it into the normal range is exact, with no double rounding.
+  return Number.multiply(encodeInteger(rounded), powerOfTwo(quantum))
+}
+
 /** Principal square root, preserving signed zero and IEEE special values. */
-export const sqrt = (value: number): number =>
-  Match.value(value).pipe(
-    Match.when(isNaN, () => notANumber),
-    Match.when((value) => Number.Equivalence(value, 0), (value) => value),
-    Match.when((value) => Number.Equivalence(value, positiveInfinity), () => positiveInfinity),
-    Match.when(Number.isLessThan(0), () => notANumber),
-    Match.orElse((value) => sqrtDyadic(decompose(value)))
-  )
+export const sqrt: (value: number) => number = Match.type<number>().pipe(
+  Match.when(isNaN, () => notANumber),
+  Match.when((value) => Number.Equivalence(value, 0), (value) => value),
+  Match.when((value) => Number.Equivalence(value, positiveInfinity), () => positiveInfinity),
+  Match.when(Number.isLessThan(0), () => notANumber),
+  Match.orElse(sqrtFinitePositive)
+)
 
 /** Exact sum-of-squares before final root rounding; infinity dominates NaN. */
 export const hypot = (values: Chunk.Chunk<number>): number => {
