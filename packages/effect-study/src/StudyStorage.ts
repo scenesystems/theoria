@@ -1,39 +1,16 @@
 /**
- * Schema-parameterized trial logs and study snapshots.
+ * Run-bound event recordings and cursor-bound checkpoints.
  *
  * @since 0.1.0
  * @module
  */
-import {
-  Array as Arr,
-  Context,
-  Data,
-  Effect,
-  type FileSystem,
-  Layer,
-  Option,
-  type Path,
-  Ref,
-  Schema,
-  Stream,
-  String as Str
-} from "effect"
+import { Context, Data, Effect, type FileSystem, Layer, Option, Path, Schema, Stream } from "effect"
 
-import * as Journal from "./Journal.js"
+import * as fileSystemRecording from "./internal/fileSystemRecording.js"
+import * as recording from "./internal/recording.js"
+import type * as PersistenceError from "./PersistenceError.js"
 
 const defaultFileName = "study-storage.jsonl"
-const memoryPath = "memory://effect-study/StudyStorage"
-
-const PersistedRecord = Schema.Union([
-  Schema.TaggedStruct("Trial", {
-    payload: Schema.Unknown
-  }),
-  Schema.TaggedStruct("Snapshot", {
-    payload: Schema.Unknown
-  })
-]).pipe(Schema.annotate({ identifier: "@scenesystems/effect-study/StudyStorage/PersistedRecord" }))
-
-type PersistedRecord = typeof PersistedRecord.Type
 
 /**
  * Filesystem location for a generic storage journal.
@@ -58,7 +35,7 @@ export const fileSystemOptions = (
 ): FileSystemOptions => new FileSystemOptions({ directory, fileName })
 
 /**
- * Persists and loads trials and snapshots through caller-owned schemas.
+ * Opens run-bound recordings through caller-owned event and checkpoint schemas.
  * Codec requirements remain on each operation.
  *
  * @since 0.1.0
@@ -67,106 +44,25 @@ export const fileSystemOptions = (
 export class StudyStorage extends Context.Service<
   StudyStorage,
   {
-    readonly appendTrial: <A, I, RD, RE>(
-      schema: Schema.Codec<A, I, RD, RE>,
-      trial: A
-    ) => Effect.Effect<void, Journal.Failure, RE>
-    readonly writeSnapshot: <A, I, RD, RE>(
-      schema: Schema.Codec<A, I, RD, RE>,
-      snapshot: A
-    ) => Effect.Effect<void, Journal.Failure, RE>
-    readonly loadSnapshot: <A, I, RD, RE>(
-      schema: Schema.Codec<A, I, RD, RE>
-    ) => Effect.Effect<Option.Option<A>, Journal.Failure, RD>
-    readonly loadTrialLog: <A, I, RD, RE>(
-      schema: Schema.Codec<A, I, RD, RE>
-    ) => Effect.Effect<ReadonlyArray<A>, Journal.Failure, RD>
+    readonly open: <Events extends Schema.Constraint, State extends Schema.Constraint>(
+      options: OpenOptions<Events, State>
+    ) => Effect.Effect<Recording<Events, State>, PersistenceError.Failure>
   }
 >()("@scenesystems/effect-study/StudyStorage") {}
 
 /** Generic study storage implementation. @since 0.1.0 @category services */
 export type Service = StudyStorage["Service"]
 
-const codecFailure =
-  (operation: Journal.Failure["operation"], path: string) => (cause: Schema.SchemaError): Journal.Failure =>
-    new Journal.Failure({
-      operation,
-      path,
-      detail: cause.message
-    })
-
-const encodeRecord = <A, I, RD, RE>(
-  path: string,
-  tag: PersistedRecord["_tag"],
-  schema: Schema.Codec<A, I, RD, RE>,
-  value: A
-): Effect.Effect<PersistedRecord, Journal.Failure, RE> =>
-  Schema.encodeEffect(schema)(value).pipe(
-    Effect.mapError(codecFailure("write", path)),
-    Effect.map((payload) => ({ _tag: tag, payload }))
-  )
-
-const decodeRecord = <A, I, RD, RE>(
-  path: string,
-  schema: Schema.Codec<A, I, RD, RE>,
-  record: PersistedRecord
-): Effect.Effect<A, Journal.Failure, RD> =>
-  Schema.decodeUnknownEffect(schema)(record.payload).pipe(Effect.mapError(codecFailure("read", path)))
-
-const service = (
-  path: string,
-  append: (record: PersistedRecord) => Effect.Effect<void, Journal.Failure>,
-  load: Effect.Effect<ReadonlyArray<PersistedRecord>, Journal.Failure>
-): Service => ({
-  appendTrial: <A, I, RD, RE>(
-    schema: Schema.Codec<A, I, RD, RE>,
-    trial: A
-  ): Effect.Effect<void, Journal.Failure, RE> =>
-    encodeRecord(path, "Trial", schema, trial).pipe(Effect.flatMap(append)),
-  writeSnapshot: <A, I, RD, RE>(
-    schema: Schema.Codec<A, I, RD, RE>,
-    snapshot: A
-  ): Effect.Effect<void, Journal.Failure, RE> =>
-    encodeRecord(path, "Snapshot", schema, snapshot).pipe(Effect.flatMap(append)),
-  loadSnapshot: <A, I, RD, RE>(
-    schema: Schema.Codec<A, I, RD, RE>
-  ): Effect.Effect<Option.Option<A>, Journal.Failure, RD> =>
-    load.pipe(
-      Effect.map((records) => Arr.findLast(records, (record) => Str.Equivalence(record._tag, "Snapshot"))),
-      Effect.flatMap(
-        Option.match({
-          onNone: () => Effect.succeed(Option.none<A>()),
-          onSome: (record) => decodeRecord(path, schema, record).pipe(Effect.asSome)
-        })
-      )
-    ),
-  loadTrialLog: <A, I, RD, RE>(
-    schema: Schema.Codec<A, I, RD, RE>
-  ): Effect.Effect<ReadonlyArray<A>, Journal.Failure, RD> =>
-    load.pipe(
-      Effect.map((records) => Arr.filter(records, (record) => Str.Equivalence(record._tag, "Trial"))),
-      Effect.flatMap((records) => Effect.forEach(records, (record) => decodeRecord(path, schema, record)))
-    )
-})
-
 /**
- * Creates isolated in-memory trial and snapshot persistence.
+ * Creates isolated in-memory run-bound recording persistence.
  *
  * @since 0.1.0
  * @category constructors
  */
-export const makeMemory: Effect.Effect<Service> = Ref.make(Arr.empty<PersistedRecord>()).pipe(
-  Effect.map((records) =>
-    service(
-      memoryPath,
-      (record) => Ref.update(records, Arr.append(record)),
-      Ref.get(records)
-    )
-  )
-)
+export const makeMemory: Effect.Effect<Service> = recording.makeMemory.pipe(Effect.map((open) => ({ open })))
 
 /**
- * Provides isolated in-memory trial and snapshot persistence.
+ * Provides isolated in-memory recordings.
  *
  * @since 0.1.0
  * @category layers
@@ -174,60 +70,170 @@ export const makeMemory: Effect.Effect<Service> = Ref.make(Arr.empty<PersistedRe
 export const layerMemory: Layer.Layer<StudyStorage> = Layer.fresh(Layer.effect(StudyStorage, makeMemory))
 
 /**
- * Creates generic persistence over one append-only JSON-lines journal.
+ * Creates strict run recordings at the configured file. Use one owning service per location; its
+ * semaphore is not a cross-process lock. Recording acknowledgment means a complete
+ * newline-terminated append returned, not fsync or power-loss durability. Damaged
+ * recordings fail without repair, truncation, or further appends.
  *
  * @since 0.1.0
  * @category constructors
  */
 export const makeFileSystem = (
   options: FileSystemOptions
-): Effect.Effect<Service, Journal.Failure, FileSystem.FileSystem | Path.Path> =>
-  Journal.make(PersistedRecord, options.directory, options.fileName).pipe(
-    Effect.map((journal) =>
-      service(
-        journal.path,
-        journal.append,
-        journal.read.pipe(Stream.runCollect)
-      )
-    )
-  )
+): Effect.Effect<Service, PersistenceError.Failure, FileSystem.FileSystem | Path.Path> =>
+  Effect.gen(function*() {
+    const path = yield* Path.Path
+    return { open: yield* fileSystemRecording.makeFileSystem(path.join(options.directory, options.fileName)) }
+  })
 
 /**
- * Provides generic filesystem-backed trial and snapshot persistence.
+ * Provides filesystem-backed run recordings.
  *
  * @since 0.1.0
  * @category layers
  */
 export const layerFileSystem = (
   options: FileSystemOptions
-): Layer.Layer<StudyStorage, Journal.Failure, FileSystem.FileSystem | Path.Path> =>
+): Layer.Layer<StudyStorage, PersistenceError.Failure, FileSystem.FileSystem | Path.Path> =>
   Layer.effect(StudyStorage, makeFileSystem(options))
 
 /** Installs an existing generic study storage service. @since 0.1.0 @category layers */
 export const layer = (storage: Service): Layer.Layer<StudyStorage> => Layer.succeed(StudyStorage, storage)
 
-/** Appends a trial through ambient generic storage. @since 0.1.0 @category operations */
-export const appendTrial = <A, I, RD, RE>(
-  schema: Schema.Codec<A, I, RD, RE>,
-  trial: A
-): Effect.Effect<void, Journal.Failure, StudyStorage | RE> =>
-  StudyStorage.pipe(Effect.flatMap((storage) => storage.appendTrial(schema, trial)))
+/**
+ * An appended event's identity and one-based run-local position. Within a caller-owned
+ * transaction this receipt is provisional until the enclosing transaction commits;
+ * do not publish it as an observation acknowledgment before that boundary.
+ * @since 0.1.0
+ * @category schemas
+ */
+export const Receipt = Schema.Struct({
+  runId: Schema.NonEmptyString,
+  recordId: Schema.NonEmptyString,
+  cursor: Schema.Int.check(Schema.isGreaterThan(0))
+}).annotate({ identifier: "@scenesystems/effect-study/StudyStorage/Receipt" })
 
-/** Writes a snapshot through ambient generic storage. @since 0.1.0 @category operations */
-export const writeSnapshot = <A, I, RD, RE>(
-  schema: Schema.Codec<A, I, RD, RE>,
-  snapshot: A
-): Effect.Effect<void, Journal.Failure, StudyStorage | RE> =>
-  StudyStorage.pipe(Effect.flatMap((storage) => storage.writeSnapshot(schema, snapshot)))
+/** Append identity, subject to the backend's enclosing commit boundary. @since 0.1.0 @category models */
+export type Receipt = typeof Receipt.Type
 
-/** Loads the latest snapshot through ambient generic storage. @since 0.1.0 @category operations */
-export const loadSnapshot = <A, I, RD, RE>(
-  schema: Schema.Codec<A, I, RD, RE>
-): Effect.Effect<Option.Option<A>, Journal.Failure, StudyStorage | RD> =>
-  StudyStorage.pipe(Effect.flatMap((storage) => storage.loadSnapshot(schema)))
+/** A decoded event and its committed receipt. @since 0.1.0 @category models */
+export class StoredEvent<A> extends Data.Class<{ readonly receipt: Receipt; readonly event: A }> {}
 
-/** Loads the complete trial log through ambient generic storage. @since 0.1.0 @category operations */
-export const loadTrialLog = <A, I, RD, RE>(
-  schema: Schema.Codec<A, I, RD, RE>
-): Effect.Effect<ReadonlyArray<A>, Journal.Failure, StudyStorage | RD> =>
-  StudyStorage.pipe(Effect.flatMap((storage) => storage.loadTrialLog(schema)))
+/** A checkpoint bound to one definition and exact committed boundary. @since 0.1.0 @category models */
+export class Checkpoint<A> extends Data.Class<{
+  readonly runId: string
+  readonly definitionDigest: string
+  readonly through: number
+  readonly state: A
+}> {}
+
+/**
+ * Structural opening options carrying caller codecs and explicit definition identity.
+ * Construct with new OpenOptions({...}); open requires an instance, including its
+ * Effect Data pipe method, rather than a plain object.
+ * The caller must change definition identity when encoding or interpretation changes.
+ * @since 0.1.0
+ * @category models
+ */
+export class OpenOptions<Events extends Schema.Constraint, State extends Schema.Constraint> extends Data.Class<{
+  readonly runId: string
+  readonly definitionDigest: string
+  readonly eventSchema: Events
+  readonly checkpointSchema: State
+}> {}
+
+/**
+ * Stable append identity and optimistic expected tail cursor (zero for an empty run).
+ * Construct with new Append({...}); append requires this Data instance.
+ * Retry equality is the exact JSON string produced by the event schema, not semantic
+ * object equality. Backend JSON normalization must not redefine record identity.
+ * @since 0.1.0
+ * @category models
+ */
+export class Append<A> extends Data.Class<{
+  readonly recordId: string
+  readonly expectedCursor: number
+  readonly event: A
+}> {}
+
+/**
+ * State reduced through a committed event cursor (zero for the initial state).
+ * Construct with new CheckpointWrite({...}), or use replay's returned instance.
+ * writeCheckpoint requires this Data instance, not a plain object.
+ * The latest written checkpoint wins, even at a lower boundary. Coordinate writers
+ * per run; the caller owns state correctness, and event history must remain retained.
+ * @since 0.1.0
+ * @category models
+ */
+export class CheckpointWrite<A> extends Data.Class<{ readonly through: number; readonly state: A }> {}
+
+/** Read events strictly after this cursor. @since 0.1.0 @category schemas */
+export const ReadOptions = Schema.Struct({ after: Schema.optional(Schema.Int.check(Schema.isGreaterThanOrEqualTo(0))) })
+  .annotate({ identifier: "@scenesystems/effect-study/StudyStorage/ReadOptions" })
+
+/**
+ * Run-bound recording. Writes require only encoding services; reads only decoding
+ * services. An identical encoded retry returns its original receipt before cursor
+ * validation. Reads are finite snapshots, not live subscriptions.
+ * Custom transactional backends may return provisional receipts inside a caller's
+ * transaction. The observer must await outer commit before acknowledging. Use short
+ * per-observation transactions, not one transaction around the entire evaluation.
+ * loadCheckpoint returns the latest written checkpoint, not the greatest cursor.
+ * Backends retain events and identity receipts; no compaction protocol is supplied.
+ * @since 0.1.0
+ * @category models
+ */
+export class Recording<Events extends Schema.Constraint, State extends Schema.Constraint> extends Data.Class<{
+  readonly append: (
+    request: Append<Events["Type"]>
+  ) => Effect.Effect<Receipt, PersistenceError.Failure, Events["EncodingServices"]>
+  readonly read: (
+    options?: typeof ReadOptions.Type
+  ) => Stream.Stream<StoredEvent<Events["Type"]>, PersistenceError.Failure, Events["DecodingServices"]>
+  readonly writeCheckpoint: (
+    request: CheckpointWrite<State["Type"]>
+  ) => Effect.Effect<void, PersistenceError.Failure, State["EncodingServices"]>
+  readonly loadCheckpoint: Effect.Effect<
+    Option.Option<Checkpoint<State["Type"]>>,
+    PersistenceError.Failure,
+    State["DecodingServices"]
+  >
+}> {}
+
+/** Opens or validates a run through the ambient recording store. @since 0.1.0 @category operations */
+export const open = <Events extends Schema.Constraint, State extends Schema.Constraint>(
+  options: OpenOptions<Events, State>
+) => StudyStorage.pipe(Effect.flatMap((store) => store.open(options)))
+
+/**
+ * Reduces only the tail after the latest bound checkpoint, or the full log when
+ * absent. Returns state and the exact consumed cursor, suitable for writeCheckpoint.
+ * The reducer must be pure; replay never invokes an evaluator or authorizes retrying
+ * external work. The caller owns checkpoint state correctness and definition versions.
+ * Checkpoint loading and tail reading are separate operations. A custom backend must
+ * preserve a coherent retained tail after the loaded boundary while appends or checkpoint
+ * writes proceed; replay itself adds no transaction or snapshot-pinning protocol.
+ * @since 0.1.0
+ * @category operations
+ */
+export const replay = <Events extends Schema.Constraint, State extends Schema.Constraint>(
+  self: Recording<Events, State>,
+  initial: State["Type"],
+  reduce: (state: State["Type"], event: Events["Type"]) => State["Type"]
+): Effect.Effect<
+  CheckpointWrite<State["Type"]>,
+  PersistenceError.Failure,
+  Events["DecodingServices"] | State["DecodingServices"]
+> =>
+  Effect.gen(function*() {
+    const checkpoint = yield* self.loadCheckpoint
+    const start = Option.match(checkpoint, {
+      onNone: () => new CheckpointWrite({ through: 0, state: initial }),
+      onSome: (entry) => new CheckpointWrite({ through: entry.through, state: entry.state })
+    })
+    return yield* self.read({ after: start.through }).pipe(Stream.runFold(
+      () => start,
+      (previous, entry) =>
+        new CheckpointWrite({ through: entry.receipt.cursor, state: reduce(previous.state, entry.event) })
+    ))
+  })

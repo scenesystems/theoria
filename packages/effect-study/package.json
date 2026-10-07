@@ -39,6 +39,7 @@
     "./StudyStorage": "./src/StudyStorage.ts",
     "./Evaluation": "./src/Evaluation.ts",
     "./Journal": "./src/Journal.ts",
+    "./PersistenceError": "./src/PersistenceError.ts",
     "./internal/*": null
   },
   "scripts": {

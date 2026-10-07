@@ -3,7 +3,7 @@
  *
  * @since 0.1.0
  */
-import type * as Journal from "@scenesystems/effect-study/Journal"
+import type * as PersistenceError from "@scenesystems/effect-study/PersistenceError"
 import { type Effect, Schema } from "effect"
 
 import type * as Cache from "../../../../Cache.js"
@@ -55,7 +55,7 @@ export type CacheResolveForTrial<SpaceSchema extends Schema.Constraint> = <R>(
   request: Request<
     SpaceSchema["Type"],
     SpaceSchema["Encoded"],
-    TrialError | Journal.Failure,
+    TrialError | PersistenceError.Failure,
     R
   >
-) => Effect.Effect<Cache.Result<Value>, TrialError | Journal.Failure, R>
+) => Effect.Effect<Cache.Result<Value>, TrialError | PersistenceError.Failure, R>

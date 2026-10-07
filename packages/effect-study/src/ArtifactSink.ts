@@ -7,6 +7,7 @@
 import { Context, Effect, type FileSystem, Layer, type Path, Schema, type Stream } from "effect"
 
 import * as Journal from "./Journal.js"
+import * as PersistenceError from "./PersistenceError.js"
 
 const defaultFileName = "artifacts.jsonl"
 
@@ -23,15 +24,12 @@ export class ArtifactSink extends Context.Service<
     readonly emit: <A, I, RD, RE>(
       schema: Schema.Codec<A, I, RD, RE>,
       artifact: A
-    ) => Effect.Effect<void, Journal.Failure, RE>
+    ) => Effect.Effect<void, PersistenceError.Failure, RE>
   }
 >()("@scenesystems/effect-study/ArtifactSink") {}
 
 /** Artifact sink implementation. @since 0.1.0 @category services */
 export type Service = ArtifactSink["Service"]
-
-const codecFailure = (path: string) => (cause: Schema.SchemaError): Journal.Failure =>
-  new Journal.Failure({ operation: "write", path, detail: cause.message })
 
 /** Installs an existing artifact sink. @since 0.1.0 @category layers */
 export const layer = (service: Service): Layer.Layer<ArtifactSink> => Layer.succeed(ArtifactSink, service)
@@ -39,6 +37,7 @@ export const layer = (service: Service): Layer.Layer<ArtifactSink> => Layer.succ
 /**
  * Creates an append-only sink. Artifacts are schema-encoded before the unknown
  * journal serializes that encoded value exactly once as JSON.
+ * Encoding failures carry the destination journal path.
  *
  * @since 0.1.0
  * @category constructors
@@ -46,15 +45,22 @@ export const layer = (service: Service): Layer.Layer<ArtifactSink> => Layer.succ
 export const makeFileSystem = (
   directory: string,
   fileName = defaultFileName
-): Effect.Effect<Service, Journal.Failure, FileSystem.FileSystem | Path.Path> =>
+): Effect.Effect<Service, PersistenceError.Failure, FileSystem.FileSystem | Path.Path> =>
   Journal.make(Schema.Unknown, directory, fileName).pipe(
     Effect.map((journal) => ({
       emit: <A, I, RD, RE>(
         schema: Schema.Codec<A, I, RD, RE>,
         artifact: A
-      ): Effect.Effect<void, Journal.Failure, RE> =>
+      ): Effect.Effect<void, PersistenceError.Failure, RE> =>
         Schema.encodeEffect(schema)(artifact).pipe(
-          Effect.mapError(codecFailure(journal.path)),
+          Effect.mapError((cause) =>
+            new PersistenceError.Failure({
+              reason: "Codec",
+              operation: "write",
+              path: journal.path,
+              detail: cause.message
+            })
+          ),
           Effect.flatMap(journal.append)
         )
     }))
@@ -69,11 +75,13 @@ export const makeFileSystem = (
 export const layerFileSystem = (
   directory: string,
   fileName = defaultFileName
-): Layer.Layer<ArtifactSink, Journal.Failure, FileSystem.FileSystem | Path.Path> =>
+): Layer.Layer<ArtifactSink, PersistenceError.Failure, FileSystem.FileSystem | Path.Path> =>
   Layer.effect(ArtifactSink, makeFileSystem(directory, fileName))
 
 /**
  * Reads artifacts in physical journal order with the caller-owned schema.
+ * JSON and artifact-schema failures carry the path and physical line number,
+ * counting blank lines. Reads retain only the schema's decoding requirements.
  *
  * @since 0.1.0
  * @category operations
@@ -81,17 +89,20 @@ export const layerFileSystem = (
 export const read = <A, I, RD, RE>(
   schema: Schema.Codec<A, I, RD, RE>,
   path: string
-): Stream.Stream<A, Journal.Failure, FileSystem.FileSystem | RD> => Journal.read(schema, path)
+): Stream.Stream<A, PersistenceError.Failure, FileSystem.FileSystem | RD> => Journal.read(schema, path)
 
 /** Delivers an artifact through the ambient sink. @since 0.1.0 @category operations */
 export const emit = <A, I, RD, RE>(
   schema: Schema.Codec<A, I, RD, RE>,
   artifact: A
-): Effect.Effect<void, Journal.Failure, ArtifactSink | RE> =>
+): Effect.Effect<void, PersistenceError.Failure, ArtifactSink | RE> =>
   ArtifactSink.pipe(Effect.flatMap((sink) => sink.emit(schema, artifact)))
 
 /**
  * Delivers to the left sink and only then to the right sink after the left succeeds.
+ * Delivery is awaited and non-transactional: a right failure does not undo the left.
+ * Retrying may deliver to the left again; reuse the same artifact identity and let
+ * each sink own deduplication. Fanout neither allocates identities nor retries.
  *
  * @since 0.1.0
  * @category operations
@@ -100,6 +111,6 @@ export const fanout = (left: Service, right: Service): Service => ({
   emit: <A, I, RD, RE>(
     schema: Schema.Codec<A, I, RD, RE>,
     artifact: A
-  ): Effect.Effect<void, Journal.Failure, RE> =>
+  ): Effect.Effect<void, PersistenceError.Failure, RE> =>
     left.emit(schema, artifact).pipe(Effect.andThen(right.emit(schema, artifact)))
 })

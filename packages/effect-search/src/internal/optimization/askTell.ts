@@ -6,7 +6,7 @@
 import { Array as Arr, type Cause, Clock, Effect, Option, Queue, Schema, SynchronizedRef } from "effect"
 import type * as Scope from "effect/Scope"
 
-import type * as Journal from "@scenesystems/effect-study/Journal"
+import type * as PersistenceError from "@scenesystems/effect-study/PersistenceError"
 import * as GenericStudy from "@scenesystems/effect-study/Study"
 import type { Value } from "../../Objective.js"
 import * as Optimization from "../../Optimization.js"
@@ -199,4 +199,4 @@ export const fail = <Space extends SearchSpace.SearchSpace>(
  */
 export const cancel = <Space extends SearchSpace.SearchSpace>(
   state: HandleRuntime<Space>
-): Effect.Effect<void, Journal.Failure> => publishCompletion(state, "interrupted", "Cancelled")
+): Effect.Effect<void, PersistenceError.Failure> => publishCompletion(state, "interrupted", "Cancelled")

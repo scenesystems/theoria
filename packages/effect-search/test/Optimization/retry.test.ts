@@ -1,5 +1,6 @@
 import { describe, expect, it } from "@effect/vitest"
-import { Array as Arr, Effect, Match, Number as Num, Option, Ref, Schedule, Stream } from "effect"
+import * as PersistenceError from "@scenesystems/effect-study/PersistenceError"
+import { Array as Arr, Effect, Match, Number as Num, Option, Ref, Result, Schedule, Stream } from "effect"
 
 import * as Optimization from "../../src/Optimization.js"
 import * as Sampler from "../../src/Sampler.js"
@@ -20,6 +21,28 @@ const asSingleObjective = (
   )
 
 describe("Optimization objective retry", () => {
+  it.effect("never retries or grades a backend-neutral persistence failure", () =>
+    Effect.gen(function*() {
+      const attempts = yield* Ref.make(0)
+      const failure = new PersistenceError.Failure({
+        reason: "Backend",
+        operation: "write",
+        detail: "database unavailable"
+      })
+      const exit = yield* Optimization.run(
+        new Optimization.FlatOptions({
+          space: yield* makeSpace(),
+          sampler: Sampler.random({ seed: 7 }),
+          direction: "minimize",
+          trials: 3,
+          retrySchedule: Schedule.recurs(2),
+          objective: () => Ref.update(attempts, Num.increment).pipe(Effect.andThen(Effect.fail(failure)))
+        })
+      ).pipe(Effect.result)
+      expect(exit).toEqual(Result.fail(failure))
+      expect(yield* Ref.get(attempts)).toBe(1)
+    }))
+
   it.effect("retries transient objective failures and emits TrialRetried events", () =>
     Effect.gen(function*() {
       const attemptsRef = yield* Ref.make(0)

@@ -10,7 +10,7 @@ import * as Module from "@scenesystems/effect-dsp/Module"
 import { ModuleParameters } from "@scenesystems/effect-dsp/ModuleParameters"
 import * as Signature from "@scenesystems/effect-dsp/Signature"
 import * as OptimizationStorage from "@scenesystems/effect-search/OptimizationStorage"
-import { Failure as ArtifactStorageError } from "@scenesystems/effect-study/Journal"
+import { Failure as ArtifactStorageError } from "@scenesystems/effect-study/PersistenceError"
 import { Array as Arr, Effect, Equal, Layer, Number as Num, Ref, Result, Schema } from "effect"
 import * as LanguageModel from "effect/ai/LanguageModel"
 
@@ -101,6 +101,7 @@ describe("MIPROv2 orchestration", () => {
         const module = yield* makeStructuredQaModule
         const mock = yield* makeQaMock
         const storageError = new ArtifactStorageError({
+          reason: "Backend",
           operation: "write",
           path: "phase-3-study",
           detail: "storage unavailable"

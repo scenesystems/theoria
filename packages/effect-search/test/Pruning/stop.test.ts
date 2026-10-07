@@ -1,5 +1,5 @@
 import { expect, it } from "@effect/vitest"
-import * as Journal from "@scenesystems/effect-study/Journal"
+import * as PersistenceError from "@scenesystems/effect-study/PersistenceError"
 import { Chunk, Effect, Option, Ref, Result } from "effect"
 
 import { EventPublisher, EventRuntime } from "../../src/internal/optimization/events.js"
@@ -38,7 +38,8 @@ it.effect("does not publish a duplicate selected stop request", () =>
 
 it.effect("preserves typed publication errors at the search boundary", () =>
   Effect.gen(function*() {
-    const failure = new Journal.Failure({
+    const failure = new PersistenceError.Failure({
+      reason: "Backend",
       operation: "write",
       path: "events.jsonl",
       detail: "rejected"

@@ -6,7 +6,7 @@
 import { isFinite } from "@scenesystems/effect-math/Numeric"
 import { Boolean as Bool, Effect, Match, Number as Num, Option } from "effect"
 
-import type * as Journal from "@scenesystems/effect-study/Journal"
+import type * as PersistenceError from "@scenesystems/effect-study/PersistenceError"
 import * as GenericStudy from "@scenesystems/effect-study/Study"
 import * as OptimizationEvent from "../../../OptimizationEvent.js"
 import type * as Trial from "../../../Trial.js"
@@ -69,7 +69,7 @@ export const emitTrialCostedAndMarkBudget = <Config>(
   settings: OptimizeSettings,
   runtime: OptimizationRuntime<Config>,
   trial: Trial.Trial<Config>
-): Effect.Effect<void, Journal.Failure> =>
+): Effect.Effect<void, PersistenceError.Failure> =>
   maybeTrialCost(trial).pipe(
     Option.match({
       onNone: () => Effect.void,

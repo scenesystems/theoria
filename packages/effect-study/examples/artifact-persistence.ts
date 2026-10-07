@@ -19,12 +19,24 @@ const program = Effect.scoped(
     const artifactSink = yield* ArtifactSink.makeFileSystem(directory)
     const storage = yield* StudyStorage.makeFileSystem(StudyStorage.fileSystemOptions(directory))
     const measurement = { sample: "assay-1", values: Arr.make(1.25, 2.5) }
+    const recording = yield* storage.open(
+      new StudyStorage.OpenOptions({
+        runId: "assay",
+        definitionDigest: "measurement-snapshot",
+        eventSchema: Measurement,
+        checkpointSchema: Snapshot
+      })
+    )
 
     yield* artifactSink.emit(Measurement, measurement)
-    yield* storage.appendTrial(Measurement, measurement)
-    yield* storage.writeSnapshot(Snapshot, { completed: 1 })
+    const receipt = yield* recording.append(
+      new StudyStorage.Append({ recordId: "assay-1", expectedCursor: 0, event: measurement })
+    )
+    yield* recording.writeCheckpoint(
+      new StudyStorage.CheckpointWrite({ through: receipt.cursor, state: { completed: 1 } })
+    )
 
-    const latest = yield* storage.loadSnapshot(Snapshot)
+    const latest = yield* recording.loadCheckpoint
     yield* Option.match(latest, {
       onNone: () => Effect.log("no snapshot"),
       onSome: Effect.log

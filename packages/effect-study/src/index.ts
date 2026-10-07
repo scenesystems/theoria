@@ -21,6 +21,8 @@ export * as History from "./History.js"
 export * as Journal from "./Journal.js"
 /** Valid transitions between study phases. @since 0.1.0 @category modules */
 export * as Lifecycle from "./Lifecycle.js"
+/** Backend-neutral persistence failures. @since 0.1.0 @category modules */
+export * as PersistenceError from "./PersistenceError.js"
 /** Deterministic cooperative stop controls. @since 0.1.0 @category modules */
 export * as Stop from "./Stop.js"
 /** Scoped lifecycle and transactional trial history. @since 0.1.0 @category modules */

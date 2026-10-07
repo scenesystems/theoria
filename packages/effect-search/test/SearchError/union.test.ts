@@ -1,5 +1,5 @@
 import { describe, expect, it } from "@effect/vitest"
-import * as Journal from "@scenesystems/effect-study/Journal"
+import * as PersistenceError from "@scenesystems/effect-study/PersistenceError"
 import { Effect, Result, Schema } from "effect"
 
 import { isSearchError, SearchError, TrialError } from "../../src/SearchError.js"
@@ -33,7 +33,11 @@ describe("SearchError guard", () => {
 
   it.effect("recognizes the shared persistence failure", () =>
     Effect.sync(() => {
-      const failure = new Journal.Failure({ operation: "read", path: "records.jsonl", line: 2, detail: "torn" })
+      const failure = new PersistenceError.Failure({
+        reason: "Backend",
+        operation: "read",
+        detail: "transaction rejected"
+      })
 
       expect(isSearchError(failure)).toBe(true)
       expect(Schema.is(SearchError)(failure)).toBe(true)

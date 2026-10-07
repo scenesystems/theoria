@@ -1,6 +1,6 @@
 import { BunServices } from "@effect/platform-bun"
 import { describe, expect, it } from "@effect/vitest"
-import * as Journal from "@scenesystems/effect-study/Journal"
+import * as PersistenceError from "@scenesystems/effect-study/PersistenceError"
 import * as StudyStorage from "@scenesystems/effect-study/StudyStorage"
 import { FileSystem, Path } from "effect"
 import { Array as Arr, Effect, Layer, Number as Num, Result, Schema, String as Str, Struct } from "effect"
@@ -148,14 +148,16 @@ describe("recovery crash residue", () => {
       yield* fileSystem.writeFileString(journalPath, "{\"trialNumber\":", { flag: "a" })
 
       const outcome = yield* Effect.result(resume)
-      const failure = yield* Schema.decodeUnknownEffect(Journal.Failure)(Result.getOrThrow(Result.flip(outcome)))
+      const failure = yield* Schema.decodeUnknownEffect(PersistenceError.Failure)(
+        Result.getOrThrow(Result.flip(outcome))
+      )
 
-      expect(failure).toBeInstanceOf(Journal.Failure)
-      expect(failure._tag).toBe("effect-study/JournalError")
+      expect(failure).toBeInstanceOf(PersistenceError.Failure)
+      expect(failure.reason).toBe("Backend")
       expect(failure.operation).toBe("read")
       expect(failure.path).toBe(journalPath)
       expect(failure.line).toBe(Arr.length(Str.split("\n")(intact)))
-      expect(failure.detail).toContain("is not a journal entry")
+      expect(failure.detail).toContain("Incomplete committed-record boundary")
     }).pipe(Effect.provide(BunServices.layer)))
 
   it.effect("fails resumeFromStorage with typed InvalidOptimizationConfig when snapshot is missing", () =>
@@ -193,7 +195,7 @@ describe("recovery crash residue", () => {
       const storageOptions = StudyStorage.fileSystemOptions(directory)
       const journalPath = path.join(directory, storageOptions.fileName)
 
-      yield* fileSystem.writeFileString(journalPath, "{\"_tag\":\"Snapshot\",\"payload\":")
+      yield* fileSystem.writeFileString(journalPath, "{\"_tag\":\"Snapshot\",\"payload\":{}}\n")
 
       const outcome = yield* Effect.result(
         Optimization.resumeFromStorage(
@@ -209,9 +211,11 @@ describe("recovery crash residue", () => {
         )
       )
 
-      const failure = yield* Schema.decodeUnknownEffect(Journal.Failure)(Result.getOrThrow(Result.flip(outcome)))
-      expect(failure).toBeInstanceOf(Journal.Failure)
-      expect(failure._tag).toBe("effect-study/JournalError")
+      const failure = yield* Schema.decodeUnknownEffect(PersistenceError.Failure)(
+        Result.getOrThrow(Result.flip(outcome))
+      )
+      expect(failure).toBeInstanceOf(PersistenceError.Failure)
+      expect(failure.reason).toBe("Codec")
       expect(failure.operation).toBe("read")
       expect(failure.path).toBe(journalPath)
       expect(failure.line).toBe(1)
