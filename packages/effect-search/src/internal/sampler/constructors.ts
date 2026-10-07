@@ -59,11 +59,12 @@ export const grid = (options: GridOptions = {}): Sampler => GridSampler.make(opt
  * Invalid numeric options fail with `InvalidSamplerConfig` when `suggest` runs.
  *
  * @param options - Defaults to 10 startup trials, 24 scored candidates, seed
- * `0`, expected improvement, and independent noise-unaware models.
+ * `0`, expected improvement, independent noise-unaware models, and no
+ * constant liar: pending reservations are excluded unless `constantLiar` is set.
  * @since 0.1.0
  * @category constructors
  */
-export const tpe = (options: TpeOptions = new TpeOptions({})): Sampler => TpeSampler.make(options, constantLiarPolicy)
+export const tpe = (options: TpeOptions = new TpeOptions({})): Sampler => TpeSampler.make(options)
 
 /**
  * Adapts a diagonal CMA-ES model to an unconditional continuous search space.

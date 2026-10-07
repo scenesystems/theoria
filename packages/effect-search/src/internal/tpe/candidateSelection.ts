@@ -68,9 +68,11 @@ export const drawRolls = (
 
 /**
  * Draws `count` pairs of random floats (kernel roll + value roll) for
- * multivariate candidate generation. The kernel roll selects which
+ * numeric candidate generation. The kernel roll selects which
  * mixture component to sample from, while the value roll determines
- * the sample position within that component.
+ * the sample position within that component. As in Optuna's
+ * `_MixtureOfProductDistribution.sample`, all component rolls are drawn
+ * (`rng.choice`) before all value rolls (`rng.uniform`).
  *
  * @see {@link CandidateRollPair} for the pair structure
  * @see {@link drawRolls} for the univariate variant
@@ -81,7 +83,6 @@ export const drawRollPairs = (
   rng: Rng.Rng,
   count: number
 ) =>
-  Effect.forEach(indices(count), () =>
-    Effect.all(Tuple.make(Rng.nextFloat(rng), Rng.nextFloat(rng))).pipe(
-      Effect.map(([kernelRoll, valueRoll]) => makeCandidateRollPair(kernelRoll, valueRoll))
-    ))
+  Effect.all(Tuple.make(drawRolls(rng, count), drawRolls(rng, count))).pipe(
+    Effect.map(([kernelRolls, valueRolls]) => Arr.zipWith(kernelRolls, valueRolls, makeCandidateRollPair))
+  )

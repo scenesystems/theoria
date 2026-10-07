@@ -5,7 +5,7 @@
  */
 import { isFinite } from "@scenesystems/effect-math/Numeric"
 import type * as PersistenceError from "@scenesystems/effect-study/PersistenceError"
-import { Array as Arr, Boolean as Bool, Effect, Match, Number as Num, Option, Ref, Schema } from "effect"
+import { Array as Arr, Boolean as Bool, Effect, Match, Number as Num, Option, Order, Ref, Schema } from "effect"
 
 import * as OptimizationEvent from "../../../../OptimizationEvent.js"
 import {
@@ -73,6 +73,9 @@ const appendReport = (
   report: Report
 ): Reports => Arr.append(reports, report)
 
+/** Recorded reports keep arrival order, as Optuna does; policies receive them in ascending step order. */
+const byStep = Order.mapInput(Num.Order, (entry: Report) => entry.step)
+
 const setPruned = (
   pruneRef: Ref.Ref<Option.Option<Pruned>>,
   decision: Decision
@@ -121,7 +124,7 @@ const recordReportWithSpi = (
           const decision = policy.decide(
             new PruningContext({
               trialNumber,
-              reports: nextReports,
+              reports: Arr.sort(nextReports, byStep),
               latestReport: report
             })
           )

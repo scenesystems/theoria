@@ -14,10 +14,11 @@ import type { InvalidSamplerConfig } from "../../../SearchError.js"
 import type * as SearchSpace from "../../../SearchSpace.js"
 import { chooseBestCandidate, drawRollPairs } from "../candidateSelection.js"
 import { prepareKernelLogMass } from "../continuousParzen/density.js"
+import { defaultNoiseBandwidthOptions } from "../noiseEstimator.js"
 import { expandedBoundsForStep, normalizeFloat } from "./float.js"
 import { rollFromCandidatePair } from "./rolls.js"
 import { type CandidateRollPair, DimensionScoreTrace } from "./trace.js"
-import { numericValuesForParameter } from "./values.js"
+import { numericValuesForParameter, weightedNumericValuesForParameter } from "./values.js"
 
 const normalizeInt = (
   value: number,
@@ -86,7 +87,15 @@ export const intCandidateTraceFromRolls = (
     const stride = Option.getOrElse(step, () => 1)
     const [modelLow, modelHigh] = expandedBoundsForStep(low, high, Option.some(stride))
 
-    const belowParzen = buildContinuousParzen(numericValuesForParameter(parameter, split.below), modelLow, modelHigh)
+    const below = weightedNumericValuesForParameter(parameter, split.below)
+    const belowParzen = buildContinuousParzen(
+      below.values,
+      modelLow,
+      modelHigh,
+      defaultNoiseBandwidthOptions,
+      Option.none(),
+      below.weights
+    )
     const aboveParzen = buildContinuousParzen(numericValuesForParameter(parameter, split.above), modelLow, modelHigh)
     const modelCandidates = Arr.map(
       rolls,

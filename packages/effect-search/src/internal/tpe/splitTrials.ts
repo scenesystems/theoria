@@ -10,6 +10,8 @@ export class CompletedTrialForSplit extends Schema.Class<CompletedTrialForSplit>
   value: Schema.Number,
   state: Schema.optional(Schema.Literals(["complete", "pruned", "running"])),
   observationWeight: Schema.optional(Schema.Finite),
+  /** MOTPE hypervolume-contribution weight replacing the default l(x) kernel weight. */
+  belowWeight: Schema.optional(Schema.Finite),
   cost: Schema.optional(Schema.Finite),
   variance: Schema.optional(Schema.Finite),
   sortStep: Schema.optional(Schema.Finite)

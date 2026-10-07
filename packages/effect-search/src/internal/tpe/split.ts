@@ -7,7 +7,8 @@
 import { Array as Arr, Order } from "effect"
 
 import { match, type Objective } from "../../Objective.js"
-import type { Observation, Pending, PrunedObservation } from "../../Sampler.js"
+import type { Observation, Pending } from "../../Sampler.js"
+import type { ConstrainedPrunedObservation } from "./constraints/enrich.js"
 import { splitMultiObjective } from "./split/multiSplit.js"
 import { splitSingleObjective } from "./split/singleSplit.js"
 import { CompletedTrialForSplit, type TrialSplit } from "./splitTrials.js"
@@ -22,7 +23,7 @@ export const splitByObjective = (
   completedInput: Iterable<Observation>,
   objectiveSpec: Objective,
   epsilon = 0,
-  prunedInput: Iterable<PrunedObservation> = [],
+  prunedInput: Iterable<ConstrainedPrunedObservation> = [],
   pendingInput: Iterable<Pending> = []
 ): TrialSplit => {
   const completed = Arr.fromIterable(completedInput)

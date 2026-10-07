@@ -1,5 +1,12 @@
 {
   "environment": {
+    "ATEN_CPU_CAPABILITY": "default",
+    "MKL_CBWR": "COMPATIBLE",
+    "MKL_NUM_THREADS": "1",
+    "NPY_DISABLE_CPU_FEATURES": "AVX2,FMA3,AVX512F",
+    "OMP_NUM_THREADS": "1",
+    "OPENBLAS_CORETYPE": "HASWELL",
+    "OPENBLAS_NUM_THREADS": "1",
     "PYTHONHASHSEED": "0"
   },
   "fixtures": [
@@ -159,6 +166,26 @@
       "sha256": "a058796fafda42d13923b5befcce93dbe40ebd57821fa5917c3b9a740e82bf9b"
     },
     {
+      "file": "motpe-hssp/below-weights.json",
+      "name": "motpe-hssp.below-weights",
+      "sha256": "69d938bde70cbc76a337febdbec6b0b9306bc72d61bc6702ca533f0187256506"
+    },
+    {
+      "file": "motpe-hssp/feasibility-fronts.json",
+      "name": "motpe-hssp.feasibility-fronts",
+      "sha256": "670a1798eaceca825638a10fc1229fff38bfe211955eaaf1caafcc65488cb53c"
+    },
+    {
+      "file": "motpe-hssp/many-objective.json",
+      "name": "motpe-hssp.many-objective",
+      "sha256": "4b39d3c8e364941e0016791ca92726b08582cb888c9b9370c1a72d36d8d49165"
+    },
+    {
+      "file": "motpe-hssp/ties.json",
+      "name": "motpe-hssp.ties",
+      "sha256": "210229a2b481b4dacac398d6e526cabac59e731f4f3fd8ebf5aae6589e60ef83"
+    },
+    {
       "file": "motpe-reference/reference-point.json",
       "name": "motpe-reference.reference-point",
       "sha256": "21bff3a55c3b7ad365c5e5eda962cfac4b4f5adc6f74153b2a6936f22ef731c6"
@@ -222,6 +249,31 @@
       "file": "tpe-categorical-study.replay.json",
       "name": "tpe-categorical-study.replay",
       "sha256": "1d71b094156e46f4019debd414ae5c0d7051664144b2f209bd3757cfed1e7607"
+    },
+    {
+      "file": "tpe-numeric/mixed-default.json",
+      "name": "tpe-numeric.mixed-default",
+      "sha256": "b474e8886e63efd117344ce8a80f7599fd72bd72ce94a4442dd0224e436085c2"
+    },
+    {
+      "file": "tpe-numeric/stepped-float.json",
+      "name": "tpe-numeric.stepped-float",
+      "sha256": "db61f6381fcefb19948c5df427add7dc783f549584cf4906ba12202dd5dd543f"
+    },
+    {
+      "file": "trial-states/constant-liar.json",
+      "name": "trial-states.constant-liar",
+      "sha256": "468c295466a6330b97de19a35fdcfdbe5f577908ef315b6786652925ea81d2d2"
+    },
+    {
+      "file": "trial-states/pruned-constraints.json",
+      "name": "trial-states.pruned-constraints",
+      "sha256": "fe647d6786225eddc942ad83ab75a1a5035c723f60e325d37220851f9be220d7"
+    },
+    {
+      "file": "trial-states/threshold-last-step.json",
+      "name": "trial-states.threshold-last-step",
+      "sha256": "a45454658ca95a2d4dd5874d5479a90ea7136084ced1b0a8474f0af8b3e369fd"
     },
     {
       "file": "truncated-normal/edge-cases.json",

@@ -1,0 +1,266 @@
+{
+  "fixture": "motpe-hssp.feasibility-fronts",
+  "metadata": {
+    "generatedAt": "2026-03-15T00:00:00Z",
+    "generator": {
+      "script": "scripts/generate-optuna-fixtures.py"
+    },
+    "upstream": {
+      "name": "optuna",
+      "version": "4.9.0"
+    }
+  },
+  "payload": {
+    "cases": [
+      {
+        "directions": [
+          "minimize",
+          "minimize"
+        ],
+        "expectedAbove": [
+          0,
+          2,
+          3
+        ],
+        "expectedBelow": [
+          1
+        ],
+        "id": "infeasible-dominator",
+        "nBelow": 1,
+        "trials": [
+          {
+            "constraints": [
+              -1.0
+            ],
+            "trialNumber": 0,
+            "values": [
+              1.0,
+              3.0
+            ]
+          },
+          {
+            "constraints": [
+              -1.0
+            ],
+            "trialNumber": 1,
+            "values": [
+              2.0,
+              2.0
+            ]
+          },
+          {
+            "constraints": [
+              -1.0
+            ],
+            "trialNumber": 2,
+            "values": [
+              3.0,
+              1.0
+            ]
+          },
+          {
+            "constraints": [
+              0.5
+            ],
+            "trialNumber": 3,
+            "values": [
+              1.5,
+              1.5
+            ]
+          }
+        ]
+      },
+      {
+        "directions": [
+          "minimize",
+          "maximize",
+          "minimize"
+        ],
+        "expectedAbove": [
+          0,
+          3,
+          4,
+          5,
+          7
+        ],
+        "expectedBelow": [
+          1,
+          2,
+          6
+        ],
+        "id": "infeasible-first-front-3d",
+        "nBelow": 3,
+        "trials": [
+          {
+            "constraints": [
+              1.0
+            ],
+            "trialNumber": 0,
+            "values": [
+              0.0,
+              9.0,
+              0.0
+            ]
+          },
+          {
+            "constraints": [
+              -1.0
+            ],
+            "trialNumber": 1,
+            "values": [
+              1.0,
+              5.0,
+              2.0
+            ]
+          },
+          {
+            "constraints": [
+              0.0
+            ],
+            "trialNumber": 2,
+            "values": [
+              2.0,
+              6.0,
+              1.0
+            ]
+          },
+          {
+            "constraints": [
+              -0.5
+            ],
+            "trialNumber": 3,
+            "values": [
+              3.0,
+              4.0,
+              3.0
+            ]
+          },
+          {
+            "constraints": [
+              2.0
+            ],
+            "trialNumber": 4,
+            "values": [
+              0.5,
+              8.0,
+              0.5
+            ]
+          },
+          {
+            "constraints": [
+              -2.0
+            ],
+            "trialNumber": 5,
+            "values": [
+              4.0,
+              2.0,
+              4.0
+            ]
+          },
+          {
+            "constraints": [
+              -1.0
+            ],
+            "trialNumber": 6,
+            "values": [
+              2.0,
+              5.5,
+              2.5
+            ]
+          },
+          {
+            "constraints": [
+              3.0
+            ],
+            "trialNumber": 7,
+            "values": [
+              5.0,
+              1.0,
+              5.0
+            ]
+          }
+        ]
+      },
+      {
+        "directions": [
+          "minimize",
+          "minimize"
+        ],
+        "expectedAbove": [
+          0,
+          4
+        ],
+        "expectedBelow": [
+          1,
+          2,
+          3,
+          5
+        ],
+        "id": "fill-from-least-violation",
+        "nBelow": 4,
+        "trials": [
+          {
+            "constraints": [
+              3.0
+            ],
+            "trialNumber": 0,
+            "values": [
+              1.0,
+              1.0
+            ]
+          },
+          {
+            "constraints": [
+              -1.0
+            ],
+            "trialNumber": 1,
+            "values": [
+              2.0,
+              4.0
+            ]
+          },
+          {
+            "constraints": [
+              -1.0
+            ],
+            "trialNumber": 2,
+            "values": [
+              4.0,
+              2.0
+            ]
+          },
+          {
+            "constraints": [
+              0.25
+            ],
+            "trialNumber": 3,
+            "values": [
+              0.0,
+              0.0
+            ]
+          },
+          {
+            "constraints": [
+              1.0
+            ],
+            "trialNumber": 4,
+            "values": [
+              3.0,
+              3.0
+            ]
+          },
+          {
+            "constraints": [
+              0.25
+            ],
+            "trialNumber": 5,
+            "values": [
+              0.5,
+              0.5
+            ]
+          }
+        ]
+      }
+    ]
+  }
+}

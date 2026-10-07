@@ -29,7 +29,7 @@ import type * as SearchSpace from "../../../SearchSpace.js"
 import { chooseBestCandidate, drawRolls } from "../candidateSelection.js"
 import { logProbability } from "../scoring.js"
 import { type CandidateRollPair, DimensionScoreTrace } from "./trace.js"
-import { primitiveValuesForParameter } from "./values.js"
+import { primitiveValuesForParameter, weightedPrimitiveValuesForParameter } from "./values.js"
 
 /**
  * Extracts all categorical dimensions from a search space as
@@ -113,9 +113,9 @@ export const categoricalCandidateTraceFromRolls = (
   const choices = Arr.fromIterable(choicesInput)
   const rolls = Arr.fromIterable(rollsInput)
   return Effect.gen(function*() {
-    const belowValues = primitiveValuesForParameter(parameter, split.below)
+    const below = weightedPrimitiveValuesForParameter(parameter, split.below)
     const aboveValues = primitiveValuesForParameter(parameter, split.above)
-    const belowDensity = yield* buildCategoricalParzen(choices, belowValues)
+    const belowDensity = yield* buildCategoricalParzen(choices, below.values, {}, below.weights)
     const aboveDensity = yield* buildCategoricalParzen(choices, aboveValues)
     const components = mixtureComponents(belowDensity.kernelWeights, Arr.map(rolls, ([component]) => component))
     const candidates = Arr.map(rolls, ([, value], index) =>
@@ -244,12 +244,10 @@ export const suggestMultivariateCategorical = (
               const parameter = yield* Effect.fromOption(
                 Arr.findFirst(space.params, (entry) => Equal.equals(entry.name, dimension.name))
               )
+              const below = weightedPrimitiveValuesForParameter(parameter, split.below)
               return {
                 name: dimension.name,
-                below: yield* buildCategoricalParzen(
-                  dimension.choices,
-                  primitiveValuesForParameter(parameter, split.below)
-                ),
+                below: yield* buildCategoricalParzen(dimension.choices, below.values, {}, below.weights),
                 above: yield* buildCategoricalParzen(
                   dimension.choices,
                   primitiveValuesForParameter(parameter, split.above)

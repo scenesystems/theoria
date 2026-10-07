@@ -61,6 +61,8 @@ export type Constraint = (config: unknown) => Effect.Effect<number>
 /**
  * TPE configuration, including runtime-only acquisition and constraint extensions.
  * Function-valued fields are intentionally excluded from checkpoints and sampler identity.
+ * `constantLiar` defaults to `false`, as in Optuna: pending reservations are ignored while
+ * fitting. When `true`, every pending reservation joins the above group as a running trial.
  * @since 0.7.0
  * @category models
  */
@@ -71,6 +73,7 @@ export class TpeOptions extends Data.Class<{
   readonly groupDimensions?: boolean
   readonly noiseAware?: boolean
   readonly noiseAlpha?: number
+  readonly constantLiar?: boolean
   readonly seed?: number
   readonly acquisition?: Acquisition.Strategy
   readonly constraints?: Iterable<Constraint>
@@ -83,6 +86,7 @@ const PersistedTpeOptions = Schema.Struct({
   groupDimensions: Schema.optional(Schema.Boolean),
   noiseAware: Schema.optional(Schema.Boolean),
   noiseAlpha: Schema.optional(Schema.Finite),
+  constantLiar: Schema.optional(Schema.Boolean),
   constraintsCount: Schema.optional(Schema.Finite.check(Schema.isGreaterThanOrEqualTo(0))),
   seed: Schema.optional(Schema.Finite)
 })

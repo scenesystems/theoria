@@ -230,7 +230,8 @@ export const buildCategoricalParzen = (
   options: CategoricalParzenOptions | {
     readonly priorWeight?: number
     readonly distance?: (observed: Choice, candidate: Choice) => number
-  } = {}
+  } = {},
+  predeterminedWeights: Option.Option<ReadonlyArray<number>> = Option.none()
 ): Effect.Effect<CategoricalParzen, InvalidSamplerConfig> => {
   const choices = Arr.fromIterable(choicesInput)
   const observations = Arr.fromIterable(observationsInput)
@@ -258,7 +259,12 @@ export const buildCategoricalParzen = (
               )),
             priorKernel(Arr.length(choices))
           )
-          const kernelWeights = normalize(Arr.append(defaultWeights(Arr.length(observations)), priorWeight))
+          const kernelWeights = normalize(
+            Arr.append(
+              Option.getOrElse(predeterminedWeights, () => defaultWeights(Arr.length(observations))),
+              priorWeight
+            )
+          )
 
           return {
             choices,

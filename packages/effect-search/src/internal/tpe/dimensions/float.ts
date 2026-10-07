@@ -5,12 +5,16 @@
  */
 import { Array as Arr, Boolean as Bool, Chunk, Data, Effect, Match, Number as Num, Option, Tuple } from "effect"
 
-import { logStrict } from "@scenesystems/effect-math/Numeric"
+import { logStrict, logSumExp } from "@scenesystems/effect-math/Numeric"
 import * as Acquisition from "../../../Acquisition.js"
 import { exp } from "../../../internal/exponential.js"
 import type * as Rng from "../../../internal/rng.js"
 import { buildContinuousParzen, sampleFromParzen } from "../../../internal/tpe/continuousParzen.js"
-import { prepareKernelLogDensity, prepareLogDensity } from "../../../internal/tpe/continuousParzen/density.js"
+import {
+  prepareKernelLogDensity,
+  prepareKernelLogMass,
+  prepareLogDensity
+} from "../../../internal/tpe/continuousParzen/density.js"
 import { defaultNoiseBandwidthOptions, type NoiseBandwidthOptions } from "../../../internal/tpe/noiseEstimator.js"
 import type { TrialSplit } from "../../../internal/tpe/splitTrials.js"
 import type { InvalidSamplerConfig } from "../../../SearchError.js"
@@ -20,7 +24,7 @@ import { objectiveVarianceFromSplit } from "../costModel.js"
 import { invalidConfig } from "../options.js"
 import { rollFromCandidatePair } from "./rolls.js"
 import { type CandidateRollPair, DimensionScoreTrace } from "./trace.js"
-import { numericValuesForParameter } from "./values.js"
+import { numericValuesForParameter, weightedNumericValuesForParameter } from "./values.js"
 
 class FloatModel extends Data.Class<{
   readonly low: number
@@ -138,6 +142,22 @@ const floatModel = (
       )
   })
 
+class ScoredCandidates extends Data.Class<{
+  readonly logPairs: ReadonlyArray<readonly [number, number]>
+  readonly kernelLogL: ReadonlyArray<ReadonlyArray<number>>
+  readonly kernelLogG: ReadonlyArray<ReadonlyArray<number>>
+}> {}
+
+/**
+ * Linear stepped floats are Optuna `_BatchedDiscreteTruncNormDistributions`: candidates are quantized
+ * before scoring, and each kernel scores the probability mass of the candidate's grid cell.
+ */
+const gridCellStep = (scale: Option.Option<"linear" | "log">, step: Option.Option<number>): Option.Option<number> =>
+  Option.filter(step, () => Bool.not(Option.contains(scale, "log")))
+
+const mixtureLogMass = (scores: ReadonlyArray<number>, weights: ReadonlyArray<number>): number =>
+  logSumExp(Chunk.fromIterable(Arr.zipWith(scores, weights, (score, weight) => Num.sum(score, logStrict(weight)))))
+
 /**
  * Suggests the best float value for a parameter by building Parzen estimators
  * on the below/above splits, sampling candidates from the below-distribution,
@@ -208,12 +228,14 @@ export const floatCandidateTraceFromRolls = (
   return Effect.gen(function*() {
     const model = yield* floatModel(parameter.name, low, high, scale, step)
     const empiricalVariance = objectiveVarianceFromSplit(split)
+    const below = weightedNumericValuesForParameter(parameter, split.below)
     const belowParzen = buildContinuousParzen(
-      Arr.map(numericValuesForParameter(parameter, split.below), model.toModel),
+      Arr.map(below.values, model.toModel),
       model.low,
       model.high,
       noiseOptions,
-      empiricalVariance
+      empiricalVariance,
+      below.weights
     )
     const aboveParzen = buildContinuousParzen(
       Arr.map(numericValuesForParameter(parameter, split.above), model.toModel),
@@ -226,23 +248,49 @@ export const floatCandidateTraceFromRolls = (
       rolls,
       ([kernelRoll, valueRoll]) => sampleFromParzen(belowParzen, kernelRoll, valueRoll)
     )
-    const belowLogDensity = prepareLogDensity(belowParzen)
-    const aboveLogDensity = prepareLogDensity(aboveParzen)
-    const logPairs = Arr.map(
+    const candidates = Arr.map(
       modelCandidates,
-      (candidate) => Tuple.make(belowLogDensity(candidate), aboveLogDensity(candidate))
+      (candidate) => normalizeFloat(model.fromModel(candidate), low, high, step)
     )
+    const weightsL = Arr.map(belowParzen.kernels, (kernel) => kernel.weight)
+    const weightsG = Arr.map(aboveParzen.kernels, (kernel) => kernel.weight)
+    const scored = Option.match(gridCellStep(scale, step), {
+      onNone: () => {
+        const belowLogDensity = prepareLogDensity(belowParzen)
+        const aboveLogDensity = prepareLogDensity(aboveParzen)
+        return new ScoredCandidates({
+          logPairs: Arr.map(
+            modelCandidates,
+            (candidate) => Tuple.make(belowLogDensity(candidate), aboveLogDensity(candidate))
+          ),
+          kernelLogL: Arr.map(modelCandidates, prepareKernelLogDensity(belowParzen)),
+          kernelLogG: Arr.map(modelCandidates, prepareKernelLogDensity(aboveParzen))
+        })
+      },
+      onSome: (stride) => {
+        const kernelLogL = Arr.map(candidates, prepareKernelLogMass(belowParzen, stride))
+        const kernelLogG = Arr.map(candidates, prepareKernelLogMass(aboveParzen, stride))
+        return new ScoredCandidates({
+          logPairs: Arr.zipWith(
+            kernelLogL,
+            kernelLogG,
+            (l, g) => Tuple.make(mixtureLogMass(l, weightsL), mixtureLogMass(g, weightsG))
+          ),
+          kernelLogL,
+          kernelLogG
+        })
+      }
+    })
+    const logPairs = scored.logPairs
 
     return new DimensionScoreTrace({
-      candidates: Chunk.fromIterable(
-        Arr.map(modelCandidates, (candidate) => normalizeFloat(model.fromModel(candidate), low, high, step))
-      ),
+      candidates: Chunk.fromIterable(candidates),
       logL: Arr.map(logPairs, ([logL]) => logL),
       logG: Arr.map(logPairs, ([_logL, logG]) => logG),
-      kernelLogL: Arr.map(modelCandidates, prepareKernelLogDensity(belowParzen)),
-      kernelLogG: Arr.map(modelCandidates, prepareKernelLogDensity(aboveParzen)),
-      weightsL: Arr.map(belowParzen.kernels, (kernel) => kernel.weight),
-      weightsG: Arr.map(aboveParzen.kernels, (kernel) => kernel.weight),
+      kernelLogL: scored.kernelLogL,
+      kernelLogG: scored.kernelLogG,
+      weightsL,
+      weightsG,
       scores: Arr.map(logPairs, ([logL, logG], index) =>
         Acquisition.score(
           new Acquisition.Context({

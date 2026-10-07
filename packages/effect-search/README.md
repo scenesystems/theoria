@@ -114,11 +114,11 @@ export const program = Effect.gen(function* () {
 
 Start with TPE for mixed spaces and compare it against random search on the same objective and budget. Use grid search only when the finite product is small enough to enumerate. CMA-ES and GP-BO reject categorical dimensions. HyperBand and BOHB require a `SearchSpace.fidelity` dimension and are passed to `Optimization.run` as the `scheduler` option in place of a `sampler`.
 
-Joint categorical TPE supports at most 65,536 combinations across its dimensions. Larger products fail with checked `InvalidSamplerConfig` before the joint domain is allocated. `nEiCandidates` limits candidate draws, not domain size. This limit applies when model-driven joint categorical sampling begins; random startup does not enumerate the domain.
+Joint categorical TPE samples mixture components and per-dimension choices without enumerating the Cartesian product. `nEiCandidates` limits candidate draws. The default `multivariate: false` samples dimensions independently; set `multivariate: true` for joint categorical kernels. Pending trials are ignored unless `constantLiar: true` places them in the above group, without counting them toward startup.
 
 A seeded sampler reproduces its suggestions when it sees the same ordered trial history and a compatible checkpoint. The optimization as a whole is reproducible only if the objective, clock, external services, and observation order are too. Concurrent evaluation can change completion order, so a seed alone does not guarantee identical results under every concurrency setting.
 
-Effect 4 changed the seeded random sequence used by the samplers, so the same numeric seed does not reproduce the Effect 3 suggestion sequence. Start a new run after upgrading rather than expecting an Effect 3 snapshot or RNG trace to replay under Effect 4; snapshot resumption requires a checkpoint produced by the compatible implementation. The checked-in numerical fixtures themselves were not changed as part of this migration.
+Random and TPE use continuing NumPy-compatible startup/model streams. Reusing a sampler continues its stream; use a fresh sampler with the same seed for a fresh trajectory, or restore its checkpoint for continuation. Snapshot and per-trial journal checkpoints persist the stream positions. Current data shapes are the only supported persistence contract.
 
 TPE accepts the built-in acquisition names `"ei"`, `"pi"`, and `"thompson"`, or a custom `Acquisition.Acquisition` created with `Acquisition.make`. Use `Acquisition.isAcquisition` when narrowing unknown extension values.
 

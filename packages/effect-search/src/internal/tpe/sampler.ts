@@ -3,9 +3,9 @@
  *
  * @since 0.1.0
  */
-import { Array as Arr, Boolean as Bool, Effect, Equal, Option } from "effect"
+import { Array as Arr, Boolean as Bool, Effect, Option } from "effect"
 
-import { type PendingPolicy, TpeOptions } from "../../Sampler.js"
+import { constantLiarPolicy, noPendingPolicy, TpeOptions } from "../../Sampler.js"
 import * as Sampler from "../../Sampler.js"
 import * as Rng from "../rng.js"
 import { suggest as suggestRandom } from "../sampler/random/suggest.js"
@@ -13,6 +13,7 @@ import { restoreCheckpoint } from "./checkpoint.js"
 import {
   acquisitionFromOptions,
   candidatesFromOptions,
+  constantLiarFromOptions,
   constraintEvaluatorsFromOptions,
   groupDimensionsFromOptions,
   multivariateFromOptions,
@@ -30,7 +31,9 @@ import { suggestWithStartup } from "./startup.js"
  * into a single Sampler instance.
  *
  * This is the primary entry point for creating a Tree-structured Parzen
- * Estimator sampler for Bayesian optimization.
+ * Estimator sampler for Bayesian optimization. The `constantLiar` option alone
+ * decides whether pending reservations join the above group as running trials;
+ * the exposed pending policy reports that choice.
  *
  * @see {@link Sampler.Sampler} for the output data class
  * @see {@link suggestWithStartup} for the startup-phase routing logic
@@ -38,8 +41,7 @@ import { suggestWithStartup } from "./startup.js"
  * @category constructors
  */
 export const make = (
-  options: TpeOptions = new TpeOptions({}),
-  pendingImputationPolicy: PendingPolicy
+  options: TpeOptions = new TpeOptions({})
 ): Sampler.Sampler => {
   const snapshotOptions = snapshotSafeOptionsFromRuntime(options)
   const startupTrials = startupTrialsFromOptions(options)
@@ -50,12 +52,16 @@ export const make = (
   const noiseOptions = noiseOptionsFromOptions(options)
   const constraints = constraintEvaluatorsFromOptions(options)
   const acquisition = acquisitionFromOptions(options)
+  const constantLiar = constantLiarFromOptions(options)
   const stream = new Rng.NumPyStream(seed)
   const startupStream = new Rng.NumPyStream(seed)
 
   return new Sampler.Sampler({
     kind: Sampler.Tpe({ options: snapshotOptions }),
-    pendingImputationPolicy,
+    pendingImputationPolicy: Bool.match(constantLiar, {
+      onFalse: () => noPendingPolicy,
+      onTrue: () => constantLiarPolicy
+    }),
     checkpoint: Effect.all({ rng: stream.snapshot, startupRng: startupStream.snapshot }).pipe(Effect.map((states) => ({
       _tag: "Tpe",
       seed,
@@ -81,9 +87,9 @@ export const make = (
             new Sampler.Context({
               completed: context.completed,
               pruned: Option.fromNullishOr(context.pruned).pipe(Option.getOrElse(() => [])),
-              pending: Bool.match(Equal.equals(pendingImputationPolicy.name, "none"), {
-                onFalse: () => context.pending,
-                onTrue: () => Arr.empty()
+              pending: Bool.match(constantLiar, {
+                onFalse: () => Arr.empty(),
+                onTrue: () => context.pending
               }),
               objectiveSpec: context.objectiveSpec,
               nextTrialNumber: context.nextTrialNumber,

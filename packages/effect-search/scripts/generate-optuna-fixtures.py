@@ -14,12 +14,13 @@ if os.environ.get("PYTHONHASHSEED") != "0":
     os.execve(sys.executable, [sys.executable, *sys.argv], {**os.environ, "PYTHONHASHSEED": "0"})
 
 # Use the same NumPy math path on orb and CI CPUs; SIMD dispatch changes last bits.
-os.environ["NPY_DISABLE_CPU_FEATURES"] = "AVX2,FMA3,AVX512F"
 # GPSampler also uses PyTorch/MKL and SciPy/OpenBLAS. Fix dispatch and reduction
 # order before importing any numerical library; never round reference outputs.
-os.environ.update(ATEN_CPU_CAPABILITY="default", MKL_CBWR="COMPATIBLE",
-                  OPENBLAS_CORETYPE="HASWELL", OPENBLAS_NUM_THREADS="1",
-                  MKL_NUM_THREADS="1", OMP_NUM_THREADS="1")
+CPU_ENVIRONMENT = {"NPY_DISABLE_CPU_FEATURES": "AVX2,FMA3,AVX512F", "ATEN_CPU_CAPABILITY": "default",
+                   "MKL_CBWR": "COMPATIBLE", "OPENBLAS_CORETYPE": "HASWELL", "OPENBLAS_NUM_THREADS": "1",
+                   "MKL_NUM_THREADS": "1", "OMP_NUM_THREADS": "1"}
+os.environ.update(CPU_ENVIRONMENT)
+ENVIRONMENT = {"PYTHONHASHSEED": "0", **CPU_ENVIRONMENT}
 
 import optuna
 
@@ -27,14 +28,15 @@ from fixtures import (
     gamma, split_trials, pruned_score, truncated_normal, categorical_parzen,
     continuous_kde, ei, motpe, study_replay, conditional, pruning, mixed_space,
     noise_bandwidth, multivariate_gaussian, constrained_tpe, advanced_samplers,
-    mipro_kernel,
+    mipro_kernel, trial_states, motpe_hssp, tpe_numeric,
 )
 from fixtures._common import DEFAULT_GENERATED_AT
 
 ROOT = Path(__file__).resolve().parents[1] / "test/fixtures"
 FAMILIES = [gamma, split_trials, pruned_score, truncated_normal, categorical_parzen,
             continuous_kde, ei, motpe, study_replay, conditional, pruning, mixed_space,
-            noise_bandwidth, multivariate_gaussian, constrained_tpe, advanced_samplers]
+            noise_bandwidth, multivariate_gaussian, constrained_tpe, advanced_samplers,
+            trial_states, motpe_hssp, tpe_numeric]
 
 
 def render(value, *, sort_keys=False):
@@ -55,7 +57,7 @@ def run(check=False):
                             "sha256": hashlib.sha256(raw).hexdigest()})
     outputs[ROOT / "optuna/manifest.json"] = render({
         "upstream": upstream, "generator": "scripts/generate-optuna-fixtures.py",
-        "environment": {"PYTHONHASHSEED": "0"},
+        "environment": ENVIRONMENT,
         "fixtures": sorted(entries, key=lambda entry: entry["name"]),
     }, sort_keys=True)
     kernel = mipro_kernel.generate()
@@ -63,7 +65,7 @@ def run(check=False):
     raw = render(kernel)
     outputs[ROOT / "optuna-mipro/categorical.json"] = raw
     outputs[ROOT / "optuna-mipro/manifest.json"] = render({
-        "upstream": upstream, "environment": {"PYTHONHASHSEED": "0"}, "trajectorySelection": selection, "fixtures": [{
+        "upstream": upstream, "environment": ENVIRONMENT, "trajectorySelection": selection, "fixtures": [{
             "id": "optuna-mipro-categorical-001", "file": "categorical.json",
             "evidence": "upstream-kernel", "sha256": hashlib.sha256(raw).hexdigest(),
             "generator": "scripts/fixtures/mipro_kernel.py",

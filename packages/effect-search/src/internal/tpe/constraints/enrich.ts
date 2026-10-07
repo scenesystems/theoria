@@ -3,9 +3,22 @@
  *
  * @since 0.1.0
  */
-import { Array as Arr, Effect, Equal, Option } from "effect"
+import { Array as Arr, Data, Effect, Equal, Option } from "effect"
 
-import { type Constraint, Observation } from "../../../Sampler.js"
+import type { Vector } from "../../../Objective.js"
+import { type Constraint, Observation, type PrunedObservation } from "../../../Sampler.js"
+
+/**
+ * A pruned trial with the constraint residuals evaluated on its configuration.
+ * An empty vector means constraints are disabled.
+ *
+ * @since 0.9.0
+ * @category models
+ */
+export class ConstrainedPrunedObservation extends Data.Class<{
+  readonly trial: PrunedObservation
+  readonly constraints: Vector
+}> {}
 
 const cloneWithConstraints = (
   trial: Observation,
@@ -90,5 +103,27 @@ export const enrichCompletedTrialsWithConstraints = (
       onNone: () => Effect.succeed(Arr.fromIterable(completed)),
       onSome: () => Effect.forEach(completed, (trial) => evaluateConstraintsForTrial(trial, materialized))
     })
+  )
+}
+
+/**
+ * Evaluates constraint functions on pruned trial configurations. Optuna records
+ * `constraints_func` results for COMPLETE and PRUNED trials alike, so feasible
+ * pruned trials rank ahead of infeasible trials.
+ *
+ * @since 0.9.0
+ * @category constructors
+ */
+export const enrichPrunedTrialsWithConstraints = (
+  prunedInput: Iterable<PrunedObservation>,
+  constraintsInput: Iterable<Constraint>
+): Effect.Effect<Array<ConstrainedPrunedObservation>> => {
+  const constraints = Arr.fromIterable(constraintsInput)
+  return Effect.forEach(
+    Arr.fromIterable(prunedInput),
+    (trial) =>
+      Effect.forEach(constraints, (evaluateConstraint) => evaluateConstraint(trial.config)).pipe(
+        Effect.map((resolved) => new ConstrainedPrunedObservation({ trial, constraints: resolved }))
+      )
   )
 }

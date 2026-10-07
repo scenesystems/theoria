@@ -5,7 +5,14 @@
     "platform": "Linux-x86_64"
   },
   "environment": {
-    "PYTHONHASHSEED": "0"
+    "PYTHONHASHSEED": "0",
+    "NPY_DISABLE_CPU_FEATURES": "AVX2,FMA3,AVX512F",
+    "ATEN_CPU_CAPABILITY": "default",
+    "MKL_CBWR": "COMPATIBLE",
+    "OPENBLAS_CORETYPE": "HASWELL",
+    "OPENBLAS_NUM_THREADS": "1",
+    "MKL_NUM_THREADS": "1",
+    "OMP_NUM_THREADS": "1"
   },
   "trajectorySelection": {
     "rule": "Retain recorded trajectories, but assert only through the trial before the first subUlp or coincidentalCancellation tie. Extra independent trajectory: startup=8, scan seeds 0..99 in order; select first fully strict 16-trial run, else earliest seed with longest strict prefix. Record diagnostic gaps rounded to 12 decimals; classify untouched upstream scores and bit-identical ordered kernel inputs.",

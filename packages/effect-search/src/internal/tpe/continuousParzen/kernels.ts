@@ -31,8 +31,12 @@ export const clipSigma = (sigma: number, low: number, high: number, nKernels: nu
   })
 }
 
-export const normalizedKernelWeights = (observationCount: number) => {
-  const observationWeights = defaultWeights(observationCount)
+/** Predetermined weights, when present, replace the default recency weights (Optuna's MOTPE path). */
+export const normalizedKernelWeights = (
+  observationCount: number,
+  predeterminedWeights: Option.Option<ReadonlyArray<number>> = Option.none()
+) => {
+  const observationWeights = Option.getOrElse(predeterminedWeights, () => defaultWeights(observationCount))
   const kernelWeights = Arr.append(observationWeights, priorKernelWeight)
   const totalWeight = Num.sumAll(kernelWeights)
 
