@@ -162,7 +162,7 @@ export class Pending extends Schema.Class<Pending>("@scenesystems/effect-search/
   config: Schema.Record(Schema.String, Schema.Unknown)
 }) {}
 
-/** A pruned trial has intermediate reports, never a completed objective value. @since 0.8.0 @category schemas */
+/** A pruned trial has intermediate reports, never a completed objective value. @since 0.9.0 @category schemas */
 export class PrunedObservation
   extends Schema.Class<PrunedObservation>("@scenesystems/effect-search/Sampler/PrunedObservation")({
     trialNumber: Schema.Finite,

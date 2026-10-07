@@ -412,7 +412,7 @@ export const run = <Config, Value, E, R>(
   )
 
 /** Expected failure budget exhausted after active evaluators finish.
- * @since 0.2.0
+ * @since 0.3.0
  * @category errors
  */
 export class TooManyFailures
@@ -426,7 +426,7 @@ export class TooManyFailures
 {}
 
 /** Ordered collection with an optional expected-failure budget.
- * @since 0.2.0
+ * @since 0.3.0
  * @category schemas
  */
 export const CollectingOptions = Schema.Struct({
@@ -439,7 +439,7 @@ export const CollectingOptions = Schema.Struct({
  * budget stops new evaluations, drains active work, then fails with the final
  * failure count. Defects and interruption propagate and interrupt siblings.
  * Durations include the evaluator's finalizers, not queue time.
- * @since 0.2.0
+ * @since 0.3.0
  * @category operations
  */
 export const runCollecting = <Config, Value, E, R>(

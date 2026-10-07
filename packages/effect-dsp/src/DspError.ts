@@ -46,7 +46,7 @@ export class ParseOutputError extends Schema.TaggedError<ParseOutputError>(
     moduleName: Schema.String,
     rawOutput: Schema.Option(Schema.String),
     retryCount: Schema.Option(Schema.Finite),
-    /** Runtime predictor evidence; absent for direct parser calls. @since 0.6.0 */
+    /** Runtime predictor evidence; absent for direct parser calls. @since 0.7.0 */
     context: Schema.optional(Schema.Struct({ predictorPath: Schema.String, input: Payload, prompt: Schema.String })),
     fieldDiagnostics: Schema.Array(ParseFieldDiagnostic).pipe(Schema.withDecodingDefaultType(Effect.sync(Arr.empty)))
   }
@@ -95,7 +95,7 @@ export class AllTrialsFailed extends Schema.TaggedError<AllTrialsFailed>(
 ) {}
 
 /** Invalid MIPRO inputs or exhausted full-validation candidates.
- * @since 0.6.0
+ * @since 0.7.0
  * @category errors
  */
 export class MIPROv2Error extends Schema.TaggedError<MIPROv2Error>(
@@ -106,7 +106,7 @@ export class MIPROv2Error extends Schema.TaggedError<MIPROv2Error>(
 }) {}
 
 /** Invalid GEPA budgets, datasets, or continuation state.
- * @since 0.6.0
+ * @since 0.7.0
  * @category errors
  */
 export class GEPAError extends Schema.TaggedError<GEPAError>(

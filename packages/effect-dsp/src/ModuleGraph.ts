@@ -26,7 +26,7 @@ const moduleIdOrder: Order.Order<Id> = Order.mapInput(Order.String, (moduleId: I
 
 /** Enumerates predictors in sorted path order, retaining shared aliases.
  * A frozen path freezes its predictor even when another path is not frozen.
- * @since 0.6.0
+ * @since 0.7.0
  * @category combinators
  */
 export const predictors = (root: ComposableModule): Chunk.Chunk<Predictor.Predictor> => {

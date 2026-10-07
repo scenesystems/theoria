@@ -136,7 +136,7 @@ const dprTokens = (text: string) =>
 /** DSPy answer equality after NFD, lowercase, ASCII punctuation/article removal
  * and whitespace normalization. A fraction below one selects multiset-token F1.
  * Invalid answer fields fail schema validation.
- * @since 0.6.0
+ * @since 0.7.0
  * @category metrics
  */
 export const answerExactMatch = (fraction = 1) =>
@@ -157,7 +157,7 @@ export const answerExactMatch = (fraction = 1) =>
 
 /** DSPy passage matching: a normalized answer must be a contiguous DPR token
  * sequence in one context passage, not a character substring.
- * @since 0.6.0
+ * @since 0.7.0
  * @category metrics
  */
 export const answerPassageMatch = () =>

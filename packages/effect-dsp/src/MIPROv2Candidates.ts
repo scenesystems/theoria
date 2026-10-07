@@ -107,7 +107,7 @@ export class InstructionCandidate
     predictorName: Schema.String,
     instruction: Schema.String,
     tip: Schema.String,
-    /** Shared-stream rollout partition, including the discarded first proposal. @since 0.6.0 */
+    /** Shared-stream rollout partition, including the discarded first proposal. @since 0.7.0 */
     rolloutId: Schema.Option(Schema.Int),
     prompt: Schema.String,
     isBaseline: Schema.Boolean

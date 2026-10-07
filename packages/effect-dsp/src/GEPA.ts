@@ -62,7 +62,7 @@ export type Examples = typeof Examples.Type
 
 /** Complete continuation state, including both RNG streams and the epoch/merge schedulers.
  * Resume is uninterrupted-equivalent, unlike upstream's partial run_dir checkpoint.
- * @since 0.6.0
+ * @since 0.7.0
  * @category models
  */
 export class State extends Schema.Class<State>("@scenesystems/effect-dsp/GEPA/State")({
@@ -660,7 +660,7 @@ export const run = <
 /** Continues an encoded checkpoint without replaying evaluations or reseeding.
  * The module, metric and datasets must match the original run. maxIterations is
  * an absolute iteration boundary; raise or remove it when continuing.
- * @since 0.6.0
+ * @since 0.7.0
  * @category constructors
  */
 export const resume = <

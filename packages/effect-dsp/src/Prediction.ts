@@ -1,13 +1,13 @@
 /**
  * Decoded program output together with the evidence collected during invocation.
- * @since 0.6.0
+ * @since 0.7.0
  * @module
  */
 import { Data, Schema } from "effect"
 import * as Trace from "./Trace.js"
 
 /** A program result retaining its trace and aggregate native usage.
- * @since 0.6.0
+ * @since 0.7.0
  * @category models
  */
 export class Prediction<O> extends Data.Class<{
@@ -17,7 +17,7 @@ export class Prediction<O> extends Data.Class<{
 }> {}
 
 /** Serializes prediction evidence using the caller's output codec.
- * @since 0.6.0
+ * @since 0.7.0
  * @category schemas
  */
 export const schema = <O extends Schema.Constraint>(output: O) =>

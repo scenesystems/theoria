@@ -23,7 +23,7 @@ export type OutputStrategy = typeof OutputStrategy.Type
 const ConcreteStrategy = OutputStrategy.pick(["text", "structured"])
 
 /** Editable prompt metadata keyed by schema field name. Empty means as constructed.
- * @since 0.6.0
+ * @since 0.7.0
  * @category schemas
  */
 export const Fields = Schema.Record(
@@ -82,7 +82,7 @@ export class ModuleParameters extends Schema.Class<ModuleParameters>("@scenesyst
 }) {}
 
 /** Projects predictor generation settings for model binding.
- * @since 0.6.0
+ * @since 0.7.0
  * @category getters
  */
 export const settings = (parameters: ModuleParameters): ModelSettings =>

@@ -25,7 +25,7 @@ const Candidate = Schema.Struct({
 })
 
 /** Complete evaluated candidate history in construction order; ties keep the earliest seed.
- * @since 0.6.0
+ * @since 0.7.0
  * @category models
  */
 export class Report extends Schema.Class<Report>("@scenesystems/effect-dsp/BootstrapRS/Report")({

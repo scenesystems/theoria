@@ -44,7 +44,7 @@ export class EvaluateExampleOptions<I extends Schema.Struct.Fields, O extends Sc
 {}
 
 /** Returns scored evidence or a typed failure for effect-study to collect.
- * @since 0.6.0
+ * @since 0.7.0
  * @internal
  */
 export const evaluateExample = <I extends Schema.Struct.Fields, O extends Schema.Struct.Fields, ME, MR, E, R>(

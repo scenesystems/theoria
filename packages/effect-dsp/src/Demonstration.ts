@@ -19,7 +19,7 @@ export class Demonstration extends Schema.Class<Demonstration>("@scenesystems/ef
   output: Schema.Record(Schema.String, Schema.Unknown),
   /** Source row identity for leave-one-out teacher execution. */
   exampleId: Schema.Option(Id).pipe(Schema.withConstructorDefault(Effect.succeedNone)),
-  /** Teacher-generated evidence, independent of labeled-output completeness. @since 0.6.0 */
+  /** Teacher-generated evidence, independent of labeled-output completeness. @since 0.7.0 */
   augmented: Schema.Boolean.pipe(Schema.withConstructorDefault(Effect.succeed(false))),
   /** Labeled outputs may omit fields required by a destination predictor. */
   incomplete: Schema.Boolean.pipe(Schema.withConstructorDefault(Effect.succeed(false)))

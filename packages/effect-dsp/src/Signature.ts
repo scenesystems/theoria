@@ -16,7 +16,7 @@ import { deriveInstruction as deriveInstructionInternal } from "./internal/signa
 import type { ModuleParameters } from "./ModuleParameters.js"
 
 /** Natural-language description and instructions without field schemas.
- * @since 0.6.0
+ * @since 0.7.0
  * @category models
  */
 export class Text extends Schema.Class<Text>("@scenesystems/effect-dsp/Signature/Text")({
@@ -108,7 +108,7 @@ export class Signature<
   readonly fields: ReadonlyArray<FieldInfo>
 }> {
   /** Computes structural identity lazily, without making graph traversal effectful.
-   * @since 0.6.0
+   * @since 0.7.0
    * @category accessors
    */
   get digest(): (parameters: ModuleParameters) => Effect.Effect<string, SignatureError> {
@@ -162,14 +162,14 @@ export const fromSchemas = fromSchemasInternal
 export const deriveInstruction = deriveInstructionInternal
 
 /** Constructs an output-only signature accepting an empty input record.
- * @since 0.6.0
+ * @since 0.7.0
  * @category constructors
  */
 export const outputOnly = <O extends Schema.Struct.Fields>(outputFields: O) =>
   fromSchemasInternal("", Schema.Struct({}), Schema.Struct(outputFields), true)
 
 /** Replaces construction-time instructions without changing schemas.
- * @since 0.6.0
+ * @since 0.7.0
  * @category combinators
  */
 export const withInstruction = <I extends Schema.Struct.Fields, O extends Schema.Struct.Fields>(
@@ -178,7 +178,7 @@ export const withInstruction = <I extends Schema.Struct.Fields, O extends Schema
 ): Signature<I, O> => new Signature(Struct.assign(signature, { instructions }))
 
 /** Replaces a field's human-facing prefix without changing its wire name.
- * @since 0.6.0
+ * @since 0.7.0
  * @category combinators
  */
 export const withFieldPrefix = <I extends Schema.Struct.Fields, O extends Schema.Struct.Fields>(
@@ -192,7 +192,7 @@ export const withFieldPrefix = <I extends Schema.Struct.Fields, O extends Schema
   }))
 
 /** Replaces a field description without changing its schema.
- * @since 0.6.0
+ * @since 0.7.0
  * @category combinators
  */
 export const withFieldDescription = <I extends Schema.Struct.Fields, O extends Schema.Struct.Fields>(
@@ -215,7 +215,7 @@ const Identity = Schema.Struct({
 
 /** Hashes encoded input/output JSON schemas and all prompt metadata. Conversion
  * failures remain typed, allowing cache users to treat unsupported schemas as misses.
- * @since 0.6.0
+ * @since 0.7.0
  * @category operations
  */
 export const digest = <I extends Schema.Struct.Fields, O extends Schema.Struct.Fields>(

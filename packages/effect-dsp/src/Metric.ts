@@ -11,19 +11,19 @@ import * as Predictor from "./Predictor.js"
 import * as Trace from "./Trace.js"
 
 /** Scoring phase selected by the algorithm invoking the metric.
- * @since 0.6.0
+ * @since 0.7.0
  * @category schemas
  */
 export const Phase = Schema.Literals(["evaluate", "bootstrap", "search", "reflect", "select"])
 
 /** Scoring phase.
- * @since 0.6.0
+ * @since 0.7.0
  * @category type-level
  */
 export type Phase = typeof Phase.Type
 
 /** Identifies a predictor execution when scoring local evidence.
- * @since 0.6.0
+ * @since 0.7.0
  * @category models
  */
 export class Target extends Schema.Class<Target>("@scenesystems/effect-dsp/Metric/Target")({
@@ -32,7 +32,7 @@ export class Target extends Schema.Class<Target>("@scenesystems/effect-dsp/Metri
 }) {}
 
 /** Evidence and purpose supplied to every metric invocation.
- * @since 0.6.0
+ * @since 0.7.0
  * @category models
  */
 export class Context extends Data.Class<{
@@ -42,7 +42,7 @@ export class Context extends Data.Class<{
 }> {}
 
 /** Finite, unnormalized score and optional evaluator feedback.
- * @since 0.6.0
+ * @since 0.7.0
  * @category models
  */
 export class Score extends Schema.Class<Score>("@scenesystems/effect-dsp/Metric/Score")({
@@ -51,7 +51,7 @@ export class Score extends Schema.Class<Score>("@scenesystems/effect-dsp/Metric/
 }) {}
 
 /** Effectful scorer; labels retain their dataset representation.
- * @since 0.6.0
+ * @since 0.7.0
  * @category type-level
  */
 export type Fn<E = never, R = never> = (

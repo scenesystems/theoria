@@ -4,7 +4,7 @@ import { type Fn, Metric, Score } from "../../Metric.js"
 
 /** Wraps a synchronous raw-label/output scorer. Missing labels become an empty
  * record; non-record outputs become an empty record. Exceptions remain defects.
- * @since 0.6.0
+ * @since 0.7.0
  * @category constructors
  */
 export const fromSync = (
@@ -29,7 +29,7 @@ export const fromSync = (
   })
 
 /** Retains an example-aware scorer's failures, requirements and feedback.
- * @since 0.6.0
+ * @since 0.7.0
  * @category constructors
  */
 export const withFeedback = <E, R>(score: Fn<E, R>, name = "withFeedback"): Metric<E, R> => new Metric({ name, score })

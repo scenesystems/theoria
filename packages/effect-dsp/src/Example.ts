@@ -8,13 +8,13 @@ import * as ContentDigest from "@scenesystems/digest/ContentDigest"
 import { Effect, Option, Schema } from "effect"
 
 /** Stable caller-assigned or content-derived example identity.
- * @since 0.6.0
+ * @since 0.7.0
  * @category schemas
  */
 export const Id = Schema.String.pipe(Schema.brand("@scenesystems/effect-dsp/Example/Id"))
 
 /** Example identity.
- * @since 0.6.0
+ * @since 0.7.0
  * @category type-level
  */
 export type Id = typeof Id.Type
@@ -50,7 +50,7 @@ const Identity = Schema.Struct({
 
 /** Resolves an explicit identity or hashes the canonical input and labels.
  * Non-JSON label/input values fail through digest's typed admission errors.
- * @since 0.6.0
+ * @since 0.7.0
  * @category combinators
  */
 export const id = (example: Example) =>

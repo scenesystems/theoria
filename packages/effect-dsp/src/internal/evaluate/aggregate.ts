@@ -5,7 +5,7 @@ import { averageNumbers } from "../metric/score.js"
 
 /** Every input contributes to each metric denominator. Failed rows contribute
  * the configured failure score; no failure is reclassified as a success.
- * @since 0.6.0
+ * @since 0.7.0
  * @internal
  */
 export const aggregateOutcomes = (

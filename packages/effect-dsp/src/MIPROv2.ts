@@ -62,7 +62,7 @@ export const Examples = Schema.Array(Example)
 export type Examples = typeof Examples.Type
 
 /** A scored study row, numbered including the baseline and inserted checkpoints.
- * @since 0.6.0
+ * @since 0.7.0
  * @category models
  */
 export class TrialEvaluation extends Schema.Class<TrialEvaluation>("@scenesystems/effect-dsp/MIPROv2/TrialEvaluation")({

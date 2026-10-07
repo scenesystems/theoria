@@ -29,7 +29,7 @@ export class Failure extends Schema.Class<Failure>("@scenesystems/effect-dsp/Eva
 
 /** Successful prediction and named metric evidence for one input position.
  * The singular score averages the configured metrics for this example.
- * @since 0.6.0
+ * @since 0.7.0
  * @category models
  */
 export class Scored extends Schema.TaggedClass<Scored>("@scenesystems/effect-dsp/Evaluate/Scored")("Scored", {
@@ -42,7 +42,7 @@ export class Scored extends Schema.TaggedClass<Scored>("@scenesystems/effect-dsp
 }) {}
 
 /** Expected failure for an example, without a fabricated prediction or score.
- * @since 0.6.0
+ * @since 0.7.0
  * @category models
  */
 export class Failed extends Schema.TaggedClass<Failed>("@scenesystems/effect-dsp/Evaluate/Failed")("Failed", {
@@ -53,15 +53,15 @@ export class Failed extends Schema.TaggedClass<Failed>("@scenesystems/effect-dsp
 }) {}
 
 /** Ordered per-example evaluation result.
- * @since 0.6.0
+ * @since 0.7.0
  * @category schemas
  */
 export const Outcome = Schema.Union([Scored, Failed])
-/** Decoded evaluation outcome. @since 0.6.0 @category models */
+/** Decoded evaluation outcome. @since 0.7.0 @category models */
 export type Outcome = typeof Outcome.Type
 
 /** Expected error budget exhausted after in-flight work drains.
- * @since 0.6.0
+ * @since 0.7.0
  * @category errors
  */
 export class TooManyErrors
@@ -88,7 +88,7 @@ export class Report extends Schema.Class<Report>("@scenesystems/effect-dsp/Evalu
 }) {}
 
 /** Converts a report's fraction average to percentage display units.
- * @since 0.6.0
+ * @since 0.7.0
  * @category accessors
  */
 export const asPercent = (report: Report): number => Number.multiply(report.average, 100)
