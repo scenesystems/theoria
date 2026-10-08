@@ -11,6 +11,23 @@ const renderMath = (text: string, display: boolean) =>
   )
 
 describe("mathematical documentation", () => {
+  it.effect("renders decoded Markdown emphasis with semantic elements, including nested code", () =>
+    Effect.gen(function*() {
+      const parts = yield* Schema.decodeUnknownEffect(Schema.Array(GuideInlineSchema))(Array.make(
+        { kind: "text", text: "Before " },
+        { kind: "strong", parts: Array.of({ kind: "emphasis", parts: Array.of({ kind: "text", text: "never" }) }) },
+        { kind: "strong", parts: Array.of({ kind: "code", text: "<test-key>" }) },
+        { kind: "delete", parts: Array.of({ kind: "text", text: "old" }) },
+        { kind: "text", text: " after." }
+      ))
+      const content = renderToStaticMarkup(<DocsRichText parts={parts} />)
+
+      expect(content).toContain("Before <strong><em>never</em></strong>")
+      expect(content).toContain("<strong><code")
+      expect(content).toContain("&lt;test-key&gt;</code></strong>")
+      expect(content).toContain("<del>old</del> after.")
+    }))
+
   it.effect("renders fractions and roots as accessible MathML with distinct inline and display placement", () =>
     Effect.gen(function*() {
       const inline = yield* renderMath("\\frac{1}{\\sqrt{3}}", false)

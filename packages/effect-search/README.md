@@ -1,12 +1,11 @@
 # @scenesystems/effect-search
 
-`@scenesystems/effect-search` is black-box optimization for programs built with [Effect](https://effect.website). Use it when you can evaluate a configuration but cannot express its quality as a closed-form or differentiable function: benchmark scores, model quality, operating cost, or the outcome of an experiment.
+Search finds configurations by evaluating them in [Effect](https://effect.website). It is useful when a measurement, such as a benchmark score or operating cost, is easier to obtain than a formula you can minimize directly.
 
-A `SearchSpace` describes the valid configurations and infers their TypeScript type. An `Optimization` asks a `Sampler` for a configuration, runs your Effect objective, records the resulting `Trial`, and returns that history to the sampler before its next suggestion. Because the optimization owns trial states, sampler checkpoints, and search-space identity, it can be inspected, snapshotted, and resumed.
+Define the valid configurations with `SearchSpace` and supply an Effect that measures each one. `Optimization` asks a sampler for configurations and returns the recorded trials to it for subsequent suggestions. You can inspect a run, save a snapshot, and resume it later. For prompt optimization built on Search, see [`effect-dsp`](../effect-dsp/README.md).
 
-The samplers compute with [`@scenesystems/effect-math`](../effect-math/README.md). Cached objective inputs and search artifacts get stable content identities from [`@scenesystems/digest`](../digest/README.md). [`@scenesystems/effect-dsp`](../effect-dsp/README.md) builds its prompt optimizers on this package.
-
-Reusable trial schemas, history, stop controls, event streams, generic schema-parameterized storage, and artifact persistence live in [`@scenesystems/effect-study`](../effect-study/README.md). `effect-search` depends on that lower-level package and specializes it with optimization schemas, checkpoints, and replay policy; `effect-study` does not depend on `effect-search`. Use `effect-study` directly for fixed-input evaluation or non-numeric observations. Sampling, ranking, pruning, and optimization recovery remain `effect-search` responsibilities.
+For fixed-input evaluation or non-numeric observations without search, use
+[`@scenesystems/effect-study`](../effect-study/README.md) directly.
 
 ## Installation
 
@@ -14,11 +13,13 @@ Reusable trial schemas, history, stop controls, event streams, generic schema-pa
 bun add @scenesystems/effect-search effect
 ```
 
-Effect `^4.0.0` is the only required peer dependency. Platform implementations such as `@effect/platform-bun` or `@effect/platform-node` are needed only when an application uses filesystem-backed persistence. Install an Effect SQL implementation only when using the SQL-backed cache layer.
+Requires Effect `^4.0.0` as a peer dependency. Import modules from the package root or matching subpaths, such as `@scenesystems/effect-search/Optimization`.
+
+Filesystem persistence also requires `@effect/platform-bun` or `@effect/platform-node`. Install an Effect SQL implementation when using the SQL-backed cache layer.
 
 ## Basic use
 
-The optimization below minimizes a two-dimensional function. `SearchSpace.make` validates the definition and carries the inferred configuration type through the objective and the result.
+Minimize a two-dimensional function. `SearchSpace.make` validates the definition and infers the configuration type used by the objective and result.
 
 ```ts typecheck
 import { Effect, Match, Number as Num } from "effect"
@@ -114,11 +115,13 @@ export const program = Effect.gen(function* () {
 
 Start with TPE for mixed spaces and compare it against random search on the same objective and budget. Use grid search only when the finite product is small enough to enumerate. CMA-ES and GP-BO reject categorical dimensions. HyperBand and BOHB require a `SearchSpace.fidelity` dimension and are passed to `Optimization.run` as the `scheduler` option in place of a `sampler`.
 
-Joint categorical TPE samples mixture components and per-dimension choices without enumerating the Cartesian product. `nEiCandidates` limits candidate draws. The default `multivariate: false` samples dimensions independently; set `multivariate: true` for joint categorical kernels. Pending trials are ignored unless `constantLiar: true` places them in the above group, without counting them toward startup.
+TPE samples dimensions independently by default (`multivariate: false`). Set `multivariate: true` to model categorical dimensions jointly. Sampling does not enumerate their Cartesian product; `nEiCandidates` controls how many candidates TPE draws. With `constantLiar: true`, TPE treats pending trials as less promising observations to discourage repeated suggestions while they run. Otherwise it ignores them. Pending trials never count toward startup.
 
-A seeded sampler reproduces its suggestions when it sees the same ordered trial history and a compatible checkpoint. The optimization as a whole is reproducible only if the objective, clock, external services, and observation order are too. Concurrent evaluation can change completion order, so a seed alone does not guarantee identical results under every concurrency setting.
+A seed reproduces suggestions for the same ordered trial history and compatible checkpoint. Reproducing a whole run also requires repeatable objectives and external services. Timing and concurrent completion order can change the observations presented to the sampler.
 
-Random and TPE use continuing NumPy-compatible startup/model streams. Reusing a sampler continues its stream; use a fresh sampler with the same seed for a fresh trajectory, or restore its checkpoint for continuation. Snapshot and per-trial journal checkpoints persist the stream positions. Current data shapes are the only supported persistence contract.
+Random and TPE use continuing NumPy-compatible random streams, with separate startup and model streams for TPE. Reusing a sampler continues its stream; use a fresh sampler with the same seed for a fresh trajectory, or restore its checkpoint to continue. Snapshots and per-trial journal checkpoints retain stream positions.
+
+Only current persistence shapes are supported, and seeded sequences and checkpoints are implementation-dependent. Check the [changelog](./CHANGELOG.md) before resuming a study across upgrades; start a new run when the checkpoint or random sequence is incompatible.
 
 TPE accepts the built-in acquisition names `"ei"`, `"pi"`, and `"thompson"`, or a custom `Acquisition.Acquisition` created with `Acquisition.make`. Use `Acquisition.isAcquisition` when narrowing unknown extension values.
 
@@ -127,8 +130,8 @@ TPE accepts the built-in acquisition names `"ei"`, `"pi"`, and `"thompson"`, or 
 `Optimization.minimize` and `Optimization.maximize` run a single-objective optimization to completion. `Optimization.run` takes an explicit `direction` or a `directions` array and accepts a `scheduler`. All three share the same options:
 
 - Stopping: `trials`, `maxDuration`, `maxCost`, `targetValue`, or `noImprovementWindow`, combined by `stopMode`.
-- Concurrency: `concurrency` runs trials in parallel. Pending reservations remain separate from completed observations; TPE includes them above only with `constantLiar: true`.
-- Robustness: `trialTimeout`, a `retrySchedule`, and a `pruningPolicy`.
+- Concurrency: `concurrency` runs trials in parallel. Pending reservations remain separate from completed observations; TPE uses them only with `constantLiar: true`.
+- Trial handling: `trialTimeout`, a `retrySchedule`, and a `pruningPolicy`.
 - Warm starts: `priorTrials` and `priorWeight` seed the history; `evaluationsPerTrial` averages noisy objectives.
 
 With several `directions`, the objective returns a vector and the result is `MultiObjective` with a `paretoFront`. The `Pareto` module provides dominance checks, front extraction, and two-dimensional hypervolume for comparing runs.
@@ -173,7 +176,7 @@ export const program = Effect.gen(function* () {
 
 `Optimization.snapshot` captures the trials, the next trial number, the sampler checkpoint, and compatibility metadata from a result or an open handle. `OptimizationSnapshot.OptimizationSnapshot` is the schema, so encode it for storage and decode it later. `Optimization.resume` validates the space and settings against the snapshot before continuing.
 
-Completed results capture the sampler's final state. Interruption cancels outstanding reservations before saving a checkpoint; restoring an open handle's snapshot likewise cancels reservations whose workers no longer exist. Completed observations and trial numbers are retained, and new trials receive new numbers. Restore rejects duplicate or invalid identities, inconsistent counters, and invalid configurations before invoking sampler restoration. `OptimizationSnapshot.decodeUnknown` can normalize stale derived diagnostics, but never repairs trial identities.
+Snapshots retain completed observations and their trial numbers. Pending reservations are cancelled on interruption or when restoring an open handle's snapshot; new trials receive new numbers. Restore rejects invalid trial identities and configurations. See [`OptimizationSnapshot`](./src/OptimizationSnapshot.ts) for validation and diagnostic normalization.
 
 ```ts typecheck
 import { Effect, Number as Num, Schema } from "effect"
@@ -212,19 +215,21 @@ export const program = Effect.gen(function* () {
 })
 ```
 
-For long-running work, import `StudyStorage` from `@scenesystems/effect-study/StudyStorage` and install `OptimizationStorage.layerFileSystem(StudyStorage.fileSystemOptions(directory))`. Generic storage owns the run-bound recording file and defaults to `study-storage.jsonl`. `OptimizationStorage` opens the `optimization` run with Search-owned trial and snapshot codecs, storing trials as events and snapshots as cursor-bound checkpoints. One location belongs to one optimization; trial numbers supply stable record identities, so identical append retries are deduplicated and conflicting contents fail. `Optimization.resumeFromStorage` or `Optimization.resumeFromStorageStream` continue from that state. `OptimizationStorage.makeFileSystem` is the effectful filesystem constructor. `OptimizationStorage.make` opens an ambient `StudyStorage`, while `OptimizationStorage.layer` provides that specialization as a `Layer`; both retain typed persistence failures during acquisition. Filesystem-backed storage also needs the platform `FileSystem` and `Path` services, which `@effect/platform-bun` or `@effect/platform-node` provide. Optimization persistence does not require an artifact sink or artifact context.
+For filesystem persistence, import `StudyStorage` from `@scenesystems/effect-study/StudyStorage` and install `OptimizationStorage.layerFileSystem(StudyStorage.fileSystemOptions(directory))`. Provide the platform `FileSystem` and `Path` services through `@effect/platform-bun` or `@effect/platform-node`. Continue with `Optimization.resumeFromStorage` or `Optimization.resumeFromStorageStream`; see the [storage resume example](./examples/11-storage-resume.ts) and [`OptimizationStorage` reference](./src/OptimizationStorage.ts).
 
-Recovery filters the complete append-only trial log against the exact snapshot it loaded, so a concurrently appended snapshot cannot advance the replay boundary and hide intervening trials. Each journal event pairs a trial with its sampler checkpoint; replay restores the last retained event's stream position rather than repeating draws from the older snapshot. Sequential Random and TPE startup/model-phase runs reproduce uninterrupted suggestions across this boundary. Unfinished concurrent reservations are not promised an uninterrupted evaluation trajectory. Storage must retain that log; this does not provide distributed ownership of an optimization, so callers must still coordinate which process resumes execution.
+Use one storage location per optimization and coordinate which process resumes it. Retain the complete trial log for recovery. Identical append retries are deduplicated; conflicting contents fail.
 
-Artifacts are independent from checkpoints. Import `ArtifactContext` and `ArtifactSink` from `@scenesystems/effect-study/ArtifactContext` and `@scenesystems/effect-study/ArtifactSink`. Construct `new ArtifactContext.Options({ packageVersion, runId })`—the fields do not include an optimization or study ID. Emit with `sink.emit(schema, artifact)`. For a filesystem sink use `ArtifactSink.layerFileSystem(directory, fileName?)`; `ArtifactSink.makeFileSystem` remains the effectful constructor, while `ArtifactSink.layer` installs an already-created generic sink.
+Recovery replays the log against the exact snapshot it loaded, so a concurrently appended snapshot cannot hide intervening trials. Each journal event pairs a trial with its sampler checkpoint; replay restores the last retained event's stream position instead of repeating draws from the older snapshot. Sequential Random and TPE runs reproduce uninterrupted suggestions across recovery, including TPE's startup and model phases. This guarantee does not extend to the evaluation trajectory of unfinished concurrent reservations, and storage does not provide distributed ownership of an optimization.
 
-Objective caching is a separate concern. A cache avoids re-running the objective for an input that was already evaluated, keyed by a content digest of that input, while storage preserves the optimization lifecycle. Construct `new ObjectiveCache.Options({ scope })` and install `ObjectiveCache.layerMemory`, `ObjectiveCache.layerFileSystem`, or `ObjectiveCache.layerSql`. The lower-level `Cache` module owns schema-keyed cache descriptors and backend services; it fingerprints schema-encoded keys with the canonical identity implementation from `@scenesystems/digest`.
+To emit artifacts independently of checkpoints, use Study's [`ArtifactContext`](../effect-study/src/ArtifactContext.ts) and [`ArtifactSink`](../effect-study/src/ArtifactSink.ts). See [artifact persistence](../effect-study/examples/artifact-persistence.ts) for allocation and delivery.
+
+To reuse an objective's result for an input, construct `new ObjectiveCache.Options({ scope })` and provide `ObjectiveCache.layerMemory`, `ObjectiveCache.layerFileSystem`, or `ObjectiveCache.layerSql`. The cache identifies inputs by their content digest. It does not replace storage of the optimization's history. See [`Cache`](./src/Cache.ts) for custom schema-keyed caches.
 
 When `evaluationsPerTrial` is greater than one, optimization bypasses the objective cache for every sample, including repeated configurations across trials. These independent evaluations produce the reported mean and variance; cached configuration values cannot estimate noise.
 
 ## Ask and tell
 
-When another process owns evaluation, such as a job queue or a remote worker, the optimization can hand out configurations instead of running the objective itself. `Optimization.open` creates a scoped handle and acquires its sampler; closing the scope releases it. `Optimization.ask` reserves the next typed configuration, and `Optimization.tell` or `Optimization.fail` completes that reservation. `Optimization.cancel` closes the handle and cancels every pending reservation. Prior observations do not consume the fresh trial budget. The handle remains the authority for trial numbers, sampler observations, events, snapshots, and the final `Optimization.result`.
+Use ask-and-tell when a job queue or remote worker evaluates configurations. Open a scoped handle with `Optimization.open`, request a configuration with `ask`, then report its result with `tell` or `fail`. The handle assigns trial numbers and updates the sampler. Closing its scope releases the sampler; `Optimization.cancel` closes the handle and cancels pending reservations. Prior observations do not consume the new run's trial budget.
 
 ```ts typecheck
 import { Effect, Number as Num } from "effect"
@@ -256,51 +261,31 @@ export const program = Effect.scoped(
 )
 ```
 
-## Public surface
-
-Every module is available as a namespace from the package root and as a subpath such as `@scenesystems/effect-search/Optimization`.
-
-| Module                                                  | Scope                                                                           |
-| ------------------------------------------------------- | ------------------------------------------------------------------------------- |
-| [`Acquisition`](./src/Acquisition.ts)                   | Built-in and custom acquisition scoring strategies                              |
-| [`Artifact`](./src/Artifact.ts)                         | Search artifact provenance, payloads, and envelopes                             |
-| [`Cache`](./src/Cache.ts)                               | Schema-keyed cache descriptors, results, observers, and backend layers          |
-| [`Direction`](./src/Direction.ts)                       | Objective comparison polarity                                                   |
-| [`Distribution`](./src/Distribution.ts)                 | Sampling distributions and schema annotations                                   |
-| [`Objective`](./src/Objective.ts)                       | Objective specifications, scalar/vector values, and normalization               |
-| [`ObjectiveCache`](./src/ObjectiveCache.ts)             | Objective caching and memory, filesystem, and SQL layers                        |
-| [`Optimization`](./src/Optimization.ts)                 | Execution, streaming, ask/tell coordination, resumption, and results            |
-| [`OptimizationEvent`](./src/OptimizationEvent.ts)       | Optimization lifecycle schema, constructors, guards, and matching               |
-| [`OptimizationSnapshot`](./src/OptimizationSnapshot.ts) | Snapshot schema, compatibility validation, and recovery                         |
-| [`OptimizationStorage`](./src/OptimizationStorage.ts)   | Optimization schemas, checkpoints, and replay over generic study storage        |
-| [`Pareto`](./src/Pareto.ts)                             | Dominance, fronts, weights, and two-dimensional hypervolume                     |
-| [`Progress`](./src/Progress.ts)                         | Terminal event formatting, sinks, and stream tapping                            |
-| [`Pruning`](./src/Pruning.ts)                           | Intermediate reports, objective runtime controls, and pruning policies          |
-| [`Sampler`](./src/Sampler.ts)                           | Suggestion strategies, options, extension contract, and checkpoints             |
-| [`Scheduler`](./src/Scheduler.ts)                       | HyperBand and BOHB plans and summaries                                          |
-| [`SearchError`](./src/SearchError.ts)                   | Typed expected failures for spaces, optimization, samplers, storage, and trials |
-| [`SearchSpace`](./src/SearchSpace.ts)                   | Dimensions, conditional branches, composition, and inferred configuration types |
-| [`Trial`](./src/Trial.ts)                               | Search trial states, records, guards, and matching                              |
-
-Paths under `internal` are not exported.
-
-## Errors and boundaries
+## Errors
 
 Failures surface in the Effect error channel as `Schema.TaggedError` values, so `Effect.catchTag` and `Effect.catchTags` work on them directly. `InvalidSearchSpace` and `InvalidOptimizationConfig` reject definitions before any trial runs. `InvalidSamplerConfig`, `SamplerSearchSpaceUnsupported`, and `SamplerObjectiveUnsupported` report a sampler that cannot serve the space or the objective shape. `TrialError` wraps an objective failure with its trial number, `NoSuccessfulTrials` means a completed optimization has no best trial to report, and `SamplerExhausted` means a finite sampler has nothing left to suggest.
 
-The package owns the search loop and its state. It does not own the objective's resources, retries beyond the schedule you pass, or the durability of the directory or database behind storage and caches. Reproducibility of the objective itself remains your responsibility.
-
 ## Examples
 
-The [examples directory](./examples/) contains one runnable program per capability. Start with the [quick start](./examples/01-quick-start.ts), then follow the topic you need: [conditional spaces](./examples/07-conditional-spaces.ts) and [space composition](./examples/18-space-composition.ts); [multi-objective optimization](./examples/04-multi-objective.ts), [constrained optimization](./examples/15-constrained-optimization.ts), and [HyperBand and BOHB](./examples/14-hyperband-bohb.ts); [snapshot resume](./examples/10-snapshot-resume.ts), [storage resume](./examples/11-storage-resume.ts), and [trial caching](./examples/12-trial-cache.ts); [ask and tell](./examples/25-ask-tell.ts), [streaming events](./examples/03-streaming-events.ts), and [parallel evaluation](./examples/21-parallel-evaluation.ts); [sampler comparison](./examples/06-sampler-comparison.ts) and [acquisition strategies](./examples/26-acquisition-strategies.ts).
+See the [API reference](./src/index.ts) for all modules and the [examples directory](./examples/) for runnable programs:
+
+- [Basic optimization](./examples/01-quick-start.ts)
+- [Conditional spaces](./examples/07-conditional-spaces.ts) and [space composition](./examples/18-space-composition.ts)
+- [Multi-objective optimization](./examples/04-multi-objective.ts) and [constraints](./examples/15-constrained-optimization.ts)
+- [HyperBand and BOHB](./examples/14-hyperband-bohb.ts)
+- [Snapshot resumption](./examples/10-snapshot-resume.ts) and [storage resumption](./examples/11-storage-resume.ts)
+- [Objective caching](./examples/12-trial-cache.ts)
+- [Ask and tell](./examples/25-ask-tell.ts)
+- [Streaming events](./examples/03-streaming-events.ts) and [parallel evaluation](./examples/21-parallel-evaluation.ts)
+- [Sampler comparison](./examples/06-sampler-comparison.ts) and [acquisition strategies](./examples/26-acquisition-strategies.ts)
 
 ## Status
 
-This package is pre-1.0. Minor releases may change public APIs; pin a compatible version and review the [changelog](./CHANGELOG.md) when upgrading.
+See Theoria's [versioning policy](../../README.md#documentation-and-examples) and the package [changelog](./CHANGELOG.md) when upgrading.
 
 ## Contributing and support
 
-Read the repository [contributing guide](../../CONTRIBUTING.md) before opening a pull request. Report defects and request changes through [GitHub issues](https://github.com/scenesystems/theoria/issues). For security concerns, follow the [security policy](../../SECURITY.md).
+See Theoria's [contribution and support information](../../README.md#contributing-and-support).
 
 ## Attribution
 

@@ -90,7 +90,7 @@ const inlinePart = (input: ConstructorParameters<typeof Source<PhrasingContent>>
       })),
     Match.when(
       { type: Match.is("emphasis", "strong", "delete") },
-      (node) => inlineParts(node.children, input.packageSlug, input.revision)
+      (node) => Array.of({ kind: node.type, parts: inlineParts(node.children, input.packageSlug, input.revision) })
     ),
     Match.when({ type: Match.is("footnoteReference", "html", "imageReference", "linkReference") }, () => Array.empty()),
     Match.exhaustive
@@ -104,7 +104,15 @@ export const inlineParts = (
   Array.flatMap(Array.fromIterable(children), (node) => inlinePart({ node, packageSlug, revision }))
 
 export const inlineText = (parts: typeof InlineParts.Type): string =>
-  Array.join(Array.map(parts, (part) => part.text), "")
+  Array.join(
+    Array.map(parts, (part) =>
+      Match.value(part).pipe(
+        Match.when({ kind: Match.is("emphasis", "strong", "delete") }, ({ parts }) => inlineText(parts)),
+        Match.when({ kind: Match.is("text", "code", "link", "math") }, ({ text }) => text),
+        Match.exhaustive
+      )),
+    ""
+  )
 
 const itemParts = (item: ListItem, packageSlug: string, revision: string): typeof InlineParts.Type =>
   Array.flatMap(item.children, (child) =>

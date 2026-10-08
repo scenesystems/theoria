@@ -3,11 +3,11 @@
 "@scenesystems/effect-search": minor
 ---
 
-Add `PseudoRandom` CPython and NumPy legacy streams over one MT19937 engine, with portable checkpoints and bit-exact upstream random/sequence fixtures. Move DSP sampling to the numerical package without a re-export shim. Add NumPy-order `Numeric.sumPairwise` and use it in `logSumExp`.
+Add `PseudoRandom` CPython and NumPy legacy streams over one MT19937 engine, with portable checkpoints and bit-exact upstream draws. DSP sampling now uses the numerical package without a re-export shim. Add NumPy-order `Numeric.sumPairwise` and use it in `logSumExp`.
 
-Align seeded categorical RandomSampler and TPE with Optuna's persistent startup and model streams, singleton handling, categorical draw order, and product-mixture scoring. Persist both streams through JSON optimization checkpoints. Exact trajectory checks stop before libm-sensitive acquisition ties; identical-input ties retain the earliest candidate.
+Align seeded categorical RandomSampler and TPE with Optuna's persistent startup and model streams, singleton handling, categorical draw order, and product-mixture scoring. Persist both streams through JSON optimization checkpoints. Exact trajectory identity is not claimed across libm-sensitive acquisition ties; identical-input ties retain the earliest candidate.
 
-Add `Numeric.sumNeumaier`, matching CPython 3.12's builtin float sum, including cancellation, overflow, infinities, and signed zero, with recorded interpreter evidence. DSP consumers use this reduction rather than Kahan or ordinary left-to-right sums where upstream calls `sum`.
+Add `Numeric.sumNeumaier`, matching CPython 3.12's builtin float sum, including cancellation, overflow, infinities, and signed zero. DSP consumers use this reduction rather than Kahan or ordinary left-to-right sums where upstream calls `sum`.
 
 `PseudoRandom.CPython` adds `randbelowValidated`, `randintValidated`, `choiceValidated`, `getrandbitsValidated` and `sampleValidated`, which check CPython's argument domain before drawing and fail with `PseudoRandom.InvalidArgument` without consuming randomness. The trusted forms produce identical values for valid arguments and raise the same `InvalidArgument` as a defect, before any draw, when a precondition is violated. Streams are constructed from a captured or decoded `State`.
 
