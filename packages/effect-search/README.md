@@ -115,7 +115,7 @@ export const program = Effect.gen(function* () {
 
 Start with TPE for mixed spaces and compare it against random search on the same objective and budget. Use grid search only when the finite product is small enough to enumerate. CMA-ES and GP-BO reject categorical dimensions. HyperBand and BOHB require a `SearchSpace.fidelity` dimension and are passed to `Optimization.run` as the `scheduler` option in place of a `sampler`.
 
-TPE samples dimensions independently by default (`multivariate: false`). Set `multivariate: true` for joint categorical kernels, which draw mixture components and per-dimension choices without enumerating the Cartesian product. `nEiCandidates` limits candidate draws, not the domain size. Pending trials are ignored unless `constantLiar: true` places them in the above (less promising) group; they do not count toward startup.
+TPE samples dimensions independently by default (`multivariate: false`). Set `multivariate: true` to model categorical dimensions jointly. Sampling does not enumerate their Cartesian product; `nEiCandidates` controls how many candidates TPE draws. With `constantLiar: true`, TPE treats pending trials as less promising observations to discourage repeated suggestions while they run. Otherwise it ignores them. Pending trials never count toward startup.
 
 A seed reproduces suggestions for the same ordered trial history and compatible checkpoint. Reproducing a whole run also requires repeatable objectives and external services. Timing and concurrent completion order can change the observations presented to the sampler.
 

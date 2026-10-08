@@ -2,10 +2,10 @@
 "@scenesystems/effect-dsp": minor
 ---
 
-Align MIPROv2 grounded instruction proposals with DSPy 3.4.0: cached dataset summaries, program and predictor descriptions, augmented demonstration rotation, awareness flags, and a shared CPython stream for tips and rollout IDs. Generate proposal zero before preserving the original instruction. Replace cache-marker and cyclic-tip options with grounded proposer settings and recorded rollout partitions.
+MIPROv2 uses dataset summaries, program descriptions and teacher-generated demonstrations to propose instructions, following DSPy 3.4.0's recorded proposal sequence. Proposal zero is generated before being replaced by the original instruction. Settings and rollout IDs control proposal generation and caching.
 
-Program-aware proposals use a bounded, language-native prompt representation. The program description input is derived from Module.Structure predictor paths and signature text, not Python source. The DescribeModule `module` input is a JSON document with the predictor's canonical path, name, signature description, effective instructions and effective field prefix/description overrides, read through parameter overlays. It does not reproduce DSPy's Python `Predict(inputs) -> outputs` rendering or list the signature's input and output fields, and prompts are not byte-identical to upstream.
+Program descriptions use `Module.Structure` predictor paths and signature text. Predictor descriptions include effective instructions and field metadata in a JSON document. They omit the input/output field list used by DSPy's Python signature representation, so these prompts are not byte-identical to upstream.
 
 Breaking: `MIPROv2.Options.tipVocabulary` and `MIPROv2.TipVocabulary` are removed; `tipAwareProposer` draws upstream tips from the shared seeded stream. `MIPROv2Candidates.InstructionCandidate.cacheBustMarker` is removed; proposals carry `rolloutId` instead. No aliases are provided.
 
-Persist `Demonstration.augmented` as a required boolean with constructor default false, marking only teacher-generated evidence true. Demonstration equivalence remains encoded input/output based. Direct ParameterSet imports support round-tripping the new demonstration shape without an initialization cycle.
+Persisted demonstrations require an `augmented` boolean; the constructor defaults it to false. Only teacher-generated evidence sets it to true. Demonstration equivalence still compares encoded inputs and outputs. Direct `ParameterSet` imports can round-trip this demonstration shape.

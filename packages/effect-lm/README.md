@@ -56,9 +56,9 @@ export const resolved = Effect.all({
 )
 ```
 
-`resolved` succeeds with `{ temperature: 0, maxTokens: 256 }` and the declared
-`example/example-model` identity: the request override wins, including zero, and
-the omitted `maxTokens` keeps the binder default.
+`resolved` returns settings with temperature `0` and maximum tokens `256`, along
+with the declared `example/example-model` identity. The request changes the
+temperature while keeping the binder's token limit.
 
 ## Model identity
 

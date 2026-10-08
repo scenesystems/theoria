@@ -47,8 +47,8 @@ zero-threshold rule and limit 10. The teacher-settings capture records actual
 teacher calls. Leave-one-out compatibility uses effective instructions and
 field metadata under the active parameter set.
 
-Two limits are intentional. Within a repeated predictor trace, Theoria chooses
-the first invocation. `bootstrap-repeated-call` verifies one retained demo per
+Within a repeated predictor trace, Theoria chooses the first invocation.
+`bootstrap-repeated-call` verifies one retained demo per
 predictor per example and membership in the trace, not DSPy's pick, which uses
 SHA-256 over Python pickle bytes. Theoria stops when every trainable predictor
 has enough demos; DSPy counts accepted examples. Conditional programs can thus
@@ -72,9 +72,8 @@ not an identity-parity claim.
 
 ## MIPROv2
 
-MIPRO's demo catalogs use real BootstrapFewShot/TeacherTrace evidence, not
-instruction markers or label-only substitutes. Budget, explicit, no-labels and
-zero-shot fixtures verify exact demo identities/order, bootstrap metric
+MIPRO's demo catalogs use BootstrapFewShot/TeacherTrace evidence.
+Budget, explicit, no-labels and zero-shot fixtures verify exact demo identities/order, bootstrap metric
 identities and teacher-call counts. Zero-shot still gathers proposer evidence
 with effective caps of zero labeled and three bootstrapped demos, then clears
 the demos for instruction-only search.
@@ -289,8 +288,7 @@ uv run --locked packages/effect-search/scripts/generate-optuna-fixtures.py --che
 
 Generation overwrites committed DSP fixtures; verification reruns upstream and
 compares bytes and hashes without replacing them. Review generated differences
-before accepting a reference update. Fixtures identify cases, not format
-revisions. No compatibility decoder or older parallel corpus is retained.
+before accepting a reference update.
 
 Generators restart with `PYTHONHASHSEED=0` and
 `NPY_DISABLE_CPU_FEATURES=AVX2,FMA3,AVX512F` before importing upstream libraries.
@@ -309,7 +307,3 @@ to real upstream methods and Evaluate; GEPA uses upstream callbacks, not a
 reimplemented optimizer. Locked DSP/Optuna checks run in CI's `fixtures-verify`
 job and reject unowned corpus files. Math's verifier regenerates all 16 payloads
 and its manifest under the same scalar dispatch setting.
-
-Byte equality establishes reproducibility, not correctness. Behavioral tests
-remain necessary, and agreement on these fixtures does not extend the numerical,
-prompt, declaration-order or restart claims above.

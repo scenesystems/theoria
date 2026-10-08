@@ -117,10 +117,10 @@ score, not the first member of its coverage front. Metric-budget checks occur
 at iteration boundaries and can overshoot. `report.feedbackMetricCalls` counts
 targeted feedback calls separately from that budget.
 
-GEPA checkpoints retain both RNG streams, batch state and merge scheduling.
-Resume reproduces an uninterrupted Theoria run with the same module, datasets,
-metric, options and model responses. `maxIterations` is an absolute boundary:
-raise or remove it when continuing.
+Save a GEPA checkpoint to continue an optimization later. Resuming reproduces an
+uninterrupted Theoria run when the module, datasets, metric, options and model
+responses are the same. `maxIterations` is an absolute boundary, so raise or
+remove it when continuing.
 
 ```ts typecheck
 import { Effect, Schema } from "effect"
@@ -165,15 +165,14 @@ To retain traces when a program fails, put `Effect.exit(program)` inside the sco
 and usage; `forward` returns the output directly.
 
 Use the codecs in [`Payload`](./src/Payload.ts) to store traces and
-demonstrations. They preserve encoded schema values and check equivalence after
-a JSON round trip without rerunning domain transformations.
+demonstrations while preserving their schemas' encoded values.
 
 Provide [`Cache.layerMemory`](./src/Cache.ts) for local memoization, or an
 effect-search backend to `Cache.layer`. Predictors cache successful model results
 at every temperature unless `cache: "never"` is selected. Toolkit execution and
-failed computations are not cached. Keys include model identity, resolved
-settings, role, rollout, predictor path, effective signature, parameters and
-input, using the codecs' encoded values.
+failed computations are not cached. Cached results are specific to the model
+and invocation, including their settings and encoded inputs. See the cache
+reference for the full identity contract.
 
 Declared model identities allow durable reuse. Anonymous model and binder
 identities last only for the Cache layer's scope; a Cache service installed
