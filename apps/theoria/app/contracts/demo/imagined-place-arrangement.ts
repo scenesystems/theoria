@@ -2,6 +2,7 @@ import { Option, Schema } from "effect"
 import * as Arr from "effect/Array"
 import * as Num from "effect/Number"
 
+import * as Numeric from "@scenesystems/effect-math/Numeric"
 import type { Text } from "@scenesystems/effect-text"
 
 import { PlaceLine, PlaceMarker, type PlaceRendering } from "../imagined-place-result.js"
@@ -110,7 +111,8 @@ export const renderingFor = ({
 }): PlaceRendering => ({
   projection: {
     stageWidth: stage.stageWidth,
-    stageHeight: Num.round(Num.sum(occupiedHeight(stage, arrangement.markers, arrangement.lines), stage.padding), 0),
+    // Round outward: the next search must not enlarge a settled sheet to recover a clipped fraction of a disc.
+    stageHeight: Numeric.ceil(Num.sum(occupiedHeight(stage, arrangement.markers, arrangement.lines), stage.padding)),
     padding: stage.padding,
     lineHeight: stage.lineHeight,
     markers: arrangement.markers,

@@ -59,7 +59,7 @@ const interactionToNextPaint = (vitals: typeof WebVitals.Type): number =>
 layer(Layer.merge(SiteUnderTest, BrowserLive), { excludeTestServices: true, timeout: "2 minutes" })(
   "Theoria homepage web vitals in Chromium",
   (it) => {
-    it("the homepage's first paint stays within its vitals budgets", () =>
+    it.effect("the homepage's first paint stays within its vitals budgets", () =>
       Effect.forEach(viewports, (viewport) =>
         Effect.gen(function*() {
           const { failures, page } = yield* openPage({ viewport })
@@ -88,7 +88,7 @@ layer(Layer.merge(SiteUnderTest, BrowserLive), { excludeTestServices: true, time
      * it counts — is still a change of shape, so the footprint is what is
      * asserted, not the score.
      */
-    it("each region of the demonstration is painted at one height from its first frame until the drawing lands", () =>
+    it.effect("each region of the demonstration is painted at one height from its first frame until the drawing lands", () =>
       Effect.forEach(viewports, (viewport) =>
         Effect.gen(function*() {
           const { failures, page } = yield* openPage({ viewport })
@@ -113,7 +113,7 @@ layer(Layer.merge(SiteUnderTest, BrowserLive), { excludeTestServices: true, time
      * re-shades the gradient tile by tile, and a press on a phone waits
      * behind it. The light is also no part of the page: nothing can point at it.
      */
-    it("the canvas light is its own fixed layer, not the body's paint", () =>
+    it.effect("the canvas light is its own fixed layer, not the body's paint", () =>
       Effect.gen(function*() {
         const { failures, page } = yield* openPage({ viewport: { width: 390, height: 844 } })
         yield* goto(page, "/")
@@ -137,7 +137,7 @@ layer(Layer.merge(SiteUnderTest, BrowserLive), { excludeTestServices: true, time
      * counted from the events themselves, so a page that was never touched, or
      * a recorder that never ran, cannot pass as a responsive one.
      */
-    it("an interaction while the search runs stays within the INP budget", () =>
+    it.effect("an interaction while the search runs stays within the INP budget", () =>
       Effect.forEach(viewports, (viewport) =>
         Effect.gen(function*() {
           const { failures, page } = yield* openPage({ viewport })

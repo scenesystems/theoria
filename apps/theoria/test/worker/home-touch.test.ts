@@ -34,7 +34,7 @@ import { SiteLive } from "./site.js"
  */
 layer(Layer.merge(SiteLive, BrowserLive), { excludeTestServices: true, timeout: "3 minutes" })(
   (it) => {
-    it("every disc answers to a touch 44 px across on the narrowest phones", () =>
+    it.effect("every disc answers to a touch 44 px across on the narrowest phones", () =>
       Effect.gen(function*() {
         const { failures, page } = yield* openPage({ viewport: { width: 390, height: 844 } })
         yield* goto(page, "/")
@@ -62,7 +62,7 @@ layer(Layer.merge(SiteLive, BrowserLive), { excludeTestServices: true, timeout: 
         expect(yield* failures).toEqual([])
       }))
 
-    it("a finger on a disc's reach opens that disc's answer and no other, on a phone with a touchscreen", () =>
+    it.effect("a finger on a disc's reach opens that disc's answer and no other, on a phone with a touchscreen", () =>
       Effect.gen(function*() {
         const { failures, page } = yield* openPage({ hasTouch: true, viewport: { width: 390, height: 844 } })
         yield* goto(page, "/")
@@ -93,7 +93,7 @@ layer(Layer.merge(SiteLive, BrowserLive), { excludeTestServices: true, timeout: 
         expect(yield* failures).toEqual([])
       }))
 
-    it("a finger presses as a pointer does: the same disc again closes, another disc takes the answer, a touch outside puts it away", () =>
+    it.effect("a finger presses as a pointer does: the same disc again closes, another disc takes the answer, a touch outside puts it away", () =>
       Effect.gen(function*() {
         const { failures, page } = yield* openPage({ hasTouch: true, viewport: { width: 390, height: 844 } })
         yield* goto(page, "/")

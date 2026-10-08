@@ -59,7 +59,7 @@ import { colorSchemes, drawn, referenceTargets, searchSettlesWithin } from "./de
 layer(Layer.merge(SiteLive, BrowserLive), { excludeTestServices: true, timeout: "3 minutes" })(
   "Theoria home page demo in Chromium: the page around the stage",
   (it) => {
-    it("keyboard reaches every control", () =>
+    it.effect("keyboard reaches every control", () =>
       Effect.gen(function*() {
         const { failures, page } = yield* openPage()
         yield* goto(page, "/")
@@ -133,7 +133,7 @@ layer(Layer.merge(SiteLive, BrowserLive), { excludeTestServices: true, timeout: 
         expect(yield* failures).toEqual([])
       }))
 
-    it("nothing on the home page leaks past the viewport at any width", () =>
+    it.effect("nothing on the home page leaks past the viewport at any width", () =>
       Effect.gen(function*() {
         const { failures, page } = yield* openPage({ viewport: { width: 390, height: 844 } })
         yield* goto(page, "/")
@@ -163,7 +163,7 @@ layer(Layer.merge(SiteLive, BrowserLive), { excludeTestServices: true, timeout: 
         expect(yield* failures).toEqual([])
       }))
 
-    it("how it's built keeps tabs on one row and wraps references without clipping or misaligning package labels", () =>
+    it.effect("how it's built keeps tabs on one row and wraps references without clipping or misaligning package labels", () =>
       Effect.gen(function*() {
         const { failures, page } = yield* openPage({ reducedMotion: "reduce" })
         yield* goto(page, "/")
@@ -215,7 +215,7 @@ layer(Layer.merge(SiteLive, BrowserLive), { excludeTestServices: true, timeout: 
         expect(yield* failures).toEqual([])
       }))
 
-    it("how it's built links every symbol to an existing reference anchor and shows values from the build", () =>
+    it.effect("how it's built links every symbol to an existing reference anchor and shows values from the build", () =>
       Effect.gen(function*() {
         const { failures, page } = yield* openPage()
         yield* goto(page, "/")
@@ -249,7 +249,7 @@ layer(Layer.merge(SiteLive, BrowserLive), { excludeTestServices: true, timeout: 
         expect(yield* failures).toEqual([])
       }))
 
-    it("a docs link previews its destination on a plain press and only the preview's own link leaves the page", () =>
+    it.effect("a docs link previews its destination on a plain press and only the preview's own link leaves the page", () =>
       Effect.gen(function*() {
         const { failures, page } = yield* openPage()
         yield* setViewport(page, { width: 390, height: 844 })
@@ -281,7 +281,7 @@ layer(Layer.merge(SiteLive, BrowserLive), { excludeTestServices: true, timeout: 
         expect(yield* failures).toEqual([])
       }))
 
-    it("the acts answer on the stage", () =>
+    it.effect("the acts answer on the stage", () =>
       Effect.gen(function*() {
         const { failures, page } = yield* openPage()
         yield* goto(page, "/")
@@ -295,7 +295,7 @@ layer(Layer.merge(SiteLive, BrowserLive), { excludeTestServices: true, timeout: 
         expect(yield* failures).toEqual([])
       }))
 
-    it("the act follows a jump either way, and a return to the page", () =>
+    it.effect("the act follows a jump either way, and a return to the page", () =>
       Effect.gen(function*() {
         const { failures, page } = yield* openPage()
         yield* goto(page, "/")
@@ -324,7 +324,7 @@ layer(Layer.merge(SiteLive, BrowserLive), { excludeTestServices: true, timeout: 
         expect(yield* failures).toEqual([])
       }))
 
-    it("choosing another story changes the drawing and nothing of the page, in every mode", () =>
+    it.effect("choosing another story changes the drawing and nothing of the page, in every mode", () =>
       Effect.gen(function*() {
         const { failures, page } = yield* openPage()
         yield* goto(page, "/")
@@ -374,7 +374,7 @@ layer(Layer.merge(SiteLive, BrowserLive), { excludeTestServices: true, timeout: 
         expect(yield* failures).toEqual([])
       }))
 
-    it("the place stays as a band while the stage is scrolled past, and moves nothing", () =>
+    it.effect("the place stays as a band while the stage is scrolled past, and moves nothing", () =>
       Effect.gen(function*() {
         const { failures, page } = yield* openPage({ viewport: { width: 390, height: 844 } })
         yield* goto(page, "/")
@@ -408,7 +408,7 @@ layer(Layer.merge(SiteLive, BrowserLive), { excludeTestServices: true, timeout: 
         expect(yield* failures).toEqual([])
       }))
 
-    it("stage prose metrics stay aligned with geometry across responsive widths", () =>
+    it.effect("stage prose metrics stay aligned with geometry across responsive widths", () =>
       Effect.gen(function*() {
         const viewports = [
           { width: 390, height: 844 },
@@ -462,7 +462,7 @@ layer(Layer.merge(SiteLive, BrowserLive), { excludeTestServices: true, timeout: 
         expect(yield* failures).toEqual([])
       }))
 
-    it("the mobile numbered legend names every disc in no more than two lines", () =>
+    it.effect("the mobile numbered legend names every disc in no more than two lines", () =>
       Effect.gen(function*() {
         const { failures, page } = yield* openPage({ viewport: { width: 390, height: 844 } })
         yield* goto(page, "/")

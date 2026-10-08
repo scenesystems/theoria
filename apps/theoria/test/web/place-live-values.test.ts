@@ -1,8 +1,8 @@
 import { expect } from "@effect/vitest"
-import { Effect, Equal, Inspectable, Option, Struct, Tuple } from "effect"
+import { Effect, Equal, Inspectable, Layer, Option, Struct, Tuple } from "effect"
 import * as Arr from "effect/Array"
 import * as Num from "effect/Number"
-import { AtomRegistry as Registry } from "effect/reactivity"
+import { AsyncResult as Result, AtomRegistry as Registry } from "effect/reactivity"
 import * as Str from "effect/String"
 
 import {
@@ -12,6 +12,8 @@ import {
 } from "../../app/contracts/demo/imagined-place-provenance.js"
 import { PlaceRendering, RenderEvidence } from "../../app/contracts/imagined-place-result.js"
 import { PlaceSearch, placeShownGeometryAtom, shownGeometry } from "../../app/web/atoms/imagined-place-render.js"
+import { placeBuildEnvelopeAtom, placeClientLayerAtom } from "../../app/web/atoms/imagined-place.js"
+import { ImaginedPlaceClient } from "../../app/web/services/ImaginedPlaceClient.js"
 import { placeLiveValues } from "../../app/web/view/home/placeLiveValues.js"
 import { provenanceFor } from "../../app/web/view/home/placeProvenance.js"
 import { currentVersion, fixedDecimal, signatureFor, signatureLabel } from "../../app/web/view/home/placeViewModel.js"
@@ -107,7 +109,7 @@ describeOnStage("place live values", (it) => {
   it.effect("agree with what a press on the layout line is answered with", () =>
     Effect.gen(function*() {
       const { build, showingTrial } = yield* Effect.service(onStage)
-      const registry = pageShowing(build, showingTrial)
+      const registry = yield* pageShowing(build, showingTrial)
       const shown = registry.get(placeShownGeometryAtom)
       const values = placeLiveValues("arrange", Option.some(build), Option.some(showingTrial.search), shown)
       const answer = Option.getOrThrow(provenanceFor(
@@ -141,7 +143,15 @@ describeOnStage("place live values", (it) => {
       expect(placeLiveValues("arrange", Option.some(build), Option.some(showingTrial.search), Option.none())).toEqual(
         Arr.empty()
       )
-      const registry = Registry.make()
+      const registry = yield* Effect.acquireRelease(
+        Effect.sync(() =>
+          Registry.make({
+            initialValues: [[placeClientLayerAtom, Layer.succeed(ImaginedPlaceClient, { build: () => Effect.never })]]
+          })
+        ),
+        (registry) => Effect.sync(() => registry.dispose())
+      )
       expect(registry.get(placeShownGeometryAtom)).toEqual(Option.none())
+      expect(Result.isWaiting(registry.get(placeBuildEnvelopeAtom))).toBe(true)
     }))
 })

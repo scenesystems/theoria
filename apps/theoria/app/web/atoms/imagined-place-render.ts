@@ -1,6 +1,6 @@
 import {
   Boolean as Bool,
-  type Cause,
+  Cause,
   Duration,
   Effect,
   Equal,
@@ -784,18 +784,22 @@ export class StageFailure
   })
 {}
 
+/** Replacing a render interrupts its old fiber; cancellation is not a failed build or drawing. */
+const failedStageRun = (result: Result.AsyncResult<unknown, unknown>): boolean =>
+  Option.exists(Result.cause(result), (cause) => Bool.not(Cause.hasInterruptsOnly(cause)))
+
 export const stageFailure = (
   build: Result.AsyncResult<unknown, unknown>,
   frame: Result.AsyncResult<unknown, unknown>,
   cut: Result.AsyncResult<unknown, unknown>
 ): Option.Option<StageFailure> =>
-  Bool.match(Result.isFailure(build), {
+  Bool.match(failedStageRun(build), {
     onTrue: () => Option.some(new StageFailure({ failed: "build", waiting: build.waiting })),
     onFalse: () =>
-      Bool.match(Result.isFailure(frame), {
+      Bool.match(failedStageRun(frame), {
         onTrue: () => Option.some(new StageFailure({ failed: "draw", waiting: frame.waiting })),
         onFalse: () =>
-          Bool.match(Bool.and(Option.isNone(Result.value(frame)), Result.isFailure(cut)), {
+          Bool.match(Bool.and(Option.isNone(Result.value(frame)), failedStageRun(cut)), {
             onTrue: () => Option.some(new StageFailure({ failed: "draw", waiting: cut.waiting })),
             onFalse: Option.none
           })

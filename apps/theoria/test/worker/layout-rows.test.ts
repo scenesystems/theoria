@@ -32,7 +32,7 @@ const centre = (box: { readonly top: number; readonly bottom: number }) => (box.
 
 layer(Layer.merge(SiteLive, BrowserLive), { excludeTestServices: true, timeout: "2 minutes" })(
   (it) => {
-    it("the header centres its wordmark and its ways off the page on one line, though they differ in height", () =>
+    it.effect("the header centres its wordmark and its ways off the page on one line, though they differ in height", () =>
       Effect.gen(function*() {
         const { failures, page } = yield* openPage({ viewport: desktop })
         yield* goto(page, "/")
@@ -52,7 +52,7 @@ layer(Layer.merge(SiteLive, BrowserLive), { excludeTestServices: true, timeout: 
         expect(yield* failures).toEqual([])
       }))
 
-    it("a signature's return type and the words about it start on one line, though they differ in height", () =>
+    it.effect("a signature's return type and the words about it start on one line, though they differ in height", () =>
       Effect.gen(function*() {
         const { failures, page } = yield* openPage({ viewport: desktop })
         yield* goto(page, "/docs/effect-math/api/Statistics#api-mean")

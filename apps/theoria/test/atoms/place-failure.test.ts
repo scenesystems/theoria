@@ -1,6 +1,6 @@
 import { describe, expect, it } from "@effect/vitest"
 import { Hyphenation, MeasurementCache, Text, TextMeasurer } from "@scenesystems/effect-text"
-import { Deferred, Effect, Layer, Option, Ref, Struct } from "effect"
+import { Cause, Deferred, Effect, Layer, Option, Ref, Struct } from "effect"
 import { AsyncResult as Result, AtomRegistry as Registry } from "effect/reactivity"
 
 import { DemoRequestError } from "../../app/contracts/demo-error.js"
@@ -118,6 +118,25 @@ const sheetCut = (registry: Registry.AtomRegistry) =>
   )
 
 describe("what has failed the stage", () => {
+  it.effect("replacing an interrupted run is not a failed build, drawing, or paper cut", () =>
+    Effect.sync(() => {
+      const interrupted = Result.failure(Cause.interrupt(17), { waiting: true })
+      expect(stageFailure(interrupted, Result.initial(), cut)).toEqual(Option.none())
+      expect(stageFailure(Result.success("built"), interrupted, cut)).toEqual(Option.none())
+      expect(stageFailure(Result.initial(true), Result.initial(), interrupted)).toEqual(Option.none())
+      const defect = Result.failure(Cause.die("broken renderer"), { waiting: true })
+      expect(stageFailure(Result.success("built"), defect, cut)).toEqual(
+        Option.some(new StageFailure({ failed: "draw", waiting: true }))
+      )
+      const interruptedDefect = Result.failure(Cause.combine(Cause.interrupt(17), Cause.die("broken renderer")))
+      expect(stageFailure(Result.success("built"), interruptedDefect, cut)).toEqual(
+        Option.some(new StageFailure({ failed: "draw", waiting: false }))
+      )
+      expect(stageFailure(Result.success("built"), interrupted, failed)).toEqual(
+        Option.some(new StageFailure({ failed: "draw", waiting: false }))
+      )
+    }))
+
   it.effect("a column that changes while the paper is being cut still gets its paper", () =>
     Effect.gen(function*() {
       const gate = yield* Deferred.make<void>()

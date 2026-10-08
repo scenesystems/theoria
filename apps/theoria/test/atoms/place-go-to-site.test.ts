@@ -11,12 +11,12 @@ import {
   placeGoToSiteAtom
 } from "../../app/web/atoms/imagined-place-experience.js"
 import { placeShownFrameAtom } from "../../app/web/atoms/imagined-place-render.js"
-import { placeBuildAtom, placeStepAtom } from "../../app/web/atoms/imagined-place.js"
+import { placeBuildAtom, placeClientLayerAtom, placeStepAtom } from "../../app/web/atoms/imagined-place.js"
 import { motionPreferenceAtom, scrollBehaviorFor } from "../../app/web/atoms/motion.js"
 import { navigateToElementAtom } from "../../app/web/atoms/navigation.js"
 import * as BrowserDocument from "../../app/web/platform/BrowserDocument.js"
 import * as BrowserWindow from "../../app/web/platform/BrowserWindow.js"
-import { describeOnStage, onStage } from "../helpers/place-on-stage.js"
+import { clientFor, describeOnStage, onStage } from "../helpers/place-on-stage.js"
 import { waitFor } from "../helpers/react-mount.js"
 
 /**
@@ -77,6 +77,7 @@ const arrivedWith = (preference: "full" | "reduced") =>
       Effect.sync(() =>
         Registry.make({
           initialValues: [
+            [placeClientLayerAtom, clientFor(build)],
             [placeBuildAtom, Result.success(build)],
             [placeShownFrameAtom, Result.success(showingTrial)],
             [motionPreferenceAtom, preference]

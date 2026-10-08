@@ -340,7 +340,7 @@ export const SiteLive: Layer.Layer<Site, SiteError> = Layer.effect(
       hashedScript,
       visitorHeaders: (visitor) => Record.singleton("cf-connecting-ip", visitorAddress(visitor)),
       logs: Effect.gen(function*() {
-        const fresh = yield* Queue.takeAll(arriving)
+        const fresh = yield* Queue.clear(arriving)
         const lines = Arr.map(
           fresh,
           (log) =>
