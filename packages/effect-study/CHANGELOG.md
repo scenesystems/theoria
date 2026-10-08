@@ -1,5 +1,11 @@
 # @scenesystems/effect-study
 
+## 0.3.0
+
+### Minor Changes
+
+- [#127](https://github.com/scenesystems/theoria/pull/127) [`886bffe`](https://github.com/scenesystems/theoria/commit/886bffef7bb984bcca938991fc034f47900745ee) Thanks [@aridyckovsky](https://github.com/aridyckovsky)! - Add ordered expected-failure collection with a failure budget that drains active evaluations. Evaluate reports explicit Scored and Failed outcomes, fraction units, and a failure-inclusive average; failed examples contribute failureScore instead of disappearing from the denominator. Add maxErrors and TooManyErrors, and project the report average into default scalar search objectives. The previous ExampleResult/results report shape is removed.
+
 ## 0.2.0
 
 ### Minor Changes
