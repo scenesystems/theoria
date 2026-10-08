@@ -1,7 +1,7 @@
 import { useAtomValue } from "@effect/atom-react"
 import { Boolean as Bool, Match, Option, Schema } from "effect"
 import * as Num from "effect/Number"
-import { AnimatePresence } from "motion/react"
+import { AnimatePresence, useIsPresent } from "motion/react"
 import * as m from "motion/react-m"
 import type { CSSProperties } from "react"
 
@@ -175,15 +175,19 @@ const ArrivingRing = ({ marker }: { readonly marker: Marker }) => (
  */
 const leavingClassName = "pointer-events-none absolute left-0 top-0 rounded-full"
 
-const LeavingDisc = ({ marker }: { readonly marker: Marker }) => (
-  <Layer
-    aria-hidden
-    className={`${leavingClassName} ${discClassName(markerContributor(marker))}`}
-    data-place-marker={marker.name}
-    data-place-marker-leaving
-    style={markerStyle(marker)}
-  />
-)
+const LeavingDisc = ({ marker }: { readonly marker: Marker }) =>
+  Bool.match(useIsPresent(), {
+    onTrue: () => (
+      <Layer
+        aria-hidden
+        className={`${leavingClassName} ${discClassName(markerContributor(marker))}`}
+        data-place-marker={marker.name}
+        data-place-marker-leaving
+        style={markerStyle(marker)}
+      />
+    ),
+    onFalse: () => null
+  })
 
 /**
  * A disc is a mark of the one answer surface: pointing at it opens the
