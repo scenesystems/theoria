@@ -21,7 +21,7 @@ it.live("unmounting an answer releases frame observations even while the registr
     const window = yield* BrowserWindow.BrowserWindow
     const reads = yield* Ref.make(0)
     const run = Effect.runSyncWith(yield* Effect.context<never>())
-    yield* Effect.acquireRelease(
+    const trigger = yield* Effect.acquireRelease(
       Effect.sync(() => {
         const trigger = document.createElement("button")
         trigger.setAttribute("data-provenance", "test")
@@ -47,6 +47,9 @@ it.live("unmounting an answer releases frame observations even while the registr
       </RegistryContext.Provider>
     )
     yield* waitFor(() => Ref.getUnsafe(reads) > 1)
+    const beforeClosing = yield* Ref.get(reads)
+    yield* Effect.sync(() => trigger.removeAttribute("data-popup-open"))
+    yield* waitFor(() => Ref.getUnsafe(reads) > beforeClosing)
     yield* Effect.sync(() => root.render(null))
     yield* waitFor(() => container.childElementCount === 0)
     yield* Effect.sleep("50 millis")

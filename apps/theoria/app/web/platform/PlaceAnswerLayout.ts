@@ -1,4 +1,4 @@
-import { Data, Effect, Number as Num, Option, Stream } from "effect"
+import { Data, Effect, Number as Num, Option, Ref, Stream } from "effect"
 import * as Arr from "effect/Array"
 
 import { frames } from "./AnimationFrame.js"
@@ -29,45 +29,57 @@ export const placements = (positioner: HTMLElement) =>
   Stream.unwrap(Effect.gen(function*() {
     const document = yield* BrowserDocument
     const window = yield* BrowserWindow
+    // Base UI removes data-popup-open before its closing animation unmounts.
+    // Keep observing that anchor until the positioner's own lifetime ends.
+    const lastTrigger = yield* Ref.make(Option.none<HTMLElement>())
     return frames.pipe(
-      Stream.map(() => {
-        const viewport = Option.match(Option.fromNullishOr(window.visualViewport), {
-          onNone: () =>
-            new AnswerRect({
-              left: 12,
-              top: 12,
-              width: Num.subtract(window.innerWidth, 24),
-              height: Num.subtract(window.innerHeight, 24)
-            }),
-          onSome: (visual) =>
-            new AnswerRect({
-              left: Num.sum(visual.offsetLeft, 12),
-              top: Num.sum(visual.offsetTop, 12),
-              width: Num.subtract(visual.width, 24),
-              height: Num.subtract(visual.height, 24)
-            })
+      Stream.mapEffect(() =>
+        Effect.gen(function*() {
+          // A stable scrollbar gutter is not drawable, even when clientWidth
+          // and visualViewport include it (Chromium's overlay-scrollbar mode).
+          const documentWidth = document.documentElement.getBoundingClientRect().width
+          const viewport = Option.match(Option.fromNullishOr(window.visualViewport), {
+            onNone: () =>
+              new AnswerRect({
+                left: 12,
+                top: 12,
+                width: Num.subtract(Num.min(documentWidth, window.innerWidth), 24),
+                height: Num.subtract(window.innerHeight, 24)
+              }),
+            onSome: (visual) =>
+              new AnswerRect({
+                left: Num.sum(visual.offsetLeft, 12),
+                top: Num.sum(visual.offsetTop, 12),
+                width: Num.subtract(Num.min(visual.width, Num.subtract(documentWidth, visual.offsetLeft)), 24),
+                height: Num.subtract(visual.height, 24)
+              })
+          })
+          const popup = positioner.querySelector<HTMLElement>("[data-place-provenance]")
+          const trigger = yield* Ref.updateAndGet(lastTrigger, (previous) =>
+            Option.orElse(
+              Option.fromNullishOr(document.querySelector<HTMLElement>("[data-provenance][data-popup-open]")),
+              () => previous
+            ))
+          positioner.style.setProperty("--answer-viewport-width", `${viewport.width}px`)
+          return Option.map(
+            Option.all([Option.fromNullishOr(popup), trigger]),
+            ([surface, anchor]) => {
+              const discs = Arr.map(
+                Arr.fromIterable(document.querySelectorAll("[data-place-marker]:not([data-place-marker-leaving])")),
+                (disc) =>
+                  rectOf(Option.getOrElse(Option.fromNullishOr(disc.querySelector("[data-place-reach]")), () => disc))
+              )
+              return new AnswerGeometry({
+                viewport,
+                trigger: rectOf(anchor),
+                discs,
+                width: surface.offsetWidth,
+                height: Num.sum(surface.scrollHeight, Num.subtract(surface.offsetHeight, surface.clientHeight))
+              })
+            }
+          )
         })
-        const popup = positioner.querySelector<HTMLElement>("[data-place-provenance]")
-        const trigger = document.querySelector<HTMLElement>("[data-provenance][data-popup-open]")
-        positioner.style.setProperty("--answer-viewport-width", `${viewport.width}px`)
-        return Option.map(
-          Option.all([Option.fromNullishOr(popup), Option.fromNullishOr(trigger)]),
-          ([surface, anchor]) => {
-            const discs = Arr.map(
-              Arr.fromIterable(document.querySelectorAll("[data-place-marker]:not([data-place-marker-leaving])")),
-              (disc) =>
-                rectOf(Option.getOrElse(Option.fromNullishOr(disc.querySelector("[data-place-reach]")), () => disc))
-            )
-            return new AnswerGeometry({
-              viewport,
-              trigger: rectOf(anchor),
-              discs,
-              width: surface.offsetWidth,
-              height: Num.sum(surface.scrollHeight, Num.subtract(surface.offsetHeight, surface.clientHeight))
-            })
-          }
-        )
-      }),
+      ),
       Stream.changes,
       Stream.map(Option.map((geometry: AnswerGeometry) =>
         placeAnswer(geometry.viewport, geometry.trigger, geometry.discs, geometry)

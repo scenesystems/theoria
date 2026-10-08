@@ -72,6 +72,7 @@ layer(Layer.merge(SiteLive, BrowserLive), { excludeTestServices: true, timeout: 
               const clear = yield* until(
                 Effect.gen(function*() {
                   const box = yield* act(() => popup.evaluate(boxOf))
+                  const documentBox = yield* act(() => page.locator("html").evaluate(boxOf))
                   const separation = yield* Effect.forEach(
                     Arr.range(0, Num.subtract(yield* act(() => targets.count()), 1)),
                     (index) =>
@@ -88,6 +89,7 @@ layer(Layer.merge(SiteLive, BrowserLive), { excludeTestServices: true, timeout: 
                   return Bool.every([
                     box.left >= 11.9,
                     box.right <= Num.subtract(width, 11.9),
+                    box.right <= Num.subtract(documentBox.right, 11.9),
                     box.top >= 11.9,
                     box.bottom <= 832.1,
                     Bool.every(separation)
