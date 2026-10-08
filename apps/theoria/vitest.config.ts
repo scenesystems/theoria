@@ -7,6 +7,7 @@ export default defineConfig({
     // Needs a built Worker bundle; run with `bun run test:worker`.
     exclude: ["test/worker/**", "**/node_modules/**"],
     environment: "happy-dom",
+    setupFiles: ["./test/setup.ts"],
     passWithNoTests: false,
     testTimeout: 30_000,
     hookTimeout: 30_000
