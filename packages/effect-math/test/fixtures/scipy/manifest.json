@@ -7,70 +7,107 @@
     "pythonVersion": "3.12.14",
     "generatedAt": "2026-10-06T10:08:01Z"
   },
+  "provenance": {
+    "cpuDispatch": {
+      "observation": "Regenerating with the locked uv environment while NumPy's AVX-512 SVML dispatch was active reproduced every committed legacy fixture byte. With AVX512F disabled (NPY_DISABLE_CPU_FEATURES=AVX512F) the cpuSensitiveFiles regenerate with different bytes. The generator pins only PYTHONHASHSEED, not CPU dispatch, so byte regeneration of these files is CPU-dependent; portable verification checks their schema and SHA-256 instead.",
+      "generatorPinnedEnvironment": ["PYTHONHASHSEED"],
+      "cpuSensitiveFiles": [
+        "complex/arithmetic-parity.json",
+        "distribution/algebra-parity.json",
+        "numeric/logspace-parity.json",
+        "numeric/scalar-parity.json",
+        "probability/distribution-parity.json"
+      ],
+      "evidence": {
+        "file": "numeric/scalar-parity.json",
+        "case": "expm1-one",
+        "operation": "numpy.expm1",
+        "input": "1.0",
+        "committed": "1.7182818284590453",
+        "avx512fDisabled": "1.718281828459045"
+      }
+    }
+  },
   "fixtures": [
     {
       "name": "algebra.polynomial-parity",
-      "file": "algebra/polynomial-parity.json"
+      "file": "algebra/polynomial-parity.json",
+      "sha256": "5a0094d79389ecb70c9679548da79e457ceeb4fc02d96489a37c17d5ff7191c5"
     },
     {
       "name": "calculus.numerical-parity",
-      "file": "calculus/numerical-parity.json"
+      "file": "calculus/numerical-parity.json",
+      "sha256": "d463fd6f4a6627caf425ae9998e92e93b9a1f032a4615a931eda19a060af3cf4"
     },
     {
       "name": "complex.arithmetic-parity",
-      "file": "complex/arithmetic-parity.json"
+      "file": "complex/arithmetic-parity.json",
+      "sha256": "7afdba6b89ddd2fed7c832344d5ecf3a18711d4c22b952a61f9334687027d69f"
     },
     {
       "name": "cpython-random-001",
-      "file": "cpython-random-001.json"
+      "file": "cpython-random-001.json",
+      "sha256": "ee9f67c955525d6c1758d518a344e166bf606c0f9d5b97dc1f602977fc97918f"
     },
     {
       "name": "cpython-sum-001",
-      "file": "cpython-sum-001.json"
+      "file": "cpython-sum-001.json",
+      "sha256": "02974f45016f664b4ddd7f88558ac11a064dfd519dbb4fe26db2edc0e22a471d"
     },
     {
       "name": "distribution.algebra-parity",
-      "file": "distribution/algebra-parity.json"
+      "file": "distribution/algebra-parity.json",
+      "sha256": "11925ad2cf91c00dc6e6a3cba146e36c68d98e15f70996f3ac530aa55f2ae243"
     },
     {
       "name": "geometry.distance-parity",
-      "file": "geometry/distance-parity.json"
+      "file": "geometry/distance-parity.json",
+      "sha256": "5950e9b10bc04f94676bd3fa5d4f2bc9cc1f5f0c1fff53eb176c47d478069d22"
     },
     {
       "name": "linalg.vector-parity",
-      "file": "linalg/vector-parity.json"
+      "file": "linalg/vector-parity.json",
+      "sha256": "b42efd776aaca482538013fbaaad0dfce3cb181405de1d25178cde4ec0649fd2"
     },
     {
       "name": "numeric.logspace-parity",
-      "file": "numeric/logspace-parity.json"
+      "file": "numeric/logspace-parity.json",
+      "sha256": "64c286075a9458633f4202dba893a3c7816c24cc586c0fc0d8dae334a86824e4"
     },
     {
       "name": "numeric.scalar-parity",
-      "file": "numeric/scalar-parity.json"
+      "file": "numeric/scalar-parity.json",
+      "sha256": "230413ca6154ca4015e70634702a71ba5b9a2c9e46d0333d5126f786784e0720"
     },
     {
       "name": "numpy-random-001",
-      "file": "numpy-random-001.json"
+      "file": "numpy-random-001.json",
+      "sha256": "169b29e03c250001e654585d53b840a80a9321943a23f5acd78a7fa3ea37162b"
     },
     {
       "name": "optimization.solver-parity",
-      "file": "optimization/solver-parity.json"
+      "file": "optimization/solver-parity.json",
+      "sha256": "85d720ad924e7f5ce1a8fc349ab93355a42f033deda395dd8cc1704d4c67285c"
     },
     {
       "name": "probability.distribution-parity",
-      "file": "probability/distribution-parity.json"
+      "file": "probability/distribution-parity.json",
+      "sha256": "cdbae0f440d803d317430d8c35830fc962d02429d7b8b79dc9da26e91d19a303"
     },
     {
       "name": "special.function-parity",
-      "file": "special/function-parity.json"
+      "file": "special/function-parity.json",
+      "sha256": "8f8c26c385cb4496da5fc5492e9dbdacdc89df1e217f72ffae0180a81c9f5983"
     },
     {
       "name": "special.inverse-parity",
-      "file": "special/inverse-parity.json"
+      "file": "special/inverse-parity.json",
+      "sha256": "9c6de03132fed3da2927b081343d887a0aee289bd1ee03fa5f3a921fd45c3487"
     },
     {
       "name": "statistics.estimator-parity",
-      "file": "statistics/estimator-parity.json"
+      "file": "statistics/estimator-parity.json",
+      "sha256": "37fee9b67e24ada7ca45e0194d8f545c27f293a5d98c6471e0ef899ce071dea5"
     }
   ]
 }

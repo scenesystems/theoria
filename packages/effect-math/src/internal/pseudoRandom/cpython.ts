@@ -1,5 +1,5 @@
 /** CPython integer seeds and sequence algorithms over pure MT19937 transitions. @internal */
-import { Array, BigInt, Boolean, Data, HashSet, Match, Number, Option, Predicate, String, Tuple } from "effect"
+import { Array, BigInt, Boolean, Data, HashSet, Match, Number, Option, Predicate, Tuple } from "effect"
 import * as Numeric from "../../Numeric.js"
 import * as MT from "./mersenneTwister.js"
 
@@ -40,13 +40,30 @@ export const getrandbits = (state: MT.State, k: number): MT.Draw<bigint> =>
     })
   })
 
-export const randbelow = (state: MT.State, n: bigint): MT.Draw<bigint> => {
-  const draw = getrandbits(state, String.length(n.toString(2)))
+/** Python's int.bit_length for positive integers: whole 32-bit words, then single bits. */
+const bitLength = (n: bigint): number =>
+  Number.sumAll(
+    Array.unfold(n, (remaining) =>
+      Option.liftPredicate(remaining, (current) => BigInt.isGreaterThan(current, 0n)).pipe(
+        Option.map((positive) =>
+          Boolean.match(BigInt.isGreaterThanOrEqualTo(positive, 4294967296n), {
+            onFalse: () => Tuple.make(1, BigInt.divideUnsafe(positive, 2n)),
+            onTrue: () => Tuple.make(32, BigInt.divideUnsafe(positive, 4294967296n))
+          })
+        )
+      ))
+  )
+
+const rejectBelow = (state: MT.State, n: bigint, k: number): MT.Draw<bigint> => {
+  const draw = getrandbits(state, k)
   return Boolean.match(BigInt.isLessThan(draw.value, n), {
-    onFalse: () => randbelow(draw.state, n),
+    onFalse: () => rejectBelow(draw.state, n, k),
     onTrue: () => draw
   })
 }
+
+/** Requires n > 0, as CPython's _randbelow_with_getrandbits does. */
+export const randbelow = (state: MT.State, n: bigint): MT.Draw<bigint> => rejectBelow(state, n, bitLength(n))
 
 export const randint = (state: MT.State, a: number, b: number): MT.Draw<number> => {
   const draw = randbelow(state, BigInt.sum(BigInt.subtract(integer(b), integer(a)), 1n))

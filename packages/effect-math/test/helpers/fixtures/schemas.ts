@@ -1759,9 +1759,37 @@ export type KnownFixture = Schema.Schema.Type<typeof KnownFixtureSchema>
 // Manifest
 // ---------------------------------------------------------------------------
 
+/** Lowercase hexadecimal SHA-256 of the exact committed fixture bytes. */
+export const FixtureSha256Schema = Schema.String.check(Schema.isPattern(/^[a-f0-9]{64}$/))
+
 export const FixtureManifestEntrySchema = Schema.Struct({
   name: FixtureNameSchema,
-  file: Schema.String
+  file: Schema.String,
+  sha256: FixtureSha256Schema
+})
+
+/**
+ * Recorded observation about CPU-dependent NumPy dispatch: the conditions under
+ * which committed legacy bytes were reproduced, the files whose bytes depend on
+ * the CPU, and one concrete value that differs between dispatch paths. Values
+ * are Python `repr` strings so the recorded digits are exact.
+ */
+export const FixtureCpuDispatchProvenanceSchema = Schema.Struct({
+  observation: Schema.String,
+  generatorPinnedEnvironment: Schema.Array(Schema.String),
+  cpuSensitiveFiles: Schema.Array(Schema.String),
+  evidence: Schema.Struct({
+    file: Schema.String,
+    case: Schema.String,
+    operation: Schema.String,
+    input: Schema.String,
+    committed: Schema.String,
+    avx512fDisabled: Schema.String
+  })
+})
+
+export const FixtureManifestProvenanceSchema = Schema.Struct({
+  cpuDispatch: FixtureCpuDispatchProvenanceSchema
 })
 
 export const FixtureManifestSchema = Schema.Struct({
@@ -1773,6 +1801,7 @@ export const FixtureManifestSchema = Schema.Struct({
     pythonVersion: Schema.String,
     generatedAt: Schema.String
   }),
+  provenance: FixtureManifestProvenanceSchema,
   fixtures: Schema.Array(FixtureManifestEntrySchema)
 })
 

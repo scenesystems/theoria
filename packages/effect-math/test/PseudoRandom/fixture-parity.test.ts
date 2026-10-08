@@ -19,17 +19,17 @@ it.effect("cpython-random-001: exact mixed operations, seed chunks, twist bounda
         expect(yield* Effect.forEach(entry.random, () => rng.random())).toEqual(entry.random)
         yield* Effect.forEach(entry.bits, (bits) =>
           Effect.gen(function*() {
-            expect((yield* rng.getrandbits(bits.k)).toString()).toBe(bits.value)
+            expect(yield* rng.getrandbits(bits.k)).toBe(yield* Schema.decodeEffect(Schema.BigIntFromString)(bits.value))
           }))
         yield* Effect.forEach(entry.below, (below) =>
           Effect.gen(function*() {
             expect(
               yield* Effect.forEach(
                 below.values,
-                () => rng.randbelow(Option.getOrThrow(BigInt.fromString(below.n))).pipe(Effect.map(String))
+                () => rng.randbelow(Option.getOrThrow(BigInt.fromString(below.n)))
               )
             )
-              .toEqual(below.values)
+              .toEqual(yield* Schema.decodeEffect(Schema.Array(Schema.BigIntFromString))(below.values))
           }))
         yield* Effect.forEach(entry.integers, (ints) =>
           Effect.gen(function*() {

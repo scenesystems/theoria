@@ -27,6 +27,9 @@ jobs:
       - uses: astral-sh/setup-uv@d0d8abe699bfb85fec6de9f7adb5ae17292296ff # v6
       - run: uv run --locked packages/effect-dsp/scripts/verify-dspy-fixtures.py --check
       - run: uv run --locked packages/effect-search/scripts/generate-optuna-fixtures.py --check
+      - uses: ./.github/actions/setup
+      - name: Verify SciPy fixture schemas, payload and manifest hashes, and portable regeneration bytes
+        run: bun run --filter @scenesystems/effect-math fixtures:verify
 
   check:
     name: Typecheck
