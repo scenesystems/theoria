@@ -68,7 +68,7 @@
     "@effect/vitest": "4.0.0",
     "@scenesystems/digest": "workspace:*",
     "@scenesystems/effect-search": "workspace:*",
-    "@secretlint/secretlint-rule-preset-recommend": "^13.0.5",
+    "@secretlint/secretlint-rule-preset-recommend": "^13.0.7",
     "@theoria/docs-model": "workspace:*",
     "@types/mdast": "^4.0.4",
     "@types/node": "^26.6.4",
