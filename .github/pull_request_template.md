@@ -1,12 +1,17 @@
 <!--
 Write for the reviewer using .agents/skills/writing-contributions/SKILL.md.
-Name the concrete change in the title. Explain the problem and resulting behavior,
-and give the rationale where it helps review. Include decisive verification
-actually performed and material limitations. Link detailed evidence when useful;
-preserve evidence explicitly requested by the reviewer.
-
-Use the structure the change needs, without empty headings or checklists. Describe
-the result, not the work chronology. If scope changes, rewrite the description
-around the complete diff rather than appending progress updates.
-Remove this comment when the description is ready; it is hidden when rendered.
+Name the concrete change in the title. Keep the required headings below and use
+a short paragraph or useful bullets in each. Remove author prompts before submission.
 -->
+
+## Problem
+
+<!-- Explain what is wrong or missing and why it matters. -->
+
+## Change
+
+<!-- Describe the resulting behavior and useful rationale, not a file inventory or work chronology. -->
+
+## Verification
+
+<!-- State decisive checks actually performed and material limitations. If no checks ran, say why. Link detailed evidence when useful and preserve explicitly requested evidence. -->
