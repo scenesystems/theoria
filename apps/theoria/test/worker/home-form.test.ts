@@ -52,7 +52,7 @@ const boxOf = (locator: Locator) =>
 layer(Layer.merge(SiteLive, BrowserLive), { excludeTestServices: true, timeout: "3 minutes" })(
   "Theoria home page form in Chromium",
   (it) => {
-    it("the spine's dots stand centred on its line, and over it", () =>
+    it.effect("the spine's dots stand centred on its line, and over it", () =>
       Effect.gen(function*() {
         const { failures, page } = yield* openPage()
         yield* goto(page, "/")
@@ -75,7 +75,7 @@ layer(Layer.merge(SiteLive, BrowserLive), { excludeTestServices: true, timeout: 
         expect(yield* failures).toEqual([])
       }))
 
-    it("a step's name and the packages that do its work stand level", () =>
+    it.effect("a step's name and the packages that do its work stand level", () =>
       Effect.gen(function*() {
         const { failures, page } = yield* openPage()
         yield* goto(page, "/")
@@ -96,7 +96,7 @@ layer(Layer.merge(SiteLive, BrowserLive), { excludeTestServices: true, timeout: 
         expect(yield* failures).toEqual([])
       }))
 
-    it("what is lit wears one wash wherever it stands", () =>
+    it.effect("what is lit wears one wash wherever it stands", () =>
       Effect.gen(function*() {
         const { failures, page } = yield* openPage()
         yield* goto(page, "/")
@@ -132,7 +132,7 @@ layer(Layer.merge(SiteLive, BrowserLive), { excludeTestServices: true, timeout: 
         expect(yield* failures).toEqual([])
       }))
 
-    it("a preview opened from an answer stands over the answer", () =>
+    it.effect("a preview opened from an answer stands over the answer", () =>
       Effect.gen(function*() {
         const { failures, page } = yield* openPage()
         yield* goto(page, "/")
@@ -150,7 +150,7 @@ layer(Layer.merge(SiteLive, BrowserLive), { excludeTestServices: true, timeout: 
         expect(yield* failures).toEqual([])
       }))
 
-    it("the band is a strip, no taller than a line of text, with a way back up", () =>
+    it.effect("the band is a strip, no taller than a line of text, with a way back up", () =>
       Effect.gen(function*() {
         const { failures, page } = yield* openPage({ viewport: { width: 390, height: 844 } })
         yield* goto(page, "/")
@@ -171,7 +171,7 @@ layer(Layer.merge(SiteLive, BrowserLive), { excludeTestServices: true, timeout: 
         expect(yield* failures).toEqual([])
       }))
 
-    it("to assistive technology the band is one link, named for where it goes and what it shows", () =>
+    it.effect("to assistive technology the band is one link, named for where it goes and what it shows", () =>
       Effect.gen(function*() {
         const { failures, page } = yield* openPage({ viewport: { width: 390, height: 844 } })
         yield* goto(page, "/")
@@ -202,7 +202,7 @@ layer(Layer.merge(SiteLive, BrowserLive), { excludeTestServices: true, timeout: 
         expect(yield* failures).toEqual([])
       }))
 
-    it("the arrival leads the demonstration, and Compose and Arrange start on one line", () =>
+    it.effect("the arrival leads the demonstration, and Compose and Arrange start on one line", () =>
       Effect.gen(function*() {
         const { failures, page } = yield* openPage()
         yield* goto(page, "/")
@@ -217,7 +217,7 @@ layer(Layer.merge(SiteLive, BrowserLive), { excludeTestServices: true, timeout: 
         expect(yield* failures).toEqual([])
       }))
 
-    it("the Build act is titled and not narrated: no paragraph stands between its title and the code", () =>
+    it.effect("the Build act is titled and not narrated: no paragraph stands between its title and the code", () =>
       Effect.gen(function*() {
         const { failures, page } = yield* openPage()
         yield* goto(page, "/")
@@ -228,7 +228,7 @@ layer(Layer.merge(SiteLive, BrowserLive), { excludeTestServices: true, timeout: 
         expect(yield* failures).toEqual([])
       }))
 
-    it("the brief uses body metrics, keeps its five-row floor, and grows for longer drafts", () =>
+    it.effect("the brief uses body metrics, keeps its five-row floor, and grows for longer drafts", () =>
       Effect.forEach([390, 1280], (width) =>
         Effect.gen(function*() {
           const { failures, page } = yield* openPage({ viewport: { width, height: 900 } })
@@ -248,7 +248,7 @@ layer(Layer.merge(SiteLive, BrowserLive), { excludeTestServices: true, timeout: 
           expect(yield* failures).toEqual([])
         })))
 
-    it("the Compose act reads down: the stories, the title, the brief, the features", () =>
+    it.effect("the Compose act reads down: the stories, the title, the brief, the features", () =>
       Effect.gen(function*() {
         const { failures, page } = yield* openPage()
         yield* goto(page, "/")

@@ -36,7 +36,7 @@ const shellAssets = (shell: string): ReadonlyArray<string> =>
   )
 
 layer(SiteLive, { timeout: "2 minutes" })("Theoria Worker in workerd", (it) => {
-  it("answers API routes from the Worker with the deploy-time build SHA", () =>
+  it.effect("answers API routes from the Worker with the deploy-time build SHA", () =>
     Effect.gen(function*() {
       const site = yield* Site
 
@@ -53,7 +53,7 @@ layer(SiteLive, { timeout: "2 minutes" })("Theoria Worker in workerd", (it) => {
       expect(yield* json(unknown)).toMatchObject({ ok: false, error: { code: "route-not-found" } })
     }))
 
-  it("renders the HTML shell through the Worker with per-route metadata", () =>
+  it.effect("renders the HTML shell through the Worker with per-route metadata", () =>
     Effect.gen(function*() {
       const site = yield* Site
       const firstPackage = yield* Effect.fromOption(Arr.head(site.manifest.packages))
@@ -97,7 +97,7 @@ layer(SiteLive, { timeout: "2 minutes" })("Theoria Worker in workerd", (it) => {
       expect((yield* site.fetch(`${productionHost}/no-such-file.js`)).status).toBe(404)
     }))
 
-  it("serves hashed assets from the edge with the _headers policy", () =>
+  it.effect("serves hashed assets from the edge with the _headers policy", () =>
     Effect.gen(function*() {
       const site = yield* Site
 
@@ -124,7 +124,7 @@ layer(SiteLive, { timeout: "2 minutes" })("Theoria Worker in workerd", (it) => {
       expect((yield* site.fetch("/robots.txt")).status).toBe(200)
     }))
 
-  it("answers every shell asset 200 across concurrent page loads", { timeout: 120_000 }, () =>
+  it.effect("answers every shell asset 200 across concurrent page loads", () =>
     Effect.gen(function*() {
       const site = yield* Site
       const shell = yield* site.fetch("/").pipe(Effect.flatMap(text))
@@ -147,9 +147,9 @@ layer(SiteLive, { timeout: "2 minutes" })("Theoria Worker in workerd", (it) => {
       ).pipe(Effect.map(Arr.flatten))
       expect(Arr.filter(answers, (answer) => answer.status !== 200)).toEqual([])
       expect(answers.length).toBe(200 * assets.length)
-    }))
+    }), { timeout: 120_000 })
 
-  it("serves its own typefaces, preloaded by the shell, so no text is set twice", () =>
+  it.effect("serves its own typefaces, preloaded by the shell, so no text is set twice", () =>
     Effect.gen(function*() {
       const site = yield* Site
 
@@ -199,7 +199,7 @@ layer(SiteLive, { timeout: "2 minutes" })("Theoria Worker in workerd", (it) => {
       )
     }))
 
-  it("serves a spec-shaped llms.txt from the shipped docs manifest", () =>
+  it.effect("serves a spec-shaped llms.txt from the shipped docs manifest", () =>
     Effect.gen(function*() {
       const site = yield* Site
 
@@ -223,7 +223,7 @@ layer(SiteLive, { timeout: "2 minutes" })("Theoria Worker in workerd", (it) => {
       expect(header(yield* site.fetch("/"), "link")).toEqual(Option.some(`</llms.txt>; rel="describedby"`))
     }))
 
-  it("serves the shell already in the reader's colour mode, from the cookie the app writes", () =>
+  it.effect("serves the shell already in the reader's colour mode, from the cookie the app writes", () =>
     Effect.gen(function*() {
       const site = yield* Site
       const shellFor = (cookie: Option.Option<string>) =>
@@ -252,7 +252,7 @@ layer(SiteLive, { timeout: "2 minutes" })("Theoria Worker in workerd", (it) => {
       expect(yield* text(garbage)).not.toContain("class=\"dark\"")
     }))
 
-  it("keeps non-production hostnames out of search indexes", () =>
+  it.effect("keeps non-production hostnames out of search indexes", () =>
     Effect.gen(function*() {
       const site = yield* Site
       const robots = (url: string) => Effect.map(site.fetch(url), (response) => header(response, "x-robots-tag"))
@@ -267,7 +267,7 @@ layer(SiteLive, { timeout: "2 minutes" })("Theoria Worker in workerd", (it) => {
       expect(yield* robots(`${previewHost}${site.hashedScript}`)).toEqual(Option.some("noindex"))
     }))
 
-  it("reports analytics from the production hostname only, with a matching policy", () =>
+  it.effect("reports analytics from the production hostname only, with a matching policy", () =>
     Effect.gen(function*() {
       const site = yield* Site
 
@@ -290,7 +290,7 @@ layer(SiteLive, { timeout: "2 minutes" })("Theoria Worker in workerd", (it) => {
       expect(headerText(staging, "content-security-policy")).not.toContain("googletagmanager")
     }))
 
-  it("builds the sitemap from the shipped docs manifest", () =>
+  it.effect("builds the sitemap from the shipped docs manifest", () =>
     Effect.gen(function*() {
       const site = yield* Site
 
@@ -304,7 +304,7 @@ layer(SiteLive, { timeout: "2 minutes" })("Theoria Worker in workerd", (it) => {
       })
     }))
 
-  it("runs the Imagined Place build inside workerd", () =>
+  it.effect("runs the Imagined Place build inside workerd", () =>
     Effect.gen(function*() {
       const site = yield* Site
       const post = (body: string) =>
@@ -340,7 +340,7 @@ layer(SiteLive, { timeout: "2 minutes" })("Theoria Worker in workerd", (it) => {
       expect((yield* site.fetch(`${productionHost}/api/imagined-place/build`)).status).toBe(405)
     }))
 
-  it("a named deployment is the same site as the harness, read over the network", () =>
+  it.effect("a named deployment is the same site as the harness, read over the network", () =>
     Effect.gen(function*() {
       const site = yield* Site
       const named = ConfigProvider.layer(ConfigProvider.fromUnknown({ THEORIA_SITE_URL: site.url }))

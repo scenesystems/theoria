@@ -14,6 +14,7 @@ import {
   Deferred,
   Duration,
   Effect,
+  Equal,
   HashMap,
   Layer,
   Match,
@@ -98,7 +99,7 @@ export const failuresOf = (page: Page): Effect.Effect<ReadonlyArray<string>, nev
       Effect.flatMap(Ref.get(browser.failures), (open) =>
         Option.match(HashMap.get(open, page), {
           onNone: () => Effect.succeed(Arr.empty<string>()),
-          onSome: Queue.takeAll
+          onSome: Queue.clear
         }))
   )
 
@@ -161,7 +162,8 @@ export const openPage = (
       (open) => Effect.orDie(act(() => open.close()))
     )
     yield* act(() => context.grantPermissions([...(options.permissions ?? [])]))
-    const page = yield* act(() => context.newPage())
+    // Page is an opaque mutable host object: map keys must use identity, never its live protocol graph.
+    const page = yield* act(() => context.newPage()).pipe(Effect.map(Equal.byReferenceUnsafe))
     // Throttling is the DevTools protocol's; it holds for the page's every document until the page closes.
     yield* Option.match(Option.filter(Option.fromNullishOr(options.cpuSlowdown), (rate) => rate > 1), {
       onNone: () => Effect.void,
@@ -187,7 +189,7 @@ export const openPage = (
       () => Ref.update(browser.failures, HashMap.remove(page))
     )
 
-    return new Session({ page, context, failures: Queue.takeAll(failures) })
+    return new Session({ page, context, failures: Queue.clear(failures) })
   })
 
 /** Records the URL of every request that passes `keep`; taking them clears the buffer. */
@@ -199,7 +201,7 @@ export const observeRequests = (
     page.on("request", (request) => {
       if (keep({ url: request.url(), resourceType: request.resourceType() })) Queue.offerUnsafe(seen, request.url())
     })
-    return Queue.takeAll(seen)
+    return Queue.clear(seen)
   })
 
 export const goto = (page: Page, path: string) => act(() => page.goto(path))

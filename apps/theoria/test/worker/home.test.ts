@@ -56,7 +56,7 @@ const successfulBuild = (body: unknown) =>
 layer(Layer.merge(SiteLive, BrowserLive), { excludeTestServices: true, timeout: "2 minutes" })(
   "Theoria home page in Chromium",
   (it) => {
-    it("the imagined place is built by the real API and re-digested when a proposal is merged", () =>
+    it.effect("the imagined place is built by the real API and re-digested when a proposal is merged", () =>
       Effect.gen(function*() {
         const { failures, page } = yield* openPage()
 
@@ -133,7 +133,7 @@ layer(Layer.merge(SiteLive, BrowserLive), { excludeTestServices: true, timeout: 
         expect(yield* failures).toEqual([])
       }))
 
-    it("the place sits on the canvas: no surface between the page and the drawing", () =>
+    it.effect("the place sits on the canvas: no surface between the page and the drawing", () =>
       Effect.gen(function*() {
         const { failures, page } = yield* openPage()
         yield* goto(page, "/")
@@ -156,7 +156,7 @@ layer(Layer.merge(SiteLive, BrowserLive), { excludeTestServices: true, timeout: 
         expect(yield* failures).toEqual([])
       }))
 
-    it("the hero and the place share the first viewport", () =>
+    it.effect("the hero and the place share the first viewport", () =>
       Effect.gen(function*() {
         const { failures, page } = yield* openPage({ viewport: { width: 1440, height: 900 } })
         yield* goto(page, "/")
@@ -218,7 +218,7 @@ layer(Layer.merge(SiteLive, BrowserLive), { excludeTestServices: true, timeout: 
         expect(yield* failures).toEqual([])
       }))
 
-    it("same-document anchors glide unless reduced motion asks them to land at once", () =>
+    it.effect("same-document anchors glide unless reduced motion asks them to land at once", () =>
       Effect.gen(function*() {
         const smooth = yield* openPage({
           viewport: { width: 1440, height: 900 },
@@ -259,7 +259,7 @@ layer(Layer.merge(SiteLive, BrowserLive), { excludeTestServices: true, timeout: 
         expect(yield* reduced.failures).toEqual([])
       }))
 
-    it("the package index stays complete and unscrolled across responsive widths", () =>
+    it.effect("the package index stays complete and unscrolled across responsive widths", () =>
       Effect.gen(function*() {
         const { manifest } = yield* Site
         const { failures, page } = yield* openPage({ viewport: { width: 320, height: 800 } })

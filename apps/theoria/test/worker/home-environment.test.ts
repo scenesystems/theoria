@@ -144,7 +144,7 @@ layer(Layer.merge(SiteUnderTest, BrowserLive), { excludeTestServices: true, time
   "Theoria home environment in Chromium",
   (it) => {
     Arr.forEach(viewports, (viewport) =>
-      it(
+      it.effect(
         `at ${String(viewport.width)}×${String(viewport.height)} every story fits in light and dark, and ${
           firstViewportLead(viewport)
         } leads the first viewport`,
@@ -172,7 +172,7 @@ layer(Layer.merge(SiteUnderTest, BrowserLive), { excludeTestServices: true, time
           })
       ))
 
-    it("under reduced motion the search still has frames, and merges and story changes move only by opacity", () =>
+    it.effect("under reduced motion the search still has frames, and merges and story changes move only by opacity", () =>
       Effect.gen(function*() {
         const { failures, page } = yield* openPage({ viewport: { width: 1280, height: 800 }, reducedMotion: "reduce" })
         yield* goto(page, "/")
@@ -247,7 +247,7 @@ layer(Layer.merge(SiteUnderTest, BrowserLive), { excludeTestServices: true, time
         expect(yield* failures).toEqual([])
       }))
 
-    it("light and dark keep every interactive state readable", () =>
+    it.effect("light and dark keep every interactive state readable", () =>
       Effect.gen(function*() {
         const { failures, page } = yield* openPage({ viewport: { width: 1280, height: 800 } })
         // Each scheme changes to a story the page is not already showing, so the search runs.

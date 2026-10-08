@@ -32,7 +32,7 @@ const alike = (distances: ReadonlyArray<number>, message: string) => {
 
 layer(Layer.merge(SiteLive, BrowserLive), { excludeTestServices: true, timeout: "3 minutes" })(
   (it) => {
-    it("the steps of the story stand equally and clearly apart, and the page's regions further, at every width", () =>
+    it.effect("the steps of the story stand equally and clearly apart, and the page's regions further, at every width", () =>
       Effect.gen(function*() {
         const { failures, page } = yield* openPage({ viewport: { width: 1280, height: 900 } })
         yield* goto(page, "/")

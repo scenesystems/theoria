@@ -55,7 +55,7 @@ import { SiteLive } from "./site.js"
 layer(Layer.merge(SiteLive, BrowserLive), { excludeTestServices: true, timeout: "2 minutes" })(
   "Theoria docs in Chromium",
   (it) => {
-    it("the package picker keeps its field height when API navigation overflows the sidebar", () =>
+    it.effect("the package picker keeps its field height when API navigation overflows the sidebar", () =>
       Effect.gen(function*() {
         const { failures, page } = yield* openPage({ reducedMotion: "reduce" })
         yield* Effect.forEach([1200, 720, 500], (height) =>
@@ -83,7 +83,7 @@ layer(Layer.merge(SiteLive, BrowserLive), { excludeTestServices: true, timeout: 
         expect(yield* failures).toEqual([])
       }))
 
-    it("docs chrome reaches both edges and the package index shares the header's left alignment", () =>
+    it.effect("docs chrome reaches both edges and the package index shares the header's left alignment", () =>
       Effect.gen(function*() {
         const { failures, page } = yield* openPage({ reducedMotion: "reduce" })
         yield* Effect.forEach([1440, 1920, 2560], (width) =>
@@ -119,7 +119,7 @@ layer(Layer.merge(SiteLive, BrowserLive), { excludeTestServices: true, timeout: 
         expect(yield* failures).toEqual([])
       }))
 
-    it("package cards answer hover and press with their background, never a title underline", () =>
+    it.effect("package cards answer hover and press with their background, never a title underline", () =>
       Effect.gen(function*() {
         const { failures, page } = yield* openPage({ reducedMotion: "reduce" })
         yield* Effect.forEach(ColorMode.literals, (scheme) =>
@@ -150,7 +150,7 @@ layer(Layer.merge(SiteLive, BrowserLive), { excludeTestServices: true, timeout: 
         expect(yield* failures).toEqual([])
       }))
 
-    it("docs use the home logo's scale, showing only its mark below the sidebar breakpoint", () =>
+    it.effect("docs use the home logo's scale, showing only its mark below the sidebar breakpoint", () =>
       Effect.gen(function*() {
         const { failures, page } = yield* openPage({ reducedMotion: "reduce" })
         yield* goto(page, "/")
@@ -175,7 +175,7 @@ layer(Layer.merge(SiteLive, BrowserLive), { excludeTestServices: true, timeout: 
         expect(yield* failures).toEqual([])
       }))
 
-    it("guide, module and export pages share title and prose metrics in both modes and across the narrow breakpoint", () =>
+    it.effect("guide, module and export pages share title and prose metrics in both modes and across the narrow breakpoint", () =>
       Effect.gen(function*() {
         const { failures, page } = yield* openPage({ reducedMotion: "reduce" })
         const pages = [
@@ -257,7 +257,7 @@ layer(Layer.merge(SiteLive, BrowserLive), { excludeTestServices: true, timeout: 
         expect(yield* failures).toEqual([])
       }))
 
-    it("a delayed docs renderer loads on demand and preserves navigation focus", () =>
+    it.effect("a delayed docs renderer loads on demand and preserves navigation focus", () =>
       Effect.gen(function*() {
         const { failures, page } = yield* openPage({ reducedMotion: "reduce" })
         const runtime = yield* Effect.context<never>()
@@ -286,7 +286,7 @@ layer(Layer.merge(SiteLive, BrowserLive), { excludeTestServices: true, timeout: 
         expect(yield* failures).toEqual([])
       }))
 
-    it("a failed docs renderer can be retried after the network recovers", () =>
+    it.effect("a failed docs renderer can be retried after the network recovers", () =>
       Effect.gen(function*() {
         const { failures, page } = yield* openPage({ reducedMotion: "reduce" })
         yield* act(() => page.route("**/assets/DocsPage-*.js", (route) => route.abort("failed"), { times: 1 }))
@@ -303,7 +303,7 @@ layer(Layer.merge(SiteLive, BrowserLive), { excludeTestServices: true, timeout: 
         expect(yield* failures).toEqual([])
       }))
 
-    it("landing links enter the package documentation without a reload", () =>
+    it.effect("landing links enter the package documentation without a reload", () =>
       Effect.gen(function*() {
         const { failures, page } = yield* openPage()
         const documents = yield* observeRequests(page, (request) => Str.Equivalence(request.resourceType, "document"))
@@ -334,7 +334,7 @@ layer(Layer.merge(SiteLive, BrowserLive), { excludeTestServices: true, timeout: 
         expect(yield* failures).toEqual([])
       }))
 
-    it("a route's content rises in, or under reduced motion is placed outright with the wordmark at rest", () =>
+    it.effect("a route's content rises in, or under reduced motion is placed outright with the wordmark at rest", () =>
       Effect.gen(function*() {
         const full = yield* openPage()
         yield* goto(full.page, "/")
@@ -370,7 +370,7 @@ layer(Layer.merge(SiteLive, BrowserLive), { excludeTestServices: true, timeout: 
         expect(yield* reduced.failures).toEqual([])
       }))
 
-    it("the wordmark plays one pass as the session begins, rests Latin, and plays again at once when met", () =>
+    it.effect("the wordmark plays one pass as the session begins, rests Latin, and plays again at once when met", () =>
       Effect.gen(function*() {
         const { failures, page } = yield* openPage()
         yield* goto(page, "/")
@@ -405,7 +405,7 @@ layer(Layer.merge(SiteLive, BrowserLive), { excludeTestServices: true, timeout: 
         expect(yield* failures).toEqual([])
       }))
 
-    it("docs navigation, package selection, and focused API caching stay coherent", () =>
+    it.effect("docs navigation, package selection, and focused API caching stay coherent", () =>
       Effect.gen(function*() {
         const { failures, page } = yield* openPage({ viewport: { width: 1440, height: 900 } })
         const docsData = yield* observeRequests(page, (request) => Str.includes("/docs-data/")(request.url))
@@ -459,7 +459,7 @@ layer(Layer.merge(SiteLive, BrowserLive), { excludeTestServices: true, timeout: 
         expect(yield* failures).toEqual([])
       }))
 
-    it("the workbench's chrome resolves to the layout and motion contracts' tokens", () =>
+    it.effect("the workbench's chrome resolves to the layout and motion contracts' tokens", () =>
       Effect.gen(function*() {
         const { failures, page } = yield* openPage({ viewport: { width: 1440, height: 900 } })
         yield* goto(page, "/docs/effect-search")
@@ -489,7 +489,7 @@ layer(Layer.merge(SiteLive, BrowserLive), { excludeTestServices: true, timeout: 
         expect(yield* failures).toEqual([])
       }))
 
-    it("guide navigation preserves a useful loading shell", () =>
+    it.effect("guide navigation preserves a useful loading shell", () =>
       Effect.gen(function*() {
         const { failures, page } = yield* openPage()
         const runtime = yield* Effect.context<never>()
@@ -513,7 +513,7 @@ layer(Layer.merge(SiteLive, BrowserLive), { excludeTestServices: true, timeout: 
         expect(yield* failures).toEqual([])
       }))
 
-    it("package guides keep runnable examples and public API links in the documentation", () =>
+    it.effect("package guides keep runnable examples and public API links in the documentation", () =>
       Effect.gen(function*() {
         const { failures, page } = yield* openPage()
 
@@ -549,7 +549,7 @@ layer(Layer.merge(SiteLive, BrowserLive), { excludeTestServices: true, timeout: 
         expect(yield* failures).toEqual([])
       }))
 
-    it("search shortcuts cancel synchronously only while docs are mounted", () =>
+    it.effect("search shortcuts cancel synchronously only while docs are mounted", () =>
       Effect.gen(function*() {
         const { failures, page } = yield* openPage({ reducedMotion: "reduce" })
         yield* goto(page, "/docs")
@@ -587,7 +587,7 @@ layer(Layer.merge(SiteLive, BrowserLive), { excludeTestServices: true, timeout: 
         expect(yield* failures).toEqual([])
       }))
 
-    it("search is typo-tolerant, fast, cached, and routable", () =>
+    it.effect("search is typo-tolerant, fast, cached, and routable", () =>
       Effect.gen(function*() {
         const { failures, page } = yield* openPage()
         const indexLoads = yield* observeRequests(page, (request) => Str.endsWith("/search-index.json")(request.url))
@@ -613,7 +613,7 @@ layer(Layer.merge(SiteLive, BrowserLive), { excludeTestServices: true, timeout: 
         expect(yield* failures).toEqual([])
       }))
 
-    it("focused signatures highlight and copy their real source", () =>
+    it.effect("focused signatures highlight and copy their real source", () =>
       Effect.gen(function*() {
         const { failures, page } = yield* openPage({ permissions: ["clipboard-read", "clipboard-write"] })
 
@@ -628,7 +628,7 @@ layer(Layer.merge(SiteLive, BrowserLive), { excludeTestServices: true, timeout: 
         expect(yield* failures).toEqual([])
       }))
 
-    it("mobile navigation changes packages and guides without page overflow", () =>
+    it.effect("mobile navigation changes packages and guides without page overflow", () =>
       Effect.gen(function*() {
         const { failures, page } = yield* openPage({ viewport: { width: 390, height: 844 } })
 
@@ -657,7 +657,7 @@ layer(Layer.merge(SiteLive, BrowserLive), { excludeTestServices: true, timeout: 
         expect(yield* failures).toEqual([])
       }))
 
-    it("focused signatures remain reachable at short height and increased text", () =>
+    it.effect("focused signatures remain reachable at short height and increased text", () =>
       Effect.gen(function*() {
         const { failures, page } = yield* openPage({ viewport: { width: 1440, height: 500 } })
 

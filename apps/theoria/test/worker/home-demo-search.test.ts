@@ -63,7 +63,7 @@ layer(Layer.merge(SiteLive, BrowserLive), { excludeTestServices: true, timeout: 
      * to move on before then — the bound on the rest is for a signal that never
      * comes, far past any hand-off a slow page makes.
      */
-    it("on a processor four times slower, a changed story's discs still wait for its lines", () =>
+    it.effect("on a processor four times slower, a changed story's discs still wait for its lines", () =>
       Effect.gen(function*() {
         const { failures, moved, newLines, overlaps, sampled, twoSets } = yield* changeStory({ cpuSlowdown: 4 })
         expect(Option.isSome(moved)).toBe(true)
@@ -75,7 +75,7 @@ layer(Layer.merge(SiteLive, BrowserLive), { excludeTestServices: true, timeout: 
         expect(yield* failures).toEqual([])
       }))
 
-    it("the search trace draws any trial, returns to the kept one, and content IDs open in full", () =>
+    it.effect("the search trace draws any trial, returns to the kept one, and content IDs open in full", () =>
       Effect.gen(function*() {
         const { failures, page } = yield* openPage({ viewport: { width: 390, height: 844 } })
         // Sample every frame from before the page is asked for until the place is drawn.
@@ -173,7 +173,7 @@ layer(Layer.merge(SiteLive, BrowserLive), { excludeTestServices: true, timeout: 
         expect(yield* failures).toEqual([])
       }))
 
-    it("the neighbor's note is a fold, and a merged proposal stands beside its line of prose", () =>
+    it.effect("the neighbor's note is a fold, and a merged proposal stands beside its line of prose", () =>
       Effect.gen(function*() {
         const { failures, page } = yield* openPage()
         yield* goto(page, "/")
@@ -208,7 +208,7 @@ layer(Layer.merge(SiteLive, BrowserLive), { excludeTestServices: true, timeout: 
         expect(yield* failures).toEqual([])
       }))
 
-    it("a merged feature fills the room the search made for it, never over the prose", () =>
+    it.effect("a merged feature fills the room the search made for it, never over the prose", () =>
       Effect.gen(function*() {
         const { arrivals, failures, filledInPlace, overlaps, sampled } = yield* mergeProgramProposal("no-preference")
         expect(filledInPlace).toBe(true)
@@ -218,7 +218,7 @@ layer(Layer.merge(SiteLive, BrowserLive), { excludeTestServices: true, timeout: 
         expect(yield* failures).toEqual([])
       }))
 
-    it("under reduced motion the feature is placed outright, never over the prose", () =>
+    it.effect("under reduced motion the feature is placed outright, never over the prose", () =>
       Effect.gen(function*() {
         const { arrivals, failures, filledInPlace, overlaps, placed, sampled } = yield* mergeProgramProposal("reduce")
         // Nothing travels: the drawing is placed outright at every best, and the disc fills the
@@ -232,7 +232,7 @@ layer(Layer.merge(SiteLive, BrowserLive), { excludeTestServices: true, timeout: 
         expect(yield* failures).toEqual([])
       }))
 
-    it("a changed story's discs wait for its lines: the old set leaves, the new set stands, then the drawing moves and the old discs shrink away", () =>
+    it.effect("a changed story's discs wait for its lines: the old set leaves, the new set stands, then the drawing moves and the old discs shrink away", () =>
       Effect.gen(function*() {
         const { failures, frames, leaversShrink, moved, newLines, overlaps, sampled, twoSets } = yield* changeStory()
         // The drawing moved, and the new lines were painted, within the frames sampled.
@@ -264,7 +264,7 @@ layer(Layer.merge(SiteLive, BrowserLive), { excludeTestServices: true, timeout: 
      * it paints that trial's discs and no other's, so no feature is painted
      * twice and no line is set over a disc of the drawing just left.
      */
-    it("at the narrowest column every trial keeps the gap between prose and discs", () =>
+    it.effect("at the narrowest column every trial keeps the gap between prose and discs", () =>
       Effect.gen(function*() {
         const { failures, page } = yield* openPage({ viewport: { width: 320, height: 700 }, reducedMotion: "reduce" })
         yield* goto(page, "/")
@@ -303,7 +303,7 @@ layer(Layer.merge(SiteLive, BrowserLive), { excludeTestServices: true, timeout: 
      * motion it is drawn whole from its first frame; the wash is colour alone,
      * which reduced motion keeps.
      */
-    it("a merge washes the changed version and the settled search draws the walk once; under reduced motion the walk is whole at once", () =>
+    it.effect("a merge washes the changed version and the settled search draws the walk once; under reduced motion the walk is whole at once", () =>
       Effect.gen(function*() {
         const finishing = (reducedMotion: ReducedMotion) =>
           Effect.gen(function*() {
@@ -357,7 +357,7 @@ layer(Layer.merge(SiteLive, BrowserLive), { excludeTestServices: true, timeout: 
      * does not reach: it takes its place at once under reduced motion by the
      * page's own rule, and eases across otherwise.
      */
-    it("a switch's thumb eases across, and under reduced motion takes its place at once", () =>
+    it.effect("a switch's thumb eases across, and under reduced motion takes its place at once", () =>
       Effect.gen(function*() {
         const thumbTransition = (reducedMotion: ReducedMotion) =>
           Effect.gen(function*() {
@@ -378,7 +378,7 @@ layer(Layer.merge(SiteLive, BrowserLive), { excludeTestServices: true, timeout: 
         expect(yield* thumbTransition("reduce")).toMatchObject({ property: "none" })
       }))
 
-    it("under reduced motion the band places its discs where they stand; nothing slides", () =>
+    it.effect("under reduced motion the band places its discs where they stand; nothing slides", () =>
       Effect.gen(function*() {
         const { failures, page } = yield* openPage({ reducedMotion: "reduce", viewport: { width: 390, height: 844 } })
         yield* goto(page, "/")

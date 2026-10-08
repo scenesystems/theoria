@@ -32,7 +32,7 @@ import { SiteLive } from "./site.js"
 layer(Layer.merge(SiteLive, BrowserLive), { excludeTestServices: true, timeout: "2 minutes" })(
   "Theoria home surface budget and reflow in Chromium",
   (it) => {
-    it("the home page keeps its painted surfaces within the de-carding budget", () =>
+    it.effect("the home page keeps its painted surfaces within the de-carding budget", () =>
       Effect.gen(function*() {
         const { failures, page } = yield* openPage({ viewport: { width: 1440, height: 900 } })
         yield* goto(page, "/")
@@ -44,7 +44,7 @@ layer(Layer.merge(SiteLive, BrowserLive), { excludeTestServices: true, timeout: 
         expect(yield* failures).toEqual([])
       }))
 
-    it("a proposal's title stands on one line when its column has the room", () =>
+    it.effect("a proposal's title stands on one line when its column has the room", () =>
       Effect.gen(function*() {
         const { failures, page } = yield* openPage({ viewport: { width: 1440, height: 900 } })
         yield* goto(page, "/")
@@ -61,7 +61,7 @@ layer(Layer.merge(SiteLive, BrowserLive), { excludeTestServices: true, timeout: 
         expect(yield* failures).toEqual([])
       }))
 
-    it("at 320 the paper and story chooser fit the viewport", () =>
+    it.effect("at 320 the paper and story chooser fit the viewport", () =>
       Effect.gen(function*() {
         const { failures, page } = yield* openPage({ viewport: { width: 390, height: 844 } })
         yield* goto(page, "/")
@@ -85,7 +85,7 @@ layer(Layer.merge(SiteLive, BrowserLive), { excludeTestServices: true, timeout: 
         expect(yield* failures).toEqual([])
       }))
 
-    it("the 200 percent reflow equivalent fits and focus clears the pinned band", () =>
+    it.effect("the 200 percent reflow equivalent fits and focus clears the pinned band", () =>
       Effect.gen(function*() {
         const { failures, page } = yield* openPage({ reducedMotion: "reduce" })
         yield* goto(page, "/")
@@ -107,7 +107,7 @@ layer(Layer.merge(SiteLive, BrowserLive), { excludeTestServices: true, timeout: 
         expect(yield* failures).toEqual([])
       }))
 
-    it("at 390 reduced motion a keyboard merge changes the prose and every marker answers", () =>
+    it.effect("at 390 reduced motion a keyboard merge changes the prose and every marker answers", () =>
       Effect.gen(function*() {
         const { failures, page } = yield* openPage({ viewport: { width: 390, height: 844 }, reducedMotion: "reduce" })
         yield* goto(page, "/")

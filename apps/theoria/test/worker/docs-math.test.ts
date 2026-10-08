@@ -22,7 +22,7 @@ import { SiteLive } from "./site.js"
 layer(Layer.merge(SiteLive, BrowserLive), { excludeTestServices: true, timeout: "2 minutes" })(
   "mathematical guides in Chromium",
   (it) => {
-    it("renders real guide equations without CSP violations or page overflow in both themes and sizes", () =>
+    it.effect("renders real guide equations without CSP violations or page overflow in both themes and sizes", () =>
       Effect.gen(function*() {
         const { failures, page } = yield* openPage({ reducedMotion: "reduce" })
         yield* act(() => page.addInitScript(recordPolicyViolations))

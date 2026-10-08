@@ -65,7 +65,7 @@ const inForcedColors = (check: (page: Page) => Effect.Effect<void, BrowserError>
 layer(Layer.merge(SiteLive, BrowserLive), { excludeTestServices: true, timeout: "2 minutes" })(
   "Theoria home forced colours in Chromium",
   (it) => {
-    it("focus is outlined in Highlight on a disc, an answer's mark and the primary action", () =>
+    it.effect("focus is outlined in Highlight on a disc, an answer's mark and the primary action", () =>
       inForcedColors((page) =>
         Effect.gen(function*() {
           const highlight = yield* system(page, "Highlight")
@@ -110,7 +110,7 @@ layer(Layer.merge(SiteLive, BrowserLive), { excludeTestServices: true, timeout: 
         })
       ))
 
-    it("the merge switch tells checked from unchecked by track and thumb", () =>
+    it.effect("the merge switch tells checked from unchecked by track and thumb", () =>
       inForcedColors((page) =>
         Effect.gen(function*() {
           const track = mergeSwitch(page, false)
@@ -131,7 +131,7 @@ layer(Layer.merge(SiteLive, BrowserLive), { excludeTestServices: true, timeout: 
         })
       ))
 
-    it("the Build tab indicator is a CanvasText line", () =>
+    it.effect("the Build tab indicator is a CanvasText line", () =>
       inForcedColors((page) =>
         Effect.gen(function*() {
           const indicator = page.locator("[data-place-act='build']").getByRole("tablist").locator(
@@ -143,7 +143,7 @@ layer(Layer.merge(SiteLive, BrowserLive), { excludeTestServices: true, timeout: 
         })
       ))
 
-    it("the strand's current knot is filled and the earlier one open", () =>
+    it.effect("the strand's current knot is filled and the earlier one open", () =>
       inForcedColors((page) =>
         Effect.gen(function*() {
           const merge = mergeSwitch(page, false)
@@ -161,7 +161,7 @@ layer(Layer.merge(SiteLive, BrowserLive), { excludeTestServices: true, timeout: 
         })
       ))
 
-    it("every disc keeps a CanvasText edge on the Canvas", () =>
+    it.effect("every disc keeps a CanvasText edge on the Canvas", () =>
       inForcedColors((page) =>
         Effect.gen(function*() {
           const canvasText = yield* system(page, "CanvasText")
@@ -177,7 +177,7 @@ layer(Layer.merge(SiteLive, BrowserLive), { excludeTestServices: true, timeout: 
         })
       ))
 
-    it("an act lights a disc's outline in CanvasText, and a disc it says nothing of wears none", () =>
+    it.effect("an act lights a disc's outline in CanvasText, and a disc it says nothing of wears none", () =>
       inForcedColors((page) =>
         Effect.gen(function*() {
           const canvasText = yield* system(page, "CanvasText")
@@ -204,7 +204,7 @@ layer(Layer.merge(SiteLive, BrowserLive), { excludeTestServices: true, timeout: 
         })
       ))
 
-    it("a line of code lights in Highlight when pressed, and no line is lit without it", () =>
+    it.effect("a line of code lights in Highlight when pressed, and no line is lit without it", () =>
       inForcedColors((page) =>
         Effect.gen(function*() {
           const highlight = yield* system(page, "Highlight")
@@ -222,7 +222,7 @@ layer(Layer.merge(SiteLive, BrowserLive), { excludeTestServices: true, timeout: 
         })
       ))
 
-    it("a merged proposer's rule is solid and an unmerged one dashed, both in CanvasText", () =>
+    it.effect("a merged proposer's rule is solid and an unmerged one dashed, both in CanvasText", () =>
       inForcedColors((page) =>
         Effect.gen(function*() {
           const canvasText = yield* system(page, "CanvasText")
@@ -235,7 +235,7 @@ layer(Layer.merge(SiteLive, BrowserLive), { excludeTestServices: true, timeout: 
         })
       ))
 
-    it("inline mark labels inherit HighlightText from their pressed button", () =>
+    it.effect("inline mark labels inherit HighlightText from their pressed button", () =>
       inForcedColors((page) =>
         Effect.gen(function*() {
           const highlightText = yield* system(page, "HighlightText")
