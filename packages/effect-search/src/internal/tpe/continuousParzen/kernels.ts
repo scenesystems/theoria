@@ -31,8 +31,12 @@ export const clipSigma = (sigma: number, low: number, high: number, nKernels: nu
   })
 }
 
-export const normalizedKernelWeights = (observationCount: number) => {
-  const observationWeights = defaultWeights(observationCount)
+/** Predetermined weights, when present, replace the default recency weights (Optuna's MOTPE path). */
+export const normalizedKernelWeights = (
+  observationCount: number,
+  predeterminedWeights: Option.Option<ReadonlyArray<number>> = Option.none()
+) => {
+  const observationWeights = Option.getOrElse(predeterminedWeights, () => defaultWeights(observationCount))
   const kernelWeights = Arr.append(observationWeights, priorKernelWeight)
   const totalWeight = Num.sumAll(kernelWeights)
 
@@ -52,10 +56,8 @@ export const observationSigmas = (
 ) => {
   const observations = Arr.fromIterable(observationsInput)
 
-  const priorMean = Num.divideUnsafe(Num.sum(low, high), 2)
-  const meansWithPrior = Arr.append(observations, priorMean)
   const sorted = Arr.sort(
-    Arr.map(meansWithPrior, (mean, index) => Tuple.make(index, mean)),
+    Arr.map(observations, (mean, index) => Tuple.make(index, mean)),
     Order.mapInput(Num.Order, (entry: readonly [number, number]) => entry[1])
   )
   const sortedPositionLookup = Arr.reduce(

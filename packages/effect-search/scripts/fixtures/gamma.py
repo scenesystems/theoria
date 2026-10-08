@@ -4,6 +4,8 @@ from __future__ import annotations
 
 from typing import Any
 
+from optuna.samplers._tpe.sampler import default_gamma, hyperopt_default_gamma
+
 from ._common import metadata
 
 
@@ -16,11 +18,8 @@ def generate(generated_at: str) -> list[dict[str, Any]]:
             "payload": {
                 "cap": 25,
                 "cases": [
-                    {"nTrials": 0, "defaultGamma": 0, "hyperoptGamma": 0},
-                    {"nTrials": 1, "defaultGamma": 1, "hyperoptGamma": 1},
-                    {"nTrials": 10, "defaultGamma": 1, "hyperoptGamma": 1},
-                    {"nTrials": 50, "defaultGamma": 5, "hyperoptGamma": 2},
-                    {"nTrials": 260, "defaultGamma": 25, "hyperoptGamma": 5},
+                    {"nTrials": n, "defaultGamma": default_gamma(n), "hyperoptGamma": hyperopt_default_gamma(n)}
+                    for n in (0, 1, 10, 50, 260)
                 ],
             },
         }

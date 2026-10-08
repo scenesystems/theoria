@@ -51,13 +51,9 @@ describe("Optimization snapshot-resume metadata and replay parity", () => {
       expect(snapshot.nextTrialNumber).toBe(6)
       expect(snapshot.completedCount).toBe(6)
 
-      const metadata = yield* Schema.decodeEffect(OptimizationSnapshot.Metadata)({
-        spaceFingerprint: snapshot.spaceFingerprint,
-        objectiveSpec: snapshot.objectiveSpec,
-        stopMode: snapshot.stopMode,
-        samplerKind: snapshot.samplerKind,
-        samplerCheckpoint: snapshot.samplerCheckpoint
-      })
+      const metadata = yield* Schema.encodeEffect(OptimizationSnapshot.Metadata)(snapshot).pipe(
+        Effect.flatMap(Schema.decodeEffect(OptimizationSnapshot.Metadata))
+      )
       expect(metadata.spaceFingerprint).toBe(snapshot.spaceFingerprint)
 
       const resumedResult = yield* Optimization.resume(

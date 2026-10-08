@@ -1,0 +1,1111 @@
+{
+  "fixture": "gepa-merge-accepted",
+  "payload": {
+    "seed": 0,
+    "maxMetricCalls": 34,
+    "acceptMerge": true,
+    "train": [
+      {
+        "id": "train-0",
+        "split": "train",
+        "index": 0
+      },
+      {
+        "id": "train-1",
+        "split": "train",
+        "index": 1
+      },
+      {
+        "id": "train-2",
+        "split": "train",
+        "index": 2
+      },
+      {
+        "id": "train-3",
+        "split": "train",
+        "index": 3
+      },
+      {
+        "id": "train-4",
+        "split": "train",
+        "index": 4
+      }
+    ],
+    "val": [
+      {
+        "id": "val-0",
+        "split": "val",
+        "index": 0
+      },
+      {
+        "id": "val-1",
+        "split": "val",
+        "index": 1
+      },
+      {
+        "id": "val-2",
+        "split": "val",
+        "index": 2
+      },
+      {
+        "id": "val-3",
+        "split": "val",
+        "index": 3
+      },
+      {
+        "id": "val-4",
+        "split": "val",
+        "index": 4
+      },
+      {
+        "id": "val-5",
+        "split": "val",
+        "index": 5
+      },
+      {
+        "id": "val-6",
+        "split": "val",
+        "index": 6
+      }
+    ],
+    "validationScores": {
+      "seed/seed": [
+        0.5,
+        0.5,
+        0.5,
+        0.1,
+        0.1,
+        0.1,
+        0.1
+      ],
+      "left/seed": [
+        0.8,
+        0.8,
+        0.8,
+        0.05,
+        0.05,
+        0.05,
+        0.05
+      ],
+      "seed/right": [
+        0.1,
+        0.1,
+        0.1,
+        0.9,
+        0.9,
+        0.9,
+        0.9
+      ],
+      "left/right": [
+        0.95,
+        0.95,
+        0.95,
+        0.95,
+        0.95,
+        0.95,
+        0.95
+      ]
+    },
+    "calls": [
+      {
+        "id": "val-0",
+        "candidate": {
+          "root.draft": "seed",
+          "root.judge": "seed"
+        },
+        "score": 0.5
+      },
+      {
+        "id": "val-1",
+        "candidate": {
+          "root.draft": "seed",
+          "root.judge": "seed"
+        },
+        "score": 0.5
+      },
+      {
+        "id": "val-2",
+        "candidate": {
+          "root.draft": "seed",
+          "root.judge": "seed"
+        },
+        "score": 0.5
+      },
+      {
+        "id": "val-3",
+        "candidate": {
+          "root.draft": "seed",
+          "root.judge": "seed"
+        },
+        "score": 0.1
+      },
+      {
+        "id": "val-4",
+        "candidate": {
+          "root.draft": "seed",
+          "root.judge": "seed"
+        },
+        "score": 0.1
+      },
+      {
+        "id": "val-5",
+        "candidate": {
+          "root.draft": "seed",
+          "root.judge": "seed"
+        },
+        "score": 0.1
+      },
+      {
+        "id": "val-6",
+        "candidate": {
+          "root.draft": "seed",
+          "root.judge": "seed"
+        },
+        "score": 0.1
+      },
+      {
+        "id": "train-2",
+        "candidate": {
+          "root.draft": "seed",
+          "root.judge": "seed"
+        },
+        "score": 0.2
+      },
+      {
+        "id": "train-1",
+        "candidate": {
+          "root.draft": "seed",
+          "root.judge": "seed"
+        },
+        "score": 0.2
+      },
+      {
+        "id": "train-0",
+        "candidate": {
+          "root.draft": "seed",
+          "root.judge": "seed"
+        },
+        "score": 0.2
+      },
+      {
+        "id": "train-2",
+        "candidate": {
+          "root.draft": "left",
+          "root.judge": "seed"
+        },
+        "score": 0.4
+      },
+      {
+        "id": "train-1",
+        "candidate": {
+          "root.draft": "left",
+          "root.judge": "seed"
+        },
+        "score": 0.4
+      },
+      {
+        "id": "train-0",
+        "candidate": {
+          "root.draft": "left",
+          "root.judge": "seed"
+        },
+        "score": 0.4
+      },
+      {
+        "id": "val-0",
+        "candidate": {
+          "root.draft": "left",
+          "root.judge": "seed"
+        },
+        "score": 0.8
+      },
+      {
+        "id": "val-1",
+        "candidate": {
+          "root.draft": "left",
+          "root.judge": "seed"
+        },
+        "score": 0.8
+      },
+      {
+        "id": "val-2",
+        "candidate": {
+          "root.draft": "left",
+          "root.judge": "seed"
+        },
+        "score": 0.8
+      },
+      {
+        "id": "val-3",
+        "candidate": {
+          "root.draft": "left",
+          "root.judge": "seed"
+        },
+        "score": 0.05
+      },
+      {
+        "id": "val-4",
+        "candidate": {
+          "root.draft": "left",
+          "root.judge": "seed"
+        },
+        "score": 0.05
+      },
+      {
+        "id": "val-5",
+        "candidate": {
+          "root.draft": "left",
+          "root.judge": "seed"
+        },
+        "score": 0.05
+      },
+      {
+        "id": "val-6",
+        "candidate": {
+          "root.draft": "left",
+          "root.judge": "seed"
+        },
+        "score": 0.05
+      },
+      {
+        "id": "train-4",
+        "candidate": {
+          "root.draft": "seed",
+          "root.judge": "seed"
+        },
+        "score": 0.2
+      },
+      {
+        "id": "train-3",
+        "candidate": {
+          "root.draft": "seed",
+          "root.judge": "seed"
+        },
+        "score": 0.2
+      },
+      {
+        "id": "train-3",
+        "candidate": {
+          "root.draft": "seed",
+          "root.judge": "seed"
+        },
+        "score": 0.2
+      },
+      {
+        "id": "train-4",
+        "candidate": {
+          "root.draft": "seed",
+          "root.judge": "right"
+        },
+        "score": 0.4
+      },
+      {
+        "id": "train-3",
+        "candidate": {
+          "root.draft": "seed",
+          "root.judge": "right"
+        },
+        "score": 0.4
+      },
+      {
+        "id": "train-3",
+        "candidate": {
+          "root.draft": "seed",
+          "root.judge": "right"
+        },
+        "score": 0.4
+      },
+      {
+        "id": "val-0",
+        "candidate": {
+          "root.draft": "seed",
+          "root.judge": "right"
+        },
+        "score": 0.1
+      },
+      {
+        "id": "val-1",
+        "candidate": {
+          "root.draft": "seed",
+          "root.judge": "right"
+        },
+        "score": 0.1
+      },
+      {
+        "id": "val-2",
+        "candidate": {
+          "root.draft": "seed",
+          "root.judge": "right"
+        },
+        "score": 0.1
+      },
+      {
+        "id": "val-3",
+        "candidate": {
+          "root.draft": "seed",
+          "root.judge": "right"
+        },
+        "score": 0.9
+      },
+      {
+        "id": "val-4",
+        "candidate": {
+          "root.draft": "seed",
+          "root.judge": "right"
+        },
+        "score": 0.9
+      },
+      {
+        "id": "val-5",
+        "candidate": {
+          "root.draft": "seed",
+          "root.judge": "right"
+        },
+        "score": 0.9
+      },
+      {
+        "id": "val-6",
+        "candidate": {
+          "root.draft": "seed",
+          "root.judge": "right"
+        },
+        "score": 0.9
+      },
+      {
+        "id": "val-1",
+        "candidate": {
+          "root.draft": "left",
+          "root.judge": "right"
+        },
+        "score": 0.95
+      },
+      {
+        "id": "val-2",
+        "candidate": {
+          "root.draft": "left",
+          "root.judge": "right"
+        },
+        "score": 0.95
+      },
+      {
+        "id": "val-5",
+        "candidate": {
+          "root.draft": "left",
+          "root.judge": "right"
+        },
+        "score": 0.95
+      },
+      {
+        "id": "val-6",
+        "candidate": {
+          "root.draft": "left",
+          "root.judge": "right"
+        },
+        "score": 0.95
+      },
+      {
+        "id": "val-0",
+        "candidate": {
+          "root.draft": "left",
+          "root.judge": "right"
+        },
+        "score": 0.95
+      },
+      {
+        "id": "val-0",
+        "candidate": {
+          "root.draft": "left",
+          "root.judge": "right"
+        },
+        "score": 0.95
+      },
+      {
+        "id": "val-1",
+        "candidate": {
+          "root.draft": "left",
+          "root.judge": "right"
+        },
+        "score": 0.95
+      },
+      {
+        "id": "val-2",
+        "candidate": {
+          "root.draft": "left",
+          "root.judge": "right"
+        },
+        "score": 0.95
+      },
+      {
+        "id": "val-3",
+        "candidate": {
+          "root.draft": "left",
+          "root.judge": "right"
+        },
+        "score": 0.95
+      },
+      {
+        "id": "val-4",
+        "candidate": {
+          "root.draft": "left",
+          "root.judge": "right"
+        },
+        "score": 0.95
+      },
+      {
+        "id": "val-5",
+        "candidate": {
+          "root.draft": "left",
+          "root.judge": "right"
+        },
+        "score": 0.95
+      },
+      {
+        "id": "val-6",
+        "candidate": {
+          "root.draft": "left",
+          "root.judge": "right"
+        },
+        "score": 0.95
+      }
+    ],
+    "proposals": [
+      {
+        "candidate": {
+          "root.draft": "seed",
+          "root.judge": "seed"
+        },
+        "components": [
+          "root.draft"
+        ],
+        "proposed": {
+          "root.draft": "left"
+        }
+      },
+      {
+        "candidate": {
+          "root.draft": "seed",
+          "root.judge": "seed"
+        },
+        "components": [
+          "root.judge"
+        ],
+        "proposed": {
+          "root.judge": "right"
+        }
+      }
+    ],
+    "selected": [
+      {
+        "iteration": 1,
+        "index": 0
+      },
+      {
+        "iteration": 2,
+        "index": 0
+      }
+    ],
+    "minibatches": [
+      {
+        "iteration": 1,
+        "ids": [
+          2,
+          1,
+          0
+        ]
+      },
+      {
+        "iteration": 2,
+        "ids": [
+          4,
+          3,
+          3
+        ]
+      }
+    ],
+    "merges": [
+      {
+        "iteration": 3,
+        "parent_ids": [
+          1,
+          2
+        ],
+        "merged_candidate": {
+          "root.draft": "left",
+          "root.judge": "right"
+        }
+      }
+    ],
+    "iterations": [
+      {
+        "iteration": 1,
+        "accepted": true,
+        "metricCalls": 20
+      },
+      {
+        "iteration": 2,
+        "accepted": true,
+        "metricCalls": 33
+      },
+      {
+        "iteration": 3,
+        "accepted": true,
+        "metricCalls": 45
+      }
+    ],
+    "candidates": [
+      {
+        "root.draft": "seed",
+        "root.judge": "seed"
+      },
+      {
+        "root.draft": "left",
+        "root.judge": "seed"
+      },
+      {
+        "root.draft": "seed",
+        "root.judge": "right"
+      },
+      {
+        "root.draft": "left",
+        "root.judge": "right"
+      }
+    ],
+    "parents": [
+      [
+        null
+      ],
+      [
+        0
+      ],
+      [
+        0
+      ],
+      [
+        1,
+        2
+      ]
+    ],
+    "scoreVectors": [
+      [
+        0.5,
+        0.5,
+        0.5,
+        0.1,
+        0.1,
+        0.1,
+        0.1
+      ],
+      [
+        0.8,
+        0.8,
+        0.8,
+        0.05,
+        0.05,
+        0.05,
+        0.05
+      ],
+      [
+        0.1,
+        0.1,
+        0.1,
+        0.9,
+        0.9,
+        0.9,
+        0.9
+      ],
+      [
+        0.95,
+        0.95,
+        0.95,
+        0.95,
+        0.95,
+        0.95,
+        0.95
+      ]
+    ],
+    "bestIndex": 3,
+    "totalMetricCalls": 45,
+    "restartObservation": {
+      "prefixBudget": 21,
+      "prefixLedger": 33,
+      "resumedBudget": 34,
+      "resumedLedger": 46,
+      "parents": [
+        [
+          null
+        ],
+        [
+          0
+        ],
+        [
+          0
+        ],
+        [
+          2
+        ]
+      ],
+      "candidates": [
+        {
+          "root.draft": "seed",
+          "root.judge": "seed"
+        },
+        {
+          "root.draft": "left",
+          "root.judge": "seed"
+        },
+        {
+          "root.draft": "seed",
+          "root.judge": "right"
+        },
+        {
+          "root.draft": "left",
+          "root.judge": "right"
+        }
+      ],
+      "calls": [
+        {
+          "id": "val-0",
+          "candidate": {
+            "root.draft": "seed",
+            "root.judge": "seed"
+          },
+          "score": 0.5
+        },
+        {
+          "id": "val-1",
+          "candidate": {
+            "root.draft": "seed",
+            "root.judge": "seed"
+          },
+          "score": 0.5
+        },
+        {
+          "id": "val-2",
+          "candidate": {
+            "root.draft": "seed",
+            "root.judge": "seed"
+          },
+          "score": 0.5
+        },
+        {
+          "id": "val-3",
+          "candidate": {
+            "root.draft": "seed",
+            "root.judge": "seed"
+          },
+          "score": 0.1
+        },
+        {
+          "id": "val-4",
+          "candidate": {
+            "root.draft": "seed",
+            "root.judge": "seed"
+          },
+          "score": 0.1
+        },
+        {
+          "id": "val-5",
+          "candidate": {
+            "root.draft": "seed",
+            "root.judge": "seed"
+          },
+          "score": 0.1
+        },
+        {
+          "id": "val-6",
+          "candidate": {
+            "root.draft": "seed",
+            "root.judge": "seed"
+          },
+          "score": 0.1
+        },
+        {
+          "id": "train-2",
+          "candidate": {
+            "root.draft": "seed",
+            "root.judge": "seed"
+          },
+          "score": 0.2
+        },
+        {
+          "id": "train-1",
+          "candidate": {
+            "root.draft": "seed",
+            "root.judge": "seed"
+          },
+          "score": 0.2
+        },
+        {
+          "id": "train-0",
+          "candidate": {
+            "root.draft": "seed",
+            "root.judge": "seed"
+          },
+          "score": 0.2
+        },
+        {
+          "id": "train-2",
+          "candidate": {
+            "root.draft": "left",
+            "root.judge": "seed"
+          },
+          "score": 0.4
+        },
+        {
+          "id": "train-1",
+          "candidate": {
+            "root.draft": "left",
+            "root.judge": "seed"
+          },
+          "score": 0.4
+        },
+        {
+          "id": "train-0",
+          "candidate": {
+            "root.draft": "left",
+            "root.judge": "seed"
+          },
+          "score": 0.4
+        },
+        {
+          "id": "val-0",
+          "candidate": {
+            "root.draft": "left",
+            "root.judge": "seed"
+          },
+          "score": 0.8
+        },
+        {
+          "id": "val-1",
+          "candidate": {
+            "root.draft": "left",
+            "root.judge": "seed"
+          },
+          "score": 0.8
+        },
+        {
+          "id": "val-2",
+          "candidate": {
+            "root.draft": "left",
+            "root.judge": "seed"
+          },
+          "score": 0.8
+        },
+        {
+          "id": "val-3",
+          "candidate": {
+            "root.draft": "left",
+            "root.judge": "seed"
+          },
+          "score": 0.05
+        },
+        {
+          "id": "val-4",
+          "candidate": {
+            "root.draft": "left",
+            "root.judge": "seed"
+          },
+          "score": 0.05
+        },
+        {
+          "id": "val-5",
+          "candidate": {
+            "root.draft": "left",
+            "root.judge": "seed"
+          },
+          "score": 0.05
+        },
+        {
+          "id": "val-6",
+          "candidate": {
+            "root.draft": "left",
+            "root.judge": "seed"
+          },
+          "score": 0.05
+        },
+        {
+          "id": "train-4",
+          "candidate": {
+            "root.draft": "seed",
+            "root.judge": "seed"
+          },
+          "score": 0.2
+        },
+        {
+          "id": "train-3",
+          "candidate": {
+            "root.draft": "seed",
+            "root.judge": "seed"
+          },
+          "score": 0.2
+        },
+        {
+          "id": "train-3",
+          "candidate": {
+            "root.draft": "seed",
+            "root.judge": "seed"
+          },
+          "score": 0.2
+        },
+        {
+          "id": "train-4",
+          "candidate": {
+            "root.draft": "seed",
+            "root.judge": "right"
+          },
+          "score": 0.4
+        },
+        {
+          "id": "train-3",
+          "candidate": {
+            "root.draft": "seed",
+            "root.judge": "right"
+          },
+          "score": 0.4
+        },
+        {
+          "id": "train-3",
+          "candidate": {
+            "root.draft": "seed",
+            "root.judge": "right"
+          },
+          "score": 0.4
+        },
+        {
+          "id": "val-0",
+          "candidate": {
+            "root.draft": "seed",
+            "root.judge": "right"
+          },
+          "score": 0.1
+        },
+        {
+          "id": "val-1",
+          "candidate": {
+            "root.draft": "seed",
+            "root.judge": "right"
+          },
+          "score": 0.1
+        },
+        {
+          "id": "val-2",
+          "candidate": {
+            "root.draft": "seed",
+            "root.judge": "right"
+          },
+          "score": 0.1
+        },
+        {
+          "id": "val-3",
+          "candidate": {
+            "root.draft": "seed",
+            "root.judge": "right"
+          },
+          "score": 0.9
+        },
+        {
+          "id": "val-4",
+          "candidate": {
+            "root.draft": "seed",
+            "root.judge": "right"
+          },
+          "score": 0.9
+        },
+        {
+          "id": "val-5",
+          "candidate": {
+            "root.draft": "seed",
+            "root.judge": "right"
+          },
+          "score": 0.9
+        },
+        {
+          "id": "val-6",
+          "candidate": {
+            "root.draft": "seed",
+            "root.judge": "right"
+          },
+          "score": 0.9
+        },
+        {
+          "id": "val-0",
+          "candidate": {
+            "root.draft": "seed",
+            "root.judge": "seed"
+          },
+          "score": 0.5
+        },
+        {
+          "id": "val-1",
+          "candidate": {
+            "root.draft": "seed",
+            "root.judge": "seed"
+          },
+          "score": 0.5
+        },
+        {
+          "id": "val-2",
+          "candidate": {
+            "root.draft": "seed",
+            "root.judge": "seed"
+          },
+          "score": 0.5
+        },
+        {
+          "id": "val-3",
+          "candidate": {
+            "root.draft": "seed",
+            "root.judge": "seed"
+          },
+          "score": 0.1
+        },
+        {
+          "id": "val-4",
+          "candidate": {
+            "root.draft": "seed",
+            "root.judge": "seed"
+          },
+          "score": 0.1
+        },
+        {
+          "id": "val-5",
+          "candidate": {
+            "root.draft": "seed",
+            "root.judge": "seed"
+          },
+          "score": 0.1
+        },
+        {
+          "id": "val-6",
+          "candidate": {
+            "root.draft": "seed",
+            "root.judge": "seed"
+          },
+          "score": 0.1
+        },
+        {
+          "id": "train-2",
+          "candidate": {
+            "root.draft": "seed",
+            "root.judge": "right"
+          },
+          "score": 0.4
+        },
+        {
+          "id": "train-1",
+          "candidate": {
+            "root.draft": "seed",
+            "root.judge": "right"
+          },
+          "score": 0.4
+        },
+        {
+          "id": "train-0",
+          "candidate": {
+            "root.draft": "seed",
+            "root.judge": "right"
+          },
+          "score": 0.4
+        },
+        {
+          "id": "train-2",
+          "candidate": {
+            "root.draft": "left",
+            "root.judge": "right"
+          },
+          "score": 0.6000000000000001
+        },
+        {
+          "id": "train-1",
+          "candidate": {
+            "root.draft": "left",
+            "root.judge": "right"
+          },
+          "score": 0.6000000000000001
+        },
+        {
+          "id": "train-0",
+          "candidate": {
+            "root.draft": "left",
+            "root.judge": "right"
+          },
+          "score": 0.6000000000000001
+        },
+        {
+          "id": "val-0",
+          "candidate": {
+            "root.draft": "left",
+            "root.judge": "right"
+          },
+          "score": 0.95
+        },
+        {
+          "id": "val-1",
+          "candidate": {
+            "root.draft": "left",
+            "root.judge": "right"
+          },
+          "score": 0.95
+        },
+        {
+          "id": "val-2",
+          "candidate": {
+            "root.draft": "left",
+            "root.judge": "right"
+          },
+          "score": 0.95
+        },
+        {
+          "id": "val-3",
+          "candidate": {
+            "root.draft": "left",
+            "root.judge": "right"
+          },
+          "score": 0.95
+        },
+        {
+          "id": "val-4",
+          "candidate": {
+            "root.draft": "left",
+            "root.judge": "right"
+          },
+          "score": 0.95
+        },
+        {
+          "id": "val-5",
+          "candidate": {
+            "root.draft": "left",
+            "root.judge": "right"
+          },
+          "score": 0.95
+        },
+        {
+          "id": "val-6",
+          "candidate": {
+            "root.draft": "left",
+            "root.judge": "right"
+          },
+          "score": 0.95
+        }
+      ],
+      "iterations": [
+        {
+          "iteration": 1,
+          "accepted": true,
+          "metricCalls": 20
+        },
+        {
+          "iteration": 2,
+          "accepted": true,
+          "metricCalls": 33
+        },
+        {
+          "iteration": 3,
+          "accepted": true,
+          "metricCalls": 46
+        }
+      ],
+      "merges": []
+    }
+  }
+}

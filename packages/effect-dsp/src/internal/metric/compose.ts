@@ -4,19 +4,19 @@
  * @since 0.1.0
  */
 import { Array as Arr, Effect, Option, Order, Record, Result as NativeResult, String, Tuple } from "effect"
-import { type Metric, Result } from "../../Metric.js"
-import { fromEffect } from "./constructors.js"
+import { type Metric, Score } from "../../Metric.js"
+import { withFeedback } from "./constructors.js"
 import { averageNumbers } from "./score.js"
 
-type MetricEntry<E, R, A> = readonly [string, Metric<E, R, A>]
-type NamedResult = readonly [string, Result]
+type MetricEntry<E, R> = readonly [string, Metric<E, R>]
+type NamedResult = readonly [string, Score]
 
-const sortedEntries = <E, R, A>(
-  metrics: Record.ReadonlyRecord<string, Metric<E, R, A>>
+const sortedEntries = <E, R>(
+  metrics: Record.ReadonlyRecord<string, Metric<E, R>>
 ) =>
   Arr.sort(
     Record.toEntries(metrics),
-    Order.mapInput(Order.String, (entry: MetricEntry<E, R, A>) => entry[0])
+    Order.mapInput(Order.String, (entry: MetricEntry<E, R>) => entry[0])
   )
 
 const combineFeedback = (scores: Iterable<NamedResult>): Option.Option<string> => {
@@ -25,7 +25,7 @@ const combineFeedback = (scores: Iterable<NamedResult>): Option.Option<string> =
     (entry) =>
       NativeResult.fromOption(
         Option.map(
-          Option.fromNullishOr(entry[1].feedback),
+          entry[1].feedback,
           (feedback) => String.concat(String.concat(String.concat("[", entry[0]), "] "), feedback)
         ),
         () => void 0
@@ -50,33 +50,29 @@ const combineFeedback = (scores: Iterable<NamedResult>): Option.Option<string> =
  * @returns A metric whose requirement and error channels match its children.
  * @typeParam E - Expected failure shared by the child metrics.
  * @typeParam R - Services required by the child metrics.
- * @typeParam A - Decoded output values accepted by every child metric.
  *
  * @since 0.1.0
  * @category combinators
  */
-export const compose = <E = never, R = never, A = unknown>(
-  metrics: Record.ReadonlyRecord<string, Metric<E, R, A>>
-): Metric<E, R, A> =>
-  fromEffect("compose", (prediction: A, expected: A) =>
+export const compose = <E = never, R = never>(
+  metrics: Record.ReadonlyRecord<string, Metric<E, R>>
+): Metric<E, R> =>
+  withFeedback((example, prediction, context) =>
     Effect.gen(function*() {
       const entries = sortedEntries(metrics)
       const scores = yield* Effect.forEach(entries, (entry) =>
-        entry[1].score(prediction, expected).pipe(
+        entry[1].score(example, prediction, context).pipe(
           Effect.map((result) => Tuple.make(entry[0], result))
         ))
 
       const feedback = combineFeedback(scores)
-      const meanScore = averageNumbers(Arr.map(scores, (entry) => entry[1].score))
+      const meanScore = averageNumbers(Arr.map(scores, (entry) => entry[1].value))
 
-      return new Result({
-        score: meanScore,
-        ...Option.match(feedback, {
-          onNone: () => ({}),
-          onSome: (feedback) => ({ feedback })
-        })
+      return new Score({
+        value: meanScore,
+        feedback
       })
-    }))
+    }), "compose")
 
 /**
  * Projects named metric results to their numeric scores.
@@ -94,5 +90,5 @@ export const composedScoreMap = (scores: Iterable<NamedResult>) =>
   Arr.reduce(
     scores,
     Record.empty<string, number>(),
-    (current, entry) => Record.set(current, entry[0], entry[1].score)
+    (current, entry) => Record.set(current, entry[0], entry[1].value)
   )

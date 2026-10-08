@@ -69,12 +69,16 @@ describe("Optimization concurrency", () => {
         pendingImputationPolicy: pendingAsZeroPolicy,
         checkpoint: Effect.succeed({
           _tag: "Random",
-          seed: 0
+          seed: 0,
+          rng: Option.none()
         }),
         restore: () => Effect.void,
         suggest: (_space, context) =>
-          Ref.update(seenHistoryLengthsRef, Arr.append(Arr.length(context.completed))).pipe(
-            Effect.as({ slot: Arr.length(context.completed) })
+          Ref.update(
+            seenHistoryLengthsRef,
+            Arr.append(Num.sum(Arr.length(context.completed), Arr.length(context.pending)))
+          ).pipe(
+            Effect.as({ slot: Num.sum(Arr.length(context.completed), Arr.length(context.pending)) })
           )
       })
 

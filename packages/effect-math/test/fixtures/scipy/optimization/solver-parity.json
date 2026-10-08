@@ -1,127 +1,126 @@
 {
   "fixture": "optimization.solver-parity",
   "metadata": {
-    "generatedAt": "2026-03-23T00:00:00Z",
+    "generatedAt": "2026-10-06T10:08:01Z",
     "generator": {
-      "script": "scripts/generate-scipy-fixtures.py",
-      "version": "1.0.0"
+      "script": "scripts/generate-scipy-fixtures.py"
     },
     "upstream": {
       "name": "scipy",
-      "version": "1.15.2"
+      "version": "1.17.1"
     }
   },
   "payload": {
     "cases": [
       {
-        "expected": 1.4142135623724243,
         "id": "bisect-x-squared-minus-2",
+        "operation": "bisect",
         "input": {
-          "a": 0.0,
-          "b": 2.0,
-          "function": "x_squared_minus_2"
+          "function": "x_squared_minus_2",
+          "a": 0,
+          "b": 2
         },
-        "operation": "bisect"
+        "expected": 1.4142135623724243
       },
       {
-        "expected": 1.5707963267950618,
         "id": "bisect-cos",
+        "operation": "bisect",
         "input": {
-          "a": 0.0,
-          "b": 2.0,
-          "function": "cos"
+          "function": "cos",
+          "a": 0,
+          "b": 2
         },
-        "operation": "bisect"
+        "expected": 1.5707963267950618
       },
       {
-        "expected": 1.0,
         "id": "bisect-x-cubed-minus-1",
+        "operation": "bisect",
         "input": {
-          "a": 0.0,
-          "b": 2.0,
-          "function": "x_cubed_minus_1"
+          "function": "x_cubed_minus_1",
+          "a": 0,
+          "b": 2
         },
-        "operation": "bisect"
+        "expected": 1
       },
       {
-        "expected": 3.141592653589214,
         "id": "bisect-sin",
+        "operation": "bisect",
         "input": {
-          "a": 2.0,
-          "b": 4.0,
-          "function": "sin"
+          "function": "sin",
+          "a": 2,
+          "b": 4
         },
-        "operation": "bisect"
+        "expected": 3.141592653589214
       },
       {
-        "expected": 0.6931471805592082,
         "id": "bisect-exp-minus-2",
+        "operation": "bisect",
         "input": {
-          "a": 0.0,
-          "b": 2.0,
-          "function": "exp_minus_2"
+          "function": "exp_minus_2",
+          "a": 0,
+          "b": 2
         },
-        "operation": "bisect"
+        "expected": 0.6931471805592082
       },
       {
-        "expected": 1.5,
         "id": "bisect-linear",
+        "operation": "bisect",
         "input": {
-          "a": 0.0,
-          "b": 3.0,
-          "function": "linear_2x_minus_3"
+          "function": "linear_2x_minus_3",
+          "a": 0,
+          "b": 3
         },
-        "operation": "bisect"
+        "expected": 1.5
       },
       {
-        "expected": -5.551115123125783e-17,
         "id": "golden-x-squared",
+        "operation": "goldenSection",
         "input": {
-          "a": -2.0,
-          "b": 2.0,
-          "function": "x_squared"
+          "function": "x_squared",
+          "a": -2,
+          "b": 2
         },
-        "operation": "goldenSection"
+        "expected": -5.551115123125783e-17
       },
       {
-        "expected": 1.0,
         "id": "golden-x-minus-1-squared",
+        "operation": "goldenSection",
         "input": {
-          "a": -2.0,
-          "b": 4.0,
-          "function": "x_minus_1_squared"
+          "function": "x_minus_1_squared",
+          "a": -2,
+          "b": 4
         },
-        "operation": "goldenSection"
+        "expected": 1
       },
       {
-        "expected": 0.7071064080049332,
         "id": "golden-x4-minus-x2",
+        "operation": "goldenSection",
         "input": {
-          "a": 0.0,
-          "b": 2.0,
-          "function": "x4_minus_x2"
+          "function": "x4_minus_x2",
+          "a": 0,
+          "b": 2
         },
-        "operation": "goldenSection"
+        "expected": 0.7071064080049332
       },
       {
-        "expected": 3.141592648622993,
         "id": "golden-cos",
+        "operation": "goldenSection",
         "input": {
-          "a": 2.0,
-          "b": 5.0,
-          "function": "cos"
+          "function": "cos",
+          "a": 2,
+          "b": 5
         },
-        "operation": "goldenSection"
+        "expected": 3.141592648622993
       },
       {
-        "expected": 2.220446049250313e-16,
         "id": "golden-abs-x",
+        "operation": "goldenSection",
         "input": {
-          "a": -3.0,
-          "b": 3.0,
-          "function": "abs_x"
+          "function": "abs_x",
+          "a": -3,
+          "b": 3
         },
-        "operation": "goldenSection"
+        "expected": 2.220446049250313e-16
       }
     ]
   }

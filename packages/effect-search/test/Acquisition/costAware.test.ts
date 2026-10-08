@@ -32,7 +32,11 @@ describe("tpe cost-aware acquisition", () => {
             candidates: Chunk.make({ x: 0.1 }, { x: 0.9 }),
             logL: Arr.make(Num.multiply(-1, 0.2), Num.multiply(-1, 0.2)),
             logG: Arr.make(Num.multiply(-1, 0.7), Num.multiply(-1, 0.7)),
-            scores: Arr.make(0.5, 0.5)
+            scores: Arr.make(0.5, 0.5),
+            kernelLogL: [[-0.2], [-0.2]],
+            kernelLogG: [[-0.7], [-0.7]],
+            weightsL: [1],
+            weightsG: [1]
           })
         })
       )

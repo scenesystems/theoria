@@ -4,6 +4,10 @@ from __future__ import annotations
 
 from typing import Any
 
+import optuna
+import torch
+from optuna.distributions import FloatDistribution
+
 from ._common import metadata
 
 
@@ -43,7 +47,8 @@ def _space() -> dict[str, Any]:
 
 
 def generate(generated_at: str) -> list[dict[str, Any]]:
-    return [
+    torch.set_num_threads(1)
+    documents = [
         {
             "fixture": "advanced-samplers.cmaes-parity",
             "file": "advanced-samplers/cmaes-parity.json",
@@ -55,10 +60,6 @@ def generate(generated_at: str) -> list[dict[str, Any]]:
                     "seed": 23,
                     "sigma": 0.55,
                     "populationSize": 8,
-                },
-                "expected": {
-                    "x": -3.0,
-                    "y": -0.5142791868521459,
                 },
             },
         },
@@ -72,15 +73,18 @@ def generate(generated_at: str) -> list[dict[str, Any]]:
                 "sampler": {
                     "seed": 23,
                     "nStartupTrials": 2,
-                    "nCandidates": 16,
-                    "lengthScale": 0.25,
-                    "noise": 0.01,
-                    "acquisition": "ei",
-                },
-                "expected": {
-                    "x": 0.6702243383686168,
-                    "y": -1.0708754314465607,
                 },
             },
         },
     ]
+    for document, sampler in zip(documents, [
+        optuna.samplers.CmaEsSampler(seed=23, sigma0=.55, popsize=8),
+        optuna.samplers.GPSampler(seed=23, n_startup_trials=2),
+    ], strict=True):
+        payload = document["payload"]
+        distributions = {name: FloatDistribution(**bounds) for name, bounds in payload["space"].items()}
+        study = optuna.create_study(sampler=sampler, direction="minimize")
+        for row in payload["context"]["completed"]:
+            study.add_trial(optuna.trial.create_trial(value=row["value"], params=row["config"], distributions=distributions))
+        payload["expected"] = study.ask(distributions).params
+    return documents

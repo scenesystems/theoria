@@ -9,7 +9,19 @@ import * as MockLanguageModel from "@scenesystems/effect-dsp/MockLanguageModel"
 import * as Module from "@scenesystems/effect-dsp/Module"
 import { ModuleParameters } from "@scenesystems/effect-dsp/ModuleParameters"
 import * as Signature from "@scenesystems/effect-dsp/Signature"
-import { Array as Arr, Effect, Exit, Fiber, Layer, Ref, Schema, Stream } from "effect"
+import {
+  Array as Arr,
+  Boolean as Bool,
+  Effect,
+  Exit,
+  Fiber,
+  Layer,
+  Option,
+  Ref,
+  Schema,
+  Stream,
+  String as Str
+} from "effect"
 import * as LanguageModel from "effect/ai/LanguageModel"
 
 const makeQaSignature = () =>
@@ -24,14 +36,8 @@ const makeQaSignature = () =>
   )
 
 const trainset = Arr.make(
-  new Example({
-    input: { question: "What is the capital of France?" },
-    output: { answer: "Paris" }
-  }),
-  new Example({
-    input: { question: "What is the capital of Japan?" },
-    output: { answer: "Tokyo" }
-  })
+  new Example({ input: { question: "What is the capital of France?" }, labels: Option.some({ answer: "Paris" }) }),
+  new Example({ input: { question: "What is the capital of Japan?" }, labels: Option.some({ answer: "Tokyo" }) })
 )
 
 const makeOptimizerOptions = <I extends Schema.Struct.Fields, O extends Schema.Struct.Fields>(
@@ -43,8 +49,9 @@ const makeOptimizerOptions = <I extends Schema.Struct.Fields, O extends Schema.S
     valset: trainset,
     metric: Metric.exactMatch("answer"),
     numCandidates: 4,
-    numInstructions: 4,
-    trialBudget: 6,
+    auto: Option.none(),
+    minibatch: false,
+    numTrials: 6,
     seed: 37
   })
 
@@ -55,13 +62,13 @@ const forceStructuredOutputStrategy = <
   module: Module.Module<I, O>
 ) =>
   Effect.gen(function*() {
-    const params = yield* Ref.get(module.params)
+    const parameters = yield* Ref.get(module.parameters)
 
     yield* Ref.set(
-      module.params,
+      module.parameters,
       new ModuleParameters({
-        instructions: params.instructions,
-        demos: params.demos,
+        instructions: parameters.instructions,
+        demos: parameters.demos,
         outputStrategy: "structured"
       })
     )
@@ -77,9 +84,10 @@ describe("MIPROv2.stream", () => {
 
       const mock = yield* MockLanguageModel.make(
         MockLanguageModel.map((prompt) =>
-          prompt.includes("[miprov2-proposal:")
-            ? "Use concise factual answers"
-            : { answer: "Paris" }
+          Bool.match(Str.includes("Return only ")(prompt), {
+            onFalse: () => ({ answer: "Paris" }),
+            onTrue: () => "Use concise factual answers"
+          })
         )
       )
       const layer = Layer.succeed(LanguageModel.LanguageModel, mock.service)
@@ -109,9 +117,10 @@ describe("MIPROv2.stream", () => {
         MockLanguageModel.fromFunction((prompt) =>
           Effect.sleep("50 millis").pipe(
             Effect.as(
-              prompt.includes("[miprov2-proposal:")
-                ? "Use concise factual answers"
-                : { answer: "Paris" }
+              Bool.match(Str.includes("Return only ")(prompt), {
+                onFalse: () => ({ answer: "Paris" }),
+                onTrue: () => "Use concise factual answers"
+              })
             )
           )
         )
@@ -131,7 +140,7 @@ describe("MIPROv2.stream", () => {
       expect(Exit.hasInterrupts(exit)).toBe(true)
     }))
 
-  it.effect("keeps stream and non-stream optimization states in parity", () =>
+  it.effect("summarizes streamed events into the run report and leaves both modules' saved state unchanged", () =>
     Effect.gen(function*() {
       const signature = yield* makeQaSignature()
       const moduleA = yield* Module.predict("qa-a", signature)
@@ -142,31 +151,35 @@ describe("MIPROv2.stream", () => {
 
       const mockA = yield* MockLanguageModel.make(
         MockLanguageModel.map((prompt) =>
-          prompt.includes("[miprov2-proposal:")
-            ? "Use concise factual answers"
-            : { answer: "Paris" }
+          Bool.match(Str.includes("Return only ")(prompt), {
+            onFalse: () => ({ answer: "Paris" }),
+            onTrue: () => "Use concise factual answers"
+          })
         )
       )
       const mockB = yield* MockLanguageModel.make(
         MockLanguageModel.map((prompt) =>
-          prompt.includes("[miprov2-proposal:")
-            ? "Use concise factual answers"
-            : { answer: "Paris" }
+          Bool.match(Str.includes("Return only ")(prompt), {
+            onFalse: () => ({ answer: "Paris" }),
+            onTrue: () => "Use concise factual answers"
+          })
         )
       )
       const layerA = Layer.succeed(LanguageModel.LanguageModel, mockA.service)
       const layerB = Layer.succeed(LanguageModel.LanguageModel, mockB.service)
 
-      yield* MIPROv2.run(makeOptimizerOptions(moduleA)).pipe(Effect.provide(layerA))
-      yield* Stream.runDrain(
+      const beforeA = yield* Module.save(moduleA)
+      const beforeB = yield* Module.save(moduleB)
+      const compiled = yield* MIPROv2.run(makeOptimizerOptions(moduleA)).pipe(Effect.provide(layerA))
+      const events = yield* Stream.runCollect(
         MIPROv2.stream(makeOptimizerOptions(moduleB))
       ).pipe(Effect.provide(layerB))
 
       const stateA = yield* Module.save(moduleA)
       const stateB = yield* Module.save(moduleB)
 
-      expect(Arr.map(stateA.modules, (entry) => entry.params)).toEqual(
-        Arr.map(stateB.modules, (entry) => entry.params)
-      )
+      expect(compiled.report).toEqual(MIPROv2.summarizeEvents(events))
+      expect(stateA).toEqual(beforeA)
+      expect(stateB).toEqual(beforeB)
     }))
 })

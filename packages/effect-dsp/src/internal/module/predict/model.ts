@@ -12,6 +12,7 @@ import type { PredictPolicy } from "../../../Module.js"
 import type { ModuleParameters } from "../../../ModuleParameters.js"
 import type { Payload } from "../../../Payload.js"
 import type { Signature } from "../../../Signature.js"
+import type { Execution } from "../../../Trace.js"
 
 /**
  * Shared configuration for structured and text forward execution.
@@ -20,9 +21,10 @@ import type { Signature } from "../../../Signature.js"
  * @internal
  */
 export class ForwardOptions<I extends Schema.Struct.Fields, O extends Schema.Struct.Fields> extends Data.Class<{
+  readonly executionId: typeof Execution.Id.Type
   readonly moduleName: string
   readonly signature: Signature<I, O>
-  readonly params: ModuleParameters
+  readonly parameters: ModuleParameters
   readonly input: Schema.Schema.Type<Schema.Struct<I>>
   readonly outputSchema: Signature<I, O>["outputSchema"]
   readonly policy: PredictPolicy

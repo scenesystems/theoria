@@ -38,10 +38,22 @@ describe("Module.compose", () => {
         })
       )
       const qaId = yield* decodeModuleId("qa")
-      const node = Option.getOrThrow(HashMap.get(root.subModules, qaId))
-      const demo = yield* node.demonstrationCodec.decode({ input: { question: "Where?" }, output: { answer: "Here" } })
+      const predictor = Option.getOrThrow(HashMap.get(root.subModules, qaId))
+      const demo = yield* predictor.demonstrationCodec.decode({
+        input: { question: "Where?" },
+        output: { answer: "Here" },
+        exampleId: Option.none(),
+        augmented: false,
+        incomplete: false
+      })
       const invalid = yield* Effect.flip(
-        node.demonstrationCodec.decode({ input: { question: 42 }, output: { answer: "Here" } })
+        predictor.demonstrationCodec.decode({
+          input: { question: 42 },
+          output: { answer: "Here" },
+          exampleId: Option.none(),
+          augmented: false,
+          incomplete: false
+        })
       )
       expect(demo.input).toEqual({ question: "Where?" })
       expect(invalid._tag).toBe("SchemaError")
@@ -102,32 +114,33 @@ describe("Module.compose", () => {
     Effect.gen(function*() {
       const signature = yield* makeQaSignature()
       const loopId = yield* decodeModuleId("loop")
-      const paramsRef = yield* Ref.make(makeParameters(signature.instructions))
-      const loopSignature = new Module.NodeSignature({
+      const parametersRef = yield* Ref.make(makeParameters(signature.instructions))
+      const loopSignature = new Signature.Text({
         description: signature.description,
         instructions: signature.instructions
       })
-      const cycle = MutableRef.make(Option.none<Module.Node>())
-      class CycleNode extends Module.Node {
-        override get subModules(): Module.Node["subModules"] {
+      const cycle = MutableRef.make(Option.none<Module.Structure>())
+      class CyclicStructure extends Module.Structure {
+        override get subModules(): Module.Structure["subModules"] {
           return HashMap.make(Tuple.make(loopId, Option.getOrThrow(MutableRef.get(cycle))))
         }
-        override set subModules(_initial: Module.Node["subModules"]) {}
+        override set subModules(_initial: Module.Structure["subModules"]) {}
       }
-      const loopNode = new CycleNode({
-        moduleId: loopId,
+      const loopStructure = new CyclicStructure({
+        id: loopId,
         name: "loop",
         signature: loopSignature,
+        signatureDigest: signature.digest,
         demonstrationCodec: signature.demonstrationCodec,
-        params: paramsRef,
+        parameters: parametersRef,
         subModules: HashMap.empty()
       })
-      MutableRef.set(cycle, Option.some(loopNode))
+      MutableRef.set(cycle, Option.some(loopStructure))
       const loopModule = new Module.Module({
         name: "loop",
         signature,
-        params: paramsRef,
-        subModules: HashMap.set(HashMap.empty(), loopId, loopNode),
+        parameters: parametersRef,
+        subModules: HashMap.set(HashMap.empty(), loopId, loopStructure),
         forward: () => Effect.succeed({ answer: "unreachable" })
       })
       const error = yield* Effect.flip(Module.composeGraph(
@@ -142,7 +155,7 @@ describe("Module.compose", () => {
       expect(error.message).toContain("cycle detected")
     }))
 
-  it.effect("rejects direct and nested children that collide with the root before touching params", () =>
+  it.effect("rejects direct and nested children that collide with the root before touching parameters", () =>
     Effect.gen(function*() {
       const signature = yield* makeQaSignature()
       const child = yield* Module.predict("root", signature)
@@ -154,30 +167,30 @@ describe("Module.compose", () => {
           forward: ({ input }) => child.forward(input)
         })
       )
-      const before = yield* Ref.get(child.params)
-      yield* Effect.forEach(Arr.make(child, branch), (owned) =>
+      const before = yield* Ref.get(child.parameters)
+      yield* Effect.forEach(Arr.make(child, branch), (subModule) =>
         Effect.gen(function*() {
           const error = yield* Effect.flip(Module.compose(
             new Module.ComposeOptions({
               name: "root",
               signature,
-              subModules: Record.singleton("child", owned),
+              subModules: Record.singleton("child", subModule),
               forward: ({ input }) => child.forward(input)
             })
           ))
           expect(error.message).toContain("collides with composed module id")
-          expect(yield* Ref.get(child.params)).toEqual(before)
+          expect(yield* Ref.get(child.parameters)).toEqual(before)
         }))
     }))
 
-  it.effect("rejects conflicting identities attached to the same live owner", () =>
+  it.effect("rejects conflicting identities attached to the same predictor", () =>
     Effect.gen(function*() {
       const signature = yield* makeQaSignature()
       const child = yield* Module.predict("child", signature)
       const renamed = new Module.Module({
         name: "renamed",
         signature: child.signature,
-        params: child.params,
+        parameters: child.parameters,
         subModules: child.subModules,
         forward: child.forward
       })
@@ -191,7 +204,7 @@ describe("Module.compose", () => {
       expect(error.message).toContain("child id 'renamed'")
     }))
 
-  it.effect("rejects distinct deep owners and direct-versus-deep owners with the same id", () =>
+  it.effect("rejects distinct deep predictors and direct-versus-deep predictors with the same id", () =>
     Effect.gen(function*() {
       const signature = yield* makeQaSignature()
       const leftLeaf = yield* Module.predict("leaf", signature)
@@ -226,14 +239,14 @@ describe("Module.compose", () => {
         }))
     }))
 
-  it.effect("validates every deep declared key, moduleId, and name", () =>
+  it.effect("validates every deep declared key, id, and name", () =>
     Effect.gen(function*() {
       const signature = yield* makeQaSignature()
       const leaf = yield* Module.predict("leaf", signature)
       const leafId = yield* decodeModuleId("leaf")
       const wrongId = yield* decodeModuleId("wrong")
       const branchId = yield* decodeModuleId("branch")
-      const metadata = new Module.NodeSignature({
+      const metadata = new Signature.Text({
         description: signature.description,
         instructions: signature.instructions
       })
@@ -245,26 +258,28 @@ describe("Module.compose", () => {
         ),
         ([declaredId, moduleId, name]) =>
           Effect.gen(function*() {
-            const badNode = new Module.Node({
-              moduleId,
+            const invalid = new Module.Structure({
+              id: moduleId,
               name,
               signature: metadata,
+              signatureDigest: signature.digest,
               demonstrationCodec: signature.demonstrationCodec,
-              params: leaf.params,
+              parameters: leaf.parameters,
               subModules: HashMap.empty()
             })
-            const branch = new Module.Node({
-              moduleId: branchId,
+            const branch = new Module.Structure({
+              id: branchId,
               name: "branch",
               signature: metadata,
+              signatureDigest: signature.digest,
               demonstrationCodec: signature.demonstrationCodec,
-              params: yield* Ref.make(makeParameters(signature.instructions)),
-              subModules: HashMap.make(Tuple.make(declaredId, badNode))
+              parameters: yield* Ref.make(makeParameters(signature.instructions)),
+              subModules: HashMap.make(Tuple.make(declaredId, invalid))
             })
             const parent = new Module.Module({
               name: "parent",
               signature,
-              params: yield* Ref.make(makeParameters(signature.instructions)),
+              parameters: yield* Ref.make(makeParameters(signature.instructions)),
               subModules: HashMap.make(Tuple.make(branchId, branch)),
               forward: () => Effect.succeed({ answer: "unused" })
             })
@@ -279,6 +294,85 @@ describe("Module.compose", () => {
             expect(error.message).toContain("child id")
           })
       )
+    }))
+
+  it.effect("rejects empty, dotted, and nested dotted aliases before constructing a composition", () =>
+    Effect.gen(function*() {
+      const signature = yield* makeQaSignature()
+      const leaf = yield* Module.predict("leaf", signature)
+      const nested = yield* Module.compose(
+        new Module.ComposeOptions({
+          name: "nested",
+          signature,
+          subModules: Record.singleton("x", leaf),
+          forward: ({ input }) => leaf.forward(input)
+        })
+      )
+      const dottedNested = new Module.Module({
+        name: nested.name,
+        signature: nested.signature,
+        parameters: nested.parameters,
+        subModules: nested.subModules,
+        declarations: Record.singleton(
+          "x.y",
+          Option.getOrThrow(Record.get(Option.getOrThrow(Option.fromUndefinedOr(nested.declarations)), "x"))
+        ),
+        forward: nested.forward
+      })
+      const before = yield* Ref.get(leaf.parameters)
+      yield* Effect.forEach(
+        Arr.make(
+          Tuple.make(Record.singleton("", leaf), "''"),
+          Tuple.make(Record.singleton("a.b", leaf), "'a.b'"),
+          Tuple.make(Record.singleton("inner", dottedNested), "'x.y'")
+        ),
+        ([subModules, alias]) =>
+          Effect.gen(function*() {
+            const graphError = yield* Effect.flip(Module.composeGraph(
+              new Module.ComposeGraphOptions({ name: "root", signature, subModules })
+            ))
+            const composeError = yield* Effect.flip(Module.compose(
+              new Module.ComposeOptions({
+                name: "root",
+                signature,
+                subModules,
+                forward: ({ input }) => leaf.forward(input)
+              })
+            ))
+            yield* Effect.forEach(Arr.make(graphError, composeError), (error) =>
+              Effect.sync(() => {
+                expect(error._tag).toBe("CompositionError")
+                expect(error.message).toContain(`alias ${alias}`)
+                expect(error.message).toContain("predictor path segment")
+              }))
+            expect(yield* Ref.get(leaf.parameters)).toEqual(before)
+          }),
+        { discard: true }
+      )
+    }))
+
+  it.effect("rejects a dotted alias whose canonical path collides with a nested declaration", () =>
+    Effect.gen(function*() {
+      const signature = yield* makeQaSignature()
+      const one = yield* Module.predict("one", signature)
+      const two = yield* Module.predict("two", signature)
+      const nested = yield* Module.compose(
+        new Module.ComposeOptions({
+          name: "a",
+          signature,
+          subModules: Record.singleton("b", two),
+          forward: ({ input }) => two.forward(input)
+        })
+      )
+      const error = yield* Effect.flip(Module.composeGraph(
+        new Module.ComposeGraphOptions({
+          name: "root",
+          signature,
+          subModules: Record.set(Record.singleton("a.b", one), "a", nested)
+        })
+      ))
+      expect(error._tag).toBe("CompositionError")
+      expect(error.message).toContain("canonical path 'root.a.b'")
     }))
 
   it.effect("preserves deterministic trace order with graph lineage through composed runtime", () =>

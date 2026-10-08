@@ -21,7 +21,7 @@ const makeQaSignature = () =>
     }
   )
 
-const paramsWithDemo = new ModuleParameters({
+const parametersWithDemo = new ModuleParameters({
   instructions: "Keep answers short.",
   demos: Arr.make(
     new Demonstration({
@@ -31,7 +31,7 @@ const paramsWithDemo = new ModuleParameters({
   )
 })
 
-const paramsWithoutDemos = new ModuleParameters({
+const parametersWithoutDemos = new ModuleParameters({
   instructions: "Keep answers short.",
   demos: Arr.empty()
 })
@@ -42,7 +42,7 @@ describe("internal/prompt", () => {
       const qa = yield* makeQaSignature()
       const prompt = yield* buildPrompt(
         qa,
-        paramsWithDemo,
+        parametersWithDemo,
         { question: "What is the capital of Japan?" }
       )
 
@@ -54,7 +54,7 @@ describe("internal/prompt", () => {
       const qa = yield* makeQaSignature()
       const prompt = yield* buildPrompt(
         qa,
-        paramsWithoutDemos,
+        parametersWithoutDemos,
         { question: "What is the capital of Japan?" }
       )
 

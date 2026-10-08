@@ -1,10 +1,11 @@
 import { describe, expect, it } from "@effect/vitest"
-import { Array as Arr, Effect, Equal, Match, Number as Num, Option, Schema } from "effect"
+import { Array as Arr, Boolean as Bool, Effect, Equal, Match, Number as Num, Option, Schema } from "effect"
 
 import * as Optimization from "../../src/Optimization.js"
 import * as Sampler from "../../src/Sampler.js"
-import { InvalidSamplerConfig } from "../../src/SearchError.js"
 import * as SearchSpace from "../../src/SearchSpace.js"
+import { expectCoupledTrace, loadCoupledOptuna } from "../helpers/coupledOptuna.js"
+import { withGapAssertions } from "../helpers/selectionGaps.js"
 
 const instructionChoices = Arr.make("i0", "i1", "i2", "i3", "i4", "i5")
 const demoChoices = Arr.make("d0", "d1", "d2", "d3", "d4", "d5")
@@ -75,22 +76,22 @@ const runWith = (sampler: Sampler.Sampler) =>
   })
 
 describe("integration multivariate categorical tpe optimization", () => {
-  it.effect("rejects a categorical product beyond the supported domain before sampling", () =>
+  it.effect("samples categorical products larger than 65536 without enumerating tuples", () =>
     Effect.gen(function*() {
       const space = yield* SearchSpace.make({
         left: SearchSpace.categorical(Arr.range(0, 256)),
         right: SearchSpace.categorical(Arr.range(0, 255))
       })
-      const error = yield* Sampler.suggest(
+      const result = yield* Sampler.suggest(
         Sampler.tpe(new Sampler.TpeOptions({ seed: 19, nStartupTrials: 0, nEiCandidates: 1 })),
         space,
         Sampler.emptyContext()
-      ).pipe(Effect.matchEffect({
-        onFailure: Schema.decodeUnknownEffect(InvalidSamplerConfig),
-        onSuccess: () => Effect.die("Expected an invalid sampler configuration")
-      }))
+      ).pipe(Effect.flatMap(Schema.decodeUnknownEffect(space.schema)))
 
-      expect(error.reason).toBe("tpe joint categorical sampling supports at most 65536 tuples")
+      expect(result.left).toBeGreaterThanOrEqual(0)
+      expect(result.left).toBeLessThan(257)
+      expect(result.right).toBeGreaterThanOrEqual(0)
+      expect(result.right).toBeLessThan(256)
     }))
 
   it.effect("samples at the joint categorical domain limit", () =>
@@ -111,44 +112,43 @@ describe("integration multivariate categorical tpe optimization", () => {
       expect(result.right).toBeLessThan(256)
     }))
 
-  it.effect("reports unencodable categorical choices as a checked sampler failure", () =>
+  it.effect("preserves categorical strings without requiring tuple-key encoding", () =>
     Effect.gen(function*() {
-      const space = yield* SearchSpace.make({ choice: SearchSpace.categorical(Arr.make("valid", "\ud800")) })
-      const error = yield* Sampler.suggest(
+      const space = yield* SearchSpace.make({ choice: SearchSpace.categorical(Arr.of("\ud800")) })
+      const result = yield* Sampler.suggest(
         Sampler.tpe(new Sampler.TpeOptions({ seed: 19, nStartupTrials: 0 })),
         space,
         Sampler.emptyContext()
-      ).pipe(Effect.matchEffect({
-        onFailure: Schema.decodeUnknownEffect(InvalidSamplerConfig),
-        onSuccess: () => Effect.die("Expected an invalid sampler configuration")
-      }))
+      ).pipe(Effect.flatMap(Schema.decodeUnknownEffect(space.schema)))
 
-      expect(error.sampler).toBe("tpe")
-      expect(error.reason).toBe("tpe categorical search space contains an unencodable choice")
+      expect(result.choice).toBe("\ud800")
     }))
 
-  it.effect("models coupled categorical dimensions and beats seeded random search", () =>
+  it.effect("replays Optuna's coupled categorical TPE and random trial tables", () =>
     Effect.gen(function*() {
-      const seed = 211
-      const tpeOptimized = yield* runWith(
-        Sampler.tpe(
-          new Sampler.TpeOptions({
-            seed,
-            nStartupTrials: 8,
-            nEiCandidates: 80
+      yield* Effect.forEach(yield* loadCoupledOptuna, (reference) =>
+        Effect.gen(function*() {
+          const sampler = Bool.match(Equal.equals(reference.sampler, "random"), {
+            onFalse: () =>
+              Sampler.tpe(
+                new Sampler.TpeOptions({
+                  seed: 211,
+                  multivariate: reference.multivariate,
+                  nStartupTrials: 8,
+                  nEiCandidates: 80
+                })
+              ),
+            onTrue: () => Sampler.random({ seed: 211 })
           })
-        )
-      )
-      const randomOptimized = yield* runWith(Sampler.random({ seed }))
-      const tpeOption = asSingleObjective(tpeOptimized)
-      const randomOption = asSingleObjective(randomOptimized)
-
-      expect(Option.isSome(tpeOption)).toBe(true)
-      expect(Option.isSome(randomOption)).toBe(true)
-      const tpe = yield* Effect.fromOption(tpeOption)
-      const random = yield* Effect.fromOption(randomOption)
-
-      expect(yield* isCoupledBestPair(tpe.bestTrial.config)).toBe(true)
-      expect(tpe.bestTrial.state.value).toBeLessThanOrEqual(random.bestTrial.state.value)
+          const result = yield* Effect.fromOption(asSingleObjective(
+            yield* withGapAssertions(
+              runWith(sampler),
+              reference.acquisitionGaps,
+              reference.strictThroughTrial
+            )
+          ))
+          expect(yield* isCoupledBestPair(result.bestTrial.config)).toBe(true)
+          expectCoupledTrace(result, reference)
+        }))
     }))
 })

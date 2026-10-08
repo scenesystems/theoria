@@ -8,8 +8,9 @@ import * as Metric from "@scenesystems/effect-dsp/Metric"
 import * as MockLanguageModel from "@scenesystems/effect-dsp/MockLanguageModel"
 import * as Module from "@scenesystems/effect-dsp/Module"
 import * as Signature from "@scenesystems/effect-dsp/Signature"
-import { Effect, Layer, Option, Schema } from "effect"
+import { Array as Arr, Effect, Layer, Match, Option, Schema } from "effect"
 import * as LanguageModel from "effect/ai/LanguageModel"
+import { constVoid } from "effect/Function"
 
 const makeQaSignature = () =>
   Signature.make(
@@ -38,11 +39,11 @@ describe("Evaluate.run", () => {
           examples: [
             new Example({
               input: { question: "What is the capital of France?" },
-              output: { answer: "Paris" }
+              labels: Option.some({ answer: "Paris" })
             }),
             new Example({
               input: { question: "What is the capital of Japan?" },
-              output: { answer: "Tokyo" }
+              labels: Option.some({ answer: "Tokyo" })
             })
           ],
           metrics: {
@@ -57,11 +58,11 @@ describe("Evaluate.run", () => {
       expect(report.totalExamples).toBe(2)
       expect(report.successCount).toBe(2)
       expect(report.failureCount).toBe(0)
-      expect(report.results).toHaveLength(2)
+      expect(report.outcomes).toHaveLength(2)
       expect(report.overallScores.exact).toBe(0.5)
     }))
 
-  it.effect("records failed examples when expected output is missing", () =>
+  it.effect("records failed examples when inputs do not match the signature", () =>
     Effect.gen(function*() {
       const signature = yield* makeQaSignature()
       const module = yield* Module.predict("qa", signature)
@@ -76,10 +77,10 @@ describe("Evaluate.run", () => {
           examples: [
             new Example({
               input: { question: "What is the capital of France?" },
-              output: { answer: "Paris" }
+              labels: Option.some({ answer: "Paris" })
             }),
             new Example({
-              input: { question: "What is the capital of Japan?" }
+              input: { question: 73 }
             })
           ],
           metrics: {
@@ -97,9 +98,21 @@ describe("Evaluate.run", () => {
       expect(report.failures[0]?.tag).toBe("EvaluationFailed")
       const failure = report.failures[0]
 
-      if (failure) {
-        expect(report.results[1]?.failure).toEqual(Option.some(failure))
-      }
+      Option.match(Option.fromUndefinedOr(failure), {
+        onNone: constVoid,
+        onSome: (failure) => {
+          const outcome = report.outcomes[1]
+          expect(outcome?._tag).toBe("Failed")
+          Option.match(Option.fromUndefinedOr(outcome), {
+            onNone: constVoid,
+            onSome: (outcome) =>
+              Match.value(outcome).pipe(
+                Match.tag("Failed", (failed) => expect(failed.failure).toEqual(failure)),
+                Match.orElse(constVoid)
+              )
+          })
+        }
+      })
     }))
 
   it.effect("keeps aggregate metric folding deterministic regardless of metric declaration order", () =>
@@ -114,11 +127,11 @@ describe("Evaluate.run", () => {
       const examples = [
         new Example({
           input: { question: "What is the capital of France?" },
-          output: { answer: "Paris" }
+          labels: Option.some({ answer: "Paris" })
         }),
         new Example({
           input: { question: "What is the capital of Japan?" },
-          output: { answer: "Tokyo" }
+          labels: Option.some({ answer: "Tokyo" })
         })
       ]
 
@@ -145,7 +158,20 @@ describe("Evaluate.run", () => {
       ).pipe(Effect.provide(layer))
 
       expect(reportA.overallScores).toEqual(reportB.overallScores)
-      expect(reportA.results).toEqual(reportB.results)
+      expect(
+        Arr.map(reportA.outcomes, (outcome) =>
+          Match.valueTags(outcome, {
+            Failed: (failed) => failed.failure,
+            Scored: (scored) => scored.score
+          }))
+      )
+        .toEqual(
+          Arr.map(reportB.outcomes, (outcome) =>
+            Match.valueTags(outcome, {
+              Failed: (failed) => failed.failure,
+              Scored: (scored) => scored.score
+            }))
+        )
       expect(reportA.failures).toEqual(reportB.failures)
     }))
 })

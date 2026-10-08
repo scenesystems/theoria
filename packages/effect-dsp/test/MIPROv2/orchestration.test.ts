@@ -11,8 +11,21 @@ import { ModuleParameters } from "@scenesystems/effect-dsp/ModuleParameters"
 import * as Signature from "@scenesystems/effect-dsp/Signature"
 import * as OptimizationStorage from "@scenesystems/effect-search/OptimizationStorage"
 import { Failure as ArtifactStorageError } from "@scenesystems/effect-study/PersistenceError"
-import { Array as Arr, Effect, Equal, Layer, Number as Num, Ref, Result, Schema } from "effect"
+import {
+  Array as Arr,
+  Boolean as Bool,
+  Effect,
+  Equal,
+  Layer,
+  Number as Num,
+  Option,
+  Ref,
+  Result,
+  Schema,
+  String as Str
+} from "effect"
 import * as LanguageModel from "effect/ai/LanguageModel"
+import { constVoid } from "effect/Function"
 
 const makeQaSignature = () =>
   Signature.make(
@@ -28,13 +41,13 @@ const makeQaSignature = () =>
 const makeStructuredQaModule = Effect.gen(function*() {
   const signature = yield* makeQaSignature()
   const module = yield* Module.predict("qa", signature)
-  const baselineParams = yield* Ref.get(module.params)
+  const baselineParameters = yield* Ref.get(module.parameters)
 
   yield* Ref.set(
-    module.params,
+    module.parameters,
     new ModuleParameters({
-      instructions: baselineParams.instructions,
-      demos: baselineParams.demos,
+      instructions: baselineParameters.instructions,
+      demos: baselineParameters.demos,
       outputStrategy: "structured"
     })
   )
@@ -44,21 +57,16 @@ const makeStructuredQaModule = Effect.gen(function*() {
 
 const makeQaMock = MockLanguageModel.make(
   MockLanguageModel.map((prompt) =>
-    prompt.includes("[miprov2-proposal:")
-      ? "Use concise and factual answers"
-      : { answer: "Paris" }
+    Bool.match(Str.includes("Return only ")(prompt), {
+      onFalse: () => ({ answer: "Paris" }),
+      onTrue: () => "Use concise and factual answers"
+    })
   )
 )
 
 const trainset = Arr.make(
-  new Example({
-    input: { question: "What is the capital of France?" },
-    output: { answer: "Paris" }
-  }),
-  new Example({
-    input: { question: "What is the capital of Japan?" },
-    output: { answer: "Tokyo" }
-  })
+  new Example({ input: { question: "What is the capital of France?" }, labels: Option.some({ answer: "Paris" }) }),
+  new Example({ input: { question: "What is the capital of Japan?" }, labels: Option.some({ answer: "Tokyo" }) })
 )
 
 describe("MIPROv2 orchestration", () => {
@@ -76,8 +84,9 @@ describe("MIPROv2 orchestration", () => {
           valset: trainset,
           metric: Metric.exactMatch("answer"),
           numCandidates: 4,
-          numInstructions: 4,
-          trialBudget: 6,
+          auto: Option.none(),
+          minibatch: false,
+          numTrials: 6,
           seed: 31
         }),
         (event) => Ref.update(events, (tags) => Arr.append(tags, event._tag))
@@ -85,7 +94,7 @@ describe("MIPROv2 orchestration", () => {
 
       const tags = yield* Ref.get(events)
 
-      expect(optimized).toBe(module)
+      expect(optimized.program).not.toBe(module)
       expect(tags).toContain("Phase1Started")
       expect(tags).toContain("Phase2Started")
       expect(tags).toContain("Phase3Started")
@@ -130,8 +139,9 @@ describe("MIPROv2 orchestration", () => {
             valset: trainset,
             metric: Metric.exactMatch("answer"),
             numCandidates: 2,
-            numInstructions: 2,
-            trialBudget: 2,
+            auto: Option.none(),
+            minibatch: false,
+            numTrials: 2,
             seed: 31
           }),
           (event) => Ref.update(events, (tags) => Arr.append(tags, event._tag))
@@ -143,9 +153,10 @@ describe("MIPROv2 orchestration", () => {
         expect(tags).toContain("Phase3Started")
         expect(calls).toBe(1)
         expect(Result.isFailure(outcome)).toBe(true)
-        if (Result.isFailure(outcome)) {
-          expect(Equal.equals(outcome.failure, storageError)).toBe(true)
-        }
+        Result.match(outcome, {
+          onFailure: (failure) => expect(Equal.equals(failure, storageError)).toBe(true),
+          onSuccess: constVoid
+        })
       })
   )
 })

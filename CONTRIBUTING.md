@@ -36,6 +36,16 @@ not apply to TypeDoc API comments.
 
 Run Python fixture generators with `uv run` to use their declared dependencies.
 
+The effect-math generator pins `PYTHONHASHSEED=0` and
+`NPY_DISABLE_CPU_FEATURES=AVX2,FMA3,AVX512F` before importing NumPy, matching the
+DSPy/Optuna dispatch setting. Use the root `uv.lock` and Python 3.12.14 on Linux
+x86_64 for clean-machine regeneration. Run
+`bun run --filter @scenesystems/effect-math fixtures:verify` to regenerate and
+byte-compare every payload and the manifest; CI runs the same full check.
+Generate into `SCIPY_FIXTURE_OUTPUT_DIRECTORY` for review before replacing
+references. Record approved reference-byte changes with before/after SHA-256
+hashes; never alter assertions or tolerances to accommodate regeneration.
+
 ## Pull requests
 
 Submit PRs against `main`. Explain the problem, conceptual change, and actual

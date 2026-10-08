@@ -6,12 +6,14 @@
  * @internal
  */
 import type { Schema } from "effect"
-import { Array as Arr, Data, Effect, Match } from "effect"
+import { Array as Arr, Data, Effect, Match, Option } from "effect"
 import { resolveStrategy } from "../../../ModuleParameters.js"
+import { Attempt } from "../../../Trace.js"
 import { callLmResponse, callLmTextResponse } from "../../lm.js"
 import { parseTextWithRetry, ParseTextWithRetryOptions } from "../../parse/retry.js"
 import { buildPrompt } from "../../prompt/render.js"
 import { promptToTraceText } from "../../prompt/trace.js"
+import { appendAttempt } from "../../trace/attempts.js"
 import { ForwardExecution, type ForwardOptions } from "./model.js"
 import { PayloadOptions, tracePayloadFromEncoded } from "./trace.js"
 
@@ -26,8 +28,17 @@ const runStructuredForward = <
   O extends Schema.Struct.Fields
 >(options: ForwardOptions<I, O>) =>
   Effect.gen(function*() {
-    const prompt = yield* buildPrompt(options.signature, options.params, options.input)
+    const prompt = yield* buildPrompt(options.signature, options.parameters, options.input)
     const [response, usage] = yield* callLmResponse(prompt, options.outputSchema)
+    yield* appendAttempt(
+      new Attempt({
+        execution: options.executionId,
+        rawResponse: response.text,
+        parseError: Option.none(),
+        unparsed: Option.none(),
+        usage
+      })
+    )
     const traceOutput = yield* tracePayloadFromEncoded(
       new PayloadOptions({
         moduleName: options.moduleName,
@@ -62,12 +73,27 @@ const runTextForward = <
         feedbackTemplate: parsePolicy.feedbackTemplate,
         readText: (feedback) =>
           Effect.gen(function*() {
-            const prompt = yield* buildPrompt(options.signature, options.params, options.input, feedback)
+            const prompt = yield* buildPrompt(options.signature, options.parameters, options.input, feedback)
             const [response, usage] = yield* callLmTextResponse(prompt)
 
             return new PreparedText({ prompt, response, usage })
           }),
-        text: (prepared) => prepared.response.text
+        text: (prepared) => prepared.response.text,
+        observe: (prepared, error) =>
+          appendAttempt(
+            new Attempt({
+              execution: options.executionId,
+              rawResponse: prepared.response.text,
+              parseError: Option.map(error, (error) => error.message),
+              unparsed: Option.map(error, (error) => ({
+                response: prepared.response.text,
+                parseError: Option.some(error.message),
+                toolCallCount: 0,
+                toolResultCount: 0
+              })),
+              usage: prepared.usage
+            })
+          )
       })
     )
 
@@ -99,7 +125,7 @@ export const runForward = <
   I extends Schema.Struct.Fields,
   O extends Schema.Struct.Fields
 >(options: ForwardOptions<I, O>) =>
-  Match.value(resolveStrategy(options.params.outputStrategy, Arr.length(options.params.demos))).pipe(
+  Match.value(resolveStrategy(options.parameters.outputStrategy, Arr.length(options.parameters.demos))).pipe(
     Match.when("structured", () => runStructuredForward(options)),
     Match.when("text", () => runTextForward(options)),
     Match.exhaustive

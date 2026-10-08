@@ -3,22 +3,25 @@ import { Effect, Option, Record, Schema } from "effect"
 
 import { parseTextOutput } from "../../src/internal/parse/decode.js"
 import { extractMarkedRecord } from "../../src/internal/parse/protocol.js"
-import { ChatParseSectionsFixtureSchema, loadFixture } from "../helpers/dspy-fixtures/index.js"
+import { fixture } from "../kit/Fixtures.js"
 
 const AnswerSchema = Schema.Struct({ answer: Schema.String })
 
 describe("internal/parse DSPy contract parity", () => {
   it.effect("matches DSPy section extraction + parsed field contract", () =>
     Effect.gen(function*() {
-      const rawFixture = yield* loadFixture("dspy.chat.parse-sections.basic")
-      const fixture = yield* Schema.decodeUnknownEffect(ChatParseSectionsFixtureSchema)(rawFixture)
+      const reference = yield* fixture("chat-adapter", "upstream-kernel")
+      const payload = yield* Schema.decodeUnknownEffect(Schema.Struct({
+        completion: Schema.String,
+        parsed: AnswerSchema
+      }))(reference.payload)
 
-      const parsed = yield* parseTextOutput("qa", AnswerSchema, fixture.payload.completion)
-      const extracted = extractMarkedRecord(fixture.payload.completion)
+      const parsed = yield* parseTextOutput("qa", AnswerSchema, payload.completion)
+      const extracted = extractMarkedRecord(payload.completion)
       const extractedAnswer = Option.getOrElse(Record.get(extracted, "answer"), () => "")
 
-      expect(parsed).toStrictEqual(fixture.payload.parsed)
-      expect(extractedAnswer).toBe(fixture.payload.parsed.answer)
+      expect(parsed).toStrictEqual(payload.parsed)
+      expect(extractedAnswer).toBe(payload.parsed.answer)
       expect(Option.isSome(Record.get(extracted, "completed"))).toBe(true)
     }))
 })

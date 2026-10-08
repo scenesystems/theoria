@@ -3,6 +3,7 @@
  *
  * @since 0.1.0
  */
+import { logStrict, logSumExp } from "@scenesystems/effect-math/Numeric"
 import { Array as Arr, Chunk, Data, Effect, Match, Number as Num, Option, Predicate, Record, Tuple } from "effect"
 
 import * as Acquisition from "../../Acquisition.js"
@@ -14,11 +15,11 @@ import { defaultNoiseBandwidthOptions, type NoiseBandwidthOptions } from "../../
 import type { TrialSplit } from "../../internal/tpe/splitTrials.js"
 import type { InvalidSamplerConfig } from "../../SearchError.js"
 import type * as SearchSpace from "../../SearchSpace.js"
-import { chooseBestCandidate } from "./candidateSelection.js"
+import { chooseBestCandidate, drawRolls } from "./candidateSelection.js"
 import { estimateCostForConfig } from "./costModel.js"
-import { categoricalCandidateTrace } from "./dimensions/categorical.js"
-import { floatCandidateTrace } from "./dimensions/float.js"
-import { intCandidateTrace } from "./dimensions/int.js"
+import { categoricalCandidateTraceFromRolls } from "./dimensions/categorical.js"
+import { floatCandidateTraceFromRolls } from "./dimensions/float.js"
+import { intCandidateTraceFromRolls } from "./dimensions/int.js"
 import type { DimensionScoreTrace } from "./dimensions/trace.js"
 import { invalidConfig } from "./options.js"
 
@@ -67,10 +68,6 @@ const candidateCount = (tracesInput: Iterable<NamedDimensionScoreTrace>): Option
 const candidateAt = (trace: DimensionScoreTrace<unknown>, index: number): Option.Option<unknown> =>
   Chunk.get(trace.candidates, index)
 
-const logLAt = (trace: DimensionScoreTrace<unknown>, index: number): Option.Option<number> => Arr.get(trace.logL, index)
-
-const logGAt = (trace: DimensionScoreTrace<unknown>, index: number): Option.Option<number> => Arr.get(trace.logG, index)
-
 const namedTrace = <A>(name: string, trace: DimensionScoreTrace<A>): NamedDimensionScoreTrace =>
   new NamedDimensionScoreTrace({
     name,
@@ -111,28 +108,30 @@ const jointScoreAtIndex = (
   acquisition: Acquisition.Strategy
 ): Effect.Effect<number, InvalidSamplerConfig> => {
   const traces = Arr.fromIterable(tracesInput)
-  return Effect.all(Tuple.make(
-    Effect.forEach(traces, (entry) =>
-      Effect.fromOption(
-        logLAt(entry.trace, index),
-        () => invalidConfig(`tpe mixed candidate trace missing logL at index ${index} for parameter "${entry.name}"`)
-      )),
-    Effect.forEach(traces, (entry) =>
-      Effect.fromOption(
-        logGAt(entry.trace, index),
-        () => invalidConfig(`tpe mixed candidate trace missing logG at index ${index} for parameter "${entry.name}"`)
+  return Effect.gen(function*() {
+    const first = yield* Effect.fromOption(Arr.head(traces), () => invalidConfig("empty joint density"))
+    const density = (weights: "weightsL" | "weightsG", kernels: "kernelLogL" | "kernelLogG") =>
+      logSumExp(Chunk.fromIterable(
+        Arr.map(first.trace[weights], (weight, component) =>
+          Num.sum(
+            logStrict(weight),
+            Num.sumAll(Arr.map(traces, ({ trace }) =>
+              Arr.get(
+                Arr.get(trace[kernels], index).pipe(Option.getOrThrow),
+                component
+              ).pipe(Option.getOrThrow)))
+          ))
       ))
-  )).pipe(
-    Effect.map(([logLContributions, logGContributions]) =>
-      Acquisition.scoreJoint(
-        logLContributions,
-        logGContributions,
-        estimateCostForConfig(split, candidateConfig),
-        Option.none(),
-        acquisition
-      )
+    return Acquisition.score(
+      new Acquisition.Context({
+        logL: density("weightsL", "kernelLogL"),
+        logG: density("weightsG", "kernelLogG"),
+        estimatedCost: estimateCostForConfig(split, candidateConfig),
+        roll: Option.none()
+      }),
+      acquisition
     )
-  )
+  })
 }
 
 const scoreTraceAt = (
@@ -218,42 +217,50 @@ export const traceForParameter = (
   parameter: SearchSpace.Parameter,
   split: TrialSplit,
   noiseOptions: NoiseBandwidthOptions = defaultNoiseBandwidthOptions,
-  acquisition: Acquisition.Strategy = Acquisition.defaultName
+  acquisition: Acquisition.Strategy = Acquisition.defaultName,
+  componentRolls: Option.Option<ReadonlyArray<number>> = Option.none()
 ): Effect.Effect<NamedDimensionScoreTrace, InvalidSamplerConfig> =>
-  Match.value(parameter.distribution).pipe(
-    Match.when({ type: "categorical" }, ({ choices }) =>
-      categoricalCandidateTrace(rng, nCandidates, parameter, choices, split, acquisition).pipe(
-        Effect.map((trace) =>
-          namedTrace(parameter.name, trace)
-        )
-      )),
-    Match.when({ type: "float" }, ({ low, high, scale, step }) =>
-      floatCandidateTrace(
-        rng,
-        nCandidates,
-        parameter,
-        low,
-        high,
-        Option.fromNullishOr(scale),
-        Option.fromNullishOr(step),
-        split,
-        noiseOptions,
-        acquisition
-      ).pipe(Effect.map((trace) => namedTrace(parameter.name, trace)))),
-    Match.when({ type: "int" }, ({ low, high, step }) =>
-      intCandidateTrace(rng, nCandidates, parameter, low, high, Option.fromNullishOr(step), split, acquisition).pipe(
-        Effect.map((trace) =>
-          namedTrace(parameter.name, trace)
-        )
-      )),
-    Match.when({ type: "fidelity" }, ({ low, high }) =>
-      intCandidateTrace(rng, nCandidates, parameter, low, high, Option.none(), split, acquisition).pipe(
-        Effect.map((trace) =>
-          namedTrace(parameter.name, trace)
-        )
-      )),
-    Match.exhaustive
-  )
+  Effect.gen(function*() {
+    const components = yield* Option.match(componentRolls, {
+      onNone: () => drawRolls(rng, nCandidates),
+      onSome: Effect.succeed
+    })
+    const values = yield* drawRolls(rng, nCandidates)
+    const rolls = Arr.zip(components, values)
+    return yield* Match.value(parameter.distribution).pipe(
+      Match.when({ type: "categorical" }, ({ choices }) =>
+        categoricalCandidateTraceFromRolls(parameter, choices, split, rolls, acquisition).pipe(
+          Effect.map((trace) =>
+            namedTrace(parameter.name, trace)
+          )
+        )),
+      Match.when({ type: "float" }, ({ low, high, scale, step }) =>
+        floatCandidateTraceFromRolls(
+          parameter,
+          low,
+          high,
+          Option.fromNullishOr(scale),
+          Option.fromNullishOr(step),
+          split,
+          rolls,
+          noiseOptions,
+          acquisition
+        ).pipe(Effect.map((trace) => namedTrace(parameter.name, trace)))),
+      Match.when({ type: "int" }, ({ low, high, step }) =>
+        intCandidateTraceFromRolls(parameter, low, high, Option.fromNullishOr(step), split, rolls, acquisition).pipe(
+          Effect.map((trace) =>
+            namedTrace(parameter.name, trace)
+          )
+        )),
+      Match.when({ type: "fidelity" }, ({ low, high }) =>
+        intCandidateTraceFromRolls(parameter, low, high, Option.none(), split, rolls, acquisition).pipe(
+          Effect.map((trace) =>
+            namedTrace(parameter.name, trace)
+          )
+        )),
+      Match.exhaustive
+    )
+  })
 
 /**
  * Suggests a full config across a heterogeneous search space by generating
@@ -277,8 +284,9 @@ export const suggestMixedJoint = (
   acquisition: Acquisition.Strategy = Acquisition.defaultName
 ): Effect.Effect<unknown, InvalidSamplerConfig> =>
   Effect.gen(function*() {
+    const components = yield* drawRolls(rng, nCandidates)
     const traces = yield* Effect.forEach(space.params, (parameter) =>
-      traceForParameter(rng, nCandidates, parameter, split, noiseOptions, acquisition))
+      traceForParameter(rng, nCandidates, parameter, split, noiseOptions, acquisition, Option.some(components)))
     const selection = yield* selectBestMixedCandidate(traces, split, acquisition)
 
     return selection.bestConfig

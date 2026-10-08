@@ -117,10 +117,10 @@ describe("Module.chainOfThought", () => {
       const cot = yield* Module.chainOfThought("qa-cot", qa)
 
       yield* Ref.update(
-        cot.params,
-        (params) =>
+        cot.parameters,
+        (parameters) =>
           new ModuleParameters({
-            instructions: params.instructions,
+            instructions: parameters.instructions,
             outputStrategy: "auto",
             demos: [
               new Demonstration({

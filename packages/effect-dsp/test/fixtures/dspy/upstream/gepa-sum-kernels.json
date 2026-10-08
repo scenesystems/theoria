@@ -1,0 +1,97 @@
+{
+  "fixture": "gepa-sum-kernels",
+  "payload": {
+    "aggregate": {
+      "scoreVectors": [
+        [
+          0.3,
+          0.3,
+          0.0
+        ],
+        [
+          0.1,
+          0.2,
+          0.3
+        ]
+      ],
+      "aggregates": [
+        0.19999999999999998,
+        0.19999999999999998
+      ],
+      "idxmax": 0,
+      "bestIndex": 0
+    },
+    "mutation": {
+      "before": [
+        0.3,
+        0.3,
+        0.0
+      ],
+      "after": [
+        0.1,
+        0.2,
+        0.3
+      ],
+      "beforeSum": 0.6,
+      "afterSum": 0.6,
+      "accepted": false
+    },
+    "merge": {
+      "merged": [
+        0.3,
+        0.3,
+        0.0
+      ],
+      "parentA": [
+        0.1,
+        0.2,
+        0.3
+      ],
+      "parentB": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "mergedSum": 0.6,
+      "bestParentSum": 0.6,
+      "accepted": true
+    },
+    "pruning": {
+      "scoreVectors": [
+        [
+          0.1,
+          0.2,
+          0.3,
+          0.6
+        ],
+        [
+          0.3,
+          0.3,
+          0.0,
+          0.6
+        ],
+        [
+          0.9,
+          0.9,
+          0.9,
+          0.0
+        ]
+      ],
+      "aggregates": [
+        0.3,
+        0.3,
+        0.675
+      ],
+      "frontierIndices": [
+        1,
+        2
+      ],
+      "parentCatalogue": [
+        2,
+        2,
+        2,
+        1
+      ]
+    }
+  }
+}

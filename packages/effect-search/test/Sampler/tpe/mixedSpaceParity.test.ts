@@ -52,7 +52,8 @@ const expectWithinTolerance = (
   tolerance: number,
   label: string
 ): void => {
-  expect(Numeric.abs(Num.subtract(actual, expected)), label).toBeLessThanOrEqual(tolerance)
+  expect(Numeric.abs(Num.subtract(actual, expected)), `${label}: actual=${actual}, upstream=${expected}`)
+    .toBeLessThanOrEqual(tolerance)
 }
 
 const splitFromFixture = (

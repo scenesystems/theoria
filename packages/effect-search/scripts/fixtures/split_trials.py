@@ -4,11 +4,15 @@ from __future__ import annotations
 
 from typing import Any
 
+import optuna
+from optuna.samplers._tpe.sampler import _split_trials
+from optuna.trial import TrialState, create_trial
+
 from ._common import metadata
 
 
 def generate(generated_at: str) -> list[dict[str, Any]]:
-    return [
+    documents = [
         {
             "fixture": "split-trials.single-and-liar",
             "file": "split-trials/single-and-liar.json",
@@ -30,8 +34,6 @@ def generate(generated_at: str) -> list[dict[str, Any]]:
                             },
                             {"trialNumber": 3, "state": "running", "liarValue": 0.5, "intermediateValues": []},
                         ],
-                        "expectedBelow": [0, 2],
-                        "expectedAbove": [1, 3],
                     },
                     {
                         "id": "single-objective-maximize",
@@ -48,10 +50,22 @@ def generate(generated_at: str) -> list[dict[str, Any]]:
                             },
                             {"trialNumber": 13, "state": "running", "liarValue": 0.4, "intermediateValues": []},
                         ],
-                        "expectedBelow": [11, 12],
-                        "expectedAbove": [10, 13],
                     },
                 ],
             },
         }
     ]
+    for case in documents[0]["payload"]["cases"]:
+        study = optuna.create_study(direction=case["direction"])
+        trials = []
+        for row in case["trials"]:
+            trial = create_trial(
+                state=TrialState[row["state"].upper()], value=row.get("value"),
+                intermediate_values={report["step"]: report["value"] for report in row["intermediateValues"]},
+            )
+            trial.number = row["trialNumber"]
+            trials.append(trial)
+        below, above = _split_trials(study, trials, case["nBelow"], constraints_enabled=False)
+        case["expectedBelow"] = [trial.number for trial in below]
+        case["expectedAbove"] = [trial.number for trial in above]
+    return documents

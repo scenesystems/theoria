@@ -1,192 +1,290 @@
 {
+  "environment": {
+    "ATEN_CPU_CAPABILITY": "default",
+    "MKL_CBWR": "COMPATIBLE",
+    "MKL_NUM_THREADS": "1",
+    "NPY_DISABLE_CPU_FEATURES": "AVX2,FMA3,AVX512F",
+    "OMP_NUM_THREADS": "1",
+    "OPENBLAS_CORETYPE": "HASWELL",
+    "OPENBLAS_NUM_THREADS": "1",
+    "PYTHONHASHSEED": "0"
+  },
   "fixtures": [
     {
       "file": "advanced-samplers/cmaes-parity.json",
-      "name": "advanced-samplers.cmaes-parity"
+      "name": "advanced-samplers.cmaes-parity",
+      "sha256": "e432e3ae44ab7606112e0754c9da2b0df65163d45fbcd021a386773f173e24ae"
     },
     {
       "file": "advanced-samplers/gpbo-parity.json",
-      "name": "advanced-samplers.gpbo-parity"
+      "name": "advanced-samplers.gpbo-parity",
+      "sha256": "8ae84f247394d68bec6d02c55b7e3d1a262014db00b2bddb5b81d355c7f6cdd4"
     },
     {
       "file": "categorical-parzen/basic.json",
-      "name": "categorical-parzen.basic"
+      "name": "categorical-parzen.basic",
+      "sha256": "222279ecdae35dc5d8377ce2dc227cc736491411ea37caf84d42cad4b8bab7d9"
     },
     {
       "file": "categorical-parzen/distance.json",
-      "name": "categorical-parzen.distance"
+      "name": "categorical-parzen.distance",
+      "sha256": "53099259b98068f34bd4debeb331b274dfa3234718278f0a1a5a5ee4085c381c"
     },
     {
       "file": "categorical-parzen/recency-ramp.json",
-      "name": "categorical-parzen.recency-ramp"
+      "name": "categorical-parzen.recency-ramp",
+      "sha256": "e7bebaa217f12cf66a246ecd497a94f662bda868e00e8eb21ead112603d73914"
     },
     {
       "file": "conditional/filtering.json",
-      "name": "conditional.filtering"
+      "name": "conditional.filtering",
+      "sha256": "d3b382d472124ea3522b1f99707e8f29633d4cbee00375e326106ca876661cb9"
     },
     {
       "file": "conditional/group-decomposition.json",
-      "name": "conditional.group-decomposition"
+      "name": "conditional.group-decomposition",
+      "sha256": "209304f95e2898418f7381832daf86cd3b3f70956c4aa62db8bf41c7026bfabe"
     },
     {
       "file": "constrained-tpe/parity.json",
-      "name": "constrained-tpe.parity"
+      "name": "constrained-tpe.parity",
+      "sha256": "5b1e1b3e9ac02bb8fd4fd7a9e25245316b1b365ada90af15b1207179229b98c3"
     },
     {
       "file": "continuous-kde/basic.json",
-      "name": "continuous-kde.basic"
+      "name": "continuous-kde.basic",
+      "sha256": "7f6468309e2f91fa7bb75b867f38c00ac36b618a608f211c75a4a33e49e06c03"
     },
     {
       "file": "continuous-kde/bimodal-separated.json",
-      "name": "continuous-kde.bimodal-separated"
+      "name": "continuous-kde.bimodal-separated",
+      "sha256": "42ee1f838cbb473942bee74b426cdda4da4a532c40197b6b88eb6a255186aa04"
     },
     {
       "file": "continuous-kde/boundary-high-skew.json",
-      "name": "continuous-kde.boundary-high-skew"
+      "name": "continuous-kde.boundary-high-skew",
+      "sha256": "f3dcdae753d990163a86679cf891bfb9745a2ce93fc9c874d29bf07c1ce5c061"
     },
     {
       "file": "continuous-kde/boundary-low-skew.json",
-      "name": "continuous-kde.boundary-low-skew"
+      "name": "continuous-kde.boundary-low-skew",
+      "sha256": "0c41bec2a2b48bc11830c0b0a544801a48de8f114cd7408d3eecabe057ccb128"
     },
     {
       "file": "continuous-kde/endpoint-observations.json",
-      "name": "continuous-kde.endpoint-observations"
+      "name": "continuous-kde.endpoint-observations",
+      "sha256": "b84a44a24f7b3e18acf7282546fe219369fc43f3ca57624d4d941d8dc89581c6"
     },
     {
       "file": "continuous-kde/extreme-asymmetric-range.json",
-      "name": "continuous-kde.extreme-asymmetric-range"
+      "name": "continuous-kde.extreme-asymmetric-range",
+      "sha256": "2e224c2caf33e26340618ae89226bcb393aa2e17d253a6eef7ca454a3668d23b"
     },
     {
       "file": "continuous-kde/magic-clip.json",
-      "name": "continuous-kde.magic-clip"
+      "name": "continuous-kde.magic-clip",
+      "sha256": "602b4183fed70b42cf86315afd75f8913673557b0777a993fe4d523e8beaff53"
     },
     {
       "file": "continuous-kde/micro-positive-span.json",
-      "name": "continuous-kde.micro-positive-span"
+      "name": "continuous-kde.micro-positive-span",
+      "sha256": "89475d9325e0104360aaa91797642094f3304bb4157c81092aaeb1055f677253"
     },
     {
       "file": "continuous-kde/narrow-support.json",
-      "name": "continuous-kde.narrow-support"
+      "name": "continuous-kde.narrow-support",
+      "sha256": "145c581879d2d6199275e5a643eab2ebf4025360150e102d82d51ad70382de86"
     },
     {
       "file": "continuous-kde/offset-positive-range.json",
-      "name": "continuous-kde.offset-positive-range"
+      "name": "continuous-kde.offset-positive-range",
+      "sha256": "6c8f7c1a602fd5658850587c3be876fe5c1d0158299c0ad61d74fd71626153bc"
     },
     {
       "file": "continuous-kde/outlier-cluster.json",
-      "name": "continuous-kde.outlier-cluster"
+      "name": "continuous-kde.outlier-cluster",
+      "sha256": "b3523f73619b5187f8cb34d0eab1b03f49932448748ced612b78ae4807a6244c"
     },
     {
       "file": "continuous-kde/prior-only.json",
-      "name": "continuous-kde.prior-only"
+      "name": "continuous-kde.prior-only",
+      "sha256": "2525830ab0dcddb4b191032cc46abe79ae2584a1b416a63b60bd636d0ac0bcb3"
     },
     {
       "file": "continuous-kde/recency-ramp.json",
-      "name": "continuous-kde.recency-ramp"
+      "name": "continuous-kde.recency-ramp",
+      "sha256": "13c4dfbb7ff27ff1bf0732d5c8064200237500eeca28e951b91ff9ccb0024a2f"
     },
     {
       "file": "continuous-kde/repeated-support-point.json",
-      "name": "continuous-kde.repeated-support-point"
+      "name": "continuous-kde.repeated-support-point",
+      "sha256": "e7eef45eea1f74670a43cf920f1ab79177fbfb712679e29c1f2ff3e7a202bd61"
     },
     {
       "file": "continuous-kde/single-observation.json",
-      "name": "continuous-kde.single-observation"
+      "name": "continuous-kde.single-observation",
+      "sha256": "88669a6a7d14bce3c0e5922e64e1c32671d94e1124fab0b29e208155bf14d15f"
     },
     {
       "file": "continuous-kde/tiny-cross-zero-span.json",
-      "name": "continuous-kde.tiny-cross-zero-span"
+      "name": "continuous-kde.tiny-cross-zero-span",
+      "sha256": "4ae7b7f5c41e7649afc12f7adcd3d8c8d632199df80653d1fc4655679e72f768"
     },
     {
       "file": "continuous-kde/upper-boundary-cluster.json",
-      "name": "continuous-kde.upper-boundary-cluster"
+      "name": "continuous-kde.upper-boundary-cluster",
+      "sha256": "be87f3c82f1b19f81eb903c246c10a7a74b328889f544a4d88adf0372a36a561"
     },
     {
       "file": "continuous-kde/wide-negative-range.json",
-      "name": "continuous-kde.wide-negative-range"
+      "name": "continuous-kde.wide-negative-range",
+      "sha256": "462890b5fb621b4a73e3412fcf833bbb2d7dbc9300f951e942e9bea1ae4a5029"
     },
     {
       "file": "ei/basic.json",
-      "name": "ei.basic"
+      "name": "ei.basic",
+      "sha256": "5ea19ef7988777f42a1684329bedd140df292d9d3c5b4ccf6b7fc5c54c9bf12e"
     },
     {
       "file": "ei/mixed-trace.json",
-      "name": "ei.mixed-trace"
+      "name": "ei.mixed-trace",
+      "sha256": "d3d6b4962ee253ebf015b054ccc5872d3181317fe0bcec64da09167191810863"
     },
     {
       "file": "gamma/default-gamma.json",
-      "name": "gamma.default-gamma"
+      "name": "gamma.default-gamma",
+      "sha256": "403bbf2bb33223470c17a172fcb306365787dc17b075c316f9909dedd21fed2d"
     },
     {
       "file": "mixed-space/joint-trace.json",
-      "name": "mixed-space.joint-trace"
+      "name": "mixed-space.joint-trace",
+      "sha256": "4d2fc5a7cf0fb95bf0c9e5731fa5fb1808069bd343b11ab0d5a8e009920bb382"
     },
     {
       "file": "mixed-space/joint-trace-recency-shift.json",
-      "name": "mixed-space.joint-trace.recency-shift"
+      "name": "mixed-space.joint-trace.recency-shift",
+      "sha256": "a058796fafda42d13923b5befcce93dbe40ebd57821fa5917c3b9a740e82bf9b"
+    },
+    {
+      "file": "motpe-hssp/below-weights.json",
+      "name": "motpe-hssp.below-weights",
+      "sha256": "69d938bde70cbc76a337febdbec6b0b9306bc72d61bc6702ca533f0187256506"
+    },
+    {
+      "file": "motpe-hssp/feasibility-fronts.json",
+      "name": "motpe-hssp.feasibility-fronts",
+      "sha256": "670a1798eaceca825638a10fc1229fff38bfe211955eaaf1caafcc65488cb53c"
+    },
+    {
+      "file": "motpe-hssp/many-objective.json",
+      "name": "motpe-hssp.many-objective",
+      "sha256": "4b39d3c8e364941e0016791ca92726b08582cb888c9b9370c1a72d36d8d49165"
+    },
+    {
+      "file": "motpe-hssp/ties.json",
+      "name": "motpe-hssp.ties",
+      "sha256": "210229a2b481b4dacac398d6e526cabac59e731f4f3fd8ebf5aae6589e60ef83"
     },
     {
       "file": "motpe-reference/reference-point.json",
-      "name": "motpe-reference.reference-point"
+      "name": "motpe-reference.reference-point",
+      "sha256": "21bff3a55c3b7ad365c5e5eda962cfac4b4f5adc6f74153b2a6936f22ef731c6"
     },
     {
       "file": "motpe-split/multi-rank-hssp.json",
-      "name": "motpe-split.multi-rank-hssp"
+      "name": "motpe-split.multi-rank-hssp",
+      "sha256": "564955ceae9a4ac4a88159d347813dbdbcde94ca87e029769baa9b00f116df4f"
     },
     {
       "file": "motpe-study.2obj.json",
-      "name": "motpe-study.2obj"
+      "name": "motpe-study.2obj",
+      "sha256": "278cfa9db563befe53926d57b13ea8afaccfcc573b81be6db25143c872726410"
     },
     {
       "file": "motpe-weights.2obj.json",
-      "name": "motpe-weights.2obj"
+      "name": "motpe-weights.2obj",
+      "sha256": "9df11805d3f918e5b8c18c18b58a7a60c44286bd84e4b9420c76f8f789a9f7fc"
     },
     {
       "file": "motpe-weights.mixed-directions.json",
-      "name": "motpe-weights.mixed-directions"
+      "name": "motpe-weights.mixed-directions",
+      "sha256": "91987cdc476af34f1b7663e87acfb40604c11e5c62685ff1a4026e634a46961e"
     },
     {
       "file": "motpe-weights.zero-contribution.json",
-      "name": "motpe-weights.zero-contribution"
+      "name": "motpe-weights.zero-contribution",
+      "sha256": "4edf4c805e86ee079ef43e7387482cbd7b906d22e86b210450463c08d7c71543"
     },
     {
       "file": "multivariate-gaussian/parity.json",
-      "name": "multivariate-gaussian.parity"
+      "name": "multivariate-gaussian.parity",
+      "sha256": "2d127592446023fb1fd6c5e520daaed78f44f1d64ae2a848ba6d52aaa2379db5"
     },
     {
       "file": "noise-bandwidth/parity.json",
-      "name": "noise-bandwidth.parity"
+      "name": "noise-bandwidth.parity",
+      "sha256": "33db9a29fde671a99eb548a7e25e76b56091231254ad3c1597215c5b2f467b2c"
     },
     {
       "file": "pruned-score/pruned-ordering.json",
-      "name": "pruned-score.pruned-ordering"
+      "name": "pruned-score.pruned-ordering",
+      "sha256": "344fcb2f862ac57e64d342903dcee0134a2db8656131cd2240faf9078081b572"
     },
     {
       "file": "pruning/percentile-pruner.json",
-      "name": "pruning.percentile-pruner"
+      "name": "pruning.percentile-pruner",
+      "sha256": "2f6948deb59db19fe7c676f8636a4ca9a1fa0eaca15fb4a4f4cb9f2831e34a19"
     },
     {
       "file": "pruning/report-contract.json",
-      "name": "pruning.report-contract"
+      "name": "pruning.report-contract",
+      "sha256": "87336bcc3396d25ecede77ba855390629909e1d1ec4a2fa2d005149f7168191b"
     },
     {
       "file": "split-trials/single-and-liar.json",
-      "name": "split-trials.single-and-liar"
+      "name": "split-trials.single-and-liar",
+      "sha256": "f23441e0ff66c2376138da3ed3f7fddc83fefdce2c1d23d0841ac4095d55be34"
     },
     {
       "file": "tpe-categorical-study.replay.json",
-      "name": "tpe-categorical-study.replay"
+      "name": "tpe-categorical-study.replay",
+      "sha256": "1d71b094156e46f4019debd414ae5c0d7051664144b2f209bd3757cfed1e7607"
+    },
+    {
+      "file": "tpe-numeric/mixed-default.json",
+      "name": "tpe-numeric.mixed-default",
+      "sha256": "b474e8886e63efd117344ce8a80f7599fd72bd72ce94a4442dd0224e436085c2"
+    },
+    {
+      "file": "tpe-numeric/stepped-float.json",
+      "name": "tpe-numeric.stepped-float",
+      "sha256": "db61f6381fcefb19948c5df427add7dc783f549584cf4906ba12202dd5dd543f"
+    },
+    {
+      "file": "trial-states/constant-liar.json",
+      "name": "trial-states.constant-liar",
+      "sha256": "468c295466a6330b97de19a35fdcfdbe5f577908ef315b6786652925ea81d2d2"
+    },
+    {
+      "file": "trial-states/pruned-constraints.json",
+      "name": "trial-states.pruned-constraints",
+      "sha256": "fe647d6786225eddc942ad83ab75a1a5035c723f60e325d37220851f9be220d7"
+    },
+    {
+      "file": "trial-states/threshold-last-step.json",
+      "name": "trial-states.threshold-last-step",
+      "sha256": "a45454658ca95a2d4dd5874d5479a90ea7136084ced1b0a8474f0af8b3e369fd"
     },
     {
       "file": "truncated-normal/edge-cases.json",
-      "name": "truncated-normal.edge-cases"
+      "name": "truncated-normal.edge-cases",
+      "sha256": "094ba345a8b05f785f8bed5e32c3674bf897e36f3d021ce83d3432be1272329c"
     }
   ],
-  "generator": {
-    "generatedAt": "2026-03-15T00:00:00Z",
-    "generatorVersion": "2.0.0",
-    "pythonVersion": "3.11",
-    "script": "scripts/generate-optuna-fixtures.py",
-    "upstream": "optuna",
-    "upstreamVersion": "4.3.0"
+  "generator": "scripts/generate-optuna-fixtures.py",
+  "upstream": {
+    "optuna": "4.9.0",
+    "platform": "Linux-x86_64",
+    "python": "3.12.14"
   }
 }

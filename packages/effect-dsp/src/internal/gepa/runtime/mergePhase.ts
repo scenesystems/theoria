@@ -1,137 +1,114 @@
-/**
- * GEPA merge phase orchestration.
- *
- * @since 0.1.0
- */
-import { Array as Arr, Boolean, Effect, Inspectable, Number as Num, Option, String as Str } from "effect"
+/** Scheduled common-ancestor merge consumes a whole iteration, accepted or not. @internal */
+import * as Numeric from "@scenesystems/effect-math/Numeric"
+import type * as PseudoRandom from "@scenesystems/effect-math/PseudoRandom"
+import { Array as Arr, Boolean, Effect, Number as Num, Option, Struct, Tuple } from "effect"
 import type { Schema } from "effect"
-
-import { events, type EventSink, type Options as GEPAOptions } from "../../../GEPA.js"
-import { evaluateMergeAcceptance } from "../accept.js"
-import { prepareCommonAncestorMerge, recordAcceptedMerge } from "../merge.js"
-import { GEPAState, MergeState } from "../model.js"
-
-import {
-  buildMergeComparisons,
-  chooseParentPairIndices,
-  scoreVectorForComparisons,
-  shouldAttemptMerge
-} from "./candidateSelection.js"
+import { events, type EventSink, type Examples, type Options, State } from "../../../GEPA.js"
+import { type MergeProposal, prepareMerge, selectMergeSubsample } from "../merge.js"
 import { evaluateCandidate } from "./evaluate.js"
 
-const mergeCheckedEvent = (
-  iteration: number,
-  attempted: boolean,
-  accepted: boolean,
-  mergeBudgetRemaining: number
-) =>
-  events.MergeChecked({
-    iteration,
-    attempted,
-    accepted,
-    mergeBudgetRemaining
-  })
-
-/**
- * Execute the GEPA merge/crossover stage for one iteration.
- *
- * @since 0.1.0
- * @category combinators
- */
+/** Accepted merges alone consume merge budget; every concrete proposal skips reflection. @internal */
 export const runMergePhase = <I extends Schema.Struct.Fields, O extends Schema.Struct.Fields, ME, MR, E, R, EE, ER>(
-  options: GEPAOptions<I, O, ME, MR, E, R>,
-  state: GEPAState,
-  iteration: number,
-  mergeSeed: number,
+  options: Options<I, O, ME, MR, E, R>,
+  state: State,
+  valset: Examples,
+  rng: PseudoRandom.CPython,
   emit: EventSink<EE, ER>
 ) =>
-  Boolean.match(shouldAttemptMerge(state), {
-    onFalse: () =>
-      emit(
-        mergeCheckedEvent(iteration, false, false, state.mergeBudgetRemaining)
-      ).pipe(Effect.as(state)),
-    onTrue: () =>
-      Effect.gen(function*() {
-        const [parentAIndex, parentBIndex] = chooseParentPairIndices(state, mergeSeed)
-
-        return yield* Option.match(
-          Option.product(Arr.get(state.candidates, parentAIndex), Arr.get(state.candidates, parentBIndex)),
-          {
-            onNone: () =>
-              emit(
-                mergeCheckedEvent(iteration, false, false, state.mergeBudgetRemaining)
-              ).pipe(Effect.as(state)),
-            onSome: ([parentA, parentB]) =>
-              Effect.gen(function*() {
-                const parentAScores = Option.getOrElse(Arr.get(state.scoreVectors, parentAIndex), () =>
-                  Arr.empty<number>())
-                const parentBScores = Option.getOrElse(Arr.get(state.scoreVectors, parentBIndex), () =>
-                  Arr.empty<number>())
-                const preparation = prepareCommonAncestorMerge({
-                  candidates: state.candidates,
-                  parentAId: parentA.candidateId,
-                  parentBId: parentB.candidateId,
-                  parentAScore: Arr.reduce(parentAScores, 0, Num.sum),
-                  parentBScore: Arr.reduce(parentBScores, 0, Num.sum),
-                  mergedCandidateId: Str.concat("merge-", Inspectable.toStringUnknown(iteration)),
-                  comparisons: buildMergeComparisons(parentAScores, parentBScores),
-                  mergeBudgetRemaining: state.mergeBudgetRemaining,
-                  seed: mergeSeed
-                })
-
-                return yield* Option.match(preparation.candidate, {
-                  onNone: () =>
-                    emit(
-                      mergeCheckedEvent(iteration, true, false, state.mergeBudgetRemaining)
-                    ).pipe(Effect.as(state)),
-                  onSome: (candidate) =>
-                    Effect.gen(function*() {
-                      const mergedEvaluation = yield* evaluateCandidate(options, candidate)
-                      const mergeAcceptance = evaluateMergeAcceptance({
-                        mergedSubsampleScores: scoreVectorForComparisons(
-                          mergedEvaluation.scores,
-                          preparation.subsample
-                        ),
-                        parentASubsampleScores: Arr.map(preparation.subsample, (comparison) =>
-                          comparison.parentAScore),
-                        parentBSubsampleScores: Arr.map(preparation.subsample, (comparison) =>
-                          comparison.parentBScore)
-                      })
-
-                      return yield* Boolean.match(mergeAcceptance.accepted, {
-                        onTrue: () =>
-                          Effect.gen(function*() {
-                            const mergeState = recordAcceptedMerge(
-                              new MergeState({
-                                candidates: state.candidates,
-                                mergeBudgetRemaining: state.mergeBudgetRemaining
-                              }),
-                              candidate
-                            )
-
-                            yield* emit(
-                              mergeCheckedEvent(iteration, true, true, mergeState.mergeBudgetRemaining)
-                            )
-
-                            return new GEPAState({
-                              iteration: state.iteration,
-                              candidates: mergeState.candidates,
-                              scoreVectors: Arr.append(state.scoreVectors, mergedEvaluation.scores),
-                              paretoSnapshot: state.paretoSnapshot,
-                              mergeBudgetRemaining: mergeState.mergeBudgetRemaining,
-                              lastIterationFoundNew: state.lastIterationFoundNew,
-                              seed: state.seed
-                            })
-                          }),
-                        onFalse: () =>
-                          emit(
-                            mergeCheckedEvent(iteration, true, false, state.mergeBudgetRemaining)
-                          ).pipe(Effect.as(state))
-                      })
-                    })
-                })
-              })
+  Effect.gen(function*() {
+    const maxMergeInvocations = Option.getOrElse(Option.fromUndefinedOr(options.maxMergeInvocations), () => 5)
+    const proposal = yield* Boolean.match(
+      Option.getOrElse(Option.fromUndefinedOr(options.useMerge), () => true) && state.lastIterationFoundNew &&
+        state.mergesDue > 0,
+      {
+        onFalse: () => Effect.succeed(Option.none<MergeProposal>()),
+        onTrue: () =>
+          prepareMerge(
+            state.candidates,
+            // GEPAState.program_full_scores_val_set: builtin sum / len; these also weight the ancestor draw.
+            Arr.map(state.scoreVectors, (row) => Num.divideUnsafe(Numeric.sumNeumaier(row), Arr.length(row))),
+            state.paretoSnapshot.frontierIndices,
+            state.mergeTriplets,
+            state.mergeDescriptions,
+            valset.length >= 5,
+            rng
+          )
+      }
+    )
+    return yield* Option.match(proposal, {
+      onNone: () =>
+        Effect.gen(function*() {
+          yield* emit(
+            events.MergeChecked({
+              iteration: state.iteration + 1,
+              attempted: false,
+              accepted: false,
+              mergeBudgetRemaining: maxMergeInvocations - state.acceptedMerges
+            })
+          )
+          return {
+            state: new State(Struct.assign(state, { lastIterationFoundNew: false })),
+            attempted: false,
+            accepted: false
           }
-        )
-      })
+        }),
+      onSome: ({ ancestor, candidate, description, parents: [i, j] }) =>
+        Effect.gen(function*() {
+          const left = Option.getOrThrow(Arr.get(state.scoreVectors, i)),
+            right = Option.getOrThrow(Arr.get(state.scoreVectors, j))
+          const ids = yield* selectMergeSubsample(left, right, rng)
+          const scores = yield* evaluateCandidate(
+            options,
+            candidate,
+            Arr.map(ids, (index) => Option.getOrThrow(Arr.get(valset, index))),
+            "select"
+          )
+          // Engine merge gate: sum(subsample_scores_after) >= max of the parents' builtin subsample sums.
+          const accepted = Numeric.sumNeumaier(scores.scores) >= Num.max(
+            Numeric.sumNeumaier(Arr.map(ids, (index) => Option.getOrThrow(Arr.get(left, index)))),
+            Numeric.sumNeumaier(Arr.map(ids, (index) => Option.getOrThrow(Arr.get(right, index))))
+          )
+          const full = yield* Boolean.match(accepted, {
+            onFalse: () => Effect.succeed({ scores: Arr.empty<number>() }),
+            onTrue: () => evaluateCandidate(options, candidate, valset, "select")
+          })
+          const next = new State(Struct.assign(state, {
+            metricCalls: state.metricCalls + ids.length +
+              Boolean.match(accepted, { onFalse: () => 0, onTrue: () => valset.length }),
+            candidates: Boolean.match(accepted, {
+              onFalse: () => state.candidates,
+              onTrue: () => Arr.append(state.candidates, candidate)
+            }),
+            scoreVectors: Boolean.match(accepted, {
+              onFalse: () => state.scoreVectors,
+              onTrue: () => Arr.append(state.scoreVectors, full.scores)
+            }),
+            componentCursors: Boolean.match(accepted, {
+              onFalse: () => state.componentCursors,
+              onTrue: () =>
+                Arr.append(
+                  state.componentCursors,
+                  Num.max(
+                    Option.getOrThrow(Arr.get(state.componentCursors, i)),
+                    Option.getOrThrow(Arr.get(state.componentCursors, j))
+                  )
+                )
+            }),
+            mergesDue: state.mergesDue - Boolean.match(accepted, { onFalse: () => 0, onTrue: () => 1 }),
+            acceptedMerges: state.acceptedMerges + Boolean.match(accepted, { onFalse: () => 0, onTrue: () => 1 }),
+            lastIterationFoundNew: false,
+            mergeTriplets: Arr.append(state.mergeTriplets, Tuple.make(i, j, ancestor)),
+            mergeDescriptions: Arr.append(state.mergeDescriptions, Tuple.make(i, j, description))
+          }))
+          yield* emit(
+            events.MergeChecked({
+              iteration: state.iteration + 1,
+              attempted: true,
+              accepted,
+              mergeBudgetRemaining: maxMergeInvocations - next.acceptedMerges
+            })
+          )
+          return { state: next, attempted: true, accepted }
+        })
+    })
   })

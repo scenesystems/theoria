@@ -3,12 +3,11 @@
   "metadata": {
     "generatedAt": "2026-03-15T00:00:00Z",
     "generator": {
-      "script": "scripts/generate-optuna-fixtures.py",
-      "version": "2.0.0"
+      "script": "scripts/generate-optuna-fixtures.py"
     },
     "upstream": {
       "name": "optuna",
-      "version": "4.3.0"
+      "version": "4.9.0"
     }
   },
   "payload": {
@@ -53,15 +52,14 @@
         }
       },
       {
-        "expectedErrorTag": "InvalidReportStep",
-        "expectedOutcome": "error",
+        "expectedOutcome": "accepted",
         "expectedReports": [
           {
             "step": 0,
             "value": 0.81
           }
         ],
-        "id": "rejects-duplicate-step",
+        "id": "ignores-duplicate-step",
         "initialReports": [
           {
             "step": 0,
@@ -74,8 +72,7 @@
         }
       },
       {
-        "expectedErrorTag": "InvalidReportStep",
-        "expectedOutcome": "error",
+        "expectedOutcome": "accepted",
         "expectedReports": [
           {
             "step": 0,
@@ -84,9 +81,13 @@
           {
             "step": 2,
             "value": 0.72
+          },
+          {
+            "step": 1,
+            "value": 0.6
           }
         ],
-        "id": "rejects-decreasing-step",
+        "id": "accepts-decreasing-step",
         "initialReports": [
           {
             "step": 0,

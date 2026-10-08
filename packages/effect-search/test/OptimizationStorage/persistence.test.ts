@@ -30,14 +30,23 @@ describe("OptimizationStorage", () => {
       const fs = yield* FileSystem.FileSystem
       const options = StudyStorage.fileSystemOptions(yield* fs.makeTempDirectoryScoped())
       const storage = yield* OptimizationStorage.makeFileSystem(options)
-      const first: OptimizationSnapshot.Trial = { trialNumber: 7, config: "first", state: { _tag: "Cancelled" } }
-      const second: OptimizationSnapshot.Trial = { trialNumber: 2, config: "second", state: { _tag: "Cancelled" } }
-      const third: OptimizationSnapshot.Trial = { trialNumber: 9, config: "third", state: { _tag: "Cancelled" } }
+      const record = (trialNumber: number, config: string): OptimizationSnapshot.TrialRecord => ({
+        trial: { trialNumber, config, state: { _tag: "Cancelled" } },
+        samplerCheckpoint: { _tag: "Grid", seed: trialNumber, shuffle: false }
+      })
+      const first = record(7, "first")
+      const second = record(2, "second")
+      const third = record(9, "third")
       yield* Effect.all([storage.appendTrial(first), storage.appendTrial(second)], { concurrency: 2 })
       yield* storage.appendTrial(first)
       yield* storage.appendTrial(third)
-      const conflict = yield* storage.appendTrial({ ...first, config: "different" }).pipe(Effect.result)
+      const conflict = yield* storage.appendTrial(record(7, "different")).pipe(Effect.result)
       expect((yield* Effect.fromResult(Result.flip(conflict))).reason).toBe("RecordConflict")
+      const checkpointConflict = yield* storage.appendTrial({
+        trial: first.trial,
+        samplerCheckpoint: { _tag: "Grid", seed: 8, shuffle: false }
+      }).pipe(Effect.result)
+      expect((yield* Effect.fromResult(Result.flip(checkpointConflict))).reason).toBe("RecordConflict")
       const reopened = yield* OptimizationStorage.makeFileSystem(options)
       expect(yield* reopened.loadTrialLog()).toEqual([first, second, third])
     }).pipe(Effect.provide(BunServices.layer)))
@@ -74,10 +83,14 @@ describe("OptimizationStorage", () => {
       }))
 
       yield* storage.writeSnapshot(checkpoint)
-      yield* Effect.forEach(snapshot.trials, (trial) => storage.appendTrial(trial), { discard: true })
+      yield* Effect.forEach(
+        snapshot.trials,
+        (trial) => storage.appendTrial({ trial, samplerCheckpoint: snapshot.samplerCheckpoint }),
+        { discard: true }
+      )
 
       const replayed = yield* storage.replayTrialLog()
-      expect(Arr.map(replayed, (trial) => trial.trialNumber)).toEqual(Arr.make(2, 3))
+      expect(Arr.map(replayed, (record) => record.trial.trialNumber)).toEqual(Arr.make(2, 3))
     }).pipe(Effect.provide(BunServices.layer)))
 
   it.effect("persists trial logs and canonical snapshots when OptimizationStorage layer is provided", () =>
@@ -115,6 +128,10 @@ describe("OptimizationStorage", () => {
       const snapshot = yield* Effect.fromOption(persistedSnapshot)
       expect(snapshot.nextTrialNumber).toBe(3)
       expect(snapshot.completedCount).toBe(3)
+      expect(Arr.map(persistedTrials, (record) => record.trial.trialNumber)).toEqual(Arr.make(0, 1, 2))
+      expect(Option.map(Arr.last(persistedTrials), (record) => record.samplerCheckpoint)).toEqual(
+        Option.some(snapshot.samplerCheckpoint)
+      )
     }).pipe(Effect.provide(BunServices.layer)))
 
   it.effect("reports malformed journal records as an independent typed read failure", () =>
@@ -168,7 +185,9 @@ describe("OptimizationStorage", () => {
       const trial = yield* Effect.fromOption(Arr.head(Arr.fromIterable(completed.trials)))
 
       yield* fileSystem.remove(journalDirectory, { recursive: true })
-      const outcome = yield* storage.appendTrial(OptimizationSnapshot.fromTrial(trial)).pipe(Effect.result)
+      const outcome = yield* storage.appendTrial(
+        OptimizationSnapshot.makeTrialRecord(trial, (yield* Optimization.snapshot(completed)).samplerCheckpoint)
+      ).pipe(Effect.result)
       const failure = yield* Schema.decodeEffect(PersistenceError.Failure)(Result.getOrThrow(Result.flip(outcome)))
 
       expect(failure).toBeInstanceOf(PersistenceError.Failure)

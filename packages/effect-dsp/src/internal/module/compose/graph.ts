@@ -3,11 +3,24 @@
  *
  * @since 0.1.0
  */
-import { Array as Arr, Boolean, Data, Effect, Equivalence, Graph, HashMap, Option, Order, Record, Schema } from "effect"
+import {
+  Array as Arr,
+  Boolean,
+  Data,
+  Effect,
+  Equivalence,
+  Graph,
+  HashMap,
+  Option,
+  Order,
+  Record,
+  Schema,
+  Tuple
+} from "effect"
 import type { Ref } from "effect"
 import type { Codec } from "../../../Demonstration.js"
 import { CompositionError } from "../../../DspError.js"
-import { type ComposableModule, type ComposeGraphOptions, Id, Node, nodeGraph, NodeSignature } from "../../../Module.js"
+import { type ComposableModule, type ComposeGraphOptions, Id, Structure, structure } from "../../../Module.js"
 import {
   Edge as ModuleGraphEdge,
   make as makeModuleGraph,
@@ -15,23 +28,27 @@ import {
   Node as ModuleGraphNode
 } from "../../../ModuleGraph.js"
 import type { ModuleParameters } from "../../../ModuleParameters.js"
+import { Text } from "../../../Signature.js"
+import { type Effective, resolveDeclarations, sortedDeclarations as declarationEntries } from "./defaults.js"
 
-const ownerIdentity = Equivalence.strictEqual<Ref.Ref<ModuleParameters>>()
+const predictorIdentity = Equivalence.strictEqual<Ref.Ref<ModuleParameters>>()
 const contractIdentity = Equivalence.strictEqual<Codec>()
-const metadataEquivalent = (left: NodeSignature, right: NodeSignature): boolean =>
-  Schema.toEquivalence(NodeSignature)(left, right)
-const declarationEquivalence = Equivalence.make<ReadonlyArray<readonly [Id, Node]>>((left, right) =>
+const metadataEquivalent = (left: Text, right: Text): boolean => Schema.toEquivalence(Text)(left, right)
+const declarationEquivalence = Equivalence.make<ReadonlyArray<readonly [Id, Structure]>>((left, right) =>
   Arr.length(left) === Arr.length(right) &&
-  Arr.every(Arr.zip(left, right), ([[leftId, leftNode], [rightId, rightNode]]) =>
-    Equivalence.String(leftId, rightId) &&
-    Equivalence.String(leftNode.moduleId, rightNode.moduleId) &&
-    Equivalence.String(leftNode.name, rightNode.name) &&
-    ownerIdentity(leftNode.params, rightNode.params))
+  Arr.every(
+    Arr.zip(left, right),
+    ([[leftId, leftModule], [rightId, rightModule]]) =>
+      Equivalence.String(leftId, rightId) &&
+      Equivalence.String(leftModule.id, rightModule.id) &&
+      Equivalence.String(leftModule.name, rightModule.name) &&
+      predictorIdentity(leftModule.parameters, rightModule.parameters)
+  )
 )
-const nodeOrder: Order.Order<Node> = Order.mapInput(Order.String, (node) => node.moduleId)
-const declarationOrder = Order.make<readonly [Id, Node]>(([left], [right]) => Order.String(left, right))
+const moduleOrder: Order.Order<Structure> = Order.mapInput(Order.String, (module) => module.id)
+const declarationOrder = Order.make<readonly [Id, Structure]>(([left], [right]) => Order.String(left, right))
 
-const sortedDeclarations = (node: Node) => Arr.sort(HashMap.toEntries(node.subModules), declarationOrder)
+const sortedDeclarations = (module: Structure) => Arr.sort(HashMap.toEntries(module.subModules), declarationOrder)
 
 const decodeModuleId = (moduleName: string): Effect.Effect<Id, CompositionError> =>
   Schema.decodeEffect(Id)(moduleName).pipe(
@@ -52,7 +69,7 @@ const duplicateIdError = (moduleId: Id): CompositionError =>
     moduleName: moduleId
   })
 
-const validateDeclaredId = (ownerName: string, declaredId: Id, actualId: Id) =>
+const validateDeclaredId = (moduleName: string, declaredId: Id, actualId: Id) =>
   Boolean.match(Equivalence.String(declaredId, actualId), {
     onTrue: () => Effect.void,
     onFalse: () =>
@@ -61,7 +78,7 @@ const validateDeclaredId = (ownerName: string, declaredId: Id, actualId: Id) =>
           message: Arr.join(
             Arr.make(
               "Sub-module '",
-              ownerName,
+              moduleName,
               "' declares child id '",
               declaredId,
               "' but child module resolves to '",
@@ -70,15 +87,15 @@ const validateDeclaredId = (ownerName: string, declaredId: Id, actualId: Id) =>
             ),
             ""
           ),
-          moduleName: ownerName
+          moduleName
         })
       )
   })
 
-const validateNode = (rootId: Id, node: Node) =>
+const validateModule = (rootId: Id, module: Structure) =>
   Effect.gen(function*() {
-    const actualId = yield* decodeModuleId(node.name)
-    yield* validateDeclaredId(node.name, node.moduleId, actualId)
+    const actualId = yield* decodeModuleId(module.name)
+    yield* validateDeclaredId(module.name, module.id, actualId)
     yield* Boolean.match(Equivalence.String(actualId, rootId), {
       onTrue: () =>
         Effect.fail(
@@ -91,45 +108,118 @@ const validateNode = (rootId: Id, node: Node) =>
     })
   })
 
-const projectionError = (node: Node, detail: string): CompositionError =>
+const projectionError = (module: Structure, detail: string): CompositionError =>
   new CompositionError({
-    message: Arr.join(Arr.make("Module owner '", node.moduleId, "' has inconsistent ", detail), ""),
-    moduleName: node.moduleId
+    message: Arr.join(Arr.make("Module '", module.id, "' has inconsistent ", detail), ""),
+    moduleName: module.id
   })
 
 // Compare immediate declarations, not recursive wrapper equality. Every wrapper
 // is checked through its direct alias or retained native graph edge, including
 // alternate projections of a shared child. The first retained projection is
-// therefore sufficient for later parameter traversal without dropping owners.
-const validateProjection = (canonical: Node, node: Node) =>
+// therefore sufficient for later parameter traversal without dropping predictors.
+const validateProjection = (canonical: Structure, module: Structure) =>
   Effect.gen(function*() {
-    yield* validateDeclaredId(node.name, node.moduleId, canonical.moduleId)
-    yield* Boolean.match(metadataEquivalent(canonical.signature, node.signature), {
+    yield* validateDeclaredId(module.name, module.id, canonical.id)
+    yield* Boolean.match(metadataEquivalent(canonical.signature, module.signature), {
       onTrue: () => Effect.void,
-      onFalse: () => Effect.fail(projectionError(node, "signature metadata"))
+      onFalse: () => Effect.fail(projectionError(module, "signature metadata"))
     })
-    yield* Boolean.match(contractIdentity(canonical.demonstrationCodec, node.demonstrationCodec), {
+    yield* Boolean.match(contractIdentity(canonical.demonstrationCodec, module.demonstrationCodec), {
       onTrue: () => Effect.void,
-      onFalse: () => Effect.fail(projectionError(node, "demonstration contract"))
+      onFalse: () => Effect.fail(projectionError(module, "demonstration contract"))
     })
-    yield* Boolean.match(declarationEquivalence(sortedDeclarations(canonical), sortedDeclarations(node)), {
+    yield* Boolean.match(declarationEquivalence(sortedDeclarations(canonical), sortedDeclarations(module)), {
       onTrue: () => Effect.void,
-      onFalse: () => Effect.fail(projectionError(node, "child declarations"))
+      onFalse: () => Effect.fail(projectionError(module, "child declarations"))
     })
   })
 
-const registerOwner = (owners: HashMap.HashMap<Id, Node>, node: Node) =>
-  Option.match(HashMap.get(owners, node.moduleId), {
-    onNone: () => Effect.succeed(HashMap.set(owners, node.moduleId, node)),
+// Predictor.Path segments are non-empty and dot-free; a dotted alias would
+// silently alias a nested path and an empty one would produce an invalid path.
+const PathSegment = Schema.String.check(Schema.isPattern(/^[^.]+$/))
+const aliasOrder = Order.mapInput(Order.String, (entry: readonly [string, Structure]) => entry[0])
+
+const invalidAliases = (owner: string, declarations: ReadonlyArray<readonly [string, Structure]>): ReadonlyArray<
+  readonly [string, string]
+> =>
+  Arr.flatMap(declarations, ([alias, child]) =>
+    Arr.appendAll(
+      Boolean.match(Schema.is(PathSegment)(alias), {
+        onTrue: () => Arr.empty<readonly [string, string]>(),
+        onFalse: () => Arr.make(Tuple.make(owner, alias))
+      }),
+      invalidAliases(child.name, declarationEntries(child))
+    ))
+
+const validateAliases = (rootName: string, declarations: ReadonlyArray<readonly [string, Structure]>) =>
+  Option.match(Arr.head(invalidAliases(rootName, declarations)), {
+    onNone: () => Effect.void,
+    onSome: ([owner, alias]) =>
+      Effect.fail(
+        new CompositionError({
+          message: Arr.join(
+            Arr.make("Sub-module alias '", alias, "' declared by '", owner, "' is not a predictor path segment"),
+            ""
+          ),
+          moduleName: owner
+        })
+      )
+  })
+
+const validateCanonicalPaths = (rootId: Id, predictors: ReadonlyArray<Effective>) => {
+  const paths = Arr.flatMap(predictors, (entry) => entry.paths)
+  return Option.match(
+    Arr.findFirst(paths, (path, index) => Arr.contains(Arr.take(paths, index), path)),
+    {
+      onNone: () => Effect.void,
+      onSome: (path) =>
+        Effect.fail(
+          new CompositionError({
+            message: Arr.join(Arr.make("Multiple declarations share canonical path '", path, "'"), ""),
+            moduleName: rootId
+          })
+        )
+    }
+  )
+}
+
+// One predictor has one effective default. Alternate paths that project
+// different bound defaults (or a default and none) are rejected rather than
+// resolved by alias spelling or declaration order.
+const validateDefaults = (predictors: ReadonlyArray<Effective>) =>
+  Option.match(Arr.findFirst(predictors, (entry) => !entry.consistent), {
+    onNone: () => Effect.void,
+    onSome: (entry) =>
+      Effect.fail(
+        new CompositionError({
+          message: Arr.join(
+            Arr.make(
+              "Predictor '",
+              entry.name,
+              "' has inconsistent bound defaults across paths '",
+              Arr.join(entry.paths, "', '"),
+              "'"
+            ),
+            ""
+          ),
+          moduleName: entry.name
+        })
+      )
+  })
+
+const registerModule = (modules: HashMap.HashMap<Id, Structure>, module: Structure) =>
+  Option.match(HashMap.get(modules, module.id), {
+    onNone: () => Effect.succeed(HashMap.set(modules, module.id, module)),
     onSome: (existing) =>
-      Boolean.match(ownerIdentity(existing.params, node.params), {
-        onTrue: () => Effect.succeed(owners),
-        onFalse: () => Effect.fail(duplicateIdError(node.moduleId))
+      Boolean.match(predictorIdentity(existing.parameters, module.parameters), {
+        onTrue: () => Effect.succeed(modules),
+        onFalse: () => Effect.fail(duplicateIdError(module.id))
       })
   })
 
 /**
- * Validated graph and live direct children for composed execution.
+ * Validated graph and direct sub-modules for composed execution.
  * @since 0.1.0
  * @category models
  */
@@ -137,24 +227,34 @@ export class CompositionGraph extends Data.Class<{
   readonly rootId: Id
   readonly rootChildIds: ModuleGraphNode["subModuleIds"]
   readonly graph: ModuleGraph
-  readonly subModuleNodesById: HashMap.HashMap<Id, Node>
+  readonly subModulesById: HashMap.HashMap<Id, Structure>
+  readonly declarations: Record.ReadonlyRecord<string, Structure>
 }> {}
 
-const buildSubModuleNode = (module: ComposableModule, moduleId: Id): Node =>
-  new Node({
-    moduleId,
+const buildSubModule = (module: ComposableModule, id: Id): Structure =>
+  new Structure({
+    id,
     name: module.name,
-    signature: new NodeSignature({
+    signature: new Text({
       description: module.signature.description,
       instructions: module.signature.instructions
     }),
+    signatureDigest: module.signature.digest,
     demonstrationCodec: module.signature.demonstrationCodec,
-    params: module.params,
-    subModules: module.subModules
+    parameters: module.parameters,
+    subModules: module.subModules,
+    declarations: Option.getOrElse(
+      Option.fromUndefinedOr(module.declarations),
+      () => Record.fromEntries(HashMap.toEntries(module.subModules))
+    ),
+    frozen: Option.getOrElse(Option.fromUndefinedOr(module.frozen), () => false),
+    boundParameters: Option.getOrElse(Option.fromUndefinedOr(module.boundParameters), () => ({}))
   })
 
 /**
- * Validates all declarations and owner identities, then native Graph acyclicity.
+ * Validates all declarations and predictor identities, then native Graph acyclicity,
+ * then predictor paths: canonical paths are unique, every alias is a valid
+ * predictor path segment, and each shared predictor projects one bound default.
  * Parameter state is never mutated while constructing or validating topology.
  * @since 0.1.0
  * @category constructors
@@ -164,50 +264,61 @@ export const buildCompositionGraph = <I extends Schema.Struct.Fields, O extends 
 ): Effect.Effect<CompositionGraph, CompositionError> =>
   Effect.gen(function*() {
     const rootId = yield* decodeModuleId(options.name)
-    const directNodes = yield* Effect.forEach(
+    const directModules = yield* Effect.forEach(
       Arr.sort(
         Record.toEntries(options.subModules),
         Order.make<readonly [string, ComposableModule]>(([left], [right]) => Order.String(left, right))
       ),
-      ([, module]) => decodeModuleId(module.name).pipe(Effect.map((moduleId) => buildSubModuleNode(module, moduleId)))
+      ([, module]) => decodeModuleId(module.name).pipe(Effect.map((moduleId) => buildSubModule(module, moduleId)))
     )
-    yield* Effect.forEach(directNodes, (node) => validateNode(rootId, node), { discard: true })
-    const subModuleNodesById = yield* Effect.reduce(directNodes, () => HashMap.empty<Id, Node>(), registerOwner)
-    const live = nodeGraph(Arr.sort(directNodes, nodeOrder))
-    const nodes = Arr.fromIterable(Graph.values(Graph.nodes(live)))
-    const declarations = Arr.fromIterable(Graph.values(Graph.edges(live)))
+    yield* Effect.forEach(directModules, (module) => validateModule(rootId, module), { discard: true })
+    const subModulesById = yield* Effect.reduce(directModules, () => HashMap.empty<Id, Structure>(), registerModule)
+    const program = structure(Arr.sort(directModules, moduleOrder))
+    const modules = Arr.fromIterable(Graph.values(Graph.nodes(program)))
+    const declarations = Arr.fromIterable(Graph.values(Graph.edges(program)))
 
-    yield* Effect.forEach(directNodes, (node) =>
+    yield* Effect.forEach(directModules, (module) =>
       Effect.gen(function*() {
-        const index = Option.getOrThrow(Graph.findNode(live, (existing) => ownerIdentity(existing.params, node.params)))
-        const canonical = Option.getOrThrow(Graph.getNode(live, index))
-        yield* validateProjection(canonical, node)
+        const index = Option.getOrThrow(
+          Graph.findNode(program, (existing) => predictorIdentity(existing.parameters, module.parameters))
+        )
+        const canonical = Option.getOrThrow(Graph.getNode(program, index))
+        yield* validateProjection(canonical, module)
       }), { discard: true })
     yield* Effect.forEach(declarations, (edge) =>
       Effect.gen(function*() {
-        yield* validateNode(rootId, edge.data.child)
-        yield* validateDeclaredId(edge.data.child.name, edge.data.declaredId, edge.data.child.moduleId)
-        const canonical = Option.getOrThrow(Graph.getNode(live, edge.target))
-        yield* validateProjection(canonical, edge.data.child)
+        yield* validateModule(rootId, edge.data.module)
+        yield* validateDeclaredId(edge.data.module.name, edge.data.name, edge.data.module.id)
+        const canonical = Option.getOrThrow(Graph.getNode(program, edge.target))
+        yield* validateProjection(canonical, edge.data.module)
       }), { discard: true })
-    yield* Effect.reduce(nodes, () => subModuleNodesById, registerOwner)
-    yield* Boolean.match(Graph.isAcyclic(live), {
+    yield* Effect.reduce(modules, () => subModulesById, registerModule)
+    yield* Boolean.match(Graph.isAcyclic(program), {
       onTrue: () => Effect.void,
       onFalse: () => Effect.fail(new CompositionError({ message: "Composition cycle detected", moduleName: rootId }))
     })
+    const aliasDeclarations = Arr.sort(
+      Arr.map(Record.toEntries(options.subModules), ([alias, module]) =>
+        Tuple.make(alias, buildSubModule(module, Schema.decodeSync(Id)(module.name)))),
+      aliasOrder
+    )
+    const resolved = resolveDeclarations(rootId, aliasDeclarations)
+    yield* validateCanonicalPaths(rootId, resolved)
+    yield* validateAliases(rootId, aliasDeclarations)
+    yield* validateDefaults(resolved)
 
-    const rootChildIds = Arr.sort(Arr.fromIterable(HashMap.keys(subModuleNodesById)), Order.String)
-    const graphNodes = Arr.map(Arr.fromIterable(Graph.entries(Graph.nodes(live))), ([index, node]) =>
+    const rootChildIds = Arr.sort(Arr.fromIterable(HashMap.keys(subModulesById)), Order.String)
+    const graphNodes = Arr.map(Arr.fromIterable(Graph.entries(Graph.nodes(program))), ([index, module]) =>
       new ModuleGraphNode({
-        moduleId: node.moduleId,
-        signature: node.signature,
-        subModuleIds: Arr.flatMap(Graph.successors(live, index), (child) =>
-          Option.toArray(Option.map(Graph.getNode(live, child), (value) =>
-            value.moduleId)))
+        moduleId: module.id,
+        signature: module.signature,
+        subModuleIds: Arr.flatMap(Graph.successors(program, index), (child) =>
+          Option.toArray(Option.map(Graph.getNode(program, child), (value) =>
+            value.id)))
       }))
     const rootNode = new ModuleGraphNode({
       moduleId: rootId,
-      signature: new NodeSignature({
+      signature: new Text({
         description: options.signature.description,
         instructions: options.signature.instructions
       }),
@@ -221,11 +332,17 @@ export const buildCompositionGraph = <I extends Schema.Struct.Fields, O extends 
         Arr.map(node.subModuleIds, (childId) =>
           new ModuleGraphEdge({ parentId: node.moduleId, childId }))))
     })
-    return new CompositionGraph({ rootId, rootChildIds, graph, subModuleNodesById })
+    return new CompositionGraph({
+      rootId,
+      rootChildIds,
+      graph,
+      subModulesById,
+      declarations: Record.fromEntries(aliasDeclarations)
+    })
   })
 
 /**
- * Returns the validated ownership graph without allocating root parameters.
+ * Returns the validated composition graph without allocating root parameters.
  * @since 0.1.0
  * @category constructors
  */

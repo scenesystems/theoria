@@ -588,6 +588,43 @@ export const expm1Strict: typeof Transcendental.expm1Strict = Transcendental.exp
 export const sum: (values: Iterable<number>) => number = Number.sumAll
 
 /**
+ * Adds a dense row in NumPy's float64 pairwise order: eight accumulation lanes,
+ * 128-element blocks, and aligned recursive splits. This fixes reduction order,
+ * rather than promising the correctly rounded sum of real-number inputs.
+ * @since 0.6.0
+ * @category operations
+ */
+export const sumPairwise: (values: Chunk.Chunk<number>) => number = Reduction.sumPairwise
+
+/**
+ * Adds values in iteration order exactly as CPython 3.12's builtin `sum` adds
+ * a sequence of floats from its default integer start. Use it where a Python
+ * reference compares sums or means, because naive left-to-right addition
+ * breaks real-valued ties such as `0.1 + 0.2 + 0.3` against `0.3 + 0.3 + 0`.
+ *
+ * @remarks
+ * Each addition carries Neumaier's compensation term, which is added once at
+ * the end only when it is nonzero and finite. An empty input sums to `0`,
+ * `-0` totals become `+0` as in `0 + -0.0`, and an overflowed or infinite
+ * total is returned unchanged rather than turned into `NaN`. This fixes
+ * CPython's reduction order and rounding; it does not promise the correctly
+ * rounded sum of the real-number inputs.
+ *
+ * @example
+ * ```ts
+ * import { Numeric } from "@scenesystems/effect-math"
+ * import { Number } from "effect"
+ *
+ * // true: both sums are 0.6, while naive addition gives 0.6000000000000001 for the first.
+ * export const tied = Number.Equivalence(Numeric.sumNeumaier([0.1, 0.2, 0.3]), Numeric.sumNeumaier([0.3, 0.3, 0]))
+ * ```
+ *
+ * @since 0.6.0
+ * @category operations
+ */
+export const sumNeumaier: (values: Iterable<number>) => number = Reduction.sumNeumaier
+
+/**
  * Finds the zero-based index of the maximum element, or `None` for an empty
  * iterable. When multiple elements share the maximum value, returns
  * the index of the first occurrence.

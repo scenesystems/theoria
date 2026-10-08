@@ -20,7 +20,9 @@ describe("optimization recovery integrity", () => {
       const sampler = new Sampler.Sampler({
         kind: Sampler.Random({ options: { seed: 0 } }),
         pendingImputationPolicy: Sampler.noPendingPolicy,
-        checkpoint: Ref.get(cursor).pipe(Effect.map((seed): Sampler.Checkpoint => ({ _tag: "Random", seed }))),
+        checkpoint: Ref.get(cursor).pipe(
+          Effect.map((seed): Sampler.Checkpoint => ({ _tag: "Random", seed, rng: Option.none() }))
+        ),
         restore: (checkpoint) =>
           Match.value(checkpoint).pipe(
             Match.tag("Random", ({ seed }) => Ref.set(cursor, seed)),
@@ -41,8 +43,12 @@ describe("optimization recovery integrity", () => {
       )
       const snapshot = yield* Optimization.snapshot(first)
       const persisted = yield* storage.loadSnapshot().pipe(Effect.flatMap(Effect.fromOption))
-      expect(snapshot.samplerCheckpoint).toEqual({ _tag: "Random", seed: 2 })
+      expect(snapshot.samplerCheckpoint).toEqual({ _tag: "Random", seed: 2, rng: Option.none() })
       expect(persisted.samplerCheckpoint).toEqual(snapshot.samplerCheckpoint)
+      expect(Arr.map(yield* storage.loadTrialLog(), (record) => record.samplerCheckpoint)).toEqual(Arr.make(
+        { _tag: "Random", seed: 1, rng: Option.none() },
+        { _tag: "Random", seed: 2, rng: Option.none() }
+      ))
       const resumed = yield* Optimization.resume(new Optimization.ResumeOptions(Struct.assign(options, { snapshot })))
       expect(Arr.map(Arr.fromIterable(resumed.trials), (trial) => trial.config.slot)).toEqual(Arr.make(0, 1, 2, 3))
     }))
@@ -107,7 +113,11 @@ describe("optimization recovery integrity", () => {
       const latest = yield* Optimization.snapshot(result)
       const earlier = OptimizationSnapshot.make(Arr.take(latest.trials, 1), latest)
       const storage = yield* makeStorage
-      yield* Effect.forEach(latest.trials, storage.appendTrial, { discard: true })
+      yield* Effect.forEach(
+        latest.trials,
+        (trial) => storage.appendTrial({ trial, samplerCheckpoint: latest.samplerCheckpoint }),
+        { discard: true }
+      )
       yield* storage.writeSnapshot(earlier)
       const advancing: OptimizationStorage.Service = {
         ...storage,

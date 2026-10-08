@@ -52,7 +52,7 @@ export const makeBestOfNForward = <
               const result = yield* options.reward(input, output)
               const candidate = new ScoredCandidate<Schema.Schema.Type<Schema.Struct<O>>>({
                 output,
-                score: result.score,
+                score: result.value,
                 rolloutIndex
               })
 

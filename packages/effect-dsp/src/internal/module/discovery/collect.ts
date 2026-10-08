@@ -5,7 +5,7 @@
  */
 import { Array as Arr, Effect, Equal, HashMap, Option, SynchronizedRef } from "effect"
 import { CompositionError } from "../../../DspError.js"
-import type { Id, Registration } from "../../../Module.js"
+import type { Discovered, Id } from "../../../Module.js"
 import {
   Edge as ModuleGraphEdge,
   make as makeModuleGraph,
@@ -16,10 +16,10 @@ import { ModuleRegistryRef, registrySnapshot } from "./registry.js"
 
 const hasRootRegistration = (
   rootId: Id,
-  registrations: Iterable<Registration>
+  registrations: Iterable<Discovered>
 ): boolean => Arr.some(Arr.fromIterable(registrations), (registration) => Equal.equals(registration.id, rootId))
 
-const registrationNode = (registration: Registration): ModuleGraphNode =>
+const registrationNode = (registration: Discovered): ModuleGraphNode =>
   new ModuleGraphNode({
     moduleId: registration.id,
     signature: registration.signature,
@@ -27,7 +27,7 @@ const registrationNode = (registration: Registration): ModuleGraphNode =>
   })
 
 const registrationEdges = (
-  registration: Registration
+  registration: Discovered
 ): ModuleGraph["edges"] =>
   Arr.map(
     registration.subModuleIds,
@@ -55,7 +55,7 @@ const registrationEdges = (
  */
 export const registrationsToModuleGraph = (
   rootId: Id,
-  registrations: Iterable<Registration>
+  registrations: Iterable<Discovered>
 ): Effect.Effect<ModuleGraph, CompositionError> =>
   Effect.suspend(() => {
     const snapshot = Arr.fromIterable(registrations)
@@ -149,6 +149,6 @@ export const withDiscoveryScope = <A, E, R>(
   program: Effect.Effect<A, E, R>
 ): Effect.Effect<A, E, R> =>
   Effect.flatMap(
-    SynchronizedRef.make(HashMap.empty<Id, Registration>()),
+    SynchronizedRef.make(HashMap.empty<Id, Discovered>()),
     (collector) => Effect.provideService(program, ModuleRegistryRef, Option.some(collector))
   )

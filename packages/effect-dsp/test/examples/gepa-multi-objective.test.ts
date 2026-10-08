@@ -18,9 +18,9 @@ import {
   Match,
   Number as Num,
   Option,
+  Record,
   Ref,
   Schema,
-  Stream,
   String as Str
 } from "effect"
 import * as LanguageModel from "effect/ai/LanguageModel"
@@ -38,25 +38,13 @@ const reflectiveResponse = Arr.of(
 )
 
 const trainset = Arr.make(
-  new Example({
-    input: { question: "What is the capital of France?" },
-    output: { answer: "Paris" }
-  }),
-  new Example({
-    input: { question: "What is the capital of Japan?" },
-    output: { answer: "Tokyo" }
-  }),
-  new Example({
-    input: { question: "What is the capital of Germany?" },
-    output: { answer: "Berlin" }
-  })
+  new Example({ input: { question: "What is the capital of France?" }, labels: Option.some({ answer: "Paris" }) }),
+  new Example({ input: { question: "What is the capital of Japan?" }, labels: Option.some({ answer: "Tokyo" }) }),
+  new Example({ input: { question: "What is the capital of Germany?" }, labels: Option.some({ answer: "Berlin" }) })
 )
 
 const valset = Arr.make(
-  new Example({
-    input: { question: "What is the capital of Italy?" },
-    output: { answer: "Rome" }
-  })
+  new Example({ input: { question: "What is the capital of Italy?" }, labels: Option.some({ answer: "Rome" }) })
 )
 
 const responseForPrompt = (prompt: string) =>
@@ -69,28 +57,23 @@ const responseForPrompt = (prompt: string) =>
     Match.orElse(() => AnswerResponse.make({ answer: "Unknown" }))
   )
 
-const feedbackMetric = Metric.fromEffect(
-  "feedback-exact",
-  (prediction: typeof AnswerResponse.Type, expected) =>
-    Effect.sync(() => {
-      const predicted = prediction.answer
-      const expectedAnswer = expected.answer
-      const correct = Str.Equivalence(predicted, expectedAnswer)
+const feedbackMetric = Metric.withFeedback((example, result) =>
+  Effect.gen(function*() {
+    const prediction = yield* Schema.decodeUnknownEffect(Schema.toType(AnswerResponse))(result.output)
+    const expected = yield* Schema.decodeUnknownEffect(AnswerResponse)(Option.getOrElse(example.labels, () => ({})))
+    const predicted = prediction.answer
+    const expectedAnswer = expected.answer
+    const correct = Str.Equivalence(predicted, expectedAnswer)
 
-      return Bool.match(correct, {
-        onFalse: () =>
-          new Metric.Result({
-            score: 0,
-            feedback: Arr.join(Arr.make("expected ", expectedAnswer, ", got ", predicted), "")
-          }),
-        onTrue: () =>
-          new Metric.Result({
-            score: 1,
-            feedback: "correct"
-          })
-      })
+    return Bool.match(correct, {
+      onFalse: () =>
+        new Metric.Score({
+          value: 0,
+          feedback: Option.some(Arr.join(Arr.make("expected ", expectedAnswer, ", got ", predicted), ""))
+        }),
+      onTrue: () => new Metric.Score({ value: 1, feedback: Option.some("correct") })
     })
-)
+  }), "feedback-exact")
 
 const runGepaMultiObjective = Effect.gen(function*() {
   const signature = yield* Signature.make(
@@ -105,30 +88,31 @@ const runGepaMultiObjective = Effect.gen(function*() {
   const mock = yield* MockLanguageModel.make(MockLanguageModel.map(responseForPrompt))
   const layer = Layer.succeed(LanguageModel.LanguageModel, mock.service)
 
-  const events = yield* Stream.runCollect(
-    GEPA.stream(
-      new GEPA.Options({
-        module,
-        trainset,
-        metric: feedbackMetric,
-        maxIterations: 3,
-        seed: 42
-      })
-    )
+  const recorded = yield* Ref.make(Arr.empty<GEPA.Event>())
+  const compiled = yield* GEPA.runWithEvents(
+    new GEPA.Options({
+      module,
+      trainset,
+      metric: feedbackMetric,
+      maxMetricCalls: 30,
+      maxIterations: 3,
+      seed: 42
+    }),
+    (event) => Ref.update(recorded, Arr.append(event))
   ).pipe(Effect.provide(layer))
 
-  const eventList = Arr.fromIterable(events)
-  const params = yield* Ref.get(module.params)
+  const eventList = yield* Ref.get(recorded)
+  const parameters = Option.getOrThrow(Record.get(compiled.parameters, module.name))
 
   return new (class extends Data.Class<{
     readonly eventList: typeof eventList
-    readonly params: typeof params
+    readonly parameters: typeof parameters
     readonly module: typeof module
     readonly layer: typeof layer
-  }> {})({ eventList, params, module, layer })
+  }> {})({ eventList, parameters, module: compiled.program, layer })
 })
 
-describe("examples/15-gepa-multi-objective-mock", () => {
+describe("examples/gepa-multi-objective", () => {
   it.effect("emits canonical GEPA event progression with Pareto updates", () =>
     Effect.gen(function*() {
       const { eventList } = yield* runGepaMultiObjective
@@ -156,9 +140,9 @@ describe("examples/15-gepa-multi-objective-mock", () => {
 
   it.effect("optimized module retains non-empty instructions", () =>
     Effect.gen(function*() {
-      const { params } = yield* runGepaMultiObjective
+      const { parameters } = yield* runGepaMultiObjective
 
-      expect(Str.length(params.instructions)).toBeGreaterThan(0)
+      expect(Str.length(parameters.instructions)).toBeGreaterThan(0)
     }))
 
   it.effect("seeded execution is deterministic across runs", () =>

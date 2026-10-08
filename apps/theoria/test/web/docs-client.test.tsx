@@ -25,7 +25,7 @@ describe("documentation browser boundary", () => {
 
   it.effect("turns malformed payloads into a typed data error", () =>
     withFetchText(
-      "{\"schemaVersion\":2}",
+      "{\"revision\":\"incomplete\"}",
       Effect.gen(function*() {
         const client = yield* DocsClient
         const result = yield* Effect.result(client.manifest)

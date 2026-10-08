@@ -17,6 +17,7 @@
  */
 import { BunRuntime, BunServices } from "@effect/platform-bun"
 import { BootstrapFewShot, Evaluate, Example, Metric, MIPROv2, Module, Signature } from "@scenesystems/effect-dsp"
+import * as ModelBinder from "@scenesystems/effect-lm/ModelBinder"
 import * as Numeric from "@scenesystems/effect-math/Numeric"
 import {
   Array as Arr,
@@ -31,7 +32,6 @@ import {
   Record,
   Ref,
   Schema,
-  Stream,
   String
 } from "effect"
 import {
@@ -64,7 +64,7 @@ const trainset = Arr.make(
       degreeProfile: "Memory alignment falls quickly once pairs are more than two links apart.",
       designConstraint: "10 participants, each exactly 3 conversations, 15 total conversations, 150 seconds each."
     },
-    output: {
+    labels: Option.some({
       networkCondition: "nonclustered",
       sequencingPolicy: "bridge-early",
       convergenceForecast: "high",
@@ -72,7 +72,7 @@ const trainset = Arr.make(
         "Schedule bridge ties in early rounds so reinforced details propagate before local repetition hardens clusters.",
       rationale:
         "Shorter average path lengths spread reinforced items network-wide and increase post-conversation convergence."
-    }
+    })
   }),
   new Example.Example({
     input: {
@@ -82,7 +82,7 @@ const trainset = Arr.make(
       degreeProfile: "Research team wants visible decay in alignment over longer paths.",
       designConstraint: "Keep the same conversation count per participant across all conditions."
     },
-    output: {
+    labels: Option.some({
       networkCondition: "clustered",
       sequencingPolicy: "cluster-first",
       convergenceForecast: "moderate",
@@ -90,7 +90,7 @@ const trainset = Arr.make(
         "Preserve modular clusters during early rounds to retain longer path distances for inferential contrast.",
       rationale:
         "Clustered topology provides wider separation ranges, making distance-dependent alignment effects easier to measure."
-    }
+    })
   }),
   new Example.Example({
     input: {
@@ -100,14 +100,14 @@ const trainset = Arr.make(
       degreeProfile: "Alignment remains local when bridge conversations happen late.",
       designConstraint: "Do not increase participant count or total conversation budget."
     },
-    output: {
+    labels: Option.some({
       networkCondition: "nonclustered",
       sequencingPolicy: "bridge-early",
       convergenceForecast: "high",
       protocolAdjustment:
         "Front-load cross-cluster conversations so high-value items become central in the network memory graph.",
       rationale: "Early bridge exposure increases item centrality and accelerates community-wide mnemonic convergence."
-    }
+    })
   }),
   new Example.Example({
     input: {
@@ -117,14 +117,14 @@ const trainset = Arr.make(
       degreeProfile: "Team wants local convergence but not full network homogenization.",
       designConstraint: "Interaction budget and conversation duration are fixed by protocol ethics review."
     },
-    output: {
+    labels: Option.some({
       networkCondition: "clustered",
       sequencingPolicy: "cluster-first",
       convergenceForecast: "moderate",
       protocolAdjustment:
         "Prioritize within-cluster exchanges before any bridge rounds to protect subgroup-specific memory traces.",
       rationale: "Cluster-first ordering supports local alignment while limiting immediate network-wide convergence."
-    }
+    })
   })
 )
 
@@ -143,14 +143,14 @@ const evalset = Arr.make(
       degreeProfile: "Alignment is significant mainly for one- to three-step neighbors.",
       designConstraint: "10 members, 3 conversations each, conversation order can be changed."
     },
-    output: {
+    labels: Option.some({
       networkCondition: "nonclustered",
       sequencingPolicy: "bridge-early",
       convergenceForecast: "high",
       protocolAdjustment: "Reduce effective diameter first, then repeat key items inside local neighborhoods.",
       rationale:
         "Bridge-first scheduling amplifies global spread of reinforced memories under fixed interaction budgets."
-    }
+    })
   }),
   new Example.Example({
     input: {
@@ -160,13 +160,13 @@ const evalset = Arr.make(
       degreeProfile: "Distance bins from one to five links are required.",
       designConstraint: "Conversation count and timing per participant must stay constant."
     },
-    output: {
+    labels: Option.some({
       networkCondition: "clustered",
       sequencingPolicy: "cluster-first",
       convergenceForecast: "moderate",
       protocolAdjustment: "Keep clusters intact through early rounds to preserve measurable distance gradients.",
       rationale: "Clustered structure sustains longer paths, improving identification of degree-of-separation effects."
-    }
+    })
   }),
   new Example.Example({
     input: {
@@ -176,13 +176,13 @@ const evalset = Arr.make(
       degreeProfile: "Late bridging delays network-wide alignment.",
       designConstraint: "No additional sessions allowed; only ordering and topology can change."
     },
-    output: {
+    labels: Option.some({
       networkCondition: "nonclustered",
       sequencingPolicy: "bridge-early",
       convergenceForecast: "high",
       protocolAdjustment: "Assign early bridge conversations among triads before repeating content within each triad.",
       rationale: "Early bridging converts local reinforcement into community-level convergence more efficiently."
-    }
+    })
   })
 )
 
@@ -332,121 +332,120 @@ const containsNarrativeKeyword = (
  *
  * Returns [0, 1] with textual feedback used by MIPROv2.
  */
-const protocolMetric = Metric.fromEffect(
-  "collectiveMemoryProtocolFit",
-  (prediction: typeof ProtocolOutput.Type, expected) =>
-    Effect.sync(() => {
-      const predictedConditionRaw = prediction.networkCondition
-      const predictedSequenceRaw = prediction.sequencingPolicy
-      const predictedForecastRaw = prediction.convergenceForecast
-      const predictedAdjustmentRaw = prediction.protocolAdjustment
-      const predictedRationaleRaw = prediction.rationale
+const protocolMetric = Metric.withFeedback((example, result) =>
+  Effect.gen(function*() {
+    const prediction = yield* Schema.decodeUnknownEffect(Schema.toType(ProtocolOutput))(result.output)
+    const expected = yield* Schema.decodeUnknownEffect(ProtocolOutput)(Option.getOrElse(example.labels, () => ({})))
+    const predictedConditionRaw = prediction.networkCondition
+    const predictedSequenceRaw = prediction.sequencingPolicy
+    const predictedForecastRaw = prediction.convergenceForecast
+    const predictedAdjustmentRaw = prediction.protocolAdjustment
+    const predictedRationaleRaw = prediction.rationale
 
-      const expectedConditionRaw = expected.networkCondition
-      const expectedSequenceRaw = expected.sequencingPolicy
-      const expectedForecastRaw = expected.convergenceForecast
-      const expectedAdjustmentRaw = expected.protocolAdjustment
-      const expectedRationaleRaw = expected.rationale
+    const expectedConditionRaw = expected.networkCondition
+    const expectedSequenceRaw = expected.sequencingPolicy
+    const expectedForecastRaw = expected.convergenceForecast
+    const expectedAdjustmentRaw = expected.protocolAdjustment
+    const expectedRationaleRaw = expected.rationale
 
-      const predictedCondition = normalizeNetworkCondition(predictedConditionRaw)
-      const predictedSequence = normalizeSequencingPolicy(predictedSequenceRaw)
-      const predictedForecast = normalizeConvergenceForecast(predictedForecastRaw)
-      const predictedNarrative = normalizeNarrative(
-        Arr.join(Arr.make(predictedAdjustmentRaw, predictedRationaleRaw), " ")
-      )
+    const predictedCondition = normalizeNetworkCondition(predictedConditionRaw)
+    const predictedSequence = normalizeSequencingPolicy(predictedSequenceRaw)
+    const predictedForecast = normalizeConvergenceForecast(predictedForecastRaw)
+    const predictedNarrative = normalizeNarrative(
+      Arr.join(Arr.make(predictedAdjustmentRaw, predictedRationaleRaw), " ")
+    )
 
-      const expectedCondition = normalizeNetworkCondition(expectedConditionRaw)
-      const expectedSequence = normalizeSequencingPolicy(expectedSequenceRaw)
-      const expectedForecast = normalizeConvergenceForecast(expectedForecastRaw)
+    const expectedCondition = normalizeNetworkCondition(expectedConditionRaw)
+    const expectedSequence = normalizeSequencingPolicy(expectedSequenceRaw)
+    const expectedForecast = normalizeConvergenceForecast(expectedForecastRaw)
 
-      const conditionScore = Boolean.match(String.Equivalence(predictedCondition, expectedCondition), {
-        onTrue: () => 1,
-        onFalse: () => 0
-      })
-      const sequenceScore = Boolean.match(String.Equivalence(predictedSequence, expectedSequence), {
-        onTrue: () => 1,
-        onFalse: () => 0
-      })
-      const forecastScore = Boolean.match(String.Equivalence(predictedForecast, expectedForecast), {
-        onTrue: () => 1,
-        onFalse: () => 0
-      })
-      const decisionTupleScore = Number.sumAll(
-        Arr.make(
-          Number.multiply(conditionScore, 0.4),
-          Number.multiply(sequenceScore, 0.4),
-          Number.multiply(forecastScore, 0.2)
-        )
-      )
-      const mechanismSupportScore = averageScore(
-        Arr.make(
-          containsNarrativeKeyword(predictedNarrative, conditionKeywords(expectedCondition)),
-          containsNarrativeKeyword(predictedNarrative, sequenceKeywords(expectedSequence)),
-          containsNarrativeKeyword(predictedNarrative, forecastKeywords(expectedForecast))
-        )
-      )
-      const explanationAlignmentScore = averageScore(
-        Arr.make(
-          tokenOverlapScore(predictedAdjustmentRaw, expectedAdjustmentRaw),
-          tokenOverlapScore(predictedRationaleRaw, expectedRationaleRaw)
-        )
-      )
-      const score = clampUnitScore(
-        Number.sumAll(
-          Arr.make(
-            Number.multiply(decisionTupleScore, 0.65),
-            Number.multiply(mechanismSupportScore, 0.2),
-            Number.multiply(explanationAlignmentScore, 0.15)
-          )
-        )
-      )
-      const mismatchLines = Arr.filter(
-        Arr.make(
-          Boolean.match(String.Equivalence(predictedCondition, expectedCondition), {
-            onTrue: () => "",
-            onFalse: () =>
-              Arr.join(
-                Arr.make("networkCondition expected='", expectedCondition, "' got='", predictedCondition, "'"),
-                ""
-              )
-          }),
-          Boolean.match(String.Equivalence(predictedSequence, expectedSequence), {
-            onTrue: () => "",
-            onFalse: () =>
-              Arr.join(Arr.make("sequencingPolicy expected='", expectedSequence, "' got='", predictedSequence, "'"), "")
-          }),
-          Boolean.match(String.Equivalence(predictedForecast, expectedForecast), {
-            onTrue: () => "",
-            onFalse: () =>
-              Arr.join(
-                Arr.make("convergenceForecast expected='", expectedForecast, "' got='", predictedForecast, "'"),
-                ""
-              )
-          })
-        ),
-        String.isNonEmpty
-      )
-      const mismatchSummary = Arr.match(mismatchLines, {
-        onEmpty: () => "decisionLabels=aligned",
-        onNonEmpty: (lines) => Arr.join(lines, "; ")
-      })
-      const feedback = Arr.join(
-        Arr.make(
-          "decisionTuple=",
-          formatScore(decisionTupleScore, 2),
-          " mechanismSupport=",
-          formatScore(mechanismSupportScore, 2),
-          " explanationAlignment=",
-          formatScore(explanationAlignmentScore, 2),
-          " ",
-          mismatchSummary
-        ),
-        ""
-      )
-
-      return new Metric.Result({ score, feedback })
+    const conditionScore = Boolean.match(String.Equivalence(predictedCondition, expectedCondition), {
+      onTrue: () => 1,
+      onFalse: () => 0
     })
-)
+    const sequenceScore = Boolean.match(String.Equivalence(predictedSequence, expectedSequence), {
+      onTrue: () => 1,
+      onFalse: () => 0
+    })
+    const forecastScore = Boolean.match(String.Equivalence(predictedForecast, expectedForecast), {
+      onTrue: () => 1,
+      onFalse: () => 0
+    })
+    const decisionTupleScore = Number.sumAll(
+      Arr.make(
+        Number.multiply(conditionScore, 0.4),
+        Number.multiply(sequenceScore, 0.4),
+        Number.multiply(forecastScore, 0.2)
+      )
+    )
+    const mechanismSupportScore = averageScore(
+      Arr.make(
+        containsNarrativeKeyword(predictedNarrative, conditionKeywords(expectedCondition)),
+        containsNarrativeKeyword(predictedNarrative, sequenceKeywords(expectedSequence)),
+        containsNarrativeKeyword(predictedNarrative, forecastKeywords(expectedForecast))
+      )
+    )
+    const explanationAlignmentScore = averageScore(
+      Arr.make(
+        tokenOverlapScore(predictedAdjustmentRaw, expectedAdjustmentRaw),
+        tokenOverlapScore(predictedRationaleRaw, expectedRationaleRaw)
+      )
+    )
+    const score = clampUnitScore(
+      Number.sumAll(
+        Arr.make(
+          Number.multiply(decisionTupleScore, 0.65),
+          Number.multiply(mechanismSupportScore, 0.2),
+          Number.multiply(explanationAlignmentScore, 0.15)
+        )
+      )
+    )
+    const mismatchLines = Arr.filter(
+      Arr.make(
+        Boolean.match(String.Equivalence(predictedCondition, expectedCondition), {
+          onTrue: () => "",
+          onFalse: () =>
+            Arr.join(
+              Arr.make("networkCondition expected='", expectedCondition, "' got='", predictedCondition, "'"),
+              ""
+            )
+        }),
+        Boolean.match(String.Equivalence(predictedSequence, expectedSequence), {
+          onTrue: () => "",
+          onFalse: () =>
+            Arr.join(Arr.make("sequencingPolicy expected='", expectedSequence, "' got='", predictedSequence, "'"), "")
+        }),
+        Boolean.match(String.Equivalence(predictedForecast, expectedForecast), {
+          onTrue: () => "",
+          onFalse: () =>
+            Arr.join(
+              Arr.make("convergenceForecast expected='", expectedForecast, "' got='", predictedForecast, "'"),
+              ""
+            )
+        })
+      ),
+      String.isNonEmpty
+    )
+    const mismatchSummary = Arr.match(mismatchLines, {
+      onEmpty: () => "decisionLabels=aligned",
+      onNonEmpty: (lines) => Arr.join(lines, "; ")
+    })
+    const feedback = Arr.join(
+      Arr.make(
+        "decisionTuple=",
+        formatScore(decisionTupleScore, 2),
+        " mechanismSupport=",
+        formatScore(mechanismSupportScore, 2),
+        " explanationAlignment=",
+        formatScore(explanationAlignmentScore, 2),
+        " ",
+        mismatchSummary
+      ),
+      ""
+    )
+
+    return new Metric.Score({ value: score, feedback: Option.some(feedback) })
+  }), "collectiveMemoryProtocolFit")
 
 const program = Effect.gen(function*() {
   const artifacts = yield* createExampleArtifacts(EXAMPLE_NAME)
@@ -546,7 +545,7 @@ const program = Effect.gen(function*() {
         })
     })
   )
-  const paramsBeforeBootstrap = yield* Ref.get(protocolPanel.params)
+  const parametersBeforeBootstrap = yield* Ref.get(protocolPlanner.parameters)
 
   // Quick sanity turn before formal evaluation/optimization.
   const demonstrationTurn = yield* protocolPanel.forward({
@@ -583,31 +582,41 @@ const program = Effect.gen(function*() {
     trainExampleCount: Arr.length(trainset),
     maxRounds: 2,
     maxBootstrappedDemos: 3,
-    threshold: Number.divideUnsafe(2, 3)
+    metricThreshold: Number.divideUnsafe(2, 3)
   })
 
-  const bootstrapEventsChunk = yield* BootstrapFewShot.stream(
+  const bootstrapLog = yield* Ref.make(Arr.empty<BootstrapFewShot.Event>())
+  const binder = yield* ModelBinder.Current
+  const bootstrapped = yield* BootstrapFewShot.runWithEvents(
     new BootstrapFewShot.Options({
       module: protocolPanel,
       trainset,
       metric: protocolMetric,
       maxRounds: 2,
       maxBootstrappedDemos: 3,
-      threshold: Number.divideUnsafe(2, 3),
-      teacher: teacherLayer,
-      fallbackToLabeledFewShot: true,
-      fallbackLabeledDemoCount: 3
+      metricThreshold: Option.some(Number.divideUnsafe(2, 3)),
+      maxLabeledDemos: 3
+    }),
+    (event) =>
+      Ref.update(bootstrapLog, Arr.append(event)).pipe(
+        Effect.andThen(logExampleEvent("bootstrapFewShot", BootstrapFewShot.formatEvent(event).text))
+      )
+  ).pipe(ModelBinder.withBinder(
+    new ModelBinder.Binder({
+      bind: (request) =>
+        Boolean.match(request.role === "teacher", {
+          onTrue: () => (effect) => effect.pipe(Effect.provide(teacherLayer)),
+          onFalse: () => binder.bind(request)
+        })
     })
-  ).pipe(
-    BootstrapFewShot.tapProgress((line) => logExampleEvent("bootstrapFewShot", line.text)),
-    Stream.runCollect
-  )
-  const bootstrapEvents = Arr.fromIterable(bootstrapEventsChunk)
+  ))
+  yield* Module.install(protocolPanel, bootstrapped.parameters)
+  const bootstrapEvents = yield* Ref.get(bootstrapLog)
   const bootstrapSummary = BootstrapFewShot.summarizeEvents(bootstrapEvents)
-  const paramsAfterBootstrap = yield* Ref.get(protocolPanel.params)
+  const parametersAfterBootstrap = yield* Ref.get(protocolPlanner.parameters)
   const demosAddedDuringBootstrap = Number.subtract(
-    Arr.length(paramsAfterBootstrap.demos),
-    Arr.length(paramsBeforeBootstrap.demos)
+    Arr.length(parametersAfterBootstrap.demos),
+    Arr.length(parametersBeforeBootstrap.demos)
   )
 
   yield* logExampleStage("bootstrap-warm-start-completed", {
@@ -616,11 +625,9 @@ const program = Effect.gen(function*() {
     roundsCompleted: bootstrapSummary.roundsCompleted,
     traceAcceptedCount: bootstrapSummary.traceAcceptedCount,
     traceRejectedCount: bootstrapSummary.traceRejectedCount,
-    fallbackActivatedSeen: bootstrapSummary.fallbackActivatedSeen,
-    fallbackCompletedSeen: bootstrapSummary.fallbackCompletedSeen,
-    fallbackUsed: bootstrapSummary.fallbackUsed,
-    demoCountBeforeBootstrap: Arr.length(paramsBeforeBootstrap.demos),
-    demoCountAfterBootstrap: Arr.length(paramsAfterBootstrap.demos),
+    labeledCount: bootstrapSummary.labeledCount,
+    demoCountBeforeBootstrap: Arr.length(parametersBeforeBootstrap.demos),
+    demoCountAfterBootstrap: Arr.length(parametersAfterBootstrap.demos),
     demosAddedDuringBootstrap,
     totalDemos: bootstrapSummary.totalDemos,
     roundsUsed: bootstrapSummary.roundsUsed
@@ -629,27 +636,31 @@ const program = Effect.gen(function*() {
   // Co-optimize instructions and demonstration use with MIPROv2.
   yield* logExampleStage("miprov2-stream-started", {
     numCandidates: 4,
-    numInstructions: 4,
-    trialBudget: 6,
+    numTrials: 6,
+    minibatch: false,
     seed: 33
   })
 
-  const miproEventsChunk = yield* MIPROv2.stream(
+  const miproLog = yield* Ref.make(Arr.empty<MIPROv2.Event>())
+  const compiled = yield* MIPROv2.runWithEvents(
     new MIPROv2.Options({
       module: protocolPanel,
       trainset,
       valset: evalset,
       metric: protocolMetric,
       numCandidates: 4,
-      numInstructions: 4,
-      trialBudget: 6,
+      auto: Option.none(),
+      minibatch: false,
+      numTrials: 6,
       seed: 33
-    })
-  ).pipe(
-    MIPROv2.tapProgress((line) => logExampleEvent("miprov2", line.text)),
-    Stream.runCollect
+    }),
+    (event) =>
+      Ref.update(miproLog, Arr.append(event)).pipe(
+        Effect.andThen(logExampleEvent("miprov2", MIPROv2.formatEvent(event).text))
+      )
   )
-  const miproEvents = Arr.fromIterable(miproEventsChunk)
+  yield* Module.install(protocolPanel, compiled.parameters)
+  const miproEvents = yield* Ref.get(miproLog)
   const miproEventSummary = MIPROv2.summarizeEvents(miproEvents)
 
   const optimized = yield* Evaluate.run(
@@ -661,17 +672,21 @@ const program = Effect.gen(function*() {
     })
   )
 
-  const optimizedParams = yield* Ref.get(protocolPanel.params)
+  const optimizedParameters = yield* Ref.get(protocolPlanner.parameters)
 
   const baselineScore = Option.getOrElse(Record.get(baseline.overallScores, "protocolFit"), () => 0)
   const optimizedScore = Option.getOrElse(Record.get(optimized.overallScores, "protocolFit"), () => 0)
-  const miproOutcome = MIPROv2.summarizeOutcome({
-    baselineScore,
-    optimizedScore,
-    demoCountBefore: Arr.length(paramsAfterBootstrap.demos),
-    demoCountAfter: Arr.length(optimizedParams.demos),
-    events: miproEventSummary
-  })
+  const miproOutcome = {
+    baselineExactMatch: baselineScore,
+    optimizedExactMatch: optimizedScore,
+    scoreDelta: Number.subtract(optimizedScore, baselineScore),
+    demoCountBeforeOptimization: Arr.length(parametersAfterBootstrap.demos),
+    demoCountAfterOptimization: Arr.length(optimizedParameters.demos),
+    demosLearnedDuringMIPROv2: Number.subtract(
+      Arr.length(optimizedParameters.demos),
+      Arr.length(parametersAfterBootstrap.demos)
+    )
+  }
   const optimizationObservability = MIPROv2.summarizeOptimization({
     baselineScore,
     optimizedScore,
@@ -696,24 +711,23 @@ const program = Effect.gen(function*() {
       bootstrap: {
         maxRounds: 2,
         maxBootstrappedDemos: 3,
-        threshold: Number.divideUnsafe(2, 3),
-        fallbackToLabeledFewShot: true,
-        fallbackLabeledDemoCount: 3
+        metricThreshold: Number.divideUnsafe(2, 3),
+        maxLabeledDemos: 3
       },
       miprov2: {
         numCandidates: 4,
-        numInstructions: 4,
-        trialBudget: 6,
+        numTrials: 6,
+        minibatch: false,
         seed: 33
       }
     },
     trainsetSize: Arr.length(trainset),
     valsetSize: Arr.length(evalset),
     evalsetSize: Arr.length(evalset),
-    instructionBefore: paramsAfterBootstrap.instructions,
-    instructionAfter: optimizedParams.instructions,
-    demoCountBefore: Arr.length(paramsAfterBootstrap.demos),
-    demoCountAfter: Arr.length(optimizedParams.demos),
+    instructionBefore: parametersAfterBootstrap.instructions,
+    instructionAfter: optimizedParameters.instructions,
+    demoCountBefore: Arr.length(parametersAfterBootstrap.demos),
+    demoCountAfter: Arr.length(optimizedParameters.demos),
     demosLearnedDuringOptimization: miproOutcome.demosLearnedDuringMIPROv2,
     extras: {
       baseline,
@@ -760,14 +774,14 @@ const program = Effect.gen(function*() {
     searchGain: optimizationObservability.searchGain,
     retainedVsSearchGap: optimizationObservability.retainedVsSearchGap,
     searchImprovedButRetainedFlat: optimizationObservability.searchImprovedButRetainedFlat,
-    demoCountBeforeBootstrap: Arr.length(paramsBeforeBootstrap.demos),
-    demoCountAfterBootstrap: Arr.length(paramsAfterBootstrap.demos),
+    demoCountBeforeBootstrap: Arr.length(parametersBeforeBootstrap.demos),
+    demoCountAfterBootstrap: Arr.length(parametersAfterBootstrap.demos),
     demosAddedDuringBootstrap,
     demoCountBeforeMIPROv2: miproOutcome.demoCountBeforeOptimization,
     demoCountAfterMIPROv2: miproOutcome.demoCountAfterOptimization,
     demosLearnedDuringMIPROv2: miproOutcome.demosLearnedDuringMIPROv2,
-    bootstrapFallbackUsed: bootstrapSummary.fallbackUsed,
-    learnedInstructionPreview: String.slice(0, 180)(optimizedParams.instructions),
+    bootstrapLabeledCount: bootstrapSummary.labeledCount,
+    learnedInstructionPreview: String.slice(0, 180)(optimizedParameters.instructions),
     eventCount: miproEventSummary.totalEvents,
     trialEvaluatedCount: miproEventSummary.trialEvaluatedCount,
     fullEvalCompletedCount: miproEventSummary.fullEvalCompletedCount,

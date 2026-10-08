@@ -1,157 +1,605 @@
 {
-  "schemaVersion": "1.0.0",
-  "generator": {
-    "script": "scripts/generate-dspy-fixtures.py",
-    "generatorVersion": "0.2.0",
-    "upstream": "dspy",
-    "upstreamVersion": "3.1.3",
-    "pythonVersion": "3.11",
-    "generatedAt": "2026-03-18T00:00:00Z"
+  "upstream": {
+    "dspy": "3.4.0",
+    "gepa": "0.1.4",
+    "optuna": "4.9.0",
+    "commits": {
+      "dspy": "2413b67a4d08a476e4bc6f40b9f8f42f87711ee7",
+      "gepa": "8b0ce6cd99a234f6b74daf37558a2ac0ce18f975"
+    },
+    "python": "3.12.14",
+    "platform": "Linux-x86_64",
+    "numpy": "1.26.4"
+  },
+  "environment": {
+    "PYTHONHASHSEED": "0",
+    "NPY_DISABLE_CPU_FEATURES": "AVX2,FMA3,AVX512F"
   },
   "fixtures": [
     {
-      "name": "dspy.bootstrap.demo-budget.basic",
-      "file": "bootstrap/demo-budget.basic.json"
+      "id": "bootstrap-repeated-call",
+      "file": "upstream/bootstrap-repeated-call.json",
+      "evidence": "upstream-execution",
+      "sha256": "9ea1c2c41cfc61dda9963c632a3f0c9cd6bf7c9dbfd002cec02e948501615eae",
+      "generator": "fixtures.bootstrap_family",
+      "description": "One trace-member demo per repeated predictor per example; pickle-hash pick is not serialized."
     },
     {
-      "name": "dspy.bootstrap.threshold-filtering.basic",
-      "file": "bootstrap/threshold-filtering.basic.json"
+      "id": "bootstrap-teacher-trace",
+      "file": "upstream/bootstrap-teacher-trace.json",
+      "evidence": "upstream-execution",
+      "sha256": "e1262094d8765d11725cdf2a59ea666c48619a7ff1df89646f54677974a292d7",
+      "generator": "fixtures.bootstrap_family",
+      "description": "Real two-predictor teacher traces, quotas and acceptance."
     },
     {
-      "name": "dspy.bootstraprs.candidate-catalog.seed-9",
-      "file": "bootstraprs/candidate-catalog.seed-9.json"
+      "id": "bootstrap-teacher-trace-calls",
+      "file": "upstream/bootstrap-teacher-trace-calls.json",
+      "evidence": "upstream-execution",
+      "sha256": "ca31e7387a0de243850d2cd0aa886ef53d8e2e07f5560ee7c0c5441ad11ef14f",
+      "generator": "fixtures.evidence_capture",
+      "description": "Deep-copied teacher LM calls for bootstrap-teacher-trace's configuration; original teacher and student histories stay empty.",
+      "environment": {
+        "PYTHONHASHSEED": "0",
+        "NPY_DISABLE_CPU_FEATURES": "AVX2,FMA3,AVX512F"
+      }
     },
     {
-      "name": "dspy.chat.output-requirements.basic",
-      "file": "chat/output-requirements.basic.json"
+      "id": "bootstrapfewshot",
+      "file": "upstream/bootstrapfewshot.json",
+      "evidence": "upstream-execution",
+      "sha256": "f02ac92377b604bb5853c1e5b1b136b9f1b1946e678e7397dfa11270f4977491",
+      "generator": "fixtures.bootstrap_family",
+      "description": "Real two-predictor teacher traces, quotas and acceptance."
     },
     {
-      "name": "dspy.chat.parse-fallback.contract",
-      "file": "chat/parse-fallback.contract.json"
+      "id": "bootstrapfewshot-errors",
+      "file": "upstream/bootstrapfewshot-errors.json",
+      "evidence": "upstream-execution",
+      "sha256": "7363b48e9b1fce5efaa4987f3a690ddb5e469514dbfcb8fadfd89d35fe8b7f9c",
+      "generator": "fixtures.bootstrap_family",
+      "description": "Real two-predictor teacher traces, quotas and acceptance."
     },
     {
-      "name": "dspy.chat.parse-sections.basic",
-      "file": "chat/parse-sections.basic.json"
+      "id": "bootstrapfewshot-labeled",
+      "file": "upstream/bootstrapfewshot-labeled.json",
+      "evidence": "upstream-execution",
+      "sha256": "6b29b34029e61d9705cd0cbd74820002004bd4bc8ef8173d4b6ab5a6d19f8c3e",
+      "generator": "fixtures.bootstrap_family",
+      "description": "Default teacher labeled prewarming, leave-one-out prompts, and labeled student fill."
     },
     {
-      "name": "dspy.chat.qa-basic",
-      "file": "chat/qa-basic.json"
+      "id": "bootstrapfewshot-max-errors-default",
+      "file": "upstream/bootstrapfewshot-max-errors-default.json",
+      "evidence": "upstream-execution",
+      "sha256": "26495700ea73e53e611f2dc446b6d290c3a0aa1d361f6f15364df406fa0056f7",
+      "generator": "fixtures.bootstrap_family",
+      "description": "max_errors=None inherits dspy.settings.max_errors and raises at that count."
     },
     {
-      "name": "dspy.chat.qa-output-requirements",
-      "file": "chat/qa-output-requirements.json"
+      "id": "bootstrapfewshot-rounds",
+      "file": "upstream/bootstrapfewshot-rounds.json",
+      "evidence": "upstream-execution",
+      "sha256": "d29b22be9d4148ef35ddd2c3b47f74a18ed7ba61587e4ac09cb0cd00a4bde33f",
+      "generator": "fixtures.bootstrap_family",
+      "description": "Example-major retries: each example exhausts its rounds before the next; round copies use rollout_id and temperature 1.0."
     },
     {
-      "name": "dspy.chat.qa-with-demo",
-      "file": "chat/qa-with-demo.json"
+      "id": "bootstrapfewshot-teacher-demos",
+      "file": "upstream/bootstrapfewshot-teacher-demos.json",
+      "evidence": "upstream-execution",
+      "sha256": "97764b2f79115f6a7377c17b269a9dc454bae083583e46f08ff6c0948ee4210e",
+      "generator": "fixtures.bootstrap_family",
+      "description": "Without labeled prewarming, the default deep-copied teacher keeps the student's demos."
     },
     {
-      "name": "dspy.chat.system-message.basic",
-      "file": "chat/system-message.basic.json"
+      "id": "bootstrapfewshot-teacher-settings",
+      "file": "upstream/bootstrapfewshot-teacher-settings.json",
+      "evidence": "upstream-execution",
+      "sha256": "6d7be73b59fe1b963ae9f0922fef508e99a8df1dc357124c08b5c12487a84380",
+      "generator": "fixtures.evidence_capture",
+      "description": "teacher_settings LM serves the deep-copied teacher; retry rounds use its rollout copy at temperature 1.0 and the student LM records no calls.",
+      "environment": {
+        "PYTHONHASHSEED": "0",
+        "NPY_DISABLE_CPU_FEATURES": "AVX2,FMA3,AVX512F"
+      }
     },
     {
-      "name": "dspy.cot.reasoning-field.basic",
-      "file": "cot/reasoning-field.basic.json"
+      "id": "bootstrapfewshot-threshold",
+      "file": "upstream/bootstrapfewshot-threshold.json",
+      "evidence": "upstream-execution",
+      "sha256": "180a8a98f9857240833a865bd2a5535582141af6a5d72cb9f63f98c1b4cd1b1d",
+      "generator": "fixtures.bootstrap_family",
+      "description": "Real two-predictor teacher traces, quotas and acceptance."
     },
     {
-      "name": "dspy.ensemble.majority-vote.basic",
-      "file": "ensemble/majority-vote.basic.json"
+      "id": "bootstrapfewshot-threshold-zero",
+      "file": "upstream/bootstrapfewshot-threshold-zero.json",
+      "evidence": "upstream-execution",
+      "sha256": "05de66e0d54e89f4a2f0eefb62334fda7d0f694b6ec67266659d94a168b8b838",
+      "generator": "fixtures.bootstrap_family",
+      "description": "metric_threshold=0 is falsy, so the metric value's truthiness decides: 0 rejects."
     },
     {
-      "name": "dspy.evaluate.event-order.basic",
-      "file": "evaluate/event-order.basic.json"
+      "id": "bootstraprs",
+      "file": "upstream/bootstraprs.json",
+      "evidence": "upstream-execution",
+      "sha256": "c8429e2adb82a7de8f059b13cbc068a0fe2e776bdd37d0b860d337f5c6a144b1",
+      "generator": "fixtures.bootstrap_family",
+      "description": "Full upstream random-search seed catalog and winner."
     },
     {
-      "name": "dspy.evaluate.report-shape.basic",
-      "file": "evaluate/report-shape.basic.json"
+      "id": "chat-adapter",
+      "file": "upstream/chat-adapter.json",
+      "evidence": "upstream-kernel",
+      "sha256": "0431364f74ecdfe7e2c6b5eacc21db2ddbb83a45bd86d467546dda6a27b3e807",
+      "generator": "fixtures.chat_adapter",
+      "description": "ChatAdapter formats a labeled demo and parses its completion."
     },
     {
-      "name": "dspy.gepa.accept.merge-non-strict",
-      "file": "gepa/accept/merge-non-strict.json"
+      "id": "chat-adapter-demo-projection",
+      "file": "upstream/chat-adapter-demo-projection.json",
+      "evidence": "upstream-execution",
+      "sha256": "0dbfeab47db2fd082d85fc81ec742d8154d7dbce141f0ad36760cebab6c9e4df",
+      "generator": "fixtures.format_feedback",
+      "description": "LabeledFewShot keeps raw dataset rows; ChatAdapter renders only signature fields, keeps a partial demo and drops a demo without output fields."
     },
     {
-      "name": "dspy.gepa.accept.mutation-strict-greater",
-      "file": "gepa/accept/mutation-strict-greater.json"
+      "id": "eval-compensated-mean",
+      "file": "upstream/eval-compensated-mean.json",
+      "evidence": "upstream-execution",
+      "sha256": "7ccce1f0fe602ea6aa9e2a13af982a0b2a48bce5bbb2c5e1228150f456415330",
+      "generator": "fixtures.numerics",
+      "description": "Evaluate raw-score mean and a user-composed arithmetic-mean metric use builtin float sum."
     },
     {
-      "name": "dspy.gepa.merge.common-ancestor-cases",
-      "file": "gepa/merge/common-ancestor-cases.json"
+      "id": "eval-failure-inclusive",
+      "file": "upstream/eval-failure-inclusive.json",
+      "evidence": "upstream-execution",
+      "sha256": "2bf51d7ccb191de04b4d2f7ce864c7e093aaaedad139a79663307b6fa0451f54",
+      "generator": "fixtures.evaluate_runtime",
+      "description": "Evaluate includes a failed row in its denominator and enforces max_errors."
     },
     {
-      "name": "dspy.gepa.merge.schedule.max-merge-invocations",
-      "file": "gepa/merge/schedule.max-merge-invocations.json"
+      "id": "gepa",
+      "file": "upstream/gepa.json",
+      "evidence": "upstream-execution",
+      "sha256": "75800756b218bdebccaed0b41f16780726846a3740569cd5c8821979c8938d95",
+      "generator": "fixtures.gepa",
+      "description": "Real GEPA epoch-shuffled reflection, targeted feedback, iteration-boundary budget overshoot and aggregate selection; perfect batches skip reflection."
     },
     {
-      "name": "dspy.gepa.orchestration.event-order.seed-0",
-      "file": "gepa/orchestration/event-order.seed-0.json"
+      "id": "gepa-aggregate-best",
+      "file": "upstream/gepa-aggregate-best.json",
+      "evidence": "upstream-execution",
+      "sha256": "dc33443b5424b75700da66f2564c326d8ea7ab59a83844e1d46c915fbf4d45a3",
+      "generator": "fixtures.gepa",
+      "description": "GEPA.compile selects aggregate best, not first per-instance frontier winner; merge disabled."
     },
     {
-      "name": "dspy.gepa.orchestration.state-transitions.basic",
-      "file": "gepa/orchestration/state-transitions.basic.json"
+      "id": "gepa-budget",
+      "file": "upstream/gepa-budget.json",
+      "evidence": "upstream-execution",
+      "sha256": "c354423f4aa5f0e14e054fe7e08e4bc880bb8eeed542b3528135c49ed7b9a9e2",
+      "generator": "fixtures.gepa",
+      "description": "Real GEPA epoch-shuffled reflection, targeted feedback, iteration-boundary budget overshoot and aggregate selection; perfect batches skip reflection."
     },
     {
-      "name": "dspy.gepa.pareto.score-matrix.basic",
-      "file": "gepa/pareto/score-matrix.basic.json"
+      "id": "gepa-format-failure",
+      "file": "upstream/gepa-format-failure.json",
+      "evidence": "upstream-execution",
+      "sha256": "49a5e0e8447b897013893364d8e1b0f3b04932707b62342743f4b85186c34a93",
+      "generator": "fixtures.format_feedback",
+      "description": "dspy.GEPA with add_format_failure_as_feedback and the default adapter gives the proposer one failed-parse sample per minibatch row for Predict and ReAct."
     },
     {
-      "name": "dspy.gepa.pareto.score-matrix.ties",
-      "file": "gepa/pareto/score-matrix.ties.json"
+      "id": "gepa-instruction-extractor",
+      "file": "upstream/gepa-instruction-extractor.json",
+      "evidence": "upstream-kernel",
+      "sha256": "49e27eec00348737011f5ccdddb899b8b023796091ee1996a0bdaee56441d1be",
+      "generator": "fixtures.format_feedback",
+      "description": "GEPA InstructionProposalSignature.output_extractor on fences, language tags, incomplete blocks, empty replies and Python whitespace."
     },
     {
-      "name": "dspy.gepa.reflect.dataset-shape",
-      "file": "gepa/reflect/dataset-shape.json"
+      "id": "gepa-merge",
+      "file": "upstream/gepa-merge.json",
+      "evidence": "upstream-kernel",
+      "sha256": "6f7d8b27d0ef7d20733b5c2284725df9c2a51a11e152faaad9cec6a0301965b3",
+      "generator": "fixtures.gepa",
+      "description": "Pinned common-ancestor merge draws, eligibility, tied conflict and balanced validation sample."
     },
     {
-      "name": "dspy.gepa.reflect.format-failure-feedback",
-      "file": "gepa/reflect/format-failure-feedback.json"
+      "id": "gepa-merge-accepted",
+      "file": "upstream/gepa-merge-accepted.json",
+      "evidence": "upstream-execution",
+      "sha256": "4080dce870dd6d518e7b90e7a6da5fd4803e441734ae8520950bbe198d10f82b",
+      "generator": "fixtures.gepa",
+      "description": "Real GEPA engine with scripted task: complementary merge consumes a whole iteration, accepted or rejected; exact shared-stream sampling and budget ledger."
     },
     {
-      "name": "dspy.gepa.reflect.prompt-template.basic",
-      "file": "gepa/reflect/prompt-template.basic.json"
+      "id": "gepa-merge-rejected",
+      "file": "upstream/gepa-merge-rejected.json",
+      "evidence": "upstream-execution",
+      "sha256": "e0e01cd4c42fae2a08213792ac40cde1ae9026170cd81f9a6eb7e015b80ffee9",
+      "generator": "fixtures.gepa",
+      "description": "Real GEPA engine with scripted task: complementary merge consumes a whole iteration, accepted or rejected; exact shared-stream sampling and budget ledger."
     },
     {
-      "name": "dspy.gepa.replay.frontier-snapshots.seed-0",
-      "file": "gepa/replay/frontier-snapshots.seed-0.json"
+      "id": "gepa-merge-tie",
+      "file": "upstream/gepa-merge-tie.json",
+      "evidence": "upstream-execution",
+      "sha256": "9f0fa1aa1ccc4a9da8295f1b7e329ca631da517664db8563ee81d594b7dbe928",
+      "generator": "fixtures.numerics",
+      "description": "Real GEPA engine: a merge whose subsample builtin sum ties the best parent is accepted."
     },
     {
-      "name": "dspy.gepa.replay.params.seed-0",
-      "file": "gepa/replay/params.seed-0.json"
+      "id": "gepa-mutation-tie",
+      "file": "upstream/gepa-mutation-tie.json",
+      "evidence": "upstream-execution",
+      "sha256": "8f3b04df8e7426e62055889d1b686e111fe49140320f64810efc3662000ceb09",
+      "generator": "fixtures.numerics",
+      "description": "Real GEPA engine: a child whose minibatch sum ties its parent under builtin sum is rejected."
     },
     {
-      "name": "dspy.gepa.replay.seed-0.contract",
-      "file": "gepa/replay/seed-0.contract.json"
+      "id": "gepa-selection",
+      "file": "upstream/gepa-selection.json",
+      "evidence": "upstream-kernel",
+      "sha256": "557505dbdca39ccd7d1c7de6ebb525127deca1b8fe0f9ca5f951aeb1cf7f1dd9",
+      "generator": "fixtures.gepa",
+      "description": "GEPA coverage pruning, parent choice and shared epoch-shuffle stream with padding, skipped and repeated iterations."
     },
     {
-      "name": "dspy.gepa.selection.weights.seed-42",
-      "file": "gepa/selection/weights.seed-42.json"
+      "id": "gepa-sum-kernels",
+      "file": "upstream/gepa-sum-kernels.json",
+      "evidence": "upstream-kernel",
+      "sha256": "86fe78b694e652fe7c7f206faeb8bbc5783fd462b8e948c0add3d73fe04ebdfd",
+      "generator": "fixtures.numerics",
+      "description": "GEPA aggregates, strict mutation gate, merge gate and Pareto pruning over builtin-sum ties."
     },
     {
-      "name": "dspy.labeledfewshot.sample-k.seed-9",
-      "file": "labeledfewshot/sample-k.seed-9.json"
+      "id": "labeledfewshot",
+      "file": "upstream/labeledfewshot.json",
+      "evidence": "upstream-execution",
+      "sha256": "8a6aa3dbcf47fbfdd33919a0e9167dc2f0d079811edb20fee89f8311216e4135",
+      "generator": "fixtures.bootstrap_family",
+      "description": "Seeded upstream labeled sampling."
     },
     {
-      "name": "dspy.metric.score-feedback.contract",
-      "file": "metric/score-feedback.contract.json"
+      "id": "majority",
+      "file": "upstream/majority.json",
+      "evidence": "upstream-kernel",
+      "sha256": "4b8d95dac3f2eee829f20e255a786fcbdd8373ed8ff1a3c8bdf766de8e3026c3",
+      "generator": "fixtures.predict_runtime",
+      "description": "Upstream majority reduction including a first-seen tie."
     },
     {
-      "name": "dspy.mipro.phase-config",
-      "file": "mipro/phase-config.json"
+      "id": "mipro-best-fullval",
+      "file": "upstream/mipro-best-fullval.json",
+      "evidence": "upstream-execution",
+      "sha256": "179e70ff2c27da0b15443c5ba29a915e0f6c617e64a3ac6308b4aa696ab8092e",
+      "generator": "fixtures.mipro_v2",
+      "description": "A minibatch specialist loses to the baseline full-validation checkpoint.",
+      "trajectory": {
+        "sampledTrials": 12,
+        "minibatch": true,
+        "valsetSize": 6,
+        "sampledEvaluation": "minibatch",
+        "insertedFullEvaluations": 6,
+        "baselineTrials": 1,
+        "totalStudyRows": 19,
+        "strictThroughTrial": 10,
+        "firstInadmissibleTie": {
+          "trial": 11,
+          "dimensions": [
+            "0_predictor_demos",
+            "0_predictor_instruction"
+          ],
+          "gap": 0.0,
+          "tie": {
+            "classification": "coincidentalCancellation",
+            "winner": {
+              "0_predictor_demos": 0,
+              "0_predictor_instruction": 2
+            },
+            "other": {
+              "0_predictor_demos": 1,
+              "0_predictor_instruction": 2
+            }
+          }
+        }
+      }
     },
     {
-      "name": "dspy.mipro.tips-vocabulary",
-      "file": "mipro/tips-vocabulary.json"
+      "id": "mipro-checkpoint-tie",
+      "file": "upstream/mipro-checkpoint-tie.json",
+      "evidence": "upstream-kernel",
+      "sha256": "bae00b194e534654570ec653d4572127e2cd6b5262291e77d3953083d3c61e88",
+      "generator": "fixtures.numerics",
+      "description": "get_program_with_highest_avg_score: equal real means tie to the first inserted combination."
     },
     {
-      "name": "dspy.mipro.trial-budget-cases",
-      "file": "mipro/trial-budget-cases.json"
+      "id": "mipro-percentage-rounding",
+      "file": "upstream/mipro-percentage-rounding.json",
+      "evidence": "upstream-execution",
+      "sha256": "cb0c2a507c6174b8a9e799c63eaea25b31ba6870641871de272020e766fbb0e5",
+      "generator": "fixtures.numerics",
+      "description": "dspy.Evaluate percentage: 100 * builtin-sum(metric) / n, then round half-even to 2 places."
     },
     {
-      "name": "dspy.trace.entry-shape.basic",
-      "file": "trace/entry-shape.basic.json"
+      "id": "mipro-trial-budget",
+      "file": "upstream/mipro-trial-budget.json",
+      "evidence": "upstream-execution",
+      "sha256": "d3dcbd0fdc4fe038f2e6194ef1645101402a46d2fc7afaa75fc5079159b127ca",
+      "generator": "fixtures.mipro_v2",
+      "description": "Real MIPRO compile phases, Optuna params and validation checkpoints.",
+      "trajectory": {
+        "sampledTrials": 10,
+        "minibatch": false,
+        "valsetSize": 6,
+        "sampledEvaluation": "fullValidation",
+        "insertedFullEvaluations": 0,
+        "baselineTrials": 1,
+        "totalStudyRows": 11,
+        "strictThroughTrial": 10,
+        "firstInadmissibleTie": null
+      }
     },
     {
-      "name": "dspy.trace.fiber-isolation.seed-0",
-      "file": "trace/fiber-isolation.seed-0.json"
+      "id": "miprov2-auto-minibatch",
+      "file": "upstream/miprov2-auto-minibatch.json",
+      "evidence": "upstream-execution",
+      "sha256": "85c7814e0ded5c0b5e41b84c2dd94f226d888a8763ba46dad8b4d35725cf8911",
+      "generator": "fixtures.mipro_v2",
+      "description": "Auto light enables minibatching above 50 validation rows and inserts full checkpoints at the default five-trial cadence.",
+      "trajectory": {
+        "sampledTrials": 10,
+        "minibatch": true,
+        "valsetSize": 51,
+        "sampledEvaluation": "minibatch",
+        "insertedFullEvaluations": 2,
+        "baselineTrials": 1,
+        "totalStudyRows": 13,
+        "strictThroughTrial": 12,
+        "firstInadmissibleTie": null
+      }
+    },
+    {
+      "id": "miprov2-default-grounded",
+      "file": "upstream/miprov2-default-grounded.json",
+      "evidence": "upstream-execution",
+      "sha256": "817501bf57751fe021f18e3198835f67162cc7ed6eafb1de2f841542c934f6a0",
+      "generator": "fixtures.evidence_capture",
+      "description": "Full MIPROv2.compile with all grounding, auto and budget defaults joining bootstrap, grounded proposals and TPE trials (num_threads=1 for evaluation order).",
+      "trajectory": {
+        "sampledTrials": 10,
+        "minibatch": false,
+        "valsetSize": 6,
+        "sampledEvaluation": "fullValidation",
+        "insertedFullEvaluations": 0,
+        "baselineTrials": 1,
+        "totalStudyRows": 11,
+        "strictThroughTrial": 10,
+        "firstInadmissibleTie": null
+      },
+      "environment": {
+        "PYTHONHASHSEED": "0",
+        "NPY_DISABLE_CPU_FEATURES": "AVX2,FMA3,AVX512F"
+      }
+    },
+    {
+      "id": "miprov2-exhausted-full-eval",
+      "file": "upstream/miprov2-exhausted-full-eval.json",
+      "evidence": "upstream-execution",
+      "sha256": "1d31acb4dd58a56ef6750429eeb1b82b6f2cbb60217ea110319966669a0783e8",
+      "generator": "fixtures.mipro_v2",
+      "description": "Three instruction candidates exhaust all not-yet-fully-evaluated combinations during twelve minibatch trials.",
+      "trajectory": {
+        "sampledTrials": 8,
+        "minibatch": true,
+        "valsetSize": 6,
+        "sampledEvaluation": "minibatch",
+        "insertedFullEvaluations": 3,
+        "baselineTrials": 1,
+        "totalStudyRows": 12,
+        "strictThroughTrial": 11,
+        "firstInadmissibleTie": null
+      }
+    },
+    {
+      "id": "miprov2-explicit",
+      "file": "upstream/miprov2-explicit.json",
+      "evidence": "upstream-execution",
+      "sha256": "0403a58310aa1e8eb91b48631d1d1d7486c082a4ae0ed88e1d87cf4ad28a2bc1",
+      "generator": "fixtures.mipro_v2",
+      "description": "Real MIPRO compile phases, Optuna params and validation checkpoints.",
+      "trajectory": {
+        "sampledTrials": 12,
+        "minibatch": true,
+        "valsetSize": 6,
+        "sampledEvaluation": "minibatch",
+        "insertedFullEvaluations": 6,
+        "baselineTrials": 1,
+        "totalStudyRows": 19,
+        "strictThroughTrial": 10,
+        "firstInadmissibleTie": {
+          "trial": 11,
+          "dimensions": [
+            "0_predictor_demos",
+            "0_predictor_instruction"
+          ],
+          "gap": 0.0,
+          "tie": {
+            "classification": "coincidentalCancellation",
+            "winner": {
+              "0_predictor_demos": 0,
+              "0_predictor_instruction": 2
+            },
+            "other": {
+              "0_predictor_demos": 1,
+              "0_predictor_instruction": 2
+            }
+          }
+        }
+      }
+    },
+    {
+      "id": "miprov2-grounded-proposer",
+      "file": "upstream/miprov2-grounded-proposer.json",
+      "evidence": "upstream-execution",
+      "sha256": "4499bf9c074139ab9e04f1813f3e40870fb8db31b7c1bec53da5e3e22afd18b5",
+      "generator": "fixtures.mipro_proposer",
+      "description": "Real grounded proposer call order, settings, tips, demo rotation and instruction identities."
+    },
+    {
+      "id": "miprov2-heavy",
+      "file": "upstream/miprov2-heavy.json",
+      "evidence": "upstream-execution",
+      "sha256": "537bac7a4fa589c210bf17969b0452dd71b8bf0eaf55111cc64c69c23d32fce2",
+      "generator": "fixtures.mipro_v2",
+      "description": "Real MIPRO compile phases, Optuna params and validation checkpoints.",
+      "trajectory": {
+        "sampledTrials": 27,
+        "minibatch": false,
+        "valsetSize": 6,
+        "sampledEvaluation": "fullValidation",
+        "insertedFullEvaluations": 0,
+        "baselineTrials": 1,
+        "totalStudyRows": 28,
+        "strictThroughTrial": 17,
+        "firstInadmissibleTie": {
+          "trial": 18,
+          "dimensions": [
+            "0_predictor_demos",
+            "0_predictor_instruction"
+          ],
+          "gap": 0.0,
+          "tie": {
+            "classification": "coincidentalCancellation",
+            "winner": {
+              "0_predictor_demos": 5,
+              "0_predictor_instruction": 2
+            },
+            "other": {
+              "0_predictor_demos": 3,
+              "0_predictor_instruction": 3
+            }
+          }
+        }
+      }
+    },
+    {
+      "id": "miprov2-medium",
+      "file": "upstream/miprov2-medium.json",
+      "evidence": "upstream-execution",
+      "sha256": "9be17beda04ebfed0e00589c7315e5588c9c3f084176bed9c7d173452c04e63c",
+      "generator": "fixtures.mipro_v2",
+      "description": "Real MIPRO compile phases, Optuna params and validation checkpoints.",
+      "trajectory": {
+        "sampledTrials": 18,
+        "minibatch": false,
+        "valsetSize": 6,
+        "sampledEvaluation": "fullValidation",
+        "insertedFullEvaluations": 0,
+        "baselineTrials": 1,
+        "totalStudyRows": 19,
+        "strictThroughTrial": 15,
+        "firstInadmissibleTie": {
+          "trial": 16,
+          "dimensions": [
+            "0_predictor_demos",
+            "0_predictor_instruction"
+          ],
+          "gap": 0.0,
+          "tie": {
+            "classification": "coincidentalCancellation",
+            "winner": {
+              "0_predictor_demos": 11,
+              "0_predictor_instruction": 0
+            },
+            "other": {
+              "0_predictor_demos": 11,
+              "0_predictor_instruction": 1
+            }
+          }
+        }
+      }
+    },
+    {
+      "id": "miprov2-no-labels",
+      "file": "upstream/miprov2-no-labels.json",
+      "evidence": "upstream-execution",
+      "sha256": "01ec40428602fa9c801ab409be7d91d98101f4fcad55ba0221d6dea2474cfceb",
+      "generator": "fixtures.mipro_v2",
+      "description": "Real MIPRO compile with unlabeled-only bootstrap catalog and shared RNG; zero caps retain proposer evidence but remove demo search.",
+      "trajectory": {
+        "sampledTrials": 12,
+        "minibatch": false,
+        "valsetSize": 6,
+        "sampledEvaluation": "fullValidation",
+        "insertedFullEvaluations": 0,
+        "baselineTrials": 1,
+        "totalStudyRows": 13,
+        "strictThroughTrial": 12,
+        "firstInadmissibleTie": null
+      }
+    },
+    {
+      "id": "miprov2-proposer-no-demos",
+      "file": "upstream/miprov2-proposer-no-demos.json",
+      "evidence": "upstream-execution",
+      "sha256": "1d76604682ddf857a92b6fdcd8ebac6b46b1931564254ddc8084d93347fe0013",
+      "generator": "fixtures.mipro_proposer",
+      "description": "Real grounded proposer call order, settings, tips, demo rotation and instruction identities."
+    },
+    {
+      "id": "miprov2-proposer-summary-skips",
+      "file": "upstream/miprov2-proposer-summary-skips.json",
+      "evidence": "upstream-execution",
+      "sha256": "1fa8332f56d1dd3564a139625970412ddafe02d90d582c32911bd47c198dbf1e",
+      "generator": "fixtures.mipro_proposer",
+      "description": "Real grounded proposer call order, settings, tips, demo rotation and instruction identities."
+    },
+    {
+      "id": "miprov2-zero-shot",
+      "file": "upstream/miprov2-zero-shot.json",
+      "evidence": "upstream-execution",
+      "sha256": "8d09854d55a76dbf7e21de5553a64eea39e1eb78bbad98abe2f2d8c7143a05f1",
+      "generator": "fixtures.mipro_v2",
+      "description": "Real MIPRO compile with unlabeled-only bootstrap catalog and shared RNG; zero caps retain proposer evidence but remove demo search.",
+      "trajectory": {
+        "sampledTrials": 12,
+        "minibatch": false,
+        "valsetSize": 6,
+        "sampledEvaluation": "fullValidation",
+        "insertedFullEvaluations": 0,
+        "baselineTrials": 1,
+        "totalStudyRows": 13,
+        "strictThroughTrial": 10,
+        "firstInadmissibleTie": {
+          "trial": 11,
+          "dimensions": [
+            "0_predictor_instruction"
+          ],
+          "gap": 0.0,
+          "tie": {
+            "classification": "coincidentalCancellation",
+            "winner": {
+              "0_predictor_instruction": 0
+            },
+            "other": {
+              "0_predictor_instruction": 1
+            }
+          }
+        }
+      }
+    },
+    {
+      "id": "predict-trace",
+      "file": "upstream/predict-trace.json",
+      "evidence": "upstream-execution",
+      "sha256": "b8a122ae7a0ee54f6a73b548c838631b346a5cec2a680646e26f443b8b7ccde6",
+      "generator": "fixtures.predict_runtime",
+      "description": "ChainOfThought execution and selected predictor trace."
     }
   ]
 }

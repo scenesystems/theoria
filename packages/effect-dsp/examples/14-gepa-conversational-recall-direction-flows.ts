@@ -36,7 +36,6 @@ import {
   Ref,
   Result,
   Schema,
-  Stream,
   String as Str
 } from "effect"
 import { liveTeacherLayer, withLiveLanguageModel } from "./shared/live-provider-runtime.js"
@@ -67,7 +66,7 @@ const trainset = Arr.make(
         "Increase convergence from pre- to post-recall while preserving interpretable degree-of-separation effects.",
       protocolConstraint: "Participant count, conversation count, and time budget are fixed by protocol."
     },
-    output: {
+    labels: Option.some({
       networkCondition: "nonclustered",
       sequencingPolicy: "bridge-early",
       turnTakingPolicy: "strict-alternation",
@@ -76,7 +75,7 @@ const trainset = Arr.make(
         "Move bridge ties to round 1 so reinforced items propagate before cluster-local repetition saturates memory overlap.",
       analysisPlan:
         "Estimate pre/post convergence and test pairwise alignment by degree of separation after the three-turn sequence."
-    }
+    })
   }),
   new Example.Example({
     input: {
@@ -87,7 +86,7 @@ const trainset = Arr.make(
       analysisFocus: "Prioritize inferential power for alignment slope estimation over maximal global convergence.",
       protocolConstraint: "Keep total interactions identical to the nonclustered condition for comparability."
     },
-    output: {
+    labels: Option.some({
       networkCondition: "clustered",
       sequencingPolicy: "cluster-first",
       turnTakingPolicy: "balanced-free-recall",
@@ -96,7 +95,7 @@ const trainset = Arr.make(
         "Keep within-cluster conversations first to preserve path-length heterogeneity before any cross-cluster diffusion.",
       analysisPlan:
         "Model dyadic mnemonic alignment as post-pre similarity change and fit separation-sensitive slope terms."
-    }
+    })
   }),
   new Example.Example({
     input: {
@@ -110,7 +109,7 @@ const trainset = Arr.make(
         "Limit retrieval-induced forgetting while preserving at least moderate convergence gains from conversation.",
       protocolConstraint: "Cannot extend conversation duration or add extra sessions."
     },
-    output: {
+    labels: Option.some({
       networkCondition: "clustered",
       sequencingPolicy: "cluster-first",
       turnTakingPolicy: "strict-alternation",
@@ -119,7 +118,7 @@ const trainset = Arr.make(
         "Constrain turn asymmetry and delay bridge diffusion so suppressed traces can be reactivated locally before mixing.",
       analysisPlan:
         "Track reinforcement/suppression item scores and compare spillover risk against baseline conditions."
-    }
+    })
   }),
   new Example.Example({
     input: {
@@ -130,7 +129,7 @@ const trainset = Arr.make(
       analysisFocus: "Optimize bridge diffusion speed without destabilizing post-phase recall quality.",
       protocolConstraint: "No increase in network size or conversation budget."
     },
-    output: {
+    labels: Option.some({
       networkCondition: "nonclustered",
       sequencingPolicy: "bridge-early",
       turnTakingPolicy: "bridge-speaker-priority",
@@ -139,7 +138,7 @@ const trainset = Arr.make(
         "Schedule bridge dyads first and allow bridge nodes to seed shared cues in opening turns before neighborhood repeats.",
       analysisPlan:
         "Compare convergence gains and suppression side effects across topology-matched and topology-mismatched conditions."
-    }
+    })
   })
 )
 
@@ -159,7 +158,7 @@ const evalset = Arr.make(
       analysisFocus: "Lift convergence while preserving interpretable dyadic alignment outcomes.",
       protocolConstraint: "Must preserve the same number of interactions across conditions."
     },
-    output: {
+    labels: Option.some({
       networkCondition: "nonclustered",
       sequencingPolicy: "bridge-early",
       turnTakingPolicy: "strict-alternation",
@@ -167,7 +166,7 @@ const evalset = Arr.make(
       protocolAdjustment:
         "Reduce effective network diameter in round 1, then reinforce key details under balanced alternating turns.",
       analysisPlan: "Compute pre/post convergence and estimate how alignment decays with conversational separation."
-    }
+    })
   }),
   new Example.Example({
     input: {
@@ -178,7 +177,7 @@ const evalset = Arr.make(
       analysisFocus: "Preserve distance gradient while still measuring convergence lift from conversation.",
       protocolConstraint: "No extra rounds and no participant reallocations."
     },
-    output: {
+    labels: Option.some({
       networkCondition: "clustered",
       sequencingPolicy: "cluster-first",
       turnTakingPolicy: "balanced-free-recall",
@@ -186,7 +185,7 @@ const evalset = Arr.make(
       protocolAdjustment:
         "Keep modular paths intact in early rounds and delay bridges to preserve degree-of-separation range.",
       analysisPlan: "Evaluate alignment slope by shortest-path distance with condition-level mixed effects."
-    }
+    })
   }),
   new Example.Example({
     input: {
@@ -198,7 +197,7 @@ const evalset = Arr.make(
       analysisFocus: "Stabilize minority item retention and monitor convergence trade-offs.",
       protocolConstraint: "Protocol timing and participant count are immutable."
     },
-    output: {
+    labels: Option.some({
       networkCondition: "clustered",
       sequencingPolicy: "cluster-first",
       turnTakingPolicy: "strict-alternation",
@@ -206,7 +205,7 @@ const evalset = Arr.make(
       protocolAdjustment:
         "Use locally contained rounds with strict alternation to dampen suppression cascades before bridge propagation.",
       analysisPlan: "Report reinforcement/suppression item scores and compare spillover risk across rounds."
-    }
+    })
   })
 )
 
@@ -454,85 +453,84 @@ const mismatchLine = (score: number, label: string, expected: string, predicted:
  * - convergence forecast
  * - textual adjustment/analysis overlap
  */
-const protocolMetric = Metric.fromEffect(
-  "conversationalRecallProtocolFit",
-  (prediction, expected) =>
-    Effect.sync(() => {
-      const predictedConditionRaw = readStringField(prediction, "networkCondition")
-      const predictedSequencingRaw = readStringField(prediction, "sequencingPolicy")
-      const predictedTurnPolicyRaw = readStringField(prediction, "turnTakingPolicy")
-      const predictedForecastRaw = readStringField(prediction, "convergenceForecast")
-      const predictedAdjustmentRaw = readStringField(prediction, "protocolAdjustment")
-      const predictedAnalysisPlanRaw = readStringField(prediction, "analysisPlan")
+const protocolMetric = Metric.withFeedback((example, result) =>
+  Effect.sync(() => {
+    const prediction = result.output
+    const expected = Option.getOrElse(example.labels, () => ({}))
+    const predictedConditionRaw = readStringField(prediction, "networkCondition")
+    const predictedSequencingRaw = readStringField(prediction, "sequencingPolicy")
+    const predictedTurnPolicyRaw = readStringField(prediction, "turnTakingPolicy")
+    const predictedForecastRaw = readStringField(prediction, "convergenceForecast")
+    const predictedAdjustmentRaw = readStringField(prediction, "protocolAdjustment")
+    const predictedAnalysisPlanRaw = readStringField(prediction, "analysisPlan")
 
-      const expectedConditionRaw = readStringField(expected, "networkCondition")
-      const expectedSequencingRaw = readStringField(expected, "sequencingPolicy")
-      const expectedTurnPolicyRaw = readStringField(expected, "turnTakingPolicy")
-      const expectedForecastRaw = readStringField(expected, "convergenceForecast")
-      const expectedAdjustmentRaw = readStringField(expected, "protocolAdjustment")
-      const expectedAnalysisPlanRaw = readStringField(expected, "analysisPlan")
+    const expectedConditionRaw = readStringField(expected, "networkCondition")
+    const expectedSequencingRaw = readStringField(expected, "sequencingPolicy")
+    const expectedTurnPolicyRaw = readStringField(expected, "turnTakingPolicy")
+    const expectedForecastRaw = readStringField(expected, "convergenceForecast")
+    const expectedAdjustmentRaw = readStringField(expected, "protocolAdjustment")
+    const expectedAnalysisPlanRaw = readStringField(expected, "analysisPlan")
 
-      const predictedCondition = normalizeNetworkCondition(predictedConditionRaw)
-      const predictedSequencing = normalizeSequencingPolicy(predictedSequencingRaw)
-      const predictedTurnPolicy = normalizeTurnTakingPolicy(predictedTurnPolicyRaw)
-      const predictedForecast = normalizeConvergenceForecast(predictedForecastRaw)
+    const predictedCondition = normalizeNetworkCondition(predictedConditionRaw)
+    const predictedSequencing = normalizeSequencingPolicy(predictedSequencingRaw)
+    const predictedTurnPolicy = normalizeTurnTakingPolicy(predictedTurnPolicyRaw)
+    const predictedForecast = normalizeConvergenceForecast(predictedForecastRaw)
 
-      const expectedCondition = normalizeNetworkCondition(expectedConditionRaw)
-      const expectedSequencing = normalizeSequencingPolicy(expectedSequencingRaw)
-      const expectedTurnPolicy = normalizeTurnTakingPolicy(expectedTurnPolicyRaw)
-      const expectedForecast = normalizeConvergenceForecast(expectedForecastRaw)
+    const expectedCondition = normalizeNetworkCondition(expectedConditionRaw)
+    const expectedSequencing = normalizeSequencingPolicy(expectedSequencingRaw)
+    const expectedTurnPolicy = normalizeTurnTakingPolicy(expectedTurnPolicyRaw)
+    const expectedForecast = normalizeConvergenceForecast(expectedForecastRaw)
 
-      const conditionScore = exactScore(predictedCondition, expectedCondition)
-      const sequencingScore = exactScore(predictedSequencing, expectedSequencing)
-      const turnPolicyScore = exactScore(predictedTurnPolicy, expectedTurnPolicy)
-      const forecastScore = exactScore(predictedForecast, expectedForecast)
-      const narrativeScore = averageScore(
-        Arr.make(
-          tokenOverlapScore(predictedAdjustmentRaw, expectedAdjustmentRaw),
-          tokenOverlapScore(predictedAnalysisPlanRaw, expectedAnalysisPlanRaw)
-        )
+    const conditionScore = exactScore(predictedCondition, expectedCondition)
+    const sequencingScore = exactScore(predictedSequencing, expectedSequencing)
+    const turnPolicyScore = exactScore(predictedTurnPolicy, expectedTurnPolicy)
+    const forecastScore = exactScore(predictedForecast, expectedForecast)
+    const narrativeScore = averageScore(
+      Arr.make(
+        tokenOverlapScore(predictedAdjustmentRaw, expectedAdjustmentRaw),
+        tokenOverlapScore(predictedAnalysisPlanRaw, expectedAnalysisPlanRaw)
       )
+    )
 
-      const score = clampUnitScore(
-        Numeric.sum(Arr.make(
-          Num.multiply(conditionScore, 0.25),
-          Num.multiply(sequencingScore, 0.25),
-          Num.multiply(turnPolicyScore, 0.2),
-          Num.multiply(forecastScore, 0.15),
-          Num.multiply(narrativeScore, 0.15)
-        ))
-      )
+    const score = clampUnitScore(
+      Numeric.sum(Arr.make(
+        Num.multiply(conditionScore, 0.25),
+        Num.multiply(sequencingScore, 0.25),
+        Num.multiply(turnPolicyScore, 0.2),
+        Num.multiply(forecastScore, 0.15),
+        Num.multiply(narrativeScore, 0.15)
+      ))
+    )
 
-      const mismatchLines = Arr.filter(
-        Arr.make(
-          mismatchLine(conditionScore, "networkCondition", expectedCondition, predictedCondition),
-          mismatchLine(sequencingScore, "sequencingPolicy", expectedSequencing, predictedSequencing),
-          mismatchLine(turnPolicyScore, "turnTakingPolicy", expectedTurnPolicy, predictedTurnPolicy),
-          mismatchLine(forecastScore, "convergenceForecast", expectedForecast, predictedForecast)
-        ),
-        Str.isNonEmpty
-      )
+    const mismatchLines = Arr.filter(
+      Arr.make(
+        mismatchLine(conditionScore, "networkCondition", expectedCondition, predictedCondition),
+        mismatchLine(sequencingScore, "sequencingPolicy", expectedSequencing, predictedSequencing),
+        mismatchLine(turnPolicyScore, "turnTakingPolicy", expectedTurnPolicy, predictedTurnPolicy),
+        mismatchLine(forecastScore, "convergenceForecast", expectedForecast, predictedForecast)
+      ),
+      Str.isNonEmpty
+    )
 
-      const mismatchSummary = Match.value(Arr.isArrayNonEmpty(mismatchLines)).pipe(
-        Match.when(true, () => Arr.join(mismatchLines, "; ")),
-        Match.orElse(() => "decisionLabels=aligned")
-      )
+    const mismatchSummary = Match.value(Arr.isArrayNonEmpty(mismatchLines)).pipe(
+      Match.when(true, () => Arr.join(mismatchLines, "; ")),
+      Match.orElse(() => "decisionLabels=aligned")
+    )
 
-      const feedback = Arr.join(
-        Arr.make(
-          `condition=${numberText(conditionScore)}`,
-          `sequencing=${numberText(sequencingScore)}`,
-          `turnPolicy=${numberText(turnPolicyScore)}`,
-          `forecast=${numberText(forecastScore)}`,
-          `narrative=${numberText(narrativeScore)}`,
-          mismatchSummary
-        ),
-        " "
-      )
+    const feedback = Arr.join(
+      Arr.make(
+        `condition=${numberText(conditionScore)}`,
+        `sequencing=${numberText(sequencingScore)}`,
+        `turnPolicy=${numberText(turnPolicyScore)}`,
+        `forecast=${numberText(forecastScore)}`,
+        `narrative=${numberText(narrativeScore)}`,
+        mismatchSummary
+      ),
+      " "
+    )
 
-      return new Metric.Result({ score, feedback })
-    })
-)
+    return new Metric.Score({ value: score, feedback: Option.some(feedback) })
+  }), "conversationalRecallProtocolFit")
 
 const program = Effect.gen(function*() {
   // Define signatures for dynamics diagnosis and protocol planning.
@@ -678,7 +676,7 @@ const program = Effect.gen(function*() {
     protocolAdjustment: demonstrationTurn.protocolAdjustment
   })
 
-  const panelParamsBeforeGEPA = yield* Ref.get(methodsPanel.params)
+  const panelParametersBeforeGEPA = yield* Ref.get(protocolPlanner.parameters)
 
   // Evaluate baseline protocol quality.
   yield* logExampleStage("baseline-evaluation-started", {
@@ -697,25 +695,30 @@ const program = Effect.gen(function*() {
   // Evolve planner instructions with GEPA.
   yield* logExampleStage("gepa-stream-started", {
     trainExampleCount: Arr.length(trainset),
+    maxFullEvals: 6,
     maxIterations: 4,
     maxMergeInvocations: 4,
     seed: 140
   })
 
-  const gepaEventsChunk = yield* GEPA.stream(
+  const gepaLog = yield* Ref.make(Arr.empty<GEPA.Event>())
+  const compiled = yield* GEPA.runWithEvents(
     new GEPA.Options({
       module: methodsPanel,
       trainset,
       valset: evalset,
       metric: protocolMetric,
+      maxFullEvals: 6,
       maxIterations: 4,
       maxMergeInvocations: 4,
       seed: 140
-    })
-  ).pipe(
-    GEPA.tapProgress((line) => logExampleEvent("gepa", line.text)),
-    Stream.runCollect
+    }),
+    (event) =>
+      Ref.update(gepaLog, Arr.append(event)).pipe(
+        Effect.andThen(logExampleEvent("gepa", GEPA.formatEvent(event).text))
+      )
   )
+  yield* Module.install(methodsPanel, compiled.parameters)
 
   const optimized = yield* Evaluate.run(
     new Evaluate.Options({
@@ -726,19 +729,22 @@ const program = Effect.gen(function*() {
     })
   )
 
-  const gepaEvents = Arr.fromIterable(gepaEventsChunk)
+  const gepaEvents = yield* Ref.get(gepaLog)
   const gepaEventSummary = GEPA.summarizeEvents(gepaEvents)
-  const panelParamsAfterGEPA = yield* Ref.get(methodsPanel.params)
+  const panelParametersAfterGEPA = yield* Ref.get(protocolPlanner.parameters)
 
   const baselineScore = baseline.overallScores.protocolFit ?? 0
   const optimizedScore = optimized.overallScores.protocolFit ?? 0
-  const gepaOutcome = GEPA.summarizeOutcome({
-    baselineScore,
-    optimizedScore,
-    instructionBefore: panelParamsBeforeGEPA.instructions,
-    instructionAfter: panelParamsAfterGEPA.instructions,
-    events: gepaEventSummary
-  })
+  const gepaOutcome = {
+    baselineExactMatch: baselineScore,
+    optimizedExactMatch: optimizedScore,
+    scoreDelta: Num.subtract(optimizedScore, baselineScore),
+    instructionChanged: Bool.not(
+      Str.Equivalence(panelParametersBeforeGEPA.instructions, panelParametersAfterGEPA.instructions)
+    ),
+    instructionLengthBeforeOptimization: Str.length(panelParametersBeforeGEPA.instructions),
+    instructionLengthAfterOptimization: Str.length(panelParametersAfterGEPA.instructions)
+  }
 
   yield* logExampleStage("gepa-summary", {
     baselineProtocolFit: gepaOutcome.baselineExactMatch,
@@ -747,10 +753,10 @@ const program = Effect.gen(function*() {
     instructionChanged: gepaOutcome.instructionChanged,
     instructionLengthBeforeOptimization: gepaOutcome.instructionLengthBeforeOptimization,
     instructionLengthAfterOptimization: gepaOutcome.instructionLengthAfterOptimization,
-    optimizationBestCandidateId: gepaOutcome.eventSummary.optimizationBestCandidateId,
-    optimizationFrontierSize: gepaOutcome.eventSummary.optimizationFrontierSize,
-    acceptanceAcceptedCount: gepaOutcome.eventSummary.acceptanceAcceptedCount,
-    gate1PassedCount: gepaOutcome.eventSummary.gate1PassedCount
+    optimizationBestCandidateId: gepaEventSummary.optimizationBestCandidateId,
+    optimizationFrontierSize: gepaEventSummary.optimizationFrontierSize,
+    acceptanceAcceptedCount: gepaEventSummary.acceptanceAcceptedCount,
+    gate1PassedCount: gepaEventSummary.gate1PassedCount
   })
 
   const protocolPriorTurn = yield* methodsPanel.forward({

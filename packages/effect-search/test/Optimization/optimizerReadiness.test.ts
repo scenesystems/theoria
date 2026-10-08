@@ -28,11 +28,12 @@ import {
 } from "../fixtures/scenarios/conditionalLinearTree.js"
 import { decodeRandomTrainingConfig, makeRandomTrainingSpace } from "../fixtures/scenarios/randomTraining.js"
 import { decodeSlotConfig, makeSlotSpace } from "../fixtures/scenarios/slot.js"
+import { expectCoupledTrace, loadCoupledOptuna } from "../helpers/coupledOptuna.js"
 
 const deterministicSampler = new Sampler.Sampler({
   kind: Sampler.Random({ options: { seed: 0 } }),
   pendingImputationPolicy: pendingAsZeroPolicy,
-  checkpoint: Effect.succeed({ _tag: "Random", seed: 0 }),
+  checkpoint: Effect.succeed({ _tag: "Random", seed: 0, rng: Option.none() }),
   restore: () => Effect.void,
   suggest: (_space, context) => Effect.succeed({ slot: context.nextTrialNumber })
 })
@@ -413,7 +414,7 @@ describe("optimizer readiness pruning regression", () => {
       expect(grid.trials).toHaveLength(18)
     }))
 
-  it.effect("MIPROv2 readiness keeps categorical-coupled multivariate TPE deterministic and competitive", () =>
+  it.effect("MIPROv2 readiness replays Optuna's default independent TPE deterministically", () =>
     Effect.gen(function*() {
       const space = yield* coupledSpace
       const tpeLeft = yield* Optimization.run(
@@ -459,7 +460,21 @@ describe("optimizer readiness pruning regression", () => {
         Arr.map(Arr.fromIterable(right.trials), (trial) => trial.config)
       )
       expect(yield* isCoupledBestPair(left.bestTrial.config)).toBe(true)
-      expect(left.bestTrial.state.value).toBeLessThanOrEqual(random.bestTrial.state.value)
+      const references = yield* loadCoupledOptuna
+      expectCoupledTrace(
+        left,
+        yield* Effect.fromOption(Arr.findFirst(
+          references,
+          (reference) => Equal.equals(reference.sampler, "tpe") && Bool.not(reference.multivariate)
+        ))
+      )
+      expectCoupledTrace(
+        random,
+        yield* Effect.fromOption(Arr.findFirst(
+          references,
+          (reference) => Equal.equals(reference.sampler, "random")
+        ))
+      )
     }))
 
   it.effect(

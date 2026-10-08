@@ -4,8 +4,8 @@
  */
 import { describe, expect, it } from "@effect/vitest"
 import { ContentDigest, Utf8 } from "@scenesystems/digest"
-import { Cache, Key, key, KeyRequest, layerMemory, Request } from "@scenesystems/effect-dsp/Cache"
-import { Effect, Option, Ref, Schema } from "effect"
+import { Cache, key, KeyRequest, layerMemory, Request } from "@scenesystems/effect-dsp/Cache"
+import { Effect, Ref, Schema } from "effect"
 
 describe("Cache authority contract", () => {
   it.effect("identifies the selected input and parameter wire representations, not incidental fields", () =>
@@ -15,20 +15,20 @@ describe("Cache authority contract", () => {
         moduleFingerprint: "wire-v1",
         runtimeFingerprint: "runtime-v1",
         inputSchema: Schema.Struct({ value: Schema.FiniteFromString }),
-        paramsSchema: Schema.FiniteFromString,
+        parametersSchema: Schema.FiniteFromString,
         input,
-        params: 11
+        parameters: 11
       }
       const actual = yield* key(new KeyRequest(request))
       const inputDigest = yield* ContentDigest.fromBytes("blake3-256", yield* Utf8.encode("{\"value\":\"42\"}"))
-      const paramsDigest = yield* ContentDigest.fromBytes("blake3-256", yield* Utf8.encode("\"11\""))
+      const parametersDigest = yield* ContentDigest.fromBytes("blake3-256", yield* Utf8.encode("\"11\""))
       expect(actual.inputHash).toBe(ContentDigest.toString(inputDigest))
-      expect(actual.paramsHash).toBe(ContentDigest.toString(paramsDigest))
+      expect(actual.parametersHash).toBe(ContentDigest.toString(parametersDigest))
       const changed = { value: 42, incidental: "changed" }
       expect(yield* key(new KeyRequest({ ...request, input: changed })))
         .toEqual(actual)
-      expect((yield* key(new KeyRequest({ ...request, paramsSchema: Schema.Finite }))).paramsHash)
-        .not.toBe(actual.paramsHash)
+      expect((yield* key(new KeyRequest({ ...request, parametersSchema: Schema.Finite }))).parametersHash)
+        .not.toBe(actual.parametersHash)
     }))
 
   it.effect("resolve returns miss + computed value on first call", () =>
@@ -42,9 +42,9 @@ describe("Cache authority contract", () => {
           moduleFingerprint: "qa-module",
           runtimeFingerprint: "runtime-v1",
           input: { question: "What is 2+2?" },
+          parameters: { instructions: "Answer concisely", demos: [] },
           inputSchema: Schema.Struct({ question: Schema.String }),
-          paramsSchema: Schema.Struct({ instructions: Schema.String, demos: Schema.Array(Schema.Never) }),
-          params: { instructions: "Answer concisely", demos: [] },
+          parametersSchema: Schema.Struct({ instructions: Schema.String, demos: Schema.Array(Schema.Never) }),
           outputSchema: Schema.Struct({ answer: Schema.String }),
           compute: Ref.updateAndGet(computeCount, (n) => n + 1).pipe(
             Effect.as({ answer: "4" })
@@ -67,9 +67,9 @@ describe("Cache authority contract", () => {
         moduleFingerprint: "qa-module",
         runtimeFingerprint: "runtime-v1",
         input: { question: "What is 2+2?" },
+        parameters: { instructions: "Answer concisely", demos: [] },
         inputSchema: Schema.Struct({ question: Schema.String }),
-        paramsSchema: Schema.Struct({ instructions: Schema.String, demos: Schema.Array(Schema.Never) }),
-        params: { instructions: "Answer concisely", demos: [] },
+        parametersSchema: Schema.Struct({ instructions: Schema.String, demos: Schema.Array(Schema.Never) }),
         outputSchema: Schema.Struct({ answer: Schema.String }),
         compute: Ref.updateAndGet(computeCount, (n) => n + 1).pipe(
           Effect.as({ answer: "4" })
@@ -95,9 +95,9 @@ describe("Cache authority contract", () => {
           moduleFingerprint: "qa-module",
           runtimeFingerprint: "runtime-v1",
           input: { question },
+          parameters: { instructions: "Answer concisely", demos: [] },
           inputSchema: Schema.Struct({ question: Schema.String }),
-          paramsSchema: Schema.Struct({ instructions: Schema.String, demos: Schema.Array(Schema.Never) }),
-          params: { instructions: "Answer concisely", demos: [] },
+          parametersSchema: Schema.Struct({ instructions: Schema.String, demos: Schema.Array(Schema.Never) }),
           outputSchema: Schema.Struct({ answer: Schema.String }),
           compute: Ref.updateAndGet(computeCount, (n) => n + 1).pipe(
             Effect.as({ answer: question })
@@ -112,7 +112,7 @@ describe("Cache authority contract", () => {
       expect(yield* Ref.get(computeCount)).toBe(2)
     }).pipe(Effect.provide(layerMemory)))
 
-  it.effect("different params produce different cache keys", () =>
+  it.effect("different parameters produce different cache keys", () =>
     Effect.gen(function*() {
       const computeCount = yield* Ref.make(0)
 
@@ -123,9 +123,9 @@ describe("Cache authority contract", () => {
           moduleFingerprint: "qa-module",
           runtimeFingerprint: "runtime-v1",
           input: { question: "What is 2+2?" },
-          params: { instructions, demos: [] },
+          parameters: { instructions, demos: [] },
           inputSchema: Schema.Struct({ question: Schema.String }),
-          paramsSchema: Schema.Struct({ instructions: Schema.String, demos: Schema.Array(Schema.Never) }),
+          parametersSchema: Schema.Struct({ instructions: Schema.String, demos: Schema.Array(Schema.Never) }),
           outputSchema: Schema.Struct({ answer: Schema.String }),
           compute: Ref.updateAndGet(computeCount, (n) => n + 1).pipe(
             Effect.as({ answer: "4" })
@@ -140,36 +140,6 @@ describe("Cache authority contract", () => {
       expect(yield* Ref.get(computeCount)).toBe(2)
     }).pipe(Effect.provide(layerMemory)))
 
-  it.effect("Key schema includes all five components", () =>
-    Effect.gen(function*() {
-      const key = new Key({
-        moduleFingerprint: "qa-module",
-        runtimeFingerprint: "runtime-v1",
-        inputHash: "abc123",
-        paramsHash: "def456",
-        rolloutId: Option.some(2)
-      })
-
-      expect(key.moduleFingerprint).toBe("qa-module")
-      expect(key.runtimeFingerprint).toBe("runtime-v1")
-      expect(key.inputHash).toBe("abc123")
-      expect(key.paramsHash).toBe("def456")
-      expect(key.rolloutId).toEqual(Option.some(2))
-    }))
-
-  it.effect("Key without rollout defaults to Option.none()", () =>
-    Effect.gen(function*() {
-      const key = new Key({
-        moduleFingerprint: "qa-module",
-        runtimeFingerprint: "runtime-v1",
-        inputHash: "abc123",
-        paramsHash: "def456",
-        rolloutId: Option.none()
-      })
-
-      expect(key.rolloutId).toEqual(Option.none())
-    }))
-
   it.effect("delegates to effect-search Cache for storage", () =>
     Effect.gen(function*() {
       const cache = yield* Cache
@@ -179,10 +149,10 @@ describe("Cache authority contract", () => {
           moduleFingerprint: "delegation-test",
           runtimeFingerprint: "v1",
           input: { x: 1 },
-          params: { instructions: "test", demos: [] },
+          parameters: { instructions: "test", demos: [] },
           outputSchema: Schema.Struct({ y: Schema.Finite }),
           inputSchema: Schema.Struct({ x: Schema.Finite }),
-          paramsSchema: Schema.Struct({ instructions: Schema.String, demos: Schema.Array(Schema.Never) }),
+          parametersSchema: Schema.Struct({ instructions: Schema.String, demos: Schema.Array(Schema.Never) }),
           compute: Effect.succeed({ y: 42 })
         })
       )
@@ -195,10 +165,10 @@ describe("Cache authority contract", () => {
           moduleFingerprint: "delegation-test",
           runtimeFingerprint: "v1",
           input: { x: 1 },
-          params: { instructions: "test", demos: [] },
+          parameters: { instructions: "test", demos: [] },
           outputSchema: Schema.Struct({ y: Schema.Finite }),
           inputSchema: Schema.Struct({ x: Schema.Finite }),
-          paramsSchema: Schema.Struct({ instructions: Schema.String, demos: Schema.Array(Schema.Never) }),
+          parametersSchema: Schema.Struct({ instructions: Schema.String, demos: Schema.Array(Schema.Never) }),
           compute: Effect.succeed({ y: 999 })
         })
       )

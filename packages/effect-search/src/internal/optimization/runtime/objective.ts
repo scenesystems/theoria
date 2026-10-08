@@ -8,7 +8,7 @@ import { Array as Arr, Boolean as Bool, Cause, Effect, Inspectable, Match, Numbe
 
 import { match, type Objective } from "../../../Objective.js"
 import { dimensionCount, isFiniteValue, type Value } from "../../../Objective.js"
-import type { Pruned } from "../../../Pruning.js"
+import type { Pruned, Report } from "../../../Pruning.js"
 import { InvalidObjectiveValue, TrialError } from "../../../SearchError.js"
 import * as Trial from "../../../Trial.js"
 
@@ -174,6 +174,7 @@ export const finalizeTrialWithPrune = <Config>(
   finishedAt: number,
   objectiveExit: Exit.Exit<Value, unknown>,
   pruned: Option.Option<Pruned>,
+  reports: ReadonlyArray<Report>,
   retryCount = 0,
   cost: Option.Option<number> = Option.none(),
   evaluationCount = 1,
@@ -192,5 +193,6 @@ export const finalizeTrialWithPrune = <Config>(
         evaluationCount,
         variance
       ),
-    onSome: ({ step, reason, policy }) => Effect.succeed(Trial.prune(running, step, reason, policy, finishedAt))
+    onSome: ({ step, reason, policy }) =>
+      Effect.succeed(Trial.prune(running, step, reason, policy, finishedAt, reports))
   })

@@ -8,7 +8,9 @@ import { Array as Arr, Match, Number as Num, Option } from "effect"
 import type { Direction } from "../../../Direction.js"
 import { CompletedTrialForSplit, splitTrials, type TrialSplit } from "../../../internal/tpe/splitTrials.js"
 import type { Observation } from "../../../Sampler.js"
+import type { ConstrainedPrunedObservation } from "../constraints/enrich.js"
 import { ConstraintAwareSplitTrial, splitWithConstraintFeasibility } from "../constraints/split.js"
+import { prunedTrialScore } from "../prunedScore.js"
 
 const numericValue = (value: unknown): Option.Option<number> =>
   Match.value(value).pipe(
@@ -80,11 +82,27 @@ const asConstraintAwareSplitTrials = (
  */
 export const splitSingleObjective = (
   completedInput: Iterable<Observation>,
-  direction: Direction
+  direction: Direction,
+  prunedInput: Iterable<ConstrainedPrunedObservation> = []
 ): TrialSplit => {
   const completed = Arr.fromIterable(completedInput)
 
-  const trials = asConstraintAwareSplitTrials(completed, direction)
+  const trials = Arr.appendAll(
+    asConstraintAwareSplitTrials(completed, direction),
+    Arr.map(Arr.fromIterable(prunedInput), ({ constraints, trial }) => {
+      const score = prunedTrialScore(trial.reports, direction)
+      return new ConstraintAwareSplitTrial({
+        trial: new CompletedTrialForSplit({
+          trialNumber: trial.trialNumber,
+          config: trial.config,
+          value: score.value,
+          sortStep: score.step,
+          state: "pruned"
+        }),
+        constraints
+      })
+    })
+  )
 
   return splitWithConstraintFeasibility(trials).pipe(
     Option.getOrElse(() => splitTrials(Arr.map(trials, (trial) => trial.trial)))

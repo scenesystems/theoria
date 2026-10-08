@@ -1,274 +1,247 @@
-from __future__ import annotations
+import contextlib
+import os
+import platform
 
-from typing import Any
+import dspy
+from dspy.clients import base_lm
 
-from ._common import metadata
-
-BOOTSTRAP_DEMO_BUDGET_CASES: list[dict[str, str]] = [
-    {
-        "question": "What is the capital of France?",
-        "expectedAnswer": "Paris",
-        "teacherAnswer": "Paris",
-    },
-    {
-        "question": "What is the capital of Japan?",
-        "expectedAnswer": "Tokyo",
-        "teacherAnswer": "Tokyo",
-    },
-    {
-        "question": "What is the capital of Italy?",
-        "expectedAnswer": "Rome",
-        "teacherAnswer": "Rome",
-    },
-]
-
-BOOTSTRAP_THRESHOLD_CASES: list[dict[str, str]] = [
-    {
-        "question": "What is the capital of France?",
-        "expectedAnswer": "Paris",
-        "teacherAnswer": "Paris",
-    },
-    {
-        "question": "What is the capital of Japan?",
-        "expectedAnswer": "Tokyo",
-        "teacherAnswer": "Kyoto",
-    },
-]
-
-LABELED_FEWSHOT_TRAINSET: list[dict[str, str]] = [
-    {
-        "question": "What is the capital of France?",
-        "answer": "Paris",
-    },
-    {
-        "question": "What is the capital of Japan?",
-        "answer": "Tokyo",
-    },
-    {
-        "question": "What is the capital of Italy?",
-        "answer": "Rome",
-    },
-    {
-        "question": "What is the capital of Spain?",
-        "answer": "Madrid",
-    },
-]
-
-BOOTSTRAP_RS_TRAINSET: list[dict[str, str]] = [
-    {
-        "question": "What is the capital of France?",
-        "answer": "Paris",
-    },
-    {
-        "question": "What is the capital of Japan?",
-        "answer": "Tokyo",
-    },
-]
-
-BOOTSTRAP_RS_VALSET: list[dict[str, str]] = [
-    {
-        "question": "Name the capital of Japan in one word",
-        "answer": "Tokyo",
-    }
-]
-
-ENSEMBLE_CASES: list[dict[str, Any]] = [
-    {
-        "name": "majority",
-        "question": "What is the capital of France?",
-        "programAnswers": ["Paris", "London", "Paris"],
-    },
-    {
-        "name": "tie-break-first-observed",
-        "question": "Which answer should win tie resolution?",
-        "programAnswers": ["Paris", "London", "London", "Paris"],
-    },
-]
-
-LABELED_SAMPLE_SEED = 9
-LABELED_SAMPLE_K = 2
-
-BOOTSTRAP_RS_SEEDS = [9, 10]
-BOOTSTRAP_RS_NUM_CANDIDATES = 2
+from ._common import examples, history, lm, splits, state
 
 
-def _normalize_seed(seed: int) -> int:
-    finite = abs(int(seed))
-    return 1 if finite <= 0 else finite
+class TwoStage(dspy.Module):
+    def __init__(self):
+        super().__init__()
+        self.first = dspy.Predict("question -> answer")
+        self.second = dspy.Predict("question -> answer")
+
+    def forward(self, question):
+        intermediate = self.first(question=question)
+        return self.second(question=intermediate.answer)
 
 
-def _next_pseudo_seed(seed: int) -> int:
-    return ((seed * 1664525) + 1013904223) % 4294967296
+class RepeatedCall(dspy.Module):
+    def __init__(self):
+        super().__init__()
+        self.predictor = dspy.Predict("question -> answer")
+
+    def forward(self, question):
+        self.predictor(question=f"{question}/first")
+        return self.predictor(question=f"{question}/second")
 
 
-def _labeled_sample_questions(trainset: list[dict[str, str]], k: int, seed: int) -> list[str]:
-    normalized_k = max(0, int(k))
-    scored: list[dict[str, int | str]] = []
-    cursor = _normalize_seed(seed)
+@contextlib.contextmanager
+def every_lm_call():
+    """Record calls from every LM, including round copies made by lm.copy(rollout_id=..., temperature=1.0).
 
-    for entry in trainset:
-        cursor = _next_pseudo_seed(cursor)
-        scored.append(
-            {
-                "score": cursor,
-                "question": entry["question"],
-            }
-        )
+    Per-instance history omits copied LMs, so this observes DSPy's history hook with the effective kwargs.
+    """
+    calls, original = [], base_lm.record_history
 
-    sorted_scored = sorted(scored, key=lambda item: int(item["score"]))
-    return [str(item["question"]) for item in sorted_scored[:normalized_k]]
+    def record(client, entry):
+        kwargs = {**client.kwargs, **entry["kwargs"]}
+        calls.append({"messages": entry["messages"],
+                      "kwargs": {**{k: kwargs.get(k) for k in ("temperature", "max_tokens", "rollout_id")},
+                                 "model": entry["model"]},
+                      "response": entry["outputs"]})
+        return original(client, entry)
 
-
-def _accepted_questions(cases: list[dict[str, str]], threshold: float) -> list[str]:
-    accepted: list[str] = []
-
-    for case in cases:
-        score = 1.0 if case["teacherAnswer"].strip().lower() == case["expectedAnswer"].strip().lower() else 0.0
-        if score >= threshold:
-            accepted.append(case["question"])
-
-    return accepted
+    base_lm.record_history = record
+    try:
+        yield calls
+    finally:
+        base_lm.record_history = original
 
 
-def _candidate_labels(seeds: list[int]) -> list[str]:
-    labels = ["uncompiled", "labeled-few-shot"]
-    return labels + [f"bootstrap-{seed}" for seed in seeds]
+def capture_runtime():
+    return {"python": platform.python_version(), "dspy": dspy.__version__,
+            "PYTHONHASHSEED": os.environ["PYTHONHASHSEED"],
+            "NPY_DISABLE_CPU_FEATURES": os.environ["NPY_DISABLE_CPU_FEATURES"]}
 
 
-def _majority_vote(answers: list[str]) -> str:
-    buckets: dict[str, dict[str, int]] = {}
-
-    for index, answer in enumerate(answers):
-        if answer not in buckets:
-            buckets[answer] = {
-                "count": 0,
-                "firstIndex": index,
-            }
-
-        buckets[answer]["count"] += 1
-
-    ranked = sorted(
-        buckets.items(),
-        key=lambda entry: (-entry[1]["count"], entry[1]["firstIndex"]),
-    )
-
-    return ranked[0][0]
+def lettered(*ids):
+    return [dspy.Example(id=i, question=i, answer=f"label-{i}").with_inputs("question") for i in ids]
 
 
-def _bootstrap_demo_budget_payload() -> dict[str, Any]:
-    max_bootstrapped_demos = 2
-    threshold = 1.0
-    accepted = _accepted_questions(BOOTSTRAP_DEMO_BUDGET_CASES, threshold)
+def bootstrap_policy():
+    """Pinned BootstrapFewShot.compile edge policies: example-major retries, default teacher demos,
+    falsy threshold, and the settings.max_errors default."""
+    docs = []
+    model, attempts, metric_calls = lm(), {}, []
 
-    return {
-        "maxBootstrappedDemos": max_bootstrapped_demos,
-        "threshold": threshold,
-        "maxRounds": 4,
-        "trainset": BOOTSTRAP_DEMO_BUDGET_CASES,
-        "expectedAcceptedQuestions": accepted[:max_bootstrapped_demos],
-        "expectedFinalDemoCount": min(len(accepted), max_bootstrapped_demos),
-        "expectedCallCount": len(BOOTSTRAP_DEMO_BUDGET_CASES),
-    }
+    def reject_a_once(e, p, trace=None):
+        attempts[e.id] = attempts.get(e.id, 0) + 1
+        metric_calls.append({"id": e.id, "attempt": attempts[e.id]})
+        return not (e.id == "a" and attempts[e.id] == 1)
 
+    train = lettered("a", "b", "c")
+    with every_lm_call() as calls, dspy.context(lm=model):
+        compiled = dspy.BootstrapFewShot(metric=reject_a_once, max_bootstrapped_demos=2,
+                                         max_labeled_demos=0, max_rounds=2,
+                                         ).compile(dspy.Predict("question -> answer"), trainset=train)
+    docs.append({"id": "bootstrapfewshot-rounds",
+                 "description": "Example-major retries: each example exhausts its rounds before the next; "
+                                "round copies use rollout_id and temperature 1.0.",
+                 "payload": {"runtime": capture_runtime(), "splits": splits(train), "maxBootstrappedDemos": 2,
+                             "maxLabeledDemos": 0, "maxRounds": 2, "metricCalls": metric_calls,
+                             "history": calls, "state": state(compiled)}})
 
-def _bootstrap_threshold_filtering_payload() -> dict[str, Any]:
-    max_bootstrapped_demos = 1
-    threshold = 1.0
-    accepted = _accepted_questions(BOOTSTRAP_THRESHOLD_CASES, threshold)
-    rejected = [case["question"] for case in BOOTSTRAP_THRESHOLD_CASES if case["question"] not in accepted]
+    model, metric_calls = lm(), []
+    student = dspy.Predict("question -> answer")
+    student.demos = [dspy.Example(question="seed", answer="seed-answer")]
 
-    return {
-        "maxBootstrappedDemos": max_bootstrapped_demos,
-        "threshold": threshold,
-        "maxRounds": 3,
-        "trainset": BOOTSTRAP_THRESHOLD_CASES,
-        "expectedAcceptedQuestions": accepted[:max_bootstrapped_demos],
-        "expectedRejectedQuestions": rejected,
-        "expectedFinalDemoCount": min(len(accepted), max_bootstrapped_demos),
-        "expectedCallCount": len(BOOTSTRAP_THRESHOLD_CASES),
-    }
+    def accept(e, p, trace=None):
+        metric_calls.append({"id": e.id})
+        return True
 
+    train = lettered("a")
+    with every_lm_call() as calls, dspy.context(lm=model):
+        compiled = dspy.BootstrapFewShot(metric=accept, max_bootstrapped_demos=1, max_labeled_demos=0,
+                                         max_rounds=1).compile(student, trainset=train)
+    docs.append({"id": "bootstrapfewshot-teacher-demos",
+                 "description": "Without labeled prewarming, the default deep-copied teacher keeps the student's demos.",
+                 "payload": {"runtime": capture_runtime(), "splits": splits(train),
+                             "studentDemos": [d.toDict() for d in student.demos],
+                             "metricCalls": metric_calls, "history": calls, "state": state(compiled)}})
 
-def _labeled_few_shot_sample_payload() -> dict[str, Any]:
-    return {
-        "seed": LABELED_SAMPLE_SEED,
-        "k": LABELED_SAMPLE_K,
-        "trainset": LABELED_FEWSHOT_TRAINSET,
-        "expectedSelectedQuestions": _labeled_sample_questions(
-            LABELED_FEWSHOT_TRAINSET,
-            LABELED_SAMPLE_K,
-            LABELED_SAMPLE_SEED,
-        ),
-        "expectedCallCount": 0,
-    }
+    model, metric_calls = lm(), []
 
+    def zero_for_a(e, p, trace=None):
+        metric_calls.append({"id": e.id})
+        return 0.0 if e.id == "a" else 0.5
 
-def _bootstrap_rs_candidate_catalog_payload() -> dict[str, Any]:
-    candidate_labels = _candidate_labels(BOOTSTRAP_RS_SEEDS)
+    train = lettered("a", "b")
+    with every_lm_call() as calls, dspy.context(lm=model):
+        compiled = dspy.BootstrapFewShot(metric=zero_for_a, metric_threshold=0, max_bootstrapped_demos=2,
+                                         max_labeled_demos=0, max_rounds=1,
+                                         ).compile(dspy.Predict("question -> answer"), trainset=train)
+    docs.append({"id": "bootstrapfewshot-threshold-zero",
+                 "description": "metric_threshold=0 is falsy, so the metric value's truthiness decides: 0 rejects.",
+                 "payload": {"runtime": capture_runtime(), "splits": splits(train), "metricThreshold": 0,
+                             "metricCalls": metric_calls, "history": calls, "state": state(compiled)}})
 
-    return {
-        "numCandidates": BOOTSTRAP_RS_NUM_CANDIDATES,
-        "seeds": BOOTSTRAP_RS_SEEDS,
-        "maxRounds": 1,
-        "maxBootstrappedDemos": 1,
-        "maxLabeledDemos": 0,
-        "threshold": 1.0,
-        "trainset": BOOTSTRAP_RS_TRAINSET,
-        "valset": BOOTSTRAP_RS_VALSET,
-        "expectedCandidateLabels": candidate_labels,
-        "expectedBestCandidateLabel": "bootstrap-9",
-        "expectedBestDemoQuestions": ["What is the capital of Japan?"],
-        "expectedCallCount": (
-            (len(BOOTSTRAP_RS_SEEDS) * len(BOOTSTRAP_RS_TRAINSET))
-            + (len(candidate_labels) * len(BOOTSTRAP_RS_VALSET))
-        ),
-    }
+    model, metric_calls = lm(), []
 
+    def always_fails(e, p, trace=None):
+        metric_calls.append({"id": e.id})
+        raise ValueError("scripted bootstrap failure")
 
-def _ensemble_majority_vote_payload() -> dict[str, Any]:
-    return {
-        "cases": [
-            {
-                "name": case["name"],
-                "question": case["question"],
-                "programAnswers": case["programAnswers"],
-                "expectedAnswer": _majority_vote(case["programAnswers"]),
-            }
-            for case in ENSEMBLE_CASES
-        ]
-    }
+    train = lettered(*[f"e{i:02d}" for i in range(12)])
+    with every_lm_call() as calls, dspy.context(lm=model):
+        try:
+            dspy.BootstrapFewShot(metric=always_fails, max_bootstrapped_demos=2, max_labeled_demos=0,
+                                  max_rounds=1).compile(dspy.Predict("question -> answer"), trainset=train)
+            raise RuntimeError("expected the default error budget to raise")
+        except ValueError as error:
+            result = {"error": type(error).__name__, "message": str(error)}
+    docs.append({"id": "bootstrapfewshot-max-errors-default",
+                 "description": "max_errors=None inherits dspy.settings.max_errors and raises at that count.",
+                 "payload": {"runtime": capture_runtime(), "splits": splits(train),
+                             "settingsMaxErrors": dspy.settings.max_errors, "metricCalls": metric_calls,
+                             "history": calls, **result}})
+    return docs
 
 
-def generate(generated_at: str) -> list[dict[str, Any]]:
-    return [
-        {
-            "fixture": "dspy.bootstrap.demo-budget.basic",
-            "file": "bootstrap/demo-budget.basic.json",
-            "metadata": metadata(generated_at),
-            "payload": _bootstrap_demo_budget_payload(),
-        },
-        {
-            "fixture": "dspy.bootstrap.threshold-filtering.basic",
-            "file": "bootstrap/threshold-filtering.basic.json",
-            "metadata": metadata(generated_at),
-            "payload": _bootstrap_threshold_filtering_payload(),
-        },
-        {
-            "fixture": "dspy.bootstraprs.candidate-catalog.seed-9",
-            "file": "bootstraprs/candidate-catalog.seed-9.json",
-            "metadata": metadata(generated_at),
-            "payload": _bootstrap_rs_candidate_catalog_payload(),
-        },
-        {
-            "fixture": "dspy.labeledfewshot.sample-k.seed-9",
-            "file": "labeledfewshot/sample-k.seed-9.json",
-            "metadata": metadata(generated_at),
-            "payload": _labeled_few_shot_sample_payload(),
-        },
-        {
-            "fixture": "dspy.ensemble.majority-vote.basic",
-            "file": "ensemble/majority-vote.basic.json",
-            "metadata": metadata(generated_at),
-            "payload": _ensemble_majority_vote_payload(),
-        },
-    ]
+def generate():
+    train, val = examples("train", 4), examples("val", 2)
+    docs = []
+    labeled = dspy.LabeledFewShot(k=2).compile(dspy.Predict("question -> answer"), trainset=train)
+    labeled_multi = dspy.LabeledFewShot(k=2).compile(TwoStage(), trainset=train)
+    docs.append({"id": "labeledfewshot", "description": "Seeded upstream labeled sampling.",
+                 "payload": {"splits": splits(train), "state": state(labeled),
+                             "predictors": state(labeled_multi), "history": []}})
+    for name, teacher, threshold, fail in [
+        ("bootstrapfewshot", False, None, False),
+        ("bootstrap-teacher-trace", True, None, False),
+        ("bootstrapfewshot-threshold", True, 0.5, False),
+        ("bootstrapfewshot-errors", True, None, True),
+    ]:
+        model = lm()
+        program = TwoStage()
+        teacher_program = TwoStage() if teacher else None
+        student_model = lm("student") if teacher else model
+        if teacher_program is not None:
+            teacher_program.set_lm(model)
+        # DSPy requires equal student/teacher signatures (including instructions).
+        calls = []
+
+        def metric(e, p, trace=None):
+            calls.append({"id": e.id, "prediction": p.toDict(),
+                          "trace": [{"predictor": i, "inputs": inputs, "outputs": out.toDict()}
+                                    for i, (_, inputs, out) in enumerate(trace or [])]})
+            if fail:
+                raise ValueError("scripted bootstrap failure")
+            return 0.4 if e.id == "train-0" else 0.8
+
+        optimizer = dspy.BootstrapFewShot(metric=metric, metric_threshold=threshold,
+                                        max_bootstrapped_demos=2, max_labeled_demos=0,
+                                        max_rounds=1, max_errors=1)
+        with dspy.context(lm=student_model):
+            try:
+                compiled = optimizer.compile(program, teacher=teacher_program, trainset=train)
+                result = {"state": state(compiled)}
+            except ValueError as error:
+                if not fail:
+                    raise
+                result = {"error": type(error).__name__, "message": str(error)}
+        docs.append({"id": name, "description": "Real two-predictor teacher traces, quotas and acceptance.",
+                     "payload": {"splits": splits(train), "metricThreshold": threshold,
+                                 "maxErrors": 1, "teacher": teacher, "metricCalls": calls,
+                                 "history": history(model),
+                                 "studentHistory": history(student_model) if teacher else [], **result}})
+    model = lm()
+    repeated_traces = []
+
+    def repeated_metric(e, p, trace=None):
+        repeated_traces.append({"id": e.id, "demos": [
+            {**inputs, **outputs.toDict()} for _, inputs, outputs in trace]})
+        return True
+
+    with dspy.context(lm=model):
+        repeated = dspy.BootstrapFewShot(
+            metric=repeated_metric, max_bootstrapped_demos=2,
+            max_labeled_demos=0, max_rounds=1,
+        ).compile(RepeatedCall(), trainset=train)
+    # Preserve the observable invariant, not the process-dependent pickle hash pick.
+    retained = repeated.predictor.demos
+    policy = []
+    for entry in repeated_traces:
+        selected = [{"question": d.question, "answer": d.answer} for d in retained
+                    if d.question.startswith(entry["id"] + "/")]
+        policy.append({**entry, "retainedCount": len(selected),
+                       "retainedFromTrace": all(d in entry["demos"] for d in selected)})
+    docs.append({"id": "bootstrap-repeated-call",
+                 "description": "One trace-member demo per repeated predictor per example; pickle-hash pick is not serialized.",
+                 "payload": {"splits": splits(train), "examples": policy, "history": history(model)}})
+    model = lm()
+    calls = []
+
+    def labeled_metric(e, p, trace=None):
+        calls.append({"id": e.id, "prediction": p.toDict()})
+        return e.id == "train-3"
+
+    with dspy.context(lm=model):
+        compiled = dspy.BootstrapFewShot(
+            metric=labeled_metric, max_bootstrapped_demos=1,
+            max_labeled_demos=2, max_rounds=1,
+        ).compile(dspy.Predict("question -> answer"), trainset=train)
+    docs.append({"id": "bootstrapfewshot-labeled",
+                 "description": "Default teacher labeled prewarming, leave-one-out prompts, and labeled student fill.",
+                 "payload": {"splits": splits(train), "metricCalls": calls,
+                             "history": history(model), "state": state(compiled)}})
+    model = lm()
+    with dspy.context(lm=model):
+        compiled = dspy.BootstrapFewShotWithRandomSearch(
+            metric=lambda e, p, trace=None: float(p.answer == "teacher"),
+            max_bootstrapped_demos=2, max_labeled_demos=1, num_candidate_programs=2,
+            num_threads=1, max_rounds=1,
+        ).compile(dspy.Predict("question -> answer"), trainset=train, valset=val)
+    candidates = [{"seed": c["seed"], "score": c["score"] / 100,
+                   "subscores": c["subscores"], "state": state(c["program"]),
+                   "demoCounts": [len(p.demos) for p in c["program"].predictors()]}
+                  for c in compiled.candidate_programs]
+    docs.append({"id": "bootstraprs", "description": "Full upstream random-search seed catalog and winner.",
+                 "payload": {"splits": splits(train, val), "candidates": candidates,
+                             "winnerSeed": compiled.candidate_programs[0]["seed"],
+                             "history": history(model), "state": state(compiled)}})
+    docs.extend(bootstrap_policy())
+    return docs

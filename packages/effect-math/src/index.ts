@@ -49,6 +49,13 @@ export * as Special from "./Special.js"
 export * as Probability from "./Probability.js"
 
 /**
+ * Reproducible CPython and NumPy legacy pseudorandom streams.
+ * @since 0.6.0
+ * @category modules
+ */
+export * as PseudoRandom from "./PseudoRandom.js"
+
+/**
  * Distribution parameters, densities, cumulative probabilities, and quantiles.
  * @since 0.1.0
  * @category modules

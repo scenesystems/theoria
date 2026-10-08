@@ -7,7 +7,7 @@ import * as Artifact from "@scenesystems/effect-study/Artifact"
 import { Array as Arr, Effect, Schema } from "effect"
 
 describe("DSP example artifacts", () => {
-  it.effect("encodes a versionless custom envelope with DSP-owned provenance", () =>
+  it.effect("encodes a custom envelope with DSP-owned provenance", () =>
     Effect.gen(function*() {
       const runId = yield* Schema.decodeEffect(Artifact.RunId)("01ARZ3NDEKTSV4RRFFQ69G5FAV")
       const packageVersion = yield* Schema.decodeEffect(Artifact.PackageVersion)("0.1.0")
@@ -41,8 +41,7 @@ describe("DSP example artifacts", () => {
       const encoded = yield* Schema.encodeEffect(DspArtifact.Envelope)(envelope)
 
       expect(envelope._tag).toBe("Custom")
-      expect(encoded).not.toHaveProperty("schemaVersion")
-      expect(envelope.payload).toEqual({
+      expect(encoded.payload).toEqual({
         score: 0.92,
         changed: true,
         labels: ["alpha", "beta"]

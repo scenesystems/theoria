@@ -78,26 +78,7 @@ export const Route = Schema.Struct({
 export type Route = typeof Route.Type
 
 /**
- * Current serialized version for resolved-route provenance.
- *
- * @since 0.5.0
- * @category constants
- */
-export const provenanceVersion = "resolved-route/v1"
-
-/**
- * Schema for the current resolved-route provenance version.
- *
- * @since 0.5.0
- * @category schemas
- */
-export const ProvenanceVersion = Schema.Literal(provenanceVersion)
-  .annotate({ identifier: "@scenesystems/effect-inference/Route/ProvenanceVersion" })
-/** Resolved-route provenance version inferred from its schema. @since 0.5.0 @category models */
-export type ProvenanceVersion = typeof ProvenanceVersion.Type
-
-/**
- * Route decision and rationale established before execution.
+ * Route decision, provider provenance, and rationale established before execution.
  *
  * @since 0.5.0
  * @category models
@@ -108,8 +89,7 @@ export const Resolved = Schema.Struct({
   selectedDeployment: Schema.optional(Schema.String),
   providerModel: Schema.optional(Schema.String),
   runtimeFlavor: Schema.optional(Flavor),
-  selectionReason: Schema.String,
-  schemaVersion: ProvenanceVersion
+  selectionReason: Schema.String
 }).annotate({ identifier: "@scenesystems/effect-inference/Route/Resolved" })
 /** Pre-execution route decision inferred from its schema. @since 0.5.0 @category models */
 export type Resolved = typeof Resolved.Type

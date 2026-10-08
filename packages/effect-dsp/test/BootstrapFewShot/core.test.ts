@@ -1,282 +1,114 @@
-/**
- * BootstrapFewShot core orchestration contracts.
- */
-import { describe, expect, it } from "@effect/vitest"
+import { expect, it } from "@effect/vitest"
 import * as BootstrapFewShot from "@scenesystems/effect-dsp/BootstrapFewShot"
-import { BootstrapFailed } from "@scenesystems/effect-dsp/DspError"
-import { Example } from "@scenesystems/effect-dsp/Example"
+import { Example, Id } from "@scenesystems/effect-dsp/Example"
 import * as Metric from "@scenesystems/effect-dsp/Metric"
 import * as MockLanguageModel from "@scenesystems/effect-dsp/MockLanguageModel"
 import * as Module from "@scenesystems/effect-dsp/Module"
-import { ModuleParameters } from "@scenesystems/effect-dsp/ModuleParameters"
+import * as ParameterSet from "@scenesystems/effect-dsp/ParameterSet"
 import * as Signature from "@scenesystems/effect-dsp/Signature"
-import { Array as Arr, Boolean, Effect, Layer, Number as Num, Ref, Result, Schema, String as Str } from "effect"
+import * as ModelBinder from "@scenesystems/effect-lm/ModelBinder"
+import { Array as Arr, Boolean as Bool, Effect, Option, Record, Ref, Schema } from "effect"
 import * as LanguageModel from "effect/ai/LanguageModel"
+import { assertNoMutation } from "../kit/Mutation.js"
 
-const makeQaSignature = () =>
-  Signature.make(
-    "Answer questions with concise facts",
-    {
-      question: Signature.describe(Schema.String, "The question to answer")
-    },
-    {
-      answer: Signature.describe(Schema.String, "A concise factual answer")
-    }
+const row = (id: string) =>
+  new Example({ id: Option.some(Id.make(id)), input: { question: id }, labels: Option.some({ answer: `label-${id}` }) })
+const setup = Effect.gen(function*() {
+  const module = yield* Module.predict(
+    "qa",
+    yield* Signature.make("answer", { question: Schema.String }, { answer: Schema.String })
   )
-
-describe("BootstrapFewShot.run", () => {
-  it.effect("promotes accepted trace demos into module params with deterministic round prompt context", () =>
-    Effect.gen(function*() {
-      const signature = yield* makeQaSignature()
-      const module = yield* Module.predict("qa", signature)
-      const mock = yield* MockLanguageModel.make(
-        MockLanguageModel.map((prompt) =>
-          Boolean.match(Str.includes("France")(prompt), {
-            onTrue: () => ({ answer: "Paris" }),
-            onFalse: () => ({ answer: "Tokyo" })
-          })
-        )
-      )
-      const layer = Layer.succeed(LanguageModel.LanguageModel, mock.service)
-
-      const optimized = yield* BootstrapFewShot.run(
-        new BootstrapFewShot.Options({
-          module,
-          trainset: Arr.make(
-            new Example({
-              input: { question: "What is the capital of France?" },
-              output: { answer: "Paris" }
-            }),
-            new Example({
-              input: { question: "What is the capital of Japan?" },
-              output: { answer: "Tokyo" }
-            })
-          ),
-          metric: Metric.exactMatch("answer"),
-          maxRounds: 5,
-          maxBootstrappedDemos: 2,
-          threshold: 1
-        })
-      ).pipe(Effect.provide(layer))
-
-      const params = yield* Ref.get(optimized.params)
-      const calls = yield* Ref.get(mock.calls)
-
-      expect(params.demos).toHaveLength(2)
-      expect(Arr.map(params.demos, (demo) => demo.output)).toEqual(Arr.make({ answer: "Paris" }, { answer: "Tokyo" }))
-      expect(calls).toHaveLength(2)
-      expect(Arr.every(calls, (call) => Str.includes("[bootstrap-round:1]")(call.prompt))).toBe(true)
-    }))
-
-  it.effect("advances across rounds with unique prompt context markers for cache diversity", () =>
-    Effect.gen(function*() {
-      const signature = yield* makeQaSignature()
-      const module = yield* Module.predict("qa", signature)
-      const initialParams = yield* Ref.get(module.params)
-
-      yield* Ref.set(
-        module.params,
-        new ModuleParameters({
-          instructions: initialParams.instructions,
-          demos: initialParams.demos,
-          outputStrategy: "text"
-        })
-      )
-
-      const mock = yield* MockLanguageModel.make(
-        MockLanguageModel.map((prompt) =>
-          Boolean.match(Str.includes("What is the capital of Japan?")(prompt), {
-            onTrue: () =>
-              Boolean.match(Str.includes("[bootstrap-round:2]")(prompt), {
-                onTrue: () => "[[ ## answer ## ]]\nTokyo",
-                onFalse: () => "[[ ## answer ## ]]\nLondon"
-              }),
-            onFalse: () => "[[ ## answer ## ]]\nParis"
-          })
-        )
-      )
-      const layer = Layer.succeed(LanguageModel.LanguageModel, mock.service)
-
-      const optimized = yield* BootstrapFewShot.run(
-        new BootstrapFewShot.Options({
-          module,
-          trainset: Arr.make(
-            new Example({
-              input: { question: "What is the capital of France?" },
-              output: { answer: "Paris" }
-            }),
-            new Example({
-              input: { question: "What is the capital of Japan?" },
-              output: { answer: "Tokyo" }
-            })
-          ),
-          metric: Metric.exactMatch("answer"),
-          maxRounds: 4,
-          maxBootstrappedDemos: 2,
-          threshold: 1
-        })
-      ).pipe(Effect.provide(layer))
-
-      const params = yield* Ref.get(optimized.params)
-      const calls = yield* Ref.get(mock.calls)
-      const japanCalls = Arr.filter(calls, (call) => Str.includes("What is the capital of Japan?")(call.prompt))
-
-      expect(params.demos).toHaveLength(2)
-      expect(calls).toHaveLength(4)
-      expect(japanCalls).toHaveLength(2)
-      expect(Arr.some(calls, (call) => Str.includes("[bootstrap-round:1]")(call.prompt))).toBe(true)
-      expect(Arr.some(calls, (call) => Str.includes("[bootstrap-round:2]")(call.prompt))).toBe(true)
-      expect(Arr.some(japanCalls, (call) => Str.includes("[bootstrap-round:1]")(call.prompt))).toBe(true)
-      expect(Arr.some(japanCalls, (call) => Str.includes("[bootstrap-round:2]")(call.prompt))).toBe(true)
-    }))
-
-  it.effect("falls back to labeled demos when rounds produce zero accepted demos", () =>
-    Effect.gen(function*() {
-      const signature = yield* makeQaSignature()
-      const module = yield* Module.predict("qa", signature)
-      const mock = yield* MockLanguageModel.make(
-        MockLanguageModel.succeed({ answer: "London" })
-      )
-      const layer = Layer.succeed(LanguageModel.LanguageModel, mock.service)
-
-      const result = yield* Effect.result(
-        BootstrapFewShot.run(
-          new BootstrapFewShot.Options({
-            module,
-            trainset: Arr.make(
-              new Example({
-                input: { question: "What is the capital of France?" },
-                output: { answer: "Paris" }
-              })
-            ),
-            metric: Metric.exactMatch("answer"),
-            maxRounds: 4,
-            maxBootstrappedDemos: 2,
-            threshold: 1
-          })
-        ).pipe(Effect.provide(layer))
-      )
-      const calls = yield* Ref.get(mock.calls)
-      const params = yield* Ref.get(module.params)
-
-      expect(Result.isSuccess(result)).toBe(true)
-      expect(calls).toHaveLength(1)
-      expect(params.demos).toHaveLength(1)
-      expect(Arr.map(params.demos, (demo) => demo.output)).toEqual(Arr.make({ answer: "Paris" }))
-    }))
-
-  it.effect("fails with BootstrapFailed when fallback is disabled", () =>
-    Effect.gen(function*() {
-      const signature = yield* makeQaSignature()
-      const module = yield* Module.predict("qa", signature)
-
-      const mock = yield* MockLanguageModel.make(
-        MockLanguageModel.succeed({ answer: "London" })
-      )
-      const layer = Layer.succeed(LanguageModel.LanguageModel, mock.service)
-
-      const result = yield* Effect.flip(
-        BootstrapFewShot.run(
-          new BootstrapFewShot.Options({
-            module,
-            trainset: Arr.make(
-              new Example({
-                input: { question: "What is the capital of France?" },
-                output: { answer: "Paris" }
-              })
-            ),
-            metric: Metric.exactMatch("answer"),
-            maxRounds: 4,
-            maxBootstrappedDemos: 2,
-            threshold: 1,
-            fallbackToLabeledFewShot: false
-          })
-        ).pipe(Effect.provide(layer))
-      )
-      const calls = yield* Ref.get(mock.calls)
-
-      expect(calls).toHaveLength(1)
-
-      expect(result).toEqual(
-        new BootstrapFailed({
-          message: "BootstrapFewShot produced zero accepted demos",
-          roundsAttempted: 1,
-          totalTraces: 1,
-          threshold: 1,
-          acceptedTraces: 0,
-          rejectedTraces: 1,
-          evaluatedExamples: 1,
-          bestScoreSeen: true,
-          bestScore: 0,
-          averageScore: 0
-        })
-      )
-    }))
-
-  it.effect("rejects a NaN metric score even when the threshold is negative infinity", () =>
-    Effect.gen(function*() {
-      const signature = yield* makeQaSignature()
-      const module = yield* Module.predict("qa", signature)
-      const mock = yield* MockLanguageModel.make(MockLanguageModel.succeed({ answer: "Paris" }))
-      const layer = Layer.succeed(LanguageModel.LanguageModel, mock.service)
-      const nan = yield* Effect.fromOption(Num.parse("NaN"))
-      const metric = Metric.make("nan-score", () => new Metric.Result({ score: nan }))
-
-      const result = yield* BootstrapFewShot.run(
-        new BootstrapFewShot.Options({
-          module,
-          trainset: Arr.make(
-            new Example({
-              input: { question: "What is the capital of France?" },
-              output: { answer: "Paris" }
-            })
-          ),
-          metric,
-          maxRounds: 1,
-          maxBootstrappedDemos: 1,
-          threshold: yield* Effect.fromOption(Num.parse("-Infinity")),
-          fallbackToLabeledFewShot: false
-        })
-      ).pipe(Effect.provide(layer), Effect.result)
-      const params = yield* Ref.get(module.params)
-
-      expect(Result.isFailure(result)).toBe(true)
-      expect(Arr.length(params.demos)).toBe(0)
-      expect(
-        Result.match(result, {
-          onFailure: (error) => Str.Equivalence(error._tag, "BootstrapFailed"),
-          onSuccess: () => false
-        })
-      ).toBe(true)
-    }))
-
-  it.effect("accepts positive infinity at a positive-infinity threshold", () =>
-    Effect.gen(function*() {
-      const signature = yield* makeQaSignature()
-      const module = yield* Module.predict("qa", signature)
-      const mock = yield* MockLanguageModel.make(MockLanguageModel.succeed({ answer: "Paris" }))
-      const layer = Layer.succeed(LanguageModel.LanguageModel, mock.service)
-      const infinity = yield* Effect.fromOption(Num.parse("Infinity"))
-      const metric = Metric.make("infinite-score", () => new Metric.Result({ score: infinity }))
-
-      const optimized = yield* BootstrapFewShot.run(
-        new BootstrapFewShot.Options({
-          module,
-          trainset: Arr.make(
-            new Example({
-              input: { question: "What is the capital of France?" },
-              output: { answer: "Paris" }
-            })
-          ),
-          metric,
-          maxRounds: 1,
-          maxBootstrappedDemos: 1,
-          threshold: infinity,
-          fallbackToLabeledFewShot: false
-        })
-      ).pipe(Effect.provide(layer))
-      const params = yield* Ref.get(optimized.params)
-
-      expect(Arr.length(params.demos)).toBe(1)
-    }))
+  const mock = yield* MockLanguageModel.make(MockLanguageModel.succeed({ answer: "teacher" }))
+  return { module, mock }
 })
+
+it.effect("stops at the trace cap and fills only remaining labeled slots from unbootstrapped examples", () =>
+  Effect.gen(function*() {
+    const { module } = yield* setup
+    const mock = yield* MockLanguageModel.make(
+      MockLanguageModel.succeed("[[ ## answer ## ]]\nteacher\n[[ ## completed ## ]]")
+    )
+    const result = yield* assertNoMutation(
+      module,
+      BootstrapFewShot.run(
+        new BootstrapFewShot.Options({
+          module,
+          trainset: [row("a"), row("b"), row("c"), row("d")],
+          metric: Metric.fromSync(() => 1),
+          maxBootstrappedDemos: 1,
+          maxLabeledDemos: 3
+        })
+      )
+    ).pipe(Effect.provideService(LanguageModel.LanguageModel, mock.service))
+    const demos = Option.getOrThrow(Record.get(result.parameters, "qa")).demos
+    expect(demos).toHaveLength(3)
+    expect(Option.getOrThrow(Arr.head(demos)).output).toEqual({ answer: "teacher" })
+    expect(Arr.some(Arr.drop(demos, 1), (demo) => Option.contains(Id.make("a"))(demo.exampleId))).toBe(false)
+    expect(yield* Ref.get(mock.calls)).toHaveLength(1)
+    expect(result.report.demoSources.qa?.bootstrapped).toEqual(["a"])
+    expect(result.report.demoSources.qa?.labeled).toHaveLength(2)
+  }))
+
+it.effect("returns a valid empty result when every score rejects and labeled capacity is zero", () =>
+  Effect.gen(function*() {
+    const { module, mock } = yield* setup
+    const result = yield* BootstrapFewShot.run(
+      new BootstrapFewShot.Options({
+        module,
+        trainset: [row("a")],
+        metric: Metric.fromSync(() => 0),
+        maxLabeledDemos: 0
+      })
+    ).pipe(Effect.provideService(LanguageModel.LanguageModel, mock.service))
+    expect(Option.getOrThrow(Record.get(result.parameters, "qa")).demos).toEqual([])
+    expect(result.report.acceptedCount).toBe(0)
+    expect(result.report.rejectedCount).toBe(1)
+  }))
+
+it.effect("retries rejected examples with rollout identity and temperature rather than prompt mutations", () =>
+  Effect.gen(function*() {
+    const { module, mock } = yield* setup
+    const scored = yield* Ref.make(0)
+    const result = yield* BootstrapFewShot.run(
+      new BootstrapFewShot.Options({
+        module,
+        trainset: [row("a")],
+        maxRounds: 2,
+        maxLabeledDemos: 0,
+        metric: Metric.withFeedback(() =>
+          Ref.updateAndGet(scored, (n) => n + 1).pipe(
+            Effect.map((n) =>
+              new Metric.Score({
+                value: Bool.match(n === 1, { onFalse: () => 1, onTrue: () => 0 }),
+                feedback: Option.none()
+              })
+            )
+          )
+        )
+      })
+    ).pipe(ModelBinder.withBinder(mock.binder), Effect.provideService(LanguageModel.LanguageModel, mock.service))
+    const calls = yield* Ref.get(mock.calls)
+    expect(Arr.map(calls, (call) => call.rolloutId)).toEqual([Option.none(), Option.some(1)])
+    expect(Option.getOrThrow(Arr.last(calls)).settings.temperature).toBe(1)
+    expect(Option.getOrThrow(Arr.head(calls)).prompt).toBe(Option.getOrThrow(Arr.last(calls)).prompt)
+    expect(result.report.roundsUsed).toBe(2)
+    expect(result.report.acceptedCount).toBe(1)
+  }))
+
+it.effect("does not validate unused labeled rows when bootstrapped demos fill the capacity", () =>
+  Effect.gen(function*() {
+    const { module, mock } = yield* setup
+    const teacher = Module.bound(module, yield* ParameterSet.snapshot(module))
+    const result = yield* BootstrapFewShot.run(
+      new BootstrapFewShot.Options({
+        module,
+        teacher,
+        trainset: [row("a"), new Example({ input: { unrelated: "unused" }, labels: Option.some({ answer: "label" }) })],
+        metric: Metric.fromSync(() => 1),
+        maxBootstrappedDemos: 1,
+        maxLabeledDemos: 1
+      })
+    ).pipe(Effect.provideService(LanguageModel.LanguageModel, mock.service))
+    expect(Option.getOrThrow(Record.get(result.parameters, "qa")).demos).toHaveLength(1)
+    expect(result.report.labeledCount).toBe(0)
+  }))

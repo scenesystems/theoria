@@ -10,7 +10,7 @@ import * as Metric from "@scenesystems/effect-dsp/Metric"
 import * as MockLanguageModel from "@scenesystems/effect-dsp/MockLanguageModel"
 import * as Module from "@scenesystems/effect-dsp/Module"
 import * as Signature from "@scenesystems/effect-dsp/Signature"
-import { Array as Arr, Boolean, Context, Data, Effect, Equal, Inspectable, Record, Schema, String } from "effect"
+import { Array as Arr, Context, Data, Effect, Inspectable, Option, Record, Schema, String } from "effect"
 import type * as AiError from "effect/ai/AiError"
 import * as LanguageModel from "effect/ai/LanguageModel"
 
@@ -103,7 +103,7 @@ describe("native Module E/R propagation", () => {
           name: "native-best-of-n",
           module: nativeModule,
           N: Module.RolloutCount.make(1),
-          reward: () => Effect.succeed(new Metric.Result({ score: 1 }))
+          reward: () => Effect.succeed(new Metric.Score({ value: 1, feedback: Option.none() }))
         })
       )
       const wrappedOperation = wrapped.forward({ question: "question" })
@@ -137,7 +137,7 @@ describe("native Module E/R propagation", () => {
           name: "native-refine",
           module: nativeModule,
           N: Module.RolloutCount.make(1),
-          reward: () => Effect.succeed(new Metric.Result({ score: 1 })),
+          reward: () => Effect.succeed(new Metric.Score({ value: 1, feedback: Option.none() })),
           threshold: 1
         })
       )
@@ -148,21 +148,17 @@ describe("native Module E/R propagation", () => {
       expectTypeOf<Effect.Services<typeof refinedOperation>>().toEqualTypeOf<
         LanguageModel.LanguageModel | NativeModuleDependency
       >()
-      const metric = Metric.make("exact", (prediction: typeof NativeModuleOutput.Type, expected) =>
-        new Metric.Result({
-          score: Boolean.match(Equal.equals(prediction.answer, expected.answer), {
-            onTrue: () => 1,
-            onFalse: () => 0
-          })
-        }))
+      const metric = Metric.exactMatch("answer")
       const evaluation = Evaluate.run(
         new Evaluate.Options({
           module: refined,
-          examples: Arr.make(new Example({ input: { question: "question" }, output: { answer: "answer" } })),
+          examples: Arr.make(
+            new Example({ input: { question: "question" }, labels: Option.some({ answer: "answer" }) })
+          ),
           metrics: { exact: metric }
         })
       )
-      expectTypeOf<Effect.Error<typeof evaluation>>().toEqualTypeOf<never>()
+      expectTypeOf<Effect.Error<typeof evaluation>>().toEqualTypeOf<Evaluate.TooManyErrors>()
       expectTypeOf<Effect.Services<typeof evaluation>>().toEqualTypeOf<
         LanguageModel.LanguageModel | NativeModuleDependency
       >()

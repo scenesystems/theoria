@@ -1,0 +1,457 @@
+{
+  "fixture": "miprov2-proposer-summary-skips",
+  "payload": {
+    "seed": 0,
+    "numInstructions": 5,
+    "trainSize": 110,
+    "programAware": false,
+    "dataAware": true,
+    "tipAware": true,
+    "fewshotAware": false,
+    "demoSets": {
+      "0": [
+        [],
+        [
+          {
+            "question": "label",
+            "answer": "complete"
+          }
+        ],
+        [
+          {
+            "question": "demo-a",
+            "answer": "a",
+            "augmented": true
+          },
+          {
+            "question": "label",
+            "answer": "complete"
+          }
+        ],
+        [
+          {
+            "question": "demo-b",
+            "answer": "b",
+            "augmented": true
+          },
+          {
+            "question": "demo-c",
+            "answer": "c",
+            "augmented": true
+          }
+        ]
+      ]
+    },
+    "instructions": {
+      "0": [
+        "baseline",
+        "instruction-43469773",
+        "instruction-548977048",
+        "instruction-434794718"
+      ]
+    },
+    "calls": [
+      {
+        "field": "observations",
+        "role": "proposer",
+        "rolloutId": null,
+        "temperature": 1.0,
+        "response": "observations-0",
+        "demoIds": [],
+        "dataIds": [
+          "train-0",
+          "train-1",
+          "train-2",
+          "train-3",
+          "train-4",
+          "train-5",
+          "train-6",
+          "train-7",
+          "train-8",
+          "train-9"
+        ],
+        "tip": null,
+        "history": {
+          "messages": [
+            {
+              "role": "system",
+              "content": "Your input fields are:\n1. `examples` (str): Sample data points from the dataset\nYour output fields are:\n1. `observations` (str): Somethings that holds true for most or all of the data you observed\nAll interactions will be structured in the following way, with the appropriate values filled in.\n\n[[ ## examples ## ]]\n{examples}\n\n[[ ## observations ## ]]\n{observations}\n\n[[ ## completed ## ]]\nIn adhering to this structure, your objective is: \n        Given several examples from a dataset please write observations about trends that hold for most or all of the samples. Some areas you may consider in your observations: topics, content, syntax, conciseness, etc. It will be useful to make an educated guess as to the nature of the task this dataset will enable. Don't be afraid to be creative"
+            },
+            {
+              "role": "user",
+              "content": "[[ ## examples ## ]]\n[Example({'id': 'train-0', 'question': 'train-0', 'answer': 'label-0'}) (input_keys={'question'}), Example({'id': 'train-1', 'question': 'train-1', 'answer': 'label-1'}) (input_keys={'question'}), Example({'id': 'train-2', 'question': 'train-2', 'answer': 'label-2'}) (input_keys={'question'}), Example({'id': 'train-3', 'question': 'train-3', 'answer': 'label-3'}) (input_keys={'question'}), Example({'id': 'train-4', 'question': 'train-4', 'answer': 'label-4'}) (input_keys={'question'}), Example({'id': 'train-5', 'question': 'train-5', 'answer': 'label-5'}) (input_keys={'question'}), Example({'id': 'train-6', 'question': 'train-6', 'answer': 'label-6'}) (input_keys={'question'}), Example({'id': 'train-7', 'question': 'train-7', 'answer': 'label-7'}) (input_keys={'question'}), Example({'id': 'train-8', 'question': 'train-8', 'answer': 'label-8'}) (input_keys={'question'}), Example({'id': 'train-9', 'question': 'train-9', 'answer': 'label-9'}) (input_keys={'question'})]\n\nRespond with the corresponding output fields, starting with the field `[[ ## observations ## ]]`, and then ending with the marker for `[[ ## completed ## ]]`."
+            }
+          ],
+          "kwargs": {
+            "temperature": 1.0,
+            "max_tokens": 1000,
+            "model": "dummy"
+          },
+          "response": [
+            "[[ ## observations ## ]]\nobservations-0"
+          ]
+        }
+      },
+      {
+        "field": "observations",
+        "role": "proposer",
+        "rolloutId": null,
+        "temperature": 1.0,
+        "response": "COMPLETE",
+        "demoIds": [],
+        "dataIds": [
+          "train-10",
+          "train-11",
+          "train-12",
+          "train-13",
+          "train-14",
+          "train-15",
+          "train-16",
+          "train-17",
+          "train-18",
+          "train-19"
+        ],
+        "tip": null,
+        "history": {
+          "messages": [
+            {
+              "role": "system",
+              "content": "Your input fields are:\n1. `examples` (str): Sample data points from the dataset\n2. `prior_observations` (str): Some prior observations I made about the data\nYour output fields are:\n1. `observations` (str): Somethings that holds true for most or all of the data you observed or COMPLETE if you have nothing to add\nAll interactions will be structured in the following way, with the appropriate values filled in.\n\n[[ ## examples ## ]]\n{examples}\n\n[[ ## prior_observations ## ]]\n{prior_observations}\n\n[[ ## observations ## ]]\n{observations}\n\n[[ ## completed ## ]]\nIn adhering to this structure, your objective is: \n        Given several examples from a dataset please write observations about trends that hold for most or all of the samples. I will also provide you with a few observations I have already made.  Please add your own observations or if you feel the observations are comprehensive say 'COMPLETE' Some areas you may consider in your observations: topics, content, syntax, conciceness, etc. It will be useful to make an educated guess as to the nature of the task this dataset will enable. Don't be afraid to be creative"
+            },
+            {
+              "role": "user",
+              "content": "[[ ## examples ## ]]\n[Example({'id': 'train-10', 'question': 'train-10', 'answer': 'label-10'}) (input_keys={'question'}), Example({'id': 'train-11', 'question': 'train-11', 'answer': 'label-11'}) (input_keys={'question'}), Example({'id': 'train-12', 'question': 'train-12', 'answer': 'label-12'}) (input_keys={'question'}), Example({'id': 'train-13', 'question': 'train-13', 'answer': 'label-13'}) (input_keys={'question'}), Example({'id': 'train-14', 'question': 'train-14', 'answer': 'label-14'}) (input_keys={'question'}), Example({'id': 'train-15', 'question': 'train-15', 'answer': 'label-15'}) (input_keys={'question'}), Example({'id': 'train-16', 'question': 'train-16', 'answer': 'label-16'}) (input_keys={'question'}), Example({'id': 'train-17', 'question': 'train-17', 'answer': 'label-17'}) (input_keys={'question'}), Example({'id': 'train-18', 'question': 'train-18', 'answer': 'label-18'}) (input_keys={'question'}), Example({'id': 'train-19', 'question': 'train-19', 'answer': 'label-19'}) (input_keys={'question'})]\n\n[[ ## prior_observations ## ]]\nobservations-0\n\nRespond with the corresponding output fields, starting with the field `[[ ## observations ## ]]`, and then ending with the marker for `[[ ## completed ## ]]`."
+            }
+          ],
+          "kwargs": {
+            "temperature": 1.0,
+            "max_tokens": 1000,
+            "model": "dummy"
+          },
+          "response": [
+            "[[ ## observations ## ]]\nCOMPLETE"
+          ]
+        }
+      },
+      {
+        "field": "observations",
+        "role": "proposer",
+        "rolloutId": null,
+        "temperature": 1.0,
+        "response": "COMPLETE",
+        "demoIds": [],
+        "dataIds": [
+          "train-20",
+          "train-21",
+          "train-22",
+          "train-23",
+          "train-24",
+          "train-25",
+          "train-26",
+          "train-27",
+          "train-28",
+          "train-29"
+        ],
+        "tip": null,
+        "history": {
+          "messages": [
+            {
+              "role": "system",
+              "content": "Your input fields are:\n1. `examples` (str): Sample data points from the dataset\n2. `prior_observations` (str): Some prior observations I made about the data\nYour output fields are:\n1. `observations` (str): Somethings that holds true for most or all of the data you observed or COMPLETE if you have nothing to add\nAll interactions will be structured in the following way, with the appropriate values filled in.\n\n[[ ## examples ## ]]\n{examples}\n\n[[ ## prior_observations ## ]]\n{prior_observations}\n\n[[ ## observations ## ]]\n{observations}\n\n[[ ## completed ## ]]\nIn adhering to this structure, your objective is: \n        Given several examples from a dataset please write observations about trends that hold for most or all of the samples. I will also provide you with a few observations I have already made.  Please add your own observations or if you feel the observations are comprehensive say 'COMPLETE' Some areas you may consider in your observations: topics, content, syntax, conciceness, etc. It will be useful to make an educated guess as to the nature of the task this dataset will enable. Don't be afraid to be creative"
+            },
+            {
+              "role": "user",
+              "content": "[[ ## examples ## ]]\n[Example({'id': 'train-20', 'question': 'train-20', 'answer': 'label-20'}) (input_keys={'question'}), Example({'id': 'train-21', 'question': 'train-21', 'answer': 'label-21'}) (input_keys={'question'}), Example({'id': 'train-22', 'question': 'train-22', 'answer': 'label-22'}) (input_keys={'question'}), Example({'id': 'train-23', 'question': 'train-23', 'answer': 'label-23'}) (input_keys={'question'}), Example({'id': 'train-24', 'question': 'train-24', 'answer': 'label-24'}) (input_keys={'question'}), Example({'id': 'train-25', 'question': 'train-25', 'answer': 'label-25'}) (input_keys={'question'}), Example({'id': 'train-26', 'question': 'train-26', 'answer': 'label-26'}) (input_keys={'question'}), Example({'id': 'train-27', 'question': 'train-27', 'answer': 'label-27'}) (input_keys={'question'}), Example({'id': 'train-28', 'question': 'train-28', 'answer': 'label-28'}) (input_keys={'question'}), Example({'id': 'train-29', 'question': 'train-29', 'answer': 'label-29'}) (input_keys={'question'})]\n\n[[ ## prior_observations ## ]]\nobservations-0\n\nRespond with the corresponding output fields, starting with the field `[[ ## observations ## ]]`, and then ending with the marker for `[[ ## completed ## ]]`."
+            }
+          ],
+          "kwargs": {
+            "temperature": 1.0,
+            "max_tokens": 1000,
+            "model": "dummy"
+          },
+          "response": [
+            "[[ ## observations ## ]]\nCOMPLETE"
+          ]
+        }
+      },
+      {
+        "field": "observations",
+        "role": "proposer",
+        "rolloutId": null,
+        "temperature": 1.0,
+        "response": "COMPLETE",
+        "demoIds": [],
+        "dataIds": [
+          "train-30",
+          "train-31",
+          "train-32",
+          "train-33",
+          "train-34",
+          "train-35",
+          "train-36",
+          "train-37",
+          "train-38",
+          "train-39"
+        ],
+        "tip": null,
+        "history": {
+          "messages": [
+            {
+              "role": "system",
+              "content": "Your input fields are:\n1. `examples` (str): Sample data points from the dataset\n2. `prior_observations` (str): Some prior observations I made about the data\nYour output fields are:\n1. `observations` (str): Somethings that holds true for most or all of the data you observed or COMPLETE if you have nothing to add\nAll interactions will be structured in the following way, with the appropriate values filled in.\n\n[[ ## examples ## ]]\n{examples}\n\n[[ ## prior_observations ## ]]\n{prior_observations}\n\n[[ ## observations ## ]]\n{observations}\n\n[[ ## completed ## ]]\nIn adhering to this structure, your objective is: \n        Given several examples from a dataset please write observations about trends that hold for most or all of the samples. I will also provide you with a few observations I have already made.  Please add your own observations or if you feel the observations are comprehensive say 'COMPLETE' Some areas you may consider in your observations: topics, content, syntax, conciceness, etc. It will be useful to make an educated guess as to the nature of the task this dataset will enable. Don't be afraid to be creative"
+            },
+            {
+              "role": "user",
+              "content": "[[ ## examples ## ]]\n[Example({'id': 'train-30', 'question': 'train-30', 'answer': 'label-30'}) (input_keys={'question'}), Example({'id': 'train-31', 'question': 'train-31', 'answer': 'label-31'}) (input_keys={'question'}), Example({'id': 'train-32', 'question': 'train-32', 'answer': 'label-32'}) (input_keys={'question'}), Example({'id': 'train-33', 'question': 'train-33', 'answer': 'label-33'}) (input_keys={'question'}), Example({'id': 'train-34', 'question': 'train-34', 'answer': 'label-34'}) (input_keys={'question'}), Example({'id': 'train-35', 'question': 'train-35', 'answer': 'label-35'}) (input_keys={'question'}), Example({'id': 'train-36', 'question': 'train-36', 'answer': 'label-36'}) (input_keys={'question'}), Example({'id': 'train-37', 'question': 'train-37', 'answer': 'label-37'}) (input_keys={'question'}), Example({'id': 'train-38', 'question': 'train-38', 'answer': 'label-38'}) (input_keys={'question'}), Example({'id': 'train-39', 'question': 'train-39', 'answer': 'label-39'}) (input_keys={'question'})]\n\n[[ ## prior_observations ## ]]\nobservations-0\n\nRespond with the corresponding output fields, starting with the field `[[ ## observations ## ]]`, and then ending with the marker for `[[ ## completed ## ]]`."
+            }
+          ],
+          "kwargs": {
+            "temperature": 1.0,
+            "max_tokens": 1000,
+            "model": "dummy"
+          },
+          "response": [
+            "[[ ## observations ## ]]\nCOMPLETE"
+          ]
+        }
+      },
+      {
+        "field": "observations",
+        "role": "proposer",
+        "rolloutId": null,
+        "temperature": 1.0,
+        "response": "COMPLETE",
+        "demoIds": [],
+        "dataIds": [
+          "train-40",
+          "train-41",
+          "train-42",
+          "train-43",
+          "train-44",
+          "train-45",
+          "train-46",
+          "train-47",
+          "train-48",
+          "train-49"
+        ],
+        "tip": null,
+        "history": {
+          "messages": [
+            {
+              "role": "system",
+              "content": "Your input fields are:\n1. `examples` (str): Sample data points from the dataset\n2. `prior_observations` (str): Some prior observations I made about the data\nYour output fields are:\n1. `observations` (str): Somethings that holds true for most or all of the data you observed or COMPLETE if you have nothing to add\nAll interactions will be structured in the following way, with the appropriate values filled in.\n\n[[ ## examples ## ]]\n{examples}\n\n[[ ## prior_observations ## ]]\n{prior_observations}\n\n[[ ## observations ## ]]\n{observations}\n\n[[ ## completed ## ]]\nIn adhering to this structure, your objective is: \n        Given several examples from a dataset please write observations about trends that hold for most or all of the samples. I will also provide you with a few observations I have already made.  Please add your own observations or if you feel the observations are comprehensive say 'COMPLETE' Some areas you may consider in your observations: topics, content, syntax, conciceness, etc. It will be useful to make an educated guess as to the nature of the task this dataset will enable. Don't be afraid to be creative"
+            },
+            {
+              "role": "user",
+              "content": "[[ ## examples ## ]]\n[Example({'id': 'train-40', 'question': 'train-40', 'answer': 'label-40'}) (input_keys={'question'}), Example({'id': 'train-41', 'question': 'train-41', 'answer': 'label-41'}) (input_keys={'question'}), Example({'id': 'train-42', 'question': 'train-42', 'answer': 'label-42'}) (input_keys={'question'}), Example({'id': 'train-43', 'question': 'train-43', 'answer': 'label-43'}) (input_keys={'question'}), Example({'id': 'train-44', 'question': 'train-44', 'answer': 'label-44'}) (input_keys={'question'}), Example({'id': 'train-45', 'question': 'train-45', 'answer': 'label-45'}) (input_keys={'question'}), Example({'id': 'train-46', 'question': 'train-46', 'answer': 'label-46'}) (input_keys={'question'}), Example({'id': 'train-47', 'question': 'train-47', 'answer': 'label-47'}) (input_keys={'question'}), Example({'id': 'train-48', 'question': 'train-48', 'answer': 'label-48'}) (input_keys={'question'}), Example({'id': 'train-49', 'question': 'train-49', 'answer': 'label-49'}) (input_keys={'question'})]\n\n[[ ## prior_observations ## ]]\nobservations-0\n\nRespond with the corresponding output fields, starting with the field `[[ ## observations ## ]]`, and then ending with the marker for `[[ ## completed ## ]]`."
+            }
+          ],
+          "kwargs": {
+            "temperature": 1.0,
+            "max_tokens": 1000,
+            "model": "dummy"
+          },
+          "response": [
+            "[[ ## observations ## ]]\nCOMPLETE"
+          ]
+        }
+      },
+      {
+        "field": "observations",
+        "role": "proposer",
+        "rolloutId": null,
+        "temperature": 1.0,
+        "response": "COMPLETE",
+        "demoIds": [],
+        "dataIds": [
+          "train-50",
+          "train-51",
+          "train-52",
+          "train-53",
+          "train-54",
+          "train-55",
+          "train-56",
+          "train-57",
+          "train-58",
+          "train-59"
+        ],
+        "tip": null,
+        "history": {
+          "messages": [
+            {
+              "role": "system",
+              "content": "Your input fields are:\n1. `examples` (str): Sample data points from the dataset\n2. `prior_observations` (str): Some prior observations I made about the data\nYour output fields are:\n1. `observations` (str): Somethings that holds true for most or all of the data you observed or COMPLETE if you have nothing to add\nAll interactions will be structured in the following way, with the appropriate values filled in.\n\n[[ ## examples ## ]]\n{examples}\n\n[[ ## prior_observations ## ]]\n{prior_observations}\n\n[[ ## observations ## ]]\n{observations}\n\n[[ ## completed ## ]]\nIn adhering to this structure, your objective is: \n        Given several examples from a dataset please write observations about trends that hold for most or all of the samples. I will also provide you with a few observations I have already made.  Please add your own observations or if you feel the observations are comprehensive say 'COMPLETE' Some areas you may consider in your observations: topics, content, syntax, conciceness, etc. It will be useful to make an educated guess as to the nature of the task this dataset will enable. Don't be afraid to be creative"
+            },
+            {
+              "role": "user",
+              "content": "[[ ## examples ## ]]\n[Example({'id': 'train-50', 'question': 'train-50', 'answer': 'label-50'}) (input_keys={'question'}), Example({'id': 'train-51', 'question': 'train-51', 'answer': 'label-51'}) (input_keys={'question'}), Example({'id': 'train-52', 'question': 'train-52', 'answer': 'label-52'}) (input_keys={'question'}), Example({'id': 'train-53', 'question': 'train-53', 'answer': 'label-53'}) (input_keys={'question'}), Example({'id': 'train-54', 'question': 'train-54', 'answer': 'label-54'}) (input_keys={'question'}), Example({'id': 'train-55', 'question': 'train-55', 'answer': 'label-55'}) (input_keys={'question'}), Example({'id': 'train-56', 'question': 'train-56', 'answer': 'label-56'}) (input_keys={'question'}), Example({'id': 'train-57', 'question': 'train-57', 'answer': 'label-57'}) (input_keys={'question'}), Example({'id': 'train-58', 'question': 'train-58', 'answer': 'label-58'}) (input_keys={'question'}), Example({'id': 'train-59', 'question': 'train-59', 'answer': 'label-59'}) (input_keys={'question'})]\n\n[[ ## prior_observations ## ]]\nobservations-0\n\nRespond with the corresponding output fields, starting with the field `[[ ## observations ## ]]`, and then ending with the marker for `[[ ## completed ## ]]`."
+            }
+          ],
+          "kwargs": {
+            "temperature": 1.0,
+            "max_tokens": 1000,
+            "model": "dummy"
+          },
+          "response": [
+            "[[ ## observations ## ]]\nCOMPLETE"
+          ]
+        }
+      },
+      {
+        "field": "summary",
+        "role": "proposer",
+        "rolloutId": null,
+        "temperature": 1.0,
+        "response": "summary-6",
+        "demoIds": [],
+        "dataIds": [],
+        "tip": null,
+        "history": {
+          "messages": [
+            {
+              "role": "system",
+              "content": "Your input fields are:\n1. `observations` (str): Observations I have made about my dataset\nYour output fields are:\n1. `summary` (str): Two to Three sentence summary of only the most significant highlights of my observations\nAll interactions will be structured in the following way, with the appropriate values filled in.\n\n[[ ## observations ## ]]\n{observations}\n\n[[ ## summary ## ]]\n{summary}\n\n[[ ## completed ## ]]\nIn adhering to this structure, your objective is: \n        Given a series of observations I have made about my dataset, please summarize them into a brief 2-3 sentence summary which highlights only the most important details."
+            },
+            {
+              "role": "user",
+              "content": "[[ ## observations ## ]]\nobservations-0\n\nRespond with the corresponding output fields, starting with the field `[[ ## summary ## ]]`, and then ending with the marker for `[[ ## completed ## ]]`."
+            }
+          ],
+          "kwargs": {
+            "temperature": 1.0,
+            "max_tokens": 1000,
+            "model": "dummy"
+          },
+          "response": [
+            "[[ ## summary ## ]]\nsummary-6"
+          ]
+        }
+      },
+      {
+        "field": "proposed_instruction",
+        "role": "proposer",
+        "rolloutId": 813847339,
+        "temperature": 1.0,
+        "response": "instruction-813847339",
+        "demoIds": [],
+        "dataIds": [],
+        "tip": "Make sure your instruction is very informative and descriptive.",
+        "history": {
+          "messages": [
+            {
+              "role": "system",
+              "content": "Your input fields are:\n1. `dataset_description` (str): A description of the dataset that we are using.\n2. `task_demos` (str): Example inputs/outputs of our module.\n3. `basic_instruction` (str): Basic instruction.\n4. `tip` (str): A suggestion for how to go about generating the new instruction.\nYour output fields are:\n1. `proposed_instruction` (str): Propose an instruction that will be used to prompt a Language Model to perform this task.\nAll interactions will be structured in the following way, with the appropriate values filled in.\n\n[[ ## dataset_description ## ]]\n{dataset_description}\n\n[[ ## task_demos ## ]]\n{task_demos}\n\n[[ ## basic_instruction ## ]]\n{basic_instruction}\n\n[[ ## tip ## ]]\n{tip}\n\n[[ ## proposed_instruction ## ]]\n{proposed_instruction}\n\n[[ ## completed ## ]]\nIn adhering to this structure, your objective is: \n        Use the information below to learn about a task that we are trying to solve using calls to an LM, then generate a new instruction that will be used to prompt a Language Model to better solve the task."
+            },
+            {
+              "role": "user",
+              "content": "[[ ## dataset_description ## ]]\nsummary-6\n\n[[ ## task_demos ## ]]\nNo task demos provided.\n\n[[ ## basic_instruction ## ]]\nbaseline\n\n[[ ## tip ## ]]\nMake sure your instruction is very informative and descriptive.\n\nRespond with the corresponding output fields, starting with the field `[[ ## proposed_instruction ## ]]`, and then ending with the marker for `[[ ## completed ## ]]`."
+            }
+          ],
+          "kwargs": {
+            "temperature": 1.0,
+            "max_tokens": 1000,
+            "rollout_id": 813847339,
+            "model": "dummy"
+          },
+          "response": [
+            "[[ ## proposed_instruction ## ]]\ninstruction-813847339"
+          ]
+        }
+      },
+      {
+        "field": "proposed_instruction",
+        "role": "proposer",
+        "rolloutId": 43469773,
+        "temperature": 1.0,
+        "response": "instruction-43469773",
+        "demoIds": [],
+        "dataIds": [],
+        "tip": "Make sure your instruction is very informative and descriptive.",
+        "history": {
+          "messages": [
+            {
+              "role": "system",
+              "content": "Your input fields are:\n1. `dataset_description` (str): A description of the dataset that we are using.\n2. `task_demos` (str): Example inputs/outputs of our module.\n3. `basic_instruction` (str): Basic instruction.\n4. `tip` (str): A suggestion for how to go about generating the new instruction.\nYour output fields are:\n1. `proposed_instruction` (str): Propose an instruction that will be used to prompt a Language Model to perform this task.\nAll interactions will be structured in the following way, with the appropriate values filled in.\n\n[[ ## dataset_description ## ]]\n{dataset_description}\n\n[[ ## task_demos ## ]]\n{task_demos}\n\n[[ ## basic_instruction ## ]]\n{basic_instruction}\n\n[[ ## tip ## ]]\n{tip}\n\n[[ ## proposed_instruction ## ]]\n{proposed_instruction}\n\n[[ ## completed ## ]]\nIn adhering to this structure, your objective is: \n        Use the information below to learn about a task that we are trying to solve using calls to an LM, then generate a new instruction that will be used to prompt a Language Model to better solve the task."
+            },
+            {
+              "role": "user",
+              "content": "[[ ## dataset_description ## ]]\nsummary-6\n\n[[ ## task_demos ## ]]\nNo task demos provided.\n\n[[ ## basic_instruction ## ]]\nbaseline\n\n[[ ## tip ## ]]\nMake sure your instruction is very informative and descriptive.\n\nRespond with the corresponding output fields, starting with the field `[[ ## proposed_instruction ## ]]`, and then ending with the marker for `[[ ## completed ## ]]`."
+            }
+          ],
+          "kwargs": {
+            "temperature": 1.0,
+            "max_tokens": 1000,
+            "rollout_id": 43469773,
+            "model": "dummy"
+          },
+          "response": [
+            "[[ ## proposed_instruction ## ]]\ninstruction-43469773"
+          ]
+        }
+      },
+      {
+        "field": "proposed_instruction",
+        "role": "proposer",
+        "rolloutId": 548977048,
+        "temperature": 1.0,
+        "response": "instruction-548977048",
+        "demoIds": [],
+        "dataIds": [],
+        "tip": "Keep the instruction clear and concise.",
+        "history": {
+          "messages": [
+            {
+              "role": "system",
+              "content": "Your input fields are:\n1. `dataset_description` (str): A description of the dataset that we are using.\n2. `task_demos` (str): Example inputs/outputs of our module.\n3. `basic_instruction` (str): Basic instruction.\n4. `tip` (str): A suggestion for how to go about generating the new instruction.\nYour output fields are:\n1. `proposed_instruction` (str): Propose an instruction that will be used to prompt a Language Model to perform this task.\nAll interactions will be structured in the following way, with the appropriate values filled in.\n\n[[ ## dataset_description ## ]]\n{dataset_description}\n\n[[ ## task_demos ## ]]\n{task_demos}\n\n[[ ## basic_instruction ## ]]\n{basic_instruction}\n\n[[ ## tip ## ]]\n{tip}\n\n[[ ## proposed_instruction ## ]]\n{proposed_instruction}\n\n[[ ## completed ## ]]\nIn adhering to this structure, your objective is: \n        Use the information below to learn about a task that we are trying to solve using calls to an LM, then generate a new instruction that will be used to prompt a Language Model to better solve the task."
+            },
+            {
+              "role": "user",
+              "content": "[[ ## dataset_description ## ]]\nsummary-6\n\n[[ ## task_demos ## ]]\nNo task demos provided.\n\n[[ ## basic_instruction ## ]]\nbaseline\n\n[[ ## tip ## ]]\nKeep the instruction clear and concise.\n\nRespond with the corresponding output fields, starting with the field `[[ ## proposed_instruction ## ]]`, and then ending with the marker for `[[ ## completed ## ]]`."
+            }
+          ],
+          "kwargs": {
+            "temperature": 1.0,
+            "max_tokens": 1000,
+            "rollout_id": 548977048,
+            "model": "dummy"
+          },
+          "response": [
+            "[[ ## proposed_instruction ## ]]\ninstruction-548977048"
+          ]
+        }
+      },
+      {
+        "field": "proposed_instruction",
+        "role": "proposer",
+        "rolloutId": 434794718,
+        "temperature": 1.0,
+        "response": "instruction-434794718",
+        "demoIds": [],
+        "dataIds": [],
+        "tip": "Make sure your instruction is very informative and descriptive.",
+        "history": {
+          "messages": [
+            {
+              "role": "system",
+              "content": "Your input fields are:\n1. `dataset_description` (str): A description of the dataset that we are using.\n2. `task_demos` (str): Example inputs/outputs of our module.\n3. `basic_instruction` (str): Basic instruction.\n4. `tip` (str): A suggestion for how to go about generating the new instruction.\nYour output fields are:\n1. `proposed_instruction` (str): Propose an instruction that will be used to prompt a Language Model to perform this task.\nAll interactions will be structured in the following way, with the appropriate values filled in.\n\n[[ ## dataset_description ## ]]\n{dataset_description}\n\n[[ ## task_demos ## ]]\n{task_demos}\n\n[[ ## basic_instruction ## ]]\n{basic_instruction}\n\n[[ ## tip ## ]]\n{tip}\n\n[[ ## proposed_instruction ## ]]\n{proposed_instruction}\n\n[[ ## completed ## ]]\nIn adhering to this structure, your objective is: \n        Use the information below to learn about a task that we are trying to solve using calls to an LM, then generate a new instruction that will be used to prompt a Language Model to better solve the task."
+            },
+            {
+              "role": "user",
+              "content": "[[ ## dataset_description ## ]]\nsummary-6\n\n[[ ## task_demos ## ]]\nNo task demos provided.\n\n[[ ## basic_instruction ## ]]\nbaseline\n\n[[ ## tip ## ]]\nMake sure your instruction is very informative and descriptive.\n\nRespond with the corresponding output fields, starting with the field `[[ ## proposed_instruction ## ]]`, and then ending with the marker for `[[ ## completed ## ]]`."
+            }
+          ],
+          "kwargs": {
+            "temperature": 1.0,
+            "max_tokens": 1000,
+            "rollout_id": 434794718,
+            "model": "dummy"
+          },
+          "response": [
+            "[[ ## proposed_instruction ## ]]\ninstruction-434794718"
+          ]
+        }
+      }
+    ],
+    "nextRandom": 0.9182343317851318
+  }
+}

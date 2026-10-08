@@ -100,7 +100,6 @@ export const makeSourceDocumentationPages = (input: {
               `${repositoryUrl}/blob/${input.revision}/packages/${input.sourcePackage.directoryName}/${source}`
 
             const page: ApiPage = {
-              schemaVersion: 2,
               kind: "api-module",
               path,
               canonical: true,

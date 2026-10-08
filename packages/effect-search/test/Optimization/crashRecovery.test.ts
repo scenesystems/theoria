@@ -37,13 +37,17 @@ const expectInvalidOptimizationConfig = (
 
 const storageLayerFromReplayTail = (
   snapshot: OptimizationSnapshot.OptimizationSnapshot,
-  replayTail: Iterable<OptimizationSnapshot.Trial>
+  replayTail: Iterable<OptimizationSnapshot.TrialRecord>
 ) =>
   Layer.succeed(OptimizationStorage.OptimizationStorage, {
-    appendTrial: (_trial) => Effect.void,
+    appendTrial: (_record) => Effect.void,
     writeSnapshot: (_snapshot) => Effect.void,
     loadSnapshot: () => Effect.succeedSome(snapshot),
-    loadTrialLog: () => Effect.succeed(Arr.appendAll(snapshot.trials, replayTail)),
+    loadTrialLog: () =>
+      Effect.succeed(Arr.appendAll(
+        Arr.map(snapshot.trials, (trial) => ({ trial, samplerCheckpoint: snapshot.samplerCheckpoint })),
+        replayTail
+      )),
     replayTrialLog: () => Effect.succeed(Arr.fromIterable(replayTail))
   })
 
@@ -71,6 +75,9 @@ describe("recovery crash residue", () => {
         objective: snapshotSingleObjective
       })
     )
+    const stagingOptions = StudyStorage.fileSystemOptions(
+      yield* fileSystem.makeTempDirectoryScoped({ prefix: "effect-search-recovery-crash-residue-staging-" })
+    )
     const stagedResult = yield* Optimization.run(
       new Optimization.FlatOptions({
         space: yield* snapshotSpace,
@@ -79,7 +86,11 @@ describe("recovery crash residue", () => {
         trials: Num.sum(checkpointTrials, replayTailTrials),
         objective: snapshotSingleObjective
       })
+    ).pipe(Effect.provide(OptimizationStorage.layerFileSystem(stagingOptions)))
+    const stagedRecords = yield* OptimizationStorage.makeFileSystem(stagingOptions).pipe(
+      Effect.flatMap((staging) => staging.loadTrialLog())
     )
+    const checkpointRecord = yield* Effect.fromOption(Arr.get(stagedRecords, Num.decrement(checkpointTrials)))
     const baseline = yield* Effect.fromOption(snapshotSingleObjectiveResult(baselineResult))
     const staged = yield* Effect.fromOption(snapshotSingleObjectiveResult(stagedResult))
 
@@ -88,12 +99,13 @@ describe("recovery crash residue", () => {
       new OptimizationSnapshot.OptimizationSnapshot(Struct.assign(stagedSnapshot, {
         nextTrialNumber: checkpointTrials,
         trials: Arr.take(stagedSnapshot.trials, checkpointTrials),
-        completedCount: checkpointTrials
+        completedCount: checkpointTrials,
+        samplerCheckpoint: checkpointRecord.samplerCheckpoint
       }))
     )
     yield* Effect.forEach(
-      Arr.take(Arr.drop(stagedSnapshot.trials, checkpointTrials), replayTailTrials),
-      (trial) => storage.appendTrial(trial),
+      Arr.take(Arr.drop(stagedRecords, checkpointTrials), replayTailTrials),
+      (record) => storage.appendTrial(record),
       { discard: true }
     )
 
@@ -237,9 +249,9 @@ describe("recovery crash residue", () => {
       const snapshot = yield* Optimization.snapshot(single)
       const templateTrial = yield* Effect.fromOption(Arr.head(snapshot.trials))
 
-      const duplicateReplayTrial: OptimizationSnapshot.Trial = {
-        ...templateTrial,
-        trialNumber: snapshot.nextTrialNumber
+      const duplicateReplayTrial: OptimizationSnapshot.TrialRecord = {
+        trial: { ...templateTrial, trialNumber: snapshot.nextTrialNumber },
+        samplerCheckpoint: snapshot.samplerCheckpoint
       }
 
       const outcome = yield* Effect.result(

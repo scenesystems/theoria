@@ -18,7 +18,6 @@ export const makeBrowserApiModuleIndex = (
   modulePath: string,
   exportModulePath: string = modulePath
 ): DocsApiModuleIndex => ({
-  schemaVersion: 2,
   kind: "api-module-index",
   path: page.path,
   canonical: page.canonical,
@@ -40,7 +39,6 @@ export const makeBrowserApiModuleIndex = (
 })
 
 export const makeBrowserApiExportPage = (apiExport: ApiExport): DocsApiExportPage => ({
-  schemaVersion: 1,
   kind: "api-export",
   export: apiExport
 })

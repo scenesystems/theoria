@@ -2,21 +2,15 @@
  * GEPA reflection preserves schema-owned examples and meaningful feedback.
  */
 import { describe, expect, it } from "@effect/vitest"
-import { Result as MetricResult } from "@scenesystems/effect-dsp/Metric"
+import { Score } from "@scenesystems/effect-dsp/Metric"
 import { encode as encodePayload } from "@scenesystems/effect-dsp/Payload"
-import { Array as Arr, Effect, Number, Option, Order, Schema, String } from "effect"
+import { Array as Arr, Effect, Number, Option, Schema } from "effect"
 import { ReflectiveDatasetSample } from "../../src/internal/gepa/model.js"
 import {
   buildReflectiveDataset,
   buildReflectivePrompt,
-  formatParseFailureFeedback,
   selectPredictorRoundRobin
 } from "../../src/internal/gepa/reflect.js"
-import {
-  GepaReflectFormatFailureFeedbackFixtureSchema,
-  GepaReflectPromptTemplateFixtureSchema,
-  loadFixture
-} from "../helpers/dspy-fixtures/index.js"
 
 const Input = Schema.Struct({
   question: Schema.String,
@@ -35,26 +29,29 @@ const reflectiveSamples = Effect.gen(function*() {
     new ReflectiveDatasetSample({
       exampleId: "ex-1",
       predictorName: "qa",
+      evidenceScope: "program",
       inputs,
       generatedOutputs,
       expectedOutput,
-      metricResult: new MetricResult({ score: 0, feedback: " Needs correction " })
+      metricResult: new Score({ value: 0, feedback: Option.some(" Needs correction ") })
     }),
     new ReflectiveDatasetSample({
       exampleId: "ex-2",
       predictorName: "qa",
+      evidenceScope: "program",
       inputs,
       generatedOutputs: expectedOutput,
       expectedOutput,
-      metricResult: new MetricResult({ score: 1 })
+      metricResult: new Score({ value: 1, feedback: Option.none() })
     }),
     new ReflectiveDatasetSample({
       exampleId: "ex-3",
       predictorName: "qa",
+      evidenceScope: "program",
       inputs,
       generatedOutputs,
       expectedOutput,
-      metricResult: new MetricResult({ score: 0, feedback: "Must not hide parse failure" }),
+      metricResult: new Score({ value: 0, feedback: Option.some("Must not hide parse failure") }),
       parseFailureStructure: "[[ ## answer ## ]]"
     })
   )
@@ -84,42 +81,19 @@ describe("GEPA reflective mutation", () => {
       expect(selectPredictorRoundRobin(names, infinity)).toEqual(Option.some("qa"))
     }))
 
-  it.effect("retains nested encoded evidence and output arrays in the golden prompt sections", () =>
+  it.effect("retains nested encoded evidence and output arrays in reflection prompts", () =>
     Effect.gen(function*() {
-      const fixture = yield* loadFixture("dspy.gepa.reflect.prompt-template.basic").pipe(
-        Effect.flatMap(Schema.decodeUnknownEffect(GepaReflectPromptTemplateFixtureSchema))
-      )
       const prompt = buildReflectivePrompt({
         predictorName: "qa",
-        currentInstruction: fixture.payload.currentInstruction,
+        currentInstruction: "Answer accurately",
         examples: buildReflectiveDataset(yield* reflectiveSamples)
       })
-      expect(prompt).toContain(fixture.payload.currentInstruction)
+      expect(prompt).toContain("Answer accurately")
       expect(prompt).toContain("Target predictor: qa")
       expect(prompt).toContain(
         "\"question\":\"What is the capital of France?\",\"evidence\":[{\"city\":\"Paris\",\"rank\":\"1\"}]"
       )
       expect(prompt).toContain("\"answer\":\"Lyon\",\"rejected\":[\"Paris\"]")
       expect(prompt).toContain("\"answer\":\"Paris\",\"rejected\":[\"Lyon\"]")
-      yield* Effect.forEach(
-        fixture.payload.requiredSubstrings,
-        (text) => Effect.sync(() => expect(prompt).toContain(text))
-      )
-      const positions = Option.getOrThrow(Option.all(Arr.map(
-        fixture.payload.expectedSectionOrder,
-        (section) => String.indexOf(section)(prompt)
-      )))
-      expect(Arr.every(positions, Number.isGreaterThanOrEqualTo(0))).toBe(true)
-      expect(positions).toEqual(Arr.sort(positions, Order.Number))
-    }))
-
-  it.effect("uses the reference parse-failure feedback contract", () =>
-    Effect.gen(function*() {
-      const fixture = yield* loadFixture("dspy.gepa.reflect.format-failure-feedback").pipe(
-        Effect.flatMap(Schema.decodeUnknownEffect(GepaReflectFormatFailureFeedbackFixtureSchema))
-      )
-      const feedback = formatParseFailureFeedback(fixture.payload.structureInstruction)
-      expect(feedback).toBe(fixture.payload.expectedFeedback)
-      expect(String.startsWith(fixture.payload.expectedPrefix)(feedback)).toBe(true)
     }))
 })

@@ -218,17 +218,22 @@ describe("Optimization snapshot-resume validation boundaries", () => {
 
       const snapshot = yield* Optimization.snapshot(single)
       const corruptCheckpoint = Match.value(snapshot.samplerCheckpoint).pipe(
-        Match.tag("Random", ({ seed }): Sampler.Checkpoint => ({ _tag: "Random", seed: Num.increment(seed) })),
+        Match.tag(
+          "Random",
+          ({ seed, rng }): Sampler.Checkpoint => ({ _tag: "Random", seed: Num.increment(seed), rng })
+        ),
         Match.tag("Grid", ({ seed, shuffle }): Sampler.Checkpoint => ({
           _tag: "Grid",
           seed: Num.increment(seed),
           shuffle
         })),
-        Match.tag("Tpe", ({ seed, nStartupTrials, nEiCandidates }): Sampler.Checkpoint => ({
+        Match.tag("Tpe", ({ seed, nStartupTrials, nEiCandidates, rng, startupRng }): Sampler.Checkpoint => ({
           _tag: "Tpe",
           seed: Num.increment(seed),
           nStartupTrials,
-          nEiCandidates
+          nEiCandidates,
+          rng,
+          startupRng
         })),
         Match.tag("CmaEs", ({ seed, sigma, populationSize }): Sampler.Checkpoint => ({
           _tag: "CmaEs",

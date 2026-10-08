@@ -269,4 +269,22 @@ describe("integration deterministic MOTPE optimization replay", () => {
         )
       ).toBe(true)
     }))
+
+  it.effect("motpe-study.2obj: reproduces the Optuna-executed trace with hypervolume-weighted below kernels", () =>
+    Effect.gen(function*() {
+      const loaded = yield* loadFixture("motpe-study.2obj").pipe(Effect.provide(FixtureRegistryLive))
+      const fixture = yield* Schema.decodeUnknownEffect(MotpeStudyFixture)(loaded)
+      const result = yield* Effect.fromOption(
+        asMultiObjective(yield* runWithFixture(fixture, fixture.payload.sampler.trials))
+      )
+      const trace = yield* Effect.fromOption(yield* traceFromResult(result))
+
+      expect(Arr.fromIterable(trace)).toEqual(fixture.payload.expected.configTrace)
+      expect(Arr.map(Arr.fromIterable(result.paretoFront), (trial) => trial.trialNumber)).toEqual(
+        fixture.payload.expected.paretoTrialNumbers
+      )
+      expect(Arr.map(Arr.fromIterable(result.paretoFront), (trial) => toVector(trial.state.value))).toEqual(
+        fixture.payload.expected.paretoValues
+      )
+    }))
 })

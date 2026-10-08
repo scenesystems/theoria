@@ -7,17 +7,10 @@
  */
 import { Data, Effect } from "effect"
 import type { HashMap, Ref, Schema } from "effect"
-import {
-  type ComposeForward,
-  ComposeForwardContext,
-  type Id,
-  type Module,
-  type Node,
-  NodeSignature
-} from "../../../Module.js"
+import { type ComposeForward, ComposeForwardContext, type Id, type Module, type Structure } from "../../../Module.js"
 import type { ModuleGraph, Node as ModuleGraphNode } from "../../../ModuleGraph.js"
 import type { ModuleParameters } from "../../../ModuleParameters.js"
-import type { Signature } from "../../../Signature.js"
+import { type Signature, Text } from "../../../Signature.js"
 import { registerRuntime, RuntimeRegistrationOptions } from "../discovery/registry.js"
 
 class ComposeForwardOptions<
@@ -28,10 +21,10 @@ class ComposeForwardOptions<
 > extends Data.Class<{
   readonly moduleName: string
   readonly signature: Signature<I, O>
-  readonly paramsRef: Ref.Ref<ModuleParameters>
+  readonly parametersRef: Ref.Ref<ModuleParameters>
   readonly rootChildIds: ModuleGraphNode["subModuleIds"]
   readonly graph: ModuleGraph
-  readonly subModuleNodes: HashMap.HashMap<Id, Node>
+  readonly subModules: HashMap.HashMap<Id, Structure>
   readonly forward: ComposeForward<I, O, E, R>
 }> {}
 
@@ -52,8 +45,8 @@ export const makeComposeForward = <
       yield* registerRuntime(
         new RuntimeRegistrationOptions({
           moduleName: options.moduleName,
-          params: options.paramsRef,
-          signature: new NodeSignature({
+          parameters: options.parametersRef,
+          signature: new Text({
             description: options.signature.description,
             instructions: options.signature.instructions
           }),
@@ -64,7 +57,7 @@ export const makeComposeForward = <
       return yield* options.forward(
         new ComposeForwardContext({
           input,
-          subModuleNodes: options.subModuleNodes,
+          subModules: options.subModules,
           graph: options.graph
         })
       )

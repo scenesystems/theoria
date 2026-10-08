@@ -9,6 +9,7 @@ import { Data, Match, Option, Schema } from "effect"
 import { dual } from "effect/Function"
 
 import { Value } from "./Objective.js"
+import { Report } from "./Pruning.js"
 import { TrialError } from "./SearchError.js"
 
 const CompletionMetadata = Schema.Struct({
@@ -44,6 +45,7 @@ export const State = Schema.Union([
     step: Schema.Finite,
     reason: Schema.String,
     policy: Schema.String,
+    reports: Schema.Array(Report),
     duration: Schema.Finite
   }),
   StudyTrial.Cancelled
@@ -169,13 +171,33 @@ export const fail: {
 
 /** Records a terminal pruning decision. @since 0.7.0 @category combinators */
 export const prune: {
-  (step: number, reason: string, policy: string, now: number): <Config>(self: Trial<Config>) => Trial<Config>
-  <Config>(self: Trial<Config>, step: number, reason: string, policy: string, now: number): Trial<Config>
+  (
+    step: number,
+    reason: string,
+    policy: string,
+    now: number,
+    reports: ReadonlyArray<Report>
+  ): <Config>(self: Trial<Config>) => Trial<Config>
+  <Config>(
+    self: Trial<Config>,
+    step: number,
+    reason: string,
+    policy: string,
+    now: number,
+    reports: ReadonlyArray<Report>
+  ): Trial<Config>
 } = dual(
-  5,
-  <Config>(self: Trial<Config>, step: number, reason: string, policy: string, now: number) => ({
+  6,
+  <Config>(
+    self: Trial<Config>,
+    step: number,
+    reason: string,
+    policy: string,
+    now: number,
+    reports: ReadonlyArray<Report>
+  ) => ({
     ...self,
-    state: Pruned({ step, reason, policy, duration: durationFromState(self.state, now) })
+    state: Pruned({ step, reason, policy, reports, duration: durationFromState(self.state, now) })
   })
 )
 

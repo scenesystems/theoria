@@ -16,8 +16,9 @@ import { type ParseOutputError, TraceError } from "../../../DspError.js"
 import { defaultParseFeedbackTemplate } from "../../../Module.js"
 import { encode, type Payload } from "../../../Payload.js"
 import type { Signature } from "../../../Signature.js"
-import { append, Entry, noScore, UnparsedOutput } from "../../../Trace.js"
+import { append, Attempt, Entry, type Execution, noScore, UnparsedOutput } from "../../../Trace.js"
 import { promptToTraceText } from "../../prompt/trace.js"
+import { appendAttempt } from "../../trace/attempts.js"
 import { PayloadOptions, tracePayloadFromEncoded } from "../predict/trace.js"
 
 /**
@@ -97,6 +98,7 @@ export class ReactTraceOptions<
   O extends Schema.Struct.Fields,
   Tools extends Record.ReadonlyRecord<string, Tool.Any>
 > extends Data.Class<{
+  readonly executionId: typeof Execution.Id.Type
   readonly moduleName: string
   readonly signature: Signature<I, O>
   readonly traceInput: Payload
@@ -126,6 +128,24 @@ export const appendReactTraceEntry = <
   options: ReactTraceOptions<I, O, Tools>
 ): Effect.Effect<void, TraceError, Schema.Struct<O>["EncodingServices"]> =>
   Effect.gen(function*() {
+    yield* appendAttempt(
+      new Attempt({
+        execution: options.executionId,
+        rawResponse: options.response.text,
+        parseError: options.parseError,
+        unparsed: Option.match(options.output, {
+          onNone: () =>
+            Option.some({
+              response: options.response.text,
+              parseError: options.parseError,
+              toolCallCount: Arr.length(options.response.toolCalls),
+              toolResultCount: Arr.length(options.response.toolResults)
+            }),
+          onSome: () => Option.none()
+        }),
+        usage: options.usage
+      })
+    )
     const traceOutput = yield* Option.match(options.output, {
       onSome: (output) =>
         tracePayloadFromEncoded(
@@ -149,6 +169,7 @@ export const appendReactTraceEntry = <
     })
 
     const entry = new Entry({
+      execution: options.executionId,
       moduleName: options.moduleName,
       signatureDescription: options.signature.description,
       input: options.traceInput,

@@ -155,8 +155,13 @@ export const StatusMarkPending = ({ className = "", label, tone }: {
  * The positioner's box is frozen to the measured size while the content
  * changes, so the popup can ease between two answers' sizes without
  * re-deciding which side of the mark it is on.
+ * The answer's reading surface must not cover another mark's touch target
+ * when viewport collisions flip it below its trigger. Only its links and
+ * buttons receive pointer input; the rest lets the underlying marks answer.
  */
-const positionerClassName = `${elevationClassName("answer")} w-(--positioner-width) h-(--positioner-height)`
+const positionerClassName = `${
+  elevationClassName("answer")
+} pointer-events-none [&_a]:pointer-events-auto [&_button]:pointer-events-auto w-(--positioner-width) h-(--positioner-height)`
 
 const popupClassName = Arr.join([
   surfaceClassName("overlay"),

@@ -56,11 +56,11 @@ describe("Module.predict", () => {
         context: Schema.optional(Schema.String)
       }, { facts: Schema.Struct({ count: Schema.FiniteFromString }) })
       const module = yield* Module.predict("demo-input", signature)
-      yield* Ref.update(module.params, (params) =>
+      yield* Ref.update(module.parameters, (parameters) =>
         new ModuleParameters({
-          instructions: params.instructions,
-          temperature: params.temperature,
-          maxTokens: params.maxTokens,
+          instructions: parameters.instructions,
+          temperature: parameters.temperature,
+          maxTokens: parameters.maxTokens,
           outputStrategy: "structured",
           demos: Arr.make(
             new Demonstration({
@@ -89,13 +89,13 @@ describe("Module.predict", () => {
       const qa = yield* makeQaSignature()
       const mock = yield* MockLanguageModel.make(MockLanguageModel.succeed("malformed output"))
       const module = yield* Module.predict("qa", qa)
-      yield* Ref.update(module.params, (params) =>
+      yield* Ref.update(module.parameters, (parameters) =>
         new ModuleParameters({
-          instructions: params.instructions,
-          demos: params.demos,
+          instructions: parameters.instructions,
+          demos: parameters.demos,
           outputStrategy: "text",
-          temperature: params.temperature,
-          maxTokens: params.maxTokens
+          temperature: parameters.temperature,
+          maxTokens: parameters.maxTokens
         }))
       const fiber = yield* module.forward({ question: "Capital?" }).pipe(
         Effect.provideService(LanguageModel.LanguageModel, mock.service),
@@ -143,10 +143,10 @@ describe("Module.predict", () => {
       const module = yield* Module.predict("qa", qa)
 
       yield* Ref.update(
-        module.params,
-        (params) =>
+        module.parameters,
+        (parameters) =>
           new ModuleParameters({
-            instructions: params.instructions,
+            instructions: parameters.instructions,
             outputStrategy: "auto",
             demos: Arr.make(
               new Demonstration({
@@ -208,10 +208,10 @@ describe("Module.predict", () => {
       const module = yield* Module.predict("qa", qa)
 
       yield* Ref.update(
-        module.params,
-        (params) =>
+        module.parameters,
+        (parameters) =>
           new ModuleParameters({
-            instructions: params.instructions,
+            instructions: parameters.instructions,
             outputStrategy: "auto",
             demos: Arr.make(
               new Demonstration({
@@ -265,10 +265,10 @@ describe("Module.predict", () => {
       )
 
       yield* Ref.update(
-        module.params,
-        (params) =>
+        module.parameters,
+        (parameters) =>
           new ModuleParameters({
-            instructions: params.instructions,
+            instructions: parameters.instructions,
             outputStrategy: "auto",
             demos: Arr.make(
               new Demonstration({

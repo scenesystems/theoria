@@ -11,6 +11,12 @@ from ._common import metadata
 
 
 def generate(generated_at: str) -> list[dict[str, Any]]:
+    rng = numpy.random.RandomState(17)
+    pairwise = []
+    for size in [0, 7, 8, 9, 16, 127, 128, 129, 257]:
+        values = rng.normal(size=size) * numpy.exp2(rng.randint(-40, 40, size=size))
+        pairwise.append({"id": f"sum-pairwise-{size}", "operation": "sumPairwise",
+                         "input": {"values": values.tolist()}, "expected": float(numpy.sum(values))})
     return [
         {
             "fixture": "numeric.scalar-parity",
@@ -38,6 +44,7 @@ def generate(generated_at: str) -> list[dict[str, Any]]:
                     _sum_case("sum-alternating-sign", [1.0, -1.0, 1.0, -1.0, 1.0]),
                     _sum_case("sum-large-uniform", [0.1] * 100),
                     _sum_case("sum-mixed-magnitude", [1e-10, 1e10, 1e-10, -1e10]),
+                    *pairwise,
                 ]
             },
         }

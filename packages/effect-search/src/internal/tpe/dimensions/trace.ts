@@ -60,4 +60,8 @@ export class DimensionScoreTrace<A> extends Data.Class<{
   readonly logL: Vector
   readonly logG: Vector
   readonly scores: Vector
+  readonly kernelLogL: ReadonlyArray<Vector>
+  readonly kernelLogG: ReadonlyArray<Vector>
+  readonly weightsL: Vector
+  readonly weightsG: Vector
 }> {}

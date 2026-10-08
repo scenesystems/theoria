@@ -38,7 +38,7 @@ const composer = yield* Module.predict("theoria-place-composer", signature)
 const composition = yield* composer.forward({ brief }).pipe(
   Effect.provide(InferenceTesting.languageModel(recorded))
 )
-const origin = PlaceArtifact.make({ schemaVersion: 1, scenario, brief, composition, accepted: Arr.empty() })`
+const origin = PlaceArtifact.make({ scenario, brief, composition, accepted: Arr.empty() })`
 
 const proposeCode = `// Every proposal is content-addressed and signed by whoever offered it,
 // merged or not. The neighbor's note travels sealed to the author alone.

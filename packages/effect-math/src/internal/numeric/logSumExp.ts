@@ -7,6 +7,7 @@
 import { Boolean, Chunk, Match, Number } from "effect"
 
 import * as Binary from "./binary.js"
+import { sumPairwise } from "./reduction.js"
 import { exp, log } from "./transcendental.js"
 
 /** Returns `log(Σ exp(xᵢ))`, or negative infinity for an empty chunk. */
@@ -32,11 +33,10 @@ export const logSumExpChunk = (values: Chunk.Chunk<number>): number =>
                   Match.orElse((maximum) =>
                     Number.sum(
                       maximum,
-                      log(Chunk.reduce(
+                      log(sumPairwise(Chunk.map(
                         values,
-                        0,
-                        (total, value) => Number.sum(total, exp(Number.subtract(value, maximum)))
-                      ))
+                        (value) => exp(Number.subtract(value, maximum))
+                      )))
                     )
                   )
                 )

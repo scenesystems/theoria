@@ -8,7 +8,7 @@ import * as Signature from "@scenesystems/effect-dsp/Signature"
 import { Effect, Schema } from "effect"
 import * as LanguageModel from "effect/ai/LanguageModel"
 
-describe("examples/04-chain-of-thought-mock", () => {
+describe("examples/chain-of-thought-mock", () => {
   it.effect("returns reasoning and answer fields via direct layer provisioning", () =>
     Effect.gen(function*() {
       const qaSignature = yield* Signature.make(

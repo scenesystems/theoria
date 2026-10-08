@@ -18,9 +18,9 @@ describe("Cache rollout partition", () => {
           moduleFingerprint: "qa-module",
           runtimeFingerprint: "runtime-v1",
           inputSchema: Schema.Struct({ question: Schema.String }),
-          paramsSchema: Schema.Struct({ instructions: Schema.String, demos: Schema.Array(Schema.Never) }),
+          parametersSchema: Schema.Struct({ instructions: Schema.String, demos: Schema.Array(Schema.Never) }),
           input: { question: "What is 2+2?" },
-          params: { instructions: "Answer concisely", demos: [] },
+          parameters: { instructions: "Answer concisely", demos: [] },
           outputSchema: Schema.Struct({ answer: Schema.String }),
           compute: Ref.updateAndGet(computeCount, (n) => n + 1).pipe(
             Effect.as({ answer })
@@ -49,9 +49,9 @@ describe("Cache rollout partition", () => {
         moduleFingerprint: "qa-module",
         runtimeFingerprint: "runtime-v1",
         inputSchema: Schema.Struct({ question: Schema.String }),
-        paramsSchema: Schema.Struct({ instructions: Schema.String, demos: Schema.Array(Schema.Never) }),
+        parametersSchema: Schema.Struct({ instructions: Schema.String, demos: Schema.Array(Schema.Never) }),
         input: { question: "What is 2+2?" },
-        params: { instructions: "Answer concisely", demos: [] },
+        parameters: { instructions: "Answer concisely", demos: [] },
         outputSchema: Schema.Struct({ answer: Schema.String }),
         compute: Ref.updateAndGet(computeCount, (n) => n + 1).pipe(
           Effect.as({ answer: "4" })
@@ -75,9 +75,9 @@ describe("Cache rollout partition", () => {
         moduleFingerprint: "qa-module",
         runtimeFingerprint: "runtime-v1",
         inputSchema: Schema.Struct({ question: Schema.String }),
-        paramsSchema: Schema.Struct({ instructions: Schema.String, demos: Schema.Array(Schema.Never) }),
+        parametersSchema: Schema.Struct({ instructions: Schema.String, demos: Schema.Array(Schema.Never) }),
         input: { question: "What is 2+2?" },
-        params: { instructions: "Answer concisely", demos: [] },
+        parameters: { instructions: "Answer concisely", demos: [] },
         outputSchema: Schema.Struct({ answer: Schema.String }),
         compute: Ref.updateAndGet(computeCount, (n) => n + 1).pipe(
           Effect.as({ answer: "4" })
@@ -102,9 +102,9 @@ describe("Cache rollout partition", () => {
           moduleFingerprint: "qa-module",
           runtimeFingerprint: "runtime-v1",
           inputSchema: Schema.Struct({ question: Schema.String }),
-          paramsSchema: Schema.Struct({ instructions: Schema.String, demos: Schema.Array(Schema.Never) }),
+          parametersSchema: Schema.Struct({ instructions: Schema.String, demos: Schema.Array(Schema.Never) }),
           input: { question: "What is 2+2?" },
-          params: { instructions: "Answer concisely", demos: [] },
+          parameters: { instructions: "Answer concisely", demos: [] },
           outputSchema: Schema.Struct({ answer: Schema.String }),
           compute: Ref.updateAndGet(computeCount, (n) => n + 1).pipe(
             Effect.as({ answer })

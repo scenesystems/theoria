@@ -14,7 +14,7 @@
  */
 import { BunRuntime, BunServices } from "@effect/platform-bun"
 import { Evaluate, Example, GEPA, Metric, Module, Signature } from "@scenesystems/effect-dsp"
-import { Array as Arr, Boolean, Effect, Layer, Number, Option, Record, Ref, Schema, Stream, String } from "effect"
+import { Array as Arr, Boolean, Effect, Layer, Number, Option, Record, Ref, Schema, String } from "effect"
 import {
   makeStandardEvents,
   makeStandardModuleState,
@@ -33,40 +33,40 @@ const trainset = Arr.make(
         "Students under-report stress because they think everyone else is coping, and they avoid campus counseling.",
       population: "first-year undergraduates"
     },
-    output: {
+    labels: Option.some({
       intervention: "norms",
       rationale: "Norm correction can reduce misperceived stigma around help-seeking."
-    }
+    })
   }),
   new Example.Example({
     input: {
       observation: "Factory operators complete safety recertification only after attendance bonuses are introduced.",
       population: "shift-based manufacturing workers"
     },
-    output: {
+    labels: Option.some({
       intervention: "incentives",
       rationale: "Behavior is tightly coupled to immediate compensation signals."
-    }
+    })
   }),
   new Example.Example({
     input: {
       observation: "Caregivers skip nutrition workshops because materials are dense and schedules are hard to decode.",
       population: "low-income caregivers"
     },
-    output: {
+    labels: Option.some({
       intervention: "information",
       rationale: "Comprehension and access barriers dominate participation decisions."
-    }
+    })
   }),
   new Example.Example({
     input: {
       observation: "Tenants recycle more when building lobbies show floor-level participation dashboards.",
       population: "urban apartment residents"
     },
-    output: {
+    labels: Option.some({
       intervention: "norms",
       rationale: "Visible social comparison cues raise compliance with pro-social behavior."
-    }
+    })
   })
 )
 
@@ -77,10 +77,10 @@ const evalset = Arr.make(
         "Nurses adopt optional handoff checklists only when completion is tied to preferred shift assignments.",
       population: "hospital nursing teams"
     },
-    output: {
+    labels: Option.some({
       intervention: "incentives",
       rationale: "Tangible immediate rewards alter compliance behavior."
-    }
+    })
   }),
   new Example.Example({
     input: {
@@ -88,10 +88,10 @@ const evalset = Arr.make(
         "Community members join cleanup drives after weekly signs display how many neighbors already registered.",
       population: "mixed-income neighborhoods"
     },
-    output: {
+    labels: Option.some({
       intervention: "norms",
       rationale: "Descriptive norm visibility changes expectations about peer participation."
-    }
+    })
   }),
   new Example.Example({
     input: {
@@ -99,10 +99,10 @@ const evalset = Arr.make(
         "Parents miss telehealth follow-ups because appointment instructions use jargon and lack clear next steps.",
       population: "parents of pediatric patients"
     },
-    output: {
+    labels: Option.some({
       intervention: "information",
       rationale: "Clarity improvements reduce execution friction for follow-up behavior."
-    }
+    })
   })
 )
 
@@ -111,35 +111,31 @@ const Recommendation = Schema.Struct({
   rationale: Signature.describe(Schema.String, "Decision rationale that references both analysts")
 })
 
-const recommendationMetric = Metric.fromEffect(
-  "recommendationExactMatchWithFeedback",
-  (prediction: typeof Recommendation.Type, expected) =>
-    Effect.sync(() => {
-      const predictedIntervention = prediction.intervention
-      const expectedIntervention = expected.intervention
-      const correct = String.Equivalence(predictedIntervention, expectedIntervention)
-      const score = Boolean.match(correct, { onTrue: () => 1, onFalse: () => 0 })
-      const feedback = Boolean.match(correct, {
-        onTrue: () => Arr.join(Arr.make("Correctly selected intervention '", expectedIntervention, "'."), ""),
-        onFalse: () =>
-          Arr.join(
-            Arr.make(
-              "Expected '",
-              expectedIntervention,
-              "' but produced '",
-              predictedIntervention,
-              "'. Prioritize mechanism-level fit over stylistic rhetoric."
-            ),
-            ""
-          )
-      })
-
-      return new Metric.Result({
-        score,
-        feedback
-      })
+const recommendationMetric = Metric.withFeedback((example, result) =>
+  Effect.gen(function*() {
+    const prediction = yield* Schema.decodeUnknownEffect(Schema.toType(Recommendation))(result.output)
+    const expected = yield* Schema.decodeUnknownEffect(Recommendation)(Option.getOrElse(example.labels, () => ({})))
+    const predictedIntervention = prediction.intervention
+    const expectedIntervention = expected.intervention
+    const correct = String.Equivalence(predictedIntervention, expectedIntervention)
+    const score = Boolean.match(correct, { onTrue: () => 1, onFalse: () => 0 })
+    const feedback = Boolean.match(correct, {
+      onTrue: () => Arr.join(Arr.make("Correctly selected intervention '", expectedIntervention, "'."), ""),
+      onFalse: () =>
+        Arr.join(
+          Arr.make(
+            "Expected '",
+            expectedIntervention,
+            "' but produced '",
+            predictedIntervention,
+            "'. Prioritize mechanism-level fit over stylistic rhetoric."
+          ),
+          ""
+        )
     })
-)
+
+    return new Metric.Score({ value: score, feedback: Option.some(feedback) })
+  }), "recommendationExactMatchWithFeedback")
 
 const logExampleStage = (
   stage: string,
@@ -257,27 +253,32 @@ const program = Effect.gen(function*() {
       concurrency: 1
     })
   )
-  const judgeParamsBeforeOptimization = yield* Ref.get(judge.params)
+  const judgeParametersBeforeOptimization = yield* Ref.get(judge.parameters)
 
   yield* logExampleStage("gepa-stream-started", {
     trainExampleCount: Arr.length(trainset),
+    maxFullEvals: 5,
     maxIterations: 3,
     seed: 29
   })
 
-  const gepaEventsChunk = yield* GEPA.stream(
+  const gepaLog = yield* Ref.make(Arr.empty<GEPA.Event>())
+  const compiled = yield* GEPA.runWithEvents(
     new GEPA.Options({
       module: debateModule,
       trainset,
       valset: evalset,
       metric: recommendationMetric,
+      maxFullEvals: 5,
       maxIterations: 3,
       seed: 29
-    })
-  ).pipe(
-    GEPA.tapProgress((line) => logExampleEvent("gepa", line.text)),
-    Stream.runCollect
+    }),
+    (event) =>
+      Ref.update(gepaLog, Arr.append(event)).pipe(
+        Effect.andThen(logExampleEvent("gepa", GEPA.formatEvent(event).text))
+      )
   )
+  yield* Module.install(debateModule, compiled.parameters)
 
   const optimized = yield* Evaluate.run(
     new Evaluate.Options({
@@ -288,20 +289,24 @@ const program = Effect.gen(function*() {
     })
   )
 
-  const gepaEvents = Arr.fromIterable(gepaEventsChunk)
+  const gepaEvents = yield* Ref.get(gepaLog)
   const gepaEventSummary = GEPA.summarizeEvents(gepaEvents)
-  const judgeParams = yield* Ref.get(judge.params)
+  const judgeParameters = yield* Ref.get(judge.parameters)
   const debateSavedState = yield* Module.save(debateModule)
 
   const baselineScore = Option.getOrElse(Record.get(baseline.overallScores, "exactMatch"), () => 0)
   const optimizedScore = Option.getOrElse(Record.get(optimized.overallScores, "exactMatch"), () => 0)
-  const outcomeSummary = GEPA.summarizeOutcome({
-    baselineScore,
-    optimizedScore,
-    instructionBefore: judgeParamsBeforeOptimization.instructions,
-    instructionAfter: judgeParams.instructions,
-    events: gepaEventSummary
-  })
+  const outcomeSummary = {
+    eventSummary: gepaEventSummary,
+    baselineExactMatch: baselineScore,
+    optimizedExactMatch: optimizedScore,
+    scoreDelta: Number.subtract(optimizedScore, baselineScore),
+    instructionChanged: Boolean.not(
+      String.Equivalence(judgeParametersBeforeOptimization.instructions, judgeParameters.instructions)
+    ),
+    instructionLengthBeforeOptimization: String.length(judgeParametersBeforeOptimization.instructions),
+    instructionLengthAfterOptimization: String.length(judgeParameters.instructions)
+  }
   const summaryArtifact = makeStandardSummary({
     exampleName: EXAMPLE_NAME,
     optimizer: "gepa",
@@ -315,19 +320,20 @@ const program = Effect.gen(function*() {
     },
     seed: 29,
     optimizationConfig: {
+      maxFullEvals: 5,
       maxIterations: 3,
       seed: 29
     },
     trainsetSize: Arr.length(trainset),
     valsetSize: Arr.length(evalset),
     evalsetSize: Arr.length(evalset),
-    instructionBefore: judgeParamsBeforeOptimization.instructions,
-    instructionAfter: judgeParams.instructions,
-    demoCountBefore: Arr.length(judgeParamsBeforeOptimization.demos),
-    demoCountAfter: Arr.length(judgeParams.demos),
+    instructionBefore: judgeParametersBeforeOptimization.instructions,
+    instructionAfter: judgeParameters.instructions,
+    demoCountBefore: Arr.length(judgeParametersBeforeOptimization.demos),
+    demoCountAfter: Arr.length(judgeParameters.demos),
     demosLearnedDuringOptimization: Number.subtract(
-      Arr.length(judgeParams.demos),
-      Arr.length(judgeParamsBeforeOptimization.demos)
+      Arr.length(judgeParameters.demos),
+      Arr.length(judgeParametersBeforeOptimization.demos)
     ),
     extras: {
       baseline,
@@ -364,7 +370,7 @@ const program = Effect.gen(function*() {
     instructionChanged: outcomeSummary.instructionChanged,
     instructionLengthBeforeOptimization: outcomeSummary.instructionLengthBeforeOptimization,
     instructionLengthAfterOptimization: outcomeSummary.instructionLengthAfterOptimization,
-    evolvedInstructionPreview: String.slice(0, 180)(judgeParams.instructions),
+    evolvedInstructionPreview: String.slice(0, 180)(judgeParameters.instructions),
     acceptanceEvaluatedCount: outcomeSummary.eventSummary.acceptanceEvaluatedCount,
     acceptanceAcceptedCount: outcomeSummary.eventSummary.acceptanceAcceptedCount,
     gate1PassedCount: outcomeSummary.eventSummary.gate1PassedCount,

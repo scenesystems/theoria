@@ -5,19 +5,25 @@
  * @category internal
  * @internal
  */
+import * as ModelBinder from "@scenesystems/effect-lm/ModelBinder"
 import type { Record } from "effect"
-import { Array as Arr, Boolean, Clock, Data, Effect, Number, Option, Ref, Result, Schema } from "effect"
+import { Array as Arr, Boolean, Clock, Data, Effect, Number, Option, Result, Schema } from "effect"
+import type { Ref } from "effect"
 import * as Prompt from "effect/ai/Prompt"
 import type * as Tool from "effect/ai/Tool"
 import type * as Toolkit from "effect/ai/Toolkit"
 import { type ParseFieldDiagnostic, ParseOutputError } from "../../../DspError.js"
 import type { Module } from "../../../Module.js"
-import { NodeSignature } from "../../../Module.js"
-import type { ModuleParameters } from "../../../ModuleParameters.js"
-import type { Signature } from "../../../Signature.js"
+import { type ModuleParameters, settings } from "../../../ModuleParameters.js"
+import { type Signature, Text } from "../../../Signature.js"
+import { RolloutRef } from "../../cache/rollout.js"
 import { callLmTextResponse } from "../../lm.js"
+import { CurrentRole } from "../../modelRole.js"
+import { path, read } from "../../parameterBinding.js"
 import { parseTextOutput } from "../../parse/decode.js"
 import { buildPrompt } from "../../prompt/render.js"
+import { promptToTraceText } from "../../prompt/trace.js"
+import { executionId } from "../../trace/attempts.js"
 import { registerRuntime, RuntimeRegistrationOptions } from "../discovery/registry.js"
 import { PayloadOptions, tracePayloadFromEncoded } from "../predict/trace.js"
 import {
@@ -48,7 +54,7 @@ export class ReactRuntimeOptions<
   readonly signature: Signature<I, O>
   readonly inputSchema: Signature<I, O>["inputSchema"]
   readonly outputSchema: Signature<I, O>["outputSchema"]
-  readonly paramsRef: Ref.Ref<ModuleParameters>
+  readonly parametersRef: Ref.Ref<ModuleParameters>
   readonly toolkit: Toolkit.WithHandler<Tools>
   readonly maxIterations: number
 }> {}
@@ -74,8 +80,8 @@ export const makeReactForward = <
       yield* registerRuntime(
         new RuntimeRegistrationOptions({
           moduleName: options.moduleName,
-          params: options.paramsRef,
-          signature: new NodeSignature({
+          parameters: options.parametersRef,
+          signature: new Text({
             description: options.signature.description,
             instructions: options.signature.instructions
           }),
@@ -83,7 +89,8 @@ export const makeReactForward = <
         })
       )
 
-      const params = yield* Ref.get(options.paramsRef)
+      const parameters = yield* read(options.parametersRef, options.moduleName)
+      const id = yield* executionId
       const traceInput = yield* tracePayloadFromEncoded(
         new PayloadOptions({
           moduleName: options.moduleName,
@@ -95,7 +102,7 @@ export const makeReactForward = <
 
       const initialState = new ReactLoopState<Schema.Schema.Type<Schema.Struct<O>>>({
         iteration: 0,
-        prompt: yield* buildPrompt(options.signature, params, input),
+        prompt: yield* buildPrompt(options.signature, parameters, input),
         output: Option.none(),
         lastRawResponse: Option.none(),
         lastDiagnostics: Arr.empty(),
@@ -115,7 +122,13 @@ export const makeReactForward = <
                 onTrue: () => Option.none(),
                 onFalse: () => Option.some(options.toolkit)
               })
-            )
+            ).pipe(ModelBinder.bind(
+              new ModelBinder.Request({
+                settings: settings(parameters),
+                role: yield* CurrentRole,
+                rolloutId: yield* RolloutRef
+              })
+            ))
             const completedAt = yield* Clock.currentTimeMillis
             const continuation = Prompt.concat(prompt, Prompt.fromResponseParts(response.content))
 
@@ -123,6 +136,7 @@ export const makeReactForward = <
               onTrue: () =>
                 appendReactTraceEntry(
                   new ReactTraceOptions<I, O, Tools>({
+                    executionId: id,
                     moduleName: options.moduleName,
                     signature: options.signature,
                     traceInput,
@@ -157,6 +171,7 @@ export const makeReactForward = <
                     onSuccess: (output) =>
                       appendReactTraceEntry(
                         new ReactTraceOptions<I, O, Tools>({
+                          executionId: id,
                           moduleName: options.moduleName,
                           signature: options.signature,
                           traceInput,
@@ -184,6 +199,7 @@ export const makeReactForward = <
                     onFailure: (parseError) =>
                       appendReactTraceEntry(
                         new ReactTraceOptions<I, O, Tools>({
+                          executionId: id,
                           moduleName: options.moduleName,
                           signature: options.signature,
                           traceInput,
@@ -217,21 +233,34 @@ export const makeReactForward = <
           })
       )
 
-      return yield* Effect.fromOption(finalState.output, () =>
-        new ParseOutputError({
-          message: Arr.join(
-            Arr.make(
-              "ReAct module exhausted ",
-              Schema.encodeSync(Schema.FiniteFromString)(options.maxIterations),
-              " iterations without producing parseable output"
-            ),
-            ""
-          ),
-          moduleName: options.moduleName,
-          rawOutput: finalState.lastRawResponse,
-          retryCount: Option.some(options.maxIterations),
-          fieldDiagnostics: finalState.lastDiagnostics
-        }))
+      // The terminal failure carries the same target evidence as a predictor parse
+      // failure: actual path, encoded input and the agent's first native prompt.
+      return yield* Option.match(finalState.output, {
+        onSome: Effect.succeed,
+        onNone: () =>
+          Effect.all({
+            predictorPath: path(options.parametersRef, options.moduleName),
+            prompt: promptToTraceText(initialState.prompt)
+          }).pipe(Effect.flatMap(({ predictorPath, prompt }) =>
+            Effect.fail(
+              new ParseOutputError({
+                message: Arr.join(
+                  Arr.make(
+                    "ReAct module exhausted ",
+                    Schema.encodeSync(Schema.FiniteFromString)(options.maxIterations),
+                    " iterations without producing parseable output"
+                  ),
+                  ""
+                ),
+                moduleName: options.moduleName,
+                rawOutput: finalState.lastRawResponse,
+                retryCount: Option.some(options.maxIterations),
+                context: { predictorPath, input: traceInput, prompt },
+                fieldDiagnostics: finalState.lastDiagnostics
+              })
+            )
+          ))
+      })
     })
   )
 }

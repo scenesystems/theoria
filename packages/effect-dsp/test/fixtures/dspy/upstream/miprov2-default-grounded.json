@@ -1,0 +1,1064 @@
+{
+  "fixture": "miprov2-default-grounded",
+  "payload": {
+    "runtime": {
+      "python": "3.12.14",
+      "dspy": "3.4.0",
+      "numpy": "1.26.4",
+      "optuna": "4.9.0",
+      "PYTHONHASHSEED": "0",
+      "NPY_DISABLE_CPU_FEATURES": "AVX2,FMA3,AVX512F"
+    },
+    "seed": 9,
+    "auto": "light",
+    "nonDefaultOptions": {
+      "num_threads": 1
+    },
+    "defaults": {
+      "maxBootstrappedDemos": 4,
+      "maxLabeledDemos": 4,
+      "initTemperature": 1.0,
+      "minibatchSize": 35,
+      "minibatchFullEvalSteps": 5,
+      "viewDataBatchSize": 10,
+      "programAwareProposer": true,
+      "dataAwareProposer": true,
+      "tipAwareProposer": true,
+      "fewshotAwareProposer": true
+    },
+    "splits": {
+      "train": [
+        {
+          "id": "train-0",
+          "question": "train-0",
+          "answer": "label-0"
+        },
+        {
+          "id": "train-1",
+          "question": "train-1",
+          "answer": "label-1"
+        },
+        {
+          "id": "train-2",
+          "question": "train-2",
+          "answer": "label-2"
+        },
+        {
+          "id": "train-3",
+          "question": "train-3",
+          "answer": "label-3"
+        }
+      ],
+      "val": [
+        {
+          "id": "val-0",
+          "question": "val-0",
+          "answer": "label-0"
+        },
+        {
+          "id": "val-1",
+          "question": "val-1",
+          "answer": "label-1"
+        },
+        {
+          "id": "val-2",
+          "question": "val-2",
+          "answer": "label-2"
+        },
+        {
+          "id": "val-3",
+          "question": "val-3",
+          "answer": "label-3"
+        },
+        {
+          "id": "val-4",
+          "question": "val-4",
+          "answer": "label-4"
+        },
+        {
+          "id": "val-5",
+          "question": "val-5",
+          "answer": "label-5"
+        }
+      ]
+    },
+    "taskSettings": {
+      "temperature": 0.17,
+      "max_tokens": 73
+    },
+    "numCandidates": 6,
+    "numInstructions": 3,
+    "numTrials": 10,
+    "minibatch": false,
+    "bootstrapCalls": 13,
+    "demoSets": {
+      "0": [
+        [],
+        [
+          {
+            "id": "train-3",
+            "question": "train-3",
+            "answer": "label-3"
+          },
+          {
+            "id": "train-1",
+            "question": "train-1",
+            "answer": "label-1"
+          },
+          {
+            "id": "train-0",
+            "question": "train-0",
+            "answer": "label-0"
+          },
+          {
+            "id": "train-2",
+            "question": "train-2",
+            "answer": "label-2"
+          }
+        ],
+        [
+          {
+            "augmented": true,
+            "question": "train-0",
+            "answer": "teacher"
+          },
+          {
+            "augmented": true,
+            "question": "train-1",
+            "answer": "teacher"
+          },
+          {
+            "augmented": true,
+            "question": "train-2",
+            "answer": "teacher"
+          },
+          {
+            "augmented": true,
+            "question": "train-3",
+            "answer": "teacher"
+          }
+        ],
+        [
+          {
+            "augmented": true,
+            "question": "train-3",
+            "answer": "teacher"
+          },
+          {
+            "id": "train-0",
+            "question": "train-0",
+            "answer": "label-0"
+          },
+          {
+            "id": "train-1",
+            "question": "train-1",
+            "answer": "label-1"
+          },
+          {
+            "id": "train-2",
+            "question": "train-2",
+            "answer": "label-2"
+          }
+        ],
+        [
+          {
+            "augmented": true,
+            "question": "train-1",
+            "answer": "teacher"
+          },
+          {
+            "augmented": true,
+            "question": "train-0",
+            "answer": "teacher"
+          },
+          {
+            "augmented": true,
+            "question": "train-3",
+            "answer": "teacher"
+          },
+          {
+            "augmented": true,
+            "question": "train-2",
+            "answer": "teacher"
+          }
+        ],
+        [
+          {
+            "augmented": true,
+            "question": "train-0",
+            "answer": "teacher"
+          },
+          {
+            "augmented": true,
+            "question": "train-3",
+            "answer": "teacher"
+          },
+          {
+            "augmented": true,
+            "question": "train-2",
+            "answer": "teacher"
+          },
+          {
+            "augmented": true,
+            "question": "train-1",
+            "answer": "teacher"
+          }
+        ]
+      ]
+    },
+    "instructions": {
+      "0": [
+        "baseline",
+        "instruction-55119493",
+        "instruction-142190875"
+      ]
+    },
+    "proposerCalls": [
+      {
+        "field": "observations",
+        "role": "proposer",
+        "rolloutId": null,
+        "temperature": 1.0,
+        "response": "observations-0",
+        "demoQuestions": [],
+        "dataIds": [
+          "train-0",
+          "train-1",
+          "train-2",
+          "train-3"
+        ],
+        "tip": null
+      },
+      {
+        "field": "summary",
+        "role": "proposer",
+        "rolloutId": null,
+        "temperature": 1.0,
+        "response": "summary-1",
+        "demoQuestions": [],
+        "dataIds": [],
+        "tip": null
+      },
+      {
+        "field": "program_description",
+        "role": "proposer",
+        "rolloutId": 180848161,
+        "temperature": 1.0,
+        "response": "program_description-2",
+        "demoQuestions": [],
+        "dataIds": [],
+        "tip": null
+      },
+      {
+        "field": "module_description",
+        "role": "proposer",
+        "rolloutId": 180848161,
+        "temperature": 1.0,
+        "response": "module_description-3",
+        "demoQuestions": [],
+        "dataIds": [],
+        "tip": null
+      },
+      {
+        "field": "proposed_instruction",
+        "role": "proposer",
+        "rolloutId": 180848161,
+        "temperature": 1.0,
+        "response": "instruction-180848161",
+        "demoQuestions": [],
+        "dataIds": [],
+        "tip": "Don't be afraid to be creative when creating the new instruction!"
+      },
+      {
+        "field": "program_description",
+        "role": "proposer",
+        "rolloutId": 55119493,
+        "temperature": 1.0,
+        "response": "program_description-5",
+        "demoQuestions": [],
+        "dataIds": [],
+        "tip": null
+      },
+      {
+        "field": "module_description",
+        "role": "proposer",
+        "rolloutId": 55119493,
+        "temperature": 1.0,
+        "response": "module_description-6",
+        "demoQuestions": [],
+        "dataIds": [],
+        "tip": null
+      },
+      {
+        "field": "proposed_instruction",
+        "role": "proposer",
+        "rolloutId": 55119493,
+        "temperature": 1.0,
+        "response": "instruction-55119493",
+        "demoQuestions": [
+          "train-0",
+          "train-1",
+          "train-2"
+        ],
+        "dataIds": [],
+        "tip": "Don't be afraid to be creative when creating the new instruction!"
+      },
+      {
+        "field": "program_description",
+        "role": "proposer",
+        "rolloutId": 142190875,
+        "temperature": 1.0,
+        "response": "program_description-8",
+        "demoQuestions": [],
+        "dataIds": [],
+        "tip": null
+      },
+      {
+        "field": "module_description",
+        "role": "proposer",
+        "rolloutId": 142190875,
+        "temperature": 1.0,
+        "response": "module_description-9",
+        "demoQuestions": [],
+        "dataIds": [],
+        "tip": null
+      },
+      {
+        "field": "proposed_instruction",
+        "role": "proposer",
+        "rolloutId": 142190875,
+        "temperature": 1.0,
+        "response": "instruction-142190875",
+        "demoQuestions": [
+          "train-0",
+          "train-1",
+          "train-2"
+        ],
+        "dataIds": [],
+        "tip": null
+      }
+    ],
+    "strictThroughTrial": 10,
+    "acquisitionGaps": [
+      {
+        "trial": 10,
+        "dimensions": [
+          "0_predictor_demos",
+          "0_predictor_instruction"
+        ],
+        "gap": 0.764972915131,
+        "tie": null
+      }
+    ],
+    "trialTable": [
+      {
+        "number": 0,
+        "params": {
+          "0_predictor_instruction": 0,
+          "0_predictor_demos": 0
+        },
+        "value": 0.5,
+        "state": "COMPLETE",
+        "fullValidation": true
+      },
+      {
+        "number": 1,
+        "params": {
+          "0_predictor_instruction": 1,
+          "0_predictor_demos": 3
+        },
+        "value": 1.0,
+        "state": "COMPLETE",
+        "fullValidation": true
+      },
+      {
+        "number": 2,
+        "params": {
+          "0_predictor_instruction": 2,
+          "0_predictor_demos": 0
+        },
+        "value": 1.0,
+        "state": "COMPLETE",
+        "fullValidation": true
+      },
+      {
+        "number": 3,
+        "params": {
+          "0_predictor_instruction": 1,
+          "0_predictor_demos": 5
+        },
+        "value": 1.0,
+        "state": "COMPLETE",
+        "fullValidation": true
+      },
+      {
+        "number": 4,
+        "params": {
+          "0_predictor_instruction": 2,
+          "0_predictor_demos": 2
+        },
+        "value": 1.0,
+        "state": "COMPLETE",
+        "fullValidation": true
+      },
+      {
+        "number": 5,
+        "params": {
+          "0_predictor_instruction": 0,
+          "0_predictor_demos": 5
+        },
+        "value": 0.5,
+        "state": "COMPLETE",
+        "fullValidation": true
+      },
+      {
+        "number": 6,
+        "params": {
+          "0_predictor_instruction": 2,
+          "0_predictor_demos": 0
+        },
+        "value": 1.0,
+        "state": "COMPLETE",
+        "fullValidation": true
+      },
+      {
+        "number": 7,
+        "params": {
+          "0_predictor_instruction": 2,
+          "0_predictor_demos": 5
+        },
+        "value": 1.0,
+        "state": "COMPLETE",
+        "fullValidation": true
+      },
+      {
+        "number": 8,
+        "params": {
+          "0_predictor_instruction": 1,
+          "0_predictor_demos": 4
+        },
+        "value": 1.0,
+        "state": "COMPLETE",
+        "fullValidation": true
+      },
+      {
+        "number": 9,
+        "params": {
+          "0_predictor_instruction": 2,
+          "0_predictor_demos": 5
+        },
+        "value": 1.0,
+        "state": "COMPLETE",
+        "fullValidation": true
+      },
+      {
+        "number": 10,
+        "params": {
+          "0_predictor_instruction": 1,
+          "0_predictor_demos": 3
+        },
+        "value": 1.0,
+        "state": "COMPLETE",
+        "fullValidation": true
+      }
+    ],
+    "evaluations": [
+      {
+        "trial": null,
+        "ids": [
+          "val-3",
+          "val-4",
+          "val-2",
+          "val-1",
+          "val-0",
+          "val-5"
+        ],
+        "fullValidation": true,
+        "instruction": "baseline",
+        "score": 0.5,
+        "state": {
+          "qa": {
+            "traces": [],
+            "train": [],
+            "demos": [],
+            "signature": {
+              "instructions": "baseline",
+              "fields": [
+                {
+                  "prefix": "Question:",
+                  "description": "${question}"
+                },
+                {
+                  "prefix": "Answer:",
+                  "description": "${answer}"
+                }
+              ]
+            },
+            "lm": null
+          }
+        }
+      },
+      {
+        "trial": 1,
+        "ids": [
+          "val-3",
+          "val-4",
+          "val-2",
+          "val-1",
+          "val-0",
+          "val-5"
+        ],
+        "fullValidation": true,
+        "instruction": "instruction-55119493",
+        "score": 1.0,
+        "state": {
+          "qa": {
+            "traces": [],
+            "train": [],
+            "demos": [
+              {
+                "augmented": true,
+                "question": "train-3",
+                "answer": "teacher"
+              },
+              {
+                "id": "train-0",
+                "question": "train-0",
+                "answer": "label-0"
+              },
+              {
+                "id": "train-1",
+                "question": "train-1",
+                "answer": "label-1"
+              },
+              {
+                "id": "train-2",
+                "question": "train-2",
+                "answer": "label-2"
+              }
+            ],
+            "signature": {
+              "instructions": "instruction-55119493",
+              "fields": [
+                {
+                  "prefix": "Question:",
+                  "description": "${question}"
+                },
+                {
+                  "prefix": "Answer:",
+                  "description": "${answer}"
+                }
+              ]
+            },
+            "lm": null
+          }
+        }
+      },
+      {
+        "trial": 2,
+        "ids": [
+          "val-3",
+          "val-4",
+          "val-2",
+          "val-1",
+          "val-0",
+          "val-5"
+        ],
+        "fullValidation": true,
+        "instruction": "instruction-142190875",
+        "score": 1.0,
+        "state": {
+          "qa": {
+            "traces": [],
+            "train": [],
+            "demos": [],
+            "signature": {
+              "instructions": "instruction-142190875",
+              "fields": [
+                {
+                  "prefix": "Question:",
+                  "description": "${question}"
+                },
+                {
+                  "prefix": "Answer:",
+                  "description": "${answer}"
+                }
+              ]
+            },
+            "lm": null
+          }
+        }
+      },
+      {
+        "trial": 3,
+        "ids": [
+          "val-3",
+          "val-4",
+          "val-2",
+          "val-1",
+          "val-0",
+          "val-5"
+        ],
+        "fullValidation": true,
+        "instruction": "instruction-55119493",
+        "score": 1.0,
+        "state": {
+          "qa": {
+            "traces": [],
+            "train": [],
+            "demos": [
+              {
+                "augmented": true,
+                "question": "train-0",
+                "answer": "teacher"
+              },
+              {
+                "augmented": true,
+                "question": "train-3",
+                "answer": "teacher"
+              },
+              {
+                "augmented": true,
+                "question": "train-2",
+                "answer": "teacher"
+              },
+              {
+                "augmented": true,
+                "question": "train-1",
+                "answer": "teacher"
+              }
+            ],
+            "signature": {
+              "instructions": "instruction-55119493",
+              "fields": [
+                {
+                  "prefix": "Question:",
+                  "description": "${question}"
+                },
+                {
+                  "prefix": "Answer:",
+                  "description": "${answer}"
+                }
+              ]
+            },
+            "lm": null
+          }
+        }
+      },
+      {
+        "trial": 4,
+        "ids": [
+          "val-3",
+          "val-4",
+          "val-2",
+          "val-1",
+          "val-0",
+          "val-5"
+        ],
+        "fullValidation": true,
+        "instruction": "instruction-142190875",
+        "score": 1.0,
+        "state": {
+          "qa": {
+            "traces": [],
+            "train": [],
+            "demos": [
+              {
+                "augmented": true,
+                "question": "train-0",
+                "answer": "teacher"
+              },
+              {
+                "augmented": true,
+                "question": "train-1",
+                "answer": "teacher"
+              },
+              {
+                "augmented": true,
+                "question": "train-2",
+                "answer": "teacher"
+              },
+              {
+                "augmented": true,
+                "question": "train-3",
+                "answer": "teacher"
+              }
+            ],
+            "signature": {
+              "instructions": "instruction-142190875",
+              "fields": [
+                {
+                  "prefix": "Question:",
+                  "description": "${question}"
+                },
+                {
+                  "prefix": "Answer:",
+                  "description": "${answer}"
+                }
+              ]
+            },
+            "lm": null
+          }
+        }
+      },
+      {
+        "trial": 5,
+        "ids": [
+          "val-3",
+          "val-4",
+          "val-2",
+          "val-1",
+          "val-0",
+          "val-5"
+        ],
+        "fullValidation": true,
+        "instruction": "baseline",
+        "score": 0.5,
+        "state": {
+          "qa": {
+            "traces": [],
+            "train": [],
+            "demos": [
+              {
+                "augmented": true,
+                "question": "train-0",
+                "answer": "teacher"
+              },
+              {
+                "augmented": true,
+                "question": "train-3",
+                "answer": "teacher"
+              },
+              {
+                "augmented": true,
+                "question": "train-2",
+                "answer": "teacher"
+              },
+              {
+                "augmented": true,
+                "question": "train-1",
+                "answer": "teacher"
+              }
+            ],
+            "signature": {
+              "instructions": "baseline",
+              "fields": [
+                {
+                  "prefix": "Question:",
+                  "description": "${question}"
+                },
+                {
+                  "prefix": "Answer:",
+                  "description": "${answer}"
+                }
+              ]
+            },
+            "lm": null
+          }
+        }
+      },
+      {
+        "trial": 6,
+        "ids": [
+          "val-3",
+          "val-4",
+          "val-2",
+          "val-1",
+          "val-0",
+          "val-5"
+        ],
+        "fullValidation": true,
+        "instruction": "instruction-142190875",
+        "score": 1.0,
+        "state": {
+          "qa": {
+            "traces": [],
+            "train": [],
+            "demos": [],
+            "signature": {
+              "instructions": "instruction-142190875",
+              "fields": [
+                {
+                  "prefix": "Question:",
+                  "description": "${question}"
+                },
+                {
+                  "prefix": "Answer:",
+                  "description": "${answer}"
+                }
+              ]
+            },
+            "lm": null
+          }
+        }
+      },
+      {
+        "trial": 7,
+        "ids": [
+          "val-3",
+          "val-4",
+          "val-2",
+          "val-1",
+          "val-0",
+          "val-5"
+        ],
+        "fullValidation": true,
+        "instruction": "instruction-142190875",
+        "score": 1.0,
+        "state": {
+          "qa": {
+            "traces": [],
+            "train": [],
+            "demos": [
+              {
+                "augmented": true,
+                "question": "train-0",
+                "answer": "teacher"
+              },
+              {
+                "augmented": true,
+                "question": "train-3",
+                "answer": "teacher"
+              },
+              {
+                "augmented": true,
+                "question": "train-2",
+                "answer": "teacher"
+              },
+              {
+                "augmented": true,
+                "question": "train-1",
+                "answer": "teacher"
+              }
+            ],
+            "signature": {
+              "instructions": "instruction-142190875",
+              "fields": [
+                {
+                  "prefix": "Question:",
+                  "description": "${question}"
+                },
+                {
+                  "prefix": "Answer:",
+                  "description": "${answer}"
+                }
+              ]
+            },
+            "lm": null
+          }
+        }
+      },
+      {
+        "trial": 8,
+        "ids": [
+          "val-3",
+          "val-4",
+          "val-2",
+          "val-1",
+          "val-0",
+          "val-5"
+        ],
+        "fullValidation": true,
+        "instruction": "instruction-55119493",
+        "score": 1.0,
+        "state": {
+          "qa": {
+            "traces": [],
+            "train": [],
+            "demos": [
+              {
+                "augmented": true,
+                "question": "train-1",
+                "answer": "teacher"
+              },
+              {
+                "augmented": true,
+                "question": "train-0",
+                "answer": "teacher"
+              },
+              {
+                "augmented": true,
+                "question": "train-3",
+                "answer": "teacher"
+              },
+              {
+                "augmented": true,
+                "question": "train-2",
+                "answer": "teacher"
+              }
+            ],
+            "signature": {
+              "instructions": "instruction-55119493",
+              "fields": [
+                {
+                  "prefix": "Question:",
+                  "description": "${question}"
+                },
+                {
+                  "prefix": "Answer:",
+                  "description": "${answer}"
+                }
+              ]
+            },
+            "lm": null
+          }
+        }
+      },
+      {
+        "trial": 9,
+        "ids": [
+          "val-3",
+          "val-4",
+          "val-2",
+          "val-1",
+          "val-0",
+          "val-5"
+        ],
+        "fullValidation": true,
+        "instruction": "instruction-142190875",
+        "score": 1.0,
+        "state": {
+          "qa": {
+            "traces": [],
+            "train": [],
+            "demos": [
+              {
+                "augmented": true,
+                "question": "train-0",
+                "answer": "teacher"
+              },
+              {
+                "augmented": true,
+                "question": "train-3",
+                "answer": "teacher"
+              },
+              {
+                "augmented": true,
+                "question": "train-2",
+                "answer": "teacher"
+              },
+              {
+                "augmented": true,
+                "question": "train-1",
+                "answer": "teacher"
+              }
+            ],
+            "signature": {
+              "instructions": "instruction-142190875",
+              "fields": [
+                {
+                  "prefix": "Question:",
+                  "description": "${question}"
+                },
+                {
+                  "prefix": "Answer:",
+                  "description": "${answer}"
+                }
+              ]
+            },
+            "lm": null
+          }
+        }
+      },
+      {
+        "trial": 10,
+        "ids": [
+          "val-3",
+          "val-4",
+          "val-2",
+          "val-1",
+          "val-0",
+          "val-5"
+        ],
+        "fullValidation": true,
+        "instruction": "instruction-55119493",
+        "score": 1.0,
+        "state": {
+          "qa": {
+            "traces": [],
+            "train": [],
+            "demos": [
+              {
+                "augmented": true,
+                "question": "train-3",
+                "answer": "teacher"
+              },
+              {
+                "id": "train-0",
+                "question": "train-0",
+                "answer": "label-0"
+              },
+              {
+                "id": "train-1",
+                "question": "train-1",
+                "answer": "label-1"
+              },
+              {
+                "id": "train-2",
+                "question": "train-2",
+                "answer": "label-2"
+              }
+            ],
+            "signature": {
+              "instructions": "instruction-55119493",
+              "fields": [
+                {
+                  "prefix": "Question:",
+                  "description": "${question}"
+                },
+                {
+                  "prefix": "Answer:",
+                  "description": "${answer}"
+                }
+              ]
+            },
+            "lm": null
+          }
+        }
+      }
+    ],
+    "bestFullValidationScore": 1.0,
+    "state": {
+      "qa": {
+        "traces": [],
+        "train": [],
+        "demos": [
+          {
+            "augmented": true,
+            "question": "train-3",
+            "answer": "teacher"
+          },
+          {
+            "id": "train-0",
+            "question": "train-0",
+            "answer": "label-0"
+          },
+          {
+            "id": "train-1",
+            "question": "train-1",
+            "answer": "label-1"
+          },
+          {
+            "id": "train-2",
+            "question": "train-2",
+            "answer": "label-2"
+          }
+        ],
+        "signature": {
+          "instructions": "instruction-55119493",
+          "fields": [
+            {
+              "prefix": "Question:",
+              "description": "${question}"
+            },
+            {
+              "prefix": "Answer:",
+              "description": "${answer}"
+            }
+          ]
+        },
+        "lm": null
+      }
+    }
+  }
+}
