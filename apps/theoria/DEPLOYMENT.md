@@ -3,8 +3,8 @@
 This runbook is for maintainers of the public Theoria website. Local users do
 not need any of this configuration.
 
-The site runs on Cloudflare Workers. `apps/theoria/server.ts` still serves the
-same app with Bun for local development, but nothing deploys it.
+The site runs on Cloudflare Workers. `apps/theoria/server.ts` serves the app
+with Bun for local development.
 
 ## Cloudflare Workers
 
@@ -86,10 +86,8 @@ body; a refused request gets `429` with `retry-after: 60` and the
 `rate-limited` error code, and never reaches the build.
 
 **Do not rely on the binding without checking enforcement on the deployed
-target.** Probes on 2026-09-03 exceeded its configured limit on staging and
-production without refusals, although local workerd tests enforced it. Current
-enforcement has not been confirmed. Configure and verify a zone WAF limit
-before relying on it for abuse protection:
+target.** Local workerd tests do not establish enforcement at the edge.
+Configure a zone WAF limit and verify that excess requests are blocked:
 
 1. Dashboard -> `scenesystems.io` -> **Security -> WAF -> Rate limiting rules ->
    Create rule** (the API needs a token with **Zone -> Zone WAF -> Edit**; the
@@ -101,7 +99,7 @@ before relying on it for abuse protection:
 3. Characteristics `IP`; period `10 seconds` (the only period on Free); rate
    `10 requests`; action `Block`; duration `10 seconds`. That is 60 per minute
    sustained, with a 10-second block on bursts.
-4. Re-run the probe: from one address, 15 empty `POST`s within 10 seconds
+4. Test the rule: from one address, 15 empty `POST`s within 10 seconds
    should turn to `429` (Cloudflare's block page, not the Worker's envelope)
    part-way through.
 
@@ -369,11 +367,10 @@ inventory of possible build inputs.
 An already published version with different content blocks both publishing and
 promotion: add a changeset, merge the version PR, and stage the resulting
 candidate. Missing provenance or registry errors also fail closed. Packages
-published before this workflow can be reused when their existing npm
-provenance and package content match; there is no version-exists-only migration
-bypass. The publication and production workflows save JSON evidence for 90
-days and summarize their state. Future website-only releases use the durable
-npm provenance, not an expired Actions evidence artifact.
+already on npm can be reused only when their provenance and package content
+match. The publication and production workflows retain JSON evidence for 90
+days. Subsequent releases verify npm provenance independently of Actions
+artifact retention.
 
 The publisher runs on the immutable candidate tag because npm provenance and
 the Changesets action's GitHub tags use the workflow **event SHA**, not merely
@@ -626,10 +623,9 @@ deploy:
 
 Afterwards:
 
-1. Confirm in the Cloudflare dashboard that `theoria.scenesystems.io` is now a
+1. Confirm in the Cloudflare dashboard that `theoria.scenesystems.io` is a
    Workers Custom Domain (DNS -> Records shows it managed by the Worker).
-2. Decommission the previous host so it stops building on pushes; nothing in
-   the repository refers to it anymore.
+2. Decommission the previous host and disable its build triggers.
 3. Watch `wrangler tail theoria` or the Workers Logs for the first hours; the
    Worker reports `buildSha` on `/api/health/live` if anything needs to be
    correlated with a release.
